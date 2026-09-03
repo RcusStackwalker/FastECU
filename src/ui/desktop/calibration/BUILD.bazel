@@ -1,18 +1,18 @@
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = ["//src/ui:__subpackages__"])
 
-# Qt-linked (EcuCalDefStructure is QString/QStringList typed) but declares no
-# QObject of its own, so the header goes through normal_hdrs -- matching
-# //src/ui/desktop/menu:menu_builder.
+# Qt-linked (EcuCalDefStructure is QString/QStringList typed; resolve_active_map_edit
+# reads QTableWidget/QMdiSubWindow selection state) but declares no QObject of its
+# own, so the header goes through normal_hdrs -- matching //src/ui/desktop/menu:menu_builder.
 qt_cc_library(
     name = "map_edit_adapter",
     srcs = ["map_edit_adapter.cpp"],
     hdrs = [],
     copts = COMMON_COPTS,
     normal_hdrs = ["map_edit_adapter.h"],
-    deps = QT_DEPS_NO_WIDGETS + [
+    deps = QT_DEPS + [
         "//src/algorithms/protocol:qt_compat",
         "//src/backend/calibration:map_edit",
         "//src/backend/definitions:ecu_cal_def",

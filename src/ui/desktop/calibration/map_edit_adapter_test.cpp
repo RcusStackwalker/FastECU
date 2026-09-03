@@ -1,6 +1,14 @@
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 
 #include <bit>
+#include <memory>
+#include <string>
+
+#include <QApplication>
+#include <QMdiSubWindow>
+#include <QString>
+#include <QTableWidget>
+#include <QTableWidgetSelectionRange>
 
 #include <gtest/gtest.h>
 
@@ -8,6 +16,31 @@ namespace fastecu::ui
 {
 namespace
 {
+
+// QMdiSubWindow/QTableWidget are QWidgets, which abort at construction
+// without a live QApplication. This suite links fastecu_gtest's plain
+// gtest_main (map_edit_adapter.h declares no Q_OBJECT, so fastecu_qttest's
+// QTEST_MAIN generator doesn't apply), so bring one up via a
+// ::testing::Environment, mirroring MenuBuilderEnvironment in
+// src/ui/desktop/menu/menu_builder_test.cpp. SetUp() runs after static
+// initialization and after InitGoogleTest, and gtest tears the Environment
+// down deterministically after all tests.
+class MapEditAdapterEnvironment final : public ::testing::Environment
+{
+  public:
+    void SetUp() override
+    {
+        static int argc = 1;
+        static char program[] = "map_edit_adapter_test";
+        static char *argv[] = {program, nullptr};
+        app_ = std::make_unique<QApplication>(argc, argv);
+    }
+
+  private:
+    std::unique_ptr<QApplication> app_;
+};
+
+const auto *map_edit_adapter_environment = ::testing::AddGlobalTestEnvironment(new MapEditAdapterEnvironment);
 
 // MapElementFields::spec() is ref-qualified (`const &`, with `const && =
 // delete`) so that `collect_map_element_fields(...).spec()` -- taking a spec
@@ -179,6 +212,120 @@ TEST(FormatRawElementValue, ReturnsEmptyStringForAnUnrecognizedStorageType)
     spec.storage_type = std::nullopt;
 
     EXPECT_EQ(format_raw_element_value(spec, -1), "");
+}
+
+TEST(ParseMapWindowId, ReturnsNulloptForANullWindow)
+{
+    EXPECT_FALSE(parse_map_window_id(nullptr).has_value());
+}
+
+TEST(ParseMapWindowId, ParsesRomAndMapNumberFromAWellFormedObjectName)
+{
+    QMdiSubWindow window;
+    window.setObjectName("2,7,Timing,uint16");
+
+    const auto id = parse_map_window_id(&window);
+
+    ASSERT_TRUE(id.has_value());
+    EXPECT_EQ(id->rom_number, 2);
+    EXPECT_EQ(id->map_number, 7);
+}
+
+// Legacy read mapWindowString.at(0)/.at(1)/.at(2)/.at(3) unguarded; this is
+// the malformed-name case parse_map_window_id exists to guard against --
+// fewer than the two leading fields it needs.
+TEST(ParseMapWindowId, ReturnsNulloptForATooShortObjectName)
+{
+    QMdiSubWindow window;
+    window.setObjectName("5");
+
+    EXPECT_FALSE(parse_map_window_id(&window).has_value());
+}
+
+definitions::EcuCalDefStructure two_by_two_map_body_def()
+{
+    auto def = two_by_two_def();
+    def.MapData << "1,2,3,4";
+    def.XScaleTypeList << "Linear";
+    return def;
+}
+
+// Builds a map subwindow the way the legacy handlers found it: a
+// QTableWidget child whose objectName() matches the subwindow's own, with
+// row/column 0 reserved for axis headers (matching resolve_edit_target's
+// widget-coordinate convention). Returns the table so callers can drive its
+// selection.
+QTableWidget *build_map_window(QMdiSubWindow& window, int rows, int cols)
+{
+    window.setObjectName("0,0,Timing,uint16");
+    auto *table = new QTableWidget(rows, cols, &window);
+    table->setObjectName(window.objectName());
+    window.setWidget(table);
+    return table;
+}
+
+TEST(ResolveActiveMapEdit, ReturnsNulloptForANullWindow)
+{
+    EXPECT_FALSE(resolve_active_map_edit(nullptr, two_by_two_map_body_def(), 0).has_value());
+}
+
+TEST(ResolveActiveMapEdit, ReturnsNulloptWhenNoMatchingTableWidgetIsFound)
+{
+    QMdiSubWindow window;
+    window.setObjectName("0,0,Timing,uint16");
+    // Deliberately no QTableWidget child added.
+
+    EXPECT_FALSE(resolve_active_map_edit(&window, two_by_two_map_body_def(), 0).has_value());
+}
+
+TEST(ResolveActiveMapEdit, ReturnsNulloptWhenTheSelectionIsEmpty)
+{
+    QMdiSubWindow window;
+    build_map_window(window, 3, 3);
+
+    EXPECT_FALSE(resolve_active_map_edit(&window, two_by_two_map_body_def(), 0).has_value());
+}
+
+TEST(ResolveActiveMapEdit, ResolvesAMapBodySelectionToItsSpecRangeAndCellText)
+{
+    QMdiSubWindow window;
+    auto *table = build_map_window(window, 3, 3);
+    // Widget row/col 0 are axis headers; (1, 1) is the top-left data cell.
+    table->setRangeSelected(QTableWidgetSelectionRange(1, 1, 1, 1), true);
+
+    const auto def = two_by_two_map_body_def();
+    const auto edit = resolve_active_map_edit(&window, def, 0);
+
+    ASSERT_TRUE(edit.has_value());
+    EXPECT_EQ(edit->kind(), calibration::EditTargetKind::MapBody);
+    EXPECT_EQ(edit->map_number(), 0);
+    EXPECT_EQ(edit->x_size(), 2U);
+    EXPECT_EQ(edit->range().first_row, 0);
+    EXPECT_EQ(edit->range().first_col, 0);
+    EXPECT_EQ(edit->range().last_row, 0);
+    EXPECT_EQ(edit->range().last_col, 0);
+
+    ASSERT_EQ(edit->cell_text().size(), 4U);
+    EXPECT_EQ(edit->cell_text()[0], "1");
+    EXPECT_EQ(edit->cell_text()[3], "4");
+
+    const auto spec = edit->spec();
+    EXPECT_EQ(spec.address, 0x10000U);
+    EXPECT_EQ(spec.storage_type, definition::StorageType::Uint16);
+}
+
+TEST(ResolveActiveMapEdit, ReturnsNulloptForAStaticAxisSelection)
+{
+    QMdiSubWindow window;
+    auto *table = build_map_window(window, 3, 3);
+    // Column 0 with a multi-row map targets the Y axis, which is rejected
+    // when the definition marks it static.
+    table->setRangeSelected(QTableWidgetSelectionRange(1, 0, 1, 0), true);
+
+    auto def = two_by_two_map_body_def();
+    def.XScaleTypeList[0] = "Static Y Axis";
+
+    EXPECT_FALSE(resolve_active_map_edit(&window, def, 0).has_value());
 }
 
 } // namespace

@@ -2,12 +2,17 @@
 
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include <QString>
 
 #include "src/backend/calibration/map_edit.h"
 #include "src/backend/definitions/ecu_cal_def.h"
+
+class QMdiSubWindow;
 
 namespace fastecu::ui
 {
@@ -86,5 +91,85 @@ MapElementFields collect_map_element_fields(const definitions::EcuCalDefStructur
 // those cases (see PinnedDefect_Int24AlwaysReadsAsZero in map_edit_test.cpp
 // for the int24 half of this).
 QString format_raw_element_value(const calibration::MapElementSpec& spec, std::int64_t raw);
+
+// A map subwindow's objectName() ("rom,map,name,type") parsed into its ROM
+// and map index -- the same format read unguarded in five places today.
+struct MapWindowId
+{
+    int rom_number{0};
+    int map_number{0};
+};
+
+// Returns nullopt for a null window or an object name with fewer than the
+// two leading comma-separated fields this needs.
+std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window);
+
+// Everything an edit operation needs about the active map window, resolved
+// once. Owns the MapElementFields and the split cell text so the views
+// handed out by spec() and cell_text() stay valid for the caller's whole
+// statement -- callers must keep the ResolvedEdit alive (a named local,
+// e.g. `auto edit = resolve_active_map_edit(...)`) across the whole edit
+// operation.
+class ResolvedEdit
+{
+  public:
+    calibration::MapElementSpec spec() const&
+    {
+        return fields_.spec();
+    }
+    calibration::MapElementSpec spec() const&& = delete;
+    std::span<const std::string_view> cell_text() const
+    {
+        return cell_text_;
+    }
+    const calibration::SelectionRange& range() const
+    {
+        return target_.range;
+    }
+    calibration::EditTargetKind kind() const
+    {
+        return target_.kind;
+    }
+    std::uint32_t x_size() const
+    {
+        return target_.x_size;
+    }
+    int map_number() const
+    {
+        return map_number_;
+    }
+
+  private:
+    friend std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *, const definitions::EcuCalDefStructure&,
+                                                               int);
+
+    // MapElementFields's default constructor is private (only
+    // collect_map_element_fields may default-construct one); ResolvedEdit
+    // therefore cannot rely on an implicit default constructor either, since
+    // that would need to default-construct fields_ with no access to do so.
+    // This constructor sidesteps that: it takes an already-built
+    // MapElementFields and uses its implicitly-generated (and therefore
+    // public, unaffected by the private default ctor) move constructor
+    // instead.
+    ResolvedEdit(MapElementFields fields, calibration::EditTarget target, std::vector<std::string> owned_cell_text,
+                 int map_number);
+
+    MapElementFields fields_;
+    calibration::EditTarget target_;
+    std::vector<std::string> owned_cell_text_;
+    std::vector<std::string_view> cell_text_;
+    int map_number_{0};
+};
+
+// Resolves the active map window's current selection to the element run it
+// targets: reads the subwindow's QTableWidget selection, calls
+// resolve_edit_target, and plucks the matching field group + cell text.
+// Returns nullopt for a null window, a table widget that can't be found, an
+// empty selection, or a rejected target (a static-axis scale type) -- the
+// three cases the legacy per-function blocks handled with a bare `return`,
+// plus the (practically unreachable) case of the table widget not being
+// found.
+std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window, const definitions::EcuCalDefStructure& def,
+                                                    int map_number);
 
 } // namespace fastecu::ui
