@@ -72,8 +72,19 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
         // union member that was never written (UB). The float bits are then
         // bit_cast back to int32_t so they round-trip through this
         // function's int64_t return type unchanged.
-        const std::uint32_t bits = (std::uint32_t(byte_value[0]) << 24) | (std::uint32_t(byte_value[1]) << 16) |
-                                   (std::uint32_t(byte_value[2]) << 8) | std::uint32_t(byte_value[3]);
+        //
+        // Legacy reads map_data_value.float_value out of a union whose
+        // float member overlaps the same byte_value[4] used above. On a
+        // little-endian host that union member's least-significant byte is
+        // byte_value[0] -- the same LSB-first layout the Int32 branch below
+        // already uses on this identically-filled array. Since byte_value
+        // was itself filled from address+width-1 down to address+0 (see the
+        // little_or_float branch above, always taken for float storage),
+        // this makes address+0 the float's most-significant byte: a
+        // big-endian float in ROM, matching decode_scaled_values's
+        // documented float handling in calibration_service.cpp.
+        const std::uint32_t bits = std::uint32_t(byte_value[0]) | (std::uint32_t(byte_value[1]) << 8) |
+                                   (std::uint32_t(byte_value[2]) << 16) | (std::uint32_t(byte_value[3]) << 24);
         const float float_value = std::bit_cast<float>(bits);
         return static_cast<std::int64_t>(std::bit_cast<std::int32_t>(float_value));
     }

@@ -185,27 +185,43 @@ TEST(ReadRawElement, PinnedDefect_SignedMultiByteReadsAreByteSwapped_Int32Little
     EXPECT_EQ(*value, 0x01020304);
 }
 
-TEST(ReadRawElement, ReadsFloatRoundTrippedThroughBitCast)
+// Legacy fills byte_value[k] = rom[byte_address + storagesize - 1 - k] for
+// float storage -- the little_or_float branch is always taken when
+// storagetype == "float", regardless of spec.endian -- then reads
+// map_data_value.float_value out of a union whose float member overlaps
+// that same byte_value[4]. On a little-endian host (every supported host)
+// the float member's least-significant byte is byte_value[0], so the
+// assembled bit pattern is
+//   bits = byte_value[0] | byte_value[1]<<8 | byte_value[2]<<16 | byte_value[3]<<24.
+// Substituting the fill formula (byte_value[k] = rom[addr+width-1-k]):
+//   bits = rom[addr+3] | rom[addr+2]<<8 | rom[addr+1]<<16 | rom[addr+0]<<24,
+// i.e. rom[addr+0] holds the float's most-significant byte: floats are read
+// as big-endian-in-ROM, regardless of spec.endian. This matches
+// decode_scaled_values's documented float handling in
+// calibration_service.cpp ("floats were assembled as big-endian regardless
+// of the endian field"). The expected bytes below are derived from this
+// union semantics directly -- NOT from map_edit.cpp's implementation -- so
+// this test actually pins fidelity to legacy rather than the port's own
+// internal consistency.
+//
+// 1.5f's IEEE-754 bit pattern is 0x3FC00000 (sign 0, exponent 0x7F, mantissa
+// 0x400000), chosen because it is easy to state and check by hand. Stored
+// big-endian, rom[addr+0..+3] = 0x3F, 0xC0, 0x00, 0x00.
+TEST(ReadRawElement, ReadsFloatAsBigEndianInRomRegardlessOfEndianField)
 {
-    // storagetype == "float" always takes the little_or_float branch
-    // regardless of spec.endian (legacy: `endian == "little" || storagetype
-    // == "float"`), which fills byte_value from the highest window address
-    // down -- equivalent to a little-endian read of the ROM bytes. spec.endian
-    // is set to "big" here specifically to demonstrate it is ignored.
-    constexpr float kOriginal = 3.14159f;
-    const std::uint32_t bits = std::bit_cast<std::uint32_t>(kOriginal);
-
     auto rom = rom_of(0x20);
-    rom[0x10] = static_cast<std::uint8_t>(bits & 0xFF);
-    rom[0x11] = static_cast<std::uint8_t>((bits >> 8) & 0xFF);
-    rom[0x12] = static_cast<std::uint8_t>((bits >> 16) & 0xFF);
-    rom[0x13] = static_cast<std::uint8_t>((bits >> 24) & 0xFF);
+    rom[0x10] = 0x3F;
+    rom[0x11] = 0xC0;
+    rom[0x12] = 0x00;
+    rom[0x13] = 0x00;
 
-    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Float, "big"), 0);
+    // spec.endian is "little" here specifically to demonstrate it is
+    // ignored for float storage.
+    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Float, "little"), 0);
 
     ASSERT_TRUE(value.has_value());
-    const auto round_tripped = std::bit_cast<float>(static_cast<std::uint32_t>(*value));
-    EXPECT_EQ(round_tripped, kOriginal);
+    EXPECT_EQ(static_cast<std::uint32_t>(*value), 0x3FC00000u);
+    EXPECT_EQ(std::bit_cast<float>(static_cast<std::uint32_t>(*value)), 1.5f);
 }
 
 TEST(ReadRawElement, ReadsAnUnsigned24BitValueCorrectly)
