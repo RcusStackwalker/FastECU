@@ -1,6 +1,7 @@
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 
-#include <cassert>
+#include <bit>
+#include <utility>
 
 #include <QDebug>
 #include <QString>
@@ -18,7 +19,7 @@ constexpr int kFlashMethodRomInfoIndex = 10;
 
 } // namespace
 
-calibration::MapElementSpec MapElementFields::spec() const
+calibration::MapElementSpec MapElementFields::spec() const&
 {
     calibration::MapElementSpec spec;
     spec.address = address_;
@@ -47,44 +48,66 @@ MapElementFields collect_map_element_fields(const definitions::EcuCalDefStructur
 
     switch (kind)
     {
+    // FromByteList/MinValueList/MaxValueList/CoarseIncList/FineIncList use
+    // QStringList::value() rather than at() -- consistent with RomInfo below.
+    // paste_value (menu_actions.cpp) is a MapBody-only, no-clamp, no-from_byte
+    // caller: on master it never read any of these five fields, so a
+    // caller-supplied def with one of them shorter than expected (a
+    // hand-built test fixture, or a ragged real-world definition) must not
+    // newly crash the adapter merely because collect_map_element_fields
+    // gathers the whole spec unconditionally. AddressList/StorageTypeList/
+    // EndianList/ToByteList stay on at(): every caller needs those four to
+    // do anything meaningful, so an out-of-range index there is a genuine
+    // malformed-definition bug worth surfacing loudly rather than papering
+    // over with a silent default.
     case calibration::EditTargetKind::MapBody:
         address_text = def.AddressList.at(map_number);
         storage_type_text = def.StorageTypeList.at(map_number);
         fields.endian_ = def.EndianList.at(map_number).toStdString();
         fields.to_byte_ = def.ToByteList.at(map_number).toStdString();
-        fields.from_byte_ = def.FromByteList.at(map_number).toStdString();
-        fields.min_value_ = def.MinValueList.at(map_number).toStdString();
-        fields.max_value_ = def.MaxValueList.at(map_number).toStdString();
-        fields.coarse_increment_ = def.CoarseIncList.at(map_number).toDouble();
-        fields.fine_increment_ = def.FineIncList.at(map_number).toDouble();
+        fields.from_byte_ = def.FromByteList.value(map_number).toStdString();
+        fields.min_value_ = def.MinValueList.value(map_number).toStdString();
+        fields.max_value_ = def.MaxValueList.value(map_number).toStdString();
+        fields.coarse_increment_ = def.CoarseIncList.value(map_number).toDouble();
+        fields.fine_increment_ = def.FineIncList.value(map_number).toDouble();
         break;
     case calibration::EditTargetKind::XAxis:
         address_text = def.XScaleAddressList.at(map_number);
         storage_type_text = def.XScaleStorageTypeList.at(map_number);
         fields.endian_ = def.XScaleEndianList.at(map_number).toStdString();
         fields.to_byte_ = def.XScaleToByteList.at(map_number).toStdString();
-        fields.from_byte_ = def.XScaleFromByteList.at(map_number).toStdString();
-        fields.min_value_ = def.XScaleMinValueList.at(map_number).toStdString();
-        fields.max_value_ = def.XScaleMaxValueList.at(map_number).toStdString();
-        fields.coarse_increment_ = def.XScaleCoarseIncList.at(map_number).toDouble();
-        fields.fine_increment_ = def.XScaleFineIncList.at(map_number).toDouble();
+        fields.from_byte_ = def.XScaleFromByteList.value(map_number).toStdString();
+        fields.min_value_ = def.XScaleMinValueList.value(map_number).toStdString();
+        fields.max_value_ = def.XScaleMaxValueList.value(map_number).toStdString();
+        fields.coarse_increment_ = def.XScaleCoarseIncList.value(map_number).toDouble();
+        fields.fine_increment_ = def.XScaleFineIncList.value(map_number).toDouble();
         break;
     case calibration::EditTargetKind::YAxis:
         address_text = def.YScaleAddressList.at(map_number);
         storage_type_text = def.YScaleStorageTypeList.at(map_number);
         fields.endian_ = def.YScaleEndianList.at(map_number).toStdString();
         fields.to_byte_ = def.YScaleToByteList.at(map_number).toStdString();
-        fields.from_byte_ = def.YScaleFromByteList.at(map_number).toStdString();
-        fields.min_value_ = def.YScaleMinValueList.at(map_number).toStdString();
-        fields.max_value_ = def.YScaleMaxValueList.at(map_number).toStdString();
-        fields.coarse_increment_ = def.YScaleCoarseIncList.at(map_number).toDouble();
-        fields.fine_increment_ = def.YScaleFineIncList.at(map_number).toDouble();
+        fields.from_byte_ = def.YScaleFromByteList.value(map_number).toStdString();
+        fields.min_value_ = def.YScaleMinValueList.value(map_number).toStdString();
+        fields.max_value_ = def.YScaleMaxValueList.value(map_number).toStdString();
+        fields.coarse_increment_ = def.YScaleCoarseIncList.value(map_number).toDouble();
+        fields.fine_increment_ = def.YScaleFineIncList.value(map_number).toDouble();
         break;
     case calibration::EditTargetKind::Rejected:
         // A programming error at this point -- the caller resolves the edit
-        // target before collecting fields for it.
-        assert(false && "collect_map_element_fields called with EditTargetKind::Rejected");
-        return fields;
+        // target before collecting fields for it. `assert(false)` compiles
+        // out under NDEBUG (--config=release, how this ships), which would
+        // let a caller that got this wrong fall through to a
+        // default-constructed MapElementFields -- address 0, no storage
+        // type -- and write_rom_data_value would go pack bytes at ROM offset
+        // 0. std::unreachable() cannot silently continue: reaching it is
+        // undefined behavior by contract, not a soft default. All three
+        // current call sites resolve the edit target before calling this
+        // function, so this case is genuinely unreachable, not a recoverable
+        // runtime error -- a Result-returning signature would be the more
+        // idiomatic shape for a reachable failure, but would thread an error
+        // path through every caller for a case none of them can hit.
+        std::unreachable();
     }
 
     bool address_ok = false;
@@ -111,6 +134,43 @@ MapElementFields collect_map_element_fields(const definitions::EcuCalDefStructur
     fields.rom_file_size_ = def.FileSize.toUInt();
 
     return fields;
+}
+
+QString format_raw_element_value(const calibration::MapElementSpec& spec, std::int64_t raw)
+{
+    // get_rom_data_value's storagetype.startsWith("float"/"uint"/"int")
+    // chain matches nothing for a storage-type string outside the known set,
+    // leaving `value` an empty (default-constructed) QString. storage_type_
+    // from_text maps that same unrecognized string to std::nullopt, under
+    // which is_unsigned_storage is false and storage_byte_size defaults to
+    // 1 -- falling into the qint8 case below would return "-1"-like text
+    // instead of legacy's "", a real divergence (observable in inc_dec_
+    // value's `while (rom_data_value == new_rom_data_value)`), not one of
+    // the established, deliberately-preserved defects. Handled first and
+    // explicitly so it can't be missed among the branches below.
+    if (!spec.storage_type.has_value())
+    {
+        return QString();
+    }
+    if (spec.storage_type == definition::StorageType::Float)
+    {
+        return QString::number(std::bit_cast<float>(static_cast<std::int32_t>(raw)));
+    }
+    if (definition::is_unsigned_storage(spec.storage_type))
+    {
+        return QString::number(static_cast<quint32>(raw));
+    }
+    switch (definition::storage_byte_size(spec.storage_type))
+    {
+    case 1:
+        return QString::number(static_cast<qint8>(raw));
+    case 2:
+        return QString::number(static_cast<qint16>(raw));
+    case 4:
+        return QString::number(static_cast<qint32>(raw));
+    default:
+        return QString();
+    }
 }
 
 } // namespace fastecu::ui

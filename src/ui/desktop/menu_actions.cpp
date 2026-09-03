@@ -10,38 +10,17 @@
 namespace
 {
 
-// Formats read_raw_element's raw value the same way the deleted
-// get_rom_data_value did: unsigned as a plain decimal, signed 8/16/32
-// sign-extended, float reinterpreted through its bit pattern, and --
-// reproducing PinnedDefect_Int24AlwaysReadsAsZero (map_edit_test.cpp) -- an
-// empty string for 3-byte signed storage, matching get_rom_data_value's
-// fallthrough where `value` was never assigned.
-QString format_raw_element_value(const fastecu::calibration::MapElementSpec& spec, std::int64_t raw)
-{
-    if (spec.storage_type == fastecu::definition::StorageType::Float)
-    {
-        return QString::number(std::bit_cast<float>(static_cast<std::int32_t>(raw)));
-    }
-    if (fastecu::definition::is_unsigned_storage(spec.storage_type))
-    {
-        return QString::number(static_cast<quint32>(raw));
-    }
-    switch (fastecu::definition::storage_byte_size(spec.storage_type))
-    {
-    case 1:
-        return QString::number(static_cast<qint8>(raw));
-    case 2:
-        return QString::number(static_cast<qint16>(raw));
-    case 4:
-        return QString::number(static_cast<qint32>(raw));
-    default:
-        return QString();
-    }
-}
-
 // Reads one map/axis element's raw stored value through the portable codec,
 // reproducing get_rom_data_value (menu_actions.cpp:1610-1697, now deleted).
-QString read_rom_data_value(FileActions::EcuCalDefStructure& def, int map_number,
+//
+// TODO(task-6): collect_map_element_fields runs once per cell here, inside
+// the nested row/column loops in inc_dec_value/set_value/interpolate_value/
+// paste_value -- roughly 13 QString -> std::string allocations per cell each
+// way (read + write), ~26k for a 32x32 paste. The fields are loop-invariant
+// (same map_number/kind for the whole loop); hoist the collect_map_element_
+// fields call out of the loop when Task 6 restructures these call sites
+// rather than doing it here piecemeal.
+QString read_rom_data_value(const FileActions::EcuCalDefStructure& def, int map_number,
                             fastecu::calibration::EditTargetKind kind, uint16_t value_index)
 {
     const auto fields = fastecu::ui::collect_map_element_fields(def, map_number, kind);
@@ -52,7 +31,7 @@ QString read_rom_data_value(FileActions::EcuCalDefStructure& def, int map_number
         qWarning() << "read_rom_data_value:" << QString::fromStdString(raw.error().detail);
         return QString::number(0);
     }
-    return format_raw_element_value(spec, *raw);
+    return fastecu::ui::format_raw_element_value(spec, *raw);
 }
 
 // Packs an ALREADY-ENCODED raw value into the ROM buffer through the
@@ -64,6 +43,10 @@ QString read_rom_data_value(FileActions::EcuCalDefStructure& def, int map_number
 // this through encode_scaled_value (which re-runs to_byte) is NOT
 // equivalent. `legacy_byte_order=true`: this task must not change what bytes
 // an edit writes.
+//
+// TODO(task-6): same per-cell collect_map_element_fields cost as
+// read_rom_data_value above -- hoist together when Task 6 restructures these
+// call sites.
 void write_rom_data_value(FileActions::EcuCalDefStructure& def, int map_number,
                           fastecu::calibration::EditTargetKind kind, uint16_t value_index, std::int64_t raw)
 {
