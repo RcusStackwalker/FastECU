@@ -126,17 +126,18 @@ TEST(ReadRawElement, ReadsASignedByteAsMinusOne)
     EXPECT_EQ(*value, -1);
 }
 
-// get_rom_data_value reads a signed multi-byte value back out of a union
-// whose int8_t/int16_t/int32_t members alias the same storage as the
-// uint8_t byte_value[4] array that assembly filled MOST-significant-byte-
-// first in BOTH endian branches (see map_edit.cpp's read_raw_element). On a
-// little-endian host, the union's *_value[0] member reads byte_value[0] as
-// the LEAST significant byte -- the opposite of how it was filled -- which
-// byte-swaps every signed multi-byte read relative to what the endian field
-// says. Confirmed by running this port: for big-endian ROM bytes 0x01 0x02,
-// a correct big-endian read would be 0x0102 (258); this reads 0x0201 (513)
-// instead. Ported verbatim; spec's defect (b). Task 6b-4 fixes this.
-TEST(ReadRawElement, PinnedDefect_SignedMultiByteReadsAreByteSwapped_Int16Big)
+// read_raw_element assembles signed multi-byte values from `data_byte`, the
+// same endian-aware assembly the unsigned branch above uses -- big-endian
+// reads bytes address-order (lowest address = most significant), little-
+// endian reads them reverse-address-order (lowest address = least
+// significant), then sign_extend() interprets the result for the storage
+// width. Confirmed by hand-tracing the loop in map_edit.cpp: for ROM bytes
+// 0x01 0x02, a big-endian read folds 0x01 in first (MSB) then 0x02 (LSB) ->
+// 0x0102 (258); a little-endian read folds 0x02 in first then 0x01 -> 0x0201
+// (513). Neither fixture byte sets the top bit, so sign_extend is a no-op
+// here (see ReadsASignedByteAsMinusOne above for the negative-value path at
+// width 1).
+TEST(ReadRawElement, ReadsASignedWordBigEndian)
 {
     auto rom = rom_of(0x20);
     rom[0x10] = 0x01;
@@ -145,10 +146,10 @@ TEST(ReadRawElement, PinnedDefect_SignedMultiByteReadsAreByteSwapped_Int16Big)
     const auto value = read_raw_element(rom, spec_for(definition::StorageType::Int16, "big"), 0);
 
     ASSERT_TRUE(value.has_value());
-    EXPECT_EQ(*value, 0x0201);
+    EXPECT_EQ(*value, 0x0102);
 }
 
-TEST(ReadRawElement, PinnedDefect_SignedMultiByteReadsAreByteSwapped_Int16Little)
+TEST(ReadRawElement, ReadsASignedWordLittleEndian)
 {
     auto rom = rom_of(0x20);
     rom[0x10] = 0x01;
@@ -157,10 +158,10 @@ TEST(ReadRawElement, PinnedDefect_SignedMultiByteReadsAreByteSwapped_Int16Little
     const auto value = read_raw_element(rom, spec_for(definition::StorageType::Int16, "little"), 0);
 
     ASSERT_TRUE(value.has_value());
-    EXPECT_EQ(*value, 0x0102);
+    EXPECT_EQ(*value, 0x0201);
 }
 
-TEST(ReadRawElement, PinnedDefect_SignedMultiByteReadsAreByteSwapped_Int32Big)
+TEST(ReadRawElement, ReadsASignedDwordBigEndian)
 {
     auto rom = rom_of(0x20);
     rom[0x10] = 0x01;
@@ -171,10 +172,10 @@ TEST(ReadRawElement, PinnedDefect_SignedMultiByteReadsAreByteSwapped_Int32Big)
     const auto value = read_raw_element(rom, spec_for(definition::StorageType::Int32, "big"), 0);
 
     ASSERT_TRUE(value.has_value());
-    EXPECT_EQ(*value, 0x04030201);
+    EXPECT_EQ(*value, 0x01020304);
 }
 
-TEST(ReadRawElement, PinnedDefect_SignedMultiByteReadsAreByteSwapped_Int32Little)
+TEST(ReadRawElement, ReadsASignedDwordLittleEndian)
 {
     auto rom = rom_of(0x20);
     rom[0x10] = 0x01;
@@ -185,7 +186,7 @@ TEST(ReadRawElement, PinnedDefect_SignedMultiByteReadsAreByteSwapped_Int32Little
     const auto value = read_raw_element(rom, spec_for(definition::StorageType::Int32, "little"), 0);
 
     ASSERT_TRUE(value.has_value());
-    EXPECT_EQ(*value, 0x01020304);
+    EXPECT_EQ(*value, 0x04030201);
 }
 
 // Legacy fills byte_value[k] = rom[byte_address + storagesize - 1 - k] for
@@ -240,13 +241,14 @@ TEST(ReadRawElement, ReadsAnUnsigned24BitValueCorrectly)
     EXPECT_EQ(*value, 0x010203);
 }
 
-// Legacy's signed branch tests only storagesize 1, 2, and 4 -- a 3-byte
-// signed value falls through every `if`, so `value` (a QString) is never
-// assigned and stays empty; callers convert an empty QString to 0. This is
-// legacy behavior being pinned, not an oversight in this port -- spec's
-// defect (f). Non-zero ROM bytes are used deliberately, to show the 0 is not
-// simply an artifact of an all-zero fixture.
-TEST(ReadRawElement, PinnedDefect_Int24AlwaysReadsAsZero)
+// Legacy's signed branch used to test only storagesize 1, 2, and 4 -- a
+// 3-byte signed value fell through every `if`, always reading as 0
+// regardless of the actual ROM bytes (spec's defect (f), fixed in 6b-4 by
+// routing every signed width, including 3, through
+// sign_extend(data_byte, width) uniformly). Non-zero ROM bytes are used
+// deliberately, to show the correct value is not simply an artifact of an
+// all-zero fixture.
+TEST(ReadRawElement, ReadsASigned24BitValueCorrectly)
 {
     auto rom = rom_of(0x20);
     rom[0x10] = 0x01;
@@ -256,7 +258,7 @@ TEST(ReadRawElement, PinnedDefect_Int24AlwaysReadsAsZero)
     const auto value = read_raw_element(rom, spec_for(definition::StorageType::Int24, "big"), 0);
 
     ASSERT_TRUE(value.has_value());
-    EXPECT_EQ(*value, 0);
+    EXPECT_EQ(*value, 0x010203);
 }
 
 TEST(ElementByteAddress, Wrx02ReadAndWritePredicatesAgreeWhenNeitherRelocates)
@@ -289,14 +291,14 @@ TEST(ElementByteAddress, PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite)
 // encode_scaled_value and read_raw_element disagree about byte order, an edit
 // silently writes a different value than the grid displays.
 //
-// Only the cases that actually round-trip live here: every unsigned width at
-// both endians, and the one signed width (1 byte) where read_raw_element's
-// byte-swap defect (see PinnedDefect_SignedMultiByteReadsAreByteSwapped_*
-// above) has no width to swap within. The signed multi-byte cases that do NOT
-// round-trip are pinned separately below, as
-// PinnedDefect_SignedMultiByteDoesNotRoundTripBecauseTheReadIsByteSwapped --
-// keeping them here as EXPECT_EQ would leave this suite red forever, which
-// defeats it as a regression net for every case that DOES round-trip today.
+// Every case here round-trips: every unsigned width at both endians, every
+// signed width at both endians (added once the 6b-4 fix made
+// read_raw_element assemble signed multi-byte values from the same
+// correctly-endian-assembled `data_byte` the unsigned path already used,
+// eliminating the byte-swap that used to make these NOT round-trip -- see
+// the deleted PinnedDefect_SignedMultiByteDoesNotRoundTripBecauseTheReadIsByteSwapped,
+// whose premise this fix falsifies), and Int24, previously untestable here
+// because it always read back as 0.
 TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
 {
     struct Case
@@ -307,8 +309,12 @@ TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
     };
     const Case cases[] = {
         {definition::StorageType::Uint8, "big", 0xAB},           {definition::StorageType::Uint16, "big", 0x1234},
-        {definition::StorageType::Uint16, "little", 0x1234},     {definition::StorageType::Uint32, "big", 0x12345678},
+        {definition::StorageType::Uint16, "little", 0x1234},     {definition::StorageType::Uint24, "big", 0x123456},
+        {definition::StorageType::Uint24, "little", 0x123456},   {definition::StorageType::Uint32, "big", 0x12345678},
         {definition::StorageType::Uint32, "little", 0x12345678}, {definition::StorageType::Int8, "big", -2},
+        {definition::StorageType::Int16, "big", -300},           {definition::StorageType::Int16, "little", -300},
+        {definition::StorageType::Int32, "big", -70000},         {definition::StorageType::Int32, "little", -70000},
+        {definition::StorageType::Int24, "big", 0x010203},
     };
 
     for (const auto& c : cases)
@@ -329,74 +335,6 @@ TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
         const auto decoded = read_raw_element(rom, spec, 0);
         ASSERT_TRUE(decoded.has_value());
         EXPECT_EQ(*decoded, c.raw) << "storage=" << definition::storage_type_text(c.storage) << " endian=" << c.endian;
-    }
-}
-
-// Pinned, not fixed: encode_scaled_value writes the byte order spec.endian's
-// label claims (matching decode_scaled_values, the correct decoder). But
-// read_raw_element -- reproducing get_rom_data_value verbatim, per Task 2's
-// PinnedDefect_SignedMultiByteReadsAreByteSwapped_* -- assembles signed
-// multi-byte values MSB-first regardless of endian, which is backwards from
-// how it filled little-endian reads. Reading back what encode_scaled_value
-// just wrote therefore recovers a different number than what was encoded.
-// This is a real, live hazard for the eventual edit-apply path (6b-4's
-// scope), not a test artifact: an edit UI that writes int16/int32 values and
-// then re-reads the cell via read_raw_element to redraw it would show the
-// wrong number immediately after a successful write.
-//
-// Each case's "should be" value in the comment is the raw value that was
-// encoded; "is" is what read_raw_element actually returns after decoding
-// encode_scaled_value's bytes, computed by hand from the two functions'
-// documented algorithms and confirmed by this test.
-TEST(EncodeScaledValue, PinnedDefect_SignedMultiByteDoesNotRoundTripBecauseTheReadIsByteSwapped)
-{
-    struct Case
-    {
-        definition::StorageType storage;
-        std::string_view endian;
-        std::int64_t raw;
-        std::int64_t decoded_instead;
-    };
-    const Case cases[] = {
-        // int16 big, encoded [0xFE, 0xD4]: read_raw_element reassembles
-        // byte_value[0]=0xFE, byte_value[1]=0xD4 -> raw16 0xD4FE -> sign
-        // extended -11010. Should be -300.
-        {definition::StorageType::Int16, "big", -300, -11010},
-        // int16 little, encoded [0xD4, 0xFE]: read_raw_element's little-endian
-        // fill reverses it back to byte_value[0]=0xFE, byte_value[1]=0xD4 --
-        // the same swapped pair as the big-endian case above -- so it lands
-        // on the same wrong value, -11010. Should be -300.
-        {definition::StorageType::Int16, "little", -300, -11010},
-        // int32 big, encoded [0xFF, 0xFE, 0xEE, 0x90]: read_raw_element
-        // assembles raw32 = 0x90EEFEFF (LSB-first from byte_value[0..3] =
-        // the MSB-first-written bytes) -> sign extended -1863385345. Should
-        // be -70000.
-        {definition::StorageType::Int32, "big", -70000, -1863385345},
-    };
-
-    for (const auto& c : cases)
-    {
-        MapElementSpec spec;
-        spec.address = 0x10;
-        spec.storage_type = c.storage;
-        spec.endian = c.endian;
-        spec.to_byte = "x";
-        spec.from_byte = "x";
-
-        const auto encoded = encode_scaled_value(spec, double(c.raw), 15, /*legacy_byte_order=*/false);
-        ASSERT_TRUE(encoded.has_value()) << to_string(encoded.error().kind);
-
-        std::vector<std::uint8_t> rom(0x40, 0x00);
-        std::ranges::copy(*encoded, rom.begin() + 0x10);
-
-        const auto decoded = read_raw_element(rom, spec, 0);
-        ASSERT_TRUE(decoded.has_value());
-        EXPECT_NE(*decoded, c.raw) << "storage=" << definition::storage_type_text(c.storage) << " endian=" << c.endian
-                                   << " -- if this now passes, the byte-swap"
-                                   << " defect this test pins was fixed elsewhere; update/remove this test"
-                                   << " rather than leaving a misleading EXPECT_NE.";
-        EXPECT_EQ(*decoded, c.decoded_instead)
-            << "storage=" << definition::storage_type_text(c.storage) << " endian=" << c.endian;
     }
 }
 
