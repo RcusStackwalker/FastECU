@@ -4,7 +4,10 @@
 #include <utility>
 
 #include <QDebug>
+#include <QMdiSubWindow>
 #include <QString>
+#include <QTableWidget>
+#include <QTableWidgetSelectionRange>
 
 namespace fastecu::ui
 {
@@ -171,6 +174,79 @@ QString format_raw_element_value(const calibration::MapElementSpec& spec, std::i
     default:
         return QString();
     }
+}
+
+std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window)
+{
+    if (!window)
+    {
+        return std::nullopt;
+    }
+    const QStringList parts = window->objectName().split(",");
+    if (parts.size() < 2)
+    {
+        return std::nullopt;
+    }
+    return MapWindowId{.rom_number = parts.at(0).toInt(), .map_number = parts.at(1).toInt()};
+}
+
+ResolvedEdit::ResolvedEdit(MapElementFields fields, calibration::EditTarget target,
+                           std::vector<std::string> owned_cell_text, int map_number)
+    : fields_(std::move(fields)), target_(target), owned_cell_text_(std::move(owned_cell_text)), map_number_(map_number)
+{
+    cell_text_.reserve(owned_cell_text_.size());
+    for (const auto& text : owned_cell_text_)
+    {
+        cell_text_.emplace_back(text);
+    }
+}
+
+std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window, const definitions::EcuCalDefStructure& def,
+                                                    int map_number)
+{
+    if (!window)
+    {
+        return std::nullopt;
+    }
+    QTableWidget *table = window->findChild<QTableWidget *>(window->objectName());
+    if (!table)
+    {
+        return std::nullopt;
+    }
+    const auto selected = table->selectedRanges();
+    if (selected.isEmpty())
+    {
+        return std::nullopt;
+    }
+    const auto& first = selected.first();
+
+    const calibration::SelectionRange selection{.first_row = first.topRow(),
+                                                .first_col = first.leftColumn(),
+                                                .last_row = first.bottomRow(),
+                                                .last_col = first.rightColumn()};
+    const calibration::MapDimensions dims{.x_size = def.XSizeList.at(map_number).toUInt(),
+                                          .y_size = def.YSizeList.at(map_number).toUInt()};
+    const auto target =
+        calibration::resolve_edit_target(selection, dims, def.XScaleTypeList.at(map_number).toStdString());
+    if (target.kind == calibration::EditTargetKind::Rejected)
+    {
+        return std::nullopt;
+    }
+
+    auto fields = collect_map_element_fields(def, map_number, target.kind);
+
+    const QStringList& source = target.kind == calibration::EditTargetKind::YAxis   ? def.YScaleData
+                                : target.kind == calibration::EditTargetKind::XAxis ? def.XScaleData
+                                                                                    : def.MapData;
+    const QStringList parts = source.at(map_number).split(",");
+    std::vector<std::string> owned_cell_text;
+    owned_cell_text.reserve(static_cast<std::size_t>(parts.size()));
+    for (const auto& part : parts)
+    {
+        owned_cell_text.push_back(part.toStdString());
+    }
+
+    return ResolvedEdit(std::move(fields), target, std::move(owned_cell_text), map_number);
 }
 
 } // namespace fastecu::ui

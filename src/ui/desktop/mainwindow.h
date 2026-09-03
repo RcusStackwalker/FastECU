@@ -353,7 +353,6 @@ class MainWindow : public QMainWindow
     void toggle_realtime();
     void toggle_log_to_file();
     void set_maptablewidget_items();
-    int get_mapvalue_decimal_count(const QString& valueFormat);
     int get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex);
     void show_preferences_window();
 

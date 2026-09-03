@@ -25,6 +25,61 @@ enum class EditTargetKind
     Rejected,
 };
 
+// A selection rectangle in the map grid widget's own coordinates: row 0 and
+// column 0 are the axis header row/column, data cells start at (1, 1). This
+// is what resolve_edit_target consumes -- QTableWidgetSelectionRange's
+// leftColumn()/topRow()/rightColumn()/bottomRow(), carried as plain data so
+// the rule is testable without a QTableWidget.
+struct SelectionRange
+{
+    int first_row{0};
+    int first_col{0};
+    int last_row{0};
+    int last_col{0};
+};
+
+// A map's element-grid extent, as read from XSizeList/YSizeList.
+struct MapDimensions
+{
+    std::uint32_t x_size{0};
+    std::uint32_t y_size{0};
+};
+
+// The result of resolving a widget selection to the element run it targets:
+// which run (`kind`), the selection translated into element coordinates
+// (`range`), and the element width of that run (`x_size` -- 1 for YAxis,
+// unchanged for XAxis/MapBody, since legacy overrides mapXSize to 1 only on
+// the Y-axis branch).
+struct EditTarget
+{
+    EditTargetKind kind{EditTargetKind::MapBody};
+    SelectionRange range;
+    std::uint32_t x_size{0};
+};
+
+// Decides which of a map's three element runs (body / X axis / Y axis) a
+// widget-coordinate selection targets, reproducing the three-way branch
+// duplicated verbatim across inc_dec_value, set_value, and interpolate_value
+// in menu_actions.cpp -- inc_dec_value is the canonical copy transcribed
+// here, being the only one that reads every field this rule governs.
+//
+// `selection` arrives in widget coordinates (see SelectionRange); the
+// returned `range` is in element coordinates, with legacy's `-1` applied to
+// every bound first, then each branch's own `++` adjustments folded in:
+//   - leftColumn() == 0 with a multi-row map targets the Y axis: both column
+//     bounds shift back by the same `-1`/`+1` pair, and x_size collapses to
+//     1 (the Y axis is one element wide regardless of the map's own
+//     x_size).
+//   - otherwise, topRow() == 0 with a multi-column map targets the X axis:
+//     both row bounds get the same shift-back.
+//   - otherwise it's the map body: a 1-column map (x_size == 1) still shifts
+//     its row bounds back (there is no row-0 header to reserve), and a
+//     1-row map (y_size == 1) shifts its column bounds back, symmetrically.
+// A "Static X Axis"/"Static Y Axis" scale type on the X-axis or Y-axis
+// branch rejects the edit outright (legacy's early `return` from the
+// enclosing UI handler), since static axes aren't editable.
+EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions dims, std::string_view x_scale_type);
+
 // One run of editable elements: a map's cells, or one axis's points. The
 // non-owning counterpart of calibration_service.h's ElementRun, for the write
 // side. string_view fields borrow from the EcuCalDefStructure lists the UI
@@ -42,6 +97,14 @@ struct MapElementSpec
     std::string_view max_value{" "};
     double coarse_increment{0.0};
     double fine_increment{0.0};
+    // The map's own geometry (from XSizeList/YSizeList), NOT the resolved
+    // edit-run width. In particular this does NOT carry the Y-axis override
+    // to 1 that EditTarget::x_size (above) does -- indexing a Y-axis edit's
+    // cells with this field instead of the resolved EditTarget::x_size
+    // silently writes to the wrong ROM offset. Nothing in this file
+    // currently reads these fields for indexing; any future caller doing
+    // per-cell indexing math from a MapElementSpec must use the resolved
+    // width, not this one.
     std::uint32_t x_size{1};
     std::uint32_t y_size{1};
     // The wrx02 relocation inputs. Carried as data rather than read from a
@@ -125,5 +188,33 @@ Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, 
 // read_raw_element's float handling.
 Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec, double display_value,
                                                       int float_precision, bool legacy_byte_order);
+
+// Display helpers: pure formatting computations pulled out of
+// get_mapvalue_decimal_count and get_map_cell_colors (menu_actions.cpp).
+// Neither touches ROM data; both feed how a value is rendered in the map
+// grid widget.
+
+// How many decimal places to render a cell's value with, reproducing
+// get_mapvalue_decimal_count. `value_format` is a RomRaider-style format
+// string (e.g. "0.00"); legacy counts the `'0'` characters in the segment
+// between the FIRST and SECOND '.' -- QString::split(".").at(1), not
+// everything after the first '.' -- so a format string with more than one
+// '.' only has its first fractional segment counted. No '.' at all returns
+// 0.
+int map_value_decimal_count(std::string_view value_format);
+
+// The HSV hue for a map cell's background color, reproducing the
+// color_scale/color_value arithmetic in get_map_cell_colors. Maps
+// `min_value` to 0 and `max_value` to the top of the range (210/360),
+// clamping negative results (values below `min_value`) to 0. The
+// QColor::setHsvF/getRgbF conversion to a packed RGB int stays in
+// menu_actions.cpp, since that's presentation, not logic.
+//
+// PinnedDefect_EqualColorBoundsProduceNonFiniteHue (map_edit_test.cpp): when
+// `min_value == max_value`, the division by zero in this formula produces a
+// non-finite hue -- preserved verbatim from legacy. Display-only (no ROM
+// write involved), so it does not join the write-path defects the spec
+// tracks for the 6b-4 fix wave.
+double map_cell_color_scale(double value, double min_value, double max_value);
 
 } // namespace fastecu::calibration
