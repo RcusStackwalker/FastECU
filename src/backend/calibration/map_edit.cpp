@@ -2,9 +2,11 @@
 
 #include <array>
 #include <bit>
+#include <cmath>
 #include <cstddef>
 #include <format>
 
+#include "src/algorithms/expression/expression_evaluator.h"
 #include "src/backend/calibration/scaling_internal.h"
 
 namespace fastecu::calibration
@@ -118,6 +120,35 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
     // convert to 0. This is legacy behavior being preserved, not an
     // oversight in this port -- see PinnedDefect_Int24AlwaysReadsAsZero.
     return 0;
+}
+
+Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec, double display_value,
+                                                      int float_precision)
+{
+    const std::uint32_t width = definition::storage_byte_size(spec.storage_type);
+    const bool is_float = spec.storage_type == definition::StorageType::Float;
+
+    const double encoded =
+        expression_evaluate(spec.to_byte, format_like_qt_g(display_value, float_precision), float_precision);
+
+    std::uint32_t raw = 0;
+    if (is_float)
+    {
+        raw = std::bit_cast<std::uint32_t>(static_cast<float>(encoded));
+    }
+    else
+    {
+        raw = static_cast<std::uint32_t>(std::llround(encoded));
+    }
+
+    std::vector<std::uint8_t> out(width, 0x00);
+    const bool little_endian = !is_float && spec.endian == "little";
+    for (std::uint32_t k = 0; k < width; ++k)
+    {
+        const std::uint32_t shift = little_endian ? (8U * k) : (8U * (width - 1U - k));
+        out[k] = static_cast<std::uint8_t>((raw >> shift) & 0xFFU);
+    }
+    return out;
 }
 
 } // namespace fastecu::calibration

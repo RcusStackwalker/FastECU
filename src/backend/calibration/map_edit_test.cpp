@@ -1,7 +1,10 @@
 #include "src/backend/calibration/map_edit.h"
 
+#include <algorithm>
+#include <array>
 #include <bit>
 #include <cstdint>
+#include <string_view>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -280,6 +283,164 @@ TEST(ElementByteAddress, PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite)
     spec.rom_file_size = std::uint64_t{180} * 1024;
 
     EXPECT_NE(element_byte_address(spec, 0, /*for_write=*/false), element_byte_address(spec, 0, /*for_write=*/true));
+}
+
+// The encode/decode round trip is the safety net for every edit operation: if
+// encode_scaled_value and read_raw_element disagree about byte order, an edit
+// silently writes a different value than the grid displays.
+//
+// Only the cases that actually round-trip live here: every unsigned width at
+// both endians, and the one signed width (1 byte) where read_raw_element's
+// byte-swap defect (see PinnedDefect_SignedMultiByteReadsAreByteSwapped_*
+// above) has no width to swap within. The signed multi-byte cases that do NOT
+// round-trip are pinned separately below, as
+// PinnedDefect_SignedMultiByteDoesNotRoundTripBecauseTheReadIsByteSwapped --
+// keeping them here as EXPECT_EQ would leave this suite red forever, which
+// defeats it as a regression net for every case that DOES round-trip today.
+TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
+{
+    struct Case
+    {
+        definition::StorageType storage;
+        std::string_view endian;
+        std::int64_t raw;
+    };
+    const Case cases[] = {
+        {definition::StorageType::Uint8, "big", 0xAB},           {definition::StorageType::Uint16, "big", 0x1234},
+        {definition::StorageType::Uint16, "little", 0x1234},     {definition::StorageType::Uint32, "big", 0x12345678},
+        {definition::StorageType::Uint32, "little", 0x12345678}, {definition::StorageType::Int8, "big", -2},
+    };
+
+    for (const auto& c : cases)
+    {
+        MapElementSpec spec;
+        spec.address = 0x10;
+        spec.storage_type = c.storage;
+        spec.endian = c.endian;
+        spec.to_byte = "x";
+        spec.from_byte = "x";
+
+        const auto encoded = encode_scaled_value(spec, double(c.raw), 15);
+        ASSERT_TRUE(encoded.has_value()) << to_string(encoded.error().kind);
+
+        std::vector<std::uint8_t> rom(0x40, 0x00);
+        std::ranges::copy(*encoded, rom.begin() + 0x10);
+
+        const auto decoded = read_raw_element(rom, spec, 0);
+        ASSERT_TRUE(decoded.has_value());
+        EXPECT_EQ(*decoded, c.raw) << "storage=" << definition::storage_type_text(c.storage) << " endian=" << c.endian;
+    }
+}
+
+// Pinned, not fixed: encode_scaled_value writes the byte order spec.endian's
+// label claims (matching decode_scaled_values, the correct decoder). But
+// read_raw_element -- reproducing get_rom_data_value verbatim, per Task 2's
+// PinnedDefect_SignedMultiByteReadsAreByteSwapped_* -- assembles signed
+// multi-byte values MSB-first regardless of endian, which is backwards from
+// how it filled little-endian reads. Reading back what encode_scaled_value
+// just wrote therefore recovers a different number than what was encoded.
+// This is a real, live hazard for the eventual edit-apply path (6b-4's
+// scope), not a test artifact: an edit UI that writes int16/int32 values and
+// then re-reads the cell via read_raw_element to redraw it would show the
+// wrong number immediately after a successful write.
+//
+// Each case's "should be" value in the comment is the raw value that was
+// encoded; "is" is what read_raw_element actually returns after decoding
+// encode_scaled_value's bytes, computed by hand from the two functions'
+// documented algorithms and confirmed by this test.
+TEST(EncodeScaledValue, PinnedDefect_SignedMultiByteDoesNotRoundTripBecauseTheReadIsByteSwapped)
+{
+    struct Case
+    {
+        definition::StorageType storage;
+        std::string_view endian;
+        std::int64_t raw;
+        std::int64_t decoded_instead;
+    };
+    const Case cases[] = {
+        // int16 big, encoded [0xFE, 0xD4]: read_raw_element reassembles
+        // byte_value[0]=0xFE, byte_value[1]=0xD4 -> raw16 0xD4FE -> sign
+        // extended -11010. Should be -300.
+        {definition::StorageType::Int16, "big", -300, -11010},
+        // int16 little, encoded [0xD4, 0xFE]: read_raw_element's little-endian
+        // fill reverses it back to byte_value[0]=0xFE, byte_value[1]=0xD4 --
+        // the same swapped pair as the big-endian case above -- so it lands
+        // on the same wrong value, -11010. Should be -300.
+        {definition::StorageType::Int16, "little", -300, -11010},
+        // int32 big, encoded [0xFF, 0xFE, 0xEE, 0x90]: read_raw_element
+        // assembles raw32 = 0x90EEFEFF (LSB-first from byte_value[0..3] =
+        // the MSB-first-written bytes) -> sign extended -1863385345. Should
+        // be -70000.
+        {definition::StorageType::Int32, "big", -70000, -1863385345},
+    };
+
+    for (const auto& c : cases)
+    {
+        MapElementSpec spec;
+        spec.address = 0x10;
+        spec.storage_type = c.storage;
+        spec.endian = c.endian;
+        spec.to_byte = "x";
+        spec.from_byte = "x";
+
+        const auto encoded = encode_scaled_value(spec, double(c.raw), 15);
+        ASSERT_TRUE(encoded.has_value()) << to_string(encoded.error().kind);
+
+        std::vector<std::uint8_t> rom(0x40, 0x00);
+        std::ranges::copy(*encoded, rom.begin() + 0x10);
+
+        const auto decoded = read_raw_element(rom, spec, 0);
+        ASSERT_TRUE(decoded.has_value());
+        EXPECT_NE(*decoded, c.raw) << "storage=" << definition::storage_type_text(c.storage) << " endian=" << c.endian
+                                   << " -- if this now passes, the byte-swap"
+                                   << " defect this test pins was fixed elsewhere; update/remove this test"
+                                   << " rather than leaving a misleading EXPECT_NE.";
+        EXPECT_EQ(*decoded, c.decoded_instead)
+            << "storage=" << definition::storage_type_text(c.storage) << " endian=" << c.endian;
+    }
+}
+
+// set_rom_data_value packs the raw value into a host-native little-endian
+// buffer (via a union whose bit pattern set_rom_data_value's callers arrange
+// to already equal the encoded raw value -- see menu_actions.cpp:335-346's
+// `map_data_value.dword_value = new_rom_data_value.toUInt()` followed by
+// passing `map_data_value.float_value` through the float parameter, which
+// round-trips the same bits unchanged) and then indexes it as shown below.
+//
+// Measured: for uint16 "big" raw 0x1234, encode_scaled_value writes
+// [0x12, 0x34] (MSB-first, matching the "big" label). Legacy's loop -- with
+// endian == "big", so the `else` branch, `byte_value[k]` in host order --
+// writes [0x34, 0x12] instead: host_bytes for the little-endian host is
+// [0x34, 0x12, 0x00, 0x00], and legacy[k] = host_bytes[k] for k in {0,1}.
+// That is the little-endian byte order despite the "big" label. Legacy's
+// write path is therefore ALSO inverted relative to its endian labels --
+// consistent with (and structurally the same defect as) the read-side
+// byte-swap Task 2 pinned. This is recorded here as a divergence, not
+// silently reconciled: 6b-4 is where the fix (if any) belongs, informed by
+// corpus evidence of which behavior real EcuFlash defs actually rely on.
+TEST(EncodeScaledValue, PinnedDefect_WriteOrderDivergesFromLegacyBecauseLegacyIsAlsoByteSwapped)
+{
+    MapElementSpec spec;
+    spec.storage_type = definition::StorageType::Uint16;
+    spec.endian = "big";
+    spec.to_byte = "x";
+
+    const auto encoded = encode_scaled_value(spec, 0x1234, 15);
+    ASSERT_TRUE(encoded.has_value());
+
+    const auto host_bytes = std::bit_cast<std::array<std::uint8_t, 4>>(std::uint32_t{0x1234});
+    std::vector<std::uint8_t> legacy(2);
+    for (std::uint32_t k = 0; k < 2; ++k)
+    {
+        legacy[k] = (spec.endian == "little") ? host_bytes[2 - 1 - k] : host_bytes[k];
+    }
+
+    // Measured: encoded == {0x12, 0x34}, legacy == {0x34, 0x12}.
+    EXPECT_NE(*encoded, legacy);
+    const std::vector<std::uint8_t> expected_encoded{0x12, 0x34};
+    const std::vector<std::uint8_t> expected_legacy{0x34, 0x12};
+    EXPECT_EQ(*encoded, expected_encoded);
+    EXPECT_EQ(legacy, expected_legacy);
 }
 
 } // namespace

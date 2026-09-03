@@ -63,4 +63,19 @@ std::uint64_t element_byte_address(const MapElementSpec& spec, std::uint32_t ind
 // rom_data's end; legacy indexed QByteArray::at() unchecked here.
 Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t index);
 
+// Encodes `display_value` into `spec`'s on-ROM byte representation, reproducing
+// the encode half shared verbatim by the three edit call sites in
+// menu_actions.cpp (set_rom_data_value's callers). Runs `display_value`
+// through spec.to_byte via expression_evaluate, using the same
+// format_like_qt_g formatter decode_scaled_values uses, so the two cannot
+// drift on how a double becomes the string an expression sees.
+//
+// Writes the byte order spec.endian's label claims -- this is the inverse of
+// read_raw_element's *correct* half (the unsigned/float paths), not of its
+// signed-multi-byte defect; see PinnedDefect_SignedMultiByteDoesNotRoundTrip*
+// in map_edit_test.cpp for the resulting divergence on signed 16/32-bit
+// storage.
+Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec, double display_value,
+                                                      int float_precision);
+
 } // namespace fastecu::calibration
