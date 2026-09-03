@@ -1,7 +1,6 @@
 #include "src/backend/calibration/map_edit.h"
 
 #include <algorithm>
-#include <array>
 #include <bit>
 #include <cstdint>
 #include <string_view>
@@ -326,7 +325,7 @@ TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
         spec.to_byte = "x";
         spec.from_byte = "x";
 
-        const auto encoded = encode_scaled_value(spec, double(c.raw), 15, /*legacy_byte_order=*/false);
+        const auto encoded = encode_scaled_value(spec, double(c.raw), 15);
         ASSERT_TRUE(encoded.has_value()) << to_string(encoded.error().kind);
 
         std::vector<std::uint8_t> rom(0x40, 0x00);
@@ -338,118 +337,80 @@ TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
     }
 }
 
-// set_rom_data_value packs the raw value into a host-native little-endian
-// buffer (via a union whose bit pattern set_rom_data_value's callers arrange
-// to already equal the encoded raw value -- see menu_actions.cpp:335-346's
-// `map_data_value.dword_value = new_rom_data_value.toUInt()` followed by
-// passing `map_data_value.float_value` through the float parameter, which
-// round-trips the same bits unchanged) and then indexes it as shown below.
-//
-// Measured: for uint16 "big" raw 0x1234, encode_scaled_value writes
-// [0x12, 0x34] (MSB-first, matching the "big" label). Legacy's loop -- with
-// endian == "big", so the `else` branch, `byte_value[k]` in host order --
-// writes [0x34, 0x12] instead: host_bytes for the little-endian host is
-// [0x34, 0x12, 0x00, 0x00], and legacy[k] = host_bytes[k] for k in {0,1}.
-// That is the little-endian byte order despite the "big" label. Legacy's
-// write path is therefore ALSO inverted relative to its endian labels --
-// consistent with (and structurally the same defect as) the read-side
-// byte-swap Task 2 pinned. This is recorded here as a divergence, not
-// silently reconciled: 6b-4 is where the fix (if any) belongs, informed by
-// corpus evidence of which behavior real EcuFlash defs actually rely on.
-TEST(EncodeScaledValue, PinnedDefect_WriteOrderDivergesFromLegacyBecauseLegacyIsAlsoByteSwapped)
+// encode_scaled_value writes the byte order spec.endian's label claims,
+// matching decode_scaled_values (the correct decoder) and
+// read_raw_element's own endian handling -- the write side of the same
+// self-consistency read_raw_element's byte-swap fix restored. (Legacy
+// set_rom_data_value's write order used to be measured as INVERTED relative
+// to its own endian label -- raw 0x1234 labeled "big" wrote [0x34, 0x12] --
+// a divergence this fix wave reconciles rather than perpetuates; see the
+// deleted PinnedDefect_WriteOrderDivergesFromLegacyBecauseLegacyIsAlsoByteSwapped
+// and LegacyByteOrderFlagSelectsWriteOrder, which exercised the now-removed
+// legacy_byte_order flag.) Float storage is always written
+// big-endian-in-ROM regardless of spec.endian.
+TEST(EncodeScaledValue, EncodesInTheLabeledByteOrder)
 {
     MapElementSpec spec;
     spec.storage_type = definition::StorageType::Uint16;
     spec.endian = "big";
     spec.to_byte = "x";
 
-    const auto encoded = encode_scaled_value(spec, 0x1234, 15, /*legacy_byte_order=*/false);
+    const auto encoded = encode_scaled_value(spec, 0x1234, 15);
     ASSERT_TRUE(encoded.has_value());
-
-    const auto host_bytes = std::bit_cast<std::array<std::uint8_t, 4>>(std::uint32_t{0x1234});
-    std::vector<std::uint8_t> legacy(2);
-    for (std::uint32_t k = 0; k < 2; ++k)
-    {
-        legacy[k] = (spec.endian == "little") ? host_bytes[2 - 1 - k] : host_bytes[k];
-    }
-
-    // Measured: encoded == {0x12, 0x34}, legacy == {0x34, 0x12}.
-    EXPECT_NE(*encoded, legacy);
-    const std::vector<std::uint8_t> expected_encoded{0x12, 0x34};
-    const std::vector<std::uint8_t> expected_legacy{0x34, 0x12};
-    EXPECT_EQ(*encoded, expected_encoded);
-    EXPECT_EQ(legacy, expected_legacy);
-}
-
-// legacy_byte_order selects between the two measured write orders directly:
-// false reproduces the correct, label-matching order; true reproduces
-// legacy set_rom_data_value's order, which is inverted relative to its own
-// endian label (raw 0x1234 labeled "big" writes [0x34, 0x12] -- the same
-// measurement as PinnedDefect_WriteOrderDivergesFromLegacyBecauseLegacyIsAlsoByteSwapped
-// above, now asserted directly through the flag rather than reconstructed by
-// hand). Float storage is unaffected by the flag in either mode: floats are
-// always written big-endian-in-ROM.
-TEST(EncodeScaledValue, LegacyByteOrderFlagSelectsWriteOrder)
-{
-    MapElementSpec spec;
-    spec.storage_type = definition::StorageType::Uint16;
-    spec.endian = "big";
-    spec.to_byte = "x";
-
-    const auto correct_order = encode_scaled_value(spec, 0x1234, 15, /*legacy_byte_order=*/false);
-    ASSERT_TRUE(correct_order.has_value());
-    EXPECT_EQ(*correct_order, (std::vector<std::uint8_t>{0x12, 0x34}));
-
-    const auto legacy_order = encode_scaled_value(spec, 0x1234, 15, /*legacy_byte_order=*/true);
-    ASSERT_TRUE(legacy_order.has_value());
-    EXPECT_EQ(*legacy_order, (std::vector<std::uint8_t>{0x34, 0x12}));
+    EXPECT_EQ(*encoded, (std::vector<std::uint8_t>{0x12, 0x34}));
 
     MapElementSpec float_spec;
     float_spec.storage_type = definition::StorageType::Float;
-    float_spec.endian = "big";
+    float_spec.endian = "little"; // deliberately "little" to show it's ignored
     float_spec.to_byte = "x";
 
-    const auto float_correct = encode_scaled_value(float_spec, 1.5, 15, /*legacy_byte_order=*/false);
-    ASSERT_TRUE(float_correct.has_value());
-    const auto float_legacy = encode_scaled_value(float_spec, 1.5, 15, /*legacy_byte_order=*/true);
-    ASSERT_TRUE(float_legacy.has_value());
-    EXPECT_EQ(*float_correct, *float_legacy);
+    const auto float_encoded = encode_scaled_value(float_spec, 1.5, 15);
+    ASSERT_TRUE(float_encoded.has_value());
+    EXPECT_EQ(*float_encoded, (std::vector<std::uint8_t>{0x3F, 0xC0, 0x00, 0x00}));
 }
 
 // write_raw_element is the byte-packing half of encode_scaled_value, and is
 // itself the faithful port of legacy set_rom_data_value -- a pure byte
-// writer with no expression evaluation and no rounding of its own. This
-// reproduces legacy's packing loop independently (byte_value[] as the
-// little-endian-host decomposition of the raw dword, indexed the same way
-// set_rom_data_value's loop does -- the same technique
-// PinnedDefect_WriteOrderDivergesFromLegacyBecauseLegacyIsAlsoByteSwapped
-// uses above) for every width read_raw_element handles, both non-float
-// endian labels, and the float bit-pattern case, and asserts
-// write_raw_element(..., /*legacy_byte_order=*/true) matches it exactly.
-TEST(WriteRawElement, MatchesLegacySetRomDataValueLoopForEveryWidth)
+// writer with no expression evaluation and no rounding of its own. Expected
+// bytes below are independently derived (not read off write_raw_element's
+// own output) from the shift formula the byte order label implies:
+// little_endian ? 8*k : 8*(width-1-k) for each output byte k, with
+// little_endian = !is_float && (endian == "little") -- e.g. uint16 "big"
+// 0x1234 places the most-significant byte (0x12) first, uint16 "little"
+// 0x1234 places the least-significant byte (0x34) first; a negative raw's
+// low 32 bits are packed as an unsigned bit pattern (e.g. -300 packs as
+// 0xFFFFFED4, so "big" emits 0xFE then 0xD4); float storage is always
+// packed most-significant-byte-first regardless of the endian label.
+TEST(WriteRawElement, WritesInTheLabeledByteOrderForEveryWidth)
 {
     struct Case
     {
         definition::StorageType storage;
         std::string_view endian;
         std::int64_t raw;
+        std::vector<std::uint8_t> expected;
     };
-    const Case cases[] = {
-        {definition::StorageType::Uint8, "big", 0xAB},
-        {definition::StorageType::Uint8, "little", 0xAB},
-        {definition::StorageType::Uint16, "big", 0x1234},
-        {definition::StorageType::Uint16, "little", 0x1234},
-        {definition::StorageType::Uint24, "big", 0x123456},
-        {definition::StorageType::Uint24, "little", 0x123456},
-        {definition::StorageType::Uint32, "big", 0x12345678},
-        {definition::StorageType::Uint32, "little", 0x12345678},
-        {definition::StorageType::Int8, "big", -2},
-        {definition::StorageType::Int16, "big", -300},
-        {definition::StorageType::Int32, "big", -70000},
+    const std::vector<Case> cases = {
+        {definition::StorageType::Uint8, "big", 0xAB, {0xAB}},
+        {definition::StorageType::Uint8, "little", 0xAB, {0xAB}},
+        {definition::StorageType::Uint16, "big", 0x1234, {0x12, 0x34}},
+        {definition::StorageType::Uint16, "little", 0x1234, {0x34, 0x12}},
+        {definition::StorageType::Uint24, "big", 0x123456, {0x12, 0x34, 0x56}},
+        {definition::StorageType::Uint24, "little", 0x123456, {0x56, 0x34, 0x12}},
+        {definition::StorageType::Uint32, "big", 0x12345678, {0x12, 0x34, 0x56, 0x78}},
+        {definition::StorageType::Uint32, "little", 0x12345678, {0x78, 0x56, 0x34, 0x12}},
+        {definition::StorageType::Int8, "big", -2, {0xFE}},
+        {definition::StorageType::Int16, "big", -300, {0xFE, 0xD4}},
+        {definition::StorageType::Int32, "big", -70000, {0xFF, 0xFE, 0xEE, 0x90}},
         // Float: raw is a BIT PATTERN, not a number to convert -- the encoded
         // bits of 1.5F, exactly what encode_scaled_value's bit_cast produces
-        // and what legacy's callers smuggle through the float parameter.
-        {definition::StorageType::Float, "big", static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(1.5F))},
+        // and what legacy's callers smuggled through the float parameter.
+        // "little" is used deliberately to show the endian label is ignored
+        // for float storage.
+        {definition::StorageType::Float,
+         "little",
+         static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(1.5F)),
+         {0x3F, 0xC0, 0x00, 0x00}},
     };
 
     for (const auto& c : cases)
@@ -458,49 +419,12 @@ TEST(WriteRawElement, MatchesLegacySetRomDataValueLoopForEveryWidth)
         spec.storage_type = c.storage;
         spec.endian = c.endian;
 
-        const auto written = write_raw_element(spec, c.raw, /*legacy_byte_order=*/true);
+        const auto written = write_raw_element(spec, c.raw);
         ASSERT_TRUE(written.has_value()) << to_string(written.error().kind);
 
-        const std::uint32_t width = definition::storage_byte_size(c.storage);
-        const bool is_float = c.storage == definition::StorageType::Float;
-        const auto host_bytes = std::bit_cast<std::array<std::uint8_t, 4>>(static_cast<std::uint32_t>(c.raw));
-        std::vector<std::uint8_t> legacy(width);
-        for (std::uint32_t k = 0; k < width; ++k)
-        {
-            legacy[k] = (c.endian == "little" || is_float) ? host_bytes[width - 1 - k] : host_bytes[k];
-        }
-
-        EXPECT_EQ(*written, legacy) << "storage=" << definition::storage_type_text(c.storage) << " endian=" << c.endian;
+        EXPECT_EQ(*written, c.expected) << "storage=" << definition::storage_type_text(c.storage)
+                                        << " endian=" << c.endian;
     }
-}
-
-// Direct write_raw_element counterpart of EncodeScaledValue's
-// LegacyByteOrderFlagSelectsWriteOrder above, confirming the flag's meaning
-// survives the encode_scaled_value/write_raw_element split unchanged.
-TEST(WriteRawElement, LegacyByteOrderFlagSelectsWriteOrder)
-{
-    MapElementSpec spec;
-    spec.storage_type = definition::StorageType::Uint16;
-    spec.endian = "big";
-
-    const auto correct_order = write_raw_element(spec, 0x1234, /*legacy_byte_order=*/false);
-    ASSERT_TRUE(correct_order.has_value());
-    EXPECT_EQ(*correct_order, (std::vector<std::uint8_t>{0x12, 0x34}));
-
-    const auto legacy_order = write_raw_element(spec, 0x1234, /*legacy_byte_order=*/true);
-    ASSERT_TRUE(legacy_order.has_value());
-    EXPECT_EQ(*legacy_order, (std::vector<std::uint8_t>{0x34, 0x12}));
-
-    MapElementSpec float_spec;
-    float_spec.storage_type = definition::StorageType::Float;
-    float_spec.endian = "big";
-    const std::int64_t float_bits = static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(1.5F));
-
-    const auto float_correct = write_raw_element(float_spec, float_bits, /*legacy_byte_order=*/false);
-    ASSERT_TRUE(float_correct.has_value());
-    const auto float_legacy = write_raw_element(float_spec, float_bits, /*legacy_byte_order=*/true);
-    ASSERT_TRUE(float_legacy.has_value());
-    EXPECT_EQ(*float_correct, *float_legacy);
 }
 
 TEST(ResolveEditTarget, LeftColumnSelectionOnAMultiRowMapTargetsTheYAxis)

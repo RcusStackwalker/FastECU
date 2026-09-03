@@ -34,7 +34,7 @@ QString read_rom_data_value(bytes::ByteView rom_data, const fastecu::calibration
 void write_rom_data_value(FileActions::EcuCalDefStructure& def, const fastecu::calibration::MapElementSpec& spec,
                           uint16_t value_index, std::int64_t raw)
 {
-    const auto encoded = fastecu::calibration::write_raw_element(spec, raw, /*legacy_byte_order=*/true);
+    const auto encoded = fastecu::calibration::write_raw_element(spec, raw);
     if (!encoded.has_value())
     {
         qWarning() << "write_rom_data_value:" << QString::fromStdString(encoded.error().detail);

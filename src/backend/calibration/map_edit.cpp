@@ -113,8 +113,7 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
     return static_cast<std::int64_t>(sign_extend(data_byte, width));
 }
 
-Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, std::int64_t raw,
-                                                    bool legacy_byte_order)
+Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, std::int64_t raw)
 {
     const std::uint32_t width = definition::storage_byte_size(spec.storage_type);
     const bool is_float = spec.storage_type == definition::StorageType::Float;
@@ -125,7 +124,7 @@ Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, 
     const std::uint32_t packed = static_cast<std::uint32_t>(raw);
 
     std::vector<std::uint8_t> out(width, 0x00);
-    const bool little_endian = !is_float && ((spec.endian == "little") != legacy_byte_order);
+    const bool little_endian = !is_float && (spec.endian == "little");
     for (std::uint32_t k = 0; k < width; ++k)
     {
         const std::uint32_t shift = little_endian ? (8U * k) : (8U * (width - 1U - k));
@@ -192,7 +191,7 @@ EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions di
 }
 
 Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec, double display_value,
-                                                      int float_precision, bool legacy_byte_order)
+                                                      int float_precision)
 {
     const bool is_float = spec.storage_type == definition::StorageType::Float;
 
@@ -209,7 +208,7 @@ Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec
         raw = static_cast<std::int64_t>(static_cast<std::uint32_t>(std::llround(encoded)));
     }
 
-    return write_raw_element(spec, raw, legacy_byte_order);
+    return write_raw_element(spec, raw);
 }
 
 int map_value_decimal_count(std::string_view value_format)
