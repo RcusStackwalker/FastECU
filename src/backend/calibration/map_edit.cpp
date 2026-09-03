@@ -70,11 +70,15 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
 
     if (spec.storage_type == definition::StorageType::Float)
     {
-        // The one intentional change from legacy: assemble the four bytes
-        // into a uint32_t and std::bit_cast to float, rather than reading a
-        // union member that was never written (UB). The float bits are then
-        // bit_cast back to int32_t so they round-trip through this
-        // function's int64_t return type unchanged.
+        // Assembles the four bytes into a uint32_t and returns those bits
+        // reinterpreted as int32_t, rather than reading a union member that
+        // was never written (UB, what legacy did). Going uint32_t ->
+        // std::bit_cast<float> -> std::bit_cast<std::int32_t> and back would
+        // round-trip to the exact same bit pattern (bit_cast never alters
+        // the underlying bits, for any input including NaN patterns), so
+        // that detour is skipped in favor of a single direct bit_cast; the
+        // "reinterpret these bytes as the float's bit pattern" intent is
+        // unchanged, only the intermediate `float` local is gone.
         //
         // Legacy reads map_data_value.float_value out of a union whose
         // float member overlaps the same byte_value[4] used above. On a
@@ -88,8 +92,7 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
         // documented float handling in calibration_service.cpp.
         const std::uint32_t bits = std::uint32_t(byte_value[0]) | (std::uint32_t(byte_value[1]) << 8) |
                                    (std::uint32_t(byte_value[2]) << 16) | (std::uint32_t(byte_value[3]) << 24);
-        const float float_value = std::bit_cast<float>(bits);
-        return static_cast<std::int64_t>(std::bit_cast<std::int32_t>(float_value));
+        return static_cast<std::int64_t>(std::bit_cast<std::int32_t>(bits));
     }
 
     // Signed integer storage. Legacy reads these back out of the same
@@ -246,9 +249,18 @@ double map_cell_color_scale(double value, double min_value, double max_value)
     // Ported from get_map_cell_colors (menu_actions.cpp). min_value ==
     // max_value divides by zero, producing a non-finite hue -- preserved
     // verbatim; see PinnedDefect_EqualColorBoundsProduceNonFiniteHue.
+    //
+    // Legacy computed this as
+    // kScaleStart - (1.0 - (value - min_value) / (max_value - min_value)) * kScaleStart,
+    // a double negation that algebraically collapses to the single product
+    // below: kScaleStart - kScaleStart*(1 - r) == kScaleStart - kScaleStart +
+    // kScaleStart*r == kScaleStart*r for every finite r, and for a
+    // non-finite r (min_value == max_value) both forms still reduce to
+    // kScaleStart * r component-wise (NaN/Inf propagate identically through
+    // either arithmetic path), so this preserves the pinned NaN/Inf behavior
+    // exactly.
     constexpr double kScaleStart = 210.0 / 360.0;
-    const double color_scale = (1.0 - (value - min_value) / (max_value - min_value)) * kScaleStart;
-    double color_value = kScaleStart - color_scale;
+    double color_value = kScaleStart * (value - min_value) / (max_value - min_value);
 
     if (color_value < 0.0)
     {
