@@ -5,6 +5,7 @@
 #include <bit>
 #include <charconv>
 #include <cmath>
+#include <concepts>
 #include <cstddef>
 #include <format>
 #include <string>
@@ -59,11 +60,13 @@ std::uint32_t to_uint32_or_zero(std::string_view text)
     return value;
 }
 
-// Mirrors QString::toInt() (qint32, whole-string-or-0), same rationale as
-// to_uint32_or_zero above.
-std::int32_t to_int32_or_zero(std::string_view text)
+// Generalizes QString::toInt()'s whole-string-or-0 semantics (same rationale
+// as to_uint32_or_zero above) over every signed width this file needs:
+// int32_t for apply_saturation_guard's sign-wrap checks below (matching Qt's
+// qint32), and int64_t for raw_from_display_text's non-float branch.
+template <std::signed_integral T> T to_signed_or_zero(std::string_view text)
 {
-    std::int32_t value = 0;
+    T value = 0;
     const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
     if (result.ec != std::errc{} || result.ptr != text.data() + text.size())
     {
@@ -83,28 +86,16 @@ std::int64_t raw_from_display_text(const MapElementSpec& spec, std::string_view 
     {
         // text is a decimal string of the float VALUE (matches how
         // read/format work throughout this file) -- convert via the actual
-        // numeric value, then bit_cast to get the IEEE-754 bit pattern, NOT
-        // parsed as an integer.
-        float value = 0.0F;
-        const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
-        if (result.ec != std::errc{} || result.ptr != text.data() + text.size())
-        {
-            value = 0.0F;
-        }
-        return static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(value));
+        // numeric value (to_float_or_zero's whole-string-or-0.0F parse is
+        // exactly what's needed here), then bit_cast to get the IEEE-754 bit
+        // pattern, NOT parsed as an integer.
+        return static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(to_float_or_zero(text)));
     }
     // Every other storage type: parse as a plain integer. Mirrors
     // QString::toInt()'s whole-string-must-parse-or-0 semantics -- the
     // inputs this function actually receives are always machine-generated
-    // integer strings, so a simple whole-string parse with a 0 fallback on
-    // any failure is sufficient.
-    std::int64_t value = 0;
-    const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
-    if (result.ec != std::errc{} || result.ptr != text.data() + text.size())
-    {
-        return 0;
-    }
-    return value;
+    // integer strings, so to_signed_or_zero's fallback is sufficient.
+    return to_signed_or_zero<std::int64_t>(text);
 }
 
 // Formats a raw stored value for display, mirroring legacy get_rom_data_value
@@ -438,7 +429,7 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
             {
                 return std::nullopt;
             }
-            if (to_int32_or_zero(candidate) < 0)
+            if (to_signed_or_zero<std::int32_t>(candidate) < 0)
             {
                 return std::nullopt;
             }
@@ -446,9 +437,9 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
         if (map_value_storagetype.starts_with("int"))
         {
             const std::uint32_t rom_u32 = to_uint32_or_zero(rom_data_value);
-            const std::int32_t rom_i32 = to_int32_or_zero(rom_data_value);
+            const std::int32_t rom_i32 = to_signed_or_zero<std::int32_t>(rom_data_value);
             const std::uint32_t cand_u32 = to_uint32_or_zero(candidate);
-            const std::int32_t cand_i32 = to_int32_or_zero(candidate);
+            const std::int32_t cand_i32 = to_signed_or_zero<std::int32_t>(candidate);
 
             if (map_value_storagetype == "int8" && ((rom_u32 <= 0x7FU && cand_u32 > 0x7FU) ||
                                                     (static_cast<std::uint8_t>(rom_i32) >= 0x80U &&
