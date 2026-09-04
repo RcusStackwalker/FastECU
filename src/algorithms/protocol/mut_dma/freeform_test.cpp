@@ -59,9 +59,16 @@ TEST(TestFreeform, decode_stream_values)
     ASSERT_EQ(v.at(2), std::uint32_t(0x89ABCDEF));
 }
 
-TEST(TestFreeform, decode_stream_values_zeroFillsMissingBytesCompatibility)
+// A frame with fewer data bytes than the configured channels need only
+// happens if the ECU sent something malformed -- parseStreamFrame's checksum
+// check (mut_dma_codec.cpp) already guards the one real caller
+// (MutDmaDriver::pollOnce) before decodeStreamValues ever sees the data, so
+// this is a "garbage in" case, not a real protocol state. Every channel that
+// doesn't have its full width available should read as 0, not a partial
+// value assembled from whatever bytes happened to be present.
+TEST(TestFreeform, decode_stream_values_treatsShortFrameAsAllZero)
 {
     const std::vector<Channel> channels = {{0x8000, 2}, {0x8004, 1}};
     const std::vector<std::uint32_t> values = decodeStreamValues(channels, bytes::Bytes{0x12});
-    ASSERT_EQ(values, std::vector<std::uint32_t>({0x12, 0x00}));
+    ASSERT_EQ(values, std::vector<std::uint32_t>({0x00, 0x00}));
 }

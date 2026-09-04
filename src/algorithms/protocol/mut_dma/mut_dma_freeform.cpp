@@ -25,7 +25,7 @@ bytes::Byte sizeToDescriptor(bytes::Byte len)
 }
 int reqLen(int channelCount)
 {
-    return ((channelCount + 3) >> 2) + channelCount * 2 + 0x1c;
+    return static_cast<int>(static_cast<unsigned>(channelCount + 3) >> 2U) + channelCount * 2 + 0x1c;
 }
 bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const std::vector<Channel>& channels)
 {
@@ -34,18 +34,20 @@ bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const std::vector<Channel>& c
     bytes::Bytes f(static_cast<std::size_t>(total), 0);
     f[0] = listCmd;
     f[1] = static_cast<bytes::Byte>(n);
-    const int descBytes = (n + 3) >> 2;
+    const int descBytes = static_cast<int>(static_cast<unsigned>(n + 3) >> 2U);
     for (int i = 0; i < n; ++i)
     { // pack 2-bit size descriptors, MSB-first
-        const bytes::Byte d = sizeToDescriptor(channels.at(i).len) & 0x3;
-        const int shift = (3 - (i & 3)) * 2;
-        f[2 + (i >> 2)] = static_cast<bytes::Byte>(f[2 + (i >> 2)] | (d << shift));
+        const auto ui = static_cast<unsigned>(i);
+        const bytes::Byte d = sizeToDescriptor(channels.at(i).len) & 0x3U;
+        const unsigned shift = (3U - (ui & 3U)) * 2U;
+        const auto descIdx = static_cast<std::size_t>(2) + (ui >> 2U);
+        f[descIdx] = static_cast<bytes::Byte>(f[descIdx] | (static_cast<unsigned>(d) << shift));
     }
     int idOff = 2 + descBytes;
     for (int i = 0; i < n; ++i)
     { // big-endian u16 ids
-        f[idOff++] = static_cast<bytes::Byte>(channels.at(i).id >> 8);
-        f[idOff++] = static_cast<bytes::Byte>(channels.at(i).id & 0xFF);
+        bytes::writeU16Be(f, static_cast<std::size_t>(idOff), channels.at(i).id);
+        idOff += 2;
     }
     f[total - 2] = sum8(f, 0, static_cast<std::size_t>(total - 2));
     f[total - 1] = TRAILER_STD;
@@ -67,12 +69,8 @@ std::vector<std::uint32_t> decodeStreamValues(const std::vector<Channel>& channe
     int off = 0;
     for (const Channel& c : channels)
     {
-        std::uint32_t v = 0;
-        for (int k = 0; k < c.len && off < static_cast<int>(data.size()); ++k, ++off)
-        {
-            v = (v << 8) | data[static_cast<std::size_t>(off)]; // big-endian
-        }
-        out.push_back(v);
+        out.push_back(bytes::readUBe(data, static_cast<std::size_t>(off), c.len));
+        off += c.len;
     }
     return out;
 }

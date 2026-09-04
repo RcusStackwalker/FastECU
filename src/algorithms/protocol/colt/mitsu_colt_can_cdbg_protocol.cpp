@@ -22,7 +22,7 @@ std::uint32_t seedToKey(std::uint32_t seed)
     for (int i = 0; i < 4; ++i)
     {
         bytes::Byte x = data[i];
-        switch (x & 0x03)
+        switch (x & 0x03U)
         {
         case 0:
             x = static_cast<bytes::Byte>(x + 145);
@@ -37,10 +37,11 @@ std::uint32_t seedToKey(std::uint32_t seed)
             x = static_cast<bytes::Byte>(x + 2);
             break;
         }
-        data[i] = static_cast<bytes::Byte>((x << 3) | (x >> 5)); // 8-bit rotate-left by 3
+        data[i] = static_cast<bytes::Byte>((static_cast<unsigned>(x) << 3U) |
+                                           (static_cast<unsigned>(x) >> 5U)); // 8-bit rotate-left by 3
     }
 
-    int parity = (data[0] & 1) + (data[1] & 1) + (data[2] & 1) + (data[3] & 1);
+    int parity = (data[0] & 1U) + (data[1] & 1U) + (data[2] & 1U) + (data[3] & 1U);
     std::array<bytes::Byte, 4> n{};
     switch (parity)
     {
@@ -76,11 +77,11 @@ std::uint32_t seedToKey(std::uint32_t seed)
         break;
     }
 
-    std::uint16_t word0 = static_cast<std::uint16_t>(((n[0] << 8) + n[1]) * 3 + n[3] * 8);
-    std::uint16_t word1 = static_cast<std::uint16_t>(((n[2] << 8) + n[3]) * 5 + n[1] * 8);
+    std::uint16_t word0 = static_cast<std::uint16_t>(((n[0] << 8U) + n[1]) * 3 + n[3] * 8);
+    std::uint16_t word1 = static_cast<std::uint16_t>(((n[2] << 8U) + n[3]) * 5 + n[1] * 8);
 
-    return (std::uint32_t(word0 >> 8) << 24) | (std::uint32_t(word0 & 0xFF) << 16) | (std::uint32_t(word1 >> 8) << 8) |
-           std::uint32_t(word1 & 0xFF);
+    return (std::uint32_t(word0 >> 8U) << 24U) | (std::uint32_t(word0 & 0xFFU) << 16U) |
+           (std::uint32_t(word1 >> 8U) << 8U) | std::uint32_t(word1 & 0xFFU);
 }
 
 std::uint32_t extractSeed(bytes::ByteView reply)
@@ -208,26 +209,7 @@ std::vector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex, const std
     int offset = 1;
     for (const CdbgChannel& ch : frameItems)
     {
-        std::uint32_t value = 0;
-        switch (ch.size)
-        {
-        case 1:
-            value = frame[static_cast<std::size_t>(offset)];
-            break;
-        case 2:
-            value = bytes::readU16Be(frame, static_cast<std::size_t>(offset));
-            break;
-        case 4:
-            value = bytes::readU32Be(frame, static_cast<std::size_t>(offset));
-            break;
-        default:
-            for (int k = 0; k < ch.size; ++k)
-            {
-                value = (value << 8) | std::uint32_t(frame[static_cast<std::size_t>(offset + k)]);
-            }
-            break;
-        }
-        out.push_back(value);
+        out.push_back(bytes::readUBe(frame, static_cast<std::size_t>(offset), ch.size));
         offset += ch.size;
     }
     return out;
