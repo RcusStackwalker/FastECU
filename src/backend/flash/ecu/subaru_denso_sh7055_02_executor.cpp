@@ -188,7 +188,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
     {
         return std::unexpected(probe.error());
     }
-    if (response_ok(*probe, static_cast<bytes::Byte>(kOpId | 0x40)))
+    if (response_ok(*probe, static_cast<bytes::Byte>(kOpId | 0x40U)))
     {
         kernel_alive = true;
         events.log(LogLevel::Info, "Kernel already running");
@@ -360,7 +360,7 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(IKlineFlashTransport& transpo
     }
     for (bytes::Byte& byte : encrypted)
     {
-        byte = static_cast<bytes::Byte>((byte ^ 0x55) + 0x10);
+        byte = static_cast<bytes::Byte>((byte ^ 0x55U) + 0x10);
     }
     const std::uint32_t address = kernel.load_address;
     const std::uint32_t length = static_cast<std::uint32_t>(encrypted.size() + 4);
@@ -369,9 +369,9 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(IKlineFlashTransport& transpo
     // bytes 6-9 below are a fixed transform of the literal 0x00, the checksum
     // placeholder overwritten at request[7], and the fixed 0x31/0x61 envelope
     // markers, none of which reference address.
-    bytes::Bytes request = composeBe(kOpUploadKernel, std::uint16_t(address >> 8));
+    bytes::Bytes request = composeBe(kOpUploadKernel, std::uint16_t(address >> 8U));
     bytes::appendU24Be(request, length);
-    request.push_back(static_cast<bytes::Byte>((0x00 ^ 0x55) + 0x10));
+    request.push_back(static_cast<bytes::Byte>((0x00U ^ 0x55U) + 0x10));
     request.push_back(0x00);
     request.push_back(0x31);
     request.push_back(0x61);
@@ -419,7 +419,7 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(IKlineFlashTransport& transpo
     {
         return fail(ErrorKind::BadResponse, "no valid response from ECU after kernel upload");
     }
-    if (!response_ok(*id, static_cast<bytes::Byte>(kOpId | 0x40)))
+    if (!response_ok(*id, static_cast<bytes::Byte>(kOpId | 0x40U)))
     {
         return fail(ErrorKind::BadResponse, "wrong response from ECU after kernel upload");
     }
@@ -458,7 +458,7 @@ Result<bytes::Bytes> SubaruDensoSh7055_02Executor::read_mem(IKlineFlashTransport
         // before removing its fixed header and final checksum. Its fixed page
         // request (lines 415-416) requires a full 0x400-byte payload; reject
         // short replies rather than returning a silently truncated ROM.
-        if (!response->has_value() || !response_ok(**response, static_cast<bytes::Byte>(kOpReadArea | 0x40)) ||
+        if (!response->has_value() || !response_ok(**response, static_cast<bytes::Byte>(kOpReadArea | 0x40U)) ||
             (**response).size() != kReadPageSize + 6)
         {
             return fail(ErrorKind::BadResponse, "Wrong response from ECU during read");
@@ -532,7 +532,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
         {
             return std::nullopt;
         }
-        const std::size_t declared = (static_cast<std::size_t>(response[2]) << 8) | response[3];
+        const std::size_t declared = bytes::readU16Be(response, 2);
         // This phase accepts only opcode plus the one-byte marker/prefix and
         // four CRC bytes. Bound the declared size before accumulating.
         return declared <= 6 ? std::optional<std::size_t>{declared + 5} : std::optional<std::size_t>{0};
@@ -576,7 +576,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
     }
     if (const std::optional<std::size_t> expected_size = declared_frame_size();
         !expected_size.has_value() || *expected_size == 0 || response.size() != *expected_size || response.size() < 7 ||
-        !response_ok(response, kOpCrc | 0x40) ||
+        !response_ok(response, kOpCrc | 0x40U) ||
         response.back() != bytes::sum8(bytes::ByteView(response).first(response.size() - 1)))
     {
         return fail(ErrorKind::BadResponse, "Wrong or incomplete response from ECU during CRC check");
@@ -600,9 +600,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
     {
         return fail(ErrorKind::BadResponse, "Truncated CRC response from ECU");
     }
-    const std::uint32_t crc = (static_cast<std::uint32_t>(response[0]) << 24) |
-                              (static_cast<std::uint32_t>(response[1]) << 16) |
-                              (static_cast<std::uint32_t>(response[2]) << 8) | static_cast<std::uint32_t>(response[3]);
+    const std::uint32_t crc = bytes::readU32Be(response, 0);
     // Legacy lines 742 and 748 perform a short read after either compare
     // outcome, so drain every successful CRC decode before returning it.
     if (Status drained = drain(transport, cancellation, 200, "CRC response drain"); !drained.has_value())
@@ -639,7 +637,7 @@ Status SubaruDensoSh7055_02Executor::flash_block(IKlineFlashTransport& transport
         {
             return fail(ErrorKind::Timeout, "no response from ECU during erase");
         }
-        if (!response_ok(**erase_exchange, kOpBlankPage | 0x40))
+        if (!response_ok(**erase_exchange, kOpBlankPage | 0x40U))
         {
             return fail(ErrorKind::BadResponse, "Wrong response from ECU during erase");
         }
@@ -669,7 +667,7 @@ Status SubaruDensoSh7055_02Executor::flash_block(IKlineFlashTransport& transport
         {
             return fail(ErrorKind::Timeout, "no response from ECU during write");
         }
-        if (!response_ok(**write_response, kOpWriteFlashBuffer | 0x40))
+        if (!response_ok(**write_response, kOpWriteFlashBuffer | 0x40U))
         {
             return fail(ErrorKind::BadResponse, "Wrong response from ECU during write");
         }
@@ -692,7 +690,7 @@ Status SubaruDensoSh7055_02Executor::flash_block(IKlineFlashTransport& transport
             {
                 return fail(ErrorKind::Timeout, "no response from ECU during commit");
             }
-            if (!response_ok(**commit_response, commit_opcode | 0x40))
+            if (!response_ok(**commit_response, commit_opcode | 0x40U))
             {
                 return fail(ErrorKind::BadResponse, "Wrong response from ECU during commit");
             }
@@ -795,14 +793,12 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
         {
             return fail(ErrorKind::Timeout, "no response from ECU during flash init");
         }
-        if ((**response).size() <= 9 || !response_ok(**response, opcode | 0x40))
+        if ((**response).size() <= 9 || !response_ok(**response, opcode | 0x40U))
         {
             return fail(ErrorKind::BadResponse, "Wrong response from ECU during flash init");
         }
         const bytes::Bytes& received = **response;
-        const std::uint32_t length =
-            (static_cast<std::uint32_t>(received[6]) << 24) | (static_cast<std::uint32_t>(received[7]) << 16) |
-            (static_cast<std::uint32_t>(received[8]) << 8) | static_cast<std::uint32_t>(received[9]);
+        const std::uint32_t length = bytes::readU32Be(received, 6);
         if (opcode == kOpGetMaxMsgSize)
         {
             events.log(LogLevel::Info, std::format("Max message length: 0x{:08X}", length));
@@ -823,7 +819,7 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
     {
         return fail(ErrorKind::Timeout, "no response from ECU during flash init");
     }
-    if (!response_ok(**enable_response, enable_opcode | 0x40))
+    if (!response_ok(**enable_response, enable_opcode | 0x40U))
     {
         return fail(ErrorKind::BadResponse, "Wrong response from ECU during flash init");
     }
@@ -847,7 +843,7 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
         {
             return fail(ErrorKind::Timeout, "no response from ECU during prog-volt query");
         }
-        if ((**voltage_response).size() <= 7 || !response_ok(**voltage_response, kOpProgVolt | 0x40))
+        if ((**voltage_response).size() <= 7 || !response_ok(**voltage_response, kOpProgVolt | 0x40U))
         {
             return fail(ErrorKind::BadResponse, "Wrong response from ECU during prog-volt query");
         }

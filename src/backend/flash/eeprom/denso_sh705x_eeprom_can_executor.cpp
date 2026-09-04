@@ -157,7 +157,7 @@ bytes::Bytes read_eeprom_request(std::uint32_t request_id, std::uint8_t mode, st
 bool looks_kernel_alive(bytes::ByteView received)
 {
     return received.size() > 8 && bytes::readU16Be(received, 4) == kSubKernelStartComm &&
-           received[8] == static_cast<bytes::Byte>(kSubKernelId | 0x40);
+           received[8] == static_cast<bytes::Byte>(kSubKernelId | 0x40U);
 }
 
 // ---------------------------------------------------------------------
@@ -218,7 +218,7 @@ std::uint64_t decrypt_racerom_seed(std::uint64_t base, std::uint64_t exponent, s
     base = base % modulus;
     while (exponent > 0)
     {
-        if (exponent & 1)
+        if (exponent & 1U)
         {
             result = (result * base) % modulus;
         }
@@ -233,9 +233,7 @@ std::uint64_t decrypt_racerom_seed(std::uint64_t base, std::uint64_t exponent, s
 // big-endian as the 4-byte key.
 bytes::Bytes generate_ecutek_racerom_can_seed_key(bytes::ByteView seed)
 {
-    const std::uint32_t seed_word = (static_cast<std::uint32_t>(seed[0]) << 24) |
-                                    (static_cast<std::uint32_t>(seed[1]) << 16) |
-                                    (static_cast<std::uint32_t>(seed[2]) << 8) | static_cast<std::uint32_t>(seed[3]);
+    const std::uint32_t seed_word = bytes::readU32Be(seed, 0);
     constexpr std::uint64_t d = 0x0A863281ULL;
     constexpr std::uint64_t n = 0x0fda9293ULL;
     const std::uint32_t decrypted = static_cast<std::uint32_t>(decrypt_racerom_seed(seed_word, d, n));
@@ -664,8 +662,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
     std::uint32_t chk_sum = 0;
     for (std::size_t i = 0; i < buf.size(); i += 4)
     {
-        chk_sum += (static_cast<std::uint32_t>(buf[i]) << 24) | (static_cast<std::uint32_t>(buf[i + 1]) << 16) |
-                   (static_cast<std::uint32_t>(buf[i + 2]) << 8) | static_cast<std::uint32_t>(buf[i + 3]);
+        chk_sum += bytes::readU32Be(buf, i);
     }
     chk_sum = 0x5aa5a55aU - chk_sum;
     bytes::appendU32Be(buf, chk_sum);
@@ -851,7 +848,7 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
         {
             return fail(ErrorKind::BadResponse, "EEPROM read header ack too short");
         }
-        if (hdr[4] == 0xBE && hdr[5] == 0xEF && hdr[8] == static_cast<bytes::Byte>(kSubKernelReadArea | 0x40))
+        if (hdr[4] == 0xBE && hdr[5] == 0xEF && hdr[8] == static_cast<bytes::Byte>(kSubKernelReadArea | 0x40U))
         {
             mapdata.insert(mapdata.end(), hdr.begin() + 9, hdr.end());
         }

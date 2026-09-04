@@ -35,13 +35,11 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
     }
 
     std::array<uint8_t, 4> checksum_2_value_calculated_bytes{};
-    checksum_2_value_calculated_bytes[3] = 0xff - ((checksum_2_value_calculated >> 24) & 0xff);
-    checksum_2_value_calculated_bytes[2] = 0xff - ((checksum_2_value_calculated >> 16) & 0xff);
-    checksum_2_value_calculated_bytes[1] = 0xff - ((checksum_2_value_calculated >> 8) & 0xff);
-    checksum_2_value_calculated_bytes[0] = 0x100 - (checksum_2_value_calculated & 0xff);
-    checksum_2_value_calculated = (checksum_2_value_calculated_bytes[3] << 24) +
-                                  (checksum_2_value_calculated_bytes[2] << 16) +
-                                  (checksum_2_value_calculated_bytes[1] << 8) + checksum_2_value_calculated_bytes[0];
+    checksum_2_value_calculated_bytes[3] = 0xffU - ((checksum_2_value_calculated >> 24U) & 0xffU);
+    checksum_2_value_calculated_bytes[2] = 0xffU - ((checksum_2_value_calculated >> 16U) & 0xffU);
+    checksum_2_value_calculated_bytes[1] = 0xffU - ((checksum_2_value_calculated >> 8U) & 0xffU);
+    checksum_2_value_calculated_bytes[0] = 0x100U - (checksum_2_value_calculated & 0xffU);
+    checksum_2_value_calculated = bytes::readU32Le(checksum_2_value_calculated_bytes);
 
     checksum_2_value_stored = bytes::readU32Be(romData, checksum_2_balance_value_address);
 
@@ -66,13 +64,11 @@ ChecksumResult ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes:
             }
         }
         std::array<uint8_t, 4> checksum_2_value_calculated_bytes2{};
-        checksum_2_value_calculated_bytes2[3] = 0xff - ((checksum_2_value_calculated >> 24) & 0xff);
-        checksum_2_value_calculated_bytes2[2] = 0xff - ((checksum_2_value_calculated >> 16) & 0xff);
-        checksum_2_value_calculated_bytes2[1] = 0xff - ((checksum_2_value_calculated >> 8) & 0xff);
-        checksum_2_value_calculated_bytes2[0] = 0x100 - (checksum_2_value_calculated & 0xff);
-        checksum_2_value_calculated =
-            (checksum_2_value_calculated_bytes2[3] << 24) + (checksum_2_value_calculated_bytes2[2] << 16) +
-            (checksum_2_value_calculated_bytes2[1] << 8) + checksum_2_value_calculated_bytes2[0];
+        checksum_2_value_calculated_bytes2[3] = 0xffU - ((checksum_2_value_calculated >> 24U) & 0xffU);
+        checksum_2_value_calculated_bytes2[2] = 0xffU - ((checksum_2_value_calculated >> 16U) & 0xffU);
+        checksum_2_value_calculated_bytes2[1] = 0xffU - ((checksum_2_value_calculated >> 8U) & 0xffU);
+        checksum_2_value_calculated_bytes2[0] = 0x100U - (checksum_2_value_calculated & 0xffU);
+        checksum_2_value_calculated = bytes::readU32Le(checksum_2_value_calculated_bytes2);
 
         bytes::writeU32Be(romData, checksum_2_balance_value_address, checksum_2_value_calculated);
         bytes::writeU32Be(romData, checksum_2_balance_value_address + 4, checksum_2_value_calculated);
