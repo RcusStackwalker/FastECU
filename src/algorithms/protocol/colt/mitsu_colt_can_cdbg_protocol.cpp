@@ -1,5 +1,6 @@
 #include "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.h"
 #include <array>
+#include <bit>
 
 namespace MitsuColtCanCdbg
 {
@@ -37,8 +38,7 @@ std::uint32_t seedToKey(std::uint32_t seed)
             x = static_cast<bytes::Byte>(x + 2);
             break;
         }
-        data[i] = static_cast<bytes::Byte>((static_cast<unsigned>(x) << 3U) |
-                                           (static_cast<unsigned>(x) >> 5U)); // 8-bit rotate-left by 3
+        data[i] = std::rotl(x, 3);
     }
 
     int parity = (data[0] & 1U) + (data[1] & 1U) + (data[2] & 1U) + (data[3] & 1U);
