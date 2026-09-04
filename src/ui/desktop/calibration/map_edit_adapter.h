@@ -66,6 +66,8 @@ class MapElementFields
     double fine_increment_{0.0};
     std::uint32_t x_size_{1};
     std::uint32_t y_size_{1};
+    std::uint32_t start_position_{1};
+    std::uint32_t interval_{1};
     std::uint64_t rom_file_size_{0};
 };
 

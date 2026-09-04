@@ -22,6 +22,21 @@ namespace
 // calibration / definition adapters) -- into this lightweight adapter package.
 constexpr int kFlashMethodRomInfoIndex = 10;
 
+// StartPosList/IntervalList (and their XScale*/YScale* variants) are
+// hex_text-formatted (legacy_definition_adapter.cpp:225-226), same convention
+// as AddressList, so parsed the same way -- toUInt(&ok, 16). Unlike
+// AddressList (required: a parse failure there is a malformed-definition bug
+// worth warning about), a missing or unparsable start/interval value falls
+// back to 1 -- "no striding" -- silently, matching MapElementSpec's own
+// default and decode_scaled_values' EcuCalDefStructure default (definition_
+// resolver.cpp:350-351, :377-378).
+std::uint32_t parse_stride_field(const QString& text)
+{
+    bool ok = false;
+    const std::uint32_t parsed = text.toUInt(&ok, 16);
+    return ok ? parsed : 1;
+}
+
 } // namespace
 
 calibration::MapElementSpec MapElementFields::spec() const&
@@ -38,6 +53,8 @@ calibration::MapElementSpec MapElementFields::spec() const&
     spec.fine_increment = fine_increment_;
     spec.x_size = x_size_;
     spec.y_size = y_size_;
+    spec.start_position = start_position_;
+    spec.interval = interval_;
     spec.flash_method = flash_method_;
     spec.rom_file_size = rom_file_size_;
     return spec;
@@ -75,6 +92,8 @@ MapElementFields collect_map_element_fields(const definitions::EcuCalDefStructur
         fields.max_value_ = def.MaxValueList.value(map_number).toStdString();
         fields.coarse_increment_ = def.CoarseIncList.value(map_number).toDouble();
         fields.fine_increment_ = def.FineIncList.value(map_number).toDouble();
+        fields.start_position_ = parse_stride_field(def.StartPosList.value(map_number));
+        fields.interval_ = parse_stride_field(def.IntervalList.value(map_number));
         break;
     case calibration::EditTargetKind::XAxis:
         address_text = def.XScaleAddressList.at(map_number);
@@ -86,6 +105,8 @@ MapElementFields collect_map_element_fields(const definitions::EcuCalDefStructur
         fields.max_value_ = def.XScaleMaxValueList.value(map_number).toStdString();
         fields.coarse_increment_ = def.XScaleCoarseIncList.value(map_number).toDouble();
         fields.fine_increment_ = def.XScaleFineIncList.value(map_number).toDouble();
+        fields.start_position_ = parse_stride_field(def.XScaleStartPosList.value(map_number));
+        fields.interval_ = parse_stride_field(def.XScaleIntervalList.value(map_number));
         break;
     case calibration::EditTargetKind::YAxis:
         address_text = def.YScaleAddressList.at(map_number);
@@ -97,6 +118,8 @@ MapElementFields collect_map_element_fields(const definitions::EcuCalDefStructur
         fields.max_value_ = def.YScaleMaxValueList.value(map_number).toStdString();
         fields.coarse_increment_ = def.YScaleCoarseIncList.value(map_number).toDouble();
         fields.fine_increment_ = def.YScaleFineIncList.value(map_number).toDouble();
+        fields.start_position_ = parse_stride_field(def.YScaleStartPosList.value(map_number));
+        fields.interval_ = parse_stride_field(def.YScaleIntervalList.value(map_number));
         break;
     case calibration::EditTargetKind::Rejected:
         // A programming error at this point -- the caller resolves the edit
@@ -304,13 +327,16 @@ void apply_patch(definitions::EcuCalDefStructure& def, int map_number, calibrati
         // corrupting memory, mirroring apply_paste's (map_edit.cpp)
         // established precedent of silently skipping cells that fall
         // outside a target's real extent rather than failing the whole
-        // operation. This guards apply_patch's own WRITE only: apply_set_
-        // expression and apply_interpolation (map_edit.cpp) still do an
-        // unchecked cell_text[index]/cell_at(...) READ for the identical
-        // pre-existing layout bug, out of scope here just like the
-        // underlying column shift itself -- this fix narrows the class of
-        // harm from a possible OOB write to a possible OOB read, it does not
-        // close the class entirely.
+        // operation. This guards apply_patch's own WRITE only: the edit
+        // operations in map_edit.cpp still do an unchecked cell_text READ for
+        // the identical pre-existing layout bug -- apply_set_expression and
+        // apply_increment index the span directly, apply_interpolation does
+        // so through cell_at(...) -- out of scope here just like the
+        // underlying column shift itself. This fix narrows the class of harm
+        // from a possible OOB write to a possible OOB read; it does not close
+        // the class entirely. Recorded as a deferred action in
+        // docs/tech-debt.md ("Fix resolve_edit_target's y_size == 1 column
+        // shift"), which also states what a real fix requires.
         if (cell.index >= static_cast<std::uint32_t>(cell_text.size()))
         {
             continue;

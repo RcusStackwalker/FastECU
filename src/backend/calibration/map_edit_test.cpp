@@ -35,6 +35,24 @@ MapElementSpec spec_for(definition::StorageType storage_type, std::string_view e
     return spec;
 }
 
+// A signed-storage map, for the guard tests that distinguish a genuine
+// range/overflow check from the sign-wrap heuristic. Every other guard test
+// in this file uses `uint8` storage, which is exactly the case where the two
+// coincide -- an out-of-range uint8 candidate and a "wrapped" one are the
+// same candidate -- so only a signed storage type can tell them apart.
+MapElementSpec int8_spec(std::uint32_t x_size, std::uint32_t y_size)
+{
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Int8;
+    spec.endian = "big";
+    spec.to_byte = "x";
+    spec.from_byte = "x";
+    spec.x_size = x_size;
+    spec.y_size = y_size;
+    return spec;
+}
+
 std::vector<std::uint8_t> rom_of(std::size_t size)
 {
     std::vector<std::uint8_t> rom(size, 0x00);
@@ -289,6 +307,23 @@ TEST(ElementByteAddress, PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite)
     EXPECT_NE(element_byte_address(spec, 0, /*for_write=*/false), element_byte_address(spec, 0, /*for_write=*/true));
 }
 
+// Spec defect (b): the edit path used a flat address + index*width layout while
+// decode_scaled_values honours start_position and interval, so editing a
+// strided map landed on neighbouring data.
+TEST(ElementByteAddress, HonoursTheStartPositionAndIntervalStride)
+{
+    MapElementSpec spec;
+    spec.address = 0x100;
+    spec.storage_type = definition::StorageType::Uint16;
+    spec.start_position = 2;
+    spec.interval = 3;
+
+    // addr(j) = 0x100 + (2-1)*2 + j*2*3
+    EXPECT_EQ(element_byte_address(spec, 0, false), 0x102U);
+    EXPECT_EQ(element_byte_address(spec, 1, false), 0x108U);
+    EXPECT_EQ(element_byte_address(spec, 2, false), 0x10EU);
+}
+
 // The encode/decode round trip is the safety net for every edit operation: if
 // encode_scaled_value and read_raw_element disagree about byte order, an edit
 // silently writes a different value than the grid displays.
@@ -303,20 +338,43 @@ TEST(ElementByteAddress, PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite)
 // because it always read back as 0.
 TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
 {
+    // A test-local case table read once per row; field order follows the
+    // fixture's storage/endian/value reading order, not optimal packing.
+    // NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
     struct Case
     {
         definition::StorageType storage;
         std::string_view endian;
         std::int64_t raw;
+        // Defaults reproduce the pre-6b-4 flat layout (no striding); the
+        // strided case below overrides these to prove encode_scaled_value
+        // (via element_byte_address, for_write=true) and read_raw_element
+        // (via element_byte_address, for_write=false) still agree on WHERE to
+        // place the bytes, not just on byte order -- spec's defect (b).
+        std::uint32_t start_position{1};
+        std::uint32_t interval{1};
+        std::uint32_t index{0};
     };
     const Case cases[] = {
-        {definition::StorageType::Uint8, "big", 0xAB},           {definition::StorageType::Uint16, "big", 0x1234},
-        {definition::StorageType::Uint16, "little", 0x1234},     {definition::StorageType::Uint24, "big", 0x123456},
-        {definition::StorageType::Uint24, "little", 0x123456},   {definition::StorageType::Uint32, "big", 0x12345678},
-        {definition::StorageType::Uint32, "little", 0x12345678}, {definition::StorageType::Int8, "big", -2},
-        {definition::StorageType::Int16, "big", -300},           {definition::StorageType::Int16, "little", -300},
-        {definition::StorageType::Int32, "big", -70000},         {definition::StorageType::Int32, "little", -70000},
+        {definition::StorageType::Uint8, "big", 0xAB},
+        {definition::StorageType::Uint16, "big", 0x1234},
+        {definition::StorageType::Uint16, "little", 0x1234},
+        {definition::StorageType::Uint24, "big", 0x123456},
+        {definition::StorageType::Uint24, "little", 0x123456},
+        {definition::StorageType::Uint32, "big", 0x12345678},
+        {definition::StorageType::Uint32, "little", 0x12345678},
+        {definition::StorageType::Int8, "big", -2},
+        {definition::StorageType::Int16, "big", -300},
+        {definition::StorageType::Int16, "little", -300},
+        {definition::StorageType::Int32, "big", -70000},
+        {definition::StorageType::Int32, "little", -70000},
         {definition::StorageType::Int24, "big", 0x010203},
+        // Strided: start_position=2, interval=3, element index 1. If the
+        // encode side placed bytes at a flat address+index*width instead of
+        // honouring the stride, this would write to a different offset than
+        // read_raw_element(..., index=1) reads from, and the round trip would
+        // fail.
+        {definition::StorageType::Uint16, "big", 0x1234, /*start_position=*/2, /*interval=*/3, /*index=*/1},
     };
 
     for (const auto& c : cases)
@@ -327,16 +385,20 @@ TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
         spec.endian = c.endian;
         spec.to_byte = "x";
         spec.from_byte = "x";
+        spec.start_position = c.start_position;
+        spec.interval = c.interval;
 
         const auto encoded = encode_scaled_value(spec, double(c.raw), 15);
         ASSERT_TRUE(encoded.has_value()) << to_string(encoded.error().kind);
 
         std::vector<std::uint8_t> rom(0x40, 0x00);
-        std::ranges::copy(*encoded, rom.begin() + 0x10);
+        const auto byte_address = element_byte_address(spec, c.index, /*for_write=*/true);
+        std::ranges::copy(*encoded, rom.begin() + static_cast<std::ptrdiff_t>(byte_address));
 
-        const auto decoded = read_raw_element(rom, spec, 0);
+        const auto decoded = read_raw_element(rom, spec, c.index);
         ASSERT_TRUE(decoded.has_value());
-        EXPECT_EQ(*decoded, c.raw) << "storage=" << definition::storage_type_text(c.storage) << " endian=" << c.endian;
+        EXPECT_EQ(*decoded, c.raw) << "storage=" << definition::storage_type_text(c.storage) << " endian=" << c.endian
+                                   << " start_position=" << c.start_position << " interval=" << c.interval;
     }
 }
 
@@ -780,6 +842,39 @@ TEST(ApplyIncrement, RetriesUntilTheEncodedValueActuallyChanges)
     EXPECT_EQ((*patch)[0].bytes, (std::vector<std::uint8_t>{6}));
 }
 
+// The counterpart to the three encode_guarded tests below
+// (ApplySetExpression/ApplyPaste/ApplyInterpolation's
+// "AllowsAnInRangeNegativeToPositive..." cases): apply_increment keeps
+// applying the FULL guard, sign-wrap heuristic included, and this pins that
+// it still does. An int8 cell holding -1 incremented by +5 lands on 4 -- both
+// values are perfectly in range for an int8, so no genuine overflow occurs --
+// but the heuristic fires on the negative-to-positive byte-pattern
+// transition, and legacy's response is to revert this one cell and move on.
+// That is preserved deliberately: inside a bounded retry loop a false
+// positive costs one cell, which is the only context where the heuristic is
+// defensible (see sign_wrap_heuristic_fires and encode_guarded in
+// map_edit.cpp). The identical -1 -> positive transition through
+// apply_set_expression SUCCEEDS, because there a fired guard would fail the
+// whole selection's edit.
+TEST(ApplyIncrement, SignWrapHeuristicStillRevertsAnInRangeNegativeToPositiveIncrement)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xFF; // -1 as int8.
+
+    MapElementSpec spec = int8_spec(1, 1);
+    spec.coarse_increment = 5.0;
+    spec.fine_increment = 1.0;
+
+    const std::string_view cells[] = {"-1"};
+    const auto patch =
+        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+                        IncrementStep::CoarseUp, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    EXPECT_EQ((*patch)[0].bytes, std::vector<std::uint8_t>{0xFF});
+    EXPECT_EQ((*patch)[0].display_text, "-1");
+}
+
 TEST(ApplyIncrement, ReportsInvalidConfigWhenTheRetryBoundIsExhausted)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00); // rom[0x10] = 0
@@ -861,10 +956,9 @@ TEST(ApplySetExpression, ReportsInvalidConfigOnDivisionByZero)
     EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
 }
 
-// Spec defect (c), pinned: set_value clamps to min/max but runs none of the
-// storage-type saturation guards apply_increment does. Task 13 fixes this and
-// flips the expectation.
-TEST(ApplySetExpression, PinnedDefect_DoesNotApplySaturationGuards)
+// Spec defect (c), fixed: set_value now runs the same storage-type
+// saturation guard apply_increment does, via the shared encode_guarded path.
+TEST(ApplySetExpression, RejectsAValueThatWouldOverflowTheStorageType)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
     rom[0x10] = 10;
@@ -882,9 +976,85 @@ TEST(ApplySetExpression, PinnedDefect_DoesNotApplySaturationGuards)
     const auto patch = apply_set_expression(rom, spec, /*x_size=*/1, cells,
                                             {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "300", 15);
 
+    // 300 overflows a uint8 -- the whole call fails instead of truncating
+    // silently into the storage type.
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
+}
+
+// Regression test for finding C1 of the PR 6b-4 final review: encode_guarded
+// used to apply apply_increment's WHOLE guard, sign-wrap heuristic included,
+// and treat any firing as a whole-operation failure. That heuristic fires on
+// every negative-to-positive transition of a signed cell, in range or not, so
+// setting an int8 cell holding -5 to 3 -- two values both comfortably inside
+// int8's range -- failed the entire edit with ErrorKind::InvalidConfig.
+// Signed calibration maps (timing trim, fuel trim, MAF correction) make that
+// an ordinary edit, so encode_guarded now applies only the genuine range
+// check. Every pre-existing guard test in this file used `uint8` storage,
+// where the heuristic and the range check coincide, which is why none of them
+// caught this.
+TEST(ApplySetExpression, AllowsAnInRangeNegativeToPositiveEditOnSignedStorage)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xFB; // -5 as int8.
+
+    const std::string_view cells[] = {"-5"};
+    const auto patch = apply_set_expression(rom, int8_spec(1, 1), /*x_size=*/1, cells,
+                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "3", 15);
+
     ASSERT_TRUE(patch.has_value());
-    // 300 truncates into a uint8 rather than being rejected as out of range.
-    EXPECT_NE((*patch)[0].bytes[0], 10);
+    EXPECT_EQ((*patch)[0].display_text, "3");
+    EXPECT_EQ((*patch)[0].bytes, std::vector<std::uint8_t>{0x03});
+}
+
+// The other side of AllowsAnInRangeNegativeToPositiveEditOnSignedStorage: the
+// genuine range check is still enforced on signed storage. 300 does not fit
+// an int8 at all, so the whole call still fails.
+TEST(ApplySetExpression, RejectsAValueOutsideTheSignedStorageRange)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xFB; // -5 as int8.
+
+    const std::string_view cells[] = {"-5"};
+    const auto patch = apply_set_expression(rom, int8_spec(1, 1), /*x_size=*/1, cells,
+                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "300", 15);
+
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
+}
+
+// Regression test for a defect introduced and fixed within Task 13 itself:
+// apply_set_expression has a legacy-fidelity contract (this file's own doc
+// comment in map_edit.h) that its "x" input to spec.to_byte is formatted at
+// a HARDCODED precision of 6 (bare QString::number), regardless of
+// `float_precision` -- routing through the new shared encode_guarded must
+// not silently swap that for float_precision. float_precision is set to 1
+// here specifically so the two precisions would produce different encoded
+// bytes if the wrong one were used: "1.6" formats to "1.6" at precision 6
+// (unchanged) but to "2" at precision 1, and to_byte="x*100" amplifies that
+// into a different rounded integer (160 vs 200).
+TEST(ApplySetExpression, StillEncodesAtThePrecisionSixLegacyFidelityContract)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint8;
+    spec.endian = "big";
+    spec.to_byte = "x*100";
+    spec.from_byte = "x/100";
+    spec.x_size = 1;
+    spec.y_size = 1;
+
+    const std::string_view cells[] = {"0"};
+    const auto patch = apply_set_expression(rom, spec, /*x_size=*/1, cells,
+                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "1.6",
+                                            /*float_precision=*/1);
+
+    ASSERT_TRUE(patch.has_value());
+    // At the correct hardcoded precision 6: "1.6" -> x*100 = 160.
+    // At the buggy float_precision=1: "1.6" would format to "2" -> x*100 = 200.
+    EXPECT_EQ((*patch)[0].bytes, std::vector<std::uint8_t>{160});
 }
 
 MapElementSpec linear_uint8_spec(std::uint32_t x_size, std::uint32_t y_size)
@@ -983,6 +1153,131 @@ TEST(ApplyInterpolation, BidirectionalCentreCellIsTheBilinearResultOfTheFourCorn
     EXPECT_EQ((*patch)[4].display_text, "80");
 }
 
+// Spec defect (c), fixed: interpolate_value ran neither a min/max clamp nor
+// a saturation guard before 6b-4. This exercises the clamp half: the right
+// corner's raw interpolated value (200) exceeds the definition's max_value
+// (100), so the written cell clamps to 100 instead of truncating into the
+// uint8 storage type (200 == 0xC8, which would itself still fit a uint8 --
+// RejectsAnInterpolatedValueThatWouldOverflowTheStorageType below covers the
+// guard half, where the value doesn't fit at all).
+TEST(ApplyInterpolation, ClampsAnInterpolatedValueToTheDefinitionMaximum)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "0", "200"};
+
+    MapElementSpec spec = linear_uint8_spec(3, 1);
+    spec.max_value = "100";
+
+    const auto patch = apply_interpolation(rom, spec, /*x_size=*/3, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
+                                           InterpolationMode::Horizontal, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 3U);
+    EXPECT_EQ((*patch)[2].display_text, "100");
+    EXPECT_EQ((*patch)[2].bytes, std::vector<std::uint8_t>{100});
+}
+
+// Spec defect (c), fixed: the saturation-guard half of
+// ClampsAnInterpolatedValueToTheDefinitionMaximum above -- no min/max is set
+// here, so it's the storage-type saturation guard (not a clamp) rejecting an
+// interpolated corner value (300) that overflows a uint8.
+TEST(ApplyInterpolation, RejectsAnInterpolatedValueThatWouldOverflowTheStorageType)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "0", "300"};
+
+    const auto patch = apply_interpolation(rom, linear_uint8_spec(3, 1), /*x_size=*/3, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
+                                           InterpolationMode::Horizontal, 15);
+
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
+}
+
+// Finding C1 of the PR 6b-4 final review, on the interpolation path -- see
+// ApplySetExpression.AllowsAnInRangeNegativeToPositiveEditOnSignedStorage for
+// the full argument. A corner-to-corner sweep from -10 to 10 across three
+// int8 cells passes through zero, so the right-hand cell's new value (10) is
+// positive while the byte it replaces is negative; every value involved is in
+// range for an int8. The seeded ROM bytes are what the guard compares
+// against, and are chosen so the middle and right cells both hold a negative
+// value before the edit: under the pre-fix guard the right cell tripped the
+// sign-wrap heuristic and failed the whole interpolation.
+TEST(ApplyInterpolation, AllowsAnInRangeNegativeToPositiveSweepOnSignedStorage)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xF6; // -10
+    rom[0x11] = 0xFB; // -5
+    rom[0x12] = 0xFB; // -5
+
+    const std::string_view cells[] = {"-10", "0", "10"};
+
+    const auto patch = apply_interpolation(rom, int8_spec(3, 1), /*x_size=*/3, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
+                                           InterpolationMode::Horizontal, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 3U);
+    EXPECT_EQ((*patch)[0].display_text, "-10");
+    EXPECT_EQ((*patch)[1].display_text, "0");
+    EXPECT_EQ((*patch)[2].display_text, "10");
+    EXPECT_EQ((*patch)[2].bytes, std::vector<std::uint8_t>{0x0A});
+}
+
+// The other side of AllowsAnInRangeNegativeToPositiveSweepOnSignedStorage:
+// interpolating out to 300 puts a value that cannot fit an int8 at the right
+// endpoint, and the genuine range check still fails the whole call.
+TEST(ApplyInterpolation, RejectsAnInterpolatedValueOutsideTheSignedStorageRange)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xF6; // -10
+    rom[0x11] = 0xFB; // -5
+
+    const std::string_view cells[] = {"-10", "300"};
+
+    const auto patch = apply_interpolation(rom, int8_spec(2, 1), /*x_size=*/2, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1},
+                                           InterpolationMode::Horizontal, 15);
+
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
+}
+
+// Regression test for a defect introduced and fixed within Task 13 itself:
+// apply_interpolation has the same precision-6 legacy-fidelity contract
+// apply_set_expression does (this file's own doc comment in map_edit.h) --
+// see StillEncodesAtThePrecisionSixLegacyFidelityContract above for the
+// mechanism. Interpolating from 0 to 10 across 4 columns puts a genuinely
+// fractional value (10/3 = 3.333...) at column 1; to_byte="x*100" amplifies
+// the precision-6-vs-float_precision difference into a different rounded
+// integer (333 vs 300).
+TEST(ApplyInterpolation, StillEncodesAtThePrecisionSixLegacyFidelityContract)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "0", "0", "10"};
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint16;
+    spec.endian = "big";
+    spec.to_byte = "x*100";
+    spec.from_byte = "x/100";
+    spec.x_size = 4;
+    spec.y_size = 1;
+
+    const auto patch = apply_interpolation(rom, spec, /*x_size=*/4, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 3},
+                                           InterpolationMode::Horizontal, /*float_precision=*/1);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 4U);
+    // Column 1's interpolated value is 10/3 = 3.333... -- at precision 6
+    // that's "3.33333", encoded via x*100 and rounded to 333 (0x014D). At the
+    // buggy float_precision=1 it would format to "3", encoding to 300 instead.
+    EXPECT_EQ((*patch)[1].bytes, (std::vector<std::uint8_t>{0x01, 0x4D}));
+}
+
 TEST(ApplyPaste, WritesTheClipboardBlockAnchoredAtTheSelectionCorner)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
@@ -1036,17 +1331,13 @@ TEST(ApplyPaste, DropsRowsThatFallOutsideTheMap)
     EXPECT_EQ(patch->size(), 2U);
 }
 
-// Spec defect (c), pinned: paste applies neither min/max clamping nor
-// saturation guards to the ROM bytes it writes, so arbitrary clipboard text
-// becomes arbitrary ROM bytes. Task 13 fixes this by clamping/guarding the
-// `.bytes` path; `display_text` is NOT expected to change when that lands --
-// unlike apply_increment/apply_set_expression's sibling pinned-defect tests,
-// apply_paste's display_text is always the pasted text verbatim (see this
-// function's doc comment), never round-tripped from the encoded value, so it
-// is architecturally decoupled from any future clamp on `.bytes`. The
-// `.bytes` assertion below (not `display_text`) is therefore the one Task 13
-// must flip.
-TEST(ApplyPaste, PinnedDefect_AppliesNoBoundsCheckingAtAll)
+// Spec defect (c), fixed: paste now clamps to the definition's min/max and
+// runs the same saturation guard the other three operations do, via the
+// shared encode_guarded path. Clamping necessarily makes display_text derive
+// from the (possibly-clamped) encoded value rather than the pasted text
+// verbatim -- the two can no longer diverge, since both now come out of the
+// same encode_guarded call.
+TEST(ApplyPaste, ClampsAPastedValueToTheDefinitionMaximum)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
     const std::string_view cells[] = {"0", "0", "0", "0"};
@@ -1060,10 +1351,67 @@ TEST(ApplyPaste, PinnedDefect_AppliesNoBoundsCheckingAtAll)
                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
 
     ASSERT_TRUE(patch.has_value());
-    EXPECT_EQ((*patch)[0].display_text, "9999");
-    // 9999 truncates into a uint8 (9999 == 0x270F, low byte 0x0F) rather than
-    // being rejected or clamped to the definition's max_value of 255.
-    EXPECT_EQ((*patch)[0].bytes, (std::vector<std::uint8_t>{0x0F}));
+    // 9999 clamps to the definition's max_value of 255 instead of truncating
+    // into the uint8 storage type (9999 == 0x270F, low byte 0x0F).
+    EXPECT_EQ((*patch)[0].display_text, "255");
+    EXPECT_EQ((*patch)[0].bytes, (std::vector<std::uint8_t>{0xFF}));
+}
+
+// The saturation-guard half of ClampsAPastedValueToTheDefinitionMaximum
+// above: no min/max is set here, so nothing clamps the pasted value first --
+// it's the storage-type saturation guard rejecting a pasted 300 that
+// directly overflows a uint8.
+TEST(ApplyPaste, RejectsAPastedValueThatWouldOverflowTheStorageType)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "0", "0", "0"};
+    const std::vector<std::string_view> rows[] = {{"300"}};
+
+    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
+                                   {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
+
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
+}
+
+// Finding C1 of the PR 6b-4 final review, on the paste path -- see
+// ApplySetExpression.AllowsAnInRangeNegativeToPositiveEditOnSignedStorage for
+// the full argument. Pasting 3 over an int8 cell holding -5 is an ordinary
+// in-range edit; the pre-fix guard rejected the whole paste because the
+// byte's high bit was set before and clear after.
+TEST(ApplyPaste, AllowsAnInRangeNegativeToPositivePasteOnSignedStorage)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xFB; // -5 as int8.
+
+    const std::string_view cells[] = {"-5"};
+    const std::vector<std::string_view> rows[] = {{"3"}};
+
+    const auto patch = apply_paste(rom, int8_spec(1, 1), /*x_size=*/1, /*y_size=*/1, cells,
+                                   {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 1U);
+    EXPECT_EQ((*patch)[0].display_text, "3");
+    EXPECT_EQ((*patch)[0].bytes, std::vector<std::uint8_t>{0x03});
+}
+
+// The other side of AllowsAnInRangeNegativeToPositivePasteOnSignedStorage: no
+// min/max is set, so nothing clamps the pasted 300 first, and the genuine
+// range check still rejects it as unrepresentable in an int8.
+TEST(ApplyPaste, RejectsAPastedValueOutsideTheSignedStorageRange)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xFB; // -5 as int8.
+
+    const std::string_view cells[] = {"-5"};
+    const std::vector<std::string_view> rows[] = {{"300"}};
+
+    const auto patch = apply_paste(rom, int8_spec(1, 1), /*x_size=*/1, /*y_size=*/1, cells,
+                                   {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
+
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
 }
 
 // Design notes section 5: legacy sizes its column loop from the FIRST row's

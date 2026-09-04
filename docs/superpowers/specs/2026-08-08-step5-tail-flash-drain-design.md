@@ -29,8 +29,12 @@ Exact and machine-checked:
 - `//src/algorithms/protocol/ssm:qt_compat`,
   `//src/algorithms/protocol/colt:qt_compat`,
   `//src/algorithms/protocol/mut_dma:qt_compat`,
-  `//src/algorithms/menu:qt_compat`, `//src/algorithms/crypto:qt_compat`, and
+  `//src/algorithms/crypto:qt_compat`, and
   `//src/algorithms/expression:qt_compat` are deleted.
+  `//src/algorithms/menu:qt_compat` is no longer part of this list — step 6b
+  deleted it (PR 6b-3). Its only consumer was `src/ui/desktop/menu_actions.cpp`,
+  a file the drain never owned, so its retirement was never this design's
+  work to do; see [the shim table](#scope) below.
 - `//src/algorithms/protocol:qt_compat` is **retained** — see
   [The shim that stays](#the-shim-that-stays).
 - All 27 rows in the [flash qualification matrix](../../flash-qualification-matrix.md)
@@ -128,7 +132,7 @@ executor pairs until the legacy package is deleted. Roughly 95% of the effort.
 | `ssm:qt_compat` | 27, all legacy flash | dies with the last family (wave 7) |
 | `colt:qt_compat` | 2, both `mitsu_m32r_can` | dies in wave 0 |
 | `mut_dma:qt_compat` | **0** | already dead; deleted in wave 0 |
-| `menu:qt_compat` | 1 (`src/ui/desktop`) | independent PR, any time |
+| `menu:qt_compat` | 1 (`src/ui/desktop`) | deleted by step 6b (PR 6b-3), not this design |
 | `crypto:qt_compat` | 1 (`src/ui/desktop`) | independent PR, any time |
 | `expression:qt_compat` | 1 (`src/backend/definitions`) | independent PR, any time |
 | `protocol:qt_compat` | 22 | **retained** (ADR 0004) |

@@ -24,9 +24,10 @@ Observed on 2026-08-05:
   and generated Qt files, is approximately 390 `.cpp`/`.h` files and 93k lines.
   Tests contain approximately 24k lines across 104 `.cpp`/`.h` files.
 - Tests are strongest around protocol codecs, logging, serial threading, J2534
-  bridge behavior, definition parsing, and the extracted config/calibration use
-  cases. Checksum families, calibration/map editing, most flash orchestration,
-  and UI workflows remain lightly covered.
+  bridge behavior, definition parsing, the extracted config/calibration use
+  cases, and, as of step 6b, calibration map-edit/interpolation/bounds
+  behavior. Checksum families, most flash orchestration, and UI workflows
+  remain lightly covered.
 - CI builds and tests on Windows, macOS, and Linux, verifies macOS/Windows
   packages, produces coverage for SonarCloud, and runs a blocking clang-tidy
   report over the PR's changed files.
@@ -71,7 +72,9 @@ Actions:
 loading, serial/device setup, logging wiring, calibration lifecycle, ECU
 operation dispatch, log views, status updates, and dialogs. `mainwindow.h`
 still includes nearly every flash dialog module. `mainwindow.cpp` is about
-2.7k lines and `menu_actions.cpp` is about 2k lines.
+2.7k lines and `menu_actions.cpp` is down to 1,315 lines (from ~2.1k) after
+step 6b extracted the map-edit arithmetic into
+`//src/backend/calibration:map_edit`.
 
 Risks:
 
@@ -88,10 +91,65 @@ Actions:
   settings persistence.
 - Replace direct construction of all flash dialogs from `MainWindow` with a
   typed operation registry/factory that owns module-specific dependencies.
-- Move calibration/map commands out of `menu_actions.cpp` into headless model
-  operations; leave only selection extraction, signal wiring, and user feedback
-  in the UI.
+- ~~Move calibration/map commands out of `menu_actions.cpp` into headless
+  model operations; leave only selection extraction, signal wiring, and user
+  feedback in the UI.~~ Done (step 6b): the byte codec, target resolution,
+  display helpers, and all four edit operations
+  (increment/set-expression/interpolation/paste) now live in
+  `//src/backend/calibration:map_edit`, reached from `menu_actions.cpp`
+  through resolve → collect input → call → apply patch → repaint. Undo/redo
+  is a deliberate non-goal of that slice (see the design's own "Also
+  non-goal" note) and is not covered by this action.
 - Keep new file, protocol, and hardware logic out of `MainWindow`.
+- **Fix or defer the `wrx02` write-path predicate (step 6b spec defect
+  (a)).** `element_byte_address` (`src/backend/calibration/map_edit.cpp`)
+  still carries two different predicates for the `wrx02` flash-method
+  address fixup depending on its `for_write` parameter — one for reads, one
+  for writes — subtracting `0x8000` under different conditions; a cell near
+  the boundary can display one byte and write a different one. The
+  write-side predicate matches the documented `apply_flash_method_padding`
+  rule (inserting `0x8000` bytes at `0x20000` for images under `190 * 1024`;
+  see `calibration_service.h`), which suggests the read side is the wrong
+  copy, but the step 6b design (spec section "(a)") requires confirming that
+  against a real `wrx02` definition before landing a fix rather than
+  guessing. Measurement taken while closing out step 6b: `grep -rl wrx02`
+  across both the `mmc-definitions` and `mmc-patches` corpora finds **zero**
+  ROMs anywhere that declare `wrx02` as their flash method, so there is no
+  real definition to confirm the fix against, and the fix stays deferred
+  with `PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite`
+  (`src/backend/calibration/map_edit_test.cpp`) still pinned, unflipped.
+  Landing this needs either a real `wrx02` definition surfacing later to
+  confirm which predicate is correct, or an explicit accepted-risk decision
+  to pick the write-side predicate on the padding-rule reasoning alone
+  without that confirmation.
+- **Fix `resolve_edit_target`'s `y_size == 1` column shift, which can still
+  produce an out-of-bounds read.** `resolve_edit_target`
+  (`src/backend/calibration/map_edit.cpp`) shifts rows back by one on the
+  X-axis branch to skip a 3D map's header row but never shifts columns —
+  correct for a 3D map, wrong for a "2D" map with `y_size == 1`, which has no
+  header column (`calibration_maps.cpp`'s `xSizeOffset = 0`). Selecting that
+  layout's sole X-axis breakpoint yields `range.first_col == -1`, which
+  becomes a cell index of `static_cast<std::uint32_t>(-1)` — a huge value once
+  unsigned. `apply_patch`
+  (`src/ui/desktop/calibration/map_edit_adapter.cpp`) was hardened against the
+  resulting out-of-bounds *write* by dropping such a cell, but the edit
+  operations themselves (`src/backend/calibration/map_edit.cpp`) still perform
+  an unchecked out-of-bounds *read* on the `cell_text` span for the same
+  index: `apply_set_expression` and `apply_increment` index it directly, and
+  `apply_interpolation` does so through its `cell_at(...)` helper.
+  (`apply_paste` does not read `cell_text` at all, and every ROM-side read
+  goes through `read_raw_element`, which is bounds-checked.) That is
+  a live memory-safety hazard, and the `apply_patch` guard narrows the class
+  of harm rather than closing it. It is pre-existing behavior in code step 6b
+  moved rather than introduced, which is why 6b-4 recorded it instead of
+  fixing it: the real fix is in `resolve_edit_target`'s own `y_size == 1`
+  branch, not in per-caller bounds checks, and changing which element a
+  selection resolves to is a behavior change that needs its own test rather
+  than riding along with a defect-fix PR. Landing this means correcting the
+  column shift for the `y_size == 1` layout, covering it with a
+  `resolve_edit_target` test asserting the corrected range, and then
+  confirming the `apply_patch` guard has become unreachable rather than
+  load-bearing.
 
 ### P1: Split `FileActions`
 
@@ -270,8 +328,12 @@ Actions:
 
 2. Checksum and calibration logic:
    - Golden vectors and invalid inputs for all checksum families.
-   - Calibration-map edit, interpolation, undo/redo, and bounds behavior without
-     widgets.
+   - ~~Calibration-map edit, interpolation, undo/redo, and bounds behavior
+     without widgets.~~ Covered by step 6b for edit, interpolation, and bounds
+     (`//src/backend/calibration:map_edit`'s `fastecu_portable_gtest` suite —
+     byte codec, target resolution, all four edit operations, and
+     bounds/saturation guards, no Qt). Undo/redo remains uncovered: it stays
+     a `qDebug()` stub in the UI, a deliberate non-goal of step 6b.
 
 3. I/O and orchestration:
    - Scripted flash-family sessions over K-Line/CAN/SSM transports.
