@@ -73,6 +73,8 @@ definitions::EcuCalDefStructure two_by_two_def()
     def.FineIncList << "0.1";
     def.XSizeList << "2";
     def.YSizeList << "2";
+    def.StartPosList << "0x2";
+    def.IntervalList << "0x3";
     def.FileSize = "196608";
     return def;
 }
@@ -89,6 +91,29 @@ TEST(MapEditAdapter, PlucksMapBodyFields)
     EXPECT_EQ(spec.endian, "big");
     EXPECT_EQ(spec.from_byte, "x*2");
     EXPECT_DOUBLE_EQ(spec.fine_increment, 0.1);
+    // Spec defect (b): StartPosList/IntervalList are hex_text-formatted, same
+    // convention as AddressList -- 0x2/0x3 here, not decimal 2/3.
+    EXPECT_EQ(spec.start_position, 2U);
+    EXPECT_EQ(spec.interval, 3U);
+}
+
+// StartPosList/IntervalList default to 1 (no striding) when absent or
+// unparsable, matching MapElementSpec's own default and
+// decode_scaled_values' EcuCalDefStructure default -- unlike AddressList,
+// which warns and falls back to 0 (FallsBackToZeroOnABadHexAddress below),
+// since 1 is a meaningful, safe "not strided" value rather than an obviously
+// wrong placeholder.
+TEST(MapEditAdapter, FallsBackToOneWhenStartPositionOrIntervalIsMissing)
+{
+    definitions::EcuCalDefStructure def = two_by_two_def();
+    def.StartPosList.clear();
+    def.IntervalList.clear();
+
+    const auto fields = collect_map_element_fields(def, 0, calibration::EditTargetKind::MapBody);
+    const auto spec = fields.spec();
+
+    EXPECT_EQ(spec.start_position, 1U);
+    EXPECT_EQ(spec.interval, 1U);
 }
 
 TEST(MapEditAdapter, PlucksXAxisFieldsFromTheXScaleLists)
@@ -103,6 +128,8 @@ TEST(MapEditAdapter, PlucksXAxisFieldsFromTheXScaleLists)
     def.XScaleMaxValueList << " ";
     def.XScaleCoarseIncList << "2.0";
     def.XScaleFineIncList << "0.5";
+    def.XScaleStartPosList << "0x4";
+    def.XScaleIntervalList << "0x5";
 
     const auto fields = collect_map_element_fields(def, 0, calibration::EditTargetKind::XAxis);
     const auto spec = fields.spec();
@@ -114,6 +141,8 @@ TEST(MapEditAdapter, PlucksXAxisFieldsFromTheXScaleLists)
     EXPECT_EQ(spec.from_byte, "x*10");
     EXPECT_DOUBLE_EQ(spec.coarse_increment, 2.0);
     EXPECT_DOUBLE_EQ(spec.fine_increment, 0.5);
+    EXPECT_EQ(spec.start_position, 4U);
+    EXPECT_EQ(spec.interval, 5U);
 }
 
 TEST(MapEditAdapter, PlucksYAxisFieldsFromTheYScaleLists)
@@ -128,6 +157,8 @@ TEST(MapEditAdapter, PlucksYAxisFieldsFromTheYScaleLists)
     def.YScaleMaxValueList << " ";
     def.YScaleCoarseIncList << "3.0";
     def.YScaleFineIncList << "0.25";
+    def.YScaleStartPosList << "0x6";
+    def.YScaleIntervalList << "0x7";
 
     const auto fields = collect_map_element_fields(def, 0, calibration::EditTargetKind::YAxis);
     const auto spec = fields.spec();
@@ -139,6 +170,8 @@ TEST(MapEditAdapter, PlucksYAxisFieldsFromTheYScaleLists)
     EXPECT_EQ(spec.from_byte, "x/4");
     EXPECT_DOUBLE_EQ(spec.coarse_increment, 3.0);
     EXPECT_DOUBLE_EQ(spec.fine_increment, 0.25);
+    EXPECT_EQ(spec.start_position, 6U);
+    EXPECT_EQ(spec.interval, 7U);
 }
 
 TEST(MapEditAdapter, ReadsFlashMethodAndRomFileSizeFromTheSharedRomInfo)

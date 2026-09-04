@@ -108,6 +108,14 @@ struct MapElementSpec
     // width, not this one.
     std::uint32_t x_size{1};
     std::uint32_t y_size{1};
+    // The strided-layout inputs (spec's defect (b)): decode_scaled_values
+    // lays elements out at address + (start_position-1)*width +
+    // index*width*interval, not a flat address + index*width. Defaulted to 1
+    // (no striding, matching decode_scaled_values' own EcuCalDefStructure
+    // default) so a spec built without setting these behaves exactly as the
+    // old flat layout did.
+    std::uint32_t start_position{1};
+    std::uint32_t interval{1};
     // The wrx02 relocation inputs. Carried as data rather than read from a
     // global so the rule is testable; see the spec's defect (a).
     std::string_view flash_method;

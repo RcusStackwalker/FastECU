@@ -8,6 +8,7 @@
 #include <concepts>
 #include <cstddef>
 #include <format>
+#include <limits>
 #include <string>
 
 #include "src/algorithms/expression/expression_evaluator.h"
@@ -255,7 +256,37 @@ std::string display_text_after_encode(const MapElementSpec& spec, std::span<cons
 std::uint64_t element_byte_address(const MapElementSpec& spec, std::uint32_t index, bool for_write)
 {
     const std::uint32_t width = definition::storage_byte_size(spec.storage_type);
-    std::uint64_t address = spec.address + std::uint64_t(index) * width;
+
+    // Layout matches decode_scaled_values (calibration_service.cpp) exactly --
+    // spec's defect (b): the edit path used to lay elements out flat
+    // (address + index*width), ignoring start_position/interval, which
+    // decode_scaled_values honours. addr(j) = address + (start_position-1) *
+    // width + j * width * interval.
+    //
+    // start_position is 1-based. definition_resolver rejects 0, but clamp
+    // identically to decode_scaled_values' guard so the two paths cannot
+    // disagree if this is ever reached with an out-of-domain 0 directly.
+    const std::uint64_t start_offset = spec.start_position == 0 ? 0 : std::uint64_t(spec.start_position - 1);
+
+    // Overflow-checked exactly as decode_scaled_values: on overflow, return a
+    // sentinel address a real ROM can never contain rather than wrapping, so
+    // every caller's existing bounds check (read_raw_element's
+    // byte_window_fits, or read_raw_element having already validated the
+    // same index before any of this file's apply_* operations reach their
+    // own element_byte_address(..., for_write=true) call) turns the overflow
+    // into the same "runs past ROM size" failure decode_scaled_values reports,
+    // instead of silently targeting a wrapped-around address.
+    constexpr std::uint64_t kOverflowSentinel = std::numeric_limits<std::uint64_t>::max();
+    std::uint64_t start_byte_offset = 0;
+    std::uint64_t stride = 0;
+    std::uint64_t element_offset = 0;
+    std::uint64_t address = 0;
+    if (!checked_multiply(start_offset, width, start_byte_offset) || !checked_multiply(width, spec.interval, stride) ||
+        !checked_multiply(std::uint64_t(index), stride, element_offset) ||
+        !checked_add(spec.address, start_byte_offset, address) || !checked_add(address, element_offset, address))
+    {
+        return kOverflowSentinel;
+    }
 
     // Legacy applies two DIFFERENT wrx02 relocation predicates on the read and
     // write paths. Preserved verbatim and kept visibly side by side; the spec's

@@ -22,6 +22,21 @@ namespace
 // calibration / definition adapters) -- into this lightweight adapter package.
 constexpr int kFlashMethodRomInfoIndex = 10;
 
+// StartPosList/IntervalList (and their XScale*/YScale* variants) are
+// hex_text-formatted (legacy_definition_adapter.cpp:225-226), same convention
+// as AddressList, so parsed the same way -- toUInt(&ok, 16). Unlike
+// AddressList (required: a parse failure there is a malformed-definition bug
+// worth warning about), a missing or unparsable start/interval value falls
+// back to 1 -- "no striding" -- silently, matching MapElementSpec's own
+// default and decode_scaled_values' EcuCalDefStructure default (definition_
+// resolver.cpp:350-351, :377-378).
+std::uint32_t parse_stride_field(const QString& text)
+{
+    bool ok = false;
+    const std::uint32_t parsed = text.toUInt(&ok, 16);
+    return ok ? parsed : 1;
+}
+
 } // namespace
 
 calibration::MapElementSpec MapElementFields::spec() const&
@@ -38,6 +53,8 @@ calibration::MapElementSpec MapElementFields::spec() const&
     spec.fine_increment = fine_increment_;
     spec.x_size = x_size_;
     spec.y_size = y_size_;
+    spec.start_position = start_position_;
+    spec.interval = interval_;
     spec.flash_method = flash_method_;
     spec.rom_file_size = rom_file_size_;
     return spec;
@@ -75,6 +92,8 @@ MapElementFields collect_map_element_fields(const definitions::EcuCalDefStructur
         fields.max_value_ = def.MaxValueList.value(map_number).toStdString();
         fields.coarse_increment_ = def.CoarseIncList.value(map_number).toDouble();
         fields.fine_increment_ = def.FineIncList.value(map_number).toDouble();
+        fields.start_position_ = parse_stride_field(def.StartPosList.value(map_number));
+        fields.interval_ = parse_stride_field(def.IntervalList.value(map_number));
         break;
     case calibration::EditTargetKind::XAxis:
         address_text = def.XScaleAddressList.at(map_number);
@@ -86,6 +105,8 @@ MapElementFields collect_map_element_fields(const definitions::EcuCalDefStructur
         fields.max_value_ = def.XScaleMaxValueList.value(map_number).toStdString();
         fields.coarse_increment_ = def.XScaleCoarseIncList.value(map_number).toDouble();
         fields.fine_increment_ = def.XScaleFineIncList.value(map_number).toDouble();
+        fields.start_position_ = parse_stride_field(def.XScaleStartPosList.value(map_number));
+        fields.interval_ = parse_stride_field(def.XScaleIntervalList.value(map_number));
         break;
     case calibration::EditTargetKind::YAxis:
         address_text = def.YScaleAddressList.at(map_number);
@@ -97,6 +118,8 @@ MapElementFields collect_map_element_fields(const definitions::EcuCalDefStructur
         fields.max_value_ = def.YScaleMaxValueList.value(map_number).toStdString();
         fields.coarse_increment_ = def.YScaleCoarseIncList.value(map_number).toDouble();
         fields.fine_increment_ = def.YScaleFineIncList.value(map_number).toDouble();
+        fields.start_position_ = parse_stride_field(def.YScaleStartPosList.value(map_number));
+        fields.interval_ = parse_stride_field(def.YScaleIntervalList.value(map_number));
         break;
     case calibration::EditTargetKind::Rejected:
         // A programming error at this point -- the caller resolves the edit

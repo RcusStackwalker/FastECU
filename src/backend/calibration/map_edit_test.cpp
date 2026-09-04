@@ -289,6 +289,23 @@ TEST(ElementByteAddress, PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite)
     EXPECT_NE(element_byte_address(spec, 0, /*for_write=*/false), element_byte_address(spec, 0, /*for_write=*/true));
 }
 
+// Spec defect (b): the edit path used a flat address + index*width layout while
+// decode_scaled_values honours start_position and interval, so editing a
+// strided map landed on neighbouring data.
+TEST(ElementByteAddress, HonoursTheStartPositionAndIntervalStride)
+{
+    MapElementSpec spec;
+    spec.address = 0x100;
+    spec.storage_type = definition::StorageType::Uint16;
+    spec.start_position = 2;
+    spec.interval = 3;
+
+    // addr(j) = 0x100 + (2-1)*2 + j*2*3
+    EXPECT_EQ(element_byte_address(spec, 0, false), 0x102U);
+    EXPECT_EQ(element_byte_address(spec, 1, false), 0x108U);
+    EXPECT_EQ(element_byte_address(spec, 2, false), 0x10EU);
+}
+
 // The encode/decode round trip is the safety net for every edit operation: if
 // encode_scaled_value and read_raw_element disagree about byte order, an edit
 // silently writes a different value than the grid displays.
@@ -308,15 +325,35 @@ TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
         definition::StorageType storage;
         std::string_view endian;
         std::int64_t raw;
+        // Defaults reproduce the pre-6b-4 flat layout (no striding); the
+        // strided case below overrides these to prove encode_scaled_value
+        // (via element_byte_address, for_write=true) and read_raw_element
+        // (via element_byte_address, for_write=false) still agree on WHERE to
+        // place the bytes, not just on byte order -- spec's defect (b).
+        std::uint32_t start_position{1};
+        std::uint32_t interval{1};
+        std::uint32_t index{0};
     };
     const Case cases[] = {
-        {definition::StorageType::Uint8, "big", 0xAB},           {definition::StorageType::Uint16, "big", 0x1234},
-        {definition::StorageType::Uint16, "little", 0x1234},     {definition::StorageType::Uint24, "big", 0x123456},
-        {definition::StorageType::Uint24, "little", 0x123456},   {definition::StorageType::Uint32, "big", 0x12345678},
-        {definition::StorageType::Uint32, "little", 0x12345678}, {definition::StorageType::Int8, "big", -2},
-        {definition::StorageType::Int16, "big", -300},           {definition::StorageType::Int16, "little", -300},
-        {definition::StorageType::Int32, "big", -70000},         {definition::StorageType::Int32, "little", -70000},
+        {definition::StorageType::Uint8, "big", 0xAB},
+        {definition::StorageType::Uint16, "big", 0x1234},
+        {definition::StorageType::Uint16, "little", 0x1234},
+        {definition::StorageType::Uint24, "big", 0x123456},
+        {definition::StorageType::Uint24, "little", 0x123456},
+        {definition::StorageType::Uint32, "big", 0x12345678},
+        {definition::StorageType::Uint32, "little", 0x12345678},
+        {definition::StorageType::Int8, "big", -2},
+        {definition::StorageType::Int16, "big", -300},
+        {definition::StorageType::Int16, "little", -300},
+        {definition::StorageType::Int32, "big", -70000},
+        {definition::StorageType::Int32, "little", -70000},
         {definition::StorageType::Int24, "big", 0x010203},
+        // Strided: start_position=2, interval=3, element index 1. If the
+        // encode side placed bytes at a flat address+index*width instead of
+        // honouring the stride, this would write to a different offset than
+        // read_raw_element(..., index=1) reads from, and the round trip would
+        // fail.
+        {definition::StorageType::Uint16, "big", 0x1234, /*start_position=*/2, /*interval=*/3, /*index=*/1},
     };
 
     for (const auto& c : cases)
@@ -327,16 +364,20 @@ TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
         spec.endian = c.endian;
         spec.to_byte = "x";
         spec.from_byte = "x";
+        spec.start_position = c.start_position;
+        spec.interval = c.interval;
 
         const auto encoded = encode_scaled_value(spec, double(c.raw), 15);
         ASSERT_TRUE(encoded.has_value()) << to_string(encoded.error().kind);
 
         std::vector<std::uint8_t> rom(0x40, 0x00);
-        std::ranges::copy(*encoded, rom.begin() + 0x10);
+        const auto byte_address = element_byte_address(spec, c.index, /*for_write=*/true);
+        std::ranges::copy(*encoded, rom.begin() + static_cast<std::ptrdiff_t>(byte_address));
 
-        const auto decoded = read_raw_element(rom, spec, 0);
+        const auto decoded = read_raw_element(rom, spec, c.index);
         ASSERT_TRUE(decoded.has_value());
-        EXPECT_EQ(*decoded, c.raw) << "storage=" << definition::storage_type_text(c.storage) << " endian=" << c.endian;
+        EXPECT_EQ(*decoded, c.raw) << "storage=" << definition::storage_type_text(c.storage) << " endian=" << c.endian
+                                   << " start_position=" << c.start_position << " interval=" << c.interval;
     }
 }
 
