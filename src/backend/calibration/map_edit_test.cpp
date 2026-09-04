@@ -747,6 +747,63 @@ TEST(ApplyIncrement, SaturationGuardLeavesUnsignedStorageAtItsPreviousValueOnANe
     EXPECT_EQ((*patch)[0].display_text, "0");
 }
 
+// Spec defect (d)'s real fix: the retry is preserved (bounded, not removed)
+// so a to_byte scaling coarser than 1:1 doesn't silently no-op the edit --
+// see apply_increment's doc comment.
+TEST(ApplyIncrement, RetriesUntilTheEncodedValueActuallyChanges)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 5; // to_byte("10") = 10/2 = 5
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint8;
+    spec.endian = "big";
+    spec.to_byte = "x/2";
+    spec.from_byte = "x*2";
+    spec.coarse_increment = 5.0;
+    spec.fine_increment = 0.5;
+    spec.x_size = 1;
+    spec.y_size = 1;
+
+    const std::string_view cells[] = {"10"};
+    const auto patch =
+        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+                        IncrementStep::FineUp, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    // Attempt 1: display 10.5 -> to_byte -> 5.25 -> llround -> 5 (unchanged, retry).
+    // Attempt 2: display 11.0 -> to_byte -> 5.5  -> llround -> 6 (changed, stop).
+    // display_text reflects the FINAL raw's from_byte, not the intermediate
+    // display value -- this is the "snaps" behavior the retry exists for.
+    EXPECT_EQ((*patch)[0].display_text, "12");
+    EXPECT_EQ((*patch)[0].bytes, (std::vector<std::uint8_t>{6}));
+}
+
+TEST(ApplyIncrement, ReportsInvalidConfigWhenTheRetryBoundIsExhausted)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00); // rom[0x10] = 0
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint8;
+    spec.endian = "big";
+    spec.to_byte = "0"; // constant -- ignores its input entirely
+    spec.from_byte = "x";
+    spec.coarse_increment = 5.0;
+    spec.fine_increment = 1.0;
+    spec.x_size = 1;
+    spec.y_size = 1;
+
+    const std::string_view cells[] = {"0"};
+    const auto patch =
+        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+                        IncrementStep::CoarseUp, 15);
+
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
+}
+
 TEST(ApplySetExpression, AppliesEachOperatorToEveryCell)
 {
     struct Case

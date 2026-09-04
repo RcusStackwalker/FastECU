@@ -86,7 +86,11 @@ std::int64_t raw_from_display_text(const MapElementSpec& spec, std::string_view 
         // numeric value, then bit_cast to get the IEEE-754 bit pattern, NOT
         // parsed as an integer.
         float value = 0.0F;
-        std::from_chars(text.data(), text.data() + text.size(), value);
+        const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
+        if (result.ec != std::errc{} || result.ptr != text.data() + text.size())
+        {
+            value = 0.0F;
+        }
         return static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(value));
     }
     // Every other storage type: parse as a plain integer. Mirrors
@@ -404,31 +408,39 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
     // comparisons against "uint8"/"int16"/etc., not enum comparisons; two
     // independent top-level checks (uint* then int*), not an if/else-if,
     // matching legacy's two separate `if` blocks. `rom_data_value` is the
-    // pre-increment cell's raw value, formatted the same way `candidate` is;
-    // legacy's `break` (which exits the whole do-while the instant a guard
-    // fires, skipping every later check) becomes an early `return` here,
-    // preserving the same short-circuit. This inconsistency with set_value's
-    // and paste_value's guards is the spec's defect (c), fixed in a later
-    // task, not here.
-    const auto apply_saturation_guard = [&](std::string_view rom_data_value, std::string candidate)
+    // pre-increment cell's raw value, formatted the same way `candidate` is.
+    //
+    // Returns nullopt when a storage-type saturation/sign-wrap guard fires
+    // (legacy's unconditional `break`, reverting to rom_data_value and
+    // stopping the retry outright) -- distinct from returning a candidate
+    // that merely equals rom_data_value because the increment hasn't moved
+    // the quantized value yet (which the caller's retry loop must keep going
+    // on). Both cases would look identical as a bare string return, which is
+    // exactly the ambiguity a bounded-retry loop cannot tolerate: a
+    // guard-triggered revert is terminal even when its resulting text
+    // happens to equal rom_data_value; a genuinely-unchanged candidate must
+    // retry. This inconsistency with set_value's and paste_value's guards is
+    // the spec's defect (c), fixed in a later task, not here.
+    const auto apply_saturation_guard = [&](std::string_view rom_data_value,
+                                            std::string candidate) -> std::optional<std::string>
     {
         if (map_value_storagetype.starts_with("uint"))
         {
             if (map_value_storagetype == "uint8" && to_uint32_or_zero(candidate) > 0xFFU)
             {
-                return std::string(rom_data_value);
+                return std::nullopt;
             }
             if (map_value_storagetype == "uint16" && to_uint32_or_zero(candidate) > 0xFFFFU)
             {
-                return std::string(rom_data_value);
+                return std::nullopt;
             }
             if (map_value_storagetype == "uint32" && to_uint32_or_zero(candidate) > 0xFFFFFFFFU)
             {
-                return std::string(rom_data_value);
+                return std::nullopt;
             }
             if (to_int32_or_zero(candidate) < 0)
             {
-                return std::string(rom_data_value);
+                return std::nullopt;
             }
         }
         if (map_value_storagetype.starts_with("int"))
@@ -442,20 +454,20 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
                                                     (static_cast<std::uint8_t>(rom_i32) >= 0x80U &&
                                                      static_cast<std::uint8_t>(cand_i32) < 0x80U && cand_i32 != 0)))
             {
-                return std::string(rom_data_value);
+                return std::nullopt;
             }
             if (map_value_storagetype == "int16" && ((rom_u32 <= 0x7FFFU && cand_u32 > 0x7FFFU) ||
                                                      (static_cast<std::uint16_t>(rom_i32) >= 0x8000U &&
                                                       static_cast<std::uint16_t>(cand_i32) < 0x8000U && cand_i32 != 0)))
             {
-                return std::string(rom_data_value);
+                return std::nullopt;
             }
             if ((map_value_storagetype == "int32" || map_value_storagetype == "float") &&
                 ((rom_u32 <= 0x7FFFFFFFU && cand_u32 > 0x7FFFFFFFU) ||
                  (static_cast<std::uint32_t>(rom_i32) >= 0x80000000U &&
                   static_cast<std::uint32_t>(cand_i32) < 0x80000000U && cand_i32 != 0)))
             {
-                return std::string(rom_data_value);
+                return std::nullopt;
             }
         }
         return candidate;
@@ -475,37 +487,84 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
             }
             const std::string rom_data_value = format_raw_value_display(spec, *raw_before);
 
+            // Bounded retry (see this function's doc comment): keeps adding
+            // the increment until the ENCODED (to_byte-rounded) value
+            // actually changes, matching legacy's `do { ... } while
+            // (rom_data_value == new_rom_data_value)` -- this matters
+            // whenever to_byte maps several display values onto one stored
+            // raw value (any scaling coarser than 1:1). `map_item_value` is
+            // declared outside the loop and accumulates on every retry
+            // iteration, exactly as legacy's does. Unlike legacy, the retry
+            // is bounded at kMaxIncrementAttempts to guarantee termination
+            // for a pathological to_byte that never responds to its input
+            // (e.g. a constant expression) -- legacy's version was genuinely
+            // unbounded there. The min/max clamp branches stay terminal,
+            // matching legacy's unconditional `break` after clamping,
+            // regardless of whether the resulting encoded value differs from
+            // the original.
+            constexpr int kMaxIncrementAttempts = 1000;
+
             float map_item_value = to_float_or_zero(cell_text[index]);
-            switch (step)
+            std::string new_rom_data_value;
+            bool resolved = false;
+
+            for (int attempt = 0; attempt < kMaxIncrementAttempts && !resolved; ++attempt)
             {
-            case IncrementStep::FineUp:
-                map_item_value += map_fine_inc_value;
-                break;
-            case IncrementStep::FineDown:
-                map_item_value -= map_fine_inc_value;
-                break;
-            case IncrementStep::CoarseUp:
-                map_item_value += map_coarse_inc_value;
-                break;
-            case IncrementStep::CoarseDown:
-                map_item_value -= map_coarse_inc_value;
-                break;
+                switch (step)
+                {
+                case IncrementStep::FineUp:
+                    map_item_value += map_fine_inc_value;
+                    break;
+                case IncrementStep::FineDown:
+                    map_item_value -= map_fine_inc_value;
+                    break;
+                case IncrementStep::CoarseUp:
+                    map_item_value += map_coarse_inc_value;
+                    break;
+                case IncrementStep::CoarseDown:
+                    map_item_value -= map_coarse_inc_value;
+                    break;
+                }
+
+                if (spec.min_value != " " && map_item_value < to_float_or_zero(spec.min_value))
+                {
+                    map_item_value = to_float_or_zero(spec.min_value);
+                    new_rom_data_value = compute_to_byte_text(map_item_value);
+                    resolved = true;
+                    continue;
+                }
+                if (spec.max_value != " " && map_item_value > to_float_or_zero(spec.max_value))
+                {
+                    map_item_value = to_float_or_zero(spec.max_value);
+                    new_rom_data_value = compute_to_byte_text(map_item_value);
+                    resolved = true;
+                    continue;
+                }
+
+                const auto guarded = apply_saturation_guard(rom_data_value, compute_to_byte_text(map_item_value));
+                if (!guarded.has_value())
+                {
+                    // A guard fired -- terminal, even though the value
+                    // didn't move (see apply_saturation_guard's doc
+                    // comment).
+                    new_rom_data_value = rom_data_value;
+                    resolved = true;
+                    continue;
+                }
+                new_rom_data_value = *guarded;
+                if (new_rom_data_value != rom_data_value)
+                {
+                    resolved = true; // genuinely changed -- done
+                }
+                // else: unchanged and no guard fired -- loop again, bounded
+                // by attempt < kMaxIncrementAttempts.
             }
 
-            std::string new_rom_data_value;
-            if (spec.min_value != " " && map_item_value < to_float_or_zero(spec.min_value))
+            if (!resolved)
             {
-                map_item_value = to_float_or_zero(spec.min_value);
-                new_rom_data_value = compute_to_byte_text(map_item_value);
-            }
-            else if (spec.max_value != " " && map_item_value > to_float_or_zero(spec.max_value))
-            {
-                map_item_value = to_float_or_zero(spec.max_value);
-                new_rom_data_value = compute_to_byte_text(map_item_value);
-            }
-            else
-            {
-                new_rom_data_value = apply_saturation_guard(rom_data_value, compute_to_byte_text(map_item_value));
+                return fail(
+                    ErrorKind::InvalidConfig,
+                    std::format("increment did not change the stored value within {} attempts", kMaxIncrementAttempts));
             }
 
             // `expression_evaluate`'s "x" input here is new_rom_data_value

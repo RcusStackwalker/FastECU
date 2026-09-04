@@ -1,5 +1,4 @@
 #include "mainwindow.h"
-#include "src/algorithms/expression/expression_evaluator.h"
 #include "src/algorithms/menu/menu_command.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/backend/calibration/map_edit.h"
@@ -311,6 +310,18 @@ void MainWindow::copy_value()
     }
 }
 
+// Behavior change beyond routing through resolve_active_map_edit / apply_paste
+// / apply_patch: pasting onto a selected axis now edits that axis (legacy
+// paste_value had no axis resolution and always wrote into the map body).
+// A second, incidental change rides along with that routing for a `y_size ==
+// 1` map specifically -- resolve_edit_target's MapBody branch applies its
+// column-offset adjustment CONDITIONALLY (only when y_size == 1), where
+// legacy paste_value applied its own `-1` column offset UNCONDITIONALLY.
+// For an ordinary 2D map these are identical; for a `y_size == 1` map,
+// legacy produced firstCol == -1 (an out-of-bounds column, the layout bug
+// map_edit_adapter.cpp's apply_patch guard now protects the write side of),
+// where routing paste through resolve_active_map_edit produces the correct
+// 0-based column instead.
 void MainWindow::paste_value()
 {
     QMdiSubWindow *w = ui->mdiArea->activeSubWindow();

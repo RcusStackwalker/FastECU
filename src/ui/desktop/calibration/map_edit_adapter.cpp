@@ -304,7 +304,13 @@ void apply_patch(definitions::EcuCalDefStructure& def, int map_number, calibrati
         // corrupting memory, mirroring apply_paste's (map_edit.cpp)
         // established precedent of silently skipping cells that fall
         // outside a target's real extent rather than failing the whole
-        // operation.
+        // operation. This guards apply_patch's own WRITE only: apply_set_
+        // expression and apply_interpolation (map_edit.cpp) still do an
+        // unchecked cell_text[index]/cell_at(...) READ for the identical
+        // pre-existing layout bug, out of scope here just like the
+        // underlying column shift itself -- this fix narrows the class of
+        // harm from a possible OOB write to a possible OOB read, it does not
+        // close the class entirely.
         if (cell.index >= static_cast<std::uint32_t>(cell_text.size()))
         {
             continue;

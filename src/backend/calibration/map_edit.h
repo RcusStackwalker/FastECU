@@ -249,9 +249,22 @@ enum class IncrementStep
 //      call with ErrorKind::InvalidConfig, rather than raising a modal inside
 //      a retry loop a zero increment could never exit.
 //   2. Legacy's `do { ... } while (rom_data_value == new_rom_data_value)`
-//      retry becomes a single pass -- with a non-zero increment the loop
-//      always exited on its first iteration, and the zero case is now
-//      rejected up front, so there is nothing left to retry.
+//      retry is preserved -- it keeps adding the increment until the
+//      ENCODED (to_byte-rounded) value actually changes, which matters
+//      whenever to_byte maps several display values onto one stored raw
+//      value (any scaling coarser than 1:1, e.g. to_byte = "x/2") -- but is
+//      now bounded at kMaxIncrementAttempts (1000) attempts, unlike
+//      legacy's genuinely unbounded version. This bound, together with the
+//      already-described zero-increment check above, is the actual fix for
+//      the spec's defect (d): exceeding the bound without the encoded value
+//      ever changing (a pathological to_byte that never responds to its
+//      input, e.g. a constant expression) fails the whole call with
+//      ErrorKind::InvalidConfig instead of looping forever. A guard-fired
+//      revert (the min/max clamp or a storage-type saturation/sign-wrap
+//      guard) is always terminal, even on an attempt whose resulting value
+//      happens to equal the pre-edit value -- see apply_saturation_guard's
+//      own doc comment in map_edit.cpp for why that distinction matters and
+//      how it's preserved.
 //   3. Cells are collected into an EditPatch instead of written through
 //      set_rom_data_value.
 //
@@ -304,7 +317,13 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
 // Everything else is preserved exactly as legacy has it, INCLUDING the
 // absence of any storage-type saturation/sign-wrap guard: unlike
 // apply_increment, set_value never ran one. This is the spec's defect (c),
-// left unreconciled here and fixed in a later task, not this one.
+// left unreconciled here and fixed in a later task, not this one. Beyond the
+// display-value min/max clamp described above, this function performs NO
+// ROM-bounds validation of any kind: no storage-type saturation/sign-wrap
+// guard, no retry, and no check that the encoded value actually fits the
+// destination storage type before write_raw_element truncates it -- a
+// future reader (e.g. whoever picks up defect (c)'s reconciliation) must
+// not assume parity with apply_increment's guarded, retrying behavior.
 //
 // Every place legacy formats a value via a BARE QString::number(double) call
 // (no explicit precision argument) uses format_like_qt_g(value, 6) here,
