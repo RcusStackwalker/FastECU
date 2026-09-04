@@ -751,11 +751,11 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
     const char *fw_version = "Main code version: 1.17.4877";
     long result = STATUS_NOERROR;
 
-    const std::size_t apiLen = std::min(strlen(API_VERSION), kVersionBufferSize - 1);
-    strncpy(pApiVersion, API_VERSION, apiLen);
+    const std::size_t apiLen = std::min(API_VERSION.size(), kVersionBufferSize - 1);
+    strncpy(pApiVersion, API_VERSION.data(), apiLen);
     pApiVersion[apiLen] = '\0';
-    const std::size_t dllLen = std::min(strlen(DLL_VERSION), kVersionBufferSize - 1);
-    strncpy(pDllVersion, DLL_VERSION, dllLen);
+    const std::size_t dllLen = std::min(DLL_VERSION.size(), kVersionBufferSize - 1);
+    strncpy(pDllVersion, DLL_VERSION.data(), dllLen);
     pDllVersion[dllLen] = '\0';
     // strncpy(pFirmwareVersion, fw_version, strlen(fw_version));
 
