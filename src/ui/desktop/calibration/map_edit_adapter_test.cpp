@@ -369,5 +369,46 @@ TEST(ResolveActiveMapEdit, ReturnsNulloptForAStaticAxisSelection)
     EXPECT_FALSE(resolve_active_map_edit(&window, def, 0).has_value());
 }
 
+// Regression test for the out-of-bounds write described in apply_patch's
+// guard comment (map_edit_adapter.cpp): resolve_edit_target's XAxis branch
+// shifts rows back by +1 for the header row a 3D map has, but never shifts
+// columns -- correct for a 3D map (which also has a header column), but
+// wrong for a "2D" map (y_size == 1, no header column), where selecting the
+// sole X-axis breakpoint yields range.first_col == -1 and therefore a
+// CellPatch whose index is static_cast<std::uint32_t>(-1). Before the guard,
+// QStringList::replace(index, ...) with that index is an out-of-bounds write
+// (Q_ASSERT_X compiles out under --config=release, so this is a real memory
+// hazard in release builds, not just a debug-mode abort). This test drives
+// apply_patch directly with a hand-built CellPatch carrying that same
+// deliberately-out-of-range index, bypassing resolve_edit_target entirely --
+// see this suite's own doc comment on why an end-to-end
+// resolve_active_map_edit-driven repro was impractical here (XAxis on a
+// y_size == 1 map is rejected upstream as a "static axis" selection by
+// resolve_edit_target's is_static_x/is_static_y handling before it can ever
+// produce first_col == -1 through the normal table-selection path in a unit
+// test, so the direct/targeted form below is the maintainable option).
+TEST(ApplyPatch, DropsACellWhoseIndexIsOutOfBoundsInsteadOfCorruptingMemory)
+{
+    auto def = two_by_two_map_body_def();
+    def.XScaleData << "10,20";
+    def.FullRomData = QByteArray(8, '\0');
+    const QByteArray rom_before = def.FullRomData;
+
+    calibration::EditPatch patch;
+    patch.push_back(calibration::CellPatch{
+        .index = static_cast<std::uint32_t>(-1), .display_text = "999", .byte_address = 4, .bytes = {0x01, 0x02}});
+
+    apply_patch(def, 0, calibration::EditTargetKind::XAxis, patch);
+
+    // The out-of-range cell must be dropped entirely: the XScaleData text is
+    // untouched (not corrupted, not extended, not misinterpreted as a
+    // negative/huge Qt index), and the ROM bytes it would have written are
+    // never applied either -- both writes are skipped together, matching
+    // apply_paste's precedent of dropping an out-of-extent cell wholesale
+    // rather than partially applying it.
+    EXPECT_EQ(def.XScaleData.at(0), "10,20");
+    EXPECT_EQ(def.FullRomData, rom_before);
+}
+
 } // namespace
 } // namespace fastecu::ui
