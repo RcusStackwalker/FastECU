@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -199,5 +200,257 @@ Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec
 // '.' only has its first fractional segment counted. No '.' at all returns
 // 0.
 int map_value_decimal_count(std::string_view value_format);
+
+// One cell's computed edit result: the flat run index (also the index used to
+// look up `cell_text` and to call element_byte_address), the value to show in
+// the grid afterwards, the ROM offset to write, and the already-encoded bytes
+// to write there.
+struct CellPatch
+{
+    std::uint32_t index{0};
+    std::string display_text;
+    std::uint64_t byte_address{0};
+    std::vector<std::uint8_t> bytes;
+};
+
+// The set of per-cell writes one edit operation produces. Applying it is the
+// caller's job (Task 12) -- these functions never touch rom_data themselves.
+using EditPatch = std::vector<CellPatch>;
+
+// Which increment inc_dec_value's `action` string selected: "coarse_inc" /
+// "coarse_dec" / "fine_inc" / "fine_dec" in menu_actions.cpp.
+enum class IncrementStep
+{
+    FineUp,
+    FineDown,
+    CoarseUp,
+    CoarseDown,
+};
+
+// Ports the arithmetic half of legacy inc_dec_value (menu_actions.cpp) into a
+// pure, patch-returning operation: given the current ROM bytes and every
+// selected cell's current display text, computes what each cell's new stored
+// bytes and new display text should be, without writing anything itself.
+//
+// `x_size` is the RESOLVED edit-run width used to index `cell_text` (and,
+// combined with `range`, to compute each cell's flat index) -- EditTarget::x_size
+// from resolve_edit_target, NOT spec.x_size. spec.x_size/y_size carry the
+// map's own geometry (see MapElementSpec's doc comment) and indexing with them
+// instead would silently mis-index every Y-axis edit, since the Y axis is
+// always one element wide regardless of the map's x_size.
+//
+// Ported from inc_dec_value with exactly three changes, matching the spec's
+// defect (d) and the extraction's own requirements -- everything else,
+// including the min/max clamping and the storage-type saturation/sign-wrap
+// guards, is preserved exactly as legacy has them (string comparisons against
+// "uint8"/"int16"/etc., not enum comparisons; the spec's defect (c), fixed in
+// a later task, not this one):
+//   1. The zero-increment check moves before the loop and fails the whole
+//      call with ErrorKind::InvalidConfig, rather than raising a modal inside
+//      a retry loop a zero increment could never exit.
+//   2. Legacy's `do { ... } while (rom_data_value == new_rom_data_value)`
+//      retry is preserved -- it keeps adding the increment until the
+//      ENCODED (to_byte-rounded) value actually changes, which matters
+//      whenever to_byte maps several display values onto one stored raw
+//      value (any scaling coarser than 1:1, e.g. to_byte = "x/2") -- but is
+//      now bounded at kMaxIncrementAttempts (1000) attempts, unlike
+//      legacy's genuinely unbounded version. This bound, together with the
+//      already-described zero-increment check above, is the actual fix for
+//      the spec's defect (d): exceeding the bound without the encoded value
+//      ever changing (a pathological to_byte that never responds to its
+//      input, e.g. a constant expression) fails the whole call with
+//      ErrorKind::InvalidConfig instead of looping forever. A guard-fired
+//      revert (the min/max clamp or a storage-type saturation/sign-wrap
+//      guard) is always terminal, even on an attempt whose resulting value
+//      happens to equal the pre-edit value -- see apply_saturation_guard's
+//      own doc comment in map_edit.cpp for why that distinction matters and
+//      how it's preserved.
+//   3. Cells are collected into an EditPatch instead of written through
+//      set_rom_data_value.
+//
+// Whole-operation failure: per the spec's rule, any per-cell read_raw_element
+// or write_raw_element failure fails the entire call immediately with no
+// partial patch returned -- unlike legacy's read_rom_data_value wrapper,
+// which logged a warning and silently substituted "0" for a read past the ROM
+// end, this propagates that failure instead.
+//
+// Every place legacy formats a value via a BARE QString::number(double) call
+// (no explicit precision argument -- Qt's default 'g' format, precision 6)
+// uses format_like_qt_g(value, 6) here, literally, regardless of
+// `float_precision`: this covers feeding the to_byte/from_byte expressions'
+// "x" input and producing the final display text. `float_precision` is used
+// only where legacy passes fileActions->float_precision explicitly, as the
+// third argument to expression_evaluate -- that controls rounding of
+// INTERMEDIATE results during multi-operator expression evaluation, a
+// different thing from the input string's own formatting precision.
+Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t x_size,
+                                  std::span<const std::string_view> cell_text, const SelectionRange& range,
+                                  IncrementStep step, int float_precision);
+
+// Ports the arithmetic half of legacy set_value (menu_actions.cpp) into a
+// pure, patch-returning operation: given every selected cell's current
+// display text and a raw user-typed `input` string, computes what each
+// cell's new stored bytes and new display text should be, without writing
+// anything itself.
+//
+// `input` is the raw user text from the QInputDialog, with commas already
+// replaced by periods by the UI (set_value:472). Its grammar is legacy's: a
+// leading '+', '-', '*', or '/' applies that operation to each cell's
+// current value using the operand text between the FIRST and SECOND
+// occurrence of that operator character (QString::split(op)[1] --
+// "+5+3".split("+") is {"", "5", "3"}, so the "3" is silently ignored, the
+// same shape of gotcha map_value_decimal_count's '.'-segment parsing has);
+// anything else is parsed as an absolute value assigned to every cell.
+//
+// `x_size` is the RESOLVED edit-run width, exactly as apply_increment's own
+// `x_size` parameter documents -- EditTarget::x_size from resolve_edit_target,
+// NOT spec.x_size.
+//
+// Ported from set_value with two changes:
+//   1. Legacy's divide-by-zero branch showed a modal and then *continued
+//      with the unmodified value*. Per the whole-operation failure rule
+//      (apply_increment's doc comment), this becomes an
+//      ErrorKind::InvalidConfig failure for the WHOLE call instead, checked
+//      once before the loop since the divisor is the same for every cell.
+//   2. Cells are collected into an EditPatch instead of written through
+//      set_rom_data_value.
+// Everything else is preserved exactly as legacy has it, INCLUDING the
+// absence of any storage-type saturation/sign-wrap guard: unlike
+// apply_increment, set_value never ran one. This is the spec's defect (c),
+// left unreconciled here and fixed in a later task, not this one. Beyond the
+// display-value min/max clamp described above, this function performs NO
+// ROM-bounds validation of any kind: no storage-type saturation/sign-wrap
+// guard, no retry, and no check that the encoded value actually fits the
+// destination storage type before write_raw_element truncates it -- a
+// future reader (e.g. whoever picks up defect (c)'s reconciliation) must
+// not assume parity with apply_increment's guarded, retrying behavior.
+//
+// Every place legacy formats a value via a BARE QString::number(double) call
+// (no explicit precision argument) uses format_like_qt_g(value, 6) here,
+// literally, regardless of `float_precision` -- same rule as
+// apply_increment's doc comment, applied at the equivalent call sites in
+// set_value.
+Result<EditPatch> apply_set_expression(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t x_size,
+                                       std::span<const std::string_view> cell_text, const SelectionRange& range,
+                                       std::string_view input, int float_precision);
+
+// Which of interpolate_value's three fill patterns to apply: fill each row
+// linearly between its own left/right endpoints, fill each column linearly
+// between its own top/bottom endpoints, or (the two-pass combination) first
+// interpolate the left and right edges down the rows from the selection's
+// four corners, then interpolate each row across between its (now-filled)
+// edges.
+enum class InterpolationMode
+{
+    Horizontal,
+    Vertical,
+    Bidirectional,
+};
+
+// Ports the arithmetic half of legacy interpolate_value (menu_actions.cpp)
+// into a pure, patch-returning operation: given every selected cell's current
+// display text, fills the selection according to `mode` and computes what
+// each cell's new stored bytes and new display text should be, without
+// writing anything itself.
+//
+// `x_size` is the RESOLVED edit-run width used to index `cell_text` (reading
+// the four corners and writing each cell's final patch entry) -- exactly
+// apply_increment's own `x_size` parameter, EditTarget::x_size from
+// resolve_edit_target, NOT spec.x_size. This is a DIFFERENT width from the
+// selection's own local `col_count`/`row_count` (last_col - first_col + 1,
+// last_row - first_row + 1) that size the transient interpolation buffer
+// below -- the two must not be conflated.
+//
+// interpolate_value never reads from ROM data at all -- its four corner
+// values and its interior grid are read entirely from `cell_text`, never
+// from `rom_data`. `rom_data` is carried in the signature only for parity
+// with apply_increment/apply_set_expression's shape (see
+// apply_set_expression's doc comment for the same reasoning); this function
+// never reads it.
+//
+// This is the one place the spec's defect (e) is fixed by construction:
+// legacy declares a fixed `float cellValue[128][128]` (64 KB on the stack)
+// and indexes it with the raw selection extent, so any selection wider or
+// taller than 128 writes past the array. Here the transient buffer is a
+// `std::vector<double>` sized exactly to the selection
+// (`col_count * row_count`), addressed by a small `at(col, row)` helper that
+// preserves legacy's `cellValue[i][j]` == `[col][row]` index order (not
+// `[row][col]`) at every site -- `double`, not legacy's `float`, is a
+// deliberate, sanctioned precision improvement to the internal arithmetic
+// only, independent of the string-formatting precision rule below.
+//
+// All three modes' formulas, including bidirectional's two-pass structure
+// (interpolate the left/right edges down the rows first, then each row
+// across), are preserved exactly. There is no min/max clamp and no
+// storage-type saturation/sign-wrap guard anywhere in legacy
+// interpolate_value, and none is added here -- unlike apply_increment, this
+// function was never guarded that way.
+//
+// Every place legacy formats a value via a BARE QString::number(double) call
+// (no explicit precision argument) uses format_like_qt_g(value, 6) here,
+// literally, regardless of `float_precision` -- same rule as
+// apply_increment's doc comment, applied at the equivalent call sites in
+// interpolate_value (the to_byte expression's "x" input and the final
+// display text). `float_precision` is used only where legacy passes
+// fileActions->float_precision explicitly, as expression_evaluate's third
+// argument.
+Result<EditPatch> apply_interpolation(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t x_size,
+                                      std::span<const std::string_view> cell_text, const SelectionRange& range,
+                                      InterpolationMode mode, int float_precision);
+
+// Ports the arithmetic half of legacy paste_value (menu_actions.cpp) into a
+// pure, patch-returning operation: given a clipboard block already split into
+// rows/columns by the UI (`pasted_rows`), computes what each in-bounds pasted
+// cell's new stored bytes and new display text should be, without writing
+// anything itself.
+//
+// `x_size`/`y_size` are the RESOLVED edit-run's full extent -- unlike every
+// other apply_* operation in this file, paste needs BOTH dimensions (not just
+// x_size) because its own bounds check -- `(row + first_row) < y_size &&
+// (col + first_col) < x_size` -- silently drops any pasted cell that falls
+// outside the map, in either dimension. Same caveat as apply_increment's
+// `x_size` doc comment: these are NOT spec.x_size/spec.y_size (the map's own
+// geometry, with no axis override -- see MapElementSpec's doc comment), they
+// are the resolved EditTarget::x_size/y_size from resolve_edit_target.
+//
+// `rom_data` and `cell_text` are both unused for computation, kept only for
+// signature parity with the other apply_* operations (see
+// apply_set_expression's doc comment for the same reasoning about rom_data):
+// paste_value never reads from ROM (element_byte_address needs no rom_data of
+// its own either), and its per-cell "current value" read
+// (`mapDataCellText.at(index)`) always reads back the SAME index it just
+// replaced with the pasted text one line earlier -- so the value it reads is
+// always the pasted text itself, never a prior cell value from `cell_text`.
+//
+// Two behavioral points, both deliberate, not defects to reconcile:
+//   - Unlike every other apply_* operation, `CellPatch::display_text` here is
+//     the pasted cell's text AS GIVEN, not the value round-tripped through
+//     from_byte -- legacy writes the pasted string directly into the cell
+//     text and separately computes the ROM bytes via to_byte, never
+//     re-deriving display text from the encoded bytes.
+//   - The "x" input to expression_evaluate is the pasted text itself, not a
+//     format_like_qt_g-formatted value -- there is no float-to-string
+//     formatting step anywhere in legacy paste_value, so (unlike Tasks 8-10)
+//     no precision-fidelity rule applies here.
+//
+// There is no min/max clamp and no storage-type saturation/sign-wrap guard
+// anywhere in legacy paste_value, and none is added here -- the spec's defect
+// (c), pinned by a dedicated test, fixed in a later task, not this one.
+//
+// Ragged pasted rows (a later row with fewer columns than the first): legacy
+// computes its column count from the FIRST row only and indexes every row
+// unconditionally at that width, which is an out-of-bounds
+// QStringList::operator[] (UB / an assertion crash in debug Qt builds) for a
+// shorter later row. This is a latent legacy safety bug, not a
+// porting-relevant behavioral defect the spec tracks -- reproducing it would
+// mean writing code with intentionally undefined behavior, which this port
+// does not do. Instead, each cell is additionally skipped whenever
+// `col >= pasted_rows[row].size()`; for any well-formed (non-ragged) paste --
+// the only case any test here exercises -- this produces IDENTICAL output to
+// legacy.
+Result<EditPatch> apply_paste(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t x_size,
+                              std::uint32_t y_size, std::span<const std::string_view> cell_text,
+                              const SelectionRange& range, std::span<const std::vector<std::string_view>> pasted_rows,
+                              int float_precision);
 
 } // namespace fastecu::calibration

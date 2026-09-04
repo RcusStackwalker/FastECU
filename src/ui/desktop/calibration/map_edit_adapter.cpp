@@ -9,6 +9,8 @@
 #include <QTableWidget>
 #include <QTableWidgetSelectionRange>
 
+#include "src/algorithms/protocol/qt_bytes.h"
+
 namespace fastecu::ui
 {
 namespace
@@ -256,6 +258,67 @@ std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window, const
     }
 
     return ResolvedEdit(std::move(fields), target, std::move(owned_cell_text), map_number);
+}
+
+void apply_patch(definitions::EcuCalDefStructure& def, int map_number, calibration::EditTargetKind kind,
+                 const calibration::EditPatch& patch)
+{
+    QStringList *target = nullptr;
+    switch (kind)
+    {
+    case calibration::EditTargetKind::YAxis:
+        target = &def.YScaleData;
+        break;
+    case calibration::EditTargetKind::XAxis:
+        target = &def.XScaleData;
+        break;
+    case calibration::EditTargetKind::MapBody:
+        target = &def.MapData;
+        break;
+    case calibration::EditTargetKind::Rejected:
+        // Same reasoning as collect_map_element_fields's Rejected case in
+        // this same file: resolve_active_map_edit already turns a Rejected
+        // target into nullopt, so no caller can reach this with a real
+        // ResolvedEdit's kind(). Explicit case (not `default:`) so -Wswitch
+        // catches a future EditTargetKind enumerator.
+        std::unreachable();
+    }
+
+    QStringList cell_text = target->at(map_number).split(",");
+    for (const auto& cell : patch)
+    {
+        // resolve_edit_target's XAxis branch (map_edit.cpp) shifts rows back
+        // by +1 to skip the 3D map's header row, but never shifts columns --
+        // correct for a 3D map (which has a header column too), but wrong
+        // for a "2D" map with y_size == 1 (no header column: see
+        // calibration_maps.cpp's xSizeOffset = 0). Selecting that layout's
+        // sole X-axis breakpoint yields range.first_col == -1, which
+        // resolve_edit_target propagates into a patch cell whose index is
+        // static_cast<std::uint32_t>(-1) -- a huge value once unsigned. Left
+        // unchecked, cell_text.replace(index, ...) below is an out-of-bounds
+        // write (QStringList::replace's Q_ASSERT_X compiles out under
+        // --config=release), and the ROM write would target a nonsense
+        // offset too. Fixing resolve_edit_target's column shift itself is
+        // out of scope here (pre-existing behavior from an earlier PR); this
+        // guard just makes apply_patch drop such a cell instead of
+        // corrupting memory, mirroring apply_paste's (map_edit.cpp)
+        // established precedent of silently skipping cells that fall
+        // outside a target's real extent rather than failing the whole
+        // operation. This guards apply_patch's own WRITE only: apply_set_
+        // expression and apply_interpolation (map_edit.cpp) still do an
+        // unchecked cell_text[index]/cell_at(...) READ for the identical
+        // pre-existing layout bug, out of scope here just like the
+        // underlying column shift itself -- this fix narrows the class of
+        // harm from a possible OOB write to a possible OOB read, it does not
+        // close the class entirely.
+        if (cell.index >= static_cast<std::uint32_t>(cell_text.size()))
+        {
+            continue;
+        }
+        cell_text.replace(static_cast<int>(cell.index), QString::fromStdString(cell.display_text));
+        bytes::overwriteAt(bytes::mutableView(def.FullRomData), cell.byte_address, cell.bytes);
+    }
+    target->replace(map_number, cell_text.join(","));
 }
 
 } // namespace fastecu::ui

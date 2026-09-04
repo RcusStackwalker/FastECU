@@ -44,6 +44,7 @@
 #include "src/ui/desktop/biu/biu_operations_subaru.h"
 #include "src/ui/desktop/dataterminal.h"
 #include "src/ui/desktop/get_key_operations_subaru.h"
+#include "src/backend/calibration/map_edit.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/ui/desktop/checksum/checksum_correction_command.h"
 #include "src/ui/desktop/definition/definition_authoring_dialog.h"
@@ -339,9 +340,9 @@ class MainWindow : public QMainWindow
     bool write_syslog(QString msg);
 
     // menuactions.c
-    void inc_dec_value(const QString& action);
+    void inc_dec_value(fastecu::calibration::IncrementStep step);
     void set_value();
-    void interpolate_value(const QString& action);
+    void interpolate_value(fastecu::calibration::InterpolationMode mode);
     void copy_value();
     void paste_value();
     int connect_to_ecu();
