@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -199,5 +200,78 @@ Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec
 // '.' only has its first fractional segment counted. No '.' at all returns
 // 0.
 int map_value_decimal_count(std::string_view value_format);
+
+// One cell's computed edit result: the flat run index (also the index used to
+// look up `cell_text` and to call element_byte_address), the value to show in
+// the grid afterwards, the ROM offset to write, and the already-encoded bytes
+// to write there.
+struct CellPatch
+{
+    std::uint32_t index{0};
+    std::string display_text;
+    std::uint64_t byte_address{0};
+    std::vector<std::uint8_t> bytes;
+};
+
+// The set of per-cell writes one edit operation produces. Applying it is the
+// caller's job (Task 12) -- these functions never touch rom_data themselves.
+using EditPatch = std::vector<CellPatch>;
+
+// Which increment inc_dec_value's `action` string selected: "coarse_inc" /
+// "coarse_dec" / "fine_inc" / "fine_dec" in menu_actions.cpp.
+enum class IncrementStep
+{
+    FineUp,
+    FineDown,
+    CoarseUp,
+    CoarseDown,
+};
+
+// Ports the arithmetic half of legacy inc_dec_value (menu_actions.cpp) into a
+// pure, patch-returning operation: given the current ROM bytes and every
+// selected cell's current display text, computes what each cell's new stored
+// bytes and new display text should be, without writing anything itself.
+//
+// `x_size` is the RESOLVED edit-run width used to index `cell_text` (and,
+// combined with `range`, to compute each cell's flat index) -- EditTarget::x_size
+// from resolve_edit_target, NOT spec.x_size. spec.x_size/y_size carry the
+// map's own geometry (see MapElementSpec's doc comment) and indexing with them
+// instead would silently mis-index every Y-axis edit, since the Y axis is
+// always one element wide regardless of the map's x_size.
+//
+// Ported from inc_dec_value with exactly three changes, matching the spec's
+// defect (d) and the extraction's own requirements -- everything else,
+// including the min/max clamping and the storage-type saturation/sign-wrap
+// guards, is preserved exactly as legacy has them (string comparisons against
+// "uint8"/"int16"/etc., not enum comparisons; the spec's defect (c), fixed in
+// a later task, not this one):
+//   1. The zero-increment check moves before the loop and fails the whole
+//      call with ErrorKind::InvalidConfig, rather than raising a modal inside
+//      a retry loop a zero increment could never exit.
+//   2. Legacy's `do { ... } while (rom_data_value == new_rom_data_value)`
+//      retry becomes a single pass -- with a non-zero increment the loop
+//      always exited on its first iteration, and the zero case is now
+//      rejected up front, so there is nothing left to retry.
+//   3. Cells are collected into an EditPatch instead of written through
+//      set_rom_data_value.
+//
+// Whole-operation failure: per the spec's rule, any per-cell read_raw_element
+// or write_raw_element failure fails the entire call immediately with no
+// partial patch returned -- unlike legacy's read_rom_data_value wrapper,
+// which logged a warning and silently substituted "0" for a read past the ROM
+// end, this propagates that failure instead.
+//
+// Every place legacy formats a value via a BARE QString::number(double) call
+// (no explicit precision argument -- Qt's default 'g' format, precision 6)
+// uses format_like_qt_g(value, 6) here, literally, regardless of
+// `float_precision`: this covers feeding the to_byte/from_byte expressions'
+// "x" input and producing the final display text. `float_precision` is used
+// only where legacy passes fileActions->float_precision explicitly, as the
+// third argument to expression_evaluate -- that controls rounding of
+// INTERMEDIATE results during multi-operator expression evaluation, a
+// different thing from the input string's own formatting precision.
+Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t x_size,
+                                  std::span<const std::string_view> cell_text, const SelectionRange& range,
+                                  IncrementStep step, int float_precision);
 
 } // namespace fastecu::calibration

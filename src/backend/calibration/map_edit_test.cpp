@@ -555,5 +555,197 @@ TEST(MapValueDecimalCount, CountsZerosAfterTheDecimalPoint)
     EXPECT_EQ(map_value_decimal_count(""), 0);
 }
 
+TEST(ApplyIncrement, AddsTheCoarseStepToEverySelectedCell)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 10;
+    rom[0x11] = 20;
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint8;
+    spec.endian = "big";
+    spec.to_byte = "x";
+    spec.from_byte = "x";
+    spec.coarse_increment = 5.0;
+    spec.fine_increment = 1.0;
+    spec.x_size = 2;
+    spec.y_size = 1;
+
+    const std::string_view cells[] = {"10", "20"};
+    const auto patch =
+        apply_increment(rom, spec, /*x_size=*/2, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1},
+                        IncrementStep::CoarseUp, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 2U);
+    EXPECT_EQ((*patch)[0].display_text, "15");
+    EXPECT_EQ((*patch)[0].bytes, std::vector<std::uint8_t>{15});
+    EXPECT_EQ((*patch)[1].display_text, "25");
+}
+
+TEST(ApplyIncrement, ClampsToTheDefinitionMaximum)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 250;
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint8;
+    spec.endian = "big";
+    spec.to_byte = "x";
+    spec.from_byte = "x";
+    spec.coarse_increment = 100.0;
+    spec.fine_increment = 1.0;
+    spec.max_value = "255";
+    spec.x_size = 1;
+    spec.y_size = 1;
+
+    const std::string_view cells[] = {"250"};
+    const auto patch =
+        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+                        IncrementStep::CoarseUp, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    EXPECT_EQ((*patch)[0].display_text, "255");
+}
+
+// Spec defect (d), fixed by the extraction: legacy raised a modal inside a
+// retry loop that a zero increment could never exit.
+TEST(ApplyIncrement, ReportsInvalidConfigWhenTheIncrementIsZero)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint8;
+    spec.endian = "big";
+    spec.to_byte = "x";
+    spec.from_byte = "x";
+    spec.coarse_increment = 0.0;
+    spec.fine_increment = 0.0;
+    spec.x_size = 1;
+    spec.y_size = 1;
+
+    const std::string_view cells[] = {"0"};
+    const auto patch =
+        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+                        IncrementStep::CoarseUp, 15);
+
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
+}
+
+// The four saturation/sign-wrap guard tests below assert that an increment
+// which would overflow the storage width leaves the cell at its previous raw
+// value -- none of them set min_value/max_value, so the guard (not the
+// definition clamp) is what's under test in each case.
+
+TEST(ApplyIncrement, SaturationGuardLeavesUint8AtItsPreviousValuePastMax)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 250;
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint8;
+    spec.endian = "big";
+    spec.to_byte = "x";
+    spec.from_byte = "x";
+    spec.coarse_increment = 10.0;
+    spec.fine_increment = 1.0;
+    spec.x_size = 1;
+    spec.y_size = 1;
+
+    const std::string_view cells[] = {"250"};
+    const auto patch =
+        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+                        IncrementStep::CoarseUp, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    EXPECT_EQ((*patch)[0].bytes, std::vector<std::uint8_t>{250});
+    EXPECT_EQ((*patch)[0].display_text, "250");
+}
+
+TEST(ApplyIncrement, SaturationGuardLeavesInt8AtItsPreviousValueCrossingSignBoundary)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 100; // 0x64, positive as int8.
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Int8;
+    spec.endian = "big";
+    spec.to_byte = "x";
+    spec.from_byte = "x";
+    spec.coarse_increment = 50.0;
+    spec.fine_increment = 1.0;
+    spec.x_size = 1;
+    spec.y_size = 1;
+
+    const std::string_view cells[] = {"100"};
+    const auto patch =
+        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+                        IncrementStep::CoarseUp, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    EXPECT_EQ((*patch)[0].bytes, std::vector<std::uint8_t>{100});
+    EXPECT_EQ((*patch)[0].display_text, "100");
+}
+
+TEST(ApplyIncrement, SaturationGuardLeavesInt16AtItsPreviousValueCrossingSignBoundary)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    // 30000 = 0x7530, positive as int16.
+    rom[0x10] = 0x75;
+    rom[0x11] = 0x30;
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Int16;
+    spec.endian = "big";
+    spec.to_byte = "x";
+    spec.from_byte = "x";
+    spec.coarse_increment = 10000.0;
+    spec.fine_increment = 1.0;
+    spec.x_size = 1;
+    spec.y_size = 1;
+
+    const std::string_view cells[] = {"30000"};
+    const auto patch =
+        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+                        IncrementStep::CoarseUp, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    EXPECT_EQ((*patch)[0].bytes, (std::vector<std::uint8_t>{0x75, 0x30}));
+    EXPECT_EQ((*patch)[0].display_text, "30000");
+}
+
+TEST(ApplyIncrement, SaturationGuardLeavesUnsignedStorageAtItsPreviousValueOnANegativeResult)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0;
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint8;
+    spec.endian = "big";
+    spec.to_byte = "x";
+    spec.from_byte = "x";
+    spec.coarse_increment = 5.0;
+    spec.fine_increment = 1.0;
+    spec.x_size = 1;
+    spec.y_size = 1;
+
+    const std::string_view cells[] = {"0"};
+    const auto patch =
+        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+                        IncrementStep::CoarseDown, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    EXPECT_EQ((*patch)[0].bytes, std::vector<std::uint8_t>{0});
+    EXPECT_EQ((*patch)[0].display_text, "0");
+}
+
 } // namespace
 } // namespace fastecu::calibration

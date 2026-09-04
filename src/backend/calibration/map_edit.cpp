@@ -3,9 +3,11 @@
 #include <algorithm>
 #include <array>
 #include <bit>
+#include <charconv>
 #include <cmath>
 #include <cstddef>
 #include <format>
+#include <string>
 
 #include "src/algorithms/expression/expression_evaluator.h"
 #include "src/backend/calibration/scaling_internal.h"
@@ -13,6 +15,131 @@
 namespace fastecu::calibration
 {
 using namespace internal;
+
+namespace
+{
+
+// Mirrors QString::toFloat()'s default-0-on-failure behavior (the `ok`
+// pointer is never checked at any inc_dec_value call site this ports): the
+// whole string must be a valid float or the parse yields 0.0. Every text this
+// sees is machine-generated decimal (cell text from a prior read, or this
+// file's own format_like_qt_g output), never a hand-typed user string, so
+// this does not need to replicate every QString::toFloat() edge case
+// (locale, grouping, stray whitespace).
+float to_float_or_zero(std::string_view text)
+{
+    float value = 0.0F;
+    const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
+    if (result.ec != std::errc{} || result.ptr != text.data() + text.size())
+    {
+        return 0.0F;
+    }
+    return value;
+}
+
+// Mirrors QString::toUInt(): the whole string must be a valid, non-negative
+// decimal integer or the parse yields 0 (the `ok` pointer is never checked at
+// any call site this ports). Qt's `uint` is always 32 bits regardless of
+// host, which matters here: the uint32 saturation check below
+// (`new_rom_data_value.toUInt() > 0xffffffff`) is legacy dead code that can
+// never fire only because toUInt()'s result can never exceed 0xFFFFFFFF --
+// preserved by parsing into the same 32-bit width, not a wider one.
+std::uint32_t to_uint32_or_zero(std::string_view text)
+{
+    if (text.empty() || text.front() == '-')
+    {
+        return 0;
+    }
+    std::uint32_t value = 0;
+    const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
+    if (result.ec != std::errc{} || result.ptr != text.data() + text.size())
+    {
+        return 0;
+    }
+    return value;
+}
+
+// Mirrors QString::toInt() (qint32, whole-string-or-0), same rationale as
+// to_uint32_or_zero above.
+std::int32_t to_int32_or_zero(std::string_view text)
+{
+    std::int32_t value = 0;
+    const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
+    if (result.ec != std::errc{} || result.ptr != text.data() + text.size())
+    {
+        return 0;
+    }
+    return value;
+}
+
+// The inverse of format_raw_value_display below: converts a to_byte-encoded
+// text value into the raw form write_raw_element expects. Mirrors
+// fastecu::ui::raw_element_value_from_text (map_edit_adapter.cpp), the
+// Qt-layer equivalent of this function, in pure C++ so the portable calibration
+// package can produce CellPatch::bytes without depending on Qt.
+std::int64_t raw_from_display_text(const MapElementSpec& spec, std::string_view text)
+{
+    if (spec.storage_type == definition::StorageType::Float)
+    {
+        // text is a decimal string of the float VALUE (matches how
+        // read/format work throughout this file) -- convert via the actual
+        // numeric value, then bit_cast to get the IEEE-754 bit pattern, NOT
+        // parsed as an integer.
+        float value = 0.0F;
+        std::from_chars(text.data(), text.data() + text.size(), value);
+        return static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(value));
+    }
+    // Every other storage type: parse as a plain integer. Mirrors
+    // QString::toInt()'s whole-string-must-parse-or-0 semantics -- the
+    // inputs this function actually receives are always machine-generated
+    // integer strings, so a simple whole-string parse with a 0 fallback on
+    // any failure is sufficient.
+    std::int64_t value = 0;
+    const auto result = std::from_chars(text.data(), text.data() + text.size(), value);
+    if (result.ec != std::errc{} || result.ptr != text.data() + text.size())
+    {
+        return 0;
+    }
+    return value;
+}
+
+// Formats a raw stored value for display, mirroring legacy get_rom_data_value
+// (via fastecu::ui::format_raw_element_value, the Qt-layer counterpart in
+// map_edit_adapter.cpp) -- with one deliberate difference: the float branch
+// there is `QString::number(bit_cast<float>(raw))`, a BARE QString::number
+// call (float implicitly promotes to double), which formats with Qt's
+// default 'g' precision 6, not `float_precision`. Reproduced here with
+// format_like_qt_g(value, 6) accordingly -- see apply_increment's doc comment
+// for why this file uses precision 6 (not float_precision) at every such bare
+// call site.
+std::string format_raw_value_display(const MapElementSpec& spec, std::int64_t raw)
+{
+    if (!spec.storage_type.has_value())
+    {
+        return {};
+    }
+    if (spec.storage_type == definition::StorageType::Float)
+    {
+        return format_like_qt_g(static_cast<double>(std::bit_cast<float>(static_cast<std::int32_t>(raw))), 6);
+    }
+    if (definition::is_unsigned_storage(spec.storage_type))
+    {
+        return std::to_string(static_cast<std::uint32_t>(raw));
+    }
+    switch (definition::storage_byte_size(spec.storage_type))
+    {
+    case 1:
+        return std::to_string(static_cast<int>(static_cast<std::int8_t>(raw)));
+    case 2:
+        return std::to_string(static_cast<int>(static_cast<std::int16_t>(raw)));
+    case 4:
+        return std::to_string(static_cast<std::int32_t>(raw));
+    default:
+        return {};
+    }
+}
+
+} // namespace
 
 std::uint64_t element_byte_address(const MapElementSpec& spec, std::uint32_t index, bool for_write)
 {
@@ -232,6 +359,176 @@ int map_value_decimal_count(std::string_view value_format)
         first_dot + 1, second_dot == std::string_view::npos ? std::string_view::npos : second_dot - (first_dot + 1));
 
     return static_cast<int>(std::count(segment.begin(), segment.end(), '0'));
+}
+
+Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t x_size,
+                                  std::span<const std::string_view> cell_text, const SelectionRange& range,
+                                  IncrementStep step, int float_precision)
+{
+    // Change 1 (see this function's doc comment): the zero-increment check
+    // moves before the loop and fails the whole call, rather than raising a
+    // modal inside a retry loop a zero increment could never exit.
+    if (spec.coarse_increment == 0.0 || spec.fine_increment == 0.0)
+    {
+        return fail(ErrorKind::InvalidConfig, "fine or coarse increment is zero or unset in the definition");
+    }
+
+    const std::string map_value_storagetype = definition::storage_type_text(spec.storage_type);
+    const float map_coarse_inc_value = static_cast<float>(spec.coarse_increment);
+    const float map_fine_inc_value = static_cast<float>(spec.fine_increment);
+
+    // Computes the to_byte-encoded, rounded text for one candidate display
+    // value, reproducing the (identical) computation legacy repeats in all
+    // three do-while branches: `QString::number(expression_evaluate(to_byte,
+    // QString::number(value), float_precision))`, then, for every non-float
+    // storage type, `QString::number(qRound(that.toFloat()))`. Both
+    // QString::number calls here are bare -- precision 6, not float_precision
+    // (see this function's doc comment) -- and qRound returns a 32-bit int,
+    // reproduced with llround + a narrowing cast to std::int32_t rather than
+    // std::llround's own 64-bit result.
+    const auto compute_to_byte_text = [&](float value)
+    {
+        const double encoded =
+            expression_evaluate(spec.to_byte, format_like_qt_g(static_cast<double>(value), 6), float_precision);
+        std::string text = format_like_qt_g(encoded, 6);
+        if (map_value_storagetype != "float")
+        {
+            const auto rounded = static_cast<std::int32_t>(std::llround(static_cast<double>(to_float_or_zero(text))));
+            text = std::to_string(rounded);
+        }
+        return text;
+    };
+
+    // The storage-type saturation and sign-wrap guards (:347-400 in the
+    // legacy source), preserved exactly as legacy has them -- string
+    // comparisons against "uint8"/"int16"/etc., not enum comparisons; two
+    // independent top-level checks (uint* then int*), not an if/else-if,
+    // matching legacy's two separate `if` blocks. `rom_data_value` is the
+    // pre-increment cell's raw value, formatted the same way `candidate` is;
+    // legacy's `break` (which exits the whole do-while the instant a guard
+    // fires, skipping every later check) becomes an early `return` here,
+    // preserving the same short-circuit. This inconsistency with set_value's
+    // and paste_value's guards is the spec's defect (c), fixed in a later
+    // task, not here.
+    const auto apply_saturation_guard = [&](std::string_view rom_data_value, std::string candidate)
+    {
+        if (map_value_storagetype.starts_with("uint"))
+        {
+            if (map_value_storagetype == "uint8" && to_uint32_or_zero(candidate) > 0xFFU)
+            {
+                return std::string(rom_data_value);
+            }
+            if (map_value_storagetype == "uint16" && to_uint32_or_zero(candidate) > 0xFFFFU)
+            {
+                return std::string(rom_data_value);
+            }
+            if (map_value_storagetype == "uint32" && to_uint32_or_zero(candidate) > 0xFFFFFFFFU)
+            {
+                return std::string(rom_data_value);
+            }
+            if (to_int32_or_zero(candidate) < 0)
+            {
+                return std::string(rom_data_value);
+            }
+        }
+        if (map_value_storagetype.starts_with("int"))
+        {
+            const std::uint32_t rom_u32 = to_uint32_or_zero(rom_data_value);
+            const std::int32_t rom_i32 = to_int32_or_zero(rom_data_value);
+            const std::uint32_t cand_u32 = to_uint32_or_zero(candidate);
+            const std::int32_t cand_i32 = to_int32_or_zero(candidate);
+
+            if (map_value_storagetype == "int8" && ((rom_u32 <= 0x7FU && cand_u32 > 0x7FU) ||
+                                                    (static_cast<std::uint8_t>(rom_i32) >= 0x80U &&
+                                                     static_cast<std::uint8_t>(cand_i32) < 0x80U && cand_i32 != 0)))
+            {
+                return std::string(rom_data_value);
+            }
+            if (map_value_storagetype == "int16" && ((rom_u32 <= 0x7FFFU && cand_u32 > 0x7FFFU) ||
+                                                     (static_cast<std::uint16_t>(rom_i32) >= 0x8000U &&
+                                                      static_cast<std::uint16_t>(cand_i32) < 0x8000U && cand_i32 != 0)))
+            {
+                return std::string(rom_data_value);
+            }
+            if ((map_value_storagetype == "int32" || map_value_storagetype == "float") &&
+                ((rom_u32 <= 0x7FFFFFFFU && cand_u32 > 0x7FFFFFFFU) ||
+                 (static_cast<std::uint32_t>(rom_i32) >= 0x80000000U &&
+                  static_cast<std::uint32_t>(cand_i32) < 0x80000000U && cand_i32 != 0)))
+            {
+                return std::string(rom_data_value);
+            }
+        }
+        return candidate;
+    };
+
+    EditPatch patch;
+    for (int j = range.first_row; j <= range.last_row; ++j)
+    {
+        for (int i = range.first_col; i <= range.last_col; ++i)
+        {
+            const auto index = static_cast<std::uint32_t>(j) * x_size + static_cast<std::uint32_t>(i);
+
+            const auto raw_before = read_raw_element(rom_data, spec, index);
+            if (!raw_before.has_value())
+            {
+                return std::unexpected(raw_before.error());
+            }
+            const std::string rom_data_value = format_raw_value_display(spec, *raw_before);
+
+            float map_item_value = to_float_or_zero(cell_text[index]);
+            switch (step)
+            {
+            case IncrementStep::FineUp:
+                map_item_value += map_fine_inc_value;
+                break;
+            case IncrementStep::FineDown:
+                map_item_value -= map_fine_inc_value;
+                break;
+            case IncrementStep::CoarseUp:
+                map_item_value += map_coarse_inc_value;
+                break;
+            case IncrementStep::CoarseDown:
+                map_item_value -= map_coarse_inc_value;
+                break;
+            }
+
+            std::string new_rom_data_value;
+            if (spec.min_value != " " && map_item_value < to_float_or_zero(spec.min_value))
+            {
+                map_item_value = to_float_or_zero(spec.min_value);
+                new_rom_data_value = compute_to_byte_text(map_item_value);
+            }
+            else if (spec.max_value != " " && map_item_value > to_float_or_zero(spec.max_value))
+            {
+                map_item_value = to_float_or_zero(spec.max_value);
+                new_rom_data_value = compute_to_byte_text(map_item_value);
+            }
+            else
+            {
+                new_rom_data_value = apply_saturation_guard(rom_data_value, compute_to_byte_text(map_item_value));
+            }
+
+            // `expression_evaluate`'s "x" input here is new_rom_data_value
+            // itself, not a bare QString::number(...) call -- float_precision
+            // is the correct value for this expression_evaluate's precision
+            // argument (see this function's doc comment).
+            const double reversed = expression_evaluate(spec.from_byte, new_rom_data_value, float_precision);
+            const std::string display_text = format_like_qt_g(reversed, 6);
+
+            const auto encoded = write_raw_element(spec, raw_from_display_text(spec, new_rom_data_value));
+            if (!encoded.has_value())
+            {
+                return std::unexpected(encoded.error());
+            }
+
+            patch.push_back({.index = index,
+                             .display_text = display_text,
+                             .byte_address = element_byte_address(spec, index, /*for_write=*/true),
+                             .bytes = *encoded});
+        }
+    }
+
+    return patch;
 }
 
 } // namespace fastecu::calibration
