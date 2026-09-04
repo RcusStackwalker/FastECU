@@ -214,6 +214,47 @@ TEST(FormatRawElementValue, ReturnsEmptyStringForAnUnrecognizedStorageType)
     EXPECT_EQ(format_raw_element_value(spec, -1), "");
 }
 
+TEST(RawElementValueFromText, ParsesNonFloatStorageAsPlainInteger)
+{
+    calibration::MapElementSpec spec;
+    spec.storage_type = definition::StorageType::Uint16;
+
+    EXPECT_EQ(raw_element_value_from_text(spec, "1234"), 1234);
+}
+
+// The exact bug this fix wave (step 6b-4) fixed: a fractional float display
+// value used to be parsed with QString::toInt(), which fails outright on a
+// string like "1.5" (Qt's toInt() requires the whole string to be a valid
+// integer) and silently returns 0. raw_element_value_from_text instead
+// converts the float VALUE via toFloat(), then bit_casts to get the actual
+// IEEE-754 bit pattern write_raw_element expects for float storage.
+TEST(RawElementValueFromText, ConvertsFractionalFloatTextToItsBitPatternViaBitCast)
+{
+    calibration::MapElementSpec spec;
+    spec.storage_type = definition::StorageType::Float;
+
+    const auto expected = static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(1.5F));
+
+    EXPECT_EQ(raw_element_value_from_text(spec, "1.5"), expected);
+}
+
+// raw_element_value_from_text is the inverse of format_raw_element_value:
+// formatting a float's raw bit pattern to text and converting that text
+// back must recover the same raw value. 1.5F round-trips exactly at
+// QString::number's default (6 significant digit) precision -- a value that
+// lost precision at that width would be a separate, pre-existing issue,
+// not something this test is checking.
+TEST(RawElementValueFromText, RoundTripsWithFormatRawElementValueForFloatStorage)
+{
+    calibration::MapElementSpec spec;
+    spec.storage_type = definition::StorageType::Float;
+
+    const auto raw = static_cast<std::int64_t>(std::bit_cast<std::int32_t>(1.5F));
+    const QString text = format_raw_element_value(spec, raw);
+
+    EXPECT_EQ(raw_element_value_from_text(spec, text), raw);
+}
+
 TEST(ParseMapWindowId, ReturnsNulloptForANullWindow)
 {
     EXPECT_FALSE(parse_map_window_id(nullptr).has_value());

@@ -176,6 +176,15 @@ QString format_raw_element_value(const calibration::MapElementSpec& spec, std::i
     }
 }
 
+std::int64_t raw_element_value_from_text(const calibration::MapElementSpec& spec, const QString& text)
+{
+    if (spec.storage_type == definition::StorageType::Float)
+    {
+        return static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(text.toFloat()));
+    }
+    return static_cast<std::int64_t>(text.toInt());
+}
+
 std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window)
 {
     if (!window)

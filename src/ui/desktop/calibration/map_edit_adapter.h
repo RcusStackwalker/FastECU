@@ -92,6 +92,20 @@ MapElementFields collect_map_element_fields(const definitions::EcuCalDefStructur
 // for the int24 half of this).
 QString format_raw_element_value(const calibration::MapElementSpec& spec, std::int64_t raw);
 
+// The inverse of format_raw_element_value: converts a to_byte-encoded text
+// value into the raw form write_raw_element expects. For
+// StorageType::Float, `text` is a decimal string of the float VALUE
+// (matching what format_raw_element_value produces for the same raw bits)
+// -- converted via toFloat() then bit_cast to get the actual IEEE-754 bit
+// pattern, NOT parsed as an integer. Parsing float text as an integer was
+// this fix wave's defect (step 6b-4): a fractional string like "1.5" failed
+// QString::toInt() outright (silently returning 0), and even a
+// whole-number-valued string like "2" succeeded but then had its integer
+// value misused as if it were the bit pattern, decoding to a tiny denormal
+// rather than 2.0f. Every other storage type is parsed as a plain integer,
+// unchanged from before this fix wave.
+std::int64_t raw_element_value_from_text(const calibration::MapElementSpec& spec, const QString& text);
+
 // A map subwindow's objectName() ("rom,map,name,type") parsed into its ROM
 // and map index -- the same format read unguarded in five places today.
 struct MapWindowId

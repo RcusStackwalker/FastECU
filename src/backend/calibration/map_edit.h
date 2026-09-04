@@ -142,12 +142,12 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
 // without ever re-interpreting them as a floating-point number. Packed here
 // the same way: bit-for-bit, via the low 32 bits of `raw`.
 //
-// `legacy_byte_order` carries the same two measured, DIFFERENT non-float
-// multi-byte write orders as encode_scaled_value (see its comment for the
-// measurements); floats are unaffected by the flag in either mode, always
-// written big-endian-in-ROM.
-Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, std::int64_t raw,
-                                                    bool legacy_byte_order);
+// Writes the byte order `spec.endian`'s label claims (matching
+// decode_scaled_values, the correct decoder, and read_raw_element's own
+// endian handling) for every non-float width; float storage is always
+// written big-endian-in-ROM regardless of `spec.endian`, matching
+// decode_scaled_values and read_raw_element's float handling.
+Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, std::int64_t raw);
 
 // Encodes `display_value` into `spec`'s on-ROM byte representation. Runs
 // `display_value` through spec.to_byte via expression_evaluate, using the
@@ -170,29 +170,26 @@ Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, 
 // lossless at the configured precision. Neither is guaranteed for real
 // definitions.
 //
-// `legacy_byte_order` selects between two measured, DIFFERENT non-float
-// multi-byte write orders -- mirroring how element_byte_address carries both
-// wrx02 predicates behind `for_write` until the fix wave reconciles them:
-//   - false: writes the byte order spec.endian's label claims (matching
-//     decode_scaled_values, the correct decoder). This is the inverse of
-//     read_raw_element's *correct* half (the unsigned/float paths), not of
-//     its signed-multi-byte defect; see
-//     PinnedDefect_SignedMultiByteDoesNotRoundTrip* in map_edit_test.cpp for
-//     the resulting divergence on signed 16/32-bit storage.
-//   - true: reproduces legacy set_rom_data_value's write order, which is
-//     INVERTED relative to its own endian label (raw 0x1234 labeled "big"
-//     writes [0x34, 0x12]) -- see
-//     PinnedDefect_WriteOrderDivergesFromLegacyBecauseLegacyIsAlsoByteSwapped.
-// Float storage is unaffected by this flag in either mode: floats are always
-// written big-endian-in-ROM, matching decode_scaled_values and
-// read_raw_element's float handling.
+// Writes the byte order spec.endian's label claims (matching
+// decode_scaled_values, the correct decoder, and read_raw_element's own
+// endian handling) for every non-float width; float storage is always
+// written big-endian-in-ROM regardless of spec.endian, matching
+// decode_scaled_values and read_raw_element's float handling. (Legacy
+// set_rom_data_value's write order was inverted relative to its own endian
+// label -- raw 0x1234 labeled "big" wrote [0x34, 0x12] -- a defect fixed
+// alongside read_raw_element's signed-multi-byte byte-swap, since the two
+// were the same underlying bug on opposite sides of the read/write pair.)
 Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec, double display_value,
-                                                      int float_precision, bool legacy_byte_order);
+                                                      int float_precision);
 
-// Display helpers: pure formatting computations pulled out of
-// get_mapvalue_decimal_count and get_map_cell_colors (menu_actions.cpp).
-// Neither touches ROM data; both feed how a value is rendered in the map
-// grid widget.
+// Display helper: pure formatting computation pulled out of
+// get_mapvalue_decimal_count (menu_actions.cpp). Doesn't touch ROM data;
+// feeds how a value is rendered in the map grid widget. (The color-hue
+// arithmetic that used to live alongside this as map_cell_color_scale was
+// folded back into MainWindow::get_map_cell_colors -- it's a single tiny
+// expression with exactly one caller, tightly coupled to the Qt QColor
+// conversion it exists to feed, and didn't earn its keep as a separate
+// portable function.)
 
 // How many decimal places to render a cell's value with, reproducing
 // get_mapvalue_decimal_count. `value_format` is a RomRaider-style format
@@ -202,19 +199,5 @@ Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec
 // '.' only has its first fractional segment counted. No '.' at all returns
 // 0.
 int map_value_decimal_count(std::string_view value_format);
-
-// The HSV hue for a map cell's background color, reproducing the
-// color_scale/color_value arithmetic in get_map_cell_colors. Maps
-// `min_value` to 0 and `max_value` to the top of the range (210/360),
-// clamping negative results (values below `min_value`) to 0. The
-// QColor::setHsvF/getRgbF conversion to a packed RGB int stays in
-// menu_actions.cpp, since that's presentation, not logic.
-//
-// PinnedDefect_EqualColorBoundsProduceNonFiniteHue (map_edit_test.cpp): when
-// `min_value == max_value`, the division by zero in this formula produces a
-// non-finite hue -- preserved verbatim from legacy. Display-only (no ROM
-// write involved), so it does not join the write-path defects the spec
-// tracks for the 6b-4 fix wave.
-double map_cell_color_scale(double value, double min_value, double max_value);
 
 } // namespace fastecu::calibration

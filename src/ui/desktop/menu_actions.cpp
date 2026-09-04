@@ -34,7 +34,7 @@ QString read_rom_data_value(bytes::ByteView rom_data, const fastecu::calibration
 void write_rom_data_value(FileActions::EcuCalDefStructure& def, const fastecu::calibration::MapElementSpec& spec,
                           uint16_t value_index, std::int64_t raw)
 {
-    const auto encoded = fastecu::calibration::write_raw_element(spec, raw, /*legacy_byte_order=*/true);
+    const auto encoded = fastecu::calibration::write_raw_element(spec, raw);
     if (!encoded.has_value())
     {
         qWarning() << "write_rom_data_value:" << QString::fromStdString(encoded.error().detail);
@@ -367,7 +367,7 @@ void MainWindow::inc_dec_value(const QString& action)
             map_data_cell_text.replace(j * mapXSize + i, QString::number(map_item_value));
 
             write_rom_data_value(*ecuCalDef[id->rom_number], spec, map_value_index,
-                                 static_cast<std::int64_t>(new_rom_data_value.toInt()));
+                                 fastecu::ui::raw_element_value_from_text(spec, new_rom_data_value));
         }
     }
 
@@ -527,7 +527,7 @@ void MainWindow::set_value()
             qDebug() << j * map_x_size + i << QString::number(map_item_value);
 
             write_rom_data_value(*ecuCalDef[id->rom_number], spec, map_value_index,
-                                 static_cast<std::int64_t>(rom_data_value.toInt()));
+                                 fastecu::ui::raw_element_value_from_text(spec, rom_data_value));
         }
     }
 
@@ -715,7 +715,7 @@ void MainWindow::interpolate_value(const QString& action)
                 map_data_cell_text.replace((firstRow + j) * map_x_size + firstCol + i, QString::number(map_item_value));
 
                 write_rom_data_value(*ecuCalDef[id->rom_number], spec, map_value_index,
-                                     static_cast<std::int64_t>(rom_data_value.toInt()));
+                                     fastecu::ui::raw_element_value_from_text(spec, rom_data_value));
             }
         }
     }
@@ -843,7 +843,7 @@ void MainWindow::paste_value()
                                 }
 
                                 write_rom_data_value(*ecuCalDef[rom_number], spec, map_value_index,
-                                                     static_cast<std::int64_t>(rom_data_value.toInt()));
+                                                     fastecu::ui::raw_element_value_from_text(spec, rom_data_value));
                             }
                         }
                     }
@@ -1464,7 +1464,21 @@ int MainWindow::get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, 
     mapMinValue = ecuCalDef->MapCellColorMin.at(mapIndex).toFloat();
     mapMaxValue = ecuCalDef->MapCellColorMax.at(mapIndex).toFloat();
 
-    const double color_value = fastecu::calibration::map_cell_color_scale(mapDataValue, mapMinValue, mapMaxValue);
+    // Maps mapMinValue -> hue 0, mapMaxValue -> hue 210/360, clamping
+    // below-range values to 0. mapMinValue == mapMaxValue would divide by
+    // zero, producing a non-finite hue that's undefined (effectively
+    // invalid) as a QColor::setHsvF argument -- guarded to 0.0 instead, a
+    // well-defined choice consistent with the below-range clamp just below.
+    constexpr double kScaleStart = 210.0 / 360.0;
+    double color_value = 0.0;
+    if (mapMaxValue != mapMinValue)
+    {
+        color_value = kScaleStart * (mapDataValue - mapMinValue) / (mapMaxValue - mapMinValue);
+        if (color_value < 0.0)
+        {
+            color_value = 0.0;
+        }
+    }
 
     QColor color;
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)

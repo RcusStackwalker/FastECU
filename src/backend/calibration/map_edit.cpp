@@ -21,7 +21,11 @@ std::uint64_t element_byte_address(const MapElementSpec& spec, std::uint32_t ind
 
     // Legacy applies two DIFFERENT wrx02 relocation predicates on the read and
     // write paths. Preserved verbatim and kept visibly side by side; the spec's
-    // defect (a) covers the divergence and 6b-4 reconciles them.
+    // defect (a) covers the divergence, deferred pending corpus evidence about
+    // which predicate real wrx02 ROMs actually need -- deliberately NOT
+    // reconciled by the 6b-4 fix wave (unlike the byte-order defects it does
+    // fix), since picking the wrong one here could target a different but
+    // still-plausible ROM address on a real device.
     if (spec.flash_method != "wrx02")
     {
         return address;
@@ -45,11 +49,17 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
 
     // Ported from get_rom_data_value (menu_actions.cpp:1610-1697). Legacy
     // assembles two representations from the same window: `data_byte`, a
-    // correctly endian-aware unsigned assembly used for uint reads below,
-    // and `byte_value`, filled most-significant-byte-first in BOTH endian
-    // branches -- legacy's bug, preserved here verbatim (see the spec's
-    // defect (b), pinned by PinnedDefect_SignedMultiByteReadsAreByteSwapped
-    // in map_edit_test.cpp).
+    // correctly endian-aware unsigned assembly used for uint reads below AND
+    // (as of the 6b-4 fix) for signed reads too, and `byte_value`, filled
+    // most-significant-byte-first in BOTH endian branches -- still needed
+    // below for the float branch's bit-pattern assembly, which is
+    // legitimately endian-independent (floats are always big-endian-in-ROM;
+    // see that branch's comment). `byte_value` is no longer used to
+    // reconstruct signed integers: that reconstruction used to reinterpret
+    // it through a union-member layout that assumed a fill order different
+    // from how it was actually filled here, byte-swapping every signed
+    // multi-byte read -- fixed by reading `data_byte` directly instead (see
+    // the signed-integer branch below).
     std::uint32_t data_byte = 0;
     std::array<std::uint8_t, 4> byte_value{};
 
@@ -70,61 +80,44 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
 
     if (spec.storage_type == definition::StorageType::Float)
     {
-        // The one intentional change from legacy: assemble the four bytes
-        // into a uint32_t and std::bit_cast to float, rather than reading a
-        // union member that was never written (UB). The float bits are then
-        // bit_cast back to int32_t so they round-trip through this
-        // function's int64_t return type unchanged.
+        // Assembles the four bytes into a uint32_t and returns those bits
+        // reinterpreted as int32_t, rather than reading a union member that
+        // was never written (UB, what legacy did). Going uint32_t ->
+        // std::bit_cast<float> -> std::bit_cast<std::int32_t> and back would
+        // round-trip to the exact same bit pattern (bit_cast never alters
+        // the underlying bits, for any input including NaN patterns), so
+        // that detour is skipped in favor of a single direct bit_cast; the
+        // "reinterpret these bytes as the float's bit pattern" intent is
+        // unchanged, only the intermediate `float` local is gone.
         //
         // Legacy reads map_data_value.float_value out of a union whose
         // float member overlaps the same byte_value[4] used above. On a
         // little-endian host that union member's least-significant byte is
-        // byte_value[0] -- the same LSB-first layout the Int32 branch below
-        // already uses on this identically-filled array. Since byte_value
-        // was itself filled from address+width-1 down to address+0 (see the
-        // little_or_float branch above, always taken for float storage),
-        // this makes address+0 the float's most-significant byte: a
-        // big-endian float in ROM, matching decode_scaled_values's
-        // documented float handling in calibration_service.cpp.
+        // byte_value[0]. Since byte_value was itself filled from
+        // address+width-1 down to address+0 (see the little_or_float branch
+        // above, always taken for float storage), this makes address+0 the
+        // float's most-significant byte: a big-endian float in ROM, matching
+        // decode_scaled_values's documented float handling in
+        // calibration_service.cpp.
         const std::uint32_t bits = std::uint32_t(byte_value[0]) | (std::uint32_t(byte_value[1]) << 8) |
                                    (std::uint32_t(byte_value[2]) << 16) | (std::uint32_t(byte_value[3]) << 24);
-        const float float_value = std::bit_cast<float>(bits);
-        return static_cast<std::int64_t>(std::bit_cast<std::int32_t>(float_value));
+        return static_cast<std::int64_t>(std::bit_cast<std::int32_t>(bits));
     }
 
-    // Signed integer storage. Legacy reads these back out of the same
-    // byte_value bytes through a union of int8_t/int16_t/int32_t members
-    // sharing storage with the uint8_t byte_value[4] used above.
-    // Recombined here in that union member's little-endian-host layout
-    // (index 0 = least significant byte of the *_value member), which,
-    // combined with byte_value being filled MSB-first above, reproduces
-    // the byte swap the spec's defect (b) pins.
-    if (width == 1)
-    {
-        return static_cast<std::int64_t>(sign_extend(byte_value[0], 1));
-    }
-    if (width == 2)
-    {
-        const std::uint32_t raw = std::uint32_t(byte_value[0]) | (std::uint32_t(byte_value[1]) << 8);
-        return static_cast<std::int64_t>(sign_extend(raw, 2));
-    }
-    if (width == 4)
-    {
-        const std::uint32_t raw = std::uint32_t(byte_value[0]) | (std::uint32_t(byte_value[1]) << 8) |
-                                  (std::uint32_t(byte_value[2]) << 16) | (std::uint32_t(byte_value[3]) << 24);
-        return static_cast<std::int64_t>(sign_extend(raw, 4));
-    }
-
-    // width == 3: int24. Legacy's signed branch tests only storagesize 1, 2,
-    // and 4, so a 3-byte signed value falls through every branch and the
-    // QString `value` is never assigned -- an empty string, which callers
-    // convert to 0. This is legacy behavior being preserved, not an
-    // oversight in this port -- see PinnedDefect_Int24AlwaysReadsAsZero.
-    return 0;
+    // Signed integer storage, every width including 24-bit. `data_byte` is
+    // already correctly endian-assembled above (used unconditionally for
+    // unsigned reads too) -- sign-extending it directly is both the fix for
+    // the byte-swap defect that used to live here (a MSB-first
+    // reconstruction through byte_value[], mismatched against how
+    // byte_value[] was actually filled for the "little" branch) and for the
+    // int24-always-zero defect (the old code never handled width == 3 at
+    // all). Matches decode_scaled_values's identical
+    // little_endian-read-then-sign_extend(raw, width) pattern
+    // (calibration_service.cpp) for every width.
+    return static_cast<std::int64_t>(sign_extend(data_byte, width));
 }
 
-Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, std::int64_t raw,
-                                                    bool legacy_byte_order)
+Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, std::int64_t raw)
 {
     const std::uint32_t width = definition::storage_byte_size(spec.storage_type);
     const bool is_float = spec.storage_type == definition::StorageType::Float;
@@ -135,7 +128,7 @@ Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, 
     const std::uint32_t packed = static_cast<std::uint32_t>(raw);
 
     std::vector<std::uint8_t> out(width, 0x00);
-    const bool little_endian = !is_float && ((spec.endian == "little") != legacy_byte_order);
+    const bool little_endian = !is_float && (spec.endian == "little");
     for (std::uint32_t k = 0; k < width; ++k)
     {
         const std::uint32_t shift = little_endian ? (8U * k) : (8U * (width - 1U - k));
@@ -202,7 +195,7 @@ EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions di
 }
 
 Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec, double display_value,
-                                                      int float_precision, bool legacy_byte_order)
+                                                      int float_precision)
 {
     const bool is_float = spec.storage_type == definition::StorageType::Float;
 
@@ -219,7 +212,7 @@ Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec
         raw = static_cast<std::int64_t>(static_cast<std::uint32_t>(std::llround(encoded)));
     }
 
-    return write_raw_element(spec, raw, legacy_byte_order);
+    return write_raw_element(spec, raw);
 }
 
 int map_value_decimal_count(std::string_view value_format)
@@ -239,23 +232,6 @@ int map_value_decimal_count(std::string_view value_format)
         first_dot + 1, second_dot == std::string_view::npos ? std::string_view::npos : second_dot - (first_dot + 1));
 
     return static_cast<int>(std::count(segment.begin(), segment.end(), '0'));
-}
-
-double map_cell_color_scale(double value, double min_value, double max_value)
-{
-    // Ported from get_map_cell_colors (menu_actions.cpp). min_value ==
-    // max_value divides by zero, producing a non-finite hue -- preserved
-    // verbatim; see PinnedDefect_EqualColorBoundsProduceNonFiniteHue.
-    constexpr double kScaleStart = 210.0 / 360.0;
-    const double color_scale = (1.0 - (value - min_value) / (max_value - min_value)) * kScaleStart;
-    double color_value = kScaleStart - color_scale;
-
-    if (color_value < 0.0)
-    {
-        color_value = 0.0;
-    }
-
-    return color_value;
 }
 
 } // namespace fastecu::calibration
