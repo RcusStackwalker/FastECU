@@ -49,9 +49,10 @@ for the `FileActions` breakdown:
 - TCU service-functions package — PR 1 (portable sessions) and PR 2 (desktop
   wiring), groundwork for wave 5.
 
-Step 6 (thin desktop shell) is under way: 6a (de-widget `FileActions`) is
-complete — see below. The rest of step 6, and step 7 (Android seam), have
-not started. The per-family flash tail is under way — see the
+Step 6 (thin desktop shell) is under way: 6a (de-widget `FileActions`) and 6b
+(calibration map-edit use case) are complete — see below. The rest of step 6,
+and step 7 (Android seam), have not started. The per-family flash tail is
+under way — see the
 [tail design](superpowers/specs/2026-08-08-step5-tail-flash-drain-design.md)
 for the eight-wave sequencing:
 
@@ -91,10 +92,12 @@ status below, refreshed after 6a-4/6a-5:
   `FlashUtils::configureIso15765Can(SerialPortActions*)`, a disclosed 5c gap)
   and `//src/backend/logging/protocols`. The rest are `src/ui/desktop` entries
   that step 6 drains, plus the legitimate same-layer `remote_utility` edge.
-- Three `:qt_compat` shims survive in `src/algorithms` (`protocol`,
-  `protocol/ssm`, `menu`). `expression`'s was drained and deleted by 6a-4;
+- Two `:qt_compat` shims survive in `src/algorithms` (`protocol`,
+  `protocol/ssm`). `expression`'s was drained and deleted by 6a-4;
   `diagnostics` (including `qt_dtc_parser` / `qt_nrc_parser`) was drained and
-  deleted by 5d-5; `crypto` was removed.
+  deleted by 5d-5; `crypto` was removed; `menu`'s was drained and deleted by
+  step 6b (PR 6b-3) — its only consumer was `menu_actions.cpp`, which neither
+  the flash drain nor 6a owned.
 - The legacy `src/backend/definitions/file_actions.cpp` god object is down to
   ~1k lines (986) and, as of 6a-3, no longer inherits `QWidget` or declares
   `Q_OBJECT`; it is distinct from the new portable `src/backend/definition/`.
@@ -221,6 +224,37 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      `EcuCalDefStructure` staying `QString`/`QStringList`-typed — was this
      slice's explicit non-goal; see the "Replace parallel-list data models"
      entry in the [tech-debt roadmap](tech-debt.md).
+   - **6b calibration map-edit use case — complete.** See the
+     [6b design](superpowers/specs/2026-09-03-step6b-calibration-map-edit-design.md).
+     Moved the calibration map-*edit* arithmetic out of
+     `src/ui/desktop/menu_actions.cpp` into the portable
+     `//src/backend/calibration:map_edit` target: the byte codec
+     (`read_raw_element`/`encode_scaled_value`), `resolve_edit_target` and
+     `MapElementSpec` (target resolution and display helpers), and all four
+     `apply_*` edit operations (`apply_increment`, `apply_set_expression`,
+     `apply_interpolation`, `apply_paste`), plus the drain of
+     `//src/algorithms/menu:qt_compat` (its only consumer,
+     `menu_action_triggered`'s re-parsing of the action string, was deleted
+     once the typed `MenuCommand` could be passed straight down). Four PRs —
+     #271 (6b-1 byte codec), #272 (6b-2 target resolution and display
+     helpers), #274 (fix the unambiguous write-path defects — later written
+     up as spec defects (f)-(h): a signed-multi-byte byte-swap and int24
+     always reading zero, the write path's inverted byte order, and garbage
+     float-storage writes), and #275 (6b-3 edit operations and shim drain,
+     which fixed spec defects (d) and (e) by construction) — plus a follow-on
+     session that fixed spec defect (c) (uniform bounds enforcement, via
+     `encode_guarded`) and spec defect (b) (the strided `start_position`/
+     `interval` layout), landing in PR 6b-4 (pending — this doc update is
+     part of it). Spec defect (a) (the `wrx02` read/write predicate
+     mismatch) is deliberately deferred: no ROM in either the
+     `mmc-definitions` or `mmc-patches` corpus declares `wrx02` as its flash
+     method, so there is no real definition to confirm the fix against; see
+     the "Fix or defer the `wrx02` write-path predicate" entry in the
+     [tech-debt roadmap](tech-debt.md). `//:portable_closure` and
+     `//:backend_no_widgets` both continued to pass throughout; the explicit
+     non-goal, as in 6a, was converting `FileActions::EcuCalDefStructure`
+     away from `QString`/`QStringList` — it stays Qt-typed, tracked under the
+     same "Replace parallel-list data models" tech-debt entry.
    - Implement Qt adapters for backend ports and marshal events to the GUI thread.
    - Keep `MainWindow` and dialogs responsible only for presentation, input collection, signal wiring, and calling backend use cases.
    - Move construction and platform selection into `apps/desktop`.

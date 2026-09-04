@@ -1,6 +1,10 @@
 # Step 6b — Calibration map-edit use case — Design
 
-**Status:** designed 2026-09-03, not started. The second slice of step 6 of the
+**Status:** complete. Designed 2026-09-03; four PRs landed (#271, #272, #274,
+#275) plus a follow-on session fixing spec defects (b) and (c), closed out in
+PR 6b-4 (pending). Spec defect (a) is deliberately deferred — see its
+[status note](#a-the-wrx02-address-fixup-differs-between-read-and-write). The
+second slice of step 6 of the
 [modularization plan](../../modularization-plan.md), scoped — like
 [6a](2026-09-01-step6a-file-actions-dewidget-design.md) — to run **in parallel
 with the [per-family flash drain](2026-08-08-step5-tail-flash-drain-design.md)**
@@ -240,6 +244,21 @@ fixed behavior. That leaves **(a), (b), and (c) for 6b-4.**
 
 ### (a) The `wrx02` address fixup differs between read and write
 
+**Status: still open, deliberately deferred (not this step).** The plan
+required confirming which predicate is correct "against a real `wrx02`
+definition" before landing a fix, and named the fallback explicitly: "if the
+correspondence cannot be confirmed... stop and report... an unproven fix
+here is deferred with the finding recorded, not guessed." Measured at
+closeout: `grep -rl wrx02` across both the `mmc-definitions` and
+`mmc-patches` corpora finds **zero** ROMs anywhere that declare `wrx02` as
+their flash method, so there is no real definition to confirm against.
+`element_byte_address` still keeps its `for_write` parameter and both
+divergent predicates unchanged, and
+`PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite`
+(`map_edit_test.cpp`) is still pinned, unflipped. Recorded as a deferred
+action in the [tech-debt roadmap](../../tech-debt.md) under "P1: Separate UI
+from application logic."
+
 ```cpp
 // get_rom_data_value:1646
 if (ecuCalDef[rom_number]->RomInfo.at(FlashMethod) == "wrx02" &&
@@ -265,6 +284,21 @@ chosen on this reasoning alone** — see [6b-4](#sequencing).
 
 ### (b) The edit path ignores the strided layout the read path honours
 
+**Status: fixed (commit `2468fcc0`).** `MapElementSpec` gained
+`start_position`/`interval` fields (default 1, matching "no striding"), and
+`element_byte_address` now applies `decode_scaled_values`' exact
+`address + (start_position - 1) * width + index * width * interval` formula
+on both the read and write side. Corpus measurement taken for the fix (not
+re-run at closeout): `grep -rhoE '(startpos|interval)="[^"]*"'` over the 59
+EcuFlash XML definitions in `mmc-definitions/site/xml/` returns no matches at
+all — 0 of 59 files carry a non-default `startpos` or `interval`. Per the
+plan's zero-count fallback, the fix is unproven against real striding data
+but lands anyway because the divergence from `decode_scaled_values` was a
+latent trap regardless of whether any current definition exercises it. The
+`HonoursTheStartPositionAndIntervalStride` and the strided case in
+`EncodeScaledValue.RoundTripsThroughReadRawElementForEveryWidth`
+(`map_edit_test.cpp`) cover it.
+
 `decode_scaled_values` lays elements out as
 
 ```text
@@ -286,6 +320,21 @@ This repository holds no ROM-definition corpus, so the population of affected
 maps is unmeasured here. Measuring it is the first task of 6b-4.
 
 ### (c) Bounds enforcement differs per operation
+
+**Status: fixed (commits `7b3cd134..93743ce9`).** A shared `encode_guarded`
+helper now sits in front of `encode_scaled_value` for all four `apply_*`
+operations: it applies the same min/max clamp and the same storage-type
+saturation/sign-wrap guards `inc_dec_value` alone used to run, reverting a
+cell to its previous raw value when an encode would overflow. `apply_paste`,
+previously bounds-free entirely, now goes through the same guard as the
+other three. A first pass (`61b4de54`) routed `apply_set_expression` and
+`apply_interpolation` through `encode_guarded` but let it also override
+their formatting precision with `float_precision`, contradicting both
+functions' own documented precision-6 contract; a follow-up (`93743ce9`)
+gave `encode_guarded` a separate `format_precision` parameter, restored
+precision-6 for `apply_set_expression`/`apply_interpolation`, and added
+regression tests for the precision divergence plus clamp/guard coverage on
+`apply_interpolation` and `apply_paste`'s guard-rejection path.
 
 - `inc_dec_value` clamps to `MinValueList`/`MaxValueList` **and** runs
   storage-type saturation and sign-wrap guards (`:347-400`), reverting the cell
@@ -348,6 +397,83 @@ author reaching for a VLA and settling for a fixed bound.
 stack buffer overflow cannot be characterized by a test that is expected to
 pass. The portable operation sizes its buffer from the selection. 6b-3 lands a
 test with a 200-column selection that would have overflowed.
+
+### (f) `read_raw_element`'s signed multi-byte reads were byte-swapped, and int24 always read as zero
+
+Found during, and fixed by, PR #274 ("fix the unambiguous write-path
+defects" — already merged, predates the defects (a)-(e) analysis above,
+which was written from the state PR #274 landed).
+
+The unsigned branch of `get_rom_data_value` assembles a value from
+`data_byte` — an array already reordered into the correct endian sequence
+before assembly. The signed branch instead reconstructed the value
+MSB-first regardless of the spec's endian, so a signed multi-byte read that
+should sign-extend the correctly-assembled unsigned value instead byte-swapped
+it: the raw bits round-tripped through `encode_scaled_value` came back wrong
+for every signed width at both endians. A 24-bit signed read fared worse — it
+always returned zero, because the signed-reconstruction branch's `int24`
+case never populated a sign bit from a byte the unsigned path had already
+assembled correctly.
+
+**Fix:** the signed branch now reuses the same endian-correct `data_byte`
+assembly the unsigned branch already had, and applies `sign_extend(data_byte,
+width)` — a one-line fix that resolves both defects at once, since they
+shared the same root cause (the signed branch's own byte reconstruction
+instead of reusing the unsigned path's). Verified against
+`decode_scaled_values`' identical assembly-then-sign-extend pattern.
+`EncodeScaledValue.RoundTripsThroughReadRawElementForEveryWidth`
+(`map_edit_test.cpp`) now exercises every signed width at both endians, plus
+`Int24`, "previously untestable here because it always read back as 0." A
+now-deleted pinning test,
+`PinnedDefect_SignedMultiByteDoesNotRoundTripBecauseTheReadIsByteSwapped`,
+characterized the pre-fix behavior; its premise is what the fix falsifies.
+
+### (g) The write path's byte order was inverted relative to its endian label
+
+Found during, and fixed by, PR #274, alongside (f).
+
+`set_rom_data_value` wrote raw values in the *opposite* byte order from what
+the element's `endian` field claimed and from what `decode_scaled_values`
+(the load path) actually used to interpret bytes on read — a raw `0x1234`
+labeled `"big"` was written as `[0x34, 0x12]`. Every non-byte-width write was
+affected: the value displayed after a re-read of the map did not match the
+value the user entered, because the read path decoded the (wrongly-ordered)
+bytes back with the opposite convention and happened to land on a different
+number.
+
+**Fix:** `encode_scaled_value` now always writes the byte order the spec's
+`endian` label claims, matching `decode_scaled_values` and
+`read_raw_element`'s own (post-(f)) endian handling exactly. Float storage is
+unaffected by `endian` in either direction — it is always written
+big-endian-in-ROM regardless of the label, matching the load path's existing
+convention. `EncodeScaledValue.EncodesInTheLabeledByteOrder`
+(`map_edit_test.cpp`) pins the corrected behavior; the now-deleted
+`PinnedDefect_WriteOrderDivergesFromLegacyBecauseLegacyIsAlsoByteSwapped` and
+`LegacyByteOrderFlagSelectsWriteOrder` characterized the pre-fix inversion
+and the `legacy_byte_order` flag that used to select it (also removed).
+
+### (h) Float-storage calibration writes stored garbage
+
+Found during, and fixed by, PR #274, alongside (f) and (g). A distinct root
+cause from both — not a byte-order bug.
+
+The write path parsed the cell's edited decimal text with `QString::toInt()`
+and packed the resulting *integer* as if its bit pattern were the float's raw
+storage bytes, rather than converting the actual entered value into the
+float's IEEE-754 bit pattern. Editing a float-storage cell to, for example,
+`1.5` wrote whatever bytes `QString::toInt()` happened to produce from
+parsing `"1.5"` (an integer parse of a decimal string), not `1.5`'s actual
+float bit pattern — silently corrupting every float-storage calibration edit.
+
+**Fix:** `raw_element_value_from_text` (`src/ui/desktop/calibration/
+map_edit_adapter.{h,cpp}`), a new UI-adapter function, converts the edited
+text to the element's actual value and `bit_cast`s it into the raw storage
+representation, paired with its already-tested inverse,
+`format_raw_element_value`, which formats a raw value back to display text.
+Both live in the UI adapter package (not `map_edit` itself) because the
+conversion needs `QString` at the text-entry boundary; `map_edit`'s own
+`encode_scaled_value` deals only in already-converted `double`/raw values and
+was not itself the source of this defect.
 
 ## Testing
 
@@ -417,6 +543,19 @@ Four PRs, each independently mergeable and each green on
    the evidence for either is inconclusive, that fix is deferred with the
    finding written into the tech-debt roadmap rather than guessed.** Defect (c)
    needs no corpus evidence and lands regardless.
+
+   **Outcome:** (c) landed first (commits `7b3cd134..93743ce9`), needing no
+   corpus evidence as predicted. (b)'s corpus count came back zero rather
+   than inconclusive-but-nonzero — no definition in `mmc-definitions/site/xml/`
+   carries a non-default `startpos`/`interval` at all — and per the plan's own
+   zero-count fallback the fix landed anyway (commit `2468fcc0`) because the
+   divergence was a latent trap independent of whether current data exercises
+   it. (a)'s evidence search came back with no `wrx02` ROM to confirm
+   against in either the `mmc-definitions` or `mmc-patches` corpus, which
+   *is* the inconclusive case this paragraph anticipated, so (a) is deferred
+   exactly as specified — see its
+   [status note](#a-the-wrx02-address-fixup-differs-between-read-and-write)
+   and the [tech-debt roadmap](../../tech-debt.md).
 
 ## Completion criteria
 
