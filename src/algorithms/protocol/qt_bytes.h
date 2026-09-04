@@ -31,44 +31,46 @@ inline MutableByteView mutableView(QByteArray& bytes)
 
 inline void appendU16Be(QByteArray& out, std::uint16_t value)
 {
-    out.append(static_cast<char>((value >> 8) & 0xFF));
-    out.append(static_cast<char>(value & 0xFF));
+    const auto v = static_cast<unsigned>(value);
+    out.append(static_cast<char>((v >> 8U) & 0xFFU));
+    out.append(static_cast<char>(v & 0xFFU));
 }
 
 inline void appendU24Be(QByteArray& out, std::uint32_t value)
 {
-    out.append(static_cast<char>((value >> 16) & 0xFF));
-    out.append(static_cast<char>((value >> 8) & 0xFF));
-    out.append(static_cast<char>(value & 0xFF));
+    out.append(static_cast<char>((value >> 16U) & 0xFFU));
+    out.append(static_cast<char>((value >> 8U) & 0xFFU));
+    out.append(static_cast<char>(value & 0xFFU));
 }
 
 inline void appendU32Be(QByteArray& out, std::uint32_t value)
 {
-    out.append(static_cast<char>((value >> 24) & 0xFF));
-    out.append(static_cast<char>((value >> 16) & 0xFF));
-    out.append(static_cast<char>((value >> 8) & 0xFF));
-    out.append(static_cast<char>(value & 0xFF));
+    out.append(static_cast<char>((value >> 24U) & 0xFFU));
+    out.append(static_cast<char>((value >> 16U) & 0xFFU));
+    out.append(static_cast<char>((value >> 8U) & 0xFFU));
+    out.append(static_cast<char>(value & 0xFFU));
 }
 
 inline void appendU16Le(QByteArray& out, std::uint16_t value)
 {
-    out.append(static_cast<char>(value & 0xFF));
-    out.append(static_cast<char>((value >> 8) & 0xFF));
+    const auto v = static_cast<unsigned>(value);
+    out.append(static_cast<char>(v & 0xFFU));
+    out.append(static_cast<char>((v >> 8U) & 0xFFU));
 }
 
 inline void appendU24Le(QByteArray& out, std::uint32_t value)
 {
-    out.append(static_cast<char>(value & 0xFF));
-    out.append(static_cast<char>((value >> 8) & 0xFF));
-    out.append(static_cast<char>((value >> 16) & 0xFF));
+    out.append(static_cast<char>(value & 0xFFU));
+    out.append(static_cast<char>((value >> 8U) & 0xFFU));
+    out.append(static_cast<char>((value >> 16U) & 0xFFU));
 }
 
 inline void appendU32Le(QByteArray& out, std::uint32_t value)
 {
-    out.append(static_cast<char>(value & 0xFF));
-    out.append(static_cast<char>((value >> 8) & 0xFF));
-    out.append(static_cast<char>((value >> 16) & 0xFF));
-    out.append(static_cast<char>((value >> 24) & 0xFF));
+    out.append(static_cast<char>(value & 0xFFU));
+    out.append(static_cast<char>((value >> 8U) & 0xFFU));
+    out.append(static_cast<char>((value >> 16U) & 0xFFU));
+    out.append(static_cast<char>((value >> 24U) & 0xFFU));
 }
 
 inline void writeU16Be(QByteArray& out, std::size_t offset, std::uint16_t value)

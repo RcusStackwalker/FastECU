@@ -23,37 +23,38 @@ bytes::Byte sizeToDescriptor(bytes::Byte len)
         return 0;
     }
 }
-int reqLen(int channelCount)
+std::size_t reqLen(std::size_t channelCount)
 {
-    return ((channelCount + 3) >> 2) + channelCount * 2 + 0x1c;
+    return (channelCount + 3) / 4 + channelCount * 2 + 0x1c;
 }
 bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const std::vector<Channel>& channels)
 {
-    const int n = static_cast<int>(channels.size());
-    const int total = reqLen(n);
-    bytes::Bytes f(static_cast<std::size_t>(total), 0);
+    const std::size_t n = channels.size();
+    const std::size_t total = reqLen(n);
+    bytes::Bytes f(total, 0);
     f[0] = listCmd;
     f[1] = static_cast<bytes::Byte>(n);
-    const int descBytes = (n + 3) >> 2;
-    for (int i = 0; i < n; ++i)
+    const std::size_t descBytes = (n + 3) / 4;
+    for (std::size_t i = 0; i < n; ++i)
     { // pack 2-bit size descriptors, MSB-first
-        const bytes::Byte d = sizeToDescriptor(channels.at(i).len) & 0x3;
-        const int shift = (3 - (i & 3)) * 2;
-        f[2 + (i >> 2)] = static_cast<bytes::Byte>(f[2 + (i >> 2)] | (d << shift));
+        const bytes::Byte d = sizeToDescriptor(channels[i].len) & 0x3U;
+        const std::size_t shift = (3 - i % 4) * 2;
+        const std::size_t descIdx = 2 + i / 4;
+        f[descIdx] = static_cast<bytes::Byte>(f[descIdx] | (static_cast<unsigned>(d) << shift));
     }
-    int idOff = 2 + descBytes;
-    for (int i = 0; i < n; ++i)
+    std::size_t idOff = 2 + descBytes;
+    for (const Channel& channel : channels)
     { // big-endian u16 ids
-        f[idOff++] = static_cast<bytes::Byte>(channels.at(i).id >> 8);
-        f[idOff++] = static_cast<bytes::Byte>(channels.at(i).id & 0xFF);
+        bytes::writeU16Be(f, idOff, channel.id);
+        idOff += 2;
     }
-    f[total - 2] = sum8(f, 0, static_cast<std::size_t>(total - 2));
+    f[total - 2] = sum8(f, 0, total - 2);
     f[total - 1] = TRAILER_STD;
     return f;
 }
-int responseDataLength(const std::vector<Channel>& channels)
+std::size_t responseDataLength(const std::vector<Channel>& channels)
 {
-    int n = 0;
+    std::size_t n = 0;
     for (const Channel& c : channels)
     {
         n += c.len;
@@ -64,15 +65,11 @@ std::vector<std::uint32_t> decodeStreamValues(const std::vector<Channel>& channe
 {
     std::vector<std::uint32_t> out;
     out.reserve(channels.size());
-    int off = 0;
+    std::size_t off = 0;
     for (const Channel& c : channels)
     {
-        std::uint32_t v = 0;
-        for (int k = 0; k < c.len && off < static_cast<int>(data.size()); ++k, ++off)
-        {
-            v = (v << 8) | data[static_cast<std::size_t>(off)]; // big-endian
-        }
-        out.push_back(v);
+        out.push_back(bytes::readUBe(data, off, c.len));
+        off += c.len;
     }
     return out;
 }
