@@ -379,4 +379,59 @@ Result<EditPatch> apply_interpolation(bytes::ByteView rom_data, const MapElement
                                       std::span<const std::string_view> cell_text, const SelectionRange& range,
                                       InterpolationMode mode, int float_precision);
 
+// Ports the arithmetic half of legacy paste_value (menu_actions.cpp) into a
+// pure, patch-returning operation: given a clipboard block already split into
+// rows/columns by the UI (`pasted_rows`), computes what each in-bounds pasted
+// cell's new stored bytes and new display text should be, without writing
+// anything itself.
+//
+// `x_size`/`y_size` are the RESOLVED edit-run's full extent -- unlike every
+// other apply_* operation in this file, paste needs BOTH dimensions (not just
+// x_size) because its own bounds check -- `(row + first_row) < y_size &&
+// (col + first_col) < x_size` -- silently drops any pasted cell that falls
+// outside the map, in either dimension. Same caveat as apply_increment's
+// `x_size` doc comment: these are NOT spec.x_size/spec.y_size (the map's own
+// geometry, with no axis override -- see MapElementSpec's doc comment), they
+// are the resolved EditTarget::x_size/y_size from resolve_edit_target.
+//
+// `rom_data` and `cell_text` are both unused for computation, kept only for
+// signature parity with the other apply_* operations (see
+// apply_set_expression's doc comment for the same reasoning about rom_data):
+// paste_value never reads from ROM (element_byte_address needs no rom_data of
+// its own either), and its per-cell "current value" read
+// (`mapDataCellText.at(index)`) always reads back the SAME index it just
+// replaced with the pasted text one line earlier -- so the value it reads is
+// always the pasted text itself, never a prior cell value from `cell_text`.
+//
+// Two behavioral points, both deliberate, not defects to reconcile:
+//   - Unlike every other apply_* operation, `CellPatch::display_text` here is
+//     the pasted cell's text AS GIVEN, not the value round-tripped through
+//     from_byte -- legacy writes the pasted string directly into the cell
+//     text and separately computes the ROM bytes via to_byte, never
+//     re-deriving display text from the encoded bytes.
+//   - The "x" input to expression_evaluate is the pasted text itself, not a
+//     format_like_qt_g-formatted value -- there is no float-to-string
+//     formatting step anywhere in legacy paste_value, so (unlike Tasks 8-10)
+//     no precision-fidelity rule applies here.
+//
+// There is no min/max clamp and no storage-type saturation/sign-wrap guard
+// anywhere in legacy paste_value, and none is added here -- the spec's defect
+// (c), pinned by a dedicated test, fixed in a later task, not this one.
+//
+// Ragged pasted rows (a later row with fewer columns than the first): legacy
+// computes its column count from the FIRST row only and indexes every row
+// unconditionally at that width, which is an out-of-bounds
+// QStringList::operator[] (UB / an assertion crash in debug Qt builds) for a
+// shorter later row. This is a latent legacy safety bug, not a
+// porting-relevant behavioral defect the spec tracks -- reproducing it would
+// mean writing code with intentionally undefined behavior, which this port
+// does not do. Instead, each cell is additionally skipped whenever
+// `col >= pasted_rows[row].size()`; for any well-formed (non-ragged) paste --
+// the only case any test here exercises -- this produces IDENTICAL output to
+// legacy.
+Result<EditPatch> apply_paste(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t x_size,
+                              std::uint32_t y_size, std::span<const std::string_view> cell_text,
+                              const SelectionRange& range, std::span<const std::vector<std::string_view>> pasted_rows,
+                              int float_precision);
+
 } // namespace fastecu::calibration

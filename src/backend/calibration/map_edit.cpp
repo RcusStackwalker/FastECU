@@ -827,4 +827,87 @@ Result<EditPatch> apply_interpolation(bytes::ByteView rom_data, const MapElement
     return patch;
 }
 
+Result<EditPatch> apply_paste(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t x_size,
+                              std::uint32_t y_size, std::span<const std::string_view> cell_text,
+                              const SelectionRange& range, std::span<const std::vector<std::string_view>> pasted_rows,
+                              int float_precision)
+{
+    // paste_value never reads from ROM (element_byte_address needs no
+    // rom_data of its own either). Kept in the signature only for parity
+    // with apply_set_expression/apply_interpolation's shape (see
+    // apply_set_expression's doc comment for the same reasoning).
+    (void)rom_data;
+    // cell_text is unused: legacy's mapDataCellText.replace(index,
+    // columns[i]) followed immediately by .at() on that SAME index always
+    // reads back the pasted text itself, never a prior value from cell_text
+    // -- see this function's doc comment.
+    (void)cell_text;
+
+    const std::string map_value_storagetype = definition::storage_type_text(spec.storage_type);
+    const auto x_size_i = static_cast<int>(x_size);
+    const auto y_size_i = static_cast<int>(y_size);
+
+    // Legacy computes its column count once from the FIRST row's tab count
+    // (`rows.first().count('\t') + 1`) and indexes every row unconditionally
+    // at that width -- an out-of-bounds QStringList::operator[] (UB) for a
+    // later, shorter ("ragged") row. Reproduced here as
+    // pasted_rows.front().size() when non-empty, but each cell below is
+    // additionally guarded against a short row instead of indexed
+    // unconditionally -- see this function's doc comment.
+    const std::size_t num_columns = pasted_rows.empty() ? 0 : pasted_rows.front().size();
+
+    EditPatch patch;
+    for (std::size_t row = 0; row < pasted_rows.size(); ++row)
+    {
+        const auto& columns = pasted_rows[row];
+        for (std::size_t col = 0; col < num_columns; ++col)
+        {
+            // Ragged-row guard (see this function's doc comment): legacy has
+            // no equivalent check and indexes unconditionally.
+            if (col >= columns.size())
+            {
+                continue;
+            }
+
+            const int dest_row = range.first_row + static_cast<int>(row);
+            const int dest_col = range.first_col + static_cast<int>(col);
+            if (dest_row >= y_size_i || dest_col >= x_size_i)
+            {
+                continue;
+            }
+
+            const auto index = static_cast<std::uint32_t>(dest_row) * x_size + static_cast<std::uint32_t>(dest_col);
+            const std::string_view text = columns[col];
+
+            // Unlike every other apply_* operation, expression_evaluate's "x"
+            // input here is the pasted text ITSELF, never a
+            // format_like_qt_g-formatted value -- see this function's doc
+            // comment (no precision-fidelity rule applies to paste).
+            const double encoded = expression_evaluate(spec.to_byte, text, float_precision);
+            std::string rom_data_value = format_like_qt_g(encoded, 6);
+            if (map_value_storagetype != "float")
+            {
+                rom_data_value = std::to_string(
+                    static_cast<std::int32_t>(std::llround(static_cast<double>(to_float_or_zero(rom_data_value)))));
+            }
+
+            const auto encoded_bytes = write_raw_element(spec, raw_from_display_text(spec, rom_data_value));
+            if (!encoded_bytes.has_value())
+            {
+                return std::unexpected(encoded_bytes.error());
+            }
+
+            // display_text is the pasted text VERBATIM, not the round-tripped
+            // from_byte value every other apply_* operation uses -- see this
+            // function's doc comment.
+            patch.push_back({.index = index,
+                             .display_text = std::string(text),
+                             .byte_address = element_byte_address(spec, index, /*for_write=*/true),
+                             .bytes = *encoded_bytes});
+        }
+    }
+
+    return patch;
+}
+
 } // namespace fastecu::calibration

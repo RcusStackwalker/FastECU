@@ -926,5 +926,77 @@ TEST(ApplyInterpolation, BidirectionalCentreCellIsTheBilinearResultOfTheFourCorn
     EXPECT_EQ((*patch)[4].display_text, "80");
 }
 
+TEST(ApplyPaste, WritesTheClipboardBlockAnchoredAtTheSelectionCorner)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "0", "0", "0"};
+    const std::vector<std::string_view> rows[] = {{"11", "22"}};
+
+    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
+                                   {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1}, rows, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 2U);
+    EXPECT_EQ((*patch)[0].display_text, "11");
+    EXPECT_EQ((*patch)[1].display_text, "22");
+}
+
+TEST(ApplyPaste, DropsCellsThatFallOutsideTheMap)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "0", "0", "0"};
+    // Three columns pasted into a two-column map: legacy silently drops the
+    // third rather than reporting.
+    const std::vector<std::string_view> rows[] = {{"11", "22", "33"}};
+
+    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
+                                   {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1}, rows, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    EXPECT_EQ(patch->size(), 2U);
+}
+
+// Spec defect (c), pinned: paste applies neither min/max clamping nor
+// saturation guards, so arbitrary clipboard text becomes arbitrary ROM bytes.
+// Task 13 fixes this and flips the expectation.
+TEST(ApplyPaste, PinnedDefect_AppliesNoBoundsCheckingAtAll)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "0", "0", "0"};
+    const std::vector<std::string_view> rows[] = {{"9999"}};
+
+    MapElementSpec spec = linear_uint8_spec(2, 2);
+    spec.min_value = "0";
+    spec.max_value = "255";
+
+    const auto patch = apply_paste(rom, spec, /*x_size=*/2, /*y_size=*/2, cells,
+                                   {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    EXPECT_EQ((*patch)[0].display_text, "9999");
+}
+
+// Design notes section 5: legacy sizes its column loop from the FIRST row's
+// tab count and indexes every row unconditionally at that width, which is an
+// out-of-bounds QStringList::operator[] for a shorter later row. This port
+// instead skips a cell whenever the row itself doesn't have a column at that
+// position -- defined behavior (silently drop it) rather than legacy's
+// undefined one.
+TEST(ApplyPaste, SkipsCellsInARaggedRowShorterThanTheFirstRow)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "0", "0", "0"};
+    const std::vector<std::string_view> rows[] = {{"11", "22"}, {"33"}};
+
+    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
+                                   {.first_row = 0, .first_col = 0, .last_row = 1, .last_col = 1}, rows, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 3U);
+    EXPECT_EQ((*patch)[0].display_text, "11");
+    EXPECT_EQ((*patch)[1].display_text, "22");
+    EXPECT_EQ((*patch)[2].display_text, "33");
+}
+
 } // namespace
 } // namespace fastecu::calibration
