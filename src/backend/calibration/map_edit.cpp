@@ -448,8 +448,7 @@ Result<std::int64_t> read_raw_element(bytes::ByteView rom_data, const MapElement
         // float's most-significant byte: a big-endian float in ROM, matching
         // decode_scaled_values's documented float handling in
         // calibration_service.cpp.
-        const std::uint32_t bits = std::uint32_t(byte_value[0]) | (std::uint32_t(byte_value[1]) << 8U) |
-                                   (std::uint32_t(byte_value[2]) << 16U) | (std::uint32_t(byte_value[3]) << 24U);
+        const std::uint32_t bits = bytes::readU32Le(byte_value);
         return static_cast<std::int64_t>(std::bit_cast<std::int32_t>(bits));
     }
 
