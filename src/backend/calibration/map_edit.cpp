@@ -531,4 +531,123 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
     return patch;
 }
 
+Result<EditPatch> apply_set_expression(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t x_size,
+                                       std::span<const std::string_view> cell_text, const SelectionRange& range,
+                                       std::string_view input, int float_precision)
+{
+    // rom_data is unused: set_value reads the pre-edit raw value
+    // (read_rom_data_value) into a local that is unconditionally overwritten
+    // below, before it is ever read -- porting that read would add a
+    // ROM-bounds check with no effect on this function's output, so it's
+    // dropped along with the other dead code (qDebug calls) this port
+    // drops. Kept in the signature for parity with apply_increment's shape.
+    (void)rom_data;
+
+    const std::string map_value_storagetype = definition::storage_type_text(spec.storage_type);
+
+    // Extracts the segment between the FIRST and SECOND occurrence of
+    // `delimiter` in `text` -- QString::split(delimiter)[1]. Same technique
+    // as map_value_decimal_count's '.'-segment parsing: for the common case
+    // of no repeated delimiter (e.g. "+5"), this is just "everything after
+    // the first occurrence," since there is no second occurrence.
+    const auto operand_after = [](std::string_view text, char delimiter) -> std::string_view
+    {
+        const std::size_t first = text.find(delimiter);
+        if (first == std::string_view::npos)
+        {
+            return {};
+        }
+        const std::size_t second = text.find(delimiter, first + 1);
+        return text.substr(first + 1, second == std::string_view::npos ? std::string_view::npos : second - (first + 1));
+    };
+
+    const char op = input.empty() ? '\0' : input.front();
+    float operand = 0.0F;
+    if (op == '+' || op == '-' || op == '*' || op == '/')
+    {
+        operand = to_float_or_zero(operand_after(input, op));
+    }
+    // Change 1 (see this function's doc comment): the divide-by-zero check
+    // moves before the loop and fails the whole call, rather than raising a
+    // modal and silently continuing with the unmodified value. The divisor
+    // is the same for every cell, so checking once up front is equivalent
+    // to checking on the first iteration.
+    if (op == '/' && operand == 0.0F)
+    {
+        return fail(ErrorKind::InvalidConfig, "cannot divide by zero");
+    }
+    const float absolute_value = to_float_or_zero(input);
+
+    EditPatch patch;
+    for (int j = range.first_row; j <= range.last_row; ++j)
+    {
+        for (int i = range.first_col; i <= range.last_col; ++i)
+        {
+            const auto index = static_cast<std::uint32_t>(j) * x_size + static_cast<std::uint32_t>(i);
+
+            float map_item_value = to_float_or_zero(cell_text[index]);
+            switch (op)
+            {
+            case '+':
+                map_item_value += operand;
+                break;
+            case '-':
+                map_item_value -= operand;
+                break;
+            case '*':
+                map_item_value *= operand;
+                break;
+            case '/':
+                map_item_value /= operand;
+                break;
+            default:
+                map_item_value = absolute_value;
+                break;
+            }
+
+            // Min/max clamp, ported verbatim from set_value -- no
+            // storage-type saturation guard runs here, unlike
+            // apply_increment (spec's defect (c); see this function's doc
+            // comment).
+            if (spec.min_value != " " && map_item_value < to_float_or_zero(spec.min_value))
+            {
+                map_item_value = to_float_or_zero(spec.min_value);
+            }
+            if (spec.max_value != " " && map_item_value > to_float_or_zero(spec.max_value))
+            {
+                map_item_value = to_float_or_zero(spec.max_value);
+            }
+
+            const double encoded = expression_evaluate(
+                spec.to_byte, format_like_qt_g(static_cast<double>(map_item_value), 6), float_precision);
+            std::string rom_data_value = format_like_qt_g(encoded, 6);
+            if (map_value_storagetype != "float")
+            {
+                rom_data_value = std::to_string(
+                    static_cast<std::int32_t>(std::llround(static_cast<double>(to_float_or_zero(rom_data_value)))));
+            }
+
+            // `expression_evaluate`'s "x" input here is rom_data_value
+            // itself, not a bare QString::number(...) call -- float_precision
+            // is the correct value for this expression_evaluate's precision
+            // argument (see this function's doc comment).
+            const double reversed = expression_evaluate(spec.from_byte, rom_data_value, float_precision);
+            const std::string display_text = format_like_qt_g(reversed, 6);
+
+            const auto encoded_bytes = write_raw_element(spec, raw_from_display_text(spec, rom_data_value));
+            if (!encoded_bytes.has_value())
+            {
+                return std::unexpected(encoded_bytes.error());
+            }
+
+            patch.push_back({.index = index,
+                             .display_text = display_text,
+                             .byte_address = element_byte_address(spec, index, /*for_write=*/true),
+                             .bytes = *encoded_bytes});
+        }
+    }
+
+    return patch;
+}
+
 } // namespace fastecu::calibration

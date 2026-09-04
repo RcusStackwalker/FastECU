@@ -274,4 +274,45 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
                                   std::span<const std::string_view> cell_text, const SelectionRange& range,
                                   IncrementStep step, int float_precision);
 
+// Ports the arithmetic half of legacy set_value (menu_actions.cpp) into a
+// pure, patch-returning operation: given every selected cell's current
+// display text and a raw user-typed `input` string, computes what each
+// cell's new stored bytes and new display text should be, without writing
+// anything itself.
+//
+// `input` is the raw user text from the QInputDialog, with commas already
+// replaced by periods by the UI (set_value:472). Its grammar is legacy's: a
+// leading '+', '-', '*', or '/' applies that operation to each cell's
+// current value using the operand text between the FIRST and SECOND
+// occurrence of that operator character (QString::split(op)[1] --
+// "+5+3".split("+") is {"", "5", "3"}, so the "3" is silently ignored, the
+// same shape of gotcha map_value_decimal_count's '.'-segment parsing has);
+// anything else is parsed as an absolute value assigned to every cell.
+//
+// `x_size` is the RESOLVED edit-run width, exactly as apply_increment's own
+// `x_size` parameter documents -- EditTarget::x_size from resolve_edit_target,
+// NOT spec.x_size.
+//
+// Ported from set_value with two changes:
+//   1. Legacy's divide-by-zero branch showed a modal and then *continued
+//      with the unmodified value*. Per the whole-operation failure rule
+//      (apply_increment's doc comment), this becomes an
+//      ErrorKind::InvalidConfig failure for the WHOLE call instead, checked
+//      once before the loop since the divisor is the same for every cell.
+//   2. Cells are collected into an EditPatch instead of written through
+//      set_rom_data_value.
+// Everything else is preserved exactly as legacy has it, INCLUDING the
+// absence of any storage-type saturation/sign-wrap guard: unlike
+// apply_increment, set_value never ran one. This is the spec's defect (c),
+// left unreconciled here and fixed in a later task, not this one.
+//
+// Every place legacy formats a value via a BARE QString::number(double) call
+// (no explicit precision argument) uses format_like_qt_g(value, 6) here,
+// literally, regardless of `float_precision` -- same rule as
+// apply_increment's doc comment, applied at the equivalent call sites in
+// set_value.
+Result<EditPatch> apply_set_expression(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t x_size,
+                                       std::span<const std::string_view> cell_text, const SelectionRange& range,
+                                       std::string_view input, int float_precision);
+
 } // namespace fastecu::calibration

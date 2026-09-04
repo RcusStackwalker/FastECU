@@ -747,5 +747,88 @@ TEST(ApplyIncrement, SaturationGuardLeavesUnsignedStorageAtItsPreviousValueOnANe
     EXPECT_EQ((*patch)[0].display_text, "0");
 }
 
+TEST(ApplySetExpression, AppliesEachOperatorToEveryCell)
+{
+    struct Case
+    {
+        std::string_view input;
+        std::string_view expected;
+    };
+    const Case cases[] = {
+        {"+5", "15"}, {"-5", "5"}, {"*2", "20"}, {"/2", "5"}, {"42", "42"},
+    };
+
+    for (const auto& c : cases)
+    {
+        std::vector<std::uint8_t> rom(0x40, 0x00);
+        rom[0x10] = 10;
+
+        MapElementSpec spec;
+        spec.address = 0x10;
+        spec.storage_type = definition::StorageType::Uint8;
+        spec.endian = "big";
+        spec.to_byte = "x";
+        spec.from_byte = "x";
+        spec.x_size = 1;
+        spec.y_size = 1;
+
+        const std::string_view cells[] = {"10"};
+        const auto patch =
+            apply_set_expression(rom, spec, /*x_size=*/1, cells,
+                                 {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, c.input, 15);
+
+        ASSERT_TRUE(patch.has_value()) << c.input;
+        EXPECT_EQ((*patch)[0].display_text, c.expected) << c.input;
+    }
+}
+
+TEST(ApplySetExpression, ReportsInvalidConfigOnDivisionByZero)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 10;
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint8;
+    spec.endian = "big";
+    spec.to_byte = "x";
+    spec.from_byte = "x";
+    spec.x_size = 1;
+    spec.y_size = 1;
+
+    const std::string_view cells[] = {"10"};
+    const auto patch = apply_set_expression(rom, spec, /*x_size=*/1, cells,
+                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "/0", 15);
+
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
+}
+
+// Spec defect (c), pinned: set_value clamps to min/max but runs none of the
+// storage-type saturation guards apply_increment does. Task 13 fixes this and
+// flips the expectation.
+TEST(ApplySetExpression, PinnedDefect_DoesNotApplySaturationGuards)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 10;
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint8;
+    spec.endian = "big";
+    spec.to_byte = "x";
+    spec.from_byte = "x";
+    spec.x_size = 1;
+    spec.y_size = 1;
+
+    const std::string_view cells[] = {"10"};
+    const auto patch = apply_set_expression(rom, spec, /*x_size=*/1, cells,
+                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "300", 15);
+
+    ASSERT_TRUE(patch.has_value());
+    // 300 truncates into a uint8 rather than being rejected as out of range.
+    EXPECT_NE((*patch)[0].bytes[0], 10);
+}
+
 } // namespace
 } // namespace fastecu::calibration
