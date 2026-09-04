@@ -315,4 +315,68 @@ Result<EditPatch> apply_set_expression(bytes::ByteView rom_data, const MapElemen
                                        std::span<const std::string_view> cell_text, const SelectionRange& range,
                                        std::string_view input, int float_precision);
 
+// Which of interpolate_value's three fill patterns to apply: fill each row
+// linearly between its own left/right endpoints, fill each column linearly
+// between its own top/bottom endpoints, or (the two-pass combination) first
+// interpolate the left and right edges down the rows from the selection's
+// four corners, then interpolate each row across between its (now-filled)
+// edges.
+enum class InterpolationMode
+{
+    Horizontal,
+    Vertical,
+    Bidirectional,
+};
+
+// Ports the arithmetic half of legacy interpolate_value (menu_actions.cpp)
+// into a pure, patch-returning operation: given every selected cell's current
+// display text, fills the selection according to `mode` and computes what
+// each cell's new stored bytes and new display text should be, without
+// writing anything itself.
+//
+// `x_size` is the RESOLVED edit-run width used to index `cell_text` (reading
+// the four corners and writing each cell's final patch entry) -- exactly
+// apply_increment's own `x_size` parameter, EditTarget::x_size from
+// resolve_edit_target, NOT spec.x_size. This is a DIFFERENT width from the
+// selection's own local `col_count`/`row_count` (last_col - first_col + 1,
+// last_row - first_row + 1) that size the transient interpolation buffer
+// below -- the two must not be conflated.
+//
+// interpolate_value never reads from ROM data at all -- its four corner
+// values and its interior grid are read entirely from `cell_text`, never
+// from `rom_data`. `rom_data` is carried in the signature only for parity
+// with apply_increment/apply_set_expression's shape (see
+// apply_set_expression's doc comment for the same reasoning); this function
+// never reads it.
+//
+// This is the one place the spec's defect (e) is fixed by construction:
+// legacy declares a fixed `float cellValue[128][128]` (64 KB on the stack)
+// and indexes it with the raw selection extent, so any selection wider or
+// taller than 128 writes past the array. Here the transient buffer is a
+// `std::vector<double>` sized exactly to the selection
+// (`col_count * row_count`), addressed by a small `at(col, row)` helper that
+// preserves legacy's `cellValue[i][j]` == `[col][row]` index order (not
+// `[row][col]`) at every site -- `double`, not legacy's `float`, is a
+// deliberate, sanctioned precision improvement to the internal arithmetic
+// only, independent of the string-formatting precision rule below.
+//
+// All three modes' formulas, including bidirectional's two-pass structure
+// (interpolate the left/right edges down the rows first, then each row
+// across), are preserved exactly. There is no min/max clamp and no
+// storage-type saturation/sign-wrap guard anywhere in legacy
+// interpolate_value, and none is added here -- unlike apply_increment, this
+// function was never guarded that way.
+//
+// Every place legacy formats a value via a BARE QString::number(double) call
+// (no explicit precision argument) uses format_like_qt_g(value, 6) here,
+// literally, regardless of `float_precision` -- same rule as
+// apply_increment's doc comment, applied at the equivalent call sites in
+// interpolate_value (the to_byte expression's "x" input and the final
+// display text). `float_precision` is used only where legacy passes
+// fileActions->float_precision explicitly, as expression_evaluate's third
+// argument.
+Result<EditPatch> apply_interpolation(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t x_size,
+                                      std::span<const std::string_view> cell_text, const SelectionRange& range,
+                                      InterpolationMode mode, int float_precision);
+
 } // namespace fastecu::calibration

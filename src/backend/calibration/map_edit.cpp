@@ -650,4 +650,181 @@ Result<EditPatch> apply_set_expression(bytes::ByteView rom_data, const MapElemen
     return patch;
 }
 
+Result<EditPatch> apply_interpolation(bytes::ByteView rom_data, const MapElementSpec& spec, std::uint32_t x_size,
+                                      std::span<const std::string_view> cell_text, const SelectionRange& range,
+                                      InterpolationMode mode, int float_precision)
+{
+    // interpolate_value never reads ROM data at all -- every value it
+    // interpolates comes from cell_text. Kept in the signature only for
+    // parity with apply_increment/apply_set_expression's shape (see
+    // apply_set_expression's doc comment for the same reasoning).
+    (void)rom_data;
+
+    const std::string map_value_storagetype = definition::storage_type_text(spec.storage_type);
+
+    // The selection's OWN local width/height -- sizes the transient
+    // interpolation buffer below. Deliberately distinct from `x_size` (the
+    // full run's width), which is used only to index into `cell_text`.
+    const auto col_count = static_cast<std::uint32_t>(range.last_col - range.first_col + 1);
+    const auto row_count = static_cast<std::uint32_t>(range.last_row - range.first_row + 1);
+
+    // Replaces legacy's fixed `float cellValue[128][128]` (spec's defect
+    // (e): indexed with the raw selection extent, so a selection wider or
+    // taller than 128 wrote past the array) with a buffer sized exactly to
+    // this selection. `at(col, row)` preserves legacy's `cellValue[i][j]` ==
+    // `[col][row]` index order -- NOT `[row][col]` -- at every use below.
+    std::vector<double> cell_values(std::size_t(col_count) * row_count, 0.0);
+    const auto at = [col_count](std::uint32_t col, std::uint32_t row) { return std::size_t(row) * col_count + col; };
+
+    // Reads one cell's current display text out of the full-run `cell_text`,
+    // indexed by `x_size` (never col_count/row_count) -- mirrors
+    // `map_data_cell_text.at(row * map_x_size + col).toFloat()`.
+    const auto cell_at = [&](int row, int col)
+    {
+        return static_cast<double>(
+            to_float_or_zero(cell_text[static_cast<std::size_t>(row) * x_size + static_cast<std::size_t>(col)]));
+    };
+
+    const double top_left = cell_at(range.first_row, range.first_col);
+    const double top_right = cell_at(range.first_row, range.last_col);
+    const double bottom_left = cell_at(range.last_row, range.first_col);
+    const double bottom_right = cell_at(range.last_row, range.last_col);
+
+    double left_row_adder = 0.0;
+    double right_row_adder = 0.0;
+    if (row_count > 1)
+    {
+        left_row_adder = (bottom_left - top_left) / static_cast<double>(row_count - 1);
+        right_row_adder = (bottom_right - top_right) / static_cast<double>(row_count - 1);
+    }
+
+    for (std::uint32_t j = 0; j < row_count; ++j)
+    {
+        for (std::uint32_t i = 0; i < col_count; ++i)
+        {
+            cell_values[at(i, j)] =
+                cell_at(range.first_row + static_cast<int>(j), range.first_col + static_cast<int>(i));
+        }
+    }
+
+    switch (mode)
+    {
+    case InterpolationMode::Horizontal:
+        for (std::uint32_t j = 0; j < row_count; ++j)
+        {
+            double col_adder = 0.0;
+            if (col_count > 1)
+            {
+                col_adder =
+                    (cell_values[at(col_count - 1, j)] - cell_values[at(0, j)]) / static_cast<double>(col_count - 1);
+            }
+            for (std::uint32_t i = 0; i < col_count; ++i)
+            {
+                if (col_count > 1)
+                {
+                    cell_values[at(i, j)] = cell_values[at(0, j)] + static_cast<double>(i) * col_adder;
+                }
+            }
+        }
+        break;
+    case InterpolationMode::Vertical:
+        for (std::uint32_t i = 0; i < col_count; ++i)
+        {
+            double row_adder = 0.0;
+            if (row_count > 1)
+            {
+                row_adder =
+                    (cell_values[at(i, row_count - 1)] - cell_values[at(i, 0)]) / static_cast<double>(row_count - 1);
+            }
+            for (std::uint32_t j = 0; j < row_count; ++j)
+            {
+                if (row_count > 1)
+                {
+                    cell_values[at(i, j)] = cell_values[at(i, 0)] + static_cast<double>(j) * row_adder;
+                }
+            }
+        }
+        break;
+    case InterpolationMode::Bidirectional:
+        // Pass 1: interpolate the left and right edges down the rows from
+        // the four corners.
+        for (std::uint32_t j = 0; j < row_count; ++j)
+        {
+            cell_values[at(0, j)] = cell_values[at(0, 0)] + static_cast<double>(j) * left_row_adder;
+            if (col_count > 1)
+            {
+                cell_values[at(col_count - 1, j)] =
+                    cell_values[at(col_count - 1, 0)] + static_cast<double>(j) * right_row_adder;
+            }
+        }
+        // Pass 2: interpolate each row across between its (now-filled) edges
+        // -- identical shape to the Horizontal branch above.
+        for (std::uint32_t j = 0; j < row_count; ++j)
+        {
+            double col_adder = 0.0;
+            if (col_count > 1)
+            {
+                col_adder =
+                    (cell_values[at(col_count - 1, j)] - cell_values[at(0, j)]) / static_cast<double>(col_count - 1);
+            }
+            for (std::uint32_t i = 0; i < col_count; ++i)
+            {
+                if (col_count > 1)
+                {
+                    cell_values[at(i, j)] = cell_values[at(0, j)] + static_cast<double>(i) * col_adder;
+                }
+            }
+        }
+        break;
+    }
+
+    // Computes the to_byte-encoded, rounded text for one interpolated cell
+    // value -- identical shape to apply_increment's compute_to_byte_text
+    // lambda (same doc comment applies: both QString::number calls here are
+    // bare -- precision 6, not float_precision).
+    const auto compute_to_byte_text = [&](double value)
+    {
+        const double encoded = expression_evaluate(spec.to_byte, format_like_qt_g(value, 6), float_precision);
+        std::string text = format_like_qt_g(encoded, 6);
+        if (map_value_storagetype != "float")
+        {
+            const auto rounded = static_cast<std::int32_t>(std::llround(static_cast<double>(to_float_or_zero(text))));
+            text = std::to_string(rounded);
+        }
+        return text;
+    };
+
+    EditPatch patch;
+    for (std::uint32_t j = 0; j < row_count; ++j)
+    {
+        for (std::uint32_t i = 0; i < col_count; ++i)
+        {
+            const auto index = static_cast<std::uint32_t>(range.first_row + static_cast<int>(j)) * x_size +
+                               static_cast<std::uint32_t>(range.first_col + static_cast<int>(i));
+
+            const std::string rom_data_value = compute_to_byte_text(cell_values[at(i, j)]);
+
+            // `expression_evaluate`'s "x" input here is rom_data_value
+            // itself, not a bare QString::number(...) call -- float_precision
+            // is the correct value for this expression_evaluate's precision
+            // argument (see apply_increment's doc comment).
+            const double reversed = expression_evaluate(spec.from_byte, rom_data_value, float_precision);
+            const std::string display_text = format_like_qt_g(reversed, 6);
+
+            const auto encoded_bytes = write_raw_element(spec, raw_from_display_text(spec, rom_data_value));
+            if (!encoded_bytes.has_value())
+            {
+                return std::unexpected(encoded_bytes.error());
+            }
+
+            patch.push_back({.index = index,
+                             .display_text = display_text,
+                             .byte_address = element_byte_address(spec, index, /*for_write=*/true),
+                             .bytes = *encoded_bytes});
+        }
+    }
+
+    return patch;
+}
+
 } // namespace fastecu::calibration

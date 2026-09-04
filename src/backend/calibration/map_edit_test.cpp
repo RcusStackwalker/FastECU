@@ -830,5 +830,101 @@ TEST(ApplySetExpression, PinnedDefect_DoesNotApplySaturationGuards)
     EXPECT_NE((*patch)[0].bytes[0], 10);
 }
 
+MapElementSpec linear_uint8_spec(std::uint32_t x_size, std::uint32_t y_size)
+{
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint8;
+    spec.endian = "big";
+    spec.to_byte = "x";
+    spec.from_byte = "x";
+    spec.x_size = x_size;
+    spec.y_size = y_size;
+    return spec;
+}
+
+TEST(ApplyInterpolation, HorizontalFillsEachRowLinearlyBetweenItsEndpoints)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "99", "99", "30"};
+
+    const auto patch = apply_interpolation(rom, linear_uint8_spec(4, 1), /*x_size=*/4, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 3},
+                                           InterpolationMode::Horizontal, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 4U);
+    EXPECT_EQ((*patch)[0].display_text, "0");
+    EXPECT_EQ((*patch)[1].display_text, "10");
+    EXPECT_EQ((*patch)[2].display_text, "20");
+    EXPECT_EQ((*patch)[3].display_text, "30");
+}
+
+// Spec defect (e), fixed by the extraction: legacy indexed a fixed
+// float[128][128] with the raw selection extent, so any selection wider or
+// taller than 128 wrote past the array.
+TEST(ApplyInterpolation, HandlesASelectionWiderThanTheLegacyFixedArray)
+{
+    constexpr std::uint32_t kWidth = 200;
+    std::vector<std::uint8_t> rom(0x10 + kWidth, 0x00);
+    std::vector<std::string> owned(kWidth, "0");
+    owned.front() = "0";
+    owned.back() = "199";
+    std::vector<std::string_view> cells(owned.begin(), owned.end());
+
+    const auto patch = apply_interpolation(rom, linear_uint8_spec(kWidth, 1), /*x_size=*/kWidth, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = kWidth - 1},
+                                           InterpolationMode::Horizontal, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    EXPECT_EQ(patch->size(), kWidth);
+    EXPECT_EQ(patch->back().display_text, "199");
+}
+
+TEST(ApplyInterpolation, VerticalFillsEachColumnLinearlyBetweenItsEndpoints)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "99", "99", "30"};
+
+    const auto patch = apply_interpolation(rom, linear_uint8_spec(1, 4), /*x_size=*/1, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 3, .last_col = 0},
+                                           InterpolationMode::Vertical, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 4U);
+    EXPECT_EQ((*patch)[0].display_text, "0");
+    EXPECT_EQ((*patch)[1].display_text, "10");
+    EXPECT_EQ((*patch)[2].display_text, "20");
+    EXPECT_EQ((*patch)[3].display_text, "30");
+}
+
+// A 3x3 selection with all four corners set; the centre cell's expected
+// value (80) is the standard bilinear interpolation of the four corners at
+// the selection's midpoint ((0*0.25)+(20*0.25)+(100*0.25)+(200*0.25) = 80),
+// confirming bidirectional's two-pass edges-then-rows structure reduces to
+// the textbook bilinear result. The nine non-corner cells' seed text is
+// irrelevant -- bidirectional's second pass overwrites every cell in each
+// row (including the corners' own row) from that row's freshly interpolated
+// edges.
+TEST(ApplyInterpolation, BidirectionalCentreCellIsTheBilinearResultOfTheFourCorners)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    // clang-format off
+    const std::string_view cells[] = {
+        "0",   "0", "20",
+        "0",   "0",  "0",
+        "100", "0", "200",
+    };
+    // clang-format on
+
+    const auto patch = apply_interpolation(rom, linear_uint8_spec(3, 3), /*x_size=*/3, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 2, .last_col = 2},
+                                           InterpolationMode::Bidirectional, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 9U);
+    EXPECT_EQ((*patch)[4].display_text, "80");
+}
+
 } // namespace
 } // namespace fastecu::calibration
