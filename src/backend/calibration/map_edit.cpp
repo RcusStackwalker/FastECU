@@ -454,7 +454,8 @@ Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec
 }
 
 Result<std::vector<std::uint8_t>> encode_guarded(bytes::ByteView rom_data, const MapElementSpec& spec,
-                                                 std::uint32_t index, double display_value, int float_precision)
+                                                 std::uint32_t index, double display_value, int format_precision,
+                                                 int float_precision)
 {
     // Clamp to the definition's min/max first -- the " " = unset convention,
     // same as every other clamp in this file.
@@ -475,18 +476,32 @@ Result<std::vector<std::uint8_t>> encode_guarded(bytes::ByteView rom_data, const
     }
     const std::string rom_data_value = format_raw_value_display(spec, *raw_before);
     const std::string map_value_storagetype = definition::storage_type_text(spec.storage_type);
+    const bool is_float = spec.storage_type == definition::StorageType::Float;
 
+    // `format_precision` formats `clamped` into the "x" input text for
+    // spec.to_byte -- NOT the same thing as `float_precision`, which is only
+    // expression_evaluate's third argument (intermediate-rounding precision
+    // for multi-operator expressions). Callers with a legacy-fidelity
+    // contract (apply_set_expression, apply_interpolation: bare
+    // QString::number, precision 6, regardless of float_precision -- see
+    // their own doc comments in map_edit.h) pass 6 here; a caller with no
+    // such contract may pass float_precision instead. This split exists
+    // specifically so this function can NOT be built by delegating to
+    // encode_scaled_value (whose own `float_precision` parameter drives both
+    // the formatting AND the expression_evaluate precision at once, by
+    // design, for its own different caller contract -- see its doc comment).
+    //
     // The guard needs the WIDE (pre-truncation) candidate, exactly as
-    // apply_increment's own compute_to_byte_text produces -- encode_scaled_value's
-    // returned bytes below are already narrowed to the storage width, which
-    // would silently discard the very overflow the guard exists to catch
-    // (e.g. 300 truncates to 0x2C in a uint8 well before it ever reaches
-    // write_raw_element). Recomputed independently rather than derived from
-    // encode_scaled_value's output for exactly that reason.
+    // apply_increment's own compute_to_byte_text produces -- the packed
+    // bytes below are already narrowed to the storage width, which would
+    // silently discard the very overflow the guard exists to catch (e.g. 300
+    // truncates to 0x2C in a uint8 well before it ever reaches
+    // write_raw_element). Computed once here and reused for both the guard
+    // check and the actual write below, so the two can never disagree.
     const double to_byte_encoded =
-        expression_evaluate(spec.to_byte, format_like_qt_g(clamped, float_precision), float_precision);
-    std::string candidate = format_like_qt_g(to_byte_encoded, float_precision);
-    if (map_value_storagetype != "float")
+        expression_evaluate(spec.to_byte, format_like_qt_g(clamped, format_precision), float_precision);
+    std::string candidate = format_like_qt_g(to_byte_encoded, format_precision);
+    if (!is_float)
     {
         candidate = std::to_string(static_cast<std::int32_t>(std::llround(to_byte_encoded)));
     }
@@ -497,7 +512,20 @@ Result<std::vector<std::uint8_t>> encode_guarded(bytes::ByteView rom_data, const
                     std::format("value would overflow storage type {}", map_value_storagetype));
     }
 
-    return encode_scaled_value(spec, clamped, float_precision);
+    // Packs the SAME to_byte_encoded value the guard just checked -- matches
+    // encode_scaled_value's own round/bit_cast formulas exactly (see that
+    // function), just without re-running expression_evaluate a second time
+    // with a possibly-different formatting precision.
+    std::int64_t raw = 0;
+    if (is_float)
+    {
+        raw = static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(static_cast<float>(to_byte_encoded)));
+    }
+    else
+    {
+        raw = static_cast<std::int64_t>(static_cast<std::uint32_t>(std::llround(to_byte_encoded)));
+    }
+    return write_raw_element(spec, raw);
 }
 
 int map_value_decimal_count(std::string_view value_format)
@@ -760,8 +788,13 @@ Result<EditPatch> apply_set_expression(bytes::ByteView rom_data, const MapElemen
 
             // Clamp, encode, and guard through the shared path (spec's
             // defect (c), fixed in 6b-4) -- see this function's doc comment.
-            const auto encoded_bytes =
-                encode_guarded(rom_data, spec, index, static_cast<double>(map_item_value), float_precision);
+            // format_precision is hardcoded to 6 here, NOT float_precision --
+            // the legacy-fidelity contract this function's own doc comment
+            // describes (bare QString::number, precision 6, regardless of
+            // float_precision) still applies to the "x" input text; only the
+            // clamp/guard logic is newly shared.
+            const auto encoded_bytes = encode_guarded(rom_data, spec, index, static_cast<double>(map_item_value),
+                                                      /*format_precision=*/6, float_precision);
             if (!encoded_bytes.has_value())
             {
                 return std::unexpected(encoded_bytes.error());
@@ -913,7 +946,13 @@ Result<EditPatch> apply_interpolation(bytes::ByteView rom_data, const MapElement
 
             // Clamp, encode, and guard through the shared path (spec's
             // defect (c), fixed in 6b-4) -- see this function's doc comment.
-            const auto encoded_bytes = encode_guarded(rom_data, spec, index, cell_values[at(i, j)], float_precision);
+            // format_precision is hardcoded to 6 here, NOT float_precision --
+            // the legacy-fidelity contract this function's own doc comment
+            // describes (bare QString::number, precision 6, regardless of
+            // float_precision) still applies to the "x" input text; only the
+            // clamp/guard logic is newly shared.
+            const auto encoded_bytes = encode_guarded(rom_data, spec, index, cell_values[at(i, j)],
+                                                      /*format_precision=*/6, float_precision);
             if (!encoded_bytes.has_value())
             {
                 return std::unexpected(encoded_bytes.error());
@@ -982,9 +1021,15 @@ Result<EditPatch> apply_paste(bytes::ByteView rom_data, const MapElementSpec& sp
             // Parsed to a number so it can be clamped and guarded -- see
             // this function's doc comment on why the "x" input to
             // expression_evaluate is no longer the pasted text verbatim as
-            // of the 6b-4 fix (spec's defect (c)).
+            // of the 6b-4 fix (spec's defect (c)). Unlike apply_set_expression
+            // and apply_interpolation, paste never had a precision-6
+            // legacy-fidelity contract to preserve (legacy never formatted
+            // its "x" input at all), so float_precision is used here for
+            // format_precision too -- there is no established convention this
+            // reformatting needs to match.
             const auto parsed_value = static_cast<double>(to_float_or_zero(text));
-            const auto encoded_bytes = encode_guarded(rom_data, spec, index, parsed_value, float_precision);
+            const auto encoded_bytes = encode_guarded(rom_data, spec, index, parsed_value,
+                                                      /*format_precision=*/float_precision, float_precision);
             if (!encoded_bytes.has_value())
             {
                 return std::unexpected(encoded_bytes.error());

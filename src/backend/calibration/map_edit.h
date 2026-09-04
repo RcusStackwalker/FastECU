@@ -192,14 +192,31 @@ Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec
 // or pasted values became arbitrary ROM bytes. encode_guarded unifies this:
 // it clamps `display_value` to spec.min_value/max_value (the " " = unset
 // convention, same as every clamp elsewhere in this file), encodes the
-// clamped value via encode_scaled_value, and applies the same storage-type
+// clamped value through spec.to_byte, and applies the same storage-type
 // saturation/sign-wrap guard apply_increment's own guard applies -- reusing
-// the WIDE (pre-truncation) candidate the guard needs, since
-// encode_scaled_value's returned bytes are already narrowed to the storage
-// width and would have silently discarded the very overflow the guard exists
-// to catch. `rom_data`/`index` are read via read_raw_element to get the
-// guard's "previous value" comparison point, exactly as apply_increment's own
-// guard does.
+// the WIDE (pre-truncation) candidate the guard needs, since the packed
+// bytes it returns are already narrowed to the storage width and would have
+// silently discarded the very overflow the guard exists to catch.
+// `rom_data`/`index` are read via read_raw_element to get the guard's
+// "previous value" comparison point, exactly as apply_increment's own guard
+// does.
+//
+// `format_precision` and `float_precision` are DIFFERENT things, despite
+// both being encode-time precision knobs -- this split exists because a
+// single shared precision here would be an unsound reuse of
+// encode_scaled_value's own formatting choice (see that function's doc
+// comment for exactly this hazard): `format_precision` controls how
+// `clamped` is formatted into the "x" input text for spec.to_byte;
+// `float_precision` is only expression_evaluate's third argument
+// (intermediate-rounding precision for multi-operator expressions), same
+// role it plays everywhere else in this file. apply_set_expression and
+// apply_interpolation both have a legacy-fidelity contract predating 6b-4 --
+// documented in their own doc comments below -- that their "x" input is
+// formatted with a bare QString::number call (precision 6), regardless of
+// float_precision; they pass `format_precision = 6` here to preserve that
+// contract even though they now share this clamp/guard path. apply_paste has
+// no such contract (legacy never formatted its "x" input at all -- see its
+// own doc comment) and passes `float_precision` for both.
 //
 // A guard firing is a hard failure here (ErrorKind::InvalidConfig) -- unlike
 // apply_increment, which has a bounded retry loop that reverts a single cell
@@ -217,7 +234,8 @@ Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec
 // (lifted to file scope in map_edit.cpp so both share one implementation),
 // preserving apply_increment's own tested behavior exactly.
 Result<std::vector<std::uint8_t>> encode_guarded(bytes::ByteView rom_data, const MapElementSpec& spec,
-                                                 std::uint32_t index, double display_value, int float_precision);
+                                                 std::uint32_t index, double display_value, int format_precision,
+                                                 int float_precision);
 
 // Display helper: pure formatting computation pulled out of
 // get_mapvalue_decimal_count (menu_actions.cpp). Doesn't touch ROM data;

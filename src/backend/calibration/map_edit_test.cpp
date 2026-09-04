@@ -887,6 +887,40 @@ TEST(ApplySetExpression, RejectsAValueThatWouldOverflowTheStorageType)
     EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
 }
 
+// Regression test for a defect introduced and fixed within Task 13 itself:
+// apply_set_expression has a legacy-fidelity contract (this file's own doc
+// comment in map_edit.h) that its "x" input to spec.to_byte is formatted at
+// a HARDCODED precision of 6 (bare QString::number), regardless of
+// `float_precision` -- routing through the new shared encode_guarded must
+// not silently swap that for float_precision. float_precision is set to 1
+// here specifically so the two precisions would produce different encoded
+// bytes if the wrong one were used: "1.6" formats to "1.6" at precision 6
+// (unchanged) but to "2" at precision 1, and to_byte="x*100" amplifies that
+// into a different rounded integer (160 vs 200).
+TEST(ApplySetExpression, StillEncodesAtThePrecisionSixLegacyFidelityContract)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint8;
+    spec.endian = "big";
+    spec.to_byte = "x*100";
+    spec.from_byte = "x/100";
+    spec.x_size = 1;
+    spec.y_size = 1;
+
+    const std::string_view cells[] = {"0"};
+    const auto patch = apply_set_expression(rom, spec, /*x_size=*/1, cells,
+                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "1.6",
+                                            /*float_precision=*/1);
+
+    ASSERT_TRUE(patch.has_value());
+    // At the correct hardcoded precision 6: "1.6" -> x*100 = 160.
+    // At the buggy float_precision=1: "1.6" would format to "2" -> x*100 = 200.
+    EXPECT_EQ((*patch)[0].bytes, std::vector<std::uint8_t>{160});
+}
+
 MapElementSpec linear_uint8_spec(std::uint32_t x_size, std::uint32_t y_size)
 {
     MapElementSpec spec;
@@ -983,6 +1017,82 @@ TEST(ApplyInterpolation, BidirectionalCentreCellIsTheBilinearResultOfTheFourCorn
     EXPECT_EQ((*patch)[4].display_text, "80");
 }
 
+// Spec defect (c), fixed: interpolate_value ran neither a min/max clamp nor
+// a saturation guard before 6b-4. This exercises the clamp half: the right
+// corner's raw interpolated value (200) exceeds the definition's max_value
+// (100), so the written cell clamps to 100 instead of truncating into the
+// uint8 storage type (200 == 0xC8, which would itself still fit a uint8 --
+// RejectsAnInterpolatedValueThatWouldOverflowTheStorageType below covers the
+// guard half, where the value doesn't fit at all).
+TEST(ApplyInterpolation, ClampsAnInterpolatedValueToTheDefinitionMaximum)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "0", "200"};
+
+    MapElementSpec spec = linear_uint8_spec(3, 1);
+    spec.max_value = "100";
+
+    const auto patch = apply_interpolation(rom, spec, /*x_size=*/3, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
+                                           InterpolationMode::Horizontal, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 3U);
+    EXPECT_EQ((*patch)[2].display_text, "100");
+    EXPECT_EQ((*patch)[2].bytes, std::vector<std::uint8_t>{100});
+}
+
+// Spec defect (c), fixed: the saturation-guard half of
+// ClampsAnInterpolatedValueToTheDefinitionMaximum above -- no min/max is set
+// here, so it's the storage-type saturation guard (not a clamp) rejecting an
+// interpolated corner value (300) that overflows a uint8.
+TEST(ApplyInterpolation, RejectsAnInterpolatedValueThatWouldOverflowTheStorageType)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "0", "300"};
+
+    const auto patch = apply_interpolation(rom, linear_uint8_spec(3, 1), /*x_size=*/3, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
+                                           InterpolationMode::Horizontal, 15);
+
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
+}
+
+// Regression test for a defect introduced and fixed within Task 13 itself:
+// apply_interpolation has the same precision-6 legacy-fidelity contract
+// apply_set_expression does (this file's own doc comment in map_edit.h) --
+// see StillEncodesAtThePrecisionSixLegacyFidelityContract above for the
+// mechanism. Interpolating from 0 to 10 across 4 columns puts a genuinely
+// fractional value (10/3 = 3.333...) at column 1; to_byte="x*100" amplifies
+// the precision-6-vs-float_precision difference into a different rounded
+// integer (333 vs 300).
+TEST(ApplyInterpolation, StillEncodesAtThePrecisionSixLegacyFidelityContract)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "0", "0", "10"};
+
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Uint16;
+    spec.endian = "big";
+    spec.to_byte = "x*100";
+    spec.from_byte = "x/100";
+    spec.x_size = 4;
+    spec.y_size = 1;
+
+    const auto patch = apply_interpolation(rom, spec, /*x_size=*/4, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 3},
+                                           InterpolationMode::Horizontal, /*float_precision=*/1);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 4U);
+    // Column 1's interpolated value is 10/3 = 3.333... -- at precision 6
+    // that's "3.33333", encoded via x*100 and rounded to 333 (0x014D). At the
+    // buggy float_precision=1 it would format to "3", encoding to 300 instead.
+    EXPECT_EQ((*patch)[1].bytes, (std::vector<std::uint8_t>{0x01, 0x4D}));
+}
+
 TEST(ApplyPaste, WritesTheClipboardBlockAnchoredAtTheSelectionCorner)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
@@ -1060,6 +1170,23 @@ TEST(ApplyPaste, ClampsAPastedValueToTheDefinitionMaximum)
     // into the uint8 storage type (9999 == 0x270F, low byte 0x0F).
     EXPECT_EQ((*patch)[0].display_text, "255");
     EXPECT_EQ((*patch)[0].bytes, (std::vector<std::uint8_t>{0xFF}));
+}
+
+// The saturation-guard half of ClampsAPastedValueToTheDefinitionMaximum
+// above: no min/max is set here, so nothing clamps the pasted value first --
+// it's the storage-type saturation guard rejecting a pasted 300 that
+// directly overflows a uint8.
+TEST(ApplyPaste, RejectsAPastedValueThatWouldOverflowTheStorageType)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "0", "0", "0"};
+    const std::vector<std::string_view> rows[] = {{"300"}};
+
+    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
+                                   {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
+
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
 }
 
 // Design notes section 5: legacy sizes its column loop from the FIRST row's
