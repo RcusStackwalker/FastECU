@@ -1,6 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -25,22 +24,8 @@ cc_library(
     hdrs = ["menu_command.h"],
 )
 
-# TRANSITIONAL Qt shim: QString overloads delegating to :menu.
-cc_library(
-    name = "qt_compat",
-    hdrs = ["qt_menu_command.h"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS + [":menu"],
-)
-
 fastecu_portable_gtest(
     name = "menu_command_test",
     srcs = ["menu_command_test.cpp"],
     deps = [":menu"],
-)
-
-fastecu_qttest(
-    name = "test_menu_command",
-    src = "menu_command_qt_compat_test.cpp",
-    deps = [":qt_compat"],
 )

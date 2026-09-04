@@ -9,6 +9,8 @@
 #include <QTableWidget>
 #include <QTableWidgetSelectionRange>
 
+#include "src/algorithms/protocol/qt_bytes.h"
+
 namespace fastecu::ui
 {
 namespace
@@ -256,6 +258,39 @@ std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window, const
     }
 
     return ResolvedEdit(std::move(fields), target, std::move(owned_cell_text), map_number);
+}
+
+void apply_patch(definitions::EcuCalDefStructure& def, int map_number, calibration::EditTargetKind kind,
+                 const calibration::EditPatch& patch)
+{
+    QStringList *target = nullptr;
+    switch (kind)
+    {
+    case calibration::EditTargetKind::YAxis:
+        target = &def.YScaleData;
+        break;
+    case calibration::EditTargetKind::XAxis:
+        target = &def.XScaleData;
+        break;
+    case calibration::EditTargetKind::MapBody:
+        target = &def.MapData;
+        break;
+    case calibration::EditTargetKind::Rejected:
+        // Same reasoning as collect_map_element_fields's Rejected case in
+        // this same file: resolve_active_map_edit already turns a Rejected
+        // target into nullopt, so no caller can reach this with a real
+        // ResolvedEdit's kind(). Explicit case (not `default:`) so -Wswitch
+        // catches a future EditTargetKind enumerator.
+        std::unreachable();
+    }
+
+    QStringList cell_text = target->at(map_number).split(",");
+    for (const auto& cell : patch)
+    {
+        cell_text.replace(static_cast<int>(cell.index), QString::fromStdString(cell.display_text));
+        bytes::overwriteAt(bytes::mutableView(def.FullRomData), cell.byte_address, cell.bytes);
+    }
+    target->replace(map_number, cell_text.join(","));
 }
 
 } // namespace fastecu::ui

@@ -208,4 +208,12 @@ class ResolvedEdit
 std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window, const definitions::EcuCalDefStructure& def,
                                                     int map_number);
 
+// Applies one apply_*() operation's patch: writes each CellPatch's bytes
+// into FullRomData, replaces the matching entry of the split cell text, and
+// rejoins into whichever of MapData/XScaleData/YScaleData `kind` names. The
+// "write back" half of the three closing statements every legacy edit
+// function shared.
+void apply_patch(definitions::EcuCalDefStructure& def, int map_number, calibration::EditTargetKind kind,
+                 const calibration::EditPatch& patch);
+
 } // namespace fastecu::ui
