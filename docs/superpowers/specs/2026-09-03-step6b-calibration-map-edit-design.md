@@ -475,6 +475,15 @@ conversion needs `QString` at the text-entry boundary; `map_edit`'s own
 `encode_scaled_value` deals only in already-converted `double`/raw values and
 was not itself the source of this defect.
 
+### A fourth PR #274 fix, deliberately unlettered
+
+PR #274 also fixed `map_cell_color_scale`'s equal-min/max-bounds
+division-by-zero (previously producing a non-finite hue) to a defined `0.0`.
+It is not given a letter here: this section is scoped to write-path
+defects — "a tool whose output gets flashed to an ECU" — and the color scale
+is a grid-repaint helper with no ROM-byte consequence at all. Recorded here
+only so the record of what PR #274 fixed is complete.
+
 ## Testing
 
 Every new test is `fastecu_portable_gtest` — no Qt, no `QApplication`, no
