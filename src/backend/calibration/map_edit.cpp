@@ -75,6 +75,75 @@ template <std::signed_integral T> T to_signed_or_zero(std::string_view text)
     return value;
 }
 
+// The storage-type saturation and sign-wrap guards (:347-400 in the legacy
+// source). Lifted to file scope in the 6b-4 fix wave (spec's defect (c)) so
+// both apply_increment's own retry loop and encode_guarded below can share
+// one implementation, rather than apply_increment carrying a private copy.
+// Preserved exactly as legacy has it -- string comparisons against
+// "uint8"/"int16"/etc., not enum comparisons; two independent top-level
+// checks (uint* then int*), not an if/else-if, matching legacy's two
+// separate `if` blocks. `rom_data_value` is the pre-edit cell's raw value,
+// formatted the same way `candidate` is.
+//
+// Returns nullopt when a storage-type saturation/sign-wrap guard fires --
+// distinct from returning a candidate that merely equals rom_data_value
+// because the requested value hasn't actually moved the quantized result.
+// apply_increment's bounded retry loop depends on that distinction (see its
+// own doc comment in map_edit.h for why, and how it's preserved);
+// encode_guarded instead treats nullopt as an unconditional hard failure,
+// since none of its callers have a retry loop to revert within.
+std::optional<std::string> apply_saturation_guard(std::string_view storage_type, std::string_view rom_data_value,
+                                                  std::string candidate)
+{
+    if (storage_type.starts_with("uint"))
+    {
+        if (storage_type == "uint8" && to_uint32_or_zero(candidate) > 0xFFU)
+        {
+            return std::nullopt;
+        }
+        if (storage_type == "uint16" && to_uint32_or_zero(candidate) > 0xFFFFU)
+        {
+            return std::nullopt;
+        }
+        if (storage_type == "uint32" && to_uint32_or_zero(candidate) > 0xFFFFFFFFU)
+        {
+            return std::nullopt;
+        }
+        if (to_signed_or_zero<std::int32_t>(candidate) < 0)
+        {
+            return std::nullopt;
+        }
+    }
+    if (storage_type.starts_with("int"))
+    {
+        const std::uint32_t rom_u32 = to_uint32_or_zero(rom_data_value);
+        const std::int32_t rom_i32 = to_signed_or_zero<std::int32_t>(rom_data_value);
+        const std::uint32_t cand_u32 = to_uint32_or_zero(candidate);
+        const std::int32_t cand_i32 = to_signed_or_zero<std::int32_t>(candidate);
+
+        if (storage_type == "int8" &&
+            ((rom_u32 <= 0x7FU && cand_u32 > 0x7FU) || (static_cast<std::uint8_t>(rom_i32) >= 0x80U &&
+                                                        static_cast<std::uint8_t>(cand_i32) < 0x80U && cand_i32 != 0)))
+        {
+            return std::nullopt;
+        }
+        if (storage_type == "int16" && ((rom_u32 <= 0x7FFFU && cand_u32 > 0x7FFFU) ||
+                                        (static_cast<std::uint16_t>(rom_i32) >= 0x8000U &&
+                                         static_cast<std::uint16_t>(cand_i32) < 0x8000U && cand_i32 != 0)))
+        {
+            return std::nullopt;
+        }
+        if ((storage_type == "int32" || storage_type == "float") &&
+            ((rom_u32 <= 0x7FFFFFFFU && cand_u32 > 0x7FFFFFFFU) ||
+             (static_cast<std::uint32_t>(rom_i32) >= 0x80000000U &&
+              static_cast<std::uint32_t>(cand_i32) < 0x80000000U && cand_i32 != 0)))
+        {
+            return std::nullopt;
+        }
+    }
+    return candidate;
+}
+
 // The inverse of format_raw_value_display below: converts a to_byte-encoded
 // text value into the raw form write_raw_element expects. Mirrors
 // fastecu::ui::raw_element_value_from_text (map_edit_adapter.cpp), the
@@ -132,6 +201,53 @@ std::string format_raw_value_display(const MapElementSpec& spec, std::int64_t ra
     default:
         return {};
     }
+}
+
+// The inverse of write_raw_element's packing loop -- unpacks a small,
+// already-encoded byte buffer (encode_guarded's own return value, not
+// ROM-addressed data) back into the raw representation format_raw_value_display
+// expects. Used by display_text_after_encode below so a caller's displayed
+// text is always derived from the SAME bytes actually written, rather than
+// from a separately re-derived candidate that could in principle drift from
+// them (a different formatting precision, a different rounding path).
+std::int64_t unpack_raw(const MapElementSpec& spec, std::span<const std::uint8_t> encoded)
+{
+    const std::uint32_t width = definition::storage_byte_size(spec.storage_type);
+    const bool is_float = spec.storage_type == definition::StorageType::Float;
+    const bool little_endian = !is_float && (spec.endian == "little");
+
+    std::uint32_t packed = 0;
+    for (std::uint32_t k = 0; k < width; ++k)
+    {
+        const std::uint32_t shift = little_endian ? (8U * k) : (8U * (width - 1U - k));
+        packed |= (static_cast<std::uint32_t>(encoded[k]) << shift);
+    }
+
+    if (definition::is_unsigned_storage(spec.storage_type))
+    {
+        return static_cast<std::int64_t>(packed);
+    }
+    if (is_float)
+    {
+        return static_cast<std::int64_t>(std::bit_cast<std::int32_t>(packed));
+    }
+    return static_cast<std::int64_t>(sign_extend(packed, width));
+}
+
+// Derives a CellPatch's display_text from the bytes an encode call (e.g.
+// encode_guarded) actually returned, rather than from a value computed
+// separately alongside them -- decode the written bytes, format them the way
+// every read path in this file does, then run that text back through
+// spec.from_byte, exactly mirroring apply_increment's own final display-text
+// step (map_edit.cpp's apply_increment). Guarantees display_text and .bytes
+// can never disagree, which matters once a value may be clamped or
+// guard-narrowed away from what the caller originally asked for.
+std::string display_text_after_encode(const MapElementSpec& spec, std::span<const std::uint8_t> encoded,
+                                      int float_precision)
+{
+    const std::string rom_data_value = format_raw_value_display(spec, unpack_raw(spec, encoded));
+    const double reversed = expression_evaluate(spec.from_byte, rom_data_value, float_precision);
+    return format_like_qt_g(reversed, 6);
 }
 
 } // namespace
@@ -337,6 +453,53 @@ Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec
     return write_raw_element(spec, raw);
 }
 
+Result<std::vector<std::uint8_t>> encode_guarded(bytes::ByteView rom_data, const MapElementSpec& spec,
+                                                 std::uint32_t index, double display_value, int float_precision)
+{
+    // Clamp to the definition's min/max first -- the " " = unset convention,
+    // same as every other clamp in this file.
+    double clamped = display_value;
+    if (spec.min_value != " " && clamped < to_float_or_zero(spec.min_value))
+    {
+        clamped = to_float_or_zero(spec.min_value);
+    }
+    if (spec.max_value != " " && clamped > to_float_or_zero(spec.max_value))
+    {
+        clamped = to_float_or_zero(spec.max_value);
+    }
+
+    const auto raw_before = read_raw_element(rom_data, spec, index);
+    if (!raw_before.has_value())
+    {
+        return std::unexpected(raw_before.error());
+    }
+    const std::string rom_data_value = format_raw_value_display(spec, *raw_before);
+    const std::string map_value_storagetype = definition::storage_type_text(spec.storage_type);
+
+    // The guard needs the WIDE (pre-truncation) candidate, exactly as
+    // apply_increment's own compute_to_byte_text produces -- encode_scaled_value's
+    // returned bytes below are already narrowed to the storage width, which
+    // would silently discard the very overflow the guard exists to catch
+    // (e.g. 300 truncates to 0x2C in a uint8 well before it ever reaches
+    // write_raw_element). Recomputed independently rather than derived from
+    // encode_scaled_value's output for exactly that reason.
+    const double to_byte_encoded =
+        expression_evaluate(spec.to_byte, format_like_qt_g(clamped, float_precision), float_precision);
+    std::string candidate = format_like_qt_g(to_byte_encoded, float_precision);
+    if (map_value_storagetype != "float")
+    {
+        candidate = std::to_string(static_cast<std::int32_t>(std::llround(to_byte_encoded)));
+    }
+
+    if (!apply_saturation_guard(map_value_storagetype, rom_data_value, candidate).has_value())
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("value would overflow storage type {}", map_value_storagetype));
+    }
+
+    return encode_scaled_value(spec, clamped, float_precision);
+}
+
 int map_value_decimal_count(std::string_view value_format)
 {
     // Ported from get_mapvalue_decimal_count (menu_actions.cpp). Legacy's
@@ -394,12 +557,13 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
         return text;
     };
 
-    // The storage-type saturation and sign-wrap guards (:347-400 in the
-    // legacy source), preserved exactly as legacy has them -- string
-    // comparisons against "uint8"/"int16"/etc., not enum comparisons; two
-    // independent top-level checks (uint* then int*), not an if/else-if,
-    // matching legacy's two separate `if` blocks. `rom_data_value` is the
-    // pre-increment cell's raw value, formatted the same way `candidate` is.
+    // The storage-type saturation and sign-wrap guard is apply_saturation_guard
+    // (file scope, above), shared with encode_guarded as of the 6b-4 fix wave
+    // (spec's defect (c)). This function's own clamp-then-retry control flow
+    // around it is untouched: a guard firing here must revert just this cell
+    // and let the retry loop continue with the next cell, which is why this
+    // function calls the guard directly rather than going through
+    // encode_guarded (see apply_increment's doc comment in map_edit.h).
     //
     // Returns nullopt when a storage-type saturation/sign-wrap guard fires
     // (legacy's unconditional `break`, reverting to rom_data_value and
@@ -410,59 +574,7 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
     // exactly the ambiguity a bounded-retry loop cannot tolerate: a
     // guard-triggered revert is terminal even when its resulting text
     // happens to equal rom_data_value; a genuinely-unchanged candidate must
-    // retry. This inconsistency with set_value's and paste_value's guards is
-    // the spec's defect (c), fixed in a later task, not here.
-    const auto apply_saturation_guard = [&](std::string_view rom_data_value,
-                                            std::string candidate) -> std::optional<std::string>
-    {
-        if (map_value_storagetype.starts_with("uint"))
-        {
-            if (map_value_storagetype == "uint8" && to_uint32_or_zero(candidate) > 0xFFU)
-            {
-                return std::nullopt;
-            }
-            if (map_value_storagetype == "uint16" && to_uint32_or_zero(candidate) > 0xFFFFU)
-            {
-                return std::nullopt;
-            }
-            if (map_value_storagetype == "uint32" && to_uint32_or_zero(candidate) > 0xFFFFFFFFU)
-            {
-                return std::nullopt;
-            }
-            if (to_signed_or_zero<std::int32_t>(candidate) < 0)
-            {
-                return std::nullopt;
-            }
-        }
-        if (map_value_storagetype.starts_with("int"))
-        {
-            const std::uint32_t rom_u32 = to_uint32_or_zero(rom_data_value);
-            const std::int32_t rom_i32 = to_signed_or_zero<std::int32_t>(rom_data_value);
-            const std::uint32_t cand_u32 = to_uint32_or_zero(candidate);
-            const std::int32_t cand_i32 = to_signed_or_zero<std::int32_t>(candidate);
-
-            if (map_value_storagetype == "int8" && ((rom_u32 <= 0x7FU && cand_u32 > 0x7FU) ||
-                                                    (static_cast<std::uint8_t>(rom_i32) >= 0x80U &&
-                                                     static_cast<std::uint8_t>(cand_i32) < 0x80U && cand_i32 != 0)))
-            {
-                return std::nullopt;
-            }
-            if (map_value_storagetype == "int16" && ((rom_u32 <= 0x7FFFU && cand_u32 > 0x7FFFU) ||
-                                                     (static_cast<std::uint16_t>(rom_i32) >= 0x8000U &&
-                                                      static_cast<std::uint16_t>(cand_i32) < 0x8000U && cand_i32 != 0)))
-            {
-                return std::nullopt;
-            }
-            if ((map_value_storagetype == "int32" || map_value_storagetype == "float") &&
-                ((rom_u32 <= 0x7FFFFFFFU && cand_u32 > 0x7FFFFFFFU) ||
-                 (static_cast<std::uint32_t>(rom_i32) >= 0x80000000U &&
-                  static_cast<std::uint32_t>(cand_i32) < 0x80000000U && cand_i32 != 0)))
-            {
-                return std::nullopt;
-            }
-        }
-        return candidate;
-    };
+    // retry.
 
     EditPatch patch;
     for (int j = range.first_row; j <= range.last_row; ++j)
@@ -532,7 +644,8 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
                     continue;
                 }
 
-                const auto guarded = apply_saturation_guard(rom_data_value, compute_to_byte_text(map_item_value));
+                const auto guarded =
+                    apply_saturation_guard(map_value_storagetype, rom_data_value, compute_to_byte_text(map_item_value));
                 if (!guarded.has_value())
                 {
                     // A guard fired -- terminal, even though the value
@@ -585,16 +698,6 @@ Result<EditPatch> apply_set_expression(bytes::ByteView rom_data, const MapElemen
                                        std::span<const std::string_view> cell_text, const SelectionRange& range,
                                        std::string_view input, int float_precision)
 {
-    // rom_data is unused: set_value reads the pre-edit raw value
-    // (read_rom_data_value) into a local that is unconditionally overwritten
-    // below, before it is ever read -- porting that read would add a
-    // ROM-bounds check with no effect on this function's output, so it's
-    // dropped along with the other dead code (qDebug calls) this port
-    // drops. Kept in the signature for parity with apply_increment's shape.
-    (void)rom_data;
-
-    const std::string map_value_storagetype = definition::storage_type_text(spec.storage_type);
-
     // Extracts the segment between the FIRST and SECOND occurrence of
     // `delimiter` in `text` -- QString::split(delimiter)[1]. Same technique
     // as map_value_decimal_count's '.'-segment parsing: for the common case
@@ -655,40 +758,16 @@ Result<EditPatch> apply_set_expression(bytes::ByteView rom_data, const MapElemen
                 break;
             }
 
-            // Min/max clamp, ported verbatim from set_value -- no
-            // storage-type saturation guard runs here, unlike
-            // apply_increment (spec's defect (c); see this function's doc
-            // comment).
-            if (spec.min_value != " " && map_item_value < to_float_or_zero(spec.min_value))
-            {
-                map_item_value = to_float_or_zero(spec.min_value);
-            }
-            if (spec.max_value != " " && map_item_value > to_float_or_zero(spec.max_value))
-            {
-                map_item_value = to_float_or_zero(spec.max_value);
-            }
-
-            const double encoded = expression_evaluate(
-                spec.to_byte, format_like_qt_g(static_cast<double>(map_item_value), 6), float_precision);
-            std::string rom_data_value = format_like_qt_g(encoded, 6);
-            if (map_value_storagetype != "float")
-            {
-                rom_data_value = std::to_string(
-                    static_cast<std::int32_t>(std::llround(static_cast<double>(to_float_or_zero(rom_data_value)))));
-            }
-
-            // `expression_evaluate`'s "x" input here is rom_data_value
-            // itself, not a bare QString::number(...) call -- float_precision
-            // is the correct value for this expression_evaluate's precision
-            // argument (see this function's doc comment).
-            const double reversed = expression_evaluate(spec.from_byte, rom_data_value, float_precision);
-            const std::string display_text = format_like_qt_g(reversed, 6);
-
-            const auto encoded_bytes = write_raw_element(spec, raw_from_display_text(spec, rom_data_value));
+            // Clamp, encode, and guard through the shared path (spec's
+            // defect (c), fixed in 6b-4) -- see this function's doc comment.
+            const auto encoded_bytes =
+                encode_guarded(rom_data, spec, index, static_cast<double>(map_item_value), float_precision);
             if (!encoded_bytes.has_value())
             {
                 return std::unexpected(encoded_bytes.error());
             }
+
+            const std::string display_text = display_text_after_encode(spec, *encoded_bytes, float_precision);
 
             patch.push_back({.index = index,
                              .display_text = display_text,
@@ -704,14 +783,10 @@ Result<EditPatch> apply_interpolation(bytes::ByteView rom_data, const MapElement
                                       std::span<const std::string_view> cell_text, const SelectionRange& range,
                                       InterpolationMode mode, int float_precision)
 {
-    // interpolate_value never reads ROM data at all -- every value it
-    // interpolates comes from cell_text. Kept in the signature only for
-    // parity with apply_increment/apply_set_expression's shape (see
-    // apply_set_expression's doc comment for the same reasoning).
-    (void)rom_data;
-
-    const std::string map_value_storagetype = definition::storage_type_text(spec.storage_type);
-
+    // interpolate_value's interpolated values all come from cell_text -- but
+    // rom_data IS read, once per cell, by the shared encode_guarded path
+    // below (to fetch the guard's "previous value" comparison point).
+    //
     // The selection's OWN local width/height -- sizes the transient
     // interpolation buffer below. Deliberately distinct from `x_size` (the
     // full run's width), which is used only to index into `cell_text`.
@@ -828,22 +903,6 @@ Result<EditPatch> apply_interpolation(bytes::ByteView rom_data, const MapElement
         break;
     }
 
-    // Computes the to_byte-encoded, rounded text for one interpolated cell
-    // value -- identical shape to apply_increment's compute_to_byte_text
-    // lambda (same doc comment applies: both QString::number calls here are
-    // bare -- precision 6, not float_precision).
-    const auto compute_to_byte_text = [&](double value)
-    {
-        const double encoded = expression_evaluate(spec.to_byte, format_like_qt_g(value, 6), float_precision);
-        std::string text = format_like_qt_g(encoded, 6);
-        if (map_value_storagetype != "float")
-        {
-            const auto rounded = static_cast<std::int32_t>(std::llround(static_cast<double>(to_float_or_zero(text))));
-            text = std::to_string(rounded);
-        }
-        return text;
-    };
-
     EditPatch patch;
     for (std::uint32_t j = 0; j < row_count; ++j)
     {
@@ -852,20 +911,15 @@ Result<EditPatch> apply_interpolation(bytes::ByteView rom_data, const MapElement
             const auto index = static_cast<std::uint32_t>(range.first_row + static_cast<int>(j)) * x_size +
                                static_cast<std::uint32_t>(range.first_col + static_cast<int>(i));
 
-            const std::string rom_data_value = compute_to_byte_text(cell_values[at(i, j)]);
-
-            // `expression_evaluate`'s "x" input here is rom_data_value
-            // itself, not a bare QString::number(...) call -- float_precision
-            // is the correct value for this expression_evaluate's precision
-            // argument (see apply_increment's doc comment).
-            const double reversed = expression_evaluate(spec.from_byte, rom_data_value, float_precision);
-            const std::string display_text = format_like_qt_g(reversed, 6);
-
-            const auto encoded_bytes = write_raw_element(spec, raw_from_display_text(spec, rom_data_value));
+            // Clamp, encode, and guard through the shared path (spec's
+            // defect (c), fixed in 6b-4) -- see this function's doc comment.
+            const auto encoded_bytes = encode_guarded(rom_data, spec, index, cell_values[at(i, j)], float_precision);
             if (!encoded_bytes.has_value())
             {
                 return std::unexpected(encoded_bytes.error());
             }
+
+            const std::string display_text = display_text_after_encode(spec, *encoded_bytes, float_precision);
 
             patch.push_back({.index = index,
                              .display_text = display_text,
@@ -882,18 +936,14 @@ Result<EditPatch> apply_paste(bytes::ByteView rom_data, const MapElementSpec& sp
                               const SelectionRange& range, std::span<const std::vector<std::string_view>> pasted_rows,
                               int float_precision)
 {
-    // paste_value never reads from ROM (element_byte_address needs no
-    // rom_data of its own either). Kept in the signature only for parity
-    // with apply_set_expression/apply_interpolation's shape (see
-    // apply_set_expression's doc comment for the same reasoning).
-    (void)rom_data;
     // cell_text is unused: legacy's mapDataCellText.replace(index,
     // columns[i]) followed immediately by .at() on that SAME index always
     // reads back the pasted text itself, never a prior value from cell_text
-    // -- see this function's doc comment.
+    // -- see this function's doc comment. rom_data IS now read, once per
+    // cell, by the shared encode_guarded path below (to fetch the guard's
+    // "previous value" comparison point).
     (void)cell_text;
 
-    const std::string map_value_storagetype = definition::storage_type_text(spec.storage_type);
     const auto x_size_i = static_cast<int>(x_size);
     const auto y_size_i = static_cast<int>(y_size);
 
@@ -929,29 +979,23 @@ Result<EditPatch> apply_paste(bytes::ByteView rom_data, const MapElementSpec& sp
             const auto index = static_cast<std::uint32_t>(dest_row) * x_size + static_cast<std::uint32_t>(dest_col);
             const std::string_view text = columns[col];
 
-            // Unlike every other apply_* operation, expression_evaluate's "x"
-            // input here is the pasted text ITSELF, never a
-            // format_like_qt_g-formatted value -- see this function's doc
-            // comment (no precision-fidelity rule applies to paste).
-            const double encoded = expression_evaluate(spec.to_byte, text, float_precision);
-            std::string rom_data_value = format_like_qt_g(encoded, 6);
-            if (map_value_storagetype != "float")
-            {
-                rom_data_value = std::to_string(
-                    static_cast<std::int32_t>(std::llround(static_cast<double>(to_float_or_zero(rom_data_value)))));
-            }
-
-            const auto encoded_bytes = write_raw_element(spec, raw_from_display_text(spec, rom_data_value));
+            // Parsed to a number so it can be clamped and guarded -- see
+            // this function's doc comment on why the "x" input to
+            // expression_evaluate is no longer the pasted text verbatim as
+            // of the 6b-4 fix (spec's defect (c)).
+            const auto parsed_value = static_cast<double>(to_float_or_zero(text));
+            const auto encoded_bytes = encode_guarded(rom_data, spec, index, parsed_value, float_precision);
             if (!encoded_bytes.has_value())
             {
                 return std::unexpected(encoded_bytes.error());
             }
 
-            // display_text is the pasted text VERBATIM, not the round-tripped
-            // from_byte value every other apply_* operation uses -- see this
-            // function's doc comment.
+            // display_text is now derived from the bytes actually written,
+            // like every other apply_* operation -- see this function's doc
+            // comment.
+            const std::string display_text = display_text_after_encode(spec, *encoded_bytes, float_precision);
             patch.push_back({.index = index,
-                             .display_text = std::string(text),
+                             .display_text = display_text,
                              .byte_address = element_byte_address(spec, index, /*for_write=*/true),
                              .bytes = *encoded_bytes});
         }

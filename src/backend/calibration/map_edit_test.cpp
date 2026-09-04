@@ -861,10 +861,9 @@ TEST(ApplySetExpression, ReportsInvalidConfigOnDivisionByZero)
     EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
 }
 
-// Spec defect (c), pinned: set_value clamps to min/max but runs none of the
-// storage-type saturation guards apply_increment does. Task 13 fixes this and
-// flips the expectation.
-TEST(ApplySetExpression, PinnedDefect_DoesNotApplySaturationGuards)
+// Spec defect (c), fixed: set_value now runs the same storage-type
+// saturation guard apply_increment does, via the shared encode_guarded path.
+TEST(ApplySetExpression, RejectsAValueThatWouldOverflowTheStorageType)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
     rom[0x10] = 10;
@@ -882,9 +881,10 @@ TEST(ApplySetExpression, PinnedDefect_DoesNotApplySaturationGuards)
     const auto patch = apply_set_expression(rom, spec, /*x_size=*/1, cells,
                                             {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "300", 15);
 
-    ASSERT_TRUE(patch.has_value());
-    // 300 truncates into a uint8 rather than being rejected as out of range.
-    EXPECT_NE((*patch)[0].bytes[0], 10);
+    // 300 overflows a uint8 -- the whole call fails instead of truncating
+    // silently into the storage type.
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
 }
 
 MapElementSpec linear_uint8_spec(std::uint32_t x_size, std::uint32_t y_size)
@@ -1036,17 +1036,13 @@ TEST(ApplyPaste, DropsRowsThatFallOutsideTheMap)
     EXPECT_EQ(patch->size(), 2U);
 }
 
-// Spec defect (c), pinned: paste applies neither min/max clamping nor
-// saturation guards to the ROM bytes it writes, so arbitrary clipboard text
-// becomes arbitrary ROM bytes. Task 13 fixes this by clamping/guarding the
-// `.bytes` path; `display_text` is NOT expected to change when that lands --
-// unlike apply_increment/apply_set_expression's sibling pinned-defect tests,
-// apply_paste's display_text is always the pasted text verbatim (see this
-// function's doc comment), never round-tripped from the encoded value, so it
-// is architecturally decoupled from any future clamp on `.bytes`. The
-// `.bytes` assertion below (not `display_text`) is therefore the one Task 13
-// must flip.
-TEST(ApplyPaste, PinnedDefect_AppliesNoBoundsCheckingAtAll)
+// Spec defect (c), fixed: paste now clamps to the definition's min/max and
+// runs the same saturation guard the other three operations do, via the
+// shared encode_guarded path. Clamping necessarily makes display_text derive
+// from the (possibly-clamped) encoded value rather than the pasted text
+// verbatim -- the two can no longer diverge, since both now come out of the
+// same encode_guarded call.
+TEST(ApplyPaste, ClampsAPastedValueToTheDefinitionMaximum)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
     const std::string_view cells[] = {"0", "0", "0", "0"};
@@ -1060,10 +1056,10 @@ TEST(ApplyPaste, PinnedDefect_AppliesNoBoundsCheckingAtAll)
                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
 
     ASSERT_TRUE(patch.has_value());
-    EXPECT_EQ((*patch)[0].display_text, "9999");
-    // 9999 truncates into a uint8 (9999 == 0x270F, low byte 0x0F) rather than
-    // being rejected or clamped to the definition's max_value of 255.
-    EXPECT_EQ((*patch)[0].bytes, (std::vector<std::uint8_t>{0x0F}));
+    // 9999 clamps to the definition's max_value of 255 instead of truncating
+    // into the uint8 storage type (9999 == 0x270F, low byte 0x0F).
+    EXPECT_EQ((*patch)[0].display_text, "255");
+    EXPECT_EQ((*patch)[0].bytes, (std::vector<std::uint8_t>{0xFF}));
 }
 
 // Design notes section 5: legacy sizes its column loop from the FIRST row's

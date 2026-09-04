@@ -183,6 +183,42 @@ Result<std::vector<std::uint8_t>> write_raw_element(const MapElementSpec& spec, 
 Result<std::vector<std::uint8_t>> encode_scaled_value(const MapElementSpec& spec, double display_value,
                                                       int float_precision);
 
+// The single guarded encode path every map edit operation now goes through
+// -- the spec's defect (c) fix. Before 6b-4, the four apply_* operations each
+// did a different ad-hoc subset of bounds enforcement: apply_increment
+// clamped to spec.min_value/max_value AND ran a storage-type
+// saturation/sign-wrap guard; apply_set_expression clamped but never guarded;
+// apply_interpolation and apply_paste did neither, so arbitrary interpolated
+// or pasted values became arbitrary ROM bytes. encode_guarded unifies this:
+// it clamps `display_value` to spec.min_value/max_value (the " " = unset
+// convention, same as every clamp elsewhere in this file), encodes the
+// clamped value via encode_scaled_value, and applies the same storage-type
+// saturation/sign-wrap guard apply_increment's own guard applies -- reusing
+// the WIDE (pre-truncation) candidate the guard needs, since
+// encode_scaled_value's returned bytes are already narrowed to the storage
+// width and would have silently discarded the very overflow the guard exists
+// to catch. `rom_data`/`index` are read via read_raw_element to get the
+// guard's "previous value" comparison point, exactly as apply_increment's own
+// guard does.
+//
+// A guard firing is a hard failure here (ErrorKind::InvalidConfig) -- unlike
+// apply_increment, which has a bounded retry loop that reverts a single cell
+// to its previous value and keeps going, encode_guarded's callers
+// (apply_set_expression, apply_interpolation, apply_paste) have no such retry
+// mechanism, so the whole-operation-failure rule applies instead. This
+// exactly matches the flipped pinning tests: a value that would overflow the
+// storage type now fails the whole call rather than truncating silently.
+//
+// apply_increment itself does NOT call this function -- its own bounded
+// retry loop needs the clamp and guard woven into its per-attempt control
+// flow (a guard firing must revert the cell and continue, not fail the whole
+// call), which this function's Result-returning shape cannot express. It
+// keeps its own clamp and calls the same underlying saturation-guard check
+// (lifted to file scope in map_edit.cpp so both share one implementation),
+// preserving apply_increment's own tested behavior exactly.
+Result<std::vector<std::uint8_t>> encode_guarded(bytes::ByteView rom_data, const MapElementSpec& spec,
+                                                 std::uint32_t index, double display_value, int float_precision);
+
 // Display helper: pure formatting computation pulled out of
 // get_mapvalue_decimal_count (menu_actions.cpp). Doesn't touch ROM data;
 // feeds how a value is rendered in the map grid widget. (The color-hue
@@ -243,8 +279,13 @@ enum class IncrementStep
 // defect (d) and the extraction's own requirements -- everything else,
 // including the min/max clamping and the storage-type saturation/sign-wrap
 // guards, is preserved exactly as legacy has them (string comparisons against
-// "uint8"/"int16"/etc., not enum comparisons; the spec's defect (c), fixed in
-// a later task, not this one):
+// "uint8"/"int16"/etc., not enum comparisons). The spec's defect (c) -- the
+// other three operations' inconsistent bounds enforcement -- is fixed in
+// 6b-4 by extracting the saturation/sign-wrap guard this function applies
+// into a shared, file-scope check (map_edit.cpp) that encode_guarded also
+// calls; this function's own clamp-then-retry control flow is untouched,
+// since it can't be expressed through encode_guarded's Result-returning
+// shape (see encode_guarded's own doc comment):
 //   1. The zero-increment check moves before the loop and fails the whole
 //      call with ErrorKind::InvalidConfig, rather than raising a modal inside
 //      a retry loop a zero increment could never exit.
@@ -306,7 +347,7 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
 // `x_size` parameter documents -- EditTarget::x_size from resolve_edit_target,
 // NOT spec.x_size.
 //
-// Ported from set_value with two changes:
+// Ported from set_value with three changes:
 //   1. Legacy's divide-by-zero branch showed a modal and then *continued
 //      with the unmodified value*. Per the whole-operation failure rule
 //      (apply_increment's doc comment), this becomes an
@@ -314,16 +355,18 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
 //      once before the loop since the divisor is the same for every cell.
 //   2. Cells are collected into an EditPatch instead of written through
 //      set_rom_data_value.
-// Everything else is preserved exactly as legacy has it, INCLUDING the
-// absence of any storage-type saturation/sign-wrap guard: unlike
-// apply_increment, set_value never ran one. This is the spec's defect (c),
-// left unreconciled here and fixed in a later task, not this one. Beyond the
-// display-value min/max clamp described above, this function performs NO
-// ROM-bounds validation of any kind: no storage-type saturation/sign-wrap
-// guard, no retry, and no check that the encoded value actually fits the
-// destination storage type before write_raw_element truncates it -- a
-// future reader (e.g. whoever picks up defect (c)'s reconciliation) must
-// not assume parity with apply_increment's guarded, retrying behavior.
+// 6b-4 adds a third change, fixing the spec's defect (c): each cell's
+// candidate value (post-arithmetic, pre-clamp) is now encoded via the shared
+// encode_guarded (map_edit.cpp), which clamps to spec.min_value/max_value --
+// as this function always did -- AND applies the same storage-type
+// saturation/sign-wrap guard apply_increment runs, which set_value never did
+// before this fix. Unlike apply_increment's per-cell retry-and-revert, a
+// guard firing here is a hard failure for the WHOLE call
+// (ErrorKind::InvalidConfig), per the whole-operation failure rule -- there
+// is no retry loop here for a fired guard to revert within. display_text is
+// derived by decoding the bytes encode_guarded actually returns and running
+// them back through from_byte, rather than from the pre-clamp candidate
+// value, so display_text and .bytes can never drift apart.
 //
 // Every place legacy formats a value via a BARE QString::number(double) call
 // (no explicit precision argument) uses format_like_qt_g(value, 6) here,
@@ -361,12 +404,11 @@ enum class InterpolationMode
 // last_row - first_row + 1) that size the transient interpolation buffer
 // below -- the two must not be conflated.
 //
-// interpolate_value never reads from ROM data at all -- its four corner
-// values and its interior grid are read entirely from `cell_text`, never
-// from `rom_data`. `rom_data` is carried in the signature only for parity
-// with apply_increment/apply_set_expression's shape (see
-// apply_set_expression's doc comment for the same reasoning); this function
-// never reads it.
+// interpolate_value's four corner values and its interior grid are read
+// entirely from `cell_text`, never from `rom_data` -- but as of 6b-4,
+// `rom_data` IS read, once per cell, by the shared encode_guarded path below
+// (to fetch the guard's "previous value" comparison point), so it is no
+// longer unused the way apply_paste's still is.
 //
 // This is the one place the spec's defect (e) is fixed by construction:
 // legacy declares a fixed `float cellValue[128][128]` (64 KB on the stack)
@@ -381,10 +423,16 @@ enum class InterpolationMode
 //
 // All three modes' formulas, including bidirectional's two-pass structure
 // (interpolate the left/right edges down the rows first, then each row
-// across), are preserved exactly. There is no min/max clamp and no
-// storage-type saturation/sign-wrap guard anywhere in legacy
-// interpolate_value, and none is added here -- unlike apply_increment, this
-// function was never guarded that way.
+// across), are preserved exactly -- legacy interpolate_value ran no min/max
+// clamp and no storage-type saturation/sign-wrap guard at all. 6b-4 adds
+// both, fixing the spec's defect (c): each interpolated cell value is now
+// encoded via the shared encode_guarded (map_edit.cpp), which clamps to
+// spec.min_value/max_value and applies the same saturation/sign-wrap guard
+// apply_increment runs. A guard firing is a hard failure for the WHOLE call
+// (ErrorKind::InvalidConfig) -- there is no per-cell retry-and-revert here,
+// unlike apply_increment. display_text is derived by decoding the bytes
+// encode_guarded actually returns and running them back through from_byte,
+// so display_text and .bytes can never drift apart.
 //
 // Every place legacy formats a value via a BARE QString::number(double) call
 // (no explicit precision argument) uses format_like_qt_g(value, 6) here,
@@ -413,29 +461,47 @@ Result<EditPatch> apply_interpolation(bytes::ByteView rom_data, const MapElement
 // geometry, with no axis override -- see MapElementSpec's doc comment), they
 // are the resolved EditTarget::x_size/y_size from resolve_edit_target.
 //
-// `rom_data` and `cell_text` are both unused for computation, kept only for
-// signature parity with the other apply_* operations (see
-// apply_set_expression's doc comment for the same reasoning about rom_data):
-// paste_value never reads from ROM (element_byte_address needs no rom_data of
-// its own either), and its per-cell "current value" read
+// `cell_text` is unused for computation, kept only for signature parity with
+// the other apply_* operations (see apply_set_expression's doc comment for
+// the same reasoning): paste_value's per-cell "current value" read
 // (`mapDataCellText.at(index)`) always reads back the SAME index it just
 // replaced with the pasted text one line earlier -- so the value it reads is
 // always the pasted text itself, never a prior cell value from `cell_text`.
+// `rom_data` WAS similarly unused before 6b-4 (paste_value never reads from
+// ROM; element_byte_address needs no rom_data of its own either), but is now
+// read, once per cell, by the shared encode_guarded path below (to fetch the
+// guard's "previous value" comparison point).
 //
-// Two behavioral points, both deliberate, not defects to reconcile:
-//   - Unlike every other apply_* operation, `CellPatch::display_text` here is
-//     the pasted cell's text AS GIVEN, not the value round-tripped through
-//     from_byte -- legacy writes the pasted string directly into the cell
-//     text and separately computes the ROM bytes via to_byte, never
-//     re-deriving display text from the encoded bytes.
-//   - The "x" input to expression_evaluate is the pasted text itself, not a
-//     format_like_qt_g-formatted value -- there is no float-to-string
-//     formatting step anywhere in legacy paste_value, so (unlike Tasks 8-10)
-//     no precision-fidelity rule applies here.
+// One behavioral point, deliberate, not a defect to reconcile: legacy's "x"
+// input to expression_evaluate was the pasted text itself, not a
+// format_like_qt_g-formatted value -- there was no float-to-string
+// formatting step anywhere in legacy paste_value. This is no longer strictly
+// true as of 6b-4: bounds-checking a pasted value requires parsing it to a
+// number first (to compare against spec.min_value/max_value), and
+// encode_guarded's `display_value` parameter is that number, reformatted via
+// format_like_qt_g on its way back into expression_evaluate -- a necessary,
+// intentional consequence of routing paste through the same guarded path
+// every other operation uses. For any pasted text that already round-trips
+// cleanly through a decimal parse (every case this file's tests exercise),
+// the reformatted text is identical to the original, so this is invisible in
+// practice.
 //
-// There is no min/max clamp and no storage-type saturation/sign-wrap guard
-// anywhere in legacy paste_value, and none is added here -- the spec's defect
-// (c), pinned by a dedicated test, fixed in a later task, not this one.
+// The spec's defect (c) -- no min/max clamp and no storage-type
+// saturation/sign-wrap guard anywhere in legacy paste_value -- is fixed by
+// 6b-4: each pasted cell's parsed value is now encoded via the shared
+// encode_guarded (map_edit.cpp), which clamps to spec.min_value/max_value and
+// applies the same saturation/sign-wrap guard apply_increment runs. A guard
+// firing is a hard failure for the WHOLE call (ErrorKind::InvalidConfig).
+// This also retires the "display_text is always the pasted text verbatim"
+// behavior described above in earlier revisions of this comment:
+// `CellPatch::display_text` is now derived the same way every other apply_*
+// operation derives it -- decoding the bytes encode_guarded actually returns
+// and running them back through from_byte -- so a clamped value's displayed
+// text always matches what was actually written, and display_text/.bytes can
+// never drift apart. For pasted text that parses to a value already within
+// bounds, decoding the written bytes back reproduces the same text the old
+// verbatim behavior would have shown (every case this file's tests
+// exercise), so this is observable only when a paste is actually clamped.
 //
 // Ragged pasted rows (a later row with fewer columns than the first): legacy
 // computes its column count from the FIRST row only and indexes every row
