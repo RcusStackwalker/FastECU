@@ -946,7 +946,9 @@ TEST(ApplyPaste, DropsCellsThatFallOutsideTheMap)
     std::vector<std::uint8_t> rom(0x40, 0x00);
     const std::string_view cells[] = {"0", "0", "0", "0"};
     // Three columns pasted into a two-column map: legacy silently drops the
-    // third rather than reporting.
+    // third rather than reporting. Exercises the x_size half of the
+    // two-dimension bounds check; DropsRowsThatFallOutsideTheMap below
+    // exercises the y_size half.
     const std::vector<std::string_view> rows[] = {{"11", "22", "33"}};
 
     const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
@@ -956,9 +958,37 @@ TEST(ApplyPaste, DropsCellsThatFallOutsideTheMap)
     EXPECT_EQ(patch->size(), 2U);
 }
 
+// apply_paste's bounds check has two independent halves -- dest_row >=
+// y_size and dest_col >= x_size -- and is exactly the class of check prone to
+// a row/col or x_size/y_size swap. DropsCellsThatFallOutsideTheMap above
+// exercises only the x_size half (an extra COLUMN); this test is its
+// transpose, pasting an extra ROW into a map with too few rows, so a swap in
+// either the comparison or the dest_row/dest_col computation would be caught
+// here even if it slipped past the column-only test.
+TEST(ApplyPaste, DropsRowsThatFallOutsideTheMap)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    const std::string_view cells[] = {"0", "0", "0", "0"};
+    // Three rows pasted into a two-row map.
+    const std::vector<std::string_view> rows[] = {{"11"}, {"22"}, {"33"}};
+
+    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
+                                   {.first_row = 0, .first_col = 0, .last_row = 2, .last_col = 0}, rows, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    EXPECT_EQ(patch->size(), 2U);
+}
+
 // Spec defect (c), pinned: paste applies neither min/max clamping nor
-// saturation guards, so arbitrary clipboard text becomes arbitrary ROM bytes.
-// Task 13 fixes this and flips the expectation.
+// saturation guards to the ROM bytes it writes, so arbitrary clipboard text
+// becomes arbitrary ROM bytes. Task 13 fixes this by clamping/guarding the
+// `.bytes` path; `display_text` is NOT expected to change when that lands --
+// unlike apply_increment/apply_set_expression's sibling pinned-defect tests,
+// apply_paste's display_text is always the pasted text verbatim (see this
+// function's doc comment), never round-tripped from the encoded value, so it
+// is architecturally decoupled from any future clamp on `.bytes`. The
+// `.bytes` assertion below (not `display_text`) is therefore the one Task 13
+// must flip.
 TEST(ApplyPaste, PinnedDefect_AppliesNoBoundsCheckingAtAll)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
@@ -974,6 +1004,9 @@ TEST(ApplyPaste, PinnedDefect_AppliesNoBoundsCheckingAtAll)
 
     ASSERT_TRUE(patch.has_value());
     EXPECT_EQ((*patch)[0].display_text, "9999");
+    // 9999 truncates into a uint8 (9999 == 0x270F, low byte 0x0F) rather than
+    // being rejected or clamped to the definition's max_value of 255.
+    EXPECT_EQ((*patch)[0].bytes, (std::vector<std::uint8_t>{0x0F}));
 }
 
 // Design notes section 5: legacy sizes its column loop from the FIRST row's
