@@ -35,6 +35,24 @@ MapElementSpec spec_for(definition::StorageType storage_type, std::string_view e
     return spec;
 }
 
+// A signed-storage map, for the guard tests that distinguish a genuine
+// range/overflow check from the sign-wrap heuristic. Every other guard test
+// in this file uses `uint8` storage, which is exactly the case where the two
+// coincide -- an out-of-range uint8 candidate and a "wrapped" one are the
+// same candidate -- so only a signed storage type can tell them apart.
+MapElementSpec int8_spec(std::uint32_t x_size, std::uint32_t y_size)
+{
+    MapElementSpec spec;
+    spec.address = 0x10;
+    spec.storage_type = definition::StorageType::Int8;
+    spec.endian = "big";
+    spec.to_byte = "x";
+    spec.from_byte = "x";
+    spec.x_size = x_size;
+    spec.y_size = y_size;
+    return spec;
+}
+
 std::vector<std::uint8_t> rom_of(std::size_t size)
 {
     std::vector<std::uint8_t> rom(size, 0x00);
@@ -320,6 +338,9 @@ TEST(ElementByteAddress, HonoursTheStartPositionAndIntervalStride)
 // because it always read back as 0.
 TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
 {
+    // A test-local case table read once per row; field order follows the
+    // fixture's storage/endian/value reading order, not optimal packing.
+    // NOLINTNEXTLINE(clang-analyzer-optin.performance.Padding)
     struct Case
     {
         definition::StorageType storage;
@@ -821,6 +842,39 @@ TEST(ApplyIncrement, RetriesUntilTheEncodedValueActuallyChanges)
     EXPECT_EQ((*patch)[0].bytes, (std::vector<std::uint8_t>{6}));
 }
 
+// The counterpart to the three encode_guarded tests below
+// (ApplySetExpression/ApplyPaste/ApplyInterpolation's
+// "AllowsAnInRangeNegativeToPositive..." cases): apply_increment keeps
+// applying the FULL guard, sign-wrap heuristic included, and this pins that
+// it still does. An int8 cell holding -1 incremented by +5 lands on 4 -- both
+// values are perfectly in range for an int8, so no genuine overflow occurs --
+// but the heuristic fires on the negative-to-positive byte-pattern
+// transition, and legacy's response is to revert this one cell and move on.
+// That is preserved deliberately: inside a bounded retry loop a false
+// positive costs one cell, which is the only context where the heuristic is
+// defensible (see sign_wrap_heuristic_fires and encode_guarded in
+// map_edit.cpp). The identical -1 -> positive transition through
+// apply_set_expression SUCCEEDS, because there a fired guard would fail the
+// whole selection's edit.
+TEST(ApplyIncrement, SignWrapHeuristicStillRevertsAnInRangeNegativeToPositiveIncrement)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xFF; // -1 as int8.
+
+    MapElementSpec spec = int8_spec(1, 1);
+    spec.coarse_increment = 5.0;
+    spec.fine_increment = 1.0;
+
+    const std::string_view cells[] = {"-1"};
+    const auto patch =
+        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+                        IncrementStep::CoarseUp, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    EXPECT_EQ((*patch)[0].bytes, std::vector<std::uint8_t>{0xFF});
+    EXPECT_EQ((*patch)[0].display_text, "-1");
+}
+
 TEST(ApplyIncrement, ReportsInvalidConfigWhenTheRetryBoundIsExhausted)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00); // rom[0x10] = 0
@@ -924,6 +978,47 @@ TEST(ApplySetExpression, RejectsAValueThatWouldOverflowTheStorageType)
 
     // 300 overflows a uint8 -- the whole call fails instead of truncating
     // silently into the storage type.
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
+}
+
+// Regression test for finding C1 of the PR 6b-4 final review: encode_guarded
+// used to apply apply_increment's WHOLE guard, sign-wrap heuristic included,
+// and treat any firing as a whole-operation failure. That heuristic fires on
+// every negative-to-positive transition of a signed cell, in range or not, so
+// setting an int8 cell holding -5 to 3 -- two values both comfortably inside
+// int8's range -- failed the entire edit with ErrorKind::InvalidConfig.
+// Signed calibration maps (timing trim, fuel trim, MAF correction) make that
+// an ordinary edit, so encode_guarded now applies only the genuine range
+// check. Every pre-existing guard test in this file used `uint8` storage,
+// where the heuristic and the range check coincide, which is why none of them
+// caught this.
+TEST(ApplySetExpression, AllowsAnInRangeNegativeToPositiveEditOnSignedStorage)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xFB; // -5 as int8.
+
+    const std::string_view cells[] = {"-5"};
+    const auto patch = apply_set_expression(rom, int8_spec(1, 1), /*x_size=*/1, cells,
+                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "3", 15);
+
+    ASSERT_TRUE(patch.has_value());
+    EXPECT_EQ((*patch)[0].display_text, "3");
+    EXPECT_EQ((*patch)[0].bytes, std::vector<std::uint8_t>{0x03});
+}
+
+// The other side of AllowsAnInRangeNegativeToPositiveEditOnSignedStorage: the
+// genuine range check is still enforced on signed storage. 300 does not fit
+// an int8 at all, so the whole call still fails.
+TEST(ApplySetExpression, RejectsAValueOutsideTheSignedStorageRange)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xFB; // -5 as int8.
+
+    const std::string_view cells[] = {"-5"};
+    const auto patch = apply_set_expression(rom, int8_spec(1, 1), /*x_size=*/1, cells,
+                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "300", 15);
+
     ASSERT_FALSE(patch.has_value());
     EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
 }
@@ -1100,6 +1195,55 @@ TEST(ApplyInterpolation, RejectsAnInterpolatedValueThatWouldOverflowTheStorageTy
     EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
 }
 
+// Finding C1 of the PR 6b-4 final review, on the interpolation path -- see
+// ApplySetExpression.AllowsAnInRangeNegativeToPositiveEditOnSignedStorage for
+// the full argument. A corner-to-corner sweep from -10 to 10 across three
+// int8 cells passes through zero, so the right-hand cell's new value (10) is
+// positive while the byte it replaces is negative; every value involved is in
+// range for an int8. The seeded ROM bytes are what the guard compares
+// against, and are chosen so the middle and right cells both hold a negative
+// value before the edit: under the pre-fix guard the right cell tripped the
+// sign-wrap heuristic and failed the whole interpolation.
+TEST(ApplyInterpolation, AllowsAnInRangeNegativeToPositiveSweepOnSignedStorage)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xF6; // -10
+    rom[0x11] = 0xFB; // -5
+    rom[0x12] = 0xFB; // -5
+
+    const std::string_view cells[] = {"-10", "0", "10"};
+
+    const auto patch = apply_interpolation(rom, int8_spec(3, 1), /*x_size=*/3, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
+                                           InterpolationMode::Horizontal, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 3U);
+    EXPECT_EQ((*patch)[0].display_text, "-10");
+    EXPECT_EQ((*patch)[1].display_text, "0");
+    EXPECT_EQ((*patch)[2].display_text, "10");
+    EXPECT_EQ((*patch)[2].bytes, std::vector<std::uint8_t>{0x0A});
+}
+
+// The other side of AllowsAnInRangeNegativeToPositiveSweepOnSignedStorage:
+// interpolating out to 300 puts a value that cannot fit an int8 at the right
+// endpoint, and the genuine range check still fails the whole call.
+TEST(ApplyInterpolation, RejectsAnInterpolatedValueOutsideTheSignedStorageRange)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xF6; // -10
+    rom[0x11] = 0xFB; // -5
+
+    const std::string_view cells[] = {"-10", "300"};
+
+    const auto patch = apply_interpolation(rom, int8_spec(2, 1), /*x_size=*/2, cells,
+                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1},
+                                           InterpolationMode::Horizontal, 15);
+
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
+}
+
 // Regression test for a defect introduced and fixed within Task 13 itself:
 // apply_interpolation has the same precision-6 legacy-fidelity contract
 // apply_set_expression does (this file's own doc comment in map_edit.h) --
@@ -1224,6 +1368,46 @@ TEST(ApplyPaste, RejectsAPastedValueThatWouldOverflowTheStorageType)
     const std::vector<std::string_view> rows[] = {{"300"}};
 
     const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
+                                   {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
+
+    ASSERT_FALSE(patch.has_value());
+    EXPECT_EQ(patch.error().kind, ErrorKind::InvalidConfig);
+}
+
+// Finding C1 of the PR 6b-4 final review, on the paste path -- see
+// ApplySetExpression.AllowsAnInRangeNegativeToPositiveEditOnSignedStorage for
+// the full argument. Pasting 3 over an int8 cell holding -5 is an ordinary
+// in-range edit; the pre-fix guard rejected the whole paste because the
+// byte's high bit was set before and clear after.
+TEST(ApplyPaste, AllowsAnInRangeNegativeToPositivePasteOnSignedStorage)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xFB; // -5 as int8.
+
+    const std::string_view cells[] = {"-5"};
+    const std::vector<std::string_view> rows[] = {{"3"}};
+
+    const auto patch = apply_paste(rom, int8_spec(1, 1), /*x_size=*/1, /*y_size=*/1, cells,
+                                   {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
+
+    ASSERT_TRUE(patch.has_value());
+    ASSERT_EQ(patch->size(), 1U);
+    EXPECT_EQ((*patch)[0].display_text, "3");
+    EXPECT_EQ((*patch)[0].bytes, std::vector<std::uint8_t>{0x03});
+}
+
+// The other side of AllowsAnInRangeNegativeToPositivePasteOnSignedStorage: no
+// min/max is set, so nothing clamps the pasted 300 first, and the genuine
+// range check still rejects it as unrepresentable in an int8.
+TEST(ApplyPaste, RejectsAPastedValueOutsideTheSignedStorageRange)
+{
+    std::vector<std::uint8_t> rom(0x40, 0x00);
+    rom[0x10] = 0xFB; // -5 as int8.
+
+    const std::string_view cells[] = {"-5"};
+    const std::vector<std::string_view> rows[] = {{"300"}};
+
+    const auto patch = apply_paste(rom, int8_spec(1, 1), /*x_size=*/1, /*y_size=*/1, cells,
                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
 
     ASSERT_FALSE(patch.has_value());

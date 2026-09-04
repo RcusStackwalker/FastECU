@@ -63,8 +63,8 @@ std::uint32_t to_uint32_or_zero(std::string_view text)
 
 // Generalizes QString::toInt()'s whole-string-or-0 semantics (same rationale
 // as to_uint32_or_zero above) over every signed width this file needs:
-// int32_t for apply_saturation_guard's sign-wrap checks below (matching Qt's
-// qint32), and int64_t for raw_from_display_text's non-float branch.
+// int32_t for sign_wrap_heuristic_fires' checks below (matching Qt's qint32),
+// and int64_t for raw_from_display_text's non-float branch.
 template <std::signed_integral T> T to_signed_or_zero(std::string_view text)
 {
     T value = 0;
@@ -76,71 +76,151 @@ template <std::signed_integral T> T to_signed_or_zero(std::string_view text)
     return value;
 }
 
-// The storage-type saturation and sign-wrap guards (:347-400 in the legacy
-// source). Lifted to file scope in the 6b-4 fix wave (spec's defect (c)) so
-// both apply_increment's own retry loop and encode_guarded below can share
-// one implementation, rather than apply_increment carrying a private copy.
-// Preserved exactly as legacy has it -- string comparisons against
-// "uint8"/"int16"/etc., not enum comparisons; two independent top-level
-// checks (uint* then int*), not an if/else-if, matching legacy's two
-// separate `if` blocks. `rom_data_value` is the pre-edit cell's raw value,
-// formatted the same way `candidate` is.
+// The genuine range/overflow half of legacy's storage-type guard block
+// (:347-400 in the legacy source): every sub-condition here answers "does
+// this candidate actually fit the storage type", a question whose answer does
+// not depend on the edit being an increment. Split out of
+// apply_saturation_guard below in the PR 6b-4 final-review fix wave (finding
+// C1) so encode_guarded -- whose callers treat a fired guard as a
+// whole-operation hard failure -- can apply THIS check alone, without the
+// sign-wrap heuristic that only has meaning inside apply_increment's
+// revert-and-continue retry loop.
 //
-// Returns nullopt when a storage-type saturation/sign-wrap guard fires --
-// distinct from returning a candidate that merely equals rom_data_value
-// because the requested value hasn't actually moved the quantized result.
-// apply_increment's bounded retry loop depends on that distinction (see its
-// own doc comment in map_edit.h for why, and how it's preserved);
-// encode_guarded instead treats nullopt as an unconditional hard failure,
-// since none of its callers have a retry loop to revert within.
-std::optional<std::string> apply_saturation_guard(std::string_view storage_type, std::string_view rom_data_value,
-                                                  std::string candidate)
+// Preserved exactly as legacy has it otherwise -- string comparisons against
+// "uint8"/"int16"/etc., not enum comparisons; two independent top-level
+// checks (uint* then int*), not an if/else-if, matching legacy's two separate
+// `if` blocks. `rom_data_value` is the pre-edit cell's raw value, formatted
+// the same way `candidate` is; the signed clauses compare the two as UNSIGNED
+// parses, which is what makes them a range check: they fire only when the
+// candidate's byte pattern would represent a value the storage width cannot
+// hold and the pre-edit value did fit.
+//
+// Two legacy quirks are deliberately carried rather than fixed: `int24` and
+// `uint24` have no width clause at all (a uint24 candidate is only rejected
+// for being negative), and the `"float"` arm of the int32 clause is
+// unreachable -- no `"float"` ever satisfies the enclosing
+// `starts_with("int")`, so float-storage maps get no range check whatsoever.
+// Both match legacy; neither is in scope to change here (see the spec's
+// defect (c) section).
+bool storage_range_check_fires(std::string_view storage_type, std::string_view rom_data_value,
+                               std::string_view candidate)
 {
     if (storage_type.starts_with("uint"))
     {
         if (storage_type == "uint8" && to_uint32_or_zero(candidate) > 0xFFU)
         {
-            return std::nullopt;
+            return true;
         }
         if (storage_type == "uint16" && to_uint32_or_zero(candidate) > 0xFFFFU)
         {
-            return std::nullopt;
+            return true;
         }
         if (storage_type == "uint32" && to_uint32_or_zero(candidate) > 0xFFFFFFFFU)
         {
-            return std::nullopt;
+            return true;
         }
+        // A negative candidate never fits ANY unsigned storage type,
+        // regardless of context -- a genuine range check, not a heuristic,
+        // so it belongs on this side of the split.
         if (to_signed_or_zero<std::int32_t>(candidate) < 0)
         {
-            return std::nullopt;
+            return true;
         }
     }
     if (storage_type.starts_with("int"))
     {
         const std::uint32_t rom_u32 = to_uint32_or_zero(rom_data_value);
-        const std::int32_t rom_i32 = to_signed_or_zero<std::int32_t>(rom_data_value);
         const std::uint32_t cand_u32 = to_uint32_or_zero(candidate);
-        const std::int32_t cand_i32 = to_signed_or_zero<std::int32_t>(candidate);
 
-        if (storage_type == "int8" &&
-            ((rom_u32 <= 0x7FU && cand_u32 > 0x7FU) || (static_cast<std::uint8_t>(rom_i32) >= 0x80U &&
-                                                        static_cast<std::uint8_t>(cand_i32) < 0x80U && cand_i32 != 0)))
+        if (storage_type == "int8" && rom_u32 <= 0x7FU && cand_u32 > 0x7FU)
         {
-            return std::nullopt;
+            return true;
         }
-        if (storage_type == "int16" && ((rom_u32 <= 0x7FFFU && cand_u32 > 0x7FFFU) ||
-                                        (static_cast<std::uint16_t>(rom_i32) >= 0x8000U &&
-                                         static_cast<std::uint16_t>(cand_i32) < 0x8000U && cand_i32 != 0)))
+        if (storage_type == "int16" && rom_u32 <= 0x7FFFU && cand_u32 > 0x7FFFU)
         {
-            return std::nullopt;
+            return true;
         }
-        if ((storage_type == "int32" || storage_type == "float") &&
-            ((rom_u32 <= 0x7FFFFFFFU && cand_u32 > 0x7FFFFFFFU) ||
-             (static_cast<std::uint32_t>(rom_i32) >= 0x80000000U &&
-              static_cast<std::uint32_t>(cand_i32) < 0x80000000U && cand_i32 != 0)))
+        if ((storage_type == "int32" || storage_type == "float") && rom_u32 <= 0x7FFFFFFFU && cand_u32 > 0x7FFFFFFFU)
         {
-            return std::nullopt;
+            return true;
         }
+    }
+    return false;
+}
+
+// The OTHER half of legacy's guard block, and deliberately NOT a range check:
+// it fires whenever a signed cell's byte pattern had its high bit set before
+// the edit and does not after (a negative-to-positive transition), whether or
+// not both values are perfectly representable in the storage type. `int8`
+// -1 -> 3 fires it; so does every ordinary edit that moves a signed cell from
+// negative to positive, which is a routine operation on any signed-storage
+// calibration map (timing trim, fuel trim, MAF correction).
+//
+// That makes this a HEURISTIC, meaningful in exactly one place: inside
+// apply_increment's bounded retry loop, as legacy's crude proxy for "this
+// increment wrapped around from positive overflow into a negative bit
+// pattern". There, firing costs one cell -- it reverts to its pre-edit value
+// and the loop moves on -- so a false positive is bounded and legacy-faithful.
+// Applied anywhere without that revert-and-continue structure it is simply
+// wrong: encode_guarded's callers fail the WHOLE selection's edit on a fired
+// guard, which would reject ordinary valid signed edits outright. That is
+// finding C1 of the PR 6b-4 final review, and is why this predicate is
+// reachable only through apply_saturation_guard (apply_increment's guard) and
+// never through encode_guarded.
+bool sign_wrap_heuristic_fires(std::string_view storage_type, std::string_view rom_data_value,
+                               std::string_view candidate)
+{
+    if (!storage_type.starts_with("int"))
+    {
+        return false;
+    }
+
+    const std::int32_t rom_i32 = to_signed_or_zero<std::int32_t>(rom_data_value);
+    const std::int32_t cand_i32 = to_signed_or_zero<std::int32_t>(candidate);
+
+    if (storage_type == "int8" && static_cast<std::uint8_t>(rom_i32) >= 0x80U &&
+        static_cast<std::uint8_t>(cand_i32) < 0x80U && cand_i32 != 0)
+    {
+        return true;
+    }
+    if (storage_type == "int16" && static_cast<std::uint16_t>(rom_i32) >= 0x8000U &&
+        static_cast<std::uint16_t>(cand_i32) < 0x8000U && cand_i32 != 0)
+    {
+        return true;
+    }
+    // Same dead `"float"` arm as storage_range_check_fires' int32 clause, and
+    // preserved for the same reason: it is what legacy wrote.
+    if ((storage_type == "int32" || storage_type == "float") && static_cast<std::uint32_t>(rom_i32) >= 0x80000000U &&
+        static_cast<std::uint32_t>(cand_i32) < 0x80000000U && cand_i32 != 0)
+    {
+        return true;
+    }
+    return false;
+}
+
+// apply_increment's guard: legacy's full guard block, both halves ORed
+// together exactly as legacy has them. Lifted to file scope in the 6b-4 fix
+// wave (spec's defect (c)) so apply_increment does not carry a private copy
+// of the range check encode_guarded also needs.
+//
+// Returns nullopt when either half fires -- distinct from returning a
+// candidate that merely equals rom_data_value because the requested value
+// hasn't actually moved the quantized result. apply_increment's bounded retry
+// loop depends on that distinction (see its own doc comment in map_edit.h for
+// why, and how it's preserved).
+//
+// encode_guarded deliberately does NOT call this function: it calls
+// storage_range_check_fires alone. A guard firing there is an unconditional
+// hard failure of the whole edit, and only the range half of this check
+// carries a meaning that survives being applied that way -- see
+// sign_wrap_heuristic_fires' own comment for the full argument.
+std::optional<std::string> apply_saturation_guard(std::string_view storage_type, std::string_view rom_data_value,
+                                                  std::string candidate)
+{
+    if (storage_range_check_fires(storage_type, rom_data_value, candidate) ||
+        sign_wrap_heuristic_fires(storage_type, rom_data_value, candidate))
+    {
+        return std::nullopt;
     }
     return candidate;
 }
@@ -537,7 +617,14 @@ Result<std::vector<std::uint8_t>> encode_guarded(bytes::ByteView rom_data, const
         candidate = std::to_string(static_cast<std::int32_t>(std::llround(to_byte_encoded)));
     }
 
-    if (!apply_saturation_guard(map_value_storagetype, rom_data_value, candidate).has_value())
+    // Only the GENUINE range/overflow half of the guard, never the sign-wrap
+    // heuristic apply_increment also applies (finding C1 of the PR 6b-4 final
+    // review; see sign_wrap_heuristic_fires' comment above). A guard firing
+    // here fails the whole selection's edit, and "you changed a negative cell
+    // to a positive one" -- which is all the heuristic detects when both
+    // values are in range -- is an ordinary, valid edit on any signed-storage
+    // map, not an overflow.
+    if (storage_range_check_fires(map_value_storagetype, rom_data_value, candidate))
     {
         return fail(ErrorKind::InvalidConfig,
                     std::format("value would overflow storage type {}", map_value_storagetype));
@@ -617,12 +704,14 @@ Result<EditPatch> apply_increment(bytes::ByteView rom_data, const MapElementSpec
     };
 
     // The storage-type saturation and sign-wrap guard is apply_saturation_guard
-    // (file scope, above), shared with encode_guarded as of the 6b-4 fix wave
-    // (spec's defect (c)). This function's own clamp-then-retry control flow
-    // around it is untouched: a guard firing here must revert just this cell
-    // and let the retry loop continue with the next cell, which is why this
-    // function calls the guard directly rather than going through
-    // encode_guarded (see apply_increment's doc comment in map_edit.h).
+    // (file scope, above), whose range-check half encode_guarded also uses as
+    // of the 6b-4 fix wave (spec's defect (c)). This function alone applies
+    // BOTH halves -- the range check and the sign-wrap heuristic -- because
+    // this is the one context where a false positive is bounded: the guard
+    // reverts just this cell and the retry loop continues with the next one.
+    // That control flow is untouched, and is why this function calls the guard
+    // directly rather than going through encode_guarded (see apply_increment's
+    // doc comment in map_edit.h, and sign_wrap_heuristic_fires' comment above).
     //
     // Returns nullopt when a storage-type saturation/sign-wrap guard fires
     // (legacy's unconditional `break`, reverting to rom_data_value and
