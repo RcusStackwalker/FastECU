@@ -122,6 +122,34 @@ Actions:
   confirm which predicate is correct, or an explicit accepted-risk decision
   to pick the write-side predicate on the padding-rule reasoning alone
   without that confirmation.
+- **Fix `resolve_edit_target`'s `y_size == 1` column shift, which can still
+  produce an out-of-bounds read.** `resolve_edit_target`
+  (`src/backend/calibration/map_edit.cpp`) shifts rows back by one on the
+  X-axis branch to skip a 3D map's header row but never shifts columns —
+  correct for a 3D map, wrong for a "2D" map with `y_size == 1`, which has no
+  header column (`calibration_maps.cpp`'s `xSizeOffset = 0`). Selecting that
+  layout's sole X-axis breakpoint yields `range.first_col == -1`, which
+  becomes a cell index of `static_cast<std::uint32_t>(-1)` — a huge value once
+  unsigned. `apply_patch`
+  (`src/ui/desktop/calibration/map_edit_adapter.cpp`) was hardened against the
+  resulting out-of-bounds *write* by dropping such a cell, but the edit
+  operations themselves (`src/backend/calibration/map_edit.cpp`) still perform
+  an unchecked out-of-bounds *read* on the `cell_text` span for the same
+  index: `apply_set_expression` and `apply_increment` index it directly, and
+  `apply_interpolation` does so through its `cell_at(...)` helper.
+  (`apply_paste` does not read `cell_text` at all, and every ROM-side read
+  goes through `read_raw_element`, which is bounds-checked.) That is
+  a live memory-safety hazard, and the `apply_patch` guard narrows the class
+  of harm rather than closing it. It is pre-existing behavior in code step 6b
+  moved rather than introduced, which is why 6b-4 recorded it instead of
+  fixing it: the real fix is in `resolve_edit_target`'s own `y_size == 1`
+  branch, not in per-caller bounds checks, and changing which element a
+  selection resolves to is a behavior change that needs its own test rather
+  than riding along with a defect-fix PR. Landing this means correcting the
+  column shift for the `y_size == 1` layout, covering it with a
+  `resolve_edit_target` test asserting the corrected range, and then
+  confirming the `apply_patch` guard has become unreachable rather than
+  load-bearing.
 
 ### P1: Split `FileActions`
 

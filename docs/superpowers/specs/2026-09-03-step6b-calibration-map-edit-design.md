@@ -225,8 +225,16 @@ criterion is amended to drop that line.**
 
 ## Defects found in the write path
 
-Reading the read and write paths side by side turned up five defects. None is a
-refactoring artifact; all five are in `master` at `6dc8c5f7`.
+Reading the read and write paths side by side turned up five defects — (a)
+through (e) below. None is a refactoring artifact; all five are in `master` at
+`6dc8c5f7`.
+
+Four more were found later, while implementing PR #274, and are recorded here
+alongside the original five rather than in a separate list: (f), (g), and (h)
+are write-path defects like the first five, and the fourth is deliberately
+left unlettered because it is a grid-repaint defect with no ROM-byte
+consequence. All four were found and fixed inside PR #274 itself, which is why
+none of them has a pinning test or appears in the sequencing plan below.
 
 The project's convention is to preserve legacy behavior verbatim and document it
 (`decode_scaled_values`' own comments say "this is not a bug to fix"). These are
@@ -321,13 +329,48 @@ maps is unmeasured here. Measuring it is the first task of 6b-4.
 
 ### (c) Bounds enforcement differs per operation
 
-**Status: fixed (commits `7b3cd134..93743ce9`).** A shared `encode_guarded`
-helper now sits in front of `encode_scaled_value` for all four `apply_*`
-operations: it applies the same min/max clamp and the same storage-type
-saturation/sign-wrap guards `inc_dec_value` alone used to run, reverting a
-cell to its previous raw value when an encode would overflow. `apply_paste`,
-previously bounds-free entirely, now goes through the same guard as the
-other three. A first pass (`61b4de54`) routed `apply_set_expression` and
+**Status: fixed (commits `7b3cd134..93743ce9`, corrected in the PR 6b-4
+final-review fix wave).** Three of the four operations —
+`apply_set_expression`, `apply_interpolation`, and `apply_paste` — now encode
+through a shared `encode_guarded` helper sitting in front of the byte packing:
+it clamps to `MinValueList`/`MaxValueList` and applies the storage-type
+**range check**, and a firing is a **whole-operation failure**
+(`ErrorKind::InvalidConfig`) — nothing in the selection is written.
+`apply_paste`, previously bounds-free entirely, is one of those three.
+
+`apply_increment` does **not** call `encode_guarded`. It shares only the
+underlying guard logic, through its own per-cell bounded retry loop, which
+reverts just the one cell whose candidate fired the guard and continues with
+the next cell rather than failing the whole edit. Its clamp-then-retry control
+flow cannot be expressed through `encode_guarded`'s `Result`-returning shape,
+and its tested behavior is unchanged by this section's fixes.
+
+**The two paths deliberately apply different amounts of the legacy guard, and
+that split is the point.** Legacy's guard block ORs two unrelated
+sub-conditions together per signed storage type: a genuine range check (the
+candidate's byte pattern would represent a value the width cannot hold, and
+the pre-edit value did fit) and a *sign-wrap heuristic* (the byte's high bit
+was set before the edit and is clear after). The heuristic is legacy's crude
+proxy for "this increment wrapped around from positive overflow into a
+negative bit pattern" — but it fires on **any** negative-to-positive
+transition of a signed cell, in range or not, so `int8` `-5 → 3` trips it.
+That is only defensible where a false positive costs one cell, which is
+exactly `apply_increment`'s revert-and-continue loop. Applied as a hard
+failure it rejects ordinary valid edits on any signed-storage map — timing
+trim, fuel trim, MAF correction are all routinely `int8`/`int16`. The first
+6b-4 pass had `encode_guarded` apply the whole legacy guard including the
+heuristic; the final-review fix wave (finding C1) narrowed it to the range
+check alone, split out as `storage_range_check_fires` in `map_edit.cpp`
+alongside `sign_wrap_heuristic_fires`, which only `apply_increment`'s
+`apply_saturation_guard` reaches. The regression is covered by an
+in-range-negative-to-positive test on each of the three `encode_guarded`
+callers plus a genuinely-out-of-range counterpart, and by
+`ApplyIncrement.SignWrapHeuristicStillRevertsAnInRangeNegativeToPositiveIncrement`
+pinning that `apply_increment` still applies both halves. Every pre-existing
+guard test used `uint8` storage, where the heuristic and the range check
+coincide, which is why none of them caught it.
+
+A first pass (`61b4de54`) routed `apply_set_expression` and
 `apply_interpolation` through `encode_guarded` but let it also override
 their formatting precision with `float_precision`, contradicting both
 functions' own documented precision-6 contract; a follow-up (`93743ce9`)
@@ -339,7 +382,13 @@ regression tests for the precision divergence plus clamp/guard coverage on
 - `inc_dec_value` clamps to `MinValueList`/`MaxValueList` **and** runs
   storage-type saturation and sign-wrap guards (`:347-400`), reverting the cell
   to its previous raw value when an encode would overflow `uint8`/`int8`/
-  `uint16`/`int16`/`uint32`/`int32`/`float`.
+  `uint16`/`int16`/`uint32`/`int32`. The block's own text also names `float`,
+  but that arm is dead: the `float` comparison sits inside a
+  `storagetype.startsWith("int")` branch that `"float"` can never satisfy, so
+  float-storage maps get no saturation guard at all. `int24`/`uint24` have no
+  width clause either. Both quirks are carried into the port verbatim rather
+  than fixed — they change which values are *rejected*, not which bytes a
+  write produces, and reconciling them is not part of this defect.
 - `set_value` clamps min/max (`:594-601`) and has none of the saturation
   guards.
 - `paste_value` has neither. Clipboard text goes through `to_byte` straight
@@ -504,21 +553,70 @@ code is reachable without a live `QMainWindow`, `QMdiSubWindow`, and
 - **Edit operations:** increment, set-expression (`+`, `-`, `*`, `/`, bare
   value, and division by zero), the three interpolation modes, and paste — each
   over a synthetic ROM, asserting both the returned bytes and the display text.
-- **Three pinning tests**, one each for defects (a), (b), and (c), named for
-  the defect and carrying a comment pointing at this document's section. 6b-4
-  flips them. Defects (d) and (e) instead get ordinary tests asserting the
-  fixed behavior — a zero increment returns an error rather than looping, and a
-  200-column selection interpolates without overflowing.
+- **Pinning tests** for the defects 6b-4 was to fix, named for the defect and
+  carrying a comment pointing at this document's section. The plan called for
+  three, one each for (a), (b), and (c); what shipped differs, and the current
+  state is:
+  - **(a)** — `PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite` is the one
+    pinning test still pinned, deliberately, because (a) itself is deferred
+    (see [its status note](#a-the-wrx02-address-fixup-differs-between-read-and-write)).
+  - **(b)** — never had a pinning test. The flat-layout behavior could not be
+    pinned as a passing assertion about an address without asserting the wrong
+    address as correct, so Task 14 added a new positive test
+    (`HonoursTheStartPositionAndIntervalStride`, plus a strided case in the
+    round trip) asserting the fixed layout instead of flipping an existing one.
+  - **(c)** — had two pinning tests, on `apply_set_expression` and
+    `apply_paste`; Task 13 flipped both into
+    `RejectsAValueThatWouldOverflowTheStorageType` and
+    `ClampsAPastedValueToTheDefinitionMaximum`. The final-review fix wave added
+    the signed-storage cases the `uint8`-only suite could not distinguish (see
+    [(c)](#c-bounds-enforcement-differs-per-operation)).
+
+  Defects (d) and (e) instead get ordinary tests asserting the fixed behavior —
+  a zero increment returns an error rather than looping, and a 200-column
+  selection interpolates without overflowing. Defects (f), (g), and (h) were
+  found and fixed within PR #274, so nothing about them was left pinned: the
+  pinning tests 6b-1 had landed for the byte-order behavior were deleted by
+  #274 when it fixed the underlying defects, and are named in
+  [(f)](#f-read_raw_elements-signed-multi-byte-reads-were-byte-swapped-and-int24-always-read-as-zero)
+  and [(g)](#g-the-write-paths-byte-order-was-inverted-relative-to-its-endian-label).
 
 The warning conditions are asserted as returned `Error`s, not through
 `RecordingEventSink` — see [the edit operations](#the-edit-operations) for why
 this slice needs no event sink.
 
-No bench re-qualification. This slice changes no wire behavior and the
-[flash qualification matrix](../../flash-qualification-matrix.md) is untouched.
-6b-4 does change which bytes a calibration edit produces, and edited
-calibrations get flashed, so it adds a line to the bench notes recording that
-the map-edit write path changed.
+No bench re-qualification, and no bench-notes or qualification-matrix entry.
+This slice changes no wire behavior, and the
+[flash qualification matrix](../../flash-qualification-matrix.md) is untouched
+by every PR in the step — deliberately, not by omission. That matrix has one
+row per *flash operation family*: a class reached through
+`protocols.cfg`, keyed by transport (K-Line / raw CAN / ISO-15765 / JTAG /
+BDM) and scoped to `read`/`test_write`/`write` against a live ECU. Editing a
+calibration map is none of those things — it mutates a ROM image in memory and
+on disk, before any family is selected — so there is no row it belongs to and
+no row whose `hardware_evidence` this step invalidates. Whichever family
+eventually flashes the edited image is unaffected by which bytes the image
+contains; every one of those rows is already `experimental` or `unqualified`
+on its own terms.
+
+What *is* true, and is recorded here rather than in that matrix: steps 6b-1
+through 6b-4 changed which bytes a calibration edit produces. PR #274 fixed
+signed multi-byte reads, int24 reads, the write path's inverted byte order,
+and float-storage writes (defects [(f)](#f-read_raw_elements-signed-multi-byte-reads-were-byte-swapped-and-int24-always-read-as-zero),
+[(g)](#g-the-write-paths-byte-order-was-inverted-relative-to-its-endian-label),
+and [(h)](#h-float-storage-calibration-writes-stored-garbage)); 6b-4 changed
+the layout an edit targets on a strided map
+([(b)](#b-the-edit-path-ignores-the-strided-layout-the-read-path-honours)) and
+which edits are rejected outright
+([(c)](#c-bounds-enforcement-differs-per-operation)). The operator-facing
+consequence is about *existing files*, not about the flashing path: a
+calibration edited with a pre-#274 build of this tool on a signed multi-byte,
+int24, or float-storage map may hold bytes that do not match what its grid
+displayed, and re-opening it in a current build will now decode those bytes
+correctly rather than reproducing the old mistake. Such a file should be
+re-checked against its definition before it is flashed. That is a data
+provenance caution, not a hardware-qualification gate, which is why it is
+stated here and not entered as matrix evidence.
 
 ## Sequencing
 
