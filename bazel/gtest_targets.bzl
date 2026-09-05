@@ -1,7 +1,7 @@
 """Shared GoogleTest target shapes for portable and Qt-linked FastECU code."""
 
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_test")
 
 def fastecu_portable_gtest(
         name,
@@ -36,14 +36,17 @@ def fastecu_gtest(
         target_compatible_with = [],
         copts = [],
         size = "small"):
-    cc_test(
+    # qt_cc_test (not bare cc_test) is required here: it wires up the
+    # per-platform Qt plugin data + QT_PLUGIN_PATH/QT_QPA_PLATFORM_PLUGIN_PATH
+    # env that widget-instantiating tests need to find "offscreen" (Linux),
+    # "xcb"/"windows" runtime plugins under Bazel's test sandbox. A bare
+    # cc_test only gets that on macOS (Qt frameworks resolve plugins via
+    # rpath), which is why Linux/Windows widget tests failed here before.
+    qt_cc_test(
         name = name,
         srcs = srcs,
         copts = COMMON_COPTS + copts,
-        data = data + select({
-            "@platforms//os:macos": ["@qt_mac_aarch64//:lib"],
-            "//conditions:default": [],
-        }),
+        data = data,
         env = env,
         size = size,
         tags = tags,

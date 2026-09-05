@@ -263,6 +263,7 @@ py_test(
         "//src/backend/definitions:file_actions.h",
     ],
     main = "scripts/check-backend-no-widgets.py",
+    deps = ["@rules_python//python/runfiles"],
 )
 
 # Hedron's refresh is aquery-based and never executes compile actions, so

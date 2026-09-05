@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 
 #include "J2534_tactrix_unix.h"
 #include "src/platform/desktop/unix/j2534/serial_byte_buffer.h"
@@ -31,8 +32,8 @@ class J2534 : public QObject
     explicit J2534();
     ~J2534();
 
-    const char *DLL_VERSION = "3.0.0";
-    const char *API_VERSION = "04.04";
+    static constexpr std::string_view DLL_VERSION{"3.0.0"};
+    static constexpr std::string_view API_VERSION{"04.04"};
 
     // PassThruReadVersion's pApiVersion/pDllVersion/pFirmwareVersion out-parameters
     // must each point at a buffer of at least this many bytes; the implementation

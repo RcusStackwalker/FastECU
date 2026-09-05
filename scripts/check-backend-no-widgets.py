@@ -10,14 +10,46 @@ mechanism, which has nothing to do with widgets.
 
 from __future__ import annotations
 
+import os
 import re
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
-BACKEND = ROOT / "src" / "backend"
+from python.runfiles import Runfiles
+
+ANCHOR_RLOCATION = "src/backend/definitions/file_actions.h"
 SOURCE_SUFFIXES = {".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"}
 FORBIDDEN = re.compile(r"QMessageBox|QFileDialog|QDialog|QWidget|Q_OBJECT")
 MIN_EXPECTED_FILES = 100
+
+
+def _find_backend_root() -> Path:
+    """Locate the real (not runfiles-copied) src/backend directory.
+
+    This can't use `Path(__file__).resolve().parents[1]` the way
+    check-portable-closure.py does: that trick depends on this script's own
+    runfiles entry being a symlink back into the real checkout, which holds
+    on Linux/macOS but not on Windows, where `--enable_runfiles` (needed so
+    Qt's plugin loader can see real plugin files, see .bazelrc) makes Bazel
+    materialize runfiles as copies instead -- a copy of just this one script
+    has no sibling src/backend tree to walk. The runfiles *manifest* Python's
+    bootstrap reads (RUNFILES_MANIFEST_FILE) still maps every declared data
+    dependency to its true source-tree path regardless of that copy, so
+    anchoring on file_actions.h -- a real `data` dependency of this test --
+    and resolving it through the runfiles API finds the genuine, complete
+    checkout on every platform.
+    """
+    runfiles = Runfiles.Create()
+    if runfiles is not None:
+        workspace = os.environ.get("TEST_WORKSPACE", "_main")
+        anchor = runfiles.Rlocation(f"{workspace}/{ANCHOR_RLOCATION}")
+        if anchor and Path(anchor).is_file():
+            return Path(anchor).resolve().parents[1]
+    # Not running under `bazel test` (e.g. invoked directly for local iteration).
+    return Path(__file__).resolve().parents[1] / "src" / "backend"
+
+
+BACKEND = _find_backend_root()
+ROOT = BACKEND.parent.parent
 
 
 def strip_comments(line: str, in_block_comment: bool) -> tuple[str, bool]:
