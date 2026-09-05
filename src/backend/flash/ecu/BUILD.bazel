@@ -138,6 +138,7 @@ cc_library(
     srcs = ["subaru_mitsu_m32r_kline_plan.cpp"],
     hdrs = ["subaru_mitsu_m32r_kline_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
@@ -388,6 +389,7 @@ cc_library(
     srcs = ["subaru_hitachi_m32r_can_plan.cpp"],
     hdrs = ["subaru_hitachi_m32r_can_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
