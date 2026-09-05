@@ -16,6 +16,15 @@ The following are shared today and are no longer open extraction work:
   and explicit Qt conversions.
 - `FlashOperationWorker` owns logging signals, prompt injection, progress,
   cancellation, and worker-thread plumbing.
+- `src/backend/flash/ecu/single_window_plan.*` owns plan validation and
+  construction for the ten "single-window" families — those described entirely
+  by a protocol id, an MCU, a read window, a write window and one image size.
+  Each family supplies a `SingleWindowPlanSpec` plus two predicates (flash
+  geometry, wire parameters). The three families that carry kernel images,
+  variant tables or confirmations keep their own builders. This shares plan
+  validation only: the executors of these same families stay un-factored on
+  purpose, because their look-alike blocks differ in timeouts, retry counts and
+  response strictness.
 
 The former per-module copies of `calculate_seed_key`, `calculate_payload`,
 `add_ssm_header`, CRC helpers, and hex formatting should not be reintroduced.

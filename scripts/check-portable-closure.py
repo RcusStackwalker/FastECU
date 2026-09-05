@@ -65,6 +65,7 @@ PORTABLE_ROOTS = {
     },
     ROOT / "src/backend/flash/eeprom": None,
     ROOT / "src/backend/flash/ecu": {
+        "single_window_plan",
         "denso_iso15765_can_common",
         "mitsu_colt_m32r_can_types",
         "mitsu_colt_m32r_can_plan",

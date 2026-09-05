@@ -18,6 +18,28 @@ exports_files(
 )
 
 cc_library(
+    name = "single_window_plan",
+    srcs = ["single_window_plan.cpp"],
+    hdrs = ["single_window_plan.h"],
+    deps = [
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "single_window_plan_test",
+    srcs = ["single_window_plan_test.cpp"],
+    deps = [
+        ":single_window_plan",
+        ":subaru_denso_sh72531_can_types",
+    ],
+)
+
+cc_library(
     name = "mitsu_colt_m32r_can_types",
     hdrs = ["mitsu_colt_m32r_can_types.h"],
     deps = ["//src/algorithms/protocol"],
@@ -89,6 +111,7 @@ cc_library(
     srcs = ["subaru_hitachi_m32r_kline_plan.cpp"],
     hdrs = ["subaru_hitachi_m32r_kline_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
@@ -116,6 +139,7 @@ cc_library(
     srcs = ["subaru_mitsu_m32r_kline_plan.cpp"],
     hdrs = ["subaru_mitsu_m32r_kline_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
@@ -366,6 +390,7 @@ cc_library(
     srcs = ["subaru_hitachi_m32r_can_plan.cpp"],
     hdrs = ["subaru_hitachi_m32r_can_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
@@ -385,6 +410,7 @@ cc_library(
     srcs = ["subaru_tcu_cvt_hitachi_m32r_can_plan.cpp"],
     hdrs = ["subaru_tcu_cvt_hitachi_m32r_can_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
@@ -404,6 +430,7 @@ cc_library(
     srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_plan.cpp"],
     hdrs = ["subaru_tcu_cvt_mitsu_mh8111_can_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
@@ -423,6 +450,7 @@ cc_library(
     srcs = ["subaru_denso_1n83m_1_5m_can_plan.cpp"],
     hdrs = ["subaru_denso_1n83m_1_5m_can_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
@@ -442,6 +470,7 @@ cc_library(
     srcs = ["subaru_denso_sh72531_can_plan.cpp"],
     hdrs = ["subaru_denso_sh72531_can_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
@@ -461,6 +490,7 @@ cc_library(
     srcs = ["subaru_denso_sh72543_can_diesel_plan.cpp"],
     hdrs = ["subaru_denso_sh72543_can_diesel_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
@@ -480,6 +510,7 @@ cc_library(
     srcs = ["subaru_denso_1n83m_4m_can_plan.cpp"],
     hdrs = ["subaru_denso_1n83m_4m_can_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
@@ -664,6 +695,7 @@ cc_library(
     srcs = ["subaru_tcu_cvt_mitsu_mh8104_can_plan.cpp"],
     hdrs = ["subaru_tcu_cvt_mitsu_mh8104_can_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",

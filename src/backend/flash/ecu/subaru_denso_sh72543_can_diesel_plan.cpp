@@ -1,20 +1,17 @@
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_plan.h"
 
-#include <format>
+#include <array>
+#include <string_view>
 #include <utility>
 
-#include "src/backend/definitions/kernelmemorymodels.h"
-#include "src/backend/flash/flash_device_lookup.h"
-#include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/ecu/single_window_plan.h"
 
 namespace fastecu::flash
 {
 namespace
 {
-using enum ErrorKind;
+constexpr std::array kProtocols{std::string_view{"sub_ecu_denso_sh72543_can_diesel"}};
 
-constexpr std::string_view kProtocol = "sub_ecu_denso_sh72543_can_diesel";
-constexpr std::string_view kMcu = "SH72543d";
 // fblocks_SH72543d[0]. Unlike its three siblings, this family's read_memory
 // does NOT hardcode over its own arguments -- the start_addr/length overwrite
 // is commented out (legacy lines 813-814) -- so the caller's
@@ -27,126 +24,49 @@ constexpr MemoryRegion kMainBlock{0x00008000, 0x001F7F00};
 // sum -- the table's 0x0-0x8000 entry is commented out -- so the image base
 // (0x0) is not fblocks[0].start here; it is expressed in the executor, at the
 // write-indexing site that is the only place it is used.
-constexpr std::size_t kImageSize = 0x200000;
+constexpr std::uint32_t kImageSize = 0x200000;
 constexpr std::uint32_t kLeadPad = 0x8000;
 constexpr std::uint32_t kTailPad = 0x100;
 
-Status validate_identity(std::string_view protocol, std::string_view mcu)
+// SH72543d's flash table has a single block: fblocks_SH72543d[0] == {0x8000,
+// 0x1F7F00}, so it is checked here.
+bool geometry_ok(const flashdev_t& device)
 {
-    if (protocol != kProtocol)
-    {
-        return fail(InvalidConfig, std::format("Unsupported Subaru Denso SH72543 Diesel CAN protocol: {}", protocol));
-    }
-    const int index = find_flash_device_index(mcu);
-    if (index < 0)
-    {
-        return fail(InvalidConfig, std::format("Unknown MCU type: {}", mcu));
-    }
-    if (mcu != kMcu)
-    {
-        return fail(InvalidConfig, std::format("Protocol {} expects MCU {}; got {}", protocol, kMcu, mcu));
-    }
-    // SH72543d's flash table has a single block: fblocks_SH72543d[0] == {0x8000,
-    // 0x1F7F00}, so it is checked here.
-    if (const flashdev_t& device = flashdevices[index]; device.numblocks != 1 || device.romsize != kImageSize ||
-                                                        device.fblocks[0].start != kMainBlock.start ||
-                                                        device.fblocks[0].len != kMainBlock.length)
-    {
-        return fail(InvalidConfig, "SH72543d single-block flash geometry is invalid");
-    }
-    return {};
+    return device.numblocks == 1 && device.romsize == kImageSize && device.fblocks[0].start == kMainBlock.start &&
+           device.fblocks[0].len == kMainBlock.length;
 }
+
+bool wire_params_ok(const FlashPlan& plan)
+{
+    const auto *p = std::get_if<SubaruDensoSh72543CanDieselPlan>(&plan.family_plan());
+    return p != nullptr && p->request_id == 0x7e0 && p->response_id == 0x7e8 && p->bitrate == 500000 &&
+           !p->extended_id && p->lead_pad_len == kLeadPad && p->tail_pad_len == kTailPad;
+}
+
+constexpr SingleWindowPlanSpec kSpec{
+    .display_name = "Subaru Denso SH72543 Diesel CAN",
+    .protocols = kProtocols,
+    .mcu = "SH72543d",
+    .family = FlashFamily::SubaruDensoSh72543CanDiesel,
+    .transport = TransportKind::CanIso15765,
+    .read_region = kMainBlock,
+    .write_region = kMainBlock,
+    .image_size = kImageSize,
+    .geometry_ok = geometry_ok,
+    .wire_params_ok = wire_params_ok,
+};
 } // namespace
 
 Status validate_subaru_denso_sh72543_can_diesel_plan(const FlashPlan& plan)
 {
-    using enum ErrorKind;
-    if (auto valid = validate_identity(plan.target_id(), plan.mcu_name()); !valid.has_value())
-    {
-        return valid;
-    }
-    if (plan.family() != FlashFamily::SubaruDensoSh72543CanDiesel || plan.transport() != TransportKind::CanIso15765)
-    {
-        return fail(InvalidConfig, "plan is not for Subaru Denso SH72543 Diesel CAN");
-    }
-    if (const auto *p = std::get_if<SubaruDensoSh72543CanDieselPlan>(&plan.family_plan());
-        p == nullptr || p->request_id != 0x7e0 || p->response_id != 0x7e8 || p->bitrate != 500000 || p->extended_id ||
-        p->lead_pad_len != kLeadPad || p->tail_pad_len != kTailPad)
-    {
-        return fail(InvalidConfig, "Denso SH72543 Diesel CAN wire parameters are invalid");
-    }
-    if (plan.transfer_region().start != kMainBlock.start || plan.transfer_region().length != kMainBlock.length)
-    {
-        return fail(InvalidConfig, "Denso SH72543 Diesel CAN transfer region is invalid");
-    }
-    if (plan.kernel())
-    {
-        return fail(InvalidConfig, "Denso SH72543 Diesel CAN plans are kernel-free");
-    }
-    if (plan.operation() == FlashOperation::TestWrite)
-    {
-        return fail(Unsupported, "test_write is not supported by this family");
-    }
-    if (plan.operation() == FlashOperation::Read && !plan.erase_regions().empty())
-    {
-        return fail(InvalidConfig, "read plans must not erase memory");
-    }
-    if (plan.operation() == FlashOperation::Write &&
-        (plan.erase_regions().size() != 1 || plan.erase_regions()[0].start != kMainBlock.start ||
-         plan.erase_regions()[0].length != kMainBlock.length))
-    {
-        return fail(InvalidConfig, "Denso SH72543 Diesel CAN erase region is invalid");
-    }
-    if (plan.operation() == FlashOperation::Write && (!plan.image().has_value() || plan.image()->size() != kImageSize))
-    {
-        return fail(InvalidConfig, "ROM file must be exactly 0x200000 bytes");
-    }
-    return {};
+    return validate_single_window_plan(kSpec, plan);
 }
 
 Result<FlashPlan> build_subaru_denso_sh72543_can_diesel_plan(FlashOperation operation, std::string_view protocol_name,
                                                              std::string_view mcu_type,
                                                              std::optional<bytes::Bytes> image)
 {
-    using enum ErrorKind;
-    if (auto valid = validate_identity(protocol_name, mcu_type); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    if (operation == FlashOperation::TestWrite)
-    {
-        return fail(Unsupported, "test_write is not supported by this family");
-    }
-    if (operation == FlashOperation::Write && !image.has_value())
-    {
-        return fail(InvalidConfig, "Write plans must carry a ROM image");
-    }
-    if (operation == FlashOperation::Write && image->size() != kImageSize)
-    {
-        return fail(InvalidConfig,
-                    std::format("ROM file must be exactly 0x200000 bytes; got 0x{:x} bytes", image->size()));
-    }
-    FlashPlanFields fields{
-        .operation = operation,
-        .family = FlashFamily::SubaruDensoSh72543CanDiesel,
-        .transport = TransportKind::CanIso15765,
-        .target_id = std::string(protocol_name),
-        .mcu_name = std::string(mcu_type),
-        .transfer_region = kMainBlock,
-        .erase_regions = operation == FlashOperation::Write ? std::vector{kMainBlock} : std::vector<MemoryRegion>{},
-        .image = operation == FlashOperation::Write ? std::move(image) : std::nullopt,
-        .kernel = std::nullopt,
-        .family_plan = SubaruDensoSh72543CanDieselPlan{0x7e0, 0x7e8, 500000, false, kLeadPad, kTailPad},
-    };
-    auto plan = validate_and_build(std::move(fields));
-    if (!plan.has_value())
-    {
-        return std::unexpected(plan.error());
-    }
-    if (auto valid = validate_subaru_denso_sh72543_can_diesel_plan(*plan); !valid.has_value())
-    {
-        return std::unexpected(valid.error());
-    }
-    return plan;
+    return build_single_window_plan(kSpec, operation, protocol_name, mcu_type, std::move(image),
+                                    SubaruDensoSh72543CanDieselPlan{0x7e0, 0x7e8, 500000, false, kLeadPad, kTailPad});
 }
 } // namespace fastecu::flash
