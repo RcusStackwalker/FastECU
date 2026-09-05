@@ -445,6 +445,7 @@ cc_library(
     srcs = ["subaru_denso_1n83m_1_5m_can_plan.cpp"],
     hdrs = ["subaru_denso_1n83m_1_5m_can_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
@@ -484,6 +485,7 @@ cc_library(
     srcs = ["subaru_denso_sh72543_can_diesel_plan.cpp"],
     hdrs = ["subaru_denso_sh72543_can_diesel_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
@@ -503,6 +505,7 @@ cc_library(
     srcs = ["subaru_denso_1n83m_4m_can_plan.cpp"],
     hdrs = ["subaru_denso_1n83m_4m_can_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
