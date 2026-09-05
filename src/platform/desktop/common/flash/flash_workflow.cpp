@@ -55,6 +55,82 @@ FlashCompletedStep completed(FlashWorkflowOutcome outcome, std::optional<bytes::
     return {outcome, std::move(bytes), std::move(rom_id)};
 }
 
+// Every FlashWorkflow ends in exactly one of these four outcomes, reached
+// either directly from a FlashAttemptResult (record()) or from a workflow's
+// own staging logic (succeed()/cancel()/discard()/fail()). Owning the state
+// here, instead of in each workflow, is what let the six workflow classes
+// below stop repeating the same five fields and the same result-handling
+// branches.
+class FlashAttemptOutcome
+{
+  public:
+    void succeed(std::optional<bytes::Bytes> bytes = std::nullopt, std::optional<std::string> rom_id = std::nullopt)
+    {
+        terminal_ = true;
+        outcome_ = FlashWorkflowOutcome::Succeeded;
+        bytes_ = std::move(bytes);
+        rom_id_ = std::move(rom_id);
+    }
+    void cancel()
+    {
+        terminal_ = true;
+        outcome_ = FlashWorkflowOutcome::Cancelled;
+    }
+    void discard()
+    {
+        terminal_ = true;
+        outcome_ = FlashWorkflowOutcome::Discarded;
+    }
+    void fail(Error error)
+    {
+        terminal_ = true;
+        outcome_ = FlashWorkflowOutcome::Failed;
+        failure_ = std::move(error);
+    }
+
+    // The success/cancelled/failed mapping shared by every workflow whose
+    // attempt result finalizes the outcome directly.
+    void record(FlashAttemptResult result)
+    {
+        if (result.success)
+        {
+            succeed(std::move(result.read_bytes), std::move(result.rom_id));
+        }
+        else if (result.error_kind == ErrorKind::Cancelled)
+        {
+            cancel();
+        }
+        else
+        {
+            fail(Error{result.error_kind, std::move(result.error_detail)});
+        }
+    }
+
+    bool terminal() const
+    {
+        return terminal_;
+    }
+    bool hasFailure() const
+    {
+        return failure_.has_value();
+    }
+    FlashFailureStep takeFailure()
+    {
+        return FlashFailureStep{std::move(*failure_)};
+    }
+    FlashCompletedStep completedStep()
+    {
+        return completed(outcome_, std::move(bytes_), std::move(rom_id_));
+    }
+
+  private:
+    bool terminal_ = false;
+    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
+    std::optional<bytes::Bytes> bytes_;
+    std::optional<std::string> rom_id_;
+    std::optional<Error> failure_;
+};
+
 Result<std::uint32_t> parseKernelStartAddress(std::string_view kernel_addr)
 {
     const auto parsed = definition::parse_hex_value(kernel_addr);
@@ -158,13 +234,13 @@ class SubaruM32rKlineWorkflow final : public FlashWorkflow
         {
             return FlashFailureStep{plan_.error()};
         }
-        if (failure_)
+        if (outcome_.hasFailure())
         {
-            return FlashFailureStep{std::move(*failure_)};
+            return outcome_.takeFailure();
         }
-        if (terminal_)
+        if (outcome_.terminal())
         {
-            return completed(outcome_, std::move(bytes_), std::move(rom_id_));
+            return outcome_.completedStep();
         }
         if (!begun_)
         {
@@ -187,35 +263,19 @@ class SubaruM32rKlineWorkflow final : public FlashWorkflow
                                                         std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
                                      std::make_unique<QtClock>()};
         }
-        return completed(outcome_, std::move(bytes_), std::move(rom_id_));
+        return outcome_.completedStep();
     }
     void submit(FlashPromptResponse response) override
     {
         begun_ = true;
         if (response != FlashPromptResponse::Accept)
         {
-            terminal_ = true;
-            outcome_ = FlashWorkflowOutcome::Cancelled;
+            outcome_.cancel();
         }
     }
     void submit(FlashAttemptResult result) override
     {
-        terminal_ = true;
-        if (result.success)
-        {
-            outcome_ = FlashWorkflowOutcome::Succeeded;
-            bytes_ = std::move(result.read_bytes);
-            rom_id_ = std::move(result.rom_id);
-        }
-        else if (result.error_kind == ErrorKind::Cancelled)
-        {
-            outcome_ = FlashWorkflowOutcome::Cancelled;
-        }
-        else
-        {
-            outcome_ = FlashWorkflowOutcome::Failed;
-            failure_ = Error{result.error_kind, std::move(result.error_detail)};
-        }
+        outcome_.record(std::move(result));
     }
 
   private:
@@ -224,11 +284,7 @@ class SubaruM32rKlineWorkflow final : public FlashWorkflow
     Result<FlashPlan> plan_;
     bool begun_ = false;
     bool attempted_ = false;
-    bool terminal_ = false;
-    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
-    std::optional<bytes::Bytes> bytes_;
-    std::optional<std::string> rom_id_;
-    std::optional<Error> failure_;
+    FlashAttemptOutcome outcome_;
 };
 
 class SubaruDensoMc68hc16y5_02Workflow final : public FlashWorkflow
@@ -274,13 +330,13 @@ class SubaruDensoMc68hc16y5_02Workflow final : public FlashWorkflow
         {
             return FlashFailureStep{plan_->error()};
         }
-        if (failure_.has_value())
+        if (outcome_.hasFailure())
         {
-            return FlashFailureStep{std::move(*failure_)};
+            return outcome_.takeFailure();
         }
-        if (terminal_)
+        if (outcome_.terminal())
         {
-            return completed(outcome_, std::move(bytes_), std::move(rom_id_));
+            return outcome_.completedStep();
         }
         if (!begun_)
         {
@@ -295,7 +351,7 @@ class SubaruDensoMc68hc16y5_02Workflow final : public FlashWorkflow
                                                         std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
                                      std::make_unique<QtClock>()};
         }
-        return completed(outcome_, std::move(bytes_), std::move(rom_id_));
+        return outcome_.completedStep();
     }
 
     void submit(FlashPromptResponse response) override
@@ -303,29 +359,13 @@ class SubaruDensoMc68hc16y5_02Workflow final : public FlashWorkflow
         begun_ = true;
         if (response != FlashPromptResponse::Accept)
         {
-            terminal_ = true;
-            outcome_ = FlashWorkflowOutcome::Cancelled;
+            outcome_.cancel();
         }
     }
 
     void submit(FlashAttemptResult result) override
     {
-        terminal_ = true;
-        if (result.success)
-        {
-            outcome_ = FlashWorkflowOutcome::Succeeded;
-            bytes_ = std::move(result.read_bytes);
-            rom_id_ = std::move(result.rom_id);
-        }
-        else if (result.error_kind == ErrorKind::Cancelled)
-        {
-            outcome_ = FlashWorkflowOutcome::Cancelled;
-        }
-        else
-        {
-            outcome_ = FlashWorkflowOutcome::Failed;
-            failure_ = Error{result.error_kind, std::move(result.error_detail)};
-        }
+        outcome_.record(std::move(result));
     }
 
   private:
@@ -333,11 +373,7 @@ class SubaruDensoMc68hc16y5_02Workflow final : public FlashWorkflow
     std::optional<Result<FlashPlan>> plan_;
     bool begun_ = false;
     bool attempted_ = false;
-    bool terminal_ = false;
-    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
-    std::optional<bytes::Bytes> bytes_;
-    std::optional<std::string> rom_id_;
-    std::optional<Error> failure_;
+    FlashAttemptOutcome outcome_;
 };
 
 class SubaruDensoSh7055_02Workflow final : public FlashWorkflow
@@ -367,13 +403,13 @@ class SubaruDensoSh7055_02Workflow final : public FlashWorkflow
         {
             return FlashFailureStep{plan_->error()};
         }
-        if (failure_.has_value())
+        if (outcome_.hasFailure())
         {
-            return FlashFailureStep{std::move(*failure_)};
+            return outcome_.takeFailure();
         }
-        if (terminal_)
+        if (outcome_.terminal())
         {
-            return completed(outcome_, std::move(bytes_), std::move(rom_id_));
+            return outcome_.completedStep();
         }
         if (stage_ == 0)
         {
@@ -393,15 +429,14 @@ class SubaruDensoSh7055_02Workflow final : public FlashWorkflow
                                                         std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
                                      std::make_unique<QtClock>()};
         }
-        return completed(outcome_, std::move(bytes_), std::move(rom_id_));
+        return outcome_.completedStep();
     }
 
     void submit(FlashPromptResponse response) override
     {
         if (response != FlashPromptResponse::Accept)
         {
-            terminal_ = true;
-            outcome_ = FlashWorkflowOutcome::Cancelled;
+            outcome_.cancel();
             return;
         }
         ++stage_;
@@ -409,22 +444,7 @@ class SubaruDensoSh7055_02Workflow final : public FlashWorkflow
 
     void submit(FlashAttemptResult result) override
     {
-        terminal_ = true;
-        if (result.success)
-        {
-            outcome_ = FlashWorkflowOutcome::Succeeded;
-            bytes_ = std::move(result.read_bytes);
-            rom_id_ = std::move(result.rom_id);
-        }
-        else if (result.error_kind == ErrorKind::Cancelled)
-        {
-            outcome_ = FlashWorkflowOutcome::Cancelled;
-        }
-        else
-        {
-            outcome_ = FlashWorkflowOutcome::Failed;
-            failure_ = Error{result.error_kind, std::move(result.error_detail)};
-        }
+        outcome_.record(std::move(result));
     }
 
   private:
@@ -432,11 +452,7 @@ class SubaruDensoSh7055_02Workflow final : public FlashWorkflow
     std::optional<Result<FlashPlan>> plan_;
     std::size_t stage_ = 0;
     bool attempted_ = false;
-    bool terminal_ = false;
-    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
-    std::optional<bytes::Bytes> bytes_;
-    std::optional<std::string> rom_id_;
-    std::optional<Error> failure_;
+    FlashAttemptOutcome outcome_;
 };
 
 class ColtWorkflow final : public FlashWorkflow
@@ -454,13 +470,13 @@ class ColtWorkflow final : public FlashWorkflow
         {
             return FlashFailureStep{plan_.error()};
         }
-        if (failure_)
+        if (outcome_.hasFailure())
         {
-            return FlashFailureStep{std::move(*failure_)};
+            return outcome_.takeFailure();
         }
-        if (terminal_)
+        if (outcome_.terminal())
         {
-            return completed(outcome_, std::move(accepted_));
+            return outcome_.completedStep();
         }
         if (stage_ == 0)
         {
@@ -483,15 +499,14 @@ class ColtWorkflow final : public FlashWorkflow
                                                         std::make_unique<DesktopCanFlashTransport>(request_.serial)),
                                      std::make_unique<QtClock>()};
         }
-        return completed(outcome_, std::move(accepted_));
+        return outcome_.completedStep();
     }
 
     void submit(FlashPromptResponse response) override
     {
         if (response != FlashPromptResponse::Accept)
         {
-            terminal_ = true;
-            outcome_ = FlashWorkflowOutcome::Cancelled;
+            outcome_.cancel();
             return;
         }
         ++stage_;
@@ -499,21 +514,7 @@ class ColtWorkflow final : public FlashWorkflow
 
     void submit(FlashAttemptResult result) override
     {
-        terminal_ = true;
-        if (result.success)
-        {
-            outcome_ = FlashWorkflowOutcome::Succeeded;
-            accepted_ = std::move(result.read_bytes);
-        }
-        else if (result.error_kind == ErrorKind::Cancelled)
-        {
-            outcome_ = FlashWorkflowOutcome::Cancelled;
-        }
-        else
-        {
-            outcome_ = FlashWorkflowOutcome::Failed;
-            failure_ = Error{result.error_kind, std::move(result.error_detail)};
-        }
+        outcome_.record(std::move(result));
     }
 
   private:
@@ -521,10 +522,7 @@ class ColtWorkflow final : public FlashWorkflow
     Result<FlashPlan> plan_;
     std::size_t stage_ = 0;
     bool attempted_ = false;
-    bool terminal_ = false;
-    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
-    std::optional<bytes::Bytes> accepted_;
-    std::optional<Error> failure_;
+    FlashAttemptOutcome outcome_;
 };
 
 // Shared shape for every kernel-free, no-confirmation, single-attempt CAN
@@ -550,13 +548,13 @@ class SimpleCanFlashWorkflow final : public FlashWorkflow
         {
             return FlashFailureStep{plan_.error()};
         }
-        if (failure_)
+        if (outcome_.hasFailure())
         {
-            return FlashFailureStep{std::move(*failure_)};
+            return outcome_.takeFailure();
         }
-        if (terminal_)
+        if (outcome_.terminal())
         {
-            return completed(outcome_, std::move(accepted_));
+            return outcome_.completedStep();
         }
         if (!began_)
         {
@@ -572,35 +570,20 @@ class SimpleCanFlashWorkflow final : public FlashWorkflow
                                                         std::make_unique<DesktopCanFlashTransport>(request_.serial)),
                                      std::make_unique<QtClock>()};
         }
-        return completed(outcome_, std::move(accepted_));
+        return outcome_.completedStep();
     }
 
     void submit(FlashPromptResponse response) override
     {
         if (response != FlashPromptResponse::Accept)
         {
-            terminal_ = true;
-            outcome_ = FlashWorkflowOutcome::Cancelled;
+            outcome_.cancel();
         }
     }
 
     void submit(FlashAttemptResult result) override
     {
-        terminal_ = true;
-        if (result.success)
-        {
-            outcome_ = FlashWorkflowOutcome::Succeeded;
-            accepted_ = std::move(result.read_bytes);
-        }
-        else if (result.error_kind == ErrorKind::Cancelled)
-        {
-            outcome_ = FlashWorkflowOutcome::Cancelled;
-        }
-        else
-        {
-            outcome_ = FlashWorkflowOutcome::Failed;
-            failure_ = Error{result.error_kind, std::move(result.error_detail)};
-        }
+        outcome_.record(std::move(result));
     }
 
   private:
@@ -608,10 +591,7 @@ class SimpleCanFlashWorkflow final : public FlashWorkflow
     Result<FlashPlan> plan_;
     bool began_ = false;
     bool attempted_ = false;
-    bool terminal_ = false;
-    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
-    std::optional<bytes::Bytes> accepted_;
-    std::optional<Error> failure_;
+    FlashAttemptOutcome outcome_;
 };
 
 using SubaruHitachiM32rCanWorkflow =
@@ -644,13 +624,13 @@ class EepromWorkflow final : public FlashWorkflow
         {
             return FlashFailureStep{Error{ErrorKind::Unsupported, "EEPROM workflows support read operations only"}};
         }
-        if (terminal_)
+        if (outcome_.hasFailure())
         {
-            if (failure_)
-            {
-                return FlashFailureStep{std::move(*failure_)};
-            }
-            return completed(outcome_, std::move(accepted_));
+            return outcome_.takeFailure();
+        }
+        if (outcome_.terminal())
+        {
+            return outcome_.completedStep();
         }
         if (!begun_)
         {
@@ -695,8 +675,7 @@ class EepromWorkflow final : public FlashWorkflow
             }
             else
             {
-                terminal_ = true;
-                outcome_ = FlashWorkflowOutcome::Cancelled;
+                outcome_.cancel();
             }
             return;
         }
@@ -705,8 +684,7 @@ class EepromWorkflow final : public FlashWorkflow
             need_cycle_ = false;
             if (response != FlashPromptResponse::Accept)
             {
-                terminal_ = true;
-                outcome_ = FlashWorkflowOutcome::Cancelled;
+                outcome_.cancel();
             }
             return;
         }
@@ -715,14 +693,11 @@ class EepromWorkflow final : public FlashWorkflow
             inspect_ = false;
             if (response == FlashPromptResponse::Save)
             {
-                accepted_ = std::move(pending_);
-                terminal_ = true;
-                outcome_ = FlashWorkflowOutcome::Succeeded;
+                outcome_.succeed(std::move(pending_));
             }
             else if (mode_ == EepromReadMode::Mode4)
             {
-                terminal_ = true;
-                outcome_ = FlashWorkflowOutcome::Discarded;
+                outcome_.discard();
             }
             else
             {
@@ -742,8 +717,7 @@ class EepromWorkflow final : public FlashWorkflow
         }
         else if (result.error_kind == ErrorKind::Cancelled)
         {
-            terminal_ = true;
-            outcome_ = FlashWorkflowOutcome::Cancelled;
+            outcome_.cancel();
         }
         else if (mode_ != EepromReadMode::Mode4)
         {
@@ -751,9 +725,7 @@ class EepromWorkflow final : public FlashWorkflow
         }
         else
         {
-            terminal_ = true;
-            outcome_ = FlashWorkflowOutcome::Failed;
-            failure_ = Error{result.error_kind, std::move(result.error_detail)};
+            outcome_.fail(Error{result.error_kind, std::move(result.error_detail)});
         }
     }
 
@@ -769,11 +741,8 @@ class EepromWorkflow final : public FlashWorkflow
     bool begun_ = false;
     bool need_cycle_ = false;
     bool inspect_ = false;
-    bool terminal_ = false;
-    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
     std::optional<bytes::Bytes> pending_;
-    std::optional<bytes::Bytes> accepted_;
-    std::optional<Error> failure_;
+    FlashAttemptOutcome outcome_;
 };
 
 struct Route

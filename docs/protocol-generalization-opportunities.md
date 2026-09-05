@@ -25,6 +25,12 @@ The following are shared today and are no longer open extraction work:
   validation only: the executors of these same families stay un-factored on
   purpose, because their look-alike blocks differ in timeouts, retry counts and
   response strictness.
+- `FlashAttemptOutcome`, private to `flash_workflow.cpp`, owns the
+  terminal/outcome/bytes/rom_id/failure bookkeeping shared by all six
+  `FlashWorkflow` subclasses. Each subclass composes one instance instead of
+  repeating the fields and the `FlashAttemptResult` -> outcome mapping; the
+  staging logic that genuinely differs per family (prompt kinds, confirmation
+  stages, `EepromWorkflow`'s inspect/cycle steps) stays in the subclass.
 
 The former per-module copies of `calculate_seed_key`, `calculate_payload`,
 `add_ssm_header`, CRC helpers, and hex formatting should not be reintroduced.
