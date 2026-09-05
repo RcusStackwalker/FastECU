@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <format>
 #include <string>
 
@@ -752,10 +753,10 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
     long result = STATUS_NOERROR;
 
     const std::size_t apiLen = std::min(API_VERSION.size(), kVersionBufferSize - 1);
-    strncpy(pApiVersion, API_VERSION.data(), apiLen);
+    std::memcpy(pApiVersion, API_VERSION.data(), apiLen);
     pApiVersion[apiLen] = '\0';
     const std::size_t dllLen = std::min(DLL_VERSION.size(), kVersionBufferSize - 1);
-    strncpy(pDllVersion, DLL_VERSION.data(), dllLen);
+    std::memcpy(pDllVersion, DLL_VERSION.data(), dllLen);
     pDllVersion[dllLen] = '\0';
     // strncpy(pFirmwareVersion, fw_version, strlen(fw_version));
 
