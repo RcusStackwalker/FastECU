@@ -464,6 +464,7 @@ cc_library(
     srcs = ["subaru_denso_sh72531_can_plan.cpp"],
     hdrs = ["subaru_denso_sh72531_can_plan.h"],
     deps = [
+        ":single_window_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
