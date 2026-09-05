@@ -18,6 +18,28 @@ exports_files(
 )
 
 cc_library(
+    name = "single_window_plan",
+    srcs = ["single_window_plan.cpp"],
+    hdrs = ["single_window_plan.h"],
+    deps = [
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "single_window_plan_test",
+    srcs = ["single_window_plan_test.cpp"],
+    deps = [
+        ":single_window_plan",
+        ":subaru_denso_sh72531_can_types",
+    ],
+)
+
+cc_library(
     name = "mitsu_colt_m32r_can_types",
     hdrs = ["mitsu_colt_m32r_can_types.h"],
     deps = ["//src/algorithms/protocol"],
