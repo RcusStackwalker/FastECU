@@ -64,8 +64,6 @@ jobs:
           "${{ steps.build-wrapper.outputs.build-wrapper-binary }}" --out-dir bw-output \
             scripts/coverage-local.sh
         env:
-          # See the `sonar` config in .bazelrc for why: the build wrapper
-          # needs every compiler subprocess to actually run.
           BAZEL_TEST_CONFIG: sonar
 
       - name: SonarCloud scan

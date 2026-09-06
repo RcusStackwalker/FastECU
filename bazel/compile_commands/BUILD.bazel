@@ -4,14 +4,9 @@ load("@hedron_compile_commands//:refresh_compile_commands.bzl", "refresh_compile
 # (//:clang_tidy_* targets) -- keep this target and its label stable for that.
 # Hedron's default @//... covers every host-compatible workspace target.
 #   bazel run //bazel/compile_commands:refresh
-# exclude_headers="all": ballooned scopes (e.g. a prior SonarCloud consumer of
-# this target) treat every DB entry as a translation unit; excluding headers
-# keeps the DB from ballooning to ~5000 entries.
+# exclude_headers="all": keeps the DB scoped to translation units instead of
+# ballooning with every header transitively pulled in.
 # exclude_external_sources: our code only.
-#
-# SonarCloud analysis now reads its own compile_commands.json from the
-# SonarSource build wrapper instead of this target -- see
-# .github/workflows/sonar.yml and docs/tech-debt.md's SonarCloud section.
 refresh_compile_commands(
     name = "refresh",
     exclude_external_sources = True,
