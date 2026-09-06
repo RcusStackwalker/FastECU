@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from scripts.classify_s1117_signal_shadows import classify, find_signal_names
-from scripts.sonar_issues import Issue
+from classify_s1117_signal_shadows import classify, find_signal_names
+from sonar_issues import Issue
 
 
 def test_find_signal_names_parses_signals_blocks(tmp_path):

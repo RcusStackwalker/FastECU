@@ -24,6 +24,41 @@ py_test(
     deps = ["@python_deps//pyyaml"],
 )
 
+py_test(
+    name = "sonar_issues_test",
+    size = "small",
+    srcs = [
+        "scripts/sonar_issues.py",
+        "scripts/sonar_issues_test.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/sonar_issues_test.py",
+)
+
+py_test(
+    name = "classify_s1117_signal_shadows_test",
+    size = "small",
+    srcs = [
+        "scripts/classify_s1117_signal_shadows.py",
+        "scripts/classify_s1117_signal_shadows_test.py",
+        "scripts/sonar_issues.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/classify_s1117_signal_shadows_test.py",
+)
+
+py_test(
+    name = "crosscheck_s1117_shadow_test",
+    size = "small",
+    srcs = [
+        "scripts/crosscheck_s1117_shadow.py",
+        "scripts/crosscheck_s1117_shadow_test.py",
+        "scripts/sonar_issues.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/crosscheck_s1117_shadow_test.py",
+)
+
 # Computes the resolved transitive label closure of every required portable
 # backend target, so the Python check below can catch a platform dependency
 # reached through several layers of `deps` -- something the per-BUILD-file

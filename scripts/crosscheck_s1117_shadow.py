@@ -13,17 +13,28 @@ import re
 import subprocess
 from pathlib import Path
 
-from scripts.sonar_issues import Issue
+from sonar_issues import Issue
 
 
 def load_compile_commands(path: str = "compile_commands.json") -> dict[str, dict]:
     entries = json.loads(Path(path).read_text())
-    # Only keep real source entries; bazel-out/**/moc_*.cpp duplicates shadow
-    # the same basename and would silently override the real file's entry.
+    # Only keep src/-prefixed entries: bazel-out/**/moc_*.cpp and other
+    # generated entries can never match a src/-relative Issue.file_path
+    # lookup anyway, so filtering them out up front keeps the dict small
+    # and avoids storing entries that classify() would never look up.
     return {e["file"]: e for e in entries if e["file"].startswith("src/")}
 
 
 def shadow_warning_lines(entry: dict, relative_path: str) -> set[int]:
+    """Run clang++ -Wshadow-all -fsyntax-only and collect shadow-warning lines.
+
+    Raises RuntimeError if the compile itself fails (non-zero returncode)
+    and no shadow-diagnostic lines were found in stderr -- an empty result
+    in that case does not mean "no shadows," it means the file didn't
+    compile (e.g. an unresolved header outside Bazel's exec-root symlink
+    structure), and silently returning an empty set would let callers
+    misclassify a real finding as a false positive.
+    """
     args = entry.get("arguments") or entry["command"].split()
     cmd = [args[0], *args[1:], "-Wshadow-all", "-fsyntax-only"]
     result = subprocess.run(
@@ -42,6 +53,13 @@ def shadow_warning_lines(entry: dict, relative_path: str) -> set[int]:
         match = pattern.search(line)
         if match:
             lines.add(int(match.group(1)))
+    if result.returncode != 0 and not lines:
+        stderr_snippet = "\n".join(result.stderr.splitlines()[-40:])
+        raise RuntimeError(
+            f"clang++ -fsyntax-only failed to compile {relative_path} "
+            f"(exit {result.returncode}); cannot determine whether it has "
+            f"shadow warnings. stderr (last 40 lines):\n{stderr_snippet}"
+        )
     return lines
 
 
@@ -49,6 +67,13 @@ def classify(
     issues: list[Issue],
     compile_commands: dict[str, dict],
 ) -> tuple[list[Issue], list[Issue], list[Issue]]:
+    """Classify issues as confirmed / disagree / no-compile-command.
+
+    Note: a compile failure inside shadow_warning_lines() raises
+    RuntimeError, which is intentionally allowed to propagate here rather
+    than being caught and misclassified -- a broken compile should stop
+    the triage run, not silently produce a wrong bucket.
+    """
     confirmed, disagree, no_cc = [], [], []
     lines_by_file: dict[str, set[int]] = {}
     for issue in issues:
@@ -65,9 +90,9 @@ def classify(
 if __name__ == "__main__":
     import glob
 
-    from scripts.classify_s1117_signal_shadows import classify as classify_signals
-    from scripts.classify_s1117_signal_shadows import find_signal_names
-    from scripts.sonar_issues import fetch_open_issues, resolve_false_positive
+    from classify_s1117_signal_shadows import classify as classify_signals
+    from classify_s1117_signal_shadows import find_signal_names
+    from sonar_issues import fetch_open_issues, resolve_false_positive
 
     all_s1117 = fetch_open_issues(["cpp:S1117"])
     _, remaining = classify_signals(

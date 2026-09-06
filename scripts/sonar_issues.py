@@ -74,10 +74,18 @@ def fetch_open_issues(rules: list[str]) -> list[Issue]:
 
 
 def resolve_false_positive(issue_keys: list[str], comment: str) -> None:
-    """Mark issues as false positive in SonarCloud, batched at PAGE_SIZE."""
+    """Mark issues as false positive in SonarCloud, batched at PAGE_SIZE.
+
+    Raises RuntimeError if the bulk_change response for any batch reports
+    a nonzero failure count or a success count that doesn't match the
+    batch size. SonarCloud's bulk_change endpoint can return HTTP success
+    while actually resolving fewer issues than requested (permission gaps
+    on a subset, already-transitioned issues, a bad key) -- for a mutation
+    this consequential, under-resolution must fail loudly, not silently.
+    """
     for start in range(0, len(issue_keys), PAGE_SIZE):
         batch = issue_keys[start : start + PAGE_SIZE]
-        subprocess.run(
+        result = subprocess.run(
             [
                 "sonar",
                 "api",
@@ -93,4 +101,13 @@ def resolve_false_positive(issue_keys: list[str], comment: str) -> None:
                 ),
             ],
             check=True,
+            capture_output=True,
+            text=True,
         )
+        response = json.loads(result.stdout)
+        failures = response.get("failures", 0)
+        success = response.get("success", 0)
+        if failures > 0 or success != len(batch):
+            raise RuntimeError(
+                f"SonarCloud bulk_change under-resolved a batch of {len(batch)} issues: {response}"
+            )

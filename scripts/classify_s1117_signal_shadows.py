@@ -13,7 +13,7 @@ from __future__ import annotations
 import glob
 import re
 
-from scripts.sonar_issues import Issue
+from sonar_issues import Issue
 
 SIGNALS_BLOCK = re.compile(
     r"\bsignals:\s*(.*?)(?:\n\s*(?:public|protected|private|signals|slots)\b|\nclass\b|\Z)",
@@ -43,7 +43,7 @@ def classify(issues: list[Issue], signal_names: set[str]) -> tuple[list[Issue], 
 
 
 if __name__ == "__main__":
-    from scripts.sonar_issues import fetch_open_issues, resolve_false_positive
+    from sonar_issues import fetch_open_issues, resolve_false_positive
 
     headers = glob.glob("src/**/*.h", recursive=True)
     signals = find_signal_names(headers)
