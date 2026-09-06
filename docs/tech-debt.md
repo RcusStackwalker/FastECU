@@ -150,6 +150,10 @@ Actions:
   `resolve_edit_target` test asserting the corrected range, and then
   confirming the `apply_patch` guard has become unreachable rather than
   load-bearing.
+- Whichever `map_edit.cpp` defect above is resolved first, confirm it also
+  clears (or at least reduces) the SonarCloud `cpp:S3776` cognitive-complexity
+  findings on the same functions — see "P2: Pay down the SonarCloud
+  code-smell backlog" below; don't track it twice.
 
 ### P1: Split `FileActions`
 
@@ -205,6 +209,9 @@ Actions:
 - Replace raw fixed-capacity ownership with containers of values or smart
   pointers, and return `std::optional`/explicit result types instead of null or
   partially filled structures.
+- Confirm this clears SonarCloud's `cpp:S1820` (struct exceeds 20 fields) on
+  `ConfigValuesStructure`, `LogValuesStructure`, and `EcuCalDefStructure` — see
+  "P2: Pay down the SonarCloud code-smell backlog" below; don't track it twice.
 
 ### P1: Isolate flash-operation orchestration
 
@@ -288,25 +295,78 @@ Actions:
 - Delete `serial_qt_compat` once only the `remote_utility` edge and `//tests`
   remain, and fold its sources into the owning packages.
 
-### P2: Turn static analysis into a ratchet
+### P2: Pay down the SonarCloud code-smell backlog
 
-`pr.yml` gates every PR on `//:clang_tidy_report_changed` (changed files
-only, `WarningsAsErrors: '*'`, blocking, per OS). Full-repo
-`clang_tidy_report`/`clang_tidy_fix` remain available as manual targets but
-no longer run anywhere in CI, so a pre-existing violation in code a PR
-doesn't touch has no CI signal at all.
+Snapshot taken 2026-09-06 via `sonar list issues --project
+RcusStackwalker_FastECU --statuses OPEN,CONFIRMED --format json` (paginate
+with `--page`, 500/page): 3,870 open issues, all `CODE_SMELL` (no open bugs
+or vulnerabilities), 2,613 Major / 901 Critical / 354 Minor / 2 Info, ~517
+estimated remediation hours. No new ratchet job is needed to stop this from
+growing: the project's "Sonar way" quality gate is Clean-as-You-Code and its
+`new_maintainability_rating` condition already fails a PR that introduces
+enough new code-smell debt (confirmed via `sonar api get
+"/api/qualitygates/show?id=9&organization=rcusstackwalker"`). What follows is
+a plan to pay down the *existing* backlog, ordered by risk rather than by raw
+count, since count and blast radius are not the same thing here.
 
-Actions:
+**Phase 1 — correctness-risk triage (highest priority, not highest count).**
+`cpp:S1117` (declaration shadows an outer variable, 550 instances),
+`cpp:S5276` (implicit narrowing conversion, 204), and `cpp:S5025` (raw
+`new`/`delete`, 172, Critical) concentrate in the legacy per-vendor flash-op
+files, `J2534_unix.cpp`, and `ecu_operations.cpp` — the hardware-facing layer
+this document's introduction calls out as needing bench verification before
+qualification. Several `S1117` messages name variables that look
+copy-paste-shadowed rather than intentionally reused (e.g. a local shadowing
+`timeout_local` or `LOG_I`), which would mean the outer variable silently
+never takes effect. Treat each instance as a triage question, not a
+mechanical rename:
 
-- Record a machine-readable baseline or allowlist by check and source path
-  for the full-repo report.
-- Add a scheduled or release-triggered job that runs the full-repo report
-  against that baseline and fails only on new diagnostics outside it, then
-  reduce the baseline by ownership area over time.
-- Keep generated Qt code, vendored code, Bazel outputs, and external headers
-  out of the baseline.
-- Promote that job to a required, blocking result once the ratchet is
-  deterministic across Linux, macOS, and Windows compilation commands.
+- Read every `S1117`/`S5276` instance in the top 10 offending files and
+  classify it cosmetic (safe rename, explicit cast) vs. suspicious (outer
+  variable's intended assignment never happens).
+- For any suspicious instance, write a characterization test pinning current
+  behavior before changing it — this is a behavior fix, not a style fix, and
+  falls under the same TDD discipline as the flash-orchestration work above.
+- Fix `S5025` instances where a `new`/`delete` pair is unambiguous and scoped
+  to one function (mechanical RAII conversion); flag instances where
+  ownership crosses functions or threads for the same closer review given to
+  other serial/threading code in this document.
+
+**Phase 2 — high-leverage Critical cleanup (mechanical, low risk).**
+`cpp:S5028` (macro should be `const`/`constexpr`/an enum) accounts for 366
+Critical findings, and 295 of them (80%) sit in two headers:
+`J2534_tactrix_unix.h` (163) and `kernelcomms.h` (132). This is a pure type
+change with no value change — the largest Critical-count reduction available
+for the least risk, and a good second move once Phase 1's bug-shaped findings
+are triaged out of the same neighborhood.
+
+**Phase 3 — bulk mechanical modernization (mechanical, higher volume).**
+`cpp:S6022` (use `std::byte`, 580) and `cpp:S5945` (C array →
+`std::array`/`std::vector`, 197) concentrate in the same legacy per-vendor
+flash-op file family (SH705x K-Line/CAN/DensoCAN/diesel siblings); fix both
+rules per file in one pass rather than one rule across all files, so the same
+buffer-handling lines aren't touched twice. `cpp:S125` (539, remove
+commented-out code) has no behavior risk — fold its removal into whichever
+file is already open for Phase 1/2/3 work rather than a dedicated sweep, plus
+one pass each on the two worst offenders (`mainwindow.cpp`, `ecu_operations.cpp`).
+This is the same action already named below under "Naming and source/data
+organization"; do not track it twice.
+
+**Phase 4 — structural rules, absorbed into existing P1 items, not a new
+track.** `cpp:S1820` (struct exceeds 20 fields, 26 instances) is exactly
+`ConfigValuesStructure`, `LogValuesStructure`, and `EcuCalDefStructure` —
+already tracked above under "P1: Replace parallel-list data models".
+`cpp:S3776` (cognitive complexity, 89 instances) hits `map_edit.cpp` at the
+same functions already named under "P1: Separate UI from application logic"'s
+two pinned defects. Close these Sonar findings as a side effect of that
+existing work instead of opening a parallel initiative:
+
+- When resolving the parallel-list-model or `map_edit.cpp` P1 items, confirm
+  the corresponding `S1820`/`S3776` instances clear as part of that change.
+- The remaining scattered `S3776`/`S134` (nesting depth, 154) instances that
+  don't land on an existing P1 item stay a plain backlog — re-run the `sonar
+  list issues` query above when picking up unrelated work in a file to see if
+  it carries one, rather than scheduling a dedicated phase for them.
 
 ### P2: Naming and source/data organization
 
