@@ -51,7 +51,6 @@ class Settings : public QDialog
     QtFileRepository m_configFileRepository;
     QtAtomicFileWriter m_definitionFileWriter;
     fastecu::NullEventSink m_fileActionsEvents;
-    FileActions *fileActions{};
 
     QLineEdit *ecuflash_def_dir_lineedit{};
     QLineEdit *romraider_logger_file_lineedit{};
