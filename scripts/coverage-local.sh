@@ -23,11 +23,18 @@ cd "$repo_root"
 # framework paths, platform constraints, and failures retain their normal test
 # semantics. LLVM's %m token gives each instrumented binary a unique profile
 # name; %p prevents collisions between concurrent processes from that binary.
+#
+# EXTRA_BAZEL_TEST_ARGS lets a caller (e.g. the SonarCloud build-wrapper step)
+# append flags such as `--disk_cache=` -- a disk-cache hit skips the compiler
+# subprocess entirely, which would hide that translation unit from a wrapper
+# that traces subprocess exec calls.
+# shellcheck disable=SC2086
 bazel test \
   --config=coverage \
   --nocache_test_results \
   --sandbox_writable_path="$coverage_root/profiles" \
   --test_env="LLVM_PROFILE_FILE=$coverage_root/profiles/%m-%p.profraw" \
+  ${EXTRA_BAZEL_TEST_ARGS:-} \
   //...
 
 # Enumerate the instrumented test executables from the configured graph for

@@ -332,6 +332,27 @@ mechanical rename:
   ownership crosses functions or threads for the same closer review given to
   other serial/threading code in this document.
 
+**CI: SonarCloud C/C++ analysis now uses the SonarSource build wrapper.** The
+466 `cpp:S1117` findings bulk-resolved as false positives above were a
+compile-database artifact, not a code issue: SonarCloud's C-family parser
+misreads Qt's `emit <Signal>(...)` idiom as a declaration of `<Signal>`
+whenever it can't see how the real build reaches Qt's `emit` macro. The
+previous pipeline (`bazel run //bazel/compile_commands:refresh_sonar`) derived
+`compile_commands.json` from Bazel's action graph via Hedron's aspect, which
+mechanically rewrote each entry's compiler (`cc_wrapper.sh` → `clang`) but
+didn't verify the resulting invocation actually resolves the same headers the
+real compile does. `.github/workflows/sonar.yml` now installs
+[SonarSource's build wrapper](https://docs.sonarsource.com/sonarqube-cloud/analyzing-source-code/languages/c-family/prerequisites/)
+and wraps `scripts/coverage-local.sh`'s real `bazel test` invocation with it,
+so `bw-output/compile_commands.json` reflects the exact compiler invocations
+Bazel actually ran. The trade-off: a build-wrapper hit requires the compiler
+to actually run as a subprocess, so this invocation passes
+`EXTRA_BAZEL_TEST_ARGS=--disk_cache=` to defeat the job's persisted disk
+cache — the SonarCloud job now does a full, uncached compile on every run
+instead of an incremental one. Confirm on the next scan that new `cpp:S1117`
+findings no longer include `emit`-signal false positives before considering
+this closed.
+
 **Phase 2 — high-leverage Critical cleanup (mechanical, low risk).**
 `cpp:S5028` (macro should be `const`/`constexpr`/an enum) accounts for 366
 Critical findings, and 295 of them (80%) sit in two headers:

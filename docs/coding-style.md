@@ -312,12 +312,17 @@ locally before that gate ever sees the change:
 - `bazel run //:clang_tidy_report_changed` — the same changed-files scope as
   the PR gate; `bazel run //:clang_tidy_fix_changed` applies its fixes
   directly (macOS/Linux only; needs system LLVM on `PATH`).
-- The Sonar CLI, against the same `sonar-project.properties` CI uses:
-  regenerate `compile_commands.json` for it with
-  `bazel run //bazel/compile_commands:refresh_sonar`, then run
-  `sonar-scanner -Dsonar.token=$SONAR_TOKEN` (`brew install sonar-scanner` if
-  the CLI isn't installed; the token is a personal one from SonarCloud → My
-  Account → Security, not the CI secret).
+- The Sonar CLI, against the same `sonar-project.properties` CI uses: install
+  the SonarSource build wrapper (`build-wrapper-macosx-x86` from
+  `https://sonarcloud.io/static/cpp/build-wrapper-macosx-x86.zip` on macOS;
+  see `docs/tech-debt.md`'s SonarCloud section for other platforms), then
+  generate `bw-output/compile_commands.json` by wrapping the real build:
+  `build-wrapper-macosx-x86 --out-dir bw-output env EXTRA_BAZEL_TEST_ARGS=--disk_cache=
+  scripts/coverage-local.sh` (the empty `--disk_cache` forces every action to
+  actually recompile, since a disk-cache hit skips the compiler subprocess the
+  wrapper needs to trace). Then run `sonar-scanner -Dsonar.token=$SONAR_TOKEN`
+  (`brew install sonar-scanner` if the CLI isn't installed; the token is a
+  personal one from SonarCloud → My Account → Security, not the CI secret).
 
 Every rule in this guide with a `cpp:S*` citation — the Scope, Collections,
 Function complexity, and Templates sections above — exists because
