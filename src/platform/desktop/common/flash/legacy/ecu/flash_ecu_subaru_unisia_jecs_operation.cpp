@@ -10,9 +10,9 @@
 
 FlashEcuSubaruUnisiaJecsOperation::FlashEcuSubaruUnisiaJecsOperation(SerialPortActions *serial,
                                                                      FileActions::EcuCalDefStructure *ecuCalDef,
-                                                                     QString cmd_type, QWidget *dialog, QObject *parent,
-                                                                     PromptFn promptOverride)
-    : FlashOperationWorker(dialog, parent, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef),
+                                                                     QString cmd_type, QWidget *dialog,
+                                                                     QObject *parent_arg, PromptFn promptOverride)
+    : FlashOperationWorker(dialog, parent_arg, std::move(promptOverride)), serial(serial), ecuCalDef(ecuCalDef),
       cmd_type(std::move(cmd_type))
 {
 }

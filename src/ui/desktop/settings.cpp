@@ -17,8 +17,8 @@ Settings::Settings(FileActions::ConfigValuesStructure *configValues, QWidget *pa
     // ui->list_widget->setFixedWidth(160);
     ui->list_widget->setSpacing(10);
 
-    ui->dir_page->setLayout(create_files_config_page(configValues));
-    ui->ui_page->setLayout(create_ui_config_page(configValues));
+    ui->dir_page->setLayout(create_files_config_page());
+    ui->ui_page->setLayout(create_ui_config_page());
 
     ui->save_button->hide();
     // connect(ui->save_button, SIGNAL (clicked()), this, SLOT (save_config_file()));
@@ -55,7 +55,7 @@ int Settings::save_config_file()
     return 0;
 }
 
-QVBoxLayout *Settings::create_files_config_page(FileActions::ConfigValuesStructure *configValues)
+QVBoxLayout *Settings::create_files_config_page()
 {
     QGroupBox *romraider_definitions_group = new QGroupBox(tr("RomRaider Definition Files"));
     /*
@@ -197,7 +197,7 @@ QVBoxLayout *Settings::create_files_config_page(FileActions::ConfigValuesStructu
     return directory_layout;
 }
 
-QVBoxLayout *Settings::create_ui_config_page(FileActions::ConfigValuesStructure *configValues)
+QVBoxLayout *Settings::create_ui_config_page()
 {
     QGroupBox *toolbar_group = new QGroupBox(tr("Toolbar settings"));
     QLabel *toolbar_iconsize_label = new QLabel("Toolbar icon size:");

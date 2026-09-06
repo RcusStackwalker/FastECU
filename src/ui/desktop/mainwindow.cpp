@@ -1484,7 +1484,7 @@ bool MainWindow::open_calibration_file(QString filename)
     return 0;
 }
 
-void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *ecuCalDef)
+void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *ecuCalDefArg)
 {
     QDialog *definitionDialog = new QDialog(this);
     QVBoxLayout *vBoxLayout = new QVBoxLayout(definitionDialog);
@@ -1510,12 +1510,12 @@ void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *
         if (createNewRadioButton->isChecked())
         {
             emit LOG_D(createNewRadioButton->text(), true, true);
-            definitionAuthoringDialog->create_new_definition(ecuCalDef);
+            definitionAuthoringDialog->create_new_definition(ecuCalDefArg);
         }
         else if (useExistingRadioButton->isChecked())
         {
             emit LOG_D(useExistingRadioButton->text(), true, true);
-            definitionAuthoringDialog->use_existing_definition(ecuCalDef);
+            definitionAuthoringDialog->use_existing_definition(ecuCalDefArg);
         }
     }
     // The "continue without definition" placeholders belong to this branch
@@ -1524,7 +1524,7 @@ void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *
     if (continueWithoutRadioButton->isChecked() || result == QDialog::Rejected)
     {
         emit LOG_D(continueWithoutRadioButton->text(), true, true);
-        fileActions->apply_missing_definition_defaults(ecuCalDef);
+        fileActions->apply_missing_definition_defaults(ecuCalDefArg);
     }
 }
 
@@ -1533,14 +1533,14 @@ void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *
 // ChecksumCorrectionCommand; the log lines stay here, emitted through
 // MainWindow's own LOG_D/LOG_E signals (same signature FileActions used, so the
 // text carries over verbatim).
-void MainWindow::runChecksumCorrection(FileActions::EcuCalDefStructure *ecuCalDef)
+void MainWindow::runChecksumCorrection(FileActions::EcuCalDefStructure *ecuCalDefArg)
 {
     const fastecu::checksum::ChecksumSelection selection{
         .make = configValues->flash_protocol_selected_make.toStdString(),
         .checksum_flag = configValues->flash_protocol_selected_checksum.toStdString(),
         .flash_method = configValues->flash_protocol_selected_protocol_name.toStdString(),
-        .mcu_type = ecuCalDef->McuType.toStdString(),
-        .rom_id = ecuCalDef->RomId.toStdString(),
+        .mcu_type = ecuCalDefArg->McuType.toStdString(),
+        .rom_id = ecuCalDefArg->RomId.toStdString(),
     };
 
     emit LOG_D("Protocol: " + configValues->flash_protocol_selected_protocol_name, true, true);
@@ -1553,20 +1553,20 @@ void MainWindow::runChecksumCorrection(FileActions::EcuCalDefStructure *ecuCalDe
     const flashdev_t *device = fastecu::flash::find_flash_device(selection.mcu_type);
     if (device != nullptr)
     {
-        emit LOG_D("ecuCalDef->McuType: " + ecuCalDef->McuType + " " + configValues->flash_protocol_selected_mcu, true,
-                   true);
-        emit LOG_D("Size: 0x" + QString::number(ecuCalDef->FullRomData.length(), 16) + " -> 0x" +
+        emit LOG_D("ecuCalDef->McuType: " + ecuCalDefArg->McuType + " " + configValues->flash_protocol_selected_mcu,
+                   true, true);
+        emit LOG_D("Size: 0x" + QString::number(ecuCalDefArg->FullRomData.length(), 16) + " -> 0x" +
                        QString::number(device->romsize, 16),
                    true, true);
     }
 
     const fastecu::ui::ChecksumCorrectionResult result =
-        m_checksumCorrectionCommand.run(bytes::view(ecuCalDef->FullRomData), ecuCalDef->use_romraider_definition,
-                                        ecuCalDef->use_ecuflash_definition, selection, this);
+        m_checksumCorrectionCommand.run(bytes::view(ecuCalDefArg->FullRomData), ecuCalDefArg->use_romraider_definition,
+                                        ecuCalDefArg->use_ecuflash_definition, selection, this);
 
     if (result.unknown_mcu_type)
     {
-        emit LOG_E("Unknown MCU type: " + ecuCalDef->McuType, true, true);
+        emit LOG_E("Unknown MCU type: " + ecuCalDefArg->McuType, true, true);
         return;
     }
     if (result.canceled_due_to_missing_module)
@@ -1575,7 +1575,7 @@ void MainWindow::runChecksumCorrection(FileActions::EcuCalDefStructure *ecuCalDe
     }
     if (result.corrected_rom_data.has_value())
     {
-        ecuCalDef->FullRomData = bytes::toQByteArray(bytes::ByteView(*result.corrected_rom_data));
+        ecuCalDefArg->FullRomData = bytes::toQByteArray(bytes::ByteView(*result.corrected_rom_data));
     }
 }
 

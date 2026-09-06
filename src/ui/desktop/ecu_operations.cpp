@@ -536,7 +536,7 @@ int EcuOperations::read_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef
 /*******************************************************
  *  Write ROM 16bit K-Line ECUs
  ******************************************************/
-int EcuOperations::write_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write)
+int EcuOperations::write_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write_arg)
 {
     QByteArray filedata;
     QByteArray output;
@@ -600,7 +600,7 @@ int EcuOperations::write_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCal
             {
                 /*                if
                    (reflash_block_16bit_kline(&data_array[flashdevices[mcu_type_index].fblocks->start],
-                   &flashdevices[mcu_type_index], blockno, test_write))
+                   &flashdevices[mcu_type_index], blockno, test_write_arg))
                                 {
                                     emit LOG_I("Block " + QString::number(blockno) + " reflash failed.", true, true);
                                     return STATUS_ERROR;
@@ -633,7 +633,7 @@ int EcuOperations::write_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCal
             }
         }
         emit LOG_I(" (total: " + QString::number(bcnt) + ")", false, true);
-        if (!test_write)
+        if (!test_write_arg)
         {
             if (bcnt)
             {
@@ -658,7 +658,7 @@ int EcuOperations::write_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCal
 /*******************************************************
  *  Write ROM 32bit K-Line ECUs
  ******************************************************/
-int EcuOperations::write_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write)
+int EcuOperations::write_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write_arg)
 {
     QByteArray filedata;
 
@@ -718,7 +718,7 @@ int EcuOperations::write_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCal
             if (block_modified[blockno])
             {
                 if (reflash_block_32bit_kline(&data_array[flashdevices[mcu_type_index].fblocks->start],
-                                              &flashdevices[mcu_type_index], blockno, test_write))
+                                              &flashdevices[mcu_type_index], blockno, test_write_arg))
                 {
                     emit LOG_I("Block " + QString::number(blockno) + " reflash failed.", true, true);
                     return STATUS_ERROR;
@@ -751,7 +751,7 @@ int EcuOperations::write_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCal
             }
         }
         emit LOG_I(" (total: " + QString::number(bcnt) + ")", false, true);
-        if (!test_write)
+        if (!test_write_arg)
         {
             if (bcnt)
             {
@@ -776,7 +776,7 @@ int EcuOperations::write_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCal
 /*******************************************************
  *  Write ROM 32bit CAN ECUs
  ******************************************************/
-int EcuOperations::write_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write)
+int EcuOperations::write_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write_arg)
 {
     QByteArray filedata;
 
@@ -836,7 +836,7 @@ int EcuOperations::write_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDe
             if (block_modified[blockno])
             {
                 if (reflash_block_32bit_can(&data_array[flashdevices[mcu_type_index].fblocks->start],
-                                            &flashdevices[mcu_type_index], blockno, test_write))
+                                            &flashdevices[mcu_type_index], blockno, test_write_arg))
                 {
                     emit LOG_I("Block " + QString::number(blockno) + " reflash failed.", true, true);
                     return STATUS_ERROR;
@@ -869,7 +869,7 @@ int EcuOperations::write_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDe
             }
         }
         emit LOG_I(" (total: " + QString::number(bcnt) + ")", false, true);
-        if (!test_write)
+        if (!test_write_arg)
         {
             if (bcnt)
             {
@@ -891,7 +891,7 @@ int EcuOperations::write_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDe
     return STATUS_SUCCESS;
 }
 
-int EcuOperations::write_mem_32bit_iso15765(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write)
+int EcuOperations::write_mem_32bit_iso15765(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write_arg)
 {
     QByteArray filedata;
 
