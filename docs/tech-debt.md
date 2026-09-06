@@ -346,12 +346,27 @@ real compile does. `.github/workflows/sonar.yml` now installs
 and wraps `scripts/coverage-local.sh`'s real `bazel test` invocation with it,
 so `bw-output/compile_commands.json` reflects the exact compiler invocations
 Bazel actually ran. The trade-off: a build-wrapper hit requires the compiler
-to actually run as a subprocess, so this invocation passes
-`EXTRA_BAZEL_TEST_ARGS=--disk_cache=` to defeat the job's persisted disk
-cache — the SonarCloud job now does a full, uncached compile on every run
-instead of an incremental one. Confirm on the next scan that new `cpp:S1117`
-findings no longer include `emit`-signal false positives before considering
-this closed.
+to actually run as a subprocess, so the workflow sets
+`BAZEL_TEST_CONFIG=sonar` (the `sonar` config in `.bazelrc` disables the disk
+cache) to force every action to actually compile — the SonarCloud job now
+does a full, uncached compile on every run instead of an incremental one.
+Confirm on the next scan that new `cpp:S1117` findings no longer include
+`emit`-signal false positives before considering this closed.
+
+Running this locally, against the same `sonar-project.properties` CI uses:
+install the SonarSource build wrapper (`build-wrapper-macosx-x86` from
+`https://sonarcloud.io/static/cpp/build-wrapper-macosx-x86.zip` on macOS —
+substitute the matching zip for Linux/Windows from the same `static/cpp/`
+path), then generate `bw-output/compile_commands.json` by wrapping the real
+build:
+
+```sh
+build-wrapper-macosx-x86 --out-dir bw-output env BAZEL_TEST_CONFIG=sonar scripts/coverage-local.sh
+```
+
+Then run `sonar-scanner -Dsonar.token=$SONAR_TOKEN` (`brew install
+sonar-scanner` if the CLI isn't installed; the token is a personal one from
+SonarCloud → My Account → Security, not the CI secret).
 
 **Phase 2 — high-leverage Critical cleanup (mechanical, low risk).**
 `cpp:S5028` (macro should be `const`/`constexpr`/an enum) accounts for 366

@@ -64,12 +64,9 @@ jobs:
           "${{ steps.build-wrapper.outputs.build-wrapper-binary }}" --out-dir bw-output \
             scripts/coverage-local.sh
         env:
-          # A disk-cache hit skips the compiler subprocess entirely, so the
-          # build wrapper (which traces subprocess exec calls) never sees that
-          # translation unit. Disable the disk cache for this one invocation
-          # so every action actually compiles and gets captured -- see
-          # docs/tech-debt.md's SonarCloud section for the CI-time trade-off.
-          EXTRA_BAZEL_TEST_ARGS: --disk_cache=
+          # See the `sonar` config in .bazelrc for why: the build wrapper
+          # needs every compiler subprocess to actually run.
+          BAZEL_TEST_CONFIG: sonar
 
       - name: SonarCloud scan
         id: sonarcloud

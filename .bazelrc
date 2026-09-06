@@ -47,3 +47,12 @@ build:coverage --copt=-fprofile-instr-generate
 build:coverage --copt=-fcoverage-mapping
 build:coverage --linkopt=-fprofile-instr-generate
 build:coverage --linkopt=-fcoverage-mapping
+
+# SonarCloud build-wrapper tracing (scripts/coverage-local.sh's
+# BAZEL_TEST_CONFIG, set by .github/workflows/sonar.yml): layers on :coverage
+# since the wrapped invocation is the same instrumented test build. A
+# disk-cache hit skips the compiler subprocess entirely, hiding that
+# translation unit from a wrapper that traces subprocess exec calls, so this
+# config disables the disk cache to force every action to actually compile.
+build:sonar --config=coverage
+build:sonar --disk_cache=
