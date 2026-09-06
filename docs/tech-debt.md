@@ -329,7 +329,9 @@ the backlog turned out to be noise:
   `flash_ecu_subaru_unisia_jecs_operation.cpp`,
   `flash_ecu_subaru_unisia_jecs.cpp`) via a read-first rename or
   redundant-declaration removal — each preceded by confirming what the outer
-  variable's intended assignment actually was, not a mechanical rename. The
+  variable's intended assignment actually was, not a mechanical rename; these
+  17 are committed but not yet reflected on SonarCloud pending a future
+  rescan. The
   remaining 54 matched the same false-positive pattern (not reproduced by
   `clang++ -Wshadow-all`) but weren't pushed through SonarCloud's bulk
   resolution during this pass — a permission gate blocked it, and rather than
@@ -352,12 +354,14 @@ the backlog turned out to be noise:
   Those 9 are now rejected with the existing `ERR_BUFFER_OVERFLOW` error code
   before use, with a new test (`J2534_unix_test.cpp`) pinning the in-range
   case as unchanged and the out-of-range case as now erroring instead of
-  silently truncating. The remaining ~142 `S5276` instances in other files are
-  unchanged and stay a plain backlog, same as Phase 4's scattered instances
-  below — not a scheduled phase.
+  silently truncating; all 62 are committed but not yet reflected on
+  SonarCloud pending a future rescan. The remaining ~142 `S5276` instances in
+  other files are unchanged and stay a plain backlog, same as Phase 4's
+  scattered instances below — not a scheduled phase.
 - `cpp:S5025` (raw `new`/`delete`, Critical) — this plan covered the top 4
   files (`settings.cpp`, `mainwindow.cpp`, `hexedit.cpp`, `logvalues.cpp`, 79
-  of the rule's 172 total). 10 were genuine leaks fixed via RAII conversion;
+  of the rule's 172 total). 10 were genuine leaks fixed via RAII conversion
+  (committed but not yet reflected on SonarCloud pending a future rescan);
   the flagship was `Settings::fileActions` — `FileActions` doesn't derive
   from `QObject`, was heap-allocated with `new`, and was never deleted.
   Converted to a local `std::make_unique`; the class member was removed
