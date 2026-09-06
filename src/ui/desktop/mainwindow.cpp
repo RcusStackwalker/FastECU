@@ -37,8 +37,8 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     QPixmap startUpSplashImage(":/images/startup_splash.jpg");
     int startUpSplashProgressBarValue = 0;
 
-    startUpSplash = new QSplashScreen(startUpSplashImage);
-    QVBoxLayout *startUpSplashLayout = new QVBoxLayout(startUpSplash);
+    startUpSplash = std::make_unique<QSplashScreen>(startUpSplashImage);
+    QVBoxLayout *startUpSplashLayout = new QVBoxLayout(startUpSplash.get());
     // startUpSplashLayout->setMargin(0);
     startUpSplashLayout->setSpacing(0);
     startUpSplashLayout->setAlignment(Qt::AlignBottom);
@@ -511,7 +511,7 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
         connect(ssm_init_poll_timer, SIGNAL(timeout()), this, SLOT(ecu_init()));
         ssm_init_poll_timer->start();
     */
-    log_file_timer = new QElapsedTimer();
+    log_file_timer = std::make_unique<QElapsedTimer>();
 
     if (ecuCalDefIndex > 0)
     {
@@ -1961,7 +1961,7 @@ void MainWindow::close_calibration()
             }
         }
     }
-    delete ui->calibrationFilesTreeWidget->takeTopLevelItem(romNumber);
+    std::unique_ptr<QTreeWidgetItem> takenRomItem(ui->calibrationFilesTreeWidget->takeTopLevelItem(romNumber));
 
     ecuCalDefIndex--;
     for (int i = romNumber; i < ecuCalDefIndex; i++)
@@ -1995,7 +1995,7 @@ void MainWindow::close_calibration()
     {
         for (int i = ui->calibrationDataTreeWidget->topLevelItemCount(); i > 0; i--)
         {
-            delete ui->calibrationDataTreeWidget->takeTopLevelItem(0);
+            std::unique_ptr<QTreeWidgetItem> takenDataItem(ui->calibrationDataTreeWidget->takeTopLevelItem(0));
         }
     }
     // configValues->calibration_files.removeAt(romNumber);
@@ -2083,13 +2083,11 @@ void MainWindow::update_logboxes(const QString& protocol_arg)
 
     while (!ui->switchBoxLayout->isEmpty())
     {
-        QWidget *wg = ui->switchBoxLayout->takeAt(0)->widget();
-        delete wg;
+        std::unique_ptr<QWidget> wg(ui->switchBoxLayout->takeAt(0)->widget());
     }
     while (!ui->logBoxLayout->isEmpty())
     {
-        QWidget *wg = ui->logBoxLayout->takeAt(0)->widget();
-        delete wg;
+        std::unique_ptr<QWidget> wg(ui->logBoxLayout->takeAt(0)->widget());
     }
 
     for (int i = 0; i < logValues->lower_panel_switch_id.count(); i++)
@@ -2245,7 +2243,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     QWidget *w = ui->mdiArea->findChild<QWidget *>("gaugeWindow");
     if (w)
     {
-        delete w;
+        std::unique_ptr<QWidget> guard(w);
     }
 }
 
