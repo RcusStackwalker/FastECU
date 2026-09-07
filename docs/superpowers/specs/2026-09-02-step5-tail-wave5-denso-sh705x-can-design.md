@@ -1,8 +1,9 @@
 # Step 5 Tail Wave 5 — Denso SH705x CAN — Design
 
-**Status:** Approved for implementation planning on 2026-09-02. Designed
-against `master` at `cd9ab679`, after Wave 4 reduced
-`//:legacy_flash_drain` to 14 families.
+**Status:** Approved for implementation planning on 2026-09-02 and
+revalidated on 2026-09-07 against `master` at `59f4e442`, after Wave 4 reduced
+`//:legacy_flash_drain` to 14 families. The four Wave 5 legacy operation
+sources are unchanged from the original `cd9ab679` evidence baseline.
 
 ## Goal
 
@@ -118,6 +119,13 @@ Each plan stores immutable ROM and kernel snapshots plus only the wire and
 geometry values needed by its executor. `flash_types.h` assembles the four new
 plan alternatives into `FamilyPlan`; it does not absorb their fields.
 
+Master now contains `single_window_plan`, but Wave 5 must not widen or reuse
+it. That core deliberately requires kernel-free plans, rejects test-write,
+and models one write/erase window. Every Wave 5 family carries a kernel; three
+support test-write; and the Denso SH705x families preserve 16-block geometry.
+Their builders therefore stay family-owned. A later extraction is allowed
+only by the same port-then-factor evidence rule as executor sharing.
+
 The plan types are `SubaruDensoSh7058CanPlan`,
 `SubaruDensoSh7058CanDieselPlan`, `SubaruTcuDensoSh705xCanPlan`, and
 `SubaruDensoSh705xDensoCanPlan`, following the existing family naming pattern.
@@ -178,7 +186,9 @@ The desktop platform supplies:
 
 `FlashWorkflowFactory` constructs the correct executor/transport pair and
 hands the bound attempt to the existing `FlashWorker` and `FlashDialog`.
-Neither the UI nor the workflow manipulates CAN modes.
+The new workflow reuses the existing `FlashAttemptOutcome` result-state
+helper extracted on master; it does not duplicate terminal/failure/result
+handling. Neither the UI nor the workflow manipulates CAN modes.
 
 ## Protocol Routing and Capability Matrix
 
@@ -244,7 +254,8 @@ The common kernel-backed CAN workflow performs these steps:
 4. Present the `Begin` prompt and every plan confirmation.
 5. Bind the plan and executor to the ISO-only or mixed-CAN desktop transport.
 6. Run the bound attempt on `FlashWorker`.
-7. Return read bytes and ROM ID through `FlashDialogResult`.
+7. Return read bytes and ROM ID through `FlashCompletedStep` and the existing
+   dialog result mapping.
 
 `KernelBackedCanFlashWorkflow` represents this desktop-only control shape. It
 is parameterized by plan builder, executor, and transport factory; it does not
@@ -320,8 +331,8 @@ change behavior. Unexplained differences in addresses, timeouts, retry counts,
 response tolerance, seed logic, or ordering remain per family and receive
 characterization tests.
 
-Every transcribed wire exchange cites the legacy file and line range at the
-source revision used by the port. Once the legacy file is deleted, those
+Every transcribed wire exchange cites the legacy file and line range at
+source revision `59f4e442`. Once the legacy file is deleted, those
 citations and tests become the audit trail.
 
 ## Testing
@@ -390,6 +401,8 @@ bazel run //:clang_tidy_report_changed
 
 `//:portable_closure`, `//:serial_compat_allowlist`, and
 `//:legacy_flash_drain` are also run explicitly when their inputs change.
+Because every family adds files under `src/backend`, `//:backend_no_widgets`
+is part of each family gate and the full-wave gate.
 
 ## Delivery Sequence
 
