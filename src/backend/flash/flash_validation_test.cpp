@@ -6,6 +6,9 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <tuple>
+#include <type_traits>
+#include <variant>
 
 namespace fastecu::flash
 {
@@ -170,6 +173,8 @@ const std::array<FamilyCase, 15>& family_cases()
     }};
     return cases;
 }
+
+static_assert(std::variant_size_v<FamilyPlan> == std::tuple_size_v<std::remove_reference_t<decltype(family_cases())>>);
 
 TEST(FlashValidationTest, ValidReadFieldsProduceAPlan)
 {
