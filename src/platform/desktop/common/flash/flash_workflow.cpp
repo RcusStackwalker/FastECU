@@ -24,6 +24,8 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_executor.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_executor.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_executor.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.h"
@@ -43,6 +45,7 @@
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/transport/desktop_can_flash_transport.h"
 #include "src/platform/desktop/common/transport/desktop_kline_flash_transport.h"
+#include "src/platform/desktop/common/transport/desktop_mixed_can_flash_transport.h"
 
 namespace fastecu::flash
 {
@@ -611,6 +614,103 @@ using SubaruDensoSh72543CanDieselWorkflow =
 using SubaruDenso1n83m_4mCanWorkflow =
     SimpleCanFlashWorkflow<SubaruDenso1n83m_4mCanExecutor, &build_subaru_denso_1n83m_4m_can_plan>;
 
+template <typename ExecutorT,
+          Result<FlashPlan> (*BuildPlan)(FlashOperation, std::string_view, std::string_view,
+                                         std::optional<bytes::Bytes>, KernelImage),
+          typename TransportT>
+class KernelBackedCanFlashWorkflow final : public FlashWorkflow
+{
+  public:
+    explicit KernelBackedCanFlashWorkflow(FlashWorkflowRequest request) : request_(std::move(request))
+    {
+    }
+
+    FlashWorkflowStep next() override
+    {
+        if (!plan_.has_value())
+        {
+            QtFileRepository repository;
+            Result<KernelImage> kernel = resolveKernel(request_, repository);
+            if (!kernel.has_value())
+            {
+                plan_ = std::unexpected(kernel.error());
+            }
+            else
+            {
+                plan_ = BuildPlan(request_.operation, request_.protocol, request_.mcu, std::move(request_.image),
+                                  std::move(*kernel));
+            }
+        }
+        if (!plan_->has_value())
+        {
+            return FlashFailureStep{plan_->error()};
+        }
+        if (outcome_.hasFailure())
+        {
+            return outcome_.takeFailure();
+        }
+        if (outcome_.terminal())
+        {
+            return outcome_.completedStep();
+        }
+        if (!begun_)
+        {
+            return FlashPromptStep{FlashPromptKind::Begin, {}};
+        }
+        const auto confirmations = (*plan_)->confirmations();
+        if (confirmation_index_ < confirmations.size())
+        {
+            const ConfirmationSpec& confirmation = confirmations[confirmation_index_];
+            assert(confirmation.id == ConfirmationSpec::Id::CycleIgnition);
+            return FlashPromptStep{FlashPromptKind::CycleIgnition, confirmation.arguments};
+        }
+        if (!attempted_)
+        {
+            attempted_ = true;
+            FlashPlan plan = std::move(**plan_);
+            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
+                                     bind_flash_attempt(std::move(plan), std::make_unique<ExecutorT>(),
+                                                        std::make_unique<TransportT>(request_.serial)),
+                                     std::make_unique<QtClock>()};
+        }
+        return outcome_.completedStep();
+    }
+
+    void submit(FlashPromptResponse response) override
+    {
+        if (response != FlashPromptResponse::Accept)
+        {
+            outcome_.cancel();
+            return;
+        }
+        if (!begun_)
+        {
+            begun_ = true;
+        }
+        else
+        {
+            ++confirmation_index_;
+        }
+    }
+
+    void submit(FlashAttemptResult result) override
+    {
+        outcome_.record(std::move(result));
+    }
+
+  private:
+    FlashWorkflowRequest request_;
+    std::optional<Result<FlashPlan>> plan_;
+    bool begun_ = false;
+    std::size_t confirmation_index_ = 0;
+    bool attempted_ = false;
+    FlashAttemptOutcome outcome_;
+};
+
+using SubaruDensoSh705xDensoCanWorkflow =
+    KernelBackedCanFlashWorkflow<SubaruDensoSh705xDensoCanExecutor, &build_subaru_denso_sh705x_densocan_plan,
+                                 DesktopMixedCanFlashTransport>;
+
 class EepromWorkflow final : public FlashWorkflow
 {
   public:
@@ -745,6 +845,12 @@ class EepromWorkflow final : public FlashWorkflow
     FlashAttemptOutcome outcome_;
 };
 
+enum class RouteMatch
+{
+    Prefix,
+    Exact,
+};
+
 struct Route
 {
     enum class Kind
@@ -755,6 +861,7 @@ struct Route
         SubaruHitachiM32rKline,
         SubaruDensoMc68hc16y5_02,
         SubaruDensoSh7055_02,
+        SubaruDensoSh705xDensoCan,
         SubaruHitachiM32rCan,
         SubaruTcuCvtHitachiM32rCan,
         SubaruTcuCvtMitsuMh8111Can,
@@ -766,8 +873,9 @@ struct Route
         Unrouted,
     };
 
-    std::string_view prefix;
+    std::string_view pattern;
     Kind kind;
+    RouteMatch match = RouteMatch::Prefix;
 };
 
 using enum Route::Kind;
@@ -782,6 +890,11 @@ constexpr auto kRoutes = std::to_array<Route>({
     {"sub_ecu_eeprom_denso_sh7058_densocan", Eeprom},
     {"sub_ecu_eeprom_denso_sh7058_can_diesel", Eeprom},
     {"sub_ecu_eeprom_denso_sh7058_can", Eeprom},
+    {"sub_ecu_denso_sh7055_densocan", SubaruDensoSh705xDensoCan, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7058_densocan", SubaruDensoSh705xDensoCan, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7058s_densocan", SubaruDensoSh705xDensoCan, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7058s_diesel_densocan", SubaruDensoSh705xDensoCan, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7059_diesel_densocan", SubaruDensoSh705xDensoCan, RouteMatch::Exact},
     // Reserve this longer prefix before the bare MC68 _02 row. BDM remains
     // on its legacy path and must not be swallowed by portable routing.
     {"sub_ecu_denso_mc68hc16y5_02_bdm", Unrouted},
@@ -814,8 +927,13 @@ std::optional<bytes::Bytes> portableImageForOperation(FlashOperation operation, 
 
 std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequest request)
 {
-    const auto route = std::ranges::find_if(kRoutes, [&request](const Route& candidate)
-                                            { return request.protocol.starts_with(candidate.prefix); });
+    const auto route = std::ranges::find_if(kRoutes,
+                                            [&request](const Route& candidate)
+                                            {
+                                                return candidate.match == RouteMatch::Exact
+                                                           ? request.protocol == candidate.pattern
+                                                           : request.protocol.starts_with(candidate.pattern);
+                                            });
     if (route == kRoutes.end())
     {
         return nullptr;
@@ -835,6 +953,8 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
         return std::make_unique<SubaruDensoMc68hc16y5_02Workflow>(std::move(request));
     case SubaruDensoSh7055_02:
         return std::make_unique<SubaruDensoSh7055_02Workflow>(std::move(request));
+    case SubaruDensoSh705xDensoCan:
+        return std::make_unique<SubaruDensoSh705xDensoCanWorkflow>(std::move(request));
     case SubaruHitachiM32rCan:
         return std::make_unique<SubaruHitachiM32rCanWorkflow>(std::move(request));
     case SubaruTcuCvtHitachiM32rCan:

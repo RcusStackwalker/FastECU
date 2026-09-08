@@ -11,7 +11,6 @@ qt_cc_library(
     srcs = [
         "flash_ecu_subaru_denso_sh7058_can.cpp",
         "flash_ecu_subaru_denso_sh7058_can_diesel.cpp",
-        "flash_ecu_subaru_denso_sh705x_densocan.cpp",
         "flash_ecu_subaru_denso_sh705x_kline.cpp",
         "flash_ecu_subaru_hitachi_sh7058_can.cpp",
         "flash_ecu_subaru_hitachi_sh72543r_can.cpp",
@@ -21,7 +20,6 @@ qt_cc_library(
     hdrs = [
         "flash_ecu_subaru_denso_sh7058_can.h",
         "flash_ecu_subaru_denso_sh7058_can_diesel.h",
-        "flash_ecu_subaru_denso_sh705x_densocan.h",
         "flash_ecu_subaru_denso_sh705x_kline.h",
         "flash_ecu_subaru_hitachi_sh7058_can.h",
         "flash_ecu_subaru_hitachi_sh72543r_can.h",

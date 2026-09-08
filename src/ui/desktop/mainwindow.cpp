@@ -1205,11 +1205,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                 ecuCalDef[rom_number]->RomId = QString::fromStdString(*dialog_result.rom_id);
             }
         }
-        else if (configValues->flash_protocol_selected_protocol_name.endsWith("_densocan"))
-        {
-            FlashEcuSubaruDensoSH705xDensoCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
         /*
          * Denso ECU Boot Mode
          */

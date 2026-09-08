@@ -65,7 +65,6 @@
 // OBD
 #include "src/ui/desktop/flash/common/flash_dialog.h"
 
-#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh705x_densocan.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh705x_kline.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh7058_can.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh7058_can_diesel.h"
