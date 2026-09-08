@@ -290,6 +290,8 @@ void FlashWorkflowTest::densoCanResolvesKernelPromptsAndPropagatesAttemptResult(
     auto step = workflow->next();
     QVERIFY(std::holds_alternative<FlashPromptStep>(step));
     QCOMPARE(std::get<FlashPromptStep>(step).kind, FlashPromptKind::Begin);
+    QVERIFY(QFile::remove(QString::fromStdString(paths->protocols_file)));
+    QVERIFY(QFile::remove(directory.filePath("kernels/catalog_densocan.bin")));
     workflow->submit(FlashPromptResponse::Accept);
     step = workflow->next();
     QVERIFY(std::holds_alternative<FlashPromptStep>(step));
