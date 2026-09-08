@@ -912,6 +912,7 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
         events.log(LogLevel::Info,
                    "*** Compare results no difference between ROM and ECU data, no flashing needed! ***");
         compare_phase.complete();
+        phases.start(test_write ? "TestWrite" : "Write", 0);
         return {};
     }
     compare_phase.complete();

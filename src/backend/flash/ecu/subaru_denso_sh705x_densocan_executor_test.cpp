@@ -516,9 +516,37 @@ std::vector<ExpectedPhaseProgress> expected_write_phase_trace(std::string_view w
     };
 }
 
+std::vector<ExpectedPhaseProgress> expected_unchanged_write_phase_trace(std::string_view write_phase)
+{
+    return {
+        {"Kernel", 1, 4, 0, 1},    {"Kernel", 1, 4, 1, 1},    {"Compare", 2, 4, 0, 16},  {"Compare", 2, 4, 1, 16},
+        {"Compare", 2, 4, 2, 16},  {"Compare", 2, 4, 3, 16},  {"Compare", 2, 4, 4, 16},  {"Compare", 2, 4, 5, 16},
+        {"Compare", 2, 4, 6, 16},  {"Compare", 2, 4, 7, 16},  {"Compare", 2, 4, 8, 16},  {"Compare", 2, 4, 9, 16},
+        {"Compare", 2, 4, 10, 16}, {"Compare", 2, 4, 11, 16}, {"Compare", 2, 4, 12, 16}, {"Compare", 2, 4, 13, 16},
+        {"Compare", 2, 4, 14, 16}, {"Compare", 2, 4, 15, 16}, {"Compare", 2, 4, 16, 16}, {write_phase, 3, 4, 0, 0},
+        {"Complete", 4, 4, 0, 1},  {"Complete", 4, 4, 1, 1},
+    };
+}
+
 void expect_phase_trace(const RecordingEventSink& events, std::string_view write_phase)
 {
     const std::vector<ExpectedPhaseProgress> expected = expected_write_phase_trace(write_phase);
+    ASSERT_EQ(events.phase_progress_calls.size(), expected.size());
+    for (std::size_t index = 0; index < expected.size(); ++index)
+    {
+        const auto& actual = events.phase_progress_calls[index];
+        const auto& want = expected[index];
+        EXPECT_EQ(actual.phase_name, want.name) << index;
+        EXPECT_EQ(actual.phase_index, want.index) << index;
+        EXPECT_EQ(actual.phase_count, want.count) << index;
+        EXPECT_EQ(actual.done, want.done) << index;
+        EXPECT_EQ(actual.total, want.total) << index;
+    }
+}
+
+void expect_unchanged_write_phase_trace(const RecordingEventSink& events, std::string_view write_phase)
+{
+    const std::vector<ExpectedPhaseProgress> expected = expected_unchanged_write_phase_trace(write_phase);
     ASSERT_EQ(events.phase_progress_calls.size(), expected.size());
     for (std::size_t index = 0; index < expected.size(); ++index)
     {
@@ -634,6 +662,18 @@ std::vector<LogRecord> expected_legacy_write_logs(const flashdev_t& device, Flas
     {
         logs.emplace_back(LogLevel::Info, "*** Test write PASS, it's ok to perform actual write! ***");
     }
+    return logs;
+}
+
+std::vector<LogRecord> expected_legacy_unchanged_write_logs(const flashdev_t& device)
+{
+    std::vector<LogRecord> logs;
+    logs.emplace_back(LogLevel::Info, "Checking if Kernel already running...");
+    logs.emplace_back(LogLevel::Info, "Requesting kernel ID");
+    logs.emplace_back(LogLevel::Info, "Kernel ID: KID");
+    append_legacy_compare_logs(logs, device, false, false);
+    logs.emplace_back(LogLevel::Info,
+                      "*** Compare results no difference between ROM and ECU data, no flashing needed! ***");
     return logs;
 }
 
@@ -1496,6 +1536,38 @@ TEST(SubaruDensoSh705xDensoCanExecutor, TestWriteOperatorLogsMatchTheCompleteLeg
 TEST(SubaruDensoSh705xDensoCanExecutor, WriteOperatorLogsMatchTheCompleteLegacyRecord)
 {
     expect_legacy_write_logs(FlashOperation::Write);
+}
+
+TEST(SubaruDensoSh705xDensoCanExecutor,
+     UnchangedWriteAndTestWriteEmitTheirZeroByteThirdPhaseBeforeTheFourthCompletePhase)
+{
+    const Case& test_case = kCases.front();
+    const flashdev_t *device = find_flash_device(test_case.mcu);
+    ASSERT_NE(device, nullptr);
+    ASSERT_EQ(device->numblocks, 16U);
+    for (const FlashOperation operation : {FlashOperation::Write, FlashOperation::TestWrite})
+    {
+        auto plan = write_plan(test_case, operation);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruDensoSh705xDensoCanExecutor executor;
+        ScriptedMixedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        script_kernel_alive(transport);
+        script_compare(transport, *device, false);
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_TRUE(result.has_value()) << result.error().detail;
+        // The strict script contains only the kernel-ID and all-equal CRC
+        // exchanges, so success plus consumption proves no init, erase, or
+        // programming traffic was sent.
+        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_EQ(events.logs, expected_legacy_unchanged_write_logs(*device));
+        expect_unchanged_write_phase_trace(events, operation == FlashOperation::TestWrite ? "TestWrite" : "Write");
+    }
 }
 
 TEST(SubaruDensoSh705xDensoCanExecutor, WriteAndTestWriteUseCrcInitAndDistinctEraseCommitCommands)
