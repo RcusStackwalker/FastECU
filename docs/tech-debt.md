@@ -350,6 +350,19 @@ runs. Tag any future `fork()`-based test the same way. The job also now
 carries `timeout-minutes: 60` so a similar hang fails fast instead of
 consuming the full default.
 
+Separately, Bazel's default `darwin-sandbox` execution strategy runs each
+action inside `sandbox-exec`, which silently drops most of the interceptor's
+traces even when the build genuinely recompiles everything: a fresh,
+fully-uncached SonarCloud run still only produced ~65 compilation units in
+`bw-output/compile_commands.json` out of the project's several hundred,
+which made the CFamily sensor fail outright (`0 C/C++/Objective-C files were
+analyzed`). Confirmed locally by comparing a wrapped build under the default
+sandboxed strategy (0 traced entries for a real, freshly-executed compile)
+against the same build under `--spawn_strategy=local` (entries appear). The
+`sonar` config now sets `--spawn_strategy=local --strategy=Genrule=local` to
+keep every action outside the sandbox, matching SonarSource's own guidance
+for Bazel: <https://community.sonarsource.com/t/issues-with-compile-commands-json-generated-from-bazel/138015>.
+
 Running this locally, against the same `sonar-project.properties` CI uses:
 install the SonarSource build wrapper (`build-wrapper-macosx-x86` from
 `https://sonarcloud.io/static/cpp/build-wrapper-macosx-x86.zip` on macOS —
