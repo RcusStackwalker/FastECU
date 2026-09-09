@@ -1194,7 +1194,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             }
             if (fastecu::service_functions::run_denso_tcu_service_action(action, serial, protocol, this))
             {
-                return 0;
+                goto ecu_operation_cleanup;
             }
         }
         auto workflow = fastecu::flash::FlashWorkflowFactory::tryCreate({
@@ -1414,6 +1414,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
         }
     }
+ecu_operation_cleanup:
     vbatt_timer->stop();
 
     serial->reset_connection();

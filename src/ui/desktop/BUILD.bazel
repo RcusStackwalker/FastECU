@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library", "qt_ui_basename_libraries")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library", "qt_ui_basename_libraries")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -114,4 +114,16 @@ qt_cc_library(
         "//src/ui/desktop/menu:menu_builder",
         "//src/ui/desktop/service_functions:denso_tcu_read_preflight",
     ] + [":ui_" + f.removesuffix(".ui") for f in FORMS],
+)
+
+fastecu_qttest(
+    name = "test_mainwindow",
+    size = "medium",
+    src = "mainwindow_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":desktop",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
 )
