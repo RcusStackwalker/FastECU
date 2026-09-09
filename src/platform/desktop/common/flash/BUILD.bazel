@@ -51,6 +51,8 @@ qt_cc_library(
         "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8104_can_plan",
         "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8111_can_executor",
         "//src/backend/flash/ecu:subaru_tcu_cvt_mitsu_mh8111_can_plan",
+        "//src/backend/flash/ecu:subaru_tcu_denso_sh705x_can_executor",
+        "//src/backend/flash/ecu:subaru_tcu_denso_sh705x_can_plan",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_can",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
         "//src/backend/flash/eeprom:eeprom_read_plan",
@@ -79,5 +81,7 @@ fastecu_qttest(
     deps = [
         ":flash_worker",
         "//src/backend/calibration:calibration_service",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
 )

@@ -5,7 +5,13 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include <array>
+#include <memory>
+
 #include "src/backend/calibration/calibration_service.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
+#include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/platform/desktop/common/serial/testing/fake_backend.h"
 
 namespace fastecu::flash
 {
@@ -54,6 +60,14 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, 
       <ecu>Denso SH7055</ecu><mcu>SH7055</mcu>
       <kernel>catalog_densocan.bin</kernel><kernel_addr>0xFFFF6004</kernel_addr>
     </protocol>
+    <protocol name="sub_tcu_denso_sh7055_can" alias="tcu-sh7055">
+      <ecu>Denso TCU SH7055</ecu><mcu>SH7055</mcu>
+      <kernel>catalog_tcu_sh7055.bin</kernel><kernel_addr>0xFFFF9000</kernel_addr>
+    </protocol>
+    <protocol name="sub_tcu_denso_sh7058_can" alias="tcu-sh7058">
+      <ecu>Denso TCU SH7058</ecu><mcu>SH7058</mcu>
+      <kernel>catalog_tcu_sh7058.bin</kernel><kernel_addr>0xFFFF3000</kernel_addr>
+    </protocol>
   </protocols>
   <car_models>
     <car_model><make>Subaru</make><model>Impreza</model><version>WRX</version>
@@ -75,7 +89,9 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, 
         if (!writeFile(kernel_directory + "/catalog_mc68.bin", QByteArray::fromHex("112233")) ||
             !writeFile(kernel_directory + "/catalog_tpu.bin", QByteArray::fromHex("445566")) ||
             !writeFile(kernel_directory + "/catalog_sh7055.bin", QByteArray::fromHex("aabbccdd")) ||
-            !writeFile(kernel_directory + "/catalog_densocan.bin", QByteArray::fromHex("aabbccdd")))
+            !writeFile(kernel_directory + "/catalog_densocan.bin", QByteArray::fromHex("aabbccdd")) ||
+            !writeFile(kernel_directory + "/catalog_tcu_sh7055.bin", QByteArray::fromHex("10203040")) ||
+            !writeFile(kernel_directory + "/catalog_tcu_sh7058.bin", QByteArray::fromHex("50607080")))
         {
             return std::nullopt;
         }
@@ -84,6 +100,22 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, 
     paths.protocols_file = directory.filePath("protocols.cfg").toStdString();
     paths.kernel_files_directory = (kernel_directory + "/").toStdString();
     return paths;
+}
+
+std::unique_ptr<SerialPortActions> recordingSerial(FakeBackend **fake)
+{
+    auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
+                                                      [fake]() -> SerialBackend *
+                                                      {
+                                                          *fake = new FakeBackend;
+                                                          return *fake;
+                                                      });
+    if (!serial->set_add_ssm_header(false) || *fake == nullptr)
+    {
+        return nullptr;
+    }
+    (*fake)->takeCallLog();
+    return serial;
 }
 
 class FlashWorkflowTest : public QObject
@@ -104,6 +136,11 @@ class FlashWorkflowTest : public QObject
     void densoCanRoutesOnlyTheFiveExactProtocols();
     void densoCanResolvesKernelPromptsAndPropagatesAttemptResult();
     void densoCanPreflightAndDeclinedPromptsStopBeforeAttempt();
+    void tcuRoutesOnlyTheTwoExactProtocols();
+    void tcuSupportedOperationsResolveTheirCatalogKernelAndReachAttempt();
+    void tcuUnsupportedOperationsFailBeforeTransportIo();
+    void tcuReadResolvesKernelBeforeBeginAndBindsDesktopCanTransport();
+    void tcuSuccessfulReadPropagatesBytesAndRomId();
     void mc68ResolvesKernelThroughCatalogBeforePromptAndAttempt();
     void missingCatalogKernelFailsBeforePrompt();
     void sh7055IteratesConfirmationsAndPropagatesAttemptResult();
@@ -347,6 +384,189 @@ void FlashWorkflowTest::densoCanPreflightAndDeclinedPromptsStopBeforeAttempt()
         QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
         QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Cancelled);
     }
+}
+
+void FlashWorkflowTest::tcuRoutesOnlyTheTwoExactProtocols()
+{
+    for (const char *protocol : {"sub_tcu_denso_sh7055_can", "sub_tcu_denso_sh7058_can"})
+    {
+        QVERIFY2(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr, protocol);
+    }
+    for (const char *near_miss :
+         {"sub_tcu_denso_sh7055_can_future", "sub_tcu_denso_sh7058_can_typo", "sub_tcu_denso_sh7058_can_extra"})
+    {
+        QVERIFY2(FlashWorkflowFactory::tryCreate(request(near_miss)) == nullptr, near_miss);
+    }
+}
+
+void FlashWorkflowTest::tcuSupportedOperationsResolveTheirCatalogKernelAndReachAttempt()
+{
+    struct Case
+    {
+        const char *protocol;
+        const char *mcu;
+        FlashOperation operation;
+        std::size_t image_size;
+        std::uint32_t kernel_address;
+        bytes::Bytes kernel_bytes;
+    };
+    const std::array cases{
+        Case{"sub_tcu_denso_sh7055_can", "SH7055", FlashOperation::Read, 0, 0xFFFF9000, {0x10, 0x20, 0x30, 0x40}},
+        Case{"sub_tcu_denso_sh7058_can", "SH7058", FlashOperation::Read, 0, 0xFFFF3000, {0x50, 0x60, 0x70, 0x80}},
+        Case{"sub_tcu_denso_sh7058_can",
+             "SH7058",
+             FlashOperation::Write,
+             0x100000,
+             0xFFFF3000,
+             {0x50, 0x60, 0x70, 0x80}},
+    };
+
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+
+    for (const Case& test : cases)
+    {
+        auto input = request(test.protocol, test.operation);
+        input.mcu = test.mcu;
+        input.paths = *paths;
+        if (test.image_size != 0)
+        {
+            input.image = bytes::Bytes(test.image_size, 0xa5);
+        }
+        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        QVERIFY2(workflow != nullptr, test.protocol);
+
+        auto step = workflow->next();
+        if (const auto *failure = std::get_if<FlashFailureStep>(&step))
+        {
+            QFAIL(failure->error.detail.c_str());
+        }
+        QVERIFY(std::holds_alternative<FlashPromptStep>(step));
+        QCOMPARE(std::get<FlashPromptStep>(step).kind, FlashPromptKind::Begin);
+        workflow->submit(FlashPromptResponse::Accept);
+        step = workflow->next();
+        QVERIFY(std::holds_alternative<FlashAttempt>(step));
+        const FlashPlan& plan = std::get<FlashAttempt>(step).attempt->plan();
+        QCOMPARE(plan.target_id(), std::string_view(test.protocol));
+        QVERIFY(plan.operation() == test.operation);
+        QCOMPARE(plan.transport(), TransportKind::CanIso15765);
+        QVERIFY(plan.kernel().has_value());
+        QCOMPARE(plan.kernel()->load_address, test.kernel_address);
+        QCOMPARE(plan.kernel()->bytes, test.kernel_bytes);
+    }
+}
+
+void FlashWorkflowTest::tcuUnsupportedOperationsFailBeforeTransportIo()
+{
+    struct Case
+    {
+        const char *protocol;
+        const char *mcu;
+        FlashOperation operation;
+        std::size_t image_size;
+    };
+    constexpr std::array cases{
+        Case{"sub_tcu_denso_sh7055_can", "SH7055", FlashOperation::Write, 0x80000},
+        Case{"sub_tcu_denso_sh7055_can", "SH7055", FlashOperation::TestWrite, 0x80000},
+        Case{"sub_tcu_denso_sh7058_can", "SH7058", FlashOperation::TestWrite, 0x100000},
+    };
+
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    FakeBackend *fake = nullptr;
+    auto serial = recordingSerial(&fake);
+    QVERIFY(serial != nullptr);
+
+    for (const Case& test : cases)
+    {
+        auto input = request(test.protocol, test.operation);
+        input.mcu = test.mcu;
+        input.paths = *paths;
+        input.image = bytes::Bytes(test.image_size, 0xa5);
+        input.serial = serial.get();
+        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        QVERIFY2(workflow != nullptr, test.protocol);
+
+        const auto step = workflow->next();
+        QVERIFY(std::holds_alternative<FlashFailureStep>(step));
+        QCOMPARE(std::get<FlashFailureStep>(step).error.kind, ErrorKind::Unsupported);
+        QVERIFY(fake->takeCallLog().isEmpty());
+    }
+}
+
+void FlashWorkflowTest::tcuReadResolvesKernelBeforeBeginAndBindsDesktopCanTransport()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    FakeBackend *fake = nullptr;
+    auto serial = recordingSerial(&fake);
+    QVERIFY(serial != nullptr);
+    fake->openSerialPortResult = "COM3";
+
+    auto input = request("sub_tcu_denso_sh7055_can");
+    input.mcu = "SH7055";
+    input.paths = *paths;
+    input.serial = serial.get();
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+
+    auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashPromptStep>(step));
+    QCOMPARE(std::get<FlashPromptStep>(step).kind, FlashPromptKind::Begin);
+    QVERIFY(QFile::remove(QString::fromStdString(paths->protocols_file)));
+    QVERIFY(QFile::remove(directory.filePath("kernels/catalog_tcu_sh7055.bin")));
+
+    workflow->submit(FlashPromptResponse::Accept);
+    step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashAttempt>(step));
+    auto& attempt = std::get<FlashAttempt>(step);
+    const FlashPlan& plan = attempt.attempt->plan();
+    QCOMPARE(plan.transport(), TransportKind::CanIso15765);
+    QVERIFY(plan.kernel().has_value());
+    QCOMPARE(plan.kernel()->bytes, bytes::Bytes({0x10, 0x20, 0x30, 0x40}));
+
+    FakeCancellationToken cancellation;
+    cancellation.cancel_on_check(2);
+    NullEventSink events;
+    const auto result = attempt.attempt->run(*attempt.clock, cancellation, events);
+    QVERIFY(!result.has_value());
+    QCOMPARE(result.error().kind, ErrorKind::Cancelled);
+    QCOMPARE(fake->takeCallLog(),
+             QStringList({"cfg:set_is_iso15765_connection:1", "cfg:set_is_can_connection:0",
+                          "cfg:set_is_iso14230_connection:0", "cfg:set_is_29_bit_id:0", "cfg:set_can_speed:500000",
+                          "cfg:set_can_source_address:2017", "cfg:set_can_destination_address:2025",
+                          "cfg:set_iso15765_source_address:2017", "cfg:set_iso15765_destination_address:2025",
+                          "open_serial_port"}));
+}
+
+void FlashWorkflowTest::tcuSuccessfulReadPropagatesBytesAndRomId()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    auto input = request("sub_tcu_denso_sh7058_can");
+    input.mcu = "SH7058";
+    input.paths = *paths;
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
+    workflow->submit(
+        FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a, 0xa5}, .rom_id = "123456789A_"});
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Succeeded);
+    QCOMPARE(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({0x5a, 0xa5}));
+    QCOMPARE(std::get<FlashCompletedStep>(done).rom_id, std::string("123456789A_"));
 }
 
 void FlashWorkflowTest::mc68ResolvesKernelThroughCatalogBeforePromptAndAttempt()

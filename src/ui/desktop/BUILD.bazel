@@ -112,5 +112,6 @@ qt_cc_library(
         "//src/ui/desktop/flash/tcu",
         "//src/ui/desktop/hexedit",
         "//src/ui/desktop/menu:menu_builder",
+        "//src/ui/desktop/service_functions:denso_tcu_read_preflight",
     ] + [":ui_" + f.removesuffix(".ui") for f in FORMS],
 )

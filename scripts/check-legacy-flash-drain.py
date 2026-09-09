@@ -41,7 +41,6 @@ REMAINING = {
     "ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.cpp",
     "ecu/flash_ecu_subaru_unisia_jecs_operation.cpp",
     "jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.cpp",
-    "tcu/flash_tcu_subaru_denso_sh705x_can_operation.cpp",
     "tcu/flash_tcu_subaru_hitachi_m32r_can_operation.cpp",
     "tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.cpp",
 }
