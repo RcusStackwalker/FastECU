@@ -41,15 +41,6 @@ Observed on 2026-08-05:
 
 ### P0: Make coverage results trustworthy
 
-Coverage gating now happens once, via the SonarCloud Quality Gate: `pr.yml`
-runs `scripts/coverage-local.sh`, imports `coverage/llvm-cov.report` into the
-SonarCloud scan, and the `Check SonarCloud Quality Gate` step fails the job
-when the gate (including the new-code coverage condition) is not `OK`. The
-previously separate `scripts/check-coverage-ratchet.sh` /
-`docs/coverage-baseline.txt` overall-coverage ratchet has been removed — it
-duplicated this signal with a stale qmake-era baseline (25.17% line coverage)
-that predated the Bazel source reorganization and didn't actually block merges.
-
 Remaining gaps:
 
 - The package-owned serial tests inherit an intermittent Windows-only crash
@@ -91,15 +82,6 @@ Actions:
   settings persistence.
 - Replace direct construction of all flash dialogs from `MainWindow` with a
   typed operation registry/factory that owns module-specific dependencies.
-- ~~Move calibration/map commands out of `menu_actions.cpp` into headless
-  model operations; leave only selection extraction, signal wiring, and user
-  feedback in the UI.~~ Done (step 6b): the byte codec, target resolution,
-  display helpers, and all four edit operations
-  (increment/set-expression/interpolation/paste) now live in
-  `//src/backend/calibration:map_edit`, reached from `menu_actions.cpp`
-  through resolve → collect input → call → apply patch → repaint. Undo/redo
-  is a deliberate non-goal of that slice (see the design's own "Also
-  non-goal" note) and is not covered by this action.
 - Keep new file, protocol, and hardware logic out of `MainWindow`.
 - **Fix or defer the `wrx02` write-path predicate (step 6b spec defect
   (a)).** `element_byte_address` (`src/backend/calibration/map_edit.cpp`)
@@ -331,59 +313,8 @@ mechanical rename:
   to one function (mechanical RAII conversion); flag instances where
   ownership crosses functions or threads for the same closer review given to
   other serial/threading code in this document.
-
-**CI: SonarCloud C/C++ analysis uses the SonarSource build wrapper**
-(`.github/workflows/sonar.yml`, the `sonar` config in `.bazelrc`), not
-Bazel's `compile_commands.json` aspect. Confirm on the next scan that new
-`cpp:S1117` findings no longer include the `emit`-signal false positives
-bulk-resolved above.
-
-The build wrapper injects a process-tracing interceptor library
-(`DYLD_INSERT_LIBRARIES` on macOS, `LD_PRELOAD` on Linux) into every process
-it wraps, so it can record each compiler invocation.
-`tests/force_asserts:tst_force_asserts` deliberately `fork()`s and aborts a
-child process; under the interceptor, that child deadlocked instead of
-aborting, hanging the whole SonarCloud job until GitHub's 6h runner timeout
-killed it. That target is now tagged `no-sonar-build-wrapper` and excluded
-via `--test_tag_filters` in the `sonar` `.bazelrc` config, on every platform
-— it still runs under plain `bazel test` and local coverage runs. Tag any
-future `fork()`-based test the same way. The job also now carries
-`timeout-minutes: 60` so a similar hang fails fast instead of consuming the
-full default.
-
-Separately, Bazel's default sandboxed execution strategy (`darwin-sandbox` /
-`linux-sandbox`) runs each action in an isolated environment, which silently
-drops most of the interceptor's traces even when the build genuinely
-recompiles everything: a fresh, fully-uncached SonarCloud run still only
-produced ~65 compilation units in `bw-output/compile_commands.json` out of
-the project's several hundred, which made the CFamily sensor fail outright
-(`0 C/C++/Objective-C files were analyzed`). Confirmed locally by comparing a
-wrapped build under the default sandboxed strategy (0 traced entries for a
-real, freshly-executed compile) against the same build under
-`--spawn_strategy=local` (entries appear). The `sonar` config now sets
-`--spawn_strategy=local --strategy=Genrule=local` to keep every action
-outside the sandbox, matching SonarSource's own guidance for Bazel:
-<https://community.sonarsource.com/t/issues-with-compile-commands-json-generated-from-bazel/138015>.
-
-CI runs this job on `ubuntu-26.04`; `build:coverage` in `.bazelrc` pins
-`--repo_env=CC=clang --repo_env=CXX=clang++` since Linux's default `cc` is
-GCC, which doesn't understand the LLVM-only `-fprofile-instr-generate`/
-`-fcoverage-mapping` flags (a no-op on macOS, where `cc` is already Clang).
-
-Running this locally, against the same `sonar-project.properties` CI uses:
-install the SonarSource build wrapper for your platform from
-`https://sonarcloud.io/static/cpp/` (`build-wrapper-macosx-x86` on macOS,
-`build-wrapper-linux-x86` on Linux), then generate
-`bw-output/compile_commands.json` by wrapping the real build:
-
-```sh
-build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir bw-output env BAZEL_TEST_CONFIG=sonar scripts/coverage-local.sh
-```
-
-Then run `sonar-scanner -Dsonar.token=$SONAR_TOKEN` (`brew install
-sonar-scanner` on macOS, or the matching Linux CLI package, if it isn't
-installed; the token is a personal one from SonarCloud → My Account →
-Security, not the CI secret).
+- Confirm on the next scan that new `cpp:S1117` findings no longer include
+  the `emit`-signal false positives bulk-resolved above.
 
 **Phase 2 — high-leverage Critical cleanup (mechanical, low risk).**
 `cpp:S5028` (macro should be `const`/`constexpr`/an enum) accounts for 366
@@ -441,12 +372,8 @@ Actions:
 
 2. Checksum and calibration logic:
    - Golden vectors and invalid inputs for all checksum families.
-   - ~~Calibration-map edit, interpolation, undo/redo, and bounds behavior
-     without widgets.~~ Covered by step 6b for edit, interpolation, and bounds
-     (`//src/backend/calibration:map_edit`'s `fastecu_portable_gtest` suite —
-     byte codec, target resolution, all four edit operations, and
-     bounds/saturation guards, no Qt). Undo/redo remains uncovered: it stays
-     a `qDebug()` stub in the UI, a deliberate non-goal of step 6b.
+   - Calibration-map undo/redo behavior without widgets: it stays a
+     `qDebug()` stub in the UI.
 
 3. I/O and orchestration:
    - Scripted flash-family sessions over K-Line/CAN/SSM transports.

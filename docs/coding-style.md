@@ -313,8 +313,19 @@ locally before that gate ever sees the change:
   the PR gate; `bazel run //:clang_tidy_fix_changed` applies its fixes
   directly (macOS/Linux only; needs system LLVM on `PATH`).
 - Running the Sonar CLI locally, against the same `sonar-project.properties`
-  CI uses, is documented in `docs/tech-debt.md`'s SonarCloud section, next to
-  why that pipeline is built the way it is.
+  CI uses: install the SonarSource build wrapper for your platform from
+  `https://sonarcloud.io/static/cpp/` (`build-wrapper-macosx-x86` on macOS,
+  `build-wrapper-linux-x86` on Linux), then generate
+  `bw-output/compile_commands.json` by wrapping the real build:
+
+  ```sh
+  build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir bw-output env BAZEL_TEST_CONFIG=sonar scripts/coverage-local.sh
+  ```
+
+  Then run `sonar-scanner -Dsonar.token=$SONAR_TOKEN` (`brew install
+  sonar-scanner` on macOS, or the matching Linux CLI package, if it isn't
+  installed; the token is a personal one from SonarCloud → My Account →
+  Security, not the CI secret).
 
 Every rule in this guide with a `cpp:S*` citation — the Scope, Collections,
 Function complexity, and Templates sections above — exists because
