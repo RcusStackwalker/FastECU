@@ -87,6 +87,9 @@ struct Context
     const ICancellationToken& cancellation;
     IEventSink& events;
     IClock& clock;
+    ICanFlashTransport& transport;
+    std::uint32_t request_id;
+    std::uint32_t response_id;
     uds::UdsClient& uds;
     uds::IUdsChannel& channel;
 };
@@ -218,6 +221,28 @@ Result<std::optional<bytes::Bytes>> channel_request_optional(Context& context, b
     return context.channel.receive(timeout_ms, context.cancellation);
 }
 
+Status discard_stale_frame(Context& context)
+{
+    // check_romcrc(), revision 59f4e442 lines 1017-1023.  The short raw
+    // read is deliberately unvalidated by the legacy operation; malformed
+    // and wrong-ID frames therefore remain tolerated stale content.
+    if (const Status checkpoint = cancelled_if_requested(context, "CRC stale-frame drain cancelled");
+        !checkpoint.has_value())
+    {
+        return checkpoint;
+    }
+    Result<std::optional<bytes::Bytes>> stale = context.transport.read(kShortTimeoutMs, context.cancellation);
+    if (!stale.has_value() &&
+        (stale.error().kind == ErrorKind::Cancelled || stale.error().kind == ErrorKind::Disconnected))
+    {
+        return std::unexpected(stale.error());
+    }
+    // Timeout, an absent frame, malformed bytes, a wrong arbitration id, and
+    // other adapter-specific stale-read results are all tolerated. Only
+    // cancellation/disconnection above are actionable transport failures.
+    return {};
+}
+
 Result<bytes::Bytes> beef_exchange(Context& context, bytes::Byte opcode, bytes::ByteView payload,
                                    std::size_t minimum_payload, int timeout_ms)
 {
@@ -251,6 +276,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context)
     // PDU is intentionally kept here instead of deriving it from BEEF
     // constants: 0x7A 0xA0 is the legacy kernel probe, not a BEEF command.
     const bytes::Bytes request{0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+    const bytes::Bytes wire_request = composeBe(context.request_id, request);
     for (int attempt = 0; attempt < 5; ++attempt)
     {
         if (const Status checkpoint = cancelled_if_requested(context, "kernel ID probe cancelled");
@@ -258,8 +284,25 @@ Result<std::optional<std::string>> request_kernel_id(Context& context)
         {
             return std::unexpected(checkpoint.error());
         }
-        Result<std::optional<bytes::Bytes>> received =
-            channel_request_optional(context, request, kLongTimeoutMs, kProbeDelayMs);
+        if (const Status sent = context.channel.send(request, context.cancellation); !sent.has_value())
+        {
+            return std::unexpected(sent.error());
+        }
+        info(context, std::format("Kernel ID request: {}", bytes::toHex(wire_request)));
+        if (const Status slept = context.clock.sleep(kProbeDelayMs, context.cancellation); !slept.has_value())
+        {
+            return std::unexpected(slept.error());
+        }
+        Result<std::optional<bytes::Bytes>> received = context.transport.read(kLongTimeoutMs, context.cancellation);
+        if (received.has_value())
+        {
+            info(context, std::format("Kernel ID response: {}",
+                                      received->has_value() ? bytes::toHex(**received) : std::string{}));
+        }
+        else
+        {
+            info(context, "Kernel ID response: ");
+        }
         if (!received.has_value())
         {
             if (received.error().kind == ErrorKind::Timeout)
@@ -273,17 +316,81 @@ Result<std::optional<std::string>> request_kernel_id(Context& context)
             continue;
         }
 
-        Result<BeefMessage> parsed = parse_beef(**received);
+        const bytes::Bytes& raw = **received;
+        if (raw.size() < CanFlashUdsChannel::kEnvelopeSize)
+        {
+            return fail(ErrorKind::BadResponse, "short CAN frame in kernel ID response");
+        }
+        if (bytes::readU32Be(raw) != context.response_id)
+        {
+            return fail(ErrorKind::BadResponse, "wrong CAN id in kernel ID response");
+        }
+
+        bytes::Bytes coalesced(raw.begin() + static_cast<std::ptrdiff_t>(CanFlashUdsChannel::kEnvelopeSize), raw.end());
+
+        // Legacy lines 1621-1625 keep reading at the short timeout and append
+        // every returned continuation. ICanFlashTransport replaces the
+        // legacy adapter's two-byte prefix with a four-byte arbitration-id
+        // envelope, so each accepted continuation contributes every byte
+        // after that envelope. Bound the drain while retaining cancellation
+        // and disconnect awareness.
+        constexpr int kMaxKernelIdTrailingFrames = 32;
+        bool drain_terminated = false;
+        for (int trailing = 0; trailing < kMaxKernelIdTrailingFrames; ++trailing)
+        {
+            if (const Status checkpoint = cancelled_if_requested(context, "kernel ID trailing drain cancelled");
+                !checkpoint.has_value())
+            {
+                return std::unexpected(checkpoint.error());
+            }
+            Result<std::optional<bytes::Bytes>> fragment =
+                context.transport.read(kShortTimeoutMs, context.cancellation);
+            if (!fragment.has_value())
+            {
+                if (fragment.error().kind == ErrorKind::Cancelled || fragment.error().kind == ErrorKind::Disconnected)
+                {
+                    return std::unexpected(fragment.error());
+                }
+                if (fragment.error().kind == ErrorKind::Timeout)
+                {
+                    drain_terminated = true;
+                    break;
+                }
+                return std::unexpected(fragment.error());
+            }
+            if (!fragment->has_value())
+            {
+                drain_terminated = true;
+                break;
+            }
+            const bytes::Bytes& fragment_raw = **fragment;
+            if (fragment_raw.size() < CanFlashUdsChannel::kEnvelopeSize ||
+                bytes::readU32Be(fragment_raw) != context.response_id)
+            {
+                continue;
+            }
+            coalesced.insert(coalesced.end(),
+                             fragment_raw.begin() + static_cast<std::ptrdiff_t>(CanFlashUdsChannel::kEnvelopeSize),
+                             fragment_raw.end());
+        }
+        if (!drain_terminated)
+        {
+            // Never begin another command while the raw receive queue may
+            // still contain ID fragments. This is the bounded portable form
+            // of the legacy read-until-empty loop.
+            return fail(ErrorKind::BadResponse, "kernel ID trailing drain exceeded its frame bound");
+        }
+
+        Result<BeefMessage> parsed = parse_beef(coalesced);
         if (!parsed.has_value())
         {
             return std::unexpected(parsed.error());
         }
         if (parsed->opcode != kKernelId)
         {
-            error(context, std::format("Wrong response from ECU: {}", bytes::toHex(**received)));
+            error(context, std::format("Wrong response from ECU: {}", bytes::toHex(coalesced)));
             return std::optional<std::string>{};
         }
-
         return std::optional<std::string>{std::string(parsed->payload.begin(), parsed->payload.end())};
     }
     return std::optional<std::string>{};
@@ -383,7 +490,9 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
         const bytes::Bytes& pdu = **ecu_reply;
         if (pdu.size() >= 9 && pdu[0] == 0xEA)
         {
-            ecu_id = std::string(pdu.begin() + 4, pdu.begin() + 9);
+            // Legacy lines 152-164 render these five bytes as ten uppercase
+            // hexadecimal characters before logging/storing the ROM id.
+            ecu_id = std::format("{:02X}{:02X}{:02X}{:02X}{:02X}", pdu[4], pdu[5], pdu[6], pdu[7], pdu[8]);
             info(context, std::format("ECU ID: {}", *ecu_id));
             if (read_operation)
             {
@@ -636,16 +745,15 @@ Result<std::uint32_t> query_crc(Context& context, const MemoryRegion& block)
         return std::unexpected(reply.error());
     }
     const std::uint32_t crc = bytes::readU32Be(*reply);
-    Result<std::optional<bytes::Bytes>> stale = context.channel.receive(kShortTimeoutMs, context.cancellation);
-    if (!stale.has_value())
+    if (const Status drained = discard_stale_frame(context); !drained.has_value())
     {
-        return std::unexpected(stale.error());
+        return std::unexpected(drained.error());
     }
     return crc;
 }
 
 Result<CompareResult> compare_blocks(Context& context, const FlashPlan& plan, bytes::ByteView image,
-                                     bool after_reflash = false)
+                                     PhaseReporter *progress, bool after_reflash = false)
 {
     // write_mem()/get_changed_blocks(), revision 59f4e442 lines 784-935.
     CompareResult result;
@@ -681,6 +789,10 @@ Result<CompareResult> compare_blocks(Context& context, const FlashPlan& plan, by
         if (result.modified[index])
         {
             ++result.changed_count;
+        }
+        if (progress != nullptr)
+        {
+            progress->update(static_cast<int>(index + 1));
         }
         if (const Status slept = context.clock.sleep(5, context.cancellation); !slept.has_value())
         {
@@ -855,26 +967,23 @@ Status reflash_block(Context& context, bytes::ByteView image, const FlashPlan& p
     return {};
 }
 
-Status write_memory(Context& context, const FlashPlan& plan, PhaseReporter& progress)
+Status write_memory(Context& context, const FlashPlan& plan, PhaseSequence& phases, PhaseReporter& compare_progress)
 {
     // write_mem(), revision 59f4e442 lines 784-900.
     const bytes::ByteView image = *plan.image();
-    Result<CompareResult> before = compare_blocks(context, plan, image);
+    Result<CompareResult> before = compare_blocks(context, plan, image, &compare_progress);
     if (!before.has_value())
     {
         return std::unexpected(before.error());
     }
+    compare_progress.complete();
     if (before->changed_count == 0)
     {
         info(context, "*** Compare results no difference between ROM and ECU data, no flashing needed! ***");
+        phases.start("Write", 0);
         return {};
     }
 
-    info(context, "--- Start writing ROM file to ECU flash memory ---");
-    if (const Status initialized = initialize_flash(context); !initialized.has_value())
-    {
-        return initialized;
-    }
     std::size_t flash_bytes_count = 0;
     for (std::size_t index = 0; index < before->modified.size(); ++index)
     {
@@ -883,6 +992,12 @@ Status write_memory(Context& context, const FlashPlan& plan, PhaseReporter& prog
             flash_bytes_count += plan.erase_regions()[index].length;
         }
     }
+    info(context, "--- Start writing ROM file to ECU flash memory ---");
+    if (const Status initialized = initialize_flash(context); !initialized.has_value())
+    {
+        return initialized;
+    }
+    PhaseReporter write_progress = phases.start("Write", static_cast<int>(flash_bytes_count));
     std::size_t flash_bytes_index = 0;
     for (std::size_t index = 0; index < before->modified.size(); ++index)
     {
@@ -896,7 +1011,7 @@ Status write_memory(Context& context, const FlashPlan& plan, PhaseReporter& prog
             return checkpoint;
         }
         if (const Status reflashed = reflash_block(context, image, plan, plan.erase_regions()[index], flash_bytes_index,
-                                                   flash_bytes_count, progress);
+                                                   flash_bytes_count, write_progress);
             !reflashed.has_value())
         {
             info(context, std::format("Block {} reflash failed.", index));
@@ -904,8 +1019,9 @@ Status write_memory(Context& context, const FlashPlan& plan, PhaseReporter& prog
         }
         info(context, std::format("Block {} reflash complete.", index));
     }
+    write_progress.complete();
 
-    Result<CompareResult> after = compare_blocks(context, plan, image, true);
+    Result<CompareResult> after = compare_blocks(context, plan, image, nullptr, true);
     if (!after.has_value())
     {
         return std::unexpected(after.error());
@@ -955,10 +1071,10 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::execute(const Flas
     const auto& family = std::get<SubaruTcuDensoSh705xCanPlan>(plan.family_plan());
     CanFlashUdsChannel channel(transport, family.request_id, family.response_id);
     uds::UdsClient uds_client(channel, clock, events);
-    Context context{cancellation, events, clock, uds_client, channel};
+    Context context{cancellation, events, clock, transport, family.request_id, family.response_id, uds_client, channel};
 
     const bool read_operation = plan.operation() == FlashOperation::Read;
-    PhaseSequence phases(events, read_operation ? 2 : 3);
+    PhaseSequence phases(events, read_operation ? 2 : 4);
     PhaseReporter kernel_phase = phases.start("Kernel", 1);
     bool kernel_alive = false;
     std::optional<std::string> rom_id;
@@ -967,20 +1083,21 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::execute(const Flas
     {
         return std::unexpected(connected.error());
     }
-    kernel_phase.complete();
-
     if (!kernel_alive && plan.kernel().has_value())
     {
         // Stock ECU path: connect_bootloader already ran strict session and
         // security exchanges, so upload the caller-owned kernel now.
+        events.notice("Preparing, please wait...");
         if (const Status uploaded = upload_kernel(context, *plan.kernel()); !uploaded.has_value())
         {
             return std::unexpected(uploaded.error());
         }
     }
+    kernel_phase.complete();
 
     if (read_operation)
     {
+        events.notice("Reading ROM, please wait...");
         PhaseReporter read_phase = phases.start("Read", static_cast<int>(plan.transfer_region().length));
         Result<bytes::Bytes> rom = read_memory(context, plan, read_phase);
         if (!rom.has_value())
@@ -992,12 +1109,12 @@ Result<FlashExecutionResult> SubaruTcuDensoSh705xCanExecutor::execute(const Flas
             .operation = FlashOperation::Read, .read_bytes = std::move(*rom), .rom_id = std::move(rom_id)};
     }
 
-    PhaseReporter write_phase = phases.start("Write", static_cast<int>(plan.transfer_region().length));
-    if (const Status written = write_memory(context, plan, write_phase); !written.has_value())
+    events.notice("Writing ROM, please wait...");
+    PhaseReporter compare_phase = phases.start("Compare", static_cast<int>(plan.erase_regions().size()));
+    if (const Status written = write_memory(context, plan, phases, compare_phase); !written.has_value())
     {
         return std::unexpected(written.error());
     }
-    write_phase.complete();
     PhaseReporter complete = phases.start("Complete", 1);
     complete.complete();
     return FlashExecutionResult{.operation = FlashOperation::Write};
