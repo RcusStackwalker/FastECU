@@ -339,44 +339,51 @@ Bazel's `compile_commands.json` aspect. Confirm on the next scan that new
 bulk-resolved above.
 
 The build wrapper injects a process-tracing interceptor library
-(`DYLD_INSERT_LIBRARIES` on macOS) into every process it wraps, so it can
-record each compiler invocation. `tests/force_asserts:tst_force_asserts`
-deliberately `fork()`s and aborts a child process; under the interceptor,
-that child deadlocked instead of aborting, hanging the whole SonarCloud job
-until GitHub's 6h runner timeout killed it. That target is now tagged
-`no-sonar-build-wrapper` and excluded via `--test_tag_filters` in the `sonar`
-`.bazelrc` config — it still runs under plain `bazel test` and local coverage
-runs. Tag any future `fork()`-based test the same way. The job also now
-carries `timeout-minutes: 60` so a similar hang fails fast instead of
-consuming the full default.
+(`DYLD_INSERT_LIBRARIES` on macOS, `LD_PRELOAD` on Linux) into every process
+it wraps, so it can record each compiler invocation.
+`tests/force_asserts:tst_force_asserts` deliberately `fork()`s and aborts a
+child process; under the interceptor, that child deadlocked instead of
+aborting, hanging the whole SonarCloud job until GitHub's 6h runner timeout
+killed it. That target is now tagged `no-sonar-build-wrapper` and excluded
+via `--test_tag_filters` in the `sonar` `.bazelrc` config, on every platform
+— it still runs under plain `bazel test` and local coverage runs. Tag any
+future `fork()`-based test the same way. The job also now carries
+`timeout-minutes: 60` so a similar hang fails fast instead of consuming the
+full default.
 
-Separately, Bazel's default `darwin-sandbox` execution strategy runs each
-action inside `sandbox-exec`, which silently drops most of the interceptor's
-traces even when the build genuinely recompiles everything: a fresh,
-fully-uncached SonarCloud run still only produced ~65 compilation units in
-`bw-output/compile_commands.json` out of the project's several hundred,
-which made the CFamily sensor fail outright (`0 C/C++/Objective-C files were
-analyzed`). Confirmed locally by comparing a wrapped build under the default
-sandboxed strategy (0 traced entries for a real, freshly-executed compile)
-against the same build under `--spawn_strategy=local` (entries appear). The
-`sonar` config now sets `--spawn_strategy=local --strategy=Genrule=local` to
-keep every action outside the sandbox, matching SonarSource's own guidance
-for Bazel: <https://community.sonarsource.com/t/issues-with-compile-commands-json-generated-from-bazel/138015>.
+Separately, Bazel's default sandboxed execution strategy (`darwin-sandbox` /
+`linux-sandbox`) runs each action in an isolated environment, which silently
+drops most of the interceptor's traces even when the build genuinely
+recompiles everything: a fresh, fully-uncached SonarCloud run still only
+produced ~65 compilation units in `bw-output/compile_commands.json` out of
+the project's several hundred, which made the CFamily sensor fail outright
+(`0 C/C++/Objective-C files were analyzed`). Confirmed locally by comparing a
+wrapped build under the default sandboxed strategy (0 traced entries for a
+real, freshly-executed compile) against the same build under
+`--spawn_strategy=local` (entries appear). The `sonar` config now sets
+`--spawn_strategy=local --strategy=Genrule=local` to keep every action
+outside the sandbox, matching SonarSource's own guidance for Bazel:
+<https://community.sonarsource.com/t/issues-with-compile-commands-json-generated-from-bazel/138015>.
+
+CI runs this job on `ubuntu-26.04`; `build:coverage` in `.bazelrc` pins
+`--repo_env=CC=clang --repo_env=CXX=clang++` since Linux's default `cc` is
+GCC, which doesn't understand the LLVM-only `-fprofile-instr-generate`/
+`-fcoverage-mapping` flags (a no-op on macOS, where `cc` is already Clang).
 
 Running this locally, against the same `sonar-project.properties` CI uses:
-install the SonarSource build wrapper (`build-wrapper-macosx-x86` from
-`https://sonarcloud.io/static/cpp/build-wrapper-macosx-x86.zip` on macOS —
-substitute the matching zip for Linux/Windows from the same `static/cpp/`
-path), then generate `bw-output/compile_commands.json` by wrapping the real
-build:
+install the SonarSource build wrapper for your platform from
+`https://sonarcloud.io/static/cpp/` (`build-wrapper-macosx-x86` on macOS,
+`build-wrapper-linux-x86` on Linux), then generate
+`bw-output/compile_commands.json` by wrapping the real build:
 
 ```sh
-build-wrapper-macosx-x86 --out-dir bw-output env BAZEL_TEST_CONFIG=sonar scripts/coverage-local.sh
+build-wrapper-linux-x86/build-wrapper-linux-x86-64 --out-dir bw-output env BAZEL_TEST_CONFIG=sonar scripts/coverage-local.sh
 ```
 
 Then run `sonar-scanner -Dsonar.token=$SONAR_TOKEN` (`brew install
-sonar-scanner` if the CLI isn't installed; the token is a personal one from
-SonarCloud → My Account → Security, not the CI secret).
+sonar-scanner` on macOS, or the matching Linux CLI package, if it isn't
+installed; the token is a personal one from SonarCloud → My Account →
+Security, not the CI secret).
 
 **Phase 2 — high-leverage Critical cleanup (mechanical, low risk).**
 `cpp:S5028` (macro should be `const`/`constexpr`/an enum) accounts for 366

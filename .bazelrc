@@ -47,6 +47,11 @@ build:coverage --copt=-fprofile-instr-generate
 build:coverage --copt=-fcoverage-mapping
 build:coverage --linkopt=-fprofile-instr-generate
 build:coverage --linkopt=-fcoverage-mapping
+# -fprofile-instr-generate/-fcoverage-mapping are LLVM's source-based coverage
+# flags; GCC doesn't understand them. macOS's default `cc` is already Clang,
+# but Linux's default `cc` is GCC, so force Clang explicitly for this config.
+build:coverage --repo_env=CC=clang
+build:coverage --repo_env=CXX=clang++
 
 # Used by scripts/coverage-local.sh's BAZEL_TEST_CONFIG when wrapped with the
 # SonarCloud build wrapper: a disk-cache hit skips the compiler subprocess the
