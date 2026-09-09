@@ -47,3 +47,23 @@ build:coverage --copt=-fprofile-instr-generate
 build:coverage --copt=-fcoverage-mapping
 build:coverage --linkopt=-fprofile-instr-generate
 build:coverage --linkopt=-fcoverage-mapping
+
+# Used by scripts/coverage-local.sh's BAZEL_TEST_CONFIG when wrapped with the
+# SonarCloud build wrapper: a disk-cache hit skips the compiler subprocess the
+# wrapper needs to trace, so this disables it.
+build:sonar --config=coverage
+build:sonar --disk_cache=
+# The build wrapper traces compiler subprocesses via an injected interceptor
+# library; Bazel's default darwin-sandbox strategy runs each action inside
+# sandbox-exec, which silently drops most of those traces (SonarSource's own
+# guidance for Bazel: https://community.sonarsource.com/t/issues-with-compile-commands-json-generated-from-bazel/138015).
+# Without this, bw-output/compile_commands.json only captured 65 of the
+# project's several hundred compilation units. Run actions unsandboxed for
+# this config so the wrapper sees every compile.
+build:sonar --spawn_strategy=local
+build:sonar --strategy=Genrule=local
+# The build-wrapper's process-tracing interceptor deadlocks fork()-based tests
+# (see tests/force_asserts/BUILD.bazel) instead of letting them fail, hanging
+# the job. Skip tag-marked tests only for this config; they still run under
+# plain `bazel test` and local coverage runs.
+build:sonar --test_tag_filters=-no-sonar-build-wrapper

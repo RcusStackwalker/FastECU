@@ -24,6 +24,14 @@ qt_cc_test(
         ],
         "//conditions:default": [],
     }),
+    # The SonarCloud build-wrapper injects an interceptor library (DYLD_INSERT_LIBRARIES
+    # on macOS) into every process it wraps so it can record compiler invocations. This
+    # test's fork() duplicates only the calling thread, and if the interceptor's own
+    # locks/threads are held at that instant, the child deadlocks trying to use them
+    # before it ever reaches the deliberate abort() -- hanging the SonarCloud job for the
+    # rest of its 6h runner timeout instead of failing. Excluded from the `sonar` config
+    # in .bazelrc; still runs under plain `bazel test` and local coverage runs.
+    tags = ["no-sonar-build-wrapper"],
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],

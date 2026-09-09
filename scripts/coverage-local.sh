@@ -3,6 +3,7 @@ set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 coverage_root=${COVERAGE_DIR:-"$repo_root/coverage"}
+bazel_test_config=${BAZEL_TEST_CONFIG:-coverage}
 llvm_profdata=${LLVM_PROFDATA:-llvm-profdata}
 llvm_cov=${LLVM_COV:-llvm-cov}
 
@@ -23,8 +24,12 @@ cd "$repo_root"
 # framework paths, platform constraints, and failures retain their normal test
 # semantics. LLVM's %m token gives each instrumented binary a unique profile
 # name; %p prevents collisions between concurrent processes from that binary.
+#
+# BAZEL_TEST_CONFIG lets a caller select a different named config from
+# .bazelrc; the SonarCloud build-wrapper step (.github/workflows/sonar.yml)
+# passes `sonar`, which layers on :coverage with the disk cache disabled.
 bazel test \
-  --config=coverage \
+  --config="$bazel_test_config" \
   --nocache_test_results \
   --sandbox_writable_path="$coverage_root/profiles" \
   --test_env="LLVM_PROFILE_FILE=$coverage_root/profiles/%m-%p.profraw" \
@@ -32,7 +37,7 @@ bazel test \
 
 # Enumerate the instrumented test executables from the configured graph for
 # llvm-cov's object list.
-test_files=$(bazel cquery --config=coverage --output=files \
+test_files=$(bazel cquery --config="$bazel_test_config" --output=files \
   'kind("cc_test", //...)')
 
 primary=""

@@ -28,6 +28,9 @@ jobs:
   sonarcloud:
     name: SonarCloud
     runs-on: macos-latest
+    # A hang here (see tests/force_asserts/BUILD.bazel for one known cause) would
+    # otherwise burn the full 6h GitHub Actions default before failing.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -55,12 +58,16 @@ jobs:
           brew install llvm
           echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
 
-      - name: Generate compile_commands.json
-        run: bazel run //bazel/compile_commands:refresh_sonar
+      - name: Install SonarCloud build wrapper
+        id: build-wrapper
+        uses: SonarSource/sonarqube-scan-action/install-build-wrapper@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
 
       - name: Build and run tests with coverage
         run: |
-          scripts/coverage-local.sh
+          "${{ steps.build-wrapper.outputs.build-wrapper-binary }}" --out-dir bw-output \
+            scripts/coverage-local.sh
+        env:
+          BAZEL_TEST_CONFIG: sonar
 
       - name: SonarCloud scan
         id: sonarcloud

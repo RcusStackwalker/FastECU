@@ -60,6 +60,9 @@ compile_commands.json
 # root when generating compile_commands.json.
 /external
 
+# SonarCloud build-wrapper output (compile_commands.json + trace log).
+/bw-output/
+
 # clangd fallback flags (machine-specific absolute paths, e.g. Homebrew prefix)
 compile_flags.txt
 
