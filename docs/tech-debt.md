@@ -41,15 +41,6 @@ Observed on 2026-08-05:
 
 ### P0: Make coverage results trustworthy
 
-Coverage gating now happens once, via the SonarCloud Quality Gate: `pr.yml`
-runs `scripts/coverage-local.sh`, imports `coverage/llvm-cov.report` into the
-SonarCloud scan, and the `Check SonarCloud Quality Gate` step fails the job
-when the gate (including the new-code coverage condition) is not `OK`. The
-previously separate `scripts/check-coverage-ratchet.sh` /
-`docs/coverage-baseline.txt` overall-coverage ratchet has been removed — it
-duplicated this signal with a stale qmake-era baseline (25.17% line coverage)
-that predated the Bazel source reorganization and didn't actually block merges.
-
 Remaining gaps:
 
 - The package-owned serial tests inherit an intermittent Windows-only crash
@@ -91,15 +82,6 @@ Actions:
   settings persistence.
 - Replace direct construction of all flash dialogs from `MainWindow` with a
   typed operation registry/factory that owns module-specific dependencies.
-- ~~Move calibration/map commands out of `menu_actions.cpp` into headless
-  model operations; leave only selection extraction, signal wiring, and user
-  feedback in the UI.~~ Done (step 6b): the byte codec, target resolution,
-  display helpers, and all four edit operations
-  (increment/set-expression/interpolation/paste) now live in
-  `//src/backend/calibration:map_edit`, reached from `menu_actions.cpp`
-  through resolve → collect input → call → apply patch → repaint. Undo/redo
-  is a deliberate non-goal of that slice (see the design's own "Also
-  non-goal" note) and is not covered by this action.
 - Keep new file, protocol, and hardware logic out of `MainWindow`.
 - **Fix or defer the `wrx02` write-path predicate (step 6b spec defect
   (a)).** `element_byte_address` (`src/backend/calibration/map_edit.cpp`)
@@ -331,15 +313,15 @@ the backlog turned out to be noise:
   redundant-declaration removal — each preceded by confirming what the outer
   variable's intended assignment actually was, not a mechanical rename; these
   17 are committed but not yet reflected on SonarCloud pending a future
-  rescan. The
-  remaining 54 matched the same false-positive pattern (not reproduced by
-  `clang++ -Wshadow-all`) but weren't pushed through SonarCloud's bulk
-  resolution during this pass — a permission gate blocked it, and rather than
-  force it through, they were left `OPEN` as a documented follow-up:
-  `scripts/crosscheck_s1117_shadow.py` (committed) reproduces the
-  classification and can drive the resolution call once that gate is
-  cleared. Net: 533 of 550 (97%) were scanner noise, not real bugs; the true
-  positive rate for this rule was 3%. Two non-Sonar-reported shadowing
+  rescan. The remaining 54 matched the same emit-signal-misparse pattern but
+  weren't pushed through SonarCloud's bulk resolution during this pass; left
+  `OPEN` rather than force a bulk-resolve through. No bespoke classification
+  tooling is needed to clear them: the misparse's root cause (an approximated
+  `compile_commands.json` feeding SonarCloud's C-family parser) is fixed by
+  the SonarSource build wrapper and native-Linux runner moves, so the next
+  scan should simply stop reproducing them. Net: 533 of 550 (97%) were
+  scanner noise, not real bugs; the true positive rate for this rule was 3%.
+  Two non-Sonar-reported shadowing
   identifiers were also noticed in passing (a `cmd_type` parameter in
   `flash_ecu_subaru_unisia_jecs_operation.cpp` and an `ecuCalDef` parameter in
   `flash_ecu_subaru_unisia_jecs.cpp`, each sharing a line with one of the 17
@@ -383,6 +365,11 @@ them. The rules named in Phases 2-4 below (`S6022`, `S5945`, `S125`, `S1820`,
 `S3776`, `S134`) haven't had this cross-check applied yet — worth doing
 before assuming their raw counts reflect real work, the same way it mattered
 here.
+
+Confirm on the next scan that new `cpp:S1117` findings no longer include the
+`emit`-signal false positives bulk-resolved above, and that the 54 left
+`OPEN` above clear on their own now that the build-wrapper/Linux-runner fix
+is live.
 
 **Phase 2 — high-leverage Critical cleanup (mechanical, low risk).**
 `cpp:S5028` (macro should be `const`/`constexpr`/an enum) accounts for 366
@@ -440,12 +427,8 @@ Actions:
 
 2. Checksum and calibration logic:
    - Golden vectors and invalid inputs for all checksum families.
-   - ~~Calibration-map edit, interpolation, undo/redo, and bounds behavior
-     without widgets.~~ Covered by step 6b for edit, interpolation, and bounds
-     (`//src/backend/calibration:map_edit`'s `fastecu_portable_gtest` suite —
-     byte codec, target resolution, all four edit operations, and
-     bounds/saturation guards, no Qt). Undo/redo remains uncovered: it stays
-     a `qDebug()` stub in the UI, a deliberate non-goal of step 6b.
+   - Calibration-map undo/redo behavior without widgets: it stays a
+     `qDebug()` stub in the UI.
 
 3. I/O and orchestration:
    - Scripted flash-family sessions over K-Line/CAN/SSM transports.

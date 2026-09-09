@@ -1,13 +1,11 @@
 load("@hedron_compile_commands//:refresh_compile_commands.bzl", "refresh_compile_commands")
-load("@rules_python//python:defs.bzl", "py_binary")
 
 # Shared compile_commands.json foundation. Consumed by the clang-tidy migration
-# (//:clang_tidy_* targets) and the SonarCloud C/C++ analyzer -- keep this target
-# and its label stable for those. Hedron's default @//... covers every
-# host-compatible workspace target.
+# (//:clang_tidy_* targets) -- keep this target and its label stable for that.
+# Hedron's default @//... covers every host-compatible workspace target.
 #   bazel run //bazel/compile_commands:refresh
-# exclude_headers="all": Sonar treats every DB entry as a translation unit;
-# including headers ballooned the DB to ~5000 entries and the scan to 2+ hours.
+# exclude_headers="all": keeps the DB scoped to translation units instead of
+# ballooning with every header transitively pulled in.
 # exclude_external_sources: our code only.
 refresh_compile_commands(
     name = "refresh",
@@ -15,17 +13,4 @@ refresh_compile_commands(
     exclude_headers = "all",
     tags = ["manual"],
     visibility = ["//visibility:public"],
-)
-
-# SonarCloud entry point: `bazel run //bazel/compile_commands:refresh_sonar`.
-# Runs :refresh, then rewrites Bazel's cc_wrapper.sh compiler to plain clang so
-# Sonar's C/C++ analyzer recognizes it (else it analyzes 0 files). Wraps the
-# generation + rewrite in one target so CI doesn't carry a separate shell step.
-py_binary(
-    name = "refresh_sonar",
-    srcs = ["refresh_sonar.py"],
-    data = [":refresh"],
-    main = "refresh_sonar.py",
-    tags = ["manual"],
-    deps = ["@rules_python//python/runfiles"],
 )
