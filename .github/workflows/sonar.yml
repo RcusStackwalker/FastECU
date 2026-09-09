@@ -27,14 +27,6 @@ env:
 jobs:
   sonarcloud:
     name: SonarCloud
-    # SonarSource's build wrapper has no native Apple Silicon build ("requires
-    # Rosetta 2 on Apple Silicon" per SonarSource's own docs), so every traced
-    # compiler invocation ran emulated under Rosetta on macos-latest -- this
-    # dominated the job's runtime. Linux's build-wrapper is native x86_64 on
-    # GitHub's ubuntu runners, and this repo's Bazel graph already has a
-    # working Linux Qt binding (qt_linux_x86_64 in MODULE.bazel, exercised by
-    # the `bazel` job's ubuntu-26.04 leg), so there's no macOS-only source to
-    # lose coverage/analysis on by moving here.
     runs-on: ubuntu-26.04
     # A hang here (see tests/force_asserts/BUILD.bazel for one known cause) would
     # otherwise burn the full 6h GitHub Actions default before failing.

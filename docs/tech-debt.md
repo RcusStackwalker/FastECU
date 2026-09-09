@@ -365,28 +365,15 @@ real, freshly-executed compile) against the same build under
 outside the sandbox, matching SonarSource's own guidance for Bazel:
 <https://community.sonarsource.com/t/issues-with-compile-commands-json-generated-from-bazel/138015>.
 
-**CI runs this job on `ubuntu-26.04`, not macOS**, even though the desktop
-app's macOS support is Apple-Silicon-only. SonarSource ships no native
-Apple-Silicon build wrapper — their own docs say it "requires Rosetta 2 on
-Apple Silicon" — so every one of the ~3,300 traced compiler invocations (plus
-the resulting instrumented test binaries) ran emulated when this job used
-`macos-latest`, which is what made the job take ~57 minutes wall-clock
-(confirmed by timing an unwrapped `--config=sonar` build locally: it was not
-slower than `--config=release`, so the config's `dbg`+coverage flags were
-never the bottleneck). Linux's build wrapper is native x86_64 on GitHub's
-runners, and this repo already has a working `qt_linux_x86_64` Bazel binding
-(exercised daily by the `bazel` job's `ubuntu-26.04` leg), so there's no
-macOS-only C++ source that drops out of coverage/analysis by running here
-instead. One consequence: `-fprofile-instr-generate`/`-fcoverage-mapping` are
-LLVM-only flags that Linux's default `cc` (GCC) doesn't understand, so
-`build:coverage` in `.bazelrc` pins `--repo_env=CC=clang
---repo_env=CXX=clang++` — a no-op on macOS, where `cc` is already Clang.
+CI runs this job on `ubuntu-26.04`; `build:coverage` in `.bazelrc` pins
+`--repo_env=CC=clang --repo_env=CXX=clang++` since Linux's default `cc` is
+GCC, which doesn't understand the LLVM-only `-fprofile-instr-generate`/
+`-fcoverage-mapping` flags (a no-op on macOS, where `cc` is already Clang).
 
 Running this locally, against the same `sonar-project.properties` CI uses:
 install the SonarSource build wrapper for your platform from
 `https://sonarcloud.io/static/cpp/` (`build-wrapper-macosx-x86` on macOS,
-`build-wrapper-linux-x86` on Linux — note macOS's is x86_64-only and runs
-under Rosetta on Apple Silicon, same as CI used to), then generate
+`build-wrapper-linux-x86` on Linux), then generate
 `bw-output/compile_commands.json` by wrapping the real build:
 
 ```sh
