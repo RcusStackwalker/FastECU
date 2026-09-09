@@ -338,6 +338,18 @@ Bazel's `compile_commands.json` aspect. Confirm on the next scan that new
 `cpp:S1117` findings no longer include the `emit`-signal false positives
 bulk-resolved above.
 
+The build wrapper injects a process-tracing interceptor library
+(`DYLD_INSERT_LIBRARIES` on macOS) into every process it wraps, so it can
+record each compiler invocation. `tests/force_asserts:tst_force_asserts`
+deliberately `fork()`s and aborts a child process; under the interceptor,
+that child deadlocked instead of aborting, hanging the whole SonarCloud job
+until GitHub's 6h runner timeout killed it. That target is now tagged
+`no-sonar-build-wrapper` and excluded via `--test_tag_filters` in the `sonar`
+`.bazelrc` config — it still runs under plain `bazel test` and local coverage
+runs. Tag any future `fork()`-based test the same way. The job also now
+carries `timeout-minutes: 60` so a similar hang fails fast instead of
+consuming the full default.
+
 Running this locally, against the same `sonar-project.properties` CI uses:
 install the SonarSource build wrapper (`build-wrapper-macosx-x86` from
 `https://sonarcloud.io/static/cpp/build-wrapper-macosx-x86.zip` on macOS —

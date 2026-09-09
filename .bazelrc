@@ -53,3 +53,8 @@ build:coverage --linkopt=-fcoverage-mapping
 # wrapper needs to trace, so this disables it.
 build:sonar --config=coverage
 build:sonar --disk_cache=
+# The build-wrapper's process-tracing interceptor deadlocks fork()-based tests
+# (see tests/force_asserts/BUILD.bazel) instead of letting them fail, hanging
+# the job. Skip tag-marked tests only for this config; they still run under
+# plain `bazel test` and local coverage runs.
+build:sonar --test_tag_filters=-no-sonar-build-wrapper
