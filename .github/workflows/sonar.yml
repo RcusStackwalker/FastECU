@@ -37,9 +37,13 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref }}
 
-      - name: Disable unattended-upgrades for this job
+      - name: Hold openjdk packages for this job
         run: |
-          sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer unattended-upgrades.service || true
+          pkgs=$(dpkg-query -W -f='${Package}\n' 'openjdk-*' 'default-jdk*' 'default-jre*' 2>/dev/null)
+          echo "openjdk packages found: ${pkgs:-<none>}"
+          if [ -n "$pkgs" ]; then
+            sudo apt-mark hold $pkgs
+          fi
 
       - name: Install Qt
         uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
