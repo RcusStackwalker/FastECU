@@ -72,3 +72,11 @@ build:sonar --strategy=Genrule=local
 # the job. Skip tag-marked tests only for this config; they still run under
 # plain `bazel test` and local coverage runs.
 build:sonar --test_tag_filters=-no-sonar-build-wrapper
+# The SonarCloud job's Bazel server has intermittently failed to launch local
+# test-runner actions partway through the run (Bazel crashing outright, or
+# individual tests failing in their generate-xml.sh wrapper), always with
+# several local actions -- both compiles and tests -- in flight at once.
+# Serialize test execution for this config only to test whether concurrent
+# local test-runner process chains are the trigger; compile parallelism is
+# unaffected.
+build:sonar --local_test_jobs=1
