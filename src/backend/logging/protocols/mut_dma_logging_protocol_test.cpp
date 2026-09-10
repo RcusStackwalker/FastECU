@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include <gtest/gtest.h>
 
 #include "src/backend/protocol/testing/scripted_kline_transport.h"
@@ -13,6 +15,7 @@ using fastecu::logging::RawAssembly;
 using mutdma::AlreadyInMode;
 using mutdma::Channel;
 using mutdma::ScriptedKlineTransport;
+using namespace std::chrono_literals;
 
 LoggingChannel channel()
 {
@@ -149,7 +152,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
     auto protocol = makeProtocol(std::make_unique<ScriptedKlineTransport>());
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->poll(20, cancellation);
+    const auto result = protocol->poll(20ms, cancellation);
 
     ASSERT_TRUE(result);
     EXPECT_FALSE(result->responded);
@@ -166,7 +169,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsTransportErrorWhenAdapterClosesMidSes
     ASSERT_TRUE(protocol->start(cancellation));
     script->setOpen(false);
 
-    const auto result = protocol->poll(20, cancellation);
+    const auto result = protocol->poll(20ms, cancellation);
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
@@ -186,7 +189,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
     frame.push_back(mutdma::TRAILER_STD);
     script->queueRead(frame);
 
-    const auto result = protocol->poll(50, cancellation);
+    const auto result = protocol->poll(50ms, cancellation);
 
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->responded);

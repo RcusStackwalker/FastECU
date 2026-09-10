@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <memory>
 #include <vector>
 
@@ -16,7 +17,8 @@ class CdbgLoggingProtocol final : public LoggingProtocol
     CdbgLoggingProtocol(std::unique_ptr<cdbg::ICanTransport> transport, std::vector<LoggingChannel> channels);
 
     fastecu::Status start(const fastecu::ICancellationToken& cancellation) override;
-    fastecu::Result<PollData> poll(int timeout_ms, const fastecu::ICancellationToken& cancellation) override;
+    fastecu::Result<PollData> poll(std::chrono::milliseconds timeout,
+                                   const fastecu::ICancellationToken& cancellation) override;
     fastecu::Status stop() override;
 
   private:

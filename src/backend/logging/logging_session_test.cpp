@@ -1,11 +1,14 @@
 #include "src/backend/logging/logging_session.h"
 
+#include <chrono>
+
 #include <gtest/gtest.h>
 
 namespace
 {
 
 using namespace fastecu::logging;
+using namespace std::chrono_literals;
 
 LoggingChannel channel(std::string id, std::uint32_t address)
 {
@@ -28,7 +31,7 @@ std::vector<LoggingChannel> valid_channels()
 LoggingPolicy valid_policy()
 {
     return LoggingPolicy{
-        .poll_timeout_ms = 100,
+        .poll_timeout = 100ms,
         .car_silence_miss_threshold = 3,
         .reconnect_attempt_threshold = 2,
         .reconnect_retry_period = 0,
@@ -59,7 +62,7 @@ TEST(LoggingSessionTest, StableIdsSurviveSourceRowReordering)
 TEST(LoggingSessionTest, RejectsInvalidPolicy)
 {
     auto policy = valid_policy();
-    policy.poll_timeout_ms = 0;
+    policy.poll_timeout = 0ms;
     auto result = make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::InvalidConfig);

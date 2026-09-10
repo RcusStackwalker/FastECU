@@ -4,6 +4,7 @@
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
+#include <chrono>
 #include <deque>
 #include <string>
 #include <utility>
@@ -15,6 +16,7 @@ namespace
 {
 
 using namespace fastecu::logging;
+using namespace std::chrono_literals;
 using fastecu::FakeCancellationToken;
 using fastecu::RecordingEventSink;
 
@@ -34,9 +36,9 @@ class ScriptedProtocol final : public LoggingProtocol
         return start_result;
     }
 
-    fastecu::Result<PollData> poll(int timeout_ms, const fastecu::ICancellationToken&) override
+    fastecu::Result<PollData> poll(std::chrono::milliseconds timeout, const fastecu::ICancellationToken&) override
     {
-        poll_timeouts.push_back(timeout_ms);
+        poll_timeouts.push_back(timeout);
         ++polls_completed;
         if (polls.empty())
         {
@@ -60,7 +62,7 @@ class ScriptedProtocol final : public LoggingProtocol
     int polls_completed = 0;
     std::deque<fastecu::Result<PollData>> polls;
     std::deque<fastecu::Status> start_results;
-    std::vector<int> poll_timeouts;
+    std::vector<std::chrono::milliseconds> poll_timeouts;
     std::vector<int> start_call_poll_numbers;
 };
 
@@ -104,7 +106,7 @@ LoggingSession session_with_policy(LoggingPolicy policy, std::string expression 
 LoggingSession make_valid_session()
 {
     return session_with_policy({
-        .poll_timeout_ms = 100,
+        .poll_timeout = 100ms,
         .car_silence_miss_threshold = 3,
         .reconnect_attempt_threshold = 2,
         .reconnect_retry_period = 0,
@@ -140,7 +142,7 @@ TEST(LoggingUseCaseTest, ConvertsAndEmitsOrderedSamplesThenCancels)
     EXPECT_EQ(sink.sample_batches[0][0].channel_id, "rpm");
     EXPECT_DOUBLE_EQ(sink.sample_batches[0][0].numeric_value, 4000.0);
     EXPECT_EQ(sink.states, (std::vector{LoggingState::Running}));
-    EXPECT_EQ(protocol.poll_timeouts, (std::vector{100}));
+    EXPECT_EQ(protocol.poll_timeouts, (std::vector{100ms}));
     EXPECT_EQ(protocol.stops, 1);
 }
 
@@ -162,7 +164,7 @@ TEST(LoggingUseCaseTest, PreCancellationDoesNotStartProtocol)
 TEST(LoggingUseCaseTest, PreservesSilenceThresholdAndReconnectCadence)
 {
     auto session = session_with_policy({
-        .poll_timeout_ms = 10,
+        .poll_timeout = 10ms,
         .car_silence_miss_threshold = 2,
         .reconnect_attempt_threshold = 3,
         .reconnect_retry_period = 2,
@@ -206,7 +208,7 @@ TEST(LoggingUseCaseTest, RetriesBadResponse)
 TEST(LoggingUseCaseTest, RetriesFailedReconnectAtConfiguredCadence)
 {
     auto session = session_with_policy({
-        .poll_timeout_ms = 10,
+        .poll_timeout = 10ms,
         .car_silence_miss_threshold = 2,
         .reconnect_attempt_threshold = 3,
         .reconnect_retry_period = 2,

@@ -54,7 +54,8 @@ fastecu::Status MutDmaLoggingProtocol::start(const fastecu::ICancellationToken& 
     return driver_.startFreeFormLog(wire_channels_, 0xA0, 0xA1, cancellation);
 }
 
-fastecu::Result<PollData> MutDmaLoggingProtocol::poll(int timeout_ms, const fastecu::ICancellationToken& cancellation)
+fastecu::Result<PollData> MutDmaLoggingProtocol::poll(std::chrono::milliseconds timeout,
+                                                      const fastecu::ICancellationToken& cancellation)
 {
     if (auto status = checkCancellation(cancellation); !status)
     {
@@ -69,7 +70,7 @@ fastecu::Result<PollData> MutDmaLoggingProtocol::poll(int timeout_ms, const fast
         return PollData{.responded = false};
     }
 
-    auto values = driver_.pollOnce(std::chrono::milliseconds{timeout_ms}, cancellation);
+    auto values = driver_.pollOnce(timeout, cancellation);
     if (!values)
     {
         return std::unexpected(values.error());

@@ -14,6 +14,7 @@ namespace
 {
 
 using namespace fastecu::logging;
+using namespace std::chrono_literals;
 
 class NullDiagnostics final : public fastecu::IEventSink
 {
@@ -29,7 +30,7 @@ class NullDiagnostics final : public fastecu::IEventSink
     }
 };
 
-LoggingSession session(LoggingPolicy policy = {.poll_timeout_ms = 5,
+LoggingSession session(LoggingPolicy policy = {.poll_timeout = 5ms,
                                                .car_silence_miss_threshold = 2,
                                                .reconnect_attempt_threshold = 1000,
                                                .reconnect_retry_period = 0})

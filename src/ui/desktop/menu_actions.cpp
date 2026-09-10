@@ -6,6 +6,7 @@
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
+#include <chrono>
 #include <utility>
 
 void MainWindow::menu_action_triggered(const QString& action)
@@ -507,6 +508,8 @@ void MainWindow::set_realtime_state(bool state)
 
 void MainWindow::toggle_realtime()
 {
+    using namespace std::chrono_literals;
+
     QAction *logger{};
     QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
     foreach (QMenu *menu, menus)
@@ -552,7 +555,7 @@ void MainWindow::toggle_realtime()
             config.protocolId = "MUT_DMA";
             activeLogValueProtocolFilter = "MUT_DMA";
             protocol_id = fastecu::logging::LoggingProtocolId::MutDma;
-            logging_policy = {.poll_timeout_ms = 50,
+            logging_policy = {.poll_timeout = 50ms,
                               .car_silence_miss_threshold = 20,
                               .reconnect_attempt_threshold = 100,
                               .reconnect_retry_period = 20};
@@ -562,7 +565,7 @@ void MainWindow::toggle_realtime()
             config.protocolId = "CDBG";
             activeLogValueProtocolFilter = "CDBG";
             protocol_id = fastecu::logging::LoggingProtocolId::Cdbg;
-            logging_policy = {.poll_timeout_ms = 50,
+            logging_policy = {.poll_timeout = 50ms,
                               .car_silence_miss_threshold = 20,
                               .reconnect_attempt_threshold = 100,
                               .reconnect_retry_period = 20};
@@ -572,7 +575,7 @@ void MainWindow::toggle_realtime()
             config.protocolId = "SSM";
             activeLogValueProtocolFilter = protocol;
             protocol_id = fastecu::logging::LoggingProtocolId::Ssm;
-            logging_policy = {.poll_timeout_ms = 300,
+            logging_policy = {.poll_timeout = 300ms,
                               .car_silence_miss_threshold = 10,
                               .reconnect_attempt_threshold = 30,
                               .reconnect_retry_period = 10};
