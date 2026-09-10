@@ -420,7 +420,7 @@ def _parse_replacement(path: Path, value: object) -> _Replacement:
 def _replacement_file_identity(
     file_path: str,
     base_directory: Path,
-) -> tuple[object, ...]:
+) -> tuple[object, object, object]:
     target = Path(file_path)
     if not target.is_absolute():
         target = base_directory / target
@@ -428,7 +428,7 @@ def _replacement_file_identity(
         status = target.stat()
     except OSError:
         fallback = os.path.abspath(os.path.normpath(target))
-        return ("path", os.path.normcase(fallback))
+        return ("path", os.path.normcase(fallback), None)
     return ("file", status.st_dev, status.st_ino)
 
 
