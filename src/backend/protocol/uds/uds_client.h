@@ -7,6 +7,8 @@
 #include "src/backend/ports/result.h"
 #include "src/backend/protocol/uds/iuds_channel.h"
 
+#include <chrono>
+
 namespace uds
 {
 
@@ -15,15 +17,15 @@ namespace uds
 struct ExchangePolicy
 {
     // Quiet period between the write and the first read. Several families
-    // need one; 0 skips the sleep entirely.
-    int pre_read_delay_ms = 0;
+    // need one; zero skips the sleep entirely.
+    std::chrono::milliseconds pre_read_delay{0};
 
-    int read_timeout_ms = 500;
+    std::chrono::milliseconds read_timeout{500};
 
     // Read timeout used once the ECU has reported responsePending. Separate
-    // from read_timeout_ms because "busy, wait" legitimately takes much
-    // longer than a normal reply.
-    int pending_timeout_ms = 3000;
+    // from read_timeout because "busy, wait" legitimately takes much longer
+    // than a normal reply.
+    std::chrono::milliseconds pending_timeout{3000};
 
     // Guard against an ECU that reports responsePending forever.
     int max_pending_repeats = 10;

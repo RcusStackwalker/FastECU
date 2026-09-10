@@ -37,18 +37,18 @@ using namespace std::chrono_literals;
 // serial_read_timeout -- see the per-exchange citations below. The 2000 in
 // read_memory's page loop is a bare literal (line 947), which is why the
 // values, not the names, are authoritative here.
-constexpr int kShortTimeoutMs = 200;   // serial_read_short_timeout
-constexpr int kReceiveTimeoutMs = 500; // receive_timeout
-constexpr int kLongTimeoutMs = 2000;   // serial_read_timeout
-constexpr uds::ExchangePolicy kShortPolicy{.read_timeout_ms = kShortTimeoutMs};
-constexpr uds::ExchangePolicy kReceivePolicy{.read_timeout_ms = kReceiveTimeoutMs};
-constexpr uds::ExchangePolicy kLongPolicy{.read_timeout_ms = kLongTimeoutMs};
+constexpr std::chrono::milliseconds kShortTimeout{200};   // serial_read_short_timeout
+constexpr std::chrono::milliseconds kReceiveTimeout{500}; // receive_timeout
+constexpr std::chrono::milliseconds kLongTimeout{2000};   // serial_read_timeout
+constexpr uds::ExchangePolicy kShortPolicy{.read_timeout = kShortTimeout};
+constexpr uds::ExchangePolicy kReceivePolicy{.read_timeout = kReceiveTimeout};
+constexpr uds::ExchangePolicy kLongPolicy{.read_timeout = kLongTimeout};
 // Checksum verify reads twice and this family uses serial_read_timeout for
 // both: the first read at line 1328 and, after the ECU's 7F 31 78 pending
-// answer, the re-read at line 1348. UdsClient substitutes pending_timeout_ms
+// answer, the re-read at line 1348. UdsClient substitutes pending_timeout
 // for that second read, whose 3000 ms default is not this family's number, so
 // the policy pins it to 2000 as well.
-constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout_ms = kLongTimeoutMs, .pending_timeout_ms = kLongTimeoutMs};
+constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout = kLongTimeout, .pending_timeout = kLongTimeout};
 
 // Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific band;
 // legacy uses its own values here rather than the standard subfunctions.
@@ -244,7 +244,7 @@ Result<bytes::Bytes> tolerant_probe(Ctx& ctx, bytes::ByteView pdu, bytes::Byte e
     {
         return std::unexpected(sent.error());
     }
-    Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kLongTimeoutMs, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kLongTimeout, ctx.cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -270,11 +270,12 @@ Result<bytes::Bytes> tolerant_probe(Ctx& ctx, bytes::ByteView pdu, bytes::Byte e
 // reply's arbitration id nor its content, so the reply is taken from the
 // transport directly -- a CanFlashUdsChannel bound to `id` would impose a
 // reply-id check legacy does not have. The channel is still used for the
-// write, which is exactly its 4-byte-envelope job. `timeout_ms` is per
+// write, which is exactly its 4-byte-envelope job. `timeout` is per
 // exchange: this family reads the 0x7E0 `10 63` write with
 // serial_read_timeout (line 394) and the other nine with
 // serial_read_short_timeout.
-Status fire_and_forget(Ctx& ctx, ICanFlashTransport& can, std::uint32_t request_id, bytes::ByteView pdu, int timeout_ms)
+Status fire_and_forget(Ctx& ctx, ICanFlashTransport& can, std::uint32_t request_id, bytes::ByteView pdu,
+                       std::chrono::milliseconds timeout)
 {
     // The reply is read from `can` below, never through this channel, so the
     // response-id slot is filled with the request id and never consulted.
@@ -283,7 +284,7 @@ Status fire_and_forget(Ctx& ctx, ICanFlashTransport& can, std::uint32_t request_
     {
         return sent;
     }
-    Result<std::optional<bytes::Bytes>> ignored = can.read(timeout_ms, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> ignored = can.read(timeout, ctx.cancellation);
     if (!ignored.has_value())
     {
         return std::unexpected(ignored.error());
@@ -328,11 +329,11 @@ Status security_access(Ctx& ctx)
 // before the loop, with serial_read_timeout (lines 629, 770); inside the loop
 // the in-car arm keeps reading with serial_read_timeout (line 643) while the
 // bench arm drops to serial_read_short_timeout (line 785), which is why
-// `loop_timeout_ms` is a parameter. The loop's `init_ready` flag is never read
+// `loop_timeout` is a parameter. The loop's `init_ready` flag is never read
 // after the loop and both arms fall straight through to
 // `return STATUS_SUCCESS` (line 796), so an unacknowledged jump is logged
 // here but is not an error -- deliberately not "fixed".
-Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, int loop_timeout_ms)
+Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, std::chrono::milliseconds loop_timeout)
 {
     info(ctx, "Jump to onboad kernel");
     if (const Status sent =
@@ -341,7 +342,7 @@ Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, int loop_tim
     {
         return sent;
     }
-    Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kLongTimeoutMs, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kLongTimeout, ctx.cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -358,7 +359,7 @@ Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, int loop_tim
         {
             return slept;
         }
-        received = ctx.channel.receive(loop_timeout_ms, ctx.cancellation);
+        received = ctx.channel.receive(loop_timeout, ctx.cancellation);
         if (!received.has_value())
         {
             return std::unexpected(received.error());
@@ -396,40 +397,36 @@ Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
     {
         bytes::Bytes pdu;
         std::uint32_t id;
-        int timeout_ms;
+        std::chrono::milliseconds timeout;
     } fire_and_forget_run[] = {
         {.pdu = {uds::kSidDiagnosticSessionControl, kSessionVendorC0},
          .id = kInCarIdA2,
-         .timeout_ms = kShortTimeoutMs}, // lines 375-383
+         .timeout = kShortTimeout}, // lines 375-383
         // The one exchange in this run legacy reads with serial_read_timeout
         // (line 394); the other nine use serial_read_short_timeout.
         {.pdu = {uds::kSidDiagnosticSessionControl, kSessionInCarOpen},
          .id = 0x7e0,
-         .timeout_ms = kLongTimeoutMs}, // lines 386-394
+         .timeout = kLongTimeout}, // lines 386-394
         {.pdu = {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
          .id = kInCarIdFunctional,
-         .timeout_ms = kShortTimeoutMs}, // lines 397-405
+         .timeout = kShortTimeout}, // lines 397-405
         {.pdu = {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
          .id = kInCarIdE1,
-         .timeout_ms = kShortTimeoutMs}, // lines 408-416
+         .timeout = kShortTimeout}, // lines 408-416
         {.pdu = {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic},
          .id = kInCarIdB0,
-         .timeout_ms = kShortTimeoutMs},                                                         // lines 419-427
-        {.pdu = {kSidControlDtcSetting, 0x02}, .id = kInCarIdB0, .timeout_ms = kShortTimeoutMs}, // lines 430-438
-        {.pdu = {kSidControlDtcSetting, 0x02},
-         .id = kInCarIdFunctional,
-         .timeout_ms = kShortTimeoutMs},                                                         // lines 441-449
-        {.pdu = {kSidControlDtcSetting, 0x02}, .id = kInCarIdB0, .timeout_ms = kShortTimeoutMs}, // lines 452-460
-        {.pdu = {kSidControlDtcSetting, 0x02},
-         .id = kInCarIdFunctional,
-         .timeout_ms = kShortTimeoutMs}, // lines 463-471
+         .timeout = kShortTimeout},                                                                 // lines 419-427
+        {.pdu = {kSidControlDtcSetting, 0x02}, .id = kInCarIdB0, .timeout = kShortTimeout},         // lines 430-438
+        {.pdu = {kSidControlDtcSetting, 0x02}, .id = kInCarIdFunctional, .timeout = kShortTimeout}, // lines 441-449
+        {.pdu = {kSidControlDtcSetting, 0x02}, .id = kInCarIdB0, .timeout = kShortTimeout},         // lines 452-460
+        {.pdu = {kSidControlDtcSetting, 0x02}, .id = kInCarIdFunctional, .timeout = kShortTimeout}, // lines 463-471
         {.pdu = {kSidCommunicationControl, 0x03, 0x01},
          .id = kInCarIdFunctional,
-         .timeout_ms = kShortTimeoutMs}, // lines 474-483
+         .timeout = kShortTimeout}, // lines 474-483
     };
     for (const auto& exchange : fire_and_forget_run)
     {
-        if (const Status sent = fire_and_forget(ctx, can, exchange.id, exchange.pdu, exchange.timeout_ms);
+        if (const Status sent = fire_and_forget(ctx, can, exchange.id, exchange.pdu, exchange.timeout);
             !sent.has_value())
         {
             return sent;
@@ -462,7 +459,7 @@ Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
         return std::unexpected(selector.error());
     }
 
-    return jump_to_kernel(ctx, kSessionInCarJump, 10, kLongTimeoutMs);
+    return jump_to_kernel(ctx, kSessionInCarJump, 10, kLongTimeout);
 }
 
 // Bench programming arm, legacy lines 649-791.
@@ -495,7 +492,7 @@ Status connect_bench(Ctx& ctx)
         return unlocked;
     }
 
-    return jump_to_kernel(ctx, kSessionBenchJump, 50, kShortTimeoutMs);
+    return jump_to_kernel(ctx, kSessionBenchJump, 50, kShortTimeout);
 }
 
 // Legacy connect_bootloader, lines 92-797. The legacy `is_serial_port_open()`
@@ -516,7 +513,7 @@ Status connect_bootloader(Ctx& ctx, ICanFlashTransport& can)
     {
         return sent;
     }
-    Result<std::optional<bytes::Bytes>> obk = ctx.channel.receive(kShortTimeoutMs, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> obk = ctx.channel.receive(kShortTimeout, ctx.cancellation);
     if (!obk.has_value())
     {
         return std::unexpected(obk.error());
@@ -717,7 +714,7 @@ Status erase_memory(Ctx& ctx, const MemoryRegion& region)
 
     for (int attempt = 0; attempt < 20; ++attempt)
     {
-        Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kReceiveTimeoutMs, ctx.cancellation);
+        Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kReceiveTimeout, ctx.cancellation);
         if (!received.has_value())
         {
             return std::unexpected(received.error());

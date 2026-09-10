@@ -1,5 +1,6 @@
 #pragma once
 #include <atomic>
+#include <chrono>
 #include <memory>
 #include <optional>
 
@@ -36,7 +37,8 @@ class DesktopCanFlashTransport final : public ICanFlashTransport
     void request_unblock() noexcept override;
 
     Status write(bytes::ByteView data, const ICancellationToken& cancellation) override;
-    Result<std::optional<bytes::Bytes>> read(int timeout_ms, const ICancellationToken& cancellation) override;
+    Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout,
+                                             const ICancellationToken& cancellation) override;
 
   private:
     // Null when constructed from the non-owning (raw pointer) constructor;

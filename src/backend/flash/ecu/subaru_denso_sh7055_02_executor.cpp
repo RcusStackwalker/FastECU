@@ -277,7 +277,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
     {
         return cancelled;
     }
-    if (Status pulsed = transport.pulse_lec_2_line(200); !pulsed.has_value())
+    if (Status pulsed = transport.pulse_lec_2_line(200ms); !pulsed.has_value())
     {
         return pulsed;
     }

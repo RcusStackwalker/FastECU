@@ -28,7 +28,7 @@ using namespace std::chrono_literals;
 using bytes::composeBe;
 using bytes::u24;
 
-constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout_ms = 500};
+constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout = 500ms};
 
 // Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific
 // band -- unlike uds::kSessionProgramming/kSessionExtendedDiagnostic
@@ -146,7 +146,7 @@ Status connect_bootloader(Ctx& ctx)
     {
         return sent;
     }
-    Result<std::optional<bytes::Bytes>> obk = ctx.channel.receive(200, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> obk = ctx.channel.receive(200ms, ctx.cancellation);
     if (!obk.has_value())
     {
         return std::unexpected(obk.error());
@@ -180,7 +180,7 @@ Status connect_bootloader(Ctx& ctx)
     {
         return sent;
     }
-    Result<std::optional<bytes::Bytes>> probe = ctx.channel.receive(200, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> probe = ctx.channel.receive(200ms, ctx.cancellation);
     if (!probe.has_value())
     {
         return std::unexpected(probe.error());
@@ -345,7 +345,7 @@ Status erase_memory(Ctx& ctx)
     bool connected = false;
     for (int attempt = 0; attempt < 20; ++attempt)
     {
-        Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(500, ctx.cancellation);
+        Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(500ms, ctx.cancellation);
         if (!received.has_value())
         {
             return std::unexpected(received.error());

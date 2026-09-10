@@ -27,9 +27,10 @@ namespace fastecu::flash
 {
 namespace
 {
+using namespace std::chrono_literals;
 
-constexpr uds::ExchangePolicy kRoutineExchangePolicy{.read_timeout_ms = 500};
-constexpr uds::ExchangePolicy kSlowExchangePolicy{.read_timeout_ms = 3000};
+constexpr uds::ExchangePolicy kRoutineExchangePolicy{.read_timeout = 500ms};
+constexpr uds::ExchangePolicy kSlowExchangePolicy{.read_timeout = 3000ms};
 
 // The two SecurityAccess levels this family uses, echoed back in the
 // subfunction byte of each reply. Spelled as the bare 5 and 6 at the legacy

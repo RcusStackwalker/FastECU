@@ -11,6 +11,7 @@ namespace fastecu::bench
 {
 namespace
 {
+using namespace std::chrono_literals;
 
 using testing::FakeBenchFiles;
 using testing::FakeBenchSession;
@@ -349,11 +350,11 @@ TEST(BenchCommands, DownloadUsesDesktopTimingAndReservesTheSlowPolicyForFinalCrc
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
     ASSERT_EQ(harness.session.policies.size(), 5U);
-    EXPECT_EQ(harness.session.policies[0].read_timeout_ms, 500);
-    EXPECT_EQ(harness.session.policies[1].read_timeout_ms, 500);
-    EXPECT_EQ(harness.session.policies[2].read_timeout_ms, 500);
-    EXPECT_EQ(harness.session.policies[3].read_timeout_ms, 500);
-    EXPECT_EQ(harness.session.policies[4].read_timeout_ms, 3000);
+    EXPECT_EQ(harness.session.policies[0].read_timeout, 500ms);
+    EXPECT_EQ(harness.session.policies[1].read_timeout, 500ms);
+    EXPECT_EQ(harness.session.policies[2].read_timeout, 500ms);
+    EXPECT_EQ(harness.session.policies[3].read_timeout, 500ms);
+    EXPECT_EQ(harness.session.policies[4].read_timeout, 3000ms);
 }
 
 TEST(BenchCommands, DownloadFailsWhenTheCrcCheckReportsAMismatch)

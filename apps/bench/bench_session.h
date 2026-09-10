@@ -1,4 +1,5 @@
 #pragma once
+#include <chrono>
 #include <memory>
 #include <optional>
 
@@ -35,7 +36,8 @@ class BenchSession final : public IBenchSession
       public:
         explicit RecordingChannel(uds::IUdsChannel& inner);
         Status send(bytes::ByteView pdu, const ICancellationToken& cancellation) override;
-        Result<std::optional<bytes::Bytes>> receive(int timeout_ms, const ICancellationToken& cancellation) override;
+        Result<std::optional<bytes::Bytes>> receive(std::chrono::milliseconds timeout,
+                                                    const ICancellationToken& cancellation) override;
         void reset();
         const bytes::Bytes& last_rx() const;
 

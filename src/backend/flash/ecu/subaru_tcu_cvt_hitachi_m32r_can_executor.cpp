@@ -29,6 +29,7 @@ namespace fastecu::flash
 namespace
 {
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 using bytes::composeBe;
 using bytes::u24;
 
@@ -39,7 +40,7 @@ using bytes::u24;
 // subaru_hitachi_m32r_can_executor.cpp's own precedent of a single uniform
 // ExchangePolicy rather than reproducing legacy's per-step timing variance,
 // which has no bearing on wire-byte correctness.
-constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout_ms = 2000};
+constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout = 2000ms};
 
 // Session id in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific band.
 // Unlike this family's own session request (0x10/0x03, standard
@@ -220,7 +221,7 @@ Status connect_bootloader(Ctx& ctx)
     {
         return sent;
     }
-    Result<std::optional<bytes::Bytes>> alive = ctx.channel.receive(200, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> alive = ctx.channel.receive(200ms, ctx.cancellation);
     if (!alive.has_value())
     {
         return std::unexpected(alive.error());
@@ -413,7 +414,7 @@ Status erase_memory(Ctx& ctx)
     // reject it regardless of content (confirmed against lines 1022-1036;
     // the brief's own scripting note, "fatal-checked 0x31 0x02 0x01",
     // matches).
-    Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(2000, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(2000ms, ctx.cancellation);
     if (!received.has_value())
     {
         return std::unexpected(
@@ -483,7 +484,8 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, std::uint
         {
             return sent;
         }
-        if (Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(2000, ctx.cancellation); !reply.has_value())
+        if (Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(2000ms, ctx.cancellation);
+            !reply.has_value())
         {
             return std::unexpected(reply.error());
         }

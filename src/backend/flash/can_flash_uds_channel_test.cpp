@@ -8,6 +8,7 @@
 
 namespace
 {
+using namespace std::chrono_literals;
 
 using bytes::Bytes;
 using fastecu::ErrorKind;
@@ -40,7 +41,7 @@ TEST(CanFlashUdsChannelTest, StripsTheReplyIdOnReceive)
     transport.queueRead(Bytes{0x00, 0x00, 0x07, 0xE8, 0x50, 0x03});
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    const auto received = channel.receive(500, cancellation);
+    const auto received = channel.receive(500ms, cancellation);
 
     ASSERT_TRUE(received.has_value());
     ASSERT_TRUE(received->has_value());
@@ -54,7 +55,7 @@ TEST(CanFlashUdsChannelTest, PassesATimeoutThroughAsAnEmptyOptional)
     transport.queue_no_frame();
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    const auto received = channel.receive(500, cancellation);
+    const auto received = channel.receive(500ms, cancellation);
 
     ASSERT_TRUE(received.has_value());
     EXPECT_FALSE(received->has_value());
@@ -67,7 +68,7 @@ TEST(CanFlashUdsChannelTest, RejectsAFrameShorterThanTheEnvelope)
     transport.queueRead(Bytes{0x00, 0x00, 0x07});
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    const auto received = channel.receive(500, cancellation);
+    const auto received = channel.receive(500ms, cancellation);
 
     ASSERT_FALSE(received.has_value());
     EXPECT_EQ(received.error().kind, ErrorKind::BadResponse);
@@ -80,7 +81,7 @@ TEST(CanFlashUdsChannelTest, RejectsAFrameFromAnUnexpectedReplyId)
     transport.queueRead(Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x03});
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    const auto received = channel.receive(500, cancellation);
+    const auto received = channel.receive(500ms, cancellation);
 
     ASSERT_FALSE(received.has_value());
     EXPECT_EQ(received.error().kind, ErrorKind::BadResponse);
@@ -96,7 +97,7 @@ TEST(CanFlashUdsChannelTest, AcceptsAnEnvelopeOnlyFrameAsAnEmptyPdu)
     transport.queueRead(Bytes{0x00, 0x00, 0x07, 0xE8});
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    const auto received = channel.receive(500, cancellation);
+    const auto received = channel.receive(500ms, cancellation);
 
     ASSERT_TRUE(received.has_value());
     ASSERT_TRUE(received->has_value());
@@ -110,7 +111,7 @@ TEST(CanFlashUdsChannelTest, PropagatesATransportError)
     transport.queue_error(ErrorKind::Disconnected, "adapter closed");
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    const auto received = channel.receive(500, cancellation);
+    const auto received = channel.receive(500ms, cancellation);
 
     ASSERT_FALSE(received.has_value());
     EXPECT_EQ(received.error().kind, ErrorKind::Disconnected);

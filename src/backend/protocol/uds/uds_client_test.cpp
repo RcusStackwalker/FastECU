@@ -34,7 +34,7 @@ struct Fixture
 };
 
 constexpr uds::ExchangePolicy kPolicy{
-    .pre_read_delay_ms = 50, .read_timeout_ms = 500, .pending_timeout_ms = 3000, .max_pending_repeats = 3};
+    .pre_read_delay = 50ms, .read_timeout = 500ms, .pending_timeout = 3000ms, .max_pending_repeats = 3};
 
 TEST(UdsClientTest, ReturnsThePositiveResponsePdu)
 {
@@ -64,7 +64,7 @@ TEST(UdsClientTest, SleepsForThePreReadDelayBeforeTheFirstRead)
     // FakeClock::sleep advances elapsed() by the requested duration, so the
     // total is the only observable: one 50 ms pre-read delay and nothing else.
     EXPECT_EQ(f.clock.elapsed(), 50ms);
-    EXPECT_THAT(f.channel.timeouts_, ElementsAre(500));
+    EXPECT_THAT(f.channel.timeouts_, ElementsAre(500ms));
 }
 
 TEST(UdsClientTest, AbsorbsOneResponsePendingAndReadsAgain)
@@ -83,7 +83,7 @@ TEST(UdsClientTest, AbsorbsOneResponsePendingAndReadsAgain)
     // Absorbed by re-reading only: exactly one transmission.
     EXPECT_EQ(f.channel.sendsConsumed(), 1U);
     // The pending read uses the longer pending timeout.
-    EXPECT_THAT(f.channel.timeouts_, ElementsAre(500, 3000));
+    EXPECT_THAT(f.channel.timeouts_, ElementsAre(500ms, 3000ms));
 }
 
 // The next two tests are a pair, and only the pair pins the retry boundary.

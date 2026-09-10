@@ -2,6 +2,7 @@
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/testing/scripted_flash_transport_state.h"
 
+#include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <mutex>
@@ -94,7 +95,7 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
         ++wIdx_;
         return {};
     }
-    Result<std::optional<bytes::Bytes>> read(int, const ICancellationToken& cancellation) override
+    Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds, const ICancellationToken& cancellation) override
     {
         {
             std::unique_lock lock(mutex_);

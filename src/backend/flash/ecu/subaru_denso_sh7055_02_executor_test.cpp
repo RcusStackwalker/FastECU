@@ -589,7 +589,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
                                                  ScriptedKlineFlashTransport::ControlLineAction::DisableLecLines,
                                                  ScriptedKlineFlashTransport::ControlLineAction::PulseLec2,
                                              }));
-    EXPECT_EQ(transport.lec_2_pulse_timeouts_, (std::vector<int>{200}));
+    EXPECT_EQ(transport.lec_2_pulse_timeouts_, (std::vector<std::chrono::milliseconds>{200ms}));
     std::vector<std::chrono::milliseconds> expected_sleeps{200ms, 1000ms, 1000ms, 1000ms, 250ms,
                                                            190ms, 100ms,  5000ms, 100ms,  200ms};
     std::vector<std::chrono::milliseconds> expected_timeouts{10ms, 2000ms, 2000ms, 10ms,  10ms,
