@@ -88,6 +88,23 @@ jobs:
           "${{ steps.build-wrapper.outputs.build-wrapper-binary }}" --out-dir bw-output \
             bazel build --config=sonar --spawn_strategy=local --strategy=Genrule=local //...
 
+      # Root cause found via the Bazel server's own jvm.out (captured by the
+      # diagnostics below): "build-wrapper: connect to
+      # /tmp/build-wrapper-socket.XXXXXX: No such file or directory", repeated
+      # for every subprocess the server spawned during the supposedly-
+      # unwrapped test run. The server is a persistent daemon reused across
+      # bazel invocations; build-wrapper's LD_PRELOAD interceptor is loaded
+      # into it once, at this step, and stays loaded for the server's entire
+      # remaining lifetime -- including the "unwrapped" `bazel test` below --
+      # long after build-wrapper's own CLI process (and its socket) has
+      # exited. Every subsequent subprocess spawn then gets intercepted,
+      # fails to report home, and corrupts process creation, which is what
+      # crashes Bazel's server with "Failed to exec spawn helper". Shut the
+      # server down so the next bazel invocation starts a clean one with no
+      # interceptor loaded at all.
+      - name: Shut down the build-wrapper-instrumented server
+        run: bazel shutdown
+
       - name: Run tests with coverage
         run: scripts/coverage-local.sh
         env:
