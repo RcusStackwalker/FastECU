@@ -120,6 +120,13 @@ away:
   production code it checks, rather than through the same helper that could be
   wrong on both sides at once.
 
+## Units
+
+Carry a unit in the type, not in a name suffix: a timeout is
+`std::chrono::milliseconds timeout`, never `int timeout_ms`. A suffix is a
+comment the compiler cannot check, and it drifts from what the value actually
+holds.
+
 ## Error handling
 
 Backend operations return `fastecu::Result<T>` (`std::expected<T, Error>`);

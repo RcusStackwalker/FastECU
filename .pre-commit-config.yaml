@@ -16,6 +16,11 @@ repos:
         language: system
         files: \.(h|hh|hpp|hxx)$
         entry: bash -c 'missing=$(grep -L "^#pragma once" "$@"); if [ -n "$missing" ]; then echo "$missing"; exit 1; fi' --
+      - id: no-using-namespace-in-headers
+        name: reject using namespace in headers
+        language: system
+        files: \.(h|hh|hpp|hxx)$
+        entry: bash -c 'hits=$(grep -n "^[[:space:]]*using namespace" "$@" /dev/null); if [ -n "$hits" ]; then echo "$hits"; exit 1; fi' --
 
   - repo: https://github.com/lycheeverse/lychee.git
     rev: lychee-v0.24.2
