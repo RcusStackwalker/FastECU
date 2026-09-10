@@ -28,7 +28,11 @@ env:
   # exiting 1 (a code it never uses for its own controlled failures -- see
   # childproc_errorcodes.c) and no OOM/apt evidence in dmesg or journalctl.
   # Force the legacy fork/exec launch path to bypass jspawnhelper entirely.
-  JAVA_TOOL_OPTIONS: -Djdk.lang.Process.launchMechanism=FORK
+  # Bazel ignores JAVA_TOOL_OPTIONS for its own server JVM (prints "WARNING:
+  # ignoring JAVA_TOOL_OPTIONS in environment"), so this has to go through
+  # --host_jvm_args instead -- see BAZEL_HOST_JVM_ARGS below and its use in
+  # scripts/coverage-local.sh.
+  BAZEL_HOST_JVM_ARGS: -Djdk.lang.Process.launchMechanism=FORK
 
 jobs:
   sonarcloud:
@@ -83,7 +87,7 @@ jobs:
       - name: Compile under the build wrapper
         run: |
           "${{ steps.build-wrapper.outputs.build-wrapper-binary }}" --out-dir bw-output \
-            bazel build --config=sonar //...
+            bazel --host_jvm_args="$BAZEL_HOST_JVM_ARGS" build --config=sonar //...
 
       - name: Run tests with coverage
         run: scripts/coverage-local.sh

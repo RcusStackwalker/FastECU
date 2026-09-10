@@ -18,6 +18,12 @@ mkdir -p "$coverage_root/profiles"
 
 coverage_ignore_regex='(^|/)(tests|hexedit)/|(^|/)(moc_|qrc_|ui_)|\.moc$|rep_.*_replica\.h|(^|/)Qt/[0-9][^/]*/|/Applications/|/opt/homebrew/|/Library/Developer/|bazel-out/|external/'
 
+# Bazel ignores JAVA_TOOL_OPTIONS for its own server JVM, so a caller that
+# needs to pass the server a JVM flag (e.g. the SonarCloud job's
+# -Djdk.lang.Process.launchMechanism=FORK workaround in
+# .github/workflows/sonar.yml) does it via this startup option instead.
+bazel_startup_opts=${BAZEL_HOST_JVM_ARGS:+--host_jvm_args=$BAZEL_HOST_JVM_ARGS}
+
 cd "$repo_root"
 
 # Let Bazel run every compatible test so target-specific environments, runfiles,
@@ -28,7 +34,7 @@ cd "$repo_root"
 # BAZEL_TEST_CONFIG lets a caller select a different named config from
 # .bazelrc; the SonarCloud build-wrapper step (.github/workflows/sonar.yml)
 # passes `sonar`, which layers on :coverage with the disk cache disabled.
-bazel test \
+bazel $bazel_startup_opts test \
   --config="$bazel_test_config" \
   --nocache_test_results \
   --sandbox_writable_path="$coverage_root/profiles" \
@@ -37,7 +43,7 @@ bazel test \
 
 # Enumerate the instrumented test executables from the configured graph for
 # llvm-cov's object list.
-test_files=$(bazel cquery --config="$bazel_test_config" --output=files \
+test_files=$(bazel $bazel_startup_opts cquery --config="$bazel_test_config" --output=files \
   'kind("cc_test", //...)')
 
 primary=""
