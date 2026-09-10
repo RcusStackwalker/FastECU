@@ -1,4 +1,5 @@
 #pragma once
+#include <chrono>
 #include <concepts>
 #include <cstdint>
 #include <memory>
@@ -155,7 +156,7 @@ class IKlineFlashTransport : public IFlashTransport, public mutdma::IKlineTransp
     // They are deliberately semantic rather than exposing the desktop
     // adapter's RTS/DTR integer states to portable executors.
     virtual Status disable_lec_lines() = 0;
-    virtual Status pulse_lec_2_line(int timeout_ms) = 0;
+    virtual Status pulse_lec_2_line(std::chrono::milliseconds timeout) = 0;
     virtual Status enable_programming_voltage_line() = 0;
 
     // Some Unix J2534/OpenPort2 drivers need a quiet period after the raw
@@ -189,7 +190,7 @@ class ICanFlashTransport : public IFlashTransport
     virtual Status open() = 0;
     virtual Status close() = 0;
     virtual Status write(bytes::ByteView, const ICancellationToken&) = 0;
-    virtual Result<std::optional<bytes::Bytes>> read(int timeout_ms, const ICancellationToken&) = 0;
+    virtual Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout, const ICancellationToken&) = 0;
 };
 
 // An executor already bound to a transport it is known to accept. FlashWorker

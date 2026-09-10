@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -31,7 +32,8 @@ class CanFlashUdsChannel final : public uds::IUdsChannel
     CanFlashUdsChannel(ICanFlashTransport& transport, std::uint32_t request_id, std::uint32_t response_id);
 
     Status send(bytes::ByteView pdu, const ICancellationToken& cancellation) override;
-    Result<std::optional<bytes::Bytes>> receive(int timeout_ms, const ICancellationToken& cancellation) override;
+    Result<std::optional<bytes::Bytes>> receive(std::chrono::milliseconds timeout,
+                                                const ICancellationToken& cancellation) override;
 
   private:
     ICanFlashTransport& transport_;

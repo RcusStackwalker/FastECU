@@ -19,9 +19,10 @@ Status CanFlashUdsChannel::send(bytes::ByteView pdu, const ICancellationToken& c
     return transport_.write(bytes::composeBe(request_id_, pdu), cancellation);
 }
 
-Result<std::optional<bytes::Bytes>> CanFlashUdsChannel::receive(int timeout_ms, const ICancellationToken& cancellation)
+Result<std::optional<bytes::Bytes>> CanFlashUdsChannel::receive(std::chrono::milliseconds timeout,
+                                                                const ICancellationToken& cancellation)
 {
-    Result<std::optional<bytes::Bytes>> frame = transport_.read(timeout_ms, cancellation);
+    Result<std::optional<bytes::Bytes>> frame = transport_.read(timeout, cancellation);
     if (!frame.has_value())
     {
         return std::unexpected(frame.error());

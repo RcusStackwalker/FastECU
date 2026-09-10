@@ -105,11 +105,11 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         operation_trace_.push_back(Operation::DisableLecLines);
         return disable_lec_lines_result_;
     }
-    Status pulse_lec_2_line(int timeout_ms) override
+    Status pulse_lec_2_line(std::chrono::milliseconds timeout) override
     {
         control_line_trace_.push_back(ControlLineAction::PulseLec2);
         operation_trace_.push_back(Operation::PulseLec2);
-        lec_2_pulse_timeouts_.push_back(timeout_ms);
+        lec_2_pulse_timeouts_.push_back(timeout);
         return pulse_lec_2_line_result_;
     }
     Status enable_programming_voltage_line() override
@@ -193,7 +193,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     bool post_kernel_upload_delay_required_ = false;
     std::optional<KlineConfig> last_config_;
     std::vector<ControlLineAction> control_line_trace_;
-    std::vector<int> lec_2_pulse_timeouts_;
+    std::vector<std::chrono::milliseconds> lec_2_pulse_timeouts_;
     std::vector<std::chrono::milliseconds> read_timeouts_;
     std::vector<Operation> operation_trace_;
     std::optional<std::size_t> programming_voltage_line_write_index_;

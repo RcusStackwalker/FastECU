@@ -37,17 +37,18 @@ constexpr std::uint32_t kMaxEepromPageBytes = 0x400; // read_mem()'s pagesize ca
 // against the deleted file); several deliberately differ from the K-Line
 // sibling's own constants of the same apparent purpose -- see task-9-report.md
 // for the full site-by-site mapping.
-constexpr int kHandshakeDelayMs = 50;         // delay(50) before every connect_bootloader() read
-constexpr int kHandshakeTimeoutMs = 2000;     // serial_read_timeout
-constexpr int kKernelIdRequestDelayMs = 200;  // request_kernel_id():1382 delay(200)
-constexpr int kKernelIdReadTimeoutMs = 800;   // serial_read_long_timeout
-constexpr int kQuickAckTimeoutMs = 10;        // literal "10" -- upload_kernel()'s SID34/0x37/0x31 ack reads
-constexpr int kBlockAckTimeoutMs = 500;       // receive_timeout -- 0xB6 block acks (no delay before)
-constexpr int kPostUploadSettleDelayMs = 100; // upload_kernel():892 delay(100)
-constexpr int kPageHeaderTimeoutMs = 2000;    // serial_read_timeout -- read_mem()'s header-ack read (no delay before)
-constexpr int kPagedataPollTimeoutMs = 200;   // serial_read_short_timeout
-constexpr int kMaxPagedataAttempts = 100;     // read_mem()'s inner accumulation loop cap (line 1056: `timeout < 100`)
-constexpr int kInterPageDelayMs = 1;          // read_mem():1117 delay(1)
+constexpr int kHandshakeDelayMs = 50;                          // delay(50) before every connect_bootloader() read
+constexpr std::chrono::milliseconds kHandshakeTimeout{2000};   // serial_read_timeout
+constexpr int kKernelIdRequestDelayMs = 200;                   // request_kernel_id():1382 delay(200)
+constexpr std::chrono::milliseconds kKernelIdReadTimeout{800}; // serial_read_long_timeout
+constexpr std::chrono::milliseconds kQuickAckTimeout{10}; // literal "10" -- upload_kernel()'s SID34/0x37/0x31 ack reads
+constexpr std::chrono::milliseconds kBlockAckTimeout{500}; // receive_timeout -- 0xB6 block acks (no delay before)
+constexpr int kPostUploadSettleDelayMs = 100;              // upload_kernel():892 delay(100)
+constexpr std::chrono::milliseconds kPageHeaderTimeout{
+    2000}; // serial_read_timeout -- read_mem()'s header-ack read (no delay before)
+constexpr std::chrono::milliseconds kPagedataPollTimeout{200}; // serial_read_short_timeout
+constexpr int kMaxPagedataAttempts = 100; // read_mem()'s inner accumulation loop cap (line 1056: `timeout < 100`)
+constexpr int kInterPageDelayMs = 1;      // read_mem():1117 delay(1)
 
 // ---------------------------------------------------------------------
 // Request builders. Every UDS-over-CAN request in this legacy class (except
@@ -267,7 +268,7 @@ bytes::Bytes encrypt_can_kernel_payload(bytes::ByteView buf, std::uint32_t len)
 // "must have gotten something" differs per call site.
 Result<std::optional<bytes::Bytes>> can_raw_exchange(ICanFlashTransport& transport, IClock& clock,
                                                      const ICancellationToken& cancellation, bytes::ByteView request,
-                                                     int delay_ms, int timeout_ms)
+                                                     int delay_ms, std::chrono::milliseconds timeout)
 {
     if (cancellation.cancelled())
     {
@@ -292,7 +293,7 @@ Result<std::optional<bytes::Bytes>> can_raw_exchange(ICanFlashTransport& transpo
             return fail(ErrorKind::Cancelled, "cancelled after delay");
         }
     }
-    auto received = transport.read(timeout_ms, cancellation);
+    auto received = transport.read(timeout, cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -311,10 +312,10 @@ Result<std::optional<bytes::Bytes>> can_raw_exchange(ICanFlashTransport& transpo
 // STATUS_ERROR; }` shape means a short-or-absent response is a hard failure.
 Result<bytes::Bytes> can_exchange_gated(ICanFlashTransport& transport, IClock& clock,
                                         const ICancellationToken& cancellation, bytes::ByteView request, int delay_ms,
-                                        int timeout_ms)
+                                        std::chrono::milliseconds timeout)
 {
     Result<std::optional<bytes::Bytes>> raw =
-        can_raw_exchange(transport, clock, cancellation, request, delay_ms, timeout_ms);
+        can_raw_exchange(transport, clock, cancellation, request, delay_ms, timeout);
     if (!raw.has_value())
     {
         return std::unexpected(raw.error());
@@ -335,7 +336,7 @@ Result<std::optional<bytes::Bytes>> request_kernel_id(ICanFlashTransport& transp
                                                       const ICancellationToken& cancellation, std::uint32_t request_id)
 {
     return can_raw_exchange(transport, clock, cancellation, request_kernel_id_frame(request_id),
-                            kKernelIdRequestDelayMs, kKernelIdReadTimeoutMs);
+                            kKernelIdRequestDelayMs, kKernelIdReadTimeout);
 }
 
 } // namespace
@@ -488,9 +489,8 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     // function.
 
     events.log(LogLevel::Info, "Initializing connection...");
-    if (Result<std::optional<bytes::Bytes>> init_resp =
-            can_raw_exchange(transport, clock, cancellation, init_connection_request(request_id), kHandshakeDelayMs,
-                             kHandshakeTimeoutMs);
+    if (Result<std::optional<bytes::Bytes>> init_resp = can_raw_exchange(
+            transport, clock, cancellation, init_connection_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !init_resp.has_value())
     {
         return std::unexpected(init_resp.error());
@@ -503,7 +503,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
 
     events.log(LogLevel::Info, "Requesting ECU ID");
     if (Result<std::optional<bytes::Bytes>> ecuid_resp = can_raw_exchange(
-            transport, clock, cancellation, ecu_id_request(request_id), kHandshakeDelayMs, kHandshakeTimeoutMs);
+            transport, clock, cancellation, ecu_id_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !ecuid_resp.has_value())
     {
         return std::unexpected(ecuid_resp.error());
@@ -511,7 +511,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
 
     events.log(LogLevel::Info, "Requesting VIN");
     if (Result<std::optional<bytes::Bytes>> vin_resp = can_raw_exchange(
-            transport, clock, cancellation, vin_request(request_id), kHandshakeDelayMs, kHandshakeTimeoutMs);
+            transport, clock, cancellation, vin_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !vin_resp.has_value())
     {
         return std::unexpected(vin_resp.error());
@@ -519,7 +519,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
 
     events.log(LogLevel::Info, "Requesting CAL ID");
     if (Result<std::optional<bytes::Bytes>> cal_resp = can_raw_exchange(
-            transport, clock, cancellation, cal_id_request(request_id), kHandshakeDelayMs, kHandshakeTimeoutMs);
+            transport, clock, cancellation, cal_id_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !cal_resp.has_value())
     {
         return std::unexpected(cal_resp.error());
@@ -527,7 +527,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
 
     events.log(LogLevel::Info, "Requesting CVN");
     if (Result<std::optional<bytes::Bytes>> cvn_resp = can_raw_exchange(
-            transport, clock, cancellation, cvn_request(request_id), kHandshakeDelayMs, kHandshakeTimeoutMs);
+            transport, clock, cancellation, cvn_request(request_id), kHandshakeDelayMs, kHandshakeTimeout);
         !cvn_resp.has_value())
     {
         return std::unexpected(cvn_resp.error());
@@ -536,7 +536,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     events.log(LogLevel::Info, "Requesting session mode");
     bool req_10_03_connected = false;
     Result<std::optional<bytes::Bytes>> s03_resp = can_raw_exchange(
-        transport, clock, cancellation, session_mode_request(request_id, 0x03), kHandshakeDelayMs, kHandshakeTimeoutMs);
+        transport, clock, cancellation, session_mode_request(request_id, 0x03), kHandshakeDelayMs, kHandshakeTimeout);
     if (!s03_resp.has_value())
     {
         return std::unexpected(s03_resp.error());
@@ -548,7 +548,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
 
     bool req_10_43_connected = false;
     Result<std::optional<bytes::Bytes>> s43_resp = can_raw_exchange(
-        transport, clock, cancellation, session_mode_request(request_id, 0x43), kHandshakeDelayMs, kHandshakeTimeoutMs);
+        transport, clock, cancellation, session_mode_request(request_id, 0x43), kHandshakeDelayMs, kHandshakeTimeout);
     if (!s43_resp.has_value())
     {
         return std::unexpected(s43_resp.error());
@@ -560,7 +560,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
 
     events.log(LogLevel::Info, "Requesting seed");
     Result<bytes::Bytes> seed_resp = can_exchange_gated(transport, clock, cancellation, seed_request(request_id),
-                                                        kHandshakeDelayMs, kHandshakeTimeoutMs);
+                                                        kHandshakeDelayMs, kHandshakeTimeout);
     if (!seed_resp.has_value())
     {
         return std::unexpected(seed_resp.error());
@@ -597,7 +597,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     events.log(LogLevel::Info, "Sending seed key");
     Result<bytes::Bytes> key_resp =
         can_exchange_gated(transport, clock, cancellation, seed_key_send_request(request_id, seed_key),
-                           kHandshakeDelayMs, kHandshakeTimeoutMs);
+                           kHandshakeDelayMs, kHandshakeTimeout);
     if (!key_resp.has_value())
     {
         return std::unexpected(key_resp.error());
@@ -610,7 +610,7 @@ Status DensoSh705xEepromCanExecutor::connect_bootloader(ICanFlashTransport& tran
     events.log(LogLevel::Info, "Set session mode");
     Result<bytes::Bytes> set_resp = can_exchange_gated(
         transport, clock, cancellation, session_set_request(request_id, req_10_03_connected, req_10_43_connected),
-        kHandshakeDelayMs, kHandshakeTimeoutMs);
+        kHandshakeDelayMs, kHandshakeTimeout);
     if (!set_resp.has_value())
     {
         return std::unexpected(set_resp.error());
@@ -672,7 +672,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
     events.log(LogLevel::Info, "Initialize kernel upload");
     Result<bytes::Bytes> download_resp =
         can_exchange_gated(transport, clock, cancellation, sid34_request(request_id, start_address, data_len),
-                           kHandshakeDelayMs, kQuickAckTimeoutMs);
+                           kHandshakeDelayMs, kQuickAckTimeout);
     if (!download_resp.has_value())
     {
         return std::unexpected(download_resp.error());
@@ -717,7 +717,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
         }
         // No delay() call between this write and its read (legacy line
         // 852-853).
-        if (auto block_resp = transport.read(kBlockAckTimeoutMs, cancellation); !block_resp.has_value())
+        if (auto block_resp = transport.read(kBlockAckTimeout, cancellation); !block_resp.has_value())
         {
             return std::unexpected(block_resp.error());
         }
@@ -734,7 +734,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
 
     events.log(LogLevel::Info, "Kernel uploaded, starting...");
     Result<bytes::Bytes> start_resp = can_exchange_gated(transport, clock, cancellation, sid37_request(request_id),
-                                                         kHandshakeDelayMs, kQuickAckTimeoutMs);
+                                                         kHandshakeDelayMs, kQuickAckTimeout);
     if (!start_resp.has_value())
     {
         return std::unexpected(start_resp.error());
@@ -755,7 +755,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
     }
 
     Result<bytes::Bytes> routine_resp = can_exchange_gated(transport, clock, cancellation, sid31_request(request_id),
-                                                           kHandshakeDelayMs, kQuickAckTimeoutMs);
+                                                           kHandshakeDelayMs, kQuickAckTimeout);
     if (!routine_resp.has_value())
     {
         return std::unexpected(routine_resp.error());
@@ -832,7 +832,7 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
 
         // No delay() call between this write and the header-ack read (legacy
         // line 1036 has it commented out).
-        auto header = transport.read(kPageHeaderTimeoutMs, cancellation);
+        auto header = transport.read(kPageHeaderTimeout, cancellation);
         if (!header.has_value())
         {
             return std::unexpected(header.error());
@@ -866,7 +866,7 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
             {
                 return fail(ErrorKind::Cancelled, "cancelled during EEPROM page read");
             }
-            auto chunk = transport.read(kPagedataPollTimeoutMs, cancellation);
+            auto chunk = transport.read(kPagedataPollTimeout, cancellation);
             if (!chunk.has_value())
             {
                 return std::unexpected(chunk.error());

@@ -1,5 +1,6 @@
 #pragma once
 #include <atomic>
+#include <chrono>
 #include <memory>
 
 #include "src/backend/flash/flash_executor.h"
@@ -42,7 +43,7 @@ class DesktopKlineFlashTransport final : public IKlineFlashTransport
     Status open() override;
     Status close() override;
     Status disable_lec_lines() override;
-    Status pulse_lec_2_line(int timeout_ms) override;
+    Status pulse_lec_2_line(std::chrono::milliseconds timeout) override;
     Status enable_programming_voltage_line() override;
     bool requires_post_kernel_upload_delay() const override;
     Status set_add_iso14230_header(bool add_header) override;

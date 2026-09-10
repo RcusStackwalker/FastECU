@@ -12,9 +12,10 @@ namespace fastecu::bench
 {
 namespace
 {
+using namespace std::chrono_literals;
 
-constexpr uds::ExchangePolicy kRoutinePolicy{.read_timeout_ms = 500};
-constexpr uds::ExchangePolicy kSlowPolicy{.read_timeout_ms = 3000};
+constexpr uds::ExchangePolicy kRoutinePolicy{.read_timeout = 500ms};
+constexpr uds::ExchangePolicy kSlowPolicy{.read_timeout = 3000ms};
 constexpr std::uint64_t kMaxWireU24 = 0xFFFFFF;
 
 Status validateWireRange(std::uint32_t address, std::uint64_t length, std::string_view subject)

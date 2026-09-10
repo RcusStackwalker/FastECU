@@ -7,6 +7,7 @@
 
 namespace
 {
+using namespace std::chrono_literals;
 
 using fastecu::ErrorKind;
 using fastecu::FakeCancellationToken;
@@ -54,16 +55,16 @@ TEST(ScriptedUdsChannelTest, ReplaysQueuedReceivesInOrder)
     channel.queueNoFrame();
     channel.queueError(ErrorKind::Disconnected, "gone");
 
-    const auto first = channel.receive(100, cancellation);
+    const auto first = channel.receive(100ms, cancellation);
     ASSERT_TRUE(first.has_value());
     ASSERT_TRUE(first->has_value());
     EXPECT_THAT(**first, ElementsAre(0x50, 0x03));
 
-    const auto second = channel.receive(100, cancellation);
+    const auto second = channel.receive(100ms, cancellation);
     ASSERT_TRUE(second.has_value());
     EXPECT_FALSE(second->has_value());
 
-    const auto third = channel.receive(100, cancellation);
+    const auto third = channel.receive(100ms, cancellation);
     ASSERT_FALSE(third.has_value());
     EXPECT_EQ(third.error().kind, ErrorKind::Disconnected);
 }
@@ -75,11 +76,11 @@ TEST(ScriptedUdsChannelTest, RecordsEveryReceiveTimeout)
     channel.queueReceive(bytes::Bytes{0x50});
     channel.queueReceive(bytes::Bytes{0x50});
 
-    (void)channel.receive(500, cancellation);
-    (void)channel.receive(3000, cancellation);
+    (void)channel.receive(500ms, cancellation);
+    (void)channel.receive(3000ms, cancellation);
 
-    EXPECT_THAT(channel.timeouts_, ElementsAre(500, 3000));
-    EXPECT_EQ(channel.last_timeout_ms_, 3000);
+    EXPECT_THAT(channel.timeouts_, ElementsAre(500ms, 3000ms));
+    EXPECT_EQ(channel.last_timeout_, 3000ms);
 }
 
 TEST(ScriptedUdsChannelTest, HonorsCancellation)
@@ -90,7 +91,7 @@ TEST(ScriptedUdsChannelTest, HonorsCancellation)
     channel.expectSend(bytes::Bytes{0x3E});
 
     const fastecu::Status sent = channel.send(bytes::Bytes{0x3E}, cancellation);
-    const auto received = channel.receive(100, cancellation);
+    const auto received = channel.receive(100ms, cancellation);
 
     ASSERT_FALSE(sent.has_value());
     EXPECT_EQ(sent.error().kind, ErrorKind::Cancelled);
@@ -108,7 +109,7 @@ TEST(ScriptedUdsChannelTest, ScriptConsumedReflectsRemainingWork)
     EXPECT_FALSE(channel.scriptConsumed());
     (void)channel.send(bytes::Bytes{0x3E}, cancellation);
     EXPECT_FALSE(channel.scriptConsumed());
-    (void)channel.receive(100, cancellation);
+    (void)channel.receive(100ms, cancellation);
     EXPECT_TRUE(channel.scriptConsumed());
 }
 

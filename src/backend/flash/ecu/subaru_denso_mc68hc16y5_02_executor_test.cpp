@@ -557,7 +557,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
               }));
     EXPECT_EQ(transport.operation_trace_.front(), ScriptedKlineFlashTransport::Operation::DisableLecLines);
     EXPECT_EQ(transport.operation_trace_.at(1), ScriptedKlineFlashTransport::Operation::Read10);
-    EXPECT_EQ(transport.lec_2_pulse_timeouts_, (std::vector<int>{200}));
+    EXPECT_EQ(transport.lec_2_pulse_timeouts_, (std::vector<std::chrono::milliseconds>{200ms}));
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200ms), 12);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119,
     // 289-293, and 1139-1162: 200 + 200 + 50 + 1500 + 200 ms.

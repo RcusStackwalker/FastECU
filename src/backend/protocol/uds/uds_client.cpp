@@ -14,6 +14,7 @@ namespace
 using fastecu::ErrorKind;
 using fastecu::fail;
 using fastecu::LogLevel;
+using namespace std::chrono_literals;
 } // namespace
 
 UdsClient::UdsClient(IUdsChannel& channel, fastecu::IClock& clock, fastecu::IEventSink& events)
@@ -40,23 +41,23 @@ fastecu::Result<bytes::Bytes> UdsClient::request(bytes::ByteView pdu, const Exch
         return std::unexpected(sent.error());
     }
 
-    int delay_ms = policy.pre_read_delay_ms;
-    int timeout_ms = policy.read_timeout_ms;
+    auto delay = policy.pre_read_delay;
+    auto timeout = policy.read_timeout;
 
     // One normal read, then up to max_pending_repeats further reads while the
     // ECU holds us on 0x78.
     for (int attempt = 0; attempt <= policy.max_pending_repeats; ++attempt)
     {
-        if (delay_ms > 0)
+        if (delay > 0ms)
         {
-            const fastecu::Status slept = clock_.sleep(std::chrono::milliseconds{delay_ms}, cancellation);
+            const fastecu::Status slept = clock_.sleep(delay, cancellation);
             if (!slept.has_value())
             {
                 return std::unexpected(slept.error());
             }
         }
 
-        fastecu::Result<std::optional<bytes::Bytes>> received = channel_.receive(timeout_ms, cancellation);
+        fastecu::Result<std::optional<bytes::Bytes>> received = channel_.receive(timeout, cancellation);
         if (!received.has_value())
         {
             return std::unexpected(received.error());
@@ -75,8 +76,8 @@ fastecu::Result<bytes::Bytes> UdsClient::request(bytes::ByteView pdu, const Exch
                         std::format("ECU reported responsePending for SID 0x{:02x}; waiting", expected_service));
             // Only the first read observes the caller's pre-read delay; a
             // pending re-read waits inside the (longer) receive timeout.
-            delay_ms = 0;
-            timeout_ms = policy.pending_timeout_ms;
+            delay = 0ms;
+            timeout = policy.pending_timeout;
             continue;
         }
 

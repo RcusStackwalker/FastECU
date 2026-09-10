@@ -12,13 +12,14 @@ namespace fastecu::flash
 {
 namespace
 {
+using namespace std::chrono_literals;
 
 using ::testing::ElementsAre;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Pair;
 
-constexpr uds::ExchangePolicy kPolicy{.read_timeout_ms = 500};
+constexpr uds::ExchangePolicy kPolicy{.read_timeout = 500ms};
 
 struct Fixture
 {

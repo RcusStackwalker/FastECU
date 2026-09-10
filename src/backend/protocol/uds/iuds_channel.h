@@ -4,6 +4,7 @@
 #include "src/backend/ports/cancellation.h"
 #include "src/backend/ports/result.h"
 
+#include <chrono>
 #include <optional>
 
 namespace uds
@@ -31,7 +32,7 @@ class IUdsChannel
     // response service id. A read that reaches its deadline with nothing
     // received is a successful empty optional; cancellation, disconnection,
     // and a frame that fails envelope validation are errors.
-    virtual fastecu::Result<std::optional<bytes::Bytes>> receive(int timeout_ms,
+    virtual fastecu::Result<std::optional<bytes::Bytes>> receive(std::chrono::milliseconds timeout,
                                                                  const fastecu::ICancellationToken& cancellation) = 0;
 };
 

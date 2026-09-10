@@ -135,7 +135,7 @@ Status DesktopKlineFlashTransport::disable_lec_lines()
     }
 }
 
-Status DesktopKlineFlashTransport::pulse_lec_2_line(int timeout_ms)
+Status DesktopKlineFlashTransport::pulse_lec_2_line(std::chrono::milliseconds timeout)
 {
     if (!serial_)
     {
@@ -143,7 +143,7 @@ Status DesktopKlineFlashTransport::pulse_lec_2_line(int timeout_ms)
     }
     try
     {
-        if (serial_->pulse_lec_2_line(timeout_ms) != 0)
+        if (serial_->pulse_lec_2_line(fastecu::saturating_ms<int>(timeout)) != 0)
         {
             return fail(ErrorKind::Internal, "pulse_lec_2_line failed");
         }

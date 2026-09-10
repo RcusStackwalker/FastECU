@@ -2,6 +2,7 @@
 
 #include "src/backend/protocol/uds/iuds_channel.h"
 
+#include <chrono>
 #include <cstddef>
 #include <deque>
 #include <optional>
@@ -63,11 +64,11 @@ class ScriptedUdsChannel final : public IUdsChannel
         return {};
     }
 
-    fastecu::Result<std::optional<bytes::Bytes>> receive(int timeout_ms,
+    fastecu::Result<std::optional<bytes::Bytes>> receive(std::chrono::milliseconds timeout,
                                                          const fastecu::ICancellationToken& cancellation) override
     {
-        last_timeout_ms_ = timeout_ms;
-        timeouts_.push_back(timeout_ms);
+        last_timeout_ = timeout;
+        timeouts_.push_back(timeout);
         if (cancellation.cancelled())
         {
             return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted UDS receive cancelled");
@@ -81,8 +82,8 @@ class ScriptedUdsChannel final : public IUdsChannel
         return result;
     }
 
-    int last_timeout_ms_ = 0;
-    std::vector<int> timeouts_;
+    std::chrono::milliseconds last_timeout_{0};
+    std::vector<std::chrono::milliseconds> timeouts_;
 
   private:
     std::vector<bytes::Bytes> expected_;

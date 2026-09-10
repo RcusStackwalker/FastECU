@@ -33,18 +33,18 @@ using namespace std::chrono_literals;
 // Legacy reaches most of them through bare literals rather than the named
 // members -- 200 at lines 671/703/748/782/785/1278, 500 at lines 1041/1392/
 // 1435 -- which is why the values, not the names, are authoritative here.
-constexpr int kShortTimeoutMs = 200;   // serial_read_short_timeout
-constexpr int kReceiveTimeoutMs = 500; // receive_timeout
-constexpr int kLongTimeoutMs = 2000;   // serial_read_timeout
-constexpr uds::ExchangePolicy kShortPolicy{.read_timeout_ms = kShortTimeoutMs};
-constexpr uds::ExchangePolicy kReceivePolicy{.read_timeout_ms = kReceiveTimeoutMs};
-constexpr uds::ExchangePolicy kLongPolicy{.read_timeout_ms = kLongTimeoutMs};
+constexpr std::chrono::milliseconds kShortTimeout{200};   // serial_read_short_timeout
+constexpr std::chrono::milliseconds kReceiveTimeout{500}; // receive_timeout
+constexpr std::chrono::milliseconds kLongTimeout{2000};   // serial_read_timeout
+constexpr uds::ExchangePolicy kShortPolicy{.read_timeout = kShortTimeout};
+constexpr uds::ExchangePolicy kReceivePolicy{.read_timeout = kReceiveTimeout};
+constexpr uds::ExchangePolicy kLongPolicy{.read_timeout = kLongTimeout};
 // Checksum verify reads twice and this family uses serial_read_timeout for
 // both: the first read at line 1310 and, after the ECU's 7F 31 78 pending
-// answer, the re-read at line 1330. UdsClient substitutes pending_timeout_ms
+// answer, the re-read at line 1330. UdsClient substitutes pending_timeout
 // for that second read, whose 3000 ms default is not this family's number, so
 // the policy pins it to 2000 as well.
-constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout_ms = kLongTimeoutMs, .pending_timeout_ms = kLongTimeoutMs};
+constexpr uds::ExchangePolicy kChecksumPolicy{.read_timeout = kLongTimeout, .pending_timeout = kLongTimeout};
 
 // Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific band;
 // legacy uses its own values here rather than the standard subfunctions.
@@ -201,7 +201,7 @@ Result<bytes::Bytes> tolerant_probe(Ctx& ctx, bytes::ByteView pdu, bytes::Byte e
     {
         return std::unexpected(sent.error());
     }
-    Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kShortTimeoutMs, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kShortTimeout, ctx.cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -237,7 +237,7 @@ Status fire_and_forget(Ctx& ctx, ICanFlashTransport& can, std::uint32_t request_
     {
         return sent;
     }
-    Result<std::optional<bytes::Bytes>> ignored = can.read(kShortTimeoutMs, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> ignored = can.read(kShortTimeout, ctx.cancellation);
     if (!ignored.has_value())
     {
         return std::unexpected(ignored.error());
@@ -295,7 +295,7 @@ Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, bool discard
     {
         return sent;
     }
-    Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kShortTimeoutMs, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kShortTimeout, ctx.cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -311,7 +311,7 @@ Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, bool discard
         {
             return slept;
         }
-        received = ctx.channel.receive(kShortTimeoutMs, ctx.cancellation);
+        received = ctx.channel.receive(kShortTimeout, ctx.cancellation);
         if (!received.has_value())
         {
             return std::unexpected(received.error());
@@ -329,7 +329,7 @@ Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, bool discard
         {
             return slept;
         }
-        received = ctx.channel.receive(kShortTimeoutMs, ctx.cancellation);
+        received = ctx.channel.receive(kShortTimeout, ctx.cancellation);
         if (!received.has_value())
         {
             return std::unexpected(received.error());
@@ -457,7 +457,7 @@ Status connect_bootloader(Ctx& ctx, ICanFlashTransport& can)
     {
         return sent;
     }
-    Result<std::optional<bytes::Bytes>> obk = ctx.channel.receive(kShortTimeoutMs, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> obk = ctx.channel.receive(kShortTimeout, ctx.cancellation);
     if (!obk.has_value())
     {
         return std::unexpected(obk.error());
@@ -641,7 +641,7 @@ Status erase_memory(Ctx& ctx, const MemoryRegion& region)
 
     for (int attempt = 0; attempt < 20; ++attempt)
     {
-        Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kReceiveTimeoutMs, ctx.cancellation);
+        Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kReceiveTimeout, ctx.cancellation);
         if (!received.has_value())
         {
             return std::unexpected(received.error());

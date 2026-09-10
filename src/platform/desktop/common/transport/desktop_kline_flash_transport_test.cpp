@@ -69,7 +69,7 @@ class TestDesktopKlineFlashTransport : public QObject
         DesktopKlineFlashTransport transport(std::move(serial));
 
         QVERIFY(transport.disable_lec_lines().has_value());
-        QVERIFY(transport.pulse_lec_2_line(200).has_value());
+        QVERIFY(transport.pulse_lec_2_line(200ms).has_value());
         QVERIFY(transport.enable_programming_voltage_line().has_value());
         QCOMPARE(fake->takeCallLog(), QStringList({"lec:set:1:1", "lec:pulse2:200", "lec:set:0:1"}));
     }
@@ -516,7 +516,7 @@ class TestDesktopKlineFlashTransport : public QObject
         QVERIFY(!disableLecResult.has_value());
         QCOMPARE(disableLecResult.error().kind, ErrorKind::Disconnected);
 
-        const auto pulseLecResult = transport.pulse_lec_2_line(200);
+        const auto pulseLecResult = transport.pulse_lec_2_line(200ms);
         QVERIFY(!pulseLecResult.has_value());
         QCOMPARE(pulseLecResult.error().kind, ErrorKind::Disconnected);
 

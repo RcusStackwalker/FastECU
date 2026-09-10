@@ -28,10 +28,11 @@ namespace fastecu::flash
 namespace
 {
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 using bytes::composeBe;
 using bytes::u24;
 
-constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout_ms = 2000};
+constexpr uds::ExchangePolicy kExchangePolicy{.read_timeout = 2000ms};
 
 // Session ids in ISO 14229-1's 0x40-0x5F vehicle-manufacturer-specific
 // band -- no standard meaning, unlike uds::kSessionProgramming/
@@ -220,7 +221,7 @@ Status connect_bootloader(Ctx& ctx)
     {
         return sent;
     }
-    Result<std::optional<bytes::Bytes>> alive = ctx.channel.receive(2000, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> alive = ctx.channel.receive(2000ms, ctx.cancellation);
     if (!alive.has_value())
     {
         return std::unexpected(alive.error());
@@ -268,7 +269,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
     {
         return std::unexpected(sent.error());
     }
-    Result<std::optional<bytes::Bytes>> setup = ctx.channel.receive(2000, ctx.cancellation);
+    Result<std::optional<bytes::Bytes>> setup = ctx.channel.receive(2000ms, ctx.cancellation);
     if (!setup.has_value())
     {
         return std::unexpected(setup.error());
@@ -330,7 +331,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
         {
             return std::unexpected(sent.error());
         }
-        Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(800, ctx.cancellation);
+        Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(800ms, ctx.cancellation);
         if (!reply.has_value())
         {
             return std::unexpected(reply.error());
@@ -463,7 +464,8 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
         {
             return sent;
         }
-        if (Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(2000, ctx.cancellation); !reply.has_value())
+        if (Result<std::optional<bytes::Bytes>> reply = ctx.channel.receive(2000ms, ctx.cancellation);
+            !reply.has_value())
         {
             return std::unexpected(reply.error());
         }

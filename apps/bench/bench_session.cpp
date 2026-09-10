@@ -57,10 +57,10 @@ Status BenchSession::RecordingChannel::send(bytes::ByteView pdu, const ICancella
     return inner_.send(pdu, cancellation);
 }
 
-Result<std::optional<bytes::Bytes>> BenchSession::RecordingChannel::receive(int timeout_ms,
+Result<std::optional<bytes::Bytes>> BenchSession::RecordingChannel::receive(std::chrono::milliseconds timeout,
                                                                             const ICancellationToken& cancellation)
 {
-    Result<std::optional<bytes::Bytes>> result = inner_.receive(timeout_ms, cancellation);
+    Result<std::optional<bytes::Bytes>> result = inner_.receive(timeout, cancellation);
     if (result.has_value() && result->has_value())
     {
         last_rx_ = **result;
@@ -235,7 +235,8 @@ Result<bytes::Bytes> BenchSession::exchange_raw(bytes::ByteView pdu, int timeout
         finish();
         return std::unexpected(sent.error());
     }
-    Result<std::optional<bytes::Bytes>> received = recording_channel_.receive(timeout_ms, cancellation_);
+    Result<std::optional<bytes::Bytes>> received =
+        recording_channel_.receive(std::chrono::milliseconds{timeout_ms}, cancellation_);
     finish();
     if (!received.has_value())
     {
