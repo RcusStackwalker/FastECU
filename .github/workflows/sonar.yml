@@ -59,10 +59,24 @@ jobs:
         id: build-wrapper
         uses: SonarSource/sonarqube-scan-action/install-build-wrapper@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
 
-      - name: Build and run tests with coverage
+      - name: Compile under the build wrapper
+        # build-wrapper only needs to see compiler subprocesses to build its
+        # C-family capture; it must not also wrap `bazel test`. On Linux
+        # build-wrapper traces the whole process tree via ptrace (unlike
+        # macOS's DYLD-based interceptor), and that tracing doesn't survive
+        # ~2,600 concurrent local actions plus 176 test binaries starting and
+        # exiting underneath it -- it dies with `build-wrapper: read integer:
+        # Broken pipe` (100% reproducible since #285 moved this job from
+        # macOS to ubuntu-26.04). Building everything here means the `bazel
+        # test` inside coverage-local.sh below is a full action-cache hit for
+        # every compile and only runs the already-built test binaries,
+        # unobserved by the wrapper.
         run: |
           "${{ steps.build-wrapper.outputs.build-wrapper-binary }}" --out-dir bw-output \
-            scripts/coverage-local.sh
+            bazel build --config=sonar //...
+
+      - name: Run tests with coverage
+        run: scripts/coverage-local.sh
         env:
           BAZEL_TEST_CONFIG: sonar
 
