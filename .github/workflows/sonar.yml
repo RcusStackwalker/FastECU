@@ -37,24 +37,16 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref }}
 
-      - name: Hold openjdk packages for this job
+      - name: Start resource activity watcher
         run: |
-          pkgs=$(dpkg-query -W -f='${Package}\n' 'openjdk-*' 'default-jdk*' 'default-jre*' 2>/dev/null || true)
-          echo "openjdk packages found: ${pkgs:-<none>}"
-          if [ -n "$pkgs" ]; then
-            sudo apt-mark hold $pkgs
-          fi
-
-      - name: Start package-manager activity watcher
-        run: |
+          echo "--- ulimit -a at job start ---"
+          ulimit -a
           (
             while true; do
               echo "=== $(date -u +%FT%TZ) ==="
-              pgrep -fal 'apt|dpkg|unattended' || true
-              java_bin=$(command -v java || true)
-              if [ -n "$java_bin" ]; then
-                stat -c '%Y %n' "$(readlink -f "$java_bin")" 2>/dev/null || true
-              fi
+              free -m
+              echo "processes: $(ps -e --no-headers | wc -l)"
+              pgrep -fal 'apt|dpkg|unattended' | grep -vE 'adapter|apter' || true
               sleep 15
             done
           ) > /tmp/pkg-watch.log 2>&1 &
@@ -92,17 +84,17 @@ jobs:
         env:
           BAZEL_TEST_CONFIG: sonar
 
-      - name: Dump package-manager activity for diagnosis
+      - name: Dump resource and OOM diagnostics
         if: always()
         run: |
-          echo "--- watcher log ---"
+          echo "--- ulimit -a at job end ---"
+          ulimit -a
+          echo "--- watcher log (memory/process samples) ---"
           cat /tmp/pkg-watch.log || true
-          echo "--- dpkg.log tail ---"
-          sudo tail -n 300 /var/log/dpkg.log || true
-          echo "--- apt history tail ---"
-          sudo tail -n 300 /var/log/apt/history.log || true
-          echo "--- unattended-upgrades log ---"
-          sudo tail -n 300 /var/log/unattended-upgrades/unattended-upgrades.log || true
+          echo "--- dmesg OOM/kill mentions ---"
+          sudo dmesg --ctime 2>/dev/null | grep -iE 'oom|killed process|out of memory' || echo "none found"
+          echo "--- journalctl -k OOM/kill mentions ---"
+          sudo journalctl -k --no-pager 2>/dev/null | grep -iE 'oom|killed process|out of memory' || echo "none found"
           echo "--- journalctl apt/dpkg/openjdk mentions ---"
           sudo journalctl --no-pager 2>/dev/null | grep -iE 'apt|dpkg|openjdk' | tail -n 300 || true
 
