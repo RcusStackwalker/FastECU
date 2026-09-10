@@ -413,8 +413,7 @@ void Settings::remove_definition_files()
     QList<QListWidgetItem *> items = romraider_definition_files_list->selectedItems();
     foreach (QListWidgetItem *item, items)
     {
-        std::unique_ptr<QListWidgetItem> taken(
-            romraider_definition_files_list->takeItem(romraider_definition_files_list->row(item)));
+        delete romraider_definition_files_list->takeItem(romraider_definition_files_list->row(item));
     }
 
     configValues->romraider_definition_files.clear();

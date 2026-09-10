@@ -342,12 +342,27 @@ the backlog turned out to be noise:
   scattered instances below — not a scheduled phase.
 - `cpp:S5025` (raw `new`/`delete`, Critical) — this plan covered the top 4
   files (`settings.cpp`, `mainwindow.cpp`, `hexedit.cpp`, `logvalues.cpp`, 79
-  of the rule's 172 total). 10 were genuine leaks fixed via RAII conversion
-  (committed but not yet reflected on SonarCloud pending a future rescan);
-  the flagship was `Settings::fileActions` — `FileActions` doesn't derive
-  from `QObject`, was heap-allocated with `new`, and was never deleted.
-  Converted to a local `std::make_unique`; the class member was removed
-  entirely since nothing else read it. 67 were Qt parent-owned or
+  of the rule's 172 total). An initial pass converted 10 sites to
+  `std::unique_ptr`/`std::make_unique`, but a second look split those 10 into
+  two groups: 4 where the smart pointer is actually held and used across its
+  scope (real RAII), and 6 where it was constructed and immediately dropped
+  on the next line with no further use (`std::unique_ptr<T> guard(x);` right
+  where `delete x;` used to be) — semantically identical to the `delete` it
+  replaced, adding no behavioral value, just linter appeasement. Only the 4
+  real fixes were kept and landed separately on `master` (#289): the
+  flagship, `Settings::fileActions` — `FileActions` doesn't derive from
+  `QObject`, was heap-allocated with `new`, and was never deleted, now a
+  local `std::make_unique` used for the forwarding call, with the now-dead
+  class member removed — plus `MainWindow`'s `startUpSplash` and
+  `log_file_timer` members and `logvalues.cpp`'s `change_log_values` dialog,
+  each held for real use through their scope/object lifetime. The other 6
+  (`Settings::remove_definition_files`'s taken list item;
+  `MainWindow::close_calibration`'s two taken tree items;
+  `MainWindow::update_logboxes`'s two taken layout widgets;
+  `MainWindow::resizeEvent`'s taken gauge widget) were reverted back to
+  plain `delete` on this branch and left `OPEN` — not worth carrying a
+  smart-pointer wrapper that exists for one statement and does nothing a
+  bare `delete` didn't already do. 67 were Qt parent-owned or
   container-owned allocations that SonarCloud's analyzer doesn't model, and
   were resolved as false positive. 2 were left `OPEN` and deliberately
   unfixed: a genuine leak in `mainwindow.cpp`'s raw `ecuCalDef[100]` pointer

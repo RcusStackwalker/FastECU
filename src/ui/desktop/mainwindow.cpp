@@ -1961,7 +1961,7 @@ void MainWindow::close_calibration()
             }
         }
     }
-    std::unique_ptr<QTreeWidgetItem> takenRomItem(ui->calibrationFilesTreeWidget->takeTopLevelItem(romNumber));
+    delete ui->calibrationFilesTreeWidget->takeTopLevelItem(romNumber);
 
     ecuCalDefIndex--;
     for (int i = romNumber; i < ecuCalDefIndex; i++)
@@ -1995,7 +1995,7 @@ void MainWindow::close_calibration()
     {
         for (int i = ui->calibrationDataTreeWidget->topLevelItemCount(); i > 0; i--)
         {
-            std::unique_ptr<QTreeWidgetItem> takenDataItem(ui->calibrationDataTreeWidget->takeTopLevelItem(0));
+            delete ui->calibrationDataTreeWidget->takeTopLevelItem(0);
         }
     }
     // configValues->calibration_files.removeAt(romNumber);
@@ -2083,11 +2083,13 @@ void MainWindow::update_logboxes(const QString& protocol_arg)
 
     while (!ui->switchBoxLayout->isEmpty())
     {
-        std::unique_ptr<QWidget> wg(ui->switchBoxLayout->takeAt(0)->widget());
+        QWidget *wg = ui->switchBoxLayout->takeAt(0)->widget();
+        delete wg;
     }
     while (!ui->logBoxLayout->isEmpty())
     {
-        std::unique_ptr<QWidget> wg(ui->logBoxLayout->takeAt(0)->widget());
+        QWidget *wg = ui->logBoxLayout->takeAt(0)->widget();
+        delete wg;
     }
 
     for (int i = 0; i < logValues->lower_panel_switch_id.count(); i++)
@@ -2243,7 +2245,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
     QWidget *w = ui->mdiArea->findChild<QWidget *>("gaugeWindow");
     if (w)
     {
-        std::unique_ptr<QWidget> guard(w);
+        delete w;
     }
 }
 
