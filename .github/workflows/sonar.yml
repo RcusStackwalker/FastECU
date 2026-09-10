@@ -110,9 +110,27 @@ jobs:
           echo "--- journalctl apt/dpkg/openjdk mentions ---"
           sudo journalctl --no-pager 2>/dev/null | grep -iE 'apt|dpkg|openjdk' | tail -n 300 || true
           echo "--- bazel server jvm.out ---"
-          find "$HOME/.cache/bazel" -name jvm.out -exec echo "== {} ==" \; -exec tail -n 300 {} \; 2>/dev/null || echo "none found"
-          echo "--- strace tail (process-lifecycle syscalls around the crash) ---"
-          tail -n 2000 /tmp/bazel-test-strace.log 2>/dev/null || echo "no strace log produced"
+          mkdir -p /tmp/sonar-diagnostics
+          jvm_out=$(find /home/runner/.bazel "$HOME/.cache/bazel" -name jvm.out 2>/dev/null | head -1)
+          if [ -n "$jvm_out" ]; then
+            echo "== $jvm_out =="
+            tail -n 300 "$jvm_out"
+            cp "$jvm_out" /tmp/sonar-diagnostics/bazel-jvm.out
+          else
+            echo "none found"
+          fi
+          echo "--- strace log line count (full log uploaded as an artifact) ---"
+          wc -l /tmp/bazel-test-strace.log 2>/dev/null || echo "no strace log produced"
+          cp /tmp/bazel-test-strace.log /tmp/sonar-diagnostics/ 2>/dev/null || true
+          cp /tmp/pkg-watch.log /tmp/sonar-diagnostics/ 2>/dev/null || true
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: sonar-diagnostics
+          path: /tmp/sonar-diagnostics
+          retention-days: 7
+          if-no-files-found: warn
 
       - name: SonarCloud scan
         id: sonarcloud
