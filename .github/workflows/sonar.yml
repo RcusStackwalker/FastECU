@@ -37,6 +37,23 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref }}
 
+      # The runner's preinstalled default JDK (Temurin 25.0.4+1) predates the
+      # fix for JDK-8377907 (ProcessBuilder pipe-fd race under concurrent
+      # forking, backported to 25.0.4 build b04), which matches Bazel's
+      # server crashing with "Failed to exec spawn helper: exit code: 1,
+      # error: 0 (none)" mid-build regardless of launch mechanism or spawn
+      # strategy. Request the latest available Temurin 25 patch build instead
+      # of the one baked into the image.
+      - name: Select latest Temurin 25 patch build
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: temurin
+          java-version: '25'
+          check-latest: true
+
+      - name: Print resolved Java version
+        run: java -version
+
       - name: Start resource activity watcher
         run: |
           echo "--- ulimit -a at job start ---"
