@@ -763,7 +763,10 @@ class TestFileActionsParsing : public QObject
         input.ecu_id = "SUBMITTED_ECU";
         input.internal_id_address = 0x20;
         const fastecu::Status submitted = actions.submit_new_definition(submittedPath.toStdString(), input);
-        QVERIFY2(submitted.has_value(), submitted.error().detail.c_str());
+        if (!submitted.has_value())
+        {
+            QFAIL(submitted.error().detail.c_str());
+        }
         QVERIFY(QFile::exists(submittedPath));
 
         config.ecuflash_definition_files_directory = newDirectory;
@@ -1020,10 +1023,9 @@ class TestFileActionsParsing : public QObject
     // FileActions::save_config_file(configValues) -- Settings itself
     // derives from QDialog and needs a live QApplication to construct, so
     // this test exercises the actual call chain one layer down instead
-    // (Task 6 of the phase1-sonar-correctness-triage plan: the `new
-    // FileActions` in Settings::save_config_file was a genuine S5025 leak,
-    // fixed with std::make_unique; this proves the forwarding call still
-    // works end to end through a real Qt file write).
+    // (the `new FileActions` in Settings::save_config_file was a genuine
+    // S5025 leak, fixed with std::make_unique; this proves the forwarding
+    // call still works end to end through a real Qt file write).
     void save_config_file_forwards_to_config_adapter_and_writes_file()
     {
         QTemporaryDir dir;
