@@ -68,7 +68,7 @@ inline int write(cdbg::ICanTransport& transport, std::uint32_t can_id, bytes::By
 
 inline bytes::Bytes read(cdbg::ICanTransport& transport, int timeout_ms, std::uint32_t& out_id)
 {
-    auto result = transport.read(timeout_ms, detail::never_cancelled());
+    auto result = transport.read(std::chrono::milliseconds{timeout_ms}, detail::never_cancelled());
     if (!result || !result->has_value())
     {
         return {};

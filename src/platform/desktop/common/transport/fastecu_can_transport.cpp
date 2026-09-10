@@ -1,5 +1,6 @@
 #include "src/platform/desktop/common/transport/fastecu_can_transport.h"
 #include "src/algorithms/protocol/qt_bytes.h"
+#include "src/backend/ports/duration_cast.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <exception>
@@ -36,7 +37,7 @@ fastecu::Result<std::size_t> FastEcuCanTransport::write(std::uint32_t canId, byt
     }
 }
 
-fastecu::Result<std::optional<CanFrame>> FastEcuCanTransport::read(int timeoutMs,
+fastecu::Result<std::optional<CanFrame>> FastEcuCanTransport::read(std::chrono::milliseconds timeout,
                                                                    const fastecu::ICancellationToken& cancellation)
 {
     if (cancellation.cancelled())
@@ -50,7 +51,8 @@ fastecu::Result<std::optional<CanFrame>> FastEcuCanTransport::read(int timeoutMs
         {
             return fastecu::fail(fastecu::ErrorKind::Disconnected, "CAN adapter disconnected before read");
         }
-        const bytes::Bytes raw = bytes::fromQByteArray(serial_->read_serial_data(quint16(timeoutMs)));
+        const bytes::Bytes raw =
+            bytes::fromQByteArray(serial_->read_serial_data(fastecu::saturating_ms<quint16>(timeout)));
         if (cancellation.cancelled())
         {
             return fastecu::fail(fastecu::ErrorKind::Cancelled, "CAN read cancelled");

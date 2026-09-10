@@ -4,6 +4,7 @@
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
 #include "src/backend/protocol/testing/scripted_can_transport.h"
 using namespace MitsuColtCanCdbg;
+using namespace std::chrono_literals;
 
 TEST(TestCdbgDriver, handshake_and_single_frame_streaming)
 {
@@ -42,7 +43,7 @@ TEST(TestCdbgDriver, handshake_and_single_frame_streaming)
     ASSERT_TRUE(t.ok());
 
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("002A123400000000"));
-    const auto result = d.pollOnce(50, cancellation);
+    const auto result = d.pollOnce(50ms, cancellation);
     ASSERT_TRUE(result);
     ASSERT_EQ(result->size(), 2U);
     ASSERT_EQ(result->at(0), std::uint32_t(42));
@@ -163,7 +164,7 @@ TEST(TestCdbgDriver, poll_merges_values_across_two_frames)
 
     // Frame 0 arrives first: channel 0 (4-byte) = 0xAABBCCDD.
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("00AABBCCDD000000"));
-    const auto r1 = d.pollOnce(50, cancellation);
+    const auto r1 = d.pollOnce(50ms, cancellation);
     ASSERT_TRUE(r1);
     ASSERT_EQ(r1->size(), 3U);
     ASSERT_EQ(r1->at(0), std::uint32_t(0xAABBCCDD));
@@ -172,7 +173,7 @@ TEST(TestCdbgDriver, poll_merges_values_across_two_frames)
 
     // Frame 1 arrives next: channel 1 (4-byte) = 0x11223344, channel 2 (2-byte) = 0x5566.
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0111223344556600"));
-    const auto r2 = d.pollOnce(50, cancellation);
+    const auto r2 = d.pollOnce(50ms, cancellation);
     ASSERT_TRUE(r2);
     ASSERT_EQ(r2->size(), 3U);
     ASSERT_EQ(r2->at(0), std::uint32_t(0xAABBCCDD)); // retained from frame 0
@@ -185,7 +186,7 @@ TEST(TestCdbgDriver, poll_returns_empty_when_not_streaming)
     cdbg::ScriptedCanTransport t;
     CdbgLogDriver d(t);
     fastecu::FakeCancellationToken cancellation;
-    const auto result = d.pollOnce(50, cancellation);
+    const auto result = d.pollOnce(50ms, cancellation);
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->empty());
 }

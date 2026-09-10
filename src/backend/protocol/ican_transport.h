@@ -3,6 +3,7 @@
 #include "src/backend/ports/cancellation.h"
 #include "src/backend/ports/result.h"
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <optional>
@@ -28,7 +29,7 @@ class ICanTransport
     virtual fastecu::Result<std::size_t> write(std::uint32_t canId, bytes::ByteView payload) = 0;
     // A normal logging deadline is a successful empty optional. Cancellation,
     // disconnection, and driver failures are errors.
-    virtual fastecu::Result<std::optional<CanFrame>> read(int timeoutMs,
+    virtual fastecu::Result<std::optional<CanFrame>> read(std::chrono::milliseconds timeout,
                                                           const fastecu::ICancellationToken& cancellation) = 0;
     // True if the underlying adapter connection is open.
     virtual bool isOpen() const = 0;

@@ -188,7 +188,7 @@ void TestFacadeThreading::transportAdapters_normalEmptyReadIsSuccess()
     QVERIFY(klineResult.has_value());
     QVERIFY(!klineResult->has_value());
 
-    const auto canResult = can.read(10, cancellation);
+    const auto canResult = can.read(10ms, cancellation);
     QVERIFY(canResult.has_value());
     QVERIFY(!canResult->has_value());
 }
@@ -218,7 +218,7 @@ void TestFacadeThreading::transportAdapters_preCancelledReadSkipsBackend()
     QVERIFY(!klineResult.has_value());
     QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Cancelled);
 
-    const auto canResult = can.read(10, cancellation);
+    const auto canResult = can.read(10ms, cancellation);
     QVERIFY(!canResult.has_value());
     QVERIFY(canResult.error().kind == fastecu::ErrorKind::Cancelled);
     QVERIFY(fake->takeCallLog().isEmpty());
@@ -256,7 +256,7 @@ void TestFacadeThreading::transportAdapters_postCallCancellationPrecedesDisconne
 
     cancellation.set_cancelled(false);
     fake->portOpen.store(true);
-    const auto canResult = can.read(10, cancellation);
+    const auto canResult = can.read(10ms, cancellation);
     QVERIFY(!canResult.has_value());
     QVERIFY(canResult.error().kind == fastecu::ErrorKind::Cancelled);
 }
@@ -285,7 +285,7 @@ void TestFacadeThreading::transportAdapters_backendReadExceptionMapsToInternal()
     QVERIFY(!klineResult.has_value());
     QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Internal);
 
-    const auto canResult = can.read(10, cancellation);
+    const auto canResult = can.read(10ms, cancellation);
     QVERIFY(!canResult.has_value());
     QVERIFY(canResult.error().kind == fastecu::ErrorKind::Internal);
 }
@@ -304,7 +304,7 @@ void TestFacadeThreading::canTransport_truncatedFrameMapsToInternal()
     cdbg::FastEcuCanTransport can(&serial);
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = can.read(10, cancellation);
+    const auto result = can.read(10ms, cancellation);
     QVERIFY(!result.has_value());
     QVERIFY(result.error().kind == fastecu::ErrorKind::Internal);
 }
@@ -346,7 +346,7 @@ void TestFacadeThreading::transportAdapters_nullOrClosedAdapterReturnsDisconnect
         QVERIFY(!klineRead.has_value());
         QVERIFY(klineRead.error().kind == fastecu::ErrorKind::Disconnected);
 
-        const auto canRead = can.read(10, cancellation);
+        const auto canRead = can.read(10ms, cancellation);
         QVERIFY(!canRead.has_value());
         QVERIFY(canRead.error().kind == fastecu::ErrorKind::Disconnected);
     }
@@ -392,7 +392,7 @@ void TestFacadeThreading::transportAdapters_nullOrClosedAdapterReturnsDisconnect
         QVERIFY(!klineRead.has_value());
         QVERIFY(klineRead.error().kind == fastecu::ErrorKind::Disconnected);
 
-        const auto canRead = can.read(10, cancellation);
+        const auto canRead = can.read(10ms, cancellation);
         QVERIFY(!canRead.has_value());
         QVERIFY(canRead.error().kind == fastecu::ErrorKind::Disconnected);
     }
@@ -497,7 +497,7 @@ void TestFacadeThreading::transportAdapters_disconnectDuringReadMapsToDisconnect
     QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Disconnected);
 
     fake->portOpen.store(true);
-    const auto canResult = can.read(10, cancellation);
+    const auto canResult = can.read(10ms, cancellation);
     QVERIFY(!canResult.has_value());
     QVERIFY(canResult.error().kind == fastecu::ErrorKind::Disconnected);
 }
@@ -556,7 +556,7 @@ void TestFacadeThreading::transportAdapters_backendNonStandardExceptionMapsToInt
     QVERIFY(!klineRead.has_value());
     QVERIFY(klineRead.error().kind == fastecu::ErrorKind::Internal);
 
-    const auto canRead = can.read(10, cancellation);
+    const auto canRead = can.read(10ms, cancellation);
     QVERIFY(!canRead.has_value());
     QVERIFY(canRead.error().kind == fastecu::ErrorKind::Internal);
 
@@ -605,7 +605,7 @@ void TestFacadeThreading::transportAdapters_cancellationPrecedesReadException()
     QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Cancelled);
 
     cancellation.set_cancelled(false);
-    const auto canResult = can.read(10, cancellation);
+    const auto canResult = can.read(10ms, cancellation);
     QVERIFY(!canResult.has_value());
     QVERIFY(canResult.error().kind == fastecu::ErrorKind::Cancelled);
 }

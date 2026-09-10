@@ -47,7 +47,7 @@ TEST(TransportContract, CanReadReturnsFrameWithIdAndPayload)
     cdbg::ScriptedCanTransport t;
     t.queueRead(0x7E8, test_bytes::bytesFromHex("0102"));
     fastecu::FakeCancellationToken token;
-    auto result = t.read(20, token);
+    auto result = t.read(20ms, token);
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->has_value());
     EXPECT_EQ(result->value().id, 0x7E8U);

@@ -60,7 +60,8 @@ class ScriptedCanTransport : public ICanTransport
         }
         return payload.size();
     }
-    fastecu::Result<std::optional<CanFrame>> read(int, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Result<std::optional<CanFrame>> read(std::chrono::milliseconds,
+                                                  const fastecu::ICancellationToken& cancellation) override
     {
         if (cancellation.cancelled())
         {

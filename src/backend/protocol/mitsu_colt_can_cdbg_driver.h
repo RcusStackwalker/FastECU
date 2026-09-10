@@ -4,6 +4,7 @@
 #include "src/backend/ports/cancellation.h"
 #include "src/backend/ports/result.h"
 
+#include <chrono>
 #include <cstdint>
 #include <vector>
 
@@ -47,7 +48,8 @@ class CdbgLogDriver
 
     // Reads at most one streamed frame and reports whether a usable frame was
     // actually received. Cached values are returned only with responded=true.
-    fastecu::Result<PollResult> pollOnce(int timeoutMs, const fastecu::ICancellationToken& cancellation);
+    fastecu::Result<PollResult> pollOnce(std::chrono::milliseconds timeout,
+                                         const fastecu::ICancellationToken& cancellation);
 
   private:
     cdbg::ICanTransport& t_;
