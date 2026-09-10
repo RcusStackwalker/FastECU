@@ -39,11 +39,26 @@ jobs:
 
       - name: Hold openjdk packages for this job
         run: |
-          pkgs=$(dpkg-query -W -f='${Package}\n' 'openjdk-*' 'default-jdk*' 'default-jre*' 2>/dev/null)
+          pkgs=$(dpkg-query -W -f='${Package}\n' 'openjdk-*' 'default-jdk*' 'default-jre*' 2>/dev/null || true)
           echo "openjdk packages found: ${pkgs:-<none>}"
           if [ -n "$pkgs" ]; then
             sudo apt-mark hold $pkgs
           fi
+
+      - name: Start package-manager activity watcher
+        run: |
+          (
+            while true; do
+              echo "=== $(date -u +%FT%TZ) ==="
+              pgrep -fal 'apt|dpkg|unattended' || true
+              java_bin=$(command -v java || true)
+              if [ -n "$java_bin" ]; then
+                stat -c '%Y %n' "$(readlink -f "$java_bin")" 2>/dev/null || true
+              fi
+              sleep 15
+            done
+          ) > /tmp/pkg-watch.log 2>&1 &
+          echo "watcher pid: $!"
 
       - name: Install Qt
         uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
@@ -76,6 +91,20 @@ jobs:
         run: scripts/coverage-local.sh
         env:
           BAZEL_TEST_CONFIG: sonar
+
+      - name: Dump package-manager activity for diagnosis
+        if: always()
+        run: |
+          echo "--- watcher log ---"
+          cat /tmp/pkg-watch.log || true
+          echo "--- dpkg.log tail ---"
+          sudo tail -n 300 /var/log/dpkg.log || true
+          echo "--- apt history tail ---"
+          sudo tail -n 300 /var/log/apt/history.log || true
+          echo "--- unattended-upgrades log ---"
+          sudo tail -n 300 /var/log/unattended-upgrades/unattended-upgrades.log || true
+          echo "--- journalctl apt/dpkg/openjdk mentions ---"
+          sudo journalctl --no-pager 2>/dev/null | grep -iE 'apt|dpkg|openjdk' | tail -n 300 || true
 
       - name: SonarCloud scan
         id: sonarcloud
