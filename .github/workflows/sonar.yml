@@ -37,30 +37,6 @@ jobs:
           fetch-depth: 0
           ref: ${{ inputs.ref }}
 
-      - name: Start resource activity watcher
-        run: |
-          echo "--- ulimit -a at job start ---"
-          ulimit -a
-          (
-            while true; do
-              echo "=== $(date -u +%FT%TZ) ==="
-              free -m
-              echo "processes: $(ps -e --no-headers | wc -l)"
-              bazel_pid=$(pgrep -x java | head -1)
-              if [ -n "$bazel_pid" ]; then
-                threads=$(awk '/^Threads:/{print $2}' "/proc/$bazel_pid/status" 2>/dev/null)
-                rss=$(awk '/^VmRSS:/{print $2, $3}' "/proc/$bazel_pid/status" 2>/dev/null)
-                fds=$(ls "/proc/$bazel_pid/fd" 2>/dev/null | wc -l)
-                echo "bazel server pid=$bazel_pid threads=$threads rss=$rss fds=$fds"
-              else
-                echo "bazel server: not running"
-              fi
-              pgrep -fal 'apt|dpkg|unattended' | grep -vE 'adapter|apter' || true
-              sleep 10
-            done
-          ) > /tmp/pkg-watch.log 2>&1 &
-          echo "watcher pid: $!"
-
       - name: Install Qt
         uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
         with:
@@ -77,7 +53,7 @@ jobs:
       - name: Install Clang and LLVM tools (Linux)
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang llvm strace
+          sudo apt-get install -y clang llvm
 
       - name: Install SonarCloud build wrapper
         id: build-wrapper
@@ -88,20 +64,12 @@ jobs:
           "${{ steps.build-wrapper.outputs.build-wrapper-binary }}" --out-dir bw-output \
             bazel build --config=sonar --spawn_strategy=local --strategy=Genrule=local //...
 
-      # Root cause found via the Bazel server's own jvm.out (captured by the
-      # diagnostics below): "build-wrapper: connect to
-      # /tmp/build-wrapper-socket.XXXXXX: No such file or directory", repeated
-      # for every subprocess the server spawned during the supposedly-
-      # unwrapped test run. The server is a persistent daemon reused across
-      # bazel invocations; build-wrapper's LD_PRELOAD interceptor is loaded
-      # into it once, at this step, and stays loaded for the server's entire
-      # remaining lifetime -- including the "unwrapped" `bazel test` below --
-      # long after build-wrapper's own CLI process (and its socket) has
-      # exited. Every subsequent subprocess spawn then gets intercepted,
-      # fails to report home, and corrupts process creation, which is what
-      # crashes Bazel's server with "Failed to exec spawn helper". Shut the
-      # server down so the next bazel invocation starts a clean one with no
-      # interceptor loaded at all.
+      # build-wrapper's LD_PRELOAD interceptor is loaded into the Bazel server
+      # once, here, and stays loaded for the server's remaining lifetime since
+      # it's a persistent daemon reused by later bazel invocations. Left
+      # running, it keeps trying to report to build-wrapper's already-exited
+      # CLI process during the unwrapped test run below and crashes the
+      # server. Shut it down so the next invocation starts a clean one.
       - name: Shut down the build-wrapper-instrumented server
         run: bazel shutdown
 
@@ -109,45 +77,6 @@ jobs:
         run: scripts/coverage-local.sh
         env:
           BAZEL_TEST_CONFIG: sonar
-          BAZEL_TEST_STRACE_LOG: /tmp/bazel-test-strace.log
-
-      - name: Dump resource and OOM diagnostics
-        if: always()
-        run: |
-          echo "--- ulimit -a at job end ---"
-          ulimit -a
-          echo "--- watcher log (memory/process/fd/thread samples) ---"
-          cat /tmp/pkg-watch.log || true
-          echo "--- dmesg tail (unfiltered) ---"
-          sudo dmesg --ctime 2>/dev/null | tail -n 300 || echo "none found"
-          echo "--- journalctl -k tail (unfiltered) ---"
-          sudo journalctl -k --no-pager 2>/dev/null | tail -n 300 || echo "none found"
-          echo "--- journalctl apparmor/DENIED mentions ---"
-          sudo journalctl --no-pager 2>/dev/null | grep -iE 'apparmor|denied' | tail -n 200 || echo "none found"
-          echo "--- journalctl apt/dpkg/openjdk mentions ---"
-          sudo journalctl --no-pager 2>/dev/null | grep -iE 'apt|dpkg|openjdk' | tail -n 300 || true
-          echo "--- bazel server jvm.out ---"
-          mkdir -p /tmp/sonar-diagnostics
-          jvm_out=$(find /home/runner/.bazel "$HOME/.cache/bazel" -name jvm.out 2>/dev/null | head -1)
-          if [ -n "$jvm_out" ]; then
-            echo "== $jvm_out =="
-            tail -n 300 "$jvm_out"
-            cp "$jvm_out" /tmp/sonar-diagnostics/bazel-jvm.out
-          else
-            echo "none found"
-          fi
-          echo "--- strace log line count (full log uploaded as an artifact) ---"
-          wc -l /tmp/bazel-test-strace.log 2>/dev/null || echo "no strace log produced"
-          cp /tmp/bazel-test-strace.log /tmp/sonar-diagnostics/ 2>/dev/null || true
-          cp /tmp/pkg-watch.log /tmp/sonar-diagnostics/ 2>/dev/null || true
-
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        if: always()
-        with:
-          name: sonar-diagnostics
-          path: /tmp/sonar-diagnostics
-          retention-days: 7
-          if-no-files-found: warn
 
       - name: SonarCloud scan
         id: sonarcloud
