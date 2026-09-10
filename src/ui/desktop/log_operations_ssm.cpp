@@ -6,6 +6,7 @@
 #include "src/backend/protocol/transport_legacy_compat.h"
 
 using namespace mutdma;
+using namespace std::chrono_literals;
 
 void MainWindow::kline_listener()
 {
@@ -553,7 +554,7 @@ QByteArray MainWindow::mut_read_memory(quint16 addr, int len)
         {
             break;
         }
-        auto values = d.pollOnce(50, cancellation);
+        auto values = d.pollOnce(50ms, cancellation);
         if (!values)
         {
             break;

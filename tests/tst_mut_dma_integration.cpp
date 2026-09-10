@@ -32,6 +32,7 @@
 #include <QThread>
 #include <QSemaphore>
 #include <atomic>
+#include <chrono>
 #include <vector>
 
 #if defined(__linux__)
@@ -51,6 +52,7 @@
 #include "src/algorithms/protocol/qt_bytes.h"
 
 using namespace mutdma;
+using namespace std::chrono_literals;
 
 // Scripted mock Openport 2.0 on the master side of a PTY. Buffer-driven (not purely
 // line-based) so it can faithfully consume the raw data bytes that trail an "att"
@@ -356,7 +358,7 @@ void MutDmaIntegrationTest::read_throughAdapter_returnsEcuReplyBytes()
 
         FastEcuKlineTransport tr(&spad);
         fastecu::FakeCancellationToken cancellation;
-        tr.read(60, cancellation); // drain any residual init acks before the scripted exchange
+        tr.read(60ms, cancellation); // drain any residual init acks before the scripted exchange
 
         QByteArray reply;
         reply.append(char(0x05));
@@ -366,7 +368,7 @@ void MutDmaIntegrationTest::read_throughAdapter_returnsEcuReplyBytes()
         reply.append(char(0xDD));
         mock.injectDataFrame(reply);
 
-        const auto read = tr.read(500, cancellation);
+        const auto read = tr.read(500ms, cancellation);
         QVERIFY(read);
         QVERIFY(read->has_value());
         QCOMPARE(bytes::toQByteArray(read->value()), reply);
@@ -407,10 +409,10 @@ void MutDmaIntegrationTest::driverPollOnce_throughAdapter_decodesStreamFrameFrom
         frame.append(char(sum8(bytes::view(frame))));
         frame.append(char(TRAILER_STD));
 
-        tr.read(60, cancellation); // drain residual
+        tr.read(60ms, cancellation); // drain residual
         mock.injectDataFrame(frame);
 
-        const auto values = driver.pollOnce(500, cancellation);
+        const auto values = driver.pollOnce(500ms, cancellation);
         QVERIFY(values);
         QCOMPARE(values->size(), std::size_t(2));
         QCOMPARE(values->at(0), std::uint32_t(0x42));

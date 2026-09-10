@@ -26,6 +26,7 @@ using bytes::composeBe;
 using bytes::composeBeWithChecksum;
 using bytes::u24;
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 
 class NeverCancelled : public ICancellationToken
 {
@@ -99,13 +100,13 @@ class DrainCancellingTransport final : public ScriptedKlineFlashTransport
     {
     }
 
-    Result<OptionalBytes> read(int timeout_ms, const ICancellationToken& cancellation) override
+    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
-        if (timeout_ms == 10)
+        if (timeout == 10ms)
         {
             cancellation_.cancel();
         }
-        return ScriptedKlineFlashTransport::read(timeout_ms, cancellation);
+        return ScriptedKlineFlashTransport::read(timeout, cancellation);
     }
 
     Result<std::size_t> write(bytes::ByteView data) override
@@ -141,9 +142,9 @@ class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
         return ScriptedKlineFlashTransport::write(data);
     }
 
-    Result<OptionalBytes> read(int timeout_ms, const ICancellationToken& cancellation) override
+    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
-        Result<OptionalBytes> result = ScriptedKlineFlashTransport::read(timeout_ms, cancellation);
+        Result<OptionalBytes> result = ScriptedKlineFlashTransport::read(timeout, cancellation);
         if (erase_response_pending_)
         {
             erase_response_pending_ = false;
@@ -557,7 +558,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
     EXPECT_EQ(transport.operation_trace_.front(), ScriptedKlineFlashTransport::Operation::DisableLecLines);
     EXPECT_EQ(transport.operation_trace_.at(1), ScriptedKlineFlashTransport::Operation::Read10);
     EXPECT_EQ(transport.lec_2_pulse_timeouts_, (std::vector<int>{200}));
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200), 12);
+    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200ms), 12);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119,
     // 289-293, and 1139-1162: 200 + 200 + 50 + 1500 + 200 ms.
     EXPECT_EQ(clock.now_, 2150U);
@@ -617,7 +618,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
                   ScriptedKlineFlashTransport::ControlLineAction::DisableLecLines,
                   ScriptedKlineFlashTransport::ControlLineAction::EnableProgrammingVoltageLine,
               }));
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200), 11);
+    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200ms), 11);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119,
     // 149-155, and 1139-1162: 200 + 200 + 50 + 100 + 200 ms.
     EXPECT_EQ(clock.now_, 750U);
@@ -779,7 +780,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, CancellationAtInitialDrainStopsBeforeBoot
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_TRUE(transport.write_attempts_.empty());
-    EXPECT_EQ(transport.read_timeouts_, (std::vector<int>{10}));
+    EXPECT_EQ(transport.read_timeouts_, (std::vector<std::chrono::milliseconds>{10ms}));
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ReadReturnsAssembledPageBytes)
@@ -1126,7 +1127,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50), 1);
+    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 1);
     EXPECT_EQ(clock.now_, 2250U);
 }
 
@@ -1167,7 +1168,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50), 1);
+    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 1);
     EXPECT_EQ(clock.now_, 2250U);
 }
 
@@ -1196,7 +1197,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsTruncatedBlockCrcAfterBounded
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50), 20);
+    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 20);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsNegativeBlockCrcResponse)

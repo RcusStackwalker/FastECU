@@ -21,6 +21,7 @@ using bytes::composeBe;
 using bytes::composeBeWithChecksum;
 using bytes::u24;
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 
 constexpr std::uint16_t kStartComm = 0xBEEF;
 constexpr std::uint8_t kOpId = 0x01;
@@ -101,7 +102,7 @@ Result<IKlineFlashTransport::OptionalBytes> exchange_optional_impl(IKlineFlashTr
     {
         return std::unexpected(cancelled.error());
     }
-    auto received = transport.read(timeout_ms, cancellation);
+    auto received = transport.read(std::chrono::milliseconds{timeout_ms}, cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -157,7 +158,7 @@ Status drain_response(IKlineFlashTransport& transport, const ICancellationToken&
     {
         return cancelled;
     }
-    if (const auto drained = transport.read(timeout_ms, cancellation); !drained.has_value())
+    if (const auto drained = transport.read(std::chrono::milliseconds{timeout_ms}, cancellation); !drained.has_value())
     {
         return std::unexpected(drained.error());
     }
@@ -194,7 +195,7 @@ Status drain_initial_response(IKlineFlashTransport& transport, const ICancellati
     {
         return cancelled;
     }
-    if (auto drained = transport.read(10, cancellation); !drained.has_value())
+    if (auto drained = transport.read(10ms, cancellation); !drained.has_value())
     {
         return std::unexpected(drained.error());
     }
@@ -496,7 +497,7 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(IKlineFla
     {
         return std::unexpected(cancelled.error());
     }
-    Result<IKlineFlashTransport::OptionalBytes> initial = transport.read(3000, cancellation);
+    Result<IKlineFlashTransport::OptionalBytes> initial = transport.read(3000ms, cancellation);
     if (!initial.has_value())
     {
         return std::unexpected(initial.error());
@@ -514,7 +515,7 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(IKlineFla
         {
             return std::unexpected(cancelled.error());
         }
-        Result<IKlineFlashTransport::OptionalBytes> more = transport.read(50, cancellation);
+        Result<IKlineFlashTransport::OptionalBytes> more = transport.read(50ms, cancellation);
         if (!more.has_value())
         {
             return std::unexpected(more.error());

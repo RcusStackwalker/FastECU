@@ -152,10 +152,10 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         ++wIdx_;
         return data.size();
     }
-    Result<OptionalBytes> read(int timeout_ms, const ICancellationToken& cancellation) override
+    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
-        read_timeouts_.push_back(timeout_ms);
-        if (timeout_ms == 10)
+        read_timeouts_.push_back(timeout);
+        if (timeout == std::chrono::milliseconds{10})
         {
             operation_trace_.push_back(Operation::Read10);
         }
@@ -194,7 +194,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     std::optional<KlineConfig> last_config_;
     std::vector<ControlLineAction> control_line_trace_;
     std::vector<int> lec_2_pulse_timeouts_;
-    std::vector<int> read_timeouts_;
+    std::vector<std::chrono::milliseconds> read_timeouts_;
     std::vector<Operation> operation_trace_;
     std::optional<std::size_t> programming_voltage_line_write_index_;
 

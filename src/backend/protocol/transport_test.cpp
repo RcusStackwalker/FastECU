@@ -64,7 +64,7 @@ TEST(TestTransport, scripted_write_then_read)
     const auto written = t.write(test_bytes::bytesFromHex("A0"));
     ASSERT_TRUE(written);
     ASSERT_EQ(*written, 1U);
-    const auto read = t.read(50, token);
+    const auto read = t.read(50ms, token);
     ASSERT_TRUE(read);
     ASSERT_TRUE(read->has_value());
     ASSERT_EQ(read->value(), test_bytes::bytesFromHex("A5"));

@@ -24,6 +24,7 @@ using fastecu::ErrorKind;
 using fastecu::FakeCancellationToken;
 using fastecu::flash::DesktopKlineFlashTransport;
 using fastecu::flash::KlineConfig;
+using namespace std::chrono_literals;
 
 class TestDesktopKlineFlashTransport : public QObject
 {
@@ -388,7 +389,7 @@ class TestDesktopKlineFlashTransport : public QObject
 
         DesktopKlineFlashTransport transport(std::move(serial));
         FakeCancellationToken cancellation;
-        const auto result = transport.read(50, cancellation);
+        const auto result = transport.read(50ms, cancellation);
 
         QVERIFY(result.has_value());
         QVERIFY(result->has_value());
@@ -411,7 +412,7 @@ class TestDesktopKlineFlashTransport : public QObject
 
         DesktopKlineFlashTransport transport(std::move(serial));
         FakeCancellationToken cancellation(true);
-        const auto result = transport.read(50, cancellation);
+        const auto result = transport.read(50ms, cancellation);
 
         QVERIFY(!result.has_value());
         QCOMPARE(result.error().kind, ErrorKind::Cancelled);
@@ -435,7 +436,7 @@ class TestDesktopKlineFlashTransport : public QObject
 
         DesktopKlineFlashTransport transport(std::move(serial));
         FakeCancellationToken cancellation;
-        const auto result = transport.read(50, cancellation);
+        const auto result = transport.read(50ms, cancellation);
 
         QVERIFY(!result.has_value());
         QCOMPARE(result.error().kind, ErrorKind::Disconnected);
@@ -460,7 +461,7 @@ class TestDesktopKlineFlashTransport : public QObject
 
         DesktopKlineFlashTransport transport(std::move(serial));
         FakeCancellationToken cancellation;
-        const auto result = transport.read(50, cancellation);
+        const auto result = transport.read(50ms, cancellation);
 
         QVERIFY(!result.has_value());
         QCOMPARE(result.error().kind, ErrorKind::Disconnected);
@@ -503,7 +504,7 @@ class TestDesktopKlineFlashTransport : public QObject
         QVERIFY(!writeResult.has_value());
         QCOMPARE(writeResult.error().kind, ErrorKind::Disconnected);
 
-        const auto readResult = transport.read(50, cancellation);
+        const auto readResult = transport.read(50ms, cancellation);
         QVERIFY(!readResult.has_value());
         QCOMPARE(readResult.error().kind, ErrorKind::Disconnected);
 
@@ -621,7 +622,7 @@ class TestDesktopKlineFlashTransport : public QObject
 
         DesktopKlineFlashTransport transport(std::move(serial));
         FakeCancellationToken cancellation;
-        const auto result = transport.read(50, cancellation);
+        const auto result = transport.read(50ms, cancellation);
 
         QVERIFY(result.has_value());
         QVERIFY(!result->has_value());
@@ -727,7 +728,7 @@ class TestDesktopKlineFlashTransport : public QObject
 
         DesktopKlineFlashTransport transport(std::move(serial));
         FakeCancellationToken cancellation;
-        const auto result = transport.read(50, cancellation);
+        const auto result = transport.read(50ms, cancellation);
 
         QVERIFY(!result.has_value());
         QCOMPARE(result.error().kind, ErrorKind::Internal);
@@ -748,7 +749,7 @@ class TestDesktopKlineFlashTransport : public QObject
 
         DesktopKlineFlashTransport transport(std::move(serial));
         FakeCancellationToken cancellation;
-        const auto result = transport.read(50, cancellation);
+        const auto result = transport.read(50ms, cancellation);
 
         QVERIFY(!result.has_value());
         QCOMPARE(result.error().kind, ErrorKind::Internal);
@@ -824,7 +825,7 @@ class TestDesktopKlineFlashTransport : public QObject
         DesktopKlineFlashTransport transport(std::move(serial));
         FakeCancellationToken cancellation;
         cancellation.cancel_on_check(2);
-        const auto result = transport.read(50, cancellation);
+        const auto result = transport.read(50ms, cancellation);
 
         QVERIFY(!result.has_value());
         QCOMPARE(result.error().kind, ErrorKind::Cancelled);
@@ -848,7 +849,7 @@ class TestDesktopKlineFlashTransport : public QObject
         DesktopKlineFlashTransport transport(std::move(serial));
         FakeCancellationToken cancellation;
         cancellation.cancel_on_check(2);
-        const auto result = transport.read(50, cancellation);
+        const auto result = transport.read(50ms, cancellation);
 
         QVERIFY(!result.has_value());
         QCOMPARE(result.error().kind, ErrorKind::Cancelled);
@@ -870,7 +871,7 @@ class TestDesktopKlineFlashTransport : public QObject
         DesktopKlineFlashTransport transport(std::move(serial));
         FakeCancellationToken cancellation;
         cancellation.cancel_on_check(2);
-        const auto result = transport.read(50, cancellation);
+        const auto result = transport.read(50ms, cancellation);
 
         QVERIFY(!result.has_value());
         QCOMPARE(result.error().kind, ErrorKind::Cancelled);
@@ -989,7 +990,7 @@ class TestDesktopKlineFlashTransport : public QObject
         std::thread reader(
             [&]
             {
-                inFlightResult = transport.read(50, cancellation);
+                inFlightResult = transport.read(50ms, cancellation);
                 readerFinished.store(true);
             });
         QVERIFY2(readEntered.tryAcquire(1, 1000), "backend read did not start");
@@ -1009,7 +1010,7 @@ class TestDesktopKlineFlashTransport : public QObject
         // Second half of the contract: the *next* read must not reach the
         // backend at all.
         fake->takeCallLog();
-        const auto secondResult = transport.read(50, cancellation);
+        const auto secondResult = transport.read(50ms, cancellation);
         QVERIFY(!secondResult.has_value());
         QCOMPARE(secondResult.error().kind, ErrorKind::Cancelled);
         QVERIFY(fake->takeCallLog().filter("read:begin").isEmpty());

@@ -21,6 +21,7 @@ using bytes::composeBe;
 using bytes::composeBeWithChecksum;
 using bytes::u24;
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 
 constexpr std::uint16_t kStartComm = 0xBEEF;
 constexpr std::uint8_t kOpId = 0x01;
@@ -100,7 +101,8 @@ Result<IKlineFlashTransport::OptionalBytes> exchange(IKlineFlashTransport& trans
     {
         return std::unexpected(cancelled.error());
     }
-    Result<IKlineFlashTransport::OptionalBytes> received = transport.read(timeout_ms, cancellation);
+    Result<IKlineFlashTransport::OptionalBytes> received =
+        transport.read(std::chrono::milliseconds{timeout_ms}, cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -123,7 +125,7 @@ Status drain(IKlineFlashTransport& transport, const ICancellationToken& cancella
     {
         return cancelled;
     }
-    if (const auto drained = transport.read(timeout_ms, cancellation); !drained.has_value())
+    if (const auto drained = transport.read(std::chrono::milliseconds{timeout_ms}, cancellation); !drained.has_value())
     {
         return std::unexpected(drained.error());
     }
@@ -511,7 +513,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
     {
         return std::unexpected(cancelled.error());
     }
-    Result<IKlineFlashTransport::OptionalBytes> initial = transport.read(3000, cancellation);
+    Result<IKlineFlashTransport::OptionalBytes> initial = transport.read(3000ms, cancellation);
     if (!initial.has_value())
     {
         return std::unexpected(initial.error());
@@ -554,7 +556,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
         {
             return std::unexpected(cancelled.error());
         }
-        Result<IKlineFlashTransport::OptionalBytes> more = transport.read(50, cancellation);
+        Result<IKlineFlashTransport::OptionalBytes> more = transport.read(50ms, cancellation);
         if (!more.has_value())
         {
             return std::unexpected(more.error());

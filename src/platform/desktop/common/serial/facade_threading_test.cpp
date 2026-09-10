@@ -184,7 +184,7 @@ void TestFacadeThreading::transportAdapters_normalEmptyReadIsSuccess()
     QVERIFY(ssmResult.has_value());
     QVERIFY(!ssmResult->has_value());
 
-    const auto klineResult = kline.read(10, cancellation);
+    const auto klineResult = kline.read(10ms, cancellation);
     QVERIFY(klineResult.has_value());
     QVERIFY(!klineResult->has_value());
 
@@ -214,7 +214,7 @@ void TestFacadeThreading::transportAdapters_preCancelledReadSkipsBackend()
     QVERIFY(!ssmResult.has_value());
     QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Cancelled);
 
-    const auto klineResult = kline.read(10, cancellation);
+    const auto klineResult = kline.read(10ms, cancellation);
     QVERIFY(!klineResult.has_value());
     QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Cancelled);
 
@@ -250,7 +250,7 @@ void TestFacadeThreading::transportAdapters_postCallCancellationPrecedesDisconne
 
     cancellation.set_cancelled(false);
     fake->portOpen.store(true);
-    const auto klineResult = kline.read(10, cancellation);
+    const auto klineResult = kline.read(10ms, cancellation);
     QVERIFY(!klineResult.has_value());
     QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Cancelled);
 
@@ -281,7 +281,7 @@ void TestFacadeThreading::transportAdapters_backendReadExceptionMapsToInternal()
     QVERIFY(!ssmResult.has_value());
     QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Internal);
 
-    const auto klineResult = kline.read(10, cancellation);
+    const auto klineResult = kline.read(10ms, cancellation);
     QVERIFY(!klineResult.has_value());
     QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Internal);
 
@@ -342,7 +342,7 @@ void TestFacadeThreading::transportAdapters_nullOrClosedAdapterReturnsDisconnect
         QVERIFY(!ssmRead.has_value());
         QVERIFY(ssmRead.error().kind == fastecu::ErrorKind::Disconnected);
 
-        const auto klineRead = kline.read(10, cancellation);
+        const auto klineRead = kline.read(10ms, cancellation);
         QVERIFY(!klineRead.has_value());
         QVERIFY(klineRead.error().kind == fastecu::ErrorKind::Disconnected);
 
@@ -388,7 +388,7 @@ void TestFacadeThreading::transportAdapters_nullOrClosedAdapterReturnsDisconnect
         QVERIFY(!ssmRead.has_value());
         QVERIFY(ssmRead.error().kind == fastecu::ErrorKind::Disconnected);
 
-        const auto klineRead = kline.read(10, cancellation);
+        const auto klineRead = kline.read(10ms, cancellation);
         QVERIFY(!klineRead.has_value());
         QVERIFY(klineRead.error().kind == fastecu::ErrorKind::Disconnected);
 
@@ -492,7 +492,7 @@ void TestFacadeThreading::transportAdapters_disconnectDuringReadMapsToDisconnect
     QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Disconnected);
 
     fake->portOpen.store(true);
-    const auto klineResult = kline.read(10, cancellation);
+    const auto klineResult = kline.read(10ms, cancellation);
     QVERIFY(!klineResult.has_value());
     QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Disconnected);
 
@@ -552,7 +552,7 @@ void TestFacadeThreading::transportAdapters_backendNonStandardExceptionMapsToInt
     QVERIFY(!ssmRead.has_value());
     QVERIFY(ssmRead.error().kind == fastecu::ErrorKind::Internal);
 
-    const auto klineRead = kline.read(10, cancellation);
+    const auto klineRead = kline.read(10ms, cancellation);
     QVERIFY(!klineRead.has_value());
     QVERIFY(klineRead.error().kind == fastecu::ErrorKind::Internal);
 
@@ -600,7 +600,7 @@ void TestFacadeThreading::transportAdapters_cancellationPrecedesReadException()
     QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Cancelled);
 
     cancellation.set_cancelled(false);
-    const auto klineResult = kline.read(10, cancellation);
+    const auto klineResult = kline.read(10ms, cancellation);
     QVERIFY(!klineResult.has_value());
     QVERIFY(klineResult.error().kind == fastecu::ErrorKind::Cancelled);
 

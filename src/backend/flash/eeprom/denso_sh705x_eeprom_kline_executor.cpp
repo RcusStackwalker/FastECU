@@ -172,7 +172,7 @@ Result<bytes::Bytes> ssm_exchange(IKlineFlashTransport& transport, IClock&, cons
     {
         return fail(ErrorKind::Cancelled, "cancelled after write");
     }
-    auto received = transport.read(timeout_ms, cancellation);
+    auto received = transport.read(std::chrono::milliseconds{timeout_ms}, cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -212,7 +212,7 @@ Result<bytes::Bytes> request_kernel_id(IKlineFlashTransport& transport, IClock& 
     {
         return fail(ErrorKind::Cancelled, "cancelled after delay");
     }
-    auto received = transport.read(kShortTimeoutMs, cancellation);
+    auto received = transport.read(std::chrono::milliseconds{kShortTimeoutMs}, cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -747,7 +747,7 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
             {
                 return std::unexpected(slept.error());
             }
-            auto received = transport.read(kShortTimeoutMs, cancellation);
+            auto received = transport.read(std::chrono::milliseconds{kShortTimeoutMs}, cancellation);
             if (!received.has_value())
             {
                 return std::unexpected(received.error());

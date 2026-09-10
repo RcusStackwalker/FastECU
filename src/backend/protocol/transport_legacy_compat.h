@@ -52,7 +52,7 @@ inline int write(mutdma::IKlineTransport& transport, bytes::ByteView data)
 
 inline bytes::Bytes read(mutdma::IKlineTransport& transport, int timeout_ms, [[maybe_unused]] int want_bytes = -1)
 {
-    auto result = transport.read(timeout_ms, detail::never_cancelled());
+    auto result = transport.read(std::chrono::milliseconds{timeout_ms}, detail::never_cancelled());
     if (!result || !result->has_value())
     {
         return {};

@@ -21,7 +21,7 @@ class TripOnReadTransport final : public ScriptedKlineFlashTransport
         : ScriptedKlineFlashTransport(ScriptedTransportInitialState::Open), source_(source)
     {
     }
-    Result<OptionalBytes> read(int timeout, const ICancellationToken& cancellation) override
+    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
         auto result = ScriptedKlineFlashTransport::read(timeout, cancellation);
         if (++reads_ == 3)

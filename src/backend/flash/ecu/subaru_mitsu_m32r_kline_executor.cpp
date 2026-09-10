@@ -44,7 +44,7 @@ Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& tran
     {
         return fail(ErrorKind::Cancelled, "cancelled after write");
     }
-    auto response = transport.read(kTimeoutMs, cancellation);
+    auto response = transport.read(std::chrono::milliseconds{kTimeoutMs}, cancellation);
     if (!response.has_value())
     {
         return std::unexpected(response.error());
