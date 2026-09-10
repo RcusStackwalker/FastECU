@@ -5,6 +5,7 @@
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <atomic>
+#include <chrono>
 #include <stdexcept>
 #include <thread>
 #include <vector>
@@ -16,6 +17,8 @@
 #include "src/platform/desktop/common/transport/fastecu_can_transport.h"
 #include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"
+
+using namespace std::chrono_literals;
 
 class TestFacadeThreading : public QObject
 {
@@ -177,7 +180,7 @@ void TestFacadeThreading::transportAdapters_normalEmptyReadIsSuccess()
     cdbg::FastEcuCanTransport can(&serial);
     fastecu::FakeCancellationToken cancellation;
 
-    const auto ssmResult = ssm.read(10, cancellation);
+    const auto ssmResult = ssm.read(10ms, cancellation);
     QVERIFY(ssmResult.has_value());
     QVERIFY(!ssmResult->has_value());
 
@@ -207,7 +210,7 @@ void TestFacadeThreading::transportAdapters_preCancelledReadSkipsBackend()
     fastecu::FakeCancellationToken cancellation;
     cancellation.set_cancelled(true);
 
-    const auto ssmResult = ssm.read(10, cancellation);
+    const auto ssmResult = ssm.read(10ms, cancellation);
     QVERIFY(!ssmResult.has_value());
     QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Cancelled);
 
@@ -241,7 +244,7 @@ void TestFacadeThreading::transportAdapters_postCallCancellationPrecedesDisconne
         fake->portOpen.store(false);
     };
 
-    const auto ssmResult = ssm.read(10, cancellation);
+    const auto ssmResult = ssm.read(10ms, cancellation);
     QVERIFY(!ssmResult.has_value());
     QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Cancelled);
 
@@ -274,7 +277,7 @@ void TestFacadeThreading::transportAdapters_backendReadExceptionMapsToInternal()
     fastecu::FakeCancellationToken cancellation;
     fake->throwOnRead = true;
 
-    const auto ssmResult = ssm.read(10, cancellation);
+    const auto ssmResult = ssm.read(10ms, cancellation);
     QVERIFY(!ssmResult.has_value());
     QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Internal);
 
@@ -335,7 +338,7 @@ void TestFacadeThreading::transportAdapters_nullOrClosedAdapterReturnsDisconnect
         QVERIFY(!canWrite.has_value());
         QVERIFY(canWrite.error().kind == fastecu::ErrorKind::Disconnected);
 
-        const auto ssmRead = ssm.read(10, cancellation);
+        const auto ssmRead = ssm.read(10ms, cancellation);
         QVERIFY(!ssmRead.has_value());
         QVERIFY(ssmRead.error().kind == fastecu::ErrorKind::Disconnected);
 
@@ -381,7 +384,7 @@ void TestFacadeThreading::transportAdapters_nullOrClosedAdapterReturnsDisconnect
         QVERIFY(!canWrite.has_value());
         QVERIFY(canWrite.error().kind == fastecu::ErrorKind::Disconnected);
 
-        const auto ssmRead = ssm.read(10, cancellation);
+        const auto ssmRead = ssm.read(10ms, cancellation);
         QVERIFY(!ssmRead.has_value());
         QVERIFY(ssmRead.error().kind == fastecu::ErrorKind::Disconnected);
 
@@ -484,7 +487,7 @@ void TestFacadeThreading::transportAdapters_disconnectDuringReadMapsToDisconnect
                                                  // cancellation-precedence path
     fake->closePortAfterRead = true;
 
-    const auto ssmResult = ssm.read(10, cancellation);
+    const auto ssmResult = ssm.read(10ms, cancellation);
     QVERIFY(!ssmResult.has_value());
     QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Disconnected);
 
@@ -545,7 +548,7 @@ void TestFacadeThreading::transportAdapters_backendNonStandardExceptionMapsToInt
     // A throw that is not a std::exception must still land in Internal via
     // the adapters' generic `catch (...)` branch, not escape or crash.
     fake->throwNonStandardOnRead = true;
-    const auto ssmRead = ssm.read(10, cancellation);
+    const auto ssmRead = ssm.read(10ms, cancellation);
     QVERIFY(!ssmRead.has_value());
     QVERIFY(ssmRead.error().kind == fastecu::ErrorKind::Internal);
 
@@ -592,7 +595,7 @@ void TestFacadeThreading::transportAdapters_cancellationPrecedesReadException()
     // observed -- even though the backend failed via exception, not silence.
     fake->beforeReadThrow = [&] { cancellation.set_cancelled(true); };
 
-    const auto ssmResult = ssm.read(10, cancellation);
+    const auto ssmResult = ssm.read(10ms, cancellation);
     QVERIFY(!ssmResult.has_value());
     QVERIFY(ssmResult.error().kind == fastecu::ErrorKind::Cancelled);
 

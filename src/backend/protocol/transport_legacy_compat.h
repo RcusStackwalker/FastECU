@@ -5,6 +5,7 @@
 #include "src/backend/protocol/ikline_transport.h"
 #include "src/backend/protocol/issm_transport.h"
 
+#include <chrono>
 #include <cstdint>
 #include <utility>
 
@@ -30,7 +31,7 @@ inline int write(ISsmTransport& transport, bytes::ByteView data)
 
 inline bytes::Bytes read(ISsmTransport& transport, int timeout_ms)
 {
-    auto result = transport.read(timeout_ms, detail::never_cancelled());
+    auto result = transport.read(std::chrono::milliseconds{timeout_ms}, detail::never_cancelled());
     if (!result || !result->has_value())
     {
         return {};

@@ -1,6 +1,7 @@
 #include "src/backend/service_functions/read_parameters_session.h"
 
 #include <array>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -10,10 +11,11 @@ namespace fastecu::service_functions
 {
 namespace
 {
+using namespace std::chrono_literals;
 
-constexpr int kAttempts = 6;              // legacy :571
-constexpr int kReadTimeoutMs = 200;       // serial_read_short_timeout, legacy header :62
-constexpr std::size_t kMinFrameSize = 15; // bytes 5..14 are decoded; legacy guards > 10
+constexpr int kAttempts = 6;                              // legacy :571
+constexpr std::chrono::milliseconds kReadTimeout = 200ms; // serial_read_short_timeout, legacy header :62
+constexpr std::size_t kMinFrameSize = 15;                 // bytes 5..14 are decoded; legacy guards > 10
 constexpr bytes::Byte kPositiveResponse = 0xe8;
 
 // legacy :540-570 -- ten addresses, in this order.
@@ -93,7 +95,7 @@ ServiceFunctionStep ReadParametersSession::resume(ISsmTransport& transport, IClo
             return FailedStep{written.error()};
         }
 
-        const auto received = transport.read(kReadTimeoutMs, cancellation);
+        const auto received = transport.read(kReadTimeout, cancellation);
         if (!received.has_value())
         {
             return FailedStep{received.error()};

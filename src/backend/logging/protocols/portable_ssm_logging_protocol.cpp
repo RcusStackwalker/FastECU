@@ -1,5 +1,6 @@
 #include "src/backend/logging/protocols/portable_ssm_logging_protocol.h"
 
+#include <chrono>
 #include <cstddef>
 #include <string>
 #include <utility>
@@ -10,6 +11,8 @@ namespace fastecu::logging
 {
 namespace
 {
+using namespace std::chrono_literals;
+
 constexpr int kStartTimeoutMs = 1000;
 
 fastecu::Status checkCancellation(const fastecu::ICancellationToken& cancellation)
@@ -78,7 +81,7 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(int timeout
     bytes::Bytes received;
     const std::uint64_t start = clock_.now_ms();
 
-    const auto read_and_append = [&](int read_timeout) -> fastecu::Status
+    const auto read_and_append = [&](std::chrono::milliseconds read_timeout) -> fastecu::Status
     {
         if (auto status = checkCancellation(cancellation); !status)
         {
@@ -98,7 +101,7 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(int timeout
 
     if (use_openport2_adapter_)
     {
-        if (auto status = read_and_append(timeout_ms); !status)
+        if (auto status = read_and_append(std::chrono::milliseconds{timeout_ms}); !status)
         {
             return std::unexpected(status.error());
         }
@@ -107,7 +110,7 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(int timeout
 
     while (received.size() < 3 && static_cast<int>(clock_.now_ms() - start) < timeout_ms)
     {
-        if (auto status = read_and_append(10); !status)
+        if (auto status = read_and_append(10ms); !status)
         {
             return std::unexpected(status.error());
         }
@@ -117,7 +120,7 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(int timeout
            static_cast<int>(clock_.now_ms() - start) < timeout_ms)
     {
         received.erase(received.begin());
-        if (auto status = read_and_append(10); !status)
+        if (auto status = read_and_append(10ms); !status)
         {
             return std::unexpected(status.error());
         }
@@ -125,7 +128,7 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(int timeout
 
     if (const int remaining = timeout_ms - static_cast<int>(clock_.now_ms() - start); remaining > 0)
     {
-        if (auto status = read_and_append(remaining); !status)
+        if (auto status = read_and_append(std::chrono::milliseconds{remaining}); !status)
         {
             return std::unexpected(status.error());
         }

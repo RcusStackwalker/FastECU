@@ -1,5 +1,6 @@
 #include "src/backend/service_functions/set_parameters_session.h"
 
+#include <chrono>
 #include <utility>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
@@ -8,10 +9,11 @@ namespace fastecu::service_functions
 {
 namespace
 {
+using namespace std::chrono_literals;
 
-constexpr int kReadTimeoutMs = 500;     // receive_timeout, legacy header :59
-constexpr bytes::Byte kTesterId = 0xf0; // legacy :151
-constexpr bytes::Byte kTargetId = 0x18; // legacy :152
+constexpr std::chrono::milliseconds kReadTimeout = 500ms; // receive_timeout, legacy header :59
+constexpr bytes::Byte kTesterId = 0xf0;                   // legacy :151
+constexpr bytes::Byte kTargetId = 0x18;                   // legacy :152
 constexpr bytes::Byte kPositiveResponse = 0xf8;
 
 bytes::Bytes frameFor(const TcuParameterWrite& write)
@@ -79,7 +81,7 @@ ServiceFunctionStep SetParametersSession::resume(ISsmTransport& transport, ICloc
             return FailedStep{sent.error()};
         }
 
-        const auto received = transport.read(kReadTimeoutMs, cancellation);
+        const auto received = transport.read(kReadTimeout, cancellation);
         if (!received.has_value())
         {
             return FailedStep{received.error()};
