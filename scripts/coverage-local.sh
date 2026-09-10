@@ -20,6 +20,21 @@ coverage_ignore_regex='(^|/)(tests|hexedit)/|(^|/)(moc_|qrc_|ui_)|\.moc$|rep_.*_
 
 cd "$repo_root"
 
+# BAZEL_TEST_STRACE_LOG (set only by the SonarCloud job while diagnosing a
+# server crash) attaches strace to the Bazel server for the duration of the
+# test run, scoped to process-lifecycle syscalls to keep overhead low. `bazel
+# info server_pid` starts the server if needed and prints its PID without
+# running a build; strace then attaches to that already-running process
+# (not exec'd fresh), so this doesn't touch bazel test's own exit-code
+# propagation below at all.
+strace_pid=
+if [ -n "${BAZEL_TEST_STRACE_LOG:-}" ]; then
+  bazel_server_pid=$(bazel info server_pid)
+  sudo strace -f -e trace=%process -tt -o "$BAZEL_TEST_STRACE_LOG" -p "$bazel_server_pid" &
+  strace_pid=$!
+  sleep 1
+fi
+
 # Let Bazel run every compatible test so target-specific environments, runfiles,
 # framework paths, platform constraints, and failures retain their normal test
 # semantics. LLVM's %m token gives each instrumented binary a unique profile
@@ -34,6 +49,13 @@ bazel test \
   --sandbox_writable_path="$coverage_root/profiles" \
   --test_env="LLVM_PROFILE_FILE=$coverage_root/profiles/%m-%p.profraw" \
   //...
+
+if [ -n "$strace_pid" ]; then
+  # SIGINT is ignored by background jobs in POSIX shells by default; SIGTERM
+  # isn't, and strace treats it the same way (clean detach, flush, exit).
+  sudo kill -TERM "$strace_pid" 2>/dev/null || true
+  wait "$strace_pid" 2>/dev/null || true
+fi
 
 # Enumerate the instrumented test executables from the configured graph for
 # llvm-cov's object list.
