@@ -9,6 +9,8 @@ namespace MitsuColtCanCdbg
 
 namespace
 {
+using namespace std::chrono_literals;
+
 fastecu::Result<bytes::Bytes> sendAndReceive(cdbg::ICanTransport& transport, bytes::ByteView command,
                                              const fastecu::ICancellationToken& cancellation,
                                              std::string_view failureDetail)
@@ -22,7 +24,7 @@ fastecu::Result<bytes::Bytes> sendAndReceive(cdbg::ICanTransport& transport, byt
     {
         return fastecu::fail(fastecu::ErrorKind::Internal, "partial CAN write");
     }
-    auto reply = transport.read(250, cancellation);
+    auto reply = transport.read(250ms, cancellation);
     if (!reply)
     {
         return std::unexpected(reply.error());
@@ -120,7 +122,7 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
     return {};
 }
 
-fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::pollOnce(int timeoutMs,
+fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::pollOnce(std::chrono::milliseconds timeout,
                                                                    const fastecu::ICancellationToken& cancellation)
 {
     if (!streaming_)
@@ -128,7 +130,7 @@ fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::pollOnce(int timeoutMs
         return PollResult{};
     }
 
-    auto read = t_.read(timeoutMs, cancellation);
+    auto read = t_.read(timeout, cancellation);
     if (!read)
     {
         return std::unexpected(read.error());

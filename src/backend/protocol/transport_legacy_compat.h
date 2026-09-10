@@ -5,6 +5,7 @@
 #include "src/backend/protocol/ikline_transport.h"
 #include "src/backend/protocol/issm_transport.h"
 
+#include <chrono>
 #include <cstdint>
 #include <utility>
 
@@ -30,7 +31,7 @@ inline int write(ISsmTransport& transport, bytes::ByteView data)
 
 inline bytes::Bytes read(ISsmTransport& transport, int timeout_ms)
 {
-    auto result = transport.read(timeout_ms, detail::never_cancelled());
+    auto result = transport.read(std::chrono::milliseconds{timeout_ms}, detail::never_cancelled());
     if (!result || !result->has_value())
     {
         return {};
@@ -51,7 +52,7 @@ inline int write(mutdma::IKlineTransport& transport, bytes::ByteView data)
 
 inline bytes::Bytes read(mutdma::IKlineTransport& transport, int timeout_ms, [[maybe_unused]] int want_bytes = -1)
 {
-    auto result = transport.read(timeout_ms, detail::never_cancelled());
+    auto result = transport.read(std::chrono::milliseconds{timeout_ms}, detail::never_cancelled());
     if (!result || !result->has_value())
     {
         return {};
@@ -67,7 +68,7 @@ inline int write(cdbg::ICanTransport& transport, std::uint32_t can_id, bytes::By
 
 inline bytes::Bytes read(cdbg::ICanTransport& transport, int timeout_ms, std::uint32_t& out_id)
 {
-    auto result = transport.read(timeout_ms, detail::never_cancelled());
+    auto result = transport.read(std::chrono::milliseconds{timeout_ms}, detail::never_cancelled());
     if (!result || !result->has_value())
     {
         return {};

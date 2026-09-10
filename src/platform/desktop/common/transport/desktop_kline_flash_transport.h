@@ -50,7 +50,7 @@ class DesktopKlineFlashTransport final : public IKlineFlashTransport
 
     Status setBaud(int baud) override;
     Result<std::size_t> write(bytes::ByteView data) override;
-    Result<OptionalBytes> read(int timeout_ms, const ICancellationToken& cancellation) override;
+    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override;
     bool isOpen() const override;
 
   private:

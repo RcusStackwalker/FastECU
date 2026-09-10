@@ -1,5 +1,6 @@
 #include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"
 #include "src/algorithms/protocol/qt_bytes.h"
+#include "src/backend/ports/duration_cast.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <exception>
@@ -29,7 +30,7 @@ fastecu::Result<std::size_t> FastEcuSsmTransport::write(bytes::ByteView data)
     }
 }
 
-fastecu::Result<ISsmTransport::OptionalBytes> FastEcuSsmTransport::read(int timeoutMs,
+fastecu::Result<ISsmTransport::OptionalBytes> FastEcuSsmTransport::read(std::chrono::milliseconds timeout,
                                                                         const fastecu::ICancellationToken& cancellation)
 {
     if (cancellation.cancelled())
@@ -43,7 +44,7 @@ fastecu::Result<ISsmTransport::OptionalBytes> FastEcuSsmTransport::read(int time
         {
             return fastecu::fail(fastecu::ErrorKind::Disconnected, "SSM adapter disconnected before read");
         }
-        const QByteArray raw = serial_->read_serial_data(static_cast<uint16_t>(timeoutMs));
+        const QByteArray raw = serial_->read_serial_data(fastecu::saturating_ms<std::uint16_t>(timeout));
         if (cancellation.cancelled())
         {
             return fastecu::fail(fastecu::ErrorKind::Cancelled, "SSM read cancelled");

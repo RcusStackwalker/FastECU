@@ -228,12 +228,14 @@ TEST(BoundFlashAttemptTest, ExecuteErrorWinsOverCloseErrorAndCloseIsLogged)
 
 TEST(BoundFlashAttemptTest, RequestUnblockReachesTheTransport)
 {
+    using namespace std::chrono_literals;
+
     Harness h;
     h.transport->queueBlockingRead();
 
     h.attempt->request_unblock();
 
-    auto read = h.transport->read(10, h.cancellation);
+    auto read = h.transport->read(10ms, h.cancellation);
     ASSERT_FALSE(read.has_value());
     EXPECT_EQ(read.error().kind, ErrorKind::Cancelled);
 }

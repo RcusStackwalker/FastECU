@@ -15,6 +15,7 @@ namespace
 using bytes::composeBe;
 using bytes::u24;
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 
 constexpr int kTimeoutMs = 2000;
 
@@ -45,7 +46,7 @@ Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& tran
     {
         return fail(ErrorKind::Cancelled, "cancelled after write");
     }
-    auto response = transport.read(timeout, cancellation);
+    auto response = transport.read(std::chrono::milliseconds{timeout}, cancellation);
     if (!response.has_value())
     {
         return std::unexpected(response.error());
@@ -343,7 +344,7 @@ Status erase_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
     while (response.size() <= 5 && attempts_remaining > 0)
     {
         --attempts_remaining;
-        auto fragment = transport.read(500, cancellation);
+        auto fragment = transport.read(500ms, cancellation);
         if (!fragment.has_value())
         {
             return std::unexpected(fragment.error());

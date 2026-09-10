@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 
+#include <chrono>
+
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/error.h"
@@ -8,13 +10,14 @@
 #include "src/backend/protocol/testing/scripted_ssm_transport.h"
 
 using namespace mutdma;
+using namespace std::chrono_literals;
 
 TEST(TransportContract, NoFrameIsSuccessfulEmptyOptional)
 {
     ScriptedSsmTransport t;
     t.queue_no_frame();
     fastecu::FakeCancellationToken token;
-    auto result = t.read(20, token);
+    auto result = t.read(20ms, token);
     ASSERT_TRUE(result);
     EXPECT_FALSE(result->has_value());
 }
@@ -24,7 +27,7 @@ TEST(TransportContract, CancellationIsNotSilence)
     ScriptedSsmTransport t;
     t.queue_error(fastecu::ErrorKind::Cancelled);
     fastecu::FakeCancellationToken token(true);
-    auto result = t.read(20, token);
+    auto result = t.read(20ms, token);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
 }
@@ -34,7 +37,7 @@ TEST(TransportContract, QueuedErrorsRemainDistinctFromNoFrame)
     ScriptedSsmTransport t;
     t.queue_error(fastecu::ErrorKind::Disconnected);
     fastecu::FakeCancellationToken token;
-    auto result = t.read(20, token);
+    auto result = t.read(20ms, token);
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
 }
@@ -44,7 +47,7 @@ TEST(TransportContract, CanReadReturnsFrameWithIdAndPayload)
     cdbg::ScriptedCanTransport t;
     t.queueRead(0x7E8, test_bytes::bytesFromHex("0102"));
     fastecu::FakeCancellationToken token;
-    auto result = t.read(20, token);
+    auto result = t.read(20ms, token);
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->has_value());
     EXPECT_EQ(result->value().id, 0x7E8U);
@@ -61,7 +64,7 @@ TEST(TestTransport, scripted_write_then_read)
     const auto written = t.write(test_bytes::bytesFromHex("A0"));
     ASSERT_TRUE(written);
     ASSERT_EQ(*written, 1U);
-    const auto read = t.read(50, token);
+    const auto read = t.read(50ms, token);
     ASSERT_TRUE(read);
     ASSERT_TRUE(read->has_value());
     ASSERT_EQ(read->value(), test_bytes::bytesFromHex("A5"));

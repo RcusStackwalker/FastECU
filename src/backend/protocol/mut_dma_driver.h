@@ -6,6 +6,7 @@
 #include "src/backend/ports/cancellation.h"
 #include "src/backend/ports/result.h"
 
+#include <chrono>
 #include <cstdint>
 #include <utility>
 #include <vector>
@@ -26,8 +27,8 @@ class MutDmaDriver
     {
         return streaming_;
     }
-    // Read one streamed frame (within timeoutMs) and decode to per-channel values.
-    fastecu::Result<std::vector<std::uint32_t>> pollOnce(int timeoutMs,
+    // Read one streamed frame (within timeout) and decode to per-channel values.
+    fastecu::Result<std::vector<std::uint32_t>> pollOnce(std::chrono::milliseconds timeout,
                                                          const fastecu::ICancellationToken& cancellation);
     // Write `bytes` to RAM at `addr` via 0x87 sub-cmd 3 (chunked). Succeeds if
     // every chunk gets a valid echo response. Caller must validate the address range.

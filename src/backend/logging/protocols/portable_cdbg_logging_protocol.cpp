@@ -67,7 +67,7 @@ fastecu::Result<PollData> CdbgLoggingProtocol::poll(int timeout_ms, const fastec
         return PollData{.responded = false};
     }
 
-    auto values = driver_.pollOnce(timeout_ms, cancellation);
+    auto values = driver_.pollOnce(std::chrono::milliseconds{timeout_ms}, cancellation);
     if (!values)
     {
         return std::unexpected(values.error());

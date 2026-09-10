@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/transport/desktop_kline_flash_transport.h"
 
 #include "src/algorithms/protocol/qt_bytes.h"
+#include "src/backend/ports/duration_cast.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 namespace fastecu::flash
@@ -324,7 +325,7 @@ Result<std::size_t> DesktopKlineFlashTransport::write(bytes::ByteView data)
 }
 
 Result<DesktopKlineFlashTransport::OptionalBytes>
-DesktopKlineFlashTransport::read(int timeout_ms, const ICancellationToken& cancellation)
+DesktopKlineFlashTransport::read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation)
 {
     if (cancellation.cancelled() || unblock_requested_.load(std::memory_order_acquire))
     {
@@ -341,7 +342,7 @@ DesktopKlineFlashTransport::read(int timeout_ms, const ICancellationToken& cance
         {
             return fail(ErrorKind::Disconnected, "K-Line adapter disconnected before read");
         }
-        const QByteArray raw = serial_->read_serial_data(static_cast<quint16>(timeout_ms));
+        const QByteArray raw = serial_->read_serial_data(fastecu::saturating_ms<quint16>(timeout));
         // Deliberately NOT re-checking unblock_requested_ here: this call
         // was already in flight when request_unblock() may have fired, and
         // the documented contract is that such a call still returns via its

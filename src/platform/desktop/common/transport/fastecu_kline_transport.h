@@ -12,7 +12,8 @@ class FastEcuKlineTransport : public IKlineTransport
     }
     fastecu::Status setBaud(int baud) override;
     fastecu::Result<std::size_t> write(bytes::ByteView data) override;
-    fastecu::Result<OptionalBytes> read(int timeoutMs, const fastecu::ICancellationToken& cancellation) override;
+    fastecu::Result<OptionalBytes> read(std::chrono::milliseconds timeout,
+                                        const fastecu::ICancellationToken& cancellation) override;
     bool isOpen() const override;
 
   private:

@@ -1,5 +1,6 @@
 #include "src/backend/service_functions/relearn_session.h"
 
+#include <chrono>
 #include <format>
 #include <utility>
 
@@ -7,10 +8,11 @@ namespace fastecu::service_functions
 {
 namespace
 {
+using namespace std::chrono_literals;
 
-constexpr int kWriteAttempts = 6;    // legacy :702
-constexpr int kPollIterations = 200; // legacy :748
-constexpr int kReadTimeoutMs = 200;  // serial_read_short_timeout, legacy header :62
+constexpr int kWriteAttempts = 6;                         // legacy :702
+constexpr int kPollIterations = 200;                      // legacy :748
+constexpr std::chrono::milliseconds kReadTimeout = 200ms; // serial_read_short_timeout, legacy header :62
 constexpr bytes::Byte kWriteAck = 0xf8;
 constexpr bytes::Byte kReadAck = 0xe8;
 
@@ -39,7 +41,7 @@ Result<bytes::Bytes> exchangeTolerantly(ISsmTransport& transport, const ICancell
             return std::unexpected(sent.error());
         }
 
-        const auto received = transport.read(kReadTimeoutMs, cancellation);
+        const auto received = transport.read(kReadTimeout, cancellation);
         if (!received.has_value())
         {
             return std::unexpected(received.error());
@@ -153,7 +155,7 @@ ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, co
                 return FailedStep{sent.error()};
             }
 
-            const auto received = transport.read(kReadTimeoutMs, cancellation);
+            const auto received = transport.read(kReadTimeout, cancellation);
             if (!received.has_value())
             {
                 return FailedStep{received.error()};

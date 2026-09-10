@@ -9,6 +9,7 @@
 #include "src/backend/protocol/testing/scripted_kline_transport.h"
 
 using namespace mutdma;
+using namespace std::chrono_literals;
 
 namespace
 {
@@ -69,7 +70,7 @@ TEST(TestDriver, poll_decodes_stream_frame)
     MutDmaDriver d(t, init);
     d.setChannelsForTest(ch);
     fastecu::FakeCancellationToken cancellation;
-    const auto result = d.pollOnce(50, cancellation);
+    const auto result = d.pollOnce(50ms, cancellation);
     ASSERT_TRUE(result);
     ASSERT_EQ(result->size(), 1U);
     ASSERT_EQ(result->at(0), std::uint32_t(0x1234));
@@ -181,7 +182,7 @@ TEST(TestDriver, poll_returns_empty_on_bad_frame)
     MutDmaDriver d(t, init);
     d.setChannelsForTest(ch);
     fastecu::FakeCancellationToken cancellation;
-    const auto result = d.pollOnce(50, cancellation);
+    const auto result = d.pollOnce(50ms, cancellation);
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->empty());
 }

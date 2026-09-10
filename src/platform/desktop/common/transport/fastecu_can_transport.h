@@ -14,7 +14,7 @@ class FastEcuCanTransport : public ICanTransport
     {
     }
     fastecu::Result<std::size_t> write(std::uint32_t canId, bytes::ByteView payload) override;
-    fastecu::Result<std::optional<CanFrame>> read(int timeoutMs,
+    fastecu::Result<std::optional<CanFrame>> read(std::chrono::milliseconds timeout,
                                                   const fastecu::ICancellationToken& cancellation) override;
     bool isOpen() const override;
 

@@ -28,6 +28,7 @@ using bytes::composeBe;
 using bytes::composeBeWithChecksum;
 using bytes::u24;
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 
 class NeverCancelled final : public ICancellationToken
 {
@@ -93,9 +94,9 @@ class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
         return ScriptedKlineFlashTransport::write(data);
     }
 
-    Result<OptionalBytes> read(int timeout_ms, const ICancellationToken& cancellation) override
+    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
-        Result<OptionalBytes> result = ScriptedKlineFlashTransport::read(timeout_ms, cancellation);
+        Result<OptionalBytes> result = ScriptedKlineFlashTransport::read(timeout, cancellation);
         if (erase_response_pending_)
         {
             erase_response_pending_ = false;
@@ -590,11 +591,12 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
                                              }));
     EXPECT_EQ(transport.lec_2_pulse_timeouts_, (std::vector<int>{200}));
     std::vector<int> expected_sleeps{200, 1000, 1000, 1000, 250, 190, 100, 5000, 100, 200};
-    std::vector<int> expected_timeouts{10, 2000, 2000, 10, 10, 10, 10, 200, 2000};
+    std::vector<std::chrono::milliseconds> expected_timeouts{10ms, 2000ms, 2000ms, 10ms,  10ms,
+                                                             10ms, 10ms,   200ms,  2000ms};
     for (std::uint32_t offset = 0; offset < device.romsize; offset += 0x400)
     {
         expected_sleeps.insert(expected_sleeps.end(), {10, 1});
-        expected_timeouts.push_back(3000);
+        expected_timeouts.push_back(3000ms);
     }
     EXPECT_EQ(clock.sleep_calls, expected_sleeps);
     EXPECT_EQ(transport.read_timeouts_, expected_timeouts);
@@ -619,7 +621,7 @@ TEST(SubaruDensoSh7055_02Executor, OpenPort2UploadDelayCancellationStopsBeforeRe
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 5000), 1);
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200), 0);
+    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200ms), 0);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -957,7 +959,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_EQ(result.error().detail, "ECU marked CRC response failed");
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50), 0);
+    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 0);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
@@ -997,7 +999,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50), 1);
+    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 1);
     EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 100), 3);
 }
 
@@ -1033,7 +1035,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50), 1);
+    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedBlockCrcAfterBoundedReads)
@@ -1061,7 +1063,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedBlockCrcAfterBoundedRead
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50), 20);
+    EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 20);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteRejectsNegativeBlockCrcResponse)

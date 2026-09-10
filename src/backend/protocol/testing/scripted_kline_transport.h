@@ -80,7 +80,8 @@ class ScriptedKlineTransport : public IKlineTransport
         }
         return data.size();
     }
-    fastecu::Result<OptionalBytes> read(int, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Result<OptionalBytes> read(std::chrono::milliseconds,
+                                        const fastecu::ICancellationToken& cancellation) override
     {
         if (cancellation.cancelled())
         {

@@ -11,6 +11,8 @@ static bool ackOk(bytes::ByteView f, bytes::Byte cA, bytes::Byte cB)
 
 namespace
 {
+using namespace std::chrono_literals;
+
 fastecu::Status writeFrame(IKlineTransport& transport, bytes::ByteView frame)
 {
     auto result = transport.write(frame);
@@ -40,7 +42,7 @@ fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& chann
     {
         return written;
     }
-    auto resp1 = t_.read(50, cancellation);
+    auto resp1 = t_.read(50ms, cancellation);
     if (!resp1)
     {
         return std::unexpected(resp1.error());
@@ -54,7 +56,7 @@ fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& chann
     {
         return written;
     }
-    auto resp2 = t_.read(50, cancellation);
+    auto resp2 = t_.read(50ms, cancellation);
     if (!resp2)
     {
         return std::unexpected(resp2.error());
@@ -85,7 +87,7 @@ fastecu::Status MutDmaDriver::writeMemory(std::uint16_t addr, bytes::ByteView da
         {
             return written;
         }
-        auto echo = t_.read(50, cancellation);
+        auto echo = t_.read(50ms, cancellation);
         if (!echo)
         {
             return std::unexpected(echo.error());
@@ -98,14 +100,14 @@ fastecu::Status MutDmaDriver::writeMemory(std::uint16_t addr, bytes::ByteView da
     return {};
 }
 
-fastecu::Result<std::vector<std::uint32_t>> MutDmaDriver::pollOnce(int timeoutMs,
+fastecu::Result<std::vector<std::uint32_t>> MutDmaDriver::pollOnce(std::chrono::milliseconds timeout,
                                                                    const fastecu::ICancellationToken& cancellation)
 {
     if (!streaming_)
     {
         return std::vector<std::uint32_t>{};
     }
-    auto frame = t_.read(timeoutMs, cancellation);
+    auto frame = t_.read(timeout, cancellation);
     if (!frame)
     {
         return std::unexpected(frame.error());

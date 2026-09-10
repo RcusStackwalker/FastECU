@@ -1,6 +1,7 @@
 #pragma once
 #include "src/backend/protocol/issm_transport.h"
 
+#include <chrono>
 #include <deque>
 #include <string>
 #include <utility>
@@ -68,7 +69,8 @@ class ScriptedSsmTransport : public ISsmTransport
         return data.size();
     }
 
-    fastecu::Result<OptionalBytes> read(int, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Result<OptionalBytes> read(std::chrono::milliseconds,
+                                        const fastecu::ICancellationToken& cancellation) override
     {
         if (cancellation.cancelled())
         {

@@ -1,5 +1,6 @@
 #include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/algorithms/protocol/qt_bytes.h"
+#include "src/backend/ports/duration_cast.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <exception>
@@ -60,7 +61,7 @@ fastecu::Result<std::size_t> FastEcuKlineTransport::write(bytes::ByteView data)
 }
 
 fastecu::Result<IKlineTransport::OptionalBytes>
-FastEcuKlineTransport::read(int timeoutMs, const fastecu::ICancellationToken& cancellation)
+FastEcuKlineTransport::read(std::chrono::milliseconds timeout, const fastecu::ICancellationToken& cancellation)
 {
     if (cancellation.cancelled())
     {
@@ -73,7 +74,7 @@ FastEcuKlineTransport::read(int timeoutMs, const fastecu::ICancellationToken& ca
         {
             return fastecu::fail(fastecu::ErrorKind::Disconnected, "K-Line adapter disconnected before read");
         }
-        const QByteArray raw = serial_->read_serial_data(quint16(timeoutMs));
+        const QByteArray raw = serial_->read_serial_data(fastecu::saturating_ms<quint16>(timeout));
         if (cancellation.cancelled())
         {
             return fastecu::fail(fastecu::ErrorKind::Cancelled, "K-Line read cancelled");
