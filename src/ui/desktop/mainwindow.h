@@ -141,7 +141,7 @@ class MainWindow : public QMainWindow
     QString software_title;
     QString software_version;
 
-    QSplashScreen *startUpSplash;
+    std::unique_ptr<QSplashScreen> startUpSplash;
     QLabel *startUpSplashLabel;
     QProgressBar *startUpSplashProgressBar;
     QMutex restartQuestionActive;
@@ -284,7 +284,7 @@ class MainWindow : public QMainWindow
     bool write_syslog_to_file = false;
     bool datalog_file_open = false;
     bool syslog_file_open = false;
-    QElapsedTimer *log_file_timer;
+    std::unique_ptr<QElapsedTimer> log_file_timer;
 
     QDialog *settings_dialog{};
     QListWidget *contents_widget{};
