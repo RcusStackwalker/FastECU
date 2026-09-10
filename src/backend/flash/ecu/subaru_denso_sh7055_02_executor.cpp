@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_executor.h"
 
 #include <algorithm>
+#include <chrono>
 #include <format>
 #include <limits>
 #include <utility>
@@ -71,7 +72,8 @@ bool response_ok(bytes::ByteView received, std::uint8_t expected_opcode)
 // 297-306, 1189-1192, and 1211-1216.
 Result<IKlineFlashTransport::OptionalBytes> exchange(IKlineFlashTransport& transport, IClock *clock,
                                                      const ICancellationToken& cancellation, bytes::ByteView request,
-                                                     int settle_ms, int timeout_ms)
+                                                     std::chrono::milliseconds settle,
+                                                     std::chrono::milliseconds timeout)
 {
     if (Status cancelled = check_cancelled(cancellation, "cancelled before write"); !cancelled.has_value())
     {
@@ -90,9 +92,9 @@ Result<IKlineFlashTransport::OptionalBytes> exchange(IKlineFlashTransport& trans
     {
         return std::unexpected(cancelled.error());
     }
-    if (clock != nullptr && settle_ms > 0)
+    if (clock != nullptr && settle > 0ms)
     {
-        if (Status slept = clock->sleep(std::chrono::milliseconds{settle_ms}, cancellation); !slept.has_value())
+        if (Status slept = clock->sleep(settle, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -101,8 +103,7 @@ Result<IKlineFlashTransport::OptionalBytes> exchange(IKlineFlashTransport& trans
     {
         return std::unexpected(cancelled.error());
     }
-    Result<IKlineFlashTransport::OptionalBytes> received =
-        transport.read(std::chrono::milliseconds{timeout_ms}, cancellation);
+    Result<IKlineFlashTransport::OptionalBytes> received = transport.read(timeout, cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -117,7 +118,7 @@ Result<IKlineFlashTransport::OptionalBytes> exchange(IKlineFlashTransport& trans
 // Read-only drain used where legacy intentionally discarded stale/echo bytes.
 // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:69-70,
 // 170-172, 194-195, 218-220, and 225-228.
-Status drain(IKlineFlashTransport& transport, const ICancellationToken& cancellation, int timeout_ms,
+Status drain(IKlineFlashTransport& transport, const ICancellationToken& cancellation, std::chrono::milliseconds timeout,
              std::string detail)
 {
     if (Status cancelled = check_cancelled(cancellation, std::format("cancelled before {}", detail));
@@ -125,7 +126,7 @@ Status drain(IKlineFlashTransport& transport, const ICancellationToken& cancella
     {
         return cancelled;
     }
-    if (const auto drained = transport.read(std::chrono::milliseconds{timeout_ms}, cancellation); !drained.has_value())
+    if (const auto drained = transport.read(timeout, cancellation); !drained.has_value())
     {
         return std::unexpected(drained.error());
     }
@@ -139,7 +140,7 @@ Result<bytes::Bytes> request_kernel_id(IKlineFlashTransport& transport, IClock& 
 {
     const bytes::Bytes request = frame(kOpId);
     Result<IKlineFlashTransport::OptionalBytes> received =
-        exchange(transport, &clock, cancellation, request, 200, 2000);
+        exchange(transport, &clock, cancellation, request, 200ms, 2000ms);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -209,7 +210,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
         // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh7055_02_operation.cpp:133-168
         // and 1206-1218.
         Result<IKlineFlashTransport::OptionalBytes> received =
-            exchange(transport, nullptr, cancellation, request, 0, 2000);
+            exchange(transport, nullptr, cancellation, request, 0ms, 2000ms);
         if (!received.has_value())
         {
             return std::unexpected(received.error());
@@ -253,7 +254,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
     {
         return cancelled;
     }
-    if (Status drained = drain(transport, cancellation, 10, "pre-countdown drain"); !drained.has_value())
+    if (Status drained = drain(transport, cancellation, 10ms, "pre-countdown drain"); !drained.has_value())
     {
         return drained;
     }
@@ -285,7 +286,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
     {
         return cancelled;
     }
-    if (Status drained = drain(transport, cancellation, 10, "post-pulse drain"); !drained.has_value())
+    if (Status drained = drain(transport, cancellation, 10ms, "post-pulse drain"); !drained.has_value())
     {
         return drained;
     }
@@ -303,7 +304,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
             return cancelled;
         }
         Result<IKlineFlashTransport::OptionalBytes> received =
-            exchange(transport, nullptr, cancellation, init_request, 0, 10);
+            exchange(transport, nullptr, cancellation, init_request, 0ms, 10ms);
         if (!received.has_value())
         {
             return std::unexpected(received.error());
@@ -320,7 +321,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
             {
                 return slept;
             }
-            if (Status drained = drain(transport, cancellation, 10, "post-connect drain"); !drained.has_value())
+            if (Status drained = drain(transport, cancellation, 10ms, "post-connect drain"); !drained.has_value())
             {
                 return drained;
             }
@@ -332,7 +333,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
     {
         return slept;
     }
-    if (Status drained = drain(transport, cancellation, 100, "exhausted WRX drain"); !drained.has_value())
+    if (Status drained = drain(transport, cancellation, 100ms, "exhausted WRX drain"); !drained.has_value())
     {
         return drained;
     }
@@ -389,9 +390,9 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(IKlineFlashTransport& transpo
     // On Unix the OpenPort2/J2534 adapter requires the legacy 5000 ms quiet
     // period after the raw write and before reading its upload response.
     // IClock keeps that wait deterministic and cancellation-aware.
-    const int post_upload_delay_ms = transport.requires_post_kernel_upload_delay() ? 5000 : 0;
+    const std::chrono::milliseconds post_upload_delay = transport.requires_post_kernel_upload_delay() ? 5000ms : 0ms;
     Result<IKlineFlashTransport::OptionalBytes> upload_response =
-        exchange(transport, &clock, cancellation, request, post_upload_delay_ms, 200);
+        exchange(transport, &clock, cancellation, request, post_upload_delay, 200ms);
     if (!upload_response.has_value())
     {
         return std::unexpected(upload_response.error());
@@ -451,7 +452,7 @@ Result<bytes::Bytes> SubaruDensoSh7055_02Executor::read_mem(IKlineFlashTransport
         const bytes::Bytes payload = composeBe(0x00_b, u24(address), std::uint16_t(kReadPageSize));
         // Legacy lines 415-421 settle for 10ms and use serial_read_extra_long_timeout (3000ms).
         Result<IKlineFlashTransport::OptionalBytes> response =
-            exchange(transport, &clock, cancellation, frame(kOpReadArea, payload), 10, 3000);
+            exchange(transport, &clock, cancellation, frame(kOpReadArea, payload), 10ms, 3000ms);
         if (!response.has_value())
         {
             return std::unexpected(response.error());
@@ -605,7 +606,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
     const std::uint32_t crc = bytes::readU32Be(response, 0);
     // Legacy lines 742 and 748 perform a short read after either compare
     // outcome, so drain every successful CRC decode before returning it.
-    if (Status drained = drain(transport, cancellation, 200, "CRC response drain"); !drained.has_value())
+    if (Status drained = drain(transport, cancellation, 200ms, "CRC response drain"); !drained.has_value())
     {
         return std::unexpected(drained.error());
     }
@@ -630,7 +631,7 @@ Status SubaruDensoSh7055_02Executor::flash_block(IKlineFlashTransport& transport
         events.log(LogLevel::Info, "Erasing flash page...");
         const bytes::Bytes erase_payload = composeBe(block.start);
         Result<IKlineFlashTransport::OptionalBytes> erase_exchange =
-            exchange(transport, &clock, cancellation, frame(kOpBlankPage, erase_payload), 500, 3000);
+            exchange(transport, &clock, cancellation, frame(kOpBlankPage, erase_payload), 500ms, 3000ms);
         if (!erase_exchange.has_value())
         {
             return std::unexpected(erase_exchange.error());
@@ -660,7 +661,7 @@ Status SubaruDensoSh7055_02Executor::flash_block(IKlineFlashTransport& transport
         // SH7055 legacy lines 1048-1050 actively settle 50ms and use the
         // normal 2000ms timeout; MC68's corresponding delay is commented.
         Result<IKlineFlashTransport::OptionalBytes> write_response =
-            exchange(transport, &clock, cancellation, frame(kOpWriteFlashBuffer, payload), 50, 2000);
+            exchange(transport, &clock, cancellation, frame(kOpWriteFlashBuffer, payload), 50ms, 2000ms);
         if (!write_response.has_value())
         {
             return std::unexpected(write_response.error());
@@ -683,7 +684,7 @@ Status SubaruDensoSh7055_02Executor::flash_block(IKlineFlashTransport& transport
             const bytes::Bytes commit_payload =
                 composeBe(commit_block_start, std::uint16_t(kCommitBlockSize), commit_crc);
             Result<IKlineFlashTransport::OptionalBytes> commit_response =
-                exchange(transport, &clock, cancellation, frame(commit_opcode, commit_payload), 200, 3000);
+                exchange(transport, &clock, cancellation, frame(commit_opcode, commit_payload), 200ms, 3000ms);
             if (!commit_response.has_value())
             {
                 return std::unexpected(commit_response.error());
@@ -701,7 +702,7 @@ Status SubaruDensoSh7055_02Executor::flash_block(IKlineFlashTransport& transport
         events.progress(static_cast<int>(offset), static_cast<int>(block.length));
     }
     // Legacy line 1159 discards one final short-timeout response.
-    return drain(transport, cancellation, 200, "flash block drain");
+    return drain(transport, cancellation, 200ms, "flash block drain");
 }
 
 Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, IClock& clock,
@@ -786,7 +787,7 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
     for (const std::uint8_t opcode : {kOpGetMaxMsgSize, kOpGetMaxBlockSize})
     {
         Result<IKlineFlashTransport::OptionalBytes> response =
-            exchange(transport, &clock, cancellation, frame(opcode), 200, 200);
+            exchange(transport, &clock, cancellation, frame(opcode), 200ms, 200ms);
         if (!response.has_value())
         {
             return std::unexpected(response.error());
@@ -812,7 +813,7 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
     }
     const std::uint8_t enable_opcode = test_write ? kOpFlashDisable : kOpFlashEnable;
     Result<IKlineFlashTransport::OptionalBytes> enable_response =
-        exchange(transport, &clock, cancellation, frame(enable_opcode), 200, 200);
+        exchange(transport, &clock, cancellation, frame(enable_opcode), 200ms, 200ms);
     if (!enable_response.has_value())
     {
         return std::unexpected(enable_response.error());
@@ -836,7 +837,7 @@ Status SubaruDensoSh7055_02Executor::write_mem(IKlineFlashTransport& transport, 
         // Legacy reflash_block(), lines 914-944: no settle before the 200ms
         // programming-voltage reply, whose two-byte voltage requires >7 bytes.
         Result<IKlineFlashTransport::OptionalBytes> voltage_response =
-            exchange(transport, nullptr, cancellation, frame(kOpProgVolt), 0, 200);
+            exchange(transport, nullptr, cancellation, frame(kOpProgVolt), 0ms, 200ms);
         if (!voltage_response.has_value())
         {
             return std::unexpected(voltage_response.error());
@@ -928,7 +929,7 @@ Result<FlashExecutionResult> SubaruDensoSh7055_02Executor::execute(const FlashPl
     {
         return std::unexpected(cancelled.error());
     }
-    if (Status drained = drain(kline, cancellation, 10, "initial drain"); !drained.has_value())
+    if (Status drained = drain(kline, cancellation, 10ms, "initial drain"); !drained.has_value())
     {
         return std::unexpected(drained.error());
     }

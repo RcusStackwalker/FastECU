@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.h"
 
 #include <algorithm>
+#include <chrono>
 #include <format>
 #include <limits>
 #include <string_view>
@@ -69,10 +70,9 @@ bool response_ok(bytes::ByteView received, std::uint8_t expected_opcode_with_ack
 
 // Shared cancellation-aware write/read exchange, porting legacy
 // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:116-119 and 269-270.
-Result<IKlineFlashTransport::OptionalBytes> exchange_optional_impl(IKlineFlashTransport& transport, IClock *clock,
-                                                                   const ICancellationToken& cancellation,
-                                                                   bytes::ByteView request, int settle_ms,
-                                                                   int timeout_ms)
+Result<IKlineFlashTransport::OptionalBytes>
+exchange_optional_impl(IKlineFlashTransport& transport, IClock *clock, const ICancellationToken& cancellation,
+                       bytes::ByteView request, std::chrono::milliseconds settle, std::chrono::milliseconds timeout)
 {
     if (Status cancelled = check_cancelled(cancellation, "cancelled before write"); !cancelled.has_value())
     {
@@ -91,9 +91,9 @@ Result<IKlineFlashTransport::OptionalBytes> exchange_optional_impl(IKlineFlashTr
     {
         return std::unexpected(cancelled.error());
     }
-    if (clock != nullptr && settle_ms > 0)
+    if (clock != nullptr && settle > 0ms)
     {
-        if (Status slept = clock->sleep(std::chrono::milliseconds{settle_ms}, cancellation); !slept.has_value())
+        if (Status slept = clock->sleep(settle, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -102,7 +102,7 @@ Result<IKlineFlashTransport::OptionalBytes> exchange_optional_impl(IKlineFlashTr
     {
         return std::unexpected(cancelled.error());
     }
-    auto received = transport.read(std::chrono::milliseconds{timeout_ms}, cancellation);
+    auto received = transport.read(timeout, cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -115,11 +115,11 @@ Result<IKlineFlashTransport::OptionalBytes> exchange_optional_impl(IKlineFlashTr
 }
 
 Result<bytes::Bytes> exchange_impl(IKlineFlashTransport& transport, IClock *clock,
-                                   const ICancellationToken& cancellation, bytes::ByteView request, int settle_ms,
-                                   int timeout_ms)
+                                   const ICancellationToken& cancellation, bytes::ByteView request,
+                                   std::chrono::milliseconds settle, std::chrono::milliseconds timeout)
 {
     Result<IKlineFlashTransport::OptionalBytes> received =
-        exchange_optional_impl(transport, clock, cancellation, request, settle_ms, timeout_ms);
+        exchange_optional_impl(transport, clock, cancellation, request, settle, timeout);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -132,33 +132,35 @@ Result<bytes::Bytes> exchange_impl(IKlineFlashTransport& transport, IClock *cloc
 }
 
 Result<bytes::Bytes> exchange(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                              bytes::ByteView request, int settle_ms, int timeout_ms)
+                              bytes::ByteView request, std::chrono::milliseconds settle,
+                              std::chrono::milliseconds timeout)
 {
-    return exchange_impl(transport, &clock, cancellation, request, settle_ms, timeout_ms);
+    return exchange_impl(transport, &clock, cancellation, request, settle, timeout);
 }
 
 Result<bytes::Bytes> exchange(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
-                              bytes::ByteView request, int timeout_ms)
+                              bytes::ByteView request, std::chrono::milliseconds timeout)
 {
-    return exchange_impl(transport, nullptr, cancellation, request, 0, timeout_ms);
+    return exchange_impl(transport, nullptr, cancellation, request, 0ms, timeout);
 }
 
 Result<IKlineFlashTransport::OptionalBytes> exchange_optional(IKlineFlashTransport& transport, IClock& clock,
                                                               const ICancellationToken& cancellation,
-                                                              bytes::ByteView request, int settle_ms, int timeout_ms)
+                                                              bytes::ByteView request, std::chrono::milliseconds settle,
+                                                              std::chrono::milliseconds timeout)
 {
-    return exchange_optional_impl(transport, &clock, cancellation, request, settle_ms, timeout_ms);
+    return exchange_optional_impl(transport, &clock, cancellation, request, settle, timeout);
 }
 
-Status drain_response(IKlineFlashTransport& transport, const ICancellationToken& cancellation, int timeout_ms,
-                      std::string_view detail)
+Status drain_response(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
+                      std::chrono::milliseconds timeout, std::string_view detail)
 {
     if (Status cancelled = check_cancelled(cancellation, std::format("cancelled before {}", detail));
         !cancelled.has_value())
     {
         return cancelled;
     }
-    if (const auto drained = transport.read(std::chrono::milliseconds{timeout_ms}, cancellation); !drained.has_value())
+    if (const auto drained = transport.read(timeout, cancellation); !drained.has_value())
     {
         return std::unexpected(drained.error());
     }
@@ -173,7 +175,7 @@ Result<bytes::Bytes> request_kernel_id(IKlineFlashTransport& transport, IClock& 
 {
     const bytes::Bytes request = frame(kOpId);
     Result<IKlineFlashTransport::OptionalBytes> received =
-        exchange_optional(transport, clock, cancellation, request, 200, 2000);
+        exchange_optional(transport, clock, cancellation, request, 200ms, 2000ms);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -242,7 +244,7 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(IKlineFlashTransport
     const bytes::Bytes init_request{0x4D, 0xFF, 0xB4};
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:115-146.
     Result<IKlineFlashTransport::OptionalBytes> init_response =
-        exchange_optional(transport, clock, cancellation, init_request, 50, 200);
+        exchange_optional(transport, clock, cancellation, init_request, 50ms, 200ms);
     if (!init_response.has_value())
     {
         return std::unexpected(init_response.error());
@@ -357,7 +359,7 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(IKlineFlashTransport& tra
 
     events.log(LogLevel::Info, "Sending kernel...");
     Result<IKlineFlashTransport::OptionalBytes> upload_response =
-        exchange_optional(transport, clock, cancellation, request, 0, 200);
+        exchange_optional(transport, clock, cancellation, request, 0ms, 200ms);
     if (!upload_response.has_value())
     {
         return std::unexpected(upload_response.error());
@@ -441,7 +443,7 @@ Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::read_mem(IKlineFlashTrans
             }
             const bytes::Bytes payload = composeBe(0x00_b, u24(address), std::uint16_t(kReadPageSize));
             Result<bytes::Bytes> response =
-                exchange(transport, clock, cancellation, frame(kOpReadArea, payload), 10, 3000);
+                exchange(transport, clock, cancellation, frame(kOpReadArea, payload), 10ms, 3000ms);
             if (!response.has_value())
             {
                 return std::unexpected(response.error());
@@ -537,7 +539,7 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(IKlineFla
     }
     const std::uint32_t crc = bytes::readU32Be(response, 5);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:702-714.
-    if (Status drained = drain_response(transport, cancellation, 200, "CRC response drain"); !drained.has_value())
+    if (Status drained = drain_response(transport, cancellation, 200ms, "CRC response drain"); !drained.has_value())
     {
         return std::unexpected(drained.error());
     }
@@ -564,7 +566,7 @@ Status SubaruDensoMc68hc16y5_02Executor::flash_block(IKlineFlashTransport& trans
         // Legacy
         // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:950-969.
         Result<bytes::Bytes> erase_response =
-            exchange(transport, clock, cancellation, frame(kOpBlankPage, erase_payload), 500, 3000);
+            exchange(transport, clock, cancellation, frame(kOpBlankPage, erase_payload), 500ms, 3000ms);
         if (!erase_response.has_value())
         {
             return std::unexpected(erase_response.error());
@@ -589,7 +591,7 @@ Status SubaruDensoMc68hc16y5_02Executor::flash_block(IKlineFlashTransport& trans
         // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:994-1039.
         const std::uint32_t chunk_address = block.start + offset;
         const bytes::Bytes payload = composeBe(chunk_address, image.subspan(chunk_address, kWriteChunkSize));
-        Result<bytes::Bytes> response = exchange(transport, cancellation, frame(kOpWriteFlashBuffer, payload), 3000);
+        Result<bytes::Bytes> response = exchange(transport, cancellation, frame(kOpWriteFlashBuffer, payload), 3000ms);
         if (!response.has_value())
         {
             return std::unexpected(response.error());
@@ -610,7 +612,7 @@ Status SubaruDensoMc68hc16y5_02Executor::flash_block(IKlineFlashTransport& trans
             const bytes::Bytes commit_payload =
                 composeBe(commit_block_start, std::uint16_t(kCommitBlockSize), commit_crc);
             Result<bytes::Bytes> commit_response =
-                exchange(transport, clock, cancellation, frame(commit_opcode, commit_payload), 200, 3000);
+                exchange(transport, clock, cancellation, frame(commit_opcode, commit_payload), 200ms, 3000ms);
             if (!commit_response.has_value())
             {
                 return std::unexpected(commit_response.error());
@@ -624,7 +626,7 @@ Status SubaruDensoMc68hc16y5_02Executor::flash_block(IKlineFlashTransport& trans
         events.progress(static_cast<int>(offset), static_cast<int>(block.length));
     }
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:1129-1133.
-    if (Status drained = drain_response(transport, cancellation, 200, "flash block drain"); !drained.has_value())
+    if (Status drained = drain_response(transport, cancellation, 200ms, "flash block drain"); !drained.has_value())
     {
         return drained;
     }
@@ -732,7 +734,7 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(IKlineFlashTransport& transpo
     // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:717-838.
     for (const std::uint8_t opcode : {kOpGetMaxMsgSize, kOpGetMaxBlockSize})
     {
-        Result<bytes::Bytes> response = exchange(transport, clock, cancellation, frame(opcode), 200, 200);
+        Result<bytes::Bytes> response = exchange(transport, clock, cancellation, frame(opcode), 200ms, 200ms);
         if (!response.has_value())
         {
             return std::unexpected(response.error());
@@ -743,7 +745,7 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(IKlineFlashTransport& transpo
         }
     }
     const std::uint8_t enable_opcode = test_write ? kOpFlashDisable : kOpFlashEnable;
-    Result<bytes::Bytes> enable_response = exchange(transport, clock, cancellation, frame(enable_opcode), 200, 200);
+    Result<bytes::Bytes> enable_response = exchange(transport, clock, cancellation, frame(enable_opcode), 200ms, 200ms);
     if (!enable_response.has_value())
     {
         return std::unexpected(enable_response.error());
@@ -762,7 +764,7 @@ Status SubaruDensoMc68hc16y5_02Executor::write_mem(IKlineFlashTransport& transpo
         const MemoryRegion block{device->fblocks[block_no].start, device->fblocks[block_no].len};
         // Legacy reflash_block(), full PROG_VOLT exchange at
         // src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:845-921.
-        Result<bytes::Bytes> voltage_response = exchange(transport, cancellation, frame(kOpProgVolt), 200);
+        Result<bytes::Bytes> voltage_response = exchange(transport, cancellation, frame(kOpProgVolt), 200ms);
         if (!voltage_response.has_value())
         {
             return std::unexpected(voltage_response.error());

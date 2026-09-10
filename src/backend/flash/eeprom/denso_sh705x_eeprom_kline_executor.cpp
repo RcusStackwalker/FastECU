@@ -6,6 +6,7 @@
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <utility>
 #include <array>
@@ -37,23 +38,23 @@ constexpr std::uint32_t kNp10MaxBlocks = 32;      // NP10_MAXBLKS
 // receive_timeout/serial_read_extra_short_timeout/serial_read_short_timeout/
 // serial_read_medium_timeout/serial_read_long_timeout are dead members, not
 // carried forward.
-constexpr int kExtraLongTimeoutMs = 3000; // serial_read_extra_long_timeout
-constexpr int kShortTimeoutMs = 2000;     // serial_read_timeout
+constexpr std::chrono::milliseconds kExtraLongTimeout = 3000ms; // serial_read_extra_long_timeout
+constexpr std::chrono::milliseconds kShortTimeout = 2000ms;     // serial_read_timeout
 
 // delay()/QThread::msleep() call sites, transcribed 1:1 from
 // eeprom_ecu_subaru_denso_sh705x_kline_operation.cpp's line numbers noted
 // at each use below.
-constexpr int kProbeSettleDelayMs = 100;       // connect_bootloader():169
-constexpr int kInitSettleDelayMs = 100;        // connect_bootloader():200
-constexpr int kKernelIdRequestDelayMs = 200;   // request_kernel_id():986
-constexpr int kKernelAliveSettleDelayMs = 100; // upload_kernel():438
-constexpr int kKernelPollRetryDelayMs = 200;   // upload_kernel():443
+constexpr std::chrono::milliseconds kProbeSettleDelay = 100ms;       // connect_bootloader():169
+constexpr std::chrono::milliseconds kInitSettleDelay = 100ms;        // connect_bootloader():200
+constexpr std::chrono::milliseconds kKernelIdRequestDelay = 200ms;   // request_kernel_id():986
+constexpr std::chrono::milliseconds kKernelAliveSettleDelay = 100ms; // upload_kernel():438
+constexpr std::chrono::milliseconds kKernelPollRetryDelay = 200ms;   // upload_kernel():443
 constexpr int kMaxKernelAlivePollIterations = 10;
 
-constexpr int kReadMemPreReadDelayMs = 500;  // read_mem():523
-constexpr int kReadMemPollDelayMs = 100;     // read_mem():532
-constexpr int kReadMemInterBlockDelayMs = 1; // read_mem():582
-constexpr int kMaxReadMemInnerRetries = 5;   // read_mem():526 (`timeout < 5`)
+constexpr std::chrono::milliseconds kReadMemPreReadDelay = 500ms;  // read_mem():523
+constexpr std::chrono::milliseconds kReadMemPollDelay = 100ms;     // read_mem():532
+constexpr std::chrono::milliseconds kReadMemInterBlockDelay = 1ms; // read_mem():582
+constexpr int kMaxReadMemInnerRetries = 5;                         // read_mem():526 (`timeout < 5`)
 
 // ---------------------------------------------------------------------
 // Request builders -- transcribed from each send_sid_*()/request_kernel_id()
@@ -107,7 +108,7 @@ bytes::Bytes request_kernel_id_frame()
 bool looks_kernel_alive(bytes::ByteView received)
 {
     return received.size() > 4 && bytes::readU16Be(received, 0) == kSubKernelStartComm &&
-           received[4] == static_cast<bytes::Byte>(kSubKernelId | 0x40);
+           received[4] == static_cast<bytes::Byte>(kSubKernelId | 0x40U);
 }
 
 // generate_seed_key(), lines 854-879 (the non-"_ecutek" / stock branch).
@@ -158,7 +159,7 @@ bytes::Bytes encrypt_kernel_payload(bytes::ByteView buf, std::uint32_t len)
 // portable seam's cancellation contract.
 Result<bytes::Bytes> ssm_exchange(IKlineFlashTransport& transport, IClock&, const ICancellationToken& cancellation,
                                   bytes::ByteView payload, std::uint8_t tester_id, std::uint8_t target_id,
-                                  int timeout_ms)
+                                  std::chrono::milliseconds timeout)
 {
     if (cancellation.cancelled())
     {
@@ -173,7 +174,7 @@ Result<bytes::Bytes> ssm_exchange(IKlineFlashTransport& transport, IClock&, cons
     {
         return fail(ErrorKind::Cancelled, "cancelled after write");
     }
-    auto received = transport.read(std::chrono::milliseconds{timeout_ms}, cancellation);
+    auto received = transport.read(timeout, cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -205,8 +206,7 @@ Result<bytes::Bytes> request_kernel_id(IKlineFlashTransport& transport, IClock& 
     {
         return std::unexpected(written.error());
     }
-    if (Status slept = clock.sleep(std::chrono::milliseconds{kKernelIdRequestDelayMs}, cancellation);
-        !slept.has_value())
+    if (Status slept = clock.sleep(kKernelIdRequestDelay, cancellation); !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
@@ -214,7 +214,7 @@ Result<bytes::Bytes> request_kernel_id(IKlineFlashTransport& transport, IClock& 
     {
         return fail(ErrorKind::Cancelled, "cancelled after delay");
     }
-    auto received = transport.read(std::chrono::milliseconds{kShortTimeoutMs}, cancellation);
+    auto received = transport.read(kShortTimeout, cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -274,7 +274,7 @@ Status transfer_data_blocks(IKlineFlashTransport& transport, IClock& clock, cons
         }
 
         Result<bytes::Bytes> resp =
-            ssm_exchange(transport, clock, cancellation, payload, tester_id, target_id, kShortTimeoutMs);
+            ssm_exchange(transport, clock, cancellation, payload, tester_id, target_id, kShortTimeout);
         if (!resp.has_value())
         {
             return std::unexpected(resp.error());
@@ -405,7 +405,7 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
     {
         return std::unexpected(baud.error());
     }
-    if (Status slept = clock.sleep(std::chrono::milliseconds{kProbeSettleDelayMs}, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(kProbeSettleDelay, cancellation); !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
@@ -438,7 +438,7 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
     {
         return std::unexpected(baud.error());
     }
-    if (Status slept = clock.sleep(std::chrono::milliseconds{kInitSettleDelayMs}, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(kInitSettleDelay, cancellation); !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
@@ -452,7 +452,7 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
 
     events.log(LogLevel::Info, "Initializing K-Line communications");
     Result<bytes::Bytes> bf =
-        ssm_exchange(transport, clock, cancellation, sid_bf_request(), tester_id, target_id, kExtraLongTimeoutMs);
+        ssm_exchange(transport, clock, cancellation, sid_bf_request(), tester_id, target_id, kExtraLongTimeout);
     if (!bf.has_value())
     {
         return std::unexpected(bf.error());
@@ -464,7 +464,7 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
 
     events.log(LogLevel::Info, "Requesting to start communication");
     Result<bytes::Bytes> start_comm =
-        ssm_exchange(transport, clock, cancellation, sid_81_request(), tester_id, target_id, kExtraLongTimeoutMs);
+        ssm_exchange(transport, clock, cancellation, sid_81_request(), tester_id, target_id, kExtraLongTimeout);
     if (!start_comm.has_value())
     {
         return std::unexpected(start_comm.error());
@@ -476,7 +476,7 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
 
     events.log(LogLevel::Info, "Requesting timings params");
     Result<bytes::Bytes> timings =
-        ssm_exchange(transport, clock, cancellation, sid_83_request(), tester_id, target_id, kExtraLongTimeoutMs);
+        ssm_exchange(transport, clock, cancellation, sid_83_request(), tester_id, target_id, kExtraLongTimeout);
     if (!timings.has_value())
     {
         return std::unexpected(timings.error());
@@ -488,7 +488,7 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
 
     events.log(LogLevel::Info, "Requesting seed");
     Result<bytes::Bytes> seed_resp = ssm_exchange(transport, clock, cancellation, sid_27_request_seed_request(),
-                                                  tester_id, target_id, kExtraLongTimeoutMs);
+                                                  tester_id, target_id, kExtraLongTimeout);
     if (!seed_resp.has_value())
     {
         return std::unexpected(seed_resp.error());
@@ -504,7 +504,7 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
 
     events.log(LogLevel::Info, "Sending seed key to ECU");
     Result<bytes::Bytes> key_resp = ssm_exchange(transport, clock, cancellation, sid_27_send_key_request(seed_key),
-                                                 tester_id, target_id, kExtraLongTimeoutMs);
+                                                 tester_id, target_id, kExtraLongTimeout);
     if (!key_resp.has_value())
     {
         return std::unexpected(key_resp.error());
@@ -517,7 +517,7 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
 
     events.log(LogLevel::Info, "Set session mode");
     Result<bytes::Bytes> diag =
-        ssm_exchange(transport, clock, cancellation, sid_10_request(), tester_id, target_id, kExtraLongTimeoutMs);
+        ssm_exchange(transport, clock, cancellation, sid_10_request(), tester_id, target_id, kExtraLongTimeout);
     if (!diag.has_value())
     {
         return std::unexpected(diag.error());
@@ -584,9 +584,8 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
     }
 
     events.log(LogLevel::Info, "Requesting kernel upload");
-    Result<bytes::Bytes> upload_req =
-        ssm_exchange(transport, clock, cancellation, sid_34_request(start_address, pl_len), tester_id, target_id,
-                     kExtraLongTimeoutMs);
+    Result<bytes::Bytes> upload_req = ssm_exchange(
+        transport, clock, cancellation, sid_34_request(start_address, pl_len), tester_id, target_id, kExtraLongTimeout);
     if (!upload_req.has_value())
     {
         return std::unexpected(upload_req.error());
@@ -612,7 +611,7 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
     }
     Result<bytes::Bytes> bypass_req =
         ssm_exchange(transport, clock, cancellation, sid_34_request(start_address + pl_len, 4), tester_id, target_id,
-                     kExtraLongTimeoutMs);
+                     kExtraLongTimeout);
     if (!bypass_req.has_value())
     {
         return std::unexpected(bypass_req.error());
@@ -642,7 +641,7 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
     }
     events.log(LogLevel::Info, "Jump to kernel");
     Result<bytes::Bytes> jump =
-        ssm_exchange(transport, clock, cancellation, sid_31_request(), tester_id, target_id, kExtraLongTimeoutMs);
+        ssm_exchange(transport, clock, cancellation, sid_31_request(), tester_id, target_id, kExtraLongTimeout);
     if (!jump.has_value())
     {
         return std::unexpected(jump.error());
@@ -674,16 +673,14 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
         }
         if (looks_kernel_alive(*poll))
         {
-            if (Status slept = clock.sleep(std::chrono::milliseconds{kKernelAliveSettleDelayMs}, cancellation);
-                !slept.has_value())
+            if (Status slept = clock.sleep(kKernelAliveSettleDelay, cancellation); !slept.has_value())
             {
                 return std::unexpected(slept.error());
             }
             events.log(LogLevel::Info, "Kernel is alive");
             return {};
         }
-        if (Status slept = clock.sleep(std::chrono::milliseconds{kKernelPollRetryDelayMs}, cancellation);
-            !slept.has_value())
+        if (Status slept = clock.sleep(kKernelPollRetryDelay, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -730,8 +727,7 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
         {
             return std::unexpected(written.error());
         }
-        if (Status slept = clock.sleep(std::chrono::milliseconds{kReadMemPreReadDelayMs}, cancellation);
-            !slept.has_value())
+        if (Status slept = clock.sleep(kReadMemPreReadDelay, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -748,12 +744,11 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
             {
                 return fail(ErrorKind::Cancelled, "cancelled during EEPROM page read");
             }
-            if (Status slept = clock.sleep(std::chrono::milliseconds{kReadMemPollDelayMs}, cancellation);
-                !slept.has_value())
+            if (Status slept = clock.sleep(kReadMemPollDelay, cancellation); !slept.has_value())
             {
                 return std::unexpected(slept.error());
             }
-            auto received = transport.read(std::chrono::milliseconds{kShortTimeoutMs}, cancellation);
+            auto received = transport.read(kShortTimeout, cancellation);
             if (!received.has_value())
             {
                 return std::unexpected(received.error());
@@ -800,8 +795,7 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
         std::uint32_t cplen = numblocks * kEepromBlockBytes - skip_start;
         skip_start = 0;
 
-        if (Status slept = clock.sleep(std::chrono::milliseconds{kReadMemInterBlockDelayMs}, cancellation);
-            !slept.has_value())
+        if (Status slept = clock.sleep(kReadMemInterBlockDelay, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
