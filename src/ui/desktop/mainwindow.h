@@ -298,10 +298,10 @@ class MainWindow : public QMainWindow
 
     // fileactions.c
     bool open_calibration_file(QString filename);
-    void prompt_for_missing_definition(FileActions::EcuCalDefStructure *ecuCalDef);
+    void prompt_for_missing_definition(FileActions::EcuCalDefStructure *ecuCalDefArg);
     void save_calibration_file();
     void save_calibration_file_as();
-    void runChecksumCorrection(FileActions::EcuCalDefStructure *ecuCalDef);
+    void runChecksumCorrection(FileActions::EcuCalDefStructure *ecuCalDefArg);
     QStringList parse_stringlist_from_expression_string(QString expression, QString x);
     float calculate_value_from_expression(QStringList expression);
 
@@ -354,7 +354,7 @@ class MainWindow : public QMainWindow
     void toggle_realtime();
     void toggle_log_to_file();
     void set_maptablewidget_items();
-    int get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex);
+    int get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDefArg, float mapDataValue, int mapIndex);
     void show_preferences_window();
 
     void toggle_haltech_ic7_display();

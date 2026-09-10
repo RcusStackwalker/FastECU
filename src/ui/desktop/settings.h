@@ -61,8 +61,8 @@ class Settings : public QDialog
 
     QListWidget *romraider_definition_files_list{};
 
-    QVBoxLayout *create_files_config_page(FileActions::ConfigValuesStructure *configValues);
-    QVBoxLayout *create_ui_config_page(FileActions::ConfigValuesStructure *configValues);
+    QVBoxLayout *create_files_config_page();
+    QVBoxLayout *create_ui_config_page();
     void create_list_icons();
     void change_page(QListWidgetItem *current, QListWidgetItem *previous);
     void set_ecuflash_def_dir();

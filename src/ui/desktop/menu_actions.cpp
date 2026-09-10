@@ -983,14 +983,14 @@ void MainWindow::set_maptablewidget_items()
     }
 }
 
-int MainWindow::get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex)
+int MainWindow::get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDefArg, float mapDataValue, int mapIndex)
 {
     int mapCellColors;
     float mapMinValue = 0;
     float mapMaxValue = 0;
 
-    mapMinValue = ecuCalDef->MapCellColorMin.at(mapIndex).toFloat();
-    mapMaxValue = ecuCalDef->MapCellColorMax.at(mapIndex).toFloat();
+    mapMinValue = ecuCalDefArg->MapCellColorMin.at(mapIndex).toFloat();
+    mapMaxValue = ecuCalDefArg->MapCellColorMax.at(mapIndex).toFloat();
 
     // Maps mapMinValue -> hue 0, mapMaxValue -> hue 210/360, clamping
     // below-range values to 0. mapMinValue == mapMaxValue would divide by

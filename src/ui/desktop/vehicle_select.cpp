@@ -164,8 +164,8 @@ void VehicleSelect::car_make_treewidget_item_selected()
         int item_count = ui->car_model_tree_widget->topLevelItemCount();
         for (int i = 0; i < item_count; i++)
         {
-            QTreeWidgetItem *item_local = ui->car_model_tree_widget->topLevelItem(0);
-            delete item_local;
+            QTreeWidgetItem *item_to_delete = ui->car_model_tree_widget->topLevelItem(0);
+            delete item_to_delete;
         }
         // Connect itemSelectionChanged() signal again
         connect(ui->car_model_tree_widget, &QTreeWidget::itemSelectionChanged, this,
@@ -189,22 +189,22 @@ void VehicleSelect::car_make_treewidget_item_selected()
         qDebug() << "Add models data items to select";
         for (int i = 0; i < car_models_sorted.length(); i++)
         {
-            QTreeWidgetItem *item_local = new QTreeWidgetItem();
-            item_local->setText(0, car_models_sorted.at(i));
-            item_local->setFirstColumnSpanned(true);
-            ui->car_model_tree_widget->addTopLevelItem(item_local);
+            QTreeWidgetItem *model_item = new QTreeWidgetItem();
+            model_item->setText(0, car_models_sorted.at(i));
+            model_item->setFirstColumnSpanned(true);
+            ui->car_model_tree_widget->addTopLevelItem(model_item);
             if (car_models_sorted.at(i) == configValues->flash_protocol_selected_model)
             {
                 qDebug() << "Car model changed to saved model";
                 car_model_changed_saved = true;
-                ui->car_model_tree_widget->setCurrentItem(item_local);
+                ui->car_model_tree_widget->setCurrentItem(model_item);
             }
         }
         if (!car_model_changed_saved)
         {
             qDebug() << "Car model changed to first item, no model selected previously";
-            QTreeWidgetItem *item_local = ui->car_model_tree_widget->topLevelItem(0);
-            ui->car_model_tree_widget->setCurrentItem(item_local);
+            QTreeWidgetItem *default_item = ui->car_model_tree_widget->topLevelItem(0);
+            ui->car_model_tree_widget->setCurrentItem(default_item);
         }
     }
     qDebug() << "Car make selection applied";
@@ -252,8 +252,8 @@ void VehicleSelect::car_model_treewidget_item_selected()
         int item_count = ui->car_version_tree_widget->topLevelItemCount();
         for (int i = 0; i < item_count; i++)
         {
-            QTreeWidgetItem *item_local = ui->car_version_tree_widget->topLevelItem(0);
-            delete item_local;
+            QTreeWidgetItem *item_to_delete = ui->car_version_tree_widget->topLevelItem(0);
+            delete item_to_delete;
         }
         // Connect itemSelectionChanged() signal again
         connect(ui->car_version_tree_widget, &QTreeWidget::itemSelectionChanged, this,
@@ -287,71 +287,71 @@ void VehicleSelect::car_model_treewidget_item_selected()
         qDebug() << "Add versions data items to select";
         for (int i = 0; i < version.length(); i++)
         {
-            QTreeWidgetItem *item_local = new QTreeWidgetItem();
+            QTreeWidgetItem *version_item = new QTreeWidgetItem();
 
-            item_local->setText(0, version.at(i));
-            item_local->setText(1, type.at(i));
-            item_local->setText(2, kw.at(i));
-            item_local->setText(3, hp.at(i));
-            item_local->setText(4, fuel.at(i));
-            item_local->setText(5, year.at(i));
-            item_local->setText(6, ecu.at(i));
-            item_local->setText(7, mode.at(i));
+            version_item->setText(0, version.at(i));
+            version_item->setText(1, type.at(i));
+            version_item->setText(2, kw.at(i));
+            version_item->setText(3, hp.at(i));
+            version_item->setText(4, fuel.at(i));
+            version_item->setText(5, year.at(i));
+            version_item->setText(6, ecu.at(i));
+            version_item->setText(7, mode.at(i));
             if (checksum.at(i) == "yes")
             {
-                item_local->setCheckState(8, Qt::Checked);
-                item_local->setForeground(8, Qt::darkGreen);
-                item_local->setToolTip(8, "Checksum calculation supported");
+                version_item->setCheckState(8, Qt::Checked);
+                version_item->setForeground(8, Qt::darkGreen);
+                version_item->setToolTip(8, "Checksum calculation supported");
             }
             else if (checksum.at(i) == "no")
             {
-                item_local->setCheckState(8, Qt::Unchecked);
-                item_local->setForeground(8, Qt::gray);
-                item_local->setToolTip(8, "ROM has no checksum");
+                version_item->setCheckState(8, Qt::Unchecked);
+                version_item->setForeground(8, Qt::gray);
+                version_item->setToolTip(8, "ROM has no checksum");
             }
             else if (checksum.at(i) == "n/a")
             {
-                item_local->setCheckState(8, Qt::Checked);
-                item_local->setForeground(8, Qt::red);
-                item_local->setToolTip(8, "Checksum calculation NOT supported yet");
+                version_item->setCheckState(8, Qt::Checked);
+                version_item->setForeground(8, Qt::red);
+                version_item->setToolTip(8, "Checksum calculation NOT supported yet");
             }
             if (read.at(i) == "yes")
             {
-                item_local->setCheckState(9, Qt::Checked);
+                version_item->setCheckState(9, Qt::Checked);
             }
             else
             {
-                item_local->setCheckState(9, Qt::Unchecked);
+                version_item->setCheckState(9, Qt::Unchecked);
             }
             if (write.at(i) == "yes")
             {
-                item_local->setCheckState(10, Qt::Checked);
+                version_item->setCheckState(10, Qt::Checked);
             }
             else
             {
-                item_local->setCheckState(10, Qt::Unchecked);
+                version_item->setCheckState(10, Qt::Unchecked);
             }
 
-            item_local->setText(11, family.at(i));
-            item_local->setToolTip(11, family.at(i));
-            item_local->setText(12, id.at(i));
-            item_local->setText(13, description.at(i));
+            version_item->setText(11, family.at(i));
+            version_item->setToolTip(11, family.at(i));
+            version_item->setText(12, id.at(i));
+            version_item->setText(13, description.at(i));
             // topLevelCarVersionTreeItem->setFirstColumnSpanned(true);
-            ui->car_version_tree_widget->addTopLevelItem(item_local);
+            ui->car_version_tree_widget->addTopLevelItem(version_item);
 
             qDebug() << "Check if car version selected";
             if (id.at(i) == configValues->flash_protocol_selected_id)
             {
                 qDebug() << "Car version changed to saved model";
                 car_version_changed_saved = true;
-                ui->car_version_tree_widget->setCurrentItem(item_local);
+                ui->car_version_tree_widget->setCurrentItem(version_item);
             }
         }
         if (!car_version_changed_saved)
         {
             qDebug() << "Car version changed to first item, no version selected previously";
-            QTreeWidgetItem *item_local = ui->car_version_tree_widget->topLevelItem(0);
-            ui->car_version_tree_widget->setCurrentItem(item_local);
+            QTreeWidgetItem *default_item = ui->car_version_tree_widget->topLevelItem(0);
+            ui->car_version_tree_widget->setCurrentItem(default_item);
         }
     }
     qDebug() << "Car model selection applied";

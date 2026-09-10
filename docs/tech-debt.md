@@ -291,30 +291,100 @@ enough new code-smell debt (confirmed via `sonar api get
 a plan to pay down the *existing* backlog, ordered by risk rather than by raw
 count, since count and blast radius are not the same thing here.
 
-**Phase 1 — correctness-risk triage (highest priority, not highest count).**
-`cpp:S1117` (declaration shadows an outer variable, 550 instances),
-`cpp:S5276` (implicit narrowing conversion, 204), and `cpp:S5025` (raw
-`new`/`delete`, 172, Critical) concentrate in the legacy per-vendor flash-op
-files, `J2534_unix.cpp`, and `ecu_operations.cpp` — the hardware-facing layer
-this document's introduction calls out as needing bench verification before
-qualification. Several `S1117` messages name variables that look
-copy-paste-shadowed rather than intentionally reused (e.g. a local shadowing
-`timeout_local` or `LOG_I`), which would mean the outer variable silently
-never takes effect. Treat each instance as a triage question, not a
-mechanical rename:
+**Phase 1 — correctness-risk triage (highest priority, not highest count) —
+done, 2026-09.** The original plan was to read every `S1117`/`S5276`
+instance in the top 10 offending files by hand. That framing assumed the raw
+SonarCloud count was a reasonable proxy for real bugs; it wasn't. The actual
+work turned into cross-checking each rule against something with more
+authority than the scanner — the codebase's own signal declarations, a real
+compiler, and Qt's ownership idioms — before touching any code, and most of
+the backlog turned out to be noise:
 
-- Read every `S1117`/`S5276` instance in the top 10 offending files and
-  classify it cosmetic (safe rename, explicit cast) vs. suspicious (outer
-  variable's intended assignment never happens).
-- For any suspicious instance, write a characterization test pinning current
-  behavior before changing it — this is a behavior fix, not a style fix, and
-  falls under the same TDD discipline as the flash-orchestration work above.
-- Fix `S5025` instances where a `new`/`delete` pair is unambiguous and scoped
-  to one function (mechanical RAII conversion); flag instances where
-  ownership crosses functions or threads for the same closer review given to
-  other serial/threading code in this document.
-- Confirm on the next scan that new `cpp:S1117` findings no longer include
-  the `emit`-signal false positives bulk-resolved above.
+- `cpp:S1117` (declaration shadows an outer variable) started at 550 open
+  instances. 466 were `emit <Signal>(...)` misparsed by SonarCloud as a
+  variable declaration — a scanner-parser artifact, not a shadow — and
+  resolved as false positive. A further 13 were header-only findings that a
+  compiler cross-check (`clang++ -Wshadow-all`) didn't reproduce, also
+  resolved as false positive. Of the 71 that remained, 17 were genuine,
+  compiler-confirmed shadows, fixed across 7 files (`ecu_operations.cpp`,
+  `vehicle_select.cpp`, `settings.cpp`, `mainwindow.cpp`, `menu_actions.cpp`,
+  `flash_ecu_subaru_unisia_jecs_operation.cpp`,
+  `flash_ecu_subaru_unisia_jecs.cpp`) via a read-first rename or
+  redundant-declaration removal — each preceded by confirming what the outer
+  variable's intended assignment actually was, not a mechanical rename; these
+  17 are committed but not yet reflected on SonarCloud pending a future
+  rescan. The remaining 54 matched the same emit-signal-misparse pattern but
+  weren't pushed through SonarCloud's bulk resolution during this pass; left
+  `OPEN` rather than force a bulk-resolve through. No bespoke classification
+  tooling is needed to clear them: the misparse's root cause (an approximated
+  `compile_commands.json` feeding SonarCloud's C-family parser) is fixed by
+  the SonarSource build wrapper and native-Linux runner moves, so the next
+  scan should simply stop reproducing them. Net: 533 of 550 (97%) were
+  scanner noise, not real bugs; the true positive rate for this rule was 3%.
+  Two non-Sonar-reported shadowing
+  identifiers were also noticed in passing (a `cmd_type` parameter in
+  `flash_ecu_subaru_unisia_jecs_operation.cpp` and an `ecuCalDef` parameter in
+  `flash_ecu_subaru_unisia_jecs.cpp`, each sharing a line with one of the 17
+  fixed sites) and are left as a note, not a fix — they're outside what
+  SonarCloud tracks.
+- `cpp:S5276` (implicit narrowing conversion) — this plan covered the two
+  worst files, `J2534_unix.cpp` and `ecu_operations.cpp` (62 of the rule's
+  204 total). All 62 were fixed: 53 as `static_cast` (provably safe, no
+  behavioral change) and 9 in `J2534_unix.cpp`'s `PassThruReadMsgs`, where the
+  narrowing was a genuine truncation risk in a J2534 PassThru bridge — a
+  single corrupted wire byte could wrap an unsigned length to a huge value.
+  Those 9 are now rejected with the existing `ERR_BUFFER_OVERFLOW` error code
+  before use, with a new test (`J2534_unix_test.cpp`) pinning the in-range
+  case as unchanged and the out-of-range case as now erroring instead of
+  silently truncating; all 62 are committed but not yet reflected on
+  SonarCloud pending a future rescan. The remaining ~142 `S5276` instances in
+  other files are unchanged and stay a plain backlog, same as Phase 4's
+  scattered instances below — not a scheduled phase.
+- `cpp:S5025` (raw `new`/`delete`, Critical) — this plan covered the top 4
+  files (`settings.cpp`, `mainwindow.cpp`, `hexedit.cpp`, `logvalues.cpp`, 79
+  of the rule's 172 total). An initial pass converted 10 sites to
+  `std::unique_ptr`/`std::make_unique`, but a second look split those 10 into
+  two groups: 4 where the smart pointer is actually held and used across its
+  scope (real RAII), and 6 where it was constructed and immediately dropped
+  on the next line with no further use (`std::unique_ptr<T> guard(x);` right
+  where `delete x;` used to be) — semantically identical to the `delete` it
+  replaced, adding no behavioral value, just linter appeasement. Only the 4
+  real fixes were kept and landed separately on `master` (#289): the
+  flagship, `Settings::fileActions` — `FileActions` doesn't derive from
+  `QObject`, was heap-allocated with `new`, and was never deleted, now a
+  local `std::make_unique` used for the forwarding call, with the now-dead
+  class member removed — plus `MainWindow`'s `startUpSplash` and
+  `log_file_timer` members and `logvalues.cpp`'s `change_log_values` dialog,
+  each held for real use through their scope/object lifetime. The other 6
+  (`Settings::remove_definition_files`'s taken list item;
+  `MainWindow::close_calibration`'s two taken tree items;
+  `MainWindow::update_logboxes`'s two taken layout widgets;
+  `MainWindow::resizeEvent`'s taken gauge widget) were reverted back to
+  plain `delete` on this branch and left `OPEN` — not worth carrying a
+  smart-pointer wrapper that exists for one statement and does nothing a
+  bare `delete` didn't already do. 67 were Qt parent-owned or
+  container-owned allocations that SonarCloud's analyzer doesn't model, and
+  were resolved as false positive. 2 were left `OPEN` and deliberately
+  unfixed: a genuine leak in `mainwindow.cpp`'s raw `ecuCalDef[100]` pointer
+  array, judged too invasive for a triage pass (166 call sites across 3 files,
+  including hardware-facing flash/calibration code) and flagged as a
+  properly-scoped follow-up refactor rather than silently dropped. The
+  remaining 93 `S5025` instances in other files are unchanged, same
+  plain-backlog treatment as `S5276` above.
+
+The methodology, not just the numbers, is the reusable part: don't trust a
+raw SonarCloud count as a proxy for real work. Cross-referencing against a
+project-specific pattern (Qt signal emission, Qt/container ownership) or a
+real compiler flag caught the false positives before any code churned on
+them. The rules named in Phases 2-4 below (`S6022`, `S5945`, `S125`, `S1820`,
+`S3776`, `S134`) haven't had this cross-check applied yet — worth doing
+before assuming their raw counts reflect real work, the same way it mattered
+here.
+
+Confirm on the next scan that new `cpp:S1117` findings no longer include the
+`emit`-signal false positives bulk-resolved above, and that the 54 left
+`OPEN` above clear on their own now that the build-wrapper/Linux-runner fix
+is live.
 
 **Phase 2 — high-leverage Critical cleanup (mechanical, low risk).**
 `cpp:S5028` (macro should be `const`/`constexpr`/an enum) accounts for 366

@@ -158,7 +158,10 @@ int EcuOperations::read_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCalD
         unsigned long chrono;
 
         pleft = (float)(addr - start_addr) / (float)(length + 0x8000) * 100.0F;
-        set_progressbar_value(pleft);
+        // pleft is a 0-100ish percentage (addr/length ratio * 100); truncating
+        // to the progress bar's int percentage is the intended behavior, not
+        // a truncation bug.
+        set_progressbar_value(static_cast<int>(pleft));
 
         if (addr >= flashdevices[mcu_type_index].rblocks->start &&
             addr < (flashdevices[mcu_type_index].rblocks->start + flashdevices[mcu_type_index].rblocks->len))
@@ -213,7 +216,13 @@ int EcuOperations::read_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCalD
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0F / chrono);
+            // Display-only transfer-rate estimate (bytes/sec for the status
+            // log), not a value that reaches the wire: cplen is a single
+            // page/chunk length (well under 2^24) and chrono an elapsed
+            // millisecond count, so the float computation and the final
+            // truncation to unsigned are both intentional and lossless in
+            // practice.
+            curspeed = static_cast<unsigned>(static_cast<float>(cplen) * (1000.0F / static_cast<float>(chrono)));
         }
 
         if (!curspeed)
@@ -303,7 +312,10 @@ int EcuOperations::read_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCalD
 
         uint32_t pagesize = numblocks * 32;
         pleft = (float)(addr - start_addr) / (float)length * 100.0F;
-        set_progressbar_value(pleft);
+        // pleft is a 0-100ish percentage (addr/length ratio * 100); truncating
+        // to the progress bar's int percentage is the intended behavior, not
+        // a truncation bug.
+        set_progressbar_value(static_cast<int>(pleft));
 
         bytes::writeU16Be(output, 2, static_cast<std::uint16_t>(numblocks));
         bytes::writeU16Be(output, 4, static_cast<std::uint16_t>(curblock));
@@ -340,7 +352,13 @@ int EcuOperations::read_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCalD
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0F / chrono);
+            // Display-only transfer-rate estimate (bytes/sec for the status
+            // log), not a value that reaches the wire: cplen is a single
+            // page/chunk length (well under 2^24) and chrono an elapsed
+            // millisecond count, so the float computation and the final
+            // truncation to unsigned are both intentional and lossless in
+            // practice.
+            curspeed = static_cast<unsigned>(static_cast<float>(cplen) * (1000.0F / static_cast<float>(chrono)));
         }
 
         if (!curspeed)
@@ -445,7 +463,10 @@ int EcuOperations::read_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef
         numblocks = 1;
 
         pleft = (float)(addr - start_addr) / (float)length * 100.0F;
-        set_progressbar_value(pleft);
+        // pleft is a 0-100ish percentage (addr/length ratio * 100); truncating
+        // to the progress bar's int percentage is the intended behavior, not
+        // a truncation bug.
+        set_progressbar_value(static_cast<int>(pleft));
 
         // length = 256;
 
@@ -491,7 +512,13 @@ int EcuOperations::read_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0F / chrono);
+            // Display-only transfer-rate estimate (bytes/sec for the status
+            // log), not a value that reaches the wire: cplen is a single
+            // page/chunk length (well under 2^24) and chrono an elapsed
+            // millisecond count, so the float computation and the final
+            // truncation to unsigned are both intentional and lossless in
+            // practice.
+            curspeed = static_cast<unsigned>(static_cast<float>(cplen) * (1000.0F / static_cast<float>(chrono)));
         }
 
         if (!curspeed)
@@ -536,7 +563,7 @@ int EcuOperations::read_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef
 /*******************************************************
  *  Write ROM 16bit K-Line ECUs
  ******************************************************/
-int EcuOperations::write_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write)
+int EcuOperations::write_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write_arg)
 {
     QByteArray filedata;
     QByteArray output;
@@ -600,7 +627,7 @@ int EcuOperations::write_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCal
             {
                 /*                if
                    (reflash_block_16bit_kline(&data_array[flashdevices[mcu_type_index].fblocks->start],
-                   &flashdevices[mcu_type_index], blockno, test_write))
+                   &flashdevices[mcu_type_index], blockno, test_write_arg))
                                 {
                                     emit LOG_I("Block " + QString::number(blockno) + " reflash failed.", true, true);
                                     return STATUS_ERROR;
@@ -633,7 +660,7 @@ int EcuOperations::write_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCal
             }
         }
         emit LOG_I(" (total: " + QString::number(bcnt) + ")", false, true);
-        if (!test_write)
+        if (!test_write_arg)
         {
             if (bcnt)
             {
@@ -658,7 +685,7 @@ int EcuOperations::write_mem_16bit_kline(FileActions::EcuCalDefStructure *ecuCal
 /*******************************************************
  *  Write ROM 32bit K-Line ECUs
  ******************************************************/
-int EcuOperations::write_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write)
+int EcuOperations::write_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write_arg)
 {
     QByteArray filedata;
 
@@ -718,7 +745,7 @@ int EcuOperations::write_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCal
             if (block_modified[blockno])
             {
                 if (reflash_block_32bit_kline(&data_array[flashdevices[mcu_type_index].fblocks->start],
-                                              &flashdevices[mcu_type_index], blockno, test_write))
+                                              &flashdevices[mcu_type_index], blockno, test_write_arg))
                 {
                     emit LOG_I("Block " + QString::number(blockno) + " reflash failed.", true, true);
                     return STATUS_ERROR;
@@ -751,7 +778,7 @@ int EcuOperations::write_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCal
             }
         }
         emit LOG_I(" (total: " + QString::number(bcnt) + ")", false, true);
-        if (!test_write)
+        if (!test_write_arg)
         {
             if (bcnt)
             {
@@ -776,7 +803,7 @@ int EcuOperations::write_mem_32bit_kline(FileActions::EcuCalDefStructure *ecuCal
 /*******************************************************
  *  Write ROM 32bit CAN ECUs
  ******************************************************/
-int EcuOperations::write_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write)
+int EcuOperations::write_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write_arg)
 {
     QByteArray filedata;
 
@@ -836,7 +863,7 @@ int EcuOperations::write_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDe
             if (block_modified[blockno])
             {
                 if (reflash_block_32bit_can(&data_array[flashdevices[mcu_type_index].fblocks->start],
-                                            &flashdevices[mcu_type_index], blockno, test_write))
+                                            &flashdevices[mcu_type_index], blockno, test_write_arg))
                 {
                     emit LOG_I("Block " + QString::number(blockno) + " reflash failed.", true, true);
                     return STATUS_ERROR;
@@ -869,7 +896,7 @@ int EcuOperations::write_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDe
             }
         }
         emit LOG_I(" (total: " + QString::number(bcnt) + ")", false, true);
-        if (!test_write)
+        if (!test_write_arg)
         {
             if (bcnt)
             {
@@ -891,7 +918,7 @@ int EcuOperations::write_mem_32bit_can(FileActions::EcuCalDefStructure *ecuCalDe
     return STATUS_SUCCESS;
 }
 
-int EcuOperations::write_mem_32bit_iso15765(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write)
+int EcuOperations::write_mem_32bit_iso15765(FileActions::EcuCalDefStructure *ecuCalDef, bool test_write_arg)
 {
     QByteArray filedata;
 
@@ -1035,7 +1062,10 @@ int EcuOperations::check_romcrc_16bit_kline(const uint8_t *src, uint32_t start, 
 
     len = (len + ROMCRC_LENMASK_16BIT) & ~ROMCRC_LENMASK_16BIT;
 
-    chunko = start / ROMCRC_CHUNKSIZE_16BIT;
+    // chunko is a 16-bit wire field (<CNH:CNL> chunk number); start is a ROM
+    // address bounded by flashdevices[]'s compiled-in romsize (<= ~4MB in
+    // this codebase), so start/ROMCRC_CHUNKSIZE_16BIT never approaches 65535.
+    chunko = static_cast<uint16_t>(start / ROMCRC_CHUNKSIZE_16BIT);
 
     datalen = 8;
 
@@ -1121,7 +1151,10 @@ int EcuOperations::check_romcrc_32bit_kline(const uint8_t *src, uint32_t start, 
 
     len = (len + ROMCRC_LENMASK_32BIT) & ~ROMCRC_LENMASK_32BIT;
 
-    chunko = start / ROMCRC_CHUNKSIZE_32BIT;
+    // chunko is a 16-bit wire field (<CNH:CNL> chunk number); start is a ROM
+    // address bounded by flashdevices[]'s compiled-in romsize (<= ~4MB in
+    // this codebase), so start/ROMCRC_CHUNKSIZE_32BIT never approaches 65535.
+    chunko = static_cast<uint16_t>(start / ROMCRC_CHUNKSIZE_32BIT);
 
     // request format : <SID_CONF> <SID_CONF_CKS1> <CNH> <CNL> <CRC0H> <CRC0L> ...<CRC3H> <CRC3L>
     // verify if <CRCH:CRCL> hash is valid for n*256B chunk of the ROM (starting at <CNH:CNL> * 256)
@@ -1199,7 +1232,10 @@ int EcuOperations::check_romcrc_32bit_can(const uint8_t *src, uint32_t start_add
 
     len = (len + ROMCRC_LENMASK_CAN) & ~ROMCRC_LENMASK_CAN;
 
-    chunko = start_addr / ROMCRC_CHUNKSIZE_CAN;
+    // chunko is a 16-bit wire field (<CNH:CNL> chunk number); start_addr is a
+    // ROM address bounded by flashdevices[]'s compiled-in romsize (<= ~4MB in
+    // this codebase), so start_addr/ROMCRC_CHUNKSIZE_CAN never approaches 65535.
+    chunko = static_cast<uint16_t>(start_addr / ROMCRC_CHUNKSIZE_CAN);
 
     output.clear();
     output.append((uint8_t)0x00);
@@ -1361,7 +1397,13 @@ int EcuOperations::npk_raw_flashblock_16bit_kline(const uint8_t *src, uint32_t s
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0F / chrono); // avg B/s
+        // Display-only transfer-rate estimate (bytes/sec for the status log),
+        // not a value that reaches the wire: blocksize is a fixed 128-byte
+        // chunk size and chrono an elapsed millisecond count, so the float
+        // computation and the final truncation to unsigned are both
+        // intentional and lossless in practice.
+        curspeed =
+            static_cast<unsigned>(static_cast<float>(blocksize) * (1000.0F / static_cast<float>(chrono))); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;
@@ -1375,7 +1417,10 @@ int EcuOperations::npk_raw_flashblock_16bit_kline(const uint8_t *src, uint32_t s
         tleft++;
 
         float pleft = (float)(byteindex - start) / (float)flashbytescount * 100.0F;
-        set_progressbar_value(pleft);
+        // pleft is a 0-100ish percentage (addr/length ratio * 100); truncating
+        // to the progress bar's int percentage is the intended behavior, not
+        // a truncation bug.
+        set_progressbar_value(static_cast<int>(pleft));
 
         QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("writing chunk @ 0x%1 (%2\% - %3 B/s, ~ %4 s)")
@@ -1483,7 +1528,13 @@ int EcuOperations::npk_raw_flashblock_32bit_kline(const uint8_t *src, uint32_t s
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0F / chrono); // avg B/s
+        // Display-only transfer-rate estimate (bytes/sec for the status log),
+        // not a value that reaches the wire: blocksize is a fixed 128-byte
+        // chunk size and chrono an elapsed millisecond count, so the float
+        // computation and the final truncation to unsigned are both
+        // intentional and lossless in practice.
+        curspeed =
+            static_cast<unsigned>(static_cast<float>(blocksize) * (1000.0F / static_cast<float>(chrono))); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;
@@ -1497,7 +1548,10 @@ int EcuOperations::npk_raw_flashblock_32bit_kline(const uint8_t *src, uint32_t s
         tleft++;
 
         float pleft = (float)(byteindex - start) / (float)flashbytescount * 100.0F;
-        set_progressbar_value(pleft);
+        // pleft is a 0-100ish percentage (addr/length ratio * 100); truncating
+        // to the progress bar's int percentage is the intended behavior, not
+        // a truncation bug.
+        set_progressbar_value(static_cast<int>(pleft));
 
         QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0')).toUpper();
         msg = QString("writing chunk @ 0x%1 (%2\% - %3 B/s, ~ %4 s)")
@@ -1615,7 +1669,13 @@ int EcuOperations::npk_raw_flashblock_32bit_can(const uint8_t *src, uint32_t sta
         {
             chrono += 1;
         }
-        curspeed = blocksize * (1000.0F / chrono); // avg B/s
+        // Display-only transfer-rate estimate (bytes/sec for the status log),
+        // not a value that reaches the wire: blocksize is a fixed 128-byte
+        // chunk size and chrono an elapsed millisecond count, so the float
+        // computation and the final truncation to unsigned are both
+        // intentional and lossless in practice.
+        curspeed =
+            static_cast<unsigned>(static_cast<float>(blocksize) * (1000.0F / static_cast<float>(chrono))); // avg B/s
         if (!curspeed)
         {
             curspeed += 1;
@@ -1629,7 +1689,10 @@ int EcuOperations::npk_raw_flashblock_32bit_can(const uint8_t *src, uint32_t sta
         tleft++;
 
         float pleft = (float)(byteindex - start) / (float)flashbytescount * 100.0F;
-        set_progressbar_value(pleft);
+        // pleft is a 0-100ish percentage (addr/length ratio * 100); truncating
+        // to the progress bar's int percentage is the intended behavior, not
+        // a truncation bug.
+        set_progressbar_value(static_cast<int>(pleft));
 
         QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0'));
         msg = QString("writing chunk @ 0x%1 (%2\% - %3 B/s, ~ %4 s)")
@@ -1735,7 +1798,10 @@ int EcuOperations::reflash_block_16bit_kline(const uint8_t *newdata, const struc
     output.clear();
     output.append(SID_FLASH);
     output.append(SIDFL_EB);
-    output.append(blockno);
+    // blockno is guarded above by `blockno >= fdt->numblocks` and every
+    // flashdevices[] entry's numblocks is a small compiled-in constant
+    // (<= 16 in this codebase), so it always fits in a single wire byte.
+    output.append(static_cast<char>(blockno));
     received = serial->write_serial_data_echo_check(output);
     // received = serial->read_serial_data(serial_read_short_timeout);
 
@@ -1872,7 +1938,10 @@ int EcuOperations::reflash_block_32bit_kline(const uint8_t *newdata, const struc
     output.clear();
     output.append(SID_FLASH);
     output.append(SIDFL_EB);
-    output.append(blockno);
+    // blockno is guarded above by `blockno >= fdt->numblocks` and every
+    // flashdevices[] entry's numblocks is a small compiled-in constant
+    // (<= 16 in this codebase), so it always fits in a single wire byte.
+    output.append(static_cast<char>(blockno));
     received = serial->write_serial_data_echo_check(output);
     // received = serial->read_serial_data(serial_read_short_timeout);
 
@@ -2086,7 +2155,10 @@ int EcuOperations::read_mem_uj20_30_40_70_kline(FileActions::EcuCalDefStructure 
         unsigned long chrono;
 
         pleft = (float)(addr - start_addr) / (float)(length) * 100.0F;
-        set_progressbar_value(pleft);
+        // pleft is a 0-100ish percentage (addr/length ratio * 100); truncating
+        // to the progress bar's int percentage is the intended behavior, not
+        // a truncation bug.
+        set_progressbar_value(static_cast<int>(pleft));
 
         bytes::writeU24Be(output, 6, addr);
         output[9] = (uint8_t)(pagesize - 1) & 0xFF;
@@ -2117,7 +2189,13 @@ int EcuOperations::read_mem_uj20_30_40_70_kline(FileActions::EcuCalDefStructure 
 
         if (cplen > 0 && chrono > 0)
         {
-            curspeed = cplen * (1000.0F / chrono);
+            // Display-only transfer-rate estimate (bytes/sec for the status
+            // log), not a value that reaches the wire: cplen is a single
+            // page/chunk length (well under 2^24) and chrono an elapsed
+            // millisecond count, so the float computation and the final
+            // truncation to unsigned are both intentional and lossless in
+            // practice.
+            curspeed = static_cast<unsigned>(static_cast<float>(cplen) * (1000.0F / static_cast<float>(chrono)));
         }
 
         if (!curspeed)
