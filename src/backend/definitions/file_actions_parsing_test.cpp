@@ -1018,6 +1018,42 @@ class TestFileActionsParsing : public QObject
         delete ecuCalDef;
     }
 
+    // Settings::save_config_file() (src/ui/desktop/settings.cpp) constructs
+    // a throwaway FileActions purely to forward one call to
+    // FileActions::save_config_file(configValues) -- Settings itself
+    // derives from QDialog and needs a live QApplication to construct, so
+    // this test exercises the actual call chain one layer down instead
+    // (the `new FileActions` in Settings::save_config_file was a genuine
+    // S5025 leak, fixed with std::make_unique; this proves the forwarding
+    // call still works end to end through a real Qt file write).
+    void save_config_file_forwards_to_config_adapter_and_writes_file()
+    {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString configPath = dir.filePath("fastecu.cfg");
+
+        fastecu::RecordingEventSink eventSink;
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions::ConfigValuesStructure config;
+        config.config_file = configPath;
+        config.serial_port = "COM9";
+        config.calibration_files_directory = "/cal/no/trailing/slash";
+
+        FileActions::ConfigValuesStructure *returned = fileActions.save_config_file(&config);
+
+        QCOMPARE(returned, &config);
+        // save_config_file's normalization (trailing-slash append) must be
+        // visible in the same struct the caller passed in.
+        QCOMPARE(config.calibration_files_directory, QString("/cal/no/trailing/slash/"));
+
+        QFile writtenFile(configPath);
+        QVERIFY(writtenFile.exists());
+        QVERIFY(writtenFile.open(QIODevice::ReadOnly));
+        const QByteArray contents = writtenFile.readAll();
+        QVERIFY(contents.contains("COM9"));
+        QVERIFY(contents.contains("/cal/no/trailing/slash/"));
+    }
+
   private:
     // FileActions's constructor now takes the config/settings ports (Task
     // 11 of the step5d-1 plan); these are unused by the parsing paths this

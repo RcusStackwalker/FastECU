@@ -6,7 +6,7 @@
 
 void MainWindow::change_log_values(int tab_index, const QString& protocol_arg)
 {
-    QDialog *change_log_values_dialog = new QDialog;
+    auto change_log_values_dialog = std::make_unique<QDialog>();
     QVBoxLayout *main_layout = new QVBoxLayout();
     QTabWidget *tab_widget = new QTabWidget();
     QSpacerItem *button_spacer = new QSpacerItem(1, 1, QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -18,8 +18,8 @@ void MainWindow::change_log_values(int tab_index, const QString& protocol_arg)
     button_layout->addWidget(button_ok);
     button_layout->addWidget(button_cancel);
 
-    connect(button_ok, SIGNAL(clicked()), change_log_values_dialog, SLOT(close()));
-    connect(button_cancel, SIGNAL(clicked()), change_log_values_dialog, SLOT(close()));
+    connect(button_ok, SIGNAL(clicked()), change_log_values_dialog.get(), SLOT(close()));
+    connect(button_cancel, SIGNAL(clicked()), change_log_values_dialog.get(), SLOT(close()));
 
     change_log_values_dialog->setLayout(main_layout);
     main_layout->addWidget(tab_widget);

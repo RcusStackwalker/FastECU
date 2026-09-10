@@ -37,8 +37,8 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     QPixmap startUpSplashImage(":/images/startup_splash.jpg");
     int startUpSplashProgressBarValue = 0;
 
-    startUpSplash = new QSplashScreen(startUpSplashImage);
-    QVBoxLayout *startUpSplashLayout = new QVBoxLayout(startUpSplash);
+    startUpSplash = std::make_unique<QSplashScreen>(startUpSplashImage);
+    QVBoxLayout *startUpSplashLayout = new QVBoxLayout(startUpSplash.get());
     // startUpSplashLayout->setMargin(0);
     startUpSplashLayout->setSpacing(0);
     startUpSplashLayout->setAlignment(Qt::AlignBottom);
@@ -511,7 +511,7 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
         connect(ssm_init_poll_timer, SIGNAL(timeout()), this, SLOT(ecu_init()));
         ssm_init_poll_timer->start();
     */
-    log_file_timer = new QElapsedTimer();
+    log_file_timer = std::make_unique<QElapsedTimer>();
 
     if (ecuCalDefIndex > 0)
     {
