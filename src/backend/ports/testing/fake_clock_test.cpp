@@ -2,6 +2,7 @@
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include <gtest/gtest.h>
 
+using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::FakeClock;
 using fastecu::Status;
@@ -9,34 +10,39 @@ using fastecu::Status;
 TEST(FakeClock, OptionalAutoAdvancePreservesSsmTimingModel)
 {
     FakeClock clock;
-    clock.set_now_auto_advance_ms(10);
-    clock.set_sleep_advance_ms(10);
+    clock.set_now_auto_advance(10ms);
+    clock.set_sleep_advance(10ms);
     fastecu::FakeCancellationToken active;
 
-    EXPECT_EQ(clock.now_ms(), 0U);
-    EXPECT_EQ(clock.now_ms(), 10U);
-    ASSERT_TRUE(clock.sleep(999, active));
-    EXPECT_EQ(clock.now_ms(), 30U);
+    EXPECT_EQ(clock.elapsed(), 0ms);
+    const auto first = clock.now();
+    const auto second = clock.now();
+    EXPECT_EQ(second - first, 10ms);
+    EXPECT_EQ(clock.elapsed(), 20ms);
+    // set_sleep_advance overrides the requested duration, so 999ms advances by 10ms.
+    ASSERT_TRUE(clock.sleep(999ms, active));
+    EXPECT_EQ(clock.elapsed(), 30ms);
 }
 
 TEST(FakeClock, MakeAutoAdvancingClockConfiguresBothTimingModels)
 {
-    auto clock = fastecu::make_auto_advancing_clock(10);
+    auto clock = fastecu::make_auto_advancing_clock(10ms);
     fastecu::FakeCancellationToken active;
 
-    EXPECT_EQ(clock.now_ms(), 0U);
-    EXPECT_EQ(clock.now_ms(), 10U);
-    ASSERT_TRUE(clock.sleep(999, active));
-    EXPECT_EQ(clock.now_ms(), 30U);
+    const auto first = clock.now();
+    const auto second = clock.now();
+    EXPECT_EQ(second - first, 10ms);
+    ASSERT_TRUE(clock.sleep(999ms, active));
+    EXPECT_EQ(clock.elapsed(), 30ms);
 }
 
 TEST(Clock, SleepAdvancesAndSucceeds)
 {
     FakeClock c;
     fastecu::FakeCancellationToken t;
-    Status s = c.sleep(10, t);
+    Status s = c.sleep(10ms, t);
     EXPECT_TRUE(s.has_value());
-    EXPECT_EQ(c.now_ms(), 10U);
+    EXPECT_EQ(c.elapsed(), 10ms);
 }
 
 TEST(Clock, SleepReturnsCancelledWhenTokenSet)
@@ -44,8 +50,16 @@ TEST(Clock, SleepReturnsCancelledWhenTokenSet)
     FakeClock c;
     fastecu::FakeCancellationToken t;
     t.set_cancelled(true);
-    Status s = c.sleep(10, t);
+    Status s = c.sleep(10ms, t);
     ASSERT_FALSE(s.has_value());
     EXPECT_EQ(s.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(c.now_ms(), 0U);
+    EXPECT_EQ(c.elapsed(), 0ms);
+}
+
+TEST(Clock, NegativeSleepDoesNotRewindTheClock)
+{
+    FakeClock c;
+    fastecu::FakeCancellationToken t;
+    ASSERT_TRUE(c.sleep(-5ms, t));
+    EXPECT_EQ(c.elapsed(), 0ms);
 }

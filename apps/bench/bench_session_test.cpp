@@ -17,6 +17,8 @@ namespace fastecu::bench
 namespace
 {
 
+using namespace std::chrono_literals;
+
 constexpr std::uint32_t kRequestId = 0x7E0;
 constexpr std::uint32_t kResponseId = 0x7E8;
 const bytes::Bytes kSeed{0x12, 0x34, 0x56, 0x78};
@@ -35,7 +37,7 @@ bytes::Bytes response(bytes::ByteView pdu)
 struct Harness
 {
     flash::ScriptedCanFlashTransport *transport = nullptr;
-    FakeClock clock = make_auto_advancing_clock(1);
+    FakeClock clock = make_auto_advancing_clock(1ms);
     RecordingEventSink events;
     FakeCancellationToken cancellation;
     std::unique_ptr<BenchSession> session;

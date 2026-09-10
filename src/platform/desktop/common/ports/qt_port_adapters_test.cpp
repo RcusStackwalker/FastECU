@@ -13,6 +13,7 @@
 #include <memory>
 #include <vector>
 
+using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::LogLevel;
 using fastecu::ManualCancellationToken;
@@ -49,11 +50,11 @@ const auto *qt_port_environment = ::testing::AddGlobalTestEnvironment(new QtPort
 TEST(QtClockTest, NowMsIsMonotonicNonDecreasing)
 {
     QtClock clock;
-    std::uint64_t first = clock.now_ms();
+    auto first = clock.now();
     ManualCancellationToken token;
-    Status s = clock.sleep(1, token);
+    Status s = clock.sleep(1ms, token);
     ASSERT_TRUE(s.has_value());
-    std::uint64_t second = clock.now_ms();
+    auto second = clock.now();
     EXPECT_GE(second, first);
 }
 
@@ -61,7 +62,7 @@ TEST(QtClockTest, SleepZeroSucceeds)
 {
     QtClock clock;
     ManualCancellationToken token;
-    Status s = clock.sleep(0, token);
+    Status s = clock.sleep(0ms, token);
     EXPECT_TRUE(s.has_value());
 }
 
@@ -70,7 +71,7 @@ TEST(QtClockTest, SleepReturnsCancelledWhenTokenAlreadyCancelled)
     QtClock clock;
     ManualCancellationToken token;
     token.cancel();
-    Status s = clock.sleep(50, token);
+    Status s = clock.sleep(50ms, token);
     ASSERT_FALSE(s.has_value());
     EXPECT_EQ(s.error().kind, ErrorKind::Cancelled);
 }

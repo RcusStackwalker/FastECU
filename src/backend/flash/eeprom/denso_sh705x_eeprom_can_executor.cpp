@@ -17,6 +17,7 @@ namespace
 using bytes::composeBe;
 using bytes::u24;
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 
 // ---------------------------------------------------------------------
 // Literal protocol constants transcribed from
@@ -282,7 +283,7 @@ Result<std::optional<bytes::Bytes>> can_raw_exchange(ICanFlashTransport& transpo
     }
     if (delay_ms > 0)
     {
-        if (Status slept = clock.sleep(delay_ms, cancellation); !slept.has_value())
+        if (Status slept = clock.sleep(std::chrono::milliseconds{delay_ms}, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -743,7 +744,8 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
         return fail(ErrorKind::BadResponse, "kernel start ack rejected");
     }
 
-    if (Status slept = clock.sleep(kPostUploadSettleDelayMs, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(std::chrono::milliseconds{kPostUploadSettleDelayMs}, cancellation);
+        !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
@@ -898,7 +900,7 @@ Result<bytes::Bytes> DensoSh705xEepromCanExecutor::read_mem(ICanFlashTransport& 
         std::uint32_t cplen = kNumBlocks * pagesize - skip_start;
         skip_start = 0;
 
-        if (Status slept = clock.sleep(kInterPageDelayMs, cancellation); !slept.has_value())
+        if (Status slept = clock.sleep(std::chrono::milliseconds{kInterPageDelayMs}, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }

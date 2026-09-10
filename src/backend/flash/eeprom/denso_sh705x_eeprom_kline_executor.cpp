@@ -18,6 +18,7 @@ using bytes::composeBe;
 using bytes::composeBeWithChecksum;
 using bytes::u24;
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 
 // ---------------------------------------------------------------------
 // Literal protocol constants transcribed from
@@ -204,7 +205,8 @@ Result<bytes::Bytes> request_kernel_id(IKlineFlashTransport& transport, IClock& 
     {
         return std::unexpected(written.error());
     }
-    if (Status slept = clock.sleep(kKernelIdRequestDelayMs, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(std::chrono::milliseconds{kKernelIdRequestDelayMs}, cancellation);
+        !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
@@ -403,7 +405,7 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
     {
         return std::unexpected(baud.error());
     }
-    if (Status slept = clock.sleep(kProbeSettleDelayMs, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(std::chrono::milliseconds{kProbeSettleDelayMs}, cancellation); !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
@@ -436,7 +438,7 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
     {
         return std::unexpected(baud.error());
     }
-    if (Status slept = clock.sleep(kInitSettleDelayMs, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(std::chrono::milliseconds{kInitSettleDelayMs}, cancellation); !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
@@ -672,14 +674,16 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
         }
         if (looks_kernel_alive(*poll))
         {
-            if (Status slept = clock.sleep(kKernelAliveSettleDelayMs, cancellation); !slept.has_value())
+            if (Status slept = clock.sleep(std::chrono::milliseconds{kKernelAliveSettleDelayMs}, cancellation);
+                !slept.has_value())
             {
                 return std::unexpected(slept.error());
             }
             events.log(LogLevel::Info, "Kernel is alive");
             return {};
         }
-        if (Status slept = clock.sleep(kKernelPollRetryDelayMs, cancellation); !slept.has_value())
+        if (Status slept = clock.sleep(std::chrono::milliseconds{kKernelPollRetryDelayMs}, cancellation);
+            !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -726,7 +730,8 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
         {
             return std::unexpected(written.error());
         }
-        if (Status slept = clock.sleep(kReadMemPreReadDelayMs, cancellation); !slept.has_value())
+        if (Status slept = clock.sleep(std::chrono::milliseconds{kReadMemPreReadDelayMs}, cancellation);
+            !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -743,7 +748,8 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
             {
                 return fail(ErrorKind::Cancelled, "cancelled during EEPROM page read");
             }
-            if (Status slept = clock.sleep(kReadMemPollDelayMs, cancellation); !slept.has_value())
+            if (Status slept = clock.sleep(std::chrono::milliseconds{kReadMemPollDelayMs}, cancellation);
+                !slept.has_value())
             {
                 return std::unexpected(slept.error());
             }
@@ -794,7 +800,8 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
         std::uint32_t cplen = numblocks * kEepromBlockBytes - skip_start;
         skip_start = 0;
 
-        if (Status slept = clock.sleep(kReadMemInterBlockDelayMs, cancellation); !slept.has_value())
+        if (Status slept = clock.sleep(std::chrono::milliseconds{kReadMemInterBlockDelayMs}, cancellation);
+            !slept.has_value())
         {
             return std::unexpected(slept.error());
         }

@@ -1,8 +1,11 @@
 #include "src/platform/desktop/common/ports/qt_clock.h"
+#include "src/backend/ports/duration_cast.h"
 #include <QElapsedTimer>
 #include <QThread>
 
-std::uint64_t QtClock::now_ms() const
+using namespace std::chrono_literals;
+
+std::chrono::steady_clock::time_point QtClock::now() const
 {
     static QElapsedTimer base = []
     {
@@ -10,21 +13,21 @@ std::uint64_t QtClock::now_ms() const
         t.start();
         return t;
     }();
-    return static_cast<std::uint64_t>(base.elapsed());
+    return std::chrono::steady_clock::time_point{} + std::chrono::milliseconds{base.elapsed()};
 }
 
-fastecu::Status QtClock::sleep(int ms, const fastecu::ICancellationToken& t)
+fastecu::Status QtClock::sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken& t)
 {
-    const int slice = 10;
-    int remaining = ms;
-    while (remaining > 0)
+    constexpr auto slice = 10ms;
+    auto remaining = duration;
+    while (remaining > 0ms)
     {
         if (t.cancelled())
         {
             return fastecu::fail(fastecu::ErrorKind::Cancelled);
         }
-        int step = remaining < slice ? remaining : slice;
-        QThread::msleep(static_cast<unsigned long>(step));
+        const auto step = remaining < slice ? remaining : slice;
+        QThread::msleep(fastecu::saturating_ms<unsigned long>(step));
         remaining -= step;
     }
     return {};

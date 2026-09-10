@@ -12,6 +12,7 @@
 namespace
 {
 
+using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::FakeCancellationToken;
 using fastecu::FakeClock;
@@ -60,9 +61,9 @@ TEST(UdsClientTest, SleepsForThePreReadDelayBeforeTheFirstRead)
     uds::UdsClient client = f.client();
     (void)client.request(request, kPolicy, f.cancellation);
 
-    // FakeClock::sleep advances now_ by the requested duration, so the total
-    // is the only observable: one 50 ms pre-read delay and nothing else.
-    EXPECT_EQ(f.clock.now_, 50U);
+    // FakeClock::sleep advances elapsed() by the requested duration, so the
+    // total is the only observable: one 50 ms pre-read delay and nothing else.
+    EXPECT_EQ(f.clock.elapsed(), 50ms);
     EXPECT_THAT(f.channel.timeouts_, ElementsAre(500));
 }
 

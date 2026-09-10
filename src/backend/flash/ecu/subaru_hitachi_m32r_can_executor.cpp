@@ -24,6 +24,7 @@ namespace fastecu::flash
 namespace
 {
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 using bytes::composeBe;
 using bytes::u24;
 
@@ -357,7 +358,7 @@ Status erase_memory(Ctx& ctx)
             connected = true;
             break;
         }
-        if (const Status slept = ctx.clock.sleep(500, ctx.cancellation); !slept.has_value())
+        if (const Status slept = ctx.clock.sleep(500ms, ctx.cancellation); !slept.has_value())
         {
             return slept;
         }

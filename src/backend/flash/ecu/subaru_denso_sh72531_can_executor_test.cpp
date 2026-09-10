@@ -31,6 +31,7 @@
 
 namespace
 {
+using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::FakeClock;
 using fastecu::LogLevel;
@@ -53,13 +54,13 @@ using testing::Pair;
 class RecordingClock final : public FakeClock
 {
   public:
-    fastecu::Status sleep(int ms, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Status sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken& cancellation) override
     {
-        sleep_calls.push_back(ms);
-        return FakeClock::sleep(ms, cancellation);
+        sleep_calls.push_back(duration);
+        return FakeClock::sleep(duration, cancellation);
     }
 
-    std::vector<int> sleep_calls;
+    std::vector<std::chrono::milliseconds> sleep_calls;
 };
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_sh72531_can";
@@ -446,7 +447,7 @@ TEST(SubaruDensoSh72531CanExecutor, WriteErasesThenFlashesBlockOne)
     // 1295). Asserted as a whole sequence rather than by Contains so that
     // dropping one -- as this port did with both the 784 and the 1295 settle
     // -- fails here instead of passing silently.
-    EXPECT_EQ(clock.sleep_calls, (std::vector<int>{500, 50, 500, 100}));
+    EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{500ms, 50ms, 500ms, 100ms}));
 }
 
 TEST(SubaruDensoSh72531CanExecutor, TestWriteIsRejectedBeforeAnyTransportCall)
@@ -500,8 +501,8 @@ TEST(SubaruDensoSh72531CanExecutor, BenchKernelJumpDiscardsFirstReply)
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Kernel jump acknowledged")));
     // connect_bench's 500 ms wait (legacy line 660) then the jump's own 50 ms
     // between its two reads (legacy line 784).
-    EXPECT_EQ(clock.sleep_calls, (std::vector<int>{500, 50}));
-    EXPECT_EQ(clock.now_, 550U);
+    EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{500ms, 50ms}));
+    EXPECT_EQ(clock.elapsed(), 550ms);
 }
 
 TEST(SubaruDensoSh72531CanExecutor, ReadTimeoutPropagates)

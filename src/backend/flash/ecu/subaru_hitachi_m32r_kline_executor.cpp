@@ -355,7 +355,7 @@ Status erase_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
         }
         if (response.size() <= 5)
         {
-            if (auto slept = clock.sleep(500, cancellation); !slept.has_value())
+            if (auto slept = clock.sleep(500ms, cancellation); !slept.has_value())
             {
                 return slept;
             }
@@ -377,7 +377,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
     {
         return s;
     }
-    if (auto slept = clock.sleep(200, cancellation); !slept.has_value())
+    if (auto slept = clock.sleep(200ms, cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -409,7 +409,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
         }
         events.progress(static_cast<int>(address + p.chunk_size), 0x80000);
     }
-    if (auto slept = clock.sleep(300, cancellation); !slept.has_value())
+    if (auto slept = clock.sleep(300ms, cancellation); !slept.has_value())
     {
         return slept;
     }

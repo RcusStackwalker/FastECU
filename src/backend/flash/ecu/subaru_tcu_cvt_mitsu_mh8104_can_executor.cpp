@@ -45,6 +45,7 @@ namespace fastecu::flash
 namespace
 {
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 using bytes::composeBe;
 using bytes::u24;
 
@@ -492,7 +493,7 @@ Status erase_memory(Ctx& ctx)
     // 877) -- the TCU needs this long to actually erase flash before it
     // can answer. Modeled via ctx.clock.sleep() so tests assert the timing
     // parameter instead of literally waiting 8 seconds.
-    if (const Status slept = ctx.clock.sleep(8000, ctx.cancellation); !slept.has_value())
+    if (const Status slept = ctx.clock.sleep(8000ms, ctx.cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -502,7 +503,7 @@ Status erase_memory(Ctx& ctx)
         return std::unexpected(reply.error());
     }
     // Legacy delay(5000) unconditionally after reading (line 883).
-    if (const Status slept = ctx.clock.sleep(5000, ctx.cancellation); !slept.has_value())
+    if (const Status slept = ctx.clock.sleep(5000ms, ctx.cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -599,7 +600,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     }
 
     // Legacy delay(100) between close and checksum (line 793).
-    if (const Status slept = ctx.clock.sleep(100, ctx.cancellation); !slept.has_value())
+    if (const Status slept = ctx.clock.sleep(100ms, ctx.cancellation); !slept.has_value())
     {
         return slept;
     }

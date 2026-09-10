@@ -115,29 +115,29 @@ class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
 class RecordingClock final : public FakeClock
 {
   public:
-    Status sleep(int ms, const ICancellationToken& cancellation) override
+    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
     {
-        sleep_calls.push_back(ms);
-        return FakeClock::sleep(ms, cancellation);
+        sleep_calls.push_back(duration);
+        return FakeClock::sleep(duration, cancellation);
     }
 
-    std::vector<int> sleep_calls;
+    std::vector<std::chrono::milliseconds> sleep_calls;
 };
 
 class CancelAtPostUploadDelayClock final : public FakeClock
 {
   public:
-    Status sleep(int ms, const ICancellationToken& cancellation) override
+    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
     {
-        sleep_calls.push_back(ms);
-        if (ms == 5000)
+        sleep_calls.push_back(duration);
+        if (duration == 5000ms)
         {
             return fail(ErrorKind::Cancelled, "cancelled during OpenPort2 upload delay");
         }
-        return FakeClock::sleep(ms, cancellation);
+        return FakeClock::sleep(duration, cancellation);
     }
 
-    std::vector<int> sleep_calls;
+    std::vector<std::chrono::milliseconds> sleep_calls;
 };
 
 Result<FlashPlan> read_plan(bytes::Bytes kernel_bytes = {0x01, 0x02, 0x03, 0x04, 0x05})
@@ -419,10 +419,10 @@ class CancelAfterFirstPageClock final : public FakeClock
     {
     }
 
-    Status sleep(int ms, const ICancellationToken& cancellation) override
+    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
     {
-        Status result = FakeClock::sleep(ms, cancellation);
-        if (result.has_value() && ms == 1 && !cancelled_after_page_)
+        Status result = FakeClock::sleep(duration, cancellation);
+        if (result.has_value() && duration == 1ms && !cancelled_after_page_)
         {
             cancelled_after_page_ = true;
             cancellation_.cancel();
@@ -590,12 +590,13 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
                                                  ScriptedKlineFlashTransport::ControlLineAction::PulseLec2,
                                              }));
     EXPECT_EQ(transport.lec_2_pulse_timeouts_, (std::vector<int>{200}));
-    std::vector<int> expected_sleeps{200, 1000, 1000, 1000, 250, 190, 100, 5000, 100, 200};
+    std::vector<std::chrono::milliseconds> expected_sleeps{200ms, 1000ms, 1000ms, 1000ms, 250ms,
+                                                           190ms, 100ms,  5000ms, 100ms,  200ms};
     std::vector<std::chrono::milliseconds> expected_timeouts{10ms, 2000ms, 2000ms, 10ms,  10ms,
                                                              10ms, 10ms,   200ms,  2000ms};
     for (std::uint32_t offset = 0; offset < device.romsize; offset += 0x400)
     {
-        expected_sleeps.insert(expected_sleeps.end(), {10, 1});
+        expected_sleeps.insert(expected_sleeps.end(), {10ms, 1ms});
         expected_timeouts.push_back(3000ms);
     }
     EXPECT_EQ(clock.sleep_calls, expected_sleeps);
@@ -620,7 +621,7 @@ TEST(SubaruDensoSh7055_02Executor, OpenPort2UploadDelayCancellationStopsBeforeRe
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 5000), 1);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 5000ms), 1);
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200ms), 0);
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -842,8 +843,8 @@ TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.control_line_trace_.back(),
               ScriptedKlineFlashTransport::ControlLineAction::EnableProgrammingVoltageLine);
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 50), block.len / 0x200);
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 500), 1);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 50ms), block.len / 0x200);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 500ms), 1);
     EXPECT_TRUE(has_log(events, "Max message length: 0x00000206"));
     EXPECT_TRUE(has_log(events, "Flash block size: 0x00001000"));
 }
@@ -875,7 +876,7 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteSendsValidateNotCommit)
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_EQ(result->operation, FlashOperation::TestWrite);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 500), 0);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 500ms), 0);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
@@ -904,7 +905,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 500), 1);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 500ms), 1);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteCancelsMidBlockTransfer)
@@ -1000,7 +1001,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 1);
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 100), 3);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 100ms), 3);
 }
 
 TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)

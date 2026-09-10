@@ -93,7 +93,7 @@ Result<IKlineFlashTransport::OptionalBytes> exchange_optional_impl(IKlineFlashTr
     }
     if (clock != nullptr && settle_ms > 0)
     {
-        if (Status slept = clock->sleep(settle_ms, cancellation); !slept.has_value())
+        if (Status slept = clock->sleep(std::chrono::milliseconds{settle_ms}, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -218,7 +218,7 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(IKlineFlashTransport
         return cancelled;
     }
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119.
-    if (Status slept = clock.sleep(200, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(200ms, cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -234,7 +234,7 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(IKlineFlashTransport
     {
         return cancelled;
     }
-    if (Status slept = clock.sleep(200, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(200ms, cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -257,7 +257,7 @@ Status SubaruDensoMc68hc16y5_02Executor::connect_bootloader(IKlineFlashTransport
 
     events.log(LogLevel::Warning, "Bad response from bootloader, checking for a running kernel...");
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:149-151.
-    if (Status slept = clock.sleep(100, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(100ms, cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -373,7 +373,7 @@ Status SubaruDensoMc68hc16y5_02Executor::upload_kernel(IKlineFlashTransport& tra
 
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:287-317
     // and 1139-1168.
-    if (Status slept = clock.sleep(1500, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(1500ms, cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -454,7 +454,7 @@ Result<bytes::Bytes> SubaruDensoMc68hc16y5_02Executor::read_mem(IKlineFlashTrans
             mapdata.insert(mapdata.end(), response->begin() + 5, response->end() - 1);
             packed_remaining -= kReadPageSize;
             events.progress(static_cast<int>(mapdata.size()), static_cast<int>(device->romsize));
-            if (Status slept = clock.sleep(1, cancellation); !slept.has_value())
+            if (Status slept = clock.sleep(1ms, cancellation); !slept.has_value())
             {
                 return std::unexpected(slept.error());
             }
@@ -526,7 +526,7 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(IKlineFla
             const std::size_t append_count = std::min(needed, (**more).size());
             response.insert(response.end(), (**more).begin(), (**more).begin() + append_count);
         }
-        if (Status slept = clock.sleep(100, cancellation); !slept.has_value())
+        if (Status slept = clock.sleep(100ms, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }

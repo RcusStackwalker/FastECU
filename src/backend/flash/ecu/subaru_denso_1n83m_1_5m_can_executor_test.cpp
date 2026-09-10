@@ -31,6 +31,7 @@
 
 namespace
 {
+using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::FakeClock;
 using fastecu::RecordingEventSink;
@@ -50,13 +51,13 @@ using testing::IsEmpty;
 class RecordingClock final : public FakeClock
 {
   public:
-    fastecu::Status sleep(int ms, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Status sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken& cancellation) override
     {
-        sleep_calls.push_back(ms);
-        return FakeClock::sleep(ms, cancellation);
+        sleep_calls.push_back(duration);
+        return FakeClock::sleep(duration, cancellation);
     }
 
-    std::vector<int> sleep_calls;
+    std::vector<std::chrono::milliseconds> sleep_calls;
 };
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_1n83m_1_5m_can";
@@ -431,7 +432,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, WriteErasesThenFlashesBlockOne)
     // checksum-verify write (line 1291). Asserted as a whole sequence rather
     // than by Contains so that dropping one -- as this port did with the 1291
     // settle -- fails here instead of passing silently.
-    EXPECT_EQ(clock.sleep_calls, (std::vector<int>{500, 500, 100}));
+    EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{500ms, 500ms, 100ms}));
 }
 
 TEST(SubaruDenso1n83m_1_5mCanExecutor, TestWriteIsRejectedBeforeAnyTransportCall)

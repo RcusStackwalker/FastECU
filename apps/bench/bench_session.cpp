@@ -90,16 +90,18 @@ BenchSession::BenchSession(std::unique_ptr<flash::ICanFlashTransport> transport,
 Result<bytes::Bytes> BenchSession::requestOnce(bytes::ByteView pdu, const uds::ExchangePolicy& policy)
 {
     recording_channel_.reset();
-    const std::uint64_t started = clock_.now_ms();
+    const auto started = clock_.now();
     Result<bytes::Bytes> result = client_.request(pdu, policy, cancellation_);
-    const std::uint64_t finished = clock_.now_ms();
+    const auto finished = clock_.now();
     const bytes::Bytes tx(pdu.begin(), pdu.end());
-    last_traffic_ = TrafficEvidence{.exchange_count = 1,
-                                    .tx = tx,
-                                    .rx = recording_channel_.last_rx(),
-                                    .last_tx = tx,
-                                    .last_rx = recording_channel_.last_rx(),
-                                    .elapsed_ms = finished - started};
+    last_traffic_ =
+        TrafficEvidence{.exchange_count = 1,
+                        .tx = tx,
+                        .rx = recording_channel_.last_rx(),
+                        .last_tx = tx,
+                        .last_rx = recording_channel_.last_rx(),
+                        .elapsed_ms = static_cast<std::uint64_t>(
+                            std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count())};
     return result;
 }
 
@@ -214,17 +216,19 @@ Result<bytes::Bytes> BenchSession::exchange(bytes::ByteView pdu, const uds::Exch
 Result<bytes::Bytes> BenchSession::exchange_raw(bytes::ByteView pdu, int timeout_ms)
 {
     recording_channel_.reset();
-    const std::uint64_t started = clock_.now_ms();
+    const auto started = clock_.now();
     const auto finish = [&]
     {
-        const std::uint64_t finished = clock_.now_ms();
+        const auto finished = clock_.now();
         const bytes::Bytes tx(pdu.begin(), pdu.end());
-        last_traffic_ = TrafficEvidence{.exchange_count = 1,
-                                        .tx = tx,
-                                        .rx = recording_channel_.last_rx(),
-                                        .last_tx = tx,
-                                        .last_rx = recording_channel_.last_rx(),
-                                        .elapsed_ms = finished - started};
+        last_traffic_ =
+            TrafficEvidence{.exchange_count = 1,
+                            .tx = tx,
+                            .rx = recording_channel_.last_rx(),
+                            .last_tx = tx,
+                            .last_rx = recording_channel_.last_rx(),
+                            .elapsed_ms = static_cast<std::uint64_t>(
+                                std::chrono::duration_cast<std::chrono::milliseconds>(finished - started).count())};
     };
     if (const Status sent = recording_channel_.send(pdu, cancellation_); !sent.has_value())
     {
