@@ -160,13 +160,26 @@ Each compiles and passes `bazel test --config=release //...` on its own.
 
 | # | Scope | Files | Contents |
 |---|-------|-------|----------|
-| 1 | Transports | ~40 | The three transport ports, `MutDmaDriver::pollOnce`, `MitsuColtCanCdbgDriver::pollOnce`, the three scripted transport fakes, the three `FastEcu*Transport` adapters, `transport_legacy_compat.h` internals. Introduces `duration_cast.h` and its test. |
+| 1 | Transports | ~55 | The three transport ports, `MutDmaDriver::pollOnce`, `MitsuColtCanCdbgDriver::pollOnce`, the three scripted transport fakes, the three `FastEcu*Transport` adapters, `transport_legacy_compat.h` internals. Introduces `duration_cast.h` and its test. Also, by inheritance (see below), `IKlineFlashTransport::read` and its implementers and callers. |
 | 2 | `IClock` | ~63 | `clock.h`, `FakeClock`, `QtClock`, and every `sleep()` / `now_ms()` caller — chiefly `src/backend/flash/ecu/*` executors and their tests. |
-| 3 | UDS and flash channels | ~32 | `IUdsChannel::receive`, `ExchangePolicy`, `UdsClient`, `CanFlashUdsChannel`, `IKlineFlashTransport::read` and `pulse_lec_2_line`, the scripted flash transports. |
+| 3 | UDS and flash channels | ~32 | `IUdsChannel::receive`, `ExchangePolicy`, `UdsClient`, `CanFlashUdsChannel`, `ICanFlashTransport::read`, `IKlineFlashTransport::pulse_lec_2_line`, the scripted flash transports' remaining integral members. |
 | 4 | Logging | ~17 | `ILoggingProtocol::poll`, the three portable protocols, `LoggingPolicy`, `logging_session` validation. |
 
-PR 1 is first because it is the smallest complete unit and proves the pattern —
-including `saturating_ms` at a real Qt boundary — before the 63-file PR 2.
+PR 1 is first because it proves the pattern — including `saturating_ms` at a real
+Qt boundary — before the 63-file PR 2. Internally it splits into three
+independent commits, one per transport interface, since the three convert
+without reference to each other.
+
+### Why the K-Line flash transport lands in PR 1
+
+`IKlineFlashTransport` inherits `mutdma::IKlineTransport` (`flash_executor.h:146`)
+rather than declaring its own byte-stream read. Converting `IKlineTransport::read`
+therefore changes the signature every `IKlineFlashTransport` implementer must
+override, which pulls `DesktopKlineFlashTransport`, `ScriptedKlineFlashTransport`,
+and the flash executors' K-Line read call sites into PR 1. There is no way to
+defer them without leaving the build broken. `ICanFlashTransport` does **not**
+inherit `cdbg::ICanTransport`, so its `read` is genuinely independent and stays in
+PR 3.
 
 ## Testing
 
