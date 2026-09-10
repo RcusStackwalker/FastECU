@@ -23,6 +23,12 @@ env:
   QT_MODULES: qtcharts qtserialport qtremoteobjects qtwebsockets
   # rules_qt supports Bazel builds on Qt 6.8.3.
   QT_VERSION: '6.8.3'
+  # Bazel's server JVM intermittently fails to posix_spawn local actions
+  # partway through this job's long from-scratch build, with jspawnhelper
+  # exiting 1 (a code it never uses for its own controlled failures -- see
+  # childproc_errorcodes.c) and no OOM/apt evidence in dmesg or journalctl.
+  # Force the legacy fork/exec launch path to bypass jspawnhelper entirely.
+  JAVA_TOOL_OPTIONS: -Djdk.lang.Process.launchMechanism=FORK
 
 jobs:
   sonarcloud:
