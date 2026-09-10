@@ -63,10 +63,11 @@ build:sonar --disk_cache=
 # sandbox-exec, which silently drops most of those traces (SonarSource's own
 # guidance for Bazel: https://community.sonarsource.com/t/issues-with-compile-commands-json-generated-from-bazel/138015).
 # Without this, bw-output/compile_commands.json only captured 65 of the
-# project's several hundred compilation units. Run actions unsandboxed for
-# this config so the wrapper sees every compile.
-build:sonar --spawn_strategy=local
-build:sonar --strategy=Genrule=local
+# project's several hundred compilation units. This only needs to apply to
+# the wrapped compile invocation (see .github/workflows/sonar.yml), so
+# --spawn_strategy=local/--strategy=Genrule=local are passed on that command
+# line directly rather than baked in here -- the unwrapped `bazel test` run
+# in scripts/coverage-local.sh gets Bazel's normal sandboxed execution.
 # The build-wrapper's process-tracing interceptor deadlocks fork()-based tests
 # (see tests/force_asserts/BUILD.bazel) instead of letting them fail, hanging
 # the job. Skip tag-marked tests only for this config; they still run under

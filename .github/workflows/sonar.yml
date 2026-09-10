@@ -59,10 +59,22 @@ jobs:
         id: build-wrapper
         uses: SonarSource/sonarqube-scan-action/install-build-wrapper@22918119ff8e1ca75a623e15c8296b6ea4fbe28f # v8.2.1
 
-      - name: Build and run tests with coverage
+      - name: Compile under the build wrapper
         run: |
           "${{ steps.build-wrapper.outputs.build-wrapper-binary }}" --out-dir bw-output \
-            scripts/coverage-local.sh
+            bazel build --config=sonar --spawn_strategy=local --strategy=Genrule=local //...
+
+      # build-wrapper's LD_PRELOAD interceptor is loaded into the Bazel server
+      # once, here, and stays loaded for the server's remaining lifetime since
+      # it's a persistent daemon reused by later bazel invocations. Left
+      # running, it keeps trying to report to build-wrapper's already-exited
+      # CLI process during the unwrapped test run below and crashes the
+      # server. Shut it down so the next invocation starts a clean one.
+      - name: Shut down the build-wrapper-instrumented server
+        run: bazel shutdown
+
+      - name: Run tests with coverage
+        run: scripts/coverage-local.sh
         env:
           BAZEL_TEST_CONFIG: sonar
 

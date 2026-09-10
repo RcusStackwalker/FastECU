@@ -763,7 +763,10 @@ class TestFileActionsParsing : public QObject
         input.ecu_id = "SUBMITTED_ECU";
         input.internal_id_address = 0x20;
         const fastecu::Status submitted = actions.submit_new_definition(submittedPath.toStdString(), input);
-        QVERIFY2(submitted.has_value(), submitted.error().detail.c_str());
+        if (!submitted.has_value())
+        {
+            QFAIL(submitted.error().detail.c_str());
+        }
         QVERIFY(QFile::exists(submittedPath));
 
         config.ecuflash_definition_files_directory = newDirectory;
