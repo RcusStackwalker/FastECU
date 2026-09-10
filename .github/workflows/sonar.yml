@@ -77,7 +77,7 @@ jobs:
       - name: Compile under the build wrapper
         run: |
           "${{ steps.build-wrapper.outputs.build-wrapper-binary }}" --out-dir bw-output \
-            bazel build --config=sonar //...
+            bazel build --config=sonar --spawn_strategy=local --strategy=Genrule=local //...
 
       - name: Run tests with coverage
         run: scripts/coverage-local.sh
