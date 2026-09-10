@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 
+#include <chrono>
 #include <functional>
 #include <string>
 #include <vector>
@@ -14,13 +15,15 @@
 namespace desktop_logging = fastecu::desktop::logging;
 namespace portable_logging = fastecu::logging;
 
+using namespace std::chrono_literals;
+
 namespace
 {
 
 portable_logging::LoggingPolicy valid_policy()
 {
     return {
-        .poll_timeout_ms = 100,
+        .poll_timeout = 100ms,
         .car_silence_miss_threshold = 3,
         .reconnect_attempt_threshold = 5,
         .reconnect_retry_period = 10,

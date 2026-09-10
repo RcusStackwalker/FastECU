@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <vector>
 
 #include "src/backend/logging/logging_types.h"
@@ -20,7 +21,7 @@ class LoggingProtocol
   public:
     virtual ~LoggingProtocol() = default;
     virtual fastecu::Status start(const fastecu::ICancellationToken&) = 0;
-    virtual fastecu::Result<PollData> poll(int timeout_ms, const fastecu::ICancellationToken&) = 0;
+    virtual fastecu::Result<PollData> poll(std::chrono::milliseconds timeout, const fastecu::ICancellationToken&) = 0;
     virtual fastecu::Status stop() = 0;
 };
 

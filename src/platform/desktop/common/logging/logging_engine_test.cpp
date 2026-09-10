@@ -19,6 +19,7 @@ namespace
 
 using fastecu::desktop::logging::DesktopLoggingSnapshot;
 using namespace fastecu::logging;
+using namespace std::chrono_literals;
 
 DesktopLoggingSnapshot snapshot()
 {
@@ -30,7 +31,7 @@ DesktopLoggingSnapshot snapshot()
                                                         .from_byte_expression = "x",
                                                         .unit = "rpm",
                                                         .decimal_precision = 0}},
-                                        LoggingPolicy{.poll_timeout_ms = 5,
+                                        LoggingPolicy{.poll_timeout = 5ms,
                                                       .car_silence_miss_threshold = 2,
                                                       .reconnect_attempt_threshold = 1000,
                                                       .reconnect_retry_period = 0});
@@ -50,7 +51,8 @@ class BlockingFailureProtocol final : public fastecu::logging::LoggingProtocol
         return {};
     }
 
-    fastecu::Result<fastecu::logging::PollData> poll(int, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Result<fastecu::logging::PollData> poll(std::chrono::milliseconds,
+                                                     const fastecu::ICancellationToken& cancellation) override
     {
         std::unique_lock lock(mutex_);
         poll_entered_ = true;
@@ -107,7 +109,8 @@ class SampleThenBlockProtocol final : public fastecu::logging::LoggingProtocol
         return {};
     }
 
-    fastecu::Result<fastecu::logging::PollData> poll(int, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Result<fastecu::logging::PollData> poll(std::chrono::milliseconds,
+                                                     const fastecu::ICancellationToken& cancellation) override
     {
         std::unique_lock lock(mutex_);
         if (!sample_returned_)
@@ -221,8 +224,14 @@ class TestLoggingEngine : public QObject
         }
         else if (source == 5)
         {
-            engine.registerProtocol("TEST", [](const DesktopLoggingSnapshot&) -> std::unique_ptr<LoggingProtocol>
-                                    { throw 42; });
+            engine.registerProtocol("TEST",
+                                    [](const DesktopLoggingSnapshot&) -> std::unique_ptr<LoggingProtocol>
+                                    {
+                                        // Exercises the catch-all branch for a throw not derived from
+                                        // std::exception.
+                                        // NOLINTNEXTLINE(bugprone-std-exception-baseclass)
+                                        throw 42;
+                                    });
         }
 
         const auto result = engine.start(LogSessionConfig{.protocolId = source == 1 ? "NOPE" : "TEST"}, snapshot());

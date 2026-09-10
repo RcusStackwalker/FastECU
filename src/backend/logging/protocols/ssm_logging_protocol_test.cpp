@@ -129,7 +129,7 @@ TEST(SsmLoggingProtocolTest, PreservesDecimalByteConcatenation)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel("rpm", 0x1000, 2)}, true, false);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->responded);
@@ -151,7 +151,7 @@ TEST(SsmLoggingProtocolTest, PollPreservesChannelRequestOrder)
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel("first", 0x1000), channel("second", 0x1003)},
                                 true, false);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->responded);
@@ -173,7 +173,7 @@ TEST(SsmLoggingProtocolTest, PollHonorsSnapshottedHistoricalResponseOffsets)
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel("first", 0x1000), channel("third", 0x1003)},
                                 std::vector<std::size_t>{0, 2}, true, false);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->responded);
@@ -191,7 +191,7 @@ TEST(SsmLoggingProtocolTest, PollReturnsNoResponseOnDirectReadTimeout)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, true);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_TRUE(result);
     EXPECT_FALSE(result->responded);
@@ -208,7 +208,7 @@ TEST(SsmLoggingProtocolTest, HeaderResynchronizationRemainsDeadlineBounded)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.poll(100, cancellation);
+    const auto result = protocol.poll(100ms, cancellation);
 
     ASSERT_TRUE(result);
     EXPECT_FALSE(result->responded);
@@ -225,7 +225,7 @@ TEST(SsmLoggingProtocolTest, CancellationDuringFramingReturnsCancelled)
     cancellation.cancel_on_check(4);
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
@@ -252,7 +252,7 @@ TEST(SsmLoggingProtocolTest, PollPropagatesTypedWriteFailure)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
@@ -268,7 +268,7 @@ TEST(SsmLoggingProtocolTest, PollPropagatesTypedReadFailure)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
@@ -316,7 +316,7 @@ TEST(SsmLoggingProtocolTest, PollPropagatesOpenPort2DirectReadFailure)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, true);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
@@ -336,7 +336,7 @@ TEST(SsmLoggingProtocolTest, HeaderResynchronizationPropagatesReadFailure)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
@@ -356,7 +356,7 @@ TEST(SsmLoggingProtocolTest, FinalReadAfterHeaderMatchPropagatesReadFailure)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
@@ -369,7 +369,7 @@ TEST(SsmLoggingProtocolTest, PollCancellationReturnsCancelledWithoutIo)
     fastecu::FakeCancellationToken cancellation(true);
     SsmLoggingProtocol protocol(clock, std::make_unique<ScriptedSsmTransport>(), {channel()}, true, false);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
@@ -383,7 +383,7 @@ TEST(SsmLoggingProtocolTest, PollFailsWhenAdapterIsClosed)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
@@ -403,7 +403,7 @@ TEST(SsmLoggingProtocolTest, PollSkipsChannelWhenResponseOffsetBeyondPayload)
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel("first", 0x1000), channel("second", 0x1003)},
                                 std::vector<std::size_t>{0, 5}, true, false);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->responded);
@@ -424,7 +424,7 @@ TEST(SsmLoggingProtocolTest, PollTruncatesRawValueWhenLengthExtendsBeyondPayload
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel("rpm", 0x1000, 3)}, true, false);
 
-    const auto result = protocol.poll(50, cancellation);
+    const auto result = protocol.poll(50ms, cancellation);
 
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->responded);

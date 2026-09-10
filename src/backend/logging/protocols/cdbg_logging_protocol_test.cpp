@@ -1,3 +1,5 @@
+#include <chrono>
+
 #include <gtest/gtest.h>
 
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
@@ -11,6 +13,7 @@ using fastecu::logging::CdbgLoggingProtocol;
 using fastecu::logging::LoggingChannel;
 using fastecu::logging::RawAssembly;
 using MitsuColtCanCdbg::CdbgChannel;
+using namespace std::chrono_literals;
 
 LoggingChannel channel()
 {
@@ -115,7 +118,7 @@ TEST(CdbgLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
     auto protocol = makeProtocol(std::make_unique<cdbg::ScriptedCanTransport>());
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->poll(20, cancellation);
+    const auto result = protocol->poll(20ms, cancellation);
 
     ASSERT_TRUE(result);
     EXPECT_FALSE(result->responded);
@@ -129,7 +132,7 @@ TEST(CdbgLoggingProtocolTest, PollReturnsTransportErrorWhenAdapterIsClosed)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->poll(20, cancellation);
+    const auto result = protocol->poll(20ms, cancellation);
 
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
@@ -145,7 +148,7 @@ TEST(CdbgLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
     ASSERT_TRUE(protocol->start(cancellation));
     script->queueRead(MitsuColtCanCdbg::kReplyCanId, test_bytes::bytesFromHex("002A000000000000"));
 
-    const auto result = protocol->poll(50, cancellation);
+    const auto result = protocol->poll(50ms, cancellation);
 
     ASSERT_TRUE(result);
     ASSERT_TRUE(result->responded);
@@ -164,7 +167,7 @@ TEST(CdbgLoggingProtocolTest, PollReportsSilenceAfterStartWithoutCachedSamples)
     ASSERT_TRUE(protocol->start(cancellation));
     script->queue_no_frame();
 
-    const auto result = protocol->poll(50, cancellation);
+    const auto result = protocol->poll(50ms, cancellation);
 
     ASSERT_TRUE(result);
     EXPECT_FALSE(result->responded);

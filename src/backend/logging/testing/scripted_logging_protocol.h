@@ -76,7 +76,8 @@ class ScriptedLoggingProtocol final : public fastecu::logging::LoggingProtocol
         return result;
     }
 
-    fastecu::Result<fastecu::logging::PollData> poll(int, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Result<fastecu::logging::PollData> poll(std::chrono::milliseconds,
+                                                     const fastecu::ICancellationToken& cancellation) override
     {
         if (block_poll_.load(std::memory_order_relaxed))
         {

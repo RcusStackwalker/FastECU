@@ -13,7 +13,7 @@ namespace
 {
 using namespace std::chrono_literals;
 
-constexpr int kStartTimeoutMs = 1000;
+constexpr std::chrono::milliseconds kStartTimeout{1000};
 
 fastecu::Status checkCancellation(const fastecu::ICancellationToken& cancellation)
 {
@@ -75,11 +75,11 @@ bytes::Bytes SsmLoggingProtocol::buildSsmHeader(bytes::ByteView output) const
     return SsmProtocol::addHeader(output, 0xF0, target_is_ecu_ ? 0x10 : 0x18);
 }
 
-fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(int timeout_ms,
+fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(std::chrono::milliseconds timeout,
                                                                      const fastecu::ICancellationToken& cancellation)
 {
     bytes::Bytes received;
-    const auto deadline = clock_.now() + std::chrono::milliseconds{timeout_ms};
+    const auto deadline = clock_.now() + timeout;
 
     const auto read_and_append = [&](std::chrono::milliseconds read_timeout) -> fastecu::Status
     {
@@ -101,7 +101,7 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(int timeout
 
     if (use_openport2_adapter_)
     {
-        if (auto status = read_and_append(std::chrono::milliseconds{timeout_ms}); !status)
+        if (auto status = read_and_append(timeout); !status)
         {
             return std::unexpected(status.error());
         }
@@ -154,7 +154,7 @@ fastecu::Status SsmLoggingProtocol::start(const fastecu::ICancellationToken& can
         return std::unexpected(write_result.error());
     }
 
-    auto received = readFramedResponse(kStartTimeoutMs, cancellation);
+    auto received = readFramedResponse(kStartTimeout, cancellation);
     if (!received)
     {
         return std::unexpected(received.error());
@@ -166,7 +166,8 @@ fastecu::Status SsmLoggingProtocol::start(const fastecu::ICancellationToken& can
     return {};
 }
 
-fastecu::Result<PollData> SsmLoggingProtocol::poll(int timeout_ms, const fastecu::ICancellationToken& cancellation)
+fastecu::Result<PollData> SsmLoggingProtocol::poll(std::chrono::milliseconds timeout,
+                                                   const fastecu::ICancellationToken& cancellation)
 {
     if (auto status = checkCancellation(cancellation); !status)
     {
@@ -182,7 +183,7 @@ fastecu::Result<PollData> SsmLoggingProtocol::poll(int timeout_ms, const fastecu
         return std::unexpected(write_result.error());
     }
 
-    auto received = readFramedResponse(timeout_ms, cancellation);
+    auto received = readFramedResponse(timeout, cancellation);
     if (!received)
     {
         return std::unexpected(received.error());

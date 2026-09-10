@@ -63,7 +63,7 @@ fastecu::Status LoggingUseCase::run(const LoggingSession& session, LoggingProtoc
 
     while (!cancellation.cancelled())
     {
-        auto poll_result = protocol.poll(session.policy().poll_timeout_ms, cancellation);
+        auto poll_result = protocol.poll(session.policy().poll_timeout, cancellation);
         if (!poll_result)
         {
             if (poll_result.error().kind == fastecu::ErrorKind::BadResponse)

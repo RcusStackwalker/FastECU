@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <memory>
 #include <vector>
@@ -22,12 +23,14 @@ class SsmLoggingProtocol final : public LoggingProtocol
                        bool target_is_ecu, bool use_openport2_adapter);
 
     fastecu::Status start(const fastecu::ICancellationToken& cancellation) override;
-    fastecu::Result<PollData> poll(int timeout_ms, const fastecu::ICancellationToken& cancellation) override;
+    fastecu::Result<PollData> poll(std::chrono::milliseconds timeout,
+                                   const fastecu::ICancellationToken& cancellation) override;
     fastecu::Status stop() override;
 
   private:
     bytes::Bytes buildSsmHeader(bytes::ByteView output) const;
-    fastecu::Result<bytes::Bytes> readFramedResponse(int timeout_ms, const fastecu::ICancellationToken& cancellation);
+    fastecu::Result<bytes::Bytes> readFramedResponse(std::chrono::milliseconds timeout,
+                                                     const fastecu::ICancellationToken& cancellation);
 
     fastecu::IClock& clock_;
     std::unique_ptr<ISsmTransport> transport_;

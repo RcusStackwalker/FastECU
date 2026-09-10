@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -33,7 +34,7 @@ struct LoggingChannel
 
 struct LoggingPolicy
 {
-    int poll_timeout_ms;
+    std::chrono::milliseconds poll_timeout;
     int car_silence_miss_threshold;
     int reconnect_attempt_threshold;
     int reconnect_retry_period;

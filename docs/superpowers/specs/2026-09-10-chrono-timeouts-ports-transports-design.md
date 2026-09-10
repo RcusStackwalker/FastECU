@@ -76,14 +76,20 @@ struct uds::ExchangePolicy
 struct LoggingPolicy
 {
     std::chrono::milliseconds poll_timeout;
-    std::chrono::milliseconds reconnect_retry_period;
     int car_silence_miss_threshold;
     int reconnect_attempt_threshold;
+    int reconnect_retry_period;   // a count of poll cycles, not a duration
 };
 ```
 
 `max_pending_repeats`, `car_silence_miss_threshold`, and
 `reconnect_attempt_threshold` are counts and stay `int`.
+
+`reconnect_retry_period` also stays `int`, correcting an earlier draft of this
+design that listed it as a duration. `reconnect_due()` in `logging_use_case.cpp`
+uses it as the modulus over a count of consecutive missed polls -- "retry the
+reconnect every N misses" -- so it is a count despite its name, and the
+declaration order above is the one the existing designated initializers use.
 
 ### Literals
 

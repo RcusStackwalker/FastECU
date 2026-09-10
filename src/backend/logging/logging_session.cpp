@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <chrono>
 #include <cmath>
 #include <string>
 #include <string_view>
@@ -14,6 +15,8 @@
 
 namespace fastecu::logging
 {
+
+using namespace std::chrono_literals;
 
 namespace
 {
@@ -352,7 +355,7 @@ const LoggingChannel *LoggingSession::find_channel(std::string_view id) const
 fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
                                                      LoggingPolicy policy)
 {
-    if (!valid_protocol(protocol) || policy.poll_timeout_ms <= 0 || policy.car_silence_miss_threshold <= 0 ||
+    if (!valid_protocol(protocol) || policy.poll_timeout <= 0ms || policy.car_silence_miss_threshold <= 0 ||
         policy.reconnect_attempt_threshold <= 0 || policy.reconnect_retry_period < 0)
     {
         return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging policy");
