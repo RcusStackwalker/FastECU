@@ -26,6 +26,7 @@ namespace fastecu::flash
 namespace
 {
 using bytes::composeBe;
+using namespace std::chrono_literals;
 
 // Legacy's three read timeouts, kept apart rather than flattened into one
 // policy: they are this family's own wire timing (header lines 44-47).
@@ -299,7 +300,7 @@ Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries)
             info(ctx, "Kernel jump acknowledged");
             return {};
         }
-        if (const Status slept = ctx.clock.sleep(100, ctx.cancellation); !slept.has_value())
+        if (const Status slept = ctx.clock.sleep(100ms, ctx.cancellation); !slept.has_value())
         {
             return slept;
         }
@@ -317,7 +318,7 @@ Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries)
 Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
 {
     info(ctx, "In car programming: accessing, please wait...");
-    if (const Status slept = ctx.clock.sleep(500, ctx.cancellation); !slept.has_value())
+    if (const Status slept = ctx.clock.sleep(500ms, ctx.cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -390,7 +391,7 @@ Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
 Status connect_bench(Ctx& ctx)
 {
     info(ctx, "Bench programming: accessing, please wait...");
-    if (const Status slept = ctx.clock.sleep(500, ctx.cancellation); !slept.has_value())
+    if (const Status slept = ctx.clock.sleep(500ms, ctx.cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -595,7 +596,7 @@ Status erase_memory(Ctx& ctx, const MemoryRegion& region)
     {
         return sent;
     }
-    if (const Status slept = ctx.clock.sleep(500, ctx.cancellation); !slept.has_value())
+    if (const Status slept = ctx.clock.sleep(500ms, ctx.cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -613,7 +614,7 @@ Status erase_memory(Ctx& ctx, const MemoryRegion& region)
             info(ctx, "Flash erased! Starting flash write, do not power off!");
             return {};
         }
-        if (const Status slept = ctx.clock.sleep(500, ctx.cancellation); !slept.has_value())
+        if (const Status slept = ctx.clock.sleep(500ms, ctx.cancellation); !slept.has_value())
         {
             return slept;
         }
@@ -685,7 +686,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
 
     // Line 1291: a settle before the checksum write, which no read timeout
     // subsumes.
-    if (const Status slept = ctx.clock.sleep(100, ctx.cancellation); !slept.has_value())
+    if (const Status slept = ctx.clock.sleep(100ms, ctx.cancellation); !slept.has_value())
     {
         return slept;
     }

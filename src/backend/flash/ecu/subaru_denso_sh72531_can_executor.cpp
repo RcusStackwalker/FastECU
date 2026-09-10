@@ -26,6 +26,7 @@ namespace fastecu::flash
 namespace
 {
 using bytes::composeBe;
+using namespace std::chrono_literals;
 
 // Legacy's three read timeouts, kept apart rather than flattened into one
 // policy: they are this family's own wire timing (header lines 45-48).
@@ -306,7 +307,7 @@ Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, bool discard
         // precedes a read, but it is kept rather than folded into the read
         // timeout so this arm stays byte-identical to the 1N83M 4M sibling,
         // whose legacy lines 790-791 are the same two statements.
-        if (const Status slept = ctx.clock.sleep(50, ctx.cancellation); !slept.has_value())
+        if (const Status slept = ctx.clock.sleep(50ms, ctx.cancellation); !slept.has_value())
         {
             return slept;
         }
@@ -324,7 +325,7 @@ Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, bool discard
             info(ctx, "Kernel jump acknowledged");
             return {};
         }
-        if (const Status slept = ctx.clock.sleep(100, ctx.cancellation); !slept.has_value())
+        if (const Status slept = ctx.clock.sleep(100ms, ctx.cancellation); !slept.has_value())
         {
             return slept;
         }
@@ -342,7 +343,7 @@ Status jump_to_kernel(Ctx& ctx, bytes::Byte session, int max_tries, bool discard
 Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
 {
     info(ctx, "In car programming: accessing, please wait...");
-    if (const Status slept = ctx.clock.sleep(500, ctx.cancellation); !slept.has_value())
+    if (const Status slept = ctx.clock.sleep(500ms, ctx.cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -416,7 +417,7 @@ Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
 Status connect_bench(Ctx& ctx)
 {
     info(ctx, "Bench programming: accessing, please wait...");
-    if (const Status slept = ctx.clock.sleep(500, ctx.cancellation); !slept.has_value())
+    if (const Status slept = ctx.clock.sleep(500ms, ctx.cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -574,7 +575,7 @@ Result<bytes::Bytes> read_memory(Ctx& ctx, const SubaruDensoSh72531CanPlan& fami
         // Line 1007: this family paces each page by a millisecond before the
         // next 0xB7 write. Kept, since no read timeout subsumes a delay that
         // precedes a write.
-        if (const Status slept = ctx.clock.sleep(1, ctx.cancellation); !slept.has_value())
+        if (const Status slept = ctx.clock.sleep(1ms, ctx.cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -633,7 +634,7 @@ Status erase_memory(Ctx& ctx, const MemoryRegion& region)
     {
         return sent;
     }
-    if (const Status slept = ctx.clock.sleep(500, ctx.cancellation); !slept.has_value())
+    if (const Status slept = ctx.clock.sleep(500ms, ctx.cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -651,7 +652,7 @@ Status erase_memory(Ctx& ctx, const MemoryRegion& region)
             info(ctx, "Flash erased! Starting flash write, do not power off!");
             return {};
         }
-        if (const Status slept = ctx.clock.sleep(500, ctx.cancellation); !slept.has_value())
+        if (const Status slept = ctx.clock.sleep(500ms, ctx.cancellation); !slept.has_value())
         {
             return slept;
         }
@@ -726,7 +727,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
 
     // Line 1295: a settle before the checksum write, which no read timeout
     // subsumes.
-    if (const Status slept = ctx.clock.sleep(100, ctx.cancellation); !slept.has_value())
+    if (const Status slept = ctx.clock.sleep(100ms, ctx.cancellation); !slept.has_value())
     {
         return slept;
     }

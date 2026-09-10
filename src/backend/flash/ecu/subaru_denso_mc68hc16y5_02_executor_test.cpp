@@ -381,10 +381,10 @@ class CancelAfterFirstPageClock final : public FakeClock
     {
     }
 
-    Status sleep(int ms, const ICancellationToken& cancellation) override
+    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
     {
-        Status result = FakeClock::sleep(ms, cancellation);
-        if (result.has_value() && ms == 1 && !cancelled_after_page_)
+        Status result = FakeClock::sleep(duration, cancellation);
+        if (result.has_value() && duration == 1ms && !cancelled_after_page_)
         {
             cancelled_after_page_ = true;
             cancellation_.cancel();
@@ -561,7 +561,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200ms), 12);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119,
     // 289-293, and 1139-1162: 200 + 200 + 50 + 1500 + 200 ms.
-    EXPECT_EQ(clock.now_, 2150U);
+    EXPECT_EQ(clock.elapsed(), 2150ms);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, PresentEmptyUploadFrameIsNotNoFrameSuccess)
@@ -621,7 +621,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 200ms), 11);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-119,
     // 149-155, and 1139-1162: 200 + 200 + 50 + 100 + 200 ms.
-    EXPECT_EQ(clock.now_, 750U);
+    EXPECT_EQ(clock.elapsed(), 750ms);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, NoFrameBootInitFallsBackToKernelAlivePoll)
@@ -991,7 +991,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteReflashesOnlyDifferingBlocks)
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.control_line_trace_.back(),
               ScriptedKlineFlashTransport::ControlLineAction::EnableProgrammingVoltageLine);
-    EXPECT_EQ(clock.now_, 4050U);
+    EXPECT_EQ(clock.elapsed(), 4050ms);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteSendsValidateNotCommit)
@@ -1128,7 +1128,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 1);
-    EXPECT_EQ(clock.now_, 2250U);
+    EXPECT_EQ(clock.elapsed(), 2250ms);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
@@ -1169,7 +1169,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 1);
-    EXPECT_EQ(clock.now_, 2250U);
+    EXPECT_EQ(clock.elapsed(), 2250ms);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsTruncatedBlockCrcAfterBoundedReads)

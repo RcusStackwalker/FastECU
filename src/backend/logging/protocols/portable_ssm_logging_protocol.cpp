@@ -79,7 +79,7 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(int timeout
                                                                      const fastecu::ICancellationToken& cancellation)
 {
     bytes::Bytes received;
-    const std::uint64_t start = clock_.now_ms();
+    const auto deadline = clock_.now() + std::chrono::milliseconds{timeout_ms};
 
     const auto read_and_append = [&](std::chrono::milliseconds read_timeout) -> fastecu::Status
     {
@@ -108,7 +108,7 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(int timeout
         return received;
     }
 
-    while (received.size() < 3 && static_cast<int>(clock_.now_ms() - start) < timeout_ms)
+    while (received.size() < 3 && clock_.now() < deadline)
     {
         if (auto status = read_and_append(10ms); !status)
         {
@@ -117,7 +117,7 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(int timeout
     }
 
     while (received.size() >= 3 && (received[0] != 0x80 || received[1] != 0xf0 || received[2] != 0x10) &&
-           static_cast<int>(clock_.now_ms() - start) < timeout_ms)
+           clock_.now() < deadline)
     {
         received.erase(received.begin());
         if (auto status = read_and_append(10ms); !status)
@@ -126,9 +126,9 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(int timeout
         }
     }
 
-    if (const int remaining = timeout_ms - static_cast<int>(clock_.now_ms() - start); remaining > 0)
+    if (const auto remaining = deadline - clock_.now(); remaining > 0ms)
     {
-        if (auto status = read_and_append(std::chrono::milliseconds{remaining}); !status)
+        if (auto status = read_and_append(std::chrono::duration_cast<std::chrono::milliseconds>(remaining)); !status)
         {
             return std::unexpected(status.error());
         }

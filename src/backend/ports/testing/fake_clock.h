@@ -1,5 +1,5 @@
 #pragma once
-#include <cstdint>
+#include <chrono>
 #include <optional>
 
 #include "src/backend/ports/cancellation.h"
@@ -8,49 +8,58 @@
 namespace fastecu
 {
 
-// A deterministic clock for tests: now advances only when told; sleep is
+// A deterministic clock for tests: time advances only when told; sleep is
 // instantaneous (no real wall-clock wait) but honours the cancellation token.
+//
+// Elapsed time is stored as a duration and the instant derived from it, so
+// tests assert on elapsed() and never do time_point arithmetic.
 class FakeClock : public IClock
 {
   public:
-    std::uint64_t now_ms() const override
+    std::chrono::steady_clock::time_point now() const override
     {
-        const auto value = now_;
-        now_ += now_auto_advance_ms_;
-        return value;
+        const auto value = elapsed_;
+        elapsed_ += now_auto_advance_;
+        return std::chrono::steady_clock::time_point{} + value;
     }
-    Status sleep(int ms, const ICancellationToken& t) override
+
+    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& t) override
     {
         if (t.cancelled())
         {
             return fail(ErrorKind::Cancelled);
         }
-        now_ += sleep_advance_ms_.value_or(static_cast<std::uint64_t>(ms < 0 ? 0 : ms));
+        elapsed_ += sleep_advance_.value_or(
+            duration < std::chrono::milliseconds::zero() ? std::chrono::milliseconds::zero() : duration);
         return {};
     }
 
-    void set_now_auto_advance_ms(std::uint64_t step_ms)
+    std::chrono::milliseconds elapsed() const
     {
-        now_auto_advance_ms_ = step_ms;
+        return elapsed_;
     }
 
-    void set_sleep_advance_ms(std::optional<std::uint64_t> step_ms)
+    void set_now_auto_advance(std::chrono::milliseconds step)
     {
-        sleep_advance_ms_ = step_ms;
+        now_auto_advance_ = step;
     }
 
-    mutable std::uint64_t now_ = 0;
+    void set_sleep_advance(std::optional<std::chrono::milliseconds> step)
+    {
+        sleep_advance_ = step;
+    }
 
   private:
-    mutable std::uint64_t now_auto_advance_ms_ = 0;
-    std::optional<std::uint64_t> sleep_advance_ms_;
+    mutable std::chrono::milliseconds elapsed_{0};
+    mutable std::chrono::milliseconds now_auto_advance_{0};
+    std::optional<std::chrono::milliseconds> sleep_advance_;
 };
 
-inline FakeClock make_auto_advancing_clock(std::uint64_t step_ms)
+inline FakeClock make_auto_advancing_clock(std::chrono::milliseconds step)
 {
     FakeClock clock;
-    clock.set_now_auto_advance_ms(step_ms);
-    clock.set_sleep_advance_ms(step_ms);
+    clock.set_now_auto_advance(step);
+    clock.set_sleep_advance(step);
     return clock;
 }
 

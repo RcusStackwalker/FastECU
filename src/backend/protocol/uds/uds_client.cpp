@@ -49,7 +49,7 @@ fastecu::Result<bytes::Bytes> UdsClient::request(bytes::ByteView pdu, const Exch
     {
         if (delay_ms > 0)
         {
-            const fastecu::Status slept = clock_.sleep(delay_ms, cancellation);
+            const fastecu::Status slept = clock_.sleep(std::chrono::milliseconds{delay_ms}, cancellation);
             if (!slept.has_value())
             {
                 return std::unexpected(slept.error());

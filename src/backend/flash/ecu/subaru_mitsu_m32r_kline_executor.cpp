@@ -15,6 +15,7 @@ namespace
 using bytes::composeBe;
 using bytes::u24;
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 
 constexpr int kTimeoutMs = 2000;
 
@@ -113,7 +114,7 @@ Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock, co
 {
     // Legacy wire sequence and delays: flash_ecu_subaru_mitsu_m32r_kline_operation.cpp
     // connect_bootloader() lines 85-248 and send_sid_bf/81/83/27/10 lines 691-815.
-    if (auto slept = clock.sleep(100, cancellation); !slept.has_value())
+    if (auto slept = clock.sleep(100ms, cancellation); !slept.has_value())
     {
         return std::unexpected(slept.error());
     }
@@ -277,7 +278,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
         events.progress(static_cast<int>(offset + p.chunk_size), static_cast<int>(region.length));
     }
     events.log(LogLevel::Info, "Verifying checksum...");
-    if (auto slept = clock.sleep(1000, cancellation); !slept.has_value())
+    if (auto slept = clock.sleep(1000ms, cancellation); !slept.has_value())
     {
         return slept;
     }

@@ -31,6 +31,7 @@
 
 namespace
 {
+using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::FakeClock;
 using fastecu::LogLevel;
@@ -53,13 +54,13 @@ using testing::Pair;
 class RecordingClock final : public FakeClock
 {
   public:
-    fastecu::Status sleep(int ms, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Status sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken& cancellation) override
     {
-        sleep_calls.push_back(ms);
-        return FakeClock::sleep(ms, cancellation);
+        sleep_calls.push_back(duration);
+        return FakeClock::sleep(duration, cancellation);
     }
 
-    std::vector<int> sleep_calls;
+    std::vector<std::chrono::milliseconds> sleep_calls;
 };
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_sh72543_can_diesel";
@@ -458,7 +459,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, WriteErasesThenFlashesBlockZero)
     // (line 1452), and the settle before the checksum-verify write (line
     // 1313). Asserted as a whole sequence rather than by Contains so that
     // dropping one fails here instead of passing silently.
-    EXPECT_EQ(clock.sleep_calls, (std::vector<int>{50, 500, 100}));
+    EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{50ms, 500ms, 100ms}));
 }
 
 TEST(SubaruDensoSh72543CanDieselExecutor, WriteTakesBytesFromTheAbsoluteAddress)
@@ -572,7 +573,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ReadTimeoutPropagates)
     // connect performs: the kernel jump is acknowledged on the loop's first
     // look, so its 100 ms retry sleep (line 784) is never reached.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Kernel jump acknowledged")));
-    EXPECT_EQ(clock.now_, 50U);
+    EXPECT_EQ(clock.elapsed(), 50ms);
 }
 
 TEST(SubaruDensoSh72543CanDieselExecutor, ReadDisconnectPropagates)

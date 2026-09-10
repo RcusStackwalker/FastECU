@@ -92,7 +92,7 @@ Result<IKlineFlashTransport::OptionalBytes> exchange(IKlineFlashTransport& trans
     }
     if (clock != nullptr && settle_ms > 0)
     {
-        if (Status slept = clock->sleep(settle_ms, cancellation); !slept.has_value())
+        if (Status slept = clock->sleep(std::chrono::milliseconds{settle_ms}, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -263,13 +263,13 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
     for (int seconds_left = 3; seconds_left > 0; --seconds_left)
     {
         events.log(LogLevel::Info, std::format("Starting in {}", seconds_left));
-        if (Status slept = clock.sleep(1000, cancellation); !slept.has_value())
+        if (Status slept = clock.sleep(1000ms, cancellation); !slept.has_value())
         {
             return slept;
         }
     }
     events.log(LogLevel::Info, "Switch Ignition ON!");
-    if (Status slept = clock.sleep(250, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(250ms, cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -289,7 +289,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
     {
         return drained;
     }
-    if (Status slept = clock.sleep(190, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(190ms, cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -316,7 +316,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
         if (matches_expected)
         {
             events.log(LogLevel::Info, "Connected to bootloader");
-            if (Status slept = clock.sleep(100, cancellation); !slept.has_value())
+            if (Status slept = clock.sleep(100ms, cancellation); !slept.has_value())
             {
                 return slept;
             }
@@ -328,7 +328,7 @@ Status SubaruDensoSh7055_02Executor::connect_bootloader(IKlineFlashTransport& tr
             return {};
         }
     }
-    if (Status slept = clock.sleep(100, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(100ms, cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -406,7 +406,7 @@ Status SubaruDensoSh7055_02Executor::upload_kernel(IKlineFlashTransport& transpo
     {
         return baud;
     }
-    if (Status slept = clock.sleep(100, cancellation); !slept.has_value())
+    if (Status slept = clock.sleep(100ms, cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -471,7 +471,7 @@ Result<bytes::Bytes> SubaruDensoSh7055_02Executor::read_mem(IKlineFlashTransport
         --remaining_pages;
         events.progress(static_cast<int>(mapdata.size()), static_cast<int>(region.length));
         // Legacy line 466 paces successive requests by 1ms.
-        if (Status slept = clock.sleep(1, cancellation); !slept.has_value())
+        if (Status slept = clock.sleep(1ms, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -570,7 +570,7 @@ Result<std::uint32_t> SubaruDensoSh7055_02Executor::read_block_crc(IKlineFlashTr
         {
             return std::unexpected(cancelled.error());
         }
-        if (Status slept = clock.sleep(100, cancellation); !slept.has_value())
+        if (Status slept = clock.sleep(100ms, cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }

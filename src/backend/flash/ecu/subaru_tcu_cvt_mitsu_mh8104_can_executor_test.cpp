@@ -36,6 +36,7 @@
 
 namespace
 {
+using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::FakeClock;
 using fastecu::RecordingEventSink;
@@ -283,12 +284,12 @@ bytes::Bytes writeRom()
 class RecordingClock final : public FakeClock
 {
   public:
-    fastecu::Status sleep(int ms, const fastecu::ICancellationToken& cancellation) override
+    fastecu::Status sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken& cancellation) override
     {
-        sleep_calls.push_back(ms);
-        return FakeClock::sleep(ms, cancellation);
+        sleep_calls.push_back(duration);
+        return FakeClock::sleep(duration, cancellation);
     }
-    std::vector<int> sleep_calls;
+    std::vector<std::chrono::milliseconds> sleep_calls;
 };
 
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, TransportSetupReturnsThePlansWireParameters)
@@ -626,8 +627,8 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteFlashesTheBlockToleratingEveryCont
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_THAT(events.notices, testing::Contains("Writing ROM, please wait..."));
-    EXPECT_THAT(clock.sleep_calls, testing::Contains(8000));
-    EXPECT_THAT(clock.sleep_calls, testing::Contains(5000));
+    EXPECT_THAT(clock.sleep_calls, testing::Contains(8000ms));
+    EXPECT_THAT(clock.sleep_calls, testing::Contains(5000ms));
 }
 
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteStopsOnATimeoutBetweenChunks)

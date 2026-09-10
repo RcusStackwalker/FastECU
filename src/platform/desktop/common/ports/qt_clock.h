@@ -6,6 +6,6 @@
 class QtClock : public fastecu::IClock
 {
   public:
-    std::uint64_t now_ms() const override;
-    fastecu::Status sleep(int ms, const fastecu::ICancellationToken&) override;
+    std::chrono::steady_clock::time_point now() const override;
+    fastecu::Status sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken&) override;
 };

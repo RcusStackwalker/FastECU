@@ -1,5 +1,6 @@
 #pragma once
-#include <cstdint>
+#include <chrono>
+
 #include "src/backend/ports/cancellation.h"
 #include "src/backend/ports/result.h"
 
@@ -12,9 +13,9 @@ class IClock
 {
   public:
     virtual ~IClock() = default;
-    virtual std::uint64_t now_ms() const = 0;
+    virtual std::chrono::steady_clock::time_point now() const = 0;
     // Returns Error{Cancelled} if the token trips before the delay elapses.
-    virtual Status sleep(int ms, const ICancellationToken&) = 0;
+    virtual Status sleep(std::chrono::milliseconds duration, const ICancellationToken&) = 0;
 };
 
 } // namespace fastecu
