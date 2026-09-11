@@ -95,27 +95,6 @@ Status connect(BenchContext& context, CommandOutcome& outcome)
     return result;
 }
 
-// Command name plus its arguments, e.g. "read 0x200 1" -- what format_text's
-// first line and format_json's "step" field show the operator.
-std::string renderStep(const StepSpec& step)
-{
-    std::string text;
-    for (const CommandSpec& spec : command_table())
-    {
-        if (spec.id == step.id)
-        {
-            text = std::string(spec.name);
-            break;
-        }
-    }
-    for (const std::string& arg : step.args)
-    {
-        text += ' ';
-        text += arg;
-    }
-    return text;
-}
-
 // Shared by Read and Dump: chunks [addr, addr+len) at
 // MitsuColtCan::kFlashReadBlockSize, filling outcome.data/note and traffic. A reply
 // shorter than the requested chunk is rejected rather than padded, since a
@@ -253,6 +232,25 @@ Status upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
 }
 
 } // namespace
+
+std::string render_step(const StepSpec& step)
+{
+    std::string text;
+    for (const CommandSpec& spec : command_table())
+    {
+        if (spec.id == step.id)
+        {
+            text = std::string(spec.name);
+            break;
+        }
+    }
+    for (const std::string& arg : step.args)
+    {
+        text += ' ';
+        text += arg;
+    }
+    return text;
+}
 
 std::string decode_erase_reply(bytes::ByteView payload)
 {
@@ -621,7 +619,7 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
 CommandOutcome run_step(BenchContext& context, const PreparedStep& prepared)
 {
     CommandOutcome outcome;
-    outcome.step = renderStep(prepared.spec);
+    outcome.step = render_step(prepared.spec);
 
     if (const Status result = executeStep(context, prepared, outcome); !result.has_value())
     {
@@ -645,7 +643,7 @@ CommandOutcome run_step(BenchContext& context, const StepSpec& step)
         return run_step(context, *prepared);
     }
 
-    CommandOutcome outcome{.step = renderStep(step),
+    CommandOutcome outcome{.step = render_step(step),
                            .ok = false,
                            .error_kind = prepared.error().kind,
                            .error_detail = prepared.error().detail};

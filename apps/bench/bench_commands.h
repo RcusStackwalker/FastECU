@@ -24,6 +24,10 @@ struct PreparedStep
     std::optional<bytes::Bytes> upload_payload;
 };
 
+// Command name plus its arguments, e.g. "read 0x200 1" -- what format_text's
+// first line and format_json's "step" field show the operator.
+std::string render_step(const StepSpec& step);
+
 // Validates everything that can be checked without an ECU session and loads
 // file-backed payloads exactly once.
 Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step);
