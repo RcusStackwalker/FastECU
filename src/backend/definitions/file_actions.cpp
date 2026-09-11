@@ -657,9 +657,16 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
     // Only the three fields default_selection reads. zip truncates to the
     // shortest list, so a caller-supplied struct whose parallel arrays are
     // skewed yields fewer rows instead of indexing past the end of one.
+    //
+    // as_const on each input, not `const auto&` on the binding: zip's
+    // reference type is a tuple of references, so a const-qualified tuple
+    // still hands out mutable elements. Zipping const ranges makes the
+    // elements themselves const. (std::views::as_const, the tidier spelling,
+    // is not in libc++ yet.)
     fastecu::logging::LoggerDefinition definition;
     for (const auto& [protocol, id, enabled] :
-         std::views::zip(logValues->log_value_protocol, logValues->log_value_id, logValues->log_value_enabled))
+         std::views::zip(std::as_const(logValues->log_value_protocol), std::as_const(logValues->log_value_id),
+                         std::as_const(logValues->log_value_enabled)))
     {
         definition.parameters.push_back(
             {.protocol = protocol.toStdString(), .id = id.toStdString(), .enabled = enabled == "1"});
@@ -667,7 +674,8 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
     // No protocol here: default_selection reads LoggerSwitch::protocol
     // nowhere, and zipping log_switch_protocol in would truncate the walk
     // against a list legacy never consulted on this path.
-    for (const auto& [id, enabled] : std::views::zip(logValues->log_switch_id, logValues->log_switch_enabled))
+    for (const auto& [id, enabled] :
+         std::views::zip(std::as_const(logValues->log_switch_id), std::as_const(logValues->log_switch_enabled)))
     {
         // `enabled` carries the ECU's runtime capability response, not the XML
         // default -- this is the state default_selection must filter on.
