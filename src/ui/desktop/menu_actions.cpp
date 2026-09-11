@@ -963,11 +963,11 @@ void MainWindow::set_maptablewidget_items()
 
                 cellItem->setTextAlignment(Qt::AlignCenter);
                 cellItem->setFont(cellFont);
-                int mapItemColor =
-                    get_map_cell_colors(ecuCalDef[mapRomNumber], mapDataCellText.at(i).toFloat(), mapNumber);
-                int mapItemColorRed = (mapItemColor >> 16) & 0xff;
-                int mapItemColorGreen = (mapItemColor >> 8) & 0xff;
-                int mapItemColorBlue = mapItemColor & 0xff;
+                const auto mapItemColor = static_cast<unsigned>(
+                    get_map_cell_colors(ecuCalDef[mapRomNumber], mapDataCellText.at(i).toFloat(), mapNumber));
+                int mapItemColorRed = static_cast<int>((mapItemColor >> 16U) & 0xffU);
+                int mapItemColorGreen = static_cast<int>((mapItemColor >> 8U) & 0xffU);
+                int mapItemColorBlue = static_cast<int>(mapItemColor & 0xffU);
                 cellItem->setBackground(QBrush(QColor(mapItemColorRed, mapItemColorGreen, mapItemColorBlue, 255)));
                 // if (ecuCalDef[mapRomNumber]->TypeList.at(mapNumber) == "1D")
                 cellItem->setForeground(Qt::black);
@@ -1024,7 +1024,9 @@ int MainWindow::get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, 
 
     color.setHsvF(color_value, 0.85, 0.85);
     color.getRgbF(&r, &g, &b);
-    mapCellColors = ((int)(r * 255) << 16) + ((int)(g * 255) << 8) + b * 255;
+    const auto redChannel = static_cast<unsigned>((int)(r * 255));
+    const auto greenChannel = static_cast<unsigned>((int)(g * 255));
+    mapCellColors = static_cast<int>((redChannel << 16U) + (greenChannel << 8U)) + b * 255;
 
     return mapCellColors;
 }
@@ -1100,12 +1102,12 @@ int MainWindow::test_haltech_ic7_display()
             output.append((uint8_t)0x60);
             // output.append((uint8_t)0x00 & 0xFF);
             // output.append((uint8_t)0x00 & 0xFF);
-            output.append((uint8_t)(RPM >> 8) & 0xFF);
-            output.append((uint8_t)RPM & 0xFF);
-            output.append((uint8_t)(MAP >> 8) & 0xFF);
-            output.append((uint8_t)MAP & 0xFF);
-            output.append((uint8_t)(TPS >> 8) & 0xFF);
-            output.append((uint8_t)TPS & 0xFF);
+            output.append(static_cast<char>((static_cast<unsigned>(RPM) >> 8U) & 0xFFU));
+            output.append(static_cast<char>(static_cast<unsigned>(RPM) & 0xFFU));
+            output.append(static_cast<char>((static_cast<unsigned>(MAP) >> 8U) & 0xFFU));
+            output.append(static_cast<char>(static_cast<unsigned>(MAP) & 0xFFU));
+            output.append(static_cast<char>((static_cast<unsigned>(TPS) >> 8U) & 0xFFU));
+            output.append(static_cast<char>(static_cast<unsigned>(TPS) & 0xFFU));
 
             received = serial->write_serial_data_echo_check(output);
 
@@ -1114,14 +1116,14 @@ int MainWindow::test_haltech_ic7_display()
             output.append((uint8_t)0x00);
             output.append((uint8_t)0x03);
             output.append((uint8_t)0xE0);
-            output.append((uint8_t)(CLT >> 8) & 0xFF);
-            output.append((uint8_t)CLT & 0xFF);
-            output.append((uint8_t)(IAT >> 8) & 0xFF);
-            output.append((uint8_t)IAT & 0xFF);
-            output.append((uint8_t)(FLT >> 8) & 0xFF);
-            output.append((uint8_t)FLT & 0xFF);
-            output.append((uint8_t)(OLT >> 8) & 0xFF);
-            output.append((uint8_t)OLT & 0xFF);
+            output.append(static_cast<char>((static_cast<unsigned>(CLT) >> 8U) & 0xFFU));
+            output.append(static_cast<char>(static_cast<unsigned>(CLT) & 0xFFU));
+            output.append(static_cast<char>((static_cast<unsigned>(IAT) >> 8U) & 0xFFU));
+            output.append(static_cast<char>(static_cast<unsigned>(IAT) & 0xFFU));
+            output.append(static_cast<char>((static_cast<unsigned>(FLT) >> 8U) & 0xFFU));
+            output.append(static_cast<char>(static_cast<unsigned>(FLT) & 0xFFU));
+            output.append(static_cast<char>((static_cast<unsigned>(OLT) >> 8U) & 0xFFU));
+            output.append(static_cast<char>(static_cast<unsigned>(OLT) & 0xFFU));
 
             received = serial->write_serial_data_echo_check(output);
 
@@ -1130,12 +1132,12 @@ int MainWindow::test_haltech_ic7_display()
             output.append((uint8_t)0x00);
             output.append((uint8_t)0x03);
             output.append((uint8_t)0x62);
-            output.append((uint8_t)(IDC >> 8) & 0xFF);
-            output.append((uint8_t)IDC & 0xFF);
+            output.append(static_cast<char>((static_cast<unsigned>(IDC) >> 8U) & 0xFFU));
+            output.append(static_cast<char>(static_cast<unsigned>(IDC) & 0xFFU));
             output.append((uint8_t)0x00);
             output.append((uint8_t)0x00);
-            output.append((uint8_t)(IGN >> 8) & 0xFF);
-            output.append((uint8_t)IGN & 0xFF);
+            output.append(static_cast<char>((static_cast<unsigned>(IGN) >> 8U) & 0xFFU));
+            output.append(static_cast<char>(static_cast<unsigned>(IGN) & 0xFFU));
             output.append((uint8_t)0x00);
             output.append((uint8_t)0x00);
 
@@ -1146,10 +1148,10 @@ int MainWindow::test_haltech_ic7_display()
             output.append((uint8_t)0x00);
             output.append((uint8_t)0x03);
             output.append((uint8_t)0x70);
-            output.append((uint8_t)(SPD >> 8) & 0xFF);
-            output.append((uint8_t)SPD & 0xFF);
-            output.append((uint8_t)(GEAR >> 8) & 0xFF);
-            output.append((uint8_t)GEAR & 0xFF);
+            output.append(static_cast<char>((static_cast<unsigned>(SPD) >> 8U) & 0xFFU));
+            output.append(static_cast<char>(static_cast<unsigned>(SPD) & 0xFFU));
+            output.append(static_cast<char>((static_cast<unsigned>(GEAR) >> 8U) & 0xFFU));
+            output.append(static_cast<char>(static_cast<unsigned>(GEAR) & 0xFFU));
             output.append((uint8_t)0x00);
             output.append((uint8_t)0x00);
             output.append((uint8_t)0x00);
@@ -1162,8 +1164,8 @@ int MainWindow::test_haltech_ic7_display()
             output.append((uint8_t)0x00);
             output.append((uint8_t)0x03);
             output.append((uint8_t)0x72);
-            output.append((uint8_t)(BATT >> 8) & 0xFF);
-            output.append((uint8_t)BATT & 0xFF);
+            output.append(static_cast<char>((static_cast<unsigned>(BATT) >> 8U) & 0xFFU));
+            output.append(static_cast<char>(static_cast<unsigned>(BATT) & 0xFFU));
             output.append((uint8_t)0x00);
             output.append((uint8_t)0x00);
             output.append((uint8_t)0x00);

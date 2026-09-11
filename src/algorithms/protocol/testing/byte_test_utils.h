@@ -40,7 +40,7 @@ inline bytes::Bytes bytesFromHex(std::string_view hex)
             high = nibble;
             continue;
         }
-        out.push_back(static_cast<bytes::Byte>((high << 4) | nibble));
+        out.push_back(static_cast<bytes::Byte>((static_cast<unsigned>(high) << 4U) | static_cast<unsigned>(nibble)));
         high = -1;
     }
     return out;
