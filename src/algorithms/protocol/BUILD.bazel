@@ -25,6 +25,7 @@ cc_library(
     hdrs = [
         "bytes.h",
         "bytes_compose.h",
+        "fixed_buffer.h",
     ],
 )
 
@@ -40,6 +41,12 @@ cc_library(
 fastecu_portable_gtest(
     name = "bytes_test",
     srcs = ["bytes_test.cpp"],
+    deps = [":protocol"],
+)
+
+fastecu_portable_gtest(
+    name = "fixed_buffer_test",
+    srcs = ["fixed_buffer_test.cpp"],
     deps = [":protocol"],
 )
 

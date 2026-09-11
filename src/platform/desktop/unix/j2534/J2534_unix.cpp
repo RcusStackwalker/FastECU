@@ -771,10 +771,10 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
     fw_ver = fw_ver.at(fw_ver.length() - 1).split("\r\n");
     // Hold the bytes in a named QByteArray: `fw_ver.at(0).toUtf8().data()` would
     // dangle (the temporary QByteArray is destroyed at the semicolon), leaving
-    // pFirmwareVersion empty/garbage and making the caller's strlen()-1 unsafe.
+    // pFirmwareVersion empty or holding garbage.
     const QByteArray fw_ver_bytes = fw_ver.at(0).toUtf8();
     const std::size_t fwLen = std::min<std::size_t>(fw_ver_bytes.size(), kVersionBufferSize - 1);
-    strncpy(pFirmwareVersion, fw_ver_bytes.constData(), fwLen);
+    std::memcpy(pFirmwareVersion, fw_ver_bytes.constData(), fwLen);
     pFirmwareVersion[fwLen] = '\0';
 
     return result;
