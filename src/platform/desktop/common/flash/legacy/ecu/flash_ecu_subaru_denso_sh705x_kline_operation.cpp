@@ -1251,7 +1251,7 @@ int FlashEcuSubaruDensoSH705xKlineOperation::flash_block(const uint8_t *src, uin
         }
 
         QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0')).toUpper();
-        msg = QString("Write flash buffer: 0x%1 (%2\% - %3 B/s, ~ %4 s remain)")
+        msg = QString("Write flash buffer: 0x%1 (%2% - %3 B/s, ~ %4 s remain)")
                   .arg(start_address)
                   .arg((unsigned)100 * (len - remain) / len, 1, 10, QLatin1Char('0'))
                   .arg((uint32_t)curspeed, 1, 10, QLatin1Char('0'))
