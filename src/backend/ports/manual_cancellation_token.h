@@ -14,18 +14,21 @@ class ManualCancellationToken final : public ICancellationToken
   public:
     bool cancelled() const override
     {
-        return flag_.load(std::memory_order_relaxed);
+        return flag_.load();
     }
     void cancel()
     {
-        flag_.store(true, std::memory_order_relaxed);
+        flag_.store(true);
     }
 
   private:
-    // relaxed suffices: the flag publishes no other data (a pure signal, not
-    // a guard for anything else the caller wrote), and FlashWorker's
-    // teardown always pairs cancel() with transport_->request_unblock(),
-    // which carries its own synchronization.
+    // Default (seq_cst) ordering. The flag publishes no other data -- it is a
+    // pure signal, not a guard for anything else the caller wrote -- and
+    // FlashWorker's teardown always pairs cancel() with
+    // transport_->request_unblock(), which carries its own synchronization, so
+    // a weaker order would also be correct. It is polled once per transport
+    // operation rather than spun on, so the stronger default costs nothing
+    // measurable and leaves no ordering argument for a reader to reconstruct.
     std::atomic<bool> flag_{false};
 };
 
