@@ -40,7 +40,19 @@ FROZEN = {
 def main():
     with open(BUILD) as f:
         text = f.read()
-    m = re.search(r'name = "serial_qt_compat".*?visibility = \[(.*?)\]', text, re.S)
+    # Anchor on the target, then scan only that rule's body. Pairing two lazy
+    # `.*?` wildcards across the whole file backtracks superlinearly, and it
+    # also fails open: if serial_qt_compat ever lost its visibility list, the
+    # wildcard would run on and freeze some *later* target's list instead,
+    # reporting OK while the real allowlist went unchecked. Bazel rules close
+    # on a bare ")" at the start of a line, which bounds the body exactly.
+    start = text.find('name = "serial_qt_compat"')
+    if start < 0:
+        print(f"FAIL: no serial_qt_compat target in {BUILD}")
+        return 1
+    end = text.find("\n)\n", start)
+    body = text[start:end] if end >= 0 else text[start:]
+    m = re.search(r"visibility = \[([^\]]*)\]", body)
     if not m:
         print(f"FAIL: no serial_qt_compat visibility list in {BUILD}")
         return 1
