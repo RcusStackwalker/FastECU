@@ -354,7 +354,7 @@ class MainWindow : public QMainWindow
     void toggle_realtime();
     void toggle_log_to_file();
     void set_maptablewidget_items();
-    int get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex);
+    QColor get_map_cell_color(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex);
     void show_preferences_window();
 
     void toggle_haltech_ic7_display();

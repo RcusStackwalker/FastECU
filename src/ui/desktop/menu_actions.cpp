@@ -6,6 +6,7 @@
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
+#include <algorithm>
 #include <chrono>
 #include <utility>
 
@@ -963,12 +964,8 @@ void MainWindow::set_maptablewidget_items()
 
                 cellItem->setTextAlignment(Qt::AlignCenter);
                 cellItem->setFont(cellFont);
-                const auto mapItemColor = static_cast<unsigned>(
-                    get_map_cell_colors(ecuCalDef[mapRomNumber], mapDataCellText.at(i).toFloat(), mapNumber));
-                int mapItemColorRed = static_cast<int>((mapItemColor >> 16U) & 0xffU);
-                int mapItemColorGreen = static_cast<int>((mapItemColor >> 8U) & 0xffU);
-                int mapItemColorBlue = static_cast<int>(mapItemColor & 0xffU);
-                cellItem->setBackground(QBrush(QColor(mapItemColorRed, mapItemColorGreen, mapItemColorBlue, 255)));
+                cellItem->setBackground(
+                    QBrush(get_map_cell_color(ecuCalDef[mapRomNumber], mapDataCellText.at(i).toFloat(), mapNumber)));
                 // if (ecuCalDef[mapRomNumber]->TypeList.at(mapNumber) == "1D")
                 cellItem->setForeground(Qt::black);
                 // else
@@ -986,49 +983,25 @@ void MainWindow::set_maptablewidget_items()
     }
 }
 
-int MainWindow::get_map_cell_colors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex)
+QColor MainWindow::get_map_cell_color(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex)
 {
-    int mapCellColors;
-    float mapMinValue = 0;
-    float mapMaxValue = 0;
+    const float mapMinValue = ecuCalDef->MapCellColorMin.at(mapIndex).toFloat();
+    const float mapMaxValue = ecuCalDef->MapCellColorMax.at(mapIndex).toFloat();
 
-    mapMinValue = ecuCalDef->MapCellColorMin.at(mapIndex).toFloat();
-    mapMaxValue = ecuCalDef->MapCellColorMax.at(mapIndex).toFloat();
-
-    // Maps mapMinValue -> hue 0, mapMaxValue -> hue 210/360, clamping
-    // below-range values to 0. mapMinValue == mapMaxValue would divide by
-    // zero, producing a non-finite hue that's undefined (effectively
-    // invalid) as a QColor::setHsvF argument -- guarded to 0.0 instead, a
-    // well-defined choice consistent with the below-range clamp just below.
+    // Maps mapMinValue -> hue 0, mapMaxValue -> hue 210/360, clamping to that
+    // range at both ends. mapMinValue == mapMaxValue would divide by zero,
+    // producing a non-finite hue that's undefined (effectively invalid) as a
+    // QColor::fromHsvF argument -- guarded to 0.0 instead, a well-defined
+    // choice consistent with the clamp.
     constexpr double kScaleStart = 210.0 / 360.0;
     double color_value = 0.0;
     if (mapMaxValue != mapMinValue)
     {
-        color_value = kScaleStart * (mapDataValue - mapMinValue) / (mapMaxValue - mapMinValue);
-        if (color_value < 0.0)
-        {
-            color_value = 0.0;
-        }
+        color_value =
+            std::clamp(kScaleStart * (mapDataValue - mapMinValue) / (mapMaxValue - mapMinValue), 0.0, kScaleStart);
     }
 
-    QColor color;
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    double r = 0;
-    double g = 0;
-    double b = 0;
-#else
-    float r = 0;
-    float g = 0;
-    float b = 0;
-#endif
-
-    color.setHsvF(color_value, 0.85, 0.85);
-    color.getRgbF(&r, &g, &b);
-    const auto redChannel = static_cast<unsigned>((int)(r * 255));
-    const auto greenChannel = static_cast<unsigned>((int)(g * 255));
-    mapCellColors = static_cast<int>((redChannel << 16U) + (greenChannel << 8U)) + b * 255;
-
-    return mapCellColors;
+    return QColor::fromHsvF(color_value, 0.85, 0.85);
 }
 
 int MainWindow::test_haltech_ic7_display()
