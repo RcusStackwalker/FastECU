@@ -796,7 +796,6 @@ int J2534::is_valid_sconfig_param(SCONFIG s)
     case P3_MAX:
     case P4_MAX:
         return 0;
-        break;
     default:
         return 1;
     }

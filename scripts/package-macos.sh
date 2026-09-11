@@ -17,7 +17,7 @@ cd "$repo_root"
 
 bazel build --config=release //:fastecu
 bin=$(bazel cquery --config=release --output=files //:fastecu 2>/dev/null | head -n1)
-if [ ! -x "$bin" ]; then
+if [[ ! -x "$bin" ]]; then
   echo "bazel binary not found or not executable: $bin" >&2
   exit 1
 fi
@@ -49,7 +49,7 @@ PLIST
 
 macdeployqt "$app"
 
-[ -d "$app/Contents/Frameworks/QtCore.framework" ] || { echo "macdeployqt did not bundle QtCore.framework" >&2; exit 1; }
+[[ -d "$app/Contents/Frameworks/QtCore.framework" ]] || { echo "macdeployqt did not bundle QtCore.framework" >&2; exit 1; }
 
 rm -f "$out_zip"
 ( cd "$work" && zip -r -y "$out_zip" FastECU.app )

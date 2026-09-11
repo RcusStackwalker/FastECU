@@ -1405,7 +1405,7 @@ int FlashTcuSubaruDensoSH705xCanOperation::flash_block(const uint8_t *src, uint3
         emit LOG_D("Data written to flash buffer", true, true);
 
         QString start_address = QString("%1").arg(start, 8, 16, QLatin1Char('0')).toUpper();
-        msg = QString("Write flash buffer: 0x%1 (%2\% - %3 B/s, ~ %4 s)")
+        msg = QString("Write flash buffer: 0x%1 (%2% - %3 B/s, ~ %4 s)")
                   .arg(start_address)
                   .arg((unsigned)100 * (len - remain) / len, 1, 10, QLatin1Char('0'))
                   .arg((uint32_t)curspeed, 1, 10, QLatin1Char('0'))
