@@ -1,6 +1,7 @@
 #include "apps/bench/bench_args.h"
 
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <format>
 #include <limits>
@@ -89,7 +90,91 @@ Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
     return StepSpec{.id = spec->id, .args = std::move(args), .destructive_ack = destructive_ack};
 }
 
+Status setTimeout(GlobalOptions& options, std::string_view value)
+{
+    const Result<std::uint32_t> timeout = parse_u32(value);
+    if (!timeout.has_value())
+    {
+        return std::unexpected(timeout.error());
+    }
+    if (*timeout > std::numeric_limits<std::uint16_t>::max())
+    {
+        return fail(ErrorKind::InvalidConfig, "timeout must not exceed 65535 ms");
+    }
+    options.timeout_ms = static_cast<int>(*timeout);
+    return {};
+}
+
+Status setScript(GlobalOptions& options, std::string_view value)
+{
+    if (value != "-")
+    {
+        return fail(ErrorKind::InvalidConfig, "--script only accepts '-' (stdin)");
+    }
+    options.script_stdin = true;
+    return {};
+}
+
+constexpr std::array kGlobalOptions{
+    GlobalOptionSpec{.name = "--json",
+                     .apply = [](GlobalOptions& options, std::string_view) -> Status
+                     {
+                         options.json = true;
+                         return {};
+                     }},
+    GlobalOptionSpec{.name = "--verbose",
+                     .apply = [](GlobalOptions& options, std::string_view) -> Status
+                     {
+                         options.verbose = true;
+                         return {};
+                     }},
+    GlobalOptionSpec{.name = "--keep-going",
+                     .apply = [](GlobalOptions& options, std::string_view) -> Status
+                     {
+                         options.keep_going = true;
+                         return {};
+                     }},
+    GlobalOptionSpec{.name = "--no-connect",
+                     .apply = [](GlobalOptions& options, std::string_view) -> Status
+                     {
+                         options.no_connect = true;
+                         return {};
+                     }},
+    GlobalOptionSpec{.name = "--vendor-ext",
+                     .apply = [](GlobalOptions& options, std::string_view) -> Status
+                     {
+                         options.vendor_ext = true;
+                         return {};
+                     }},
+    GlobalOptionSpec{.name = "--stats",
+                     .apply = [](GlobalOptions& options, std::string_view) -> Status
+                     {
+                         options.stats = true;
+                         return {};
+                     }},
+    GlobalOptionSpec{.name = "--port",
+                     .takes_value = true,
+                     .apply = [](GlobalOptions& options, std::string_view value) -> Status
+                     {
+                         options.port_name = value;
+                         return {};
+                     }},
+    GlobalOptionSpec{.name = "--timeout", .takes_value = true, .apply = setTimeout},
+    GlobalOptionSpec{.name = "--script", .takes_value = true, .apply = setScript},
+};
+
 } // namespace
+
+std::span<const GlobalOptionSpec> global_option_table()
+{
+    return kGlobalOptions;
+}
+
+const GlobalOptionSpec *find_global_option(std::string_view token)
+{
+    const auto match = std::ranges::find(kGlobalOptions, token, &GlobalOptionSpec::name);
+    return match == kGlobalOptions.end() ? nullptr : &*match;
+}
 
 Result<std::uint32_t> parse_u32(std::string_view text)
 {
@@ -149,98 +234,31 @@ Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> a
     for (std::size_t index = 0; index < args.size(); ++index)
     {
         const std::string_view arg = args[index];
-        const auto needsValue = [&](std::string_view& out) -> Status
-        {
-            if (index + 1 >= args.size())
-            {
-                return fail(ErrorKind::InvalidConfig, std::format("{} needs a value", arg));
-            }
-            out = args[++index];
-            return {};
-        };
-
         if (arg == kStepSeparator)
         {
             groups.emplace_back();
             continue;
         }
-        if (arg == "--json")
-        {
-            parsed.options.json = true;
-            continue;
-        }
-        if (arg == "--verbose")
-        {
-            parsed.options.verbose = true;
-            continue;
-        }
-        if (arg == "--keep-going")
-        {
-            parsed.options.keep_going = true;
-            continue;
-        }
-        if (arg == "--no-connect")
-        {
-            parsed.options.no_connect = true;
-            continue;
-        }
-        if (arg == "--vendor-ext")
-        {
-            parsed.options.vendor_ext = true;
-            continue;
-        }
-        if (arg == "--stats")
-        {
-            parsed.options.stats = true;
-            continue;
-        }
-        if (arg == "--script")
+        if (const GlobalOptionSpec *const option = find_global_option(arg); option != nullptr)
         {
             std::string_view value;
-            if (const Status ok = needsValue(value); !ok.has_value())
+            if (option->takes_value)
             {
-                return std::unexpected(ok.error());
+                if (index + 1 >= args.size())
+                {
+                    return fail(ErrorKind::InvalidConfig, std::format("{} needs a value", arg));
+                }
+                value = args[++index];
             }
-            if (value != "-")
+            if (const Status applied = option->apply(parsed.options, value); !applied.has_value())
             {
-                return fail(ErrorKind::InvalidConfig, "--script only accepts '-' (stdin)");
+                return std::unexpected(applied.error());
             }
-            parsed.options.script_stdin = true;
-            continue;
-        }
-        if (arg == "--port")
-        {
-            std::string_view value;
-            if (const Status ok = needsValue(value); !ok.has_value())
-            {
-                return std::unexpected(ok.error());
-            }
-            parsed.options.port_name = value;
-            continue;
-        }
-        if (arg == "--timeout")
-        {
-            std::string_view value;
-            if (const Status ok = needsValue(value); !ok.has_value())
-            {
-                return std::unexpected(ok.error());
-            }
-            const Result<std::uint32_t> timeout = parse_u32(value);
-            if (!timeout.has_value())
-            {
-                return std::unexpected(timeout.error());
-            }
-            if (*timeout > std::numeric_limits<std::uint16_t>::max())
-            {
-                return fail(ErrorKind::InvalidConfig, "timeout must not exceed 65535 ms");
-            }
-            parsed.options.timeout_ms = static_cast<int>(*timeout);
             continue;
         }
 
         groups.back().emplace_back(arg);
     }
-
     if (parsed.options.script_stdin)
     {
         // Steps come from stdin instead; main.cpp re-enters parse_command_line

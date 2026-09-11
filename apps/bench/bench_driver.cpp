@@ -6,6 +6,7 @@
 #include <optional>
 #include <sstream>
 
+#include "apps/bench/bench_args.h"
 #include "apps/bench/bench_commands.h"
 #include "apps/bench/bench_format.h"
 
@@ -280,13 +281,6 @@ int runBatch(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOpt
     return runPreparedBatch(environment, files, options, prepared_steps, output, diagnostics);
 }
 
-bool isScriptLineGlobalOption(std::string_view token)
-{
-    return token == "--port" || token == "--json" || token == "--verbose" || token == "--timeout" ||
-           token == "--keep-going" || token == "--no-connect" || token == "--vendor-ext" || token == "--stats" ||
-           token == "--script";
-}
-
 int runScript(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOptions& options, std::istream& input,
               std::ostream& output, std::ostream& diagnostics)
 {
@@ -305,7 +299,9 @@ int runScript(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOp
             continue;
         }
 
-        if (const auto forbidden = std::ranges::find_if(tokens, isScriptLineGlobalOption); forbidden != tokens.end())
+        if (const auto forbidden = std::ranges::find_if(tokens, [](std::string_view token)
+                                                        { return find_global_option(token) != nullptr; });
+            forbidden != tokens.end())
         {
             const Error error{ErrorKind::InvalidConfig,
                               std::format("script-line global option {} is not allowed; put it on the outer "

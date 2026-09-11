@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <format>
 #include <sstream>
 #include <string_view>
 
@@ -217,17 +218,23 @@ TEST(BenchDriver, ScriptLineGlobalOptionsAreRejectedInsteadOfDiscarded)
     EXPECT_NE(harness.diagnostics.str().find("script-line global option"), std::string::npos);
 }
 
-TEST(BenchDriver, ScriptLineVendorExtIsRejectedInsteadOfDiscarded)
+// Every entry of the parser's own table, so an option added to bench_args is
+// rejected on a script line rather than silently parsed and discarded.
+TEST(BenchDriver, EveryGlobalOptionIsRejectedOnAScriptLine)
 {
-    Harness harness;
+    ASSERT_FALSE(global_option_table().empty());
+    for (const GlobalOptionSpec& option : global_option_table())
+    {
+        Harness harness;
 
-    const int code = harness.run({"--json", "--script", "-"}, "read 0x200 1 --vendor-ext\n");
+        const int code = harness.run({"--json", "--script", "-"}, std::format("read 0x200 1 {}\n", option.name));
 
-    EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig));
-    EXPECT_EQ(harness.environment.session_calls, 0);
-    EXPECT_EQ(newlineCount(harness.output.str()), 1U);
-    EXPECT_NE(harness.output.str().find("script-line global option"), std::string::npos);
-    EXPECT_NE(harness.diagnostics.str().find("script-line global option"), std::string::npos);
+        EXPECT_EQ(code, exit_code_for(ErrorKind::InvalidConfig)) << option.name;
+        EXPECT_EQ(harness.environment.session_calls, 0) << option.name;
+        EXPECT_EQ(newlineCount(harness.output.str()), 1U) << option.name;
+        EXPECT_NE(harness.output.str().find("script-line global option"), std::string::npos) << option.name;
+        EXPECT_NE(harness.diagnostics.str().find("script-line global option"), std::string::npos) << option.name;
+    }
 }
 
 TEST(BenchDriver, JsonConnectFailureIsAnOutcomeWithTraffic)

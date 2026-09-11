@@ -35,6 +35,22 @@ struct GlobalOptions
     bool stats = false;
 };
 
+// An option that applies to the whole invocation rather than to one step.
+// The parser and the script-line rejection in bench_driver both read this
+// table, so a new global option cannot be silently accepted -- and then
+// ignored -- on a script line.
+struct GlobalOptionSpec
+{
+    std::string_view name;
+    bool takes_value = false;
+    // `value` is empty unless takes_value.
+    Status (*apply)(GlobalOptions& options, std::string_view value) = nullptr;
+};
+
+std::span<const GlobalOptionSpec> global_option_table();
+
+const GlobalOptionSpec *find_global_option(std::string_view token);
+
 struct ParsedCommandLine
 {
     GlobalOptions options;
