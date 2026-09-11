@@ -771,8 +771,14 @@ void MainWindow::show_hex_editor()
         selectedItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
         rom_number = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selectedItem);
 
-        // HexEdit *hexEdit = new HexEdit(ecuCalDef[rom_number], this);
+        // The window shows itself from its own constructor and is parented to
+        // MainWindow, so without WA_DeleteOnClose every invocation left a
+        // closed-but-alive HexEdit -- and its copy of the ROM data -- alive
+        // until MainWindow was destroyed. HexEdit::closeEvent() ignores the
+        // event when the user cancels a save prompt, and Qt only deletes on an
+        // accepted close, so cancelling still keeps the window.
         HexEdit *hexEdit = new HexEdit(ecuCalDef[rom_number], this);
+        hexEdit->setAttribute(Qt::WA_DeleteOnClose);
     }
 }
 
