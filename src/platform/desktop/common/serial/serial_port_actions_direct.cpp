@@ -8,7 +8,9 @@
 
 #include <array>
 #include <iterator>
+#include <string_view>
 
+#include "src/algorithms/protocol/fixed_buffer.h"
 #include "src/algorithms/protocol/qt_bytes.h"
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
 
@@ -1379,9 +1381,10 @@ int SerialPortActionsDirect::init_j2534_connection()
 #endif
     }
 
-    // Get J2534 adapter and driver version numbers
-    // Zero-initialized so strlen() below stays bounded even if the J2534
-    // driver call fails to null-terminate its output.
+    // Get J2534 adapter and driver version numbers.
+    // PassThruReadVersion takes no length, so these are read back through
+    // bytes::fromFixedBufferDroppingLast, which stops at the buffer's end
+    // whether or not the driver left a terminator.
     std::array<char, J2534::kVersionBufferSize> strApiVersion{};
     std::array<char, J2534::kVersionBufferSize> strDllVersion{};
     std::array<char, J2534::kVersionBufferSize> strFirmwareVersion{};
@@ -1399,26 +1402,17 @@ int SerialPortActionsDirect::init_j2534_connection()
         return STATUS_ERROR;
     }
 
-    if (strlen(strApiVersion.data()) > 0)
-    {
-        strApiVersion[strlen(strApiVersion.data()) - 1] = '\0';
-    }
-    if (strlen(strDllVersion.data()) > 0)
-    {
-        strDllVersion[strlen(strDllVersion.data()) - 1] = '\0';
-    }
-    if (strlen(strFirmwareVersion.data()) > 0)
-    {
-        strFirmwareVersion[strlen(strFirmwareVersion.data()) - 1] = '\0';
-    }
-    if (strlen(strSerial.data()) > 0)
-    {
-        strSerial[strlen(strSerial.data()) - 1] = '\0';
-    }
-    emit LOG_D("J2534 API Version: " + QString(strApiVersion.data()), true, true);
-    emit LOG_D("J2534 DLL Version: " + QString(strDllVersion.data()), true, true);
-    emit LOG_D("Device Firmware Version: " + QString(strFirmwareVersion.data()), true, true);
-    emit LOG_D("Device Serial Number: " + parse_message_to_hex(strSerial.data()), true, true);
+    const std::string_view apiVersion = bytes::fromFixedBufferDroppingLast(strApiVersion);
+    const std::string_view dllVersion = bytes::fromFixedBufferDroppingLast(strDllVersion);
+    const std::string_view firmwareVersion = bytes::fromFixedBufferDroppingLast(strFirmwareVersion);
+    const std::string_view serialNumber = bytes::fromFixedBufferDroppingLast(strSerial);
+
+    emit LOG_D("J2534 API Version: " + QString::fromUtf8(apiVersion), true, true);
+    emit LOG_D("J2534 DLL Version: " + QString::fromUtf8(dllVersion), true, true);
+    emit LOG_D("Device Firmware Version: " + QString::fromUtf8(firmwareVersion), true, true);
+    const QByteArray serialBytes =
+        QByteArray::fromRawData(serialNumber.data(), static_cast<qsizetype>(serialNumber.size()));
+    emit LOG_D("Device Serial Number: " + parse_message_to_hex(serialBytes), true, true);
 
     // Create J2534 to device connections
     if (is_iso15765_connection)
