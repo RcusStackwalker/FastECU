@@ -132,12 +132,16 @@ void DesktopCanFlashTransport::request_unblock() noexcept
     // existing bounded timeout (<=3000ms per the design spec's
     // characterized values). Setting this flag only guarantees no *further*
     // read/write is issued once request_unblock() has fired.
-    unblock_requested_.store(true, std::memory_order_release);
+    //
+    // Default (seq_cst) ordering: the flag is a pure signal that guards no
+    // other data, so there is nothing for an acquire/release pair to
+    // publish, and the barrier is free next to the serial I/O it gates.
+    unblock_requested_.store(true);
 }
 
 Status DesktopCanFlashTransport::write(bytes::ByteView data, const ICancellationToken& cancellation)
 {
-    if (cancellation.cancelled() || unblock_requested_.load(std::memory_order_acquire))
+    if (cancellation.cancelled() || unblock_requested_.load())
     {
         return fail(ErrorKind::Cancelled, "CAN write skipped due to cancellation/unblock");
     }
@@ -181,7 +185,7 @@ Status DesktopCanFlashTransport::write(bytes::ByteView data, const ICancellation
 Result<std::optional<bytes::Bytes>> DesktopCanFlashTransport::read(std::chrono::milliseconds timeout,
                                                                    const ICancellationToken& cancellation)
 {
-    if (cancellation.cancelled() || unblock_requested_.load(std::memory_order_acquire))
+    if (cancellation.cancelled() || unblock_requested_.load())
     {
         return fail(ErrorKind::Cancelled, "CAN read skipped due to cancellation/unblock");
     }

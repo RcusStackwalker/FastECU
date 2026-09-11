@@ -230,7 +230,11 @@ void DesktopKlineFlashTransport::request_unblock() noexcept
     // existing bounded timeout (<=3000ms per the design spec's
     // characterized values). Setting this flag only guarantees no *further*
     // read/write is issued once request_unblock() has fired.
-    unblock_requested_.store(true, std::memory_order_release);
+    //
+    // Default (seq_cst) ordering: the flag is a pure signal that guards no
+    // other data, so there is nothing for an acquire/release pair to
+    // publish, and the barrier is free next to the serial I/O it gates.
+    unblock_requested_.store(true);
 }
 
 Status DesktopKlineFlashTransport::setBaud(int baud)
@@ -281,7 +285,7 @@ Status DesktopKlineFlashTransport::setBaud(int baud)
 
 Result<std::size_t> DesktopKlineFlashTransport::write(bytes::ByteView data)
 {
-    if (unblock_requested_.load(std::memory_order_acquire))
+    if (unblock_requested_.load())
     {
         return fail(ErrorKind::Cancelled, "K-Line write skipped after request_unblock");
     }
@@ -327,7 +331,7 @@ Result<std::size_t> DesktopKlineFlashTransport::write(bytes::ByteView data)
 Result<DesktopKlineFlashTransport::OptionalBytes>
 DesktopKlineFlashTransport::read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation)
 {
-    if (cancellation.cancelled() || unblock_requested_.load(std::memory_order_acquire))
+    if (cancellation.cancelled() || unblock_requested_.load())
     {
         return fail(ErrorKind::Cancelled, "K-Line read skipped due to cancellation/unblock");
     }
