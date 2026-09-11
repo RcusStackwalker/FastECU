@@ -6,6 +6,7 @@
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
+#include <algorithm>
 #include <chrono>
 #include <utility>
 
@@ -987,20 +988,17 @@ QColor MainWindow::get_map_cell_color(FileActions::EcuCalDefStructure *ecuCalDef
     const float mapMinValue = ecuCalDef->MapCellColorMin.at(mapIndex).toFloat();
     const float mapMaxValue = ecuCalDef->MapCellColorMax.at(mapIndex).toFloat();
 
-    // Maps mapMinValue -> hue 0, mapMaxValue -> hue 210/360, clamping
-    // below-range values to 0. mapMinValue == mapMaxValue would divide by
-    // zero, producing a non-finite hue that's undefined (effectively
-    // invalid) as a QColor::fromHsvF argument -- guarded to 0.0 instead, a
-    // well-defined choice consistent with the below-range clamp just below.
+    // Maps mapMinValue -> hue 0, mapMaxValue -> hue 210/360, clamping to that
+    // range at both ends. mapMinValue == mapMaxValue would divide by zero,
+    // producing a non-finite hue that's undefined (effectively invalid) as a
+    // QColor::fromHsvF argument -- guarded to 0.0 instead, a well-defined
+    // choice consistent with the clamp.
     constexpr double kScaleStart = 210.0 / 360.0;
     double color_value = 0.0;
     if (mapMaxValue != mapMinValue)
     {
-        color_value = kScaleStart * (mapDataValue - mapMinValue) / (mapMaxValue - mapMinValue);
-        if (color_value < 0.0)
-        {
-            color_value = 0.0;
-        }
+        color_value =
+            std::clamp(kScaleStart * (mapDataValue - mapMinValue) / (mapMaxValue - mapMinValue), 0.0, kScaleStart);
     }
 
     return QColor::fromHsvF(color_value, 0.85, 0.85);
