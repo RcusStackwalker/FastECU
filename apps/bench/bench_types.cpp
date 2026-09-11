@@ -36,4 +36,10 @@ const CommandSpec *find_command(std::string_view name)
     return found == kCommands.end() ? nullptr : std::to_address(found);
 }
 
+const CommandSpec *find_command(CommandId id)
+{
+    const auto found = std::ranges::find(kCommands, id, &CommandSpec::id);
+    return found == kCommands.end() ? nullptr : std::to_address(found);
+}
+
 } // namespace fastecu::bench

@@ -45,6 +45,7 @@ struct CommandSpec
 
 std::span<const CommandSpec> command_table();
 const CommandSpec *find_command(std::string_view name);
+const CommandSpec *find_command(CommandId id);
 
 struct StepSpec
 {

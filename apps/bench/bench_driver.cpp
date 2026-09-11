@@ -1,11 +1,18 @@
 #include "apps/bench/bench_driver.h"
 
 #include <algorithm>
+#include <concepts>
+#include <expected>
 #include <format>
 #include <iterator>
 #include <optional>
+#include <ranges>
+#include <span>
 #include <sstream>
+#include <string>
+#include <vector>
 
+#include "apps/bench/bench_args.h"
 #include "apps/bench/bench_commands.h"
 #include "apps/bench/bench_format.h"
 
@@ -13,25 +20,6 @@ namespace fastecu::bench
 {
 namespace
 {
-
-std::string renderStep(const StepSpec& step)
-{
-    std::string text;
-    for (const CommandSpec& spec : command_table())
-    {
-        if (spec.id == step.id)
-        {
-            text = spec.name;
-            break;
-        }
-    }
-    for (const std::string& arg : step.args)
-    {
-        text += ' ';
-        text += arg;
-    }
-    return text;
-}
 
 void copyTraffic(CommandOutcome& outcome, const TrafficEvidence& traffic)
 {
@@ -51,22 +39,44 @@ CommandOutcome failedOutcome(std::string step, const Error& error, const Traffic
     return outcome;
 }
 
-void emit(const GlobalOptions& options, const CommandOutcome& outcome, std::ostream& output)
+// Where every outcome goes: one rendered line on `output`, the failure detail
+// on `diagnostics`. Bundled because all of the driver writes both, and the
+// exit code of a failure is a property of the same report.
+struct Reporter
 {
-    const std::string rendered =
-        options.json ? format_json(outcome, options.stats) : format_text(outcome, options.stats);
-    output << rendered;
-    if (rendered.empty() || rendered.back() != '\n')
-    {
-        output << '\n';
-    }
-}
+    const GlobalOptions& options;
+    std::ostream& output;
+    std::ostream& diagnostics;
 
-void diagnose(const CommandOutcome& outcome, std::ostream& diagnostics)
-{
-    if (!outcome.ok && !outcome.error_detail.empty())
+    void report(const CommandOutcome& outcome) const
     {
-        diagnostics << outcome.error_detail << '\n';
+        const std::string rendered =
+            options.json ? format_json(outcome, options.stats) : format_text(outcome, options.stats);
+        output << rendered;
+        if (rendered.empty() || rendered.back() != '\n')
+        {
+            output << '\n';
+        }
+        if (!outcome.ok && !outcome.error_detail.empty())
+        {
+            diagnostics << outcome.error_detail << '\n';
+        }
+    }
+
+    // Reports a failure and returns the exit code it maps to.
+    int fail(std::string step, const Error& error, const TrafficEvidence& traffic = {}) const
+    {
+        report(failedOutcome(std::move(step), error, traffic));
+        return exit_code_for(error.kind);
+    }
+};
+
+// A run reports every failure it reaches but exits with the first one.
+void ratchet(int& first_code, int code)
+{
+    if (first_code == 0)
+    {
+        first_code = code;
     }
 }
 
@@ -78,8 +88,8 @@ bool isEraseHelperUpload(const PreparedStep& step)
 
 bool isDestructiveStep(const PreparedStep& step)
 {
-    return std::ranges::any_of(command_table(), [&step](const CommandSpec& spec)
-                               { return spec.id == step.spec.id && spec.destructive; });
+    const CommandSpec *const spec = find_command(step.spec.id);
+    return spec != nullptr && spec->destructive;
 }
 
 enum class EraseSequenceState
@@ -120,29 +130,35 @@ struct PlanValidationFailure
     Error error;
 };
 
-std::optional<PlanValidationFailure> validateSessionPlan(const std::vector<const PreparedStep *>& steps)
+// Checks what the whole plan implies before any of it runs: a script spans
+// several lines but is still one session, so `connect` placement and the
+// erase prerequisite chain are validated across line boundaries.
+template <std::ranges::input_range Steps>
+    requires std::convertible_to<std::ranges::range_reference_t<Steps>, const PreparedStep&>
+std::optional<PlanValidationFailure> validateSessionPlan(Steps&& steps)
 {
     bool saw_session_step = false;
     EraseSequenceState erase_sequence = EraseSequenceState::NeedsHelper;
-    for (const PreparedStep *const step : steps)
+    for (const PreparedStep& step : steps)
     {
-        if (step->spec.id == CommandId::Ports)
+        if (step.spec.id == CommandId::Ports)
         {
             continue;
         }
-        if (step->spec.id == CommandId::Connect && saw_session_step)
+        if (step.spec.id == CommandId::Connect && saw_session_step)
         {
             return PlanValidationFailure{
-                step, Error{ErrorKind::InvalidConfig,
-                            "connect must be the first non-ports session step and may appear only once"}};
+                &step, Error{ErrorKind::InvalidConfig,
+                             "connect must be the first non-ports session step and may appear only once"}};
         }
         saw_session_step = true;
 
-        if (step->spec.id == CommandId::Erase && erase_sequence != EraseSequenceState::Ready)
+        if (step.spec.id == CommandId::Erase && erase_sequence != EraseSequenceState::Ready)
         {
-            return PlanValidationFailure{step, Error{ErrorKind::InvalidConfig, std::string(kEraseSequenceRequirement)}};
+            return PlanValidationFailure{&step,
+                                         Error{ErrorKind::InvalidConfig, std::string(kEraseSequenceRequirement)}};
         }
-        erase_sequence = advanceEraseSequence(erase_sequence, *step, true);
+        erase_sequence = advanceEraseSequence(erase_sequence, step, true);
     }
     return std::nullopt;
 }
@@ -152,18 +168,17 @@ struct SessionState
     EraseSequenceState erase_sequence = EraseSequenceState::NeedsHelper;
 };
 
-int runSteps(IBenchSession& session, IBenchFiles& files, const GlobalOptions& options,
-             const std::vector<PreparedStep>& steps, SessionState& state, std::ostream& output,
-             std::ostream& diagnostics)
+int runSteps(IBenchSession& session, IBenchFiles& files, const Reporter& reporter, std::span<const PreparedStep> steps,
+             SessionState& state)
 {
-    BenchContext context{.session = session, .files = files, .options = options};
+    BenchContext context{.session = session, .files = files, .options = reporter.options};
     int code = 0;
     for (const PreparedStep& step : steps)
     {
         CommandOutcome outcome;
         if (step.spec.id == CommandId::Erase && state.erase_sequence != EraseSequenceState::Ready)
         {
-            outcome = failedOutcome(renderStep(step.spec),
+            outcome = failedOutcome(render_step(step.spec),
                                     Error{ErrorKind::InvalidConfig, std::string(kEraseSequenceRequirement)});
             if (const Result<double> battery = session.vbatt(); battery.has_value())
             {
@@ -177,17 +192,13 @@ int runSteps(IBenchSession& session, IBenchFiles& files, const GlobalOptions& op
 
         state.erase_sequence = advanceEraseSequence(state.erase_sequence, step, outcome.ok);
 
-        emit(options, outcome, output);
-        diagnose(outcome, diagnostics);
+        reporter.report(outcome);
         if (outcome.ok)
         {
             continue;
         }
-        if (code == 0)
-        {
-            code = exit_code_for(outcome.error_kind.value_or(ErrorKind::Internal));
-        }
-        if (!options.keep_going)
+        ratchet(code, exit_code_for(outcome.error_kind.value_or(ErrorKind::Internal)));
+        if (!reporter.options.keep_going)
         {
             break;
         }
@@ -195,23 +206,19 @@ int runSteps(IBenchSession& session, IBenchFiles& files, const GlobalOptions& op
     return code;
 }
 
-int runPorts(IBenchEnvironment& environment, const GlobalOptions& options, std::ostream& output,
-             std::ostream& diagnostics)
+int runPorts(IBenchEnvironment& environment, const Reporter& reporter)
 {
-    const Result<std::vector<std::string>> ports = environment.list_ports(options);
+    const Result<std::vector<std::string>> ports = environment.list_ports(reporter.options);
     if (!ports.has_value())
     {
-        const CommandOutcome outcome = failedOutcome("ports", ports.error());
-        emit(options, outcome, output);
-        diagnose(outcome, diagnostics);
-        return exit_code_for(ports.error().kind);
+        return reporter.fail("ports", ports.error());
     }
 
-    if (!options.json)
+    if (!reporter.options.json)
     {
         for (const std::string& port : *ports)
         {
-            output << port << '\n';
+            reporter.output << port << '\n';
         }
         return 0;
     }
@@ -225,74 +232,95 @@ int runPorts(IBenchEnvironment& environment, const GlobalOptions& options, std::
         }
         note += (*ports)[index];
     }
-    emit(options, CommandOutcome{.step = "ports", .note = std::move(note)}, output);
+    reporter.report(CommandOutcome{.step = "ports", .note = std::move(note)});
     return 0;
 }
 
-int runPreparedBatch(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOptions& options,
-                     const std::vector<PreparedStep>& steps, std::ostream& output, std::ostream& diagnostics)
+struct PreparationFailure
+{
+    const StepSpec *step;
+    Error error;
+};
+
+// Loads file-backed payloads and validates every step, stopping at the first
+// failure. Naming that step is left to the caller: a script prefixes its line
+// number.
+std::expected<std::vector<PreparedStep>, PreparationFailure> prepareSteps(IBenchFiles& files,
+                                                                          std::span<const StepSpec> specs)
+{
+    std::vector<PreparedStep> prepared;
+    prepared.reserve(specs.size());
+    for (const StepSpec& spec : specs)
+    {
+        Result<PreparedStep> step = prepare_step(files, spec);
+        if (!step.has_value())
+        {
+            return std::unexpected(PreparationFailure{.step = &spec, .error = step.error()});
+        }
+        prepared.push_back(std::move(*step));
+    }
+    return prepared;
+}
+
+// What a failure before the first step ran is called.
+std::string planLabel(std::span<const PreparedStep> steps)
+{
+    return steps.empty() ? std::string("setup") : render_step(steps.front().spec);
+}
+
+// The one session every step shares. Connecting is implicit unless the plan
+// opens with an explicit `connect`.
+Result<std::reference_wrapper<IBenchSession>> openSession(IBenchEnvironment& environment, const GlobalOptions& options,
+                                                          std::span<const PreparedStep> steps)
 {
     const bool connect_implicitly =
         !options.no_connect && !steps.empty() && steps.front().spec.id != CommandId::Connect;
-    Result<std::reference_wrapper<IBenchSession>> session = environment.session(options, connect_implicitly);
+    return environment.session(options, connect_implicitly);
+}
+
+int runBatch(IBenchEnvironment& environment, IBenchFiles& files, const Reporter& reporter,
+             std::span<const StepSpec> steps)
+{
+    const std::expected<std::vector<PreparedStep>, PreparationFailure> prepared = prepareSteps(files, steps);
+    if (!prepared.has_value())
+    {
+        return reporter.fail(render_step(*prepared.error().step), prepared.error().error);
+    }
+    if (const std::optional<PlanValidationFailure> failure = validateSessionPlan(*prepared); failure.has_value())
+    {
+        return reporter.fail(render_step(failure->step->spec), failure->error);
+    }
+
+    const Result<std::reference_wrapper<IBenchSession>> session = openSession(environment, reporter.options, *prepared);
     if (!session.has_value())
     {
-        const std::string label = steps.empty() ? "setup" : renderStep(steps.front().spec);
-        const CommandOutcome outcome = failedOutcome(label, session.error(), environment.last_setup_traffic());
-        emit(options, outcome, output);
-        diagnose(outcome, diagnostics);
-        return exit_code_for(session.error().kind);
+        return reporter.fail(planLabel(*prepared), session.error(), environment.last_setup_traffic());
     }
     SessionState state;
-    return runSteps(session->get(), files, options, steps, state, output, diagnostics);
+    return runSteps(session->get(), files, reporter, *prepared, state);
 }
 
-int runBatch(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOptions& options,
-             const std::vector<StepSpec>& steps, std::ostream& output, std::ostream& diagnostics)
+struct ScriptPlan
 {
-    std::vector<PreparedStep> prepared_steps;
-    prepared_steps.reserve(steps.size());
-    for (const StepSpec& step : steps)
-    {
-        Result<PreparedStep> prepared = prepare_step(files, step);
-        if (!prepared.has_value())
-        {
-            const CommandOutcome outcome = failedOutcome(renderStep(step), prepared.error());
-            emit(options, outcome, output);
-            diagnose(outcome, diagnostics);
-            return exit_code_for(prepared.error().kind);
-        }
-        prepared_steps.push_back(std::move(*prepared));
-    }
-    std::vector<const PreparedStep *> plan;
-    plan.reserve(prepared_steps.size());
-    for (const PreparedStep& step : prepared_steps)
-    {
-        plan.push_back(&step);
-    }
-    if (const std::optional<PlanValidationFailure> failure = validateSessionPlan(plan); failure.has_value())
-    {
-        const CommandOutcome outcome = failedOutcome(renderStep(failure->step->spec), failure->error);
-        emit(options, outcome, output);
-        diagnose(outcome, diagnostics);
-        return exit_code_for(failure->error.kind);
-    }
-    return runPreparedBatch(environment, files, options, prepared_steps, output, diagnostics);
-}
+    std::vector<std::vector<PreparedStep>> lines;
+    // Non-zero once a line failed to parse or prepare, which forbids executing
+    // any line at all.
+    int code = 0;
+};
 
-bool isScriptLineGlobalOption(std::string_view token)
+// Reads the whole script and prepares every line before any of them runs.
+ScriptPlan prepareScript(IBenchFiles& files, const Reporter& reporter, std::istream& input)
 {
-    return token == "--port" || token == "--json" || token == "--verbose" || token == "--timeout" ||
-           token == "--keep-going" || token == "--no-connect" || token == "--vendor-ext" || token == "--stats" ||
-           token == "--script";
-}
+    ScriptPlan plan;
+    // Reports the failure; true means stop reading, false means keep going to
+    // show the operator every bad line before refusing to run any of them.
+    const auto lineFailed = [&](std::string label, const Error& error)
+    {
+        ratchet(plan.code, reporter.fail(std::move(label), error));
+        return !reporter.options.keep_going;
+    };
 
-int runScript(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOptions& options, std::istream& input,
-              std::ostream& output, std::ostream& diagnostics)
-{
-    std::vector<std::vector<PreparedStep>> prepared_lines;
     std::string line;
-    int first_code = 0;
     std::size_t line_number = 0;
     while (std::getline(input, line))
     {
@@ -305,22 +333,19 @@ int runScript(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOp
             continue;
         }
 
-        if (const auto forbidden = std::ranges::find_if(tokens, isScriptLineGlobalOption); forbidden != tokens.end())
+        const std::string line_label = std::format("script line {}", line_number);
+
+        if (const auto forbidden = std::ranges::find_if(tokens, [](std::string_view token)
+                                                        { return find_global_option(token) != nullptr; });
+            forbidden != tokens.end())
         {
             const Error error{ErrorKind::InvalidConfig,
                               std::format("script-line global option {} is not allowed; put it on the outer "
                                           "--script invocation",
                                           *forbidden)};
-            const CommandOutcome outcome = failedOutcome(std::format("script line {}", line_number), error);
-            emit(options, outcome, output);
-            diagnose(outcome, diagnostics);
-            if (first_code == 0)
+            if (lineFailed(line_label, error))
             {
-                first_code = exit_code_for(error.kind);
-            }
-            if (!options.keep_going)
-            {
-                return first_code;
+                return plan;
             }
             continue;
         }
@@ -329,125 +354,91 @@ int runScript(IBenchEnvironment& environment, IBenchFiles& files, const GlobalOp
         const Result<ParsedCommandLine> parsed = parse_command_line(line_args);
         if (!parsed.has_value())
         {
-            const CommandOutcome outcome = failedOutcome(std::format("script line {}", line_number), parsed.error());
-            emit(options, outcome, output);
-            diagnose(outcome, diagnostics);
-            if (first_code == 0)
+            if (lineFailed(line_label, parsed.error()))
             {
-                first_code = exit_code_for(parsed.error().kind);
-            }
-            if (!options.keep_going)
-            {
-                return first_code;
+                return plan;
             }
             continue;
         }
 
-        std::vector<PreparedStep> prepared_steps;
-        prepared_steps.reserve(parsed->steps.size());
-        bool line_valid = true;
-        for (const StepSpec& step : parsed->steps)
+        std::expected<std::vector<PreparedStep>, PreparationFailure> prepared = prepareSteps(files, parsed->steps);
+        if (!prepared.has_value())
         {
-            Result<PreparedStep> prepared = prepare_step(files, step);
-            if (prepared.has_value())
+            if (lineFailed(std::format("{}: {}", line_label, render_step(*prepared.error().step)),
+                           prepared.error().error))
             {
-                prepared_steps.push_back(std::move(*prepared));
-                continue;
-            }
-            const CommandOutcome outcome =
-                failedOutcome(std::format("script line {}: {}", line_number, renderStep(step)), prepared.error());
-            emit(options, outcome, output);
-            diagnose(outcome, diagnostics);
-            if (first_code == 0)
-            {
-                first_code = exit_code_for(prepared.error().kind);
-            }
-            line_valid = false;
-            break;
-        }
-        if (!line_valid)
-        {
-            if (!options.keep_going)
-            {
-                return first_code;
+                return plan;
             }
             continue;
         }
 
-        prepared_lines.push_back(std::move(prepared_steps));
+        plan.lines.push_back(std::move(*prepared));
     }
+    return plan;
+}
 
-    // A script is a single destructive plan even though each line is executed
-    // as a batch. If any line is malformed, do not execute earlier valid lines
-    // before discovering it.
-    if (first_code != 0)
-    {
-        return first_code;
-    }
+// parse_command_line rejects chaining `ports`, so a line naming it holds no
+// other step and needs no session.
+bool isPortsLine(std::span<const PreparedStep> steps)
+{
+    return !steps.empty() && steps.front().spec.id == CommandId::Ports;
+}
 
-    std::vector<const PreparedStep *> plan;
-    for (const std::vector<PreparedStep>& line_steps : prepared_lines)
-    {
-        for (const PreparedStep& step : line_steps)
-        {
-            plan.push_back(&step);
-        }
-    }
-    if (const std::optional<PlanValidationFailure> failure = validateSessionPlan(plan); failure.has_value())
-    {
-        const CommandOutcome outcome = failedOutcome(renderStep(failure->step->spec), failure->error);
-        emit(options, outcome, output);
-        diagnose(outcome, diagnostics);
-        return exit_code_for(failure->error.kind);
-    }
-
+int runScriptLines(IBenchEnvironment& environment, IBenchFiles& files, const Reporter& reporter,
+                   std::span<const std::vector<PreparedStep>> lines)
+{
+    // Opened at the first line that needs it and shared by the rest, along
+    // with the erase prerequisite state the lines build up between them.
     std::optional<std::reference_wrapper<IBenchSession>> session;
     SessionState state;
-    for (const std::vector<PreparedStep>& prepared_steps : prepared_lines)
+    int first_code = 0;
+    for (const std::vector<PreparedStep>& steps : lines)
     {
         int code = 0;
-        if (prepared_steps.size() == 1 && prepared_steps.front().spec.id == CommandId::Ports)
+        if (isPortsLine(steps))
         {
-            code = runPorts(environment, options, output, diagnostics);
+            code = runPorts(environment, reporter);
         }
         else
         {
             if (!session.has_value())
             {
-                const bool connect_implicitly = !options.no_connect && !prepared_steps.empty() &&
-                                                prepared_steps.front().spec.id != CommandId::Connect;
-                Result<std::reference_wrapper<IBenchSession>> opened = environment.session(options, connect_implicitly);
+                const Result<std::reference_wrapper<IBenchSession>> opened =
+                    openSession(environment, reporter.options, steps);
                 if (!opened.has_value())
                 {
-                    const std::string label =
-                        prepared_steps.empty() ? "setup" : renderStep(prepared_steps.front().spec);
-                    const CommandOutcome outcome =
-                        failedOutcome(label, opened.error(), environment.last_setup_traffic());
-                    emit(options, outcome, output);
-                    diagnose(outcome, diagnostics);
-                    if (first_code == 0)
-                    {
-                        first_code = exit_code_for(opened.error().kind);
-                    }
-                    return first_code;
+                    return reporter.fail(planLabel(steps), opened.error(), environment.last_setup_traffic());
                 }
                 session = *opened;
             }
-            code = runSteps(session->get(), files, options, prepared_steps, state, output, diagnostics);
+            code = runSteps(session->get(), files, reporter, steps, state);
         }
-        if (code != 0)
+
+        ratchet(first_code, code);
+        if (first_code != 0 && !reporter.options.keep_going)
         {
-            if (first_code == 0)
-            {
-                first_code = code;
-            }
-            if (!options.keep_going)
-            {
-                return first_code;
-            }
+            return first_code;
         }
     }
     return first_code;
+}
+
+int runScript(IBenchEnvironment& environment, IBenchFiles& files, const Reporter& reporter, std::istream& input)
+{
+    const ScriptPlan plan = prepareScript(files, reporter, input);
+    // A script is a single destructive plan even though each line is executed
+    // as a batch: a malformed line 7 must not be discovered after line 1 has
+    // already erased, so one bad line cancels the whole script.
+    if (plan.code != 0)
+    {
+        return plan.code;
+    }
+    if (const std::optional<PlanValidationFailure> failure = validateSessionPlan(plan.lines | std::views::join);
+        failure.has_value())
+    {
+        return reporter.fail(render_step(failure->step->spec), failure->error);
+    }
+    return runScriptLines(environment, files, reporter, plan.lines);
 }
 
 } // namespace
@@ -458,25 +449,26 @@ int run_cli(IBenchEnvironment& environment, IBenchFiles& files, std::span<const 
     const Result<ParsedCommandLine> parsed = parse_command_line(args);
     if (!parsed.has_value())
     {
-        diagnostics << parsed.error().detail << '\n';
         if (std::ranges::find(args, "--json") != args.end())
         {
             GlobalOptions options;
             options.json = true;
-            emit(options, failedOutcome("command line", parsed.error()), output);
+            return Reporter{options, output, diagnostics}.fail("command line", parsed.error());
         }
+        diagnostics << parsed.error().detail << '\n';
         return exit_code_for(parsed.error().kind);
     }
 
+    const Reporter reporter{parsed->options, output, diagnostics};
     if (parsed->options.script_stdin)
     {
-        return runScript(environment, files, parsed->options, input, output, diagnostics);
+        return runScript(environment, files, reporter, input);
     }
     if (parsed->steps.size() == 1 && parsed->steps.front().id == CommandId::Ports)
     {
-        return runPorts(environment, parsed->options, output, diagnostics);
+        return runPorts(environment, reporter);
     }
-    return runBatch(environment, files, parsed->options, parsed->steps, output, diagnostics);
+    return runBatch(environment, files, reporter, parsed->steps);
 }
 
 } // namespace fastecu::bench
