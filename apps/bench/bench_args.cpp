@@ -90,6 +90,19 @@ Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
     return StepSpec{.id = spec->id, .args = std::move(args), .destructive_ack = destructive_ack};
 }
 
+// The flag is the template argument so each boolean option stays one table row.
+template <bool GlobalOptions::*Flag> Status setFlag(GlobalOptions& options, std::string_view)
+{
+    options.*Flag = true;
+    return {};
+}
+
+Status setPort(GlobalOptions& options, std::string_view value)
+{
+    options.port_name = value;
+    return {};
+}
+
 Status setTimeout(GlobalOptions& options, std::string_view value)
 {
     const Result<std::uint32_t> timeout = parse_u32(value);
@@ -116,49 +129,13 @@ Status setScript(GlobalOptions& options, std::string_view value)
 }
 
 constexpr std::array kGlobalOptions{
-    GlobalOptionSpec{.name = "--json",
-                     .apply = [](GlobalOptions& options, std::string_view) -> Status
-                     {
-                         options.json = true;
-                         return {};
-                     }},
-    GlobalOptionSpec{.name = "--verbose",
-                     .apply = [](GlobalOptions& options, std::string_view) -> Status
-                     {
-                         options.verbose = true;
-                         return {};
-                     }},
-    GlobalOptionSpec{.name = "--keep-going",
-                     .apply = [](GlobalOptions& options, std::string_view) -> Status
-                     {
-                         options.keep_going = true;
-                         return {};
-                     }},
-    GlobalOptionSpec{.name = "--no-connect",
-                     .apply = [](GlobalOptions& options, std::string_view) -> Status
-                     {
-                         options.no_connect = true;
-                         return {};
-                     }},
-    GlobalOptionSpec{.name = "--vendor-ext",
-                     .apply = [](GlobalOptions& options, std::string_view) -> Status
-                     {
-                         options.vendor_ext = true;
-                         return {};
-                     }},
-    GlobalOptionSpec{.name = "--stats",
-                     .apply = [](GlobalOptions& options, std::string_view) -> Status
-                     {
-                         options.stats = true;
-                         return {};
-                     }},
-    GlobalOptionSpec{.name = "--port",
-                     .takes_value = true,
-                     .apply = [](GlobalOptions& options, std::string_view value) -> Status
-                     {
-                         options.port_name = value;
-                         return {};
-                     }},
+    GlobalOptionSpec{.name = "--json", .apply = setFlag<&GlobalOptions::json>},
+    GlobalOptionSpec{.name = "--verbose", .apply = setFlag<&GlobalOptions::verbose>},
+    GlobalOptionSpec{.name = "--keep-going", .apply = setFlag<&GlobalOptions::keep_going>},
+    GlobalOptionSpec{.name = "--no-connect", .apply = setFlag<&GlobalOptions::no_connect>},
+    GlobalOptionSpec{.name = "--vendor-ext", .apply = setFlag<&GlobalOptions::vendor_ext>},
+    GlobalOptionSpec{.name = "--stats", .apply = setFlag<&GlobalOptions::stats>},
+    GlobalOptionSpec{.name = "--port", .takes_value = true, .apply = setPort},
     GlobalOptionSpec{.name = "--timeout", .takes_value = true, .apply = setTimeout},
     GlobalOptionSpec{.name = "--script", .takes_value = true, .apply = setScript},
 };

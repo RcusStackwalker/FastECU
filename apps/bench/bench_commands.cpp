@@ -235,15 +235,8 @@ Status upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
 
 std::string render_step(const StepSpec& step)
 {
-    std::string text;
-    for (const CommandSpec& spec : command_table())
-    {
-        if (spec.id == step.id)
-        {
-            text = std::string(spec.name);
-            break;
-        }
-    }
+    const CommandSpec *const spec = find_command(step.id);
+    std::string text{spec == nullptr ? std::string_view{} : spec->name};
     for (const std::string& arg : step.args)
     {
         text += ' ';
@@ -294,15 +287,7 @@ std::string decode_crc_reply(bytes::ByteView payload)
 Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
 {
     PreparedStep prepared{.spec = step};
-    const CommandSpec *spec = nullptr;
-    for (const CommandSpec& candidate : command_table())
-    {
-        if (candidate.id == step.id)
-        {
-            spec = &candidate;
-            break;
-        }
-    }
+    const CommandSpec *const spec = find_command(step.id);
     if (spec == nullptr)
     {
         return fail(ErrorKind::Internal, "step has no command spec");
@@ -429,15 +414,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
 Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandOutcome& outcome)
 {
     const StepSpec& step = prepared.spec;
-    const CommandSpec *spec = nullptr;
-    for (const CommandSpec& candidate : command_table())
-    {
-        if (candidate.id == step.id)
-        {
-            spec = &candidate;
-            break;
-        }
-    }
+    const CommandSpec *const spec = find_command(step.id);
     if (spec == nullptr)
     {
         return fail(ErrorKind::Internal, "step has no command spec");

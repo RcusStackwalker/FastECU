@@ -88,8 +88,8 @@ bool isEraseHelperUpload(const PreparedStep& step)
 
 bool isDestructiveStep(const PreparedStep& step)
 {
-    return std::ranges::any_of(command_table(), [&step](const CommandSpec& spec)
-                               { return spec.id == step.spec.id && spec.destructive; });
+    const CommandSpec *const spec = find_command(step.spec.id);
+    return spec != nullptr && spec->destructive;
 }
 
 enum class EraseSequenceState
