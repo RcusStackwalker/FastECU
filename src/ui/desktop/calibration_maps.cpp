@@ -1,6 +1,8 @@
 #include "calibration_maps.h"
 #include <ui_calibration_map_table.h>
 
+#include <algorithm>
+
 CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int romIndex, int mapIndex,
                                  QRect mdiAreaSize, QWidget *parent)
     : QWidget(parent), ui{std::make_unique<Ui::CalibrationMaps>()}
@@ -279,8 +281,8 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
             }
             for (int j = 0; j < switch_data_length.length(); j++)
             {
-                map_data.append(
-                    QString("%1 ").arg(ecuCalDef->FullRomData.at(byte_address + j) & 0xFF, 2, 16, QLatin1Char('0')));
+                map_data.append(QString("%1 ").arg(
+                    static_cast<unsigned char>(ecuCalDef->FullRomData.at(byte_address + j)), 2, 16, QLatin1Char('0')));
             }
             map_data.remove(map_data.length() - 1, 1);
             // qDebug() << map_data;
@@ -536,12 +538,7 @@ void CalibrationMaps::setMapTableWidgetItems(FileActions::EcuCalDefStructure *ec
             QTableWidgetItem *cellItem = new QTableWidgetItem;
             cellItem->setTextAlignment(Qt::AlignCenter);
             cellItem->setFont(cellFont);
-            int mapItemColor = getMapCellColors(ecuCalDef, mapDataCellText.at(i).toFloat(), mapIndex);
-            int mapItemColorRed = (mapItemColor >> 16) & 0xff;
-            int mapItemColorGreen = (mapItemColor >> 8) & 0xff;
-            int mapItemColorBlue = mapItemColor & 0xff;
-            // qDebug() << mapItemColorRed << mapItemColorGreen << mapItemColorBlue;
-            cellItem->setBackground(QBrush(QColor(mapItemColorRed, mapItemColorGreen, mapItemColorBlue, 255)));
+            cellItem->setBackground(QBrush(getMapCellColor(ecuCalDef, mapDataCellText.at(i).toFloat(), mapIndex)));
             if (ecuCalDef->NameList.at(mapIndex) == "MAP Sensor Scale")
             {
                 qDebug() << "MAP Sensor Scale type" << ecuCalDef->TypeList.at(mapIndex);
@@ -608,42 +605,25 @@ int CalibrationMaps::getMapValueDecimalCount(const QString& valueFormat)
     }
 }
 
-int CalibrationMaps::getMapCellColors(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex)
+QColor CalibrationMaps::getMapCellColor(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex)
 {
-    int mapCellColors;
-    float mapMinValue = 0;
-    float mapMaxValue = 0;
-    float scale_start = (210.0 / 360.0);
+    const float mapMinValue = ecuCalDef->MapCellColorMin.at(mapIndex).toFloat();
+    const float mapMaxValue = ecuCalDef->MapCellColorMax.at(mapIndex).toFloat();
 
-    mapMinValue = ecuCalDef->MapCellColorMin.at(mapIndex).toFloat();
-    mapMaxValue = ecuCalDef->MapCellColorMax.at(mapIndex).toFloat();
-
-    QColor color;
-    float color_scale = (1 - (mapDataValue - mapMinValue) / (mapMaxValue - mapMinValue)) * scale_start;
-    float color_value = scale_start - color_scale;
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-    double r = 0;
-    double g = 0;
-    double b = 0;
-#else
-    float r = 0;
-    float g = 0;
-    float b = 0;
-#endif
-
-    if (color_value < 0)
+    // Maps mapMinValue -> hue 0, mapMaxValue -> hue 210/360, clamping to that
+    // range at both ends. mapMinValue == mapMaxValue would divide by zero,
+    // producing a non-finite hue that's undefined (effectively invalid) as a
+    // QColor::fromHsvF argument -- guarded to 0.0 instead, a well-defined
+    // choice consistent with the clamp.
+    constexpr double kScaleStart = 210.0 / 360.0;
+    double color_value = 0.0;
+    if (mapMaxValue != mapMinValue)
     {
-        color_value = 0;
+        color_value =
+            std::clamp(kScaleStart * (mapDataValue - mapMinValue) / (mapMaxValue - mapMinValue), 0.0, kScaleStart);
     }
 
-    color.setHsvF(color_value, 0.85, 0.85);
-    color.getRgbF(&r, &g, &b);
-    mapCellColors = ((int)(r * 255) << 16) + ((int)(g * 255) << 8) + b * 255;
-
-    // qDebug() << "Map min:" << mapMinValue << "Map max:" << mapMaxValue << "color scale:" << color_scale << "scale
-    // start:" << scale_start;
-
-    return mapCellColors;
+    return QColor::fromHsvF(color_value, 0.85, 0.85);
 }
 
 void CalibrationMaps::cellClicked(int row, int col)

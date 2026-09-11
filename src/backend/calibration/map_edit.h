@@ -263,10 +263,10 @@ Result<std::vector<std::uint8_t>> encode_guarded(bytes::ByteView rom_data, const
 // get_mapvalue_decimal_count (menu_actions.cpp). Doesn't touch ROM data;
 // feeds how a value is rendered in the map grid widget. (The color-hue
 // arithmetic that used to live alongside this as map_cell_color_scale was
-// folded back into MainWindow::get_map_cell_colors -- it's a single tiny
-// expression with exactly one caller, tightly coupled to the Qt QColor
-// conversion it exists to feed, and didn't earn its keep as a separate
-// portable function.)
+// folded back into the Qt colour helpers -- MainWindow::get_map_cell_color
+// and CalibrationMaps::getMapCellColor -- as a single tiny expression
+// tightly coupled to the QColor conversion it exists to feed. Those two are
+// now identical and are the obvious candidates for a shared UI-side helper.)
 
 // How many decimal places to render a cell's value with, reproducing
 // get_mapvalue_decimal_count. `value_format` is a RomRaider-style format
