@@ -2,7 +2,12 @@
 
 #include <cmath>
 #include <format>
+#include <iterator>
 #include <optional>
+#include <ranges>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace fastecu::bench
 {
@@ -15,7 +20,7 @@ std::string packedHex(bytes::ByteView data)
     out.reserve(data.size() * 2);
     for (const bytes::Byte byte : data)
     {
-        out += std::format("{:02x}", byte);
+        std::format_to(std::back_inserter(out), "{:02x}", byte);
     }
     return out;
 }
@@ -114,19 +119,19 @@ std::string format_text(const CommandOutcome& outcome, bool stats)
     }
     if (stats)
     {
-        const std::optional<double> rate = bytesPerSecond(outcome);
-        const std::optional<double> per_exchange = msPerExchange(outcome);
-        if (rate.has_value() && per_exchange.has_value())
+        std::vector<std::string> figures;
+        if (const std::optional<double> rate = bytesPerSecond(outcome); rate.has_value())
         {
-            out += std::format("  {:.1f} bytes/s, {:.1f} ms/exchange\n", *rate, *per_exchange);
+            figures.push_back(std::format("{:.1f} bytes/s", *rate));
         }
-        else if (rate.has_value())
+        if (const std::optional<double> per_exchange = msPerExchange(outcome); per_exchange.has_value())
         {
-            out += std::format("  {:.1f} bytes/s\n", *rate);
+            figures.push_back(std::format("{:.1f} ms/exchange", *per_exchange));
         }
-        else if (per_exchange.has_value())
+        if (!figures.empty())
         {
-            out += std::format("  {:.1f} ms/exchange\n", *per_exchange);
+            out += std::format("  {}\n", figures | std::views::join_with(std::string_view(", ")) |
+                                             std::ranges::to<std::string>());
         }
     }
     out += outcome.ok ? std::format("  ok ({} ms)\n", outcome.elapsed_ms)

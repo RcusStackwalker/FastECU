@@ -80,12 +80,6 @@ void ratchet(int& first_code, int code)
     }
 }
 
-bool isEraseHelperUpload(const PreparedStep& step)
-{
-    return step.spec.id == CommandId::UploadRoutine && step.spec.args.size() == 1 &&
-           (step.spec.args.front() == "erase-page" || step.spec.args.front() == "erase-redirect");
-}
-
 bool isDestructiveStep(const PreparedStep& step)
 {
     const CommandSpec *const spec = find_command(step.spec.id);
@@ -109,7 +103,7 @@ EraseSequenceState advanceEraseSequence(EraseSequenceState state, const Prepared
     {
         return EraseSequenceState::NeedsHelper;
     }
-    if (isEraseHelperUpload(step))
+    if (step.provides_erase_helper)
     {
         return EraseSequenceState::NeedsUnlock;
     }
@@ -117,7 +111,7 @@ EraseSequenceState advanceEraseSequence(EraseSequenceState state, const Prepared
     {
         return state == EraseSequenceState::NeedsUnlock ? EraseSequenceState::Ready : EraseSequenceState::NeedsHelper;
     }
-    if (step.spec.id == CommandId::Erase || isDestructiveStep(step))
+    if (isDestructiveStep(step))
     {
         return EraseSequenceState::NeedsHelper;
     }
@@ -223,16 +217,8 @@ int runPorts(IBenchEnvironment& environment, const Reporter& reporter)
         return 0;
     }
 
-    std::string note = "ports=";
-    for (std::size_t index = 0; index < ports->size(); ++index)
-    {
-        if (index > 0)
-        {
-            note += ',';
-        }
-        note += (*ports)[index];
-    }
-    reporter.report(CommandOutcome{.step = "ports", .note = std::move(note)});
+    reporter.report(CommandOutcome{
+        .step = "ports", .note = "ports=" + (*ports | std::views::join_with(',') | std::ranges::to<std::string>())});
     return 0;
 }
 
@@ -464,7 +450,7 @@ int run_cli(IBenchEnvironment& environment, IBenchFiles& files, std::span<const 
     {
         return runScript(environment, files, reporter, input);
     }
-    if (parsed->steps.size() == 1 && parsed->steps.front().id == CommandId::Ports)
+    if (parsed->steps.front().id == CommandId::Ports)
     {
         return runPorts(environment, reporter);
     }

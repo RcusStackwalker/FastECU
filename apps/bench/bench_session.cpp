@@ -15,23 +15,6 @@ namespace
 {
 constexpr uds::ExchangePolicy kConnectPolicy{};
 
-void appendTraffic(TrafficEvidence& total, const TrafficEvidence& next)
-{
-    if (next.exchange_count == 0)
-    {
-        return;
-    }
-    if (total.exchange_count == 0)
-    {
-        total.tx = next.tx;
-        total.rx = next.rx;
-    }
-    total.last_tx = next.last_tx;
-    total.last_rx = next.last_rx;
-    total.exchange_count += next.exchange_count;
-    total.elapsed_ms += next.elapsed_ms;
-}
-
 Status validateEcho(bytes::ByteView reply, bytes::Byte expected, std::size_t minimum_size, std::string_view subject)
 {
     const bytes::ByteView payload = uds::payload(reply);
@@ -111,7 +94,7 @@ Status BenchSession::connect()
     const auto request = [&](bytes::ByteView pdu) -> Result<bytes::Bytes>
     {
         Result<bytes::Bytes> result = requestOnce(pdu, kConnectPolicy);
-        appendTraffic(total, last_traffic_);
+        append_traffic(total, last_traffic_);
         last_traffic_ = total;
         return result;
     };

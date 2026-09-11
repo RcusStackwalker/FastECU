@@ -85,6 +85,19 @@ std::uint16_t checksum(bytes::ByteView data)
     return sum;
 }
 
+bool isDestructiveRequest(bytes::ByteView pdu)
+{
+    if (pdu.empty())
+    {
+        return false;
+    }
+    if (pdu[0] == kServiceRequestReflash || pdu[0] == kServiceRequestDownload || pdu[0] == kServiceTransferData)
+    {
+        return true;
+    }
+    return pdu.size() >= 2 && pdu[0] == kServiceRoutineControl && pdu[1] == kRoutineErase;
+}
+
 bytes::Bytes buildRequestDownload(std::uint32_t start, std::uint32_t size)
 {
     return uds::buildRequest(kServiceRequestDownload, composeBe(u24(start), 0x00_b, u24(size)));

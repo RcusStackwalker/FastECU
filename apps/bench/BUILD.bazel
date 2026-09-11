@@ -59,6 +59,19 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "bench_files",
+    srcs = ["bench_files.cpp"],
+    hdrs = ["bench_files.h"],
+    deps = [":bench_core"],
+)
+
+fastecu_portable_gtest(
+    name = "bench_files_test",
+    srcs = ["bench_files_test.cpp"],
+    deps = [":bench_files"],
+)
+
+cc_library(
     name = "bench_session_runtime",
     srcs = ["bench_session.cpp"],
     hdrs = ["bench_session.h"],
@@ -114,14 +127,11 @@ fastecu_portable_gtest(
 # worth testing lives in bench_core above.
 qt_cc_binary(
     name = "fastecu-bench",
-    srcs = [
-        "bench_files.cpp",
-        "bench_files.h",
-        "main.cpp",
-    ],
+    srcs = ["main.cpp"],
     copts = COMMON_COPTS,
     deps = QT_DEPS + [
         ":bench_core",
+        ":bench_files",
         ":bench_session_runtime",
         ":sigint_cancellation_token",
         "//src/platform/desktop/common/ports",

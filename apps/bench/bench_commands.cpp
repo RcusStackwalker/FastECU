@@ -42,56 +42,25 @@ Status validateWireRange(std::uint32_t address, std::uint64_t length, std::strin
     return {};
 }
 
-bool isKnownDestructivePdu(bytes::ByteView pdu)
-{
-    if (pdu.empty())
-    {
-        return false;
-    }
-    if (pdu[0] == MitsuColtCan::kServiceRequestReflash || pdu[0] == MitsuColtCan::kServiceRequestDownload ||
-        pdu[0] == MitsuColtCan::kServiceTransferData)
-    {
-        return true;
-    }
-    return pdu.size() >= 2 && pdu[0] == MitsuColtCan::kServiceRoutineControl && pdu[1] == MitsuColtCan::kRoutineErase;
-}
-
-void mergeTraffic(CommandOutcome& outcome, const TrafficEvidence& traffic)
-{
-    if (traffic.exchange_count == 0)
-    {
-        return;
-    }
-    if (outcome.exchange_count == 0)
-    {
-        outcome.tx = traffic.tx;
-        outcome.rx = traffic.rx;
-    }
-    outcome.last_tx = traffic.last_tx;
-    outcome.last_rx = traffic.last_rx;
-    outcome.exchange_count += traffic.exchange_count;
-    outcome.elapsed_ms += traffic.elapsed_ms;
-}
-
 Result<bytes::Bytes> exchange(BenchContext& context, CommandOutcome& outcome, bytes::ByteView pdu,
                               const uds::ExchangePolicy& policy)
 {
     Result<bytes::Bytes> result = context.session.exchange(pdu, policy);
-    mergeTraffic(outcome, context.session.last_traffic());
+    append_traffic(outcome, context.session.last_traffic());
     return result;
 }
 
 Result<bytes::Bytes> exchangeRaw(BenchContext& context, CommandOutcome& outcome, bytes::ByteView pdu, int timeout_ms)
 {
     Result<bytes::Bytes> result = context.session.exchange_raw(pdu, timeout_ms);
-    mergeTraffic(outcome, context.session.last_traffic());
+    append_traffic(outcome, context.session.last_traffic());
     return result;
 }
 
 Status connect(BenchContext& context, CommandOutcome& outcome)
 {
     Status result = context.session.connect();
-    mergeTraffic(outcome, context.session.last_traffic());
+    append_traffic(outcome, context.session.last_traffic());
     return result;
 }
 
@@ -100,31 +69,26 @@ Status connect(BenchContext& context, CommandOutcome& outcome)
 // shorter than the requested chunk is rejected rather than padded, since a
 // silently truncated read would look like a shorter-than-requested memory
 // region instead of the protocol error it is.
-Status readIntoOutcome(BenchContext& context, const StepSpec& step, CommandOutcome& outcome)
+Status readIntoOutcome(BenchContext& context, const PreparedStep& prepared, CommandOutcome& outcome)
 {
-    const Result<std::uint32_t> addr = parse_u32(step.args[0]);
-    if (!addr.has_value())
-    {
-        return std::unexpected(addr.error());
-    }
-    const Result<std::uint32_t> len = parse_u32(step.args[1]);
-    if (!len.has_value())
-    {
-        return std::unexpected(len.error());
-    }
-    if (const Status valid = validateWireRange(*addr, *len, "read"); !valid.has_value())
+    const std::uint32_t addr = prepared.address;
+    const std::uint32_t len = prepared.length;
+    // Re-checked at the wire, not re-parsed: prepare_step decoded these, but an
+    // address-window guard is worth keeping at the last gate before the ECU.
+    if (const Status valid = validateWireRange(addr, len, "read"); !valid.has_value())
     {
         return valid;
     }
 
+    outcome.data.reserve(len);
     std::uint32_t offset = 0;
     int chunk_count = 0;
-    while (offset < *len)
+    while (offset < len)
     {
-        const std::uint32_t remaining = *len - offset;
+        const std::uint32_t remaining = len - offset;
         const auto chunk_len =
             static_cast<bytes::Byte>(std::min<std::uint32_t>(remaining, MitsuColtCan::kFlashReadBlockSize));
-        const bytes::Bytes pdu = MitsuColtCan::buildReadMemoryByAddress(*addr + offset, chunk_len);
+        const bytes::Bytes pdu = MitsuColtCan::buildReadMemoryByAddress(addr + offset, chunk_len);
         const Result<bytes::Bytes> reply = exchange(context, outcome, pdu, kRoutinePolicy);
         if (!reply.has_value())
         {
@@ -151,6 +115,9 @@ struct RoutineSlot
     std::string_view name;
     bytes::ByteView bytes;
     std::uint32_t ram_address;
+    // Uploading this routine is what arms `erase`; see the erase prerequisite
+    // chain in bench_driver.
+    bool erase_helper = false;
 };
 
 Result<RoutineSlot> routine_slot(std::string_view name)
@@ -158,11 +125,11 @@ Result<RoutineSlot> routine_slot(std::string_view name)
     using namespace MitsuColtCan;
     if (name == "erase-page")
     {
-        return RoutineSlot{name, kErasePageRoutine, kEraseRoutineRamAddr};
+        return RoutineSlot{name, kErasePageRoutine, kEraseRoutineRamAddr, true};
     }
     if (name == "erase-redirect")
     {
-        return RoutineSlot{name, kEraseRedirectRoutine, kEraseRoutineRamAddr};
+        return RoutineSlot{name, kEraseRedirectRoutine, kEraseRoutineRamAddr, true};
     }
     if (name == "write-page")
     {
@@ -186,35 +153,35 @@ Status upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
     {
         return valid;
     }
-    const bytes::Bytes requestDownload =
-        MitsuColtCan::buildRequestDownload(addr, static_cast<std::uint32_t>(payload.size()));
-    if (const Result<bytes::Bytes> reply = exchange(context, outcome, requestDownload, kRoutinePolicy);
-        !reply.has_value())
+    // RequestDownload for the block, then its TransferData frames. The payload
+    // and the checksum go the same way, so they go through the same sequence.
+    const auto transfer = [&](std::uint32_t at, bytes::ByteView block) -> Status
     {
-        return std::unexpected(reply.error());
-    }
-    for (const bytes::Bytes& frame : MitsuColtCan::buildTransferDataFrames(payload))
-    {
-        if (const Result<bytes::Bytes> reply = exchange(context, outcome, frame, kRoutinePolicy); !reply.has_value())
+        const bytes::Bytes request = MitsuColtCan::buildRequestDownload(at, static_cast<std::uint32_t>(block.size()));
+        if (const Result<bytes::Bytes> reply = exchange(context, outcome, request, kRoutinePolicy); !reply.has_value())
         {
             return std::unexpected(reply.error());
         }
-    }
+        for (const bytes::Bytes& frame : MitsuColtCan::buildTransferDataFrames(block))
+        {
+            if (const Result<bytes::Bytes> reply = exchange(context, outcome, frame, kRoutinePolicy);
+                !reply.has_value())
+            {
+                return std::unexpected(reply.error());
+            }
+        }
+        return {};
+    };
 
-    const bytes::Bytes crcRequestDownload =
-        MitsuColtCan::buildRequestDownload(MitsuColtCan::kCrcTransferAddress, MitsuColtCan::kCrcTransferSize);
-    if (const Result<bytes::Bytes> reply = exchange(context, outcome, crcRequestDownload, kRoutinePolicy);
-        !reply.has_value())
+    if (const Status sent = transfer(addr, payload); !sent.has_value())
     {
-        return std::unexpected(reply.error());
+        return sent;
     }
+    // kCrcTransferSize bytes by construction: checksum() is a uint16_t.
     const bytes::Bytes checksumBytes = bytes::composeBe(MitsuColtCan::checksum(payload));
-    for (const bytes::Bytes& frame : MitsuColtCan::buildTransferDataFrames(checksumBytes))
+    if (const Status sent = transfer(MitsuColtCan::kCrcTransferAddress, checksumBytes); !sent.has_value())
     {
-        if (const Result<bytes::Bytes> reply = exchange(context, outcome, frame, kRoutinePolicy); !reply.has_value())
-        {
-            return std::unexpected(reply.error());
-        }
+        return sent;
     }
 
     const bytes::Bytes crcCheck = MitsuColtCan::buildRoutineCheckCrc(addr);
@@ -227,6 +194,27 @@ Status upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
         crcPayload.size() < 2 || crcPayload[0] != MitsuColtCan::kRoutineCheckCrc || crcPayload[1] != 0)
     {
         return fail(ErrorKind::BadResponse, decode_crc_reply(crcPayload));
+    }
+    return {};
+}
+
+// RoutineControl whose reply carries [routine-id][status]: exchange on the slow
+// policy, record the decoded reply as the note, and fail on any status but 0.
+// Shared by crc-check and erase, whose replies differ only in which routine id
+// they echo and how the status decodes.
+Status routineWithStatus(BenchContext& context, CommandOutcome& outcome, bytes::ByteView pdu, bytes::Byte routine,
+                         std::string (*decode)(bytes::ByteView))
+{
+    const Result<bytes::Bytes> reply = exchange(context, outcome, pdu, kSlowPolicy);
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    const bytes::ByteView payload = uds::payload(*reply);
+    outcome.note = decode(payload);
+    if (payload.size() < 2 || payload[0] != routine || payload[1] != 0)
+    {
+        return fail(ErrorKind::BadResponse, outcome.note);
     }
     return {};
 }
@@ -292,16 +280,9 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
     {
         return fail(ErrorKind::Internal, "step has no command spec");
     }
-    if (step.args.size() < spec->min_args || (spec->max_args != kUnbounded && step.args.size() > spec->max_args))
+    if (const Status valid = validate_against_table(*spec, step); !valid.has_value())
     {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("{} takes {}..{} arguments, got {}", spec->name, spec->min_args,
-                                spec->max_args == kUnbounded ? std::string("*") : std::to_string(spec->max_args),
-                                step.args.size()));
-    }
-    if (spec->destructive && !step.destructive_ack)
-    {
-        return fail(ErrorKind::InvalidConfig, std::format("{} needs --destructive", spec->name));
+        return std::unexpected(valid.error());
     }
 
     switch (step.id)
@@ -323,6 +304,8 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
         {
             return std::unexpected(valid.error());
         }
+        prepared.address = *address;
+        prepared.length = *length;
         return prepared;
     }
     case CommandId::CrcCheck:
@@ -337,6 +320,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
             return fail(ErrorKind::InvalidConfig,
                         std::format("CRC address 0x{:x} does not fit the 24-bit address space", *address));
         }
+        prepared.address = *address;
         return prepared;
     }
     case CommandId::Send:
@@ -347,11 +331,12 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
         {
             return std::unexpected(pdu.error());
         }
-        if (isKnownDestructivePdu(*pdu))
+        if (MitsuColtCan::isDestructiveRequest(*pdu))
         {
             return fail(ErrorKind::InvalidConfig,
                         std::format("{} cannot bypass a named destructive command", spec->name));
         }
+        prepared.pdu = std::move(*pdu);
         return prepared;
     }
     case CommandId::Download:
@@ -370,6 +355,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
         {
             return std::unexpected(valid.error());
         }
+        prepared.address = *address;
         prepared.upload_payload = std::move(*data);
         return prepared;
     }
@@ -381,6 +367,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
             return std::unexpected(slot.error());
         }
         bytes::Bytes payload(slot->bytes.begin(), slot->bytes.end());
+        bool from_file = false;
         if (step.args.size() > 1)
         {
             if (step.args.size() != 3 || step.args[1] != "--from")
@@ -394,12 +381,17 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
                 return std::unexpected(loaded.error());
             }
             payload = std::move(*loaded);
+            // Only the built-in bytes are a known erase helper; a file could
+            // hold anything, so it never arms erase.
+            from_file = true;
         }
         if (const Status valid = validateWireRange(slot->ram_address, payload.size(), "download"); !valid.has_value())
         {
             return std::unexpected(valid.error());
         }
+        prepared.address = slot->ram_address;
         prepared.upload_payload = std::move(payload);
+        prepared.provides_erase_helper = slot->erase_helper && !from_file;
         return prepared;
     }
     case CommandId::Ports:
@@ -421,94 +413,60 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
     }
     // bench_args gates this at parse time; repeated here so a StepSpec built
     // another way cannot reach the wire ungated.
-    if (spec->destructive && !step.destructive_ack)
+    if (const Status valid = validate_against_table(*spec, step); !valid.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, std::format("{} needs --destructive", spec->name));
+        return std::unexpected(valid.error());
     }
 
     switch (step.id)
     {
     case CommandId::Read:
-    {
-        if (const Status result = readIntoOutcome(context, step, outcome); !result.has_value())
-        {
-            return std::unexpected(result.error());
-        }
-        break;
-    }
     case CommandId::Dump:
     {
-        if (const Status result = readIntoOutcome(context, step, outcome); !result.has_value())
+        if (const Status result = readIntoOutcome(context, prepared, outcome); !result.has_value())
         {
             return std::unexpected(result.error());
         }
-        if (const Status saved = context.files.save(step.args[2], outcome.data); !saved.has_value())
+        if (step.id == CommandId::Dump)
         {
-            return std::unexpected(saved.error());
+            if (const Status saved = context.files.save(step.args[2], outcome.data); !saved.has_value())
+            {
+                return std::unexpected(saved.error());
+            }
         }
         break;
     }
     case CommandId::CrcCheck:
     {
-        const Result<std::uint32_t> addr = parse_u32(step.args[0]);
-        if (!addr.has_value())
-        {
-            return std::unexpected(addr.error());
-        }
-        if (*addr > kMaxWireU24)
+        // Re-checked at the wire, not re-parsed: prepare_step decoded the
+        // address, but an address-window guard belongs at the last gate too.
+        if (prepared.address > kMaxWireU24)
         {
             return fail(ErrorKind::InvalidConfig,
-                        std::format("CRC address 0x{:x} does not fit the 24-bit address space", *addr));
+                        std::format("CRC address 0x{:x} does not fit the 24-bit address space", prepared.address));
         }
-        const bytes::Bytes pdu = MitsuColtCan::buildRoutineCheckCrc(*addr);
-        const Result<bytes::Bytes> reply = exchange(context, outcome, pdu, kSlowPolicy);
-        if (!reply.has_value())
-        {
-            return std::unexpected(reply.error());
-        }
-        const bytes::ByteView payload = uds::payload(*reply);
-        outcome.note = decode_crc_reply(payload);
-        if (payload.size() < 2 || payload[0] != MitsuColtCan::kRoutineCheckCrc || payload[1] != 0)
-        {
-            return fail(ErrorKind::BadResponse, outcome.note);
-        }
-        break;
+        return routineWithStatus(context, outcome, MitsuColtCan::buildRoutineCheckCrc(prepared.address),
+                                 MitsuColtCan::kRoutineCheckCrc, decode_crc_reply);
     }
     case CommandId::Send:
-    {
-        const Result<bytes::Bytes> pdu = parse_hex_bytes(step.args);
-        if (!pdu.has_value())
-        {
-            return std::unexpected(pdu.error());
-        }
-        if (isKnownDestructivePdu(*pdu))
-        {
-            return fail(ErrorKind::InvalidConfig, "send cannot bypass a named destructive command");
-        }
-        if (const Result<bytes::Bytes> reply = exchange(context, outcome, *pdu, kRoutinePolicy); !reply.has_value())
-        {
-            return std::unexpected(reply.error());
-        }
-        break;
-    }
     case CommandId::SendRaw:
     {
-        const Result<bytes::Bytes> pdu = parse_hex_bytes(step.args);
-        if (!pdu.has_value())
+        // Gated at parse and prepare time as well; repeated here so no PDU
+        // reaches the wire without passing the one destructive predicate.
+        if (MitsuColtCan::isDestructiveRequest(prepared.pdu))
         {
-            return std::unexpected(pdu.error());
-        }
-        if (isKnownDestructivePdu(*pdu))
-        {
-            return fail(ErrorKind::InvalidConfig, "send-raw cannot bypass a named destructive command");
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("{} cannot bypass a named destructive command", spec->name));
         }
         // exchange_raw bypasses SID/NRC validation entirely -- whatever comes
         // back is the observation the operator asked for, not something to
         // classify as success or failure by content. A genuine transport
         // error (nothing arrived at all) still propagates like every other
         // command's Result does.
-        if (const Result<bytes::Bytes> reply = exchangeRaw(context, outcome, *pdu, context.options.timeout_ms);
-            !reply.has_value())
+        const Result<bytes::Bytes> reply =
+            step.id == CommandId::Send ? exchange(context, outcome, prepared.pdu, kRoutinePolicy)
+                                       : exchangeRaw(context, outcome, prepared.pdu, context.options.timeout_ms);
+        if (!reply.has_value())
         {
             return std::unexpected(reply.error());
         }
@@ -535,57 +493,22 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
         break;
     }
     case CommandId::Erase:
-    {
-        const bytes::Bytes pdu = MitsuColtCan::buildRoutineErase();
-        const Result<bytes::Bytes> reply = exchange(context, outcome, pdu, kSlowPolicy);
-        if (!reply.has_value())
-        {
-            return std::unexpected(reply.error());
-        }
-        const bytes::ByteView payload = uds::payload(*reply);
-        outcome.note = decode_erase_reply(payload);
-        if (payload.size() < 2 || payload[0] != MitsuColtCan::kRoutineErase || payload[1] != 0)
-        {
-            return fail(ErrorKind::BadResponse, outcome.note);
-        }
-        break;
-    }
+        return routineWithStatus(context, outcome, MitsuColtCan::buildRoutineErase(), MitsuColtCan::kRoutineErase,
+                                 decode_erase_reply);
     case CommandId::Download:
-    {
-        const Result<std::uint32_t> addr = parse_u32(step.args[0]);
-        if (!addr.has_value())
-        {
-            return std::unexpected(addr.error());
-        }
-        if (!prepared.upload_payload.has_value())
-        {
-            return fail(ErrorKind::Internal, "prepared download has no payload");
-        }
-        if (const Status uploaded = upload(context, outcome, *addr, *prepared.upload_payload); !uploaded.has_value())
-        {
-            return std::unexpected(uploaded.error());
-        }
-        outcome.note = std::format("uploaded {} bytes to 0x{:06x}", prepared.upload_payload->size(), *addr);
-        break;
-    }
     case CommandId::UploadRoutine:
     {
-        const Result<RoutineSlot> slot = routine_slot(step.args[0]);
-        if (!slot.has_value())
-        {
-            return std::unexpected(slot.error());
-        }
         if (!prepared.upload_payload.has_value())
         {
-            return fail(ErrorKind::Internal, "prepared upload-routine has no payload");
+            return fail(ErrorKind::Internal, "prepared upload has no payload");
         }
-        if (const Status uploaded = upload(context, outcome, slot->ram_address, *prepared.upload_payload);
+        if (const Status uploaded = upload(context, outcome, prepared.address, *prepared.upload_payload);
             !uploaded.has_value())
         {
             return std::unexpected(uploaded.error());
         }
-        outcome.note =
-            std::format("uploaded {} routine bytes to 0x{:06x}", prepared.upload_payload->size(), slot->ram_address);
+        outcome.note = std::format("uploaded {} {}bytes to 0x{:06x}", prepared.upload_payload->size(),
+                                   step.id == CommandId::UploadRoutine ? "routine " : "", prepared.address);
         break;
     }
     }
