@@ -22,24 +22,6 @@
 #define PTfn(name) PF_##name *pf##name
 #define PText(name) PT_API PF_##name name
 
-#define DBGPRINT(args_in_parens)                                                                                       \
-    {                                                                                                                  \
-        if (debugMode)                                                                                                 \
-            dbgprint args_in_parens;                                                                                   \
-    }
-
-#define DBGDUMP(args_in_parens)                                                                                        \
-    {                                                                                                                  \
-        if (debugMode)                                                                                                 \
-            dbgdump args_in_parens;                                                                                    \
-    }
-
-#define DBGPRINTPT(args_in_parens)                                                                                     \
-    {                                                                                                                  \
-        if (debugMode)                                                                                                 \
-            dbgprintptmsg args_in_parens;                                                                              \
-    }
-
 class J2534
 {
   public:
@@ -62,10 +44,6 @@ class J2534
     void setDllName(const char *name);
     void getDllName(char *name);
     bool valid();
-    void debug(bool enable)
-    {
-        debugMode = enable;
-    };
     char *getLastError();
 
     long PassThruOpen(const void *pName, unsigned long *pDeviceID);
@@ -92,16 +70,10 @@ class J2534
     bool getPTfns();
     long LoadJ2534DLL(const char *szDLL);
     bool checkDLL();
-    void dbgprint(const char *Format, ...);
-    void dbgdump(const unsigned char *data, unsigned int datalen, int kind);
-    void dbgprintptmsg(const PASSTHRU_MSG *pMsg, int kind);
     int is_valid_sconfig_param(SCONFIG s);
-    void dump_sbyte_array(const SBYTE_ARRAY *s);
-    void dump_sconfig_param(SCONFIG s);
 
     char lastError[256];
     char dllName[256];
-    bool debugMode;
     bool isLibraryInitialized;
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
