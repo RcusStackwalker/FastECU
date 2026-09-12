@@ -135,6 +135,20 @@ bytes::Bytes generateSeedKey(bytes::ByteView seed)
     return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
 }
 
+// generate_ecutek_seed_key(), lines 886-911: the same key table as stock,
+// paired with the ECUTEK index transformation, which differs from the stock
+// one in exactly its first five entries. Transcribed independently of
+// production, so binding the wrong one of the two fails here.
+bytes::Bytes generateEcutekSeedKey(bytes::ByteView seed)
+{
+    static constexpr std::uint16_t kIndex[] = {0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382, 0x834F, 0x3608,
+                                               0xAFB8, 0x503D, 0xDBA3, 0x9D34, 0x3563, 0x6B70, 0x6E74, 0x88F0};
+    static constexpr std::uint8_t kTransform[] = {0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
+                                                  0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
+                                                  0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+    return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
+}
+
 // encrypt_payload(), lines 923-939.
 bytes::Bytes encryptPayload(bytes::ByteView buf, std::uint32_t len)
 {
@@ -302,7 +316,8 @@ void enqueueFullBootloaderAndKernelUpload(ScriptedKlineFlashTransport& transport
     transport.queueRead(kernelAliveResponse());
 }
 
-Result<FlashPlan> makeKlinePlan(EepromReadMode mode, bytes::Bytes kernelBytes, std::uint32_t kernelAddr)
+Result<FlashPlan> makeKlinePlan(EepromReadMode mode, bytes::Bytes kernelBytes, std::uint32_t kernelAddr,
+                                DensoSecurityVariant security = DensoSecurityVariant::Stock)
 {
     return build_denso_sh705x_eeprom_plan(DensoSh705xEepromInput{
         .operation = FlashOperation::Read,
@@ -312,7 +327,7 @@ Result<FlashPlan> makeKlinePlan(EepromReadMode mode, bytes::Bytes kernelBytes, s
         .flash_method = "sub_ecu_eeprom_denso_sh7055_kline",
         .kernel = KernelImage{.id = "k", .load_address = kernelAddr, .bytes = std::move(kernelBytes)},
         .mode = mode,
-        .security = DensoSecurityVariant::Stock,
+        .security = security,
         .eeprom_region = MemoryRegion{.start = 0, .length = 0x100},
     });
 }
@@ -628,6 +643,56 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeResetToOffEvenWhenReadMemFail
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
     EXPECT_EQ(transport.header_mode_calls_, (std::vector<bool>{false, true, false}));
+}
+
+// The stock and ECUTEK branches differ only in the index transformation they
+// pass to calculateSeedKey, and those two tables are identical in 27 of their
+// 32 entries. Before this test the K-Line suite never built an ECUTEK plan at
+// all, so binding this branch to the stock table changed the key on the wire
+// without failing anything. The CAN suite's
+// AllFourSecurityVariantsProduceDistinctSeedKeyFrames is the equivalent guard
+// on that side.
+TEST(DensoSh705xEepromKlineExecutorTest, StockAndEcutekSecurityProduceDifferentSeedKeyFrames)
+{
+    const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
+
+    auto runTo_seedKey = [&](DensoSecurityVariant security, bytes::ByteView expectedKey)
+    {
+        auto plan = makeKlinePlan(EepromReadMode::Mode2, kernelFixtureBytes(), kKernelStartAddr, security);
+        EXPECT_TRUE(plan.has_value());
+
+        ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
+        transport.expectWrite(requestKernelIdRequest());
+        transport.queue_no_frame();
+        transport.expectWrite(sidBfSsmInitRequest());
+        transport.queueRead(sidBfSsmInitResponse());
+        transport.expectWrite(sid81StartCommRequest());
+        transport.queueRead(positiveResponse(0xC1));
+        transport.expectWrite(sid83TimingsRequest());
+        transport.queueRead(positiveResponse(0xC3));
+        transport.expectWrite(sid27RequestSeedRequest());
+        transport.queueRead(sid27SeedResponse(seed));
+        // The executor's own key must match this byte for byte, or the
+        // scripted write fails -- that is the assertion.
+        transport.expectWrite(sid27SendKeyRequest(expectedKey));
+        transport.queue_no_frame(); // stop the round here
+
+        DensoSh705xEepromKlineExecutor executor;
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        EXPECT_FALSE(result.has_value());
+        EXPECT_TRUE(transport.scriptConsumed());
+    };
+
+    const bytes::Bytes stockKey = generateSeedKey(seed);
+    const bytes::Bytes ecutekKey = generateEcutekSeedKey(seed);
+    ASSERT_NE(stockKey, ecutekKey) << "the two transformations must not collapse to the same key";
+
+    runTo_seedKey(DensoSecurityVariant::Stock, stockKey);
+    runTo_seedKey(DensoSecurityVariant::EcuTek, ecutekKey);
 }
 
 } // namespace fastecu::flash

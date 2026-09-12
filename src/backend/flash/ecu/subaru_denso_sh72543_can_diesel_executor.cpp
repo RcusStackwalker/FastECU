@@ -117,13 +117,13 @@ constexpr std::uint32_t kInCarIdB0 = 0x7b0;
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, kDensoIso15765IndexTransformation);
+    return SsmProtocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, SsmProtocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
     return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kDensoIso15765EncryptTable,
-                                         kDensoIso15765IndexTransformation);
+                                         SsmProtocol::kIndexTransformationStock);
 }
 
 // Legacy decrypts the whole accumulated dump in one call (line 1047);
@@ -133,7 +133,7 @@ bytes::Bytes encrypt_rom(bytes::ByteView image)
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
     return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), kDensoIso15765DecryptTable,
-                                         kDensoIso15765IndexTransformation);
+                                         SsmProtocol::kIndexTransformationStock);
 }
 
 // Most exchanges go through UdsClient over CanFlashUdsChannel. The

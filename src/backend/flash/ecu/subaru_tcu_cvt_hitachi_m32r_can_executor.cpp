@@ -56,9 +56,6 @@ constexpr std::array<std::uint16_t, 4> kEncryptTable{0x3B61, 0x8BEF, 0x9E51, 0x1
 // Decrypt (read payload) -- reverse order of kEncryptTable, same values.
 constexpr std::array<std::uint16_t, 4> kDecryptTable{0x1075, 0x9E51, 0x8BEF, 0x3B61};
 // Shared by all four wave-3 families and wave-1 Hitachi K-Line.
-constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
-                                                            0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
-                                                            0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
 // The resolved read/write window (see the plan's kReadRegion/kWriteRegion
 // comment): legacy's own start_addr - 0x00100000 bias underflows for the
@@ -98,19 +95,19 @@ constexpr std::array<MemoryRegion, 8> kWriteBlocks{{
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
+    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable, SsmProtocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
     return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kEncryptTable,
-                                         kIndexTransformation);
+                                         SsmProtocol::kIndexTransformationStock);
 }
 
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
     return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), kDecryptTable,
-                                         kIndexTransformation);
+                                         SsmProtocol::kIndexTransformationStock);
 }
 
 // `channel`/`uds` are bound to this family's own 0x7e1/0x7e9 pair.

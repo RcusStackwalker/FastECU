@@ -49,14 +49,6 @@ TEST(DensoIso15765CanCommonTest, DecryptTableMatchesLegacyValues)
     EXPECT_EQ(kDensoIso15765DecryptTable, kExpected);
 }
 
-TEST(DensoIso15765CanCommonTest, IndexTransformationMatchesLegacyValues)
-{
-    constexpr std::array<std::uint8_t, 32> kExpected{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
-                                                     0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
-                                                     0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
-    EXPECT_EQ(kDensoIso15765IndexTransformation, kExpected);
-}
-
 // All four legacy sources spell the decrypt table out rather than deriving it
 // from the encrypt table, so the reversal relationship calculatePayload relies
 // on to invert is pinned here rather than assumed.
@@ -72,11 +64,11 @@ TEST(DensoIso15765CanCommonTest, DecryptTableIsEncryptTableReversed)
 TEST(DensoIso15765CanCommonTest, SeedKeyProducesKnownVectors)
 {
     const bytes::Bytes kSeedA{0x11, 0x22, 0x33, 0x44};
-    EXPECT_EQ(SsmProtocol::calculateSeedKey(kSeedA, kDensoIso15765SeedKeyTable, kDensoIso15765IndexTransformation),
+    EXPECT_EQ(SsmProtocol::calculateSeedKey(kSeedA, kDensoIso15765SeedKeyTable, SsmProtocol::kIndexTransformationStock),
               (bytes::Bytes{0x35, 0xB6, 0x83, 0xBF}));
 
     const bytes::Bytes kSeedB{0xDE, 0xAD, 0xBE, 0xEF};
-    EXPECT_EQ(SsmProtocol::calculateSeedKey(kSeedB, kDensoIso15765SeedKeyTable, kDensoIso15765IndexTransformation),
+    EXPECT_EQ(SsmProtocol::calculateSeedKey(kSeedB, kDensoIso15765SeedKeyTable, SsmProtocol::kIndexTransformationStock),
               (bytes::Bytes{0xB6, 0xF5, 0x24, 0x21}));
 }
 
@@ -84,7 +76,7 @@ TEST(DensoIso15765CanCommonTest, EncryptProducesKnownPayloadVector)
 {
     const bytes::Bytes kPlain{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF};
     EXPECT_EQ(SsmProtocol::calculatePayload(kPlain, static_cast<std::uint32_t>(kPlain.size()),
-                                            kDensoIso15765EncryptTable, kDensoIso15765IndexTransformation),
+                                            kDensoIso15765EncryptTable, SsmProtocol::kIndexTransformationStock),
               (bytes::Bytes{0xE0, 0xD3, 0x85, 0x2B, 0xC5, 0xFE, 0x4B, 0x39}));
 }
 
@@ -96,7 +88,7 @@ TEST(DensoIso15765CanCommonTest, DecryptInvertsEncrypt)
 {
     const bytes::Bytes kCipher{0xE0, 0xD3, 0x85, 0x2B, 0xC5, 0xFE, 0x4B, 0x39};
     EXPECT_EQ(SsmProtocol::calculatePayload(kCipher, static_cast<std::uint32_t>(kCipher.size()),
-                                            kDensoIso15765DecryptTable, kDensoIso15765IndexTransformation),
+                                            kDensoIso15765DecryptTable, SsmProtocol::kIndexTransformationStock),
               (bytes::Bytes{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF}));
 }
 
