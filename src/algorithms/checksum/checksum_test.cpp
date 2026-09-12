@@ -291,7 +291,7 @@ TEST(ChecksumPortable, FixedLayoutFamiliesRejectShortAndLongRoms)
         std::size_t size;
         Calculator calculate;
     };
-    const FixedLayout layouts[] = {
+    static constexpr auto layouts = std::to_array<FixedLayout>({
         {0x80000, &ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result},
         {0x80000, &ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result},
         {0x100000, &ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result},
@@ -299,7 +299,7 @@ TEST(ChecksumPortable, FixedLayoutFamiliesRejectShortAndLongRoms)
         {0x80000, &ChecksumTcuMitsuMH8104Can::calculate_checksum_result},
         {0x80000, &ChecksumTcuSubaruDensoSH7055::calculate_checksum_result},
         {0x10000, &ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result},
-    };
+    });
 
     for (const FixedLayout& layout : layouts)
     {

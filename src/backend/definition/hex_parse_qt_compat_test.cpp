@@ -11,6 +11,7 @@
 
 #include <QString>
 
+#include <array>
 #include <cstdint>
 
 namespace
@@ -19,9 +20,8 @@ namespace
 // Every kernel_addr value in the shipped protocols.cfg. Hard-coded so the
 // compatibility oracle is independent of the catalog parser; keep this list
 // synchronized when shipped kernel_addr values change.
-const char *const kRealKernelAddrs[] = {
-    "0x00000000", "0x20000", "0xFFF80000", "0xFFFEE000", "0xFFFF3000", "0xFFFF4000", "0xFFFF6004", "0xFFFF9000",
-};
+constexpr auto kRealKernelAddrs = std::to_array<const char *>(
+    {"0x00000000", "0x20000", "0xFFF80000", "0xFFFEE000", "0xFFFF3000", "0xFFFF4000", "0xFFFF6004", "0xFFFF9000"});
 
 TEST(HexParseQtCompat, AgreesWithQtOnEveryRealKernelAddr)
 {

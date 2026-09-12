@@ -1,5 +1,6 @@
 #include "src/backend/calibration/calibration_service.h"
 
+#include <array>
 #include <cstddef>
 #include <cstring>
 #include <format>
@@ -34,7 +35,7 @@ Status validate_extent(std::optional<std::uint64_t> address, std::uint32_t count
     return {};
 }
 
-constexpr char kHexDigits[] = "0123456789abcdef";
+constexpr auto kHexDigits = std::to_array("0123456789abcdef");
 
 std::string_view map_from_byte(const definition::Scaling *scaling)
 {

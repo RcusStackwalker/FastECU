@@ -33,6 +33,7 @@ Checks: >
   -clang-analyzer-security.ArrayBound,
   -clang-diagnostic-error,
   -cppcoreguidelines-pro-type-member-init,
+  modernize-avoid-c-arrays,
   modernize-deprecated-headers,
   performance-avoid-endl,
   readability-braces-around-statements,

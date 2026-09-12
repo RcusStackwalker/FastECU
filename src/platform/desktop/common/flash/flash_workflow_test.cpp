@@ -110,27 +110,27 @@ class FlashWorkflowTest : public QObject
 
 void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone()
 {
-    const char *portable[] = {"mitsu_ecu_m32r_can",
-                              "mitsu_ecu_m32r_can_vendor_ext",
-                              "mitsu_ecu_m32r_can_512kb",
-                              "mitsu_ecu_m32r_can_vendor_ext_512kb",
-                              "sub_ecu_mitsu_m32r_kline",
-                              "sub_ecu_hitachi_m32r_kline",
-                              "sub_ecu_hitachi_m32r_kline_recovery",
-                              "sub_ecu_eeprom_denso_sh7055_kline",
-                              "sub_ecu_eeprom_denso_sh7058_kline",
-                              "sub_ecu_eeprom_denso_sh7055_densocan",
-                              "sub_ecu_eeprom_denso_sh7058_densocan",
-                              "sub_ecu_eeprom_denso_sh7058_can",
-                              "sub_ecu_eeprom_denso_sh7058_can_diesel",
-                              "sub_ecu_hitachi_m32r_can",
-                              "sub_tcu_cvt_hitachi_m32r_can",
-                              "sub_tcu_cvt_mitsu_mh8111_can",
-                              "sub_tcu_cvt_mitsu_mh8104_can",
-                              "sub_ecu_denso_1n83m_1_5m_can",
-                              "sub_ecu_denso_sh72531_can",
-                              "sub_ecu_denso_sh72543_can_diesel",
-                              "sub_ecu_denso_1n83m_4m_can"};
+    static constexpr auto portable = std::to_array<const char *>({"mitsu_ecu_m32r_can",
+                                                                  "mitsu_ecu_m32r_can_vendor_ext",
+                                                                  "mitsu_ecu_m32r_can_512kb",
+                                                                  "mitsu_ecu_m32r_can_vendor_ext_512kb",
+                                                                  "sub_ecu_mitsu_m32r_kline",
+                                                                  "sub_ecu_hitachi_m32r_kline",
+                                                                  "sub_ecu_hitachi_m32r_kline_recovery",
+                                                                  "sub_ecu_eeprom_denso_sh7055_kline",
+                                                                  "sub_ecu_eeprom_denso_sh7058_kline",
+                                                                  "sub_ecu_eeprom_denso_sh7055_densocan",
+                                                                  "sub_ecu_eeprom_denso_sh7058_densocan",
+                                                                  "sub_ecu_eeprom_denso_sh7058_can",
+                                                                  "sub_ecu_eeprom_denso_sh7058_can_diesel",
+                                                                  "sub_ecu_hitachi_m32r_can",
+                                                                  "sub_tcu_cvt_hitachi_m32r_can",
+                                                                  "sub_tcu_cvt_mitsu_mh8111_can",
+                                                                  "sub_tcu_cvt_mitsu_mh8104_can",
+                                                                  "sub_ecu_denso_1n83m_1_5m_can",
+                                                                  "sub_ecu_denso_sh72531_can",
+                                                                  "sub_ecu_denso_sh72543_can_diesel",
+                                                                  "sub_ecu_denso_1n83m_4m_can"});
     for (const char *protocol : portable)
     {
         QVERIFY2(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr, protocol);

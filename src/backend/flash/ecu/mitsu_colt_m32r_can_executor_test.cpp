@@ -219,7 +219,7 @@ fastecu::flash::FlashPlan handBuiltWritePlan(std::string_view target, std::strin
 // the seed from any offset other than the legacy `received.mid(6, 4)` yields
 // a different seed -- and therefore a different key on the wire, which the
 // scripted transport rejects.
-constexpr bytes::Byte kSeed[] = {0x11, 0x22, 0x33, 0x44};
+constexpr auto kSeed = std::to_array<bytes::Byte>({0x11, 0x22, 0x33, 0x44});
 
 // Scripts the chunked ReadMemoryByAddress sweep over [start, start+length),
 // filling every payload with `fill`.
@@ -474,7 +474,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsInconsistentHandBuiltPlansBeforeAnyIo)
         fastecu::flash::MemoryRegion region;
         std::size_t image_size;
     };
-    const auto cases = std::to_array<Case>({
+    static constexpr auto cases = std::to_array<Case>({
         {"target", "mitsu_ecu_m32r_can_typo", kMcu384, false, {0x8000, 0x58000}, 0x60000},
         {"mcu", kProtocol384, kMcu512, false, {0x8000, 0x58000}, 0x60000},
         {"vendor", kProtocol384, kMcu384, true, {0x8000, 0x58000}, 0x60000},

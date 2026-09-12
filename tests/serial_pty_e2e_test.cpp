@@ -1,5 +1,6 @@
 
 #include <QtTest>
+#include <array>
 #include <atomic>
 #include <cstdio>
 #include <thread>
@@ -28,8 +29,8 @@ class TestPtyE2e : public QObject
 void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
 {
     int master = -1, slave = -1;
-    char name[256] = {0};
-    QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
+    std::array<char, 256> name{};
+    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
 
     // ECU responder: on receiving anything, replies with one SSM-framed
     // message (header 80 f0 10, len 02, payload aa bb, checksum byte).
@@ -54,8 +55,8 @@ void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
     std::thread responder(
         [&]
         {
-            const char reply[] = "\x80\xf0\x10\x02\xaa\xbb\xcc";
-            char buf[64];
+            static constexpr auto reply = std::to_array("\x80\xf0\x10\x02\xaa\xbb\xcc");
+            std::array<char, 64> buf{};
             bool replied = false;
             while (!stop.load())
             {
@@ -65,13 +66,13 @@ void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
                 {
                     continue;
                 }
-                ssize_t n = ::read(master, buf, sizeof(buf));
+                ssize_t n = ::read(master, buf.data(), buf.size());
                 if (n > 0)
                 {
-                    received.append(buf, int(n));
+                    received.append(buf.data(), int(n));
                     if (!replied)
                     {
-                        ::write(master, reply, 7);
+                        ::write(master, reply.data(), 7);
                         replied = true;
                     }
                 }
@@ -89,7 +90,7 @@ void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
         [&]
         {
             serial.set_serial_port_prefix_linux("");
-            serial.set_serial_port_list(QStringList() << QString::fromLocal8Bit(name));
+            serial.set_serial_port_list(QStringList() << QString::fromLocal8Bit(name.data()));
             opened = serial.open_serial_port();
             serial.write_serial_data(QByteArray("\x01\x02\x03", 3));
             response = serial.read_serial_data(2000);
@@ -99,7 +100,7 @@ void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
     responder.join(); // joins on its own via the poll timeout + stop check
     ::close(master);
 
-    QCOMPARE(opened, QString::fromLocal8Bit(name));
+    QCOMPARE(opened, QString::fromLocal8Bit(name.data()));
     QCOMPARE(received.left(3), QByteArray("\x01\x02\x03", 3));
     QCOMPARE(response, QByteArray("\x80\xf0\x10\x02\xaa\xbb\xcc", 7));
 }

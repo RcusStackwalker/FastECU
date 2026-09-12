@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_executor.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <format>
 #include <utility>
@@ -354,11 +355,12 @@ Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
     // Lines 379-498: ten fire-and-forget writes across four extra CAN ids.
     // Every reply is read and discarded, so a wrong byte here is invisible
     // on the wire without the scripted test that pins it.
-    const struct
+    struct Exchange
     {
         std::uint32_t id;
         bytes::Bytes pdu;
-    } fire_and_forget_run[] = {
+    };
+    const auto fire_and_forget_run = std::to_array<Exchange>({
         {kInCarIdA2, {uds::kSidDiagnosticSessionControl, kSessionVendorC0}},                        // lines 379-389
         {0x7e0, {uds::kSidDiagnosticSessionControl, kSessionInCarOpen}},                            // lines 391-401
         {kInCarIdFunctional, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic}}, // lines 403-413
@@ -369,7 +371,7 @@ Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
         {kInCarIdB0, {kSidControlDtcSetting, 0x02}},                                                // lines 463-473
         {kInCarIdFunctional, {kSidControlDtcSetting, 0x02}},                                        // lines 475-485
         {kInCarIdFunctional, {kSidCommunicationControl, 0x03, 0x01}},                               // lines 487-498
-    };
+    });
     for (const auto& exchange : fire_and_forget_run)
     {
         if (const Status sent = fire_and_forget(ctx, can, exchange.id, exchange.pdu, kShortTimeout); !sent.has_value())

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 enum mcu_type
@@ -72,7 +73,7 @@ struct flashdev_t
 /* list of all defined flash devices */
 // extern const struct flashdev_t flashdevices[];
 
-const struct flashblock fblocks_SH72543d[] = {
+inline constexpr auto fblocks_SH72543d = std::to_array<flashblock>({
     //    {0x00000000,    0x00008000},
     {0x00008000, 0x001F7F00},
     /*
@@ -105,383 +106,475 @@ const struct flashblock fblocks_SH72543d[] = {
         {0x001C0000,    0x00020000},
         {0x001E0000,    0x00020000},
     */
-};
+});
 
-const struct ramblock rblocks_SH72543d[] = {
-    {0xFFF80000, 0x00004000}, {0xFFF84000, 0x00004000}, {0xFFF88000, 0x00004000}, {0xFFF8C000, 0x00004000},
-    {0xFFF90000, 0x00004000}, {0xFFF94000, 0x00004000}, {0xFFF98000, 0x00004000}, {0xFFF9C000, 0x00004000},
-};
+inline constexpr auto rblocks_SH72543d = std::to_array<ramblock>({
+    {0xFFF80000, 0x00004000},
+    {0xFFF84000, 0x00004000},
+    {0xFFF88000, 0x00004000},
+    {0xFFF8C000, 0x00004000},
+    {0xFFF90000, 0x00004000},
+    {0xFFF94000, 0x00004000},
+    {0xFFF98000, 0x00004000},
+    {0xFFF9C000, 0x00004000},
+});
 
-const struct kernelblock kblocks_SH72543d[] = {
+inline constexpr auto kblocks_SH72543d = std::to_array<kernelblock>({
     {0xFFF80000, 0xFFF9FFFF},
-};
+});
 
-const struct eepromblock eblocks_SH72543d[] = {
+inline constexpr auto eblocks_SH72543d = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
 /* flash block definitions */
-const struct flashblock fblocks_SH7059d[] = {
-    {0x00000000, 0x00001000}, {0x00001000, 0x00001000}, {0x00002000, 0x00001000}, {0x00003000, 0x00001000},
-    {0x00004000, 0x00001000}, {0x00005000, 0x00001000}, {0x00006000, 0x00001000}, {0x00007000, 0x00001000},
-    {0x00008000, 0x00018000}, {0x00020000, 0x00020000}, {0x00040000, 0x00020000}, {0x00060000, 0x00020000},
-    {0x00080000, 0x00040000}, {0x000C0000, 0x00040000}, {0x00100000, 0x00040000}, {0x00140000, 0x00040000},
-};
+inline constexpr auto fblocks_SH7059d = std::to_array<flashblock>({
+    {0x00000000, 0x00001000},
+    {0x00001000, 0x00001000},
+    {0x00002000, 0x00001000},
+    {0x00003000, 0x00001000},
+    {0x00004000, 0x00001000},
+    {0x00005000, 0x00001000},
+    {0x00006000, 0x00001000},
+    {0x00007000, 0x00001000},
+    {0x00008000, 0x00018000},
+    {0x00020000, 0x00020000},
+    {0x00040000, 0x00020000},
+    {0x00060000, 0x00020000},
+    {0x00080000, 0x00040000},
+    {0x000C0000, 0x00040000},
+    {0x00100000, 0x00040000},
+    {0x00140000, 0x00040000},
+});
 
-const struct ramblock rblocks_SH7059d[] = {
+inline constexpr auto rblocks_SH7059d = std::to_array<ramblock>({
     {0xFFFE8000, 0x00009000}, // 0xFFFFBFFF // 36k
-};
+});
 
-const struct kernelblock kblocks_SH7059d[] = {
+inline constexpr auto kblocks_SH7059d = std::to_array<kernelblock>({
     {0xFFFE8000, 0x00009000}, // 0xFFFFBFFF // 36k
-};
+});
 
-const struct eepromblock eblocks_SH7059d[] = {
+inline constexpr auto eblocks_SH7059d = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
 /* flash block definitions */
-const struct flashblock fblocks_SH7058d[] = {
-    {0x00000000, 0x00001000}, {0x00001000, 0x00001000}, {0x00002000, 0x00001000}, {0x00003000, 0x00001000},
-    {0x00004000, 0x00001000}, {0x00005000, 0x00001000}, {0x00006000, 0x00001000}, {0x00007000, 0x00001000},
-    {0x00008000, 0x00018000}, {0x00020000, 0x00020000}, {0x00040000, 0x00020000}, {0x00060000, 0x00020000},
-    {0x00080000, 0x00020000}, {0x000A0000, 0x00020000}, {0x000C0000, 0x00020000}, {0x000E0000, 0x00020000},
-};
+inline constexpr auto fblocks_SH7058d = std::to_array<flashblock>({
+    {0x00000000, 0x00001000},
+    {0x00001000, 0x00001000},
+    {0x00002000, 0x00001000},
+    {0x00003000, 0x00001000},
+    {0x00004000, 0x00001000},
+    {0x00005000, 0x00001000},
+    {0x00006000, 0x00001000},
+    {0x00007000, 0x00001000},
+    {0x00008000, 0x00018000},
+    {0x00020000, 0x00020000},
+    {0x00040000, 0x00020000},
+    {0x00060000, 0x00020000},
+    {0x00080000, 0x00020000},
+    {0x000A0000, 0x00020000},
+    {0x000C0000, 0x00020000},
+    {0x000E0000, 0x00020000},
+});
 
-const struct ramblock rblocks_SH7058d[] = {
+inline constexpr auto rblocks_SH7058d = std::to_array<ramblock>({
     {0xFFFF3000, 0x00009000}, // 0xFFFFBFFF // 36k
-};
+});
 
-const struct kernelblock kblocks_SH7058d[] = {
+inline constexpr auto kblocks_SH7058d = std::to_array<kernelblock>({
     {0xFFFF4000, 0x00009000}, // 0xFFFFBFFF // 36k
-};
+});
 
-const struct eepromblock eblocks_SH7058d[] = {
+inline constexpr auto eblocks_SH7058d = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_SH7058[] = {
-    {0x00000000, 0x00001000}, {0x00001000, 0x00001000}, {0x00002000, 0x00001000}, {0x00003000, 0x00001000},
-    {0x00004000, 0x00001000}, {0x00005000, 0x00001000}, {0x00006000, 0x00001000}, {0x00007000, 0x00001000},
-    {0x00008000, 0x00018000}, {0x00020000, 0x00020000}, {0x00040000, 0x00020000}, {0x00060000, 0x00020000},
-    {0x00080000, 0x00020000}, {0x000A0000, 0x00020000}, {0x000C0000, 0x00020000}, {0x000E0000, 0x00020000},
-};
+inline constexpr auto fblocks_SH7058 = std::to_array<flashblock>({
+    {0x00000000, 0x00001000},
+    {0x00001000, 0x00001000},
+    {0x00002000, 0x00001000},
+    {0x00003000, 0x00001000},
+    {0x00004000, 0x00001000},
+    {0x00005000, 0x00001000},
+    {0x00006000, 0x00001000},
+    {0x00007000, 0x00001000},
+    {0x00008000, 0x00018000},
+    {0x00020000, 0x00020000},
+    {0x00040000, 0x00020000},
+    {0x00060000, 0x00020000},
+    {0x00080000, 0x00020000},
+    {0x000A0000, 0x00020000},
+    {0x000C0000, 0x00020000},
+    {0x000E0000, 0x00020000},
+});
 
-const struct ramblock rblocks_SH7058[] = {
+inline constexpr auto rblocks_SH7058 = std::to_array<ramblock>({
     {0xFFFF3000, 0x00009000}, // 0xFFFFBFFF // 36k
-};
+});
 
-const struct kernelblock kblocks_SH7058[] = {
+inline constexpr auto kblocks_SH7058 = std::to_array<kernelblock>({
     {0xFFFF3000, 0x00009000}, // 0xFFFFBFFF // 36k
-};
+});
 
-const struct eepromblock eblocks_SH7058[] = {
+inline constexpr auto eblocks_SH7058 = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_SH7058_1block[] = {
+inline constexpr auto fblocks_SH7058_1block = std::to_array<flashblock>({
     {0x00000000, 0x00100000},
-};
+});
 
-const struct flashblock fblocks_SH72531[] = {
+inline constexpr auto fblocks_SH72531 = std::to_array<flashblock>({
     {0x00000000, 0x00008000},
     {0x00008000, 0x00137F00},
     {0x00137F00, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_N83M_4MB[] = {
+inline constexpr auto fblocks_N83M_4MB = std::to_array<flashblock>({
     {0x08F9C000, 0x00010000},
     {0x08FAC000, 0x003D3F00},
     {0x0937FF00, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_N83M_1_5MB[] = {
+inline constexpr auto fblocks_N83M_1_5MB = std::to_array<flashblock>({
     {0x08F9C000, 0x00010000},
     {0x08FAC000, 0x00173F00},
     {0x0911FF00, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_SH72543R[] = {
+inline constexpr auto fblocks_SH72543R = std::to_array<flashblock>({
     {0x00000000, 0x00006000},
     {0x00006000, 0x001FA000},
-};
+});
 
-const struct flashblock fblocks_SH7055[] = {
-    {0x00000000, 0x00001000}, {0x00001000, 0x00001000}, {0x00002000, 0x00001000}, {0x00003000, 0x00001000},
-    {0x00004000, 0x00001000}, {0x00005000, 0x00001000}, {0x00006000, 0x00001000}, {0x00007000, 0x00001000},
-    {0x00008000, 0x00008000}, {0x00010000, 0x00010000}, {0x00020000, 0x00010000}, {0x00030000, 0x00010000},
-    {0x00040000, 0x00010000}, {0x00050000, 0x00010000}, {0x00060000, 0x00010000}, {0x00070000, 0x00010000},
-};
+inline constexpr auto fblocks_SH7055 = std::to_array<flashblock>({
+    {0x00000000, 0x00001000},
+    {0x00001000, 0x00001000},
+    {0x00002000, 0x00001000},
+    {0x00003000, 0x00001000},
+    {0x00004000, 0x00001000},
+    {0x00005000, 0x00001000},
+    {0x00006000, 0x00001000},
+    {0x00007000, 0x00001000},
+    {0x00008000, 0x00008000},
+    {0x00010000, 0x00010000},
+    {0x00020000, 0x00010000},
+    {0x00030000, 0x00010000},
+    {0x00040000, 0x00010000},
+    {0x00050000, 0x00010000},
+    {0x00060000, 0x00010000},
+    {0x00070000, 0x00010000},
+});
 
-const struct ramblock rblocks_SH7055[] = {
+inline constexpr auto rblocks_SH7055 = std::to_array<ramblock>({
     {0xFFFF6000, 0x00006000}, // 0xFFFFBFFF // 24k
-};
+});
 
-const struct kernelblock kblocks_SH7055[] = {
+inline constexpr auto kblocks_SH7055 = std::to_array<kernelblock>({
     {0xFFFF6004, 0x00006000}, // 0xFFFFBFFF // 24k
-};
+});
 
-const struct eepromblock eblocks_SH7055[] = {
+inline constexpr auto eblocks_SH7055 = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_SH7051[] = {
+inline constexpr auto fblocks_SH7051 = std::to_array<flashblock>({
     {0x00000000, 0x00040000},
-};
+});
 
-const struct ramblock rblocks_SH7051[] = {
+inline constexpr auto rblocks_SH7051 = std::to_array<ramblock>({
     {0xFFFFD800, 0x00002800}, // 0xFFFFFFFF  // 10k
-};
+});
 
-const struct kernelblock kblocks_SH7051[] = {
+inline constexpr auto kblocks_SH7051 = std::to_array<kernelblock>({
     {0xFFFFD800, 0x00002800}, // 0xFFFFFFFF  // 10k
-};
+});
 
-const struct eepromblock eblocks_SH7051[] = {
+inline constexpr auto eblocks_SH7051 = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_M3779x[] = {
+inline constexpr auto fblocks_M3779x = std::to_array<flashblock>({
     {0x00008000, 0x0000FFFF},
-};
+});
 
-const struct ramblock rblocks_M3779x[] = {
+inline constexpr auto rblocks_M3779x = std::to_array<ramblock>({
     {0x00001000, 0x000014FF},
-};
+});
 
-const struct kernelblock kblocks_M3779x[] = {
+inline constexpr auto kblocks_M3779x = std::to_array<kernelblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct eepromblock eblocks_M3779x[] = {
+inline constexpr auto eblocks_M3779x = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_M3775x[] = {
+inline constexpr auto fblocks_M3775x = std::to_array<flashblock>({
     {0x00001000, 0x0000FFFF},
-};
+});
 
-const struct ramblock rblocks_M3775x[] = {
+inline constexpr auto rblocks_M3775x = std::to_array<ramblock>({
     {0x00001000, 0x000014FF},
-};
+});
 
-const struct kernelblock kblocks_M3775x[] = {
+inline constexpr auto kblocks_M3775x = std::to_array<kernelblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct eepromblock eblocks_M3775x[] = {
+inline constexpr auto eblocks_M3775x = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_MC68HC16Y5_TPU[] = {
+inline constexpr auto fblocks_MC68HC16Y5_TPU = std::to_array<flashblock>({
     {0x00060000, 0x00001000},
     {0x00061000, 0x00001000},
     {0x00062000, 0x00001000},
     {0x00063000, 0x00001000},
-};
+});
 
-const struct flashblock fblocks_MC68HC16Y5[] = {
-    {0x00000000, 0x00004000}, {0x00004000, 0x00004000}, {0x00008000, 0x00004000}, {0x0000C000, 0x00004000},
-    {0x00010000, 0x00004000}, {0x00014000, 0x00004000}, {0x00018000, 0x00004000}, {0x0001C000, 0x00004000},
-    {0x00028000, 0x00004000}, {0x0002C000, 0x00004000},
-};
+inline constexpr auto fblocks_MC68HC16Y5 = std::to_array<flashblock>({
+    {0x00000000, 0x00004000},
+    {0x00004000, 0x00004000},
+    {0x00008000, 0x00004000},
+    {0x0000C000, 0x00004000},
+    {0x00010000, 0x00004000},
+    {0x00014000, 0x00004000},
+    {0x00018000, 0x00004000},
+    {0x0001C000, 0x00004000},
+    {0x00028000, 0x00004000},
+    {0x0002C000, 0x00004000},
+});
 
-const struct ramblock rblocks_MC68HC16Y5[] = {
+inline constexpr auto rblocks_MC68HC16Y5 = std::to_array<ramblock>({
     {0x00020000, 0x00008000},
-};
+});
 
-const struct kernelblock kblocks_MC68HC16Y5[] = {
+inline constexpr auto kblocks_MC68HC16Y5 = std::to_array<kernelblock>({
     {0x00020000, 0x00008000},
-};
+});
 
-const struct eepromblock eblocks_MC68HC16Y5[] = {
+inline constexpr auto eblocks_MC68HC16Y5 = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_M32R_128KB[] = {
+inline constexpr auto fblocks_M32R_128KB = std::to_array<flashblock>({
     {0x00000000, 0x00010000},
     {0x00010000, 0x00010000},
-};
+});
 
-const struct ramblock rblocks_M32R_128KB[] = {
+inline constexpr auto rblocks_M32R_128KB = std::to_array<ramblock>({
     {0x00801000, 0x00001800},
-};
+});
 
-const struct kernelblock kblocks_M32R_128KB[] = {
+inline constexpr auto kblocks_M32R_128KB = std::to_array<kernelblock>({
     {0x00801000, 0x00001800},
-};
+});
 
-const struct eepromblock eblocks_M32R_128KB[] = {
+inline constexpr auto eblocks_M32R_128KB = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_M32R_256KB[] = {
-    {0x00000000, 0x00004000}, {0x00004000, 0x00002000}, {0x00006000, 0x00002000}, {0x00008000, 0x00008000},
-    {0x00010000, 0x00010000}, {0x00020000, 0x00010000}, {0x00030000, 0x00010000},
-};
+inline constexpr auto fblocks_M32R_256KB = std::to_array<flashblock>({
+    {0x00000000, 0x00004000},
+    {0x00004000, 0x00002000},
+    {0x00006000, 0x00002000},
+    {0x00008000, 0x00008000},
+    {0x00010000, 0x00010000},
+    {0x00020000, 0x00010000},
+    {0x00030000, 0x00010000},
+});
 
-const struct ramblock rblocks_M32R_256KB[] = {
+inline constexpr auto rblocks_M32R_256KB = std::to_array<ramblock>({
     {0x00804000, 0x00004000},
-};
+});
 
-const struct kernelblock kblocks_M32R_256KB[] = {
+inline constexpr auto kblocks_M32R_256KB = std::to_array<kernelblock>({
     {0x00804000, 0x00004000},
-};
+});
 
-const struct eepromblock eblocks_M32R_256KB[] = {
+inline constexpr auto eblocks_M32R_256KB = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_M32R_384KB[] = {
-    {0x00000000, 0x00004000}, {0x00004000, 0x00002000}, {0x00006000, 0x00002000},
-    {0x00008000, 0x00008000}, {0x00010000, 0x00010000}, {0x00020000, 0x00010000},
-    {0x00030000, 0x00010000}, {0x00040000, 0x00010000}, {0x00050000, 0x00010000},
-};
+inline constexpr auto fblocks_M32R_384KB = std::to_array<flashblock>({
+    {0x00000000, 0x00004000},
+    {0x00004000, 0x00002000},
+    {0x00006000, 0x00002000},
+    {0x00008000, 0x00008000},
+    {0x00010000, 0x00010000},
+    {0x00020000, 0x00010000},
+    {0x00030000, 0x00010000},
+    {0x00040000, 0x00010000},
+    {0x00050000, 0x00010000},
+});
 
-const struct ramblock rblocks_M32R_384KB[] = {
+inline constexpr auto rblocks_M32R_384KB = std::to_array<ramblock>({
     {0x00804000, 0x00008000},
-};
+});
 
-const struct kernelblock kblocks_M32R_384KB[] = {
+inline constexpr auto kblocks_M32R_384KB = std::to_array<kernelblock>({
     {0x00804000, 0x00008000},
-};
+});
 
-const struct eepromblock eblocks_M32R_384KB[] = {
+inline constexpr auto eblocks_M32R_384KB = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_M32R_512KB[] = {
-    {0x00000000, 0x00004000}, {0x00004000, 0x00002000}, {0x00006000, 0x00002000}, {0x00008000, 0x00008000},
-    {0x00010000, 0x00010000}, {0x00020000, 0x00010000}, {0x00030000, 0x00010000}, {0x00040000, 0x00010000},
-    {0x00050000, 0x00010000}, {0x00060000, 0x00010000}, {0x00070000, 0x00010000},
-};
+inline constexpr auto fblocks_M32R_512KB = std::to_array<flashblock>({
+    {0x00000000, 0x00004000},
+    {0x00004000, 0x00002000},
+    {0x00006000, 0x00002000},
+    {0x00008000, 0x00008000},
+    {0x00010000, 0x00010000},
+    {0x00020000, 0x00010000},
+    {0x00030000, 0x00010000},
+    {0x00040000, 0x00010000},
+    {0x00050000, 0x00010000},
+    {0x00060000, 0x00010000},
+    {0x00070000, 0x00010000},
+});
 
-const struct flashblock fblocks_M32R_512KB_1block[] = {
+inline constexpr auto fblocks_M32R_512KB_1block = std::to_array<flashblock>({
     {0x00000000, 0x00080000},
-};
+});
 
-const struct flashblock fblocks_M32R_512KB_4blocks[] = {
+inline constexpr auto fblocks_M32R_512KB_4blocks = std::to_array<flashblock>({
     {0x00000000, 0x00004000},
     {0x00004000, 0x00002000},
     {0x00006000, 0x00002000},
     {0x00008000, 0x00078000},
-};
+});
 
 // Mitsubishi Colt CZT (Z37A, ROM 47110032): readable/writeable userspace
 // range. Reads use bootload session 0x85; the 0x0-0x8000 boot region is not
 // touched by this protocol.
-const struct flashblock fblocks_M32R_384KB_1block[] = {
+inline constexpr auto fblocks_M32R_384KB_1block = std::to_array<flashblock>({
     {0x00008000, 0x00058000},
-};
+});
 
-const struct ramblock rblocks_M32R_512KB[] = {
+inline constexpr auto rblocks_M32R_512KB = std::to_array<ramblock>({
     {0x00804000, 0x0000A000},
-};
+});
 
-const struct kernelblock kblocks_M32R_512KB[] = {
+inline constexpr auto kblocks_M32R_512KB = std::to_array<kernelblock>({
     {0x00804000, 0x0000A000},
-};
+});
 
-const struct eepromblock eblocks_M32R_512KB[] = {
+inline constexpr auto eblocks_M32R_512KB = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_MH8104[] = {
+inline constexpr auto fblocks_MH8104 = std::to_array<flashblock>({
     {0x00000000, 0x00004000},
     {0x00004000, 0x00002000},
     {0x00006000, 0x00002000},
     {0x00008000, 0x00078000},
-};
+});
 
-const struct ramblock rblocks_MH8104[] = {
+inline constexpr auto rblocks_MH8104 = std::to_array<ramblock>({
     {0x00804000, 0x0000A000},
-};
+});
 
-const struct kernelblock kblocks_MH8104[] = {
+inline constexpr auto kblocks_MH8104 = std::to_array<kernelblock>({
     {0x00804000, 0x0000A000},
-};
+});
 
-const struct eepromblock eblocks_MH8104[] = {
+inline constexpr auto eblocks_MH8104 = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_MH5006[] = {
+inline constexpr auto fblocks_MH5006 = std::to_array<flashblock>({
     {0x00000000, 0x00004000},
     {0x00004000, 0x00002000},
     {0x00006000, 0x00002000},
     {0x00008000, 0x000F8000},
-};
+});
 
-const struct ramblock rblocks_MH5006[] = {
+inline constexpr auto rblocks_MH5006 = std::to_array<ramblock>({
     {0x00804000, 0x0000A000},
-};
+});
 
-const struct kernelblock kblocks_MH5006[] = {
+inline constexpr auto kblocks_MH5006 = std::to_array<kernelblock>({
     {0x00804000, 0x0000A000},
-};
+});
 
-const struct eepromblock eblocks_MH5006[] = {
+inline constexpr auto eblocks_MH5006 = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
-const struct flashblock fblocks_MH8111[] = {
+inline constexpr auto fblocks_MH8111 = std::to_array<flashblock>({
     {0x00000000, 0x00040000},
     {0x00040000, 0x00020000},
     {0x00060000, 0x00020000},
     {0x00080000, 0x00100000},
-};
+});
 
-const struct ramblock rblocks_MH8111[] = {
+inline constexpr auto rblocks_MH8111 = std::to_array<ramblock>({
     {0x00804000, 0x0000A000},
-};
+});
 
-const struct kernelblock kblocks_MH8111[] = {
+inline constexpr auto kblocks_MH8111 = std::to_array<kernelblock>({
     {0x00804000, 0x0000A000},
-};
+});
 
-const struct eepromblock eblocks_MH8111[] = {
+inline constexpr auto eblocks_MH8111 = std::to_array<eepromblock>({
     {0x00000000, 0x00000100},
-};
+});
 
 // name mcutype romsize numblocks fblocks rblocks kblocks eblocks;
-const struct flashdev_t flashdevices[] = {
-    {"M32R_128KB", M32R_128KB, 128 * 1024, 2, fblocks_M32R_128KB, rblocks_M32R_128KB, kblocks_M32R_128KB,
-     eblocks_M32R_128KB},
-    {"M32R_256KB", M32R_256KB, 256 * 1024, 7, fblocks_M32R_256KB, rblocks_M32R_256KB, kblocks_M32R_256KB,
-     eblocks_M32R_256KB},
-    {"M32R_384KB", M32R_384KB, 384 * 1024, 9, fblocks_M32R_384KB, rblocks_M32R_384KB, kblocks_M32R_384KB,
-     eblocks_M32R_384KB},
-    {"M32R_512KB", M32R_512KB, 512 * 1024, 11, fblocks_M32R_512KB, rblocks_M32R_512KB, kblocks_M32R_512KB,
-     eblocks_M32R_512KB},
-    {"M32R_512KB_1block", M32R_512KB_1block, 512 * 1024, 1, fblocks_M32R_512KB_1block, rblocks_M32R_512KB,
-     kblocks_M32R_512KB, eblocks_M32R_512KB},
-    {"M32R_512KB_4blocks", M32R_512KB_4blocks, 512 * 1024, 4, fblocks_M32R_512KB_4blocks, rblocks_M32R_512KB,
-     kblocks_M32R_512KB, eblocks_M32R_512KB},
-    {"M32R_384KB_1block", M32R_384KB_1block, 384 * 1024, 1, fblocks_M32R_384KB_1block, rblocks_M32R_512KB,
-     kblocks_M32R_512KB, eblocks_M32R_512KB},
-    {"MC68HC16Y5", MC68HC16Y5, 160 * 1024, 10, fblocks_MC68HC16Y5, rblocks_MC68HC16Y5, kblocks_MC68HC16Y5,
-     eblocks_MC68HC16Y5},
-    {"MC68HC16Y5_TPU", MC68HC16Y5_TPU, 4 * 1024, 4, fblocks_MC68HC16Y5_TPU, rblocks_MC68HC16Y5, kblocks_MC68HC16Y5,
-     eblocks_MC68HC16Y5},
-    {"SH7051", SH7051, 256 * 1024, 1, fblocks_SH7051, rblocks_SH7051, kblocks_SH7051, eblocks_SH7051},
-    {"SH7055", SH7055, 512 * 1024, 16, fblocks_SH7055, rblocks_SH7055, kblocks_SH7055, eblocks_SH7055},
-    {"SH7058", SH7058, 1024 * 1024, 16, fblocks_SH7058, rblocks_SH7058, kblocks_SH7058, eblocks_SH7058},
-    {"SH7058_1block", SH7058, 1024 * 1024, 1, fblocks_SH7058_1block, rblocks_SH7058, kblocks_SH7058, eblocks_SH7058},
-    {"SH7058d", SH7058d, 1024 * 1024, 16, fblocks_SH7058d, rblocks_SH7058d, kblocks_SH7058d, eblocks_SH7058d},
-    {"SH7059d", SH7059d, 1536 * 1024, 16, fblocks_SH7059d, rblocks_SH7059d, kblocks_SH7059d, eblocks_SH7059d},
-    {"SH72543d", SH72543d, 2 * 1024 * 1024, 1, fblocks_SH72543d, rblocks_SH72543d, kblocks_SH72543d, eblocks_SH72543d},
-    {"SH72531", SH72531, 1280 * 1024, 3, fblocks_SH72531, rblocks_SH7058, kblocks_SH7058,
-     eblocks_SH7058}, // rblocks, kblocks, eblocks not updated
-    {"N83M_4MB", N83M_4MB, 3984 * 1024, 3, fblocks_N83M_4MB, rblocks_SH7058, kblocks_SH7058,
-     eblocks_SH7058}, // rblocks, kblocks, eblocks not updated
-    {"N83M_1_5MB", N83M_1_5MB, 1488 * 1024, 3, fblocks_N83M_1_5MB, rblocks_SH7058, kblocks_SH7058,
-     eblocks_SH7058}, // rblocks, kblocks, eblocks not updated
-    {"SH72543R", SH72543R, 2 * 1024 * 1024, 2, fblocks_SH72543R, rblocks_SH7058, kblocks_SH7058,
-     eblocks_SH7058}, // rblocks, kblocks, eblocks not updated
-    {"MH8104", MH8104, 512 * 1024, 4, fblocks_MH8104, rblocks_MH8104, kblocks_MH8104, eblocks_MH8104},
-    {"MH5006", MH5006, 1024 * 1024, 4, fblocks_MH5006, rblocks_MH5006, kblocks_MH5006, eblocks_MH5006},
-    {"MH8111", MH8111, 3 * 512 * 1024, 4, fblocks_MH8111, rblocks_MH8111, kblocks_MH8111, eblocks_MH8111},
-    {"M3779x", M3779x, 64 * 1024, 1, fblocks_M3779x, rblocks_M3779x, kblocks_M3779x, eblocks_M3779x},
-    {"M3775x", M3775x, 64 * 1024, 1, fblocks_M3775x, rblocks_M3775x, kblocks_M3775x, eblocks_M3775x},
+inline constexpr auto flashdevices = std::to_array<flashdev_t>({
+    {"M32R_128KB", M32R_128KB, 128 * 1024, 2, fblocks_M32R_128KB.data(), rblocks_M32R_128KB.data(),
+     kblocks_M32R_128KB.data(), eblocks_M32R_128KB.data()},
+    {"M32R_256KB", M32R_256KB, 256 * 1024, 7, fblocks_M32R_256KB.data(), rblocks_M32R_256KB.data(),
+     kblocks_M32R_256KB.data(), eblocks_M32R_256KB.data()},
+    {"M32R_384KB", M32R_384KB, 384 * 1024, 9, fblocks_M32R_384KB.data(), rblocks_M32R_384KB.data(),
+     kblocks_M32R_384KB.data(), eblocks_M32R_384KB.data()},
+    {"M32R_512KB", M32R_512KB, 512 * 1024, 11, fblocks_M32R_512KB.data(), rblocks_M32R_512KB.data(),
+     kblocks_M32R_512KB.data(), eblocks_M32R_512KB.data()},
+    {"M32R_512KB_1block", M32R_512KB_1block, 512 * 1024, 1, fblocks_M32R_512KB_1block.data(), rblocks_M32R_512KB.data(),
+     kblocks_M32R_512KB.data(), eblocks_M32R_512KB.data()},
+    {"M32R_512KB_4blocks", M32R_512KB_4blocks, 512 * 1024, 4, fblocks_M32R_512KB_4blocks.data(),
+     rblocks_M32R_512KB.data(), kblocks_M32R_512KB.data(), eblocks_M32R_512KB.data()},
+    {"M32R_384KB_1block", M32R_384KB_1block, 384 * 1024, 1, fblocks_M32R_384KB_1block.data(), rblocks_M32R_512KB.data(),
+     kblocks_M32R_512KB.data(), eblocks_M32R_512KB.data()},
+    {"MC68HC16Y5", MC68HC16Y5, 160 * 1024, 10, fblocks_MC68HC16Y5.data(), rblocks_MC68HC16Y5.data(),
+     kblocks_MC68HC16Y5.data(), eblocks_MC68HC16Y5.data()},
+    {"MC68HC16Y5_TPU", MC68HC16Y5_TPU, 4 * 1024, 4, fblocks_MC68HC16Y5_TPU.data(), rblocks_MC68HC16Y5.data(),
+     kblocks_MC68HC16Y5.data(), eblocks_MC68HC16Y5.data()},
+    {"SH7051", SH7051, 256 * 1024, 1, fblocks_SH7051.data(), rblocks_SH7051.data(), kblocks_SH7051.data(),
+     eblocks_SH7051.data()},
+    {"SH7055", SH7055, 512 * 1024, 16, fblocks_SH7055.data(), rblocks_SH7055.data(), kblocks_SH7055.data(),
+     eblocks_SH7055.data()},
+    {"SH7058", SH7058, 1024 * 1024, 16, fblocks_SH7058.data(), rblocks_SH7058.data(), kblocks_SH7058.data(),
+     eblocks_SH7058.data()},
+    {"SH7058_1block", SH7058, 1024 * 1024, 1, fblocks_SH7058_1block.data(), rblocks_SH7058.data(),
+     kblocks_SH7058.data(), eblocks_SH7058.data()},
+    {"SH7058d", SH7058d, 1024 * 1024, 16, fblocks_SH7058d.data(), rblocks_SH7058d.data(), kblocks_SH7058d.data(),
+     eblocks_SH7058d.data()},
+    {"SH7059d", SH7059d, 1536 * 1024, 16, fblocks_SH7059d.data(), rblocks_SH7059d.data(), kblocks_SH7059d.data(),
+     eblocks_SH7059d.data()},
+    {"SH72543d", SH72543d, 2 * 1024 * 1024, 1, fblocks_SH72543d.data(), rblocks_SH72543d.data(),
+     kblocks_SH72543d.data(), eblocks_SH72543d.data()},
+    {"SH72531", SH72531, 1280 * 1024, 3, fblocks_SH72531.data(), rblocks_SH7058.data(), kblocks_SH7058.data(),
+     eblocks_SH7058.data()}, // rblocks, kblocks, eblocks not updated
+    {"N83M_4MB", N83M_4MB, 3984 * 1024, 3, fblocks_N83M_4MB.data(), rblocks_SH7058.data(), kblocks_SH7058.data(),
+     eblocks_SH7058.data()}, // rblocks, kblocks, eblocks not updated
+    {"N83M_1_5MB", N83M_1_5MB, 1488 * 1024, 3, fblocks_N83M_1_5MB.data(), rblocks_SH7058.data(), kblocks_SH7058.data(),
+     eblocks_SH7058.data()}, // rblocks, kblocks, eblocks not updated
+    {"SH72543R", SH72543R, 2 * 1024 * 1024, 2, fblocks_SH72543R.data(), rblocks_SH7058.data(), kblocks_SH7058.data(),
+     eblocks_SH7058.data()}, // rblocks, kblocks, eblocks not updated
+    {"MH8104", MH8104, 512 * 1024, 4, fblocks_MH8104.data(), rblocks_MH8104.data(), kblocks_MH8104.data(),
+     eblocks_MH8104.data()},
+    {"MH5006", MH5006, 1024 * 1024, 4, fblocks_MH5006.data(), rblocks_MH5006.data(), kblocks_MH5006.data(),
+     eblocks_MH5006.data()},
+    {"MH8111", MH8111, 3 * 512 * 1024, 4, fblocks_MH8111.data(), rblocks_MH8111.data(), kblocks_MH8111.data(),
+     eblocks_MH8111.data()},
+    {"M3779x", M3779x, 64 * 1024, 1, fblocks_M3779x.data(), rblocks_M3779x.data(), kblocks_M3779x.data(),
+     eblocks_M3779x.data()},
+    {"M3775x", M3775x, 64 * 1024, 1, fblocks_M3775x.data(), rblocks_M3775x.data(), kblocks_M3775x.data(),
+     eblocks_M3775x.data()},
     {0, SH_INVALID, 0, 0, 0, 0, 0, 0},
-};
+});
