@@ -94,19 +94,14 @@ bytes::Bytes seed_key(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex = {0x8519, 0x5c53, 0xc0e9, 0x2452, 0x1e68, 0x6feb,
                                                              0x2648, 0x81e2, 0x8ce4, 0x953b, 0x1ca9, 0x6180,
                                                              0xb85e, 0x5109, 0xdb3c, 0x3cf2};
-    static constexpr std::array<std::uint8_t, 32> kTransform = {0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8, 0xa, 0xd, 0x2,
-                                                                0xb, 0xf, 0x4, 0x0, 0x3, 0xb, 0x4, 0x6, 0x0, 0xf, 0x2,
-                                                                0xd, 0x9, 0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8};
-    return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
+    return SsmProtocol::calculateSeedKey(seed, kIndex, SsmProtocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt(bytes::ByteView image)
 {
     static constexpr std::array<std::uint16_t, 4> kIndex = {0x25b5, 0x3875, 0xca11, 0x2680};
-    static constexpr std::array<std::uint8_t, 32> kTransform = {0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8, 0xa, 0xd, 0x2,
-                                                                0xb, 0xf, 0x4, 0x0, 0x3, 0xb, 0x4, 0x6, 0x0, 0xf, 0x2,
-                                                                0xd, 0x9, 0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8};
-    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex, kTransform);
+    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex,
+                                         SsmProtocol::kIndexTransformationStock);
 }
 
 Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,

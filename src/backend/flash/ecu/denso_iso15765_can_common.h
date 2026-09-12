@@ -3,6 +3,8 @@
 #include <array>
 #include <cstdint>
 
+#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+
 namespace fastecu::flash
 {
 
@@ -25,14 +27,13 @@ namespace fastecu::flash
 // reader believe these are the same protocol when they are not. They stay in
 // their own executors deliberately.
 //
-// Scope note: the 32-entry index transformation below is not specific to this
-// cluster -- the same table appears verbatim in four further executors in this
-// package (subaru_hitachi_m32r_can, subaru_tcu_cvt_hitachi_m32r_can,
-// subaru_tcu_cvt_mitsu_mh8104_can, subaru_tcu_cvt_mitsu_mh8111_can), which
-// keep their own copies. It is an SsmProtocol-level constant wearing a
-// cluster-level name here. Promoting it to src/algorithms/protocol/ssm and
-// retiring all eight copies is a separate, package-wide change and is
-// deliberately out of this wave's scope.
+// Scope note: the index transformation these tables are paired with is NOT
+// here. It is not specific to this cluster -- it was spelled out at fourteen
+// production call sites across this package and src/backend/flash/eeprom --
+// and now lives in src/algorithms/protocol/ssm as
+// SsmProtocol::kIndexTransformationStock, next to the ECUTEK variant it is
+// nearly identical to. Only the key-to-generate-index tables below, which
+// are genuinely per-family protocol data, remain here.
 //
 // The four executors' own test suites do NOT read these constants back: each
 // test file carries its own copy, transcribed independently from the same
@@ -57,11 +58,5 @@ inline constexpr std::array<std::uint16_t, 4> kDensoIso15765EncryptTable{0xC85B,
 // rather than derived, because that is how all four legacy sources spell it
 // and a derived table would hide a future divergence.
 inline constexpr std::array<std::uint16_t, 4> kDensoIso15765DecryptTable{0x92A0, 0xE282, 0x32C0, 0xC85B};
-
-// The index transformation both calculateSeedKey and calculatePayload take.
-// See the scope note above: shared here across the four cluster members only.
-inline constexpr std::array<std::uint8_t, 32> kDensoIso15765IndexTransformation{
-    0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
-    0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
 } // namespace fastecu::flash

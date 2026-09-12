@@ -46,10 +46,6 @@ constexpr bytes::Byte kSessionKernelJump = 0x42;
 // Encrypt (write payload, legacy encrypt_payload lines 947-948) and decrypt
 // (read payload, legacy decrypt_payload lines 965-966) tables: same Task 6
 // finding, same shared header.
-// Shared by every family in this wave and wave-1 Hitachi K-Line.
-constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
-                                                            0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
-                                                            0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
 
 // Hardcoded in legacy read_mem regardless of caller arguments (lines
 // 356-358, "hack for testing").
@@ -61,19 +57,19 @@ constexpr MemoryRegion kWriteRegion{0x80000, 0x100000};
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, tcuCvtMitsuSeedKeyTable(), kIndexTransformation);
+    return SsmProtocol::calculateSeedKey(seed, tcuCvtMitsuSeedKeyTable(), SsmProtocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
     return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), tcuCvtMitsuEncryptTable(),
-                                         kIndexTransformation);
+                                         SsmProtocol::kIndexTransformationStock);
 }
 
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
     return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), tcuCvtMitsuDecryptTable(),
-                                         kIndexTransformation);
+                                         SsmProtocol::kIndexTransformationStock);
 }
 
 struct Ctx
