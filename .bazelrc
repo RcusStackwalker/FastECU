@@ -60,6 +60,16 @@ build:coverage --repo_env=CXX=clang++
 # translation units, so new_coverage read 0.0% on any PR that touched a .cpp.
 # macOS links statically already, which is why local reports looked complete.
 build:coverage --dynamic_mode=off
+# Record a relative compilation directory in the coverage mapping. Without it
+# clang records the compiler's CWD -- Bazel's execroot -- and `llvm-cov show`
+# prints each file's section header as <execroot>/src/foo.cpp, an absolute path
+# that is outside sonar.projectBaseDir and that the header rewrite in
+# scripts/coverage-local.sh then prefixes a second time. (`llvm-cov report`
+# prints the mapping name unjoined, so its table stays relative and hides the
+# difference.) With "." the header is workspace-relative on every host, llvm-cov
+# resolves the source against the script's CWD (the repo root), and the rewrite
+# has one well-defined input to turn absolute.
+build:coverage --copt=-ffile-compilation-dir=.
 
 # Used by scripts/coverage-local.sh's BAZEL_TEST_CONFIG when wrapped with the
 # SonarCloud build wrapper: a disk-cache hit skips the compiler subprocess the
