@@ -128,16 +128,6 @@ struct Ctx
     uds::IUdsChannel& channel;
 };
 
-void info(Ctx& ctx, std::string_view message)
-{
-    ctx.events.log(LogLevel::Info, message);
-}
-
-void error(Ctx& ctx, std::string_view message)
-{
-    ctx.events.log(LogLevel::Error, message);
-}
-
 constexpr std::string_view kRejectionPrefix = "Wrong response from TCU: ";
 
 // Thin wrapper over the shared report_exchange_failure

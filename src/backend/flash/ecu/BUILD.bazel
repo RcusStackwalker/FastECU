@@ -718,6 +718,7 @@ cc_library(
         ":flash_phase_progress",
         ":subaru_tcu_cvt_mitsu_can_common",
         ":subaru_tcu_cvt_mitsu_mh8104_can_plan",
+        ":uds_client_exchange_common",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/uds",
