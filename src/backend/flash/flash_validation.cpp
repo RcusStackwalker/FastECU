@@ -16,7 +16,19 @@ namespace fastecu::flash
 namespace
 {
 
-bool region_overflows(const MemoryRegion& region)
+// True when the region's end address (start + length, one past its last byte)
+// cannot be held in a uint32_t.
+//
+// This is deliberately one stricter than "the region fits in the address
+// space": a region whose last byte is 0xffffffff ends at 0x100000000 and is
+// rejected here even though every byte of it is addressable. Executors
+// compute that end address in uint32_t arithmetic and bound real erase and
+// write loops with it -- ecu/mitsu_colt_m32r_can_executor.cpp derives
+// writable_end and page_write_end that way, and ecu/mitsu_colt_m32r_can_plan.cpp
+// sizes the image against it -- where 0x100000000 would wrap to 0 and collapse
+// the window. Accepting it here would relax an address-window guard. The
+// boundary is pinned by TransferRegionEndingExactlyAtTheTopOfTheAddressSpaceIsRejected.
+bool region_end_not_representable(const MemoryRegion& region)
 {
     return static_cast<std::uint64_t>(region.start) + region.length > static_cast<std::uint64_t>(0xffffffffU);
 }
@@ -90,15 +102,15 @@ Result<FlashPlan> validate_and_build(FlashPlanFields fields)
     {
         return fail(ErrorKind::InvalidConfig, "transfer_region must not be empty");
     }
-    if (region_overflows(fields.transfer_region))
+    if (region_end_not_representable(fields.transfer_region))
     {
-        return fail(ErrorKind::InvalidConfig, "transfer_region overflows a 32-bit address space");
+        return fail(ErrorKind::InvalidConfig, "transfer_region end address does not fit in 32 bits");
     }
     for (const MemoryRegion& erase : fields.erase_regions)
     {
-        if (region_overflows(erase))
+        if (region_end_not_representable(erase))
         {
-            return fail(ErrorKind::InvalidConfig, "erase region overflows a 32-bit address space");
+            return fail(ErrorKind::InvalidConfig, "erase region end address does not fit in 32 bits");
         }
     }
     if (fields.operation == FlashOperation::Read)
