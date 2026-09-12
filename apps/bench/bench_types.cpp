@@ -1,6 +1,7 @@
 #include "apps/bench/bench_types.h"
 
 #include <algorithm>
+#include <format>
 #include <array>
 #include <memory>
 
@@ -40,6 +41,22 @@ const CommandSpec *find_command(CommandId id)
 {
     const auto found = std::ranges::find(kCommands, id, &CommandSpec::id);
     return found == kCommands.end() ? nullptr : std::to_address(found);
+}
+
+Status validate_against_table(const CommandSpec& spec, const StepSpec& step)
+{
+    if (step.args.size() < spec.min_args || (spec.max_args != kUnbounded && step.args.size() > spec.max_args))
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("{} takes {}..{} arguments, got {}", spec.name, spec.min_args,
+                                spec.max_args == kUnbounded ? std::string("*") : std::to_string(spec.max_args),
+                                step.args.size()));
+    }
+    if (spec.destructive && !step.destructive_ack)
+    {
+        return fail(ErrorKind::InvalidConfig, std::format("{} needs --destructive", spec.name));
+    }
+    return {};
 }
 
 } // namespace fastecu::bench

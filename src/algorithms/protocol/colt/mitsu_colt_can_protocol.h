@@ -92,6 +92,12 @@ std::uint16_t checksum(bytes::ByteView data);
 // SID 0x34: [SID][start>>16][start>>8][start][0x00][size>>16][size>>8][size].
 bytes::Bytes buildRequestDownload(std::uint32_t start, std::uint32_t size);
 
+// True for a request that erases or writes flash: RequestReflash, RequestDownload,
+// TransferData, or RoutineControl 224 (erase). Callers that gate raw PDU entry
+// against the named destructive commands share this one definition, so a service
+// added here closes every such gate at once.
+bool isDestructiveRequest(bytes::ByteView pdu);
+
 // SID 0x36, chunked at kTransferChunkSize bytes per frame: [SID][up to 256 payload bytes].
 std::vector<bytes::Bytes> buildTransferDataFrames(bytes::ByteView payload);
 

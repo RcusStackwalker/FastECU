@@ -5,6 +5,7 @@
 #include <charconv>
 #include <format>
 #include <limits>
+#include <memory>
 
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 
@@ -12,20 +13,6 @@ namespace fastecu::bench
 {
 namespace
 {
-
-bool isKnownDestructivePdu(bytes::ByteView pdu)
-{
-    if (pdu.empty())
-    {
-        return false;
-    }
-    if (pdu[0] == MitsuColtCan::kServiceRequestReflash || pdu[0] == MitsuColtCan::kServiceRequestDownload ||
-        pdu[0] == MitsuColtCan::kServiceTransferData)
-    {
-        return true;
-    }
-    return pdu.size() >= 2 && pdu[0] == MitsuColtCan::kServiceRoutineControl && pdu[1] == MitsuColtCan::kRoutineErase;
-}
 
 Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
 {
@@ -54,19 +41,13 @@ Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
     {
         return fail(ErrorKind::InvalidConfig, std::format("unknown command: {}", tokens.front()));
     }
-    if (args.size() < spec->min_args || (spec->max_args != kUnbounded && args.size() > spec->max_args))
-    {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("{} takes {}..{} arguments, got {}", spec->name, spec->min_args,
-                                spec->max_args == kUnbounded ? std::string("*") : std::to_string(spec->max_args),
-                                args.size()));
-    }
+    StepSpec step{.id = spec->id, .args = std::move(args), .destructive_ack = destructive_ack};
     // Validated here, at parse time, rather than at execution: a chain whose
     // later step is ungated must fail before the port is opened, not after it
     // has already connected and unlocked.
-    if (spec->destructive && !destructive_ack)
+    if (const Status valid = validate_against_table(*spec, step); !valid.has_value())
     {
-        return fail(ErrorKind::InvalidConfig, std::format("{} needs --destructive", spec->name));
+        return std::unexpected(valid.error());
     }
     if (!spec->destructive && destructive_ack)
     {
@@ -74,20 +55,19 @@ Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
     }
     if (spec->id == CommandId::Send || spec->id == CommandId::SendRaw)
     {
-        const Result<bytes::Bytes> pdu = parse_hex_bytes(args);
+        const Result<bytes::Bytes> pdu = parse_hex_bytes(step.args);
         if (!pdu.has_value())
         {
             return std::unexpected(pdu.error());
         }
-        if (isKnownDestructivePdu(*pdu))
+        if (MitsuColtCan::isDestructiveRequest(*pdu))
         {
-            return fail(
-                ErrorKind::InvalidConfig,
-                std::format("{} cannot send a known destructive PDU; use the named destructive command", spec->name));
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("{} cannot bypass a named destructive command", spec->name));
         }
     }
 
-    return StepSpec{.id = spec->id, .args = std::move(args), .destructive_ack = destructive_ack};
+    return step;
 }
 
 // The flag is the template argument so each boolean option stays one table row.
@@ -128,6 +108,22 @@ Status setScript(GlobalOptions& options, std::string_view value)
     return {};
 }
 
+// The option's value argument, consumed from `args` and advancing `index` past
+// it. Empty for a flag.
+Result<std::string_view> globalOptionValue(const GlobalOptionSpec& option, std::span<const std::string_view> args,
+                                           std::size_t& index)
+{
+    if (!option.takes_value)
+    {
+        return std::string_view{};
+    }
+    if (index + 1 >= args.size())
+    {
+        return fail(ErrorKind::InvalidConfig, std::format("{} needs a value", args[index]));
+    }
+    return args[++index];
+}
+
 constexpr std::array kGlobalOptions{
     GlobalOptionSpec{.name = "--json", .apply = setFlag<&GlobalOptions::json>},
     GlobalOptionSpec{.name = "--verbose", .apply = setFlag<&GlobalOptions::verbose>},
@@ -150,7 +146,7 @@ std::span<const GlobalOptionSpec> global_option_table()
 const GlobalOptionSpec *find_global_option(std::string_view token)
 {
     const auto match = std::ranges::find(kGlobalOptions, token, &GlobalOptionSpec::name);
-    return match == kGlobalOptions.end() ? nullptr : &*match;
+    return match == kGlobalOptions.end() ? nullptr : std::to_address(match);
 }
 
 Result<std::uint32_t> parse_u32(std::string_view text)
@@ -218,16 +214,12 @@ Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> a
         }
         if (const GlobalOptionSpec *const option = find_global_option(arg); option != nullptr)
         {
-            std::string_view value;
-            if (option->takes_value)
+            const Result<std::string_view> value = globalOptionValue(*option, args, index);
+            if (!value.has_value())
             {
-                if (index + 1 >= args.size())
-                {
-                    return fail(ErrorKind::InvalidConfig, std::format("{} needs a value", arg));
-                }
-                value = args[++index];
+                return std::unexpected(value.error());
             }
-            if (const Status applied = option->apply(parsed.options, value); !applied.has_value())
+            if (const Status applied = option->apply(parsed.options, *value); !applied.has_value())
             {
                 return std::unexpected(applied.error());
             }

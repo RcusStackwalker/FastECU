@@ -52,6 +52,14 @@ build:coverage --linkopt=-fcoverage-mapping
 # but Linux's default `cc` is GCC, so force Clang explicitly for this config.
 build:coverage --repo_env=CC=clang
 build:coverage --repo_env=CXX=clang++
+# Static linking, because scripts/coverage-local.sh hands llvm-cov the cc_test
+# executables and skips shared libraries. --compilation_mode=dbg above makes
+# Bazel link cc_library targets as .so on Linux (dynamic_mode=default applies
+# to fastbuild and dbg), which put every library's coverage mapping in an
+# object llvm-cov never saw: SonarCloud's report held only headers and test
+# translation units, so new_coverage read 0.0% on any PR that touched a .cpp.
+# macOS links statically already, which is why local reports looked complete.
+build:coverage --dynamic_mode=off
 
 # Used by scripts/coverage-local.sh's BAZEL_TEST_CONFIG when wrapped with the
 # SonarCloud build wrapper: a disk-cache hit skips the compiler subprocess the
