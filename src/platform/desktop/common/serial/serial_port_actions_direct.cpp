@@ -7,7 +7,6 @@
 #include <QThread>
 
 #include <array>
-#include <iterator>
 #include <string_view>
 
 #include "src/algorithms/protocol/fixed_buffer.h"
@@ -30,6 +29,14 @@ struct J2534IoScope
         --depth;
     }
 };
+
+// Binds an SCONFIG_LIST to the array backing it, so NumOfParams cannot drift
+// from the data it counts. The cast is here rather than at each call site
+// because unsigned long is narrower than size_t on Windows.
+template <std::size_t N> SCONFIG_LIST configList(std::array<SCONFIG, N>& params)
+{
+    return {static_cast<unsigned long>(params.size()), params.data()};
+}
 } // namespace
 
 SerialPortActionsDirect::SerialPortActionsDirect(QObject *parent) : QObject(parent), serial(new QSerialPort(this))
@@ -101,11 +108,8 @@ int SerialPortActionsDirect::change_port_speed(QString portSpeed)
         {
             emit LOG_D("Adapter type is J2534...", true, true);
 
-            SCONFIG_LIST scl;
-            auto scp = std::to_array<SCONFIG>({{DATA_RATE, 0}});
-            scl.NumOfParams = 1;
-            scp[0].Value = baudrate;
-            scl.ConfigPtr = scp.data();
+            auto scp = std::to_array<SCONFIG>({{.Parameter = DATA_RATE, .Value = baudrate}});
+            SCONFIG_LIST scl = configList(scp);
             if (!j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
             {
                 emit LOG_D("Baudrate set to " + portSpeed + " OK", true, true);
@@ -1249,11 +1253,8 @@ exit:
 int SerialPortActionsDirect::set_j2534_ioctl(unsigned long parameter, int value)
 {
     // Set timeouts etc.
-    SCONFIG_LIST scl;
-    auto scp = std::to_array<SCONFIG>({{parameter, 0}});
-    scl.NumOfParams = 1;
-    scp[0].Value = value;
-    scl.ConfigPtr = scp.data();
+    auto scp = std::to_array<SCONFIG>({{.Parameter = parameter, .Value = static_cast<unsigned long>(value)}});
+    SCONFIG_LIST scl = configList(scp);
     if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
     {
         reportJ2534Error();
@@ -1513,10 +1514,8 @@ int SerialPortActionsDirect::set_j2534_can_timings()
     {
         emit LOG_D("Set iso15765 timings", true, true);
     }
-    SCONFIG_LIST scl;
-    auto scp = std::to_array<SCONFIG>({{LOOPBACK, 0}});
-    scl.NumOfParams = std::size(scp);
-    scl.ConfigPtr = scp.data();
+    auto scp = std::to_array<SCONFIG>({{.Parameter = LOOPBACK, .Value = 0}});
+    SCONFIG_LIST scl = configList(scp);
     if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
     {
         reportJ2534Error();
@@ -1663,32 +1662,35 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
 {
     if (J2534_is_denso_dsti)
     {
-        SCONFIG_LIST scl;
-        auto scp_dsti_ISO14230 =
-            std::to_array<SCONFIG>({{LOOPBACK, 0}, {P1_MAX, 0xa}, {P3_MIN, 0x14}, {P4_MIN, 0}, {DATA_RATE, 4800}});
-        auto scp_dsti_DSTI_ISO9141 = std::to_array<SCONFIG>({{DATA_RATE, 4800},
-                                                             {LOOPBACK, 0},
-                                                             {P1_MIN, 0},
-                                                             {P1_MAX, 4},
-                                                             {P2_MIN, 4},
-                                                             {P2_MAX, 0x14},
-                                                             {P3_MIN, 0x14},
-                                                             {P3_MAX, 10000},
-                                                             {P4_MIN, 0},
-                                                             {P4_MAX, 0x14}});
+        auto scp_dsti_ISO14230 = std::to_array<SCONFIG>({{.Parameter = LOOPBACK, .Value = 0},
+                                                         {.Parameter = P1_MAX, .Value = 0xa},
+                                                         {.Parameter = P3_MIN, .Value = 0x14},
+                                                         {.Parameter = P4_MIN, .Value = 0},
+                                                         {.Parameter = DATA_RATE, .Value = 4800}});
+        auto scp_dsti_DSTI_ISO9141 = std::to_array<SCONFIG>({{.Parameter = DATA_RATE, .Value = 4800},
+                                                             {.Parameter = LOOPBACK, .Value = 0},
+                                                             {.Parameter = P1_MIN, .Value = 0},
+                                                             {.Parameter = P1_MAX, .Value = 4},
+                                                             {.Parameter = P2_MIN, .Value = 4},
+                                                             {.Parameter = P2_MAX, .Value = 0x14},
+                                                             {.Parameter = P3_MIN, .Value = 0x14},
+                                                             {.Parameter = P3_MAX, .Value = 10000},
+                                                             {.Parameter = P4_MIN, .Value = 0},
+                                                             {.Parameter = P4_MAX, .Value = 0x14}});
 
         clear_tx_buffer();
         clear_rx_buffer();
 
+        // Zero-initialised, not left indeterminate: `protocol` is not
+        // necessarily one of the two cases below.
+        SCONFIG_LIST scl{};
         switch (protocol)
         {
         case ISO14230:
-            scl.ConfigPtr = scp_dsti_ISO14230.data();
-            scl.NumOfParams = std::size(scp_dsti_ISO14230);
+            scl = configList(scp_dsti_ISO14230);
             break;
         case DSTI_ISO9141:
-            scl.ConfigPtr = scp_dsti_DSTI_ISO9141.data();
-            scl.NumOfParams = std::size(scp_dsti_DSTI_ISO9141);
+            scl = configList(scp_dsti_DSTI_ISO9141);
             break;
         }
 
@@ -1701,25 +1703,22 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
     else
     {
         // Set timeouts etc.
-        SCONFIG_LIST scl;
-        auto scp =
-            std::to_array<SCONFIG>({{LOOPBACK, 0}, {P1_MAX, 0}, {P3_MIN, 0}, {P4_MIN, 0}, {PARITY, 0}, {TINIL, 0}});
-        scl.NumOfParams = 6;
-        scp[0].Value = 0;
-        scp[1].Value = 1;
-        scp[2].Value = 0;
-        scp[3].Value = 0;
-        scp[4].Value = NO_PARITY;
+        unsigned long parity = NO_PARITY;
         if (serial_port_parity == QSerialPort::OddParity)
         {
-            scp[4].Value = ODD_PARITY;
+            parity = ODD_PARITY;
         }
         else if (serial_port_parity == QSerialPort::EvenParity)
         {
-            scp[4].Value = EVEN_PARITY;
+            parity = EVEN_PARITY;
         }
-        scp[5].Value = 25;
-        scl.ConfigPtr = scp.data();
+        auto scp = std::to_array<SCONFIG>({{.Parameter = LOOPBACK, .Value = 0},
+                                           {.Parameter = P1_MAX, .Value = 1},
+                                           {.Parameter = P3_MIN, .Value = 0},
+                                           {.Parameter = P4_MIN, .Value = 0},
+                                           {.Parameter = PARITY, .Value = parity},
+                                           {.Parameter = TINIL, .Value = 25}});
+        SCONFIG_LIST scl = configList(scp);
         if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
         {
             reportJ2534Error();
