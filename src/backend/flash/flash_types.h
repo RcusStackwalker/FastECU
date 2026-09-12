@@ -122,6 +122,110 @@ using FamilyPlan =
                  SubaruTcuCvtMitsuMh8104CanPlan, SubaruDenso1n83m_1_5mCanPlan, SubaruDensoSh72531CanPlan,
                  SubaruDensoSh72543CanDieselPlan, SubaruDenso1n83m_4mCanPlan>;
 
+// The FlashFamily tag and TransportKind each plan alternative belongs to.
+//
+// Deliberately has no primary definition: a new alternative added to
+// FamilyPlan above must specialize this, right here, next to the variant it
+// classifies, or every use fails to compile. That is stricter than
+// family_requires_kernel_v below, which has a safe default (true) to fall
+// back on -- there is no safe default family or transport to guess, and a
+// wrong guess would let a plan reach the executor of a different family.
+//
+// validate_and_build consumes this instead of a hand-written switch over
+// FlashFamily, so adding a family is a single-file edit here and cannot
+// silently bind the wrong variant to a family.
+template <typename PlanT> struct FamilyTraits;
+
+template <> struct FamilyTraits<DensoSh705xEepromKlinePlan>
+{
+    static constexpr FlashFamily family = FlashFamily::DensoSh705xEepromKline;
+    static constexpr TransportKind transport = TransportKind::Kline;
+};
+
+template <> struct FamilyTraits<DensoSh705xEepromCanPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::DensoSh705xEepromCan;
+    static constexpr TransportKind transport = TransportKind::CanIso15765;
+};
+
+template <> struct FamilyTraits<MitsuColtM32rCanPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::MitsuColtM32rCan;
+    static constexpr TransportKind transport = TransportKind::CanIso15765;
+};
+
+template <> struct FamilyTraits<SubaruMitsuM32rKlinePlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruMitsuM32rKline;
+    static constexpr TransportKind transport = TransportKind::Kline;
+};
+
+template <> struct FamilyTraits<SubaruHitachiM32rKlinePlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruHitachiM32rKline;
+    static constexpr TransportKind transport = TransportKind::Kline;
+};
+
+template <> struct FamilyTraits<SubaruDensoMc68hc16y5_02Plan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruDensoMc68hc16y5_02;
+    static constexpr TransportKind transport = TransportKind::Kline;
+};
+
+template <> struct FamilyTraits<SubaruDensoSh7055_02Plan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruDensoSh7055_02;
+    static constexpr TransportKind transport = TransportKind::Kline;
+};
+
+template <> struct FamilyTraits<SubaruHitachiM32rCanPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruHitachiM32rCan;
+    static constexpr TransportKind transport = TransportKind::CanIso15765;
+};
+
+template <> struct FamilyTraits<SubaruTcuCvtHitachiM32rCanPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruTcuCvtHitachiM32rCan;
+    static constexpr TransportKind transport = TransportKind::CanIso15765;
+};
+
+template <> struct FamilyTraits<SubaruTcuCvtMitsuMh8111CanPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruTcuCvtMitsuMh8111Can;
+    static constexpr TransportKind transport = TransportKind::CanIso15765;
+};
+
+template <> struct FamilyTraits<SubaruTcuCvtMitsuMh8104CanPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruTcuCvtMitsuMh8104Can;
+    static constexpr TransportKind transport = TransportKind::CanIso15765;
+};
+
+template <> struct FamilyTraits<SubaruDenso1n83m_1_5mCanPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruDenso1n83m_1_5mCan;
+    static constexpr TransportKind transport = TransportKind::CanIso15765;
+};
+
+template <> struct FamilyTraits<SubaruDensoSh72531CanPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruDensoSh72531Can;
+    static constexpr TransportKind transport = TransportKind::CanIso15765;
+};
+
+template <> struct FamilyTraits<SubaruDensoSh72543CanDieselPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruDensoSh72543CanDiesel;
+    static constexpr TransportKind transport = TransportKind::CanIso15765;
+};
+
+template <> struct FamilyTraits<SubaruDenso1n83m_4mCanPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruDenso1n83m_4mCan;
+    static constexpr TransportKind transport = TransportKind::CanIso15765;
+};
+
 // Whether validate_and_build requires FlashPlanFields::kernel to be set for
 // this family's plan type. Defaults true (fail-closed): a family that skips
 // the kernel must opt out explicitly, right here, next to the variant it

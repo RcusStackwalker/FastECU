@@ -65,9 +65,9 @@ struct FamilyCase
     std::string_view id;
 };
 
-const std::array<FamilyCase, 7>& family_cases()
+const std::array<FamilyCase, 15>& family_cases()
 {
-    static const std::array<FamilyCase, 7> cases{{
+    static const std::array<FamilyCase, 15> cases{{
         {FlashFamily::DensoSh705xEepromKline, TransportKind::Kline,
          DensoSh705xEepromKlinePlan{.mode = EepromReadMode::Mode2,
                                     .security = DensoSecurityVariant::Stock,
@@ -119,6 +119,53 @@ const std::array<FamilyCase, 7>& family_cases()
          "SubaruDensoMc68hc16y5_02"},
         {FlashFamily::SubaruDensoSh7055_02, TransportKind::Kline,
          SubaruDensoSh7055_02Plan{.tester_id = 0xf0, .target_id = 0x10, .read_ecu_id = true}, "SubaruDensoSh7055_02"},
+        {FlashFamily::SubaruHitachiM32rCan, TransportKind::CanIso15765,
+         SubaruHitachiM32rCanPlan{.request_id = 0x7e0, .response_id = 0x7e8, .bitrate = 500000, .extended_id = false},
+         "SubaruHitachiM32rCan"},
+        {FlashFamily::SubaruTcuCvtHitachiM32rCan, TransportKind::CanIso15765,
+         SubaruTcuCvtHitachiM32rCanPlan{
+             .request_id = 0x7e1, .response_id = 0x7e9, .bitrate = 500000, .extended_id = false},
+         "SubaruTcuCvtHitachiM32rCan"},
+        {FlashFamily::SubaruTcuCvtMitsuMh8111Can, TransportKind::CanIso15765,
+         SubaruTcuCvtMitsuMh8111CanPlan{
+             .request_id = 0x7e1, .response_id = 0x7e9, .bitrate = 500000, .extended_id = false},
+         "SubaruTcuCvtMitsuMh8111Can"},
+        {FlashFamily::SubaruTcuCvtMitsuMh8104Can, TransportKind::CanIso15765,
+         SubaruTcuCvtMitsuMh8104CanPlan{
+             .request_id = 0x7e1, .response_id = 0x7e9, .bitrate = 500000, .extended_id = false},
+         "SubaruTcuCvtMitsuMh8104Can"},
+        {FlashFamily::SubaruDenso1n83m_1_5mCan, TransportKind::CanIso15765,
+         SubaruDenso1n83m_1_5mCanPlan{.request_id = 0x7e0,
+                                      .response_id = 0x7e8,
+                                      .bitrate = 500000,
+                                      .extended_id = false,
+                                      .lead_pad_len = 0x10000,
+                                      .tail_pad_len = 0x100},
+         "SubaruDenso1n83m_1_5mCan"},
+        {FlashFamily::SubaruDensoSh72531Can, TransportKind::CanIso15765,
+         SubaruDensoSh72531CanPlan{.request_id = 0x7e0,
+                                   .response_id = 0x7e8,
+                                   .bitrate = 500000,
+                                   .extended_id = false,
+                                   .lead_pad_len = 0x8000,
+                                   .tail_pad_len = 0x100},
+         "SubaruDensoSh72531Can"},
+        {FlashFamily::SubaruDensoSh72543CanDiesel, TransportKind::CanIso15765,
+         SubaruDensoSh72543CanDieselPlan{.request_id = 0x7e0,
+                                         .response_id = 0x7e8,
+                                         .bitrate = 500000,
+                                         .extended_id = false,
+                                         .lead_pad_len = 0x8000,
+                                         .tail_pad_len = 0x100},
+         "SubaruDensoSh72543CanDiesel"},
+        {FlashFamily::SubaruDenso1n83m_4mCan, TransportKind::CanIso15765,
+         SubaruDenso1n83m_4mCanPlan{.request_id = 0x7e0,
+                                    .response_id = 0x7e8,
+                                    .bitrate = 500000,
+                                    .extended_id = false,
+                                    .lead_pad_len = 0x10000,
+                                    .tail_pad_len = 0x100},
+         "SubaruDenso1n83m_4mCan"},
     }};
     return cases;
 }
