@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <memory>
 
@@ -72,8 +73,8 @@ class J2534
     bool checkDLL();
     int is_valid_sconfig_param(SCONFIG s);
 
-    char lastError[256];
-    char dllName[256];
+    std::array<char, 256> lastError;
+    std::array<char, 256> dllName;
     bool isLibraryInitialized;
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)

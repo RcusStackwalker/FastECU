@@ -2,6 +2,7 @@
 
 #include "J2534_tactrix_win.h"
 
+#include <array>
 #include <cstdint>
 #include <windows.h>
 
@@ -36,7 +37,7 @@ struct FrameHeader
 struct PassThruOpenRequest
 {
     bool hasName;
-    char name[256];
+    std::array<char, 256> name;
 };
 struct PassThruOpenResponse
 {
@@ -166,9 +167,9 @@ struct PassThruReadVersionRequest
 struct PassThruReadVersionResponse
 {
     long result;
-    char apiVersion[80];
-    char dllVersion[80];
-    char firmwareVersion[80];
+    std::array<char, 80> apiVersion;
+    std::array<char, 80> dllVersion;
+    std::array<char, 80> firmwareVersion;
 };
 
 struct PassThruGetLastErrorRequest
@@ -178,7 +179,7 @@ struct PassThruGetLastErrorRequest
 struct PassThruGetLastErrorResponse
 {
     long result;
-    char errorDescription[80];
+    std::array<char, 80> errorDescription;
 };
 
 // PassThruIoctl: only the closed set of IoctlIDs this codebase actually issues
@@ -189,17 +190,17 @@ struct PassThruIoctlRequest
 {
     unsigned long channelId;
     unsigned long ioctlId;
-    unsigned long numConfigParams; // SET_CONFIG only
-    SCONFIG configParams[16];      // SET_CONFIG only; this codebase never sets more than a handful
-    unsigned long inputByteCount;  // FIVE_BAUD_INIT / FAST_INIT only
-    unsigned char inputBytes[64];  // FIVE_BAUD_INIT / FAST_INIT only
+    unsigned long numConfigParams;            // SET_CONFIG only
+    std::array<SCONFIG, 16> configParams;     // SET_CONFIG only; this codebase never sets more than a handful
+    unsigned long inputByteCount;             // FIVE_BAUD_INIT / FAST_INIT only
+    std::array<unsigned char, 64> inputBytes; // FIVE_BAUD_INIT / FAST_INIT only
 };
 struct PassThruIoctlResponse
 {
     long result;
-    unsigned long outputByteCount; // FIVE_BAUD_INIT / FAST_INIT only
-    unsigned char outputBytes[64]; // FIVE_BAUD_INIT / FAST_INIT only
-    unsigned long vbatt;           // READ_VBATT / READ_PROG_VOLTAGE only
+    unsigned long outputByteCount;             // FIVE_BAUD_INIT / FAST_INIT only
+    std::array<unsigned char, 64> outputBytes; // FIVE_BAUD_INIT / FAST_INIT only
+    unsigned long vbatt;                       // READ_VBATT / READ_PROG_VOLTAGE only
 };
 
 bool writeFrame(HANDLE pipe, Function function, const void *payload, std::uint32_t payloadSize);

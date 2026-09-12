@@ -3,6 +3,8 @@
 #include <QRandomGenerator>
 #include "src/algorithms/protocol/qt_bytes.h"
 
+#include <array>
+
 GetKeyOperationsSubaru::GetKeyOperationsSubaru(QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
@@ -84,14 +86,15 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     //     0x3b61, 0x8bef, 0x9e51, 0x1075
     // };
 
-    int inBits[][2] = {{20, 21}, {24, 25}, {28, 29}, {32, 17}};
+    static constexpr auto inBits = std::to_array<std::array<int, 2>>({{20, 21}, {24, 25}, {28, 29}, {32, 17}});
 
-    int outBits[][2] = {{11, 8}, {15, 12}, {3, 16}, {7, 4}};
+    static constexpr auto outBits = std::to_array<std::array<int, 2>>({{11, 8}, {15, 12}, {3, 16}, {7, 4}});
 
     uint32_t plainText, cipherText;
     uint16_t x2Text, x3Text, k4, k1, k2, k3, x1, x4, fOutcome;
-    int counter[4][0x20], nybble, subkey, j, k, total;
-    bool alreadyExists[0x20000 / 4];
+    std::array<std::array<int, 0x20>, 4> counter;
+    int nybble, subkey, j, k, total;
+    std::array<bool, 0x20000 / 4> alreadyExists;
 
     for (nybble = 0; nybble < 4; nybble++)
     {
@@ -179,7 +182,7 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
         // true);
     }
 
-    int order[4][0x20];
+    std::array<std::array<int, 0x20>, 4> order;
     for (nybble = 0; nybble < 4; nybble++)
     {
         for (subkey = 0; subkey < 0x20; subkey++)
@@ -485,9 +488,9 @@ uint16_t GetKeyOperationsSubaru::fFunction(uint16_t wordInput, uint16_t keyInput
 
 uint16_t GetKeyOperationsSubaru::sBox(uint16_t sBoxInput)
 {
-    const uint8_t indextransformation[] = {0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
-                                           0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
-                                           0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+    static constexpr auto indextransformation =
+        std::to_array<uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
+                                0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
 
     return indextransformation[sBoxInput];
 }

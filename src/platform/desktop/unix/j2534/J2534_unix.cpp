@@ -3,6 +3,7 @@
 #include <QThread>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cstring>
 #include <format>
@@ -549,12 +550,12 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
 
                     if (received.at(2) == '5')
                     {
-                        char data[4];
+                        std::array<char, 4> data{};
                         data[0] = (uint8_t)received.at(8);
                         data[1] = (uint8_t)received.at(7);
                         data[2] = (uint8_t)received.at(6);
                         data[3] = (uint8_t)received.at(5);
-                        pMsg->Timestamp = parse_ts(data);
+                        pMsg->Timestamp = parse_ts(data.data());
                         pMsg->DataSize = msg_index;
                         msg_cnt++;
                         stop_reading = true;
@@ -586,12 +587,12 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                             }
                         }
                     }
-                    char data[4];
+                    std::array<char, 4> data{};
                     data[0] = (uint8_t)received.at(8);
                     data[1] = (uint8_t)received.at(7);
                     data[2] = (uint8_t)received.at(6);
                     data[3] = (uint8_t)received.at(5);
-                    pMsg->Timestamp = parse_ts(data);
+                    pMsg->Timestamp = parse_ts(data.data());
                     pMsg->DataSize = msg_index;
                     msg_cnt++;
 

@@ -1,6 +1,8 @@
 #include "src/platform/desktop/windows/j2534/j2534_bridge_protocol.h"
 
+#include <array>
 #include <cassert>
+#include <cstdint>
 #include <cstdio>
 #include <windows.h>
 
@@ -41,8 +43,8 @@ static void test_read_fails_on_closed_pipe()
     CloseHandle(writeEnd); // simulate the helper process exiting mid-call
 
     FrameHeader header{};
-    char buf[16];
-    bool read = readFrame(readEnd, header, buf, sizeof(buf));
+    std::array<char, 16> buf{};
+    bool read = readFrame(readEnd, header, buf.data(), static_cast<std::uint32_t>(buf.size()));
     assert(!read && "readFrame should fail on a broken pipe");
 
     CloseHandle(readEnd);

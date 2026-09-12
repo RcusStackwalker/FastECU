@@ -4,6 +4,7 @@
 #include <QSemaphore>
 #include <QSocketNotifier>
 #include <QThread>
+#include <array>
 #include <atomic>
 #if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>
@@ -39,13 +40,13 @@ class MockOpenPort : public QObject
   private slots:
     void onReadable()
     {
-        char buf[256];
-        const auto n = ::read(fd, buf, sizeof(buf));
+        std::array<char, 256> buf{};
+        const auto n = ::read(fd, buf.data(), buf.size());
         if (n <= 0)
         {
             return;
         }
-        rx.append(buf, static_cast<int>(n));
+        rx.append(buf.data(), static_cast<int>(n));
 
         int nl;
         while ((nl = rx.indexOf('\n')) >= 0)

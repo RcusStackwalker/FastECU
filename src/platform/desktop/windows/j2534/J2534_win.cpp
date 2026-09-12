@@ -1,3 +1,4 @@
+#include <array>
 #include <string.h>
 #include "src/platform/desktop/windows/j2534/J2534_win.h"
 #include "src/platform/desktop/windows/j2534/pe_bitness.h"
@@ -14,20 +15,20 @@ J2534::J2534()
     isLibraryInitialized = false;
     // default to the Openport 2.0 J2534 DLL
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    strcpy(dllName, "j2534.dll");
+    strcpy(dllName.data(), "j2534.dll");
 #else
-    strcpy(dllName, "op20pt32.dylib");
+    strcpy(dllName.data(), "op20pt32.dylib");
 #endif
 }
 
 void J2534::setDllName(const char *name)
 {
-    strcpy(dllName, name);
+    strcpy(dllName.data(), name);
 }
 
 void J2534::getDllName(char *name)
 {
-    strcpy(name, dllName);
+    strcpy(name, dllName.data());
 }
 
 void J2534::disable()
@@ -46,7 +47,7 @@ void J2534::disable()
 
 char *J2534::getLastError()
 {
-    return lastError;
+    return lastError.data();
 }
 
 bool J2534::valid()
@@ -139,7 +140,7 @@ long J2534::LoadJ2534DLL(const char *szDLL)
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
     if (!(hDLL = LoadLibraryA(szDLL)))
     {
-        strcpy(lastError, "error loading J2534 DLL");
+        strcpy(lastError.data(), "error loading J2534 DLL");
         return false;
     }
     else if (!getPTfns())
@@ -147,7 +148,7 @@ long J2534::LoadJ2534DLL(const char *szDLL)
         // assume unusable if we don't have everything we need
         FreeLibrary(hDLL);
         hDLL = nullptr;
-        strcpy(lastError, "error loading J2534 DLL function pointers");
+        strcpy(lastError.data(), "error loading J2534 DLL function pointers");
         return false;
     }
 #else
@@ -170,8 +171,8 @@ long J2534::LoadJ2534DLL(const char *szDLL)
 
     if (!(hDLL = dlopen(libPath, RTLD_LOCAL|RTLD_LAZY)))
     {
-        strcpy(lastError, "error loading ");
-        strcat(lastError, libPath);
+        strcpy(lastError.data(), "error loading ");
+        strcat(lastError.data(), libPath);
         chdir(oldPath);
         return false;
     }
@@ -180,7 +181,7 @@ long J2534::LoadJ2534DLL(const char *szDLL)
         // assume unusable if we don't have everything we need
         dlclose(hDLL);
         hDLL = nullptr;
-        strcpy(lastError, "error loading J2534 dylib function pointers");
+        strcpy(lastError.data(), "error loading J2534 dylib function pointers");
         chdir(oldPath);
         return false;
     }
@@ -199,20 +200,20 @@ bool J2534::checkDLL()
         return true;
 
     bool is32Bit = false;
-    if (isDll32Bit(dllName, is32Bit) && is32Bit)
+    if (isDll32Bit(dllName.data(), is32Bit) && is32Bit)
     {
-        auto client = std::make_unique<J2534BridgeClient>("j2534_bridge_host.exe", dllName);
+        auto client = std::make_unique<J2534BridgeClient>("j2534_bridge_host.exe", dllName.data());
         if (client->start())
         {
             bridgeClient = std::move(client);
             useBridge = true;
             return true;
         }
-        strcpy(lastError, "error starting 32-bit J2534 bridge helper");
+        strcpy(lastError.data(), "error starting 32-bit J2534 bridge helper");
         return false;
     }
 
-    LoadJ2534DLL(dllName);
+    LoadJ2534DLL(dllName.data());
     return (hDLL != nullptr);
 }
 

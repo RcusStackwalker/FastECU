@@ -1,5 +1,6 @@
 #include "src/ui/desktop/definition/definition_header_form.h"
 
+#include <array>
 #include <memory>
 
 #include <QApplication>
@@ -30,9 +31,9 @@ class DefinitionFormEnvironment final : public ::testing::Environment
     void SetUp() override
     {
         static int argc = 1;
-        static char program[] = "definition_header_form_test";
-        static char *argv[] = {program, nullptr};
-        app_ = std::make_unique<QApplication>(argc, argv);
+        static auto program = std::to_array("definition_header_form_test");
+        static auto argv = std::to_array<char *>({program.data(), nullptr});
+        app_ = std::make_unique<QApplication>(argc, argv.data());
     }
 
   private:

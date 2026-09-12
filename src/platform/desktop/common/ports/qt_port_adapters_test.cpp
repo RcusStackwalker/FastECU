@@ -10,6 +10,7 @@
 #include <QString>
 #include <QTemporaryDir>
 #include <gtest/gtest.h>
+#include <array>
 #include <memory>
 #include <vector>
 
@@ -28,9 +29,9 @@ class QtPortEnvironment final : public ::testing::Environment
     void SetUp() override
     {
         static int argc = 1;
-        static char program[] = "qt_port_adapters_test";
-        static char *argv[] = {program, nullptr};
-        app_ = std::make_unique<QCoreApplication>(argc, argv);
+        static auto program = std::to_array("qt_port_adapters_test");
+        static auto argv = std::to_array<char *>({program.data(), nullptr});
+        app_ = std::make_unique<QCoreApplication>(argc, argv.data());
         QCoreApplication::setOrganizationName("FastECU-test");
         QCoreApplication::setApplicationName("qt-port-adapters-test");
         QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settings_dir_.path());

@@ -1,4 +1,5 @@
 
+#include <array>
 #include <cstdio>
 
 #include <QCoreApplication>
@@ -39,14 +40,14 @@ void TestDirectBackendPty::initTestCase()
 int TestDirectBackendPty::openPtyBackend(SerialPortActionsDirect& backend)
 {
     int master = -1, slave = -1;
-    char name[256] = {0};
-    if (openpty(&master, &slave, name, nullptr, nullptr) != 0)
+    std::array<char, 256> name{};
+    if (openpty(&master, &slave, name.data(), nullptr, nullptr) != 0)
     {
         return -1;
     }
     backend.serial_port_prefix_linux = "";
-    backend.serial_port_list = QStringList() << QString::fromLocal8Bit(name);
-    if (backend.open_serial_port() != QString::fromLocal8Bit(name))
+    backend.serial_port_list = QStringList() << QString::fromLocal8Bit(name.data());
+    if (backend.open_serial_port() != QString::fromLocal8Bit(name.data()))
     {
         return -1;
     }

@@ -355,7 +355,7 @@ TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
         std::uint32_t interval{1};
         std::uint32_t index{0};
     };
-    const Case cases[] = {
+    static constexpr auto cases = std::to_array<Case>({
         {definition::StorageType::Uint8, "big", 0xAB},
         {definition::StorageType::Uint16, "big", 0x1234},
         {definition::StorageType::Uint16, "little", 0x1234},
@@ -375,7 +375,7 @@ TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
         // read_raw_element(..., index=1) reads from, and the round trip would
         // fail.
         {definition::StorageType::Uint16, "big", 0x1234, /*start_position=*/2, /*interval=*/3, /*index=*/1},
-    };
+    });
 
     for (const auto& c : cases)
     {
@@ -634,7 +634,7 @@ TEST(ApplyIncrement, AddsTheCoarseStepToEverySelectedCell)
     spec.x_size = 2;
     spec.y_size = 1;
 
-    const std::string_view cells[] = {"10", "20"};
+    static constexpr auto cells = std::to_array<std::string_view>({"10", "20"});
     const auto patch =
         apply_increment(rom, spec, /*x_size=*/2, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1},
                         IncrementStep::CoarseUp, 15);
@@ -663,7 +663,7 @@ TEST(ApplyIncrement, ClampsToTheDefinitionMaximum)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    const std::string_view cells[] = {"250"};
+    static constexpr auto cells = std::to_array<std::string_view>({"250"});
     const auto patch =
         apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseUp, 15);
@@ -689,7 +689,7 @@ TEST(ApplyIncrement, ReportsInvalidConfigWhenTheIncrementIsZero)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    const std::string_view cells[] = {"0"};
+    static constexpr auto cells = std::to_array<std::string_view>({"0"});
     const auto patch =
         apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseUp, 15);
@@ -719,7 +719,7 @@ TEST(ApplyIncrement, SaturationGuardLeavesUint8AtItsPreviousValuePastMax)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    const std::string_view cells[] = {"250"};
+    static constexpr auto cells = std::to_array<std::string_view>({"250"});
     const auto patch =
         apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseUp, 15);
@@ -745,7 +745,7 @@ TEST(ApplyIncrement, SaturationGuardLeavesInt8AtItsPreviousValueCrossingSignBoun
     spec.x_size = 1;
     spec.y_size = 1;
 
-    const std::string_view cells[] = {"100"};
+    static constexpr auto cells = std::to_array<std::string_view>({"100"});
     const auto patch =
         apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseUp, 15);
@@ -773,7 +773,7 @@ TEST(ApplyIncrement, SaturationGuardLeavesInt16AtItsPreviousValueCrossingSignBou
     spec.x_size = 1;
     spec.y_size = 1;
 
-    const std::string_view cells[] = {"30000"};
+    static constexpr auto cells = std::to_array<std::string_view>({"30000"});
     const auto patch =
         apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseUp, 15);
@@ -799,7 +799,7 @@ TEST(ApplyIncrement, SaturationGuardLeavesUnsignedStorageAtItsPreviousValueOnANe
     spec.x_size = 1;
     spec.y_size = 1;
 
-    const std::string_view cells[] = {"0"};
+    static constexpr auto cells = std::to_array<std::string_view>({"0"});
     const auto patch =
         apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseDown, 15);
@@ -828,7 +828,7 @@ TEST(ApplyIncrement, RetriesUntilTheEncodedValueActuallyChanges)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    const std::string_view cells[] = {"10"};
+    static constexpr auto cells = std::to_array<std::string_view>({"10"});
     const auto patch =
         apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::FineUp, 15);
@@ -865,7 +865,7 @@ TEST(ApplyIncrement, SignWrapHeuristicStillRevertsAnInRangeNegativeToPositiveInc
     spec.coarse_increment = 5.0;
     spec.fine_increment = 1.0;
 
-    const std::string_view cells[] = {"-1"};
+    static constexpr auto cells = std::to_array<std::string_view>({"-1"});
     const auto patch =
         apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseUp, 15);
@@ -890,7 +890,7 @@ TEST(ApplyIncrement, ReportsInvalidConfigWhenTheRetryBoundIsExhausted)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    const std::string_view cells[] = {"0"};
+    static constexpr auto cells = std::to_array<std::string_view>({"0"});
     const auto patch =
         apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseUp, 15);
@@ -906,9 +906,13 @@ TEST(ApplySetExpression, AppliesEachOperatorToEveryCell)
         std::string_view input;
         std::string_view expected;
     };
-    const Case cases[] = {
-        {"+5", "15"}, {"-5", "5"}, {"*2", "20"}, {"/2", "5"}, {"42", "42"},
-    };
+    static constexpr auto cases = std::to_array<Case>({
+        {"+5", "15"},
+        {"-5", "5"},
+        {"*2", "20"},
+        {"/2", "5"},
+        {"42", "42"},
+    });
 
     for (const auto& c : cases)
     {
@@ -924,7 +928,7 @@ TEST(ApplySetExpression, AppliesEachOperatorToEveryCell)
         spec.x_size = 1;
         spec.y_size = 1;
 
-        const std::string_view cells[] = {"10"};
+        static constexpr auto cells = std::to_array<std::string_view>({"10"});
         const auto patch =
             apply_set_expression(rom, spec, /*x_size=*/1, cells,
                                  {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, c.input, 15);
@@ -948,7 +952,7 @@ TEST(ApplySetExpression, ReportsInvalidConfigOnDivisionByZero)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    const std::string_view cells[] = {"10"};
+    static constexpr auto cells = std::to_array<std::string_view>({"10"});
     const auto patch = apply_set_expression(rom, spec, /*x_size=*/1, cells,
                                             {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "/0", 15);
 
@@ -972,7 +976,7 @@ TEST(ApplySetExpression, RejectsAValueThatWouldOverflowTheStorageType)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    const std::string_view cells[] = {"10"};
+    static constexpr auto cells = std::to_array<std::string_view>({"10"});
     const auto patch = apply_set_expression(rom, spec, /*x_size=*/1, cells,
                                             {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "300", 15);
 
@@ -998,7 +1002,7 @@ TEST(ApplySetExpression, AllowsAnInRangeNegativeToPositiveEditOnSignedStorage)
     std::vector<std::uint8_t> rom(0x40, 0x00);
     rom[0x10] = 0xFB; // -5 as int8.
 
-    const std::string_view cells[] = {"-5"};
+    static constexpr auto cells = std::to_array<std::string_view>({"-5"});
     const auto patch = apply_set_expression(rom, int8_spec(1, 1), /*x_size=*/1, cells,
                                             {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "3", 15);
 
@@ -1015,7 +1019,7 @@ TEST(ApplySetExpression, RejectsAValueOutsideTheSignedStorageRange)
     std::vector<std::uint8_t> rom(0x40, 0x00);
     rom[0x10] = 0xFB; // -5 as int8.
 
-    const std::string_view cells[] = {"-5"};
+    static constexpr auto cells = std::to_array<std::string_view>({"-5"});
     const auto patch = apply_set_expression(rom, int8_spec(1, 1), /*x_size=*/1, cells,
                                             {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "300", 15);
 
@@ -1046,7 +1050,7 @@ TEST(ApplySetExpression, StillEncodesAtThePrecisionSixLegacyFidelityContract)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    const std::string_view cells[] = {"0"};
+    static constexpr auto cells = std::to_array<std::string_view>({"0"});
     const auto patch = apply_set_expression(rom, spec, /*x_size=*/1, cells,
                                             {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "1.6",
                                             /*float_precision=*/1);
@@ -1073,7 +1077,7 @@ MapElementSpec linear_uint8_spec(std::uint32_t x_size, std::uint32_t y_size)
 TEST(ApplyInterpolation, HorizontalFillsEachRowLinearlyBetweenItsEndpoints)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    const std::string_view cells[] = {"0", "99", "99", "30"};
+    static constexpr auto cells = std::to_array<std::string_view>({"0", "99", "99", "30"});
 
     const auto patch = apply_interpolation(rom, linear_uint8_spec(4, 1), /*x_size=*/4, cells,
                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 3},
@@ -1111,7 +1115,7 @@ TEST(ApplyInterpolation, HandlesASelectionWiderThanTheLegacyFixedArray)
 TEST(ApplyInterpolation, VerticalFillsEachColumnLinearlyBetweenItsEndpoints)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    const std::string_view cells[] = {"0", "99", "99", "30"};
+    static constexpr auto cells = std::to_array<std::string_view>({"0", "99", "99", "30"});
 
     const auto patch = apply_interpolation(rom, linear_uint8_spec(1, 4), /*x_size=*/1, cells,
                                            {.first_row = 0, .first_col = 0, .last_row = 3, .last_col = 0},
@@ -1137,11 +1141,11 @@ TEST(ApplyInterpolation, BidirectionalCentreCellIsTheBilinearResultOfTheFourCorn
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
     // clang-format off
-    const std::string_view cells[] = {
+    static constexpr auto cells = std::to_array<std::string_view>({
         "0",   "0", "20",
         "0",   "0",  "0",
         "100", "0", "200",
-    };
+    });
     // clang-format on
 
     const auto patch = apply_interpolation(rom, linear_uint8_spec(3, 3), /*x_size=*/3, cells,
@@ -1163,7 +1167,7 @@ TEST(ApplyInterpolation, BidirectionalCentreCellIsTheBilinearResultOfTheFourCorn
 TEST(ApplyInterpolation, ClampsAnInterpolatedValueToTheDefinitionMaximum)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    const std::string_view cells[] = {"0", "0", "200"};
+    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "200"});
 
     MapElementSpec spec = linear_uint8_spec(3, 1);
     spec.max_value = "100";
@@ -1185,7 +1189,7 @@ TEST(ApplyInterpolation, ClampsAnInterpolatedValueToTheDefinitionMaximum)
 TEST(ApplyInterpolation, RejectsAnInterpolatedValueThatWouldOverflowTheStorageType)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    const std::string_view cells[] = {"0", "0", "300"};
+    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "300"});
 
     const auto patch = apply_interpolation(rom, linear_uint8_spec(3, 1), /*x_size=*/3, cells,
                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
@@ -1211,7 +1215,7 @@ TEST(ApplyInterpolation, AllowsAnInRangeNegativeToPositiveSweepOnSignedStorage)
     rom[0x11] = 0xFB; // -5
     rom[0x12] = 0xFB; // -5
 
-    const std::string_view cells[] = {"-10", "0", "10"};
+    static constexpr auto cells = std::to_array<std::string_view>({"-10", "0", "10"});
 
     const auto patch = apply_interpolation(rom, int8_spec(3, 1), /*x_size=*/3, cells,
                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
@@ -1234,7 +1238,7 @@ TEST(ApplyInterpolation, RejectsAnInterpolatedValueOutsideTheSignedStorageRange)
     rom[0x10] = 0xF6; // -10
     rom[0x11] = 0xFB; // -5
 
-    const std::string_view cells[] = {"-10", "300"};
+    static constexpr auto cells = std::to_array<std::string_view>({"-10", "300"});
 
     const auto patch = apply_interpolation(rom, int8_spec(2, 1), /*x_size=*/2, cells,
                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1},
@@ -1255,7 +1259,7 @@ TEST(ApplyInterpolation, RejectsAnInterpolatedValueOutsideTheSignedStorageRange)
 TEST(ApplyInterpolation, StillEncodesAtThePrecisionSixLegacyFidelityContract)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    const std::string_view cells[] = {"0", "0", "0", "10"};
+    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "10"});
 
     MapElementSpec spec;
     spec.address = 0x10;
@@ -1281,8 +1285,8 @@ TEST(ApplyInterpolation, StillEncodesAtThePrecisionSixLegacyFidelityContract)
 TEST(ApplyPaste, WritesTheClipboardBlockAnchoredAtTheSelectionCorner)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    const std::string_view cells[] = {"0", "0", "0", "0"};
-    const std::vector<std::string_view> rows[] = {{"11", "22"}};
+    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "0"});
+    const auto rows = std::to_array<std::vector<std::string_view>>({{"11", "22"}});
 
     const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1}, rows, 15);
@@ -1296,12 +1300,12 @@ TEST(ApplyPaste, WritesTheClipboardBlockAnchoredAtTheSelectionCorner)
 TEST(ApplyPaste, DropsCellsThatFallOutsideTheMap)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    const std::string_view cells[] = {"0", "0", "0", "0"};
+    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "0"});
     // Three columns pasted into a two-column map: legacy silently drops the
     // third rather than reporting. Exercises the x_size half of the
     // two-dimension bounds check; DropsRowsThatFallOutsideTheMap below
     // exercises the y_size half.
-    const std::vector<std::string_view> rows[] = {{"11", "22", "33"}};
+    const auto rows = std::to_array<std::vector<std::string_view>>({{"11", "22", "33"}});
 
     const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1}, rows, 15);
@@ -1320,9 +1324,9 @@ TEST(ApplyPaste, DropsCellsThatFallOutsideTheMap)
 TEST(ApplyPaste, DropsRowsThatFallOutsideTheMap)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    const std::string_view cells[] = {"0", "0", "0", "0"};
+    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "0"});
     // Three rows pasted into a two-row map.
-    const std::vector<std::string_view> rows[] = {{"11"}, {"22"}, {"33"}};
+    const auto rows = std::to_array<std::vector<std::string_view>>({{"11"}, {"22"}, {"33"}});
 
     const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
                                    {.first_row = 0, .first_col = 0, .last_row = 2, .last_col = 0}, rows, 15);
@@ -1340,8 +1344,8 @@ TEST(ApplyPaste, DropsRowsThatFallOutsideTheMap)
 TEST(ApplyPaste, ClampsAPastedValueToTheDefinitionMaximum)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    const std::string_view cells[] = {"0", "0", "0", "0"};
-    const std::vector<std::string_view> rows[] = {{"9999"}};
+    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "0"});
+    const auto rows = std::to_array<std::vector<std::string_view>>({{"9999"}});
 
     MapElementSpec spec = linear_uint8_spec(2, 2);
     spec.min_value = "0";
@@ -1364,8 +1368,8 @@ TEST(ApplyPaste, ClampsAPastedValueToTheDefinitionMaximum)
 TEST(ApplyPaste, RejectsAPastedValueThatWouldOverflowTheStorageType)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    const std::string_view cells[] = {"0", "0", "0", "0"};
-    const std::vector<std::string_view> rows[] = {{"300"}};
+    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "0"});
+    const auto rows = std::to_array<std::vector<std::string_view>>({{"300"}});
 
     const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
@@ -1384,8 +1388,8 @@ TEST(ApplyPaste, AllowsAnInRangeNegativeToPositivePasteOnSignedStorage)
     std::vector<std::uint8_t> rom(0x40, 0x00);
     rom[0x10] = 0xFB; // -5 as int8.
 
-    const std::string_view cells[] = {"-5"};
-    const std::vector<std::string_view> rows[] = {{"3"}};
+    static constexpr auto cells = std::to_array<std::string_view>({"-5"});
+    const auto rows = std::to_array<std::vector<std::string_view>>({{"3"}});
 
     const auto patch = apply_paste(rom, int8_spec(1, 1), /*x_size=*/1, /*y_size=*/1, cells,
                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
@@ -1404,8 +1408,8 @@ TEST(ApplyPaste, RejectsAPastedValueOutsideTheSignedStorageRange)
     std::vector<std::uint8_t> rom(0x40, 0x00);
     rom[0x10] = 0xFB; // -5 as int8.
 
-    const std::string_view cells[] = {"-5"};
-    const std::vector<std::string_view> rows[] = {{"300"}};
+    static constexpr auto cells = std::to_array<std::string_view>({"-5"});
+    const auto rows = std::to_array<std::vector<std::string_view>>({{"300"}});
 
     const auto patch = apply_paste(rom, int8_spec(1, 1), /*x_size=*/1, /*y_size=*/1, cells,
                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
@@ -1423,8 +1427,8 @@ TEST(ApplyPaste, RejectsAPastedValueOutsideTheSignedStorageRange)
 TEST(ApplyPaste, SkipsCellsInARaggedRowShorterThanTheFirstRow)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    const std::string_view cells[] = {"0", "0", "0", "0"};
-    const std::vector<std::string_view> rows[] = {{"11", "22"}, {"33"}};
+    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "0"});
+    const auto rows = std::to_array<std::vector<std::string_view>>({{"11", "22"}, {"33"}});
 
     const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
                                    {.first_row = 0, .first_col = 0, .last_row = 1, .last_col = 1}, rows, 15);
