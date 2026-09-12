@@ -56,9 +56,9 @@ def workspace_root(environ: Mapping[str, str]) -> Path:
 class _WorkspaceTree:
     """The workspace's own files and directories, keyed by relative path.
 
-    Built by walking the workspace root without following symlinks, so trees
-    that only look like they live in the workspace -- `bazel-out` and the
-    other convenience symlinks into Bazel's output base -- are absent, as is
+    Built by walking the workspace root without descending through links, so
+    trees that only look like they live in the workspace -- `bazel-out` and the
+    other convenience links into Bazel's output base -- are absent, as is
     anything outside the root.
     """
 
@@ -67,12 +67,36 @@ class _WorkspaceTree:
     directories: frozenset[PurePath]
 
 
+def _is_link(path: Path) -> bool:
+    """True for a symlink or a Windows directory junction.
+
+    `os.walk(followlinks=False)` decides whether to descend with
+    `os.path.islink()`, and on Windows that is False for a junction -- a
+    junction is a reparse point, but not the symlink tag islink() looks for.
+    Junctions are exactly how Bazel materializes bazel-out, bazel-bin,
+    bazel-testlogs and bazel-<workspace> there, since unlike symlinks they
+    need no elevated privilege. So on Windows the walk followed them straight
+    into Bazel's output base and enumerated the entire build tree -- several
+    hundred thousand files, much of it repeatedly because those four links
+    overlap, and multiplied again by the runfiles trees that --enable_runfiles
+    (.bazelrc) materializes as real file copies. The walk never finished: CI
+    saw the clang-tidy step run for 60-90 minutes until the runner wedged so
+    badly it stopped honouring step timeouts and never uploaded a job log.
+
+    It hung even with no C/C++ file changed, because this walk happens in
+    load_project_entries, before --changed can decide there is nothing to
+    analyze -- which is why it only ever showed up on Windows, where the
+    convenience links are junctions rather than symlinks.
+    """
+    return path.is_symlink() or os.path.isjunction(path)
+
+
 def _workspace_tree(root: Path) -> _WorkspaceTree:
     files: dict[PurePath, Path] = {}
     directories: set[PurePath] = set()
     for parent, names, filenames in os.walk(root, followlinks=False):
-        names[:] = [name for name in names if name != ".git"]
         directory = Path(parent)
+        names[:] = [name for name in names if name != ".git" and not _is_link(directory / name)]
         relative = PurePath(directory.relative_to(root))
         directories.add(relative)
         for name in filenames:

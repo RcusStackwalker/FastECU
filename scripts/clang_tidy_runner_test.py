@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stdout
 from io import StringIO
-from pathlib import Path
+from pathlib import Path, PurePath
 from unittest import mock
 
 import clang_tidy_runner as runner
@@ -184,6 +184,51 @@ class ClangTidyRunnerTest(unittest.TestCase):
         )
 
         self.assertEqual([str(source)], [entry["file"] for entry in entries])
+
+    def test_workspace_walk_does_not_descend_into_symlinked_output_base(self) -> None:
+        output_base = Path(self.temp_dir.name) / "output_base"
+        (output_base / "deep").mkdir(parents=True)
+        (output_base / "deep" / "generated.cpp").write_text("// generated\n")
+        (self.root / "bazel-out").symlink_to(output_base, target_is_directory=True)
+
+        tree = runner._workspace_tree(self.root)
+
+        self.assertNotIn(PurePath("bazel-out"), tree.directories)
+        self.assertNotIn(PurePath("bazel-out/deep/generated.cpp"), tree.files)
+
+    def test_workspace_walk_does_not_descend_into_junctioned_output_base(self) -> None:
+        """Windows materializes Bazel's convenience links as junctions.
+
+        os.path.islink() is False for a junction, so os.walk(followlinks=False)
+        happily descends into one -- which walked Bazel's whole output base and
+        hung CI's Windows clang-tidy step for 60-90 minutes. Junctions cannot be
+        created off Windows, so stand one in: a real directory that
+        os.path.isjunction() reports as a junction, exactly as the runner's
+        _is_link would see it there.
+        """
+        junction = self.root / "bazel-out"
+        junction.mkdir()
+        (junction / "deep").mkdir()
+        (junction / "deep" / "generated.cpp").write_text("// generated\n")
+
+        def isjunction(path: object) -> bool:
+            return Path(str(path)) == junction
+
+        with mock.patch.object(os.path, "isjunction", isjunction):
+            tree = runner._workspace_tree(self.root)
+
+        self.assertNotIn(PurePath("bazel-out"), tree.directories)
+        self.assertNotIn(PurePath("bazel-out/deep/generated.cpp"), tree.files)
+
+    def test_workspace_walk_keeps_ordinary_nested_sources(self) -> None:
+        nested = self.root / "src" / "backend"
+        nested.mkdir(parents=True)
+        (nested / "real.cpp").write_text("int real;\n")
+
+        tree = runner._workspace_tree(self.root)
+
+        self.assertIn(PurePath("src/backend"), tree.directories)
+        self.assertIn(PurePath("src/backend/real.cpp"), tree.files)
 
     def test_database_rejects_malformed_json(self) -> None:
         (self.root / "compile_commands.json").write_text("{")
