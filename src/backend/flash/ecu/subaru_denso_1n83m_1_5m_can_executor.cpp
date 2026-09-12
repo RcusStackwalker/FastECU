@@ -777,7 +777,14 @@ Result<FlashExecutionResult> SubaruDenso1n83m_1_5mCanExecutor::execute(const Fla
     uds::UdsClient uds_client(channel, clock, events);
     Ctx ctx{cancellation, events, clock, uds_client, channel};
 
-    info(ctx, "Connecting to ECU Denso 1N83M 4MB CAN bootloader, please wait...");
+    // Legacy names the 4MB sibling in this line and in the two "using CAN"
+    // lines below (20892df lines 62, 70 and 76) -- an upstream copy-paste that
+    // the 4M sibling carries legitimately. Corrected here rather than
+    // transcribed: this executor's own error strings already say 1.5M, so
+    // leaving these would make a flash log unattributable to the executor that
+    // produced it. A deliberate divergence from the legacy text, and the only
+    // one in this file that is purely cosmetic.
+    info(ctx, "Connecting to ECU Denso 1N83M 1.5MB CAN bootloader, please wait...");
     if (const Status connected = connect_bootloader(ctx, transport); !connected.has_value())
     {
         return std::unexpected(connected.error());
@@ -787,7 +794,7 @@ Result<FlashExecutionResult> SubaruDenso1n83m_1_5mCanExecutor::execute(const Fla
     if (read)
     {
         events.notice("Reading ROM, please wait...");
-        info(ctx, "Reading ROM from ECU, Denso 1N83M 4MB using CAN");
+        info(ctx, "Reading ROM from ECU, Denso 1N83M 1.5MB using CAN");
 
         PhaseReporter read_phase = phases.start("Read ROM", static_cast<int>(plan.transfer_region().length));
         Result<bytes::Bytes> rom = read_memory(ctx, family, plan.transfer_region(), read_phase);
@@ -821,7 +828,7 @@ Result<FlashExecutionResult> SubaruDenso1n83m_1_5mCanExecutor::execute(const Fla
     }
 
     events.notice("Writing ROM, please wait...");
-    info(ctx, "Writing ROM to ECU, Denso 1N83M 4MB using CAN");
+    info(ctx, "Writing ROM to ECU, Denso 1N83M 1.5MB using CAN");
     if (const Status written = write_memory(ctx, *plan.image(), plan.transfer_region(), phases); !written.has_value())
     {
         return std::unexpected(written.error());

@@ -373,6 +373,35 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, BenchReadReturnsPaddedImage)
     EXPECT_THAT(events.logs, testing::Not(IsEmpty()));
 }
 
+// Legacy (20892df lines 62/70/76) names the 4MB sibling in all three of this
+// family's operator-facing identity lines -- an upstream copy-paste. Every
+// other identity string in this executor says 1.5M, so a flash log could not
+// be attributed to the executor that produced it. Corrected here; this is a
+// deliberate divergence from the legacy text, not a transcription slip.
+TEST(SubaruDenso1n83m_1_5mCanExecutor, OperatorFacingLogLinesNameThe1_5MFamily)
+{
+    ScriptedCanFlashTransport transport;
+    scriptBenchConnect(transport);
+    scriptReadSetup(transport);
+    scriptFlashDump(transport, kBlockStart, kBlockLength, kPageSize, 0xA5);
+    scriptStopCommand(transport);
+
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruDenso1n83m_1_5mCanExecutor executor;
+
+    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
+
+    EXPECT_THAT(events.logs,
+                testing::Contains(testing::Pair(fastecu::LogLevel::Info,
+                                                "Connecting to ECU Denso 1N83M 1.5MB CAN bootloader, please wait...")));
+    EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::Info,
+                                                             "Reading ROM from ECU, Denso 1N83M 1.5MB using CAN")));
+    EXPECT_THAT(events.logs, testing::Each(testing::Pair(testing::_, testing::Not(testing::HasSubstr("4MB")))));
+}
+
 TEST(SubaruDenso1n83m_1_5mCanExecutor, InCarReadReturnsPaddedImage)
 {
     ScriptedCanFlashTransport transport;
@@ -419,6 +448,11 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, WriteErasesThenFlashesBlockOne)
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.notices, testing::Contains("Writing ROM, please wait..."));
+    // The write path's own identity line, the third of the three legacy named
+    // the 4MB sibling in.
+    EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::Info,
+                                                             "Writing ROM to ECU, Denso 1N83M 1.5MB using CAN")));
+    EXPECT_THAT(events.logs, testing::Each(testing::Pair(testing::_, testing::Not(testing::HasSubstr("4MB")))));
     // The image base is already pinned by expectWrite: scriptReflashChunks
     // builds every 0xB6 frame from encrypted.subspan(addr - kImageStart, 256).
     // This adds only that calculatePayload is 4-byte-word independent, so the
