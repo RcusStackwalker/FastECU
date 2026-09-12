@@ -11,8 +11,6 @@
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/ports/result.h"
 
-#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
-
 namespace fastecu::flash
 {
 
