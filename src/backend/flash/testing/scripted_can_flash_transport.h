@@ -59,6 +59,13 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
     {
         return wIdx_;
     }
+    // Every timeout read() was called with, in order. Lets a test pin a
+    // family's wire timing, which otherwise leaves no trace in the script --
+    // the four Denso ISO-15765 families deliberately differ here.
+    const std::vector<std::chrono::milliseconds>& readTimeouts() const
+    {
+        return read_timeouts_;
+    }
 
     Status configure(const Iso15765Config& config) override
     {
@@ -95,8 +102,10 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
         ++wIdx_;
         return {};
     }
-    Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds, const ICancellationToken& cancellation) override
+    Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout,
+                                             const ICancellationToken& cancellation) override
     {
+        read_timeouts_.push_back(timeout);
         {
             std::unique_lock lock(mutex_);
             if (blocking_read_pending_)
@@ -129,6 +138,7 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
     std::vector<bytes::Bytes> expected_;
     std::deque<Result<std::optional<bytes::Bytes>>> reads_;
     std::size_t wIdx_ = 0;
+    std::vector<std::chrono::milliseconds> read_timeouts_;
     bool open_ = false;
     std::mutex mutex_;
     std::condition_variable cv_;

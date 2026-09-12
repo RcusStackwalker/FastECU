@@ -824,7 +824,16 @@ fastecu_portable_gtest(
 
 cc_library(
     name = "denso_iso15765_can_common",
+    srcs = ["denso_iso15765_can_common.cpp"],
     hdrs = ["denso_iso15765_can_common.h"],
+    deps = [
+        ":uds_client_exchange_common",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
+    ],
 )
 
 fastecu_portable_gtest(

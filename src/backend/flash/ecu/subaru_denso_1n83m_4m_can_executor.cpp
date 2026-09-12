@@ -11,6 +11,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include <chrono>
 #include "src/backend/flash/ecu/denso_iso15765_can_common.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_plan.h"
@@ -55,6 +56,11 @@ constexpr std::chrono::milliseconds kLongTimeout{2000}; // serial_read_timeout, 
 constexpr uds::ExchangePolicy kShortPolicy{.read_timeout = kShortTimeout};
 constexpr uds::ExchangePolicy kReceivePolicy{.read_timeout = kReceiveTimeout};
 constexpr uds::ExchangePolicy kLongPolicy{.read_timeout = kLongTimeout};
+// The timeout the tolerant_probe exchanges in connect_bootloader read with:
+// serial_read_short_timeout, as in two of its three siblings.
+// Named rather than repeated at each call so the one line a reader has to
+// compare across the four families is this one.
+constexpr std::chrono::milliseconds kProbeTimeout = kShortTimeout;
 constexpr std::chrono::milliseconds kExtraLongTimeout{3000}; // serial_read_extra_long_timeout
 // Checksum verify reads twice and this family's two reads differ: the first
 // uses the bare 500 literal (line 1322, i.e. receive_timeout) and the re-read
@@ -125,26 +131,10 @@ constexpr std::uint32_t kInCarIdFunctional = 0x7df;
 constexpr std::uint32_t kInCarIdE1 = 0x7e1;
 constexpr std::uint32_t kInCarIdB0 = 0x7b0;
 
-bytes::Bytes seed_key(bytes::ByteView seed)
-{
-    return SsmProtocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, SsmProtocol::kIndexTransformationStock);
-}
-
-bytes::Bytes encrypt_rom(bytes::ByteView image)
-{
-    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kDensoIso15765EncryptTable,
-                                         SsmProtocol::kIndexTransformationStock);
-}
-
 // Legacy decrypts the whole accumulated dump in one call (line 1072);
 // SsmProtocol::calculatePayload transforms independent 4-byte words, so
 // decrypting each 256-byte page as it arrives produces byte-identical output
 // without a second full-ROM buffer.
-bytes::Bytes decrypt_page(bytes::ByteView page)
-{
-    return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), kDensoIso15765DecryptTable,
-                                         SsmProtocol::kIndexTransformationStock);
-}
 
 // Most exchanges go through UdsClient over CanFlashUdsChannel. The
 // exceptions are the probes and fire-and-forget writes whose reply legacy
@@ -157,11 +147,6 @@ bytes::Bytes decrypt_page(bytes::ByteView page)
 using Ctx = CanExecutorContext;
 
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
-
-UdsExchangeContext exchange_context(Ctx& ctx, const uds::ExchangePolicy& policy)
-{
-    return UdsExchangeContext{ctx.uds, policy, ctx.cancellation, ctx.events};
-}
 
 // The "fatal" shape every UdsClient-backed exchange below uses. See
 // uds_client_exchange_common.h for the shared rejection/cancellation logging
@@ -209,33 +194,6 @@ void non_fatal_query(Ctx& ctx, bytes::ByteView pdu, std::optional<bytes::Byte> e
 // commented-out lines are this family's own record that the strictness was
 // removed on purpose.) The absent-reply branch below still aborts: lines
 // 310, 340 and 374 keep their live `return STATUS_ERROR`.
-Result<bytes::Bytes> tolerant_probe(Ctx& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
-                                    bytes::Byte expected_subfunction, std::string_view subject)
-{
-    if (const Status sent = ctx.channel.send(pdu, ctx.cancellation); !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kShortTimeout, ctx.cancellation);
-    if (!received.has_value())
-    {
-        return std::unexpected(received.error());
-    }
-    // Legacy requires received.length() > 5, i.e. at least two bytes past the
-    // 4-byte envelope; anything shorter takes its "No valid response from
-    // ECU" path and returns STATUS_ERROR.
-    if (!received->has_value() || received->value().size() < 2)
-    {
-        error(ctx, "No valid response from ECU");
-        return fail(ErrorKind::Timeout, std::format("no response from ECU during the {}", subject));
-    }
-    const bytes::Bytes& frame = **received;
-    if (frame[0] != expected_service || frame[1] != expected_subfunction)
-    {
-        error(ctx, std::format("{}{}", kRejectionPrefix, bytes::toHex(frame)));
-    }
-    return frame;
-}
 
 // read_memory's two dump-setup exchanges (lines 843-884 and 886-925). Unlike
 // tolerant_probe this tolerates BOTH halves of the check.
@@ -281,22 +239,6 @@ Status tolerant_setup(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_pr
 // transport directly -- a CanFlashUdsChannel bound to `id` would impose a
 // reply-id check legacy does not have. The channel is still used for the
 // write, which is exactly its 4-byte-envelope job.
-Status fire_and_forget(Ctx& ctx, ICanFlashTransport& can, std::uint32_t request_id, bytes::ByteView pdu)
-{
-    // The reply is read from `can` below, never through this channel, so the
-    // response-id slot is filled with the request id and never consulted.
-    CanFlashUdsChannel channel(can, request_id, request_id);
-    if (const Status sent = channel.send(pdu, ctx.cancellation); !sent.has_value())
-    {
-        return sent;
-    }
-    Result<std::optional<bytes::Bytes>> ignored = can.read(kShortTimeout, ctx.cancellation);
-    if (!ignored.has_value())
-    {
-        return std::unexpected(ignored.error());
-    }
-    return {};
-}
 
 // The seed request / seed key pair both arms share (bench lines 697-772,
 // in-car lines 500-568). Both are fatal on a mismatch and on an absent
@@ -315,7 +257,7 @@ Status security_access(Ctx& ctx)
     // Legacy reads the four seed bytes at raw frame offsets 6-9, i.e. payload
     // offsets 1-4 once the 4-byte envelope and the service id are stripped
     // (lines 531-534, 731-734).
-    const bytes::Bytes key = seed_key(uds::payload(*seed_reply).subspan(1, 4));
+    const bytes::Bytes key = denso_seed_key(uds::payload(*seed_reply).subspan(1, 4));
 
     info(ctx, "Sending seed key");
     Result<bytes::Bytes> key_reply = fatal_query(ctx, composeBe(uds::kSidSecurityAccess, kSecurityAccessSendKey, key),
@@ -401,8 +343,9 @@ Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
 
     // Lines 347-377: mismatch logs and continues (TOLERATED, line 369), an
     // absent reply aborts.
-    if (Result<bytes::Bytes> probe = tolerant_probe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe},
-                                                    kSessionControlReply, 0x01, "in-car access-method probe");
+    if (Result<bytes::Bytes> probe =
+            tolerant_probe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
+                           0x01, kProbeTimeout, kRejectionPrefix, "in-car access-method probe");
         !probe.has_value())
     {
         return std::unexpected(probe.error());
@@ -429,7 +372,7 @@ Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
     };
     for (const auto& exchange : fire_and_forget_run)
     {
-        if (const Status sent = fire_and_forget(ctx, can, exchange.id, exchange.pdu); !sent.has_value())
+        if (const Status sent = fire_and_forget(ctx, can, exchange.id, exchange.pdu, kShortTimeout); !sent.has_value())
         {
             return sent;
         }
@@ -539,7 +482,7 @@ Status connect_bootloader(Ctx& ctx, ICanFlashTransport& can)
     info(ctx, "Checking access method");
     if (Result<bytes::Bytes> access =
             tolerant_probe(ctx, bytes::Bytes{uds::kSidDiagnosticSessionControl, kSessionProbe}, kSessionControlReply,
-                           0x01, "access-method probe");
+                           0x01, kProbeTimeout, kRejectionPrefix, "access-method probe");
         !access.has_value())
     {
         return std::unexpected(access.error());
@@ -547,8 +490,9 @@ Status connect_bootloader(Ctx& ctx, ICanFlashTransport& can)
 
     // Lines 313-341: the branch selector, same tolerant shape (TOLERATED,
     // line 335).
-    Result<bytes::Bytes> selector = tolerant_probe(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D},
-                                                   kReadDataByIdentifierReply, 0x10, "programming-branch selector");
+    Result<bytes::Bytes> selector =
+        tolerant_probe(ctx, bytes::Bytes{uds::kSidReadDataByIdentifier, 0x10, 0x1D}, kReadDataByIdentifierReply, 0x10,
+                       kProbeTimeout, kRejectionPrefix, "programming-branch selector");
     if (!selector.has_value())
     {
         return std::unexpected(selector.error());
@@ -619,7 +563,7 @@ Result<bytes::Bytes> read_memory(Ctx& ctx, const SubaruDenso1n83m_4mCanPlan& fam
         {
             return std::unexpected(chunk.error());
         }
-        const bytes::Bytes decrypted = decrypt_page(uds::payload(*chunk));
+        const bytes::Bytes decrypted = denso_decrypt_page(uds::payload(*chunk));
         rom.insert(rom.end(), decrypted.begin(), decrypted.end());
         progress.update(static_cast<int>(offset + kPageSize));
     }
@@ -718,7 +662,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
 
     // The whole image is encrypted once up front (legacy write_memory line
     // 1109), not per chunk.
-    const bytes::Bytes encrypted = encrypt_rom(image);
+    const bytes::Bytes encrypted = denso_encrypt_rom(image);
 
     info(ctx, std::format("Flash block addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
     for (std::uint32_t chunk_index = 0; chunk_index < max_chunks; ++chunk_index)

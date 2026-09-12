@@ -1,7 +1,15 @@
 #pragma once
 
 #include <array>
+#include <chrono>
 #include <cstdint>
+#include <string_view>
+
+#include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/flash/ecu/uds_client_exchange_common.h"
+#include "src/backend/flash/flash_executor.h"
+#include "src/backend/ports/result.h"
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 
@@ -58,5 +66,53 @@ inline constexpr std::array<std::uint16_t, 4> kDensoIso15765EncryptTable{0xC85B,
 // rather than derived, because that is how all four legacy sources spell it
 // and a derived table would hide a future divergence.
 inline constexpr std::array<std::uint16_t, 4> kDensoIso15765DecryptTable{0x92A0, 0xE282, 0x32C0, 0xC85B};
+
+// The three SsmProtocol calls that bind the tables above. All four cluster
+// members carried these byte-for-byte; they are pure table-to-algorithm
+// adapters with no protocol sequence in them.
+
+// generate_can_seed_key().
+inline bytes::Bytes denso_seed_key(bytes::ByteView seed)
+{
+    return SsmProtocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, SsmProtocol::kIndexTransformationStock);
+}
+
+// encrypt_payload(), run once over the whole image before a flash write.
+inline bytes::Bytes denso_encrypt_rom(bytes::ByteView image)
+{
+    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kDensoIso15765EncryptTable,
+                                         SsmProtocol::kIndexTransformationStock);
+}
+
+// decrypt_payload(), run per 256-byte page as a dump arrives.
+inline bytes::Bytes denso_decrypt_page(bytes::ByteView page)
+{
+    return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), kDensoIso15765DecryptTable,
+                                         SsmProtocol::kIndexTransformationStock);
+}
+
+// Sends `pdu`, reads one reply, and compares its first two bytes. A mismatch
+// is LOGGED AND TOLERATED -- the frame is still returned and the caller
+// decides -- which is what legacy does at these sites; only an absent or
+// too-short reply is fatal. Callers that read further into the returned frame
+// must length-check it themselves: this only guarantees two bytes.
+//
+// `timeout` is a parameter, not a cluster constant: three members probe with
+// their short timeout and subaru_denso_sh72543_can_diesel probes with its long
+// one. Collapsing that difference is exactly what this file's header comment
+// warns against.
+//
+// Not specific to this cluster in principle, but shared here because these
+// four are the families that provably share it.
+Result<bytes::Bytes> tolerant_probe(const CanExecutorContext& ctx, bytes::ByteView pdu, bytes::Byte expected_service,
+                                    bytes::Byte expected_subfunction, std::chrono::milliseconds timeout,
+                                    std::string_view rejection_prefix, std::string_view subject);
+
+// Sends `pdu` to `request_id` and reads one reply only to discard it: the
+// in-car arm's opening run of session/DTC/communication-control exchanges
+// whose answers legacy never inspects. The reply is read from `can` directly,
+// so the channel's response id is never consulted.
+Status fire_and_forget(const CanExecutorContext& ctx, ICanFlashTransport& can, std::uint32_t request_id,
+                       bytes::ByteView pdu, std::chrono::milliseconds timeout);
 
 } // namespace fastecu::flash

@@ -14,6 +14,7 @@
 #include <array>
 #include <cstdint>
 #include <initializer_list>
+#include <ranges>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -773,6 +774,29 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EraseRetryExhaustionFails)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
+}
+
+// connect_bootloader's tolerant_probe exchanges read with this family's
+// kProbeTimeout, a deliberate per-family value: its three siblings probe with 200ms here.
+// The scripted transport records every read timeout, so this pins the
+// divergence -- without it the probe timeout leaves no trace in the script
+// and a wrong one passes silently.
+TEST(SubaruDensoSh72543CanDieselExecutor, ConnectProbesReadWithThisFamilysProbeTimeout)
+{
+    using namespace std::chrono_literals;
+    ScriptedCanFlashTransport transport;
+    scriptBenchConnect(transport);
+    scriptReadSetup(transport);
+    scriptFlashDump(transport, kBlockStart, kBlockLength, kPageSize, 0xA5);
+    scriptStopCommand(transport);
+
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruDensoSh72543CanDieselExecutor executor;
+
+    ASSERT_TRUE(executor.execute(readPlan(), transport, clock, cancellation, events).has_value());
+    EXPECT_EQ(std::ranges::count(transport.readTimeouts(), 200ms), 3);
 }
 
 } // namespace
