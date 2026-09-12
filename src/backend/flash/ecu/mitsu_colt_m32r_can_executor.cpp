@@ -51,16 +51,6 @@ struct Ctx
     uds::UdsClient& uds;
 };
 
-void info(Ctx& ctx, std::string_view message)
-{
-    ctx.events.log(LogLevel::Info, message);
-}
-
-void error(Ctx& ctx, std::string_view message)
-{
-    ctx.events.log(LogLevel::Error, message);
-}
-
 // The plain fatal_request every exchange below repeats when a matching SID
 // echo is all it needs (RequestDownload, TransferData, the reflash unlock
 // request, each ReadMemoryByAddress chunk): unlike fatal_query below there is

@@ -1,10 +1,12 @@
 #pragma once
 
+#include <concepts>
 #include <optional>
 #include <string_view>
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/ports/cancellation.h"
+#include "src/backend/ports/clock.h"
 #include "src/backend/ports/error.h"
 #include "src/backend/ports/event_sink.h"
 #include "src/backend/ports/result.h"
@@ -33,6 +35,48 @@ namespace fastecu::flash
 // after "during": "the erase trigger", "TransferData to 0x8000".
 Error report_exchange_failure(IEventSink& events, const Error& failure, std::string_view rejection_prefix,
                               std::string_view operation);
+
+// The context the CAN executors in this package thread through their
+// protocol routines: the ports they need plus the UDS client and the raw
+// channel beneath it.
+//
+// Six families carried a byte-for-byte identical copy of this struct
+// (mitsu_colt_m32r and subaru_tcu_cvt_mitsu_mh8104 need fewer members and
+// subaru_tcu_cvt_hitachi_m32r_can needs a second UdsClient, so those three
+// keep their own). It is deliberately a plain aggregate of references with no
+// behaviour: everything protocol-specific stays in the executor.
+//
+// `channel` is the same channel `uds` was built over, exposed because some
+// exchanges are sent raw -- legacy reads no reply, or reads it outside the
+// SID+0x40 convention UdsClient enforces.
+struct CanExecutorContext
+{
+    const ICancellationToken& cancellation;
+    IEventSink& events;
+    IClock& clock;
+    uds::UdsClient& uds;
+    uds::IUdsChannel& channel;
+};
+
+// Any executor context carrying an event sink -- the shared
+// CanExecutorContext above and the three families' own variants alike.
+template <class C>
+concept WithEventSink = requires(const C& ctx) {
+    { ctx.events } -> std::convertible_to<IEventSink&>;
+};
+
+// The two log shorthands every CAN executor in this package defined
+// identically. Templates rather than overloads on CanExecutorContext so the
+// three families with their own context shape use them unchanged.
+template <WithEventSink C> void info(const C& ctx, std::string_view message)
+{
+    ctx.events.log(LogLevel::Info, message);
+}
+
+template <WithEventSink C> void error(const C& ctx, std::string_view message)
+{
+    ctx.events.log(LogLevel::Error, message);
+}
 
 // The pieces every UdsClient-backed exchange below needs, bundled so call
 // sites needing a non-default client (a second UdsClient bound to a

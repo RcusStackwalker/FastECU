@@ -13,6 +13,7 @@
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
+#include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_can_common.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_plan.h"
 
@@ -107,16 +108,6 @@ struct Ctx
     IClock& clock;
     uds::IUdsChannel& channel;
 };
-
-void info(Ctx& ctx, std::string_view message)
-{
-    ctx.events.log(LogLevel::Info, message);
-}
-
-void error(Ctx& ctx, std::string_view message)
-{
-    ctx.events.log(LogLevel::Error, message);
-}
 
 Error report_exchange_failure(Ctx& ctx, const Error& failure, std::string_view rejection_prefix,
                               std::string_view operation)

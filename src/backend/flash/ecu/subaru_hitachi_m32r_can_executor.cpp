@@ -69,24 +69,8 @@ bytes::Bytes decrypt_page(bytes::ByteView page)
 // SID+0x40/NRC-decoding convention UdsClient enforces, so those two go
 // through the channel directly. `channel` is the same CanFlashUdsChannel
 // instance `uds` wraps.
-struct Ctx
-{
-    const ICancellationToken& cancellation;
-    IEventSink& events;
-    IClock& clock;
-    uds::UdsClient& uds;
-    uds::IUdsChannel& channel;
-};
-
-void info(Ctx& ctx, std::string_view message)
-{
-    ctx.events.log(LogLevel::Info, message);
-}
-
-void error(Ctx& ctx, std::string_view message)
-{
-    ctx.events.log(LogLevel::Error, message);
-}
+// The five-field context this package shares; see uds_client_exchange_common.h.
+using Ctx = CanExecutorContext;
 
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
