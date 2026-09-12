@@ -44,6 +44,12 @@ jobs:
     name: Bazel (${{ matrix.os }})
     needs: pre-commit
     runs-on: ${{ matrix.os }}
+    # A wedged runner here would otherwise burn the full 6h GitHub default
+    # before failing -- the Windows job did exactly that for weeks, walking
+    # Bazel's output base in the clang-tidy step (fixed in
+    # scripts/clang_tidy_runner.py) and hanging so hard it stopped honouring
+    # step-level timeout-minutes. Same reasoning as sonar.yml's own 60.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
