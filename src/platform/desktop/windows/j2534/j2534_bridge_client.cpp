@@ -1,7 +1,9 @@
 #include "src/platform/desktop/windows/j2534/j2534_bridge_client.h"
 #include "src/platform/desktop/windows/j2534/j2534_bridge_protocol.h"
 
+#include <array>
 #include <cstring>
+#include <tuple>
 #include <vector>
 
 using namespace j2534_bridge;
@@ -119,7 +121,7 @@ long J2534BridgeClient::PassThruOpen(const void *pName, unsigned long *pDeviceID
     if (pName)
     {
         req.hasName = true;
-        strncpy_s(req.name, static_cast<const char *>(pName), sizeof(req.name) - 1);
+        strncpy_s(req.name.data(), req.name.size(), static_cast<const char *>(pName), req.name.size() - 1);
     }
     if (!writeFrame(toChildWrite_, Function::PassThruOpen, &req, sizeof(req)))
     {
@@ -355,11 +357,11 @@ long J2534BridgeClient::PassThruReadVersion(char *pApiVersion, char *pDllVersion
     // null-terminated buffers per the J2534 spec's 80-byte version-string
     // convention; copy that whole fixed shape back to the caller's buffer.
     if (pApiVersion)
-        std::memcpy(pApiVersion, resp.apiVersion, sizeof(resp.apiVersion));
+        std::memcpy(pApiVersion, resp.apiVersion.data(), resp.apiVersion.size());
     if (pDllVersion)
-        std::memcpy(pDllVersion, resp.dllVersion, sizeof(resp.dllVersion));
+        std::memcpy(pDllVersion, resp.dllVersion.data(), resp.dllVersion.size());
     if (pFirmwareVersion)
-        std::memcpy(pFirmwareVersion, resp.firmwareVersion, sizeof(resp.firmwareVersion));
+        std::memcpy(pFirmwareVersion, resp.firmwareVersion.data(), resp.firmwareVersion.size());
     return resp.result;
 }
 
@@ -378,7 +380,7 @@ long J2534BridgeClient::PassThruGetLastError(char *pErrorDescription)
         return ERR_FAILED;
     }
     if (pErrorDescription)
-        std::memcpy(pErrorDescription, resp.errorDescription, sizeof(resp.errorDescription));
+        std::memcpy(pErrorDescription, resp.errorDescription.data(), resp.errorDescription.size());
     return resp.result;
 }
 
@@ -401,7 +403,7 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
     case SET_CONFIG:
     {
         const auto *scl = static_cast<const SCONFIG_LIST *>(pInput);
-        constexpr unsigned long kMaxConfigParams = sizeof(req.configParams) / sizeof(req.configParams[0]);
+        constexpr unsigned long kMaxConfigParams = std::tuple_size_v<decltype(req.configParams)>;
         if (!scl || scl->NumOfParams > kMaxConfigParams)
             return ERR_FAILED;
         req.numConfigParams = scl->NumOfParams;
@@ -413,10 +415,10 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
     case FAST_INIT:
     {
         const auto *inArr = static_cast<const SBYTE_ARRAY *>(pInput);
-        if (!inArr || inArr->NumOfBytes > sizeof(req.inputBytes))
+        if (!inArr || inArr->NumOfBytes > req.inputBytes.size())
             return ERR_FAILED;
         req.inputByteCount = inArr->NumOfBytes;
-        std::memcpy(req.inputBytes, inArr->BytePtr, inArr->NumOfBytes);
+        std::memcpy(req.inputBytes.data(), inArr->BytePtr, inArr->NumOfBytes);
         break;
     }
     case READ_VBATT:
@@ -455,7 +457,7 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
             unsigned long n = resp.outputByteCount;
             if (n > outArr->NumOfBytes)
                 n = outArr->NumOfBytes; // never overflow the caller's buffer
-            std::memcpy(outArr->BytePtr, resp.outputBytes, n);
+            std::memcpy(outArr->BytePtr, resp.outputBytes.data(), n);
             outArr->NumOfBytes = n;
         }
         break;

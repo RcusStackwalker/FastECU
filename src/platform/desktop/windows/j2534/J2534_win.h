@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <memory>
 
@@ -99,8 +100,8 @@ class J2534
     void dump_sbyte_array(const SBYTE_ARRAY *s);
     void dump_sconfig_param(SCONFIG s);
 
-    char lastError[256];
-    char dllName[256];
+    std::array<char, 256> lastError;
+    std::array<char, 256> dllName;
     bool debugMode;
     bool isLibraryInitialized;
 

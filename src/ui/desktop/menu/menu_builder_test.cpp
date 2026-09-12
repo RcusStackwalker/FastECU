@@ -10,6 +10,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <array>
 #include <memory>
 
 using fastecu::config::Menu;
@@ -36,9 +37,9 @@ class MenuBuilderEnvironment final : public ::testing::Environment
     void SetUp() override
     {
         static int argc = 1;
-        static char program[] = "menu_builder_test";
-        static char *argv[] = {program, nullptr};
-        app_ = std::make_unique<QApplication>(argc, argv);
+        static auto program = std::to_array("menu_builder_test");
+        static auto argv = std::to_array<char *>({program.data(), nullptr});
+        app_ = std::make_unique<QApplication>(argc, argv.data());
     }
 
   private:

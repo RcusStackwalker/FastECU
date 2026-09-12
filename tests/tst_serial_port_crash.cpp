@@ -25,6 +25,8 @@
 #include <QByteArray>
 #include <QElapsedTimer>
 
+#include <array>
+
 #if defined(__linux__)
 #include <pty.h> // openpty
 #else
@@ -230,21 +232,23 @@ void SerialPortCrashTest::j2534Handshake_overMockPty_readVersionSucceeds()
     // Deterministic end-to-end of the OpenPort handshake with no hardware: the
     // real J2534 protocol code talks to a scripted mock dongle over a PTY.
     int master = -1, slave = -1;
-    char name[256] = {0};
-    QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
+    std::array<char, 256> name{};
+    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
     {
         MockOpenPortThread mock(master);
 
         J2534 j2534;
-        const QString ptyPath = QString::fromLocal8Bit(name);
+        const QString ptyPath = QString::fromLocal8Bit(name.data());
         QCOMPARE(j2534.open_serial_port(ptyPath), ptyPath);
 
         unsigned long devID = 1;
         QCOMPARE(j2534.PassThruOpen(nullptr, &devID), (long)STATUS_NOERROR);
 
-        char api[256] = {0}, dll[256] = {0}, fw[256] = {0};
-        QCOMPARE(j2534.PassThruReadVersion(api, dll, fw, devID), (long)STATUS_NOERROR);
-        QCOMPARE(QString::fromUtf8(fw).trimmed(), QStringLiteral("1.17.4877"));
+        std::array<char, 256> api{};
+        std::array<char, 256> dll{};
+        std::array<char, 256> fw{};
+        QCOMPARE(j2534.PassThruReadVersion(api.data(), dll.data(), fw.data(), devID), (long)STATUS_NOERROR);
+        QCOMPARE(QString::fromUtf8(fw.data()).trimmed(), QStringLiteral("1.17.4877"));
 
         j2534.close_serial_port();
     }
@@ -257,13 +261,13 @@ void SerialPortCrashTest::spadInitJ2534Connection_overMockPty_succeeds()
     // (open_serial_port -> PassThruOpen -> ReadVersion -> get_serial_num ->
     // K-line init) against the mock dongle over a PTY.
     int master = -1, slave = -1;
-    char name[256] = {0};
-    QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
+    std::array<char, 256> name{};
+    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
     {
         MockOpenPortThread mock(master);
 
         TestableSerialPortActionsDirect spad;
-        spad.serial_port = QString::fromLocal8Bit(name);
+        spad.serial_port = QString::fromLocal8Bit(name.data());
 
         QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
     }
@@ -282,13 +286,13 @@ void SerialPortCrashTest::loggingFlow_connectReadTeardownReentrancy_overMockPty_
     // Pre-fix this faults (reentrant read derefs a torn-down j2534/serial);
     // post-fix the read-path/j2534 guards make it safe.
     int master = -1, slave = -1;
-    char name[256] = {0};
-    QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
+    std::array<char, 256> name{};
+    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
     {
         MockOpenPortThread mock(master);
 
         TestableSerialPortActionsDirect spad;
-        spad.serial_port = QString::fromLocal8Bit(name);
+        spad.serial_port = QString::fromLocal8Bit(name.data());
         QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
         spad.use_openport2_adapter = true;
 
@@ -330,13 +334,13 @@ void SerialPortCrashTest::resetQueuedDuringRead_runsAfterReadCompletes()
     // the event loop cannot fire mid-read. It stays queued until the read
     // returns and the caller (or QTest's own loop) processes events.
     int master = -1, slave = -1;
-    char name[256] = {0};
-    QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
+    std::array<char, 256> name{};
+    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
     {
         MockOpenPortThread mock(master);
 
         TestableSerialPortActionsDirect spad;
-        spad.serial_port = QString::fromLocal8Bit(name);
+        spad.serial_port = QString::fromLocal8Bit(name.data());
         QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
         spad.use_openport2_adapter = true;
 
@@ -371,14 +375,14 @@ void SerialPortCrashTest::blockingRead_doesNotDispatchQueuedEvents()
     // reentrantly in the middle of a read. Post-refactor the read must block
     // without dispatching foreign events.
     int master = -1, slave = -1;
-    char name[256] = {0};
-    QVERIFY2(openpty(&master, &slave, name, nullptr, nullptr) == 0, "openpty failed");
+    std::array<char, 256> name{};
+    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
     // No responder: nothing arrives, the read waits out its full timeout.
 
     TestableSerialPortActionsDirect spad;
     spad.serial_port_prefix_linux = "";
-    spad.serial_port_list = QStringList() << QString::fromLocal8Bit(name);
-    QCOMPARE(spad.open_serial_port(), QString::fromLocal8Bit(name));
+    spad.serial_port_list = QStringList() << QString::fromLocal8Bit(name.data());
+    QCOMPARE(spad.open_serial_port(), QString::fromLocal8Bit(name.data()));
 
     bool dispatched = false;
     QMetaObject::invokeMethod(this, [&dispatched] { dispatched = true; }, Qt::QueuedConnection);

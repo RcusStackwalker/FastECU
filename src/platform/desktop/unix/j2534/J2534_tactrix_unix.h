@@ -274,6 +274,9 @@ typedef struct
     unsigned long Timestamp;
     unsigned long DataSize;
     unsigned long ExtraDataIndex;
+    // The J2534 API defines this struct's layout; the vendor library reads and
+    // writes it in place, so the trailing payload stays a C array.
+    // NOLINTNEXTLINE(modernize-avoid-c-arrays)
     unsigned char Data[PASSTHRU_MSG_DATA_SIZE];
 } PASSTHRU_MSG;
 

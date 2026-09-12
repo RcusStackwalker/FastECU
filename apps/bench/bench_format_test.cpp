@@ -139,9 +139,9 @@ TEST(BenchFormat, JsonEscapesControlCharactersInDetail)
 
 TEST(BenchFormat, EveryErrorKindGetsADistinctNonZeroExitCode)
 {
-    const ErrorKind kinds[] = {ErrorKind::InvalidConfig, ErrorKind::Timeout,   ErrorKind::Disconnected,
-                               ErrorKind::BadResponse,   ErrorKind::Cancelled, ErrorKind::Unsupported,
-                               ErrorKind::Internal};
+    static constexpr auto kinds = std::to_array<ErrorKind>(
+        {ErrorKind::InvalidConfig, ErrorKind::Timeout, ErrorKind::Disconnected, ErrorKind::BadResponse,
+         ErrorKind::Cancelled, ErrorKind::Unsupported, ErrorKind::Internal});
     std::vector<int> codes;
     for (const ErrorKind kind : kinds)
     {

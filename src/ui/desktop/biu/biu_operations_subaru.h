@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <memory>
 
 #include <QApplication>
@@ -239,8 +240,9 @@ class BiuOperationsSubaru : public QDialog
         "Key lock solenoid         ", "volts", "Number of keys registered ", "keys ",
     };
 
-    float biu_data_factors[24] = {0.0843, 0, 0.0843, 0,   0.0843, 0, 0.0843, 0, 0.0196, 0, 0.4, 0,
-                                  0.0196, 0, 0.5,    -40, 0.0392, 0, 0.4,    0, 0.0843, 0, 1,   0};
+    static constexpr auto biu_data_factors =
+        std::to_array<float>({0.0843, 0, 0.0843, 0,   0.0843, 0, 0.0843, 0, 0.0196, 0, 0.4, 0,
+                              0.0196, 0, 0.5,    -40, 0.0392, 0, 0.4,    0, 0.0843, 0, 1,   0});
 
     QStringList can_data_names = {
         "Front wheel speed     ", "km/hr", "VDC/ABS latest f-code ", "     ", "Blower fan steps      ", "steps",
@@ -248,7 +250,8 @@ class BiuOperationsSubaru : public QDialog
         "Longitudinal g-force  ", "m/s^2", "Sport shift stages    ", "step ", "Shift position        ", "     ",
     };
 
-    float can_data_factors[18] = {0.0562, 0, 1, 0, 1, 0, 0.0016, 0, 0.001, 0, 1, -40, 0.1235, 0, 1, 0, 1, 0};
+    static constexpr auto can_data_factors =
+        std::to_array<float>({0.0562, 0, 1, 0, 1, 0, 0.0016, 0, 0.001, 0, 1, -40, 0.1235, 0, 1, 0, 1, 0});
 
     QStringList biu_tt_names = {
         "Room lamp off delay time ", "     ", "Auto-lock time           ", "secs ",

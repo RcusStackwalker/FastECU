@@ -1,5 +1,6 @@
 #include "src/backend/flash/flash_device_lookup.h"
 
+#include <array>
 #include <cstdint>
 #include <gtest/gtest.h>
 
@@ -14,7 +15,7 @@ TEST(FindFlashDevice, ReturnsDeviceForEveryMcuStringInShippedProtocolsCfg)
     // -- exercised separately below since checksum correction's "Unknown MCU
     // type" path is not hypothetical, it fires for that real, currently
     // shipped protocol.
-    static constexpr const char *kKnown[] = {
+    static constexpr auto kKnown = std::to_array<const char *>({
         "M32R_128KB",
         "M32R_256KB",
         "M32R_384KB",
@@ -38,7 +39,7 @@ TEST(FindFlashDevice, ReturnsDeviceForEveryMcuStringInShippedProtocolsCfg)
         "SH72531",
         "SH72543d",
         "SH72543R",
-    };
+    });
     for (const char *name : kKnown)
     {
         EXPECT_NE(find_flash_device(name), nullptr) << name;
@@ -87,7 +88,7 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
         std::uint32_t finalBlockEnd;
     };
 
-    static constexpr FlashDeviceSummary kExpected[] = {
+    static constexpr auto kExpected = std::to_array<FlashDeviceSummary>({
         {"M32R_128KB", 0x20000, 2, 0x0, 0x20000},
         {"M32R_256KB", 0x40000, 7, 0x0, 0x40000},
         {"M32R_384KB", 0x60000, 9, 0x0, 0x60000},
@@ -113,8 +114,8 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
         {"MH8111", 0x180000, 4, 0x0, 0x180000},
         {"M3779x", 0x10000, 1, 0x8000, 0x17fff},
         {"M3775x", 0x10000, 1, 0x1000, 0x10fff},
-    };
-    constexpr std::size_t kCount = sizeof(kExpected) / sizeof(kExpected[0]);
+    });
+    constexpr std::size_t kCount = kExpected.size();
 
     for (std::size_t deviceIndex = 0; deviceIndex < kCount; ++deviceIndex)
     {

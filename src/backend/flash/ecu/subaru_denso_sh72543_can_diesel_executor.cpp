@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_executor.h"
 
 #include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <format>
@@ -319,12 +320,13 @@ Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
     // on the wire without the scripted test that pins it.
     // Field order is pdu-first so the struct packs without padding; the
     // designators keep each entry readable against the legacy lines it cites.
-    const struct
+    struct Exchange
     {
         bytes::Bytes pdu;
         std::uint32_t id;
         std::chrono::milliseconds timeout;
-    } fire_and_forget_run[] = {
+    };
+    const auto fire_and_forget_run = std::to_array<Exchange>({
         {.pdu = {uds::kSidDiagnosticSessionControl, kSessionVendorC0},
          .id = kInCarIdA2,
          .timeout = kShortTimeout}, // lines 375-383
@@ -349,7 +351,7 @@ Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
         {.pdu = {kSidCommunicationControl, 0x03, 0x01},
          .id = kInCarIdFunctional,
          .timeout = kShortTimeout}, // lines 474-483
-    };
+    });
     for (const auto& exchange : fire_and_forget_run)
     {
         if (const Status sent = fire_and_forget(ctx, can, exchange.id, exchange.pdu, exchange.timeout);

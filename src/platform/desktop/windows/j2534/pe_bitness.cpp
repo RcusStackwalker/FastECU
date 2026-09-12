@@ -1,5 +1,6 @@
 #include "src/platform/desktop/windows/j2534/pe_bitness.h"
 
+#include <array>
 #include <cstdint>
 #include <cstdio>
 
@@ -16,8 +17,8 @@ bool isDll32Bit(const char *dllPath, bool& out32Bit)
     if (!f)
         return false;
 
-    unsigned char dosHeader[64];
-    bool ok = std::fread(dosHeader, 1, sizeof(dosHeader), f) == sizeof(dosHeader);
+    std::array<unsigned char, 64> dosHeader{};
+    bool ok = std::fread(dosHeader.data(), 1, dosHeader.size(), f) == dosHeader.size();
     if (ok && !(dosHeader[0] == 'M' && dosHeader[1] == 'Z'))
         ok = false;
 
@@ -29,11 +30,11 @@ bool isDll32Bit(const char *dllPath, bool& out32Bit)
         ok = peOffset >= 0;
     }
 
-    unsigned char peAndMachine[6]; // "PE\0\0" + 2-byte Machine field
+    std::array<unsigned char, 6> peAndMachine{}; // "PE\0\0" + 2-byte Machine field
     if (ok)
     {
         ok = std::fseek(f, peOffset, SEEK_SET) == 0 &&
-             std::fread(peAndMachine, 1, sizeof(peAndMachine), f) == sizeof(peAndMachine);
+             std::fread(peAndMachine.data(), 1, peAndMachine.size(), f) == peAndMachine.size();
     }
     if (ok)
     {

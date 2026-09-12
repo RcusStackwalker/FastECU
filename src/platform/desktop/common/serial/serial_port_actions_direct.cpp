@@ -102,10 +102,10 @@ int SerialPortActionsDirect::change_port_speed(QString portSpeed)
             emit LOG_D("Adapter type is J2534...", true, true);
 
             SCONFIG_LIST scl;
-            SCONFIG scp[1] = {{DATA_RATE, 0}};
+            auto scp = std::to_array<SCONFIG>({{DATA_RATE, 0}});
             scl.NumOfParams = 1;
             scp[0].Value = baudrate;
-            scl.ConfigPtr = scp;
+            scl.ConfigPtr = scp.data();
             if (!j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
             {
                 emit LOG_D("Baudrate set to " + portSpeed + " OK", true, true);
@@ -133,15 +133,15 @@ QByteArray SerialPortActionsDirect::five_baud_init(QByteArray output)
         SBYTE_ARRAY InputMsg;
         SBYTE_ARRAY OutputMsg;
 
-        unsigned char BytePtr[20];
+        std::array<unsigned char, 20> BytePtr{};
 
         memset(&InputMsg, 0, sizeof(InputMsg));
         memset(&OutputMsg, 0, sizeof(OutputMsg));
 
         InputMsg.NumOfBytes = 1;
-        InputMsg.BytePtr = BytePtr;
+        InputMsg.BytePtr = BytePtr.data();
         OutputMsg.NumOfBytes = 0;
-        OutputMsg.BytePtr = BytePtr;
+        OutputMsg.BytePtr = BytePtr.data();
 
         for (int i = 0; i < output.length(); i++)
         {
@@ -720,8 +720,8 @@ void SerialPortActionsDirect::close_j2534_serial_port()
     J2534_init_ok = false;
     j2534->J2534_init_ok = false;
     openedSerialPort.clear();
-    char dllName[256];
-    j2534->getDllName(dllName);
+    std::array<char, 256> dllName{};
+    j2534->getDllName(dllName.data());
     delete j2534;
     // Null the pointer across the delay(): delay() pumps the event loop, so a
     // reentrant read can run here. A guarded read sees null (safe) instead of a
@@ -729,7 +729,7 @@ void SerialPortActionsDirect::close_j2534_serial_port()
     j2534 = nullptr;
     delay(100);
     j2534 = new J2534();
-    j2534->setDllName(dllName);
+    j2534->setDllName(dllName.data());
 #if defined Q_OS_UNIX
     QObject::connect(j2534, &J2534::LOG_E, this, &SerialPortActionsDirect::LOG_E);
     QObject::connect(j2534, &J2534::LOG_W, this, &SerialPortActionsDirect::LOG_W);
@@ -1250,10 +1250,10 @@ int SerialPortActionsDirect::set_j2534_ioctl(unsigned long parameter, int value)
 {
     // Set timeouts etc.
     SCONFIG_LIST scl;
-    SCONFIG scp[1] = {{parameter, 0}};
+    auto scp = std::to_array<SCONFIG>({{parameter, 0}});
     scl.NumOfParams = 1;
     scp[0].Value = value;
-    scl.ConfigPtr = scp;
+    scl.ConfigPtr = scp.data();
     if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
     {
         reportJ2534Error();
@@ -1514,9 +1514,9 @@ int SerialPortActionsDirect::set_j2534_can_timings()
         emit LOG_D("Set iso15765 timings", true, true);
     }
     SCONFIG_LIST scl;
-    SCONFIG scp[] = {{LOOPBACK, 0}};
+    auto scp = std::to_array<SCONFIG>({{LOOPBACK, 0}});
     scl.NumOfParams = std::size(scp);
-    scl.ConfigPtr = scp;
+    scl.ConfigPtr = scp.data();
     if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
     {
         reportJ2534Error();
@@ -1664,10 +1664,18 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
     if (J2534_is_denso_dsti)
     {
         SCONFIG_LIST scl;
-        SCONFIG scp_dsti_ISO14230[] = {{LOOPBACK, 0}, {P1_MAX, 0xa}, {P3_MIN, 0x14}, {P4_MIN, 0}, {DATA_RATE, 4800}};
-        SCONFIG scp_dsti_DSTI_ISO9141[] = {{DATA_RATE, 4800}, {LOOPBACK, 0},  {P1_MIN, 0},    {P1_MAX, 4},
-                                           {P2_MIN, 4},       {P2_MAX, 0x14}, {P3_MIN, 0x14}, {P3_MAX, 10000},
-                                           {P4_MIN, 0},       {P4_MAX, 0x14}};
+        auto scp_dsti_ISO14230 =
+            std::to_array<SCONFIG>({{LOOPBACK, 0}, {P1_MAX, 0xa}, {P3_MIN, 0x14}, {P4_MIN, 0}, {DATA_RATE, 4800}});
+        auto scp_dsti_DSTI_ISO9141 = std::to_array<SCONFIG>({{DATA_RATE, 4800},
+                                                             {LOOPBACK, 0},
+                                                             {P1_MIN, 0},
+                                                             {P1_MAX, 4},
+                                                             {P2_MIN, 4},
+                                                             {P2_MAX, 0x14},
+                                                             {P3_MIN, 0x14},
+                                                             {P3_MAX, 10000},
+                                                             {P4_MIN, 0},
+                                                             {P4_MAX, 0x14}});
 
         clear_tx_buffer();
         clear_rx_buffer();
@@ -1675,11 +1683,11 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
         switch (protocol)
         {
         case ISO14230:
-            scl.ConfigPtr = scp_dsti_ISO14230;
+            scl.ConfigPtr = scp_dsti_ISO14230.data();
             scl.NumOfParams = std::size(scp_dsti_ISO14230);
             break;
         case DSTI_ISO9141:
-            scl.ConfigPtr = scp_dsti_DSTI_ISO9141;
+            scl.ConfigPtr = scp_dsti_DSTI_ISO9141.data();
             scl.NumOfParams = std::size(scp_dsti_DSTI_ISO9141);
             break;
         }
@@ -1694,7 +1702,8 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
     {
         // Set timeouts etc.
         SCONFIG_LIST scl;
-        SCONFIG scp[6] = {{LOOPBACK, 0}, {P1_MAX, 0}, {P3_MIN, 0}, {P4_MIN, 0}, {PARITY, 0}, {TINIL, 0}};
+        auto scp =
+            std::to_array<SCONFIG>({{LOOPBACK, 0}, {P1_MAX, 0}, {P3_MIN, 0}, {P4_MIN, 0}, {PARITY, 0}, {TINIL, 0}});
         scl.NumOfParams = 6;
         scp[0].Value = 0;
         scp[1].Value = 1;
@@ -1710,7 +1719,7 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
             scp[4].Value = EVEN_PARITY;
         }
         scp[5].Value = 25;
-        scl.ConfigPtr = scp;
+        scl.ConfigPtr = scp.data();
         if (j2534->PassThruIoctl(chanID, SET_CONFIG, &scl, nullptr))
         {
             reportJ2534Error();
@@ -1760,9 +1769,9 @@ int SerialPortActionsDirect::set_j2534_iso9141_filters()
 
 void SerialPortActionsDirect::reportJ2534Error()
 {
-    char err[512];
-    j2534->PassThruGetLastError(err);
-    emit LOG_D("J2534 error: " + (QString)err, true, true);
+    std::array<char, 512> err{};
+    j2534->PassThruGetLastError(err.data());
+    emit LOG_D("J2534 error: " + (QString)err.data(), true, true);
 }
 
 void SerialPortActionsDirect::handle_error(QSerialPort::SerialPortError error)

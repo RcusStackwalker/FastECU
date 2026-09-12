@@ -127,7 +127,7 @@ void handlePassThruOpen(const VendorApi& api, HANDLE in, HANDLE out, const Frame
         return;
     PassThruOpenResponse resp{};
     unsigned long deviceId = 0;
-    resp.result = api.open(req.hasName ? req.name : nullptr, &deviceId);
+    resp.result = api.open(req.hasName ? req.name.data() : nullptr, &deviceId);
     resp.deviceId = deviceId;
     writeFrame(out, Function::PassThruOpen, &resp, sizeof(resp));
 }
@@ -259,7 +259,8 @@ void handlePassThruReadVersion(const VendorApi& api, HANDLE in, HANDLE out, cons
                                                                                    Function::PassThruReadVersion, req))
         return;
     PassThruReadVersionResponse resp{};
-    resp.result = api.readVersion(req.deviceId, resp.apiVersion, resp.dllVersion, resp.firmwareVersion);
+    resp.result =
+        api.readVersion(req.deviceId, resp.apiVersion.data(), resp.dllVersion.data(), resp.firmwareVersion.data());
     writeFrame(out, Function::PassThruReadVersion, &resp, sizeof(resp));
 }
 
@@ -270,7 +271,7 @@ void handlePassThruGetLastError(const VendorApi& api, HANDLE in, HANDLE out, con
             in, out, header, Function::PassThruGetLastError, req))
         return;
     PassThruGetLastErrorResponse resp{};
-    resp.result = api.getLastError(resp.errorDescription);
+    resp.result = api.getLastError(resp.errorDescription.data());
     writeFrame(out, Function::PassThruGetLastError, &resp, sizeof(resp));
 }
 
@@ -285,15 +286,15 @@ void handlePassThruIoctl(const VendorApi& api, HANDLE in, HANDLE out, const Fram
     {
     case SET_CONFIG:
     {
-        SCONFIG_LIST scl{req.numConfigParams, req.configParams};
+        SCONFIG_LIST scl{req.numConfigParams, req.configParams.data()};
         resp.result = api.ioctl(req.channelId, req.ioctlId, &scl, nullptr);
         break;
     }
     case FIVE_BAUD_INIT:
     case FAST_INIT:
     {
-        SBYTE_ARRAY inArr{req.inputByteCount, req.inputBytes};
-        SBYTE_ARRAY outArr{sizeof(resp.outputBytes), resp.outputBytes};
+        SBYTE_ARRAY inArr{req.inputByteCount, req.inputBytes.data()};
+        SBYTE_ARRAY outArr{static_cast<unsigned long>(resp.outputBytes.size()), resp.outputBytes.data()};
         resp.result = api.ioctl(req.channelId, req.ioctlId, &inArr, &outArr);
         resp.outputByteCount = outArr.NumOfBytes;
         break;

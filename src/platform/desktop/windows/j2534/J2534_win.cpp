@@ -1,3 +1,4 @@
+#include <array>
 #include <cstdio>
 #include <stdarg.h>
 #include <string.h>
@@ -17,20 +18,20 @@ J2534::J2534()
     isLibraryInitialized = false;
     // default to the Openport 2.0 J2534 DLL
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    strcpy(dllName, "j2534.dll");
+    strcpy(dllName.data(), "j2534.dll");
 #else
-    strcpy(dllName, "op20pt32.dylib");
+    strcpy(dllName.data(), "op20pt32.dylib");
 #endif
 }
 
 void J2534::setDllName(const char *name)
 {
-    strcpy(dllName, name);
+    strcpy(dllName.data(), name);
 }
 
 void J2534::getDllName(char *name)
 {
-    strcpy(name, dllName);
+    strcpy(name, dllName.data());
 }
 
 void J2534::disable()
@@ -49,7 +50,7 @@ void J2534::disable()
 
 char *J2534::getLastError()
 {
-    return lastError;
+    return lastError.data();
 }
 
 bool J2534::valid()
@@ -123,8 +124,8 @@ void J2534::dbgprint(const char *Format, ...)
 {
     va_list arglist;
     int cb;
-    char buffer[DBGPRINT_BUFSIZE];
-    char *pbuf = buffer;
+    std::array<char, DBGPRINT_BUFSIZE> buffer;
+    char *pbuf = buffer.data();
 
     va_start(arglist, Format);
 
@@ -132,14 +133,14 @@ void J2534::dbgprint(const char *Format, ...)
 
     if (cb == -1)
     {
-        buffer[sizeof(buffer) - 2] = '\n';
-        buffer[sizeof(buffer) - 1] = '\0';
+        buffer[buffer.size() - 2] = '\n';
+        buffer[buffer.size() - 1] = '\0';
     }
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    OutputDebugStringA(buffer);
+    OutputDebugStringA(buffer.data());
 #else
-    printf("%s", buffer);
+    printf("%s", buffer.data());
 #endif
     va_end(arglist);
 }
@@ -150,8 +151,8 @@ void J2534::dbgprint(const char *Format, ...)
 void J2534::dbgdump(const unsigned char *data, unsigned int datalen, int kind)
 {
     unsigned int i;
-    char buf[DBGPRINT_BUFSIZE];
-    char *pbuf = buf;
+    std::array<char, DBGPRINT_BUFSIZE> buf;
+    char *pbuf = buf.data();
 
     if (kind == MSG_READ)
     {
@@ -171,7 +172,7 @@ void J2534::dbgdump(const unsigned char *data, unsigned int datalen, int kind)
         pbuf += sprintf(pbuf, "%02X ", data[i]);
     }
     pbuf += sprintf(pbuf, "\n");
-    dbgprint(buf);
+    dbgprint(buf.data());
 }
 
 void J2534::dbgprintptmsg(const PASSTHRU_MSG *pMsg, int kind)
@@ -212,7 +213,7 @@ long J2534::LoadJ2534DLL(const char *szDLL)
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
     if (!(hDLL = LoadLibraryA(szDLL)))
     {
-        strcpy(lastError, "error loading J2534 DLL");
+        strcpy(lastError.data(), "error loading J2534 DLL");
         return false;
     }
     else if (!getPTfns())
@@ -220,7 +221,7 @@ long J2534::LoadJ2534DLL(const char *szDLL)
         // assume unusable if we don't have everything we need
         FreeLibrary(hDLL);
         hDLL = nullptr;
-        strcpy(lastError, "error loading J2534 DLL function pointers");
+        strcpy(lastError.data(), "error loading J2534 DLL function pointers");
         return false;
     }
 #else
@@ -243,8 +244,8 @@ long J2534::LoadJ2534DLL(const char *szDLL)
 
     if (!(hDLL = dlopen(libPath, RTLD_LOCAL|RTLD_LAZY)))
     {
-        strcpy(lastError, "error loading ");
-        strcat(lastError, libPath);
+        strcpy(lastError.data(), "error loading ");
+        strcat(lastError.data(), libPath);
         chdir(oldPath);
         return false;
     }
@@ -253,7 +254,7 @@ long J2534::LoadJ2534DLL(const char *szDLL)
         // assume unusable if we don't have everything we need
         dlclose(hDLL);
         hDLL = nullptr;
-        strcpy(lastError, "error loading J2534 dylib function pointers");
+        strcpy(lastError.data(), "error loading J2534 dylib function pointers");
         chdir(oldPath);
         return false;
     }
@@ -273,20 +274,20 @@ bool J2534::checkDLL()
         return true;
 
     bool is32Bit = false;
-    if (isDll32Bit(dllName, is32Bit) && is32Bit)
+    if (isDll32Bit(dllName.data(), is32Bit) && is32Bit)
     {
-        auto client = std::make_unique<J2534BridgeClient>("j2534_bridge_host.exe", dllName);
+        auto client = std::make_unique<J2534BridgeClient>("j2534_bridge_host.exe", dllName.data());
         if (client->start())
         {
             bridgeClient = std::move(client);
             useBridge = true;
             return true;
         }
-        strcpy(lastError, "error starting 32-bit J2534 bridge helper");
+        strcpy(lastError.data(), "error starting 32-bit J2534 bridge helper");
         return false;
     }
 
-    LoadJ2534DLL(dllName);
+    LoadJ2534DLL(dllName.data());
     return (hDLL != nullptr);
 }
 
@@ -515,163 +516,163 @@ void J2534::dump_sbyte_array(const SBYTE_ARRAY *s)
 
 void J2534::dump_sconfig_param(SCONFIG s)
 {
-    char paramName[128];
+    std::array<char, 128> paramName;
 
     switch (s.Parameter)
     {
     case DATA_RATE:
-        strcpy(paramName, "DATA_RATE");
+        strcpy(paramName.data(), "DATA_RATE");
         break;
     case LOOPBACK:
-        strcpy(paramName, "LOOPBACK");
+        strcpy(paramName.data(), "LOOPBACK");
         break;
     case NODE_ADDRESS:
-        strcpy(paramName, "NODE_ADDRESS");
+        strcpy(paramName.data(), "NODE_ADDRESS");
         break;
     case NETWORK_LINE:
-        strcpy(paramName, "NETWORK_LINE");
+        strcpy(paramName.data(), "NETWORK_LINE");
         break;
     case P1_MIN:
-        strcpy(paramName, "P1_MIN");
+        strcpy(paramName.data(), "P1_MIN");
         break;
     case P1_MAX:
-        strcpy(paramName, "P1_MAX");
+        strcpy(paramName.data(), "P1_MAX");
         break;
     case P2_MIN:
-        strcpy(paramName, "P2_MIN");
+        strcpy(paramName.data(), "P2_MIN");
         break;
     case P2_MAX:
-        strcpy(paramName, "P2_MAX");
+        strcpy(paramName.data(), "P2_MAX");
         break;
     case P3_MIN:
-        strcpy(paramName, "P3_MIN");
+        strcpy(paramName.data(), "P3_MIN");
         break;
     case P3_MAX:
-        strcpy(paramName, "P3_MAX");
+        strcpy(paramName.data(), "P3_MAX");
         break;
     case P4_MIN:
-        strcpy(paramName, "P4_MIN");
+        strcpy(paramName.data(), "P4_MIN");
         break;
     case P4_MAX:
-        strcpy(paramName, "P4_MAX");
+        strcpy(paramName.data(), "P4_MAX");
         break;
     case W1:
-        strcpy(paramName, "W1");
+        strcpy(paramName.data(), "W1");
         break;
     case W2:
-        strcpy(paramName, "W2");
+        strcpy(paramName.data(), "W2");
         break;
     case W3:
-        strcpy(paramName, "W3");
+        strcpy(paramName.data(), "W3");
         break;
     case W4:
-        strcpy(paramName, "W4");
+        strcpy(paramName.data(), "W4");
         break;
     case W5:
-        strcpy(paramName, "W5");
+        strcpy(paramName.data(), "W5");
         break;
     case TIDLE:
-        strcpy(paramName, "TIDLE");
+        strcpy(paramName.data(), "TIDLE");
         break;
     case TINIL:
-        strcpy(paramName, "TINIL");
+        strcpy(paramName.data(), "TINIL");
         break;
     case TWUP:
-        strcpy(paramName, "TWUP");
+        strcpy(paramName.data(), "TWUP");
         break;
     case PARITY:
-        strcpy(paramName, "PARITY");
+        strcpy(paramName.data(), "PARITY");
         break;
     case BIT_SAMPLE_POINT:
-        strcpy(paramName, "BIT_SAMPLE_POINT");
+        strcpy(paramName.data(), "BIT_SAMPLE_POINT");
         break;
     case SYNC_JUMP_WIDTH:
-        strcpy(paramName, "SYNC_JUMP_WIDTH");
+        strcpy(paramName.data(), "SYNC_JUMP_WIDTH");
         break;
     case W0:
-        strcpy(paramName, "W0");
+        strcpy(paramName.data(), "W0");
         break;
     case T1_MAX:
-        strcpy(paramName, "T1_MAX");
+        strcpy(paramName.data(), "T1_MAX");
         break;
     case T2_MAX:
-        strcpy(paramName, "T2_MAX");
+        strcpy(paramName.data(), "T2_MAX");
         break;
     case T4_MAX:
-        strcpy(paramName, "T4_MAX");
+        strcpy(paramName.data(), "T4_MAX");
         break;
     case T5_MAX:
-        strcpy(paramName, "T5_MAX");
+        strcpy(paramName.data(), "T5_MAX");
         break;
     case ISO15765_BS:
-        strcpy(paramName, "ISO15765_BS");
+        strcpy(paramName.data(), "ISO15765_BS");
         break;
     case ISO15765_STMIN:
-        strcpy(paramName, "ISO15765_STMIN");
+        strcpy(paramName.data(), "ISO15765_STMIN");
         break;
     case DATA_BITS:
-        strcpy(paramName, "DATA_BITS");
+        strcpy(paramName.data(), "DATA_BITS");
         break;
     case FIVE_BAUD_MOD:
-        strcpy(paramName, "FIVE_BAUD_MOD");
+        strcpy(paramName.data(), "FIVE_BAUD_MOD");
         break;
     case BS_TX:
-        strcpy(paramName, "BS_TX");
+        strcpy(paramName.data(), "BS_TX");
         break;
     case STMIN_TX:
-        strcpy(paramName, "STMIN_TX");
+        strcpy(paramName.data(), "STMIN_TX");
         break;
     case T3_MAX:
-        strcpy(paramName, "T3_MAX");
+        strcpy(paramName.data(), "T3_MAX");
         break;
     case ISO15765_WFT_MAX:
-        strcpy(paramName, "ISO15765_WFT_MAX");
+        strcpy(paramName.data(), "ISO15765_WFT_MAX");
         break;
     case CAN_MIXED_FORMAT:
-        strcpy(paramName, "CAN_MIXED_FORMAT");
+        strcpy(paramName.data(), "CAN_MIXED_FORMAT");
         break;
     case J1962_PINS:
-        strcpy(paramName, "J1962_PINS");
+        strcpy(paramName.data(), "J1962_PINS");
         break;
     case SW_CAN_HS_DATA_RATE:
-        strcpy(paramName, "W_CAN_HS_DATA_RATE");
+        strcpy(paramName.data(), "W_CAN_HS_DATA_RATE");
         break;
     case SW_CAN_SPEEDCHANGE_ENABLE:
-        strcpy(paramName, "SW_CAN_SPEEDCHANGE_ENABLE");
+        strcpy(paramName.data(), "SW_CAN_SPEEDCHANGE_ENABLE");
         break;
     case SW_CAN_RES_SWITCH:
-        strcpy(paramName, "SW_CAN_RES_SWITCH");
+        strcpy(paramName.data(), "SW_CAN_RES_SWITCH");
         break;
     case ACTIVE_CHANNELS:
-        strcpy(paramName, "ACTIVE_CHANNELS");
+        strcpy(paramName.data(), "ACTIVE_CHANNELS");
         break;
     case SAMPLE_RATE:
-        strcpy(paramName, "SAMPLE_RATE");
+        strcpy(paramName.data(), "SAMPLE_RATE");
         break;
     case SAMPLES_PER_READING:
-        strcpy(paramName, "SAMPLES_PER_READING");
+        strcpy(paramName.data(), "SAMPLES_PER_READING");
         break;
     case READINGS_PER_MSG:
-        strcpy(paramName, "READINGS_PER_MSG");
+        strcpy(paramName.data(), "READINGS_PER_MSG");
         break;
     case AVERAGING_METHOD:
-        strcpy(paramName, "AVERAGING_METHOD");
+        strcpy(paramName.data(), "AVERAGING_METHOD");
         break;
     case SAMPLE_RESOLUTION:
-        strcpy(paramName, "SAMPLE_RESOLUTION");
+        strcpy(paramName.data(), "SAMPLE_RESOLUTION");
         break;
     case INPUT_RANGE_LOW:
-        strcpy(paramName, "INPUT_RANGE_LOW");
+        strcpy(paramName.data(), "INPUT_RANGE_LOW");
         break;
     case INPUT_RANGE_HIGH:
-        strcpy(paramName, "INPUT_RANGE_HIGH");
+        strcpy(paramName.data(), "INPUT_RANGE_HIGH");
         break;
     default:
-        sprintf(paramName, "%lu(unknown)", s.Parameter);
+        sprintf(paramName.data(), "%lu(unknown)", s.Parameter);
         break;
     }
 
-    DBGPRINT(("    %s : %u", paramName, s.Value));
+    DBGPRINT(("    %s : %u", paramName.data(), s.Value));
 }
 
 long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const void *pInput, void *pOutput)
@@ -681,7 +682,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     unsigned int i;
     SCONFIG_LIST *scl;
     long result = STATUS_NOERROR;
-    char IoctlName[128];
+    std::array<char, 128> IoctlName;
 
     if (!checkDLL())
         return ERR_DEVICE_NOT_CONNECTED;
@@ -691,56 +692,56 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     switch (IoctlID)
     {
     case GET_CONFIG:
-        strcpy(IoctlName, "GET_CONFIG");
+        strcpy(IoctlName.data(), "GET_CONFIG");
         break;
     case SET_CONFIG:
-        strcpy(IoctlName, "SET_CONFIG");
+        strcpy(IoctlName.data(), "SET_CONFIG");
         break;
     case READ_VBATT:
-        strcpy(IoctlName, "READ_VBATT");
+        strcpy(IoctlName.data(), "READ_VBATT");
         break;
     case FIVE_BAUD_INIT:
-        strcpy(IoctlName, "FIVE_BAUD_INIT");
+        strcpy(IoctlName.data(), "FIVE_BAUD_INIT");
         input_as_sa = 1;
         output_as_sa = 1;
         break;
     case FAST_INIT:
-        strcpy(IoctlName, "FAST_INIT");
+        strcpy(IoctlName.data(), "FAST_INIT");
         break;
     case CLEAR_TX_BUFFER:
-        strcpy(IoctlName, "CLEAR_TX_BUFFER");
+        strcpy(IoctlName.data(), "CLEAR_TX_BUFFER");
         break;
     case CLEAR_RX_BUFFER:
-        strcpy(IoctlName, "CLEAR_RX_BUFFER");
+        strcpy(IoctlName.data(), "CLEAR_RX_BUFFER");
         break;
     case CLEAR_PERIODIC_MSGS:
-        strcpy(IoctlName, "CLEAR_PERIODIC_MSGS");
+        strcpy(IoctlName.data(), "CLEAR_PERIODIC_MSGS");
         break;
     case CLEAR_MSG_FILTERS:
-        strcpy(IoctlName, "CLEAR_MSG_FILTERS");
+        strcpy(IoctlName.data(), "CLEAR_MSG_FILTERS");
         break;
     case CLEAR_FUNCT_MSG_LOOKUP_TABLE:
-        strcpy(IoctlName, "CLEAR_FUNCT_MSG_LOOKUP_TABLE");
+        strcpy(IoctlName.data(), "CLEAR_FUNCT_MSG_LOOKUP_TABLE");
         break;
     case ADD_TO_FUNCT_MSG_LOOKUP_TABLE:
-        strcpy(IoctlName, "ADD_TO_FUNCT_MSG_LOOKUP_TABLE");
+        strcpy(IoctlName.data(), "ADD_TO_FUNCT_MSG_LOOKUP_TABLE");
         break;
     case DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE:
-        strcpy(IoctlName, "DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE");
+        strcpy(IoctlName.data(), "DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE");
         break;
     case READ_PROG_VOLTAGE:
-        strcpy(IoctlName, "READ_PROG_VOLTAGE");
+        strcpy(IoctlName.data(), "READ_PROG_VOLTAGE");
         break;
         //    case TX_IOCTL_APP_SERVICE:
-        //        strcpy(IoctlName,"APP_SERVICE");
+        //        strcpy(IoctlName.data(),"APP_SERVICE");
         //        break;
     default:
-        sprintf(IoctlName, "%lu(unknown)", IoctlID);
+        sprintf(IoctlName.data(), "%lu(unknown)", IoctlID);
         break;
     }
 
-    DBGPRINT(("PassThruIoctl(ChannelID=%u,Ioctl=%s,pInput=@%08X,pOutputMsgID=@%08X)\n", ChannelID, IoctlName, pInput,
-              pOutput));
+    DBGPRINT(("PassThruIoctl(ChannelID=%u,Ioctl=%s,pInput=@%08X,pOutputMsgID=@%08X)\n", ChannelID, IoctlName.data(),
+              pInput, pOutput));
 
     if (IoctlID == SET_CONFIG)
     {

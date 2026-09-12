@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <memory>
 
 #include <QApplication>
@@ -85,11 +86,11 @@ class DtcOperations : public QDialog
     const uint8_t fast_init_OBD = 0x81;      // Init ISO14230 fast init
     const uint8_t five_baud_init_OBD = 0x33; // Init ISO9141 five baud init
 
-    const uint8_t start_bytes[3] = {0xC1, 0x33, 0xF1};
-    const uint8_t start_bytes_9141[3] = {0x68, 0x6A, 0xF1};
+    static constexpr auto start_bytes = std::to_array<uint8_t>({0xC1, 0x33, 0xF1});
+    static constexpr auto start_bytes_9141 = std::to_array<uint8_t>({0x68, 0x6A, 0xF1});
 
-    const uint8_t live_data_start_bytes[3] = {0xC2, 0x33, 0xF1};
-    const uint8_t live_data_start_bytes_9141[3] = {0x68, 0x6A, 0xF1};
+    static constexpr auto live_data_start_bytes = std::to_array<uint8_t>({0xC2, 0x33, 0xF1});
+    static constexpr auto live_data_start_bytes_9141 = std::to_array<uint8_t>({0x68, 0x6A, 0xF1});
 
     //-------------------------------------------------------------------------------------//
     // Service mode IDs (https://en.wikipedia.org/wiki/OBD-II_PIDs)
@@ -111,9 +112,10 @@ class DtcOperations : public QDialog
     // PIDs (https://en.wikipedia.org/wiki/OBD-II_PIDs)
     //-------------------------------------------------------------------------------------//
     // SID 0x09 - Vehicle info
-    const uint8_t request_support_info[7] = {0x00, 0x20, 0x40, 0x60, 0x80, 0xA0, 0xC0}; // Read support info
-    const uint8_t request_VIN_length = 0x01;                                            // Request VIN msg length
-    const uint8_t request_VIN = 0x02;                                                   // Read VIN
+    // Read support info
+    static constexpr auto request_support_info = std::to_array<uint8_t>({0x00, 0x20, 0x40, 0x60, 0x80, 0xA0, 0xC0});
+    const uint8_t request_VIN_length = 0x01;    // Request VIN msg length
+    const uint8_t request_VIN = 0x02;           // Read VIN
     const uint8_t request_CAL_ID_length = 0x03; // Read Calibration ID msg length
     const uint8_t request_CAL_ID = 0x04;        // Read Calibration ID
     const uint8_t request_CVN_length = 0x05;    // Read Calibration ID number msg length

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <memory>
 #include <optional>
 
@@ -197,7 +198,7 @@ class MainWindow : public QMainWindow
     fastecu::ui::DefinitionAuthoringDialog *definitionAuthoringDialog = nullptr;
     FileActions::LogValuesStructure *logValues;
     FileActions::ConfigValuesStructure *configValues;
-    FileActions::EcuCalDefStructure *ecuCalDef[100]{};
+    std::array<FileActions::EcuCalDefStructure *, 100> ecuCalDef{};
     // FileActions::EcuCalDefStructure *ecuCalDefTemp;
 
     SerialPortActions *serial;

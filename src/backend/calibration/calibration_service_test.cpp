@@ -635,7 +635,7 @@ TEST(DecodeScaledValues, FormattingMatchesCapturedQtGroundTruth)
         double value;
         const char *expected;
     };
-    const Case cases[] = {
+    static constexpr auto cases = std::to_array<Case>({
         {0.0, "0"},
         {-0.0, "0"},
         {1.0, "1"},
@@ -648,7 +648,7 @@ TEST(DecodeScaledValues, FormattingMatchesCapturedQtGroundTruth)
         {123456789012345.0, "123456789012345"},
         {3.14159265358979, "3.14159265358979"},
         {0.000000001, "1e-09"},
-    };
+    });
     const std::vector<std::uint8_t> rom{0x01};
     for (const Case& c : cases)
     {

@@ -404,7 +404,7 @@ config::ConfigPaths eeprom_paths()
 
 Result<FlashPlan> different_family_plan()
 {
-    constexpr char kConfig[] = R"(<?xml version="1.0" encoding="UTF-8"?>
+    constexpr std::string_view kConfig = R"(<?xml version="1.0" encoding="UTF-8"?>
 <config name="FastECU" version="0.0-dev0">
   <protocols>
     <protocol name="sub_ecu_eeprom_denso_sh7055_kline" alias="SH7055 EEPROM K-Line">
@@ -416,7 +416,7 @@ Result<FlashPlan> different_family_plan()
   </car_models>
 </config>)";
     InMemoryFileRepository files;
-    files.files["protocols.cfg"] = std::vector<std::uint8_t>(kConfig, kConfig + sizeof(kConfig) - 1);
+    files.files["protocols.cfg"] = std::vector<std::uint8_t>(kConfig.begin(), kConfig.end());
     files.files["kernels/kernel.bin"] = {0x01, 0x02, 0x03, 0x04};
     return build_eeprom_read_plan(eeprom_paths(), "sub_ecu_eeprom_denso_sh7055_kline", EepromReadMode::Mode2, files);
 }

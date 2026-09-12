@@ -8,6 +8,7 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QScopedPointer>
+#include <array>
 #include <utility>
 
 FlashEcuSubaruDensoSH705xDensoCanOperation::FlashEcuSubaruDensoSH705xDensoCanOperation(
@@ -667,7 +668,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::write_mem(bool test_write_arg)
 
     QScopedArrayPointer<uint8_t> data_array(new uint8_t[filedata.length()]);
 
-    int block_modified[16] = {0};
+    std::array<int, 16> block_modified{};
 
     unsigned bcnt = 0;
     unsigned blockno;
@@ -682,7 +683,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::write_mem(bool test_write_arg)
     emit LOG_I("--- Comparing ECU flash memory pages to image file ---", true, true);
     emit LOG_I("blk\tstart\tlen\tecu crc\timg crc\tsame?", true, true);
 
-    if (get_changed_blocks(&data_array[0], block_modified))
+    if (get_changed_blocks(&data_array[0], block_modified.data()))
     {
         emit LOG_E("Error in ROM compare", true, true);
         return STATUS_ERROR;
@@ -736,7 +737,7 @@ int FlashEcuSubaruDensoSH705xDensoCanOperation::write_mem(bool test_write_arg)
         emit LOG_I("--- Comparing ECU flash memory pages to image file after reflash ---", true, true);
         emit LOG_I("blk\tstart\tlen\tecu crc\timg crc\tsame?", true, true);
 
-        if (get_changed_blocks(&data_array[0], block_modified))
+        if (get_changed_blocks(&data_array[0], block_modified.data()))
         {
             emit LOG_E("Error in ROM compare", true, true);
             return STATUS_ERROR;
@@ -1401,11 +1402,11 @@ QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::encrypt_payload(const QBy
 {
     QByteArray encrypted;
 
-    const uint16_t keytogenerateindex[] = {0x7856, 0xCE22, 0xF513, 0x6E86};
+    static constexpr auto keytogenerateindex = std::to_array<uint16_t>({0x7856, 0xCE22, 0xF513, 0x6E86});
 
-    const uint8_t indextransformation[] = {0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
-                                           0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
-                                           0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+    static constexpr auto indextransformation =
+        std::to_array<uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
+                                0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
 
     encrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
@@ -1416,11 +1417,11 @@ QByteArray FlashEcuSubaruDensoSH705xDensoCanOperation::decrypt_payload(const QBy
 {
     QByteArray decrypted;
 
-    const uint16_t keytogenerateindex[] = {0x6E86, 0xF513, 0xCE22, 0x7856};
+    static constexpr auto keytogenerateindex = std::to_array<uint16_t>({0x6E86, 0xF513, 0xCE22, 0x7856});
 
-    const uint8_t indextransformation[] = {0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
-                                           0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
-                                           0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+    static constexpr auto indextransformation =
+        std::to_array<uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
+                                0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
 
     decrypted = SsmProtocol::calculatePayload(buf, len, keytogenerateindex, indextransformation);
 
