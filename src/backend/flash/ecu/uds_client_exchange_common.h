@@ -90,6 +90,13 @@ struct UdsExchangeContext
     IEventSink& events;
 };
 
+// Builds the UdsExchangeContext for one exchange. Every CAN executor in this
+// package repeated this four-member aggregate at each call.
+inline UdsExchangeContext exchange_context(const CanExecutorContext& ctx, const uds::ExchangePolicy& policy)
+{
+    return UdsExchangeContext{ctx.uds, policy, ctx.cancellation, ctx.events};
+}
+
 // Sends `pdu` through `ctx.client` and, on failure, logs via
 // report_exchange_failure with a fixed `rejection_prefix` and returns the
 // error. The shape every fatal exchange uses except any whose expected
