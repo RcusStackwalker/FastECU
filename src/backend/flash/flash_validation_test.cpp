@@ -146,7 +146,10 @@ TEST(FlashValidationTest, EmptyMcuNameIsRejected)
     auto fields = valid_read_fields();
     fields.mcu_name.clear();
 
-    EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
 TEST(FlashValidationTest, ZeroLengthTransferRegionIsRejected)
@@ -154,7 +157,10 @@ TEST(FlashValidationTest, ZeroLengthTransferRegionIsRejected)
     auto fields = valid_read_fields();
     fields.transfer_region.length = 0;
 
-    EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
 TEST(FlashValidationTest, TransferRegionOverflowIsRejected)
@@ -162,7 +168,37 @@ TEST(FlashValidationTest, TransferRegionOverflowIsRejected)
     auto fields = valid_read_fields();
     fields.transfer_region = MemoryRegion{.start = 0xffffffff, .length = 0x10};
 
-    EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+}
+
+// A region whose last byte is 0xffffffff ends at 0x100000000, which is one
+// past what a uint32_t end address can hold. Executors compute that end
+// address in uint32_t arithmetic and bound real write loops with it -- see
+// ecu/mitsu_colt_m32r_can_executor.cpp's writable_end/page_write_end -- where
+// it would wrap to 0 and collapse the write window. Rejecting it here is the
+// invariant those call sites rely on, not an off-by-one: do not "fix" this
+// into an acceptance.
+TEST(FlashValidationTest, TransferRegionEndingExactlyAtTheTopOfTheAddressSpaceIsRejected)
+{
+    auto fields = valid_read_fields();
+    fields.transfer_region = MemoryRegion{.start = 0xffffff00, .length = 0x100};
+
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+}
+
+// The largest region this accepts, one byte short of the boundary above.
+TEST(FlashValidationTest, TransferRegionEndingOneByteBelowTheTopOfTheAddressSpaceIsAccepted)
+{
+    auto fields = valid_read_fields();
+    fields.transfer_region = MemoryRegion{.start = 0xffffff00, .length = 0xff};
+
+    EXPECT_TRUE(validate_and_build(std::move(fields)).has_value());
 }
 
 TEST(FlashValidationTest, ReadWithNonEmptyEraseRegionsIsRejected)
@@ -170,7 +206,10 @@ TEST(FlashValidationTest, ReadWithNonEmptyEraseRegionsIsRejected)
     auto fields = valid_read_fields();
     fields.erase_regions.push_back(MemoryRegion{.start = 0, .length = 4});
 
-    EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
 TEST(FlashValidationTest, ReadWithImagePresentIsRejected)
@@ -178,7 +217,10 @@ TEST(FlashValidationTest, ReadWithImagePresentIsRejected)
     auto fields = valid_read_fields();
     fields.image = bytes::Bytes{0x00};
 
-    EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
 TEST(FlashValidationTest, EmptyKernelIdIsRejected)
@@ -244,7 +286,10 @@ TEST(FlashValidationTest, FamilyPlanTagMismatchWithTransportIsRejected)
         .extended_id = false,
     };
 
-    EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
 TEST(FlashValidationTest, FamilyAndVariantMustMatchExhaustively)
@@ -303,7 +348,10 @@ TEST(FlashValidationTest, DuplicateConfirmationIdsAreRejected)
     auto fields = valid_read_fields();
     fields.confirmations.push_back(ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead});
 
-    EXPECT_EQ(validate_and_build(std::move(fields)).error().kind, ErrorKind::InvalidConfig);
+    auto plan = validate_and_build(std::move(fields));
+
+    ASSERT_FALSE(plan.has_value());
+    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
 }
 
 // The "at least one confirmation" floor was removed (Step 5 tail, wave 0):
