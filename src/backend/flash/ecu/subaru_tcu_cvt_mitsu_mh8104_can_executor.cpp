@@ -56,8 +56,6 @@ using bytes::u24;
 // (read payload, legacy decrypt_payload lines 953-954) tables: same finding.
 // All three (Task 6) are factored into
 // subaru_tcu_cvt_mitsu_can_common.h/.cpp.
-// Shared index-transformation table (legacy lines 909-913), identical to
-// every family in this wave and wave-1 Hitachi K-Line.
 
 // Legacy read_mem hardcodes start_addr = 0x8000, length = 0x78000
 // unconditionally (lines 364-366, "hack for testing"). Unlike MH8111 (whose

@@ -46,7 +46,6 @@ constexpr bytes::Byte kSessionKernelJump = 0x42;
 // Encrypt (write payload, legacy encrypt_payload lines 947-948) and decrypt
 // (read payload, legacy decrypt_payload lines 965-966) tables: same Task 6
 // finding, same shared header.
-// Shared by every family in this wave and wave-1 Hitachi K-Line.
 
 // Hardcoded in legacy read_mem regardless of caller arguments (lines
 // 356-358, "hack for testing").

@@ -120,8 +120,8 @@ bytes::Bytes generate_stock_seed_key(bytes::ByteView seed)
     return SsmProtocol::calculateSeedKey(seed, kIndex, SsmProtocol::kIndexTransformationStock);
 }
 
-// generate_ecutek_seed_key(), lines 886-911: same key table as stock, a
-// different indextransformation table (first byte 0x4 vs 0x5, etc).
+// generate_ecutek_seed_key(), lines 886-911: the same key table as stock,
+// paired with the ECUTEK index transformation.
 bytes::Bytes generate_ecutek_seed_key(bytes::ByteView seed)
 {
     static constexpr std::array<std::uint16_t, 16> kIndex{0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382,

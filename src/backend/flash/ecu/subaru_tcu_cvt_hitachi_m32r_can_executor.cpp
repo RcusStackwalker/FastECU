@@ -55,7 +55,6 @@ constexpr std::array<std::uint16_t, 16> kSeedKeyTable{0x9E99, 0x685C, 0x874D, 0x
 constexpr std::array<std::uint16_t, 4> kEncryptTable{0x3B61, 0x8BEF, 0x9E51, 0x1075};
 // Decrypt (read payload) -- reverse order of kEncryptTable, same values.
 constexpr std::array<std::uint16_t, 4> kDecryptTable{0x1075, 0x9E51, 0x8BEF, 0x3B61};
-// Shared by all four wave-3 families and wave-1 Hitachi K-Line.
 
 // The resolved read/write window (see the plan's kReadRegion/kWriteRegion
 // comment): legacy's own start_addr - 0x00100000 bias underflows for the

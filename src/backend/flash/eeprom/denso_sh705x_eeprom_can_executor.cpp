@@ -182,9 +182,9 @@ bytes::Bytes generate_stock_seed_key(bytes::ByteView seed)
 // generate_ecutek_seed_key(), lines 1224-1269 (base calculateSeedKey() call
 // only, lines 1228-1247 -- the "_ecutek_racerom_alt" post-processing,
 // 1249-1266, is intentionally not reproduced; see the OPEN QUESTION
-// resolution comment above connect_bootloader() below). Same
-// keytogenerateindex_1 as Stock; indextransformation's first 5 entries
-// differ (0x4,0x2,0x5,0x1,0x8 vs Stock's 0x5,0x6,0x7,0x1,0x9).
+// resolution comment above connect_bootloader() below). The same
+// keytogenerateindex_1 as Stock, paired with the ECUTEK index
+// transformation.
 bytes::Bytes generate_ecutek_seed_key(bytes::ByteView seed)
 {
     static constexpr std::array<std::uint16_t, 16> kIndex{0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4,
