@@ -255,6 +255,15 @@ py_test(
     main = "scripts/check-windows-preprocessor-guards.py",
 )
 
+# Not run on Windows. The check scans the real src/backend checkout rather
+# than a runfiles copy of it (see the module docstring in the script for why
+# declaring 19 per-package filegroups is the worse trade), and it reaches that
+# checkout by resolving a `data` anchor whose runfiles entry is a symlink back
+# into the source tree. --enable_runfiles (.bazelrc) materializes runfiles as
+# *copies* on Windows, so there the anchor resolves inside the runfiles tree
+# and the walk finds one file instead of the whole tree. The verdict is a
+# property of the source text, not of the host, so Linux and macOS -- both of
+# which run this on every PR -- enforce it for all three.
 py_test(
     name = "backend_no_widgets",
     size = "small",
@@ -263,6 +272,10 @@ py_test(
         "//src/backend/definitions:file_actions.h",
     ],
     main = "scripts/check-backend-no-widgets.py",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     deps = ["@rules_python//python/runfiles"],
 )
 

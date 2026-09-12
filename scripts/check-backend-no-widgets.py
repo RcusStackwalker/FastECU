@@ -25,18 +25,26 @@ MIN_EXPECTED_FILES = 100
 def _find_backend_root() -> Path:
     """Locate the real (not runfiles-copied) src/backend directory.
 
-    This can't use `Path(__file__).resolve().parents[1]` the way
-    check-portable-closure.py does: that trick depends on this script's own
-    runfiles entry being a symlink back into the real checkout, which holds
-    on Linux/macOS but not on Windows, where `--enable_runfiles` (needed so
-    Qt's plugin loader can see real plugin files, see .bazelrc) makes Bazel
-    materialize runfiles as copies instead -- a copy of just this one script
-    has no sibling src/backend tree to walk. The runfiles *manifest* Python's
-    bootstrap reads (RUNFILES_MANIFEST_FILE) still maps every declared data
-    dependency to its true source-tree path regardless of that copy, so
-    anchoring on file_actions.h -- a real `data` dependency of this test --
-    and resolving it through the runfiles API finds the genuine, complete
-    checkout on every platform.
+    The scan needs the whole src/backend tree, and Bazel can only put files
+    in a test's runfiles if they are declared: src/backend spans 19 packages
+    and glob() does not cross package boundaries, so declaring the tree means
+    19 per-package filegroups that a newly added package silently drops out
+    of -- exactly the blind spot this guard exists to close. So instead it
+    anchors on file_actions.h, a real `data` dependency, resolves it through
+    the runfiles API, and walks the directory that anchor lives in.
+
+    That works only where runfiles entries are symlinks back into the real
+    checkout. On Windows they are not: `--enable_runfiles` (needed so Qt's
+    plugin loader can see real plugin files, see .bazelrc) makes Bazel
+    materialize the tree by *copying*, so the anchor resolves to the copy and
+    its parent holds that one file rather than the source tree. Nothing
+    reachable from a sandboxed test points back out at the checkout there,
+    which is why //:backend_no_widgets is marked incompatible with Windows in
+    BUILD.bazel; Linux and macOS run it on every PR and the verdict is a
+    property of the source text, not of the host.
+
+    MIN_EXPECTED_FILES below is the backstop: if this ever resolves to a
+    partial tree again, the check fails loudly instead of passing vacuously.
     """
     runfiles = Runfiles.Create()
     if runfiles is not None:
