@@ -325,11 +325,11 @@ ScriptPlan prepareScript(IBenchFiles& files, const Reporter& reporter, std::istr
                                                         { return find_global_option(token) != nullptr; });
             forbidden != tokens.end())
         {
-            const Error error{ErrorKind::InvalidConfig,
-                              std::format("script-line global option {} is not allowed; put it on the outer "
-                                          "--script invocation",
-                                          *forbidden)};
-            if (lineFailed(line_label, error))
+            if (const Error error{ErrorKind::InvalidConfig,
+                                  std::format("script-line global option {} is not allowed; put it on the outer "
+                                              "--script invocation",
+                                              *forbidden)};
+                lineFailed(line_label, error))
             {
                 return plan;
             }

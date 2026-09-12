@@ -5,6 +5,7 @@
 #include <charconv>
 #include <format>
 #include <limits>
+#include <memory>
 
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 
@@ -107,6 +108,22 @@ Status setScript(GlobalOptions& options, std::string_view value)
     return {};
 }
 
+// The option's value argument, consumed from `args` and advancing `index` past
+// it. Empty for a flag.
+Result<std::string_view> globalOptionValue(const GlobalOptionSpec& option, std::span<const std::string_view> args,
+                                           std::size_t& index)
+{
+    if (!option.takes_value)
+    {
+        return std::string_view{};
+    }
+    if (index + 1 >= args.size())
+    {
+        return fail(ErrorKind::InvalidConfig, std::format("{} needs a value", args[index]));
+    }
+    return args[++index];
+}
+
 constexpr std::array kGlobalOptions{
     GlobalOptionSpec{.name = "--json", .apply = setFlag<&GlobalOptions::json>},
     GlobalOptionSpec{.name = "--verbose", .apply = setFlag<&GlobalOptions::verbose>},
@@ -129,7 +146,7 @@ std::span<const GlobalOptionSpec> global_option_table()
 const GlobalOptionSpec *find_global_option(std::string_view token)
 {
     const auto match = std::ranges::find(kGlobalOptions, token, &GlobalOptionSpec::name);
-    return match == kGlobalOptions.end() ? nullptr : &*match;
+    return match == kGlobalOptions.end() ? nullptr : std::to_address(match);
 }
 
 Result<std::uint32_t> parse_u32(std::string_view text)
@@ -197,16 +214,12 @@ Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> a
         }
         if (const GlobalOptionSpec *const option = find_global_option(arg); option != nullptr)
         {
-            std::string_view value;
-            if (option->takes_value)
+            const Result<std::string_view> value = globalOptionValue(*option, args, index);
+            if (!value.has_value())
             {
-                if (index + 1 >= args.size())
-                {
-                    return fail(ErrorKind::InvalidConfig, std::format("{} needs a value", arg));
-                }
-                value = args[++index];
+                return std::unexpected(value.error());
             }
-            if (const Status applied = option->apply(parsed.options, value); !applied.has_value())
+            if (const Status applied = option->apply(parsed.options, *value); !applied.has_value())
             {
                 return std::unexpected(applied.error());
             }

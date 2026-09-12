@@ -202,8 +202,9 @@ Status upload(BenchContext& context, CommandOutcome& outcome, std::uint32_t addr
 // policy, record the decoded reply as the note, and fail on any status but 0.
 // Shared by crc-check and erase, whose replies differ only in which routine id
 // they echo and how the status decodes.
+template <class Decode>
 Status routineWithStatus(BenchContext& context, CommandOutcome& outcome, bytes::ByteView pdu, bytes::Byte routine,
-                         std::string (*decode)(bytes::ByteView))
+                         Decode decode)
 {
     const Result<bytes::Bytes> reply = exchange(context, outcome, pdu, kSlowPolicy);
     if (!reply.has_value())
@@ -326,7 +327,7 @@ Result<PreparedStep> prepare_step(IBenchFiles& files, const StepSpec& step)
     case CommandId::Send:
     case CommandId::SendRaw:
     {
-        const Result<bytes::Bytes> pdu = parse_hex_bytes(step.args);
+        Result<bytes::Bytes> pdu = parse_hex_bytes(step.args);
         if (!pdu.has_value())
         {
             return std::unexpected(pdu.error());
@@ -463,10 +464,10 @@ Status executeStep(BenchContext& context, const PreparedStep& prepared, CommandO
         // classify as success or failure by content. A genuine transport
         // error (nothing arrived at all) still propagates like every other
         // command's Result does.
-        const Result<bytes::Bytes> reply =
-            step.id == CommandId::Send ? exchange(context, outcome, prepared.pdu, kRoutinePolicy)
-                                       : exchangeRaw(context, outcome, prepared.pdu, context.options.timeout_ms);
-        if (!reply.has_value())
+        if (const Result<bytes::Bytes> reply =
+                step.id == CommandId::Send ? exchange(context, outcome, prepared.pdu, kRoutinePolicy)
+                                           : exchangeRaw(context, outcome, prepared.pdu, context.options.timeout_ms);
+            !reply.has_value())
         {
             return std::unexpected(reply.error());
         }
