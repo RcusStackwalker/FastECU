@@ -33,59 +33,16 @@ bool region_end_not_representable(const MemoryRegion& region)
     return static_cast<std::uint64_t>(region.start) + region.length > static_cast<std::uint64_t>(0xffffffffU);
 }
 
+// Each alternative's declared family and transport come from FamilyTraits in
+// flash_types.h, next to the variant itself, so this stays a single visit
+// rather than a switch that has to be kept in step with the variant by hand.
 bool family_matches_transport_variant(const FlashPlanFields& fields)
 {
-    switch (fields.family)
-    {
-    case FlashFamily::DensoSh705xEepromKline:
-        return fields.transport == TransportKind::Kline &&
-               std::holds_alternative<DensoSh705xEepromKlinePlan>(fields.family_plan);
-    case FlashFamily::DensoSh705xEepromCan:
-        return fields.transport == TransportKind::CanIso15765 &&
-               std::holds_alternative<DensoSh705xEepromCanPlan>(fields.family_plan);
-    case FlashFamily::MitsuColtM32rCan:
-        return fields.transport == TransportKind::CanIso15765 &&
-               std::holds_alternative<MitsuColtM32rCanPlan>(fields.family_plan);
-    case FlashFamily::SubaruMitsuM32rKline:
-        return fields.transport == TransportKind::Kline &&
-               std::holds_alternative<SubaruMitsuM32rKlinePlan>(fields.family_plan);
-    case FlashFamily::SubaruHitachiM32rKline:
-        return fields.transport == TransportKind::Kline &&
-               std::holds_alternative<SubaruHitachiM32rKlinePlan>(fields.family_plan);
-    case FlashFamily::SubaruDensoMc68hc16y5_02:
-        return fields.transport == TransportKind::Kline &&
-               std::holds_alternative<SubaruDensoMc68hc16y5_02Plan>(fields.family_plan);
-    case FlashFamily::SubaruDensoSh7055_02:
-        return fields.transport == TransportKind::Kline &&
-               std::holds_alternative<SubaruDensoSh7055_02Plan>(fields.family_plan);
-    case FlashFamily::SubaruHitachiM32rCan:
-        return fields.transport == TransportKind::CanIso15765 &&
-               std::holds_alternative<SubaruHitachiM32rCanPlan>(fields.family_plan);
-    case FlashFamily::SubaruTcuCvtHitachiM32rCan:
-        return fields.transport == TransportKind::CanIso15765 &&
-               std::holds_alternative<SubaruTcuCvtHitachiM32rCanPlan>(fields.family_plan);
-    case FlashFamily::SubaruTcuCvtMitsuMh8111Can:
-        return fields.transport == TransportKind::CanIso15765 &&
-               std::holds_alternative<SubaruTcuCvtMitsuMh8111CanPlan>(fields.family_plan);
-    case FlashFamily::SubaruTcuCvtMitsuMh8104Can:
-        return fields.transport == TransportKind::CanIso15765 &&
-               std::holds_alternative<SubaruTcuCvtMitsuMh8104CanPlan>(fields.family_plan);
-    case FlashFamily::SubaruDenso1n83m_1_5mCan:
-        return fields.transport == TransportKind::CanIso15765 &&
-               std::holds_alternative<SubaruDenso1n83m_1_5mCanPlan>(fields.family_plan);
-    case FlashFamily::SubaruDensoSh72531Can:
-        return fields.transport == TransportKind::CanIso15765 &&
-               std::holds_alternative<SubaruDensoSh72531CanPlan>(fields.family_plan);
-    case FlashFamily::SubaruDensoSh72543CanDiesel:
-        return fields.transport == TransportKind::CanIso15765 &&
-               std::holds_alternative<SubaruDensoSh72543CanDieselPlan>(fields.family_plan);
-    case FlashFamily::SubaruDenso1n83m_4mCan:
-        return fields.transport == TransportKind::CanIso15765 &&
-               std::holds_alternative<SubaruDenso1n83m_4mCanPlan>(fields.family_plan);
-    }
-    return false;
+    return std::visit(
+        [&fields]<typename T>(const T&)
+        { return fields.family == FamilyTraits<T>::family && fields.transport == FamilyTraits<T>::transport; },
+        fields.family_plan);
 }
-
 } // namespace
 
 Result<FlashPlan> validate_and_build(FlashPlanFields fields)
