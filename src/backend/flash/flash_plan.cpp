@@ -41,6 +41,8 @@ std::string_view FlashPlan::experimental_family_id() const
         return "SubaruDensoSh705xDensoCan";
     case FlashFamily::SubaruTcuDensoSh705xCan:
         return "SubaruTcuDensoSh705xCan";
+    case FlashFamily::SubaruDensoSh7058Can:
+        return "SubaruDensoSh7058Can";
     }
     return "Unknown";
 }

@@ -26,6 +26,8 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_executor.h"
 #include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_executor.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor.h"
@@ -715,6 +717,9 @@ using SubaruDensoSh705xDensoCanWorkflow =
 using SubaruTcuDensoSh705xCanWorkflow =
     KernelBackedCanFlashWorkflow<SubaruTcuDensoSh705xCanExecutor, &build_subaru_tcu_denso_sh705x_can_plan,
                                  DesktopCanFlashTransport>;
+using SubaruDensoSh7058CanWorkflow =
+    KernelBackedCanFlashWorkflow<SubaruDensoSh7058CanExecutor, &build_subaru_denso_sh7058_can_plan,
+                                 DesktopCanFlashTransport>;
 
 class EepromWorkflow final : public FlashWorkflow
 {
@@ -868,6 +873,7 @@ struct Route
         SubaruDensoSh7055_02,
         SubaruDensoSh705xDensoCan,
         SubaruTcuDensoSh705xCan,
+        SubaruDensoSh7058Can,
         SubaruHitachiM32rCan,
         SubaruTcuCvtHitachiM32rCan,
         SubaruTcuCvtMitsuMh8111Can,
@@ -903,6 +909,11 @@ constexpr auto kRoutes = std::to_array<Route>({
     {"sub_ecu_denso_sh7059_diesel_densocan", SubaruDensoSh705xDensoCan, RouteMatch::Exact},
     {"sub_tcu_denso_sh7055_can", SubaruTcuDensoSh705xCan, RouteMatch::Exact},
     {"sub_tcu_denso_sh7058_can", SubaruTcuDensoSh705xCan, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7058_can", SubaruDensoSh7058Can, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7058_can_ecutek", SubaruDensoSh7058Can, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7058_can_ecutek_racerom", SubaruDensoSh7058Can, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7058_can_ecutek_racerom_alt", SubaruDensoSh7058Can, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7058_can_cobb", SubaruDensoSh7058Can, RouteMatch::Exact},
     // Reserve this longer prefix before the bare MC68 _02 row. BDM remains
     // on its legacy path and must not be swallowed by portable routing.
     {"sub_ecu_denso_mc68hc16y5_02_bdm", Unrouted},
@@ -965,6 +976,8 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
         return std::make_unique<SubaruDensoSh705xDensoCanWorkflow>(std::move(request));
     case SubaruTcuDensoSh705xCan:
         return std::make_unique<SubaruTcuDensoSh705xCanWorkflow>(std::move(request));
+    case SubaruDensoSh7058Can:
+        return std::make_unique<SubaruDensoSh7058CanWorkflow>(std::move(request));
     case SubaruHitachiM32rCan:
         return std::make_unique<SubaruHitachiM32rCanWorkflow>(std::move(request));
     case SubaruTcuCvtHitachiM32rCan:
