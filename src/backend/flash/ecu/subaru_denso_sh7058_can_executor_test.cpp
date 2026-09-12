@@ -47,6 +47,18 @@ constexpr std::uint32_t kReadPageSize = 0x400;
 constexpr std::uint32_t kWriteChunkSize = 0x200;
 constexpr std::uint32_t kCommitSize = 0x1000;
 
+enum class UploadB6Reply
+{
+    NoFrame,
+    Timeout,
+    Short,
+    Malformed,
+    WrongCanId,
+    AdapterError,
+    Cancelled,
+    Disconnected,
+};
+
 struct Variant
 {
     std::string_view protocol;
@@ -417,8 +429,40 @@ void script_bootloader_connection(ScriptedCanFlashTransport& transport, const Va
     script_seed_and_programming(transport, variant.expected_key, use_42, accept_key);
 }
 
+void queue_upload_b6_reply(ScriptedCanFlashTransport& transport, UploadB6Reply reply)
+{
+    switch (reply)
+    {
+    case UploadB6Reply::NoFrame:
+        transport.queue_no_frame();
+        return;
+    case UploadB6Reply::Timeout:
+        transport.queue_error(ErrorKind::Timeout, "legacy B6 timeout");
+        return;
+    case UploadB6Reply::Short:
+        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07});
+        return;
+    case UploadB6Reply::Malformed:
+        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE});
+        return;
+    case UploadB6Reply::WrongCanId:
+        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x01});
+        return;
+    case UploadB6Reply::AdapterError:
+        transport.queue_error(ErrorKind::Internal, "legacy stale B6 adapter error");
+        return;
+    case UploadB6Reply::Cancelled:
+        transport.queue_error(ErrorKind::Cancelled, "legacy B6 cancellation");
+        return;
+    case UploadB6Reply::Disconnected:
+        transport.queue_error(ErrorKind::Disconnected, "legacy B6 disconnect");
+        return;
+    }
+}
+
 void script_129_byte_kernel_upload(ScriptedCanFlashTransport& transport,
-                                   bytes::Bytes final_kernel_id_response = kernel_id_response())
+                                   bytes::Bytes final_kernel_id_response = kernel_id_response(),
+                                   UploadB6Reply b6_reply = UploadB6Reply::NoFrame)
 {
     // Literal transcript for 128 zero bytes followed by 01. Padding expands
     // to 0x100 bytes; fixed encrypted words were derived independently from
@@ -432,7 +476,7 @@ void script_129_byte_kernel_upload(ScriptedCanFlashTransport& transport,
         first.insert(first.end(), {0xE7, 0xE2, 0x14, 0x30});
     }
     transport.expectWrite(first);
-    transport.queue_no_frame();
+    queue_upload_b6_reply(transport, b6_reply);
 
     bytes::Bytes second{0x00, 0x00, 0x07, 0xE0, 0xB6, 0xFF, 0x30, 0x80, 0xC0, 0x41, 0xD4, 0xCA};
     for (int word = 0; word < 30; ++word)
@@ -441,10 +485,10 @@ void script_129_byte_kernel_upload(ScriptedCanFlashTransport& transport,
     }
     second.insert(second.end(), {0x42, 0x61, 0xDB, 0x2C});
     transport.expectWrite(second);
-    transport.queue_no_frame();
+    queue_upload_b6_reply(transport, b6_reply);
 
     transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0xB6, 0xFF, 0x31, 0x00});
-    transport.queue_no_frame();
+    queue_upload_b6_reply(transport, b6_reply);
     transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x37});
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x77});
     transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x31, 0x01, 0x02, 0x02, 0x02});
@@ -700,6 +744,64 @@ TEST(SubaruDensoSh7058CanExecutor, ProbeTimeoutUploadsLiteral129ByteKernelThenRe
     EXPECT_THAT(transport.read_timeouts, Contains(10));
 }
 
+TEST(SubaruDensoSh7058CanExecutor, UploadB6ShortMalformedWrongIdAndAdapterRepliesAreDiscarded)
+{
+    const std::array<UploadB6Reply, 6> ignored_replies{UploadB6Reply::NoFrame,    UploadB6Reply::Timeout,
+                                                       UploadB6Reply::Short,      UploadB6Reply::Malformed,
+                                                       UploadB6Reply::WrongCanId, UploadB6Reply::AdapterError};
+    for (const UploadB6Reply b6_reply : ignored_replies)
+    {
+        SCOPED_TRACE(static_cast<int>(b6_reply));
+        bytes::Bytes kernel_data(129, bytes::Byte{0});
+        kernel_data.back() = 0x01;
+        auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruDensoSh7058CanExecutor executor;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        script_bootloader_connection(transport, kVariants.front());
+        // Stop at the strict post-upload kernel probe so the test proves all
+        // three B6 reads were discarded before that probe, without needing a
+        // 1 MiB read transcript in each reply variant.
+        script_129_byte_kernel_upload(transport, bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE}, b6_reply);
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_TRUE(transport.scriptConsumed());
+    }
+}
+
+TEST(SubaruDensoSh7058CanExecutor, UploadB6CancellationAndDisconnectArePropagated)
+{
+    for (const auto [b6_reply, expected] : {std::pair{UploadB6Reply::Cancelled, ErrorKind::Cancelled},
+                                            std::pair{UploadB6Reply::Disconnected, ErrorKind::Disconnected}})
+    {
+        SCOPED_TRACE(static_cast<int>(b6_reply));
+        bytes::Bytes kernel_data(129, bytes::Byte{0});
+        kernel_data.back() = 0x01;
+        auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruDensoSh7058CanExecutor executor;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        script_bootloader_connection(transport, kVariants.front());
+        script_129_byte_kernel_upload(transport, bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE}, b6_reply);
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, expected);
+    }
+}
+
 TEST(SubaruDensoSh7058CanExecutor, IdentityAndVendorFailuresRemainTolerantUntilStrictSecurity)
 {
     auto plan = plan_for(kVariants.front(), FlashOperation::Read);
@@ -721,38 +823,44 @@ TEST(SubaruDensoSh7058CanExecutor, IdentityAndVendorFailuresRemainTolerantUntilS
     EXPECT_TRUE(has_log(events, LogLevel::Info, "Sending seed key"));
 }
 
-TEST(SubaruDensoSh7058CanExecutor, MalformedInitialKernelProbeFallsBackToBootloaderNegotiation)
+TEST(SubaruDensoSh7058CanExecutor, ShortAndWrongIdInitialKernelProbesFallBackToBootloaderNegotiation)
 {
-    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    SubaruDensoSh7058CanExecutor executor;
-    ScriptedCanFlashTransport transport;
-    configure_and_open(executor, *plan, transport);
+    const std::array<bytes::Bytes, 2> probe_replies{bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE},
+                                                    bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x01}};
+    for (const bytes::Bytes& probe_reply : probe_replies)
+    {
+        SCOPED_TRACE(bytes::toHex(probe_reply));
+        auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruDensoSh7058CanExecutor executor;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
 
-    // The legacy initial probe logs a malformed/wrong kernel reply and then
-    // continues with the ECU identity/session sequence. The strict security
-    // exchange below makes the fallback observable without requiring a full
-    // upload/read transcript.
-    transport.expectWrite(kernel_id_request());
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE});
-    script_identity_queries(transport);
-    script_session_selection(transport);
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67, 0x01, 0x11, 0x22, 0x33, 0x44});
-    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x7F, 0x27, 0x35});
+        // The legacy initial probe logs a malformed/wrong kernel reply and
+        // continues with the ECU identity/session sequence. The strict
+        // security exchange below makes fallback observable without a full
+        // upload/read transcript.
+        transport.expectWrite(kernel_id_request());
+        transport.queueRead(probe_reply);
+        script_identity_queries(transport);
+        script_session_selection(transport);
+        transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01});
+        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67, 0x01, 0x11, 0x22, 0x33, 0x44});
+        transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF});
+        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x7F, 0x27, 0x35});
 
-    NeverCancelled cancellation;
-    FakeClock clock;
-    RecordingEventSink events;
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+        const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_TRUE(has_log(events, LogLevel::Info, "Requesting ECU ID"));
-    EXPECT_TRUE(has_log(events, LogLevel::Info, "Sending seed key"));
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_TRUE(transport.scriptConsumed());
+        EXPECT_TRUE(has_log(events, LogLevel::Info, "Requesting ECU ID"));
+        EXPECT_TRUE(has_log(events, LogLevel::Info, "Sending seed key"));
+    }
 }
 
 TEST(SubaruDensoSh7058CanExecutor, TestWriteUsesDisableEraseBufferAndValidateWithoutCommit)
@@ -1106,13 +1214,16 @@ TEST(SubaruDensoSh7058CanExecutor, ProprietaryBeefWrongOpcodeAndCanIdAreTypedBad
     }
 
     {
-        auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+        bytes::Bytes kernel_data(129, bytes::Byte{0});
+        kernel_data.back() = 0x01;
+        auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanExecutor executor;
         ScriptedCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
-        transport.expectWrite(kernel_id_request());
-        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x04, 0x41, 0x4B, 0x49, 0x44});
+        script_bootloader_connection(transport, kVariants.front());
+        script_129_byte_kernel_upload(
+            transport, bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x04, 0x41, 0x4B, 0x49, 0x44});
         NeverCancelled cancellation;
         FakeClock clock;
         RecordingEventSink events;

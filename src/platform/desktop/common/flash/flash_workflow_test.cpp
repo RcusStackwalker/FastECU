@@ -160,6 +160,8 @@ class FlashWorkflowTest : public QObject
     void densoCanPreflightAndDeclinedPromptsStopBeforeAttempt();
     void petrolRoutesOnlyTheFiveExactProtocols();
     void petrolSupportedOperationsResolveSecurityAndCatalogKernel();
+    void petrolSuccessfulReadPropagatesBytesAndRomId();
+    void petrolReadResolvesKernelBeforeBeginAndBindsDesktopCanTransport();
     void tcuRoutesOnlyTheTwoExactProtocols();
     void tcuSupportedOperationsResolveTheirCatalogKernelAndReachAttempt();
     void tcuUnsupportedOperationsFailBeforeTransportIo();
@@ -496,6 +498,81 @@ void FlashWorkflowTest::petrolSupportedOperationsResolveSecurityAndCatalogKernel
         QVERIFY(!family_plan->extended_id);
         QCOMPARE(family_plan->security, test.security);
     }
+}
+
+void FlashWorkflowTest::petrolSuccessfulReadPropagatesBytesAndRomId()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    auto input = request("sub_ecu_denso_sh7058_can");
+    input.mcu = "SH7058";
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    input.paths = *paths;
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
+    workflow->submit(
+        FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5A, 0xA5}, .rom_id = "CALID_123456789A_"});
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Succeeded);
+    QCOMPARE(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({0x5A, 0xA5}));
+    QCOMPARE(std::get<FlashCompletedStep>(done).rom_id, std::string("CALID_123456789A_"));
+}
+
+void FlashWorkflowTest::petrolReadResolvesKernelBeforeBeginAndBindsDesktopCanTransport()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    FakeBackend *fake = nullptr;
+    auto serial = recordingSerial(&fake);
+    QVERIFY(serial != nullptr);
+    fake->openSerialPortResult = "COM3";
+
+    auto input = request("sub_ecu_denso_sh7058_can");
+    input.mcu = "SH7058";
+    input.paths = *paths;
+    input.serial = serial.get();
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+
+    auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashPromptStep>(step));
+    QCOMPARE(std::get<FlashPromptStep>(step).kind, FlashPromptKind::Begin);
+    // Resolution happened before Begin; removing the catalog and kernel now
+    // must not affect the already-bound attempt.
+    QVERIFY(QFile::remove(QString::fromStdString(paths->protocols_file)));
+    QVERIFY(QFile::remove(directory.filePath("kernels/catalog_petrol_sh7058.bin")));
+
+    workflow->submit(FlashPromptResponse::Accept);
+    step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashAttempt>(step));
+    const auto& attempt = std::get<FlashAttempt>(step);
+    const FlashPlan& plan = attempt.attempt->plan();
+    QCOMPARE(plan.family(), FlashFamily::SubaruDensoSh7058Can);
+    QCOMPARE(plan.transport(), TransportKind::CanIso15765);
+    QCOMPARE(plan.target_id(), std::string_view("sub_ecu_denso_sh7058_can"));
+    QVERIFY(plan.kernel().has_value());
+    QCOMPARE(plan.kernel()->bytes, bytes::Bytes({0x90, 0xA0, 0xB0, 0xC0}));
+
+    FakeCancellationToken cancellation;
+    cancellation.cancel_on_check(2);
+    NullEventSink events;
+    const auto result = attempt.attempt->run(*attempt.clock, cancellation, events);
+    QVERIFY(!result.has_value());
+    QCOMPARE(result.error().kind, ErrorKind::Cancelled);
+    QCOMPARE(fake->takeCallLog(),
+             QStringList({"cfg:set_is_iso15765_connection:1", "cfg:set_is_can_connection:0",
+                          "cfg:set_is_iso14230_connection:0", "cfg:set_is_29_bit_id:0", "cfg:set_can_speed:500000",
+                          "cfg:set_can_source_address:2016", "cfg:set_can_destination_address:2024",
+                          "cfg:set_iso15765_source_address:2016", "cfg:set_iso15765_destination_address:2024",
+                          "open_serial_port"}));
 }
 
 void FlashWorkflowTest::tcuRoutesOnlyTheTwoExactProtocols()

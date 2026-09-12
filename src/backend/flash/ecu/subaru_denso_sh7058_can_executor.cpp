@@ -226,6 +226,33 @@ Result<bytes::Bytes> channel_request(Context& context, bytes::ByteView pdu, int 
     return std::move(**received);
 }
 
+Status upload_b6_discard(Context& context, bytes::ByteView pdu)
+{
+    // upload_kernel(), revision 59f4e442:738-751 unconditionally reads and
+    // discards every B6 reply. Send through the channel for the request CAN
+    // envelope, but read the reply directly so short/malformed/wrong-ID
+    // frames and adapter-specific stale errors remain non-fatal like legacy.
+    if (const Status checkpoint = cancelled_if_requested(context, "kernel upload cancelled"); !checkpoint.has_value())
+    {
+        return checkpoint;
+    }
+    if (const Status sent = context.channel.send(pdu, context.cancellation); !sent.has_value())
+    {
+        return sent;
+    }
+    const Result<std::optional<bytes::Bytes>> ignored = context.transport.read(kReadTimeoutMs, context.cancellation);
+    if (!ignored.has_value() &&
+        (ignored.error().kind == ErrorKind::Cancelled || ignored.error().kind == ErrorKind::Disconnected))
+    {
+        return std::unexpected(ignored.error());
+    }
+    if (const Status checkpoint = cancelled_if_requested(context, "kernel upload cancelled"); !checkpoint.has_value())
+    {
+        return checkpoint;
+    }
+    return {};
+}
+
 Result<bytes::Bytes> beef_exchange(Context& context, bytes::Byte opcode, bytes::ByteView payload,
                                    std::size_t minimum_payload, int timeout_ms)
 {
@@ -383,21 +410,73 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
     // zero bytes are outside the declared BEEF body but are present on the
     // legacy wire and therefore remain literal here.
     const bytes::Bytes request{0xBE, 0xEF, 0x00, 0x01, kKernelId, 0x00, 0x00, 0x00};
-    Result<std::optional<bytes::Bytes>> reply =
-        channel_request_optional(context, request, kLongTimeoutMs, kKernelProbeDelayMs);
-    if (!reply.has_value())
+    bytes::Bytes pdu;
+    if (tolerate_malformed)
     {
-        if (reply.error().kind == ErrorKind::Timeout)
+        // The initial legacy probe reads the raw serial buffer and continues
+        // when the frame is short, malformed, or addressed to another CAN
+        // id. Keep that tolerance without weakening the strict post-upload
+        // probe below, which still uses the validating channel receive.
+        if (const Status checkpoint = cancelled_if_requested(context, "cancelled before CAN request");
+            !checkpoint.has_value())
+        {
+            return std::unexpected(checkpoint.error());
+        }
+        if (const Status sent = context.channel.send(request, context.cancellation); !sent.has_value())
+        {
+            return std::unexpected(sent.error());
+        }
+        if (const Status slept = context.clock.sleep(kKernelProbeDelayMs, context.cancellation); !slept.has_value())
+        {
+            return std::unexpected(slept.error());
+        }
+        Result<std::optional<bytes::Bytes>> raw = context.transport.read(kLongTimeoutMs, context.cancellation);
+        if (!raw.has_value())
+        {
+            if (raw.error().kind == ErrorKind::Cancelled || raw.error().kind == ErrorKind::Disconnected)
+            {
+                return std::unexpected(raw.error());
+            }
+            error(context, "Wrong response from ECU while requesting kernel ID");
+            return std::optional<std::string>{};
+        }
+        if (!raw->has_value())
         {
             return std::optional<std::string>{};
         }
-        return std::unexpected(reply.error());
+        if (const Status checkpoint = cancelled_if_requested(context, "kernel ID probe cancelled");
+            !checkpoint.has_value())
+        {
+            return std::unexpected(checkpoint.error());
+        }
+        const bytes::Bytes& frame = **raw;
+        if (frame.size() < CanFlashUdsChannel::kEnvelopeSize || bytes::readU32Be(frame) != context.response_id)
+        {
+            error(context, "Wrong response from ECU while requesting kernel ID");
+            return std::optional<std::string>{};
+        }
+        pdu.assign(frame.begin() + static_cast<std::ptrdiff_t>(CanFlashUdsChannel::kEnvelopeSize), frame.end());
     }
-    if (!reply->has_value())
+    else
     {
-        return std::optional<std::string>{};
+        Result<std::optional<bytes::Bytes>> reply =
+            channel_request_optional(context, request, kLongTimeoutMs, kKernelProbeDelayMs);
+        if (!reply.has_value())
+        {
+            if (reply.error().kind == ErrorKind::Timeout)
+            {
+                return std::optional<std::string>{};
+            }
+            return std::unexpected(reply.error());
+        }
+        if (!reply->has_value())
+        {
+            return std::optional<std::string>{};
+        }
+        pdu = std::move(**reply);
     }
-    Result<BeefMessage> parsed = parse_beef(**reply);
+
+    Result<BeefMessage> parsed = parse_beef(pdu);
     if (!parsed.has_value())
     {
         if (tolerate_malformed)
@@ -744,17 +823,9 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
         const std::uint32_t address = kernel.load_address + static_cast<std::uint32_t>(block_offset);
         const bytes::ByteView chunk(encrypted.data() + static_cast<std::ptrdiff_t>(block_offset), chunk_size);
         const bytes::Bytes transfer = composeBe(0xB6_b, bytes::u24(address), chunk);
-        Result<std::optional<bytes::Bytes>> ignored = channel_request_optional(context, transfer, kReadTimeoutMs);
-        if (!ignored.has_value())
+        if (const Status discarded = upload_b6_discard(context, transfer); !discarded.has_value())
         {
-            if (ignored.error().kind == ErrorKind::Timeout)
-            {
-                // A legacy empty read is ignored for each 0xB6 block.
-            }
-            else
-            {
-                return std::unexpected(ignored.error());
-            }
+            return discarded;
         }
         if (block < block_count)
         {
