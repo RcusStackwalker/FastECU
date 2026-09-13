@@ -2,7 +2,7 @@ module(name = "fastecu")
 
 bazel_dep(name = "rules_cc", version = "0.2.22")
 bazel_dep(name = "rules_python", version = "2.2.0")
-bazel_dep(name = "rules_qt", version = "0.0.6")
+bazel_dep(name = "fastecu_qt", version = "0.0.0")
 bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 bazel_dep(name = "pugixml", version = "1.15")
@@ -20,40 +20,13 @@ pip.parse(
 )
 use_repo(pip, "python_deps")
 
+# rules_qt is a dependency of //third_party/qt, not of this module -- only the
+# root module's overrides are honoured, and an override needs no bazel_dep.
 single_version_override(
     module_name = "rules_qt",
     patch_strip = 1,
     patches = ["//bazel/patches:rules_qt_windows_addons.patch"],
 )
-
-qt = use_extension("@rules_qt//extension:qt.bzl", "fetch")
-qt.install(
-    name = "qt_linux_x86_64",
-    build_file = "@rules_qt//extension:qt/6.8.3/linux_x86_64.BUILD",
-    os = "linux",
-    version = "6.8.3",
-)
-qt.install(
-    name = "qt_mac_aarch64",
-    build_file = "@rules_qt//extension:qt/6.8.3/mac_aarch64.BUILD",
-    os = "macos",
-    version = "6.8.3",
-)
-qt.install(
-    name = "qt_windows_x86_64",
-    build_file = "@rules_qt//extension:qt/6.8.3/windows_x86_64.BUILD",
-    os = "windows",
-    version = "6.8.3",
-    windows_architecture = "win64_msvc2022",
-)
-use_repo(
-    qt,
-    "qt_linux_x86_64",
-    "qt_mac_aarch64",
-    "qt_windows_x86_64",
-)
-
-register_toolchains("@rules_qt//tools:all")
 
 msvc_sysroot = use_extension("//bazel/toolchains:msvc_sysroot_ext.bzl", "msvc_sysroot")
 use_repo(msvc_sysroot, "msvc_sysroot")
@@ -76,6 +49,11 @@ archive_override(
 )
 
 # Fixes a warning for mixing different character types https://github.com/google/googletest/commit/fa8438ae6b70c57010177de47a9f13d7041a6328
+local_path_override(
+    module_name = "fastecu_qt",
+    path = "third_party/qt",
+)
+
 single_version_override(
     module_name = "googletest",
     patches = [

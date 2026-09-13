@@ -80,10 +80,11 @@ status below, refreshed after 6a-4/6a-5:
 - Three CI guards enforce what the compiler cannot: `//:portable_closure`
   (Qt/JNI rejection across the portable closure), `//:serial_compat_allowlist`
   (frozen, shrink-only), and `//:openpty_includes` (ADR 0005). A fourth rule —
-  no Qt in a portable package — needs no guard target: Qt and our own Qt-typed
-  transitional code are both reached through targets whose visibility is
+  no Qt in a portable package — needs no guard target: `@rules_qt` is not in the
+  root module's repo mapping at all, and Qt and our own Qt-typed transitional
+  code are reached only through targets whose visibility is
   `//bazel/qt:qt_layer`, which no portable package is in, so a violation fails
-  at analysis
+  to load or to analyse
   ([ADR 0016](adr/0016-enforce-qt-reachability-by-visibility.md)). It replaced
   the `//:backend_no_widgets` source scan that 6a-5 added and most of
   `//:portable_closure`'s Qt checking.

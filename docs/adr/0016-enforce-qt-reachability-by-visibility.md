@@ -16,12 +16,10 @@ A text scan is the wrong instrument for a dependency rule: `glob()` does not
 cross the nineteen package boundaries under `src/backend`, so the scan walked
 the real checkout through a runfiles anchor, which works only where runfiles
 are symlinks — Windows was exempt. `//:portable_closure` carried a second,
-package-level Qt ban, also by text scan.
-
-`rules_qt` gives each Qt module its own `cc_library` and headers, so a target
-without a Qt dependency cannot compile `#include <QWidget>`. Every Qt-using
-backend target already used `QT_DEPS_NO_WIDGETS`; nothing enforced that but the
-scans.
+package-level Qt ban, also by text scan. Yet `rules_qt` gives each Qt module
+its own `cc_library` and headers, so a target without a Qt dependency cannot
+compile `#include <QWidget>`; every Qt-using backend target already used
+`QT_DEPS_NO_WIDGETS`, with nothing but the scans enforcing it.
 
 ## Decision
 
@@ -36,13 +34,20 @@ transitional code. A new `src/backend` or `src/algorithms` package is denied by
 default.
 
 Six packages used to mix portable targets with a Qt-typed neighbour, which
-package-granular visibility cannot separate. Each such neighbour moved into its
-own package: `src/backend/<pkg>/legacy` for the four `Legacy*Adapter` targets,
-`src/algorithms/protocol{,/ssm}/qt_compat` for the two shims. Those six
-packages carry `default_visibility = ["//bazel/qt:qt_layer"]`, so only a
-package that may hold Qt may depend on one — which makes the same group the
-single answer to "may this package touch Qt", for Qt itself and for our
-Qt-typed code alike.
+package-granular visibility cannot separate. Each neighbour moved into its own
+package — `src/backend/<pkg>/legacy` for the four `Legacy*Adapter` targets,
+`src/algorithms/protocol{,/ssm}/qt_compat` for the two shims — carrying
+`default_visibility = ["//bazel/qt:qt_layer"]`. That makes one group the single
+answer to "may this package touch Qt", for Qt itself and for our Qt-typed code
+alike.
+
+Qt is unreachable even by name. `bazel_dep(name = "rules_qt")` lives in
+`third_party/qt`, a nested module reached by `local_path_override`, not in the
+root module. A module's repo mapping holds only its own direct dependencies, so
+`@rules_qt` and the three `@qt_*` platform repos do not resolve anywhere in
+FastECU: `deps = ["@rules_qt//:qt_widgets"]` is a load error, not a visibility
+violation. That module re-exports the Qt libraries as aliases visible only to
+`//bazel/qt`, which is therefore the sole route to Qt in the repo.
 
 `bazel/qt_targets.bzl` carries a `visibility()` call for the widget layer and
 holds `QT_DEPS`, `qt_cc_library`, and `qt_cc_binary`; the rest moved to
@@ -50,7 +55,7 @@ holds `QT_DEPS`, `qt_cc_library`, and `qt_cc_binary`; the rest moved to
 Losing `qt_cc_library` replaces the `Q_OBJECT` half of the scan: its `hdrs`
 attribute is the only route to moc in a library target, so no `src/backend`
 header is moc'd and a `Q_OBJECT` there fails at link. QtTest fixtures, the
-scan's one carve-out, still get moc through `fastecu_qttest`.
+scan's carve-out, still get moc through `fastecu_qttest`.
 
 ## Consequences
 
@@ -58,27 +63,35 @@ Positive consequences:
 
 - The guard runs on Windows and covers a new package the moment it exists — no
   enumeration, no registry.
-- Every portable package is Qt-free by construction, not by scan. What survives
-  in `//:portable_closure` is two patterns: the raw `@rules_qt//` label and
-  `@bazel_tools//tools/jdk:jni`, both public in repos we do not own.
+- Every portable package is Qt-free by construction, not by scan, and there is
+  no bypass left. `//:portable_closure`'s Qt patterns are all gone; one remains,
+  for `@bazel_tools//tools/jdk:jni`, which has no wrapper module of its own.
 
 Costs and risks:
 
-- `@rules_qt//:qt_widgets` is public in its own repo and our visibility cannot
-  narrow it, so a BUILD file writing that label directly still builds. Every
-  in-repo reference goes through the alias, making that a deliberate act;
-  closing it needs a validation aspect on every build. A backend package could
-  likewise moc a header by hand via `qt_cpp_moc_headers`.
+- FastECU owns `qt_cc_library`, `qt_cc_binary` and `qt_cc_test` now, in
+  `third_party/qt/qt.bzl`. A raw `"@repo//..."` string inside a macro resolves
+  against the *calling* package's repo mapping, and rules_qt's versions carry
+  51 of them across their select keys, `data` and `env`, so a package that
+  cannot name `@rules_qt` cannot call them. The reimplementations use
+  `str(Label(...))`, which resolves in that file and yields a canonical label.
+  They track upstream by hand, so keep them diffable against it. Intel macOS
+  goes with them: this project never fetched that Qt build.
+- `third_party/qt` is listed in `.bazelignore`. Without it the nested module is
+  also a package of the main repo, where its own `@rules_qt` labels do not
+  resolve.
+- A backend package could still moc a header by hand via `qt_cpp_moc_headers`,
+  which `fastecu_qttest` needs and cannot be split from.
 - A backend `Q_OBJECT` fails at link with an undefined symbol rather than at a
   scan with an explanatory message.
 - Two Qt `.bzl` files instead of one.
 - `//:portable_closure` skipped `qt_cc_library` when identifying portable
-  targets by rule kind; the backend `Legacy*Adapter` targets are plain
-  `cc_library` now, so it scans only the targets its registry names.
+  targets by rule kind; those targets are plain `cc_library` now, so it scans
+  only the targets its registry names.
 - Six packages gained a `legacy` or `qt_compat` subpackage, and the headers
-  that moved with them changed include path — `qt_bytes.h` in 32 files,
-  `ssm_protocol.h` in 13. Both shims are transitional and shrink as steps 5 and
-  6 proceed, so the new packages are expected to disappear rather than grow.
+  moving with them changed include path — `qt_bytes.h` in 32 files,
+  `ssm_protocol.h` in 13. Both shims are transitional, so those packages should
+  disappear rather than grow.
 
 ## Notes
 

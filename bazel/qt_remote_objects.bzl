@@ -1,5 +1,6 @@
 """Macros for generating Qt Remote Objects replica targets."""
 
+load("@fastecu_qt//:qt.bzl", "moc_cmd", "moc_tools", "qt_hdrs_deps")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 def qt_replica_header(name, src, out = None, visibility = None):
@@ -21,20 +22,6 @@ def qt_replica_header(name, src, out = None, visibility = None):
         cmd = "$$(qmake6 -query QT_HOST_LIBEXECS)/repc -o replica $(location %s) $@" % src,
         visibility = visibility,
     )
-
-def _moc_cmd(input_label, output_flag):
-    return select({
-        "@platforms//os:linux": "$(location @qt_linux_x86_64//:moc) %s %s" % (input_label, output_flag),
-        "@platforms//os:windows": "$(location @qt_windows_x86_64//:moc) %s %s" % (input_label, output_flag),
-        "@rules_qt//:osx_arm64": "$(location @qt_mac_aarch64//:moc) %s %s" % (input_label, output_flag),
-    })
-
-def _moc_tools():
-    return select({
-        "@platforms//os:linux": ["@qt_linux_x86_64//:moc"],
-        "@platforms//os:windows": ["@qt_windows_x86_64//:moc"],
-        "@rules_qt//:osx_arm64": ["@qt_mac_aarch64//:moc"],
-    })
 
 def qt_replica_library(name, reps, deps):
     """Create a cc_library for Qt Remote Objects replicas.
@@ -60,11 +47,11 @@ def qt_replica_library(name, reps, deps):
             name = moc_target,
             srcs = [":" + header_target],
             outs = ["moc_rep_%s_replica.cpp" % base],
-            cmd = _moc_cmd(
+            cmd = moc_cmd(
                 "-DQCLASSINFO_REMOTEOBJECT_TYPE='\"RemoteObject Type\"' -DQCLASSINFO_REMOTEOBJECT_SIGNATURE='\"RemoteObject Signature\"' $(location :%s)" % header_target,
                 "-o $@ -f'%s'" % hdr,
             ),
-            tools = _moc_tools(),
+            tools = moc_tools(),
         )
         hdrs.append(":" + header_target)
         moc_srcs.append(":" + moc_target)
@@ -86,8 +73,5 @@ def qt_replica_library(name, reps, deps):
         # a non-root package (root worked before only because "-I." happened
         # to cover it there).
         includes = ["."],
-        deps = deps + select({
-            "@platforms//os:windows": ["@qt_windows_x86_64//:qt_hdrs"],
-            "//conditions:default": [],
-        }),
+        deps = deps + qt_hdrs_deps(),
     )

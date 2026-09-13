@@ -41,7 +41,7 @@ package_group(
 [
     alias(
         name = module,
-        actual = "@rules_qt//:qt_" + module,
+        actual = "@fastecu_qt//:qt_" + module,
         visibility = [":qt_layer"],
     )
     for module in [
@@ -57,13 +57,13 @@ package_group(
 
 alias(
     name = "widgets",
-    actual = "@rules_qt//:qt_widgets",
+    actual = "@fastecu_qt//:qt_widgets",
     visibility = [":widget_layer"],
 )
 
 # qt_charts pulls in qt_widgets transitively, so it is gated the same way.
 alias(
     name = "charts",
-    actual = "@rules_qt//:qt_charts",
+    actual = "@fastecu_qt//:qt_charts",
     visibility = [":widget_layer"],
 )

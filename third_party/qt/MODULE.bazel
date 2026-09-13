@@ -1,0 +1,50 @@
+# The only module that may name @rules_qt.
+#
+# Bazel resolves a repo label using the repo mapping of the module that owns
+# the file, and a module's mapping holds only its own direct dependencies. So
+# moving `bazel_dep(name = "rules_qt")` here -- out of the root module --
+# makes @rules_qt and the three @qt_* platform repos unaddressable from
+# anywhere in FastECU: `deps = ["@rules_qt//:qt_widgets"]` in a BUILD file is
+# not a visibility violation, it is an unresolvable label.
+#
+# What this module re-exports is deliberately narrow: the Qt module libraries
+# as aliases visible only to //bazel/qt, and in qt.bzl the macros that have to
+# name moc, uic and the platform repos. See
+# docs/adr/0016-enforce-qt-reachability-by-visibility.md.
+module(
+    name = "fastecu_qt",
+    version = "0.0.0",
+)
+
+bazel_dep(name = "rules_cc", version = "0.2.22")
+bazel_dep(name = "rules_qt", version = "0.0.6")
+bazel_dep(name = "platforms", version = "1.0.0")
+
+qt = use_extension("@rules_qt//extension:qt.bzl", "fetch")
+qt.install(
+    name = "qt_linux_x86_64",
+    build_file = "@rules_qt//extension:qt/6.8.3/linux_x86_64.BUILD",
+    os = "linux",
+    version = "6.8.3",
+)
+qt.install(
+    name = "qt_mac_aarch64",
+    build_file = "@rules_qt//extension:qt/6.8.3/mac_aarch64.BUILD",
+    os = "macos",
+    version = "6.8.3",
+)
+qt.install(
+    name = "qt_windows_x86_64",
+    build_file = "@rules_qt//extension:qt/6.8.3/windows_x86_64.BUILD",
+    os = "windows",
+    version = "6.8.3",
+    windows_architecture = "win64_msvc2022",
+)
+use_repo(
+    qt,
+    "qt_linux_x86_64",
+    "qt_mac_aarch64",
+    "qt_windows_x86_64",
+)
+
+register_toolchains("@rules_qt//tools:all")
