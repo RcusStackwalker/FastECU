@@ -1,4 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = ["//src:__subpackages__"])
 
@@ -7,4 +8,20 @@ cc_library(
     testonly = True,
     hdrs = ["byte_test_utils.h"],
     deps = ["//src/algorithms/protocol"],
+)
+
+cc_library(
+    name = "byte_matchers",
+    testonly = True,
+    hdrs = ["byte_matchers.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "byte_matchers_test",
+    srcs = ["byte_matchers_test.cpp"],
+    deps = [":byte_matchers"],
 )
