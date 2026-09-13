@@ -90,8 +90,9 @@ status below, refreshed after 6a-4/6a-5:
 - The portable closure now spans `src/algorithms` plus eleven `src/backend`
   package groups: `ports`, `logging` (+ `logging/protocols`), `protocol`,
   `flash` (+ `flash/eeprom`), `config`, `checksum`, `definition`, and
-  `calibration`. Registration is dual — the `genquery` in `BUILD.bazel` and
-  `PORTABLE_ROOTS` in `scripts/check-portable-closure.py`.
+  `calibration`. Registration is single — `PORTABLE_PACKAGES` in
+  `bazel/portable_targets.bzl`, from which the `genquery`, the test's `data`
+  list, and the registry the check reads are all derived.
 - The `serial_qt_compat` allowlist has shrunk from its frozen 20 entries to
   14. Only two backend entries remain: `//src/backend/flash` (holding
   `FlashUtils::configureIso15765Can(SerialPortActions*)`, a disclosed 5c gap)

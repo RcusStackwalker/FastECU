@@ -18,6 +18,8 @@ docs/adr/0016-enforce-qt-reachability-by-visibility.md.
 Rejects Qt and JNI.
 """
 
+import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -36,104 +38,27 @@ ROOT = Path(__file__).resolve().parents[1]
 # instead use the *unresolved* runfiles path, which does contain it.
 RUNFILES_ROOT = Path(__file__).parent.parent
 
-PORTABLE_ROOTS = {
-    ROOT / "src/algorithms": None,
-    ROOT / "src/backend/ports": {"ports"},
-    ROOT / "src/backend/logging": {
-        "logger_definition_model",
-        "logger_definition_parser",
-        "logging_types",
-        "logging_session",
-        "logging_conversion",
-        "logging_use_case",
-        "logger_conf",
-        "logger_definition_service",
-    },
-    ROOT / "src/backend/logging/protocols": {"protocols"},
-    ROOT / "src/backend/protocol": {"protocol"},
-    ROOT / "src/backend/protocol/uds": {"uds_client"},
-    ROOT / "src/backend/service_functions": {
-        "service_function_types",
-        "service_function_session",
-        "tcu_parameter_table",
-        "read_parameters_session",
-        "set_parameters_session",
-        "relearn_session",
-    },
-    ROOT / "src/backend/flash": {
-        "flash_types",
-        "flash_plan",
-        "flash_validation",
-        "flash_executor",
-        "flash_device_lookup",
-        "can_flash_uds_channel",
-    },
-    ROOT / "src/backend/flash/eeprom": None,
-    ROOT / "src/backend/flash/ecu": {
-        "single_window_plan",
-        "denso_iso15765_can_common",
-        "mitsu_colt_m32r_can_types",
-        "mitsu_colt_m32r_can_plan",
-        "mitsu_colt_m32r_can_executor",
-        "subaru_mitsu_m32r_kline_types",
-        "subaru_mitsu_m32r_kline_plan",
-        "subaru_mitsu_m32r_kline_executor",
-        "subaru_hitachi_m32r_kline_types",
-        "subaru_denso_mc68hc16y5_02_types",
-        "subaru_denso_mc68hc16y5_02_plan",
-        "subaru_denso_mc68hc16y5_02_executor",
-        "subaru_denso_sh7055_02_types",
-        "subaru_denso_sh7055_02_plan",
-        "subaru_denso_sh7055_02_executor",
-        "subaru_hitachi_m32r_can_types",
-        "subaru_hitachi_m32r_can_plan",
-        "subaru_hitachi_m32r_can_executor",
-        "subaru_tcu_cvt_hitachi_m32r_can_types",
-        "subaru_tcu_cvt_hitachi_m32r_can_plan",
-        "subaru_tcu_cvt_hitachi_m32r_can_executor",
-        "subaru_tcu_cvt_mitsu_mh8111_can_types",
-        "subaru_tcu_cvt_mitsu_mh8111_can_plan",
-        "subaru_tcu_cvt_mitsu_mh8111_can_executor",
-        "subaru_tcu_cvt_mitsu_mh8104_can_types",
-        "subaru_tcu_cvt_mitsu_mh8104_can_plan",
-        "subaru_tcu_cvt_mitsu_mh8104_can_executor",
-        "subaru_denso_1n83m_1_5m_can_types",
-        "subaru_denso_1n83m_1_5m_can_plan",
-        "subaru_denso_1n83m_1_5m_can_executor",
-        "subaru_denso_sh72531_can_types",
-        "subaru_denso_sh72531_can_plan",
-        "subaru_denso_sh72531_can_executor",
-        "subaru_denso_sh72543_can_diesel_types",
-        "subaru_denso_sh72543_can_diesel_plan",
-        "subaru_denso_sh72543_can_diesel_executor",
-        "subaru_denso_1n83m_4m_can_types",
-        "subaru_denso_1n83m_4m_can_plan",
-        "subaru_denso_1n83m_4m_can_executor",
-    },
-    ROOT / "src/backend/config": {
-        "config_paths",
-        "app_config",
-        "protocol_catalog",
-        "car_model_catalog",
-        "provisioning",
-        "menu_definition",
-    },
-    ROOT / "src/backend/checksum": {
-        "checksum_selection",
-        "dispatch",
-    },
-    ROOT / "src/backend/definition": {
-        "definition_model",
-        "parser_utils",
-        "romraider_parser",
-        "ecuflash_parser",
-        "definition_resolver",
-        "definition_service",
-        "definition_writer",
-        "text_format",
-    },
-    ROOT / "src/backend/calibration": {"calibration_service", "map_edit"},
-}
+REGISTRY_ENV = "PORTABLE_REGISTRY"
+
+
+def read_registry():
+    """Return {package: [required target names]} from the environment.
+
+    BUILD.bazel passes bazel/portable_targets.bzl's PORTABLE_PACKAGES as JSON
+    on this test's `env`, so the registry the genquery closure roots are built
+    from and the registry checked here cannot drift apart. An empty name list
+    means the whole package is portable: every cc_library in it is scanned and
+    none is individually required.
+    """
+    raw = os.environ.get(REGISTRY_ENV)
+    if not raw:
+        print(
+            f"FAIL: {REGISTRY_ENV} is not set -- this check reads its registry from "
+            "the env that //:portable_closure sets; run it through `bazel test`"
+        )
+        return None
+    return json.loads(raw)
+
 
 # What visibility cannot reach. A portable target that writes QT_DEPS, a
 # //bazel/qt:* alias, or a :qt_compat dep now fails at analysis: Qt lives
@@ -199,33 +124,20 @@ def portable_targets(text):
 
 
 def main():
+    registry = read_registry()
+    if registry is None:
+        return 1
+
     build_files = []
     required_by_build = {}
-    for root, required_targets in PORTABLE_ROOTS.items():
-        if required_targets is None:
-            # `None` marks a root whose *entire* subtree is portable (e.g.
-            # src/algorithms) -- recurse into every package under it.
-            found = sorted(root.rglob("BUILD.bazel"))
-        else:
-            # A root with an explicit required-target set may share its
-            # directory tree with legacy, intentionally-non-portable
-            # sibling packages (e.g. src/backend/flash/{bdm,bootmode,ecu,
-            # jtag,tcu} still hold Qt-only targets). Only the root's own
-            # BUILD.bazel is in scope; a sibling package that also needs
-            # checking gets its own explicit PORTABLE_ROOTS entry (as
-            # src/backend/flash/eeprom does).
-            root_build = root / "BUILD.bazel"
-            found = [root_build] if root_build.is_file() else []
-        if not found:
-            print(f"FAIL: no BUILD.bazel files found under {root}")
+    for package, required_targets in registry.items():
+        build = ROOT / package / "BUILD.bazel"
+        if not build.is_file():
+            print(f"FAIL: registered package has no BUILD.bazel: {package}")
             return 1
-        build_files += found
-        if required_targets is not None:
-            root_build = root / "BUILD.bazel"
-            if root_build not in found:
-                print(f"FAIL: required BUILD.bazel is missing: {root_build.relative_to(ROOT)}")
-                return 1
-            required_by_build[root_build] = required_targets
+        build_files.append(build)
+        if required_targets:
+            required_by_build[build] = set(required_targets)
 
     build_files = sorted(set(build_files))
     errors = []
@@ -236,9 +148,6 @@ def main():
         found_any = False
         targets = list(portable_targets(text))
         names = {name for name, _ in targets}
-        # A package whose only cc_library is a *qt_compat shim holds Qt by
-        # design, so "lost all its portable targets" does not apply to it.
-        shim_only = not targets and re.search(r"(?<!\w)cc_library\(", text)
         for missing in sorted(required_by_build.get(build, set()) - names):
             errors.append(f"  {rel}: required portable target '{missing}' is missing")
         required = required_by_build.get(build)
@@ -250,7 +159,7 @@ def main():
             for pattern in FORBIDDEN:
                 if pattern.search(body):
                     errors.append(f"  {rel}: portable target '{name}' matches {pattern.pattern}")
-        if not found_any and not shim_only and build not in required_by_build:
+        if not found_any and build not in required_by_build:
             errors.append(f"  {rel}: no portable cc_library found")
 
     closure_labels = read_genquery_output()
@@ -271,13 +180,13 @@ def main():
         print("consumer depend on that instead.")
         return 1
 
-    required_count = sum(len(targets) for targets in PORTABLE_ROOTS.values() if targets is not None)
+    required_count = sum(len(targets) for targets in required_by_build.values())
     required_labels = []
     for build, targets in sorted(required_by_build.items()):
         package = build.parent.relative_to(ROOT)
         required_labels.extend(f"//{package}:{name}" for name in sorted(targets))
     print(
-        f"OK: checked {checked} portable targets across {len(PORTABLE_ROOTS)} roots; "
+        f"OK: checked {checked} portable targets across {len(registry)} packages; "
         f"all {required_count} required targets are present and none reach Qt/JNI."
     )
     print("Required targets: " + ", ".join(required_labels))
