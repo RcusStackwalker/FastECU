@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "qt_cc_library")
+load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -103,12 +103,11 @@ cc_library(
     ],
 )
 
-qt_cc_library(
+cc_library(
     name = "legacy_definition_adapter",
     srcs = ["legacy_definition_adapter.cpp"],
-    hdrs = [],
+    hdrs = ["legacy_definition_adapter.h"],
     copts = COMMON_COPTS,
-    normal_hdrs = ["legacy_definition_adapter.h"],
     deps = QT_DEPS_NO_WIDGETS + [
         ":definition_service",
         ":text_format",

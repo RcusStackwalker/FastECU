@@ -61,9 +61,9 @@ These exist because the compiler can't catch them; they fail CI, not your editor
 ## Writing targets and tests
 
 - Tests are **package-owned and co-located** with the code (`foo.cpp` + `foo_test.cpp` in the same package). `tests/` holds only cross-package integration and platform harness tests.
-- Use `fastecu_portable_gtest` (Qt-free closure) or `fastecu_gtest` (links `QT_DEPS`) from `bazel/gtest_targets.bzl`; `fastecu_qttest` in `bazel/qt_targets.bzl` for QtTest-style suites needing moc.
+- Use `fastecu_portable_gtest` (Qt-free closure) or `fastecu_gtest` (links `QT_DEPS_NO_WIDGETS`) from `bazel/gtest_targets.bzl`; `fastecu_qttest` in `bazel/qt_common.bzl` for QtTest-style suites needing moc.
 - Mocks/fakes are package-owned: a package defining an interface adds a `testing/` subpackage with one `cc_library(testonly = True)` target per mock, each with its own test ([ADR 0008](docs/adr/0008-use-package-owned-mocks.md); `src/backend/ports/testing/` is the reference).
-- Qt targets list moc'd headers explicitly in a `MOC_HDRS` list and everything else in `normal_hdrs` — a `Q_OBJECT` header missing from `MOC_HDRS` links but fails at runtime.
+- `qt_cc_library` targets list moc'd headers in `hdrs` and everything else in `normal_hdrs` — a `Q_OBJECT` header missing from `hdrs` links but fails at runtime.
 - Prefer `std::string_view` by value over `const char*` / `const std::string&`, gmock matchers for property assertions, `std::format` for message construction, ranges/views over index loops, and `bytes::composeBe` over hand-rolled shift-and-mask frame building — all detailed, with their exceptions, in the [coding style guide](docs/coding-style.md).
 - Every header needs `#pragma once` (enforced by prek).
 - Cross-document references in Markdown are links with human-readable text, not backticked paths — lychee (via prek) checks links and cannot see a path written as inline code.

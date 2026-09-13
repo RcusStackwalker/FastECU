@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "qt_resource_via_qrc")
+load("//bazel:qt_common.bzl", "qt_resource_via_qrc")
 
 package(default_visibility = ["//src/ui:__subpackages__"])
 

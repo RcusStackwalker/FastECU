@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "fastecu_qttest")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -88,12 +88,11 @@ fastecu_portable_gtest(
     ],
 )
 
-qt_cc_library(
+cc_library(
     name = "legacy_logger_adapter",
     srcs = ["legacy_logger_adapter.cpp"],
-    hdrs = [],
+    hdrs = ["legacy_logger_adapter.h"],
     copts = COMMON_COPTS,
-    normal_hdrs = ["legacy_logger_adapter.h"],
     visibility = ["//visibility:public"],
     deps = QT_DEPS_NO_WIDGETS + [
         ":logger_definition_model",

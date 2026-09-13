@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "fastecu_qttest")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -71,12 +71,11 @@ fastecu_portable_gtest(
 # than a whole-package //src/backend/config label: no such default target
 # exists in that package (only individually named leaf targets), confirmed
 # via `bazel query '//src/backend/config:*'`.
-qt_cc_library(
+cc_library(
     name = "legacy_calibration_adapter",
     srcs = ["legacy_calibration_adapter.cpp"],
-    hdrs = [],
+    hdrs = ["legacy_calibration_adapter.h"],
     copts = COMMON_COPTS,
-    normal_hdrs = ["legacy_calibration_adapter.h"],
     deps = QT_DEPS_NO_WIDGETS + [
         ":calibration_service",
         "//src/algorithms/protocol:qt_compat",

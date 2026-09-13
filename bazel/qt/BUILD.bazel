@@ -1,0 +1,28 @@
+# Qt Widgets is reachable only through these aliases, and only from the layers
+# that are allowed to build a user interface. A target under //src/backend or
+# //src/algorithms that reaches for widgets -- directly, or by way of QT_DEPS
+# -- fails at analysis with a visibility error naming both ends. See
+# docs/adr/0016-enforce-qt-widgets-reachability-by-visibility.md.
+
+package_group(
+    name = "widget_layer",
+    packages = [
+        "//apps/...",
+        "//src/platform/...",
+        "//src/ui/...",
+        "//tests/...",
+    ],
+)
+
+alias(
+    name = "widgets",
+    actual = "@rules_qt//:qt_widgets",
+    visibility = [":widget_layer"],
+)
+
+# qt_charts pulls in qt_widgets transitively, so it is gated the same way.
+alias(
+    name = "charts",
+    actual = "@rules_qt//:qt_charts",
+    visibility = [":widget_layer"],
+)

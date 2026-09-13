@@ -1,163 +1,57 @@
-"""Shared Qt Bazel macros and constants for FastECU targets."""
+"""Qt macros and dependency sets reserved for the layers that may build a UI.
 
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_qt//:qt.bzl", _qt_cc_binary = "qt_cc_binary", _qt_cc_library = "qt_cc_library", _qt_cc_test = "qt_cc_test", _qt_resource_via_qrc = "qt_resource_via_qrc")
+The `visibility()` call below is the enforcement: `src/backend` and
+`src/algorithms` cannot load this file, so they cannot reach `QT_DEPS` or
+`qt_cc_library`'s moc-the-headers path. Widget reachability is gated a second
+time, for any route that bypasses this file, by the visibility of the
+`//bazel/qt:widgets` alias `QT_DEPS` points at. Everything Qt-related that is
+neither widget- nor moc-bearing lives in qt_common.bzl, which is loadable from
+anywhere. See docs/adr/0016-enforce-qt-widgets-reachability-by-visibility.md.
+"""
+
+load("@rules_qt//:qt.bzl", _qt_cc_binary = "qt_cc_binary", _qt_cc_library = "qt_cc_library")
+load(
+    "//bazel:qt_common.bzl",
+    _COMMON_COPTS = "COMMON_COPTS",
+    _QT_DEPS_NO_WIDGETS = "QT_DEPS_NO_WIDGETS",
+    _fastecu_qttest = "fastecu_qttest",
+    _qt_cc_test = "qt_cc_test",
+    _qt_cpp_moc_headers = "qt_cpp_moc_headers",
+    _qt_resource_via_qrc = "qt_resource_via_qrc",
+    _qt_ui_basename_libraries = "qt_ui_basename_libraries",
+)
+
+visibility([
+    "//apps/...",
+    "//src/platform/...",
+    "//src/ui/...",
+    "//tests/...",
+])
+
+QT_DEPS = _QT_DEPS_NO_WIDGETS + [
+    "//bazel/qt:charts",
+    "//bazel/qt:widgets",
+]
 
 qt_cc_binary = _qt_cc_binary
 qt_cc_library = _qt_cc_library
+
+# Re-exported so a widget-layer BUILD file still needs only one load statement.
+COMMON_COPTS = _COMMON_COPTS
+QT_DEPS_NO_WIDGETS = _QT_DEPS_NO_WIDGETS
 qt_cc_test = _qt_cc_test
+qt_cpp_moc_headers = _qt_cpp_moc_headers
 qt_resource_via_qrc = _qt_resource_via_qrc
+qt_ui_basename_libraries = _qt_ui_basename_libraries
 
-# qt_charts also pulls in qt_widgets transitively, so it stays out too.
-QT_DEPS_NO_WIDGETS = [
-    "@rules_qt//:qt_core",
-    "@rules_qt//:qt_gui",
-    "@rules_qt//:qt_remote_objects",
-    "@rules_qt//:qt_serial_port",
-    "@rules_qt//:qt_test",
-    "@rules_qt//:qt_web_sockets",
-    "@rules_qt//:qt_xml",
-]
-
-QT_DEPS = QT_DEPS_NO_WIDGETS + [
-    "@rules_qt//:qt_charts",
-    "@rules_qt//:qt_widgets",
-]
-
-COMMON_COPTS = [
-    "-DQT_FORCE_ASSERTS",
-    "-DQT_DEPRECATED_WARNINGS",
-] + select({
-    "@platforms//os:macos": [
-        "-Wno-implicit-function-declaration",
-    ],
-    "//conditions:default": [],
-})
-
-def fastecu_qttest(
-        name,
-        src,
-        deps = [],
-        data = [],
-        env = {},
-        tags = [],
-        target_compatible_with = [],
-        copts = [],
-        size = "small"):
-    """QtTest target with moc generation for a self-including C++ source."""
-    moc_target = name + "_moc"
-    qt_cpp_moc_headers(
-        name = moc_target,
-        srcs = [src],
-        deps = QT_DEPS,
-    )
-    _qt_cc_test(
-        name = name,
-        srcs = [src],
-        copts = COMMON_COPTS + copts,
-        data = data,
-        env = env,
-        size = size,
-        tags = tags,
-        target_compatible_with = target_compatible_with,
-        deps = QT_DEPS + [":" + moc_target] + deps,
-    )
-
-def platform_srcs(unix = [], windows = []):
-    return select({
-        "@platforms//os:windows": windows,
-        "//conditions:default": unix,
-    })
-
-def platform_hdrs(unix = [], windows = []):
-    return platform_srcs(unix = unix, windows = windows)
-
-def _basename(path):
-    return path.split("/")[-1].rsplit(".", 1)[0]
-
-def _gen_basename_ui_header(ctx):
-    info = ctx.toolchains["@rules_qt//tools:toolchain_type"].qtinfo
-    ctx.actions.run(
-        inputs = [ctx.file.ui_file],
-        outputs = [ctx.outputs.ui_header],
-        arguments = [ctx.file.ui_file.path, "-o", ctx.outputs.ui_header.path],
-        executable = info.uic_path,
-        execution_requirements = {"local": "1"},
-    )
-
-_gen_basename_ui_header_rule = rule(
-    implementation = _gen_basename_ui_header,
-    attrs = {
-        "ui_file": attr.label(allow_single_file = True, mandatory = True),
-        "ui_header": attr.output(),
-    },
-    toolchains = ["@rules_qt//tools:toolchain_type"],
-)
-
-def qt_ui_basename_library(name, ui, deps):
-    _gen_basename_ui_header_rule(
-        name = name + "_uic",
-        ui_file = ui,
-        ui_header = "generated_ui/ui_%s.h" % _basename(ui),
-        tags = ["local"],
-    )
-    cc_library(
-        name = name,
-        hdrs = [":" + name + "_uic"],
-        includes = ["generated_ui"],
-        deps = deps,
-    )
-
-def qt_ui_basename_libraries(name, forms, deps):
-    """Create one UI header library per Qt Designer form.
+def fastecu_qttest(name, src, qt_deps = QT_DEPS, **kwargs):
+    """QtTest target that may link Qt Widgets.
 
     Args:
-      name: Macro instance name used for validation.
-      forms: Qt Designer .ui files to process.
-      deps: Dependencies passed to each generated UI library.
+      name: Name of the test target.
+      src: The self-including test source.
+      qt_deps: Qt modules to compile and link against; widgets included by
+        default, since this file is loadable only from the widget layer.
+      **kwargs: Forwarded to qt_common.bzl's fastecu_qttest.
     """
-    if not name:
-        fail("name must be non-empty")
-    for ui in forms:
-        qt_ui_basename_library(
-            name = "ui_" + _basename(ui),
-            ui = ui,
-            deps = deps,
-        )
-
-def qt_cpp_moc_headers(name, srcs, deps = []):
-    """Generate moc outputs for C++ headers and expose them as a library.
-
-    Args:
-      name: Name of the generated cc_library.
-      srcs: Header files to pass to moc.
-      deps: Dependencies passed to the generated cc_library.
-    """
-    outs = []
-    for src in srcs:
-        base = _basename(src)
-        gen_name = "%s_%s_moc" % (name, base)
-        out = "%s.moc" % base
-        native.genrule(
-            name = gen_name,
-            srcs = [src],
-            outs = [out],
-            cmd = select({
-                "@platforms//os:linux": "$(location @qt_linux_x86_64//:moc) $(location %s) -o $@" % src,
-                "@platforms//os:windows": "$(location @qt_windows_x86_64//:moc) $(location %s) -o $@" % src,
-                "@rules_qt//:osx_arm64": "$(location @qt_mac_aarch64//:moc) $(location %s) -o $@" % src,
-            }),
-            tools = select({
-                "@platforms//os:linux": ["@qt_linux_x86_64//:moc"],
-                "@platforms//os:windows": ["@qt_windows_x86_64//:moc"],
-                "@rules_qt//:osx_arm64": ["@qt_mac_aarch64//:moc"],
-            }),
-            tags = ["local"],
-        )
-        outs.append(":" + gen_name)
-    cc_library(
-        name = name,
-        hdrs = outs,
-        includes = ["."],
-        deps = deps,
-    )
+    _fastecu_qttest(name = name, src = src, qt_deps = qt_deps, **kwargs)
