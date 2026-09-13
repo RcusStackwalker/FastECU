@@ -203,8 +203,15 @@ def portable_targets(text):
 
     The `(?<!\\w)` lookbehind keeps this from matching inside `qt_cc_library(`
     -- "cc_library(" is a substring of "qt_cc_library(", so without it this
-    would misidentify the legacy Qt macro invocations that share packages
-    with the new flash/eeprom portable targets as portable cc_library rules.
+    would misidentify a Qt macro invocation as a portable cc_library rule. No
+    scanned package still invokes that macro (src/backend cannot load it; see
+    docs/adr/0016-enforce-qt-widgets-reachability-by-visibility.md), but the
+    lookbehind stays so that reintroducing one cannot silently pass.
+
+    A root with an explicit required-target set is filtered against that set by
+    the caller: its package also holds Qt-linked `Legacy*Adapter` targets,
+    which are plain cc_library rules since 0016 and are portable only in the
+    "no widgets, no moc" sense this file does not police.
     """
     for m in re.finditer(
         r'(?<!\w)cc_library\(\s*name = "(?P<name>[^"]+)",(?P<body>.*?)\n\)', text, re.S
@@ -280,8 +287,11 @@ def main():
         names = {name for name, _ in targets}
         for missing in sorted(required_by_build.get(build, set()) - names):
             errors.append(f"  {rel}: required portable target '{missing}' is missing")
+        required = required_by_build.get(build)
         for name, body in targets:
             found_any = True
+            if required is not None and name not in required:
+                continue
             checked += 1
             for pattern in FORBIDDEN:
                 if pattern.search(body):

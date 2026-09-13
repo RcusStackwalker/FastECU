@@ -141,8 +141,9 @@ Actions:
 
 `FileActions` (`src/backend/definitions/file_actions.{h,cpp}`, 986 lines plus
 a 236-line header) no longer inherits `QWidget`, declares no `Q_OBJECT`, and
-constructs no dialog or message box — `//:backend_no_widgets` enforces this
-for all of `src/backend`. Expression and diagnostic parsing, the
+constructs no dialog or message box — Qt Widgets are unreachable from all of
+`src/backend`, enforced by the visibility of the `//bazel/qt:widgets` alias
+([ADR 0016](adr/0016-enforce-qt-widgets-reachability-by-visibility.md)). Expression and diagnostic parsing, the
 EcuFlash/RomRaider parsers, ROM open/save, and config persistence have been
 extracted into portable use cases under
 `src/backend/{definition,calibration,config}/`, each reached through a

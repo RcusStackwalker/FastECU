@@ -55,13 +55,20 @@ These exist because the compiler can't catch them; they fail CI, not your editor
 
 - **`//:portable_closure`** — resolves the transitive closure of every portable target and rejects Qt or JNI deps. Adding a Qt dep to a portable backend target fails here even if it compiles. New portable targets must be registered in both the `genquery` in `BUILD.bazel` and `PORTABLE_ROOTS` in `scripts/check-portable-closure.py`.
 - **`//:serial_compat_allowlist`** — freezes the visibility list of `//src/platform/desktop/common/serial:serial_qt_compat`. That list is transitional debt: **it may shrink, never grow.**
+- **Qt Widgets visibility** — Widgets and Charts are reached only through the
+  `//bazel/qt:widgets` / `//bazel/qt:charts` aliases, visible to
+  `//src/ui/...`, `//src/platform/...`, `//apps/...`, `//tests/...`. Backend
+  and algorithms targets use `QT_DEPS_NO_WIDGETS` from `bazel/qt_common.bzl`;
+  `bazel/qt_targets.bzl` (`QT_DEPS`, `qt_cc_library`) has matching load
+  visibility, so they cannot load it at all ([ADR 0016](docs/adr/0016-enforce-qt-widgets-reachability-by-visibility.md)).
+  There is no guard target — a violation fails at analysis.
 - **`//:openpty_includes`** — platform-specific backend tests live in separate source files listed in `*_UNIX_SRCS` / `*_WIN32_SRCS`, not behind `#ifdef` in common sources ([ADR 0005](docs/adr/0005-separate-platform-specific-backend-tests.md)).
 - Windows 32-bit J2534 vendor DLLs are reached through an out-of-process bridge (`src/platform/desktop/windows/j2534/j2534_bridge_*`); the x86 host binary is built in-graph via the platform transition in `bazel/x86_windows_transition.bzl`.
 
 ## Writing targets and tests
 
 - Tests are **package-owned and co-located** with the code (`foo.cpp` + `foo_test.cpp` in the same package). `tests/` holds only cross-package integration and platform harness tests.
-- Use `fastecu_portable_gtest` (Qt-free closure) or `fastecu_gtest` (links `QT_DEPS`) from `bazel/gtest_targets.bzl`; `fastecu_qttest` in `bazel/qt_targets.bzl` for QtTest-style suites needing moc.
+- Use `fastecu_portable_gtest` (Qt-free closure) or `fastecu_gtest` (links `QT_DEPS_NO_WIDGETS`; pass `qt_deps = QT_DEPS` from a widget-layer package that needs Widgets) from `bazel/gtest_targets.bzl`; `fastecu_qttest` for QtTest-style suites needing moc — from `bazel/qt_common.bzl` in backend/algorithms, from `bazel/qt_targets.bzl` (widgets by default) elsewhere.
 - Mocks/fakes are package-owned: a package defining an interface adds a `testing/` subpackage with one `cc_library(testonly = True)` target per mock, each with its own test ([ADR 0008](docs/adr/0008-use-package-owned-mocks.md); `src/backend/ports/testing/` is the reference).
 - Qt targets list moc'd headers explicitly in a `MOC_HDRS` list and everything else in `normal_hdrs` — a `Q_OBJECT` header missing from `MOC_HDRS` links but fails at runtime.
 - Prefer `std::string_view` by value over `const char*` / `const std::string&`, gmock matchers for property assertions, `std::format` for message construction, ranges/views over index loops, and `bytes::composeBe` over hand-rolled shift-and-mask frame building — all detailed, with their exceptions, in the [coding style guide](docs/coding-style.md).

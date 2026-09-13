@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "fastecu_qttest")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -28,19 +28,17 @@ cc_library(
     ],
 )
 
-# Qt-typed (QString/QStringList/QDir members) but no QObject/Q_OBJECT, so
-# (like legacy_config_adapter) it goes through normal_hdrs rather than hdrs.
+# Qt-typed (QString/QStringList/QDir members) but no QObject/Q_OBJECT.
 # ConfigValuesStructure, extracted out of FileActions (see config_values.h's
-# comment). Kept out of `definitions`'s own normal_hdrs and given its own
-# qt_cc_library, mirroring the `models` split above -- for the identical
+# comment). Kept out of `definitions`'s own hdrs and given its own
+# cc_library, mirroring the `models` split above -- for the identical
 # reason (avoiding a Bazel dependency cycle), this time with
 # //src/backend/config:legacy_config_adapter rather than //src/backend/flash.
-qt_cc_library(
+cc_library(
     name = "config_values",
     srcs = [],
-    hdrs = [],
+    hdrs = ["config_values.h"],
     copts = COMMON_COPTS,
-    normal_hdrs = ["config_values.h"],
     deps = QT_DEPS_NO_WIDGETS,
 )
 
@@ -84,35 +82,32 @@ fastecu_qttest(
     ],
 )
 
-qt_cc_library(
+cc_library(
     name = "ecu_cal_def",
     srcs = [],
-    hdrs = [],
+    hdrs = ["ecu_cal_def.h"],
     copts = COMMON_COPTS,
-    normal_hdrs = ["ecu_cal_def.h"],
     deps = QT_DEPS_NO_WIDGETS,
 )
 
 # LogValuesStructure, extracted out of FileActions (see log_values.h's
-# comment). Kept out of `definitions`'s own normal_hdrs and given its own
-# qt_cc_library, mirroring the config_values/ecu_cal_def splits above -- for
+# comment). Kept out of `definitions`'s own hdrs and given its own
+# cc_library, mirroring the config_values/ecu_cal_def splits above -- for
 # the identical reason (avoiding a Bazel dependency cycle), this time with
 # //src/backend/logging:legacy_logger_adapter.
-qt_cc_library(
+cc_library(
     name = "log_values",
     srcs = [],
-    hdrs = [],
+    hdrs = ["log_values.h"],
     copts = COMMON_COPTS,
-    normal_hdrs = ["log_values.h"],
     deps = QT_DEPS_NO_WIDGETS + ["//src/backend/logging:logger_definition_model"],
 )
 
-qt_cc_library(
+cc_library(
     name = "legacy_definition_columns",
     srcs = [],
-    hdrs = [],
+    hdrs = ["legacy_definition_columns.h"],
     copts = COMMON_COPTS,
-    normal_hdrs = ["legacy_definition_columns.h"],
     visibility = [
         "//src/backend/definition:__pkg__",
         "//src/backend/definitions:__pkg__",
@@ -120,20 +115,24 @@ qt_cc_library(
     deps = QT_DEPS_NO_WIDGETS + [":ecu_cal_def"],
 )
 
-qt_cc_library(
+cc_library(
     name = "definitions",
     srcs = [
         "file_actions.cpp",
         "file_actions_ecuflash.cpp",
         "file_actions_romraider.cpp",
     ],
-    hdrs = ["file_actions.h"],
+    # FileActions is not a QObject and declares no Q_OBJECT, so moc has
+    # nothing to emit for file_actions.h. legacy_definition_columns.h is the
+    # only other *.h in this package not covered by one of the per-target
+    # header lists above; it is also its own target's hdrs (see
+    # legacy_definition_columns above) -- both targets provide the header
+    # identically, matching prior glob behavior.
+    hdrs = [
+        "file_actions.h",
+        "legacy_definition_columns.h",
+    ],
     copts = COMMON_COPTS,
-    # The only *.h in this package not covered by hdrs above or one of the
-    # other per-target header lists above; also its own qt_cc_library
-    # target's normal_hdrs (see legacy_definition_columns above) -- both
-    # targets provide the header identically, matching prior glob behavior.
-    normal_hdrs = ["legacy_definition_columns.h"],
     deps = QT_DEPS_NO_WIDGETS + [
         ":config_values",
         ":ecu_cal_def",

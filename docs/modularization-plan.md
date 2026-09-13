@@ -77,11 +77,14 @@ status below, refreshed after 6a-4/6a-5:
 - `bazel/fastecu_sources.bzl` is deleted. `//:fastecu` is an alias to the
   package-owned `//apps/desktop:fastecu`, and every target under `src/` and
   `apps/` is visibility-restricted to the permitted layering directions.
-- Four CI guards enforce what the compiler cannot: `//:portable_closure`
+- Three CI guards enforce what the compiler cannot: `//:portable_closure`
   (Qt/JNI rejection across the portable closure), `//:serial_compat_allowlist`
-  (frozen, shrink-only), `//:openpty_includes` (ADR 0005), and, as of 6a-5,
-  `//:backend_no_widgets` (no `QMessageBox`/`QFileDialog`/`QDialog`/`QWidget`/
-  `Q_OBJECT` outside a comment, under all of `src/backend`).
+  (frozen, shrink-only), and `//:openpty_includes` (ADR 0005). A fourth rule —
+  no Qt Widgets under `src/backend` — needs no guard target: Widgets are
+  reached through the `//bazel/qt:widgets` alias, whose visibility excludes
+  `src/backend` and `src/algorithms`, so a violation fails at analysis
+  ([ADR 0016](adr/0016-enforce-qt-widgets-reachability-by-visibility.md)). It
+  replaced the `//:backend_no_widgets` source scan that 6a-5 added.
 - The portable closure now spans `src/algorithms` plus eleven `src/backend`
   package groups: `ports`, `logging` (+ `logging/protocols`), `protocol`,
   `flash` (+ `flash/eeprom`), `config`, `checksum`, `definition`, and
@@ -203,8 +206,9 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      `SerialPortActions` access is fully removed from backend production
      code — verified by `//:serial_compat_allowlist` and
      `//:portable_closure`. As of 6a (2026-09-02), `QMessageBox`,
-     `QFileDialog`, and widget access are gone too — verified by
-     `//:backend_no_widgets` — leaving only filesystem access inside the
+     `QFileDialog`, and widget access are gone too — verified then by
+     `//:backend_no_widgets`, now by the ADR 0016 visibility gate — leaving
+     only filesystem access inside the
      transitional `Legacy*Adapter` targets and `src/backend/definitions`.
 
 6. **Finish the thin desktop shell**
@@ -216,10 +220,11 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      without editing a file under
      `src/platform/desktop/common/flash/legacy/` or
      `src/ui/desktop/flash/`. `FileActions` no longer inherits `QWidget` or
-     declares `Q_OBJECT`, and `//:backend_no_widgets` now enforces for all of
-     `src/backend` that no file references `QMessageBox`, `QFileDialog`,
+     declares `Q_OBJECT`, and `//:backend_no_widgets` enforced for all of
+     `src/backend` that no file referenced `QMessageBox`, `QFileDialog`,
      `QDialog`, `QWidget`, or `Q_OBJECT` outside a comment (a `*_test.cpp`
-     file's own QtTest fixture class is the one carve-out). Removing Qt
+     file's own QtTest fixture class was the one carve-out); ADR 0016 has
+     since replaced that scan with build-graph visibility. Removing Qt
      *types* — `ConfigValuesStructure`/`LogValuesStructure`/
      `EcuCalDefStructure` staying `QString`/`QStringList`-typed — was this
      slice's explicit non-goal; see the "Replace parallel-list data models"
