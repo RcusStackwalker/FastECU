@@ -1,7 +1,7 @@
 """The closure roots for //:portable_closure.
 
 Each package maps to the portable targets it owns. BUILD.bazel turns the whole
-list into the `genquery` whose output the check reads, so a portable target is
+list into the `genquery` behind //:portable_closure, so a portable target is
 registered once; a name that does not resolve fails there, at analysis.
 
 Packages are absent when they own no target that needs sweeping -- src/algorithms

@@ -78,7 +78,8 @@ status below, refreshed after 6a-4/6a-5:
   package-owned `//apps/desktop:fastecu`, and every target under `src/` and
   `apps/` is visibility-restricted to the permitted layering directions.
 - Three CI guards enforce what the compiler cannot: `//:portable_closure`
-  (no `//src/platform` label in the portable closure), `//:serial_compat_allowlist`
+  (no `//src/platform` label in the portable closure, a `genquery` plus a
+  `genrule`, with no script behind it), `//:serial_compat_allowlist`
   (frozen, shrink-only), and `//:openpty_includes` (ADR 0005). A fourth rule —
   no Qt in a portable package — needs no guard target: `@rules_qt` is not in the
   root module's repo mapping at all, and Qt and our own Qt-typed transitional
@@ -191,7 +192,7 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      7. Flash block planning and verification algorithms.
    - Replace `QString`, `QByteArray`, `QVector`, and parallel `QStringList` models with standard C++ types.
    - Retain separate protocol-family state machines; do not create a universal flashing abstraction.
-   - Every `src/algorithms` package is now split into a portable target plus a sibling `:qt_compat` shim, and `scripts/check-portable-closure.py` (wired into CI as `//:portable_closure`) confirms `OK: 9 portable algorithms targets, none reach Qt.` — proven non-vacuous by injecting a `QT_DEPS` dependency into a portable target and observing the check fail before restoring the file.
+   - Every `src/algorithms` package is now split into a portable target plus a sibling `:qt_compat` shim, and `//:portable_closure` confirmed at the time, through the Python check it then used, `OK: 9 portable algorithms targets, none reach Qt.` — proven non-vacuous by injecting a `QT_DEPS` dependency into a portable target and observing the check fail before restoring the file.
    - **Amendment 1:** step 4 narrowed to Qt removal only. `Result<T>`, structured errors, typed identifiers, validated value models, and the parsing/calibration/flash-planning migrations (originally items 5-7 of the ordered list above) move to step 5.
    - **Amendment 2:** the closure check rejects **Qt and JNI only**. `@openssl` remains in `src/algorithms/crypto`; **step 7 decides its fate** once NDK cross-compilation makes the real constraint visible.
    - **Amendment 3:** new tests are co-located as `src/**/*_test.cpp`, not added under `tests/`. Existing `tests/` files are retained as legacy contract holders against the `:qt_compat` shims and are retired only when those shims die.
