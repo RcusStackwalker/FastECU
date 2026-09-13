@@ -12,14 +12,14 @@ Two documents carry the conventions this file only summarizes: the [coding style
 
 ## Build, test, lint
 
-Bazel 9.1.1 (pinned in `.bazelversion`) is the **only** target graph — application, tests, packaging, coverage, compile commands, and clang-tidy inputs ([ADR 0001](docs/adr/0001-adopt-bazel-as-target-graph.md), [ADR 0007](docs/adr/0007-use-bazel-as-ci-source-of-truth.md)). Requires Qt 6.8.3 host tools (Charts, SerialPort, RemoteObjects, WebSockets). `.github/workflows/pr.yml` is the authoritative environment setup.
+Bazel 9.1.1 (pinned in `.bazelversion`) is the **only** target graph — application, tests, packaging, coverage, compile commands, and clang-tidy inputs. Requires Qt 6.8.3 host tools (Charts, SerialPort, RemoteObjects, WebSockets). `.github/workflows/pr.yml` is the authoritative environment setup.
 
 ```sh
 bazel build --config=release //:fastecu                      # app (alias -> //apps/desktop:fastecu)
 bazel test  --config=release //...                           # everything: C++ suites + root guard tests
 bazel test  --config=release //src/backend/config:app_config_test   # a single test target
 bazel test  --config=release //src/backend/protocol:all      # one package's tests
-prek run --all-files                                         # clang-format, buildifier, ruff, pragma-once (ADR 0002)
+prek run --all-files                                         # clang-format, buildifier, ruff, pragma-once
 bazel run //:clang_tidy_report_changed                       # PR gate scope (changed files vs origin/master); needs system LLVM on PATH
 bazel run //:clang_tidy_fix_changed                          # same scope, applies fixes; macOS/Linux only
 bazel run //:clang_tidy_report                               # full-repo sweep, advisory/manual only; needs system LLVM on PATH
@@ -37,7 +37,7 @@ C++23 (`std::expected`, `std::format`, ranges). MSVC uses `/std:c++latest`; macO
 
 Dependencies flow one way: `apps/desktop` → `src/ui` → `src/platform` → `src/backend` → `src/algorithms`. `platform → backend` is permitted (platform implements backend-owned interfaces); the reverse never is.
 
-- **`src/algorithms/`** — pure, Qt-free logic: protocol codecs (`ssm/`, `mut_dma/`, `colt/`), checksum, expression evaluation, diagnostics. Each has a sibling `:qt_compat` shim target for legacy callers; don't add new ones.
+- **`src/algorithms/`** — pure, Qt-free logic: protocol codecs (`ssm/`, `mut_dma/`, `colt/`), checksum, expression evaluation, diagnostics. `protocol/` and `protocol/ssm/` each have a `qt_compat` subpackage shimming Qt types for legacy callers; don't add new ones.
 - **`src/backend/`** — use cases and domain model: `protocol/` (transport interfaces + drivers), `flash/` (plan/validate/execute + `eeprom/`), `logging/`, `definition/` (RomRaider + EcuFlash parsers), `calibration/`, `config/`, `checksum/`, and `ports/`. Most targets here are **portable** — no Qt, no threads, no filesystem.
 - **`src/backend/ports/`** — the injected-port interfaces: `IClock`, `ICancellationToken`, `IEventSink`, `IFileRepository`, `IFileSystem`, `ISettings`, `IResourceBundle`, plus `Result<T>`/`Error` in `result.h`/`error.h`. Transport ports (`IKlineTransport`, `ICanTransport`, `ISsmTransport`) deliberately stay in `src/backend/protocol/`.
 - **`src/platform/desktop/`** — Qt/OS adapters: `common/ports/` (Qt implementations of every port), `common/serial/` (J2534 + serial, threading facade), `common/transport/`, `common/logging/` + `common/flash/` (worker threads), `unix/j2534/`, `windows/j2534/`.
@@ -47,24 +47,24 @@ Dependencies flow one way: `apps/desktop` → `src/ui` → `src/platform` → `s
 ### Error and byte conventions
 
 - Backend operations return `fastecu::Result<T>` (`std::expected<T, Error>`) with one of seven `ErrorKind` values, checked with `.has_value()` and never the implicit `operator bool`. **Exceptions never cross a port.** Don't add `ErrorKind` values without amending the step-5 design doc.
-- Pure protocol/checksum/logging/flash logic uses `bytes::Byte` / `bytes::Bytes` / `bytes::ByteView` from `src/algorithms/protocol/bytes.h`; `QByteArray` is a boundary type only, converted explicitly via `qt_bytes.h` ([ADR 0004](docs/adr/0004-limit-qbytearray-to-qt-boundaries.md)).
+- Pure protocol/checksum/logging/flash logic uses `bytes::Byte` / `bytes::Bytes` / `bytes::ByteView` from `src/algorithms/protocol/bytes.h`; `QByteArray` is a boundary type only, converted explicitly via `qt_bytes.h`.
 
 ## Build-graph guardrails
 
 These exist because the compiler can't catch them; they fail CI, not your editor.
 
-- **`//:portable_closure`** — a `genquery` resolves every `//src/platform` label reachable from a portable target, and a `genrule` fails the build if there is one. Platform packages restrict their own visibility, so this catches the case where that list is widened. It fails `bazel build`, not the test suite. Qt needs no check: it is unreachable from a portable package by construction ([ADR 0016](docs/adr/0016-enforce-qt-reachability-by-visibility.md)). New portable targets are registered once, in `PORTABLE_PACKAGES` in `bazel/portable_targets.bzl`.
+- **`//:portable_closure`** — no `//src/platform` label may be reachable from a portable target; it fails `bazel build`, not the test suite. Register new portable targets in `PORTABLE_PACKAGES` (`bazel/portable_targets.bzl`). Qt needs no guard: it is unreachable from a portable package by construction.
 - **`//:serial_compat_allowlist`** — freezes the visibility list of `//src/platform/desktop/common/serial:serial_qt_compat`. That list is transitional debt: **it may shrink, never grow.**
-- **`//:openpty_includes`** — platform-specific backend tests live in separate source files listed in `*_UNIX_SRCS` / `*_WIN32_SRCS`, not behind `#ifdef` in common sources ([ADR 0005](docs/adr/0005-separate-platform-specific-backend-tests.md)).
+- **`//:openpty_includes`** — platform-specific backend tests live in separate source files listed in `*_UNIX_SRCS` / `*_WIN32_SRCS`, not behind `#ifdef` in common sources.
 - Windows 32-bit J2534 vendor DLLs are reached through an out-of-process bridge (`src/platform/desktop/windows/j2534/j2534_bridge_*`); the x86 host binary is built in-graph via the platform transition in `bazel/x86_windows_transition.bzl`.
 
 ## Writing targets and tests
 
 - Tests are **package-owned and co-located** with the code (`foo.cpp` + `foo_test.cpp` in the same package). `tests/` holds only cross-package integration and platform harness tests.
 - Use `fastecu_portable_gtest` (Qt-free closure) or `fastecu_gtest` (links `QT_DEPS_NO_WIDGETS`) from `bazel/gtest_targets.bzl`; `fastecu_qttest` in `bazel/qt_common.bzl` for QtTest-style suites needing moc.
-- Mocks/fakes are package-owned: a package defining an interface adds a `testing/` subpackage with one `cc_library(testonly = True)` target per mock, each with its own test ([ADR 0008](docs/adr/0008-use-package-owned-mocks.md); `src/backend/ports/testing/` is the reference).
+- Mocks/fakes are package-owned: a package defining an interface adds a `testing/` subpackage with one `cc_library(testonly = True)` target per mock, each with its own test (`src/backend/ports/testing/` is the reference).
 - `qt_cc_library` targets list moc'd headers in `hdrs` and everything else in `normal_hdrs` — a `Q_OBJECT` header missing from `hdrs` links but fails at runtime.
-- Prefer `std::string_view` by value over `const char*` / `const std::string&`, gmock matchers for property assertions, `std::format` for message construction, ranges/views over index loops, and `bytes::composeBe` over hand-rolled shift-and-mask frame building — all detailed, with their exceptions, in the [coding style guide](docs/coding-style.md).
+- Style rules — `std::string_view` by value, gmock matchers for property assertions, `std::format`, ranges over index loops, `bytes::composeBe` for wire frames — live in the [coding style guide](docs/coding-style.md) with their exceptions.
 - Every header needs `#pragma once` (enforced by prek).
 - Cross-document references in Markdown are links with human-readable text, not backticked paths — lychee (via prek) checks links and cannot see a path written as inline code.
 
