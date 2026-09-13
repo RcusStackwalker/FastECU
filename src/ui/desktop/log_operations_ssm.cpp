@@ -1,7 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
 #include "src/backend/protocol/transport_legacy_compat.h"
 

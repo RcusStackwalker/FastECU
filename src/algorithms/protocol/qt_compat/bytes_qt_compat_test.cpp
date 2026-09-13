@@ -5,7 +5,7 @@
 #include <cstdint>
 
 #include "src/algorithms/protocol/bytes.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 
 using ::testing::ElementsAre;
 

@@ -11,7 +11,7 @@
 #include <vector>
 
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/platform/desktop/common/transport/fastecu_can_transport.h"

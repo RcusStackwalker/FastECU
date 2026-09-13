@@ -1,0 +1,25 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "fastecu_qttest")
+
+# The Qt-typed half of //src/backend/logging, in its own package so that one
+# stays free of Qt by visibility rather than by a source scan -- see
+# docs/adr/0016-enforce-qt-reachability-by-visibility.md. Visible only to
+# packages that may themselves hold Qt.
+package(default_visibility = ["//bazel/qt:qt_layer"])
+
+cc_library(
+    name = "legacy_logger_adapter",
+    srcs = ["legacy_logger_adapter.cpp"],
+    hdrs = ["legacy_logger_adapter.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS_NO_WIDGETS + [
+        "//src/backend/definitions:log_values",
+        "//src/backend/logging:logger_definition_model",
+    ],
+)
+
+fastecu_qttest(
+    name = "legacy_logger_adapter_test",
+    src = "legacy_logger_adapter_test.cpp",
+    deps = [":legacy_logger_adapter"],
+)

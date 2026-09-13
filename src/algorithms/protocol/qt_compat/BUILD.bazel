@@ -1,0 +1,27 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS")
+
+# The Qt half of //src/algorithms/protocol, in its own package so that one
+# stays free of Qt by visibility rather than by a source scan -- see
+# docs/adr/0016-enforce-qt-reachability-by-visibility.md. Visible only to
+# packages that may themselves hold Qt.
+package(default_visibility = ["//bazel/qt:qt_layer"])
+
+# TRANSITIONAL Qt shim. Converts between Qt containers and bytes:: types.
+# Shrinks as steps 5 and 6 move callers onto the portable types.
+cc_library(
+    name = "qt_compat",
+    hdrs = ["qt_bytes.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS_NO_WIDGETS + ["//src/algorithms/protocol"],
+)
+
+fastecu_gtest(
+    name = "test_bytes",
+    srcs = ["bytes_qt_compat_test.cpp"],
+    deps = [
+        ":qt_compat",
+        "//src/algorithms/protocol",
+    ],
+)

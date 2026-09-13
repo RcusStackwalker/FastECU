@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <functional>
 
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/algorithms/diagnostics/dtc_parser.h"
 #include "src/algorithms/diagnostics/nrc_parser.h"
 

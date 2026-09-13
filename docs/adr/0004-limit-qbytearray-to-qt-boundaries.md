@@ -30,7 +30,7 @@ checksum, logging, and flash-planning logic:
 - `std::array<bytes::Byte, N>` for protocol-defined fixed-size frames and
   fixed seed/key fields.
 
-Keep Qt conversion explicit through `src/algorithms/protocol/qt_bytes.h`. New pure helpers
+Keep Qt conversion explicit through `src/algorithms/protocol/qt_compat/qt_bytes.h`. New pure helpers
 should not include `QByteArray`.
 
 ## Consequences

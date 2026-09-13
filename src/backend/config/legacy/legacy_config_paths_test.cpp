@@ -1,5 +1,5 @@
 // tests/test_legacy_config_paths.cpp
-#include "src/backend/config/legacy_config_paths.h"
+#include "src/backend/config/legacy/legacy_config_paths.h"
 
 #include <gtest/gtest.h>
 

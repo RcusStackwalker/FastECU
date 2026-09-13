@@ -4,9 +4,9 @@
 #include <cstddef>
 #include <iterator>
 #include <utility>
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/backend/checksum/checksum_selection.h"
-#include "src/backend/config/legacy_config_paths.h"
+#include "src/backend/config/legacy/legacy_config_paths.h"
 #include "src/backend/config/menu_definition.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"

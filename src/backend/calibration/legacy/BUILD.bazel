@@ -1,0 +1,45 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "fastecu_qttest")
+
+# The Qt-typed half of //src/backend/calibration, in its own package so that
+# one stays free of Qt by visibility rather than by a source scan -- see
+# docs/adr/0016-enforce-qt-reachability-by-visibility.md. Visible only to
+# packages that may themselves hold Qt.
+package(default_visibility = ["//bazel/qt:qt_layer"])
+
+# Qt-linked (EcuCalDefStructure/ConfigValuesStructure are Qt-typed). Explicit
+# srcs so this neither collides with nor is swept into
+# //src/backend/definitions:definitions's glob.
+#
+# Depends on the leaf :protocol_catalog/:car_model_catalog targets rather
+# than a whole-package //src/backend/config label: no such default target
+# exists in that package (only individually named leaf targets), confirmed
+# via `bazel query '//src/backend/config:*'`.
+cc_library(
+    name = "legacy_calibration_adapter",
+    srcs = ["legacy_calibration_adapter.cpp"],
+    hdrs = ["legacy_calibration_adapter.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS_NO_WIDGETS + [
+        "//src/algorithms/protocol/qt_compat",
+        "//src/backend/calibration:calibration_service",
+        "//src/backend/config:car_model_catalog",
+        "//src/backend/config:config_paths",
+        "//src/backend/config:protocol_catalog",
+        "//src/backend/config/legacy:legacy_config_paths",
+        "//src/backend/definition:definition_model",
+        "//src/backend/definitions:config_values",
+        "//src/backend/definitions:ecu_cal_def",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_legacy_calibration_adapter",
+    src = "legacy_calibration_adapter_test.cpp",
+    deps = [
+        ":legacy_calibration_adapter",
+        "//src/backend/definition:definition_model",
+        "//src/backend/ports/testing:in_memory_file_repository",
+    ],
+)

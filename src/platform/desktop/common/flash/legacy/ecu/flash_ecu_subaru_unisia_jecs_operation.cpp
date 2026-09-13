@@ -1,6 +1,6 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_unisia_jecs_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>

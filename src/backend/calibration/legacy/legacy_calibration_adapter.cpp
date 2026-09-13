@@ -1,15 +1,15 @@
-#include "src/backend/calibration/legacy_calibration_adapter.h"
+#include "src/backend/calibration/legacy/legacy_calibration_adapter.h"
 
 #include <format>
 
 #include <QFileInfo>
 #include <QDateTime>
 
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/backend/calibration/calibration_service.h"
 #include "src/backend/config/car_model_catalog.h"
 #include "src/backend/config/config_paths.h"
-#include "src/backend/config/legacy_config_paths.h"
+#include "src/backend/config/legacy/legacy_config_paths.h"
 #include "src/backend/config/protocol_catalog.h"
 #include "src/backend/definition/definition_model.h"
 

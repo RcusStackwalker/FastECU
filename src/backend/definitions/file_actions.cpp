@@ -8,10 +8,10 @@
 #include <vector>
 
 #include "src/algorithms/diagnostics/dtc_parser.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/backend/calibration/calibration_service.h"
 #include "src/algorithms/diagnostics/nrc_parser.h"
-#include "src/backend/logging/legacy_logger_adapter.h"
+#include "src/backend/logging/legacy/legacy_logger_adapter.h"
 #include "src/backend/logging/logger_conf.h"
 #include "src/backend/logging/logger_definition_service.h"
 

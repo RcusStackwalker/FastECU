@@ -33,7 +33,7 @@ cc_library(
 # comment). Kept out of `definitions`'s own hdrs and given its own
 # cc_library, mirroring the `models` split above -- for the identical
 # reason (avoiding a Bazel dependency cycle), this time with
-# //src/backend/config:legacy_config_adapter rather than //src/backend/flash.
+# //src/backend/config/legacy:legacy_config_adapter rather than //src/backend/flash.
 cc_library(
     name = "config_values",
     srcs = [],
@@ -94,7 +94,7 @@ cc_library(
 # comment). Kept out of `definitions`'s own hdrs and given its own
 # cc_library, mirroring the config_values/ecu_cal_def splits above -- for
 # the identical reason (avoiding a Bazel dependency cycle), this time with
-# //src/backend/logging:legacy_logger_adapter.
+# //src/backend/logging/legacy:legacy_logger_adapter.
 cc_library(
     name = "log_values",
     srcs = [],
@@ -109,7 +109,7 @@ cc_library(
     hdrs = ["legacy_definition_columns.h"],
     copts = COMMON_COPTS,
     visibility = [
-        "//src/backend/definition:__pkg__",
+        "//src/backend/definition/legacy:__pkg__",
         "//src/backend/definitions:__pkg__",
     ],
     deps = QT_DEPS_NO_WIDGETS + [":ecu_cal_def"],
@@ -136,15 +136,15 @@ cc_library(
         "//resources/shared:config_resource",
         "//resources/shared:kernels_resource",
         "//src/algorithms/diagnostics",
-        "//src/algorithms/protocol:qt_compat",
+        "//src/algorithms/protocol/qt_compat",
         "//src/backend/calibration:calibration_service",
-        "//src/backend/calibration:legacy_calibration_adapter",
-        "//src/backend/config:legacy_config_adapter",
+        "//src/backend/calibration/legacy:legacy_calibration_adapter",
+        "//src/backend/config/legacy:legacy_config_adapter",
         "//src/backend/definition:definition_service",
-        "//src/backend/definition:legacy_definition_adapter",
-        "//src/backend/logging:legacy_logger_adapter",
+        "//src/backend/definition/legacy:legacy_definition_adapter",
         "//src/backend/logging:logger_conf",
         "//src/backend/logging:logger_definition_service",
+        "//src/backend/logging/legacy:legacy_logger_adapter",
         "//src/backend/ports",
     ],
 )

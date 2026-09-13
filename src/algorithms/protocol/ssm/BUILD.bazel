@@ -1,6 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
-load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
     "//src/algorithms:__subpackages__",
@@ -28,30 +27,9 @@ cc_library(
     ],
 )
 
-# TRANSITIONAL Qt shim: QByteArray/QString overloads delegating to :ssm.
-cc_library(
-    name = "qt_compat",
-    srcs = ["ssm_protocol.cpp"],
-    hdrs = ["ssm_protocol.h"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS_NO_WIDGETS + [
-        ":ssm",
-        "//src/algorithms/protocol:qt_compat",
-    ],
-)
-
 fastecu_portable_gtest(
     name = "ssm_protocol_core_test",
     size = "small",
     srcs = ["ssm_protocol_core_test.cpp"],
     deps = [":ssm"],
-)
-
-fastecu_gtest(
-    name = "test_ssm_protocol",
-    srcs = ["ssm_protocol_qt_compat_test.cpp"],
-    deps = [
-        ":qt_compat",
-        "//src/algorithms/protocol/testing:byte_test_utils",
-    ],
 )

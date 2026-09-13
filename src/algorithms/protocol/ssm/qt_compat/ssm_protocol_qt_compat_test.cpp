@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/protocol/ssm/qt_compat/ssm_protocol.h"
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
 
 #include <array>

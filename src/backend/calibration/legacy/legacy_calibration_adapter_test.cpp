@@ -1,6 +1,6 @@
 #include <QtTest>
 
-#include "src/backend/calibration/legacy_calibration_adapter.h"
+#include "src/backend/calibration/legacy/legacy_calibration_adapter.h"
 #include "src/backend/definition/definition_model.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 

@@ -1,8 +1,8 @@
 #include "src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh705x_kline_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
-#include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/protocol/ssm/qt_compat/ssm_protocol.h"
 #include "src/algorithms/checksum/checksum_primitives.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QCoreApplication>

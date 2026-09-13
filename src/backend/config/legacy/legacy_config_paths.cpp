@@ -1,4 +1,4 @@
-#include "src/backend/config/legacy_config_paths.h"
+#include "src/backend/config/legacy/legacy_config_paths.h"
 
 namespace fastecu::config
 {

@@ -1,6 +1,6 @@
 #include "src/platform/desktop/common/flash/legacy/bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.h"
 #include "src/platform/desktop/common/flash/legacy/legacy_flash_utils.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <QElapsedTimer>

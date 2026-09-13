@@ -1,4 +1,4 @@
-#include "src/backend/definition/legacy_definition_adapter.h"
+#include "src/backend/definition/legacy/legacy_definition_adapter.h"
 #include "src/backend/definitions/legacy_definition_columns.h"
 
 #include <cstdint>

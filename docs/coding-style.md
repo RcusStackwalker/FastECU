@@ -64,7 +64,7 @@ aliases from `src/algorithms/protocol/bytes.h`:
 
 `QByteArray` is a boundary type only; the reasoning and the exact boundaries
 are in [ADR 0004](adr/0004-limit-qbytearray-to-qt-boundaries.md). Conversions
-go through `src/algorithms/protocol/qt_bytes.h` and stay explicit, so that
+go through `src/algorithms/protocol/qt_compat/qt_bytes.h` and stay explicit, so that
 copies are visible at the call site.
 
 Build frames with `bytes::composeBe`, `bytes::composeBeWithExtraCapacity`, and

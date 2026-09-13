@@ -1,6 +1,6 @@
 #include "mainwindow.h"
 #include "src/algorithms/menu/menu_command.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/backend/calibration/map_edit.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 #include "ui_mainwindow.h"

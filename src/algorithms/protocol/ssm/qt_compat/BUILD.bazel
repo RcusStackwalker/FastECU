@@ -1,0 +1,30 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS")
+
+# The Qt half of //src/algorithms/protocol/ssm, in its own package so that one
+# stays free of Qt by visibility rather than by a source scan -- see
+# docs/adr/0016-enforce-qt-reachability-by-visibility.md. Visible only to
+# packages that may themselves hold Qt.
+package(default_visibility = ["//bazel/qt:qt_layer"])
+
+# TRANSITIONAL Qt shim: QByteArray/QString overloads delegating to :ssm.
+cc_library(
+    name = "qt_compat",
+    srcs = ["ssm_protocol.cpp"],
+    hdrs = ["ssm_protocol.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS_NO_WIDGETS + [
+        "//src/algorithms/protocol/qt_compat",
+        "//src/algorithms/protocol/ssm",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_ssm_protocol",
+    srcs = ["ssm_protocol_qt_compat_test.cpp"],
+    deps = [
+        ":qt_compat",
+        "//src/algorithms/protocol/testing:byte_test_utils",
+    ],
+)

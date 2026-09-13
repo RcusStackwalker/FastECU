@@ -1,4 +1,4 @@
-#include "src/backend/logging/legacy_logger_adapter.h"
+#include "src/backend/logging/legacy/legacy_logger_adapter.h"
 
 #include <QtTest>
 

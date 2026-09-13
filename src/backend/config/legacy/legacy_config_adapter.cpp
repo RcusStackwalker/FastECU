@@ -1,7 +1,7 @@
-#include "src/backend/config/legacy_config_adapter.h"
+#include "src/backend/config/legacy/legacy_config_adapter.h"
 
 #include "src/backend/config/car_model_catalog.h"
-#include "src/backend/config/legacy_config_paths.h"
+#include "src/backend/config/legacy/legacy_config_paths.h"
 #include "src/backend/config/provisioning.h"
 #include "src/backend/ports/event_sink.h"
 
