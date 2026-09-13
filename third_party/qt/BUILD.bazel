@@ -1,0 +1,27 @@
+# The Qt module libraries, visible only to //bazel/qt, which re-aliases them
+# behind the //bazel/qt:qt_layer and :widget_layer package groups. Nothing
+# else in the repo can reach Qt: @rules_qt is not in the root module's repo
+# mapping at all (see MODULE.bazel here), so its labels do not resolve.
+# buildifier: disable=canonical-repository
+#
+# "@@//" is the main repository, and naming it that way is the only option:
+# this module cannot bazel_dep on the one that depends on it, so there is no
+# apparent name to use instead.
+[
+    alias(
+        name = "qt_" + module,
+        actual = "@rules_qt//:qt_" + module,
+        visibility = ["@@//bazel/qt:__pkg__"],
+    )
+    for module in [
+        "charts",
+        "core",
+        "gui",
+        "remote_objects",
+        "serial_port",
+        "test",
+        "web_sockets",
+        "widgets",
+        "xml",
+    ]
+]

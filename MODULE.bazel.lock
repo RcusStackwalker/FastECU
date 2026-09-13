@@ -354,9 +354,9 @@
     "@@rules_qt+//extension:qt.bzl%fetch": {
       "general": {
         "bzlTransitiveDigest": "0bJerIw5EwxkPz5+nR/6GfrDNujbu7J5u5ZESXq+J20=",
-        "usagesDigest": "WfLBlqyE7L0QdrQljQaV0hSdn2zfiNqe7ZPUwtvuX5A=",
+        "usagesDigest": "bjCC53a3ueqgrjaHgEZIkN1h9vvAYq87b8DwjlHfi3Y=",
         "recordedInputs": [
-          "REPO_MAPPING:,rules_qt rules_qt+",
+          "REPO_MAPPING:fastecu_qt+,rules_qt rules_qt+",
           "REPO_MAPPING:rules_qt+,bazel_skylib bazel_skylib+",
           "REPO_MAPPING:rules_qt+,rules_qt rules_qt+"
         ],

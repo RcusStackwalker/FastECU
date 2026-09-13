@@ -1,21 +1,17 @@
 #!/usr/bin/env python3
-"""Fail when a portable target is missing or declares a Qt/JNI dependency.
+"""Fail when a portable target is missing or declares a JNI dependency.
 
-Removing QT_DEPS from a portable target is self-enforcing: Bazel's sandbox
-drops Qt off the include path, so a residual `#include <QByteArray>` fails to
-compile. This check covers only what the compiler cannot see -- a portable
-target that reaches Qt transitively by depending on a :qt_compat sibling.
+Every route to Qt is closed by the build graph rather than by this file: the
+//bazel/qt:* aliases and the qt_compat / legacy shim packages are gated by the
+//bazel/qt:qt_layer package group, which holds no portable package, and
+@rules_qt is not in this module's repo mapping at all (see
+third_party/qt/MODULE.bazel), so its labels do not resolve anywhere in FastECU.
 
-It covers only the packages visibility cannot. Qt is reached through the
-//bazel/qt:* aliases, whose :qt_layer package group excludes every portable
-package that holds no Qt at all -- //src/backend/flash and //src/backend/checksum
-among them -- so there a Qt dependency fails at analysis. Six packages still
-hold a Qt-typed legacy adapter or a :qt_compat shim beside their portable
-targets, and Bazel visibility is package-granular, so only a per-target scan
-can separate the two. See
-docs/adr/0016-enforce-qt-reachability-by-visibility.md.
+What is left for a check to do is JNI, which has no such wrapper, and the two
+registry assertions: every portable target named in bazel/portable_targets.bzl
+exists, and nothing under //src/platform is reachable from one.
 
-Rejects Qt and JNI.
+See docs/adr/0016-enforce-qt-reachability-by-visibility.md.
 """
 
 import json
@@ -60,15 +56,12 @@ def read_registry():
     return json.loads(raw)
 
 
-# What visibility cannot reach. A portable target that writes QT_DEPS, a
-# //bazel/qt:* alias, or a :qt_compat dep now fails at analysis: Qt lives
-# behind aliases and shim packages whose visibility is //bazel/qt:qt_layer,
-# and no portable package is in it. These two labels are public in repos we do
-# not own, so nothing can narrow them from here.
-FORBIDDEN = (
-    re.compile(r'"@rules_qt//'),
-    re.compile(r'"@bazel_tools//tools/jdk:jni"'),
-)
+# What the build graph cannot reach on its own. Every Qt route is closed: the
+# //bazel/qt:* aliases and the qt_compat / legacy shim packages are gated by
+# //bazel/qt:qt_layer, which holds no portable package, and @rules_qt is not in
+# this module's repo mapping at all, so its labels do not resolve. JNI has no
+# such wrapper, and @bazel_tools is visible to every module.
+FORBIDDEN = (re.compile(r'"@bazel_tools//tools/jdk:jni"'),)
 
 # Any label under this prefix reached transitively from a required backend
 # target means a portable target depends on platform code -- directly or

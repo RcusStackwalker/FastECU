@@ -9,7 +9,7 @@ neither widget- nor moc-bearing lives in qt_common.bzl, which is loadable from
 anywhere. See docs/adr/0016-enforce-qt-reachability-by-visibility.md.
 """
 
-load("@rules_qt//:qt.bzl", _qt_cc_binary = "qt_cc_binary", _qt_cc_library = "qt_cc_library")
+load("@fastecu_qt//:qt.bzl", _qt_cc_binary = "qt_cc_binary", _qt_cc_library = "qt_cc_library")
 load(
     "//bazel:qt_common.bzl",
     _COMMON_COPTS = "COMMON_COPTS",
