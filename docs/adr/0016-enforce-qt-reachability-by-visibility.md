@@ -74,7 +74,7 @@ Costs and risks:
 - Two Qt `.bzl` files instead of one.
 - `//:portable_closure` skipped `qt_cc_library` when identifying portable
   targets by rule kind; the backend `Legacy*Adapter` targets are plain
-  `cc_library` now, so it scans only what `PORTABLE_ROOTS` names.
+  `cc_library` now, so it scans only the targets its registry names.
 - Six packages gained a `legacy` or `qt_compat` subpackage, and the headers
   that moved with them changed include path — `qt_bytes.h` in 32 files,
   `ssm_protocol.h` in 13. Both shims are transitional and shrink as steps 5 and

@@ -53,7 +53,7 @@ Dependencies flow one way: `apps/desktop` → `src/ui` → `src/platform` → `s
 
 These exist because the compiler can't catch them; they fail CI, not your editor.
 
-- **`//:portable_closure`** — resolves the transitive closure of every portable target and rejects Qt or JNI deps. Adding a Qt dep to a portable backend target fails here even if it compiles. New portable targets must be registered in both the `genquery` in `BUILD.bazel` and `PORTABLE_ROOTS` in `scripts/check-portable-closure.py`.
+- **`//:portable_closure`** — resolves the transitive closure of every portable target and rejects Qt or JNI deps. Adding a Qt dep to a portable backend target fails here even if it compiles. New portable targets are registered once, in `PORTABLE_PACKAGES` in `bazel/portable_targets.bzl`, which drives the `genquery`, the test's `data`, and the registry the check reads.
 - **`//:serial_compat_allowlist`** — freezes the visibility list of `//src/platform/desktop/common/serial:serial_qt_compat`. That list is transitional debt: **it may shrink, never grow.**
 - **`//:openpty_includes`** — platform-specific backend tests live in separate source files listed in `*_UNIX_SRCS` / `*_WIN32_SRCS`, not behind `#ifdef` in common sources ([ADR 0005](docs/adr/0005-separate-platform-specific-backend-tests.md)).
 - Windows 32-bit J2534 vendor DLLs are reached through an out-of-process bridge (`src/platform/desktop/windows/j2534/j2534_bridge_*`); the x86 host binary is built in-graph via the platform transition in `bazel/x86_windows_transition.bzl`.

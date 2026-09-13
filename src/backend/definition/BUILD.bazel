@@ -3,6 +3,15 @@ load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = ["//visibility:public"])
 
+# root //:portable_closure reads this file as `data` to check that the
+# portable targets here stay Qt-free; that reference is plumbing, not a layer
+# dependency, so export it to the root package specifically rather than widen
+# the package's general visibility.
+exports_files(
+    ["BUILD.bazel"],
+    visibility = ["//:__pkg__"],
+)
+
 cc_library(
     name = "definition_model",
     srcs = ["definition_model.cpp"],
