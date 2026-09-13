@@ -14,6 +14,7 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_types.h"
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_types.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_types.h"
@@ -61,6 +62,7 @@ enum class FlashFamily
     SubaruDensoSh705xDensoCan,
     SubaruTcuDensoSh705xCan,
     SubaruDensoSh7058Can,
+    SubaruDensoSh7058CanDiesel,
 };
 
 enum class TransportKind
@@ -129,7 +131,7 @@ using FamilyPlan =
                  SubaruHitachiM32rCanPlan, SubaruTcuCvtHitachiM32rCanPlan, SubaruTcuCvtMitsuMh8111CanPlan,
                  SubaruTcuCvtMitsuMh8104CanPlan, SubaruDenso1n83m_1_5mCanPlan, SubaruDensoSh72531CanPlan,
                  SubaruDensoSh72543CanDieselPlan, SubaruDenso1n83m_4mCanPlan, SubaruDensoSh705xDensoCanPlan,
-                 SubaruTcuDensoSh705xCanPlan, SubaruDensoSh7058CanPlan>;
+                 SubaruTcuDensoSh705xCanPlan, SubaruDensoSh7058CanPlan, SubaruDensoSh7058CanDieselPlan>;
 
 // The FlashFamily tag and TransportKind each plan alternative belongs to.
 //
@@ -250,6 +252,12 @@ template <> struct FamilyTraits<SubaruTcuDensoSh705xCanPlan>
 template <> struct FamilyTraits<SubaruDensoSh7058CanPlan>
 {
     static constexpr FlashFamily family = FlashFamily::SubaruDensoSh7058Can;
+    static constexpr TransportKind transport = TransportKind::CanIso15765;
+};
+
+template <> struct FamilyTraits<SubaruDensoSh7058CanDieselPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruDensoSh7058CanDiesel;
     static constexpr TransportKind transport = TransportKind::CanIso15765;
 };
 

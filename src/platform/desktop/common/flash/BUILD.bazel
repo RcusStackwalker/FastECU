@@ -33,6 +33,8 @@ qt_cc_library(
         "//src/backend/flash/ecu:subaru_denso_mc68hc16y5_02_plan",
         "//src/backend/flash/ecu:subaru_denso_sh7055_02_executor",
         "//src/backend/flash/ecu:subaru_denso_sh7055_02_plan",
+        "//src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_executor",
+        "//src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_plan",
         "//src/backend/flash/ecu:subaru_denso_sh7058_can_executor",
         "//src/backend/flash/ecu:subaru_denso_sh7058_can_plan",
         "//src/backend/flash/ecu:subaru_denso_sh705x_densocan_executor",
