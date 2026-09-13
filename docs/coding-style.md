@@ -153,8 +153,10 @@ reader has to know a type's value category to know what is being tested.
 Keeping the declaration inside the `if` above is the `Result`/`Status`
 instance of the general minimum-scope rule below.
 
-Exceptions never cross a port. See CLAUDE.md for the `ErrorKind` set and the
-rule against extending it.
+Exceptions never cross a port. The `ErrorKind` set is closed: the values are
+in `src/backend/ports/error.h`, and adding one means amending the
+[step-5 backend-portable design](superpowers/specs/2026-07-22-step5-backend-portable-design.md)
+that fixes them.
 
 ## Scope
 
@@ -303,8 +305,6 @@ when moving a platform-specific test. Where separating sources is impractical,
 use a small local preprocessor guard with standard compiler/platform macros
 rather than Qt ones. See
 [ADR 0005](adr/0005-separate-platform-specific-backend-tests.md).
-
-Test placement, target macros, and `MOC_HDRS` wiring are in CLAUDE.md.
 
 ## Formatting and headers
 
