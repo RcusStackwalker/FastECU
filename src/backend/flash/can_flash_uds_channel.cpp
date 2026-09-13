@@ -16,6 +16,7 @@ CanFlashUdsChannel::CanFlashUdsChannel(ICanFlashTransport& transport, std::uint3
 
 Status CanFlashUdsChannel::send(bytes::ByteView pdu, const ICancellationToken& cancellation)
 {
+    last_received_frame_.reset();
     return transport_.write(bytes::composeBe(request_id_, pdu), cancellation);
 }
 
@@ -33,6 +34,7 @@ Result<std::optional<bytes::Bytes>> CanFlashUdsChannel::receive(std::chrono::mil
     }
 
     const bytes::Bytes& raw = **frame;
+    last_received_frame_ = raw;
     if (raw.size() < kEnvelopeSize)
     {
         return fail(ErrorKind::BadResponse,
@@ -46,6 +48,11 @@ Result<std::optional<bytes::Bytes>> CanFlashUdsChannel::receive(std::chrono::mil
 
     return std::optional<bytes::Bytes>(
         bytes::Bytes(raw.begin() + static_cast<std::ptrdiff_t>(kEnvelopeSize), raw.end()));
+}
+
+const std::optional<bytes::Bytes>& CanFlashUdsChannel::last_received_frame() const noexcept
+{
+    return last_received_frame_;
 }
 
 } // namespace fastecu::flash

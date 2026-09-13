@@ -102,7 +102,7 @@ struct Context
     std::uint32_t request_id;
     std::uint32_t response_id;
     uds::UdsClient& uds;
-    uds::IUdsChannel& channel;
+    CanFlashUdsChannel& channel;
 };
 
 void info(Context& context, std::string_view message)
@@ -359,7 +359,32 @@ Result<std::optional<bytes::Bytes>> nonfatal_query(Context& context, bytes::Byte
     return received;
 }
 
-void log_strict_failure(Context& context, const Error& failure)
+std::size_t strict_oracle_nrc_offset(bytes::ByteView request)
+{
+    // Security seed/key records inspect received.mid(4), while every other
+    // strict exchange in connect_bootloader()/upload_kernel() inspects
+    // received.mid(8). Keep this call-site distinction instead of allowing
+    // the UDS NRC decoder to normalize it away.
+    return !request.empty() && request.front() == uds::kSidSecurityAccess ? 4U : 8U;
+}
+
+void log_strict_frame_failure(Context& context, bytes::ByteView request, bytes::ByteView frame)
+{
+    // Each strict legacy call first checks received.length() > 5. The
+    // diagnostic slice is then independent: a non-security seven-byte
+    // negative frame reaches mid(8), which is empty and deliberately renders
+    // "Not a valid answer" rather than decoding its real NRC at byte four.
+    if (frame.size() <= 5)
+    {
+        error(context, "No valid response from ECU");
+        return;
+    }
+    const std::size_t nrc_offset = strict_oracle_nrc_offset(request);
+    const bytes::ByteView nrc = frame.size() > nrc_offset ? frame.subspan(nrc_offset) : bytes::ByteView{};
+    error(context, std::format("Wrong response from ECU: {}", uds::describe(nrc)));
+}
+
+void log_strict_failure(Context& context, bytes::ByteView request, const Error& failure)
 {
     if (failure.kind == ErrorKind::Timeout)
     {
@@ -368,6 +393,12 @@ void log_strict_failure(Context& context, const Error& failure)
     }
     if (failure.kind != ErrorKind::BadResponse)
     {
+        return;
+    }
+
+    if (const auto& raw = context.channel.last_received_frame(); raw.has_value())
+    {
+        log_strict_frame_failure(context, request, *raw);
         return;
     }
 
@@ -386,8 +417,14 @@ Result<bytes::Bytes> strict_request(Context& context, bytes::ByteView pdu, const
     Result<bytes::Bytes> reply = context.uds.request(pdu, policy, context.cancellation);
     if (!reply.has_value())
     {
-        log_strict_failure(context, reply.error());
+        log_strict_failure(context, pdu, reply.error());
         return std::unexpected(reply.error());
+    }
+    if (const auto& raw = context.channel.last_received_frame();
+        raw.has_value() && !pdu.empty() && pdu.front() == uds::kSidSecurityAccess && raw->size() <= 5)
+    {
+        log_strict_frame_failure(context, pdu, *raw);
+        return fail(ErrorKind::BadResponse, "strict CAN response is shorter than the legacy minimum");
     }
     return reply;
 }
@@ -878,8 +915,8 @@ Result<bytes::Bytes> read_memory(Context& context, const FlashPlan& plan, PhaseR
             page.resize(region.length - offset);
         }
 
-        // Local defect proof: revision-59f4e442:791 declares an unstarted
-        // QElapsedTimer and line 974 samples it before start. A deterministic
+        // Local defect proof: revision-59f4e442:890 samples an unstarted
+        // QElapsedTimer before line 891 starts it. A deterministic
         // monotonic sample and 1 ms minimum preserve the formula without an
         // invalid elapsed value; the exact first/last logs are regression
         // tested and disclosed in the diesel qualification row.
@@ -1069,9 +1106,9 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
         }
         debug(context, "Data written to flash buffer");
 
-        // Local defect proof: revision-59f4e442:1578-1583 leaves curspeed
-        // and tleft uninitialized, then formats them at 1651-1655 before the
-        // first assignment at 1664-1682. Sample IClock first, clamp 0 ms to
+        // Local defect proof: revision-59f4e442:1462 declares curspeed and
+        // tleft uninitialized; lines 1578-1585 format them before assignments
+        // at lines 1599 and 1605. Sample IClock first, clamp 0 ms to
         // 1, and otherwise retain the exact legacy formulas and log shape.
         const std::uint32_t percent = static_cast<std::uint32_t>(100U * (block.length - remaining) / block.length);
         const std::uint64_t now = context.clock.now_ms();

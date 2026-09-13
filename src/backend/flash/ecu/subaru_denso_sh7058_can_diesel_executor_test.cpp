@@ -1094,6 +1094,118 @@ TEST(SubaruDensoSh7058CanDieselExecutor, IdentityQueriesAndSessionThreeToFortyTh
               transport.writes.end());
 }
 
+// The frozen diesel oracle checks the complete serial frame before looking
+// at the security PDU: lines 393-408 of revision 59f4e442 reject a frame of
+// five bytes or fewer as "No valid response from ECU". This catches a
+// regression that would let a stripped, service-only 0x67 frame reach the
+// later seed-payload validation and report the wrong operator record.
+TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecuritySeedFrameUsesTheOracleNoValidResponseRecord)
+{
+    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    SubaruDensoSh7058CanDieselExecutor executor;
+    ScriptedCanFlashTransport transport;
+    configure_and_open(executor, *plan, transport);
+    script_kernel_probe_timeout(transport);
+    script_identity_queries(transport);
+    script_session_selection(transport);
+    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01});
+    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67});
+    NeverCancelled cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    ASSERT_FALSE(events.logs.empty());
+    EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::Error, std::string{"No valid response from ECU"}}));
+}
+
+TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecurityKeyFrameUsesTheOracleNoValidResponseRecord)
+{
+    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    SubaruDensoSh7058CanDieselExecutor executor;
+    ScriptedCanFlashTransport transport;
+    configure_and_open(executor, *plan, transport);
+    script_kernel_probe_timeout(transport);
+    script_identity_queries(transport);
+    script_session_selection(transport);
+    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01});
+    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67, 0x01, 0x11, 0x22, 0x33, 0x44});
+    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF});
+    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67});
+    NeverCancelled cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    ASSERT_FALSE(events.logs.empty());
+    EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::Error, std::string{"No valid response from ECU"}}));
+}
+
+// RequestDownload uses the generic legacy error slice (received.mid(8)),
+// unlike the security requests' mid(4). The literal seven-byte negative
+// frame therefore has no byte at offset eight and must retain the oracle's
+// "Not a valid answer" record rather than the NRC's "Invalid key" text.
+TEST(SubaruDensoSh7058CanDieselExecutor, RequestDownloadNegativeUsesTheGenericOracleErrorSlice)
+{
+    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    SubaruDensoSh7058CanDieselExecutor executor;
+    ScriptedCanFlashTransport transport;
+    configure_and_open(executor, *plan, transport);
+    script_bootloader_connection(transport);
+    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x34, 0x04, 0x33, 0xFF, 0x40, 0x00, 0x00, 0x00, 0x80});
+    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x7F, 0x34, 0x35});
+    NeverCancelled cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    ASSERT_FALSE(events.logs.empty());
+    EXPECT_EQ(events.logs.back(),
+              (std::pair{LogLevel::Error, std::string{"Wrong response from ECU: Not a valid answer"}}));
+}
+
+// Security negative replies use the separate received.mid(4) oracle slice,
+// so this same NRC remains human-readable for the stock seed request.
+TEST(SubaruDensoSh7058CanDieselExecutor, SecurityNegativeUsesTheSecurityOracleErrorSlice)
+{
+    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    SubaruDensoSh7058CanDieselExecutor executor;
+    ScriptedCanFlashTransport transport;
+    configure_and_open(executor, *plan, transport);
+    script_kernel_probe_timeout(transport);
+    script_identity_queries(transport);
+    script_session_selection(transport);
+    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01});
+    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x7F, 0x27, 0x35});
+    NeverCancelled cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(transport.scriptConsumed());
+    ASSERT_FALSE(events.logs.empty());
+    EXPECT_EQ(events.logs.back(), (std::pair{LogLevel::Error, std::string{"Wrong response from ECU: Invalid key"}}));
+}
+
 TEST(SubaruDensoSh7058CanDieselExecutor, MalformedNegativeWrongIdTimeoutAndDisconnectAreTypedAtStrictSecurity)
 {
     enum class ReplyKind
@@ -1117,7 +1229,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, MalformedNegativeWrongIdTimeoutAndDisco
          {0x00, 0x00, 0x07, 0xE8, 0x67},
          ErrorKind::Internal,
          ErrorKind::BadResponse,
-         "Wrong response from ECU: Not a valid answer"},
+         "No valid response from ECU"},
         {"negative",
          ReplyKind::Frame,
          {0x00, 0x00, 0x07, 0xE8, 0x7F, 0x27, 0x35},
