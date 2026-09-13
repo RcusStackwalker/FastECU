@@ -60,9 +60,9 @@ The root package holds guards for invariants the compiler cannot see. They fail 
 
 - Tests are **package-owned and co-located** with the code (`foo.cpp` + `foo_test.cpp` in the same package). `tests/` holds only cross-package integration and platform harness tests.
 - Use `fastecu_portable_gtest` (deliberately Qt-free closure) or `fastecu_gtest` (links `QT_DEPS_NO_WIDGETS`) from `bazel/gtest_targets.bzl`. QtTest-style suites needing moc use `fastecu_qttest`, loaded from `bazel/qt_targets.bzl` in the widget layer and from `bazel/qt_common.bzl` below it — `qt_targets.bzl` is visibility-restricted so backend and algorithms cannot reach Qt Widgets through it.
-- Mocks and fakes are package-owned: the package defining an interface adds a `testing/` subpackage with one `cc_library(testonly = True)` per mock, each with its own test. `src/backend/ports/testing/` is the reference.
+- Mocks and fakes are **package-owned** — the rule and its rationale are in the [coding style guide](docs/coding-style.md), and `src/backend/ports/testing/` is the reference implementation.
 - `qt_cc_library` lists moc'd headers in `hdrs` and everything else in `normal_hdrs` — a `Q_OBJECT` header missing from `hdrs` links but fails at runtime.
-- Platform differences go in separate source files selected by the BUILD file, not `#ifdef` branches inside a shared source. Where a preprocessor guard is unavoidable, spell it `_WIN32` (or `Q_OS_WIN32`); a bare `WIN32` is rejected, because Bazel does not define it and the branch would silently take the POSIX path on Windows.
+- Platform differences go in separate source files selected by the BUILD file, not `#ifdef` branches inside a shared source; the [coding style guide](docs/coding-style.md) covers the test-side rule and what to do where separating sources is impractical. Where a guard is unavoidable, spell it `_WIN32` — a bare `WIN32` is rejected, because Bazel does not define it and the branch would silently take the POSIX path on Windows.
 - Cross-document references in Markdown are links with human-readable text, not backticked paths — lychee checks links under `prek` and cannot see a path written as inline code.
 
 ## Hardware-facing caution
