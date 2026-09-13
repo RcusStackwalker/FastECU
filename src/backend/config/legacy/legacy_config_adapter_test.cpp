@@ -1,4 +1,4 @@
-#include "src/backend/config/legacy_config_adapter.h"
+#include "src/backend/config/legacy/legacy_config_adapter.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/backend/ports/testing/in_memory_file_system.h"

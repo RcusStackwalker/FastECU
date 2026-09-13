@@ -1,4 +1,4 @@
-#include "src/backend/definition/legacy_definition_adapter.h"
+#include "src/backend/definition/legacy/legacy_definition_adapter.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/backend/ports/testing/in_memory_file_system.h"

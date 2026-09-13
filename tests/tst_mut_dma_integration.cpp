@@ -50,7 +50,7 @@
 #include "src/backend/protocol/mut_dma_driver.h"
 #include "src/backend/protocol/imut_dma_init.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 
 using namespace mutdma;
 using namespace std::chrono_literals;

@@ -31,9 +31,18 @@ visibility fails at analysis with an error naming both ends.
 `//bazel/qt:widget_layer` gates Widgets and Charts (which pulls Widgets in
 transitively): `//src/ui/...`, `//src/platform/...`, `//apps/...`,
 `//tests/...`. `//bazel/qt:qt_layer` gates the rest — those four, plus
-`//resources/...` and the six packages that still hold a Qt-typed legacy
-adapter or a `qt_compat` shim. A new `src/backend` or `src/algorithms` package
-is denied by default.
+`//resources/...` and the leaf packages that exist to hold Qt-typed
+transitional code. A new `src/backend` or `src/algorithms` package is denied by
+default.
+
+Six packages used to mix portable targets with a Qt-typed neighbour, which
+package-granular visibility cannot separate. Each such neighbour moved into its
+own package: `src/backend/<pkg>/legacy` for the four `Legacy*Adapter` targets,
+`src/algorithms/protocol{,/ssm}/qt_compat` for the two shims. Those six
+packages carry `default_visibility = ["//bazel/qt:qt_layer"]`, so only a
+package that may hold Qt may depend on one — which makes the same group the
+single answer to "may this package touch Qt", for Qt itself and for our
+Qt-typed code alike.
 
 `bazel/qt_targets.bzl` carries a `visibility()` call for the widget layer and
 holds `QT_DEPS`, `qt_cc_library`, and `qt_cc_binary`; the rest moved to
@@ -49,9 +58,9 @@ Positive consequences:
 
 - The guard runs on Windows and covers a new package the moment it exists — no
   enumeration, no registry.
-- The "no Qt at all" promise for `//src/backend/flash` and
-  `//src/backend/checksum` is a visibility property now, as it is for the other
-  fourteen packages that hold no Qt.
+- Every portable package is Qt-free by construction, not by scan. What survives
+  in `//:portable_closure` is two patterns: the raw `@rules_qt//` label and
+  `@bazel_tools//tools/jdk:jni`, both public in repos we do not own.
 
 Costs and risks:
 
@@ -66,11 +75,10 @@ Costs and risks:
 - `//:portable_closure` skipped `qt_cc_library` when identifying portable
   targets by rule kind; the backend `Legacy*Adapter` targets are plain
   `cc_library` now, so it scans only what `PORTABLE_ROOTS` names.
-- Its per-target Qt scan survives for the six mixed packages: visibility is
-  package-granular, so nothing can let `legacy_config_adapter` see Qt while
-  denying its neighbour `app_config`. Splitting each adapter and shim into its
-  own package would retire the scan; each of the four adapters has one consumer
-  today.
+- Six packages gained a `legacy` or `qt_compat` subpackage, and the headers
+  that moved with them changed include path — `qt_bytes.h` in 32 files,
+  `ssm_protocol.h` in 13. Both shims are transitional and shrink as steps 5 and
+  6 proceed, so the new packages are expected to disappear rather than grow.
 
 ## Notes
 

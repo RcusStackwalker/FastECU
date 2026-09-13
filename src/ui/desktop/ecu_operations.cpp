@@ -3,7 +3,7 @@
 #include <array>
 #include <utility>
 #include "src/algorithms/checksum/checksum_primitives.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 EcuOperations::EcuOperations(QWidget *ui, SerialPortActions *serial_arg, QString mcu_type_string,

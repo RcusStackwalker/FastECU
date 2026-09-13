@@ -1,6 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
-load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
     "//src/backend:__subpackages__",
@@ -137,70 +136,5 @@ fastecu_portable_gtest(
     deps = [
         ":menu_definition",
         "//src/backend/ports/testing:in_memory_file_repository",
-    ],
-)
-
-# Qt-linked (FileActions::ConfigValuesStructure is Qt-typed). Explicit srcs so
-# this neither collides with nor is swept into
-# //src/backend/definitions:definitions's glob. A plain cc_library, not
-# qt_cc_library: legacy_config_adapter.h declares no QObject/Q_OBJECT, and
-# nothing under src/backend may reach the moc-the-headers path (see
-# docs/adr/0016-enforce-qt-reachability-by-visibility.md).
-#
-# Depends on //src/backend/definitions:config_values (the extracted value
-# struct), not the full //src/backend/definitions target: FileActions owns a
-# LegacyConfigAdapter member (wired in Task 11), so a dependency on the full
-# `definitions` target here would form a hard Bazel cycle with
-# `definitions`'s own dependency on `legacy_config_adapter`. config_values is
-# a leaf with no dependency on `definitions`, so both can depend on it
-# without cycling. See config_values.h's comment for the full rationale.
-cc_library(
-    name = "legacy_config_adapter",
-    srcs = ["legacy_config_adapter.cpp"],
-    hdrs = ["legacy_config_adapter.h"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS_NO_WIDGETS + [
-        ":app_config",
-        ":car_model_catalog",
-        ":config_paths",
-        ":legacy_config_paths",
-        ":protocol_catalog",
-        ":provisioning",
-        "//src/backend/definitions:config_values",
-        "//src/backend/ports",
-    ],
-)
-
-fastecu_gtest(
-    name = "test_legacy_config_adapter",
-    srcs = ["legacy_config_adapter_test.cpp"],
-    deps = [
-        ":legacy_config_adapter",
-        "//src/backend/definitions",
-        "//src/backend/ports",
-        "//src/backend/ports/testing:in_memory_file_repository",
-        "//src/backend/ports/testing:in_memory_file_system",
-        "//src/backend/ports/testing:in_memory_resource_bundle",
-    ],
-)
-
-fastecu_gtest(
-    name = "test_legacy_config_paths",
-    srcs = ["legacy_config_paths_test.cpp"],
-    deps = [":legacy_config_paths"],
-)
-
-# Qt-linked (ConfigValuesStructure's fields are QString), so NOT portable and
-# never in PORTABLE_ROOTS. Depends on :config_values (the extracted leaf value
-# struct), not the full //src/backend/definitions target, for the same
-# cycle-avoidance reason legacy_config_adapter documents above.
-cc_library(
-    name = "legacy_config_paths",
-    srcs = ["legacy_config_paths.cpp"],
-    hdrs = ["legacy_config_paths.h"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS_NO_WIDGETS + [
-        ":config_paths",
-        "//src/backend/definitions:config_values",
     ],
 )

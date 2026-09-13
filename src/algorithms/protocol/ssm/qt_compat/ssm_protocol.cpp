@@ -1,6 +1,6 @@
-#include "src/algorithms/protocol/ssm/ssm_protocol.h"
+#include "src/algorithms/protocol/ssm/qt_compat/ssm_protocol.h"
 
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 
 namespace SsmProtocol
 {

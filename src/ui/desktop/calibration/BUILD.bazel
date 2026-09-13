@@ -13,7 +13,7 @@ qt_cc_library(
     copts = COMMON_COPTS,
     normal_hdrs = ["map_edit_adapter.h"],
     deps = QT_DEPS + [
-        "//src/algorithms/protocol:qt_compat",
+        "//src/algorithms/protocol/qt_compat",
         "//src/backend/calibration:map_edit",
         "//src/backend/definitions:ecu_cal_def",
     ],

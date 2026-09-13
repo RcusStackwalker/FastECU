@@ -10,7 +10,7 @@
 #include <string_view>
 
 #include "src/algorithms/protocol/fixed_buffer.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
 
 namespace

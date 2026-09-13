@@ -3,7 +3,7 @@
 
 #include <cstddef>
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 
 BiuOperationsSubaru::BiuOperationsSubaru(SerialPortActions *serial_arg, QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::BiuOperationsSubaruWindow>()}

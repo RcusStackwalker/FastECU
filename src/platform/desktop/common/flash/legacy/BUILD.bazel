@@ -58,8 +58,8 @@ qt_cc_library(
         # qt_bytes.h is included directly by files in this glob; before step
         # 5e it arrived via //src/backend/flash, which 5e deleted, so declare
         # it rather than inherit it through the ssm :qt_compat target.
-        "//src/algorithms/protocol:qt_compat",
-        "//src/algorithms/protocol/ssm:qt_compat",
+        "//src/algorithms/protocol/qt_compat",
+        "//src/algorithms/protocol/ssm/qt_compat",
         # Full :definitions (not :models) because file_actions.h -- part of
         # the moc'd :definitions target, not the header-only :models split
         # -- is included directly; see task-4-report.md.

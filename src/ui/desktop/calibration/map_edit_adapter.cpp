@@ -9,7 +9,7 @@
 #include <QTableWidget>
 #include <QTableWidgetSelectionRange>
 
-#include "src/algorithms/protocol/qt_bytes.h"
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 
 namespace fastecu::ui
 {

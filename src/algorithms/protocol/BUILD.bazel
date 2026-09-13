@@ -1,6 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
-load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
     "//apps/bench:__pkg__",
@@ -29,15 +28,6 @@ cc_library(
     ],
 )
 
-# TRANSITIONAL Qt shim. Converts between Qt containers and bytes:: types.
-# Shrinks as steps 5 and 6 move callers onto the portable types.
-cc_library(
-    name = "qt_compat",
-    hdrs = ["qt_bytes.h"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS_NO_WIDGETS + [":protocol"],
-)
-
 fastecu_portable_gtest(
     name = "bytes_test",
     srcs = ["bytes_test.cpp"],
@@ -54,13 +44,4 @@ fastecu_portable_gtest(
     name = "bytes_compose_test",
     srcs = ["bytes_compose_test.cpp"],
     deps = [":protocol"],
-)
-
-fastecu_gtest(
-    name = "test_bytes",
-    srcs = ["bytes_qt_compat_test.cpp"],
-    deps = [
-        ":protocol",
-        ":qt_compat",
-    ],
 )

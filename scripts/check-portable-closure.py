@@ -135,11 +135,13 @@ PORTABLE_ROOTS = {
     ROOT / "src/backend/calibration": {"calibration_service", "map_edit"},
 }
 
+# What visibility cannot reach. A portable target that writes QT_DEPS, a
+# //bazel/qt:* alias, or a :qt_compat dep now fails at analysis: Qt lives
+# behind aliases and shim packages whose visibility is //bazel/qt:qt_layer,
+# and no portable package is in it. These two labels are public in repos we do
+# not own, so nothing can narrow them from here.
 FORBIDDEN = (
-    re.compile(r'"//bazel/qt:'),
     re.compile(r'"@rules_qt//'),
-    re.compile(r"QT_DEPS"),
-    re.compile(r':qt_compat"'),
     re.compile(r'"@bazel_tools//tools/jdk:jni"'),
 )
 
@@ -234,6 +236,9 @@ def main():
         found_any = False
         targets = list(portable_targets(text))
         names = {name for name, _ in targets}
+        # A package whose only cc_library is a *qt_compat shim holds Qt by
+        # design, so "lost all its portable targets" does not apply to it.
+        shim_only = not targets and re.search(r"(?<!\w)cc_library\(", text)
         for missing in sorted(required_by_build.get(build, set()) - names):
             errors.append(f"  {rel}: required portable target '{missing}' is missing")
         required = required_by_build.get(build)
@@ -245,7 +250,7 @@ def main():
             for pattern in FORBIDDEN:
                 if pattern.search(body):
                     errors.append(f"  {rel}: portable target '{name}' matches {pattern.pattern}")
-        if not found_any and build not in required_by_build:
+        if not found_any and not shim_only and build not in required_by_build:
             errors.append(f"  {rel}: no portable cc_library found")
 
     closure_labels = read_genquery_output()
@@ -261,9 +266,9 @@ def main():
     if errors:
         print("FAIL: portable closure requirements were violated:")
         print("\n".join(errors))
-        print("\nPortable targets must not declare QT_DEPS, @rules_qt//..., a")
-        print(":qt_compat dep, or JNI. Put Qt overloads in the sibling")
-        print(":qt_compat target and have the consumer depend on that instead.")
+        print("\nPortable targets must not reach Qt or JNI. Put Qt overloads in")
+        print("the package's qt_compat or legacy sibling package and have the")
+        print("consumer depend on that instead.")
         return 1
 
     required_count = sum(len(targets) for targets in PORTABLE_ROOTS.values() if targets is not None)

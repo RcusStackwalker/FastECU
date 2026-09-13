@@ -5,7 +5,7 @@
 #include <QStringList>
 
 // Extracted from FileActions (it used to be a nested struct there) so that
-// src/backend/config/legacy_config_adapter.h/.cpp can reference this value
+// src/backend/config/legacy/legacy_config_adapter.h/.cpp can reference this value
 // type without pulling in the whole FileActions QWidget. That split matters
 // because it breaks a Bazel dependency cycle: legacy_config_adapter needs
 // this struct, and file_actions.cpp needs to construct a LegacyConfigAdapter
