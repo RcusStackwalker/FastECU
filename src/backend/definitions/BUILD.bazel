@@ -122,12 +122,6 @@ cc_library(
         "file_actions_ecuflash.cpp",
         "file_actions_romraider.cpp",
     ],
-    # FileActions is not a QObject and declares no Q_OBJECT, so moc has
-    # nothing to emit for file_actions.h. legacy_definition_columns.h is the
-    # only other *.h in this package not covered by one of the per-target
-    # header lists above; it is also its own target's hdrs (see
-    # legacy_definition_columns above) -- both targets provide the header
-    # identically, matching prior glob behavior.
     hdrs = [
         "file_actions.h",
         "legacy_definition_columns.h",
