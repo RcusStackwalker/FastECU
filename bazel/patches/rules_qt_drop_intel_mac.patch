@@ -1,0 +1,18 @@
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -23,7 +23,6 @@
+         visibility = ["//visibility:public"],
+         deps = dependencies + select({
+             "@platforms//os:linux": ["@qt_linux_x86_64//:qt_%s_linux" % name],
+-            ":osx_x86_64": ["@qt_mac_x86_64//:qt_%s_mac" % name],
+             ":osx_arm64": ["@qt_mac_aarch64//:qt_%s_mac" % name],
+             "@platforms//os:windows": ["@qt_windows_x86_64//:qt_%s_windows" % name],
+         }),
+@@ -36,7 +35,6 @@
+     visibility = ["//visibility:public"],
+     deps = select({
+         "@platforms//os:linux": ["@qt_linux_x86_64//:qt_hdrs"],
+-        ":osx_x86_64": ["@qt_mac_x86_64//:qt_hdrs"],
+         ":osx_arm64": ["@qt_mac_aarch64//:qt_hdrs"],
+         "@platforms//os:windows": ["@qt_windows_x86_64//:qt_hdrs"],
+     }),

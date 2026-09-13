@@ -77,7 +77,10 @@ Costs and risks:
   cannot name `@rules_qt` cannot call them. The reimplementations use
   `str(Label(...))`, which resolves in that file and yields a canonical label.
   They track upstream by hand, so keep them diffable against it. Intel macOS
-  goes with them: this project never fetched that Qt build.
+  goes with them, and a patch drops the matching branch from `@rules_qt`'s own
+  targets: it names a repo this project never fetches, which a genquery scope
+  -- unlike ordinary analysis -- resolves, breaking `//:portable_closure`
+  whenever it had something to say.
 - `third_party/qt` is listed in `.bazelignore`. Without it the nested module is
   also a package of the main repo, where its own `@rules_qt` labels do not
   resolve.

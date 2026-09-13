@@ -22,10 +22,20 @@ use_repo(pip, "python_deps")
 
 # rules_qt is a dependency of //third_party/qt, not of this module -- only the
 # root module's overrides are honoured, and an override needs no bazel_dep.
+#
+# drop_intel_mac removes the ":osx_x86_64" branch from @rules_qt//:qt_*, which
+# names a @qt_mac_x86_64 repo this project never fetches. Ordinary analysis
+# never takes that branch, but a genquery scope resolves every branch of a
+# select, so without this //:portable_backend_closure fails with an
+# unresolved-repo error the moment anything Qt-bearing enters the closure --
+# exactly when it has something to report.
 single_version_override(
     module_name = "rules_qt",
     patch_strip = 1,
-    patches = ["//bazel/patches:rules_qt_windows_addons.patch"],
+    patches = [
+        "//bazel/patches:rules_qt_drop_intel_mac.patch",
+        "//bazel/patches:rules_qt_windows_addons.patch",
+    ],
 )
 
 msvc_sysroot = use_extension("//bazel/toolchains:msvc_sysroot_ext.bzl", "msvc_sysroot")
