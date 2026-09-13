@@ -304,7 +304,7 @@ use a small local preprocessor guard with standard compiler/platform macros
 rather than Qt ones. See
 [ADR 0005](adr/0005-separate-platform-specific-backend-tests.md).
 
-Test placement, target macros, and `MOC_HDRS` wiring are in CLAUDE.md.
+Test placement, target macros, and moc header wiring are in CLAUDE.md.
 
 ## Formatting and headers
 
