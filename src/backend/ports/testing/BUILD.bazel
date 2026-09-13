@@ -108,3 +108,15 @@ fastecu_portable_gtest(
     srcs = ["recording_event_sink_test.cpp"],
     deps = [":recording_event_sink"],
 )
+
+cc_library(
+    name = "error_printers",
+    hdrs = ["error_printers.h"],
+    deps = ["//src/backend/ports"],
+)
+
+fastecu_portable_gtest(
+    name = "error_printers_test",
+    srcs = ["error_printers_test.cpp"],
+    deps = [":error_printers"],
+)
