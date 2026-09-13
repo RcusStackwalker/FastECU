@@ -7,17 +7,6 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-# Deliberately still a glob: check-openpty-includes.py globs this package
-# for *_test.cpp at runtime looking for openpty() users to lint, so this
-# filegroup must keep tracking whatever test files actually exist here --
-# an explicit list could silently omit a newly added test from the check.
-filegroup(
-    name = "test_cpp_sources",
-    testonly = True,
-    srcs = glob(["*_test.cpp"]),
-    visibility = ["//:__pkg__"],
-)
-
 # root //:serial_compat_allowlist reads BUILD.bazel, and root
 # //:windows_preprocessor_guards reads serial_port_actions_direct.h, both as
 # `data`; those references are plumbing, not a layer dependency, so export

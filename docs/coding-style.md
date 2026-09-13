@@ -11,7 +11,7 @@ a build-graph guard rather than by review, it belongs there and is cross-linked
 from here.
 
 Enforcement is PR review. Only a few of these rules have a mechanical check
-(`prek` formatting, `//:openpty_includes`); the rest do not, by design.
+(`prek` formatting, the `#pragma once` check); the rest do not, by design.
 
 ## Strings and messages
 
@@ -299,9 +299,13 @@ blast radius small when it changes. See
 **Platform-specific tests go in separate source files**, listed in the matching
 `*_UNIX_SRCS` / `*_UNIX_HDRS` / `*_WIN32_SRCS` Bazel list — not behind `#ifdef`
 in a common source. Common backend test sources must compile on every supported
-platform, and must not reach for `openpty` or other Unix-only APIs. The
-`//:openpty_includes` guard enforces this; run it and the full platform matrix
-when moving a platform-specific test. Where separating sources is impractical,
+platform, and must not reach for `openpty` or other Unix-only APIs. No guard
+target checks this: a Unix-only API in a common source fails the Windows leg of
+the CI matrix, so run the full matrix when moving a platform-specific test. Do
+not answer such a break by marking the common target `target_compatible_with`
+Unix — Bazel skips an incompatible target rather than failing it, and that
+platform's coverage of the whole suite disappears with a green CI run. Where
+separating sources is impractical,
 use a small local preprocessor guard with standard compiler/platform macros
 rather than Qt ones. See
 [ADR 0005](adr/0005-separate-platform-specific-backend-tests.md).
