@@ -1105,7 +1105,7 @@ git commit -m "feat(flash): port Denso SH705x CAN diesel family"
 
 **Interfaces:**
 - Consumes: all four passing portable implementations, their characterization tests, and the existing `kDensoIso15765SeedKeyTable`, `kDensoIso15765EncryptTable`, `kDensoIso15765DecryptTable`, and `kDensoIso15765IndexTransformation` constants.
-- Produces: shared use of those four already-tested constants by the three ISO-only Wave 5 executors; documented preservation of all other family-specific code; Wave 5 completion documentation.
+- Produces: shared use of the applicable already-tested constants by the three ISO-only Wave 5 executors — all four for TCU/petrol, and seed/index/encrypt only for diesel because its BEEF reads remain raw; documented preservation of all other family-specific code; Wave 5 completion documentation.
 
 - [ ] **Step 1: Compare only tested portable code**
 
@@ -1134,9 +1134,9 @@ bazel test --config=release //src/backend/flash/ecu:denso_iso15765_can_common_te
 
 Expected: PASS; save the output as the behavior-preserving refactor baseline.
 
-- [ ] **Step 3: Reuse only the four proven ISO-15765 constants**
+- [ ] **Step 3: Reuse only the applicable proven ISO-15765 constants**
 
-Replace the three ISO-only executors' private stock seed and payload tables with the four existing `denso_iso15765_can_common.h` constants. Keep petrol EcuTek/RaceRom/Cobb tables local, and leave DensoCAN on its distinct `{7856,CE22,F513,6E86}` payload table. Update the common header's scope comment to name the three Wave 5 consumers. Record that mode switching, kernel exchange helpers, retry/tolerance policy, geometry, and address indexing were compared and deliberately remain family-local.
+Replace the three ISO-only executors' private stock seed and applicable payload tables with the existing `denso_iso15765_can_common.h` constants. TCU and petrol use all four; diesel uses the stock seed table, standard index transformation, and encrypt table only because revision `59f4e442` appends its BEEF read payloads raw. Keep petrol EcuTek/RaceRom/Cobb tables local, and leave DensoCAN on its distinct `{7856,CE22,F513,6E86}` payload table. Update the common header's scope comment to name the three Wave 5 consumers. Record that mode switching, kernel exchange helpers, retry/tolerance policy, geometry, address indexing, startup ordering, and logs were compared and deliberately remain family-local.
 
 ```cpp
 bytes::Bytes stock_seed_key(bytes::ByteView seed)

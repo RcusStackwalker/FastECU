@@ -160,7 +160,7 @@ each cluster. A four-family cluster is 4.5-7.3k lines and does not fit one PR.
 | **2** | `FlashEcuSubaruDensoMC68HC16Y5_02`, `FlashEcuSubaruDensoSH7055_02` | 2,518 | Second pair; the pattern is routine by now. |
 | **3** | `FlashEcuSubaruHitachiM32rCan`, `FlashTcuCvtSubaruHitachiM32rCan`, `FlashTcuCvtSubaruMitsuMH8111Can`, `FlashTcuCvtSubaruMitsuMH8104Can` | 4,506 | First four-family cluster; first crossing of the ECU/TCU boundary within one cluster. |
 | **4** | `FlashEcuSubaruDenso1N83M_1_5MCan`, `FlashEcuSubaruDenso1N83M_4MCan`, `FlashEcuSubaruDensoSH72531Can`, `FlashEcuSubaruDensoSH72543CanDiesel` | 5,971 | Highest whole-file clone ratio in the tree; function-level measurement found the substrate payoff small — see [Doc fixes carried by wave 4](#doc-fixes-carried-by-wave-4). |
-| **5** | `FlashEcuSubaruDensoSH7058Can`, `FlashEcuSubaruDensoSH7058CanDiesel`, `FlashTcuSubaruDensoSH705xCan`, `FlashEcuSubaruDensoSH705xDensoCan` | 7,305 | Largest by volume; taken once the pattern has settled. Introduces `TransportKind::CanRaw`. |
+| **5** | `FlashEcuSubaruDensoSH7058Can`, `FlashEcuSubaruDensoSH7058CanDiesel`, `FlashTcuSubaruDensoSH705xCan`, `FlashEcuSubaruDensoSH705xDensoCan` | 7,305 | Largest by volume; taken once the pattern has settled. Introduces `TransportKind::CanRawIso15765`: DensoCAN transitions to 29-bit raw CAN for its bootloader, then returns to 11-bit ISO-15765 for proprietary `BEEF` kernel traffic, which is not UDS. |
 | **6** | `FlashEcuSubaruDensoSH705xKline`, `FlashEcuSubaruHitachiSH7058Can`, `FlashEcuSubaruHitachiSH72543rCan`, `FlashEcuSubaruUnisiaJecs`, `FlashEcuSubaruUnisiaJecsM32r`, `FlashTcuSubaruHitachiM32rCan`, `FlashTcuSubaruHitachiM32rKline`, `FlashEcuSubaruHitachiM32rJtag`, `FlashEcuSubaruDensoMC68HC16Y5_02_BDM` | 8,118 | Nine singletons; no common, 5c-style ports. |
 | **7** | `FlashEcuSubaruUnisiaJecsM32rBootMode` + teardown | 655 | The only family needing new port surface. Also deletes `FlashOperationWorker`, `legacy_flash_utils`, the package, its allowlist entry, the drain ratchet, and `ssm:qt_compat`. |
 
@@ -250,9 +250,10 @@ supplies the per-PR ratchet, mirroring the `FROZEN` pattern exactly:
    exactly what 29 hardware-critical families want — but split the plan structs
    into per-cluster headers that `flash_types.h` assembles, so each cluster's
    types live beside its executor. Decide at wave 3, where it first bites.
-2. **`TransportKind` needs `CanRaw`** for `sh705x_densocan` in wave 5. The
-   proprietary DensoCAN bootloader framing is not ISO-15765; the matrix already
-   records the distinction.
+2. **`TransportKind` needs `CanRawIso15765`** for `sh705x_densocan` in wave 5.
+   Its proprietary bootloader framing uses 29-bit raw CAN, then the executor
+   returns to 11-bit ISO-15765 for proprietary `BEEF` kernel traffic. `BEEF`
+   is not UDS; the mixed transport kind records both real wire modes.
 
 ## Testing
 

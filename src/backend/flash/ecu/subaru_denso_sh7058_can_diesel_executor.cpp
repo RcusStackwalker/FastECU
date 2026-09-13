@@ -1,7 +1,6 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor.h"
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <format>
 #include <iterator>
@@ -18,6 +17,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/denso_iso15765_can_common.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h"
 #include "src/backend/protocol/uds/uds_client.h"
@@ -69,16 +69,6 @@ constexpr bytes::Byte kKernelWriteBuffer = 0x22;
 constexpr bytes::Byte kKernelValidateBuffer = 0x23;
 constexpr bytes::Byte kKernelCommitBuffer = 0x24;
 constexpr bytes::Byte kKernelBlankPage = 0x25;
-
-constexpr std::array<std::uint16_t, 16> kStockSeedTable{
-    0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4, 0xFD21, 0x5E71,
-    0xB046, 0x7F4A, 0x4B75, 0x93F9, 0x1895, 0x8961, 0x3ECC, 0x862B,
-};
-constexpr std::array<std::uint8_t, 32> kIndexTransformation{
-    0x05, 0x06, 0x07, 0x01, 0x09, 0x0C, 0x0D, 0x08, 0x0A, 0x0D, 0x02, 0x0B, 0x0F, 0x04, 0x00, 0x03,
-    0x0B, 0x04, 0x06, 0x00, 0x0F, 0x02, 0x0D, 0x09, 0x05, 0x0C, 0x01, 0x0A, 0x03, 0x0D, 0x0E, 0x08,
-};
-constexpr std::array<std::uint16_t, 4> kEncryptTable{0xC85B, 0x32C0, 0xE282, 0x92A0};
 
 constexpr uds::ExchangePolicy kStrictPolicy{
     .pre_read_delay_ms = kExtraShortTimeoutMs,
@@ -142,8 +132,8 @@ Status cancelled_if_requested(const Context& context, std::string_view detail)
 
 bytes::Bytes encrypt_payload(bytes::ByteView payload)
 {
-    return SsmProtocol::calculatePayload(payload, static_cast<std::uint32_t>(payload.size()), kEncryptTable,
-                                         kIndexTransformation);
+    return SsmProtocol::calculatePayload(payload, static_cast<std::uint32_t>(payload.size()),
+                                         kDensoIso15765EncryptTable, SsmProtocol::kIndexTransformationStock);
 }
 
 struct BeefMessage
@@ -468,7 +458,7 @@ Result<bytes::Bytes> security_key(Context& context, bytes::ByteView seed)
     {
         return fail(ErrorKind::BadResponse, "diesel security seed must contain four bytes");
     }
-    return SsmProtocol::calculateSeedKey(seed, kStockSeedTable, kIndexTransformation);
+    return SsmProtocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, SsmProtocol::kIndexTransformationStock);
 }
 
 Result<std::optional<std::string>> request_kernel_id(Context& context, bool tolerate_malformed,

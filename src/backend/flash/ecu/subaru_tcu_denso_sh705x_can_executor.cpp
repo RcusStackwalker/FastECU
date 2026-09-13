@@ -1,7 +1,6 @@
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor.h"
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <format>
 #include <limits>
@@ -17,6 +16,7 @@
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/denso_iso15765_can_common.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.h"
 #include "src/backend/protocol/uds/uds_client.h"
@@ -67,14 +67,6 @@ constexpr bytes::Byte kKernelWriteBuffer = 0x22;
 constexpr bytes::Byte kKernelCommitBuffer = 0x24;
 constexpr bytes::Byte kKernelBlankPage = 0x25;
 
-constexpr std::array<std::uint16_t, 16> kSeedKeyTable{0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4, 0xFD21, 0x5E71,
-                                                      0xB046, 0x7F4A, 0x4B75, 0x93F9, 0x1895, 0x8961, 0x3ECC, 0x862B};
-constexpr std::array<std::uint16_t, 4> kEncryptTable{0xC85B, 0x32C0, 0xE282, 0x92A0};
-constexpr std::array<std::uint16_t, 4> kDecryptTable{0x92A0, 0xE282, 0x32C0, 0xC85B};
-constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
-                                                            0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
-                                                            0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
-
 constexpr uds::ExchangePolicy kStrictPolicy{
     .pre_read_delay_ms = kExtraShortTimeoutMs,
     .read_timeout_ms = kReadTimeoutMs,
@@ -120,19 +112,19 @@ Status cancelled_if_requested(const Context& context, std::string_view detail)
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
+    return SsmProtocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, SsmProtocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt_payload(bytes::ByteView payload)
 {
-    return SsmProtocol::calculatePayload(payload, static_cast<std::uint32_t>(payload.size()), kEncryptTable,
-                                         kIndexTransformation);
+    return SsmProtocol::calculatePayload(payload, static_cast<std::uint32_t>(payload.size()),
+                                         kDensoIso15765EncryptTable, SsmProtocol::kIndexTransformationStock);
 }
 
 bytes::Bytes decrypt_payload(bytes::ByteView payload)
 {
-    return SsmProtocol::calculatePayload(payload, static_cast<std::uint32_t>(payload.size()), kDecryptTable,
-                                         kIndexTransformation);
+    return SsmProtocol::calculatePayload(payload, static_cast<std::uint32_t>(payload.size()),
+                                         kDensoIso15765DecryptTable, SsmProtocol::kIndexTransformationStock);
 }
 
 struct BeefMessage
@@ -893,7 +885,8 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
             elapsed = 1;
         }
         previous_time = now;
-        std::uint32_t speed = static_cast<std::uint32_t>(kFlashBufferSize * 1000U / elapsed);
+        std::uint32_t speed =
+            static_cast<std::uint32_t>(static_cast<std::uint64_t>(kFlashBufferSize) * 1000U / elapsed);
         if (speed == 0)
         {
             speed = 1;

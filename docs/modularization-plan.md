@@ -65,6 +65,8 @@ for the eight-wave sequencing:
   merged. Takes the drain from 24 remaining families to 22.
 - Wave 3 `FlashEcuSubaruHitachiM32rCan`, `FlashTcuCvtSubaruHitachiM32rCan`, `FlashTcuCvtSubaruMitsuMH8111Can`, `FlashTcuCvtSubaruMitsuMH8104Can` — merged. Takes the drain from 22 remaining families to 18.
 - Wave 4 `FlashEcuSubaruDenso1N83M_1_5MCan`, `FlashEcuSubaruDenso1N83M_4MCan`, `FlashEcuSubaruDensoSH72531Can`, `FlashEcuSubaruDensoSH72543CanDiesel` — merged. Takes the drain from 18 remaining families to 14.
+- Wave 5 `FlashEcuSubaruDensoSH7058Can`, `FlashEcuSubaruDensoSH7058CanDiesel`, `FlashTcuSubaruDensoSH705xCan`, `FlashEcuSubaruDensoSH705xDensoCan` — complete on this branch (2026-09-13). Takes the drain from 14 remaining families to 10; all four rows remain automated-only and `experimental` pending hardware qualification.
+- Wave 5's cluster-close comparison reused only proven ISO-15765 crypto constants. `single_window_plan` was evaluated and intentionally not widened: its kernel-free, no-test-write, one-write/erase-window contract does not match these kernel-backed, 16-block families, three of which support test-write.
 
 ## Verified Current Baseline
 
@@ -199,7 +201,7 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
    - **Amendment 4:** the checksum correction dialog is now **one aggregated summary** instead of one per family — a deliberate behavior change, bench-checklist item recorded in Task 9 Step 8.
    - Note for step 5's benefit: each `:qt_compat` target is transitional debt whose only remaining callers are backend and UI. Step 5 should drain them and delete the shims.
 
-5. **Make backend workflows portable — 5a through 5e complete; flash-tail Wave 2 includes both portable Subaru M32R K-Line families and the MC68HC16Y5_02/SH7055_02 pair, with 18 legacy families remaining**
+5. **Make backend workflows portable — 5a through 5e complete; flash-tail Wave 5 complete on this branch, with 10 legacy families remaining**
    - Sub-step status and PR numbers are tracked in the Status section above.
    - Define capability-specific ports for byte-stream/K-Line, CAN frames, SSM, file repositories, settings, monotonic clock/delay, cancellation, and event delivery.
    - Backend owns no threads. Platform code runs blocking, bounded, cancellable backend calls on Qt workers or future Kotlin coroutines.
