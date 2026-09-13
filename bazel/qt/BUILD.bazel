@@ -1,9 +1,33 @@
-# Qt Widgets is reachable only through these aliases, and only from the layers
-# that are allowed to build a user interface. A target under //src/backend or
-# //src/algorithms that reaches for widgets -- directly, or by way of QT_DEPS
-# -- fails at analysis with a visibility error naming both ends. See
-# docs/adr/0016-enforce-qt-widgets-reachability-by-visibility.md.
+# Qt is reachable only through the aliases below, and only from the layers
+# allowed to hold Qt code. A target elsewhere that reaches for Qt -- directly,
+# or by way of QT_DEPS / QT_DEPS_NO_WIDGETS -- fails at analysis with a
+# visibility error naming both ends. See
+# docs/adr/0016-enforce-qt-reachability-by-visibility.md.
 
+# Packages that may link any Qt module. `src/backend` and `src/algorithms` are
+# absent except for the packages that still hold a Qt-typed legacy adapter or
+# a `qt_compat` shim; a new package under either is denied by default and has
+# to be added here deliberately.
+package_group(
+    name = "qt_layer",
+    packages = [
+        "//apps/...",
+        "//resources/...",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/calibration",
+        "//src/backend/config",
+        "//src/backend/definition",
+        "//src/backend/definitions",
+        "//src/backend/logging",
+        "//src/platform/...",
+        "//src/ui/...",
+        "//tests/...",
+    ],
+)
+
+# Packages that may additionally build a user interface. Nothing under
+# `src/backend` or `src/algorithms` qualifies.
 package_group(
     name = "widget_layer",
     packages = [
@@ -13,6 +37,23 @@ package_group(
         "//tests/...",
     ],
 )
+
+[
+    alias(
+        name = module,
+        actual = "@rules_qt//:qt_" + module,
+        visibility = [":qt_layer"],
+    )
+    for module in [
+        "core",
+        "gui",
+        "remote_objects",
+        "serial_port",
+        "test",
+        "web_sockets",
+        "xml",
+    ]
+]
 
 alias(
     name = "widgets",

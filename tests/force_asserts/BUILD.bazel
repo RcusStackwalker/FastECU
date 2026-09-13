@@ -8,7 +8,7 @@ package(default_visibility = ["//visibility:public"])
 qt_cpp_moc_headers(
     name = "force_asserts_cpp_mocs",
     srcs = ["tst_force_asserts.cpp"],
-    deps = ["@rules_qt//:qt_test"],
+    deps = ["//bazel/qt:test"],
 )
 
 qt_cc_test(
@@ -38,7 +38,7 @@ qt_cc_test(
     }),
     deps = [
         ":force_asserts_cpp_mocs",
-        "@rules_qt//:qt_core",
-        "@rules_qt//:qt_test",
+        "//bazel/qt:core",
+        "//bazel/qt:test",
     ],
 )

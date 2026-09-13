@@ -28,7 +28,7 @@ is an ADR.
 | [0007](0007-use-bazel-as-ci-source-of-truth.md) | Bazel configuration is the CI source of truth |
 | [0008](0008-use-package-owned-mocks.md) | Mocks are owned by the package defining the interface |
 | [0015](0015-caller-owns-flash-transport-lifetime.md) | The caller owns flash transport lifetime |
-| [0016](0016-enforce-qt-widgets-reachability-by-visibility.md) | Qt Widgets reachability is enforced by visibility |
+| [0016](0016-enforce-qt-reachability-by-visibility.md) | Qt reachability is enforced by visibility |
 
 ## Retired numbers
 

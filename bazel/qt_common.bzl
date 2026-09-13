@@ -4,7 +4,7 @@ Loadable from anywhere, including `src/backend` and `src/algorithms`. The
 widget-layer half -- `QT_DEPS`, and `qt_cc_library`'s moc-the-headers path --
 lives in qt_targets.bzl, which is visibility-restricted to the layers allowed
 to build a user interface. See
-docs/adr/0016-enforce-qt-widgets-reachability-by-visibility.md.
+docs/adr/0016-enforce-qt-reachability-by-visibility.md.
 """
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
@@ -15,13 +15,13 @@ qt_resource_via_qrc = _qt_resource_via_qrc
 
 # qt_charts also pulls in qt_widgets transitively, so it stays out too.
 QT_DEPS_NO_WIDGETS = [
-    "@rules_qt//:qt_core",
-    "@rules_qt//:qt_gui",
-    "@rules_qt//:qt_remote_objects",
-    "@rules_qt//:qt_serial_port",
-    "@rules_qt//:qt_test",
-    "@rules_qt//:qt_web_sockets",
-    "@rules_qt//:qt_xml",
+    "//bazel/qt:core",
+    "//bazel/qt:gui",
+    "//bazel/qt:remote_objects",
+    "//bazel/qt:serial_port",
+    "//bazel/qt:test",
+    "//bazel/qt:web_sockets",
+    "//bazel/qt:xml",
 ]
 
 COMMON_COPTS = [

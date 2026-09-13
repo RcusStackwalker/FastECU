@@ -80,11 +80,12 @@ status below, refreshed after 6a-4/6a-5:
 - Three CI guards enforce what the compiler cannot: `//:portable_closure`
   (Qt/JNI rejection across the portable closure), `//:serial_compat_allowlist`
   (frozen, shrink-only), and `//:openpty_includes` (ADR 0005). A fourth rule —
-  no Qt Widgets under `src/backend` — needs no guard target: Widgets are
-  reached through the `//bazel/qt:widgets` alias, whose visibility excludes
-  `src/backend` and `src/algorithms`, so a violation fails at analysis
-  ([ADR 0016](adr/0016-enforce-qt-widgets-reachability-by-visibility.md)). It
-  replaced the `//:backend_no_widgets` source scan that 6a-5 added.
+  no Qt in a portable package — needs no guard target: Qt is reached through
+  the `//bazel/qt:*` aliases, whose visibility excludes every package that
+  holds no Qt today, so a violation fails at analysis
+  ([ADR 0016](adr/0016-enforce-qt-reachability-by-visibility.md)). It
+  replaced the `//:backend_no_widgets` source scan that 6a-5 added and the
+  `QT_FREE_PACKAGES` half of `//:portable_closure`.
 - The portable closure now spans `src/algorithms` plus eleven `src/backend`
   package groups: `ports`, `logging` (+ `logging/protocols`), `protocol`,
   `flash` (+ `flash/eeprom`), `config`, `checksum`, `definition`, and
