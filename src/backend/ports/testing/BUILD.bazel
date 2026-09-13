@@ -120,3 +120,19 @@ fastecu_portable_gtest(
     srcs = ["error_printers_test.cpp"],
     deps = [":error_printers"],
 )
+
+cc_library(
+    name = "result_matchers",
+    hdrs = ["result_matchers.h"],
+    deps = [
+        ":error_printers",
+        "//src/backend/ports",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "result_matchers_test",
+    srcs = ["result_matchers_test.cpp"],
+    deps = [":result_matchers"],
+)
