@@ -25,23 +25,37 @@ py_test(
     deps = ["@python_deps//pyyaml"],
 )
 
-# Computes the resolved transitive label closure of every required portable
-# backend target, so the Python check below can catch a platform dependency
-# reached through several layers of `deps` -- something the per-BUILD-file
-# text scan in check-portable-closure.py cannot see, since that scan only
-# looks at each target's own immediate BUILD-file text.
+# Every //src/platform label reachable from a portable target, however many
+# layers of `deps` away. Platform packages restrict their own visibility to
+# //src/platform, //src/ui, //apps and //tests, so this is empty until someone
+# widens that list -- at which point Bazel is satisfied and only the assertion
+# below is not.
+#
+# `filter` rather than a recursive //src/platform/... pattern: genquery rejects
+# those. The roots come from bazel/portable_targets.bzl, and a name that does
+# not resolve fails here, in the scope, rather than in any check.
 genquery(
-    name = "portable_backend_closure",
-    expression = "deps(set(" + " ".join(CLOSURE_ROOTS) + "))",
+    name = "portable_closure_violations",
+    expression = "filter('^//src/platform/', deps(set(" + " ".join(CLOSURE_ROOTS) + ")))",
     scope = CLOSURE_ROOTS,
 )
 
-py_test(
+# Fails the *build*, not a test: CI runs `bazel build -k --config=release //...`
+# before it runs the suite, so a violation surfaces at the earlier step.
+genrule(
     name = "portable_closure",
-    size = "small",
-    srcs = ["scripts/check-portable-closure.py"],
-    data = [":portable_backend_closure"],
-    main = "scripts/check-portable-closure.py",
+    srcs = [":portable_closure_violations"],
+    outs = ["portable_closure_report.txt"],
+    cmd = """if [ -s $< ]; then
+  echo "FAIL: a portable target reaches platform code:" >&2
+  sed 's/^/  /' $< >&2
+  echo "" >&2
+  echo "Portable targets must not depend on //src/platform, directly or through" >&2
+  echo "several layers of deps. Move the platform-facing code to src/platform or" >&2
+  echo "src/ui, or reach it through a backend port." >&2
+  exit 1
+fi
+echo "OK: no //src/platform label is reachable from a portable target." > $@""",
 )
 
 py_test(

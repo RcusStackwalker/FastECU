@@ -65,8 +65,9 @@ Positive consequences:
   enumeration, no registry.
 - Every portable package is Qt-free by construction, not by scan, and there is
   no bypass left. `//:portable_closure` keeps none of its Qt checking, nor the
-  JNI pattern that outlived it unused: the file is down to one assertion, that
-  no `//src/platform` label is in the portable closure.
+  JNI pattern that outlived it unused, and what remained -- no `//src/platform`
+  label in the portable closure -- turned out to be a `genquery` `filter` plus
+  a `genrule`, so the script behind it is gone too.
 
 Costs and risks:
 
