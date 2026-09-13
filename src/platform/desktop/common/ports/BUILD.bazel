@@ -3,12 +3,15 @@ load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_library")
 
 package(default_visibility = [
     "//apps:__subpackages__",
-    "//src/backend/definitions:__pkg__",
     "//src/platform:__subpackages__",
     "//src/ui:__subpackages__",
     "//tests:__pkg__",
 ])
 
+# The only target in this package visible to //src/backend/definitions, whose
+# QtTest suites exercise FileActions against the real Qt ports. Backend
+# production code depends on nothing here; keeping the grant on this target
+# rather than the package keeps the rest of it out of backend's reach.
 qt_cc_library(
     name = "ports",
     srcs =
@@ -32,9 +35,16 @@ qt_cc_library(
             "qt_resource_bundle.h",
             "qt_settings.h",
         ],
+    visibility = [
+        "//apps:__subpackages__",
+        "//src/backend/definitions:__pkg__",
+        "//src/platform:__subpackages__",
+        "//src/ui:__subpackages__",
+        "//tests:__pkg__",
+    ],
     deps = [
+        "//bazel/qt:core",
         "//src/backend/ports",
-        "@rules_qt//:qt_core",
     ],
 )
 

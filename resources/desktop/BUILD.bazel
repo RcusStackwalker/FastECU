@@ -6,21 +6,21 @@ qt_resource_via_qrc(
     name = "font_resource",
     files = glob(["fonts/*"]),
     qrc_file = "fonts.qrc",
-    deps = ["@rules_qt//:qt_core"],
+    deps = ["//bazel/qt:core"],
 )
 
 qt_resource_via_qrc(
     name = "icons_resource",
     files = glob(["icons/*"]),
     qrc_file = "icons.qrc",
-    deps = ["@rules_qt//:qt_core"],
+    deps = ["//bazel/qt:core"],
 )
 
 qt_resource_via_qrc(
     name = "images_resource",
     files = glob(["images/*"]),
     qrc_file = "images.qrc",
-    deps = ["@rules_qt//:qt_core"],
+    deps = ["//bazel/qt:core"],
 )
 
 qt_resource_via_qrc(
@@ -30,5 +30,5 @@ qt_resource_via_qrc(
         "hexedit/translations/*.qm",
     ]),
     qrc_file = "hexedit/qhexedit.qrc",
-    deps = ["@rules_qt//:qt_core"],
+    deps = ["//bazel/qt:core"],
 )

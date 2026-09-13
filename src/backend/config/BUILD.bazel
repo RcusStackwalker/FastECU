@@ -145,7 +145,7 @@ fastecu_portable_gtest(
 # //src/backend/definitions:definitions's glob. A plain cc_library, not
 # qt_cc_library: legacy_config_adapter.h declares no QObject/Q_OBJECT, and
 # nothing under src/backend may reach the moc-the-headers path (see
-# docs/adr/0016-enforce-qt-widgets-reachability-by-visibility.md).
+# docs/adr/0016-enforce-qt-reachability-by-visibility.md).
 #
 # Depends on //src/backend/definitions:config_values (the extracted value
 # struct), not the full //src/backend/definitions target: FileActions owns a

@@ -6,7 +6,7 @@ The `visibility()` call below is the enforcement: `src/backend` and
 time, for any route that bypasses this file, by the visibility of the
 `//bazel/qt:widgets` alias `QT_DEPS` points at. Everything Qt-related that is
 neither widget- nor moc-bearing lives in qt_common.bzl, which is loadable from
-anywhere. See docs/adr/0016-enforce-qt-widgets-reachability-by-visibility.md.
+anywhere. See docs/adr/0016-enforce-qt-reachability-by-visibility.md.
 """
 
 load("@rules_qt//:qt.bzl", _qt_cc_binary = "qt_cc_binary", _qt_cc_library = "qt_cc_library")

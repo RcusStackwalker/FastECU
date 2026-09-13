@@ -6,9 +6,14 @@ drops Qt off the include path, so a residual `#include <QByteArray>` fails to
 compile. This check covers only what the compiler cannot see -- a portable
 target that reaches Qt transitively by depending on a :qt_compat sibling.
 
-It also enforces the stronger, package-level promise that step 5e made for
-//src/backend/flash and //src/backend/checksum: those two packages must hold
-no Qt rule whatsoever (see QT_FREE_PACKAGES below).
+It covers only the packages visibility cannot. Qt is reached through the
+//bazel/qt:* aliases, whose :qt_layer package group excludes every portable
+package that holds no Qt at all -- //src/backend/flash and //src/backend/checksum
+among them -- so there a Qt dependency fails at analysis. Six packages still
+hold a Qt-typed legacy adapter or a :qt_compat shim beside their portable
+targets, and Bazel visibility is package-granular, so only a per-target scan
+can separate the two. See
+docs/adr/0016-enforce-qt-reachability-by-visibility.md.
 
 Rejects Qt and JNI.
 """
@@ -131,42 +136,12 @@ PORTABLE_ROOTS = {
 }
 
 FORBIDDEN = (
+    re.compile(r'"//bazel/qt:'),
     re.compile(r'"@rules_qt//'),
     re.compile(r"QT_DEPS"),
     re.compile(r':qt_compat"'),
     re.compile(r'"@bazel_tools//tools/jdk:jni"'),
 )
-
-# Packages that step 5e emptied of Qt entirely, and whose 5e completion
-# criterion is "carries no QT_DEPS" -- see the step 5e design doc.
-#
-# Why this is needed on top of the per-target FORBIDDEN scan: portable_targets()
-# below deliberately skips `qt_cc_library(...)` invocations (its `(?<!\w)`
-# lookbehind exists for exactly that), so re-adding a Qt target to one of these
-# packages -- precisely the regression 5e exists to prevent -- would sail past
-# the per-target scan, which only ever inspects plain `cc_library` bodies.
-#
-# Why an explicit two-package list and NOT a blanket rule over PORTABLE_ROOTS:
-# src/backend/logging and src/backend/definition are also portable roots but
-# legitimately hold Qt adapter/test targets alongside their portable ones, so
-# banning Qt package-wide would be false there. Only these two packages made
-# the stronger "no Qt at all" promise. Add a package here only when it has
-# actually been emptied of Qt.
-QT_FREE_PACKAGES = (
-    ROOT / "src/backend/flash",
-    ROOT / "src/backend/checksum",
-)
-
-QT_FREE_FORBIDDEN = (
-    re.compile(r"(?<!\w)qt_cc_library"),
-    re.compile(r"QT_DEPS"),
-    re.compile(r'"@rules_qt//'),
-)
-
-# Comment bodies are stripped before the QT_FREE_FORBIDDEN scan so that a
-# comment *explaining* the ban (like the ones this check invites) is not itself
-# a violation.
-COMMENT_RE = re.compile(r"#[^\n]*")
 
 # Any label under this prefix reached transitively from a required backend
 # target means a portable target depends on platform code -- directly or
@@ -205,7 +180,7 @@ def portable_targets(text):
     -- "cc_library(" is a substring of "qt_cc_library(", so without it this
     would misidentify a Qt macro invocation as a portable cc_library rule. No
     scanned package still invokes that macro (src/backend cannot load it; see
-    docs/adr/0016-enforce-qt-widgets-reachability-by-visibility.md), but the
+    docs/adr/0016-enforce-qt-reachability-by-visibility.md), but the
     lookbehind stays so that reintroducing one cannot silently pass.
 
     A root with an explicit required-target set is filtered against that set by
@@ -219,32 +194,6 @@ def portable_targets(text):
         if m.group("name").endswith("qt_compat"):
             continue
         yield m.group("name"), m.group("body")
-
-
-def qt_free_package_errors():
-    """Return an error list for any QT_FREE_PACKAGES BUILD file that mentions Qt.
-
-    Each package's BUILD.bazel must already be `data`-listed on the
-    //:portable_closure target (both of the current entries are, via their
-    `exports_files(["BUILD.bazel"])`); a missing file is reported as a failure
-    rather than silently passing.
-    """
-    errors = []
-    for package in QT_FREE_PACKAGES:
-        build = package / "BUILD.bazel"
-        rel = build.relative_to(ROOT)
-        if not build.is_file():
-            errors.append(f"  {rel}: Qt-free package BUILD.bazel not found")
-            continue
-        text = COMMENT_RE.sub("", build.read_text())
-        for pattern in QT_FREE_FORBIDDEN:
-            for match in pattern.finditer(text):
-                line = text.count("\n", 0, match.start()) + 1
-                errors.append(
-                    f"  {rel}:{line}: Qt-free package must contain no Qt rules or "
-                    f"deps, but matches {pattern.pattern}"
-                )
-    return errors
 
 
 def main():
@@ -299,8 +248,6 @@ def main():
         if not found_any and build not in required_by_build:
             errors.append(f"  {rel}: no portable cc_library found")
 
-    errors += qt_free_package_errors()
-
     closure_labels = read_genquery_output()
     if closure_labels is None:
         return 1
@@ -317,12 +264,6 @@ def main():
         print("\nPortable targets must not declare QT_DEPS, @rules_qt//..., a")
         print(":qt_compat dep, or JNI. Put Qt overloads in the sibling")
         print(":qt_compat target and have the consumer depend on that instead.")
-        print(
-            "\nThe Qt-free packages ("
-            + ", ".join(f"//{p.relative_to(ROOT)}" for p in QT_FREE_PACKAGES)
-            + ") must additionally contain no qt_cc_library rule at all: put the"
-        )
-        print("Qt-facing code in src/platform or src/ui instead.")
         return 1
 
     required_count = sum(len(targets) for targets in PORTABLE_ROOTS.values() if targets is not None)
@@ -335,10 +276,6 @@ def main():
         f"all {required_count} required targets are present and none reach Qt/JNI."
     )
     print("Required targets: " + ", ".join(required_labels))
-    print(
-        "Qt-free packages (no qt_cc_library, no QT_DEPS): "
-        + ", ".join(f"//{p.relative_to(ROOT)}" for p in QT_FREE_PACKAGES)
-    )
     return 0
 
 
