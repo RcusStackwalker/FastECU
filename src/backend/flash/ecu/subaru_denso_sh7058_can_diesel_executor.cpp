@@ -25,9 +25,9 @@
 // Every exchange below is transcribed from revision 59f4e442 of
 // src/platform/desktop/common/flash/legacy/ecu/
 // flash_ecu_subaru_denso_sh7058_can_diesel_operation.cpp: connect_bootloader
-// (113-512), upload_kernel (517-784), read_mem (789-938), write_mem
-// (943-1059), CRC/init/reflash/flash (1064-1691), security/crypto
-// (1696-1791), and request_kernel_id (1797-1840).
+// (113-510), upload_kernel (517-782), read_mem (789-936), write_mem
+// (943-1057), CRC/init/reflash/flash (1064-1689), security/crypto
+// (1696-1790), and request_kernel_id (1797-1829).
 // ISO-15765 is only the envelope transport. UDS is used for strict
 // positive-response exchanges; tolerant identity/session queries and every
 // proprietary BEEF exchange remain explicit channel requests.
@@ -79,7 +79,6 @@ constexpr std::array<std::uint8_t, 32> kIndexTransformation{
     0x0B, 0x04, 0x06, 0x00, 0x0F, 0x02, 0x0D, 0x09, 0x05, 0x0C, 0x01, 0x0A, 0x03, 0x0D, 0x0E, 0x08,
 };
 constexpr std::array<std::uint16_t, 4> kEncryptTable{0xC85B, 0x32C0, 0xE282, 0x92A0};
-constexpr std::array<std::uint16_t, 4> kDecryptTable{0x92A0, 0xE282, 0x32C0, 0xC85B};
 
 constexpr uds::ExchangePolicy kStrictPolicy{
     .pre_read_delay_ms = kExtraShortTimeoutMs,
@@ -147,12 +146,6 @@ bytes::Bytes encrypt_payload(bytes::ByteView payload)
                                          kIndexTransformation);
 }
 
-bytes::Bytes decrypt_payload(bytes::ByteView payload)
-{
-    return SsmProtocol::calculatePayload(payload, static_cast<std::uint32_t>(payload.size()), kDecryptTable,
-                                         kIndexTransformation);
-}
-
 struct BeefMessage
 {
     bytes::Byte opcode;
@@ -204,23 +197,45 @@ Result<std::optional<bytes::Bytes>> channel_request_optional(Context& context, b
     return context.channel.receive(timeout_ms, context.cancellation);
 }
 
-Result<bytes::Bytes> channel_request(Context& context, bytes::ByteView pdu, int timeout_ms, int delay_ms = 0)
+Result<std::optional<bytes::Bytes>> raw_channel_request_optional(Context& context, bytes::ByteView pdu, int timeout_ms,
+                                                                 int delay_ms = 0)
 {
-    Result<std::optional<bytes::Bytes>> received = channel_request_optional(context, pdu, timeout_ms, delay_ms);
-    if (!received.has_value())
+    if (const Status checkpoint = cancelled_if_requested(context, "cancelled before CAN request");
+        !checkpoint.has_value())
     {
-        return std::unexpected(received.error());
+        return std::unexpected(checkpoint.error());
     }
-    if (!received->has_value())
+    if (const Status sent = context.channel.send(pdu, context.cancellation); !sent.has_value())
     {
-        return fail(ErrorKind::Timeout, "no CAN response within the read timeout");
+        return std::unexpected(sent.error());
     }
-    return std::move(**received);
+    if (delay_ms > 0)
+    {
+        if (const Status slept = context.clock.sleep(delay_ms, context.cancellation); !slept.has_value())
+        {
+            return std::unexpected(slept.error());
+        }
+    }
+    // BEEF's legacy operator diagnostics inspect the complete serial frame,
+    // including the CAN envelope, before deciding between the two exact
+    // records.  Do not route this one exchange through the validating UDS
+    // channel, which intentionally strips that evidence.
+    return context.transport.read(timeout_ms, context.cancellation);
+}
+
+void log_oracle_frame_failure(Context& context, bytes::ByteView frame, std::size_t nrc_offset)
+{
+    if (frame.size() <= nrc_offset)
+    {
+        error(context, "No valid response from ECU");
+        return;
+    }
+    error(context, std::format("Wrong response from ECU: {}", uds::describe(frame.subspan(nrc_offset))));
 }
 
 Status upload_b6_discard(Context& context, bytes::ByteView pdu)
 {
-    // upload_kernel(), revision 59f4e442:738-751 unconditionally reads and
+    // upload_kernel(), revision 59f4e442:517-782 unconditionally reads and
     // discards every B6 reply. Send through the channel for the request CAN
     // envelope, but read the reply directly so short/malformed/wrong-ID
     // frames and adapter-specific stale errors remain non-fatal like legacy.
@@ -249,24 +264,50 @@ Status upload_b6_discard(Context& context, bytes::ByteView pdu)
 Result<bytes::Bytes> beef_exchange(Context& context, bytes::Byte opcode, bytes::ByteView payload,
                                    std::size_t minimum_payload, int timeout_ms)
 {
-    Result<bytes::Bytes> reply = channel_request(context, beef_request(opcode, payload), timeout_ms);
-    if (!reply.has_value())
+    Result<std::optional<bytes::Bytes>> received =
+        raw_channel_request_optional(context, beef_request(opcode, payload), timeout_ms);
+    if (!received.has_value())
     {
-        return std::unexpected(reply.error());
+        if (received.error().kind != ErrorKind::Cancelled && received.error().kind != ErrorKind::Disconnected)
+        {
+            error(context, "No valid response from ECU");
+        }
+        return std::unexpected(received.error());
     }
-    Result<BeefMessage> parsed = parse_beef(*reply);
+    if (!received->has_value())
+    {
+        error(context, "No valid response from ECU");
+        return fail(ErrorKind::Timeout, "no CAN response within the read timeout");
+    }
+
+    const bytes::Bytes& frame = **received;
+    if (frame.size() < CanFlashUdsChannel::kEnvelopeSize)
+    {
+        log_oracle_frame_failure(context, frame, 8);
+        return fail(ErrorKind::BadResponse, "CAN frame is shorter than its envelope");
+    }
+    if (bytes::readU32Be(frame) != context.response_id)
+    {
+        log_oracle_frame_failure(context, frame, 8);
+        return fail(ErrorKind::BadResponse, "unexpected CAN response id");
+    }
+
+    Result<BeefMessage> parsed = parse_beef(bytes::ByteView(frame).subspan(CanFlashUdsChannel::kEnvelopeSize));
     if (!parsed.has_value())
     {
+        log_oracle_frame_failure(context, frame, 8);
         return std::unexpected(parsed.error());
     }
     const bytes::Byte expected = static_cast<bytes::Byte>(opcode | 0x40U);
     if (parsed->opcode != expected)
     {
+        log_oracle_frame_failure(context, frame, 8);
         return fail(ErrorKind::BadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
                                                         parsed->opcode, expected));
     }
     if (parsed->payload.size() < minimum_payload)
     {
+        log_oracle_frame_failure(context, frame, 8);
         return fail(ErrorKind::BadResponse, "short BEEF response payload");
     }
     return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
@@ -274,7 +315,7 @@ Result<bytes::Bytes> beef_exchange(Context& context, bytes::Byte opcode, bytes::
 
 Status discard_stale_frame(Context& context)
 {
-    // check_romcrc(), revision 59f4e442:1260-1266 deliberately ignores this
+    // check_romcrc(), revision 59f4e442:1101-1187 deliberately ignores this
     // short drain. Preserve malformed/timeout tolerance while retaining
     // cooperative cancellation and adapter-loss semantics.
     if (const Status checkpoint = cancelled_if_requested(context, "CRC stale-frame drain cancelled");
@@ -301,8 +342,14 @@ Result<std::optional<bytes::Bytes>> nonfatal_query(Context& context, bytes::Byte
         {
             return std::unexpected(received.error());
         }
-        error(context,
-              received.error().kind == ErrorKind::Timeout ? "No valid response from ECU" : "Wrong response from ECU");
+        if (received.error().kind == ErrorKind::Timeout)
+        {
+            error(context, "No valid response from ECU");
+        }
+        else
+        {
+            error(context, "Wrong response from ECU: Not a valid answer");
+        }
         return std::optional<bytes::Bytes>{};
     }
     if (!received->has_value())
@@ -312,10 +359,43 @@ Result<std::optional<bytes::Bytes>> nonfatal_query(Context& context, bytes::Byte
     return received;
 }
 
+void log_strict_failure(Context& context, const Error& failure)
+{
+    if (failure.kind == ErrorKind::Timeout)
+    {
+        error(context, "No valid response from ECU");
+        return;
+    }
+    if (failure.kind != ErrorKind::BadResponse)
+    {
+        return;
+    }
+
+    std::string detail = failure.detail;
+    if (detail.starts_with("malformed UDS response:") || detail.starts_with("expected CAN reply id") ||
+        detail.starts_with("expected response to SID") || detail.starts_with("unexpected response during") ||
+        detail.starts_with("invalid diesel") || detail.starts_with("short "))
+    {
+        detail = "Not a valid answer";
+    }
+    error(context, std::format("Wrong response from ECU: {}", detail));
+}
+
+Result<bytes::Bytes> strict_request(Context& context, bytes::ByteView pdu, const uds::ExchangePolicy& policy)
+{
+    Result<bytes::Bytes> reply = context.uds.request(pdu, policy, context.cancellation);
+    if (!reply.has_value())
+    {
+        log_strict_failure(context, reply.error());
+        return std::unexpected(reply.error());
+    }
+    return reply;
+}
+
 Status strict_payload(Context& context, bytes::ByteView pdu, bytes::ByteView expected, std::string_view label,
                       const uds::ExchangePolicy& policy = kStrictPolicy)
 {
-    Result<bytes::Bytes> reply = context.uds.request(pdu, policy, context.cancellation);
+    Result<bytes::Bytes> reply = strict_request(context, pdu, policy);
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
@@ -323,7 +403,23 @@ Status strict_payload(Context& context, bytes::ByteView pdu, bytes::ByteView exp
     const bytes::ByteView payload = uds::payload(*reply);
     if (payload.size() < expected.size() || !std::equal(expected.begin(), expected.end(), payload.begin()))
     {
-        error(context, std::format("Wrong response from ECU during {}", label));
+        error(context, "Wrong response from ECU: Not a valid answer");
+        return fail(ErrorKind::BadResponse, std::format("unexpected response during {}", label));
+    }
+    return {};
+}
+
+Status strict_service(Context& context, bytes::ByteView pdu, bytes::Byte expected_service, std::string_view label,
+                      const uds::ExchangePolicy& policy)
+{
+    Result<bytes::Bytes> reply = strict_request(context, pdu, policy);
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    if (reply->empty() || reply->front() != expected_service)
+    {
+        error(context, "Wrong response from ECU: Not a valid answer");
         return fail(ErrorKind::BadResponse, std::format("unexpected response during {}", label));
     }
     return {};
@@ -335,17 +431,18 @@ Result<bytes::Bytes> security_key(Context& context, bytes::ByteView seed)
     {
         return fail(ErrorKind::BadResponse, "diesel security seed must contain four bytes");
     }
-    info(context, "Using stock seed key algo");
     return SsmProtocol::calculateSeedKey(seed, kStockSeedTable, kIndexTransformation);
 }
 
-Result<std::optional<std::string>> request_kernel_id(Context& context, bool tolerate_malformed)
+Result<std::optional<std::string>> request_kernel_id(Context& context, bool tolerate_malformed,
+                                                     bool *response_received = nullptr)
 {
-    // request_kernel_id(), revision 59f4e442:1946-1980. The three trailing
+    // request_kernel_id(), revision 59f4e442:1797-1829. The three trailing
     // zero bytes are outside the declared BEEF body but are present on the
     // legacy wire and therefore remain literal here.
     const bytes::Bytes request{0xBE, 0xEF, 0x00, 0x01, kKernelId, 0x00, 0x00, 0x00};
     bytes::Bytes pdu;
+    std::optional<bytes::Bytes> raw_frame;
     if (tolerate_malformed)
     {
         // The initial legacy probe reads the raw serial buffer and continues
@@ -372,7 +469,6 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             {
                 return std::unexpected(raw.error());
             }
-            error(context, "Wrong response from ECU while requesting kernel ID");
             return std::optional<std::string>{};
         }
         if (!raw->has_value())
@@ -385,9 +481,14 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             return std::unexpected(checkpoint.error());
         }
         const bytes::Bytes& frame = **raw;
+        raw_frame = frame;
+        if (response_received != nullptr)
+        {
+            *response_received = true;
+        }
         if (frame.size() < CanFlashUdsChannel::kEnvelopeSize || bytes::readU32Be(frame) != context.response_id)
         {
-            error(context, "Wrong response from ECU while requesting kernel ID");
+            log_oracle_frame_failure(context, frame, 8);
             return std::optional<std::string>{};
         }
         pdu.assign(frame.begin() + static_cast<std::ptrdiff_t>(CanFlashUdsChannel::kEnvelopeSize), frame.end());
@@ -395,7 +496,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
     else
     {
         Result<std::optional<bytes::Bytes>> reply =
-            channel_request_optional(context, request, kLongTimeoutMs, kKernelProbeDelayMs);
+            raw_channel_request_optional(context, request, kLongTimeoutMs, kKernelProbeDelayMs);
         if (!reply.has_value())
         {
             if (reply.error().kind == ErrorKind::Timeout)
@@ -408,7 +509,18 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
         {
             return std::optional<std::string>{};
         }
-        pdu = std::move(**reply);
+        raw_frame = std::move(**reply);
+        if (response_received != nullptr)
+        {
+            *response_received = true;
+        }
+        const bytes::Bytes& frame = *raw_frame;
+        if (frame.size() < CanFlashUdsChannel::kEnvelopeSize || bytes::readU32Be(frame) != context.response_id)
+        {
+            log_oracle_frame_failure(context, frame, 8);
+            return std::unexpected(Error{ErrorKind::BadResponse, "unexpected CAN response id"});
+        }
+        pdu.assign(frame.begin() + static_cast<std::ptrdiff_t>(CanFlashUdsChannel::kEnvelopeSize), frame.end());
     }
 
     Result<BeefMessage> parsed = parse_beef(pdu);
@@ -416,18 +528,20 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
     {
         if (tolerate_malformed)
         {
-            error(context, "Wrong response from ECU while requesting kernel ID");
+            log_oracle_frame_failure(context, *raw_frame, 8);
             return std::optional<std::string>{};
         }
+        log_oracle_frame_failure(context, *raw_frame, 8);
         return std::unexpected(parsed.error());
     }
     if (parsed->opcode != static_cast<bytes::Byte>(kKernelId | 0x40U))
     {
         if (tolerate_malformed)
         {
-            error(context, "Wrong response from ECU while requesting kernel ID");
+            log_oracle_frame_failure(context, *raw_frame, 8);
             return std::optional<std::string>{};
         }
+        log_oracle_frame_failure(context, *raw_frame, 8);
         return fail(ErrorKind::BadResponse, "unexpected kernel ID response opcode");
     }
     return std::optional<std::string>{std::string(parsed->payload.begin(), parsed->payload.end())};
@@ -448,7 +562,7 @@ Result<std::optional<std::string>> identity_string(Context& context, bytes::Byte
     const bytes::Bytes& pdu = **reply;
     if (pdu.size() < 3 || pdu[0] != first || pdu[1] != second)
     {
-        error(context, std::format("Wrong response from ECU: {}", bytes::toHex(pdu)));
+        error(context, std::format("Wrong response from ECU: {}", uds::describe(pdu)));
         return std::optional<std::string>{};
     }
     const std::string value(pdu.begin() + 3, pdu.end());
@@ -473,16 +587,17 @@ Result<bool> request_session(Context& context, bytes::Byte subfunction)
     {
         return true;
     }
-    error(context, std::format("Wrong response from ECU: {}", bytes::toHex(pdu)));
+    error(context, std::format("Wrong response from ECU: {}", uds::describe(pdu)));
     return false;
 }
 
 Status connect_bootloader(Context& context, bool read_operation, bool& kernel_alive, std::optional<std::string>& rom_id)
 {
-    // connect_bootloader(), revision 59f4e442:112-621.
+    // connect_bootloader(), revision 59f4e442:113-510.
     info(context, "Checking if kernel is already running...");
     info(context, "Requesting kernel ID");
-    Result<std::optional<std::string>> kernel_id = request_kernel_id(context, true);
+    bool kernel_probe_received = false;
+    Result<std::optional<std::string>> kernel_id = request_kernel_id(context, true, &kernel_probe_received);
     if (!kernel_id.has_value())
     {
         return std::unexpected(kernel_id.error());
@@ -494,7 +609,10 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
         return {};
     }
 
-    error(context, "No valid response from ECU");
+    if (!kernel_probe_received)
+    {
+        error(context, "No valid response from ECU");
+    }
     info(context, "No response from kernel, initialising ECU...");
     info(context, "Initializing connection...");
 
@@ -519,7 +637,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
         }
         else
         {
-            error(context, std::format("Wrong response from ECU: {}", bytes::toHex(pdu)));
+            error(context, std::format("Wrong response from ECU: {}", uds::describe(pdu)));
         }
     }
 
@@ -559,7 +677,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
         }
         else
         {
-            error(context, std::format("Wrong response from ECU: {}", bytes::toHex(pdu)));
+            error(context, std::format("Wrong response from ECU: {}", uds::describe(pdu)));
         }
     }
 
@@ -576,8 +694,8 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
     }
 
     info(context, "Requesting seed");
-    Result<bytes::Bytes> seed_reply = context.uds.request(
-        bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, kStrictPolicy, context.cancellation);
+    Result<bytes::Bytes> seed_reply =
+        strict_request(context, bytes::Bytes{uds::kSidSecurityAccess, uds::kSecurityAccessRequestSeed}, kStrictPolicy);
     if (!seed_reply.has_value())
     {
         return std::unexpected(seed_reply.error());
@@ -585,6 +703,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
     const bytes::ByteView seed_payload = uds::payload(*seed_reply);
     if (seed_payload.size() < 5 || seed_payload[0] != uds::kSecurityAccessRequestSeed)
     {
+        error(context, "Wrong response from ECU: Not a valid answer");
         return fail(ErrorKind::BadResponse, "invalid diesel seed response");
     }
     info(context, "Seed request ok");
@@ -614,7 +733,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
     {
         programming.push_back(0x42);
     }
-    Result<bytes::Bytes> programming_reply = context.uds.request(programming, kStrictPolicy, context.cancellation);
+    Result<bytes::Bytes> programming_reply = strict_request(context, programming, kStrictPolicy);
     if (!programming_reply.has_value())
     {
         return std::unexpected(programming_reply.error());
@@ -622,6 +741,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
     const bytes::ByteView programming_payload = uds::payload(*programming_reply);
     if (programming_payload.empty() || (programming_payload[0] != 0x02 && programming_payload[0] != 0x42))
     {
+        error(context, "Wrong response from ECU: Not a valid answer");
         return fail(ErrorKind::BadResponse, "unexpected programming session response");
     }
     info(context, "Succesfully set to programming session");
@@ -630,7 +750,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
 
 Status upload_kernel(Context& context, const KernelImage& kernel)
 {
-    // upload_kernel(), revision 59f4e442:626-868. The unusual <= loop is
+    // upload_kernel(), revision 59f4e442:517-782. The unusual <= loop is
     // intentional: after every 128-byte payload block the oracle emits one
     // final address-only 0xB6 request.
     const std::size_t padded_to_word = (kernel.bytes.size() + 3U) & ~std::size_t{3U};
@@ -706,8 +826,8 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
     {
         return delay;
     }
-    if (const Status started = strict_payload(context, bytes::Bytes{uds::kSidRoutineControl, 0x01, 0x02, 0x02, 0x02},
-                                              bytes::Bytes{0x01, 0x02, 0x02, 0x02}, "kernel start", kKernelStartPolicy);
+    if (const Status started = strict_service(context, bytes::Bytes{uds::kSidRoutineControl, 0x01, 0x02, 0x02, 0x02},
+                                              0x71, "kernel start", kKernelStartPolicy);
         !started.has_value())
     {
         return started;
@@ -730,9 +850,9 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
 
 Result<bytes::Bytes> read_memory(Context& context, const FlashPlan& plan, PhaseReporter& progress)
 {
-    // read_mem(), revision 59f4e442:875-1019. Reads remain fixed at 0x400
-    // bytes and proprietary BEEF replies are decrypted with the reverse SSM
-    // payload table.
+    // read_mem(), revision 59f4e442:789-936. Reads remain fixed at 0x400
+    // bytes and proprietary BEEF replies are appended as received; the
+    // legacy read path performs no payload decryption.
     const MemoryRegion region = plan.transfer_region();
     bytes::Bytes rom;
     rom.reserve(region.length);
@@ -751,13 +871,14 @@ Result<bytes::Bytes> read_memory(Context& context, const FlashPlan& plan, PhaseR
         {
             return std::unexpected(reply.error());
         }
-        bytes::Bytes page = decrypt_payload(bytes::ByteView(*reply).first(kKernelPageSize));
+        bytes::Bytes page(bytes::ByteView(*reply).first(kKernelPageSize).begin(),
+                          bytes::ByteView(*reply).first(kKernelPageSize).end());
         if (page.size() > region.length - offset)
         {
             page.resize(region.length - offset);
         }
 
-        // Local defect proof: revision-59f4e442:877 declares an unstarted
+        // Local defect proof: revision-59f4e442:791 declares an unstarted
         // QElapsedTimer and line 974 samples it before start. A deterministic
         // monotonic sample and 1 ms minimum preserve the formula without an
         // invalid elapsed value; the exact first/last logs are regression
@@ -791,7 +912,7 @@ struct CompareResult
 
 Result<std::uint32_t> query_crc(Context& context, const MemoryRegion& block)
 {
-    // check_romcrc(), revision 59f4e442:1185-1267.
+    // check_romcrc(), revision 59f4e442:1101-1187.
     const bytes::Bytes payload = composeBe(block.start, bytes::Byte{0x00}, bytes::u24(block.length));
     Result<bytes::Bytes> reply = beef_exchange(context, kKernelCrc, payload, 4, kExtraLongTimeoutMs);
     if (!reply.has_value())
@@ -809,7 +930,7 @@ Result<std::uint32_t> query_crc(Context& context, const MemoryRegion& block)
 Result<CompareResult> compare_blocks(Context& context, const FlashPlan& plan, bytes::ByteView image,
                                      PhaseReporter *progress, bool after_reflash = false)
 {
-    // write_mem()/get_changed_blocks(), revision 59f4e442:1027-1177.
+    // write_mem()/get_changed_blocks(), revision 59f4e442:943-1093.
     CompareResult result;
     result.modified.assign(plan.erase_regions().size(), false);
     info(context, after_reflash ? "--- Comparing ECU flash memory pages to image file after reflash ---"
@@ -867,7 +988,7 @@ Result<CompareResult> compare_blocks(Context& context, const FlashPlan& plan, by
 
 Status initialize_flash(Context& context, bool test_write)
 {
-    // init_flash_write(), revision 59f4e442:1270-1418.
+    // init_flash_write(), revision 59f4e442:1189-1349.
     info(context, "Check max message length");
     Result<bytes::Bytes> max_message = beef_exchange(context, kKernelGetMaxMessage, {}, 4, kMediumTimeoutMs);
     if (!max_message.has_value())
@@ -900,7 +1021,7 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
                    bool test_write, std::size_t& flash_bytes_index, std::size_t flash_bytes_count,
                    PhaseReporter& progress)
 {
-    // flash_block(), revision 59f4e442:1518-1757. TestWrite deliberately
+    // flash_block(), revision 59f4e442:1445-1689. TestWrite deliberately
     // follows the same erase/buffer path, selecting validate (0x23) instead
     // of commit (0x24) at each 0x1000-byte boundary.
     if (block.length == 0 || block.length % kFlashBufferSize != 0 || block.length % kFlashCommitSize != 0)
@@ -948,7 +1069,7 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
         }
         debug(context, "Data written to flash buffer");
 
-        // Local defect proof: revision-59f4e442:1535-1536 leaves curspeed
+        // Local defect proof: revision-59f4e442:1578-1583 leaves curspeed
         // and tleft uninitialized, then formats them at 1651-1655 before the
         // first assignment at 1664-1682. Sample IClock first, clamp 0 ms to
         // 1, and otherwise retain the exact legacy formulas and log shape.
@@ -1018,7 +1139,7 @@ Status reflash_block(Context& context, bytes::ByteView image, const FlashPlan& p
                      bool test_write, std::size_t& flash_bytes_index, std::size_t flash_bytes_count,
                      PhaseReporter& progress)
 {
-    // reflash_block(), revision 59f4e442:1426-1510.
+    // reflash_block(), revision 59f4e442:1351-1443.
     info(context, std::format("Flash block addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
     info(context, "Check flash voltage");
     Result<bytes::Bytes> voltage = beef_exchange(context, kKernelProgVolt, {}, 2, kMediumTimeoutMs);
@@ -1043,7 +1164,7 @@ Status reflash_block(Context& context, bytes::ByteView image, const FlashPlan& p
 
 Status write_memory(Context& context, const FlashPlan& plan, PhaseSequence& phases, PhaseReporter& compare_progress)
 {
-    // write_mem(), revision 59f4e442:1027-1140.
+    // write_mem(), revision 59f4e442:943-1057.
     const bytes::ByteView image = *plan.image();
     Result<CompareResult> before = compare_blocks(context, plan, image, &compare_progress);
     if (!before.has_value())
@@ -1127,6 +1248,25 @@ Result<Iso15765Config> SubaruDensoSh7058CanDieselExecutor::transport_setup(const
         return std::unexpected(valid.error());
     }
     return iso15765_config_from(std::get<SubaruDensoSh7058CanDieselPlan>(plan.family_plan()));
+}
+
+Status SubaruDensoSh7058CanDieselExecutor::before_transport_configure(ICanFlashTransport& transport, IClock& clock,
+                                                                      const ICancellationToken& cancellation) const
+{
+    // The legacy execute() sequence (revision 59f4e442:64-78) resets the
+    // serial connection, waits exactly 500 ms, then applies the ISO-15765
+    // setters and opens the port.
+    // BoundAttempt owns the lifecycle; this hook preserves the family-specific
+    // pre-config ordering without exposing desktop serial details here.
+    if (cancellation.cancelled())
+    {
+        return fail(ErrorKind::Cancelled, "cancelled before CAN reset");
+    }
+    if (const Status reset = transport.reset_connection(); !reset.has_value())
+    {
+        return reset;
+    }
+    return clock.sleep(500, cancellation);
 }
 
 Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::execute(const FlashPlan& plan,
