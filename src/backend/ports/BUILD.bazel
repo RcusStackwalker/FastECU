@@ -27,13 +27,6 @@ cc_library(
     ],
 )
 
-# //:portable_closure reads this BUILD file as `data`; the export makes the
-# label referenceable (mirrors every src/algorithms package).
-exports_files(
-    ["BUILD.bazel"],
-    visibility = ["//:__pkg__"],
-)
-
 fastecu_portable_gtest(
     name = "result_test",
     srcs = ["result_test.cpp"],

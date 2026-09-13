@@ -1,5 +1,5 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
-load("//bazel:portable_targets.bzl", "CLOSURE_ROOTS", "PORTABLE_BUILD_FILES", "PORTABLE_PACKAGES")
+load("//bazel:portable_targets.bzl", "CLOSURE_ROOTS")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -36,14 +36,11 @@ genquery(
     scope = CLOSURE_ROOTS,
 )
 
-# The registry reaches the check as JSON in the environment, so it reads the
-# same list the genquery above was built from rather than a hardcoded copy.
 py_test(
     name = "portable_closure",
     size = "small",
     srcs = ["scripts/check-portable-closure.py"],
-    data = [":portable_backend_closure"] + PORTABLE_BUILD_FILES,
-    env = {"PORTABLE_REGISTRY": json.encode(PORTABLE_PACKAGES)},
+    data = [":portable_backend_closure"],
     main = "scripts/check-portable-closure.py",
 )
 
