@@ -77,10 +77,10 @@ status below, refreshed after 6a-4/6a-5:
 - `bazel/fastecu_sources.bzl` is deleted. `//:fastecu` is an alias to the
   package-owned `//apps/desktop:fastecu`, and every target under `src/` and
   `apps/` is visibility-restricted to the permitted layering directions.
-- Three CI guards enforce what the compiler cannot: `//:portable_closure`
+- Two CI guards enforce what the compiler cannot: `//:portable_closure`
   (no `//src/platform` label in the portable closure, a `genquery` plus a
-  `genrule`, with no script behind it), `//:serial_compat_allowlist`
-  (frozen, shrink-only), and `//:openpty_includes` (ADR 0005). A fourth rule —
+  `genrule`, with no script behind it) and `//:serial_compat_allowlist`
+  (frozen, shrink-only). A third rule —
   no Qt in a portable package — needs no guard target: `@rules_qt` is not in the
   root module's repo mapping at all, and Qt and our own Qt-typed transitional
   code are reached only through targets whose visibility is

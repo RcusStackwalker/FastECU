@@ -45,5 +45,7 @@ Costs and risks:
 ## Notes
 
 The concrete rules this implies for test authors — which Bazel source list a
-file belongs in, and which guard verifies it — are in
-[the coding style guide](../coding-style.md).
+file belongs in, and how a violation surfaces — are in
+[the coding style guide](../coding-style.md). No guard target enforces this
+decision; the three-OS CI matrix does, by failing to compile a Unix-only API in
+a common source.
