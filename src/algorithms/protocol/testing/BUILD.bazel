@@ -2,15 +2,6 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 package(default_visibility = ["//src:__subpackages__"])
 
-# root //:portable_closure reads this file as `data` to check that the
-# portable targets here stay Qt-free; that reference is plumbing, not a layer
-# dependency, so export it to the root package specifically rather than widen
-# the package's general visibility.
-exports_files(
-    ["BUILD.bazel"],
-    visibility = ["//:__pkg__"],
-)
-
 cc_library(
     name = "byte_test_utils",
     testonly = True,

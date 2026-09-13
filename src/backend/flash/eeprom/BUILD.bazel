@@ -7,11 +7,6 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-exports_files(
-    ["BUILD.bazel"],
-    visibility = ["//:__pkg__"],
-)
-
 cc_library(
     name = "denso_sh705x_eeprom_types",
     hdrs = ["denso_sh705x_eeprom_types.h"],

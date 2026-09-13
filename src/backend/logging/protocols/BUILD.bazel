@@ -8,11 +8,6 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-exports_files(
-    ["BUILD.bazel"],
-    visibility = ["//:__pkg__"],
-)
-
 fastecu_portable_gtest(
     name = "test_cdbg_logging_protocol",
     srcs = ["cdbg_logging_protocol_test.cpp"],

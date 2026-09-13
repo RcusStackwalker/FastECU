@@ -1,28 +1,14 @@
-"""The portable-target registry: the single source //:portable_closure reads.
+"""The closure roots for //:portable_closure.
 
-A package maps to the portable targets it must contain. An empty list means
-"every cc_library here is portable" -- the whole package is scanned, and no
-individual target is required. A non-empty list both requires those targets to
-exist and limits the scan to them, because the package also holds targets that
-are deliberately not portable.
+Each package maps to the portable targets it owns. BUILD.bazel turns the whole
+list into the `genquery` whose output the check reads, so a portable target is
+registered once; a name that does not resolve fails there, at analysis.
 
-Three things are derived from this file, so a portable target is registered
-once rather than three times: the genquery closure roots and the `data` list on
-//:portable_closure in BUILD.bazel, and the JSON registry that
-scripts/check-portable-closure.py reads in place of a hardcoded copy.
+Packages are absent when they own no target that needs sweeping -- src/algorithms
+among them, whose targets are reached transitively from the backend roots below.
 """
 
 PORTABLE_PACKAGES = {
-    "src/algorithms/checksum": [],
-    "src/algorithms/diagnostics": [],
-    "src/algorithms/expression": [],
-    "src/algorithms/menu": [],
-    "src/algorithms/protocol": [],
-    "src/algorithms/protocol/colt": [],
-    "src/algorithms/protocol/mut_dma": [],
-    "src/algorithms/protocol/ssm": [],
-    "src/algorithms/protocol/testing": [],
-    "src/algorithms/protocol/uds": [],
     "src/backend/calibration": [
         "calibration_service",
         "map_edit",
@@ -100,7 +86,6 @@ PORTABLE_PACKAGES = {
         "subaru_tcu_cvt_mitsu_mh8111_can_plan",
         "subaru_tcu_cvt_mitsu_mh8111_can_types",
     ],
-    "src/backend/flash/eeprom": [],
     "src/backend/logging": [
         "logger_conf",
         "logger_definition_model",
@@ -163,7 +148,3 @@ CLOSURE_ROOTS = sorted([
     for package, names in PORTABLE_PACKAGES.items()
     for name in names
 ] + CLOSURE_EXTRA_ROOTS)
-
-# The BUILD files the scan reads, declared so the test reruns when one changes
-# and so it sees the same set on Windows, where runfiles are copies.
-PORTABLE_BUILD_FILES = ["//" + package + ":BUILD.bazel" for package in sorted(PORTABLE_PACKAGES)]

@@ -64,8 +64,9 @@ Positive consequences:
 - The guard runs on Windows and covers a new package the moment it exists — no
   enumeration, no registry.
 - Every portable package is Qt-free by construction, not by scan, and there is
-  no bypass left. `//:portable_closure`'s Qt patterns are all gone; one remains,
-  for `@bazel_tools//tools/jdk:jni`, which has no wrapper module of its own.
+  no bypass left. `//:portable_closure` keeps none of its Qt checking, nor the
+  JNI pattern that outlived it unused: the file is down to one assertion, that
+  no `//src/platform` label is in the portable closure.
 
 Costs and risks:
 
@@ -82,6 +83,10 @@ Costs and risks:
   resolve.
 - A backend package could still moc a header by hand via `qt_cpp_moc_headers`,
   which `fastecu_qttest` needs and cannot be split from.
+- `//src/backend/definitions` mixes the Qt-typed `FileActions` family with one
+  Qt-free target, `:models`, which the portable `//src/backend/flash` packages
+  use. Its package default is `//bazel/qt:qt_layer` and `:models` carries the
+  wider visibility, rather than the other way round.
 - A backend `Q_OBJECT` fails at link with an undefined symbol rather than at a
   scan with an explanatory message.
 - Two Qt `.bzl` files instead of one.
