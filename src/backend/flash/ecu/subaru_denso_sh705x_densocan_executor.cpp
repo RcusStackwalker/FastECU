@@ -180,10 +180,10 @@ Status expect_raw_response(const cdbg::CanFrame& response, std::uint8_t first, s
 Result<bool> probe_kernel(IMixedCanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                           IEventSink& events)
 {
-    // Legacy connect_bootloader(), lines 106-153. A bounded absent response
-    // is the only normal fall-through into raw bootloader mode; a malformed
-    // or disconnected response fails closed instead of switching hardware
-    // modes on an uncertain state.
+    // Legacy connect_bootloader(), revision 59f4e442 lines 106-153. Any
+    // absent, short, malformed, wrong-id, or wrong-content initial reply is
+    // treated as "kernel absent" and falls through to the raw bootloader.
+    // Typed cancellation and adapter loss remain terminal.
     events.log(LogLevel::Info, "Checking if Kernel already running...");
     events.log(LogLevel::Info, "Requesting kernel ID");
     const bytes::Bytes request = kernel_id_request();
@@ -198,7 +198,13 @@ Result<bool> probe_kernel(IMixedCanFlashTransport& transport, IClock& clock, con
     Result<std::optional<bytes::Bytes>> received = iso_read(transport, kKernelIdTimeoutMs, cancellation, "kernel ID");
     if (!received)
     {
-        return std::unexpected(received.error());
+        if (received.error().kind == ErrorKind::Cancelled || received.error().kind == ErrorKind::Disconnected)
+        {
+            return std::unexpected(received.error());
+        }
+        events.log(LogLevel::Error, "No valid response from ECU");
+        events.log(LogLevel::Info, "No response from kernel, continue initializing bootloader...");
+        return false;
     }
     if (!received->has_value())
     {
@@ -208,7 +214,9 @@ Result<bool> probe_kernel(IMixedCanFlashTransport& transport, IClock& clock, con
     }
     if (Status valid = expect_iso_response(**received, 0x41, 0, "kernel ID"); !valid)
     {
-        return std::unexpected(valid.error());
+        events.log(LogLevel::Error, "Wrong response from ECU while requesting kernel ID");
+        events.log(LogLevel::Info, "No response from kernel, continue initializing bootloader...");
+        return false;
     }
     std::string kernel_id;
     kernel_id.reserve((**received).size() - 9);

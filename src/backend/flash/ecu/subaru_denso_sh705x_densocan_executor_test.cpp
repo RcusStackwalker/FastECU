@@ -1102,7 +1102,88 @@ TEST(SubaruDensoSh705xDensoCanExecutor, AllCatalogGeometriesUseFullPagedReads)
     }
 }
 
-TEST(SubaruDensoSh705xDensoCanExecutor, RejectsMalformedKernelResponseInsteadOfEnteringUncertainMode)
+TEST(SubaruDensoSh705xDensoCanExecutor, InitialKernelProbeTreatsLegacyNonterminalRepliesAsKernelAbsent)
+{
+    struct ProbeCase
+    {
+        std::string_view name;
+        std::optional<bytes::Bytes> frame;
+        std::optional<ErrorKind> error;
+    };
+    const std::array<ProbeCase, 7> cases{{
+        {"no-frame", std::nullopt, std::nullopt},
+        {"timeout", std::nullopt, ErrorKind::Timeout},
+        {"adapter-internal", std::nullopt, ErrorKind::Internal},
+        {"short", bytes::Bytes{0x00, 0x00, 0x07}, std::nullopt},
+        {"malformed-length", bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x02, 0x41}, std::nullopt},
+        {"wrong-id", bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x41}, std::nullopt},
+        {"wrong-content", bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x01, 0x42}, std::nullopt},
+    }};
+
+    for (const ProbeCase& probe : cases)
+    {
+        SCOPED_TRACE(probe.name);
+        auto plan = read_plan(kCases.front());
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruDensoSh705xDensoCanExecutor executor;
+        ScriptedMixedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        transport.expectIsoWrite(kernel_id_request());
+        if (probe.error.has_value())
+        {
+            transport.queueIsoError(*probe.error, "legacy initial probe read outcome");
+        }
+        else if (probe.frame.has_value())
+        {
+            transport.queueIsoRead(*probe.frame);
+        }
+        else
+        {
+            transport.queueNoIsoFrame();
+        }
+        // One literal wake frame proves fallback reached the next bootloader
+        // exchange. Cancellation on its 3 ms pacing wait bounds each case.
+        transport.expectRawWrite(raw_request({0xFF, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}));
+        ToggleCancellation cancellation;
+        CancellingClock clock(cancellation, 3);
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+        EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel,
+                                                                              ScriptedMixedCanMode::RawBootloader}));
+        EXPECT_TRUE(transport.scriptConsumed());
+    }
+}
+
+TEST(SubaruDensoSh705xDensoCanExecutor, InitialKernelProbeKeepsCancellationAndDisconnectTerminal)
+{
+    for (const ErrorKind terminal : {ErrorKind::Cancelled, ErrorKind::Disconnected})
+    {
+        SCOPED_TRACE(static_cast<int>(terminal));
+        auto plan = read_plan(kCases.front());
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruDensoSh705xDensoCanExecutor executor;
+        ScriptedMixedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        transport.expectIsoWrite(kernel_id_request());
+        transport.queueIsoError(terminal, "terminal initial probe outcome");
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, terminal);
+        EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel}));
+        EXPECT_TRUE(transport.scriptConsumed());
+    }
+}
+
+TEST(SubaruDensoSh705xDensoCanExecutor, PostUploadKernelProbeRemainsStrict)
 {
     auto plan = read_plan(kCases.front());
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
@@ -1110,7 +1191,10 @@ TEST(SubaruDensoSh705xDensoCanExecutor, RejectsMalformedKernelResponseInsteadOfE
     ScriptedMixedCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
     transport.expectIsoWrite(kernel_id_request());
-    transport.queueIsoRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x01});
+    transport.queueNoIsoFrame();
+    script_upload(transport);
+    transport.expectIsoWrite(kernel_id_request());
+    transport.queueIsoRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x02, 0x41});
     NeverCancelled cancellation;
     FakeClock clock;
     RecordingEventSink events;
@@ -1119,7 +1203,6 @@ TEST(SubaruDensoSh705xDensoCanExecutor, RejectsMalformedKernelResponseInsteadOfE
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel}));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 

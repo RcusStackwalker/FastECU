@@ -828,8 +828,10 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
     {
         return delay;
     }
+    // upload_kernel(), revision 59f4e442 lines 815-835 checks only the
+    // positive service id, so an echoed routine is optional.
     if (const Status started = strict_payload(context, bytes::Bytes{uds::kSidRoutineControl, 0x01, 0x02, 0x02, 0x02},
-                                              bytes::Bytes{0x01, 0x02, 0x02, 0x02}, "kernel start", kKernelStartPolicy);
+                                              {}, "kernel start", kKernelStartPolicy);
         !started.has_value())
     {
         return started;

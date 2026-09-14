@@ -44,6 +44,19 @@ constexpr std::string_view kReflashRecoveryWarning =
     "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is most likely still running and "
     "receiving commands!";
 
+enum class UploadB6Reply
+{
+    NoFrame,
+    Timeout,
+    Short,
+    Malformed,
+    WrongCanId,
+    Negative,
+    AdapterError,
+    Cancelled,
+    Disconnected,
+};
+
 struct Case
 {
     std::string_view protocol;
@@ -388,7 +401,42 @@ void script_strict_session_and_security(ScriptedCanFlashTransport& transport)
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x42});
 }
 
-void script_kernel_upload(ScriptedCanFlashTransport& transport, const Case& test_case)
+void queue_upload_b6_reply(ScriptedCanFlashTransport& transport, UploadB6Reply reply)
+{
+    switch (reply)
+    {
+    case UploadB6Reply::NoFrame:
+        transport.queue_no_frame();
+        return;
+    case UploadB6Reply::Timeout:
+        transport.queue_error(ErrorKind::Timeout, "legacy B6 timeout");
+        return;
+    case UploadB6Reply::Short:
+        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07});
+        return;
+    case UploadB6Reply::Malformed:
+        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE});
+        return;
+    case UploadB6Reply::WrongCanId:
+        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x76});
+        return;
+    case UploadB6Reply::Negative:
+        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x7F, 0xB6, 0x31});
+        return;
+    case UploadB6Reply::AdapterError:
+        transport.queue_error(ErrorKind::Internal, "legacy stale B6 adapter error");
+        return;
+    case UploadB6Reply::Cancelled:
+        transport.queue_error(ErrorKind::Cancelled, "legacy B6 cancellation");
+        return;
+    case UploadB6Reply::Disconnected:
+        transport.queue_error(ErrorKind::Disconnected, "legacy B6 disconnect");
+        return;
+    }
+}
+
+void script_kernel_upload_until_start(ScriptedCanFlashTransport& transport, const Case& test_case,
+                                      UploadB6Reply b6_reply = UploadB6Reply::NoFrame)
 {
     // upload_kernel(), r59f4e442 lines 369-627. Four kernel bytes pad to one
     // 128-byte transfer. The checksum word is 59 A3 A2 56, and the first and
@@ -411,16 +459,23 @@ void script_kernel_upload(ScriptedCanFlashTransport& transport, const Case& test
     }
     block.insert(block.end(), {0x6C, 0x78, 0x52, 0x90});
     transport.expectWrite(request(block));
-    transport.queue_no_frame(); // Legacy reads but does not validate transfer-block replies.
+    queue_upload_b6_reply(transport, b6_reply);
     transport.expectWrite(request(bytes::Bytes{0xB6, static_cast<bytes::Byte>((test_case.kernel_address + 0x80) >> 16),
                                                static_cast<bytes::Byte>((test_case.kernel_address + 0x80) >> 8),
                                                static_cast<bytes::Byte>(test_case.kernel_address + 0x80)}));
-    transport.queue_no_frame(); // The <= maxblocks loop emits one empty final block.
+    queue_upload_b6_reply(transport, b6_reply); // The <= maxblocks loop emits one empty final block.
 
     transport.expectWrite(request(bytes::Bytes{0x37}));
     transport.queueRead(response(bytes::Bytes{0x77}));
     transport.expectWrite(request(bytes::Bytes{0x31, 0x01, 0x02, 0x02, 0x02}));
-    transport.queueRead(response(bytes::Bytes{0x71, 0x01, 0x02, 0x02, 0x02}));
+}
+
+void script_kernel_upload(ScriptedCanFlashTransport& transport, const Case& test_case,
+                          UploadB6Reply b6_reply = UploadB6Reply::NoFrame,
+                          bytes::Bytes start_reply = bytes::Bytes{0x71, 0x01, 0x02, 0x02, 0x02})
+{
+    script_kernel_upload_until_start(transport, test_case, b6_reply);
+    transport.queueRead(response(start_reply));
 }
 
 void script_hand_derived_129_byte_sh7055_kernel_upload(ScriptedCanFlashTransport& transport)
@@ -897,7 +952,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdTrailingDrainPropagatesCancellatio
     }
 }
 
-TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdTrailingDrainBoundFailsBeforeStartingAnotherCommand)
+TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelIdTrailingDrainBoundFallsBackBeforeStartingAnotherCommand)
 {
     auto plan = write_plan(kCases[1]);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
@@ -913,6 +968,9 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdTrailingDrainBoundFailsBeforeStart
         // possibly contaminated transport queue.
         transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9});
     }
+    script_identity_queries(transport);
+    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
+    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x7F, 0x10, 0x22});
     NeverCancelled cancellation;
     FakeClock clock;
     RecordingEventSink events;
@@ -921,9 +979,301 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdTrailingDrainBoundFailsBeforeStart
 
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_EQ(transport.writesConsumed(), 1U);
+    EXPECT_TRUE(has_log(events, LogLevel::Info, "Requesting ECU ID"));
     EXPECT_TRUE(transport.scriptConsumed());
     expect_exact_phase_progress(events, {{"Kernel", 1, 4, 0, 1}});
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeTreatsLegacyNonterminalRepliesAsKernelAbsent)
+{
+    enum class ProbeReply
+    {
+        NoFrame,
+        Timeout,
+        AdapterError,
+        Short,
+        MalformedLength,
+        WrongCanId,
+        WrongOpcode,
+    };
+    for (const ProbeReply reply :
+         {ProbeReply::NoFrame, ProbeReply::Timeout, ProbeReply::AdapterError, ProbeReply::Short,
+          ProbeReply::MalformedLength, ProbeReply::WrongCanId, ProbeReply::WrongOpcode})
+    {
+        SCOPED_TRACE(static_cast<int>(reply));
+        auto plan = read_plan(kCases[1]);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruTcuDensoSh705xCanExecutor executor;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        if (reply == ProbeReply::NoFrame || reply == ProbeReply::Timeout)
+        {
+            for (int attempt = 0; attempt < 5; ++attempt)
+            {
+                transport.expectWrite(kernel_id_request());
+                if (reply == ProbeReply::NoFrame)
+                {
+                    transport.queue_no_frame();
+                }
+                else
+                {
+                    transport.queue_error(ErrorKind::Timeout, "legacy initial probe timeout");
+                }
+            }
+        }
+        else
+        {
+            transport.expectWrite(kernel_id_request());
+            switch (reply)
+            {
+            case ProbeReply::AdapterError:
+                transport.queue_error(ErrorKind::Internal, "legacy initial probe adapter error");
+                break;
+            case ProbeReply::Short:
+                transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07});
+                break;
+            case ProbeReply::MalformedLength:
+                transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x02, 0x41});
+                transport.queue_no_frame();
+                break;
+            case ProbeReply::WrongCanId:
+                transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x01, 0x41});
+                break;
+            case ProbeReply::WrongOpcode:
+                transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x42});
+                transport.queue_no_frame();
+                break;
+            case ProbeReply::NoFrame:
+            case ProbeReply::Timeout:
+                break;
+            }
+        }
+        // These literal identity exchanges prove fallback reached the next
+        // ECU-initialization stage. A negative session response then bounds
+        // the test without a kernel upload or ROM transcript.
+        script_identity_queries(transport);
+        transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
+        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x7F, 0x10, 0x22});
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_TRUE(has_log(events, LogLevel::Info, "Requesting ECU ID"));
+        EXPECT_TRUE(transport.scriptConsumed());
+    }
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, InitialKernelProbeKeepsCancellationAndDisconnectTerminal)
+{
+    for (const ErrorKind terminal : {ErrorKind::Cancelled, ErrorKind::Disconnected})
+    {
+        SCOPED_TRACE(static_cast<int>(terminal));
+        auto plan = read_plan(kCases[1]);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruTcuDensoSh705xCanExecutor executor;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        transport.expectWrite(kernel_id_request());
+        transport.queue_error(terminal, "terminal initial probe outcome");
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, terminal);
+        EXPECT_TRUE(transport.scriptConsumed());
+    }
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, SessionSafetyCorrectionRejectsBothLegacyPartialMatchesAndAcceptsExactMatch)
+{
+    // Oracle line 230 uses `sid != 0x50 && subfunction != 0x03`; its truth
+    // table accepts either 50 02 or 51 03 because one inequality is false.
+    const std::array<bytes::Bytes, 2> partial_matches{{bytes::Bytes{0x50, 0x02}, bytes::Bytes{0x51, 0x03}}};
+    for (const bytes::Bytes& reply : partial_matches)
+    {
+        SCOPED_TRACE(bytes::toHex(reply));
+        auto plan = read_plan(kCases[1]);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruTcuDensoSh705xCanExecutor executor;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        script_kernel_probe_timeout(transport);
+        script_identity_queries(transport);
+        transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
+        transport.queueRead(response(reply));
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_TRUE(transport.scriptConsumed());
+    }
+
+    auto plan = read_plan(kCases[1]);
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    SubaruTcuDensoSh705xCanExecutor executor;
+    ScriptedCanFlashTransport transport;
+    configure_and_open(executor, *plan, transport);
+    script_kernel_probe_timeout(transport);
+    script_identity_queries(transport);
+    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x10, 0x03});
+    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x50, 0x03});
+    transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0x27, 0x01});
+    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0x7F, 0x27, 0x35});
+    NeverCancelled cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_FALSE(has_log(events, LogLevel::Info, "Seed request ok"));
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, UploadB6ReadsDiscardAllLegacyContentAndAdapterOutcomes)
+{
+    for (const UploadB6Reply reply :
+         {UploadB6Reply::NoFrame, UploadB6Reply::Timeout, UploadB6Reply::Short, UploadB6Reply::Malformed,
+          UploadB6Reply::WrongCanId, UploadB6Reply::Negative, UploadB6Reply::AdapterError})
+    {
+        SCOPED_TRACE(static_cast<int>(reply));
+        auto plan = read_plan(kCases[1]);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruTcuDensoSh705xCanExecutor executor;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        script_kernel_probe_timeout(transport);
+        script_identity_queries(transport);
+        script_strict_session_and_security(transport);
+        script_kernel_upload(transport, kCases[1], reply);
+        transport.expectWrite(kernel_id_request());
+        transport.queue_error(ErrorKind::Disconnected, "bounded after every B6 read");
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+        EXPECT_TRUE(transport.scriptConsumed());
+    }
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, UploadB6KeepsCancellationAndDisconnectTerminal)
+{
+    for (const ErrorKind terminal : {ErrorKind::Cancelled, ErrorKind::Disconnected})
+    {
+        SCOPED_TRACE(static_cast<int>(terminal));
+        auto plan = read_plan(kCases[1]);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruTcuDensoSh705xCanExecutor executor;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        script_kernel_probe_timeout(transport);
+        script_identity_queries(transport);
+        script_strict_session_and_security(transport);
+        script_kernel_upload_until_start(transport, kCases[1],
+                                         terminal == ErrorKind::Cancelled ? UploadB6Reply::Cancelled
+                                                                          : UploadB6Reply::Disconnected);
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, terminal);
+    }
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartAcceptsServiceOnlyAndFullEchoBeforeStrictPostUploadProbe)
+{
+    const std::array<bytes::Bytes, 2> accepted{{bytes::Bytes{0x71}, bytes::Bytes{0x71, 0x01, 0x02, 0x02, 0x02}}};
+    for (const bytes::Bytes& start_reply : accepted)
+    {
+        SCOPED_TRACE(bytes::toHex(start_reply));
+        auto plan = read_plan(kCases[1]);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruTcuDensoSh705xCanExecutor executor;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        script_kernel_probe_timeout(transport);
+        script_identity_queries(transport);
+        script_strict_session_and_security(transport);
+        script_kernel_upload(transport, kCases[1], UploadB6Reply::NoFrame, start_reply);
+        transport.expectWrite(kernel_id_request());
+        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07});
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_TRUE(transport.scriptConsumed());
+    }
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartRejectsWrongSidShortTimeoutCancellationAndDisconnect)
+{
+    struct StartCase
+    {
+        std::string_view name;
+        std::optional<bytes::Bytes> frame;
+        std::optional<ErrorKind> error;
+        ErrorKind expected;
+    };
+    const std::array<StartCase, 5> cases{{
+        {"wrong-sid", response(bytes::Bytes{0x70}), std::nullopt, ErrorKind::BadResponse},
+        {"short", bytes::Bytes{0x00, 0x00, 0x07}, std::nullopt, ErrorKind::BadResponse},
+        {"timeout", std::nullopt, ErrorKind::Timeout, ErrorKind::Timeout},
+        {"cancelled", std::nullopt, ErrorKind::Cancelled, ErrorKind::Cancelled},
+        {"disconnected", std::nullopt, ErrorKind::Disconnected, ErrorKind::Disconnected},
+    }};
+    for (const StartCase& start : cases)
+    {
+        SCOPED_TRACE(start.name);
+        auto plan = read_plan(kCases[1]);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruTcuDensoSh705xCanExecutor executor;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        script_kernel_probe_timeout(transport);
+        script_identity_queries(transport);
+        script_strict_session_and_security(transport);
+        script_kernel_upload_until_start(transport, kCases[1]);
+        if (start.error.has_value())
+        {
+            transport.queue_error(*start.error, "kernel-start read outcome");
+        }
+        else
+        {
+            transport.queueRead(*start.frame);
+        }
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, start.expected);
+        EXPECT_TRUE(transport.scriptConsumed());
+    }
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutRunsIdentityStrictUdsUploadAndPostUploadBeefRead)
@@ -1459,27 +1809,12 @@ TEST(SubaruTcuDensoSh705xCanExecutor, RejectsInvalidPlanBeforeTransportInteracti
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
-TEST(SubaruTcuDensoSh705xCanExecutor, MalformedTimeoutNegativeAndDisconnectRepliesAreTyped)
+TEST(SubaruTcuDensoSh705xCanExecutor, NegativeAndDisconnectRepliesAreTyped)
 {
     auto plan = read_plan(kCases[1]);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     NeverCancelled cancellation;
 
-    {
-        SubaruTcuDensoSh705xCanExecutor executor;
-        ScriptedCanFlashTransport transport;
-        configure_and_open(executor, *plan, transport);
-        transport.expectWrite(kernel_id_request());
-        transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01});
-        transport.queue_no_frame();
-        FakeClock clock;
-        RecordingEventSink events;
-
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    }
     {
         SubaruTcuDensoSh705xCanExecutor executor;
         ScriptedCanFlashTransport transport;

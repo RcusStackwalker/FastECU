@@ -460,9 +460,8 @@ void queue_upload_b6_reply(ScriptedCanFlashTransport& transport, UploadB6Reply r
     }
 }
 
-void script_129_byte_kernel_upload(ScriptedCanFlashTransport& transport,
-                                   bytes::Bytes final_kernel_id_response = kernel_id_response(),
-                                   UploadB6Reply b6_reply = UploadB6Reply::NoFrame)
+void script_129_byte_kernel_upload_until_start(ScriptedCanFlashTransport& transport,
+                                               UploadB6Reply b6_reply = UploadB6Reply::NoFrame)
 {
     // Literal transcript for 128 zero bytes followed by 01. Padding expands
     // to 0x100 bytes; fixed encrypted words were derived independently from
@@ -492,7 +491,15 @@ void script_129_byte_kernel_upload(ScriptedCanFlashTransport& transport,
     transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x37});
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x77});
     transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x31, 0x01, 0x02, 0x02, 0x02});
-    transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x71, 0x01, 0x02, 0x02, 0x02});
+}
+
+void script_129_byte_kernel_upload(ScriptedCanFlashTransport& transport,
+                                   bytes::Bytes final_kernel_id_response = kernel_id_response(),
+                                   UploadB6Reply b6_reply = UploadB6Reply::NoFrame,
+                                   bytes::Bytes start_reply = bytes::Bytes{0x71, 0x01, 0x02, 0x02, 0x02})
+{
+    script_129_byte_kernel_upload_until_start(transport, b6_reply);
+    transport.queueRead(response(start_reply));
     transport.expectWrite(kernel_id_request());
     transport.queueRead(final_kernel_id_response);
 }
@@ -846,6 +853,81 @@ TEST(SubaruDensoSh7058CanExecutor, UploadB6CancellationAndDisconnectArePropagate
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, expected);
+    }
+}
+
+TEST(SubaruDensoSh7058CanExecutor, KernelStartAcceptsServiceOnlyAndFullEchoBeforeStrictPostUploadProbe)
+{
+    const std::array<bytes::Bytes, 2> accepted{{bytes::Bytes{0x71}, bytes::Bytes{0x71, 0x01, 0x02, 0x02, 0x02}}};
+    for (const bytes::Bytes& start_reply : accepted)
+    {
+        SCOPED_TRACE(bytes::toHex(start_reply));
+        bytes::Bytes kernel_data(129, bytes::Byte{0});
+        kernel_data.back() = 0x01;
+        auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruDensoSh7058CanExecutor executor;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        script_bootloader_connection(transport, kVariants.front());
+        script_129_byte_kernel_upload(transport, bytes::Bytes{0x00, 0x00, 0x07}, UploadB6Reply::NoFrame, start_reply);
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_TRUE(transport.scriptConsumed());
+    }
+}
+
+TEST(SubaruDensoSh7058CanExecutor, KernelStartRejectsWrongSidShortTimeoutCancellationAndDisconnect)
+{
+    struct StartCase
+    {
+        std::string_view name;
+        std::optional<bytes::Bytes> frame;
+        std::optional<ErrorKind> error;
+        ErrorKind expected;
+    };
+    const std::array<StartCase, 5> cases{{
+        {"wrong-sid", response(bytes::Bytes{0x70}), std::nullopt, ErrorKind::BadResponse},
+        {"short", bytes::Bytes{0x00, 0x00, 0x07}, std::nullopt, ErrorKind::BadResponse},
+        {"timeout", std::nullopt, ErrorKind::Timeout, ErrorKind::Timeout},
+        {"cancelled", std::nullopt, ErrorKind::Cancelled, ErrorKind::Cancelled},
+        {"disconnected", std::nullopt, ErrorKind::Disconnected, ErrorKind::Disconnected},
+    }};
+    for (const StartCase& start : cases)
+    {
+        SCOPED_TRACE(start.name);
+        bytes::Bytes kernel_data(129, bytes::Byte{0});
+        kernel_data.back() = 0x01;
+        auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruDensoSh7058CanExecutor executor;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        script_bootloader_connection(transport, kVariants.front());
+        script_129_byte_kernel_upload_until_start(transport);
+        if (start.error.has_value())
+        {
+            transport.queue_error(*start.error, "kernel-start read outcome");
+        }
+        else
+        {
+            transport.queueRead(*start.frame);
+        }
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, start.expected);
+        EXPECT_TRUE(transport.scriptConsumed());
     }
 }
 

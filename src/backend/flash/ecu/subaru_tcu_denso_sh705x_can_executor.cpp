@@ -256,7 +256,7 @@ Result<bytes::Bytes> beef_exchange(Context& context, bytes::Byte opcode, bytes::
     return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
 }
 
-Result<std::optional<std::string>> request_kernel_id(Context& context)
+Result<std::optional<std::string>> request_kernel_id(Context& context, bool tolerate_malformed)
 {
     // request_kernel_id(), revision 59f4e442 lines 1583-1647. The literal
     // PDU is intentionally kept here instead of deriving it from BEEF
@@ -295,6 +295,11 @@ Result<std::optional<std::string>> request_kernel_id(Context& context)
             {
                 continue;
             }
+            if (tolerate_malformed && received.error().kind != ErrorKind::Cancelled &&
+                received.error().kind != ErrorKind::Disconnected)
+            {
+                return std::optional<std::string>{};
+            }
             return std::unexpected(received.error());
         }
         if (!received->has_value())
@@ -305,10 +310,18 @@ Result<std::optional<std::string>> request_kernel_id(Context& context)
         const bytes::Bytes& raw = **received;
         if (raw.size() < CanFlashUdsChannel::kEnvelopeSize)
         {
+            if (tolerate_malformed)
+            {
+                return std::optional<std::string>{};
+            }
             return fail(ErrorKind::BadResponse, "short CAN frame in kernel ID response");
         }
         if (bytes::readU32Be(raw) != context.response_id)
         {
+            if (tolerate_malformed)
+            {
+                return std::optional<std::string>{};
+            }
             return fail(ErrorKind::BadResponse, "wrong CAN id in kernel ID response");
         }
 
@@ -342,6 +355,10 @@ Result<std::optional<std::string>> request_kernel_id(Context& context)
                     drain_terminated = true;
                     break;
                 }
+                if (tolerate_malformed)
+                {
+                    return std::optional<std::string>{};
+                }
                 return std::unexpected(fragment.error());
             }
             if (!fragment->has_value())
@@ -364,18 +381,30 @@ Result<std::optional<std::string>> request_kernel_id(Context& context)
             // Never begin another command while the raw receive queue may
             // still contain ID fragments. This is the bounded portable form
             // of the legacy read-until-empty loop.
+            if (tolerate_malformed)
+            {
+                return std::optional<std::string>{};
+            }
             return fail(ErrorKind::BadResponse, "kernel ID trailing drain exceeded its frame bound");
         }
 
         Result<BeefMessage> parsed = parse_beef(coalesced);
         if (!parsed.has_value())
         {
+            if (tolerate_malformed)
+            {
+                return std::optional<std::string>{};
+            }
             return std::unexpected(parsed.error());
         }
         if (parsed->opcode != kKernelId)
         {
             error(context, std::format("Wrong response from ECU: {}", bytes::toHex(coalesced)));
-            return std::optional<std::string>{};
+            if (tolerate_malformed)
+            {
+                return std::optional<std::string>{};
+            }
+            return fail(ErrorKind::BadResponse, "unexpected kernel ID response opcode");
         }
         return std::optional<std::string>{std::string(parsed->payload.begin(), parsed->payload.end())};
     }
@@ -425,6 +454,29 @@ Status strict_payload(Context& context, bytes::ByteView pdu, bytes::ByteView exp
     return {};
 }
 
+Status upload_b6_discard(Context& context, bytes::ByteView pdu)
+{
+    // upload_kernel(), revision 59f4e442 lines 473-513. Every B6 block is
+    // followed by one raw read whose content is ignored. Preserve typed
+    // cancellation/disconnection while treating every other read outcome as
+    // legacy discardable content.
+    if (const Status checkpoint = cancelled_if_requested(context, "kernel upload cancelled"); !checkpoint.has_value())
+    {
+        return checkpoint;
+    }
+    if (const Status sent = context.channel.send(pdu, context.cancellation); !sent.has_value())
+    {
+        return sent;
+    }
+    const Result<std::optional<bytes::Bytes>> ignored = context.transport.read(kReadTimeoutMs, context.cancellation);
+    if (!ignored.has_value() &&
+        (ignored.error().kind == ErrorKind::Cancelled || ignored.error().kind == ErrorKind::Disconnected))
+    {
+        return std::unexpected(ignored.error());
+    }
+    return cancelled_if_requested(context, "kernel upload cancelled");
+}
+
 Status strict_seed(Context& context, bytes::Bytes& key)
 {
     Result<bytes::Bytes> seed_reply = context.uds.request(
@@ -444,10 +496,12 @@ Status strict_seed(Context& context, bytes::Bytes& key)
 
 Status connect_bootloader(Context& context, bool read_operation, bool& kernel_alive, std::optional<std::string>& rom_id)
 {
-    // connect_bootloader(), revision 59f4e442 lines 107-135.
+    // connect_bootloader(), revision 59f4e442 lines 107-135. The oracle
+    // continues initialization after any nonterminal invalid probe reply;
+    // post-upload callers select the strict path instead.
     info(context, "Checking if kernel is already running...");
     info(context, "Requesting kernel ID");
-    Result<std::optional<std::string>> kernel_id = request_kernel_id(context);
+    Result<std::optional<std::string>> kernel_id = request_kernel_id(context, true);
     if (!kernel_id.has_value())
     {
         return std::unexpected(kernel_id.error());
@@ -517,7 +571,9 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
         }
     }
 
-    // Strict UDS session/security exchanges, lines 216-359.
+    // Strict UDS session/security exchanges, lines 216-359. Oracle line 230
+    // joins its two mismatches with && and therefore accepts 50 02 or 51 03;
+    // requiring both fields is the documented automated-only safety fix.
     info(context, "Requesting session mode");
     if (const Status session = strict_payload(context, bytes::Bytes{uds::kSidDiagnosticSessionControl, 0x03},
                                               bytes::Bytes{0x03}, "session mode");
@@ -613,10 +669,9 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
         const bytes::Bytes request = composeBe(0xB6_b, bytes::u24(address), chunk);
         // Legacy reads the transfer-block response but does not inspect it
         // (lines 508-513); a missing frame is consequently tolerated.
-        Result<std::optional<bytes::Bytes>> ignored = channel_request_optional(context, request, kReadTimeoutMs);
-        if (!ignored.has_value())
+        if (const Status discarded = upload_b6_discard(context, request); !discarded.has_value())
         {
-            return std::unexpected(ignored.error());
+            return discarded;
         }
         if (block < block_count)
         {
@@ -631,9 +686,10 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
     {
         return transfer_exit;
     }
+    // upload_kernel(), revision 59f4e442 lines 546-577 checks only the
+    // positive service id, so an echoed routine is optional.
     if (const Status start_kernel =
-            strict_payload(context, bytes::Bytes{uds::kSidRoutineControl, 0x01, 0x02, 0x02, 0x02},
-                           bytes::Bytes{0x01, 0x02, 0x02, 0x02}, "kernel start");
+            strict_payload(context, bytes::Bytes{uds::kSidRoutineControl, 0x01, 0x02, 0x02, 0x02}, {}, "kernel start");
         !start_kernel.has_value())
     {
         return start_kernel;
@@ -645,14 +701,9 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
         return slept;
     }
     info(context, "Requesting kernel ID");
-    Result<std::optional<std::string>> kernel_id = request_kernel_id(context);
+    Result<std::optional<std::string>> kernel_id = request_kernel_id(context, false);
     if (!kernel_id.has_value())
     {
-        if (kernel_id.error().kind != ErrorKind::Cancelled && kernel_id.error().kind != ErrorKind::Disconnected)
-        {
-            error(context, "No valid response from ECU");
-            return {};
-        }
         return std::unexpected(kernel_id.error());
     }
     if (kernel_id->has_value())
@@ -662,6 +713,7 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
     else
     {
         error(context, "No valid response from ECU");
+        return fail(ErrorKind::Timeout, "kernel did not answer after upload");
     }
     return {};
 }
