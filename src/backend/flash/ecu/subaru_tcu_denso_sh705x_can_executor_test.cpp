@@ -337,19 +337,30 @@ void script_kernel_probe_timeout(ScriptedCanFlashTransport& transport)
 
 void script_read_pages(ScriptedCanFlashTransport& transport, std::uint32_t size, bytes::Byte wire_fill = 0)
 {
-    const bytes::Bytes encrypted_zero_word{0xE7, 0xE2, 0x14, 0x30};
     for (std::uint32_t address = 0; address < size; address += kReadPageSize)
     {
         transport.expectWrite(beef_request(0x03, composeBe(0x00_b, u24(address), std::uint16_t{kReadPageSize})));
-        bytes::Bytes encrypted_page(kReadPageSize, wire_fill);
-        if (wire_fill == 0)
+        transport.queueRead(beef_response(0x43, bytes::Bytes(kReadPageSize, wire_fill)));
+    }
+}
+
+void script_raw_read_pages_with_boundary_sentinels(ScriptedCanFlashTransport& transport, std::uint32_t size)
+{
+    constexpr std::array<bytes::Byte, 8> kFirstWireBytes{0xD3, 0x5A, 0xC7, 0x19, 0x2E, 0xF4, 0x80, 0x6B};
+    constexpr std::array<bytes::Byte, 8> kLastWireBytes{0x9C, 0x31, 0xE7, 0x04, 0xB2, 0x6D, 0x58, 0xAF};
+    for (std::uint32_t address = 0; address < size; address += kReadPageSize)
+    {
+        transport.expectWrite(beef_request(0x03, composeBe(0x00_b, u24(address), std::uint16_t{kReadPageSize})));
+        bytes::Bytes page(kReadPageSize, bytes::Byte{0});
+        if (address == 0)
         {
-            for (std::size_t offset = 0; offset < encrypted_page.size(); offset += encrypted_zero_word.size())
-            {
-                std::copy(encrypted_zero_word.begin(), encrypted_zero_word.end(), encrypted_page.begin() + offset);
-            }
+            std::copy(kFirstWireBytes.begin(), kFirstWireBytes.end(), page.begin());
         }
-        transport.queueRead(beef_response(0x43, encrypted_page));
+        if (address + kReadPageSize == size)
+        {
+            std::copy(kLastWireBytes.begin(), kLastWireBytes.end(), page.end() - kLastWireBytes.size());
+        }
+        transport.queueRead(beef_response(0x43, page));
     }
 }
 
@@ -743,7 +754,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, TransportSetupUsesExactTcuIsoConfiguration
     }
 }
 
-TEST(SubaruTcuDensoSh705xCanExecutor, AlreadyRunningKernelReadsBothMcuGeometriesAndDecryptsRom)
+TEST(SubaruTcuDensoSh705xCanExecutor, AlreadyRunningKernelReadsBothMcuGeometriesAndReturnsRawRom)
 {
     SubaruTcuDensoSh705xCanExecutor executor;
     NeverCancelled cancellation;
@@ -779,6 +790,34 @@ TEST(SubaruTcuDensoSh705xCanExecutor, AlreadyRunningKernelReadsBothMcuGeometries
                                                                0x00, 0x07, 0xFC, 0x00, 0x04, 0x00})
                                                : (bytes::Bytes{0x00, 0x00, 0x07, 0xE1, 0xBE, 0xEF, 0x00, 0x07, 0x03,
                                                                0x00, 0x0F, 0xFC, 0x00, 0x04, 0x00}));
+    }
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, ReadKeepsRawBeefBoundaryPayloadsForBothTcuGeometries)
+{
+    SubaruTcuDensoSh705xCanExecutor executor;
+    NeverCancelled cancellation;
+    for (const Case& test_case : kCases)
+    {
+        SCOPED_TRACE(test_case.protocol);
+        auto plan = read_plan(test_case);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        script_kernel_alive(transport);
+        script_raw_read_pages_with_boundary_sentinels(transport, test_case.rom_size);
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_TRUE(result.has_value()) << result.error().detail;
+        ASSERT_TRUE(result->read_bytes.has_value());
+        EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(8),
+                    ElementsAre(0xD3, 0x5A, 0xC7, 0x19, 0x2E, 0xF4, 0x80, 0x6B));
+        EXPECT_THAT(bytes::ByteView(*result->read_bytes).last(8),
+                    ElementsAre(0x9C, 0x31, 0xE7, 0x04, 0xB2, 0x6D, 0x58, 0xAF));
+        EXPECT_TRUE(transport.scriptConsumed());
     }
 }
 

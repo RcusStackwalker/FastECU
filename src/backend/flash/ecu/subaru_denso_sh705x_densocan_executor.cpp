@@ -1,8 +1,6 @@
 #include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_executor.h"
 
-#include <array>
 #include <format>
-#include <limits>
 #include <optional>
 #include <string>
 #include <utility>
@@ -11,7 +9,6 @@
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
-#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/flash_device_lookup.h"
@@ -43,13 +40,6 @@ constexpr int kFlashTimeoutMs = 3000;
 constexpr std::string_view kReflashRecoveryWarning =
     "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is most likely still running and "
     "receiving commands!";
-
-constexpr std::array<std::uint16_t, 4> kEncryptPayloadKeys{0x7856, 0xCE22, 0xF513, 0x6E86};
-constexpr std::array<std::uint16_t, 4> kDecryptPayloadKeys{0x6E86, 0xF513, 0xCE22, 0x7856};
-constexpr std::array<std::uint8_t, 32> kIndexTransformation{
-    0x05, 0x06, 0x07, 0x01, 0x09, 0x0C, 0x0D, 0x08, 0x0A, 0x0D, 0x02, 0x0B, 0x0F, 0x04, 0x00, 0x03,
-    0x0B, 0x04, 0x06, 0x00, 0x0F, 0x02, 0x0D, 0x09, 0x05, 0x0C, 0x01, 0x0A, 0x03, 0x0D, 0x0E, 0x08,
-};
 
 Status check_cancelled(const ICancellationToken& cancellation, std::string detail)
 {
@@ -473,25 +463,12 @@ Status upload_kernel(IMixedCanFlashTransport& transport, const KernelImage& kern
     return {};
 }
 
-bytes::Bytes decrypt_payload(bytes::ByteView wire)
-{
-    return SsmProtocol::calculatePayload(wire, static_cast<std::uint32_t>(wire.size()), kDecryptPayloadKeys,
-                                         kIndexTransformation);
-}
-
-bytes::Bytes encrypt_payload(bytes::ByteView plain)
-{
-    return SsmProtocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptPayloadKeys,
-                                         kIndexTransformation);
-}
-
 Result<bytes::Bytes> read_mem(IMixedCanFlashTransport& transport, const MemoryRegion& region, IClock& clock,
                               const ICancellationToken& cancellation, IEventSink& events, PhaseReporter& phase)
 {
-    // Legacy read_mem(), lines 512-657. The original appends raw payloads;
-    // its companion decrypt_payload() at 1415-1429 establishes that a
-    // portable ROM result is the decrypted page sequence. Every 0x400-byte
-    // response must now contain its entire page before it is indexed.
+    // Legacy read_mem(), lines 512-657, appends each BEEF page exactly as it
+    // arrived. Every 0x400-byte response must contain its entire raw page
+    // before it is indexed.
     bytes::Bytes rom;
     rom.reserve(region.length);
     events.log(LogLevel::Info, "Start reading ROM, please wait...");
@@ -521,12 +498,7 @@ Result<bytes::Bytes> read_mem(IMixedCanFlashTransport& transport, const MemoryRe
         {
             return std::unexpected(valid.error());
         }
-        const bytes::ByteView wire_page(**received);
-        const bytes::Bytes plain_page = decrypt_payload(wire_page.subspan(9, kReadPageSize));
-        if (plain_page.size() != kReadPageSize)
-        {
-            return fail(ErrorKind::BadResponse, "DensoCAN decrypted page has an invalid length");
-        }
+        const bytes::ByteView raw_page(**received);
         std::uint64_t elapsed_ms = clock.now_ms() - loop_started_ms;
         if (elapsed_ms == 0)
         {
@@ -540,7 +512,7 @@ Result<bytes::Bytes> read_mem(IMixedCanFlashTransport& transport, const MemoryRe
         const unsigned tleft = static_cast<unsigned>(((region.length - offset) / curspeed) % 9999U) + 1U;
         events.log(LogLevel::Info, std::format("Kernel read addr: 0x{:08X} length: 0x{:08X}, {:>6} B/s {:>6} s",
                                                address, kReadPageSize, curspeed, tleft));
-        rom.insert(rom.end(), plain_page.begin(), plain_page.end());
+        rom.insert(rom.end(), raw_page.begin() + 9, raw_page.begin() + 9 + kReadPageSize);
         const int done = static_cast<int>(offset + kReadPageSize);
         events.progress(done, static_cast<int>(region.length));
         phase.update(done);
@@ -678,7 +650,7 @@ Status query_programming_voltage(IMixedCanFlashTransport& transport, const ICanc
     return {};
 }
 
-Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView wire_image, const MemoryRegion& block,
+Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, const MemoryRegion& block,
                    bool test_write, IClock& clock, const ICancellationToken& cancellation, IEventSink& events,
                    PhaseReporter& phase, bool& destructive_erase_succeeded, std::uint32_t& flashbytesindex,
                    std::uint32_t flashbytescount)
@@ -686,10 +658,10 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView wire_imag
     // Legacy flash_block(), lines 1153-1395. Each physical block is blanked
     // only for a real write, transferred in 0x200 chunks, and committed (or
     // validated for test-write) in fixed 0x1000 windows.
-    if (block.start > wire_image.size() || block.length > wire_image.size() - block.start ||
+    if (block.start > image.size() || block.length > image.size() - block.start ||
         block.length % kWriteChunkSize != 0 || block.length % kCommitBlockSize != 0)
     {
-        return fail(ErrorKind::InvalidConfig, "flash block is not represented by the encrypted ROM image");
+        return fail(ErrorKind::InvalidConfig, "flash block is not represented by the raw ROM image");
     }
     if (!test_write)
     {
@@ -730,8 +702,7 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView wire_imag
             return cancelled;
         }
         const std::uint32_t address = block.start + offset;
-        const bytes::Bytes request =
-            iso_request(0x22, composeBe(address, wire_image.subspan(address, kWriteChunkSize)));
+        const bytes::Bytes request = iso_request(0x22, composeBe(address, image.subspan(address, kWriteChunkSize)));
         if (Status written = iso_write(transport, request, cancellation, "flash buffer transfer"); !written)
         {
             return written;
@@ -776,7 +747,7 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView wire_imag
         if ((offset + kWriteChunkSize) % kCommitBlockSize == 0)
         {
             const std::uint32_t commit_start = address + kWriteChunkSize - kCommitBlockSize;
-            const std::uint32_t crc = checksum::crc32(wire_image.subspan(commit_start, kCommitBlockSize));
+            const std::uint32_t crc = checksum::crc32(image.subspan(commit_start, kCommitBlockSize));
             const std::uint8_t command = test_write ? 0x23 : 0x24;
             events.log(LogLevel::Info, "Flash buffer write complete... ");
             events.log(LogLevel::Debug, std::format("Image CRC32: 0x{:x}", crc));
@@ -844,15 +815,7 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
     {
         return fail(ErrorKind::InvalidConfig, "DensoCAN flash geometry is unavailable");
     }
-    if (plan.image()->size() > std::numeric_limits<std::uint32_t>::max())
-    {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN ROM image is too large for payload encryption");
-    }
-    const bytes::Bytes wire_image = encrypt_payload(*plan.image());
-    if (wire_image.size() != plan.image()->size())
-    {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN ROM image is not aligned for payload encryption");
-    }
+    const bytes::ByteView image = *plan.image();
     const bool test_write = plan.operation() == FlashOperation::TestWrite;
     bool destructive_erase_succeeded = false;
     const auto propagate_after_erase = [&](const Error& error) -> Status
@@ -880,8 +843,7 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
             {
                 return std::unexpected(ecu_crc.error());
             }
-            const std::uint32_t image_crc =
-                checksum::crc32(bytes::ByteView(wire_image).subspan(block.start, block.length));
+            const std::uint32_t image_crc = checksum::crc32(image.subspan(block.start, block.length));
             modified[index] = *ecu_crc != image_crc;
             events.log(LogLevel::Debug, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc));
             events.log(LogLevel::Info, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));
@@ -944,8 +906,8 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
         {
             return propagate_after_erase(voltage.error());
         }
-        if (Status flashed = flash_block(transport, wire_image, block, test_write, clock, cancellation, events,
-                                         write_phase, destructive_erase_succeeded, flashbytesindex, flashbytescount);
+        if (Status flashed = flash_block(transport, image, block, test_write, clock, cancellation, events, write_phase,
+                                         destructive_erase_succeeded, flashbytesindex, flashbytescount);
             !flashed)
         {
             return propagate_after_erase(flashed.error());

@@ -42,6 +42,12 @@ constexpr std::uint32_t kRawReceiveId = 0x21;
 constexpr std::uint32_t kReadPageSize = 0x400;
 constexpr std::uint32_t kWriteChunkSize = 0x200;
 constexpr std::uint32_t kCommitBlockSize = 0x1000;
+constexpr std::array<bytes::Byte, 8> kRawReadFirstWireBytes{0xD3, 0x5A, 0xC7, 0x19, 0x2E, 0xF4, 0x80, 0x6B};
+constexpr std::array<bytes::Byte, 8> kRawReadLastWireBytes{0x9C, 0x31, 0xE7, 0x04, 0xB2, 0x6D, 0x58, 0xAF};
+constexpr std::array<bytes::Byte, 8> kCallerFirstCommitBytes{0x41, 0x9D, 0xE3, 0x27, 0xB8, 0x06, 0xCA, 0x5F};
+constexpr std::array<bytes::Byte, 8> kCallerSecondCommitBytes{0x72, 0x0C, 0xF1, 0x96, 0x3B, 0xD4, 0x58, 0xAE};
+constexpr std::array<bytes::Byte, 8> kExpectedFirstCommitWireBytes{0x41, 0x9D, 0xE3, 0x27, 0xB8, 0x06, 0xCA, 0x5F};
+constexpr std::array<bytes::Byte, 8> kExpectedSecondCommitWireBytes{0x72, 0x0C, 0xF1, 0x96, 0x3B, 0xD4, 0x58, 0xAE};
 
 class NeverCancelled final : public ICancellationToken
 {
@@ -295,6 +301,25 @@ void script_read_pages(ScriptedMixedCanFlashTransport& transport, std::uint32_t 
     }
 }
 
+void script_raw_read_pages_with_boundary_sentinels(ScriptedMixedCanFlashTransport& transport, std::uint32_t size)
+{
+    for (std::uint32_t address = 0; address < size; address += kReadPageSize)
+    {
+        transport.expectIsoWrite(iso_request(0x03, composeBe(0x00_b, u24(address), std::uint16_t{kReadPageSize})));
+        bytes::Bytes page(kReadPageSize, bytes::Byte{0});
+        if (address == 0)
+        {
+            std::copy(kRawReadFirstWireBytes.begin(), kRawReadFirstWireBytes.end(), page.begin());
+        }
+        if (address + kReadPageSize == size)
+        {
+            std::copy(kRawReadLastWireBytes.begin(), kRawReadLastWireBytes.end(),
+                      page.end() - kRawReadLastWireBytes.size());
+        }
+        transport.queueIsoRead(iso_response(0x43, page));
+    }
+}
+
 void script_live_read(ScriptedMixedCanFlashTransport& transport, const Case& test_case, bytes::Byte wire_fill = 0)
 {
     script_kernel_alive(transport);
@@ -335,16 +360,9 @@ void script_upload(ScriptedMixedCanFlashTransport& transport,
     }
 }
 
-bytes::Bytes fixed_encrypted_zero_bytes(std::size_t size)
+bytes::Bytes fixed_raw_zero_bytes(std::size_t size)
 {
-    constexpr std::array<bytes::Byte, 4> kEncryptedZeroWord{0xE8, 0x91, 0xF5, 0x06};
-    bytes::Bytes wire;
-    wire.reserve(size);
-    for (std::size_t offset = 0; offset < size; offset += kEncryptedZeroWord.size())
-    {
-        wire.insert(wire.end(), kEncryptedZeroWord.begin(), kEncryptedZeroWord.end());
-    }
-    return wire;
+    return bytes::Bytes(size, bytes::Byte{0});
 }
 
 void script_crc(ScriptedMixedCanFlashTransport& transport, const MemoryRegion& block, std::uint32_t crc)
@@ -355,18 +373,18 @@ void script_crc(ScriptedMixedCanFlashTransport& transport, const MemoryRegion& b
     transport.queueNoIsoFrame();
 }
 
-std::uint32_t fixed_encrypted_zero_crc(const MemoryRegion& block, bool mismatch)
+std::uint32_t fixed_raw_zero_crc(const MemoryRegion& block, bool mismatch)
 {
     switch (block.length)
     {
     case 0x00001000:
-        return mismatch ? 0x9CC3CBD5U : 0x9CC3CBD4U;
+        return mismatch ? 0xF722EF48U : 0xF722EF49U;
     case 0x00008000:
-        return mismatch ? 0xBEDCD1E6U : 0xBEDCD1E7U;
+        return mismatch ? 0xE5FD2EA3U : 0xE5FD2EA2U;
     case 0x00010000:
-        return mismatch ? 0xB3FB13C5U : 0xB3FB13C4U;
+        return mismatch ? 0xDFEA015CU : 0xDFEA015DU;
     default:
-        ADD_FAILURE() << "missing hand-derived DensoCAN CRC fixture for block length " << block.length;
+        ADD_FAILURE() << "missing hand-derived raw DensoCAN CRC fixture for block length " << block.length;
         return 0;
     }
 }
@@ -376,7 +394,7 @@ void script_compare(ScriptedMixedCanFlashTransport& transport, const flashdev_t&
     for (unsigned index = 0; index < device.numblocks; ++index)
     {
         const MemoryRegion block{device.fblocks[index].start, device.fblocks[index].len};
-        script_crc(transport, block, fixed_encrypted_zero_crc(block, first_block_mismatches && index == 0));
+        script_crc(transport, block, fixed_raw_zero_crc(block, first_block_mismatches && index == 0));
     }
 }
 
@@ -387,8 +405,61 @@ void script_compare_with_modified_blocks(ScriptedMixedCanFlashTransport& transpo
     {
         const MemoryRegion block{device.fblocks[index].start, device.fblocks[index].len};
         const bool differs = std::find(modified_blocks.begin(), modified_blocks.end(), index) != modified_blocks.end();
-        script_crc(transport, block, fixed_encrypted_zero_crc(block, differs));
+        script_crc(transport, block, fixed_raw_zero_crc(block, differs));
     }
+}
+
+void script_raw_image_compare(ScriptedMixedCanFlashTransport& transport, const flashdev_t& device,
+                              bool first_block_matches)
+{
+    for (unsigned index = 0; index < device.numblocks; ++index)
+    {
+        const MemoryRegion block{device.fblocks[index].start, device.fblocks[index].len};
+        const std::uint32_t crc =
+            index == 0 ? (first_block_matches ? 0xFF6A783EU : 0xFF6A783FU) : fixed_raw_zero_crc(block, false);
+        script_crc(transport, block, crc);
+    }
+}
+
+bytes::Bytes caller_raw_densocan_image(const Case& test_case)
+{
+    bytes::Bytes image(test_case.rom_size, bytes::Byte{0});
+    std::copy(kCallerFirstCommitBytes.begin(), kCallerFirstCommitBytes.end(), image.begin());
+    std::copy(kCallerSecondCommitBytes.begin(), kCallerSecondCommitBytes.end(), image.begin() + kWriteChunkSize);
+    return image;
+}
+
+bytes::Bytes expected_raw_commit_chunk(std::uint32_t offset)
+{
+    bytes::Bytes chunk(kWriteChunkSize, bytes::Byte{0});
+    if (offset == 0)
+    {
+        std::copy(kExpectedFirstCommitWireBytes.begin(), kExpectedFirstCommitWireBytes.end(), chunk.begin());
+    }
+    if (offset == kWriteChunkSize)
+    {
+        std::copy(kExpectedSecondCommitWireBytes.begin(), kExpectedSecondCommitWireBytes.end(), chunk.begin());
+    }
+    return chunk;
+}
+
+void script_raw_first_flash_block(ScriptedMixedCanFlashTransport& transport, bool test_write)
+{
+    transport.expectIsoWrite(iso_request(0x04));
+    transport.queueIsoRead(iso_response(0x44, bytes::Bytes{0x00, 0x64}));
+    if (!test_write)
+    {
+        transport.expectIsoWrite(iso_request(0x25, composeBe(std::uint32_t{0})));
+        transport.queueIsoRead(iso_response(0x65));
+    }
+    for (std::uint32_t offset = 0; offset < kCommitBlockSize; offset += kWriteChunkSize)
+    {
+        transport.expectIsoWrite(iso_request(0x22, composeBe(offset, expected_raw_commit_chunk(offset))));
+        transport.queueIsoRead(iso_response(0x62));
+    }
+    transport.expectIsoWrite(iso_request(test_write ? 0x23 : 0x24,
+                                         composeBe(std::uint32_t{0}, std::uint16_t{kCommitBlockSize}, 0xFF6A783EU)));
+    transport.queueIsoRead(iso_response(test_write ? 0x63 : 0x64));
 }
 
 void script_flash_init(ScriptedMixedCanFlashTransport& transport, bool test_write)
@@ -414,14 +485,14 @@ void script_first_flash_block(ScriptedMixedCanFlashTransport& transport, bool te
         transport.queueIsoRead(iso_response(0x65));
     }
 
-    const bytes::Bytes encrypted_chunk = fixed_encrypted_zero_bytes(kWriteChunkSize);
+    const bytes::Bytes raw_chunk = fixed_raw_zero_bytes(kWriteChunkSize);
     for (std::uint32_t offset = 0; offset < kCommitBlockSize; offset += kWriteChunkSize)
     {
-        transport.expectIsoWrite(iso_request(0x22, composeBe(offset, encrypted_chunk)));
+        transport.expectIsoWrite(iso_request(0x22, composeBe(offset, raw_chunk)));
         transport.queueIsoRead(iso_response(0x62));
     }
     transport.expectIsoWrite(
-        iso_request(test_write ? 0x23 : 0x24, composeBe(start, std::uint16_t{kCommitBlockSize}, 0x9CC3CBD4U)));
+        iso_request(test_write ? 0x23 : 0x24, composeBe(start, std::uint16_t{kCommitBlockSize}, 0xF722EF49U)));
     transport.queueIsoRead(iso_response(test_write ? 0x63 : 0x64));
 }
 
@@ -434,7 +505,7 @@ void script_large_nonzero_write_block(ScriptedMixedCanFlashTransport& transport)
     };
     // Fixed, hand-derived windows for SH7055 fblocks[8] (0x8000/0x8000).
     // The literal commit starts prove eight independent 0x1000 windows;
-    // this fixture deliberately contains no payload encryption or CRC logic.
+    // this fixture deliberately contains no payload transform or CRC logic.
     constexpr std::array<FlashBufferExpectation, 64> kBuffers{{
         {0x00008000, false}, {0x00008200, false}, {0x00008400, false}, {0x00008600, false}, {0x00008800, false},
         {0x00008A00, false}, {0x00008C00, false}, {0x00008E00, true},  {0x00009000, false}, {0x00009200, false},
@@ -457,16 +528,16 @@ void script_large_nonzero_write_block(ScriptedMixedCanFlashTransport& transport)
     transport.queueIsoRead(iso_response(0x44, bytes::Bytes{0x00, 0x64}));
     transport.expectIsoWrite(iso_request(0x25, composeBe(std::uint32_t{0x00008000})));
     transport.queueIsoRead(iso_response(0x65));
-    const bytes::Bytes encrypted_chunk = fixed_encrypted_zero_bytes(kWriteChunkSize);
+    const bytes::Bytes raw_chunk = fixed_raw_zero_bytes(kWriteChunkSize);
     std::size_t commit_index = 0;
     for (const FlashBufferExpectation& buffer : kBuffers)
     {
-        transport.expectIsoWrite(iso_request(0x22, composeBe(buffer.address, encrypted_chunk)));
+        transport.expectIsoWrite(iso_request(0x22, composeBe(buffer.address, raw_chunk)));
         transport.queueIsoRead(iso_response(0x62));
         if (buffer.commit_after)
         {
             transport.expectIsoWrite(iso_request(
-                0x24, composeBe(kCommitStarts[commit_index], std::uint16_t{kCommitBlockSize}, 0x9CC3CBD4U)));
+                0x24, composeBe(kCommitStarts[commit_index], std::uint16_t{kCommitBlockSize}, 0xF722EF49U)));
             transport.queueIsoRead(iso_response(0x64));
             ++commit_index;
         }
@@ -600,8 +671,8 @@ void append_legacy_compare_logs(std::vector<LogRecord>& logs, const flashdev_t& 
     {
         const MemoryRegion block{device.fblocks[index].start, device.fblocks[index].len};
         const bool differs = first_block_mismatches && index == 0;
-        const std::uint32_t image_crc = fixed_encrypted_zero_crc(block, false);
-        const std::uint32_t ecu_crc = fixed_encrypted_zero_crc(block, differs);
+        const std::uint32_t image_crc = fixed_raw_zero_crc(block, false);
+        const std::uint32_t ecu_crc = fixed_raw_zero_crc(block, differs);
         logs.emplace_back(LogLevel::Info, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
         logs.emplace_back(LogLevel::Debug, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", ecu_crc, image_crc));
         logs.emplace_back(LogLevel::Info, std::format("\t{:08X}\t{:08X}", ecu_crc, image_crc));
@@ -651,10 +722,10 @@ std::vector<LogRecord> expected_legacy_write_logs(const flashdev_t& device, Flas
                                                       kBufferAddresses[index], kPercents[index]));
     }
     logs.emplace_back(LogLevel::Info, "Flash buffer write complete... ");
-    logs.emplace_back(LogLevel::Debug, "Image CRC32: 0x9cc3cbd4");
+    logs.emplace_back(LogLevel::Debug, "Image CRC32: 0xf722ef49");
     logs.emplace_back(LogLevel::Info, test_write ? "Validate flash addr: 0x0" : "Committ flash addr: 0x0");
     logs.emplace_back(LogLevel::Info, " len: 0x1000");
-    logs.emplace_back(LogLevel::Info, " crc32: 0x9cc3cbd4");
+    logs.emplace_back(LogLevel::Info, " crc32: 0xf722ef49");
     logs.emplace_back(LogLevel::Info, "Flash block ok");
     logs.emplace_back(LogLevel::Info, "Block 0 reflash complete.");
     append_legacy_compare_logs(logs, device, false, true);
@@ -760,7 +831,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, TransportSetupUsesExactMixedCanConfigura
     }
 }
 
-TEST(SubaruDensoSh705xDensoCanExecutor, AlreadyRunningKernelReadsEveryPageAndDecryptsTheRom)
+TEST(SubaruDensoSh705xDensoCanExecutor, AlreadyRunningKernelReadsEveryPageAndReturnsTheRawRom)
 {
     const Case& test_case = kCases.front();
     auto plan = read_plan(test_case);
@@ -778,11 +849,8 @@ TEST(SubaruDensoSh705xDensoCanExecutor, AlreadyRunningKernelReadsEveryPageAndDec
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), test_case.rom_size);
-    // Hand-derived from the legacy encrypt/decrypt table at lines 1400-1429:
-    // decrypting a 0x00000000 wire word with {6e86,f513,ce22,7856} yields
-    // 0xeb14e86d. This is deliberately a literal rather than the executor's
-    // helper, so the page-read trace independently locks its crypto direction.
-    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(4), ElementsAre(0xEB, 0x14, 0xE8, 0x6D));
+    // revision-59f4e442 read_mem() appends the BEEF page payload untouched.
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(4), ElementsAre(0x00, 0x00, 0x00, 0x00));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel}));
     EXPECT_EQ(events.logs, expected_legacy_read_logs(test_case.rom_size));
@@ -792,6 +860,60 @@ TEST(SubaruDensoSh705xDensoCanExecutor, AlreadyRunningKernelReadsEveryPageAndDec
     EXPECT_EQ(events.phase_progress_calls.front().phase_count, 2);
     EXPECT_EQ(events.phase_progress_calls.back().phase_name, "Read");
     EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(test_case.rom_size));
+}
+
+TEST(SubaruDensoSh705xDensoCanExecutor, ReadKeepsRawBeefBoundaryPageBytesForRepresentativeGeometry)
+{
+    const Case& test_case = kCases.front();
+    auto plan = read_plan(test_case);
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    SubaruDensoSh705xDensoCanExecutor executor;
+    ScriptedMixedCanFlashTransport transport;
+    configure_and_open(executor, *plan, transport);
+    script_kernel_alive(transport);
+    script_raw_read_pages_with_boundary_sentinels(transport, test_case.rom_size);
+    NeverCancelled cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_TRUE(result->read_bytes.has_value());
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(8),
+                ElementsAre(0xD3, 0x5A, 0xC7, 0x19, 0x2E, 0xF4, 0x80, 0x6B));
+    EXPECT_THAT(bytes::ByteView(*result->read_bytes).last(8),
+                ElementsAre(0x9C, 0x31, 0xE7, 0x04, 0xB2, 0x6D, 0x58, 0xAF));
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(SubaruDensoSh705xDensoCanExecutor, WriteAndTestWriteUseCallerRawImageBytesAndCommitCrc)
+{
+    const Case& test_case = kCases.front();
+    const flashdev_t *device = find_flash_device(test_case.mcu);
+    ASSERT_NE(device, nullptr);
+    for (const FlashOperation operation : {FlashOperation::Write, FlashOperation::TestWrite})
+    {
+        SCOPED_TRACE(operation == FlashOperation::Write ? "Write" : "TestWrite");
+        auto plan = write_plan(test_case, operation, caller_raw_densocan_image(test_case));
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        SubaruDensoSh705xDensoCanExecutor executor;
+        ScriptedMixedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        script_kernel_alive(transport);
+        script_raw_image_compare(transport, *device, false);
+        script_flash_init(transport, operation == FlashOperation::TestWrite);
+        script_raw_first_flash_block(transport, operation == FlashOperation::TestWrite);
+        script_raw_image_compare(transport, *device, true);
+        NeverCancelled cancellation;
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_TRUE(result.has_value()) << result.error().detail;
+        EXPECT_TRUE(transport.scriptConsumed());
+    }
 }
 
 TEST(SubaruDensoSh705xDensoCanExecutor, ProbeTimeoutTransitionsThroughRawUploadAndBackBeforeReading)
@@ -1283,7 +1405,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortRawAndFlashAcknowledgementsAreRejec
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         const flashdev_t *device = find_flash_device(test_case.mcu);
         ASSERT_NE(device, nullptr);
-        const bytes::Bytes encrypted_chunk = fixed_encrypted_zero_bytes(kWriteChunkSize);
+        const bytes::Bytes raw_chunk = fixed_raw_zero_bytes(kWriteChunkSize);
         SubaruDensoSh705xDensoCanExecutor executor;
         ScriptedMixedCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
@@ -1294,7 +1416,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortRawAndFlashAcknowledgementsAreRejec
         transport.queueIsoRead(iso_response(0x44, bytes::Bytes{0x00, 0x64}));
         transport.expectIsoWrite(iso_request(0x25, composeBe(std::uint32_t{0})));
         transport.queueIsoRead(iso_response(0x65));
-        transport.expectIsoWrite(iso_request(0x22, composeBe(std::uint32_t{0}, encrypted_chunk)));
+        transport.expectIsoWrite(iso_request(0x22, composeBe(std::uint32_t{0}, raw_chunk)));
         transport.queueIsoRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x01});
 
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1312,7 +1434,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, PostEraseProtocolFailureEmitsTheLegacyRe
     ASSERT_NE(device, nullptr);
     auto plan = write_plan(test_case);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    const bytes::Bytes encrypted_chunk = fixed_encrypted_zero_bytes(kWriteChunkSize);
+    const bytes::Bytes raw_chunk = fixed_raw_zero_bytes(kWriteChunkSize);
     SubaruDensoSh705xDensoCanExecutor executor;
     ScriptedMixedCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
@@ -1323,7 +1445,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, PostEraseProtocolFailureEmitsTheLegacyRe
     transport.queueIsoRead(iso_response(0x44, bytes::Bytes{0x00, 0x64}));
     transport.expectIsoWrite(iso_request(0x25, composeBe(std::uint32_t{0})));
     transport.queueIsoRead(iso_response(0x65));
-    transport.expectIsoWrite(iso_request(0x22, composeBe(std::uint32_t{0}, encrypted_chunk)));
+    transport.expectIsoWrite(iso_request(0x22, composeBe(std::uint32_t{0}, raw_chunk)));
     transport.queueIsoRead(iso_response(0x7F));
     NeverCancelled cancellation;
     FakeClock clock;
@@ -1347,7 +1469,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationAfterEraseEmitsTheLegacyReco
     ASSERT_NE(device, nullptr);
     auto plan = write_plan(test_case);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    const bytes::Bytes encrypted_chunk = fixed_encrypted_zero_bytes(kWriteChunkSize);
+    const bytes::Bytes raw_chunk = fixed_raw_zero_bytes(kWriteChunkSize);
     SubaruDensoSh705xDensoCanExecutor executor;
     ScriptedMixedCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
@@ -1358,7 +1480,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationAfterEraseEmitsTheLegacyReco
     transport.queueIsoRead(iso_response(0x44, bytes::Bytes{0x00, 0x64}));
     transport.expectIsoWrite(iso_request(0x25, composeBe(std::uint32_t{0})));
     transport.queueIsoRead(iso_response(0x65));
-    transport.expectIsoWrite(iso_request(0x22, composeBe(std::uint32_t{0}, encrypted_chunk)));
+    transport.expectIsoWrite(iso_request(0x22, composeBe(std::uint32_t{0}, raw_chunk)));
     transport.queueIsoRead(iso_response(0x62));
     ToggleCancellation cancellation;
     FakeClock clock;
@@ -1477,7 +1599,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ReadAndWriteCancellationStopBeforeASecon
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         const flashdev_t *device = find_flash_device(test_case.mcu);
         ASSERT_NE(device, nullptr);
-        const bytes::Bytes encrypted_chunk = fixed_encrypted_zero_bytes(kWriteChunkSize);
+        const bytes::Bytes raw_chunk = fixed_raw_zero_bytes(kWriteChunkSize);
         SubaruDensoSh705xDensoCanExecutor executor;
         ScriptedMixedCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
@@ -1488,7 +1610,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ReadAndWriteCancellationStopBeforeASecon
         transport.queueIsoRead(iso_response(0x44, bytes::Bytes{0x00, 0x64}));
         transport.expectIsoWrite(iso_request(0x25, composeBe(std::uint32_t{0})));
         transport.queueIsoRead(iso_response(0x65));
-        transport.expectIsoWrite(iso_request(0x22, composeBe(std::uint32_t{0}, encrypted_chunk)));
+        transport.expectIsoWrite(iso_request(0x22, composeBe(std::uint32_t{0}, raw_chunk)));
         transport.queueIsoRead(iso_response(0x62));
         ToggleCancellation cancellation;
         FakeClock clock;

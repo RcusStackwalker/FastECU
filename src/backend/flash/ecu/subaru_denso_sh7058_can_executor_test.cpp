@@ -499,7 +499,6 @@ void script_129_byte_kernel_upload(ScriptedCanFlashTransport& transport,
 
 void script_zero_read_pages(ScriptedCanFlashTransport& transport)
 {
-    const bytes::Bytes encrypted_zero_word{0xE7, 0xE2, 0x14, 0x30};
     for (std::uint32_t address = 0; address < kRomSize; address += kReadPageSize)
     {
         bytes::Bytes payload{0x00,
@@ -509,11 +508,31 @@ void script_zero_read_pages(ScriptedCanFlashTransport& transport)
                              0x04,
                              0x00};
         transport.expectWrite(beef_request(0x03, payload));
-        bytes::Bytes page;
-        page.reserve(kReadPageSize);
-        for (int word = 0; word < static_cast<int>(kReadPageSize / 4); ++word)
+        transport.queueRead(beef_response(0x43, bytes::Bytes(kReadPageSize, bytes::Byte{0})));
+    }
+}
+
+void script_raw_read_pages_with_boundary_sentinels(ScriptedCanFlashTransport& transport)
+{
+    constexpr std::array<bytes::Byte, 8> kFirstWireBytes{0xD3, 0x5A, 0xC7, 0x19, 0x2E, 0xF4, 0x80, 0x6B};
+    constexpr std::array<bytes::Byte, 8> kLastWireBytes{0x9C, 0x31, 0xE7, 0x04, 0xB2, 0x6D, 0x58, 0xAF};
+    for (std::uint32_t address = 0; address < kRomSize; address += kReadPageSize)
+    {
+        const bytes::Bytes payload{0x00,
+                                   static_cast<bytes::Byte>(address >> 16U),
+                                   static_cast<bytes::Byte>(address >> 8U),
+                                   static_cast<bytes::Byte>(address),
+                                   0x04,
+                                   0x00};
+        transport.expectWrite(beef_request(0x03, payload));
+        bytes::Bytes page(kReadPageSize, bytes::Byte{0});
+        if (address == 0)
         {
-            page.insert(page.end(), encrypted_zero_word.begin(), encrypted_zero_word.end());
+            std::copy(kFirstWireBytes.begin(), kFirstWireBytes.end(), page.begin());
+        }
+        if (address + kReadPageSize == kRomSize)
+        {
+            std::copy(kLastWireBytes.begin(), kLastWireBytes.end(), page.end() - kLastWireBytes.size());
         }
         transport.queueRead(beef_response(0x43, page));
     }
@@ -709,6 +728,34 @@ TEST(SubaruDensoSh7058CanExecutor, AlreadyRunningKernelReadsFirstAndLastBoundary
     EXPECT_EQ(events.phase_progress_calls[2].done, 0);
     EXPECT_EQ(events.phase_progress_calls.back().phase_name, "Read");
     EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(kRomSize));
+}
+
+TEST(SubaruDensoSh7058CanExecutor, ReadKeepsRawBeefBoundaryPayloadsForEveryPetrolVariant)
+{
+    SubaruDensoSh7058CanExecutor executor;
+    NeverCancelled cancellation;
+    for (const Variant& variant : kVariants)
+    {
+        SCOPED_TRACE(variant.protocol);
+        auto plan = plan_for(variant, FlashOperation::Read);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ScriptedCanFlashTransport transport;
+        configure_and_open(executor, *plan, transport);
+        script_kernel_alive(transport);
+        script_raw_read_pages_with_boundary_sentinels(transport);
+        FakeClock clock;
+        RecordingEventSink events;
+
+        auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+        ASSERT_TRUE(result.has_value()) << result.error().detail;
+        ASSERT_TRUE(result->read_bytes.has_value());
+        EXPECT_THAT(bytes::ByteView(*result->read_bytes).first(8),
+                    ElementsAre(0xD3, 0x5A, 0xC7, 0x19, 0x2E, 0xF4, 0x80, 0x6B));
+        EXPECT_THAT(bytes::ByteView(*result->read_bytes).last(8),
+                    ElementsAre(0x9C, 0x31, 0xE7, 0x04, 0xB2, 0x6D, 0x58, 0xAF));
+        EXPECT_TRUE(transport.scriptConsumed());
+    }
 }
 
 TEST(SubaruDensoSh7058CanExecutor, ProbeTimeoutUploadsLiteral129ByteKernelThenReadsAndRendersRomId)

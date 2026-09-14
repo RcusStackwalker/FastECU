@@ -54,7 +54,7 @@ Near misses such as `sub_ecu_denso_sh7058_can_future`, `sub_tcu_denso_sh7058_can
 - DensoCAN order when upload is required: ISO kernel probe → raw transition → exactly 1,000 wake frames with a cancellation check before each frame → receive-buffer clear → bootloader handshake/upload → ISO transition → kernel-ID verification → ROM operation.
 - DensoCAN raw frames carry one explicit arbitration ID plus an eight-byte payload. The desktop adapter alone converts that value to/from `SerialPortActions`' four-byte big-endian ID prefix.
 - Kernel uploads and ROM transfers preserve the legacy chunk sizes: DensoCAN bootloader upload uses six-byte blocks; ISO-only kernel upload uses 128-byte blocks; kernel ROM reads use `0x400`-byte pages; flash programming uses the legacy-reported message/block sizes with `0x1000` as the established block fallback.
-- The common SSM index transformation is `{05,06,07,01,09,0C,0D,08,0A,0D,02,0B,0F,04,00,03,0B,04,06,00,0F,02,0D,09,05,0C,01,0A,03,0D,0E,08}`. DensoCAN payload keys are encrypt `{7856,CE22,F513,6E86}` and decrypt `{6E86,F513,CE22,7856}`. ISO-only payload keys remain `{C85B,32C0,E282,92A0}` and reverse for decrypt.
+- The common SSM index transformation is `{05,06,07,01,09,0C,0D,08,0A,0D,02,0B,0F,04,00,03,0B,04,06,00,0F,02,0D,09,05,0C,01,0A,03,0D,0E,08}`. The three ISO-only Wave 5 families share the standard seed/index/encrypt data for stock security and kernel upload; their normal-ROM BEEF pages remain raw. The reverse decrypt table remains an existing Wave 4 normal-ROM artifact and is not consumed by Wave 5 ROM reads. DensoCAN has no normal-ROM payload crypto table.
 - Petrol security is a plan enum, not suffix logic inside the executor: `Stock`, `EcuTek`, `RaceRom`, `RaceRomAlt`, `Cobb`. Pin the stock, EcuTek, RaceRom RSA (`d=0x0A863281`, `n=0x0FDA9293`), RaceRom-alt alteration, and Cobb results with fixed seed vectors.
 - Geometry comes from `flashdevices[]` and is cross-checked by every builder: `SH7055=0x80000`, `SH7058/SH7058d=0x100000`, `SH7059d=0x180000`, each with the exact 16 blocks in `kernelmemorymodels.h:124-168,209-214`.
 - The DensoCAN workflow presents standard `Begin` plus the plan's one up-front `CycleIgnition` confirmation. The other three family plans declare no extra confirmation and rely on standard `Begin`. Cancelling any preflight performs no transport I/O.
@@ -437,7 +437,7 @@ Cover these separate traces:
 
 ```text
 already-running/read:
-  ISO BEEF kernel-id request -> valid kernel-id -> page reads -> decrypted ROM
+  ISO BEEF kernel-id request -> valid kernel-id -> page reads -> raw ROM payloads
 
 upload/read:
   ISO BEEF probe timeout -> enter raw -> 1000 x [id=0x000FFFFE,payload=FF 86 00 00 00 00 00 00]
@@ -484,7 +484,7 @@ Result<FlashExecutionResult> SubaruDensoSh705xDensoCanExecutor::execute(
 }
 ```
 
-Spell out helpers corresponding one-for-one to legacy `connect_bootloader` (106-222), `upload_kernel` (227-507), `read_mem` (512-657), `write_mem` (662-778), CRC/init/reflash/flash (783-1395), payload crypto (1400-1429), and kernel ID (1435-1484). Do not pass `BEEF` traffic to `UdsClient`.
+Spell out helpers corresponding one-for-one to legacy `connect_bootloader` (106-222), `upload_kernel` (227-507), `read_mem` (512-657), `write_mem` (662-778), CRC/init/reflash/flash (783-1395), and kernel ID (1435-1484). The legacy payload-crypto helpers at 1400-1429 have no normal-ROM call site: BEEF reads, caller-image writes, and CRC slices stay raw. Do not pass `BEEF` traffic to `UdsClient`.
 
 - [ ] **Step 5: Run the portable DensoCAN tests**
 
@@ -1104,8 +1104,8 @@ git commit -m "feat(flash): port Denso SH705x CAN diesel family"
 - Modify: `docs/flash-qualification-matrix.md`
 
 **Interfaces:**
-- Consumes: all four passing portable implementations, their characterization tests, and the existing `kDensoIso15765SeedKeyTable`, `kDensoIso15765EncryptTable`, `kDensoIso15765DecryptTable`, and `kDensoIso15765IndexTransformation` constants.
-- Produces: shared use of the applicable already-tested constants by the three ISO-only Wave 5 executors — all four for TCU/petrol, and seed/index/encrypt only for diesel because its BEEF reads remain raw; documented preservation of all other family-specific code; Wave 5 completion documentation.
+- Consumes: all four passing portable implementations, their characterization tests, and the existing `kDensoIso15765SeedKeyTable`, `kDensoIso15765EncryptTable`, `kDensoIso15765IndexTransformation`, and (unchanged for its Wave-4 consumers) `kDensoIso15765DecryptTable` constants.
+- Produces: shared seed/index/encrypt use by the three ISO-only Wave 5 executors for stock security and kernel upload; raw normal-ROM BEEF handling in all three; documented preservation of all other family-specific code; Wave 5 completion documentation.
 
 - [ ] **Step 1: Compare only tested portable code**
 
@@ -1136,7 +1136,7 @@ Expected: PASS; save the output as the behavior-preserving refactor baseline.
 
 - [ ] **Step 3: Reuse only the applicable proven ISO-15765 constants**
 
-Replace the three ISO-only executors' private stock seed and applicable payload tables with the existing `denso_iso15765_can_common.h` constants. TCU and petrol use all four; diesel uses the stock seed table, standard index transformation, and encrypt table only because revision `59f4e442` appends its BEEF read payloads raw. Keep petrol EcuTek/RaceRom/Cobb tables local, and leave DensoCAN on its distinct `{7856,CE22,F513,6E86}` payload table. Update the common header's scope comment to name the three Wave 5 consumers. Record that mode switching, kernel exchange helpers, retry/tolerance policy, geometry, address indexing, startup ordering, and logs were compared and deliberately remain family-local.
+Replace the three ISO-only executors' private stock seed and applicable kernel-upload payload tables with the existing `denso_iso15765_can_common.h` constants. TCU, petrol, and diesel use the stock seed table, standard index transformation, and encrypt table; none uses the decrypt table for normal-ROM BEEF reads, which revision `59f4e442` appends raw. Keep petrol EcuTek/RaceRom/Cobb tables local. DensoCAN is outside this ISO-only data factoring and has no normal-ROM payload table. Update the common header's scope comment to name the three Wave 5 consumers and preserve the common decrypt table for Wave 4. Record that mode switching, kernel exchange helpers, retry/tolerance policy, geometry, address indexing, startup ordering, and logs were compared and deliberately remain family-local.
 
 ```cpp
 bytes::Bytes stock_seed_key(bytes::ByteView seed)

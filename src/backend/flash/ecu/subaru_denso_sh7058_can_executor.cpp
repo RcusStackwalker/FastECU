@@ -145,12 +145,6 @@ bytes::Bytes encrypt_payload(bytes::ByteView payload)
                                          kDensoIso15765EncryptTable, SsmProtocol::kIndexTransformationStock);
 }
 
-bytes::Bytes decrypt_payload(bytes::ByteView payload)
-{
-    return SsmProtocol::calculatePayload(payload, static_cast<std::uint32_t>(payload.size()),
-                                         kDensoIso15765DecryptTable, SsmProtocol::kIndexTransformationStock);
-}
-
 struct BeefMessage
 {
     bytes::Byte opcode;
@@ -859,8 +853,7 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
 Result<bytes::Bytes> read_memory(Context& context, const FlashPlan& plan, PhaseReporter& progress)
 {
     // read_mem(), revision 59f4e442:875-1019. Reads remain fixed at 0x400
-    // bytes and proprietary BEEF replies are decrypted with the reverse SSM
-    // payload table.
+    // bytes and append each proprietary BEEF page payload unchanged.
     const MemoryRegion region = plan.transfer_region();
     bytes::Bytes rom;
     rom.reserve(region.length);
@@ -879,7 +872,8 @@ Result<bytes::Bytes> read_memory(Context& context, const FlashPlan& plan, PhaseR
         {
             return std::unexpected(reply.error());
         }
-        bytes::Bytes page = decrypt_payload(bytes::ByteView(*reply).first(kKernelPageSize));
+        const bytes::ByteView raw_page = bytes::ByteView(*reply).first(kKernelPageSize);
+        bytes::Bytes page(raw_page.begin(), raw_page.end());
         if (page.size() > region.length - offset)
         {
             page.resize(region.length - offset);

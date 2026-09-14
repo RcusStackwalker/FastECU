@@ -435,6 +435,12 @@ Port-then-factor remains mandatory. Candidate common code includes custom
 kernel envelope construction/validation, crypto tables, and small transfer
 helpers, but this list is investigative, not a commitment.
 
+The shared Wave 5 seed/index/encrypt data applies to stock security and padded
+kernel uploads, not normal-ROM transformation. Every Wave 5 normal-ROM BEEF
+read returns its payload bytes raw; DensoCAN also compares, buffers, validates,
+and CRCs the caller's raw image. The shared decrypt table remains for its Wave
+4 normal-ROM consumers and is not a Wave 5 read-path candidate.
+
 The final pass may extract code only when the tested portable implementations
 show an identical contract. It must not merge:
 
