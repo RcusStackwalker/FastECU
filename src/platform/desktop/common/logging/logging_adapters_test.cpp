@@ -110,8 +110,8 @@ TEST(DesktopLoggingValueAdapterTest, MissingStableIdDoesNotUpdateAnotherRow)
         .unit = "rpm",
     };
 
-    const auto status = desktop_logging::apply_log_sample(*snapshot, sample, values);
-    ASSERT_THAT(status, fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
+    ASSERT_THAT(desktop_logging::apply_log_sample(*snapshot, sample, values),
+                fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
     EXPECT_EQ(values.log_value.at(0), QStringLiteral("unchanged- coolant"));
     EXPECT_EQ(values.log_value.at(1), QStringLiteral("unchanged- rpm"));
 }
@@ -194,9 +194,8 @@ TEST(DesktopLoggingValueAdapterTest, DisabledSsmSampleRejectsMutatedSnapshotRow)
     values.log_value_id.replace(0, QStringLiteral("reordered-other-row"));
     const portable_logging::LogSample sample{
         .channel_id = "ssm-disabled", .numeric_value = 1.0, .raw_value = "1", .unit = "rpm"};
-    const auto status = desktop_logging::apply_log_sample(*snapshot, sample, values);
-
-    ASSERT_THAT(status, fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
+    ASSERT_THAT(desktop_logging::apply_log_sample(*snapshot, sample, values),
+                fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
     EXPECT_EQ(values.log_value.at(0), QStringLiteral("unchanged- ssm-disabled"));
     EXPECT_EQ(values.log_value.at(1), QStringLiteral("unchanged- ssm-enabled"));
 }
@@ -206,10 +205,9 @@ TEST(DesktopLoggingSnapshotAdapterTest, RejectsDuplicateStableIds)
     FileActions::LogValuesStructure values = reordered_log_values();
     append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
 
-    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
-        values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("SSM"), valid_policy());
-
-    ASSERT_THAT(snapshot, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
+                                                               QStringLiteral("SSM"), valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(DesktopLoggingSnapshotAdapterTest, AllowsSameOpaqueIdInDifferentProtocols)
@@ -234,10 +232,9 @@ TEST(DesktopLoggingSnapshotAdapterTest, RejectsDuplicateOpaqueIdWithinSelectedPr
     append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
     values.lower_panel_log_value_id = {QStringLiteral("rpm")};
 
-    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
-        values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("SSM"), valid_policy());
-
-    ASSERT_THAT(snapshot, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
+                                                               QStringLiteral("SSM"), valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 namespace

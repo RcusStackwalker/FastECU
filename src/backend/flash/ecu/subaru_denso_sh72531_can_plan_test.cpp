@@ -38,8 +38,8 @@ TEST(SubaruDensoSh72531CanPlan, ReadPlanCarriesMainFlashBlock)
 
 TEST(SubaruDensoSh72531CanPlan, TestWriteIsRejectedBeforeAnyIo)
 {
-    auto plan = build_subaru_denso_sh72531_can_plan(FlashOperation::TestWrite, kProtocol, kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(build_subaru_denso_sh72531_can_plan(FlashOperation::TestWrite, kProtocol, kMcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 
 TEST(SubaruDensoSh72531CanPlan, WriteRequiresFullStartAlignedImage)
@@ -61,8 +61,8 @@ TEST(SubaruDensoSh72531CanPlan, WriteRequiresFullStartAlignedImage)
 
 TEST(SubaruDensoSh72531CanPlan, WriteWithNoImageIsRejected)
 {
-    auto plan = build_subaru_denso_sh72531_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_subaru_denso_sh72531_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoSh72531CanPlan, WrongProtocolAndWrongMcuAreRejected)

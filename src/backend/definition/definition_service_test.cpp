@@ -279,9 +279,7 @@ TEST_F(DefinitionServiceTest, RejectsIdentifierWhenRomIsOneByteShort)
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'x', 'A'};
 
-    auto result = service.match_rom(*catalog, rom);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(service.match_rom(*catalog, rom), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST_F(DefinitionServiceTest, MatchesUpperAndLowerCaseHexText)
@@ -399,9 +397,7 @@ TEST_F(DefinitionServiceTest, EmptyIdentifierDoesNotMatch)
     auto catalog = DefinitionCatalog::create({index_entry("EMPTY", "", 0U)});
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
 
-    auto result = service.match_rom(*catalog, {});
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(service.match_rom(*catalog, {}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST_F(DefinitionServiceTest, ReturnsInvalidConfigWhenNoIdentifierMatches)
@@ -410,9 +406,7 @@ TEST_F(DefinitionServiceTest, ReturnsInvalidConfigWhenNoIdentifierMatches)
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const std::vector<std::uint8_t> rom{'A'};
 
-    auto result = service.match_rom(*catalog, rom);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(service.match_rom(*catalog, rom), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST_F(DefinitionServiceTest, LoadsAndResolvesRomRaiderChildAndBaseFiles)
@@ -502,9 +496,8 @@ TEST_F(DefinitionServiceTest, LoadRejectsMissingCatalogIdWithoutReading)
     auto catalog = DefinitionCatalog::create({load_entry(DefinitionFormat::EcuFlash, "KNOWN", "known.xml")});
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
 
-    auto result = service.load(*catalog, DefinitionFormat::EcuFlash, "UNKNOWN");
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(service.load(*catalog, DefinitionFormat::EcuFlash, "UNKNOWN"),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_TRUE(repository.read_handles.empty());
 }
 
@@ -528,9 +521,8 @@ TEST_F(DefinitionServiceTest, LoadPropagatesDefinitionParseFailure)
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
     repository.files["broken.xml"] = bytes("<not-roms/>");
 
-    auto result = service.load(*catalog, DefinitionFormat::RomRaider, "BROKEN");
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(service.load(*catalog, DefinitionFormat::RomRaider, "BROKEN"),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_EQ(repository.read_count("broken.xml"), 1);
 }
 
@@ -554,9 +546,7 @@ TEST_F(DefinitionServiceTest, CreatesDefinitionWithOneExactAtomicReplacement)
     auto expected = create_ecuflash_xml(input);
     ASSERT_THAT(expected, fastecu::testing::IsOk());
 
-    auto result = service.create_definition("created.xml", input);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(service.create_definition("created.xml", input), fastecu::testing::IsOk());
     ASSERT_EQ(writer.replace_calls.size(), 1U);
     EXPECT_EQ(writer.replace_calls.front().handle, "created.xml");
     EXPECT_EQ(writer.replace_calls.front().data, *expected);
@@ -579,9 +569,7 @@ TEST_F(DefinitionServiceTest, RejectsInvalidCreationInputBeforeAtomicReplacement
     DefinitionHeaderInput input = valid_header_input();
     input.internal_id = " \t ";
 
-    auto result = service.create_definition("untouched.xml", input);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(service.create_definition("untouched.xml", input), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_TRUE(writer.replace_calls.empty());
 }
 
@@ -598,9 +586,7 @@ TEST_F(DefinitionServiceTest, ImportsDefinitionWithOneExactAtomicReplacement)
     auto expected = rewrite_ecuflash_xml(repository.files["source.xml"], input);
     ASSERT_THAT(expected, fastecu::testing::IsOk());
 
-    auto result = service.import_definition("source.xml", "imported.xml", input);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(service.import_definition("source.xml", "imported.xml", input), fastecu::testing::IsOk());
     EXPECT_EQ(repository.read_count("source.xml"), 1);
     ASSERT_EQ(writer.replace_calls.size(), 1U);
     EXPECT_EQ(writer.replace_calls.front().handle, "imported.xml");
@@ -622,9 +608,8 @@ TEST_F(DefinitionServiceTest, ImportRejectsMalformedSourceBeforeAtomicReplacemen
 {
     repository.files["source.xml"] = bytes("<rom><romid>");
 
-    auto result = service.import_definition("source.xml", "untouched.xml", valid_header_input());
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(service.import_definition("source.xml", "untouched.xml", valid_header_input()),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_TRUE(writer.replace_calls.empty());
 }
 
@@ -638,9 +623,8 @@ TEST_F(DefinitionServiceTest, ImportRejectsInvalidTransformedTreeBeforeAtomicRep
   </table>
 </rom>)xml");
 
-    auto result = service.import_definition("source.xml", "untouched.xml", valid_header_input());
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(service.import_definition("source.xml", "untouched.xml", valid_header_input()),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_TRUE(writer.replace_calls.empty());
 }
 

@@ -374,9 +374,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ConnectSkipsTheRestWhenKernelAlreadyRun
     scriptFlashDump(transport, 0x8000, 0x78000, 0x100, 0x5A);
     scriptStopCommand(transport);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     // Only the scripted sequence above was consumed -- if the executor had
     // continued into the rest of connect_bootloader after a matching probe
     // (identity queries, session, seed, jump...), the next write would not
@@ -399,9 +397,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ConnectFullSequenceWhenKernelNotRunning
     scriptFlashDump(transport, 0x8000, 0x78000, 0x100, 0x00);
     scriptStopCommand(transport);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -449,9 +445,8 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadReportsAnEmptyReplyAsTimeout)
     transport.expectWrite(requestOnId(0x7e0, {0x10, 0x03}));
     transport.queue_no_frame();
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -465,9 +460,8 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadStopsWhenCancelled)
     auto plan = readPlan();
     cancellation.cancel();
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
@@ -515,9 +509,8 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadStopsAtTheNextChunkWhenCancelledMid
     // rather than requesting the remaining 0x77F00 bytes of the window.
     scriptFlashDump(transport, 0x8000, 0x100, 0x100, 0x5A);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
     const fastecu::RecordedPhaseProgress *last = nullptr;
     for (const auto& event : events.phase_progress_calls)
@@ -548,9 +541,8 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, ReadPropagatesADisconnectedTransport)
     transport.expectWrite(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(0x8000))));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone");
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -632,9 +624,8 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, RefusesATestWritePlanRatherThanWritingF
     SubaruTcuCvtHitachiM32rCanExecutor executor;
     auto plan = handBuiltPlan(FlashOperation::TestWrite, 0x80000);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 

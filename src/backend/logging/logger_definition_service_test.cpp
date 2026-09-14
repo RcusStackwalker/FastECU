@@ -61,29 +61,28 @@ TEST_F(LoggerDefinitionServiceTest, LoadsAndParsesTheConfiguredHandle)
 
 TEST_F(LoggerDefinitionServiceTest, PropagatesAReadFailure)
 {
-    const auto definition = service().load_definition("missing.xml");
-    ASSERT_THAT(definition, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(service().load_definition("missing.xml"), fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST_F(LoggerDefinitionServiceTest, ResolvesTheConfiguredHandleUnchanged)
 {
-    const auto handle = service().resolve_definition_handle("configured.xml", "CDBG", "/home/u/.FastECU/");
-    ASSERT_THAT(handle, fastecu::testing::IsOkAnd("configured.xml"));
+    ASSERT_THAT(service().resolve_definition_handle("configured.xml", "CDBG", "/home/u/.FastECU/"),
+                fastecu::testing::IsOkAnd("configured.xml"));
 }
 
 TEST_F(LoggerDefinitionServiceTest, PrefersTheConfigDirCdbgExampleWhenPresent)
 {
     repository_.files["/home/u/.FastECU/logger_cdbg_example.xml"] = bytes_of(kDefinition);
 
-    const auto handle = service().resolve_definition_handle("", "CDBG", "/home/u/.FastECU/");
-    ASSERT_THAT(handle, fastecu::testing::IsOkAnd("/home/u/.FastECU/logger_cdbg_example.xml"));
+    ASSERT_THAT(service().resolve_definition_handle("", "CDBG", "/home/u/.FastECU/"),
+                fastecu::testing::IsOkAnd("/home/u/.FastECU/logger_cdbg_example.xml"));
 }
 
 TEST_F(LoggerDefinitionServiceTest, FallsBackToTheBundledCdbgExample)
 {
     // Config-dir file absent; the bundled resource is the only source.
-    const auto handle = service().resolve_definition_handle("", "CDBG", "/home/u/.FastECU/");
-    ASSERT_THAT(handle, fastecu::testing::IsOkAnd(":/config/logger_cdbg_example.xml"));
+    ASSERT_THAT(service().resolve_definition_handle("", "CDBG", "/home/u/.FastECU/"),
+                fastecu::testing::IsOkAnd(":/config/logger_cdbg_example.xml"));
 }
 
 TEST_F(LoggerDefinitionServiceTest, LeavesTheHandleEmptyForNonCdbgProtocols)
@@ -122,8 +121,8 @@ TEST_F(LoggerDefinitionServiceTest, LoadSelectionReturnsNulloptForAnAbsentEcuWit
 
 TEST_F(LoggerDefinitionServiceTest, LoadSelectionPropagatesAnUnreadableHandle)
 {
-    const auto stored = service().load_selection("missing.cfg", "ECUID1");
-    ASSERT_THAT(stored, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(service().load_selection("missing.cfg", "ECUID1"),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
     EXPECT_TRUE(writer_.replace_calls.empty());
 }
 
@@ -131,8 +130,8 @@ TEST_F(LoggerDefinitionServiceTest, LoadSelectionPropagatesAParseFailure)
 {
     repository_.files["logger.cfg"] = bytes_of("<config><logger><ecu id=");
 
-    const auto stored = service().load_selection("logger.cfg", "ECUID1");
-    ASSERT_THAT(stored, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(service().load_selection("logger.cfg", "ECUID1"),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST_F(LoggerDefinitionServiceTest, LoadsAnExistingSelectionWithoutWriting)
@@ -165,9 +164,8 @@ TEST_F(LoggerDefinitionServiceTest, InitializingReadsTheConfExactlyOnce)
 {
     repository_.files["logger.cfg"] = bytes_of("<config><logger/></config>");
 
-    const auto selection =
-        service().load_or_initialize_selection("logger.cfg", "NEWECU", fastecu::logging::LoggerDefinition{});
-    ASSERT_THAT(selection, fastecu::testing::IsOk());
+    ASSERT_THAT(service().load_or_initialize_selection("logger.cfg", "NEWECU", fastecu::logging::LoggerDefinition{}),
+                fastecu::testing::IsOk());
     // load_or_initialize_selection shares load_selection's single read rather
     // than re-reading before it writes: no TOCTOU window inside the service.
     EXPECT_EQ(repository_.read_count("logger.cfg"), 1);
@@ -180,8 +178,7 @@ TEST_F(LoggerDefinitionServiceTest, SaveSelectionReplacesTheFileAtomically)
     selection.protocol = "SSM";
     selection.gauge_ids = {"P9"};
 
-    const auto status = service().save_selection("logger.cfg", "ECUID1", selection);
-    ASSERT_THAT(status, fastecu::testing::IsOk());
+    ASSERT_THAT(service().save_selection("logger.cfg", "ECUID1", selection), fastecu::testing::IsOk());
     ASSERT_THAT(writer_.replace_calls, SizeIs(1));
     const auto& written = writer_.replace_calls.at(0).data;
     EXPECT_THAT(std::string(written.begin(), written.end()), HasSubstr("P9"));
@@ -189,9 +186,8 @@ TEST_F(LoggerDefinitionServiceTest, SaveSelectionReplacesTheFileAtomically)
 
 TEST_F(LoggerDefinitionServiceTest, InitializePropagatesAnUnreadableHandle)
 {
-    const auto selection =
-        service().load_or_initialize_selection("missing.cfg", "NEWECU", fastecu::logging::LoggerDefinition{});
-    ASSERT_THAT(selection, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(service().load_or_initialize_selection("missing.cfg", "NEWECU", fastecu::logging::LoggerDefinition{}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
     EXPECT_TRUE(writer_.replace_calls.empty()) << "a failed read must not write";
 }
 
@@ -202,9 +198,8 @@ TEST_F(LoggerDefinitionServiceTest, InitializePropagatesAWriteSelectionFailure)
     // surface that rather than replace the file.
     repository_.files["logger.cfg"] = bytes_of("<notconfig/>");
 
-    const auto selection =
-        service().load_or_initialize_selection("logger.cfg", "NEWECU", fastecu::logging::LoggerDefinition{});
-    ASSERT_THAT(selection, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(service().load_or_initialize_selection("logger.cfg", "NEWECU", fastecu::logging::LoggerDefinition{}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
     EXPECT_TRUE(writer_.replace_calls.empty()) << "a refused write must not reach the writer";
 }
 
@@ -221,8 +216,8 @@ TEST_F(LoggerDefinitionServiceTest, InitializePropagatesAReplaceFailure)
 
 TEST_F(LoggerDefinitionServiceTest, SaveSelectionPropagatesAnUnreadableHandle)
 {
-    const auto status = service().save_selection("missing.cfg", "ECUID1", fastecu::logging::LoggerSelection{});
-    ASSERT_THAT(status, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(service().save_selection("missing.cfg", "ECUID1", fastecu::logging::LoggerSelection{}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
     EXPECT_TRUE(writer_.replace_calls.empty()) << "a failed read must not write";
 }
 
@@ -230,8 +225,8 @@ TEST_F(LoggerDefinitionServiceTest, SaveSelectionPropagatesAWriteSelectionFailur
 {
     repository_.files["logger.cfg"] = bytes_of("<notconfig/>");
 
-    const auto status = service().save_selection("logger.cfg", "ECUID1", fastecu::logging::LoggerSelection{});
-    ASSERT_THAT(status, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(service().save_selection("logger.cfg", "ECUID1", fastecu::logging::LoggerSelection{}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
     EXPECT_TRUE(writer_.replace_calls.empty()) << "a refused write must not reach the writer";
 }
 

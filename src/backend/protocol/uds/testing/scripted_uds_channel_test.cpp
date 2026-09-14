@@ -31,9 +31,7 @@ TEST(ScriptedUdsChannelTest, RejectsAnUnexpectedSend)
     FakeCancellationToken cancellation;
     channel.expectSend(bytes::Bytes{0x10, 0x03});
 
-    const fastecu::Status sent = channel.send(bytes::Bytes{0x10, 0x85}, cancellation);
-
-    ASSERT_THAT(sent, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(channel.send(bytes::Bytes{0x10, 0x85}, cancellation), fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(ScriptedUdsChannelTest, RejectsASendWithNoRemainingExpectation)
@@ -41,9 +39,7 @@ TEST(ScriptedUdsChannelTest, RejectsASendWithNoRemainingExpectation)
     uds::ScriptedUdsChannel channel;
     FakeCancellationToken cancellation;
 
-    const fastecu::Status sent = channel.send(bytes::Bytes{0x3E}, cancellation);
-
-    ASSERT_THAT(sent, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(channel.send(bytes::Bytes{0x3E}, cancellation), fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(ScriptedUdsChannelTest, ReplaysQueuedReceivesInOrder)
@@ -63,8 +59,7 @@ TEST(ScriptedUdsChannelTest, ReplaysQueuedReceivesInOrder)
     ASSERT_THAT(second, fastecu::testing::IsOk());
     EXPECT_FALSE(second->has_value());
 
-    const auto third = channel.receive(100ms, cancellation);
-    ASSERT_THAT(third, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    ASSERT_THAT(channel.receive(100ms, cancellation), fastecu::testing::IsErr(ErrorKind::Disconnected));
 }
 
 TEST(ScriptedUdsChannelTest, RecordsEveryReceiveTimeout)
@@ -88,11 +83,8 @@ TEST(ScriptedUdsChannelTest, HonorsCancellation)
     cancellation.set_cancelled(true);
     channel.expectSend(bytes::Bytes{0x3E});
 
-    const fastecu::Status sent = channel.send(bytes::Bytes{0x3E}, cancellation);
-    const auto received = channel.receive(100ms, cancellation);
-
-    ASSERT_THAT(sent, fastecu::testing::IsErr(ErrorKind::Cancelled));
-    ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(channel.send(bytes::Bytes{0x3E}, cancellation), fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(channel.receive(100ms, cancellation), fastecu::testing::IsErr(ErrorKind::Cancelled));
 }
 
 TEST(ScriptedUdsChannelTest, ScriptConsumedReflectsRemainingWork)

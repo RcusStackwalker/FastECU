@@ -569,9 +569,8 @@ TEST(DensoSh705xEepromCanExecutorTest, WrongFamilyPlanIsRejectedWithNoTransportC
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_TRUE(transport.scriptConsumed()); // nothing was ever queued or consumed
 }
 
@@ -694,9 +693,8 @@ TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSee
         FakeCancellationToken cancellation;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-        ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+        ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                    fastecu::testing::IsErr(ErrorKind::Timeout));
         EXPECT_EQ(transport.writesConsumed(), 10U); // kernel-id probe + 9 handshake writes
         EXPECT_TRUE(transport.scriptConsumed());
 
@@ -743,9 +741,8 @@ TEST(DensoSh705xEepromCanExecutorTest, NoResponseAtSeedRequestReturnsTimeout)
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Timeout));
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, MalformedSeedResponseReturnsBadResponse)
@@ -781,9 +778,8 @@ TEST(DensoSh705xEepromCanExecutorTest, MalformedSeedResponseReturnsBadResponse)
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
 }
 
 TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCancelled)
@@ -810,9 +806,8 @@ TEST(DensoSh705xEepromCanExecutorTest, CancellationDuringKernelUploadReturnsCanc
     cancellation.cancel_on_check(75);
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writesConsumed(), 11U);
 }
 

@@ -89,8 +89,7 @@ TEST(TestCdbgDriver, fails_before_handshake_when_no_channels_selected)
     CdbgLogDriver d(t);
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = d.startFreeFormLog({}, 0, 10, cancellation);
-    ASSERT_THAT(result,
+    ASSERT_THAT(d.startFreeFormLog({}, 0, 10, cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::InvalidConfig, "no CDBG log parameters selected"));
     ASSERT_TRUE(!d.isStreaming());
     ASSERT_TRUE(t.scriptConsumed());
@@ -110,8 +109,7 @@ TEST(TestCdbgDriver, handshake_fails_when_security_not_granted)
 
     CdbgLogDriver d(t);
     fastecu::FakeCancellationToken cancellation;
-    const auto result = d.startFreeFormLog(ch, 0, 10, cancellation);
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
+    ASSERT_THAT(d.startFreeFormLog(ch, 0, 10, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
     ASSERT_TRUE(!d.isStreaming());
 }
 
@@ -123,8 +121,7 @@ TEST(TestCdbgDriver, handshake_fails_when_init_gets_no_reply)
     t.queue_no_frame();
     CdbgLogDriver d(t);
     fastecu::FakeCancellationToken cancellation;
-    const auto result = d.startFreeFormLog(ch, 0, 10, cancellation);
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
+    ASSERT_THAT(d.startFreeFormLog(ch, 0, 10, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
     ASSERT_TRUE(!d.isStreaming());
 }
 
@@ -198,7 +195,5 @@ TEST(TestCdbgDriver, handshake_propagates_cancellation_from_bounded_read)
     CdbgLogDriver d(t);
     fastecu::FakeCancellationToken cancellation(true);
 
-    const auto result = d.startFreeFormLog(ch, 0, 10, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+    ASSERT_THAT(d.startFreeFormLog(ch, 0, 10, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
 }

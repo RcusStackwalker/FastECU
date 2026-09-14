@@ -58,9 +58,8 @@ TEST(SubaruMitsuM32rKlineExecutor, RejectsFamilyMismatchBeforeIo)
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_FALSE(transport.last_config_.has_value());
 }
 
@@ -92,9 +91,8 @@ TEST(SubaruMitsuM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
     cancellation.cancel();
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_FALSE(transport.last_config_.has_value());
 }
 
@@ -124,9 +122,7 @@ TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureRespon
         ManualCancellationToken cancellation;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-        ASSERT_THAT(result, fastecu::testing::IsErr(expected));
+        ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsErr(expected));
     }
 }
 
@@ -202,9 +198,7 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.baud_calls_, std::vector<int>{15625});
 }

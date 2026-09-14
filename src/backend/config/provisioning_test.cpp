@@ -13,8 +13,6 @@ using fastecu::InMemoryFileSystem;
 using fastecu::InMemoryResourceBundle;
 using fastecu::LogLevel;
 using fastecu::RecordingEventSink;
-using fastecu::Result;
-using fastecu::Status;
 using fastecu::config::ConfigPaths;
 using fastecu::config::provision_config_directories;
 
@@ -155,9 +153,7 @@ TEST(ProvisionConfigDirectories, BundleCopyFailurePropagatesRatherThanBeingSwall
     bundle.bundles["kernels"]["missing_subdir/k2.bin"] = {3};
     fs.files["kernels/missing_subdir/k2.bin"] = {3};
 
-    auto result = provision_config_directories(paths, fs, bundle, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(ProvisionConfigDirectories, MigratesPreviousVersionConfigFileForward)
@@ -186,8 +182,6 @@ TEST(ProvisionConfigDirectories, FirstCreateDirectoryFailureStopsTheSequence)
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
-    auto result = provision_config_directories(paths, fs, bundle, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsErr(ErrorKind::Internal));
     EXPECT_FALSE(fs.exists(paths.calibration_files_directory));
 }

@@ -18,16 +18,15 @@ constexpr std::string_view kMcu = "MH8111";
 
 TEST(SubaruTcuCvtMitsuMh8111CanPlan, RejectsUnknownProtocol)
 {
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(
-        FlashOperation::Read, "sub_tcu_cvt_mitsu_mh8111_can_typo", kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Read, "sub_tcu_cvt_mitsu_mh8111_can_typo",
+                                                           kMcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruTcuCvtMitsuMh8111CanPlan, RejectsMismatchedMcu)
 {
-    const auto plan =
-        build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Read, kProtocol, "MH8104", std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Read, kProtocol, "MH8104", std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // MH8111's flash geometry is {0,0x40000},{0x40000,0x20000},{0x60000,0x20000},
@@ -89,14 +88,14 @@ TEST(SubaruTcuCvtMitsuMh8111CanPlan, RejectsAWriteWhoseImageSizeIsWrong)
 
 TEST(SubaruTcuCvtMitsuMh8111CanPlan, RejectsTestWriteAsUnsupported)
 {
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::TestWrite, kProtocol, kMcu,
-                                                                 bytes::Bytes(0x180000, 0x00));
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::TestWrite, kProtocol, kMcu,
+                                                           bytes::Bytes(0x180000, 0x00)),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 
 TEST(SubaruTcuCvtMitsuMh8111CanPlan, RejectsAWriteWithNoImage)
 {
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 } // namespace

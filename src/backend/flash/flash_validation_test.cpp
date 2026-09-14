@@ -183,9 +183,7 @@ TEST(FlashValidationTest, EmptyTargetIdIsRejected)
     auto fields = valid_read_fields();
     fields.target_id.clear();
 
-    auto plan = validate_and_build(std::move(fields));
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(FlashValidationTest, EmptyMcuNameIsRejected)
@@ -193,9 +191,7 @@ TEST(FlashValidationTest, EmptyMcuNameIsRejected)
     auto fields = valid_read_fields();
     fields.mcu_name.clear();
 
-    auto plan = validate_and_build(std::move(fields));
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(FlashValidationTest, ZeroLengthTransferRegionIsRejected)
@@ -203,9 +199,7 @@ TEST(FlashValidationTest, ZeroLengthTransferRegionIsRejected)
     auto fields = valid_read_fields();
     fields.transfer_region.length = 0;
 
-    auto plan = validate_and_build(std::move(fields));
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(FlashValidationTest, TransferRegionOverflowIsRejected)
@@ -213,9 +207,7 @@ TEST(FlashValidationTest, TransferRegionOverflowIsRejected)
     auto fields = valid_read_fields();
     fields.transfer_region = MemoryRegion{.start = 0xffffffff, .length = 0x10};
 
-    auto plan = validate_and_build(std::move(fields));
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // A region whose last byte is 0xffffffff ends at 0x100000000, which is one
@@ -230,9 +222,7 @@ TEST(FlashValidationTest, TransferRegionEndingExactlyAtTheTopOfTheAddressSpaceIs
     auto fields = valid_read_fields();
     fields.transfer_region = MemoryRegion{.start = 0xffffff00, .length = 0x100};
 
-    auto plan = validate_and_build(std::move(fields));
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // The largest region this accepts, one byte short of the boundary above.
@@ -249,9 +239,7 @@ TEST(FlashValidationTest, ReadWithNonEmptyEraseRegionsIsRejected)
     auto fields = valid_read_fields();
     fields.erase_regions.push_back(MemoryRegion{.start = 0, .length = 4});
 
-    auto plan = validate_and_build(std::move(fields));
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(FlashValidationTest, ReadWithImagePresentIsRejected)
@@ -259,9 +247,7 @@ TEST(FlashValidationTest, ReadWithImagePresentIsRejected)
     auto fields = valid_read_fields();
     fields.image = bytes::Bytes{0x00};
 
-    auto plan = validate_and_build(std::move(fields));
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(FlashValidationTest, EmptyKernelIdIsRejected)
@@ -269,9 +255,7 @@ TEST(FlashValidationTest, EmptyKernelIdIsRejected)
     auto fields = valid_read_fields();
     fields.kernel->id.clear();
 
-    auto plan = validate_and_build(std::move(fields));
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
@@ -279,9 +263,7 @@ TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
     auto fields = valid_read_fields();
     fields.kernel->bytes.clear();
 
-    auto plan = validate_and_build(std::move(fields));
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // A family that isn't the kernel-less Mitsu Colt CAN family must still carry
@@ -323,9 +305,7 @@ TEST(FlashValidationTest, FamilyPlanTagMismatchWithTransportIsRejected)
         .extended_id = false,
     };
 
-    auto plan = validate_and_build(std::move(fields));
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(FlashValidationTest, FamilyAndVariantMustMatchExhaustively)
@@ -384,9 +364,7 @@ TEST(FlashValidationTest, DuplicateConfirmationIdsAreRejected)
     auto fields = valid_read_fields();
     fields.confirmations.push_back(ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead});
 
-    auto plan = validate_and_build(std::move(fields));
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // The "at least one confirmation" floor was removed (Step 5 tail, wave 0):

@@ -48,9 +48,7 @@ TEST(QtAtomicFileWriterTest, InvalidDestinationDoesNotCreateFile)
     QtAtomicFileWriter writer;
     const std::array<std::uint8_t, 3> bytes{'n', 'e', 'w'};
 
-    const fastecu::Status status = writer.replace(path.toStdString(), bytes);
-
-    ASSERT_THAT(status, fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
+    ASSERT_THAT(writer.replace(path.toStdString(), bytes), fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
     EXPECT_FALSE(QFile::exists(path));
 }
 

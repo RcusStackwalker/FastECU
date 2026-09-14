@@ -105,25 +105,26 @@ TEST(SubaruDensoSh7055_02Plan, EveryAcceptedPlanRequiresCycleIgnitionConfirmatio
 
 TEST(SubaruDensoSh7055_02Plan, RejectsUnknownProtocol)
 {
-    auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_04", "SH7055",
-                                                  std::nullopt, test_kernel());
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_04", "SH7055",
+                                                  std::nullopt, test_kernel()),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoSh7055_02Plan, RejectsUnknownMcu)
 {
-    auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "NOT_A_REAL_MCU",
-                                                  std::nullopt, test_kernel());
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "NOT_A_REAL_MCU",
+                                                  std::nullopt, test_kernel()),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoSh7055_02Plan, RejectsKnownButWrongMcu)
 {
     for (const std::string_view mcu : {"SH7058", "MC68HC16Y5"})
     {
-        auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", mcu,
-                                                      std::nullopt, test_kernel());
-        ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig)) << mcu;
+        ASSERT_THAT(build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", mcu,
+                                                      std::nullopt, test_kernel()),
+                    fastecu::testing::IsErr(ErrorKind::InvalidConfig))
+            << mcu;
     }
 }
 
@@ -133,15 +134,15 @@ TEST(SubaruDensoSh7055_02Plan, WriteAndTestWriteRequireExactRomSize)
     ASSERT_GE(index, 0);
     for (const auto operation : {FlashOperation::Write, FlashOperation::TestWrite})
     {
-        auto too_small = build_subaru_denso_sh7055_02_plan(
-            operation, "sub_ecu_denso_sh7055_02", "SH7055",
-            bytes::Bytes(flashdevices[index].romsize - 1, bytes::Byte{0}), test_kernel());
-        ASSERT_THAT(too_small, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        ASSERT_THAT(build_subaru_denso_sh7055_02_plan(operation, "sub_ecu_denso_sh7055_02", "SH7055",
+                                                      bytes::Bytes(flashdevices[index].romsize - 1, bytes::Byte{0}),
+                                                      test_kernel()),
+                    fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 
-        auto too_large = build_subaru_denso_sh7055_02_plan(
-            operation, "sub_ecu_denso_sh7055_02", "SH7055",
-            bytes::Bytes(flashdevices[index].romsize + 1, bytes::Byte{0}), test_kernel());
-        ASSERT_THAT(too_large, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        ASSERT_THAT(build_subaru_denso_sh7055_02_plan(operation, "sub_ecu_denso_sh7055_02", "SH7055",
+                                                      bytes::Bytes(flashdevices[index].romsize + 1, bytes::Byte{0}),
+                                                      test_kernel()),
+                    fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 
         auto exact =
             build_subaru_denso_sh7055_02_plan(operation, "sub_ecu_denso_sh7055_02", "SH7055",
@@ -159,9 +160,7 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTesterId)
     auto plan = validate_and_build(std::move(fields));
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
-
-    ASSERT_THAT(valid, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_subaru_denso_sh7055_02_plan(*plan), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTargetId)
@@ -171,9 +170,7 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTargetId)
     auto plan = validate_and_build(std::move(fields));
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
-
-    ASSERT_THAT(valid, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_subaru_denso_sh7055_02_plan(*plan), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoSh7055_02Plan, ValidatorRequiresOperationSpecificEcuIdRead)
@@ -186,9 +183,7 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRequiresOperationSpecificEcuIdRead)
         auto plan = validate_and_build(std::move(fields));
         ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-        auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
-
-        ASSERT_THAT(valid, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        ASSERT_THAT(validate_subaru_denso_sh7055_02_plan(*plan), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     }
 }
 
@@ -199,9 +194,7 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsEraseRegions)
     auto plan = validate_and_build(std::move(fields));
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
-
-    ASSERT_THAT(valid, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_subaru_denso_sh7055_02_plan(*plan), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTransferRegion)
@@ -216,9 +209,7 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTransferRegion)
         auto plan = validate_and_build(std::move(fields));
         ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-        auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
-
-        ASSERT_THAT(valid, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        ASSERT_THAT(validate_subaru_denso_sh7055_02_plan(*plan), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     }
 }
 
@@ -238,9 +229,7 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRequiresOnlyCycleIgnitionConfirmation)
         auto plan = validate_and_build(std::move(fields));
         ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-        auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
-
-        ASSERT_THAT(valid, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        ASSERT_THAT(validate_subaru_denso_sh7055_02_plan(*plan), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     }
 }
 
@@ -252,9 +241,9 @@ TEST(SubaruDensoSh7055_02Plan, KernelUploadAcceptsCanonicalAddressAndExactEnvelo
              KernelImage{.id = "full-envelope-fit", .load_address = kKernelStart, .bytes = bytes::Bytes(0x5ffc, 0)},
          })
     {
-        auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055",
-                                                      std::nullopt, std::move(kernel));
-        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        ASSERT_THAT(build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055",
+                                                      std::nullopt, std::move(kernel)),
+                    fastecu::testing::IsOk());
     }
 }
 
@@ -267,9 +256,9 @@ TEST(SubaruDensoSh7055_02Plan, KernelUploadRejectsAddressAndPaddedFootprintOutsi
              KernelImage{.id = "padded-past-end", .load_address = kKernelStart, .bytes = bytes::Bytes(0x5ffd, 0)},
          })
     {
-        auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055",
-                                                      std::nullopt, std::move(kernel));
-        ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        ASSERT_THAT(build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055",
+                                                      std::nullopt, std::move(kernel)),
+                    fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     }
 }
 

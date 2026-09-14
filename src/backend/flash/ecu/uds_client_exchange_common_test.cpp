@@ -80,10 +80,8 @@ TEST(FatalRequestTest, LogsAndReturnsTheErrorOnFailure)
     f.channel.expectSend(bytes::Bytes{0x10, 0x03});
     f.channel.queueReceive(bytes::Bytes{0x7F, 0x10, 0x31});
 
-    const Result<bytes::Bytes> reply =
-        fatal_request(f.ctx(), bytes::Bytes{0x10, 0x03}, "Wrong response from ECU: ", "the session request");
-
-    ASSERT_THAT(reply, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(fatal_request(f.ctx(), bytes::Bytes{0x10, 0x03}, "Wrong response from ECU: ", "the session request"),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     ASSERT_EQ(f.events.logs.size(), 1U);
     EXPECT_EQ(f.events.logs[0].first, LogLevel::Error);
     EXPECT_THAT(f.events.logs[0].second, HasSubstr("Wrong response from ECU: "));
@@ -159,10 +157,9 @@ TEST(FatalQueryTest, LogsAndReturnsTheSendErrorOnExchangeFailure)
     f.channel.expectSend(bytes::Bytes{0x10, 0x43});
     f.channel.queueReceive(bytes::Bytes{0x7F, 0x10, 0x31});
 
-    const Result<bytes::Bytes> reply = fatal_query(f.ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43},
-                                                   "Wrong response from ECU: ", "bench diagnostic session");
-
-    ASSERT_THAT(reply, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(fatal_query(f.ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43},
+                            "Wrong response from ECU: ", "bench diagnostic session"),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     ASSERT_EQ(f.events.logs.size(), 1U);
     EXPECT_THAT(f.events.logs[0].second, HasSubstr("Wrong response from ECU: "));
 }
@@ -173,10 +170,9 @@ TEST(FatalQueryTest, LogsMismatchSummaryAndReturnsMismatchDetailOnAWrongPrefix)
     f.channel.expectSend(bytes::Bytes{0x10, 0x43});
     f.channel.queueReceive(bytes::Bytes{0x50, 0x42});
 
-    const Result<bytes::Bytes> reply = fatal_query(f.ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43},
-                                                   "Wrong response from ECU: ", "bench diagnostic session");
-
-    ASSERT_THAT(reply, fastecu::testing::IsErrWith(ErrorKind::BadResponse, "bench diagnostic session rejected"));
+    ASSERT_THAT(fatal_query(f.ctx(), bytes::Bytes{0x10, 0x43}, bytes::Bytes{0x43},
+                            "Wrong response from ECU: ", "bench diagnostic session"),
+                fastecu::testing::IsErrWith(ErrorKind::BadResponse, "bench diagnostic session rejected"));
     ASSERT_THAT(f.events.logs, ElementsAre(Pair(LogLevel::Error, "Wrong response from ECU: unexpected bench diagnostic "
                                                                  "session response")));
 }
@@ -187,10 +183,9 @@ TEST(FatalQueryTest, TreatsAPayloadShorterThanMinPayloadSizeAsAMismatchEvenWithA
     f.channel.expectSend(bytes::Bytes{0x27, 0x01});
     f.channel.queueReceive(bytes::Bytes{0x67, 0x05, 0xAB});
 
-    const Result<bytes::Bytes> reply = fatal_query(f.ctx(), bytes::Bytes{0x27, 0x01}, bytes::Bytes{0x05},
-                                                   "Wrong response from ECU: ", "security access seed request", 5);
-
-    ASSERT_THAT(reply, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(fatal_query(f.ctx(), bytes::Bytes{0x27, 0x01}, bytes::Bytes{0x05},
+                            "Wrong response from ECU: ", "security access seed request", 5),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     ASSERT_THAT(f.events.logs, ElementsAre(Pair(LogLevel::Error, "Wrong response from ECU: unexpected security "
                                                                  "access seed request response")));
 }

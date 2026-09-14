@@ -47,10 +47,9 @@ TEST(MitsuColtM32rCanPlan, RejectsProtocolNamesThatDoNotMatchExactly)
 {
     // Prefix matching would let an unconfigured protocol select a flash
     // capacity, so the complete protocol identifier is the contract.
-    const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Read, "mitsu_ecu_m32r_can_vendor_ext_512kb_typo",
-                                                     kMcu512, std::nullopt);
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_mitsu_colt_m32r_can_plan(FlashOperation::Read, "mitsu_ecu_m32r_can_vendor_ext_512kb_typo",
+                                               kMcu512, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(MitsuColtM32rCanPlan, ReadPlansSnapshotProtocolCapacityAndVendorChallenge)
@@ -136,9 +135,9 @@ TEST(MitsuColtM32rCanPlan, RejectsProtocolAndMcuCapacityDisagreement)
              {"mitsu_ecu_m32r_can_512kb", kMcu384},
          }))
     {
-        const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Read, protocol, mcu, std::nullopt);
-
-        ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig)) << protocol;
+        ASSERT_THAT(build_mitsu_colt_m32r_can_plan(FlashOperation::Read, protocol, mcu, std::nullopt),
+                    fastecu::testing::IsErr(ErrorKind::InvalidConfig))
+            << protocol;
     }
 }
 
@@ -162,9 +161,8 @@ TEST(MitsuColtM32rCanPlan, RejectsAnUnknownProtocolBeforeTestWriteCapabilityChec
 
 TEST(MitsuColtM32rCanPlan, RejectsAWriteWithNoImage)
 {
-    const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Write, kDefaultProtocol, kMcu384, std::nullopt);
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_mitsu_colt_m32r_can_plan(FlashOperation::Write, kDefaultProtocol, kMcu384, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(MitsuColtM32rCanPlan, WriteConfirmationsCarryStableGeometryArguments)

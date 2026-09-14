@@ -18,16 +18,15 @@ constexpr std::string_view kMcu = "M32R_512KB";
 
 TEST(SubaruTcuCvtHitachiM32rCanPlan, RejectsUnknownProtocol)
 {
-    const auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(
-        FlashOperation::Read, "sub_tcu_cvt_hitachi_m32r_can_typo", kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, "sub_tcu_cvt_hitachi_m32r_can_typo",
+                                                           kMcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruTcuCvtHitachiM32rCanPlan, RejectsMismatchedMcu)
 {
-    const auto plan =
-        build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, "MH8104", std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, "MH8104", std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruTcuCvtHitachiM32rCanPlan, ReadPlanCoversTheClampedWindow)
@@ -67,15 +66,15 @@ TEST(SubaruTcuCvtHitachiM32rCanPlan, RejectsAWriteWhoseImageSizeIsWrong)
 
 TEST(SubaruTcuCvtHitachiM32rCanPlan, RejectsTestWriteAsUnsupported)
 {
-    const auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::TestWrite, kProtocol, kMcu,
-                                                                 bytes::Bytes(0x80000, 0x00));
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::TestWrite, kProtocol, kMcu,
+                                                           bytes::Bytes(0x80000, 0x00)),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 
 TEST(SubaruTcuCvtHitachiM32rCanPlan, RejectsAWriteWithNoImage)
 {
-    const auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruTcuCvtHitachiM32rCanPlan, ReadRegionIsTheFloorClampedWindowNotTheLiteralUnderflow)

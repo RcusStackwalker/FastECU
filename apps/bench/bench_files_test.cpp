@@ -25,9 +25,7 @@ TEST(BenchFiles, RoundTripsBytesThroughTheFilesystem)
     BenchFiles files;
 
     ASSERT_THAT(files.save(path, written), fastecu::testing::IsOk());
-    const Result<bytes::Bytes> read = files.load(path);
-
-    ASSERT_THAT(read, fastecu::testing::IsOkAnd(written));
+    ASSERT_THAT(files.load(path), fastecu::testing::IsOkAnd(written));
 }
 
 TEST(BenchFiles, LoadsAnEmptyFileAsNoBytes)
@@ -48,18 +46,15 @@ TEST(BenchFiles, LoadReportsAMissingFileAsInvalidConfig)
 {
     BenchFiles files;
 
-    const Result<bytes::Bytes> read = files.load(tempPath("absent.bin"));
-
-    ASSERT_THAT(read, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(files.load(tempPath("absent.bin")), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(BenchFiles, SaveReportsAnUnwritablePathAsInternal)
 {
     BenchFiles files;
 
-    const Status saved = files.save(tempPath("no_such_dir/out.bin"), bytes::Bytes{0x01});
-
-    ASSERT_THAT(saved, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(files.save(tempPath("no_such_dir/out.bin"), bytes::Bytes{0x01}),
+                fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 } // namespace

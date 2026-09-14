@@ -71,8 +71,8 @@ TEST(LoggingConversionTest, PreservesSsmDecimalByteRawInput)
 TEST(LoggingConversionTest, RejectsUnknownOrMismatchedChannel)
 {
     auto session = make_valid_session();
-    auto result = convert_sample(session, ProtocolSample{"missing", "12"});
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
+    ASSERT_THAT(convert_sample(session, ProtocolSample{"missing", "12"}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
 }
 
 TEST(LoggingConversionTest, PreservesProtocolRawValueWithoutReassembly)
@@ -90,8 +90,8 @@ TEST(LoggingConversionTest, RejectsNonFiniteConvertedValues)
     c.from_byte_expression = "x/(x-1)";
     auto session = make_session_with_channel(c);
 
-    auto result = convert_sample(session, ProtocolSample{"rpm", "1"});
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(convert_sample(session, ProtocolSample{"rpm", "1"}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(LoggingConversionTest, UsesHistoricalFifteenDigitIntermediatePrecision)

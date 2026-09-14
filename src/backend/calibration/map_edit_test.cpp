@@ -65,18 +65,14 @@ TEST(ReadRawElement, ReadsAnUnsignedByteAtTheIndexedOffset)
     auto rom = rom_of(0x40);
     rom[0x12] = 0xAB;
 
-    const auto value = read_raw_element(rom, uint8_spec(), 2);
-
-    ASSERT_THAT(value, fastecu::testing::IsOkAnd(0xAB));
+    ASSERT_THAT(read_raw_element(rom, uint8_spec(), 2), fastecu::testing::IsOkAnd(0xAB));
 }
 
 TEST(ReadRawElement, ReportsInternalWhenTheWindowRunsPastTheRom)
 {
     auto rom = rom_of(0x11);
 
-    const auto value = read_raw_element(rom, uint8_spec(), 8);
-
-    ASSERT_THAT(value, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(read_raw_element(rom, uint8_spec(), 8), fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(ReadRawElement, ReadsAnUnsignedWordBigEndian)
@@ -85,9 +81,8 @@ TEST(ReadRawElement, ReadsAnUnsignedWordBigEndian)
     rom[0x10] = 0x12;
     rom[0x11] = 0x34;
 
-    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Uint16, "big"), 0);
-
-    ASSERT_THAT(value, fastecu::testing::IsOkAnd(0x1234));
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Uint16, "big"), 0),
+                fastecu::testing::IsOkAnd(0x1234));
 }
 
 TEST(ReadRawElement, ReadsAnUnsignedWordLittleEndian)
@@ -96,9 +91,8 @@ TEST(ReadRawElement, ReadsAnUnsignedWordLittleEndian)
     rom[0x10] = 0x34;
     rom[0x11] = 0x12;
 
-    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Uint16, "little"), 0);
-
-    ASSERT_THAT(value, fastecu::testing::IsOkAnd(0x1234));
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Uint16, "little"), 0),
+                fastecu::testing::IsOkAnd(0x1234));
 }
 
 TEST(ReadRawElement, ReadsAnUnsignedDwordBigEndian)
@@ -109,9 +103,8 @@ TEST(ReadRawElement, ReadsAnUnsignedDwordBigEndian)
     rom[0x12] = 0x56;
     rom[0x13] = 0x78;
 
-    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Uint32, "big"), 0);
-
-    ASSERT_THAT(value, fastecu::testing::IsOkAnd(0x12345678));
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Uint32, "big"), 0),
+                fastecu::testing::IsOkAnd(0x12345678));
 }
 
 TEST(ReadRawElement, ReadsAnUnsignedDwordLittleEndian)
@@ -122,9 +115,8 @@ TEST(ReadRawElement, ReadsAnUnsignedDwordLittleEndian)
     rom[0x12] = 0x34;
     rom[0x13] = 0x12;
 
-    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Uint32, "little"), 0);
-
-    ASSERT_THAT(value, fastecu::testing::IsOkAnd(0x12345678));
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Uint32, "little"), 0),
+                fastecu::testing::IsOkAnd(0x12345678));
 }
 
 TEST(ReadRawElement, ReadsASignedByteAsMinusOne)
@@ -132,9 +124,8 @@ TEST(ReadRawElement, ReadsASignedByteAsMinusOne)
     auto rom = rom_of(0x20);
     rom[0x10] = 0xFF;
 
-    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Int8, "big"), 0);
-
-    ASSERT_THAT(value, fastecu::testing::IsOkAnd(-1));
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Int8, "big"), 0),
+                fastecu::testing::IsOkAnd(-1));
 }
 
 // read_raw_element assembles signed multi-byte values from `data_byte`, the
@@ -154,9 +145,8 @@ TEST(ReadRawElement, ReadsASignedWordBigEndian)
     rom[0x10] = 0x01;
     rom[0x11] = 0x02;
 
-    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Int16, "big"), 0);
-
-    ASSERT_THAT(value, fastecu::testing::IsOkAnd(0x0102));
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Int16, "big"), 0),
+                fastecu::testing::IsOkAnd(0x0102));
 }
 
 TEST(ReadRawElement, ReadsASignedWordLittleEndian)
@@ -165,9 +155,8 @@ TEST(ReadRawElement, ReadsASignedWordLittleEndian)
     rom[0x10] = 0x01;
     rom[0x11] = 0x02;
 
-    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Int16, "little"), 0);
-
-    ASSERT_THAT(value, fastecu::testing::IsOkAnd(0x0201));
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Int16, "little"), 0),
+                fastecu::testing::IsOkAnd(0x0201));
 }
 
 TEST(ReadRawElement, ReadsASignedDwordBigEndian)
@@ -178,9 +167,8 @@ TEST(ReadRawElement, ReadsASignedDwordBigEndian)
     rom[0x12] = 0x03;
     rom[0x13] = 0x04;
 
-    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Int32, "big"), 0);
-
-    ASSERT_THAT(value, fastecu::testing::IsOkAnd(0x01020304));
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Int32, "big"), 0),
+                fastecu::testing::IsOkAnd(0x01020304));
 }
 
 TEST(ReadRawElement, ReadsASignedDwordLittleEndian)
@@ -191,9 +179,8 @@ TEST(ReadRawElement, ReadsASignedDwordLittleEndian)
     rom[0x12] = 0x03;
     rom[0x13] = 0x04;
 
-    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Int32, "little"), 0);
-
-    ASSERT_THAT(value, fastecu::testing::IsOkAnd(0x04030201));
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Int32, "little"), 0),
+                fastecu::testing::IsOkAnd(0x04030201));
 }
 
 // Legacy fills byte_value[k] = rom[byte_address + storagesize - 1 - k] for
@@ -242,9 +229,8 @@ TEST(ReadRawElement, ReadsAnUnsigned24BitValueCorrectly)
     rom[0x11] = 0x02;
     rom[0x12] = 0x03;
 
-    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Uint24, "big"), 0);
-
-    ASSERT_THAT(value, fastecu::testing::IsOkAnd(0x010203));
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Uint24, "big"), 0),
+                fastecu::testing::IsOkAnd(0x010203));
 }
 
 // Legacy's signed branch used to test only storagesize 1, 2, and 4 -- a
@@ -261,9 +247,8 @@ TEST(ReadRawElement, ReadsASigned24BitValueCorrectly)
     rom[0x11] = 0x02;
     rom[0x12] = 0x03;
 
-    const auto value = read_raw_element(rom, spec_for(definition::StorageType::Int24, "big"), 0);
-
-    ASSERT_THAT(value, fastecu::testing::IsOkAnd(0x010203));
+    ASSERT_THAT(read_raw_element(rom, spec_for(definition::StorageType::Int24, "big"), 0),
+                fastecu::testing::IsOkAnd(0x010203));
 }
 
 TEST(ElementByteAddress, Wrx02ReadAndWritePredicatesAgreeWhenNeitherRelocates)
@@ -408,16 +393,16 @@ TEST(EncodeScaledValue, EncodesInTheLabeledByteOrder)
     spec.endian = "big";
     spec.to_byte = "x";
 
-    const auto encoded = encode_scaled_value(spec, 0x1234, 15);
-    ASSERT_THAT(encoded, fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0x12, 0x34})));
+    ASSERT_THAT(encode_scaled_value(spec, 0x1234, 15),
+                fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0x12, 0x34})));
 
     MapElementSpec float_spec;
     float_spec.storage_type = definition::StorageType::Float;
     float_spec.endian = "little"; // deliberately "little" to show it's ignored
     float_spec.to_byte = "x";
 
-    const auto float_encoded = encode_scaled_value(float_spec, 1.5, 15);
-    ASSERT_THAT(float_encoded, fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0x3F, 0xC0, 0x00, 0x00})));
+    ASSERT_THAT(encode_scaled_value(float_spec, 1.5, 15),
+                fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0x3F, 0xC0, 0x00, 0x00})));
 }
 
 // write_raw_element is the byte-packing half of encode_scaled_value, and is
@@ -676,11 +661,10 @@ TEST(ApplyIncrement, ReportsInvalidConfigWhenTheIncrementIsZero)
     spec.y_size = 1;
 
     static constexpr auto cells = std::to_array<std::string_view>({"0"});
-    const auto patch =
-        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
-                        IncrementStep::CoarseUp, 15);
-
-    ASSERT_THAT(patch, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(apply_increment(rom, spec, /*x_size=*/1, cells,
+                                {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, IncrementStep::CoarseUp,
+                                15),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // The four saturation/sign-wrap guard tests below assert that an increment
@@ -876,11 +860,10 @@ TEST(ApplyIncrement, ReportsInvalidConfigWhenTheRetryBoundIsExhausted)
     spec.y_size = 1;
 
     static constexpr auto cells = std::to_array<std::string_view>({"0"});
-    const auto patch =
-        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
-                        IncrementStep::CoarseUp, 15);
-
-    ASSERT_THAT(patch, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(apply_increment(rom, spec, /*x_size=*/1, cells,
+                                {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, IncrementStep::CoarseUp,
+                                15),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(ApplySetExpression, AppliesEachOperatorToEveryCell)
@@ -937,10 +920,9 @@ TEST(ApplySetExpression, ReportsInvalidConfigOnDivisionByZero)
     spec.y_size = 1;
 
     static constexpr auto cells = std::to_array<std::string_view>({"10"});
-    const auto patch = apply_set_expression(rom, spec, /*x_size=*/1, cells,
-                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "/0", 15);
-
-    ASSERT_THAT(patch, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(apply_set_expression(rom, spec, /*x_size=*/1, cells,
+                                     {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "/0", 15),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // Spec defect (c), fixed: set_value now runs the same storage-type
@@ -960,12 +942,11 @@ TEST(ApplySetExpression, RejectsAValueThatWouldOverflowTheStorageType)
     spec.y_size = 1;
 
     static constexpr auto cells = std::to_array<std::string_view>({"10"});
-    const auto patch = apply_set_expression(rom, spec, /*x_size=*/1, cells,
-                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "300", 15);
-
     // 300 overflows a uint8 -- the whole call fails instead of truncating
     // silently into the storage type.
-    ASSERT_THAT(patch, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(apply_set_expression(rom, spec, /*x_size=*/1, cells,
+                                     {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "300", 15),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // Regression test for finding C1 of the PR 6b-4 final review: encode_guarded
@@ -1002,10 +983,9 @@ TEST(ApplySetExpression, RejectsAValueOutsideTheSignedStorageRange)
     rom[0x10] = 0xFB; // -5 as int8.
 
     static constexpr auto cells = std::to_array<std::string_view>({"-5"});
-    const auto patch = apply_set_expression(rom, int8_spec(1, 1), /*x_size=*/1, cells,
-                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "300", 15);
-
-    ASSERT_THAT(patch, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(apply_set_expression(rom, int8_spec(1, 1), /*x_size=*/1, cells,
+                                     {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "300", 15),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // Regression test for a defect introduced and fixed within Task 13 itself:
@@ -1172,11 +1152,10 @@ TEST(ApplyInterpolation, RejectsAnInterpolatedValueThatWouldOverflowTheStorageTy
     std::vector<std::uint8_t> rom(0x40, 0x00);
     static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "300"});
 
-    const auto patch = apply_interpolation(rom, linear_uint8_spec(3, 1), /*x_size=*/3, cells,
-                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
-                                           InterpolationMode::Horizontal, 15);
-
-    ASSERT_THAT(patch, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(apply_interpolation(rom, linear_uint8_spec(3, 1), /*x_size=*/3, cells,
+                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
+                                    InterpolationMode::Horizontal, 15),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // Finding C1 of the PR 6b-4 final review, on the interpolation path -- see
@@ -1220,11 +1199,10 @@ TEST(ApplyInterpolation, RejectsAnInterpolatedValueOutsideTheSignedStorageRange)
 
     static constexpr auto cells = std::to_array<std::string_view>({"-10", "300"});
 
-    const auto patch = apply_interpolation(rom, int8_spec(2, 1), /*x_size=*/2, cells,
-                                           {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1},
-                                           InterpolationMode::Horizontal, 15);
-
-    ASSERT_THAT(patch, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(apply_interpolation(rom, int8_spec(2, 1), /*x_size=*/2, cells,
+                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1},
+                                    InterpolationMode::Horizontal, 15),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // Regression test for a defect introduced and fixed within Task 13 itself:
@@ -1350,10 +1328,9 @@ TEST(ApplyPaste, RejectsAPastedValueThatWouldOverflowTheStorageType)
     static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "0"});
     const auto rows = std::to_array<std::vector<std::string_view>>({{"300"}});
 
-    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
-                                   {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
-
-    ASSERT_THAT(patch, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
+                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // Finding C1 of the PR 6b-4 final review, on the paste path -- see
@@ -1389,10 +1366,9 @@ TEST(ApplyPaste, RejectsAPastedValueOutsideTheSignedStorageRange)
     static constexpr auto cells = std::to_array<std::string_view>({"-5"});
     const auto rows = std::to_array<std::vector<std::string_view>>({{"300"}});
 
-    const auto patch = apply_paste(rom, int8_spec(1, 1), /*x_size=*/1, /*y_size=*/1, cells,
-                                   {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
-
-    ASSERT_THAT(patch, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(apply_paste(rom, int8_spec(1, 1), /*x_size=*/1, /*y_size=*/1, cells,
+                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // Design notes section 5: legacy sizes its column loop from the FIRST row's

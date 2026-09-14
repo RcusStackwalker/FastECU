@@ -84,8 +84,8 @@ TEST(TestDriver, handshake_fails_on_wake_failure)
     FailingInit init;
     MutDmaDriver d(t, init);
     fastecu::FakeCancellationToken cancellation;
-    const auto result = d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation);
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::BadResponse, "sentinel init wake failure"));
+    ASSERT_THAT(d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::BadResponse, "sentinel init wake failure"));
     ASSERT_FALSE(d.isStreaming());
 }
 
@@ -98,9 +98,8 @@ TEST(TestDriver, start_propagates_disconnected_set_baud_error_kind_and_detail)
     MutDmaDriver driver(transport, init);
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = driver.startFreeFormLog(channels, 0xA0, 0xA1, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel set-baud disconnect"));
+    ASSERT_THAT(driver.startFreeFormLog(channels, 0xA0, 0xA1, cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel set-baud disconnect"));
 }
 
 TEST(TestDriver, start_propagates_internal_set_baud_error_kind_and_detail)
@@ -112,9 +111,8 @@ TEST(TestDriver, start_propagates_internal_set_baud_error_kind_and_detail)
     MutDmaDriver driver(transport, init);
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = driver.startFreeFormLog(channels, 0xA0, 0xA1, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel set-baud internal"));
+    ASSERT_THAT(driver.startFreeFormLog(channels, 0xA0, 0xA1, cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel set-baud internal"));
 }
 
 TEST(TestDriver, start_propagates_queued_write_error_kind_and_detail)
@@ -127,9 +125,7 @@ TEST(TestDriver, start_propagates_queued_write_error_kind_and_detail)
     MutDmaDriver driver(transport, init);
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = driver.startFreeFormLog(channels, 0xA0, 0xA1, cancellation);
-
-    ASSERT_THAT(result,
+    ASSERT_THAT(driver.startFreeFormLog(channels, 0xA0, 0xA1, cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel setup write disconnect"));
 }
 
@@ -143,9 +139,8 @@ TEST(TestDriver, start_propagates_queued_read_error_kind_and_detail)
     MutDmaDriver driver(transport, init);
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = driver.startFreeFormLog(channels, 0xA0, 0xA1, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel setup read internal"));
+    ASSERT_THAT(driver.startFreeFormLog(channels, 0xA0, 0xA1, cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel setup read internal"));
 }
 
 TEST(TestDriver, handshake_fails_on_bad_ack)
@@ -158,8 +153,8 @@ TEST(TestDriver, handshake_fails_on_bad_ack)
     t.queueRead(buildCommandFrame(0x00, bytes::Bytes{}, TRAILER_STD));
     MutDmaDriver d(t, init);
     fastecu::FakeCancellationToken cancellation;
-    const auto result = d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation);
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
+    ASSERT_THAT(d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation),
+                fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
     ASSERT_FALSE(d.isStreaming());
 }
 
@@ -189,8 +184,7 @@ TEST(TestDriver, write_memory_fails_on_bad_echo)
     t.queueRead(badEcho);
     MutDmaDriver d(t, init);
     fastecu::FakeCancellationToken cancellation;
-    const auto result = d.writeMemory(0x8010, data, cancellation);
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
+    ASSERT_THAT(d.writeMemory(0x8010, data, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
 }
 
 TEST(TestDriver, write_memory_rejects_overflow)
@@ -215,7 +209,6 @@ TEST(TestDriver, handshake_propagates_cancellation_from_bounded_read)
     MutDmaDriver d(t, init);
     fastecu::FakeCancellationToken cancellation(true);
 
-    const auto result = d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+    ASSERT_THAT(d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation),
+                fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
 }

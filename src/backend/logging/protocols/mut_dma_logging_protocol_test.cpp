@@ -56,9 +56,7 @@ TEST(MutDmaLoggingProtocolTest, StartReachesStreamingOnValidHandshake)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->start(cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
     EXPECT_TRUE(script->scriptConsumed());
     EXPECT_TRUE(script->ok());
 }
@@ -70,9 +68,7 @@ TEST(MutDmaLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->start(cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartFailurePinsBadResponseForInvalidHandshake)
@@ -83,9 +79,7 @@ TEST(MutDmaLoggingProtocolTest, StartFailurePinsBadResponseForInvalidHandshake)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->start(cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesDisconnectedSetBaudErrorKindAndDetail)
@@ -95,9 +89,7 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesDisconnectedSetBaudErrorKindAndDe
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->start(cancellation);
-
-    ASSERT_THAT(result,
+    ASSERT_THAT(protocol->start(cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel core set-baud disconnect"));
 }
 
@@ -108,9 +100,8 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesInternalSetBaudErrorKindAndDetail
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->start(cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel core set-baud internal"));
+    ASSERT_THAT(protocol->start(cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel core set-baud internal"));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedWriteErrorKindAndDetail)
@@ -121,9 +112,7 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedWriteErrorKindAndDetail)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->start(cancellation);
-
-    ASSERT_THAT(result,
+    ASSERT_THAT(protocol->start(cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel core setup write disconnect"));
 }
 
@@ -135,9 +124,8 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedReadErrorKindAndDetail)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->start(cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel core setup read internal"));
+    ASSERT_THAT(protocol->start(cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel core setup read internal"));
 }
 
 TEST(MutDmaLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
@@ -162,9 +150,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsTransportErrorWhenAdapterClosesMidSes
     ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
     script->setOpen(false);
 
-    const auto result = protocol->poll(20ms, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
+    ASSERT_THAT(protocol->poll(20ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
 }
 
 TEST(MutDmaLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
@@ -196,7 +182,5 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesCancellation)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation(true);
 
-    const auto result = protocol->start(cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
 }

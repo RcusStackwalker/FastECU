@@ -385,9 +385,8 @@ TEST(SubaruHitachiM32rCanExecutor, ReadReportsAnEmptyReplyAsTimeout)
     transport.expectWrite(request({0xA8, 0x00, 0x00, 0x00, 0xD7}));
     transport.queue_no_frame();
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -414,9 +413,8 @@ TEST(SubaruHitachiM32rCanExecutor, ReadPropagatesADisconnectedTransport)
     transport.expectWrite(request(keyRequest));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone");
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -438,9 +436,8 @@ TEST(SubaruHitachiM32rCanExecutor, ConnectRejectsOnCarProgrammingAsUnsupported)
     transport.expectWrite(request({0xA8, 0x00, 0x00, 0x00, 0xD7}));
     transport.queueRead(response({0x00, 0x00, 0x00}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -454,9 +451,8 @@ TEST(SubaruHitachiM32rCanExecutor, ReadStopsWhenCancelledBeforeAnyExchange)
     auto plan = readPlan();
     cancellation.cancel();
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
@@ -497,9 +493,8 @@ TEST(SubaruHitachiM32rCanExecutor, ReadStopsAtTheNextChunkWhenCancelledMidRead)
     // is being served, so the loop must stop at the top of the next chunk.
     scriptFlashDump(transport, 0, 0x100, 0x100, 0x00);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
     const fastecu::RecordedPhaseProgress *last = nullptr;
     for (const auto& event : events.phase_progress_calls)
@@ -594,9 +589,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteToleratesUpToFiveFailedCloseAttemptsBefo
     scriptCloseAttempt(transport, {0x77});
     scriptChecksumVerify(transport);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -624,9 +617,8 @@ TEST(SubaruHitachiM32rCanExecutor, WriteStopsWhenTheEraseIsRejected)
     transport.expectWrite(request(firstChunkRequest));
     transport.queueRead(response({0x7F, 0xB6, 0x22}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -643,9 +635,8 @@ TEST(SubaruHitachiM32rCanExecutor, RefusesATestWritePlanRatherThanWritingForReal
     SubaruHitachiM32rCanExecutor executor;
     auto plan = handBuiltPlan(FlashOperation::TestWrite, 0x80000);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
     EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
 }

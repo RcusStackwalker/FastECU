@@ -103,9 +103,7 @@ TEST(UdsClientTest, AbsorbsRepeatedResponsePending)
     f.channel.queueReceive(bytes::Bytes{0x71, 0xE0});
 
     uds::UdsClient client = f.client();
-    const auto received = client.request(request, kPolicy, f.cancellation);
-
-    ASSERT_THAT(received, fastecu::testing::IsOk());
+    ASSERT_THAT(client.request(request, kPolicy, f.cancellation), fastecu::testing::IsOk());
     EXPECT_EQ(f.channel.sendsConsumed(), 1U);
 }
 
@@ -138,9 +136,7 @@ TEST(UdsClientTest, DoesNotRetryBusyRepeatRequest)
     f.channel.queueReceive(bytes::Bytes{0x7F, 0x36, 0x21});
 
     uds::UdsClient client = f.client();
-    const auto received = client.request(request, kPolicy, f.cancellation);
-
-    ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(client.request(request, kPolicy, f.cancellation), fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_EQ(f.channel.sendsConsumed(), 1U);
     EXPECT_TRUE(f.channel.scriptConsumed());
 }
@@ -153,9 +149,7 @@ TEST(UdsClientTest, ReportsANegativeResponseWithItsNrcDescription)
     f.channel.queueReceive(bytes::Bytes{0x7F, 0x27, 0x35});
 
     uds::UdsClient client = f.client();
-    const auto received = client.request(request, kPolicy, f.cancellation);
-
-    ASSERT_THAT(received,
+    ASSERT_THAT(client.request(request, kPolicy, f.cancellation),
                 fastecu::testing::IsErrWith(ErrorKind::BadResponse, uds::describe(bytes::Bytes{0x7F, 0x27, 0x35})));
 }
 
@@ -196,9 +190,7 @@ TEST(UdsClientTest, ReportsATimeoutWhenNothingArrives)
     f.channel.queueNoFrame();
 
     uds::UdsClient client = f.client();
-    const auto received = client.request(request, kPolicy, f.cancellation);
-
-    ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::Timeout));
+    ASSERT_THAT(client.request(request, kPolicy, f.cancellation), fastecu::testing::IsErr(ErrorKind::Timeout));
 }
 
 TEST(UdsClientTest, PropagatesAChannelErrorVerbatim)
@@ -209,9 +201,8 @@ TEST(UdsClientTest, PropagatesAChannelErrorVerbatim)
     f.channel.queueError(ErrorKind::Disconnected, "adapter closed");
 
     uds::UdsClient client = f.client();
-    const auto received = client.request(request, kPolicy, f.cancellation);
-
-    ASSERT_THAT(received, fastecu::testing::IsErrWith(ErrorKind::Disconnected, "adapter closed"));
+    ASSERT_THAT(client.request(request, kPolicy, f.cancellation),
+                fastecu::testing::IsErrWith(ErrorKind::Disconnected, "adapter closed"));
 }
 
 TEST(UdsClientTest, RefusesToSendWhenAlreadyCancelled)
@@ -220,9 +211,8 @@ TEST(UdsClientTest, RefusesToSendWhenAlreadyCancelled)
     f.cancellation.set_cancelled(true);
 
     uds::UdsClient client = f.client();
-    const auto received = client.request(bytes::Bytes{0x10, 0x03}, kPolicy, f.cancellation);
-
-    ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(client.request(bytes::Bytes{0x10, 0x03}, kPolicy, f.cancellation),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(f.channel.sendsConsumed(), 0U);
 }
 
@@ -231,9 +221,7 @@ TEST(UdsClientTest, RejectsAnEmptyRequest)
     Fixture f;
 
     uds::UdsClient client = f.client();
-    const auto received = client.request({}, kPolicy, f.cancellation);
-
-    ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(client.request({}, kPolicy, f.cancellation), fastecu::testing::IsErr(ErrorKind::Internal));
     EXPECT_EQ(f.channel.sendsConsumed(), 0U);
 }
 

@@ -6,7 +6,6 @@
 using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::FakeClock;
-using fastecu::Status;
 
 TEST(FakeClock, OptionalAutoAdvancePreservesSsmTimingModel)
 {
@@ -41,8 +40,7 @@ TEST(Clock, SleepAdvancesAndSucceeds)
 {
     FakeClock c;
     fastecu::FakeCancellationToken t;
-    Status s = c.sleep(10ms, t);
-    EXPECT_THAT(s, fastecu::testing::IsOk());
+    EXPECT_THAT(c.sleep(10ms, t), fastecu::testing::IsOk());
     EXPECT_EQ(c.elapsed(), 10ms);
 }
 
@@ -51,8 +49,7 @@ TEST(Clock, SleepReturnsCancelledWhenTokenSet)
     FakeClock c;
     fastecu::FakeCancellationToken t;
     t.set_cancelled(true);
-    Status s = c.sleep(10ms, t);
-    ASSERT_THAT(s, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(c.sleep(10ms, t), fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(c.elapsed(), 0ms);
 }
 

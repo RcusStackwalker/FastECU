@@ -473,9 +473,8 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedInCarProbeAndDumpSetup
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    ASSERT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "No valid response from ECU")));
 }
@@ -583,9 +582,8 @@ TEST(SubaruDenso1n83m_4mCanExecutor, TestWriteIsRejectedBeforeAnyTransportCall)
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    auto result = executor.execute(handBuiltPlan(FlashOperation::TestWrite), transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(executor.execute(handBuiltPlan(FlashOperation::TestWrite), transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
     EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
     EXPECT_THAT(events.logs, IsEmpty());
@@ -607,9 +605,8 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ReadTimeoutPropagates)
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+    ASSERT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -626,9 +623,8 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ReadDisconnectPropagates)
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    ASSERT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -649,9 +645,8 @@ TEST(SubaruDenso1n83m_4mCanExecutor, NegativeResponseDuringConnectFails)
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -690,9 +685,8 @@ TEST(SubaruDenso1n83m_4mCanExecutor, CancellationMidReadReturnsCancelled)
     CancelAfterFirstPageSink events{cancellation};
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -722,9 +716,8 @@ TEST(SubaruDenso1n83m_4mCanExecutor, EmptyBranchSelectorReplyFails)
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+    ASSERT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -746,9 +739,8 @@ TEST(SubaruDenso1n83m_4mCanExecutor, EraseRetryExhaustionFails)
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    auto result = executor.execute(writePlan(rom), transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(writePlan(rom), transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 

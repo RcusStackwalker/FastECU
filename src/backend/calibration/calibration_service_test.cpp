@@ -27,18 +27,14 @@ TEST(ReadRom, ReadsRequestedHandleThroughRepository)
     InMemoryFileRepository repo;
     repo.files["in.bin"] = {0xAA, 0xBB};
 
-    Result<std::vector<std::uint8_t>> result = read_rom("in.bin", repo);
-
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xAA, 0xBB})));
+    ASSERT_THAT(read_rom("in.bin", repo), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xAA, 0xBB})));
 }
 
 TEST(ReadRom, ReadFailureIsPropagated)
 {
     InMemoryFileRepository repo;
 
-    Result<std::vector<std::uint8_t>> result = read_rom("missing.bin", repo);
-
-    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(read_rom("missing.bin", repo), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ReadRom, EmptyRomIsAValidResultNotAMissingOne)
@@ -199,9 +195,8 @@ TEST(ValidateRomSize, FailsWhenMapAddressExceedsRomLength)
     CalibrationMap map;
     map.address = 0x3000;
 
-    Status result = validate_rom_size(definition_with_one_map(map), 0x2000);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_rom_size(definition_with_one_map(map), 0x2000),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(ValidateRomSize, FailsWhenXAxisAddressExceedsRomLength)
@@ -426,8 +421,7 @@ TEST(DecodeScaledValues, DecodesConsecutiveUint8Cells)
 TEST(DecodeScaledValues, AppliesFromByteExpression)
 {
     const std::vector<std::uint8_t> rom{4};
-    const auto result = decode_scaled_values(rom, simple_run(1, "x*0.5"), 15);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd("2,"));
+    ASSERT_THAT(decode_scaled_values(rom, simple_run(1, "x*0.5"), 15), fastecu::testing::IsOkAnd("2,"));
 }
 
 TEST(DecodeScaledValues, HonoursStartPositionAndInterval)
@@ -438,8 +432,7 @@ TEST(DecodeScaledValues, HonoursStartPositionAndInterval)
     run.start_position = 2;
     run.interval = 3;
 
-    const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd("10,20,30,"));
+    ASSERT_THAT(decode_scaled_values(rom, run, 15), fastecu::testing::IsOkAnd("10,20,30,"));
 }
 
 TEST(DecodeScaledValues, DecodesBigEndianUint16)
@@ -448,8 +441,7 @@ TEST(DecodeScaledValues, DecodesBigEndianUint16)
     ElementRun run = simple_run(1);
     run.storage_type = definition::StorageType::Uint16;
 
-    const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd("4660,")); // 0x1234
+    ASSERT_THAT(decode_scaled_values(rom, run, 15), fastecu::testing::IsOkAnd("4660,")); // 0x1234
 }
 
 TEST(DecodeScaledValues, DecodesLittleEndianUint16)
@@ -463,8 +455,7 @@ TEST(DecodeScaledValues, DecodesLittleEndianUint16)
     run.storage_type = definition::StorageType::Uint16;
     run.endian = "little";
 
-    const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd("4660,")); // 0x1234
+    ASSERT_THAT(decode_scaled_values(rom, run, 15), fastecu::testing::IsOkAnd("4660,")); // 0x1234
 }
 
 TEST(DecodeScaledValues, TreatsAnyNonLittleEndianStringAsBigEndian)
@@ -495,8 +486,7 @@ TEST(DecodeScaledValues, SignExtendsSignedStorageTypes)
     ElementRun run = simple_run(1);
     run.storage_type = definition::StorageType::Int16;
 
-    const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd("-2,"));
+    ASSERT_THAT(decode_scaled_values(rom, run, 15), fastecu::testing::IsOkAnd("-2,"));
 }
 
 TEST(DecodeScaledValues, DoesNotSignExtendUnsignedStorageTypes)
@@ -505,8 +495,7 @@ TEST(DecodeScaledValues, DoesNotSignExtendUnsignedStorageTypes)
     ElementRun run = simple_run(1);
     run.storage_type = definition::StorageType::Uint16;
 
-    const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd("65534,"));
+    ASSERT_THAT(decode_scaled_values(rom, run, 15), fastecu::testing::IsOkAnd("65534,"));
 }
 
 TEST(DecodeScaledValues, DecodesInt8SignBit)
@@ -515,8 +504,7 @@ TEST(DecodeScaledValues, DecodesInt8SignBit)
     ElementRun run = simple_run(1);
     run.storage_type = definition::StorageType::Int8;
 
-    const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd("-128,"));
+    ASSERT_THAT(decode_scaled_values(rom, run, 15), fastecu::testing::IsOkAnd("-128,"));
 }
 
 TEST(DecodeScaledValues, DecodesBigEndianFloat)
@@ -526,8 +514,7 @@ TEST(DecodeScaledValues, DecodesBigEndianFloat)
     ElementRun run = simple_run(1);
     run.storage_type = definition::StorageType::Float;
 
-    const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd("1.5,"));
+    ASSERT_THAT(decode_scaled_values(rom, run, 15), fastecu::testing::IsOkAnd("1.5,"));
 }
 
 TEST(DecodeScaledValues, PreservesBigEndianFloatAssemblyWhenEndianSaysLittle)
@@ -540,8 +527,7 @@ TEST(DecodeScaledValues, PreservesBigEndianFloatAssemblyWhenEndianSaysLittle)
     run.storage_type = definition::StorageType::Float;
     run.endian = "little";
 
-    const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd("1.5,"));
+    ASSERT_THAT(decode_scaled_values(rom, run, 15), fastecu::testing::IsOkAnd("1.5,"));
 }
 
 TEST(DecodeScaledValues, EmitsZeroForSelectableRunsWithoutEvaluating)
@@ -552,22 +538,19 @@ TEST(DecodeScaledValues, EmitsZeroForSelectableRunsWithoutEvaluating)
     ElementRun run = simple_run(2, "x*999999");
     run.is_selectable = true;
 
-    const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd("0,0,"));
+    ASSERT_THAT(decode_scaled_values(rom, run, 15), fastecu::testing::IsOkAnd("0,0,"));
 }
 
 TEST(DecodeScaledValues, ReturnsEmptyStringForZeroCount)
 {
     const std::vector<std::uint8_t> rom{1, 2, 3};
-    const auto result = decode_scaled_values(rom, simple_run(0), 15);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd(""));
+    ASSERT_THAT(decode_scaled_values(rom, simple_run(0), 15), fastecu::testing::IsOkAnd(""));
 }
 
 TEST(DecodeScaledValues, FailsWhenAnElementRunsPastTheRom)
 {
     const std::vector<std::uint8_t> rom{1, 2};
-    const auto result = decode_scaled_values(rom, simple_run(3), 15);
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(decode_scaled_values(rom, simple_run(3), 15), fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(DecodeScaledValues, FailsWhenAMultiByteElementStraddlesTheEnd)
@@ -576,8 +559,7 @@ TEST(DecodeScaledValues, FailsWhenAMultiByteElementStraddlesTheEnd)
     ElementRun run = simple_run(1);
     run.storage_type = definition::StorageType::Uint16;
 
-    const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(decode_scaled_values(rom, run, 15), fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(DecodeScaledValues, RejectsMaximumAddressWithoutWrapping)
@@ -586,8 +568,7 @@ TEST(DecodeScaledValues, RejectsMaximumAddressWithoutWrapping)
     ElementRun run = simple_run(1);
     run.address = std::numeric_limits<std::uint64_t>::max();
 
-    const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(decode_scaled_values(rom, run, 15), fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(DecodeScaledValues, ClampsZeroStartPositionDefensively)
@@ -600,8 +581,7 @@ TEST(DecodeScaledValues, ClampsZeroStartPositionDefensively)
     ElementRun run = simple_run(1);
     run.start_position = 0;
 
-    const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd("1,"));
+    ASSERT_THAT(decode_scaled_values(rom, run, 15), fastecu::testing::IsOkAnd("1,"));
 }
 
 TEST(DecodeScaledValues, FormattingMatchesCapturedQtGroundTruth)
@@ -647,31 +627,27 @@ TEST(DecodeScaledValues, FormattingMatchesCapturedQtGroundTruth)
 TEST(DecodeBloblistHex, HexEncodesRequestedBytes)
 {
     const std::vector<std::uint8_t> rom{0x00, 0xAB, 0xCD, 0xEF};
-    const auto result = decode_bloblist_hex(rom, 1, 3);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd("abcdef"));
+    ASSERT_THAT(decode_bloblist_hex(rom, 1, 3), fastecu::testing::IsOkAnd("abcdef"));
 }
 
 TEST(DecodeBloblistHex, ReturnsEmptyStringForZeroCount)
 {
     const std::vector<std::uint8_t> rom{0xAB};
-    const auto result = decode_bloblist_hex(rom, 0, 0);
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd(""));
+    ASSERT_THAT(decode_bloblist_hex(rom, 0, 0), fastecu::testing::IsOkAnd(""));
 }
 
 TEST(DecodeBloblistHex, FailsWhenTheRunExceedsTheRom)
 {
     const std::vector<std::uint8_t> rom{0xAB, 0xCD};
-    const auto result = decode_bloblist_hex(rom, 1, 3);
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(decode_bloblist_hex(rom, 1, 3), fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(DecodeBloblistHex, RejectsMaximumAddressWithoutWrapping)
 {
     const std::vector<std::uint8_t> rom{0xAB};
 
-    const auto result = decode_bloblist_hex(rom, std::numeric_limits<std::uint64_t>::max(), 1);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(decode_bloblist_hex(rom, std::numeric_limits<std::uint64_t>::max(), 1),
+                fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 namespace

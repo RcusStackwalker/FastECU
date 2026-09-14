@@ -168,8 +168,8 @@ TEST(LoggerDefinitionParser, RejectsMalformedXml)
 
 TEST(LoggerDefinitionParser, RejectsWrongRootElement)
 {
-    const auto result = parse_logger_definition(view("<config/>"), "wrong.xml");
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse_logger_definition(view("<config/>"), "wrong.xml"),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(LoggerDefinitionParser, AcceptsAnEmptyButWellFormedDocument)

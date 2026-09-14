@@ -79,9 +79,7 @@ TEST(DensoSh705xEepromCommonTest, WriteOperationIsUnsupported)
     auto input = valid_kline_input();
     input.operation = FlashOperation::Write;
 
-    auto plan = build_denso_sh705x_eeprom_plan(input);
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 
 TEST(DensoSh705xEepromCommonTest, TestWriteOperationIsUnsupported)
@@ -154,9 +152,7 @@ TEST(DensoSh705xEepromCommonTest, KlineRejectsRawKernelThatFitsButWireFootprintC
     input.kernel.load_address = kSh7055KernelRamEnd - 4;
     input.kernel.bytes = {0xaa, 0xbb, 0xcc, 0xdd};
 
-    auto plan = build_denso_sh705x_eeprom_plan(input);
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(DensoSh705xEepromCommonTest, CanRejectsRawKernelThatFitsButWireFootprintCrossesRamEnd)
@@ -168,18 +164,15 @@ TEST(DensoSh705xEepromCommonTest, CanRejectsRawKernelThatFitsButWireFootprintCro
     input.kernel.load_address = kSh7055KernelRamEnd - 4;
     input.kernel.bytes = {0xaa, 0xbb, 0xcc, 0xdd};
 
-    auto plan = build_denso_sh705x_eeprom_plan(input);
-
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(DensoSh705xEepromCommonTest, PreflightRejectsKernelSizeWhoseWireFootprintOverflows)
 {
     auto input = valid_kline_input();
 
-    auto status = validate_denso_sh705x_eeprom_preflight(input, std::numeric_limits<std::size_t>::max());
-
-    ASSERT_THAT(status, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(validate_denso_sh705x_eeprom_preflight(input, std::numeric_limits<std::size_t>::max()),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionReturnsKnownMcuBounds)
@@ -200,9 +193,7 @@ TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionReturnsKnownMcuBounds
 
 TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionRejectsUnknownMcu)
 {
-    auto region = resolve_sh705x_eeprom_region("NOT_A_REAL_MCU");
-
-    ASSERT_THAT(region, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(resolve_sh705x_eeprom_region("NOT_A_REAL_MCU"), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(DensoSh705xEepromCommonTest, NoTransportOrConfigurationCallOccursOnRejection)

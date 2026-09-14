@@ -58,8 +58,8 @@ TEST(SubaruHitachiM32rKlinePlan, RejectsInvalidInputsBeforeIo)
     const auto expect = [](FlashOperation operation, std::string_view protocol, std::string_view mcu,
                            std::optional<bytes::Bytes> image, ErrorKind expected)
     {
-        auto plan = build_subaru_hitachi_m32r_kline_plan(operation, protocol, mcu, std::move(image));
-        ASSERT_THAT(plan, fastecu::testing::IsErr(expected));
+        ASSERT_THAT(build_subaru_hitachi_m32r_kline_plan(operation, protocol, mcu, std::move(image)),
+                    fastecu::testing::IsErr(expected));
     };
     expect(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline_typo", kMcu, std::nullopt, ErrorKind::InvalidConfig);
     expect(FlashOperation::Read, kNormal, "M32R_512KB_4blocks", std::nullopt, ErrorKind::InvalidConfig);

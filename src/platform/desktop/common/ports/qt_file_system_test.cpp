@@ -53,8 +53,7 @@ TEST(QtFileSystemTest, CopyWithoutOverwriteFailsWhenDestinationExists)
         f.write("x");
     }
 
-    auto r = fs.copy_file(src, dst, false);
-    ASSERT_THAT(r, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(fs.copy_file(src, dst, false), fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(QtFileSystemTest, ListDirectoryReturnsEntriesWithModifiedTime)

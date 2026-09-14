@@ -171,9 +171,7 @@ TEST(DefinitionWriterTest, RejectsEachEmptyRequiredIdentity)
             input.ecu_id.clear();
         }
 
-        auto result = create_ecuflash_xml(input);
-
-        ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig)) << field;
+        ASSERT_THAT(create_ecuflash_xml(input), fastecu::testing::IsErr(ErrorKind::InvalidConfig)) << field;
     }
 }
 
@@ -239,9 +237,8 @@ TEST(DefinitionWriterTest, RewritesHeaderAndPreservesUnrelatedTreeContent)
 
 TEST(DefinitionWriterTest, RejectsMalformedImportBeforeProducingBytes)
 {
-    auto result = rewrite_ecuflash_xml(bytes("<rom><romid>"), complete_input());
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(rewrite_ecuflash_xml(bytes("<rom><romid>"), complete_input()),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(DefinitionWriterTest, RejectsDuplicateTopLevelRomIdContainers)

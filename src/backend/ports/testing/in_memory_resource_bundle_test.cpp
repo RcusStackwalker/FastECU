@@ -16,14 +16,12 @@ TEST(ResourceBundle, ListReturnsAllNames)
 TEST(ResourceBundle, ReadUnknownBundleIsInvalidConfig)
 {
     fastecu::InMemoryResourceBundle bundle;
-    auto r = bundle.read("kernels", "missing.bin");
-    ASSERT_THAT(r, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(bundle.read("kernels", "missing.bin"), fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(ResourceBundle, ReadKnownFileRoundTrips)
 {
     fastecu::InMemoryResourceBundle bundle;
     bundle.bundles["kernels"]["k.bin"] = {1, 2, 3};
-    auto r = bundle.read("kernels", "k.bin");
-    ASSERT_THAT(r, fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{1, 2, 3})));
+    ASSERT_THAT(bundle.read("kernels", "k.bin"), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{1, 2, 3})));
 }

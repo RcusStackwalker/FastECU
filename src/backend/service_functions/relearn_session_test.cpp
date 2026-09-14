@@ -57,8 +57,7 @@ TEST(RelearnSession, RequiresTheIso15765TcuPair)
 TEST(RelearnSession, RejectsAnUnknownProtocolBeforeAnyIo)
 {
     const RelearnSession session{"sub_ecu_denso_sh7058_can"};
-    const auto setup = session.transport_setup();
-    ASSERT_THAT(setup, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(session.transport_setup(), fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 
 TEST(RelearnSession, AsksForTheStaticSetupGateBeforeAnyIo)

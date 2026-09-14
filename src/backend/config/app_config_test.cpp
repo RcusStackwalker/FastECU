@@ -6,8 +6,6 @@
 
 using fastecu::ErrorKind;
 using fastecu::InMemoryFileRepository;
-using fastecu::Result;
-using fastecu::Status;
 using fastecu::config::AppConfig;
 using fastecu::config::ConfigPaths;
 using fastecu::config::load_app_config;
@@ -146,9 +144,7 @@ TEST(LoadAppConfig, MissingFileIsPropagatedAsInvalidConfig)
     InMemoryFileRepository repo;
     ConfigPaths paths = test_paths();
 
-    auto config = load_app_config(paths, repo);
-
-    ASSERT_THAT(config, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(load_app_config(paths, repo), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SaveAppConfig, NormalizesTrailingSlashesOnThreeDirectoryFields)

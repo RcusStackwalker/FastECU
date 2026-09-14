@@ -357,9 +357,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectSkipsTheRestWhenKernelAlreadyRun
     scriptFlashDump(transport, kWindowStart, kWindowLength, 0x100, 0x5A);
     scriptStopCommand(transport);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_TRUE(containsLog(events, "Kernel already running"));
 }
@@ -450,9 +448,8 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectPropagatesATimeoutBetweenExchang
     transport.expectWrite(request(keyRequest));
     transport.queue_no_frame();
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -492,9 +489,8 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadStopsWhenCancelled)
     auto plan = readPlan();
     cancellation.cancel();
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
@@ -538,9 +534,8 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadStopsAtTheNextChunkWhenCancelledMid
     scriptDumpSetup(transport);
     scriptFlashDump(transport, kWindowStart, 0x100, 0x100, 0x5A);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -562,9 +557,8 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadPropagatesADisconnectedTransport)
     transport.expectWrite(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(kWindowStart))));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone");
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -659,9 +653,8 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteStopsOnATimeoutBetweenChunks)
     transport.expectWrite(request(firstChunkReq));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone mid-write");
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -696,9 +689,8 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, RefusesATestWritePlanRatherThanWritingF
     SubaruTcuCvtMitsuMh8104CanExecutor executor;
     auto plan = handBuiltPlan(FlashOperation::TestWrite, kImageSize);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 

@@ -23,9 +23,7 @@ TEST(FakeBenchFiles, MissingFileReportsInvalidConfig)
 {
     FakeBenchFiles files;
 
-    const auto result = files.load("missing.bin");
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(files.load("missing.bin"), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 } // namespace

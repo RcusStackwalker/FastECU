@@ -48,8 +48,8 @@ TEST(SubaruDensoSh72543CanDieselPlan, AcceptsSingleBlockGeometry)
 
 TEST(SubaruDensoSh72543CanDieselPlan, TestWriteIsRejectedBeforeAnyIo)
 {
-    auto plan = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::TestWrite, kProtocol, kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::TestWrite, kProtocol, kMcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 
 TEST(SubaruDensoSh72543CanDieselPlan, WriteImageIsBasedAtAddressZero)
@@ -85,8 +85,8 @@ TEST(SubaruDensoSh72543CanDieselPlan, WriteRequiresFullStartAlignedImage)
 
 TEST(SubaruDensoSh72543CanDieselPlan, WriteWithNoImageIsRejected)
 {
-    auto plan = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoSh72543CanDieselPlan, WrongProtocolAndWrongMcuAreRejected)

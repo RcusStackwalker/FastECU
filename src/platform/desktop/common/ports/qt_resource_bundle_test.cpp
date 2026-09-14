@@ -36,7 +36,5 @@ TEST(QtResourceBundleTest, ReadReturnsNonEmptyBytesForAKnownFile)
 TEST(QtResourceBundleTest, UnknownBundleIdIsInvalidConfig)
 {
     QtResourceBundle bundle;
-    auto names = bundle.list("not-a-real-bundle");
-
-    ASSERT_THAT(names, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(bundle.list("not-a-real-bundle"), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }

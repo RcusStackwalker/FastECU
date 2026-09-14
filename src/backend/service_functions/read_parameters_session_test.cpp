@@ -48,8 +48,7 @@ TEST(ReadParametersSession, RequiresTheIso15765TcuPair)
 TEST(ReadParametersSession, RejectsAnUnknownProtocolBeforeAnyIo)
 {
     const ReadParametersSession session{"sub_ecu_denso_sh7058_can"};
-    const auto setup = session.transport_setup();
-    ASSERT_THAT(setup, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(session.transport_setup(), fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 
 TEST(ReadParametersSession, DecodesTheNineValuesFromBytesFiveToFourteen)

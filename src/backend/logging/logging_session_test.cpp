@@ -45,8 +45,8 @@ TEST(LoggingSessionTest, RejectsDuplicateStableIds)
 {
     auto channels = valid_channels();
     channels.push_back(channels.front());
-    auto result = make_logging_session(LoggingProtocolId::Ssm, channels, valid_policy());
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Ssm, channels, valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(LoggingSessionTest, StableIdsSurviveSourceRowReordering)
@@ -63,97 +63,94 @@ TEST(LoggingSessionTest, RejectsInvalidPolicy)
 {
     auto policy = valid_policy();
     policy.poll_timeout = 0ms;
-    auto result = make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy);
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Ssm, valid_channels(), policy),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(LoggingSessionTest, RejectsInvalidChannelShape)
 {
     auto c = channel("rpm", 0x10);
     c.length = 0;
-    auto result = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(LoggingSessionTest, RejectsInvalidChannelIdentityAndAssembly)
 {
     auto c = channel("", 0x10);
-    auto empty_id = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
-    ASSERT_THAT(empty_id, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 
     c = channel("rpm", 0x10);
     c.length = 256;
-    auto excessive_length = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
-    ASSERT_THAT(excessive_length, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 
     c = channel("rpm", 0x10);
     // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercises the invalid-value rejection path
     c.raw_assembly = static_cast<RawAssembly>(99);
-    auto invalid_assembly = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
-    ASSERT_THAT(invalid_assembly, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(LoggingSessionTest, RejectsOutOfRangeProtocolAddresses)
 {
     auto c = channel("rpm", 0x1000000);
-    auto ssm = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
-    ASSERT_THAT(ssm, ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy()),
+                ::testing::Not(fastecu::testing::IsOk()));
 
     c.address = 0x10000;
-    auto mut_dma = make_logging_session(LoggingProtocolId::MutDma, {c}, valid_policy());
-    ASSERT_THAT(mut_dma, ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::MutDma, {c}, valid_policy()),
+                ::testing::Not(fastecu::testing::IsOk()));
 
     c.address = 0xffffffff;
-    auto cdbg = make_logging_session(LoggingProtocolId::Cdbg, {c}, valid_policy());
-    ASSERT_THAT(cdbg, fastecu::testing::IsOk());
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Cdbg, {c}, valid_policy()), fastecu::testing::IsOk());
 }
 
 TEST(LoggingSessionTest, RejectsInvalidConversionConfiguration)
 {
     auto c = channel("rpm", 0x10);
     c.from_byte_expression.clear();
-    auto empty_expression = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
-    ASSERT_THAT(empty_expression, ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy()),
+                ::testing::Not(fastecu::testing::IsOk()));
 
     c.from_byte_expression = "x+invalid";
-    auto malformed_expression = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
-    ASSERT_THAT(malformed_expression, ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy()),
+                ::testing::Not(fastecu::testing::IsOk()));
 
     c.from_byte_expression = "x";
     c.decimal_precision = 16;
-    auto excessive_precision = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
-    ASSERT_THAT(excessive_precision, ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy()),
+                ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(LoggingSessionTest, RejectsExpressionsWithoutFiniteEvaluation)
 {
     auto c = channel("rpm", 0x10);
     c.from_byte_expression = "x/0";
-    auto division_by_zero = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
-    ASSERT_THAT(division_by_zero, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 
     c.from_byte_expression = "0/0";
-    auto indeterminate = make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy());
-    ASSERT_THAT(indeterminate, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Ssm, {c}, valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(LoggingSessionTest, RequiresAtLeastOneCdbgChannel)
 {
-    auto cdbg = make_logging_session(LoggingProtocolId::Cdbg, {}, valid_policy());
-    ASSERT_THAT(cdbg, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Cdbg, {}, valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 
-    auto ssm = make_logging_session(LoggingProtocolId::Ssm, {}, valid_policy());
-    EXPECT_THAT(ssm, fastecu::testing::IsOk());
+    EXPECT_THAT(make_logging_session(LoggingProtocolId::Ssm, {}, valid_policy()), fastecu::testing::IsOk());
 
-    auto mut_dma = make_logging_session(LoggingProtocolId::MutDma, {}, valid_policy());
-    EXPECT_THAT(mut_dma, fastecu::testing::IsOk());
+    EXPECT_THAT(make_logging_session(LoggingProtocolId::MutDma, {}, valid_policy()), fastecu::testing::IsOk());
 }
 
 TEST(LoggingSessionTest, RejectsUnknownProtocolIdentifiers)
 {
     // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange) -- exercising the invalid-value rejection path
-    auto result = make_logging_session(static_cast<LoggingProtocolId>(99), {}, valid_policy());
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(make_logging_session(static_cast<LoggingProtocolId>(99), {}, valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)

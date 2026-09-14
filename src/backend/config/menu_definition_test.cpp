@@ -147,9 +147,7 @@ TEST(MenuDefinitionTest, PropagatesRepositoryReadFailure)
 {
     InMemoryFileRepository repository; // no "menu.cfg" stored
 
-    auto definition = load_menu_definition(test_paths(), repository);
-
-    ASSERT_THAT(definition, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(load_menu_definition(test_paths(), repository), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(MenuDefinitionTest, MalformedXmlIsInvalidConfig)

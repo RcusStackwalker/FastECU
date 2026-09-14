@@ -23,9 +23,8 @@ TEST(FakeBenchSession, RecordsRequestsAndDequeuesRepliesInOrder)
 TEST(FakeBenchSession, FailsLoudlyWhenTheScriptRunsOut)
 {
     FakeBenchSession session;
-    const auto result = session.exchange(bytes::Bytes{0x31, 0xE0}, uds::ExchangePolicy{});
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(session.exchange(bytes::Bytes{0x31, 0xE0}, uds::ExchangePolicy{}),
+                fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 } // namespace

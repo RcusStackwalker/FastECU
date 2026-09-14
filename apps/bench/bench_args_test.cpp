@@ -58,9 +58,8 @@ TEST(BenchArgs, RejectsTheWholeChainWhenALaterStepIsUngated)
 {
     // The gate must fire before the port opens, so an ungated third step
     // fails the whole parse rather than being discovered mid-session.
-    const auto parsed = parse({"read", "0x200", "1", ":", "unlock", "--destructive", ":", "erase"});
-
-    ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"read", "0x200", "1", ":", "unlock", "--destructive", ":", "erase"}),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(BenchArgs, RejectsPortsChainedWithAnotherStep)
@@ -75,9 +74,7 @@ TEST(BenchArgs, RejectsPortsChainedWithAnotherStep)
 
 TEST(BenchArgs, RejectsDestructiveFlagOnANonDestructiveStep)
 {
-    const auto parsed = parse({"read", "0x200", "1", "--destructive"});
-
-    ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"read", "0x200", "1", "--destructive"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(BenchArgs, RejectsArbitraryDiagnosticPdusWithoutDestructiveAcknowledgement)
@@ -141,9 +138,7 @@ TEST(BenchArgs, PassesUploadRoutineFromThroughAsOrdinaryArguments)
 
 TEST(BenchArgs, RejectsUnknownCommands)
 {
-    const auto parsed = parse({"frobnicate"});
-
-    ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"frobnicate"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(BenchArgs, RejectsWrongArgumentCounts)
@@ -176,28 +171,21 @@ TEST(BenchArgs, RejectsAnEmptyStepBetweenSeparators)
 
 TEST(BenchArgs, RejectsGlobalOptionsMissingTheirValue)
 {
-    const auto missingPort = parse({"--port"});
-    ASSERT_THAT(missingPort, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"--port"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 
-    const auto missingTimeout = parse({"--timeout"});
-    ASSERT_THAT(missingTimeout, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"--timeout"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 
-    const auto missingScript = parse({"--script"});
-    ASSERT_THAT(missingScript, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"--script"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(BenchArgs, RejectsANonNumericTimeoutValue)
 {
-    const auto parsed = parse({"--timeout", "abc"});
-
-    ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"--timeout", "abc"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(BenchArgs, RejectsTimeoutThatCannotFitDownstreamStorage)
 {
-    const auto parsed = parse({"--timeout", "65536", "send-raw", "22"});
-
-    ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"--timeout", "65536", "send-raw", "22"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(BenchArgs, AcceptsLargestTimeoutThatFitsDownstreamStorage)
@@ -210,9 +198,7 @@ TEST(BenchArgs, AcceptsLargestTimeoutThatFitsDownstreamStorage)
 
 TEST(BenchArgs, RejectsAScriptValueOtherThanStdin)
 {
-    const auto parsed = parse({"--script", "notstdin"});
-
-    ASSERT_THAT(parsed, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(parse({"--script", "notstdin"}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(BenchArgs, ParsesU32InHexAndDecimal)
@@ -229,9 +215,7 @@ TEST(BenchArgs, ParsesU32InHexAndDecimal)
 TEST(BenchArgs, ParsesHexByteTokens)
 {
     const std::vector<std::string> tokens{"31", "e0", "FF"};
-    const auto parsed = parse_hex_bytes(tokens);
-
-    ASSERT_THAT(parsed, fastecu::testing::IsOkAnd((bytes::Bytes{0x31, 0xE0, 0xFF})));
+    ASSERT_THAT(parse_hex_bytes(tokens), fastecu::testing::IsOkAnd((bytes::Bytes{0x31, 0xE0, 0xFF})));
 }
 
 TEST(BenchArgs, RejectsMalformedHexByteTokens)

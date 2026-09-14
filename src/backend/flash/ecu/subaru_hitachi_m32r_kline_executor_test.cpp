@@ -179,9 +179,8 @@ TEST(SubaruHitachiM32rKlineExecutor, RecoveryWakeIsBoundedToOneThousandAttempts)
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_EQ(transport.writesConsumed(), 1000U);
 }
 
@@ -204,8 +203,7 @@ TEST(SubaruHitachiM32rKlineExecutor, ReadFallsBackThrough4800Initialization)
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_EQ(transport.baud_calls_, (std::vector<int>{38400, 4800, 38400}));
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -228,8 +226,7 @@ TEST(SubaruHitachiM32rKlineExecutor, NormalWriteUsesActiveObkAndToleratesLegacyA
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.baud_calls_, (std::vector<int>{15625, 15625}));
 }
@@ -246,8 +243,8 @@ TEST(SubaruHitachiM32rKlineExecutor, NormalFallbackRequiresSecuritySubfunctionTw
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -280,8 +277,7 @@ TEST(SubaruHitachiM32rKlineExecutor, EraseAcknowledgementAccumulatesBoundedFragm
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -302,8 +298,7 @@ TEST(SubaruHitachiM32rKlineExecutor, RecoveryWriteWakesAndUsesAuthenticatedSessi
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.baud_calls_, (std::vector<int>{4800, 15625}));
 }
@@ -319,8 +314,8 @@ TEST(SubaruHitachiM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
     ManualCancellationToken cancellation;
     cancellation.cancel();
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_FALSE(transport.last_config_.has_value());
 }
 
@@ -341,7 +336,7 @@ TEST(SubaruHitachiM32rKlineExecutor, CancellationAfterEraseIsNotReportedAsSucces
     SubaruHitachiM32rKlineExecutor executor;
     FakeClock clock;
     RecordingEventSink events;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
 }
 } // namespace

@@ -122,16 +122,16 @@ TEST(SingleWindowPlan, FailingGeometryPredicateIsReportedAgainstTheMcuName)
 
 TEST(SingleWindowPlan, TestWriteIsRejectedAsUnsupported)
 {
-    auto plan = build_single_window_plan(kSpec, FlashOperation::TestWrite, "sub_ecu_denso_sh72531_can", "SH72531",
-                                         std::nullopt, wire());
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(build_single_window_plan(kSpec, FlashOperation::TestWrite, "sub_ecu_denso_sh72531_can", "SH72531",
+                                         std::nullopt, wire()),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 
 TEST(SingleWindowPlan, WriteWithNoImageIsRejected)
 {
-    auto plan = build_single_window_plan(kSpec, FlashOperation::Write, "sub_ecu_denso_sh72531_can", "SH72531",
-                                         std::nullopt, wire());
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_single_window_plan(kSpec, FlashOperation::Write, "sub_ecu_denso_sh72531_can", "SH72531",
+                                         std::nullopt, wire()),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SingleWindowPlan, WriteWithWrongImageSizeReportsUppercaseHexAndTheActualSize)

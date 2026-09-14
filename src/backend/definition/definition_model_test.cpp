@@ -189,9 +189,7 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateAddressIsInvalidConfig)
     auto second = entry("A", "b.xml");
     second.internal_id_address = 0x5678;
 
-    auto result = DefinitionCatalog::create({first, second});
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(DefinitionCatalog::create({first, second}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(DefinitionCatalogTest, ConflictingDuplicateEncodingIsInvalidConfig)
@@ -200,9 +198,7 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateEncodingIsInvalidConfig)
     auto second = entry("A", "b.xml");
     second.internal_id_encoding = IdEncoding::Hex;
 
-    auto result = DefinitionCatalog::create({first, second});
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(DefinitionCatalog::create({first, second}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(DefinitionCatalogTest, ConflictingDuplicateParentsIsInvalidConfig)
@@ -210,30 +206,24 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateParentsIsInvalidConfig)
     auto first = entry("A", "a.xml", {"BASE"});
     auto second = entry("A", "b.xml", {"OTHER"});
 
-    auto result = DefinitionCatalog::create({first, second});
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(DefinitionCatalog::create({first, second}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(DefinitionCatalogTest, EmptyDefinitionIdIsInvalidConfig)
 {
-    auto result = DefinitionCatalog::create({entry("", "definition.xml")});
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(DefinitionCatalog::create({entry("", "definition.xml")}),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(DefinitionCatalogTest, MissingSourceIsInvalidConfig)
 {
-    auto result = DefinitionCatalog::create({entry("A", "")});
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(DefinitionCatalog::create({entry("A", "")}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(DefinitionCatalogTest, EmptyParentReferenceIsInvalidConfig)
 {
-    auto result = DefinitionCatalog::create({entry("A", "definition.xml", {""})});
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(DefinitionCatalog::create({entry("A", "definition.xml", {""})}),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(DefinitionCatalogTest, MissingEntryIsInvalidConfig)
@@ -241,8 +231,8 @@ TEST(DefinitionCatalogTest, MissingEntryIsInvalidConfig)
     auto catalog = DefinitionCatalog::create({entry("A", "definition.xml")});
 
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
-    auto result = catalog->find(DefinitionFormat::RomRaider, "UNKNOWN");
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(catalog->find(DefinitionFormat::RomRaider, "UNKNOWN"),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(DefinitionModel, FindScalingReturnsMatchingEntry)

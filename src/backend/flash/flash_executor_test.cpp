@@ -88,9 +88,7 @@ TEST(CheckFamilyTest, WrongFamilyFailsWithInvalidConfig)
     auto plan = validate_and_build(kline_read_fields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    auto status = check_family(*plan, FlashFamily::MitsuColtM32rCan);
-
-    ASSERT_THAT(status, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(check_family(*plan, FlashFamily::MitsuColtM32rCan), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 } // namespace

@@ -296,6 +296,9 @@ failing `EXPECT_TRUE` prints `false` and needs a comment to be intelligible.
 and `IsErrWith(kind, matcher)` for its detail. The matchers include the
 Error/ErrorKind printers, so failures name the actual error and its detail.
 Use `ASSERT_THAT` before accessing the result later in the test.
+When a result is used only by one assertion, pass the operation directly to
+`ASSERT_THAT` or `EXPECT_THAT` instead of declaring a local. Keep a local when
+needed to preserve operation or cleanup order.
 
 ```cpp
 ASSERT_THAT(result, fastecu::testing::IsOk());

@@ -100,8 +100,7 @@ TEST(SetParametersSession, RequiresTheKlineConfigurationNotTheCanOne)
 TEST(SetParametersSession, RejectsAnUnknownProtocolBeforeAnyIo)
 {
     const SetParametersSession session{"sub_ecu_denso_sh7058_can", sample()};
-    const auto setup = session.transport_setup();
-    ASSERT_THAT(setup, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(session.transport_setup(), fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 
 TEST(SetParametersSession, WritesAllTwelveFramesEachFramedExactlyOnce)

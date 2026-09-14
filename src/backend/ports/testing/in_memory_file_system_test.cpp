@@ -6,8 +6,6 @@ using fastecu::DirEntry;
 using fastecu::Error;
 using fastecu::ErrorKind;
 using fastecu::InMemoryFileSystem;
-using fastecu::Result;
-using fastecu::Status;
 
 TEST(FileSystem, CreateThenExists)
 {
@@ -32,8 +30,7 @@ TEST(InMemoryFileSystem, ConfiguredCreateDirectoryFailureIsReturned)
 TEST(FileSystem, CopyFailsWhenSourceMissing)
 {
     InMemoryFileSystem fs;
-    auto r = fs.copy_file("/missing", "/dst", false);
-    ASSERT_THAT(r, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(fs.copy_file("/missing", "/dst", false), fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(FileSystem, CopyRespectsOverwriteFlag)
@@ -127,7 +124,5 @@ TEST(InMemoryFileSystem, RejectsUnknownDirectory)
 {
     InMemoryFileSystem fs;
 
-    auto result = fs.list_directory("/unknown");
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(fs.list_directory("/unknown"), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }

@@ -168,9 +168,7 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesRomRaiderCatalogWithAlignedTypedRows
     value.romraider_def_ecu_id = {"sentinel-ecu"};
     value.romraider_def_filename = {"sentinel-file"};
 
-    auto result = adapter.replace_romraider_catalog(value, handles);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(adapter.replace_romraider_catalog(value, handles), fastecu::testing::IsOk());
     EXPECT_EQ(value.romraider_def_cal_id, QStringList({"SECOND", "FIRST"}));
     EXPECT_EQ(value.romraider_def_cal_id_addr, QStringList({"0x2a0", "0x1a0"}));
     EXPECT_EQ(value.romraider_def_ecu_id, QStringList({"ECU-2", "ECU-1"}));
@@ -201,9 +199,7 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesEcuFlashCatalogWithAlignedTypedRows)
         "defs/a.xml",
     };
 
-    auto result = adapter.replace_ecuflash_catalog(value, "defs", explicit_handles);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(adapter.replace_ecuflash_catalog(value, "defs", explicit_handles), fastecu::testing::IsOk());
     EXPECT_EQ(value.ecuflash_def_cal_id, QStringList({"A", "B", "OUTSIDE"}));
     EXPECT_EQ(value.ecuflash_def_cal_id_addr, QStringList({"0x10", "", "0x20"}));
     EXPECT_EQ(value.ecuflash_def_ecu_id, QStringList({"ECU-A", "ECU-B", "ECU-OUTSIDE"}));
@@ -230,12 +226,10 @@ TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogSkipsUnreadableHandleAndRepla
     value.ecuflash_def_filename = {"outside.xml"};
     const std::vector<std::string> explicit_handles{"outside.xml"};
 
-    auto result = adapter.replace_ecuflash_catalog(value, "defs", explicit_handles);
-
     // An unreadable handle is skipped rather than failing the whole catalog (matching
     // DefinitionService::build_catalog), so this replace succeeds with an empty EcuFlash
     // catalog; the unrelated RomRaider lists are untouched.
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(adapter.replace_ecuflash_catalog(value, "defs", explicit_handles), fastecu::testing::IsOk());
     EXPECT_EQ(value.software_name, "unchanged software");
     EXPECT_EQ(value.primary_definition_base, "unchanged base");
     EXPECT_EQ(value.romraider_def_cal_id, QStringList{"romraider-id"});
@@ -261,9 +255,8 @@ TEST_F(LegacyDefinitionAdapterTest, RomRaiderCatalogSkipsUnreadableHandleAndRepl
     value.ecuflash_def_ecu_id = {"other-ecu"};
     value.ecuflash_def_filename = {"other-file"};
 
-    auto result = adapter.replace_romraider_catalog(value, std::vector<std::string>{"bad.xml"});
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(adapter.replace_romraider_catalog(value, std::vector<std::string>{"bad.xml"}),
+                fastecu::testing::IsOk());
     EXPECT_EQ(value.software_name, "unchanged software");
     EXPECT_EQ(value.primary_definition_base, "unchanged base");
     EXPECT_TRUE(value.romraider_def_cal_id.isEmpty());
@@ -363,9 +356,8 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
     value.use_romraider_definition = true;
     value.use_ecuflash_definition = false;
 
-    auto result = adapter.replace_definition(value, *catalog, DefinitionFormat::EcuFlash, "FULL");
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(adapter.replace_definition(value, *catalog, DefinitionFormat::EcuFlash, "FULL"),
+                fastecu::testing::IsOk());
     EXPECT_EQ(value.FileName, "rom.bin");
     EXPECT_EQ(value.FullFileName, "/roms/rom.bin");
     EXPECT_EQ(value.RomId, "identified-rom");
@@ -498,9 +490,8 @@ TEST_F(LegacyDefinitionAdapterTest, MapsRomRaiderRuntimeLogParameters)
     value.use_romraider_definition = false;
     value.use_ecuflash_definition = false;
 
-    auto result = adapter.replace_definition(value, *catalog, DefinitionFormat::RomRaider, "RR");
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(adapter.replace_definition(value, *catalog, DefinitionFormat::RomRaider, "RR"),
+                fastecu::testing::IsOk());
     EXPECT_EQ(value.StartPosList, QStringList({"0x7"}));
     EXPECT_EQ(value.IntervalList, QStringList({"0x2"}));
     EXPECT_EQ(value.LogParamList, QStringList({"P_MAP"}));
@@ -603,11 +594,8 @@ TEST_F(LegacyDefinitionAdapterTest, CreationAndImportDelegateToDefinitionService
     };
     repository.files["source.xml"] = bytes("<rom><romid><xmlid>OLD</xmlid></romid><table name=\"Fuel\"/></rom>");
 
-    auto created = adapter.create_definition("created.xml", input);
-    auto imported = adapter.import_definition("source.xml", "imported.xml", input);
-
-    ASSERT_THAT(created, fastecu::testing::IsOk());
-    ASSERT_THAT(imported, fastecu::testing::IsOk());
+    ASSERT_THAT(adapter.create_definition("created.xml", input), fastecu::testing::IsOk());
+    ASSERT_THAT(adapter.import_definition("source.xml", "imported.xml", input), fastecu::testing::IsOk());
     ASSERT_EQ(writer.replace_calls.size(), 2U);
     EXPECT_EQ(writer.replace_calls.at(0).handle, "created.xml");
     EXPECT_EQ(writer.replace_calls.at(1).handle, "imported.xml");

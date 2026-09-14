@@ -16,8 +16,6 @@
 
 using fastecu::ErrorKind;
 using fastecu::InMemoryFileRepository;
-using fastecu::Result;
-using fastecu::Status;
 using fastecu::config::CarModelCatalog;
 using fastecu::config::CarModelEntry;
 using fastecu::config::ConfigPaths;
@@ -137,9 +135,7 @@ TEST(LoadCarModelCatalog, MissingFileIsInvalidConfig)
     InMemoryFileRepository repo;
     ConfigPaths paths = test_paths();
 
-    auto catalog = load_car_model_catalog(paths, repo);
-
-    ASSERT_THAT(catalog, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(load_car_model_catalog(paths, repo), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // Reads the real, checked-in resources/shared/config/protocols.cfg via

@@ -213,8 +213,8 @@ TEST(WriteSelection, RejectsAnEmptyDocument)
     LoggerSelection selection;
     selection.protocol = "SSM";
 
-    const auto written = write_selection(view(""), "ECUID1", selection, "conf.xml");
-    ASSERT_THAT(written, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(write_selection(view(""), "ECUID1", selection, "conf.xml"),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(WriteSelection, AppendsANewEcuElementAndKeepsTheExistingOne)

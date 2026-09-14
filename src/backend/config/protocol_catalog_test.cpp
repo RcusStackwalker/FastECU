@@ -16,8 +16,6 @@
 
 using fastecu::ErrorKind;
 using fastecu::InMemoryFileRepository;
-using fastecu::Result;
-using fastecu::Status;
 using fastecu::config::ConfigPaths;
 using fastecu::config::load_protocol_catalog;
 using fastecu::config::ProtocolCatalog;
@@ -161,9 +159,7 @@ TEST(LoadProtocolCatalog, MissingFileIsInvalidConfig)
     InMemoryFileRepository repo;
     ConfigPaths paths = test_paths();
 
-    auto catalog = load_protocol_catalog(paths, repo);
-
-    ASSERT_THAT(catalog, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(load_protocol_catalog(paths, repo), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(LoadProtocolCatalog, RejectsDuplicateProtocolNames)

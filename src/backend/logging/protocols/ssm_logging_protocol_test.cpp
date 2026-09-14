@@ -65,9 +65,7 @@ TEST(SsmLoggingProtocolTest, StartPreservesHistoricalRequestVector)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.start(cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(protocol.start(cancellation), fastecu::testing::IsOk());
     EXPECT_TRUE(script->scriptConsumed());
     EXPECT_TRUE(script->ok());
 }
@@ -81,9 +79,7 @@ TEST(SsmLoggingProtocolTest, StartReturnsBadResponseForShortReply)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, true);
 
-    const auto result = protocol.start(cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
+    ASSERT_THAT(protocol.start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
 }
 
 TEST(SsmLoggingProtocolTest, StartReturnsBadResponseForNegativeReply)
@@ -97,9 +93,7 @@ TEST(SsmLoggingProtocolTest, StartReturnsBadResponseForNegativeReply)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, true);
 
-    const auto result = protocol.start(cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
+    ASSERT_THAT(protocol.start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
 }
 
 TEST(SsmLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
@@ -110,9 +104,8 @@ TEST(SsmLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.start(cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "adapter disconnected"));
+    ASSERT_THAT(protocol.start(cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "adapter disconnected"));
 }
 
 TEST(SsmLoggingProtocolTest, PreservesDecimalByteConcatenation)
@@ -222,9 +215,7 @@ TEST(SsmLoggingProtocolTest, CancellationDuringFramingReturnsCancelled)
     cancellation.cancel_on_check(4);
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.poll(50ms, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+    ASSERT_THAT(protocol.poll(50ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
 }
 
 TEST(SsmLoggingProtocolTest, StartCancellationReturnsCancelledWithoutIo)
@@ -233,9 +224,7 @@ TEST(SsmLoggingProtocolTest, StartCancellationReturnsCancelledWithoutIo)
     fastecu::FakeCancellationToken cancellation(true);
     SsmLoggingProtocol protocol(clock, std::make_unique<ScriptedSsmTransport>(), {channel()}, true, false);
 
-    const auto result = protocol.start(cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+    ASSERT_THAT(protocol.start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
 }
 
 TEST(SsmLoggingProtocolTest, PollPropagatesTypedWriteFailure)
@@ -247,9 +236,8 @@ TEST(SsmLoggingProtocolTest, PollPropagatesTypedWriteFailure)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.poll(50ms, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel SSM write disconnect"));
+    ASSERT_THAT(protocol.poll(50ms, cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel SSM write disconnect"));
 }
 
 TEST(SsmLoggingProtocolTest, PollPropagatesTypedReadFailure)
@@ -261,9 +249,8 @@ TEST(SsmLoggingProtocolTest, PollPropagatesTypedReadFailure)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.poll(50ms, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel SSM read failure"));
+    ASSERT_THAT(protocol.poll(50ms, cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel SSM read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, StartPropagatesTypedWriteFailure)
@@ -275,9 +262,7 @@ TEST(SsmLoggingProtocolTest, StartPropagatesTypedWriteFailure)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.start(cancellation);
-
-    ASSERT_THAT(result,
+    ASSERT_THAT(protocol.start(cancellation),
                 fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel SSM start write disconnect"));
 }
 
@@ -290,9 +275,8 @@ TEST(SsmLoggingProtocolTest, StartPropagatesTypedReadFailure)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.start(cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel SSM start read failure"));
+    ASSERT_THAT(protocol.start(cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel SSM start read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, PollPropagatesOpenPort2DirectReadFailure)
@@ -304,10 +288,9 @@ TEST(SsmLoggingProtocolTest, PollPropagatesOpenPort2DirectReadFailure)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, true);
 
-    const auto result = protocol.poll(50ms, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected,
-                                                    "sentinel OpenPort2 direct read failure"));
+    ASSERT_THAT(
+        protocol.poll(50ms, cancellation),
+        fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel OpenPort2 direct read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, HeaderResynchronizationPropagatesReadFailure)
@@ -323,9 +306,8 @@ TEST(SsmLoggingProtocolTest, HeaderResynchronizationPropagatesReadFailure)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.poll(50ms, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel SSM resync read failure"));
+    ASSERT_THAT(protocol.poll(50ms, cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel SSM resync read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, FinalReadAfterHeaderMatchPropagatesReadFailure)
@@ -341,9 +323,8 @@ TEST(SsmLoggingProtocolTest, FinalReadAfterHeaderMatchPropagatesReadFailure)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.poll(50ms, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel SSM final read failure"));
+    ASSERT_THAT(protocol.poll(50ms, cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel SSM final read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, PollCancellationReturnsCancelledWithoutIo)
@@ -352,9 +333,7 @@ TEST(SsmLoggingProtocolTest, PollCancellationReturnsCancelledWithoutIo)
     fastecu::FakeCancellationToken cancellation(true);
     SsmLoggingProtocol protocol(clock, std::make_unique<ScriptedSsmTransport>(), {channel()}, true, false);
 
-    const auto result = protocol.poll(50ms, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+    ASSERT_THAT(protocol.poll(50ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
 }
 
 TEST(SsmLoggingProtocolTest, PollFailsWhenAdapterIsClosed)
@@ -365,9 +344,8 @@ TEST(SsmLoggingProtocolTest, PollFailsWhenAdapterIsClosed)
     fastecu::FakeCancellationToken cancellation;
     SsmLoggingProtocol protocol(clock, std::move(transport), {channel()}, true, false);
 
-    const auto result = protocol.poll(50ms, cancellation);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "adapter disconnected"));
+    ASSERT_THAT(protocol.poll(50ms, cancellation),
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "adapter disconnected"));
 }
 
 TEST(SsmLoggingProtocolTest, PollSkipsChannelWhenResponseOffsetBeyondPayload)
@@ -418,7 +396,5 @@ TEST(SsmLoggingProtocolTest, StopSucceeds)
     auto clock = fastecu::make_auto_advancing_clock(10ms);
     SsmLoggingProtocol protocol(clock, std::make_unique<ScriptedSsmTransport>(), {channel()}, true, false);
 
-    const auto result = protocol.stop();
-
-    EXPECT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_THAT(protocol.stop(), fastecu::testing::IsOk());
 }

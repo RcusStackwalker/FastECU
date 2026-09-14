@@ -432,9 +432,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WrongFamilyPlanFails)
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
@@ -465,9 +464,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, BoundAttemptPreservesConfigureToOpenCance
     FlipAfter cancellation(1);
     RecordingEventSink events;
 
-    auto result = attempt->run(clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(attempt->run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(observed_transport->last_config_.has_value());
     EXPECT_EQ(observed_transport->close_call_count_, 0);
     EXPECT_TRUE(observed_transport->control_line_trace_.empty());
@@ -503,9 +500,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, MalformedFamilyPlanFailsBeforeAnyIo)
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_FALSE(transport.last_config_.has_value());
     EXPECT_TRUE(transport.read_timeouts_.empty());
     EXPECT_TRUE(transport.control_line_trace_.empty());
@@ -543,9 +539,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.control_line_trace_,
               (std::vector<ScriptedKlineFlashTransport::ControlLineAction>{
@@ -577,9 +571,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, PresentEmptyUploadFrameIsNotNoFrameSucces
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -604,9 +597,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.control_line_trace_,
               (std::vector<ScriptedKlineFlashTransport::ControlLineAction>{
@@ -641,9 +632,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, NoFrameBootInitFallsBackToKernelAlivePoll
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.baud_calls_, (std::vector<int>{62500}));
 }
@@ -674,9 +663,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelW
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_EQ(transport.baud_calls_, (std::vector<int>{11700, 62500}));
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -698,9 +685,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFailsWithNoValidResponseAtAll)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, CancellationBeforeConnectStopsImmediately)
@@ -719,9 +705,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, CancellationBeforeConnectStopsImmediately
     FakeClock clock;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
@@ -736,9 +721,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ShortKlineWriteFailsBeforeRead)
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Disconnected));
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, InitialDrainTransportErrorStopsBeforeBootloaderTraffic)
@@ -752,9 +736,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, InitialDrainTransportErrorStopsBeforeBoot
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
@@ -768,9 +751,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, CancellationAtInitialDrainStopsBeforeBoot
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.write_attempts_.empty());
     EXPECT_EQ(transport.read_timeouts_, (std::vector<std::chrono::milliseconds>{10ms}));
 }
@@ -854,9 +836,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsMalformedPageResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -874,9 +855,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsTruncatedValidMarkerResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -894,9 +874,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsShortPageResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -912,9 +891,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadCancelsBetweenPages)
     CancelAfterFirstPageClock clock(cancellation);
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.writesConsumed(), 4U);
 }
@@ -1036,9 +1014,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedEraseResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1065,9 +1042,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteCancelsMidBlockTransfer)
     FakeClock clock;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.flash_buffer_write_attempts_, 0U);
 }
@@ -1109,9 +1085,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 1);
     EXPECT_EQ(clock.elapsed(), 2250ms);
@@ -1150,9 +1124,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 1);
     EXPECT_EQ(clock.elapsed(), 2250ms);
@@ -1178,9 +1150,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsTruncatedBlockCrcAfterBounded
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 20);
 }
@@ -1201,9 +1172,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsNegativeBlockCrcResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1225,9 +1195,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WritePropagatesBlockCrcDrainError)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Disconnected, "CRC drain failed"));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErrWith(ErrorKind::Disconnected, "CRC drain failed"));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1248,9 +1217,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedFlashBufferResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1278,9 +1246,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedCommitResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1308,9 +1275,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteFailsOnRejectedValidateResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1334,9 +1300,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteLogsRemainingMismatchAfterVerificati
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_TRUE(
         std::find(

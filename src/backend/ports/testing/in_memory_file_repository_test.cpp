@@ -8,15 +8,13 @@ TEST(InMemoryFileRepository, WriteThenReadRoundTrips)
     fastecu::InMemoryFileRepository repo;
     std::vector<std::uint8_t> data = {1, 2, 3};
     ASSERT_THAT(repo.write("rom", data), fastecu::testing::IsOk());
-    auto r = repo.read("rom");
-    ASSERT_THAT(r, fastecu::testing::IsOkAnd(data));
+    ASSERT_THAT(repo.read("rom"), fastecu::testing::IsOkAnd(data));
 }
 
 TEST(InMemoryFileRepository, MissingHandleIsInvalidConfig)
 {
     fastecu::InMemoryFileRepository repo;
-    auto r = repo.read("absent");
-    ASSERT_THAT(r, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(repo.read("absent"), fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(InMemoryFileRepository, RecordsAndCanOverrideNextRead)
@@ -24,9 +22,7 @@ TEST(InMemoryFileRepository, RecordsAndCanOverrideNextRead)
     fastecu::InMemoryFileRepository repository;
     repository.next_read_result = fastecu::fail(fastecu::ErrorKind::Internal, "disk error");
 
-    auto result = repository.read("kernel");
-
-    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
+    ASSERT_THAT(repository.read("kernel"), ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(repository.read_handles, std::vector<std::string>{"kernel"});
 }
 
@@ -37,9 +33,7 @@ TEST(InMemoryFileRepository, ReadOverrideIsConsumedAfterOneRead)
     repository.next_read_result = fastecu::fail(fastecu::ErrorKind::Internal, "disk error");
 
     ASSERT_THAT(repository.read("kernel"), ::testing::Not(fastecu::testing::IsOk()));
-    auto result = repository.read("kernel");
-
-    ASSERT_THAT(result, fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xaa, 0xbb})));
+    ASSERT_THAT(repository.read("kernel"), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xaa, 0xbb})));
     EXPECT_EQ(repository.read_handles, (std::vector<std::string>{"kernel", "kernel"}));
 }
 
@@ -65,10 +59,8 @@ TEST(InMemoryFileRepository, PersistentReadErrorAppliesAfterOneShotOverride)
     repository.read_errors.insert_or_assign("kernel", fastecu::Error{fastecu::ErrorKind::Internal, "persistent error"});
     repository.next_read_result = std::vector<std::uint8_t>{0xbb};
 
-    auto first = repository.read("kernel");
+    ASSERT_THAT(repository.read("kernel"), fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xbb})));
     auto second = repository.read("kernel");
-
-    ASSERT_THAT(first, fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xbb})));
     ASSERT_THAT(second, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(second.error(), repository.read_errors.at("kernel"));
     EXPECT_EQ(repository.read_count("kernel"), 2);
