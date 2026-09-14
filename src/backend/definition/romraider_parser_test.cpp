@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/definition/romraider_parser.h"
 
 #include <cstdint>
@@ -22,8 +23,7 @@ std::vector<std::uint8_t> bytes(std::string_view text)
 void expect_invalid_with_context(const Result<UnresolvedDefinition>& result, std::string_view source_context,
                                  std::string_view xml_context)
 {
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr(source_context));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr(xml_context));
 }
@@ -45,7 +45,7 @@ TEST(RomRaiderParserTest, IndexesMultipleDefinitionsAndRecordsParentReferences)
 
     auto result = parse_romraider_index(xml, "rr.xml");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 2U);
     EXPECT_EQ(result->at(0).definition_id, "BASE");
     EXPECT_EQ(result->at(0).internal_id, "BASE-ID");
@@ -93,7 +93,7 @@ TEST(RomRaiderParserTest, ParsesChildWithoutResolvingItsBase)
 
     auto result = parse_romraider_definition(xml, "rr.xml", "CHILD");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->format, DefinitionFormat::RomRaider);
     EXPECT_EQ(result->source, "rr.xml");
     EXPECT_EQ(result->parents, std::vector<std::string>{"BASE"});
@@ -181,7 +181,7 @@ TEST(RomRaiderParserTest, ConvertsSwitchStatesToSelectableScaling)
 
     auto result = parse_romraider_definition(xml, "switches.xml", "SWITCHES");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_EQ(result->maps.front().type, "Selectable");
     EXPECT_EQ(result->maps.front().storage_type, StorageType::Bloblist);
@@ -205,7 +205,7 @@ TEST(RomRaiderParserTest, NormalizesLegacyTwoDimensionalYAxisDimensions)
 
     auto result = parse_romraider_definition(xml, "curve.xml", "CURVE");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_EQ(result->maps.front().x_axis.type, "Y Axis");
     EXPECT_EQ(result->maps.front().x_axis.name, "Curve Points");
@@ -226,7 +226,7 @@ TEST(RomRaiderParserTest, NormalizesLegacyStaticYAxisDimensions)
 
     auto result = parse_romraider_definition(xml, "static-curve.xml", "STATIC_CURVE");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_EQ(result->maps.front().x_axis.type, "Static X Axis");
     EXPECT_EQ(result->maps.front().x_axis.name, "Static Points");
@@ -245,7 +245,7 @@ TEST(RomRaiderParserTest, UsesAddressBeforeStorageAddressAndPreservesAbsentOptio
 
     auto result = parse_romraider_definition(xml, "minimal.xml", "MINIMAL");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(result->parents.empty());
     EXPECT_EQ(result->metadata, RomMetadata{});
     ASSERT_EQ(result->maps.size(), 1U);

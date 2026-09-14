@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
 
 #include <gmock/gmock.h>
@@ -19,7 +20,7 @@ TEST(SubaruMitsuM32rKlinePlan, SnapshotsExactWireAndMemoryContract)
         auto plan = build_subaru_mitsu_m32r_kline_plan(
             operation, kProtocol, kMcu,
             operation == FlashOperation::Write ? std::optional(bytes::Bytes(0x80000, 0x5a)) : std::nullopt);
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
         EXPECT_EQ(plan->family(), FlashFamily::SubaruMitsuM32rKline);
         EXPECT_EQ(plan->transport(), TransportKind::Kline);
         EXPECT_EQ(plan->transfer_region().start, 0x8000U);
@@ -41,8 +42,7 @@ TEST(SubaruMitsuM32rKlinePlan, RejectsInvalidInputsBeforeIo)
                            std::optional<bytes::Bytes> image, ErrorKind kind)
     {
         auto plan = build_subaru_mitsu_m32r_kline_plan(op, protocol, mcu, std::move(image));
-        ASSERT_FALSE(plan.has_value());
-        EXPECT_EQ(plan.error().kind, kind);
+        ASSERT_THAT(plan, fastecu::testing::IsErr(kind));
     };
     expect(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline_typo", kMcu, std::nullopt, ErrorKind::InvalidConfig);
     expect(FlashOperation::Read, kProtocol, "NOT_A_REAL_MCU", std::nullopt, ErrorKind::InvalidConfig);

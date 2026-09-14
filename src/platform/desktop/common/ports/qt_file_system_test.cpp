@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include <QDir>
 #include <QFile>
@@ -16,7 +17,7 @@ TEST(QtFileSystemTest, CreateDirectoryThenExists)
     const std::string dir = (tmp.path() + "/child").toStdString();
 
     EXPECT_FALSE(fs.exists(dir));
-    ASSERT_TRUE(fs.create_directory(dir).has_value());
+    ASSERT_THAT(fs.create_directory(dir), fastecu::testing::IsOk());
     EXPECT_TRUE(fs.exists(dir));
 }
 
@@ -32,9 +33,9 @@ TEST(QtFileSystemTest, CopyThenRemove)
     f.write("hi");
     f.close();
 
-    ASSERT_TRUE(fs.copy_file(src, dst, false).has_value());
+    ASSERT_THAT(fs.copy_file(src, dst, false), fastecu::testing::IsOk());
     EXPECT_TRUE(fs.exists(dst));
-    ASSERT_TRUE(fs.remove_file(dst).has_value());
+    ASSERT_THAT(fs.remove_file(dst), fastecu::testing::IsOk());
     EXPECT_FALSE(fs.exists(dst));
 }
 
@@ -53,8 +54,7 @@ TEST(QtFileSystemTest, CopyWithoutOverwriteFailsWhenDestinationExists)
     }
 
     auto r = fs.copy_file(src, dst, false);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(r, fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(QtFileSystemTest, ListDirectoryReturnsEntriesWithModifiedTime)
@@ -70,7 +70,7 @@ TEST(QtFileSystemTest, ListDirectoryReturnsEntriesWithModifiedTime)
 
     auto entries = fs.list_directory(tmp.path().toStdString());
 
-    ASSERT_TRUE(entries.has_value());
+    ASSERT_THAT(entries, fastecu::testing::IsOk());
     EXPECT_EQ(entries->size(), 2U);
     bool found_dir = false, found_file = false;
     for (auto& e : *entries)
@@ -106,7 +106,7 @@ TEST(QtFileSystemTest, ListDirectoryIdentifiesDirectorySymlink)
 
     QtFileSystem fs;
     auto nestedEntries = fs.list_directory(nested.toStdString());
-    ASSERT_TRUE(nestedEntries);
+    ASSERT_THAT(nestedEntries, fastecu::testing::IsOk());
     const auto loopEntry = std::find_if(nestedEntries->begin(), nestedEntries->end(),
                                         [](const fastecu::DirEntry& entry) { return entry.name == "loop"; });
     ASSERT_NE(loopEntry, nestedEntries->end());

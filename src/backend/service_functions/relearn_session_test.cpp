@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/service_functions/relearn_session.h"
 
 #include <gtest/gtest.h>
@@ -48,7 +49,7 @@ TEST(RelearnSession, RequiresTheIso15765TcuPair)
 {
     const Fixture fixture;
     const auto setup = fixture.session.transport_setup();
-    ASSERT_TRUE(setup.has_value());
+    ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->framing, SsmTransportConfig::Framing::Iso15765);
     EXPECT_EQ(setup->request_id, 0x7e1U);
 }
@@ -57,8 +58,7 @@ TEST(RelearnSession, RejectsAnUnknownProtocolBeforeAnyIo)
 {
     const RelearnSession session{"sub_ecu_denso_sh7058_can"};
     const auto setup = session.transport_setup();
-    ASSERT_FALSE(setup.has_value());
-    EXPECT_EQ(setup.error().kind, ErrorKind::Unsupported);
+    ASSERT_THAT(setup, fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 
 TEST(RelearnSession, AsksForTheStaticSetupGateBeforeAnyIo)

@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include <chrono>
 
 #include <gtest/gtest.h>
@@ -57,7 +58,7 @@ TEST(MutDmaLoggingProtocolTest, StartReachesStreamingOnValidHandshake)
 
     const auto result = protocol->start(cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(script->scriptConsumed());
     EXPECT_TRUE(script->ok());
 }
@@ -71,8 +72,7 @@ TEST(MutDmaLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
 
     const auto result = protocol->start(cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartFailurePinsBadResponseForInvalidHandshake)
@@ -85,8 +85,7 @@ TEST(MutDmaLoggingProtocolTest, StartFailurePinsBadResponseForInvalidHandshake)
 
     const auto result = protocol->start(cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesDisconnectedSetBaudErrorKindAndDetail)
@@ -98,9 +97,8 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesDisconnectedSetBaudErrorKindAndDe
 
     const auto result = protocol->start(cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
-    EXPECT_EQ(result.error().detail, "sentinel core set-baud disconnect");
+    ASSERT_THAT(result,
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel core set-baud disconnect"));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesInternalSetBaudErrorKindAndDetail)
@@ -112,9 +110,7 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesInternalSetBaudErrorKindAndDetail
 
     const auto result = protocol->start(cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
-    EXPECT_EQ(result.error().detail, "sentinel core set-baud internal");
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel core set-baud internal"));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedWriteErrorKindAndDetail)
@@ -127,9 +123,8 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedWriteErrorKindAndDetail)
 
     const auto result = protocol->start(cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
-    EXPECT_EQ(result.error().detail, "sentinel core setup write disconnect");
+    ASSERT_THAT(result,
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel core setup write disconnect"));
 }
 
 TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedReadErrorKindAndDetail)
@@ -142,9 +137,7 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesQueuedReadErrorKindAndDetail)
 
     const auto result = protocol->start(cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
-    EXPECT_EQ(result.error().detail, "sentinel core setup read internal");
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel core setup read internal"));
 }
 
 TEST(MutDmaLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
@@ -154,7 +147,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
 
     const auto result = protocol->poll(20ms, cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
     EXPECT_TRUE(result->samples.empty());
 }
@@ -166,13 +159,12 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsTransportErrorWhenAdapterClosesMidSes
     auto *script = transport.get();
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_TRUE(protocol->start(cancellation));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
     script->setOpen(false);
 
     const auto result = protocol->poll(20ms, cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
 }
 
 TEST(MutDmaLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
@@ -182,7 +174,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
     auto *script = transport.get();
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_TRUE(protocol->start(cancellation));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
 
     bytes::Bytes frame = {0x51, 0x12, 0x34};
     frame.push_back(mutdma::sum8(frame));
@@ -191,7 +183,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
 
     const auto result = protocol->poll(50ms, cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
     ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples[0].channel_id, "mut.rpm");
@@ -206,6 +198,5 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesCancellation)
 
     const auto result = protocol->start(cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
 }

@@ -38,6 +38,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:in_memory_file_system",
         "//src/backend/ports/testing:in_memory_resource_bundle",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -58,6 +59,7 @@ fastecu_portable_gtest(
     deps = [
         ":app_config",
         "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -82,6 +84,7 @@ fastecu_portable_gtest(
     deps = [
         ":protocol_catalog",
         "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -107,6 +110,7 @@ fastecu_portable_gtest(
     deps = [
         ":car_model_catalog",
         "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -131,5 +135,6 @@ fastecu_portable_gtest(
     deps = [
         ":menu_definition",
         "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )

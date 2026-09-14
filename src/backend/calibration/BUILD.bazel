@@ -35,6 +35,7 @@ fastecu_portable_gtest(
     deps = [
         ":calibration_service",
         "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -54,5 +55,8 @@ cc_library(
 fastecu_portable_gtest(
     name = "map_edit_test",
     srcs = ["map_edit_test.cpp"],
-    deps = [":map_edit"],
+    deps = [
+        ":map_edit",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )

@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include <gtest/gtest.h>
@@ -41,7 +42,7 @@ TEST(Clock, SleepAdvancesAndSucceeds)
     FakeClock c;
     fastecu::FakeCancellationToken t;
     Status s = c.sleep(10ms, t);
-    EXPECT_TRUE(s.has_value());
+    EXPECT_THAT(s, fastecu::testing::IsOk());
     EXPECT_EQ(c.elapsed(), 10ms);
 }
 
@@ -51,8 +52,7 @@ TEST(Clock, SleepReturnsCancelledWhenTokenSet)
     fastecu::FakeCancellationToken t;
     t.set_cancelled(true);
     Status s = c.sleep(10ms, t);
-    ASSERT_FALSE(s.has_value());
-    EXPECT_EQ(s.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(s, fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(c.elapsed(), 0ms);
 }
 

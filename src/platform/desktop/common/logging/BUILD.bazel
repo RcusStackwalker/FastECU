@@ -25,6 +25,7 @@ fastecu_gtest(
     deps = [
         ":logging_adapters",
         "//src/backend/logging:logger_definition_model",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 

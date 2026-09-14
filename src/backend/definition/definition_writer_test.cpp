@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/definition/definition_writer.h"
 
 #include <cstdint>
@@ -63,9 +64,9 @@ TEST(DefinitionWriterTest, CreatesSemanticEcuFlashDefinitionWithDeterministicUtf
 
     auto result = create_ecuflash_xml(input);
 
-    ASSERT_TRUE(result) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     auto parsed = parse_ecuflash_definition(*result, "created.xml");
-    ASSERT_TRUE(parsed) << parsed.error().detail;
+    ASSERT_THAT(parsed, fastecu::testing::IsOk());
     EXPECT_EQ(parsed->identity, (RomIdentity{
                                     .xml_id = input.xml_id,
                                     .internal_id = input.internal_id,
@@ -91,9 +92,9 @@ TEST(DefinitionWriterTest, OmitsAddressElementWhenNotProvided)
 
     auto result = create_ecuflash_xml(input);
 
-    ASSERT_TRUE(result) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     auto parsed = parse_ecuflash_definition(*result, "created.xml");
-    ASSERT_TRUE(parsed) << parsed.error().detail;
+    ASSERT_THAT(parsed, fastecu::testing::IsOk());
     EXPECT_EQ(parsed->identity.internal_id_address, std::nullopt);
 
     const std::string xml = text(*result);
@@ -117,9 +118,9 @@ TEST(DefinitionWriterTest, ClearsExistingAddressOnRewriteWhenNotProvided)
 
     auto result = rewrite_ecuflash_xml(source, input);
 
-    ASSERT_TRUE(result) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     auto parsed = parse_ecuflash_definition(*result, "rewritten.xml");
-    ASSERT_TRUE(parsed) << parsed.error().detail;
+    ASSERT_THAT(parsed, fastecu::testing::IsOk());
     EXPECT_EQ(parsed->identity.internal_id_address, std::nullopt);
 
     const std::string xml = text(*result);
@@ -141,9 +142,9 @@ TEST(DefinitionWriterTest, ReplacesStaleNestedContentInsteadOfAppendingToIt)
 
     auto result = rewrite_ecuflash_xml(source, input);
 
-    ASSERT_TRUE(result) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     auto parsed = parse_ecuflash_definition(*result, "rewritten.xml");
-    ASSERT_TRUE(parsed) << parsed.error().detail;
+    ASSERT_THAT(parsed, fastecu::testing::IsOk());
     EXPECT_EQ(parsed->identity.xml_id, input.xml_id);
 
     const std::string xml = text(*result);
@@ -172,8 +173,7 @@ TEST(DefinitionWriterTest, RejectsEachEmptyRequiredIdentity)
 
         auto result = create_ecuflash_xml(input);
 
-        ASSERT_FALSE(result) << field;
-        EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig) << field;
+        ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig)) << field;
     }
 }
 
@@ -207,9 +207,9 @@ TEST(DefinitionWriterTest, RewritesHeaderAndPreservesUnrelatedTreeContent)
 
     auto result = rewrite_ecuflash_xml(source, input);
 
-    ASSERT_TRUE(result) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     auto parsed = parse_ecuflash_definition(*result, "rewritten.xml");
-    ASSERT_TRUE(parsed) << parsed.error().detail;
+    ASSERT_THAT(parsed, fastecu::testing::IsOk());
     EXPECT_EQ(parsed->identity.xml_id, input.xml_id);
     EXPECT_EQ(parsed->identity.internal_id, input.internal_id);
     EXPECT_EQ(parsed->identity.ecu_id, input.ecu_id);
@@ -241,8 +241,7 @@ TEST(DefinitionWriterTest, RejectsMalformedImportBeforeProducingBytes)
 {
     auto result = rewrite_ecuflash_xml(bytes("<rom><romid>"), complete_input());
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(DefinitionWriterTest, RejectsDuplicateTopLevelRomIdContainers)
@@ -255,8 +254,7 @@ TEST(DefinitionWriterTest, RejectsDuplicateTopLevelRomIdContainers)
 
     auto result = rewrite_ecuflash_xml(source, complete_input());
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("<romid>"));
     EXPECT_THAT(result.error().detail, HasSubstr("duplicate"));
 }

@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 // Equivalence tests for SubaruDensoSh72543CanDieselExecutor, the portable
 // replacement for FlashEcuSubaruDensoSH72543CanDieselOperation's
 // connect_bootloader(), read_memory(), write_memory(), reflash_block() and
@@ -118,14 +119,14 @@ bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
 fastecu::flash::FlashPlan readPlan()
 {
     auto plan = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
+    EXPECT_THAT(plan, fastecu::testing::IsOk());
     return std::move(*plan);
 }
 
 fastecu::flash::FlashPlan writePlan(bytes::Bytes rom)
 {
     auto plan = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
+    EXPECT_THAT(plan, fastecu::testing::IsOk());
     return std::move(*plan);
 }
 
@@ -146,7 +147,7 @@ fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation)
     fields.image = bytes::Bytes(kImageSize, 0x00);
     fields.family_plan = SubaruDensoSh72543CanDieselPlan{0x7e0, 0x7e8, 500000, false, 0x8000, 0x100};
     auto plan = fastecu::flash::validate_and_build(std::move(fields));
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
+    EXPECT_THAT(plan, fastecu::testing::IsOk());
     return std::move(*plan);
 }
 
@@ -360,7 +361,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, TransportSetupReturnsThePlansWireParam
 
     const auto setup = executor.transport_setup(readPlan());
 
-    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->bitrate, 500000);
     EXPECT_EQ(setup->request_id, 0x7e0U);
     EXPECT_EQ(setup->response_id, 0x7e8U);
@@ -381,7 +382,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, BenchReadReturnsPaddedImage)
     SubaruDensoSh72543CanDieselExecutor executor;
 
     auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     const bytes::Bytes& rom = *result->read_bytes;
     EXPECT_EQ(rom.size(), kImageSize);
@@ -413,7 +414,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, InCarReadReturnsPaddedImage)
     SubaruDensoSh72543CanDieselExecutor executor;
 
     auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     const bytes::Bytes& rom = *result->read_bytes;
     EXPECT_EQ(rom.size(), kImageSize);
@@ -441,7 +442,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, WriteErasesThenFlashesBlockZero)
     SubaruDensoSh72543CanDieselExecutor executor;
 
     auto result = executor.execute(writePlan(rom), transport, clock, cancellation, events);
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
@@ -493,8 +494,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, WriteTakesBytesFromTheAbsoluteAddress)
 
     auto result = executor.execute(writePlan(rom), transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
     EXPECT_EQ(transport.writesConsumed(), kBenchConnectWrites + kEraseWrites + 1);
     EXPECT_TRUE(transport.scriptConsumed());
     // Independent of the executor: the planted byte really does distinguish
@@ -516,8 +516,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, TestWriteIsRejectedBeforeAnyTransportC
 
     auto result = executor.execute(handBuiltPlan(FlashOperation::TestWrite), transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Unsupported));
     EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
     EXPECT_THAT(events.logs, IsEmpty());
@@ -544,8 +543,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, BenchSessionMismatchIsToleratedAndCont
 
     auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
     // The mismatch was logged, not swallowed silently...
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Wrong response from ECU: 50 01 ")));
@@ -567,8 +565,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ReadTimeoutPropagates)
 
     auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
     // The bench arm's own 50 ms wait (line 653) is the only sleep the whole
     // connect performs: the kernel jump is acknowledged on the loop's first
@@ -592,8 +589,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ReadDisconnectPropagates)
 
     auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -616,8 +612,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, NegativeResponseDuringConnectFails)
 
     auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -666,8 +661,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, NegativeResponseAtDumpSetupFails)
 
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -687,8 +681,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, CancellationMidReadReturnsCancelled)
 
     auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -719,8 +712,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EmptyBranchSelectorReplyFails)
 
     auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -746,7 +738,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EcuIdLogKeepsOnlyLegacysFiveBytes)
 
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
+    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "ECU ID: 11 22 33 44 55 ")));
 }
@@ -771,8 +763,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EraseRetryExhaustionFails)
 
     auto result = executor.execute(writePlan(rom), transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -795,7 +786,7 @@ TEST(SubaruDensoSh72543CanDieselExecutor, ConnectProbesReadWithThisFamilysProbeT
     fastecu::ManualCancellationToken cancellation;
     SubaruDensoSh72543CanDieselExecutor executor;
 
-    ASSERT_TRUE(executor.execute(readPlan(), transport, clock, cancellation, events).has_value());
+    ASSERT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_EQ(std::ranges::count(transport.readTimeouts(), 200ms), 3);
 }
 

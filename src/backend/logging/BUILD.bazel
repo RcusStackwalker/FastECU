@@ -35,7 +35,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "logger_definition_parser_test",
     srcs = ["logger_definition_parser_test.cpp"],
-    deps = [":logger_definition_parser"],
+    deps = [
+        ":logger_definition_parser",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -54,7 +57,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "logger_conf_test",
     srcs = ["logger_conf_test.cpp"],
-    deps = [":logger_conf"],
+    deps = [
+        ":logger_conf",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -79,6 +85,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:in_memory_resource_bundle",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -97,7 +104,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "logging_session_test",
     srcs = ["logging_session_test.cpp"],
-    deps = [":logging_session"],
+    deps = [
+        ":logging_session",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -114,7 +124,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "logging_conversion_test",
     srcs = ["logging_conversion_test.cpp"],
-    deps = [":logging_conversion"],
+    deps = [
+        ":logging_conversion",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -139,5 +152,6 @@ fastecu_portable_gtest(
         ":logging_use_case",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )

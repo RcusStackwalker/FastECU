@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
 
 #include "src/backend/definitions/kernelmemorymodels.h"
@@ -48,7 +49,7 @@ TEST(SubaruDensoSh7055_02Plan, BuildsBareReadAndWritePlansWithOperationSpecificE
 {
     auto read = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055",
                                                   std::nullopt, test_kernel());
-    ASSERT_TRUE(read.has_value()) << read.error().detail;
+    ASSERT_THAT(read, fastecu::testing::IsOk());
     EXPECT_EQ(read->family(), FlashFamily::SubaruDensoSh7055_02);
     EXPECT_EQ(read->transport(), TransportKind::Kline);
     const auto& read_family = std::get<SubaruDensoSh7055_02Plan>(read->family_plan());
@@ -61,7 +62,7 @@ TEST(SubaruDensoSh7055_02Plan, BuildsBareReadAndWritePlansWithOperationSpecificE
     auto write =
         build_subaru_denso_sh7055_02_plan(FlashOperation::Write, "sub_ecu_denso_sh7055_02", "SH7055",
                                           bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0}), test_kernel());
-    ASSERT_TRUE(write.has_value()) << write.error().detail;
+    ASSERT_THAT(write, fastecu::testing::IsOk());
     EXPECT_FALSE(std::get<SubaruDensoSh7055_02Plan>(write->family_plan()).read_ecu_id);
 }
 
@@ -71,8 +72,8 @@ TEST(SubaruDensoSh7055_02Plan, AcceptsEcutekWithByteIdenticalWireParameters)
                                                   std::nullopt, test_kernel());
     auto ecutek = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02_ecutek", "SH7055",
                                                     std::nullopt, test_kernel());
-    ASSERT_TRUE(bare.has_value()) << bare.error().detail;
-    ASSERT_TRUE(ecutek.has_value()) << ecutek.error().detail;
+    ASSERT_THAT(bare, fastecu::testing::IsOk());
+    ASSERT_THAT(ecutek, fastecu::testing::IsOk());
     EXPECT_EQ(std::get<SubaruDensoSh7055_02Plan>(bare->family_plan()).tester_id,
               std::get<SubaruDensoSh7055_02Plan>(ecutek->family_plan()).tester_id);
     EXPECT_EQ(std::get<SubaruDensoSh7055_02Plan>(bare->family_plan()).target_id,
@@ -95,7 +96,7 @@ TEST(SubaruDensoSh7055_02Plan, EveryAcceptedPlanRequiresCycleIgnitionConfirmatio
                     ? std::nullopt
                     : std::optional<bytes::Bytes>{bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0})},
                 test_kernel());
-            ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+            ASSERT_THAT(plan, fastecu::testing::IsOk());
             ASSERT_EQ(plan->confirmations().size(), 1);
             EXPECT_EQ(plan->confirmations().front().id, ConfirmationSpec::Id::CycleIgnition);
         }
@@ -106,16 +107,14 @@ TEST(SubaruDensoSh7055_02Plan, RejectsUnknownProtocol)
 {
     auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_04", "SH7055",
                                                   std::nullopt, test_kernel());
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoSh7055_02Plan, RejectsUnknownMcu)
 {
     auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "NOT_A_REAL_MCU",
                                                   std::nullopt, test_kernel());
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoSh7055_02Plan, RejectsKnownButWrongMcu)
@@ -124,8 +123,7 @@ TEST(SubaruDensoSh7055_02Plan, RejectsKnownButWrongMcu)
     {
         auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", mcu,
                                                       std::nullopt, test_kernel());
-        ASSERT_FALSE(plan.has_value()) << mcu;
-        EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+        ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig)) << mcu;
     }
 }
 
@@ -138,19 +136,17 @@ TEST(SubaruDensoSh7055_02Plan, WriteAndTestWriteRequireExactRomSize)
         auto too_small = build_subaru_denso_sh7055_02_plan(
             operation, "sub_ecu_denso_sh7055_02", "SH7055",
             bytes::Bytes(flashdevices[index].romsize - 1, bytes::Byte{0}), test_kernel());
-        ASSERT_FALSE(too_small.has_value());
-        EXPECT_EQ(too_small.error().kind, ErrorKind::InvalidConfig);
+        ASSERT_THAT(too_small, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 
         auto too_large = build_subaru_denso_sh7055_02_plan(
             operation, "sub_ecu_denso_sh7055_02", "SH7055",
             bytes::Bytes(flashdevices[index].romsize + 1, bytes::Byte{0}), test_kernel());
-        ASSERT_FALSE(too_large.has_value());
-        EXPECT_EQ(too_large.error().kind, ErrorKind::InvalidConfig);
+        ASSERT_THAT(too_large, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 
         auto exact =
             build_subaru_denso_sh7055_02_plan(operation, "sub_ecu_denso_sh7055_02", "SH7055",
                                               bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0}), test_kernel());
-        ASSERT_TRUE(exact.has_value()) << exact.error().detail;
+        ASSERT_THAT(exact, fastecu::testing::IsOk());
         ASSERT_TRUE(exact->image().has_value());
         EXPECT_EQ(exact->image()->size(), flashdevices[index].romsize);
     }
@@ -161,12 +157,11 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTesterId)
     auto fields = valid_sh7055_02_fields();
     std::get<SubaruDensoSh7055_02Plan>(fields.family_plan).tester_id = 0xf1;
     auto plan = validate_and_build(std::move(fields));
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
 
-    ASSERT_FALSE(valid.has_value());
-    EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(valid, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTargetId)
@@ -174,12 +169,11 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTargetId)
     auto fields = valid_sh7055_02_fields();
     std::get<SubaruDensoSh7055_02Plan>(fields.family_plan).target_id = 0x11;
     auto plan = validate_and_build(std::move(fields));
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
 
-    ASSERT_FALSE(valid.has_value());
-    EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(valid, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoSh7055_02Plan, ValidatorRequiresOperationSpecificEcuIdRead)
@@ -190,12 +184,11 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRequiresOperationSpecificEcuIdRead)
         auto& family = std::get<SubaruDensoSh7055_02Plan>(fields.family_plan);
         family.read_ecu_id = !family.read_ecu_id;
         auto plan = validate_and_build(std::move(fields));
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
 
         auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
 
-        ASSERT_FALSE(valid.has_value());
-        EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+        ASSERT_THAT(valid, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     }
 }
 
@@ -204,12 +197,11 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsEraseRegions)
     auto fields = valid_sh7055_02_fields(FlashOperation::TestWrite);
     fields.erase_regions.push_back({.start = 0, .length = 0x1000});
     auto plan = validate_and_build(std::move(fields));
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
 
-    ASSERT_FALSE(valid.has_value());
-    EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(valid, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTransferRegion)
@@ -222,12 +214,11 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTransferRegion)
         auto fields = valid_sh7055_02_fields();
         fields.transfer_region = region;
         auto plan = validate_and_build(std::move(fields));
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
 
         auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
 
-        ASSERT_FALSE(valid.has_value());
-        EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+        ASSERT_THAT(valid, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     }
 }
 
@@ -245,12 +236,11 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRequiresOnlyCycleIgnitionConfirmation)
         auto fields = valid_sh7055_02_fields();
         fields.confirmations = confirmations;
         auto plan = validate_and_build(std::move(fields));
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
 
         auto valid = validate_subaru_denso_sh7055_02_plan(*plan);
 
-        ASSERT_FALSE(valid.has_value());
-        EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+        ASSERT_THAT(valid, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     }
 }
 
@@ -264,7 +254,7 @@ TEST(SubaruDensoSh7055_02Plan, KernelUploadAcceptsCanonicalAddressAndExactEnvelo
     {
         auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055",
                                                       std::nullopt, std::move(kernel));
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
     }
 }
 
@@ -279,8 +269,7 @@ TEST(SubaruDensoSh7055_02Plan, KernelUploadRejectsAddressAndPaddedFootprintOutsi
     {
         auto plan = build_subaru_denso_sh7055_02_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055",
                                                       std::nullopt, std::move(kernel));
-        ASSERT_FALSE(plan.has_value());
-        EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+        ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     }
 }
 
@@ -291,8 +280,7 @@ TEST(SubaruDensoSh7055_02Plan, KernelUploadRejectsLengthOutsideThreeByteWireFiel
         FlashOperation::Read, "sub_ecu_denso_sh7055_02", "SH7055", std::nullopt,
         KernelImage{.id = "wire-overflow", .load_address = 0xFFFF6004, .bytes = std::move(too_large)});
 
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_NE(plan.error().detail.find("24-bit"), std::string::npos);
 }
 

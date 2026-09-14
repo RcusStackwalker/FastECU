@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/protocol/uds/testing/scripted_uds_channel.h"
 
 #include <gmock/gmock.h>
@@ -20,7 +21,7 @@ TEST(ScriptedUdsChannelTest, AcceptsAnExpectedSend)
     const bytes::Bytes pdu{0x10, 0x03};
     channel.expectSend(pdu);
 
-    EXPECT_TRUE(channel.send(pdu, cancellation).has_value());
+    EXPECT_THAT(channel.send(pdu, cancellation), fastecu::testing::IsOk());
     EXPECT_EQ(channel.sendsConsumed(), 1U);
 }
 
@@ -32,8 +33,7 @@ TEST(ScriptedUdsChannelTest, RejectsAnUnexpectedSend)
 
     const fastecu::Status sent = channel.send(bytes::Bytes{0x10, 0x85}, cancellation);
 
-    ASSERT_FALSE(sent.has_value());
-    EXPECT_EQ(sent.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(sent, fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(ScriptedUdsChannelTest, RejectsASendWithNoRemainingExpectation)
@@ -43,8 +43,7 @@ TEST(ScriptedUdsChannelTest, RejectsASendWithNoRemainingExpectation)
 
     const fastecu::Status sent = channel.send(bytes::Bytes{0x3E}, cancellation);
 
-    ASSERT_FALSE(sent.has_value());
-    EXPECT_EQ(sent.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(sent, fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(ScriptedUdsChannelTest, ReplaysQueuedReceivesInOrder)
@@ -56,17 +55,16 @@ TEST(ScriptedUdsChannelTest, ReplaysQueuedReceivesInOrder)
     channel.queueError(ErrorKind::Disconnected, "gone");
 
     const auto first = channel.receive(100ms, cancellation);
-    ASSERT_TRUE(first.has_value());
+    ASSERT_THAT(first, fastecu::testing::IsOk());
     ASSERT_TRUE(first->has_value());
     EXPECT_THAT(**first, ElementsAre(0x50, 0x03));
 
     const auto second = channel.receive(100ms, cancellation);
-    ASSERT_TRUE(second.has_value());
+    ASSERT_THAT(second, fastecu::testing::IsOk());
     EXPECT_FALSE(second->has_value());
 
     const auto third = channel.receive(100ms, cancellation);
-    ASSERT_FALSE(third.has_value());
-    EXPECT_EQ(third.error().kind, ErrorKind::Disconnected);
+    ASSERT_THAT(third, fastecu::testing::IsErr(ErrorKind::Disconnected));
 }
 
 TEST(ScriptedUdsChannelTest, RecordsEveryReceiveTimeout)
@@ -93,10 +91,8 @@ TEST(ScriptedUdsChannelTest, HonorsCancellation)
     const fastecu::Status sent = channel.send(bytes::Bytes{0x3E}, cancellation);
     const auto received = channel.receive(100ms, cancellation);
 
-    ASSERT_FALSE(sent.has_value());
-    EXPECT_EQ(sent.error().kind, ErrorKind::Cancelled);
-    ASSERT_FALSE(received.has_value());
-    EXPECT_EQ(received.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(sent, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::Cancelled));
 }
 
 TEST(ScriptedUdsChannelTest, ScriptConsumedReflectsRemainingWork)

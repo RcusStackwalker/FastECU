@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/ports/testing/in_memory_file_system.h"
 #include <gtest/gtest.h>
 
@@ -12,7 +13,7 @@ TEST(FileSystem, CreateThenExists)
 {
     InMemoryFileSystem fs;
     EXPECT_FALSE(fs.exists("/a"));
-    ASSERT_TRUE(fs.create_directory("/a").has_value());
+    ASSERT_THAT(fs.create_directory("/a"), fastecu::testing::IsOk());
     EXPECT_TRUE(fs.exists("/a"));
 }
 
@@ -23,7 +24,7 @@ TEST(InMemoryFileSystem, ConfiguredCreateDirectoryFailureIsReturned)
 
     auto result = fs.create_directory("/config/");
 
-    ASSERT_FALSE(result);
+    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(result.error(), *fs.create_directory_error);
     EXPECT_FALSE(fs.exists("/config/"));
 }
@@ -32,8 +33,7 @@ TEST(FileSystem, CopyFailsWhenSourceMissing)
 {
     InMemoryFileSystem fs;
     auto r = fs.copy_file("/missing", "/dst", false);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(r, fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(FileSystem, CopyRespectsOverwriteFlag)
@@ -44,9 +44,9 @@ TEST(FileSystem, CopyRespectsOverwriteFlag)
         fs.entries["/a"] = DirEntry{"/a", false, 100};
         fs.entries["/b"] = DirEntry{"/b", false, 200};
         auto blocked = fs.copy_file("/a", "/b", false);
-        ASSERT_FALSE(blocked.has_value());
+        ASSERT_THAT(blocked, ::testing::Not(fastecu::testing::IsOk()));
         auto allowed = fs.copy_file("/a", "/b", true);
-        ASSERT_TRUE(allowed.has_value());
+        ASSERT_THAT(allowed, fastecu::testing::IsOk());
     */
 }
 
@@ -54,7 +54,7 @@ TEST(FileSystem, RemoveThenNotExists)
 {
     InMemoryFileSystem fs;
     fs.create_directory("/a");
-    ASSERT_TRUE(fs.remove_file("/a").has_value());
+    ASSERT_THAT(fs.remove_file("/a"), fastecu::testing::IsOk());
     EXPECT_FALSE(fs.exists("/a"));
 }
 
@@ -73,7 +73,7 @@ TEST(InMemoryFileSystem, ListsConfiguredEntriesInOrderWithSymlinkMetadata)
 
     auto result = fs.list_directory("/definitions");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 2U);
     EXPECT_EQ((*result)[0].name, "z.xml");
     EXPECT_FALSE((*result)[0].is_symlink);
@@ -90,7 +90,7 @@ TEST(InMemoryFileSystem, ConfiguredListDirectoryFailureIsReturned)
 
     auto result = fs.list_directory("/definitions");
 
-    ASSERT_FALSE(result);
+    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(result.error(), fs.list_directory_errors.at("/definitions"));
 }
 
@@ -102,7 +102,7 @@ TEST(InMemoryFileSystem, LegacyDirectoryFixturesRemainSupported)
 
     auto result = fs.list_directory("/definitions");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 2U);
     EXPECT_EQ((*result)[0].name, "nested");
     EXPECT_TRUE((*result)[0].is_directory);
@@ -119,7 +119,7 @@ TEST(InMemoryFileSystem, EmptyLegacyDirectoryFixtureReturnsEmptySuccess)
 
     auto result = fs.list_directory("/empty");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(result->empty());
 }
 
@@ -129,6 +129,5 @@ TEST(InMemoryFileSystem, RejectsUnknownDirectory)
 
     auto result = fs.list_directory("/unknown");
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }

@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/config/app_config.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 #include <gtest/gtest.h>
@@ -86,7 +87,7 @@ TEST(LoadAppConfig, ParsesEveryShippedDefaultSetting)
 
     auto config = load_app_config(paths, repo);
 
-    ASSERT_TRUE(config.has_value());
+    ASSERT_THAT(config, fastecu::testing::IsOk());
     EXPECT_EQ(config->window_width, "maximized");
     EXPECT_EQ(config->window_height, "maximized");
     EXPECT_EQ(config->toolbar_iconsize, "32");
@@ -117,7 +118,7 @@ TEST(LoadAppConfig, InvalidPrimaryDefinitionBaseValueIsDiscarded)
 
     auto config = load_app_config(paths, repo);
 
-    ASSERT_TRUE(config.has_value());
+    ASSERT_THAT(config, fastecu::testing::IsOk());
     EXPECT_EQ(config->primary_definition_base, ""); // default-constructed, not overwritten
 }
 
@@ -136,7 +137,7 @@ TEST(LoadAppConfig, ConfigElementWithWrongNameAttributeIsNotParsed)
 
     auto config = load_app_config(paths, repo);
 
-    ASSERT_TRUE(config.has_value());
+    ASSERT_THAT(config, fastecu::testing::IsOk());
     EXPECT_EQ(config->serial_port, ""); // default-constructed, not "COM7"
 }
 
@@ -147,8 +148,7 @@ TEST(LoadAppConfig, MissingFileIsPropagatedAsInvalidConfig)
 
     auto config = load_app_config(paths, repo);
 
-    ASSERT_FALSE(config.has_value());
-    EXPECT_EQ(config.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(config, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SaveAppConfig, NormalizesTrailingSlashesOnThreeDirectoryFields)
@@ -162,7 +162,7 @@ TEST(SaveAppConfig, NormalizesTrailingSlashesOnThreeDirectoryFields)
 
     auto saved = save_app_config(config, paths, repo);
 
-    ASSERT_TRUE(saved.has_value());
+    ASSERT_THAT(saved, fastecu::testing::IsOk());
     EXPECT_EQ(saved->calibration_files_directory, "calibrations/");
     EXPECT_EQ(saved->ecuflash_definition_files_directory, "ecuflash/");
     EXPECT_EQ(saved->datalog_files_directory, "datalogs/");
@@ -178,10 +178,10 @@ TEST(SaveAppConfigThenLoadAppConfig, DatalogDirectoryDoesNotRoundTrip)
     AppConfig config;
     config.datalog_files_directory = "custom_datalogs/";
 
-    ASSERT_TRUE(save_app_config(config, paths, repo).has_value());
+    ASSERT_THAT(save_app_config(config, paths, repo), fastecu::testing::IsOk());
     auto reloaded = load_app_config(paths, repo);
 
-    ASSERT_TRUE(reloaded.has_value());
+    ASSERT_THAT(reloaded, fastecu::testing::IsOk());
     EXPECT_NE(reloaded->datalog_files_directory, "custom_datalogs/");
 }
 
@@ -207,10 +207,10 @@ TEST(SaveAppConfigThenLoadAppConfig, EveryOtherFieldRoundTrips)
     config.ecuflash_definition_files_directory = "ecu/";
     config.romraider_logger_definition_file = "logger.xml";
 
-    ASSERT_TRUE(save_app_config(config, paths, repo).has_value());
+    ASSERT_THAT(save_app_config(config, paths, repo), fastecu::testing::IsOk());
     auto reloaded = load_app_config(paths, repo);
 
-    ASSERT_TRUE(reloaded.has_value());
+    ASSERT_THAT(reloaded, fastecu::testing::IsOk());
     EXPECT_EQ(reloaded->window_width, "1024");
     EXPECT_EQ(reloaded->window_height, "768");
     EXPECT_EQ(reloaded->toolbar_iconsize, "24");

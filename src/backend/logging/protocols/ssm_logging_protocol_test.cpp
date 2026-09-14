@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include <gtest/gtest.h>
 
 #include <cstdint>
@@ -66,7 +67,7 @@ TEST(SsmLoggingProtocolTest, StartPreservesHistoricalRequestVector)
 
     const auto result = protocol.start(cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(script->scriptConsumed());
     EXPECT_TRUE(script->ok());
 }
@@ -82,8 +83,7 @@ TEST(SsmLoggingProtocolTest, StartReturnsBadResponseForShortReply)
 
     const auto result = protocol.start(cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
 }
 
 TEST(SsmLoggingProtocolTest, StartReturnsBadResponseForNegativeReply)
@@ -99,8 +99,7 @@ TEST(SsmLoggingProtocolTest, StartReturnsBadResponseForNegativeReply)
 
     const auto result = protocol.start(cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
 }
 
 TEST(SsmLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
@@ -113,9 +112,7 @@ TEST(SsmLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
 
     const auto result = protocol.start(cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
-    EXPECT_EQ(result.error().detail, "adapter disconnected");
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "adapter disconnected"));
 }
 
 TEST(SsmLoggingProtocolTest, PreservesDecimalByteConcatenation)
@@ -131,7 +128,7 @@ TEST(SsmLoggingProtocolTest, PreservesDecimalByteConcatenation)
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
     ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples[0].channel_id, "rpm");
@@ -153,7 +150,7 @@ TEST(SsmLoggingProtocolTest, PollPreservesChannelRequestOrder)
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
     ASSERT_EQ(result->samples.size(), 2U);
     EXPECT_EQ(result->samples[0].channel_id, "first");
@@ -175,7 +172,7 @@ TEST(SsmLoggingProtocolTest, PollHonorsSnapshottedHistoricalResponseOffsets)
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
     ASSERT_EQ(result->samples.size(), 2U);
     EXPECT_EQ(result->samples[0].raw_value, "42");
@@ -193,7 +190,7 @@ TEST(SsmLoggingProtocolTest, PollReturnsNoResponseOnDirectReadTimeout)
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
     EXPECT_TRUE(result->samples.empty());
 }
@@ -210,7 +207,7 @@ TEST(SsmLoggingProtocolTest, HeaderResynchronizationRemainsDeadlineBounded)
 
     const auto result = protocol.poll(100ms, cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
 }
 
@@ -227,8 +224,7 @@ TEST(SsmLoggingProtocolTest, CancellationDuringFramingReturnsCancelled)
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
 }
 
 TEST(SsmLoggingProtocolTest, StartCancellationReturnsCancelledWithoutIo)
@@ -239,8 +235,7 @@ TEST(SsmLoggingProtocolTest, StartCancellationReturnsCancelledWithoutIo)
 
     const auto result = protocol.start(cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
 }
 
 TEST(SsmLoggingProtocolTest, PollPropagatesTypedWriteFailure)
@@ -254,9 +249,7 @@ TEST(SsmLoggingProtocolTest, PollPropagatesTypedWriteFailure)
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
-    EXPECT_EQ(result.error().detail, "sentinel SSM write disconnect");
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel SSM write disconnect"));
 }
 
 TEST(SsmLoggingProtocolTest, PollPropagatesTypedReadFailure)
@@ -270,9 +263,7 @@ TEST(SsmLoggingProtocolTest, PollPropagatesTypedReadFailure)
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
-    EXPECT_EQ(result.error().detail, "sentinel SSM read failure");
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel SSM read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, StartPropagatesTypedWriteFailure)
@@ -286,9 +277,8 @@ TEST(SsmLoggingProtocolTest, StartPropagatesTypedWriteFailure)
 
     const auto result = protocol.start(cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
-    EXPECT_EQ(result.error().detail, "sentinel SSM start write disconnect");
+    ASSERT_THAT(result,
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel SSM start write disconnect"));
 }
 
 TEST(SsmLoggingProtocolTest, StartPropagatesTypedReadFailure)
@@ -302,9 +292,7 @@ TEST(SsmLoggingProtocolTest, StartPropagatesTypedReadFailure)
 
     const auto result = protocol.start(cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
-    EXPECT_EQ(result.error().detail, "sentinel SSM start read failure");
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel SSM start read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, PollPropagatesOpenPort2DirectReadFailure)
@@ -318,9 +306,8 @@ TEST(SsmLoggingProtocolTest, PollPropagatesOpenPort2DirectReadFailure)
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
-    EXPECT_EQ(result.error().detail, "sentinel OpenPort2 direct read failure");
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected,
+                                                    "sentinel OpenPort2 direct read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, HeaderResynchronizationPropagatesReadFailure)
@@ -338,9 +325,7 @@ TEST(SsmLoggingProtocolTest, HeaderResynchronizationPropagatesReadFailure)
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
-    EXPECT_EQ(result.error().detail, "sentinel SSM resync read failure");
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel SSM resync read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, FinalReadAfterHeaderMatchPropagatesReadFailure)
@@ -358,9 +343,7 @@ TEST(SsmLoggingProtocolTest, FinalReadAfterHeaderMatchPropagatesReadFailure)
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
-    EXPECT_EQ(result.error().detail, "sentinel SSM final read failure");
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel SSM final read failure"));
 }
 
 TEST(SsmLoggingProtocolTest, PollCancellationReturnsCancelledWithoutIo)
@@ -371,8 +354,7 @@ TEST(SsmLoggingProtocolTest, PollCancellationReturnsCancelledWithoutIo)
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
 }
 
 TEST(SsmLoggingProtocolTest, PollFailsWhenAdapterIsClosed)
@@ -385,9 +367,7 @@ TEST(SsmLoggingProtocolTest, PollFailsWhenAdapterIsClosed)
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
-    EXPECT_EQ(result.error().detail, "adapter disconnected");
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "adapter disconnected"));
 }
 
 TEST(SsmLoggingProtocolTest, PollSkipsChannelWhenResponseOffsetBeyondPayload)
@@ -405,7 +385,7 @@ TEST(SsmLoggingProtocolTest, PollSkipsChannelWhenResponseOffsetBeyondPayload)
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
     ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples[0].channel_id, "first");
@@ -426,7 +406,7 @@ TEST(SsmLoggingProtocolTest, PollTruncatesRawValueWhenLengthExtendsBeyondPayload
 
     const auto result = protocol.poll(50ms, cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
     ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples[0].channel_id, "rpm");
@@ -440,5 +420,5 @@ TEST(SsmLoggingProtocolTest, StopSucceeds)
 
     const auto result = protocol.stop();
 
-    EXPECT_TRUE(result);
+    EXPECT_THAT(result, fastecu::testing::IsOk());
 }

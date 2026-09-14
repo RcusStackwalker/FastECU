@@ -49,6 +49,7 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol/mut_dma",
         "//src/algorithms/protocol/testing:byte_test_utils",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
     ],
 )
@@ -60,6 +61,7 @@ fastecu_portable_gtest(
         ":protocol",
         "//src/algorithms/protocol/testing:byte_test_utils",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
     ],
 )
@@ -71,6 +73,7 @@ fastecu_portable_gtest(
         ":protocol",
         "//src/algorithms/protocol/testing:byte_test_utils",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
     ],
 )

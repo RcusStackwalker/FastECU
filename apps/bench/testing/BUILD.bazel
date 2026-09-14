@@ -13,7 +13,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "fake_bench_session_test",
     srcs = ["fake_bench_session_test.cpp"],
-    deps = [":fake_bench_session"],
+    deps = [
+        ":fake_bench_session",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -36,5 +39,8 @@ cc_library(
 fastecu_portable_gtest(
     name = "fake_bench_files_test",
     srcs = ["fake_bench_files_test.cpp"],
-    deps = [":fake_bench_files"],
+    deps = [
+        ":fake_bench_files",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )

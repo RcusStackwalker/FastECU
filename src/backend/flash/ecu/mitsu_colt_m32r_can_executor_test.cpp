@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 // Equivalence tests for MitsuColtM32rCanExecutor, the portable replacement for
 // FlashEcuMitsuM32rCanOperation's connect_bootloader(), readFlashRange(),
 // read_mem(), upload_and_commit(), ensureTopRegionWritten() and write_mem().
@@ -104,7 +105,7 @@ bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
 fastecu::flash::FlashPlan readPlan(std::string_view protocol = kProtocol384)
 {
     auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Read, protocol, mcuFor(protocol), std::nullopt);
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
+    EXPECT_THAT(plan, fastecu::testing::IsOk());
     return std::move(*plan);
 }
 
@@ -151,7 +152,7 @@ bytes::Bytes writeRom384()
 fastecu::flash::FlashPlan writePlan(bytes::Bytes rom, std::string_view protocol = kProtocol512)
 {
     auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Write, protocol, mcuFor(protocol), std::move(rom));
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
+    EXPECT_THAT(plan, fastecu::testing::IsOk());
     return std::move(*plan);
 }
 
@@ -186,7 +187,7 @@ fastecu::flash::FlashPlan writePlanGranting(std::initializer_list<fastecu::flash
         fields.confirmations.push_back(fastecu::flash::ConfirmationSpec{id, {}});
     }
     auto plan = fastecu::flash::validate_and_build(std::move(fields));
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
+    EXPECT_THAT(plan, fastecu::testing::IsOk());
     return std::move(*plan);
 }
 
@@ -210,7 +211,7 @@ fastecu::flash::FlashPlan handBuiltWritePlan(std::string_view target, std::strin
         .session_id = MitsuColtCan::kSessionBootload,
     };
     auto plan = fastecu::flash::validate_and_build(std::move(fields));
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
+    EXPECT_THAT(plan, fastecu::testing::IsOk());
     return std::move(*plan);
 }
 
@@ -437,12 +438,11 @@ TEST(MitsuColtM32rCanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
         .extended_id = false,
     };
     auto foreign = fastecu::flash::validate_and_build(std::move(fields));
-    ASSERT_TRUE(foreign.has_value()) << foreign.error().detail;
+    ASSERT_THAT(foreign, fastecu::testing::IsOk());
 
     const auto result = executor.execute(*foreign, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("does not match this executor"));
     EXPECT_THAT(events.logs, IsEmpty());
     EXPECT_EQ(transport.writesConsumed(), 0U);
@@ -456,7 +456,7 @@ TEST(MitsuColtM32rCanExecutor, TransportSetupReturnsThePlansWireParameters)
 
     const auto setup = executor.transport_setup(plan);
 
-    ASSERT_TRUE(setup.has_value());
+    ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->bitrate, 500000);
     EXPECT_EQ(setup->request_id, 0x7e0U);
     EXPECT_EQ(setup->response_id, 0x7e8U);
@@ -493,8 +493,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsInconsistentHandBuiltPlansBeforeAnyIo)
 
         const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-        ASSERT_FALSE(result.has_value()) << test.name;
-        EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig) << test.name;
+        ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig)) << test.name;
         EXPECT_FALSE(transport.last_config_.has_value()) << test.name;
         EXPECT_EQ(transport.writesConsumed(), 0U) << test.name;
     }
@@ -518,7 +517,7 @@ TEST(MitsuColtM32rCanExecutor, ReadReturnsEachProtocolCapacityFromAddressZero)
 
         const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-        ASSERT_TRUE(result.has_value()) << protocol << ": " << result.error().detail;
+        ASSERT_THAT(result, fastecu::testing::IsOk()) << protocol << ": " << result.error().detail;
         ASSERT_TRUE(result->read_bytes.has_value());
         EXPECT_EQ(result->read_bytes->size(), size);
         EXPECT_EQ(result->read_bytes->front(), 0x00);
@@ -541,8 +540,7 @@ TEST(MitsuColtM32rCanExecutor, ReadReportsAnEmptyReplyAsTimeout)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
 }
 
 TEST(MitsuColtM32rCanExecutor, ReadPropagatesADisconnectedTransport)
@@ -559,8 +557,7 @@ TEST(MitsuColtM32rCanExecutor, ReadPropagatesADisconnectedTransport)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
 }
 
 TEST(MitsuColtM32rCanExecutor, ReadStopsWhenCancelled)
@@ -578,8 +575,7 @@ TEST(MitsuColtM32rCanExecutor, ReadStopsWhenCancelled)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
@@ -628,8 +624,7 @@ TEST(MitsuColtM32rCanExecutor, ReadStopsAtTheNextChunkWhenCancelledMidRead)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
     const fastecu::RecordedPhaseProgress *last = nullptr;
     for (const auto& event : events.phase_progress_calls)
@@ -667,8 +662,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeRunsInBasicSessionBeforeBootloadSe
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Vendor challenge accepted")));
     // bytes::toHex is lowercase "%02x " per byte, trailing space included.
@@ -692,8 +686,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeRejectionStopsBeforeTheSession)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:93, with the NRC
     // 0x33 decoded from the untruncated context.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Wrong vendor challenge response from ECU: "
@@ -714,7 +707,7 @@ TEST(MitsuColtM32rCanExecutor, ReadEmitsMonotonicProgress)
 
     scriptFullRead(transport, plan, 0x00);
 
-    ASSERT_TRUE(executor.execute(plan, transport, clock, cancellation, events).has_value());
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
 
     ASSERT_FALSE(events.phase_progress_calls.empty());
     EXPECT_THAT(events.phase_progress_calls, Each(testing::Field(&fastecu::RecordedPhaseProgress::phase_count, 2)));
@@ -774,8 +767,7 @@ TEST(MitsuColtM32rCanExecutor, WriteDrivesTheBootloadSessionThenFactorySecurityA
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.notices, Contains("Writing ROM, please wait..."));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Checking top 128KB (0x60000-0x80000)...")));
@@ -808,7 +800,7 @@ TEST(MitsuColtM32rCanExecutor, WriteBoundsTheDefaultProtocolTo384KiB)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Checking top 128KB (0x60000-0x80000)..."))));
     EXPECT_THAT(events.logs,
@@ -853,7 +845,7 @@ TEST(MitsuColtM32rCanExecutor, WriteSkipsBootstrapWhenTheTopRegionAlreadyMatches
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     // Lifecycle is owned by BoundAttempt::run(), not this executor body.
     EXPECT_EQ(transport.close_call_count_, 0);
@@ -916,7 +908,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRunsTheBootstrapWhenTheTopRegionDiffers)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs,
                 Contains(Pair(LogLevel::Info, "Top 128KB mismatch, bootstrapping via redirect routines...")));
@@ -948,8 +940,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesRedirectBootstrapWhenTheCarrierDoesNo
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("carrier window does not match desired top payload"));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs,
@@ -979,7 +970,7 @@ TEST(MitsuColtM32rCanExecutor, WritePropagatesACarrierReadFailureBeforeRedirectH
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
+    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(result.error(), (fastecu::Error{ErrorKind::Disconnected, "carrier read disconnected"}));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs,
@@ -1028,7 +1019,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsReadingTheTopRegionAtTheFirstMismatched
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs,
                 Contains(Pair(LogLevel::Info, "Top 128KB mismatch, bootstrapping via redirect routines...")));
@@ -1056,8 +1047,7 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheUserspaceVerifyMismatches)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Userspace verify failed after write")));
 }
@@ -1089,8 +1079,7 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheTopRegionVerifyMismatches)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Top 128KB verify failed after redirect write")));
     // The main write never starts.
@@ -1117,8 +1106,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheReflashUnlockIsRejected)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     // The erase trigger never goes out.
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs,
@@ -1147,8 +1135,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheEraseTriggerIsRejected)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     // No RequestDownload for the ROM userspace follows a refused erase.
     EXPECT_TRUE(transport.scriptConsumed());
     // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:461.
@@ -1184,8 +1171,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsWhenTheCarrierEraseTriggerReportsANonZe
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs,
                 Contains(Pair(LogLevel::Error, "Erase trigger (top 128KB bootstrap) rejected: unexpected erase "
@@ -1236,8 +1222,7 @@ TEST_P(MitsuColtM32rCanExecutorRoutineStatusTest, StopsTheWrite)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, test_case.expected_log)));
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, test_case.not_yet_logged))));
@@ -1278,8 +1263,7 @@ TEST(MitsuColtM32rCanExecutor, RefusesATestWritePlanRatherThanWritingForReal)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Unsupported));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.notices, Not(Contains("Writing ROM, please wait...")));
 }
@@ -1301,8 +1285,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBeforeA
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("0x80000"));
     EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
@@ -1329,8 +1312,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesTheBootstrapWhenItsConfirmationIsAbse
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
     // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:331.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Top 128KB bootstrap canceled by user")));
@@ -1357,8 +1339,7 @@ TEST(MitsuColtM32rCanExecutor, HandshakeRejectsAReplyTooShortToHoldAServiceByte)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs,
                 Contains(Pair(LogLevel::Error, "Wrong response from ECU: CAN frame of 2 bytes is shorter than "
@@ -1385,8 +1366,7 @@ TEST(MitsuColtM32rCanExecutor, ReadRejectsAChunkAnsweredWithTheWrongService)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     // Nothing is read after the rejected chunk.
     EXPECT_TRUE(transport.scriptConsumed());
     // The failing address is part of the message, so a chunk rejected halfway
@@ -1441,9 +1421,7 @@ TEST(MitsuColtM32rCanExecutor, WriteStopsAtTheNextExchangeWhenCancelledMidWrite)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(result.error().detail, "cancelled before request");
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Cancelled, "cancelled before request"));
     // Nothing beyond the erase-page upload was scripted, so this is the
     // assertion that no further request went out.
     EXPECT_TRUE(transport.scriptConsumed());
@@ -1508,8 +1486,7 @@ TEST(MitsuColtM32rCanExecutor, ACancelledEraseTriggerIsNotReportedAsAnEcuRejecti
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Error, HasSubstr("Erase trigger rejected")))));
     // The replacement line names the operator as the cause and does not claim
@@ -1545,9 +1522,7 @@ TEST(MitsuColtM32rCanExecutor, AFailedTransportWriteIsReportedWithoutWaitingForA
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
-    EXPECT_EQ(result.error().detail, "adapter write failed");
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Disconnected, "adapter write failed"));
     EXPECT_FALSE(transport.scriptConsumed()); // the queued reply was never read
     EXPECT_THAT(events.logs, Not(Contains(Pair(LogLevel::Info, "Diagnostic session ok"))));
 }
@@ -1586,8 +1561,7 @@ TEST(MitsuColtM32rCanExecutor, ACancellationThatArrivesAfterTheRequestStopsBefor
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
     // No pre-read delay separates the write from the read on this path (see
     // kRoutineExchangePolicy/kSlowExchangePolicy), so a cancel() call
     // right after the write is caught by the read call itself rather than by
@@ -1618,8 +1592,7 @@ TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheEraseRoutineRequestDownloadIsRe
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:244 and 413.
     EXPECT_THAT(events.logs,
@@ -1652,8 +1625,7 @@ TEST(MitsuColtM32rCanExecutor, WriteAbortsWhenTheWriteRoutineTransferDataIsRejec
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:256 and 421.
     EXPECT_THAT(events.logs,
@@ -1693,8 +1665,7 @@ TEST(MitsuColtM32rCanExecutor, WriteFailsWhenTheUserspaceCrcCheckIsRejected)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     // Legacy text, flash_ecu_mitsu_m32r_can_operation.cpp:290 and 470.
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "RoutineControl CRC check for 0x8000 rejected: "
@@ -1742,8 +1713,7 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumRequestDownloadIsRe
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "RequestDownload for the checksum rejected: "
                                                             "Conditions not correct")));
@@ -1780,8 +1750,7 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejec
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "TransferData for the checksum rejected: "
                                                             "Conditions not correct")));
@@ -1812,8 +1781,7 @@ TEST(MitsuColtM32rCanExecutor, BootstrapReportsItsOwnReflashUnlockRejection)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     // The bootstrap's own message, distinct from the main write's: the two
     // erase stages are otherwise identical on the wire, so `stage` is the
@@ -1850,8 +1818,7 @@ TEST(MitsuColtM32rCanExecutor, VendorChallengeKeyRejectionStopsBeforeTheSession)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     // fatal_query's generic mismatch wording (uds_client_exchange_common.h),
     // not the legacy text: the reply is a well-formed positive response to
@@ -1880,8 +1847,7 @@ TEST(MitsuColtM32rCanExecutor, WriteRefusesTheEraseTriggerWhenItsConfirmationIsA
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
     // The reflash-unlock payload is never scripted, so scriptConsumed() here is
     // the assertion that it never reached the bus.
     EXPECT_TRUE(transport.scriptConsumed());
@@ -1916,8 +1882,7 @@ TEST(MitsuColtM32rCanExecutor, AbsorbsResponsePendingWithoutResending)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_EQ(transport.writesConsumed(), 2U);
     EXPECT_TRUE(transport.scriptConsumed());
     // The session was accepted on the second read, not abandoned on the first.
@@ -1942,8 +1907,7 @@ TEST(MitsuColtM32rCanExecutor, FailsWhenTheEcuPendsPastTheRepeatLimit)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_THAT(result.error().detail, HasSubstr("responsePending"));
     // An ECU that pends forever is waited out, never re-sent to.
     EXPECT_EQ(transport.writesConsumed(), 1U);
@@ -1965,8 +1929,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsAResponseToADifferentService)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_THAT(result.error().detail, HasSubstr("0x10"));
     EXPECT_THAT(result.error().detail, HasSubstr("0x27"));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -1990,8 +1953,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsAFrameFromTheWrongReplyId)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_THAT(result.error().detail, HasSubstr("7e9"));
     EXPECT_TRUE(transport.scriptConsumed());
 }

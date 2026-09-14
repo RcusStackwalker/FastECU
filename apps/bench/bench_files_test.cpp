@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "apps/bench/bench_files.h"
 
 #include <gtest/gtest.h>
@@ -23,11 +24,10 @@ TEST(BenchFiles, RoundTripsBytesThroughTheFilesystem)
     const bytes::Bytes written{0x00, 0x01, 0xFE, 0xFF, 0x7F};
     BenchFiles files;
 
-    ASSERT_TRUE(files.save(path, written).has_value());
+    ASSERT_THAT(files.save(path, written), fastecu::testing::IsOk());
     const Result<bytes::Bytes> read = files.load(path);
 
-    ASSERT_TRUE(read.has_value());
-    EXPECT_EQ(*read, written);
+    ASSERT_THAT(read, fastecu::testing::IsOkAnd(written));
 }
 
 TEST(BenchFiles, LoadsAnEmptyFileAsNoBytes)
@@ -40,7 +40,7 @@ TEST(BenchFiles, LoadsAnEmptyFileAsNoBytes)
 
     const Result<bytes::Bytes> read = files.load(path);
 
-    ASSERT_TRUE(read.has_value());
+    ASSERT_THAT(read, fastecu::testing::IsOk());
     EXPECT_TRUE(read->empty());
 }
 
@@ -50,8 +50,7 @@ TEST(BenchFiles, LoadReportsAMissingFileAsInvalidConfig)
 
     const Result<bytes::Bytes> read = files.load(tempPath("absent.bin"));
 
-    ASSERT_FALSE(read.has_value());
-    EXPECT_EQ(read.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(read, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(BenchFiles, SaveReportsAnUnwritablePathAsInternal)
@@ -60,8 +59,7 @@ TEST(BenchFiles, SaveReportsAnUnwritablePathAsInternal)
 
     const Status saved = files.save(tempPath("no_such_dir/out.bin"), bytes::Bytes{0x01});
 
-    ASSERT_FALSE(saved.has_value());
-    EXPECT_EQ(saved.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(saved, fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 } // namespace

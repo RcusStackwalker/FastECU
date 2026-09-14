@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/logging/logging_conversion.h"
 #include "src/backend/logging/logging_session.h"
 #include "src/backend/ports/error.h"
@@ -42,7 +43,7 @@ LoggingPolicy valid_policy()
 LoggingSession make_session_with_channel(LoggingChannel channel)
 {
     auto session = make_logging_session(LoggingProtocolId::Ssm, {std::move(channel)}, valid_policy());
-    EXPECT_TRUE(session);
+    EXPECT_THAT(session, fastecu::testing::IsOk());
     return std::move(*session);
 }
 
@@ -61,7 +62,7 @@ TEST(LoggingConversionTest, PreservesSsmDecimalByteRawInput)
     c.unit = "rpm";
     auto session = make_session_with_channel(c);
     auto result = convert_sample(session, ProtocolSample{"rpm", "1616"});
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->raw_value, "1616");
     EXPECT_DOUBLE_EQ(result->numeric_value, 404.0);
     EXPECT_EQ(result->unit, "rpm");
@@ -71,15 +72,14 @@ TEST(LoggingConversionTest, RejectsUnknownOrMismatchedChannel)
 {
     auto session = make_valid_session();
     auto result = convert_sample(session, ProtocolSample{"missing", "12"});
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Internal);
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
 }
 
 TEST(LoggingConversionTest, PreservesProtocolRawValueWithoutReassembly)
 {
     auto session = make_valid_session();
     auto result = convert_sample(session, ProtocolSample{"rpm", "0012"});
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->raw_value, "0012");
     EXPECT_DOUBLE_EQ(result->numeric_value, 12.0);
 }
@@ -91,8 +91,7 @@ TEST(LoggingConversionTest, RejectsNonFiniteConvertedValues)
     auto session = make_session_with_channel(c);
 
     auto result = convert_sample(session, ProtocolSample{"rpm", "1"});
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(LoggingConversionTest, UsesHistoricalFifteenDigitIntermediatePrecision)
@@ -104,7 +103,7 @@ TEST(LoggingConversionTest, UsesHistoricalFifteenDigitIntermediatePrecision)
 
     auto result = convert_sample(session, ProtocolSample{"rpm", "10"});
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_DOUBLE_EQ(result->numeric_value, 9.9999999999999893);
     EXPECT_NE(result->numeric_value, 9.9);
 }

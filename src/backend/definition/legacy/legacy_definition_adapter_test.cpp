@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/definition/legacy/legacy_definition_adapter.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
@@ -169,7 +170,7 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesRomRaiderCatalogWithAlignedTypedRows
 
     auto result = adapter.replace_romraider_catalog(value, handles);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(value.romraider_def_cal_id, QStringList({"SECOND", "FIRST"}));
     EXPECT_EQ(value.romraider_def_cal_id_addr, QStringList({"0x2a0", "0x1a0"}));
     EXPECT_EQ(value.romraider_def_ecu_id, QStringList({"ECU-2", "ECU-1"}));
@@ -202,7 +203,7 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesEcuFlashCatalogWithAlignedTypedRows)
 
     auto result = adapter.replace_ecuflash_catalog(value, "defs", explicit_handles);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(value.ecuflash_def_cal_id, QStringList({"A", "B", "OUTSIDE"}));
     EXPECT_EQ(value.ecuflash_def_cal_id_addr, QStringList({"0x10", "", "0x20"}));
     EXPECT_EQ(value.ecuflash_def_ecu_id, QStringList({"ECU-A", "ECU-B", "ECU-OUTSIDE"}));
@@ -234,7 +235,7 @@ TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogSkipsUnreadableHandleAndRepla
     // An unreadable handle is skipped rather than failing the whole catalog (matching
     // DefinitionService::build_catalog), so this replace succeeds with an empty EcuFlash
     // catalog; the unrelated RomRaider lists are untouched.
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(value.software_name, "unchanged software");
     EXPECT_EQ(value.primary_definition_base, "unchanged base");
     EXPECT_EQ(value.romraider_def_cal_id, QStringList{"romraider-id"});
@@ -262,7 +263,7 @@ TEST_F(LegacyDefinitionAdapterTest, RomRaiderCatalogSkipsUnreadableHandleAndRepl
 
     auto result = adapter.replace_romraider_catalog(value, std::vector<std::string>{"bad.xml"});
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(value.software_name, "unchanged software");
     EXPECT_EQ(value.primary_definition_base, "unchanged base");
     EXPECT_TRUE(value.romraider_def_cal_id.isEmpty());
@@ -287,7 +288,7 @@ TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogDiscoveryFailurePreservesComp
     // configured directory is still fatal -- there is nothing to skip past.
     auto result = adapter.replace_ecuflash_catalog(value, "defs", {});
 
-    ASSERT_FALSE(result);
+    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "catalog directory unavailable"}));
     EXPECT_EQ(value, original);
 }
@@ -348,7 +349,7 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
         entry(DefinitionFormat::EcuFlash, "MID", "mid.xml"),
         entry(DefinitionFormat::EcuFlash, "BASE", "base.xml"),
     });
-    ASSERT_TRUE(catalog);
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
     definitions::EcuCalDefStructure value;
     value.FileName = "rom.bin";
     value.FullFileName = "/roms/rom.bin";
@@ -364,7 +365,7 @@ TEST_F(LegacyDefinitionAdapterTest, MapsFullTypedDefinitionIntoEveryLegacySlice)
 
     auto result = adapter.replace_definition(value, *catalog, DefinitionFormat::EcuFlash, "FULL");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(value.FileName, "rom.bin");
     EXPECT_EQ(value.FullFileName, "/roms/rom.bin");
     EXPECT_EQ(value.RomId, "identified-rom");
@@ -490,7 +491,7 @@ TEST_F(LegacyDefinitionAdapterTest, MapsRomRaiderRuntimeLogParameters)
     auto catalog = DefinitionCatalog::create({
         entry(DefinitionFormat::RomRaider, "RR", "rr.xml"),
     });
-    ASSERT_TRUE(catalog);
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
     definitions::EcuCalDefStructure value;
     value.OemEcuFile = false;
     value.SyncedWithEcu = false;
@@ -499,7 +500,7 @@ TEST_F(LegacyDefinitionAdapterTest, MapsRomRaiderRuntimeLogParameters)
 
     auto result = adapter.replace_definition(value, *catalog, DefinitionFormat::RomRaider, "RR");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(value.StartPosList, QStringList({"0x7"}));
     EXPECT_EQ(value.IntervalList, QStringList({"0x2"}));
     EXPECT_EQ(value.LogParamList, QStringList({"P_MAP"}));
@@ -516,7 +517,7 @@ TEST_F(LegacyDefinitionAdapterTest, ShortRomInfoShapeFailsAtomically)
     auto catalog = DefinitionCatalog::create({
         entry(DefinitionFormat::EcuFlash, "SHAPE", "shape.xml"),
     });
-    ASSERT_TRUE(catalog);
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
     definitions::EcuCalDefStructure value;
     value.FileName = "rom.bin";
     value.NameList = {"sentinel-map"};
@@ -531,8 +532,7 @@ TEST_F(LegacyDefinitionAdapterTest, ShortRomInfoShapeFailsAtomically)
 
     auto result = adapter.replace_definition(value, *catalog, DefinitionFormat::EcuFlash, "SHAPE");
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("RomInfo"));
     EXPECT_EQ(value, original);
 }
@@ -549,7 +549,7 @@ TEST_F(LegacyDefinitionAdapterTest, InvalidStaticAxisFailsAtomically)
     auto catalog = DefinitionCatalog::create({
         entry(DefinitionFormat::EcuFlash, "INVALID_STATIC", "invalid-static.xml"),
     });
-    ASSERT_TRUE(catalog);
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
     definitions::EcuCalDefStructure value;
     value.FileName = "rom.bin";
     value.NameList = {"sentinel-map"};
@@ -563,8 +563,7 @@ TEST_F(LegacyDefinitionAdapterTest, InvalidStaticAxisFailsAtomically)
 
     auto result = adapter.replace_definition(value, *catalog, DefinitionFormat::EcuFlash, "INVALID_STATIC");
 
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("static data"));
     EXPECT_EQ(value, original);
 }
@@ -574,7 +573,7 @@ TEST_F(LegacyDefinitionAdapterTest, DefinitionLoadFailureDoesNotMutateCaller)
     auto catalog = DefinitionCatalog::create({
         entry(DefinitionFormat::EcuFlash, "MISSING", "missing.xml"),
     });
-    ASSERT_TRUE(catalog);
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
     repository.read_errors["missing.xml"] = Error{ErrorKind::Disconnected, "definition read failed"};
     definitions::EcuCalDefStructure value;
     value.FileName = "rom.bin";
@@ -589,7 +588,7 @@ TEST_F(LegacyDefinitionAdapterTest, DefinitionLoadFailureDoesNotMutateCaller)
 
     auto result = adapter.replace_definition(value, *catalog, DefinitionFormat::EcuFlash, "MISSING");
 
-    ASSERT_FALSE(result);
+    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(result.error(), (Error{ErrorKind::Disconnected, "definition read failed"}));
     EXPECT_EQ(value, original);
 }
@@ -607,8 +606,8 @@ TEST_F(LegacyDefinitionAdapterTest, CreationAndImportDelegateToDefinitionService
     auto created = adapter.create_definition("created.xml", input);
     auto imported = adapter.import_definition("source.xml", "imported.xml", input);
 
-    ASSERT_TRUE(created);
-    ASSERT_TRUE(imported);
+    ASSERT_THAT(created, fastecu::testing::IsOk());
+    ASSERT_THAT(imported, fastecu::testing::IsOk());
     ASSERT_EQ(writer.replace_calls.size(), 2U);
     EXPECT_EQ(writer.replace_calls.at(0).handle, "created.xml");
     EXPECT_EQ(writer.replace_calls.at(1).handle, "imported.xml");
@@ -626,14 +625,14 @@ TEST_F(LegacyDefinitionAdapterTest, CreationAndImportPropagateExactServiceFailur
 
     auto created = adapter.create_definition("created.xml", input);
 
-    ASSERT_FALSE(created);
+    ASSERT_THAT(created, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(created.error(), (Error{ErrorKind::Internal, "atomic replace failed"}));
     ASSERT_EQ(writer.replace_calls.size(), 1U);
     repository.read_errors["source.xml"] = Error{ErrorKind::Disconnected, "source read failed"};
 
     auto imported = adapter.import_definition("source.xml", "imported.xml", input);
 
-    ASSERT_FALSE(imported);
+    ASSERT_THAT(imported, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_EQ(imported.error(), (Error{ErrorKind::Disconnected, "source read failed"}));
     EXPECT_EQ(writer.replace_calls.size(), 1U);
 }

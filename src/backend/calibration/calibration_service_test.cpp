@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/calibration/calibration_service.h"
 
 #include <format>
@@ -28,8 +29,7 @@ TEST(ReadRom, ReadsRequestedHandleThroughRepository)
 
     Result<std::vector<std::uint8_t>> result = read_rom("in.bin", repo);
 
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, (std::vector<std::uint8_t>{0xAA, 0xBB}));
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd((std::vector<std::uint8_t>{0xAA, 0xBB})));
 }
 
 TEST(ReadRom, ReadFailureIsPropagated)
@@ -38,7 +38,7 @@ TEST(ReadRom, ReadFailureIsPropagated)
 
     Result<std::vector<std::uint8_t>> result = read_rom("missing.bin", repo);
 
-    ASSERT_FALSE(result.has_value());
+    ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ReadRom, EmptyRomIsAValidResultNotAMissingOne)
@@ -52,7 +52,7 @@ TEST(ReadRom, EmptyRomIsAValidResultNotAMissingOne)
 
     Result<std::vector<std::uint8_t>> result = read_rom("empty.bin", repo);
 
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(result->empty());
 }
 
@@ -191,7 +191,7 @@ TEST(ValidateRomSize, PassesWhenEveryAddressFitsWithinRomLength)
     map.x_axis.address = 0x100;
     map.y_axis.address = 0x200;
 
-    EXPECT_TRUE(validate_rom_size(definition_with_one_map(map), 0x2000).has_value());
+    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x2000), fastecu::testing::IsOk());
 }
 
 TEST(ValidateRomSize, FailsWhenMapAddressExceedsRomLength)
@@ -201,8 +201,7 @@ TEST(ValidateRomSize, FailsWhenMapAddressExceedsRomLength)
 
     Status result = validate_rom_size(definition_with_one_map(map), 0x2000);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(ValidateRomSize, FailsWhenXAxisAddressExceedsRomLength)
@@ -211,7 +210,7 @@ TEST(ValidateRomSize, FailsWhenXAxisAddressExceedsRomLength)
     map.address = 0x100;
     map.x_axis.address = 0x3000;
 
-    EXPECT_FALSE(validate_rom_size(definition_with_one_map(map), 0x2000).has_value());
+    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x2000), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ValidateRomSize, FailsWhenYAxisAddressExceedsRomLength)
@@ -220,7 +219,7 @@ TEST(ValidateRomSize, FailsWhenYAxisAddressExceedsRomLength)
     map.address = 0x100;
     map.y_axis.address = 0x3000;
 
-    EXPECT_FALSE(validate_rom_size(definition_with_one_map(map), 0x2000).has_value());
+    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x2000), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ValidateRomSize, AddressExactlyAtRomLengthFails)
@@ -230,21 +229,21 @@ TEST(ValidateRomSize, AddressExactlyAtRomLengthFails)
     CalibrationMap map;
     map.address = 0x2000;
 
-    EXPECT_FALSE(validate_rom_size(definition_with_one_map(map), 0x2000).has_value());
+    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x2000), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ValidateRomSize, AbsentAddressesDoNotFail)
 {
     CalibrationMap map;
 
-    EXPECT_TRUE(validate_rom_size(definition_with_one_map(map), 0).has_value());
+    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0), fastecu::testing::IsOk());
 }
 
 TEST(ValidateRomSize, EmptyMapsListPasses)
 {
     RomDefinition definition;
 
-    EXPECT_TRUE(validate_rom_size(definition, 0).has_value());
+    EXPECT_THAT(validate_rom_size(definition, 0), fastecu::testing::IsOk());
 }
 
 TEST(ValidateRomSize, FailsWhenMapExtentOverflowsWithContiguousStride)
@@ -260,7 +259,7 @@ TEST(ValidateRomSize, FailsWhenMapExtentOverflowsWithContiguousStride)
     map.start_position = 1;
     map.interval = 1;
 
-    EXPECT_FALSE(validate_rom_size(definition_with_one_map(map), 0x1005).has_value());
+    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x1005), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ValidateRomSize, FailsWhenMapExtentOverflowsWithNonContiguousStride)
@@ -276,7 +275,7 @@ TEST(ValidateRomSize, FailsWhenMapExtentOverflowsWithNonContiguousStride)
     map.start_position = 1;
     map.interval = 5;
 
-    EXPECT_FALSE(validate_rom_size(definition_with_one_map(map), 0x1004).has_value());
+    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x1004), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ValidateRomSize, FailsWhenAxisExtentOverflowsWithNonContiguousStride)
@@ -289,7 +288,7 @@ TEST(ValidateRomSize, FailsWhenAxisExtentOverflowsWithNonContiguousStride)
     map.x_axis.start_position = 1;
     map.x_axis.interval = 5;
 
-    EXPECT_FALSE(validate_rom_size(definition_with_one_map(map), 0x1004).has_value());
+    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x1004), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ValidateRomSize, BloblistExtentUsesWidthDerivedFromSelections)
@@ -306,7 +305,8 @@ TEST(ValidateRomSize, BloblistExtentUsesWidthDerivedFromSelections)
     scaling.name = "mode";
     scaling.selections = {{"disabled", "0000"}, {"enabled", "0001"}};
 
-    EXPECT_FALSE(validate_rom_size(definition_with_one_map(map, {scaling}), 0x1000).has_value());
+    EXPECT_THAT(validate_rom_size(definition_with_one_map(map, {scaling}), 0x1000),
+                ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ValidateRomSize, ZeroStartPositionDoesNotSpuriouslyRejectTheRom)
@@ -322,7 +322,7 @@ TEST(ValidateRomSize, ZeroStartPositionDoesNotSpuriouslyRejectTheRom)
     map.start_position = 0;
     map.interval = 1;
 
-    EXPECT_TRUE(validate_rom_size(definition_with_one_map(map), 0x2000).has_value());
+    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x2000), fastecu::testing::IsOk());
 }
 
 TEST(ValidateRomSize, NullStorageTypeStillGetsExtentCheckedWithOneByteDefault)
@@ -334,7 +334,7 @@ TEST(ValidateRomSize, NullStorageTypeStillGetsExtentCheckedWithOneByteDefault)
     map.x_size = 2;
     map.y_size = 1;
 
-    EXPECT_FALSE(validate_rom_size(definition_with_one_map(map), 0x1000).has_value());
+    EXPECT_THAT(validate_rom_size(definition_with_one_map(map), 0x1000), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(ApplyFlashMethodPadding, InsertsPaddingForMatchingShortRom)
@@ -418,7 +418,7 @@ TEST(DecodeScaledValues, DecodesConsecutiveUint8Cells)
 {
     const std::vector<std::uint8_t> rom{1, 2, 3};
     const auto result = decode_scaled_values(rom, simple_run(3), 15);
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     // Trailing comma after every value, including the last: legacy's format.
     EXPECT_EQ(*result, "1,2,3,");
 }
@@ -427,8 +427,7 @@ TEST(DecodeScaledValues, AppliesFromByteExpression)
 {
     const std::vector<std::uint8_t> rom{4};
     const auto result = decode_scaled_values(rom, simple_run(1, "x*0.5"), 15);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "2,");
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd("2,"));
 }
 
 TEST(DecodeScaledValues, HonoursStartPositionAndInterval)
@@ -440,8 +439,7 @@ TEST(DecodeScaledValues, HonoursStartPositionAndInterval)
     run.interval = 3;
 
     const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "10,20,30,");
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd("10,20,30,"));
 }
 
 TEST(DecodeScaledValues, DecodesBigEndianUint16)
@@ -451,8 +449,7 @@ TEST(DecodeScaledValues, DecodesBigEndianUint16)
     run.storage_type = definition::StorageType::Uint16;
 
     const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "4660,"); // 0x1234
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd("4660,")); // 0x1234
 }
 
 TEST(DecodeScaledValues, DecodesLittleEndianUint16)
@@ -467,8 +464,7 @@ TEST(DecodeScaledValues, DecodesLittleEndianUint16)
     run.endian = "little";
 
     const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "4660,"); // 0x1234
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd("4660,")); // 0x1234
 }
 
 TEST(DecodeScaledValues, TreatsAnyNonLittleEndianStringAsBigEndian)
@@ -482,7 +478,7 @@ TEST(DecodeScaledValues, TreatsAnyNonLittleEndianStringAsBigEndian)
         run.storage_type = definition::StorageType::Uint16;
         run.endian = endian;
         const auto result = decode_scaled_values(rom, run, 15);
-        ASSERT_TRUE(result.has_value()) << endian;
+        ASSERT_THAT(result, fastecu::testing::IsOk()) << endian;
         EXPECT_EQ(*result, "4660,") << endian;
     }
 }
@@ -500,8 +496,7 @@ TEST(DecodeScaledValues, SignExtendsSignedStorageTypes)
     run.storage_type = definition::StorageType::Int16;
 
     const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "-2,");
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd("-2,"));
 }
 
 TEST(DecodeScaledValues, DoesNotSignExtendUnsignedStorageTypes)
@@ -511,8 +506,7 @@ TEST(DecodeScaledValues, DoesNotSignExtendUnsignedStorageTypes)
     run.storage_type = definition::StorageType::Uint16;
 
     const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "65534,");
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd("65534,"));
 }
 
 TEST(DecodeScaledValues, DecodesInt8SignBit)
@@ -522,8 +516,7 @@ TEST(DecodeScaledValues, DecodesInt8SignBit)
     run.storage_type = definition::StorageType::Int8;
 
     const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "-128,");
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd("-128,"));
 }
 
 TEST(DecodeScaledValues, DecodesBigEndianFloat)
@@ -534,8 +527,7 @@ TEST(DecodeScaledValues, DecodesBigEndianFloat)
     run.storage_type = definition::StorageType::Float;
 
     const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "1.5,");
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd("1.5,"));
 }
 
 TEST(DecodeScaledValues, PreservesBigEndianFloatAssemblyWhenEndianSaysLittle)
@@ -549,8 +541,7 @@ TEST(DecodeScaledValues, PreservesBigEndianFloatAssemblyWhenEndianSaysLittle)
     run.endian = "little";
 
     const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "1.5,");
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd("1.5,"));
 }
 
 TEST(DecodeScaledValues, EmitsZeroForSelectableRunsWithoutEvaluating)
@@ -562,24 +553,21 @@ TEST(DecodeScaledValues, EmitsZeroForSelectableRunsWithoutEvaluating)
     run.is_selectable = true;
 
     const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "0,0,");
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd("0,0,"));
 }
 
 TEST(DecodeScaledValues, ReturnsEmptyStringForZeroCount)
 {
     const std::vector<std::uint8_t> rom{1, 2, 3};
     const auto result = decode_scaled_values(rom, simple_run(0), 15);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "");
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd(""));
 }
 
 TEST(DecodeScaledValues, FailsWhenAnElementRunsPastTheRom)
 {
     const std::vector<std::uint8_t> rom{1, 2};
     const auto result = decode_scaled_values(rom, simple_run(3), 15);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(DecodeScaledValues, FailsWhenAMultiByteElementStraddlesTheEnd)
@@ -589,8 +577,7 @@ TEST(DecodeScaledValues, FailsWhenAMultiByteElementStraddlesTheEnd)
     run.storage_type = definition::StorageType::Uint16;
 
     const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(DecodeScaledValues, RejectsMaximumAddressWithoutWrapping)
@@ -600,8 +587,7 @@ TEST(DecodeScaledValues, RejectsMaximumAddressWithoutWrapping)
     run.address = std::numeric_limits<std::uint64_t>::max();
 
     const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(DecodeScaledValues, ClampsZeroStartPositionDefensively)
@@ -615,8 +601,7 @@ TEST(DecodeScaledValues, ClampsZeroStartPositionDefensively)
     run.start_position = 0;
 
     const auto result = decode_scaled_values(rom, run, 15);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "1,");
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd("1,"));
 }
 
 TEST(DecodeScaledValues, FormattingMatchesCapturedQtGroundTruth)
@@ -654,7 +639,7 @@ TEST(DecodeScaledValues, FormattingMatchesCapturedQtGroundTruth)
     {
         const std::string literal = std::format("{:.20f}", c.value);
         const auto result = decode_scaled_values(rom, simple_run(1, literal), 15);
-        ASSERT_TRUE(result.has_value()) << c.expected;
+        ASSERT_THAT(result, fastecu::testing::IsOk()) << c.expected;
         EXPECT_EQ(*result, std::string(c.expected) + ",") << "value=" << c.value;
     }
 }
@@ -663,24 +648,21 @@ TEST(DecodeBloblistHex, HexEncodesRequestedBytes)
 {
     const std::vector<std::uint8_t> rom{0x00, 0xAB, 0xCD, 0xEF};
     const auto result = decode_bloblist_hex(rom, 1, 3);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "abcdef");
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd("abcdef"));
 }
 
 TEST(DecodeBloblistHex, ReturnsEmptyStringForZeroCount)
 {
     const std::vector<std::uint8_t> rom{0xAB};
     const auto result = decode_bloblist_hex(rom, 0, 0);
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, "");
+    ASSERT_THAT(result, fastecu::testing::IsOkAnd(""));
 }
 
 TEST(DecodeBloblistHex, FailsWhenTheRunExceedsTheRom)
 {
     const std::vector<std::uint8_t> rom{0xAB, 0xCD};
     const auto result = decode_bloblist_hex(rom, 1, 3);
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(DecodeBloblistHex, RejectsMaximumAddressWithoutWrapping)
@@ -689,8 +671,7 @@ TEST(DecodeBloblistHex, RejectsMaximumAddressWithoutWrapping)
 
     const auto result = decode_bloblist_hex(rom, std::numeric_limits<std::uint64_t>::max(), 1);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 namespace
@@ -721,7 +702,7 @@ TEST(ComputeMapCellValues, DecodesOneMapsCells)
     const std::vector<std::uint8_t> data{5, 6, 7};
 
     const auto result = compute_map_cell_values(rom, data, 15);
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 1U);
     EXPECT_FALSE(result->at(0).error.has_value());
     EXPECT_EQ(result->at(0).map_data, "5,6,7,");
@@ -739,7 +720,7 @@ TEST(ComputeMapCellValues, UsesBlankExpressionWhenMapScalingIsAbsent)
 
     const auto result = compute_map_cell_values(rom, data, 15);
 
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 1U);
     ASSERT_FALSE(result->at(0).error.has_value());
     EXPECT_EQ(result->at(0).map_data, "0,0,0,");
@@ -758,7 +739,7 @@ TEST(ComputeMapCellValues, DecodesAnXAxisOfTypeXAxis)
 
     const std::vector<std::uint8_t> data{5, 6, 7, 100, 200, 250};
     const auto result = compute_map_cell_values(rom, data, 15);
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->at(0).x_axis_data, "100,200,250,");
 }
 
@@ -780,7 +761,7 @@ TEST(ComputeMapCellValues, UsesResolvedAxisExpressionAfterScalingInheritance)
     const std::vector<std::uint8_t> data{5, 6, 7, 10, 20, 30};
     const auto result = compute_map_cell_values(rom, data, 15);
 
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_FALSE(result->at(0).error.has_value());
     EXPECT_EQ(result->at(0).x_axis_data, "20,40,60,");
 }
@@ -793,7 +774,7 @@ TEST(ComputeMapCellValues, UsesStaticDataForStaticAxes)
 
     const std::vector<std::uint8_t> data{5, 6, 7};
     const auto result = compute_map_cell_values(rom, data, 15);
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->at(0).x_axis_data, "1000,2000,3000,");
 }
 
@@ -806,7 +787,7 @@ TEST(ComputeMapCellValues, LeavesUnrecognizedXAxisTypesUncomputed)
 
     const std::vector<std::uint8_t> data{5, 6, 7, 1, 2, 3};
     const auto result = compute_map_cell_values(rom, data, 15);
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->at(0).x_axis_data, " ");
 }
 
@@ -828,7 +809,7 @@ TEST(ComputeMapCellValues, DecodesYAxisWithoutTypeBranching)
 
     const std::vector<std::uint8_t> data{9, 9, 40, 50};
     const auto result = compute_map_cell_values(rom, data, 15);
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->at(0).y_axis_data, "40,50,");
 }
 
@@ -848,7 +829,7 @@ TEST(ComputeMapCellValues, HexEncodesBloblistMaps)
     // element_byte_size derives width 2 from the first selection ("aabb").
     const std::vector<std::uint8_t> data{0x00, 0xCC, 0xDD};
     const auto result = compute_map_cell_values(rom, data, 15);
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->at(0).map_data, "ccdd");
 }
 
@@ -862,7 +843,7 @@ TEST(ComputeMapCellValues, DegradesPerMapWithoutFailingSiblings)
 
     const std::vector<std::uint8_t> data{5, 6, 7};
     const auto result = compute_map_cell_values(rom, data, 15);
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 2U);
     EXPECT_FALSE(result->at(0).error.has_value());
     EXPECT_EQ(result->at(0).map_data, "5,6,7,");
@@ -878,7 +859,7 @@ TEST(ComputeMapCellValues, FlagsAMapWithNoAddress)
 
     const std::vector<std::uint8_t> data{5, 6, 7};
     const auto result = compute_map_cell_values(rom, data, 15);
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->at(0).error.has_value());
     EXPECT_EQ(result->at(0).error->kind, ErrorKind::InvalidConfig);
 }
@@ -894,7 +875,7 @@ TEST(ComputeMapCellValues, RejectsOverflowingMapCellCount)
 
     const auto result = compute_map_cell_values(rom, data, 15);
 
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 1U);
     ASSERT_TRUE(result->at(0).error.has_value());
     EXPECT_EQ(result->at(0).error->kind, ErrorKind::InvalidConfig);
@@ -903,7 +884,7 @@ TEST(ComputeMapCellValues, RejectsOverflowingMapCellCount)
 TEST(ComputeMapCellValues, ReturnsEmptyListForADefinitionWithNoMaps)
 {
     const auto result = compute_map_cell_values(definition::RomDefinition{}, {}, 15);
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(result->empty());
 }
 

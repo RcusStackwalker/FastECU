@@ -54,6 +54,7 @@ fastecu_gtest(
     deps = [
         ":ports",
         "//src/backend/ports",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -64,6 +65,7 @@ fastecu_gtest(
     deps = [
         ":ports",
         "//src/backend/ports",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -75,6 +77,7 @@ fastecu_gtest(
         "//resources/shared:config_resource",
         "//resources/shared:kernels_resource",
         "//src/backend/ports",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -84,5 +87,6 @@ fastecu_gtest(
     deps = [
         ":ports",
         "//src/backend/ports",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )

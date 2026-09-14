@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/config/protocol_catalog.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 
@@ -86,7 +87,7 @@ TEST(LoadProtocolCatalog, ParsesEveryFieldOfFirstProtocol)
 
     auto catalog = load_protocol_catalog(paths, repo);
 
-    ASSERT_TRUE(catalog.has_value());
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
     ASSERT_EQ(catalog->size(), 2U);
     const auto& first = (*catalog)[0];
     EXPECT_EQ(first.protocol_name, "sub_ecu_denso_sh7055_densocan");
@@ -120,7 +121,7 @@ TEST(LoadProtocolCatalog, MissingOptionalFieldsDefaultToLegacyDefaults)
 
     auto catalog = load_protocol_catalog(paths, repo);
 
-    ASSERT_TRUE(catalog.has_value());
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
     const auto& second = (*catalog)[1];
     // Matches legacy read_protocols_file's Qt
     // QDomElement::attribute(name, default) defaulting (file_actions.cpp:
@@ -149,7 +150,7 @@ TEST(LoadProtocolCatalog, ChecksumPreservesRawTextIncludingNonBooleanValues)
 
     auto catalog = load_protocol_catalog(paths, repo);
 
-    ASSERT_TRUE(catalog.has_value());
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
     ASSERT_EQ(catalog->size(), 1U);
     EXPECT_EQ((*catalog)[0].checksum, "n/a");
     EXPECT_EQ((*catalog)[0].read, "n/a");
@@ -162,8 +163,7 @@ TEST(LoadProtocolCatalog, MissingFileIsInvalidConfig)
 
     auto catalog = load_protocol_catalog(paths, repo);
 
-    ASSERT_FALSE(catalog.has_value());
-    EXPECT_EQ(catalog.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(catalog, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(LoadProtocolCatalog, RejectsDuplicateProtocolNames)
@@ -182,8 +182,7 @@ TEST(LoadProtocolCatalog, RejectsDuplicateProtocolNames)
 
     auto catalog = load_protocol_catalog(test_paths(), repo);
 
-    ASSERT_FALSE(catalog.has_value());
-    EXPECT_EQ(catalog.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(catalog, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(catalog.error().detail, ::testing::HasSubstr("same_name"));
 }
 
@@ -203,7 +202,7 @@ TEST(LoadProtocolCatalog, DistinctProtocolNamesAreAccepted)
 
     auto catalog = load_protocol_catalog(test_paths(), repo);
 
-    ASSERT_TRUE(catalog.has_value());
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
     ASSERT_EQ(catalog->size(), 2U);
     EXPECT_EQ(catalog->at(0).mcu, "FIRST");
     EXPECT_EQ(catalog->at(1).mcu, "SECOND");
@@ -232,7 +231,7 @@ TEST(LoadProtocolCatalog, ParsesTheRealShippedProtocolsFileWithoutError)
 
     auto catalog = load_protocol_catalog(paths, repo);
 
-    ASSERT_TRUE(catalog.has_value());
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
     for (const auto& entry : *catalog)
     {
         EXPECT_FALSE(entry.protocol_name.empty());
