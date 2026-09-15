@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
 
 #include <gmock/gmock.h>
@@ -28,9 +29,7 @@ TEST(CanFlashUdsChannelTest, PrependsTheRequestIdOnSend)
     transport.expectWrite(Bytes{0x00, 0x00, 0x07, 0xE0, 0x10, 0x03});
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    const fastecu::Status sent = channel.send(Bytes{0x10, 0x03}, cancellation);
-
-    EXPECT_TRUE(sent.has_value());
+    EXPECT_THAT(channel.send(Bytes{0x10, 0x03}, cancellation), fastecu::testing::IsOk());
     EXPECT_EQ(transport.writesConsumed(), 1U);
 }
 
@@ -43,7 +42,7 @@ TEST(CanFlashUdsChannelTest, StripsTheReplyIdOnReceive)
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
     const auto received = channel.receive(500ms, cancellation);
 
-    ASSERT_TRUE(received.has_value());
+    ASSERT_THAT(received, fastecu::testing::IsOk());
     ASSERT_TRUE(received->has_value());
     EXPECT_THAT(**received, ElementsAre(0x50, 0x03));
 }
@@ -57,7 +56,7 @@ TEST(CanFlashUdsChannelTest, PassesATimeoutThroughAsAnEmptyOptional)
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
     const auto received = channel.receive(500ms, cancellation);
 
-    ASSERT_TRUE(received.has_value());
+    ASSERT_THAT(received, fastecu::testing::IsOk());
     EXPECT_FALSE(received->has_value());
 }
 
@@ -68,10 +67,7 @@ TEST(CanFlashUdsChannelTest, RejectsAFrameShorterThanTheEnvelope)
     transport.queueRead(Bytes{0x00, 0x00, 0x07});
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    const auto received = channel.receive(500ms, cancellation);
-
-    ASSERT_FALSE(received.has_value());
-    EXPECT_EQ(received.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(channel.receive(500ms, cancellation), fastecu::testing::IsErr(ErrorKind::BadResponse));
 }
 
 TEST(CanFlashUdsChannelTest, RejectsAFrameFromAnUnexpectedReplyId)
@@ -83,8 +79,7 @@ TEST(CanFlashUdsChannelTest, RejectsAFrameFromAnUnexpectedReplyId)
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
     const auto received = channel.receive(500ms, cancellation);
 
-    ASSERT_FALSE(received.has_value());
-    EXPECT_EQ(received.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(received, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_THAT(received.error().detail, HasSubstr("7e9"));
 }
 
@@ -99,7 +94,7 @@ TEST(CanFlashUdsChannelTest, AcceptsAnEnvelopeOnlyFrameAsAnEmptyPdu)
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
     const auto received = channel.receive(500ms, cancellation);
 
-    ASSERT_TRUE(received.has_value());
+    ASSERT_THAT(received, fastecu::testing::IsOk());
     ASSERT_TRUE(received->has_value());
     EXPECT_TRUE((*received)->empty());
 }
@@ -111,11 +106,8 @@ TEST(CanFlashUdsChannelTest, PropagatesATransportError)
     transport.queue_error(ErrorKind::Disconnected, "adapter closed");
 
     CanFlashUdsChannel channel(transport, kRequestId, kResponseId);
-    const auto received = channel.receive(500ms, cancellation);
-
-    ASSERT_FALSE(received.has_value());
-    EXPECT_EQ(received.error().kind, ErrorKind::Disconnected);
-    EXPECT_EQ(received.error().detail, "adapter closed");
+    ASSERT_THAT(channel.receive(500ms, cancellation),
+                fastecu::testing::IsErrWith(ErrorKind::Disconnected, "adapter closed"));
 }
 
 } // namespace

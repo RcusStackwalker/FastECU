@@ -289,6 +289,29 @@ EXPECT_TRUE(std::ranges::all_of(blocks, [](const Block& b) { return b.size <= kM
 A failing matcher describes itself and prints the container's contents; a
 failing `EXPECT_TRUE` prints `false` and needs a comment to be intelligible.
 
+**Use Result/Status matchers in GoogleTest suites.** Include
+[result_matchers.h](../src/backend/ports/testing/result_matchers.h) and depend on
+`//src/backend/ports/testing:result_matchers`. Use `IsOk()` for success,
+`IsOkAnd(matcher)` for the contained value, `IsErr(kind)` for an error kind,
+and `IsErrWith(kind, matcher)` for its detail. The matchers include the
+Error/ErrorKind printers, so failures name the actual error and its detail.
+Use `ASSERT_THAT` before accessing the result later in the test.
+When a result is used only by one assertion, pass the operation directly to
+`ASSERT_THAT` or `EXPECT_THAT` instead of declaring a local. Keep a local when
+needed to preserve operation or cleanup order.
+
+```cpp
+ASSERT_THAT(result, fastecu::testing::IsOk());
+EXPECT_THAT(result, fastecu::testing::IsOkAnd(42));
+EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
+```
+
+Use `Not(IsOk())` only when the contract intentionally permits any error.
+Plain `std::optional` checks, the low-level Result API tests, and QtTest
+assertions keep their existing assertion APIs; GoogleTest assertions do not
+report failures to the QtTest runner. Production checks still use
+`.has_value()` as described under [Error handling](#error-handling).
+
 **Mocks are package-owned.** A package that defines an interface adds a
 `testing/` subpackage with one `cc_library(testonly = True)` per mock, each
 with its own test. `src/backend/ports/testing/` is the reference. One mock, one

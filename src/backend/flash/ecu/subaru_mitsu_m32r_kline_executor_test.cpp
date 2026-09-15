@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_executor.h"
 
 #include <gtest/gtest.h>
@@ -50,17 +51,15 @@ TEST(SubaruMitsuM32rKlineExecutor, RejectsFamilyMismatchBeforeIo)
 {
     auto plan =
         build_mitsu_colt_m32r_can_plan(FlashOperation::Read, "mitsu_ecu_m32r_can", "M32R_384KB_1block", std::nullopt);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruMitsuM32rKlineExecutor executor;
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_FALSE(transport.last_config_.has_value());
 }
 
@@ -68,12 +67,12 @@ TEST(SubaruMitsuM32rKlineExecutor, TransportSetupReturnsPlansWireParameters)
 {
     auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
                                                    "M32R_512KB_4blocks", std::nullopt);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruMitsuM32rKlineExecutor executor;
 
     auto setup = executor.transport_setup(*plan);
 
-    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->baud, 4800);
     EXPECT_FALSE(setup->iso14230);
     EXPECT_EQ(setup->tester_id, 0xf0);
@@ -84,7 +83,7 @@ TEST(SubaruMitsuM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
 {
     auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
                                                    "M32R_512KB_4blocks", std::nullopt);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruMitsuM32rKlineExecutor executor;
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     FakeClock clock;
@@ -92,10 +91,8 @@ TEST(SubaruMitsuM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
     cancellation.cancel();
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_FALSE(transport.last_config_.has_value());
 }
 
@@ -105,7 +102,7 @@ TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureRespon
     {
         auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
                                                        "M32R_512KB_4blocks", std::nullopt);
-        ASSERT_TRUE(plan.has_value());
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
         ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
         transport.expectWrite(frame({0xbf}));
         if (expected == ErrorKind::Timeout)
@@ -125,10 +122,7 @@ TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureRespon
         ManualCancellationToken cancellation;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-        ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, expected);
+        ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsErr(expected));
     }
 }
 
@@ -136,7 +130,7 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
 {
     auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
                                                    "M32R_512KB_4blocks", std::nullopt);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruMitsuM32rKlineExecutor executor;
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     scriptHandshake(transport);
@@ -154,7 +148,7 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), 0x80000U);
     EXPECT_TRUE(std::all_of(result->read_bytes->begin(), result->read_bytes->begin() + 0x8000,
@@ -175,7 +169,7 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
     const bytes::Bytes encrypted = encryptedImage(image);
     auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Write, "sub_ecu_mitsu_m32r_kline",
                                                    "M32R_512KB_4blocks", image);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     scriptHandshake(transport);
     transport.expectWrite(frame({0x34, 0, 0, 0, 0x04, 0x07, 0x80, 0}));
@@ -204,9 +198,7 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.baud_calls_, std::vector<int>{15625});
 }

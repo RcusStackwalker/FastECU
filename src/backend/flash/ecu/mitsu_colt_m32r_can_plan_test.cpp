@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
 
 #include <array>
@@ -46,11 +47,9 @@ TEST(MitsuColtM32rCanPlan, RejectsProtocolNamesThatDoNotMatchExactly)
 {
     // Prefix matching would let an unconfigured protocol select a flash
     // capacity, so the complete protocol identifier is the contract.
-    const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Read, "mitsu_ecu_m32r_can_vendor_ext_512kb_typo",
-                                                     kMcu512, std::nullopt);
-
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(build_mitsu_colt_m32r_can_plan(FlashOperation::Read, "mitsu_ecu_m32r_can_vendor_ext_512kb_typo",
+                                               kMcu512, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(MitsuColtM32rCanPlan, ReadPlansSnapshotProtocolCapacityAndVendorChallenge)
@@ -61,7 +60,7 @@ TEST(MitsuColtM32rCanPlan, ReadPlansSnapshotProtocolCapacityAndVendorChallenge)
     {
         const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Read, test.id, test.mcu, std::nullopt);
 
-        ASSERT_TRUE(plan.has_value()) << test.id << ": " << plan.error().detail;
+        ASSERT_THAT(plan, fastecu::testing::IsOk()) << test.id << ": " << plan.error().detail;
         EXPECT_EQ(plan->transfer_region().start, 0U) << test.id;
         EXPECT_EQ(plan->transfer_region().length, test.size) << test.id;
         const auto& family = std::get<MitsuColtM32rCanPlan>(plan->family_plan());
@@ -85,7 +84,7 @@ TEST(MitsuColtM32rCanPlan, WritePlansUseTheCapacitySpecificRangeAndConfirmations
     {
         const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Write, test.id, test.mcu, rom(test.size));
 
-        ASSERT_TRUE(plan.has_value()) << test.id << ": " << plan.error().detail;
+        ASSERT_THAT(plan, fastecu::testing::IsOk()) << test.id << ": " << plan.error().detail;
         EXPECT_EQ(plan->transfer_region().start, 0x8000U) << test.id;
         EXPECT_EQ(plan->transfer_region().length, test.size - 0x8000U) << test.id;
         ASSERT_TRUE(plan->image().has_value()) << test.id;
@@ -111,14 +110,12 @@ TEST(MitsuColtM32rCanPlan, RejectsImagesWhoseCapacityDoesNotMatchTheProtocol)
     // Accepting an image for the other capacity would make protocol selection
     // ineffective and can direct the ECU to erase/write the wrong extent.
     const auto plan384 = build_mitsu_colt_m32r_can_plan(FlashOperation::Write, kDefaultProtocol, kMcu384, rom(0x80000));
-    ASSERT_FALSE(plan384.has_value());
-    EXPECT_EQ(plan384.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(plan384, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(plan384.error().detail, HasSubstr("0x60000"));
 
     const auto plan512 =
         build_mitsu_colt_m32r_can_plan(FlashOperation::Write, "mitsu_ecu_m32r_can_512kb", kMcu512, rom(0x60000));
-    ASSERT_FALSE(plan512.has_value());
-    EXPECT_EQ(plan512.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(plan512, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(plan512.error().detail, HasSubstr("0x80000"));
 }
 
@@ -127,8 +124,7 @@ TEST(MitsuColtM32rCanPlan, RejectsAnUnknownMcuType)
     const auto plan =
         build_mitsu_colt_m32r_can_plan(FlashOperation::Read, kDefaultProtocol, "NOT_A_REAL_MCU", std::nullopt);
 
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(plan.error().detail, HasSubstr("Unknown MCU type: NOT_A_REAL_MCU"));
 }
 
@@ -139,10 +135,9 @@ TEST(MitsuColtM32rCanPlan, RejectsProtocolAndMcuCapacityDisagreement)
              {"mitsu_ecu_m32r_can_512kb", kMcu384},
          }))
     {
-        const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Read, protocol, mcu, std::nullopt);
-
-        ASSERT_FALSE(plan.has_value()) << protocol;
-        EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig) << protocol;
+        ASSERT_THAT(build_mitsu_colt_m32r_can_plan(FlashOperation::Read, protocol, mcu, std::nullopt),
+                    fastecu::testing::IsErr(ErrorKind::InvalidConfig))
+            << protocol;
     }
 }
 
@@ -151,8 +146,7 @@ TEST(MitsuColtM32rCanPlan, RejectsTestWriteAsUnsupported)
     const auto plan =
         build_mitsu_colt_m32r_can_plan(FlashOperation::TestWrite, kDefaultProtocol, kMcu384, rom(0x60000));
 
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::Unsupported);
+    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::Unsupported));
     EXPECT_THAT(plan.error().detail, HasSubstr("test_write"));
 }
 
@@ -161,17 +155,14 @@ TEST(MitsuColtM32rCanPlan, RejectsAnUnknownProtocolBeforeTestWriteCapabilityChec
     const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::TestWrite, "mitsu_ecu_m32r_can_512kb_typo",
                                                      kMcu512, rom(0x80000));
 
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(plan.error().detail, HasSubstr("Unsupported Mitsubishi Colt M32R CAN protocol"));
 }
 
 TEST(MitsuColtM32rCanPlan, RejectsAWriteWithNoImage)
 {
-    const auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Write, kDefaultProtocol, kMcu384, std::nullopt);
-
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(build_mitsu_colt_m32r_can_plan(FlashOperation::Write, kDefaultProtocol, kMcu384, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(MitsuColtM32rCanPlan, WriteConfirmationsCarryStableGeometryArguments)
@@ -179,7 +170,7 @@ TEST(MitsuColtM32rCanPlan, WriteConfirmationsCarryStableGeometryArguments)
     auto plan = build_mitsu_colt_m32r_can_plan(FlashOperation::Write, "mitsu_ecu_m32r_can_512kb", "M32R_512KB_1block",
                                                bytes::Bytes(0x80000));
 
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     ASSERT_EQ(plan->confirmations().size(), 2U);
     EXPECT_EQ(plan->confirmations()[0].arguments,
               (std::vector<std::pair<std::string, std::string>>{

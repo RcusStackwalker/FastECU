@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 // Equivalence tests for SubaruTcuCvtMitsuMh8111CanExecutor, the portable
 // replacement for FlashTcuCvtSubaruMitsuMH8111CanOperation's
 // connect_bootloader(), read_mem(), write_mem(), reflash_block() and
@@ -86,14 +87,14 @@ bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
 fastecu::flash::FlashPlan readPlan()
 {
     auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
+    EXPECT_THAT(plan, fastecu::testing::IsOk());
     return std::move(*plan);
 }
 
 fastecu::flash::FlashPlan writePlan(bytes::Bytes rom)
 {
     auto plan = build_subaru_tcu_cvt_mitsu_mh8111_can_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
+    EXPECT_THAT(plan, fastecu::testing::IsOk());
     return std::move(*plan);
 }
 
@@ -115,7 +116,7 @@ fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation, std::size_t im
     fields.image = bytes::Bytes(image_size, 0x00);
     fields.family_plan = SubaruTcuCvtMitsuMh8111CanPlan{0x7e1, 0x7e9, 500000, false};
     auto plan = fastecu::flash::validate_and_build(std::move(fields));
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
+    EXPECT_THAT(plan, fastecu::testing::IsOk());
     return std::move(*plan);
 }
 
@@ -302,7 +303,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, TransportSetupReturnsThePlansWireParame
 
     const auto setup = executor.transport_setup(plan);
 
-    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->bitrate, 500000);
     EXPECT_EQ(setup->request_id, 0x7e1U);
     EXPECT_EQ(setup->response_id, 0x7e9U);
@@ -334,12 +335,11 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyI
         .extended_id = false,
     };
     auto foreign = fastecu::flash::validate_and_build(std::move(fields));
-    ASSERT_TRUE(foreign.has_value()) << foreign.error().detail;
+    ASSERT_THAT(foreign, fastecu::testing::IsOk());
 
     const auto result = executor.execute(*foreign, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("does not match this executor"));
     EXPECT_THAT(events.logs, IsEmpty());
     EXPECT_EQ(transport.writesConsumed(), 0U);
@@ -363,9 +363,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ConnectFullSequenceEveryTime)
     scriptFlashDump(transport, kReadStart, kReadLength, 0x100, 0x5A);
     scriptStopCommand(transport);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -385,7 +383,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadReturnsTheLowerWindowPaddedWithFF)
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     ASSERT_EQ(result->read_bytes->size(), kReadStart + kReadLength);
     // Padded with 0xFF, NOT 0x00 -- this family differs from Task 3's
@@ -414,10 +412,8 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadReportsAnEmptyReplyAsTimeout)
     transport.expectWrite(request({0x27, 0x01}));
     transport.queue_no_frame();
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -431,10 +427,8 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadStopsWhenCancelled)
     auto plan = readPlan();
     cancellation.cancel();
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
@@ -478,10 +472,8 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadStopsAtTheNextChunkWhenCancelledMid
     scriptDumpSetup(transport);
     scriptFlashDump(transport, kReadStart, 0x100, 0x100, 0x5A);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
     const fastecu::RecordedPhaseProgress *last = nullptr;
     for (const auto& event : events.phase_progress_calls)
@@ -512,10 +504,8 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadPropagatesADisconnectedTransport)
     transport.expectWrite(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(kReadStart))));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone");
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -535,7 +525,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, WriteErasesThenFlashesTheUpperBlockAtAd
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_FALSE(result->read_bytes.has_value());
@@ -557,8 +547,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, WriteRefusesAnImageThatDoesNotMatchTheP
 
     const auto result = executor.execute(plan, transport, clock, cancellation, events);
 
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("0x180000"));
     EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_THAT(events.logs, IsEmpty());
@@ -577,10 +566,8 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, RefusesATestWritePlanRatherThanWritingF
     SubaruTcuCvtMitsuMh8111CanExecutor executor;
     auto plan = handBuiltPlan(FlashOperation::TestWrite, kImageSize);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Unsupported);
+    ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 

@@ -45,7 +45,10 @@ fastecu_portable_gtest(
 fastecu_portable_gtest(
     name = "bench_args_test",
     srcs = ["bench_args_test.cpp"],
-    deps = [":bench_core"],
+    deps = [
+        ":bench_core",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -68,7 +71,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "bench_files_test",
     srcs = ["bench_files_test.cpp"],
-    deps = [":bench_files"],
+    deps = [
+        ":bench_files",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -94,6 +100,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 

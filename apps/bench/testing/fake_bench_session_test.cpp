@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "apps/bench/testing/fake_bench_session.h"
 
 #include <gtest/gtest.h>
@@ -22,10 +23,8 @@ TEST(FakeBenchSession, RecordsRequestsAndDequeuesRepliesInOrder)
 TEST(FakeBenchSession, FailsLoudlyWhenTheScriptRunsOut)
 {
     FakeBenchSession session;
-    const auto result = session.exchange(bytes::Bytes{0x31, 0xE0}, uds::ExchangePolicy{});
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(session.exchange(bytes::Bytes{0x31, 0xE0}, uds::ExchangePolicy{}),
+                fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 } // namespace

@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 // tests/test_eeprom_read_plan_goldens.cpp
 //
 // Characterization goldens for the EEPROM read plan (step 5d-6). Written
@@ -75,7 +76,7 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     auto plan =
         build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7058_can", EepromReadMode::Mode2, repository);
 
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->operation(), FlashOperation::Read);
     EXPECT_EQ(plan->family(), FlashFamily::DensoSh705xEepromCan);
     EXPECT_EQ(plan->transport(), TransportKind::CanIso15765);
@@ -121,7 +122,7 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     auto plan =
         build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7055_kline", EepromReadMode::Mode4, repository);
 
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->operation(), FlashOperation::Read);
     EXPECT_EQ(plan->family(), FlashFamily::DensoSh705xEepromKline);
     EXPECT_EQ(plan->transport(), TransportKind::Kline);

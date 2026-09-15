@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/config/provisioning.h"
 #include "src/backend/ports/testing/in_memory_file_system.h"
 #include "src/backend/ports/testing/in_memory_resource_bundle.h"
@@ -12,8 +13,6 @@ using fastecu::InMemoryFileSystem;
 using fastecu::InMemoryResourceBundle;
 using fastecu::LogLevel;
 using fastecu::RecordingEventSink;
-using fastecu::Result;
-using fastecu::Status;
 using fastecu::config::ConfigPaths;
 using fastecu::config::provision_config_directories;
 
@@ -41,7 +40,7 @@ TEST(ProvisionConfigDirectories, CreatesEveryDirectoryOnFirstRun)
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
-    ASSERT_TRUE(provision_config_directories(paths, fs, bundle, events).has_value());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
 
     EXPECT_TRUE(fs.exists(paths.base_config_directory));
     EXPECT_TRUE(fs.exists(paths.calibration_files_directory));
@@ -59,9 +58,9 @@ TEST(ProvisionConfigDirectories, IdempotentOnSecondRun)
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
-    ASSERT_TRUE(provision_config_directories(paths, fs, bundle, events).has_value());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
     auto directories_after_first = fs.directories;
-    ASSERT_TRUE(provision_config_directories(paths, fs, bundle, events).has_value());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
     EXPECT_EQ(fs.directories, directories_after_first);
 }
 
@@ -82,7 +81,7 @@ TEST(ProvisionConfigDirectories, CopiesBundledResourceFilesNotAlreadyPresent)
     fs.files["config/fastecu.cfg"] = {1};
     fs.files["kernels/k1.bin"] = {2};
 
-    ASSERT_TRUE(provision_config_directories(paths, fs, bundle, events).has_value());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
 
     EXPECT_TRUE(fs.exists(paths.config_files_directory + "fastecu.cfg"));
     EXPECT_TRUE(fs.exists(paths.kernel_files_directory + "k1.bin"));
@@ -98,7 +97,7 @@ TEST(ProvisionConfigDirectories, DoesNotOverwriteAnExistingUserFile)
     fs.create_directory(paths.config_files_directory);
     fs.files[paths.config_files_directory + "fastecu.cfg"] = {1, 2, 3}; // user's own copy
 
-    ASSERT_TRUE(provision_config_directories(paths, fs, bundle, events).has_value());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
 
     EXPECT_EQ(fs.files[paths.config_files_directory + "fastecu.cfg"], (std::vector<std::uint8_t>{1, 2, 3}));
 }
@@ -118,7 +117,7 @@ TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
             DirEntry{.name = name, .is_directory = false, .modified_time_epoch_seconds = i});
     }
 
-    ASSERT_TRUE(provision_config_directories(paths, fs, bundle, events).has_value());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
 
     int remaining = 0;
     for (auto& [path, bytes] : fs.files)
@@ -154,10 +153,7 @@ TEST(ProvisionConfigDirectories, BundleCopyFailurePropagatesRatherThanBeingSwall
     bundle.bundles["kernels"]["missing_subdir/k2.bin"] = {3};
     fs.files["kernels/missing_subdir/k2.bin"] = {3};
 
-    auto result = provision_config_directories(paths, fs, bundle, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsErr(ErrorKind::Internal));
 }
 
 TEST(ProvisionConfigDirectories, MigratesPreviousVersionConfigFileForward)
@@ -172,7 +168,7 @@ TEST(ProvisionConfigDirectories, MigratesPreviousVersionConfigFileForward)
         DirEntry{.name = "0.9", .is_directory = true, .modified_time_epoch_seconds = 100});
     fs.files[paths.base_config_directory + "/0.9/config/fastecu.cfg"] = {7, 7, 7};
 
-    ASSERT_TRUE(provision_config_directories(paths, fs, bundle, events).has_value());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
 
     ASSERT_TRUE(fs.exists(paths.config_files_directory + "fastecu.cfg"));
     EXPECT_EQ(fs.files[paths.config_files_directory + "fastecu.cfg"], (std::vector<std::uint8_t>{7, 7, 7}));
@@ -186,9 +182,6 @@ TEST(ProvisionConfigDirectories, FirstCreateDirectoryFailureStopsTheSequence)
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
-    auto result = provision_config_directories(paths, fs, bundle, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsErr(ErrorKind::Internal));
     EXPECT_FALSE(fs.exists(paths.calibration_files_directory));
 }

@@ -79,6 +79,7 @@ fastecu_portable_gtest(
         ":read_parameters_session",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
     ],
 )
@@ -90,6 +91,7 @@ fastecu_portable_gtest(
         ":set_parameters_session",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
     ],
 )
@@ -101,6 +103,7 @@ fastecu_portable_gtest(
         ":relearn_session",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
     ],
 )

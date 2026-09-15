@@ -27,6 +27,7 @@ fastecu_portable_gtest(
     deps = [
         ":single_window_plan",
         ":subaru_denso_sh72531_can_types",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -207,6 +208,7 @@ fastecu_portable_gtest(
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -224,6 +226,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -263,6 +266,7 @@ fastecu_portable_gtest(
     deps = [
         ":mitsu_colt_m32r_can_plan",
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -300,6 +304,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/uds:uds_client",
         "//src/backend/protocol/uds/testing:scripted_uds_channel",
     ],
@@ -340,13 +345,17 @@ fastecu_portable_gtest(
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
 fastecu_portable_gtest(
     name = "subaru_mitsu_m32r_kline_plan_test",
     srcs = ["subaru_mitsu_m32r_kline_plan_test.cpp"],
-    deps = [":subaru_mitsu_m32r_kline_plan"],
+    deps = [
+        ":subaru_mitsu_m32r_kline_plan",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -356,6 +365,7 @@ fastecu_portable_gtest(
         ":subaru_denso_mc68hc16y5_02_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -367,13 +377,17 @@ fastecu_portable_gtest(
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
 fastecu_portable_gtest(
     name = "subaru_hitachi_m32r_kline_plan_test",
     srcs = ["subaru_hitachi_m32r_kline_plan_test.cpp"],
-    deps = [":subaru_hitachi_m32r_kline_plan"],
+    deps = [
+        ":subaru_hitachi_m32r_kline_plan",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -393,7 +407,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "subaru_hitachi_m32r_can_plan_test",
     srcs = ["subaru_hitachi_m32r_can_plan_test.cpp"],
-    deps = [":subaru_hitachi_m32r_can_plan"],
+    deps = [
+        ":subaru_hitachi_m32r_can_plan",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -413,7 +430,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "subaru_tcu_cvt_hitachi_m32r_can_plan_test",
     srcs = ["subaru_tcu_cvt_hitachi_m32r_can_plan_test.cpp"],
-    deps = [":subaru_tcu_cvt_hitachi_m32r_can_plan"],
+    deps = [
+        ":subaru_tcu_cvt_hitachi_m32r_can_plan",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -433,7 +453,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "subaru_tcu_cvt_mitsu_mh8111_can_plan_test",
     srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_plan_test.cpp"],
-    deps = [":subaru_tcu_cvt_mitsu_mh8111_can_plan"],
+    deps = [
+        ":subaru_tcu_cvt_mitsu_mh8111_can_plan",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -453,7 +476,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "subaru_denso_1n83m_1_5m_can_plan_test",
     srcs = ["subaru_denso_1n83m_1_5m_can_plan_test.cpp"],
-    deps = [":subaru_denso_1n83m_1_5m_can_plan"],
+    deps = [
+        ":subaru_denso_1n83m_1_5m_can_plan",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -473,7 +499,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "subaru_denso_sh72531_can_plan_test",
     srcs = ["subaru_denso_sh72531_can_plan_test.cpp"],
-    deps = [":subaru_denso_sh72531_can_plan"],
+    deps = [
+        ":subaru_denso_sh72531_can_plan",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -493,7 +522,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "subaru_denso_sh72543_can_diesel_plan_test",
     srcs = ["subaru_denso_sh72543_can_diesel_plan_test.cpp"],
-    deps = [":subaru_denso_sh72543_can_diesel_plan"],
+    deps = [
+        ":subaru_denso_sh72543_can_diesel_plan",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -513,7 +545,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "subaru_denso_1n83m_4m_can_plan_test",
     srcs = ["subaru_denso_1n83m_4m_can_plan_test.cpp"],
-    deps = [":subaru_denso_1n83m_4m_can_plan"],
+    deps = [
+        ":subaru_denso_1n83m_4m_can_plan",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -573,6 +608,7 @@ fastecu_portable_gtest(
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -611,6 +647,7 @@ fastecu_portable_gtest(
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -627,6 +664,7 @@ fastecu_portable_gtest(
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -678,6 +716,7 @@ fastecu_portable_gtest(
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -698,7 +737,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "subaru_tcu_cvt_mitsu_mh8104_can_plan_test",
     srcs = ["subaru_tcu_cvt_mitsu_mh8104_can_plan_test.cpp"],
-    deps = [":subaru_tcu_cvt_mitsu_mh8104_can_plan"],
+    deps = [
+        ":subaru_tcu_cvt_mitsu_mh8104_can_plan",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -736,6 +778,7 @@ fastecu_portable_gtest(
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -773,6 +816,7 @@ fastecu_portable_gtest(
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -810,6 +854,7 @@ fastecu_portable_gtest(
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -872,6 +917,7 @@ fastecu_portable_gtest(
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -886,6 +932,7 @@ fastecu_portable_gtest(
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -900,5 +947,6 @@ fastecu_portable_gtest(
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )

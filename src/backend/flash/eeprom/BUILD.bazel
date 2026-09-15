@@ -32,7 +32,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "denso_sh705x_eeprom_common_test",
     srcs = ["denso_sh705x_eeprom_common_test.cpp"],
-    deps = [":denso_sh705x_eeprom_common"],
+    deps = [
+        ":denso_sh705x_eeprom_common",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -41,6 +44,7 @@ fastecu_portable_gtest(
     deps = [
         ":eeprom_read_plan",
         "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -66,6 +70,7 @@ fastecu_portable_gtest(
     deps = [
         ":eeprom_read_plan",
         "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -97,6 +102,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -121,6 +127,7 @@ fastecu_portable_gtest(
     name = "denso_sh705x_eeprom_can_executor_test",
     srcs = ["denso_sh705x_eeprom_can_executor_test.cpp"],
     deps = [
+        "//src/backend/ports/testing:result_matchers",
         ":denso_sh705x_eeprom_common",
         ":denso_sh705x_eeprom_can",
         "//src/backend/ports",

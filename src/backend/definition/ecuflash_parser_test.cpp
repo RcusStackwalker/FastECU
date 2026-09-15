@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/definition/ecuflash_parser.h"
 
 #include <cstdint>
@@ -22,8 +23,7 @@ std::vector<std::uint8_t> bytes(std::string_view text)
 void expect_invalid_with_context(const Result<UnresolvedDefinition>& result, std::string_view source_context,
                                  std::string_view xml_context)
 {
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr(source_context));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr(xml_context));
 }
@@ -37,7 +37,7 @@ TEST(EcuFlashParserTest, IndexesIdentityAndIncludeWithoutResolvingIt)
 
     auto result = parse_ecuflash_index(xml, "ecuflash.xml");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 1U);
     EXPECT_EQ(result->front().format, DefinitionFormat::EcuFlash);
     EXPECT_EQ(result->front().definition_id, "CHILD");
@@ -82,7 +82,7 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
 
     auto result = parse_ecuflash_definition(xml, "test.xml");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->format, DefinitionFormat::EcuFlash);
     EXPECT_EQ(result->source, "test.xml");
     EXPECT_EQ(result->parents, std::vector<std::string>{"BASE"});
@@ -164,7 +164,7 @@ TEST(EcuFlashParserTest, PreservesStaticAxisDataWithoutAnExplicitSize)
       </rom>)xml"),
                                             "static.xml");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_EQ(result->maps.front().x_axis.type, "Static X Axis");
     EXPECT_EQ(result->maps.front().x_axis.static_data, (std::vector<std::string>{"10", "20"}));
@@ -179,7 +179,7 @@ TEST(EcuFlashParserTest, AddressWinsAndStrictFlagsParse)
       <table name="Fuel" address="1000" storageaddress="2000"
              swapxy="true" flipx="false" flipy="true"/></rom>)xml"),
                                             "test.xml");
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->maps.at(0).address, 0x1000);
     EXPECT_EQ(result->maps.at(0).swap_xy, true);
     EXPECT_EQ(result->maps.at(0).flip_x, false);
@@ -193,7 +193,7 @@ TEST(EcuFlashParserTest, NormalizesTopLevelXAxisMapToTwoDimensional)
       <table name="Engine Speed" type="X Axis" elements="4"/></rom>)xml"),
                                             "test.xml");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_EQ(result->maps.front().type, "2D");
     EXPECT_EQ(result->maps.front().x_size, 4U);
@@ -207,7 +207,7 @@ TEST(EcuFlashParserTest, NormalizesTopLevelYAxisMapToTwoDimensional)
       <table name="Load" type="Y Axis" elements="5"/></rom>)xml"),
                                             "test.xml");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_EQ(result->maps.front().type, "2D");
     EXPECT_EQ(result->maps.front().x_size, 1U);
@@ -224,7 +224,7 @@ TEST(EcuFlashParserTest, KeepsInputBytesAndSymbolicScalingReferencesUnchanged)
 
     auto result = parse_ecuflash_definition(xml, "test.xml");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(xml, original);
     EXPECT_EQ(result->maps.front().scaling_name, "shared");
     EXPECT_EQ(result->scalings.front().name, "shared");
@@ -239,7 +239,7 @@ TEST(EcuFlashParserTest, PreservesAbsentOptionalFields)
       <table name="Fuel" scaling="shared"/></rom>)xml"),
                                             "test.xml");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->maps.size(), 1U);
     EXPECT_FALSE(result->maps.front().id);
     EXPECT_FALSE(result->maps.front().x_size);
@@ -260,7 +260,7 @@ TEST(EcuFlashParserTest, ConvertsAnyPositivePrintfPrecision)
       <scaling name="precise" format="%.1001f"/></rom>)xml"),
                                             "test.xml");
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->scalings.front().format, std::string("0.") + std::string(1001, '0'));
 }
 

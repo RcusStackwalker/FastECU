@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
 
 #include <gtest/gtest.h>
@@ -23,7 +24,7 @@ TEST(SubaruHitachiM32rKlinePlan, MapsExactProtocolsToCompletePortableContract)
             auto plan = build_subaru_hitachi_m32r_kline_plan(
                 operation, protocol, kMcu,
                 operation == FlashOperation::Write ? std::optional(bytes::Bytes(0x80000, 0x5a)) : std::nullopt);
-            ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+            ASSERT_THAT(plan, fastecu::testing::IsOk());
             EXPECT_EQ(plan->family(), FlashFamily::SubaruHitachiM32rKline);
             EXPECT_EQ(plan->transport(), TransportKind::Kline);
             EXPECT_EQ(plan->transfer_region().start, 0U);
@@ -57,9 +58,8 @@ TEST(SubaruHitachiM32rKlinePlan, RejectsInvalidInputsBeforeIo)
     const auto expect = [](FlashOperation operation, std::string_view protocol, std::string_view mcu,
                            std::optional<bytes::Bytes> image, ErrorKind expected)
     {
-        auto plan = build_subaru_hitachi_m32r_kline_plan(operation, protocol, mcu, std::move(image));
-        ASSERT_FALSE(plan.has_value());
-        EXPECT_EQ(plan.error().kind, expected);
+        ASSERT_THAT(build_subaru_hitachi_m32r_kline_plan(operation, protocol, mcu, std::move(image)),
+                    fastecu::testing::IsErr(expected));
     };
     expect(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline_typo", kMcu, std::nullopt, ErrorKind::InvalidConfig);
     expect(FlashOperation::Read, kNormal, "M32R_512KB_4blocks", std::nullopt, ErrorKind::InvalidConfig);

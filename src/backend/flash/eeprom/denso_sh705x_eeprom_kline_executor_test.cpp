@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 // Equivalence + error-matrix tests for DensoSh705xEepromKlineExecutor,
 // the portable replacement for the deleted
 // EepromEcuSubaruDensoSH705xKlineOperation. Every literal byte sequence
@@ -344,12 +345,12 @@ Result<FlashPlan> valid_kline_plan(EepromReadMode mode = EepromReadMode::Mode2)
 TEST(DensoSh705xEepromKlineExecutorTest, TransportSetupReturnsPlansWireParameters)
 {
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     DensoSh705xEepromKlineExecutor executor;
     const auto setup = executor.transport_setup(*plan);
 
-    ASSERT_TRUE(setup.has_value());
+    ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->baud, 4800);
     EXPECT_FALSE(setup->iso14230);
     EXPECT_EQ(setup->tester_id, 0xf0);
@@ -369,7 +370,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, WrongFamilyPlanIsRejectedWithNoTranspor
         .security = DensoSecurityVariant::Stock,
         .eeprom_region = MemoryRegion{.start = 0, .length = 0x100},
     });
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     DensoSh705xEepromKlineExecutor executor;
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
@@ -377,17 +378,15 @@ TEST(DensoSh705xEepromKlineExecutorTest, WrongFamilyPlanIsRejectedWithNoTranspor
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_TRUE(transport.scriptConsumed()); // nothing was ever queued or consumed
 }
 
 TEST(DensoSh705xEepromKlineExecutorTest, FullBootloaderStockSecurityMode2MatchesLegacyTrace)
 {
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
@@ -402,7 +401,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, FullBootloaderStockSecurityMode2Matches
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << to_string(result.error().kind) << ": " << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::Read);
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(*result->read_bytes, expectedDecodedEeprom256Bytes());
@@ -412,7 +411,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, FullBootloaderStockSecurityMode2Matches
 TEST(DensoSh705xEepromKlineExecutorTest, KernelAlreadyRunningSkipsBootloaderMatchesLegacyTrace)
 {
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.expectWrite(requestKernelIdRequest());
@@ -427,7 +426,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, KernelAlreadyRunningSkipsBootloaderMatc
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << to_string(result.error().kind) << ": " << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(*result->read_bytes, expectedDecodedEeprom256Bytes());
     EXPECT_TRUE(transport.scriptConsumed());
@@ -450,7 +449,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, NonAlignedKernelIsPaddedBeforeEncryptio
         kernel15.push_back(static_cast<bytes::Byte>(i));
     }
     auto plan = makeKlinePlan(EepromReadMode::Mode2, kernel15, kKernelStartAddr);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
@@ -465,7 +464,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, NonAlignedKernelIsPaddedBeforeEncryptio
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << to_string(result.error().kind) << ": " << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(*result->read_bytes, expectedDecodedEeprom256Bytes());
     EXPECT_TRUE(transport.scriptConsumed());
@@ -474,7 +473,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, NonAlignedKernelIsPaddedBeforeEncryptio
 TEST(DensoSh705xEepromKlineExecutorTest, NoResponseAtHandshakeReturnsTimeout)
 {
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.expectWrite(requestKernelIdRequest());
@@ -487,16 +486,14 @@ TEST(DensoSh705xEepromKlineExecutorTest, NoResponseAtHandshakeReturnsTimeout)
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Timeout));
 }
 
 TEST(DensoSh705xEepromKlineExecutorTest, MalformedSid81ResponseReturnsBadResponse)
 {
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.expectWrite(requestKernelIdRequest());
@@ -511,16 +508,14 @@ TEST(DensoSh705xEepromKlineExecutorTest, MalformedSid81ResponseReturnsBadRespons
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
 }
 
 TEST(DensoSh705xEepromKlineExecutorTest, CancellationDuringKernelUploadReturnsCancelled)
 {
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
@@ -543,10 +538,8 @@ TEST(DensoSh705xEepromKlineExecutorTest, CancellationDuringKernelUploadReturnsCa
     cancellation.cancel_on_check(38);
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     // Concretely proves "between chunks": connect_bootloader's 7 writes
     // (probe + bf/81/83/27req/27key/10) plus upload_kernel's kernel-upload
     // request (sid_34) happened -- 8 total -- but the kernel-data chunk
@@ -568,7 +561,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, CancellationDuringKernelUploadReturnsCa
 TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeIsOffForBootloaderOnForReadThenResetToOff)
 {
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
@@ -583,7 +576,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeIsOffForBootloaderOnForReadTh
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << to_string(result.error().kind) << ": " << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(*result->read_bytes, expectedDecodedEeprom256Bytes());
     // false before connect_bootloader()/upload_kernel() (self-framed via
@@ -600,7 +593,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeIsOffForBootloaderOnForReadTh
 TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeSequenceHoldsWhenKernelAlreadyRunning)
 {
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.expectWrite(requestKernelIdRequest());
@@ -613,9 +606,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeSequenceHoldsWhenKernelAlread
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_TRUE(result.has_value()) << to_string(result.error().kind) << ": " << result.error().detail;
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_EQ(transport.header_mode_calls_, (std::vector<bool>{false, true, false}));
 }
 
@@ -627,7 +618,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeSequenceHoldsWhenKernelAlread
 TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeResetToOffEvenWhenReadMemFails)
 {
     auto plan = valid_kline_plan(EepromReadMode::Mode2);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.expectWrite(requestKernelIdRequest());
@@ -640,10 +631,8 @@ TEST(DensoSh705xEepromKlineExecutorTest, HeaderModeResetToOffEvenWhenReadMemFail
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_EQ(transport.header_mode_calls_, (std::vector<bool>{false, true, false}));
 }
 
@@ -661,7 +650,7 @@ TEST(DensoSh705xEepromKlineExecutorTest, StockAndEcutekSecurityProduceDifferentS
     auto runTo_seedKey = [&](DensoSecurityVariant security, bytes::ByteView expectedKey)
     {
         auto plan = makeKlinePlan(EepromReadMode::Mode2, kernelFixtureBytes(), kKernelStartAddr, security);
-        EXPECT_TRUE(plan.has_value());
+        EXPECT_THAT(plan, fastecu::testing::IsOk());
 
         ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
         transport.expectWrite(requestKernelIdRequest());
@@ -684,8 +673,8 @@ TEST(DensoSh705xEepromKlineExecutorTest, StockAndEcutekSecurityProduceDifferentS
         FakeCancellationToken cancellation;
         RecordingEventSink events;
 
-        auto result = executor.execute(*plan, transport, clock, cancellation, events);
-        EXPECT_FALSE(result.has_value());
+        EXPECT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                    ::testing::Not(fastecu::testing::IsOk()));
         EXPECT_TRUE(transport.scriptConsumed());
     };
 

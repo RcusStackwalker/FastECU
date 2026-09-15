@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 
@@ -74,7 +75,7 @@ TEST(DesktopLoggingSnapshotAdapterTest, StableIdUpdatesOriginalRowAfterReorder)
     auto snapshot = desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
                                                                    QStringLiteral("SSM"), valid_policy());
 
-    ASSERT_TRUE(snapshot.has_value());
+    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
     ASSERT_EQ(snapshot->index_by_id.at("rpm"), 1);
     const portable_logging::LogSample sample{
         .channel_id = "rpm",
@@ -83,7 +84,7 @@ TEST(DesktopLoggingSnapshotAdapterTest, StableIdUpdatesOriginalRowAfterReorder)
         .unit = "rpm",
     };
 
-    ASSERT_TRUE(desktop_logging::apply_log_sample(*snapshot, sample, values).has_value());
+    ASSERT_THAT(desktop_logging::apply_log_sample(*snapshot, sample, values), fastecu::testing::IsOk());
     EXPECT_EQ(values.log_value.at(1), QStringLiteral("1234.50"));
     EXPECT_EQ(values.log_value.at(0), QStringLiteral("unchanged- coolant"));
 }
@@ -100,7 +101,7 @@ TEST(DesktopLoggingValueAdapterTest, MissingStableIdDoesNotUpdateAnotherRow)
     FileActions::LogValuesStructure values = reordered_log_values();
     auto snapshot = desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
                                                                    QStringLiteral("SSM"), valid_policy());
-    ASSERT_TRUE(snapshot.has_value());
+    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
 
     const portable_logging::LogSample sample{
         .channel_id = "missing",
@@ -109,9 +110,8 @@ TEST(DesktopLoggingValueAdapterTest, MissingStableIdDoesNotUpdateAnotherRow)
         .unit = "rpm",
     };
 
-    const auto status = desktop_logging::apply_log_sample(*snapshot, sample, values);
-    ASSERT_FALSE(status.has_value());
-    EXPECT_EQ(status.error().kind, fastecu::ErrorKind::Internal);
+    ASSERT_THAT(desktop_logging::apply_log_sample(*snapshot, sample, values),
+                fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
     EXPECT_EQ(values.log_value.at(0), QStringLiteral("unchanged- coolant"));
     EXPECT_EQ(values.log_value.at(1), QStringLiteral("unchanged- rpm"));
 }
@@ -137,9 +137,9 @@ TEST(DesktopLoggingSnapshotAdapterTest, PreservesLegacyProtocolSelectionRules)
     auto cdbg = desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Cdbg,
                                                                QStringLiteral("ignored"), valid_policy());
 
-    ASSERT_TRUE(ssm.has_value());
-    ASSERT_TRUE(mut.has_value());
-    ASSERT_TRUE(cdbg.has_value());
+    ASSERT_THAT(ssm, fastecu::testing::IsOk());
+    ASSERT_THAT(mut, fastecu::testing::IsOk());
+    ASSERT_THAT(cdbg, fastecu::testing::IsOk());
     EXPECT_EQ(ssm->session.channels().at(0).id, "ssm-disabled");
     ASSERT_EQ(mut->session.channels().size(), 1U);
     EXPECT_EQ(mut->session.channels().at(0).id, "mut-enabled");
@@ -160,7 +160,7 @@ TEST(DesktopLoggingSnapshotAdapterTest, SsmRetainsDisabledOffsetsButDoesNotUpdat
     const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
         values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("CAR_SSM"), valid_policy());
 
-    ASSERT_TRUE(snapshot.has_value());
+    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
     ASSERT_EQ(snapshot->session.channels().size(), 2U);
     EXPECT_EQ(snapshot->session.channels().at(0).id, "ssm-disabled");
     EXPECT_EQ(snapshot->session.channels().at(1).id, "ssm-enabled");
@@ -172,8 +172,8 @@ TEST(DesktopLoggingSnapshotAdapterTest, SsmRetainsDisabledOffsetsButDoesNotUpdat
         .channel_id = "ssm-disabled", .numeric_value = 1.0, .raw_value = "1", .unit = "rpm"};
     const portable_logging::LogSample enabled_sample{
         .channel_id = "ssm-enabled", .numeric_value = 2.0, .raw_value = "2", .unit = "rpm"};
-    ASSERT_TRUE(desktop_logging::apply_log_sample(*snapshot, disabled_sample, values).has_value());
-    ASSERT_TRUE(desktop_logging::apply_log_sample(*snapshot, enabled_sample, values).has_value());
+    ASSERT_THAT(desktop_logging::apply_log_sample(*snapshot, disabled_sample, values), fastecu::testing::IsOk());
+    ASSERT_THAT(desktop_logging::apply_log_sample(*snapshot, enabled_sample, values), fastecu::testing::IsOk());
     EXPECT_EQ(values.log_value.at(1), QStringLiteral("unchanged- ssm-disabled"));
     EXPECT_EQ(values.log_value.at(2), QStringLiteral("2.00"));
 }
@@ -189,15 +189,13 @@ TEST(DesktopLoggingValueAdapterTest, DisabledSsmSampleRejectsMutatedSnapshotRow)
     };
     const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
         values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("CAR_SSM"), valid_policy());
-    ASSERT_TRUE(snapshot.has_value());
+    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
 
     values.log_value_id.replace(0, QStringLiteral("reordered-other-row"));
     const portable_logging::LogSample sample{
         .channel_id = "ssm-disabled", .numeric_value = 1.0, .raw_value = "1", .unit = "rpm"};
-    const auto status = desktop_logging::apply_log_sample(*snapshot, sample, values);
-
-    ASSERT_FALSE(status.has_value());
-    EXPECT_EQ(status.error().kind, fastecu::ErrorKind::Internal);
+    ASSERT_THAT(desktop_logging::apply_log_sample(*snapshot, sample, values),
+                fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
     EXPECT_EQ(values.log_value.at(0), QStringLiteral("unchanged- ssm-disabled"));
     EXPECT_EQ(values.log_value.at(1), QStringLiteral("unchanged- ssm-enabled"));
 }
@@ -207,11 +205,9 @@ TEST(DesktopLoggingSnapshotAdapterTest, RejectsDuplicateStableIds)
     FileActions::LogValuesStructure values = reordered_log_values();
     append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
 
-    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
-        values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("SSM"), valid_policy());
-
-    ASSERT_FALSE(snapshot.has_value());
-    EXPECT_EQ(snapshot.error().kind, fastecu::ErrorKind::InvalidConfig);
+    ASSERT_THAT(desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
+                                                               QStringLiteral("SSM"), valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(DesktopLoggingSnapshotAdapterTest, AllowsSameOpaqueIdInDifferentProtocols)
@@ -224,7 +220,7 @@ TEST(DesktopLoggingSnapshotAdapterTest, AllowsSameOpaqueIdInDifferentProtocols)
     const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
         values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("SSM"), valid_policy());
 
-    ASSERT_TRUE(snapshot.has_value());
+    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
     ASSERT_EQ(snapshot->session.channels().size(), 1U);
     EXPECT_EQ(snapshot->index_by_id.at("rpm"), 0);
 }
@@ -236,11 +232,9 @@ TEST(DesktopLoggingSnapshotAdapterTest, RejectsDuplicateOpaqueIdWithinSelectedPr
     append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
     values.lower_panel_log_value_id = {QStringLiteral("rpm")};
 
-    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
-        values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("SSM"), valid_policy());
-
-    ASSERT_FALSE(snapshot.has_value());
-    EXPECT_EQ(snapshot.error().kind, fastecu::ErrorKind::InvalidConfig);
+    ASSERT_THAT(desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
+                                                               QStringLiteral("SSM"), valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 namespace
@@ -439,8 +433,7 @@ void expect_snapshot_rejected(const SnapshotFailureCase& test_case)
     const auto snapshot = desktop_logging::make_desktop_logging_snapshot(values, test_case.protocol,
                                                                          test_case.protocol_filter, valid_policy());
 
-    ASSERT_FALSE(snapshot.has_value());
-    EXPECT_EQ(snapshot.error().kind, test_case.expected_kind);
+    ASSERT_THAT(snapshot, fastecu::testing::IsErr(test_case.expected_kind));
     EXPECT_THAT(snapshot.error().detail, ::testing::HasSubstr(test_case.expected_detail_substring))
         << "detail was: " << snapshot.error().detail;
 }

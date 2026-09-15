@@ -15,6 +15,7 @@ fastecu_portable_gtest(
         ":protocols",
         "//src/algorithms/protocol/testing:byte_test_utils",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
     ],
 )
@@ -25,6 +26,7 @@ fastecu_portable_gtest(
     deps = [
         ":protocols",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
     ],
 )
@@ -36,6 +38,7 @@ fastecu_portable_gtest(
         ":protocols",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
     ],
 )

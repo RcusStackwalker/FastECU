@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
@@ -18,7 +19,6 @@ using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::LogLevel;
 using fastecu::ManualCancellationToken;
-using fastecu::Result;
 using fastecu::Status;
 
 namespace
@@ -53,8 +53,7 @@ TEST(QtClockTest, NowMsIsMonotonicNonDecreasing)
     QtClock clock;
     auto first = clock.now();
     ManualCancellationToken token;
-    Status s = clock.sleep(1ms, token);
-    ASSERT_TRUE(s.has_value());
+    ASSERT_THAT(clock.sleep(1ms, token), fastecu::testing::IsOk());
     auto second = clock.now();
     EXPECT_GE(second, first);
 }
@@ -63,8 +62,7 @@ TEST(QtClockTest, SleepZeroSucceeds)
 {
     QtClock clock;
     ManualCancellationToken token;
-    Status s = clock.sleep(0ms, token);
-    EXPECT_TRUE(s.has_value());
+    EXPECT_THAT(clock.sleep(0ms, token), fastecu::testing::IsOk());
 }
 
 TEST(QtClockTest, SleepReturnsCancelledWhenTokenAlreadyCancelled)
@@ -72,9 +70,7 @@ TEST(QtClockTest, SleepReturnsCancelledWhenTokenAlreadyCancelled)
     QtClock clock;
     ManualCancellationToken token;
     token.cancel();
-    Status s = clock.sleep(50ms, token);
-    ASSERT_FALSE(s.has_value());
-    EXPECT_EQ(s.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(clock.sleep(50ms, token), fastecu::testing::IsErr(ErrorKind::Cancelled));
 }
 
 // ---- QtFileRepository --------------------------------------------------
@@ -87,12 +83,9 @@ TEST(QtFileRepositoryTest, WriteThenReadRoundTripsBytes)
 
     QtFileRepository repo;
     std::vector<std::uint8_t> data{0x00, 0x01, 0x7f, 0x80, 0xff, 'h', 'i'};
-    Status w = repo.write(path, std::span<const std::uint8_t>(data));
-    ASSERT_TRUE(w.has_value());
+    ASSERT_THAT(repo.write(path, std::span<const std::uint8_t>(data)), fastecu::testing::IsOk());
 
-    Result<std::vector<std::uint8_t>> r = repo.read(path);
-    ASSERT_TRUE(r.has_value());
-    EXPECT_EQ(*r, data);
+    ASSERT_THAT(repo.read(path), fastecu::testing::IsOkAnd(data));
 }
 
 TEST(QtFileRepositoryTest, WriteReportsSuccessOnlyOnceBytesAreOnDisk)
@@ -107,8 +100,7 @@ TEST(QtFileRepositoryTest, WriteReportsSuccessOnlyOnceBytesAreOnDisk)
 
     QtFileRepository repo;
     std::vector<std::uint8_t> data(4096, 0xA5);
-    Status w = repo.write(path.toStdString(), std::span<const std::uint8_t>(data));
-    ASSERT_TRUE(w.has_value());
+    ASSERT_THAT(repo.write(path.toStdString(), std::span<const std::uint8_t>(data)), fastecu::testing::IsOk());
     EXPECT_EQ(QFileInfo(path).size(), static_cast<qint64>(data.size()));
 }
 
@@ -122,9 +114,8 @@ TEST(QtFileRepositoryTest, WriteToUnopenablePathFails)
 
     QtFileRepository repo;
     std::vector<std::uint8_t> data{0x01, 0x02, 0x03};
-    Status w = repo.write(path, std::span<const std::uint8_t>(data));
-    ASSERT_FALSE(w.has_value());
-    EXPECT_EQ(w.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(repo.write(path, std::span<const std::uint8_t>(data)),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(QtFileRepositoryTest, ReadOfMissingPathFails)
@@ -134,9 +125,7 @@ TEST(QtFileRepositoryTest, ReadOfMissingPathFails)
     std::string path = dir.filePath("does-not-exist.bin").toStdString();
 
     QtFileRepository repo;
-    Result<std::vector<std::uint8_t>> r = repo.read(path);
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(repo.read(path), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // ---- QtSettings ---------------------------------------------------------

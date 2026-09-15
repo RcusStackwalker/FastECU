@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 // subaru_denso_sh72543_can_diesel_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_plan.h"
 
@@ -19,7 +20,7 @@ constexpr std::string_view kMcu = "SH72543d";
 TEST(SubaruDensoSh72543CanDieselPlan, ReadPlanCarriesMainFlashBlock)
 {
     auto plan = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->transfer_region().start, 0x00008000U);
     EXPECT_EQ(plan->transfer_region().length, 0x001F7F00U);
     EXPECT_THAT(plan->erase_regions(), IsEmpty());
@@ -40,16 +41,15 @@ TEST(SubaruDensoSh72543CanDieselPlan, AcceptsSingleBlockGeometry)
     // fblocks_SH72543d has numblocks == 1 with fblocks[0] == {0x8000, 0x1F7F00};
     // this family is the only one in the wave with a single-block flash table.
     auto plan = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->transfer_region().start, 0x8000U);
     EXPECT_EQ(plan->transfer_region().length, 0x1F7F00U);
 }
 
 TEST(SubaruDensoSh72543CanDieselPlan, TestWriteIsRejectedBeforeAnyIo)
 {
-    auto plan = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::TestWrite, kProtocol, kMcu, std::nullopt);
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::Unsupported);
+    ASSERT_THAT(build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::TestWrite, kProtocol, kMcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 
 TEST(SubaruDensoSh72543CanDieselPlan, WriteImageIsBasedAtAddressZero)
@@ -60,7 +60,7 @@ TEST(SubaruDensoSh72543CanDieselPlan, WriteImageIsBasedAtAddressZero)
     // matching the read output and the three sibling families.
     auto plan = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Write, kProtocol, kMcu,
                                                            bytes::Bytes(0x200000, 0x00));
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->image()->size(), 0x200000U);
     EXPECT_EQ(plan->transfer_region().start, 0x8000U);
 }
@@ -72,13 +72,12 @@ TEST(SubaruDensoSh72543CanDieselPlan, WriteRequiresFullStartAlignedImage)
     // i.e. 0x200000 bytes.
     auto tooShort = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Write, kProtocol, kMcu,
                                                                bytes::Bytes(0x1F7F00, 0x00));
-    ASSERT_FALSE(tooShort.has_value());
-    EXPECT_EQ(tooShort.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(tooShort, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(tooShort.error().detail, HasSubstr("0x200000"));
 
     auto ok = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Write, kProtocol, kMcu,
                                                          bytes::Bytes(0x200000, 0x00));
-    ASSERT_TRUE(ok.has_value()) << ok.error().detail;
+    ASSERT_THAT(ok, fastecu::testing::IsOk());
     ASSERT_EQ(ok->erase_regions().size(), 1U);
     EXPECT_EQ(ok->erase_regions()[0].start, 0x00008000U);
     EXPECT_EQ(ok->erase_regions()[0].length, 0x001F7F00U);
@@ -86,17 +85,16 @@ TEST(SubaruDensoSh72543CanDieselPlan, WriteRequiresFullStartAlignedImage)
 
 TEST(SubaruDensoSh72543CanDieselPlan, WriteWithNoImageIsRejected)
 {
-    auto plan = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt);
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoSh72543CanDieselPlan, WrongProtocolAndWrongMcuAreRejected)
 {
-    EXPECT_FALSE(build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Read, "sub_ecu_denso_sh72531_can", kMcu,
-                                                            std::nullopt)
-                     .has_value());
-    EXPECT_FALSE(build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Read, kProtocol, "SH72531", std::nullopt)
-                     .has_value());
+    EXPECT_THAT(build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Read, "sub_ecu_denso_sh72531_can", kMcu,
+                                                           std::nullopt),
+                ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Read, kProtocol, "SH72531", std::nullopt),
+                ::testing::Not(fastecu::testing::IsOk()));
 }
 } // namespace

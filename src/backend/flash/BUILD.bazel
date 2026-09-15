@@ -61,7 +61,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "flash_validation_test",
     srcs = ["flash_validation_test.cpp"],
-    deps = [":flash_validation"],
+    deps = [
+        ":flash_validation",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 cc_library(
@@ -86,6 +89,7 @@ fastecu_portable_gtest(
         ":flash_executor",
         ":flash_validation",
         "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -99,6 +103,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
@@ -121,6 +126,7 @@ fastecu_portable_gtest(
         ":can_flash_uds_channel",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 

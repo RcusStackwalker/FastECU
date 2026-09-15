@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include <chrono>
 
 #include <gtest/gtest.h>
@@ -68,9 +69,7 @@ TEST(CdbgLoggingProtocolTest, StartReachesStreamingOnValidHandshake)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->start(cancellation);
-
-    ASSERT_TRUE(result);
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
     EXPECT_TRUE(script->scriptConsumed());
     EXPECT_TRUE(script->ok());
 }
@@ -80,10 +79,7 @@ TEST(CdbgLoggingProtocolTest, StartFailurePinsInvalidConfigForEmptyChannels)
     auto protocol = makeProtocol(std::make_unique<cdbg::ScriptedCanTransport>(), {});
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->start(cancellation);
-
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::InvalidConfig);
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(CdbgLoggingProtocolTest, StartFailurePinsBadResponseForMissingHandshakeReply)
@@ -94,10 +90,7 @@ TEST(CdbgLoggingProtocolTest, StartFailurePinsBadResponseForMissingHandshakeRepl
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->start(cancellation);
-
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::BadResponse);
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
 }
 
 TEST(CdbgLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
@@ -107,10 +100,7 @@ TEST(CdbgLoggingProtocolTest, StartFailsWhenAdapterIsClosed)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->start(cancellation);
-
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
 }
 
 TEST(CdbgLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
@@ -120,7 +110,7 @@ TEST(CdbgLoggingProtocolTest, PollReturnsNoResponseBeforeStart)
 
     const auto result = protocol->poll(20ms, cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
     EXPECT_TRUE(result->samples.empty());
 }
@@ -132,10 +122,7 @@ TEST(CdbgLoggingProtocolTest, PollReturnsTransportErrorWhenAdapterIsClosed)
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
-    const auto result = protocol->poll(20ms, cancellation);
-
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
+    ASSERT_THAT(protocol->poll(20ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
 }
 
 TEST(CdbgLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
@@ -145,12 +132,12 @@ TEST(CdbgLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
     auto *script = transport.get();
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_TRUE(protocol->start(cancellation));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
     script->queueRead(MitsuColtCanCdbg::kReplyCanId, test_bytes::bytesFromHex("002A000000000000"));
 
     const auto result = protocol->poll(50ms, cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->responded);
     ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples[0].channel_id, "cdbg.load");
@@ -164,12 +151,12 @@ TEST(CdbgLoggingProtocolTest, PollReportsSilenceAfterStartWithoutCachedSamples)
     auto *script = transport.get();
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_TRUE(protocol->start(cancellation));
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
     script->queue_no_frame();
 
     const auto result = protocol->poll(50ms, cancellation);
 
-    ASSERT_TRUE(result);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_FALSE(result->responded);
     EXPECT_TRUE(result->samples.empty());
 }
@@ -179,8 +166,5 @@ TEST(CdbgLoggingProtocolTest, StartPropagatesCancellation)
     auto protocol = makeProtocol(std::make_unique<cdbg::ScriptedCanTransport>());
     fastecu::FakeCancellationToken cancellation(true);
 
-    const auto result = protocol->start(cancellation);
-
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
 }

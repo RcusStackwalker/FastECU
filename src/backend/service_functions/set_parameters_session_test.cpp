@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/service_functions/set_parameters_session.h"
 
 #include <array>
@@ -88,7 +89,7 @@ TEST(SetParametersSession, RequiresTheKlineConfigurationNotTheCanOne)
     // driver's ISO14230 auto-header off because the session frames its own.
     const Fixture fixture;
     const auto setup = fixture.session.transport_setup();
-    ASSERT_TRUE(setup.has_value());
+    ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->framing, SsmTransportConfig::Framing::Kline14230);
     EXPECT_EQ(setup->bitrate_or_baud, 4800);
     EXPECT_EQ(setup->tester_id, 0xf0);
@@ -99,9 +100,7 @@ TEST(SetParametersSession, RequiresTheKlineConfigurationNotTheCanOne)
 TEST(SetParametersSession, RejectsAnUnknownProtocolBeforeAnyIo)
 {
     const SetParametersSession session{"sub_ecu_denso_sh7058_can", sample()};
-    const auto setup = session.transport_setup();
-    ASSERT_FALSE(setup.has_value());
-    EXPECT_EQ(setup.error().kind, ErrorKind::Unsupported);
+    ASSERT_THAT(session.transport_setup(), fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 
 TEST(SetParametersSession, WritesAllTwelveFramesEachFramedExactlyOnce)

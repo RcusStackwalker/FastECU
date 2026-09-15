@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/config/menu_definition.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 
@@ -50,7 +51,7 @@ TEST(MenuDefinitionTest, ParsesMenuNameAndItemAttributes)
 
     auto definition = load_menu_definition(test_paths(), repository);
 
-    ASSERT_TRUE(definition.has_value());
+    ASSERT_THAT(definition, fastecu::testing::IsOk());
     ASSERT_EQ(definition->size(), 1U);
     EXPECT_EQ((*definition)[0].name, "File");
     ASSERT_EQ((*definition)[0].entries.size(), 2U);
@@ -78,7 +79,7 @@ TEST(MenuDefinitionTest, AbsentAttributesGetLegacySentinelDefaults)
 
     auto definition = load_menu_definition(test_paths(), repository);
 
-    ASSERT_TRUE(definition.has_value());
+    ASSERT_THAT(definition, fastecu::testing::IsOk());
     ASSERT_EQ(definition->size(), 1U);
     EXPECT_EQ((*definition)[0].name, "No name");
     ASSERT_EQ((*definition)[0].entries.size(), 1U);
@@ -105,7 +106,7 @@ TEST(MenuDefinitionTest, OnlyLiteralTrueEnablesCheckableAndToolbar)
 
     auto definition = load_menu_definition(test_paths(), repository);
 
-    ASSERT_TRUE(definition.has_value());
+    ASSERT_THAT(definition, fastecu::testing::IsOk());
     ASSERT_EQ((*definition)[0].entries.size(), 2U);
     EXPECT_TRUE((*definition)[0].entries[0].item.is_checkable());
     EXPECT_TRUE((*definition)[0].entries[0].item.on_toolbar());
@@ -126,7 +127,7 @@ TEST(MenuDefinitionTest, ParsesNestedSubmenuInDocumentOrder)
 
     auto definition = load_menu_definition(test_paths(), repository);
 
-    ASSERT_TRUE(definition.has_value());
+    ASSERT_THAT(definition, fastecu::testing::IsOk());
     ASSERT_EQ((*definition)[0].entries.size(), 3U);
     EXPECT_FALSE((*definition)[0].entries[0].is_submenu);
     EXPECT_EQ((*definition)[0].entries[0].item.id, "before");
@@ -146,10 +147,7 @@ TEST(MenuDefinitionTest, PropagatesRepositoryReadFailure)
 {
     InMemoryFileRepository repository; // no "menu.cfg" stored
 
-    auto definition = load_menu_definition(test_paths(), repository);
-
-    ASSERT_FALSE(definition.has_value());
-    EXPECT_EQ(definition.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(load_menu_definition(test_paths(), repository), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(MenuDefinitionTest, MalformedXmlIsInvalidConfig)
@@ -159,8 +157,7 @@ TEST(MenuDefinitionTest, MalformedXmlIsInvalidConfig)
 
     auto definition = load_menu_definition(test_paths(), repository);
 
-    ASSERT_FALSE(definition.has_value());
-    EXPECT_EQ(definition.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(definition, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(definition.error().detail, testing::HasSubstr("menu parse error"));
 }
 
@@ -183,7 +180,7 @@ MenuDefinition shipped_definition(InMemoryFileRepository& repository)
 {
     repository.files["menu.cfg"] = read_shipped_menu_cfg();
     auto definition = load_menu_definition(test_paths(), repository);
-    EXPECT_TRUE(definition.has_value());
+    EXPECT_THAT(definition, fastecu::testing::IsOk());
     return definition.value_or(MenuDefinition{});
 }
 
@@ -270,7 +267,7 @@ TEST(MenuDefinitionTest, CommentsDoNotTruncateTheRemainingItems)
 
     auto definition = load_menu_definition(test_paths(), repository);
 
-    ASSERT_TRUE(definition.has_value());
+    ASSERT_THAT(definition, fastecu::testing::IsOk());
     ASSERT_EQ((*definition)[0].entries.size(), 2U);
     EXPECT_EQ((*definition)[0].entries[0].item.id, "first");
     EXPECT_EQ((*definition)[0].entries[1].item.id, "second");
@@ -303,7 +300,7 @@ TEST(MenuDefinitionTest, MissingEcuMenuDefinitionsSectionYieldsEmptyNotError)
 
     auto definition = load_menu_definition(test_paths(), repository);
 
-    ASSERT_TRUE(definition.has_value());
+    ASSERT_THAT(definition, fastecu::testing::IsOk());
     EXPECT_TRUE(definition->empty());
 }
 
@@ -317,7 +314,7 @@ TEST(MenuDefinitionTest, UnknownChildTagsAreSkipped)
 
     auto definition = load_menu_definition(test_paths(), repository);
 
-    ASSERT_TRUE(definition.has_value());
+    ASSERT_THAT(definition, fastecu::testing::IsOk());
     ASSERT_EQ((*definition)[0].entries.size(), 1U);
     EXPECT_EQ((*definition)[0].entries[0].item.id, "kept");
 }

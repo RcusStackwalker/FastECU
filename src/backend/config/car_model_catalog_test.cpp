@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/config/car_model_catalog.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 
@@ -15,8 +16,6 @@
 
 using fastecu::ErrorKind;
 using fastecu::InMemoryFileRepository;
-using fastecu::Result;
-using fastecu::Status;
 using fastecu::config::CarModelCatalog;
 using fastecu::config::CarModelEntry;
 using fastecu::config::ConfigPaths;
@@ -95,7 +94,7 @@ TEST(LoadCarModelCatalog, ParsesEveryFieldOfEachEntry)
 
     auto catalog = load_car_model_catalog(paths, repo);
 
-    ASSERT_TRUE(catalog.has_value());
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
     ASSERT_EQ(catalog->size(), 3U);
 
     const auto& first = (*catalog)[0];
@@ -127,7 +126,7 @@ TEST(LoadCarModelCatalog, DoesNotResolveTheCrossReferenceJoin)
 
     auto catalog = load_car_model_catalog(paths, repo);
 
-    ASSERT_TRUE(catalog.has_value());
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
     EXPECT_EQ((*catalog)[1].protocol_name, "sub_ecu_unisia_jecs_92");
 }
 
@@ -136,10 +135,7 @@ TEST(LoadCarModelCatalog, MissingFileIsInvalidConfig)
     InMemoryFileRepository repo;
     ConfigPaths paths = test_paths();
 
-    auto catalog = load_car_model_catalog(paths, repo);
-
-    ASSERT_FALSE(catalog.has_value());
-    EXPECT_EQ(catalog.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(load_car_model_catalog(paths, repo), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // Reads the real, checked-in resources/shared/config/protocols.cfg via
@@ -163,7 +159,7 @@ TEST(LoadCarModelCatalog, ParsesTheRealShippedProtocolsFileWithoutError)
 
     auto catalog = load_car_model_catalog(paths, repo);
 
-    ASSERT_TRUE(catalog.has_value());
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
     for (const auto& entry : *catalog)
     {
         EXPECT_FALSE(entry.protocol_name.empty());

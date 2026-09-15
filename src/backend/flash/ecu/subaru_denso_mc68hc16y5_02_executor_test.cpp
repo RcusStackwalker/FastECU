@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.h"
 
 #include <gmock/gmock.h>
@@ -424,29 +425,27 @@ Result<FlashPlan> different_family_plan()
 TEST(SubaruDensoMc68hc16y5_02Executor, WrongFamilyPlanFails)
 {
     auto plan = different_family_plan();
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     FakeClock clock;
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, TransportSetupReturnsPlanWireConfigurationIncludingZeroIds)
 {
     auto plan = stock_plan();
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruDensoMc68hc16y5_02Executor executor;
 
     auto setup = executor.transport_setup(*plan);
 
-    ASSERT_TRUE(setup.has_value()) << setup.error().detail;
+    ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->baud, 9600);
     EXPECT_FALSE(setup->iso14230);
     EXPECT_EQ(setup->tester_id, 0);
@@ -456,7 +455,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TransportSetupReturnsPlanWireConfiguratio
 TEST(SubaruDensoMc68hc16y5_02Executor, BoundAttemptPreservesConfigureToOpenCancellationCheckpoint)
 {
     auto plan = stock_plan();
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     auto transport = std::make_unique<ScriptedKlineFlashTransport>();
     auto *observed_transport = transport.get();
     auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoMc68hc16y5_02Executor>(),
@@ -465,10 +464,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, BoundAttemptPreservesConfigureToOpenCance
     FlipAfter cancellation(1);
     RecordingEventSink events;
 
-    auto result = attempt->run(clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(attempt->run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(observed_transport->last_config_.has_value());
     EXPECT_EQ(observed_transport->close_call_count_, 0);
     EXPECT_TRUE(observed_transport->control_line_trace_.empty());
@@ -497,17 +493,15 @@ TEST(SubaruDensoMc68hc16y5_02Executor, MalformedFamilyPlanFailsBeforeAnyIo)
                 .bootloader_ok = {0x4d, 0x00, 0xb3},
             },
     });
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     FakeClock clock;
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_FALSE(transport.last_config_.has_value());
     EXPECT_TRUE(transport.read_timeouts_.empty());
     EXPECT_TRUE(transport.control_line_trace_.empty());
@@ -516,7 +510,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, MalformedFamilyPlanFailsBeforeAnyIo)
 TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKernel)
 {
     auto plan = stock_plan(FlashOperation::Write);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:69-70.
     transport.queue_no_frame();
@@ -545,9 +539,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.control_line_trace_,
               (std::vector<ScriptedKlineFlashTransport::ControlLineAction>{
@@ -567,7 +559,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
 TEST(SubaruDensoMc68hc16y5_02Executor, PresentEmptyUploadFrameIsNotNoFrameSuccess)
 {
     auto plan = stock_plan();
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     transport.queue_no_frame();
     transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
@@ -579,17 +571,15 @@ TEST(SubaruDensoMc68hc16y5_02Executor, PresentEmptyUploadFrameIsNotNoFrameSucces
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
 {
     auto plan = stock_plan(FlashOperation::Write);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:69-70.
     transport.queueRead(bytes::Bytes{0xDE, 0xAD}); // stale bytes are discarded
@@ -607,9 +597,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.control_line_trace_,
               (std::vector<ScriptedKlineFlashTransport::ControlLineAction>{
@@ -627,7 +615,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
 TEST(SubaruDensoMc68hc16y5_02Executor, NoFrameBootInitFallsBackToKernelAlivePoll)
 {
     auto plan = stock_plan(FlashOperation::Write);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     transport.queue_no_frame(); // legacy operation.cpp:69-70 initial drain
     transport.expectWrite(bytes::Bytes{0x4D, 0xFF, 0xB4});
@@ -644,9 +632,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, NoFrameBootInitFallsBackToKernelAlivePoll
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.baud_calls_, (std::vector<int>{62500}));
 }
@@ -654,7 +640,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, NoFrameBootInitFallsBackToKernelAlivePoll
 TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelWireValues)
 {
     auto plan = ecutek_plan(FlashOperation::Write);
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     transport.queue_no_frame(); // legacy operation.cpp:69-70 initial drain
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:115-146.
@@ -677,9 +663,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelW
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_EQ(transport.baud_calls_, (std::vector<int>{11700, 62500}));
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -687,7 +671,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelW
 TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFailsWithNoValidResponseAtAll)
 {
     auto plan = stock_plan();
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     transport.queue_no_frame(); // legacy operation.cpp:69-70 initial drain
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:111-179.
@@ -701,10 +685,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFailsWithNoValidResponseAtAll)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, CancellationBeforeConnectStopsImmediately)
@@ -718,22 +700,20 @@ TEST(SubaruDensoMc68hc16y5_02Executor, CancellationBeforeConnectStopsImmediately
         }
     } cancellation;
     auto plan = stock_plan();
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     FakeClock clock;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ShortKlineWriteFailsBeforeRead)
 {
     auto plan = stock_plan();
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     ShortWriteTransport transport;
     transport.queue_no_frame(); // legacy operation.cpp:69-70 initial drain
     FakeClock clock;
@@ -741,16 +721,14 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ShortKlineWriteFailsBeforeRead)
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Disconnected));
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, InitialDrainTransportErrorStopsBeforeBootloaderTraffic)
 {
     auto plan = stock_plan();
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     transport.queue_error(ErrorKind::Disconnected, "drain failed");
     FakeClock clock;
@@ -758,27 +736,23 @@ TEST(SubaruDensoMc68hc16y5_02Executor, InitialDrainTransportErrorStopsBeforeBoot
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, CancellationAtInitialDrainStopsBeforeBootloaderWrite)
 {
     auto plan = stock_plan();
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     ToggleCancellation cancellation;
     DrainCancellingTransport transport(cancellation);
     FakeClock clock;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.write_attempts_.empty());
     EXPECT_EQ(transport.read_timeouts_, (std::vector<std::chrono::milliseconds>{10ms}));
 }
@@ -786,7 +760,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, CancellationAtInitialDrainStopsBeforeBoot
 TEST(SubaruDensoMc68hc16y5_02Executor, ReadReturnsAssembledPageBytes)
 {
     auto plan = stock_plan();
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
 
@@ -811,7 +785,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadReturnsAssembledPageBytes)
     SubaruDensoMc68hc16y5_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value());
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::Read);
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(*result->read_bytes, expected);
@@ -826,7 +800,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadReturnsAssembledPageBytes)
 TEST(SubaruDensoMc68hc16y5_02Executor, TpuReadHonorsDeclaredPackedRomSize)
 {
     auto plan = tpu_read_plan();
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     const flashdev_t *device = find_flash_device("MC68HC16Y5_TPU");
     ASSERT_NE(device, nullptr);
     OpenScriptedKlineFlashTransport transport;
@@ -842,7 +816,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TpuReadHonorsDeclaredPackedRomSize)
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), device->romsize);
     EXPECT_TRUE(std::all_of(result->read_bytes->begin(), result->read_bytes->end(),
@@ -853,7 +827,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TpuReadHonorsDeclaredPackedRomSize)
 TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsMalformedPageResponse)
 {
     auto plan = stock_plan();
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
     script_read_page(transport, 0x00000000, 0xA5, 0x44);
@@ -862,17 +836,15 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsMalformedPageResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsTruncatedValidMarkerResponse)
 {
     auto plan = stock_plan();
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
     // Legacy src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:408-413.
@@ -883,17 +855,15 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsTruncatedValidMarkerResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsShortPageResponse)
 {
     auto plan = stock_plan();
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
     transport.expectWrite(framed(0x03, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x04, 0x00}));
@@ -904,17 +874,15 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsShortPageResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, ReadCancelsBetweenPages)
 {
     auto plan = stock_plan();
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
     script_read_page(transport, 0x00000000, 0xA5);
@@ -923,10 +891,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadCancelsBetweenPages)
     CancelAfterFirstPageClock clock(cancellation);
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.writesConsumed(), 4U);
 }
@@ -937,7 +903,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteSkipsWhenNoBlockDiffers)
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = stock_write_plan(FlashOperation::Write, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
@@ -949,7 +915,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteSkipsWhenNoBlockDiffers)
     SubaruDensoMc68hc16y5_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
@@ -970,7 +936,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteReflashesOnlyDifferingBlocks)
         image[image_offset + offset] = static_cast<bytes::Byte>((offset * 17U + 3U) & 0xFF);
     }
     auto plan = stock_write_plan(FlashOperation::Write, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
@@ -986,7 +952,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteReflashesOnlyDifferingBlocks)
     SubaruDensoMc68hc16y5_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.control_line_trace_.back(),
@@ -1004,7 +970,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteSendsValidateNotCommit)
     const std::size_t image_offset = packed_block_offset(*device, kDifferingBlock);
     std::fill(image.begin() + image_offset, image.begin() + image_offset + device->fblocks[kDifferingBlock].len, 0xA5);
     auto plan = stock_write_plan(FlashOperation::TestWrite, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
@@ -1020,7 +986,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteSendsValidateNotCommit)
     SubaruDensoMc68hc16y5_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::TestWrite);
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -1033,7 +999,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedEraseResponse)
     ASSERT_LT(kDifferingBlock, device->numblocks);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = stock_write_plan(FlashOperation::Write, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
@@ -1048,10 +1014,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedEraseResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1063,7 +1027,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteCancelsMidBlockTransfer)
     ASSERT_LT(kDifferingBlock, device->numblocks);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = stock_write_plan(FlashOperation::Write, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     ToggleCancellation cancellation;
     CancelAfterEraseTransport transport(cancellation);
@@ -1078,10 +1042,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteCancelsMidBlockTransfer)
     FakeClock clock;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.flash_buffer_write_attempts_, 0U);
 }
@@ -1092,7 +1054,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = stock_write_plan(FlashOperation::Write, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
@@ -1123,9 +1085,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 1);
     EXPECT_EQ(clock.elapsed(), 2250ms);
@@ -1137,7 +1097,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = stock_write_plan(FlashOperation::Write, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
@@ -1164,9 +1124,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 1);
     EXPECT_EQ(clock.elapsed(), 2250ms);
@@ -1178,7 +1136,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsTruncatedBlockCrcAfterBounded
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = stock_write_plan(FlashOperation::Write, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00}));
@@ -1192,10 +1150,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsTruncatedBlockCrcAfterBounded
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(std::count(transport.read_timeouts_.begin(), transport.read_timeouts_.end(), 50ms), 20);
 }
@@ -1206,7 +1162,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsNegativeBlockCrcResponse)
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = stock_write_plan(FlashOperation::Write, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00}));
@@ -1216,10 +1172,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsNegativeBlockCrcResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1229,7 +1183,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WritePropagatesBlockCrcDrainError)
     ASSERT_NE(device, nullptr);
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = stock_write_plan(FlashOperation::Write, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
     transport.expectWrite(framed(0x02, bytes::Bytes{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00}));
@@ -1241,11 +1195,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WritePropagatesBlockCrcDrainError)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
-    EXPECT_EQ(result.error().detail, "CRC drain failed");
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErrWith(ErrorKind::Disconnected, "CRC drain failed"));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1256,7 +1207,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedFlashBufferResponse)
     constexpr unsigned kBlock = 8;
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = stock_write_plan(FlashOperation::Write, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     script_write_prefix(transport, *device, image, kBlock, false);
     transport.expectWrite(write_chunk_request(*device, image, kBlock, 0));
@@ -1266,10 +1217,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedFlashBufferResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1280,7 +1229,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedCommitResponse)
     constexpr unsigned kBlock = 8;
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = stock_write_plan(FlashOperation::Write, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     script_write_prefix(transport, *device, image, kBlock, false);
     for (std::uint32_t offset = 0; offset < 0x1000; offset += 0x200)
@@ -1297,10 +1246,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedCommitResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1311,7 +1258,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteFailsOnRejectedValidateResponse)
     constexpr unsigned kBlock = 8;
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = stock_write_plan(FlashOperation::TestWrite, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     script_write_prefix(transport, *device, image, kBlock, true);
     for (std::uint32_t offset = 0; offset < 0x1000; offset += 0x200)
@@ -1328,10 +1275,8 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteFailsOnRejectedValidateResponse)
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -1342,7 +1287,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteLogsRemainingMismatchAfterVerificati
     constexpr unsigned kBlock = 8;
     bytes::Bytes image(device->romsize, 0x00);
     auto plan = stock_write_plan(FlashOperation::Write, image);
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     script_stock_connect_and_upload(transport);
     script_crc_compare(transport, *device, image, kBlock);
@@ -1355,9 +1300,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteLogsRemainingMismatchAfterVerificati
     NeverCancelled cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
-    auto result = executor.execute(*plan, transport, clock, cancellation, events);
-
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_TRUE(
         std::find(

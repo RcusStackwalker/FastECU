@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/flash_executor.h"
 
 #include <gtest/gtest.h>
@@ -77,20 +78,17 @@ FlashPlanFields kline_read_fields()
 TEST(CheckFamilyTest, MatchingFamilyPasses)
 {
     auto plan = validate_and_build(kline_read_fields());
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_TRUE(check_family(*plan, FlashFamily::DensoSh705xEepromKline).has_value());
+    EXPECT_THAT(check_family(*plan, FlashFamily::DensoSh705xEepromKline), fastecu::testing::IsOk());
 }
 
 TEST(CheckFamilyTest, WrongFamilyFailsWithInvalidConfig)
 {
     auto plan = validate_and_build(kline_read_fields());
-    ASSERT_TRUE(plan.has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    auto status = check_family(*plan, FlashFamily::MitsuColtM32rCan);
-
-    ASSERT_FALSE(status.has_value());
-    EXPECT_EQ(status.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(check_family(*plan, FlashFamily::MitsuColtM32rCan), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 } // namespace

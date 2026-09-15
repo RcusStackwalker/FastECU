@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/ui/desktop/definition/definition_header_form.h"
 
 #include <array>
@@ -146,7 +147,7 @@ TEST(DefinitionHeaderInputTest, MapsEveryFieldByObjectName)
 
     const auto input = definition_header_input(editors);
 
-    ASSERT_TRUE(input.has_value());
+    ASSERT_THAT(input, fastecu::testing::IsOk());
     EXPECT_EQ(input->xml_id, "xmlid-value");
     EXPECT_EQ(input->internal_id, "internalidstring-value");
     EXPECT_EQ(input->ecu_id, "ecuid-value");
@@ -172,7 +173,7 @@ TEST(DefinitionHeaderInputTest, ParsesInternalIdAddressAsHex)
 
     const auto input = definition_header_input(editors);
 
-    ASSERT_TRUE(input.has_value());
+    ASSERT_THAT(input, fastecu::testing::IsOk());
     ASSERT_TRUE(input->internal_id_address.has_value());
     EXPECT_EQ(*input->internal_id_address, 0x2f8000U);
 }
@@ -186,7 +187,7 @@ TEST(DefinitionHeaderInputTest, EmptyInternalIdAddressYieldsNullopt)
 
     const auto input = definition_header_input(editors);
 
-    ASSERT_TRUE(input.has_value());
+    ASSERT_THAT(input, fastecu::testing::IsOk());
     EXPECT_FALSE(input->internal_id_address.has_value());
 }
 
@@ -199,8 +200,7 @@ TEST(DefinitionHeaderInputTest, UnparseableInternalIdAddressIsInvalidConfig)
 
     const auto input = definition_header_input(editors);
 
-    ASSERT_FALSE(input.has_value());
-    EXPECT_EQ(input.error().kind, fastecu::ErrorKind::InvalidConfig);
+    ASSERT_THAT(input, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
     EXPECT_THAT(input.error().detail, testing::HasSubstr("internal ID address"));
 }
 
@@ -213,7 +213,7 @@ TEST(DefinitionHeaderInputTest, TrimsXmlIdButNotTheOtherFields)
 
     const auto input = definition_header_input(editors);
 
-    ASSERT_TRUE(input.has_value());
+    ASSERT_THAT(input, fastecu::testing::IsOk());
     EXPECT_EQ(input->xml_id, "CAL123");
     EXPECT_EQ(input->ecu_id, "  EC0  ");
 }

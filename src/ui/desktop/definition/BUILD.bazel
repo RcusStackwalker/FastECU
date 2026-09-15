@@ -19,7 +19,10 @@ fastecu_gtest(
     name = "definition_header_form_test",
     srcs = ["definition_header_form_test.cpp"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
-    deps = [":definition_header_form"],
+    deps = [
+        ":definition_header_form",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 # Declares Q_OBJECT for its four LOG_* signals, so the header goes in

@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/flash/flash_device_lookup.h"
@@ -39,7 +40,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, BuildsStockPlanForBareProtocol)
     auto plan = build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::Read, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5",
                                                       std::nullopt,
                                                       KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->family(), FlashFamily::SubaruDensoMc68hc16y5_02);
     const auto& family = std::get<SubaruDensoMc68hc16y5_02Plan>(plan->family_plan());
     EXPECT_EQ(family.kernel_baud, 9600);
@@ -53,7 +54,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, BuildsEcutekPlanForSuffixedProtocol)
     auto plan = build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::Read, "sub_ecu_denso_mc68hc16y5_02_ecutek",
                                                       "MC68HC16Y5", std::nullopt,
                                                       KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     const auto& family = std::get<SubaruDensoMc68hc16y5_02Plan>(plan->family_plan());
     EXPECT_EQ(family.kernel_baud, 11700);
     EXPECT_EQ(family.encryption_xor, 0x51);
@@ -64,21 +65,19 @@ TEST(SubaruDensoMc68hc16y5_02Plan, RejectsRevision04Entirely)
 {
     for (auto *name : {"sub_ecu_denso_mc68hc16y5_04", "sub_ecu_denso_mc68hc16y5_04_ecutek"})
     {
-        auto plan =
+        ASSERT_THAT(
             build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::Read, name, "MC68HC16Y5", std::nullopt,
-                                                  KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
-        ASSERT_FALSE(plan.has_value());
-        EXPECT_EQ(plan.error().kind, ErrorKind::Unsupported);
+                                                  KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
+            fastecu::testing::IsErr(ErrorKind::Unsupported));
     }
 }
 
 TEST(SubaruDensoMc68hc16y5_02Plan, RejectsUnknownMcu)
 {
-    auto plan = build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::Read, "sub_ecu_denso_mc68hc16y5_02",
+    ASSERT_THAT(build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::Read, "sub_ecu_denso_mc68hc16y5_02",
                                                       "NOT_A_REAL_MCU", std::nullopt,
-                                                      KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+                                                      KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoMc68hc16y5_02Plan, RejectsEveryKnownButWrongProtocolMcuPair)
@@ -90,29 +89,28 @@ TEST(SubaruDensoMc68hc16y5_02Plan, RejectsEveryKnownButWrongProtocolMcuPair)
              std::pair{"sub_ecu_denso_mc68hc16y5_02", "SH7055"},
          })
     {
-        auto plan =
+        ASSERT_THAT(
             build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::Read, protocol, mcu, std::nullopt,
-                                                  KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
-        ASSERT_FALSE(plan.has_value()) << protocol << " / " << mcu;
-        EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+                                                  KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
+            fastecu::testing::IsErr(ErrorKind::InvalidConfig))
+            << protocol << " / " << mcu;
     }
 }
 
 TEST(SubaruDensoMc68hc16y5_02Plan, WriteRequiresImageOfExactRomSize)
 {
-    auto missing = build_subaru_denso_mc68hc16y5_02_plan(
-        FlashOperation::Write, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5", std::nullopt,
-        KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
-    ASSERT_FALSE(missing.has_value());
-    EXPECT_EQ(missing.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::Write, "sub_ecu_denso_mc68hc16y5_02",
+                                                      "MC68HC16Y5", std::nullopt,
+                                                      KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 
     const int index = find_flash_device_index("MC68HC16Y5");
     ASSERT_GE(index, 0);
     bytes::Bytes rom(flashdevices[index].romsize, bytes::Byte{0});
-    auto ok =
-        build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::Write, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5", rom,
-                                              KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
-    EXPECT_TRUE(ok.has_value()) << ok.error().detail;
+    EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::Write, "sub_ecu_denso_mc68hc16y5_02",
+                                                      "MC68HC16Y5", rom,
+                                                      KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
+                fastecu::testing::IsOk());
 }
 
 TEST(SubaruDensoMc68hc16y5_02Plan, StockAndEcutekTestWritesCarryExactImage)
@@ -125,7 +123,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, StockAndEcutekTestWritesCarryExactImage)
         auto plan =
             build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::TestWrite, protocol, "MC68HC16Y5", std::move(rom),
                                                   KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
         ASSERT_TRUE(plan->image().has_value());
         EXPECT_EQ(plan->image()->size(), flashdevices[index].romsize);
     }
@@ -138,11 +136,10 @@ TEST(SubaruDensoMc68hc16y5_02Plan, TpuRejectsWriteAndTestWrite)
     for (const auto operation : {FlashOperation::Write, FlashOperation::TestWrite})
     {
         bytes::Bytes rom(flashdevices[index].romsize, bytes::Byte{0});
-        auto plan = build_subaru_denso_mc68hc16y5_02_plan(
-            operation, "sub_ecu_denso_mc68hc16y5_02_tpu", "MC68HC16Y5_TPU", std::move(rom),
-            KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
-        ASSERT_FALSE(plan.has_value());
-        EXPECT_EQ(plan.error().kind, ErrorKind::Unsupported);
+        ASSERT_THAT(build_subaru_denso_mc68hc16y5_02_plan(
+                        operation, "sub_ecu_denso_mc68hc16y5_02_tpu", "MC68HC16Y5_TPU", std::move(rom),
+                        KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
+                    fastecu::testing::IsErr(ErrorKind::Unsupported));
     }
 }
 
@@ -171,10 +168,10 @@ TEST(SubaruDensoMc68hc16y5_02Plan, ValidatorRejectsEveryNonCanonicalWireField)
             break;
         }
         auto plan = validate_and_build(std::move(fields));
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
         auto valid = validate_subaru_denso_mc68hc16y5_02_plan(*plan);
-        EXPECT_FALSE(valid.has_value()) << "field " << field;
-        EXPECT_EQ(valid.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_THAT(valid, ::testing::Not(fastecu::testing::IsOk())) << "field " << field;
+        EXPECT_THAT(valid, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     }
 }
 
@@ -196,8 +193,8 @@ TEST(SubaruDensoMc68hc16y5_02Plan, ValidatorRejectsTransferEraseAndConfirmationD
             fields.confirmations.push_back(ConfirmationSpec{.id = ConfirmationSpec::Id::CycleIgnition});
         }
         auto plan = validate_and_build(std::move(fields));
-        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-        EXPECT_FALSE(validate_subaru_denso_mc68hc16y5_02_plan(*plan).has_value());
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        EXPECT_THAT(validate_subaru_denso_mc68hc16y5_02_plan(*plan), ::testing::Not(fastecu::testing::IsOk()));
     }
 
     auto fields = valid_mc_fields();
@@ -205,26 +202,25 @@ TEST(SubaruDensoMc68hc16y5_02Plan, ValidatorRejectsTransferEraseAndConfirmationD
     fields.image = bytes::Bytes(0x28000, 0);
     fields.erase_regions.push_back({.start = 0, .length = 0x1000});
     auto plan = validate_and_build(std::move(fields));
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    EXPECT_FALSE(validate_subaru_denso_mc68hc16y5_02_plan(*plan).has_value());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    EXPECT_THAT(validate_subaru_denso_mc68hc16y5_02_plan(*plan), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(SubaruDensoMc68hc16y5_02Plan, KernelUploadRequiresCanonicalAddressAndPaddedModelFit)
 {
-    auto exact = build_subaru_denso_mc68hc16y5_02_plan(
-        FlashOperation::Read, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5", std::nullopt,
-        KernelImage{.id = "full-region", .load_address = 0x20000, .bytes = bytes::Bytes(0x8000, 0)});
-    ASSERT_TRUE(exact.has_value()) << exact.error().detail;
+    ASSERT_THAT(build_subaru_denso_mc68hc16y5_02_plan(
+                    FlashOperation::Read, "sub_ecu_denso_mc68hc16y5_02", "MC68HC16Y5", std::nullopt,
+                    KernelImage{.id = "full-region", .load_address = 0x20000, .bytes = bytes::Bytes(0x8000, 0)}),
+                fastecu::testing::IsOk());
 
     for (KernelImage kernel : {
              KernelImage{.id = "shifted", .load_address = 0x20010, .bytes = {0xaa}},
              KernelImage{.id = "padded-past-end", .load_address = 0x20000, .bytes = bytes::Bytes(0x8001, 0)},
          })
     {
-        auto plan = build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::Read, "sub_ecu_denso_mc68hc16y5_02",
-                                                          "MC68HC16Y5", std::nullopt, std::move(kernel));
-        ASSERT_FALSE(plan.has_value());
-        EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+        ASSERT_THAT(build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::Read, "sub_ecu_denso_mc68hc16y5_02",
+                                                          "MC68HC16Y5", std::nullopt, std::move(kernel)),
+                    fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     }
 }
 

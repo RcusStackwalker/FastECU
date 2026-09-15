@@ -32,6 +32,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/uds/testing:scripted_uds_channel",
     ],
 )

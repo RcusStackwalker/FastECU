@@ -1,3 +1,4 @@
+#include "src/backend/ports/testing/result_matchers.h"
 // subaru_tcu_cvt_mitsu_mh8104_can_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_plan.h"
 
@@ -17,18 +18,15 @@ constexpr std::string_view kMcu = "MH8104";
 
 TEST(SubaruTcuCvtMitsuMh8104CanPlan, RejectsUnknownProtocol)
 {
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8104_can_plan(
-        FlashOperation::Read, "sub_tcu_cvt_mitsu_mh8104_can_typo", kMcu, std::nullopt);
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation::Read, "sub_tcu_cvt_mitsu_mh8104_can_typo",
+                                                           kMcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruTcuCvtMitsuMh8104CanPlan, RejectsMismatchedMcu)
 {
-    const auto plan =
-        build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation::Read, kProtocol, "MH8111", std::nullopt);
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation::Read, kProtocol, "MH8111", std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
 // MH8104's flash geometry is {0,0x4000},{0x4000,0x2000},{0x6000,0x2000},
@@ -41,13 +39,13 @@ TEST(SubaruTcuCvtMitsuMh8104CanPlan, ReadAndWriteShareTheSameWindow)
 {
     const auto readPlan = build_subaru_tcu_cvt_mitsu_mh8104_can_plan(
         FlashOperation::Read, "sub_tcu_cvt_mitsu_mh8104_can", "MH8104", std::nullopt);
-    ASSERT_TRUE(readPlan.has_value()) << readPlan.error().detail;
+    ASSERT_THAT(readPlan, fastecu::testing::IsOk());
     EXPECT_EQ(readPlan->transfer_region().start, 0x8000U);
     EXPECT_EQ(readPlan->transfer_region().length, 0x78000U);
 
     const auto writePlan = build_subaru_tcu_cvt_mitsu_mh8104_can_plan(
         FlashOperation::Write, "sub_tcu_cvt_mitsu_mh8104_can", "MH8104", bytes::Bytes(0x80000, 0x00));
-    ASSERT_TRUE(writePlan.has_value()) << writePlan.error().detail;
+    ASSERT_THAT(writePlan, fastecu::testing::IsOk());
     EXPECT_EQ(writePlan->transfer_region().start, 0x8000U);
     EXPECT_EQ(writePlan->transfer_region().length, 0x78000U);
     ASSERT_TRUE(writePlan->image().has_value());
@@ -71,7 +69,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanPlan, WritePlanErasesTheSharedWindow)
 {
     const auto plan =
         build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x80000, 0x00));
-    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     ASSERT_EQ(plan->erase_regions().size(), 1U);
     EXPECT_EQ(plan->erase_regions()[0].start, 0x8000U);
     EXPECT_EQ(plan->erase_regions()[0].length, 0x78000U);
@@ -84,23 +82,20 @@ TEST(SubaruTcuCvtMitsuMh8104CanPlan, RejectsAWriteWhoseImageSizeIsWrong)
     // offsets up to 0x80000 (fblocks[3].start + fblocks[3].len).
     const auto plan =
         build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x78000, 0x00));
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(plan.error().detail, HasSubstr("0x80000"));
 }
 
 TEST(SubaruTcuCvtMitsuMh8104CanPlan, RejectsTestWriteAsUnsupported)
 {
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation::TestWrite, kProtocol, kMcu,
-                                                                 bytes::Bytes(0x80000, 0x00));
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::Unsupported);
+    ASSERT_THAT(build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation::TestWrite, kProtocol, kMcu,
+                                                           bytes::Bytes(0x80000, 0x00)),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 
 TEST(SubaruTcuCvtMitsuMh8104CanPlan, RejectsAWriteWithNoImage)
 {
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt);
-    ASSERT_FALSE(plan.has_value());
-    EXPECT_EQ(plan.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 } // namespace
