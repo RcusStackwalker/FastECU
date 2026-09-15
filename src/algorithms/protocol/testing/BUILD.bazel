@@ -1,10 +1,30 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
-package(default_visibility = ["//src:__subpackages__"])
+package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "byte_test_utils",
     testonly = True,
     hdrs = ["byte_test_utils.h"],
     deps = ["//src/algorithms/protocol"],
+)
+
+cc_library(
+    name = "byte_matchers",
+    testonly = True,
+    hdrs = ["byte_matchers.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "byte_matchers_test",
+    srcs = ["byte_matchers_test.cpp"],
+    deps = [
+        ":byte_matchers",
+        "@googletest//:gtest_main",
+    ],
 )

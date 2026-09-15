@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/algorithms/checksum/checksum_primitives.h"
 
 #include <gmock/gmock.h>

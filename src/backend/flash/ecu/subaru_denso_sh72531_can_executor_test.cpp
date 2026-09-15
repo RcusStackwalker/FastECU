@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/ports/testing/result_matchers.h"
 // Equivalence tests for SubaruDensoSh72531CanExecutor, the portable
 // replacement for FlashEcuSubaruDensoSH72531CanOperation's
@@ -439,8 +440,8 @@ TEST(SubaruDensoSh72531CanExecutor, WriteErasesThenFlashesBlockOne)
     // the indexing convention explicitly too, so a wrong image base fails
     // here with a readable message rather than as an "unexpected write".
     const bytes::Bytes encrypted = toWire(rom);
-    EXPECT_EQ(bytes::Bytes(encrypted.begin() + 0x8000, encrypted.begin() + 0x8000 + 256),
-              toWire(bytes::ByteView(rom).subspan(0x8000, 256)));
+    EXPECT_THAT(bytes::Bytes(encrypted.begin() + 0x8000, encrypted.begin() + 0x8000 + 256),
+                test_bytes::BytesEq(toWire(bytes::ByteView(rom).subspan(0x8000, 256))));
     // Every sleep the write path performs, in order, each with the legacy
     // delay() it reproduces: connect_bench's wait (line 660), the bench kernel
     // jump's inter-read settle (line 784), the settle after the erase command

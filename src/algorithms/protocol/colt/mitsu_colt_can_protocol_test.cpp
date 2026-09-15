@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include <gtest/gtest.h>
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
@@ -31,10 +32,12 @@ TEST(TestMitsuColtCanProtocol, transfer_data_frames_chunk_at_256_bytes)
 {
     bytes::Bytes payload(300, bytes::Byte{0x5A});
     const std::vector<bytes::Bytes> frames = buildTransferDataFrames(payload);
-    ASSERT_EQ(frames.size(), std::size_t(2));
-    ASSERT_EQ(frames.at(0).size(), std::size_t(257)); // SID + 256 bytes
-    ASSERT_EQ(frames.at(0).at(0), kServiceTransferData);
-    ASSERT_EQ(frames.at(1).size(), std::size_t(45)); // SID + 44 remaining bytes
+    bytes::Bytes expectedFirstFrame(257, bytes::Byte{0x5A}); // SID + 256 bytes
+    expectedFirstFrame.front() = kServiceTransferData;
+    bytes::Bytes expectedSecondFrame(45, bytes::Byte{0x5A}); // SID + 44 remaining bytes
+    expectedSecondFrame.front() = kServiceTransferData;
+    EXPECT_THAT(frames, ::testing::ElementsAre(test_bytes::BytesEq(expectedFirstFrame),
+                                               test_bytes::BytesEq(expectedSecondFrame)));
 }
 TEST(TestMitsuColtCanProtocol, routine_check_crc_selects_flash_vs_memory)
 {

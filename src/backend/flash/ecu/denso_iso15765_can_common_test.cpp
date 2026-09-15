@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/flash/ecu/denso_iso15765_can_common.h"
 
 #include <array>
@@ -64,20 +65,22 @@ TEST(DensoIso15765CanCommonTest, DecryptTableIsEncryptTableReversed)
 TEST(DensoIso15765CanCommonTest, SeedKeyProducesKnownVectors)
 {
     const bytes::Bytes kSeedA{0x11, 0x22, 0x33, 0x44};
-    EXPECT_EQ(SsmProtocol::calculateSeedKey(kSeedA, kDensoIso15765SeedKeyTable, SsmProtocol::kIndexTransformationStock),
-              (bytes::Bytes{0x35, 0xB6, 0x83, 0xBF}));
+    EXPECT_THAT(
+        SsmProtocol::calculateSeedKey(kSeedA, kDensoIso15765SeedKeyTable, SsmProtocol::kIndexTransformationStock),
+        test_bytes::BytesEq((bytes::Bytes{0x35, 0xB6, 0x83, 0xBF})));
 
     const bytes::Bytes kSeedB{0xDE, 0xAD, 0xBE, 0xEF};
-    EXPECT_EQ(SsmProtocol::calculateSeedKey(kSeedB, kDensoIso15765SeedKeyTable, SsmProtocol::kIndexTransformationStock),
-              (bytes::Bytes{0xB6, 0xF5, 0x24, 0x21}));
+    EXPECT_THAT(
+        SsmProtocol::calculateSeedKey(kSeedB, kDensoIso15765SeedKeyTable, SsmProtocol::kIndexTransformationStock),
+        test_bytes::BytesEq((bytes::Bytes{0xB6, 0xF5, 0x24, 0x21})));
 }
 
 TEST(DensoIso15765CanCommonTest, EncryptProducesKnownPayloadVector)
 {
     const bytes::Bytes kPlain{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF};
-    EXPECT_EQ(SsmProtocol::calculatePayload(kPlain, static_cast<std::uint32_t>(kPlain.size()),
-                                            kDensoIso15765EncryptTable, SsmProtocol::kIndexTransformationStock),
-              (bytes::Bytes{0xE0, 0xD3, 0x85, 0x2B, 0xC5, 0xFE, 0x4B, 0x39}));
+    EXPECT_THAT(SsmProtocol::calculatePayload(kPlain, static_cast<std::uint32_t>(kPlain.size()),
+                                              kDensoIso15765EncryptTable, SsmProtocol::kIndexTransformationStock),
+                test_bytes::BytesEq((bytes::Bytes{0xE0, 0xD3, 0x85, 0x2B, 0xC5, 0xFE, 0x4B, 0x39})));
 }
 
 // The dump path decrypts each 256-byte page with the decrypt table; the write
@@ -87,9 +90,9 @@ TEST(DensoIso15765CanCommonTest, EncryptProducesKnownPayloadVector)
 TEST(DensoIso15765CanCommonTest, DecryptInvertsEncrypt)
 {
     const bytes::Bytes kCipher{0xE0, 0xD3, 0x85, 0x2B, 0xC5, 0xFE, 0x4B, 0x39};
-    EXPECT_EQ(SsmProtocol::calculatePayload(kCipher, static_cast<std::uint32_t>(kCipher.size()),
-                                            kDensoIso15765DecryptTable, SsmProtocol::kIndexTransformationStock),
-              (bytes::Bytes{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF}));
+    EXPECT_THAT(SsmProtocol::calculatePayload(kCipher, static_cast<std::uint32_t>(kCipher.size()),
+                                              kDensoIso15765DecryptTable, SsmProtocol::kIndexTransformationStock),
+                test_bytes::BytesEq((bytes::Bytes{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF})));
 }
 
 } // namespace

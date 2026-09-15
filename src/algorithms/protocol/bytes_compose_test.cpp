@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 
 #include <gmock/gmock.h>
@@ -61,7 +62,7 @@ TEST(ComposeBe, AppendsStringViewCharsAsBytes)
 
 TEST(ComposeBe, EmitsNothingForNoArguments)
 {
-    EXPECT_EQ(composeBe(), bytes::Bytes{});
+    EXPECT_THAT(composeBe(), test_bytes::BytesEq(bytes::Bytes{}));
 }
 
 TEST(ComposeBe, AppendsArgumentsLeftToRight)

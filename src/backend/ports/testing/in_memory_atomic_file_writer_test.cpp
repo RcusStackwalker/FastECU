@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 
@@ -12,7 +13,7 @@ TEST(InMemoryAtomicFileWriter, SuccessfulReplacementRecordsCallAndStoresContents
 
     ASSERT_EQ(writer.replace_calls.size(), 1U);
     EXPECT_EQ(writer.replace_calls[0].handle, "definition.xml");
-    EXPECT_EQ(writer.replace_calls[0].data, data);
+    EXPECT_THAT(writer.replace_calls[0].data, test_bytes::BytesEq(data));
     EXPECT_EQ(writer.files.at("definition.xml"), data);
 }
 
@@ -25,7 +26,7 @@ TEST(InMemoryAtomicFileWriter, FailedReplacementIsRecordedWithoutUpdatingContent
     ASSERT_THAT(writer.replace("definition.xml", std::vector<std::uint8_t>{2}),
                 ::testing::Not(fastecu::testing::IsOk()));
     ASSERT_EQ(writer.replace_calls.size(), 1U);
-    EXPECT_EQ(writer.replace_calls[0].data, (std::vector<std::uint8_t>{2}));
+    EXPECT_THAT(writer.replace_calls[0].data, test_bytes::BytesEq((std::vector<std::uint8_t>{2})));
     EXPECT_EQ(writer.files.at("definition.xml"), (std::vector<std::uint8_t>{1}));
 }
 

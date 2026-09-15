@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/algorithms/checksum/checksum_ecu_subaru_denso_sh705x_diesel.h"
 #include "src/algorithms/checksum/checksum_ecu_subaru_denso_sh7xxx.h"
 #include "src/algorithms/checksum/checksum_ecu_subaru_hitachi_m32r_can.h"
@@ -78,7 +79,7 @@ TEST(ChecksumPortable, DensoSh705xDieselCorrectedRecordTriggersDisabledCompatibi
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Disabled);
     EXPECT_EQ(result.message, "ROM has all checksums disabled");
-    EXPECT_EQ(result.romData, original);
+    EXPECT_THAT(result.romData, test_bytes::BytesEq(original));
 }
 
 TEST(ChecksumPortable, DensoSh705xDieselKeepsMatchingRecord)
@@ -89,7 +90,7 @@ TEST(ChecksumPortable, DensoSh705xDieselKeepsMatchingRecord)
         ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(bytes::ByteView(original), 0, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Unchanged);
-    EXPECT_EQ(result.romData, original);
+    EXPECT_THAT(result.romData, test_bytes::BytesEq(original));
 }
 
 TEST(ChecksumPortable, DensoSh7xxxReturnsUnchangedForMatchingChecksum)
@@ -99,7 +100,7 @@ TEST(ChecksumPortable, DensoSh7xxxReturnsUnchangedForMatchingChecksum)
     const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::ByteView(rom), 16, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Unchanged);
-    EXPECT_EQ(result.romData, rom);
+    EXPECT_THAT(result.romData, test_bytes::BytesEq(rom));
     EXPECT_TRUE(result.ok());
     EXPECT_FALSE(result.changed());
 }
@@ -114,14 +115,14 @@ TEST(ChecksumPortable, DensoSh7xxxReturnsCorrectedDataForMismatchedChecksum)
     bytes::Bytes expected = rom;
     const bytes::Bytes correctedChecksum = {0x5a, 0xa5, 0xa5, 0x59};
     std::copy(correctedChecksum.begin(), correctedChecksum.end(), expected.begin() + 24);
-    EXPECT_EQ(result.romData, expected);
+    EXPECT_THAT(result.romData, test_bytes::BytesEq(expected));
     EXPECT_TRUE(result.ok());
     EXPECT_TRUE(result.changed());
 
     const ChecksumResult unchangedResult =
         ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::ByteView(result.romData), 16, 12);
     EXPECT_EQ(unchangedResult.status, ChecksumResult::Status::Unchanged);
-    EXPECT_EQ(unchangedResult.romData, result.romData);
+    EXPECT_THAT(unchangedResult.romData, test_bytes::BytesEq(result.romData));
 }
 
 TEST(ChecksumPortable, DensoSh7xxxReturnsDisabledWithoutClearingRomData)
@@ -134,7 +135,7 @@ TEST(ChecksumPortable, DensoSh7xxxReturnsDisabledWithoutClearingRomData)
     const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::ByteView(rom), 16, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Disabled);
-    EXPECT_EQ(result.romData, rom);
+    EXPECT_THAT(result.romData, test_bytes::BytesEq(rom));
     EXPECT_TRUE(result.ok());
 }
 
@@ -145,7 +146,7 @@ TEST(ChecksumPortable, DensoSh7xxxRejectsChecksumAreaOutsideRom)
     const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::ByteView(rom), 16, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::InvalidSize);
-    EXPECT_EQ(result.romData, rom);
+    EXPECT_THAT(result.romData, test_bytes::BytesEq(rom));
     EXPECT_FALSE(result.ok());
 }
 
@@ -156,7 +157,7 @@ TEST(ChecksumPortable, DensoSh7xxxRejectsNonTableAlignedChecksumArea)
     const ChecksumResult result = ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::ByteView(rom), 0, 10);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::ParseError);
-    EXPECT_EQ(result.romData, rom);
+    EXPECT_THAT(result.romData, test_bytes::BytesEq(rom));
     EXPECT_FALSE(result.ok());
 }
 
@@ -176,7 +177,7 @@ TEST(ChecksumPortable, HitachiM32rCanBalancesZeroRom)
     const ChecksumResult secondPass =
         ChecksumEcuSubaruHitachiM32rCan::calculate_checksum_result(bytes::ByteView(result.romData));
     EXPECT_EQ(secondPass.status, ChecksumResult::Status::Corrected);
-    EXPECT_EQ(secondPass.romData, result.romData);
+    EXPECT_THAT(secondPass.romData, test_bytes::BytesEq(result.romData));
 }
 
 TEST(ChecksumPortable, HitachiM32rKlineBalancesZeroRom)
@@ -198,7 +199,7 @@ TEST(ChecksumPortable, HitachiM32rKlineBalancesZeroRom)
     const ChecksumResult unchangedResult =
         ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(bytes::ByteView(secondPass.romData));
     EXPECT_EQ(unchangedResult.status, ChecksumResult::Status::Unchanged);
-    EXPECT_EQ(unchangedResult.romData, secondPass.romData);
+    EXPECT_THAT(unchangedResult.romData, test_bytes::BytesEq(secondPass.romData));
 }
 
 TEST(ChecksumPortable, HitachiSh7058BalancesZeroRom)
@@ -216,7 +217,7 @@ TEST(ChecksumPortable, HitachiSh7058BalancesZeroRom)
     const ChecksumResult unchangedResult =
         ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::ByteView(result.romData));
     EXPECT_EQ(unchangedResult.status, ChecksumResult::Status::Unchanged);
-    EXPECT_EQ(unchangedResult.romData, result.romData);
+    EXPECT_THAT(unchangedResult.romData, test_bytes::BytesEq(result.romData));
 }
 
 TEST(ChecksumPortable, HitachiSh72543rBalancesZeroRom)
@@ -232,7 +233,7 @@ TEST(ChecksumPortable, HitachiSh72543rBalancesZeroRom)
     const ChecksumResult unchangedResult =
         ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result(bytes::ByteView(result.romData));
     EXPECT_EQ(unchangedResult.status, ChecksumResult::Status::Unchanged);
-    EXPECT_EQ(unchangedResult.romData, result.romData);
+    EXPECT_THAT(unchangedResult.romData, test_bytes::BytesEq(result.romData));
 }
 
 TEST(ChecksumPortable, MitsuMh8104TcuBalancesZeroRom)
@@ -247,7 +248,7 @@ TEST(ChecksumPortable, MitsuMh8104TcuBalancesZeroRom)
     const ChecksumResult unchangedResult =
         ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteView(result.romData));
     EXPECT_EQ(unchangedResult.status, ChecksumResult::Status::Unchanged);
-    EXPECT_EQ(unchangedResult.romData, result.romData);
+    EXPECT_THAT(unchangedResult.romData, test_bytes::BytesEq(result.romData));
 }
 
 TEST(ChecksumPortable, DensoSh7055TcuBalancesZeroRom)
@@ -262,7 +263,7 @@ TEST(ChecksumPortable, DensoSh7055TcuBalancesZeroRom)
     const ChecksumResult unchangedResult =
         ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::ByteView(result.romData));
     EXPECT_EQ(unchangedResult.status, ChecksumResult::Status::Unchanged);
-    EXPECT_EQ(unchangedResult.romData, result.romData);
+    EXPECT_THAT(unchangedResult.romData, test_bytes::BytesEq(result.romData));
 }
 
 TEST(ChecksumPortable, HitachiM32rCanTcuBalancesZeroRom)
@@ -280,7 +281,7 @@ TEST(ChecksumPortable, HitachiM32rCanTcuBalancesZeroRom)
     const ChecksumResult unchangedResult =
         ChecksumTcuSubaruHitachiM32rCan::calculate_checksum_result(bytes::ByteView(result.romData));
     EXPECT_EQ(unchangedResult.status, ChecksumResult::Status::Unchanged);
-    EXPECT_EQ(unchangedResult.romData, result.romData);
+    EXPECT_THAT(unchangedResult.romData, test_bytes::BytesEq(result.romData));
 }
 
 TEST(ChecksumPortable, FixedLayoutFamiliesRejectShortAndLongRoms)
@@ -308,7 +309,7 @@ TEST(ChecksumPortable, FixedLayoutFamiliesRejectShortAndLongRoms)
             const bytes::Bytes original(size, 0x3C);
             const ChecksumResult result = layout.calculate(original);
             EXPECT_EQ(result.status, ChecksumResult::Status::InvalidSize);
-            EXPECT_EQ(result.romData, original);
+            EXPECT_THAT(result.romData, test_bytes::BytesEq(original));
             EXPECT_EQ(result.message, "ROM size does not match the checksum layout");
         }
     }
@@ -319,11 +320,11 @@ TEST(ChecksumPortable, DensoDieselRejectsMalformedTableWithoutMutation)
     const bytes::Bytes original(24, 0x22);
     const ChecksumResult malformed = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(original, 0, 10);
     EXPECT_EQ(malformed.status, ChecksumResult::Status::ParseError);
-    EXPECT_EQ(malformed.romData, original);
+    EXPECT_THAT(malformed.romData, test_bytes::BytesEq(original));
 
     const ChecksumResult out_of_range = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(original, 20, 12);
     EXPECT_EQ(out_of_range.status, ChecksumResult::Status::InvalidSize);
-    EXPECT_EQ(out_of_range.romData, original);
+    EXPECT_THAT(out_of_range.romData, test_bytes::BytesEq(original));
 }
 
 TEST(ChecksumPortable, DensoDieselSecondaryFailureRollsBackPrimaryCorrection)
@@ -336,7 +337,7 @@ TEST(ChecksumPortable, DensoDieselSecondaryFailureRollsBackPrimaryCorrection)
 
     EXPECT_EQ(result.status, ChecksumResult::Status::InvalidSize);
     EXPECT_EQ(result.message, "ROM is too small for a checksum block range");
-    EXPECT_EQ(result.romData, original);
+    EXPECT_THAT(result.romData, test_bytes::BytesEq(original));
 }
 
 TEST(ChecksumPortable, DensoDieselCorrectsSh72543SecondaryTableAfterPrimary)
@@ -364,5 +365,5 @@ TEST(ChecksumPortable, DensoSh7xxxReportsInvalidBlockRangeMessage)
 
     EXPECT_EQ(result.status, ChecksumResult::Status::InvalidSize);
     EXPECT_EQ(result.message, "ROM is too small for a checksum block range");
-    EXPECT_EQ(result.romData, original);
+    EXPECT_THAT(result.romData, test_bytes::BytesEq(original));
 }

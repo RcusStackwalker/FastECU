@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "apps/bench/bench_commands.h"
 
 #include <gtest/gtest.h>
@@ -48,8 +49,8 @@ TEST(BenchCommands, ReadBuildsReadMemoryByAddressAndReturnsThePayload)
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
     EXPECT_TRUE(outcome.ok);
-    EXPECT_EQ(harness.session.requests.at(0), (bytes::Bytes{0x23, 0x00, 0x02, 0x00, 0x01}));
-    EXPECT_EQ(outcome.data, (bytes::Bytes{0xAB}));
+    EXPECT_THAT(harness.session.requests.at(0), test_bytes::BytesEq((bytes::Bytes{0x23, 0x00, 0x02, 0x00, 0x01})));
+    EXPECT_THAT(outcome.data, test_bytes::BytesEq((bytes::Bytes{0xAB})));
 }
 
 TEST(BenchCommands, ReadChunksLongRangesAtTheFlashReadBlockSize)
@@ -77,10 +78,10 @@ TEST(BenchCommands, MultiExchangeEvidenceKeepsFirstAndLastTrafficAndElapsedTime)
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
     EXPECT_EQ(outcome.exchange_count, 2U);
-    EXPECT_EQ(outcome.tx, harness.session.requests.front());
-    EXPECT_EQ(outcome.rx, harness.session.replies.front().value());
-    EXPECT_EQ(outcome.last_tx, harness.session.requests.back());
-    EXPECT_EQ(outcome.last_rx, harness.session.replies.back().value());
+    EXPECT_THAT(outcome.tx, test_bytes::BytesEq(harness.session.requests.front()));
+    EXPECT_THAT(outcome.rx, test_bytes::BytesEq(harness.session.replies.front().value()));
+    EXPECT_THAT(outcome.last_tx, test_bytes::BytesEq(harness.session.requests.back()));
+    EXPECT_THAT(outcome.last_rx, test_bytes::BytesEq(harness.session.replies.back().value()));
     EXPECT_GT(outcome.elapsed_ms, 0U);
 }
 
@@ -130,7 +131,7 @@ TEST(BenchCommands, DumpWritesTheReadBytesToTheNamedFile)
     const auto outcome = harness.run(step(CommandId::Dump, {"0x200", "2", "out.bin"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    EXPECT_EQ(harness.files.saved.at("out.bin"), (bytes::Bytes{0x01, 0x02}));
+    EXPECT_THAT(harness.files.saved.at("out.bin"), test_bytes::BytesEq((bytes::Bytes{0x01, 0x02})));
 }
 
 TEST(BenchCommands, AcknowledgedSendForwardsASafeRawHexPdu)
@@ -141,8 +142,8 @@ TEST(BenchCommands, AcknowledgedSendForwardsASafeRawHexPdu)
     const auto outcome = harness.run(destructiveStep(CommandId::Send, {"22", "f1", "90"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    EXPECT_EQ(harness.session.requests.at(0), (bytes::Bytes{0x22, 0xF1, 0x90}));
-    EXPECT_EQ(outcome.tx, (bytes::Bytes{0x22, 0xF1, 0x90}));
+    EXPECT_THAT(harness.session.requests.at(0), test_bytes::BytesEq((bytes::Bytes{0x22, 0xF1, 0x90})));
+    EXPECT_THAT(outcome.tx, test_bytes::BytesEq((bytes::Bytes{0x22, 0xF1, 0x90})));
 }
 
 TEST(BenchCommands, CrcCheckReportsAZeroStatusAsSuccess)
@@ -198,8 +199,8 @@ TEST(BenchCommands, WrongPositiveReplyReturnsAFailureOutcomeWithTrafficEvidence)
 
     EXPECT_FALSE(outcome.ok);
     ASSERT_EQ(outcome.error_kind, ErrorKind::BadResponse);
-    EXPECT_EQ(outcome.tx, (bytes::Bytes{0x31, 0xE1, 0x02}));
-    EXPECT_EQ(outcome.rx, (bytes::Bytes{0x71, 0xE0, 0x00}));
+    EXPECT_THAT(outcome.tx, test_bytes::BytesEq((bytes::Bytes{0x31, 0xE1, 0x02})));
+    EXPECT_THAT(outcome.rx, test_bytes::BytesEq((bytes::Bytes{0x71, 0xE0, 0x00})));
     EXPECT_EQ(outcome.exchange_count, 1U);
     EXPECT_GT(outcome.elapsed_ms, 0U);
 }
@@ -213,8 +214,8 @@ TEST(BenchCommands, SessionFailureAfterIoRetainsTheObservedResponse)
     const CommandOutcome outcome = harness.run(destructiveStep(CommandId::Send, {"22", "f1", "90"}));
 
     EXPECT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.tx, (bytes::Bytes{0x22, 0xF1, 0x90}));
-    EXPECT_EQ(outcome.rx, (bytes::Bytes{0x7F, 0x22, 0x31}));
+    EXPECT_THAT(outcome.tx, test_bytes::BytesEq((bytes::Bytes{0x22, 0xF1, 0x90})));
+    EXPECT_THAT(outcome.rx, test_bytes::BytesEq((bytes::Bytes{0x7F, 0x22, 0x31})));
     EXPECT_EQ(outcome.exchange_count, 1U);
 }
 
@@ -278,7 +279,7 @@ TEST(BenchCommands, EraseSendsRoutineControl224AndAcceptsAZeroStatus)
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
     EXPECT_TRUE(outcome.ok);
-    EXPECT_EQ(harness.session.requests.at(0), (bytes::Bytes{0x31, 0xE0}));
+    EXPECT_THAT(harness.session.requests.at(0), test_bytes::BytesEq((bytes::Bytes{0x31, 0xE0})));
 }
 
 TEST(BenchCommands, EraseTreatsANonZeroStatusAsAFailureCarryingTheAmbiguityNote)
@@ -330,13 +331,14 @@ TEST(BenchCommands, DownloadSendsRequestDownloadThenTransferDataThenTheChecksum)
     const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0x8000", "blob.bin"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    ASSERT_EQ(harness.session.requests.size(), 5U);
-    EXPECT_EQ(harness.session.requests[0], MitsuColtCan::buildRequestDownload(0x8000, 2));
-    EXPECT_EQ(harness.session.requests[1], (bytes::Bytes{0x36, 0xAA, 0xBB}));
-    EXPECT_EQ(harness.session.requests[2],
-              MitsuColtCan::buildRequestDownload(MitsuColtCan::kCrcTransferAddress, MitsuColtCan::kCrcTransferSize));
     // 0xAA + 0xBB = 0x0165, big-endian.
-    EXPECT_EQ(harness.session.requests[3], (bytes::Bytes{0x36, 0x01, 0x65}));
+    EXPECT_THAT(harness.session.requests,
+                ::testing::ElementsAre(test_bytes::BytesEq(MitsuColtCan::buildRequestDownload(0x8000, 2)),
+                                       test_bytes::BytesEq((bytes::Bytes{0x36, 0xAA, 0xBB})),
+                                       test_bytes::BytesEq(MitsuColtCan::buildRequestDownload(
+                                           MitsuColtCan::kCrcTransferAddress, MitsuColtCan::kCrcTransferSize)),
+                                       test_bytes::BytesEq((bytes::Bytes{0x36, 0x01, 0x65})),
+                                       test_bytes::BytesEq(MitsuColtCan::buildRoutineCheckCrc(0x8000))));
 }
 
 TEST(BenchCommands, DownloadUsesDesktopTimingAndReservesTheSlowPolicyForFinalCrc)
@@ -381,7 +383,7 @@ TEST(BenchCommands, DownloadFailsWhenTheCrcCheckEchoesTheWrongRoutine)
 
     ASSERT_FALSE(outcome.ok);
     EXPECT_EQ(outcome.error_kind.value(), ErrorKind::BadResponse);
-    EXPECT_EQ(outcome.last_rx, (bytes::Bytes{0x71, 0xE0, 0x00}));
+    EXPECT_THAT(outcome.last_rx, test_bytes::BytesEq((bytes::Bytes{0x71, 0xE0, 0x00})));
 }
 
 TEST(BenchCommands, DownloadFailsWhenTheFileIsMissing)
@@ -443,13 +445,12 @@ TEST(BenchCommands, DownloadChunksAPayloadLargerThanTheTransferChunkSize)
     const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0x8000", "big.bin"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    ASSERT_EQ(harness.session.requests.size(), 6U);
-    const std::vector<bytes::Bytes> frames = MitsuColtCan::buildTransferDataFrames(bytes::ByteView(bigFile));
-    ASSERT_EQ(frames.size(), 2U);
-    EXPECT_EQ(harness.session.requests[1], frames[0]);
-    EXPECT_EQ(harness.session.requests[1].size(), 257U); // SID + 256 payload bytes
-    EXPECT_EQ(harness.session.requests[2], frames[1]);
-    EXPECT_EQ(harness.session.requests[2].size(), 2U); // SID + 1 payload byte
+    bytes::Bytes expectedFirstFrame(257, 0xAB); // SID + 256 payload bytes
+    expectedFirstFrame.front() = 0x36;
+    const bytes::Bytes expectedSecondFrame{0x36, 0xAB}; // SID + 1 payload byte
+    EXPECT_THAT(harness.session.requests, ::testing::ElementsAre(::testing::_, test_bytes::BytesEq(expectedFirstFrame),
+                                                                 test_bytes::BytesEq(expectedSecondFrame), ::testing::_,
+                                                                 ::testing::_, ::testing::_));
 }
 
 TEST(BenchCommands, UploadRoutineSendsTheBakedArrayToItsRamSlot)
@@ -500,9 +501,9 @@ TEST(BenchCommands, UploadRoutineFromFileSendsTheFilesBytesInsteadOfTheBakedArra
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
     EXPECT_EQ(harness.session.requests.at(0),
               MitsuColtCan::buildRequestDownload(MitsuColtCan::kEraseRoutineRamAddr, 4));
-    EXPECT_EQ(harness.session.requests.at(1), (bytes::Bytes{0x36, 0x11, 0x22, 0x33, 0x44}));
+    EXPECT_THAT(harness.session.requests.at(1), test_bytes::BytesEq((bytes::Bytes{0x36, 0x11, 0x22, 0x33, 0x44})));
     // 0x11+0x22+0x33+0x44 = 0x00AA, big-endian.
-    EXPECT_EQ(harness.session.requests.at(3), (bytes::Bytes{0x36, 0x00, 0xAA}));
+    EXPECT_THAT(harness.session.requests.at(3), test_bytes::BytesEq((bytes::Bytes{0x36, 0x00, 0xAA})));
 }
 
 TEST(BenchCommands, UploadRoutineFromFilePropagatesAMissingFileError)
@@ -598,7 +599,8 @@ TEST(BenchCommands, AcknowledgedSendRawForwardsTheExactSafePduAndHonoursItsTimeo
     const auto outcome = harness.run(destructiveStep(CommandId::SendRaw, {"22", "f1", "90"}));
 
     ASSERT_TRUE(outcome.ok) << outcome.error_detail;
-    EXPECT_EQ(harness.session.requests, (std::vector<bytes::Bytes>{{0x22, 0xF1, 0x90}}));
+    EXPECT_THAT(harness.session.requests,
+                ::testing::ElementsAre(test_bytes::BytesEq((bytes::Bytes{0x22, 0xF1, 0x90}))));
     EXPECT_EQ(harness.session.raw_timeouts, (std::vector<int>{1234}));
 }
 
