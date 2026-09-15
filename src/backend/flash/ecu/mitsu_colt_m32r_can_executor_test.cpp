@@ -12,6 +12,23 @@
 // which use a generic "{operation} rejected: " prefix instead. The
 // operator-cancellation message has no legacy counterpart at all -- the legacy
 // code logged nothing there.
+//
+// This family does NOT instantiate CanExecutorConformance
+// (can_executor_conformance.h), unlike its CAN siblings. execute() below
+// unconditionally runs the full connect_bootloader() handshake before it
+// ever inspects plan.operation() (see the "test_write is not supported"
+// guard well after the connect call) -- validate_mitsu_colt_m32r_can_plan()
+// has no TestWrite-specific rejection of its own, unlike the shared
+// validate_single_window_plan() every already-folded sibling's plan module
+// uses, which rejects TestWrite before any connect is attempted. So a
+// hand-built TestWrite plan for this family reaches the ECU handshake before
+// being refused, which the shared RefusesATestWritePlanRatherThanWritingForReal
+// test cannot observe -- its fixed body requires zero transport I/O and an
+// untouched last_config_. TYPED_TEST_SUITE_P's registration is all-or-nothing
+// per instantiation, so no subset of the suite can be composed for this
+// family alone without touching the already-folded siblings' own files. See
+// RefusesATestWritePlanRatherThanWritingForReal below, which pins this
+// family's actual (connect-first) behavior instead.
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_executor.h"
 
 #include <gmock/gmock.h>
@@ -557,6 +574,26 @@ TEST(MitsuColtM32rCanExecutor, ReadPropagatesADisconnectedTransport)
 
     ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::Disconnected));
+}
+
+TEST(MitsuColtM32rCanExecutor, ReadTimeoutPropagates)
+{
+    // A genuine transport-level timeout (distinct from queue_no_frame's empty
+    // reply, which UdsClient itself maps to Timeout) at the very first
+    // exchange must surface as ErrorKind::Timeout unmodified.
+    ScriptedCanFlashTransport transport;
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    MitsuColtM32rCanExecutor executor;
+    auto plan = readPlan();
+
+    transport.exchange(request(MitsuColtCan::buildDiagnosticSession(MitsuColtCan::kSessionBootload)));
+    transport.queue_error(ErrorKind::Timeout, "no reply");
+
+    const auto result = executor.execute(plan, transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
 }
 
 TEST(MitsuColtM32rCanExecutor, ReadStopsWhenCancelled)
