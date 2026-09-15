@@ -20,7 +20,23 @@ cc_library(
 fastecu_portable_gtest(
     name = "scripted_flash_transports_test",
     srcs = ["scripted_flash_transports_test.cpp"],
-    deps = [":scripted_flash_transports"],
+    deps = [
+        ":scripted_flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+    ],
+)
+
+cc_library(
+    name = "flash_printers",
+    testonly = True,
+    hdrs = ["flash_printers.h"],
+    deps = ["//src/backend/flash:flash_types"],
+)
+
+fastecu_portable_gtest(
+    name = "flash_printers_test",
+    srcs = ["flash_printers_test.cpp"],
+    deps = [":flash_printers"],
 )
 
 cc_library(

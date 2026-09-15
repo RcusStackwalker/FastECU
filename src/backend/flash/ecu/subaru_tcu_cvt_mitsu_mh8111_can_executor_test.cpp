@@ -1,20 +1,16 @@
 #include "src/backend/ports/testing/result_matchers.h"
 // Equivalence tests for SubaruTcuCvtMitsuMh8111CanExecutor, the portable
-// replacement for FlashTcuCvtSubaruMitsuMH8111CanOperation's
-// connect_bootloader(), read_mem(), write_mem(), reflash_block() and
-// erase_mem(). Expected wire bytes are transcribed character-for-character
-// from
-// src/platform/desktop/common/flash/legacy/tcu/flash_tcu_cvt_subaru_mitsu_mh8111_can_operation.cpp,
-// with two disclosed deliberate divergences from the literal source: (1)
+// replacement for flash_tcu_cvt_subaru_mitsu_mh8111_can_operation.cpp.
+//
+// Two disclosed deliberate divergences from the literal legacy source: (1)
 // erase_mem's own retry loop never resends and never breaks on success in
-// legacy (so write_mem always failed at the erase step in production) --
-// this ports the evident retry-until-match intent shared by every sibling
-// retry loop in the same file instead; (2) the "alive check" exchange in
-// connect_bootloader sends a 0x34-prefixed PDU but checks for a
-// 0x71-prefixed reply (a different service's SID+0x40), which the brief's
-// own Step 7 description got wrong (it describes Task 3's alive-recheck
-// bytes instead) -- the executor uses the bytes actually found in the
-// legacy source.
+// legacy (so write_mem always failed at the erase step in production) -- this
+// ports the evident retry-until-match intent shared by every sibling retry
+// loop in the same file instead; (2) the "alive check" exchange in
+// connect_bootloader sends a 0x34-prefixed PDU but checks for a 0x71-prefixed
+// reply (a different service's SID+0x40), which the brief's own Step 7
+// description got wrong (it describes Task 3's alive-recheck bytes instead) --
+// the executor uses the bytes actually found in the legacy source.
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_executor.h"
 
 #include <gmock/gmock.h>
@@ -122,8 +118,7 @@ fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation, std::size_t im
 
 // The seed/encrypt/decrypt tables, transcribed independently from the same
 // legacy lines the executor was (generate_seed_key/encrypt_payload/
-// decrypt_payload, lines 904-977) -- not read back from the executor's own
-// translation unit.
+// decrypt_payload) -- not read back from the executor's own translation unit.
 constexpr std::array<std::uint16_t, 16> kSeedKeyTable{0x9E99, 0x685C, 0x874D, 0xF11E, 0x27D4, 0xA967, 0xB63B, 0x7A37,
                                                       0xE23B, 0xA8D0, 0x9B82, 0xAC43, 0xE874, 0x7FC5, 0x7141, 0x8B44};
 constexpr std::array<std::uint16_t, 4> kEncryptTable{0x7bf2, 0xa8b4, 0x4492, 0x6587};
@@ -149,53 +144,52 @@ bytes::Bytes toWire(bytes::ByteView plain)
 
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};
 
-// TCU ID (0xAA, legacy lines 94-133) / CAL ID (0x09/0x04, lines 135-168):
-// both non-fatal, scripted with a valid-if-uninteresting reply.
+// TCU ID (0xAA) / CAL ID (0x09/0x04): both non-fatal, scripted with a valid-
+// if-uninteresting reply.
 void scriptIdentityQueries(ScriptedCanFlashTransport& transport)
 {
-    transport.expectWrite(request({0xAA}));
-    transport.queueRead(response({0xEA, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05}));
+    const auto section = transport.section("identity queries");
+    transport.exchange(request({0xAA}), response({0xEA, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05}));
 
-    transport.expectWrite(request({0x09, 0x04}));
-    transport.queueRead(response({0x49, 0x04, 'C', 'A', 'L'}));
+    transport.exchange(request({0x09, 0x04}), response({0x49, 0x04, 'C', 'A', 'L'}));
 }
 
-// Session 0x10/0x43 (lines 170-197), non-fatal.
+// Session 0x10/0x43, non-fatal.
 void scriptSession(ScriptedCanFlashTransport& transport)
 {
-    transport.expectWrite(request({0x10, 0x43}));
-    transport.queueRead(response({0x50, 0x43}));
+    const auto section = transport.section("session");
+    transport.exchange(request({0x10, 0x43}), response({0x50, 0x43}));
 }
 
-// Seed (0x27/0x01) and seed key (0x27/0x02), both fatal (lines 199-263).
+// Seed (0x27/0x01) and seed key (0x27/0x02), both fatal.
 void scriptSeedAndKey(ScriptedCanFlashTransport& transport, bytes::ByteView seed, bytes::ByteView key)
 {
-    transport.expectWrite(request({0x27, 0x01}));
+    const auto section = transport.section("seed and key");
     bytes::Bytes seedResponse{0x67, 0x01};
     seedResponse.insert(seedResponse.end(), seed.begin(), seed.end());
-    transport.queueRead(response(seedResponse));
+    transport.exchange(request({0x27, 0x01}), response(seedResponse));
 
     bytes::Bytes keyRequest{0x27, 0x02};
     keyRequest.insert(keyRequest.end(), key.begin(), key.end());
-    transport.expectWrite(request(keyRequest));
-    transport.queueRead(response({0x67, 0x02}));
+    transport.exchange(request(keyRequest), response({0x67, 0x02}));
 }
 
-// Jump 0x10/0x42, fatal (lines 267-295).
+// Jump 0x10/0x42, fatal.
 void scriptJump(ScriptedCanFlashTransport& transport)
 {
-    transport.expectWrite(request({0x10, 0x42}));
-    transport.queueRead(response({0x50, 0x42}));
+    const auto section = transport.section("jump");
+    transport.exchange(request({0x10, 0x42}), response({0x50, 0x42}));
 }
 
-// Alive check (lines 298-331): sent 0x34/0x04/0x33/0x00/0x00/0x00/0x08/0x00/
-// 0x00, checked against a 0x71-prefixed reply -- a different service's
-// SID+0x40, not this PDU's own (0x74). Confirmed directly against the
-// legacy source (re-read twice); see the file header comment.
+// Alive check: sent 0x34/0x04/0x33/0x00/0x00/0x00/0x08/0x00/ 0x00, checked
+// against a 0x71-prefixed reply -- a different service's SID+0x40, not this
+// PDU's own (0x74). Confirmed directly against the legacy source (re-read
+// twice); see the file header comment.
 void scriptAliveCheck(ScriptedCanFlashTransport& transport)
 {
-    transport.expectWrite(request({0x34, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}));
-    transport.queueRead(response({0x71, 0x02, 0x02, 0x03}));
+    const auto section = transport.section("alive check");
+    transport.exchange(request({0x34, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}),
+                       response({0x71, 0x02, 0x02, 0x03}));
 }
 
 // Scripts the full 7-exchange connect_bootloader sequence -- there is no
@@ -203,6 +197,7 @@ void scriptAliveCheck(ScriptedCanFlashTransport& transport)
 // CAN sibling), so this always runs in full.
 void scriptFullConnect(ScriptedCanFlashTransport& transport)
 {
+    const auto section = transport.section("full connect");
     scriptIdentityQueries(transport);
     scriptSession(transport);
     const bytes::Bytes key = seedKey(kSeed);
@@ -211,13 +206,14 @@ void scriptFullConnect(ScriptedCanFlashTransport& transport)
     scriptAliveCheck(transport);
 }
 
-// Scripts the "Settting dump start & length..." exchange (legacy read_mem,
-// lines 365-400): sent 0x35-prefixed, checked against a 0x74-prefixed
-// reply -- again a service mismatch, confirmed directly against source.
+// Scripts the "Settting dump start & length..." exchange (legacy read_mem):
+// sent 0x35-prefixed, checked against a 0x74-prefixed reply -- again a service
+// mismatch, confirmed directly against source.
 void scriptDumpSetup(ScriptedCanFlashTransport& transport)
 {
-    transport.expectWrite(request({0x35, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}));
-    transport.queueRead(response({0x74, 0x20, 0x01, 0x04}));
+    const auto section = transport.section("dump setup");
+    transport.exchange(request({0x35, 0x04, 0x33, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00}),
+                       response({0x74, 0x20, 0x01, 0x04}));
 }
 
 // Scripts the chunked 0xB7 dump sweep over [start, start+length) at
@@ -227,47 +223,47 @@ void scriptDumpSetup(ScriptedCanFlashTransport& transport)
 void scriptFlashDump(ScriptedCanFlashTransport& transport, std::uint32_t start, std::uint32_t length,
                      std::uint32_t pagesize, bytes::Byte fill)
 {
+    const auto section = transport.section("flash dump");
     const bytes::Bytes plainPage(pagesize, fill);
     const bytes::Bytes wirePage = toWire(plainPage);
     for (std::uint32_t addr = start; addr < start + length; addr += pagesize)
     {
-        transport.expectWrite(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(addr))));
         bytes::Bytes reply = response({0xF7});
         reply.insert(reply.end(), wirePage.begin(), wirePage.end());
-        transport.queueRead(reply);
+        transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(addr))), reply);
     }
 }
 
-// Scripts the "Sending stop command..." exchange (legacy read_mem, lines
-// 504-526): content-blind, succeeding on the first non-empty reply.
+// Scripts the "Sending stop command..." exchange (legacy read_mem): content-
+// blind, succeeding on the first non-empty reply.
 void scriptStopCommand(ScriptedCanFlashTransport& transport)
 {
-    transport.expectWrite(request({0x37}));
-    transport.queueRead(response({0x77}));
+    const auto section = transport.section("stop command");
+    transport.exchange(request({0x37}), response({0x77}));
 }
 
-// Scripts erase_mem's single successful attempt (legacy lines 833-892 --
-// see the file header comment on the evident retry-until-match intent this
-// ports instead of the literal always-failing loop).
+// Scripts erase_mem's single successful attempt (-- see the file header
+// comment on the evident retry-until-match intent this ports instead of the
+// literal always-failing loop).
 void scriptEraseMemory(ScriptedCanFlashTransport& transport)
 {
-    transport.expectWrite(request({0x31, 0x01, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff}));
-    transport.queueRead(response({0x71, 0x01, 0x02}));
+    const auto section = transport.section("erase memory");
+    transport.exchange(request({0x31, 0x01, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff}), response({0x71, 0x01, 0x02}));
 }
 
-// Scripts unlock_and_reflash_block's setup, 256-byte chunk sweep
-// (content-blind), close and checksum (legacy lines 636-826), each
-// succeeding on the first attempt.
+// Scripts unlock_and_reflash_block's setup, 256-byte chunk sweep (content-
+// blind), close and checksum, each succeeding on the first attempt.
 void scriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView blockPlain)
 {
+    const auto section = transport.section("write block");
     constexpr std::uint32_t kChunkSize = 256;
     // Legacy's own halved data_len bug (maxblocks*128 instead of *256, see
     // reflash_block's comment): kWriteLength/256 * 128 == kWriteLength/2.
     constexpr std::uint32_t kSetupDataLen = (kWriteLength / kChunkSize) * 128;
 
-    transport.expectWrite(request(bytes::composeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33),
-                                                   bytes::u24(0), bytes::u24(kSetupDataLen))));
-    transport.queueRead(response({0x74}));
+    transport.exchange(request(bytes::composeBe(bytes::Byte(0x34), bytes::Byte(0x04), bytes::Byte(0x33), bytes::u24(0),
+                                                bytes::u24(kSetupDataLen))),
+                       response({0x74}));
 
     const bytes::Bytes encrypted = toWire(blockPlain);
     for (std::uint32_t offset = 0; offset < kWriteLength; offset += kChunkSize)
@@ -275,15 +271,12 @@ void scriptWriteBlock(ScriptedCanFlashTransport& transport, bytes::ByteView bloc
         const std::uint32_t addr = kWriteStart + offset;
         bytes::Bytes req = bytes::composeBe(bytes::Byte(0xB6), bytes::u24(addr),
                                             bytes::ByteView(encrypted).subspan(offset, kChunkSize));
-        transport.expectWrite(request(req));
-        transport.queueRead(response({0xF6}));
+        transport.exchange(request(req), response({0xF6}));
     }
 
-    transport.expectWrite(request({0x37}));
-    transport.queueRead(response({0x77}));
+    transport.exchange(request({0x37}), response({0x77}));
 
-    transport.expectWrite(request({0x31, 0x01, 0x02, 0x02, 0x01}));
-    transport.queueRead(response({0x71, 0x01, 0x02}));
+    transport.exchange(request({0x31, 0x01, 0x02, 0x02, 0x01}), response({0x71, 0x01, 0x02}));
 }
 
 bytes::Bytes writeRom()
@@ -348,7 +341,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, RejectsAPlanFromAnotherFamilyBeforeAnyI
 TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ConnectFullSequenceEveryTime)
 {
     // Proves there is no alive-skip shortcut (unlike Task 3): scripts every
-    // one of the 7 connect_bootloader exchanges in exact order. expectWrite
+    // one of the 7 connect_bootloader exchanges in exact order. The fake
     // does byte-exact matching, so a skipped or reordered exchange would
     // fail the very next write comparison instead of silently passing.
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
@@ -397,9 +390,9 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadReturnsTheLowerWindowPaddedWithFF)
 
 TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadReportsAnEmptyReplyAsTimeout)
 {
-    // The first exchange with a genuine early-return path on an empty reply
-    // is the fatal seed request (legacy lines 199-225); TCU ID/CAL ID/
-    // session never halt connect_bootloader on their own.
+    // The first exchange with a genuine early-return path on an empty reply is
+    // the fatal seed request; TCU ID/CAL ID/ session never halt
+    // connect_bootloader on their own.
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     RecordingEventSink events;
@@ -409,7 +402,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadReportsAnEmptyReplyAsTimeout)
 
     scriptIdentityQueries(transport);
     scriptSession(transport);
-    transport.expectWrite(request({0x27, 0x01}));
+    transport.exchange(request({0x27, 0x01}));
     transport.queue_no_frame();
 
     ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),
@@ -455,12 +448,12 @@ class CancelAfterFirstChunkSink final : public RecordingEventSink
 
 TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadStopsAtTheNextChunkWhenCancelledMidRead)
 {
-    // Exercises the cancellation check at the top of dump_flash_range's
-    // page loop (legacy stopRequested(), line 421): connect and the first
-    // 0x100 dump chunk are scripted, cancel() lands on that chunk's
-    // progress event, and the loop must stop before requesting a second
-    // chunk -- there is no second chunk scripted, so any further write
-    // would fail against the exhausted script instead.
+    // Exercises the cancellation check at the top of dump_flash_range's page
+    // loop (legacy stopRequested()): connect and the first 0x100 dump chunk
+    // are scripted, cancel() lands on that chunk's progress event, and the
+    // loop must stop before requesting a second chunk -- there is no second
+    // chunk scripted, so any further write would fail against the exhausted
+    // script instead.
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     FakeClock clock;
     fastecu::ManualCancellationToken cancellation;
@@ -501,7 +494,7 @@ TEST(SubaruTcuCvtMitsuMh8111CanExecutor, ReadPropagatesADisconnectedTransport)
 
     scriptFullConnect(transport);
     scriptDumpSetup(transport);
-    transport.expectWrite(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(kReadStart))));
+    transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), bytes::u24(kReadStart))));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone");
 
     ASSERT_THAT(executor.execute(plan, transport, clock, cancellation, events),

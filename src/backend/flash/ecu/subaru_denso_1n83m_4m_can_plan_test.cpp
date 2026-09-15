@@ -44,9 +44,9 @@ TEST(SubaruDenso1n83m_4mCanPlan, TestWriteIsRejectedBeforeAnyIo)
 
 TEST(SubaruDenso1n83m_4mCanPlan, WriteRequiresFullStartAlignedImage)
 {
-    // reflash_block indexes newdata[i + blockaddr - fblocks[0].start]
-    // (line 1241) over the caller's &data_array[0] (line 1153), so the image
-    // must span fblocks[0].start..end, i.e. 0x3E4000 bytes.
+    // reflash_block indexes newdata[i + blockaddr - fblocks[0].start] over the
+    // caller's &data_array[0], so the image must span fblocks[0].start..end,
+    // i.e. 0x3E4000 bytes.
     auto tooShort =
         build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x3D3F00, 0x00));
     ASSERT_THAT(tooShort, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
