@@ -5,7 +5,10 @@
 #include <chrono>
 #include <condition_variable>
 #include <deque>
+#include <format>
 #include <mutex>
+#include <string>
+#include <string_view>
 #include <vector>
 
 namespace fastecu::flash
@@ -42,9 +45,51 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         Read10,
     };
 
+    // RAII label for every step recorded while it is alive. One line per
+    // script helper, so the label costs nothing per exchange and comes from a
+    // function that is already named.
+    class ScriptSection
+    {
+      public:
+        ScriptSection(ScriptedKlineFlashTransport& transport, std::string_view label) : transport_(&transport)
+        {
+            previous_ = transport.current_section_;
+            transport.current_section_ = std::string(label);
+        }
+        ScriptSection(const ScriptSection&) = delete;
+        ScriptSection& operator=(const ScriptSection&) = delete;
+        ~ScriptSection()
+        {
+            transport_->current_section_ = previous_;
+        }
+
+      private:
+        ScriptedKlineFlashTransport *transport_;
+        std::string previous_;
+    };
+
+    [[nodiscard]] ScriptSection section(std::string_view label)
+    {
+        return ScriptSection(*this, label);
+    }
+
+    void exchange(bytes::ByteView request, bytes::ByteView response)
+    {
+        expected_.emplace_back(request.begin(), request.end());
+        sections_.emplace_back(current_section_);
+        reads_.emplace_back(OptionalBytes{bytes::Bytes(response.begin(), response.end())});
+    }
+
+    void exchange(bytes::ByteView request)
+    {
+        expected_.emplace_back(request.begin(), request.end());
+        sections_.emplace_back(current_section_);
+    }
+
     void expectWrite(bytes::ByteView b)
     {
         expected_.emplace_back(b.begin(), b.end());
+        sections_.emplace_back(current_section_);
     }
     void queueRead(bytes::ByteView b)
     {
@@ -145,9 +190,16 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     }
     Result<std::size_t> write(bytes::ByteView data) override
     {
-        if (wIdx_ >= expected_.size() || expected_.at(wIdx_) != bytes::Bytes(data.begin(), data.end()))
+        const bytes::Bytes actual(data.begin(), data.end());
+        if (wIdx_ >= expected_.size())
         {
-            return fail(ErrorKind::Internal, "unexpected scripted K-Line write");
+            return fail(ErrorKind::Internal,
+                        std::format("scripted K-Line write ran past the end of the script ({} exchanges); wrote {}",
+                                    expected_.size(), bytes::toHex(actual)));
+        }
+        if (expected_.at(wIdx_) != actual)
+        {
+            return fail(ErrorKind::Internal, describeDivergence(wIdx_, actual));
         }
         ++wIdx_;
         return data.size();
@@ -208,7 +260,19 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     Status set_baud_result_;
 
   private:
+    std::string describeDivergence(std::size_t index, const bytes::Bytes& actual) const
+    {
+        const std::string& label = sections_.at(index);
+        const std::string where = label.empty()
+                                      ? std::format("scripted K-Line exchange #{}", index + 1)
+                                      : std::format("scripted K-Line exchange #{} (\"{}\")", index + 1, label);
+        return std::format("{} diverged\n  expected: {}\n  actual:   {}", where, bytes::toHex(expected_.at(index)),
+                           bytes::toHex(actual));
+    }
+
     std::vector<bytes::Bytes> expected_;
+    std::vector<std::string> sections_;
+    std::string current_section_;
     std::deque<Result<OptionalBytes>> reads_;
     std::size_t wIdx_ = 0;
     bool open_ = false;

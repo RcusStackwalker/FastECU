@@ -1,13 +1,7 @@
 #include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/ports/testing/result_matchers.h"
 // Equivalence tests for SubaruDenso1n83m_1_5mCanExecutor, the portable
-// replacement for FlashEcuSubaruDenso1N83M_1_5MCanOperation's
-// connect_bootloader(), read_memory(), write_memory(), reflash_block() and
-// erase_memory(). Every scripted exchange cites the line of
-// src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_1n83m_1_5m_can_operation.cpp
-// it was transcribed from, as of 20892df -- this branch's base, and the last
-// commit before the file was deleted here. Master later reflowed one line in
-// three of the four (S1117, #240), so resolve citations against 20892df.
+// replacement for flash_ecu_subaru_denso_1n83m_1_5m_can_operation.cpp.
 #include "src/backend/flash/ecu/subaru_denso_1n83m_1_5m_can_executor.h"
 
 #include <gmock/gmock.h>
@@ -75,8 +69,7 @@ constexpr std::size_t kImageSize = 0x184000;
 constexpr std::uint32_t kPageSize = 0x100;
 
 // Every primary request carries the 4-byte big-endian 0x7E0 envelope; every
-// primary response the 0x7E8 reply id (legacy connect_bootloader, lines
-// 107-110).
+// primary response the 0x7E8 reply id (legacy connect_bootloader).
 bytes::Bytes requestTo(std::uint32_t id, bytes::ByteView payload)
 {
     bytes::Bytes out;
@@ -141,10 +134,10 @@ fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation)
 }
 
 // The seed/encrypt tables, transcribed independently from the same legacy
-// lines the executor was (generate_can_seed_key/encrypt_payload/
-// decrypt_payload, lines 1474-1529) rather than read back from the executor's
-// own translation unit, so a wrong table entry in the executor fails these
-// assertions instead of passing silently.
+// lines the executor was
+// (generate_can_seed_key/encrypt_payload/decrypt_payload) rather than read
+// back from the executor's own translation unit, so a wrong table entry in the
+// executor fails these assertions instead of passing silently.
 constexpr std::array<std::uint16_t, 16> kSeedKeyTable{0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4, 0xFD21, 0x5E71,
                                                       0xB046, 0x7F4A, 0x4B75, 0x93F9, 0x1895, 0x8961, 0x3ECC, 0x862B};
 constexpr std::array<std::uint16_t, 4> kEncryptTable{0xC85B, 0x32C0, 0xE282, 0x92A0};
@@ -172,157 +165,133 @@ bytes::Bytes toWire(bytes::ByteView plain)
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};
 
 // The OBK probe miss, the four non-fatal identity queries, the access-method
-// probe and the branch selector (legacy lines 105-339). Byte 7 of the raw
-// 0x22 0x10 0x1D reply frame -- payload index 3 -- selects the programming
-// branch at line 341.
+// probe and the branch selector. Byte 7 of the raw 0x22 0x10 0x1D reply frame
+// -- payload index 3 -- selects the programming branch.
 void scriptPreliminaries(ScriptedCanFlashTransport& t, bytes::Byte branchByte)
 {
-    t.expectWrite(request({0x10, 0x5F})); // OBK probe (lines 106-127), miss
-    t.queueRead(response({0x50, 0x01}));
-    t.expectWrite(request({0xAA})); // ECU ID (lines 132-172)
-    t.queueRead(response({0xEA, 0, 0, 0, 0, 1, 2, 3, 4, 5}));
-    t.expectWrite(request({0x09, 0x02})); // VIN (lines 175-205)
-    t.queueRead(response({0x49, 0x02, 'V', 'I', 'N'}));
-    t.expectWrite(request({0x09, 0x04})); // CAL ID (lines 208-242)
-    t.queueRead(response({0x49, 0x04, 'C', 'A', 'L'}));
-    t.expectWrite(request({0x09, 0x06})); // CVN (lines 245-281)
-    t.queueRead(response({0x49, 0x06, 0xAA, 0xBB}));
-    t.expectWrite(request({0x10, 0x5F})); // access method (lines 286-311)
-    t.queueRead(response({0x50, 0x01}));
-    t.expectWrite(request({0x22, 0x10, 0x1D})); // branch selector (lines 313-341)
-    t.queueRead(response({0x62, 0x10, 0x1D, branchByte}));
+    const auto section = t.section("preliminaries");
+    t.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));                         // OBK probe, miss
+    t.exchange(request({0xAA}), response({0xEA, 0, 0, 0, 0, 1, 2, 3, 4, 5}));          // ECU ID
+    t.exchange(request({0x09, 0x02}), response({0x49, 0x02, 'V', 'I', 'N'}));          // VIN
+    t.exchange(request({0x09, 0x04}), response({0x49, 0x04, 'C', 'A', 'L'}));          // CAL ID
+    t.exchange(request({0x09, 0x06}), response({0x49, 0x06, 0xAA, 0xBB}));             // CVN
+    t.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));                         // access method
+    t.exchange(request({0x22, 0x10, 0x1D}), response({0x62, 0x10, 0x1D, branchByte})); // branch selector
 }
 
-// The bench arm (legacy lines 657-803).
+// The bench arm.
 void scriptBenchConnect(ScriptedCanFlashTransport& t)
 {
+    const auto section = t.section("bench connect");
     scriptPreliminaries(t, 0xFF);
-    t.expectWrite(request({0x10, 0x43})); // lines 661-689
-    t.queueRead(response({0x50, 0x43}));
-    t.expectWrite(request({0x27, 0x61})); // lines 693-721
-    t.queueRead(response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
-    bytes::Bytes key{0x27, 0x62}; // lines 734-766
+    t.exchange(request({0x10, 0x43}), response({0x50, 0x43}));
+    t.exchange(request({0x27, 0x61}), response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
+    bytes::Bytes key{0x27, 0x62};
     const bytes::Bytes k = seedKey(kSeed);
     key.insert(key.end(), k.begin(), k.end());
-    t.expectWrite(request(key));
-    t.queueRead(response({0x67, 0x62}));
-    t.expectWrite(request({0x10, 0x42})); // lines 772-802
-    t.queueRead(response({0x50, 0x42}));
+    t.exchange(request(key), response({0x67, 0x62}));
+    t.exchange(request({0x10, 0x42}), response({0x50, 0x42}));
 }
 
-// The 0x34/0x35 dump setup pair (legacy read_memory, lines 837-917).
+// The 0x34/0x35 dump setup pair (legacy read_memory).
 void scriptReadSetup(ScriptedCanFlashTransport& t)
 {
-    t.expectWrite(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}));
-    t.queueRead(response({0x74, 0x20, 0x01, 0x05}));
-    t.expectWrite(request({0x35, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}));
-    t.queueRead(response({0x75, 0x20, 0x01, 0x01}));
+    const auto section = t.section("read setup");
+    t.exchange(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}),
+               response({0x74, 0x20, 0x01, 0x05}));
+    t.exchange(request({0x35, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}),
+               response({0x75, 0x20, 0x01, 0x01}));
 }
 
-// The chunked 0xB7 dump sweep (legacy read_memory, lines 922-1023): 0xB7 plus
-// a 4-byte big-endian address, answered with 0xF7 plus one encrypted page.
+// The chunked 0xB7 dump sweep (legacy read_memory): 0xB7 plus a 4-byte big-
+// endian address, answered with 0xF7 plus one encrypted page.
 void scriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, std::uint32_t length, std::uint32_t pagesize,
                      bytes::Byte fill)
 {
+    const auto section = t.section("flash dump");
     const bytes::Bytes wirePage = toWire(bytes::Bytes(pagesize, fill));
     for (std::uint32_t addr = start; addr < start + length; addr += pagesize)
     {
-        t.expectWrite(request(bytes::composeBe(bytes::Byte(0xB7), addr)));
         bytes::Bytes reply = response({0xF7});
         reply.insert(reply.end(), wirePage.begin(), wirePage.end());
-        t.queueRead(reply);
+        t.exchange(request(bytes::composeBe(bytes::Byte(0xB7), addr)), reply);
     }
 }
 
-// The 0x37 stop command (legacy read_memory, lines 1030-1057).
+// The 0x37 stop command (legacy read_memory).
 void scriptStopCommand(ScriptedCanFlashTransport& t)
 {
-    t.expectWrite(request({0x37}));
-    t.queueRead(response({0x77}));
+    const auto section = t.section("stop command");
+    t.exchange(request({0x37}), response({0x77}));
 }
 
-// The in-car arm (legacy lines 341-656). The ten fire-and-forget replies are
-// deliberately given arbitration ids other than 0x7E8 wherever the addressed
-// module would answer on its own id: legacy reads whichever frame arrives
-// next without checking the id, and this pins that the port does not add a
-// check legacy lacks.
+// The in-car arm. The ten fire-and-forget replies are deliberately given
+// arbitration ids other than 0x7E8 wherever the addressed module would answer
+// on its own id: legacy reads whichever frame arrives next without checking
+// the id, and this pins that the port does not add a check legacy lacks.
 void scriptInCarConnect(ScriptedCanFlashTransport& t)
 {
+    const auto section = t.section("in-car connect");
     scriptPreliminaries(t, 0x00);
 
-    t.expectWrite(request({0x10, 0x5F})); // lines 346-371, mismatch logs only
-    t.queueRead(response({0x50, 0x01}));
+    t.exchange(request({0x10, 0x5F}), response({0x50, 0x01})); // mismatch logs only
 
-    t.expectWrite(requestTo(0x7A2, {0x10, 0xC0})); // lines 373-383
-    t.queueRead(responseFrom(0x7AA, {0x50, 0xC0}));
-    t.expectWrite(request({0x10, 0x63})); // lines 385-395
-    t.queueRead(response({0x50, 0x63}));
-    t.expectWrite(requestTo(0x7DF, {0x10, 0x03})); // lines 397-407
-    t.queueRead(response({0x50, 0x03}));
-    t.expectWrite(requestTo(0x7E1, {0x10, 0x63})); // lines 409-419
-    t.queueRead(responseFrom(0x7E9, {0x50, 0x63}));
-    t.expectWrite(requestTo(0x7B0, {0x10, 0x03})); // lines 421-431
-    t.queueRead(responseFrom(0x7B8, {0x50, 0x03}));
-    t.expectWrite(requestTo(0x7B0, {0x85, 0x02})); // lines 433-443
-    t.queueRead(responseFrom(0x7B8, {0xC5, 0x02}));
-    t.expectWrite(requestTo(0x7DF, {0x85, 0x02})); // lines 445-455
-    t.queueRead(response({0xC5, 0x02}));
-    t.expectWrite(requestTo(0x7B0, {0x85, 0x02})); // lines 457-467
-    t.queueRead(responseFrom(0x7B8, {0xC5, 0x02}));
-    t.expectWrite(requestTo(0x7DF, {0x85, 0x02})); // lines 469-479
-    t.queueRead(response({0xC5, 0x02}));
-    t.expectWrite(requestTo(0x7DF, {0x28, 0x03, 0x01})); // lines 481-492
-    t.queueRead(response({0x68, 0x03}));
+    t.exchange(requestTo(0x7A2, {0x10, 0xC0}), responseFrom(0x7AA, {0x50, 0xC0}));
+    t.exchange(request({0x10, 0x63}), response({0x50, 0x63}));
+    t.exchange(requestTo(0x7DF, {0x10, 0x03}), response({0x50, 0x03}));
+    t.exchange(requestTo(0x7E1, {0x10, 0x63}), responseFrom(0x7E9, {0x50, 0x63}));
+    t.exchange(requestTo(0x7B0, {0x10, 0x03}), responseFrom(0x7B8, {0x50, 0x03}));
+    t.exchange(requestTo(0x7B0, {0x85, 0x02}), responseFrom(0x7B8, {0xC5, 0x02}));
+    t.exchange(requestTo(0x7DF, {0x85, 0x02}), response({0xC5, 0x02}));
+    t.exchange(requestTo(0x7B0, {0x85, 0x02}), responseFrom(0x7B8, {0xC5, 0x02}));
+    t.exchange(requestTo(0x7DF, {0x85, 0x02}), response({0xC5, 0x02}));
+    t.exchange(requestTo(0x7DF, {0x28, 0x03, 0x01}), response({0x68, 0x03}));
 
-    t.expectWrite(request({0x27, 0x61})); // lines 494-521
-    t.queueRead(response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
-    bytes::Bytes key{0x27, 0x62}; // lines 534-562
+    t.exchange(request({0x27, 0x61}), response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
+    bytes::Bytes key{0x27, 0x62};
     const bytes::Bytes k = seedKey(kSeed);
     key.insert(key.end(), k.begin(), k.end());
-    t.expectWrite(request(key));
-    t.queueRead(response({0x67, 0x62}));
+    t.exchange(request(key), response({0x67, 0x62}));
 
-    t.expectWrite(request({0x10, 0x5F})); // lines 566-593, fatal on mismatch
-    t.queueRead(response({0x50, 0x63}));
-    t.expectWrite(request({0x22, 0x10, 0x1D})); // lines 595-623, fatal on mismatch
-    t.queueRead(response({0x62, 0x10, 0x1D, 0x00}));
-    t.expectWrite(request({0x10, 0x62})); // lines 627-655
-    t.queueRead(response({0x50, 0x62}));
+    t.exchange(request({0x10, 0x5F}), response({0x50, 0x63}));                   // fatal on mismatch
+    t.exchange(request({0x22, 0x10, 0x1D}), response({0x62, 0x10, 0x1D, 0x00})); // fatal on mismatch
+    t.exchange(request({0x10, 0x62}), response({0x50, 0x62}));
 }
 
-// erase_memory's setup PDU plus its erase trigger (legacy lines 1379-1434);
-// the trigger's answer is consumed by the re-read loop, not by a paired read.
+// erase_memory's setup PDU plus its erase trigger; the trigger's answer is
+// consumed by the re-read loop, not by a paired read.
 void scriptEraseMemory(ScriptedCanFlashTransport& t)
 {
-    t.expectWrite(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}));
-    t.queueRead(response({0x74, 0x20, 0x01, 0x05}));
-    t.expectWrite(request({0x31, 0x01, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF}));
+    const auto section = t.section("erase memory");
+    t.exchange(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}),
+               response({0x74, 0x20, 0x01, 0x05}));
+    t.exchange(request({0x31, 0x01, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF}));
 }
 
-// The 0xB6 write-chunk sweep for block 1 (legacy reflash_block, lines
-// 1203-1253). `rom` is the whole 0x184000 plan image, encrypted once, and
-// indexed from kImageStart -- so chunk 0 carries encrypted[0x10000..0x10100).
+// The 0xB6 write-chunk sweep for block 1 (legacy reflash_block). `rom` is the
+// whole 0x184000 plan image, encrypted once, and indexed from kImageStart --
+// so chunk 0 carries encrypted[0x10000..0x10100).
 void scriptReflashChunks(ScriptedCanFlashTransport& t, bytes::ByteView rom)
 {
+    const auto section = t.section("reflash chunks");
     const bytes::Bytes encrypted = toWire(rom);
     for (std::uint32_t offset = 0; offset < kBlockLength; offset += 256)
     {
         const std::uint32_t addr = kBlockStart + offset;
-        t.expectWrite(request(
-            bytes::composeBe(bytes::Byte(0xB6), addr, bytes::ByteView(encrypted).subspan(addr - kImageStart, 256))));
-        t.queueRead(response({0xF6}));
+        t.exchange(request(bytes::composeBe(bytes::Byte(0xB6), addr,
+                                            bytes::ByteView(encrypted).subspan(addr - kImageStart, 256))),
+                   response({0xF6}));
     }
 }
 
-// The close-block 0x37 and the checksum verify (legacy lines 1262-1352).
-// UdsClient absorbs the intermediate 0x78 responsePending NRC by re-reading,
-// so only one write is expected even though two reads are queued.
+// The close-block 0x37 and the checksum verify. UdsClient absorbs the
+// intermediate 0x78 responsePending NRC by re-reading, so only one write is
+// expected even though two reads are queued.
 void scriptCloseAndChecksum(ScriptedCanFlashTransport& t)
 {
-    t.expectWrite(request({0x37}));
-    t.queueRead(response({0x77}));
-    t.expectWrite(request({0x31, 0x01, 0x02, 0x02, 0x01}));
-    t.queueRead(response({0x7F, 0x31, 0x78}));
+    const auto section = t.section("close and checksum");
+    t.exchange(request({0x37}), response({0x77}));
+    t.exchange(request({0x31, 0x01, 0x02, 0x02, 0x01}), response({0x7F, 0x31, 0x78}));
     t.queueRead(response({0x71, 0x01, 0x02}));
 }
 
@@ -376,10 +345,10 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, BenchReadReturnsPaddedImage)
     EXPECT_THAT(events.logs, testing::Not(IsEmpty()));
 }
 
-// Legacy (20892df lines 62/70/76) names the 4MB sibling in all three of this
-// family's operator-facing identity lines -- an upstream copy-paste. Every
-// other identity string in this executor says 1.5M, so a flash log could not
-// be attributed to the executor that produced it. Corrected here; this is a
+// Legacy (20892df) names the 4MB sibling in all three of this family's
+// operator-facing identity lines -- an upstream copy-paste. Every other
+// identity string in this executor says 1.5M, so a flash log could not be
+// attributed to the executor that produced it. Corrected here; this is a
 // deliberate divergence from the legacy text, not a transcription slip.
 TEST(SubaruDenso1n83m_1_5mCanExecutor, OperatorFacingLogLinesNameThe1_5MFamily)
 {
@@ -455,19 +424,20 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, WriteErasesThenFlashesBlockOne)
     EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::Info,
                                                              "Writing ROM to ECU, Denso 1N83M 1.5MB using CAN")));
     EXPECT_THAT(events.logs, testing::Each(testing::Pair(testing::_, testing::Not(testing::HasSubstr("4MB")))));
-    // The image base is already pinned by expectWrite: scriptReflashChunks
-    // builds every 0xB6 frame from encrypted.subspan(addr - kImageStart, 256).
-    // This adds only that calculatePayload is 4-byte-word independent, so the
-    // page-at-a-time comparison above is a valid way to express it.
+    // The image base is already pinned by the scripted exchanges:
+    // scriptReflashChunks builds every 0xB6 frame from encrypted.subspan(addr
+    // - kImageStart, 256). This adds only that calculatePayload is 4-byte-word
+    // independent, so the page-at-a-time comparison above is a valid way to
+    // express it.
     const bytes::Bytes encrypted = toWire(rom);
     EXPECT_THAT(bytes::Bytes(encrypted.begin() + 0x10000, encrypted.begin() + 0x10000 + 256),
                 test_bytes::BytesEq(toWire(bytes::ByteView(rom).subspan(0x10000, 256))));
     // Every sleep the write path performs, in order, each with the legacy
-    // delay() it reproduces: connect_bench's wait (line 660), the settle after
-    // the erase command (line 1436), and the settle before the
-    // checksum-verify write (line 1291). Asserted as a whole sequence rather
-    // than by Contains so that dropping one -- as this port did with the 1291
-    // settle -- fails here instead of passing silently.
+    // delay() it reproduces: connect_bench's wait, the settle after the erase
+    // command, and the settle before the checksum-verify write. Asserted as a
+    // whole sequence rather than by Contains so that dropping one -- as this
+    // port did with the checksum-verify settle -- fails here instead of
+    // passing silently.
     EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{500ms, 500ms, 100ms}));
 }
 
@@ -494,7 +464,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, ReadTimeoutPropagates)
 {
     ScriptedCanFlashTransport transport;
     scriptBenchConnect(transport);
-    transport.expectWrite(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}));
+    transport.exchange(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}));
     transport.queue_error(ErrorKind::Timeout, "no reply");
 
     FakeClock clock;
@@ -512,7 +482,7 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, ReadDisconnectPropagates)
     ScriptedCanFlashTransport transport;
     scriptBenchConnect(transport);
     scriptReadSetup(transport);
-    transport.expectWrite(request(bytes::composeBe(bytes::Byte(0xB7), kBlockStart)));
+    transport.exchange(request(bytes::composeBe(bytes::Byte(0xB7), kBlockStart)));
     transport.queue_error(ErrorKind::Disconnected, "adapter gone");
 
     FakeClock clock;
@@ -528,14 +498,12 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, ReadDisconnectPropagates)
 TEST(SubaruDenso1n83m_1_5mCanExecutor, NegativeResponseDuringConnectFails)
 {
     // The mirror of 1n83m_4m's tolerated checks: this family is strict, so a
-    // negative response to the seed request (legacy lines 693-721, which
-    // return STATUS_ERROR) must abort rather than be logged and stepped over.
+    // negative response to the seed request, which returns STATUS_ERROR, must
+    // abort rather than be logged and stepped over.
     ScriptedCanFlashTransport transport;
     scriptPreliminaries(transport, 0xFF);
-    transport.expectWrite(request({0x10, 0x43}));
-    transport.queueRead(response({0x50, 0x43}));
-    transport.expectWrite(request({0x27, 0x61}));
-    transport.queueRead(response({0x7F, 0x27, 0x35}));
+    transport.exchange(request({0x10, 0x43}), response({0x50, 0x43}));
+    transport.exchange(request({0x27, 0x61}), response({0x7F, 0x27, 0x35}));
 
     FakeClock clock;
     RecordingEventSink events;
@@ -578,8 +546,8 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, NegativeResponseAtDumpSetupFails)
     // away in either direction.
     ScriptedCanFlashTransport transport;
     scriptBenchConnect(transport);
-    transport.expectWrite(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}));
-    transport.queueRead(response({0x7F, 0x34, 0x31}));
+    transport.exchange(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}),
+                       response({0x7F, 0x34, 0x31}));
 
     FakeClock clock;
     RecordingEventSink events;
@@ -612,22 +580,16 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, CancellationMidReadReturnsCancelled)
 
 TEST(SubaruDenso1n83m_1_5mCanExecutor, EmptyBranchSelectorReplyFails)
 {
-    // Legacy line 336-338: an absent 0x22 0x10 0x1D reply is one of only two
-    // points in the preliminary phase that return STATUS_ERROR.
+    // An absent 0x22 0x10 0x1D reply is one of only two points in the
+    // preliminary phase that return STATUS_ERROR.
     ScriptedCanFlashTransport transport;
-    transport.expectWrite(request({0x10, 0x5F}));
-    transport.queueRead(response({0x50, 0x01}));
-    transport.expectWrite(request({0xAA}));
-    transport.queueRead(response({0xEA, 0, 0, 0, 0, 1, 2, 3, 4, 5}));
-    transport.expectWrite(request({0x09, 0x02}));
-    transport.queueRead(response({0x49, 0x02, 'V', 'I', 'N'}));
-    transport.expectWrite(request({0x09, 0x04}));
-    transport.queueRead(response({0x49, 0x04, 'C', 'A', 'L'}));
-    transport.expectWrite(request({0x09, 0x06}));
-    transport.queueRead(response({0x49, 0x06, 0xAA, 0xBB}));
-    transport.expectWrite(request({0x10, 0x5F}));
-    transport.queueRead(response({0x50, 0x01}));
-    transport.expectWrite(request({0x22, 0x10, 0x1D}));
+    transport.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));
+    transport.exchange(request({0xAA}), response({0xEA, 0, 0, 0, 0, 1, 2, 3, 4, 5}));
+    transport.exchange(request({0x09, 0x02}), response({0x49, 0x02, 'V', 'I', 'N'}));
+    transport.exchange(request({0x09, 0x04}), response({0x49, 0x04, 'C', 'A', 'L'}));
+    transport.exchange(request({0x09, 0x06}), response({0x49, 0x06, 0xAA, 0xBB}));
+    transport.exchange(request({0x10, 0x5F}), response({0x50, 0x01}));
+    transport.exchange(request({0x22, 0x10, 0x1D}));
     transport.queue_no_frame();
 
     FakeClock clock;
@@ -642,8 +604,8 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, EmptyBranchSelectorReplyFails)
 
 TEST(SubaruDenso1n83m_1_5mCanExecutor, EraseRetryExhaustionFails)
 {
-    // Legacy erase_memory's re-read loop (lines 1439-1466): twenty reads, no
-    // re-send, then "Flash area erase failed".
+    // Legacy erase_memory's re-read loop: twenty reads, no re-send, then
+    // "Flash area erase failed".
     ScriptedCanFlashTransport transport;
     const bytes::Bytes rom = writeRom();
     scriptBenchConnect(transport);

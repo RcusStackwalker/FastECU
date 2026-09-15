@@ -23,19 +23,15 @@ bytes::Bytes frame(bytes::Bytes payload)
 
 void scriptHandshake(ScriptedKlineFlashTransport& transport)
 {
-    transport.expectWrite(frame({0xbf}));
-    transport.queueRead(bytes::Bytes{0x80, 0xf0, 0x10, 0x09, 0xff, 0, 0, 0, 0x12, 0x34, 0x56, 0x78, 0x9a, 0});
-    transport.expectWrite(frame({0x81}));
-    transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0xc1});
-    transport.expectWrite(frame({0x83, 0x00}));
-    transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0xc3});
-    transport.expectWrite(frame({0x27, 0x01}));
-    transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x67, 0x01, 0x12, 0x34, 0x56, 0x78});
+    const auto section = transport.section("handshake");
+    transport.exchange(frame({0xbf}),
+                       bytes::Bytes{0x80, 0xf0, 0x10, 0x09, 0xff, 0, 0, 0, 0x12, 0x34, 0x56, 0x78, 0x9a, 0});
+    transport.exchange(frame({0x81}), bytes::Bytes{0, 0, 0, 0, 0xc1});
+    transport.exchange(frame({0x83, 0x00}), bytes::Bytes{0, 0, 0, 0, 0xc3});
+    transport.exchange(frame({0x27, 0x01}), bytes::Bytes{0, 0, 0, 0, 0x67, 0x01, 0x12, 0x34, 0x56, 0x78});
     // Hand-derived seed 0x12345678 -> key 0xF7ABD485.
-    transport.expectWrite(frame({0x27, 0x02, 0xf7, 0xab, 0xd4, 0x85}));
-    transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x67, 0x02});
-    transport.expectWrite(frame({0x10, 0x85, 0x02}));
-    transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x50});
+    transport.exchange(frame({0x27, 0x02, 0xf7, 0xab, 0xd4, 0x85}), bytes::Bytes{0, 0, 0, 0, 0x67, 0x02});
+    transport.exchange(frame({0x10, 0x85, 0x02}), bytes::Bytes{0, 0, 0, 0, 0x50});
 }
 
 bytes::Bytes encryptedImage(bytes::ByteView image)
@@ -104,7 +100,7 @@ TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureRespon
                                                        "M32R_512KB_4blocks", std::nullopt);
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
-        transport.expectWrite(frame({0xbf}));
+        transport.exchange(frame({0xbf}));
         if (expected == ErrorKind::Timeout)
         {
             transport.queue_no_frame();
@@ -136,11 +132,11 @@ TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPref
     scriptHandshake(transport);
     for (std::uint32_t address = 0x8000; address < 0x80000; address += 0x80)
     {
-        transport.expectWrite(frame({0xa0, 0, 0x20, static_cast<bytes::Byte>(address >> 16),
-                                     static_cast<bytes::Byte>(address >> 8), static_cast<bytes::Byte>(address), 0x7f}));
         bytes::Bytes response(134, 0x5a);
         response[4] = 0xe0;
-        transport.queueRead(response);
+        transport.exchange(frame({0xa0, 0, 0x20, static_cast<bytes::Byte>(address >> 16),
+                                  static_cast<bytes::Byte>(address >> 8), static_cast<bytes::Byte>(address), 0x7f}),
+                           response);
     }
     FakeClock clock;
     ManualCancellationToken cancellation;
@@ -172,16 +168,14 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     scriptHandshake(transport);
-    transport.expectWrite(frame({0x34, 0, 0, 0, 0x04, 0x07, 0x80, 0}));
-    transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x74});
-    transport.expectWrite(frame({0x31, 0x02, 0x0f, 0xff, 0xff, 0xff}));
-    transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x71});
+    transport.exchange(frame({0x34, 0, 0, 0, 0x04, 0x07, 0x80, 0}), bytes::Bytes{0, 0, 0, 0, 0x74});
+    transport.exchange(frame({0x31, 0x02, 0x0f, 0xff, 0xff, 0xff}), bytes::Bytes{0, 0, 0, 0, 0x71});
     for (std::uint32_t address = 0x8000; address < 0x80000; address += 0x80)
     {
         bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
                              static_cast<bytes::Byte>(address)};
         request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x80);
-        transport.expectWrite(frame(request));
+        transport.exchange(frame(request));
         if (((address - 0x8000) / 0x80) % 2 == 0)
         {
             transport.queue_no_frame();
@@ -191,8 +185,7 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
             transport.queueRead(bytes::Bytes{0xde, 0xad});
         }
     }
-    transport.expectWrite(frame({0x31, 0x01, 0x02}));
-    transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x71, 0x01, 0x02});
+    transport.exchange(frame({0x31, 0x01, 0x02}), bytes::Bytes{0, 0, 0, 0, 0x71, 0x01, 0x02});
     SubaruMitsuM32rKlineExecutor executor;
     FakeClock clock;
     ManualCancellationToken cancellation;
