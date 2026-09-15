@@ -1,54 +1,42 @@
-#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
+#include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
+namespace fastecu::flash::testing
+{
 namespace
 {
-using fastecu::ErrorKind;
-using namespace fastecu::flash;
-using testing::HasSubstr;
+constexpr SingleWindowPlanCase kCase{
+    .name = "SubaruMitsuM32rKline",
+    .build = &build_subaru_mitsu_m32r_kline_plan,
+    .protocol = "sub_ecu_mitsu_m32r_kline",
+    .mcu = "M32R_512KB_4blocks",
+    .foreign_protocol = "sub_ecu_mitsu_m32r_kline_typo",
+    .foreign_mcu = "NOT_A_REAL_MCU",
+    .read_region = MemoryRegion{.start = 0x8000, .length = 0x78000},
+    .erase_region = MemoryRegion{.start = 0x8000, .length = 0x78000},
+    .image_size = 0x80000,
+};
 
-constexpr std::string_view kProtocol = "sub_ecu_mitsu_m32r_kline";
-constexpr std::string_view kMcu = "M32R_512KB_4blocks";
+INSTANTIATE_TEST_SUITE_P(SubaruMitsuM32rKline, SingleWindowPlanContract, ::testing::Values(kCase), caseName);
 
-TEST(SubaruMitsuM32rKlinePlan, SnapshotsExactWireAndMemoryContract)
+// The transport/family identity and wire parameters are this family's own;
+// they do not generalize.
+TEST(SubaruMitsuM32rKlinePlan, ReadPlanCarriesThisFamilysIdentityAndWireParameters)
 {
-    for (const auto operation : {FlashOperation::Read, FlashOperation::Write})
-    {
-        auto plan = build_subaru_mitsu_m32r_kline_plan(
-            operation, kProtocol, kMcu,
-            operation == FlashOperation::Write ? std::optional(bytes::Bytes(0x80000, 0x5a)) : std::nullopt);
-        ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_EQ(plan->family(), FlashFamily::SubaruMitsuM32rKline);
-        EXPECT_EQ(plan->transport(), TransportKind::Kline);
-        EXPECT_EQ(plan->transfer_region().start, 0x8000U);
-        EXPECT_EQ(plan->transfer_region().length, 0x78000U);
-        EXPECT_FALSE(plan->kernel().has_value());
-        const auto& family = std::get<SubaruMitsuM32rKlinePlan>(plan->family_plan());
-        EXPECT_EQ(family.tester_id, 0xf0);
-        EXPECT_EQ(family.target_id, 0x10);
-        EXPECT_EQ(family.initial_baud, 4800);
-        EXPECT_EQ(family.flash_baud, 15625);
-        EXPECT_EQ(family.chunk_size, 128U);
-        EXPECT_EQ(family.unread_prefix_fill, 0xff);
-    }
-}
+    const auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
+                                                         "M32R_512KB_4blocks", std::nullopt);
 
-TEST(SubaruMitsuM32rKlinePlan, RejectsInvalidInputsBeforeIo)
-{
-    const auto expect = [](FlashOperation op, std::string_view protocol, std::string_view mcu,
-                           std::optional<bytes::Bytes> image, ErrorKind kind)
-    {
-        ASSERT_THAT(build_subaru_mitsu_m32r_kline_plan(op, protocol, mcu, std::move(image)),
-                    fastecu::testing::IsErr(kind));
-    };
-    expect(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline_typo", kMcu, std::nullopt, ErrorKind::InvalidConfig);
-    expect(FlashOperation::Read, kProtocol, "NOT_A_REAL_MCU", std::nullopt, ErrorKind::InvalidConfig);
-    expect(FlashOperation::Write, kProtocol, kMcu, std::nullopt, ErrorKind::InvalidConfig);
-    expect(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x7ffff), ErrorKind::InvalidConfig);
-    expect(FlashOperation::TestWrite, kProtocol, kMcu, bytes::Bytes(0x80000), ErrorKind::Unsupported);
-}
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    EXPECT_EQ(plan->family(), FlashFamily::SubaruMitsuM32rKline);
+    EXPECT_EQ(plan->transport(), TransportKind::Kline);
 
+    const auto& family = std::get<SubaruMitsuM32rKlinePlan>(plan->family_plan());
+    EXPECT_EQ(family.tester_id, 0xf0);
+    EXPECT_EQ(family.target_id, 0x10);
+    EXPECT_EQ(family.initial_baud, 4800);
+    EXPECT_EQ(family.flash_baud, 15625);
+    EXPECT_EQ(family.chunk_size, 128U);
+    EXPECT_EQ(family.unread_prefix_fill, 0xff);
+}
 } // namespace
+} // namespace fastecu::flash::testing

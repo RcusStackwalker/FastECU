@@ -1,71 +1,66 @@
-#include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
+#include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
-#include <gtest/gtest.h>
-
+namespace fastecu::flash::testing
+{
 namespace
 {
-using fastecu::ErrorKind;
-using namespace fastecu::flash;
+constexpr SingleWindowPlanCase kNormalCase{
+    .name = "SubaruHitachiM32rKlineNormal",
+    .build = &build_subaru_hitachi_m32r_kline_plan,
+    .protocol = "sub_ecu_hitachi_m32r_kline",
+    .mcu = "M32R_512KB_1block",
+    .foreign_protocol = "sub_ecu_hitachi_m32r_kline_typo",
+    .foreign_mcu = "M32R_512KB_4blocks",
+    .read_region = MemoryRegion{.start = 0, .length = 0x80000},
+    .erase_region = MemoryRegion{.start = 0, .length = 0x80000},
+    .image_size = 0x80000,
+};
 
-constexpr std::string_view kNormal = "sub_ecu_hitachi_m32r_kline";
-constexpr std::string_view kRecovery = "sub_ecu_hitachi_m32r_kline_recovery";
-constexpr std::string_view kMcu = "M32R_512KB_1block";
+constexpr SingleWindowPlanCase kRecoveryCase{
+    .name = "SubaruHitachiM32rKlineRecovery",
+    .build = &build_subaru_hitachi_m32r_kline_plan,
+    .protocol = "sub_ecu_hitachi_m32r_kline_recovery",
+    .mcu = "M32R_512KB_1block",
+    .foreign_protocol = "sub_ecu_hitachi_m32r_kline_typo",
+    .foreign_mcu = "M32R_512KB_4blocks",
+    .read_region = MemoryRegion{.start = 0, .length = 0x80000},
+    .erase_region = MemoryRegion{.start = 0, .length = 0x80000},
+    .image_size = 0x80000,
+};
 
-TEST(SubaruHitachiM32rKlinePlan, MapsExactProtocolsToCompletePortableContract)
+// This family accepts two protocol names (Normal and Recovery session
+// modes), so it is instantiated twice with distinct prefixes.
+INSTANTIATE_TEST_SUITE_P(SubaruHitachiM32rKlineNormal, SingleWindowPlanContract, ::testing::Values(kNormalCase),
+                         caseName);
+INSTANTIATE_TEST_SUITE_P(SubaruHitachiM32rKlineRecovery, SingleWindowPlanContract, ::testing::Values(kRecoveryCase),
+                         caseName);
+
+// The session-mode mapping, transport/family identity, and wire parameters
+// are this family's own; they do not generalize.
+TEST(SubaruHitachiM32rKlinePlan, MapsExactProtocolsToTheirSessionModeAndWireParameters)
 {
     for (const auto& [protocol, mode] : {
-             std::pair{kNormal, HitachiM32rKlineSessionMode::Normal},
-             std::pair{kRecovery, HitachiM32rKlineSessionMode::Recovery},
+             std::pair{std::string_view("sub_ecu_hitachi_m32r_kline"), HitachiM32rKlineSessionMode::Normal},
+             std::pair{std::string_view("sub_ecu_hitachi_m32r_kline_recovery"), HitachiM32rKlineSessionMode::Recovery},
          })
     {
-        for (const auto operation : {FlashOperation::Read, FlashOperation::Write})
-        {
-            auto plan = build_subaru_hitachi_m32r_kline_plan(
-                operation, protocol, kMcu,
-                operation == FlashOperation::Write ? std::optional(bytes::Bytes(0x80000, 0x5a)) : std::nullopt);
-            ASSERT_THAT(plan, fastecu::testing::IsOk());
-            EXPECT_EQ(plan->family(), FlashFamily::SubaruHitachiM32rKline);
-            EXPECT_EQ(plan->transport(), TransportKind::Kline);
-            EXPECT_EQ(plan->transfer_region().start, 0U);
-            EXPECT_EQ(plan->transfer_region().length, 0x80000U);
-            EXPECT_FALSE(plan->kernel().has_value());
-            const auto& family = std::get<SubaruHitachiM32rKlinePlan>(plan->family_plan());
-            EXPECT_EQ(family.session_mode, mode);
-            EXPECT_EQ(family.tester_id, 0xf0);
-            EXPECT_EQ(family.target_id, 0x10);
-            EXPECT_EQ(family.initial_baud, 4800);
-            EXPECT_EQ(family.write_baud, 15625);
-            EXPECT_EQ(family.read_baud, 38400);
-            EXPECT_EQ(family.chunk_size, 128U);
-            EXPECT_EQ(family.read_address_bias, 0x100000U);
-            if (operation == FlashOperation::Write)
-            {
-                ASSERT_EQ(plan->erase_regions().size(), 1U);
-                EXPECT_EQ(plan->erase_regions()[0].start, 0U);
-                EXPECT_EQ(plan->erase_regions()[0].length, 0x80000U);
-            }
-            else
-            {
-                EXPECT_TRUE(plan->erase_regions().empty());
-            }
-        }
+        const auto plan =
+            build_subaru_hitachi_m32r_kline_plan(FlashOperation::Read, protocol, "M32R_512KB_1block", std::nullopt);
+        ASSERT_THAT(plan, fastecu::testing::IsOk());
+        EXPECT_EQ(plan->family(), FlashFamily::SubaruHitachiM32rKline);
+        EXPECT_EQ(plan->transport(), TransportKind::Kline);
+
+        const auto& family = std::get<SubaruHitachiM32rKlinePlan>(plan->family_plan());
+        EXPECT_EQ(family.session_mode, mode);
+        EXPECT_EQ(family.tester_id, 0xf0);
+        EXPECT_EQ(family.target_id, 0x10);
+        EXPECT_EQ(family.initial_baud, 4800);
+        EXPECT_EQ(family.write_baud, 15625);
+        EXPECT_EQ(family.read_baud, 38400);
+        EXPECT_EQ(family.chunk_size, 128U);
+        EXPECT_EQ(family.read_address_bias, 0x100000U);
     }
 }
-
-TEST(SubaruHitachiM32rKlinePlan, RejectsInvalidInputsBeforeIo)
-{
-    const auto expect = [](FlashOperation operation, std::string_view protocol, std::string_view mcu,
-                           std::optional<bytes::Bytes> image, ErrorKind expected)
-    {
-        ASSERT_THAT(build_subaru_hitachi_m32r_kline_plan(operation, protocol, mcu, std::move(image)),
-                    fastecu::testing::IsErr(expected));
-    };
-    expect(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline_typo", kMcu, std::nullopt, ErrorKind::InvalidConfig);
-    expect(FlashOperation::Read, kNormal, "M32R_512KB_4blocks", std::nullopt, ErrorKind::InvalidConfig);
-    expect(FlashOperation::Write, kNormal, kMcu, std::nullopt, ErrorKind::InvalidConfig);
-    expect(FlashOperation::Write, kRecovery, kMcu, bytes::Bytes(0x7ffff), ErrorKind::InvalidConfig);
-    expect(FlashOperation::TestWrite, kNormal, kMcu, bytes::Bytes(0x80000), ErrorKind::Unsupported);
-}
-
 } // namespace
+} // namespace fastecu::flash::testing

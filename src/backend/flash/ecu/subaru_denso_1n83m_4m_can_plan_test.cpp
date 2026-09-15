@@ -1,32 +1,35 @@
-#include "src/backend/ports/testing/result_matchers.h"
 // subaru_denso_1n83m_4m_can_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_plan.h"
+#include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
+namespace fastecu::flash::testing
+{
 namespace
 {
-using fastecu::ErrorKind;
-using fastecu::flash::build_subaru_denso_1n83m_4m_can_plan;
-using fastecu::flash::FlashOperation;
-using fastecu::flash::SubaruDenso1n83m_4mCanPlan;
-using testing::HasSubstr;
-using testing::IsEmpty;
+constexpr SingleWindowPlanCase kCase{
+    .name = "SubaruDenso1n83m_4mCan",
+    .build = &build_subaru_denso_1n83m_4m_can_plan,
+    .protocol = "sub_ecu_denso_1n83m_4m_can",
+    .mcu = "N83M_4MB",
+    // "sub_ecu_denso_1n83m_1_5m_can" is the sibling family whose MCU
+    // (N83M_1_5MB) shares this one's fblocks[0].start; both halves of the
+    // identity check have to reject it.
+    .foreign_protocol = "sub_ecu_denso_1n83m_1_5m_can",
+    .foreign_mcu = "N83M_1_5MB",
+    .read_region = MemoryRegion{.start = 0x08FAC000, .length = 0x003D3F00},
+    .erase_region = MemoryRegion{.start = 0x08FAC000, .length = 0x003D3F00},
+    .image_size = 0x3E4000,
+};
 
-constexpr std::string_view kProtocol = "sub_ecu_denso_1n83m_4m_can";
-constexpr std::string_view kMcu = "N83M_4MB";
+INSTANTIATE_TEST_SUITE_P(SubaruDenso1n83m_4mCan, SingleWindowPlanContract, ::testing::Values(kCase), caseName);
 
-TEST(SubaruDenso1n83m_4mCanPlan, ReadPlanCarriesMainFlashBlock)
+// The wire parameters are this family's own; they do not generalize.
+TEST(SubaruDenso1n83m_4mCanPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    auto plan = build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->transfer_region().start, 0x08FAC000U);
-    EXPECT_EQ(plan->transfer_region().length, 0x003D3F00U);
-    EXPECT_THAT(plan->erase_regions(), IsEmpty());
-    EXPECT_FALSE(plan->kernel().has_value());
-    EXPECT_TRUE(plan->confirmations().empty());
+    const auto plan = build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Read, "sub_ecu_denso_1n83m_4m_can",
+                                                           "N83M_4MB", std::nullopt);
 
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     const auto& family = std::get<SubaruDenso1n83m_4mCanPlan>(plan->family_plan());
     EXPECT_EQ(family.request_id, 0x7e0U);
     EXPECT_EQ(family.response_id, 0x7e8U);
@@ -35,46 +38,5 @@ TEST(SubaruDenso1n83m_4mCanPlan, ReadPlanCarriesMainFlashBlock)
     EXPECT_EQ(family.lead_pad_len, 0x10000U);
     EXPECT_EQ(family.tail_pad_len, 0x100U);
 }
-
-TEST(SubaruDenso1n83m_4mCanPlan, TestWriteIsRejectedBeforeAnyIo)
-{
-    ASSERT_THAT(build_subaru_denso_1n83m_4m_can_plan(FlashOperation::TestWrite, kProtocol, kMcu, std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::Unsupported));
-}
-
-TEST(SubaruDenso1n83m_4mCanPlan, WriteRequiresFullStartAlignedImage)
-{
-    // reflash_block indexes newdata[i + blockaddr - fblocks[0].start] over the
-    // caller's &data_array[0], so the image must span fblocks[0].start..end,
-    // i.e. 0x3E4000 bytes.
-    auto tooShort =
-        build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x3D3F00, 0x00));
-    ASSERT_THAT(tooShort, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(tooShort.error().detail, HasSubstr("0x3E4000"));
-
-    auto ok =
-        build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x3E4000, 0x00));
-    ASSERT_THAT(ok, fastecu::testing::IsOk());
-    ASSERT_EQ(ok->erase_regions().size(), 1U);
-    EXPECT_EQ(ok->erase_regions()[0].start, 0x08FAC000U);
-    EXPECT_EQ(ok->erase_regions()[0].length, 0x003D3F00U);
-}
-
-TEST(SubaruDenso1n83m_4mCanPlan, WriteWithNoImageIsRejected)
-{
-    ASSERT_THAT(build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-}
-
-TEST(SubaruDenso1n83m_4mCanPlan, WrongProtocolAndWrongMcuAreRejected)
-{
-    // "sub_ecu_denso_1n83m_1_5m_can" is the sibling family whose MCU
-    // (N83M_1_5MB) shares this one's fblocks[0].start; both halves of the
-    // identity check have to reject it.
-    EXPECT_THAT(
-        build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Read, "sub_ecu_denso_1n83m_1_5m_can", kMcu, std::nullopt),
-        ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Read, kProtocol, "N83M_1_5MB", std::nullopt),
-                ::testing::Not(fastecu::testing::IsOk()));
-}
 } // namespace
+} // namespace fastecu::flash::testing
