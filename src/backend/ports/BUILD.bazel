@@ -30,7 +30,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "result_test",
     srcs = ["result_test.cpp"],
-    deps = [":ports"],
+    deps = [
+        ":ports",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )
 
 fastecu_portable_gtest(
