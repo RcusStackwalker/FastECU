@@ -1,94 +1,43 @@
-#include "src/backend/ports/testing/result_matchers.h"
 // subaru_tcu_cvt_hitachi_m32r_can_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_plan.h"
+#include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
+namespace fastecu::flash::testing
+{
 namespace
 {
-using fastecu::ErrorKind;
-using fastecu::flash::build_subaru_tcu_cvt_hitachi_m32r_can_plan;
-using fastecu::flash::FlashOperation;
-using fastecu::flash::SubaruTcuCvtHitachiM32rCanPlan;
-using testing::HasSubstr;
+constexpr SingleWindowPlanCase kCase{
+    .name = "SubaruTcuCvtHitachiM32rCan",
+    .build = &build_subaru_tcu_cvt_hitachi_m32r_can_plan,
+    .protocol = "sub_tcu_cvt_hitachi_m32r_can",
+    .mcu = "M32R_512KB",
+    .foreign_protocol = "sub_tcu_cvt_hitachi_m32r_can_typo",
+    .foreign_mcu = "MH8104",
+    // Legacy read_mem computes start_addr - 0x00100000 with start_addr == 0,
+    // which underflows uint32_t to 0xFFF00000 and bypasses the "< 0x8000"
+    // floor clamp entirely -- this path never executed in production
+    // (execute() called hack_words(), never read_mem()). This plan targets
+    // the clamp's evident intent (0x8000) rather than reproducing an address
+    // computation nothing ever observed on the wire.
+    .read_region = MemoryRegion{.start = 0x8000, .length = 0x78000},
+    .erase_region = MemoryRegion{.start = 0x8000, .length = 0x78000},
+    .image_size = 0x80000,
+};
 
-constexpr std::string_view kProtocol = "sub_tcu_cvt_hitachi_m32r_can";
-constexpr std::string_view kMcu = "M32R_512KB";
+INSTANTIATE_TEST_SUITE_P(SubaruTcuCvtHitachiM32rCan, SingleWindowPlanContract, ::testing::Values(kCase), caseName);
 
-TEST(SubaruTcuCvtHitachiM32rCanPlan, RejectsUnknownProtocol)
+// The wire parameters are this family's own; they do not generalize.
+TEST(SubaruTcuCvtHitachiM32rCanPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    ASSERT_THAT(build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, "sub_tcu_cvt_hitachi_m32r_can_typo",
-                                                           kMcu, std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-}
+    const auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, "sub_tcu_cvt_hitachi_m32r_can",
+                                                                 "M32R_512KB", std::nullopt);
 
-TEST(SubaruTcuCvtHitachiM32rCanPlan, RejectsMismatchedMcu)
-{
-    ASSERT_THAT(build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, "MH8104", std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-}
-
-TEST(SubaruTcuCvtHitachiM32rCanPlan, ReadPlanCoversTheClampedWindow)
-{
-    const auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->transfer_region().start, 0x8000U);
-    EXPECT_EQ(plan->transfer_region().length, 0x78000U);
     const auto& family = std::get<SubaruTcuCvtHitachiM32rCanPlan>(plan->family_plan());
     EXPECT_EQ(family.request_id, 0x7e1U);
     EXPECT_EQ(family.response_id, 0x7e9U);
     EXPECT_EQ(family.bitrate, 500000);
     EXPECT_FALSE(family.extended_id);
-    EXPECT_TRUE(plan->confirmations().empty());
-    EXPECT_FALSE(plan->kernel().has_value());
-}
-
-TEST(SubaruTcuCvtHitachiM32rCanPlan, WritePlanCoversTheClampedWindowAndErasesIt)
-{
-    const auto plan =
-        build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x80000, 0x00));
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->transfer_region().start, 0x8000U);
-    EXPECT_EQ(plan->transfer_region().length, 0x78000U);
-    ASSERT_EQ(plan->erase_regions().size(), 1U);
-    EXPECT_EQ(plan->erase_regions()[0].start, 0x8000U);
-    EXPECT_EQ(plan->erase_regions()[0].length, 0x78000U);
-}
-
-TEST(SubaruTcuCvtHitachiM32rCanPlan, RejectsAWriteWhoseImageSizeIsWrong)
-{
-    const auto plan =
-        build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x60000, 0x00));
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(plan.error().detail, HasSubstr("0x80000"));
-}
-
-TEST(SubaruTcuCvtHitachiM32rCanPlan, RejectsTestWriteAsUnsupported)
-{
-    ASSERT_THAT(build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::TestWrite, kProtocol, kMcu,
-                                                           bytes::Bytes(0x80000, 0x00)),
-                fastecu::testing::IsErr(ErrorKind::Unsupported));
-}
-
-TEST(SubaruTcuCvtHitachiM32rCanPlan, RejectsAWriteWithNoImage)
-{
-    ASSERT_THAT(build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-}
-
-TEST(SubaruTcuCvtHitachiM32rCanPlan, ReadRegionIsTheFloorClampedWindowNotTheLiteralUnderflow)
-{
-    // Legacy read_mem computes start_addr - 0x00100000 with start_addr == 0,
-    // which underflows uint32_t to 0xFFF00000 and bypasses the
-    // "< 0x8000" floor clamp entirely -- this path never executed in
-    // production (execute() called hack_words(), never read_mem()). This
-    // plan targets the clamp's evident intent (0x8000) rather than
-    // reproducing an address computation nothing ever observed on the wire.
-    const auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, "sub_tcu_cvt_hitachi_m32r_can",
-                                                                 "M32R_512KB", std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->transfer_region().start, 0x8000U);
-    EXPECT_EQ(plan->transfer_region().length, 0x78000U);
 }
 } // namespace
+} // namespace fastecu::flash::testing

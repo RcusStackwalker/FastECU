@@ -1,32 +1,34 @@
-#include "src/backend/ports/testing/result_matchers.h"
 // subaru_denso_sh72543_can_diesel_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_plan.h"
+#include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
+namespace fastecu::flash::testing
+{
 namespace
 {
-using fastecu::ErrorKind;
-using fastecu::flash::build_subaru_denso_sh72543_can_diesel_plan;
-using fastecu::flash::FlashOperation;
-using fastecu::flash::SubaruDensoSh72543CanDieselPlan;
-using testing::HasSubstr;
-using testing::IsEmpty;
+constexpr SingleWindowPlanCase kCase{
+    .name = "SubaruDensoSh72543CanDiesel",
+    .build = &build_subaru_denso_sh72543_can_diesel_plan,
+    .protocol = "sub_ecu_denso_sh72543_can_diesel",
+    .mcu = "SH72543d",
+    .foreign_protocol = "sub_ecu_denso_sh72531_can",
+    .foreign_mcu = "SH72531",
+    // fblocks_SH72543d has numblocks == 1 with fblocks[0] == {0x8000, 0x1F7F00};
+    // this family is the only one in the wave with a single-block flash table.
+    .read_region = MemoryRegion{.start = 0x00008000, .length = 0x001F7F00},
+    .erase_region = MemoryRegion{.start = 0x00008000, .length = 0x001F7F00},
+    .image_size = 0x200000,
+};
 
-constexpr std::string_view kProtocol = "sub_ecu_denso_sh72543_can_diesel";
-constexpr std::string_view kMcu = "SH72543d";
+INSTANTIATE_TEST_SUITE_P(SubaruDensoSh72543CanDiesel, SingleWindowPlanContract, ::testing::Values(kCase), caseName);
 
-TEST(SubaruDensoSh72543CanDieselPlan, ReadPlanCarriesMainFlashBlock)
+// The wire parameters are this family's own; they do not generalize.
+TEST(SubaruDensoSh72543CanDieselPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    auto plan = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->transfer_region().start, 0x00008000U);
-    EXPECT_EQ(plan->transfer_region().length, 0x001F7F00U);
-    EXPECT_THAT(plan->erase_regions(), IsEmpty());
-    EXPECT_FALSE(plan->kernel().has_value());
-    EXPECT_TRUE(plan->confirmations().empty());
+    const auto plan = build_subaru_denso_sh72543_can_diesel_plan(
+        FlashOperation::Read, "sub_ecu_denso_sh72543_can_diesel", "SH72543d", std::nullopt);
 
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     const auto& family = std::get<SubaruDensoSh72543CanDieselPlan>(plan->family_plan());
     EXPECT_EQ(family.request_id, 0x7e0U);
     EXPECT_EQ(family.response_id, 0x7e8U);
@@ -36,65 +38,18 @@ TEST(SubaruDensoSh72543CanDieselPlan, ReadPlanCarriesMainFlashBlock)
     EXPECT_EQ(family.tail_pad_len, 0x100U);
 }
 
-TEST(SubaruDensoSh72543CanDieselPlan, AcceptsSingleBlockGeometry)
-{
-    // fblocks_SH72543d has numblocks == 1 with fblocks[0] == {0x8000, 0x1F7F00};
-    // this family is the only one in the wave with a single-block flash table.
-    auto plan = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->transfer_region().start, 0x8000U);
-    EXPECT_EQ(plan->transfer_region().length, 0x1F7F00U);
-}
-
-TEST(SubaruDensoSh72543CanDieselPlan, TestWriteIsRejectedBeforeAnyIo)
-{
-    ASSERT_THAT(build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::TestWrite, kProtocol, kMcu, std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::Unsupported));
-}
-
 TEST(SubaruDensoSh72543CanDieselPlan, WriteImageIsBasedAtAddressZero)
 {
     // Legacy reflash_block indexed newdata[i + blockctr * blocksize], an image
     // base of 0x8000, while read_memory returned an image based at 0x0 -- so a
     // full ROM was written 0x8000 low. This port bases the write image at 0x0,
     // matching the read output and the three sibling families.
-    auto plan = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Write, kProtocol, kMcu,
-                                                           bytes::Bytes(0x200000, 0x00));
+    const auto plan = build_subaru_denso_sh72543_can_diesel_plan(
+        FlashOperation::Write, "sub_ecu_denso_sh72543_can_diesel", "SH72543d", bytes::Bytes(0x200000, 0x00));
+
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->image()->size(), 0x200000U);
-    EXPECT_EQ(plan->transfer_region().start, 0x8000U);
-}
-
-TEST(SubaruDensoSh72543CanDieselPlan, WriteRequiresFullStartAlignedImage)
-{
-    // reflash_block indexes newdata[i + blockctr * blocksize] off a base of
-    // fblocks[0].start == 0x0, so the image must span fblocks[0].start..end,
-    // i.e. 0x200000 bytes.
-    auto tooShort = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Write, kProtocol, kMcu,
-                                                               bytes::Bytes(0x1F7F00, 0x00));
-    ASSERT_THAT(tooShort, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(tooShort.error().detail, HasSubstr("0x200000"));
-
-    auto ok = build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Write, kProtocol, kMcu,
-                                                         bytes::Bytes(0x200000, 0x00));
-    ASSERT_THAT(ok, fastecu::testing::IsOk());
-    ASSERT_EQ(ok->erase_regions().size(), 1U);
-    EXPECT_EQ(ok->erase_regions()[0].start, 0x00008000U);
-    EXPECT_EQ(ok->erase_regions()[0].length, 0x001F7F00U);
-}
-
-TEST(SubaruDensoSh72543CanDieselPlan, WriteWithNoImageIsRejected)
-{
-    ASSERT_THAT(build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-}
-
-TEST(SubaruDensoSh72543CanDieselPlan, WrongProtocolAndWrongMcuAreRejected)
-{
-    EXPECT_THAT(build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Read, "sub_ecu_denso_sh72531_can", kMcu,
-                                                           std::nullopt),
-                ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(build_subaru_denso_sh72543_can_diesel_plan(FlashOperation::Read, kProtocol, "SH72531", std::nullopt),
-                ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(plan->transfer_region(), RegionIs(MemoryRegion{.start = 0x8000, .length = 0x1F7F00}));
 }
 } // namespace
+} // namespace fastecu::flash::testing

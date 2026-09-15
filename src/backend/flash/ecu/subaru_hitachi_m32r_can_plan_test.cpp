@@ -1,79 +1,37 @@
-#include "src/backend/ports/testing/result_matchers.h"
 // subaru_hitachi_m32r_can_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_plan.h"
+#include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
+namespace fastecu::flash::testing
+{
 namespace
 {
-using fastecu::ErrorKind;
-using fastecu::flash::build_subaru_hitachi_m32r_can_plan;
-using fastecu::flash::FlashOperation;
-using fastecu::flash::SubaruHitachiM32rCanPlan;
-using testing::HasSubstr;
+constexpr SingleWindowPlanCase kCase{
+    .name = "SubaruHitachiM32rCan",
+    .build = &build_subaru_hitachi_m32r_can_plan,
+    .protocol = "sub_ecu_hitachi_m32r_can",
+    .mcu = "M32R_512KB_1block",
+    .foreign_protocol = "sub_ecu_hitachi_m32r_can_typo",
+    .foreign_mcu = "MH8104",
+    .read_region = MemoryRegion{.start = 0, .length = 0x80000},
+    .erase_region = MemoryRegion{.start = 0, .length = 0x80000},
+    .image_size = 0x80000,
+};
 
-constexpr std::string_view kProtocol = "sub_ecu_hitachi_m32r_can";
-constexpr std::string_view kMcu = "M32R_512KB_1block";
+INSTANTIATE_TEST_SUITE_P(SubaruHitachiM32rCan, SingleWindowPlanContract, ::testing::Values(kCase), caseName);
 
-TEST(SubaruHitachiM32rCanPlan, RejectsUnknownProtocol)
+// The wire parameters are this family's own; they do not generalize.
+TEST(SubaruHitachiM32rCanPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    ASSERT_THAT(
-        build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_can_typo", kMcu, std::nullopt),
-        fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-}
+    const auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_can",
+                                                         "M32R_512KB_1block", std::nullopt);
 
-TEST(SubaruHitachiM32rCanPlan, RejectsMismatchedMcu)
-{
-    ASSERT_THAT(build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, "MH8104", std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-}
-
-TEST(SubaruHitachiM32rCanPlan, ReadPlanCoversTheFullRomFromZero)
-{
-    const auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->transfer_region().start, 0U);
-    EXPECT_EQ(plan->transfer_region().length, 0x80000U);
     const auto& family = std::get<SubaruHitachiM32rCanPlan>(plan->family_plan());
     EXPECT_EQ(family.request_id, 0x7e0U);
     EXPECT_EQ(family.response_id, 0x7e8U);
     EXPECT_EQ(family.bitrate, 500000);
     EXPECT_FALSE(family.extended_id);
-    EXPECT_TRUE(plan->confirmations().empty());
-    EXPECT_FALSE(plan->kernel().has_value());
-}
-
-TEST(SubaruHitachiM32rCanPlan, WritePlanCoversTheFullRomAndErasesItAll)
-{
-    const auto plan =
-        build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x80000, 0x00));
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->transfer_region().start, 0U);
-    EXPECT_EQ(plan->transfer_region().length, 0x80000U);
-    ASSERT_EQ(plan->erase_regions().size(), 1U);
-    EXPECT_EQ(plan->erase_regions()[0].start, 0U);
-    EXPECT_EQ(plan->erase_regions()[0].length, 0x80000U);
-}
-
-TEST(SubaruHitachiM32rCanPlan, RejectsAWriteWhoseImageSizeIsWrong)
-{
-    const auto plan =
-        build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x60000, 0x00));
-    ASSERT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(plan.error().detail, HasSubstr("0x80000"));
-}
-
-TEST(SubaruHitachiM32rCanPlan, RejectsTestWriteAsUnsupported)
-{
-    ASSERT_THAT(
-        build_subaru_hitachi_m32r_can_plan(FlashOperation::TestWrite, kProtocol, kMcu, bytes::Bytes(0x80000, 0x00)),
-        fastecu::testing::IsErr(ErrorKind::Unsupported));
-}
-
-TEST(SubaruHitachiM32rCanPlan, RejectsAWriteWithNoImage)
-{
-    ASSERT_THAT(build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 } // namespace
+} // namespace fastecu::flash::testing

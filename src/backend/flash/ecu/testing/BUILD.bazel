@@ -1,0 +1,18 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(
+    default_testonly = True,
+    default_visibility = ["//src/backend/flash:__subpackages__"],
+)
+
+cc_library(
+    name = "single_window_plan_cases",
+    hdrs = ["single_window_plan_cases.h"],
+    deps = [
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/flash/testing:flash_printers",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)

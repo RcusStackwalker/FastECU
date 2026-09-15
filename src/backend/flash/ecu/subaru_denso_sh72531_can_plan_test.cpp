@@ -1,32 +1,32 @@
-#include "src/backend/ports/testing/result_matchers.h"
 // subaru_denso_sh72531_can_plan_test.cpp
 #include "src/backend/flash/ecu/subaru_denso_sh72531_can_plan.h"
+#include "src/backend/flash/ecu/testing/single_window_plan_cases.h"
 
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
+namespace fastecu::flash::testing
+{
 namespace
 {
-using fastecu::ErrorKind;
-using fastecu::flash::build_subaru_denso_sh72531_can_plan;
-using fastecu::flash::FlashOperation;
-using fastecu::flash::SubaruDensoSh72531CanPlan;
-using testing::HasSubstr;
-using testing::IsEmpty;
+constexpr SingleWindowPlanCase kCase{
+    .name = "SubaruDensoSh72531Can",
+    .build = &build_subaru_denso_sh72531_can_plan,
+    .protocol = "sub_ecu_denso_sh72531_can",
+    .mcu = "SH72531",
+    .foreign_protocol = "sub_ecu_denso_1n83m_1_5m_can",
+    .foreign_mcu = "N83M_1_5MB",
+    .read_region = MemoryRegion{.start = 0x00008000, .length = 0x00137F00},
+    .erase_region = MemoryRegion{.start = 0x00008000, .length = 0x00137F00},
+    .image_size = 0x140000,
+};
 
-constexpr std::string_view kProtocol = "sub_ecu_denso_sh72531_can";
-constexpr std::string_view kMcu = "SH72531";
+INSTANTIATE_TEST_SUITE_P(SubaruDensoSh72531Can, SingleWindowPlanContract, ::testing::Values(kCase), caseName);
 
-TEST(SubaruDensoSh72531CanPlan, ReadPlanCarriesMainFlashBlock)
+// The wire parameters are this family's own; they do not generalize.
+TEST(SubaruDensoSh72531CanPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    auto plan = build_subaru_denso_sh72531_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
-    ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->transfer_region().start, 0x00008000U);
-    EXPECT_EQ(plan->transfer_region().length, 0x00137F00U);
-    EXPECT_THAT(plan->erase_regions(), IsEmpty());
-    EXPECT_FALSE(plan->kernel().has_value());
-    EXPECT_TRUE(plan->confirmations().empty());
+    const auto plan =
+        build_subaru_denso_sh72531_can_plan(FlashOperation::Read, "sub_ecu_denso_sh72531_can", "SH72531", std::nullopt);
 
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     const auto& family = std::get<SubaruDensoSh72531CanPlan>(plan->family_plan());
     EXPECT_EQ(family.request_id, 0x7e0U);
     EXPECT_EQ(family.response_id, 0x7e8U);
@@ -35,42 +35,5 @@ TEST(SubaruDensoSh72531CanPlan, ReadPlanCarriesMainFlashBlock)
     EXPECT_EQ(family.lead_pad_len, 0x8000U);
     EXPECT_EQ(family.tail_pad_len, 0x100U);
 }
-
-TEST(SubaruDensoSh72531CanPlan, TestWriteIsRejectedBeforeAnyIo)
-{
-    ASSERT_THAT(build_subaru_denso_sh72531_can_plan(FlashOperation::TestWrite, kProtocol, kMcu, std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::Unsupported));
-}
-
-TEST(SubaruDensoSh72531CanPlan, WriteRequiresFullStartAlignedImage)
-{
-    // reflash_block indexes newdata[i + blockaddr] off a base of
-    // fblocks[0].start == 0x0, so the image must span fblocks[0].start..end,
-    // i.e. 0x140000 bytes.
-    auto tooShort =
-        build_subaru_denso_sh72531_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x137F00, 0x00));
-    ASSERT_THAT(tooShort, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(tooShort.error().detail, HasSubstr("0x140000"));
-
-    auto ok = build_subaru_denso_sh72531_can_plan(FlashOperation::Write, kProtocol, kMcu, bytes::Bytes(0x140000, 0x00));
-    ASSERT_THAT(ok, fastecu::testing::IsOk());
-    ASSERT_EQ(ok->erase_regions().size(), 1U);
-    EXPECT_EQ(ok->erase_regions()[0].start, 0x00008000U);
-    EXPECT_EQ(ok->erase_regions()[0].length, 0x00137F00U);
-}
-
-TEST(SubaruDensoSh72531CanPlan, WriteWithNoImageIsRejected)
-{
-    ASSERT_THAT(build_subaru_denso_sh72531_can_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-}
-
-TEST(SubaruDensoSh72531CanPlan, WrongProtocolAndWrongMcuAreRejected)
-{
-    EXPECT_THAT(
-        build_subaru_denso_sh72531_can_plan(FlashOperation::Read, "sub_ecu_denso_1n83m_1_5m_can", kMcu, std::nullopt),
-        ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(build_subaru_denso_sh72531_can_plan(FlashOperation::Read, kProtocol, "N83M_1_5MB", std::nullopt),
-                ::testing::Not(fastecu::testing::IsOk()));
-}
 } // namespace
+} // namespace fastecu::flash::testing

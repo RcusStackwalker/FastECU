@@ -354,7 +354,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_mitsu_m32r_kline_plan_test.cpp"],
     deps = [
         ":subaru_mitsu_m32r_kline_plan",
-        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
 
@@ -386,7 +386,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_hitachi_m32r_kline_plan_test.cpp"],
     deps = [
         ":subaru_hitachi_m32r_kline_plan",
-        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
 
@@ -409,7 +409,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_hitachi_m32r_can_plan_test.cpp"],
     deps = [
         ":subaru_hitachi_m32r_can_plan",
-        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
 
@@ -432,7 +432,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_tcu_cvt_hitachi_m32r_can_plan_test.cpp"],
     deps = [
         ":subaru_tcu_cvt_hitachi_m32r_can_plan",
-        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
 
@@ -455,7 +455,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_tcu_cvt_mitsu_mh8111_can_plan_test.cpp"],
     deps = [
         ":subaru_tcu_cvt_mitsu_mh8111_can_plan",
-        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
 
@@ -478,7 +478,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_1n83m_1_5m_can_plan_test.cpp"],
     deps = [
         ":subaru_denso_1n83m_1_5m_can_plan",
-        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
 
@@ -501,7 +501,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_sh72531_can_plan_test.cpp"],
     deps = [
         ":subaru_denso_sh72531_can_plan",
-        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
 
@@ -524,7 +524,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_sh72543_can_diesel_plan_test.cpp"],
     deps = [
         ":subaru_denso_sh72543_can_diesel_plan",
-        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
 
@@ -547,7 +547,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_1n83m_4m_can_plan_test.cpp"],
     deps = [
         ":subaru_denso_1n83m_4m_can_plan",
-        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
 
@@ -739,7 +739,7 @@ fastecu_portable_gtest(
     srcs = ["subaru_tcu_cvt_mitsu_mh8104_can_plan_test.cpp"],
     deps = [
         ":subaru_tcu_cvt_mitsu_mh8104_can_plan",
-        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/flash/ecu/testing:single_window_plan_cases",
     ],
 )
 
