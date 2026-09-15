@@ -370,6 +370,20 @@ EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
 holding; on failure it prints `false` where a matcher would print the actual
 `ErrorKind` and detail string.
 
+**Use fatal assertions before accessing a result's value or error.**
+`EXPECT_THAT` records a failure and continues, so it cannot guard a later
+`*result`, `result->member`, or `result.error()`. Assert `IsOk()` before
+accessing the value, or use `IsErrWith()` to check the error and its detail
+together without accessing an inactive alternative. The matchers already
+print error details; do not append `result.error().detail` to them.
+
+Plan-building test helpers return `Result<FlashPlan>` without asserting or
+unwrapping. Check that result with `ASSERT_THAT(plan, IsOk())` in the calling
+test body before passing `*plan` to the executor. Fatal assertions require
+a void function and only return from that function: hiding one in a void
+helper would still let its caller continue unless the caller also checks
+for the fatal failure.
+
 Converting existing sites to the matchers is ongoing rather than complete —
 `src/backend/flash/ecu/` still carries a substantial number of bare
 `has_value()` assertions predating this rule, so a reader meeting one there

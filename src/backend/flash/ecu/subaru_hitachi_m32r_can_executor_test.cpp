@@ -71,18 +71,14 @@ bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
     return response(bytes::ByteView(tail.begin(), tail.size()));
 }
 
-fastecu::flash::FlashPlan readPlan()
+fastecu::Result<fastecu::flash::FlashPlan> readPlan()
 {
-    auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
-    return std::move(*plan);
+    return build_subaru_hitachi_m32r_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
 }
 
-fastecu::flash::FlashPlan writePlan(bytes::Bytes rom)
+fastecu::Result<fastecu::flash::FlashPlan> writePlan(bytes::Bytes rom)
 {
-    auto plan = build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
-    return std::move(*plan);
+    return build_subaru_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
 }
 
 // Hand-built rather than produced by build_subaru_hitachi_m32r_can_plan, so a
@@ -90,7 +86,7 @@ fastecu::flash::FlashPlan writePlan(bytes::Bytes rom)
 // still reach the executor -- the only way to prove the executor's own
 // validate_subaru_hitachi_m32r_can_plan call (not just the builder) rejects
 // it before any I/O.
-fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation, std::size_t image_size)
+fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operation, std::size_t image_size)
 {
     fastecu::flash::FlashPlanFields fields;
     fields.operation = operation;
@@ -102,9 +98,7 @@ fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation, std::size_t im
     fields.erase_regions = {fastecu::flash::MemoryRegion{0, 0x80000}};
     fields.image = bytes::Bytes(image_size, 0x00);
     fields.family_plan = SubaruHitachiM32rCanPlan{0x7e0, 0x7e8, 500000, false};
-    auto plan = fastecu::flash::validate_and_build(std::move(fields));
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
-    return std::move(*plan);
+    return fastecu::flash::validate_and_build(std::move(fields));
 }
 
 // The seed/encrypt/decrypt tables, transcribed independently from the same
@@ -307,15 +301,16 @@ TEST(SubaruHitachiM32rCanExecutor, ConnectAndReadReturnsTheFullRomFromAddressZer
     fastecu::ManualCancellationToken cancellation;
     SubaruHitachiM32rCanExecutor executor;
     auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     scriptBenchConnect(transport);
     scriptDumpSetup(transport);
     scriptFlashDump(transport, 0, 0x80000, 0x100, 0x5A);
     scriptStopCommand(transport);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), 0x80000U);
     EXPECT_TRUE(std::ranges::all_of(*result->read_bytes, [](bytes::Byte b) { return b == 0x5A; }));
@@ -334,11 +329,12 @@ TEST(SubaruHitachiM32rCanExecutor, ConnectRejectsOnCarProgrammingAsUnsupported)
     fastecu::ManualCancellationToken cancellation;
     SubaruHitachiM32rCanExecutor executor;
     auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     scriptPreliminaryProbes(transport);
     transport.exchange(request({0xA8, 0x00, 0x00, 0x00, 0xD7}), response({0x00, 0x00, 0x00}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Unsupported));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -352,9 +348,10 @@ TEST(SubaruHitachiM32rCanExecutor, ReadStopsWhenCancelledBeforeAnyExchange)
     fastecu::ManualCancellationToken cancellation;
     SubaruHitachiM32rCanExecutor executor;
     auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
     cancellation.cancel();
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writesConsumed(), 0U);
@@ -369,6 +366,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteErasesAndWritesTheFullRomInOneReflashBlo
     SubaruHitachiM32rCanExecutor executor;
     const bytes::Bytes rom = writeRom();
     auto plan = writePlan(rom);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     scriptBenchConnect(transport);
     // Legacy write_mem calls erase_memory() before the single reflash_block()
@@ -382,9 +380,9 @@ TEST(SubaruHitachiM32rCanExecutor, WriteErasesAndWritesTheFullRomInOneReflashBlo
     scriptCloseAttempt(transport, {0x77});
     scriptChecksumVerify(transport);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_FALSE(result->read_bytes.has_value());
@@ -404,11 +402,11 @@ TEST(SubaruHitachiM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBef
     // it configures or opens the transport, let alone reaches the ECU
     // handshake.
     auto plan = handBuiltPlan(FlashOperation::Write, 0x7ffff);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(result.error().detail, HasSubstr("0x80000"));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::InvalidConfig, HasSubstr("0x80000")));
     EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config_.has_value());
     EXPECT_THAT(events.logs, IsEmpty());
@@ -429,6 +427,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteToleratesUpToFiveFailedCloseAttemptsBefo
     SubaruHitachiM32rCanExecutor executor;
     const bytes::Bytes rom = writeRom();
     auto plan = writePlan(rom);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     scriptBenchConnect(transport);
     scriptEraseMemory(transport);
@@ -441,9 +440,9 @@ TEST(SubaruHitachiM32rCanExecutor, WriteToleratesUpToFiveFailedCloseAttemptsBefo
     scriptCloseAttempt(transport, {0x77});
     scriptChecksumVerify(transport);
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -460,6 +459,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteStopsWhenTheEraseIsRejected)
     SubaruHitachiM32rCanExecutor executor;
     const bytes::Bytes rom = writeRom();
     auto plan = writePlan(rom);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     scriptBenchConnect(transport);
     scriptEraseMemory(transport);
@@ -470,7 +470,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteStopsWhenTheEraseIsRejected)
         bytes::composeBe(bytes::Byte(0xB6), bytes::u24(0), bytes::ByteView(encrypted).subspan(0, 256));
     transport.exchange(request(firstChunkRequest), response({0x7F, 0xB6, 0x22}));
 
-    const auto result = executor.execute(plan, transport, clock, cancellation, events);
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -495,12 +495,12 @@ struct HitachiM32rCanTraits
     static constexpr std::chrono::milliseconds kProbeTimeout{500};
     static constexpr int kProbeCount = 2059;
 
-    static fastecu::flash::FlashPlan readPlan()
+    static fastecu::Result<fastecu::flash::FlashPlan> readPlan()
     {
         return ::readPlan();
     }
 
-    static fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation)
+    static fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operation)
     {
         return ::handBuiltPlan(operation, 0x80000);
     }

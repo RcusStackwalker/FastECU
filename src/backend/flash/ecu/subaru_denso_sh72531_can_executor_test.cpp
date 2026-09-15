@@ -113,25 +113,21 @@ bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
     return requestTo(0x7e8, tail);
 }
 
-fastecu::flash::FlashPlan readPlan()
+fastecu::Result<fastecu::flash::FlashPlan> readPlan()
 {
-    auto plan = build_subaru_denso_sh72531_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
-    return std::move(*plan);
+    return build_subaru_denso_sh72531_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
 }
 
-fastecu::flash::FlashPlan writePlan(bytes::Bytes rom)
+fastecu::Result<fastecu::flash::FlashPlan> writePlan(bytes::Bytes rom)
 {
-    auto plan = build_subaru_denso_sh72531_can_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
-    return std::move(*plan);
+    return build_subaru_denso_sh72531_can_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
 }
 
 // Hand-built rather than produced by build_subaru_denso_sh72531_can_plan, so
 // a plan whose operation the builder itself would refuse can still reach the
 // executor -- the only way to prove the executor's own
 // validate_subaru_denso_sh72531_can_plan call rejects it before any I/O.
-fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation)
+fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operation)
 {
     fastecu::flash::FlashPlanFields fields;
     fields.operation = operation;
@@ -143,9 +139,7 @@ fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation)
     fields.erase_regions = {fastecu::flash::MemoryRegion{kBlockStart, kBlockLength}};
     fields.image = bytes::Bytes(kImageSize, 0x00);
     fields.family_plan = SubaruDensoSh72531CanPlan{0x7e0, 0x7e8, 500000, false, 0x8000, 0x100};
-    auto plan = fastecu::flash::validate_and_build(std::move(fields));
-    EXPECT_TRUE(plan.has_value()) << plan.error().detail;
-    return std::move(*plan);
+    return fastecu::flash::validate_and_build(std::move(fields));
 }
 
 // The seed/encrypt tables, transcribed independently from the same legacy
@@ -349,11 +343,14 @@ TEST(SubaruDensoSh72531CanExecutor, BenchReadReturnsPaddedImage)
     fastecu::ManualCancellationToken cancellation;
     SubaruDensoSh72531CanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     const bytes::Bytes& rom = *result->read_bytes;
-    EXPECT_EQ(rom.size(), kImageSize);
+    ASSERT_EQ(rom.size(), kImageSize);
     EXPECT_THAT(bytes::ByteView(rom).first(0x8000), Each(0xFF));                 // leading pad
     EXPECT_THAT(bytes::ByteView(rom).subspan(0x8000, kBlockLength), Each(0xA5)); // decrypted payload
     EXPECT_THAT(bytes::ByteView(rom).last(0x100), Each(0xFF));                   // tail pad
@@ -378,11 +375,14 @@ TEST(SubaruDensoSh72531CanExecutor, InCarReadReturnsPaddedImage)
     fastecu::ManualCancellationToken cancellation;
     SubaruDensoSh72531CanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     const bytes::Bytes& rom = *result->read_bytes;
-    EXPECT_EQ(rom.size(), kImageSize);
+    ASSERT_EQ(rom.size(), kImageSize);
     EXPECT_THAT(bytes::ByteView(rom).first(0x8000), Each(0xFF));
     EXPECT_THAT(bytes::ByteView(rom).subspan(0x8000, kBlockLength), Each(0x5A));
     EXPECT_THAT(bytes::ByteView(rom).last(0x100), Each(0xFF));
@@ -406,8 +406,11 @@ TEST(SubaruDensoSh72531CanExecutor, WriteErasesThenFlashesBlockOne)
     fastecu::ManualCancellationToken cancellation;
     SubaruDensoSh72531CanExecutor executor;
 
-    auto result = executor.execute(writePlan(rom), transport, clock, cancellation, events);
-    ASSERT_TRUE(result.has_value()) << result.error().detail;
+    const auto plan = writePlan(rom);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
@@ -455,7 +458,10 @@ TEST(SubaruDensoSh72531CanExecutor, BenchKernelJumpDiscardsFirstReply)
     fastecu::ManualCancellationToken cancellation;
     SubaruDensoSh72531CanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -480,7 +486,10 @@ TEST(SubaruDensoSh72531CanExecutor, NegativeResponseDuringConnectFails)
     fastecu::ManualCancellationToken cancellation;
     SubaruDensoSh72531CanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -504,7 +513,10 @@ TEST(SubaruDensoSh72531CanExecutor, NegativeResponseAtDumpSetupFails)
     fastecu::ManualCancellationToken cancellation;
     SubaruDensoSh72531CanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -529,7 +541,10 @@ TEST(SubaruDensoSh72531CanExecutor, EmptyBranchSelectorReplyFails)
     fastecu::ManualCancellationToken cancellation;
     SubaruDensoSh72531CanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -553,7 +568,10 @@ TEST(SubaruDensoSh72531CanExecutor, EraseRetryExhaustionFails)
     fastecu::ManualCancellationToken cancellation;
     SubaruDensoSh72531CanExecutor executor;
 
-    auto result = executor.execute(writePlan(rom), transport, clock, cancellation, events);
+    const auto plan = writePlan(rom);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -582,7 +600,10 @@ TEST(SubaruDensoSh72531CanExecutor, ReadDisconnectMidDumpLoopPropagates)
     fastecu::ManualCancellationToken cancellation;
     SubaruDensoSh72531CanExecutor executor;
 
-    const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -609,12 +630,12 @@ struct Sh72531CanTraits
     // The dump sweep's own reads use receive_timeout, not this one.
     static constexpr int kProbeCount = 8;
 
-    static fastecu::flash::FlashPlan readPlan()
+    static fastecu::Result<fastecu::flash::FlashPlan> readPlan()
     {
         return ::readPlan();
     }
 
-    static fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation)
+    static fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operation)
     {
         return ::handBuiltPlan(operation);
     }

@@ -22,6 +22,9 @@ namespace fastecu::flash::testing
 // differing on any of these would be a bug, not a protocol fact -- which is
 // what separates these from the protocol-sequence bodies that stay local (see
 // denso_iso15765_can_common.h for why those stay local).
+// Plan factories return Result<FlashPlan>. Each test must assert success
+// before dereferencing: a nonfatal assertion inside a value-returning
+// helper would let a failed setup continue into invalid access or I/O.
 template <class Traits> class CanExecutorConformance : public ::testing::Test
 {
 };
@@ -55,7 +58,10 @@ TYPED_TEST_P(CanExecutorConformance, TransportSetupReturnsThePlansWireParameters
 {
     typename TypeParam::Executor executor;
 
-    const auto setup = executor.transport_setup(TypeParam::readPlan());
+    const auto plan = TypeParam::readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    const auto setup = executor.transport_setup(*plan);
 
     ASSERT_THAT(setup, fastecu::testing::IsOk());
     EXPECT_EQ(setup->bitrate, TypeParam::kWire.bitrate);
@@ -117,8 +123,10 @@ TYPED_TEST_P(CanExecutorConformance, RefusesATestWritePlanRatherThanWritingForRe
     ManualCancellationToken cancellation;
     typename TypeParam::Executor executor;
 
-    const auto result =
-        executor.execute(TypeParam::handBuiltPlan(FlashOperation::TestWrite), transport, clock, cancellation, events);
+    const auto plan = TypeParam::handBuiltPlan(FlashOperation::TestWrite);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Unsupported));
     EXPECT_EQ(transport.writesConsumed(), 0U);
@@ -142,7 +150,10 @@ TYPED_TEST_P(CanExecutorConformance, ReadPropagatesADisconnectedTransport)
     ManualCancellationToken cancellation;
     typename TypeParam::Executor executor;
 
-    const auto result = executor.execute(TypeParam::readPlan(), transport, clock, cancellation, events);
+    const auto plan = TypeParam::readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -162,7 +173,10 @@ TYPED_TEST_P(CanExecutorConformance, ReadStopsAtTheNextChunkWhenCancelledMidRead
     CancelOnFirstReadProgressSink events{cancellation};
     typename TypeParam::Executor executor;
 
-    const auto result = executor.execute(TypeParam::readPlan(), transport, clock, cancellation, events);
+    const auto plan = TypeParam::readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -195,8 +209,10 @@ TYPED_TEST_P(CanExecutorConformance, ConnectProbesReadWithThisFamilysProbeTimeou
     ManualCancellationToken cancellation;
     typename TypeParam::Executor executor;
 
-    ASSERT_THAT(executor.execute(TypeParam::readPlan(), transport, clock, cancellation, events),
-                fastecu::testing::IsOk());
+    const auto plan = TypeParam::readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     // kProbeCount is counted empirically against a full bench-connect +
     // read-setup + full dump + stop-command run, not hand-derived from the
     // source: for most families it is dominated by one read per dump chunk
@@ -219,7 +235,10 @@ TYPED_TEST_P(CanExecutorConformance, ReadReportsAnEmptyReplyAsTimeout)
     ManualCancellationToken cancellation;
     typename TypeParam::Executor executor;
 
-    EXPECT_THAT(executor.execute(TypeParam::readPlan(), transport, clock, cancellation, events),
+    const auto plan = TypeParam::readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    EXPECT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -235,7 +254,10 @@ TYPED_TEST_P(CanExecutorConformance, ReadTimeoutPropagates)
     ManualCancellationToken cancellation;
     typename TypeParam::Executor executor;
 
-    EXPECT_THAT(executor.execute(TypeParam::readPlan(), transport, clock, cancellation, events),
+    const auto plan = TypeParam::readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    EXPECT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
