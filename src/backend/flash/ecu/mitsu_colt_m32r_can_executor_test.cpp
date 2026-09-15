@@ -297,7 +297,7 @@ void scriptAddressMarkedRead(ScriptedCanFlashTransport& transport, std::uint32_t
         bytes::Bytes reply = response({0x63});
         for (std::uint32_t offset = 0; offset < chunk; ++offset)
         {
-            reply.push_back(static_cast<bytes::Byte>((addr + offset) & 0xff));
+            reply.push_back(static_cast<bytes::Byte>((addr + offset) & 0xffU));
         }
         transport.queueRead(reply);
     }
@@ -347,8 +347,9 @@ void scriptCrcCommit(ScriptedCanFlashTransport& transport, std::uint32_t start, 
         response({0x74}));
 
     const std::uint16_t crc = MitsuColtCan::checksum(data);
-    const bytes::Bytes crcData = crcBytes.value_or(
-        bytes::Bytes{static_cast<bytes::Byte>((crc >> 8) & 0xff), static_cast<bytes::Byte>(crc & 0xff)});
+    const bytes::Bytes crcData =
+        crcBytes.value_or(bytes::Bytes{static_cast<bytes::Byte>((static_cast<std::uint32_t>(crc) >> 8U) & 0xffU),
+                                       static_cast<bytes::Byte>(crc & 0xffU)});
     transport.exchange(request(MitsuColtCan::buildTransferDataFrames(crcData).front()), response({0x76}));
 
     // [echo][status=0], the routine-id echo plus the CRC-match status byte
@@ -399,7 +400,8 @@ void scriptWriteThroughEraseRoutineCrcCheck(ScriptedCanFlashTransport& transport
         request(MitsuColtCan::buildRequestDownload(MitsuColtCan::kCrcTransferAddress, MitsuColtCan::kCrcTransferSize)),
         response({0x74}));
     const std::uint16_t crc = MitsuColtCan::checksum(MitsuColtCan::kErasePageRoutine);
-    const bytes::Bytes crc_data{static_cast<bytes::Byte>((crc >> 8) & 0xff), static_cast<bytes::Byte>(crc & 0xff)};
+    const bytes::Bytes crc_data{static_cast<bytes::Byte>((static_cast<std::uint32_t>(crc) >> 8U) & 0xffU),
+                                static_cast<bytes::Byte>(crc & 0xffU)};
     transport.exchange(request(MitsuColtCan::buildTransferDataFrames(crc_data).front()), response({0x76}));
     transport.exchange(request(MitsuColtCan::buildRoutineCheckCrc(MitsuColtCan::kEraseRoutineRamAddr)));
 }
@@ -1768,7 +1770,8 @@ TEST(MitsuColtM32rCanExecutor, BootstrapAbortsWhenTheChecksumTransferDataIsRejec
         response({0x74}));
     {
         const std::uint16_t crc = MitsuColtCan::checksum(MitsuColtCan::kWriteRedirectRoutine);
-        const bytes::Bytes crcData{static_cast<bytes::Byte>((crc >> 8) & 0xff), static_cast<bytes::Byte>(crc & 0xff)};
+        const bytes::Bytes crcData{static_cast<bytes::Byte>((static_cast<std::uint32_t>(crc) >> 8U) & 0xffU),
+                                   static_cast<bytes::Byte>(crc & 0xffU)};
         transport.exchange(request(MitsuColtCan::buildTransferDataFrames(crcData).front()));
     }
     transport.queueRead(response({0x7f, 0x36, 0x22}));

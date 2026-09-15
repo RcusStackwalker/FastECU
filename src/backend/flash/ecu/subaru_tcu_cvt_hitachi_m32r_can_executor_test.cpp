@@ -313,7 +313,7 @@ bytes::Bytes writeRom()
     bytes::Bytes rom(0x80000, 0x00);
     for (std::size_t i = 0; i < rom.size(); ++i)
     {
-        rom[i] = static_cast<bytes::Byte>(i & 0xff);
+        rom[i] = static_cast<bytes::Byte>(i & 0xffU);
     }
     return rom;
 }
