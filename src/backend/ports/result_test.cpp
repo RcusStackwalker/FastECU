@@ -1,4 +1,5 @@
 #include "src/backend/ports/result.h"
+#include "src/backend/ports/testing/result_matchers.h"
 #include <gtest/gtest.h>
 
 using fastecu::Error;
@@ -17,8 +18,7 @@ TEST(Result, HoldsValue)
 TEST(Result, HoldsError)
 {
     Result<int> r = fail(ErrorKind::Timeout, "read deadline");
-    ASSERT_FALSE(r.has_value());
-    EXPECT_EQ(r.error().kind, ErrorKind::Timeout);
+    ASSERT_THAT(r, fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_EQ(r.error().detail, "read deadline");
 }
 
@@ -27,8 +27,7 @@ TEST(Status, VoidSuccessAndFailure)
     Status ok = {};
     EXPECT_TRUE(ok.has_value());
     Status bad = fail(ErrorKind::Disconnected);
-    ASSERT_FALSE(bad.has_value());
-    EXPECT_EQ(bad.error().kind, ErrorKind::Disconnected);
+    ASSERT_THAT(bad, fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(bad.error().detail.empty());
 }
 
