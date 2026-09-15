@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/ports/testing/result_matchers.h"
 // Equivalence tests for SubaruDenso1n83m_1_5mCanExecutor, the portable
 // replacement for FlashEcuSubaruDenso1N83M_1_5MCanOperation's
@@ -459,8 +460,8 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, WriteErasesThenFlashesBlockOne)
     // This adds only that calculatePayload is 4-byte-word independent, so the
     // page-at-a-time comparison above is a valid way to express it.
     const bytes::Bytes encrypted = toWire(rom);
-    EXPECT_EQ(bytes::Bytes(encrypted.begin() + 0x10000, encrypted.begin() + 0x10000 + 256),
-              toWire(bytes::ByteView(rom).subspan(0x10000, 256)));
+    EXPECT_THAT(bytes::Bytes(encrypted.begin() + 0x10000, encrypted.begin() + 0x10000 + 256),
+                test_bytes::BytesEq(toWire(bytes::ByteView(rom).subspan(0x10000, 256))));
     // Every sleep the write path performs, in order, each with the legacy
     // delay() it reproduces: connect_bench's wait (line 660), the settle after
     // the erase command (line 1436), and the settle before the

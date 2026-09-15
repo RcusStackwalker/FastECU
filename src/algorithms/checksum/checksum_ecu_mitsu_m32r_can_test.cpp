@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/algorithms/checksum/checksum_ecu_mitsu_m32r_can.h"
 
 #include <gtest/gtest.h>
@@ -150,7 +151,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, LeavesAnImageTheEcuAlreadyAcceptsUnchanged)
     const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Unchanged);
-    EXPECT_EQ(result.romData, rom);
+    EXPECT_THAT(result.romData, test_bytes::BytesEq(rom));
 }
 
 TEST(ChecksumEcuMitsuM32rCanTest, CorrectsAnImageTheEcuWouldRejectUntilItAccepts)
@@ -182,7 +183,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, UnrecognisedAreaCodeDisablesChecksumsAndTouche
     const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Disabled);
-    EXPECT_EQ(result.romData, rom);
+    EXPECT_THAT(result.romData, test_bytes::BytesEq(rom));
 }
 
 TEST(ChecksumEcuMitsuM32rCanTest, AreaCodeLargerThanTheFileDisablesChecksumsAndTouchesNothing)
@@ -193,7 +194,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, AreaCodeLargerThanTheFileDisablesChecksumsAndT
     const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Disabled);
-    EXPECT_EQ(result.romData, rom);
+    EXPECT_THAT(result.romData, test_bytes::BytesEq(rom));
 }
 
 TEST(ChecksumEcuMitsuM32rCanTest, ImageTooSmallToCarryTheLayoutIsRejectedAsInvalidSize)
@@ -203,7 +204,7 @@ TEST(ChecksumEcuMitsuM32rCanTest, ImageTooSmallToCarryTheLayoutIsRejectedAsInval
     const ChecksumResult result = ChecksumEcuMitsuM32rCan::calculate_checksum_result(rom);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::InvalidSize);
-    EXPECT_EQ(result.romData, rom);
+    EXPECT_THAT(result.romData, test_bytes::BytesEq(rom));
 }
 
 TEST(ChecksumEcuMitsuM32rCanTest, CorrectionRewritesOnlyTheFourBytesOfTheBalanceSlot)
@@ -237,5 +238,5 @@ TEST(ChecksumEcuMitsuM32rCanTest, CorrectingAnAlreadyCorrectedImageChangesNothin
     const ChecksumResult second = ChecksumEcuMitsuM32rCan::calculate_checksum_result(first.romData);
 
     EXPECT_EQ(second.status, ChecksumResult::Status::Unchanged);
-    EXPECT_EQ(second.romData, first.romData);
+    EXPECT_THAT(second.romData, test_bytes::BytesEq(first.romData));
 }

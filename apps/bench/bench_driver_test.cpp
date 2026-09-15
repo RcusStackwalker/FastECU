@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "apps/bench/bench_driver.h"
 
 #include <gtest/gtest.h>
@@ -190,7 +191,7 @@ TEST(BenchDriver, PreparedPayloadIsNotReloadedAfterAnEarlierDestructiveStep)
     EXPECT_EQ(harness.files.load_calls.at("payload.bin"), 1);
     ASSERT_EQ(harness.session.requests.size(), 6U);
     EXPECT_EQ(harness.session.requests.front(), MitsuColtCan::buildRequestReflashUnlock());
-    EXPECT_EQ(harness.session.requests[2], (bytes::Bytes{0x36, 0xAA}));
+    EXPECT_THAT(harness.session.requests[2], test_bytes::BytesEq((bytes::Bytes{0x36, 0xAA})));
 }
 
 TEST(BenchDriver, InvalidLaterScriptLinePreventsEarlierDestructiveLine)

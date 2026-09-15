@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include <gtest/gtest.h>
 
 #include "src/algorithms/protocol/ssm/qt_compat/ssm_protocol.h"
@@ -69,7 +70,8 @@ TEST(TestSsmProtocol, payload_truncates_to_four_byte_boundary)
 TEST(TestSsmProtocol, header_matches_existing_layout)
 {
     const QByteArray payload = QByteArray::fromHex("A800112233");
-    ASSERT_EQ(SsmProtocol::addHeader(payload, 0xF1, 0x10), QByteArray::fromHex("8010F105A80011223394"));
+    ASSERT_THAT(SsmProtocol::addHeader(payload, 0xF1, 0x10),
+                test_bytes::BytesEq(QByteArray::fromHex("8010F105A80011223394")));
 }
 
 TEST(TestSsmProtocol, header_matches_existing_layout_with_byte_view)

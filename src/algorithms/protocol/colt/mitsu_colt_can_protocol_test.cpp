@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include <gtest/gtest.h>
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
 #include "src/algorithms/protocol/testing/byte_test_utils.h"

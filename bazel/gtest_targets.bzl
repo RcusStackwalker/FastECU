@@ -23,7 +23,10 @@ def fastecu_portable_gtest(
         size = size,
         tags = tags,
         target_compatible_with = target_compatible_with,
-        deps = ["@googletest//:gtest_main"] + deps,
+        deps = [
+            "//src/algorithms/protocol/testing:byte_matchers",
+            "@googletest//:gtest_main",
+        ] + deps,
     )
 
 def fastecu_gtest(
@@ -53,6 +56,7 @@ def fastecu_gtest(
         tags = tags,
         target_compatible_with = target_compatible_with,
         deps = qt_deps + [
+            "//src/algorithms/protocol/testing:byte_matchers",
             "@googletest//:gtest_main",
         ] + deps,
     )

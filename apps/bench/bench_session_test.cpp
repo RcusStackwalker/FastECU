@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include "apps/bench/bench_session.h"
 
@@ -103,10 +104,11 @@ TEST(BenchSession, ConnectSendsTheExactThreeHandshakePdusOnceAndRecordsEvidence)
     EXPECT_TRUE(harness.transport->scriptConsumed());
     const TrafficEvidence& traffic = harness.session->last_traffic();
     EXPECT_EQ(traffic.exchange_count, 3U);
-    EXPECT_EQ(traffic.tx, MitsuColtCan::buildDiagnosticSession(MitsuColtCan::kSessionBootload));
-    EXPECT_EQ(traffic.rx, (bytes::Bytes{0x50, MitsuColtCan::kSessionBootload}));
-    EXPECT_EQ(traffic.last_tx, MitsuColtCan::buildSecurityAccessKey(MitsuColtCan::seedKey(kSeed)));
-    EXPECT_EQ(traffic.last_rx, (bytes::Bytes{0x67, 0x06}));
+    EXPECT_THAT(traffic.tx, test_bytes::BytesEq(MitsuColtCan::buildDiagnosticSession(MitsuColtCan::kSessionBootload)));
+    EXPECT_THAT(traffic.rx, test_bytes::BytesEq((bytes::Bytes{0x50, MitsuColtCan::kSessionBootload})));
+    EXPECT_THAT(traffic.last_tx,
+                test_bytes::BytesEq(MitsuColtCan::buildSecurityAccessKey(MitsuColtCan::seedKey(kSeed))));
+    EXPECT_THAT(traffic.last_rx, test_bytes::BytesEq((bytes::Bytes{0x67, 0x06})));
     EXPECT_GT(traffic.elapsed_ms, 0U);
 }
 

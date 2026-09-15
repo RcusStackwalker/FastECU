@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/testing/byte_matchers.h"
 #include "src/algorithms/protocol/bytes.h"
 
 #include <limits>
