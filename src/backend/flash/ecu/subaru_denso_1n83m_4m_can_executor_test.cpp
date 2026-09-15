@@ -28,10 +28,12 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_denso_1n83m_4m_can_plan.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/ecu/testing/can_executor_conformance.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
+#include "src/backend/ports/testing/result_matchers.h"
 
 namespace
 {
@@ -45,6 +47,11 @@ using fastecu::flash::FlashOperation;
 using fastecu::flash::ScriptedCanFlashTransport;
 using fastecu::flash::SubaruDenso1n83m_4mCanExecutor;
 using fastecu::flash::SubaruDenso1n83m_4mCanPlan;
+// INSTANTIATE_TYPED_TEST_SUITE_P token-pastes its generated names against
+// whatever namespace is visible unqualified at the call site, so
+// CanExecutorConformance's must be brought in wholesale rather than by a
+// single using-declaration.
+using namespace fastecu::flash::testing;
 using testing::Contains;
 using testing::Each;
 using testing::IsEmpty;
@@ -108,25 +115,21 @@ bytes::Bytes response(std::initializer_list<bytes::Byte> tail)
     return requestTo(0x7e8, tail);
 }
 
-fastecu::flash::FlashPlan readPlan()
+fastecu::Result<fastecu::flash::FlashPlan> readPlan()
 {
-    auto plan = build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
-    EXPECT_THAT(plan, fastecu::testing::IsOk());
-    return std::move(*plan);
+    return build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt);
 }
 
-fastecu::flash::FlashPlan writePlan(bytes::Bytes rom)
+fastecu::Result<fastecu::flash::FlashPlan> writePlan(bytes::Bytes rom)
 {
-    auto plan = build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
-    EXPECT_THAT(plan, fastecu::testing::IsOk());
-    return std::move(*plan);
+    return build_subaru_denso_1n83m_4m_can_plan(FlashOperation::Write, kProtocol, kMcu, std::move(rom));
 }
 
 // Hand-built rather than produced by build_subaru_denso_1n83m_4m_can_plan, so
 // a plan whose operation the builder itself would refuse can still reach the
 // executor -- the only way to prove the executor's own
 // validate_subaru_denso_1n83m_4m_can_plan call rejects it before any I/O.
-fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation)
+fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operation)
 {
     fastecu::flash::FlashPlanFields fields;
     fields.operation = operation;
@@ -138,9 +141,7 @@ fastecu::flash::FlashPlan handBuiltPlan(FlashOperation operation)
     fields.erase_regions = {fastecu::flash::MemoryRegion{kBlockStart, kBlockLength}};
     fields.image = bytes::Bytes(kImageSize, 0x00);
     fields.family_plan = SubaruDenso1n83m_4mCanPlan{0x7e0, 0x7e8, 500000, false, 0x10000, 0x100};
-    auto plan = fastecu::flash::validate_and_build(std::move(fields));
-    EXPECT_THAT(plan, fastecu::testing::IsOk());
-    return std::move(*plan);
+    return fastecu::flash::validate_and_build(std::move(fields));
 }
 
 // The seed/encrypt tables, transcribed independently from the same legacy
@@ -287,6 +288,31 @@ void scriptStopCommand(ScriptedCanFlashTransport& t)
     t.exchange(request({0x37}), response({0x77}));
 }
 
+// Preliminaries plus the bench session request, then the security-access
+// seed request registered as an expected write only -- its reply is left for
+// the caller to queue, so the same script serves every "the next read fails"
+// conformance test (fastecu::flash::testing::CanExecutorConformance)
+// regardless of which failure mode (a transport error, a bare timeout, or an
+// empty frame) belongs there.
+//
+// Unlike every sibling in this cluster, this family's read_memory dump-setup
+// pair (the 0x34/0x35 exchanges) is NOT a safe place to stop: tolerant_setup
+// treats a wrong OR an absent reply there as non-fatal (see
+// ProceedsPastMalformedConnectAndDumpSetupResponses /
+// ProceedsPastMalformedInCarProbeAndDumpSetup), so an empty-reply fault
+// injected there would be swallowed rather than surfaced, silently defeating
+// ReadReportsAnEmptyReplyAsTimeout. The security-access seed request
+// (security_access(), fatal_query-based) is the first exchange after the
+// tolerant preliminaries that is fatal on all three fault kinds, so that is
+// where this family's copy of the shared conformance script stops instead.
+void scriptUpToFirstFatalRead(ScriptedCanFlashTransport& t)
+{
+    scriptPreliminaries(t, 0xFF);
+    const auto section = t.section("bench connect tail (first fatal request only)");
+    t.exchange(request({0x10, 0x43}), response({0x50, 0x43}));
+    t.exchange(request({0x27, 0x61}));
+}
+
 // The in-car arm. The ten fire-and-forget replies are deliberately given
 // arbitration ids other than 0x7E8 wherever the addressed module would answer
 // on its own id: legacy reads whichever frame arrives next without checking
@@ -374,21 +400,6 @@ bytes::Bytes writeRom()
     return rom;
 }
 
-TEST(SubaruDenso1n83m_4mCanExecutor, TransportSetupReturnsThePlansWireParameters)
-{
-    // The caller configures the transport from this, so the plan's wire
-    // parameters have to survive the hand-off intact.
-    SubaruDenso1n83m_4mCanExecutor executor;
-
-    const auto setup = executor.transport_setup(readPlan());
-
-    ASSERT_THAT(setup, fastecu::testing::IsOk());
-    EXPECT_EQ(setup->bitrate, 500000);
-    EXPECT_EQ(setup->request_id, 0x7e0U);
-    EXPECT_EQ(setup->response_id, 0x7e8U);
-    EXPECT_FALSE(setup->extended_id);
-}
-
 TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedConnectAndDumpSetupResponses)
 {
     // The tolerance this family exists to preserve. A happy-path-only suite
@@ -408,11 +419,14 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedConnectAndDumpSetupRes
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
-    EXPECT_EQ(result->read_bytes->size(), kImageSize);
+    ASSERT_EQ(result->read_bytes->size(), kImageSize);
     EXPECT_THAT(bytes::ByteView(*result->read_bytes).subspan(0x10000, kBlockLength), Each(0x5A));
     EXPECT_TRUE(transport.scriptConsumed());
     // Legacy's own wording for the absent-reply branch it then steps over.
@@ -437,8 +451,12 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ProceedsPastMalformedInCarProbeAndDumpSetup
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    ASSERT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Disconnected));
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "No valid response from ECU")));
 }
@@ -456,11 +474,14 @@ TEST(SubaruDenso1n83m_4mCanExecutor, BenchReadReturnsPaddedImage)
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     const bytes::Bytes& rom = *result->read_bytes;
-    EXPECT_EQ(rom.size(), kImageSize);
+    ASSERT_EQ(rom.size(), kImageSize);
     EXPECT_THAT(bytes::ByteView(rom).first(0x10000), Each(0xFF));                 // leading pad
     EXPECT_THAT(bytes::ByteView(rom).subspan(0x10000, kBlockLength), Each(0xA5)); // decrypted payload
     EXPECT_THAT(bytes::ByteView(rom).last(0x100), Each(0xFF));                    // tail pad
@@ -481,11 +502,14 @@ TEST(SubaruDenso1n83m_4mCanExecutor, InCarReadReturnsPaddedImage)
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     const bytes::Bytes& rom = *result->read_bytes;
-    EXPECT_EQ(rom.size(), kImageSize);
+    ASSERT_EQ(rom.size(), kImageSize);
     EXPECT_THAT(bytes::ByteView(rom).first(0x10000), Each(0xFF));
     EXPECT_THAT(bytes::ByteView(rom).subspan(0x10000, kBlockLength), Each(0x5A));
     EXPECT_THAT(bytes::ByteView(rom).last(0x100), Each(0xFF));
@@ -508,7 +532,10 @@ TEST(SubaruDenso1n83m_4mCanExecutor, WriteErasesThenFlashesBlockOne)
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    auto result = executor.execute(writePlan(rom), transport, clock, cancellation, events);
+    const auto plan = writePlan(rom);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_FALSE(result->read_bytes.has_value());
@@ -533,47 +560,17 @@ TEST(SubaruDenso1n83m_4mCanExecutor, WriteErasesThenFlashesBlockOne)
     EXPECT_EQ(clock.sleep_calls, (std::vector<std::chrono::milliseconds>{500ms, 50ms, 500ms, 100ms}));
 }
 
-TEST(SubaruDenso1n83m_4mCanExecutor, TestWriteIsRejectedBeforeAnyTransportCall)
-{
-    // Legacy threaded test_write from execute() through write_memory into
-    // reflash_block and never consulted it, so a test_write run performed a
-    // real erase and a real 0xB6 flash write. The port refuses before it
-    // configures or opens the transport, let alone reaches the ECU.
-    ScriptedCanFlashTransport transport;
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDenso1n83m_4mCanExecutor executor;
-
-    ASSERT_THAT(executor.execute(handBuiltPlan(FlashOperation::TestWrite), transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Unsupported));
-    EXPECT_EQ(transport.writesConsumed(), 0U);
-    EXPECT_FALSE(transport.last_config_.has_value());
-    EXPECT_THAT(events.logs, IsEmpty());
-}
-
-TEST(SubaruDenso1n83m_4mCanExecutor, ReadTimeoutPropagates)
-{
-    // A transport-level failure is not what the tolerated checks tolerate:
-    // legacy's read_serial_data has no error channel at all, so a genuinely
-    // broken bus still has to surface rather than be swallowed as an
-    // "absent reply".
-    ScriptedCanFlashTransport transport;
-    scriptBenchConnect(transport);
-    transport.exchange(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x3D, 0x3F, 0x00}));
-    transport.queue_error(ErrorKind::Timeout, "no reply");
-
-    FakeClock clock;
-    RecordingEventSink events;
-    fastecu::ManualCancellationToken cancellation;
-    SubaruDenso1n83m_4mCanExecutor executor;
-
-    ASSERT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Timeout));
-    EXPECT_TRUE(transport.scriptConsumed());
-}
-
-TEST(SubaruDenso1n83m_4mCanExecutor, ReadDisconnectPropagates)
+// Unlike ReadPropagatesADisconnectedTransport (can_executor_conformance.h),
+// which stops at read_memory's 0x34 setup exchange -- a fatal_query call --
+// this pins a transport error raised *inside* the 0xB7 dump-chunk loop, whose
+// reads go through fatal_request at a different call site, inside a `for`
+// loop carrying its own cancellation-check and progress-accumulation state.
+// fatal_request's generic error propagation is covered once for every family
+// by uds_client_exchange_common_test.cpp; this test is what actually proves
+// the loop itself aborts cleanly -- without corrupting rom/progress state --
+// on a transport error, rather than assuming fatal_request's coverage
+// implies the loop wrapping it behaves the same way.
+TEST(SubaruDenso1n83m_4mCanExecutor, ReadDisconnectMidDumpLoopPropagates)
 {
     ScriptedCanFlashTransport transport;
     scriptBenchConnect(transport);
@@ -586,8 +583,44 @@ TEST(SubaruDenso1n83m_4mCanExecutor, ReadDisconnectPropagates)
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    ASSERT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Disconnected));
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+// This family's own strictness boundary, distinct from both
+// ReadDisconnectMidDumpLoopPropagates above and the conformance suite's
+// ReadTimeoutPropagates (can_executor_conformance.h, which now faults at the
+// seed request -- see scriptUpToFirstFatalRead's comment): read_memory's
+// 0x34/0x35 dump-setup pair tolerates a wrong OR an absent reply
+// (ProceedsPastMalformedConnectAndDumpSetupResponses proves that positively),
+// but a genuine transport-level failure at that exact same point still has
+// to surface, because legacy's read_serial_data has no error channel at all
+// and a broken bus is not the same thing as an empty reply. Keeping both the
+// tolerant case and this one is what stops the difference being normalized
+// away in either direction.
+TEST(SubaruDenso1n83m_4mCanExecutor, ReadTimeoutAtTheTolerantDumpSetupStillPropagates)
+{
+    ScriptedCanFlashTransport transport;
+    scriptBenchConnect(transport);
+    transport.exchange(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x3D, 0x3F, 0x00}));
+    transport.queue_error(ErrorKind::Timeout, "no reply");
+
+    FakeClock clock;
+    RecordingEventSink events;
+    fastecu::ManualCancellationToken cancellation;
+    SubaruDenso1n83m_4mCanExecutor executor;
+
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    const auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -606,48 +639,12 @@ TEST(SubaruDenso1n83m_4mCanExecutor, NegativeResponseDuringConnectFails)
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    ASSERT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::BadResponse));
-    EXPECT_TRUE(transport.scriptConsumed());
-}
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-// Cancels the token as soon as the first dump page's progress is reported,
-// mirroring subaru_hitachi_m32r_can_executor_test.cpp's own sink.
-class CancelAfterFirstPageSink final : public RecordingEventSink
-{
-  public:
-    explicit CancelAfterFirstPageSink(fastecu::ManualCancellationToken& source) : source_(source)
-    {
-    }
-    void phase_progress(const fastecu::PhaseProgressEvent& event) override
-    {
-        RecordingEventSink::phase_progress(event);
-        if (event.phase_name == "Read ROM" && event.done > 0)
-        {
-            source_.cancel();
-        }
-    }
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-  private:
-    fastecu::ManualCancellationToken& source_;
-};
-
-TEST(SubaruDenso1n83m_4mCanExecutor, CancellationMidReadReturnsCancelled)
-{
-    ScriptedCanFlashTransport transport;
-    scriptBenchConnect(transport);
-    scriptReadSetup(transport);
-    // Exactly one page is scripted; the executor is cancelled while it is
-    // being served, so the sweep must stop at the top of the next page.
-    scriptFlashDump(transport, kBlockStart, kPageSize, kPageSize, 0x00);
-
-    FakeClock clock;
-    fastecu::ManualCancellationToken cancellation;
-    CancelAfterFirstPageSink events{cancellation};
-    SubaruDenso1n83m_4mCanExecutor executor;
-
-    ASSERT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Cancelled));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -672,8 +669,12 @@ TEST(SubaruDenso1n83m_4mCanExecutor, EmptyBranchSelectorReplyFails)
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    ASSERT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Timeout));
+    const auto plan = readPlan();
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -695,9 +696,71 @@ TEST(SubaruDenso1n83m_4mCanExecutor, EraseRetryExhaustionFails)
     fastecu::ManualCancellationToken cancellation;
     SubaruDenso1n83m_4mCanExecutor executor;
 
-    ASSERT_THAT(executor.execute(writePlan(rom), transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::BadResponse));
+    const auto plan = writePlan(rom);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    auto result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
+
+// The IFlashExecutor contract this family satisfies -- see
+// can_executor_conformance.h. Every member forwards to a helper already
+// defined above rather than reimplementing it, so the conformance suite
+// exercises exactly the same scripts and plans the family's own local tests
+// do.
+struct Denso1n83m_4mCanTraits
+{
+    using Executor = SubaruDenso1n83m_4mCanExecutor;
+    static constexpr fastecu::flash::Iso15765Config kWire{
+        .bitrate = 500000, .request_id = 0x7e0, .response_id = 0x7e8, .extended_id = false};
+    static constexpr std::uint32_t kBlockStart = ::kBlockStart;
+    static constexpr std::uint32_t kBlockLength = ::kBlockLength;
+    static constexpr std::uint32_t kPageSize = ::kPageSize;
+    // connect_bootloader's tolerant_probe exchanges read with this family's
+    // short timeout (serial_read_short_timeout), like two of its three
+    // siblings.
+    static constexpr std::chrono::milliseconds kProbeTimeout{200};
+    static constexpr int kProbeCount = 10;
+
+    static fastecu::Result<fastecu::flash::FlashPlan> readPlan()
+    {
+        return ::readPlan();
+    }
+
+    static fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operation)
+    {
+        return ::handBuiltPlan(operation);
+    }
+
+    static void scriptBenchConnect(ScriptedCanFlashTransport& t)
+    {
+        ::scriptBenchConnect(t);
+    }
+
+    static void scriptReadSetup(ScriptedCanFlashTransport& t)
+    {
+        ::scriptReadSetup(t);
+    }
+
+    static void scriptFlashDump(ScriptedCanFlashTransport& t, std::uint32_t start, std::uint32_t length,
+                                std::uint32_t pagesize, bytes::Byte fill)
+    {
+        ::scriptFlashDump(t, start, length, pagesize, fill);
+    }
+
+    static void scriptStopCommand(ScriptedCanFlashTransport& t)
+    {
+        ::scriptStopCommand(t);
+    }
+
+    static void scriptUpToFirstFatalRead(ScriptedCanFlashTransport& t)
+    {
+        ::scriptUpToFirstFatalRead(t);
+    }
+};
+
+INSTANTIATE_TYPED_TEST_SUITE_P(SubaruDenso1n83m_4mCan, CanExecutorConformance, Denso1n83m_4mCanTraits);
 
 } // namespace

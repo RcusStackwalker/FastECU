@@ -333,6 +333,74 @@ use a small local preprocessor guard with standard compiler/platform macros
 rather than Qt ones. See
 [ADR 0005](adr/0005-separate-platform-specific-backend-tests.md).
 
+**File headers name the legacy source only.** A test file ported from a
+legacy operation opens with a short header naming that source file, never a
+line range or a commit hash. A citation that includes them looks precise but
+decays immediately: the legacy file is deleted from the working tree (it
+survives only in history), so a line-range citation cannot be checked against
+anything and silently goes stale the moment the legacy source is edited or
+reformatted. Naming just the file is a claim that stays true.
+
+**Delete comments that restate the test name; keep those that explain why.**
+A comment repeating what the test name already says (`// checks that read
+propagates a disconnect`) on `ReadPropagatesADisconnectedTransport` adds
+nothing a reader doesn't already have. Keep comments that explain why this
+particular input was chosen, or why this particular failure mode matters —
+the kind of thing that isn't recoverable just by reading the assertions.
+
+**Name a suite for the type under test, with no `Test` suffix**
+(`SubaruHitachiM32rCanExecutor`, not `SubaruHitachiM32rCanExecutorTest`) — the
+suite name already reads as "tests for X" in every failure message gtest
+prints, so the suffix is redundant on every line of output.
+
+**Assert `Result`/`Status` with the matchers, not a bare `has_value()`.** Use
+`IsOk()`, `IsErr()`, and `IsErrWith()` from
+`src/backend/ports/testing/result_matchers.h`:
+
+```cpp
+// Yes
+EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Timeout, HasSubstr("no reply")));
+
+// No
+ASSERT_FALSE(result.has_value());
+EXPECT_EQ(result.error().kind, ErrorKind::Timeout);
+```
+
+`ASSERT_TRUE(x.has_value())` throws away the error the assertion is already
+holding; on failure it prints `false` where a matcher would print the actual
+`ErrorKind` and detail string.
+
+**Use fatal assertions before accessing a result's value or error.**
+`EXPECT_THAT` records a failure and continues, so it cannot guard a later
+`*result`, `result->member`, or `result.error()`. Assert `IsOk()` before
+accessing the value, or use `IsErrWith()` to check the error and its detail
+together without accessing an inactive alternative. The matchers already
+print error details; do not append `result.error().detail` to them.
+
+Plan-building test helpers return `Result<FlashPlan>` without asserting or
+unwrapping. Check that result with `ASSERT_THAT(plan, IsOk())` in the calling
+test body before passing `*plan` to the executor. Fatal assertions require
+a void function and only return from that function: hiding one in a void
+helper would still let its caller continue unless the caller also checks
+for the fatal failure.
+
+Converting existing sites to the matchers is ongoing rather than complete —
+`src/backend/flash/ecu/` still carries a substantial number of bare
+`has_value()` assertions predating this rule, so a reader meeting one there
+should read it as known debt, not as a second accepted style.
+
+**A loop containing an assertion needs a `SCOPED_TRACE`, or should be a
+`TEST_P`.** A bare `for` loop with `EXPECT_*` calls inside reports every
+failure on the same line, so a reader can't tell which iteration failed
+without re-running under a debugger. Add `SCOPED_TRACE` naming the current
+case, or restructure as `TEST_P` with `PrintToStringParamName` so gtest's own
+output already says which case failed.
+
+**Cross-document references are Markdown links with human-readable text**,
+never a bare path written as inline code — lychee, the link checker `prek`
+runs, resolves `[text](path)` links but cannot see a path spelled as
+`` `docs/foo.md` `` and so cannot catch it going stale.
+
 ## Formatting and headers
 
 `clang-format` and the `#pragma once` check run under `prek`; run
