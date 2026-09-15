@@ -38,16 +38,3 @@ fastecu_portable_gtest(
     srcs = ["flash_printers_test.cpp"],
     deps = [":flash_printers"],
 )
-
-cc_library(
-    name = "flash_printers",
-    testonly = True,
-    hdrs = ["flash_printers.h"],
-    deps = ["//src/backend/flash:flash_types"],
-)
-
-fastecu_portable_gtest(
-    name = "flash_printers_test",
-    srcs = ["flash_printers_test.cpp"],
-    deps = [":flash_printers"],
-)
