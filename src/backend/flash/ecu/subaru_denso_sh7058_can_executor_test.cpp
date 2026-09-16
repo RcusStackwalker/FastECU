@@ -157,7 +157,12 @@ class RecordingCanTransport final : public ICanFlashTransport
     Status configure(const Iso15765Config& config) override
     {
         lifecycle.push_back("configure");
-        return scripted.configure(config);
+        Status result = scripted.configure(config);
+        if (result.has_value() && cancellation_on_configure != nullptr)
+        {
+            cancellation_on_configure->cancel();
+        }
+        return result;
     }
     Status open() override
     {
@@ -202,6 +207,7 @@ class RecordingCanTransport final : public ICanFlashTransport
     std::vector<int> read_timeouts;
     ToggleCancellation *cancellation_to_trigger = nullptr;
     ToggleCancellation *cancellation_on_reset = nullptr;
+    ToggleCancellation *cancellation_on_configure = nullptr;
     ToggleCancellation *cancellation_on_open = nullptr;
     bytes::Bytes cancel_prefix;
 };
@@ -745,6 +751,26 @@ TEST(SubaruDensoSh7058CanExecutor, StartupCancellationAfterResetSkipsConfigureOp
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection"));
+}
+
+TEST(SubaruDensoSh7058CanExecutor, StartupCancellationDuringConfigureSkipsOpenAndClose)
+{
+    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    auto transport = std::make_unique<RecordingCanTransport>();
+    RecordingCanTransport *observed = transport.get();
+    ToggleCancellation cancellation;
+    observed->cancellation_on_configure = &cancellation;
+    RecordingClock clock;
+    RecordingEventSink events;
+
+    auto attempt =
+        bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanExecutor>(), std::move(transport));
+    const auto result = attempt->run(clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection", "configure"));
 }
 
 TEST(SubaruDensoSh7058CanExecutor, StartupResetFailurePropagatesWithoutConfigureOpenOrClose)

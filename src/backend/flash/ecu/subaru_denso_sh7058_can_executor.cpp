@@ -1271,6 +1271,15 @@ Status SubaruDensoSh7058CanExecutor::before_transport_configure(ICanFlashTranspo
     return {};
 }
 
+Status SubaruDensoSh7058CanExecutor::before_transport_open(const ICancellationToken& cancellation) const
+{
+    if (cancellation.cancelled())
+    {
+        return fail(ErrorKind::Cancelled, "cancelled after petrol CAN configuration");
+    }
+    return {};
+}
+
 Result<FlashExecutionResult> SubaruDensoSh7058CanExecutor::execute(const FlashPlan& plan, ICanFlashTransport& transport,
                                                                    IClock& clock,
                                                                    const ICancellationToken& cancellation,
