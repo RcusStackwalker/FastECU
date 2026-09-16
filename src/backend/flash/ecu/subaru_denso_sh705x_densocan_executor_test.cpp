@@ -1745,8 +1745,8 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationStopsWakeAndUploadAtTheirLoo
         transport.queueRawRead(raw_response({0x7A, 0x96, 0, 0, 0, 0, 0, 0}));
         const std::uint32_t address = test_case.kernel_address;
         transport.expectRawWrite(
-            raw_request({0x7A, 0x9C, static_cast<bytes::Byte>(address >> 24), static_cast<bytes::Byte>(address >> 16),
-                         static_cast<bytes::Byte>(address >> 8), static_cast<bytes::Byte>(address), 0, 0}));
+            raw_request({0x7A, 0x9C, static_cast<bytes::Byte>(address >> 24U), static_cast<bytes::Byte>(address >> 16U),
+                         static_cast<bytes::Byte>(address >> 8U), static_cast<bytes::Byte>(address), 0, 0}));
         transport.queueRawRead(raw_response({0x7A, 0x9C, 0, 0, 0, 0, 0, 0}));
         transport.expectRawWrite(raw_request({0x7A, 0xAE, 0x11, 0x22, 0x33, 0x44, 0x55, 0x00}));
         ToggleCancellation cancellation;

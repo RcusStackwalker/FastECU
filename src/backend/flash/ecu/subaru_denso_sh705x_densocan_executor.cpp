@@ -323,8 +323,9 @@ Status wake_bootloader(IMixedCanFlashTransport& transport, IClock& clock, const 
 cdbg::CanFrame raw_address_command(std::uint8_t command, std::uint32_t address)
 {
     return {.id = kRawTransmitId,
-            .payload = {0x7A, command, static_cast<bytes::Byte>(address >> 24), static_cast<bytes::Byte>(address >> 16),
-                        static_cast<bytes::Byte>(address >> 8), static_cast<bytes::Byte>(address), 0x00, 0x00}};
+            .payload = {0x7A, command, static_cast<bytes::Byte>(address >> 24U),
+                        static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
+                        static_cast<bytes::Byte>(address), 0x00, 0x00}};
 }
 
 Status set_raw_kernel_address(IMixedCanFlashTransport& transport, std::uint32_t address,
@@ -399,7 +400,7 @@ Status upload_kernel(IMixedCanFlashTransport& transport, const KernelImage& kern
         events.progress(static_cast<int>(offset + 6), static_cast<int>(padded.size()));
     }
 
-    std::uint16_t folded_checksum = 0;
+    std::uint32_t folded_checksum = 0;
     for (const bytes::Byte byte : padded)
     {
         folded_checksum += byte;
@@ -651,8 +652,7 @@ Status query_programming_voltage(IMixedCanFlashTransport& transport, const ICanc
     {
         return valid;
     }
-    const std::uint16_t voltage_raw =
-        (static_cast<std::uint16_t>((**received)[9]) << 8U) | static_cast<std::uint16_t>((**received)[10]);
+    const std::uint16_t voltage_raw = bytes::readU16Be(**received, 9);
     const float voltage = static_cast<float>(voltage_raw) / 50.0F;
     events.log(LogLevel::Info, std::format(": {:g}V", voltage));
     return {};

@@ -247,6 +247,8 @@ TEST(SubaruDensoSh7058CanPlan, ValidatorRejectsWireSecurityRegionGeometryAndConf
             // a mutable target-id suffix.
             fields.target_id = "sub_ecu_denso_sh7058_can_ecutek";
             break;
+        default:
+            FAIL() << "unexpected validator mutation " << mutation;
         }
         auto plan = validate_and_build(std::move(fields));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;

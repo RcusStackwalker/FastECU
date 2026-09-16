@@ -272,6 +272,8 @@ TEST(SubaruTcuDensoSh705xCanPlan, ValidatorRejectsWireRegionGeometryAndConfirmat
         case 5:
             fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::CycleIgnition}};
             break;
+        default:
+            FAIL() << "unexpected validator mutation " << mutation;
         }
         auto plan = validate_and_build(std::move(fields));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;

@@ -543,8 +543,8 @@ void script_kernel_upload_until_start(ScriptedCanFlashTransport& transport, cons
     transport.queueRead(response(bytes::Bytes{0x74, 0x20}));
 
     bytes::Bytes block{0xB6,
-                       static_cast<bytes::Byte>(test_case.kernel_address >> 16),
-                       static_cast<bytes::Byte>(test_case.kernel_address >> 8),
+                       static_cast<bytes::Byte>(test_case.kernel_address >> 16U),
+                       static_cast<bytes::Byte>(test_case.kernel_address >> 8U),
                        static_cast<bytes::Byte>(test_case.kernel_address),
                        0xA1,
                        0xB0,
@@ -557,9 +557,10 @@ void script_kernel_upload_until_start(ScriptedCanFlashTransport& transport, cons
     block.insert(block.end(), {0x6C, 0x78, 0x52, 0x90});
     transport.expectWrite(request(block));
     queue_upload_b6_reply(transport, b6_reply);
-    transport.expectWrite(request(bytes::Bytes{0xB6, static_cast<bytes::Byte>((test_case.kernel_address + 0x80) >> 16),
-                                               static_cast<bytes::Byte>((test_case.kernel_address + 0x80) >> 8),
-                                               static_cast<bytes::Byte>(test_case.kernel_address + 0x80)}));
+    transport.expectWrite(
+        request(bytes::Bytes{0xB6, static_cast<bytes::Byte>((test_case.kernel_address + 0x80U) >> 16U),
+                             static_cast<bytes::Byte>((test_case.kernel_address + 0x80U) >> 8U),
+                             static_cast<bytes::Byte>(test_case.kernel_address + 0x80U)}));
     queue_upload_b6_reply(transport, b6_reply); // The <= maxblocks loop emits one empty final block.
 
     transport.expectWrite(request(bytes::Bytes{0x37}));

@@ -272,6 +272,8 @@ TEST(SubaruDensoSh705xDensoCanPlan, ValidatorRejectsWireGeometryAndConfirmationD
         case 5:
             fields.confirmations.clear();
             break;
+        default:
+            FAIL() << "unexpected validator mutation " << mutation;
         }
         auto plan = validate_and_build(std::move(fields));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
