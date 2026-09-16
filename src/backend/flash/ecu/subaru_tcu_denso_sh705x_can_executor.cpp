@@ -696,6 +696,20 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
     }
 
     info(context, "Kernel started, initializing...");
+    // upload_kernel(), revision 59f4e442 lines 581-595 resets the adapter
+    // and reapplies the TCU's ISO-15765 configuration before its quiet
+    // period and strict post-upload probe. This is protocol-owned inner
+    // lifecycle; BoundAttempt retains the initial configure/open and final
+    // close ownership.
+    if (const Status restarted = context.transport.restart_iso15765({.bitrate = 500000,
+                                                                     .request_id = context.request_id,
+                                                                     .response_id = context.response_id,
+                                                                     .extended_id = false},
+                                                                    context.cancellation);
+        !restarted.has_value())
+    {
+        return restarted;
+    }
     if (const Status slept = context.clock.sleep(kPostUploadDelayMs, context.cancellation); !slept.has_value())
     {
         return slept;

@@ -27,6 +27,8 @@ namespace
 
 constexpr auto kTcuChooserText = "Choose which option";
 constexpr auto kTcuIgnitionText = "Turn ignition ON and press OK to start initializing connection to TCU";
+constexpr auto kLegacyEcuIgnitionText = "Turn ignition ON and press OK to start initializing connection to ECU";
+constexpr auto kPortableEcuIgnitionText = "Turn ignition ON and press OK to start initializing the ECU connection.";
 
 class ModalDriver final : public QObject
 {
@@ -65,6 +67,16 @@ class ModalDriver final : public QObject
         return unexpected_flash_dialog_count_;
     }
 
+    int legacyEcuIgnitionCount() const
+    {
+        return legacy_ecu_ignition_count_;
+    }
+
+    int portableEcuIgnitionCount() const
+    {
+        return portable_ecu_ignition_count_;
+    }
+
     bool timedOut() const
     {
         return timed_out_;
@@ -100,15 +112,25 @@ class ModalDriver final : public QObject
                     message_box->done(QMessageBox::Cancel);
                     return;
                 }
+                if (message_box->text() == kLegacyEcuIgnitionText)
+                {
+                    ++legacy_ecu_ignition_count_;
+                    message_box->done(QMessageBox::Cancel);
+                    return;
+                }
+                if (message_box->text() == kPortableEcuIgnitionText)
+                {
+                    ++portable_ecu_ignition_count_;
+                    message_box->done(QMessageBox::Cancel);
+                    return;
+                }
 
                 message_box->accept();
                 return;
             }
             if (widget->inherits("fastecu::flash::FlashDialog"))
             {
-                ++unexpected_flash_dialog_count_;
-                widget->close();
-                return;
+                unexpected_flash_dialog_count_ = 1;
             }
         }
 
@@ -132,6 +154,8 @@ class ModalDriver final : public QObject
     bool saw_chooser_ = false;
     int ignition_count_ = 0;
     int unexpected_flash_dialog_count_ = 0;
+    int legacy_ecu_ignition_count_ = 0;
+    int portable_ecu_ignition_count_ = 0;
     bool timed_out_ = false;
 };
 
@@ -246,6 +270,42 @@ class MainWindowTest : public QObject
       <kernel_addr>0x100000</kernel_addr>
       <description>Denso TCU SH7058</description>
     </protocol>
+    <protocol name="sub_ecu_denso_sh7058_can">
+      <ecu>Denso SH7058</ecu>
+      <mcu>SH7058</mcu>
+      <mode>OBD2</mode>
+      <checksum>yes</checksum>
+      <read>yes</read>
+      <test_write>yes</test_write>
+      <write>yes</write>
+      <flash_transport>iso15765,CAN</flash_transport>
+      <log_transport>K-Line</log_transport>
+      <log_protocol>SSM</log_protocol>
+      <cal_id_ascii>yes</cal_id_ascii>
+      <cal_id_addr>0x2004</cal_id_addr>
+      <cal_id_length>8</cal_id_length>
+      <kernel>test-kernel.bin</kernel>
+      <kernel_addr>0xFFFF3000</kernel_addr>
+      <description>Denso SH7058 CAN</description>
+    </protocol>
+    <protocol name="sub_ecu_denso_sh7058_densocan">
+      <ecu>Denso SH7058</ecu>
+      <mcu>SH7058</mcu>
+      <mode>OBD2</mode>
+      <checksum>yes</checksum>
+      <read>yes</read>
+      <test_write>yes</test_write>
+      <write>yes</write>
+      <flash_transport>CAN</flash_transport>
+      <log_transport>K-Line</log_transport>
+      <log_protocol>SSM</log_protocol>
+      <cal_id_ascii>yes</cal_id_ascii>
+      <cal_id_addr>0x2000</cal_id_addr>
+      <cal_id_length>8</cal_id_length>
+      <kernel>test-kernel.bin</kernel>
+      <kernel_addr>0xFFFF3000</kernel_addr>
+      <description>Denso SH7058 DensoCAN</description>
+    </protocol>
   </protocols>
   <car_models>
     <car_model>
@@ -262,6 +322,9 @@ class MainWindowTest : public QObject
   </car_models>
 </config>
 )"));
+        const QString kernel_dir = home_.path() + "/kernels/";
+        QVERIFY(QDir().mkpath(kernel_dir));
+        QVERIFY(writeTextFile(kernel_dir + "test-kernel.bin", "ABCD"));
     }
 
     void handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePolling_data()
@@ -325,6 +388,152 @@ class MainWindowTest : public QObject
         QVERIFY(!window.vbatt_timer->isActive());
         QVERIFY(operation_log.contains("baud:begin:4800"));
         QVERIFY(operation_log.contains("baud:end"));
+    }
+
+    void futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo_data()
+    {
+        QTest::addColumn<QString>("protocol");
+        QTest::newRow("future-can") << QString("sub_ecu_denso_sh7058_can_future");
+        QTest::newRow("extra-densocan") << QString("sub_ecu_denso_sh7058_densocan_extra");
+    }
+
+    void futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo()
+    {
+        QFETCH(QString, protocol);
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        MainWindow window;
+        constructor_driver.stop();
+
+        FakeBackend *fake = nullptr;
+        std::unique_ptr<SerialPortActions> serial = fakeSerial(&window, &fake);
+        QVERIFY(serial != nullptr);
+        delete window.serial;
+        window.serial = serial.release();
+        fake->vbattResult = 12500;
+        fake->takeCallLog();
+        window.serial_ports = {"OpenPort 2.0"};
+        window.serial_port_list->clear();
+        window.serial_port_list->addItem("OpenPort 2.0");
+        window.serial_port_list->setCurrentIndex(0);
+        window.configValues->flash_protocol_selected_make = "Subaru";
+        window.configValues->flash_protocol_selected_protocol_name = protocol;
+        window.configValues->flash_protocol_selected_mcu = "SH7058";
+        window.configValues->flash_protocol_selected_id = "0";
+        window.configValues->flash_protocol_kernel = {"test-kernel.bin"};
+        window.configValues->flash_protocol_kernel_addr = {"0xFFFF3000"};
+        window.configValues->kernel_files_directory = home_.path() + "/kernels/";
+
+        ModalDriver operation_driver{QString()};
+        operation_driver.start();
+        QCOMPARE(window.start_ecu_operations("read"), 0);
+        operation_driver.stop();
+
+        QVERIFY(!operation_driver.timedOut());
+        QCOMPARE(operation_driver.legacyEcuIgnitionCount(), 0);
+        QCOMPARE(operation_driver.portableEcuIgnitionCount(), 0);
+        QCOMPARE(operation_driver.unexpectedFlashDialogCount(), 0);
+        const QStringList operation_log = fake->takeCallLog();
+        QVERIFY(!operation_log.contains("open_serial_port"));
+        QVERIFY(std::none_of(operation_log.cbegin(), operation_log.cend(), [](const QString& entry)
+                             { return entry.startsWith("write:") || entry.startsWith("read:"); }));
+    }
+
+    void exactDensoKlineIdsStillDispatchToTheLegacyKlineDialog_data()
+    {
+        QTest::addColumn<QString>("protocol");
+        QTest::newRow("stock") << QString("sub_ecu_denso_sh7058");
+        QTest::newRow("ecutek") << QString("sub_ecu_denso_sh7058_ecutek");
+        QTest::newRow("cobb") << QString("sub_ecu_denso_sh7058_cobb");
+    }
+
+    void exactDensoKlineIdsStillDispatchToTheLegacyKlineDialog()
+    {
+        QFETCH(QString, protocol);
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        MainWindow window;
+        constructor_driver.stop();
+
+        FakeBackend *fake = nullptr;
+        std::unique_ptr<SerialPortActions> serial = fakeSerial(&window, &fake);
+        QVERIFY(serial != nullptr);
+        delete window.serial;
+        window.serial = serial.release();
+        fake->vbattResult = 12500;
+        fake->takeCallLog();
+        window.serial_ports = {"OpenPort 2.0"};
+        window.serial_port_list->clear();
+        window.serial_port_list->addItem("OpenPort 2.0");
+        window.serial_port_list->setCurrentIndex(0);
+        window.configValues->flash_protocol_selected_make = "Subaru";
+        window.configValues->flash_protocol_selected_protocol_name = protocol;
+        window.configValues->flash_protocol_selected_mcu = "SH7058";
+        window.configValues->flash_protocol_selected_id = "0";
+        window.configValues->flash_protocol_kernel = {"test-kernel.bin"};
+        window.configValues->flash_protocol_kernel_addr = {"0xFFFF3000"};
+        window.configValues->kernel_files_directory = home_.path() + "/kernels/";
+
+        ModalDriver operation_driver{QString()};
+        operation_driver.start();
+        QCOMPARE(window.start_ecu_operations("read"), 0);
+        operation_driver.stop();
+
+        QVERIFY(!operation_driver.timedOut());
+        QCOMPARE(operation_driver.legacyEcuIgnitionCount(), 1);
+        QCOMPARE(operation_driver.portableEcuIgnitionCount(), 0);
+        QCOMPARE(operation_driver.unexpectedFlashDialogCount(), 0);
+        QVERIFY(!fake->takeCallLog().contains("open_serial_port"));
+    }
+
+    void representativePortableRoutesReachFactoryBeforeLegacyFallback_data()
+    {
+        QTest::addColumn<QString>("protocol");
+        QTest::addColumn<QString>("mcu");
+        QTest::addColumn<QString>("kernel_address");
+        QTest::newRow("petrol") << QString("sub_ecu_denso_sh7058_can") << QString("SH7058") << QString("0xFFFF3000");
+        QTest::newRow("densocan") << QString("sub_ecu_denso_sh7058_densocan") << QString("SH7058")
+                                  << QString("0xFFFF3000");
+    }
+
+    void representativePortableRoutesReachFactoryBeforeLegacyFallback()
+    {
+        QFETCH(QString, protocol);
+        QFETCH(QString, mcu);
+        QFETCH(QString, kernel_address);
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        MainWindow window;
+        constructor_driver.stop();
+
+        FakeBackend *fake = nullptr;
+        std::unique_ptr<SerialPortActions> serial = fakeSerial(&window, &fake);
+        QVERIFY(serial != nullptr);
+        delete window.serial;
+        window.serial = serial.release();
+        fake->vbattResult = 12500;
+        fake->takeCallLog();
+        window.serial_ports = {"OpenPort 2.0"};
+        window.serial_port_list->clear();
+        window.serial_port_list->addItem("OpenPort 2.0");
+        window.serial_port_list->setCurrentIndex(0);
+        window.configValues->flash_protocol_selected_make = "Subaru";
+        window.configValues->flash_protocol_selected_protocol_name = protocol;
+        window.configValues->flash_protocol_selected_mcu = mcu;
+        window.configValues->flash_protocol_selected_id = "0";
+        window.configValues->flash_protocol_kernel = {"test-kernel.bin"};
+        window.configValues->flash_protocol_kernel_addr = {kernel_address};
+        window.configValues->kernel_files_directory = home_.path() + "/kernels/";
+
+        ModalDriver operation_driver{QString()};
+        operation_driver.start();
+        QCOMPARE(window.start_ecu_operations("read"), 0);
+        operation_driver.stop();
+
+        QVERIFY(!operation_driver.timedOut());
+        QCOMPARE(operation_driver.legacyEcuIgnitionCount(), 0);
+        QCOMPARE(operation_driver.portableEcuIgnitionCount(), 1);
+        QVERIFY(!fake->takeCallLog().contains("open_serial_port"));
     }
 
   private:

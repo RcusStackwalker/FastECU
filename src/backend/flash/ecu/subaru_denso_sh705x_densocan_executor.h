@@ -10,6 +10,8 @@ class SubaruDensoSh705xDensoCanExecutor final : public IMixedCanFlashExecutor
 {
   public:
     Result<MixedCanConfig> transport_setup(const FlashPlan& plan) const override;
+    Status before_transport_configure(IMixedCanFlashTransport& transport, IClock& clock,
+                                      const ICancellationToken& cancellation) const override;
     Status before_transport_open(const ICancellationToken& cancellation) const override;
     Result<FlashExecutionResult> execute(const FlashPlan& plan, IMixedCanFlashTransport& transport, IClock& clock,
                                          const ICancellationToken& cancellation, IEventSink& events) override;

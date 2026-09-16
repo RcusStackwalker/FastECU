@@ -1253,6 +1253,24 @@ Result<Iso15765Config> SubaruDensoSh7058CanExecutor::transport_setup(const Flash
     return iso15765_config_from(std::get<SubaruDensoSh7058CanPlan>(plan.family_plan()));
 }
 
+Status SubaruDensoSh7058CanExecutor::before_transport_configure(ICanFlashTransport& transport, IClock&,
+                                                                const ICancellationToken& cancellation) const
+{
+    if (cancellation.cancelled())
+    {
+        return fail(ErrorKind::Cancelled, "cancelled before petrol CAN reset");
+    }
+    if (const Status reset = transport.reset_connection(); !reset)
+    {
+        return reset;
+    }
+    if (cancellation.cancelled())
+    {
+        return fail(ErrorKind::Cancelled, "cancelled after petrol CAN reset");
+    }
+    return {};
+}
+
 Result<FlashExecutionResult> SubaruDensoSh7058CanExecutor::execute(const FlashPlan& plan, ICanFlashTransport& transport,
                                                                    IClock& clock,
                                                                    const ICancellationToken& cancellation,

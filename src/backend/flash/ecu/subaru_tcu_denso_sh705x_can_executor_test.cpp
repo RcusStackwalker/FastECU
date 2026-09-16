@@ -155,25 +155,94 @@ class RecordingClock final : public FakeClock
     Status sleep(int ms, const ICancellationToken& cancellation) override
     {
         sleeps.push_back(ms);
+        if (timeline != nullptr)
+        {
+            timeline->push_back(std::format("sleep:{}", ms));
+        }
+        if (ms == 500 && cancel_during_sleep != nullptr)
+        {
+            cancel_during_sleep->cancel();
+        }
+        if (ms == 500 && cancel_after_successful_sleep != nullptr)
+        {
+            FakeClock::sleep(ms, cancellation);
+            cancel_after_successful_sleep->cancel();
+            return {};
+        }
         return FakeClock::sleep(ms, cancellation);
     }
 
     std::vector<int> sleeps;
+    std::vector<std::string> *timeline = nullptr;
+    ToggleCancellation *cancel_during_sleep = nullptr;
+    ToggleCancellation *cancel_after_successful_sleep = nullptr;
 };
 
 class RecordingCanTransport final : public ICanFlashTransport
 {
   public:
+    Status reset_connection() override
+    {
+        lifecycle.push_back("reset_connection");
+        if (timeline != nullptr)
+        {
+            timeline->push_back("reset_connection");
+        }
+        ++reset_call_count;
+        restart_in_progress = true;
+        Status result = reset_result;
+        if (result.has_value() && cancellation_on_reset != nullptr)
+        {
+            cancellation_on_reset->cancel();
+        }
+        return result;
+    }
     Status configure(const Iso15765Config& config) override
     {
+        lifecycle.push_back("configure");
+        if (timeline != nullptr)
+        {
+            timeline->push_back("configure");
+        }
+        if (restart_in_progress)
+        {
+            restart_configs.push_back(config);
+            if (!restart_configure_result.has_value())
+            {
+                return restart_configure_result;
+            }
+            if (cancellation_on_configure != nullptr)
+            {
+                cancellation_on_configure->cancel();
+            }
+        }
         return scripted.configure(config);
     }
     Status open() override
     {
-        return scripted.open();
+        lifecycle.push_back("open");
+        if (timeline != nullptr)
+        {
+            timeline->push_back("open");
+        }
+        if (restart_in_progress && !restart_open_result.has_value())
+        {
+            return restart_open_result;
+        }
+        Status result = scripted.open();
+        if (result.has_value() && restart_in_progress && cancellation_on_open != nullptr)
+        {
+            cancellation_on_open->cancel();
+        }
+        return result;
     }
     Status close() override
     {
+        lifecycle.push_back("close");
+        if (timeline != nullptr)
+        {
+            timeline->push_back("close");
+        }
         return scripted.close();
     }
     void request_unblock() noexcept override
@@ -184,6 +253,12 @@ class RecordingCanTransport final : public ICanFlashTransport
     {
         writes.emplace_back(data.begin(), data.end());
         Status result = scripted.write(data, cancellation);
+        if (result.has_value() && timeline != nullptr)
+        {
+            timeline->push_back(data.size() > 4 && data[4] == 0x31                      ? "kernel_start_write"
+                                : data.size() > 8 && data[4] == 0x7a && data[8] == 0x00 ? "kernel_id_write"
+                                                                                        : "write");
+        }
         if (result.has_value() && cancellation_to_trigger != nullptr && !cancel_prefix.empty() &&
             data.size() >= cancel_prefix.size() && std::equal(cancel_prefix.begin(), cancel_prefix.end(), data.begin()))
         {
@@ -194,14 +269,36 @@ class RecordingCanTransport final : public ICanFlashTransport
     Result<std::optional<bytes::Bytes>> read(int timeout_ms, const ICancellationToken& cancellation) override
     {
         read_timeouts.push_back(timeout_ms);
-        return scripted.read(timeout_ms, cancellation);
+        Result<std::optional<bytes::Bytes>> result = scripted.read(timeout_ms, cancellation);
+        if (result.has_value() && timeline != nullptr)
+        {
+            timeline->push_back("read");
+        }
+        if (result.has_value() && cancellation_after_kernel_start_reply != nullptr && !writes.empty() &&
+            writes.back().size() > 4 && writes.back()[4] == 0x31)
+        {
+            cancellation_after_kernel_start_reply->cancel();
+        }
+        return result;
     }
 
     ScriptedCanFlashTransport scripted;
+    Status reset_result;
+    Status restart_configure_result;
+    Status restart_open_result;
+    int reset_call_count = 0;
+    bool restart_in_progress = false;
+    std::vector<Iso15765Config> restart_configs;
+    std::vector<std::string> lifecycle;
     std::vector<bytes::Bytes> writes;
     std::vector<int> read_timeouts;
     ToggleCancellation *cancellation_to_trigger = nullptr;
+    ToggleCancellation *cancellation_after_kernel_start_reply = nullptr;
+    ToggleCancellation *cancellation_on_reset = nullptr;
+    ToggleCancellation *cancellation_on_configure = nullptr;
+    ToggleCancellation *cancellation_on_open = nullptr;
     bytes::Bytes cancel_prefix;
+    std::vector<std::string> *timeline = nullptr;
 };
 
 class PhaseCancellingEventSink final : public RecordingEventSink
@@ -1331,6 +1428,9 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
     script_read_pages(transport.scripted, 0x00080000);
     NeverCancelled cancellation;
     RecordingClock clock;
+    std::vector<std::string> timeline;
+    transport.timeline = &timeline;
+    clock.timeline = &timeline;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1340,6 +1440,26 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
     EXPECT_EQ(result->read_bytes->size(), 0x00080000U);
     ASSERT_TRUE(result->rom_id.has_value());
     EXPECT_EQ(*result->rom_id, "CAL_4543553031_");
+    ASSERT_EQ(transport.restart_configs.size(), 1U);
+    EXPECT_EQ(transport.restart_configs.front().bitrate, 500000);
+    EXPECT_EQ(transport.restart_configs.front().request_id, 0x7e1U);
+    EXPECT_EQ(transport.restart_configs.front().response_id, 0x7e9U);
+    EXPECT_FALSE(transport.restart_configs.front().extended_id);
+    EXPECT_EQ(transport.reset_call_count, 1);
+    const auto reset = std::ranges::find(timeline, "reset_connection");
+    ASSERT_NE(reset, timeline.end());
+    ASSERT_GE(std::distance(timeline.begin(), reset), 3);
+    ASSERT_GE(std::distance(reset, timeline.end()), 7);
+    EXPECT_EQ(*(reset - 3), "kernel_start_write");
+    EXPECT_EQ(*(reset - 2), "sleep:50");
+    EXPECT_EQ(*(reset - 1), "read");
+    EXPECT_EQ(*reset, "reset_connection");
+    EXPECT_EQ(*(reset + 1), "configure");
+    EXPECT_EQ(*(reset + 2), "open");
+    EXPECT_EQ(*(reset + 3), "sleep:500");
+    EXPECT_EQ(*(reset + 4), "kernel_id_write");
+    EXPECT_EQ(*(reset + 5), "sleep:100");
+    EXPECT_EQ(*(reset + 6), "read");
     EXPECT_TRUE(transport.scripted.scriptConsumed());
     EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait...", "Reading ROM, please wait..."));
     const std::vector<LogRecord> expected_upload_prefix{
@@ -1389,6 +1509,158 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
                             "Kernel ID response: ", "Kernel ID request: 00 00 07 e1 7a a0 00 00 00 00 00 00 ",
                             "Kernel ID response: 00 00 07 e9 be ef 00 04 41 4b 49 44 "));
     expect_exact_read_phase_progress(events, 0x00080000);
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, RestartResetConfigureAndOpenFailuresPropagateAndOuterCloseStillRuns)
+{
+    struct FailureCase
+    {
+        std::string_view stage;
+        ErrorKind kind;
+        std::vector<std::string> expected_lifecycle;
+    };
+    const std::array cases{
+        FailureCase{"reset", ErrorKind::Internal, {"configure", "open", "reset_connection", "close"}},
+        FailureCase{
+            "configure", ErrorKind::InvalidConfig, {"configure", "open", "reset_connection", "configure", "close"}},
+        FailureCase{
+            "open", ErrorKind::Disconnected, {"configure", "open", "reset_connection", "configure", "open", "close"}},
+    };
+    for (const FailureCase& failure : cases)
+    {
+        SCOPED_TRACE(failure.stage);
+        auto plan = read_plan(kCases[1]);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        auto transport = std::make_unique<RecordingCanTransport>();
+        RecordingCanTransport *observed = transport.get();
+        script_kernel_probe_timeout(observed->scripted);
+        script_identity_queries(observed->scripted);
+        script_strict_session_and_security(observed->scripted);
+        script_kernel_upload(observed->scripted, kCases[1]);
+        if (failure.stage == "reset")
+        {
+            observed->reset_result = fail(failure.kind, "restart reset marker");
+        }
+        else if (failure.stage == "configure")
+        {
+            observed->restart_configure_result = fail(failure.kind, "restart configure marker");
+        }
+        else
+        {
+            observed->restart_open_result = fail(failure.kind, "restart open marker");
+        }
+        NeverCancelled cancellation;
+        RecordingClock clock;
+        RecordingEventSink events;
+        auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruTcuDensoSh705xCanExecutor>(),
+                                          std::move(transport));
+
+        const auto result = attempt->run(clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, failure.kind);
+        EXPECT_EQ(observed->lifecycle, failure.expected_lifecycle);
+        EXPECT_EQ(observed->scripted.close_call_count_, 1);
+        EXPECT_TRUE(observed->scripted.scriptConsumed());
+        EXPECT_THAT(clock.sleeps, testing::Not(Contains(500)));
+    }
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterKernelStartAndWithinRestartStopsAtTheNextBoundaryAndCloses)
+{
+    struct CancellationCase
+    {
+        std::string_view boundary;
+        std::vector<std::string> expected_lifecycle;
+    };
+    const std::array cases{
+        CancellationCase{"before-restart", {"configure", "open", "close"}},
+        CancellationCase{"after-reset", {"configure", "open", "reset_connection", "close"}},
+        CancellationCase{"after-configure", {"configure", "open", "reset_connection", "configure", "close"}},
+        CancellationCase{"after-open", {"configure", "open", "reset_connection", "configure", "open", "close"}},
+    };
+    for (const CancellationCase& test_case : cases)
+    {
+        SCOPED_TRACE(test_case.boundary);
+        auto plan = read_plan(kCases[1]);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        auto transport = std::make_unique<RecordingCanTransport>();
+        RecordingCanTransport *observed = transport.get();
+        script_kernel_probe_timeout(observed->scripted);
+        script_identity_queries(observed->scripted);
+        script_strict_session_and_security(observed->scripted);
+        script_kernel_upload(observed->scripted, kCases[1]);
+        ToggleCancellation cancellation;
+        if (test_case.boundary == "before-restart")
+        {
+            observed->cancellation_after_kernel_start_reply = &cancellation;
+        }
+        else if (test_case.boundary == "after-reset")
+        {
+            observed->cancellation_on_reset = &cancellation;
+        }
+        else if (test_case.boundary == "after-configure")
+        {
+            observed->cancellation_on_configure = &cancellation;
+        }
+        else
+        {
+            observed->cancellation_on_open = &cancellation;
+        }
+        RecordingClock clock;
+        RecordingEventSink events;
+        auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruTcuDensoSh705xCanExecutor>(),
+                                          std::move(transport));
+
+        const auto result = attempt->run(clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+        EXPECT_EQ(observed->lifecycle, test_case.expected_lifecycle);
+        EXPECT_EQ(observed->scripted.close_call_count_, 1);
+        EXPECT_TRUE(observed->scripted.scriptConsumed());
+        EXPECT_THAT(clock.sleeps, testing::Not(Contains(500)));
+    }
+}
+
+TEST(SubaruTcuDensoSh705xCanExecutor, CancellationDuringOrImmediatelyAfterRestartDelaySkipsStrictProbeAndCloses)
+{
+    for (const bool cancellation_returns_from_sleep : {false, true})
+    {
+        SCOPED_TRACE(cancellation_returns_from_sleep);
+        auto plan = read_plan(kCases[1]);
+        ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+        auto transport = std::make_unique<RecordingCanTransport>();
+        RecordingCanTransport *observed = transport.get();
+        script_kernel_probe_timeout(observed->scripted);
+        script_identity_queries(observed->scripted);
+        script_strict_session_and_security(observed->scripted);
+        script_kernel_upload(observed->scripted, kCases[1]);
+        ToggleCancellation cancellation;
+        RecordingClock clock;
+        if (cancellation_returns_from_sleep)
+        {
+            clock.cancel_after_successful_sleep = &cancellation;
+        }
+        else
+        {
+            clock.cancel_during_sleep = &cancellation;
+        }
+        RecordingEventSink events;
+        auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruTcuDensoSh705xCanExecutor>(),
+                                          std::move(transport));
+
+        const auto result = attempt->run(clock, cancellation, events);
+
+        ASSERT_FALSE(result.has_value());
+        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+        EXPECT_THAT(clock.sleeps, Contains(500));
+        EXPECT_EQ(observed->scripted.close_call_count_, 1);
+        EXPECT_TRUE(observed->scripted.scriptConsumed());
+        EXPECT_EQ(std::count_if(observed->writes.begin(), observed->writes.end(), [](const bytes::Bytes& write)
+                                { return write.size() > 8 && write[4] == 0x7a && write[8] == 0x00; }),
+                  5);
+    }
 }
 
 TEST(SubaruTcuDensoSh705xCanExecutor, KernelPhaseDoesNotCompleteWhenPostUploadIdentityDisconnects)

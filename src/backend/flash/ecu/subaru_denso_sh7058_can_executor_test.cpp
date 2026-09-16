@@ -144,16 +144,34 @@ class RecordingClock final : public FakeClock
 class RecordingCanTransport final : public ICanFlashTransport
 {
   public:
+    Status reset_connection() override
+    {
+        lifecycle.push_back("reset_connection");
+        Status result = reset_result;
+        if (result.has_value() && cancellation_on_reset != nullptr)
+        {
+            cancellation_on_reset->cancel();
+        }
+        return result;
+    }
     Status configure(const Iso15765Config& config) override
     {
+        lifecycle.push_back("configure");
         return scripted.configure(config);
     }
     Status open() override
     {
-        return scripted.open();
+        lifecycle.push_back("open");
+        Status result = scripted.open();
+        if (result.has_value() && cancellation_on_open != nullptr)
+        {
+            cancellation_on_open->cancel();
+        }
+        return result;
     }
     Status close() override
     {
+        lifecycle.push_back("close");
         return scripted.close();
     }
     void request_unblock() noexcept override
@@ -178,9 +196,13 @@ class RecordingCanTransport final : public ICanFlashTransport
     }
 
     ScriptedCanFlashTransport scripted;
+    Status reset_result;
+    std::vector<std::string> lifecycle;
     std::vector<bytes::Bytes> writes;
     std::vector<int> read_timeouts;
     ToggleCancellation *cancellation_to_trigger = nullptr;
+    ToggleCancellation *cancellation_on_reset = nullptr;
+    ToggleCancellation *cancellation_on_open = nullptr;
     bytes::Bytes cancel_prefix;
 };
 
@@ -663,6 +685,87 @@ TEST(SubaruDensoSh7058CanExecutor, TransportSetupUsesExactPetrolIsoConfiguration
         EXPECT_EQ(setup->response_id, 0x7E8U);
         EXPECT_FALSE(setup->extended_id);
     }
+}
+
+TEST(SubaruDensoSh7058CanExecutor, BoundAttemptResetsBeforeConfiguringAndOpening)
+{
+    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    auto transport = std::make_unique<RecordingCanTransport>();
+    RecordingCanTransport *observed = transport.get();
+    ToggleCancellation cancellation;
+    observed->cancellation_on_open = &cancellation;
+    RecordingClock clock;
+    RecordingEventSink events;
+
+    auto attempt =
+        bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanExecutor>(), std::move(transport));
+    const auto result = attempt->run(clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection", "configure", "open", "close"));
+}
+
+TEST(SubaruDensoSh7058CanExecutor, StartupCancellationBeforeResetTouchesNoLifecycleOperation)
+{
+    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    auto transport = std::make_unique<RecordingCanTransport>();
+    RecordingCanTransport *observed = transport.get();
+    ToggleCancellation cancellation;
+    cancellation.cancel();
+    RecordingClock clock;
+    RecordingEventSink events;
+
+    auto attempt =
+        bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanExecutor>(), std::move(transport));
+    const auto result = attempt->run(clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_TRUE(observed->lifecycle.empty());
+}
+
+TEST(SubaruDensoSh7058CanExecutor, StartupCancellationAfterResetSkipsConfigureOpenAndClose)
+{
+    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    auto transport = std::make_unique<RecordingCanTransport>();
+    RecordingCanTransport *observed = transport.get();
+    ToggleCancellation cancellation;
+    observed->cancellation_on_reset = &cancellation;
+    RecordingClock clock;
+    RecordingEventSink events;
+
+    auto attempt =
+        bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanExecutor>(), std::move(transport));
+    const auto result = attempt->run(clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection"));
+}
+
+TEST(SubaruDensoSh7058CanExecutor, StartupResetFailurePropagatesWithoutConfigureOpenOrClose)
+{
+    auto plan = plan_for(kVariants.front(), FlashOperation::Read);
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    auto transport = std::make_unique<RecordingCanTransport>();
+    RecordingCanTransport *observed = transport.get();
+    observed->reset_result = fail(ErrorKind::Internal, "petrol reset marker");
+    NeverCancelled cancellation;
+    RecordingClock clock;
+    RecordingEventSink events;
+
+    auto attempt =
+        bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanExecutor>(), std::move(transport));
+    const auto result = attempt->run(clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    EXPECT_EQ(result.error().detail, "petrol reset marker");
+    EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection"));
 }
 
 TEST(SubaruDensoSh7058CanExecutor, AllFiveValidatedEnumsProduceTheirFixedSecurityVector)

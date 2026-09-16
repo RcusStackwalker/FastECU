@@ -550,6 +550,7 @@ void FlashWorkflowTest::petrolReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     auto serial = recordingSerial(&fake);
     QVERIFY(serial != nullptr);
     fake->openSerialPortResult = "COM3";
+    fake->logLifecycleCalls = true;
 
     auto input = request("sub_ecu_denso_sh7058_can");
     input.mcu = "SH7058";
@@ -578,13 +579,13 @@ void FlashWorkflowTest::petrolReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     QCOMPARE(plan.kernel()->bytes, bytes::Bytes({0x90, 0xA0, 0xB0, 0xC0}));
 
     FakeCancellationToken cancellation;
-    cancellation.cancel_on_check(2);
+    cancellation.cancel_on_check(4);
     NullEventSink events;
     const auto result = attempt.attempt->run(*attempt.clock, cancellation, events);
     QVERIFY(!result.has_value());
     QCOMPARE(result.error().kind, ErrorKind::Cancelled);
     QCOMPARE(fake->takeCallLog(),
-             QStringList({"cfg:set_is_iso15765_connection:1", "cfg:set_is_can_connection:0",
+             QStringList({"reset_connection", "cfg:set_is_iso15765_connection:1", "cfg:set_is_can_connection:0",
                           "cfg:set_is_iso14230_connection:0", "cfg:set_is_29_bit_id:0", "cfg:set_can_speed:500000",
                           "cfg:set_can_source_address:2016", "cfg:set_can_destination_address:2024",
                           "cfg:set_iso15765_source_address:2016", "cfg:set_iso15765_destination_address:2024",

@@ -117,16 +117,34 @@ class RecordingClock final : public FakeClock
 class TimeoutRecordingMixedCanTransport final : public IMixedCanFlashTransport
 {
   public:
+    Status reset_connection() override
+    {
+        lifecycle.push_back("reset_connection");
+        Status result = reset_result;
+        if (result.has_value() && cancellation_on_reset != nullptr)
+        {
+            cancellation_on_reset->cancel();
+        }
+        return result;
+    }
     Status configure(const MixedCanConfig& config) override
     {
+        lifecycle.push_back("configure");
         return scripted.configure(config);
     }
     Status open() override
     {
-        return scripted.open();
+        lifecycle.push_back("open");
+        Status result = scripted.open();
+        if (result.has_value() && cancellation_on_open != nullptr)
+        {
+            cancellation_on_open->cancel();
+        }
+        return result;
     }
     Status close() override
     {
+        lifecycle.push_back("close");
         return scripted.close();
     }
     Status enter_raw_bootloader_mode() override
@@ -165,7 +183,11 @@ class TimeoutRecordingMixedCanTransport final : public IMixedCanFlashTransport
     }
 
     ScriptedMixedCanFlashTransport scripted;
+    Status reset_result;
+    std::vector<std::string> lifecycle;
     std::vector<std::pair<std::optional<std::uint8_t>, int>> iso_read_timeouts;
+    ToggleCancellation *cancellation_on_reset = nullptr;
+    ToggleCancellation *cancellation_on_open = nullptr;
 
   private:
     std::optional<std::uint8_t> last_iso_opcode_;
@@ -829,6 +851,87 @@ TEST(SubaruDensoSh705xDensoCanExecutor, TransportSetupUsesExactMixedCanConfigura
         EXPECT_EQ(setup->bootloader.receive_id, kRawReceiveId);
         EXPECT_TRUE(setup->bootloader.extended_id);
     }
+}
+
+TEST(SubaruDensoSh705xDensoCanExecutor, BoundAttemptResetsBeforeMixedConfigurationAndOpen)
+{
+    auto plan = read_plan(kCases.front());
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    auto transport = std::make_unique<TimeoutRecordingMixedCanTransport>();
+    TimeoutRecordingMixedCanTransport *observed = transport.get();
+    ToggleCancellation cancellation;
+    observed->cancellation_on_open = &cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh705xDensoCanExecutor>(),
+                                      std::move(transport));
+    const auto result = attempt->run(clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection", "configure", "open", "close"));
+}
+
+TEST(SubaruDensoSh705xDensoCanExecutor, StartupCancellationBeforeResetTouchesNoLifecycleOperation)
+{
+    auto plan = read_plan(kCases.front());
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    auto transport = std::make_unique<TimeoutRecordingMixedCanTransport>();
+    TimeoutRecordingMixedCanTransport *observed = transport.get();
+    ToggleCancellation cancellation;
+    cancellation.cancel();
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh705xDensoCanExecutor>(),
+                                      std::move(transport));
+    const auto result = attempt->run(clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_TRUE(observed->lifecycle.empty());
+}
+
+TEST(SubaruDensoSh705xDensoCanExecutor, StartupCancellationAfterResetSkipsConfigureOpenAndClose)
+{
+    auto plan = read_plan(kCases.front());
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    auto transport = std::make_unique<TimeoutRecordingMixedCanTransport>();
+    TimeoutRecordingMixedCanTransport *observed = transport.get();
+    ToggleCancellation cancellation;
+    observed->cancellation_on_reset = &cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh705xDensoCanExecutor>(),
+                                      std::move(transport));
+    const auto result = attempt->run(clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection"));
+}
+
+TEST(SubaruDensoSh705xDensoCanExecutor, StartupResetFailurePropagatesWithoutConfigureOpenOrClose)
+{
+    auto plan = read_plan(kCases.front());
+    ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+    auto transport = std::make_unique<TimeoutRecordingMixedCanTransport>();
+    TimeoutRecordingMixedCanTransport *observed = transport.get();
+    observed->reset_result = fail(ErrorKind::Internal, "mixed reset marker");
+    NeverCancelled cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh705xDensoCanExecutor>(),
+                                      std::move(transport));
+    const auto result = attempt->run(clock, cancellation, events);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    EXPECT_EQ(result.error().detail, "mixed reset marker");
+    EXPECT_THAT(observed->lifecycle, ElementsAre("reset_connection"));
 }
 
 TEST(SubaruDensoSh705xDensoCanExecutor, AlreadyRunningKernelReadsEveryPageAndReturnsTheRawRom)

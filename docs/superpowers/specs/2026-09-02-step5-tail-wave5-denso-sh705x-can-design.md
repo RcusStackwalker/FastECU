@@ -301,9 +301,16 @@ Executors use the existing taxonomy:
 Every mixed-CAN mode transition is fallible and fail-closed. Execution never
 continues after a transition whose resulting mode is uncertain.
 
-The existing outer-lifecycle rule remains unchanged: once open succeeds,
-close occurs exactly once; the execution error wins over a close error, and a
-close-only error is returned. `request_unblock()` suppresses subsequent I/O
+The existing outer-lifecycle rule remains unchanged: the bound attempt owns
+the initial configure/open and final close, while petrol and DensoCAN perform
+their required initial reset before configuration. Petrol adds no delay;
+diesel's existing reset → 500 ms → configure/open sequence is unchanged. The
+TCU's post-upload restart owns reset/reconfigure/reopen with ISO-15765 IDs
+0x7E1/0x7E9 at 500000 in 11-bit mode before its 500 ms wait and strict
+kernel-ID probe. Cancellation is checked before and between restart stages and
+after the delay. Once an outer open succeeds, close occurs exactly once; the
+execution error wins over a close error, and a close-only error is returned.
+`request_unblock()` suppresses subsequent I/O
 and releases any scripted blocking read.
 
 Cancellation checkpoints cover every poll, retry, upload block, read page,
@@ -361,6 +368,11 @@ operation and every behaviorally distinct protocol variant. The suites cover:
 - timeout, disconnect, malformed/negative response, cancellation, and
   unsupported outcomes;
 - per-family retries, timing, response tolerance, and test-write behavior;
+- initial reset → configure → open ordering for petrol and DensoCAN, with
+  reset failure and cancellation boundaries;
+- TCU post-upload reset → exact 0x7E1/0x7E9/500000/11-bit configure → open →
+  500 ms → strict probe ordering, stage failures, cancellation, and final
+  close;
 - character-for-character operator log lines and ordered progress phases.
 
 The mixed-CAN suite additionally proves:
@@ -380,7 +392,10 @@ The mixed-CAN suite additionally proves:
 Desktop tests cover all four TCU chooser results, Dump-to-`FlashDialog`, each
 service choice-to-`ServiceFunctionDialog`, and cancellation before I/O.
 Factory tests cover all 14 accepted Wave 5 IDs plus near misses and preserve
-the existing priority of explicitly routed EEPROM protocols.
+the existing priority of explicitly routed EEPROM protocols. MainWindow tests
+also prove that only the three configured SH7058 K-Line IDs reach the legacy
+fallback, future CAN/DensoCAN suffixes touch no transport, and representative
+portable petrol/DensoCAN routes remain factory-first.
 
 Every family PR:
 

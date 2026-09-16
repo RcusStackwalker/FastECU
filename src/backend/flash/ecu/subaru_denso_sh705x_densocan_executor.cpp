@@ -971,6 +971,20 @@ Result<MixedCanConfig> SubaruDensoSh705xDensoCanExecutor::transport_setup(const 
     };
 }
 
+Status SubaruDensoSh705xDensoCanExecutor::before_transport_configure(IMixedCanFlashTransport& transport, IClock&,
+                                                                     const ICancellationToken& cancellation) const
+{
+    if (Status cancelled = check_cancelled(cancellation, "cancelled before mixed CAN reset"); !cancelled)
+    {
+        return cancelled;
+    }
+    if (const Status reset = transport.reset_connection(); !reset)
+    {
+        return reset;
+    }
+    return check_cancelled(cancellation, "cancelled after mixed CAN reset");
+}
+
 Status SubaruDensoSh705xDensoCanExecutor::before_transport_open(const ICancellationToken& cancellation) const
 {
     if (Status cancelled = check_cancelled(cancellation, "cancelled after mixed CAN configuration"); !cancelled)
