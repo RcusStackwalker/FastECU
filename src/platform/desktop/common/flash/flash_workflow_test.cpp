@@ -579,7 +579,7 @@ void FlashWorkflowTest::petrolReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     QCOMPARE(plan.kernel()->bytes, bytes::Bytes({0x90, 0xA0, 0xB0, 0xC0}));
 
     FakeCancellationToken cancellation;
-    cancellation.cancel_on_check(4);
+    cancellation.cancel_on_check(5);
     NullEventSink events;
     const auto result = attempt.attempt->run(*attempt.clock, cancellation, events);
     QVERIFY(!result.has_value());
