@@ -279,17 +279,19 @@ TEST(DesktopMixedCanFlashTransport, ConfiguresIsoThenTransitionsRawAndBack)
         "cfg:set_is_iso15765_connection:1", "cfg:set_is_29_bit_id:0",
         "cfg:set_can_speed:500000", "cfg:set_can_source_address:1048574",
         "cfg:set_can_destination_address:33", "cfg:set_iso15765_source_address:2016",
-        "cfg:set_iso15765_destination_address:2024", "open_serial_port",
+        "cfg:set_iso15765_destination_address:2024", "cfg:set_add_iso14230_header:0",
+        "open_serial_port",
         "reset_connection", "cfg:set_is_iso14230_connection:0",
         "cfg:set_is_can_connection:1", "cfg:set_is_iso15765_connection:0",
         "cfg:set_is_29_bit_id:1", "cfg:set_can_speed:500000",
         "cfg:set_can_source_address:1048574", "cfg:set_can_destination_address:33",
-        "open_serial_port", "reset_connection", "cfg:set_is_iso14230_connection:0",
+        "cfg:set_add_iso14230_header:0", "open_serial_port", "reset_connection",
+        "cfg:set_is_iso14230_connection:0",
         "cfg:set_is_can_connection:0", "cfg:set_is_iso15765_connection:1",
         "cfg:set_is_29_bit_id:0", "cfg:set_can_speed:500000",
         "cfg:set_can_source_address:1048574", "cfg:set_can_destination_address:33",
         "cfg:set_iso15765_source_address:2016", "cfg:set_iso15765_destination_address:2024",
-        "open_serial_port"));
+        "cfg:set_add_iso14230_header:0", "open_serial_port"));
 }
 
 TEST(DesktopMixedCanFlashTransport, RawFrameAddsAndParsesBigEndianId)

@@ -184,6 +184,11 @@ The desktop platform supplies:
   changes, raw frames, ISO messages, buffer clears, cancellation, and
   lifecycle calls.
 
+Every desktop CAN configuration clears `add_iso14230_header` before it can
+succeed. `SerialPortActions` is shared across operations and reset closes the
+port without clearing that flag, so both ISO-15765 and raw-CAN configuration
+must fail closed if the stale K-Line auto-header state cannot be disabled.
+
 `FlashWorkflowFactory` constructs the correct executor/transport pair and
 hands the bound attempt to the existing `FlashWorker` and `FlashDialog`.
 The new workflow reuses the existing `FlashAttemptOutcome` result-state

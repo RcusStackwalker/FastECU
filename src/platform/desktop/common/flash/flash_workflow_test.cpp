@@ -589,7 +589,7 @@ void FlashWorkflowTest::petrolReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
                           "cfg:set_is_iso14230_connection:0", "cfg:set_is_29_bit_id:0", "cfg:set_can_speed:500000",
                           "cfg:set_can_source_address:2016", "cfg:set_can_destination_address:2024",
                           "cfg:set_iso15765_source_address:2016", "cfg:set_iso15765_destination_address:2024",
-                          "open_serial_port"}));
+                          "cfg:set_add_iso14230_header:0", "open_serial_port"}));
 }
 
 void FlashWorkflowTest::dieselRoutesOnlyTheTwoExactProtocols()
@@ -761,7 +761,7 @@ void FlashWorkflowTest::dieselReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
                           "cfg:set_is_iso14230_connection:0", "cfg:set_is_29_bit_id:0", "cfg:set_can_speed:500000",
                           "cfg:set_can_source_address:2016", "cfg:set_can_destination_address:2024",
                           "cfg:set_iso15765_source_address:2016", "cfg:set_iso15765_destination_address:2024",
-                          "open_serial_port"}));
+                          "cfg:set_add_iso14230_header:0", "open_serial_port"}));
 }
 
 void FlashWorkflowTest::tcuRoutesOnlyTheTwoExactProtocols()
@@ -920,7 +920,7 @@ void FlashWorkflowTest::tcuReadResolvesKernelBeforeBeginAndBindsDesktopCanTransp
                           "cfg:set_is_iso14230_connection:0", "cfg:set_is_29_bit_id:0", "cfg:set_can_speed:500000",
                           "cfg:set_can_source_address:2017", "cfg:set_can_destination_address:2025",
                           "cfg:set_iso15765_source_address:2017", "cfg:set_iso15765_destination_address:2025",
-                          "open_serial_port"}));
+                          "cfg:set_add_iso14230_header:0", "open_serial_port"}));
 }
 
 void FlashWorkflowTest::tcuSuccessfulReadPropagatesBytesAndRomId()
