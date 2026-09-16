@@ -340,11 +340,13 @@ void FlashWorkflowTest::sh7055ProtocolIsClaimedByPortableRoute()
 
 void FlashWorkflowTest::densoCanRoutesOnlyTheFiveExactProtocols()
 {
-    constexpr const char *kProtocols[] = {
-        "sub_ecu_denso_sh7055_densocan",        "sub_ecu_denso_sh7058_densocan",
-        "sub_ecu_denso_sh7058s_densocan",       "sub_ecu_denso_sh7058s_diesel_densocan",
+    constexpr auto kProtocols = std::to_array<const char *>({
+        "sub_ecu_denso_sh7055_densocan",
+        "sub_ecu_denso_sh7058_densocan",
+        "sub_ecu_denso_sh7058s_densocan",
+        "sub_ecu_denso_sh7058s_diesel_densocan",
         "sub_ecu_denso_sh7059_diesel_densocan",
-    };
+    });
     for (const char *protocol : kProtocols)
     {
         QVERIFY2(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr, protocol);
@@ -431,13 +433,13 @@ void FlashWorkflowTest::densoCanPreflightAndDeclinedPromptsStopBeforeAttempt()
 
 void FlashWorkflowTest::petrolRoutesOnlyTheFiveExactProtocols()
 {
-    constexpr const char *kProtocols[] = {
+    constexpr auto kProtocols = std::to_array<const char *>({
         "sub_ecu_denso_sh7058_can",
         "sub_ecu_denso_sh7058_can_ecutek",
         "sub_ecu_denso_sh7058_can_ecutek_racerom",
         "sub_ecu_denso_sh7058_can_ecutek_racerom_alt",
         "sub_ecu_denso_sh7058_can_cobb",
-    };
+    });
     for (const char *protocol : kProtocols)
     {
         QVERIFY2(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr, protocol);

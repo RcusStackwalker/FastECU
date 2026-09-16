@@ -565,10 +565,10 @@ void script_129_byte_kernel_upload(ScriptedCanFlashTransport& transport, std::ui
 void script_zero_read_pages(ScriptedCanFlashTransport& transport, std::uint32_t rom_size)
 {
     constexpr std::uint32_t kPageSize = 0x400;
-    constexpr bytes::Byte first_page_prefix[] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0,
-                                                 0x0F, 0xED, 0xCB, 0xA9, 0x87, 0x65, 0x43, 0x21};
-    constexpr bytes::Byte last_page_prefix[] = {0xA5, 0x5A, 0xC3, 0x3C, 0x69, 0x96, 0xF0, 0x0D,
-                                                0xD0, 0x0F, 0xBE, 0xEF, 0x01, 0x23, 0x45, 0x67};
+    constexpr auto first_page_prefix = std::to_array<bytes::Byte>(
+        {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0, 0x0F, 0xED, 0xCB, 0xA9, 0x87, 0x65, 0x43, 0x21});
+    constexpr auto last_page_prefix = std::to_array<bytes::Byte>(
+        {0xA5, 0x5A, 0xC3, 0x3C, 0x69, 0x96, 0xF0, 0x0D, 0xD0, 0x0F, 0xBE, 0xEF, 0x01, 0x23, 0x45, 0x67});
     for (std::uint32_t address = 0; address < rom_size; address += kPageSize)
     {
         bytes::Bytes payload{0x00,
@@ -581,11 +581,11 @@ void script_zero_read_pages(ScriptedCanFlashTransport& transport, std::uint32_t 
         bytes::Bytes page(kPageSize, bytes::Byte{0});
         if (address == 0)
         {
-            std::copy(std::begin(first_page_prefix), std::end(first_page_prefix), page.begin());
+            std::copy(first_page_prefix.begin(), first_page_prefix.end(), page.begin());
         }
         if (address + kPageSize == rom_size)
         {
-            std::copy(std::begin(last_page_prefix), std::end(last_page_prefix), page.begin());
+            std::copy(last_page_prefix.begin(), last_page_prefix.end(), page.begin());
         }
         transport.queueRead(beef_response(0x43, page));
     }
