@@ -122,6 +122,13 @@ int main(int argc, char **argv)
     setvbuf(stdout, nullptr, _IONBF, 0);
     setvbuf(stderr, nullptr, _IONBF, 0);
     death_probe("PROBE 01 main enter");
+    // Is stdout itself reaching test.log? QTest logs to stdout; the probes
+    // above use stderr. If this line is absent while the stderr probes show,
+    // stdout is being lost and QTest's output never had a chance.
+    fputs("PROBE 01b stdout reachable\n", stdout);
+    fflush(stdout);
+    fprintf(stderr, "PROBE 01c stdout fileno=%d ferror=%d\n", fileno(stdout), ferror(stdout));
+    fflush(stderr);
 
     ::testing::InitGoogleMock(&argc, argv);
     death_probe("PROBE 02 InitGoogleMock done");
@@ -130,7 +137,9 @@ int main(int argc, char **argv)
     FakeBackendTest test;
     death_probe("PROBE 04 fixture constructed, entering qExec");
     const int result = QTest::qExec(&test, argc, argv);
-    death_probe("PROBE 05 qExec returned");
+    fprintf(stderr, "PROBE 05 qExec returned %d hasFailure=%d stdout_err=%d\n", result,
+            static_cast<int>(::testing::Test::HasFailure()), ferror(stdout));
+    fflush(stderr);
     return result != 0 || ::testing::Test::HasFailure() ? 1 : 0;
 }
 
