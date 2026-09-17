@@ -21,29 +21,13 @@
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
 #include "src/platform/desktop/common/transport/fake_backed_serial.h"
+#include "src/platform/desktop/common/transport/setter_sequence_expectations.h"
 
 using fastecu::ErrorKind;
 using fastecu::FakeCancellationToken;
 using fastecu::flash::DesktopKlineFlashTransport;
 using fastecu::flash::KlineConfig;
 using namespace std::chrono_literals;
-
-// Shapes one boolean-setter expectation for configureFailsAtEachRemainingSetter-
-// InTurn(): configure() must reach every setter up to and including the failing
-// one, and must never reach the setters after it. An expectation that can never
-// fire carries no action -- Times(0) combined with WillRepeatedly() makes Google
-// Mock log "Too many actions specified" for every such line.
-template <typename Expectation> void expectSetterAt(Expectation& expectation, int position, int failingIndex)
-{
-    if (failingIndex >= position)
-    {
-        expectation.WillOnce(::testing::Return(failingIndex != position));
-    }
-    else
-    {
-        expectation.Times(0);
-    }
-}
 
 class TestDesktopKlineFlashTransport : public QObject
 {

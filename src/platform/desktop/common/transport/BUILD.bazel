@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
@@ -66,12 +67,23 @@ fastecu_qttest(
     deps = [":fake_backed_serial"],
 )
 
+# Google Mock cardinality helper shared by the two flash-transport suites,
+# which run the same data-driven "fails at each setter in turn" test. Qt-free
+# and independent of the fixture above, hence a plain cc_library.
+cc_library(
+    name = "setter_sequence_expectations",
+    testonly = True,
+    hdrs = ["setter_sequence_expectations.h"],
+    deps = ["@googletest//:gtest"],
+)
+
 fastecu_qttest(
     name = "test_desktop_kline_flash_transport",
     src = "desktop_kline_flash_transport_test.cpp",
     deps = [
         ":fake_backed_serial",
         ":flash_transports",
+        ":setter_sequence_expectations",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
@@ -83,6 +95,7 @@ fastecu_qttest(
     deps = [
         ":fake_backed_serial",
         ":flash_transports",
+        ":setter_sequence_expectations",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
