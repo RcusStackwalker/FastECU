@@ -4,7 +4,7 @@
 // cases pin the properties those sites rely on but never assert.
 #include "src/platform/desktop/common/transport/fake_backed_serial.h"
 
-#include <QApplication>
+#include <QCoreApplication>
 #include <QTest>
 
 #include <gmock/gmock.h>
@@ -66,7 +66,10 @@ class TestFakeBackedSerial : public QObject
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleMock(&argc, argv);
-    QApplication application(argc, argv);
+    // QCoreApplication, not QApplication: this suite instantiates no widget,
+    // and a QApplication needs a platform plugin that headless CI does not
+    // have. Targets that genuinely need one set QT_QPA_PLATFORM=offscreen.
+    QCoreApplication application(argc, argv);
     TestFakeBackedSerial test;
     const int result = QTest::qExec(&test, argc, argv);
     // QtTest does not include Google Mock failures in its exit status.

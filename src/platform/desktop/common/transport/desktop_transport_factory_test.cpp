@@ -4,7 +4,7 @@
 #include "src/platform/desktop/common/transport/desktop_transport_factory.h"
 
 #include <QTest>
-#include <QApplication>
+#include <QCoreApplication>
 
 #include <gmock/gmock.h>
 
@@ -161,7 +161,10 @@ class TestDesktopTransportFactory : public QObject
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleMock(&argc, argv);
-    QApplication application(argc, argv);
+    // QCoreApplication, not QApplication: this suite instantiates no widget,
+    // and a QApplication needs a platform plugin that headless CI does not
+    // have. Targets that genuinely need one set QT_QPA_PLATFORM=offscreen.
+    QCoreApplication application(argc, argv);
     TestDesktopTransportFactory test;
     const int result = QTest::qExec(&test, argc, argv);
     // QtTest does not include Google Mock failures in its exit status.
