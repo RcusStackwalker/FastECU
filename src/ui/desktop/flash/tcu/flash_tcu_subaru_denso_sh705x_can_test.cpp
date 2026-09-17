@@ -132,16 +132,17 @@ class FlashTcuSubaruDensoSH705xCanTest : public QObject
         QFETCH(QString, choice);
 
         FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new FakeBackend;
-                                                              return fake;
-                                                          });
+        auto serial = std::make_unique<SerialPortActions>(
+            "", "", nullptr, nullptr,
+            [&fake]() -> SerialBackend *
+            {
+                fake = new ::testing::StrictMock<FakeBackend>;
+                EXPECT_CALL(*fake, set_add_ssm_header(false)).WillOnce(::testing::DoDefault());
+                return fake;
+            });
         QVERIFY(serial->set_add_ssm_header(false));
         QVERIFY(fake != nullptr);
-        fake->logLifecycleCalls = true;
-        fake->takeCallLog();
+        QVERIFY(::testing::Mock::VerifyAndClearExpectations(fake));
 
         FileActions::EcuCalDefStructure definition;
         definition.FlashMethod = "sub_tcu_denso_sh7058_can";
@@ -155,15 +156,16 @@ class FlashTcuSubaruDensoSH705xCanTest : public QObject
         QVERIFY(driver.saw_preflight());
         QCOMPARE(driver.preflight_text(),
                  QString("Turn ignition ON and press OK to start initializing connection to TCU"));
-        QVERIFY(fake->takeCallLog().isEmpty());
     }
 };
 
 int main(int argc, char *argv[])
 {
+    ::testing::InitGoogleMock(&argc, argv);
     QApplication application(argc, argv);
     FlashTcuSubaruDensoSH705xCanTest test;
-    return QTest::qExec(&test, argc, argv);
+    const int result = QTest::qExec(&test, argc, argv);
+    return result != 0 || ::testing::Test::HasFailure() ? 1 : 0;
 }
 
 #include "flash_tcu_subaru_denso_sh705x_can_test.moc"

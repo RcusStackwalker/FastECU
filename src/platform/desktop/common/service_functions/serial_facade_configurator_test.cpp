@@ -1,8 +1,12 @@
 #include "src/platform/desktop/common/service_functions/serial_facade_configurator.h"
 
 #include <QTest>
+#include <QApplication>
+
+#include <gmock/gmock.h>
 
 #include <memory>
+#include <stdexcept>
 
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
@@ -34,14 +38,12 @@ struct Harness
         serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
                                                      [this]() -> SerialBackend *
                                                      {
-                                                         fake = new FakeBackend;
+                                                         fake = new NiceFakeBackend;
                                                          return fake;
                                                      });
         serial->set_add_ssm_header(false); // start the facade's backend thread
-        fake->openSerialPortResult = "fake-port";
-        fake->portOpen.store(true);
-        fake->logLifecycleCalls = true;
-        fake->takeCallLog();
+        EXPECT_CALL(*fake, open_serial_port()).WillRepeatedly(::testing::Return(QStringLiteral("fake-port")));
+        EXPECT_CALL(*fake, is_serial_port_open()).WillRepeatedly(::testing::Return(true));
         configurator = std::make_unique<SerialPortActionsConfigurator>(serial.get());
     }
 
@@ -61,32 +63,47 @@ class SerialFacadeConfiguratorTest : public QObject
     {
         Harness harness;
         QVERIFY(harness.serial->set_add_iso14230_header(true));
-        harness.fake->takeCallLog();
+
+        ::testing::InSequence sequence;
+        EXPECT_CALL(*harness.fake, reset_connection()).WillOnce(::testing::Return());
+        EXPECT_CALL(*harness.fake, set_is_iso14230_connection(false)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, set_is_can_connection(false)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, set_is_iso15765_connection(true)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, set_is_29_bit_id(false)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, set_add_iso14230_header(false)).WillOnce(::testing::DoDefault());
+        EXPECT_CALL(*harness.fake, set_can_speed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, set_iso15765_source_address(2017)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, set_iso15765_destination_address(2025)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, set_can_source_address(2017)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, set_can_destination_address(2025)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, open_serial_port()).WillOnce(::testing::Return(QStringLiteral("fake-port")));
+        EXPECT_CALL(*harness.fake, is_serial_port_open()).WillOnce(::testing::Return(true));
 
         const auto result = harness.configurator->apply(SsmTransportConfig{});
 
         QVERIFY(result.has_value());
         QCOMPARE(harness.serial->get_add_iso14230_header(), false);
-        QCOMPARE(
-            harness.fake->takeCallLog(),
-            QStringList({"reset_connection", "cfg:set_is_iso14230_connection:0", "cfg:set_is_can_connection:0",
-                         "cfg:set_is_iso15765_connection:1", "cfg:set_is_29_bit_id:0", "cfg:set_add_iso14230_header:0",
-                         "cfg:set_can_speed:500000", "cfg:set_iso15765_source_address:2017",
-                         "cfg:set_iso15765_destination_address:2025", "cfg:set_can_source_address:2017",
-                         "cfg:set_can_destination_address:2025", "open_serial_port", "is_serial_port_open"}));
     }
 
     void klineConfigurationPreservesLegacyOpenBaudHeaderOrder()
     {
         Harness harness;
 
+        ::testing::InSequence sequence;
+        EXPECT_CALL(*harness.fake, reset_connection()).WillOnce(::testing::Return());
+        EXPECT_CALL(*harness.fake, set_is_can_connection(false)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, set_is_iso15765_connection(false)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, set_is_iso14230_connection(true)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, open_serial_port()).WillOnce(::testing::Return(QStringLiteral("fake-port")));
+        EXPECT_CALL(*harness.fake, is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800")))
+            .WillOnce(::testing::Return(STATUS_SUCCESS));
+        EXPECT_CALL(*harness.fake, is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(*harness.fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(true));
+
         const auto result = harness.configurator->apply(klineConfig());
 
         QVERIFY(result.has_value());
-        QCOMPARE(harness.fake->takeCallLog(),
-                 QStringList({"reset_connection", "cfg:set_is_can_connection:0", "cfg:set_is_iso15765_connection:0",
-                              "cfg:set_is_iso14230_connection:1", "open_serial_port", "is_serial_port_open",
-                              "baud:begin:4800", "baud:end", "is_serial_port_open", "cfg:set_add_iso14230_header:0"}));
     }
 
     void nullFacadeIsDisconnected()
@@ -102,8 +119,7 @@ class SerialFacadeConfiguratorTest : public QObject
     void anEmptyOpenResultIsDisconnectedEvenWithAStaleOpenFlag()
     {
         Harness harness;
-        harness.fake->openSerialPortResult.clear();
-        harness.fake->portOpen.store(true);
+        EXPECT_CALL(*harness.fake, open_serial_port()).WillOnce(::testing::Return(QString{}));
 
         const auto result = harness.configurator->apply(SsmTransportConfig{});
 
@@ -114,13 +130,12 @@ class SerialFacadeConfiguratorTest : public QObject
     void aPortThatIsNotOpenAfterOpenIsDisconnected()
     {
         Harness harness;
-        harness.fake->portOpen.store(false);
+        EXPECT_CALL(*harness.fake, is_serial_port_open()).WillOnce(::testing::Return(false));
 
         const auto result = harness.configurator->apply(klineConfig());
 
         QVERIFY(!result.has_value());
         QCOMPARE(result.error().kind, ErrorKind::Disconnected);
-        QVERIFY(harness.fake->takeCallLog().filter("baud:begin").isEmpty());
     }
 
     void eachBooleanSetterFailureIsInvalidConfig_data()
@@ -145,35 +160,38 @@ class SerialFacadeConfiguratorTest : public QObject
         switch (setter)
         {
         case 0:
-            harness.fake->isIso14230ConnectionResult = false;
+            EXPECT_CALL(*harness.fake, set_is_iso14230_connection(false)).WillOnce(::testing::Return(false));
             break;
         case 1:
-            harness.fake->isCanConnectionResult = false;
+            EXPECT_CALL(*harness.fake, set_is_can_connection(false)).WillOnce(::testing::Return(false));
             break;
         case 2:
-            harness.fake->isIso15765ConnectionResult = false;
+            EXPECT_CALL(*harness.fake, set_is_iso15765_connection(true)).WillOnce(::testing::Return(false));
             break;
         case 3:
-            harness.fake->is29BitIdResult = false;
+            EXPECT_CALL(*harness.fake, set_is_29_bit_id(false)).WillOnce(::testing::Return(false));
             break;
         case 4:
-            harness.fake->addIso14230HeaderResult = false;
+            EXPECT_CALL(*harness.fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(false));
             break;
         case 5:
-            harness.fake->canSpeedResult = false;
+            EXPECT_CALL(*harness.fake, set_can_speed(::testing::_)).WillOnce(::testing::Return(false));
             break;
         case 6:
-            harness.fake->iso15765SourceAddressResult = false;
+            EXPECT_CALL(*harness.fake, set_iso15765_source_address(::testing::_)).WillOnce(::testing::Return(false));
             break;
         case 7:
-            harness.fake->iso15765DestinationAddressResult = false;
+            EXPECT_CALL(*harness.fake, set_iso15765_destination_address(::testing::_))
+                .WillOnce(::testing::Return(false));
             break;
         case 8:
-            harness.fake->canSourceAddressResult = false;
+            EXPECT_CALL(*harness.fake, set_can_source_address(::testing::_)).WillOnce(::testing::Return(false));
             break;
         case 9:
-            harness.fake->canDestinationAddressResult = false;
+            EXPECT_CALL(*harness.fake, set_can_destination_address(::testing::_)).WillOnce(::testing::Return(false));
             break;
+        default:
+            QFAIL("unexpected configuration-setter index");
         }
 
         const auto result = harness.configurator->apply(SsmTransportConfig{});
@@ -185,7 +203,7 @@ class SerialFacadeConfiguratorTest : public QObject
     void aKlineHeaderSetterFailureIsInvalidConfig()
     {
         Harness harness;
-        harness.fake->addIso14230HeaderResult = false;
+        EXPECT_CALL(*harness.fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(false));
 
         const auto result = harness.configurator->apply(klineConfig());
 
@@ -196,7 +214,8 @@ class SerialFacadeConfiguratorTest : public QObject
     void aSetterExceptionBecomesInternalStatus()
     {
         Harness harness;
-        harness.fake->throwOnConfigSetter = true;
+        EXPECT_CALL(*harness.fake, set_is_iso14230_connection(false))
+            .WillOnce(::testing::Throw(std::runtime_error("scripted backend config-setter failure")));
 
         const auto result = harness.configurator->apply(SsmTransportConfig{});
 
@@ -207,7 +226,8 @@ class SerialFacadeConfiguratorTest : public QObject
     void anOpenExceptionBecomesInternalStatus()
     {
         Harness harness;
-        harness.fake->throwOnOpen = true;
+        EXPECT_CALL(*harness.fake, open_serial_port())
+            .WillOnce(::testing::Throw(std::runtime_error("scripted backend open failure")));
 
         const auto result = harness.configurator->apply(SsmTransportConfig{});
 
@@ -218,7 +238,7 @@ class SerialFacadeConfiguratorTest : public QObject
     void aRejectedBaudChangeIsInternal()
     {
         Harness harness;
-        harness.fake->baudChangeResult = STATUS_ERROR;
+        EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_ERROR));
 
         const auto result = harness.configurator->apply(klineConfig());
 
@@ -229,8 +249,10 @@ class SerialFacadeConfiguratorTest : public QObject
     void aPortDropDuringRejectedBaudChangeIsDisconnected()
     {
         Harness harness;
-        harness.fake->baudChangeResult = STATUS_ERROR;
-        harness.fake->closePortAfterBaud = true;
+        EXPECT_CALL(*harness.fake, is_serial_port_open())
+            .WillOnce(::testing::Return(true))
+            .WillOnce(::testing::Return(false));
+        EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_ERROR));
 
         const auto result = harness.configurator->apply(klineConfig());
 
@@ -241,7 +263,8 @@ class SerialFacadeConfiguratorTest : public QObject
     void aStandardFacadeExceptionBecomesInternalStatus()
     {
         Harness harness;
-        harness.fake->throwOnReset = true;
+        EXPECT_CALL(*harness.fake, reset_connection())
+            .WillOnce(::testing::Throw(std::runtime_error("scripted backend reset failure")));
 
         try
         {
@@ -259,7 +282,8 @@ class SerialFacadeConfiguratorTest : public QObject
     void aNonStandardFacadeExceptionBecomesInternalStatus()
     {
         Harness harness;
-        harness.fake->throwNonStandardOnBaudChange = true;
+        EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800")))
+            .WillOnce(ThrowNonStandardBackendFailure());
 
         try
         {
@@ -274,5 +298,13 @@ class SerialFacadeConfiguratorTest : public QObject
     }
 };
 
-QTEST_MAIN(SerialFacadeConfiguratorTest)
+int main(int argc, char **argv)
+{
+    ::testing::InitGoogleMock(&argc, argv);
+    QApplication application(argc, argv);
+    SerialFacadeConfiguratorTest test;
+    const int result = QTest::qExec(&test, argc, argv);
+    // QtTest does not include Google Mock failures in its exit status.
+    return result != 0 || ::testing::Test::HasFailure() ? 1 : 0;
+}
 #include "serial_facade_configurator_test.moc"

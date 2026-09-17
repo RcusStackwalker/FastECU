@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = ["//src:__subpackages__"])
 
@@ -8,5 +8,17 @@ qt_cc_library(
     srcs = [],
     hdrs = ["fake_backend.h"],
     copts = COMMON_COPTS,
-    deps = QT_DEPS + ["//src/platform/desktop/common/serial:serial_platform_api"],
+    deps = QT_DEPS + [
+        "//src/platform/desktop/common/serial:serial_platform_api",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_qttest(
+    name = "fake_backend_test",
+    src = "fake_backend_test.cpp",
+    deps = [
+        ":fake_serial_backend",
+        "//src/platform/desktop/common/serial:serial_platform_api",
+    ],
 )

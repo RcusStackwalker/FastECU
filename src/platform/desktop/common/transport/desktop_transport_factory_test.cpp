@@ -4,6 +4,9 @@
 #include "src/platform/desktop/common/transport/desktop_transport_factory.h"
 
 #include <QTest>
+#include <QApplication>
+
+#include <gmock/gmock.h>
 
 #include <memory>
 
@@ -31,9 +34,9 @@ DesktopCanTransportConfig configWith(FakeBackend **captured, QStringList ports, 
     DesktopCanTransportConfig config;
     config.backend_factory_for_tests = [captured, ports, openResult]() -> SerialBackend *
     {
-        auto *fake = new FakeBackend();
-        fake->checkSerialPortsResult = ports;
-        fake->openSerialPortResult = openResult;
+        auto *fake = new NiceFakeBackend();
+        EXPECT_CALL(*fake, check_serial_ports()).WillRepeatedly(::testing::Return(ports));
+        EXPECT_CALL(*fake, open_serial_port()).WillRepeatedly(::testing::Return(openResult));
         *captured = fake;
         return fake;
     };
@@ -84,6 +87,7 @@ class TestDesktopTransportFactory : public QObject
             open_desktop_can_flash_transport(configWith(&fake, {kOpenPort0, kOpenPort1}, kOpenPort0), kColtCan);
 
         QVERIFY(transport.has_value());
+        EXPECT_CALL(*fake, get_serial_port_list()).WillOnce(::testing::DoDefault());
         QCOMPARE(fake->get_serial_port_list(), QStringList({kOpenPort0}));
     }
 
@@ -100,11 +104,13 @@ class TestDesktopTransportFactory : public QObject
 
         QVERIFY(transport.has_value());
 #if defined(Q_OS_UNIX)
+        EXPECT_CALL(*fake, get_serial_port_list()).WillOnce(::testing::DoDefault());
         QCOMPARE(fake->get_serial_port_list(), QStringList({kOpenPort0}));
 #else
         // Windows entries come from the J2534 driver registry rather than the
         // serial-port list, so every one of them is adapter-capable and the
         // first is still the right choice.
+        EXPECT_CALL(*fake, get_serial_port_list()).WillOnce(::testing::DoDefault());
         QCOMPARE(fake->get_serial_port_list(), QStringList({kBluetoothPort}));
 #endif
     }
@@ -148,7 +154,6 @@ class TestDesktopTransportFactory : public QObject
     void reportsDisconnectedWhenTheOpenFails()
     {
         FakeBackend *fake = nullptr;
-        // Empty openSerialPortResult is FakeBackend's failure sentinel.
         const auto transport = open_desktop_can_flash_transport(configWith(&fake, {kOpenPort0}, ""), kColtCan);
 
         QVERIFY(!transport.has_value());
@@ -156,5 +161,13 @@ class TestDesktopTransportFactory : public QObject
     }
 };
 
-QTEST_MAIN(TestDesktopTransportFactory)
+int main(int argc, char **argv)
+{
+    ::testing::InitGoogleMock(&argc, argv);
+    QApplication application(argc, argv);
+    TestDesktopTransportFactory test;
+    const int result = QTest::qExec(&test, argc, argv);
+    // QtTest does not include Google Mock failures in its exit status.
+    return result != 0 || ::testing::Test::HasFailure() ? 1 : 0;
+}
 #include "desktop_transport_factory_test.moc"

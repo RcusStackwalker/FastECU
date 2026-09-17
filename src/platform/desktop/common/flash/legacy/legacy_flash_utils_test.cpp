@@ -14,7 +14,7 @@ class TestLegacyFlashUtils : public QObject
         SerialPortActions serial("", "", nullptr, nullptr,
                                  [&fake]() -> SerialBackend *
                                  {
-                                     fake = new FakeBackend();
+                                     fake = new NiceFakeBackend();
                                      return fake;
                                  });
 
@@ -36,7 +36,7 @@ class TestLegacyFlashUtils : public QObject
         SerialPortActions serial("", "", nullptr, nullptr,
                                  [&fake]() -> SerialBackend *
                                  {
-                                     fake = new FakeBackend();
+                                     fake = new NiceFakeBackend();
                                      return fake;
                                  });
 
@@ -60,6 +60,14 @@ class TestLegacyFlashUtils : public QObject
     }
 };
 
-QTEST_GUILESS_MAIN(TestLegacyFlashUtils)
+int main(int argc, char **argv)
+{
+    ::testing::InitGoogleMock(&argc, argv);
+    QCoreApplication application(argc, argv);
+    TestLegacyFlashUtils test;
+    const int result = QTest::qExec(&test, argc, argv);
+    // QtTest does not include Google Mock failures in its exit status.
+    return result != 0 || ::testing::Test::HasFailure() ? 1 : 0;
+}
 
 #include "legacy_flash_utils_test.moc"
