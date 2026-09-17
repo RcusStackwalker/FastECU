@@ -38,10 +38,39 @@ qt_cc_library(
     ],
 )
 
+# Test fixture pairing a SerialPortActions facade with a Google Mock backend.
+# It lives in this package rather than beside fake_backend.h in
+# //src/platform/desktop/common/serial/testing because it needs
+# serial_port_actions.h, and serial_qt_compat's visibility list is frozen by
+# //:serial_compat_allowlist -- that list may shrink, never grow, and this
+# package is already on it.
+qt_cc_library(
+    name = "fake_backed_serial",
+    testonly = True,
+    srcs = [],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    # Header-only class template, no Q_OBJECT: normal_hdrs, not hdrs, so moc
+    # does not run over it -- same convention as `transport` below.
+    normal_hdrs = ["fake_backed_serial.h"],
+    deps = QT_DEPS + [
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_fake_backed_serial",
+    src = "fake_backed_serial_test.cpp",
+    deps = [":fake_backed_serial"],
+)
+
 fastecu_qttest(
     name = "test_desktop_kline_flash_transport",
     src = "desktop_kline_flash_transport_test.cpp",
     deps = [
+        ":fake_backed_serial",
         ":flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
@@ -52,6 +81,7 @@ fastecu_qttest(
     name = "test_desktop_can_flash_transport",
     src = "desktop_can_flash_transport_test.cpp",
     deps = [
+        ":fake_backed_serial",
         ":flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",

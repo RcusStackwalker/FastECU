@@ -15,13 +15,12 @@
 #include <gmock/gmock.h>
 
 #include <atomic>
-#include <memory>
 #include <stdexcept>
 #include <thread>
 
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
+#include "src/platform/desktop/common/transport/fake_backed_serial.h"
 
 using fastecu::ErrorKind;
 using fastecu::FakeCancellationToken;
@@ -54,16 +53,9 @@ class TestDesktopKlineFlashTransport : public QObject
 
     void postKernelUploadDelayCapabilityMirrorsOpenPort2OnUnix()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
+        FakeBackedSerial serial;
         SerialPortActions *serial_ptr = serial.get();
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
 
         QVERIFY(!transport.requires_post_kernel_upload_delay());
         QVERIFY(serial_ptr->set_use_openport2_adapter(true));
@@ -76,20 +68,13 @@ class TestDesktopKlineFlashTransport : public QObject
 
     void lecControlOperationsForwardToSerialBackend()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
+        FakeBackedSerial serial;
         ::testing::InSequence sequence;
-        EXPECT_CALL(*fake, set_lec_lines(1, 1)).WillOnce(::testing::Return(STATUS_SUCCESS));
-        EXPECT_CALL(*fake, pulse_lec_2_line(200)).WillOnce(::testing::Return(STATUS_SUCCESS));
-        EXPECT_CALL(*fake, set_lec_lines(0, 1)).WillOnce(::testing::Return(STATUS_SUCCESS));
+        EXPECT_CALL(serial.fake(), set_lec_lines(1, 1)).WillOnce(::testing::Return(STATUS_SUCCESS));
+        EXPECT_CALL(serial.fake(), pulse_lec_2_line(200)).WillOnce(::testing::Return(STATUS_SUCCESS));
+        EXPECT_CALL(serial.fake(), set_lec_lines(0, 1)).WillOnce(::testing::Return(STATUS_SUCCESS));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
 
         QVERIFY(transport.disable_lec_lines().has_value());
         QVERIFY(transport.pulse_lec_2_line(200ms).has_value());
@@ -98,14 +83,7 @@ class TestDesktopKlineFlashTransport : public QObject
 
     void configureChecksEveryBooleanSetterInOrderAndStopsAtFirstFailure()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false); // forces backend creation
+        FakeBackedSerial serial;
         // Fail the *third* setter in configure()'s specified order
         // (set_is_iso14230_connection, set_is_can_connection,
         // set_is_iso15765_connection, set_is_29_bit_id,
@@ -113,14 +91,14 @@ class TestDesktopKlineFlashTransport : public QObject
         // setters really ran, in order, and that nothing after the failure
         // (the 29-bit-id setter, the baudrate setter, open()) ran.
         ::testing::InSequence sequence;
-        EXPECT_CALL(*fake, set_is_iso14230_connection(true)).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, set_is_can_connection(false)).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, set_is_iso15765_connection(false)).WillOnce(::testing::Return(false));
-        EXPECT_CALL(*fake, set_is_29_bit_id(::testing::_)).Times(0);
-        EXPECT_CALL(*fake, set_serial_port_baudrate(::testing::_)).Times(0);
-        EXPECT_CALL(*fake, open_serial_port()).Times(0);
+        EXPECT_CALL(serial.fake(), set_is_iso14230_connection(true)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), set_is_can_connection(false)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), set_is_iso15765_connection(false)).WillOnce(::testing::Return(false));
+        EXPECT_CALL(serial.fake(), set_is_29_bit_id(::testing::_)).Times(0);
+        EXPECT_CALL(serial.fake(), set_serial_port_baudrate(::testing::_)).Times(0);
+        EXPECT_CALL(serial.fake(), open_serial_port()).Times(0);
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const auto result =
             transport.configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
 
@@ -147,24 +125,17 @@ class TestDesktopKlineFlashTransport : public QObject
     {
         QFETCH(int, setterIndex);
 
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false); // forces backend creation
+        FakeBackedSerial serial;
 
         ::testing::InSequence sequence;
-        expectSetterAt(EXPECT_CALL(*fake, set_is_iso14230_connection(true)), 0, setterIndex);
-        expectSetterAt(EXPECT_CALL(*fake, set_is_can_connection(false)), 1, setterIndex);
-        expectSetterAt(EXPECT_CALL(*fake, set_is_iso15765_connection(false)), 2, setterIndex);
-        expectSetterAt(EXPECT_CALL(*fake, set_is_29_bit_id(false)), 3, setterIndex);
-        expectSetterAt(EXPECT_CALL(*fake, set_serial_port_baudrate(QStringLiteral("10400"))), 4, setterIndex);
-        EXPECT_CALL(*fake, open_serial_port()).Times(0);
+        expectSetterAt(EXPECT_CALL(serial.fake(), set_is_iso14230_connection(true)), 0, setterIndex);
+        expectSetterAt(EXPECT_CALL(serial.fake(), set_is_can_connection(false)), 1, setterIndex);
+        expectSetterAt(EXPECT_CALL(serial.fake(), set_is_iso15765_connection(false)), 2, setterIndex);
+        expectSetterAt(EXPECT_CALL(serial.fake(), set_is_29_bit_id(false)), 3, setterIndex);
+        expectSetterAt(EXPECT_CALL(serial.fake(), set_serial_port_baudrate(QStringLiteral("10400"))), 4, setterIndex);
+        EXPECT_CALL(serial.fake(), open_serial_port()).Times(0);
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const auto result =
             transport.configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
 
@@ -174,18 +145,11 @@ class TestDesktopKlineFlashTransport : public QObject
 
     void openFailureReturnsDisconnectedWithoutAnyWrite()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, open_serial_port()).WillOnce(::testing::Return(QString{}));
-        EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(::testing::Return(QString{}));
+        EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_)).Times(0);
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const auto result = transport.open();
 
         QVERIFY(!result.has_value());
@@ -197,22 +161,15 @@ class TestDesktopKlineFlashTransport : public QObject
     // configure() must run all five setters, in order, and return success.
     void configureSucceedsWhenEverySetterSucceeds()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false); // forces backend creation
+        FakeBackedSerial serial;
         ::testing::InSequence sequence;
-        EXPECT_CALL(*fake, set_is_iso14230_connection(true)).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, set_is_can_connection(false)).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, set_is_iso15765_connection(false)).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, set_is_29_bit_id(false)).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, set_serial_port_baudrate(QStringLiteral("10400"))).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), set_is_iso14230_connection(true)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), set_is_can_connection(false)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), set_is_iso15765_connection(false)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), set_is_29_bit_id(false)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), set_serial_port_baudrate(QStringLiteral("10400"))).WillOnce(::testing::Return(true));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const auto result =
             transport.configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
 
@@ -222,17 +179,10 @@ class TestDesktopKlineFlashTransport : public QObject
     // Success mirror of openFailureReturnsDisconnectedWithoutAnyWrite().
     void openSucceedsWhenBackendReturnsANonEmptyPortName()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, open_serial_port()).WillOnce(::testing::Return(QStringLiteral("COM3")));
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(::testing::Return(QStringLiteral("COM3")));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const auto result = transport.open();
 
         QVERIFY(result.has_value());
@@ -243,18 +193,12 @@ class TestDesktopKlineFlashTransport : public QObject
     // default).
     void setBaudSucceedsWhenPortOpenAndDriverReturnsSuccess()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_SUCCESS));
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), change_port_speed(QStringLiteral("4800")))
+            .WillOnce(::testing::Return(STATUS_SUCCESS));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const auto result = transport.setBaud(4800);
 
         QVERIFY(result.has_value());
@@ -266,20 +210,13 @@ class TestDesktopKlineFlashTransport : public QObject
     // driver rejection, not a config-shape problem).
     void setBaudFailsWithInternalWhenPortStaysOpenButDriverRejectsChange()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
+        FakeBackedSerial serial;
         ::testing::InSequence sequence;
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_ERROR));
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_ERROR));
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const auto result = transport.setBaud(4800);
 
         QVERIFY(!result.has_value());
@@ -290,18 +227,11 @@ class TestDesktopKlineFlashTransport : public QObject
     // setBaud() is called -- change_port_speed() must never be reached.
     void setBaudFailsWithDisconnectedWhenPortAlreadyClosed()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(false));
-        EXPECT_CALL(*fake, change_port_speed(::testing::_)).Times(0);
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
+        EXPECT_CALL(serial.fake(), change_port_speed(::testing::_)).Times(0);
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const auto result = transport.setBaud(4800);
 
         QVERIFY(!result.has_value());
@@ -314,20 +244,13 @@ class TestDesktopKlineFlashTransport : public QObject
     // Disconnected, not the generic Internal "driver rejected" branch.
     void setBaudFailsWithDisconnectedWhenPortClosesDuringBaudChange()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
+        FakeBackedSerial serial;
         ::testing::InSequence sequence;
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_ERROR));
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(false));
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_ERROR));
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const auto result = transport.setBaud(4800);
 
         QVERIFY(!result.has_value());
@@ -340,21 +263,14 @@ class TestDesktopKlineFlashTransport : public QObject
     // success returns the number of bytes requested.
     void writeSucceedsAndReturnsRequestedByteCount()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
+        FakeBackedSerial serial;
         ::testing::InSequence sequence;
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, write_serial_data_echo_check(QByteArray::fromHex("010203")))
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), write_serial_data_echo_check(QByteArray::fromHex("010203")))
             .WillOnce(::testing::Return(QByteArray{}));
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const bytes::Bytes data{0x01, 0x02, 0x03};
         const auto result = transport.write(bytes::ByteView(data));
 
@@ -369,20 +285,14 @@ class TestDesktopKlineFlashTransport : public QObject
     // return value.
     void writeFailsWithDisconnectedWhenPortClosesDuringWrite()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
+        FakeBackedSerial serial;
         ::testing::InSequence sequence;
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).WillOnce(::testing::Return(QByteArray{}));
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(false));
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_))
+            .WillOnce(::testing::Return(QByteArray{}));
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const bytes::Bytes data{0xAA};
         const auto result = transport.write(bytes::ByteView(data));
 
@@ -394,20 +304,13 @@ class TestDesktopKlineFlashTransport : public QObject
     // returns scripted bytes -- read() must return exactly those bytes.
     void readReturnsScriptedBytesOnSuccess()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
+        FakeBackedSerial serial;
         ::testing::InSequence sequence;
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, read_serial_data(50)).WillOnce(::testing::Return(QByteArray("\x01\x02", 2)));
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(::testing::Return(QByteArray("\x01\x02", 2)));
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         FakeCancellationToken cancellation;
         const auto result = transport.read(50ms, cancellation);
 
@@ -420,17 +323,10 @@ class TestDesktopKlineFlashTransport : public QObject
     // -- the backend must never be touched at all.
     void readReturnsCancelledWhenCancellationIsAlreadyObservedBeforeIssuingRead()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), read_serial_data(::testing::_)).Times(0);
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         FakeCancellationToken cancellation(true);
         const auto result = transport.read(50ms, cancellation);
 
@@ -442,18 +338,11 @@ class TestDesktopKlineFlashTransport : public QObject
     // read() is called -- read_serial_data() must never be reached.
     void readReturnsDisconnectedWhenPortAlreadyClosedBeforeRead()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(false));
-        EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
+        EXPECT_CALL(serial.fake(), read_serial_data(::testing::_)).Times(0);
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         FakeCancellationToken cancellation;
         const auto result = transport.read(50ms, cancellation);
 
@@ -465,20 +354,13 @@ class TestDesktopKlineFlashTransport : public QObject
     // post-read is_serial_port_open() check reports the closed port.
     void readReturnsDisconnectedWhenPortClosesDuringRead()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
+        FakeBackedSerial serial;
         ::testing::InSequence sequence;
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, read_serial_data(50)).WillOnce(::testing::Return(QByteArray("\xAA", 1)));
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(false));
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(::testing::Return(QByteArray("\xAA", 1)));
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         FakeCancellationToken cancellation;
         const auto result = transport.read(50ms, cancellation);
 
@@ -491,14 +373,7 @@ class TestDesktopKlineFlashTransport : public QObject
     // Disconnected without touching the (now possibly destroyed) backend.
     void everyMethodFailsWithDisconnectedAfterClose()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
+        FakeBackedSerial serial;
 
         DesktopKlineFlashTransport transport(serial.get()); // non-owning: keep `serial` alive
         auto closeResult = transport.close();
@@ -553,14 +428,7 @@ class TestDesktopKlineFlashTransport : public QObject
     // so this actually proves the flag the driver reads changes.
     void setAddIso14230HeaderForwardsToSerialAndSucceeds()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);                  // forces backend creation
+        FakeBackedSerial serial;
         QCOMPARE(serial->get_add_iso14230_header(), false); // default
 
         DesktopKlineFlashTransport transport(serial.get()); // non-owning: query `serial` after
@@ -578,18 +446,11 @@ class TestDesktopKlineFlashTransport : public QObject
     // like read() -- the shared unblock_requested_ flag guards both.
     void writeIsSkippedWithCancelledAfterRequestUnblock()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
+        FakeBackedSerial serial;
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         transport.request_unblock();
-        EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
+        EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_)).Times(0);
 
         const bytes::Bytes data{0xAA};
         const auto result = transport.write(bytes::ByteView(data));
@@ -603,18 +464,11 @@ class TestDesktopKlineFlashTransport : public QObject
     // reached. (Symmetric to the CAN sibling's identically-named test.)
     void writeFailsWithDisconnectedWhenPortAlreadyClosedBeforeWrite()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(false));
-        EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
+        EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_)).Times(0);
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const bytes::Bytes data{0xAA};
         const auto result = transport.write(bytes::ByteView(data));
 
@@ -627,20 +481,13 @@ class TestDesktopKlineFlashTransport : public QObject
     // not a failure.
     void readReturnsEmptyOptionalWhenBackendReturnsNoBytes()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
+        FakeBackedSerial serial;
         ::testing::InSequence sequence;
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, read_serial_data(50)).WillOnce(::testing::Return(QByteArray{}));
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(::testing::Return(QByteArray{}));
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         FakeCancellationToken cancellation;
         const auto result = transport.read(50ms, cancellation);
 
@@ -652,19 +499,12 @@ class TestDesktopKlineFlashTransport : public QObject
     // itself throws a standard exception -- must map to Internal.
     void setBaudFailsWithInternalWhenDriverThrowsStandardException()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800")))
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), change_port_speed(QStringLiteral("4800")))
             .WillOnce(::testing::Throw(std::runtime_error("scripted backend baud-change failure")));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const auto result = transport.setBaud(4800);
 
         QVERIFY(!result.has_value());
@@ -675,18 +515,12 @@ class TestDesktopKlineFlashTransport : public QObject
     // failure must still be caught and mapped to Internal.
     void setBaudFailsWithInternalWhenDriverThrowsNonStandardException()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).WillOnce(ThrowNonStandardBackendFailure());
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), change_port_speed(QStringLiteral("4800")))
+            .WillOnce(ThrowNonStandardBackendFailure());
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const auto result = transport.setBaud(4800);
 
         QVERIFY(!result.has_value());
@@ -696,19 +530,12 @@ class TestDesktopKlineFlashTransport : public QObject
     // write()'s catch(const std::exception&) branch.
     void writeFailsWithInternalWhenDriverThrowsStandardException()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_))
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_))
             .WillOnce(::testing::Throw(std::runtime_error("scripted backend write failure")));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const bytes::Bytes data{0xAA};
         const auto result = transport.write(bytes::ByteView(data));
 
@@ -719,18 +546,12 @@ class TestDesktopKlineFlashTransport : public QObject
     // write()'s bare catch(...) branch.
     void writeFailsWithInternalWhenDriverThrowsNonStandardException()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).WillOnce(ThrowNonStandardBackendFailure());
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_))
+            .WillOnce(ThrowNonStandardBackendFailure());
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         const bytes::Bytes data{0xAA};
         const auto result = transport.write(bytes::ByteView(data));
 
@@ -742,19 +563,12 @@ class TestDesktopKlineFlashTransport : public QObject
     // observed -- must map to Internal, not Cancelled.
     void readFailsWithInternalWhenDriverThrowsStandardExceptionAndNotCancelled()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, read_serial_data(50))
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), read_serial_data(50))
             .WillOnce(::testing::Throw(std::runtime_error("scripted backend read failure")));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         FakeCancellationToken cancellation;
         const auto result = transport.read(50ms, cancellation);
 
@@ -765,18 +579,11 @@ class TestDesktopKlineFlashTransport : public QObject
     // read()'s bare catch(...) branch, with cancellation never observed.
     void readFailsWithInternalWhenDriverThrowsNonStandardExceptionAndNotCancelled()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, read_serial_data(50)).WillOnce(ThrowNonStandardBackendFailure());
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(ThrowNonStandardBackendFailure());
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         FakeCancellationToken cancellation;
         const auto result = transport.read(50ms, cancellation);
 
@@ -789,17 +596,12 @@ class TestDesktopKlineFlashTransport : public QObject
     // once this transport itself has been closed (serial_ is null).
     void isOpenReflectsThePortsRealOpenState()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
+        FakeBackedSerial serial;
 
-        DesktopKlineFlashTransport transport(std::move(serial));
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true)).WillOnce(::testing::Return(false));
+        DesktopKlineFlashTransport transport(serial.release());
+        EXPECT_CALL(serial.fake(), is_serial_port_open())
+            .WillOnce(::testing::Return(true))
+            .WillOnce(::testing::Return(false));
         QVERIFY(transport.isOpen());
 
         QVERIFY(!transport.isOpen());
@@ -807,28 +609,19 @@ class TestDesktopKlineFlashTransport : public QObject
 
     void isOpenReturnsFalseWhenTheUnderlyingCheckThrows()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open())
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open())
             .WillOnce(::testing::Throw(std::runtime_error("scripted backend open-state failure")));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         QVERIFY(!transport.isOpen());
     }
 
     void isOpenReturnsFalseAfterClose()
     {
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          []() -> SerialBackend * { return new NiceFakeBackend(); });
-        serial->set_add_ssm_header(false);
+        FakeBackedSerial serial;
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         QVERIFY(transport.isOpen());
 
         const auto closeResult = transport.close();
@@ -842,18 +635,11 @@ class TestDesktopKlineFlashTransport : public QObject
     // that were read.
     void readReturnsCancelledWhenCancellationBecomesObservedAfterASuccessfulRead()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, read_serial_data(50)).WillOnce(::testing::Return(QByteArray("\xAA", 1)));
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(::testing::Return(QByteArray("\xAA", 1)));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         FakeCancellationToken cancellation;
         cancellation.cancel_on_check(2);
         const auto result = transport.read(50ms, cancellation);
@@ -867,19 +653,12 @@ class TestDesktopKlineFlashTransport : public QObject
     // call has already thrown -- must map to Cancelled, not Internal.
     void readReturnsCancelledWhenCancellationBecomesObservedDuringAStandardExceptionThrow()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, read_serial_data(50))
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), read_serial_data(50))
             .WillOnce(::testing::Throw(std::runtime_error("scripted backend read failure")));
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         FakeCancellationToken cancellation;
         cancellation.cancel_on_check(2);
         const auto result = transport.read(50ms, cancellation);
@@ -891,18 +670,11 @@ class TestDesktopKlineFlashTransport : public QObject
     // read()'s post-throw cancellation recheck, bare catch(...) branch.
     void readReturnsCancelledWhenCancellationBecomesObservedDuringANonStandardExceptionThrow()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false);
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, read_serial_data(50)).WillOnce(ThrowNonStandardBackendFailure());
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), read_serial_data(50)).WillOnce(ThrowNonStandardBackendFailure());
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         FakeCancellationToken cancellation;
         cancellation.cancel_on_check(2);
         const auto result = transport.read(50ms, cancellation);
@@ -914,17 +686,9 @@ class TestDesktopKlineFlashTransport : public QObject
     void closeIsIdempotentAndDestroysTheOwnedSerialPortActions()
     {
         bool destroyed = false;
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake, &destroyed]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              fake->destroyed = &destroyed;
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false); // forces backend creation
+        FakeBackedSerial serial{[&destroyed](auto& fake) { fake.destroyed = &destroyed; }};
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         QVERIFY(!destroyed);
 
         auto closeResult = transport.close();
@@ -948,21 +712,14 @@ class TestDesktopKlineFlashTransport : public QObject
     // exactly that if it were used here instead. `destroyed` is a sentinel
     // flipped only by FakeBackend's destructor; if it stayed false through
     // close(), the SerialPortActions -- and its backend -- were never torn
-    // down. The local `serial` unique_ptr (owned by this test, standing in
-    // for MainWindow's member) is then used again after close() to prove it
-    // is still a live, callable object, not a dangling pointer.
+    // down. The local `serial` fixture (which holds the facade on this test's
+    // behalf, standing in for MainWindow's member) is then used again after
+    // close() to prove it is still a live, callable object, not a dangling
+    // pointer.
     void closeOnANonOwningSerialPortActionsDoesNotDestroyIt()
     {
         bool destroyed = false;
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake, &destroyed]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              fake->destroyed = &destroyed;
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false); // forces backend creation
+        FakeBackedSerial serial{[&destroyed](auto& fake) { fake.destroyed = &destroyed; }};
 
         {
             DesktopKlineFlashTransport transport(serial.get()); // non-owning
@@ -1001,19 +758,14 @@ class TestDesktopKlineFlashTransport : public QObject
     // immediately as Cancelled without ever reaching the backend.
     void requestUnblockCausesAPendingReadToReturnPromptly()
     {
-        FakeBackend *fake = nullptr;
-        auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                          [&fake]() -> SerialBackend *
-                                                          {
-                                                              fake = new NiceFakeBackend();
-                                                              return fake;
-                                                          });
-        serial->set_add_ssm_header(false); // create backend before wiring gates
+        FakeBackedSerial serial;
 
         QSemaphore readEntered;
         QSemaphore continueRead;
-        EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true)).WillOnce(::testing::Return(true));
-        EXPECT_CALL(*fake, read_serial_data(50))
+        EXPECT_CALL(serial.fake(), is_serial_port_open())
+            .WillOnce(::testing::Return(true))
+            .WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), read_serial_data(50))
             .WillOnce(
                 [&readEntered, &continueRead](std::uint16_t)
                 {
@@ -1022,7 +774,7 @@ class TestDesktopKlineFlashTransport : public QObject
                     return QByteArray("\xAA", 1);
                 });
 
-        DesktopKlineFlashTransport transport(std::move(serial));
+        DesktopKlineFlashTransport transport(serial.release());
         FakeCancellationToken cancellation;
 
         fastecu::Result<DesktopKlineFlashTransport::OptionalBytes> inFlightResult;
@@ -1049,7 +801,7 @@ class TestDesktopKlineFlashTransport : public QObject
 
         // Second half of the contract: the *next* read must not reach the
         // backend at all.
-        EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
+        EXPECT_CALL(serial.fake(), read_serial_data(::testing::_)).Times(0);
         const auto secondResult = transport.read(50ms, cancellation);
         QVERIFY(!secondResult.has_value());
         QCOMPARE(secondResult.error().kind, ErrorKind::Cancelled);
