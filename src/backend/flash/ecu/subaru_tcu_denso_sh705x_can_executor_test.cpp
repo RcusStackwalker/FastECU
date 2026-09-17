@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <atomic>
 #include <chrono>
 #include <format>
 #include <memory>
@@ -19,6 +18,7 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.h"
+#include "src/backend/flash/ecu/testing/recording_can_flash_transport.h"
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
@@ -156,6 +156,13 @@ class RecordingClock final : public FakeClock
     FakeCancellationToken *cancel_after_successful_sleep = nullptr;
 };
 
+// Deliberately NOT RecordingCanFlashTransport from
+// //src/backend/flash/ecu/testing. That shared type unions only additions that
+// are inert unless set. This decorator's restart_in_progress is set
+// unconditionally in reset_connection() and then changes what configure() and
+// open() do, its write() classifies timeline entries by payload byte, and its
+// read() cancels after a kernel-start reply. Folding any of that into the
+// shared type would change the petrol and diesel suites' behaviour.
 class RecordingCanTransport final : public ICanFlashTransport
 {
   public:
@@ -278,29 +285,6 @@ class RecordingCanTransport final : public ICanFlashTransport
     FakeCancellationToken *cancellation_on_open = nullptr;
     bytes::Bytes cancel_prefix;
     std::vector<std::string> *timeline = nullptr;
-};
-
-class PhaseCancellingEventSink final : public RecordingEventSink
-{
-  public:
-    PhaseCancellingEventSink(FakeCancellationToken& cancellation, std::string phase, int done)
-        : cancellation_(cancellation), phase_(std::move(phase)), done_(done)
-    {
-    }
-
-    void phase_progress(const PhaseProgressEvent& event) override
-    {
-        RecordingEventSink::phase_progress(event);
-        if (event.phase_name == phase_ && event.done == done_)
-        {
-            cancellation_.set_cancelled(true);
-        }
-    }
-
-  private:
-    FakeCancellationToken& cancellation_;
-    std::string phase_;
-    int done_;
 };
 
 class CancellingEventSink final : public RecordingEventSink

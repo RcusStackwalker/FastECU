@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <array>
-#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <format>
@@ -18,6 +17,7 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h"
+#include "src/backend/flash/ecu/testing/recording_can_flash_transport.h"
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
@@ -212,115 +212,6 @@ class RecordingClock final : public FakeClock
     std::vector<std::chrono::milliseconds> sleeps;
     FakeCancellationToken *cancel_during_sleep = nullptr;
     std::vector<std::string> *timeline = nullptr;
-};
-
-class RecordingCanTransport final : public ICanFlashTransport
-{
-  public:
-    Status reset_connection() override
-    {
-        lifecycle.push_back("reset_connection");
-        if (timeline != nullptr)
-        {
-            timeline->push_back("reset_connection");
-        }
-        return reset_result;
-    }
-    Status configure(const Iso15765Config& config) override
-    {
-        lifecycle.push_back("configure");
-        if (timeline != nullptr)
-        {
-            timeline->push_back("configure");
-        }
-        return scripted.configure(config);
-    }
-    Status open() override
-    {
-        lifecycle.push_back("open");
-        if (timeline != nullptr)
-        {
-            timeline->push_back("open");
-        }
-        Status result = scripted.open();
-        if (result.has_value() && cancellation_on_open != nullptr)
-        {
-            cancellation_on_open->set_cancelled(true);
-        }
-        return result;
-    }
-    Status close() override
-    {
-        lifecycle.push_back("close");
-        if (timeline != nullptr)
-        {
-            timeline->push_back("close");
-        }
-        return scripted.close();
-    }
-    void request_unblock() noexcept override
-    {
-        scripted.request_unblock();
-    }
-    Status write(bytes::ByteView data, const ICancellationToken& cancellation) override
-    {
-        writes.emplace_back(data.begin(), data.end());
-        Status result = scripted.write(data, cancellation);
-        if (result.has_value() && cancellation_to_trigger != nullptr && !cancel_prefix.empty() &&
-            data.size() >= cancel_prefix.size() && std::equal(cancel_prefix.begin(), cancel_prefix.end(), data.begin()))
-        {
-            cancellation_to_trigger->set_cancelled(true);
-        }
-        return result;
-    }
-    Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout,
-                                             const ICancellationToken& cancellation) override
-    {
-        read_timeouts.push_back(timeout);
-        Result<std::optional<bytes::Bytes>> result = scripted.read(timeout, cancellation);
-        ++read_count;
-        if (result.has_value() && cancellation_to_trigger != nullptr && cancel_after_read_count.has_value() &&
-            read_count == *cancel_after_read_count)
-        {
-            cancellation_to_trigger->set_cancelled(true);
-        }
-        return result;
-    }
-
-    ScriptedCanFlashTransport scripted;
-    Status reset_result;
-    std::vector<std::string> lifecycle;
-    std::vector<bytes::Bytes> writes;
-    std::vector<std::chrono::milliseconds> read_timeouts;
-    FakeCancellationToken *cancellation_to_trigger = nullptr;
-    FakeCancellationToken *cancellation_on_open = nullptr;
-    bytes::Bytes cancel_prefix;
-    std::optional<std::size_t> cancel_after_read_count;
-    std::size_t read_count{};
-    std::vector<std::string> *timeline = nullptr;
-};
-
-class PhaseCancellingEventSink final : public RecordingEventSink
-{
-  public:
-    PhaseCancellingEventSink(FakeCancellationToken& cancellation, std::string phase, int done)
-        : cancellation_(cancellation), phase_(std::move(phase)), done_(done)
-    {
-    }
-
-    void phase_progress(const PhaseProgressEvent& event) override
-    {
-        RecordingEventSink::phase_progress(event);
-        if (event.phase_name == phase_ && event.done == done_)
-        {
-            cancellation_.set_cancelled(true);
-        }
-    }
-
-  private:
-    FakeCancellationToken& cancellation_;
-    std::string phase_;
-    int done_;
 };
 
 class EraseCancellingEventSink final : public RecordingEventSink
@@ -709,8 +600,8 @@ TEST(SubaruDensoSh7058CanDieselExecutor, BoundAttemptPreservesResetQuietPeriodCo
 {
     auto plan = plan_for(kVariants.front(), FlashOperation::Read);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    auto transport = std::make_unique<RecordingCanTransport>();
-    RecordingCanTransport *observed_transport = transport.get();
+    auto transport = std::make_unique<RecordingCanFlashTransport>();
+    RecordingCanFlashTransport *observed_transport = transport.get();
     FakeCancellationToken cancellation;
     observed_transport->cancellation_on_open = &cancellation;
     RecordingClock clock;
@@ -734,8 +625,8 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StartupCancellationAfterResetSkipsConfi
 {
     auto plan = plan_for(kVariants.front(), FlashOperation::Read);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-    auto transport = std::make_unique<RecordingCanTransport>();
-    RecordingCanTransport *observed_transport = transport.get();
+    auto transport = std::make_unique<RecordingCanFlashTransport>();
+    RecordingCanFlashTransport *observed_transport = transport.get();
     FakeCancellationToken cancellation;
     RecordingClock clock;
     std::vector<std::string> timeline;
@@ -763,7 +654,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, AlreadyRunningKernelReadsBothLiteralRom
         SCOPED_TRACE(variant.protocol);
         auto plan = plan_for(variant, FlashOperation::Read);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-        RecordingCanTransport transport;
+        RecordingCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
         script_kernel_alive(transport.scripted);
         script_zero_read_pages(transport.scripted, variant.rom_size);
@@ -826,7 +717,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadsLiteralKernelAtEachGenerationAdd
         auto plan = plan_for(variant, FlashOperation::Read, {}, std::move(kernel_data));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
-        RecordingCanTransport transport;
+        RecordingCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
         script_bootloader_connection(transport.scripted);
         script_129_byte_kernel_upload(transport.scripted, variant.kernel_address);
@@ -896,7 +787,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProbeFallbackUploadsExactKernelAddressA
         auto plan = plan_for(variant, FlashOperation::Read, {}, std::move(kernel_data));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
-        RecordingCanTransport transport;
+        RecordingCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
         script_bootloader_connection(transport.scripted);
         script_129_byte_kernel_upload(transport.scripted, variant.kernel_address,
@@ -964,7 +855,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, EveryB6ReplyIsRawAndIgnoredExceptCancel
         auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
-        RecordingCanTransport transport;
+        RecordingCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
         script_bootloader_connection(transport.scripted);
         script_129_byte_kernel_upload(transport.scripted, kVariants.front().kernel_address,
@@ -986,7 +877,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, EveryB6ReplyIsRawAndIgnoredExceptCancel
         auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
-        RecordingCanTransport transport;
+        RecordingCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
         script_bootloader_connection(transport.scripted);
         script_129_byte_kernel_upload(transport.scripted, kVariants.front().kernel_address,
@@ -1021,7 +912,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, KernelStartAcceptsServiceOnlyPositiveAn
         auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
-        RecordingCanTransport transport;
+        RecordingCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
         script_bootloader_connection(transport.scripted);
         script_129_byte_kernel_upload(transport.scripted, kVariants.front().kernel_address, kernel_id_response(),
@@ -1054,7 +945,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, IdentityQueriesAndSessionThreeToFortyTh
     auto plan = plan_for(kVariants.front(), FlashOperation::Read);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
-    RecordingCanTransport transport;
+    RecordingCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
     script_bootloader_connection(transport.scripted, true, false, true);
     FakeCancellationToken cancellation;
@@ -1269,7 +1160,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StrictUdsPendingRetriesAreBoundedAndNev
     auto plan = plan_for(kVariants.front(), FlashOperation::Read);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
-    RecordingCanTransport transport;
+    RecordingCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
     script_kernel_probe_timeout(transport.scripted);
     script_identity_queries(transport.scripted);
@@ -1308,7 +1199,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationStopsAtPendingRetryBoundary
     auto plan = plan_for(kVariants.front(), FlashOperation::Read);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
-    RecordingCanTransport transport;
+    RecordingCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
     script_kernel_probe_timeout(transport.scripted);
     script_identity_queries(transport.scripted);
@@ -1340,7 +1231,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, TestWriteDisablesFlashAndValidatesWitho
         auto plan = plan_for(variant, FlashOperation::TestWrite);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
         SubaruDensoSh7058CanDieselExecutor executor;
-        RecordingCanTransport transport;
+        RecordingCanFlashTransport transport;
         configure_and_open(executor, *plan, transport);
         script_kernel_alive(transport.scripted);
         script_compare(transport.scripted, blocks_for(variant), 0U);
@@ -1525,7 +1416,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, RealWriteErasesProgramsCommitsAndVerifi
     auto plan = plan_for(kVariants.front(), FlashOperation::Write);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
-    RecordingCanTransport transport;
+    RecordingCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
     script_kernel_alive(transport.scripted);
     script_compare(transport.scripted, kSh7058Blocks, 0U);
@@ -1575,7 +1466,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, NonzeroLargeBlockCommitsEveryWindowWith
     auto plan = plan_for(kVariants.back(), FlashOperation::Write, std::move(image));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
-    RecordingCanTransport transport;
+    RecordingCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
     script_kernel_alive(transport.scripted);
     script_compare(transport.scripted, kSh7059Blocks, std::nullopt);
@@ -1650,7 +1541,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringKernelProbeStopsBefor
     auto plan = plan_for(kVariants.front(), FlashOperation::Read);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
-    RecordingCanTransport transport;
+    RecordingCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
     transport.scripted.expectWrite(kernel_id_request());
     FakeCancellationToken cancellation;
@@ -1674,7 +1565,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringKernelUploadStopsBefo
     auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
-    RecordingCanTransport transport;
+    RecordingCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
     script_bootloader_connection(transport.scripted);
     script_129_byte_kernel_upload(transport.scripted, kVariants.front().kernel_address);
@@ -1700,7 +1591,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadedKernelReachesFirstReadPageBefor
     auto plan = plan_for(kVariants.front(), FlashOperation::Read, {}, std::move(kernel_data));
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
-    RecordingCanTransport transport;
+    RecordingCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
     script_bootloader_connection(transport.scripted);
     script_129_byte_kernel_upload(transport.scripted, kVariants.front().kernel_address);
@@ -1802,7 +1693,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringBufferWriteReportsKer
     auto plan = plan_for(kVariants.front(), FlashOperation::Write);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
-    RecordingCanTransport transport;
+    RecordingCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
     script_kernel_alive(transport.scripted);
     script_compare(transport.scripted, kSh7058Blocks, 0U);
@@ -1867,7 +1758,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringCommitReplyReportsKer
     auto plan = plan_for(kVariants.front(), FlashOperation::Write);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
-    RecordingCanTransport transport;
+    RecordingCanFlashTransport transport;
     configure_and_open(executor, *plan, transport);
     script_kernel_alive(transport.scripted);
     script_compare(transport.scripted, kSh7058Blocks, 0U);
