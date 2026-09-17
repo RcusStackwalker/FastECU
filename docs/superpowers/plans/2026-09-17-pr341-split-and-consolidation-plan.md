@@ -929,10 +929,11 @@ EOF
   `RecordingEventSink`.
 - Produces, in namespace `fastecu::flash`:
   `class RecordingCanFlashTransport final : public ICanFlashTransport` with
-  public members `scripted`, `reset_result`, `writes`, `read_timeouts`,
-  `cancellation_to_trigger`, `cancel_prefix`, `cancellation_on_reset`,
-  `cancellation_on_configure`, `cancellation_on_open`,
-  `cancel_after_read_count`, `read_count` and `timeline`; and
+  public members `scripted`, `reset_result`, `lifecycle`, `writes`,
+  `read_timeouts`, `cancellation_to_trigger`, `cancel_prefix`,
+  `cancellation_on_reset`, `cancellation_on_configure`,
+  `cancellation_on_open`, `cancel_after_read_count`, `read_count` and
+  `timeline`; and
   `class PhaseCancellingEventSink final : public RecordingEventSink` with
   constructor `(FakeCancellationToken& cancellation, std::string phase, int done)`.
 
@@ -950,9 +951,15 @@ timeline entries by inspecting payload bytes; its `read()` cancels after a
 kernel-start reply. Folding any of that into a shared type would change petrol
 and diesel behaviour. Only its `PhaseCancellingEventSink` copy is removed.
 
-The shared type drops the decorator's own `lifecycle` vector: Task 2 gave
-`ScriptedCanFlashTransport` `lifecycle_calls_`, and two recordings of one fact
-is the duplication being removed.
+**The shared type KEEPS its own `lifecycle` vector.** An earlier draft of this
+plan had it dropped in favour of `ScriptedCanFlashTransport::lifecycle_calls_`.
+That is wrong and would break nine assertions: the decorator delegates
+`configure`, `open` and `close` to `scripted`, but `reset_connection()` returns
+its own `reset_result` WITHOUT delegating, so `scripted.lifecycle_calls_` never
+records a reset — while the petrol and diesel suites assert sequences that begin
+with `"reset_connection"` (petrol lines 692, 712, 732, 752, 773; diesel lines
+728, 753). Assertions must stay byte-identical, so `lifecycle` stays and no
+assertion is re-pointed.
 
 - [ ] **Step 1: Record the green baseline and the current lifecycle assertions**
 
@@ -962,9 +969,9 @@ grep -n "\.lifecycle\b" src/backend/flash/ecu/subaru_denso_sh7058_can_executor_t
                         src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor_test.cpp
 ```
 
-Expected: PASS. The `grep` lists every assertion that must be re-pointed at
-`scripted.lifecycle_calls_` in step 4; keep the output. Do not include the TCU
-suite — its decorator keeps its own `lifecycle` vector.
+Expected: PASS. The `grep` (note: the accesses are `observed->lifecycle`, with
+an arrow) lists the nine assertions that must remain BYTE-IDENTICAL and keep
+pointing at `.lifecycle`. Keep the output and diff it again at step 7.
 
 - [ ] **Step 2: Create the shared header**
 
@@ -996,13 +1003,16 @@ namespace fastecu::flash
 // ScriptedCanFlashTransport and adds the injection points those suites need:
 // each is inert unless set, so one type serves all three families.
 //
-// Lifecycle is NOT recorded here. ScriptedCanFlashTransport records it in
-// lifecycle_calls_; assert against scripted.lifecycle_calls_.
+// This records lifecycle in its own `lifecycle` vector, which is NOT the same
+// as ScriptedCanFlashTransport::lifecycle_calls_: reset_connection() below
+// returns `reset_result` without delegating, so the scripted transport never
+// sees a reset. Assert against this vector, not the scripted one.
 class RecordingCanFlashTransport final : public ICanFlashTransport
 {
   public:
     Status reset_connection() override
     {
+        lifecycle.push_back("reset_connection");
         if (timeline != nullptr)
         {
             timeline->push_back("reset_connection");
@@ -1017,6 +1027,7 @@ class RecordingCanFlashTransport final : public ICanFlashTransport
 
     Status configure(const Iso15765Config& config) override
     {
+        lifecycle.push_back("configure");
         if (timeline != nullptr)
         {
             timeline->push_back("configure");
@@ -1031,6 +1042,7 @@ class RecordingCanFlashTransport final : public ICanFlashTransport
 
     Status open() override
     {
+        lifecycle.push_back("open");
         if (timeline != nullptr)
         {
             timeline->push_back("open");
@@ -1045,6 +1057,7 @@ class RecordingCanFlashTransport final : public ICanFlashTransport
 
     Status close() override
     {
+        lifecycle.push_back("close");
         if (timeline != nullptr)
         {
             timeline->push_back("close");
@@ -1085,6 +1098,7 @@ class RecordingCanFlashTransport final : public ICanFlashTransport
 
     ScriptedCanFlashTransport scripted;
     Status reset_result;
+    std::vector<std::string> lifecycle;
     std::vector<bytes::Bytes> writes;
     std::vector<std::chrono::milliseconds> read_timeouts;
     FakeCancellationToken *cancellation_to_trigger = nullptr;
@@ -1159,10 +1173,9 @@ In both files, delete the local `RecordingCanTransport` and
 #include "src/backend/flash/ecu/testing/recording_can_flash_transport.h"
 ```
 
-Replace every `RecordingCanTransport` with `RecordingCanFlashTransport`. Using
-the `grep` output from step 1, re-point every `<transport>.lifecycle` assertion
-at `<transport>.scripted.lifecycle_calls_`. The expected string vectors do not
-change — only the member they are read from.
+Replace every `RecordingCanTransport` with `RecordingCanFlashTransport`. Do
+NOT touch any assertion: `observed->lifecycle` and `observed_transport->lifecycle`
+stay exactly as they are, because the shared type keeps that member.
 
 - [ ] **Step 5: In the TCU suite, take only the event sink**
 
@@ -1200,11 +1213,12 @@ needs it for `PhaseCancellingEventSink` alone.
 bazel test --config=release --nocache_test_results //src/backend/flash/ecu:all
 ```
 
-Expected: PASS, with no expected value edited. A failure on a lifecycle vector
-means a `scripted.lifecycle_calls_` re-point was missed in the petrol or diesel
-suite, or the scripted transport records a step the decorator did not; report
-it rather than editing the expectation. The TCU suite's lifecycle assertions
-must be untouched.
+Expected: PASS, with no expected value edited. Re-run the step 1 `grep` and
+confirm all nine `->lifecycle` assertions are byte-identical to before. A
+failure on a lifecycle vector means the union changed the order of a
+`lifecycle.push_back` relative to a delegated call; report it rather than
+editing the expectation. The TCU suite's lifecycle assertions must be
+untouched.
 
 - [ ] **Step 8: Commit**
 

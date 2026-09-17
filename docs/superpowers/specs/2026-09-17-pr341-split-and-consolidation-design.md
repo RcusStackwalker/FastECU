@@ -190,9 +190,20 @@ subject.
    their inert-by-default additions (`cancellation_on_reset`,
    `cancellation_on_configure`, `cancellation_on_open`,
    `cancellation_to_trigger` with `cancel_prefix`, `cancel_after_read_count`
-   with `read_count`, and the optional `timeline` pointer). Its `lifecycle`
-   vector is dropped in favour of the `ScriptedCanFlashTransport` recording
-   added by `a90b648e`, so one answer replaces two.
+   with `read_count`, and the optional `timeline` pointer).
+
+   It **keeps** its own `lifecycle` vector. The intent was to drop it in
+   favour of the `ScriptedCanFlashTransport` recording added by `a90b648e`,
+   but the two do not record the same thing: the decorator delegates
+   `configure`, `open` and `close` to the scripted transport but deliberately
+   does NOT delegate `reset_connection` — it returns its own `reset_result`
+   directly, so the scripted transport never sees a reset. Nine assertions
+   across the petrol and diesel suites expect lifecycle sequences beginning
+   with `"reset_connection"`, and re-pointing them at
+   `scripted.lifecycle_calls_` would require editing all nine, which this
+   design forbids. The two recordings therefore coexist; collapsing them means
+   changing what the decorator delegates, which is a behaviour change and
+   belongs with the deferred work.
 
    Both those decorators are then deleted — roughly 71 of 156 lines. The TCU
    decorator is left untouched for the reason recorded above; a comment on it
