@@ -319,6 +319,9 @@ owner, no behavioural drift between copies — and the mock's own test keeps the
 blast radius small when it changes. See
 [ADR 0008](adr/0008-use-package-owned-mocks.md).
 
+See the [serial backend Google Mock reference](gmock-reference.md) for
+expectations, default actions, call ordering, and QtTest failure propagation.
+
 **Platform-specific tests go in separate source files**, listed in the matching
 `*_UNIX_SRCS` / `*_UNIX_HDRS` / `*_WIN32_SRCS` Bazel list — not behind `#ifdef`
 in a common source. Common backend test sources must compile on every supported

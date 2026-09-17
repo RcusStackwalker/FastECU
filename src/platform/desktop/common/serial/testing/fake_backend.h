@@ -1,219 +1,35 @@
 #pragma once
 
-#include <QMutex>
-#include <QMutexLocker>
-#include <QSemaphore>
-#include <QStringList>
-#include <QThread>
+#include <gmock/gmock.h>
 
-#include <atomic>
-#include <functional>
-#include <stdexcept>
+#include <cstdint>
 
 #include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
 
-// Thrown by the throwNonStandardOn* controls below: deliberately NOT derived
-// from std::exception, so it only matches a bare `catch (...)` -- exercises
-// the adapters' generic catch-all branches (distinct from their
-// `catch (const std::exception&)` branches, which the standard throwOnRead
-// -style runtime_error controls exercise).
+// Thrown by tests that exercise an adapter's catch-all branch. It deliberately
+// does not derive from std::exception, so it is distinct from a runtime_error.
 struct FakeBackendNonStandardFailure
 {
 };
 
-// Scripted backend for facade-level tests. Subclasses the direct backend so
-// the 44 config accessors come for free (real fields, no port ever opened);
-// overrides the I/O entry points with scripted, observable behavior.
+// Keep the intentional catch-all probe at a suppressible throw site rather
+// than instantiating testing::Throw's throw expression in a third-party header.
+ACTION(ThrowNonStandardBackendFailure)
+{
+    throw FakeBackendNonStandardFailure{}; // NOLINT(bugprone-std-exception-baseclass): tests catch (...).
+}
+
+// Google Mock backend for facade and desktop transport tests. What it
+// guarantees, how to set expectations against it, and the QtTest integration it
+// requires are in docs/gmock-reference.md.
 class FakeBackend : public SerialPortActionsDirect
 {
     Q_OBJECT
+
   public:
-    int readDelayMs = 0; // set before use; simulates a slow adapter
-    QByteArray scriptedResponse;
-    QSemaphore *readEntered = nullptr;
-    QSemaphore *continueRead = nullptr;
-    bool throwOnRead = false;
-    bool throwOnIsOpen = false;
-    bool throwNonStandardOnIsOpen = false;
-    std::atomic<bool> portOpen{true};
-    std::function<void()> afterRead;
-    bool *destroyed = nullptr;
-
-    // -- opt-in controls added for adapter-level coverage; every one of them
-    // defaults to a no-op so pre-existing tests that never touch these
-    // fields keep observing the original behavior. --
-    bool throwNonStandardOnRead = false;
-    bool throwOnWrite = false;
-    bool throwNonStandardOnWrite = false;
-    bool closePortAfterRead = false;        // set portOpen=false right after a successful read
-    bool closePortAfterWrite = false;       // set portOpen=false right after a successful write
-    std::function<void()> beforeReadThrow;  // fires immediately before a scripted read failure
-    std::function<void()> beforeWriteThrow; // fires immediately before a scripted write failure
-    std::function<void()> beforeBaudThrow;  // fires immediately before a scripted baud-change failure
-
-    // change_port_speed() result/exception controls. Default mirrors the
-    // real backend's success code (STATUS_SUCCESS == 0) since no
-    // pre-existing test exercises baud change through FakeBackend.
-    int baudChangeResult = STATUS_SUCCESS;
-    bool throwOnBaudChange = false;
-    bool throwNonStandardOnBaudChange = false;
-    bool throwOnConfigSetter = false;
-    bool throwOnOpen = false;
-    bool throwNonStandardOnOpen = false;
-    bool closePortAfterBaud = false; // set portOpen=false after a non-throwing baud-change result
-    bool throwOnReset = false;
-    bool throwNonStandardOnReset = false;
-    bool logLifecycleCalls = false;
-
-    // -- config-setter result controls for the desktop K-Line/CAN flash
-    // transport adapter tests (step 5c, Task 12): every setter below
-    // unconditionally `return true`s in the real backend
-    // (serial_port_actions_direct.h) -- none of them touch the port or
-    // hardware, they just assign a member. Each override still delegates
-    // to SerialPortActionsDirect's own implementation first so the
-    // underlying member -- and therefore the paired getter -- keeps
-    // working exactly as before for every pre-existing test (e.g.
-    // test_facade_threading.cpp's getSet_marshalsToBackendThread(),
-    // test_flash_utils.cpp's configureIso15765Can_* tests); only the
-    // *returned* bool is swapped for the controllable field below. Each
-    // field defaults to that always-succeeds behavior; set one to false to
-    // force the corresponding setter to fail and prove an adapter's
-    // configure() stops at exactly that step. Every call is logged (via
-    // the shared call log) as "cfg:<setter name>:<value>" so a test can
-    // assert both which setters ran and in what order.
-    bool isIso14230ConnectionResult = true;
-    bool isCanConnectionResult = true;
-    bool isIso15765ConnectionResult = true;
-    bool is29BitIdResult = true;
-    bool addIso14230HeaderResult = true;
-    bool serialPortBaudrateResult = true;
-    bool canSpeedResult = true;
-    bool canSourceAddressResult = true;
-    bool canDestinationAddressResult = true;
-    bool iso15765SourceAddressResult = true;
-    bool iso15765DestinationAddressResult = true;
-    int lecLinesResult = STATUS_SUCCESS;
-    int lec2PulseResult = STATUS_SUCCESS;
-
-    bool set_is_iso14230_connection(bool value) override
+    FakeBackend()
     {
-        throwIfConfigSetterFails();
-        log(QString("cfg:set_is_iso14230_connection:%1").arg(value ? "1" : "0"));
-        SerialPortActionsDirect::set_is_iso14230_connection(value);
-        return isIso14230ConnectionResult;
-    }
-    bool set_is_can_connection(bool value) override
-    {
-        throwIfConfigSetterFails();
-        log(QString("cfg:set_is_can_connection:%1").arg(value ? "1" : "0"));
-        SerialPortActionsDirect::set_is_can_connection(value);
-        return isCanConnectionResult;
-    }
-    bool set_is_iso15765_connection(bool value) override
-    {
-        throwIfConfigSetterFails();
-        log(QString("cfg:set_is_iso15765_connection:%1").arg(value ? "1" : "0"));
-        SerialPortActionsDirect::set_is_iso15765_connection(value);
-        return isIso15765ConnectionResult;
-    }
-    bool set_is_29_bit_id(bool value) override
-    {
-        throwIfConfigSetterFails();
-        log(QString("cfg:set_is_29_bit_id:%1").arg(value ? "1" : "0"));
-        SerialPortActionsDirect::set_is_29_bit_id(value);
-        return is29BitIdResult;
-    }
-    bool set_add_iso14230_header(bool value) override
-    {
-        throwIfConfigSetterFails();
-        log(QString("cfg:set_add_iso14230_header:%1").arg(value ? "1" : "0"));
-        SerialPortActionsDirect::set_add_iso14230_header(value);
-        return addIso14230HeaderResult;
-    }
-    bool set_serial_port_baudrate(QString value) override
-    {
-        throwIfConfigSetterFails();
-        log("cfg:set_serial_port_baudrate:" + value);
-        SerialPortActionsDirect::set_serial_port_baudrate(value);
-        return serialPortBaudrateResult;
-    }
-    bool set_can_speed(QString value) override
-    {
-        throwIfConfigSetterFails();
-        log("cfg:set_can_speed:" + value);
-        SerialPortActionsDirect::set_can_speed(value);
-        return canSpeedResult;
-    }
-    bool set_can_source_address(uint32_t value) override
-    {
-        throwIfConfigSetterFails();
-        log(QString("cfg:set_can_source_address:%1").arg(value));
-        SerialPortActionsDirect::set_can_source_address(value);
-        return canSourceAddressResult;
-    }
-    bool set_can_destination_address(uint32_t value) override
-    {
-        throwIfConfigSetterFails();
-        log(QString("cfg:set_can_destination_address:%1").arg(value));
-        SerialPortActionsDirect::set_can_destination_address(value);
-        return canDestinationAddressResult;
-    }
-    bool set_iso15765_source_address(uint32_t value) override
-    {
-        throwIfConfigSetterFails();
-        log(QString("cfg:set_iso15765_source_address:%1").arg(value));
-        SerialPortActionsDirect::set_iso15765_source_address(value);
-        return iso15765SourceAddressResult;
-    }
-    bool set_iso15765_destination_address(uint32_t value) override
-    {
-        throwIfConfigSetterFails();
-        log(QString("cfg:set_iso15765_destination_address:%1").arg(value));
-        SerialPortActionsDirect::set_iso15765_destination_address(value);
-        return iso15765DestinationAddressResult;
-    }
-    int set_lec_lines(int lec1, int lec2) override
-    {
-        log(QString("lec:set:%1:%2").arg(lec1).arg(lec2));
-        return lecLinesResult;
-    }
-    int pulse_lec_2_line(int timeout) override
-    {
-        log(QString("lec:pulse2:%1").arg(timeout));
-        return lec2PulseResult;
-    }
-
-    // open_serial_port() success/failure control (step 5c, Task 12): the
-    // pre-existing hardcoded override just below this used to unconditionally
-    // return an empty QString (every pre-existing test that touches
-    // FakeBackend relies on that -- see the comment there), so the default
-    // of an empty string preserves it exactly. Set to a non-empty string to
-    // simulate a successful open.
-    QString openSerialPortResult;
-
-    // check_serial_ports() / set_serial_port() / read_vbatt() are pure virtual
-    // on SerialBackend and their real implementations probe J2534 hardware, so
-    // they are stubbed here for the same reason open_serial_port() above is.
-    QStringList checkSerialPortsResult;
-    unsigned long vbattResult = 0;
-
-    QStringList check_serial_ports() override
-    {
-        log("check_serial_ports");
-        return checkSerialPortsResult;
-    }
-
-    bool set_serial_port(QString value) override
-    {
-        log("cfg:set_serial_port:" + value);
-        SerialPortActionsDirect::set_serial_port(value);
-        return true;
-    }
-
-    unsigned long read_vbatt() override
-    {
-        log("read_vbatt");
-        return vbattResult;
+        installDefaultActions();
     }
 
     ~FakeBackend() override
@@ -224,192 +40,355 @@ class FakeBackend : public SerialPortActionsDirect
         }
     }
 
-    QStringList takeCallLog()
-    {
-        QMutexLocker l(&logMutex);
-        QStringList out = callLog;
-        callLog.clear();
-        return out;
-    }
+    bool *destroyed = nullptr;
 
-    bool is_serial_port_open() override
-    {
-        if (logLifecycleCalls)
-        {
-            log("is_serial_port_open");
-        }
-        if (throwOnIsOpen || throwNonStandardOnIsOpen)
-        {
-            if (throwNonStandardOnIsOpen)
-            {
-                throw FakeBackendNonStandardFailure{};
-            }
-            throw std::runtime_error("scripted backend open-state failure");
-        }
-        return portOpen.load();
-    }
+    MOCK_METHOD(bool, get_serialPortAvailable, (), (override));
+    MOCK_METHOD(bool, set_serialPortAvailable, (bool value), (override));
+    MOCK_METHOD(bool, get_setRequestToSend, (), (override));
+    MOCK_METHOD(bool, set_setRequestToSend, (bool value), (override));
+    MOCK_METHOD(bool, get_setDataTerminalReady, (), (override));
+    MOCK_METHOD(bool, set_setDataTerminalReady, (bool value), (override));
+    MOCK_METHOD(bool, get_add_ssm_header, (), (override));
+    MOCK_METHOD(bool, set_add_ssm_header, (bool value), (override));
+    MOCK_METHOD(bool, get_add_iso9141_header, (), (override));
+    MOCK_METHOD(bool, set_add_iso9141_header, (bool value), (override));
+    MOCK_METHOD(bool, get_add_iso14230_header, (), (override));
+    MOCK_METHOD(bool, set_add_iso14230_header, (bool value), (override));
+    MOCK_METHOD(bool, get_is_iso14230_connection, (), (override));
+    MOCK_METHOD(bool, set_is_iso14230_connection, (bool value), (override));
+    MOCK_METHOD(bool, get_is_can_connection, (), (override));
+    MOCK_METHOD(bool, set_is_can_connection, (bool value), (override));
+    MOCK_METHOD(bool, get_is_iso15765_connection, (), (override));
+    MOCK_METHOD(bool, set_is_iso15765_connection, (bool value), (override));
+    MOCK_METHOD(bool, get_is_29_bit_id, (), (override));
+    MOCK_METHOD(bool, set_is_29_bit_id, (bool value), (override));
+    MOCK_METHOD(bool, get_use_openport2_adapter, (), (override));
+    MOCK_METHOD(bool, set_use_openport2_adapter, (bool value), (override));
 
-    void reset_connection() override
-    {
-        if (logLifecycleCalls)
-        {
-            log("reset_connection");
-        }
-        if (throwOnReset || throwNonStandardOnReset)
-        {
-            if (throwNonStandardOnReset)
-            {
-                throw FakeBackendNonStandardFailure{};
-            }
-            throw std::runtime_error("scripted backend reset failure");
-        }
-    }
+    MOCK_METHOD(int, get_requestToSendEnabled, (), (override));
+    MOCK_METHOD(bool, set_requestToSendEnabled, (int value), (override));
+    MOCK_METHOD(int, get_requestToSendDisabled, (), (override));
+    MOCK_METHOD(bool, set_requestToSendDisabled, (int value), (override));
+    MOCK_METHOD(int, get_dataTerminalEnabled, (), (override));
+    MOCK_METHOD(bool, set_dataTerminalEnabled, (int value), (override));
+    MOCK_METHOD(int, get_dataTerminalDisabled, (), (override));
+    MOCK_METHOD(bool, set_dataTerminalDisabled, (int value), (override));
 
-    // Real open_serial_port() unconditionally indexes serial_port_list.at(0)
-    // (see serial_port_actions_direct.cpp) before doing any real hardware
-    // probing -- fine for production where a port is always selected first,
-    // but a test double has no port list populated. Stub it out like the
-    // other I/O entry points below rather than touch real hardware/J2534.
-    QString open_serial_port() override
-    {
-        log("open_serial_port");
-        if (throwOnOpen || throwNonStandardOnOpen)
-        {
-            if (throwNonStandardOnOpen)
-            {
-                throw FakeBackendNonStandardFailure{};
-            }
-            throw std::runtime_error("scripted backend open failure");
-        }
-        return openSerialPortResult;
-    }
+    MOCK_METHOD(std::uint8_t, get_kline_startbyte, (), (override));
+    MOCK_METHOD(bool, set_kline_startbyte, (std::uint8_t value), (override));
+    MOCK_METHOD(std::uint8_t, get_kline_tester_id, (), (override));
+    MOCK_METHOD(bool, set_kline_tester_id, (std::uint8_t value), (override));
+    MOCK_METHOD(std::uint8_t, get_kline_target_id, (), (override));
+    MOCK_METHOD(bool, set_kline_target_id, (std::uint8_t value), (override));
+    MOCK_METHOD(std::uint8_t, get_serial_port_parity, (), (override));
+    MOCK_METHOD(bool, set_serial_port_parity, (std::uint8_t parity), (override));
 
-    QByteArray read_serial_data(uint16_t timeout) override
-    {
-        log(QString("read:begin:t=%1").arg(timeout));
-        if (readEntered)
-        {
-            readEntered->release();
-        }
-        if (continueRead)
-        {
-            continueRead->acquire();
-        }
-        if (readDelayMs)
-        {
-            QThread::msleep(readDelayMs);
-        }
-        if (throwOnRead || throwNonStandardOnRead)
-        {
-            if (beforeReadThrow)
-            {
-                beforeReadThrow();
-            }
-            if (throwNonStandardOnRead)
-            {
-                throw FakeBackendNonStandardFailure{};
-            }
-            throw std::runtime_error("scripted backend read failure");
-        }
-        if (afterRead)
-        {
-            afterRead();
-        }
-        if (closePortAfterRead)
-        {
-            portOpen.store(false);
-        }
-        log("read:end");
-        return scriptedResponse;
-    }
+    MOCK_METHOD(QByteArray, get_ssm_receive_header_start, (), (override));
+    MOCK_METHOD(bool, set_ssm_receive_header_start, (QByteArray value), (override));
 
-    QByteArray write_serial_data(QByteArray output) override
-    {
-        return writeImpl("write", output);
-    }
+    MOCK_METHOD(QStringList, get_serial_port_list, (), (override));
+    MOCK_METHOD(bool, set_serial_port_list, (QStringList value), (override));
 
-    // Distinct virtual from write_serial_data() in the backend interface --
-    // the real implementation has its own body that touches the real
-    // QSerialPort directly (byte-at-a-time write with echo readback), not a
-    // wrapper around write_serial_data(). Callers that use the echo-check
-    // variant (e.g. FlashEcuMitsuM32rCanOperation) would otherwise fall
-    // through to that real-hardware path and hang/warn on an unopened port.
-    QByteArray write_serial_data_echo_check(QByteArray output) override
-    {
-        return writeImpl("write_echo_check", output);
-    }
+    MOCK_METHOD(QString, get_openedSerialPort, (), (override));
+    MOCK_METHOD(bool, set_openedSerialPort, (QString value), (override));
+    MOCK_METHOD(QString, get_subaru_02_16bit_bootloader_baudrate, (), (override));
+    MOCK_METHOD(bool, set_subaru_02_16bit_bootloader_baudrate, (QString value), (override));
+    MOCK_METHOD(QString, get_subaru_04_16bit_bootloader_baudrate, (), (override));
+    MOCK_METHOD(bool, set_subaru_04_16bit_bootloader_baudrate, (QString value), (override));
+    MOCK_METHOD(QString, get_subaru_02_32bit_bootloader_baudrate, (), (override));
+    MOCK_METHOD(bool, set_subaru_02_32bit_bootloader_baudrate, (QString value), (override));
+    MOCK_METHOD(QString, get_subaru_04_32bit_bootloader_baudrate, (), (override));
+    MOCK_METHOD(bool, set_subaru_04_32bit_bootloader_baudrate, (QString value), (override));
+    MOCK_METHOD(QString, get_subaru_05_32bit_bootloader_baudrate, (), (override));
+    MOCK_METHOD(bool, set_subaru_05_32bit_bootloader_baudrate, (QString value), (override));
+    MOCK_METHOD(QString, get_subaru_02_16bit_kernel_baudrate, (), (override));
+    MOCK_METHOD(bool, set_subaru_02_16bit_kernel_baudrate, (QString value), (override));
+    MOCK_METHOD(QString, get_subaru_04_16bit_kernel_baudrate, (), (override));
+    MOCK_METHOD(bool, set_subaru_04_16bit_kernel_baudrate, (QString value), (override));
+    MOCK_METHOD(QString, get_subaru_02_32bit_kernel_baudrate, (), (override));
+    MOCK_METHOD(bool, set_subaru_02_32bit_kernel_baudrate, (QString value), (override));
+    MOCK_METHOD(QString, get_subaru_04_32bit_kernel_baudrate, (), (override));
+    MOCK_METHOD(bool, set_subaru_04_32bit_kernel_baudrate, (QString value), (override));
+    MOCK_METHOD(QString, get_subaru_05_32bit_kernel_baudrate, (), (override));
+    MOCK_METHOD(bool, set_subaru_05_32bit_kernel_baudrate, (QString value), (override));
+    MOCK_METHOD(QString, get_can_speed, (), (override));
+    MOCK_METHOD(bool, set_can_speed, (QString value), (override));
+    MOCK_METHOD(QString, get_serial_port_baudrate, (), (override));
+    MOCK_METHOD(bool, set_serial_port_baudrate, (QString value), (override));
+    MOCK_METHOD(QString, get_serial_port_linux, (), (override));
+    MOCK_METHOD(bool, set_serial_port_linux, (QString value), (override));
+    MOCK_METHOD(QString, get_serial_port_windows, (), (override));
+    MOCK_METHOD(bool, set_serial_port_windows, (QString value), (override));
+    MOCK_METHOD(QString, get_serial_port, (), (override));
+    MOCK_METHOD(bool, set_serial_port, (QString value), (override));
+    MOCK_METHOD(QString, get_serial_port_prefix, (), (override));
+    MOCK_METHOD(bool, set_serial_port_prefix, (QString value), (override));
+    MOCK_METHOD(QString, get_serial_port_prefix_linux, (), (override));
+    MOCK_METHOD(bool, set_serial_port_prefix_linux, (QString value), (override));
+    MOCK_METHOD(QString, get_serial_port_prefix_win, (), (override));
+    MOCK_METHOD(bool, set_serial_port_prefix_win, (QString value), (override));
 
-    // Overrides the real (hardware-touching) change_port_speed() with a
-    // scripted result; no pre-existing test calls it, so this is a pure
-    // addition rather than a behavior change.
-    int change_port_speed(QString portSpeed) override
-    {
-        log("baud:begin:" + portSpeed);
-        if (throwOnBaudChange || throwNonStandardOnBaudChange)
-        {
-            if (beforeBaudThrow)
-            {
-                beforeBaudThrow();
-            }
-            if (throwNonStandardOnBaudChange)
-            {
-                throw FakeBackendNonStandardFailure{};
-            }
-            throw std::runtime_error("scripted backend baud-change failure");
-        }
-        if (closePortAfterBaud)
-        {
-            portOpen.store(false);
-        }
-        log("baud:end");
-        return baudChangeResult;
-    }
+    MOCK_METHOD(std::uint32_t, get_can_source_address, (), (override));
+    MOCK_METHOD(bool, set_can_source_address, (std::uint32_t value), (override));
+    MOCK_METHOD(std::uint32_t, get_can_destination_address, (), (override));
+    MOCK_METHOD(bool, set_can_destination_address, (std::uint32_t value), (override));
+    MOCK_METHOD(std::uint32_t, get_iso15765_source_address, (), (override));
+    MOCK_METHOD(bool, set_iso15765_source_address, (std::uint32_t value), (override));
+    MOCK_METHOD(std::uint32_t, get_iso15765_destination_address, (), (override));
+    MOCK_METHOD(bool, set_iso15765_destination_address, (std::uint32_t value), (override));
+
+    MOCK_METHOD(bool, is_serial_port_open, (), (override));
+    MOCK_METHOD(int, change_port_speed, (QString portSpeed), (override));
+    MOCK_METHOD(bool, set_kline_timings, (std::uint32_t parameter, int value), (override));
+    MOCK_METHOD(int, set_j2534_ioctl, (std::uint32_t parameter, int value), (override));
+    MOCK_METHOD(QByteArray, five_baud_init, (QByteArray output), (override));
+    MOCK_METHOD(int, fast_init, (QByteArray output), (override));
+    MOCK_METHOD(int, set_lec_lines, (int lec1, int lec2), (override));
+    MOCK_METHOD(int, pulse_lec_1_line, (int timeout), (override));
+    MOCK_METHOD(int, pulse_lec_2_line, (int timeout), (override));
+    MOCK_METHOD(void, reset_connection, (), (override));
+    MOCK_METHOD(QByteArray, read_serial_obd_data, (std::uint16_t timeout), (override));
+    MOCK_METHOD(QByteArray, read_serial_data, (std::uint16_t timeout), (override));
+    MOCK_METHOD(QByteArray, write_serial_data, (QByteArray output), (override));
+    MOCK_METHOD(QByteArray, write_serial_data_echo_check, (QByteArray output), (override));
+    MOCK_METHOD(bool, get_is_tx_done, (), (override));
+    MOCK_METHOD(int, clear_rx_buffer, (), (override));
+    MOCK_METHOD(int, clear_tx_buffer, (), (override));
+    MOCK_METHOD(int, send_periodic_j2534_data, (QByteArray output, int timeout), (override));
+    MOCK_METHOD(int, stop_periodic_j2534_data, (), (override));
+    MOCK_METHOD(QStringList, check_serial_ports, (), (override));
+    MOCK_METHOD(QString, open_serial_port, (), (override));
+    MOCK_METHOD(unsigned long, read_vbatt, (), (override));
+    MOCK_METHOD(void, waitForSource, (), (override));
 
   private:
-    void throwIfConfigSetterFails() const
+    void installDefaultActions()
     {
-        if (throwOnConfigSetter)
-        {
-            throw std::runtime_error("scripted backend config-setter failure");
-        }
-    }
+        ON_CALL(*this, get_serialPortAvailable())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_serialPortAvailable(); });
+        ON_CALL(*this, set_serialPortAvailable(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_serialPortAvailable(value); });
+        ON_CALL(*this, get_setRequestToSend())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_setRequestToSend(); });
+        ON_CALL(*this, set_setRequestToSend(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_setRequestToSend(value); });
+        ON_CALL(*this, get_setDataTerminalReady())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_setDataTerminalReady(); });
+        ON_CALL(*this, set_setDataTerminalReady(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_setDataTerminalReady(value); });
+        ON_CALL(*this, get_add_ssm_header())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_add_ssm_header(); });
+        ON_CALL(*this, set_add_ssm_header(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_add_ssm_header(value); });
+        ON_CALL(*this, get_add_iso9141_header())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_add_iso9141_header(); });
+        ON_CALL(*this, set_add_iso9141_header(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_add_iso9141_header(value); });
+        ON_CALL(*this, get_add_iso14230_header())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_add_iso14230_header(); });
+        ON_CALL(*this, set_add_iso14230_header(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_add_iso14230_header(value); });
+        ON_CALL(*this, get_is_iso14230_connection())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_is_iso14230_connection(); });
+        ON_CALL(*this, set_is_iso14230_connection(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_is_iso14230_connection(value); });
+        ON_CALL(*this, get_is_can_connection())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_is_can_connection(); });
+        ON_CALL(*this, set_is_can_connection(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_is_can_connection(value); });
+        ON_CALL(*this, get_is_iso15765_connection())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_is_iso15765_connection(); });
+        ON_CALL(*this, set_is_iso15765_connection(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_is_iso15765_connection(value); });
+        ON_CALL(*this, get_is_29_bit_id())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_is_29_bit_id(); });
+        ON_CALL(*this, set_is_29_bit_id(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_is_29_bit_id(value); });
+        ON_CALL(*this, get_use_openport2_adapter())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_use_openport2_adapter(); });
+        ON_CALL(*this, set_use_openport2_adapter(::testing::_))
+            .WillByDefault([this](bool value) { return SerialPortActionsDirect::set_use_openport2_adapter(value); });
 
-    // Shared by write_serial_data() and write_serial_data_echo_check(): both
-    // production write paths (K-Line's plain write, CAN/SSM's echo-check
-    // write) route through here so a single set of controls governs "write"
-    // behavior regardless of which adapter is under test.
-    QByteArray writeImpl(const char *label, const QByteArray& output)
-    {
-        log(QString(label) + ":begin:" + QString::fromLatin1(output.toHex()));
-        if (readDelayMs)
-        {
-            QThread::msleep(readDelayMs);
-        }
-        if (throwOnWrite || throwNonStandardOnWrite)
-        {
-            if (beforeWriteThrow)
-            {
-                beforeWriteThrow();
-            }
-            if (throwNonStandardOnWrite)
-            {
-                throw FakeBackendNonStandardFailure{};
-            }
-            throw std::runtime_error("scripted backend write failure");
-        }
-        if (closePortAfterWrite)
-        {
-            portOpen.store(false);
-        }
-        log(QString(label) + ":end");
-        return QByteArray(); // matches the real backend's empty return
-    }
+        ON_CALL(*this, get_requestToSendEnabled())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_requestToSendEnabled(); });
+        ON_CALL(*this, set_requestToSendEnabled(::testing::_))
+            .WillByDefault([this](int value) { return SerialPortActionsDirect::set_requestToSendEnabled(value); });
+        ON_CALL(*this, get_requestToSendDisabled())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_requestToSendDisabled(); });
+        ON_CALL(*this, set_requestToSendDisabled(::testing::_))
+            .WillByDefault([this](int value) { return SerialPortActionsDirect::set_requestToSendDisabled(value); });
+        ON_CALL(*this, get_dataTerminalEnabled())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_dataTerminalEnabled(); });
+        ON_CALL(*this, set_dataTerminalEnabled(::testing::_))
+            .WillByDefault([this](int value) { return SerialPortActionsDirect::set_dataTerminalEnabled(value); });
+        ON_CALL(*this, get_dataTerminalDisabled())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_dataTerminalDisabled(); });
+        ON_CALL(*this, set_dataTerminalDisabled(::testing::_))
+            .WillByDefault([this](int value) { return SerialPortActionsDirect::set_dataTerminalDisabled(value); });
 
-    void log(const QString& s)
-    {
-        QMutexLocker l(&logMutex);
-        callLog.append(s);
+        ON_CALL(*this, get_kline_startbyte())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_kline_startbyte(); });
+        ON_CALL(*this, set_kline_startbyte(::testing::_))
+            .WillByDefault([this](std::uint8_t value) { return SerialPortActionsDirect::set_kline_startbyte(value); });
+        ON_CALL(*this, get_kline_tester_id())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_kline_tester_id(); });
+        ON_CALL(*this, set_kline_tester_id(::testing::_))
+            .WillByDefault([this](std::uint8_t value) { return SerialPortActionsDirect::set_kline_tester_id(value); });
+        ON_CALL(*this, get_kline_target_id())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_kline_target_id(); });
+        ON_CALL(*this, set_kline_target_id(::testing::_))
+            .WillByDefault([this](std::uint8_t value) { return SerialPortActionsDirect::set_kline_target_id(value); });
+        ON_CALL(*this, get_serial_port_parity())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_parity(); });
+        ON_CALL(*this, set_serial_port_parity(::testing::_))
+            .WillByDefault([this](std::uint8_t parity)
+                           { return SerialPortActionsDirect::set_serial_port_parity(parity); });
+
+        ON_CALL(*this, get_ssm_receive_header_start())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_ssm_receive_header_start(); });
+        ON_CALL(*this, set_ssm_receive_header_start(::testing::_))
+            .WillByDefault([this](QByteArray value)
+                           { return SerialPortActionsDirect::set_ssm_receive_header_start(value); });
+        ON_CALL(*this, get_serial_port_list())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_list(); });
+        ON_CALL(*this, set_serial_port_list(::testing::_))
+            .WillByDefault([this](QStringList value) { return SerialPortActionsDirect::set_serial_port_list(value); });
+
+        ON_CALL(*this, get_openedSerialPort())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_openedSerialPort(); });
+        ON_CALL(*this, set_openedSerialPort(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_openedSerialPort(value); });
+        ON_CALL(*this, get_subaru_02_16bit_bootloader_baudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_02_16bit_bootloader_baudrate(); });
+        ON_CALL(*this, set_subaru_02_16bit_bootloader_baudrate(::testing::_))
+            .WillByDefault([this](QString value)
+                           { return SerialPortActionsDirect::set_subaru_02_16bit_bootloader_baudrate(value); });
+        ON_CALL(*this, get_subaru_04_16bit_bootloader_baudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_04_16bit_bootloader_baudrate(); });
+        ON_CALL(*this, set_subaru_04_16bit_bootloader_baudrate(::testing::_))
+            .WillByDefault([this](QString value)
+                           { return SerialPortActionsDirect::set_subaru_04_16bit_bootloader_baudrate(value); });
+        ON_CALL(*this, get_subaru_02_32bit_bootloader_baudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_02_32bit_bootloader_baudrate(); });
+        ON_CALL(*this, set_subaru_02_32bit_bootloader_baudrate(::testing::_))
+            .WillByDefault([this](QString value)
+                           { return SerialPortActionsDirect::set_subaru_02_32bit_bootloader_baudrate(value); });
+        ON_CALL(*this, get_subaru_04_32bit_bootloader_baudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_04_32bit_bootloader_baudrate(); });
+        ON_CALL(*this, set_subaru_04_32bit_bootloader_baudrate(::testing::_))
+            .WillByDefault([this](QString value)
+                           { return SerialPortActionsDirect::set_subaru_04_32bit_bootloader_baudrate(value); });
+        ON_CALL(*this, get_subaru_05_32bit_bootloader_baudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_05_32bit_bootloader_baudrate(); });
+        ON_CALL(*this, set_subaru_05_32bit_bootloader_baudrate(::testing::_))
+            .WillByDefault([this](QString value)
+                           { return SerialPortActionsDirect::set_subaru_05_32bit_bootloader_baudrate(value); });
+        ON_CALL(*this, get_subaru_02_16bit_kernel_baudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_02_16bit_kernel_baudrate(); });
+        ON_CALL(*this, set_subaru_02_16bit_kernel_baudrate(::testing::_))
+            .WillByDefault([this](QString value)
+                           { return SerialPortActionsDirect::set_subaru_02_16bit_kernel_baudrate(value); });
+        ON_CALL(*this, get_subaru_04_16bit_kernel_baudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_04_16bit_kernel_baudrate(); });
+        ON_CALL(*this, set_subaru_04_16bit_kernel_baudrate(::testing::_))
+            .WillByDefault([this](QString value)
+                           { return SerialPortActionsDirect::set_subaru_04_16bit_kernel_baudrate(value); });
+        ON_CALL(*this, get_subaru_02_32bit_kernel_baudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_02_32bit_kernel_baudrate(); });
+        ON_CALL(*this, set_subaru_02_32bit_kernel_baudrate(::testing::_))
+            .WillByDefault([this](QString value)
+                           { return SerialPortActionsDirect::set_subaru_02_32bit_kernel_baudrate(value); });
+        ON_CALL(*this, get_subaru_04_32bit_kernel_baudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_04_32bit_kernel_baudrate(); });
+        ON_CALL(*this, set_subaru_04_32bit_kernel_baudrate(::testing::_))
+            .WillByDefault([this](QString value)
+                           { return SerialPortActionsDirect::set_subaru_04_32bit_kernel_baudrate(value); });
+        ON_CALL(*this, get_subaru_05_32bit_kernel_baudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_subaru_05_32bit_kernel_baudrate(); });
+        ON_CALL(*this, set_subaru_05_32bit_kernel_baudrate(::testing::_))
+            .WillByDefault([this](QString value)
+                           { return SerialPortActionsDirect::set_subaru_05_32bit_kernel_baudrate(value); });
+        ON_CALL(*this, get_can_speed()).WillByDefault([this] { return SerialPortActionsDirect::get_can_speed(); });
+        ON_CALL(*this, set_can_speed(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_can_speed(value); });
+        ON_CALL(*this, get_serial_port_baudrate())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_baudrate(); });
+        ON_CALL(*this, set_serial_port_baudrate(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_serial_port_baudrate(value); });
+        ON_CALL(*this, get_serial_port_linux())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_linux(); });
+        ON_CALL(*this, set_serial_port_linux(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_serial_port_linux(value); });
+        ON_CALL(*this, get_serial_port_windows())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_windows(); });
+        ON_CALL(*this, set_serial_port_windows(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_serial_port_windows(value); });
+        ON_CALL(*this, get_serial_port()).WillByDefault([this] { return SerialPortActionsDirect::get_serial_port(); });
+        ON_CALL(*this, set_serial_port(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_serial_port(value); });
+        ON_CALL(*this, get_serial_port_prefix())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_prefix(); });
+        ON_CALL(*this, set_serial_port_prefix(::testing::_))
+            .WillByDefault([this](QString value) { return SerialPortActionsDirect::set_serial_port_prefix(value); });
+        ON_CALL(*this, get_serial_port_prefix_linux())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_prefix_linux(); });
+        ON_CALL(*this, set_serial_port_prefix_linux(::testing::_))
+            .WillByDefault([this](QString value)
+                           { return SerialPortActionsDirect::set_serial_port_prefix_linux(value); });
+        ON_CALL(*this, get_serial_port_prefix_win())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_serial_port_prefix_win(); });
+        ON_CALL(*this, set_serial_port_prefix_win(::testing::_))
+            .WillByDefault([this](QString value)
+                           { return SerialPortActionsDirect::set_serial_port_prefix_win(value); });
+
+        ON_CALL(*this, get_can_source_address())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_can_source_address(); });
+        ON_CALL(*this, set_can_source_address(::testing::_))
+            .WillByDefault([this](std::uint32_t value)
+                           { return SerialPortActionsDirect::set_can_source_address(value); });
+        ON_CALL(*this, get_can_destination_address())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_can_destination_address(); });
+        ON_CALL(*this, set_can_destination_address(::testing::_))
+            .WillByDefault([this](std::uint32_t value)
+                           { return SerialPortActionsDirect::set_can_destination_address(value); });
+        ON_CALL(*this, get_iso15765_source_address())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_iso15765_source_address(); });
+        ON_CALL(*this, set_iso15765_source_address(::testing::_))
+            .WillByDefault([this](std::uint32_t value)
+                           { return SerialPortActionsDirect::set_iso15765_source_address(value); });
+        ON_CALL(*this, get_iso15765_destination_address())
+            .WillByDefault([this] { return SerialPortActionsDirect::get_iso15765_destination_address(); });
+        ON_CALL(*this, set_iso15765_destination_address(::testing::_))
+            .WillByDefault([this](std::uint32_t value)
+                           { return SerialPortActionsDirect::set_iso15765_destination_address(value); });
+
+        ON_CALL(*this, is_serial_port_open()).WillByDefault(::testing::Return(true));
+        ON_CALL(*this, change_port_speed(::testing::_)).WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, set_kline_timings(::testing::_, ::testing::_))
+            .WillByDefault([this](std::uint32_t parameter, int value)
+                           { return SerialPortActionsDirect::set_kline_timings(parameter, value); });
+        ON_CALL(*this, set_j2534_ioctl(::testing::_, ::testing::_)).WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, five_baud_init(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
+        ON_CALL(*this, fast_init(::testing::_)).WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, set_lec_lines(::testing::_, ::testing::_)).WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, pulse_lec_1_line(::testing::_)).WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, pulse_lec_2_line(::testing::_)).WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, reset_connection()).WillByDefault([] {});
+        ON_CALL(*this, read_serial_obd_data(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
+        ON_CALL(*this, read_serial_data(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
+        ON_CALL(*this, write_serial_data(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
+        ON_CALL(*this, write_serial_data_echo_check(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
+        ON_CALL(*this, get_is_tx_done()).WillByDefault(::testing::Return(true));
+        ON_CALL(*this, clear_rx_buffer()).WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, clear_tx_buffer()).WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, send_periodic_j2534_data(::testing::_, ::testing::_))
+            .WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, stop_periodic_j2534_data()).WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, check_serial_ports()).WillByDefault(::testing::Return(QStringList{}));
+        ON_CALL(*this, open_serial_port()).WillByDefault(::testing::Return(QString{}));
+        ON_CALL(*this, read_vbatt()).WillByDefault(::testing::Return(0UL));
+        ON_CALL(*this, waitForSource()).WillByDefault([] {});
     }
-    QMutex logMutex;
-    QStringList callLog;
 };
+
+using NiceFakeBackend = ::testing::NiceMock<FakeBackend>;
