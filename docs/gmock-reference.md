@@ -20,11 +20,21 @@ creates it lazily, so complete a synchronous configuration call before setting
 expectations. Set up expectations before starting worker calls, then join those
 calls before verifying or destroying the mock. The facade owns the backend.
 
+The transport suites do all of that through the
+[FakeBackedSerial fixture](../src/platform/desktop/common/transport/fake_backed_serial.h),
+which performs the lazy-creation call in its constructor, so `fake()` is a
+reference that is valid immediately. Name a `StrictMock` as its template
+argument, and pass its `arrange` callback the expectations that construction
+itself will trip. Suites outside that package pass a factory to the facade
+directly.
+
 ```cpp
+FakeBackedSerial serial;
+
 ::testing::InSequence sequence;
-EXPECT_CALL(*fake, write_serial_data(QByteArray("request")))
+EXPECT_CALL(serial.fake(), write_serial_data(QByteArray("request")))
     .WillOnce(::testing::Return(QByteArray("request")));
-EXPECT_CALL(*fake, read_serial_data(50))
+EXPECT_CALL(serial.fake(), read_serial_data(50))
     .WillOnce(::testing::Return(QByteArray("reply")));
 ```
 

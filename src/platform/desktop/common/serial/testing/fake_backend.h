@@ -19,10 +19,9 @@ ACTION(ThrowNonStandardBackendFailure)
     throw FakeBackendNonStandardFailure{}; // NOLINT(bugprone-std-exception-baseclass): tests catch (...).
 }
 
-// Google Mock backend for facade and desktop transport tests. It retains the
-// direct backend's QObject identity and configuration storage so the facade can
-// marshal calls to its I/O thread, while every backend operation is explicit at
-// the test call site through EXPECT_CALL and GMock actions.
+// Google Mock backend for facade and desktop transport tests. What it
+// guarantees, how to set expectations against it, and the QtTest integration it
+// requires are in docs/gmock-reference.md.
 class FakeBackend : public SerialPortActionsDirect
 {
     Q_OBJECT
