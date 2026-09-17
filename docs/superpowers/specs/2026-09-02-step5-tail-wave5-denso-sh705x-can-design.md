@@ -404,7 +404,8 @@ portable petrol/DensoCAN routes remain factory-first.
 
 Every family PR:
 
-- registers its portable targets in both portable-closure lists;
+- registers its portable targets once in `bazel/portable_targets.bzl`, which
+  supplies the closure roots consumed by the top-level Bazel guard;
 - removes exactly one ratchet entry;
 - updates its qualification row to `portable=yes`,
   `hardware_status=experimental`;
@@ -419,10 +420,12 @@ prek run --all-files
 bazel run //:clang_tidy_report_changed
 ```
 
-`//:portable_closure`, `//:serial_compat_allowlist`, and
-`//:legacy_flash_drain` are also run explicitly when their inputs change.
-Because every family adds files under `src/backend`, `//:backend_no_widgets`
-is part of each family gate and the full-wave gate.
+`//:portable_closure` is built explicitly when its registry changes;
+`//:serial_compat_allowlist`, `//:legacy_flash_drain`, and
+`//:windows_preprocessor_guards` are run explicitly when their inputs change.
+Backend-to-Qt/widget reachability is now enforced structurally by Bazel package
+visibility (ADR 0016), so the retired `//:backend_no_widgets` source scan is no
+longer part of the family or full-wave gates.
 
 ## Delivery Sequence
 

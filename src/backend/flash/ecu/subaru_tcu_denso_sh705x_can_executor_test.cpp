@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <format>
 #include <memory>
 #include <optional>
@@ -34,6 +35,7 @@ namespace
 using bytes::composeBe;
 using bytes::u24;
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 
 constexpr std::uint32_t kRequestId = 0x7E1;
 constexpr std::uint32_t kResponseId = 0x7E9;
@@ -152,27 +154,27 @@ class ToggleCancellation final : public ICancellationToken
 class RecordingClock final : public FakeClock
 {
   public:
-    Status sleep(int ms, const ICancellationToken& cancellation) override
+    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
     {
-        sleeps.push_back(ms);
+        sleeps.push_back(duration);
         if (timeline != nullptr)
         {
-            timeline->push_back(std::format("sleep:{}", ms));
+            timeline->push_back(std::format("sleep:{}", duration.count()));
         }
-        if (ms == 500 && cancel_during_sleep != nullptr)
+        if (duration == 500ms && cancel_during_sleep != nullptr)
         {
             cancel_during_sleep->cancel();
         }
-        if (ms == 500 && cancel_after_successful_sleep != nullptr)
+        if (duration == 500ms && cancel_after_successful_sleep != nullptr)
         {
-            FakeClock::sleep(ms, cancellation);
+            FakeClock::sleep(duration, cancellation);
             cancel_after_successful_sleep->cancel();
             return {};
         }
-        return FakeClock::sleep(ms, cancellation);
+        return FakeClock::sleep(duration, cancellation);
     }
 
-    std::vector<int> sleeps;
+    std::vector<std::chrono::milliseconds> sleeps;
     std::vector<std::string> *timeline = nullptr;
     ToggleCancellation *cancel_during_sleep = nullptr;
     ToggleCancellation *cancel_after_successful_sleep = nullptr;
@@ -266,10 +268,11 @@ class RecordingCanTransport final : public ICanFlashTransport
         }
         return result;
     }
-    Result<std::optional<bytes::Bytes>> read(int timeout_ms, const ICancellationToken& cancellation) override
+    Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout,
+                                             const ICancellationToken& cancellation) override
     {
-        read_timeouts.push_back(timeout_ms);
-        Result<std::optional<bytes::Bytes>> result = scripted.read(timeout_ms, cancellation);
+        read_timeouts.push_back(timeout);
+        Result<std::optional<bytes::Bytes>> result = scripted.read(timeout, cancellation);
         if (result.has_value() && timeline != nullptr)
         {
             timeline->push_back("read");
@@ -291,7 +294,7 @@ class RecordingCanTransport final : public ICanFlashTransport
     std::vector<Iso15765Config> restart_configs;
     std::vector<std::string> lifecycle;
     std::vector<bytes::Bytes> writes;
-    std::vector<int> read_timeouts;
+    std::vector<std::chrono::milliseconds> read_timeouts;
     ToggleCancellation *cancellation_to_trigger = nullptr;
     ToggleCancellation *cancellation_after_kernel_start_reply = nullptr;
     ToggleCancellation *cancellation_on_reset = nullptr;
@@ -1017,7 +1020,8 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelIdContinuationAppendsTheEntireAccept
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     EXPECT_TRUE(transport.scripted.scriptConsumed());
     ASSERT_GE(transport.read_timeouts.size(), 3U);
-    EXPECT_THAT(std::span<const int>(transport.read_timeouts).first(3), ElementsAre(800, 200, 200));
+    EXPECT_THAT(std::span<const std::chrono::milliseconds>(transport.read_timeouts).first(3),
+                ElementsAre(800ms, 200ms, 200ms));
     const std::string expected_kernel_id{"Kernel ID: A\xBE\xEF\x00\x03\x41", 17};
     EXPECT_THAT(events.logs, Contains(LogRecord{LogLevel::Info, expected_kernel_id}));
 }
@@ -1402,8 +1406,8 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutRunsIdentityStrictUdsUploadAnd
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_THAT(clock.sleeps, Contains(50));
-    EXPECT_THAT(clock.sleeps, Contains(500));
+    EXPECT_THAT(clock.sleeps, Contains(50ms));
+    EXPECT_THAT(clock.sleeps, Contains(500ms));
     EXPECT_TRUE(has_log(events, LogLevel::Info, "ECU ID: 4543553031"));
     EXPECT_TRUE(has_log(events, LogLevel::Info, "CAL ID: CAL"));
     EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait...", "Reading ROM, please wait..."));
@@ -1563,7 +1567,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, RestartResetConfigureAndOpenFailuresPropag
         EXPECT_EQ(observed->lifecycle, failure.expected_lifecycle);
         EXPECT_EQ(observed->scripted.close_call_count_, 1);
         EXPECT_TRUE(observed->scripted.scriptConsumed());
-        EXPECT_THAT(clock.sleeps, testing::Not(Contains(500)));
+        EXPECT_THAT(clock.sleeps, testing::Not(Contains(500ms)));
     }
 }
 
@@ -1620,7 +1624,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterKernelStartAndWithinResta
         EXPECT_EQ(observed->lifecycle, test_case.expected_lifecycle);
         EXPECT_EQ(observed->scripted.close_call_count_, 1);
         EXPECT_TRUE(observed->scripted.scriptConsumed());
-        EXPECT_THAT(clock.sleeps, testing::Not(Contains(500)));
+        EXPECT_THAT(clock.sleeps, testing::Not(Contains(500ms)));
     }
 }
 
@@ -1655,7 +1659,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationDuringOrImmediatelyAfterRestar
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-        EXPECT_THAT(clock.sleeps, Contains(500));
+        EXPECT_THAT(clock.sleeps, Contains(500ms));
         EXPECT_EQ(observed->scripted.close_call_count_, 1);
         EXPECT_TRUE(observed->scripted.scriptConsumed());
         EXPECT_EQ(std::count_if(observed->writes.begin(), observed->writes.end(), [](const bytes::Bytes& write)

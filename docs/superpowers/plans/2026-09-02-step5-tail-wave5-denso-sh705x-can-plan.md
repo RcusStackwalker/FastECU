@@ -118,8 +118,7 @@ src/ui/desktop/flash/{ecu,tcu}/                     (delete four dialog pairs an
 src/platform/desktop/common/flash/legacy/BUILD.bazel (modify per family)
 src/ui/desktop/flash/{ecu,tcu}/BUILD.bazel           (modify per family)
 scripts/check-legacy-flash-drain.py                  (modify 14 → 10 incrementally)
-BUILD.bazel                                          (modify portable roots)
-scripts/check-portable-closure.py                    (modify portable roots)
+bazel/portable_targets.bzl                           (register portable targets)
 docs/flash-qualification-matrix.md                   (modify per family)
 docs/superpowers/specs/2026-08-08-step5-tail-flash-drain-design.md (modify closeout)
 docs/modularization-plan.md                          (modify closeout)
@@ -191,9 +190,11 @@ class IMixedCanFlashTransport : public IFlashTransport
     virtual Status clear_receive_buffer() = 0;
     virtual Status enter_iso15765_kernel_mode() = 0;
     virtual Status write_iso15765(bytes::ByteView, const ICancellationToken&) = 0;
-    virtual Result<std::optional<bytes::Bytes>> read_iso15765(int, const ICancellationToken&) = 0;
+    virtual Result<std::optional<bytes::Bytes>> read_iso15765(std::chrono::milliseconds,
+                                                              const ICancellationToken&) = 0;
     virtual Status write_raw(const cdbg::CanFrame&, const ICancellationToken&) = 0;
-    virtual Result<std::optional<cdbg::CanFrame>> read_raw(int, const ICancellationToken&) = 0;
+    virtual Result<std::optional<cdbg::CanFrame>> read_raw(std::chrono::milliseconds,
+                                                           const ICancellationToken&) = 0;
 };
 
 class IMixedCanFlashExecutor
@@ -299,7 +300,7 @@ TEST(DesktopMixedCanFlashTransport, RawFrameAddsAndParsesBigEndianId)
     ASSERT_TRUE(transport.write_raw({0x000FFFFE, {0x7A, 0x90, 0, 0, 0, 0, 0, 0}}, token).has_value());
     EXPECT_THAT(fake->takeCallLog(), Contains("write_echo_check:begin:000ffffe7a90000000000000"));
     fake->scriptedResponse = QByteArray::fromHex("000000217a96000000000000");
-    auto frame = transport.read_raw(800, token);
+    auto frame = transport.read_raw(800ms, token);
     ASSERT_TRUE(frame.has_value());
     ASSERT_TRUE(frame->has_value());
     EXPECT_EQ(frame->value().id, 0x21U);
@@ -517,8 +518,7 @@ git commit -m "feat(flash): port DensoCAN core"
 - Delete: `src/platform/desktop/common/flash/legacy/ecu/flash_ecu_subaru_denso_sh705x_densocan_operation.{h,cpp}`
 - Modify: `scripts/check-legacy-flash-drain.py`
 - Modify: `docs/flash-qualification-matrix.md`
-- Modify: `BUILD.bazel`
-- Modify: `scripts/check-portable-closure.py`
+- Modify: `bazel/portable_targets.bzl`
 
 **Interfaces:**
 - Consumes: DensoCAN builder/executor, `DesktopMixedCanFlashTransport`, kernel resolution, `FlashAttemptOutcome`, `FlashDialog`.
@@ -595,7 +595,8 @@ bazel test --config=release //src/backend/flash/ecu:subaru_denso_sh705x_densocan
   //src/backend/flash/ecu:subaru_denso_sh705x_densocan_executor_test \
   //src/platform/desktop/common/transport:test_desktop_mixed_can_flash_transport \
   //src/platform/desktop/common/flash:test_flash_workflow \
-  //:portable_closure //:serial_compat_allowlist //:legacy_flash_drain //:backend_no_widgets
+  //:serial_compat_allowlist //:legacy_flash_drain //:windows_preprocessor_guards
+bazel build --config=release //:portable_closure
 ```
 
 Temporarily remove one new root from each guard's data/list and confirm that guard fails; restore it and rerun to PASS. Confirm `rg -n 'FlashEcuSubaruDensoSH705xDensoCan' src scripts` has no production hit.
@@ -740,8 +741,7 @@ git commit -m "feat(flash): port Denso SH705x TCU core"
 - Modify: `src/platform/desktop/common/flash/legacy/BUILD.bazel`
 - Modify: `scripts/check-legacy-flash-drain.py`
 - Modify: `docs/flash-qualification-matrix.md`
-- Modify: `BUILD.bazel`
-- Modify: `scripts/check-portable-closure.py`
+- Modify: `bazel/portable_targets.bzl`
 
 **Interfaces:**
 - Consumes: `ServiceFunctionDialog`, `ServiceFunctionKind`, TCU builder/executor, `KernelBackedCanFlashWorkflow`.
@@ -835,7 +835,8 @@ bazel test --config=release //src/ui/desktop/service_functions:test_denso_tcu_re
   //src/platform/desktop/common/flash:test_flash_workflow \
   //src/backend/flash/ecu:subaru_tcu_denso_sh705x_can_plan_test \
   //src/backend/flash/ecu:subaru_tcu_denso_sh705x_can_executor_test \
-  //:portable_closure //:serial_compat_allowlist //:legacy_flash_drain //:backend_no_widgets
+  //:serial_compat_allowlist //:legacy_flash_drain //:windows_preprocessor_guards
+bazel build --config=release //:portable_closure
 ```
 
 Expected: PASS. Temporarily break each new guard registration, observe failure, restore, and rerun.
@@ -871,8 +872,7 @@ git commit -m "feat(flash): route portable Denso TCU family"
 - Modify: `src/platform/desktop/common/flash/legacy/BUILD.bazel`
 - Modify: `scripts/check-legacy-flash-drain.py`
 - Modify: `docs/flash-qualification-matrix.md`
-- Modify: `BUILD.bazel`
-- Modify: `scripts/check-portable-closure.py`
+- Modify: `bazel/portable_targets.bzl`
 
 **Interfaces:**
 - Produces: `SubaruDensoSh7058CanSecurity`; `SubaruDensoSh7058CanPlan`; `build_subaru_denso_sh7058_can_plan(FlashOperation, std::string_view, std::string_view, std::optional<bytes::Bytes>, KernelImage) -> Result<FlashPlan>`; `validate_subaru_denso_sh7058_can_plan(const FlashPlan&) -> Status`; `SubaruDensoSh7058CanExecutor : ICanFlashExecutor`.
@@ -958,7 +958,8 @@ Run:
 bazel test --config=release //src/backend/flash/ecu:subaru_denso_sh7058_can_plan_test \
   //src/backend/flash/ecu:subaru_denso_sh7058_can_executor_test \
   //src/platform/desktop/common/flash:test_flash_workflow \
-  //:portable_closure //:serial_compat_allowlist //:legacy_flash_drain //:backend_no_widgets
+  //:serial_compat_allowlist //:legacy_flash_drain //:windows_preprocessor_guards
+bazel build --config=release //:portable_closure
 ```
 
 Expected: PASS; each security variant and near miss is exercised.
@@ -994,8 +995,7 @@ git commit -m "feat(flash): port Denso SH7058 CAN petrol family"
 - Modify: `src/platform/desktop/common/flash/legacy/BUILD.bazel`
 - Modify: `scripts/check-legacy-flash-drain.py`
 - Modify: `docs/flash-qualification-matrix.md`
-- Modify: `BUILD.bazel`
-- Modify: `scripts/check-portable-closure.py`
+- Modify: `bazel/portable_targets.bzl`
 
 **Interfaces:**
 - Produces: `SubaruDensoSh7058CanDieselPlan`; `build_subaru_denso_sh7058_can_diesel_plan(FlashOperation, std::string_view, std::string_view, std::optional<bytes::Bytes>, KernelImage) -> Result<FlashPlan>`; `validate_subaru_denso_sh7058_can_diesel_plan(const FlashPlan&) -> Status`; `SubaruDensoSh7058CanDieselExecutor : ICanFlashExecutor`.
@@ -1081,7 +1081,8 @@ Run:
 bazel test --config=release //src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_plan_test \
   //src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_executor_test \
   //src/platform/desktop/common/flash:test_flash_workflow \
-  //:portable_closure //:serial_compat_allowlist //:legacy_flash_drain //:backend_no_widgets
+  //:serial_compat_allowlist //:legacy_flash_drain //:windows_preprocessor_guards
+bazel build --config=release //:portable_closure
 ```
 
 Expected: PASS with `//:legacy_flash_drain` reporting exactly 10 families.
@@ -1107,7 +1108,7 @@ git commit -m "feat(flash): port Denso SH705x CAN diesel family"
 - Modify: `docs/flash-qualification-matrix.md`
 
 **Interfaces:**
-- Consumes: all four passing portable implementations, their characterization tests, and the existing `kDensoIso15765SeedKeyTable`, `kDensoIso15765EncryptTable`, `kDensoIso15765IndexTransformation`, and (unchanged for its Wave-4 consumers) `kDensoIso15765DecryptTable` constants.
+- Consumes: all four passing portable implementations, their characterization tests, the existing `kDensoIso15765SeedKeyTable`, `kDensoIso15765EncryptTable`, `SsmProtocol::kIndexTransformationStock`, and the unchanged-for-Wave-4 `kDensoIso15765DecryptTable` constant.
 - Produces: shared seed/index/encrypt use by the three ISO-only Wave 5 executors for stock security and kernel upload; raw normal-ROM BEEF handling in all three; documented preservation of all other family-specific code; Wave 5 completion documentation.
 
 - [ ] **Step 1: Compare only tested portable code**
@@ -1144,8 +1145,7 @@ Replace the three ISO-only executors' private stock seed and applicable kernel-u
 ```cpp
 bytes::Bytes stock_seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable,
-                                         kDensoIso15765IndexTransformation);
+    return denso_seed_key(seed);
 }
 ```
 
@@ -1166,7 +1166,8 @@ bazel test --config=release //...
 bazel build --config=release //:fastecu
 prek run --all-files
 bazel run //:clang_tidy_report_changed
-bazel test --config=release //:portable_closure //:serial_compat_allowlist //:legacy_flash_drain //:backend_no_widgets
+bazel build --config=release //:portable_closure
+bazel test --config=release //:serial_compat_allowlist //:legacy_flash_drain //:windows_preprocessor_guards
 rg -n "FlashEcuSubaruDensoSH7058Can|FlashEcuSubaruDensoSH7058CanDiesel|FlashTcuSubaruDensoSH705xCan|FlashEcuSubaruDensoSH705xDensoCan" src scripts
 ```
 

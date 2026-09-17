@@ -1,6 +1,7 @@
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <format>
 #include <limits>
@@ -40,15 +41,16 @@ namespace
 
 using bytes::composeBe;
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 
-constexpr int kProbeDelayMs = 100; // request_kernel_id(), lines 1608-1609
-constexpr int kExtraShortTimeoutMs = 50;
-constexpr int kShortTimeoutMs = 200;
-constexpr int kMediumTimeoutMs = 500;
-constexpr int kLongTimeoutMs = 800;
-constexpr int kReadTimeoutMs = 2000;
-constexpr int kExtraLongTimeoutMs = 3000;
-constexpr int kPostUploadDelayMs = 500; // upload_kernel(), lines 595-595
+constexpr std::chrono::milliseconds kProbeDelay{100}; // request_kernel_id(), lines 1608-1609
+constexpr std::chrono::milliseconds kExtraShortTimeout{50};
+constexpr std::chrono::milliseconds kShortTimeout{200};
+constexpr std::chrono::milliseconds kMediumTimeout{500};
+constexpr std::chrono::milliseconds kLongTimeout{800};
+constexpr std::chrono::milliseconds kReadTimeout{2000};
+constexpr std::chrono::milliseconds kExtraLongTimeout{3000};
+constexpr std::chrono::milliseconds kPostUploadDelay{500}; // upload_kernel(), lines 595-595
 
 constexpr int kKernelPageSize = 0x400;
 constexpr int kKernelUploadBlockSize = 128;
@@ -68,9 +70,9 @@ constexpr bytes::Byte kKernelCommitBuffer = 0x24;
 constexpr bytes::Byte kKernelBlankPage = 0x25;
 
 constexpr uds::ExchangePolicy kStrictPolicy{
-    .pre_read_delay_ms = kExtraShortTimeoutMs,
-    .read_timeout_ms = kReadTimeoutMs,
-    .pending_timeout_ms = kExtraLongTimeoutMs,
+    .pre_read_delay = kExtraShortTimeout,
+    .read_timeout = kReadTimeout,
+    .pending_timeout = kExtraLongTimeout,
     .max_pending_repeats = 10,
 };
 
@@ -110,15 +112,21 @@ Status cancelled_if_requested(const Context& context, std::string_view detail)
     return {};
 }
 
+std::uint64_t elapsed_milliseconds(std::chrono::steady_clock::time_point start,
+                                   std::chrono::steady_clock::time_point end)
+{
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    return elapsed > 0 ? static_cast<std::uint64_t>(elapsed) : 1U;
+}
+
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, SsmProtocol::kIndexTransformationStock);
+    return denso_seed_key(seed);
 }
 
 bytes::Bytes encrypt_payload(bytes::ByteView payload)
 {
-    return SsmProtocol::calculatePayload(payload, static_cast<std::uint32_t>(payload.size()),
-                                         kDensoIso15765EncryptTable, SsmProtocol::kIndexTransformationStock);
+    return denso_encrypt_rom(payload);
 }
 
 struct BeefMessage
@@ -155,7 +163,8 @@ bytes::Bytes beef_request(bytes::Byte opcode, bytes::ByteView payload = {})
     return composeBe(std::uint16_t{kKernelStartComm}, static_cast<std::uint16_t>(payload.size() + 1), opcode, payload);
 }
 
-Result<bytes::Bytes> channel_request(Context& context, bytes::ByteView pdu, int timeout_ms, int delay_ms = 0)
+Result<bytes::Bytes> channel_request(Context& context, bytes::ByteView pdu, std::chrono::milliseconds timeout,
+                                     std::chrono::milliseconds delay = 0ms)
 {
     if (const Status checkpoint = cancelled_if_requested(context, "cancelled before CAN request");
         !checkpoint.has_value())
@@ -166,14 +175,14 @@ Result<bytes::Bytes> channel_request(Context& context, bytes::ByteView pdu, int 
     {
         return std::unexpected(sent.error());
     }
-    if (delay_ms > 0)
+    if (delay > 0ms)
     {
-        if (const Status slept = context.clock.sleep(delay_ms, context.cancellation); !slept.has_value())
+        if (const Status slept = context.clock.sleep(delay, context.cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
     }
-    Result<std::optional<bytes::Bytes>> received = context.channel.receive(timeout_ms, context.cancellation);
+    Result<std::optional<bytes::Bytes>> received = context.channel.receive(timeout, context.cancellation);
     if (!received.has_value())
     {
         return std::unexpected(received.error());
@@ -185,8 +194,9 @@ Result<bytes::Bytes> channel_request(Context& context, bytes::ByteView pdu, int 
     return std::move(**received);
 }
 
-Result<std::optional<bytes::Bytes>> channel_request_optional(Context& context, bytes::ByteView pdu, int timeout_ms,
-                                                             int delay_ms = 0)
+Result<std::optional<bytes::Bytes>> channel_request_optional(Context& context, bytes::ByteView pdu,
+                                                             std::chrono::milliseconds timeout,
+                                                             std::chrono::milliseconds delay = 0ms)
 {
     if (const Status checkpoint = cancelled_if_requested(context, "cancelled before CAN request");
         !checkpoint.has_value())
@@ -197,14 +207,14 @@ Result<std::optional<bytes::Bytes>> channel_request_optional(Context& context, b
     {
         return std::unexpected(sent.error());
     }
-    if (delay_ms > 0)
+    if (delay > 0ms)
     {
-        if (const Status slept = context.clock.sleep(delay_ms, context.cancellation); !slept.has_value())
+        if (const Status slept = context.clock.sleep(delay, context.cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
     }
-    return context.channel.receive(timeout_ms, context.cancellation);
+    return context.channel.receive(timeout, context.cancellation);
 }
 
 Status discard_stale_frame(Context& context)
@@ -217,7 +227,7 @@ Status discard_stale_frame(Context& context)
     {
         return checkpoint;
     }
-    Result<std::optional<bytes::Bytes>> stale = context.transport.read(kShortTimeoutMs, context.cancellation);
+    Result<std::optional<bytes::Bytes>> stale = context.transport.read(kShortTimeout, context.cancellation);
     if (!stale.has_value() &&
         (stale.error().kind == ErrorKind::Cancelled || stale.error().kind == ErrorKind::Disconnected))
     {
@@ -230,10 +240,10 @@ Status discard_stale_frame(Context& context)
 }
 
 Result<bytes::Bytes> beef_exchange(Context& context, bytes::Byte opcode, bytes::ByteView payload,
-                                   std::size_t minimum_payload, int timeout_ms)
+                                   std::size_t minimum_payload, std::chrono::milliseconds timeout)
 {
     const bytes::Bytes request = beef_request(opcode, payload);
-    Result<bytes::Bytes> reply = channel_request(context, request, timeout_ms);
+    Result<bytes::Bytes> reply = channel_request(context, request, timeout);
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
@@ -275,11 +285,11 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             return std::unexpected(sent.error());
         }
         info(context, std::format("Kernel ID request: {}", bytes::toHex(wire_request)));
-        if (const Status slept = context.clock.sleep(kProbeDelayMs, context.cancellation); !slept.has_value())
+        if (const Status slept = context.clock.sleep(kProbeDelay, context.cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
-        Result<std::optional<bytes::Bytes>> received = context.transport.read(kLongTimeoutMs, context.cancellation);
+        Result<std::optional<bytes::Bytes>> received = context.transport.read(kLongTimeout, context.cancellation);
         if (received.has_value())
         {
             info(context, std::format("Kernel ID response: {}",
@@ -342,8 +352,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             {
                 return std::unexpected(checkpoint.error());
             }
-            Result<std::optional<bytes::Bytes>> fragment =
-                context.transport.read(kShortTimeoutMs, context.cancellation);
+            Result<std::optional<bytes::Bytes>> fragment = context.transport.read(kShortTimeout, context.cancellation);
             if (!fragment.has_value())
             {
                 if (fragment.error().kind == ErrorKind::Cancelled || fragment.error().kind == ErrorKind::Disconnected)
@@ -414,7 +423,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
 Result<std::optional<bytes::Bytes>> nonfatal_query(Context& context, bytes::ByteView pdu)
 {
     Result<std::optional<bytes::Bytes>> received =
-        channel_request_optional(context, pdu, kReadTimeoutMs, kExtraShortTimeoutMs);
+        channel_request_optional(context, pdu, kReadTimeout, kExtraShortTimeout);
     if (!received.has_value())
     {
         if (received.error().kind == ErrorKind::Cancelled || received.error().kind == ErrorKind::Disconnected)
@@ -468,7 +477,7 @@ Status upload_b6_discard(Context& context, bytes::ByteView pdu)
     {
         return sent;
     }
-    const Result<std::optional<bytes::Bytes>> ignored = context.transport.read(kReadTimeoutMs, context.cancellation);
+    const Result<std::optional<bytes::Bytes>> ignored = context.transport.read(kReadTimeout, context.cancellation);
     if (!ignored.has_value() &&
         (ignored.error().kind == ErrorKind::Cancelled || ignored.error().kind == ErrorKind::Disconnected))
     {
@@ -710,7 +719,7 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
     {
         return restarted;
     }
-    if (const Status slept = context.clock.sleep(kPostUploadDelayMs, context.cancellation); !slept.has_value())
+    if (const Status slept = context.clock.sleep(kPostUploadDelay, context.cancellation); !slept.has_value())
     {
         return slept;
     }
@@ -742,14 +751,14 @@ Result<bytes::Bytes> read_memory(Context& context, const FlashPlan& plan, PhaseR
     info(context, "Start reading ROM, please wait...");
     for (std::uint32_t offset = 0; offset < region.length; offset += kKernelPageSize)
     {
-        const std::uint64_t loop_started_ms = context.clock.now_ms();
+        const auto loop_started = context.clock.now();
         if (const Status checkpoint = cancelled_if_requested(context, "read cancelled"); !checkpoint.has_value())
         {
             return std::unexpected(checkpoint.error());
         }
         const std::uint32_t address = region.start + offset;
         const bytes::Bytes payload = composeBe(bytes::Byte{0x00}, bytes::u24(address), std::uint16_t{kKernelPageSize});
-        Result<bytes::Bytes> reply = beef_exchange(context, kKernelReadArea, payload, kKernelPageSize, kReadTimeoutMs);
+        Result<bytes::Bytes> reply = beef_exchange(context, kKernelReadArea, payload, kKernelPageSize, kReadTimeout);
         if (!reply.has_value())
         {
             return std::unexpected(reply.error());
@@ -760,11 +769,7 @@ Result<bytes::Bytes> read_memory(Context& context, const FlashPlan& plan, PhaseR
         {
             page.resize(region.length - offset);
         }
-        std::uint64_t elapsed_ms = context.clock.now_ms() - loop_started_ms;
-        if (elapsed_ms == 0)
-        {
-            elapsed_ms = 1;
-        }
+        const std::uint64_t elapsed_ms = elapsed_milliseconds(loop_started, context.clock.now());
         unsigned speed = static_cast<unsigned>(kKernelPageSize * (1000.0F / static_cast<float>(elapsed_ms)));
         if (speed == 0)
         {
@@ -791,7 +796,7 @@ Result<std::uint32_t> query_crc(Context& context, const MemoryRegion& block)
     // check_romcrc(), revision 59f4e442 lines 942-1024. The short read after
     // a comparison is a stale-frame drain and is deliberately retained.
     const bytes::Bytes payload = composeBe(block.start, bytes::Byte{0x00}, bytes::u24(block.length));
-    Result<bytes::Bytes> reply = beef_exchange(context, kKernelCrc, payload, 4, kExtraLongTimeoutMs);
+    Result<bytes::Bytes> reply = beef_exchange(context, kKernelCrc, payload, 4, kExtraLongTimeout);
     if (!reply.has_value())
     {
         return std::unexpected(reply.error());
@@ -846,7 +851,7 @@ Result<CompareResult> compare_blocks(Context& context, const FlashPlan& plan, by
         {
             progress->update(static_cast<int>(index + 1));
         }
-        if (const Status slept = context.clock.sleep(5, context.cancellation); !slept.has_value())
+        if (const Status slept = context.clock.sleep(5ms, context.cancellation); !slept.has_value())
         {
             return std::unexpected(slept.error());
         }
@@ -868,7 +873,7 @@ Status initialize_flash(Context& context)
 {
     // init_flash_write(), revision 59f4e442 lines 1027-1175.
     info(context, "Check max message length");
-    Result<bytes::Bytes> max_message = beef_exchange(context, kKernelGetMaxMessage, {}, 4, kReadTimeoutMs);
+    Result<bytes::Bytes> max_message = beef_exchange(context, kKernelGetMaxMessage, {}, 4, kReadTimeout);
     if (!max_message.has_value())
     {
         return std::unexpected(max_message.error());
@@ -876,7 +881,7 @@ Status initialize_flash(Context& context)
     info(context, std::format(": 0x{:04X}", bytes::readU32Be(*max_message)));
 
     info(context, "Check flashblock size");
-    Result<bytes::Bytes> max_block = beef_exchange(context, kKernelGetMaxBlock, {}, 4, kReadTimeoutMs);
+    Result<bytes::Bytes> max_block = beef_exchange(context, kKernelGetMaxBlock, {}, 4, kReadTimeout);
     if (!max_block.has_value())
     {
         return std::unexpected(max_block.error());
@@ -884,7 +889,7 @@ Status initialize_flash(Context& context)
     info(context, std::format(": 0x{:04X}", bytes::readU32Be(*max_block)));
 
     info(context, "Test write mode off, perform actual flash write");
-    Result<bytes::Bytes> enabled = beef_exchange(context, kKernelFlashEnable, {}, 0, kReadTimeoutMs);
+    Result<bytes::Bytes> enabled = beef_exchange(context, kKernelFlashEnable, {}, 0, kReadTimeout);
     if (!enabled.has_value())
     {
         return std::unexpected(enabled.error());
@@ -906,18 +911,18 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
     std::uint32_t start = block.start;
     std::uint32_t remaining = block.length;
     std::uint32_t commit_start = block.start;
-    std::uint64_t previous_time = 0;
+    std::chrono::steady_clock::time_point previous_time;
 
     info(context, std::format("Flash page erase addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
     info(context, "Erasing flash page...");
     const bytes::Bytes erase_payload = composeBe(block.start);
-    Result<bytes::Bytes> erased = beef_exchange(context, kKernelBlankPage, erase_payload, 0, kExtraLongTimeoutMs);
+    Result<bytes::Bytes> erased = beef_exchange(context, kKernelBlankPage, erase_payload, 0, kExtraLongTimeout);
     if (!erased.has_value())
     {
         return std::unexpected(erased.error());
     }
     info(context, " erased");
-    previous_time = context.clock.now_ms();
+    previous_time = context.clock.now();
 
     info(context, std::format("Start flash write addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
     while (remaining != 0)
@@ -929,7 +934,7 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
         const std::size_t chunk_offset = static_cast<std::size_t>(start - block.start);
         const bytes::ByteView chunk = image.subspan(image_offset + chunk_offset, kFlashBufferSize);
         const bytes::Bytes write_payload = composeBe(start, chunk);
-        Result<bytes::Bytes> written = beef_exchange(context, kKernelWriteBuffer, write_payload, 0, 800);
+        Result<bytes::Bytes> written = beef_exchange(context, kKernelWriteBuffer, write_payload, 0, kLongTimeout);
         if (!written.has_value())
         {
             return std::unexpected(written.error());
@@ -938,12 +943,8 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
 
         const std::uint32_t percent =
             static_cast<std::uint32_t>(100U * (block.length - remaining) / std::max<std::uint32_t>(block.length, 1));
-        const std::uint64_t now = context.clock.now_ms();
-        std::uint64_t elapsed = now >= previous_time ? now - previous_time : 0;
-        if (elapsed == 0)
-        {
-            elapsed = 1;
-        }
+        const auto now = context.clock.now();
+        const std::uint64_t elapsed = elapsed_milliseconds(previous_time, now);
         previous_time = now;
         std::uint32_t speed =
             static_cast<std::uint32_t>(static_cast<std::uint64_t>(kFlashBufferSize) * 1000U / elapsed);
@@ -982,7 +983,7 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
             info(context, std::format(" crc32: 0x{:08x}", image_crc));
             const bytes::Bytes commit_payload = composeBe(commit_start, std::uint16_t{kFlashCommitSize}, image_crc);
             Result<bytes::Bytes> committed =
-                beef_exchange(context, kKernelCommitBuffer, commit_payload, 0, kExtraLongTimeoutMs);
+                beef_exchange(context, kKernelCommitBuffer, commit_payload, 0, kExtraLongTimeout);
             if (!committed.has_value())
             {
                 return std::unexpected(committed.error());
@@ -1001,7 +1002,7 @@ Status reflash_block(Context& context, bytes::ByteView image, const FlashPlan& p
     // operator recovery warning from the legacy worker.
     info(context, std::format("Flash block addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
     info(context, "Check flash voltage");
-    Result<bytes::Bytes> voltage = beef_exchange(context, kKernelProgVolt, {}, 2, kMediumTimeoutMs);
+    Result<bytes::Bytes> voltage = beef_exchange(context, kKernelProgVolt, {}, 2, kMediumTimeout);
     if (!voltage.has_value())
     {
         return std::unexpected(voltage.error());

@@ -24,6 +24,15 @@ TEST(FlashPrinters, PrintsAMemoryRegionAsAHexStartAndLength)
 TEST(FlashPrinters, PrintsAFamilyByName)
 {
     EXPECT_EQ(::testing::PrintToString(FlashFamily::SubaruDensoSh72531Can), "SubaruDensoSh72531Can");
+    EXPECT_EQ(::testing::PrintToString(FlashFamily::SubaruDensoSh705xDensoCan), "SubaruDensoSh705xDensoCan");
+    EXPECT_EQ(::testing::PrintToString(FlashFamily::SubaruTcuDensoSh705xCan), "SubaruTcuDensoSh705xCan");
+    EXPECT_EQ(::testing::PrintToString(FlashFamily::SubaruDensoSh7058Can), "SubaruDensoSh7058Can");
+    EXPECT_EQ(::testing::PrintToString(FlashFamily::SubaruDensoSh7058CanDiesel), "SubaruDensoSh7058CanDiesel");
+}
+
+TEST(FlashPrinters, PrintsMixedCanTransportByName)
+{
+    EXPECT_EQ(::testing::PrintToString(TransportKind::CanRawIso15765), "CanRawIso15765");
 }
 } // namespace
 } // namespace fastecu::flash

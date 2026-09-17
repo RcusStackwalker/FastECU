@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_executor.h"
 
+#include <chrono>
 #include <format>
 #include <optional>
 #include <string>
@@ -20,6 +21,7 @@ namespace
 using bytes::composeBe;
 using bytes::u24;
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 
 constexpr std::uint32_t kIsoRequestId = 0x7E0;
 constexpr std::uint32_t kRawTransmitId = 0x000FFFFE;
@@ -28,15 +30,15 @@ constexpr std::uint16_t kStartComm = 0xBEEF;
 constexpr std::uint32_t kReadPageSize = 0x400;
 constexpr std::uint32_t kWriteChunkSize = 0x200;
 constexpr std::uint32_t kCommitBlockSize = 0x1000;
-constexpr int kKernelIdDelayMs = 200;
-constexpr int kCrcComparisonDelayMs = 5;
-constexpr int kKernelIdTimeoutMs = 800;
-constexpr int kRawTimeoutMs = 800;
-constexpr int kPageTimeoutMs = 3000;
-constexpr int kCrcTimeoutMs = 3000;
-constexpr int kFlashInitTimeoutMs = 500;
-constexpr int kFlashBufferAckTimeoutMs = 800;
-constexpr int kFlashTimeoutMs = 3000;
+constexpr std::chrono::milliseconds kKernelIdDelay{200};
+constexpr std::chrono::milliseconds kCrcComparisonDelay{5};
+constexpr std::chrono::milliseconds kKernelIdTimeout{800};
+constexpr std::chrono::milliseconds kRawTimeout{800};
+constexpr std::chrono::milliseconds kPageTimeout{3000};
+constexpr std::chrono::milliseconds kCrcTimeout{3000};
+constexpr std::chrono::milliseconds kFlashInitTimeout{500};
+constexpr std::chrono::milliseconds kFlashBufferAckTimeout{800};
+constexpr std::chrono::milliseconds kFlashTimeout{3000};
 constexpr std::string_view kReflashRecoveryWarning =
     "Reflash error! Do not panic, do not reset the ECU immediately. The kernel is most likely still running and "
     "receiving commands!";
@@ -48,6 +50,13 @@ Status check_cancelled(const ICancellationToken& cancellation, std::string detai
         return fail(ErrorKind::Cancelled, std::move(detail));
     }
     return {};
+}
+
+std::uint64_t elapsed_milliseconds(std::chrono::steady_clock::time_point start,
+                                   std::chrono::steady_clock::time_point end)
+{
+    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    return elapsed > 0 ? static_cast<std::uint64_t>(elapsed) : 1U;
 }
 
 bytes::Bytes iso_request(std::uint8_t opcode, bytes::ByteView payload = {})
@@ -81,14 +90,14 @@ Status iso_write(IMixedCanFlashTransport& transport, bytes::ByteView request, co
     return check_cancelled(cancellation, std::format("cancelled after {} write", subject));
 }
 
-Result<std::optional<bytes::Bytes>> iso_read(IMixedCanFlashTransport& transport, int timeout_ms,
+Result<std::optional<bytes::Bytes>> iso_read(IMixedCanFlashTransport& transport, std::chrono::milliseconds timeout,
                                              const ICancellationToken& cancellation, std::string_view subject)
 {
     if (Status cancelled = check_cancelled(cancellation, std::format("cancelled before {} read", subject)); !cancelled)
     {
         return std::unexpected(cancelled.error());
     }
-    Result<std::optional<bytes::Bytes>> received = transport.read_iso15765(timeout_ms, cancellation);
+    Result<std::optional<bytes::Bytes>> received = transport.read_iso15765(timeout, cancellation);
     if (!received)
     {
         return std::unexpected(received.error());
@@ -114,14 +123,14 @@ Status raw_write(IMixedCanFlashTransport& transport, cdbg::CanFrame frame, const
     return check_cancelled(cancellation, std::format("cancelled after {} write", subject));
 }
 
-Result<std::optional<cdbg::CanFrame>> raw_read(IMixedCanFlashTransport& transport, int timeout_ms,
+Result<std::optional<cdbg::CanFrame>> raw_read(IMixedCanFlashTransport& transport, std::chrono::milliseconds timeout,
                                                const ICancellationToken& cancellation, std::string_view subject)
 {
     if (Status cancelled = check_cancelled(cancellation, std::format("cancelled before {} read", subject)); !cancelled)
     {
         return std::unexpected(cancelled.error());
     }
-    Result<std::optional<cdbg::CanFrame>> received = transport.read_raw(timeout_ms, cancellation);
+    Result<std::optional<cdbg::CanFrame>> received = transport.read_raw(timeout, cancellation);
     if (!received)
     {
         return std::unexpected(received.error());
@@ -191,11 +200,11 @@ Result<bool> probe_kernel(IMixedCanFlashTransport& transport, IClock& clock, con
     {
         return std::unexpected(written.error());
     }
-    if (Status waited = clock.sleep(kKernelIdDelayMs, cancellation); !waited)
+    if (Status waited = clock.sleep(kKernelIdDelay, cancellation); !waited)
     {
         return std::unexpected(waited.error());
     }
-    Result<std::optional<bytes::Bytes>> received = iso_read(transport, kKernelIdTimeoutMs, cancellation, "kernel ID");
+    Result<std::optional<bytes::Bytes>> received = iso_read(transport, kKernelIdTimeout, cancellation, "kernel ID");
     if (!received)
     {
         if (received.error().kind == ErrorKind::Cancelled || received.error().kind == ErrorKind::Disconnected)
@@ -239,11 +248,11 @@ Status require_kernel_id(IMixedCanFlashTransport& transport, IClock& clock, cons
     {
         return written;
     }
-    if (Status waited = clock.sleep(kKernelIdDelayMs, cancellation); !waited)
+    if (Status waited = clock.sleep(kKernelIdDelay, cancellation); !waited)
     {
         return waited;
     }
-    Result<std::optional<bytes::Bytes>> received = iso_read(transport, kKernelIdTimeoutMs, cancellation, "kernel ID");
+    Result<std::optional<bytes::Bytes>> received = iso_read(transport, kKernelIdTimeout, cancellation, "kernel ID");
     if (!received)
     {
         return std::unexpected(received.error());
@@ -285,7 +294,7 @@ Status wake_bootloader(IMixedCanFlashTransport& transport, IClock& clock, const 
         {
             return written;
         }
-        if (Status slept = clock.sleep(3, cancellation); !slept)
+        if (Status slept = clock.sleep(3ms, cancellation); !slept)
         {
             return slept;
         }
@@ -303,7 +312,7 @@ Status wake_bootloader(IMixedCanFlashTransport& transport, IClock& clock, const 
         return written;
     }
     Result<std::optional<cdbg::CanFrame>> received =
-        raw_read(transport, kRawTimeoutMs, cancellation, "bootloader handshake");
+        raw_read(transport, kRawTimeout, cancellation, "bootloader handshake");
     if (!received)
     {
         return std::unexpected(received.error());
@@ -335,7 +344,7 @@ Status set_raw_kernel_address(IMixedCanFlashTransport& transport, std::uint32_t 
     {
         return written;
     }
-    Result<std::optional<cdbg::CanFrame>> received = raw_read(transport, kRawTimeoutMs, cancellation, subject);
+    Result<std::optional<cdbg::CanFrame>> received = raw_read(transport, kRawTimeout, cancellation, subject);
     if (!received)
     {
         return std::unexpected(received.error());
@@ -393,7 +402,7 @@ Status upload_kernel(IMixedCanFlashTransport& transport, const KernelImage& kern
         {
             return written;
         }
-        if (Status slept = clock.sleep(1, cancellation); !slept)
+        if (Status slept = clock.sleep(1ms, cancellation); !slept)
         {
             return slept;
         }
@@ -415,12 +424,11 @@ Status upload_kernel(IMixedCanFlashTransport& transport, const KernelImage& kern
         return written;
     }
     events.log(LogLevel::Debug, "Verifying kernel checksum, please wait...");
-    if (Status slept = clock.sleep(200, cancellation); !slept)
+    if (Status slept = clock.sleep(200ms, cancellation); !slept)
     {
         return slept;
     }
-    Result<std::optional<cdbg::CanFrame>> checksum =
-        raw_read(transport, kRawTimeoutMs, cancellation, "kernel checksum");
+    Result<std::optional<cdbg::CanFrame>> checksum = raw_read(transport, kRawTimeout, cancellation, "kernel checksum");
     if (!checksum)
     {
         return std::unexpected(checksum.error());
@@ -446,11 +454,11 @@ Status upload_kernel(IMixedCanFlashTransport& transport, const KernelImage& kern
     {
         return written;
     }
-    if (Status slept = clock.sleep(200, cancellation); !slept)
+    if (Status slept = clock.sleep(200ms, cancellation); !slept)
     {
         return slept;
     }
-    Result<std::optional<cdbg::CanFrame>> jumped = raw_read(transport, 50, cancellation, "kernel jump");
+    Result<std::optional<cdbg::CanFrame>> jumped = raw_read(transport, 50ms, cancellation, "kernel jump");
     if (!jumped)
     {
         return std::unexpected(jumped.error());
@@ -483,7 +491,7 @@ Result<bytes::Bytes> read_mem(IMixedCanFlashTransport& transport, const MemoryRe
     events.log(LogLevel::Info, "Start reading ROM, please wait...");
     for (std::uint32_t offset = 0; offset < region.length; offset += kReadPageSize)
     {
-        const std::uint64_t loop_started_ms = clock.now_ms();
+        const auto loop_started = clock.now();
         if (Status cancelled = check_cancelled(cancellation, "cancelled during ROM read"); !cancelled)
         {
             return std::unexpected(cancelled.error());
@@ -494,7 +502,7 @@ Result<bytes::Bytes> read_mem(IMixedCanFlashTransport& transport, const MemoryRe
         {
             return std::unexpected(written.error());
         }
-        Result<std::optional<bytes::Bytes>> received = iso_read(transport, kPageTimeoutMs, cancellation, "ROM read");
+        Result<std::optional<bytes::Bytes>> received = iso_read(transport, kPageTimeout, cancellation, "ROM read");
         if (!received)
         {
             return std::unexpected(received.error());
@@ -508,11 +516,7 @@ Result<bytes::Bytes> read_mem(IMixedCanFlashTransport& transport, const MemoryRe
             return std::unexpected(valid.error());
         }
         const bytes::ByteView raw_page(**received);
-        std::uint64_t elapsed_ms = clock.now_ms() - loop_started_ms;
-        if (elapsed_ms == 0)
-        {
-            elapsed_ms = 1;
-        }
+        const std::uint64_t elapsed_ms = elapsed_milliseconds(loop_started, clock.now());
         unsigned curspeed = static_cast<unsigned>(kReadPageSize * (1000.0F / static_cast<float>(elapsed_ms)));
         if (curspeed == 0)
         {
@@ -541,7 +545,7 @@ Result<std::uint32_t> read_block_crc(IMixedCanFlashTransport& transport, const M
     {
         return std::unexpected(written.error());
     }
-    Result<std::optional<bytes::Bytes>> received = iso_read(transport, kCrcTimeoutMs, cancellation, "ROM CRC");
+    Result<std::optional<bytes::Bytes>> received = iso_read(transport, kCrcTimeout, cancellation, "ROM CRC");
     if (!received)
     {
         return std::unexpected(received.error());
@@ -557,7 +561,7 @@ Result<std::uint32_t> read_block_crc(IMixedCanFlashTransport& transport, const M
     const std::uint32_t crc = bytes::readU32Be(**received, 9);
     // Legacy lines 883 and 904 intentionally perform this short stale-byte
     // drain after both equal and unequal CRC outcomes.
-    Result<std::optional<bytes::Bytes>> drained = iso_read(transport, 200, cancellation, "ROM CRC drain");
+    Result<std::optional<bytes::Bytes>> drained = iso_read(transport, 200ms, cancellation, "ROM CRC drain");
     if (!drained)
     {
         return std::unexpected(drained.error());
@@ -572,7 +576,7 @@ Status set_flash_mode(IMixedCanFlashTransport& transport, bool enabled, const IC
     {
         return written;
     }
-    Result<std::optional<bytes::Bytes>> received = iso_read(transport, kFlashInitTimeoutMs, cancellation, "flash mode");
+    Result<std::optional<bytes::Bytes>> received = iso_read(transport, kFlashInitTimeout, cancellation, "flash mode");
     if (!received)
     {
         return std::unexpected(received.error());
@@ -598,7 +602,7 @@ Status init_flash_write(IMixedCanFlashTransport& transport, bool test_write, con
             return written;
         }
         Result<std::optional<bytes::Bytes>> received =
-            iso_read(transport, kFlashInitTimeoutMs, cancellation, "flash initialization");
+            iso_read(transport, kFlashInitTimeout, cancellation, "flash initialization");
         if (!received)
         {
             return std::unexpected(received.error());
@@ -639,7 +643,7 @@ Status query_programming_voltage(IMixedCanFlashTransport& transport, const ICanc
         return written;
     }
     Result<std::optional<bytes::Bytes>> received =
-        iso_read(transport, kFlashInitTimeoutMs, cancellation, "programming voltage");
+        iso_read(transport, kFlashInitTimeout, cancellation, "programming voltage");
     if (!received)
     {
         return std::unexpected(received.error());
@@ -682,7 +686,7 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
         {
             return written;
         }
-        Result<std::optional<bytes::Bytes>> erased = iso_read(transport, kFlashTimeoutMs, cancellation, "flash erase");
+        Result<std::optional<bytes::Bytes>> erased = iso_read(transport, kFlashTimeout, cancellation, "flash erase");
         if (!erased)
         {
             return std::unexpected(erased.error());
@@ -704,7 +708,7 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
 
     for (std::uint32_t offset = 0; offset < block.length; offset += kWriteChunkSize)
     {
-        const std::uint64_t loop_started_ms = clock.now_ms();
+        const auto loop_started = clock.now();
         if (Status cancelled = check_cancelled(cancellation, "cancelled during flash buffer transfer"); !cancelled)
         {
             return cancelled;
@@ -716,7 +720,7 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
             return written;
         }
         Result<std::optional<bytes::Bytes>> received =
-            iso_read(transport, kFlashBufferAckTimeoutMs, cancellation, "flash buffer transfer");
+            iso_read(transport, kFlashBufferAckTimeout, cancellation, "flash buffer transfer");
         if (!received)
         {
             return std::unexpected(received.error());
@@ -729,11 +733,7 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
         {
             return valid;
         }
-        std::uint64_t elapsed_ms = clock.now_ms() - loop_started_ms;
-        if (elapsed_ms == 0)
-        {
-            elapsed_ms = 1;
-        }
+        const std::uint64_t elapsed_ms = elapsed_milliseconds(loop_started, clock.now());
         unsigned curspeed = static_cast<unsigned>(kWriteChunkSize * (1000.0F / static_cast<float>(elapsed_ms)));
         if (curspeed == 0)
         {
@@ -770,7 +770,7 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
                 return written;
             }
             Result<std::optional<bytes::Bytes>> committed =
-                iso_read(transport, kFlashTimeoutMs, cancellation, "flash commit");
+                iso_read(transport, kFlashTimeout, cancellation, "flash commit");
             if (!committed)
             {
                 return std::unexpected(committed.error());
@@ -861,7 +861,7 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
             {
                 progress->update(static_cast<int>(index + 1));
             }
-            if (Status waited = clock.sleep(kCrcComparisonDelayMs, cancellation); !waited)
+            if (Status waited = clock.sleep(kCrcComparisonDelay, cancellation); !waited)
             {
                 return std::unexpected(waited.error());
             }

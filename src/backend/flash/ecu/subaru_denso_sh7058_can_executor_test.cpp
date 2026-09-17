@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -40,6 +41,7 @@ namespace fastecu::flash
 {
 namespace
 {
+using namespace std::chrono_literals;
 
 constexpr std::uint32_t kRomSize = 0x00100000;
 constexpr std::uint32_t kKernelAddress = 0xFFFF3000;
@@ -132,13 +134,13 @@ class ToggleCancellation final : public ICancellationToken
 class RecordingClock final : public FakeClock
 {
   public:
-    Status sleep(int milliseconds, const ICancellationToken& cancellation) override
+    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
     {
-        sleeps.push_back(milliseconds);
-        return FakeClock::sleep(milliseconds, cancellation);
+        sleeps.push_back(duration);
+        return FakeClock::sleep(duration, cancellation);
     }
 
-    std::vector<int> sleeps;
+    std::vector<std::chrono::milliseconds> sleeps;
 };
 
 class RecordingCanTransport final : public ICanFlashTransport
@@ -194,17 +196,18 @@ class RecordingCanTransport final : public ICanFlashTransport
         }
         return result;
     }
-    Result<std::optional<bytes::Bytes>> read(int timeout_ms, const ICancellationToken& cancellation) override
+    Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout,
+                                             const ICancellationToken& cancellation) override
     {
-        read_timeouts.push_back(timeout_ms);
-        return scripted.read(timeout_ms, cancellation);
+        read_timeouts.push_back(timeout);
+        return scripted.read(timeout, cancellation);
     }
 
     ScriptedCanFlashTransport scripted;
     Status reset_result;
     std::vector<std::string> lifecycle;
     std::vector<bytes::Bytes> writes;
-    std::vector<int> read_timeouts;
+    std::vector<std::chrono::milliseconds> read_timeouts;
     ToggleCancellation *cancellation_to_trigger = nullptr;
     ToggleCancellation *cancellation_on_reset = nullptr;
     ToggleCancellation *cancellation_on_configure = nullptr;
@@ -921,10 +924,10 @@ TEST(SubaruDensoSh7058CanExecutor, ProbeTimeoutUploadsLiteral129ByteKernelThenRe
     EXPECT_TRUE(has_log(events, LogLevel::Info, "VIN: VIN"));
     EXPECT_TRUE(has_log(events, LogLevel::Info, "CVN: 1234"));
     EXPECT_TRUE(has_log(events, LogLevel::Info, "Kernel ID: KID"));
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 50), 12);
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 100), 1);
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 200), 2);
-    EXPECT_THAT(transport.read_timeouts, Contains(10));
+    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 50ms), 12);
+    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 100ms), 1);
+    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 200ms), 2);
+    EXPECT_THAT(transport.read_timeouts, Contains(10ms));
 }
 
 TEST(SubaruDensoSh7058CanExecutor, UploadB6ShortMalformedWrongIdAndAdapterRepliesAreDiscarded)
@@ -1443,7 +1446,7 @@ TEST(SubaruDensoSh7058CanExecutor, StrictUdsExchangeReadsResponsePendingWithoutR
     EXPECT_EQ(
         std::count(transport.writes.begin(), transport.writes.end(), bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01}),
         1U);
-    EXPECT_THAT(transport.read_timeouts, Contains(3000));
+    EXPECT_THAT(transport.read_timeouts, Contains(3000ms));
 }
 
 TEST(SubaruDensoSh7058CanExecutor, ProprietaryBeefWrongOpcodeAndCanIdAreTypedBadResponses)

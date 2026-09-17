@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <format>
 #include <iterator>
@@ -40,6 +41,7 @@ namespace fastecu::flash
 {
 namespace
 {
+using namespace std::chrono_literals;
 
 struct DieselVariant
 {
@@ -217,21 +219,21 @@ class ToggleCancellation final : public ICancellationToken
 class RecordingClock final : public FakeClock
 {
   public:
-    Status sleep(int milliseconds, const ICancellationToken& cancellation) override
+    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
     {
-        sleeps.push_back(milliseconds);
+        sleeps.push_back(duration);
         if (timeline != nullptr)
         {
-            timeline->push_back(std::format("sleep:{}", milliseconds));
+            timeline->push_back(std::format("sleep:{}", duration.count()));
         }
         if (cancel_during_sleep != nullptr)
         {
             cancel_during_sleep->cancel();
         }
-        return FakeClock::sleep(milliseconds, cancellation);
+        return FakeClock::sleep(duration, cancellation);
     }
 
-    std::vector<int> sleeps;
+    std::vector<std::chrono::milliseconds> sleeps;
     ToggleCancellation *cancel_during_sleep = nullptr;
     std::vector<std::string> *timeline = nullptr;
 };
@@ -295,10 +297,11 @@ class RecordingCanTransport final : public ICanFlashTransport
         }
         return result;
     }
-    Result<std::optional<bytes::Bytes>> read(int timeout_ms, const ICancellationToken& cancellation) override
+    Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout,
+                                             const ICancellationToken& cancellation) override
     {
-        read_timeouts.push_back(timeout_ms);
-        Result<std::optional<bytes::Bytes>> result = scripted.read(timeout_ms, cancellation);
+        read_timeouts.push_back(timeout);
+        Result<std::optional<bytes::Bytes>> result = scripted.read(timeout, cancellation);
         ++read_count;
         if (result.has_value() && cancellation_to_trigger != nullptr && cancel_after_read_count.has_value() &&
             read_count == *cancel_after_read_count)
@@ -312,7 +315,7 @@ class RecordingCanTransport final : public ICanFlashTransport
     Status reset_result;
     std::vector<std::string> lifecycle;
     std::vector<bytes::Bytes> writes;
-    std::vector<int> read_timeouts;
+    std::vector<std::chrono::milliseconds> read_timeouts;
     ToggleCancellation *cancellation_to_trigger = nullptr;
     ToggleCancellation *cancellation_on_open = nullptr;
     bytes::Bytes cancel_prefix;
@@ -747,7 +750,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, BoundAttemptPreservesResetQuietPeriodCo
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_THAT(observed_transport->lifecycle, ElementsAre("reset_connection", "configure", "open", "close"));
-    EXPECT_THAT(clock.sleeps, ElementsAre(500));
+    EXPECT_THAT(clock.sleeps, ElementsAre(500ms));
     EXPECT_THAT(timeline, ElementsAre("reset_connection", "sleep:500", "configure", "open", "close"));
 }
 
@@ -772,7 +775,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StartupCancellationAfterResetSkipsConfi
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_THAT(observed_transport->lifecycle, ElementsAre("reset_connection"));
-    EXPECT_THAT(clock.sleeps, ElementsAre(500));
+    EXPECT_THAT(clock.sleeps, ElementsAre(500ms));
     EXPECT_THAT(timeline, ElementsAre("reset_connection", "sleep:500"));
 }
 
@@ -815,10 +818,10 @@ TEST(SubaruDensoSh7058CanDieselExecutor, AlreadyRunningKernelReadsBothLiteralRom
                                0x03, 0x00, 0x17, 0xFC, 0x00, 0x04, 0x00};
         EXPECT_EQ(transport.writes.back(), expected_last);
         ASSERT_EQ(transport.read_timeouts.size(), 1U + variant.rom_size / kReadPageSize);
-        EXPECT_EQ(transport.read_timeouts.front(), 800);
+        EXPECT_EQ(transport.read_timeouts.front(), 800ms);
         EXPECT_TRUE(std::all_of(transport.read_timeouts.begin() + 1, transport.read_timeouts.end(),
-                                [](int timeout) { return timeout == 2000; }));
-        EXPECT_THAT(clock.sleeps, ElementsAre(200));
+                                [](std::chrono::milliseconds timeout) { return timeout == 2000ms; }));
+        EXPECT_THAT(clock.sleeps, ElementsAre(200ms));
         EXPECT_THAT(events.notices, ElementsAre("Reading ROM, please wait..."));
         EXPECT_TRUE(has_exact_log(events, LogLevel::Info,
                                   "Connecting to Subaru 07+ Diesel 32-bit CAN bootloader, please wait..."));
@@ -888,12 +891,12 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadsLiteralKernelAtEachGenerationAdd
         EXPECT_EQ(transport.writes[14], (bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x37}));
         EXPECT_EQ(transport.writes[15], (bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x31, 0x01, 0x02, 0x02, 0x02}));
         EXPECT_EQ(transport.writes[16], kernel_id_request());
-        EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 500), 3);
-        EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 10), 3);
-        EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 800), 2);
-        EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 50), 12);
-        EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 100), 1);
-        EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 200), 2);
+        EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 500ms), 3);
+        EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 10ms), 3);
+        EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 800ms), 2);
+        EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 50ms), 12);
+        EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 100ms), 1);
+        EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 200ms), 2);
         EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait...", "Reading ROM, please wait..."));
         EXPECT_TRUE(has_exact_log(events, LogLevel::Info,
                                   "Connecting to Subaru 07+ Diesel 32-bit CAN bootloader, please wait..."));
@@ -931,7 +934,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProbeFallbackUploadsExactKernelAddressA
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
         EXPECT_TRUE(transport.scripted.scriptConsumed());
-        EXPECT_THAT(transport.read_timeouts, Contains(500));
+        EXPECT_THAT(transport.read_timeouts, Contains(500ms));
         EXPECT_TRUE(has_log(events, LogLevel::Info, "Requesting ECU ID"));
         EXPECT_TRUE(has_log(events, LogLevel::Info, "Sending seed key"));
     }
@@ -1312,9 +1315,9 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StrictUdsPendingRetriesAreBoundedAndNev
     EXPECT_TRUE(transport.scripted.scriptConsumed());
     EXPECT_EQ(std::count(transport.writes.begin(), transport.writes.end(), seed_request), 1);
     ASSERT_GE(transport.read_timeouts.size(), 11U);
-    EXPECT_EQ(transport.read_timeouts[transport.read_timeouts.size() - 11], 2000);
+    EXPECT_EQ(transport.read_timeouts[transport.read_timeouts.size() - 11], 2000ms);
     EXPECT_TRUE(std::all_of(transport.read_timeouts.end() - 10, transport.read_timeouts.end(),
-                            [](int timeout) { return timeout == 3000; }));
+                            [](std::chrono::milliseconds timeout) { return timeout == 3000ms; }));
     EXPECT_EQ(std::count_if(events.logs.begin(), events.logs.end(),
                             [](const auto& record)
                             {
@@ -1349,7 +1352,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationStopsAtPendingRetryBoundary
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_EQ(std::count(transport.writes.begin(), transport.writes.end(), seed_request), 1);
-    EXPECT_EQ(transport.read_timeouts.back(), 3000);
+    EXPECT_EQ(transport.read_timeouts.back(), 3000ms);
     EXPECT_EQ(transport.scripted.writesConsumed(), transport.writes.size());
 }
 
@@ -1585,8 +1588,8 @@ TEST(SubaruDensoSh7058CanDieselExecutor, RealWriteErasesProgramsCommitsAndVerifi
     EXPECT_EQ(write_progress.front(), (RecordedPhaseProgress{"Write", 3, 4, 0, 0x1000}));
     EXPECT_EQ(write_progress[8], (RecordedPhaseProgress{"Write", 3, 4, 0x0FFF, 0x1000}));
     EXPECT_EQ(write_progress.back(), (RecordedPhaseProgress{"Write", 3, 4, 0x1000, 0x1000}));
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 5), 32);
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 200), 1);
+    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 5ms), 32);
+    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 200ms), 1);
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, NonzeroLargeBlockCommitsEveryWindowWithOrderedChangedByteProgress)

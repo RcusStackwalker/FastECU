@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <chrono>
 #include <format>
 #include <initializer_list>
 #include <memory>
@@ -34,6 +35,7 @@ namespace
 using bytes::composeBe;
 using bytes::u24;
 using namespace bytes::literals;
+using namespace std::chrono_literals;
 
 constexpr std::uint32_t kIsoRequestId = 0x7E0;
 constexpr std::uint32_t kIsoResponseId = 0x7E8;
@@ -77,38 +79,38 @@ class ToggleCancellation final : public ICancellationToken
 class CancellingClock final : public FakeClock
 {
   public:
-    CancellingClock(ToggleCancellation& cancellation, int trigger_ms)
-        : cancellation_(cancellation), trigger_ms_(trigger_ms)
+    CancellingClock(ToggleCancellation& cancellation, std::chrono::milliseconds trigger)
+        : cancellation_(cancellation), trigger_(trigger)
     {
     }
 
-    Status sleep(int ms, const ICancellationToken& cancellation) override
+    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
     {
-        calls.push_back(ms);
-        if (ms == trigger_ms_)
+        calls.push_back(duration);
+        if (duration == trigger_)
         {
             cancellation_.cancel();
         }
-        return FakeClock::sleep(ms, cancellation);
+        return FakeClock::sleep(duration, cancellation);
     }
 
-    std::vector<int> calls;
+    std::vector<std::chrono::milliseconds> calls;
 
   private:
     ToggleCancellation& cancellation_;
-    int trigger_ms_;
+    std::chrono::milliseconds trigger_;
 };
 
 class RecordingClock final : public FakeClock
 {
   public:
-    Status sleep(int ms, const ICancellationToken& cancellation) override
+    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
     {
-        sleeps.push_back(ms);
-        return FakeClock::sleep(ms, cancellation);
+        sleeps.push_back(duration);
+        return FakeClock::sleep(duration, cancellation);
     }
 
-    std::vector<int> sleeps;
+    std::vector<std::chrono::milliseconds> sleeps;
 };
 
 // Keeps the existing strict scripted transport while recording the timeout
@@ -164,18 +166,20 @@ class TimeoutRecordingMixedCanTransport final : public IMixedCanFlashTransport
         last_iso_opcode_ = data.size() > 8 ? std::optional<std::uint8_t>{data[8]} : std::nullopt;
         return scripted.write_iso15765(data, cancellation);
     }
-    Result<std::optional<bytes::Bytes>> read_iso15765(int timeout_ms, const ICancellationToken& cancellation) override
+    Result<std::optional<bytes::Bytes>> read_iso15765(std::chrono::milliseconds timeout,
+                                                      const ICancellationToken& cancellation) override
     {
-        iso_read_timeouts.emplace_back(last_iso_opcode_, timeout_ms);
-        return scripted.read_iso15765(timeout_ms, cancellation);
+        iso_read_timeouts.emplace_back(last_iso_opcode_, timeout);
+        return scripted.read_iso15765(timeout, cancellation);
     }
     Status write_raw(const cdbg::CanFrame& frame, const ICancellationToken& cancellation) override
     {
         return scripted.write_raw(frame, cancellation);
     }
-    Result<std::optional<cdbg::CanFrame>> read_raw(int timeout_ms, const ICancellationToken& cancellation) override
+    Result<std::optional<cdbg::CanFrame>> read_raw(std::chrono::milliseconds timeout,
+                                                   const ICancellationToken& cancellation) override
     {
-        return scripted.read_raw(timeout_ms, cancellation);
+        return scripted.read_raw(timeout, cancellation);
     }
     void request_unblock() noexcept override
     {
@@ -185,7 +189,7 @@ class TimeoutRecordingMixedCanTransport final : public IMixedCanFlashTransport
     ScriptedMixedCanFlashTransport scripted;
     Status reset_result;
     std::vector<std::string> lifecycle;
-    std::vector<std::pair<std::optional<std::uint8_t>, int>> iso_read_timeouts;
+    std::vector<std::pair<std::optional<std::uint8_t>, std::chrono::milliseconds>> iso_read_timeouts;
     ToggleCancellation *cancellation_on_reset = nullptr;
     ToggleCancellation *cancellation_on_open = nullptr;
 
@@ -1045,9 +1049,9 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ProbeTimeoutTransitionsThroughRawUploadA
     EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel,
                                                                           ScriptedMixedCanMode::RawBootloader,
                                                                           ScriptedMixedCanMode::Iso15765Kernel}));
-    EXPECT_THAT(clock.sleeps, Contains(3));
-    EXPECT_THAT(clock.sleeps, Contains(1));
-    EXPECT_THAT(clock.sleeps, Contains(200));
+    EXPECT_THAT(clock.sleeps, Contains(3ms));
+    EXPECT_THAT(clock.sleeps, Contains(1ms));
+    EXPECT_THAT(clock.sleeps, Contains(200ms));
     EXPECT_EQ(events.logs, expected_legacy_upload_read_logs(test_case.rom_size));
 }
 
@@ -1142,12 +1146,12 @@ TEST(SubaruDensoSh705xDensoCanExecutor, KernelIdProbeAndPostUploadVerificationWa
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 3), 1000);
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 1), 1);
+    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 3ms), 1000);
+    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 1ms), 1);
     // upload_kernel() already owns two 200 ms waits (checksum and jump).
     // request_kernel_id() adds one before the initial probe and one before
     // the post-upload kernel-ID verification.
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 200), 4);
+    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 200ms), 4);
     EXPECT_TRUE(transport.scripted.scriptConsumed());
 }
 
@@ -1175,10 +1179,10 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CrcIntervalsAndFlashBufferAcknowledgemen
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     // get_changed_blocks() sleeps after every one of the sixteen CRC checks,
     // including the final check in each of the two comparison passes.
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 5), 32);
+    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 5ms), 32);
     EXPECT_TRUE(std::any_of(transport.iso_read_timeouts.begin(), transport.iso_read_timeouts.end(),
                             [](const auto& entry)
-                            { return entry.first == std::optional<std::uint8_t>{0x22} && entry.second == 800; }));
+                            { return entry.first == std::optional<std::uint8_t>{0x22} && entry.second == 800ms; }));
     EXPECT_TRUE(transport.scripted.scriptConsumed());
 }
 
@@ -1248,7 +1252,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, InitialKernelProbeTreatsLegacyNontermina
         // exchange. Cancellation on its 3 ms pacing wait bounds each case.
         transport.expectRawWrite(raw_request({0xFF, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}));
         ToggleCancellation cancellation;
-        CancellingClock clock(cancellation, 3);
+        CancellingClock clock(cancellation, 3ms);
         RecordingEventSink events;
 
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1724,7 +1728,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationStopsWakeAndUploadAtTheirLoo
         transport.queueNoIsoFrame();
         transport.expectRawWrite(raw_request({0xFF, 0x86, 0, 0, 0, 0, 0, 0}));
         ToggleCancellation cancellation;
-        CancellingClock clock(cancellation, 3);
+        CancellingClock clock(cancellation, 3ms);
         RecordingEventSink events;
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
         ASSERT_FALSE(result.has_value());
@@ -1750,7 +1754,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationStopsWakeAndUploadAtTheirLoo
         transport.queueRawRead(raw_response({0x7A, 0x9C, 0, 0, 0, 0, 0, 0}));
         transport.expectRawWrite(raw_request({0x7A, 0xAE, 0x11, 0x22, 0x33, 0x44, 0x55, 0x00}));
         ToggleCancellation cancellation;
-        CancellingClock clock(cancellation, 1);
+        CancellingClock clock(cancellation, 1ms);
         RecordingEventSink events;
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
         ASSERT_FALSE(result.has_value());
