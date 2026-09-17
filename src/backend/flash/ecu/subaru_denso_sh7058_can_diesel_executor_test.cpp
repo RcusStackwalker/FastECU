@@ -20,6 +20,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h"
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
@@ -191,31 +192,6 @@ bytes::Bytes kernel_id_response()
     return {0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x04, 0x41, 0x4B, 0x49, 0x44};
 }
 
-class NeverCancelled final : public ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return false;
-    }
-};
-
-class ToggleCancellation final : public ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return cancelled_.load();
-    }
-    void cancel()
-    {
-        cancelled_.store(true);
-    }
-
-  private:
-    std::atomic_bool cancelled_{false};
-};
-
 class RecordingClock final : public FakeClock
 {
   public:
@@ -228,13 +204,13 @@ class RecordingClock final : public FakeClock
         }
         if (cancel_during_sleep != nullptr)
         {
-            cancel_during_sleep->cancel();
+            cancel_during_sleep->set_cancelled(true);
         }
         return FakeClock::sleep(duration, cancellation);
     }
 
     std::vector<std::chrono::milliseconds> sleeps;
-    ToggleCancellation *cancel_during_sleep = nullptr;
+    FakeCancellationToken *cancel_during_sleep = nullptr;
     std::vector<std::string> *timeline = nullptr;
 };
 
@@ -269,7 +245,7 @@ class RecordingCanTransport final : public ICanFlashTransport
         Status result = scripted.open();
         if (result.has_value() && cancellation_on_open != nullptr)
         {
-            cancellation_on_open->cancel();
+            cancellation_on_open->set_cancelled(true);
         }
         return result;
     }
@@ -293,7 +269,7 @@ class RecordingCanTransport final : public ICanFlashTransport
         if (result.has_value() && cancellation_to_trigger != nullptr && !cancel_prefix.empty() &&
             data.size() >= cancel_prefix.size() && std::equal(cancel_prefix.begin(), cancel_prefix.end(), data.begin()))
         {
-            cancellation_to_trigger->cancel();
+            cancellation_to_trigger->set_cancelled(true);
         }
         return result;
     }
@@ -306,7 +282,7 @@ class RecordingCanTransport final : public ICanFlashTransport
         if (result.has_value() && cancellation_to_trigger != nullptr && cancel_after_read_count.has_value() &&
             read_count == *cancel_after_read_count)
         {
-            cancellation_to_trigger->cancel();
+            cancellation_to_trigger->set_cancelled(true);
         }
         return result;
     }
@@ -316,8 +292,8 @@ class RecordingCanTransport final : public ICanFlashTransport
     std::vector<std::string> lifecycle;
     std::vector<bytes::Bytes> writes;
     std::vector<std::chrono::milliseconds> read_timeouts;
-    ToggleCancellation *cancellation_to_trigger = nullptr;
-    ToggleCancellation *cancellation_on_open = nullptr;
+    FakeCancellationToken *cancellation_to_trigger = nullptr;
+    FakeCancellationToken *cancellation_on_open = nullptr;
     bytes::Bytes cancel_prefix;
     std::optional<std::size_t> cancel_after_read_count;
     std::size_t read_count{};
@@ -327,7 +303,7 @@ class RecordingCanTransport final : public ICanFlashTransport
 class PhaseCancellingEventSink final : public RecordingEventSink
 {
   public:
-    PhaseCancellingEventSink(ToggleCancellation& cancellation, std::string phase, int done)
+    PhaseCancellingEventSink(FakeCancellationToken& cancellation, std::string phase, int done)
         : cancellation_(cancellation), phase_(std::move(phase)), done_(done)
     {
     }
@@ -337,12 +313,12 @@ class PhaseCancellingEventSink final : public RecordingEventSink
         RecordingEventSink::phase_progress(event);
         if (event.phase_name == phase_ && event.done == done_)
         {
-            cancellation_.cancel();
+            cancellation_.set_cancelled(true);
         }
     }
 
   private:
-    ToggleCancellation& cancellation_;
+    FakeCancellationToken& cancellation_;
     std::string phase_;
     int done_;
 };
@@ -350,7 +326,7 @@ class PhaseCancellingEventSink final : public RecordingEventSink
 class EraseCancellingEventSink final : public RecordingEventSink
 {
   public:
-    explicit EraseCancellingEventSink(ToggleCancellation& cancellation) : cancellation_(cancellation)
+    explicit EraseCancellingEventSink(FakeCancellationToken& cancellation) : cancellation_(cancellation)
     {
     }
 
@@ -359,12 +335,12 @@ class EraseCancellingEventSink final : public RecordingEventSink
         RecordingEventSink::log(level, message);
         if (message == " erased")
         {
-            cancellation_.cancel();
+            cancellation_.set_cancelled(true);
         }
     }
 
   private:
-    ToggleCancellation& cancellation_;
+    FakeCancellationToken& cancellation_;
 };
 
 void configure_and_open(SubaruDensoSh7058CanDieselExecutor& executor, const FlashPlan& plan,
@@ -735,7 +711,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, BoundAttemptPreservesResetQuietPeriodCo
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     auto transport = std::make_unique<RecordingCanTransport>();
     RecordingCanTransport *observed_transport = transport.get();
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     observed_transport->cancellation_on_open = &cancellation;
     RecordingClock clock;
     std::vector<std::string> timeline;
@@ -760,7 +736,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StartupCancellationAfterResetSkipsConfi
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     auto transport = std::make_unique<RecordingCanTransport>();
     RecordingCanTransport *observed_transport = transport.get();
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     RecordingClock clock;
     std::vector<std::string> timeline;
     clock.timeline = &timeline;
@@ -791,7 +767,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, AlreadyRunningKernelReadsBothLiteralRom
         configure_and_open(executor, *plan, transport);
         script_kernel_alive(transport.scripted);
         script_zero_read_pages(transport.scripted, variant.rom_size);
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         RecordingClock clock;
         RecordingEventSink events;
 
@@ -854,7 +830,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadsLiteralKernelAtEachGenerationAdd
         configure_and_open(executor, *plan, transport);
         script_bootloader_connection(transport.scripted);
         script_129_byte_kernel_upload(transport.scripted, variant.kernel_address);
-        ToggleCancellation cancellation;
+        FakeCancellationToken cancellation;
         PhaseCancellingEventSink events(cancellation, "Kernel", 1);
         RecordingClock clock;
 
@@ -925,7 +901,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProbeFallbackUploadsExactKernelAddressA
         script_bootloader_connection(transport.scripted);
         script_129_byte_kernel_upload(transport.scripted, variant.kernel_address,
                                       bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE});
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
@@ -960,7 +936,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, InitialProbeToleratesShortMalformedNega
         transport.queueRead(probe_reply);
         transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0xAA});
         transport.queue_error(ErrorKind::Disconnected, "stop after tolerant initial probe");
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
@@ -993,7 +969,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, EveryB6ReplyIsRawAndIgnoredExceptCancel
         script_bootloader_connection(transport.scripted);
         script_129_byte_kernel_upload(transport.scripted, kVariants.front().kernel_address,
                                       bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE}, reply);
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
         const auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1015,7 +991,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, EveryB6ReplyIsRawAndIgnoredExceptCancel
         script_bootloader_connection(transport.scripted);
         script_129_byte_kernel_upload(transport.scripted, kVariants.front().kernel_address,
                                       bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0xBE}, reply);
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
         const auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1051,7 +1027,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, KernelStartAcceptsServiceOnlyPositiveAn
         script_129_byte_kernel_upload(transport.scripted, kVariants.front().kernel_address, kernel_id_response(),
                                       UploadB6Reply::NoFrame, test_case.response_pdu,
                                       test_case.expected == ErrorKind::Cancelled);
-        ToggleCancellation cancellation;
+        FakeCancellationToken cancellation;
         RecordingEventSink events;
         if (test_case.expected == ErrorKind::Cancelled)
         {
@@ -1063,7 +1039,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, KernelStartAcceptsServiceOnlyPositiveAn
         }
         else
         {
-            NeverCancelled never_cancelled;
+            FakeCancellationToken never_cancelled;
             FakeClock clock;
             const auto result = executor.execute(*plan, transport, clock, never_cancelled, events);
             ASSERT_FALSE(result.has_value());
@@ -1081,7 +1057,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, IdentityQueriesAndSessionThreeToFortyTh
     RecordingCanTransport transport;
     configure_and_open(executor, *plan, transport);
     script_bootloader_connection(transport.scripted, true, false, true);
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
@@ -1114,7 +1090,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecuritySeedFrameUsesTheOracleNoVa
     script_session_selection(transport);
     transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01});
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67});
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
@@ -1141,7 +1117,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ShortSecurityKeyFrameUsesTheOracleNoVal
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67, 0x01, 0x11, 0x22, 0x33, 0x44});
     transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x02, 0x35, 0xB6, 0x83, 0xBF});
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67});
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
@@ -1168,7 +1144,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, RequestDownloadNegativeUsesTheGenericOr
     script_bootloader_connection(transport);
     transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x34, 0x04, 0x33, 0xFF, 0x40, 0x00, 0x00, 0x00, 0x80});
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x7F, 0x34, 0x35});
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
@@ -1196,7 +1172,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, SecurityNegativeUsesTheSecurityOracleEr
     script_session_selection(transport);
     transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0x27, 0x01});
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x7F, 0x27, 0x35});
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
@@ -1272,7 +1248,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, MalformedNegativeWrongIdTimeoutAndDisco
             transport.queue_error(test_case.injected, "injected strict-security transport failure");
             break;
         }
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
@@ -1304,7 +1280,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StrictUdsPendingRetriesAreBoundedAndNev
     {
         transport.scripted.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x7F, 0x27, 0x78});
     }
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingClock clock;
     RecordingEventSink events;
 
@@ -1341,7 +1317,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationStopsAtPendingRetryBoundary
     transport.scripted.expectWrite(seed_request);
     transport.scripted.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x7F, 0x27, 0x78});
     transport.scripted.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x67, 0x01, 0x11, 0x22, 0x33, 0x44});
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     transport.cancellation_to_trigger = &cancellation;
     transport.cancel_after_read_count = 8;
     RecordingClock clock;
@@ -1371,7 +1347,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, TestWriteDisablesFlashAndValidatesWitho
         script_flash_init(transport.scripted, true);
         script_flash_block(transport.scripted, blocks_for(variant)[0], 0x00, true);
         script_compare(transport.scripted, blocks_for(variant), 0U);
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
@@ -1445,7 +1421,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, ProprietaryReadRejectsMalformedWrongOpc
         {
             transport.queue_no_frame();
         }
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
@@ -1485,7 +1461,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CrcStaleDrainToleratesContentButPropaga
             script_crc(transport, kSh7058Blocks[0], kSh7058Blocks[0].zero_crc,
                        Result<std::optional<bytes::Bytes>>{fail(*terminal, "stale drain terminal")});
         }
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
@@ -1515,7 +1491,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UnchangedWriteSkipsFlashForBothGenerati
         configure_and_open(executor, *plan, transport);
         script_kernel_alive(transport);
         script_compare(transport, blocks_for(variant), std::nullopt);
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         FakeClock clock;
         RecordingEventSink events;
 
@@ -1556,7 +1532,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, RealWriteErasesProgramsCommitsAndVerifi
     script_flash_init(transport.scripted, false);
     script_flash_block(transport.scripted, kSh7058Blocks[0], 0x00, false);
     script_compare(transport.scripted, kSh7058Blocks, std::nullopt);
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingClock clock;
     RecordingEventSink events;
 
@@ -1606,7 +1582,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, NonzeroLargeBlockCommitsEveryWindowWith
     script_flash_init(transport.scripted, false);
     script_flash_block(transport.scripted, kSh7059Blocks[8], 0xA5, false);
     script_compare(transport.scripted, kSh7059Blocks, std::nullopt, true);
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     FakeClock clock;
     RecordingEventSink events;
 
@@ -1657,8 +1633,8 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationIsRejectedBeforeAnyTranspor
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
     SubaruDensoSh7058CanDieselExecutor executor;
     ScriptedCanFlashTransport transport;
-    ToggleCancellation cancellation;
-    cancellation.cancel();
+    FakeCancellationToken cancellation;
+    cancellation.set_cancelled(true);
     FakeClock clock;
     RecordingEventSink events;
 
@@ -1677,7 +1653,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringKernelProbeStopsBefor
     RecordingCanTransport transport;
     configure_and_open(executor, *plan, transport);
     transport.scripted.expectWrite(kernel_id_request());
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     transport.cancellation_to_trigger = &cancellation;
     transport.cancel_prefix = kernel_id_request();
     FakeClock clock;
@@ -1702,7 +1678,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringKernelUploadStopsBefo
     configure_and_open(executor, *plan, transport);
     script_bootloader_connection(transport.scripted);
     script_129_byte_kernel_upload(transport.scripted, kVariants.front().kernel_address);
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     transport.cancellation_to_trigger = &cancellation;
     transport.cancel_prefix = {0x00, 0x00, 0x07, 0xE0, 0xB6};
     FakeClock clock;
@@ -1731,7 +1707,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadedKernelReachesFirstReadPageBefor
     const bytes::Bytes first_read_payload{0x00, 0x00, 0x00, 0x00, 0x04, 0x00};
     transport.scripted.expectWrite(beef_request(0x03, first_read_payload));
     transport.scripted.queueRead(beef_response(0x43, bytes::Bytes(kReadPageSize, bytes::Byte{0xA5})));
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     transport.cancellation_to_trigger = &cancellation;
     transport.cancel_after_read_count = 18;
     RecordingClock clock;
@@ -1762,7 +1738,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationAtReadPageBoundaryStopsBefo
         encrypted_page.insert(encrypted_page.end(), {0xE7, 0xE2, 0x14, 0x30});
     }
     transport.queueRead(beef_response(0x43, encrypted_page));
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     PhaseCancellingEventSink events(cancellation, "Read", 0x400);
     FakeClock clock;
 
@@ -1782,7 +1758,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationAtCrcBoundaryStopsBeforeSec
     configure_and_open(executor, *plan, transport);
     script_kernel_alive(transport);
     script_crc(transport, kSh7058Blocks[0], kSh7058Blocks[0].zero_crc);
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     PhaseCancellingEventSink events(cancellation, "Compare", 1);
     FakeClock clock;
 
@@ -1807,7 +1783,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationAfterEraseReportsKernelReco
     transport.queueRead(beef_response(0x44, bytes::Bytes{0x00, 0x64}));
     transport.expectWrite(bytes::Bytes{0x00, 0x00, 0x07, 0xE0, 0xBE, 0xEF, 0x00, 0x05, 0x25, 0x00, 0x00, 0x00, 0x00});
     transport.queueRead(beef_response(0x65));
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     EraseCancellingEventSink events(cancellation);
     FakeClock clock;
 
@@ -1836,7 +1812,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringBufferWriteReportsKer
     transport.scripted.expectWrite(beef_request(0x25, bytes::Bytes{0x00, 0x00, 0x00, 0x00}));
     transport.scripted.queueRead(beef_response(0x65));
     transport.scripted.expectWrite(beef_request(0x22, bytes::Bytes(516, bytes::Byte{0})));
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     transport.cancellation_to_trigger = &cancellation;
     transport.cancel_prefix = {0x00, 0x00, 0x07, 0xE0, 0xBE, 0xEF, 0x02, 0x05, 0x22};
     FakeClock clock;
@@ -1872,7 +1848,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationBeforeCommitReportsKernelRe
         transport.expectWrite(beef_request(0x22, payload));
         transport.queueRead(beef_response(0x62));
     }
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     PhaseCancellingEventSink events(cancellation, "Write", 0x0FFF);
     FakeClock clock;
 
@@ -1897,7 +1873,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationDuringCommitReplyReportsKer
     script_compare(transport.scripted, kSh7058Blocks, 0U);
     script_flash_init(transport.scripted, false);
     script_flash_block(transport.scripted, kSh7058Blocks[0], 0x00, false);
-    ToggleCancellation cancellation;
+    FakeCancellationToken cancellation;
     transport.cancellation_to_trigger = &cancellation;
     transport.cancel_prefix = {0x00, 0x00, 0x07, 0xE0, 0xBE, 0xEF, 0x00, 0x0B, 0x24};
     FakeClock clock;
