@@ -8,6 +8,21 @@
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
 
+// TEMPORARY Windows death-point instrumentation (removed before merge).
+static void death_probe(const char *what)
+{
+    fprintf(stderr, "PROBE: %s\n", what);
+    fflush(stderr);
+}
+
+static struct StaticInitProbe
+{
+    StaticInitProbe()
+    {
+        death_probe("00 static-init (pre-main)");
+    }
+} g_static_init_probe;
+
 class FakeBackendTest : public QObject
 {
     Q_OBJECT
@@ -15,6 +30,7 @@ class FakeBackendTest : public QObject
   private slots:
     void defaultActionsPreserveConfigurationThroughFacade()
     {
+        death_probe("10 slot1 enter");
         SerialPortActions serial("", "", nullptr, nullptr, []() -> SerialBackend * { return new NiceFakeBackend; });
         QVERIFY(serial.set_add_iso14230_header(true));
         QVERIFY(serial.set_can_source_address(0x7E1));
@@ -25,10 +41,12 @@ class FakeBackendTest : public QObject
         // Hardware operations have inert defaults, even without a selected port.
         QCOMPARE(serial.open_serial_port(), QString{});
         QCOMPARE(serial.read_serial_data(10), QByteArray{});
+        death_probe("11 slot1 body done (facade teardown next)");
     }
 
     void expectationsScriptFacadeIoInOrder()
     {
+        death_probe("20 slot2 enter");
         FakeBackend *fake = nullptr;
         SerialPortActions serial("", "", nullptr, nullptr,
                                  [&fake]() -> SerialBackend *
@@ -42,10 +60,12 @@ class FakeBackendTest : public QObject
         EXPECT_CALL(*fake, read_serial_data(50)).WillOnce(::testing::Return(QByteArray("reply")));
         QCOMPARE(serial.write_serial_data("request"), QByteArray("request"));
         QCOMPARE(serial.read_serial_data(50), QByteArray("reply"));
+        death_probe("21 slot2 body done (facade teardown next)");
     }
 
     void expectationFailuresProduceNonzeroExit()
     {
+        death_probe("30 slot3 enter");
         const QString mode = qEnvironmentVariable("FASTECU_GMOCK_FAILURE_PROBE");
         if (!mode.isEmpty())
         {
@@ -71,6 +91,7 @@ class FakeBackendTest : public QObject
                 EXPECT_CALL(*fake, read_serial_data(50)).Times(1);
                 serial.read_serial_data(60);
             }
+            death_probe("31 slot3 child body done");
             return; // mock destruction verifies expectations on the facade's I/O thread
         }
 
@@ -88,6 +109,7 @@ class FakeBackendTest : public QObject
             QCOMPARE(child.exitStatus(), QProcess::NormalExit);
             QCOMPARE(child.exitCode(), 1);
             QVERIFY(child.readAll().contains("Failure"));
+            death_probe("32 slot3 one child verified");
         }
     }
 };
@@ -102,11 +124,17 @@ int main(int argc, char **argv)
     // reports zero output -- leaving the failing slot unidentifiable.
     setvbuf(stdout, nullptr, _IONBF, 0);
     setvbuf(stderr, nullptr, _IONBF, 0);
+    death_probe("01 main enter");
 
     ::testing::InitGoogleMock(&argc, argv);
+    death_probe("02 InitGoogleMock done");
     QCoreApplication application(argc, argv);
+    death_probe("03 QCoreApplication constructed");
     FakeBackendTest test;
     const int result = QTest::qExec(&test, argc, argv);
+    fprintf(stderr, "PROBE: 04 qExec returned %d hasFailure=%d\n", result,
+            static_cast<int>(::testing::Test::HasFailure()));
+    fflush(stderr);
     return result != 0 || ::testing::Test::HasFailure() ? 1 : 0;
 }
 
