@@ -1,3 +1,5 @@
+#include <cstdio>
+
 #include <QCoreApplication>
 #include <QProcess>
 #include <QProcessEnvironment>
@@ -92,6 +94,15 @@ class FakeBackendTest : public QObject
 
 int main(int argc, char **argv)
 {
+    // Unbuffered diagnostics, as in every other serial suite's main (see
+    // facade_threading_main.cpp and the P0 entry in docs/tech-debt.md). This
+    // suite exercises the facade's I/O thread, which carries an intermittent
+    // Windows-only crash. Bazel redirects stdout to test.log, where it is
+    // block-buffered, so a hard crash discards the whole buffer and the run
+    // reports zero output -- leaving the failing slot unidentifiable.
+    setvbuf(stdout, nullptr, _IONBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
+
     ::testing::InitGoogleMock(&argc, argv);
     QCoreApplication application(argc, argv);
     FakeBackendTest test;
