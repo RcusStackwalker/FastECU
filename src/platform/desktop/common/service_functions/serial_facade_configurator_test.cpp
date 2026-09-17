@@ -303,9 +303,6 @@ class SerialFacadeConfiguratorTest : public QObject
 int main(int argc, char **argv)
 {
     ::testing::InitGoogleMock(&argc, argv);
-    // QCoreApplication, not QApplication: this suite instantiates no widget,
-    // and a QApplication needs a platform plugin that headless CI does not
-    // have. Targets that genuinely need one set QT_QPA_PLATFORM=offscreen.
     QCoreApplication application(argc, argv);
     SerialFacadeConfiguratorTest test;
     const int result = QTest::qExec(&test, argc, argv);
