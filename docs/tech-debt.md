@@ -48,6 +48,16 @@ Remaining gaps:
   retain unbuffered diagnostics so the failing binary and slot can be isolated;
   until then, the crash should not be attributed to one suite or used as a
   reason to ignore unrelated coverage-test failures.
+- An empty Windows `test.log` is **not** evidence of a crash. QtTest's own
+  transcript does not reach the stdout Bazel captures under the default
+  logger, so a QtTest suite's Windows log is empty whether it passed or
+  failed, and making stdio unbuffered does not change that. Verified on CI:
+  a build whose `main` wrote progress markers to stderr showed every marker,
+  including one printed after `qExec` returned, while the QtTest banner, the
+  `PASS` lines and the totals were all absent. To read a Windows failure,
+  pass `-o <file>,txt` to `qExec` and echo that file to stderr; that is how
+  the Windows-only failure fixed in #343 was finally diagnosed, after seven
+  runs whose empty logs had been read as silent crashes.
 
 Actions:
 
