@@ -29,6 +29,23 @@ using fastecu::flash::DesktopKlineFlashTransport;
 using fastecu::flash::KlineConfig;
 using namespace std::chrono_literals;
 
+// Shapes one boolean-setter expectation for configureFailsAtEachRemainingSetter-
+// InTurn(): configure() must reach every setter up to and including the failing
+// one, and must never reach the setters after it. An expectation that can never
+// fire carries no action -- Times(0) combined with WillRepeatedly() makes Google
+// Mock log "Too many actions specified" for every such line.
+template <typename Expectation> void expectSetterAt(Expectation& expectation, int position, int failingIndex)
+{
+    if (failingIndex >= position)
+    {
+        expectation.WillOnce(::testing::Return(failingIndex != position));
+    }
+    else
+    {
+        expectation.Times(0);
+    }
+}
+
 class TestDesktopKlineFlashTransport : public QObject
 {
     Q_OBJECT
@@ -140,21 +157,11 @@ class TestDesktopKlineFlashTransport : public QObject
         serial->set_add_ssm_header(false); // forces backend creation
 
         ::testing::InSequence sequence;
-        EXPECT_CALL(*fake, set_is_iso14230_connection(true))
-            .Times(setterIndex >= 0 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 0));
-        EXPECT_CALL(*fake, set_is_can_connection(false))
-            .Times(setterIndex >= 1 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 1));
-        EXPECT_CALL(*fake, set_is_iso15765_connection(false))
-            .Times(setterIndex >= 2 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 2));
-        EXPECT_CALL(*fake, set_is_29_bit_id(false))
-            .Times(setterIndex >= 3 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 3));
-        EXPECT_CALL(*fake, set_serial_port_baudrate(QStringLiteral("10400")))
-            .Times(setterIndex >= 4 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 4));
+        expectSetterAt(EXPECT_CALL(*fake, set_is_iso14230_connection(true)), 0, setterIndex);
+        expectSetterAt(EXPECT_CALL(*fake, set_is_can_connection(false)), 1, setterIndex);
+        expectSetterAt(EXPECT_CALL(*fake, set_is_iso15765_connection(false)), 2, setterIndex);
+        expectSetterAt(EXPECT_CALL(*fake, set_is_29_bit_id(false)), 3, setterIndex);
+        expectSetterAt(EXPECT_CALL(*fake, set_serial_port_baudrate(QStringLiteral("10400"))), 4, setterIndex);
         EXPECT_CALL(*fake, open_serial_port()).Times(0);
 
         DesktopKlineFlashTransport transport(std::move(serial));

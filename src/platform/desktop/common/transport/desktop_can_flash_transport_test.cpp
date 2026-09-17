@@ -31,6 +31,23 @@ using fastecu::FakeCancellationToken;
 using fastecu::flash::DesktopCanFlashTransport;
 using fastecu::flash::Iso15765Config;
 
+// Shapes one boolean-setter expectation for configureFailsAtEachRemainingSetter-
+// InTurn(): configure() must reach every setter up to and including the failing
+// one, and must never reach the setters after it. An expectation that can never
+// fire carries no action -- Times(0) combined with WillRepeatedly() makes Google
+// Mock log "Too many actions specified" for every such line.
+template <typename Expectation> void expectSetterAt(Expectation& expectation, int position, int failingIndex)
+{
+    if (failingIndex >= position)
+    {
+        expectation.WillOnce(::testing::Return(failingIndex != position));
+    }
+    else
+    {
+        expectation.Times(0);
+    }
+}
+
 class TestDesktopCanFlashTransport : public QObject
 {
     Q_OBJECT
@@ -106,33 +123,15 @@ class TestDesktopCanFlashTransport : public QObject
         serial->set_add_ssm_header(false); // forces backend creation
 
         ::testing::InSequence sequence;
-        EXPECT_CALL(*fake, set_is_iso15765_connection(true))
-            .Times(setterIndex >= 0 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 0));
-        EXPECT_CALL(*fake, set_is_can_connection(false))
-            .Times(setterIndex >= 1 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 1));
-        EXPECT_CALL(*fake, set_is_iso14230_connection(false))
-            .Times(setterIndex >= 2 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 2));
-        EXPECT_CALL(*fake, set_is_29_bit_id(false))
-            .Times(setterIndex >= 3 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 3));
-        EXPECT_CALL(*fake, set_can_speed(QStringLiteral("500000")))
-            .Times(setterIndex >= 4 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 4));
-        EXPECT_CALL(*fake, set_can_source_address(2016))
-            .Times(setterIndex >= 5 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 5));
-        EXPECT_CALL(*fake, set_can_destination_address(2024))
-            .Times(setterIndex >= 6 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 6));
-        EXPECT_CALL(*fake, set_iso15765_source_address(2016))
-            .Times(setterIndex >= 7 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 7));
-        EXPECT_CALL(*fake, set_iso15765_destination_address(2024))
-            .Times(setterIndex >= 8 ? 1 : 0)
-            .WillRepeatedly(::testing::Return(setterIndex != 8));
+        expectSetterAt(EXPECT_CALL(*fake, set_is_iso15765_connection(true)), 0, setterIndex);
+        expectSetterAt(EXPECT_CALL(*fake, set_is_can_connection(false)), 1, setterIndex);
+        expectSetterAt(EXPECT_CALL(*fake, set_is_iso14230_connection(false)), 2, setterIndex);
+        expectSetterAt(EXPECT_CALL(*fake, set_is_29_bit_id(false)), 3, setterIndex);
+        expectSetterAt(EXPECT_CALL(*fake, set_can_speed(QStringLiteral("500000"))), 4, setterIndex);
+        expectSetterAt(EXPECT_CALL(*fake, set_can_source_address(2016)), 5, setterIndex);
+        expectSetterAt(EXPECT_CALL(*fake, set_can_destination_address(2024)), 6, setterIndex);
+        expectSetterAt(EXPECT_CALL(*fake, set_iso15765_source_address(2016)), 7, setterIndex);
+        expectSetterAt(EXPECT_CALL(*fake, set_iso15765_destination_address(2024)), 8, setterIndex);
         EXPECT_CALL(*fake, open_serial_port()).Times(0);
 
         DesktopCanFlashTransport transport(std::move(serial));
@@ -814,11 +813,14 @@ class TestDesktopCanFlashTransport : public QObject
                                                           });
         serial->set_add_ssm_header(false); // forces backend creation
         EXPECT_CALL(*fake, check_serial_ports()).WillOnce(::testing::Return(QStringList{"op2-0", "op2-1"}));
-        EXPECT_CALL(*fake, set_serial_port(QStringLiteral("op2-1"))).WillOnce(::testing::Return(true));
+        // DoDefault() rather than Return(true): the selected port must actually
+        // reach the backend's configuration state, which Return(true) would skip.
+        EXPECT_CALL(*fake, set_serial_port(QStringLiteral("op2-1"))).WillOnce(::testing::DoDefault());
         EXPECT_CALL(*fake, read_vbatt()).WillOnce(::testing::Return(11676UL));
 
         QCOMPARE(serial->check_serial_ports(), QStringList({"op2-0", "op2-1"}));
         QVERIFY(serial->set_serial_port("op2-1"));
+        QCOMPARE(serial->get_serial_port(), QStringLiteral("op2-1"));
         QCOMPARE(serial->read_vbatt(), 11676UL);
     }
 };

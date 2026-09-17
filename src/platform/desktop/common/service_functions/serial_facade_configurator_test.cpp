@@ -131,6 +131,8 @@ class SerialFacadeConfiguratorTest : public QObject
     {
         Harness harness;
         EXPECT_CALL(*harness.fake, is_serial_port_open()).WillOnce(::testing::Return(false));
+        // A port that never opened must not be driven to a new baud rate.
+        EXPECT_CALL(*harness.fake, change_port_speed(::testing::_)).Times(0);
 
         const auto result = harness.configurator->apply(klineConfig());
 
