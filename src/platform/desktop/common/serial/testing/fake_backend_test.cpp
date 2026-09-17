@@ -96,34 +96,38 @@ class FakeBackendTest : public QObject
             return; // mock destruction verifies expectations on the facade's I/O thread
         }
 
-        for (const QString& probe :
-             {QStringLiteral("unmet"), QStringLiteral("forbidden"), QStringLiteral("wrong-argument")})
-        {
-            QProcess child;
-            auto environment = QProcessEnvironment::systemEnvironment();
-            environment.insert("FASTECU_GMOCK_FAILURE_PROBE", probe);
-            child.setProcessEnvironment(environment);
-            child.setProcessChannelMode(QProcess::MergedChannels);
-            const QString exe = QCoreApplication::applicationFilePath();
-            fprintf(stderr, "PROBE 30 probe=%s exe=%s\n", qUtf8Printable(probe), qUtf8Printable(exe));
-            fflush(stderr);
-            child.start(exe, {"expectationFailuresProduceNonzeroExit"});
-            const bool started = child.waitForStarted(5000);
-            fprintf(stderr, "PROBE 31 started=%d error=%d errorString=%s\n", static_cast<int>(started),
-                    static_cast<int>(child.error()), qUtf8Printable(child.errorString()));
-            fflush(stderr);
-            QVERIFY2(started, qPrintable(child.errorString()));
-            const bool finished = child.waitForFinished(10000);
-            const QByteArray out = child.readAll();
-            fprintf(stderr, "PROBE 32 finished=%d exitStatus=%d exitCode=%d outBytes=%d\n", static_cast<int>(finished),
-                    static_cast<int>(child.exitStatus()), child.exitCode(), static_cast<int>(out.size()));
-            fprintf(stderr, "PROBE 33 childOutput<<<%.600s>>>\n", out.constData());
-            fflush(stderr);
-            QVERIFY2(finished, qPrintable(child.errorString()));
-            QCOMPARE(child.exitStatus(), QProcess::NormalExit);
-            QCOMPARE(child.exitCode(), 1);
-            QVERIFY(out.contains("Failure"));
-        }
+        // TEMPORARY: repeat the spawn matrix so one CI run samples the flake
+        // many times instead of once.
+        for (int rep = 0; rep < 6; ++rep)
+            for (const QString& probe :
+                 {QStringLiteral("unmet"), QStringLiteral("forbidden"), QStringLiteral("wrong-argument")})
+            {
+                QProcess child;
+                auto environment = QProcessEnvironment::systemEnvironment();
+                environment.insert("FASTECU_GMOCK_FAILURE_PROBE", probe);
+                child.setProcessEnvironment(environment);
+                child.setProcessChannelMode(QProcess::MergedChannels);
+                const QString exe = QCoreApplication::applicationFilePath();
+                fprintf(stderr, "PROBE 30 rep=%d probe=%s\n", rep, qUtf8Printable(probe));
+                fflush(stderr);
+                child.start(exe, {"expectationFailuresProduceNonzeroExit"});
+                const bool started = child.waitForStarted(5000);
+                fprintf(stderr, "PROBE 31 started=%d error=%d errorString=%s\n", static_cast<int>(started),
+                        static_cast<int>(child.error()), qUtf8Printable(child.errorString()));
+                fflush(stderr);
+                QVERIFY2(started, qPrintable(child.errorString()));
+                const bool finished = child.waitForFinished(10000);
+                const QByteArray out = child.readAll();
+                fprintf(stderr, "PROBE 32 finished=%d exitStatus=%d exitCode=%d outBytes=%d\n",
+                        static_cast<int>(finished), static_cast<int>(child.exitStatus()), child.exitCode(),
+                        static_cast<int>(out.size()));
+                fprintf(stderr, "PROBE 33 containsFailure=%d\n", static_cast<int>(out.contains("Failure")));
+                fflush(stderr);
+                QVERIFY2(finished, qPrintable(child.errorString()));
+                QCOMPARE(child.exitStatus(), QProcess::NormalExit);
+                QCOMPARE(child.exitCode(), 1);
+                QVERIFY(out.contains("Failure"));
+            }
     }
 };
 
