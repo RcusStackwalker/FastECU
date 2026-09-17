@@ -85,7 +85,16 @@ class FakeBackendTest : public QObject
             QVERIFY2(child.waitForFinished(10000), qPrintable(child.errorString()));
             QCOMPARE(child.exitStatus(), QProcess::NormalExit);
             QCOMPARE(child.exitCode(), 1);
-            QVERIFY(child.readAll().contains("Failure"));
+            // GoogleTest labels a failed assertion "Failure", except under
+            // MSVC, where it emits Visual Studio's "error: " instead
+            // (TestPartResultTypeToString in googletest/src/gtest.cc). Matching
+            // only "Failure" therefore never matches on Windows. Accept either
+            // spelling, and pin the check to the mocked call the diagnostic has
+            // to name, so this still proves GMock reported *this* expectation
+            // rather than that some incidental text was printed.
+            const QByteArray diagnostics = child.readAll();
+            QVERIFY2(diagnostics.contains("Failure") || diagnostics.contains("error: "), diagnostics.constData());
+            QVERIFY2(diagnostics.contains("read_serial_data"), diagnostics.constData());
         }
     }
 };
