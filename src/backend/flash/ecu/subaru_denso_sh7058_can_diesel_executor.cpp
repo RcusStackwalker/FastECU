@@ -14,10 +14,10 @@
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
-#include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/algorithms/protocol/uds/uds_service_ids.h"
 #include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/ecu/denso_beef_can_common.h"
 #include "src/backend/flash/ecu/denso_iso15765_can_common.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h"
@@ -54,7 +54,6 @@ constexpr std::chrono::milliseconds kKernelStartDelay{100};
 constexpr std::chrono::milliseconds kKernelStartReadTimeout{10};
 constexpr std::chrono::milliseconds kKernelTransferTimeout = kMediumTimeout;
 
-constexpr std::uint32_t kKernelStartComm = 0xBEEF;
 constexpr std::size_t kKernelPageSize = 0x400;
 constexpr std::size_t kKernelUploadBlockSize = 128;
 constexpr std::size_t kFlashBufferSize = 0x200;
@@ -109,27 +108,6 @@ std::string uppercase_hex_compact(bytes::ByteView data)
     return rendered;
 }
 
-Status cancelled_if_requested(const Context& context, std::string_view detail)
-{
-    if (context.cancellation.cancelled())
-    {
-        return fail(ErrorKind::Cancelled, std::string(detail));
-    }
-    return {};
-}
-
-std::uint64_t elapsed_milliseconds(std::chrono::steady_clock::time_point start,
-                                   std::chrono::steady_clock::time_point end)
-{
-    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    return elapsed > 0 ? static_cast<std::uint64_t>(elapsed) : 1U;
-}
-
-bytes::Bytes encrypt_payload(bytes::ByteView payload)
-{
-    return denso_encrypt_rom(payload);
-}
-
 struct BeefMessage
 {
     bytes::Byte opcode;
@@ -152,34 +130,6 @@ Result<BeefMessage> parse_beef(bytes::ByteView pdu)
         return fail(ErrorKind::BadResponse, "invalid BEEF response length");
     }
     return BeefMessage{.opcode = pdu[4], .payload = pdu.subspan(5, declared - 1)};
-}
-
-bytes::Bytes beef_request(bytes::Byte opcode, bytes::ByteView payload = {})
-{
-    return composeBe(std::uint16_t{kKernelStartComm}, static_cast<std::uint16_t>(payload.size() + 1), opcode, payload);
-}
-
-Result<std::optional<bytes::Bytes>> channel_request_optional(Context& context, bytes::ByteView pdu,
-                                                             std::chrono::milliseconds timeout,
-                                                             std::chrono::milliseconds delay = 0ms)
-{
-    if (const Status checkpoint = cancelled_if_requested(context, "cancelled before CAN request");
-        !checkpoint.has_value())
-    {
-        return std::unexpected(checkpoint.error());
-    }
-    if (const Status sent = context.channel.send(pdu, context.cancellation); !sent.has_value())
-    {
-        return std::unexpected(sent.error());
-    }
-    if (delay > 0ms)
-    {
-        if (const Status slept = context.clock.sleep(delay, context.cancellation); !slept.has_value())
-        {
-            return std::unexpected(slept.error());
-        }
-    }
-    return context.channel.receive(timeout, context.cancellation);
 }
 
 Result<std::optional<bytes::Bytes>> raw_channel_request_optional(Context& context, bytes::ByteView pdu,

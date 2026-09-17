@@ -44,6 +44,7 @@ PORTABLE_PACKAGES = {
         "flash_validation",
     ],
     "src/backend/flash/ecu": [
+        "denso_beef_can_common",
         "denso_iso15765_can_common",
         "mitsu_colt_m32r_can_executor",
         "mitsu_colt_m32r_can_plan",
