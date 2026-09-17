@@ -9,6 +9,8 @@
 #include <QTest>
 #include <QTimer>
 
+#include <gmock/gmock.h>
+
 #include <memory>
 #include <utility>
 
@@ -226,16 +228,26 @@ std::unique_ptr<SerialPortActions> recordingSerial(FakeBackend **fake)
     auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
                                                       [fake]() -> SerialBackend *
                                                       {
-                                                          *fake = new FakeBackend;
+                                                          *fake = new NiceFakeBackend;
                                                           return *fake;
                                                       });
     if (!serial->set_add_ssm_header(false) || *fake == nullptr)
     {
         return nullptr;
     }
-    (*fake)->logLifecycleCalls = true;
-    (*fake)->takeCallLog();
     return serial;
+}
+
+void expectNoBackendIo(FakeBackend& fake)
+{
+    EXPECT_CALL(fake, is_serial_port_open()).Times(0);
+    EXPECT_CALL(fake, reset_connection()).Times(0);
+    EXPECT_CALL(fake, change_port_speed(::testing::_)).Times(0);
+    EXPECT_CALL(fake, open_serial_port()).Times(0);
+    EXPECT_CALL(fake, read_serial_data(::testing::_)).Times(0);
+    EXPECT_CALL(fake, write_serial_data(::testing::_)).Times(0);
+    EXPECT_CALL(fake, write_serial_data_echo_check(::testing::_)).Times(0);
+    EXPECT_CALL(fake, read_vbatt()).Times(0);
 }
 
 } // namespace
@@ -297,6 +309,7 @@ class DensoTcuReadPreflightTest : public QObject
         FakeBackend *fake = nullptr;
         auto serial = recordingSerial(&fake);
         QVERIFY(serial != nullptr);
+        expectNoBackendIo(*fake);
 
         ServiceActionDriver driver{false};
         driver.start();
@@ -307,7 +320,6 @@ class DensoTcuReadPreflightTest : public QObject
 
         QCOMPARE(driver.ignitionCount(), 0);
         QVERIFY(driver.serviceDialogTitles().isEmpty());
-        QVERIFY(fake->takeCallLog().isEmpty());
     }
 
     void decliningIgnitionSkipsEveryServiceDialogAndSerialCall_data()
@@ -324,6 +336,7 @@ class DensoTcuReadPreflightTest : public QObject
         FakeBackend *fake = nullptr;
         auto serial = recordingSerial(&fake);
         QVERIFY(serial != nullptr);
+        expectNoBackendIo(*fake);
 
         ServiceActionDriver driver{false};
         driver.start();
@@ -336,7 +349,6 @@ class DensoTcuReadPreflightTest : public QObject
         QCOMPARE(driver.ignitionText(), QString(kIgnitionText));
         QCOMPARE(driver.ignitionButtons(), QMessageBox::Ok | QMessageBox::Cancel);
         QVERIFY(driver.serviceDialogTitles().isEmpty());
-        QVERIFY(fake->takeCallLog().isEmpty());
     }
 
     void acceptingIgnitionOpensTheMatchingRealServiceDialog_data()
@@ -355,6 +367,7 @@ class DensoTcuReadPreflightTest : public QObject
         FakeBackend *fake = nullptr;
         auto serial = recordingSerial(&fake);
         QVERIFY(serial != nullptr);
+        expectNoBackendIo(*fake);
 
         ServiceActionDriver driver{true};
         driver.start();
@@ -367,7 +380,6 @@ class DensoTcuReadPreflightTest : public QObject
         QCOMPARE(driver.ignitionText(), QString(kIgnitionText));
         QCOMPARE(driver.ignitionButtons(), QMessageBox::Ok | QMessageBox::Cancel);
         QCOMPARE(driver.serviceDialogTitles(), QStringList({title}));
-        QVERIFY(fake->takeCallLog().isEmpty());
     }
 };
 

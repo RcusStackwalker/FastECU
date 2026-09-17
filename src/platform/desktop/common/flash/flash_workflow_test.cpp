@@ -5,7 +5,10 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include <gmock/gmock.h>
+
 #include <array>
+#include <cstdint>
 #include <memory>
 
 #include "src/backend/calibration/calibration_service.h"
@@ -140,15 +143,46 @@ std::unique_ptr<SerialPortActions> recordingSerial(FakeBackend **fake)
     auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
                                                       [fake]() -> SerialBackend *
                                                       {
-                                                          *fake = new FakeBackend;
+                                                          *fake = new NiceFakeBackend;
                                                           return *fake;
                                                       });
     if (!serial->set_add_ssm_header(false) || *fake == nullptr)
     {
         return nullptr;
     }
-    (*fake)->takeCallLog();
     return serial;
+}
+
+void expectCanTransportSetup(FakeBackend& fake, bool reset, std::uint32_t source, std::uint32_t destination)
+{
+    ::testing::InSequence sequence;
+    if (reset)
+    {
+        EXPECT_CALL(fake, reset_connection()).WillOnce(::testing::Return());
+    }
+    EXPECT_CALL(fake, set_is_iso15765_connection(true)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, set_is_can_connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, set_is_iso14230_connection(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, set_is_29_bit_id(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, set_can_speed(QStringLiteral("500000"))).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, set_can_source_address(source)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, set_can_destination_address(destination)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, set_iso15765_source_address(source)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, set_iso15765_destination_address(destination)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(true));
+    EXPECT_CALL(fake, open_serial_port()).WillOnce(::testing::Return(QStringLiteral("COM3")));
+}
+
+void expectNoBackendIo(FakeBackend& fake)
+{
+    EXPECT_CALL(fake, is_serial_port_open()).Times(0);
+    EXPECT_CALL(fake, reset_connection()).Times(0);
+    EXPECT_CALL(fake, change_port_speed(::testing::_)).Times(0);
+    EXPECT_CALL(fake, open_serial_port()).Times(0);
+    EXPECT_CALL(fake, read_serial_data(::testing::_)).Times(0);
+    EXPECT_CALL(fake, write_serial_data(::testing::_)).Times(0);
+    EXPECT_CALL(fake, write_serial_data_echo_check(::testing::_)).Times(0);
+    EXPECT_CALL(fake, read_vbatt()).Times(0);
 }
 
 class FlashWorkflowTest : public QObject
@@ -551,8 +585,7 @@ void FlashWorkflowTest::petrolReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     FakeBackend *fake = nullptr;
     auto serial = recordingSerial(&fake);
     QVERIFY(serial != nullptr);
-    fake->openSerialPortResult = "COM3";
-    fake->logLifecycleCalls = true;
+    expectCanTransportSetup(*fake, true, 2016, 2024);
 
     auto input = request("sub_ecu_denso_sh7058_can");
     input.mcu = "SH7058";
@@ -586,12 +619,6 @@ void FlashWorkflowTest::petrolReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     const auto result = attempt.attempt->run(*attempt.clock, cancellation, events);
     QVERIFY(!result.has_value());
     QCOMPARE(result.error().kind, ErrorKind::Cancelled);
-    QCOMPARE(fake->takeCallLog(),
-             QStringList({"reset_connection", "cfg:set_is_iso15765_connection:1", "cfg:set_is_can_connection:0",
-                          "cfg:set_is_iso14230_connection:0", "cfg:set_is_29_bit_id:0", "cfg:set_can_speed:500000",
-                          "cfg:set_can_source_address:2016", "cfg:set_can_destination_address:2024",
-                          "cfg:set_iso15765_source_address:2016", "cfg:set_iso15765_destination_address:2024",
-                          "cfg:set_add_iso14230_header:0", "open_serial_port"}));
 }
 
 void FlashWorkflowTest::dieselRoutesOnlyTheTwoExactProtocols()
@@ -721,8 +748,7 @@ void FlashWorkflowTest::dieselReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     FakeBackend *fake = nullptr;
     auto serial = recordingSerial(&fake);
     QVERIFY(serial != nullptr);
-    fake->openSerialPortResult = "COM3";
-    fake->logLifecycleCalls = true;
+    expectCanTransportSetup(*fake, true, 2016, 2024);
 
     auto input = request("sub_ecu_denso_sh7059_can_diesel");
     input.mcu = "SH7059d";
@@ -758,12 +784,6 @@ void FlashWorkflowTest::dieselReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     const auto result = attempt.attempt->run(*attempt.clock, cancellation, events);
     QVERIFY(!result.has_value());
     QCOMPARE(result.error().kind, ErrorKind::Cancelled);
-    QCOMPARE(fake->takeCallLog(),
-             QStringList({"reset_connection", "cfg:set_is_iso15765_connection:1", "cfg:set_is_can_connection:0",
-                          "cfg:set_is_iso14230_connection:0", "cfg:set_is_29_bit_id:0", "cfg:set_can_speed:500000",
-                          "cfg:set_can_source_address:2016", "cfg:set_can_destination_address:2024",
-                          "cfg:set_iso15765_source_address:2016", "cfg:set_iso15765_destination_address:2024",
-                          "cfg:set_add_iso14230_header:0", "open_serial_port"}));
 }
 
 void FlashWorkflowTest::tcuRoutesOnlyTheTwoExactProtocols()
@@ -860,6 +880,7 @@ void FlashWorkflowTest::tcuUnsupportedOperationsFailBeforeTransportIo()
     FakeBackend *fake = nullptr;
     auto serial = recordingSerial(&fake);
     QVERIFY(serial != nullptr);
+    expectNoBackendIo(*fake);
 
     for (const Case& test : cases)
     {
@@ -874,7 +895,6 @@ void FlashWorkflowTest::tcuUnsupportedOperationsFailBeforeTransportIo()
         const auto step = workflow->next();
         QVERIFY(std::holds_alternative<FlashFailureStep>(step));
         QCOMPARE(std::get<FlashFailureStep>(step).error.kind, ErrorKind::Unsupported);
-        QVERIFY(fake->takeCallLog().isEmpty());
     }
 }
 
@@ -887,7 +907,7 @@ void FlashWorkflowTest::tcuReadResolvesKernelBeforeBeginAndBindsDesktopCanTransp
     FakeBackend *fake = nullptr;
     auto serial = recordingSerial(&fake);
     QVERIFY(serial != nullptr);
-    fake->openSerialPortResult = "COM3";
+    expectCanTransportSetup(*fake, false, 2017, 2025);
 
     auto input = request("sub_tcu_denso_sh7055_can");
     input.mcu = "SH7055";
@@ -917,12 +937,6 @@ void FlashWorkflowTest::tcuReadResolvesKernelBeforeBeginAndBindsDesktopCanTransp
     const auto result = attempt.attempt->run(*attempt.clock, cancellation, events);
     QVERIFY(!result.has_value());
     QCOMPARE(result.error().kind, ErrorKind::Cancelled);
-    QCOMPARE(fake->takeCallLog(),
-             QStringList({"cfg:set_is_iso15765_connection:1", "cfg:set_is_can_connection:0",
-                          "cfg:set_is_iso14230_connection:0", "cfg:set_is_29_bit_id:0", "cfg:set_can_speed:500000",
-                          "cfg:set_can_source_address:2017", "cfg:set_can_destination_address:2025",
-                          "cfg:set_iso15765_source_address:2017", "cfg:set_iso15765_destination_address:2025",
-                          "cfg:set_add_iso14230_header:0", "open_serial_port"}));
 }
 
 void FlashWorkflowTest::tcuSuccessfulReadPropagatesBytesAndRomId()

@@ -10,7 +10,8 @@
 #include <QTest>
 #include <QTimer>
 
-#include <algorithm>
+#include <gmock/gmock.h>
+
 #include <cstring>
 #include <memory>
 #include <utility>
@@ -164,21 +165,14 @@ std::unique_ptr<SerialPortActions> fakeSerial(QObject *parent, FakeBackend **fak
     auto serial = std::make_unique<SerialPortActions>("", "", nullptr, parent,
                                                       [fake]() -> SerialBackend *
                                                       {
-                                                          *fake = new FakeBackend;
+                                                          *fake = new NiceFakeBackend;
                                                           return *fake;
                                                       });
     if (!serial->set_add_ssm_header(false) || *fake == nullptr)
     {
         return nullptr;
     }
-    (*fake)->logLifecycleCalls = true;
-    (*fake)->takeCallLog();
     return serial;
-}
-
-int countLogEntries(const QStringList& entries, const QString& value)
-{
-    return static_cast<int>(std::count(entries.cbegin(), entries.cend(), value));
 }
 
 bool writeTextFile(const QString& path, const char *contents)
@@ -350,9 +344,23 @@ class MainWindowTest : public QObject
         QVERIFY(serial != nullptr);
         delete window.serial;
         window.serial = serial.release();
-        fake->set_use_openport2_adapter(true);
-        fake->vbattResult = 12500;
-        fake->takeCallLog();
+        EXPECT_CALL(*fake, set_use_openport2_adapter(true)).WillOnce(::testing::DoDefault());
+        EXPECT_CALL(*fake, read_vbatt()).WillOnce(::testing::Return(12500UL));
+        EXPECT_CALL(*fake, open_serial_port()).Times(0);
+        EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
+        EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
+        EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
+        if (choice.isEmpty())
+        {
+            EXPECT_CALL(*fake, reset_connection()).Times(0);
+            EXPECT_CALL(*fake, change_port_speed(::testing::_)).Times(0);
+        }
+        else
+        {
+            ::testing::InSequence sequence;
+            EXPECT_CALL(*fake, reset_connection()).WillOnce(::testing::Return());
+            EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_SUCCESS));
+        }
 
         window.serial_ports = {"OpenPort 2.0"};
         window.serial_port_list->clear();
@@ -375,19 +383,8 @@ class MainWindowTest : public QObject
         QVERIFY(!operation_driver.timedOut());
         QCOMPARE(operation_driver.unexpectedFlashDialogCount(), 0);
 
-        const QStringList operation_log = fake->takeCallLog();
-        QCOMPARE(countLogEntries(operation_log, "read_vbatt"), 1);
-        QVERIFY(!operation_log.contains("open_serial_port"));
-        QVERIFY(std::none_of(operation_log.cbegin(), operation_log.cend(), [](const QString& entry)
-                             { return entry.startsWith("write:") || entry.startsWith("read:"); }));
-        QVERIFY(operation_log.contains("reset_connection"));
-
         QTest::qWait(window.vbatt_timer_timeout + 100);
-        const QStringList after_return_log = fake->takeCallLog();
-        QVERIFY2(!after_return_log.contains("read_vbatt"), "handled TCU action left voltage polling active");
         QVERIFY(!window.vbatt_timer->isActive());
-        QVERIFY(operation_log.contains("baud:begin:4800"));
-        QVERIFY(operation_log.contains("baud:end"));
     }
 
     void futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo_data()
@@ -410,8 +407,10 @@ class MainWindowTest : public QObject
         QVERIFY(serial != nullptr);
         delete window.serial;
         window.serial = serial.release();
-        fake->vbattResult = 12500;
-        fake->takeCallLog();
+        EXPECT_CALL(*fake, open_serial_port()).Times(0);
+        EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
+        EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
+        EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
         window.serial_ports = {"OpenPort 2.0"};
         window.serial_port_list->clear();
         window.serial_port_list->addItem("OpenPort 2.0");
@@ -433,10 +432,6 @@ class MainWindowTest : public QObject
         QCOMPARE(operation_driver.legacyEcuIgnitionCount(), 0);
         QCOMPARE(operation_driver.portableEcuIgnitionCount(), 0);
         QCOMPARE(operation_driver.unexpectedFlashDialogCount(), 0);
-        const QStringList operation_log = fake->takeCallLog();
-        QVERIFY(!operation_log.contains("open_serial_port"));
-        QVERIFY(std::none_of(operation_log.cbegin(), operation_log.cend(), [](const QString& entry)
-                             { return entry.startsWith("write:") || entry.startsWith("read:"); }));
     }
 
     void exactDensoKlineIdsStillDispatchToTheLegacyKlineDialog_data()
@@ -460,8 +455,10 @@ class MainWindowTest : public QObject
         QVERIFY(serial != nullptr);
         delete window.serial;
         window.serial = serial.release();
-        fake->vbattResult = 12500;
-        fake->takeCallLog();
+        EXPECT_CALL(*fake, open_serial_port()).Times(0);
+        EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
+        EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
+        EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
         window.serial_ports = {"OpenPort 2.0"};
         window.serial_port_list->clear();
         window.serial_port_list->addItem("OpenPort 2.0");
@@ -483,7 +480,6 @@ class MainWindowTest : public QObject
         QCOMPARE(operation_driver.legacyEcuIgnitionCount(), 1);
         QCOMPARE(operation_driver.portableEcuIgnitionCount(), 0);
         QCOMPARE(operation_driver.unexpectedFlashDialogCount(), 0);
-        QVERIFY(!fake->takeCallLog().contains("open_serial_port"));
     }
 
     void representativePortableRoutesReachFactoryBeforeLegacyFallback_data()
@@ -511,8 +507,10 @@ class MainWindowTest : public QObject
         QVERIFY(serial != nullptr);
         delete window.serial;
         window.serial = serial.release();
-        fake->vbattResult = 12500;
-        fake->takeCallLog();
+        EXPECT_CALL(*fake, open_serial_port()).Times(0);
+        EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
+        EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
+        EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
         window.serial_ports = {"OpenPort 2.0"};
         window.serial_port_list->clear();
         window.serial_port_list->addItem("OpenPort 2.0");
@@ -533,7 +531,6 @@ class MainWindowTest : public QObject
         QVERIFY(!operation_driver.timedOut());
         QCOMPARE(operation_driver.legacyEcuIgnitionCount(), 0);
         QCOMPARE(operation_driver.portableEcuIgnitionCount(), 1);
-        QVERIFY(!fake->takeCallLog().contains("open_serial_port"));
     }
 
   private:
