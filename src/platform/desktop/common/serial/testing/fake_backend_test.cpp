@@ -1,4 +1,7 @@
 #include <cstdio>
+#include <vector>
+
+#include <QDir>
 
 #include <QCoreApplication>
 #include <QProcess>
@@ -148,12 +151,52 @@ int main(int argc, char **argv)
     QCoreApplication application(argc, argv);
     death_probe("PROBE 03 QCoreApplication constructed");
     FakeBackendTest test;
+
+    // TEMPORARY: Bazel only prints a test's log when it fails, and QtTest's own
+    // output has never appeared in test.log on Windows. Route QtTest to a file
+    // and echo that file to stderr (which demonstrably survives), so the real
+    // banner/PASS/FAIL lines are visible regardless of how stdout is routed.
+    const QByteArray logSpec =
+        QDir::temp()
+            .filePath(QStringLiteral("fastecu_qtest_log_%1.txt").arg(QCoreApplication::applicationPid()))
+            .toLocal8Bit();
+    QByteArray oFlag("-o");
+    QByteArray oSpec = logSpec + ",txt";
+    std::vector<char *> qtArgs(argv, argv + argc);
+    qtArgs.push_back(oFlag.data());
+    qtArgs.push_back(oSpec.data());
+    int qtArgc = static_cast<int>(qtArgs.size());
     death_probe("PROBE 04 fixture constructed, entering qExec");
-    const int result = QTest::qExec(&test, argc, argv);
+    const int result = QTest::qExec(&test, qtArgc, qtArgs.data());
+    {
+        fprintf(stderr, "PROBE 06 ---- QtTest log begins ----\n");
+        FILE *f = fopen(logSpec.constData(), "rb");
+        if (!f)
+        {
+            fprintf(stderr, "PROBE 06 could not reopen QtTest log\n");
+        }
+        else
+        {
+            char buf[4096];
+            size_t n = 0;
+            while ((n = fread(buf, 1, sizeof(buf), f)) > 0)
+            {
+                fwrite(buf, 1, n, stderr);
+            }
+            fclose(f);
+        }
+        fprintf(stderr, "\nPROBE 06 ---- QtTest log ends ----\n");
+        fflush(stderr);
+    }
     fprintf(stderr, "PROBE 05 qExec returned %d hasFailure=%d stdout_err=%d\n", result,
             static_cast<int>(::testing::Test::HasFailure()), ferror(stdout));
     fflush(stderr);
-    return result != 0 || ::testing::Test::HasFailure() ? 1 : 0;
+    // TEMPORARY: always fail so Bazel prints this log on every Windows run,
+    // making the flaky failure observable without waiting to win a coin flip.
+    fprintf(stderr, "PROBE 07 forcing nonzero exit for diagnostics (real result=%d)\n",
+            result != 0 || ::testing::Test::HasFailure() ? 1 : 0);
+    fflush(stderr);
+    return 1;
 }
 
 #include "fake_backend_test.moc"
