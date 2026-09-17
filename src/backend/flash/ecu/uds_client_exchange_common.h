@@ -65,7 +65,7 @@ concept WithEventSink = requires(const C& ctx) {
     { ctx.events } -> std::convertible_to<IEventSink&>;
 };
 
-// The two log shorthands every CAN executor in this package defined
+// The three log shorthands every CAN executor in this package defined
 // identically. Templates rather than overloads on CanExecutorContext so the
 // three families with their own context shape use them unchanged.
 template <WithEventSink C> void info(const C& ctx, std::string_view message)
@@ -76,6 +76,11 @@ template <WithEventSink C> void info(const C& ctx, std::string_view message)
 template <WithEventSink C> void error(const C& ctx, std::string_view message)
 {
     ctx.events.log(LogLevel::Error, message);
+}
+
+template <WithEventSink C> void debug(const C& ctx, std::string_view message)
+{
+    ctx.events.log(LogLevel::Debug, message);
 }
 
 // The pieces every UdsClient-backed exchange below needs, bundled so call

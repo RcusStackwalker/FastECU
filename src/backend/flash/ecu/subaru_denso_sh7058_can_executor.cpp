@@ -22,6 +22,7 @@
 #include "src/backend/flash/ecu/denso_iso15765_can_common.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
+#include "src/backend/flash/ecu/uds_client_exchange_common.h"
 #include "src/backend/protocol/uds/uds_client.h"
 
 // Every exchange below is transcribed from revision 59f4e442 of
@@ -105,21 +106,6 @@ struct Context
     uds::UdsClient& uds;
     uds::IUdsChannel& channel;
 };
-
-void info(Context& context, std::string_view message)
-{
-    context.events.log(LogLevel::Info, message);
-}
-
-void debug(Context& context, std::string_view message)
-{
-    context.events.log(LogLevel::Debug, message);
-}
-
-void error(Context& context, std::string_view message)
-{
-    context.events.log(LogLevel::Error, message);
-}
 
 std::string uppercase_hex_compact(bytes::ByteView data)
 {

@@ -60,6 +60,19 @@ TEST(ReportExchangeFailureTest, LogsCancellationAsAnOperatorLineNotARejection)
     EXPECT_THAT(events.logs[0].second, HasSubstr("Cancelled by operator during the erase trigger"));
 }
 
+TEST(UdsClientExchangeCommonTest, DebugLogsAtDebugLevelThroughTheEventSink)
+{
+    RecordingEventSink events;
+    struct Ctx
+    {
+        IEventSink& events;
+    } ctx{events};
+
+    debug(ctx, "kernel probe timed out");
+
+    ASSERT_THAT(events.logs, ElementsAre(Pair(LogLevel::Debug, "kernel probe timed out")));
+}
+
 TEST(FatalRequestTest, ReturnsThePositiveResponseOnSuccess)
 {
     Fixture f;
