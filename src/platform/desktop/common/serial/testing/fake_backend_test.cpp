@@ -169,6 +169,14 @@ int main(int argc, char **argv)
     std::vector<char *> qtArgs(argv, argv + argc);
     qtArgs.push_back(oFlag.data());
     qtArgs.push_back(oSpec.data());
+    // Also ask QtTest for an explicit stdout logger. Qt documents "-" as the
+    // stdout filename; if that also bypasses the Windows OutputDebugString
+    // branch, this one-liner is the clean permanent fix and the transcript
+    // will appear inline as well as through the file echo below.
+    QByteArray oFlag2("-o");
+    QByteArray oSpec2("-,txt");
+    qtArgs.push_back(oFlag2.data());
+    qtArgs.push_back(oSpec2.data());
     int qtArgc = static_cast<int>(qtArgs.size());
     death_probe("PROBE 04 fixture constructed, entering qExec");
     const int result = QTest::qExec(&test, qtArgc, qtArgs.data());
