@@ -116,6 +116,7 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
     {
         lifecycle_calls_.push_back("reset_connection");
         ++reset_call_count_;
+        open_ = false;
         return reset_result_;
     }
 

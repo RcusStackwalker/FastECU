@@ -150,7 +150,6 @@ class TestDesktopCanFlashTransport : public QObject
             Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
 
         QVERIFY(result.has_value());
-        QVERIFY(result.has_value());
     }
 
     // A K-Line session on the same facade leaves ISO-14230 auto-headers on.

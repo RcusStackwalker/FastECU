@@ -177,6 +177,10 @@ Status DesktopMixedCanFlashTransport::write_raw(const cdbg::CanFrame& frame, con
     {
         return fail(ErrorKind::InvalidConfig, "raw CAN payload exceeds 8 bytes");
     }
+    // Contract: the frame is sent exactly as composed, so DLC equals
+    // frame.payload.size() -- unlike the legacy DensoCAN path, which always
+    // wrote 8 zero-filled payload bytes. A caller whose target expects a
+    // fixed 8-byte DLC must pad frame.payload itself before calling this.
     return write_serial(bytes::composeBe(frame.id, frame.payload), cancellation);
 }
 
@@ -247,6 +251,15 @@ Status DesktopMixedCanFlashTransport::configure_iso(const MixedCanConfig& config
         {
             return fail(ErrorKind::InvalidConfig, "set_can_speed failed");
         }
+        // Deliberate, not a copy-paste slip against DesktopCanFlashTransport::
+        // configure(): while ISO-15765 is selected, set_j2534_can_filters()
+        // (serial_port_actions_direct.cpp:1532-1600) reads only the
+        // iso15765_source/destination_address pair set below, so the raw
+        // can_source/destination_address values are inert here. They are set
+        // anyway to mirror the legacy DensoCAN path, which configures ISO
+        // 0x7e0/0x7e8 and then also stamps the raw CAN pair with the
+        // bootloader's 0x000FFFFE/0x21
+        // (flash_ecu_subaru_denso_sh705x_densocan_operation.cpp:68-70).
         if (!serial_->set_can_source_address(config.bootloader.transmit_id))
         {
             return fail(ErrorKind::InvalidConfig, "set_can_source_address failed");
@@ -335,6 +348,11 @@ Status DesktopMixedCanFlashTransport::reset_connection()
     }
     try
     {
+        // No real sentinel: SerialPortActions::reset_connection()
+        // (serial_port_actions.cpp:541-544) is `runOnBackend(...); return
+        // true;` -- it cannot report failure through its return value, so
+        // this branch is unreachable today and only the surrounding catch
+        // blocks below can produce an Internal error here.
         if (!serial_->reset_connection())
         {
             return fail(ErrorKind::Internal, "reset_connection failed");

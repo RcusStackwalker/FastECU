@@ -36,7 +36,7 @@ TEST(ScriptedCanFlashTransport, ExplicitOpenStateStartsOpenWithoutLifecycleCalls
     EXPECT_EQ(transport.close_call_count_, 0);
 }
 
-TEST(ScriptedCanFlashTransportTest, RestartUsesMandatoryResetThenExactConfigurationThenOpen)
+TEST(ScriptedCanFlashTransport, RestartUsesMandatoryResetThenExactConfigurationThenOpen)
 {
     ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
     FakeCancellationToken cancellation;
@@ -54,7 +54,7 @@ TEST(ScriptedCanFlashTransportTest, RestartUsesMandatoryResetThenExactConfigurat
     EXPECT_FALSE(transport.last_config_->extended_id);
 }
 
-TEST(ScriptedCanFlashTransportTest, RestartStopsAtEachFailureAndPreservesTheExactError)
+TEST(ScriptedCanFlashTransport, RestartStopsAtEachFailureAndPreservesTheExactError)
 {
     const std::array failure_cases{
         std::pair{"reset", ErrorKind::Internal},
@@ -99,7 +99,7 @@ TEST(ScriptedCanFlashTransportTest, RestartStopsAtEachFailureAndPreservesTheExac
     }
 }
 
-TEST(ScriptedCanFlashTransportTest, RestartChecksCancellationAtEveryLogicalBoundary)
+TEST(ScriptedCanFlashTransport, RestartChecksCancellationAtEveryLogicalBoundary)
 {
     class BoundaryCancellation final : public ICancellationToken
     {
@@ -138,7 +138,7 @@ TEST(ScriptedCanFlashTransportTest, RestartChecksCancellationAtEveryLogicalBound
     }
 }
 
-TEST(ScriptedKlineFlashTransportTest, DefaultsClosed)
+TEST(ScriptedKlineFlashTransport, DefaultsClosed)
 {
     ScriptedKlineFlashTransport transport;
 
@@ -166,7 +166,7 @@ void configure_and_open(ScriptedMixedCanFlashTransport& transport)
     ASSERT_TRUE(transport.open().has_value());
 }
 
-TEST(ScriptedMixedCanFlashTransportTest, ScriptsIsoAndRawFramesInTheirRespectiveModes)
+TEST(ScriptedMixedCanFlashTransport, ScriptsIsoAndRawFramesInTheirRespectiveModes)
 {
     ScriptedMixedCanFlashTransport transport;
     FakeCancellationToken cancellation;
@@ -200,7 +200,7 @@ TEST(ScriptedMixedCanFlashTransportTest, ScriptsIsoAndRawFramesInTheirRespective
     EXPECT_EQ(transport.closeCallCount(), 0);
 }
 
-TEST(ScriptedMixedCanFlashTransportTest, RejectsWrongModeAndOversizeRawPayload)
+TEST(ScriptedMixedCanFlashTransport, RejectsWrongModeAndOversizeRawPayload)
 {
     ScriptedMixedCanFlashTransport transport;
     FakeCancellationToken cancellation;
@@ -221,7 +221,7 @@ TEST(ScriptedMixedCanFlashTransportTest, RejectsWrongModeAndOversizeRawPayload)
     EXPECT_EQ(oversized_raw.error().kind, ErrorKind::InvalidConfig);
 }
 
-TEST(ScriptedMixedCanFlashTransportTest, CancelledReadLeavesItsIsoScriptItemQueued)
+TEST(ScriptedMixedCanFlashTransport, CancelledReadLeavesItsIsoScriptItemQueued)
 {
     ScriptedMixedCanFlashTransport transport;
     FakeCancellationToken cancellation{true};
@@ -235,7 +235,7 @@ TEST(ScriptedMixedCanFlashTransportTest, CancelledReadLeavesItsIsoScriptItemQueu
     EXPECT_FALSE(transport.scriptConsumed());
 }
 
-TEST(ScriptedMixedCanFlashTransportTest, TransitionFailuresAreOneShot)
+TEST(ScriptedMixedCanFlashTransport, TransitionFailuresAreOneShot)
 {
     ScriptedMixedCanFlashTransport transport;
 
@@ -253,7 +253,7 @@ TEST(ScriptedMixedCanFlashTransportTest, TransitionFailuresAreOneShot)
     ASSERT_TRUE(transport.enter_iso15765_kernel_mode().has_value());
 }
 
-TEST(ScriptedMixedCanFlashTransportTest, RequestUnblockReleasesBlockingIsoReadAsCancelled)
+TEST(ScriptedMixedCanFlashTransport, RequestUnblockReleasesBlockingIsoReadAsCancelled)
 {
     ScriptedMixedCanFlashTransport transport;
     FakeCancellationToken cancellation;

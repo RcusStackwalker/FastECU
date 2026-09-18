@@ -225,6 +225,15 @@ class ICanFlashTransport : public IFlashTransport
     // A protocol-owned in-session restart. This intentionally owns only
     // reset/reconfigure/reopen; BoundAttempt still owns initial setup and
     // final close.
+    //
+    // Post-condition on the last checkpoint below ("...after open"): if that
+    // check reports Cancelled, reset/configure/open have already all
+    // succeeded, so the port is left reset, reconfigured and OPEN -- a caller
+    // cannot tell that outcome apart from a restart that never began. This is
+    // safe for the current caller only because BoundAttempt::run() closes the
+    // transport exactly once on every exit path past its own open() (see its
+    // comment above the close() call), so a restart-time Cancelled here still
+    // gets torn down at the end of the attempt regardless of this port state.
     virtual Status restart_iso15765(const Iso15765Config& config, const ICancellationToken& cancellation)
     {
         if (cancellation.cancelled())
@@ -261,6 +270,26 @@ class ICanFlashTransport : public IFlashTransport
     virtual Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout, const ICancellationToken&) = 0;
 };
 
+// A transport for the DensoCAN family's two-phase flash sequence: a raw-CAN
+// bootloader phase (enter_raw_bootloader_mode()/write_raw()/read_raw()) that
+// uploads and hands off to a kernel, followed by a switch to ISO-15765
+// (enter_iso15765_kernel_mode()/write_iso15765()/read_iso15765()) for the
+// kernel's own framed traffic. configure()/open()/close() govern the whole
+// session; the enter_*/write_*/read_* calls are what move between the two
+// phases within it.
+//
+// cdbg::CanFrame appears here even though ICanFlashTransport's comment above
+// explains that flash CAN is deliberately kept distinct from
+// cdbg::ICanTransport: that separation is about the *framed* ISO-15765 side,
+// which still exchanges plain bytes::Bytes here via write_iso15765()/
+// read_iso15765(). The raw bootloader phase, in contrast, genuinely is
+// single-frame id+payload CAN traffic -- the same shape cdbg::CanFrame
+// already models -- so reusing it avoids inventing a second raw-frame type
+// for one already-solved problem, without pulling cdbg::ICanTransport itself
+// into the flash contract.
+//
+// No production consumer yet: it exists ahead of PR #341's DensoCAN family,
+// which is what will actually construct and drive it.
 class IMixedCanFlashTransport : public IFlashTransport
 {
   public:
@@ -277,6 +306,10 @@ class IMixedCanFlashTransport : public IFlashTransport
     virtual Result<std::optional<cdbg::CanFrame>> read_raw(std::chrono::milliseconds, const ICancellationToken&) = 0;
 };
 
+// Mixed-CAN sibling of IKlineFlashExecutor/ICanFlashExecutor, paired with
+// IMixedCanFlashTransport; the same caller-owns-lifecycle contract applies.
+// No production consumer yet -- it lands ahead of PR #341's DensoCAN family,
+// the first executor expected to implement it.
 class IMixedCanFlashExecutor
 {
   public:

@@ -26,6 +26,11 @@ Status DesktopCanFlashTransport::reset_connection()
     }
     try
     {
+        // No real sentinel: SerialPortActions::reset_connection()
+        // (serial_port_actions.cpp:541-544) is `runOnBackend(...); return
+        // true;` -- it cannot report failure through its return value, so
+        // this branch is unreachable today and only the surrounding catch
+        // blocks below can produce an Internal error here.
         if (!serial_->reset_connection())
         {
             return fail(ErrorKind::Internal, "reset_connection failed");
