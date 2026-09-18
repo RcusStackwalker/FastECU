@@ -87,6 +87,7 @@ class TestDesktopTransportFactory : public QObject
             open_desktop_can_flash_transport(configWith(&fake, {kOpenPort0, kOpenPort1}, kOpenPort0), kColtCan);
 
         QVERIFY(transport.has_value());
+        EXPECT_CALL(*fake, get_serial_port_list()).WillOnce(::testing::DoDefault());
         QCOMPARE(fake->get_serial_port_list(), QStringList({kOpenPort0}));
     }
 
@@ -103,11 +104,13 @@ class TestDesktopTransportFactory : public QObject
 
         QVERIFY(transport.has_value());
 #if defined(Q_OS_UNIX)
+        EXPECT_CALL(*fake, get_serial_port_list()).WillOnce(::testing::DoDefault());
         QCOMPARE(fake->get_serial_port_list(), QStringList({kOpenPort0}));
 #else
         // Windows entries come from the J2534 driver registry rather than the
         // serial-port list, so every one of them is adapter-capable and the
         // first is still the right choice.
+        EXPECT_CALL(*fake, get_serial_port_list()).WillOnce(::testing::DoDefault());
         QCOMPARE(fake->get_serial_port_list(), QStringList({kBluetoothPort}));
 #endif
     }
