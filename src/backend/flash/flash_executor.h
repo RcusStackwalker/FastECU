@@ -12,6 +12,7 @@
 #include "src/backend/ports/clock.h"
 #include "src/backend/ports/event_sink.h"
 #include "src/backend/ports/result.h"
+#include "src/backend/protocol/ican_transport.h"
 #include "src/backend/protocol/ikline_transport.h"
 
 namespace fastecu::flash
@@ -46,6 +47,20 @@ struct Iso15765Config
     std::uint32_t request_id;
     std::uint32_t response_id;
     bool extended_id;
+};
+
+struct RawCanConfig
+{
+    int bitrate;
+    std::uint32_t transmit_id;
+    std::uint32_t receive_id;
+    bool extended_id;
+};
+
+struct MixedCanConfig
+{
+    Iso15765Config kernel;
+    RawCanConfig bootloader;
 };
 
 template <class Plan>
@@ -244,6 +259,42 @@ class ICanFlashTransport : public IFlashTransport
     }
     virtual Status write(bytes::ByteView, const ICancellationToken&) = 0;
     virtual Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout, const ICancellationToken&) = 0;
+};
+
+class IMixedCanFlashTransport : public IFlashTransport
+{
+  public:
+    virtual Status reset_connection() = 0;
+    virtual Status configure(const MixedCanConfig&) = 0;
+    virtual Status open() = 0;
+    virtual Status close() = 0;
+    virtual Status enter_raw_bootloader_mode() = 0;
+    virtual Status clear_receive_buffer() = 0;
+    virtual Status enter_iso15765_kernel_mode() = 0;
+    virtual Status write_iso15765(bytes::ByteView, const ICancellationToken&) = 0;
+    virtual Result<std::optional<bytes::Bytes>> read_iso15765(std::chrono::milliseconds, const ICancellationToken&) = 0;
+    virtual Status write_raw(const cdbg::CanFrame&, const ICancellationToken&) = 0;
+    virtual Result<std::optional<cdbg::CanFrame>> read_raw(std::chrono::milliseconds, const ICancellationToken&) = 0;
+};
+
+class IMixedCanFlashExecutor
+{
+  public:
+    using TransportType = IMixedCanFlashTransport;
+    using ConfigType = MixedCanConfig;
+
+    virtual ~IMixedCanFlashExecutor() = default;
+    virtual Result<MixedCanConfig> transport_setup(const FlashPlan&) const = 0;
+    virtual Status before_transport_configure(IMixedCanFlashTransport&, IClock&, const ICancellationToken&) const
+    {
+        return {};
+    }
+    virtual Status before_transport_open(const ICancellationToken&) const
+    {
+        return {};
+    }
+    virtual Result<FlashExecutionResult> execute(const FlashPlan&, IMixedCanFlashTransport&, IClock&,
+                                                 const ICancellationToken&, IEventSink&) = 0;
 };
 
 // An executor already bound to a transport it is known to accept. FlashWorker
