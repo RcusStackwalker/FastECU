@@ -1,9 +1,12 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/flash_executor.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <string>
+#include <vector>
 
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"

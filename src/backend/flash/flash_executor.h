@@ -105,6 +105,14 @@ class IKlineFlashExecutor
     // caller touches hardware.
     virtual Result<KlineConfig> transport_setup(const FlashPlan& plan) const = 0;
 
+    // Optional family-specific preparation before the caller configures the
+    // adapter.  This is the narrow seam for protocols whose legacy startup
+    // sequence performs a reset and a timed quiet period before setters.
+    virtual Status before_transport_configure(IKlineFlashTransport&, IClock&, const ICancellationToken&) const
+    {
+        return {};
+    }
+
     // Family-specific cancellation checkpoint after configure() and before
     // open(). Most executors historically had no checkpoint in that interval.
     virtual Status before_transport_open(const ICancellationToken&) const
@@ -126,6 +134,13 @@ class ICanFlashExecutor
     virtual ~ICanFlashExecutor() = default;
 
     virtual Result<Iso15765Config> transport_setup(const FlashPlan& plan) const = 0;
+
+    // Optional family-specific preparation before configure().  The default
+    // keeps existing executors on the established lifecycle path.
+    virtual Status before_transport_configure(ICanFlashTransport&, IClock&, const ICancellationToken&) const
+    {
+        return {};
+    }
 
     virtual Status before_transport_open(const ICancellationToken&) const
     {
@@ -186,9 +201,47 @@ class ICanFlashTransport : public IFlashTransport
 {
   public:
     virtual ~ICanFlashTransport() = default;
+    // Every CAN transport must expose a real reset so protocol-owned
+    // sequences cannot silently degrade into configure/open only.
+    virtual Status reset_connection() = 0;
     virtual Status configure(const Iso15765Config&) = 0;
     virtual Status open() = 0;
     virtual Status close() = 0;
+    // A protocol-owned in-session restart. This intentionally owns only
+    // reset/reconfigure/reopen; BoundAttempt still owns initial setup and
+    // final close.
+    virtual Status restart_iso15765(const Iso15765Config& config, const ICancellationToken& cancellation)
+    {
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "ISO-15765 restart cancelled before reset");
+        }
+        if (const Status reset = reset_connection(); !reset)
+        {
+            return reset;
+        }
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "ISO-15765 restart cancelled after reset");
+        }
+        if (const Status configured = configure(config); !configured)
+        {
+            return configured;
+        }
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "ISO-15765 restart cancelled after configure");
+        }
+        if (const Status opened = open(); !opened)
+        {
+            return opened;
+        }
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "ISO-15765 restart cancelled after open");
+        }
+        return {};
+    }
     virtual Status write(bytes::ByteView, const ICancellationToken&) = 0;
     virtual Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout, const ICancellationToken&) = 0;
 };
@@ -232,6 +285,11 @@ template <class Executor, class Transport> class BoundAttempt final : public Bou
         if (cancellation.cancelled())
         {
             return fail(ErrorKind::Cancelled, "cancelled before configure");
+        }
+        if (const Status preparation = executor_->before_transport_configure(*transport_, clock, cancellation);
+            !preparation.has_value())
+        {
+            return std::unexpected(preparation.error());
         }
         if (const Status configured = transport_->configure(*setup); !configured.has_value())
         {

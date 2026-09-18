@@ -18,6 +18,30 @@ DesktopCanFlashTransport::DesktopCanFlashTransport(SerialPortActions *serial) : 
 
 DesktopCanFlashTransport::~DesktopCanFlashTransport() = default;
 
+Status DesktopCanFlashTransport::reset_connection()
+{
+    if (!serial_)
+    {
+        return fail(ErrorKind::Disconnected, "reset_connection() called after close()");
+    }
+    try
+    {
+        if (!serial_->reset_connection())
+        {
+            return fail(ErrorKind::Internal, "reset_connection failed");
+        }
+        return {};
+    }
+    catch (const std::exception& error)
+    {
+        return fail(ErrorKind::Internal, error.what());
+    }
+    catch (...)
+    {
+        return fail(ErrorKind::Internal, "reset_connection exception");
+    }
+}
+
 Status DesktopCanFlashTransport::configure(const Iso15765Config& config)
 {
     if (!serial_)
