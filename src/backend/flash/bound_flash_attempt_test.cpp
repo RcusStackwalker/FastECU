@@ -76,12 +76,24 @@ class TestMixedExecutor final : public IMixedCanFlashExecutor
         return kMixedSetup;
     }
 
+    Status before_transport_configure(IMixedCanFlashTransport&, IClock&, const ICancellationToken&) const override
+    {
+        calls_.push_back("before_transport_configure");
+        if (!before_configure_ok)
+        {
+            return fail(ErrorKind::Internal, "before_transport_configure failed");
+        }
+        return {};
+    }
+
     Result<FlashExecutionResult> execute(const FlashPlan&, IMixedCanFlashTransport&, IClock&, const ICancellationToken&,
                                          IEventSink&) override
     {
         calls_.push_back("execute");
         return FlashExecutionResult{.operation = FlashOperation::Read, .read_bytes = bytes::Bytes{0x01}};
     }
+
+    bool before_configure_ok = true;
 
   private:
     std::vector<std::string>& calls_;
@@ -314,7 +326,7 @@ TEST(BoundFlashAttemptTest, RequestUnblockReachesTheTransport)
     ASSERT_THAT(read, fastecu::testing::IsErr(ErrorKind::Cancelled));
 }
 
-TEST(BoundAttempt, MixedTransportUsesOuterLifecycleExactlyOnce)
+TEST(BoundFlashAttemptTest, MixedTransportUsesOuterLifecycleExactlyOnce)
 {
     std::vector<std::string> calls;
     auto attempt = bind_flash_attempt(built_plan(), std::make_unique<TestMixedExecutor>(calls),
@@ -324,7 +336,23 @@ TEST(BoundAttempt, MixedTransportUsesOuterLifecycleExactlyOnce)
     RecordingEventSink events;
 
     ASSERT_TRUE(attempt->run(clock, cancellation, events).has_value());
-    EXPECT_THAT(calls, ::testing::ElementsAre("configure", "open", "execute", "close"));
+    EXPECT_THAT(calls, ::testing::ElementsAre("before_transport_configure", "configure", "open", "execute", "close"));
+}
+
+TEST(BoundFlashAttemptTest, MixedTransportBeforeConfigureErrorSkipsConfigureOpenExecuteClose)
+{
+    std::vector<std::string> calls;
+    auto executor = std::make_unique<TestMixedExecutor>(calls);
+    executor->before_configure_ok = false;
+    auto attempt =
+        bind_flash_attempt(built_plan(), std::move(executor), std::make_unique<RecordingMixedTransport>(calls));
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+
+    ASSERT_THAT(attempt->run(clock, cancellation, events), fastecu::testing::IsErr(ErrorKind::Internal));
+    EXPECT_THAT(calls, ::testing::ElementsAre("before_transport_configure"));
+    EXPECT_TRUE(std::ranges::none_of(calls, [](const std::string& call) { return call == "configure"; }));
 }
 
 } // namespace

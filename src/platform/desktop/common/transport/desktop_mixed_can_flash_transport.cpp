@@ -23,6 +23,14 @@ DesktopMixedCanFlashTransport::~DesktopMixedCanFlashTransport() = default;
 
 Status DesktopMixedCanFlashTransport::configure(const MixedCanConfig& config)
 {
+    if (transition_error_)
+    {
+        return std::unexpected(*transition_error_);
+    }
+    if (mode_ != Mode::Unconfigured && mode_ != Mode::Closed)
+    {
+        return fail(ErrorKind::InvalidConfig, "configure() called while mixed CAN transport is already configured");
+    }
     stored_config_ = config;
     if (const Status configured = configure_iso(config); !configured.has_value())
     {
@@ -34,6 +42,10 @@ Status DesktopMixedCanFlashTransport::configure(const MixedCanConfig& config)
 
 Status DesktopMixedCanFlashTransport::open()
 {
+    if (transition_error_)
+    {
+        return std::unexpected(*transition_error_);
+    }
     if (!serial_)
     {
         return fail(ErrorKind::Disconnected, "open() called after close()");

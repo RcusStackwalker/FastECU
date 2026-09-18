@@ -222,6 +222,41 @@ class TestDesktopMixedCanFlashTransport : public QObject
         }
     }
 
+    void configureRejectsReconfigureWhileAlreadyConfigured()
+    {
+        FakeBackend *fake = nullptr;
+        DesktopMixedCanFlashTransport transport(make_serial(fake));
+        configure_and_open(transport);
+
+        const auto reconfigure = transport.configure(config());
+
+        QVERIFY(!reconfigure.has_value());
+        QCOMPARE(reconfigure.error().kind, ErrorKind::InvalidConfig);
+    }
+
+    void poisonedTransitionMakesConfigureAndOpenSurfaceTheStaleErrorEvenAfterClose()
+    {
+        FakeBackend *fake = nullptr;
+        DesktopMixedCanFlashTransport transport(make_serial(fake));
+        configure_and_open(transport);
+        EXPECT_CALL(*fake, open_serial_port()).WillOnce(::testing::Return(QString{}));
+
+        const auto transition = transport.enter_raw_bootloader_mode();
+        QVERIFY(!transition.has_value());
+        QCOMPARE(transition.error().kind, ErrorKind::Disconnected);
+
+        // close() must not clear the poison: it only tears down the live handle.
+        QVERIFY(transport.close().has_value());
+
+        const auto reconfigure = transport.configure(config());
+        QVERIFY(!reconfigure.has_value());
+        QCOMPARE(reconfigure.error().kind, ErrorKind::Disconnected);
+
+        const auto reopen = transport.open();
+        QVERIFY(!reopen.has_value());
+        QCOMPARE(reopen.error().kind, ErrorKind::Disconnected);
+    }
+
     void rawTransitionFailsAtEverySetterAndMakesIoTerminal()
     {
         const std::array<std::function<void(FakeBackend&)>, 8> failures{
