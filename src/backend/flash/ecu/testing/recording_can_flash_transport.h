@@ -16,9 +16,14 @@
 namespace fastecu::flash
 {
 
-// The recording decorator the wave-5 CAN executor suites share. It wraps a
-// ScriptedCanFlashTransport and adds the injection points those suites need:
-// each is inert unless set, so one type serves all three families.
+// This header holds two types the wave-5 CAN executor suites share:
+// RecordingCanFlashTransport, the recording decorator, and
+// PhaseCancellingEventSink, an event sink that cancels partway through a
+// named phase.
+//
+// RecordingCanFlashTransport wraps a ScriptedCanFlashTransport and adds the
+// injection points those suites need: each is inert unless set, so one type
+// serves all three families.
 //
 // This records lifecycle in its own `lifecycle` vector, which is NOT the same
 // as ScriptedCanFlashTransport::lifecycle_calls_: reset_connection() below

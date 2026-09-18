@@ -177,10 +177,10 @@ subject.
 
 **Tier 1 — adopt what already exists.**
 
-1. Delete the six private `info()` / `error()` definitions across the three ISO
-   executors; include `uds_client_exchange_common.h` and use the shared
-   templates. Add `debug()` to that header in the same `WithEventSink` template
-   shape, beside its siblings.
+1. Delete the nine private `info()` / `debug()` / `error()` definitions across
+   the three ISO executors; include `uds_client_exchange_common.h` and use the
+   shared templates. Add `debug()` to that header in the same `WithEventSink`
+   template shape, beside its siblings.
 2. Replace `NeverCancelled` and `ToggleCancellation` in the four new test files
    with `FakeCancellationToken`. `NeverCancelled` becomes a default-constructed
    token; `ToggleCancellation`'s `cancel()` becomes `set_cancelled(true)`.

@@ -965,7 +965,7 @@ assertion is re-pointed.
 
 ```bash
 bazel test --config=release --nocache_test_results //src/backend/flash/ecu:all
-grep -n "\.lifecycle\b" src/backend/flash/ecu/subaru_denso_sh7058_can_executor_test.cpp \
+grep -n -- "->lifecycle" src/backend/flash/ecu/subaru_denso_sh7058_can_executor_test.cpp \
                         src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_executor_test.cpp
 ```
 
@@ -1406,13 +1406,15 @@ TEST(DensoBeefCanCommonTest, BeefRequestFramesOpcodeAndPayloadLength)
     const bytes::Bytes payload{0x01, 0x02, 0x03};
     const bytes::Bytes framed = beef_request(0xB6, payload);
 
-    ASSERT_EQ(framed.size(), 7U);
+    ASSERT_EQ(framed.size(), 8U);
     EXPECT_EQ(framed[0], 0xBE);
     EXPECT_EQ(framed[1], 0xEF);
     EXPECT_EQ(framed[2], 0x00);
     EXPECT_EQ(framed[3], 0x04);
     EXPECT_EQ(framed[4], 0xB6);
     EXPECT_EQ(framed[5], 0x01);
+    EXPECT_EQ(framed[6], 0x02);
+    EXPECT_EQ(framed[7], 0x03);
 }
 
 TEST(DensoBeefCanCommonTest, BeefRequestWithNoPayloadStillCountsTheOpcode)

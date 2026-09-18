@@ -140,7 +140,6 @@ cc_library(
         ":uds_client_exchange_common",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/uds",
         "//src/algorithms/protocol/uds:uds_service_ids",
         "//src/backend/flash:can_flash_uds_channel",
@@ -341,7 +340,6 @@ cc_library(
         ":uds_client_exchange_common",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/uds",
         "//src/algorithms/protocol/uds:uds_service_ids",
         "//src/backend/flash:can_flash_uds_channel",
@@ -1152,7 +1150,6 @@ fastecu_portable_gtest(
         ":denso_beef_can_common",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_cancellation_token",
-        "//src/backend/ports/testing:result_matchers",
     ],
 )
 

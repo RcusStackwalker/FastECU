@@ -5,7 +5,6 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/ports/testing/fake_cancellation_token.h"
-#include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::flash
 {
@@ -26,6 +25,8 @@ TEST(DensoBeefCanCommonTest, BeefRequestFramesOpcodeAndPayloadLength)
     EXPECT_EQ(framed[3], 0x04);
     EXPECT_EQ(framed[4], 0xB6);
     EXPECT_EQ(framed[5], 0x01);
+    EXPECT_EQ(framed[6], 0x02);
+    EXPECT_EQ(framed[7], 0x03);
 }
 
 TEST(DensoBeefCanCommonTest, BeefRequestWithNoPayloadStillCountsTheOpcode)
