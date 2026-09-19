@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <vector>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
@@ -37,6 +38,63 @@ bytes::Bytes blockResponse(std::uint32_t length, bytes::Byte fill)
     response[4] = 0xe0;
     return response;
 }
+
+// The scripted transport validates writes and reads against two independent
+// queues (see ScriptedKlineFlashTransport::write()/read()) that are never
+// cross-checked against each other's call order, and FakeClock's sleep is
+// instantaneous and invisible to the transport. So nothing else in this
+// suite -- not even a test that swaps the two calls or drops a sleep in
+// exchange_block_read() -- would fail on wrong ordering: writesConsumed(),
+// scriptConsumed(), and the ROM bytes would all still come out right. These
+// two mocks trace the actual call order so PacesEachBlockReadAsWriteThen
+// DelayThenReadThenDelay below can pin it: this family's 100ms gap between
+// request and response is legacy wire timing on an unqualified 4800-baud
+// K-Line path, and the point of the pacing code is to reproduce that timing
+// exactly, not to be "improved".
+enum class Step
+{
+    Write,
+    Read,
+    Sleep
+};
+
+class TracingTransport final : public ScriptedKlineFlashTransport
+{
+  public:
+    TracingTransport(ScriptedTransportInitialState initial_state, std::vector<Step>& trace)
+        : ScriptedKlineFlashTransport(initial_state), trace_(trace)
+    {
+    }
+    Result<std::size_t> write(bytes::ByteView data) override
+    {
+        trace_.push_back(Step::Write);
+        return ScriptedKlineFlashTransport::write(data);
+    }
+    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
+    {
+        trace_.push_back(Step::Read);
+        return ScriptedKlineFlashTransport::read(timeout, cancellation);
+    }
+
+  private:
+    std::vector<Step>& trace_;
+};
+
+class TracingClock final : public FakeClock
+{
+  public:
+    explicit TracingClock(std::vector<Step>& trace) : trace_(trace)
+    {
+    }
+    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& token) override
+    {
+        trace_.push_back(Step::Sleep);
+        return FakeClock::sleep(duration, token);
+    }
+
+  private:
+    std::vector<Step>& trace_;
+};
 
 bytes::Bytes idResponse()
 {
@@ -227,5 +285,48 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsABlockResponseOfTheWrongLength)
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+}
+
+// See the comment on Step/TracingTransport/TracingClock above for why this
+// test exists: it is the only one in this suite that can distinguish the
+// legacy write/delay(100)/read/delay(100) order from any other interleaving
+// of the same four calls.
+TEST(SubaruTcuHitachiM32rKlineExecutor, PacesEachBlockReadAsWriteThenDelayThenReadThenDelay)
+{
+    std::vector<Step> trace;
+    TracingTransport transport{ScriptedTransportInitialState::Open, trace};
+    scriptConnect(transport);
+    {
+        const auto section = transport.section("read chunks");
+        for (std::uint32_t address = 0; address < kRomSize; address += kBlockSize)
+        {
+            const std::uint32_t length = std::min(kBlockSize, kRomSize - address);
+            transport.exchange(
+                frame({0xa0, 0x00, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
+                       static_cast<bytes::Byte>(address), static_cast<bytes::Byte>(length - 1)}),
+                blockResponse(length, 0x5a));
+        }
+    }
+
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    TracingClock clock{trace};
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+    const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_EQ(trace.size(), 10U + 4U * 5462U);
+    // Connect: five plain exchange() round trips -- Write/Read, no Sleep.
+    for (std::size_t i = 0; i < 10U; i += 2)
+    {
+        EXPECT_EQ(trace[i], Step::Write);
+        EXPECT_EQ(trace[i + 1], Step::Read);
+    }
+    // First block read: Write, Sleep, Read, Sleep -- exactly the legacy
+    // send_sid_a0_block_read() order, with the gap between write and read.
+    EXPECT_EQ(trace[10], Step::Write);
+    EXPECT_EQ(trace[11], Step::Sleep);
+    EXPECT_EQ(trace[12], Step::Read);
+    EXPECT_EQ(trace[13], Step::Sleep);
 }
 } // namespace
