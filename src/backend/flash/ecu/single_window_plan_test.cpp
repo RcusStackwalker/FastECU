@@ -160,6 +160,11 @@ TEST(SingleWindowPlan, ValidateAcceptsAPlanTheBuilderProduced)
     EXPECT_THAT(validate_single_window_plan(kSpec, *plan), fastecu::testing::IsOk());
 }
 
+TEST(SingleWindowPlan, SupportsWriteDefaultsToTrue)
+{
+    EXPECT_TRUE(SingleWindowPlanSpec{}.supports_write);
+}
+
 TEST(SingleWindowPlan, DistinctReadAndWriteWindowsAreHonoured)
 {
     static constexpr MemoryRegion kRead{0x8000, 0x78000};

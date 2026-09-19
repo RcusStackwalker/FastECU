@@ -20,7 +20,6 @@ qt_cc_library(
         "jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.cpp",
         "legacy_flash_utils.cpp",
         "tcu/flash_tcu_subaru_hitachi_m32r_can_operation.cpp",
-        "tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.cpp",
     ],
     # FlashOperationWorker (the shared QThread base) and the bdm/bootmode/ecu/
     # jtag/tcu legacy Qt operation classes, relocated together from
@@ -38,7 +37,6 @@ qt_cc_library(
         "flash_operation_worker.h",
         "jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.h",
         "tcu/flash_tcu_subaru_hitachi_m32r_can_operation.h",
-        "tcu/flash_tcu_subaru_hitachi_m32r_kline_operation.h",
     ],
     copts = COMMON_COPTS,
     # Every *.h in the six directories (root + five families) is in

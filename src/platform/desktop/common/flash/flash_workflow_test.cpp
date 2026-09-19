@@ -195,6 +195,7 @@ class FlashWorkflowTest : public QObject
     void successfulReadBytesAreAcceptedAutomatically();
     void subaruMitsuPropagatesRomId();
     void subaruHitachiRoutesBothModesAndPropagatesReadResult();
+    void routesTcuHitachiM32rKlineReadOnly();
     void coltWriteUsesColtSpecificSafetyPrompts();
     void mc68BdmProtocolIsNotClaimedByPortableRoute();
     void mc68TpuProtocolIsClaimedByPortableRoute();
@@ -244,6 +245,7 @@ void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone(
                                                                   "sub_ecu_eeprom_denso_sh7058_can",
                                                                   "sub_ecu_eeprom_denso_sh7058_can_diesel",
                                                                   "sub_ecu_hitachi_m32r_can",
+                                                                  "sub_tcu_hitachi_m32r_kline",
                                                                   "sub_tcu_cvt_hitachi_m32r_can",
                                                                   "sub_tcu_cvt_mitsu_mh8111_can",
                                                                   "sub_tcu_cvt_mitsu_mh8104_can",
@@ -327,6 +329,35 @@ void FlashWorkflowTest::subaruHitachiRoutesBothModesAndPropagatesReadResult()
         QCOMPARE(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({0x5a}));
         QCOMPARE(std::get<FlashCompletedStep>(done).rom_id, std::string("123456789A_"));
     }
+}
+
+void FlashWorkflowTest::routesTcuHitachiM32rKlineReadOnly()
+{
+    auto input = request("sub_tcu_hitachi_m32r_kline");
+    input.mcu = "M32R_512KB";
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
+    workflow->submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}, .rom_id = "123456789A_"});
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({0x5a}));
+    QCOMPARE(std::get<FlashCompletedStep>(done).rom_id, std::string("123456789A_"));
+
+    // Write is rejected by the plan builder (the family is read-only), so the
+    // workflow's very first step must be a failure rather than a prompt or an
+    // attempt -- the legacy path silently "succeeded" while writing nothing.
+    auto write_request = request("sub_tcu_hitachi_m32r_kline");
+    write_request.mcu = "M32R_512KB";
+    write_request.operation = FlashOperation::Write;
+    write_request.image = bytes::Bytes(0x80000, 0x00);
+    auto write_workflow = FlashWorkflowFactory::tryCreate(std::move(write_request));
+    QVERIFY(write_workflow != nullptr);
+    const auto write_step = write_workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(write_step));
+    QCOMPARE(std::get<FlashFailureStep>(write_step).error.kind, ErrorKind::Unsupported);
 }
 
 void FlashWorkflowTest::coltWriteUsesColtSpecificSafetyPrompts()

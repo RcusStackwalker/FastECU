@@ -49,6 +49,11 @@ cc_library(
 )
 
 cc_library(
+    name = "subaru_tcu_hitachi_m32r_kline_types",
+    hdrs = ["subaru_tcu_hitachi_m32r_kline_types.h"],
+)
+
+cc_library(
     name = "subaru_denso_mc68hc16y5_02_types",
     hdrs = ["subaru_denso_mc68hc16y5_02_types.h"],
 )
@@ -655,6 +660,59 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_hitachi_m32r_kline_plan",
         "//src/backend/flash/ecu/testing:single_window_plan_cases",
+    ],
+)
+
+cc_library(
+    name = "subaru_tcu_hitachi_m32r_kline_plan",
+    srcs = ["subaru_tcu_hitachi_m32r_kline_plan.cpp"],
+    hdrs = ["subaru_tcu_hitachi_m32r_kline_plan.h"],
+    deps = [
+        ":single_window_plan",
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_tcu_hitachi_m32r_kline_plan_test",
+    srcs = ["subaru_tcu_hitachi_m32r_kline_plan_test.cpp"],
+    deps = [
+        ":subaru_tcu_hitachi_m32r_kline_plan",
+        "//src/backend/flash/ecu/testing:single_window_plan_cases",
+    ],
+)
+
+cc_library(
+    name = "subaru_tcu_hitachi_m32r_kline_executor",
+    srcs = ["subaru_tcu_hitachi_m32r_kline_executor.cpp"],
+    hdrs = ["subaru_tcu_hitachi_m32r_kline_executor.h"],
+    deps = [
+        ":subaru_tcu_hitachi_m32r_kline_plan",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol/uds:uds_service_ids",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_tcu_hitachi_m32r_kline_executor_test",
+    srcs = ["subaru_tcu_hitachi_m32r_kline_executor_test.cpp"],
+    deps = [
+        ":subaru_hitachi_m32r_kline_plan",
+        ":subaru_tcu_hitachi_m32r_kline_executor",
+        ":subaru_tcu_hitachi_m32r_kline_plan",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
     ],
 )
 
