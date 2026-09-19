@@ -19,10 +19,15 @@ using namespace bytes::literals;
 using namespace std::chrono_literals;
 
 // The following four constants back the read_rom loop below; only
-// kConnectTimeoutMs is used by connect_bootloader().
+// kConnectTimeoutMs and kConnectDelay are used by connect_bootloader().
 constexpr std::uint32_t kRomSize = 0x80000;
 // Legacy serial_read_timeout, used by every connect_bootloader() exchange.
 constexpr int kConnectTimeoutMs = 2000;
+// Legacy connect_bootloader() opens with delay(100) -- after the port open
+// and the 4800-baud change, before the first 0xBF write. This family has no
+// hardware qualification, so the settling gap is reproduced rather than
+// dropped.
+constexpr auto kConnectDelay = 100ms;
 // Legacy receive_timeout, used by send_sid_a0_block_read().
 constexpr int kBlockTimeoutMs = 500;
 // The delay(100) on each side of send_sid_a0_block_read()'s read.
@@ -92,9 +97,15 @@ Result<bytes::Bytes> exchange(IKlineFlashTransport& transport, const ICancellati
 // legacy order exactly rather than "improving" it. Keeps the same three
 // cancellation checkpoints as exchange_optional (before write, after write,
 // after read); clock.sleep() itself also observes cancellation.
-Result<bytes::Bytes> exchange_block_read(IKlineFlashTransport& transport, IClock& clock,
-                                         const ICancellationToken& cancellation, bytes::ByteView payload,
-                                         const SubaruTcuHitachiM32rKlinePlan& p, int timeout)
+//
+// Returns an engaged optional for a frame and a disengaged one when the read
+// produced no frame at all. A missing frame is not an error here: the legacy
+// five-attempt loop treated `received.length() == 0` exactly like any other
+// too-short response -- a spent attempt -- so read_rom must be able to retry
+// it. Transport errors and cancellation still come back as errors.
+Result<std::optional<bytes::Bytes>> exchange_block_read(IKlineFlashTransport& transport, IClock& clock,
+                                                        const ICancellationToken& cancellation, bytes::ByteView payload,
+                                                        const SubaruTcuHitachiM32rKlinePlan& p, int timeout)
 {
     if (cancellation.cancelled())
     {
@@ -131,11 +142,7 @@ Result<bytes::Bytes> exchange_block_read(IKlineFlashTransport& transport, IClock
     {
         return std::unexpected(slept.error());
     }
-    if (!response->has_value())
-    {
-        return fail(ErrorKind::Timeout, "no response from TCU");
-    }
-    return std::move(**response);
+    return std::move(*response);
 }
 
 Status expect_prefix(bytes::ByteView response, std::initializer_list<bytes::Byte> prefix)
@@ -197,9 +204,15 @@ bytes::Bytes seed_key(bytes::ByteView seed)
     return SsmProtocol::calculateSeedKey(seed, index, SsmProtocol::kIndexTransformationStock);
 }
 
-Result<std::string> connect_bootloader(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
-                                       const SubaruTcuHitachiM32rKlinePlan& p)
+Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& clock,
+                                       const ICancellationToken& cancellation, const SubaruTcuHitachiM32rKlinePlan& p)
 {
+    // Legacy connect_bootloader()'s opening delay(100), kept ahead of the
+    // first 0xBF write; clock.sleep() observes cancellation.
+    if (auto slept = clock.sleep(kConnectDelay, cancellation); !slept.has_value())
+    {
+        return std::unexpected(slept.error());
+    }
     auto id_response = exchange(transport, cancellation, bytes::Bytes{0xbf}, p, kConnectTimeoutMs);
     if (!id_response.has_value())
     {
@@ -294,7 +307,7 @@ Result<FlashExecutionResult> SubaruTcuHitachiM32rKlineExecutor::execute(const Fl
     {
         return std::unexpected(header.error());
     }
-    auto id = connect_bootloader(transport, cancellation, p);
+    auto id = connect_bootloader(transport, clock, cancellation, p);
     if (!id.has_value())
     {
         return std::unexpected(id.error());
@@ -330,6 +343,10 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, IClock& clock, co
         // read_a0_rom's retry loop: up to five attempts while the response is
         // too short to carry data. Each attempt keeps the legacy
         // write/delay(100)/read/delay(100) pacing via exchange_block_read.
+        // A read that produced no frame at all is a spent attempt, not a
+        // failure -- the legacy loop's `received.length() > 5` test absorbed
+        // an empty response the same way it absorbed a short one -- so only
+        // transport errors and cancellation abort the whole ROM read.
         std::optional<bytes::Bytes> block;
         for (int attempt = 0; attempt < kBlockAttempts; ++attempt)
         {
@@ -338,9 +355,13 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, IClock& clock, co
             {
                 return std::unexpected(response.error());
             }
-            if (response->size() > 5)
+            if (!response->has_value())
             {
-                block = std::move(*response);
+                continue;
+            }
+            if ((*response)->size() > 5)
+            {
+                block = std::move(**response);
                 break;
             }
         }

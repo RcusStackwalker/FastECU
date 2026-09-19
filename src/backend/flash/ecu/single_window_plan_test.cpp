@@ -160,7 +160,7 @@ TEST(SingleWindowPlan, ValidateAcceptsAPlanTheBuilderProduced)
     EXPECT_THAT(validate_single_window_plan(kSpec, *plan), fastecu::testing::IsOk());
 }
 
-TEST(SingleWindowPlan, SupportsWriteDefaultsToTrueAndGatesWriteWhenFalse)
+TEST(SingleWindowPlan, SupportsWriteDefaultsToTrue)
 {
     EXPECT_TRUE(SingleWindowPlanSpec{}.supports_write);
 }

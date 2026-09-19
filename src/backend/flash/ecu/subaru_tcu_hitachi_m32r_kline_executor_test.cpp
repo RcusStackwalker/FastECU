@@ -30,14 +30,51 @@ bytes::Bytes frame(bytes::Bytes payload)
     return SsmProtocol::addHeader(payload, 0xf0, 0x18);
 }
 
-// A scripted a0 block-read response: 5 header bytes, `length` data bytes
-// (filled with `fill`), 1 checksum byte -- the shape read_rom slices as
-// [5, size-1).
-bytes::Bytes blockResponse(std::uint32_t length, bytes::Byte fill)
+// The ROM byte the scripted TCU returns at `offset`. 31 is odd, so every
+// byte in a 256-byte run is distinct from its neighbours: a block-response
+// slice that moves by one at either end reconstructs different ROM content,
+// not merely content of a different length.
+bytes::Byte romByte(std::uint32_t offset)
 {
-    bytes::Bytes response(length + 6, fill);
-    response[4] = 0xe0;
+    return static_cast<bytes::Byte>(0x11U + offset * 31U);
+}
+
+// The trailing checksum byte of a block response. Deliberately a value
+// romByte() does not produce anywhere in the first or last block, so a slice
+// that keeps the checksum is visible in the asserted ROM contents.
+constexpr bytes::Byte kBlockChecksum = 0xc7;
+
+// A scripted a0 block-read response for `length` bytes at `address`: 5
+// header bytes, `length` data bytes, 1 checksum byte -- the shape read_rom
+// slices as [5, size-1). Header, payload and checksum all carry distinct,
+// recognizable values so the slice bounds are pinned by the ROM-content
+// assertions below (see expectRomBlock) rather than only by its size.
+bytes::Bytes blockResponse(std::uint32_t address, std::uint32_t length)
+{
+    bytes::Bytes response{0x80, 0xf0, 0x18, static_cast<bytes::Byte>(length + 1), 0xe0};
+    for (std::uint32_t i = 0; i < length; ++i)
+    {
+        response.push_back(romByte(address + i));
+    }
+    response.push_back(kBlockChecksum);
     return response;
+}
+
+// Asserts the reconstructed ROM carries exactly the `length` bytes the TCU
+// was scripted to return at `address`. Fails if read_rom's [5, size-1) slice
+// moves by one at either end: a low bound of 4 leads with the 0xe0 header
+// byte, and a high bound of size() trails with kBlockChecksum.
+void expectRomBlock(const bytes::Bytes& rom, std::uint32_t address, std::uint32_t length)
+{
+    ASSERT_GE(rom.size(), address + length);
+    bytes::Bytes expected;
+    expected.reserve(length);
+    for (std::uint32_t i = 0; i < length; ++i)
+    {
+        expected.push_back(romByte(address + i));
+    }
+    const auto begin = rom.begin() + static_cast<std::ptrdiff_t>(address);
+    EXPECT_EQ(bytes::Bytes(begin, begin + static_cast<std::ptrdiff_t>(length)), expected);
 }
 
 // The scripted transport validates writes and reads against two independent
@@ -201,7 +238,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, ConnectSendsTheFiveLegacyExchangesInOrde
             transport.exchange(
                 frame({0xa0, 0x00, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
                        static_cast<bytes::Byte>(address), static_cast<bytes::Byte>(length - 1)}),
-                blockResponse(length, 0x5a));
+                blockResponse(address, length));
         }
     }
 
@@ -214,6 +251,10 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, ConnectSendsTheFiveLegacyExchangesInOrde
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), kRomSize);
+    // Pins the [5, size-1) slice at both ends: the first block's leading byte
+    // and the tail block's trailing byte are what an off-by-one would eat.
+    expectRomBlock(*result->read_bytes, 0, kBlockSize);
+    expectRomBlock(*result->read_bytes, kRomSize - 32U, 32U);
     EXPECT_EQ(result->rom_id, std::string("123456789A_"));
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -233,7 +274,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, ReadsTheRomIn96ByteBlocksWithA32ByteTail
             transport.exchange(
                 frame({0xa0, 0x00, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
                        static_cast<bytes::Byte>(address), static_cast<bytes::Byte>(last_length - 1)}),
-                blockResponse(last_length, 0x5a));
+                blockResponse(address, last_length));
         }
     }
     EXPECT_EQ(blocks, 5462U);
@@ -248,6 +289,8 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, ReadsTheRomIn96ByteBlocksWithA32ByteTail
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), kRomSize);
+    expectRomBlock(*result->read_bytes, 0, kBlockSize);
+    expectRomBlock(*result->read_bytes, kRomSize - last_length, last_length);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -264,14 +307,14 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockUpToFiveTimes)
     {
         transport.exchange(request, bytes::Bytes{0x80, 0xf0, 0x18, 0x01, 0xe0});
     }
-    transport.exchange(request, blockResponse(kBlockSize, 0x5a));
+    transport.exchange(request, blockResponse(0, kBlockSize));
     for (std::uint32_t address = kBlockSize; address < kRomSize; address += kBlockSize)
     {
         const std::uint32_t length = std::min(kBlockSize, kRomSize - address);
         transport.exchange(
             frame({0xa0, 0x00, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
                    static_cast<bytes::Byte>(address), static_cast<bytes::Byte>(length - 1)}),
-            blockResponse(length, 0x5a));
+            blockResponse(address, length));
     }
 
     SubaruTcuHitachiM32rKlineExecutor executor;
@@ -282,6 +325,76 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockUpToFiveTimes)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->read_bytes->size(), kRomSize);
+    expectRomBlock(*result->read_bytes, 0, kBlockSize);
+}
+
+// A read that returns no frame at all is what DesktopKlineFlashTransport
+// hands back for an empty serial read, and it is the legacy
+// `received.length() == 0` case: a spent attempt, not a fatal error. This
+// pins that an empty read inside the block loop is retried rather than
+// ending the whole 5462-block ROM read with Timeout.
+TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockWhenAReadProducesNoFrame)
+{
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptConnect(transport);
+    const auto section = transport.section("read chunks");
+    const bytes::Bytes request = frame({0xa0, 0x00, 0x00, 0x00, 0x00, 0x5f});
+    // Attempts 1, 2 and 4 return no frame and attempt 3 a too-short frame;
+    // both kinds are spent attempts, so the fifth attempt still succeeds.
+    for (int attempt = 0; attempt < 2; ++attempt)
+    {
+        transport.expectWrite(request);
+        transport.queue_no_frame();
+    }
+    transport.exchange(request, bytes::Bytes{0x80, 0xf0, 0x18, 0x01, 0xe0});
+    transport.expectWrite(request);
+    transport.queue_no_frame();
+    transport.exchange(request, blockResponse(0, kBlockSize));
+    for (std::uint32_t address = kBlockSize; address < kRomSize; address += kBlockSize)
+    {
+        const std::uint32_t length = std::min(kBlockSize, kRomSize - address);
+        transport.exchange(
+            frame({0xa0, 0x00, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
+                   static_cast<bytes::Byte>(address), static_cast<bytes::Byte>(length - 1)}),
+            blockResponse(address, length));
+    }
+
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+    const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(result->read_bytes->size(), kRomSize);
+    expectRomBlock(*result->read_bytes, 0, kBlockSize);
+    expectRomBlock(*result->read_bytes, kRomSize - 32U, 32U);
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+// Five consecutive no-frame reads exhaust the block's attempts and land on
+// the same BadResponse path a run of too-short frames does -- never Timeout,
+// which would mean the first empty read had aborted the whole ROM read.
+TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenFiveConsecutiveBlockReadsProduceNoFrame)
+{
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptConnect(transport);
+    const auto section = transport.section("read chunks");
+    const bytes::Bytes request = frame({0xa0, 0x00, 0x00, 0x00, 0x00, 0x5f});
+    for (int attempt = 0; attempt < 5; ++attempt)
+    {
+        transport.expectWrite(request);
+        transport.queue_no_frame();
+    }
+
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+    const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    EXPECT_TRUE(transport.scriptConsumed());
 }
 
 // Deliberate divergence: the legacy appended nothing and returned
@@ -313,7 +426,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsABlockResponseOfTheWrongLength)
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     scriptConnect(transport);
     const auto section = transport.section("read chunks");
-    transport.exchange(frame({0xa0, 0x00, 0x00, 0x00, 0x00, 0x5f}), blockResponse(kBlockSize - 8, 0x5a));
+    transport.exchange(frame({0xa0, 0x00, 0x00, 0x00, 0x00, 0x5f}), blockResponse(0, kBlockSize - 8));
 
     SubaruTcuHitachiM32rKlineExecutor executor;
     FakeClock clock;
@@ -341,7 +454,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PacesEachBlockReadAsWriteThenDelayThenRe
             transport.exchange(
                 frame({0xa0, 0x00, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
                        static_cast<bytes::Byte>(address), static_cast<bytes::Byte>(length - 1)}),
-                blockResponse(length, 0x5a));
+                blockResponse(address, length));
         }
     }
 
@@ -352,19 +465,21 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PacesEachBlockReadAsWriteThenDelayThenRe
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_EQ(trace.size(), 10U + 4U * 5462U);
+    ASSERT_EQ(trace.size(), 1U + 10U + 4U * 5462U);
+    // Legacy connect_bootloader() opens with delay(100), before any traffic.
+    EXPECT_EQ(trace[0], Step::Sleep);
     // Connect: five plain exchange() round trips -- Write/Read, no Sleep.
-    for (std::size_t i = 0; i < 10U; i += 2)
+    for (std::size_t i = 1; i < 11U; i += 2)
     {
         EXPECT_EQ(trace[i], Step::Write);
         EXPECT_EQ(trace[i + 1], Step::Read);
     }
     // First block read: Write, Sleep, Read, Sleep -- exactly the legacy
     // send_sid_a0_block_read() order, with the gap between write and read.
-    EXPECT_EQ(trace[10], Step::Write);
-    EXPECT_EQ(trace[11], Step::Sleep);
-    EXPECT_EQ(trace[12], Step::Read);
-    EXPECT_EQ(trace[13], Step::Sleep);
+    EXPECT_EQ(trace[11], Step::Write);
+    EXPECT_EQ(trace[12], Step::Sleep);
+    EXPECT_EQ(trace[13], Step::Read);
+    EXPECT_EQ(trace[14], Step::Sleep);
 }
 
 // Proves the *inner* "cancelled after read" checkpoint in
@@ -392,7 +507,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, StopsPromptlyWhenCancelledMidRead)
             transport.exchange(
                 frame({0xa0, 0x00, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
                        static_cast<bytes::Byte>(address), static_cast<bytes::Byte>(length - 1)}),
-                blockResponse(length, 0x5a));
+                blockResponse(address, length));
         }
     }
 
@@ -404,27 +519,29 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, StopsPromptlyWhenCancelledMidRead)
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_LT(transport.writesConsumed(), 100U);
 
-    ASSERT_EQ(trace.size(), 21U);
+    ASSERT_EQ(trace.size(), 22U);
+    // Legacy connect_bootloader() opens with delay(100), before any traffic.
+    EXPECT_EQ(trace[0], Step::Sleep);
     // Connect: five plain exchange() round trips -- Write/Read, no Sleep.
-    for (std::size_t i = 0; i < 10U; i += 2)
+    for (std::size_t i = 1; i < 11U; i += 2)
     {
         EXPECT_EQ(trace[i], Step::Write);
         EXPECT_EQ(trace[i + 1], Step::Read);
     }
     // Blocks 1 and 2 complete in full: Write, Sleep, Read, Sleep each.
-    EXPECT_EQ(trace[10], Step::Write);
-    EXPECT_EQ(trace[11], Step::Sleep);
-    EXPECT_EQ(trace[12], Step::Read);
-    EXPECT_EQ(trace[13], Step::Sleep);
-    EXPECT_EQ(trace[14], Step::Write);
-    EXPECT_EQ(trace[15], Step::Sleep);
-    EXPECT_EQ(trace[16], Step::Read);
-    EXPECT_EQ(trace[17], Step::Sleep);
+    EXPECT_EQ(trace[11], Step::Write);
+    EXPECT_EQ(trace[12], Step::Sleep);
+    EXPECT_EQ(trace[13], Step::Read);
+    EXPECT_EQ(trace[14], Step::Sleep);
+    EXPECT_EQ(trace[15], Step::Write);
+    EXPECT_EQ(trace[16], Step::Sleep);
+    EXPECT_EQ(trace[17], Step::Read);
+    EXPECT_EQ(trace[18], Step::Sleep);
     // Block 3 lands the cancellation on its read (the 8th overall) and
     // stops there -- no trailing Sleep.
-    EXPECT_EQ(trace[18], Step::Write);
-    EXPECT_EQ(trace[19], Step::Sleep);
-    EXPECT_EQ(trace[20], Step::Read);
+    EXPECT_EQ(trace[19], Step::Write);
+    EXPECT_EQ(trace[20], Step::Sleep);
+    EXPECT_EQ(trace[21], Step::Read);
 }
 
 // A plan built for the ECU (non-TCU) Hitachi M32R K-Line family must be
