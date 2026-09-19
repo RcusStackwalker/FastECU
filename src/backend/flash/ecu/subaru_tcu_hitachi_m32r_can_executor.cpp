@@ -12,6 +12,7 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
+#include "src/backend/flash/flash_device_lookup.h"
 
 namespace fastecu::flash
 {
@@ -20,12 +21,30 @@ namespace
 using namespace std::chrono_literals;
 
 constexpr std::uint32_t kDiagnosticRequestId = 0x7E0;
-// Legacy serial_read_timeout, used by every connect_bootloader() read.
-constexpr auto kConnectTimeout = 2000ms;
+// Legacy serial_read_timeout (operation.h:46): every connect_bootloader() and
+// read_mem() read, and the per-block 0x34 window setup in reflash_block.
+constexpr auto kResponseTimeout = 2000ms;
+// Legacy receive_timeout (operation.h:45): the 0xB6 data-frame read only
+// (operation.cpp:781).
+constexpr auto kDataFrameTimeout = 500ms;
+// Legacy serial_read_long_timeout (operation.h:50): the retried 0x37 close and
+// 0x31 02 02 01 checksum reads (operation.cpp:845, 893).
+constexpr auto kRetryTimeout = 800ms;
+// Legacy erase_mem reads with a literal 200 ms (operation.cpp:957).
+constexpr auto kEraseTimeout = 200ms;
 constexpr auto kShortDelay = 50ms;
 constexpr auto kJumpDelay = 200ms;
 // Legacy read_mem's delay(1) after every dumped page (operation.cpp:553).
 constexpr auto kPageDelay = 1ms;
+// Legacy reflash_block's delay(200) before every 0xB6 read (operation.cpp:780)
+// and its delay(100) between a closed block and its checksum (line 886).
+constexpr auto kDataFrameDelay = 200ms;
+constexpr auto kChecksumDelay = 100ms;
+// Legacy erase_mem's delay(500) before the erase read (operation.cpp:953).
+constexpr auto kEraseDelay = 500ms;
+// Legacy reflash_block retries both the close and the checksum 20 times
+// (operation.cpp:842, 890); exhausting either fails the block.
+constexpr int kRetryAttempts = 20;
 // Every read_mem response is framed by the four-byte CAN id plus its one-byte
 // service id; legacy strips exactly those five before keeping the payload
 // (operation.cpp:519, received.remove(0, 5)).
@@ -39,9 +58,19 @@ constexpr std::array<std::uint16_t, 16> kSeedKeyTable{
 };
 
 // Legacy decrypt_payload (operation.cpp:1021): encrypt_payload's four words in
-// reverse order. Only the read path uses it; the write path takes the encrypt
-// table and lands in task 4.
+// reverse order. The read path decrypts what the kernel dumps; the write path
+// encrypts the image before the first frame goes out.
 constexpr std::array<std::uint16_t, 4> kDecryptTable{0x1075, 0x9E51, 0x8BEF, 0x3B61};
+// Legacy encrypt_payload (operation.cpp:999).
+constexpr std::array<std::uint16_t, 4> kEncryptTable{0x3B61, 0x8BEF, 0x9E51, 0x1075};
+
+// Legacy write_mem's block_modified table (operation.cpp:633-634): 16 entries
+// for an 11-block M32R_512KB, so entries 11-15 are never consulted. Blocks 0-2
+// (0x0000, 0x4000, 0x6000) hold the bootloader and are deliberately left
+// alone; only blocks 3-10 (0x8000 through 0x80000) are reflashed.
+constexpr std::array<bool, 16> kBlockModified{
+    false, false, false, true, true, true, true, true, true, true, true, false, false, false, false, false,
+};
 
 bytes::Bytes framed(bytes::ByteView payload, std::uint32_t request_id)
 {
@@ -51,10 +80,14 @@ bytes::Bytes framed(bytes::ByteView payload, std::uint32_t request_id)
     return result;
 }
 
+// read_timeout is explicit at every call site: the connect and dump paths all
+// use the 2000 ms serial_read_timeout, while the write path mixes 200 ms
+// (erase), 500 ms (data frames) and 800 ms (close/checksum retries).
 Result<std::optional<bytes::Bytes>> exchange_optional(ICanFlashTransport& transport, IClock& clock,
                                                       const ICancellationToken& cancellation, bytes::ByteView payload,
                                                       std::uint32_t request_id,
-                                                      std::chrono::milliseconds delay_before_read)
+                                                      std::chrono::milliseconds delay_before_read,
+                                                      std::chrono::milliseconds read_timeout)
 {
     if (cancellation.cancelled())
     {
@@ -75,7 +108,7 @@ Result<std::optional<bytes::Bytes>> exchange_optional(ICanFlashTransport& transp
             return std::unexpected(slept.error());
         }
     }
-    Result<std::optional<bytes::Bytes>> response = transport.read(kConnectTimeout, cancellation);
+    Result<std::optional<bytes::Bytes>> response = transport.read(read_timeout, cancellation);
     if (!response.has_value())
     {
         return std::unexpected(response.error());
@@ -89,10 +122,10 @@ Result<std::optional<bytes::Bytes>> exchange_optional(ICanFlashTransport& transp
 
 Result<bytes::Bytes> exchange(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                               bytes::ByteView payload, std::uint32_t request_id,
-                              std::chrono::milliseconds delay_before_read)
+                              std::chrono::milliseconds delay_before_read, std::chrono::milliseconds read_timeout)
 {
     Result<std::optional<bytes::Bytes>> response =
-        exchange_optional(transport, clock, cancellation, payload, request_id, delay_before_read);
+        exchange_optional(transport, clock, cancellation, payload, request_id, delay_before_read, read_timeout);
     if (!response.has_value())
     {
         return std::unexpected(response.error());
@@ -121,9 +154,10 @@ Status expect_prefix(bytes::ByteView response, std::initializer_list<bytes::Byte
 Result<bytes::Bytes> request_prefix(ICanFlashTransport& transport, IClock& clock,
                                     const ICancellationToken& cancellation, bytes::ByteView request,
                                     std::uint32_t request_id, std::chrono::milliseconds delay_before_read,
-                                    std::initializer_list<bytes::Byte> expected)
+                                    std::chrono::milliseconds read_timeout, std::initializer_list<bytes::Byte> expected)
 {
-    Result<bytes::Bytes> response = exchange(transport, clock, cancellation, request, request_id, delay_before_read);
+    Result<bytes::Bytes> response =
+        exchange(transport, clock, cancellation, request, request_id, delay_before_read, read_timeout);
     if (!response.has_value())
     {
         return std::unexpected(response.error());
@@ -135,15 +169,14 @@ Result<bytes::Bytes> request_prefix(ICanFlashTransport& transport, IClock& clock
     return response;
 }
 
-Result<std::optional<bytes::Bytes>> non_fatal_prefix(ICanFlashTransport& transport, IClock& clock,
-                                                     const ICancellationToken& cancellation, IEventSink& events,
-                                                     bytes::ByteView request, std::uint32_t request_id,
-                                                     std::chrono::milliseconds delay_before_read,
-                                                     std::initializer_list<bytes::Byte> expected,
-                                                     std::string_view label)
+Result<std::optional<bytes::Bytes>>
+non_fatal_prefix(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                 IEventSink& events, bytes::ByteView request, std::uint32_t request_id,
+                 std::chrono::milliseconds delay_before_read, std::chrono::milliseconds read_timeout,
+                 std::initializer_list<bytes::Byte> expected, std::string_view label)
 {
     Result<std::optional<bytes::Bytes>> response =
-        exchange_optional(transport, clock, cancellation, request, request_id, delay_before_read);
+        exchange_optional(transport, clock, cancellation, request, request_id, delay_before_read, read_timeout);
     if (!response.has_value())
     {
         // A port error or cancellation is not an ECU content mismatch and
@@ -174,8 +207,8 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
     // Step 1: a matching response means the resident kernel is already live
     // and the remaining seven exchanges must not be sent. A missing or
     // non-matching frame means normal initialization should continue.
-    Result<std::optional<bytes::Bytes>> alive =
-        exchange_optional(transport, clock, cancellation, bytes::Bytes{0x31, 0x02, 0x02, 0x01}, plan.request_id, 0ms);
+    Result<std::optional<bytes::Bytes>> alive = exchange_optional(
+        transport, clock, cancellation, bytes::Bytes{0x31, 0x02, 0x02, 0x01}, plan.request_id, 0ms, kResponseTimeout);
     if (!alive.has_value())
     {
         return std::unexpected(alive.error());
@@ -197,7 +230,7 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
     // Steps 2 and 3: identity mismatches are diagnostic only in legacy.
     Result<std::optional<bytes::Bytes>> tcu_id =
         non_fatal_prefix(transport, clock, cancellation, events, bytes::Bytes{0xAA}, kDiagnosticRequestId, kShortDelay,
-                         {0xEA}, "TCU ID");
+                         kResponseTimeout, {0xEA}, "TCU ID");
     if (!tcu_id.has_value())
     {
         return std::unexpected(tcu_id.error());
@@ -225,7 +258,7 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
 
     Result<std::optional<bytes::Bytes>> cal_id =
         non_fatal_prefix(transport, clock, cancellation, events, bytes::Bytes{0x09, 0x04}, kDiagnosticRequestId,
-                         kShortDelay, {0x49, 0x04}, "CAL ID");
+                         kShortDelay, kResponseTimeout, {0x49, 0x04}, "CAL ID");
     if (!cal_id.has_value())
     {
         return std::unexpected(cal_id.error());
@@ -246,8 +279,9 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
     }
 
     // Step 4: enter the extended diagnostic session; mismatch is fatal.
-    if (Result<bytes::Bytes> session = request_prefix(transport, clock, cancellation, bytes::Bytes{0x10, 0x03},
-                                                      kDiagnosticRequestId, kShortDelay, {0x50, 0x03});
+    if (Result<bytes::Bytes> session =
+            request_prefix(transport, clock, cancellation, bytes::Bytes{0x10, 0x03}, kDiagnosticRequestId, kShortDelay,
+                           kResponseTimeout, {0x50, 0x03});
         !session.has_value())
     {
         return std::unexpected(session.error());
@@ -255,8 +289,9 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
 
     // Step 5: request the four-byte seed. The prefix alone only guarantees
     // six framed bytes, so guard the indices 6..9 explicitly.
-    Result<bytes::Bytes> seed_response = request_prefix(transport, clock, cancellation, bytes::Bytes{0x27, 0x01},
-                                                        kDiagnosticRequestId, kShortDelay, {0x67, 0x01});
+    Result<bytes::Bytes> seed_response =
+        request_prefix(transport, clock, cancellation, bytes::Bytes{0x27, 0x01}, kDiagnosticRequestId, kShortDelay,
+                       kResponseTimeout, {0x67, 0x01});
     if (!seed_response.has_value())
     {
         return std::unexpected(seed_response.error());
@@ -270,8 +305,9 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
     bytes::Bytes key_request{0x27, 0x02};
     const bytes::Bytes key = seed_key(bytes::ByteView{*seed_response}.subspan(6, 4));
     key_request.insert(key_request.end(), key.begin(), key.end());
-    if (Result<bytes::Bytes> key_response = request_prefix(transport, clock, cancellation, key_request,
-                                                           kDiagnosticRequestId, kShortDelay, {0x67, 0x02});
+    if (Result<bytes::Bytes> key_response =
+            request_prefix(transport, clock, cancellation, key_request, kDiagnosticRequestId, kShortDelay,
+                           kResponseTimeout, {0x67, 0x02});
         !key_response.has_value())
     {
         return std::unexpected(key_response.error());
@@ -281,7 +317,7 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
     // commented out), but preserves the 200 ms delay before the read.
     Result<std::optional<bytes::Bytes>> jump =
         non_fatal_prefix(transport, clock, cancellation, events, bytes::Bytes{0x10, 0x02}, plan.request_id, kJumpDelay,
-                         {0x50, 0x02}, "kernel jump");
+                         kResponseTimeout, {0x50, 0x02}, "kernel jump");
     if (!jump.has_value())
     {
         return std::unexpected(jump.error());
@@ -296,7 +332,7 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
     // beyond its QByteArray, which does not extend under Qt 6.
     if (Result<bytes::Bytes> recheck =
             request_prefix(transport, clock, cancellation, bytes::Bytes{0x31, 0x02, 0x02, 0x01}, plan.request_id, 0ms,
-                           {0x71, 0x02, 0x02, 0x03});
+                           kResponseTimeout, {0x71, 0x02, 0x02, 0x03});
         !recheck.has_value())
     {
         return std::unexpected(recheck.error());
@@ -321,7 +357,7 @@ Result<bytes::Bytes> read_rom(ICanFlashTransport& transport, IClock& clock, cons
     bytes::appendU24Be(window_request, region.start);
     bytes::appendU24Be(window_request, region.length);
     if (Result<bytes::Bytes> window = request_prefix(transport, clock, cancellation, window_request, plan.request_id,
-                                                     0ms, {0x74, 0x20, 0x01, 0x04});
+                                                     0ms, kResponseTimeout, {0x74, 0x20, 0x01, 0x04});
         !window.has_value())
     {
         return std::unexpected(window.error());
@@ -341,8 +377,8 @@ Result<bytes::Bytes> read_rom(ICanFlashTransport& transport, IClock& clock, cons
         const std::uint32_t address = region.start + offset;
         bytes::Bytes page_request{0xB7};
         bytes::appendU24Be(page_request, address);
-        Result<bytes::Bytes> page =
-            request_prefix(transport, clock, cancellation, page_request, plan.request_id, 0ms, {0xF7});
+        Result<bytes::Bytes> page = request_prefix(transport, clock, cancellation, page_request, plan.request_id, 0ms,
+                                                   kResponseTimeout, {0xF7});
         if (!page.has_value())
         {
             return std::unexpected(page.error());
@@ -369,8 +405,9 @@ Result<bytes::Bytes> read_rom(ICanFlashTransport& transport, IClock& clock, cons
     events.log(LogLevel::Info, "Sending stop command...");
     // Legacy logs a bad or missing stop answer and carries on: both of its
     // `return STATUS_ERROR` lines are commented out (lines 590 and 597).
-    Result<std::optional<bytes::Bytes>> stop = non_fatal_prefix(
-        transport, clock, cancellation, events, bytes::Bytes{0x37}, plan.request_id, 0ms, {0x77}, "dump stop");
+    Result<std::optional<bytes::Bytes>> stop =
+        non_fatal_prefix(transport, clock, cancellation, events, bytes::Bytes{0x37}, plan.request_id, 0ms,
+                         kResponseTimeout, {0x77}, "dump stop");
     if (!stop.has_value())
     {
         return std::unexpected(stop.error());
@@ -384,6 +421,206 @@ Result<bytes::Bytes> read_rom(ICanFlashTransport& transport, IClock& clock, cons
                                                                  kDecryptTable, SsmProtocol::kIndexTransformationStock);
     image.insert(image.end(), decrypted.begin(), decrypted.end());
     return image;
+}
+
+// Legacy erase_mem (operation.cpp:925-966).
+Status erase_flash(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                   IEventSink& events, const SubaruTcuHitachiM32rCanPlan& plan)
+{
+    events.log(LogLevel::Info, "Erasing TCU ROM...");
+    // Deliberate divergence 5, the most dangerous defect in the family: legacy
+    // waited 500 ms, read with a 200 ms timeout for a multi-second erase, then
+    // indexed received.at(4), at(5) and at(6) with no length guard, and its
+    // `return STATUS_ERROR` was commented out (operation.cpp:963). A failed,
+    // short or absent erase was logged and reflash proceeded onto
+    // possibly-unerased flash. Here any of the three stops the operation
+    // before a single 0x34 or 0xB6 frame is sent. The delay, the timeout and
+    // the expected bytes are legacy's.
+    if (Result<bytes::Bytes> erased =
+            request_prefix(transport, clock, cancellation, bytes::Bytes{0x31, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF},
+                           plan.request_id, kEraseDelay, kEraseTimeout, {0x31, 0x02, 0x01});
+        !erased.has_value())
+    {
+        events.log(LogLevel::Error, "Erasing error! Do not panic, do not reset the TCU immediately. The kernel is "
+                                    "most likely still running and receiving commands!");
+        return std::unexpected(erased.error());
+    }
+    return {};
+}
+
+// Legacy reflash_block (operation.cpp:712-923).
+Status reflash_block(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                     IEventSink& events, const SubaruTcuHitachiM32rCanPlan& plan, const flashblock& block,
+                     bytes::ByteView encrypted, std::uint32_t& written, std::uint32_t total)
+{
+    const std::uint32_t frame_size = plan.write_frame_size;
+    const std::uint32_t frames = block.len / frame_size;
+    // Legacy end_addr - start_address: whole frames only (operation.cpp:730).
+    const std::uint32_t data_len = frames * frame_size;
+    // Defensive, and unreachable on the validated M32R_512KB geometry: the
+    // plan validator pins both the MCU and the 0x80000 image size, so every
+    // flashed block lies inside the encrypted image. Legacy indexed
+    // newdata[i + blockaddr] with no such check (operation.cpp:775); this
+    // makes a future geometry change fail cleanly instead of reading out of
+    // bounds while talking to flash hardware.
+    if (block.start > encrypted.size() || data_len > encrypted.size() - block.start)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("block at 0x{:08X} lies outside the 0x{:X}-byte image", block.start, encrypted.size()));
+    }
+    events.log(LogLevel::Info, std::format("Flash block addr: 0x{:08X} len: 0x{:08X}", block.start, block.len));
+
+    events.log(LogLevel::Info, "Setting flash start & length...");
+    bytes::Bytes window_request{0x34, 0x04, 0x33};
+    bytes::appendU24Be(window_request, block.start);
+    bytes::appendU24Be(window_request, data_len);
+    if (Result<bytes::Bytes> window = request_prefix(transport, clock, cancellation, window_request, plan.request_id,
+                                                     0ms, kResponseTimeout, {0x74});
+        !window.has_value())
+    {
+        return std::unexpected(window.error());
+    }
+
+    for (std::uint32_t frame = 0; frame < frames; ++frame)
+    {
+        // Legacy's stopRequested() check at the top of the frame loop
+        // (operation.cpp:756), which returned STATUS_SUCCESS and so reported a
+        // cancelled block as reflashed.
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "cancelled during block write");
+        }
+        const std::uint32_t address = block.start + (frame * frame_size);
+        bytes::Bytes data_request{0xB6};
+        bytes::appendU24Be(data_request, address);
+        const auto offset = static_cast<std::ptrdiff_t>(address);
+        data_request.insert(data_request.end(), encrypted.begin() + offset,
+                            encrypted.begin() + offset + static_cast<std::ptrdiff_t>(frame_size));
+        if (Result<bytes::Bytes> written_frame =
+                request_prefix(transport, clock, cancellation, data_request, plan.request_id, kDataFrameDelay,
+                               kDataFrameTimeout, {0xF6});
+            !written_frame.has_value())
+        {
+            return std::unexpected(written_frame.error());
+        }
+        written += frame_size;
+        events.progress(static_cast<int>(written), static_cast<int>(total));
+    }
+
+    events.log(LogLevel::Info, "Closing out flashing of this block...");
+    // Legacy retries the close up to 20 times; one non-0x77 or absent reply is
+    // logged and retried (both `return STATUS_ERROR` lines are commented out,
+    // operation.cpp:868), but exhausting the 20 attempts fails the block
+    // before the checksum is ever asked for (operation.cpp:881-884).
+    bool closed = false;
+    for (int attempt = 0; attempt < kRetryAttempts && !closed; ++attempt)
+    {
+        Result<std::optional<bytes::Bytes>> close =
+            non_fatal_prefix(transport, clock, cancellation, events, bytes::Bytes{0x37}, plan.request_id, 0ms,
+                             kRetryTimeout, {0x77}, "block close");
+        if (!close.has_value())
+        {
+            return std::unexpected(close.error());
+        }
+        closed = close->has_value();
+    }
+    if (!closed)
+    {
+        return fail(ErrorKind::BadResponse,
+                    std::format("block at 0x{:08X} did not close after {} attempts", block.start, kRetryAttempts));
+    }
+
+    if (const Status slept = clock.sleep(kChecksumDelay, cancellation); !slept.has_value())
+    {
+        return std::unexpected(slept.error());
+    }
+
+    events.log(LogLevel::Info, "Verifying checksum...");
+    // The 0x71 02 02 answer is the block's only success condition: legacy
+    // returns STATUS_SUCCESS from inside this loop and STATUS_ERROR from below
+    // it (operation.cpp:890-922). A short, wrong or absent answer is retried.
+    for (int attempt = 0; attempt < kRetryAttempts; ++attempt)
+    {
+        Result<std::optional<bytes::Bytes>> checksum =
+            non_fatal_prefix(transport, clock, cancellation, events, bytes::Bytes{0x31, 0x02, 0x02, 0x01},
+                             plan.request_id, 0ms, kRetryTimeout, {0x71, 0x02, 0x02}, "block checksum");
+        if (!checksum.has_value())
+        {
+            return std::unexpected(checksum.error());
+        }
+        if (checksum->has_value())
+        {
+            events.log(LogLevel::Info, std::format("Block at 0x{:08X} reflash complete.", block.start));
+            return {};
+        }
+    }
+    return fail(ErrorKind::BadResponse,
+                std::format("block at 0x{:08X} checksum failed after {} attempts", block.start, kRetryAttempts));
+}
+
+// Legacy write_mem (operation.cpp:624-702).
+Status write_rom(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                 IEventSink& events, const SubaruTcuHitachiM32rCanPlan& plan, const FlashPlan& flash_plan)
+{
+    const flashdev_t *device = find_flash_device(flash_plan.mcu_name());
+    if (device == nullptr || device->fblocks == nullptr)
+    {
+        return fail(ErrorKind::InvalidConfig, "Subaru TCU Hitachi M32R CAN flash geometry is invalid");
+    }
+    if (!flash_plan.image().has_value())
+    {
+        return fail(ErrorKind::InvalidConfig, "Subaru TCU Hitachi M32R CAN write plan carries no ROM image");
+    }
+
+    // Legacy encrypts the whole image before the first frame leaves
+    // (operation.cpp:641) and then indexes it by absolute flash address
+    // (operation.cpp:775, newdata[i + blockaddr] over fblocks[0].start == 0).
+    const bytes::Bytes& image = *flash_plan.image();
+    const bytes::Bytes encrypted = SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()),
+                                                                 kEncryptTable, SsmProtocol::kIndexTransformationStock);
+    if (encrypted.size() != image.size())
+    {
+        return fail(ErrorKind::Internal, "encrypted image size does not match the ROM image");
+    }
+
+    const unsigned blocks = std::min<unsigned>(device->numblocks, static_cast<unsigned>(kBlockModified.size()));
+    std::uint32_t total = 0;
+    for (unsigned blockno = 0; blockno < blocks; ++blockno)
+    {
+        if (kBlockModified.at(blockno))
+        {
+            total += device->fblocks[blockno].len;
+        }
+    }
+    if (total == 0)
+    {
+        events.log(LogLevel::Info, "*** No blocks require flash! ***");
+        return {};
+    }
+
+    events.log(LogLevel::Info, "--- erasing TCU flash memory ---");
+    if (const Status erased = erase_flash(transport, clock, cancellation, events, plan); !erased.has_value())
+    {
+        return erased;
+    }
+
+    events.log(LogLevel::Info, "--- start writing ROM file to ECU flash memory ---");
+    std::uint32_t written = 0;
+    for (unsigned blockno = 0; blockno < blocks; ++blockno)
+    {
+        if (!kBlockModified.at(blockno))
+        {
+            continue;
+        }
+        if (const Status flashed = reflash_block(transport, clock, cancellation, events, plan, device->fblocks[blockno],
+                                                 encrypted, written, total);
+            !flashed.has_value())
+        {
+            events.log(LogLevel::Error, std::format("Block {} reflash failed.", blockno));
+            return flashed;
+        }
+    }
+    return {};
 }
 
 Result<FlashExecutionResult> execute_transfer(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
@@ -404,9 +641,20 @@ Result<FlashExecutionResult> execute_transfer(const FlashPlan& plan, ICanFlashTr
             .rom_id = std::nullopt,
         };
     }
-    // Task 4 adds the write arm. Keeping a hard failure here means no caller
-    // can mistake an unimplemented reflash for a successful one.
-    return fail(ErrorKind::Internal, "transfer lands in tasks 3 and 4");
+    // Deliberate divergence 1: TestWrite never reaches here -- the plan
+    // validator rejects it with ErrorKind::Unsupported, because legacy's
+    // reflash_block took a test_write_arg and never read it, so "test write"
+    // performed a real erase and a real flash write.
+    if (const Status flashed = write_rom(transport, clock, cancellation, events, parameters, plan);
+        !flashed.has_value())
+    {
+        return std::unexpected(flashed.error());
+    }
+    return FlashExecutionResult{
+        .operation = FlashOperation::Write,
+        .read_bytes = std::nullopt,
+        .rom_id = std::nullopt,
+    };
 }
 
 } // namespace

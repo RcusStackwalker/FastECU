@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <format>
 #include <initializer_list>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -18,6 +19,7 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
+#include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -835,5 +837,740 @@ TEST(SubaruTcuHitachiM32rCanExecutor, StopFrameSilenceIsNotFatal)
     EXPECT_EQ(result->read_bytes->size(), kRomSize);
     EXPECT_THAT(events.logs,
                 Contains(Pair(fastecu::LogLevel::Error, HasSubstr("No valid response from TCU for dump stop"))));
+}
+
+// --- write path ------------------------------------------------------------
+
+constexpr std::uint32_t kWriteFrameSize = 128;
+// Legacy reflash_block retries both the 0x37 close and the 0x31 02 02 01
+// checksum up to 20 times (operation.cpp:842, 890).
+constexpr int kRetryAttempts = 20;
+
+struct BlockSpec
+{
+    std::uint32_t start;
+    std::uint32_t len;
+};
+
+// M32R_512KB blocks 3-10: legacy write_mem's block_modified table marks
+// exactly these (operation.cpp:633-634).
+constexpr std::array<BlockSpec, 8> kFlashedBlocks{{
+    {0x08000, 0x08000},
+    {0x10000, 0x10000},
+    {0x20000, 0x10000},
+    {0x30000, 0x10000},
+    {0x40000, 0x10000},
+    {0x50000, 0x10000},
+    {0x60000, 0x10000},
+    {0x70000, 0x10000},
+}};
+
+constexpr std::uint32_t kTotalDataFrames = kRegionLength / kWriteFrameSize;
+
+Byte romByte(std::size_t index)
+{
+    return static_cast<Byte>(((index * 7U) + ((index >> 8U) * 13U) + 3U) & 0xFFU);
+}
+
+const Bytes& plaintextRom()
+{
+    static const Bytes rom = []
+    {
+        Bytes image(kRomSize);
+        for (std::size_t index = 0; index < kRomSize; ++index)
+        {
+            image[index] = romByte(index);
+        }
+        return image;
+    }();
+    return rom;
+}
+
+// The encrypted image every 0xB6 frame must carry, built here from the tables
+// spelled out rather than borrowed from production, so a swapped or missing
+// table changes this expectation.
+const Bytes& encryptedRom()
+{
+    static const Bytes rom = []
+    {
+        // Legacy encrypt_payload (operation.cpp:999).
+        static constexpr std::array<std::uint16_t, 4> kEncryptTable{0x3B61, 0x8BEF, 0x9E51, 0x1075};
+        static constexpr std::array<std::uint8_t, 32> kIndexTransformation{
+            0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
+            0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
+        return SsmProtocol::calculatePayload(plaintextRom(), static_cast<std::uint32_t>(kRomSize), kEncryptTable,
+                                             kIndexTransformation);
+    }();
+    return rom;
+}
+
+FlashPlan writePlan()
+{
+    auto plan = build_subaru_tcu_hitachi_m32r_can_plan(FlashOperation::Write, kProtocol, kMcu, plaintextRom());
+    EXPECT_THAT(plan, fastecu::testing::IsOk());
+    return std::move(*plan);
+}
+
+Bytes eraseRequest()
+{
+    return framed(0x7E1, {0x31, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF});
+}
+
+Bytes blockWindowRequest(const BlockSpec& block)
+{
+    Bytes payload{0x34, 0x04, 0x33};
+    bytes::appendU24Be(payload, block.start);
+    bytes::appendU24Be(payload, block.len);
+    return framedBytes(0x7E1, payload);
+}
+
+Bytes dataRequest(std::uint32_t address)
+{
+    Bytes payload{0xB6};
+    bytes::appendU24Be(payload, address);
+    const Bytes& rom = encryptedRom();
+    const auto offset = static_cast<std::ptrdiff_t>(address);
+    payload.insert(payload.end(), rom.begin() + offset, rom.begin() + offset + kWriteFrameSize);
+    return framedBytes(0x7E1, payload);
+}
+
+Bytes closeRequest()
+{
+    return framed(0x7E1, {0x37});
+}
+
+Bytes checksumRequest()
+{
+    return framed(0x7E1, {0x31, 0x02, 0x02, 0x01});
+}
+
+// Positive answers carry only the byte(s) legacy actually inspects, so a
+// production check widened beyond legacy's would fail here; every negative
+// answer below is the same length as its positive twin and differs in exactly
+// the byte under test.
+void scriptErase(ScriptedCanFlashTransport& transport, std::optional<Bytes> answer = response({0x31, 0x02, 0x01}))
+{
+    const auto section = transport.section("erase");
+    if (answer.has_value())
+    {
+        transport.exchange(eraseRequest(), *answer);
+        return;
+    }
+    transport.expectWrite(eraseRequest());
+    transport.queue_no_frame();
+}
+
+void scriptBlockWindow(ScriptedCanFlashTransport& transport, const BlockSpec& block, bool valid = true)
+{
+    const auto section = transport.section("block window setup");
+    transport.exchange(blockWindowRequest(block), valid ? response({0x74}) : response({0x75}));
+}
+
+void scriptBlockData(ScriptedCanFlashTransport& transport, const BlockSpec& block)
+{
+    const auto section = transport.section("block data frames");
+    for (std::uint32_t offset = 0; offset < block.len; offset += kWriteFrameSize)
+    {
+        transport.exchange(dataRequest(block.start + offset), response({0xF6}));
+    }
+}
+
+void scriptClose(ScriptedCanFlashTransport& transport, bool valid = true)
+{
+    const auto section = transport.section("block close");
+    transport.exchange(closeRequest(), valid ? response({0x77}) : response({0x78}));
+}
+
+void scriptChecksum(ScriptedCanFlashTransport& transport, std::optional<Bytes> answer = response({0x71, 0x02, 0x02}))
+{
+    const auto section = transport.section("block checksum");
+    if (answer.has_value())
+    {
+        transport.exchange(checksumRequest(), *answer);
+        return;
+    }
+    transport.expectWrite(checksumRequest());
+    transport.queue_no_frame();
+}
+
+void scriptBlock(ScriptedCanFlashTransport& transport, const BlockSpec& block)
+{
+    scriptBlockWindow(transport, block);
+    scriptBlockData(transport, block);
+    scriptClose(transport);
+    scriptChecksum(transport);
+}
+
+void scriptFullWrite(ScriptedCanFlashTransport& transport)
+{
+    scriptFullConnect(transport);
+    scriptErase(transport);
+    for (const BlockSpec& block : kFlashedBlocks)
+    {
+        scriptBlock(transport, block);
+    }
+}
+
+// 8 connect frames + erase + per block (window + N data + close + checksum).
+constexpr std::size_t kFullWriteWrites =
+    kConnectFrames + 1 + (kFlashedBlocks.size() * 3) + static_cast<std::size_t>(kTotalDataFrames);
+
+class RecordingTransport final : public ScriptedCanFlashTransport
+{
+  public:
+    RecordingTransport() : ScriptedCanFlashTransport(ScriptedTransportInitialState::Open)
+    {
+    }
+
+    Status write(bytes::ByteView data, const fastecu::ICancellationToken& cancellation) override
+    {
+        writes.emplace_back(data.begin(), data.end());
+        return ScriptedCanFlashTransport::write(data, cancellation);
+    }
+
+    std::vector<Bytes> writes;
+};
+
+std::uint32_t addressAt(const Bytes& frame, std::size_t offset)
+{
+    return (static_cast<std::uint32_t>(frame[offset]) << 16U) | (static_cast<std::uint32_t>(frame[offset + 1]) << 8U) |
+           static_cast<std::uint32_t>(frame[offset + 2]);
+}
+
+// Every address a 0x34 04 33 window-setup frame asked the kernel to open.
+std::vector<std::uint32_t> windowStarts(const std::vector<Bytes>& writes)
+{
+    std::vector<std::uint32_t> starts;
+    for (const Bytes& frame : writes)
+    {
+        if (frame.size() >= 13 && frame[4] == 0x34 && frame[5] == 0x04 && frame[6] == 0x33)
+        {
+            starts.push_back(addressAt(frame, 7));
+        }
+    }
+    return starts;
+}
+
+// Every address a 0xB6 data frame wrote 128 bytes to.
+std::vector<std::uint32_t> dataAddresses(const std::vector<Bytes>& writes)
+{
+    std::vector<std::uint32_t> addresses;
+    for (const Bytes& frame : writes)
+    {
+        if (frame.size() == 8 + kWriteFrameSize && frame[4] == 0xB6)
+        {
+            addresses.push_back(addressAt(frame, 5));
+        }
+    }
+    return addresses;
+}
+
+constexpr Call kEraseSleepCall{CallKind::Sleep, 500ms};
+constexpr Call kEraseReadCall{CallKind::Read, 200ms};
+constexpr Call kDataSleepCall{CallKind::Sleep, 200ms};
+constexpr Call kDataReadCall{CallKind::Read, 500ms};
+constexpr Call kLongReadCall{CallKind::Read, 800ms};
+constexpr Call kCloseSleepCall{CallKind::Sleep, 100ms};
+
+std::vector<Call> fullWriteTrace()
+{
+    std::vector<Call> trace = connectTrace();
+    trace.push_back(kWriteCall); // erase 31 02 01 FF FF FF FF
+    trace.push_back(kEraseSleepCall);
+    trace.push_back(kEraseReadCall);
+    for (const BlockSpec& block : kFlashedBlocks)
+    {
+        trace.push_back(kWriteCall); // 0x34 window setup, no gap before its read
+        trace.push_back(kReadCall);
+        for (std::uint32_t offset = 0; offset < block.len; offset += kWriteFrameSize)
+        {
+            trace.push_back(kWriteCall); // 0xB6 data frame
+            trace.push_back(kDataSleepCall);
+            trace.push_back(kDataReadCall);
+        }
+        trace.push_back(kWriteCall); // 0x37 close
+        trace.push_back(kLongReadCall);
+        trace.push_back(kCloseSleepCall);
+        trace.push_back(kWriteCall); // 0x31 02 02 01 checksum
+        trace.push_back(kLongReadCall);
+    }
+    return trace;
+}
+
+std::vector<std::chrono::milliseconds> fullWriteReadTimeouts()
+{
+    std::vector<std::chrono::milliseconds> timeouts(kConnectFrames, 2000ms);
+    timeouts.push_back(200ms);
+    for (const BlockSpec& block : kFlashedBlocks)
+    {
+        timeouts.push_back(2000ms);
+        for (std::uint32_t offset = 0; offset < block.len; offset += kWriteFrameSize)
+        {
+            timeouts.push_back(500ms);
+        }
+        timeouts.push_back(800ms);
+        timeouts.push_back(800ms);
+    }
+    return timeouts;
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, DataFramesCarryTheEncryptedImageNotThePlaintext)
+{
+    // Legacy write_mem encrypts the whole ROM before the first frame leaves
+    // (operation.cpp:641). The scripted transport rejects any 0xB6 frame whose
+    // 128 payload bytes are not the encrypted ones, and the guard below proves
+    // that expectation is not vacuously equal to the plaintext.
+    Bytes plaintext_frame{0xB6};
+    bytes::appendU24Be(plaintext_frame, kRegionStart);
+    plaintext_frame.insert(plaintext_frame.end(), plaintextRom().begin() + kRegionStart,
+                           plaintextRom().begin() + kRegionStart + kWriteFrameSize);
+    ASSERT_NE(dataRequest(kRegionStart), framedBytes(0x7E1, plaintext_frame));
+
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptErase(transport);
+    scriptBlockWindow(transport, kFlashedBlocks[0]);
+    {
+        const auto section = transport.section("block data frames");
+        transport.exchange(dataRequest(kRegionStart), response({0xF6}));
+        transport.exchange(dataRequest(kRegionStart + kWriteFrameSize), response({0xF5}));
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::BadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1 + 1 + 2);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, EraseRequestMatchesLegacyBytes)
+{
+    EXPECT_EQ(eraseRequest(), (Bytes{0x00, 0x00, 0x07, 0xE1, 0x31, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF}));
+
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptErase(transport);
+    scriptBlockWindow(transport, kFlashedBlocks[0], false);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    // The run got past the erase and stopped at the first block window, so the
+    // erase bytes and its positive answer are both pinned.
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::BadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1 + 1);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, EraseResponseShorterThanSevenBytesIsFatalBeforeAnyReflashFrame)
+{
+    // Deliberate divergence 5: legacy erase_mem indexed received.at(4..6) with
+    // no length guard and had its `return STATUS_ERROR` commented out, so a
+    // failed erase was logged and reflash proceeded onto unerased flash.
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptErase(transport, response({0x31, 0x02}));
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::BadResponse, HasSubstr("response is too short")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    // Connect plus the erase itself and nothing more: no window, no 0xB6.
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, EraseContentMismatchIsFatalBeforeAnyReflashFrame)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    // Same length as the positive answer, differing in exactly the last byte.
+    scriptErase(transport, response({0x31, 0x02, 0x02}));
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::BadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::BadResponse, Not(HasSubstr("too short"))));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, EraseSilenceIsFatalBeforeAnyReflashFrame)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptErase(transport, std::nullopt);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Timeout, HasSubstr("no response from TCU")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, WriteFlashesBlocksThreeThroughTenAndNothingElse)
+{
+    RecordingTransport transport;
+    scriptFullWrite(transport);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), kFullWriteWrites);
+    EXPECT_EQ(result->operation, FlashOperation::Write);
+    EXPECT_FALSE(result->read_bytes.has_value());
+
+    const auto *device = fastecu::flash::find_flash_device(kMcu);
+    ASSERT_NE(device, nullptr);
+    ASSERT_EQ(device->numblocks, 11U);
+
+    const std::vector<std::uint32_t> opened = windowStarts(transport.writes);
+    std::vector<std::uint32_t> expected_opened;
+    for (unsigned blockno = 3; blockno < device->numblocks; ++blockno)
+    {
+        expected_opened.push_back(device->fblocks[blockno].start);
+    }
+    EXPECT_EQ(opened, expected_opened);
+
+    // The "not" side, spelled out: blocks 0-2 carry the bootloader. An
+    // off-by-one that widened the range downwards would open 0x6000 here, and
+    // one that widened it upwards would run off the 11-block table.
+    for (unsigned blockno = 0; blockno < 3; ++blockno)
+    {
+        EXPECT_THAT(opened, Not(Contains(device->fblocks[blockno].start)));
+    }
+    EXPECT_EQ(opened.size(), kFlashedBlocks.size());
+
+    const std::vector<std::uint32_t> written = dataAddresses(transport.writes);
+    ASSERT_EQ(written.size(), kTotalDataFrames);
+    EXPECT_EQ(*std::ranges::min_element(written), device->fblocks[3].start);
+    EXPECT_EQ(*std::ranges::max_element(written), kRomSize - kWriteFrameSize);
+    EXPECT_THAT(written, Not(Contains(0x00000000U)));
+    EXPECT_THAT(written, Not(Contains(kRegionStart - kWriteFrameSize)));
+
+    ASSERT_FALSE(events.progress_calls.empty());
+    EXPECT_EQ(events.progress_calls.back(),
+              std::make_pair(static_cast<int>(kRegionLength), static_cast<int>(kRegionLength)));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, WriteLoopPacesEveryFrameAndKeepsLegacyTimeouts)
+{
+    std::vector<Call> trace;
+    TracingTransport transport{trace};
+    scriptFullWrite(transport);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    TracingClock clock{trace};
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(transport.readTimeouts(), fullWriteReadTimeouts());
+    // 450 ms of connect pacing, 500 ms before the erase read, 200 ms before
+    // each of the 3840 data reads, and 100 ms between each close and checksum.
+    EXPECT_EQ(clock.elapsed(), 450ms + 500ms + (kTotalDataFrames * 200ms) + (kFlashedBlocks.size() * 100ms));
+    expectTraceEquals(trace, fullWriteTrace());
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, BlockWindowMismatchIsFatal)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptErase(transport);
+    scriptBlockWindow(transport, kFlashedBlocks[0], false);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::BadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1 + 1);
+    EXPECT_EQ(blockWindowRequest(kFlashedBlocks[0]),
+              (Bytes{0x00, 0x00, 0x07, 0xE1, 0x34, 0x04, 0x33, 0x00, 0x80, 0x00, 0x00, 0x80, 0x00}));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, NonFatalCloseAnswerIsRetriedAndTheBlockStillCompletes)
+{
+    // Legacy treats a non-0x77 close reply as non-fatal (its return is
+    // commented out, operation.cpp:868) and simply tries again.
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptErase(transport);
+    scriptBlockWindow(transport, kFlashedBlocks[0]);
+    scriptBlockData(transport, kFlashedBlocks[0]);
+    scriptClose(transport, false);
+    scriptClose(transport, true);
+    scriptChecksum(transport);
+    // Block 4 stops the run so the assertions stay on block 3's close.
+    scriptBlockWindow(transport, kFlashedBlocks[1], false);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::BadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    const std::size_t block3_frames = kFlashedBlocks[0].len / kWriteFrameSize;
+    // connect + erase + window + data + two closes + checksum + block 4 window.
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1 + 1 + block3_frames + 2 + 1 + 1);
+    EXPECT_THAT(events.logs,
+                Contains(Pair(fastecu::LogLevel::Error, HasSubstr("Wrong response from TCU for block close"))));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, CloseRetriesExhaustAfterTwentyAttemptsAndNoChecksumFollows)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptErase(transport);
+    scriptBlockWindow(transport, kFlashedBlocks[0]);
+    scriptBlockData(transport, kFlashedBlocks[0]);
+    for (int attempt = 0; attempt < kRetryAttempts; ++attempt)
+    {
+        scriptClose(transport, false);
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::BadResponse, HasSubstr("did not close after 20")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    const std::size_t block3_frames = kFlashedBlocks[0].len / kWriteFrameSize;
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1 + 1 + block3_frames + kRetryAttempts);
+    // Exhaustion stops before the checksum, so the 100 ms close-to-checksum
+    // pause never runs either.
+    EXPECT_EQ(clock.elapsed(), 450ms + 500ms + (block3_frames * 200ms));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ChecksumAnswerDifferingInOneByteFailsTheBlock)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptErase(transport);
+    scriptBlockWindow(transport, kFlashedBlocks[0]);
+    scriptBlockData(transport, kFlashedBlocks[0]);
+    scriptClose(transport);
+    for (int attempt = 0; attempt < kRetryAttempts; ++attempt)
+    {
+        scriptChecksum(transport, response({0x71, 0x02, 0x03}));
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::BadResponse, HasSubstr("checksum failed after 20 attempts")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    const std::size_t block3_frames = kFlashedBlocks[0].len / kWriteFrameSize;
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1 + 1 + block3_frames + 1 + kRetryAttempts);
+    EXPECT_THAT(events.logs,
+                Contains(Pair(fastecu::LogLevel::Error, HasSubstr("Wrong response from TCU for block checksum"))));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ChecksumAnswerShorterThanSevenBytesFailsTheBlock)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptErase(transport);
+    scriptBlockWindow(transport, kFlashedBlocks[0]);
+    scriptBlockData(transport, kFlashedBlocks[0]);
+    scriptClose(transport);
+    for (int attempt = 0; attempt < kRetryAttempts; ++attempt)
+    {
+        scriptChecksum(transport, response({0x71, 0x02}));
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::BadResponse, HasSubstr("checksum failed after 20 attempts")));
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, MissingChecksumAnswerFailsTheBlock)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptErase(transport);
+    scriptBlockWindow(transport, kFlashedBlocks[0]);
+    scriptBlockData(transport, kFlashedBlocks[0]);
+    scriptClose(transport);
+    for (int attempt = 0; attempt < kRetryAttempts; ++attempt)
+    {
+        scriptChecksum(transport, std::nullopt);
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    EXPECT_THAT(result,
+                fastecu::testing::IsErrWith(ErrorKind::BadResponse, HasSubstr("checksum failed after 20 attempts")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_THAT(events.logs,
+                Contains(Pair(fastecu::LogLevel::Error, HasSubstr("No valid response from TCU for block checksum"))));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, DataFrameMismatchIsFatal)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptErase(transport);
+    scriptBlockWindow(transport, kFlashedBlocks[0]);
+    {
+        const auto section = transport.section("block data frames");
+        transport.exchange(dataRequest(kRegionStart), response({0xF6}));
+        // Same length as the positive answer, differing in the service id.
+        transport.exchange(dataRequest(kRegionStart + kWriteFrameSize), response({0xF5}));
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::BadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1 + 1 + 2);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, DataFrameSilenceIsFatal)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptErase(transport);
+    scriptBlockWindow(transport, kFlashedBlocks[0]);
+    {
+        const auto section = transport.section("block data frames");
+        transport.expectWrite(dataRequest(kRegionStart));
+        transport.queue_no_frame();
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Timeout, HasSubstr("no response from TCU")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1 + 1 + 1);
+}
+
+// A transport with no script at all: it answers every request positively, so
+// nothing stops a widened block range except the assertions in the test below.
+// Without it, "blocks 0-2 are not flashed" would rest entirely on the scripted
+// transport rejecting the extra frames, and the explicit Not(Contains(...))
+// assertions would never run because the IsOk assertion aborts first.
+class PermissiveTransport final : public ScriptedCanFlashTransport
+{
+  public:
+    PermissiveTransport() : ScriptedCanFlashTransport(ScriptedTransportInitialState::Open)
+    {
+    }
+
+    Status write(bytes::ByteView data, const fastecu::ICancellationToken& /*cancellation*/) override
+    {
+        writes.emplace_back(data.begin(), data.end());
+        return {};
+    }
+
+    fastecu::Result<std::optional<Bytes>> read(std::chrono::milliseconds /*timeout*/,
+                                               const fastecu::ICancellationToken& /*cancellation*/) override
+    {
+        return std::optional<Bytes>{answerFor(writes.empty() ? Bytes{} : writes.back())};
+    }
+
+    std::vector<Bytes> writes;
+
+  private:
+    static Bytes answerFor(const Bytes& request)
+    {
+        if (request.size() < 5)
+        {
+            return response({0x7F});
+        }
+        switch (request[4])
+        {
+        case 0x31:
+            // The erase (31 02 01 ...) echoes; every other 0x31 is a kernel
+            // liveness or block checksum probe.
+            if (request.size() > 6 && request[6] == 0x01)
+            {
+                return response({0x31, 0x02, 0x01});
+            }
+            return response({0x71, 0x02, 0x02, 0x03});
+        case 0x34:
+            return response({0x74});
+        case 0xB6:
+            return response({0xF6});
+        case 0x37:
+            return response({0x77});
+        default:
+            return response({0x7F});
+        }
+    }
+};
+
+TEST(SubaruTcuHitachiM32rCanExecutor, WithNoScriptToStopItTheWriteStillNeverTouchesABootloaderBlock)
+{
+    PermissiveTransport transport;
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+
+    const auto *device = fastecu::flash::find_flash_device(kMcu);
+    ASSERT_NE(device, nullptr);
+    ASSERT_EQ(device->numblocks, 11U);
+
+    const std::vector<std::uint32_t> opened = windowStarts(transport.writes);
+    std::vector<std::uint32_t> expected_opened;
+    for (unsigned blockno = 3; blockno < device->numblocks; ++blockno)
+    {
+        expected_opened.push_back(device->fblocks[blockno].start);
+    }
+    EXPECT_EQ(opened, expected_opened);
+    for (unsigned blockno = 0; blockno < 3; ++blockno)
+    {
+        EXPECT_THAT(opened, Not(Contains(device->fblocks[blockno].start)));
+    }
+
+    const std::vector<std::uint32_t> written = dataAddresses(transport.writes);
+    EXPECT_EQ(written.size(), kTotalDataFrames);
+    EXPECT_EQ(std::ranges::count_if(written, [](std::uint32_t address) { return address < kRegionStart; }), 0)
+        << "a 0xB6 data frame targeted the bootloader region below 0x8000";
+    EXPECT_EQ(
+        std::ranges::count_if(written, [](std::uint32_t address) { return address + kWriteFrameSize > kRomSize; }), 0)
+        << "a 0xB6 data frame ran past the end of the 0x80000 ROM";
 }
 } // namespace
