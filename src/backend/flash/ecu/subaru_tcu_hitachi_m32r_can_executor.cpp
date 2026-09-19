@@ -24,6 +24,12 @@ constexpr std::uint32_t kDiagnosticRequestId = 0x7E0;
 constexpr auto kConnectTimeout = 2000ms;
 constexpr auto kShortDelay = 50ms;
 constexpr auto kJumpDelay = 200ms;
+// Legacy read_mem's delay(1) after every dumped page (operation.cpp:553).
+constexpr auto kPageDelay = 1ms;
+// Every read_mem response is framed by the four-byte CAN id plus its one-byte
+// service id; legacy strips exactly those five before keeping the payload
+// (operation.cpp:519, received.remove(0, 5)).
+constexpr std::size_t kPageHeaderSize = 5;
 
 // Directly compared against legacy generate_seed_key(): the 32-entry index
 // transformation is byte-identical to SsmProtocol::kIndexTransformationStock.
@@ -31,6 +37,11 @@ constexpr std::array<std::uint16_t, 16> kSeedKeyTable{
     0xF2CA, 0x2417, 0x21DE, 0x8475, 0x39AB, 0xF767, 0x6204, 0x6BE0,
     0xBC63, 0x5988, 0x2845, 0x9846, 0xEB97, 0x99DE, 0xC7DB, 0xEFAE,
 };
+
+// Legacy decrypt_payload (operation.cpp:1021): encrypt_payload's four words in
+// reverse order. Only the read path uses it; the write path takes the encrypt
+// table and lands in task 4.
+constexpr std::array<std::uint16_t, 4> kDecryptTable{0x1075, 0x9E51, 0x8BEF, 0x3B61};
 
 bytes::Bytes framed(bytes::ByteView payload, std::uint32_t request_id)
 {
@@ -293,11 +304,108 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
     return {};
 }
 
-Result<FlashExecutionResult> execute_transfer(const FlashPlan&)
+// Legacy read_mem (operation.cpp:395-616).
+Result<bytes::Bytes> read_rom(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                              IEventSink& events, const SubaruTcuHitachiM32rCanPlan& plan, const MemoryRegion& region)
 {
-    // Task 3 replaces the read arm and Task 4 adds the write arm. Keeping a
-    // hard failure here lets Task 2 exercise connect without pretending a
-    // transfer succeeded before either transfer path exists.
+    // Deliberate divergence 2: legacy subtracted 0x00100000 from a start
+    // address of 0 (line 408), underflowing uint32_t to 0xFFF00000, which is
+    // not less than 0x8000 and so walked straight past its own floor clamp
+    // (line 409). The live path therefore asked the kernel for 0x80000 bytes
+    // from 0xFFF00000 and then prepended a further 0x8000 zeros -- a
+    // 0x88000-byte image for a 0x80000 ROM, which cannot be a valid dump. The
+    // port asks for the window the clamp evidently intended: region.length
+    // (0x78000) bytes from region.start (0x8000).
+    events.log(LogLevel::Info, "Setting dump start & length...");
+    bytes::Bytes window_request{0x34, 0x04, 0x33};
+    bytes::appendU24Be(window_request, region.start);
+    bytes::appendU24Be(window_request, region.length);
+    if (Result<bytes::Bytes> window = request_prefix(transport, clock, cancellation, window_request, plan.request_id,
+                                                     0ms, {0x74, 0x20, 0x01, 0x04});
+        !window.has_value())
+    {
+        return std::unexpected(window.error());
+    }
+
+    events.log(LogLevel::Info, "Start reading ROM, please wait...");
+    const std::size_t expected_page_frame = kPageHeaderSize + plan.page_size;
+    bytes::Bytes dumped;
+    dumped.reserve(region.length);
+    for (std::uint32_t offset = 0; offset < region.length; offset += plan.page_size)
+    {
+        // Legacy's stopRequested() check at the top of the dump loop (line 480).
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "cancelled during ROM read");
+        }
+        const std::uint32_t address = region.start + offset;
+        bytes::Bytes page_request{0xB7};
+        bytes::appendU24Be(page_request, address);
+        Result<bytes::Bytes> page =
+            request_prefix(transport, clock, cancellation, page_request, plan.request_id, 0ms, {0xF7});
+        if (!page.has_value())
+        {
+            return std::unexpected(page.error());
+        }
+        // Stricter than legacy, which appended whatever followed the five
+        // header bytes and so handed back a silently short or long image when
+        // a page came back the wrong size.
+        if (page->size() != expected_page_frame)
+        {
+            return fail(ErrorKind::BadResponse, std::format("page read at 0x{:06X} returned {} bytes, expected {}",
+                                                            address, page->size(), expected_page_frame));
+        }
+        dumped.insert(dumped.end(), page->begin() + static_cast<std::ptrdiff_t>(kPageHeaderSize), page->end());
+        events.progress(static_cast<int>(offset + plan.page_size), static_cast<int>(region.length));
+        // Legacy's delay(1) (line 553): after the page is in hand, before the
+        // next request goes out.
+        if (const Status slept = clock.sleep(kPageDelay, cancellation); !slept.has_value())
+        {
+            return std::unexpected(slept.error());
+        }
+    }
+
+    events.log(LogLevel::Info, "ROM read complete");
+    events.log(LogLevel::Info, "Sending stop command...");
+    // Legacy logs a bad or missing stop answer and carries on: both of its
+    // `return STATUS_ERROR` lines are commented out (lines 590 and 597).
+    Result<std::optional<bytes::Bytes>> stop = non_fatal_prefix(
+        transport, clock, cancellation, events, bytes::Bytes{0x37}, plan.request_id, 0ms, {0x77}, "dump stop");
+    if (!stop.has_value())
+    {
+        return std::unexpected(stop.error());
+    }
+
+    // Deliberate divergence 4: a sized zero buffer. Legacy filled a
+    // default-constructed, empty QByteArray through padBytes[i] for i in
+    // 0..0x7FFF (lines 605-609), which does not extend under Qt 6.
+    bytes::Bytes image(region.start, bytes::Byte{0x00});
+    const bytes::Bytes decrypted = SsmProtocol::calculatePayload(dumped, static_cast<std::uint32_t>(dumped.size()),
+                                                                 kDecryptTable, SsmProtocol::kIndexTransformationStock);
+    image.insert(image.end(), decrypted.begin(), decrypted.end());
+    return image;
+}
+
+Result<FlashExecutionResult> execute_transfer(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
+                                              const ICancellationToken& cancellation, IEventSink& events,
+                                              const SubaruTcuHitachiM32rCanPlan& parameters)
+{
+    if (plan.operation() == FlashOperation::Read)
+    {
+        Result<bytes::Bytes> image =
+            read_rom(transport, clock, cancellation, events, parameters, plan.transfer_region());
+        if (!image.has_value())
+        {
+            return std::unexpected(image.error());
+        }
+        return FlashExecutionResult{
+            .operation = FlashOperation::Read,
+            .read_bytes = std::move(*image),
+            .rom_id = std::nullopt,
+        };
+    }
+    // Task 4 adds the write arm. Keeping a hard failure here means no caller
+    // can mistake an unimplemented reflash for a successful one.
     return fail(ErrorKind::Internal, "transfer lands in tasks 3 and 4");
 }
 
@@ -340,7 +448,7 @@ Result<FlashExecutionResult> SubaruTcuHitachiM32rCanExecutor::execute(const Flas
     {
         return std::unexpected(connected.error());
     }
-    return execute_transfer(plan);
+    return execute_transfer(plan, transport, clock, cancellation, events, parameters);
 }
 
 } // namespace fastecu::flash

@@ -739,6 +739,7 @@ fastecu_portable_gtest(
         ":subaru_tcu_hitachi_m32r_can_executor",
         ":subaru_tcu_hitachi_m32r_can_plan",
         "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
