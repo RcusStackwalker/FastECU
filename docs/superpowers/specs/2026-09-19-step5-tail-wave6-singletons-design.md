@@ -137,8 +137,13 @@ Ten PRs. Family is the PR unit; each sub-wave gets its own implementation plan.
 | 6a-4 | `FlashEcuSubaruHitachiSH7058Can` | 1,496 | ISO-15765 |
 
 Smallest first, so the two TCU families establish the ECU-to-TCU structural
-template before the two larger Hitachi CAN families. No port changes, no
-`bazel/` changes, no ADR.
+template before the two larger Hitachi CAN families. No port additions, no ADR.
+
+Every family in this sub-wave **must** register each new backend `cc_library`
+by name in `PORTABLE_PACKAGES` (`bazel/portable_targets.bzl`): that map is keyed
+by package but holds a list of individual target names, so a new target in an
+already-listed package is silently never swept by `//:portable_closure` until it
+is named. That `bazel/` edit is mandatory, not a deviation.
 
 **Stop condition.** If a 6a family needs a port addition, the wave-6 premise is
 wrong. Stop and re-spec; do not add the port inline. Proving that premise is

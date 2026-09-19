@@ -16,7 +16,7 @@
 - Backend operations return `fastecu::Result<T>`, checked with `.has_value()` and **never** the implicit `operator bool`.
 - **Exceptions never cross a port.** The `ErrorKind` set is closed — do not add a value.
 - Pure protocol logic uses `bytes::Byte` / `bytes::Bytes` / `bytes::ByteView`. `QByteArray` is a boundary type only.
-- New backend targets are portable: registered in `PORTABLE_PACKAGES` already (`//src/backend/flash/ecu` is in the portable closure); no `//src/platform` label may become reachable from them.
+- New backend targets are portable. `PORTABLE_PACKAGES` in `bazel/portable_targets.bzl` maps each package to a list of **individual target names**, not to the package as a whole, so **every new `cc_library` must be added there by name** — a package already being listed does not sweep a new target in it, and an unregistered target is silently never checked by `//:portable_closure`. Register each target this plan adds, then confirm no `//src/platform` label is reachable from them.
 - **No entry may be added to any ratchet list** (`serial_qt_compat` allowlist, `REMAINING` in `scripts/check-legacy-flash-drain.py`). Needing one means the change took the legacy path.
 - Tests are package-owned and co-located: `foo.cpp` + `foo_test.cpp` in the same package.
 - Work lands through a pull request; `prek` refuses commits on `master`. Branch before the first commit.
@@ -122,7 +122,7 @@ TEST(SubaruTcuHitachiM32rKlinePlan, RejectsWriteAndTestWriteAsUnsupported)
     {
         const auto plan = build_subaru_tcu_hitachi_m32r_kline_plan(operation, "sub_tcu_hitachi_m32r_kline",
                                                                    "M32R_512KB", bytes::Bytes(0x80000, 0x00));
-        EXPECT_THAT(plan, fastecu::testing::IsErrorOfKind(ErrorKind::Unsupported));
+        EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::Unsupported));
     }
 }
 } // namespace
@@ -917,7 +917,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenABlockExhaustsItsFiveAttempts)
     fastecu::testing::RecordingEventSink events;
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrorOfKind(ErrorKind::BadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
 }
 
 // Deliberate divergence 3: the legacy accepted any response longer than five
@@ -935,7 +935,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsABlockResponseOfTheWrongLength)
     fastecu::testing::RecordingEventSink events;
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrorOfKind(ErrorKind::BadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
 }
 ```
 
@@ -1064,7 +1064,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, StopsPromptlyWhenCancelledMidRead)
     fastecu::testing::RecordingEventSink events;
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErrorOfKind(ErrorKind::Cancelled));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_LT(transport.writesConsumed(), 100u);
 }
 
@@ -1080,8 +1080,9 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsAPlanBuiltForAnotherFamily)
     ManualCancellationToken cancellation;
     fastecu::testing::RecordingEventSink events;
 
-    EXPECT_THAT(executor.transport_setup(*foreign), fastecu::testing::IsError());
-    EXPECT_THAT(executor.execute(*foreign, transport, clock, cancellation, events), fastecu::testing::IsError());
+    EXPECT_THAT(executor.transport_setup(*foreign), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(executor.execute(*foreign, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_EQ(transport.writesConsumed(), 0u);
 }
 
@@ -1101,7 +1102,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheSeedResponseIsTooShort)
     fastecu::testing::RecordingEventSink events;
 
     EXPECT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
-                fastecu::testing::IsErrorOfKind(ErrorKind::BadResponse));
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
 }
 
 TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheTcuNeverAnswers)
@@ -1116,7 +1117,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheTcuNeverAnswers)
     fastecu::testing::RecordingEventSink events;
 
     EXPECT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
-                fastecu::testing::IsErrorOfKind(ErrorKind::Timeout));
+                fastecu::testing::IsErr(ErrorKind::Timeout));
 }
 ```
 
@@ -1280,7 +1281,7 @@ git rm src/platform/desktop/common/flash/legacy/tcu/flash_tcu_subaru_hitachi_m32
        src/ui/desktop/flash/tcu/flash_tcu_subaru_hitachi_m32r_kline.cpp
 ```
 
-The legacy package's `BUILD.bazel` needs no edit — its `srcs` and `MOC_HDRS` are globs. `src/ui/desktop/flash/tcu/BUILD.bazel` lists files explicitly: remove the two names there, and remove the `#include` and the `FlashTcuSubaruHitachiM32rKline` branch at `mainwindow.cpp:1343-1347`.
+The legacy package's `BUILD.bazel` **does** need an edit: the `legacy_flash_operations` target lists its `srcs` and `hdrs` explicitly, so remove the two deleted paths from both lists. (The `family_operation_sources` filegroup in the same file is glob-based and needs no edit — it globs `tcu/*.cpp` on purpose, so that the drain check keeps tracking whatever files actually exist.) `src/ui/desktop/flash/tcu/BUILD.bazel` also lists files explicitly: remove the two names there, and remove the `#include` and the `FlashTcuSubaruHitachiM32rKline` branch at `mainwindow.cpp:1343-1347`.
 
 - [ ] **Step 2: Shrink the ratchet**
 
@@ -1326,7 +1327,10 @@ The PR body must list the four deliberate divergences from the top of this plan,
 
 **Spec coverage.** The spec's 6a-1 row is this whole plan. Its per-PR anatomy — enum value, plan POD, variant alternative, plan and executor pairs, dialog rewrite, legacy deletion, ratchet entry, matrix row — maps to Tasks 1, 2, 3, 5 and 6. Its three test layers map to Tasks 1 (plan), 2–4 (executor) and 5 (desktop). The spec's stop condition for 6a is honored: this family needs no port addition, and `supports_write` is a shared-helper field, not a port change. The spec's behavior-correction rule is where the four divergences came from; they belong in the spec's appendix when this PR lands.
 
-**Deviation from the spec worth noting at review time.** The spec says 6a requires "no port changes, no `bazel/` changes, no ADR". This plan adds a field to `SingleWindowPlanSpec`, which is neither a port nor a `bazel/` change — but it is a shared-helper change the spec did not anticipate, because the spec did not yet know this family's write path was unimplemented. It is additive with a safe default and covered by running the full `//src/backend/flash/...` suite in Task 1 Step 9.
+**Deviations from the spec worth noting at review time.** Two, both benign:
+
+1. The spec says 6a requires "no port additions, no ADR". This plan adds a field to `SingleWindowPlanSpec`, which is not a port addition — but it is a shared-helper change the spec did not anticipate, because the spec did not yet know this family's write path was unimplemented. It is additive with a safe default and covered by running the full `//src/backend/flash/...` suite in Task 1 Step 9.
+2. This plan does change `bazel/portable_targets.bzl`, because every new backend `cc_library` must be registered in `PORTABLE_PACKAGES` by name or `//:portable_closure` never sweeps it. That is mandatory for every family in this wave, not a deviation specific to this one; the spec's 6a rule has been corrected to say so.
 
 **Placeholders.** None. Every code step carries the code. The one unresolved input — the MCU name — is named explicitly, with its evidence, its chosen value, and its blast radius, rather than left as a TODO.
 
