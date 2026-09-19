@@ -32,7 +32,7 @@ TEST(SubaruTcuHitachiM32rKlinePlan, MapsProtocolToItsWireParameters)
     EXPECT_EQ(family.tester_id, 0xf0);
     EXPECT_EQ(family.target_id, 0x18);
     EXPECT_EQ(family.baud, 4800);
-    EXPECT_EQ(family.block_size, 96u);
+    EXPECT_EQ(family.block_size, 96U);
 }
 
 // Deliberate divergence 1: the legacy write branch reported success having

@@ -92,6 +92,6 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, ConnectSendsTheFiveLegacyExchangesInOrde
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
-    EXPECT_EQ(transport.writesConsumed(), 5u);
+    EXPECT_EQ(transport.writesConsumed(), 5U);
 }
 } // namespace
