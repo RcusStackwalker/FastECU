@@ -10,11 +10,9 @@ qt_cc_library(
     name = "tcu",
     srcs = [
         "flash_tcu_subaru_hitachi_m32r_can.cpp",
-        "flash_tcu_subaru_hitachi_m32r_kline.cpp",
     ],
     hdrs = [
         "flash_tcu_subaru_hitachi_m32r_can.h",
-        "flash_tcu_subaru_hitachi_m32r_kline.h",
     ],
     copts = COMMON_COPTS,
     deps = QT_DEPS + [
