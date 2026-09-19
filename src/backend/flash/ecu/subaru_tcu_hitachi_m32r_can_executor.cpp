@@ -25,25 +25,25 @@ constexpr std::uint32_t kDiagnosticRequestId = 0x7E0;
 // read_mem() read, and the per-block 0x34 window setup in reflash_block.
 constexpr auto kResponseTimeout = 2000ms;
 // Legacy receive_timeout (operation.h:45): the 0xB6 data-frame read only
-// (operation.cpp:781).
+// (operation.cpp:809).
 constexpr auto kDataFrameTimeout = 500ms;
 // Legacy serial_read_long_timeout (operation.h:50): the retried 0x37 close and
-// 0x31 02 02 01 checksum reads (operation.cpp:845, 893).
+// 0x31 02 02 01 checksum reads (operation.cpp:846, 893).
 constexpr auto kRetryTimeout = 800ms;
-// Legacy erase_mem reads with a literal 200 ms (operation.cpp:957).
+// Legacy erase_mem reads with a literal 200 ms (operation.cpp:956).
 constexpr auto kEraseTimeout = 200ms;
 constexpr auto kShortDelay = 50ms;
 constexpr auto kJumpDelay = 200ms;
 // Legacy read_mem's delay(1) after every dumped page (operation.cpp:553).
 constexpr auto kPageDelay = 1ms;
-// Legacy reflash_block's delay(200) before every 0xB6 read (operation.cpp:780)
-// and its delay(100) between a closed block and its checksum (line 886).
+// Legacy reflash_block's delay(200) before every 0xB6 read (operation.cpp:808)
+// and its delay(100) between a closed block and its checksum (line 875).
 constexpr auto kDataFrameDelay = 200ms;
 constexpr auto kChecksumDelay = 100ms;
-// Legacy erase_mem's delay(500) before the erase read (operation.cpp:953).
+// Legacy erase_mem's delay(500) before the erase read (operation.cpp:952).
 constexpr auto kEraseDelay = 500ms;
 // Legacy reflash_block retries both the close and the checksum 20 times
-// (operation.cpp:842, 890); exhausting either fails the block.
+// (operation.cpp:842, 889); exhausting either fails the block.
 constexpr int kRetryAttempts = 20;
 // Every read_mem response is framed by the four-byte CAN id plus its one-byte
 // service id; legacy strips exactly those five before keeping the payload
@@ -61,10 +61,10 @@ constexpr std::array<std::uint16_t, 16> kSeedKeyTable{
 // reverse order. The read path decrypts what the kernel dumps; the write path
 // encrypts the image before the first frame goes out.
 constexpr std::array<std::uint16_t, 4> kDecryptTable{0x1075, 0x9E51, 0x8BEF, 0x3B61};
-// Legacy encrypt_payload (operation.cpp:999).
+// Legacy encrypt_payload (operation.cpp:1002).
 constexpr std::array<std::uint16_t, 4> kEncryptTable{0x3B61, 0x8BEF, 0x9E51, 0x1075};
 
-// Legacy write_mem's block_modified table (operation.cpp:633-634): 16 entries
+// Legacy write_mem's block_modified table (operation.cpp:632-633): 16 entries
 // for an 11-block M32R_512KB, so entries 11-15 are never consulted. Blocks 0-2
 // (0x0000, 0x4000, 0x6000) hold the bootloader and are deliberately left
 // alone; only blocks 3-10 (0x8000 through 0x80000) are reflashed.
@@ -455,12 +455,12 @@ Status reflash_block(ICanFlashTransport& transport, IClock& clock, const ICancel
 {
     const std::uint32_t frame_size = plan.write_frame_size;
     const std::uint32_t frames = block.len / frame_size;
-    // Legacy end_addr - start_address: whole frames only (operation.cpp:730).
+    // Legacy end_addr - start_address: whole frames only (operation.cpp:739).
     const std::uint32_t data_len = frames * frame_size;
     // Defensive, and unreachable on the validated M32R_512KB geometry: the
     // plan validator pins both the MCU and the 0x80000 image size, so every
     // flashed block lies inside the encrypted image. Legacy indexed
-    // newdata[i + blockaddr] with no such check (operation.cpp:775); this
+    // newdata[i + blockaddr] with no such check (operation.cpp:803); this
     // makes a future geometry change fail cleanly instead of reading out of
     // bounds while talking to flash hardware.
     if (block.start > encrypted.size() || data_len > encrypted.size() - block.start)
@@ -484,7 +484,7 @@ Status reflash_block(ICanFlashTransport& transport, IClock& clock, const ICancel
     for (std::uint32_t frame = 0; frame < frames; ++frame)
     {
         // Legacy's stopRequested() check at the top of the frame loop
-        // (operation.cpp:756), which returned STATUS_SUCCESS and so reported a
+        // (operation.cpp:785), which returned STATUS_SUCCESS and so reported a
         // cancelled block as reflashed.
         if (cancellation.cancelled())
         {
@@ -510,8 +510,8 @@ Status reflash_block(ICanFlashTransport& transport, IClock& clock, const ICancel
     events.log(LogLevel::Info, "Closing out flashing of this block...");
     // Legacy retries the close up to 20 times; one non-0x77 or absent reply is
     // logged and retried (both `return STATUS_ERROR` lines are commented out,
-    // operation.cpp:868), but exhausting the 20 attempts fails the block
-    // before the checksum is ever asked for (operation.cpp:881-884).
+    // operation.cpp:861), but exhausting the 20 attempts fails the block
+    // before the checksum is ever asked for (operation.cpp:870-873).
     bool closed = false;
     for (int attempt = 0; attempt < kRetryAttempts && !closed; ++attempt)
     {
@@ -538,7 +538,7 @@ Status reflash_block(ICanFlashTransport& transport, IClock& clock, const ICancel
     events.log(LogLevel::Info, "Verifying checksum...");
     // The 0x71 02 02 answer is the block's only success condition: legacy
     // returns STATUS_SUCCESS from inside this loop and STATUS_ERROR from below
-    // it (operation.cpp:890-922). A short, wrong or absent answer is retried.
+    // it (operation.cpp:889-917). A short, wrong or absent answer is retried.
     for (int attempt = 0; attempt < kRetryAttempts; ++attempt)
     {
         Result<std::optional<bytes::Bytes>> checksum =
@@ -558,7 +558,7 @@ Status reflash_block(ICanFlashTransport& transport, IClock& clock, const ICancel
                 std::format("block at 0x{:08X} checksum failed after {} attempts", block.start, kRetryAttempts));
 }
 
-// Legacy write_mem (operation.cpp:624-702).
+// Legacy write_mem (operation.cpp:624-705).
 Status write_rom(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                  IEventSink& events, const SubaruTcuHitachiM32rCanPlan& plan, const FlashPlan& flash_plan)
 {
@@ -573,8 +573,8 @@ Status write_rom(ICanFlashTransport& transport, IClock& clock, const ICancellati
     }
 
     // Legacy encrypts the whole image before the first frame leaves
-    // (operation.cpp:641) and then indexes it by absolute flash address
-    // (operation.cpp:775, newdata[i + blockaddr] over fblocks[0].start == 0).
+    // (operation.cpp:640) and then indexes it by absolute flash address
+    // (operation.cpp:803, newdata[i + blockaddr] over fblocks[0].start == 0).
     const bytes::Bytes& image = *flash_plan.image();
     const bytes::Bytes encrypted = SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()),
                                                                  kEncryptTable, SsmProtocol::kIndexTransformationStock);
