@@ -112,18 +112,31 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
         return read_timeouts_;
     }
 
+    Status reset_connection() override
+    {
+        lifecycle_calls_.push_back("reset_connection");
+        ++reset_call_count_;
+        open_ = false;
+        return reset_result_;
+    }
+
     Status configure(const Iso15765Config& config) override
     {
+        lifecycle_calls_.push_back("configure");
+        ++configure_call_count_;
         last_config_ = config;
         return configure_result_;
     }
     Status open() override
     {
+        lifecycle_calls_.push_back("open");
+        ++open_call_count_;
         open_ = true;
         return open_result_;
     }
     Status close() override
     {
+        lifecycle_calls_.push_back("close");
         ++close_call_count_;
         open_ = false;
         return close_result_;
@@ -180,7 +193,12 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
         return result;
     }
 
+    int reset_call_count_ = 0;
+    int configure_call_count_ = 0;
+    int open_call_count_ = 0;
     int close_call_count_ = 0;
+    std::vector<std::string> lifecycle_calls_;
+    Status reset_result_;
     Status configure_result_;
     Status open_result_;
     Status close_result_;

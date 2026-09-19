@@ -92,6 +92,9 @@ inline void PrintTo(TransportKind transport, std::ostream *os)
     case TransportKind::CanIso15765:
         *os << "CanIso15765";
         return;
+    case TransportKind::CanRawIso15765:
+        *os << "CanRawIso15765";
+        return;
     }
 }
 

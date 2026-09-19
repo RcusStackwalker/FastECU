@@ -13,6 +13,7 @@ cc_library(
         "scripted_can_flash_transport.h",
         "scripted_flash_transport_state.h",
         "scripted_kline_flash_transport.h",
+        "scripted_mixed_can_flash_transport.h",
     ],
     deps = ["//src/backend/flash:flash_executor"],
 )

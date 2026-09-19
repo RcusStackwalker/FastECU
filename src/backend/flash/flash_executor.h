@@ -12,6 +12,7 @@
 #include "src/backend/ports/clock.h"
 #include "src/backend/ports/event_sink.h"
 #include "src/backend/ports/result.h"
+#include "src/backend/protocol/ican_transport.h"
 #include "src/backend/protocol/ikline_transport.h"
 
 namespace fastecu::flash
@@ -46,6 +47,20 @@ struct Iso15765Config
     std::uint32_t request_id;
     std::uint32_t response_id;
     bool extended_id;
+};
+
+struct RawCanConfig
+{
+    int bitrate;
+    std::uint32_t transmit_id;
+    std::uint32_t receive_id;
+    bool extended_id;
+};
+
+struct MixedCanConfig
+{
+    Iso15765Config kernel;
+    RawCanConfig bootloader;
 };
 
 template <class Plan>
@@ -105,6 +120,14 @@ class IKlineFlashExecutor
     // caller touches hardware.
     virtual Result<KlineConfig> transport_setup(const FlashPlan& plan) const = 0;
 
+    // Optional family-specific preparation before the caller configures the
+    // adapter.  This is the narrow seam for protocols whose legacy startup
+    // sequence performs a reset and a timed quiet period before setters.
+    virtual Status before_transport_configure(IKlineFlashTransport&, IClock&, const ICancellationToken&) const
+    {
+        return {};
+    }
+
     // Family-specific cancellation checkpoint after configure() and before
     // open(). Most executors historically had no checkpoint in that interval.
     virtual Status before_transport_open(const ICancellationToken&) const
@@ -126,6 +149,13 @@ class ICanFlashExecutor
     virtual ~ICanFlashExecutor() = default;
 
     virtual Result<Iso15765Config> transport_setup(const FlashPlan& plan) const = 0;
+
+    // Optional family-specific preparation before configure().  The default
+    // keeps existing executors on the established lifecycle path.
+    virtual Status before_transport_configure(ICanFlashTransport&, IClock&, const ICancellationToken&) const
+    {
+        return {};
+    }
 
     virtual Status before_transport_open(const ICancellationToken&) const
     {
@@ -186,11 +216,118 @@ class ICanFlashTransport : public IFlashTransport
 {
   public:
     virtual ~ICanFlashTransport() = default;
+    // Every CAN transport must expose a real reset so protocol-owned
+    // sequences cannot silently degrade into configure/open only.
+    virtual Status reset_connection() = 0;
     virtual Status configure(const Iso15765Config&) = 0;
     virtual Status open() = 0;
     virtual Status close() = 0;
+    // A protocol-owned in-session restart. This intentionally owns only
+    // reset/reconfigure/reopen; BoundAttempt still owns initial setup and
+    // final close.
+    //
+    // Post-condition on the last checkpoint below ("...after open"): if that
+    // check reports Cancelled, reset/configure/open have already all
+    // succeeded, so the port is left reset, reconfigured and OPEN -- a caller
+    // cannot tell that outcome apart from a restart that never began. This is
+    // safe for the current caller only because BoundAttempt::run() closes the
+    // transport exactly once on every exit path past its own open() (see its
+    // comment above the close() call), so a restart-time Cancelled here still
+    // gets torn down at the end of the attempt regardless of this port state.
+    virtual Status restart_iso15765(const Iso15765Config& config, const ICancellationToken& cancellation)
+    {
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "ISO-15765 restart cancelled before reset");
+        }
+        if (const Status reset = reset_connection(); !reset)
+        {
+            return reset;
+        }
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "ISO-15765 restart cancelled after reset");
+        }
+        if (const Status configured = configure(config); !configured)
+        {
+            return configured;
+        }
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "ISO-15765 restart cancelled after configure");
+        }
+        if (const Status opened = open(); !opened)
+        {
+            return opened;
+        }
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "ISO-15765 restart cancelled after open");
+        }
+        return {};
+    }
     virtual Status write(bytes::ByteView, const ICancellationToken&) = 0;
     virtual Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout, const ICancellationToken&) = 0;
+};
+
+// A transport for the DensoCAN family's two-phase flash sequence: a raw-CAN
+// bootloader phase (enter_raw_bootloader_mode()/write_raw()/read_raw()) that
+// uploads and hands off to a kernel, followed by a switch to ISO-15765
+// (enter_iso15765_kernel_mode()/write_iso15765()/read_iso15765()) for the
+// kernel's own framed traffic. configure()/open()/close() govern the whole
+// session; the enter_*/write_*/read_* calls are what move between the two
+// phases within it.
+//
+// cdbg::CanFrame appears here even though ICanFlashTransport's comment above
+// explains that flash CAN is deliberately kept distinct from
+// cdbg::ICanTransport: that separation is about the *framed* ISO-15765 side,
+// which still exchanges plain bytes::Bytes here via write_iso15765()/
+// read_iso15765(). The raw bootloader phase, in contrast, genuinely is
+// single-frame id+payload CAN traffic -- the same shape cdbg::CanFrame
+// already models -- so reusing it avoids inventing a second raw-frame type
+// for one already-solved problem, without pulling cdbg::ICanTransport itself
+// into the flash contract.
+//
+// No production consumer yet: it exists ahead of PR #341's DensoCAN family,
+// which is what will actually construct and drive it.
+class IMixedCanFlashTransport : public IFlashTransport
+{
+  public:
+    virtual Status reset_connection() = 0;
+    virtual Status configure(const MixedCanConfig&) = 0;
+    virtual Status open() = 0;
+    virtual Status close() = 0;
+    virtual Status enter_raw_bootloader_mode() = 0;
+    virtual Status clear_receive_buffer() = 0;
+    virtual Status enter_iso15765_kernel_mode() = 0;
+    virtual Status write_iso15765(bytes::ByteView, const ICancellationToken&) = 0;
+    virtual Result<std::optional<bytes::Bytes>> read_iso15765(std::chrono::milliseconds, const ICancellationToken&) = 0;
+    virtual Status write_raw(const cdbg::CanFrame&, const ICancellationToken&) = 0;
+    virtual Result<std::optional<cdbg::CanFrame>> read_raw(std::chrono::milliseconds, const ICancellationToken&) = 0;
+};
+
+// Mixed-CAN sibling of IKlineFlashExecutor/ICanFlashExecutor, paired with
+// IMixedCanFlashTransport; the same caller-owns-lifecycle contract applies.
+// No production consumer yet -- it lands ahead of PR #341's DensoCAN family,
+// the first executor expected to implement it.
+class IMixedCanFlashExecutor
+{
+  public:
+    using TransportType = IMixedCanFlashTransport;
+    using ConfigType = MixedCanConfig;
+
+    virtual ~IMixedCanFlashExecutor() = default;
+    virtual Result<MixedCanConfig> transport_setup(const FlashPlan&) const = 0;
+    virtual Status before_transport_configure(IMixedCanFlashTransport&, IClock&, const ICancellationToken&) const
+    {
+        return {};
+    }
+    virtual Status before_transport_open(const ICancellationToken&) const
+    {
+        return {};
+    }
+    virtual Result<FlashExecutionResult> execute(const FlashPlan&, IMixedCanFlashTransport&, IClock&,
+                                                 const ICancellationToken&, IEventSink&) = 0;
 };
 
 // An executor already bound to a transport it is known to accept. FlashWorker
@@ -232,6 +369,11 @@ template <class Executor, class Transport> class BoundAttempt final : public Bou
         if (cancellation.cancelled())
         {
             return fail(ErrorKind::Cancelled, "cancelled before configure");
+        }
+        if (const Status preparation = executor_->before_transport_configure(*transport_, clock, cancellation);
+            !preparation.has_value())
+        {
+            return std::unexpected(preparation.error());
         }
         if (const Status configured = transport_->configure(*setup); !configured.has_value())
         {

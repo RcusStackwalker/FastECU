@@ -31,6 +31,7 @@ class DesktopCanFlashTransport final : public ICanFlashTransport
     explicit DesktopCanFlashTransport(SerialPortActions *serial);
     ~DesktopCanFlashTransport() override;
 
+    Status reset_connection() override;
     Status configure(const Iso15765Config& config) override;
     Status open() override;
     Status close() override;

@@ -38,6 +38,11 @@ TEST(FlashTypesTest, FamilyPlanHoldsCanVariant)
     EXPECT_EQ(std::get<DensoSh705xEepromCanPlan>(plan).response_id, 0x7e8U);
 }
 
+TEST(FlashTypesTest, MixedCanTransportKindIsDistinctFromIso15765)
+{
+    EXPECT_NE(TransportKind::CanRawIso15765, TransportKind::CanIso15765);
+}
+
 TEST(FlashTypesTest, FamilyPlanHoldsMitsuColtM32rCanVariant)
 {
     FamilyPlan plan = MitsuColtM32rCanPlan{

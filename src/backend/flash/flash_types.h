@@ -60,6 +60,7 @@ enum class TransportKind
 {
     Kline,
     CanIso15765,
+    CanRawIso15765,
 };
 
 struct MemoryRegion
