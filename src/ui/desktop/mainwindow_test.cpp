@@ -175,6 +175,26 @@ std::unique_ptr<SerialPortActions> fakeSerial(QObject *parent, FakeBackend **fak
     return serial;
 }
 
+// start_ecu_operations is a private slot, and this file reaches MainWindow's
+// internals through `#define private public` above. That works for data
+// members, whose access is checked only while compiling, but not for a call to
+// an out-of-line member function on MSVC: the Microsoft ABI encodes the access
+// level in the mangled name, so a call compiled here as public looks for a
+// symbol mainwindow.cpp never emitted and the Windows link fails on it alone.
+// The Itanium ABI does not encode access, which is why Linux and macOS link
+// either way. Calling the slot by name through the metaobject mangles nothing,
+// and is what logging_engine_test.cpp already does for its private slots.
+int startEcuOperations(MainWindow& window, const QString& cmd_type)
+{
+    int result = -1;
+    if (!QMetaObject::invokeMethod(&window, "start_ecu_operations", Qt::DirectConnection, Q_RETURN_ARG(int, result),
+                                   Q_ARG(QString, cmd_type)))
+    {
+        return -1;
+    }
+    return result;
+}
+
 bool writeTextFile(const QString& path, const char *contents)
 {
     QFile file{path};
@@ -376,7 +396,7 @@ class MainWindowTest : public QObject
 
         ModalDriver operation_driver{choice};
         operation_driver.start();
-        QCOMPARE(window.start_ecu_operations("read"), 0);
+        QCOMPARE(startEcuOperations(window, "read"), 0);
 
         QVERIFY(operation_driver.sawChooser());
         QCOMPARE(operation_driver.ignitionCount(), expected_ignition_count);
@@ -425,7 +445,7 @@ class MainWindowTest : public QObject
 
         ModalDriver operation_driver{QString()};
         operation_driver.start();
-        QCOMPARE(window.start_ecu_operations("read"), 0);
+        QCOMPARE(startEcuOperations(window, "read"), 0);
         operation_driver.stop();
 
         QVERIFY(!operation_driver.timedOut());
@@ -473,7 +493,7 @@ class MainWindowTest : public QObject
 
         ModalDriver operation_driver{QString()};
         operation_driver.start();
-        QCOMPARE(window.start_ecu_operations("read"), 0);
+        QCOMPARE(startEcuOperations(window, "read"), 0);
         operation_driver.stop();
 
         QVERIFY(!operation_driver.timedOut());
@@ -525,7 +545,7 @@ class MainWindowTest : public QObject
 
         ModalDriver operation_driver{QString()};
         operation_driver.start();
-        QCOMPARE(window.start_ecu_operations("read"), 0);
+        QCOMPARE(startEcuOperations(window, "read"), 0);
         operation_driver.stop();
 
         QVERIFY(!operation_driver.timedOut());
