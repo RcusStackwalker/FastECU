@@ -215,10 +215,19 @@ class MainWindowTest : public QObject
     void initTestCase()
     {
         QVERIFY(home_.isValid());
+        // Qt resolves QDir::homePath() from HOME on Unix, but on Windows it
+        // reads USERPROFILE first and only falls back to HOME, so redirecting
+        // the fixture's home takes both.
         QVERIFY(qputenv("HOME", home_.path().toUtf8()));
+        QVERIFY(qputenv("USERPROFILE", home_.path().toUtf8()));
         QCOMPARE(QDir::homePath(), home_.path());
 
-        const QString config_dir = home_.path() + "/.config/FastECU/0.1.0-beta.5/config/";
+        // ConfigValuesStructure builds this from QDir::homePath() with the
+        // per-platform layout -- .config/FastECU on Unix, AppData/Local/FastECU
+        // on Windows -- so taking the directory from a default-constructed one
+        // puts the fixture wherever MainWindow will actually read it, on either
+        // platform and without spelling the version out a second time.
+        const QString config_dir = FileActions::ConfigValuesStructure{}.config_files_base_directory;
         QVERIFY(QDir().mkpath(config_dir));
         QVERIFY(writeTextFile(config_dir + "fastecu.cfg",
                               R"(<?xml version="1.0" encoding="UTF-8"?>
