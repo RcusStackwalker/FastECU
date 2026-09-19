@@ -1,7 +1,9 @@
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_executor.h"
 
+#include <algorithm>
 #include <array>
 #include <format>
+#include <optional>
 
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
@@ -16,17 +18,17 @@ using bytes::composeBe;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
 
-// The following four constants back Task 3's read_rom loop; only
-// kConnectTimeoutMs is used by this task's connect_bootloader().
-[[maybe_unused]] constexpr std::uint32_t kRomSize = 0x80000;
+// The following four constants back the read_rom loop below; only
+// kConnectTimeoutMs is used by connect_bootloader().
+constexpr std::uint32_t kRomSize = 0x80000;
 // Legacy serial_read_timeout, used by every connect_bootloader() exchange.
 constexpr int kConnectTimeoutMs = 2000;
 // Legacy receive_timeout, used by send_sid_a0_block_read().
-[[maybe_unused]] constexpr int kBlockTimeoutMs = 500;
+constexpr int kBlockTimeoutMs = 500;
 // The delay(100) on each side of send_sid_a0_block_read()'s read.
-[[maybe_unused]] constexpr auto kBlockDelay = 100ms;
+constexpr auto kBlockDelay = 100ms;
 // read_a0_rom retries a block up to five times before giving up.
-[[maybe_unused]] constexpr int kBlockAttempts = 5;
+constexpr int kBlockAttempts = 5;
 
 bytes::Bytes framed(bytes::ByteView payload, const SubaruTcuHitachiM32rKlinePlan& p)
 {
@@ -74,6 +76,60 @@ Result<bytes::Bytes> exchange(IKlineFlashTransport& transport, const ICancellati
     if (!response.has_value())
     {
         return std::unexpected(response.error());
+    }
+    if (!response->has_value())
+    {
+        return fail(ErrorKind::Timeout, "no response from TCU");
+    }
+    return std::move(**response);
+}
+
+// send_sid_a0_block_read's exact wire pacing: write, delay(100), read,
+// delay(100) -- the 100ms gap sits BETWEEN the write and the read, unlike the
+// connect-path exchange()/exchange_optional() helpers, which write and read
+// back to back with no pacing delay of their own. This family's block-read
+// wire timing has no hardware qualification behind it, so this reproduces the
+// legacy order exactly rather than "improving" it. Keeps the same three
+// cancellation checkpoints as exchange_optional (before write, after write,
+// after read); clock.sleep() itself also observes cancellation.
+Result<bytes::Bytes> exchange_block_read(IKlineFlashTransport& transport, IClock& clock,
+                                         const ICancellationToken& cancellation, bytes::ByteView payload,
+                                         const SubaruTcuHitachiM32rKlinePlan& p, int timeout)
+{
+    if (cancellation.cancelled())
+    {
+        return fail(ErrorKind::Cancelled, "cancelled before write");
+    }
+    const bytes::Bytes request = framed(payload, p);
+    auto written = transport.write(request);
+    if (!written.has_value())
+    {
+        return std::unexpected(written.error());
+    }
+    if (*written != request.size())
+    {
+        return fail(ErrorKind::Disconnected, "short K-Line write");
+    }
+    if (cancellation.cancelled())
+    {
+        return fail(ErrorKind::Cancelled, "cancelled after write");
+    }
+    if (auto slept = clock.sleep(kBlockDelay, cancellation); !slept.has_value())
+    {
+        return std::unexpected(slept.error());
+    }
+    auto response = transport.read(std::chrono::milliseconds{timeout}, cancellation);
+    if (!response.has_value())
+    {
+        return std::unexpected(response.error());
+    }
+    if (cancellation.cancelled())
+    {
+        return fail(ErrorKind::Cancelled, "cancelled after read");
+    }
+    if (auto slept = clock.sleep(kBlockDelay, cancellation); !slept.has_value())
+    {
+        return std::unexpected(slept.error());
     }
     if (!response->has_value())
     {
@@ -253,13 +309,56 @@ Result<FlashExecutionResult> SubaruTcuHitachiM32rKlineExecutor::execute(const Fl
 
 namespace
 {
-// Stub for Task 3, which replaces only this function's body with the real
-// send_sid_a0_block_read() read loop. The forward declaration above and this
-// definition both stay permanently; only the body changes.
-Result<bytes::Bytes> read_rom(IKlineFlashTransport&, IClock&, const ICancellationToken&, IEventSink&,
-                              const SubaruTcuHitachiM32rKlinePlan&)
+// read_a0_rom's block-read loop: 96-byte blocks (the final block is whatever
+// remains, 32 bytes for the 0x80000 ROM), up to five attempts per block while
+// the response is too short to carry data (legacy: received.length() <= 5).
+Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                              IEventSink& events, const SubaruTcuHitachiM32rKlinePlan& p)
 {
-    return fail(ErrorKind::Internal, "read_rom lands in task 3");
+    bytes::Bytes rom;
+    rom.reserve(kRomSize);
+    for (std::uint32_t address = 0; address < kRomSize; address += p.block_size)
+    {
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "cancelled during ROM read");
+        }
+        const std::uint32_t length = std::min(p.block_size, kRomSize - address);
+        const bytes::Bytes request =
+            composeBe(0xa0_b, 0x00_b, bytes::u24(address), static_cast<bytes::Byte>(length - 1));
+
+        // read_a0_rom's retry loop: up to five attempts while the response is
+        // too short to carry data. Each attempt keeps the legacy
+        // write/delay(100)/read/delay(100) pacing via exchange_block_read.
+        std::optional<bytes::Bytes> block;
+        for (int attempt = 0; attempt < kBlockAttempts; ++attempt)
+        {
+            auto response = exchange_block_read(transport, clock, cancellation, request, p, kBlockTimeoutMs);
+            if (!response.has_value())
+            {
+                return std::unexpected(response.error());
+            }
+            if (response->size() > 5)
+            {
+                block = std::move(*response);
+                break;
+            }
+        }
+        if (!block.has_value())
+        {
+            return fail(ErrorKind::BadResponse,
+                        std::format("no block-read response at 0x{:06x} after {} attempts", address, kBlockAttempts));
+        }
+        // 5 header bytes, `length` data bytes, 1 checksum byte.
+        if (block->size() != length + 6)
+        {
+            return fail(ErrorKind::BadResponse, std::format("block read at 0x{:06x} returned {} bytes, expected {}",
+                                                            address, block->size(), length + 6));
+        }
+        rom.insert(rom.end(), block->begin() + 5, block->end() - 1);
+        events.progress(static_cast<int>(address + length), static_cast<int>(kRomSize));
+    }
+    return rom;
 }
 } // namespace
 } // namespace fastecu::flash

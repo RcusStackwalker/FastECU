@@ -3,6 +3,9 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cstdint>
+
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
 #include "src/backend/ports/manual_cancellation_token.h"
@@ -15,9 +18,24 @@ namespace
 using namespace fastecu;
 using namespace fastecu::flash;
 
+// Matches the executor's private kRomSize/block_size: 0x80000 / 96 = 5461
+// remainder 32, so the ROM read is 5462 blocks with a 32-byte tail.
+constexpr std::uint32_t kRomSize = 0x80000;
+constexpr std::uint32_t kBlockSize = 96;
+
 bytes::Bytes frame(bytes::Bytes payload)
 {
     return SsmProtocol::addHeader(payload, 0xf0, 0x18);
+}
+
+// A scripted a0 block-read response: 5 header bytes, `length` data bytes
+// (filled with `fill`), 1 checksum byte -- the shape read_rom slices as
+// [5, size-1).
+bytes::Bytes blockResponse(std::uint32_t length, bytes::Byte fill)
+{
+    bytes::Bytes response(length + 6, fill);
+    response[4] = 0xe0;
+    return response;
 }
 
 bytes::Bytes idResponse()
@@ -74,16 +92,23 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, TransportSetupMatchesTheLegacySetters)
     EXPECT_EQ(config->target_id, 0x18);
 }
 
-// read_rom is a Task-3 stub (returns ErrorKind::Internal unconditionally), so
-// this only proves the five connect exchanges are sent byte-exact and in
-// order, then that execute() surfaces the stub's failure and stops -- no
-// further writes happen. The success-path version, scripting all 5462 ROM
-// read chunks through to a passing result, arrives in Task 3 once read_rom is
-// implemented.
+// Proves the five connect exchanges are sent byte-exact and in order, then
+// that the real read_rom() reads all 5462 blocks through to a passing result.
 TEST(SubaruTcuHitachiM32rKlineExecutor, ConnectSendsTheFiveLegacyExchangesInOrder)
 {
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     scriptConnect(transport);
+    {
+        const auto section = transport.section("read chunks");
+        for (std::uint32_t address = 0; address < kRomSize; address += kBlockSize)
+        {
+            const std::uint32_t length = std::min(kBlockSize, kRomSize - address);
+            transport.exchange(
+                frame({0xa0, 0x00, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
+                       static_cast<bytes::Byte>(address), static_cast<bytes::Byte>(length - 1)}),
+                blockResponse(length, 0x5a));
+        }
+    }
 
     SubaruTcuHitachiM32rKlineExecutor executor;
     FakeClock clock;
@@ -91,7 +116,116 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, ConnectSendsTheFiveLegacyExchangesInOrde
     RecordingEventSink events;
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Internal));
-    EXPECT_EQ(transport.writesConsumed(), 5U);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_TRUE(result->read_bytes.has_value());
+    EXPECT_EQ(result->read_bytes->size(), kRomSize);
+    EXPECT_EQ(result->rom_id, std::string("123456789A_"));
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(SubaruTcuHitachiM32rKlineExecutor, ReadsTheRomIn96ByteBlocksWithA32ByteTail)
+{
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptConnect(transport);
+    std::uint32_t blocks = 0;
+    std::uint32_t last_length = 0;
+    {
+        const auto section = transport.section("read chunks");
+        for (std::uint32_t address = 0; address < kRomSize; address += kBlockSize)
+        {
+            last_length = std::min(kBlockSize, kRomSize - address);
+            ++blocks;
+            transport.exchange(
+                frame({0xa0, 0x00, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
+                       static_cast<bytes::Byte>(address), static_cast<bytes::Byte>(last_length - 1)}),
+                blockResponse(last_length, 0x5a));
+        }
+    }
+    EXPECT_EQ(blocks, 5462U);
+    EXPECT_EQ(last_length, 32U);
+
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+    const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_TRUE(result->read_bytes.has_value());
+    EXPECT_EQ(result->read_bytes->size(), kRomSize);
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+// The legacy retried a block up to five times while the response was 5 bytes
+// or shorter; the sixth failure gave up silently and produced a short ROM.
+TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockUpToFiveTimes)
+{
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptConnect(transport);
+    const auto section = transport.section("read chunks");
+    const bytes::Bytes request = frame({0xa0, 0x00, 0x00, 0x00, 0x00, 0x5f});
+    // Four short responses, then a good one: the fifth attempt succeeds.
+    for (int attempt = 0; attempt < 4; ++attempt)
+    {
+        transport.exchange(request, bytes::Bytes{0x80, 0xf0, 0x18, 0x01, 0xe0});
+    }
+    transport.exchange(request, blockResponse(kBlockSize, 0x5a));
+    for (std::uint32_t address = kBlockSize; address < kRomSize; address += kBlockSize)
+    {
+        const std::uint32_t length = std::min(kBlockSize, kRomSize - address);
+        transport.exchange(
+            frame({0xa0, 0x00, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
+                   static_cast<bytes::Byte>(address), static_cast<bytes::Byte>(length - 1)}),
+            blockResponse(length, 0x5a));
+    }
+
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+    const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(result->read_bytes->size(), kRomSize);
+}
+
+// Deliberate divergence: the legacy appended nothing and returned
+// STATUS_SUCCESS, yielding a silently short ROM.
+TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenABlockExhaustsItsFiveAttempts)
+{
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptConnect(transport);
+    const auto section = transport.section("read chunks");
+    const bytes::Bytes request = frame({0xa0, 0x00, 0x00, 0x00, 0x00, 0x5f});
+    for (int attempt = 0; attempt < 5; ++attempt)
+    {
+        transport.exchange(request, bytes::Bytes{0x80, 0xf0, 0x18, 0x01, 0xe0});
+    }
+
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+    const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+}
+
+// Deliberate divergence: the legacy accepted any response longer than five
+// bytes and appended length-1 of it, misaligning every later byte.
+TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsABlockResponseOfTheWrongLength)
+{
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptConnect(transport);
+    const auto section = transport.section("read chunks");
+    transport.exchange(frame({0xa0, 0x00, 0x00, 0x00, 0x00, 0x5f}), blockResponse(kBlockSize - 8, 0x5a));
+
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+    const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
 }
 } // namespace
