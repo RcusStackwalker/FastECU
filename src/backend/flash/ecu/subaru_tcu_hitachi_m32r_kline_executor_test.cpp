@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_plan.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
@@ -18,6 +19,36 @@ namespace
 {
 using namespace fastecu;
 using namespace fastecu::flash;
+
+// This family's connect_bootloader() consumes five transport.read() calls
+// (id, 0x81, 0x83, seed request, key send) before the ROM read loop starts.
+// Cancelling on the third read would trip inside connect, not inside the
+// read loop this test means to cover, so this trips on the eighth read: the
+// five connect reads plus the first two block reads, landing the
+// cancellation on the third block's read -- squarely inside read_rom's loop.
+constexpr int kCancelOnRead = 8;
+
+class TripOnReadTransport final : public ScriptedKlineFlashTransport
+{
+  public:
+    explicit TripOnReadTransport(ManualCancellationToken& source)
+        : ScriptedKlineFlashTransport(ScriptedTransportInitialState::Open), source_(source)
+    {
+    }
+    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
+    {
+        auto result = ScriptedKlineFlashTransport::read(timeout, cancellation);
+        if (++reads_ == kCancelOnRead)
+        {
+            source_.cancel();
+        }
+        return result;
+    }
+
+  private:
+    ManualCancellationToken& source_;
+    int reads_ = 0;
+};
 
 // Matches the executor's private kRomSize/block_size: 0x80000 / 96 = 5461
 // remainder 32, so the ROM read is 5462 blocks with a 32-byte tail.
@@ -328,5 +359,90 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PacesEachBlockReadAsWriteThenDelayThenRe
     EXPECT_EQ(trace[11], Step::Sleep);
     EXPECT_EQ(trace[12], Step::Read);
     EXPECT_EQ(trace[13], Step::Sleep);
+}
+
+// Proves the read_rom loop's cancellation checkpoints actually stop the
+// read: TripOnReadTransport cancels on the eighth transport.read() (see the
+// comment on kCancelOnRead above), which lands inside exchange_block_read's
+// "cancelled after read" checkpoint for the third block -- well short of
+// the full 5462-block ROM.
+TEST(SubaruTcuHitachiM32rKlineExecutor, StopsPromptlyWhenCancelledMidRead)
+{
+    ManualCancellationToken cancellation;
+    TripOnReadTransport transport{cancellation};
+    scriptConnect(transport);
+    {
+        const auto section = transport.section("read chunks");
+        for (std::uint32_t address = 0; address < kRomSize; address += kBlockSize)
+        {
+            const std::uint32_t length = std::min(kBlockSize, kRomSize - address);
+            transport.exchange(
+                frame({0xa0, 0x00, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
+                       static_cast<bytes::Byte>(address), static_cast<bytes::Byte>(length - 1)}),
+                blockResponse(length, 0x5a));
+        }
+    }
+
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+    const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    EXPECT_LT(transport.writesConsumed(), 100U);
+}
+
+// A plan built for the ECU (non-TCU) Hitachi M32R K-Line family must be
+// rejected by check_family before any I/O happens.
+TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsAPlanBuiltForAnotherFamily)
+{
+    auto foreign = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline",
+                                                        "M32R_512KB_1block", std::nullopt);
+    ASSERT_THAT(foreign, fastecu::testing::IsOk());
+
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+
+    EXPECT_THAT(executor.transport_setup(*foreign), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(executor.execute(*foreign, transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_EQ(transport.writesConsumed(), 0U);
+}
+
+TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheSeedResponseIsTooShort)
+{
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    const auto section = transport.section("connect");
+    transport.exchange(frame({0xbf}), idResponse());
+    transport.exchange(frame({0x81}), bytes::Bytes{0x80, 0xf0, 0x18, 0x01, 0xc1, 0});
+    transport.exchange(frame({0x83, 0x00}), bytes::Bytes{0x80, 0xf0, 0x18, 0x01, 0xc3, 0});
+    // 0x67 0x01 present but only two seed bytes follow.
+    transport.exchange(frame({0x27, 0x01}), bytes::Bytes{0x80, 0xf0, 0x18, 0x04, 0x67, 0x01, 0xde, 0xad, 0});
+
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+
+    EXPECT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::BadResponse));
+}
+
+TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheTcuNeverAnswers)
+{
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    transport.expectWrite(frame({0xbf}));
+    transport.queue_no_frame();
+
+    SubaruTcuHitachiM32rKlineExecutor executor;
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+
+    EXPECT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
+                fastecu::testing::IsErr(ErrorKind::Timeout));
 }
 } // namespace

@@ -704,6 +704,7 @@ fastecu_portable_gtest(
     name = "subaru_tcu_hitachi_m32r_kline_executor_test",
     srcs = ["subaru_tcu_hitachi_m32r_kline_executor_test.cpp"],
     deps = [
+        ":subaru_hitachi_m32r_kline_plan",
         ":subaru_tcu_hitachi_m32r_kline_executor",
         ":subaru_tcu_hitachi_m32r_kline_plan",
         "//src/algorithms/protocol/ssm",
