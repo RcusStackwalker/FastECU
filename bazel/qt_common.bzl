@@ -45,7 +45,8 @@ def fastecu_qttest(
         target_compatible_with = [],
         copts = [],
         size = "small",
-        qt_deps = QT_DEPS_NO_WIDGETS):
+        qt_deps = QT_DEPS_NO_WIDGETS,
+        **kwargs):
     """QtTest target with moc generation for a self-including C++ source.
 
     Args:
@@ -62,6 +63,10 @@ def fastecu_qttest(
       qt_deps: Qt modules to compile and link against. Defaults to the
         widget-free set; the qt_targets.bzl wrapper raises it to QT_DEPS for
         the layers whose tests instantiate widgets.
+      **kwargs: Forwarded to the underlying cc_test. Pass an attribute here
+        only to override it for one target: anything named explicitly is set
+        on every caller, and for tri-state attributes like linkstatic that
+        replaces "let the platform decide" with a fixed value.
     """
     moc_target = name + "_moc"
     qt_cpp_moc_headers(
@@ -79,6 +84,7 @@ def fastecu_qttest(
         tags = tags,
         target_compatible_with = target_compatible_with,
         deps = qt_deps + [":" + moc_target] + deps,
+        **kwargs
     )
 
 def _basename(path):

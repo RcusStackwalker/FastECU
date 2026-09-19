@@ -12,6 +12,7 @@
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/ui/desktop/menu/menu_builder.h"
+#include "src/ui/desktop/service_functions/denso_tcu_read_preflight.h"
 
 const QColor MainWindow::RED_LIGHT_OFF = QColor(96, 32, 32);
 const QColor MainWindow::YELLOW_LIGHT_OFF = QColor(96, 96, 32);
@@ -1164,9 +1165,41 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         }();
         std::optional<bytes::Bytes> portable_image =
             fastecu::flash::portableImageForOperation(operation, bytes::view(ecuCalDef[rom_number]->FullRomData));
+
+        const std::string protocol = configValues->flash_protocol_selected_protocol_name.toStdString();
+        const bool denso_tcu = protocol == "sub_tcu_denso_sh7055_can" || protocol == "sub_tcu_denso_sh7058_can";
+        if (operation == fastecu::flash::FlashOperation::Read && denso_tcu)
+        {
+            using fastecu::service_functions::DensoTcuReadAction;
+            const DensoTcuReadAction action = fastecu::service_functions::choose_denso_tcu_read_action(this);
+            switch (action)
+            {
+            case DensoTcuReadAction::Dump:
+                emit LOG_I("Read memory with flashmethod '" + QString::fromStdString(protocol) + "' and kernel '" +
+                               ecuCalDef[rom_number]->Kernel + "'",
+                           true, true);
+                break;
+            case DensoTcuReadAction::Relearn:
+                emit LOG_I("Attempting TCU relearn", true, true);
+                break;
+            case DensoTcuReadAction::ReadParameters:
+                emit LOG_I("Attempting to read TCU parameters", true, true);
+                break;
+            case DensoTcuReadAction::SetParameters:
+                emit LOG_I("Attempting to set TCU parameters", true, true);
+                break;
+            case DensoTcuReadAction::Cancelled:
+                emit LOG_I("No option selected", true, true);
+                break;
+            }
+            if (fastecu::service_functions::run_denso_tcu_service_action(action, serial, protocol, this))
+            {
+                goto ecu_operation_cleanup;
+            }
+        }
         auto workflow = fastecu::flash::FlashWorkflowFactory::tryCreate({
             .operation = operation,
-            .protocol = configValues->flash_protocol_selected_protocol_name.toStdString(),
+            .protocol = protocol,
             .mcu = ecuCalDef[rom_number]->McuType.toStdString(),
             .image = std::move(portable_image),
             .paths = eeprom_paths,
@@ -1205,11 +1238,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                 ecuCalDef[rom_number]->RomId = QString::fromStdString(*dialog_result.rom_id);
             }
         }
-        else if (configValues->flash_protocol_selected_protocol_name.endsWith("_densocan"))
-        {
-            FlashEcuSubaruDensoSH705xDensoCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
         /*
          * Denso ECU Boot Mode
          */
@@ -1230,37 +1258,11 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             FlashEcuSubaruDensoSH705xKline flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
             connect_signals_and_run_module(&flash_module);
         }
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_denso_sh7058_can_diesel"))
-        {
-            FlashEcuSubaruDensoSH7058CanDiesel flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_denso_sh7059_can_diesel"))
-        {
-            FlashEcuSubaruDensoSH7058CanDiesel flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_denso_sh7058_can"))
-        {
-            FlashEcuSubaruDensoSH7058Can flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_denso_sh7058"))
+        else if (configValues->flash_protocol_selected_protocol_name == "sub_ecu_denso_sh7058" ||
+                 configValues->flash_protocol_selected_protocol_name == "sub_ecu_denso_sh7058_ecutek" ||
+                 configValues->flash_protocol_selected_protocol_name == "sub_ecu_denso_sh7058_cobb")
         {
             FlashEcuSubaruDensoSH705xKline flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        /*
-         * Denso TCU
-         */
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_tcu_denso_sh7055_can"))
-        {
-            FlashTcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_tcu_denso_sh7058_can"))
-        {
-            FlashTcuSubaruDensoSH705xCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
             connect_signals_and_run_module(&flash_module);
         }
         /*
@@ -1399,6 +1401,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
         }
     }
+ecu_operation_cleanup:
     vbatt_timer->stop();
 
     serial->reset_connection();

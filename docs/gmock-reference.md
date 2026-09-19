@@ -45,8 +45,8 @@ EXPECT_CALL(serial.fake(), read_serial_data(50))
   expectations otherwise take precedence.
 - `NiceFakeBackend` allows uninteresting calls. Explicitly forbid operations
   with `.Times(0)` when testing cancellation or failure short-circuiting.
-  The [legacy TCU preflight test](../src/ui/desktop/flash/tcu/flash_tcu_subaru_denso_sh705x_can_test.cpp)
-  uses `StrictMock<FakeBackend>` to forbid every call after initial setup.
+  The [FakeBackedSerial fixture test](../src/platform/desktop/common/transport/fake_backed_serial_test.cpp)
+  uses `StrictMock<FakeBackend>` to forbid every call the test has not arranged.
 - Use `DoDefault()` when an expected setter must also update configuration.
   `Return(true)` reports success but replaces that default state update.
 - Use `Throw(...)` for driver failures and lambda actions with synchronization

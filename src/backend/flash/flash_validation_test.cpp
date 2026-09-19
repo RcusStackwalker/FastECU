@@ -6,6 +6,9 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <tuple>
+#include <type_traits>
+#include <variant>
 
 namespace fastecu::flash
 {
@@ -66,9 +69,9 @@ struct FamilyCase
     std::string_view id;
 };
 
-const std::array<FamilyCase, 15>& family_cases()
+const std::array<FamilyCase, 19>& family_cases()
 {
-    static const std::array<FamilyCase, 15> cases{{
+    static const std::array<FamilyCase, 19> cases{{
         {FlashFamily::DensoSh705xEepromKline, TransportKind::Kline,
          DensoSh705xEepromKlinePlan{.mode = EepromReadMode::Mode2,
                                     .security = DensoSecurityVariant::Stock,
@@ -167,9 +170,35 @@ const std::array<FamilyCase, 15>& family_cases()
                                     .lead_pad_len = 0x10000,
                                     .tail_pad_len = 0x100},
          "SubaruDenso1n83m_4mCan"},
+        {FlashFamily::SubaruDensoSh705xDensoCan, TransportKind::CanRawIso15765,
+         SubaruDensoSh705xDensoCanPlan{.iso_request_id = 0x7e0,
+                                       .iso_response_id = 0x7e8,
+                                       .raw_transmit_id = 0x000ffffe,
+                                       .raw_receive_id = 0x21,
+                                       .bitrate = 500000,
+                                       .iso_extended_id = false,
+                                       .raw_extended_id = true},
+         "SubaruDensoSh705xDensoCan"},
+        {FlashFamily::SubaruTcuDensoSh705xCan, TransportKind::CanIso15765,
+         SubaruTcuDensoSh705xCanPlan{
+             .request_id = 0x7e1, .response_id = 0x7e9, .bitrate = 500000, .extended_id = false},
+         "SubaruTcuDensoSh705xCan"},
+        {FlashFamily::SubaruDensoSh7058Can, TransportKind::CanIso15765,
+         SubaruDensoSh7058CanPlan{.request_id = 0x7e0,
+                                  .response_id = 0x7e8,
+                                  .bitrate = 500000,
+                                  .extended_id = false,
+                                  .security = SubaruDensoSh7058CanSecurity::Stock},
+         "SubaruDensoSh7058Can"},
+        {FlashFamily::SubaruDensoSh7058CanDiesel, TransportKind::CanIso15765,
+         SubaruDensoSh7058CanDieselPlan{
+             .request_id = 0x7e0, .response_id = 0x7e8, .bitrate = 500000, .extended_id = false},
+         "SubaruDensoSh7058CanDiesel"},
     }};
     return cases;
 }
+
+static_assert(std::variant_size_v<FamilyPlan> == std::tuple_size_v<std::remove_reference_t<decltype(family_cases())>>);
 
 TEST(FlashValidationTest, ValidReadFieldsProduceAPlan)
 {

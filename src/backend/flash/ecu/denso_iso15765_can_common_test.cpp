@@ -21,11 +21,11 @@ namespace
 // the header cites, so a slipped digit in the header fails here.
 //
 // The vector tests pin what those tables actually PRODUCE when run through
-// SsmProtocol. They exist because the four executor suites only ever compare
-// the executor's crypto against their own re-derivation of it: both sides go
-// through SsmProtocol, so a change to SsmProtocol's Feistel arithmetic moves
-// both sides together and every one of those suites keeps passing while the
-// bytes on the wire change. These fixed vectors do not move. They were
+// SsmProtocol. They exist because the executor suites can compare the
+// executor's crypto against an independent literal transcript while still
+// exercising the same SsmProtocol implementation: a change to Feistel
+// arithmetic could otherwise move derived fixtures and wire output together.
+// These fixed vectors do not move. They were
 // computed by an independent reimplementation of transformWord() from
 // src/algorithms/protocol/ssm/ssm_protocol_core.cpp and then confirmed
 // against the compiled implementation; they are a regression pin, not an
@@ -50,9 +50,10 @@ TEST(DensoIso15765CanCommonTest, DecryptTableMatchesLegacyValues)
     EXPECT_EQ(kDensoIso15765DecryptTable, kExpected);
 }
 
-// All four legacy sources spell the decrypt table out rather than deriving it
-// from the encrypt table, so the reversal relationship calculatePayload relies
-// on to invert is pinned here rather than assumed.
+// The applicable legacy sources spell the decrypt table out rather than
+// deriving it from the encrypt table, so the reversal relationship
+// calculatePayload relies on to invert is pinned here rather than assumed.
+// The wave-5 diesel read path is raw and therefore is not a decrypt consumer.
 TEST(DensoIso15765CanCommonTest, DecryptTableIsEncryptTableReversed)
 {
     ASSERT_EQ(kDensoIso15765EncryptTable.size(), kDensoIso15765DecryptTable.size());

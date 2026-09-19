@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library", "qt_ui_basename_libraries")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library", "qt_ui_basename_libraries")
 
 package(default_visibility = [
     "//apps/desktop:__pkg__",
@@ -112,5 +112,29 @@ qt_cc_library(
         "//src/ui/desktop/flash/tcu",
         "//src/ui/desktop/hexedit",
         "//src/ui/desktop/menu:menu_builder",
+        "//src/ui/desktop/service_functions:denso_tcu_read_preflight",
     ] + [":ui_" + f.removesuffix(".ui") for f in FORMS],
+)
+
+fastecu_qttest(
+    name = "test_mainwindow",
+    size = "medium",
+    src = "mainwindow_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    # cc_test defaults to linkstatic = 0, which links :desktop as a shared
+    # library wherever the toolchain supports it -- Linux and Windows, but not
+    # macOS, which is why this target passes there either way. Both shared
+    # builds fail: on Linux the .so must resolve every symbol, and moc_logvalues
+    # references a LogValues class that logvalues.h declares but nothing
+    # defines; on Windows the DLL's import library does not carry
+    # MainWindow::start_ecu_operations, which this test calls. Linking
+    # statically, the way //:fastecu already does, leaves the unreferenced moc
+    # object out of the link on every platform and keeps MainWindow's own
+    # symbols reachable.
+    linkstatic = True,
+    deps = [
+        ":desktop",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
 )

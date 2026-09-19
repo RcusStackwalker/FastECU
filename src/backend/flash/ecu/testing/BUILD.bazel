@@ -18,6 +18,18 @@ cc_library(
 )
 
 cc_library(
+    name = "recording_can_flash_transport",
+    hdrs = ["recording_can_flash_transport.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
+cc_library(
     name = "can_executor_conformance",
     hdrs = ["can_executor_conformance.h"],
     deps = [

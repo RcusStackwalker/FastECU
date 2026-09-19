@@ -23,6 +23,25 @@ qt_cc_library(
     ],
 )
 
+qt_cc_library(
+    name = "denso_tcu_read_preflight",
+    srcs = ["denso_tcu_read_preflight.cpp"],
+    hdrs = ["denso_tcu_read_preflight.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + [":service_function_dialog"],
+)
+
+fastecu_qttest(
+    name = "test_denso_tcu_read_preflight",
+    src = "denso_tcu_read_preflight_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":denso_tcu_read_preflight",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
+)
+
 fastecu_qttest(
     name = "test_service_function_dialog",
     src = "service_function_dialog_test.cpp",
