@@ -30,6 +30,10 @@ struct SingleWindowPlanCase
     MemoryRegion read_region;
     MemoryRegion erase_region;
     std::uint32_t image_size;
+    // False for families whose SingleWindowPlanSpec::supports_write is false:
+    // every Write is rejected as Unsupported, so the write half of this
+    // contract expects that instead of the usual InvalidConfig outcomes.
+    bool supports_write = true;
 };
 
 inline std::string caseName(const ::testing::TestParamInfo<SingleWindowPlanCase>& info)
@@ -79,7 +83,7 @@ TEST_P(SingleWindowPlanContract, WriteWithNoImageIsRejected)
 
     const auto plan = c.build(FlashOperation::Write, c.protocol, c.mcu, std::nullopt);
 
-    EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(plan, fastecu::testing::IsErr(c.supports_write ? ErrorKind::InvalidConfig : ErrorKind::Unsupported));
 }
 
 TEST_P(SingleWindowPlanContract, WriteRequiresAFullStartAlignedImage)
@@ -88,9 +92,16 @@ TEST_P(SingleWindowPlanContract, WriteRequiresAFullStartAlignedImage)
 
     const auto tooShort = c.build(FlashOperation::Write, c.protocol, c.mcu, bytes::Bytes(c.image_size - 1, 0x00));
 
-    EXPECT_THAT(tooShort, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(tooShort,
+                fastecu::testing::IsErr(c.supports_write ? ErrorKind::InvalidConfig : ErrorKind::Unsupported));
 
     const auto ok = c.build(FlashOperation::Write, c.protocol, c.mcu, bytes::Bytes(c.image_size, 0x00));
+
+    if (!c.supports_write)
+    {
+        EXPECT_THAT(ok, fastecu::testing::IsErr(ErrorKind::Unsupported));
+        return;
+    }
 
     ASSERT_THAT(ok, fastecu::testing::IsOk());
     EXPECT_THAT(ok->erase_regions(), ::testing::ElementsAre(RegionIs(c.erase_region)));

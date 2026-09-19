@@ -91,6 +91,9 @@ inline void PrintTo(FlashFamily family, std::ostream *os)
     case FlashFamily::SubaruDensoSh7058CanDiesel:
         *os << "SubaruDensoSh7058CanDiesel";
         return;
+    case FlashFamily::SubaruTcuHitachiM32rKline:
+        *os << "SubaruTcuHitachiM32rKline";
+        return;
     }
 }
 

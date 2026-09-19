@@ -23,6 +23,7 @@
 #include "src/backend/flash/ecu/subaru_tcu_cvt_hitachi_m32r_can_types.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8104_can_types.h"
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_types.h"
+#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_types.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 
 namespace fastecu::flash
@@ -63,6 +64,8 @@ enum class FlashFamily
     SubaruTcuDensoSh705xCan,
     SubaruDensoSh7058Can,
     SubaruDensoSh7058CanDiesel,
+    // Step 5 tail, wave 6a.
+    SubaruTcuHitachiM32rKline,
 };
 
 enum class TransportKind
@@ -131,7 +134,8 @@ using FamilyPlan =
                  SubaruHitachiM32rCanPlan, SubaruTcuCvtHitachiM32rCanPlan, SubaruTcuCvtMitsuMh8111CanPlan,
                  SubaruTcuCvtMitsuMh8104CanPlan, SubaruDenso1n83m_1_5mCanPlan, SubaruDensoSh72531CanPlan,
                  SubaruDensoSh72543CanDieselPlan, SubaruDenso1n83m_4mCanPlan, SubaruDensoSh705xDensoCanPlan,
-                 SubaruTcuDensoSh705xCanPlan, SubaruDensoSh7058CanPlan, SubaruDensoSh7058CanDieselPlan>;
+                 SubaruTcuDensoSh705xCanPlan, SubaruDensoSh7058CanPlan, SubaruDensoSh7058CanDieselPlan,
+                 SubaruTcuHitachiM32rKlinePlan>;
 
 // The FlashFamily tag and TransportKind each plan alternative belongs to.
 //
@@ -261,6 +265,12 @@ template <> struct FamilyTraits<SubaruDensoSh7058CanDieselPlan>
     static constexpr TransportKind transport = TransportKind::CanIso15765;
 };
 
+template <> struct FamilyTraits<SubaruTcuHitachiM32rKlinePlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruTcuHitachiM32rKline;
+    static constexpr TransportKind transport = TransportKind::Kline;
+};
+
 // Whether validate_and_build requires FlashPlanFields::kernel to be set for
 // this family's plan type. Defaults true (fail-closed): a family that skips
 // the kernel must opt out explicitly, right here, next to the variant it
@@ -314,5 +324,9 @@ template <> inline constexpr bool family_requires_kernel_v<SubaruDensoSh72543Can
 // on-board kernel jump via 0x10 0x42 (bench) or 0x10 0x62 (in-car), no image
 // uploaded.
 template <> inline constexpr bool family_requires_kernel_v<SubaruDenso1n83m_4mCanPlan> = false;
+
+// Step 5 tail, wave 6a. Authenticates against the TCU's resident bootloader
+// via SecurityAccess and reads with 0xA0 block reads, uploading no image.
+template <> inline constexpr bool family_requires_kernel_v<SubaruTcuHitachiM32rKlinePlan> = false;
 
 } // namespace fastecu::flash

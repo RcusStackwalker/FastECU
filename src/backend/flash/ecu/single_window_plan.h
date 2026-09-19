@@ -46,6 +46,10 @@ struct SingleWindowPlanSpec
     // subaru_hitachi_m32r_kline's expected session mode depends on which
     // protocol name was used.
     bool (*wire_params_ok)(const FlashPlan& plan);
+    // False for families whose legacy class never implemented a write path.
+    // Defaults true, so the ten families that predate this flag are
+    // unchanged.
+    bool supports_write = true;
 };
 
 Status validate_single_window_plan(const SingleWindowPlanSpec& spec, const FlashPlan& plan);

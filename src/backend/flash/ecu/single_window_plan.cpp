@@ -68,6 +68,10 @@ Status validate_single_window_plan(const SingleWindowPlanSpec& spec, const Flash
     {
         return fail(Unsupported, "test_write is not supported by this family");
     }
+    if (!spec.supports_write && plan.operation() == FlashOperation::Write)
+    {
+        return fail(Unsupported, std::format("write is not supported by {}", spec.display_name));
+    }
     if (plan.operation() == FlashOperation::Read && !plan.erase_regions().empty())
     {
         return fail(InvalidConfig, "read plans must not erase memory");
@@ -97,6 +101,10 @@ Result<FlashPlan> build_single_window_plan(const SingleWindowPlanSpec& spec, Fla
     if (operation == FlashOperation::TestWrite)
     {
         return fail(Unsupported, "test_write is not supported by this family");
+    }
+    if (!spec.supports_write && operation == FlashOperation::Write)
+    {
+        return fail(Unsupported, std::format("write is not supported by {}", spec.display_name));
     }
     if (operation == FlashOperation::Write)
     {
