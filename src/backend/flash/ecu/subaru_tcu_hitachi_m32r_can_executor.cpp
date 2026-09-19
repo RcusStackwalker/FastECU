@@ -124,10 +124,12 @@ Result<bytes::Bytes> request_prefix(ICanFlashTransport& transport, IClock& clock
     return response;
 }
 
-Status non_fatal_prefix(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                        IEventSink& events, bytes::ByteView request, std::uint32_t request_id,
-                        std::chrono::milliseconds delay_before_read, std::initializer_list<bytes::Byte> expected,
-                        std::string_view label)
+Result<std::optional<bytes::Bytes>> non_fatal_prefix(ICanFlashTransport& transport, IClock& clock,
+                                                     const ICancellationToken& cancellation, IEventSink& events,
+                                                     bytes::ByteView request, std::uint32_t request_id,
+                                                     std::chrono::milliseconds delay_before_read,
+                                                     std::initializer_list<bytes::Byte> expected,
+                                                     std::string_view label)
 {
     Result<std::optional<bytes::Bytes>> response =
         exchange_optional(transport, clock, cancellation, request, request_id, delay_before_read);
@@ -140,15 +142,14 @@ Status non_fatal_prefix(ICanFlashTransport& transport, IClock& clock, const ICan
     if (!response->has_value())
     {
         events.log(LogLevel::Error, std::format("No valid response from TCU for {}", label));
-        return {};
+        return std::optional<bytes::Bytes>{};
     }
     if (const Status matched = expect_prefix(**response, expected); !matched.has_value())
     {
         events.log(LogLevel::Error, std::format("Wrong response from TCU for {}: {}", label, bytes::toHex(**response)));
-        return {};
+        return std::optional<bytes::Bytes>{};
     }
-    events.log(LogLevel::Info, std::format("{} response: {}", label, bytes::toHex(**response)));
-    return {};
+    return std::move(**response);
 }
 
 bytes::Bytes seed_key(bytes::ByteView seed)
@@ -183,17 +184,54 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
     }
 
     // Steps 2 and 3: identity mismatches are diagnostic only in legacy.
-    if (const Status tcu_id = non_fatal_prefix(transport, clock, cancellation, events, bytes::Bytes{0xAA},
-                                               kDiagnosticRequestId, kShortDelay, {0xEA}, "TCU ID");
-        !tcu_id.has_value())
+    Result<std::optional<bytes::Bytes>> tcu_id =
+        non_fatal_prefix(transport, clock, cancellation, events, bytes::Bytes{0xAA}, kDiagnosticRequestId, kShortDelay,
+                         {0xEA}, "TCU ID");
+    if (!tcu_id.has_value())
     {
-        return tcu_id;
+        return std::unexpected(tcu_id.error());
     }
-    if (const Status cal_id = non_fatal_prefix(transport, clock, cancellation, events, bytes::Bytes{0x09, 0x04},
-                                               kDiagnosticRequestId, kShortDelay, {0x49, 0x04}, "CAL ID");
-        !cal_id.has_value())
+    if (tcu_id->has_value())
     {
-        return cal_id;
+        constexpr std::size_t kTcuIdOffset = 8;
+        constexpr std::size_t kTcuIdSize = 5;
+        const bytes::ByteView frame{**tcu_id};
+        if (frame.size() < kTcuIdOffset + kTcuIdSize)
+        {
+            events.log(LogLevel::Error, "TCU ID response is too short");
+        }
+        else
+        {
+            std::string decoded;
+            decoded.reserve(kTcuIdSize * 2);
+            for (const bytes::Byte value : frame.subspan(kTcuIdOffset, kTcuIdSize))
+            {
+                decoded += std::format("{:02X}", value);
+            }
+            events.log(LogLevel::Info, std::format("TCU ID: {}", decoded));
+        }
+    }
+
+    Result<std::optional<bytes::Bytes>> cal_id =
+        non_fatal_prefix(transport, clock, cancellation, events, bytes::Bytes{0x09, 0x04}, kDiagnosticRequestId,
+                         kShortDelay, {0x49, 0x04}, "CAL ID");
+    if (!cal_id.has_value())
+    {
+        return std::unexpected(cal_id.error());
+    }
+    if (cal_id->has_value())
+    {
+        constexpr std::size_t kCalIdOffset = 7;
+        const bytes::ByteView frame{**cal_id};
+        if (frame.size() < kCalIdOffset + 1)
+        {
+            events.log(LogLevel::Error, "CAL ID response is too short");
+        }
+        else
+        {
+            const std::string decoded(frame.begin() + static_cast<std::ptrdiff_t>(kCalIdOffset), frame.end());
+            events.log(LogLevel::Info, std::format("CAL ID: {}", decoded));
+        }
     }
 
     // Step 4: enter the extended diagnostic session; mismatch is fatal.
@@ -230,11 +268,16 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
 
     // Step 7: legacy logs a bad jump response and continues (its return is
     // commented out), but preserves the 200 ms delay before the read.
-    if (const Status jump = non_fatal_prefix(transport, clock, cancellation, events, bytes::Bytes{0x10, 0x02},
-                                             plan.request_id, kJumpDelay, {0x50, 0x02}, "kernel jump");
-        !jump.has_value())
+    Result<std::optional<bytes::Bytes>> jump =
+        non_fatal_prefix(transport, clock, cancellation, events, bytes::Bytes{0x10, 0x02}, plan.request_id, kJumpDelay,
+                         {0x50, 0x02}, "kernel jump");
+    if (!jump.has_value())
     {
-        return jump;
+        return std::unexpected(jump.error());
+    }
+    if (jump->has_value())
+    {
+        events.log(LogLevel::Info, std::format("kernel jump response: {}", bytes::toHex(**jump)));
     }
 
     // Step 8, deliberate divergence 3: build the full four-byte payload in

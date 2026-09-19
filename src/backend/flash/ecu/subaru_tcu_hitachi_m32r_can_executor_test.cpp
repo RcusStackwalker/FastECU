@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_executor.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -33,7 +34,10 @@ using fastecu::flash::FlashPlan;
 using fastecu::flash::ScriptedCanFlashTransport;
 using fastecu::flash::ScriptedTransportInitialState;
 using fastecu::flash::SubaruTcuHitachiM32rCanExecutor;
+using testing::Contains;
 using testing::HasSubstr;
+using testing::Not;
+using testing::Pair;
 
 constexpr std::string_view kProtocol = "sub_tcu_hitachi_m32r_can";
 constexpr std::string_view kMcu = "M32R_512KB";
@@ -85,10 +89,11 @@ void scriptSeed(ScriptedCanFlashTransport& transport, bool valid = true)
                                                           : response({0x7F, 0x27, 0x35, 0xDE, 0xAD, 0xBE}));
 }
 
-void scriptKey(ScriptedCanFlashTransport& transport)
+void scriptKey(ScriptedCanFlashTransport& transport, bool valid = true)
 {
     // Hand-checked legacy vector: seed DE AD BE EF -> key 30 3C 73 3A.
-    transport.exchange(framed(0x7E0, {0x27, 0x02, 0x30, 0x3C, 0x73, 0x3A}), response({0x67, 0x02}));
+    transport.exchange(framed(0x7E0, {0x27, 0x02, 0x30, 0x3C, 0x73, 0x3A}),
+                       valid ? response({0x67, 0x02}) : response({0x67, 0x03}));
 }
 
 void scriptJump(ScriptedCanFlashTransport& transport, bool valid = true)
@@ -237,10 +242,50 @@ TEST(SubaruTcuHitachiM32rCanExecutor, FullConnectPreservesFrameOrderPacingAndTim
     EXPECT_EQ(trace, expected);
 }
 
-TEST(SubaruTcuHitachiM32rCanExecutor, NonFatalIdentityAndJumpMismatchesStillReachFinalRecheck)
+TEST(SubaruTcuHitachiM32rCanExecutor, SuccessfulIdentityResponsesLogDecodedFields)
 {
     ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
-    scriptFullConnect(transport, false, false, false);
+    scriptFullConnect(transport);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, readPlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Internal, HasSubstr("transfer lands")));
+    EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::Info, "TCU ID: 1122334455")));
+    EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::Info, "CAL ID: CAL")));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(fastecu::LogLevel::Info, HasSubstr("TCU ID response:")))));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(fastecu::LogLevel::Info, HasSubstr("CAL ID response:")))));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, ShortIdentityFieldsLogAndContinueSafely)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptKernelProbeMiss(transport);
+    transport.exchange(framed(0x7E0, {0xAA}), response({0xEA, 0x00, 0x00}));
+    transport.exchange(framed(0x7E0, {0x09, 0x04}), response({0x49, 0x04, 0x00}));
+    scriptSession(transport);
+    scriptSeed(transport);
+    scriptKey(transport);
+    scriptJump(transport);
+    scriptRecheck(transport);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, readPlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Internal, HasSubstr("transfer lands")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::Error, "TCU ID response is too short")));
+    EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::Error, "CAL ID response is too short")));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, NonFatalTcuIdMismatchStillReachesFinalRecheck)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport, false, true, true);
     SubaruTcuHitachiM32rCanExecutor executor;
     FakeClock clock;
     RecordingEventSink events;
@@ -250,6 +295,40 @@ TEST(SubaruTcuHitachiM32rCanExecutor, NonFatalIdentityAndJumpMismatchesStillReac
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Internal, HasSubstr("transfer lands")));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.writesConsumed(), 8U);
+    EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::Error, HasSubstr("Wrong response from TCU for TCU ID"))));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, NonFatalCalIdMismatchStillReachesFinalRecheck)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport, true, false, true);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, readPlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Internal, HasSubstr("transfer lands")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), 8U);
+    EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::Error, HasSubstr("Wrong response from TCU for CAL ID"))));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, NonFatalKernelJumpMismatchStillReachesFinalRecheck)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport, true, true, false);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, readPlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Internal, HasSubstr("transfer lands")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), 8U);
+    EXPECT_THAT(events.logs,
+                Contains(Pair(fastecu::LogLevel::Error, HasSubstr("Wrong response from TCU for kernel jump"))));
 }
 
 TEST(SubaruTcuHitachiM32rCanExecutor, FatalSessionMismatchStopsAtStepFour)
@@ -285,6 +364,25 @@ TEST(SubaruTcuHitachiM32rCanExecutor, FatalSeedMismatchStopsAtStepFive)
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.writesConsumed(), 5U);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, FatalKeyMismatchStopsAtStepSix)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptKernelProbeMiss(transport);
+    scriptIdentity(transport);
+    scriptSession(transport);
+    scriptSeed(transport);
+    scriptKey(transport, false);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, readPlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), 6U);
 }
 
 TEST(SubaruTcuHitachiM32rCanExecutor, FatalFinalRecheckMismatchStopsAtStepEight)
