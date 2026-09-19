@@ -122,6 +122,17 @@ fastecu_qttest(
     src = "mainwindow_test.cpp",
     copts = ["-DQT_WIDGETS_LIB"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
+    # cc_test defaults to linkstatic = 0, which links :desktop as a shared
+    # library wherever the toolchain supports it -- Linux and Windows, but not
+    # macOS, which is why this target passes there either way. Both shared
+    # builds fail: on Linux the .so must resolve every symbol, and moc_logvalues
+    # references a LogValues class that logvalues.h declares but nothing
+    # defines; on Windows the DLL's import library does not carry
+    # MainWindow::start_ecu_operations, which this test calls. Linking
+    # statically, the way //:fastecu already does, leaves the unreferenced moc
+    # object out of the link on every platform and keeps MainWindow's own
+    # symbols reachable.
+    linkstatic = True,
     deps = [
         ":desktop",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
