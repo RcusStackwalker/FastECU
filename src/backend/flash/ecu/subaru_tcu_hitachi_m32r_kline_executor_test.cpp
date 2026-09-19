@@ -20,36 +20,6 @@ namespace
 using namespace fastecu;
 using namespace fastecu::flash;
 
-// This family's connect_bootloader() consumes five transport.read() calls
-// (id, 0x81, 0x83, seed request, key send) before the ROM read loop starts.
-// Cancelling on the third read would trip inside connect, not inside the
-// read loop this test means to cover, so this trips on the eighth read: the
-// five connect reads plus the first two block reads, landing the
-// cancellation on the third block's read -- squarely inside read_rom's loop.
-constexpr int kCancelOnRead = 8;
-
-class TripOnReadTransport final : public ScriptedKlineFlashTransport
-{
-  public:
-    explicit TripOnReadTransport(ManualCancellationToken& source)
-        : ScriptedKlineFlashTransport(ScriptedTransportInitialState::Open), source_(source)
-    {
-    }
-    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
-    {
-        auto result = ScriptedKlineFlashTransport::read(timeout, cancellation);
-        if (++reads_ == kCancelOnRead)
-        {
-            source_.cancel();
-        }
-        return result;
-    }
-
-  private:
-    ManualCancellationToken& source_;
-    int reads_ = 0;
-};
-
 // Matches the executor's private kRomSize/block_size: 0x80000 / 96 = 5461
 // remainder 32, so the ROM read is 5462 blocks with a 32-byte tail.
 constexpr std::uint32_t kRomSize = 0x80000;
@@ -89,7 +59,9 @@ enum class Step
     Sleep
 };
 
-class TracingTransport final : public ScriptedKlineFlashTransport
+// Not `final`: StopsPromptlyWhenCancelledMidRead below subclasses this to
+// add a cancellation trip while keeping the same Write/Read tracing.
+class TracingTransport : public ScriptedKlineFlashTransport
 {
   public:
     TracingTransport(ScriptedTransportInitialState initial_state, std::vector<Step>& trace)
@@ -125,6 +97,40 @@ class TracingClock final : public FakeClock
 
   private:
     std::vector<Step>& trace_;
+};
+
+// This family's connect_bootloader() consumes five transport.read() calls
+// (id, 0x81, 0x83, seed request, key send) before the ROM read loop starts,
+// so this trips on the eighth read: the five connect reads plus the first
+// two block reads, landing the cancellation on the third block's read --
+// squarely inside read_rom's loop rather than inside connect.
+constexpr int kCancelOnRead = 8;
+
+// Composes onto TracingTransport so StopsPromptlyWhenCancelledMidRead can
+// assert the exact Write/Sleep/Read/Sleep trace, not just a bounded write
+// count -- see the comment on that test for why the trace is what actually
+// distinguishes the inner exchange_block_read checkpoint from read_rom's
+// coarser per-iteration one.
+class TripOnReadTracingTransport final : public TracingTransport
+{
+  public:
+    TripOnReadTracingTransport(std::vector<Step>& trace, ManualCancellationToken& source)
+        : TracingTransport(ScriptedTransportInitialState::Open, trace), source_(source)
+    {
+    }
+    Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
+    {
+        auto result = TracingTransport::read(timeout, cancellation);
+        if (++reads_ == kCancelOnRead)
+        {
+            source_.cancel();
+        }
+        return result;
+    }
+
+  private:
+    ManualCancellationToken& source_;
+    int reads_ = 0;
 };
 
 bytes::Bytes idResponse()
@@ -361,15 +367,22 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PacesEachBlockReadAsWriteThenDelayThenRe
     EXPECT_EQ(trace[13], Step::Sleep);
 }
 
-// Proves the read_rom loop's cancellation checkpoints actually stop the
-// read: TripOnReadTransport cancels on the eighth transport.read() (see the
-// comment on kCancelOnRead above), which lands inside exchange_block_read's
-// "cancelled after read" checkpoint for the third block -- well short of
-// the full 5462-block ROM.
+// Proves the *inner* "cancelled after read" checkpoint in
+// exchange_block_read is what stops the loop, not just read_rom's coarser
+// per-iteration checkpoint. A bounded write count alone can't distinguish
+// the two: whichever checkpoint catches it, block 4 never writes, so both
+// paths would end at 8 writes. The traced step sequence can, though: the
+// inner checkpoint returns immediately after the read, before the block's
+// trailing sleep runs, so the block that lands the cancellation contributes
+// only Write, Sleep, Read (3 steps) instead of the usual Write, Sleep,
+// Read, Sleep (4). If only the outer per-iteration checkpoint existed, that
+// block would complete its trailing sleep and the trace would be one step
+// longer, with trace[20] a Sleep instead of the last Read.
 TEST(SubaruTcuHitachiM32rKlineExecutor, StopsPromptlyWhenCancelledMidRead)
 {
+    std::vector<Step> trace;
     ManualCancellationToken cancellation;
-    TripOnReadTransport transport{cancellation};
+    TripOnReadTracingTransport transport{trace, cancellation};
     scriptConnect(transport);
     {
         const auto section = transport.section("read chunks");
@@ -384,12 +397,34 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, StopsPromptlyWhenCancelledMidRead)
     }
 
     SubaruTcuHitachiM32rKlineExecutor executor;
-    FakeClock clock;
+    TracingClock clock{trace};
     RecordingEventSink events;
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_LT(transport.writesConsumed(), 100U);
+
+    ASSERT_EQ(trace.size(), 21U);
+    // Connect: five plain exchange() round trips -- Write/Read, no Sleep.
+    for (std::size_t i = 0; i < 10U; i += 2)
+    {
+        EXPECT_EQ(trace[i], Step::Write);
+        EXPECT_EQ(trace[i + 1], Step::Read);
+    }
+    // Blocks 1 and 2 complete in full: Write, Sleep, Read, Sleep each.
+    EXPECT_EQ(trace[10], Step::Write);
+    EXPECT_EQ(trace[11], Step::Sleep);
+    EXPECT_EQ(trace[12], Step::Read);
+    EXPECT_EQ(trace[13], Step::Sleep);
+    EXPECT_EQ(trace[14], Step::Write);
+    EXPECT_EQ(trace[15], Step::Sleep);
+    EXPECT_EQ(trace[16], Step::Read);
+    EXPECT_EQ(trace[17], Step::Sleep);
+    // Block 3 lands the cancellation on its read (the 8th overall) and
+    // stops there -- no trailing Sleep.
+    EXPECT_EQ(trace[18], Step::Write);
+    EXPECT_EQ(trace[19], Step::Sleep);
+    EXPECT_EQ(trace[20], Step::Read);
 }
 
 // A plan built for the ECU (non-TCU) Hitachi M32R K-Line family must be
