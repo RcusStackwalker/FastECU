@@ -36,7 +36,8 @@ Status DesktopCanFlashTransport::configure(const Iso15765Config& config)
         // hardware and maps failure to Disconnected. Order matches the
         // design spec exactly: connection mode, 11/29-bit selection,
         // bitrate, request/response CAN IDs, then ISO-15765 source/
-        // destination IDs.
+        // destination IDs, then clears any ISO-14230 auto-header state that
+        // may survive from a previous K-Line session on the shared facade.
         if (!serial_->set_is_iso15765_connection(true))
         {
             return fail(ErrorKind::InvalidConfig, "set_is_iso15765_connection failed");
@@ -72,6 +73,10 @@ Status DesktopCanFlashTransport::configure(const Iso15765Config& config)
         if (!serial_->set_iso15765_destination_address(config.response_id))
         {
             return fail(ErrorKind::InvalidConfig, "set_iso15765_destination_address failed");
+        }
+        if (!serial_->set_add_iso14230_header(false))
+        {
+            return fail(ErrorKind::InvalidConfig, "set_add_iso14230_header failed");
         }
         return {};
     }

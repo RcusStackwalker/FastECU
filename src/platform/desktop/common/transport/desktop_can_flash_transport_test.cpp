@@ -58,6 +58,7 @@ class TestDesktopCanFlashTransport : public QObject
         EXPECT_CALL(serial.fake(), set_can_destination_address(::testing::_)).Times(0);
         EXPECT_CALL(serial.fake(), set_iso15765_source_address(::testing::_)).Times(0);
         EXPECT_CALL(serial.fake(), set_iso15765_destination_address(::testing::_)).Times(0);
+        EXPECT_CALL(serial.fake(), set_add_iso14230_header(::testing::_)).Times(0);
         EXPECT_CALL(serial.fake(), open_serial_port()).Times(0);
 
         DesktopCanFlashTransport transport(serial.release());
@@ -83,6 +84,7 @@ class TestDesktopCanFlashTransport : public QObject
         QTest::newRow("set_can_destination_address") << 6;
         QTest::newRow("set_iso15765_source_address") << 7;
         QTest::newRow("set_iso15765_destination_address") << 8;
+        QTest::newRow("set_add_iso14230_header") << 9;
     }
 
     void configureFailsAtEachRemainingSetterInTurn()
@@ -101,6 +103,7 @@ class TestDesktopCanFlashTransport : public QObject
         expectSetterAt(EXPECT_CALL(serial.fake(), set_can_destination_address(2024)), 6, setterIndex);
         expectSetterAt(EXPECT_CALL(serial.fake(), set_iso15765_source_address(2016)), 7, setterIndex);
         expectSetterAt(EXPECT_CALL(serial.fake(), set_iso15765_destination_address(2024)), 8, setterIndex);
+        expectSetterAt(EXPECT_CALL(serial.fake(), set_add_iso14230_header(false)), 9, setterIndex);
         EXPECT_CALL(serial.fake(), open_serial_port()).Times(0);
 
         DesktopCanFlashTransport transport(serial.release());
@@ -126,7 +129,7 @@ class TestDesktopCanFlashTransport : public QObject
 
     // Success mirror of configureChecksEveryBooleanSetterInOrderAndStopsAt-
     // FirstFailure() above: every setter is expected to succeed, so
-    // configure() must run all nine setters, in order, and return success.
+    // configure() must run all ten setters, in order, and return success.
     void configureSucceedsWhenEverySetterSucceeds()
     {
         FakeBackedSerial serial;
@@ -140,12 +143,30 @@ class TestDesktopCanFlashTransport : public QObject
         EXPECT_CALL(serial.fake(), set_can_destination_address(2024)).WillOnce(::testing::Return(true));
         EXPECT_CALL(serial.fake(), set_iso15765_source_address(2016)).WillOnce(::testing::Return(true));
         EXPECT_CALL(serial.fake(), set_iso15765_destination_address(2024)).WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), set_add_iso14230_header(false)).WillOnce(::testing::Return(true));
 
         DesktopCanFlashTransport transport(serial.release());
         const auto result = transport.configure(
             Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
 
         QVERIFY(result.has_value());
+    }
+
+    // A K-Line session on the same facade leaves ISO-14230 auto-headers on.
+    // configure() must clear that state, or the first CAN frame goes out with
+    // a K-Line header attached.
+    void configureClearsStickyIso14230HeaderState()
+    {
+        FakeBackedSerial serial;
+        QVERIFY(serial->set_add_iso14230_header(true));
+        SerialPortActions *observed = serial.get();
+
+        DesktopCanFlashTransport transport(serial.release());
+        const auto result = transport.configure(
+            Iso15765Config{.bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false});
+
+        QVERIFY(result.has_value());
+        QCOMPARE(observed->get_add_iso14230_header(), false);
     }
 
     // Success mirror of openFailureReturnsDisconnectedWithoutAnyWrite().
