@@ -96,19 +96,38 @@ Do not begin until section 0 is answered and section 2 has passed.
       image byte for byte.
 - [ ] Confirm the unit still boots and communicates after the write.
 
+## Other wire divergence worth knowing (informational, non-blocking)
+
+- Divergence 3 changes one byte on the wire during every connect, not only
+  reads or writes: the kernel-alive re-check at the end of
+  `connect_bootloader` is sent as the full eight-byte frame
+  `00 00 07 E1 31 02 02 01`. Legacy wrote bytes 6 and 7 past the end of a
+  six-byte `QByteArray`, which does not extend under Qt 6, so its own frame
+  was silently truncated to six bytes on the wire. Risk is near-zero: this is
+  the identical frame step 1's kernel-alive probe already sends and answers,
+  at a point in the sequence where the kernel has already accepted it twice.
+
 ## 4. VERIFY items carried from the port
 
 Both are open questions that the port could not settle from this repository.
 They are listed in the family's
 [flash qualification matrix](flash-qualification-matrix.md) row as well.
 
-- [ ] **`M32R_512KB` MCU binding.** The protocol-to-MCU mapping lives in
-      EcuFlash-side definition files outside this repository; the only in-repo
-      evidence is that the sibling TCU families use the same value. **Its blast
-      radius now includes which regions get erased**, not merely what validates:
-      the block table this MCU selects is what decides which blocks the write
-      opens and, together with section 0, what the erase touches. Confirm the
-      binding externally before any write.
+- [ ] **`M32R_512KB` MCU binding.** This binding is confirmed in-repo, not an
+      external unknown: `protocols.cfg` declares `<mcu>M32R_512KB</mcu>` for
+      `sub_tcu_hitachi_m32r_can`, and that is the value the runtime actually
+      uses end to end (cfg parse → `legacy_config_adapter` →
+      `flash_protocol_selected_mcu` → `ecuCalDef->McuType` → the portable
+      workflow's `.mcu`, checked by `validate_subaru_tcu_hitachi_m32r_can_plan`
+      — see the [flash qualification matrix](flash-qualification-matrix.md)
+      row for the full chain with file:line citations). Legacy read the same
+      `ecuCalDef->McuType` field to select its own block table. What remains
+      to confirm here is narrower than "where does this binding come from":
+      it is **only whether the cfg value matches the physical TCU**. **Its
+      blast radius now includes which regions get erased**, not merely what
+      validates: the block table this MCU selects is what decides which
+      blocks the write opens and, together with section 0, what the erase
+      touches. Confirm against the physical TCU before any write.
 - [ ] **The corrected read window.** The port sends `00 80 00` / `07 80 00` —
       the clamp's evident intent, `0x78000` from `0x8000`. Legacy's
       `start_addr - 0x00100000` underflowed to `0xF00000` for the only
