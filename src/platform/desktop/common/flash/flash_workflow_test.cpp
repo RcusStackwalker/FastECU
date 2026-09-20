@@ -196,6 +196,7 @@ class FlashWorkflowTest : public QObject
     void subaruMitsuPropagatesRomId();
     void subaruHitachiRoutesBothModesAndPropagatesReadResult();
     void routesTcuHitachiM32rKlineReadOnly();
+    void routesTcuHitachiM32rCanReadAndWriteRejectsTestWrite();
     void coltWriteUsesColtSpecificSafetyPrompts();
     void mc68BdmProtocolIsNotClaimedByPortableRoute();
     void mc68TpuProtocolIsClaimedByPortableRoute();
@@ -246,6 +247,7 @@ void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone(
                                                                   "sub_ecu_eeprom_denso_sh7058_can_diesel",
                                                                   "sub_ecu_hitachi_m32r_can",
                                                                   "sub_tcu_hitachi_m32r_kline",
+                                                                  "sub_tcu_hitachi_m32r_can",
                                                                   "sub_tcu_cvt_hitachi_m32r_can",
                                                                   "sub_tcu_cvt_mitsu_mh8111_can",
                                                                   "sub_tcu_cvt_mitsu_mh8104_can",
@@ -358,6 +360,71 @@ void FlashWorkflowTest::routesTcuHitachiM32rKlineReadOnly()
     const auto write_step = write_workflow->next();
     QVERIFY(std::holds_alternative<FlashFailureStep>(write_step));
     QCOMPARE(std::get<FlashFailureStep>(write_step).error.kind, ErrorKind::Unsupported);
+}
+
+void FlashWorkflowTest::routesTcuHitachiM32rCanReadAndWriteRejectsTestWrite()
+{
+    // The default request() helper's MCU ("M32R_384KB_1block") is not this
+    // family's kMcu ("M32R_512KB"); build_subaru_tcu_hitachi_m32r_can_plan's
+    // identity check would reject every operation on it with InvalidConfig,
+    // which would make the Read and Write assertions below fail for an
+    // unrelated reason and would mask the TestWrite assertion behind the
+    // same wrong-MCU failure instead of the Unsupported this test is meant to
+    // pin. Setting the real MCU here is what makes the three assertions below
+    // test routing, not identity validation.
+    constexpr auto kMcu = "M32R_512KB";
+    constexpr auto kProtocol = "sub_tcu_hitachi_m32r_can";
+
+    // Read routes to an attempt bound to the CAN executor and transport, and
+    // a successful attempt result is propagated through to completion.
+    auto read_input = request(kProtocol);
+    read_input.mcu = kMcu;
+    auto read_workflow = FlashWorkflowFactory::tryCreate(std::move(read_input));
+    QVERIFY(read_workflow != nullptr);
+    QCOMPARE(std::get<FlashPromptStep>(read_workflow->next()).kind, FlashPromptKind::Begin);
+    read_workflow->submit(FlashPromptResponse::Accept);
+    const auto read_step = read_workflow->next();
+    QVERIFY(std::holds_alternative<FlashAttempt>(read_step));
+    const FlashPlan& read_plan = std::get<FlashAttempt>(read_step).attempt->plan();
+    QCOMPARE(read_plan.target_id(), std::string_view(kProtocol));
+    QVERIFY(read_plan.operation() == FlashOperation::Read);
+    QCOMPARE(read_plan.transport(), TransportKind::CanIso15765);
+    read_workflow->submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{0x5a}});
+    const auto read_done = read_workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(read_done));
+    QCOMPARE(std::get<FlashCompletedStep>(read_done).outcome, FlashWorkflowOutcome::Succeeded);
+    QCOMPARE(std::get<FlashCompletedStep>(read_done).accepted_read_bytes, bytes::Bytes({0x5a}));
+
+    // TestWrite is rejected at this, the outermost of the family's four
+    // TestWrite rejections (deliberate divergence 1: legacy reflash_block
+    // ignored its test_write_arg and performed a real erase and flash write,
+    // so there is no dry run to route to). The workflow's very first step
+    // must be a failure, not a prompt -- the legacy path silently
+    // "succeeded" while performing a real write.
+    auto test_write_input = request(kProtocol, FlashOperation::TestWrite);
+    test_write_input.mcu = kMcu;
+    test_write_input.image = bytes::Bytes(0x80000, 0xa5);
+    auto test_write_workflow = FlashWorkflowFactory::tryCreate(std::move(test_write_input));
+    QVERIFY(test_write_workflow != nullptr);
+    const auto test_write_step = test_write_workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(test_write_step));
+    QCOMPARE(std::get<FlashFailureStep>(test_write_step).error.kind, ErrorKind::Unsupported);
+
+    // Write, unlike the K-Line sibling, is supported by this family and
+    // routes all the way to an attempt bound to the CAN executor/transport.
+    auto write_input = request(kProtocol, FlashOperation::Write);
+    write_input.mcu = kMcu;
+    write_input.image = bytes::Bytes(0x80000, 0xa5);
+    auto write_workflow = FlashWorkflowFactory::tryCreate(std::move(write_input));
+    QVERIFY(write_workflow != nullptr);
+    QCOMPARE(std::get<FlashPromptStep>(write_workflow->next()).kind, FlashPromptKind::Begin);
+    write_workflow->submit(FlashPromptResponse::Accept);
+    const auto write_step = write_workflow->next();
+    QVERIFY(std::holds_alternative<FlashAttempt>(write_step));
+    const FlashPlan& write_plan = std::get<FlashAttempt>(write_step).attempt->plan();
+    QCOMPARE(write_plan.target_id(), std::string_view(kProtocol));
+    QVERIFY(write_plan.operation() == FlashOperation::Write);
+    QCOMPARE(write_plan.transport(), TransportKind::CanIso15765);
 }
 
 void FlashWorkflowTest::coltWriteUsesColtSpecificSafetyPrompts()
