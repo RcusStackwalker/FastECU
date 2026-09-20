@@ -19,6 +19,7 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
+#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
@@ -37,6 +38,8 @@ using fastecu::ManualCancellationToken;
 using fastecu::RecordingEventSink;
 using fastecu::Status;
 using fastecu::flash::build_subaru_tcu_hitachi_m32r_can_plan;
+using fastecu::flash::build_subaru_tcu_hitachi_m32r_kline_plan;
+using fastecu::flash::FlashFamily;
 using fastecu::flash::FlashOperation;
 using fastecu::flash::FlashPlan;
 using fastecu::flash::ScriptedCanFlashTransport;
@@ -1572,5 +1575,246 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WithNoScriptToStopItTheWriteStillNeverTouc
     EXPECT_EQ(
         std::ranges::count_if(written, [](std::uint32_t address) { return address + kWriteFrameSize > kRomSize; }), 0)
         << "a 0xB6 data frame ran past the end of the 0x80000 ROM";
+}
+
+// --- cancellation and failure paths -----------------------------------------
+//
+// Every cancellation test below returns ErrorKind::Cancelled, which by itself
+// discriminates nothing: read_rom and reflash_block each poll
+// cancellation.cancelled() at several points (top of loop, before a write,
+// after a write, after a read, and inside clock.sleep), and every one of
+// those checkpoints -- plus the top-level "cancelled before setup" check in
+// execute() -- returns the same error kind. What pins a specific checkpoint
+// is the exact write/sleep/read trace up to the moment cancellation fires,
+// asserted at its full length via expectTraceEquals, together with the
+// checkpoint's own message (which does distinguish "cancelled during ROM
+// read" / "cancelled during block write" from the generic
+// "cancelled before/after write/read" checks inside exchange_optional).
+//
+// Both trip counts below are derived from kConnectFrames (this family's own
+// eight-exchange connect sequence), not copied from any other wave: each
+// cancellation test lets exactly kConnectFrames iterations of its loop
+// complete, then expects the loop's own top-of-iteration check to catch the
+// (kConnectFrames+1)-th.
+
+// Flips a shared ManualCancellationToken the instant the shared trace reaches
+// a chosen length, always AFTER delegating to the real FakeClock::sleep --
+// so the sleep call that reaches the target length always succeeds normally,
+// and the flag only becomes visible to the next cancellation.cancelled()
+// poll in production code (read_rom's top-of-loop check, for the tests that
+// use this). Flipping before delegating would make that same sleep call
+// observe its own trip and fail one iteration too early, with the bare,
+// unlabeled Cancelled error FakeClock::sleep produces instead of the
+// checkpoint's real message.
+class TripAfterTraceLengthClock final : public FakeClock
+{
+  public:
+    TripAfterTraceLengthClock(std::vector<Call>& trace, std::size_t trip_at, ManualCancellationToken& cancellation)
+        : trace_(trace), trip_at_(trip_at), cancellation_(cancellation)
+    {
+    }
+
+    Status sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken& cancellation) override
+    {
+        const Status result = FakeClock::sleep(duration, cancellation);
+        trace_.push_back({CallKind::Sleep, duration});
+        if (trace_.size() == trip_at_)
+        {
+            cancellation_.cancel();
+        }
+        return result;
+    }
+
+  private:
+    std::vector<Call>& trace_;
+    std::size_t trip_at_;
+    ManualCancellationToken& cancellation_;
+};
+
+// Flips a shared ManualCancellationToken after a chosen number of progress()
+// calls. reflash_block's data-frame loop calls events.progress() exactly
+// once per frame, immediately after that frame's exchange has fully
+// completed (write, the 200 ms pre-read delay, the read, and the
+// "cancelled after read" check all already resolved) and before the loop's
+// own top-of-iteration check for the next frame -- so this is the one place
+// in the write path where nothing but the loop's own boundary check follows.
+class TripAfterProgressCallsEventSink final : public RecordingEventSink
+{
+  public:
+    TripAfterProgressCallsEventSink(std::size_t trip_after_calls, ManualCancellationToken& cancellation)
+        : trip_after_calls_(trip_after_calls), cancellation_(cancellation)
+    {
+    }
+
+    void progress(int done, int total) override
+    {
+        RecordingEventSink::progress(done, total);
+        if (++calls_ == trip_after_calls_)
+        {
+            cancellation_.cancel();
+        }
+    }
+
+  private:
+    std::size_t trip_after_calls_;
+    std::size_t calls_ = 0;
+    ManualCancellationToken& cancellation_;
+};
+
+// connectTrace() + the window setup + `pages` full pages (write, read, the
+// 1 ms per-page pause) -- the same shape fullReadTrace() builds, truncated.
+std::vector<Call> readTracePrefix(std::size_t pages)
+{
+    std::vector<Call> trace = connectTrace();
+    trace.push_back(kWriteCall); // 0x34 window setup
+    trace.push_back(kReadCall);
+    for (std::size_t page = 0; page < pages; ++page)
+    {
+        trace.push_back(kWriteCall); // 0xB7 page request
+        trace.push_back(kReadCall);
+        trace.push_back(kPagePauseCall);
+    }
+    return trace;
+}
+
+// connectTrace() + the erase + block 0's window setup + `frames` full data
+// frames (write, the 200 ms pre-read delay, the read) -- the same block-loop
+// shape fullWriteTrace() builds, truncated before the close/checksum steps.
+std::vector<Call> writeTracePrefixThroughFrames(std::size_t frames)
+{
+    std::vector<Call> trace = connectTrace();
+    trace.push_back(kWriteCall); // erase 31 02 01 FF FF FF FF
+    trace.push_back(kEraseSleepCall);
+    trace.push_back(kEraseReadCall);
+    trace.push_back(kWriteCall); // block 0's 0x34 window setup
+    trace.push_back(kReadCall);
+    for (std::size_t frame = 0; frame < frames; ++frame)
+    {
+        trace.push_back(kWriteCall); // 0xB6 data frame
+        trace.push_back(kDataSleepCall);
+        trace.push_back(kDataReadCall);
+    }
+    return trace;
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, CancellationDuringTheReadLoopStopsAtTheNextPageBoundary)
+{
+    constexpr auto kCancelAfterPages = static_cast<std::uint32_t>(kConnectFrames);
+    std::vector<Call> trace;
+    TracingTransport transport{trace};
+    scriptFullConnect(transport);
+    scriptReadWindow(transport);
+    {
+        const auto section = transport.section("dump loop");
+        for (std::uint32_t page = 0; page < kCancelAfterPages; ++page)
+        {
+            transport.exchange(pageRequest(page), pageResponse(page));
+        }
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    ManualCancellationToken cancellation;
+    const std::vector<Call> expected_prefix = readTracePrefix(kCancelAfterPages);
+    TripAfterTraceLengthClock clock{trace, expected_prefix.size(), cancellation};
+    RecordingEventSink events;
+
+    const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
+
+    // "cancelled during ROM read" is read_rom's top-of-loop checkpoint --
+    // distinct from the generic "cancelled before/after write/read" messages
+    // exchange_optional's own checks would produce if this checkpoint were
+    // missing and one of those caught it instead.
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Cancelled, HasSubstr("cancelled during ROM read")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1 + kCancelAfterPages);
+    expectTraceEquals(trace, expected_prefix);
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, CancellationDuringTheWriteLoopStopsAtTheNextFrameBoundary)
+{
+    constexpr auto kCancelAfterFrames = static_cast<std::uint32_t>(kConnectFrames);
+    std::vector<Call> trace;
+    TracingTransport transport{trace};
+    scriptFullConnect(transport);
+    scriptErase(transport);
+    scriptBlockWindow(transport, kFlashedBlocks[0]);
+    {
+        const auto section = transport.section("block data frames");
+        for (std::uint32_t frame = 0; frame < kCancelAfterFrames; ++frame)
+        {
+            transport.exchange(dataRequest(kFlashedBlocks[0].start + (frame * kWriteFrameSize)), response({0xF6}));
+        }
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    ManualCancellationToken cancellation;
+    TracingClock clock{trace};
+    TripAfterProgressCallsEventSink events{kCancelAfterFrames, cancellation};
+
+    const auto result = executor.execute(writePlan(), transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Cancelled, HasSubstr("cancelled during block write")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1 + 1 + kCancelAfterFrames);
+    expectTraceEquals(trace, writeTracePrefixThroughFrames(kCancelAfterFrames));
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, PlanForAnotherFamilyIsRejectedBeforeTransportSetupOrTheWire)
+{
+    // The K-Line sibling: identical MCU and ROM geometry, differing only in
+    // the family tag and the transport kind -- exactly the shape of plan a
+    // missing or misplaced check_family() call would let slip through.
+    auto plan = build_subaru_tcu_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_tcu_hitachi_m32r_kline", kMcu,
+                                                         std::nullopt);
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+    ASSERT_EQ(plan->family(), FlashFamily::SubaruTcuHitachiM32rKline);
+
+    SubaruTcuHitachiM32rCanExecutor executor;
+    const auto setup_result = executor.transport_setup(*plan);
+    EXPECT_THAT(setup_result,
+                fastecu::testing::IsErrWith(ErrorKind::InvalidConfig, HasSubstr("plan family does not match")));
+
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    ManualCancellationToken cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto execute_result = executor.execute(*plan, transport, clock, cancellation, events);
+
+    EXPECT_THAT(execute_result,
+                fastecu::testing::IsErrWith(ErrorKind::InvalidConfig, HasSubstr("plan family does not match")));
+    // An empty script: any write at all would fail with a "ran past the end
+    // of the script" Internal error instead, so writesConsumed() == 0 and a
+    // consumed (trivially, empty) script together prove the wire was never
+    // touched.
+    EXPECT_EQ(transport.writesConsumed(), 0U);
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(SubaruTcuHitachiM32rCanExecutor, TransportErrorDuringTheReadLoopStopsWithoutFurtherPageRequests)
+{
+    // A port-level error (adapter disconnect, USB drop, ...) is not an ECU
+    // content mismatch: it must propagate immediately with its own kind and
+    // message, distinct from PageResponseWithoutTheDumpServiceIdIsFatal's
+    // BadResponse and from every cancellation checkpoint's Cancelled.
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptReadWindow(transport);
+    {
+        const auto section = transport.section("dump loop");
+        transport.exchange(pageRequest(0), pageResponse(0));
+        transport.expectWrite(pageRequest(1));
+        transport.queue_error(ErrorKind::Disconnected, "adapter gone mid-dump");
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, readPlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Disconnected, HasSubstr("adapter gone mid-dump")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    // Connect + window + page 0 + page 1's write (whose read is what fails):
+    // the error surfaces on the very next exchange and no further page is
+    // ever requested.
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1 + 2);
 }
 } // namespace

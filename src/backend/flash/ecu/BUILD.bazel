@@ -740,6 +740,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_tcu_hitachi_m32r_can_executor",
         ":subaru_tcu_hitachi_m32r_can_plan",
+        ":subaru_tcu_hitachi_m32r_kline_plan",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_device_lookup",
