@@ -843,7 +843,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, StopFrameSilenceIsNotFatal)
 
 constexpr std::uint32_t kWriteFrameSize = 128;
 // Legacy reflash_block retries both the 0x37 close and the 0x31 02 02 01
-// checksum up to 20 times (operation.cpp:842, 890).
+// checksum up to 20 times (operation.cpp:842, 889).
 constexpr int kRetryAttempts = 20;
 
 struct BlockSpec
@@ -853,7 +853,7 @@ struct BlockSpec
 };
 
 // M32R_512KB blocks 3-10: legacy write_mem's block_modified table marks
-// exactly these (operation.cpp:633-634).
+// exactly these (operation.cpp:632-633).
 constexpr std::array<BlockSpec, 8> kFlashedBlocks{{
     {0x08000, 0x08000},
     {0x10000, 0x10000},
@@ -893,7 +893,7 @@ const Bytes& encryptedRom()
 {
     static const Bytes rom = []
     {
-        // Legacy encrypt_payload (operation.cpp:999).
+        // Legacy encrypt_payload (operation.cpp:1002).
         static constexpr std::array<std::uint16_t, 4> kEncryptTable{0x3B61, 0x8BEF, 0x9E51, 0x1075};
         static constexpr std::array<std::uint8_t, 32> kIndexTransformation{
             0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
@@ -1117,7 +1117,7 @@ std::vector<std::chrono::milliseconds> fullWriteReadTimeouts()
 TEST(SubaruTcuHitachiM32rCanExecutor, DataFramesCarryTheEncryptedImageNotThePlaintext)
 {
     // Legacy write_mem encrypts the whole ROM before the first frame leaves
-    // (operation.cpp:641). The scripted transport rejects any 0xB6 frame whose
+    // (operation.cpp:640). The scripted transport rejects any 0xB6 frame whose
     // 128 payload bytes are not the encrypted ones, and the guard below proves
     // that expectation is not vacuously equal to the plaintext.
     Bytes plaintext_frame{0xB6};
@@ -1311,7 +1311,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, BlockWindowMismatchIsFatal)
 TEST(SubaruTcuHitachiM32rCanExecutor, NonFatalCloseAnswerIsRetriedAndTheBlockStillCompletes)
 {
     // Legacy treats a non-0x77 close reply as non-fatal (its return is
-    // commented out, operation.cpp:868) and simply tries again.
+    // commented out, operation.cpp:861) and simply tries again.
     ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
     scriptFullConnect(transport);
     scriptErase(transport);

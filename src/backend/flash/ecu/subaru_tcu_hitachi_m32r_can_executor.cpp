@@ -457,12 +457,18 @@ Status reflash_block(ICanFlashTransport& transport, IClock& clock, const ICancel
     const std::uint32_t frames = block.len / frame_size;
     // Legacy end_addr - start_address: whole frames only (operation.cpp:739).
     const std::uint32_t data_len = frames * frame_size;
-    // Defensive, and unreachable on the validated M32R_512KB geometry: the
-    // plan validator pins both the MCU and the 0x80000 image size, so every
-    // flashed block lies inside the encrypted image. Legacy indexed
-    // newdata[i + blockaddr] with no such check (operation.cpp:803); this
-    // makes a future geometry change fail cleanly instead of reading out of
-    // bounds while talking to flash hardware.
+    // No test pins this line -- mutation M36, which deletes it, survives by
+    // design -- but it must stay: it is the only thing standing between an
+    // out-of-range block table and an out-of-bounds read feeding frames that
+    // get written to flash hardware. Deleting it re-opens mutation M09 (block
+    // range widened past the 11-entry table), which without this guard reads
+    // device->fblocks[11] off the end of a constexpr array and then indexes
+    // encrypted[0x804000] on a 0x80000-byte vector. On the validated
+    // M32R_512KB geometry -- the plan validator pins both the MCU and the
+    // 0x80000 image size -- this guard cannot fire; it exists so a future
+    // geometry change fails cleanly with InvalidConfig instead of reading out
+    // of bounds. Legacy indexed newdata[i + blockaddr] with no such check
+    // (operation.cpp:803).
     if (block.start > encrypted.size() || data_len > encrypted.size() - block.start)
     {
         return fail(ErrorKind::InvalidConfig,
@@ -578,6 +584,13 @@ Status write_rom(ICanFlashTransport& transport, IClock& clock, const ICancellati
     const bytes::Bytes& image = *flash_plan.image();
     const bytes::Bytes encrypted = SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()),
                                                                  kEncryptTable, SsmProtocol::kIndexTransformationStock);
+    // A second defensive guard, same treatment as the one in reflash_block above:
+    // no test pins this line, and it is unreachable on a correct build --
+    // calculatePayload only ever truncates its output to a multiple of 4, and
+    // encrypted is built from image in the line just above, so the sizes cannot
+    // diverge. It stays because a future change to calculatePayload's truncation
+    // behaviour must fail cleanly here instead of letting reflash_block index
+    // encrypted with offsets computed from the (now wrong) image size.
     if (encrypted.size() != image.size())
     {
         return fail(ErrorKind::Internal, "encrypted image size does not match the ROM image");
