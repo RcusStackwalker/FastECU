@@ -1,6 +1,6 @@
 # Step 5 Tail Wave 6a-3 — Hitachi SH72543R CAN
 
-**Status:** design agreed in conversation; written spec awaiting review.
+**Status:** written spec approved; implementation plan awaiting review.
 **Parent:** [wave 6 singletons](2026-09-19-step5-tail-wave6-singletons-design.md).
 **Predecessors:** wave 6a-1 (#347) and 6a-2 (#348), both merged.
 **Source baseline:** `5dc86672`.
