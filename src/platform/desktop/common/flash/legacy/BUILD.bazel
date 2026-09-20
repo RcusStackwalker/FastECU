@@ -19,13 +19,14 @@ qt_cc_library(
         "flash_operation_worker.cpp",
         "jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.cpp",
         "legacy_flash_utils.cpp",
-        "tcu/flash_tcu_subaru_hitachi_m32r_can_operation.cpp",
     ],
     # FlashOperationWorker (the shared QThread base) and the bdm/bootmode/ecu/
-    # jtag/tcu legacy Qt operation classes, relocated together from
+    # jtag legacy Qt operation classes, relocated together from
     # //src/backend/flash (step 5c, Task 15) -- backend owns no thread, and
     # FlashOperationWorker was the last QThread-derived class left there.
-    # Every *_operation.h in the five family subdirectories declares Q_OBJECT.
+    # Every *_operation.h in the four family subdirectories declares Q_OBJECT.
+    # The tcu/ family subdirectory is gone: wave 6a drained both of its
+    # operations (K-Line, then CAN) to portable plans and executors.
     hdrs = [
         "bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.h",
         "bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.h",
@@ -36,10 +37,9 @@ qt_cc_library(
         "ecu/flash_ecu_subaru_unisia_jecs_operation.h",
         "flash_operation_worker.h",
         "jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.h",
-        "tcu/flash_tcu_subaru_hitachi_m32r_can_operation.h",
     ],
     copts = COMMON_COPTS,
-    # Every *.h in the six directories (root + five families) is in
+    # Every *.h in the five directories (root + four families) is in
     # hdrs above except this one -- matches prior glob behavior.
     normal_hdrs = ["legacy_flash_utils.h"],
     deps = QT_DEPS + [
@@ -83,16 +83,17 @@ fastecu_qttest(
 # package at runtime looking for files NOT in its REMAINING allowlist, so
 # the filegroup must keep tracking whatever .cpp files actually exist here
 # -- an explicit list could silently omit a newly (mis)added file from the
-# check it exists to catch.
+# check it exists to catch. "*/*.cpp" is deliberately a wildcard over the
+# family subdirectories rather than one pattern per family: it keeps matching
+# when a family is drained (wave 6a removed tcu/ entirely) and, more to the
+# point, it matches a *re-added* family directory, so a new legacy operation
+# smuggled into one cannot escape the ratchet by simply not being enumerated
+# here. Both patterns are non-empty, so allow_empty stays at its default.
 filegroup(
     name = "family_operation_sources",
     srcs = glob([
         "*.cpp",
-        "bdm/*.cpp",
-        "bootmode/*.cpp",
-        "ecu/*.cpp",
-        "jtag/*.cpp",
-        "tcu/*.cpp",
+        "*/*.cpp",
     ]),
     visibility = ["//:__pkg__"],
 )

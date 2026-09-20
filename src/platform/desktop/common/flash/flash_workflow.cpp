@@ -34,6 +34,8 @@
 #include "src/backend/flash/ecu/subaru_mitsu_m32r_kline_plan.h"
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_executor.h"
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_plan.h"
+#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_executor.h"
+#include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_executor.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.h"
@@ -332,6 +334,78 @@ class SubaruTcuHitachiM32rKlineWorkflow final : public FlashWorkflow
                                      bind_flash_attempt(std::move(*plan_),
                                                         std::make_unique<SubaruTcuHitachiM32rKlineExecutor>(),
                                                         std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                                     std::make_unique<QtClock>()};
+        }
+        return outcome_.completedStep();
+    }
+    void submit(FlashPromptResponse response) override
+    {
+        begun_ = true;
+        if (response != FlashPromptResponse::Accept)
+        {
+            outcome_.cancel();
+        }
+    }
+    void submit(FlashAttemptResult result) override
+    {
+        outcome_.record(std::move(result));
+    }
+
+  private:
+    FlashWorkflowRequest request_;
+    Result<FlashPlan> plan_;
+    bool begun_ = false;
+    bool attempted_ = false;
+    FlashAttemptOutcome outcome_;
+};
+
+// CAN sibling of SubaruTcuHitachiM32rKlineWorkflow above (wave 6a-2, task 6).
+// Unlike the K-Line family, this one supports Write as well as Read -- the
+// plan/attempted/outcome shape is otherwise identical. TestWrite is rejected
+// by build_subaru_tcu_hitachi_m32r_can_plan (deliberate divergence 1: the
+// legacy reflash_block ignored its test_write_arg and performed a real erase
+// and flash write, so there is no dry run to route to), and that rejection
+// surfaces here through the same `if (!plan_)` check every workflow in this
+// file uses. This family has exactly two independent TestWrite checks, not
+// four: the plan-builder check just named, and the plan-validator check in
+// the same file (subaru_tcu_hitachi_m32r_can_plan.cpp) that
+// SubaruTcuHitachiM32rCanExecutor::transport_setup()/execute() call on every
+// plan they are handed. This workflow and the executor are consumers of
+// those two checks, not additional checks of their own.
+class SubaruTcuHitachiM32rCanWorkflow final : public FlashWorkflow
+{
+  public:
+    explicit SubaruTcuHitachiM32rCanWorkflow(FlashWorkflowRequest request)
+        : request_(std::move(request)),
+          plan_(build_subaru_tcu_hitachi_m32r_can_plan(request_.operation, request_.protocol, request_.mcu,
+                                                       std::move(request_.image)))
+    {
+    }
+    FlashWorkflowStep next() override
+    {
+        if (!plan_)
+        {
+            return FlashFailureStep{plan_.error()};
+        }
+        if (outcome_.hasFailure())
+        {
+            return outcome_.takeFailure();
+        }
+        if (outcome_.terminal())
+        {
+            return outcome_.completedStep();
+        }
+        if (!begun_)
+        {
+            return FlashPromptStep{FlashPromptKind::Begin, {}};
+        }
+        if (!attempted_)
+        {
+            attempted_ = true;
+            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
+                                     bind_flash_attempt(std::move(*plan_),
+                                                        std::make_unique<SubaruTcuHitachiM32rCanExecutor>(),
+                                                        std::make_unique<DesktopCanFlashTransport>(request_.serial)),
                                      std::make_unique<QtClock>()};
         }
         return outcome_.completedStep();
@@ -943,6 +1017,7 @@ struct Route
         SubaruDensoSh7058CanDiesel,
         SubaruHitachiM32rCan,
         SubaruTcuHitachiM32rKline,
+        SubaruTcuHitachiM32rCan,
         SubaruTcuCvtHitachiM32rCan,
         SubaruTcuCvtMitsuMh8111Can,
         SubaruTcuCvtMitsuMh8104Can,
@@ -992,6 +1067,7 @@ constexpr auto kRoutes = std::to_array<Route>({
     {"sub_ecu_denso_sh7055_02", SubaruDensoSh7055_02},
     {"sub_ecu_hitachi_m32r_can", SubaruHitachiM32rCan},
     {"sub_tcu_hitachi_m32r_kline", SubaruTcuHitachiM32rKline, RouteMatch::Exact},
+    {"sub_tcu_hitachi_m32r_can", SubaruTcuHitachiM32rCan, RouteMatch::Exact},
     {"sub_tcu_cvt_hitachi_m32r_can", SubaruTcuCvtHitachiM32rCan},
     {"sub_tcu_cvt_mitsu_mh8111_can", SubaruTcuCvtMitsuMh8111Can},
     {"sub_tcu_cvt_mitsu_mh8104_can", SubaruTcuCvtMitsuMh8104Can},
@@ -1055,6 +1131,8 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
         return std::make_unique<SubaruHitachiM32rCanWorkflow>(std::move(request));
     case SubaruTcuHitachiM32rKline:
         return std::make_unique<SubaruTcuHitachiM32rKlineWorkflow>(std::move(request));
+    case SubaruTcuHitachiM32rCan:
+        return std::make_unique<SubaruTcuHitachiM32rCanWorkflow>(std::move(request));
     case SubaruTcuCvtHitachiM32rCan:
         return std::make_unique<SubaruTcuCvtHitachiM32rCanWorkflow>(std::move(request));
     case SubaruTcuCvtMitsuMh8111Can:
