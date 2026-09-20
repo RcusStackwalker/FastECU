@@ -168,6 +168,13 @@ Result<FlashPlan> build_subaru_tcu_hitachi_m32r_can_plan(FlashOperation operatio
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
         .transfer_region = kWindow,
+        // T4b: decorative on the write path. write_rom() never reads
+        // erase_regions() -- the wire erase is the chip-level
+        // `31 02 01 FF FF FF FF` in executor.cpp's erase_flash(), which
+        // takes no region argument at all. A future UI confirmation built on
+        // this field would display 0x8000-0x80000, but the wire command's
+        // actual erase scope is precisely the open question recorded in the
+        // bench checklist's item 0 (blocks 3-10 only, or chip-wide).
         .erase_regions = operation == FlashOperation::Write ? std::vector{kWindow} : std::vector<MemoryRegion>{},
         .image = operation == FlashOperation::Write ? std::move(image) : std::nullopt,
         .kernel = std::nullopt,
