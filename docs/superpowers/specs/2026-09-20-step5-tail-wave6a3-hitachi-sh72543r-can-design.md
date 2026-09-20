@@ -1,6 +1,6 @@
 # Step 5 Tail Wave 6a-3 — Hitachi SH72543R CAN
 
-**Status:** spec and plan approved; implementation complete locally; independent review pending.
+**Status:** spec and plan approved; implemented and independently reviewed; remote SonarCloud gate pending.
 **Parent:** [wave 6 singletons](2026-09-19-step5-tail-wave6-singletons-design.md).
 **Predecessors:** wave 6a-1 (#347) and 6a-2 (#348), both merged.
 **Source baseline:** `5dc86672`.
@@ -234,3 +234,9 @@ of worktree creation; maintain the existing CAN save-as flow; remove explicit
 BUILD source/header entries rather than historical globs; register the family
 in exhaustive validation-test and diagnostic-printer switches; replace the
 removed OpenSSL guard with the current full test graph.
+
+Independent final review of `5dc86672..208314a0` found no actionable critical,
+important, or minor issues. No review fix pass was needed. Hardware erase scope
+and the deliberately tolerant response policies remain as documented above.
+The executor propagates errors supplied by its transport; it cannot detect
+lower-level driver failures that the existing adapter does not expose.

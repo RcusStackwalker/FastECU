@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Execution:** Native, approved. Tasks 1–5 implemented and locally verified; independent review pending.
+**Execution:** Native, approved. Tasks 1–5 implemented, locally verified, and independently reviewed. Remote SonarCloud gate pending.
 
 **Goal:** Migrate wave 6a-3 to portable flashing, covering both SH72543R CAN protocol aliases and reducing the legacy drain from eight families to seven.
 
