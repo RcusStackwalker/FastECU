@@ -201,8 +201,18 @@ bytes::Bytes seed_key(bytes::ByteView seed)
     return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable, SsmProtocol::kIndexTransformationStock);
 }
 
-Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
-                          IEventSink& events, const SubaruTcuHitachiM32rCanPlan& plan)
+// Legacy composes ecuCalDef->RomId as "<CALID>_<TCUID>_" (operation.cpp:170,
+// 207): the TCU ID step sets RomId = "<TCUID>_" and the CAL ID step then
+// INSERTS "<CALID>_" at the front, giving "<CALID>_<TCUID>_". Both legacy
+// steps are non-fatal on a short or mismatched response and could leave a
+// partial "<TCUID>_"-only or "<CALID>_"-only id; the port only reports a
+// rom_id when BOTH decoded cleanly (matched prefix and long enough), so a
+// caller either gets the well-formed identifier legacy's success path
+// produces or none at all -- never a half-built one that could still end up
+// naming a saved dump.
+Result<std::optional<std::string>> connect_bootloader(ICanFlashTransport& transport, IClock& clock,
+                                                      const ICancellationToken& cancellation, IEventSink& events,
+                                                      const SubaruTcuHitachiM32rCanPlan& plan)
 {
     // Step 1: a matching response means the resident kernel is already live
     // and the remaining seven exchanges must not be sent. A missing or
@@ -218,7 +228,9 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
         if (const Status matched = expect_prefix(**alive, {0x71, 0x02, 0x02, 0x03}); matched.has_value())
         {
             events.log(LogLevel::Info, "Kernel already running");
-            return {};
+            // Legacy returns here too, before ever requesting the TCU/CAL ID
+            // (line 128), so RomId is never set on this path either.
+            return std::optional<std::string>{};
         }
         events.log(LogLevel::Error, std::format("Wrong response from TCU: {}", bytes::toHex(**alive)));
     }
@@ -235,6 +247,7 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
     {
         return std::unexpected(tcu_id.error());
     }
+    std::optional<std::string> tcu_id_hex;
     if (tcu_id->has_value())
     {
         constexpr std::size_t kTcuIdOffset = 8;
@@ -253,6 +266,7 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
                 decoded += std::format("{:02X}", value);
             }
             events.log(LogLevel::Info, std::format("TCU ID: {}", decoded));
+            tcu_id_hex = std::move(decoded);
         }
     }
 
@@ -263,6 +277,7 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
     {
         return std::unexpected(cal_id.error());
     }
+    std::optional<std::string> cal_id_text;
     if (cal_id->has_value())
     {
         constexpr std::size_t kCalIdOffset = 7;
@@ -273,9 +288,18 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
         }
         else
         {
-            const std::string decoded(frame.begin() + static_cast<std::ptrdiff_t>(kCalIdOffset), frame.end());
+            std::string decoded(frame.begin() + static_cast<std::ptrdiff_t>(kCalIdOffset), frame.end());
             events.log(LogLevel::Info, std::format("CAL ID: {}", decoded));
+            cal_id_text = std::move(decoded);
         }
+    }
+
+    // Both decoded cleanly: compose the legacy format. Either or both missing
+    // leaves rom_id unset (see the function comment above).
+    std::optional<std::string> rom_id;
+    if (tcu_id_hex.has_value() && cal_id_text.has_value())
+    {
+        rom_id = *cal_id_text + "_" + *tcu_id_hex + "_";
     }
 
     // Step 4: enter the extended diagnostic session; mismatch is fatal.
@@ -337,7 +361,7 @@ Status connect_bootloader(ICanFlashTransport& transport, IClock& clock, const IC
     {
         return std::unexpected(recheck.error());
     }
-    return {};
+    return rom_id;
 }
 
 // Legacy read_mem (operation.cpp:395-616).
@@ -441,8 +465,17 @@ Status erase_flash(ICanFlashTransport& transport, IClock& clock, const ICancella
                            plan.request_id, kEraseDelay, kEraseTimeout, {0x31, 0x02, 0x01});
         !erased.has_value())
     {
-        events.log(LogLevel::Error, "Erasing error! Do not panic, do not reset the TCU immediately. The kernel is "
-                                    "most likely still running and receiving commands!");
+        // T4a: scoped to the three divergence-5 shapes (short, wrong content,
+        // silent) that all mirror legacy's single, undifferentiated content
+        // check (operation.cpp:958-962) -- not to cancellation, where the
+        // operator already knows they stopped it, and not to a port/transport
+        // error, which is a comms fault rather than TCU-state ambiguity.
+        // Legacy had no equivalent of either of those cases at this point.
+        if (erased.error().kind == ErrorKind::BadResponse || erased.error().kind == ErrorKind::Timeout)
+        {
+            events.log(LogLevel::Error, "Erasing error! Do not panic, do not reset the TCU immediately. The kernel is "
+                                        "most likely still running and receiving commands!");
+        }
         return std::unexpected(erased.error());
     }
     return {};
@@ -638,7 +671,8 @@ Status write_rom(ICanFlashTransport& transport, IClock& clock, const ICancellati
 
 Result<FlashExecutionResult> execute_transfer(const FlashPlan& plan, ICanFlashTransport& transport, IClock& clock,
                                               const ICancellationToken& cancellation, IEventSink& events,
-                                              const SubaruTcuHitachiM32rCanPlan& parameters)
+                                              const SubaruTcuHitachiM32rCanPlan& parameters,
+                                              std::optional<std::string> rom_id)
 {
     if (plan.operation() == FlashOperation::Read)
     {
@@ -651,13 +685,36 @@ Result<FlashExecutionResult> execute_transfer(const FlashPlan& plan, ICanFlashTr
         return FlashExecutionResult{
             .operation = FlashOperation::Read,
             .read_bytes = std::move(*image),
-            .rom_id = std::nullopt,
+            .rom_id = std::move(rom_id),
         };
     }
-    // Deliberate divergence 1: TestWrite never reaches here -- the plan
-    // validator rejects it with ErrorKind::Unsupported, because legacy's
-    // reflash_block took a test_write_arg and never read it, so "test write"
-    // performed a real erase and a real flash write.
+    if (plan.operation() != FlashOperation::Write)
+    {
+        // M2: fail-closed rather than fail-open in shape. Every operation
+        // that reaches this point other than Read used to fall straight into
+        // write_rom -- safe only because execute() validates the plan
+        // immediately before calling this function. TestWrite is already
+        // rejected earlier by validate_subaru_tcu_hitachi_m32r_can_plan
+        // (deliberate divergence 1), which both transport_setup() and
+        // execute() call on every plan before this function ever runs, so
+        // this branch cannot currently be reached through
+        // SubaruTcuHitachiM32rCanExecutor::execute() -- the same "no test can
+        // pin it" shape as the reflash_block/write_rom guards below. It stays
+        // because this function's own shape should not perform a real write
+        // for an operation it was not asked to perform, independent of
+        // whether the upstream validation is ever bypassed.
+        return fail(ErrorKind::Unsupported, "Subaru TCU Hitachi M32R CAN supports read and write only");
+    }
+    // Deliberate divergence 1: TestWrite never reaches here. It is rejected
+    // by validate_subaru_tcu_hitachi_m32r_can_plan
+    // (subaru_tcu_hitachi_m32r_can_plan.cpp), which both transport_setup()
+    // and execute() call on every plan before this function runs. This
+    // family has exactly two independent TestWrite checks -- that validator
+    // check, and the plan-builder check in the same file -- not four;
+    // execute()'s call into the validator and the guard just above are both
+    // consumers of the validator check, not additional checks of their own.
+    // Legacy's reflash_block took a test_write_arg and never read it, so
+    // "test write" performed a real erase and a real flash write.
     if (const Status flashed = write_rom(transport, clock, cancellation, events, parameters, plan);
         !flashed.has_value())
     {
@@ -666,6 +723,10 @@ Result<FlashExecutionResult> execute_transfer(const FlashPlan& plan, ICanFlashTr
     return FlashExecutionResult{
         .operation = FlashOperation::Write,
         .read_bytes = std::nullopt,
+        // Legacy only assigns ecuCalDef->RomId when cmd_type == "read"
+        // (operation.cpp:168, 205); the decoded id is discarded here too,
+        // even though connect_bootloader() decodes it on every connect
+        // regardless of operation.
         .rom_id = std::nullopt,
     };
 }
@@ -704,12 +765,13 @@ Result<FlashExecutionResult> SubaruTcuHitachiM32rCanExecutor::execute(const Flas
         return fail(ErrorKind::Cancelled, "cancelled before setup");
     }
     const auto& parameters = std::get<SubaruTcuHitachiM32rCanPlan>(plan.family_plan());
-    if (const Status connected = connect_bootloader(transport, clock, cancellation, events, parameters);
-        !connected.has_value())
+    Result<std::optional<std::string>> connected =
+        connect_bootloader(transport, clock, cancellation, events, parameters);
+    if (!connected.has_value())
     {
         return std::unexpected(connected.error());
     }
-    return execute_transfer(plan, transport, clock, cancellation, events, parameters);
+    return execute_transfer(plan, transport, clock, cancellation, events, parameters, std::move(*connected));
 }
 
 } // namespace fastecu::flash

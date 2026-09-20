@@ -21,6 +21,7 @@
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"
+#include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -161,6 +162,16 @@ void scriptReadWindow(ScriptedCanFlashTransport& transport, bool valid = true)
 {
     const auto section = transport.section("read window setup");
     transport.exchange(readWindowRequest(), valid ? response({0x74, 0x20, 0x01, 0x04}) : response({0x7F, 0x34, 0x22}));
+}
+
+// T3c: unlike scriptReadWindow's negative case (a 3-byte NRC that trips
+// expect_prefix's length guard), this is the full 8-byte frame differing from
+// the valid answer at only the last byte -- so only the content compare, not
+// the length guard, can reject it.
+void scriptReadWindowWrongContent(ScriptedCanFlashTransport& transport)
+{
+    const auto section = transport.section("read window setup (wrong content)");
+    transport.exchange(readWindowRequest(), response({0x74, 0x20, 0x01, 0x03}));
 }
 
 // The connect-only tests inherited from task 2 now fall through into the read
@@ -698,6 +709,29 @@ TEST(SubaruTcuHitachiM32rCanExecutor, ReadWindowSetupTargetsTheClampedRegion)
               (Bytes{0x00, 0x00, 0x07, 0xE1, 0x34, 0x04, 0x33, 0x00, 0x80, 0x00, 0x07, 0x80, 0x00}));
 }
 
+// T3c: the negative case above is a 3-byte NRC that trips expect_prefix's
+// length guard rather than its content compare -- a mutation shortening the
+// expected prefix from {0x74,0x20,0x01,0x04} down to {0x74} would survive
+// that test entirely, and a TCU answering 74 20 01 03 would be silently
+// accepted, dumping against an unconfirmed read window. This response is the
+// full 8-byte frame, differing from the valid one at only the last byte, so
+// only the content compare can catch it.
+TEST(SubaruTcuHitachiM32rCanExecutor, ReadWindowContentMismatchIsFatal)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    scriptReadWindowWrongContent(transport);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, readPlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::BadResponse, HasSubstr("wrong response from TCU")));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1);
+}
+
 TEST(SubaruTcuHitachiM32rCanExecutor, SuccessfulReadRebuildsTheFullRomImage)
 {
     ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
@@ -718,6 +752,11 @@ TEST(SubaruTcuHitachiM32rCanExecutor, SuccessfulReadRebuildsTheFullRomImage)
     EXPECT_EQ(result->operation, FlashOperation::Read);
     ASSERT_TRUE(result->read_bytes.has_value());
     ASSERT_EQ(result->read_bytes->size(), kRomSize);
+    // I2: legacy composes ecuCalDef->RomId as "<CALID>_<TCUID>_"
+    // (operation.cpp:170, 207); scriptIdentity's fixture bytes decode to TCU
+    // ID "1122334455" and CAL ID "CAL" (SuccessfulIdentityResponsesLogDecodedFields
+    // pins the same log lines).
+    EXPECT_EQ(result->rom_id, std::optional<std::string>("CAL_1122334455_"));
 
     const Bytes expected = expectedImage();
     // Divergence 4: the first 0x8000 bytes are a sized zero buffer.
@@ -728,6 +767,57 @@ TEST(SubaruTcuHitachiM32rCanExecutor, SuccessfulReadRebuildsTheFullRomImage)
     EXPECT_EQ(slice(*result->read_bytes, kRegionStart, 8), slice(expected, kRegionStart, 8));
     EXPECT_EQ(slice(*result->read_bytes, kRomSize - 8, 8), slice(expected, kRomSize - 8, 8));
     expectBytesEqual(*result->read_bytes, expected);
+}
+
+// I2: the connect path already tolerates a mismatched TCU ID non-fatally
+// (NonFatalTcuIdMismatchStillReachesFinalRecheck); this pins the resulting
+// rom_id rather than only the connect's continuation. Chosen behaviour:
+// rom_id is reported only when BOTH the TCU ID and the CAL ID decode
+// cleanly, never a half-built "<TCUID>_"-only or "<CALID>_"-only id -- a
+// caller either gets the well-formed identifier legacy's success path
+// produces, or none at all.
+TEST(SubaruTcuHitachiM32rCanExecutor, ReadRomIdIsAbsentWhenTheTcuIdDidNotMatch)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport, /*valid_tcu=*/false, /*valid_cal=*/true);
+    scriptReadWindow(transport);
+    scriptDumpLoop(transport);
+    scriptStop(transport);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, readPlan(), transport, clock, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(result->rom_id, std::nullopt);
+}
+
+// Same shape, the short-frame guard instead of a mismatch: both identity
+// fields come back too short to decode (mirrors
+// ShortIdentityFieldsLogAndContinueSafely), so rom_id must be absent too.
+TEST(SubaruTcuHitachiM32rCanExecutor, ReadRomIdIsAbsentWhenIdentityFieldsAreTooShort)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptKernelProbeMiss(transport);
+    transport.exchange(framed(0x7E0, {0xAA}), response({0xEA, 0x00, 0x00}));
+    transport.exchange(framed(0x7E0, {0x09, 0x04}), response({0x49, 0x04, 0x00}));
+    scriptSession(transport);
+    scriptSeed(transport);
+    scriptKey(transport);
+    scriptJump(transport);
+    scriptRecheck(transport);
+    scriptReadWindow(transport);
+    scriptDumpLoop(transport);
+    scriptStop(transport);
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, readPlan(), transport, clock, events);
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(result->rom_id, std::nullopt);
 }
 
 TEST(SubaruTcuHitachiM32rCanExecutor, ReadLoopPacesEveryPageAndKeepsLegacyTimeouts)
@@ -1188,6 +1278,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, EraseResponseShorterThanSevenBytesIsFatalB
     EXPECT_TRUE(transport.scriptConsumed());
     // Connect plus the erase itself and nothing more: no window, no 0xB6.
     EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1);
+    EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::Error, HasSubstr("Do not panic"))));
 }
 
 TEST(SubaruTcuHitachiM32rCanExecutor, EraseContentMismatchIsFatalBeforeAnyReflashFrame)
@@ -1206,6 +1297,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, EraseContentMismatchIsFatalBeforeAnyReflas
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::BadResponse, Not(HasSubstr("too short"))));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1);
+    EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::Error, HasSubstr("Do not panic"))));
 }
 
 TEST(SubaruTcuHitachiM32rCanExecutor, EraseSilenceIsFatalBeforeAnyReflashFrame)
@@ -1222,6 +1314,82 @@ TEST(SubaruTcuHitachiM32rCanExecutor, EraseSilenceIsFatalBeforeAnyReflashFrame)
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Timeout, HasSubstr("no response from TCU")));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1);
+    EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::Error, HasSubstr("Do not panic"))));
+}
+
+// T4a: a port/transport error is a comms fault, not TCU-state ambiguity.
+TEST(SubaruTcuHitachiM32rCanExecutor, EraseTransportErrorDoesNotLogTheDoNotPanicWarning)
+{
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    scriptFullConnect(transport);
+    {
+        const auto section = transport.section("erase (transport error)");
+        transport.expectWrite(eraseRequest());
+        transport.queue_error(ErrorKind::Disconnected, "adapter gone mid-erase");
+    }
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = execute(executor, writePlan(), transport, clock, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Disconnected, HasSubstr("adapter gone mid-erase")));
+    EXPECT_THAT(events.logs, Not(Contains(Pair(fastecu::LogLevel::Error, HasSubstr("Do not panic")))));
+}
+
+// Cancels a shared ManualCancellationToken the instant a chosen write
+// completes -- used to reach exchange_optional's own "cancelled after write"
+// checkpoint precisely, before any read is ever attempted. (Tripping instead
+// on the pre-read sleep, as TripAfterTraceLengthClock does elsewhere in this
+// file, does not isolate this checkpoint here: the scripted transport's own
+// read() observes the now-cancelled token and fails first with its own
+// "scripted CAN read cancelled" message, never reaching exchange_optional's
+// "cancelled after read" check.)
+class TripAfterWriteCountTransport final : public ScriptedCanFlashTransport
+{
+  public:
+    TripAfterWriteCountTransport(std::size_t trip_after_writes, ManualCancellationToken& cancellation)
+        : ScriptedCanFlashTransport(ScriptedTransportInitialState::Open), trip_after_writes_(trip_after_writes),
+          cancellation_(cancellation)
+    {
+    }
+
+    Status write(bytes::ByteView data, const fastecu::ICancellationToken& cancellation) override
+    {
+        const Status result = ScriptedCanFlashTransport::write(data, cancellation);
+        if (++writes_ == trip_after_writes_)
+        {
+            cancellation_.cancel();
+        }
+        return result;
+    }
+
+  private:
+    std::size_t trip_after_writes_;
+    std::size_t writes_ = 0;
+    ManualCancellationToken& cancellation_;
+};
+
+// T4a: cancellation is not a content-mismatch. Trips right after the erase's
+// own write (the 9th write overall) completes, so exchange_optional's
+// generic "cancelled after write" checkpoint fires before any read is ever
+// attempted -- not expect_prefix's content compare -- exactly the case
+// legacy has no equivalent of.
+TEST(SubaruTcuHitachiM32rCanExecutor, EraseCancellationDoesNotLogTheDoNotPanicWarning)
+{
+    ManualCancellationToken cancellation;
+    TripAfterWriteCountTransport transport{kConnectFrames + 1, cancellation};
+    scriptFullConnect(transport);
+    transport.expectWrite(eraseRequest());
+    SubaruTcuHitachiM32rCanExecutor executor;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto result = executor.execute(writePlan(), transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::Cancelled, HasSubstr("cancelled after write")));
+    EXPECT_EQ(transport.writesConsumed(), kConnectFrames + 1);
+    EXPECT_THAT(events.logs, Not(Contains(Pair(fastecu::LogLevel::Error, HasSubstr("Do not panic")))));
 }
 
 TEST(SubaruTcuHitachiM32rCanExecutor, WriteFlashesBlocksThreeThroughTenAndNothingElse)
@@ -1239,6 +1407,11 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WriteFlashesBlocksThreeThroughTenAndNothin
     EXPECT_EQ(transport.writesConsumed(), kFullWriteWrites);
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_FALSE(result->read_bytes.has_value());
+    // I2: legacy only assigns ecuCalDef->RomId when cmd_type == "read"
+    // (operation.cpp:168, 205); connect_bootloader() decodes the TCU/CAL ID
+    // identically on every connect, but the write result must not surface it.
+    EXPECT_EQ(result->rom_id, std::nullopt);
+    EXPECT_THAT(events.logs, Contains(Pair(fastecu::LogLevel::Info, "TCU ID: 1122334455")));
 
     const auto *device = fastecu::flash::find_flash_device(kMcu);
     ASSERT_NE(device, nullptr);
@@ -1787,6 +1960,66 @@ TEST(SubaruTcuHitachiM32rCanExecutor, PlanForAnotherFamilyIsRejectedBeforeTransp
     // touched.
     EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_TRUE(transport.scriptConsumed());
+}
+
+// M2: exercises the real, reachable TestWrite-rejection layer at the
+// executor boundary -- the second of this family's two independent
+// TestWrite checks (subaru_tcu_hitachi_m32r_can_plan.cpp's validator), which
+// the executor's own execute() consumes on every plan. Bypasses the plan
+// BUILDER's own TestWrite check (which would otherwise refuse to construct
+// this plan at all -- see SubaruTcuHitachiM32rCanPlan.RejectsTestWriteAsUnsupported)
+// by constructing FlashPlanFields directly through validate_and_build,
+// mirroring SubaruTcuHitachiM32rCanPlan.ValidatorRejectsTestWriteDirectlyConstructed
+// but through the executor rather than the standalone validator, so the
+// "executor boundary" consumer this family's rejection count depends on is
+// pinned rather than only asserted in a comment. This directly-constructed
+// plan is also what proves execute_transfer's own new TestWrite guard is
+// unreachable from any public entry: execute() rejects it here, before
+// execute_transfer -- the guard inside execute_transfer -- ever runs.
+TEST(SubaruTcuHitachiM32rCanExecutor, ExecuteRejectsTestWriteEvenWhenDirectlyConstructed)
+{
+    using fastecu::flash::FlashPlanFields;
+    using fastecu::flash::MemoryRegion;
+    using fastecu::flash::SubaruTcuHitachiM32rCanPlan;
+    using fastecu::flash::TransportKind;
+    using fastecu::flash::validate_and_build;
+
+    constexpr MemoryRegion kWindow{.start = kRegionStart, .length = kRegionLength};
+    FlashPlanFields fields{
+        .operation = FlashOperation::TestWrite,
+        .family = FlashFamily::SubaruTcuHitachiM32rCan,
+        .transport = TransportKind::CanIso15765,
+        .target_id = std::string(kProtocol),
+        .mcu_name = std::string(kMcu),
+        .transfer_region = kWindow,
+        .erase_regions = {kWindow},
+        .image = bytes::Bytes(kRomSize, Byte{0x00}),
+        .kernel = std::nullopt,
+        .family_plan = SubaruTcuHitachiM32rCanPlan{.request_id = 0x7E1,
+                                                   .response_id = 0x7E9,
+                                                   .bitrate = 500000,
+                                                   .extended_id = false,
+                                                   .page_size = kPageSize,
+                                                   .write_frame_size = 128U},
+        .confirmations = {},
+    };
+    auto built = validate_and_build(std::move(fields));
+    ASSERT_THAT(built, fastecu::testing::IsOk());
+
+    SubaruTcuHitachiM32rCanExecutor executor;
+    const auto setup_result = executor.transport_setup(*built);
+    EXPECT_THAT(setup_result, fastecu::testing::IsErr(ErrorKind::Unsupported));
+
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    ManualCancellationToken cancellation;
+    FakeClock clock;
+    RecordingEventSink events;
+
+    const auto execute_result = executor.execute(*built, transport, clock, cancellation, events);
+
+    EXPECT_THAT(execute_result, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    // No transport activity at all: the validator rejects before connect_bootloader.
+    EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 TEST(SubaruTcuHitachiM32rCanExecutor, TransportErrorDuringTheReadLoopStopsWithoutFurtherPageRequests)

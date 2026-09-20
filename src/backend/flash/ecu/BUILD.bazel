@@ -745,6 +745,7 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_validation",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
         "//src/backend/ports/testing:fake_clock",
