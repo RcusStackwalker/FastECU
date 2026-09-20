@@ -1372,3 +1372,32 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:result_matchers",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "subaru_hitachi_sh72543r_can_plan_test",
+    srcs = ["subaru_hitachi_sh72543r_can_plan_test.cpp"],
+    deps = [
+        ":subaru_hitachi_sh72543r_can_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
+cc_library(
+    name = "subaru_hitachi_sh72543r_can_plan",
+    srcs = ["subaru_hitachi_sh72543r_can_plan.cpp"],
+    hdrs = ["subaru_hitachi_sh72543r_can_plan.h"],
+    deps = [
+        ":subaru_hitachi_sh72543r_can_types",
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+cc_library(
+    name = "subaru_hitachi_sh72543r_can_types",
+    hdrs = ["subaru_hitachi_sh72543r_can_types.h"],
+)

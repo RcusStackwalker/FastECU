@@ -101,6 +101,8 @@ PORTABLE_PACKAGES = {
         "subaru_tcu_hitachi_m32r_can_executor",
         "subaru_tcu_hitachi_m32r_can_plan",
         "subaru_tcu_hitachi_m32r_can_types",
+        "subaru_hitachi_sh72543r_can_types",
+        "subaru_hitachi_sh72543r_can_plan",
         "subaru_tcu_hitachi_m32r_kline_executor",
         "subaru_tcu_hitachi_m32r_kline_plan",
         "subaru_tcu_hitachi_m32r_kline_types",
