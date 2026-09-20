@@ -45,7 +45,9 @@ class Transport : public ScriptedCanFlashTransport
     Status write(bytes::ByteView b, const ICancellationToken& c) override
     {
         if (fail_write == writes++)
+        {
             return fail(injected_error, "injected write failure");
+        }
         return ScriptedCanFlashTransport::write(b, c);
     }
     Result<std::optional<Bytes>> read(std::chrono::milliseconds timeout, const ICancellationToken& c) override
@@ -57,7 +59,9 @@ class Transport : public ScriptedCanFlashTransport
         }
         auto result = ScriptedCanFlashTransport::read(timeout, c);
         if (after_read)
+        {
             after_read(reads);
+        }
         ++reads;
         return result;
     }
@@ -143,9 +147,13 @@ class Sh72543rExecutor : public ::testing::Test
         {
             transport.expectWrite(req(Bytes{0x10, 1}));
             if (silence)
+            {
                 transport.queue_no_frame();
+            }
             else
+            {
                 transport.queueRead(reply(Bytes{0x50, 1}));
+            }
         }
     }
     void init(Bytes ecu = {0xea, 0, 0, 0, 0x11, 0x22, 0x33, 0x44, 0x55}, Bytes cal = {0x49, 4, 0, 'C', 'A', 'L'})
@@ -192,7 +200,9 @@ TEST_F(Sh72543rExecutor, CompleteReadPinsBytesTimingAndKernelShortcut)
     EXPECT_EQ(transport.readTimeouts().front(), 200ms);
     EXPECT_EQ(transport.readTimeouts().back(), 800ms);
     for (std::size_t i = 1; i + 1 < transport.readTimeouts().size(); ++i)
+    {
         EXPECT_EQ(transport.readTimeouts()[i], 2000ms);
+    }
     ASSERT_FALSE(events.phase_progress_calls.empty());
     EXPECT_EQ(events.phase_progress_calls.back().done, events.phase_progress_calls.back().total);
 }
@@ -301,7 +311,9 @@ TEST_F(Sh72543rExecutor, CancellationAfterReadStopsNextCommand)
     transport.after_read = [&](std::size_t n)
     {
         if (n == 3)
+        {
             cancel.cancel();
+        }
     };
     EXPECT_THAT(run(), fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writes, 4U);
@@ -330,7 +342,9 @@ TEST_F(Sh72543rExecutor, CancellationDuringPagesDoesNotPublishPartialImage)
     transport.after_read = [&](std::size_t n)
     {
         if (n == 100)
+        {
             cancel.cancel();
+        }
     };
     EXPECT_THAT(run(), fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writes, 101U);
@@ -400,7 +414,9 @@ std::uint32_t referenceCipher(std::uint32_t word)
         index |= index << 16;
         unsigned f = 0;
         for (int n = 0; n < 4; ++n)
+        {
             f |= box[(index >> (4 * n)) & 31] << (4 * n);
+        }
         f = ((f >> 3) | (f << 13)) & 65535;
         unsigned next = left ^ f;
         left = right;
@@ -423,7 +439,9 @@ class Sh72543rWrite : public Sh72543rExecutor
         Bytes b;
         b.reserve(0x200000);
         for (std::uint32_t address = 0; address < 0x200000; address += 4)
+        {
             bytes::appendU32Be(b, 0xdeadbeefU ^ address);
+        }
         return b;
     }
     Result<FlashExecutionResult> write()
@@ -453,14 +471,20 @@ class Sh72543rWrite : public Sh72543rExecutor
             Bytes payload{0xb6, static_cast<std::uint8_t>(a >> 16), static_cast<std::uint8_t>(a >> 8),
                           static_cast<std::uint8_t>(a)};
             for (unsigned offset = 0; offset < 0x100; offset += 4)
+            {
                 bytes::appendU32Be(payload, referenceCipher(0xdeadbeefU ^ (a + offset)));
+            }
             ASSERT_EQ(payload.size(), 260U);
             transport.expectWrite(req(payload));
             // Legacy does not interpret this content, even negative responses.
             if (silent)
+            {
                 transport.queue_no_frame();
+            }
             else
+            {
                 transport.queueRead(reply(Bytes{0x7f, 0xb6, 0x22}));
+            }
         }
     }
     void finish()
@@ -491,7 +515,9 @@ TEST_F(Sh72543rWrite, CompleteWriteUsesAbsoluteOffsetsAndImmediateEraseReply)
     {
         EXPECT_GE(p.phase_index, previousPhase);
         if (p.phase_index == previousPhase)
+        {
             EXPECT_GE(p.done, previousDone);
+        }
         EXPECT_LE(p.done, p.total);
         previousPhase = p.phase_index;
         previousDone = p.done;
@@ -521,9 +547,13 @@ TEST_P(Sh72543rWriteFault, EraseExhaustionNeverSendsData)
     for (int i = 0; i < 21; ++i)
     {
         if (GetParam())
+        {
             transport.queueRead(reply(Bytes{0x7f, 0x31, 0x78}));
+        }
         else
+        {
             transport.queue_no_frame();
+        }
     }
     EXPECT_THAT(write(), fastecu::testing::IsErr(GetParam() ? ErrorKind::BadResponse : ErrorKind::Timeout));
     EXPECT_EQ(transport.writes, 7U);
@@ -543,7 +573,9 @@ TEST_P(Sh72543rWriteCancel, CancelAtEveryProgrammingPhaseStopsSubsequentIo)
     transport.after_read = [&](std::size_t n)
     {
         if (n == static_cast<std::size_t>(GetParam()))
+        {
             cancel.cancel();
+        }
     };
     EXPECT_THAT(write(), fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writes, static_cast<std::size_t>(GetParam() + 1));
@@ -559,7 +591,9 @@ TEST_F(Sh72543rWrite, CancelDuringErasePollingStopsBeforeData)
     transport.after_read = [&](std::size_t n)
     {
         if (n == 7)
+        {
             cancel.cancel();
+        }
     };
     EXPECT_THAT(write(), fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writes, 7U);
@@ -602,14 +636,20 @@ TEST_P(Sh72543rFinalizeFault, BoundedFinalizationRetriesClassifyFailure)
     data();
     bool checksum = GetParam() >= 2, response = GetParam() % 2;
     if (checksum)
+    {
         x({0x37}, {0x77});
+    }
     for (int i = 0; i < 20; ++i)
     {
         transport.expectWrite(req(checksum ? Bytes{0x31, 1, 2, 2, 1} : Bytes{0x37}));
         if (response)
+        {
             transport.queueRead(reply(Bytes{0x7f, 0x31, 0x78}));
+        }
         else
+        {
             transport.queue_no_frame();
+        }
     }
     EXPECT_THAT(write(), fastecu::testing::IsErr(response ? ErrorKind::BadResponse : ErrorKind::Timeout));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -622,10 +662,14 @@ TEST_F(Sh72543rWrite, LastRetrySucceedsWithoutEarlyCompletion)
     erase();
     data();
     for (int i = 0; i < 19; ++i)
+    {
         x({0x37}, {0x7f, 0x37, 0x78});
+    }
     x({0x37}, {0x77});
     for (int i = 0; i < 19; ++i)
+    {
         x({0x31, 1, 2, 2, 1}, {0x7f, 0x31, 0x78});
+    }
     x({0x31, 1, 2, 2, 1}, {0x71, 1, 2});
     EXPECT_THAT(write(), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());

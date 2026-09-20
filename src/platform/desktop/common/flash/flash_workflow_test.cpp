@@ -442,7 +442,9 @@ void FlashWorkflowTest::routesSh72543rAliasesAndPreservesImageAndIdentity()
             auto input = request(protocol, operation);
             input.mcu = "SH72543R";
             if (operation == FlashOperation::Write)
+            {
                 input.image = bytes::Bytes(0x200000, 0xa5);
+            }
             auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
             QVERIFY(workflow);
             QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
@@ -455,7 +457,9 @@ void FlashWorkflowTest::routesSh72543rAliasesAndPreservesImageAndIdentity()
             QCOMPARE(plan.transport(), TransportKind::CanIso15765);
             QCOMPARE(plan.transfer_region().start, operation == FlashOperation::Read ? 0U : 0x6000U);
             if (operation == FlashOperation::Write)
+            {
                 QCOMPARE(*plan.image(), bytes::Bytes(0x200000, 0xa5));
+            }
             workflow->submit(FlashAttemptResult{
                 .success = true,
                 .read_bytes = operation == FlashOperation::Read ? std::optional{bytes::Bytes{1, 2, 3}} : std::nullopt,

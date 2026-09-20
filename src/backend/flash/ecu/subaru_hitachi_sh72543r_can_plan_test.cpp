@@ -69,9 +69,11 @@ TEST(Sh72543rPlan, RejectsIdentityAndImageErrors)
     EXPECT_THAT(build_subaru_hitachi_sh72543r_can_plan(FlashOperation::Write, kProtocol, "SH72543R", std::nullopt),
                 fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     for (auto size : {0U, 0x1fffffU, 0x200001U})
+    {
         EXPECT_THAT(
             build_subaru_hitachi_sh72543r_can_plan(FlashOperation::Write, kProtocol, "SH72543R", bytes::Bytes(size)),
             fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    }
 }
 TEST(Sh72543rPlan, ForgedPlansCannotChangeWireOrGeometry)
 {
@@ -156,11 +158,17 @@ TEST(Sh72543rPlan, CoreRejectsMismatchedFamilyTransportAndVariant)
     {
         auto f = fields();
         if (mutation == 0)
+        {
             f.family = FlashFamily::SubaruTcuHitachiM32rCan;
+        }
         if (mutation == 1)
+        {
             f.transport = TransportKind::Kline;
+        }
         if (mutation == 2)
+        {
             f.family_plan = SubaruTcuHitachiM32rCanPlan{};
+        }
         EXPECT_THAT(validate_and_build(std::move(f)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     }
 }
