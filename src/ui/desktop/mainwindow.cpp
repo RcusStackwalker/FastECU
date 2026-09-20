@@ -1338,14 +1338,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             connect_signals_and_run_module(&flash_module);
         }
         /*
-         * Hitachi TCU
-         */
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_tcu_hitachi_m32r_can"))
-        {
-            FlashTcuSubaruHitachiM32rCan flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        /*
          * Unknown flashmethod
          */
         else
