@@ -1,6 +1,6 @@
 # Step 5 Tail Wave 6a-3 — Hitachi SH72543R CAN
 
-**Status:** written spec approved; implementation plan awaiting review.
+**Status:** spec and plan approved; implementation complete locally; independent review pending.
 **Parent:** [wave 6 singletons](2026-09-19-step5-tail-wave6-singletons-design.md).
 **Predecessors:** wave 6a-1 (#347) and 6a-2 (#348), both merged.
 **Source baseline:** `5dc86672`.
@@ -147,8 +147,9 @@ them into a protocol mismatch.
 ## Desktop integration and removal
 
 Register both exact protocol aliases with `FlashWorkflow`, using the existing
-Begin prompt, bound attempt ownership, outcome handling, read inspection/save,
-and failure flow. Pass the current ROM image for Write and optional returned
+Begin prompt, bound attempt ownership, outcome handling, and failure flow.
+Successful reads return to MainWindow for its existing calibration/save-as flow;
+InspectRead/Discard is EEPROM-specific and is not added to this CAN family. Pass the current ROM image for Write and optional returned
 ROM identity for Read. A rejected plan or declined Begin prompt starts no
 attempt. Follow the shared UI route already used by #348.
 
@@ -186,17 +187,18 @@ read, erase polling, write, and finalization. Assert failed erase is followed by
 no programming frame and cancellation never produces a completed read/write.
 
 Workflow tests cover dispatch for both aliases, image/metadata flow, declined
-confirmation, rejected preflight, read inspection/save/discard, and propagated
+confirmation, rejected preflight, read-byte/identity handoff to the existing save-as flow, and propagated
 attempt failure. Reuse shared dialog tests where behavior is unchanged.
 
 Implementation gates inherited from the drain:
 
 ```sh
 bazel build -k --config=release //:fastecu //tests/...
-bazel test -k --config=release //tests/... //:bazel_openssl_wiring \
-  //:serial_compat_allowlist //:portable_closure //:legacy_flash_drain
+bazel test -k --config=release //...
 ```
 
+The former `//:bazel_openssl_wiring` target was removed with OpenSSL in #216;
+the current full graph covers all extant tests and guards.
 Run relevant package-owned tests explicitly if not included by the aggregate.
 Require at least 80% new-code coverage and the SonarCloud Quality Gate for the
 implementation PR. This design-only commit requires document/diff checks, not
@@ -209,3 +211,26 @@ verification of block-0 preservation and programmed-image readback.
 Written-spec approval permits creating the implementation plan with the
 writing-plans skill. It does not authorize skipping plan review or selection of
 execution method. No implementation is included in this design task.
+
+## Local implementation evidence (2026-09-20)
+
+- Release build of `//:fastecu //tests/...` passed.
+- Full release graph `bazel test -k --config=release //...`: 195 passed,
+  five incompatible/platform-specific tests skipped.
+- Repository coverage workflow passed with the same 195/5 result and 496
+  resolvable coverage report sections.
+- Isolated changed-target coverage: 495/527 added executable lines covered
+  (93.93%) against `b63fb719`. Executor: 315/337 (93.47%); plan: 131/140
+  (93.57%); workflow addition: 44/45 (97.78%). LLVM reports unmatched
+  inline-function records elsewhere; its debug output names no new family or
+  Session functions. SonarCloud's remote Quality Gate remains pending.
+- 38 executor cases pin the wire transcripts, errors, retries and cancellation;
+  plan and workflow tests cover aliases, geometry, dry-run rejection and results.
+- Drain guard: seven remaining families, none added. No new transport surface
+  or compatibility allowlist entry. Hardware remains experimental.
+
+Execution adjustments: use the current non-master checkout after sandbox denial
+of worktree creation; maintain the existing CAN save-as flow; remove explicit
+BUILD source/header entries rather than historical globs; register the family
+in exhaustive validation-test and diagnostic-printer switches; replace the
+removed OpenSSL guard with the current full test graph.

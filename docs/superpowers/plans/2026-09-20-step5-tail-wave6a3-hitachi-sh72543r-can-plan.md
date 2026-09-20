@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Execution:** Native, approved. Tasks 1–5 implemented and locally verified; independent review pending.
+
 **Goal:** Migrate wave 6a-3 to portable flashing, covering both SH72543R CAN protocol aliases and reducing the legacy drain from eight families to seven.
 
 **Architecture:** A family-specific validated FlashPlan feeds a synchronous ICanFlashExecutor. The desktop FlashWorkflow binds existing transport and clock adapters and uses the shared dialog. Protocol helpers stay private to the family; no transport or generic flashing abstraction is added.
@@ -256,7 +258,7 @@ bind_flash_attempt(std::move(*plan_),
 Use QtClock and the existing FlashAttemptOutcome result handling. Register two
 RouteMatch::Exact entries plus the corresponding internal route-kind dispatch.
 - [ ] Add Read/Write routing tests for each alias with MCU SH72543R and correct image sizes. Inspect the bound plan; assert the complete image is retained and read/erase windows differ. Add wrong-MCU/size rejection, declined Begin, attempt failure, returned ROM ID, absent ROM ID, and a misspelled recovery suffix. A rejected suffix must not fall through to the removed legacy prefix dispatch.
-- [ ] Verify read inspect/save/discard at the existing shared-dialog boundary: add family cases to existing applicable parameterized tests or extend `src/ui/desktop/flash/common/flash_dialog_test.cpp` if necessary. Do not add a second family-specific save workflow. Confirm absent metadata leaves existing naming behavior intact.
+- [ ] Verify read-byte/identity handoff at the workflow boundary and run `//src/ui/desktop/flash/common:test_flash_dialog`. MainWindow owns the existing CAN save-as flow; InspectRead/Discard is EEPROM-specific. Do not add a second family-specific save workflow. Confirm absent metadata remains absent so MainWindow keeps its existing naming behavior.
 - [ ] Remove the family-specific MainWindow branch/include and delete the four obsolete sources. Inspect `src/ui/desktop/BUILD.bazel` and legacy BUILD globs: remove explicit references if present; do not edit working globs for ceremony. Add workflow library dependencies on the new plan/executor.
 - [ ] Remove exactly the SH72543R operation entry from REMAINING. Update matrix with portable=yes, experimental, actual test labels, all eight correction categories, uninterpreted B6 replies, and unverified physical erase scope. Update wave progress: 6a-1/#347 and 6a-2/#348 merged; 6a-3 implemented on this branch, not claimed merged. Add corresponding modularization progress entry.
 - [ ] Run workflow/family tests and `python3 scripts/check-legacy-flash-drain.py`; expect seven families. Search obsolete class/path references with `rg -n 'FlashEcuSubaruHitachiSH72543rCan|flash_ecu_subaru_hitachi_sh72543r_can' src`; expect no live references. Legacy citations in new backend comments are allowed.
@@ -274,8 +276,7 @@ RouteMatch::Exact entries plus the corresponding internal route-kind dispatch.
 
 ```sh
 bazel build -k --config=release //:fastecu //tests/...
-bazel test -k --config=release //tests/... //:bazel_openssl_wiring \
-  //:serial_compat_allowlist //:portable_closure //:legacy_flash_drain
+bazel test -k --config=release //...
 bazel test --config=release \
   //src/backend/flash/ecu:subaru_hitachi_sh72543r_can_plan_test \
   //src/backend/flash/ecu:subaru_hitachi_sh72543r_can_executor_test \

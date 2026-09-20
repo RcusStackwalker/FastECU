@@ -23,6 +23,7 @@ TEST(FlashPrinters, PrintsAMemoryRegionAsAHexStartAndLength)
 
 TEST(FlashPrinters, PrintsAFamilyByName)
 {
+    EXPECT_EQ(::testing::PrintToString(FlashFamily::SubaruHitachiSh72543rCan), "SubaruHitachiSh72543rCan");
     EXPECT_EQ(::testing::PrintToString(FlashFamily::SubaruDensoSh72531Can), "SubaruDensoSh72531Can");
     EXPECT_EQ(::testing::PrintToString(FlashFamily::SubaruDensoSh705xDensoCan), "SubaruDensoSh705xDensoCan");
     EXPECT_EQ(::testing::PrintToString(FlashFamily::SubaruTcuDensoSh705xCan), "SubaruTcuDensoSh705xCan");

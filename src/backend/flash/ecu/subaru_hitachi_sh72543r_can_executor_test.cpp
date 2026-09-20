@@ -9,7 +9,7 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include <gtest/gtest.h>
 #include <functional>
-#include <limits>
+#include <array>
 
 namespace
 {
