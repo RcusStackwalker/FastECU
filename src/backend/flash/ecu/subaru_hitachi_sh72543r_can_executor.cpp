@@ -248,6 +248,121 @@ class Session
         return image;
     }
 
+    Status erase()
+    {
+        // Legacy erase_mem:889-997: tolerated programming session, required access.
+        if (auto s = tolerant_session(0x43); !s)
+            return s;
+        if (auto s = access(); !s)
+            return s;
+        // Legacy erase_mem:999-1027.
+        events_.log(LogLevel::Info, "Jumping to onboad kernel...");
+        auto jump = required(Bytes{0x10, 0x42}, 200ms, {0x50, 0x42});
+        if (!jump)
+            return std::unexpected(jump.error());
+        // Legacy erase_mem:1030-1066, exactly the programming window in the flash table.
+        events_.log(LogLevel::Info, "Settting flash start & length...");
+        auto window = required(Bytes{0x34, 4, 0x33, 0, 0x60, 0, 0x1f, 0xa0, 0}, 200ms, {0x74, 0x20});
+        if (!window)
+            return std::unexpected(window.error());
+        // Legacy erase_mem:1069-1123. Correction: inspect the first read too.
+        // Send erase once; never retransmit it while polling for completion.
+        events_.log(LogLevel::Info, "Erasing ECU ROM...");
+        if (auto s = sleep(100ms); !s)
+            return s;
+        if (auto s = send(Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}); !s)
+            return s;
+        bool saw_response = false;
+        for (int read = 0; read < 21; ++read)
+        {
+            auto r = receive(2000ms);
+            if (!r)
+                return std::unexpected(r.error());
+            if (*r)
+            {
+                saw_response = true;
+                if (has_prefix(**r, {0x71, 1, 2}))
+                {
+                    events_.log(LogLevel::Info, "Flash erased! Starting flash write, do not power off!");
+                    return checkpoint();
+                }
+            }
+            if (read > 0)
+            {
+                events_.log(LogLevel::Info, ".");
+                if (auto s = sleep(500ms); !s)
+                    return s;
+            }
+        }
+        return fail(saw_response ? ErrorKind::BadResponse : ErrorKind::Timeout, "Flash area erase failed");
+    }
+    Status program(bytes::ByteView encrypted, PhaseReporter& progress)
+    {
+        events_.log(LogLevel::Info, "--- Start writing ROM file to ECU flash memory ---");
+        auto last = clock_.now();
+        // Legacy write_mem:599-667 selects only block 1 (0x6000..0x200000).
+        // Legacy reflash_block:720-784 constructs B6 with an absolute image offset.
+        // Correction: append data instead of indexing beyond QByteArray's size.
+        for (std::uint32_t address = 0x6000; address < 0x200000; address += 0x100)
+        {
+            Bytes request{0xb6, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
+                          static_cast<bytes::Byte>(address)};
+            request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x100);
+            auto r = optional(request, 10ms);
+            if (!r)
+                return std::unexpected(r.error());
+            // Legacy never interprets a data reply. Silence remains nonfatal;
+            // write errors/disconnect/cancellation must still stop the attempt.
+            const auto now = clock_.now();
+            const auto elapsed =
+                std::max<std::int64_t>(1, std::chrono::duration_cast<std::chrono::milliseconds>(now - last).count());
+            const auto speed = std::max<std::int64_t>(1, 0x100 * 1000 / elapsed);
+            events_.log(LogLevel::Info,
+                        std::format("Kernel write addr: 0x{:08x} length: 0x00000100, {:6} B/s {:6} s remain", address,
+                                    speed, std::min<std::int64_t>(9999, (0x200000 - address - 0x100) / speed) + 1));
+            last = now;
+            progress.update(static_cast<int>(address + 0x100 - 0x6000));
+        }
+        return checkpoint();
+    }
+    Status retry(bytes::ByteView request, std::initializer_list<bytes::Byte> prefix, std::chrono::milliseconds timeout,
+                 std::string_view failure)
+    {
+        bool saw_response = false;
+        for (int attempt = 0; attempt < 20; ++attempt)
+        {
+            auto r = optional(request, 0ms, timeout);
+            if (!r)
+                return std::unexpected(r.error());
+            if (*r)
+            {
+                saw_response = true;
+                if (has_prefix(**r, prefix))
+                    return checkpoint();
+                events_.log(LogLevel::Error, "Wrong response from ECU");
+            }
+            else
+                events_.log(LogLevel::Error, "No valid response from ECU");
+        }
+        return fail(saw_response ? ErrorKind::BadResponse : ErrorKind::Timeout, std::string(failure));
+    }
+    Status finish()
+    {
+        // Legacy reflash_block:787-829: close may be sent up to 20 times.
+        events_.log(LogLevel::Info, "Closing out Flashing of this block...");
+        if (auto s = retry(Bytes{0x37}, {0x77}, 800ms, "Flashing block close failed"); !s)
+            return s;
+        events_.log(LogLevel::Info, "Flashing of block closed");
+        if (auto s = sleep(100ms); !s)
+            return s;
+        // Legacy reflash_block:831-869: checksum is a second independent retry sequence.
+        events_.log(LogLevel::Info, "Verifying checksum...");
+        if (auto s = retry(Bytes{0x31, 1, 2, 2, 1}, {0x71, 1, 2}, 2000ms, "Checksum verification failed"); !s)
+            return s;
+        events_.log(LogLevel::Info, "Checksum verified...");
+        return checkpoint();
+    }
+
   private:
     ICanFlashTransport& transport_;
     IClock& clock_;
@@ -268,15 +383,35 @@ Result<FlashExecutionResult> SubaruHitachiSh72543rCanExecutor::execute(const Fla
 {
     if (auto valid = validate_subaru_hitachi_sh72543r_can_plan(plan); !valid)
         return std::unexpected(valid.error());
-    if (plan.operation() != FlashOperation::Read)
-        return fail(ErrorKind::Unsupported, "Write execution not yet available");
     Session session(transport, clock, cancellation, events);
-    PhaseSequence phases(events, 2);
+    PhaseSequence phases(events, plan.operation() == FlashOperation::Read ? 2 : 4);
     auto connecting = phases.start("Connecting", 1);
     auto identity = session.connect();
     if (!identity)
         return std::unexpected(identity.error());
     connecting.complete();
+    if (plan.operation() == FlashOperation::Write)
+    {
+        // Legacy encrypt_payload:1165-1179. Keep the family's own schedule.
+        constexpr std::array<std::uint16_t, 4> keys{0xb740, 0x42da, 0xa7ca, 0x5fb1};
+        if (auto status = session.checkpoint(); !status)
+            return std::unexpected(status.error());
+        const auto encrypted = SsmProtocol::calculatePayload(*plan.image(), 0x200000, keys, kTransform);
+        auto erasing = phases.start("Erasing", 1);
+        if (auto status = session.erase(); !status)
+            return std::unexpected(status.error());
+        erasing.complete();
+        auto programming = phases.start("Programming", 0x1fa000);
+        if (auto status = session.program(encrypted, programming); !status)
+            return std::unexpected(status.error());
+        programming.complete();
+        auto verifying = phases.start("Verifying", 1);
+        if (auto status = session.finish(); !status)
+            return std::unexpected(status.error());
+        verifying.complete();
+        return FlashExecutionResult{
+            .operation = FlashOperation::Write, .read_bytes = std::nullopt, .rom_id = std::nullopt};
+    }
     auto reading = phases.start("Reading", 0x200000);
     auto image = session.read(reading);
     if (!image)
