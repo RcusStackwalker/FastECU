@@ -29,7 +29,7 @@ TEST(TestCodec, verify_accepts_built_frame)
 {
     MutDmaFrame f = buildCommandFrame(0xA0, bytes::Bytes{0x04}, TRAILER_FREEFORM);
     ASSERT_TRUE(verifyFrame(f));
-    f[49] = static_cast<bytes::Byte>(f[49] ^ 0xFF); // corrupt checksum
+    f[49] = static_cast<bytes::Byte>(f[49] ^ 0xFFU); // corrupt checksum
     ASSERT_FALSE(verifyFrame(f));
 }
 
@@ -45,7 +45,7 @@ TEST(TestCodec, stream_frame_parse)
     ASSERT_TRUE(s.ok);
     ASSERT_EQ(s.logId, bytes::Byte(0x51));
     ASSERT_TRUE(s.data == data);
-    f[f.size() - 2] = static_cast<bytes::Byte>(f[f.size() - 2] ^ 0xFF); // corrupt checksum
+    f[f.size() - 2] = static_cast<bytes::Byte>(f[f.size() - 2] ^ 0xFFU); // corrupt checksum
     ASSERT_FALSE(parseStreamFrame(f).ok);
 }
 
