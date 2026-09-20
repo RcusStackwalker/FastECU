@@ -395,12 +395,15 @@ void FlashWorkflowTest::routesTcuHitachiM32rCanReadAndWriteRejectsTestWrite()
     QCOMPARE(std::get<FlashCompletedStep>(read_done).outcome, FlashWorkflowOutcome::Succeeded);
     QCOMPARE(std::get<FlashCompletedStep>(read_done).accepted_read_bytes, bytes::Bytes({0x5a}));
 
-    // TestWrite is rejected at this, the outermost of the family's four
-    // TestWrite rejections (deliberate divergence 1: legacy reflash_block
-    // ignored its test_write_arg and performed a real erase and flash write,
-    // so there is no dry run to route to). The workflow's very first step
-    // must be a failure, not a prompt -- the legacy path silently
-    // "succeeded" while performing a real write.
+    // TestWrite is rejected here via the plan-builder check (deliberate
+    // divergence 1: legacy reflash_block ignored its test_write_arg and
+    // performed a real erase and flash write, so there is no dry run to
+    // route to). This family has exactly two independent TestWrite checks --
+    // this plan-builder one, and the plan-validator one the executor calls
+    // on every plan -- not four; this workflow and the executor's entry
+    // points are consumers of those two, not additional checks of their own.
+    // The workflow's very first step must be a failure, not a prompt -- the
+    // legacy path silently "succeeded" while performing a real write.
     auto test_write_input = request(kProtocol, FlashOperation::TestWrite);
     test_write_input.mcu = kMcu;
     test_write_input.image = bytes::Bytes(0x80000, 0xa5);

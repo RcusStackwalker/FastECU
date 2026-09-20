@@ -366,9 +366,12 @@ class SubaruTcuHitachiM32rKlineWorkflow final : public FlashWorkflow
 // legacy reflash_block ignored its test_write_arg and performed a real erase
 // and flash write, so there is no dry run to route to), and that rejection
 // surfaces here through the same `if (!plan_)` check every workflow in this
-// file uses -- this class is the outermost of the family's four TestWrite
-// rejections (plan builder, standalone validator, executor boundary, and
-// this desktop routing layer).
+// file uses. This family has exactly two independent TestWrite checks, not
+// four: the plan-builder check just named, and the plan-validator check in
+// the same file (subaru_tcu_hitachi_m32r_can_plan.cpp) that
+// SubaruTcuHitachiM32rCanExecutor::transport_setup()/execute() call on every
+// plan they are handed. This workflow and the executor are consumers of
+// those two checks, not additional checks of their own.
 class SubaruTcuHitachiM32rCanWorkflow final : public FlashWorkflow
 {
   public:
