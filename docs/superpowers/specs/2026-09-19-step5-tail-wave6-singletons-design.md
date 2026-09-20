@@ -1,7 +1,7 @@
 <!-- docs/superpowers/specs/2026-09-19-step5-tail-wave6-singletons-design.md -->
 # Step 5 Tail Wave 6 — Nine Singletons — Design
 
-**Status:** approved, not started
+**Status:** in progress — 6a-1 merged (#347), 6a-2 merged (#348); 6a-3 implemented on the current branch (not yet merged). Seven legacy families remain on this branch.
 **Predecessor:** [wave 5, Denso SH705x CAN](2026-09-02-step5-tail-wave5-denso-sh705x-can-design.md), merged as PR #341
 **Umbrella:** [step 5 tail flash drain](2026-08-08-step5-tail-flash-drain-design.md)
 
@@ -327,3 +327,11 @@ general rule about adapter-path-dependent behavior, that earns an ADR then.
 ## Appendix: Preserved Legacy Defects
 
 Populated per PR under the behavior-correction rule. Empty at spec time.
+
+## Wave 6a-3 implementation note
+
+The [SH72543R family spec](2026-09-20-step5-tail-wave6a3-hitachi-sh72543r-can-design.md)
+records the approved exception to blanket behavior preservation: reject unsafe
+TestWrite, correct bounds/read-integrity/cancellation/erase-response defects,
+and keep other wire behavior. This family uses the current shared FlashWorkflow
+and removes its old dialog rather than rewriting it.
