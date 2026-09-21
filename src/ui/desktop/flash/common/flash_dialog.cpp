@@ -182,6 +182,15 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
                    ? FlashPromptResponse::Save
                    : FlashPromptResponse::Discard;
     }
+    if (prompt.kind == FlashPromptKind::ConfirmSh7058Read)
+    {
+        return QMessageBox::information(this, tr("Read Hitachi SH7058 ROM"),
+                                        tr("The ECU connection has not yet been initialized. Press OK to start the "
+                                           "K-Line ROM read, or Cancel to stop before opening the adapter."),
+                                        QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Ok
+                   ? FlashPromptResponse::Accept
+                   : FlashPromptResponse::Decline;
+    }
     const bool cycle = prompt.kind == FlashPromptKind::CycleIgnition;
     const QString text = cycle ? tr("Turn ignition OFF and back ON, then press OK to continue.")
                                : tr("Turn ignition ON and press OK to start initializing the ECU connection.");

@@ -1,7 +1,7 @@
 <!-- docs/superpowers/specs/2026-09-19-step5-tail-wave6-singletons-design.md -->
 # Step 5 Tail Wave 6 — Nine Singletons — Design
 
-**Status:** in progress — 6a-1 merged (#347), 6a-2 merged (#348); 6a-3 implemented on the current branch (not yet merged). Seven legacy families remain on this branch.
+**Status:** in progress — waves 6a-1 through 6a-3 are in the base; 6a-4 is implemented on this branch. Six legacy families remain.
 **Predecessor:** [wave 5, Denso SH705x CAN](2026-09-02-step5-tail-wave5-denso-sh705x-can-design.md), merged as PR #341
 **Umbrella:** [step 5 tail flash drain](2026-08-08-step5-tail-flash-drain-design.md)
 
@@ -134,7 +134,7 @@ Ten PRs. Family is the PR unit; each sub-wave gets its own implementation plan.
 | 6a-1 | `FlashTcuSubaruHitachiM32rKline` | 733 | K-Line |
 | 6a-2 | `FlashTcuSubaruHitachiM32rCan` | 1,036 | ISO-15765 |
 | 6a-3 | `FlashEcuSubaruHitachiSH72543rCan` | 1,201 | ISO-15765 |
-| 6a-4 | `FlashEcuSubaruHitachiSH7058Can` | 1,496 | ISO-15765 |
+| 6a-4 | `FlashEcuSubaruHitachiSH7058Can` | 1,496 | K-Line read; ISO-15765 write |
 
 Smallest first, so the two TCU families establish the ECU-to-TCU structural
 template before the two larger Hitachi CAN families. No port additions, no ADR.
@@ -335,3 +335,15 @@ records the approved exception to blanket behavior preservation: reject unsafe
 TestWrite, correct bounds/read-integrity/cancellation/erase-response defects,
 and keep other wire behavior. This family uses the current shared FlashWorkflow
 and removes its old dialog rather than rewriting it.
+
+## Wave 6a-4 implementation note
+
+The SH7058 migration preserves the physical K-Line read range `0x100000–0x1fffff`,
+the 128-byte pages, and the CAN write's 1 MiB window. It rejects TestWrite
+before I/O because the legacy operation erased and wrote live. Read pages now
+require complete, checksummed positive responses before a ROM is returned.
+CAN startup, security, erase, transfer, close, and checksum replies are gated;
+transport failures and cancellation stop later commands. Request frames are
+built within their bounds. The two read prompts both occur before the adapter
+opens, with wording that makes the connection's state explicit. Hardware status
+remains experimental pending bench evidence.

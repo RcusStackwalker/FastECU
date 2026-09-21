@@ -39,6 +39,7 @@ enum class FlashPromptKind
     ColtTopRegionBootstrap,
     InspectRead,
     CycleIgnition,
+    ConfirmSh7058Read,
 };
 
 enum class FlashPromptResponse

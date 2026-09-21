@@ -198,6 +198,7 @@ class FlashWorkflowTest : public QObject
     void routesTcuHitachiM32rKlineReadOnly();
     void routesTcuHitachiM32rCanReadAndWriteRejectsTestWrite();
     void routesSh72543rAliasesAndPreservesImageAndIdentity();
+    void routesSh7058ReadAndWriteWithPreTransportPrompts();
     void sh72543rRejectsPreflightAndDeclinedBegin();
     void sh72543rPropagatesFailureAndAbsentIdentity();
     void coltWriteUsesColtSpecificSafetyPrompts();
@@ -481,6 +482,38 @@ void FlashWorkflowTest::routesSh72543rAliasesAndPreservesImageAndIdentity()
     }
     QVERIFY(!FlashWorkflowFactory::tryCreate(request("sub_ecu_hitachi_sh72543r_can_recovery_typo")));
     QVERIFY(!FlashWorkflowFactory::tryCreate(request("sub_ecu_hitachi_sh72543r_can_typo")));
+}
+void FlashWorkflowTest::routesSh7058ReadAndWriteWithPreTransportPrompts()
+{
+    QVERIFY(!FlashWorkflowFactory::tryCreate(request("sub_ecu_hitachi_sh7058_can_extra")));
+    for (const auto operation : {FlashOperation::Read, FlashOperation::Write})
+    {
+        auto input = request("sub_ecu_hitachi_sh7058_can", operation);
+        input.mcu = "SH7058_1block";
+        if (operation == FlashOperation::Write)
+            input.image = bytes::Bytes(0x100000, 0x5a);
+        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        QVERIFY(workflow);
+        QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+        workflow->submit(FlashPromptResponse::Accept);
+        if (operation == FlashOperation::Read)
+        {
+            QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::ConfirmSh7058Read);
+            workflow->submit(FlashPromptResponse::Accept);
+        }
+        auto step = workflow->next();
+        QVERIFY(std::holds_alternative<FlashAttempt>(step));
+        const auto& plan = std::get<FlashAttempt>(step).attempt->plan();
+        QCOMPARE(plan.family(), FlashFamily::SubaruHitachiSh7058);
+        QCOMPARE(plan.transport(),
+                 operation == FlashOperation::Read ? TransportKind::Kline : TransportKind::CanIso15765);
+    }
+    auto input = request("sub_ecu_hitachi_sh7058_can");
+    input.mcu = "SH7058_1block";
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    workflow->submit(FlashPromptResponse::Accept);
+    workflow->submit(FlashPromptResponse::Decline);
+    QCOMPARE(std::get<FlashCompletedStep>(workflow->next()).outcome, FlashWorkflowOutcome::Cancelled);
 }
 void FlashWorkflowTest::sh72543rRejectsPreflightAndDeclinedBegin()
 {
