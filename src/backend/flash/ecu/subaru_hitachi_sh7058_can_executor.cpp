@@ -7,6 +7,7 @@
 #include <chrono>
 #include <utility>
 
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 
 namespace fastecu::flash
@@ -37,9 +38,7 @@ class Session
         {
             return std::unexpected(status.error());
         }
-        Bytes frame{static_cast<bytes::Byte>(id >> 24), static_cast<bytes::Byte>(id >> 16),
-                    static_cast<bytes::Byte>(id >> 8), static_cast<bytes::Byte>(id)};
-        frame.insert(frame.end(), payload.begin(), payload.end());
+        Bytes frame = bytes::composeBe(id, payload);
         if (auto sent = transport_.write(frame, cancel_); !sent.has_value())
         {
             return std::unexpected(sent.error());
@@ -275,9 +274,8 @@ class Session
         }
         for (std::uint32_t address = 0; address < 0x100000; address += 0x100)
         {
-            Bytes request{0xb6, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
-                          static_cast<bytes::Byte>(address)};
-            request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x100);
+            const Bytes request =
+                bytes::composeBe(bytes::Byte{0xb6}, bytes::u24(address), encrypted.subspan(address, 0x100));
             auto reply = exchange(request, 0ms, 5000ms);
             if (!reply.has_value())
             {

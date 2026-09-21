@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_plan.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
@@ -56,12 +57,8 @@ TEST(SubaruHitachiSh7058KlineExecutor, ReadsEveryPhysicalPageBeforeReturningRom)
         for (std::uint32_t offset = 0; offset < 0x100000; offset += 0x80)
         {
             const std::uint32_t address = 0x100000 + offset;
-            bytes::Bytes request{0xa0,
-                                 0,
-                                 static_cast<bytes::Byte>(address >> 16),
-                                 static_cast<bytes::Byte>(address >> 8),
-                                 static_cast<bytes::Byte>(address),
-                                 0x7f};
+            const bytes::Bytes request =
+                bytes::composeBe(bytes::Byte{0xa0}, bytes::Byte{0}, bytes::u24(address), bytes::Byte{0x7f});
             bytes::Bytes response(129, static_cast<bytes::Byte>(offset / 0x80));
             response[0] = 0xe0;
             transport.exchange(frame(request, false), frame(response, true));
@@ -97,7 +94,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsShortWrongServiceAndBadChecksumPag
         auto response = SsmProtocol::addHeader(payload, 0x10, 0xf0);
         if (fault == 2)
         {
-            response.back() ^= 1;
+            response.back() ^= 0x01U;
         }
         transport.exchange(SsmProtocol::addHeader(bytes::Bytes{0xa0, 0, 0x10, 0, 0, 0x7f}, 0xf0, 0x10), response);
         SubaruHitachiSh7058KlineExecutor executor;
