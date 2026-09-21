@@ -491,7 +491,9 @@ void FlashWorkflowTest::routesSh7058ReadAndWriteWithPreTransportPrompts()
         auto input = request("sub_ecu_hitachi_sh7058_can", operation);
         input.mcu = "SH7058_1block";
         if (operation == FlashOperation::Write)
+        {
             input.image = bytes::Bytes(0x100000, 0x5a);
+        }
         auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
         QVERIFY(workflow);
         QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);

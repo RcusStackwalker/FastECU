@@ -57,7 +57,9 @@ void script_inactive_connect(ScriptedCanFlashTransport& transport, bool bench)
             {0x7df, {0x28, 0x03, 0x01}},
         }};
         for (const auto& step : steps)
+        {
             transport.exchange(request(step.payload, step.id), response(bytes::Bytes{0x50}));
+        }
     }
     transport.exchange(request(bytes::Bytes{0x27, 0x01}), response(bytes::Bytes{0x67, 0x01, 0x11, 0x22, 0x33, 0x44}));
     // Independent seed vector from the legacy SH7058 table: 11 22 33 44 -> 61 FB 90 90.
@@ -71,7 +73,9 @@ void script_inactive_connect(ScriptedCanFlashTransport& transport, bool bench)
         for (const bytes::Bytes& payload :
              {bytes::Bytes{0xa8, 0, 0, 0, 0xd5}, bytes::Bytes{0xa8, 0, 0, 1, 0x3b}, bytes::Bytes{0xa8, 0, 0, 0, 0x1c},
               bytes::Bytes{0xa8, 0, 0, 0, 0x0e, 0, 0, 0x0f}})
+        {
             transport.exchange(request(payload), response(bytes::Bytes{0x50}));
+        }
         transport.exchange(request(bytes::Bytes{0x10, 0x02}), response(bytes::Bytes{0x50, 0x02}));
     }
     transport.exchange(request(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}),
@@ -190,8 +194,10 @@ TEST(SubaruHitachiSh7058CanExecutor, RetriesTransferSetupSixTimesThenStopsBefore
     transport.exchange(request(bytes::Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}),
                        response(bytes::Bytes{0x71, 1, 2}));
     for (int attempt = 0; attempt < 6; ++attempt)
+    {
         transport.exchange(request(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}),
                            response(bytes::Bytes{0x7f, 0x34, 0x13}));
+    }
     SubaruHitachiSh7058CanExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancel;

@@ -75,7 +75,9 @@ TEST(SubaruHitachiSh7058KlineExecutor, ReadsEveryPhysicalPageBeforeReturningRom)
         ASSERT_TRUE(result->read_bytes.has_value());
         EXPECT_EQ(result->read_bytes->size(), 0x100000U);
         if (!already_active)
+        {
             EXPECT_EQ(result->rom_id, std::optional<std::string>("0001020304_"));
+        }
         EXPECT_TRUE(transport.scriptConsumed());
     }
 }
@@ -94,7 +96,9 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsShortWrongServiceAndBadChecksumPag
         payload[0] = fault == 1 ? 0xe1 : 0xe0;
         auto response = SsmProtocol::addHeader(payload, 0x10, 0xf0);
         if (fault == 2)
+        {
             response.back() ^= 1;
+        }
         transport.exchange(SsmProtocol::addHeader(bytes::Bytes{0xa0, 0, 0x10, 0, 0, 0x7f}, 0xf0, 0x10), response);
         SubaruHitachiSh7058KlineExecutor executor;
         FakeClock clock;
@@ -117,7 +121,9 @@ TEST(SubaruHitachiSh7058KlineExecutor, CancellationAndBaudFailureStopBeforeAnyRe
     {
         ScriptedKlineFlashTransport transport;
         if (!cancel_first)
+        {
             transport.set_baud_result_ = fail(ErrorKind::Disconnected, "baud failed");
+        }
         FakeClock clock;
         FakeCancellationToken cancel(cancel_first);
         RecordingEventSink events;

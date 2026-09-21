@@ -506,15 +506,25 @@ class SubaruHitachiSh7058Workflow final : public FlashWorkflow
     FlashWorkflowStep next() override
     {
         if (!plan_)
+        {
             return FlashFailureStep{plan_.error()};
+        }
         if (outcome_.hasFailure())
+        {
             return outcome_.takeFailure();
+        }
         if (outcome_.terminal())
+        {
             return outcome_.completedStep();
+        }
         if (!begun_)
+        {
             return FlashPromptStep{FlashPromptKind::Begin, {}};
+        }
         if (plan_->operation() == FlashOperation::Read && !read_confirmed_)
+        {
             return FlashPromptStep{FlashPromptKind::ConfirmSh7058Read, {}};
+        }
         if (!attempted_)
         {
             attempted_ = true;
@@ -542,9 +552,13 @@ class SubaruHitachiSh7058Workflow final : public FlashWorkflow
             return;
         }
         if (!begun_)
+        {
             begun_ = true;
+        }
         else
+        {
             read_confirmed_ = true;
+        }
     }
     void submit(FlashAttemptResult result) override
     {

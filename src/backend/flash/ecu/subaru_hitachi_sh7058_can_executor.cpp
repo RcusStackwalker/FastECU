@@ -34,28 +34,40 @@ class Session
                                           std::chrono::milliseconds timeout = 200ms, std::uint32_t id = 0x7e0)
     {
         if (auto status = checkpoint(); !status.has_value())
+        {
             return std::unexpected(status.error());
+        }
         Bytes frame{static_cast<bytes::Byte>(id >> 24), static_cast<bytes::Byte>(id >> 16),
                     static_cast<bytes::Byte>(id >> 8), static_cast<bytes::Byte>(id)};
         frame.insert(frame.end(), payload.begin(), payload.end());
         if (auto sent = transport_.write(frame, cancel_); !sent.has_value())
+        {
             return std::unexpected(sent.error());
+        }
         if (delay > 0ms)
         {
             if (auto slept = clock_.sleep(delay, cancel_); !slept.has_value())
+            {
                 return std::unexpected(slept.error());
+            }
         }
         if (auto status = checkpoint(); !status.has_value())
+        {
             return std::unexpected(status.error());
+        }
         auto reply = transport_.read(timeout, cancel_);
         if (!reply.has_value())
         {
             if (reply.error().kind == ErrorKind::Timeout)
+            {
                 return std::optional<Bytes>{};
+            }
             return std::unexpected(reply.error());
         }
         if (auto status = checkpoint(); !status.has_value())
+        {
             return std::unexpected(status.error());
+        }
         return std::move(*reply);
     }
     static bool prefix(const std::optional<Bytes>& reply, std::initializer_list<bytes::Byte> expected)
@@ -69,14 +81,18 @@ class Session
     {
         auto reply = exchange(payload, delay, 200ms, id);
         if (!reply.has_value())
+        {
             return std::unexpected(reply.error());
+        }
         return prefix(*reply, expected) ? Status{} : fail(ErrorKind::BadResponse, "unexpected SH7058 CAN reply");
     }
     Status present(bytes::ByteView payload, std::uint32_t id = 0x7e0)
     {
         auto reply = exchange(payload, 0ms, 200ms, id);
         if (!reply.has_value())
+        {
             return std::unexpected(reply.error());
+        }
         return reply->has_value() && (*reply)->size() > 4 && (**reply)[4] != 0x7f
                    ? Status{}
                    : fail(ErrorKind::BadResponse, "missing SH7058 CAN reply");
@@ -85,9 +101,13 @@ class Session
     {
         auto seed = exchange(Bytes{0x27, 0x01}, 200ms);
         if (!seed.has_value())
+        {
             return std::unexpected(seed.error());
+        }
         if (!prefix(*seed, {0x67, 0x01}) || (*seed)->size() < 10)
+        {
             return fail(ErrorKind::BadResponse, "invalid SH7058 seed");
+        }
         Bytes key = SsmProtocol::calculateSeedKey(bytes::ByteView{**seed}.subspan(6, 4), kSeedTable,
                                                   SsmProtocol::kIndexTransformationStock);
         Bytes request{0x27, 0x02};
@@ -98,36 +118,64 @@ class Session
     {
         auto active = exchange(Bytes{0xb7}, 50ms);
         if (!active.has_value())
+        {
             return std::unexpected(active.error());
+        }
         if (!active->has_value())
+        {
             return fail(ErrorKind::Timeout, "SH7058 kernel probe timed out");
+        }
         if (prefix(*active, {0x7f, 0xb7, 0x13}))
+        {
             return {};
+        }
         if ((*active)->size() < 5)
+        {
             return fail(ErrorKind::BadResponse, "invalid SH7058 kernel probe");
+        }
         if (auto status = require(Bytes{0xaa}, {0xea}, 50ms); !status.has_value())
+        {
             return status;
+        }
         if (auto status = require(Bytes{0x09, 0x02}, {0x49, 0x02}, 50ms); !status.has_value())
+        {
             return status;
+        }
         if (auto status = require(Bytes{0x09, 0x04}, {0x49, 0x04}, 50ms); !status.has_value())
+        {
             return status;
+        }
         if (auto status = require(Bytes{0x09, 0x06}, {0x49, 0x06}, 50ms); !status.has_value())
+        {
             return status;
+        }
         auto mode = exchange(Bytes{0xa8, 0, 0, 0, 0xd7});
         if (!mode.has_value())
+        {
             return std::unexpected(mode.error());
+        }
         if (!mode->has_value() || (*mode)->size() < 6)
+        {
             return fail(ErrorKind::BadResponse, "SH7058 programming mode absent");
+        }
         if (auto slept = clock_.sleep(777ms, cancel_); !slept.has_value())
+        {
             return slept;
+        }
         if ((**mode)[5] == 0xa0 || (**mode)[5] == 0x20)
         {
             if (auto status = require(Bytes{0x10, 0x43}, {0x50, 0x43}); !status.has_value())
+            {
                 return status;
+            }
             if (auto status = security(); !status.has_value())
+            {
                 return status;
+            }
             if (auto status = require(Bytes{0x10, 0x42}, {0x50, 0x42}); !status.has_value())
+            {
                 return status;
+            }
         }
         else
         {
@@ -150,18 +198,26 @@ class Session
             for (const auto& step : access)
             {
                 if (auto status = present(step.request, step.id); !status.has_value())
+                {
                     return status;
+                }
             }
             if (auto status = security(); !status.has_value())
+            {
                 return status;
+            }
             for (const Bytes& request : {Bytes{0xa8, 0, 0, 0, 0xd5}, Bytes{0xa8, 0, 0, 1, 0x3b},
                                          Bytes{0xa8, 0, 0, 0, 0x1c}, Bytes{0xa8, 0, 0, 0, 0x0e, 0, 0, 0x0f}})
             {
                 if (auto status = present(request); !status.has_value())
+                {
                     return status;
+                }
             }
             if (auto status = require(Bytes{0x10, 0x02}, {0x50, 0x02}); !status.has_value())
+            {
                 return status;
+            }
         }
         return require(Bytes{0x34, 0x04, 0x33, 0, 0, 0, 0x10, 0, 0}, {0x74, 0x20, 0x01, 0x04});
     }
@@ -169,18 +225,28 @@ class Session
     {
         auto reply = exchange(Bytes{0x31, 0x01, 0x02, 0x01, 0x0f, 0xff, 0xff, 0xff});
         if (!reply.has_value())
+        {
             return std::unexpected(reply.error());
+        }
         if (prefix(*reply, {0x71, 0x01, 0x02}))
+        {
             return {};
+        }
         for (int count = 0; count < 20; ++count)
         {
             if (auto status = checkpoint(); !status.has_value())
+            {
                 return status;
+            }
             reply = transport_.read(800ms, cancel_);
             if (!reply.has_value())
+            {
                 return std::unexpected(reply.error());
+            }
             if (prefix(*reply, {0x71, 0x01, 0x02}))
+            {
                 return {};
+            }
         }
         return fail(ErrorKind::BadResponse, "SH7058 erase was not acknowledged");
     }
@@ -190,9 +256,13 @@ class Session
         {
             auto reply = exchange(request, 0ms, 800ms);
             if (!reply.has_value())
+            {
                 return std::unexpected(reply.error());
+            }
             if (prefix(*reply, expected))
+            {
                 return {};
+            }
         }
         return fail(ErrorKind::BadResponse, "SH7058 retry limit exceeded");
     }
@@ -200,7 +270,9 @@ class Session
     {
         const Bytes window{0x34, 0x04, 0x33, 0, 0, 0, 0x10, 0, 0};
         if (auto status = retry(window, {0x74}, 6); !status.has_value())
+        {
             return status;
+        }
         for (std::uint32_t address = 0; address < 0x100000; address += 0x100)
         {
             Bytes request{0xb6, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
@@ -208,15 +280,23 @@ class Session
             request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x100);
             auto reply = exchange(request, 0ms, 5000ms);
             if (!reply.has_value())
+            {
                 return std::unexpected(reply.error());
+            }
             if (!prefix(*reply, {0xf6}))
+            {
                 return fail(ErrorKind::BadResponse, "SH7058 write frame rejected");
+            }
             events_.progress(static_cast<int>(address + 0x100), 0x100000);
         }
         if (auto status = retry(Bytes{0x37}, {0x77}, 20); !status.has_value())
+        {
             return status;
+        }
         if (auto slept = clock_.sleep(100ms, cancel_); !slept.has_value())
+        {
             return slept;
+        }
         return retry(Bytes{0x31, 0x01, 0x02, 0x02, 0x01}, {0x71, 0x01, 0x02}, 20);
     }
 
@@ -234,7 +314,9 @@ Result<Iso15765Config> SubaruHitachiSh7058CanExecutor::transport_setup(const Fla
         return std::unexpected(valid.error());
     }
     if (plan.operation() != FlashOperation::Write)
+    {
         return fail(ErrorKind::Unsupported, "SH7058 CAN supports write only");
+    }
     return iso15765_config_from(std::get<SubaruHitachiSh7058CanPlan>(plan.family_plan()));
 }
 
@@ -249,13 +331,19 @@ Result<FlashExecutionResult> SubaruHitachiSh7058CanExecutor::execute(const Flash
     }
     Session session(transport, clock, cancel, events);
     if (auto status = session.connect(); !status.has_value())
+    {
         return std::unexpected(status.error());
+    }
     const Bytes encrypted =
         SsmProtocol::calculatePayload(*plan.image(), 0x100000, kPayloadTable, SsmProtocol::kIndexTransformationStock);
     if (auto status = session.erase(); !status.has_value())
+    {
         return std::unexpected(status.error());
+    }
     if (auto status = session.program(encrypted); !status.has_value())
+    {
         return std::unexpected(status.error());
+    }
     return FlashExecutionResult{FlashOperation::Write, std::nullopt, std::nullopt};
 }
 } // namespace fastecu::flash
