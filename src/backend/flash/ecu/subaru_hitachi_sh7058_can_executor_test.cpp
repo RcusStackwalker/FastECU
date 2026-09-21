@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_plan.h"
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -15,9 +16,7 @@ namespace
 {
 bytes::Bytes request(bytes::ByteView payload, std::uint32_t id = 0x7e0)
 {
-    bytes::Bytes frame{0, 0, static_cast<bytes::Byte>(id >> 8), static_cast<bytes::Byte>(id)};
-    frame.insert(frame.end(), payload.begin(), payload.end());
-    return frame;
+    return bytes::composeBe(id, payload);
 }
 bytes::Bytes response(bytes::ByteView payload)
 {
@@ -122,9 +121,8 @@ TEST(SubaruHitachiSh7058CanExecutor, ActiveKernelWritesAll4096Frames)
     transport.exchange(frame(bytes::Bytes{0x34, 4, 0x33, 0, 0, 0, 0x10, 0, 0}), bytes::Bytes{0, 0, 7, 0xe8, 0x74});
     for (std::uint32_t address = 0; address < 0x100000; address += 0x100)
     {
-        bytes::Bytes request{0xb6, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
-                             static_cast<bytes::Byte>(address)};
-        request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x100);
+        bytes::Bytes request = bytes::composeBe(bytes::Byte{0xb6}, bytes::u24(address),
+                                                bytes::ByteView(encrypted).subspan(address, 0x100));
         transport.exchange(frame(request), bytes::Bytes{0, 0, 7, 0xe8, 0xf6});
     }
     transport.exchange(frame(bytes::Bytes{0x37}), bytes::Bytes{0, 0, 7, 0xe8, 0x77});
