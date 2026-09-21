@@ -3,6 +3,7 @@
 #include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/backend/ports/duration_cast.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include <QSerialPort>
 
 namespace fastecu::flash
 {
@@ -53,6 +54,13 @@ Status DesktopKlineFlashTransport::configure(const KlineConfig& config)
         if (!serial_->set_serial_port_baudrate(QString::number(config.baud)))
         {
             return fail(ErrorKind::InvalidConfig, "set_serial_port_baudrate failed");
+        }
+        const auto parity = config.parity == KlineParity::Even  ? QSerialPort::EvenParity
+                            : config.parity == KlineParity::Odd ? QSerialPort::OddParity
+                                                                : QSerialPort::NoParity;
+        if (!serial_->set_serial_port_parity(static_cast<std::uint8_t>(parity)))
+        {
+            return fail(ErrorKind::InvalidConfig, "set_serial_port_parity failed");
         }
         return {};
     }
@@ -355,6 +363,111 @@ DesktopKlineFlashTransport::read(std::chrono::milliseconds timeout, const ICance
         // retroactively discard one already past the point of no return.
         // (cancellation.cancelled() IS still re-checked here, matching
         // FastEcuKlineTransport::read() in this same package -- teardown
+        // cancellation and the unblock flag are different contracts.)
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "K-Line read cancelled");
+        }
+        if (!serial_->is_serial_port_open())
+        {
+            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected during read");
+        }
+        if (raw.isEmpty())
+        {
+            return OptionalBytes{};
+        }
+        return OptionalBytes{bytes::fromQByteArray(raw)};
+    }
+    catch (const std::exception& error)
+    {
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "K-Line read cancelled");
+        }
+        return fail(ErrorKind::Internal, error.what());
+    }
+    catch (...)
+    {
+        if (cancellation.cancelled())
+        {
+            return fail(ErrorKind::Cancelled, "K-Line read cancelled");
+        }
+        return fail(ErrorKind::Internal, "K-Line driver read exception");
+    }
+}
+
+Result<std::size_t> DesktopKlineFlashTransport::write_raw(bytes::ByteView data)
+{
+    if (unblock_requested_.load())
+    {
+        return fail(ErrorKind::Cancelled, "K-Line write skipped after request_unblock");
+    }
+    if (!serial_)
+    {
+        return fail(ErrorKind::Disconnected, "write_raw() called after close()");
+    }
+
+    try
+    {
+        if (!serial_->is_serial_port_open())
+        {
+            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected before write");
+        }
+        // write_serial_data()'s QByteArray return cannot signal
+        // success/failure: every path through SerialPortActionsDirect::
+        // write_serial_data() (serial_port_actions_direct.cpp:
+        // 939-1002) -- including the echo-timeout path -- ends with
+        // `return STATUS_SUCCESS;` (0, implicitly converted to a null
+        // QByteArray). Every legacy K-Line flash caller (e.g.
+        // flash_ecu_subaru_mitsu_m32r_kline_operation.cpp) already calls it
+        // as a bare statement and discards the result for exactly this
+        // reason. is_serial_port_open() is the only reliable
+        // post-condition, matching FastEcuCanTransport::write_raw() in this
+        // same package (which wraps the same call for the CDBG protocol).
+        serial_->write_serial_data(bytes::toQByteArray(data));
+        if (!serial_->is_serial_port_open())
+        {
+            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected during write");
+        }
+        return data.size();
+    }
+    catch (const std::exception& error)
+    {
+        return fail(ErrorKind::Internal, error.what());
+    }
+    catch (...)
+    {
+        return fail(ErrorKind::Internal, "K-Line driver write exception");
+    }
+}
+
+Result<DesktopKlineFlashTransport::OptionalBytes>
+DesktopKlineFlashTransport::read_raw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation)
+{
+    if (cancellation.cancelled() || unblock_requested_.load())
+    {
+        return fail(ErrorKind::Cancelled, "K-Line read skipped due to cancellation/unblock");
+    }
+    if (!serial_)
+    {
+        return fail(ErrorKind::Disconnected, "read_raw() called after close()");
+    }
+
+    try
+    {
+        if (!serial_->is_serial_port_open())
+        {
+            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected before read");
+        }
+        const QByteArray raw = serial_->read_serial_obd_data(fastecu::saturating_ms<quint16>(timeout));
+        // Deliberately NOT re-checking unblock_requested_ here: this call
+        // was already in flight when request_unblock() may have fired, and
+        // the documented contract is that such a call still returns via its
+        // own existing timeout with whatever the backend actually produced
+        // -- request_unblock() only suppresses the *next* read/write, not
+        // retroactively discard one already past the point of no return.
+        // (cancellation.cancelled() IS still re-checked here, matching
+        // FastEcuKlineTransport::read_raw() in this same package -- teardown
         // cancellation and the unblock flag are different contracts.)
         if (cancellation.cancelled())
         {

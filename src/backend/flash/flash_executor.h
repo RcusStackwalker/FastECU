@@ -33,12 +33,20 @@ class IFlashTransport
     virtual void request_unblock() noexcept = 0;
 };
 
+enum class KlineParity
+{
+    None,
+    Even,
+    Odd
+};
+
 struct KlineConfig
 {
     int baud;
     bool iso14230;
     std::uint8_t tester_id;
     std::uint8_t target_id;
+    KlineParity parity = KlineParity::None;
 };
 
 struct Iso15765Config
@@ -177,6 +185,10 @@ Status check_family(const FlashPlan& plan, FlashFamily expected_family);
 class IKlineFlashTransport : public IFlashTransport, public mutdma::IKlineTransport
 {
   public:
+    // Raw serial calls bypass echo checking and framed reads. On J2534 the
+    // two write paths coincide; on direct serial, write() drains local echo.
+    virtual Result<std::size_t> write_raw(bytes::ByteView) = 0;
+    virtual Result<OptionalBytes> read_raw(std::chrono::milliseconds, const ICancellationToken&) = 0;
     virtual Status configure(const KlineConfig&) = 0;
     virtual Status open() = 0;
     virtual Status close() = 0;

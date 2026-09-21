@@ -11,6 +11,7 @@
 #include <QCoreApplication>
 #include <QSemaphore>
 #include <QTest>
+#include <QSerialPort>
 
 #include <gmock/gmock.h>
 
@@ -27,6 +28,7 @@ using fastecu::ErrorKind;
 using fastecu::FakeCancellationToken;
 using fastecu::flash::DesktopKlineFlashTransport;
 using fastecu::flash::KlineConfig;
+using fastecu::flash::KlineParity;
 using namespace std::chrono_literals;
 
 class TestDesktopKlineFlashTransport : public QObject
@@ -34,6 +36,51 @@ class TestDesktopKlineFlashTransport : public QObject
     Q_OBJECT
 
   private slots:
+
+    void configureSetsAndResetsParityOnReusedFacade()
+    {
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::EvenParity)))
+            .WillOnce(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)))
+            .WillOnce(::testing::Return(true));
+        DesktopKlineFlashTransport transport(serial.release());
+        KlineConfig config{.baud = 1953, .iso14230 = false, .tester_id = 0, .target_id = 0};
+        config.parity = KlineParity::Even;
+        QVERIFY(transport.configure(config).has_value());
+        config.parity = KlineParity::None;
+        QVERIFY(transport.configure(config).has_value());
+    }
+
+    void configureReportsParitySetterFailure()
+    {
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::OddParity)))
+            .WillOnce(::testing::Return(false));
+        DesktopKlineFlashTransport transport(serial.release());
+        const auto result = transport.configure(
+            KlineConfig{.baud = 1953, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::Odd});
+        QVERIFY(!result.has_value());
+        QCOMPARE(result.error().kind, ErrorKind::InvalidConfig);
+    }
+
+    void rawCallsUseRawSerialMethods()
+    {
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), is_serial_port_open()).WillRepeatedly(::testing::Return(true));
+        EXPECT_CALL(serial.fake(), write_serial_data(QByteArray::fromHex("aabb"))).Times(1);
+        EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_)).Times(0);
+        EXPECT_CALL(serial.fake(), read_serial_obd_data(10)).WillOnce(::testing::Return(QByteArray::fromHex("00ff")));
+        EXPECT_CALL(serial.fake(), read_serial_data(::testing::_)).Times(0);
+        DesktopKlineFlashTransport transport(serial.release());
+        const bytes::Bytes request{0xaa, 0xbb};
+        QVERIFY(transport.write_raw(request).has_value());
+        FakeCancellationToken cancellation;
+        const auto result = transport.read_raw(10ms, cancellation);
+        QVERIFY(result.has_value());
+        QVERIFY(result->has_value());
+        QCOMPARE(result->value(), (bytes::Bytes{0x00, 0xff}));
+    }
 
     void postKernelUploadDelayCapabilityMirrorsOpenPort2OnUnix()
     {

@@ -20,6 +20,24 @@ namespace
 {
 using namespace std::chrono_literals;
 
+TEST(ScriptedKlineFlashTransport, RawExpectationsRejectFramedCalls)
+{
+    ScriptedKlineFlashTransport transport;
+    FakeCancellationToken cancellation;
+    const bytes::Bytes request{0xaa};
+    const bytes::Bytes reply{0x00, 0xff};
+    transport.expectRawWrite(request);
+    EXPECT_FALSE(transport.write(request).has_value());
+    EXPECT_TRUE(transport.write_raw(request).has_value());
+    transport.queueRawRead(reply);
+    EXPECT_FALSE(transport.read(10ms, cancellation).has_value());
+    const auto result = transport.read_raw(10ms, cancellation);
+    ASSERT_TRUE(result.has_value());
+    ASSERT_TRUE(result->has_value());
+    EXPECT_THAT(result->value(), testing::ElementsAre(0x00, 0xff));
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
 TEST(ScriptedCanFlashTransport, DefaultsClosed)
 {
     ScriptedCanFlashTransport transport;

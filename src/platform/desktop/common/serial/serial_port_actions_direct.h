@@ -335,6 +335,10 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     bool set_serial_port_parity(std::uint8_t parity_arg) override
     {
         serial_port_parity = parity_arg;
+        if (serial && serial->isOpen())
+        {
+            return serial->setParity(static_cast<QSerialPort::Parity>(parity_arg));
+        }
         return true;
     }
 
