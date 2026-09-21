@@ -263,19 +263,15 @@ inline Byte sum8(ByteView bytes)
     return sum8Range(bytes, 0, bytes.size());
 }
 
-// Renders each byte as two lowercase hex digits followed by a space
-// (e.g. "80 01 02 ff "). Debug-log formatting, not a protocol detail.
-inline std::string toHex(ByteView bytes)
+// By default, renders each byte as two lowercase hex digits followed by a space
+// (e.g. "80 01 02 ff "). Callers can supply a format for each byte.
+inline std::string toHex(ByteView bytes, std::format_string<Byte> byte_format = "{:02x} ")
 {
     std::string msg;
     msg.reserve(bytes.size() * 3);
-    // A Byte always renders as exactly two digits plus the separator, so the
-    // buffer is never truncated; appending up to `out` holds either way.
-    std::array<char, 3> hex = {};
     for (const Byte byte : bytes)
     {
-        const auto rendered = std::format_to_n(hex.data(), hex.size(), "{:02x} ", byte);
-        msg.append(hex.data(), rendered.out);
+        std::format_to(std::back_inserter(msg), byte_format, Byte{byte});
     }
     return msg;
 }

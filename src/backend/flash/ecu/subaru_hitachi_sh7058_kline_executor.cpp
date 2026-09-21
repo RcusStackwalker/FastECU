@@ -2,6 +2,7 @@
 
 #include <chrono>
 
+#include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_plan.h"
 
@@ -106,13 +107,7 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::execute(const Fla
         {
             return fail(ErrorKind::BadResponse, "invalid SH7058 identity response");
         }
-        std::string id;
-        constexpr char hex[] = "0123456789ABCDEF";
-        for (std::size_t index = 8; index < 13; ++index)
-        {
-            id += hex[(*identity)[index] >> 4];
-            id += hex[(*identity)[index] & 0xf];
-        }
+        std::string id = bytes::toHex(bytes::ByteView(*identity).subspan(8, 5), "{:02X}");
         rom_id = id + '_';
         auto switched = exchange(transport, clock, cancel, Bytes{0xb8, 0, 0, 0, 0x75}, 50ms);
         if (!switched.has_value())
