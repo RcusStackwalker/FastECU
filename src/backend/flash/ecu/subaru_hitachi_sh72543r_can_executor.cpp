@@ -2,6 +2,7 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/algorithms/protocol/bytes_compose.h"
 
 #include <algorithm>
 #include <array>
@@ -12,6 +13,7 @@ namespace fastecu::flash
 {
 namespace
 {
+using namespace bytes::literals;
 using namespace std::chrono_literals;
 using bytes::Bytes;
 // Legacy citations below refer to flash_ecu_subaru_hitachi_sh72543r_can_operation.cpp
@@ -268,14 +270,7 @@ class Session
         // Legacy read_mem:449-546: literal 2 MiB sweep, 0x400 bytes per 23 24 request.
         for (std::uint32_t address = 0; address < 0x200000; address += 0x400)
         {
-            const Bytes request{0x23,
-                                0x24,
-                                0,
-                                static_cast<bytes::Byte>(address >> 16),
-                                static_cast<bytes::Byte>(address >> 8),
-                                static_cast<bytes::Byte>(address),
-                                4,
-                                0};
+            const Bytes request = bytes::composeBe(0x23_b, 0x24_b, address, std::uint16_t{0x400});
             auto r = required(request, 0ms, {0x63});
             if (!r.has_value())
             {
@@ -392,8 +387,7 @@ class Session
         // Correction: append data instead of indexing beyond QByteArray's size.
         for (std::uint32_t address = 0x6000; address < 0x200000; address += 0x100)
         {
-            Bytes request{0xb6, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
-                          static_cast<bytes::Byte>(address)};
+            Bytes request = bytes::composeBe(0xb6_b, bytes::u24(address));
             request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x100);
             auto r = optional(request, 10ms);
             if (!r.has_value())

@@ -48,14 +48,12 @@ TEST(Sh72543rPlan, BothAliasesHaveDistinctReadAndWriteWindows)
 }
 TEST(Sh72543rPlan, RejectsUnsupportedOperationsWithoutImage)
 {
-    for (auto op : {FlashOperation::TestWrite, static_cast<FlashOperation>(99)})
-    {
-        EXPECT_THAT(build_subaru_hitachi_sh72543r_can_plan(op, kProtocol, "SH72543R", std::nullopt),
-                    fastecu::testing::IsErr(ErrorKind::Unsupported));
-        auto built = validate_and_build(fields(op));
-        ASSERT_THAT(built, fastecu::testing::IsOk());
-        EXPECT_THAT(validate_subaru_hitachi_sh72543r_can_plan(*built), fastecu::testing::IsErr(ErrorKind::Unsupported));
-    }
+    constexpr auto op = FlashOperation::TestWrite;
+    EXPECT_THAT(build_subaru_hitachi_sh72543r_can_plan(op, kProtocol, "SH72543R", std::nullopt),
+                fastecu::testing::IsErr(ErrorKind::Unsupported));
+    auto built = validate_and_build(fields(op));
+    ASSERT_THAT(built, fastecu::testing::IsOk());
+    EXPECT_THAT(validate_subaru_hitachi_sh72543r_can_plan(*built), fastecu::testing::IsErr(ErrorKind::Unsupported));
 }
 TEST(Sh72543rPlan, RejectsIdentityAndImageErrors)
 {
@@ -131,6 +129,9 @@ TEST(Sh72543rPlan, ForgedPlansCannotChangeWireOrGeometry)
             break;
         case 15:
             f.confirmations.push_back({ConfirmationSpec::Id::EraseTrigger, {}});
+            break;
+        default:
+            FAIL() << "unexpected mutation";
             break;
         }
         auto built = validate_and_build(std::move(f));

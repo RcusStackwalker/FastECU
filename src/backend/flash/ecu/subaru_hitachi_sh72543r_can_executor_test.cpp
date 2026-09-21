@@ -128,7 +128,7 @@ class Sh72543rExecutor : public ::testing::Test
             Bytes page{0x63};
             for (unsigned i = 0; i < 0x400; ++i)
             {
-                auto b = static_cast<std::uint8_t>((a / 0x400 + i) & 255);
+                auto b = static_cast<std::uint8_t>((a / 0x400 + i) % 256U);
                 page.push_back(b);
                 expected.push_back(b);
             }
@@ -402,22 +402,23 @@ std::uint32_t referenceCipher(std::uint32_t word)
 {
     constexpr std::array<unsigned, 32> box{5,  6, 7, 1, 9,  12, 13, 8, 10, 13, 2, 11, 15, 4,  0,  3,
                                            11, 4, 6, 0, 15, 2,  13, 9, 5,  12, 1, 10, 3,  13, 14, 8};
-    unsigned left = word >> 16, right = word & 65535;
-    for (unsigned round : {0xb740, 0x42da, 0xa7ca, 0x5fb1})
+    std::uint32_t left = word >> 16U;
+    std::uint32_t right = word & 0xffffU;
+    for (std::uint32_t round : {0xb740U, 0x42daU, 0xa7caU, 0x5fb1U})
     {
-        unsigned index = right ^ round;
-        index |= index << 16;
-        unsigned f = 0;
-        for (int n = 0; n < 4; ++n)
+        std::uint32_t index = right ^ round;
+        index |= index << 16U;
+        std::uint32_t f = 0;
+        for (unsigned n = 0; n < 4; ++n)
         {
-            f |= box[(index >> (4 * n)) & 31] << (4 * n);
+            f |= box[(index >> (4U * n)) & 31U] << (4U * n);
         }
-        f = ((f >> 3) | (f << 13)) & 65535;
-        unsigned next = left ^ f;
+        f = ((f >> 3U) | (f << 13U)) & 0xffffU;
+        std::uint32_t next = left ^ f;
         left = right;
         right = next;
     }
-    return (right << 16) | left;
+    return (right << 16U) | left;
 }
 TEST(Sh72543rCipherOracle, LiteralVectors)
 {
@@ -463,8 +464,7 @@ class Sh72543rWrite : public Sh72543rExecutor
     {
         for (std::uint32_t a = 0x6000; a < 0x200000; a += 0x100)
         {
-            Bytes payload{0xb6, static_cast<std::uint8_t>(a >> 16), static_cast<std::uint8_t>(a >> 8),
-                          static_cast<std::uint8_t>(a)};
+            Bytes payload = bytes::composeBe(0xb6_b, bytes::u24(a));
             for (unsigned offset = 0; offset < 0x100; offset += 4)
             {
                 bytes::appendU32Be(payload, referenceCipher(0xdeadbeefU ^ (a + offset)));
