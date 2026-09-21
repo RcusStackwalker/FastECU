@@ -197,6 +197,9 @@ class FlashWorkflowTest : public QObject
     void subaruHitachiRoutesBothModesAndPropagatesReadResult();
     void routesTcuHitachiM32rKlineReadOnly();
     void routesTcuHitachiM32rCanReadAndWriteRejectsTestWrite();
+    void routesSh72543rAliasesAndPreservesImageAndIdentity();
+    void sh72543rRejectsPreflightAndDeclinedBegin();
+    void sh72543rPropagatesFailureAndAbsentIdentity();
     void coltWriteUsesColtSpecificSafetyPrompts();
     void mc68BdmProtocolIsNotClaimedByPortableRoute();
     void mc68TpuProtocolIsClaimedByPortableRoute();
@@ -428,6 +431,112 @@ void FlashWorkflowTest::routesTcuHitachiM32rCanReadAndWriteRejectsTestWrite()
     QCOMPARE(write_plan.target_id(), std::string_view(kProtocol));
     QVERIFY(write_plan.operation() == FlashOperation::Write);
     QCOMPARE(write_plan.transport(), TransportKind::CanIso15765);
+}
+
+void FlashWorkflowTest::routesSh72543rAliasesAndPreservesImageAndIdentity()
+{
+    for (const char *protocol : {"sub_ecu_hitachi_sh72543r_can", "sub_ecu_hitachi_sh72543r_can_recovery"})
+    {
+        for (auto operation : {FlashOperation::Read, FlashOperation::Write})
+        {
+            auto input = request(protocol, operation);
+            input.mcu = "SH72543R";
+            if (operation == FlashOperation::Write)
+            {
+                input.image = bytes::Bytes(0x200000, 0xa5);
+            }
+            auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+            QVERIFY(workflow);
+            QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+            workflow->submit(FlashPromptResponse::Accept);
+            auto step = workflow->next();
+            QVERIFY(std::holds_alternative<FlashAttempt>(step));
+            const auto& plan = std::get<FlashAttempt>(step).attempt->plan();
+            QCOMPARE(plan.family(), FlashFamily::SubaruHitachiSh72543rCan);
+            QCOMPARE(plan.target_id(), std::string_view(protocol));
+            QCOMPARE(plan.transport(), TransportKind::CanIso15765);
+            QCOMPARE(plan.transfer_region().start, operation == FlashOperation::Read ? 0U : 0x6000U);
+            if (operation == FlashOperation::Write)
+            {
+                QCOMPARE(*plan.image(), bytes::Bytes(0x200000, 0xa5));
+            }
+            workflow->submit(FlashAttemptResult{
+                .success = true,
+                .read_bytes = operation == FlashOperation::Read ? std::optional{bytes::Bytes{1, 2, 3}} : std::nullopt,
+                .rom_id =
+                    operation == FlashOperation::Read ? std::optional<std::string>{"CAL_1122334455_"} : std::nullopt});
+            auto done = std::get<FlashCompletedStep>(workflow->next());
+            QCOMPARE(done.outcome, FlashWorkflowOutcome::Succeeded);
+            if (operation == FlashOperation::Read)
+            {
+                QCOMPARE(done.accepted_read_bytes, bytes::Bytes({1, 2, 3}));
+                QCOMPARE(done.rom_id, std::string("CAL_1122334455_"));
+            }
+            else
+            {
+                QVERIFY(!done.accepted_read_bytes);
+                QVERIFY(!done.rom_id);
+            }
+        }
+    }
+    QVERIFY(!FlashWorkflowFactory::tryCreate(request("sub_ecu_hitachi_sh72543r_can_recovery_typo")));
+    QVERIFY(!FlashWorkflowFactory::tryCreate(request("sub_ecu_hitachi_sh72543r_can_typo")));
+}
+void FlashWorkflowTest::sh72543rRejectsPreflightAndDeclinedBegin()
+{
+    for (const char *protocol : {"sub_ecu_hitachi_sh72543r_can", "sub_ecu_hitachi_sh72543r_can_recovery"})
+    {
+        for (int fault = 0; fault < 3; ++fault)
+        {
+            auto input = request(protocol, fault == 0 ? FlashOperation::TestWrite : FlashOperation::Write);
+            input.mcu = fault == 1 ? "SH72543d" : "SH72543R";
+            input.image = bytes::Bytes(fault == 2 ? 16 : 0x200000);
+            auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+            QVERIFY(workflow);
+            auto step = workflow->next();
+            QVERIFY(std::holds_alternative<FlashFailureStep>(step));
+            QCOMPARE(std::get<FlashFailureStep>(step).error.kind,
+                     fault == 0 ? ErrorKind::Unsupported : ErrorKind::InvalidConfig);
+        }
+        auto input = request(protocol);
+        input.mcu = "SH72543R";
+        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        QVERIFY(workflow);
+        QVERIFY(std::holds_alternative<FlashPromptStep>(workflow->next()));
+        workflow->submit(FlashPromptResponse::Decline);
+        auto done = std::get<FlashCompletedStep>(workflow->next());
+        QCOMPARE(done.outcome, FlashWorkflowOutcome::Cancelled);
+        QVERIFY(!done.accepted_read_bytes);
+    }
+}
+void FlashWorkflowTest::sh72543rPropagatesFailureAndAbsentIdentity()
+{
+    for (int outcome = 0; outcome < 3; ++outcome)
+    {
+        auto input = request("sub_ecu_hitachi_sh72543r_can");
+        input.mcu = "SH72543R";
+        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        QVERIFY(workflow);
+        workflow->submit(FlashPromptResponse::Accept);
+        QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
+        workflow->submit(
+            FlashAttemptResult{.success = outcome == 0,
+                               .error_kind = outcome == 1 ? ErrorKind::Disconnected : ErrorKind::Cancelled,
+                               .error_detail = "lost adapter",
+                               .read_bytes = outcome == 0 ? std::optional{bytes::Bytes{4, 5}} : std::nullopt});
+        auto step = workflow->next();
+        if (outcome == 1)
+        {
+            QVERIFY(std::holds_alternative<FlashFailureStep>(step));
+            QCOMPARE(std::get<FlashFailureStep>(step).error.kind, ErrorKind::Disconnected);
+        }
+        else
+        {
+            auto done = std::get<FlashCompletedStep>(step);
+            QVERIFY(!done.rom_id);
+            QCOMPARE(done.outcome, outcome == 0 ? FlashWorkflowOutcome::Succeeded : FlashWorkflowOutcome::Cancelled);
+        }
+    }
 }
 
 void FlashWorkflowTest::coltWriteUsesColtSpecificSafetyPrompts()

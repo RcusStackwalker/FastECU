@@ -326,7 +326,7 @@ void script_flash_init(ScriptedKlineFlashTransport& transport, bool test_write)
     transport.exchange(framed(0x05), framed(0x45, bytes::Bytes{0xA5, 0x00, 0x00, 0x02, 0x06}));
     transport.exchange(framed(0x06), framed(0x46, bytes::Bytes{0x5A, 0x00, 0x00, 0x10, 0x00}));
     const std::uint8_t enable_opcode = test_write ? 0x21 : 0x20;
-    transport.exchange(framed(enable_opcode), framed(static_cast<std::uint8_t>(enable_opcode | 0x40)));
+    transport.exchange(framed(enable_opcode), framed(static_cast<std::uint8_t>(enable_opcode | 0x40U)));
 }
 
 void script_prog_volt(ScriptedKlineFlashTransport& transport)
@@ -384,7 +384,7 @@ void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashde
             const std::uint32_t commit_offset = offset + kChunkSize - kCommitSize;
             const std::uint8_t opcode = test_write ? 0x23 : 0x24;
             transport.exchange(commit_request(device, image, block_no, commit_offset, test_write),
-                               framed(static_cast<std::uint8_t>(opcode | 0x40)));
+                               framed(static_cast<std::uint8_t>(opcode | 0x40U)));
         }
     }
     transport.queue_no_frame();
@@ -789,7 +789,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
     const auto& block = device->fblocks[kDifferingBlock];
     for (std::size_t offset = 0; offset < block.len; ++offset)
     {
-        image[block.start + offset] = static_cast<bytes::Byte>((offset * 17U + 3U) & 0xFF);
+        image[block.start + offset] = static_cast<bytes::Byte>(offset * 17U + 3U);
     }
     auto plan = write_plan(FlashOperation::Write, image);
     ASSERT_THAT(plan, fastecu::testing::IsOk());

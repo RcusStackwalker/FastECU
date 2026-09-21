@@ -11,14 +11,12 @@ qt_cc_library(
     srcs = [
         "flash_ecu_subaru_denso_sh705x_kline.cpp",
         "flash_ecu_subaru_hitachi_sh7058_can.cpp",
-        "flash_ecu_subaru_hitachi_sh72543r_can.cpp",
         "flash_ecu_subaru_unisia_jecs.cpp",
         "flash_ecu_subaru_unisia_jecs_m32r.cpp",
     ],
     hdrs = [
         "flash_ecu_subaru_denso_sh705x_kline.h",
         "flash_ecu_subaru_hitachi_sh7058_can.h",
-        "flash_ecu_subaru_hitachi_sh72543r_can.h",
         "flash_ecu_subaru_unisia_jecs.h",
         "flash_ecu_subaru_unisia_jecs_m32r.h",
     ],
