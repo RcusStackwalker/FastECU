@@ -117,10 +117,7 @@ class Sh72543rExecutor : public ::testing::Test
     }
     Bytes pageRequest(std::uint32_t a)
     {
-        return bytes::composeBe(0x23_b,
-                0x24_b,
-                a
-                std::uint16_t{0x400}))
+        return bytes::composeBe(0x23_b, 0x24_b, a, std::uint16_t{1024});
     }
     Bytes pages()
     {
