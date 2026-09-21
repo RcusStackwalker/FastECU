@@ -41,13 +41,13 @@ class Session
     }
     Status sleep(std::chrono::milliseconds delay)
     {
-        if (auto s = checkpoint(); !s)
+        if (auto s = checkpoint(); !s.has_value())
         {
             return s;
         }
         if (delay > 0ms)
         {
-            if (auto s = clock_.sleep(delay, cancel_); !s)
+            if (auto s = clock_.sleep(delay, cancel_); !s.has_value())
             {
                 return s;
             }
@@ -56,17 +56,17 @@ class Session
     }
     Result<std::optional<Bytes>> receive(std::chrono::milliseconds timeout)
     {
-        if (auto s = checkpoint(); !s)
+        if (auto s = checkpoint(); !s.has_value())
         {
             return std::unexpected(s.error());
         }
         auto r = transport_.read(timeout, cancel_);
-        if (auto s = checkpoint(); !s)
+        if (auto s = checkpoint(); !s.has_value())
         {
             return std::unexpected(s.error());
         }
         // Both no-frame and explicit Timeout represent silence to optional/retry callers.
-        if (!r)
+        if (!r.has_value())
         {
             if (r.error().kind == ErrorKind::Timeout)
             {
@@ -74,7 +74,7 @@ class Session
             }
             return std::unexpected(r.error());
         }
-        if (*r && (**r).empty())
+        if (r->has_value() && (**r).empty())
         {
             return std::optional<Bytes>{};
         }
@@ -82,14 +82,14 @@ class Session
     }
     Status send(bytes::ByteView payload)
     {
-        if (auto s = checkpoint(); !s)
+        if (auto s = checkpoint(); !s.has_value())
         {
             return s;
         }
         Bytes frame;
         bytes::appendU32Be(frame, 0x7e0);
         frame.insert(frame.end(), payload.begin(), payload.end());
-        if (auto s = transport_.write(frame, cancel_); !s)
+        if (auto s = transport_.write(frame, cancel_); !s.has_value())
         {
             return s;
         }
@@ -98,11 +98,11 @@ class Session
     Result<std::optional<Bytes>> optional(bytes::ByteView payload, std::chrono::milliseconds delay,
                                           std::chrono::milliseconds timeout = 2000ms)
     {
-        if (auto s = send(payload); !s)
+        if (auto s = send(payload); !s.has_value())
         {
             return std::unexpected(s.error());
         }
-        if (auto s = sleep(delay); !s)
+        if (auto s = sleep(delay); !s.has_value())
         {
             return std::unexpected(s.error());
         }
@@ -112,7 +112,7 @@ class Session
                            std::initializer_list<bytes::Byte> prefix)
     {
         auto r = optional(payload, delay);
-        if (!r)
+        if (!r.has_value())
         {
             return std::unexpected(r.error());
         }
@@ -130,11 +130,11 @@ class Session
     {
         // Legacy read_mem:345-365 (10 03), erase_mem:889-918 (10 43).
         auto r = optional(Bytes{0x10, service}, 200ms);
-        if (!r)
+        if (!r.has_value())
         {
             return std::unexpected(r.error());
         }
-        if (!*r || !has_prefix(**r, {0x50, service}))
+        if (!r->has_value() || !has_prefix(**r, {0x50, service}))
         {
             events_.log(LogLevel::Error, "No valid response from ECU for session request");
         }
@@ -146,7 +146,7 @@ class Session
         // prefix 67 01 alone is insufficient to read the four-byte seed.
         events_.log(LogLevel::Info, "Starting seed request...");
         auto seed = required(Bytes{0x27, 1}, 200ms, {0x67, 1});
-        if (!seed)
+        if (!seed.has_value())
         {
             return std::unexpected(seed.error());
         }
@@ -160,7 +160,7 @@ class Session
         request.insert(request.end(), key.begin(), key.end());
         events_.log(LogLevel::Info, "Sending seed key...");
         auto r = required(request, 200ms, {0x67, 2});
-        if (!r)
+        if (!r.has_value())
         {
             return std::unexpected(r.error());
         }
@@ -172,11 +172,11 @@ class Session
         // Legacy connect_bootloader:103-124. Vendor negative response is its alive marker.
         events_.log(LogLevel::Info, "Checking if OBK is already running...");
         auto alive = optional(Bytes{0xb7}, 50ms, 200ms);
-        if (!alive)
+        if (!alive.has_value())
         {
             return std::unexpected(alive.error());
         }
-        if (*alive && has_prefix(**alive, {0x7f, 0xb7, 0x13}))
+        if (alive->has_value() && has_prefix(**alive, {0x7f, 0xb7, 0x13}))
         {
             events_.log(LogLevel::Info, "OBK is active");
             return std::optional<std::string>{};
@@ -185,12 +185,12 @@ class Session
         // Legacy 126-166: five ECU-ID bytes start at framed offset 8.
         events_.log(LogLevel::Info, "Requesting ECU ID");
         auto ecu = optional(Bytes{0xaa}, 50ms);
-        if (!ecu)
+        if (!ecu.has_value())
         {
             return std::unexpected(ecu.error());
         }
         std::string id;
-        if (*ecu && has_prefix(**ecu, {0xea}) && (**ecu).size() >= 13)
+        if (ecu->has_value() && has_prefix(**ecu, {0xea}) && (**ecu).size() >= 13)
         {
             for (auto b : bytes::ByteView(**ecu).subspan(8, 5))
             {
@@ -210,11 +210,11 @@ class Session
                                         : service == 4 ? "Requesting CAL ID..."
                                                        : "Requesting CVN");
             auto r = optional(Bytes{9, service}, 50ms);
-            if (!r)
+            if (!r.has_value())
             {
                 return std::unexpected(r.error());
             }
-            if (!*r || !has_prefix(**r, {0x49, service}) || (**r).size() <= 7)
+            if (!r->has_value() || !has_prefix(**r, {0x49, service}) || (**r).size() <= 7)
             {
                 events_.log(LogLevel::Error, "No valid response from ECU");
                 continue;
@@ -243,7 +243,7 @@ class Session
         for (auto request : {Bytes{0xa8, 0, 0, 0, 0xd7}, Bytes{0xa8, 0, 0, 1, 0x3b}})
         {
             auto r = optional(request, 200ms);
-            if (!r)
+            if (!r.has_value())
             {
                 return std::unexpected(r.error());
             }
@@ -254,11 +254,11 @@ class Session
     Result<Bytes> read(PhaseReporter& progress)
     {
         events_.log(LogLevel::Info, "Settting dump start & length...");
-        if (auto s = tolerant_session(3); !s)
+        if (auto s = tolerant_session(3); !s.has_value())
         {
             return std::unexpected(s.error());
         }
-        if (auto s = access(); !s)
+        if (auto s = access(); !s.has_value())
         {
             return std::unexpected(s.error());
         }
@@ -277,7 +277,7 @@ class Session
                                 4,
                                 0};
             auto r = required(request, 0ms, {0x63});
-            if (!r)
+            if (!r.has_value())
             {
                 return std::unexpected(r.error());
             }
@@ -302,16 +302,16 @@ class Session
         for (int attempt = 0; attempt < 6; ++attempt)
         {
             auto r = optional(Bytes{0x10, 1}, 200ms, 800ms);
-            if (!r)
+            if (!r.has_value())
             {
                 return std::unexpected(r.error());
             }
-            if (*r)
+            if (r->has_value())
             {
                 break;
             }
         }
-        if (auto s = checkpoint(); !s)
+        if (auto s = checkpoint(); !s.has_value())
         {
             return std::unexpected(s.error());
         }
@@ -322,36 +322,36 @@ class Session
     Status erase()
     {
         // Legacy erase_mem:889-997: tolerated programming session, required access.
-        if (auto s = tolerant_session(0x43); !s)
+        if (auto s = tolerant_session(0x43); !s.has_value())
         {
             return s;
         }
-        if (auto s = access(); !s)
+        if (auto s = access(); !s.has_value())
         {
             return s;
         }
         // Legacy erase_mem:999-1027.
         events_.log(LogLevel::Info, "Jumping to onboad kernel...");
         auto jump = required(Bytes{0x10, 0x42}, 200ms, {0x50, 0x42});
-        if (!jump)
+        if (!jump.has_value())
         {
             return std::unexpected(jump.error());
         }
         // Legacy erase_mem:1030-1066, exactly the programming window in the flash table.
         events_.log(LogLevel::Info, "Settting flash start & length...");
         auto window = required(Bytes{0x34, 4, 0x33, 0, 0x60, 0, 0x1f, 0xa0, 0}, 200ms, {0x74, 0x20});
-        if (!window)
+        if (!window.has_value())
         {
             return std::unexpected(window.error());
         }
         // Legacy erase_mem:1069-1123. Correction: inspect the first read too.
         // Send erase once; never retransmit it while polling for completion.
         events_.log(LogLevel::Info, "Erasing ECU ROM...");
-        if (auto s = sleep(100ms); !s)
+        if (auto s = sleep(100ms); !s.has_value())
         {
             return s;
         }
-        if (auto s = send(Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}); !s)
+        if (auto s = send(Bytes{0x31, 1, 2, 1, 0x0f, 0xff, 0xff, 0xff}); !s.has_value())
         {
             return s;
         }
@@ -359,11 +359,11 @@ class Session
         for (int read = 0; read < 21; ++read)
         {
             auto r = receive(2000ms);
-            if (!r)
+            if (!r.has_value())
             {
                 return std::unexpected(r.error());
             }
-            if (*r)
+            if (r->has_value())
             {
                 saw_response = true;
                 if (has_prefix(**r, {0x71, 1, 2}))
@@ -375,7 +375,7 @@ class Session
             if (read > 0)
             {
                 events_.log(LogLevel::Info, ".");
-                if (auto s = sleep(500ms); !s)
+                if (auto s = sleep(500ms); !s.has_value())
                 {
                     return s;
                 }
@@ -396,7 +396,7 @@ class Session
                           static_cast<bytes::Byte>(address)};
             request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x100);
             auto r = optional(request, 10ms);
-            if (!r)
+            if (!r.has_value())
             {
                 return std::unexpected(r.error());
             }
@@ -421,11 +421,11 @@ class Session
         for (int attempt = 0; attempt < 20; ++attempt)
         {
             auto r = optional(request, 0ms, timeout);
-            if (!r)
+            if (!r.has_value())
             {
                 return std::unexpected(r.error());
             }
-            if (*r)
+            if (r->has_value())
             {
                 saw_response = true;
                 if (has_prefix(**r, prefix))
@@ -445,18 +445,19 @@ class Session
     {
         // Legacy reflash_block:787-829: close may be sent up to 20 times.
         events_.log(LogLevel::Info, "Closing out Flashing of this block...");
-        if (auto s = retry(Bytes{0x37}, {0x77}, 800ms, "Flashing block close failed"); !s)
+        if (auto s = retry(Bytes{0x37}, {0x77}, 800ms, "Flashing block close failed"); !s.has_value())
         {
             return s;
         }
         events_.log(LogLevel::Info, "Flashing of block closed");
-        if (auto s = sleep(100ms); !s)
+        if (auto s = sleep(100ms); !s.has_value())
         {
             return s;
         }
         // Legacy reflash_block:831-869: checksum is a second independent retry sequence.
         events_.log(LogLevel::Info, "Verifying checksum...");
-        if (auto s = retry(Bytes{0x31, 1, 2, 2, 1}, {0x71, 1, 2}, 2000ms, "Checksum verification failed"); !s)
+        if (auto s = retry(Bytes{0x31, 1, 2, 2, 1}, {0x71, 1, 2}, 2000ms, "Checksum verification failed");
+            !s.has_value())
         {
             return s;
         }
@@ -473,7 +474,7 @@ class Session
 } // namespace
 Result<Iso15765Config> SubaruHitachiSh72543rCanExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (auto valid = validate_subaru_hitachi_sh72543r_can_plan(plan); !valid)
+    if (auto valid = validate_subaru_hitachi_sh72543r_can_plan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -484,7 +485,7 @@ Result<FlashExecutionResult> SubaruHitachiSh72543rCanExecutor::execute(const Fla
                                                                        const ICancellationToken& cancellation,
                                                                        IEventSink& events)
 {
-    if (auto valid = validate_subaru_hitachi_sh72543r_can_plan(plan); !valid)
+    if (auto valid = validate_subaru_hitachi_sh72543r_can_plan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }
@@ -492,7 +493,7 @@ Result<FlashExecutionResult> SubaruHitachiSh72543rCanExecutor::execute(const Fla
     PhaseSequence phases(events, plan.operation() == FlashOperation::Read ? 2 : 4);
     auto connecting = phases.start("Connecting", 1);
     auto identity = session.connect();
-    if (!identity)
+    if (!identity.has_value())
     {
         return std::unexpected(identity.error());
     }
@@ -501,25 +502,25 @@ Result<FlashExecutionResult> SubaruHitachiSh72543rCanExecutor::execute(const Fla
     {
         // Legacy encrypt_payload:1165-1179. Keep the family's own schedule.
         constexpr std::array<std::uint16_t, 4> keys{0xb740, 0x42da, 0xa7ca, 0x5fb1};
-        if (auto status = session.checkpoint(); !status)
+        if (auto status = session.checkpoint(); !status.has_value())
         {
             return std::unexpected(status.error());
         }
         const auto encrypted = SsmProtocol::calculatePayload(*plan.image(), 0x200000, keys, kTransform);
         auto erasing = phases.start("Erasing", 1);
-        if (auto status = session.erase(); !status)
+        if (auto status = session.erase(); !status.has_value())
         {
             return std::unexpected(status.error());
         }
         erasing.complete();
         auto programming = phases.start("Programming", 0x1fa000);
-        if (auto status = session.program(encrypted, programming); !status)
+        if (auto status = session.program(encrypted, programming); !status.has_value())
         {
             return std::unexpected(status.error());
         }
         programming.complete();
         auto verifying = phases.start("Verifying", 1);
-        if (auto status = session.finish(); !status)
+        if (auto status = session.finish(); !status.has_value())
         {
             return std::unexpected(status.error());
         }
@@ -529,7 +530,7 @@ Result<FlashExecutionResult> SubaruHitachiSh72543rCanExecutor::execute(const Fla
     }
     auto reading = phases.start("Reading", 0x200000);
     auto image = session.read(reading);
-    if (!image)
+    if (!image.has_value())
     {
         return std::unexpected(image.error());
     }

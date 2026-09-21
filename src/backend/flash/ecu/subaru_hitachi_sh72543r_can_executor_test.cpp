@@ -1,3 +1,4 @@
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_executor.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_plan.h"
@@ -13,6 +14,7 @@
 
 namespace
 {
+using namespace bytes::literals;
 using namespace fastecu;
 using namespace fastecu::flash;
 using namespace std::chrono_literals;
@@ -115,14 +117,10 @@ class Sh72543rExecutor : public ::testing::Test
     }
     Bytes pageRequest(std::uint32_t a)
     {
-        return {0x23,
-                0x24,
-                0,
-                static_cast<std::uint8_t>(a >> 16),
-                static_cast<std::uint8_t>(a >> 8),
-                static_cast<std::uint8_t>(a),
-                4,
-                0};
+        return bytes::composeBe(0x23_b,
+                0x24_b,
+                a
+                std::uint16_t{0x400}))
     }
     Bytes pages()
     {
