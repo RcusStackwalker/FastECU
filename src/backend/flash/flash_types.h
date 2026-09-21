@@ -25,6 +25,7 @@
 #include "src/backend/flash/ecu/subaru_tcu_cvt_mitsu_mh8111_can_types.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_can_types.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_types.h"
+#include "src/backend/flash/ecu/subaru_hitachi_sh7058_types.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_types.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 
@@ -71,6 +72,7 @@ enum class FlashFamily
     // Step 5 tail, wave 6a-2.
     SubaruTcuHitachiM32rCan,
     SubaruHitachiSh72543rCan,
+    SubaruHitachiSh7058,
 };
 
 enum class TransportKind
@@ -140,7 +142,8 @@ using FamilyPlan =
                  SubaruTcuCvtMitsuMh8104CanPlan, SubaruDenso1n83m_1_5mCanPlan, SubaruDensoSh72531CanPlan,
                  SubaruDensoSh72543CanDieselPlan, SubaruDenso1n83m_4mCanPlan, SubaruDensoSh705xDensoCanPlan,
                  SubaruTcuDensoSh705xCanPlan, SubaruDensoSh7058CanPlan, SubaruDensoSh7058CanDieselPlan,
-                 SubaruTcuHitachiM32rKlinePlan, SubaruTcuHitachiM32rCanPlan, SubaruHitachiSh72543rCanPlan>;
+                 SubaruTcuHitachiM32rKlinePlan, SubaruTcuHitachiM32rCanPlan, SubaruHitachiSh72543rCanPlan,
+                 SubaruHitachiSh7058KlinePlan, SubaruHitachiSh7058CanPlan>;
 
 // The FlashFamily tag and TransportKind each plan alternative belongs to.
 //
@@ -288,6 +291,18 @@ template <> struct FamilyTraits<SubaruHitachiSh72543rCanPlan>
     static constexpr TransportKind transport = TransportKind::CanIso15765;
 };
 
+template <> struct FamilyTraits<SubaruHitachiSh7058KlinePlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruHitachiSh7058;
+    static constexpr TransportKind transport = TransportKind::Kline;
+};
+
+template <> struct FamilyTraits<SubaruHitachiSh7058CanPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruHitachiSh7058;
+    static constexpr TransportKind transport = TransportKind::CanIso15765;
+};
+
 // Whether validate_and_build requires FlashPlanFields::kernel to be set for
 // this family's plan type. Defaults true (fail-closed): a family that skips
 // the kernel must opt out explicitly, right here, next to the variant it
@@ -351,5 +366,7 @@ template <> inline constexpr bool family_requires_kernel_v<SubaruTcuHitachiM32rK
 // over CAN; no image is uploaded.
 template <> inline constexpr bool family_requires_kernel_v<SubaruTcuHitachiM32rCanPlan> = false;
 template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiSh72543rCanPlan> = false;
+template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiSh7058KlinePlan> = false;
+template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiSh7058CanPlan> = false;
 
 } // namespace fastecu::flash

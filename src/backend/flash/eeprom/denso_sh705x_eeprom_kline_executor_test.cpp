@@ -184,7 +184,7 @@ bytes::Bytes eepromPayload280Bytes()
         out.push_back(0xEE);
         for (int j = 0; j < 32; ++j)
         {
-            out.push_back(static_cast<bytes::Byte>((block * 32 + j) & 0xFF));
+            out.push_back(static_cast<bytes::Byte>(block * 32 + j));
         }
         out.push_back(0xFF);
     }
@@ -196,7 +196,7 @@ bytes::Bytes expectedDecodedEeprom256Bytes()
     bytes::Bytes out;
     for (int i = 0; i < 256; ++i)
     {
-        out.push_back(static_cast<bytes::Byte>(i & 0xFF));
+        out.push_back(static_cast<bytes::Byte>(i));
     }
     return out;
 }

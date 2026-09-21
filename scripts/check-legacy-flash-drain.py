@@ -34,7 +34,6 @@ REMAINING = {
     "bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.cpp",
     "bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp",
     "ecu/flash_ecu_subaru_denso_sh705x_kline_operation.cpp",
-    "ecu/flash_ecu_subaru_hitachi_sh7058_can_operation.cpp",
     "ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.cpp",
     "ecu/flash_ecu_subaru_unisia_jecs_operation.cpp",
     "jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.cpp",

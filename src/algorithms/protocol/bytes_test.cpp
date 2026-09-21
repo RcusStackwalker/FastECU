@@ -45,6 +45,8 @@ TEST(BytesPortable, ToHexRendersLowercasePairsWithTrailingSpace)
     const bytes::Bytes buf{0x80, 0x01, 0x02, 0xFF};
     EXPECT_EQ(bytes::toHex(bytes::ByteView(buf)), "80 01 02 ff ");
     EXPECT_EQ(bytes::toHex(bytes::ByteView()), "");
+    EXPECT_EQ(bytes::toHex(bytes::ByteView(buf), "{:02X}"), "800102FF");
+    EXPECT_EQ(bytes::toHex(bytes::ByteView(), "{:02X}"), "");
 }
 
 TEST(BytesPortable, ReadsVariableWidthBigEndian)

@@ -8,6 +8,88 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
+fastecu_portable_gtest(
+    name = "subaru_hitachi_sh7058_plan_test",
+    srcs = ["subaru_hitachi_sh7058_plan_test.cpp"],
+    deps = [
+        ":subaru_hitachi_sh7058_plan",
+        "//src/backend/flash:flash_validation",
+    ],
+)
+
+cc_library(
+    name = "subaru_hitachi_sh7058_plan",
+    srcs = ["subaru_hitachi_sh7058_plan.cpp"],
+    hdrs = ["subaru_hitachi_sh7058_plan.h"],
+    deps = [
+        ":subaru_hitachi_sh7058_types",
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+cc_library(
+    name = "subaru_hitachi_sh7058_types",
+    hdrs = ["subaru_hitachi_sh7058_types.h"],
+)
+
+cc_library(
+    name = "subaru_hitachi_sh7058_kline_executor",
+    srcs = ["subaru_hitachi_sh7058_kline_executor.cpp"],
+    hdrs = ["subaru_hitachi_sh7058_kline_executor.h"],
+    deps = [
+        ":subaru_hitachi_sh7058_plan",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_hitachi_sh7058_kline_executor_test",
+    srcs = ["subaru_hitachi_sh7058_kline_executor_test.cpp"],
+    deps = [
+        ":subaru_hitachi_sh7058_kline_executor",
+        ":subaru_hitachi_sh7058_plan",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
+cc_library(
+    name = "subaru_hitachi_sh7058_can_executor",
+    srcs = ["subaru_hitachi_sh7058_can_executor.cpp"],
+    hdrs = ["subaru_hitachi_sh7058_can_executor.h"],
+    deps = [
+        ":subaru_hitachi_sh7058_plan",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_hitachi_sh7058_can_executor_test",
+    srcs = ["subaru_hitachi_sh7058_can_executor_test.cpp"],
+    deps = [
+        ":subaru_hitachi_sh7058_can_executor",
+        ":subaru_hitachi_sh7058_plan",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)
+
 cc_library(
     name = "single_window_plan",
     srcs = ["single_window_plan.cpp"],
