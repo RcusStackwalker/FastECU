@@ -3,6 +3,7 @@
 #include <chrono>
 
 #include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_plan.h"
 
@@ -137,12 +138,7 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::execute(const Fla
     for (std::uint32_t offset = 0; offset < 0x100000; offset += 0x80)
     {
         const std::uint32_t address = 0x100000 + offset;
-        Bytes request{0xa0,
-                      0x00,
-                      static_cast<bytes::Byte>(address >> 16),
-                      static_cast<bytes::Byte>(address >> 8),
-                      static_cast<bytes::Byte>(address),
-                      0x7f};
+        Bytes request = bytes::composeBe(bytes::Byte{0xa0}, address, bytes::Byte{0x7f});
         auto page = exchange(transport, clock, cancel, request, 0ms);
         if (!page.has_value())
         {
