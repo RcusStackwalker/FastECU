@@ -151,6 +151,14 @@ this sub-wave's purpose.
 
 ### 6b — one narrow port addition each (2 PRs, 1,969 lines)
 
+The Wave 6b transport foundation lands before 6b-1. It adds configure-time
+parity and explicit raw K-Line write/read methods while the legacy drain still
+has six families. The Unisia Jecs family migration follows separately.
+
+The legacy Unisia Jecs read allocates a 64 KiB ROM but truncates the result to
+32 bytes. The family PR will read the full 64 KiB through `read_raw()`, keeping
+legacy request pacing until hardware evidence supports a change.
+
 | PR | Family | Lines | Adds |
 |---|---|---|---|
 | 6b-1 | `FlashEcuSubaruUnisiaJecs` | 233 | `KlineConfig` parity |

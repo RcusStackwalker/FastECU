@@ -3,6 +3,7 @@
 #include <cstdio>
 
 #include <QCoreApplication>
+#include <QSerialPort>
 #include <QtTest>
 #include <thread>
 
@@ -27,6 +28,7 @@ class TestDirectBackendPty : public QObject
     void ptyRead_timesOutCleanOnSilence();
     void ptyClearRxBuffer_discardsPendingBytes();
     void ptyAdapterVanish_readReturnsCleanly();
+    void ptyParityChangesWhileOpen();
 
   private:
     int openPtyBackend(SerialPortActionsDirect& backend);
@@ -112,6 +114,18 @@ void TestDirectBackendPty::ptyAdapterVanish_readReturnsCleanly()
     // The read must come back empty (possibly via handle_error ->
     // reset_connection) without crashing or hanging.
     QCOMPARE(direct.read_serial_data(100), QByteArray());
+}
+
+void TestDirectBackendPty::ptyParityChangesWhileOpen()
+{
+    SerialPortActionsDirect direct;
+    const int master = openPtyBackend(direct);
+    QVERIFY(master >= 0);
+    QVERIFY(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::EvenParity)));
+    QCOMPARE(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::EvenParity));
+    QVERIFY(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
+    QCOMPARE(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
+    ::close(master);
 }
 
 int main(int argc, char **argv)

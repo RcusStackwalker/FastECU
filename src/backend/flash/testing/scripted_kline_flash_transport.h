@@ -2,6 +2,7 @@
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/testing/scripted_flash_transport_state.h"
 
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <deque>
@@ -77,6 +78,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     {
         expected_.emplace_back(request.begin(), request.end());
         sections_.emplace_back(current_section_);
+        ++reads_queued_;
         reads_.emplace_back(OptionalBytes{bytes::Bytes(response.begin(), response.end())});
     }
 
@@ -91,16 +93,29 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         expected_.emplace_back(b.begin(), b.end());
         sections_.emplace_back(current_section_);
     }
+    void expectRawWrite(bytes::ByteView b)
+    {
+        expectWrite(b);
+        raw_writes_.push_back(expected_.size() - 1);
+    }
+    void queueRawRead(bytes::ByteView b)
+    {
+        raw_reads_.push_back(reads_queued_++);
+        reads_.emplace_back(OptionalBytes{bytes::Bytes(b.begin(), b.end())});
+    }
     void queueRead(bytes::ByteView b)
     {
+        ++reads_queued_;
         reads_.emplace_back(OptionalBytes{bytes::Bytes(b.begin(), b.end())});
     }
     void queue_no_frame()
     {
+        ++reads_queued_;
         reads_.emplace_back(OptionalBytes{});
     }
     void queue_error(ErrorKind kind, std::string detail = {})
     {
+        ++reads_queued_;
         reads_.emplace_back(fail(kind, std::move(detail)));
     }
     void queueBlockingRead()
@@ -201,10 +216,41 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         {
             return fail(ErrorKind::Internal, describeDivergence(wIdx_, actual));
         }
+        if (std::find(raw_writes_.begin(), raw_writes_.end(), wIdx_) != raw_writes_.end())
+        {
+            return fail(ErrorKind::Internal, "expected raw K-Line write");
+        }
         ++wIdx_;
         return data.size();
     }
+    Result<std::size_t> write_raw(bytes::ByteView data) override
+    {
+        const bytes::Bytes actual(data.begin(), data.end());
+        if (wIdx_ >= expected_.size() || expected_[wIdx_] != actual ||
+            std::find(raw_writes_.begin(), raw_writes_.end(), wIdx_) == raw_writes_.end())
+        {
+            return fail(ErrorKind::Internal, "unexpected raw K-Line write");
+        }
+        ++wIdx_;
+        return data.size();
+    }
+    Result<OptionalBytes> read_raw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
+    {
+        if (std::find(raw_reads_.begin(), raw_reads_.end(), reads_consumed_) == raw_reads_.end())
+        {
+            return fail(ErrorKind::Internal, "unexpected raw K-Line read");
+        }
+        return read_impl(timeout, cancellation);
+    }
     Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
+    {
+        if (std::find(raw_reads_.begin(), raw_reads_.end(), reads_consumed_) != raw_reads_.end())
+        {
+            return fail(ErrorKind::Internal, "expected raw K-Line read");
+        }
+        return read_impl(timeout, cancellation);
+    }
+    Result<OptionalBytes> read_impl(std::chrono::milliseconds timeout, const ICancellationToken& cancellation)
     {
         read_timeouts_.push_back(timeout);
         if (timeout == std::chrono::milliseconds{10})
@@ -232,6 +278,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         }
         auto result = std::move(reads_.front());
         reads_.pop_front();
+        ++reads_consumed_;
         return result;
     }
 
@@ -270,6 +317,10 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
                            bytes::toHex(actual));
     }
 
+    std::vector<std::size_t> raw_writes_;
+    std::vector<std::size_t> raw_reads_;
+    std::size_t reads_consumed_ = 0;
+    std::size_t reads_queued_ = 0;
     std::vector<bytes::Bytes> expected_;
     std::vector<std::string> sections_;
     std::string current_section_;
