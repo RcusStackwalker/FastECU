@@ -802,6 +802,32 @@ fastecu_portable_gtest(
     ],
 )
 
+cc_library(
+    name = "subaru_unisia_jecs_executor",
+    srcs = ["subaru_unisia_jecs_executor.cpp"],
+    hdrs = ["subaru_unisia_jecs_executor.h"],
+    deps = [
+        ":subaru_unisia_jecs_plan",
+        "//src/algorithms/protocol",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_unisia_jecs_executor_test",
+    srcs = ["subaru_unisia_jecs_executor_test.cpp"],
+    deps = [
+        ":subaru_unisia_jecs_executor",
+        ":subaru_unisia_jecs_plan",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
 # Hand-written (not single_window_plan): the erase-region set diverges from a
 # single write window once Task 4 adds the per-block (3-10) decomposition, and
 # single_window_plan cannot express that -- see subaru_denso_sh7058_can_plan.cpp
