@@ -196,6 +196,8 @@ class FlashWorkflowTest : public QObject
     void subaruMitsuPropagatesRomId();
     void subaruHitachiRoutesBothModesAndPropagatesReadResult();
     void routesTcuHitachiM32rKlineReadOnly();
+    void unisiaJecsRoutesOnlyExactProtocolMcuPairs();
+    void unisiaJecsCrossPairsFailBeforeAttempt();
     void routesTcuHitachiM32rCanReadAndWriteRejectsTestWrite();
     void routesSh72543rAliasesAndPreservesImageAndIdentity();
     void routesSh7058ReadAndWriteWithPreTransportPrompts();
@@ -251,6 +253,8 @@ void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone(
                                                                   "sub_ecu_eeprom_denso_sh7058_can_diesel",
                                                                   "sub_ecu_hitachi_m32r_can",
                                                                   "sub_tcu_hitachi_m32r_kline",
+                                                                  "sub_ecu_unisia_jecs_m3779x",
+                                                                  "sub_ecu_unisia_jecs_m3775x",
                                                                   "sub_tcu_hitachi_m32r_can",
                                                                   "sub_tcu_cvt_hitachi_m32r_can",
                                                                   "sub_tcu_cvt_mitsu_mh8111_can",
@@ -300,6 +304,53 @@ void FlashWorkflowTest::successfulReadBytesAreAcceptedAutomatically()
     auto done = workflow->next();
     QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
     QCOMPARE(std::get<FlashCompletedStep>(done).accepted_read_bytes, bytes::Bytes({1, 2, 3}));
+}
+
+void FlashWorkflowTest::unisiaJecsRoutesOnlyExactProtocolMcuPairs()
+{
+    static constexpr auto pairs = std::to_array<std::pair<const char *, const char *>>({
+        {"sub_ecu_unisia_jecs_m3779x", "M3779x"},
+        {"sub_ecu_unisia_jecs_m3775x", "M3775x"},
+    });
+
+    for (const auto& [protocol, mcu] : pairs)
+    {
+        auto input = request(protocol);
+        input.mcu = mcu;
+        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        QVERIFY2(workflow != nullptr, protocol);
+        QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+        workflow->submit(FlashPromptResponse::Accept);
+        auto step = workflow->next();
+        QVERIFY(std::holds_alternative<FlashAttempt>(step));
+        const auto& plan = std::get<FlashAttempt>(step).attempt->plan();
+        QCOMPARE(plan.family(), FlashFamily::SubaruUnisiaJecs);
+        QCOMPARE(plan.transport(), TransportKind::Kline);
+        QCOMPARE(plan.target_id(), protocol);
+        QCOMPARE(plan.mcu_name(), mcu);
+    }
+
+    QVERIFY(FlashWorkflowFactory::tryCreate(request("sub_ecu_unisia_jecs_m3779x_suffix")) == nullptr);
+    QVERIFY(FlashWorkflowFactory::tryCreate(request("sub_ecu_unisia_jecs_m3775x_suffix")) == nullptr);
+}
+
+void FlashWorkflowTest::unisiaJecsCrossPairsFailBeforeAttempt()
+{
+    static constexpr auto cross_pairs = std::to_array<std::pair<const char *, const char *>>({
+        {"sub_ecu_unisia_jecs_m3779x", "M3775x"},
+        {"sub_ecu_unisia_jecs_m3775x", "M3779x"},
+    });
+
+    for (const auto& [protocol, mcu] : cross_pairs)
+    {
+        auto input = request(protocol);
+        input.mcu = mcu;
+        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        QVERIFY2(workflow != nullptr, protocol);
+        auto step = workflow->next();
+        QVERIFY(std::holds_alternative<FlashFailureStep>(step));
+        QCOMPARE(std::get<FlashFailureStep>(step).error.kind, ErrorKind::InvalidConfig);
+    }
 }
 
 void FlashWorkflowTest::subaruMitsuPropagatesRomId()
