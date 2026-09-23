@@ -27,6 +27,7 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh72543r_can_types.h"
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_types.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_types.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_types.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 
 namespace fastecu::flash
@@ -73,6 +74,8 @@ enum class FlashFamily
     SubaruTcuHitachiM32rCan,
     SubaruHitachiSh72543rCan,
     SubaruHitachiSh7058,
+    // Step 5 tail, wave 6b-1.
+    SubaruUnisiaJecs,
 };
 
 enum class TransportKind
@@ -143,7 +146,7 @@ using FamilyPlan =
                  SubaruDensoSh72543CanDieselPlan, SubaruDenso1n83m_4mCanPlan, SubaruDensoSh705xDensoCanPlan,
                  SubaruTcuDensoSh705xCanPlan, SubaruDensoSh7058CanPlan, SubaruDensoSh7058CanDieselPlan,
                  SubaruTcuHitachiM32rKlinePlan, SubaruTcuHitachiM32rCanPlan, SubaruHitachiSh72543rCanPlan,
-                 SubaruHitachiSh7058KlinePlan, SubaruHitachiSh7058CanPlan>;
+                 SubaruHitachiSh7058KlinePlan, SubaruHitachiSh7058CanPlan, SubaruUnisiaJecsPlan>;
 
 // The FlashFamily tag and TransportKind each plan alternative belongs to.
 //
@@ -285,6 +288,12 @@ template <> struct FamilyTraits<SubaruTcuHitachiM32rCanPlan>
     static constexpr TransportKind transport = TransportKind::CanIso15765;
 };
 
+template <> struct FamilyTraits<SubaruUnisiaJecsPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruUnisiaJecs;
+    static constexpr TransportKind transport = TransportKind::Kline;
+};
+
 template <> struct FamilyTraits<SubaruHitachiSh72543rCanPlan>
 {
     static constexpr FlashFamily family = FlashFamily::SubaruHitachiSh72543rCan;
@@ -368,5 +377,6 @@ template <> inline constexpr bool family_requires_kernel_v<SubaruTcuHitachiM32rC
 template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiSh72543rCanPlan> = false;
 template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiSh7058KlinePlan> = false;
 template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiSh7058CanPlan> = false;
+template <> inline constexpr bool family_requires_kernel_v<SubaruUnisiaJecsPlan> = false;
 
 } // namespace fastecu::flash

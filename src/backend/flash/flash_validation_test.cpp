@@ -69,9 +69,9 @@ struct FamilyCase
     std::string_view id;
 };
 
-const std::array<FamilyCase, 24>& family_cases()
+const std::array<FamilyCase, 25>& family_cases()
 {
-    static const std::array<FamilyCase, 24> cases{{
+    static const std::array<FamilyCase, 25> cases{{
         {FlashFamily::DensoSh705xEepromKline, TransportKind::Kline,
          DensoSh705xEepromKlinePlan{.mode = EepromReadMode::Mode2,
                                     .security = DensoSecurityVariant::Stock,
@@ -210,6 +210,8 @@ const std::array<FamilyCase, 24>& family_cases()
         {FlashFamily::SubaruHitachiSh7058, TransportKind::Kline, SubaruHitachiSh7058KlinePlan{}, "SubaruHitachiSh7058"},
         {FlashFamily::SubaruHitachiSh7058, TransportKind::CanIso15765, SubaruHitachiSh7058CanPlan{},
          "SubaruHitachiSh7058"},
+        {FlashFamily::SubaruUnisiaJecs, TransportKind::Kline,
+         SubaruUnisiaJecsPlan{.initial_baud = 1953, .even_parity = true}, "SubaruUnisiaJecs"},
     }};
     return cases;
 }
