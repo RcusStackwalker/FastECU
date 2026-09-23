@@ -35,16 +35,17 @@ other.
   run must stop promptly, close the transport, leave the ECU responsive after a
   power cycle, and save no apparently complete ROM.
 - Disconnect or block the adapter during a raw read, then restore it. Confirm the
-  operation terminates or resumes only according to the bounded retry policy and
-  never hangs indefinitely.
+  operation keeps its 500 ms retransmission cadence and remains cancellable; it
+  must never manufacture a byte or advance to the next address.
 
 ## 4. Address boundaries and recovery
 
 - Inspect requests and returned bytes at `00ff`, `0100`, and `ffff`; confirm raw
   two-byte address rollover and exact byte placement in the saved image.
 - Inject silence, short replies, echo/noise, and overlapping false sync tuples.
-  Confirm parser resynchronization, the 100-quantum retry limit, and a clear
-  failure when recovery is exhausted.
+  Confirm parser resynchronization and retransmission after every 100 empty 5 ms
+  reads. Because recovery has no attempt limit, cancellation or a transport error
+  must terminate a stream that never contains the requested address.
 - Verify that retrying an address neither duplicates nor skips a byte and that
   parser synchronization remains correct across read-call boundaries.
 

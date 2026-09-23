@@ -16,6 +16,7 @@ constexpr std::array<bytes::Byte, 4> kWakeup{0x78, 0x12, 0x34, 0x00};
 constexpr auto kWakeupDelay = 500ms;
 constexpr auto kWakeupFlushTimeout = 1000ms;
 constexpr auto kAddressDelay = 45ms;
+constexpr auto kInterAddressDelay = 1ms;
 constexpr auto kRawReadTimeout = 5ms;
 constexpr unsigned kReadsBeforeRetry = 100;
 constexpr std::uint32_t kRomSize = 0x10000;
@@ -92,6 +93,14 @@ Result<bytes::Byte> read_address(std::uint16_t address, RawReadState& state, IKl
                 state.tuples_since_sync = 0;
             }
         }
+        if (read_quanta == kReadsBeforeRetry)
+        {
+            if (auto written = write_exact(transport, request, true); !written.has_value())
+            {
+                return std::unexpected(written.error());
+            }
+            read_quanta = 0;
+        }
 
         auto chunk = transport.read_raw(kRawReadTimeout, cancellation);
         if (!chunk.has_value())
@@ -106,14 +115,7 @@ Result<bytes::Byte> read_address(std::uint16_t address, RawReadState& state, IKl
         {
             state.pending.insert(state.pending.end(), (**chunk).begin(), (**chunk).end());
         }
-        if (++read_quanta == kReadsBeforeRetry)
-        {
-            if (auto written = write_exact(transport, request, true); !written.has_value())
-            {
-                return std::unexpected(written.error());
-            }
-            read_quanta = 0;
-        }
+        ++read_quanta;
     }
 }
 } // namespace
@@ -143,6 +145,10 @@ Result<bytes::Bytes> SubaruUnisiaJecsExecutor::read_range(std::uint32_t begin, s
         }
         image.push_back(*value);
         events.progress(static_cast<int>(address - begin + 1U), static_cast<int>(end - begin));
+        if (auto slept = clock.sleep(kInterAddressDelay, cancellation); !slept.has_value())
+        {
+            return std::unexpected(slept.error());
+        }
     }
     return image;
 }

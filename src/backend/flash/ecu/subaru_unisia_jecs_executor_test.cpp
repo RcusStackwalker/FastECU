@@ -160,7 +160,7 @@ TEST(SubaruUnisiaJecsExecutor, ReadsEveryAddressThroughRawTransport)
     EXPECT_EQ(result->read_bytes->at(0x00ff), 0xff);
     EXPECT_EQ(result->read_bytes->at(0x0100), 0x01);
     EXPECT_EQ(result->read_bytes->at(0xffff), 0x00);
-    EXPECT_EQ(clock.elapsed(), 500ms + 0x10000 * 45ms);
+    EXPECT_EQ(clock.elapsed(), 500ms + 0x10000 * 46ms);
     EXPECT_EQ(events.progress_calls.front(), std::pair(1, 0x10000));
     EXPECT_EQ(events.progress_calls.back(), std::pair(0x10000, 0x10000));
     EXPECT_TRUE(transport.scriptConsumed());
@@ -236,6 +236,28 @@ TEST(SubaruUnisiaJecsExecutor, RetransmitsAfterOneHundredEmptyRawReads)
     expected.insert(expected.end(), 100, 'R');
     expected.push_back('W');
     expected.push_back('R');
+    EXPECT_EQ(transport.trace, expected);
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(SubaruUnisiaJecsExecutor, ParsesReplyOnHundredthReadBeforeRetransmitting)
+{
+    TracingRawTransport transport{ScriptedTransportInitialState::Open};
+    expect_raw(transport, {0x78, 0x12, 0x34, 0x00});
+    for (int i = 0; i < 99; ++i)
+    {
+        queue_raw(transport, {});
+    }
+    queue_raw(transport, {0x12, 0x34, 0xab});
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+    const auto bytes =
+        SubaruUnisiaJecsExecutorTestPeer::read_range(0x1234, 0x1235, transport, clock, cancellation, events);
+    ASSERT_THAT(bytes, fastecu::testing::IsOk());
+    EXPECT_THAT(*bytes, ::testing::ElementsAre(0xab));
+    std::vector<char> expected{'W'};
+    expected.insert(expected.end(), 100, 'R');
     EXPECT_EQ(transport.trace, expected);
     EXPECT_TRUE(transport.scriptConsumed());
 }
