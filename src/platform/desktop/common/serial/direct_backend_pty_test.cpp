@@ -121,7 +121,22 @@ void TestDirectBackendPty::ptyParityChangesWhileOpen()
     SerialPortActionsDirect direct;
     const int master = openPtyBackend(direct);
     QVERIFY(master >= 0);
-    QVERIFY(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::EvenParity)));
+    QVERIFY(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
+    QCOMPARE(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
+
+    const bool evenParitySet = direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::EvenParity));
+#if defined(__linux__)
+    // Linux PTYs have no parity hardware and may reject PARENB. Keep testing
+    // the open-port NoParity path when this PTY cannot accept even parity.
+    if (!evenParitySet)
+    {
+        QVERIFY(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
+        QCOMPARE(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
+        ::close(master);
+        return;
+    }
+#endif
+    QVERIFY(evenParitySet);
     QCOMPARE(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::EvenParity));
     QVERIFY(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
     QCOMPARE(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
