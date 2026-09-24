@@ -867,6 +867,7 @@ cc_library(
         ":denso_sh705x_kline_common",
         ":subaru_denso_sh705x_kline_plan",
         "//src/algorithms/checksum",
+        "//src/algorithms/diagnostics",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/definitions:models",
