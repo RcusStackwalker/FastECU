@@ -859,6 +859,43 @@ fastecu_portable_gtest(
     ],
 )
 
+cc_library(
+    name = "subaru_denso_sh705x_kline_executor",
+    srcs = ["subaru_denso_sh705x_kline_executor.cpp"],
+    hdrs = ["subaru_denso_sh705x_kline_executor.h"],
+    deps = [
+        ":denso_sh705x_kline_common",
+        ":subaru_denso_sh705x_kline_plan",
+        "//src/algorithms/checksum",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_sh705x_kline_executor_test",
+    srcs = ["subaru_denso_sh705x_kline_executor_test.cpp"],
+    deps = [
+        ":subaru_denso_sh705x_kline_executor",
+        ":subaru_denso_sh705x_kline_plan",
+        "//src/algorithms/checksum",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
 # Hand-written (not single_window_plan): the erase-region set diverges from a
 # single write window once Task 4 adds the per-block (3-10) decomposition, and
 # single_window_plan cannot express that -- see subaru_denso_sh7058_can_plan.cpp

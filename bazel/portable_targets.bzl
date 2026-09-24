@@ -72,6 +72,7 @@ PORTABLE_PACKAGES = {
         "subaru_denso_sh705x_densocan_executor",
         "subaru_denso_sh705x_densocan_plan",
         "subaru_denso_sh705x_densocan_types",
+        "subaru_denso_sh705x_kline_executor",
         "subaru_denso_sh705x_kline_plan",
         "subaru_denso_sh705x_kline_types",
         "subaru_denso_sh72531_can_executor",
