@@ -21,7 +21,8 @@ const QColor MainWindow::RED_LIGHT_ON = QColor(255, 64, 64);
 const QColor MainWindow::YELLOW_LIGHT_ON = QColor(223, 223, 64);
 const QColor MainWindow::GREEN_LIGHT_ON = QColor(64, 255, 64);
 
-MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, QWidget *parent)
+MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, QWidget *parent,
+                       const QString& config_root)
     : QMainWindow(parent), peerAddress(peerAddress), peerPassword(peerPassword), ui{std::make_unique<Ui::MainWindow>()}
 {
     ui->setupUi(this);
@@ -66,7 +67,8 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
                                                 m_definitionFileWriter, fileActionsEvents_);
     configValues = &fileActions->ConfigValuesStruct;
 
-    fileActions->set_base_dirs(configValues, configValues->base_config_directory.toStdString());
+    fileActions->set_base_dirs(
+        configValues, (config_root.isEmpty() ? configValues->base_config_directory : config_root).toStdString());
 
     software_name = configValues->software_name;
     software_title = configValues->software_title;
@@ -999,12 +1001,12 @@ int MainWindow::can_listener()
     uint8_t id = 0xE0;
 
     output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
+    output.append('\0');
+    output.append('\0');
     output.append((uint8_t)0x07);
     output.append((uint8_t)id);
     output.append((uint8_t)0x01);
-    output.append((uint8_t)0x00);
+    output.append('\0');
 
     while (can_listener_on)
     {
