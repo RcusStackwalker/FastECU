@@ -1441,6 +1441,24 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "denso_sh705x_kline_common",
+    hdrs = ["denso_sh705x_kline_common.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "denso_sh705x_kline_common_test",
+    srcs = ["denso_sh705x_kline_common_test.cpp"],
+    deps = [
+        ":denso_sh705x_kline_common",
+        "//src/algorithms/protocol/ssm",
+    ],
+)
+
+cc_library(
     name = "subaru_denso_1n83m_1_5m_can_executor",
     srcs = ["subaru_denso_1n83m_1_5m_can_executor.cpp"],
     hdrs = ["subaru_denso_1n83m_1_5m_can_executor.h"],

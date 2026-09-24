@@ -172,6 +172,32 @@ TEST(ScriptedKlineFlashTransport, ExplicitOpenStateStartsOpenWithoutLifecycleCal
     EXPECT_EQ(transport.close_call_count_, 0);
 }
 
+TEST(ScriptedKlineFlashTransport, RecordsResetInLifecycleOrderAndClosesThePort)
+{
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+
+    ASSERT_TRUE(transport.reset_connection().has_value());
+    EXPECT_FALSE(transport.isOpen());
+    ASSERT_TRUE(transport.configure(KlineConfig{.baud = 4800, .iso14230 = false, .tester_id = 0xF0, .target_id = 0x10})
+                    .has_value());
+    ASSERT_TRUE(transport.open().has_value());
+    ASSERT_TRUE(transport.close().has_value());
+
+    EXPECT_EQ(transport.reset_call_count_, 1);
+    EXPECT_THAT(transport.lifecycle_calls_, ::testing::ElementsAre("reset_connection", "configure", "open", "close"));
+}
+
+TEST(ScriptedKlineFlashTransport, ResetReturnsItsScriptedFailure)
+{
+    ScriptedKlineFlashTransport transport;
+    transport.reset_result_ = fail(ErrorKind::Disconnected, "scripted reset failure");
+
+    const Status reset = transport.reset_connection();
+
+    ASSERT_FALSE(reset.has_value());
+    EXPECT_EQ(reset.error().kind, ErrorKind::Disconnected);
+}
+
 constexpr MixedCanConfig kMixedCanConfig{
     .kernel = Iso15765Config{.bitrate = 500000, .request_id = 0x7e0, .response_id = 0x7e8, .extended_id = false},
     .bootloader =

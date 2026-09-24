@@ -97,6 +97,31 @@ class TestDesktopKlineFlashTransport : public QObject
 #endif
     }
 
+    // reset_connection() is the SH705x K-Line startup seam. It calls the real
+    // SerialPortActions facade over FakeBackend, as the CAN adapter test does.
+    void resetConnectionReachesTheAdapter()
+    {
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), reset_connection()).WillOnce(::testing::Return());
+
+        DesktopKlineFlashTransport transport(serial.release());
+
+        QVERIFY(transport.reset_connection().has_value());
+    }
+
+    void resetConnectionAfterCloseIsDisconnectedAndTouchesNoBackend()
+    {
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), reset_connection()).Times(0);
+
+        DesktopKlineFlashTransport transport(serial.get()); // non-owning: keep `serial` alive
+        QVERIFY(transport.close().has_value());
+        const auto result = transport.reset_connection();
+
+        QVERIFY(!result.has_value());
+        QCOMPARE(result.error().kind, ErrorKind::Disconnected);
+    }
+
     void lecControlOperationsForwardToSerialBackend()
     {
         FakeBackedSerial serial;

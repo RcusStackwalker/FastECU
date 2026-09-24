@@ -143,18 +143,29 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         return wIdx_;
     }
 
+    Status reset_connection() override
+    {
+        lifecycle_calls_.push_back("reset_connection");
+        ++reset_call_count_;
+        open_ = false;
+        return reset_result_;
+    }
+
     Status configure(const KlineConfig& config) override
     {
+        lifecycle_calls_.push_back("configure");
         last_config_ = config;
         return configure_result_;
     }
     Status open() override
     {
+        lifecycle_calls_.push_back("open");
         open_ = true;
         return open_result_;
     }
     Status close() override
     {
+        lifecycle_calls_.push_back("close");
         ++close_call_count_;
         open_ = false;
         return close_result_;
@@ -283,6 +294,11 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     }
 
     int close_call_count_ = 0;
+    // Lifecycle calls in order, as ScriptedCanFlashTransport records them, so
+    // a test can pin a reset before configure().
+    std::vector<std::string> lifecycle_calls_;
+    int reset_call_count_ = 0;
+    Status reset_result_;
     Status configure_result_;
     Status open_result_;
     Status close_result_;

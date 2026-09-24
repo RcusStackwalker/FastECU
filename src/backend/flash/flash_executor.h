@@ -193,6 +193,13 @@ class IKlineFlashTransport : public IFlashTransport, public mutdma::IKlineTransp
     virtual Status open() = 0;
     virtual Status close() = 0;
 
+    // Every K-Line transport must expose a real reset so protocol-owned
+    // sequences cannot silently degrade into configure/open only. Mirrors
+    // ICanFlashTransport::reset_connection(). Called only from an executor's
+    // before_transport_configure(), never mid-session: the caller still owns
+    // configure/open/close (ADR 0015).
+    virtual Status reset_connection() = 0;
+
     // Hardware control-line operations used by bootloaders that require an
     // explicit LEC reset/pulse sequence before accepting K-Line traffic.
     // They are deliberately semantic rather than exposing the desktop

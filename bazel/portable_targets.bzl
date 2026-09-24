@@ -46,6 +46,7 @@ PORTABLE_PACKAGES = {
     "src/backend/flash/ecu": [
         "denso_beef_can_common",
         "denso_iso15765_can_common",
+        "denso_sh705x_kline_common",
         "mitsu_colt_m32r_can_executor",
         "mitsu_colt_m32r_can_plan",
         "mitsu_colt_m32r_can_types",

@@ -87,6 +87,7 @@ cc_library(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash:flash_executor",
+        "//src/backend/flash/ecu:denso_sh705x_kline_common",
         "//src/backend/ports",
     ],
 )

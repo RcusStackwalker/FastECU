@@ -3,6 +3,7 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
+#include "src/backend/flash/ecu/denso_sh705x_kline_common.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_common.h"
 
 #include <algorithm>
@@ -109,32 +110,6 @@ bool looks_kernel_alive(bytes::ByteView received)
 {
     return received.size() > 4 && bytes::readU16Be(received, 0) == kSubKernelStartComm &&
            received[4] == static_cast<bytes::Byte>(kSubKernelId | 0x40U);
-}
-
-// generate_seed_key(), lines 854-879 (the non-"_ecutek" / stock branch).
-bytes::Bytes generate_stock_seed_key(bytes::ByteView seed)
-{
-    static constexpr std::array<std::uint16_t, 16> kIndex{0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382,
-                                                          0x834F, 0x3608, 0xAFB8, 0x503D, 0xDBA3, 0x9D34,
-                                                          0x3563, 0x6B70, 0x6E74, 0x88F0};
-    return SsmProtocol::calculateSeedKey(seed, kIndex, SsmProtocol::kIndexTransformationStock);
-}
-
-// generate_ecutek_seed_key(), lines 886-911: the same key table as stock,
-// paired with the ECUTEK index transformation.
-bytes::Bytes generate_ecutek_seed_key(bytes::ByteView seed)
-{
-    static constexpr std::array<std::uint16_t, 16> kIndex{0x53DA, 0x33BC, 0x72EB, 0x437D, 0x7CA3, 0x3382,
-                                                          0x834F, 0x3608, 0xAFB8, 0x503D, 0xDBA3, 0x9D34,
-                                                          0x3563, 0x6B70, 0x6E74, 0x88F0};
-    return SsmProtocol::calculateSeedKey(seed, kIndex, SsmProtocol::kIndexTransformationEcutek);
-}
-
-// encrypt_payload(), lines 923-939.
-bytes::Bytes encrypt_kernel_payload(bytes::ByteView buf, std::uint32_t len)
-{
-    static constexpr std::array<std::uint16_t, 4> kIndex{0x7856, 0xCE22, 0xF513, 0x6E86};
-    return SsmProtocol::calculatePayload(buf, len, kIndex, SsmProtocol::kIndexTransformationStock);
 }
 
 // ---------------------------------------------------------------------
@@ -490,8 +465,9 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
     }
     const bytes::Bytes seed(seed_resp->begin() + 6, seed_resp->begin() + 10);
 
-    const bytes::Bytes seed_key = kline_plan.security == DensoSecurityVariant::EcuTek ? generate_ecutek_seed_key(seed)
-                                                                                      : generate_stock_seed_key(seed);
+    const bytes::Bytes seed_key = kline_plan.security == DensoSecurityVariant::EcuTek
+                                      ? denso_sh705x_kline_ecutek_seed_key(seed)
+                                      : denso_sh705x_kline_stock_seed_key(seed);
 
     events.log(LogLevel::Info, "Sending seed key to ECU");
     Result<bytes::Bytes> key_resp = ssm_exchange(transport, clock, cancellation, sid_27_send_key_request(seed_key),
@@ -586,7 +562,7 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
         return fail(ErrorKind::BadResponse, "kernel upload request rejected");
     }
 
-    const bytes::Bytes encrypted_kernel = encrypt_kernel_payload(padded_kernel, pl_len);
+    const bytes::Bytes encrypted_kernel = denso_sh705x_kline_encrypt_payload(padded_kernel, pl_len);
     events.log(LogLevel::Info, "Transfer kernel data");
     if (Status transferred = transfer_data_blocks(transport, clock, cancellation, tester_id, target_id, start_address,
                                                   encrypted_kernel, pl_len);
@@ -613,7 +589,7 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
     }
 
     const bytes::Bytes cks_bypass{0x00, 0x00, 0x5A, 0xA5};
-    const bytes::Bytes encrypted_bypass = encrypt_kernel_payload(cks_bypass, 4);
+    const bytes::Bytes encrypted_bypass = denso_sh705x_kline_encrypt_payload(cks_bypass, 4);
     if (Status transferred = transfer_data_blocks(transport, clock, cancellation, tester_id, target_id,
                                                   start_address + pl_len, encrypted_bypass, 4);
         !transferred.has_value())
