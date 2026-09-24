@@ -803,82 +803,6 @@ class SubaruDensoSh7055_02Workflow final : public FlashWorkflow
     FlashAttemptOutcome outcome_;
 };
 
-// Wave 6b-2. Resolves the kernel on the first step (a missing kernel fails
-// before any prompt), then the shared Begin prompt -- the legacy dialog's only
-// prompt, "Turn ignition ON" -- then the attempt. No ConfirmationSpec.
-class SubaruDensoSh705xKlineWorkflow final : public FlashWorkflow
-{
-  public:
-    explicit SubaruDensoSh705xKlineWorkflow(FlashWorkflowRequest request) : request_(std::move(request))
-    {
-    }
-
-    FlashWorkflowStep next() override
-    {
-        if (!plan_.has_value())
-        {
-            QtFileRepository repository;
-            Result<KernelImage> kernel = resolveKernel(request_, repository);
-            if (!kernel.has_value())
-            {
-                plan_ = std::unexpected(kernel.error());
-            }
-            else
-            {
-                plan_ = build_subaru_denso_sh705x_kline_plan(request_.operation, request_.protocol, request_.mcu,
-                                                             std::move(request_.image), std::move(*kernel));
-            }
-        }
-        if (!plan_->has_value())
-        {
-            return FlashFailureStep{plan_->error()};
-        }
-        if (outcome_.hasFailure())
-        {
-            return outcome_.takeFailure();
-        }
-        if (outcome_.terminal())
-        {
-            return outcome_.completedStep();
-        }
-        if (!begun_)
-        {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        if (!attempted_)
-        {
-            attempted_ = true;
-            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(**plan_),
-                                                        std::make_unique<SubaruDensoSh705xKlineExecutor>(),
-                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
-                                     std::make_unique<QtClock>()};
-        }
-        return outcome_.completedStep();
-    }
-
-    void submit(FlashPromptResponse response) override
-    {
-        begun_ = true;
-        if (response != FlashPromptResponse::Accept)
-        {
-            outcome_.cancel();
-        }
-    }
-
-    void submit(FlashAttemptResult result) override
-    {
-        outcome_.record(std::move(result));
-    }
-
-  private:
-    FlashWorkflowRequest request_;
-    std::optional<Result<FlashPlan>> plan_;
-    bool begun_ = false;
-    bool attempted_ = false;
-    FlashAttemptOutcome outcome_;
-};
-
 class ColtWorkflow final : public FlashWorkflow
 {
   public:
@@ -1140,6 +1064,13 @@ using SubaruDensoSh7058CanWorkflow =
 using SubaruDensoSh7058CanDieselWorkflow =
     KernelBackedCanFlashWorkflow<SubaruDensoSh7058CanDieselExecutor, &build_subaru_denso_sh7058_can_diesel_plan,
                                  DesktopCanFlashTransport>;
+// Wave 6b-2. The template is transport-parameterised; this family's plans
+// carry no ConfirmationSpec, so the sequence is kernel resolved on the first
+// step, the shared Begin prompt -- the legacy dialog's only prompt, "Turn
+// ignition ON" -- then the attempt.
+using SubaruDensoSh705xKlineWorkflow =
+    KernelBackedCanFlashWorkflow<SubaruDensoSh705xKlineExecutor, &build_subaru_denso_sh705x_kline_plan,
+                                 DesktopKlineFlashTransport>;
 
 class EepromWorkflow final : public FlashWorkflow
 {
