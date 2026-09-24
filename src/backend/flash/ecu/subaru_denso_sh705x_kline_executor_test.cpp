@@ -305,9 +305,12 @@ TEST(SubaruDensoSh705xKlineExecutor, FullSessionIsByteExactWithLegacyBaudsAndTim
 
 TEST(SubaruDensoSh705xKlineExecutor, SessionLogsTheLegacyStrings)
 {
+    // TestWrite: this test pins the session transcript, not the operation
+    // kind. Task 7 wires FlashOperation::Read past the session into
+    // read_mem(), which would add its own notice/log/progress entries here.
     Harness h;
     script_session(h.transport);
-    ASSERT_FALSE(h.run(make_plan(FlashOperation::Read)).has_value());
+    ASSERT_FALSE(h.run(make_plan(FlashOperation::TestWrite)).has_value());
 
     using L = LogLevel;
     const std::vector<std::pair<LogLevel, std::string>> expected{
@@ -388,8 +391,12 @@ TEST(SubaruDensoSh705xKlineExecutor, KernelTransferSplitsInto0x80ByteBlocks)
         h.transport.exchange(ssm(bytes::Bytes{0x31, 0x01, 0x01}), ssm_reply(bytes::Bytes{0x71}));
         h.transport.exchange(kKernelIdRequest, kernel_id_reply());
     }
+    // TestWrite: this test pins the kernel-transfer chunking, not the
+    // operation kind. FlashOperation::Read would continue past the session
+    // into read_mem(), adding its own progress calls to progress_calls.
     auto plan =
-        build_subaru_denso_sh705x_kline_plan(FlashOperation::Read, "sub_ecu_denso_sh7055_04", "SH7055", std::nullopt,
+        build_subaru_denso_sh705x_kline_plan(FlashOperation::TestWrite, "sub_ecu_denso_sh7055_04", "SH7055",
+                                             bytes::Bytes(find_flash_device("SH7055")->romsize, 0xFF),
                                              KernelImage{.id = "k", .load_address = 0xFFFF6004U, .bytes = kernel});
     ASSERT_THAT(plan, IsOk());
     EXPECT_FALSE(h.run(*plan).has_value());
@@ -412,9 +419,12 @@ TEST(SubaruDensoSh705xKlineExecutor, RejectedKernelTransferBlockStops)
 
 TEST(SubaruDensoSh705xKlineExecutor, LiveKernelSkipsHandshakeAndUpload)
 {
+    // TestWrite: pins that a live kernel skips the handshake/upload notices,
+    // not the operation kind -- FlashOperation::Read now emits its own
+    // "Reading ROM, please wait..." notice once the session succeeds.
     Harness h;
     script_probe_alive(h.transport);
-    EXPECT_FALSE(h.run(make_plan(FlashOperation::Read)).has_value());
+    EXPECT_FALSE(h.run(make_plan(FlashOperation::TestWrite)).has_value());
     EXPECT_TRUE(h.transport.scriptConsumed());
     EXPECT_THAT(h.transport.baud_calls_, ::testing::ElementsAre(62500));
     EXPECT_TRUE(h.events.notices.empty());
@@ -423,12 +433,14 @@ TEST(SubaruDensoSh705xKlineExecutor, LiveKernelSkipsHandshakeAndUpload)
 TEST(SubaruDensoSh705xKlineExecutor, MinimalLiveKernelReplyHasAnEmptyId)
 {
     // A 5-byte reply passes legacy's `> 4` check; remove(0, 5) leaves nothing.
+    // TestWrite: this test pins the probe's own logging, not the operation
+    // kind -- FlashOperation::Read now logs and reads on past the session.
     Harness h;
     {
         auto s = h.transport.section("probe");
         h.transport.exchange(kKernelIdRequest, bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x41});
     }
-    EXPECT_FALSE(h.run(make_plan(FlashOperation::Read)).has_value());
+    EXPECT_FALSE(h.run(make_plan(FlashOperation::TestWrite)).has_value());
     EXPECT_TRUE(h.transport.scriptConsumed());
     ASSERT_FALSE(h.events.logs.empty());
     EXPECT_EQ(h.events.logs.back(), (std::pair<LogLevel, std::string>{LogLevel::Info, "Kernel ID: "}));
@@ -612,6 +624,109 @@ TEST(SubaruDensoSh705xKlineExecutor, CancellationBeforeAnySessionWriteSendsNothi
         h.cancellation.set_predicate([&h, k] { return h.transport.writesConsumed() >= k; });
         EXPECT_THAT(h.run(make_plan(FlashOperation::Read)), IsErr(ErrorKind::Cancelled));
         EXPECT_EQ(h.transport.writesConsumed(), k);
+    }
+}
+
+// ---- Read (Task 7) -------------------------------------------------------
+
+// read_mem(): READ_AREA [00, addr24, 0x0400], reply BE EF len 43 <0x400 bytes> sum8.
+bytes::Bytes read_request(std::uint32_t address)
+{
+    return beef(0x03, composeBe(0x00_b, u24(address), std::uint16_t{0x0400}));
+}
+bytes::Bytes page_reply(std::uint32_t address)
+{
+    bytes::Bytes data(0x400);
+    for (std::size_t i = 0; i < data.size(); ++i)
+    {
+        data[i] = static_cast<bytes::Byte>((address >> 10U) + i);
+    }
+    return beef_reply(0x03, data);
+}
+
+TEST(SubaruDensoSh705xKlineExecutor, ReadReturnsTheWholeRomAndTheRomId)
+{
+    Harness h;
+    script_session(h.transport);
+    const std::uint32_t romsize = find_flash_device("SH7055")->romsize;
+    bytes::Bytes expected;
+    for (std::uint32_t address = 0; address < romsize; address += 0x400)
+    {
+        h.transport.exchange(read_request(address), page_reply(address));
+        const bytes::Bytes reply = page_reply(address);
+        expected.insert(expected.end(), reply.begin() + 5, reply.end() - 1);
+    }
+
+    const auto result = h.run(make_plan(FlashOperation::Read));
+
+    ASSERT_THAT(result, IsOk());
+    EXPECT_TRUE(h.transport.scriptConsumed());
+    EXPECT_EQ(result->read_bytes, expected);
+    // execute()/connect_bootloader():206 RomId = ecuid + "_".
+    EXPECT_EQ(result->rom_id, std::optional<std::string>("4142434445_"));
+    // execute():92-93 -- externalLoggerMessage() then LOG_I() before read_mem().
+    EXPECT_THAT(h.events.notices, ::testing::Contains("Reading ROM, please wait..."));
+}
+
+TEST(SubaruDensoSh705xKlineExecutor, ReadWithLiveKernelHasNoRomId)
+{
+    Harness h;
+    script_probe_alive(h.transport);
+    const std::uint32_t romsize = find_flash_device("SH7055")->romsize;
+    for (std::uint32_t address = 0; address < romsize; address += 0x400)
+    {
+        h.transport.exchange(read_request(address), page_reply(address));
+    }
+    const auto result = h.run(make_plan(FlashOperation::Read));
+    ASSERT_THAT(result, IsOk());
+    EXPECT_FALSE(result->rom_id.has_value());
+}
+
+TEST(SubaruDensoSh705xKlineExecutor, ReadRejectsShortBadChecksumAndWrongOpcodePages)
+{
+    bytes::Bytes short_page = page_reply(0);
+    short_page.erase(short_page.begin() + 10); // one data byte missing
+    bytes::Bytes bad_sum = page_reply(0);
+    bad_sum.back() ^= 0x01U;
+    bytes::Bytes wrong_op = page_reply(0);
+    wrong_op[4] = 0x7F;
+    for (const bytes::Bytes& reply : {short_page, bad_sum, wrong_op})
+    {
+        Harness h;
+        script_session(h.transport);
+        h.transport.exchange(read_request(0), reply);
+        // Correction: legacy appended any reply with size > 5.
+        EXPECT_THAT(h.run(make_plan(FlashOperation::Read)), IsErr(ErrorKind::BadResponse));
+        EXPECT_TRUE(h.transport.scriptConsumed()); // no second page requested
+    }
+}
+
+TEST(SubaruDensoSh705xKlineExecutor, ReadPropagatesTransportErrorsAndCancellation)
+{
+    {
+        Harness h;
+        script_session(h.transport);
+        h.transport.expectWrite(read_request(0));
+        h.transport.queue_error(ErrorKind::Disconnected, "unplugged");
+        EXPECT_THAT(h.run(make_plan(FlashOperation::Read)), IsErr(ErrorKind::Disconnected));
+    }
+    {
+        Harness h;
+        script_session(h.transport);
+        h.transport.expectWrite(read_request(0));
+        h.transport.queue_no_frame();
+        EXPECT_THAT(h.run(make_plan(FlashOperation::Read)), IsErr(ErrorKind::Timeout));
+    }
+    {
+        Harness h;
+        script_session(h.transport);
+        h.transport.exchange(read_request(0), page_reply(0));
+        h.transport.exchange(read_request(0x400), page_reply(0x400));
+        // Cancel once the second page request is out: its reply is never read
+        // and no third page is requested.
+        h.cancellation.set_predicate([&h] { return h.transport.writesConsumed() >= kSessionWrites + 2; });
+        EXPECT_THAT(h.run(make_plan(FlashOperation::Read)), IsErr(ErrorKind::Cancelled));
+        EXPECT_EQ(h.transport.writesConsumed(), kSessionWrites + 2);
     }
 }
 

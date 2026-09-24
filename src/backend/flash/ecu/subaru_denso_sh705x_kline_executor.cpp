@@ -554,6 +554,37 @@ Result<std::optional<std::string>> start_session(IKlineFlashTransport& transport
     return std::optional<std::string>{std::move(*ecu_id)};
 }
 
+// read_mem():503-640. 24-bit page address, 0x400-byte pages, 3000ms, no settle.
+Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                              IEventSink& events, const MemoryRegion& region)
+{
+    bytes::Bytes rom;
+    rom.reserve(region.length);
+    events.progress(0, static_cast<int>(region.length));
+    for (std::uint32_t address = region.start; address < region.start + region.length; address += kReadPageSize)
+    {
+        const bytes::Bytes request = frame(kOpReadArea, composeBe(0x00_b, u24(address), std::uint16_t(kReadPageSize)));
+        Result<bytes::Bytes> reply =
+            required_exchange(transport, clock, cancellation, request, 0ms, kExtraLongTimeout, "read");
+        if (!reply.has_value())
+        {
+            return std::unexpected(reply.error());
+        }
+        // Correction: require the complete page and its sum8 before accepting it.
+        const bytes::Bytes& page = *reply;
+        if (page.size() != kReadPageSize + 6 || !kernel_reply_ok(page, kOpReadArea, kReadPageSize + 6) ||
+            page.back() != bytes::sum8(bytes::ByteView(page).first(page.size() - 1)))
+        {
+            events.log(LogLevel::Error, "Wrong response from ECU");
+            return fail(ErrorKind::BadResponse, std::format("incomplete or corrupt page at 0x{:06X}", address));
+        }
+        rom.insert(rom.end(), page.begin() + 5, page.end() - 1);
+        events.progress(static_cast<int>(rom.size()), static_cast<int>(region.length));
+    }
+    rom.resize(region.length);
+    return rom;
+}
+
 } // namespace
 
 bytes::Bytes denso_sh705x_kline_balanced_kernel(bytes::ByteView kernel)
@@ -622,7 +653,28 @@ Result<FlashExecutionResult> SubaruDensoSh705xKlineExecutor::execute(const Flash
     {
         return std::unexpected(ecu_id.error());
     }
-    return fail(ErrorKind::Unsupported, "Denso SH705x K-Line operation tail lands in tasks 7-8");
+    if (plan.operation() == FlashOperation::Read)
+    {
+        // :92-93 -- externalLoggerMessage() precedes the LOG_I() the brief
+        // cites; every ported sibling executor keeps both (e.g.
+        // mitsu_colt_m32r_can_executor.cpp:709-710). Not in the task-7 brief's
+        // step-3 snippet; added here to match legacy and the established
+        // pattern (see task-7-report.md).
+        events.notice("Reading ROM, please wait...");
+        events.log(LogLevel::Info, "Reading ROM from Subaru 04 32-bit using K-Line");
+        Result<bytes::Bytes> rom = read_mem(transport, clock, cancellation, events, plan.transfer_region());
+        if (!rom.has_value())
+        {
+            return std::unexpected(rom.error());
+        }
+        std::optional<std::string> rom_id;
+        if (ecu_id->has_value())
+        {
+            rom_id = **ecu_id + "_"; // connect_bootloader(): RomId = ecuid + "_"
+        }
+        return FlashExecutionResult{.operation = plan.operation(), .read_bytes = std::move(*rom), .rom_id = rom_id};
+    }
+    return fail(ErrorKind::Unsupported, "Denso SH705x K-Line write lands in task 8");
 }
 
 } // namespace fastecu::flash
