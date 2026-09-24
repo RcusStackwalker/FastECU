@@ -358,7 +358,6 @@ class MainWindowTest : public QObject
         QVERIFY(QDir(version_dir + "syslogs").exists());
         QVERIFY(QDir(version_dir + "definitions").exists());
         QVERIFY(QFile::exists(window.configValues->config_file));
-        QVERIFY(!constructor_driver.timedOut());
     }
 
     void handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePolling_data()

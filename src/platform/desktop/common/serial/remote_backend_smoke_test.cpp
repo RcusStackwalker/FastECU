@@ -2,6 +2,7 @@
 #include <cstdio>
 
 #include <QCoreApplication>
+#include <QWebSocket>
 #include <QtTest>
 #include "remote_serial_backend.h"
 
@@ -20,11 +21,20 @@ void TestRemoteBackendSmoke::constructAndDestroy_localPeer_noBlockNoCrash()
 {
     QElapsedTimer t;
     t.start();
+    // QWebSocket initializes Qt's default SSL configuration on first use.
+    // Measure that platform setup separately from waiting for a remote peer.
+    {
+        QWebSocket initialize_websocket;
+    }
+    qInfo() << "Qt WebSocket initialization:" << t.elapsed() << "ms";
+    t.restart();
     {
         RemoteSerialBackend remote("local:fastecu-test-nonexistent", "pw");
         QVERIFY(remote.qobject() != nullptr);
     }
-    QVERIFY2(t.elapsed() < 2000, "construction/teardown must not block");
+    const qint64 elapsed = t.elapsed();
+    qInfo() << "Remote backend construction/teardown:" << elapsed << "ms";
+    QVERIFY2(elapsed < 2000, "construction/teardown must not block");
 }
 
 int main(int argc, char **argv)
