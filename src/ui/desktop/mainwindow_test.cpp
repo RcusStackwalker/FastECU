@@ -220,6 +220,8 @@ class MainWindowTest : public QObject
         // the fixture's home takes both.
         QVERIFY(qputenv("HOME", home_.path().toUtf8()));
         QVERIFY(qputenv("USERPROFILE", home_.path().toUtf8()));
+        qInfo() << "Fixture home:" << home_.path() << "Qt home:" << QDir::homePath()
+                << "Default config:" << FileActions::ConfigValuesStructure{}.config_files_base_directory;
         QCOMPARE(QDir::homePath(), home_.path());
 
         // ConfigValuesStructure builds this from QDir::homePath() with the

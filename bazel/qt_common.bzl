@@ -79,7 +79,9 @@ def fastecu_qttest(
         srcs = [src],
         copts = COMMON_COPTS + copts,
         data = data,
-        env = env,
+        # Without a console, QtTest sends Windows results to OutputDebugString
+        # instead of the streams captured by Bazel, leaving failed logs empty.
+        env = {"QT_FORCE_STDERR_LOGGING": "1"} | env,
         size = size,
         tags = tags,
         target_compatible_with = target_compatible_with,
