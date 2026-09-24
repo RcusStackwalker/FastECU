@@ -214,22 +214,12 @@ class MainWindowTest : public QObject
   private slots:
     void initTestCase()
     {
-        QVERIFY(home_.isValid());
-        // Qt resolves QDir::homePath() from HOME on Unix, but on Windows it
-        // reads USERPROFILE first and only falls back to HOME, so redirecting
-        // the fixture's home takes both.
-        QVERIFY(qputenv("HOME", home_.path().toUtf8()));
-        QVERIFY(qputenv("USERPROFILE", home_.path().toUtf8()));
-        qInfo() << "Fixture home:" << home_.path() << "Qt home:" << QDir::homePath()
-                << "Default config:" << FileActions::ConfigValuesStructure{}.config_files_base_directory;
-        QCOMPARE(QDir::homePath(), home_.path());
-
-        // ConfigValuesStructure builds this from QDir::homePath() with the
-        // per-platform layout -- .config/FastECU on Unix, AppData/Local/FastECU
-        // on Windows -- so taking the directory from a default-constructed one
-        // puts the fixture wherever MainWindow will actually read it, on either
-        // platform and without spelling the version out a second time.
-        const QString config_dir = FileActions::ConfigValuesStructure{}.config_files_base_directory;
+        QVERIFY(config_root_.isValid());
+        // Pass the fixture root explicitly: Qt resolves the Windows home from
+        // the account profile before trying HOME/USERPROFILE fallbacks.
+        const QString config_dir =
+            config_root_.path() + "/" + FileActions::ConfigValuesStructure{}.software_version + "/config/";
+        qInfo() << "Fixture config:" << config_dir << "Qt home:" << QDir::homePath();
         QVERIFY(QDir().mkpath(config_dir));
         QVERIFY(writeTextFile(config_dir + "fastecu.cfg",
                               R"(<?xml version="1.0" encoding="UTF-8"?>
@@ -347,9 +337,27 @@ class MainWindowTest : public QObject
   </car_models>
 </config>
 )"));
-        const QString kernel_dir = home_.path() + "/kernels/";
+        const QString kernel_dir = config_root_.path() + "/kernels/";
         QVERIFY(QDir().mkpath(kernel_dir));
         QVERIFY(writeTextFile(kernel_dir + "test-kernel.bin", "ABCD"));
+    }
+
+    void explicitConfigRootLoadsFixtureAndProvisionsDirectories()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        MainWindow window{"", "", nullptr, config_root_.path()};
+        constructor_driver.stop();
+
+        const QString version_dir = config_root_.path() + "/" + window.software_version + "/";
+        QCOMPARE(window.configValues->base_config_directory, config_root_.path());
+        QCOMPARE(window.configValues->config_file, version_dir + "config/fastecu.cfg");
+        QCOMPARE(window.configValues->flash_protocol_model, QStringList{"Test"});
+        QCOMPARE(window.configValues->syslog_files_directory, version_dir + "syslogs/");
+        QVERIFY(QDir(version_dir + "syslogs").exists());
+        QVERIFY(QDir(version_dir + "definitions").exists());
+        QVERIFY(QFile::exists(window.configValues->config_file));
+        QVERIFY(!constructor_driver.timedOut());
     }
 
     void handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePolling_data()
@@ -367,7 +375,7 @@ class MainWindowTest : public QObject
 
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
-        MainWindow window;
+        MainWindow window{"", "", nullptr, config_root_.path()};
         constructor_driver.stop();
 
         FakeBackend *fake = nullptr;
@@ -403,7 +411,7 @@ class MainWindowTest : public QObject
         window.configValues->flash_protocol_selected_id = "0";
         window.configValues->flash_protocol_kernel = {"tcu_kernel.bin"};
         window.configValues->flash_protocol_kernel_addr = {"0x100000"};
-        window.configValues->kernel_files_directory = home_.path() + "/kernels/";
+        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
 
         ModalDriver operation_driver{choice};
         operation_driver.start();
@@ -430,7 +438,7 @@ class MainWindowTest : public QObject
         QFETCH(QString, protocol);
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
-        MainWindow window;
+        MainWindow window{"", "", nullptr, config_root_.path()};
         constructor_driver.stop();
 
         FakeBackend *fake = nullptr;
@@ -452,7 +460,7 @@ class MainWindowTest : public QObject
         window.configValues->flash_protocol_selected_id = "0";
         window.configValues->flash_protocol_kernel = {"test-kernel.bin"};
         window.configValues->flash_protocol_kernel_addr = {"0xFFFF3000"};
-        window.configValues->kernel_files_directory = home_.path() + "/kernels/";
+        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
 
         ModalDriver operation_driver{QString()};
         operation_driver.start();
@@ -478,7 +486,7 @@ class MainWindowTest : public QObject
         QFETCH(QString, protocol);
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
-        MainWindow window;
+        MainWindow window{"", "", nullptr, config_root_.path()};
         constructor_driver.stop();
 
         FakeBackend *fake = nullptr;
@@ -500,7 +508,7 @@ class MainWindowTest : public QObject
         window.configValues->flash_protocol_selected_id = "0";
         window.configValues->flash_protocol_kernel = {"test-kernel.bin"};
         window.configValues->flash_protocol_kernel_addr = {"0xFFFF3000"};
-        window.configValues->kernel_files_directory = home_.path() + "/kernels/";
+        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
 
         ModalDriver operation_driver{QString()};
         operation_driver.start();
@@ -530,7 +538,7 @@ class MainWindowTest : public QObject
         QFETCH(QString, kernel_address);
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
-        MainWindow window;
+        MainWindow window{"", "", nullptr, config_root_.path()};
         constructor_driver.stop();
 
         FakeBackend *fake = nullptr;
@@ -552,7 +560,7 @@ class MainWindowTest : public QObject
         window.configValues->flash_protocol_selected_id = "0";
         window.configValues->flash_protocol_kernel = {"test-kernel.bin"};
         window.configValues->flash_protocol_kernel_addr = {kernel_address};
-        window.configValues->kernel_files_directory = home_.path() + "/kernels/";
+        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
 
         ModalDriver operation_driver{QString()};
         operation_driver.start();
@@ -565,7 +573,7 @@ class MainWindowTest : public QObject
     }
 
   private:
-    QTemporaryDir home_;
+    QTemporaryDir config_root_;
 };
 
 QTEST_MAIN(MainWindowTest)

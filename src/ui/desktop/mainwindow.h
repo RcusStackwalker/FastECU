@@ -114,7 +114,9 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
   public:
-    MainWindow(const QString& peerAddress = "", const QString& peerPassword = "", QWidget *parent = nullptr);
+    // An empty config_root uses the platform's default FastECU directory.
+    MainWindow(const QString& peerAddress = "", const QString& peerPassword = "", QWidget *parent = nullptr,
+               const QString& config_root = {});
     ~MainWindow();
 
     void delay(int n);
