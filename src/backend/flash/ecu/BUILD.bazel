@@ -828,6 +828,37 @@ fastecu_portable_gtest(
     ],
 )
 
+cc_library(
+    name = "subaru_denso_sh705x_kline_types",
+    hdrs = ["subaru_denso_sh705x_kline_types.h"],
+)
+
+cc_library(
+    name = "subaru_denso_sh705x_kline_plan",
+    srcs = ["subaru_denso_sh705x_kline_plan.cpp"],
+    hdrs = ["subaru_denso_sh705x_kline_plan.h"],
+    deps = [
+        ":subaru_denso_sh705x_kline_types",
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_sh705x_kline_plan_test",
+    srcs = ["subaru_denso_sh705x_kline_plan_test.cpp"],
+    deps = [
+        ":subaru_denso_sh705x_kline_plan",
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
 # Hand-written (not single_window_plan): the erase-region set diverges from a
 # single write window once Task 4 adds the per-block (3-10) decomposition, and
 # single_window_plan cannot express that -- see subaru_denso_sh7058_can_plan.cpp
