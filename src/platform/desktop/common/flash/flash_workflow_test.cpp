@@ -10,6 +10,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 #include "src/backend/calibration/calibration_service.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
@@ -101,6 +102,18 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, 
       <ecu>Denso SH7059 diesel</ecu><mcu>SH7059d</mcu>
       <kernel>catalog_diesel_sh7059.bin</kernel><kernel_addr>0xFFFEE000</kernel_addr>
     </protocol>
+    <protocol name="sub_ecu_denso_sh7055_04" alias="sti04">
+      <ecu>Denso SH7055</ecu><mcu>SH7055</mcu>
+      <kernel>catalog_kline_sh7055.bin</kernel><kernel_addr>0xFFFF6004</kernel_addr>
+    </protocol>
+    <protocol name="sub_ecu_denso_sh7058_ecutek" alias="sti05_ecutek">
+      <ecu>Denso SH7058</ecu><mcu>SH7058</mcu>
+      <kernel>catalog_kline_sh7058.bin</kernel><kernel_addr>0xFFFF3000</kernel_addr>
+    </protocol>
+    <protocol name="sub_ecu_denso_sh7058_cobb" alias="sti05_cobb">
+      <ecu>Denso SH7058</ecu><mcu>SH7058</mcu>
+      <kernel>catalog_kline_sh7058.bin</kernel><kernel_addr>0xFFFF3000</kernel_addr>
+    </protocol>
   </protocols>
   <car_models>
     <car_model><make>Subaru</make><model>Impreza</model><version>WRX</version>
@@ -127,7 +140,9 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, 
             !writeFile(kernel_directory + "/catalog_tcu_sh7058.bin", QByteArray::fromHex("50607080")) ||
             !writeFile(kernel_directory + "/catalog_petrol_sh7058.bin", QByteArray::fromHex("90a0b0c0")) ||
             !writeFile(kernel_directory + "/catalog_diesel_sh7058.bin", QByteArray::fromHex("d0e0f001")) ||
-            !writeFile(kernel_directory + "/catalog_diesel_sh7059.bin", QByteArray::fromHex("d0e0f002")))
+            !writeFile(kernel_directory + "/catalog_diesel_sh7059.bin", QByteArray::fromHex("d0e0f002")) ||
+            !writeFile(kernel_directory + "/catalog_kline_sh7055.bin", QByteArray::fromHex("aabbccdd")) ||
+            !writeFile(kernel_directory + "/catalog_kline_sh7058.bin", QByteArray::fromHex("01020304")))
         {
             return std::nullopt;
         }
@@ -234,6 +249,9 @@ class FlashWorkflowTest : public QObject
     void mc68CalibrationPaddingRoundTripsToPackedWriteImage();
     void sh7055TestWriteWithPortableImageReachesPromptsAndAttempt();
     void mc68TpuReadResolvesCatalogAndReachesAttempt();
+    void densoSh705xKlineRoutesExactProtocolsThroughBeginToAttempt();
+    void densoSh705xKlineCobbReadFailsBeforeAttempt();
+    void densoSh705xKlineIgnoresPrefixLookalikes();
 };
 
 void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone()
@@ -1498,6 +1516,87 @@ void FlashWorkflowTest::mc68TpuReadResolvesCatalogAndReachesAttempt()
     QVERIFY(kernel.has_value());
     QCOMPARE(kernel->load_address, 0x20000U);
     QCOMPARE(kernel->bytes, bytes::Bytes({0x44, 0x55, 0x66}));
+}
+
+void FlashWorkflowTest::densoSh705xKlineRoutesExactProtocolsThroughBeginToAttempt()
+{
+    struct Case
+    {
+        const char *protocol;
+        const char *mcu;
+        FlashOperation operation;
+        SubaruDensoSh705xKlineSeedKey seed_key;
+        bytes::Bytes kernel;
+    };
+    const std::vector<Case> cases{
+        {"sub_ecu_denso_sh7055_04",
+         "SH7055",
+         FlashOperation::Read,
+         SubaruDensoSh705xKlineSeedKey::Stock,
+         {0xaa, 0xbb, 0xcc, 0xdd}},
+        {"sub_ecu_denso_sh7058_ecutek",
+         "SH7058",
+         FlashOperation::Read,
+         SubaruDensoSh705xKlineSeedKey::EcuTek,
+         {0x01, 0x02, 0x03, 0x04}},
+        {"sub_ecu_denso_sh7058_cobb",
+         "SH7058",
+         FlashOperation::TestWrite,
+         SubaruDensoSh705xKlineSeedKey::Stock,
+         {0x01, 0x02, 0x03, 0x04}},
+    };
+    for (const Case& c : cases)
+    {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const auto paths = catalogPaths(directory);
+        QVERIFY(paths.has_value());
+        auto input = request(c.protocol, c.operation);
+        input.mcu = c.mcu;
+        input.paths = *paths;
+        if (c.operation != FlashOperation::Read)
+        {
+            input.image = bytes::Bytes(std::size_t{1024} * 1024, 0xff);
+        }
+        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        QVERIFY2(workflow != nullptr, c.protocol);
+
+        QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+        workflow->submit(FlashPromptResponse::Accept);
+        auto step = workflow->next();
+        QVERIFY2(std::holds_alternative<FlashAttempt>(step), c.protocol);
+        const auto& plan = std::get<FlashAttempt>(step).attempt->plan();
+        QCOMPARE(plan.family(), FlashFamily::SubaruDensoSh705xKline);
+        QCOMPARE(plan.target_id(), std::string(c.protocol));
+        QVERIFY(plan.kernel().has_value());
+        QCOMPARE(plan.kernel()->bytes, c.kernel);
+        QCOMPARE(std::get<SubaruDensoSh705xKlinePlan>(plan.family_plan()).seed_key, c.seed_key);
+    }
+}
+
+void FlashWorkflowTest::densoSh705xKlineCobbReadFailsBeforeAttempt()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    auto input = request("sub_ecu_denso_sh7058_cobb");
+    input.mcu = "SH7058";
+    input.paths = *paths;
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+    auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(step));
+    QCOMPARE(std::get<FlashFailureStep>(step).error.kind, ErrorKind::Unsupported);
+}
+
+void FlashWorkflowTest::densoSh705xKlineIgnoresPrefixLookalikes()
+{
+    for (const char *near_miss :
+         {"sub_ecu_denso_sh7055_04_future", "sub_ecu_denso_sh7058_extra", "sub_ecu_denso_sh7058_ecutek_racerom"})
+    {
+        QVERIFY2(FlashWorkflowFactory::tryCreate(request(near_miss)) == nullptr, near_miss);
+    }
 }
 
 } // namespace
