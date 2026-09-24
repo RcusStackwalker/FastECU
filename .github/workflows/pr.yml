@@ -121,6 +121,27 @@ jobs:
         run: |
           bazel test -k --config=release //...
 
+      - name: Diagnose Windows MainWindow test failure
+        if: failure() && runner.os == 'Windows'
+        timeout-minutes: 2
+        shell: pwsh
+        run: |
+          $bin = bazel info --config=release bazel-bin
+          $test = Join-Path $bin 'src/ui/desktop/test_mainwindow.exe'
+          if (!(Test-Path $test)) { exit 0 }
+          $env:QT_FORCE_STDERR_LOGGING = '1'
+          $env:QT_QPA_PLATFORM = 'offscreen'
+          $log = Join-Path $env:RUNNER_TEMP 'mainwindow-test.txt'
+          & $test -o "$log,txt"
+          $testExit = $LASTEXITCODE
+          Write-Host "MainWindow native exit code: $testExit"
+          if (Test-Path $log) { Get-Content $log }
+          Write-Host 'Executable imports:'
+          llvm-readobj --coff-imports $test | Select-String 'Name:'
+          Write-Host 'DLLs beside the executable:'
+          Get-ChildItem (Split-Path $test) -Filter '*.dll' | Select-Object Name
+          exit 0
+
       - name: Package macOS from Bazel (verify only)
         if: runner.os == 'macOS'
         run: scripts/package-macos.sh bazel-pkg-macos.zip ${{ github.sha }}

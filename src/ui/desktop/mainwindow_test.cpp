@@ -13,6 +13,7 @@
 #include <gmock/gmock.h>
 
 #include <cstring>
+#include <cstdio>
 #include <memory>
 #include <utility>
 
@@ -576,5 +577,14 @@ class MainWindowTest : public QObject
     QTemporaryDir config_root_;
 };
 
-QTEST_MAIN(MainWindowTest)
+int main(int argc, char **argv)
+{
+    std::fprintf(stderr, "MainWindowTest: entered main\n");
+    QApplication app(argc, argv);
+    std::fprintf(stderr, "MainWindowTest: QApplication initialized\n");
+    MainWindowTest test;
+    const int result = QTest::qExec(&test, argc, argv);
+    std::fprintf(stderr, "MainWindowTest: qExec returned %d\n", result);
+    return result;
+}
 #include "mainwindow_test.moc"
