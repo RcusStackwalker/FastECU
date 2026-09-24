@@ -1,4 +1,5 @@
 #include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan_detail.h"
 
 #include <array>
 #include <format>
@@ -86,8 +87,27 @@ Status validate_kernel(const Variant& variant, const KernelImage& kernel)
     return {};
 }
 
-Status validate_geometry(const flashdev_t& device)
+Status validate_image(FlashOperation operation, const std::optional<bytes::Bytes>& image, std::uint32_t romsize)
 {
+    if (operation == FlashOperation::Read)
+    {
+        return {};
+    }
+    // Correction (wave 6b-2): legacy write_mem() indexed FullRomData unchecked.
+    if (!image.has_value() || image->size() != romsize)
+    {
+        return fail(InvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
+    }
+    return {};
+}
+
+} // namespace
+
+namespace detail
+{
+Status validate_subaru_denso_sh705x_kline_geometry(const flashdev_t& device)
+{
+    using enum ErrorKind;
     // Correction (wave 6b-2): flash_block() loops `remain -= 0x200` and
     // commits at 0x1000 boundaries, and reflash_block() indexes the image by
     // physical address from fblocks[0]. Reject a table that breaks either.
@@ -110,22 +130,7 @@ Status validate_geometry(const flashdev_t& device)
     }
     return {};
 }
-
-Status validate_image(FlashOperation operation, const std::optional<bytes::Bytes>& image, std::uint32_t romsize)
-{
-    if (operation == FlashOperation::Read)
-    {
-        return {};
-    }
-    // Correction (wave 6b-2): legacy write_mem() indexed FullRomData unchecked.
-    if (!image.has_value() || image->size() != romsize)
-    {
-        return fail(InvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
-    }
-    return {};
-}
-
-} // namespace
+} // namespace detail
 
 Status validate_subaru_denso_sh705x_kline_plan(const FlashPlan& plan)
 {
@@ -170,7 +175,7 @@ Status validate_subaru_denso_sh705x_kline_plan(const FlashPlan& plan)
     {
         return fail(InvalidConfig, "Unknown MCU type");
     }
-    if (Status valid = validate_geometry(*device); !valid.has_value())
+    if (Status valid = detail::validate_subaru_denso_sh705x_kline_geometry(*device); !valid.has_value())
     {
         return valid;
     }
@@ -206,7 +211,7 @@ Result<FlashPlan> build_subaru_denso_sh705x_kline_plan(FlashOperation operation,
     {
         return fail(InvalidConfig, "Unknown MCU type");
     }
-    if (Status valid = validate_geometry(*device); !valid.has_value())
+    if (Status valid = detail::validate_subaru_denso_sh705x_kline_geometry(*device); !valid.has_value())
     {
         return std::unexpected(valid.error());
     }

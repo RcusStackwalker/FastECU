@@ -1,14 +1,22 @@
 #include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan.h"
 
 #include <array>
+#include <cstdint>
+#include <functional>
+#include <optional>
+#include <string>
 #include <string_view>
-#include <tuple>
+#include <utility>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan_detail.h"
 #include "src/backend/flash/flash_device_lookup.h"
+#include "src/backend/flash/flash_plan.h"
+#include "src/backend/flash/flash_validation.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::flash
@@ -39,16 +47,15 @@ struct Pair
     std::string_view protocol;
     std::string_view mcu;
     SubaruDensoSh705xKlineSeedKey seed_key;
-    bool cobb;
 };
 
 constexpr auto kPairs = std::to_array<Pair>({
-    {"sub_ecu_denso_sh7055_04", "SH7055", SubaruDensoSh705xKlineSeedKey::Stock, false},
-    {"sub_ecu_denso_sh7055_04_ecutek", "SH7055", SubaruDensoSh705xKlineSeedKey::EcuTek, false},
-    {"sub_ecu_denso_sh7055_04_cobb", "SH7055", SubaruDensoSh705xKlineSeedKey::Stock, true},
-    {"sub_ecu_denso_sh7058", "SH7058", SubaruDensoSh705xKlineSeedKey::Stock, false},
-    {"sub_ecu_denso_sh7058_ecutek", "SH7058", SubaruDensoSh705xKlineSeedKey::EcuTek, false},
-    {"sub_ecu_denso_sh7058_cobb", "SH7058", SubaruDensoSh705xKlineSeedKey::Stock, true},
+    {"sub_ecu_denso_sh7055_04", "SH7055", SubaruDensoSh705xKlineSeedKey::Stock},
+    {"sub_ecu_denso_sh7055_04_ecutek", "SH7055", SubaruDensoSh705xKlineSeedKey::EcuTek},
+    {"sub_ecu_denso_sh7055_04_cobb", "SH7055", SubaruDensoSh705xKlineSeedKey::Stock},
+    {"sub_ecu_denso_sh7058", "SH7058", SubaruDensoSh705xKlineSeedKey::Stock},
+    {"sub_ecu_denso_sh7058_ecutek", "SH7058", SubaruDensoSh705xKlineSeedKey::EcuTek},
+    {"sub_ecu_denso_sh7058_cobb", "SH7058", SubaruDensoSh705xKlineSeedKey::Stock},
 });
 
 TEST(SubaruDensoSh705xKlinePlan, MapsAllSixPairsWithLegacyWireParameters)
@@ -167,6 +174,114 @@ TEST(SubaruDensoSh705xKlinePlan, DeviceGeometrySatisfiesTheExecutorsChunking)
         }
         EXPECT_EQ(total, device->romsize);
     }
+}
+
+// ---- validate_subaru_denso_sh705x_kline_plan() on hand-built plans --------
+
+// The fields build_subaru_denso_sh705x_kline_plan() produces for a
+// sub_ecu_denso_sh7055_04 TestWrite; each case below breaks exactly one.
+FlashPlanFields valid_fields(FlashOperation operation = FlashOperation::TestWrite,
+                             std::string target_id = "sub_ecu_denso_sh7055_04")
+{
+    return FlashPlanFields{
+        .operation = operation,
+        .family = FlashFamily::SubaruDensoSh705xKline,
+        .transport = TransportKind::Kline,
+        .target_id = std::move(target_id),
+        .mcu_name = "SH7055",
+        .transfer_region = MemoryRegion{0, romsize("SH7055")},
+        .erase_regions = {},
+        .image = operation == FlashOperation::Read ? std::nullopt : std::optional<bytes::Bytes>(image_for("SH7055")),
+        .kernel = kernel_for("SH7055"),
+        .family_plan = SubaruDensoSh705xKlinePlan{.initial_baud = 4800,
+                                                  .tester_id = 0xF0,
+                                                  .target_id = 0x10,
+                                                  .seed_key = SubaruDensoSh705xKlineSeedKey::Stock},
+        .confirmations = {},
+    };
+}
+
+SubaruDensoSh705xKlinePlan& family_of(FlashPlanFields& fields)
+{
+    return std::get<SubaruDensoSh705xKlinePlan>(fields.family_plan);
+}
+
+TEST(SubaruDensoSh705xKlinePlan, ValidatorAcceptsTheUnmodifiedHandBuiltPlan)
+{
+    auto plan = validate_and_build(valid_fields());
+    ASSERT_THAT(plan, IsOk());
+    EXPECT_THAT(validate_subaru_denso_sh705x_kline_plan(*plan), IsOk());
+}
+
+TEST(SubaruDensoSh705xKlinePlan, ValidatorRejectsEachSingleBadField)
+{
+    const std::vector<std::pair<std::string_view, std::function<void(FlashPlanFields&)>>> cases{
+        {"foreign family",
+         [](FlashPlanFields& f)
+         {
+             f.family = FlashFamily::SubaruUnisiaJecs;
+             f.target_id = "sub_ecu_unisia_jecs_m3779x";
+             f.family_plan = SubaruUnisiaJecsPlan{.initial_baud = 1953, .even_parity = true};
+         }},
+        {"unknown protocol", [](FlashPlanFields& f) { f.target_id = "sub_ecu_denso_sh7055_02"; }},
+        {"wrong MCU for the protocol", [](FlashPlanFields& f) { f.mcu_name = "SH7058"; }},
+        {"baud", [](FlashPlanFields& f) { family_of(f).initial_baud = 9600; }},
+        {"tester id", [](FlashPlanFields& f) { family_of(f).tester_id = 0xF1; }},
+        {"target id", [](FlashPlanFields& f) { family_of(f).target_id = 0x11; }},
+        {"seed variant", [](FlashPlanFields& f) { family_of(f).seed_key = SubaruDensoSh705xKlineSeedKey::EcuTek; }},
+        {"erase regions", [](FlashPlanFields& f) { f.erase_regions = {MemoryRegion{0, 0x1000}}; }},
+        {"confirmations",
+         [](FlashPlanFields& f) { f.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::CycleIgnition}}; }},
+        {"kernel address", [](FlashPlanFields& f) { f.kernel->load_address = 0xFFFF3000U; }},
+        {"transfer region start", [](FlashPlanFields& f) { f.transfer_region = {0x1000, romsize("SH7055")}; }},
+        {"transfer region length", [](FlashPlanFields& f) { f.transfer_region = {0, romsize("SH7055") - 0x1000}; }},
+        {"image size", [](FlashPlanFields& f) { f.image = bytes::Bytes(romsize("SH7055") - 1, 0xFF); }},
+    };
+    for (const auto& [name, mutate] : cases)
+    {
+        SCOPED_TRACE(name);
+        FlashPlanFields fields = valid_fields();
+        mutate(fields);
+        auto plan = validate_and_build(std::move(fields));
+        ASSERT_THAT(plan, IsOk());
+        EXPECT_THAT(validate_subaru_denso_sh705x_kline_plan(*plan), IsErr(ErrorKind::InvalidConfig));
+    }
+}
+
+TEST(SubaruDensoSh705xKlinePlan, ValidatorRejectsAHandBuiltCobbRead)
+{
+    auto plan = validate_and_build(valid_fields(FlashOperation::Read, "sub_ecu_denso_sh7055_04_cobb"));
+    ASSERT_THAT(plan, IsOk());
+    EXPECT_THAT(validate_subaru_denso_sh705x_kline_plan(*plan), IsErr(ErrorKind::Unsupported));
+}
+
+TEST(SubaruDensoSh705xKlinePlan, GeometryCheckRejectsSyntheticTablesTheExecutorCannotChunk)
+{
+    using detail::validate_subaru_denso_sh705x_kline_geometry;
+    const auto aligned = std::to_array<flashblock>({{0x0000, 0x1000}, {0x1000, 0x1000}});
+    const auto offset = std::to_array<flashblock>({{0x1000, 0x1000}});
+    const auto ragged = std::to_array<flashblock>({{0x0000, 0x1000}, {0x1000, 0x0200}});
+
+    const auto device = [](std::uint32_t size, unsigned count, const flashblock *blocks)
+    {
+        return flashdev_t{.name = "synthetic",
+                          .mcutype = find_flash_device("SH7055")->mcutype,
+                          .romsize = size,
+                          .numblocks = count,
+                          .fblocks = blocks,
+                          .rblocks = nullptr,
+                          .kblocks = nullptr,
+                          .eblocks = nullptr};
+    };
+    EXPECT_THAT(validate_subaru_denso_sh705x_kline_geometry(device(0x2000, 2, aligned.data())), IsOk());
+    EXPECT_THAT(validate_subaru_denso_sh705x_kline_geometry(device(0x2000, 0, aligned.data())),
+                IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(validate_subaru_denso_sh705x_kline_geometry(device(0x1000, 1, offset.data())),
+                IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(validate_subaru_denso_sh705x_kline_geometry(device(0x1200, 2, ragged.data())),
+                IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(validate_subaru_denso_sh705x_kline_geometry(device(0x3000, 2, aligned.data())),
+                IsErr(ErrorKind::InvalidConfig));
 }
 
 } // namespace

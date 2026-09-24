@@ -836,7 +836,10 @@ cc_library(
 cc_library(
     name = "subaru_denso_sh705x_kline_plan",
     srcs = ["subaru_denso_sh705x_kline_plan.cpp"],
-    hdrs = ["subaru_denso_sh705x_kline_plan.h"],
+    hdrs = [
+        "subaru_denso_sh705x_kline_plan.h",
+        "subaru_denso_sh705x_kline_plan_detail.h",
+    ],
     deps = [
         ":subaru_denso_sh705x_kline_types",
         "//src/backend/definitions:models",
@@ -855,6 +858,9 @@ fastecu_portable_gtest(
         ":subaru_denso_sh705x_kline_plan",
         "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_types",
+        "//src/backend/flash:flash_validation",
         "//src/backend/ports/testing:result_matchers",
     ],
 )
