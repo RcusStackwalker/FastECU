@@ -1,6 +1,6 @@
 # Step 5 Tail Wave 6b-2 — Denso SH705x K-Line — Design
 
-**Status:** design approved in brainstorming; written spec awaiting review.
+**Status:** design approved; implementation plan in [the 6b-2 plan](../plans/2026-09-24-step5-tail-wave6b2-denso-sh705x-kline.md).
 **Parent:** [wave 6 singletons](2026-09-19-step5-tail-wave6-singletons-design.md).
 **Predecessors:** 6b transport foundation (#351) and 6b-1 Unisia Jecs (#352), both merged.
 **Source baseline:** `1026933e`.
@@ -165,9 +165,12 @@ Seed-key variant: legacy selects ECUTEK when the flash method
 `SeedKeyVariant` enum; the executor never sees a protocol string.
 
 `SubaruDensoSh705xKlinePlan` carries `initial_baud` 4800, `tester_id` 0xF0,
-`target_id` 0x10 (legacy :73-76), the seed variant, the kernel bytes and load
-address (cfg `kernel_addr`, `0xFFFF6004`), the device block table from
-`find_flash_device()`, and the image for writes. `transport_setup()` returns
+`target_id` 0x10 (legacy :73-76), and the seed variant. The kernel travels in `FlashPlanFields::kernel` and the
+image in `FlashPlanFields::image`; the device block table comes from
+`find_flash_device()`. The kernel load address must match the MCU's cfg
+`kernel_addr` — `0xFFFF6004` for SH7055, `0xFFFF3000` for SH7058 — and a
+kernel that is empty or whose padded length exceeds the 24-bit wire length is
+rejected. `transport_setup()` returns
 `non_iso14230_kline_config_from(plan)`. The probe (62500) and kernel-upload
 (15625) bauds are executor constants with citations.
 
@@ -197,12 +200,16 @@ or closes the transport. Every exchange carries a legacy line citation.
    whatever arrived. The result is exactly `romsize` bytes.
 5. **Write and TestWrite** (:641-1366).
    - Pre-compare: `SUB_KERNEL_CRC` per block against `crc32` of the image,
-     keeping each trailing short-timeout flush read. Nothing differs → success
+     keeping each trailing short-timeout flush read. **Correction:** the CRC
+     reply must be at least nine bytes before bytes 5-8 are read; legacy read
+     `at(8)` after checking only `> 5`. Nothing differs → success
      with the legacy "no flashing needed" line.
    - Init: `GET_MAX_MSG_SIZE` and `GET_MAX_BLK_SIZE` are sent and logged; legacy
      then hard-codes block 0x1000 and chunk 0x200, which is preserved. Then
-     `FLASH_DISABLE` (TestWrite) or `FLASH_ENABLE` (Write). **Correction:** its
-     ack must match exactly before any erase is sent.
+     `FLASH_DISABLE` (TestWrite) or `FLASH_ENABLE` (Write). Legacy already
+     refuses to continue unless this ack matches (`reflash_block` returns on
+     an `init_flash_write` failure); the port preserves that and pins it with
+     a test, because TestWrite safety depends on it.
    - Per changed block: `PROG_VOLT` (voltage logged), `BLANK_PAGE`,
      `WRITE_FLASH_BUFFER` in 0x200 chunks, and at each 0x1000 boundary
      `VALIDATE` (TestWrite) or `COMMIT` (Write) with the image CRC32. Every ack
@@ -215,10 +222,12 @@ or closes the transport. Every exchange carries a legacy line citation.
      plan's first-block-at-zero check, instead of legacy's
      `&data[fblocks->start]` offset combined with absolute `src[i]` indexing.
 
-**Framing.** Kernel requests are `beef_request(op, payload)` from
-`denso_beef_can_common.h` plus a K-Line `sum8` trailer. SSM requests use
-`SsmProtocol::addHeader`. Executor tests transcribe wire bytes independently of
-both helpers, as the BEEF common's header requires.
+**Framing.** Kernel requests use a local `frame(opcode, payload)` —
+`BE EF`, big-endian length, opcode, payload, `sum8` — the K-Line idiom
+`SubaruDensoSh7055_02Executor` already uses. (`beef_request` in
+`denso_beef_can_common.h` is the CAN framer and carries no checksum, so it is
+not reused.) SSM requests use `SsmProtocol::addHeader`. Executor tests
+transcribe wire bytes as literals, independently of both.
 
 **Transport use.** All writes use `write()` (echo-checked), matching legacy's
 `write_serial_data_echo_check`; `*_raw` is never used. Cancellation is checked
@@ -226,8 +235,11 @@ before every write and every `clock.sleep`. `Timeout`, `Disconnected` and
 `BadResponse` propagate unchanged. No `ErrorKind` is added.
 
 **Events.** Legacy log strings are preserved verbatim through `IEventSink`.
-Progress uses `flash_phase_progress.h`; the legacy B/s and seconds-left
-arithmetic is display-only and not ported.
+Progress is `IEventSink::progress(done, total)` in bytes — ROM size for reads,
+the sum of changed blocks for writes — as `SubaruDensoSh7055_02Executor` does;
+the legacy B/s and seconds-left arithmetic is display-only and not ported.
+A successful Read returns `rom_id` as the ECU ID hex plus `_`, as legacy set
+`RomId = ecuid + "_"` (legacy :206).
 
 ### Workflow and UI
 
@@ -270,8 +282,8 @@ SonarCloud Quality Gate.
 ## Documentation
 
 - **Qualification matrix:** `portable=yes`, `experimental`; transport corrected
-  to K-Line only; notes list the Cobb plan gate, the `FLASH_DISABLE` ack gate,
-  page integrity on read, post-write verify failure, image indexing, and the
+  to K-Line only; notes list the Cobb plan gate, page integrity on read, the CRC-reply
+  length check, post-write verify failure, image indexing, and the
   progress-arithmetic change.
 - **Bench checklist** `docs/denso-sh705x-kline-bench-checklist.md`, with a STOP
   header and separate SH7055 and SH7058 records. First item: confirm from a
@@ -285,7 +297,7 @@ SonarCloud Quality Gate.
 
 | Risk | Mitigation |
 |---|---|
-| TestWrite safety rests on the kernel honouring `FLASH_DISABLE` for `BLANK_PAGE` | Legacy bytes preserved; the ack gate added; first bench-checklist item; row stays `experimental` |
+| TestWrite safety rests on the kernel honouring `FLASH_DISABLE` for `BLANK_PAGE` | Legacy bytes and ack gate preserved and pinned by test; first bench-checklist item; row stays `experimental` |
 | Shared-table extraction silently changes EEPROM behavior | EEPROM suite unchanged and keeps its own transcribed literals |
 | A correction masks a real legacy wire dependency | Corrections change only whether later commands are sent, never the bytes of those that are; each is named in the matrix |
 | Workflow duplication with the CAN kernel-backed template | The implementation plan decides between a new class and generalizing the template |
