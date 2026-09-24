@@ -1001,12 +1001,12 @@ int MainWindow::can_listener()
     uint8_t id = 0xE0;
 
     output.clear();
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
+    output.append('\0');
+    output.append('\0');
     output.append((uint8_t)0x07);
     output.append((uint8_t)id);
     output.append((uint8_t)0x01);
-    output.append((uint8_t)0x00);
+    output.append('\0');
 
     while (can_listener_on)
     {
