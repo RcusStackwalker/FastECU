@@ -22,6 +22,7 @@ cc_library(
         "//src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_types",
         "//src/backend/flash/ecu:subaru_denso_sh7058_can_types",
         "//src/backend/flash/ecu:subaru_denso_sh705x_densocan_types",
+        "//src/backend/flash/ecu:subaru_denso_sh705x_kline_types",
         "//src/backend/flash/ecu:subaru_denso_sh72531_can_types",
         "//src/backend/flash/ecu:subaru_denso_sh72543_can_diesel_types",
         "//src/backend/flash/ecu:subaru_hitachi_m32r_can_types",

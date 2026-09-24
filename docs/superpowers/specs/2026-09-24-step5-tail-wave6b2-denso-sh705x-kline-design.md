@@ -106,8 +106,10 @@ protocol-owned sequences cannot silently degrade into configure/open only.
 - `DesktopKlineFlashTransport` forwards to `SerialPortActions::reset_connection()`.
   Legacy returns `true` unconditionally, so the adapter fails only when it holds
   no port object.
-- `ScriptedKlineFlashTransport` records the call in its event log and gains
-  `expectReset()`, so tests pin its position relative to `configure()`.
+- `ScriptedKlineFlashTransport` records the call in `lifecycle_calls_`
+  alongside configure/open/close, counts it in `reset_call_count_`, and returns
+  the injectable `reset_result_`, so tests pin its position relative to
+  `configure()` and its failure path (mirroring the CAN fake).
 - The EEPROM K-Line executor does not reset today and is not changed to.
 
 **`src/backend/flash/ecu/denso_sh705x_kline_common.h`** — header-only, in the
@@ -237,7 +239,9 @@ before every write and every `clock.sleep`. `Timeout`, `Disconnected` and
 **Events.** Legacy log strings are preserved verbatim through `IEventSink`.
 Progress is `IEventSink::progress(done, total)` in bytes — ROM size for reads,
 the sum of changed blocks for writes — as `SubaruDensoSh7055_02Executor` does;
-the legacy B/s and seconds-left arithmetic is display-only and not ported.
+the legacy "Write flash buffer ... B/s, ~ s remain" log line is still emitted
+verbatim (computed from the current chunk), but it is log-only and does not
+feed progress events.
 A successful Read returns `rom_id` as the ECU ID hex plus `_`, as legacy set
 `RomId = ecuid + "_"` (legacy :206).
 

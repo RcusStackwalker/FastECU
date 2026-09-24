@@ -322,6 +322,24 @@ class MainWindowTest : public QObject
       <kernel_addr>0xFFFF3000</kernel_addr>
       <description>Denso SH7058 DensoCAN</description>
     </protocol>
+    <protocol name="sub_ecu_denso_sh7058">
+      <ecu>Denso SH7058</ecu>
+      <mcu>SH7058</mcu>
+      <mode>OBD2</mode>
+      <checksum>yes</checksum>
+      <read>yes</read>
+      <test_write>no</test_write>
+      <write>yes</write>
+      <flash_transport>K-Line</flash_transport>
+      <log_transport>K-Line</log_transport>
+      <log_protocol>SSM</log_protocol>
+      <cal_id_ascii>yes</cal_id_ascii>
+      <cal_id_addr>0x2004</cal_id_addr>
+      <cal_id_length>8</cal_id_length>
+      <kernel>test-kernel.bin</kernel>
+      <kernel_addr>0xFFFF3000</kernel_addr>
+      <description>Denso SH7058 K-Line</description>
+    </protocol>
   </protocols>
   <car_models>
     <car_model>
@@ -473,54 +491,6 @@ class MainWindowTest : public QObject
         QCOMPARE(operation_driver.unexpectedFlashDialogCount(), 0);
     }
 
-    void exactDensoKlineIdsStillDispatchToTheLegacyKlineDialog_data()
-    {
-        QTest::addColumn<QString>("protocol");
-        QTest::newRow("stock") << QString("sub_ecu_denso_sh7058");
-        QTest::newRow("ecutek") << QString("sub_ecu_denso_sh7058_ecutek");
-        QTest::newRow("cobb") << QString("sub_ecu_denso_sh7058_cobb");
-    }
-
-    void exactDensoKlineIdsStillDispatchToTheLegacyKlineDialog()
-    {
-        QFETCH(QString, protocol);
-        ModalDriver constructor_driver{QString()};
-        constructor_driver.start();
-        MainWindow window{"", "", nullptr, config_root_.path()};
-        constructor_driver.stop();
-
-        FakeBackend *fake = nullptr;
-        std::unique_ptr<SerialPortActions> serial = fakeSerial(&window, &fake);
-        QVERIFY(serial != nullptr);
-        delete window.serial;
-        window.serial = serial.release();
-        EXPECT_CALL(*fake, open_serial_port()).Times(0);
-        EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
-        EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
-        EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
-        window.serial_ports = {"OpenPort 2.0"};
-        window.serial_port_list->clear();
-        window.serial_port_list->addItem("OpenPort 2.0");
-        window.serial_port_list->setCurrentIndex(0);
-        window.configValues->flash_protocol_selected_make = "Subaru";
-        window.configValues->flash_protocol_selected_protocol_name = protocol;
-        window.configValues->flash_protocol_selected_mcu = "SH7058";
-        window.configValues->flash_protocol_selected_id = "0";
-        window.configValues->flash_protocol_kernel = {"test-kernel.bin"};
-        window.configValues->flash_protocol_kernel_addr = {"0xFFFF3000"};
-        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
-
-        ModalDriver operation_driver{QString()};
-        operation_driver.start();
-        QCOMPARE(startEcuOperations(window, "read"), 0);
-        operation_driver.stop();
-
-        QVERIFY(!operation_driver.timedOut());
-        QCOMPARE(operation_driver.legacyEcuIgnitionCount(), 1);
-        QCOMPARE(operation_driver.portableEcuIgnitionCount(), 0);
-        QCOMPARE(operation_driver.unexpectedFlashDialogCount(), 0);
-    }
-
     void representativePortableRoutesReachFactoryBeforeLegacyFallback_data()
     {
         QTest::addColumn<QString>("protocol");
@@ -529,6 +499,13 @@ class MainWindowTest : public QObject
         QTest::newRow("petrol") << QString("sub_ecu_denso_sh7058_can") << QString("SH7058") << QString("0xFFFF3000");
         QTest::newRow("densocan") << QString("sub_ecu_denso_sh7058_densocan") << QString("SH7058")
                                   << QString("0xFFFF3000");
+        // Wave 6b-2: the Denso SH705x K-Line family (sub_ecu_denso_sh7055_04*
+        // and sub_ecu_denso_sh7058*) moved off FlashEcuSubaruDensoSH705xKline
+        // onto this same portable factory path; see
+        // exactDensoKlineIdsStillDispatchToTheLegacyKlineDialog in prior
+        // revisions of this file for the characterization test this replaces.
+        QTest::newRow("denso_sh705x_kline")
+            << QString("sub_ecu_denso_sh7058") << QString("SH7058") << QString("0xFFFF3000");
     }
 
     void representativePortableRoutesReachFactoryBeforeLegacyFallback()

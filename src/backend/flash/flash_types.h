@@ -16,6 +16,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_types.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_types.h"
 #include "src/backend/flash/ecu/subaru_tcu_denso_sh705x_can_types.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_types.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_types.h"
@@ -76,6 +77,8 @@ enum class FlashFamily
     SubaruHitachiSh7058,
     // Step 5 tail, wave 6b-1.
     SubaruUnisiaJecs,
+    // Step 5 tail, wave 6b-2.
+    SubaruDensoSh705xKline,
 };
 
 enum class TransportKind
@@ -89,6 +92,8 @@ struct MemoryRegion
 {
     std::uint32_t start;
     std::uint32_t length;
+
+    bool operator==(const MemoryRegion&) const = default;
 };
 
 struct KernelImage
@@ -146,7 +151,8 @@ using FamilyPlan =
                  SubaruDensoSh72543CanDieselPlan, SubaruDenso1n83m_4mCanPlan, SubaruDensoSh705xDensoCanPlan,
                  SubaruTcuDensoSh705xCanPlan, SubaruDensoSh7058CanPlan, SubaruDensoSh7058CanDieselPlan,
                  SubaruTcuHitachiM32rKlinePlan, SubaruTcuHitachiM32rCanPlan, SubaruHitachiSh72543rCanPlan,
-                 SubaruHitachiSh7058KlinePlan, SubaruHitachiSh7058CanPlan, SubaruUnisiaJecsPlan>;
+                 SubaruHitachiSh7058KlinePlan, SubaruHitachiSh7058CanPlan, SubaruUnisiaJecsPlan,
+                 SubaruDensoSh705xKlinePlan>;
 
 // The FlashFamily tag and TransportKind each plan alternative belongs to.
 //
@@ -291,6 +297,12 @@ template <> struct FamilyTraits<SubaruTcuHitachiM32rCanPlan>
 template <> struct FamilyTraits<SubaruUnisiaJecsPlan>
 {
     static constexpr FlashFamily family = FlashFamily::SubaruUnisiaJecs;
+    static constexpr TransportKind transport = TransportKind::Kline;
+};
+
+template <> struct FamilyTraits<SubaruDensoSh705xKlinePlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruDensoSh705xKline;
     static constexpr TransportKind transport = TransportKind::Kline;
 };
 

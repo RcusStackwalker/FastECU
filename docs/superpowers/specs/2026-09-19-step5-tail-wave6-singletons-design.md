@@ -355,3 +355,14 @@ transport failures and cancellation stop later commands. Request frames are
 built within their bounds. The two read prompts both occur before the adapter
 opens, with wording that makes the connection's state explicit. Hardware status
 remains experimental pending bench evidence.
+
+## Wave 6b-2 implementation note
+
+The [Denso SH705x K-Line family spec](2026-09-24-step5-tail-wave6b2-denso-sh705x-kline-design.md)
+records two approved departures from this design: the 6a-3/6a-4
+behavior-correction exception applies instead of blanket preservation, and the
+byte-identical seed-key and encrypt tables are shared with the EEPROM K-Line
+executor in `denso_sh705x_kline_common.h` — data only, no protocol function.
+Port item 2, `IKlineFlashTransport::reset_connection()`, landed in PR 6b-2a and
+is called from `before_transport_configure()`. The drain moves from five
+entries to four.

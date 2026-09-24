@@ -39,6 +39,8 @@ qt_cc_library(
         "//src/backend/flash/ecu:subaru_denso_sh7058_can_plan",
         "//src/backend/flash/ecu:subaru_denso_sh705x_densocan_executor",
         "//src/backend/flash/ecu:subaru_denso_sh705x_densocan_plan",
+        "//src/backend/flash/ecu:subaru_denso_sh705x_kline_executor",
+        "//src/backend/flash/ecu:subaru_denso_sh705x_kline_plan",
         "//src/backend/flash/ecu:subaru_denso_sh72531_can_executor",
         "//src/backend/flash/ecu:subaru_denso_sh72531_can_plan",
         "//src/backend/flash/ecu:subaru_denso_sh72543_can_diesel_executor",

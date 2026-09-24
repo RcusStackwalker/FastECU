@@ -24,6 +24,8 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_executor.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_executor.h"
+#include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_executor.h"
 #include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_executor.h"
@@ -1062,6 +1064,13 @@ using SubaruDensoSh7058CanWorkflow =
 using SubaruDensoSh7058CanDieselWorkflow =
     KernelBackedCanFlashWorkflow<SubaruDensoSh7058CanDieselExecutor, &build_subaru_denso_sh7058_can_diesel_plan,
                                  DesktopCanFlashTransport>;
+// Wave 6b-2. The template is transport-parameterised; this family's plans
+// carry no ConfirmationSpec, so the sequence is kernel resolved on the first
+// step, the shared Begin prompt -- the legacy dialog's only prompt, "Turn
+// ignition ON" -- then the attempt.
+using SubaruDensoSh705xKlineWorkflow =
+    KernelBackedCanFlashWorkflow<SubaruDensoSh705xKlineExecutor, &build_subaru_denso_sh705x_kline_plan,
+                                 DesktopKlineFlashTransport>;
 
 class EepromWorkflow final : public FlashWorkflow
 {
@@ -1230,6 +1239,7 @@ struct Route
         SubaruDensoSh72531Can,
         SubaruDensoSh72543CanDiesel,
         SubaruDenso1n83m_4mCan,
+        SubaruDensoSh705xKline,
         Unrouted,
     };
 
@@ -1270,6 +1280,12 @@ constexpr auto kRoutes = std::to_array<Route>({
     {"sub_ecu_denso_mc68hc16y5_02", SubaruDensoMc68hc16y5_02},
     {"sub_ecu_denso_mc68hc16y5_04", SubaruDensoMc68hc16y5_02},
     {"sub_ecu_denso_sh7055_02", SubaruDensoSh7055_02},
+    {"sub_ecu_denso_sh7055_04", SubaruDensoSh705xKline, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7055_04_ecutek", SubaruDensoSh705xKline, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7055_04_cobb", SubaruDensoSh705xKline, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7058", SubaruDensoSh705xKline, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7058_ecutek", SubaruDensoSh705xKline, RouteMatch::Exact},
+    {"sub_ecu_denso_sh7058_cobb", SubaruDensoSh705xKline, RouteMatch::Exact},
     {"sub_ecu_hitachi_m32r_can", SubaruHitachiM32rCan},
     {"sub_tcu_hitachi_m32r_kline", SubaruTcuHitachiM32rKline, RouteMatch::Exact},
     {"sub_ecu_unisia_jecs_m3779x", SubaruUnisiaJecs, RouteMatch::Exact},
@@ -1363,6 +1379,8 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
         return std::make_unique<SubaruDensoSh72543CanDieselWorkflow>(std::move(request));
     case SubaruDenso1n83m_4mCan:
         return std::make_unique<SubaruDenso1n83m_4mCanWorkflow>(std::move(request));
+    case SubaruDensoSh705xKline:
+        return std::make_unique<SubaruDensoSh705xKlineWorkflow>(std::move(request));
     case Unrouted:
         return nullptr;
     }
