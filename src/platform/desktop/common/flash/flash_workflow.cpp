@@ -43,6 +43,8 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_can_executor.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_executor.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_executor.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_plan.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_executor.h"
@@ -338,6 +340,63 @@ class SubaruTcuHitachiM32rKlineWorkflow final : public FlashWorkflow
             return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
                                      bind_flash_attempt(std::move(*plan_),
                                                         std::make_unique<SubaruTcuHitachiM32rKlineExecutor>(),
+                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                                     std::make_unique<QtClock>()};
+        }
+        return outcome_.completedStep();
+    }
+    void submit(FlashPromptResponse response) override
+    {
+        begun_ = true;
+        if (response != FlashPromptResponse::Accept)
+        {
+            outcome_.cancel();
+        }
+    }
+    void submit(FlashAttemptResult result) override
+    {
+        outcome_.record(std::move(result));
+    }
+
+  private:
+    FlashWorkflowRequest request_;
+    Result<FlashPlan> plan_;
+    bool begun_ = false;
+    bool attempted_ = false;
+    FlashAttemptOutcome outcome_;
+};
+
+class SubaruUnisiaJecsWorkflow final : public FlashWorkflow
+{
+  public:
+    explicit SubaruUnisiaJecsWorkflow(FlashWorkflowRequest request)
+        : request_(std::move(request)), plan_(build_subaru_unisia_jecs_plan(request_.operation, request_.protocol,
+                                                                            request_.mcu, std::move(request_.image)))
+    {
+    }
+    FlashWorkflowStep next() override
+    {
+        if (!plan_)
+        {
+            return FlashFailureStep{plan_.error()};
+        }
+        if (outcome_.hasFailure())
+        {
+            return outcome_.takeFailure();
+        }
+        if (outcome_.terminal())
+        {
+            return outcome_.completedStep();
+        }
+        if (!begun_)
+        {
+            return FlashPromptStep{FlashPromptKind::Begin, {}};
+        }
+        if (!attempted_)
+        {
+            attempted_ = true;
+            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
+                                     bind_flash_attempt(std::move(*plan_), std::make_unique<SubaruUnisiaJecsExecutor>(),
                                                         std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
                                      std::make_unique<QtClock>()};
         }
@@ -1160,6 +1219,7 @@ struct Route
         SubaruDensoSh7058CanDiesel,
         SubaruHitachiM32rCan,
         SubaruTcuHitachiM32rKline,
+        SubaruUnisiaJecs,
         SubaruTcuHitachiM32rCan,
         SubaruHitachiSh72543rCan,
         SubaruHitachiSh7058,
@@ -1212,6 +1272,8 @@ constexpr auto kRoutes = std::to_array<Route>({
     {"sub_ecu_denso_sh7055_02", SubaruDensoSh7055_02},
     {"sub_ecu_hitachi_m32r_can", SubaruHitachiM32rCan},
     {"sub_tcu_hitachi_m32r_kline", SubaruTcuHitachiM32rKline, RouteMatch::Exact},
+    {"sub_ecu_unisia_jecs_m3779x", SubaruUnisiaJecs, RouteMatch::Exact},
+    {"sub_ecu_unisia_jecs_m3775x", SubaruUnisiaJecs, RouteMatch::Exact},
     {"sub_tcu_hitachi_m32r_can", SubaruTcuHitachiM32rCan, RouteMatch::Exact},
     {"sub_ecu_hitachi_sh72543r_can", SubaruHitachiSh72543rCan, RouteMatch::Exact},
     {"sub_ecu_hitachi_sh72543r_can_recovery", SubaruHitachiSh72543rCan, RouteMatch::Exact},
@@ -1279,6 +1341,8 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
         return std::make_unique<SubaruHitachiM32rCanWorkflow>(std::move(request));
     case SubaruTcuHitachiM32rKline:
         return std::make_unique<SubaruTcuHitachiM32rKlineWorkflow>(std::move(request));
+    case SubaruUnisiaJecs:
+        return std::make_unique<SubaruUnisiaJecsWorkflow>(std::move(request));
     case SubaruHitachiSh72543rCan:
         return std::make_unique<SubaruHitachiSh72543rCanWorkflow>(std::move(request));
     case SubaruHitachiSh7058:

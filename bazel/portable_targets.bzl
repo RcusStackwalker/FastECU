@@ -111,6 +111,9 @@ PORTABLE_PACKAGES = {
         "subaru_tcu_hitachi_m32r_kline_executor",
         "subaru_tcu_hitachi_m32r_kline_plan",
         "subaru_tcu_hitachi_m32r_kline_types",
+        "subaru_unisia_jecs_plan",
+        "subaru_unisia_jecs_types",
+        "subaru_unisia_jecs_executor",
     ],
     "src/backend/logging": [
         "logger_conf",

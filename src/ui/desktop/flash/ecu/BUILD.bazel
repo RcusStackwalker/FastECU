@@ -10,12 +10,10 @@ qt_cc_library(
     name = "ecu",
     srcs = [
         "flash_ecu_subaru_denso_sh705x_kline.cpp",
-        "flash_ecu_subaru_unisia_jecs.cpp",
         "flash_ecu_subaru_unisia_jecs_m32r.cpp",
     ],
     hdrs = [
         "flash_ecu_subaru_denso_sh705x_kline.h",
-        "flash_ecu_subaru_unisia_jecs.h",
         "flash_ecu_subaru_unisia_jecs_m32r.h",
     ],
     copts = COMMON_COPTS,

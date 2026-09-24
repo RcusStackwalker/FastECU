@@ -66,7 +66,6 @@
 #include "src/ui/desktop/flash/common/flash_dialog.h"
 
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_denso_sh705x_kline.h"
-#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs.h"
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs_m32r.h"
 
 // JTAG
