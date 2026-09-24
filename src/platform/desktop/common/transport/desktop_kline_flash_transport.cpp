@@ -119,6 +119,35 @@ Status DesktopKlineFlashTransport::close()
     return {};
 }
 
+Status DesktopKlineFlashTransport::reset_connection()
+{
+    if (!serial_)
+    {
+        return fail(ErrorKind::Disconnected, "reset_connection() called after close()");
+    }
+    try
+    {
+        // No real sentinel: SerialPortActions::reset_connection()
+        // (serial_port_actions.cpp:541-544) is `runOnBackend(...); return
+        // true;` -- it cannot report failure through its return value, so
+        // this branch is unreachable today and only the surrounding catch
+        // blocks below can produce an Internal error here.
+        if (!serial_->reset_connection())
+        {
+            return fail(ErrorKind::Internal, "reset_connection failed");
+        }
+        return {};
+    }
+    catch (const std::exception& error)
+    {
+        return fail(ErrorKind::Internal, error.what());
+    }
+    catch (...)
+    {
+        return fail(ErrorKind::Internal, "reset_connection exception");
+    }
+}
+
 Status DesktopKlineFlashTransport::disable_lec_lines()
 {
     if (!serial_)

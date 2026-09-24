@@ -42,6 +42,7 @@ class DesktopKlineFlashTransport final : public IKlineFlashTransport
     Status configure(const KlineConfig& config) override;
     Status open() override;
     Status close() override;
+    Status reset_connection() override;
     Status disable_lec_lines() override;
     Status pulse_lec_2_line(std::chrono::milliseconds timeout) override;
     Status enable_programming_voltage_line() override;
