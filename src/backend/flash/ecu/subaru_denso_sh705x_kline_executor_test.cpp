@@ -54,7 +54,7 @@ bytes::Bytes beef(std::uint8_t opcode, bytes::ByteView payload = {})
 // A positive kernel reply: BE EF, length, opcode|0x40, data, sum8.
 bytes::Bytes beef_reply(std::uint8_t opcode, bytes::ByteView data = {})
 {
-    return beef(static_cast<std::uint8_t>(opcode | 0x40), data);
+    return beef(static_cast<std::uint8_t>(opcode | 0x40U), data);
 }
 // SSM request tester 0xF0 -> target 0x10: 80 10 F0 len payload sum8.
 bytes::Bytes ssm(bytes::ByteView payload)
@@ -311,19 +311,35 @@ TEST(SubaruDensoSh705xKlineExecutor, RejectsAForeignPlanBeforeIo)
 
 TEST(SubaruDensoSh705xKlineExecutor, FullSessionIsByteExactWithLegacyBaudsAndTimeouts)
 {
+    // TestWrite, stopped at the tail's first frame (the block-0 CRC request).
     Harness h;
     script_session(h.transport);
+    script_stop_at_first_crc(h.transport);
 
-    const auto result = h.run(make_plan(FlashOperation::Read));
-    ASSERT_FALSE(result.has_value());
+    ASSERT_THAT(h.run(make_plan(FlashOperation::TestWrite)), IsErr(ErrorKind::Disconnected));
     EXPECT_TRUE(h.transport.scriptConsumed());
+    // execute():68 -- the header flag is cleared once, before any frame.
+    EXPECT_EQ(h.transport.header_mode_calls_, std::vector<bool>{false});
     EXPECT_THAT(h.transport.baud_calls_, ::testing::ElementsAre(62500, 4800, 15625, 62500));
-    // probe 800, BF..10 six x 2000, 34 3000, 36 2000, 31 3000, kernel ID 800.
+    // probe 800, BF..10 six x 2000, 34 3000, 36 2000, 31 3000, kernel ID 800,
+    // then the tail's block-0 CRC read at 3000 that stops the run.
     EXPECT_THAT(h.transport.read_timeouts_, ::testing::ElementsAre(800ms, 2000ms, 2000ms, 2000ms, 2000ms, 2000ms,
-                                                                   2000ms, 3000ms, 2000ms, 3000ms, 800ms));
+                                                                   2000ms, 3000ms, 2000ms, 3000ms, 800ms, 3000ms));
     // delay(100) after 62500, delay(200) in request_kernel_id(), delay(100)
     // after 4800, delay(100) after 31, delay(200) in request_kernel_id().
     EXPECT_EQ(h.clock.elapsed(), 700ms);
+}
+
+TEST(SubaruDensoSh705xKlineExecutor, HeaderFlagFailurePropagatesBeforeAnyWrite)
+{
+    // execute():68 -- set_add_iso14230_header(false) precedes the first setBaud and write.
+    Harness h;
+    h.transport.set_add_iso14230_header_result_ = fail(ErrorKind::Disconnected, "header flag");
+
+    EXPECT_THAT(h.run(make_plan(FlashOperation::Read)), IsErr(ErrorKind::Disconnected));
+    EXPECT_EQ(h.transport.header_mode_calls_, std::vector<bool>{false});
+    EXPECT_TRUE(h.transport.baud_calls_.empty());
+    EXPECT_EQ(h.transport.writesConsumed(), 0U);
 }
 
 TEST(SubaruDensoSh705xKlineExecutor, SessionLogsTheLegacyStrings)
@@ -702,6 +718,16 @@ TEST(SubaruDensoSh705xKlineExecutor, ReadReturnsTheWholeRomAndTheRomId)
     EXPECT_EQ(result->rom_id, std::optional<std::string>("4142434445_"));
     // execute():92-93 -- externalLoggerMessage() then LOG_I() before read_mem().
     EXPECT_THAT(h.events.notices, ::testing::Contains("Reading ROM, please wait..."));
+    // read_mem():523 and :628 bracket the page loop.
+    using L = LogLevel;
+    const auto& logs = h.events.logs;
+    const auto start = std::ranges::find(
+        logs, std::pair<LogLevel, std::string>{L::Info, "Reading ROM from Subaru 04 32-bit using K-Line"});
+    ASSERT_NE(start, logs.end());
+    EXPECT_THAT(std::vector(start, logs.end()),
+                ::testing::ElementsAre(::testing::Pair(L::Info, "Reading ROM from Subaru 04 32-bit using K-Line"),
+                                       ::testing::Pair(L::Info, "Start reading ROM, please wait..."),
+                                       ::testing::Pair(L::Info, "ROM read ready")));
 }
 
 TEST(SubaruDensoSh705xKlineExecutor, ReadWithLiveKernelHasNoRomId)

@@ -561,6 +561,7 @@ Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock, co
 {
     bytes::Bytes rom;
     rom.reserve(region.length);
+    events.log(LogLevel::Info, "Start reading ROM, please wait..."); // :523
     events.progress(0, static_cast<int>(region.length));
     for (std::uint32_t address = region.start; address < region.start + region.length; address += kReadPageSize)
     {
@@ -582,6 +583,7 @@ Result<bytes::Bytes> read_mem(IKlineFlashTransport& transport, IClock& clock, co
         rom.insert(rom.end(), page.begin() + 5, page.end() - 1);
         events.progress(static_cast<int>(rom.size()), static_cast<int>(region.length));
     }
+    events.log(LogLevel::Info, "ROM read ready"); // :628
     rom.resize(region.length);
     return rom;
 }
@@ -998,15 +1000,16 @@ bytes::Bytes denso_sh705x_kline_balanced_kernel(bytes::ByteView kernel)
     out.push_back(0x00);
     out.resize((out.size() + 3) & ~std::size_t{3}, 0x00);
     out.resize(out.size() - 2);
-    const auto at = [&out](std::size_t index) -> std::uint32_t { return index < out.size() ? out[index] : 0U; };
-    std::uint16_t sum = 0;
+    const auto at = [&out](std::size_t index) -> std::uint32_t
+    { return index < out.size() ? static_cast<std::uint32_t>(out[index]) : 0U; };
+    std::uint32_t sum = 0U;
     for (std::size_t i = 0; i < out.size(); i += 4)
     {
-        sum = static_cast<std::uint16_t>(sum + ((at(i) << 24) | (at(i + 1) << 16) | (at(i + 2) << 8) | at(i + 3)));
+        sum += (at(i) << 24U) | (at(i + 1) << 16U) | (at(i + 2) << 8U) | at(i + 3);
     }
-    const auto balance = static_cast<std::uint16_t>(0x5AA5 - sum);
-    out.push_back(static_cast<bytes::Byte>(balance >> 8));
-    out.push_back(static_cast<bytes::Byte>(balance & 0xFF));
+    const std::uint32_t balance = (0x5AA5U - sum) & 0xFFFFU;
+    out.push_back(static_cast<bytes::Byte>(balance >> 8U));
+    out.push_back(static_cast<bytes::Byte>(balance & 0xFFU));
     return out;
 }
 
@@ -1050,6 +1053,12 @@ Result<FlashExecutionResult> SubaruDensoSh705xKlineExecutor::execute(const Flash
     if (Status valid = validate_subaru_denso_sh705x_kline_plan(plan); !valid.has_value())
     {
         return std::unexpected(valid.error());
+    }
+    // execute():68 -- the shared serial can arrive with the header flag set by
+    // another feature; every BEEF and SSM frame of this family goes out bare.
+    if (Status header = transport.set_add_iso14230_header(false); !header.has_value())
+    {
+        return std::unexpected(header.error());
     }
     Result<std::optional<std::string>> ecu_id = start_session(transport, clock, cancellation, events, plan);
     if (!ecu_id.has_value())
