@@ -209,8 +209,9 @@ Actions:
 ### P1: Isolate flash-operation orchestration
 
 Portable Colt CAN, Subaru Mitsubishi M32R K-Line, and Denso SH705x EEPROM operations now register with
-`FlashWorkflowFactory` and run through the common `FlashDialog`. Remaining
-flash/eeprom/jtag/bdm operation pairs use `FlashOperationWorker`, and
+`FlashWorkflowFactory` and run through the common `FlashDialog`. The
+remaining legacy operation pairs (the Unisia Jecs M32R ECU and bootmode
+families) use `FlashOperationWorker`, and
 shared SSM framing, seed/payload transforms, CRC, byte formatting, byte
 stuffing, and ISO-15765 setup have been consolidated. The remaining safe
 generalization opportunities are maintained in the

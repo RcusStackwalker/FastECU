@@ -298,7 +298,10 @@ truth for correct bytes, and it is deleted in the same PR as the port.
   catches `sub_ecu_denso_mc68hc16y5_02_tpu` by prefix although that protocol's
   own mode is BDM; `FlashEcuSubaruHitachiM32rJtag` is unreachable from the UI
   because no `protocols.cfg` entry can produce its protocol name, and is ported
-  as-is without wiring a new dispatch path.
+  as-is without wiring a new dispatch path. *Superseded:* wave 6c-2 removed
+  that family instead of porting it, because its read and write were empty
+  stubs that reported success — see the
+  [6c-2 removal design](2026-09-25-step5-tail-wave6c2-hitachi-m32r-jtag-removal-design.md).
 
 ## The matrix is the ledger
 

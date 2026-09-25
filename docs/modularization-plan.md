@@ -76,10 +76,12 @@ for the eight-wave sequencing:
 - Wave 6b-1 `FlashEcuSubaruUnisiaJecs` — merged (#352), on the raw K-Line
   transport foundation (#351).
 - Wave 6b-2 `FlashEcuSubaruDensoSH705xKline` — merged (#355, #356).
-- Wave 6c-1 `FlashEcuSubaruDensoMC68HC16Y5_02_BDM` — implemented on this
-  branch. The drain is three remaining families. Hardware status remains
-  experimental. See the
+- Wave 6c-1 `FlashEcuSubaruDensoMC68HC16Y5_02_BDM` — merged (#357). See the
   [family design](superpowers/specs/2026-09-25-step5-tail-wave6c1-denso-mc68hc16-bdm-design.md).
+- Wave 6c-2 `FlashEcuSubaruHitachiM32rJtag` — removed on this branch, not
+  migrated: it was unreachable and its read and write were stubs. The drain is
+  two remaining families. See the
+  [removal design](superpowers/specs/2026-09-25-step5-tail-wave6c2-hitachi-m32r-jtag-removal-design.md).
 
 ## Verified Current Baseline
 
@@ -214,7 +216,7 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
    - **Amendment 4:** the checksum correction dialog is now **one aggregated summary** instead of one per family — a deliberate behavior change, bench-checklist item recorded in Task 9 Step 8.
    - Note for step 5's benefit: each `:qt_compat` target is transitional debt whose only remaining callers are backend and UI. Step 5 should drain them and delete the shims.
 
-5. **Make backend workflows portable — 5a through 5e complete; flash-tail Wave 6a-3 implemented on this branch, with 7 legacy families remaining**
+5. **Make backend workflows portable — 5a through 5e complete; flash-tail Wave 6c-2 implemented on this branch, with 2 legacy families remaining**
    - Sub-step status and PR numbers are tracked in the Status section above.
    - Define capability-specific ports for byte-stream/K-Line, CAN frames, SSM, file repositories, settings, monotonic clock/delay, cancellation, and event delivery.
    - Backend owns no threads. Platform code runs blocking, bounded, cancellable backend calls on Qt workers or future Kotlin coroutines.
