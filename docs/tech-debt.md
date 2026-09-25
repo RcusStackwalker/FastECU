@@ -303,7 +303,10 @@ count, since count and blast radius are not the same thing here.
 `new`/`delete`, 172, Critical) concentrate in the legacy per-vendor flash-op
 files, `J2534_unix.cpp`, and `ecu_operations.cpp` — the hardware-facing layer
 this document's introduction calls out as needing bench verification before
-qualification. Several `S1117` messages name variables that look
+qualification. The legacy per-vendor flash-op files were deleted in wave 7
+of the step 5 tail; these counts predate that deletion and have not been
+rescanned since, so treat the flash-op share of them as stale rather than
+current. Several `S1117` messages name variables that look
 copy-paste-shadowed rather than intentionally reused (e.g. a local shadowing
 `timeout_local` or `LOG_I`), which would mean the outer variable silently
 never takes effect. Treat each instance as a triage question, not a
@@ -333,9 +336,11 @@ are triaged out of the same neighborhood.
 **Phase 3 — bulk mechanical modernization (mechanical, higher volume).**
 `cpp:S6022` (use `std::byte`, 580) and `cpp:S5945` (C array →
 `std::array`/`std::vector`, 197) concentrate in the same legacy per-vendor
-flash-op file family (SH705x K-Line/CAN/DensoCAN/diesel siblings); fix both
-rules per file in one pass rather than one rule across all files, so the same
-buffer-handling lines aren't touched twice. `cpp:S125` (539, remove
+flash-op file family (SH705x K-Line/CAN/DensoCAN/diesel siblings), which wave
+7 of the step 5 tail deleted — these counts are likewise stale for that
+share and unscanned since; fix both rules per file in one pass rather than
+one rule across all files, so the same buffer-handling lines aren't touched
+twice. `cpp:S125` (539, remove
 commented-out code) has no behavior risk — fold its removal into whichever
 file is already open for Phase 1/2/3 work rather than a dedicated sweep, plus
 one pass each on the two worst offenders (`mainwindow.cpp`, `ecu_operations.cpp`).

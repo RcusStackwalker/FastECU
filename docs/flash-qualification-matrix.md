@@ -95,8 +95,8 @@
   unrelated `<car_models>` section that only *references* protocol names.
   This matrix's `scope` grouping is derived
   from each protocol's `<mode>`/`<ecu>`/`<flash_transport>` fields and the
-  legacy directory (`bdm`/`bootmode`/`ecu`/`jtag`/`tcu`) that implements it,
-  not from a cfg section tag.
+  legacy directory (`bdm`/`bootmode`/`ecu`/`jtag`/`tcu`) that implemented it
+  before wave 7 deleted the legacy package, not from a cfg section tag.
 - One cfg protocol, `mitsu_ecu_m32r_kline_mut_dma` (line 771), is excluded
   from this matrix entirely: it declares `read=no`, `test_write=no`,
   `write=no` and is not reachable through the flash dispatch table in

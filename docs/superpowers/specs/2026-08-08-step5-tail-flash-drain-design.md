@@ -1,6 +1,6 @@
 # Step 5 Tail — Per-Family Flash Drain — Design
 
-**Status:** complete — wave 7 merged; the completion criterion holds.
+**Status:** complete on this branch — wave 7b; the completion criterion holds.
 
 ## Portable desktop registration pattern
 
@@ -62,7 +62,7 @@ to remove) and `remote_utility` are there as expected, but so are
 `//src/platform/desktop/common/serial:__pkg__`,
 `//src/platform/desktop/common/transport:__pkg__`, and `//tests:__pkg__` —
 non-UI residue this criterion did not name, legitimately present per
-[tech-debt.md](../../tech-debt.md#p1-drain-the-serial_qt_compat-allowlist),
+[the serial_qt_compat allowlist item in the tech-debt roadmap](../../tech-debt.md#p1-drain-the-serial_qt_compat-allowlist),
 and left for step 5/6 follow-up rather than this wave.
 
 ## Findings that shaped the scope
