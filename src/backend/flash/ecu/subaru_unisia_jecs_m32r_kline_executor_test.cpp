@@ -317,5 +317,297 @@ INSTANTIATE_TEST_SUITE_P(AllVariants, SubaruUnisiaJecsM32rKlineReadSizes,
                                            std::tuple{"sub_ecu_unisia_jecs_30", "M32R_256KB", 0x40000U},
                                            std::tuple{"sub_ecu_unisia_jecs_40", "M32R_384KB", 0x60000U},
                                            std::tuple{"sub_ecu_unisia_jecs_70", "M32R_512KB", 0x80000U}));
+
+const bytes::Bytes& rom_image()
+{
+    static const bytes::Bytes image = []
+    {
+        bytes::Bytes out(kRomSize);
+        for (std::size_t i = 0; i < out.size(); ++i)
+        {
+            out[i] = static_cast<bytes::Byte>(i * 3 + 1);
+        }
+        return out;
+    }();
+    return image;
+}
+
+FlashPlan write_plan()
+{
+    auto plan = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Write, kProtocol, kMcu, rom_image(), false);
+    EXPECT_THAT(plan, IsOk());
+    return std::move(*plan);
+}
+
+bytes::Bytes block_request(std::uint32_t index)
+{
+    const std::uint32_t address = index * 0x80;
+    const bool last = index == kRomSize / 0x80 - 1;
+    bytes::Bytes payload{0xaf, static_cast<bytes::Byte>(last ? 0x69 : 0x61), static_cast<bytes::Byte>(address >> 16),
+                         static_cast<bytes::Byte>(address >> 8), static_cast<bytes::Byte>(address)};
+    for (std::uint32_t j = 0; j < 0x80; ++j)
+    {
+        payload.push_back(static_cast<bytes::Byte>(rom_image()[address + j] ^ 0x82));
+    }
+    return request(payload);
+}
+
+const bytes::Bytes kEraseStarted = reply({0xef, 0x42});
+const bytes::Bytes kDone = reply({0xef, 0x52});
+
+void script_obk_running(ScriptedKlineFlashTransport& transport)
+{
+    auto section = transport.section("OBK probe answered");
+    transport.exchange(request({0xaf}), reply({0xef}));
+}
+
+void script_cold_flash_mode(ScriptedKlineFlashTransport& transport)
+{
+    auto section = transport.section("enter flash mode");
+    transport.expectWrite(request({0xaf}));
+    transport.queue_no_frame();
+    transport.exchange(request({0xbf}), init_reply());
+    transport.exchange(request({0xaf, 0x11, 0x12, 0x34, 0x56, 0x78, 0x9a, 0x02, 0x00, 0x00}), reply({0xef}));
+}
+
+// One empty poll before each erase reply, then the trailing read.
+void script_erase(ScriptedKlineFlashTransport& transport)
+{
+    auto section = transport.section("erase");
+    transport.expectWrite(request({0xaf, 0x31}));
+    transport.queue_no_frame();
+    transport.queueRead(kEraseStarted);
+    transport.queue_no_frame();
+    transport.queueRead(kDone);
+    transport.queue_no_frame();
+}
+
+void script_blocks(ScriptedKlineFlashTransport& transport, std::uint32_t count)
+{
+    auto section = transport.section("program blocks");
+    for (std::uint32_t index = 0; index < count; ++index)
+    {
+        transport.exchange(block_request(index), kDone);
+    }
+}
+
+std::uint32_t block_count()
+{
+    return kRomSize / 0x80;
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, WritesWhenTheKernelIsAlreadyRunning)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    script_erase(transport);
+    script_blocks(transport, block_count());
+    RunContext context;
+
+    auto result = run(write_plan(), transport, context);
+
+    ASSERT_THAT(result, IsOk());
+    EXPECT_EQ(result->operation, FlashOperation::Write);
+    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_FALSE(result->rom_id.has_value()) << "legacy set RomId only on read";
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.baud_calls_, std::vector<int>{19200});
+    EXPECT_EQ(transport.control_line_trace_,
+              (std::vector<Line>{Line::EnableProgrammingVoltageLine, Line::DisableLecLines}));
+    // After the OBK probe, before AF 31 (write_mem() :441-444).
+    EXPECT_EQ(transport.programming_voltage_line_write_index_, std::optional<std::size_t>(1));
+    // One 500 ms sleep after each empty erase poll.
+    EXPECT_EQ(context.clock.elapsed(), 1000ms);
+    EXPECT_EQ(context.events.progress_calls.back(), (std::pair<int, int>{1024, 1024}));
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, EntersFlashModeFromCold)
+{
+    ScriptedKlineFlashTransport transport;
+    script_cold_flash_mode(transport);
+    script_erase(transport);
+    script_blocks(transport, block_count());
+    RunContext context;
+
+    ASSERT_THAT(run(write_plan(), transport, context), IsOk());
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.baud_calls_, (std::vector<int>{19200, 4800, 19200}));
+    EXPECT_EQ(transport.programming_voltage_line_write_index_, std::optional<std::size_t>(3));
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, RejectedFlashModeEntryNeverRaisesProgrammingVoltage)
+{
+    ScriptedKlineFlashTransport transport;
+    transport.expectWrite(request({0xaf}));
+    transport.queue_no_frame();
+    transport.exchange(request({0xbf}), init_reply());
+    transport.exchange(request({0xaf, 0x11, 0x12, 0x34, 0x56, 0x78, 0x9a, 0x02, 0x00, 0x00}),
+                       reply({0x7f, 0xaf, 0x22}));
+    RunContext context;
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::BadResponse));
+    EXPECT_EQ(transport.writesConsumed(), 3U);
+    EXPECT_EQ(transport.control_line_trace_, std::vector<Line>{Line::DisableLecLines});
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, EraseStartExhaustionFails)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    transport.expectWrite(request({0xaf, 0x31}));
+    for (int round = 0; round < 20; ++round)
+    {
+        transport.queue_no_frame();
+    }
+    RunContext context;
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::Timeout));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(context.clock.elapsed(), 20 * 500ms);
+    EXPECT_EQ(transport.control_line_trace_.back(), Line::DisableLecLines);
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, EraseCompleteExhaustionFailsInsteadOfProgramming)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    transport.expectWrite(request({0xaf, 0x31}));
+    transport.queueRead(kEraseStarted);
+    for (int round = 0; round < 40; ++round)
+    {
+        transport.queue_no_frame();
+    }
+    RunContext context;
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::Timeout));
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), 2U) << "legacy went on to program blank flash";
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, UnexpectedEraseReplyFails)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    transport.expectWrite(request({0xaf, 0x31}));
+    transport.queueRead(reply({0xef, 0x48}));
+    RunContext context;
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::BadResponse));
+    EXPECT_EQ(transport.writesConsumed(), 2U);
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, BadBlockReplyStopsBeforeTheNextBlock)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    script_erase(transport);
+    transport.exchange(block_request(0), reply({0xef, 0x5a}));
+    RunContext context;
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::BadResponse));
+    EXPECT_EQ(transport.writesConsumed(), 3U);
+    EXPECT_EQ(transport.control_line_trace_.back(), Line::DisableLecLines);
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, FinalBlockSilenceSucceedsWithAWarning)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    script_erase(transport);
+    script_blocks(transport, block_count() - 1);
+    transport.expectWrite(block_request(block_count() - 1));
+    transport.queue_no_frame();
+    RunContext context;
+
+    ASSERT_THAT(run(write_plan(), transport, context), IsOk());
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_TRUE(
+        std::ranges::any_of(context.events.logs, [](const auto& log) { return log.first == LogLevel::Warning; }));
+    EXPECT_EQ(transport.read_timeouts_.back(), 3000ms);
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, FinalBlockBadReplyFails)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    script_erase(transport);
+    script_blocks(transport, block_count() - 1);
+    transport.exchange(block_request(block_count() - 1), reply({0x7f, 0xaf, 0x22}));
+    RunContext context;
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::BadResponse));
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationDuringProgrammingReportsCancelledAndDropsTheLine)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    script_erase(transport);
+    script_blocks(transport, 2);
+    RunContext context;
+    // Trips as soon as the first block has been written.
+    context.cancellation.set_predicate([&transport] { return transport.writesConsumed() >= 3; });
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::Cancelled));
+    EXPECT_EQ(transport.writesConsumed(), 3U);
+    EXPECT_EQ(transport.control_line_trace_.back(), Line::DisableLecLines);
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationDuringTheErasePollDropsTheLine)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    transport.expectWrite(request({0xaf, 0x31}));
+    for (int round = 0; round < 20; ++round)
+    {
+        transport.queue_no_frame();
+    }
+    RunContext context;
+    // Trips on the third erase poll.
+    context.cancellation.set_predicate([&transport] { return transport.read_timeouts_.size() >= 4; });
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::Cancelled));
+    EXPECT_EQ(transport.writesConsumed(), 2U);
+    EXPECT_EQ(transport.control_line_trace_,
+              (std::vector<Line>{Line::EnableProgrammingVoltageLine, Line::DisableLecLines}));
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, TransportErrorMidProgrammingPropagatesAndDropsTheLine)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    script_erase(transport);
+    transport.expectWrite(block_request(0));
+    transport.queue_error(ErrorKind::Disconnected, "adapter unplugged");
+    RunContext context;
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::Disconnected));
+    EXPECT_EQ(transport.control_line_trace_.back(), Line::DisableLecLines);
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, CleanupFailureFailsAnOtherwiseSuccessfulWrite)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    script_erase(transport);
+    script_blocks(transport, block_count());
+    transport.disable_lec_lines_result_ = fail(ErrorKind::Disconnected, "RTS stuck");
+    RunContext context;
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::Disconnected));
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, CleanupFailureNeverReplacesAnEarlierError)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    transport.expectWrite(request({0xaf, 0x31}));
+    transport.queueRead(reply({0xef, 0x48}));
+    transport.disable_lec_lines_result_ = fail(ErrorKind::Disconnected, "RTS stuck");
+    RunContext context;
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::BadResponse));
+}
 } // namespace
 } // namespace fastecu::flash

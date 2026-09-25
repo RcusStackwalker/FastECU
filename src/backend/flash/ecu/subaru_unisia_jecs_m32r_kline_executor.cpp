@@ -34,6 +34,12 @@ constexpr int kReadBaud = 38400;           // read_mem() :102, :195
 // bytes of the BF reply (read_mem() :162-163).
 constexpr std::size_t kEcuIdOffset = 8;
 constexpr std::size_t kEcuIdLength = 5;
+constexpr auto kMediumTimeout = 500ms;  // serial_read_medium_timeout
+constexpr int kWriteBaud = 19200;       // write_mem() :347, :431
+constexpr auto kErasePollSleep = 500ms; // write_mem() :475, :515
+constexpr int kEraseStartRounds = 20;   // write_mem() :448
+constexpr int kEraseDoneRounds = 40;    // write_mem() :488
+constexpr bytes::Byte kBlockXor = 0x82; // write_mem() :525, :557
 
 struct Session
 {
@@ -237,9 +243,177 @@ Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
     return FlashExecutionResult{.operation = FlashOperation::Read, .read_bytes = std::move(rom), .rom_id = id + "_"};
 }
 
-Status write_rom(Session&, const FlashPlan&)
+bool is_exact_reply(bytes::ByteView frame, const SubaruUnisiaJecsM32rKlinePlan& wire, bytes::ByteView payload)
 {
-    return fail(ErrorKind::Unsupported, "Unisia Jecs M32R write is not implemented yet");
+    return SsmProtocol::hasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] == payload.size() &&
+           std::ranges::equal(frame.subspan(4, payload.size()), payload);
+}
+
+// write_mem() :448-516. read() returns whole frames, so legacy's byte
+// accumulation has no counterpart: an empty read continues the poll, and any
+// frame returned must be exactly `expected`. Exhausting the rounds fails;
+// legacy's second poll fell through to programming.
+Status poll_for(Session& s, bytes::ByteView expected, int rounds, std::string_view what)
+{
+    for (int round = 0; round < rounds; ++round)
+    {
+        auto response = receive(s, kMediumTimeout);
+        if (!response.has_value())
+        {
+            return std::unexpected(response.error());
+        }
+        if (response->has_value())
+        {
+            if (!is_exact_reply(**response, s.wire, expected))
+            {
+                return fail(ErrorKind::BadResponse, std::format("{} failed: {}", what, bytes::toHex(**response)));
+            }
+            return {};
+        }
+        if (Status slept = s.clock.sleep(kErasePollSleep, s.cancellation); !slept.has_value())
+        {
+            return slept;
+        }
+    }
+    return fail(ErrorKind::Timeout, std::format("no {} response after {} polls", what, rounds));
+}
+
+// write_mem() :346-432. Returns once the ECU is in flash mode at 19200 baud.
+Status enter_flash_mode(Session& s, std::uint32_t rom_size)
+{
+    if (Status baud = s.transport.setBaud(kWriteBaud); !baud.has_value())
+    {
+        return baud;
+    }
+    s.events.log(LogLevel::Info, "Checking if OBK is running");
+    if (Status sent = send(s, composeBe(0xaf_b)); !sent.has_value())
+    {
+        return sent;
+    }
+    auto probe = receive(s, kTimeout);
+    if (!probe.has_value())
+    {
+        return std::unexpected(probe.error());
+    }
+    if (probe->has_value() && has_sid(**probe, s.wire, 0xef))
+    {
+        return {};
+    }
+    s.events.log(LogLevel::Info, "OBK not running, requesting flash mode");
+
+    if (Status baud = s.transport.setBaud(kColdBaud); !baud.has_value())
+    {
+        return baud;
+    }
+    auto init = expect_ssm_init(s);
+    if (!init.has_value())
+    {
+        return std::unexpected(init.error());
+    }
+    (void)ecu_id(s, *init);
+    // send_sid_af_enter_flash_mode() :690-714. Gated: legacy logged a
+    // rejection here and went on to raise VPP and erase.
+    s.events.log(LogLevel::Info, "Sending request to change to flash mode");
+    auto entered = exchange_expect(
+        s, composeBe(0xaf_b, 0x11_b, bytes::ByteView(*init).subspan(kEcuIdOffset, kEcuIdLength), u24(rom_size)),
+        kTimeout, 0xef, "enter flash mode");
+    if (!entered.has_value())
+    {
+        return std::unexpected(entered.error());
+    }
+    s.events.log(LogLevel::Debug, "Changing baudrate to 19200");
+    return s.transport.setBaud(kWriteBaud);
+}
+
+Status write_rom(Session& s, const FlashPlan& plan)
+{
+    const bytes::Bytes& image = *plan.image();
+    const std::uint32_t rom_size = plan.transfer_region().length;
+    if (Status entered = enter_flash_mode(s, rom_size); !entered.has_value())
+    {
+        return entered;
+    }
+
+    // write_mem() :440-441. The operator confirmed external VPP before the
+    // run when the adapter cannot supply it.
+    if (Status cancelled = cancelled_if_requested(s.cancellation, "before programming voltage"); !cancelled.has_value())
+    {
+        return cancelled;
+    }
+    s.events.log(LogLevel::Debug, "Set programming voltage +12v to Line End Check 1");
+    if (Status raised = s.transport.enable_programming_voltage_line(); !raised.has_value())
+    {
+        return raised;
+    }
+
+    // send_sid_af_erase_memory_block() :716-731 sends without reading.
+    s.events.log(LogLevel::Info, "Sending request to erase flash");
+    if (Status sent = send(s, composeBe(0xaf_b, 0x31_b)); !sent.has_value())
+    {
+        return sent;
+    }
+    if (Status started = poll_for(s, composeBe(0xef_b, 0x42_b), kEraseStartRounds, "flash erase start");
+        !started.has_value())
+    {
+        return started;
+    }
+    s.events.log(LogLevel::Info, "Flash erase in progress, please wait...");
+    if (Status erased = poll_for(s, composeBe(0xef_b, 0x52_b), kEraseDoneRounds, "flash erase"); !erased.has_value())
+    {
+        return erased;
+    }
+    s.events.log(LogLevel::Info, "Flash erased!");
+    // write_mem() :517: one more read, whose result legacy discarded.
+    auto trailing = receive(s, kMediumTimeout);
+    if (!trailing.has_value())
+    {
+        return std::unexpected(trailing.error());
+    }
+    if (trailing->has_value())
+    {
+        s.events.log(LogLevel::Debug, std::format("Discarded after erase: {}", bytes::toHex(**trailing)));
+    }
+
+    // write_mem() :535-625.
+    const auto blocks = static_cast<int>(rom_size / kPage);
+    const bytes::Bytes done = composeBe(0xef_b, 0x52_b);
+    for (int block = 0; block < blocks; ++block)
+    {
+        const std::uint32_t address = static_cast<std::uint32_t>(block) * kPage;
+        const bool last = block == blocks - 1;
+        bytes::Bytes data(image.begin() + address, image.begin() + address + kPage);
+        for (bytes::Byte& value : data)
+        {
+            value ^= kBlockXor;
+        }
+        if (Status sent = send(s, composeBe(0xaf_b, last ? 0x69_b : 0x61_b, u24(address), bytes::ByteView(data)));
+            !sent.has_value())
+        {
+            return sent;
+        }
+        auto response = receive(s, kExtraLongTimeout);
+        if (!response.has_value())
+        {
+            return std::unexpected(response.error());
+        }
+        if (!response->has_value())
+        {
+            if (!last)
+            {
+                return fail(ErrorKind::Timeout, std::format("no response to block write at 0x{:06X}", address));
+            }
+            // Legacy never read a reply to AF 69 (:564); its shape is unknown.
+            s.events.log(LogLevel::Warning, "No reply to the final block; treating the write as complete");
+        }
+        else if (!is_exact_reply(**response, s.wire, done))
+        {
+            return fail(ErrorKind::BadResponse,
+                        std::format("block write at 0x{:06X} failed: {}", address, bytes::toHex(**response)));
+        }
+        s.events.progress(block + 1, blocks);
+    }
+    s.events.log(LogLevel::Info, "ROM written to flash.");
+    return {};
 }
 } // namespace
 
