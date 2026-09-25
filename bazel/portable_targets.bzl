@@ -120,6 +120,7 @@ PORTABLE_PACKAGES = {
         "subaru_unisia_jecs_executor",
         "subaru_denso_mc68hc16y5_02_bdm_types",
         "subaru_denso_mc68hc16y5_02_bdm_plan",
+        "subaru_denso_mc68hc16y5_02_bdm_executor",
     ],
     "src/backend/logging": [
         "logger_conf",
