@@ -66,6 +66,41 @@ std::unique_ptr<FlashWorkflow> unisiaM32rWriteAtAttempt()
 
 using PromptArguments = std::vector<std::pair<std::string, std::string>>;
 
+FlashWorkflowRequest unisiaBootmodeWrite(const config::ConfigPaths& paths)
+{
+    auto input = request("sub_ecu_unisia_jecs_20_bootmode", FlashOperation::Write);
+    input.mcu = "M32R_128KB";
+    input.image = bytes::Bytes(0x20000, 0xa5);
+    input.paths = paths;
+    return input;
+}
+
+// Begin -> ApplyBootModeVoltages -> kernel attempt, all accepted.
+std::unique_ptr<FlashWorkflow> unisiaBootmodeAtKernelAttempt(const config::ConfigPaths& paths)
+{
+    auto workflow = FlashWorkflowFactory::tryCreate(unisiaBootmodeWrite(paths));
+    if (workflow == nullptr || std::get<FlashPromptStep>(workflow->next()).kind != FlashPromptKind::Begin)
+    {
+        return nullptr;
+    }
+    workflow->submit(FlashPromptResponse::Accept);
+    if (std::get<FlashPromptStep>(workflow->next()).kind != FlashPromptKind::ApplyBootModeVoltages)
+    {
+        return nullptr;
+    }
+    workflow->submit(FlashPromptResponse::Accept);
+    if (!std::holds_alternative<FlashAttempt>(workflow->next()))
+    {
+        return nullptr;
+    }
+    return workflow;
+}
+
+PromptArguments bootmodeNotice(std::string outcome)
+{
+    return {{"outcome", std::move(outcome)}, {"external_vpp", "yes"}, {"power_off_advice", "no"}};
+}
+
 bool writeFile(const QString& path, const QByteArray& contents)
 {
     QFile file(path);
@@ -149,6 +184,14 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, 
       <ecu>Denso SH7058</ecu><mcu>SH7058</mcu>
       <kernel>catalog_kline_sh7058.bin</kernel><kernel_addr>0xFFFF3000</kernel_addr>
     </protocol>
+    <protocol name="sub_ecu_unisia_jecs_20_bootmode">
+      <ecu>WA12212920WWW</ecu><mcu>M32R_128KB</mcu>
+      <kernel>catalog_uj20_bootmode.bin</kernel>
+    </protocol>
+    <protocol name="sub_ecu_unisia_jecs_30_bootmode">
+      <ecu>WA12212930WWW</ecu><mcu>M32R_256KB</mcu>
+      <kernel>catalog_uj30_bootmode.bin</kernel>
+    </protocol>
   </protocols>
   <car_models>
     <car_model><make>Subaru</make><model>Impreza</model><version>WRX</version>
@@ -177,7 +220,9 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, 
             !writeFile(kernel_directory + "/catalog_diesel_sh7058.bin", QByteArray::fromHex("d0e0f001")) ||
             !writeFile(kernel_directory + "/catalog_diesel_sh7059.bin", QByteArray::fromHex("d0e0f002")) ||
             !writeFile(kernel_directory + "/catalog_kline_sh7055.bin", QByteArray::fromHex("aabbccdd")) ||
-            !writeFile(kernel_directory + "/catalog_kline_sh7058.bin", QByteArray::fromHex("01020304")))
+            !writeFile(kernel_directory + "/catalog_kline_sh7058.bin", QByteArray::fromHex("01020304")) ||
+            !writeFile(kernel_directory + "/catalog_uj20_bootmode.bin", QByteArray::fromHex("0102030405")) ||
+            !writeFile(kernel_directory + "/catalog_uj30_bootmode.bin", QByteArray::fromHex("0607")))
         {
             return std::nullopt;
         }
@@ -293,7 +338,18 @@ class FlashWorkflowTest : public QObject
     void densoSh705xKlineCobbReadFailsBeforeAttempt();
     void densoSh705xKlineIgnoresPrefixLookalikes();
     void unisiaJecsM32rRoutesTheFourExactProtocols();
-    void unisiaJecsM32rBootmodeAndLookalikesStayLegacy();
+    void unisiaJecsM32rLookalikesStayUnrouted();
+    void unisiaBootmodeReadUsesTheKlineReadFamily();
+    void unisiaBootmodeWriteRunsKernelThenMod1ThenProgram();
+    void unisiaBootmodeKernelFailureSkipsMod1AndProgram();
+    void unisiaBootmodeKernelCancelledShowsNotice();
+    void unisiaBootmodeDeclinedMod1CancelsWithNotice();
+    void unisiaBootmodeProgramFailureShowsNoticeThenFailure();
+    void unisiaBootmodeDeclinedVoltagesCancelsBeforeAnyAttempt();
+    void unisiaBootmodeWrongImageSizeFailsBeforeAnyPrompt();
+    void unisiaBootmodeMissingKernelFailsBeforeAnyPrompt();
+    void unisiaBootmodeEmptyKernelFailsBeforeAnyPrompt();
+    void unisiaBootmodeTestWriteIsUnsupported();
     void unisiaJecsM32rWriteWithoutAdapterVppPromptsBeforeAndAfter();
     void unisiaJecsM32rFailedWriteRemindsBeforeReportingTheFailure();
     void unisiaJecsM32rCancelledWriteReminds();
@@ -1784,13 +1840,230 @@ void FlashWorkflowTest::unisiaJecsM32rRoutesTheFourExactProtocols()
     }
 }
 
-void FlashWorkflowTest::unisiaJecsM32rBootmodeAndLookalikesStayLegacy()
+void FlashWorkflowTest::unisiaJecsM32rLookalikesStayUnrouted()
 {
-    for (const char *protocol : {"sub_ecu_unisia_jecs_20_bootmode", "sub_ecu_unisia_jecs_30_bootmode",
-                                 "sub_ecu_unisia_jecs_20x", "sub_ecu_unisia_jecs_7"})
+    for (const char *protocol : {"sub_ecu_unisia_jecs_20x", "sub_ecu_unisia_jecs_7", "sub_ecu_unisia_jecs_20_bootmodex",
+                                 "sub_ecu_unisia_jecs_40_bootmode"})
     {
         QVERIFY2(FlashWorkflowFactory::tryCreate(request(protocol)) == nullptr, protocol);
     }
+}
+
+void FlashWorkflowTest::unisiaBootmodeReadUsesTheKlineReadFamily()
+{
+    struct Variant
+    {
+        const char *protocol;
+        const char *mcu;
+        std::uint32_t rom_size;
+    };
+    for (const Variant& variant : std::to_array<Variant>({
+             {"sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", 0x20000},
+             {"sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB", 0x40000},
+         }))
+    {
+        auto input = request(variant.protocol);
+        input.mcu = variant.mcu;
+        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        QVERIFY2(workflow != nullptr, variant.protocol);
+        QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+        workflow->submit(FlashPromptResponse::Accept);
+        auto step = workflow->next();
+        QVERIFY2(std::holds_alternative<FlashAttempt>(step), variant.protocol);
+        const auto& plan = std::get<FlashAttempt>(step).attempt->plan();
+        QCOMPARE(plan.family(), FlashFamily::SubaruUnisiaJecsM32rKline);
+        QCOMPARE(plan.transfer_region(), (MemoryRegion{0x100000, variant.rom_size}));
+        QVERIFY(plan.confirmations().empty());
+        workflow->submit(
+            FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{1}, .rom_id = std::string("123456789A_")});
+        const auto done = workflow->next();
+        QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+        QVERIFY(std::get<FlashCompletedStep>(done).rom_id == std::optional<std::string>("123456789A_"));
+    }
+}
+
+void FlashWorkflowTest::unisiaBootmodeWriteRunsKernelThenMod1ThenProgram()
+{
+    QTemporaryDir directory;
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    auto workflow = FlashWorkflowFactory::tryCreate(unisiaBootmodeWrite(*paths));
+    QVERIFY(workflow != nullptr);
+
+    auto step = workflow->next();
+    if (const auto *failure = std::get_if<FlashFailureStep>(&step))
+    {
+        QFAIL(failure->error.detail.c_str());
+    }
+    QCOMPARE(std::get<FlashPromptStep>(step).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::ApplyBootModeVoltages);
+    workflow->submit(FlashPromptResponse::Accept);
+
+    step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashAttempt>(step));
+    const auto& kernel = std::get<FlashAttempt>(step).attempt->plan();
+    QCOMPARE(kernel.family(), FlashFamily::SubaruUnisiaJecsM32rBootModeKernel);
+    bytes::Bytes padded{0x01, 0x02, 0x03, 0x04, 0x05};
+    padded.resize(0x80, 0x00);
+    QCOMPARE(kernel.image(), std::optional<bytes::Bytes>(padded));
+    workflow->submit(FlashAttemptResult{.success = true});
+
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::RemoveMod1);
+    workflow->submit(FlashPromptResponse::Accept);
+
+    step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashAttempt>(step));
+    const auto& program = std::get<FlashAttempt>(step).attempt->plan();
+    QCOMPARE(program.family(), FlashFamily::SubaruUnisiaJecsM32rBootModeProgram);
+    QCOMPARE(program.image(), std::optional<bytes::Bytes>(bytes::Bytes(0x20000, 0xa5)));
+    workflow->submit(FlashAttemptResult{.success = true});
+
+    const auto notice = std::get<FlashPromptStep>(workflow->next());
+    QCOMPARE(notice.kind, FlashPromptKind::RemoveProgrammingVoltage);
+    QVERIFY(notice.arguments == bootmodeNotice("succeeded"));
+    workflow->submit(FlashPromptResponse::Accept);
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Succeeded);
+}
+
+void FlashWorkflowTest::unisiaBootmodeKernelFailureSkipsMod1AndProgram()
+{
+    QTemporaryDir directory;
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    auto workflow = unisiaBootmodeAtKernelAttempt(*paths);
+    QVERIFY(workflow != nullptr);
+    workflow->submit(
+        FlashAttemptResult{.success = false, .error_kind = ErrorKind::InvalidConfig, .error_detail = "baud"});
+    const auto notice = std::get<FlashPromptStep>(workflow->next());
+    QCOMPARE(notice.kind, FlashPromptKind::RemoveProgrammingVoltage);
+    QVERIFY(notice.arguments == bootmodeNotice("failed"));
+    workflow->submit(FlashPromptResponse::Accept);
+    const auto failure = workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(failure));
+    QCOMPARE(std::get<FlashFailureStep>(failure).error.kind, ErrorKind::InvalidConfig);
+}
+
+void FlashWorkflowTest::unisiaBootmodeKernelCancelledShowsNotice()
+{
+    QTemporaryDir directory;
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    auto workflow = unisiaBootmodeAtKernelAttempt(*paths);
+    QVERIFY(workflow != nullptr);
+    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::Cancelled});
+    const auto notice = std::get<FlashPromptStep>(workflow->next());
+    QCOMPARE(notice.kind, FlashPromptKind::RemoveProgrammingVoltage);
+    QVERIFY(notice.arguments == bootmodeNotice("cancelled"));
+    workflow->submit(FlashPromptResponse::Accept);
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Cancelled);
+}
+
+void FlashWorkflowTest::unisiaBootmodeDeclinedMod1CancelsWithNotice()
+{
+    QTemporaryDir directory;
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    auto workflow = unisiaBootmodeAtKernelAttempt(*paths);
+    QVERIFY(workflow != nullptr);
+    workflow->submit(FlashAttemptResult{.success = true});
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::RemoveMod1);
+    workflow->submit(FlashPromptResponse::Decline);
+    const auto notice = std::get<FlashPromptStep>(workflow->next());
+    QCOMPARE(notice.kind, FlashPromptKind::RemoveProgrammingVoltage);
+    QVERIFY(notice.arguments == bootmodeNotice("cancelled"));
+    workflow->submit(FlashPromptResponse::Accept);
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Cancelled);
+}
+
+void FlashWorkflowTest::unisiaBootmodeProgramFailureShowsNoticeThenFailure()
+{
+    QTemporaryDir directory;
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    auto workflow = unisiaBootmodeAtKernelAttempt(*paths);
+    QVERIFY(workflow != nullptr);
+    workflow->submit(FlashAttemptResult{.success = true});
+    workflow->next(); // RemoveMod1
+    workflow->submit(FlashPromptResponse::Accept);
+    QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
+    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::BadResponse, .error_detail = "x"});
+    const auto notice = std::get<FlashPromptStep>(workflow->next());
+    QVERIFY(notice.arguments == bootmodeNotice("failed"));
+    workflow->submit(FlashPromptResponse::Accept);
+    const auto failure = workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(failure));
+    QCOMPARE(std::get<FlashFailureStep>(failure).error.kind, ErrorKind::BadResponse);
+}
+
+void FlashWorkflowTest::unisiaBootmodeDeclinedVoltagesCancelsBeforeAnyAttempt()
+{
+    QTemporaryDir directory;
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    auto workflow = FlashWorkflowFactory::tryCreate(unisiaBootmodeWrite(*paths));
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::ApplyBootModeVoltages);
+    workflow->submit(FlashPromptResponse::Decline);
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Cancelled);
+}
+
+void FlashWorkflowTest::unisiaBootmodeWrongImageSizeFailsBeforeAnyPrompt()
+{
+    QTemporaryDir directory;
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    auto input = unisiaBootmodeWrite(*paths);
+    input.image = bytes::Bytes(0x20001, 0xa5);
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    const auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(step));
+    QCOMPARE(std::get<FlashFailureStep>(step).error.kind, ErrorKind::InvalidConfig);
+}
+
+void FlashWorkflowTest::unisiaBootmodeMissingKernelFailsBeforeAnyPrompt()
+{
+    QTemporaryDir directory;
+    const auto paths = catalogPaths(directory, false);
+    QVERIFY(paths.has_value());
+    auto workflow = FlashWorkflowFactory::tryCreate(unisiaBootmodeWrite(*paths));
+    const auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(step));
+    QVERIFY(std::get<FlashFailureStep>(step).error.detail.find("catalog_uj20_bootmode.bin") != std::string::npos);
+}
+
+void FlashWorkflowTest::unisiaBootmodeEmptyKernelFailsBeforeAnyPrompt()
+{
+    QTemporaryDir directory;
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    QVERIFY(writeFile(directory.filePath("kernels/catalog_uj20_bootmode.bin"), QByteArray()));
+    auto workflow = FlashWorkflowFactory::tryCreate(unisiaBootmodeWrite(*paths));
+    const auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(step));
+    QCOMPARE(std::get<FlashFailureStep>(step).error.kind, ErrorKind::InvalidConfig);
+}
+
+void FlashWorkflowTest::unisiaBootmodeTestWriteIsUnsupported()
+{
+    QTemporaryDir directory;
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    auto input = unisiaBootmodeWrite(*paths);
+    input.operation = FlashOperation::TestWrite;
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    const auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(step));
+    QCOMPARE(std::get<FlashFailureStep>(step).error.kind, ErrorKind::Unsupported);
 }
 
 void FlashWorkflowTest::unisiaJecsM32rWriteWithoutAdapterVppPromptsBeforeAndAfter()

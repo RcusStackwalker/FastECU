@@ -221,6 +221,31 @@ Status DesktopKlineFlashTransport::enable_programming_voltage_line()
     }
 }
 
+Status DesktopKlineFlashTransport::enable_boot_mode_lines()
+{
+    if (!serial_)
+    {
+        return fail(ErrorKind::Disconnected, "enable_boot_mode_lines() called after close()");
+    }
+    try
+    {
+        // Legacy flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp:66.
+        if (serial_->set_lec_lines(serial_->get_requestToSendEnabled(), serial_->get_dataTerminalEnabled()) != 0)
+        {
+            return fail(ErrorKind::Internal, "set_lec_lines boot mode state failed");
+        }
+        return {};
+    }
+    catch (const std::exception& error)
+    {
+        return fail(ErrorKind::Internal, error.what());
+    }
+    catch (...)
+    {
+        return fail(ErrorKind::Internal, "enable_boot_mode_lines exception");
+    }
+}
+
 bool DesktopKlineFlashTransport::requires_post_kernel_upload_delay() const
 {
 #if defined(Q_OS_UNIX)

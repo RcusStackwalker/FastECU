@@ -28,7 +28,6 @@ FROZEN = {
     "//src/platform/desktop/common/transport:__pkg__",
     "//src/ui/desktop:__pkg__",
     "//src/ui/desktop/biu:__pkg__",
-    "//src/ui/desktop/flash/bootmode:__pkg__",
     "//tests:__pkg__",
 }
 

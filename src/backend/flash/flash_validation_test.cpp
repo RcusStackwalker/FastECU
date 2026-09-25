@@ -69,9 +69,9 @@ struct FamilyCase
     std::string_view id;
 };
 
-const std::array<FamilyCase, 28>& family_cases()
+const std::array<FamilyCase, 30>& family_cases()
 {
-    static const std::array<FamilyCase, 28> cases{{
+    static const std::array<FamilyCase, 30> cases{{
         {FlashFamily::DensoSh705xEepromKline, TransportKind::Kline,
          DensoSh705xEepromKlinePlan{.mode = EepromReadMode::Mode2,
                                     .security = DensoSecurityVariant::Stock,
@@ -223,6 +223,12 @@ const std::array<FamilyCase, 28>& family_cases()
         {FlashFamily::SubaruUnisiaJecsM32rKline, TransportKind::Kline,
          SubaruUnisiaJecsM32rKlinePlan{.initial_baud = 4800, .tester_id = 0xf0, .target_id = 0x10},
          "SubaruUnisiaJecsM32rKline"},
+        {FlashFamily::SubaruUnisiaJecsM32rBootModeKernel, TransportKind::Kline,
+         SubaruUnisiaJecsM32rBootModeKernelPlan{.initial_baud = 39063, .tester_id = 0xf0, .target_id = 0x10},
+         "SubaruUnisiaJecsM32rBootModeKernel"},
+        {FlashFamily::SubaruUnisiaJecsM32rBootModeProgram, TransportKind::Kline,
+         SubaruUnisiaJecsM32rBootModeProgramPlan{.initial_baud = 19200, .tester_id = 0xf0, .target_id = 0x10},
+         "SubaruUnisiaJecsM32rBootModeProgram"},
     }};
     return cases;
 }

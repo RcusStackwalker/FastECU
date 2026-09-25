@@ -208,6 +208,10 @@ class IKlineFlashTransport : public IFlashTransport, public mutdma::IKlineTransp
     virtual Status pulse_lec_2_line(std::chrono::milliseconds timeout) = 0;
     virtual Status enable_programming_voltage_line() = 0;
 
+    // Wave 7. Programming voltage on LEC1 and MOD1 on LEC2 together: the M32R
+    // boot-mode entry state the Unisia Jecs bootmode kernel upload needs.
+    virtual Status enable_boot_mode_lines() = 0;
+
     // Some Unix J2534/OpenPort2 drivers need a quiet period after the raw
     // kernel upload write before the first response read. Portable
     // executors consume only this semantic capability, never adapter types.

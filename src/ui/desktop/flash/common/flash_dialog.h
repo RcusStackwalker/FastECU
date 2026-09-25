@@ -20,6 +20,12 @@ struct FlashDialogResult
     std::optional<std::string> rom_id;
 };
 
+struct ProgrammingVoltageNotice
+{
+    QString title;
+    QString text;
+};
+
 class FlashDialog : public QDialog
 {
     Q_OBJECT
@@ -28,6 +34,10 @@ class FlashDialog : public QDialog
                          QWidget *parent = nullptr);
     ~FlashDialog() override = default;
     FlashDialogResult run();
+
+    // The RemoveProgrammingVoltage notice's title and text; see the prompt
+    // kind's arguments in flash_workflow.h.
+    static ProgrammingVoltageNotice programmingVoltageNotice(const FlashPromptStep& prompt);
 
   signals:
     void external_logger(QString message);

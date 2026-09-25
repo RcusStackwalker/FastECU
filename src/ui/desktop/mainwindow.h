@@ -56,8 +56,6 @@
 #include "src/ui/desktop/hexedit/hexedit.h"
 
 // Flash modules
-// Bootmode
-#include "src/ui/desktop/flash/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode.h"
 
 // OBD
 #include "src/ui/desktop/flash/common/flash_dialog.h"

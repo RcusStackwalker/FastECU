@@ -3,6 +3,8 @@
 #include <QCloseEvent>
 #include <QMessageBox>
 #include <QStringList>
+#include <string>
+#include <string_view>
 
 namespace fastecu::flash
 {
@@ -143,6 +145,46 @@ void FlashDialog::workerFinished(FlashWorkerResult result)
     advance();
 }
 
+ProgrammingVoltageNotice FlashDialog::programmingVoltageNotice(const FlashPromptStep& prompt)
+{
+    auto arg = [&prompt](std::string_view key)
+    {
+        for (const auto& [name, value] : prompt.arguments)
+        {
+            if (name == key)
+            {
+                return value;
+            }
+        }
+        return std::string{};
+    };
+    const bool external_vpp = arg("external_vpp") == "yes";
+    const bool succeeded = arg("outcome") == "succeeded";
+    const bool power_off_advice = arg("power_off_advice") != "no";
+    QStringList paragraphs;
+    if (external_vpp)
+    {
+        paragraphs << QObject::tr("Remove VPP voltage from the ECU, then press OK.");
+    }
+    if (!succeeded && power_off_advice)
+    {
+        paragraphs << QObject::tr("The write did not complete. If the ECU entered flash mode, do not power it off: the "
+                                  "flash kernel is still running and you can try flashing again.");
+    }
+    else if (!succeeded)
+    {
+        // Legacy bootmode dialog: "ECU operation failed, press OK to exit and try again".
+        paragraphs << QObject::tr("The write did not complete. Press OK to exit and try again.");
+    }
+    else if (!power_off_advice)
+    {
+        // Legacy bootmode write_mem() :581.
+        paragraphs << QObject::tr("Power cycle the ECU and request SSM Init to confirm the write.");
+    }
+    return {external_vpp ? QObject::tr("Programming voltage") : QObject::tr("ECU operation"),
+            paragraphs.join(QStringLiteral("\n\n"))};
+}
+
 FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
 {
     auto arg = [&prompt](const char *key)
@@ -213,20 +255,28 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
     }
     if (prompt.kind == FlashPromptKind::RemoveProgrammingVoltage)
     {
-        const bool external_vpp = arg("external_vpp") == QStringLiteral("yes");
-        QStringList paragraphs;
-        if (external_vpp)
-        {
-            paragraphs << tr("Remove VPP voltage from the ECU, then press OK.");
-        }
-        if (arg("outcome") != QStringLiteral("succeeded"))
-        {
-            paragraphs << tr("The write did not complete. If the ECU entered flash mode, do not power it off: the "
-                             "flash kernel is still running and you can try flashing again.");
-        }
-        QMessageBox::information(this, external_vpp ? tr("Programming voltage") : tr("ECU operation"),
-                                 paragraphs.join(QStringLiteral("\n\n")));
+        const ProgrammingVoltageNotice notice = programmingVoltageNotice(prompt);
+        QMessageBox::information(this, notice.title, notice.text);
         return FlashPromptResponse::Accept;
+    }
+    if (prompt.kind == FlashPromptKind::ApplyBootModeVoltages)
+    {
+        // Legacy flash_ecu_subaru_unisia_jecs_m32r_bootmode.cpp:38-41.
+        return QMessageBox::warning(this, tr("Connecting to ECU"),
+                                    tr("Connect VPP and MOD1 to the ECU, turn ignition ON, then press OK to continue."),
+                                    QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Ok
+                   ? FlashPromptResponse::Accept
+                   : FlashPromptResponse::Decline;
+    }
+    if (prompt.kind == FlashPromptKind::RemoveMod1)
+    {
+        // Legacy write_mem() :367 offered OK only; Cancel stops before erase.
+        return QMessageBox::warning(this, tr("Flash file"),
+                                    tr("The kernel has been uploaded. Remove MOD1 voltage, then press OK to erase and "
+                                       "program the ECU, or Cancel to stop before anything is erased."),
+                                    QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Ok
+                   ? FlashPromptResponse::Accept
+                   : FlashPromptResponse::Decline;
     }
     if (prompt.kind == FlashPromptKind::ConfirmSh7058Read)
     {

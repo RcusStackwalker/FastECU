@@ -24,12 +24,16 @@ struct Variant
 };
 
 // protocols.cfg: _20 and _30 are read/write; _40 and _70 are read-only.
-// test_write is "no" for all four.
+// test_write is "no" for all four. The two _bootmode names are Read-only
+// here: their Read is this family's wire sequence (wave 7), and their Write
+// is the bootmode family's two-attempt kernel upload and program.
 constexpr auto kVariants = std::to_array<Variant>({
     {"sub_ecu_unisia_jecs_20", "M32R_128KB", 0x20000, true},
     {"sub_ecu_unisia_jecs_30", "M32R_256KB", 0x40000, true},
     {"sub_ecu_unisia_jecs_40", "M32R_384KB", 0x60000, false},
     {"sub_ecu_unisia_jecs_70", "M32R_512KB", 0x80000, false},
+    {"sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", 0x20000, false},
+    {"sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB", 0x40000, false},
 });
 // Legacy read_mem() :219 reads fblocks[0].start + 0x100000, and every M32R
 // variant above starts at 0; write_mem() :522 programs from flash address 0.

@@ -81,10 +81,10 @@ for the eight-wave sequencing:
 - Wave 6c-2 `FlashEcuSubaruHitachiM32rJtag` — removed, not migrated (#358):
   it was unreachable and its read and write were stubs. See the
   [removal design](superpowers/specs/2026-09-25-step5-tail-wave6c2-hitachi-m32r-jtag-removal-design.md).
-- Wave 6c-3 `FlashEcuSubaruUnisiaJecsM32r` — implemented on this branch. The
-  drain is one remaining family, the wave-7 bootmode. Hardware status remains
-  experimental. See the
-  [family design](superpowers/specs/2026-09-25-step5-tail-wave6c3-unisia-jecs-m32r-kline-design.md).
+- Wave 6c-3 `FlashEcuSubaruUnisiaJecsM32r` — merged (#359).
+- Wave 7 `FlashEcuSubaruUnisiaJecsM32rBootMode` — implemented on this branch
+  (7a); legacy package teardown follows in 7b. See the
+  [family design](superpowers/specs/2026-09-25-step5-tail-wave7-unisia-jecs-m32r-bootmode-design.md).
 
 ## Verified Current Baseline
 
@@ -219,7 +219,7 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
    - **Amendment 4:** the checksum correction dialog is now **one aggregated summary** instead of one per family — a deliberate behavior change, bench-checklist item recorded in Task 9 Step 8.
    - Note for step 5's benefit: each `:qt_compat` target is transitional debt whose only remaining callers are backend and UI. Step 5 should drain them and delete the shims.
 
-5. **Make backend workflows portable — 5a through 5e complete; flash-tail Wave 6c-3 implemented on this branch, with 1 legacy family remaining**
+5. **Make backend workflows portable — 5a through 5e complete; flash-tail Wave 7 implemented on this branch, with 0 legacy families remaining**
    - Sub-step status and PR numbers are tracked in the Status section above.
    - Define capability-specific ports for byte-stream/K-Line, CAN frames, SSM, file repositories, settings, monotonic clock/delay, cancellation, and event delivery.
    - Backend owns no threads. Platform code runs blocking, bounded, cancellable backend calls on Qt workers or future Kotlin coroutines.

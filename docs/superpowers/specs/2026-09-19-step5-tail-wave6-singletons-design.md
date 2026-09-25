@@ -1,7 +1,7 @@
 <!-- docs/superpowers/specs/2026-09-19-step5-tail-wave6-singletons-design.md -->
 # Step 5 Tail Wave 6 — Nine Singletons — Design
 
-**Status:** in progress — waves 6a-1 through 6c-2 are merged; 6c-3 is implemented on this branch. One legacy family remains, for wave 7.
+**Status:** complete — waves 6a-1 through 6c-3 are merged. The last legacy family migrated in wave 7.
 **Predecessor:** [wave 5, Denso SH705x CAN](2026-09-02-step5-tail-wave5-denso-sh705x-can-design.md), merged as PR #341
 **Umbrella:** [step 5 tail flash drain](2026-08-08-step5-tail-flash-drain-design.md)
 
@@ -245,6 +245,11 @@ Specified here; **not landed in wave 6**, because no wave-6 family calls them
 and the ratchet discipline gives speculative surface no safety net. Revising
 this item before wave 7 costs a spec edit, not a migration.
 
+**Amended by wave 7:** only `enable_boot_mode_lines()` landed. Bootmode's
+write became two attempts split where legacy already reset the connection,
+so each attempt configures its own parity and mid-session `set_parity()` has
+no caller. See the [wave 7 design](2026-09-25-step5-tail-wave7-unisia-jecs-m32r-bootmode-design.md).
+
 Bootmode's other legacy calls need nothing new: `reset_connection` comes from
 item 2, `change_port_speed` is `setBaud()`, `write_serial_data_echo_check` is
 `write()`, `is_serial_port_open` is already a precondition inside every adapter
@@ -400,3 +405,10 @@ planned `ApplyProgrammingVoltage` confirmation; and the legacy dialog package
 `//src/ui/desktop/flash/ecu` is deleted, taking its entry out of the
 `serial_qt_compat` allowlist. The drain moves from two entries to one;
 `FlashEcuSubaruUnisiaJecsM32rBootMode` remains for wave 7.
+
+## Wave 7 note
+
+The [wave 7 design](2026-09-25-step5-tail-wave7-unisia-jecs-m32r-bootmode-design.md)
+migrates `FlashEcuSubaruUnisiaJecsM32rBootMode`: Read joins the 6c-3 family,
+Write is two attempts around a `RemoveMod1` prompt, and port item 4 lands as
+`enable_boot_mode_lines()` alone. The drain moves from one entry to none.

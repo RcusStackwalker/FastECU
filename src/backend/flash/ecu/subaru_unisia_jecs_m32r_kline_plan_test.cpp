@@ -110,7 +110,8 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, RejectsEveryOtherIdentity)
     for (const auto& [protocol, mcu] : std::to_array<std::pair<std::string_view, std::string_view>>({
              {"sub_ecu_unisia_jecs_20", "M32R_256KB"},
              {"sub_ecu_unisia_jecs_70", "M32R_512KB_1block"},
-             {"sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB"},
+             {"sub_ecu_unisia_jecs_20_bootmode", "M32R_256KB"},
+             {"sub_ecu_unisia_jecs_40_bootmode", "M32R_384KB"},
              {"sub_ecu_unisia_jecs_30x", "M32R_256KB"},
              {"sub_ecu_unisia_jecs_m3779x", "M3779x"},
          }))
@@ -118,6 +119,39 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, RejectsEveryOtherIdentity)
         EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Read, protocol, mcu, std::nullopt, false),
                     IsErr(ErrorKind::InvalidConfig))
             << protocol << " / " << mcu;
+    }
+}
+
+// Wave 7. Bootmode Read is byte-identical to this family's Read
+// (flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp:112-275); bootmode
+// Write belongs to the bootmode family.
+TEST(SubaruUnisiaJecsM32rKlinePlan, AcceptsBootmodeProtocolsForReadOnly)
+{
+    struct Bootmode
+    {
+        std::string_view protocol;
+        std::string_view mcu;
+        std::uint32_t rom_size;
+    };
+    for (const Bootmode& variant : std::to_array<Bootmode>({
+             {"sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", 0x20000},
+             {"sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB", 0x40000},
+         }))
+    {
+        const auto read = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Read, variant.protocol, variant.mcu,
+                                                                   std::nullopt, false);
+        ASSERT_THAT(read, IsOk()) << variant.protocol;
+        EXPECT_EQ(read->transfer_region(), (MemoryRegion{0x100000, variant.rom_size}));
+        EXPECT_TRUE(read->confirmations().empty());
+        EXPECT_THAT(validate_subaru_unisia_jecs_m32r_kline_plan(*read), IsOk());
+
+        for (const FlashOperation operation : {FlashOperation::Write, FlashOperation::TestWrite})
+        {
+            EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(operation, variant.protocol, variant.mcu,
+                                                                 bytes::Bytes(variant.rom_size, 0x00), false),
+                        IsErr(ErrorKind::Unsupported))
+                << variant.protocol;
+        }
     }
 }
 
