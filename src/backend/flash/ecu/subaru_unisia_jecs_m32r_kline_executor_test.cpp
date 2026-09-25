@@ -509,6 +509,21 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, BadBlockReplyStopsBeforeTheNextBlock)
     EXPECT_EQ(transport.control_line_trace_.back(), Line::DisableLecLines);
 }
 
+TEST(SubaruUnisiaJecsM32rKlineExecutor, SilentNonFinalBlockTimesOutBeforeTheNextBlock)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    script_erase(transport);
+    transport.exchange(block_request(0), kDone);
+    transport.expectWrite(block_request(1));
+    transport.queue_no_frame();
+    RunContext context;
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::Timeout));
+    EXPECT_EQ(transport.writesConsumed(), 4U);
+    EXPECT_EQ(transport.control_line_trace_.back(), Line::DisableLecLines);
+}
+
 TEST(SubaruUnisiaJecsM32rKlineExecutor, FinalBlockSilenceSucceedsWithAWarning)
 {
     ScriptedKlineFlashTransport transport;
