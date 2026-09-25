@@ -67,14 +67,6 @@ py_test(
 )
 
 py_test(
-    name = "legacy_flash_drain",
-    size = "small",
-    srcs = ["scripts/check-legacy-flash-drain.py"],
-    data = ["//src/platform/desktop/common/flash/legacy:family_operation_sources"],
-    main = "scripts/check-legacy-flash-drain.py",
-)
-
-py_test(
     name = "windows_preprocessor_guards",
     size = "small",
     srcs = ["scripts/check-windows-preprocessor-guards.py"],

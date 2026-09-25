@@ -21,9 +21,6 @@ BUILD = "src/platform/desktop/common/serial/BUILD.bazel"
 # the way the serial_port_actions.h debt entries are.
 FROZEN = {
     "//src/platform/desktop/common/remote_utility:__pkg__",
-    # Replaces //src/backend/flash (step 5e, Task 4): see
-    # docs/superpowers/specs/2026-08-07-step5e-backend-portability-closure-design.md.
-    "//src/platform/desktop/common/flash/legacy:__pkg__",
     "//src/platform/desktop/common/serial:__pkg__",
     "//src/platform/desktop/common/transport:__pkg__",
     "//src/ui/desktop:__pkg__",
