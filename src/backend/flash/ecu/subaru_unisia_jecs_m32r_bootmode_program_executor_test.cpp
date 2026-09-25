@@ -300,6 +300,80 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CleanupFailureNeverReplacesAnE
     EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::BadResponse));
 }
 
+TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, BlockRepliesWaitThreeSeconds)
+{
+    const FlashPlan plan = program_plan();
+    ScriptedKlineFlashTransport transport;
+    script_erase(transport);
+    transport.expectWrite(block_request(plan, 0, false));
+    transport.queue_no_frame();
+    RunContext context;
+    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Timeout));
+    // The four erase polls (write_mem() :400, :442) use the 10 ms kPollRead
+    // budget; every read after the first block write uses the 3000 ms
+    // serial_read_extra_long_timeout (:518).
+    ASSERT_EQ(transport.read_timeouts_.size(), 5U);
+    for (std::size_t i = 0; i < 4; ++i)
+    {
+        EXPECT_EQ(transport.read_timeouts_[i], 10ms);
+    }
+    EXPECT_EQ(transport.read_timeouts_.back(), 3000ms);
+}
+
+TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancellationDuringEraseDropsTheLines)
+{
+    // ICancellationToken::cancelled() call count at which cancellation lands:
+    // 3 is the 500 ms post-AF-31 settle sleep (write_mem() :389), 4 is the
+    // erase-started poll's first read, 9 is the erase-complete poll's first
+    // read. (Full call sequence: 1 before-voltage check, 2 before the AF 31
+    // write, 3 the settle sleep, 4/5 the erase-started poll's first read and
+    // its post-read check, 6 that poll's retry sleep, 7/8 its second read and
+    // post-read check, 9/10 the erase-complete poll's first read and
+    // post-read check.)
+    for (const std::size_t checkpoint : {3U, 4U, 9U})
+    {
+        const FlashPlan plan = program_plan();
+        ScriptedKlineFlashTransport transport;
+        script_erase(transport);
+        RunContext context;
+        context.cancellation.cancel_on_check(checkpoint);
+        const auto result = run(plan, transport, context);
+        ASSERT_THAT(result, IsErr(ErrorKind::Cancelled)) << "checkpoint " << checkpoint;
+        EXPECT_EQ(transport.control_line_trace_.back(), Line::DisableLecLines) << "checkpoint " << checkpoint;
+        // Only AF 31 was written; the block loop was never entered.
+        EXPECT_EQ(transport.writesConsumed(), 1U) << "checkpoint " << checkpoint;
+    }
+}
+
+TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, ANonStatusReplyFailsTheErasePoll)
+{
+    const FlashPlan plan = program_plan();
+    ScriptedKlineFlashTransport transport;
+    const bytes::Bytes malformed = reply({0x7f, 0x31});
+    transport.expectWrite(request({0xaf, 0x31}));
+    transport.queueRead(malformed);
+    RunContext context;
+    const auto result = run(plan, transport, context);
+    ASSERT_THAT(result, IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr(bytes::toHex(malformed)));
+    EXPECT_THAT(result.error().detail, ::testing::Not(::testing::HasSubstr("status")));
+}
+
+TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, ABadChecksumFailsTheErasePoll)
+{
+    const FlashPlan plan = program_plan();
+    ScriptedKlineFlashTransport transport;
+    bytes::Bytes bad_checksum = reply({0xef, 0x42});
+    ++bad_checksum.back();
+    transport.expectWrite(request({0xaf, 0x31}));
+    transport.queueRead(bad_checksum);
+    RunContext context;
+    const auto result = run(plan, transport, context);
+    ASSERT_THAT(result, IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result.error().detail, ::testing::HasSubstr(bytes::toHex(bad_checksum)));
+    EXPECT_THAT(result.error().detail, ::testing::Not(::testing::HasSubstr("status")));
+}
+
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, RejectsAKernelPlan)
 {
     auto plan = build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(
