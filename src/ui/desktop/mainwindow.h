@@ -64,9 +64,6 @@
 
 #include "src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs_m32r.h"
 
-// JTAG
-#include "src/ui/desktop/flash/jtag/flash_ecu_subaru_hitachi_m32r_jtag.h"
-
 #include "src/platform/desktop/common/logging/systemlogger.h"
 
 #include "src/platform/desktop/common/remote_utility/remote_utility.h"
