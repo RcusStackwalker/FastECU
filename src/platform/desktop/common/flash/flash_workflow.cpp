@@ -49,6 +49,9 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_plan.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_executor.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_plan.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_kernel_executor.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_plan.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_program_executor.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_executor.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_plan.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.h"
@@ -205,6 +208,25 @@ Result<KernelImage> resolveKernel(const FlashWorkflowRequest& request, IFileRepo
     }
     return KernelImage{
         .id = request.protocol + "-kernel", .load_address = *load_address, .bytes = std::move(*kernel_bytes)};
+}
+
+// The cfg <kernel> file alone. The Unisia Jecs M32R _bootmode entries declare
+// no <kernel_addr>: the M32R boot ROM places the kernel itself.
+Result<bytes::Bytes> resolveKernelBytes(const FlashWorkflowRequest& request, IFileRepository& repository)
+{
+    Result<config::ProtocolEntry> entry = resolveProtocol(request.paths, request.protocol, repository);
+    if (!entry.has_value())
+    {
+        return std::unexpected(entry.error());
+    }
+    Result<std::vector<std::uint8_t>> kernel_bytes =
+        repository.read(request.paths.kernel_files_directory + entry->kernel);
+    if (!kernel_bytes.has_value())
+    {
+        const Error& error = kernel_bytes.error();
+        return fail(error.kind, std::format("kernel file '{}': {}", entry->kernel, error.detail));
+    }
+    return bytes::Bytes(kernel_bytes->begin(), kernel_bytes->end());
 }
 
 std::optional<bytes::Bytes> normalizeMc68Image(std::optional<bytes::Bytes> image, std::string_view mcu_name)
@@ -541,6 +563,208 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
     bool needs_vpp_ = false;
     Stage stage_ = Stage::Begin;
     std::string attempt_outcome_;
+    FlashAttemptOutcome outcome_;
+};
+
+// Wave 7. Read is the 6c-3 K-Line read. Write is two attempts with an
+// operator step between them, where legacy reset the connection anyway
+// (flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp:361-367):
+// kernel upload, RemoveMod1, erase and program. Both plans are built before
+// Begin so a missing kernel or a wrong-size image fails before any prompt.
+class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
+{
+  public:
+    explicit SubaruUnisiaJecsM32rBootModeWorkflow(FlashWorkflowRequest request) : request_(std::move(request))
+    {
+    }
+
+    FlashWorkflowStep next() override
+    {
+        if (!built_.has_value())
+        {
+            built_ = buildPlans();
+        }
+        if (!built_->has_value())
+        {
+            return FlashFailureStep{built_->error()};
+        }
+        // The notice precedes whatever the attempt produced, failure included.
+        if (stage_ == Stage::Notice)
+        {
+            return FlashPromptStep{FlashPromptKind::RemoveProgrammingVoltage,
+                                   {{"outcome", notice_outcome_}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}};
+        }
+        if (outcome_.hasFailure())
+        {
+            return outcome_.takeFailure();
+        }
+        if (outcome_.terminal())
+        {
+            return outcome_.completedStep();
+        }
+        switch (stage_)
+        {
+        case Stage::Begin:
+            return FlashPromptStep{FlashPromptKind::Begin, {}};
+        case Stage::ApplyVoltages:
+            return FlashPromptStep{FlashPromptKind::ApplyBootModeVoltages, {}};
+        case Stage::FirstAttempt:
+            stage_ = Stage::AwaitFirst;
+            return firstAttempt();
+        case Stage::RemoveMod1:
+            return FlashPromptStep{FlashPromptKind::RemoveMod1, {}};
+        case Stage::ProgramAttempt:
+            stage_ = Stage::AwaitProgram;
+            return attempt(std::move(*(*built_)->program),
+                           std::make_unique<SubaruUnisiaJecsM32rBootModeProgramExecutor>());
+        case Stage::AwaitFirst:
+        case Stage::AwaitProgram:
+        case Stage::Notice:
+        case Stage::Done:
+            break;
+        }
+        return outcome_.completedStep();
+    }
+
+    void submit(FlashPromptResponse response) override
+    {
+        switch (stage_)
+        {
+        case Stage::Begin:
+        case Stage::ApplyVoltages:
+            if (response != FlashPromptResponse::Accept)
+            {
+                outcome_.cancel();
+                return;
+            }
+            stage_ = stage_ == Stage::Begin && is_write() ? Stage::ApplyVoltages : Stage::FirstAttempt;
+            return;
+        case Stage::RemoveMod1:
+            if (response != FlashPromptResponse::Accept)
+            {
+                // The kernel runs and nothing is erased; still ask for VPP removal.
+                notice_outcome_ = "cancelled";
+                stage_ = Stage::Notice;
+                outcome_.cancel();
+                return;
+            }
+            stage_ = Stage::ProgramAttempt;
+            return;
+        case Stage::Notice:
+            stage_ = Stage::Done; // OK-only notice
+            return;
+        case Stage::FirstAttempt:
+        case Stage::AwaitFirst:
+        case Stage::ProgramAttempt:
+        case Stage::AwaitProgram:
+        case Stage::Done:
+            return;
+        }
+    }
+
+    void submit(FlashAttemptResult result) override
+    {
+        if (!is_write())
+        {
+            outcome_.record(std::move(result));
+            return;
+        }
+        // A successful kernel upload is not an outcome yet: RemoveMod1 follows.
+        if (stage_ == Stage::AwaitFirst && result.success)
+        {
+            stage_ = Stage::RemoveMod1;
+            return;
+        }
+        notice_outcome_ = result.success                              ? "succeeded"
+                          : result.error_kind == ErrorKind::Cancelled ? "cancelled"
+                                                                      : "failed";
+        stage_ = Stage::Notice;
+        outcome_.record(std::move(result));
+    }
+
+  private:
+    enum class Stage
+    {
+        Begin,
+        ApplyVoltages,
+        FirstAttempt,
+        AwaitFirst,
+        RemoveMod1,
+        ProgramAttempt,
+        AwaitProgram,
+        Notice,
+        Done,
+    };
+
+    struct Plans
+    {
+        std::optional<FlashPlan> first;   // Read plan, or the kernel upload
+        std::optional<FlashPlan> program; // Write only
+    };
+
+    bool is_write() const
+    {
+        return request_.operation != FlashOperation::Read;
+    }
+
+    Result<Plans> buildPlans()
+    {
+        if (!is_write())
+        {
+            // adapter_supplies_programming_voltage is irrelevant to Read.
+            auto read = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Read, request_.protocol, request_.mcu,
+                                                                 std::nullopt, true);
+            if (!read.has_value())
+            {
+                return std::unexpected(read.error());
+            }
+            return Plans{std::move(*read), std::nullopt};
+        }
+        // Program first: it needs no I/O and rejects TestWrite and a wrong
+        // image before the kernel file is read.
+        auto program = build_subaru_unisia_jecs_m32r_bootmode_program_plan(request_.operation, request_.protocol,
+                                                                           request_.mcu, std::move(request_.image));
+        if (!program.has_value())
+        {
+            return std::unexpected(program.error());
+        }
+        QtFileRepository repository;
+        Result<bytes::Bytes> kernel_bytes = resolveKernelBytes(request_, repository);
+        if (!kernel_bytes.has_value())
+        {
+            return std::unexpected(kernel_bytes.error());
+        }
+        auto kernel = build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(request_.operation, request_.protocol,
+                                                                         request_.mcu, std::move(*kernel_bytes));
+        if (!kernel.has_value())
+        {
+            return std::unexpected(kernel.error());
+        }
+        return Plans{std::move(*kernel), std::move(*program)};
+    }
+
+    FlashWorkflowStep firstAttempt()
+    {
+        FlashPlan plan = std::move(*(*built_)->first);
+        if (!is_write())
+        {
+            return attempt(std::move(plan), std::make_unique<SubaruUnisiaJecsM32rKlineExecutor>());
+        }
+        return attempt(std::move(plan), std::make_unique<SubaruUnisiaJecsM32rBootModeKernelExecutor>());
+    }
+
+    template <typename Executor> FlashWorkflowStep attempt(FlashPlan plan, std::unique_ptr<Executor> executor)
+    {
+        return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
+                                 bind_flash_attempt(std::move(plan), std::move(executor),
+                                                    std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                                 std::make_unique<QtClock>()};
+    }
+
+    FlashWorkflowRequest request_;
+    std::optional<Result<Plans>> built_;
+    Stage stage_ = Stage::Begin;
+    std::string notice_outcome_;
     FlashAttemptOutcome outcome_;
 };
 
@@ -1456,6 +1680,7 @@ struct Route
         SubaruDensoSh705xKline,
         SubaruDensoMc68hc16y5_02Bdm,
         SubaruUnisiaJecsM32rKline,
+        SubaruUnisiaJecsM32rBootMode,
         Unrouted,
     };
 
@@ -1507,12 +1732,13 @@ constexpr auto kRoutes = std::to_array<Route>({
     {"sub_tcu_hitachi_m32r_kline", SubaruTcuHitachiM32rKline, RouteMatch::Exact},
     {"sub_ecu_unisia_jecs_m3779x", SubaruUnisiaJecs, RouteMatch::Exact},
     {"sub_ecu_unisia_jecs_m3775x", SubaruUnisiaJecs, RouteMatch::Exact},
-    // Exact only: the _bootmode names share these prefixes and stay on the
-    // legacy MainWindow path until wave 7.
+    // Exact only: the _bootmode names share these prefixes.
     {"sub_ecu_unisia_jecs_20", SubaruUnisiaJecsM32rKline, RouteMatch::Exact},
     {"sub_ecu_unisia_jecs_30", SubaruUnisiaJecsM32rKline, RouteMatch::Exact},
     {"sub_ecu_unisia_jecs_40", SubaruUnisiaJecsM32rKline, RouteMatch::Exact},
     {"sub_ecu_unisia_jecs_70", SubaruUnisiaJecsM32rKline, RouteMatch::Exact},
+    {"sub_ecu_unisia_jecs_20_bootmode", SubaruUnisiaJecsM32rBootMode, RouteMatch::Exact},
+    {"sub_ecu_unisia_jecs_30_bootmode", SubaruUnisiaJecsM32rBootMode, RouteMatch::Exact},
     {"sub_tcu_hitachi_m32r_can", SubaruTcuHitachiM32rCan, RouteMatch::Exact},
     {"sub_ecu_hitachi_sh72543r_can", SubaruHitachiSh72543rCan, RouteMatch::Exact},
     {"sub_ecu_hitachi_sh72543r_can_recovery", SubaruHitachiSh72543rCan, RouteMatch::Exact},
@@ -1608,6 +1834,8 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
         return std::make_unique<SubaruDensoMc68hc16y5_02BdmWorkflow>(std::move(request));
     case SubaruUnisiaJecsM32rKline:
         return std::make_unique<SubaruUnisiaJecsM32rKlineWorkflow>(std::move(request));
+    case SubaruUnisiaJecsM32rBootMode:
+        return std::make_unique<SubaruUnisiaJecsM32rBootModeWorkflow>(std::move(request));
     case Unrouted:
         return nullptr;
     }

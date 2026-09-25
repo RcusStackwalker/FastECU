@@ -48,8 +48,14 @@ enum class FlashPromptKind
     // when external VPP was needed. Argument "outcome" is "succeeded",
     // "failed" or "cancelled"; "external_vpp" is "yes" when the operator
     // applied VPP (the notice asks for its removal) or "no" otherwise. Every
-    // outcome other than "succeeded" carries the don't-power-off advice.
+    // outcome other than "succeeded" carries the don't-power-off advice
+    // unless "power_off_advice" is "no" (wave 7 bootmode: the boot ROM is
+    // always re-enterable, so a power cycle is the recovery path).
     RemoveProgrammingVoltage,
+    // Wave 7. Before a bootmode write: the operator connects VPP and MOD1.
+    ApplyBootModeVoltages,
+    // Wave 7. Between the bootmode kernel upload and programming, OK/Cancel.
+    RemoveMod1,
 };
 
 enum class FlashPromptResponse
