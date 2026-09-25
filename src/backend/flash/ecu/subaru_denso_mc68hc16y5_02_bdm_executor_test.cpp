@@ -236,5 +236,199 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, CancellationBetweenPagesStopsBeforeThe
     EXPECT_THAT(result, IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writesConsumed(), 1U);
 }
+
+// 40 bytes 0x01..0x28, padded by the plan to two 32-byte chunks.
+bytes::Bytes kernel_bytes()
+{
+    bytes::Bytes kernel;
+    for (int value = 1; value <= 40; ++value)
+    {
+        kernel.push_back(static_cast<bytes::Byte>(value));
+    }
+    return kernel;
+}
+
+FlashPlan write_plan()
+{
+    auto plan = build_subaru_denso_mc68hc16y5_02_bdm_plan(
+        FlashOperation::Write, kProtocol, kMcu, std::nullopt,
+        KernelImage{.id = "bdm-kernel", .load_address = 0x20000, .bytes = kernel_bytes()});
+    EXPECT_THAT(plan, IsOk());
+    return std::move(*plan);
+}
+
+enum class Gate
+{
+    None,
+    UploadCommand, // flash_block() :394
+    FirstChunk,    // flash_block() :424
+    ScibCommand,   // write_mem() :268
+    ScibValue,     // write_mem() :286
+};
+
+// Scripts write_mem() and flash_block(). When `broken` names a gate, that
+// gate gets a same-length wrong reply and the script stops there. Returns the
+// number of writes the executor must have made.
+std::size_t script_bootstrap(ScriptedKlineFlashTransport& transport, Gate broken = Gate::None)
+{
+    const bytes::Bytes padded = *write_plan().image();
+    nothing(transport); // write_mem() :226
+    transport.expectRawWrite(ascii("wdmem 0x00020000 0x00000040"));
+    if (broken == Gate::UploadCommand)
+    {
+        transport.queueRawRead(ascii("ACK_CMD_WPMEM"));
+        return 1;
+    }
+    transport.queueRawRead(ascii("ACK_CMD_WDMEM"));
+    for (std::size_t offset = 0; offset < padded.size(); offset += 0x20)
+    {
+        transport.expectRawWrite(bytes::ByteView(padded).subspan(offset, 0x20));
+        if (broken == Gate::FirstChunk)
+        {
+            transport.queueRawRead(ascii("ACK_XX"));
+            return 2;
+        }
+        transport.queueRawRead(ascii("ACK_WR"));
+    }
+    nothing(transport); // flash_block() :470
+    transport.expectRawWrite(ascii("wdmem 0xFFC28 0x4"));
+    if (broken == Gate::ScibCommand)
+    {
+        transport.queueRawRead(ascii("ACK_CMD_WPMEM"));
+        return 4;
+    }
+    transport.queueRawRead(ascii("ACK_CMD_WDMEM"));
+    nothing(transport); // write_mem() :274
+    transport.expectRawWrite(bytes::Bytes{0x00, 0x0d, 0x00, 0x0c});
+    if (broken == Gate::ScibValue)
+    {
+        transport.queueRawRead(ascii("ACK_XX"));
+        return 5;
+    }
+    transport.queueRawRead(ascii("ACK_WR"));
+    nothing(transport); // write_mem() :293
+    transport.expectRawWrite(ascii("wpcsp"));
+    transport.queueRawRead(ascii("??"));
+    nothing(transport);
+    nothing(transport);
+    transport.expectRawWrite(ascii("go"));
+    nothing(transport);
+    return 7;
+}
+
+TEST(SubaruDensoMc68hc16y5_02BdmExecutor, BootstrapsTheKernelWithTheLegacySequence)
+{
+    RawOnlyTransport transport;
+    const std::size_t writes = script_bootstrap(transport);
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+
+    auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, IsOk());
+    EXPECT_EQ(result->operation, FlashOperation::Write);
+    EXPECT_FALSE(result->read_bytes.has_value());
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.writesConsumed(), writes);
+    EXPECT_EQ(transport.framed_calls, 0);
+    EXPECT_EQ(events.progress_calls.back(), (std::pair<int, int>{2, 2}));
+    EXPECT_TRUE(
+        std::ranges::any_of(events.logs, [](const auto& entry) { return entry.second == "BDM wpcsp reply: 3f 3f "; }));
+}
+
+TEST(SubaruDensoMc68hc16y5_02BdmExecutor, AssemblesAnAcknowledgementSplitAcrossReads)
+{
+    ScriptedKlineFlashTransport transport;
+    nothing(transport);
+    transport.expectRawWrite(ascii("wdmem 0x00020000 0x00000040"));
+    transport.queueRawRead(ascii("ACK_"));
+    transport.queueRawRead(ascii("CMD_WDMEM"));
+    const bytes::Bytes padded = *write_plan().image();
+    transport.expectRawWrite(bytes::ByteView(padded).first(0x20));
+    transport.queueRawRead(ascii("NAK"));
+    nothing(transport);
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+
+    auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
+
+    // The split ACK_CMD_WDMEM passed: the executor reached the first chunk,
+    // whose short "NAK" then times out.
+    EXPECT_THAT(result, IsErr(ErrorKind::Timeout));
+    EXPECT_EQ(transport.writesConsumed(), 2U);
+}
+
+TEST(SubaruDensoMc68hc16y5_02BdmExecutor, AWrongAcknowledgementAtAnyGateStopsTheUpload)
+{
+    for (const Gate gate : {Gate::UploadCommand, Gate::FirstChunk, Gate::ScibCommand, Gate::ScibValue})
+    {
+        ScriptedKlineFlashTransport transport;
+        const std::size_t writes = script_bootstrap(transport, gate);
+        FakeClock clock;
+        FakeCancellationToken cancellation;
+        RecordingEventSink events;
+
+        auto result =
+            SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
+
+        EXPECT_THAT(result, IsErr(ErrorKind::BadResponse)) << static_cast<int>(gate);
+        EXPECT_EQ(transport.writesConsumed(), writes) << static_cast<int>(gate);
+        EXPECT_TRUE(transport.scriptConsumed()) << static_cast<int>(gate);
+    }
+}
+
+TEST(SubaruDensoMc68hc16y5_02BdmExecutor, ASilentBridgeTimesOut)
+{
+    ScriptedKlineFlashTransport transport;
+    nothing(transport);
+    transport.expectRawWrite(ascii("wdmem 0x00020000 0x00000040"));
+    nothing(transport);
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    RecordingEventSink events;
+
+    auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, IsErr(ErrorKind::Timeout));
+    EXPECT_EQ(transport.writesConsumed(), 1U);
+}
+
+TEST(SubaruDensoMc68hc16y5_02BdmExecutor, CancellationBetweenChunksStopsBeforeTheNextChunk)
+{
+    ScriptedKlineFlashTransport transport;
+    nothing(transport);
+    transport.expectRawWrite(ascii("wdmem 0x00020000 0x00000040"));
+    transport.queueRawRead(ascii("ACK_CMD_WDMEM"));
+    transport.expectRawWrite(bytes::ByteView(*write_plan().image()).first(0x20));
+    transport.queueRawRead(ascii("ACK_WR"));
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    // Trips once the buffer clear, the upload ACK and the first chunk ACK are read.
+    cancellation.set_predicate([&transport] { return transport.read_timeouts_.size() >= 3; });
+    RecordingEventSink events;
+
+    auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
+
+    EXPECT_THAT(result, IsErr(ErrorKind::Cancelled));
+    EXPECT_EQ(transport.writesConsumed(), 2U);
+}
+
+TEST(SubaruDensoMc68hc16y5_02BdmExecutor, CancellationAfterGoStillSucceeds)
+{
+    ScriptedKlineFlashTransport transport;
+    script_bootstrap(transport);
+    FakeClock clock;
+    FakeCancellationToken cancellation;
+    // Trips as soon as `go` has been written: the kernel is already running.
+    cancellation.set_predicate([&transport] { return transport.writesConsumed() >= 7; });
+    RecordingEventSink events;
+
+    auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
+
+    ASSERT_THAT(result, IsOk());
+    EXPECT_EQ(transport.writesConsumed(), 7U);
+}
 } // namespace
 } // namespace fastecu::flash

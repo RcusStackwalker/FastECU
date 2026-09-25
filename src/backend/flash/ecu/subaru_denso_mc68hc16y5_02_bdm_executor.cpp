@@ -212,6 +212,131 @@ Result<bytes::Bytes> read_image(const FlashPlan& plan, IKlineFlashTransport& tra
     }
     return image;
 }
+
+constexpr std::size_t kUploadChunk = 0x20;
+constexpr std::string_view kAckCommand = "ACK_CMD_WDMEM";
+constexpr std::string_view kAckWrite = "ACK_WR";
+
+Status send_and_ack(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
+                    bytes::ByteView request, std::string_view token, std::chrono::milliseconds budget)
+{
+    if (auto written = write_exact(transport, request); !written.has_value())
+    {
+        return written;
+    }
+    return expect_ack(transport, clock, cancellation, token, budget);
+}
+
+// write_mem() :296-305 reads and logs these replies without checking them;
+// the bridge's replies are unknown, so they stay ungated (spec appendix).
+Status log_reply(std::string_view command, IKlineFlashTransport& transport, IClock& clock,
+                 const ICancellationToken& cancellation, IEventSink& events)
+{
+    auto reply = accumulate(transport, clock, cancellation, kUnbounded, kLongTimeout);
+    if (!reply.has_value())
+    {
+        return std::unexpected(reply.error());
+    }
+    events.log(LogLevel::Info, std::format("BDM {} reply: {}", command, bytes::toHex(*reply)));
+    return {};
+}
+
+// write_mem() :217-350 and flash_block() :352-474. Uploads the padded kernel to
+// RAM, enables SCIB, sets PC/SP and starts the kernel. The ROM is not written.
+Status bootstrap_kernel(bytes::ByteView kernel, IKlineFlashTransport& transport, IClock& clock,
+                        const ICancellationToken& cancellation, IEventSink& events)
+{
+    events.log(LogLevel::Info, "Uploading kernel to Subaru Denso MC68HC16 RAM with BDM");
+    // write_mem() :226.
+    if (auto cleared = discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
+    {
+        return cleared;
+    }
+    // flash_block() :378-399.
+    events.log(LogLevel::Info, std::format("Writing block: 00 at address 0x{:08X}", kRamStart));
+    if (auto started = send_and_ack(transport, clock, cancellation,
+                                    ascii(std::format("wdmem 0x{:08X} 0x{:08X}", kRamStart, kernel.size())),
+                                    kAckCommand, kExtraLongTimeout);
+        !started.has_value())
+    {
+        return started;
+    }
+    // flash_block() :402-468.
+    const std::size_t chunks = kernel.size() / kUploadChunk;
+    for (std::size_t index = 0; index < chunks; ++index)
+    {
+        if (auto cancelled = cancelled_if_requested(cancellation); !cancelled.has_value())
+        {
+            return cancelled;
+        }
+        if (auto acked = send_and_ack(transport, clock, cancellation,
+                                      kernel.subspan(index * kUploadChunk, kUploadChunk), kAckWrite, kLongTimeout);
+            !acked.has_value())
+        {
+            return acked;
+        }
+        events.progress(static_cast<int>(index + 1), static_cast<int>(chunks));
+    }
+    events.log(LogLevel::Info, "Block write complete.");
+    // flash_block() :470.
+    if (auto cleared = discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
+    {
+        return cleared;
+    }
+    // write_mem() :258-275: enable SCIB (the kernel sets 62500 baud itself).
+    if (auto scib =
+            send_and_ack(transport, clock, cancellation, ascii("wdmem 0xFFC28 0x4"), kAckCommand, kExtraLongTimeout);
+        !scib.has_value())
+    {
+        return scib;
+    }
+    if (auto cleared = discard(transport, clock, cancellation, events, kLongTimeout); !cleared.has_value())
+    {
+        return cleared;
+    }
+    // write_mem() :277-294.
+    if (auto scib =
+            send_and_ack(transport, clock, cancellation, bytes::Bytes{0x00, 0x0d, 0x00, 0x0c}, kAckWrite, kLongTimeout);
+        !scib.has_value())
+    {
+        return scib;
+    }
+    if (auto cleared = discard(transport, clock, cancellation, events, kShortTimeout); !cleared.has_value())
+    {
+        return cleared;
+    }
+    // write_mem() :296-305.
+    if (auto written = write_exact(transport, ascii("wpcsp")); !written.has_value())
+    {
+        return written;
+    }
+    for (int reply = 0; reply < 2; ++reply)
+    {
+        if (auto logged = log_reply("wpcsp", transport, clock, cancellation, events); !logged.has_value())
+        {
+            return logged;
+        }
+    }
+    // write_mem() :317-323. Once `go` is sent the kernel is running: nothing
+    // after it can fail or cancel the operation.
+    if (auto cancelled = cancelled_if_requested(cancellation); !cancelled.has_value())
+    {
+        return cancelled;
+    }
+    if (auto written = write_exact(transport, ascii("go")); !written.has_value())
+    {
+        return written;
+    }
+    if (auto reply = accumulate(transport, clock, cancellation, kUnbounded, kLongTimeout); reply.has_value())
+    {
+        events.log(LogLevel::Info, std::format("BDM go reply: {}", bytes::toHex(*reply)));
+    }
+    else
+    {
+        events.log(LogLevel::Warning, std::format("BDM go reply not read: {}", reply.error().detail));
+    }
+    return {};
+}
 } // namespace
 
 Result<KlineConfig> SubaruDensoMc68hc16y5_02BdmExecutor::transport_setup(const FlashPlan& plan) const
@@ -256,7 +381,10 @@ SubaruDensoMc68hc16y5_02BdmExecutor::execute(const FlashPlan& plan, IKlineFlashT
         return FlashExecutionResult{
             .operation = FlashOperation::Read, .read_bytes = std::move(*image), .rom_id = std::nullopt};
     }
-    // Replaced by the kernel bootstrap in Task 3.
-    return fail(ErrorKind::Unsupported, "MC68HC16Y5 BDM kernel bootstrap is not implemented");
+    if (auto booted = bootstrap_kernel(*plan.image(), transport, clock, cancellation, events); !booted.has_value())
+    {
+        return std::unexpected(booted.error());
+    }
+    return FlashExecutionResult{.operation = FlashOperation::Write, .read_bytes = std::nullopt, .rom_id = std::nullopt};
 }
 } // namespace fastecu::flash
