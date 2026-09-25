@@ -22,5 +22,8 @@ fastecu_portable_gtest(
     name = "ssm_protocol_core_test",
     size = "small",
     srcs = ["ssm_protocol_core_test.cpp"],
-    deps = [":ssm"],
+    deps = [
+        ":ssm",
+        "//src/algorithms/protocol/testing:byte_test_utils",
+    ],
 )
