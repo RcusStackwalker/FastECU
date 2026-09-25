@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <string_view>
 #include <tuple>
@@ -61,7 +62,7 @@ bytes::Bytes page_data(std::uint32_t page)
 
 bytes::Bytes page_request(std::uint32_t address)
 {
-    return request({0xa0, 0x00, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
+    return request({0xa0, 0x00, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
                     static_cast<bytes::Byte>(address), 0x7f});
 }
 
@@ -154,8 +155,9 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsTheRomWhenAlreadyInReadMode)
     ASSERT_EQ(result->read_bytes->size(), kRomSize);
     for (std::uint32_t page = 0; page < kRomSize / 0x80; ++page)
     {
-        ASSERT_TRUE(std::equal(result->read_bytes->begin() + page * 0x80,
-                               result->read_bytes->begin() + (page + 1) * 0x80, page_data(page).begin()))
+        const auto offset = static_cast<std::ptrdiff_t>(page) * 0x80;
+        ASSERT_TRUE(std::equal(result->read_bytes->begin() + offset, result->read_bytes->begin() + offset + 0x80,
+                               page_data(page).begin()))
             << page;
     }
     EXPECT_EQ(result->rom_id, std::optional<std::string>(std::string(kEcuId) + "_"));
@@ -230,6 +232,31 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ColdInitWithoutAnyReplyTimesOut)
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
+TEST(SubaruUnisiaJecsM32rKlineExecutor, ColdInitReplyTooShortForTheEcuIdFails)
+{
+    // expect_ssm_init() gates the cold BF reply on carrying the full five-byte
+    // ECU ID; a valid FF frame that is too short is rejected rather than
+    // accepted with whatever bytes were present (read_mem() :162-163).
+    ScriptedKlineFlashTransport transport;
+    transport.expectWrite(request({0xbf}));
+    transport.queue_no_frame();
+    transport.exchange(request({0xbf}), reply({0xff, 0xa1}));
+    RunContext context;
+
+    EXPECT_THAT(run(read_plan(), transport, context), IsErr(ErrorKind::BadResponse));
+    EXPECT_EQ(transport.writesConsumed(), 2U);
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadFailsWhenTheInitialBaudChangeFails)
+{
+    ScriptedKlineFlashTransport transport;
+    transport.set_baud_result_ = fail(ErrorKind::Disconnected, "adapter gone");
+    RunContext context;
+
+    EXPECT_THAT(run(read_plan(), transport, context), IsErr(ErrorKind::Disconnected));
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
 TEST(SubaruUnisiaJecsM32rKlineExecutor, ShortPageFailsBeforeTheNextRequest)
 {
     ScriptedKlineFlashTransport transport;
@@ -248,7 +275,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, BadChecksumPageFailsBeforeTheNextRequest
     ScriptedKlineFlashTransport transport;
     script_warm_entry(transport);
     bytes::Bytes corrupted = page_reply(0);
-    corrupted.back() ^= 0x01;
+    corrupted.back() ^= 0x01U;
     transport.exchange(page_request(0x100000), corrupted);
     RunContext context;
 
@@ -290,6 +317,41 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationStopsTheReadBeforeTheNextPag
 
     EXPECT_THAT(run(read_plan(), transport, context), IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writesConsumed(), 2U);
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationBeforeTheFirstWriteAbortsImmediately)
+{
+    ScriptedKlineFlashTransport transport;
+    RunContext context;
+    context.cancellation.set_predicate([] { return true; });
+
+    EXPECT_THAT(run(read_plan(), transport, context), IsErr(ErrorKind::Cancelled));
+    EXPECT_EQ(transport.writesConsumed(), 0U);
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationAfterTheFirstReadAbortsBeforeInspectingTheReply)
+{
+    ScriptedKlineFlashTransport transport;
+    transport.exchange(request({0xbf}), init_reply());
+    RunContext context;
+    // Trips once the probe reply has actually been read, not before.
+    context.cancellation.set_predicate([&transport] { return !transport.read_timeouts_.empty(); });
+
+    EXPECT_THAT(run(read_plan(), transport, context), IsErr(ErrorKind::Cancelled));
+    EXPECT_EQ(transport.writesConsumed(), 1U);
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationBeforeAPageRequestPropagatesThroughExchangeExpect)
+{
+    ScriptedKlineFlashTransport transport;
+    script_warm_entry(transport);
+    RunContext context;
+    // The probe's send and receive each check cancellation once (calls 1-2);
+    // trip on the third check, which is the first page request's send.
+    context.cancellation.cancel_on_check(3);
+
+    EXPECT_THAT(run(read_plan(), transport, context), IsErr(ErrorKind::Cancelled));
+    EXPECT_EQ(transport.writesConsumed(), 1U);
 }
 
 class SubaruUnisiaJecsM32rKlineReadSizes
@@ -343,11 +405,11 @@ bytes::Bytes block_request(std::uint32_t index)
 {
     const std::uint32_t address = index * 0x80;
     const bool last = index == kRomSize / 0x80 - 1;
-    bytes::Bytes payload{0xaf, static_cast<bytes::Byte>(last ? 0x69 : 0x61), static_cast<bytes::Byte>(address >> 16),
-                         static_cast<bytes::Byte>(address >> 8), static_cast<bytes::Byte>(address)};
+    bytes::Bytes payload{0xaf, static_cast<bytes::Byte>(last ? 0x69 : 0x61), static_cast<bytes::Byte>(address >> 16U),
+                         static_cast<bytes::Byte>(address >> 8U), static_cast<bytes::Byte>(address)};
     for (std::uint32_t j = 0; j < 0x80; ++j)
     {
-        payload.push_back(static_cast<bytes::Byte>(rom_image()[address + j] ^ 0x82));
+        payload.push_back(static_cast<bytes::Byte>(rom_image()[address + j] ^ 0x82U));
     }
     return request(payload);
 }
@@ -448,6 +510,46 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, RejectedFlashModeEntryNeverRaisesProgram
     EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::BadResponse));
     EXPECT_EQ(transport.writesConsumed(), 3U);
     EXPECT_EQ(transport.control_line_trace_, std::vector<Line>{Line::DisableLecLines});
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, WriteFailsWhenTheInitialBaudChangeFails)
+{
+    ScriptedKlineFlashTransport transport;
+    transport.set_baud_result_ = fail(ErrorKind::Disconnected, "adapter gone");
+    RunContext context;
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::Disconnected));
+    EXPECT_TRUE(transport.scriptConsumed());
+    // execute() :71-72 still drops the LEC line on this early exit.
+    EXPECT_EQ(transport.control_line_trace_, std::vector<Line>{Line::DisableLecLines});
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, CancellationBeforeRaisingProgrammingVoltageAbortsTheWrite)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    RunContext context;
+    // The OBK probe's send and receive each check cancellation once (calls
+    // 1-2); trip on the third check, which is write_rom()'s own
+    // "before programming voltage" gate (write_mem() :440-441).
+    context.cancellation.cancel_on_check(3);
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::Cancelled));
+    EXPECT_EQ(transport.control_line_trace_, std::vector<Line>{Line::DisableLecLines});
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
+TEST(SubaruUnisiaJecsM32rKlineExecutor, WriteFailsWhenProgrammingVoltageCannotBeRaised)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    transport.enable_programming_voltage_line_result_ = fail(ErrorKind::Disconnected, "VPP relay stuck");
+    RunContext context;
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::Disconnected));
+    EXPECT_EQ(transport.control_line_trace_,
+              (std::vector<Line>{Line::EnableProgrammingVoltageLine, Line::DisableLecLines}));
+    EXPECT_TRUE(transport.scriptConsumed());
 }
 
 TEST(SubaruUnisiaJecsM32rKlineExecutor, EraseStartExhaustionFails)
