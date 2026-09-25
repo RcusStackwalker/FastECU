@@ -1,6 +1,6 @@
 # Step 5 Tail Wave 6c-2 — Hitachi M32R JTAG Removal — Design
 
-**Status:** design approved; implementation plan in [the 6c-2 plan](../plans/2026-09-25-step5-tail-wave6c2-hitachi-m32r-jtag-removal.md).
+**Status:** implemented on this branch; implementation plan in [the 6c-2 plan](../plans/2026-09-25-step5-tail-wave6c2-hitachi-m32r-jtag-removal.md).
 **Parent:** [wave 6 singletons](2026-09-19-step5-tail-wave6-singletons-design.md).
 **Predecessor:** 6c-1 Denso MC68HC16Y5 BDM (#357), merged.
 **Source baseline:** `766475b8`. That commit is the last to contain the
@@ -155,8 +155,10 @@ parent spec). Each request is followed by a 10 ms delay and one
 
 A reply passes when it is longer than four bytes and `[0] = BE`, `[1] = EF`,
 `[4] = <command byte> + 0x40` and `[8] = 0x31` (`SUB_KERNEL_JTAG_IR_ACK`).
-Legacy indexes `[8]` and `mid(9, 4)` after checking only `length > 4`: an
-out-of-bounds read on a 5–12-byte reply.
+The gates check only `length > 4` and then read `[8]`, out of bounds on a
+5–8-byte reply. IDCODE and USERCODE additionally take `mid(9, 4)`, which
+shortens silently rather than failing, and then read `response.at(0..3)`,
+out of bounds on a reply shorter than 13 bytes.
 
 ### Sequence
 
@@ -178,9 +180,45 @@ Tool-ROM code (`inst_tool_rom_code`), as four big-endian words:
 D1 C0 FF 00   A0 C1 3F FC   20 44 F0 00   7F F4 F0 00
 ```
 
-The payload bytes are `SUB_KERNEL_JTAG_COMMAND` (`0x40`), an IR
-(`IR_SAMPLE 0x01`, `MON_CODE 0x10`, `MON_DATA 0x11`, `MON_ACCESS 0x13`), a
-sub-command (`READ 0x00`, `WRITE 0x01`, `READ_BSR 0x02`), and a bit count.
+The payload bytes are `SUB_KERNEL_JTAG_COMMAND` (`0x40`), an IR or an SDI
+register selector (`IR_SAMPLE 0x01` is an IR; `MON_CODE 0x10`, `MON_DATA
+0x11` and `MON_ACCESS 0x13` are register selectors — see the register map
+below), a sub-command (`READ 0x00`, `WRITE 0x01`, `READ_BSR 0x02`), and a
+bit count.
+
+### Register map (from the deleted kernelcomms.h)
+
+Copied from the "JTAG commands" block of `kernelcomms.h` at `766475b8`.
+"Used" marks the macros the live probe (the code path that actually ran,
+not the commented-out branches or `set_rtdenb()`) sent or checked.
+
+| Group | Macro | Value | Used by live probe |
+|---|---|---|---|
+| Commands | `SUB_KERNEL_READ_USERCODE` | `0x30` | yes |
+| Commands | `SUB_KERNEL_JTAG_COMMAND` | `0x40` | yes |
+| Instruction registers | `SUB_KERNEL_IR_EXTEST` | `0x00` | no (commented out) |
+| Instruction registers | `SUB_KERNEL_IR_SAMPLE` | `0x01` | yes |
+| Instruction registers | `SUB_KERNEL_IR_IDCODE` | `0x02` | no |
+| Instruction registers | `SUB_KERNEL_IR_BYPASS` | `0x3F` | no |
+| Registers | `SUB_KERNEL_IDCODE` | `0x02` | no |
+| Registers | `SUB_KERNEL_USERCODE` | `0x03` | no |
+| Registers | `SUB_KERNEL_MDM_SYSTEM` | `0x08` | no |
+| Registers | `SUB_KERNEL_MDM_CONTROL` | `0x09` | no |
+| Registers | `SUB_KERNEL_MDM_SETUP` | `0x0A` | no |
+| Registers | `SUB_KERNEL_MTM_CONTROL` | `0x0F` | no |
+| Registers | `SUB_KERNEL_MON_CODE` | `0x10` | yes |
+| Registers | `SUB_KERNEL_MON_DATA` | `0x11` | yes |
+| Registers | `SUB_KERNEL_MON_PARAM` | `0x12` | no |
+| Registers | `SUB_KERNEL_MON_ACCESS` | `0x13` | yes |
+| Registers | `SUB_KERNEL_DMA_RADDR` | `0x18` | no |
+| Registers | `SUB_KERNEL_DMA_RDATA` | `0x19` | no |
+| Registers | `SUB_KERNEL_DMA_RTYPE` | `0x1A` | no |
+| Registers | `SUB_KERNEL_DMA_ACCESS` | `0x1B` | no |
+| Registers | `SUB_KERNEL_RTDENB` | `0x20` | no (dead `set_rtdenb()` only, via the ASCII string `"20"`, not this macro) |
+| Subcommands | `SUB_KERNEL_SUB_CMD_READ` | `0x00` | yes |
+| Subcommands | `SUB_KERNEL_SUB_CMD_WRITE` | `0x01` | yes |
+| Subcommands | `SUB_KERNEL_SUB_CMD_READ_BSR` | `0x02` | yes |
+| IR ack | `SUB_KERNEL_JTAG_IR_ACK` | `0x31` | yes |
 
 ### Failure handling
 
@@ -192,7 +230,17 @@ reports success.
 
 ### Dead code
 
-`set_rtdenb()` would have sent ASCII TAP-shift strings (`4b051f` TAP reset,
-`4b0303` to Shift-IR, `3b04<code>`, `6b0001`/`7b0001` for the last bit,
-`4b0101` to Run/Idle, a trailing `0D`) and reversed the bytes of each reply.
-Its only call is commented out.
+`set_rtdenb()` would have sent ASCII TAP-shift strings. `write_jtag_ir()`
+built an IR write (`4b051f` TAP reset, `4b0303` to Shift-IR, `3b04<code>`,
+`6b0001`/`7b0001` for the last bit, `4b0101` to Run/Idle, a trailing `0D`).
+`write_jtag_dr()` built a DR write (`4b0700` idle 8 clock cycles, `4b0201`
+to Shift-DR, `3b1e<data>`, `6b0001`/`7b0001` for the last bit, `4b0101`,
+`0D`). `read_jtag_dr()` built a DR read (`4b0700`, `4b0201`, `6b1f80000000`
+to read 32 bits, `4b0101`, `0D`). The end bit came from the first hex digit
+of the code or data string: `write_jtag_ir()` tested it against `0x2`,
+`write_jtag_dr()` against `0x8`. `read_response()` looped
+`read_serial_data()` until an empty reply, kept only the last non-empty one,
+took `mid(4, [3])` of it — the bytes from index 4, for a length read from
+the byte at index 3 — and reversed that slice byte-for-byte. `set_rtdenb()`'s
+one call is commented out; it would have written IR code `"20"` (`RTDENB`),
+then DR `"00000001"`, then read the DR back.
