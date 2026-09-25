@@ -1,6 +1,6 @@
 # Step 5 Tail Wave 7 — Subaru Unisia Jecs M32R Bootmode and Legacy Teardown — Design
 
-**Status:** design approved; spec under review.
+**Status:** implemented in PR 7a; 7b (teardown) follows.
 **Parent:** [step 5 tail flash drain](2026-08-08-step5-tail-flash-drain-design.md).
 **Predecessor:** [wave 6 singletons](2026-09-19-step5-tail-wave6-singletons-design.md),
 whose last family, 6c-3 Unisia Jecs M32R K-Line, merged as #359.
@@ -341,12 +341,13 @@ the PR body walks the completion criterion line by line.
 All package-owned and co-located.
 
 **Plan tests.** Both `_bootmode` pairs are accepted for Write; crossed pairs,
-suffixes, Read and TestWrite are rejected by the bootmode builder. The
-kernel plan always carries `ApplyBootModeVoltages` and is padded to 128
-bytes. Program images one byte short, one byte over, and with a trailing
-partial block are rejected. `transport_setup()` fields are asserted against
-the legacy lines above. In the 6c-3 plan test, both `_bootmode` pairs are
-accepted for Read and rejected for Write and TestWrite.
+suffixes, Read and TestWrite are rejected by the bootmode builder. Both the
+kernel plan and the program plan always carry `ApplyBootModeVoltages`; the
+kernel plan is padded to 128 bytes. Program images one byte short, one byte
+over, and with a trailing partial block are rejected. `transport_setup()`
+fields are asserted against the legacy lines above. In the 6c-3 plan test,
+both `_bootmode` pairs are accepted for Read and rejected for Write and
+TestWrite.
 
 **Kernel executor** (`ScriptedKlineFlashTransport`, byte-exact):
 `reset_connection()`, configure, `enable_boot_mode_lines()`, then every
