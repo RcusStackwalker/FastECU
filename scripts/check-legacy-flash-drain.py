@@ -29,10 +29,9 @@ EXEMPT = {
     "legacy_flash_utils_test.cpp",
 }
 
-# Regenerate ONLY by removing entries, one per migrated family.
-REMAINING = {
-    "bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp",
-}
+# Regenerate ONLY by removing entries, one per migrated family. Empty since
+# wave 7; 7b deletes the package and this script together.
+REMAINING: set[str] = set()
 
 
 def main():
