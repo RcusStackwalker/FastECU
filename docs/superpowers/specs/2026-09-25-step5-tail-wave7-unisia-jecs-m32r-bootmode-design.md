@@ -124,19 +124,27 @@ Write, in `src/backend/flash/ecu/`, each target registered by name in
 `PORTABLE_PACKAGES`:
 
 - `subaru_unisia_jecs_m32r_bootmode_types.h`: two `FlashFamily` values and
-  their `FamilyPlan` alternatives, because `family_requires_kernel_v` is per
-  family and only the first attempt carries a kernel.
-  - `SubaruUnisiaJecsM32rBootModeKernel` — `family_requires_kernel_v = true`.
-  - `SubaruUnisiaJecsM32rBootModeProgram` — `family_requires_kernel_v = false`.
+  their `FamilyPlan` alternatives, one per attempt, so each executor's
+  `check_family()` rejects the other attempt's plan.
+  - `SubaruUnisiaJecsM32rBootModeKernel`
+  - `SubaruUnisiaJecsM32rBootModeProgram`
+
+  Both set `family_requires_kernel_v = false`. The kernel attempt carries the
+  zero-padded kernel as its **plan image**, as 6c-1 BDM does:
+  `validate_and_build` requires every Write plan to carry an image, and the
+  `_bootmode` cfg entries have no `<kernel_addr>`, so the shared
+  `resolveKernel()` (which parses one) cannot load them.
 - `subaru_unisia_jecs_m32r_bootmode_plan.{h,cpp}`:
-  `build_subaru_unisia_jecs_m32r_bootmode_plan(stage, operation, protocol, mcu, image, kernel)`
-  and `validate_…`. Accepts exactly the two `_bootmode` pairs and Write
-  only; Read, TestWrite, crossed pairs and suffix variants are rejected.
-  - Kernel stage: the cfg kernel, zero-padded to a multiple of 128 bytes
-    (`:312-315`); no ROM image. Always carries
-    `ConfirmationSpec::Id::ApplyBootModeVoltages`.
-  - Program stage: the ROM image, exactly `rom_size` bytes; transfer region
-    `{0x000000, rom_size}`.
+  `build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(operation, protocol, mcu, kernel)`,
+  `build_subaru_unisia_jecs_m32r_bootmode_program_plan(operation, protocol, mcu, image)`
+  and `validate_…`. Both accept exactly the two `_bootmode` pairs and Write
+  only.
+  - Kernel plan: image = kernel zero-padded to a multiple of 128 bytes
+    (`:312-315`); an empty kernel is rejected; transfer region
+    `{0, padded size}`.
+  - Program plan: image exactly `rom_size`; transfer region `{0, rom_size}`.
+  - **Both** carry `ConfirmationSpec::Id::ApplyBootModeVoltages`: both
+    executors drive programming-voltage lines, and presence means granted.
 - `subaru_unisia_jecs_m32r_bootmode_kernel_executor.{h,cpp}` and
   `subaru_unisia_jecs_m32r_bootmode_program_executor.{h,cpp}`, each
   implementing `IKlineFlashExecutor`. Two classes rather than one with a
@@ -160,6 +168,11 @@ Port:
 - `flash_workflow.cpp`: two `RouteMatch::Exact` entries for
   `sub_ecu_unisia_jecs_{20,30}_bootmode`, both to
   `SubaruUnisiaJecsM32rBootModeWorkflow`.
+
+  The kernel bytes come from a new `resolveKernelBytes()` beside
+  `resolveKernel()`: the cfg `<kernel>` file, with no `<kernel_addr>`
+  parsed. Both plans are built before `Begin`, so a missing kernel file or a
+  wrong-size image fails before any prompt.
   - **Read:** `Begin`, then one attempt with the 6c-3 plan and executor,
     then the completed step carrying `rom_id`.
   - **Write:**
@@ -181,13 +194,16 @@ Port:
     the ECU, turn ignition ON, then press OK".
   - `RemoveMod1`: OK / Cancel, "Remove MOD1 voltage, then press OK to
     continue". Legacy offered OK only.
-  - `RemoveProgrammingVoltage` with `power_off_advice=no` omits the
-    don't-power-off sentence; on success it carries legacy's closing log
-    line, "Remove VPP voltage, power cycle the ECU and request SSM Init to
-    confirm" (`:581`).
+  - `RemoveProgrammingVoltage` text moves into a static
+    `FlashDialog::programmingVoltageNotice(const FlashPromptStep&)` so it is
+    testable. With `power_off_advice=no`, a failed or cancelled write says
+    "Press OK to exit and try again" (legacy bootmode's wording) instead of the
+    don't-power-off advice; a successful one adds "Power cycle the ECU and
+    request SSM Init to confirm the write."
 - Close-to-cancel needs no dialog change. `finishCancelledAttempt()` submits
-  one cancelled result and shows only prompts, and the workflow never yields
-  `RemoveMod1` or attempt 2 after an unsuccessful attempt 1.
+  one cancelled result and shows only prompts. The `RemoveMod1` box is modal
+  and no worker is live while it shows, so closing it is a decline, handled by
+  the workflow.
 
 ### Deleted in 7a
 
@@ -198,6 +214,11 @@ Port:
   and its `REMAINING` entry. The ratchet stays, empty, until 7b.
 - The workflow test `unisiaJecsM32rBootmodeAndLookalikesStayLegacy`,
   replaced by routing tests.
+- The legacy package's `family_operation_sources` filegroup gains
+  `allow_empty = True`: after `bootmode/` goes, its `*/*.cpp` pattern
+  matches nothing until 7b deletes the package.
+- The legacy library's `//src/algorithms/protocol/ssm/qt_compat` dependency;
+  only the bootmode operation used it.
 
 ## Wire behavior
 
@@ -249,9 +270,12 @@ is the proof it is running.
    an otherwise successful run into a failure and never replaces an earlier
    error.
 
-**Negative replies.** Failure details name legacy's documented codes
-(`:346-353`): `48` missing VPP, `5C` checksum error, `72` address error in
-`AF 61`, `8A` FENTRY bit not set. Any other code is reported as unknown.
+**Negative replies.** Legacy's success replies are `EF 42` and `EF 52`, a
+status byte after `EF`; the documented error codes (`:346-353`) are read as
+statuses in the same position. A valid `EF xx` frame in a failure detail is
+annotated: `48` missing VPP, `5C` checksum error, `72` address error,
+`8A` FENTRY bit not set, `42` erase started, `52` done; any other status is
+"unknown". The bench checklist confirms the position.
 
 ### Deliberate corrections
 
@@ -343,9 +367,10 @@ prompt order; decline at each prompt; attempt-1 failure skipping
 `RemoveMod1` and attempt 2; the notice's `outcome`, `external_vpp` and
 `power_off_advice` for every outcome.
 
-**Dialog** (`flash_dialog_test`): close during attempt 1 yields the notice
-and no second attempt; close at `RemoveMod1` cancels with the notice;
-`power_off_advice=no` omits the advice sentence.
+**Dialog** (`flash_dialog_test`): a workflow yielding two attempts with a
+prompt between them runs both through `advance()`; `programmingVoltageNotice`
+text for `power_off_advice` absent (6c-3 unchanged), `no` on success, and `no`
+on failure.
 
 **Guards.** `REMAINING` becomes empty; the allowlist shrinks by one;
 `//:portable_closure` stays green.
