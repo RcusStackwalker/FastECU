@@ -139,12 +139,15 @@ class TestDesktopKlineFlashTransport : public QObject
         EXPECT_CALL(serial.fake(), set_lec_lines(1, 1)).WillOnce(::testing::Return(STATUS_SUCCESS));
         EXPECT_CALL(serial.fake(), pulse_lec_2_line(200)).WillOnce(::testing::Return(STATUS_SUCCESS));
         EXPECT_CALL(serial.fake(), set_lec_lines(0, 1)).WillOnce(::testing::Return(STATUS_SUCCESS));
+        EXPECT_CALL(serial.fake(), set_lec_lines(0, 0)).WillOnce(::testing::Return(STATUS_SUCCESS));
 
         DesktopKlineFlashTransport transport(serial.release());
 
         QVERIFY(transport.disable_lec_lines().has_value());
         QVERIFY(transport.pulse_lec_2_line(200ms).has_value());
         QVERIFY(transport.enable_programming_voltage_line().has_value());
+        // Legacy bootmode execute() :66 -- VPP on LEC1 and MOD1 on LEC2.
+        QVERIFY(transport.enable_boot_mode_lines().has_value());
     }
 
     void configureChecksEveryBooleanSetterInOrderAndStopsAtFirstFailure()
@@ -483,6 +486,10 @@ class TestDesktopKlineFlashTransport : public QObject
         const auto programmingLineResult = transport.enable_programming_voltage_line();
         QVERIFY(!programmingLineResult.has_value());
         QCOMPARE(programmingLineResult.error().kind, ErrorKind::Disconnected);
+
+        const auto bootModeLinesResult = transport.enable_boot_mode_lines();
+        QVERIFY(!bootModeLinesResult.has_value());
+        QCOMPARE(bootModeLinesResult.error().kind, ErrorKind::Disconnected);
     }
 
     // set_add_iso14230_header() forwards straight to

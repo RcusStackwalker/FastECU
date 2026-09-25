@@ -37,12 +37,14 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         DisableLecLines,
         PulseLec2,
         EnableProgrammingVoltageLine,
+        EnableBootModeLines,
     };
     enum class Operation
     {
         DisableLecLines,
         PulseLec2,
         EnableProgrammingVoltageLine,
+        EnableBootModeLines,
         Read10,
     };
 
@@ -190,6 +192,12 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         operation_trace_.push_back(Operation::EnableProgrammingVoltageLine);
         return enable_programming_voltage_line_result_;
     }
+    Status enable_boot_mode_lines() override
+    {
+        control_line_trace_.push_back(ControlLineAction::EnableBootModeLines);
+        operation_trace_.push_back(Operation::EnableBootModeLines);
+        return enable_boot_mode_lines_result_;
+    }
     bool requires_post_kernel_upload_delay() const override
     {
         return post_kernel_upload_delay_required_;
@@ -305,6 +313,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     Status disable_lec_lines_result_;
     Status pulse_lec_2_line_result_;
     Status enable_programming_voltage_line_result_;
+    Status enable_boot_mode_lines_result_;
     bool post_kernel_upload_delay_required_ = false;
     std::optional<KlineConfig> last_config_;
     std::vector<ControlLineAction> control_line_trace_;
