@@ -875,6 +875,7 @@ fastecu_portable_gtest(
     deps = [
         ":subaru_denso_mc68hc16y5_02_bdm_executor",
         ":subaru_denso_mc68hc16y5_02_bdm_plan",
+        ":subaru_unisia_jecs_plan",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
