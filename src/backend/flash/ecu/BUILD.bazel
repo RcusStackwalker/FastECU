@@ -885,6 +885,62 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "subaru_unisia_jecs_m32r_kline_types",
+    hdrs = ["subaru_unisia_jecs_m32r_kline_types.h"],
+)
+
+cc_library(
+    name = "subaru_unisia_jecs_m32r_kline_plan",
+    srcs = ["subaru_unisia_jecs_m32r_kline_plan.cpp"],
+    hdrs = ["subaru_unisia_jecs_m32r_kline_plan.h"],
+    deps = [
+        ":subaru_unisia_jecs_m32r_kline_types",
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_unisia_jecs_m32r_kline_plan_test",
+    srcs = ["subaru_unisia_jecs_m32r_kline_plan_test.cpp"],
+    deps = [
+        ":subaru_unisia_jecs_m32r_kline_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
+cc_library(
+    name = "subaru_unisia_jecs_m32r_kline_executor",
+    srcs = ["subaru_unisia_jecs_m32r_kline_executor.cpp"],
+    hdrs = ["subaru_unisia_jecs_m32r_kline_executor.h"],
+    deps = [
+        ":subaru_unisia_jecs_m32r_kline_plan",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_unisia_jecs_m32r_kline_executor_test",
+    srcs = ["subaru_unisia_jecs_m32r_kline_executor_test.cpp"],
+    deps = [
+        ":subaru_unisia_jecs_m32r_kline_executor",
+        ":subaru_unisia_jecs_m32r_kline_plan",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
+cc_library(
     name = "subaru_denso_sh705x_kline_types",
     hdrs = ["subaru_denso_sh705x_kline_types.h"],
 )

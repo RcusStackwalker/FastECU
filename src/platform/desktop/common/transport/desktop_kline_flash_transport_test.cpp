@@ -97,6 +97,16 @@ class TestDesktopKlineFlashTransport : public QObject
 #endif
     }
 
+    void programmingVoltageSupplyMirrorsOpenPort2OnEveryPlatform()
+    {
+        FakeBackedSerial serial;
+        SerialPortActions *serial_ptr = serial.get();
+        QVERIFY(!fastecu::flash::adapter_supplies_programming_voltage(nullptr));
+        QVERIFY(!fastecu::flash::adapter_supplies_programming_voltage(serial_ptr));
+        QVERIFY(serial_ptr->set_use_openport2_adapter(true));
+        QVERIFY(fastecu::flash::adapter_supplies_programming_voltage(serial_ptr));
+    }
+
     // reset_connection() is the SH705x K-Line startup seam. It calls the real
     // SerialPortActions facade over FakeBackend, as the CAN adapter test does.
     void resetConnectionReachesTheAdapter()

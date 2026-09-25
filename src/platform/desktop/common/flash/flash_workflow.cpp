@@ -49,6 +49,8 @@
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_plan.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_executor.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_plan.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_executor.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_plan.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_plan.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_kline_executor.h"
@@ -424,6 +426,121 @@ class SubaruUnisiaJecsWorkflow final : public FlashWorkflow
     Result<FlashPlan> plan_;
     bool begun_ = false;
     bool attempted_ = false;
+    FlashAttemptOutcome outcome_;
+};
+
+// Wave 6c-3. The adapter check moved here from legacy write_mem() :434: an
+// adapter that supplies programming voltage needs no operator prompt. With no
+// serial at all the workflow cannot know, so it prompts.
+class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
+{
+  public:
+    explicit SubaruUnisiaJecsM32rKlineWorkflow(FlashWorkflowRequest request)
+        : request_(std::move(request)),
+          plan_(build_subaru_unisia_jecs_m32r_kline_plan(request_.operation, request_.protocol, request_.mcu,
+                                                         std::move(request_.image),
+                                                         adapter_supplies_programming_voltage(request_.serial)))
+    {
+        if (plan_.has_value())
+        {
+            needs_vpp_ = std::ranges::any_of(plan_->confirmations(), [](const ConfirmationSpec& spec)
+                                             { return spec.id == ConfirmationSpec::Id::ApplyProgrammingVoltage; });
+        }
+    }
+
+    FlashWorkflowStep next() override
+    {
+        if (!plan_.has_value())
+        {
+            return FlashFailureStep{plan_.error()};
+        }
+        // The reminder precedes whatever the attempt produced, failure included.
+        if (stage_ == Stage::RemoveVpp)
+        {
+            return FlashPromptStep{FlashPromptKind::RemoveProgrammingVoltage,
+                                   {{"outcome", attempt_outcome_}, {"external_vpp", needs_vpp_ ? "yes" : "no"}}};
+        }
+        if (outcome_.hasFailure())
+        {
+            return outcome_.takeFailure();
+        }
+        if (outcome_.terminal())
+        {
+            return outcome_.completedStep();
+        }
+        if (stage_ == Stage::Begin)
+        {
+            return FlashPromptStep{FlashPromptKind::Begin, {}};
+        }
+        if (stage_ == Stage::ApplyVpp)
+        {
+            return FlashPromptStep{FlashPromptKind::ApplyProgrammingVoltage, {}};
+        }
+        if (stage_ == Stage::Attempt)
+        {
+            stage_ = Stage::Done;
+            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
+                                     bind_flash_attempt(std::move(*plan_),
+                                                        std::make_unique<SubaruUnisiaJecsM32rKlineExecutor>(),
+                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                                     std::make_unique<QtClock>()};
+        }
+        return outcome_.completedStep();
+    }
+
+    void submit(FlashPromptResponse response) override
+    {
+        switch (stage_)
+        {
+        case Stage::Begin:
+        case Stage::ApplyVpp:
+            if (response != FlashPromptResponse::Accept)
+            {
+                outcome_.cancel();
+                return;
+            }
+            stage_ = stage_ == Stage::Begin && needs_vpp_ ? Stage::ApplyVpp : Stage::Attempt;
+            return;
+        case Stage::RemoveVpp:
+            stage_ = Stage::Done; // OK-only notice
+            return;
+        case Stage::Attempt:
+        case Stage::Done:
+            return;
+        }
+    }
+
+    void submit(FlashAttemptResult result) override
+    {
+        // Legacy warned after every failed write, whatever the adapter, not to
+        // power off the ECU; the remove-VPP sentence is due only when the
+        // operator applied external VPP, success included.
+        if (is_write_ && (needs_vpp_ || !result.success))
+        {
+            attempt_outcome_ = result.success                              ? "succeeded"
+                               : result.error_kind == ErrorKind::Cancelled ? "cancelled"
+                                                                           : "failed";
+            stage_ = Stage::RemoveVpp;
+        }
+        outcome_.record(std::move(result));
+    }
+
+  private:
+    enum class Stage
+    {
+        Begin,
+        ApplyVpp,
+        Attempt,
+        RemoveVpp,
+        Done,
+    };
+
+    FlashWorkflowRequest request_;
+    Result<FlashPlan> plan_;
+    bool is_write_ = request_.operation == FlashOperation::Write;
+    bool needs_vpp_ = false;
+    Stage stage_ = Stage::Begin;
+    std::string attempt_outcome_;
     FlashAttemptOutcome outcome_;
 };
 
@@ -1338,6 +1455,7 @@ struct Route
         SubaruDenso1n83m_4mCan,
         SubaruDensoSh705xKline,
         SubaruDensoMc68hc16y5_02Bdm,
+        SubaruUnisiaJecsM32rKline,
         Unrouted,
     };
 
@@ -1389,6 +1507,12 @@ constexpr auto kRoutes = std::to_array<Route>({
     {"sub_tcu_hitachi_m32r_kline", SubaruTcuHitachiM32rKline, RouteMatch::Exact},
     {"sub_ecu_unisia_jecs_m3779x", SubaruUnisiaJecs, RouteMatch::Exact},
     {"sub_ecu_unisia_jecs_m3775x", SubaruUnisiaJecs, RouteMatch::Exact},
+    // Exact only: the _bootmode names share these prefixes and stay on the
+    // legacy MainWindow path until wave 7.
+    {"sub_ecu_unisia_jecs_20", SubaruUnisiaJecsM32rKline, RouteMatch::Exact},
+    {"sub_ecu_unisia_jecs_30", SubaruUnisiaJecsM32rKline, RouteMatch::Exact},
+    {"sub_ecu_unisia_jecs_40", SubaruUnisiaJecsM32rKline, RouteMatch::Exact},
+    {"sub_ecu_unisia_jecs_70", SubaruUnisiaJecsM32rKline, RouteMatch::Exact},
     {"sub_tcu_hitachi_m32r_can", SubaruTcuHitachiM32rCan, RouteMatch::Exact},
     {"sub_ecu_hitachi_sh72543r_can", SubaruHitachiSh72543rCan, RouteMatch::Exact},
     {"sub_ecu_hitachi_sh72543r_can_recovery", SubaruHitachiSh72543rCan, RouteMatch::Exact},
@@ -1482,6 +1606,8 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
         return std::make_unique<SubaruDensoSh705xKlineWorkflow>(std::move(request));
     case SubaruDensoMc68hc16y5_02Bdm:
         return std::make_unique<SubaruDensoMc68hc16y5_02BdmWorkflow>(std::move(request));
+    case SubaruUnisiaJecsM32rKline:
+        return std::make_unique<SubaruUnisiaJecsM32rKlineWorkflow>(std::move(request));
     case Unrouted:
         return nullptr;
     }

@@ -32,7 +32,6 @@ EXEMPT = {
 # Regenerate ONLY by removing entries, one per migrated family.
 REMAINING = {
     "bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp",
-    "ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.cpp",
 }
 
 

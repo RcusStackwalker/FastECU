@@ -22,5 +22,9 @@ fastecu_qttest(
     src = "flash_dialog_test.cpp",
     copts = ["-DQT_WIDGETS_LIB"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
-    deps = [":flash_dialog"],
+    deps = [
+        ":flash_dialog",
+        "//src/backend/flash/ecu:subaru_unisia_jecs_m32r_kline_plan",
+        "//src/backend/ports/testing:fake_clock",
+    ],
 )

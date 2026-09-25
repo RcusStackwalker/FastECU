@@ -35,6 +35,37 @@ FlashWorkflowRequest request(std::string protocol, FlashOperation operation = Fl
             .serial = nullptr};
 }
 
+FlashWorkflowRequest unisiaM32rWrite()
+{
+    auto input = request("sub_ecu_unisia_jecs_20", FlashOperation::Write);
+    input.mcu = "M32R_128KB";
+    input.image = bytes::Bytes(0x20000, 0xff);
+    return input;
+}
+
+// Begin -> ApplyProgrammingVoltage -> attempt, all accepted.
+std::unique_ptr<FlashWorkflow> unisiaM32rWriteAtAttempt()
+{
+    auto workflow = FlashWorkflowFactory::tryCreate(unisiaM32rWrite());
+    if (workflow == nullptr || std::get<FlashPromptStep>(workflow->next()).kind != FlashPromptKind::Begin)
+    {
+        return nullptr;
+    }
+    workflow->submit(FlashPromptResponse::Accept);
+    if (std::get<FlashPromptStep>(workflow->next()).kind != FlashPromptKind::ApplyProgrammingVoltage)
+    {
+        return nullptr;
+    }
+    workflow->submit(FlashPromptResponse::Accept);
+    if (!std::holds_alternative<FlashAttempt>(workflow->next()))
+    {
+        return nullptr;
+    }
+    return workflow;
+}
+
+using PromptArguments = std::vector<std::pair<std::string, std::string>>;
+
 bool writeFile(const QString& path, const QByteArray& contents)
 {
     QFile file(path);
@@ -261,6 +292,18 @@ class FlashWorkflowTest : public QObject
     void densoSh705xKlineRoutesExactProtocolsThroughBeginToAttempt();
     void densoSh705xKlineCobbReadFailsBeforeAttempt();
     void densoSh705xKlineIgnoresPrefixLookalikes();
+    void unisiaJecsM32rRoutesTheFourExactProtocols();
+    void unisiaJecsM32rBootmodeAndLookalikesStayLegacy();
+    void unisiaJecsM32rWriteWithoutAdapterVppPromptsBeforeAndAfter();
+    void unisiaJecsM32rFailedWriteRemindsBeforeReportingTheFailure();
+    void unisiaJecsM32rCancelledWriteReminds();
+    void unisiaJecsM32rDeclinedVppPromptCancelsBeforeAttempt();
+    void unisiaJecsM32rAdapterSuppliedVppSkipsBothPrompts();
+    void unisiaJecsM32rAdapterSuppliedVppFailedWriteWarnsNotToPowerOff();
+    void unisiaJecsM32rAdapterSuppliedVppCancelledWriteWarnsNotToPowerOff();
+    void unisiaJecsM32rReadPropagatesRomIdWithoutVppPrompts();
+    void unisiaJecsM32rFailedReadReportsWithoutNotice();
+    void unisiaJecsM32rWriteOnReadOnlyVariantFailsBeforeAnyPrompt();
 };
 
 void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone()
@@ -292,7 +335,11 @@ void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone(
                                                                   "sub_ecu_denso_sh7058_can_diesel",
                                                                   "sub_ecu_denso_sh7059_can_diesel",
                                                                   "sub_ecu_denso_1n83m_4m_can",
-                                                                  "sub_ecu_denso_mc68hc16y5_02_bdm"});
+                                                                  "sub_ecu_denso_mc68hc16y5_02_bdm",
+                                                                  "sub_ecu_unisia_jecs_20",
+                                                                  "sub_ecu_unisia_jecs_30",
+                                                                  "sub_ecu_unisia_jecs_40",
+                                                                  "sub_ecu_unisia_jecs_70"});
     for (const char *protocol : portable)
     {
         QVERIFY2(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr, protocol);
@@ -1706,6 +1753,234 @@ void FlashWorkflowTest::densoSh705xKlineIgnoresPrefixLookalikes()
     {
         QVERIFY2(FlashWorkflowFactory::tryCreate(request(near_miss)) == nullptr, near_miss);
     }
+}
+
+void FlashWorkflowTest::unisiaJecsM32rRoutesTheFourExactProtocols()
+{
+    struct Variant
+    {
+        const char *protocol;
+        const char *mcu;
+        std::uint32_t rom_size;
+    };
+    for (const Variant& variant : std::to_array<Variant>({
+             {"sub_ecu_unisia_jecs_20", "M32R_128KB", 0x20000},
+             {"sub_ecu_unisia_jecs_30", "M32R_256KB", 0x40000},
+             {"sub_ecu_unisia_jecs_40", "M32R_384KB", 0x60000},
+             {"sub_ecu_unisia_jecs_70", "M32R_512KB", 0x80000},
+         }))
+    {
+        auto input = request(variant.protocol);
+        input.mcu = variant.mcu;
+        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        QVERIFY2(workflow != nullptr, variant.protocol);
+        QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+        workflow->submit(FlashPromptResponse::Accept);
+        auto step = workflow->next();
+        QVERIFY2(std::holds_alternative<FlashAttempt>(step), variant.protocol);
+        const auto& plan = std::get<FlashAttempt>(step).attempt->plan();
+        QCOMPARE(plan.family(), FlashFamily::SubaruUnisiaJecsM32rKline);
+        QCOMPARE(plan.transfer_region(), (MemoryRegion{0x100000, variant.rom_size}));
+    }
+}
+
+void FlashWorkflowTest::unisiaJecsM32rBootmodeAndLookalikesStayLegacy()
+{
+    for (const char *protocol : {"sub_ecu_unisia_jecs_20_bootmode", "sub_ecu_unisia_jecs_30_bootmode",
+                                 "sub_ecu_unisia_jecs_20x", "sub_ecu_unisia_jecs_7"})
+    {
+        QVERIFY2(FlashWorkflowFactory::tryCreate(request(protocol)) == nullptr, protocol);
+    }
+}
+
+void FlashWorkflowTest::unisiaJecsM32rWriteWithoutAdapterVppPromptsBeforeAndAfter()
+{
+    // request() carries a null serial: no adapter information means prompting.
+    auto workflow = FlashWorkflowFactory::tryCreate(unisiaM32rWrite());
+    QVERIFY(workflow != nullptr);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::ApplyProgrammingVoltage);
+    workflow->submit(FlashPromptResponse::Accept);
+    auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashAttempt>(step));
+    const auto& plan = std::get<FlashAttempt>(step).attempt->plan();
+    QCOMPARE(plan.confirmations().size(), std::size_t{1});
+    QCOMPARE(plan.confirmations()[0].id, ConfirmationSpec::Id::ApplyProgrammingVoltage);
+
+    workflow->submit(FlashAttemptResult{.success = true});
+    const auto reminder = std::get<FlashPromptStep>(workflow->next());
+    QCOMPARE(reminder.kind, FlashPromptKind::RemoveProgrammingVoltage);
+    QVERIFY(reminder.arguments == (PromptArguments{{"outcome", "succeeded"}, {"external_vpp", "yes"}}));
+    workflow->submit(FlashPromptResponse::Accept);
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Succeeded);
+}
+
+void FlashWorkflowTest::unisiaJecsM32rFailedWriteRemindsBeforeReportingTheFailure()
+{
+    auto workflow = unisiaM32rWriteAtAttempt();
+    QVERIFY(workflow != nullptr);
+    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::BadResponse, .error_detail = "x"});
+    const auto reminder = std::get<FlashPromptStep>(workflow->next());
+    QCOMPARE(reminder.kind, FlashPromptKind::RemoveProgrammingVoltage);
+    QVERIFY(reminder.arguments == (PromptArguments{{"outcome", "failed"}, {"external_vpp", "yes"}}));
+    workflow->submit(FlashPromptResponse::Accept);
+    const auto failure = workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(failure));
+    QCOMPARE(std::get<FlashFailureStep>(failure).error.kind, ErrorKind::BadResponse);
+}
+
+void FlashWorkflowTest::unisiaJecsM32rCancelledWriteReminds()
+{
+    auto workflow = unisiaM32rWriteAtAttempt();
+    QVERIFY(workflow != nullptr);
+    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::Cancelled});
+    const auto reminder = std::get<FlashPromptStep>(workflow->next());
+    QCOMPARE(reminder.kind, FlashPromptKind::RemoveProgrammingVoltage);
+    QVERIFY(reminder.arguments == (PromptArguments{{"outcome", "cancelled"}, {"external_vpp", "yes"}}));
+    workflow->submit(FlashPromptResponse::Decline); // OK-only notice; any answer continues
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Cancelled);
+}
+
+void FlashWorkflowTest::unisiaJecsM32rDeclinedVppPromptCancelsBeforeAttempt()
+{
+    auto workflow = FlashWorkflowFactory::tryCreate(unisiaM32rWrite());
+    QVERIFY(workflow != nullptr);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::ApplyProgrammingVoltage);
+    workflow->submit(FlashPromptResponse::Decline);
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Cancelled);
+}
+
+void FlashWorkflowTest::unisiaJecsM32rAdapterSuppliedVppSkipsBothPrompts()
+{
+    FakeBackend *fake = nullptr;
+    auto serial = recordingSerial(&fake);
+    QVERIFY(serial != nullptr);
+    QVERIFY(serial->set_use_openport2_adapter(true));
+    auto input = unisiaM32rWrite();
+    input.serial = serial.get();
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashAttempt>(step));
+    QVERIFY(std::get<FlashAttempt>(step).attempt->plan().confirmations().empty());
+    workflow->submit(FlashAttemptResult{.success = true});
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Succeeded);
+}
+
+// OpenPort 2.0 supplies VPP, so no remove-VPP sentence is due; legacy still
+// warned on every failed write not to power off the ECU.
+std::unique_ptr<FlashWorkflow> unisiaM32rOpenPort2WriteAtAttempt(std::unique_ptr<SerialPortActions>& serial,
+                                                                 FakeBackend **fake)
+{
+    serial = recordingSerial(fake);
+    if (serial == nullptr || !serial->set_use_openport2_adapter(true))
+    {
+        return nullptr;
+    }
+    auto input = unisiaM32rWrite();
+    input.serial = serial.get();
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    if (workflow == nullptr || std::get<FlashPromptStep>(workflow->next()).kind != FlashPromptKind::Begin)
+    {
+        return nullptr;
+    }
+    workflow->submit(FlashPromptResponse::Accept);
+    if (!std::holds_alternative<FlashAttempt>(workflow->next()))
+    {
+        return nullptr;
+    }
+    return workflow;
+}
+
+void FlashWorkflowTest::unisiaJecsM32rAdapterSuppliedVppFailedWriteWarnsNotToPowerOff()
+{
+    FakeBackend *fake = nullptr;
+    std::unique_ptr<SerialPortActions> serial;
+    auto workflow = unisiaM32rOpenPort2WriteAtAttempt(serial, &fake);
+    QVERIFY(workflow != nullptr);
+    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::Timeout, .error_detail = "x"});
+    const auto notice_step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashPromptStep>(notice_step));
+    const auto& notice = std::get<FlashPromptStep>(notice_step);
+    QCOMPARE(notice.kind, FlashPromptKind::RemoveProgrammingVoltage);
+    QVERIFY(notice.arguments == (PromptArguments{{"outcome", "failed"}, {"external_vpp", "no"}}));
+    workflow->submit(FlashPromptResponse::Accept);
+    const auto failure = workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(failure));
+    QCOMPARE(std::get<FlashFailureStep>(failure).error.kind, ErrorKind::Timeout);
+}
+
+void FlashWorkflowTest::unisiaJecsM32rAdapterSuppliedVppCancelledWriteWarnsNotToPowerOff()
+{
+    FakeBackend *fake = nullptr;
+    std::unique_ptr<SerialPortActions> serial;
+    auto workflow = unisiaM32rOpenPort2WriteAtAttempt(serial, &fake);
+    QVERIFY(workflow != nullptr);
+    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::Cancelled});
+    const auto notice_step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashPromptStep>(notice_step));
+    const auto& notice = std::get<FlashPromptStep>(notice_step);
+    QCOMPARE(notice.kind, FlashPromptKind::RemoveProgrammingVoltage);
+    QVERIFY(notice.arguments == (PromptArguments{{"outcome", "cancelled"}, {"external_vpp", "no"}}));
+    workflow->submit(FlashPromptResponse::Accept);
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Cancelled);
+}
+
+void FlashWorkflowTest::unisiaJecsM32rReadPropagatesRomIdWithoutVppPrompts()
+{
+    auto input = request("sub_ecu_unisia_jecs_30");
+    input.mcu = "M32R_256KB";
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
+    workflow->submit(
+        FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{1, 2}, .rom_id = std::string("123456789A_")});
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QVERIFY(std::get<FlashCompletedStep>(done).rom_id == std::optional<std::string>("123456789A_"));
+    QVERIFY(std::get<FlashCompletedStep>(done).accepted_read_bytes == std::optional<bytes::Bytes>(bytes::Bytes{1, 2}));
+}
+
+void FlashWorkflowTest::unisiaJecsM32rFailedReadReportsWithoutNotice()
+{
+    auto input = request("sub_ecu_unisia_jecs_30");
+    input.mcu = "M32R_256KB";
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QVERIFY(std::holds_alternative<FlashAttempt>(workflow->next()));
+    workflow->submit(FlashAttemptResult{.success = false, .error_kind = ErrorKind::Timeout, .error_detail = "x"});
+    const auto failure = workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(failure));
+    QCOMPARE(std::get<FlashFailureStep>(failure).error.kind, ErrorKind::Timeout);
+}
+
+void FlashWorkflowTest::unisiaJecsM32rWriteOnReadOnlyVariantFailsBeforeAnyPrompt()
+{
+    auto input = request("sub_ecu_unisia_jecs_40", FlashOperation::Write);
+    input.mcu = "M32R_384KB";
+    input.image = bytes::Bytes(0x60000, 0xff);
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+    const auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(step));
+    QCOMPARE(std::get<FlashFailureStep>(step).error.kind, ErrorKind::Unsupported);
 }
 
 } // namespace

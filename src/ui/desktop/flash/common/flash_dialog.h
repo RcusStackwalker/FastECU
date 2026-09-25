@@ -47,6 +47,7 @@ class FlashDialog : public QDialog
     void advance();
     void startAttempt(FlashAttempt attempt);
     void workerFinished(FlashWorkerResult result);
+    void finishCancelledAttempt();
     void setProgress(int done, int total);
 
     std::unique_ptr<FlashWorkflow> workflow_;

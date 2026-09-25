@@ -2,6 +2,7 @@
 
 #include <QCloseEvent>
 #include <QMessageBox>
+#include <QStringList>
 
 namespace fastecu::flash
 {
@@ -118,7 +119,18 @@ void FlashDialog::startAttempt(FlashAttempt attempt)
                 }
                 setProgress(done, total);
             });
-    connect(worker_.get(), &FlashWorker::finished, this, &FlashDialog::workerFinished);
+    // finished is queued from the worker thread. closeEvent() may reset this
+    // worker after it emitted but before the delivery; that stale delivery
+    // must not submit a second result, so it is accepted only while this
+    // worker is still the dialog's current one.
+    connect(worker_.get(), &FlashWorker::finished, this,
+            [this, worker = worker_.get()](FlashWorkerResult result)
+            {
+                if (worker_.get() == worker)
+                {
+                    workerFinished(std::move(result));
+                }
+            });
     worker_->start();
 }
 
@@ -191,6 +203,31 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
                    ? FlashPromptResponse::Accept
                    : FlashPromptResponse::Decline;
     }
+    if (prompt.kind == FlashPromptKind::ApplyProgrammingVoltage)
+    {
+        return QMessageBox::warning(this, tr("Programming voltage"),
+                                    tr("Apply VPP voltage to the ECU, then press OK to continue."),
+                                    QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Ok
+                   ? FlashPromptResponse::Accept
+                   : FlashPromptResponse::Decline;
+    }
+    if (prompt.kind == FlashPromptKind::RemoveProgrammingVoltage)
+    {
+        const bool external_vpp = arg("external_vpp") == QStringLiteral("yes");
+        QStringList paragraphs;
+        if (external_vpp)
+        {
+            paragraphs << tr("Remove VPP voltage from the ECU, then press OK.");
+        }
+        if (arg("outcome") != QStringLiteral("succeeded"))
+        {
+            paragraphs << tr("The write did not complete. If the ECU entered flash mode, do not power it off: the "
+                             "flash kernel is still running and you can try flashing again.");
+        }
+        QMessageBox::information(this, external_vpp ? tr("Programming voltage") : tr("ECU operation"),
+                                 paragraphs.join(QStringLiteral("\n\n")));
+        return FlashPromptResponse::Accept;
+    }
     if (prompt.kind == FlashPromptKind::ConfirmSh7058Read)
     {
         return QMessageBox::information(this, tr("Read Hitachi SH7058 ROM"),
@@ -253,12 +290,34 @@ void FlashDialog::closeEvent(QCloseEvent *event)
         worker_->requestStop();
         worker_.reset();
         result_.outcome = FlashWorkflowOutcome::Cancelled;
+        finishCancelledAttempt();
     }
     if (loop_)
     {
         loop_->quit();
     }
     QDialog::closeEvent(event);
+}
+
+// Closing the dialog is the only way to cancel a running attempt, so the
+// workflow still hears the cancellation and may present its post-attempt
+// notices (e.g. remove programming voltage). Deliberately not advance(): no
+// new attempt starts, no close() re-enters, and the completion or failure the
+// workflow then reaches stays silent -- the operator already chose to stop.
+void FlashDialog::finishCancelledAttempt()
+{
+    workflow_->submit(
+        FlashAttemptResult{false, ErrorKind::Cancelled, "cancelled: dialog closed", std::nullopt, std::nullopt});
+    while (true)
+    {
+        FlashWorkflowStep step = workflow_->next();
+        auto *prompt = std::get_if<FlashPromptStep>(&step);
+        if (prompt == nullptr)
+        {
+            return;
+        }
+        workflow_->submit(presentPrompt(*prompt));
+    }
 }
 
 void FlashDialog::setProgress(int done, int total)

@@ -542,4 +542,9 @@ bool DesktopKlineFlashTransport::isOpen() const
     }
 }
 
+bool adapter_supplies_programming_voltage(SerialPortActions *serial)
+{
+    return serial != nullptr && serial->get_use_openport2_adapter();
+}
+
 } // namespace fastecu::flash

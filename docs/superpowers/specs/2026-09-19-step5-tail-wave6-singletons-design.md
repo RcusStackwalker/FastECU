@@ -1,7 +1,7 @@
 <!-- docs/superpowers/specs/2026-09-19-step5-tail-wave6-singletons-design.md -->
 # Step 5 Tail Wave 6 — Nine Singletons — Design
 
-**Status:** in progress — waves 6a-1 through 6c-1 are merged; 6c-2 (a removal, not a migration) is implemented on this branch. Two legacy families remain.
+**Status:** in progress — waves 6a-1 through 6c-2 are merged; 6c-3 is implemented on this branch. One legacy family remains, for wave 7.
 **Predecessor:** [wave 5, Denso SH705x CAN](2026-09-02-step5-tail-wave5-denso-sh705x-can-design.md), merged as PR #341
 **Umbrella:** [step 5 tail flash drain](2026-08-08-step5-tail-flash-drain-design.md)
 
@@ -388,3 +388,15 @@ failure. Porting the stubs would legitimize a no-op, and porting only the probe
 would add unreachable portable code. The probe's wire sequence is preserved in
 that design's appendix. `//src/ui/desktop/flash/jtag` also leaves the
 `serial_qt_compat` allowlist. The drain moves from three entries to two.
+
+## Wave 6c-3 implementation note
+
+The [Unisia Jecs M32R K-Line family spec](2026-09-25-step5-tail-wave6c3-unisia-jecs-m32r-kline-design.md)
+records three departures from this design: the 6a-3/6a-4/6b-2/6c-1
+behavior-correction exception applies, because legacy could erase under VPP
+after a rejected flash-mode request and reported cancellation as success; the
+VPP flow gains a post-attempt `RemoveProgrammingVoltage` prompt alongside the
+planned `ApplyProgrammingVoltage` confirmation; and the legacy dialog package
+`//src/ui/desktop/flash/ecu` is deleted, taking its entry out of the
+`serial_qt_compat` allowlist. The drain moves from two entries to one;
+`FlashEcuSubaruUnisiaJecsM32rBootMode` remains for wave 7.
