@@ -1,6 +1,6 @@
 # Step 5 Tail Wave 6c-1 — Denso MC68HC16Y5 BDM — Design
 
-**Status:** design approved; implementation plan to follow.
+**Status:** design approved; implementation plan in [the 6c-1 plan](../plans/2026-09-25-step5-tail-wave6c1-denso-mc68hc16-bdm.md).
 **Parent:** [wave 6 singletons](2026-09-19-step5-tail-wave6-singletons-design.md).
 **Predecessors:** 6b transport foundation (#351), 6b-1 Unisia Jecs (#352), and
 6b-2 Denso SH705x K-Line (#355, #356), all merged.
@@ -232,8 +232,7 @@ package; `//:serial_compat_allowlist` is unchanged.
 - Matrix row `FlashEcuSubaruDensoMC68HC16Y5_02_BDM`: `portable=yes`,
   `experimental`, automated evidence, notes naming the corrections and that
   Write is a kernel bootstrap.
-- New BDM bench checklist, `docs/denso-mc68hc16-bdm-bench-checklist.md`
-  (linked once it exists), gating both operations. It must capture the bridge's `wpcsp` and `go`
+- New [BDM bench checklist](../../denso-mc68hc16-bdm-bench-checklist.md) gating both operations. It must capture the bridge's `wpcsp` and `go`
   replies so a later PR can gate them.
 - A 6c-1 implementation note in the parent spec, and the drain count in the
   [modularization plan](../../modularization-plan.md).
