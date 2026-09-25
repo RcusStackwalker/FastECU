@@ -2,6 +2,7 @@
 
 #include <QCloseEvent>
 #include <QMessageBox>
+#include <QStringList>
 
 namespace fastecu::flash
 {
@@ -201,14 +202,19 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
     }
     if (prompt.kind == FlashPromptKind::RemoveProgrammingVoltage)
     {
-        QString text = tr("Remove VPP voltage from the ECU, then press OK.");
+        const bool external_vpp = arg("external_vpp") == QStringLiteral("yes");
+        QStringList paragraphs;
+        if (external_vpp)
+        {
+            paragraphs << tr("Remove VPP voltage from the ECU, then press OK.");
+        }
         if (arg("outcome") != QStringLiteral("succeeded"))
         {
-            text += QStringLiteral("\n\n") +
-                    tr("The write did not complete. If the ECU entered flash mode, do not power it off: the flash "
-                       "kernel is still running and you can try flashing again.");
+            paragraphs << tr("The write did not complete. If the ECU entered flash mode, do not power it off: the "
+                             "flash kernel is still running and you can try flashing again.");
         }
-        QMessageBox::information(this, tr("Programming voltage"), text);
+        QMessageBox::information(this, external_vpp ? tr("Programming voltage") : tr("ECU operation"),
+                                 paragraphs.join(QStringLiteral("\n\n")));
         return FlashPromptResponse::Accept;
     }
     if (prompt.kind == FlashPromptKind::ConfirmSh7058Read)

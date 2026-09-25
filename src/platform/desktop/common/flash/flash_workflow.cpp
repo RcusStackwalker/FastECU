@@ -457,7 +457,8 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
         // The reminder precedes whatever the attempt produced, failure included.
         if (stage_ == Stage::RemoveVpp)
         {
-            return FlashPromptStep{FlashPromptKind::RemoveProgrammingVoltage, {{"outcome", attempt_outcome_}}};
+            return FlashPromptStep{FlashPromptKind::RemoveProgrammingVoltage,
+                                   {{"outcome", attempt_outcome_}, {"external_vpp", needs_vpp_ ? "yes" : "no"}}};
         }
         if (outcome_.hasFailure())
         {
@@ -511,7 +512,10 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
 
     void submit(FlashAttemptResult result) override
     {
-        if (needs_vpp_)
+        // Legacy warned after every failed write, whatever the adapter, not to
+        // power off the ECU; the remove-VPP sentence is due only when the
+        // operator applied external VPP, success included.
+        if (is_write_ && (needs_vpp_ || !result.success))
         {
             attempt_outcome_ = result.success                              ? "succeeded"
                                : result.error_kind == ErrorKind::Cancelled ? "cancelled"
@@ -533,6 +537,7 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
 
     FlashWorkflowRequest request_;
     Result<FlashPlan> plan_;
+    bool is_write_ = request_.operation == FlashOperation::Write;
     bool needs_vpp_ = false;
     Stage stage_ = Stage::Begin;
     std::string attempt_outcome_;
