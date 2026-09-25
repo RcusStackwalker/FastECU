@@ -1,6 +1,6 @@
 # Step 5 Tail Wave 6c-2 — Hitachi M32R JTAG Removal — Design
 
-**Status:** design approved; implementation plan to follow.
+**Status:** design approved; implementation plan in [the 6c-2 plan](../plans/2026-09-25-step5-tail-wave6c2-hitachi-m32r-jtag-removal.md).
 **Parent:** [wave 6 singletons](2026-09-19-step5-tail-wave6-singletons-design.md).
 **Predecessor:** 6c-1 Denso MC68HC16Y5 BDM (#357), merged.
 **Source baseline:** `766475b8`. That commit is the last to contain the

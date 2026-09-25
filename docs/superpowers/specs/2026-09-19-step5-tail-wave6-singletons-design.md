@@ -1,7 +1,7 @@
 <!-- docs/superpowers/specs/2026-09-19-step5-tail-wave6-singletons-design.md -->
 # Step 5 Tail Wave 6 — Nine Singletons — Design
 
-**Status:** in progress — waves 6a-1 through 6a-3 are in the base; 6a-4 is implemented on this branch. Six legacy families remain.
+**Status:** in progress — waves 6a-1 through 6c-1 are merged; 6c-2 (a removal, not a migration) is implemented on this branch. Two legacy families remain.
 **Predecessor:** [wave 5, Denso SH705x CAN](2026-09-02-step5-tail-wave5-denso-sh705x-can-design.md), merged as PR #341
 **Umbrella:** [step 5 tail flash drain](2026-08-08-step5-tail-flash-drain-design.md)
 
@@ -9,7 +9,8 @@
 
 Migrate the nine remaining non-bootmode legacy flash families to portable
 `FlashPlan` + `IFlashExecutor` pairs, taking `//:legacy_flash_drain` from ten
-entries to one. After this wave only
+entries to one (one of the nine, JTAG, by removal — see the 6c-2 note below).
+After this wave only
 `FlashEcuSubaruUnisiaJecsM32rBootMode` remains, and wave 7 is that family
 plus package teardown.
 
@@ -376,3 +377,14 @@ behavior-correction exception applies, because legacy's framed
 serial; Write is modeled as a kernel bootstrap whose plan image is the padded
 cfg kernel; and 6c-1 adds no port method, because `write_raw()` / `read_raw()`
 (port item 3) landed early in #351. The drain moves from four entries to three.
+
+## Wave 6c-2 implementation note
+
+The [Hitachi M32R JTAG removal design](2026-09-25-step5-tail-wave6c2-hitachi-m32r-jtag-removal-design.md)
+records one departure from this design: `FlashEcuSubaruHitachiM32rJtag` is
+removed, not migrated. No `protocols.cfg` entry could select it, its read and
+write were empty stubs that reported success, and its probe ignored every
+failure. Porting the stubs would legitimize a no-op, and porting only the probe
+would add unreachable portable code. The probe's wire sequence is preserved in
+that design's appendix. `//src/ui/desktop/flash/jtag` also leaves the
+`serial_qt_compat` allowlist. The drain moves from three entries to two.
