@@ -145,15 +145,21 @@ Result<bytes::Bytes> expect_ssm_init(Session& s)
     return init;
 }
 
-std::string ecu_id(Session& s, bytes::ByteView init)
+// The five ECU ID bytes of a gated SSM init reply, as uppercase hex.
+std::string ecu_id_hex(bytes::ByteView init)
 {
     std::string id;
     for (const bytes::Byte value : init.subspan(kEcuIdOffset, kEcuIdLength))
     {
         id += std::format("{:02X}", value);
     }
-    s.events.log(LogLevel::Info, std::format("ECU ID: {}", id));
     return id;
+}
+
+// read_mem() and write_mem() both logged the ECU ID after SSM init.
+void log_ecu_id(Session& s, std::string_view id)
+{
+    s.events.log(LogLevel::Info, std::format("ECU ID: {}", id));
 }
 
 Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
@@ -211,7 +217,8 @@ Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
             return std::unexpected(confirmed.error());
         }
     }
-    const std::string id = ecu_id(s, *init);
+    const std::string id = ecu_id_hex(*init);
+    log_ecu_id(s, id);
 
     // read_mem() :219-318. Every page must be a complete, checksummed E0
     // frame carrying exactly one page; legacy appended any E0 reply.
@@ -310,7 +317,7 @@ Status enter_flash_mode(Session& s, std::uint32_t rom_size)
     {
         return std::unexpected(init.error());
     }
-    (void)ecu_id(s, *init);
+    log_ecu_id(s, ecu_id_hex(*init));
     // send_sid_af_enter_flash_mode() :690-714. Gated: legacy logged a
     // rejection here and went on to raise VPP and erase.
     s.events.log(LogLevel::Info, "Sending request to change to flash mode");

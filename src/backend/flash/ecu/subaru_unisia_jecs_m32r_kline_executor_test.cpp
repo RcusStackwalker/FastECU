@@ -497,6 +497,27 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, EntersFlashModeFromCold)
     EXPECT_EQ(transport.programming_voltage_line_write_index_, std::optional<std::size_t>(3));
 }
 
+// A probe answer that is not EF means no kernel is running: legacy went on to
+// the cold flash-mode entry (write_mem() :355-373).
+TEST(SubaruUnisiaJecsM32rKlineExecutor, NonEfObkProbeReplyFallsBackToColdFlashMode)
+{
+    ScriptedKlineFlashTransport transport;
+    {
+        auto section = transport.section("OBK probe rejected, then cold entry");
+        transport.exchange(request({0xaf}), reply({0x7f, 0xaf, 0x22}));
+        transport.exchange(request({0xbf}), init_reply());
+        transport.exchange(request({0xaf, 0x11, 0x12, 0x34, 0x56, 0x78, 0x9a, 0x02, 0x00, 0x00}), reply({0xef}));
+    }
+    script_erase(transport);
+    script_blocks(transport, block_count());
+    RunContext context;
+
+    ASSERT_THAT(run(write_plan(), transport, context), IsOk());
+    EXPECT_TRUE(transport.scriptConsumed());
+    EXPECT_EQ(transport.baud_calls_, (std::vector<int>{19200, 4800, 19200}));
+    EXPECT_EQ(transport.programming_voltage_line_write_index_, std::optional<std::size_t>(3));
+}
+
 TEST(SubaruUnisiaJecsM32rKlineExecutor, RejectedFlashModeEntryNeverRaisesProgrammingVoltage)
 {
     ScriptedKlineFlashTransport transport;
@@ -604,6 +625,21 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, BadBlockReplyStopsBeforeTheNextBlock)
     script_obk_running(transport);
     script_erase(transport);
     transport.exchange(block_request(0), reply({0xef, 0x5a}));
+    RunContext context;
+
+    EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::BadResponse));
+    EXPECT_EQ(transport.writesConsumed(), 3U);
+    EXPECT_EQ(transport.control_line_trace_.back(), Line::DisableLecLines);
+}
+
+// is_exact_reply's length half: a well-formed EF 52 that carries a trailing
+// byte is not the exact acknowledgement.
+TEST(SubaruUnisiaJecsM32rKlineExecutor, LongerBlockReplyStopsBeforeTheNextBlock)
+{
+    ScriptedKlineFlashTransport transport;
+    script_obk_running(transport);
+    script_erase(transport);
+    transport.exchange(block_request(0), reply({0xef, 0x52, 0x00}));
     RunContext context;
 
     EXPECT_THAT(run(write_plan(), transport, context), IsErr(ErrorKind::BadResponse));
