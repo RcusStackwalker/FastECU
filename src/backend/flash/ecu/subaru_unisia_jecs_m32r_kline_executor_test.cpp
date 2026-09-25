@@ -380,6 +380,19 @@ INSTANTIATE_TEST_SUITE_P(AllVariants, SubaruUnisiaJecsM32rKlineReadSizes,
                                            std::tuple{"sub_ecu_unisia_jecs_40", "M32R_384KB", 0x60000U},
                                            std::tuple{"sub_ecu_unisia_jecs_70", "M32R_512KB", 0x80000U}));
 
+TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsABootmodeProtocolWithTheSameWireSequence)
+{
+    ScriptedKlineFlashTransport transport;
+    script_warm_entry(transport);
+    script_pages(transport, 0x40000 / 0x80);
+    RunContext context;
+    const auto result = run(read_plan("sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB"), transport, context);
+    ASSERT_THAT(result, IsOk());
+    EXPECT_EQ(result->read_bytes->size(), 0x40000U);
+    EXPECT_EQ(result->rom_id, std::optional<std::string>("123456789A_"));
+    EXPECT_TRUE(transport.scriptConsumed());
+}
+
 const bytes::Bytes& rom_image()
 {
     static const bytes::Bytes image = []
