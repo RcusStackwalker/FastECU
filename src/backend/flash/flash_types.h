@@ -30,6 +30,7 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_types.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_types.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_types.h"
+#include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_types.h"
 #include "src/backend/flash/eeprom/denso_sh705x_eeprom_types.h"
 
 namespace fastecu::flash
@@ -82,6 +83,8 @@ enum class FlashFamily
     SubaruDensoSh705xKline,
     // Step 5 tail, wave 6c-1.
     SubaruDensoMc68hc16y5_02Bdm,
+    // Step 5 tail, wave 6c-3.
+    SubaruUnisiaJecsM32rKline,
 };
 
 enum class TransportKind
@@ -121,6 +124,11 @@ struct ConfirmationSpec
         // a plan at all.
         EraseTrigger,
         TopRegionBootstrap,
+        // Step 5 tail, wave 6c-3. Same contract as the two above: the
+        // operator confirmed, before the executor started, that external
+        // programming voltage is applied because the adapter cannot supply
+        // it.
+        ApplyProgrammingVoltage,
     };
 
     Id id;
@@ -155,7 +163,7 @@ using FamilyPlan =
                  SubaruTcuDensoSh705xCanPlan, SubaruDensoSh7058CanPlan, SubaruDensoSh7058CanDieselPlan,
                  SubaruTcuHitachiM32rKlinePlan, SubaruTcuHitachiM32rCanPlan, SubaruHitachiSh72543rCanPlan,
                  SubaruHitachiSh7058KlinePlan, SubaruHitachiSh7058CanPlan, SubaruUnisiaJecsPlan,
-                 SubaruDensoSh705xKlinePlan, SubaruDensoMc68hc16y5_02BdmPlan>;
+                 SubaruDensoSh705xKlinePlan, SubaruDensoMc68hc16y5_02BdmPlan, SubaruUnisiaJecsM32rKlinePlan>;
 
 // The FlashFamily tag and TransportKind each plan alternative belongs to.
 //
@@ -315,6 +323,12 @@ template <> struct FamilyTraits<SubaruDensoMc68hc16y5_02BdmPlan>
     static constexpr TransportKind transport = TransportKind::Kline;
 };
 
+template <> struct FamilyTraits<SubaruUnisiaJecsM32rKlinePlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruUnisiaJecsM32rKline;
+    static constexpr TransportKind transport = TransportKind::Kline;
+};
+
 template <> struct FamilyTraits<SubaruHitachiSh72543rCanPlan>
 {
     static constexpr FlashFamily family = FlashFamily::SubaruHitachiSh72543rCan;
@@ -403,5 +417,9 @@ template <> inline constexpr bool family_requires_kernel_v<SubaruUnisiaJecsPlan>
 // Step 5 tail, wave 6c-1. Write uploads the cfg kernel over BDM, but carries
 // it as the plan image (the bytes written to RAM), not as a KernelImage.
 template <> inline constexpr bool family_requires_kernel_v<SubaruDensoMc68hc16y5_02BdmPlan> = false;
+
+// Step 5 tail, wave 6c-3. The ECU's own boot ROM handles flash mode; no
+// kernel is uploaded.
+template <> inline constexpr bool family_requires_kernel_v<SubaruUnisiaJecsM32rKlinePlan> = false;
 
 } // namespace fastecu::flash
