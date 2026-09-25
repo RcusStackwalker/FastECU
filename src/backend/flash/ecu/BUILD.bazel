@@ -829,6 +829,35 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "subaru_denso_mc68hc16y5_02_bdm_types",
+    hdrs = ["subaru_denso_mc68hc16y5_02_bdm_types.h"],
+)
+
+cc_library(
+    name = "subaru_denso_mc68hc16y5_02_bdm_plan",
+    srcs = ["subaru_denso_mc68hc16y5_02_bdm_plan.cpp"],
+    hdrs = ["subaru_denso_mc68hc16y5_02_bdm_plan.h"],
+    deps = [
+        ":subaru_denso_mc68hc16y5_02_bdm_types",
+        "//src/backend/definitions:models",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_denso_mc68hc16y5_02_bdm_plan_test",
+    srcs = ["subaru_denso_mc68hc16y5_02_bdm_plan_test.cpp"],
+    deps = [
+        ":subaru_denso_mc68hc16y5_02_bdm_plan",
+        "//src/backend/flash:flash_validation",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
+cc_library(
     name = "subaru_denso_sh705x_kline_types",
     hdrs = ["subaru_denso_sh705x_kline_types.h"],
 )

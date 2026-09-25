@@ -12,6 +12,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh72531_can_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh72543_can_diesel_types.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_types.h"
+#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7055_02_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
@@ -79,6 +80,8 @@ enum class FlashFamily
     SubaruUnisiaJecs,
     // Step 5 tail, wave 6b-2.
     SubaruDensoSh705xKline,
+    // Step 5 tail, wave 6c-1.
+    SubaruDensoMc68hc16y5_02Bdm,
 };
 
 enum class TransportKind
@@ -152,7 +155,7 @@ using FamilyPlan =
                  SubaruTcuDensoSh705xCanPlan, SubaruDensoSh7058CanPlan, SubaruDensoSh7058CanDieselPlan,
                  SubaruTcuHitachiM32rKlinePlan, SubaruTcuHitachiM32rCanPlan, SubaruHitachiSh72543rCanPlan,
                  SubaruHitachiSh7058KlinePlan, SubaruHitachiSh7058CanPlan, SubaruUnisiaJecsPlan,
-                 SubaruDensoSh705xKlinePlan>;
+                 SubaruDensoSh705xKlinePlan, SubaruDensoMc68hc16y5_02BdmPlan>;
 
 // The FlashFamily tag and TransportKind each plan alternative belongs to.
 //
@@ -306,6 +309,12 @@ template <> struct FamilyTraits<SubaruDensoSh705xKlinePlan>
     static constexpr TransportKind transport = TransportKind::Kline;
 };
 
+template <> struct FamilyTraits<SubaruDensoMc68hc16y5_02BdmPlan>
+{
+    static constexpr FlashFamily family = FlashFamily::SubaruDensoMc68hc16y5_02Bdm;
+    static constexpr TransportKind transport = TransportKind::Kline;
+};
+
 template <> struct FamilyTraits<SubaruHitachiSh72543rCanPlan>
 {
     static constexpr FlashFamily family = FlashFamily::SubaruHitachiSh72543rCan;
@@ -390,5 +399,9 @@ template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiSh72543r
 template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiSh7058KlinePlan> = false;
 template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiSh7058CanPlan> = false;
 template <> inline constexpr bool family_requires_kernel_v<SubaruUnisiaJecsPlan> = false;
+
+// Step 5 tail, wave 6c-1. Write uploads the cfg kernel over BDM, but carries
+// it as the plan image (the bytes written to RAM), not as a KernelImage.
+template <> inline constexpr bool family_requires_kernel_v<SubaruDensoMc68hc16y5_02BdmPlan> = false;
 
 } // namespace fastecu::flash
