@@ -115,6 +115,12 @@ inline void PrintTo(FlashFamily family, std::ostream *os)
     case FlashFamily::SubaruUnisiaJecsM32rKline:
         *os << "SubaruUnisiaJecsM32rKline";
         return;
+    case FlashFamily::SubaruUnisiaJecsM32rBootModeKernel:
+        *os << "SubaruUnisiaJecsM32rBootModeKernel";
+        return;
+    case FlashFamily::SubaruUnisiaJecsM32rBootModeProgram:
+        *os << "SubaruUnisiaJecsM32rBootModeProgram";
+        return;
     }
 }
 

@@ -124,6 +124,7 @@ PORTABLE_PACKAGES = {
         "subaru_unisia_jecs_m32r_kline_types",
         "subaru_unisia_jecs_m32r_kline_plan",
         "subaru_unisia_jecs_m32r_kline_executor",
+        "subaru_unisia_jecs_m32r_bootmode_types",
     ],
     "src/backend/logging": [
         "logger_conf",

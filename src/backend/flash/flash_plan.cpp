@@ -61,6 +61,10 @@ std::string_view FlashPlan::experimental_family_id() const
         return "SubaruDensoMc68hc16y5_02Bdm";
     case FlashFamily::SubaruUnisiaJecsM32rKline:
         return "SubaruUnisiaJecsM32rKline";
+    case FlashFamily::SubaruUnisiaJecsM32rBootModeKernel:
+        return "SubaruUnisiaJecsM32rBootModeKernel";
+    case FlashFamily::SubaruUnisiaJecsM32rBootModeProgram:
+        return "SubaruUnisiaJecsM32rBootModeProgram";
     }
     return "Unknown";
 }

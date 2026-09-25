@@ -941,6 +941,11 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "subaru_unisia_jecs_m32r_bootmode_types",
+    hdrs = ["subaru_unisia_jecs_m32r_bootmode_types.h"],
+)
+
+cc_library(
     name = "subaru_denso_sh705x_kline_types",
     hdrs = ["subaru_denso_sh705x_kline_types.h"],
 )
