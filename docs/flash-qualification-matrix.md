@@ -60,9 +60,12 @@
 | FlashEcuSubaruHitachiM32rJtag | JTAG | JTAG | none — removed in wave 6c-2 | — | — | unqualified | — | Removed rather than migrated; see the [6c-2 removal design](superpowers/specs/2026-09-25-step5-tail-wave6c2-hitachi-m32r-jtag-removal-design.md). No `protocols.cfg` entry could select it, its `read_mem()` and `write_mem()` were empty bodies that reported success, and its JTAG probe ignored every failure. The probe's wire sequence is preserved in that design's appendix; the legacy source is recoverable at `766475b8`. A `sub_ecu_hitachi_m32r_jtag*` name now reaches `MainWindow`'s "Unknown flashmethod" warning. The row stays so the family does not silently disappear from migration scope. |
 | FlashEcuSubaruDensoMC68HC16Y5_02_BDM | BDM | BDM | read, write (kernel bootstrap) | yes | `subaru_denso_mc68hc16y5_02_bdm_plan_test`, `subaru_denso_mc68hc16y5_02_bdm_executor_test`, `test_flash_workflow` @ Wave 6c-1 | experimental | — | Exact protocol/MCU pair `sub_ecu_denso_mc68hc16y5_02_bdm` / `MC68HC16Y5`; test_write is rejected. The BDM bridge is driven with its ASCII command protocol at 115200 baud through `write_raw()` / `read_raw()` only. Read returns the physical `0x0–0x2FFFF` image with the `0x20000–0x27FFF` RAM hole filled with `0xFF`, as legacy did. **Write is a kernel bootstrap, not a ROM write:** it uploads the cfg kernel into RAM at `0x20000`, enables SCIB, sets PC/SP and sends `go`; an extra confirmation says so before any I/O. **Deliberate corrections:** replies no longer pass through the K-Line frame parser, which could not carry ASCII acknowledgements or 1 KiB pages on direct serial; pages accumulate across polls and must be exactly 0x400 bytes; every `ACK_CMD_WDMEM` / `ACK_WR` is gated, so a failed or short kernel upload now stops the bootstrap at the first bad ACK instead of continuing on to enable SCIB and send `go` over a partially uploaded kernel, as legacy's `write_mem()` did by ignoring `flash_block()`'s return value; the operation no longer mutates the ROM buffer (MainWindow already restored it afterwards); a stale ISO-14230 header is cleared before configuration. The `wpcsp` / `go` replies remain unchecked and commands still carry no terminator; see the [bench checklist](denso-mc68hc16-bdm-bench-checklist.md). No adapter guard: selecting this protocol with an OpenPort 2.0 reads replies through J2534. No hardware qualification is claimed. |
 | FlashEcuSubaruUnisiaJecsM32rBootMode | bootmode | K-Line | read, write | yes | `subaru_unisia_jecs_m32r_kline_plan_test`, `subaru_unisia_jecs_m32r_kline_executor_test`, `subaru_unisia_jecs_m32r_bootmode_plan_test`, `subaru_unisia_jecs_m32r_bootmode_kernel_executor_test`, `subaru_unisia_jecs_m32r_bootmode_program_executor_test`, `test_flash_workflow`, `test_flash_dialog` @ Wave 7 | experimental | — | Exact pairs `sub_ecu_unisia_jecs_20_bootmode` / `M32R_128KB` and `_30_bootmode` / `M32R_256KB`; test_write is rejected, matching the cfg. Read is the `FlashEcuSubaruUnisiaJecsM32r` read, byte for byte. Write is two attempts: the cfg kernel (zero-padded to 128 bytes) uploaded at 39063 baud with even parity under VPP and MOD1, then erase and program at 19200 baud with VPP only, 128-byte `AF 61`/`AF 69` blocks sent as-is. **Operator flow change:** "remove MOD1" sits between the attempts and gains Cancel, which stops before erase; the VPP notice follows every write that started, not only success, and carries no don't-power-off advice because boot mode is always re-enterable. **Deliberate corrections:** cancellation reports cancelled instead of success; both erase polls fail when exhausted and on any other frame; the final `AF 69` reply is read and a malformed or negative reply fails; the image must be exactly the ROM size; LEC lines drop explicitly after each attempt; failure details name the documented status codes. Silence after `AF 69` is accepted with a warning; see the [bench checklist](unisia-jecs-m32r-bootmode-bench-checklist.md). No hardware qualification is claimed. |
-<!-- Append one row per remaining family found in resources/shared/config/protocols.cfg
-     and src/platform/desktop/common/flash/legacy/{bdm,bootmode,ecu,jtag,tcu}/,
-     each with portable=no, hardware_status=unqualified unless a specific
+<!-- The step 5 tail's wave 7 deleted the legacy flash package
+     (src/platform/desktop/common/flash/legacy/); every family that source
+     enumeration ever seeded here is now either migrated (portable=yes) or
+     removed (FlashEcuSubaruHitachiM32rJtag, wave 6c-2). If a future family
+     is found unmigrated in resources/shared/config/protocols.cfg, append it
+     with portable=no, hardware_status=unqualified unless a specific
      historical report justifies otherwise. Do not invent family IDs --
      use the exact protocols.cfg <name> or the exact operation class name. -->
 
@@ -77,10 +80,11 @@
 ### Enumeration notes
 
 - `family_id` is the operation class name with its platform-specific suffix
-  stripped (`...Operation` for the legacy `FlashOperationWorker` subclasses
-  under `src/platform/desktop/common/flash/legacy/`, `...Executor` for the
-  portable `src/backend/flash/eeprom/` classes) — the same convention the
-  proving-pair rows already use. Several `protocols.cfg` `<protocol>` entries
+  stripped (`...Operation` for the `FlashOperationWorker` subclasses that
+  lived under `src/platform/desktop/common/flash/legacy/` until the step 5
+  tail's wave 7 deleted the package, `...Executor` for the portable
+  `src/backend/flash/eeprom/` classes) — the same convention the proving-pair
+  rows already use. Several `protocols.cfg` `<protocol>` entries
   map to one family (e.g. five exact `*_densocan` protocol names resolve
   through the portable workflow); those are listed in the row's `notes`, not
   as separate rows, since the family — not the cfg alias — is the migratable
@@ -104,10 +108,14 @@
   framing) → `raw CAN`; cfg `iso15765,CAN` → `ISO-15765`; cfg `K-Line,CAN`
   (protocols selectable over either wire) → `K-Line, raw CAN`; cfg `K-Line`
   and `BDM` map through unchanged.
-- Automated evidence for every row in this appended set is `—`: none of
-  `src/platform/desktop/common/flash/legacy/{bdm,bootmode,ecu,jtag,tcu}/`
-  has a `cc_test` target in its `BUILD.bazel` (verified by grep), unlike the
-  portable EEPROM executors' proving-pair rows.
+- Automated evidence was `—` for every row in this set while it was still
+  unmigrated: the deleted legacy package
+  (`src/platform/desktop/common/flash/legacy/{bdm,bootmode,ecu,jtag,tcu}/`)
+  had no `cc_test` target in any of its `BUILD.bazel` files (verified by
+  grep before deletion), unlike the portable EEPROM executors' proving-pair
+  rows. No row in this matrix is in that state after wave 7: every family is
+  either migrated (`automated_evidence` names its plan/executor tests) or
+  removed (`FlashEcuSubaruHitachiM32rJtag`).
 
 ## Hardware qualification checklist
 

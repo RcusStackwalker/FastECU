@@ -14,8 +14,10 @@ The following are shared today and are no longer open extraction work:
 - `src/backend/flash/flash_utils.*` owns common byte stuffing and ISO-15765 flash setup.
 - `src/algorithms/protocol/bytes.h` and `src/algorithms/protocol/qt_compat/qt_bytes.h` provide the byte boundary
   and explicit Qt conversions.
-- `FlashOperationWorker` owns logging signals, prompt injection, progress,
-  cancellation, and worker-thread plumbing.
+- `FlashOperationWorker` owned logging signals, prompt injection, progress,
+  cancellation, and worker-thread plumbing for the legacy operation classes
+  until the step 5 tail's wave 7 deleted it along with them; the equivalent
+  plumbing is now `FlashDialog` and `FlashWorkflow`, shared by every family.
 - `src/backend/flash/ecu/single_window_plan.*` owns plan validation and
   construction for the ten "single-window" families — those described entirely
   by a protocol id, an MCU, a read window, a write window and one image size.
@@ -67,8 +69,10 @@ opcodes, and retry semantics are genuinely identical.
 
 ### Transport boundaries
 
-All operation headers still retain `SerialPortActions*`. New or modified
-families should move protocol sessions behind `IKlineTransport`,
+The per-family legacy operation headers that retained `SerialPortActions*`
+directly are gone (step 5 tail, wave 7); `FlashWorkflowRequest` still carries
+a `SerialPortActions*` field for adapter lifecycle, not per-family protocol
+I/O. New or modified families should move protocol sessions behind `IKlineTransport`,
 `ICanTransport`, or `ISsmTransport`, with port configuration and adapter
 diagnostics supplied separately. This makes handshake, timeout, rejection, and
 cancellation paths scriptable without a real adapter.

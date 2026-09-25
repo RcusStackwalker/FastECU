@@ -1,6 +1,6 @@
 # Step 5 Tail Wave 7 — Subaru Unisia Jecs M32R Bootmode and Legacy Teardown — Design
 
-**Status:** implemented in PR 7a; 7b (teardown) follows.
+**Status:** complete — 7a and 7b merged.
 **Parent:** [step 5 tail flash drain](2026-08-08-step5-tail-flash-drain-design.md).
 **Predecessor:** [wave 6 singletons](2026-09-19-step5-tail-wave6-singletons-design.md),
 whose last family, 6c-3 Unisia Jecs M32R K-Line, merged as #359.

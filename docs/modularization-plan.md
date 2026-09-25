@@ -20,7 +20,7 @@ exist, `bazel/fastecu_sources.bzl` is deleted in favour of package-owned
 `BUILD.bazel` targets, and every `src/algorithms` package is split into a
 portable target plus a transitional `:qt_compat` shim.
 
-**Step 5 (portable backend workflows) is the current implementation phase**,
+**Step 5 (portable backend workflows) is complete — the flash tail drained in wave 7**,
 and is itself decomposed — see the
 [step-5 umbrella design](superpowers/specs/2026-07-22-step5-backend-portable-design.md)
 and the [5d decomposition design](superpowers/specs/2026-07-24-step5d-fileactions-decomposition-design.md)
@@ -82,8 +82,10 @@ for the eight-wave sequencing:
   it was unreachable and its read and write were stubs. See the
   [removal design](superpowers/specs/2026-09-25-step5-tail-wave6c2-hitachi-m32r-jtag-removal-design.md).
 - Wave 6c-3 `FlashEcuSubaruUnisiaJecsM32r` — merged (#359).
-- Wave 7 `FlashEcuSubaruUnisiaJecsM32rBootMode` — implemented on this branch
-  (7a); legacy package teardown follows in 7b. See the
+- Wave 7 `FlashEcuSubaruUnisiaJecsM32rBootMode` — merged (7a #360, 7b #361):
+  7a migrated the family, 7b deleted the legacy package, the drain ratchet,
+  its allowlist entry, and `ssm:qt_compat`. Takes the drain from 1 remaining
+  family to zero. See the
   [family design](superpowers/specs/2026-09-25-step5-tail-wave7-unisia-jecs-m32r-bootmode-design.md).
 
 ## Verified Current Baseline
@@ -219,7 +221,7 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
    - **Amendment 4:** the checksum correction dialog is now **one aggregated summary** instead of one per family — a deliberate behavior change, bench-checklist item recorded in Task 9 Step 8.
    - Note for step 5's benefit: each `:qt_compat` target is transitional debt whose only remaining callers are backend and UI. Step 5 should drain them and delete the shims.
 
-5. **Make backend workflows portable — 5a through 5e complete; flash-tail Wave 7 implemented on this branch, with 0 legacy families remaining**
+5. **Make backend workflows portable — complete: 5a through 5e and the flash-tail (waves 0-7) all merged, with 0 legacy families remaining**
    - Sub-step status and PR numbers are tracked in the Status section above.
    - Define capability-specific ports for byte-stream/K-Line, CAN frames, SSM, file repositories, settings, monotonic clock/delay, cancellation, and event delivery.
    - Backend owns no threads. Platform code runs blocking, bounded, cancellable backend calls on Qt workers or future Kotlin coroutines.

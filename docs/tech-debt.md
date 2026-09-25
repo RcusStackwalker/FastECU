@@ -208,33 +208,29 @@ Actions:
 
 ### P1: Isolate flash-operation orchestration
 
-Portable Colt CAN, Subaru Mitsubishi M32R K-Line, and Denso SH705x EEPROM operations now register with
-`FlashWorkflowFactory` and run through the common `FlashDialog`. The
-remaining legacy operation pairs (the Unisia Jecs M32R ECU and bootmode
-families) use `FlashOperationWorker`, and
-shared SSM framing, seed/payload transforms, CRC, byte formatting, byte
-stuffing, and ISO-15765 setup have been consolidated. The remaining safe
-generalization opportunities are maintained in the
+Every flash family — ECU, TCU, EEPROM, JTAG (removed), BDM, and bootmode —
+now registers with `FlashWorkflowFactory` and runs through the common
+`FlashDialog`. `FlashOperationWorker` and the per-family legacy operation
+classes it backed are gone: the step 5 tail's wave 7 deleted the package
+(`src/platform/desktop/common/flash/legacy/`) along with the drain ratchet
+that tracked it. Shared SSM framing, seed/payload transforms, CRC, byte
+formatting, byte stuffing, and ISO-15765 setup have been consolidated. The
+remaining safe generalization opportunities are maintained in the
 [protocol generalization notes](protocol-generalization-opportunities.md).
 
-The operation classes still combine request construction, response validation,
-retries, progress reporting, prompts, full-facade serial I/O, and ROM mutation.
-Wave 1 is in progress: the Mitsubishi M32R K-Line sibling is portable while
-Hitachi M32R K-Line and any shared cluster factoring remain follow-ups. The
-legacy drain contains 25 operation sources. Only a small number of families
-have scripted operation-level coverage.
+Coverage is uneven across families: some carry only the plan/executor unit
+tests each wave added, with no scripted operation-level (`FlashWorkflow` +
+`FlashDialog`) coverage.
 
 Actions:
 
-- For each flash family that changes, extract a family-specific session/driver
-  over the smallest applicable transport interface.
+- For each flash family that changes, extend its `FlashPlan`/`IFlashExecutor`
+  pair rather than adding new orchestration surface.
 - Move response validation and block planning into pure byte-native helpers, in
   line with ADR 0004, while keeping Qt conversion at file/serial boundaries.
 - Add scripted tests for handshake failure, read success, write cancellation,
   erase/write rejection, stop requests, timeouts, and checksum mismatch before
   changing wire behavior.
-- Keep prompts behind `FlashOperationWorker::PromptFn` or a narrower injected
-  interface.
 - Do not force all ECU families into one state machine unless verified protocol
   behavior demonstrates a stable shared abstraction.
 
@@ -249,9 +245,6 @@ diagnostics.
 
 Actions:
 
-- Migrate flash family drivers from `SerialPortActions*` to the existing small
-  transports plus separate port-configuration and adapter-diagnostics
-  interfaces.
 - Move the CDBG logging start path's real port/mode setup out of the protocol
   class so the handshake can be scripted headlessly.
 - Continue separating J2534 discovery, PE-bitness/bridge lifecycle, PassThru
@@ -266,13 +259,14 @@ The build-graph ratchet for the section above.
 `//src/platform/desktop/common/serial:serial_qt_compat` carries
 `serial_port_actions.h` to callers that should not have it, and its `visibility`
 list is frozen by `scripts/check-serial-compat-allowlist.py`: the list may
-shrink, never grow. It currently holds 13 entries — 8 under `src/ui/desktop`,
-0 in backend (step 5e relocated the former `//src/backend/flash` entry to
-`//src/platform/desktop/common/flash/legacy`, which now carries the
-flash-family debt), plus `src/platform/desktop/common/transport`, the serial
-package itself, `//src/platform/desktop/common/flash/legacy`, and `//tests`.
-One entry, `//src/platform/desktop/common/remote_utility`, is not debt: it is
-a same-layer sibling using `websocketiodevice.h`/`qtrohelper.hpp` rather than
+shrink, never grow. It currently holds 6 entries — `//src/ui/desktop:__pkg__`
+and `//src/ui/desktop/biu:__pkg__` under UI, 0 in backend, plus
+`//src/platform/desktop/common/serial:__pkg__` (the package itself),
+`//src/platform/desktop/common/transport:__pkg__`, and `//tests:__pkg__`. The
+step 5 tail's wave 7 deleted the `//src/platform/desktop/common/flash/legacy`
+entry along with the package it named. One entry,
+`//src/platform/desktop/common/remote_utility`, is not debt: it is a
+same-layer sibling using `websocketiodevice.h`/`qtrohelper.hpp` rather than
 the serial facade, and is not expected to shrink.
 
 The allowlist makes this debt measurable, which the prose above cannot: each
