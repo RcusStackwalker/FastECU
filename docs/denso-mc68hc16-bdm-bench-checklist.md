@@ -14,6 +14,9 @@ result.
   (`rpmem 0x00000000 0x00000400`). If it needs CR or LF, stop and record it.
 - Record the exact bytes the bridge sends after `wpcsp` and after `go`. A
   later change will gate them; until then they are only logged.
+- Record the exact bytes of `ACK_CMD_WDMEM` and `ACK_WR`, including any
+  trailing CR/LF. The executor requires an exact match, and a mismatch stops
+  the bootstrap at the first gate.
 
 ## 2. Read
 

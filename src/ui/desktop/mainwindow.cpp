@@ -1241,10 +1241,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             }
         }
         /*
-         * Denso ECU Boot Mode
-         */
-
-        /*
          * Unisia Jecs ECU Bootmode
          */
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_unisia_jecs_20_bootmode"))

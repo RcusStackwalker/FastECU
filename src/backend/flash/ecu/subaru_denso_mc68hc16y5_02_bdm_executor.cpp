@@ -210,10 +210,12 @@ Result<bytes::Bytes> read_image(const FlashPlan& plan, IKlineFlashTransport& tra
         }
         address += kPageSize;
     }
+    // Bytes the bridge sends after this last page's poll are never read:
+    // there is no next poll left to see them.
     return image;
 }
 
-constexpr std::size_t kUploadChunk = 0x20;
+constexpr std::size_t kUploadChunk = kSubaruDensoMc68hc16y5_02BdmUploadChunk;
 constexpr std::string_view kAckCommand = "ACK_CMD_WDMEM";
 constexpr std::string_view kAckWrite = "ACK_WR";
 

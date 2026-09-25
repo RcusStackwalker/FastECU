@@ -51,8 +51,9 @@ Legacy `write_mem()` loads the *kernel file* — cfg `<kernel>`
 `ssmk_mc68hc916y5.bin`, the same kernel the `_02` K-Line family uses — into the
 RAM block `0x20000–0x27FFF` in 32-byte `wdmem` chunks, sets the SCIB baud
 register, writes PC/SP, and sends `go`. The ROM is never written. On the way
-it replaces `ecuCalDef->FullRomData` with the zero-padded kernel, clobbering
-the operator's loaded ROM.
+it replaces `ecuCalDef->FullRomData` with the zero-padded kernel, but
+`MainWindow::start_ecu_operations` restores the saved buffer after every
+non-read operation, so the operator never sees the ROM buffer mutated.
 
 `ecuCalDef->Kernel` is `kernel_files_directory + <kernel>`
 (`mainwindow.cpp`), which is exactly what `resolveKernel()` in
@@ -188,7 +189,12 @@ Recorded in the matrix notes:
 - Direct-serial replies no longer pass through the K-Line frame parser.
 - Pages are accumulated across polls; legacy replaced the buffer on each poll.
 - A short or long page is an error; legacy appended any non-empty page.
-- The operator's ROM buffer is never replaced with the kernel.
+- A failed or short kernel upload now stops the bootstrap at the first bad
+  ACK; legacy's `write_mem()` ignored `flash_block()`'s return value and went
+  on to enable SCIB, send `wpcsp` and send `go` over a partially uploaded
+  kernel.
+- The operation no longer mutates the ROM buffer (`MainWindow` already
+  restored it afterwards).
 - A stale ISO-14230 header from an earlier session is cleared before
   configure.
 - TestWrite is rejected before any I/O.
@@ -243,6 +249,10 @@ package; `//:serial_compat_allowlist` is unchanged.
 - The `MC68HC16Y5_TPU` variant.
 - Adapter detection: selecting BDM on an OpenPort2 is not rejected.
 - Hardware qualification.
+- Operator-facing "ROM" wording: the shared `FlashDialog` title ("Write ROM
+  … to ECU") and `MainWindow`'s ROM-selection/checksum preconditions still
+  speak of a ROM for the BDM Write, and the `ConfirmBdmKernelBootstrap`
+  prompt is the only place that states the ROM is not written.
 
 ## Appendix: preserved legacy defects
 

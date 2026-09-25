@@ -21,9 +21,9 @@ constexpr int kBaud = 115200;
 constexpr MemoryRegion kReadRegion{0, 0x30000};
 constexpr MemoryRegion kRam{0x20000, 0x8000};
 constexpr std::uint32_t kRomSize = 0x28000;
-// Legacy write_mem() pads the kernel to 32 bytes (:247-250) and flash_block()
-// uploads it in 32-byte chunks (:361).
-constexpr std::size_t kUploadChunk = 0x20;
+// Legacy write_mem() pads the kernel to a multiple of the shared upload
+// chunk (:247-250); the executor uploads in chunks of the same size (:361).
+constexpr std::size_t kUploadChunk = kSubaruDensoMc68hc16y5_02BdmUploadChunk;
 
 Status validate_identity(std::string_view protocol, std::string_view mcu)
 {

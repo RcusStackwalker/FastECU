@@ -226,6 +226,7 @@ class FlashWorkflowTest : public QObject
     void mc68BdmReadRoutesThroughBeginToAttempt();
     void mc68BdmWriteBootstrapsTheCatalogKernelNotTheRom();
     void mc68BdmDeclinedBootstrapConfirmationCancels();
+    void mc68BdmDeclinedBeginCancels();
     void mc68BdmTestWriteFailsBeforeAnyPrompt();
     void mc68BdmPrefixLookalikeStaysOffTheKlineFamily();
     void mc68TpuProtocolIsClaimedByPortableRoute();
@@ -727,6 +728,19 @@ void FlashWorkflowTest::mc68BdmDeclinedBootstrapConfirmationCancels()
     QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
     workflow->submit(FlashPromptResponse::Accept);
     QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::ConfirmBdmKernelBootstrap);
+    workflow->submit(FlashPromptResponse::Decline);
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Cancelled);
+}
+
+void FlashWorkflowTest::mc68BdmDeclinedBeginCancels()
+{
+    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm");
+    input.mcu = "MC68HC16Y5";
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
     workflow->submit(FlashPromptResponse::Decline);
     const auto done = workflow->next();
     QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
