@@ -148,9 +148,13 @@ package in `PORTABLE_PACKAGES` (`bazel/portable_targets.bzl`).
 - `flash_workflow.cpp`: four `RouteMatch::Exact` entries for
   `sub_ecu_unisia_jecs_{20,30,40,70}`. The two `_bootmode` names match none of
   them and keep reaching their `MainWindow` branch until wave 7.
-  `SubaruUnisiaJecsM32rWorkflow` reads
-  `request_.serial->get_use_openport2_adapter()` — the check moves out of the
-  operation body, as the parent spec requires — and builds the plan with it.
+  `SubaruUnisiaJecsM32rKlineWorkflow` asks
+  `adapter_supplies_programming_voltage(request_.serial)` — the legacy
+  `get_use_openport2_adapter()` check, moved out of the operation body as the
+  parent spec requires — and builds the plan with it. That helper lives beside
+  `DesktopKlineFlashTransport`, because the flash package is not on the frozen
+  `serial_qt_compat` visibility list; a null serial answers false, so the
+  operator is prompted.
   Its sequence:
   1. `Begin`.
   2. One `ApplyProgrammingVoltage` prompt per confirmation; declining cancels
@@ -216,10 +220,12 @@ The result is `rom_size` bytes as `read_bytes`, plus `rom_id`.
 3. Check cancellation; `enable_programming_voltage_line()`. From here the
    cleanup guard is armed.
 4. Send `AF 31`, with no immediate read.
-5. Erase started: up to 20 rounds of a 500 ms `read()` appended to a buffer,
-   then a 500 ms sleep, checking cancellation each round. Once the buffer holds
-   a complete frame it must be a valid `EF 42`, or the erase fails.
-   Exhausting the rounds fails.
+5. Erase started: up to 20 rounds of a 500 ms `read()`, each followed by a
+   500 ms sleep when it returned nothing. `read()` returns whole frames, so
+   legacy's byte accumulation has no counterpart: an empty read continues the
+   poll, and any frame returned must be exactly `EF 42`, or the erase fails.
+   Exhausting the rounds fails. Cancellation is observed by every read and
+   sleep.
 6. Erase complete: the same, up to 40 rounds, for `EF 52`.
 7. One 500 ms `read()`, discarded and logged at debug level.
 8. For each 128-byte block `i` at flash address `i × 128`: check
@@ -275,8 +281,9 @@ if the operation is Write and the adapter does not supply VPP.
   (warning logged), and by a bad frame.
 - Cleanup: `disable_lec_lines()` on every Write exit, including cancellation
   at each checkpoint; a cleanup failure never replaces an earlier error.
-- Scripts stay short by exercising the wire loop over a few pages; one test
-  asserts the full page and block counts for each ROM size.
+- Scripts cover the full ROM: the plan pins each variant's size exactly, so
+  there is no smaller ROM to test with, and 1,024 to 4,096 scripted exchanges
+  are cheap. One parameterized test reads each of the four ROM sizes.
 
 **Workflow tests** (`test_flash_workflow`): the prompt sequence with and
 without adapter-supplied VPP; decline at each prompt; the post-attempt notice
