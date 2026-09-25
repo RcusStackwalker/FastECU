@@ -1,6 +1,6 @@
 # Step 5 Tail Wave 6c-3 — Subaru Unisia Jecs M32R K-Line — Design
 
-**Status:** design approved; implementation plan to follow.
+**Status:** design approved; implementation plan in [the 6c-3 plan](../plans/2026-09-25-step5-tail-wave6c3-unisia-jecs-m32r-kline.md).
 **Parent:** [wave 6 singletons](2026-09-19-step5-tail-wave6-singletons-design.md).
 **Predecessors:** 6c-1 Denso MC68HC16Y5 BDM (#357) and 6c-2 Hitachi M32R JTAG
 removal (#358), both merged.
@@ -303,7 +303,7 @@ its own PR.
 Documentation in the same PR:
 
 - This spec.
-- A new bench checklist, `docs/unisia-jecs-m32r-bench-checklist.md`, which
+- A new [bench checklist](../../unisia-jecs-m32r-bench-checklist.md), which
   includes observing the `AF 69` reply.
 - The [flash qualification matrix](../../flash-qualification-matrix.md) row:
   `portable=yes`, `hardware_status=experimental`, automated evidence, and
