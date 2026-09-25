@@ -160,15 +160,27 @@ package in `PORTABLE_PACKAGES` (`bazel/portable_targets.bzl`).
   2. One `ApplyProgrammingVoltage` prompt per confirmation; declining cancels
      before any I/O.
   3. The attempt, with the new executor and `DesktopKlineFlashTransport`.
-  4. If the plan carried `ApplyProgrammingVoltage`: one OK-only
-     `RemoveProgrammingVoltage` prompt, with an `outcome` argument of
-     `succeeded`, `failed` or `cancelled`.
+  4. After a Write attempt that did not succeed, whatever the adapter, and
+     after a successful Write whose plan carried `ApplyProgrammingVoltage`:
+     one OK-only `RemoveProgrammingVoltage` prompt, with an `outcome`
+     argument of `succeeded`, `failed` or `cancelled` and an `external_vpp`
+     argument of `yes` or `no`. A Read never gets it.
   5. The completed step, carrying `rom_id` when the executor returned one.
 - `flash_dialog.cpp` renders the two new kinds. `ApplyProgrammingVoltage` is a
   warning with OK / Cancel: "Apply VPP voltage to the ECU, then press OK".
-  `RemoveProgrammingVoltage` is OK-only: "Remove VPP voltage from the ECU";
-  on `failed` or `cancelled` it adds legacy's advice not to power off the ECU,
-  because the kernel is still running and flashing can be retried.
+  `RemoveProgrammingVoltage` is OK-only. When `external_vpp` is `yes` it says
+  "Remove VPP voltage from the ECU" under the title "Programming voltage";
+  on `failed` or `cancelled` it carries legacy's advice not to power off the
+  ECU, because the kernel is still running and flashing can be retried — for
+  every adapter, as legacy showed it on every failed write (title "ECU
+  operation" when no VPP was applied).
+- `FlashDialog::closeEvent` (shared by every portable family): closing the
+  dialog is the only cancel path, so after stopping a live worker it submits a
+  cancelled `FlashAttemptResult` to the workflow and presents any prompts the
+  workflow then yields, without starting a new attempt, re-entering `close()`
+  or showing a success or failure box. Families with no post-attempt prompt
+  reach their completion silently, as before. A stale `finished` delivery
+  from the stopped worker is ignored, so the attempt is submitted once.
 
 ### Deleted
 
@@ -253,8 +265,13 @@ Recorded in the matrix notes:
 - Write images must be exactly the ROM size; legacy dropped a trailing
   partial block and accepted any length.
 - Read pages must be complete, checksummed `E0` frames of 128 data bytes.
-- The VPP prompt moves before the connection opens, and the removal notice is
-  shown for every Write outcome, not only success.
+- The VPP prompt moves before the connection opens. The post-attempt notice
+  follows every Write outcome when the adapter does not supply VPP, not only
+  success, and every failed or cancelled Write shows the don't-power-off
+  advice regardless of adapter — including a write cancelled by closing the
+  dialog.
+- An SSM init reply too short to carry the five-byte ECU ID is not accepted;
+  legacy read whatever bytes were there.
 - A stale ISO-14230 header from an earlier session is cleared before
   configure.
 - TestWrite is rejected before any I/O on all four protocols, and Write on
