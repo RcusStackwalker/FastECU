@@ -38,6 +38,30 @@ class ScriptedWorkflow final : public FlashWorkflow
     bool answered_ = false;
 };
 
+// Completes at once; lets a dialog test run a workflow with several attempts.
+class InstantAttempt final : public BoundFlashAttempt
+{
+  public:
+    explicit InstantAttempt(FlashPlan plan) : plan_(std::move(plan))
+    {
+    }
+    const FlashPlan& plan() const noexcept override
+    {
+        return plan_;
+    }
+    Result<FlashExecutionResult> run(IClock&, const ICancellationToken&, IEventSink&) override
+    {
+        return FlashExecutionResult{
+            .operation = FlashOperation::Write, .read_bytes = std::nullopt, .rom_id = std::nullopt};
+    }
+    void request_unblock() noexcept override
+    {
+    }
+
+  private:
+    FlashPlan plan_;
+};
+
 // Runs on the FlashWorker thread and blocks like a transport mid-read until
 // the dialog's requestStop() unblocks it, then reports the cancellation.
 class BlockingAttempt final : public BoundFlashAttempt
@@ -132,6 +156,48 @@ class CancellableWorkflow final : public FlashWorkflow
     bool notice_due_ = false;
 };
 
+// Begin -> attempt -> RemoveMod1 -> attempt -> completed: the bootmode shape.
+class TwoAttemptWorkflow final : public FlashWorkflow
+{
+  public:
+    FlashWorkflowStep next() override
+    {
+        if (step_ == 0)
+        {
+            return FlashPromptStep{FlashPromptKind::Begin, {}};
+        }
+        if (step_ == 2)
+        {
+            return FlashPromptStep{FlashPromptKind::RemoveMod1, {}};
+        }
+        if (step_ == 1 || step_ == 3)
+        {
+            ++step_;
+            auto plan = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Read, "sub_ecu_unisia_jecs_20",
+                                                                 "M32R_128KB", std::nullopt, true);
+            if (!plan.has_value())
+            {
+                return FlashFailureStep{plan.error()};
+            }
+            return FlashAttempt{std::make_unique<InstantAttempt>(std::move(*plan)), std::make_unique<FakeClock>()};
+        }
+        return FlashCompletedStep{FlashWorkflowOutcome::Succeeded, std::nullopt, std::nullopt};
+    }
+    void submit(FlashPromptResponse) override
+    {
+        ++step_;
+    }
+    void submit(FlashAttemptResult result) override
+    {
+        attempts.push_back(result.success);
+    }
+
+    QList<bool> attempts;
+
+  private:
+    int step_ = 0;
+};
+
 class RecordingDialog final : public FlashDialog
 {
   public:
@@ -201,6 +267,47 @@ class FlashDialogTest : public QObject
         QCOMPARE(workflow->attempt_results, QList{ErrorKind::Cancelled});
         QCOMPARE(dialog.prompts, (QList{FlashPromptKind::Begin, FlashPromptKind::RemoveProgrammingVoltage}));
         QVERIFY(!dialog.success_shown);
+    }
+
+    void runsASecondAttemptAfterAPromptBetweenAttempts()
+    {
+        auto owned = std::make_unique<TwoAttemptWorkflow>();
+        TwoAttemptWorkflow *workflow = owned.get();
+        RecordingDialog dialog(std::move(owned), FlashOperation::Write, "rom.bin");
+        const FlashDialogResult result = dialog.run();
+        QCOMPARE(result.outcome, FlashWorkflowOutcome::Succeeded);
+        QCOMPARE(dialog.prompts, (QList{FlashPromptKind::Begin, FlashPromptKind::RemoveMod1}));
+        QCOMPARE(workflow->attempts, (QList{true, true}));
+        QVERIFY(dialog.success_shown);
+    }
+
+    void programmingVoltageNoticeKeepsTheSixC3AdviceByDefault()
+    {
+        const auto notice = FlashDialog::programmingVoltageNotice(
+            {FlashPromptKind::RemoveProgrammingVoltage, {{"outcome", "failed"}, {"external_vpp", "yes"}}});
+        QCOMPARE(notice.title, QString("Programming voltage"));
+        QVERIFY(notice.text.contains("Remove VPP voltage"));
+        QVERIFY(notice.text.contains("do not power it off"));
+    }
+
+    void programmingVoltageNoticeWithoutPowerOffAdviceOnFailure()
+    {
+        const auto notice = FlashDialog::programmingVoltageNotice(
+            {FlashPromptKind::RemoveProgrammingVoltage,
+             {{"outcome", "failed"}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}});
+        QVERIFY(notice.text.contains("Remove VPP voltage"));
+        QVERIFY(!notice.text.contains("do not power it off"));
+        QVERIFY(notice.text.contains("try again"));
+    }
+
+    void programmingVoltageNoticeWithoutPowerOffAdviceOnSuccess()
+    {
+        const auto notice = FlashDialog::programmingVoltageNotice(
+            {FlashPromptKind::RemoveProgrammingVoltage,
+             {{"outcome", "succeeded"}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}});
+        QVERIFY(notice.text.contains("Remove VPP voltage"));
+        QVERIFY(notice.text.contains("request SSM Init"));
+        QVERIFY(!notice.text.contains("did not complete"));
     }
 };
 
