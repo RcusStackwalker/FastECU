@@ -62,8 +62,6 @@
 // OBD
 #include "src/ui/desktop/flash/common/flash_dialog.h"
 
-#include "src/ui/desktop/flash/ecu/flash_ecu_subaru_unisia_jecs_m32r.h"
-
 #include "src/platform/desktop/common/logging/systemlogger.h"
 
 #include "src/platform/desktop/common/remote_utility/remote_utility.h"

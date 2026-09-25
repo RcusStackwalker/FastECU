@@ -41,6 +41,11 @@ enum class FlashPromptKind
     CycleIgnition,
     ConfirmSh7058Read,
     ConfirmBdmKernelBootstrap,
+    // Wave 6c-3. Before the attempt: the operator applies external VPP.
+    ApplyProgrammingVoltage,
+    // Wave 6c-3. After the attempt, OK-only: argument "outcome" is
+    // "succeeded", "failed" or "cancelled".
+    RemoveProgrammingVoltage,
 };
 
 enum class FlashPromptResponse

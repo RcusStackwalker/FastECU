@@ -191,6 +191,26 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
                    ? FlashPromptResponse::Accept
                    : FlashPromptResponse::Decline;
     }
+    if (prompt.kind == FlashPromptKind::ApplyProgrammingVoltage)
+    {
+        return QMessageBox::warning(this, tr("Programming voltage"),
+                                    tr("Apply VPP voltage to the ECU, then press OK to continue."),
+                                    QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Ok
+                   ? FlashPromptResponse::Accept
+                   : FlashPromptResponse::Decline;
+    }
+    if (prompt.kind == FlashPromptKind::RemoveProgrammingVoltage)
+    {
+        QString text = tr("Remove VPP voltage from the ECU, then press OK.");
+        if (arg("outcome") != QStringLiteral("succeeded"))
+        {
+            text += QStringLiteral("\n\n") +
+                    tr("The write did not complete. If the ECU entered flash mode, do not power it off: the flash "
+                       "kernel is still running and you can try flashing again.");
+        }
+        QMessageBox::information(this, tr("Programming voltage"), text);
+        return FlashPromptResponse::Accept;
+    }
     if (prompt.kind == FlashPromptKind::ConfirmSh7058Read)
     {
         return QMessageBox::information(this, tr("Read Hitachi SH7058 ROM"),
