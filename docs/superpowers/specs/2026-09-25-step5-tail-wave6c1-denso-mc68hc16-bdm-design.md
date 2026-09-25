@@ -80,8 +80,10 @@ where they differ from it.
 
 ### Backend (portable)
 
-New package `src/backend/flash/bdm/`, registered target by target in
-`PORTABLE_PACKAGES` (`bazel/portable_targets.bzl`).
+Targets live in the existing `src/backend/flash/ecu/` package, where every
+family's types, plan and executor already live (TCU families included), and
+are registered by name under that package in `PORTABLE_PACKAGES`
+(`bazel/portable_targets.bzl`).
 
 - `FlashFamily::SubaruDensoMc68hc16y5_02Bdm` and a
   `SubaruDensoMc68hc16y5_02BdmPlan` `FamilyPlan` alternative.
@@ -91,8 +93,12 @@ New package `src/backend/flash/bdm/`, registered target by target in
   - Accepts only `sub_ecu_denso_mc68hc16y5_02_bdm` with `MC68HC16Y5`.
   - Read: no image and no kernel.
   - Write: a `KernelImage` at load address `0x20000` whose zero-padded length
-    fits `0x8000`; any ROM image is rejected. The plan stores the kernel padded
-    with `0x00` to a multiple of 32 bytes, as legacy did.
+    fits `0x8000`; any ROM image is rejected. `validate_and_build()` requires
+    every Write plan to carry an `image`, so the plan stores the kernel, padded
+    with `0x00` to a multiple of 32 bytes as legacy did, as its `image` with
+    transfer region `{0x20000, padded length}`, and leaves `kernel()` empty
+    (`family_requires_kernel_v` is `false`). The image is the bytes the
+    executor uploads; it is never the operator's ROM.
   - TestWrite: rejected (cfg `test_write=no`).
 - `subaru_denso_mc68hc16y5_02_bdm_executor.{h,cpp}` implementing
   `IKlineFlashExecutor`:
@@ -104,12 +110,16 @@ New package `src/backend/flash/bdm/`, registered target by target in
 ### Desktop
 
 - `flash_workflow.cpp`: the route table entry moves from `Unrouted` to the new
-  family, keeping it ahead of the bare `_02` prefix. A
-  `SubaruDensoMc68hc16y5_02BdmWorkflow` follows the Unisia Jecs shape: Begin
-  prompt, one attempt. For Write it calls `resolveKernel()` and drops
-  `request.image`; for Read it passes neither.
-- The Begin prompt for Write states that the kernel is uploaded to RAM and
-  started over BDM and that the ROM is not written.
+  family, staying a prefix match ahead of the bare `_02` prefix so no
+  `_02_bdm*` name can fall through to the K-Line family. A
+  `SubaruDensoMc68hc16y5_02BdmWorkflow` follows the Hitachi SH7058 shape:
+  Begin prompt, an operation-specific confirmation, one attempt. For Write it
+  calls `resolveKernel()` and drops `request.image`; for Read it passes
+  neither.
+- The shared Begin prompt takes no text, so Write adds one
+  `FlashPromptKind::ConfirmBdmKernelBootstrap` after Begin. The dialog renders
+  it as a warning stating that the kernel is uploaded to ECU RAM and started
+  over BDM and that the ROM is not written; declining cancels before any I/O.
 
 ### Deleted
 
@@ -123,8 +133,11 @@ New package `src/backend/flash/bdm/`, registered target by target in
 
 All traffic uses `write_raw()` and `read_raw()`; the executor never calls
 `write()` or `read()`. "Accumulate" means calling `read_raw()` repeatedly,
-appending chunks, until the required byte count is reached or an `IClock`
-deadline expires; the deadline equals the legacy single-read timeout.
+appending chunks, until the required byte count is reached, an `IClock`
+deadline expires, or a read returns nothing; the deadline equals the legacy
+single-read timeout, and each read is given the time remaining. An empty
+read ends accumulation because `read_raw()` returns nothing only after
+waiting out its whole timeout.
 "Discard for N ms" means accumulating for N ms and ignoring the bytes, logging
 them at debug level.
 
@@ -204,10 +217,11 @@ lines.
   used — the parent spec's guard against collapsing `write_raw()` into
   `write()`.
 
-**Workflow test** (`flash_workflow_test`): the protocol routes to the new
+**Workflow test** (`test_flash_workflow`): the protocol routes to the new
 family and the `_02` / `_02_bdm` prefix ordering holds; Write resolves the cfg
-kernel and drops the ROM image; the Write Begin prompt carries the
-"ROM is not written" wording. No dialog test: the dedicated dialog is deleted
+kernel into the plan image and drops the ROM image; Write asks Begin then
+`ConfirmBdmKernelBootstrap`, Read asks Begin only, and declining either
+cancels. No dialog test: the dedicated dialog is deleted
 and the shared `FlashDialog` is already covered.
 
 **Guards:** `REMAINING` shrinks by one; `//:portable_closure` covers the new
