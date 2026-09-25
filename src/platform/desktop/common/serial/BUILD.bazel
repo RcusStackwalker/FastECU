@@ -143,7 +143,7 @@ qt_cc_test(
 )
 
 # Same-layer facade over serial_qt_compat's transitional debt target, for
-# platform packages (e.g. src/platform/desktop/common/flash/legacy) that need
+# platform packages (e.g. src/platform/desktop/common/service_functions) that need
 # an explicit, non-debt handle to depend on instead of reaching directly into
 # the frozen serial_qt_compat allowlist above. Wraps the existing
 # implementation without changing it.
