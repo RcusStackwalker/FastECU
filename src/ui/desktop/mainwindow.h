@@ -56,9 +56,6 @@
 #include "src/ui/desktop/hexedit/hexedit.h"
 
 // Flash modules
-// BDM
-#include "src/ui/desktop/flash/bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm.h"
-
 // Bootmode
 #include "src/ui/desktop/flash/bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode.h"
 
