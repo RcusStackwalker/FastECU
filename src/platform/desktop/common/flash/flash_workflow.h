@@ -40,6 +40,7 @@ enum class FlashPromptKind
     InspectRead,
     CycleIgnition,
     ConfirmSh7058Read,
+    ConfirmBdmKernelBootstrap,
 };
 
 enum class FlashPromptResponse

@@ -70,10 +70,16 @@ for the eight-wave sequencing:
 
 - Wave 6a-1 `FlashTcuSubaruHitachiM32rKline` — merged (#347).
 - Wave 6a-2 `FlashTcuSubaruHitachiM32rCan` — merged (#348).
-- Wave 6a-3 `FlashEcuSubaruHitachiSH72543rCan` — implemented on this branch,
-  not yet merged. Both normal/recovery aliases use the portable workflow;
-  the drain is seven remaining families. Hardware status remains experimental.
-  See the [family design](superpowers/specs/2026-09-20-step5-tail-wave6a3-hitachi-sh72543r-can-design.md).
+- Wave 6a-3 `FlashEcuSubaruHitachiSH72543rCan` — merged (#349). See the
+  [family design](superpowers/specs/2026-09-20-step5-tail-wave6a3-hitachi-sh72543r-can-design.md).
+- Wave 6a-4 `FlashEcuSubaruHitachiSH7058Can` — merged (#350).
+- Wave 6b-1 `FlashEcuSubaruUnisiaJecs` — merged (#352), on the raw K-Line
+  transport foundation (#351).
+- Wave 6b-2 `FlashEcuSubaruDensoSH705xKline` — merged (#355, #356).
+- Wave 6c-1 `FlashEcuSubaruDensoMC68HC16Y5_02_BDM` — implemented on this
+  branch. The drain is three remaining families. Hardware status remains
+  experimental. See the
+  [family design](superpowers/specs/2026-09-25-step5-tail-wave6c1-denso-mc68hc16-bdm-design.md).
 
 ## Verified Current Baseline
 

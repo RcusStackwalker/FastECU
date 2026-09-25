@@ -54,6 +54,10 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, 
       <ecu>Denso MC68HC16Y5</ecu><mcu>MC68HC16Y5_TPU</mcu>
       <kernel>catalog_tpu.bin</kernel><kernel_addr>0x20000</kernel_addr>
     </protocol>
+    <protocol name="sub_ecu_denso_mc68hc16y5_02_bdm">
+      <ecu>Denso MC68HC16Y5</ecu><mcu>MC68HC16Y5</mcu>
+      <kernel>catalog_mc68.bin</kernel><kernel_addr>0x20000</kernel_addr>
+    </protocol>
     <protocol name="sub_ecu_denso_sh7055_02" alias="fxt02">
       <ecu>Denso SH7055</ecu><mcu>SH7055</mcu>
       <kernel>catalog_sh7055.bin</kernel><kernel_addr>0xFFFF6004</kernel_addr>
@@ -219,7 +223,12 @@ class FlashWorkflowTest : public QObject
     void sh72543rRejectsPreflightAndDeclinedBegin();
     void sh72543rPropagatesFailureAndAbsentIdentity();
     void coltWriteUsesColtSpecificSafetyPrompts();
-    void mc68BdmProtocolIsNotClaimedByPortableRoute();
+    void mc68BdmReadRoutesThroughBeginToAttempt();
+    void mc68BdmWriteBootstrapsTheCatalogKernelNotTheRom();
+    void mc68BdmDeclinedBootstrapConfirmationCancels();
+    void mc68BdmDeclinedBeginCancels();
+    void mc68BdmTestWriteFailsBeforeAnyPrompt();
+    void mc68BdmPrefixLookalikeStaysOffTheKlineFamily();
     void mc68TpuProtocolIsClaimedByPortableRoute();
     void mc68Revision04IsClaimedButPlanBuildFails();
     void sh7055ProtocolIsClaimedByPortableRoute();
@@ -282,7 +291,8 @@ void FlashWorkflowTest::recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone(
                                                                   "sub_ecu_denso_sh72543_can_diesel",
                                                                   "sub_ecu_denso_sh7058_can_diesel",
                                                                   "sub_ecu_denso_sh7059_can_diesel",
-                                                                  "sub_ecu_denso_1n83m_4m_can"});
+                                                                  "sub_ecu_denso_1n83m_4m_can",
+                                                                  "sub_ecu_denso_mc68hc16y5_02_bdm"});
     for (const char *protocol : portable)
     {
         QVERIFY2(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr, protocol);
@@ -654,11 +664,110 @@ void FlashWorkflowTest::coltWriteUsesColtSpecificSafetyPrompts()
     QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::ColtEraseTrigger);
 }
 
-void FlashWorkflowTest::mc68BdmProtocolIsNotClaimedByPortableRoute()
+void FlashWorkflowTest::mc68BdmReadRoutesThroughBeginToAttempt()
 {
     auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm");
     input.mcu = "MC68HC16Y5";
-    QVERIFY(FlashWorkflowFactory::tryCreate(std::move(input)) == nullptr);
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashAttempt>(step));
+    const auto& plan = std::get<FlashAttempt>(step).attempt->plan();
+    QCOMPARE(plan.family(), FlashFamily::SubaruDensoMc68hc16y5_02Bdm);
+    QCOMPARE(plan.transport(), TransportKind::Kline);
+    QCOMPARE(plan.transfer_region(), (MemoryRegion{0, 0x30000}));
+    QVERIFY(!plan.image().has_value());
+}
+
+void FlashWorkflowTest::mc68BdmWriteBootstrapsTheCatalogKernelNotTheRom()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::Write);
+    input.mcu = "MC68HC16Y5";
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    input.paths = *paths;
+    input.image = bytes::Bytes(0x30000, 0x5a);
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+
+    auto step = workflow->next();
+    if (const auto *failure = std::get_if<FlashFailureStep>(&step))
+    {
+        QFAIL(failure->error.detail.c_str());
+    }
+    QCOMPARE(std::get<FlashPromptStep>(step).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::ConfirmBdmKernelBootstrap);
+    workflow->submit(FlashPromptResponse::Accept);
+    step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashAttempt>(step));
+    const auto& plan = std::get<FlashAttempt>(step).attempt->plan();
+    bytes::Bytes expected(0x20, 0x00);
+    expected[0] = 0x11;
+    expected[1] = 0x22;
+    expected[2] = 0x33;
+    QCOMPARE(plan.image(), std::optional<bytes::Bytes>(expected));
+    QCOMPARE(plan.transfer_region(), (MemoryRegion{0x20000, 0x20}));
+    QVERIFY(!plan.kernel().has_value());
+}
+
+void FlashWorkflowTest::mc68BdmDeclinedBootstrapConfirmationCancels()
+{
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::Write);
+    input.mcu = "MC68HC16Y5";
+    const auto paths = catalogPaths(directory);
+    QVERIFY(paths.has_value());
+    input.paths = *paths;
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Accept);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::ConfirmBdmKernelBootstrap);
+    workflow->submit(FlashPromptResponse::Decline);
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Cancelled);
+}
+
+void FlashWorkflowTest::mc68BdmDeclinedBeginCancels()
+{
+    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm");
+    input.mcu = "MC68HC16Y5";
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+    QCOMPARE(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Decline);
+    const auto done = workflow->next();
+    QVERIFY(std::holds_alternative<FlashCompletedStep>(done));
+    QCOMPARE(std::get<FlashCompletedStep>(done).outcome, FlashWorkflowOutcome::Cancelled);
+}
+
+void FlashWorkflowTest::mc68BdmTestWriteFailsBeforeAnyPrompt()
+{
+    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::TestWrite);
+    input.mcu = "MC68HC16Y5";
+    input.image = bytes::Bytes(0x30000, 0x5a);
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+    const auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(step));
+    QCOMPARE(std::get<FlashFailureStep>(step).error.kind, ErrorKind::Unsupported);
+}
+
+void FlashWorkflowTest::mc68BdmPrefixLookalikeStaysOffTheKlineFamily()
+{
+    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm_x");
+    input.mcu = "MC68HC16Y5";
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    QVERIFY(workflow != nullptr);
+    const auto step = workflow->next();
+    QVERIFY(std::holds_alternative<FlashFailureStep>(step));
+    QCOMPARE(std::get<FlashFailureStep>(step).error.kind, ErrorKind::InvalidConfig);
 }
 
 void FlashWorkflowTest::mc68TpuProtocolIsClaimedByPortableRoute()

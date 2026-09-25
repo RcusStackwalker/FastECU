@@ -1241,18 +1241,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             }
         }
         /*
-         * Denso ECU Boot Mode
-         */
-
-        /*
-         * Denso ECU BDM
-         */
-        else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_denso_mc68hc16y5_02_bdm"))
-        {
-            FlashEcuSubaruDensoMC68HC16Y5_02_BDM flash_module(serial, ecuCalDef[rom_number], cmd_type, this);
-            connect_signals_and_run_module(&flash_module);
-        }
-        /*
          * Unisia Jecs ECU Bootmode
          */
         else if (configValues->flash_protocol_selected_protocol_name.startsWith("sub_ecu_unisia_jecs_20_bootmode"))

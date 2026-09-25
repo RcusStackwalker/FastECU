@@ -45,6 +45,8 @@
 #include "src/backend/flash/ecu/subaru_hitachi_sh7058_can_executor.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_executor.h"
 #include "src/backend/flash/ecu/subaru_tcu_hitachi_m32r_kline_plan.h"
+#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_executor.h"
+#include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_plan.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_executor.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_plan.h"
 #include "src/backend/flash/ecu/subaru_hitachi_m32r_can_executor.h"
@@ -421,6 +423,101 @@ class SubaruUnisiaJecsWorkflow final : public FlashWorkflow
     FlashWorkflowRequest request_;
     Result<FlashPlan> plan_;
     bool begun_ = false;
+    bool attempted_ = false;
+    FlashAttemptOutcome outcome_;
+};
+
+class SubaruDensoMc68hc16y5_02BdmWorkflow final : public FlashWorkflow
+{
+  public:
+    explicit SubaruDensoMc68hc16y5_02BdmWorkflow(FlashWorkflowRequest request) : request_(std::move(request))
+    {
+    }
+
+    FlashWorkflowStep next() override
+    {
+        if (!plan_.has_value())
+        {
+            plan_ = buildPlan();
+        }
+        if (!plan_->has_value())
+        {
+            return FlashFailureStep{plan_->error()};
+        }
+        if (outcome_.hasFailure())
+        {
+            return outcome_.takeFailure();
+        }
+        if (outcome_.terminal())
+        {
+            return outcome_.completedStep();
+        }
+        if (!begun_)
+        {
+            return FlashPromptStep{FlashPromptKind::Begin, {}};
+        }
+        if (!attempted_)
+        {
+            if ((*plan_)->operation() == FlashOperation::Write && !bootstrap_confirmed_)
+            {
+                return FlashPromptStep{FlashPromptKind::ConfirmBdmKernelBootstrap, {}};
+            }
+            attempted_ = true;
+            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
+                                     bind_flash_attempt(std::move(**plan_),
+                                                        std::make_unique<SubaruDensoMc68hc16y5_02BdmExecutor>(),
+                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
+                                     std::make_unique<QtClock>()};
+        }
+        return outcome_.completedStep();
+    }
+
+    void submit(FlashPromptResponse response) override
+    {
+        if (response != FlashPromptResponse::Accept)
+        {
+            outcome_.cancel();
+            return;
+        }
+        if (!begun_)
+        {
+            begun_ = true;
+        }
+        else
+        {
+            bootstrap_confirmed_ = true;
+        }
+    }
+
+    void submit(FlashAttemptResult result) override
+    {
+        outcome_.record(std::move(result));
+    }
+
+  private:
+    // The operator's ROM (request_.image) is never forwarded: Write uploads
+    // and starts the cfg kernel; it does not write the ROM.
+    Result<FlashPlan> buildPlan()
+    {
+        if (request_.operation != FlashOperation::Write)
+        {
+            return build_subaru_denso_mc68hc16y5_02_bdm_plan(request_.operation, request_.protocol, request_.mcu,
+                                                             std::nullopt, std::nullopt);
+        }
+        QtFileRepository repository;
+        Result<KernelImage> kernel = resolveKernel(request_, repository);
+        if (!kernel.has_value())
+        {
+            return std::unexpected(kernel.error());
+        }
+        return build_subaru_denso_mc68hc16y5_02_bdm_plan(request_.operation, request_.protocol, request_.mcu,
+                                                         std::nullopt, std::move(*kernel));
+    }
+
+    FlashWorkflowRequest request_;
+    std::optional<Result<FlashPlan>> plan_;
+    bool begun_ = false;
+    bool bootstrap_confirmed_ = false;
     bool attempted_ = false;
     FlashAttemptOutcome outcome_;
 };
@@ -1240,6 +1337,7 @@ struct Route
         SubaruDensoSh72543CanDiesel,
         SubaruDenso1n83m_4mCan,
         SubaruDensoSh705xKline,
+        SubaruDensoMc68hc16y5_02Bdm,
         Unrouted,
     };
 
@@ -1274,9 +1372,10 @@ constexpr auto kRoutes = std::to_array<Route>({
     {"sub_ecu_denso_sh7058_can_cobb", SubaruDensoSh7058Can, RouteMatch::Exact},
     {"sub_ecu_denso_sh7058_can_diesel", SubaruDensoSh7058CanDiesel, RouteMatch::Exact},
     {"sub_ecu_denso_sh7059_can_diesel", SubaruDensoSh7058CanDiesel, RouteMatch::Exact},
-    // Reserve this longer prefix before the bare MC68 _02 row. BDM remains
-    // on its legacy path and must not be swallowed by portable routing.
-    {"sub_ecu_denso_mc68hc16y5_02_bdm", Unrouted},
+    // Keep this longer prefix before the bare MC68 _02 row so no _02_bdm*
+    // name reaches the K-Line family; the BDM plan rejects all but the exact
+    // protocol.
+    {"sub_ecu_denso_mc68hc16y5_02_bdm", SubaruDensoMc68hc16y5_02Bdm},
     {"sub_ecu_denso_mc68hc16y5_02", SubaruDensoMc68hc16y5_02},
     {"sub_ecu_denso_mc68hc16y5_04", SubaruDensoMc68hc16y5_02},
     {"sub_ecu_denso_sh7055_02", SubaruDensoSh7055_02},
@@ -1381,6 +1480,8 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
         return std::make_unique<SubaruDenso1n83m_4mCanWorkflow>(std::move(request));
     case SubaruDensoSh705xKline:
         return std::make_unique<SubaruDensoSh705xKlineWorkflow>(std::move(request));
+    case SubaruDensoMc68hc16y5_02Bdm:
+        return std::make_unique<SubaruDensoMc68hc16y5_02BdmWorkflow>(std::move(request));
     case Unrouted:
         return nullptr;
     }

@@ -57,6 +57,8 @@ std::string_view FlashPlan::experimental_family_id() const
         return "SubaruUnisiaJecs";
     case FlashFamily::SubaruDensoSh705xKline:
         return "SubaruDensoSh705xKline";
+    case FlashFamily::SubaruDensoMc68hc16y5_02Bdm:
+        return "SubaruDensoMc68hc16y5_02Bdm";
     }
     return "Unknown";
 }

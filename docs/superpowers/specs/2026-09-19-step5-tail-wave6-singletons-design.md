@@ -366,3 +366,13 @@ executor in `denso_sh705x_kline_common.h` — data only, no protocol function.
 Port item 2, `IKlineFlashTransport::reset_connection()`, landed in PR 6b-2a and
 is called from `before_transport_configure()`. The drain moves from five
 entries to four.
+
+## Wave 6c-1 implementation note
+
+The [Denso MC68HC16Y5 BDM family spec](2026-09-25-step5-tail-wave6c1-denso-mc68hc16-bdm-design.md)
+records three departures from this design: the 6a-3/6a-4/6b-2
+behavior-correction exception applies, because legacy's framed
+`read_serial_data()` could not carry the bridge's ASCII replies on direct
+serial; Write is modeled as a kernel bootstrap whose plan image is the padded
+cfg kernel; and 6c-1 adds no port method, because `write_raw()` / `read_raw()`
+(port item 3) landed early in #351. The drain moves from four entries to three.

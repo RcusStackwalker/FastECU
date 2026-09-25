@@ -182,6 +182,15 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
                    ? FlashPromptResponse::Save
                    : FlashPromptResponse::Discard;
     }
+    if (prompt.kind == FlashPromptKind::ConfirmBdmKernelBootstrap)
+    {
+        return QMessageBox::warning(this, tr("BDM kernel bootstrap"),
+                                    tr("This uploads the flash kernel into ECU RAM through the BDM adapter and starts "
+                                       "it. It does not write the ROM.\n\nContinue?"),
+                                    QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Yes
+                   ? FlashPromptResponse::Accept
+                   : FlashPromptResponse::Decline;
+    }
     if (prompt.kind == FlashPromptKind::ConfirmSh7058Read)
     {
         return QMessageBox::information(this, tr("Read Hitachi SH7058 ROM"),

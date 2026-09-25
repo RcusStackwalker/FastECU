@@ -9,29 +9,28 @@ package(default_visibility = [
 qt_cc_library(
     name = "legacy_flash_operations",
     srcs = [
-        "bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.cpp",
         "bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp",
         "ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.cpp",
         "flash_operation_worker.cpp",
         "jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.cpp",
         "legacy_flash_utils.cpp",
     ],
-    # FlashOperationWorker (the shared QThread base) and the bdm/bootmode/ecu/
+    # FlashOperationWorker (the shared QThread base) and the bootmode/ecu/
     # jtag legacy Qt operation classes, relocated together from
     # //src/backend/flash (step 5c, Task 15) -- backend owns no thread, and
     # FlashOperationWorker was the last QThread-derived class left there.
-    # Every *_operation.h in the four family subdirectories declares Q_OBJECT.
+    # Every *_operation.h in the three family subdirectories declares Q_OBJECT.
     # The tcu/ family subdirectory is gone: wave 6a drained both of its
     # operations (K-Line, then CAN) to portable plans and executors.
+    # The bdm/ subdirectory is gone: wave 6c-1 drained it.
     hdrs = [
-        "bdm/flash_ecu_subaru_denso_mc68hc16y5_02_bdm_operation.h",
         "bootmode/flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.h",
         "ecu/flash_ecu_subaru_unisia_jecs_m32r_operation.h",
         "flash_operation_worker.h",
         "jtag/flash_ecu_subaru_hitachi_m32r_jtag_operation.h",
     ],
     copts = COMMON_COPTS,
-    # Every *.h in the five directories (root + four families) is in
+    # Every *.h in the four directories (root + three families) is in
     # hdrs above except this one -- matches prior glob behavior.
     normal_hdrs = ["legacy_flash_utils.h"],
     deps = QT_DEPS + [
