@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <format>
-#include <string>
 #include <string_view>
 #include <vector>
 
@@ -227,14 +226,17 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, CancellationBetweenPagesStopsBeforeThe
     transport.queueRawRead(page_bytes(0));
     FakeClock clock;
     FakeCancellationToken cancellation;
-    // Trips once the buffer clear and the first page have been read.
-    cancellation.set_predicate([&transport] { return transport.read_timeouts_.size() >= 2; });
     RecordingEventSink events;
+    // Trips once the first page's progress has been reported, so the page's
+    // own read completes normally and only the executor's own check between
+    // pages can stop the next command.
+    cancellation.set_predicate([&events] { return !events.progress_calls.empty(); });
 
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(read_plan(), transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writesConsumed(), 1U);
+    EXPECT_TRUE(transport.scriptConsumed());
 }
 
 // 40 bytes 0x01..0x28, padded by the plan to two 32-byte chunks.
@@ -405,14 +407,17 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, CancellationBetweenChunksStopsBeforeTh
     transport.queueRawRead(ascii("ACK_WR"));
     FakeClock clock;
     FakeCancellationToken cancellation;
-    // Trips once the buffer clear, the upload ACK and the first chunk ACK are read.
-    cancellation.set_predicate([&transport] { return transport.read_timeouts_.size() >= 3; });
     RecordingEventSink events;
+    // Trips once the first chunk's progress has been reported, so the chunk's
+    // own ack read completes normally and only the executor's own check
+    // between chunks can stop the next upload.
+    cancellation.set_predicate([&events] { return !events.progress_calls.empty(); });
 
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
 
     EXPECT_THAT(result, IsErr(ErrorKind::Cancelled));
     EXPECT_EQ(transport.writesConsumed(), 2U);
+    EXPECT_TRUE(transport.scriptConsumed());
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, CancellationAfterGoStillSucceeds)
