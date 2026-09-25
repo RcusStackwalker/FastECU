@@ -1,6 +1,5 @@
 #include "src/backend/flash/ecu/subaru_unisia_jecs_m32r_bootmode_program_executor.h"
 
-#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <format>

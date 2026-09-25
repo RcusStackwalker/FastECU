@@ -41,3 +41,9 @@ read. Run that checklist's section 1 once per bootmode protocol.
 - Read the ROM back and compare it with the written image.
 - Close the dialog during programming. Confirm the VPP notice appears, without
   don't-power-off advice, and that power-cycling with MOD1 re-enters boot mode.
+- Confirm the `EF 42` and `EF 52` replies carry a valid SSM checksum. The
+  executor rejects a reply whose checksum does not verify; legacy never
+  checked it.
+- On a direct serial adapter, watch for erase-poll failures caused by a reply
+  split across two 10 ms reads. The executor needs each poll read to return a
+  whole frame; legacy accumulated bytes across reads.

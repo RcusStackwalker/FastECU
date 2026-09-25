@@ -34,6 +34,7 @@ constexpr std::uint32_t kChunk = 0x80; // upload_kernel() :312-315, write_mem() 
 // execute() :55-60 (tester_id and target_id set on :59-60)
 constexpr SubaruUnisiaJecsM32rBootModeKernelPlan kKernelWire{
     .initial_baud = 39063, .tester_id = 0xf0, .target_id = 0x10};
+// write_mem() :362-364.
 constexpr SubaruUnisiaJecsM32rBootModeProgramPlan kProgramWire{
     .initial_baud = 19200, .tester_id = 0xf0, .target_id = 0x10};
 

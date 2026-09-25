@@ -272,7 +272,7 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
     {
         // Legacy write_mem() :367 offered OK only; Cancel stops before erase.
         return QMessageBox::warning(this, tr("Flash file"),
-                                    tr("The kernel is running. Remove MOD1 voltage, then press OK to erase and "
+                                    tr("The kernel has been uploaded. Remove MOD1 voltage, then press OK to erase and "
                                        "program the ECU, or Cancel to stop before anything is erased."),
                                     QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Ok
                    ? FlashPromptResponse::Accept
