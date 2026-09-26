@@ -279,7 +279,7 @@ void MutDmaIntegrationTest::connectsOverMockPty_facadeReportsOpen()
         MockOpenPortThread mockThread(master);
         MockOpenPort& mock = *mockThread.mock;
 
-        SerialPortActions spad{directBackend()}; // empty peerAddress -> direct connection
+        SerialPortActions spad{directBackend()}; // the real direct backend
         const QString opened = connectFacade(spad, QString::fromLocal8Bit(name.data()));
 
         QVERIFY2(!opened.isEmpty(), "facade open_serial_port() returned empty");

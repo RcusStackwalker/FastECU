@@ -93,7 +93,7 @@ void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
             }
         });
 
-    SerialPortActions serial{directBackend()}; // default factory: real direct backend
+    SerialPortActions serial{directBackend()}; // the real direct backend
     QByteArray response;
     QString opened;
     std::thread worker(
