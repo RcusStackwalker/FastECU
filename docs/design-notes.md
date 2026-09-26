@@ -321,6 +321,127 @@ cover per-run selection and preservation of injected factories.
 Hardware qualification is tracked separately in the
 [logging-composition bench checklist](logging-composition-bench-checklist.md).
 
+## Diagnostic tools
+
+### The port is byte-faithful; `uses_j2534()` is not hidden
+
+`IDiagnosticLink` does not frame, unframe, or add headers or checksums --
+that stays with the facade (when a header flag is set) or with the caller.
+The one place the adapter split is genuinely load-bearing is the five-baud
+response check and the `read` vs. `read_obd` choice, both of which differ
+between J2534 (OpenPort) and the direct serial backend. Rather than have the
+adapter guess or the session carry two near-identical code paths, the port
+exposes `uses_j2534()` and lets `DtcRun` branch on it explicitly, exactly as
+`dtc_operations.cpp` branched on `get_use_openport2_adapter()` before this
+step. Only the P1-max mechanism (`set_j2534_ioctl` vs. `set_kline_timings`)
+is hidden inside `set_p1_max`, because both call sites want the same effect
+and neither caller needs to know which one ran.
+
+### `SerialDiagnosticLink` lives beside `service_functions`, not inside `serial_qt_compat`
+
+The new `//src/platform/desktop/common/diagnostics` package reaches the
+facade through `//src/platform/desktop/common/serial:serial_platform_api`,
+the same same-layer handle that `service_functions` already uses, instead of
+becoming a fourth caller added to the frozen `serial_qt_compat` visibility
+list. `serial_diagnostic_link.h` forward-declares `SerialPortActions`, so
+including it does not carry `serial_port_actions.h` to the UI; `MainWindow`
+constructs a `SerialDiagnosticLink` from the facade pointer it already holds
+and hands the dialogs an `IDiagnosticLink&`. This is also where `DtcWorker`
+lives: it is a Qt adapter with no `SerialPortActions` include of its own, so
+it needs no allowlist entry either.
+
+### BIU and DataTerminal stay synchronous; DTC does not
+
+BIU's `send_biu_msg` and DataTerminal's per-line send are each one
+write-and-read triggered directly by a user action (or, for BIU's
+keep-alive, a `QTimer` tick) with a bounded read timeout (800 ms, 200 ms).
+Blocking the UI thread for that long is the same behavior these dialogs had
+before this step, and moving either onto a worker would add thread-safety
+work -- particularly for BIU's timer-driven keep-alive -- disproportionate
+to a delay already this short. A DTC run is different in kind: five-baud or
+fast init, up to seven supported-PID pages, six vehicle-info requests, and a
+stored/pending DTC read, with 250-500 ms sleeps between most of them, adds
+up to several seconds with the dialog frozen throughout. That is what
+`DtcWorker` exists to fix, mirroring the `ServiceFunctionWorker` precedent
+from step 5's service-functions ports.
+
+### Pinned quirks
+
+Four behaviors look wrong but are deliberately unchanged, each pinned by a
+test rather than fixed, because fixing any of them needs a bench capture to
+confirm what the ECU actually expects:
+
+- **The OpenPort five-baud response check compares ASCII, not values.**
+  `five_baud_header`'s J2534 branch compares response bytes to the ASCII
+  characters `'8'` and `'f'` at fixed offsets, while the direct-serial branch
+  compares the same positions to the numeric bytes `0x08`/`0x08` and `0x8f`.
+  Whether the OpenPort firmware genuinely echoes ASCII digits here, or the
+  original code meant the numeric comparison and got it wrong, is not
+  something to guess at from the source.
+- **K-Line unframing keeps its length heuristics.** `unframe_data_response`
+  and `unframe_dtc_list_response` strip a fixed number of leading bytes
+  chosen by the frame's total length (`< 7`, `< 10`, otherwise) rather than
+  by parsing a length field. It reproduces today's behavior exactly; a
+  proper length-field parse is a separate, riskier change.
+- **DataTerminal's `delay(...)` parse yields 0.** `split(")").at(1).split("(").at(0)`
+  parses `delay(100)` to an empty string, so every scripted delay is 0 ms.
+  Scripts written against the existing (broken) timing would behave
+  differently if this were fixed incidentally.
+- **The ISO-15765 init NRC is described from offset 3, not 4.** Every other
+  NRC in the DTC session (`request`, `clear_dtcs`) is described from the
+  frame's own response index (4 for iso15765). `can_init` describes the NRC
+  starting one byte earlier, at offset 3, reproducing today's off-by-one
+  exactly rather than aligning it with the others.
+
+### Behavior changes
+
+1. **DTC runs off the UI thread.** `DtcWorker` runs `run_dtc_session` on its
+   own thread, so the dialog stays responsive during a run. Cancellation is
+   best-effort, not step-by-step: `DtcRun` checks it only inside
+   `IClock::sleep` and inside `IDiagnosticLink::read`/`read_obd`, exactly as
+   `DesktopKlineFlashTransport` does elsewhere, not between every step. An
+   already-cancelled run still costs one `open()` and one init exchange
+   before the first sleep stops it; closing the dialog cancels the run and
+   waits for the worker to stop, it does not cut it off instantly.
+2. **DTC short responses fail cleanly.** An init or request response too
+   short for the legacy unchecked `at(i)` becomes an init failure or
+   `BadResponse` through `obd_frames.h`'s bounds-checked helpers, not an
+   assert or undefined behavior.
+3. **DataTerminal resets and sets every flag before opening.** `open()`
+   applies every field of `KlineLinkConfig`/`CanLinkConfig` in one canonical
+   order after a `reset()`, so DataTerminal no longer inherits header, CAN,
+   or 29-bit flags an earlier tool left set. Each send already ended with a
+   reset, so this only changes behavior when another tool left flags set
+   right before DataTerminal's own `open()`.
+4. **A failed DTC run always logs one error line.** `DtcOperations::finish`
+   logs `"DTC operation failed: " + result.error_detail` for any failed run.
+   Today some failures (an empty stored-DTC list, an ignored `open()` failure
+   that let fast init proceed and fail later) ended silently. The `open()`
+   case needs its own note: on iso14230, a failed `open()` during fast init
+   does not end the run immediately. `fast_init()`'s `open()` failure is
+   treated the same as any other fast-init failure, so `DtcRun::init()`
+   still falls back to five-baud -- reproducing today's behavior, where the
+   ignored `open_serial_port()` result let fast init's wire calls proceed
+   and fail on their own. The run ends in `Disconnected` only if the
+   five-baud path's own re-open also fails.
+5. **DTC PID pages `0x81`-`0xE0` are accepted.** The legacy `request_data`
+   compares a `QByteArray::at()` byte (a signed `char` on x86 and macOS)
+   against the `uint8_t` PID, so the echo check for PID requests `0x80`,
+   `0xA0`, and `0xC0` never matched and those supported-PID pages were
+   logged as a wrong response and discarded. `check_response` compares
+   `bytes::Byte` (unsigned), matching the behavior these platforms would
+   already see if `char` were unsigned there (as it is on Linux/ARM).
+6. **Each DTC run starts clean.** The legacy dialog's `fast_init_ok` member
+   was never reset, so once one fast init passed in a dialog's lifetime,
+   every later fast init in that same dialog passed its check too. Each
+   `DtcRun` is a fresh object with no equivalent state, so every run's fast
+   init is checked on its own merits.
+
+Also a wording/format detail, not a behavior change: the legacy two-part
+`LOG_I` for `"Supported PIDs: "` put a timestamp on the first part and no
+linefeed before the second. `vehicle_info` now logs it as one `IEventSink::log`
+call. It renders identically; nothing downstream parses the split.
+
 ## Flash-operation dispatch
 
 ### `start_ecu_operations` cleanup is a scope guard
