@@ -301,6 +301,25 @@ Actions:
 - Delete `serial_qt_compat` once only the `remote_utility` edge and `//tests`
   remain, and fold its sources into the owning packages.
 
+### P2: Convert the get-key cipher arithmetic to unsigned operands
+
+`src/ui/desktop/get_key_operations_subaru.cpp` (the Subaru key-recovery
+dialog) mixes signed literals and `int` loop counters into unsigned bit
+arithmetic: 39 `bugprone-signed-bitwise` findings, suppressed with a
+`NOLINTBEGIN`/`NOLINTEND` block when step 6c-1 touched the file. None is a
+live defect under C++23 (signed left shifts such as `roundFunction`'s
+promoted `uint16_t << 16` wrap modulo 2^32 since C++20), but the code only
+works because every operand happens to be non-negative.
+
+Actions:
+
+- Extract the pure cipher helpers (`get_bit`, `sBox`, `fFunction`,
+  `roundFunction`, `flipLeftRight`, `manyRoundAndFlip`) out of the dialog
+  into a free-function unit with a co-located test, and pin their current
+  outputs with characterization vectors.
+- Convert the operands to unsigned types, confirm the vectors are
+  unchanged, and remove the suppression block.
+
 ### P2: Pay down the SonarCloud code-smell backlog
 
 Snapshot taken 2026-09-06 via `sonar list issues --project
@@ -319,7 +338,7 @@ count, since count and blast radius are not the same thing here.
 `cpp:S1117` (declaration shadows an outer variable, 550 instances),
 `cpp:S5276` (implicit narrowing conversion, 204), and `cpp:S5025` (raw
 `new`/`delete`, 172, Critical) concentrate in the legacy per-vendor flash-op
-files, `J2534_unix.cpp`, and `ecu_operations.cpp` — the hardware-facing layer
+files and `J2534_unix.cpp` — the hardware-facing layer
 this document's introduction calls out as needing bench verification before
 qualification. The legacy per-vendor flash-op files were deleted in wave 7
 of the step 5 tail; these counts predate that deletion and have not been
@@ -361,7 +380,8 @@ one rule across all files, so the same buffer-handling lines aren't touched
 twice. `cpp:S125` (539, remove
 commented-out code) has no behavior risk — fold its removal into whichever
 file is already open for Phase 1/2/3 work rather than a dedicated sweep, plus
-one pass each on the two worst offenders (`mainwindow.cpp`, `ecu_operations.cpp`).
+one pass on the worst offender (`mainwindow.cpp`; `ecu_operations.cpp`, formerly
+the other, was dead code and was deleted in step 6c).
 This is the same action already named below under "Naming and source/data
 organization"; do not track it twice.
 
