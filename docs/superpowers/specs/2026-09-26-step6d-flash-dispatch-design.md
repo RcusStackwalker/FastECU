@@ -9,8 +9,9 @@ dispatch out of `MainWindow::start_ecu_operations`.
 
 Success means:
 
-- `start_ecu_operations` shrinks from 291 lines to roughly 80 and contains
-  no `goto`.
+- `start_ecu_operations` shrinks from 291 lines to roughly half, and
+  contains no `goto`. Write preflight and the calibration handoff stay by
+  design, so it cannot get much smaller in this step.
 - Denso TCU routing, workflow creation, the `FlashDialog`, and the
   unknown-protocol warning live in a `FlashOperationController` that can be
   tested without a `MainWindow`.
@@ -87,11 +88,13 @@ std::string read_image_filename(std::string_view rom_id, std::string_view timest
 
 `MainWindow` keeps formatting the timestamp with `QDateTime` and passes it in.
 
-### `src/ui/desktop/flash/operation`
+### `reset_serial_to_idle`
 
-A new package holding two units.
-
-**`reset_serial_to_idle(SerialPortActions& serial)`** performs, in order,
+`fastecu::desktop::serial::reset_serial_to_idle(SerialPortActions& serial)`
+lives in a new target, `//src/platform/desktop/common/serial:serial_idle`,
+visible only to `//src/ui/desktop`. It calls facade methods, so it needs
+`SerialPortActions`' definition, and `serial_qt_compat`'s frozen visibility
+list may not gain the new UI package. It performs, in order,
 `reset_connection`, `set_is_iso14230_connection(false)`,
 `set_is_29_bit_id(false)`, `set_add_iso14230_header(false)`,
 `set_is_can_connection(false)`, `set_is_iso15765_connection(false)`,
@@ -100,7 +103,12 @@ A new package holding two units.
 today. `ecuid`/`ecu_init_complete` stay `MainWindow` members, cleared by
 `MainWindow` next to each call.
 
-**`FlashOperationController`** (`QObject`):
+### `FlashOperationController`
+
+A new package, `src/ui/desktop/flash/operation`, holds
+`FlashOperationController` (`QObject`). It only passes `SerialPortActions*`
+through to `FlashWorkflowFactory` and the Denso TCU service functions, so a
+forward declaration suffices and it needs no `serial_qt_compat` edge.
 
 ```cpp
 struct FlashOperationInput
@@ -194,6 +202,21 @@ cleanup object exists, as today.
 
 ## Testing
 
+### Prerequisite: `test_mainwindow` must fail on Google Mock violations
+
+`mainwindow_test.cpp`'s `main` never calls `InitGoogleMock` and returns only
+QtTest's result, so Google Mock expectation failures print but never fail
+the target. On `master` (and before step 6c) its Denso TCU case reports 14
+such failures and still passes: the case expects no `reset_connection` or
+`change_port_speed` calls on a cancelled chooser, one of each in sequence on
+a declined relearn, and one `read_vbatt`/`set_use_openport2_adapter` call —
+none of which happens. The real calls are three `reset_connection` and two
+`change_port_speed("4800")` in both rows, and no `read_vbatt` or
+`set_use_openport2_adapter`. Step 6d relies on this test, so it first adopts
+the repo's existing pattern (`InitGoogleMock`, then fail when
+`::testing::Test::HasFailure()`) and pins the observed counts.
+
+
 - `//src/backend/flash:flash_operation_request_test` (gtest): every command
   mapping including unknown strings; both TCU protocol names plus
   near-misses (the future suffixes `mainwindow_test` already uses);
@@ -203,7 +226,9 @@ cleanup object exists, as today.
   (QtTest, offscreen, fake serial backend): an unknown protocol returns
   `Unsupported`, shows the warning, and performs no serial I/O; a Denso TCU
   read whose chooser is cancelled returns `ServiceActionHandled` with no
-  I/O; `reset_serial_to_idle` issues the eight calls in order.
+  I/O.
+- `//src/platform/desktop/common/serial:serial_idle_test` (QtTest, fake
+  serial backend): `reset_serial_to_idle` issues the eight calls in order.
 - `//src/ui/desktop:test_mainwindow`: all existing cases pass unchanged,
   plus one case per behavior change — the checksum-warning Cancel stops
   `vbatt_timer` and resets the serial facade; a read of an unsupported
@@ -215,8 +240,9 @@ cleanup object exists, as today.
 
 Four PRs as a `gh stack`, each green on its own:
 
-1. **6d-1** — the portable helpers, adopted at their `MainWindow` call sites.
-2. **6d-2** — `reset_serial_to_idle` and the scope-exit cleanup: removes the
+1. **6d-1** — `test_mainwindow` enforces Google Mock and pins the Denso TCU
+   counts; the portable helpers, adopted at their `MainWindow` call sites.
+2. **6d-2** — `serial_idle` and the scope-exit cleanup: removes the
    `goto` and fixes behavior change 1.
 3. **6d-3** — `FlashOperationController`, the switch in `MainWindow`,
    behavior change 2, and dropping `flash_dialog.h` from `mainwindow.h`.
