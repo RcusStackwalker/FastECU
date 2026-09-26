@@ -271,8 +271,6 @@ class MainWindow : public QMainWindow
     float calculate_value_from_expression(QStringList expression);
 
     // log_operations
-    void kline_listener();
-    void canbus_listener();
     void ssm_init();
     void ssm_kline_init();
     void ssm_can_init();
