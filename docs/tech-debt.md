@@ -126,6 +126,16 @@ Actions:
   several `IEventSink::log` strings, which are unasserted. Not done as of
   step 6g; add scripted `FakeDiagnosticLink` cases for each before relying on
   this coverage for a protocol change.
+- **`mutdma::read_memory`/`write_memory` have two unresolved behaviors from
+  the `MainWindow` originals they were moved from (step 6g,
+  `//src/backend/protocol:mut_memory`), unchanged and uncalled.**
+  `read_memory` can return a gapped buffer: a chunk whose poll yields no
+  frame within its timeout contributes nothing to the output and the read
+  continues with the next chunk, silently omitting that range rather than
+  retrying or flagging it. `write_memory`'s `0x4000`-`0xBFFF` guard checks
+  only the start address, not the end of the write, so a write starting
+  inside the window can still extend past `0xBFFF`. Revisit both before
+  wiring a caller; never relax the guard.
 - **Fix or defer the `wrx02` write-path predicate (step 6b defect (a); see
   the [design notes](design-notes.md#calibration-defect-letters)).** `element_byte_address` (`src/backend/calibration/map_edit.cpp`)
   still carries two different predicates for the `wrx02` flash-method
