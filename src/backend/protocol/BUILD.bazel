@@ -23,7 +23,6 @@ cc_library(
         "issm_transport.h",
         "mitsu_colt_can_cdbg_driver.h",
         "mut_dma_driver.h",
-        "transport_legacy_compat.h",
     ],
     deps = [
         "//src/algorithms/protocol",

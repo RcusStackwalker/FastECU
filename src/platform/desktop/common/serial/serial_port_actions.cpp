@@ -58,8 +58,9 @@ void SerialPortActions::waitForDone(const std::shared_ptr<QSemaphore>& done)
 {
     // No GUI-thread pump: every caller either runs on its own worker thread
     // (flash-module operations, LoggingWorker) or accepts a brief blocking
-    // wait for a short, click-bounded call (dtc_operations, dataterminal,
-    // hexcommander).
+    // wait for a short, click-bounded call (BIU, DataTerminal, MainWindow's
+    // connection code). DTC now runs its session on DtcWorker, off the UI
+    // thread, and the legacy hexcommander dialog has been removed.
     done->acquire();
 }
 

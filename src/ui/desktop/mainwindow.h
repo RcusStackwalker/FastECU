@@ -64,9 +64,6 @@
 
 #include "src/platform/desktop/common/remote_utility/remote_utility.h"
 
-// Mitsubishi MUT/DMA protocol core (namespace mutdma)
-#include "src/backend/protocol/mut_dma_driver.h"
-#include "src/backend/protocol/imut_dma_init.h"
 #include "src/platform/desktop/common/logging/logging_engine.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"

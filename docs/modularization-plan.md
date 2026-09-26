@@ -42,10 +42,13 @@ corrections are in the [flash qualification matrix](flash-qualification-matrix.m
 
 Step 6 (thin desktop shell) is under way: 6a (de-widget `FileActions`), 6b
 (calibration map-edit use case), 6c (desktop composition root), 6d
-(flash-operation dispatch), and 6e (platform selection) are complete — see
-below. Step 6f (logging composition) is implemented on its feature branch;
-cross-platform CI and hardware qualification remain pending. The rest of
-step 6, and step 7 (Android seam), have not started.
+(flash-operation dispatch), 6e (platform selection), and 6f (logging
+composition, merged as [#378](https://github.com/RcusStackwalker/FastECU/pull/378))
+are complete — see below. **6g (diagnostic tools) is complete**, pending
+bench qualification. Next is **6h**: the `MainWindow` connection service and
+SSM ECU identification, plus a decision on the dev toggles `can_listener`,
+`simulate_obd`, and `test_haltech_ic7_display`. Step 7 (Android seam) has not
+started.
 
 ## Verified Current Baseline
 
@@ -71,10 +74,12 @@ status below, refreshed after 6a-4/6a-5:
   the `//:backend_no_widgets` source scan that 6a-5 added and most of
   `//:portable_closure`'s Qt checking, which is gone: that check is now only
   the platform-label sweep.
-- The portable closure now spans `src/algorithms` plus eleven `src/backend`
-  package groups: `ports`, `logging` (+ `logging/protocols`), `protocol`,
-  `flash` (+ `flash/eeprom`), `config`, `checksum`, `definition`, and
-  `calibration`. Registration is single — `PORTABLE_PACKAGES` in
+- The portable closure now spans `src/algorithms` plus thirteen `src/backend`
+  package groups: `ports`, `logging` (+ `logging/protocols`), `protocol`
+  (+ `protocol/uds`), `flash` (+ `flash/ecu`), `config`, `checksum`,
+  `definition`, `diagnostics`, `calibration`, and `service_functions`.
+  `flash/eeprom` targets are swept as closure roots but not registered in
+  `PORTABLE_PACKAGES`. Registration is single — `PORTABLE_PACKAGES` in
   `bazel/portable_targets.bzl`, from which the `genquery`, the test's `data`
   list, and the registry the check reads are all derived.
 - The `serial_qt_compat` allowlist has shrunk from its frozen 20 entries to
@@ -292,15 +297,41 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      split, #376 6e-3 link selection and close-out). See the
      [design notes](design-notes.md#platform-selection) and the
      [platform-selection bench checklist](platform-selection-bench-checklist.md).
-   - **6f logging composition — implemented; CI and bench qualification pending.**
-     `DesktopComposition` registers MUT/DMA, CDBG, and SSM through
+   - **6f logging composition — complete, merged
+     ([#378](https://github.com/RcusStackwalker/FastECU/pull/378)); bench
+     qualification pending.** `DesktopComposition` registers MUT/DMA, CDBG, and
+     SSM through
      `//src/platform/desktop/common/transport:logging_protocol_registration`.
      `MainWindow` captures ECU/TCU selection in the per-run snapshot and wires
      logging signals; its services no longer expose the clock. Factory setup,
      errors, and engine lifetime semantics are preserved without expanding
-     `serial_qt_compat` visibility. The UI transport edge remains for standalone
-     MUT memory helpers. See the [design notes](design-notes.md#logging-composition)
+     `serial_qt_compat` visibility. The UI transport edge remained for
+     standalone MUT memory helpers until step 6g moved them; see below. See
+     the [design notes](design-notes.md#logging-composition)
      and [bench checklist](logging-composition-bench-checklist.md).
+   - **6g diagnostic tools — complete**, pending bench qualification (see the
+     [diagnostics bench checklist](diagnostics-bench-checklist.md)). The BIU,
+     DataTerminal, and DTC dialogs no longer include `serial_port_actions.h`.
+     They talk to a new backend port, `IDiagnosticLink`
+     (`src/backend/protocol`), through the platform adapter
+     `SerialDiagnosticLink` (`//src/platform/desktop/common/diagnostics`),
+     which reaches the facade through `serial_platform_api` rather than a new
+     `serial_qt_compat` entry. DTC protocol logic is now a portable
+     `run_dtc_session` in the new `//src/backend/diagnostics` package
+     (registered in `PORTABLE_PACKAGES`), run off the UI thread by
+     `DtcWorker` (also `//src/platform/desktop/common/diagnostics`). The
+     standalone MUT/DMA memory helpers moved out of `MainWindow` into the
+     portable `//src/backend/protocol:mut_memory`. Removed: the
+     `//src/ui/desktop/biu` entry in the `serial_qt_compat` allowlist and
+     `FROZEN` list, the GRANDFATHERED `//src/ui/desktop` entry in the
+     `transport` package's `default_visibility` (`mainwindow.h` no longer
+     includes `fastecu_kline_transport.h`), dead `hexcommander.{h,cpp,ui}`,
+     and — via [#379](https://github.com/RcusStackwalker/FastECU/pull/379),
+     landed ahead of this stack — dead `kline_listener`/`canbus_listener`.
+     Four PRs, not yet numbered (6g-1 the port and cleanup, 6g-2 BIU, 6g-3
+     DataTerminal, 6g-4 DTC and close-out). See the
+     [design notes](design-notes.md#diagnostic-tools) and the
+     [diagnostics bench checklist](diagnostics-bench-checklist.md).
    - Remove compatibility wrappers, obsolete facades, and the temporary aggregate implementation target. (Duplicate status macros are resolved: `STATUS_SUCCESS`/`STATUS_ERROR` have one definition, in `serial_facade_codes.h`.)
    - Re-run packaging and the existing hardware bench checklists for affected logging/flashing paths.
 

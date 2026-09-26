@@ -54,7 +54,9 @@ the [Colt CZT CAN bench checklist](colt_czt_47110032_can_bench_checklist.md).
 - `MainWindow::handleLoggingSessionEnded()` finds the menu action whose text is
   `Logging`; similar text-based lookup is duplicated in `toggle_realtime()` and
   `toggle_log_to_file()`.
-- The MUT/DMA bench helpers `mut_write_memory()` and `mut_read_memory()` still
-  live in `log_operations_ssm.cpp`, whose name does not match their ownership.
+- The MUT/DMA bench helpers moved out of `log_operations_ssm.cpp`: they are
+  now `mutdma::write_memory()` / `mutdma::read_memory()` in
+  `//src/backend/protocol:mut_memory`, with no UI caller wired up yet.
+  Resolved.
 - `test_ssm_logging_protocol` includes timeout-bounded cases that wait on real
   elapsed time. Keep an eye on its runtime as more timeout scenarios are added.

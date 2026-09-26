@@ -73,10 +73,15 @@ Actions:
 loading, serial/device setup, logging wiring, calibration lifecycle, ECU
 operation dispatch, log views, status updates, and dialogs. Since step 6d
 `mainwindow.h` includes no flash dialog, and flash dispatch runs through
-`FlashOperationController`. `mainwindow.cpp` is about
-2.5k lines (2,473 after step 6d) and `menu_actions.cpp` is down to 1,315 lines (from ~2.1k) after
-step 6b extracted the map-edit arithmetic into
-`//src/backend/calibration:map_edit`.
+`FlashOperationController`. `mainwindow.cpp` is 2,422 lines, unchanged by
+step 6g -- its diagnostic-tools window setup (`show_dtc_window`,
+`show_subaru_biu_window`, `show_terminal_window`) lives in
+`menu_actions.cpp`, now 1,309 lines (from 1,306) after each of those three
+functions was given a local `SerialDiagnosticLink` to pass to its dialog.
+Step 6g's other size changes -- the MUT memory helpers moving out of
+`log_operations_ssm.cpp` and their declarations out of `mainwindow.h`, and
+`hexcommander.{h,cpp}` being deleted outright -- land outside these two
+files.
 
 Risks:
 
@@ -101,6 +106,36 @@ Actions:
   platform transport package builds the three protocols; the UI passes the
   ECU/TCU choice in the logging snapshot. Connection orchestration,
   protocol/policy selection, and log-file handling still live in the UI.
+- **Confirm or fix the OpenPort five-baud ASCII comparison.** Step 6g's
+  `five_baud_header` (`src/backend/diagnostics/obd_frames.cpp`) preserved the
+  J2534 branch's comparison of response bytes `[5]`/`[7]` (iso9141) and
+  `[8]`/`[9]` (iso14230) against the ASCII characters `'8'`/`'8'` and
+  `'8'`/`'f'` -- different offsets from the direct-serial branch's numeric
+  `0x08`/`0x08` (bytes `[1]`/`[2]`) and `0x8F` (byte `[2]`) comparison, and a
+  match only by coincidence of digit value. Confirm against a bench capture
+  whether the OpenPort firmware genuinely echoes ASCII here before changing
+  it; see the [design notes](design-notes.md#diagnostic-tools).
+- **Fix DataTerminal's `delay(...)` script parser.** `split(")").at(1).split("(").at(0)`
+  parses `delay(100)` to an empty string, so every scripted delay is
+  currently 0 ms (`src/ui/desktop/dataterminal.cpp`). Pinned, not fixed, in
+  step 6g because a real parse would change the timing of every existing
+  delay script; see the [design notes](design-notes.md#diagnostic-tools).
+- **DTC session test gaps.** `dtc_session_test.cpp` does not yet cover: the
+  clear-loop's short-frame/NRC/wrong-ID paths; a CAN-init short response or a
+  non-`0x41` CAN-init response; a fast-init read cancelled mid-flight; and
+  several `IEventSink::log` strings, which are unasserted. Not done as of
+  step 6g; add scripted `FakeDiagnosticLink` cases for each before relying on
+  this coverage for a protocol change.
+- **`mutdma::read_memory`/`write_memory` have two unresolved behaviors from
+  the `MainWindow` originals they were moved from (step 6g,
+  `//src/backend/protocol:mut_memory`), unchanged and uncalled.**
+  `read_memory` can return a gapped buffer: a chunk whose poll yields no
+  frame within its timeout contributes nothing to the output and the read
+  continues with the next chunk, silently omitting that range rather than
+  retrying or flagging it. `write_memory`'s `0x4000`-`0xBFFF` guard checks
+  only the start address, not the end of the write, so a write starting
+  inside the window can still extend past `0xBFFF`. Revisit both before
+  wiring a caller; never relax the guard.
 - **Fix or defer the `wrx02` write-path predicate (step 6b defect (a); see
   the [design notes](design-notes.md#calibration-defect-letters)).** `element_byte_address` (`src/backend/calibration/map_edit.cpp`)
   still carries two different predicates for the `wrx02` flash-method
@@ -280,11 +315,14 @@ The build-graph ratchet for the section above.
 `//src/platform/desktop/common/serial:serial_qt_compat` carries
 `serial_port_actions.h` to callers that should not have it, and its `visibility`
 list is frozen by `scripts/check-serial-compat-allowlist.py`: the list may
-shrink, never grow. It currently holds 5 entries — `//src/ui/desktop:__pkg__`
-and `//src/ui/desktop/biu:__pkg__` under UI, 0 in backend, plus
-`//src/platform/desktop/common/serial:__pkg__` (the package itself),
-`//src/platform/desktop/common/transport:__pkg__`, and `//tests:__pkg__`. The
-step 5 tail's wave 7 deleted the `//src/platform/desktop/common/flash/legacy`
+shrink, never grow. It currently holds 4 entries: `//src/ui/desktop:__pkg__`
+under UI (0 in backend), plus `//src/platform/desktop/common/serial:__pkg__`
+(the package itself), `//src/platform/desktop/common/transport:__pkg__`, and
+`//tests:__pkg__`. Step 6g removed `//src/ui/desktop/biu:__pkg__`: BIU now
+reaches the facade through `IDiagnosticLink`/`SerialDiagnosticLink` instead.
+`//src/ui/desktop:__pkg__` is step 6h's to remove, once `MainWindow`'s
+connection orchestration no longer needs the full facade directly. The step
+5 tail's wave 7 deleted the `//src/platform/desktop/common/flash/legacy`
 entry along with the package it named.
 
 The allowlist makes this debt measurable, which the prose above cannot: each
