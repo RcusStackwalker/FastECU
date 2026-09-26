@@ -257,6 +257,33 @@ Bazel fails a `glob()` if any single pattern matches no files, unless
 the last file a pattern covers, for example mid-way through a migration, needs
 `allow_empty` until the target itself goes.
 
+## Desktop composition root
+
+### The composition outlives the window it serves
+
+`apps/desktop/main.cpp` declares `DesktopComposition` before `MainWindow`,
+inside the `RESTART_CODE` loop: every restart rebuilds both, and
+`MainWindow`'s `MainWindowServices` references stay valid until the window
+is gone. The composition's destructor releases dependents first — logging
+engine, remote utility, serial facade — then quits and joins the syslogger
+thread. Before step 6c that thread was never stopped (`SystemLogger::finished`
+is never emitted), so every restart leaked one.
+
+### Construct the serial facade through `desktop_serial_factory`
+
+`apps/desktop` must not join `serial_qt_compat`'s frozen visibility list. The
+factory exposes construction only, returns an owner with a custom deleter, and
+keeps `SerialPortActions` an incomplete type in `apps/desktop`. It connects
+the facade's `LOG_*` signals to the sink with string-based `SIGNAL`/`SLOT`,
+which fail only at runtime; `desktop_serial_factory_test` is what catches a
+broken one.
+
+### `Settings` saves through the shared `FileActions`
+
+`Settings` used to build a throwaway `FileActions` reporting to a
+`NullEventSink`. It now takes the caller's instance, so diagnostics from a
+save reach the log window instead of being dropped.
+
 ## Testing
 
 ### Grep does not prove code is dead

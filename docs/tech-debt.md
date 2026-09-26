@@ -73,7 +73,7 @@ Actions:
 loading, serial/device setup, logging wiring, calibration lifecycle, ECU
 operation dispatch, log views, status updates, and dialogs. `mainwindow.h`
 still includes nearly every flash dialog module. `mainwindow.cpp` is about
-2.7k lines and `menu_actions.cpp` is down to 1,315 lines (from ~2.1k) after
+2.5k lines and `menu_actions.cpp` is down to 1,315 lines (from ~2.1k) after
 step 6b extracted the map-edit arithmetic into
 `//src/backend/calibration:map_edit`.
 
@@ -93,6 +93,12 @@ Actions:
 - Replace direct construction of all flash dialogs from `MainWindow` with a
   typed operation registry/factory that owns module-specific dependencies.
 - Keep new file, protocol, and hardware logic out of `MainWindow`.
+- Move logging-protocol registration (`MainWindow::setupLoggingEngine()`'s
+  three `registerProtocol` calls) into the composition root. It stayed in
+  `MainWindow` in step 6c because the SSM factory reads `ecu_radio_button`
+  to pick ECU vs TCU; moving it needs that choice passed in as data (for
+  example a `target_is_ecu` field in the logging snapshot) rather than read
+  from a widget inside the factory.
 - Remove the `goto ecu_operation_cleanup;` in
   `MainWindow::start_ecu_operations` (the Denso TCU service-action branch).
   `run_denso_tcu_service_action()` already returns a bool, so a guarded branch
