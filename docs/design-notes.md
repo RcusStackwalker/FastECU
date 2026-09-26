@@ -310,6 +310,56 @@ package that calls it. It lives in the serial package as `serial_idle`,
 visible only to `//src/ui/desktop`. `FlashOperationController` only passes
 the facade pointer through, so it needs no serial edge at all.
 
+## Platform selection
+
+### The composition root owns the direct/remote rule
+
+`SerialPortActions` receives a backend factory and never learns which
+backend it drives. `serial_connection_from_args` (`apps/desktop`) maps an
+empty `--host` to `DirectSerial`, and `make_serial_backend_factory`
+(`desktop_serial_factory`) builds the matching backend. Before step 6e the
+rule lived in the facade's constructor and again in the CAN transport
+factory; now a new platform, such as step 7's Android build, supplies its
+own factory without touching the facade.
+
+### Per-OS hooks sit behind one guard-free header
+
+Each former `Q_OS_*` branch in the direct backend is a protected member
+declared once in `serial_port_actions_direct.h` and defined in exactly one
+of `serial_port_actions_direct_unix.cpp` / `_windows.cpp`. Hook bodies were
+moved verbatim, so a Windows regression shows up as a compile failure in
+the wrong file rather than as changed behavior. Both J2534 packages publish
+their API at `src/platform/desktop/j2534/j2534_api.h`, so the common code
+has no guarded include.
+
+### The binary names the platform
+
+`desktop_serial_factory` links only the declaration of
+`make_direct_serial_backend()`. `fastecu` and `fastecu-bench` each carry a
+`select()` alias picking `direct_serial_backend_unix` or `_windows`; tests
+use `direct_serial_backend_for_tests`. A target that forgets the
+implementation fails to link.
+
+### `STATUS_*` stay macros
+
+`serial_facade_codes.h` keeps `STATUS_SUCCESS`/`STATUS_ERROR` and
+`SERIAL_P*` as macros: the Windows SDK's `ntstatus.h` defines
+`STATUS_SUCCESS` as a macro, which would break a constexpr of that name.
+
+### One header cannot be moc'd by two targets
+
+`qt_cc_library`'s moc genrule names its generated file after the header's
+basename alone (`third_party/qt/qt.bzl`), not after the calling target, so
+`direct_serial_backend_unix` and `_windows` cannot both list
+`serial_port_actions_direct.h` in `hdrs` directly — the genrules would
+collide at load time, on every platform, regardless of
+`target_compatible_with`. The package-private
+`serial_port_actions_direct_moc` target mocs that header once; both
+per-OS targets depend on it instead of moc'ing the header themselves, and
+`direct_serial_backend_for_tests` is an alias to whichever one matches the
+host OS. This is a Bazel/Qt integration limit, not a design preference — a
+future header split into per-OS pieces should keep it in mind.
+
 ## Testing
 
 ### QtTest suites using Google Mock must fail on its failures

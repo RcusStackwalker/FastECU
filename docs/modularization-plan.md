@@ -41,9 +41,9 @@ corrections are in the [flash qualification matrix](flash-qualification-matrix.m
   deleted the legacy flash package, the drain ratchet, and `ssm:qt_compat`.
 
 Step 6 (thin desktop shell) is under way: 6a (de-widget `FileActions`), 6b
-(calibration map-edit use case), 6c (desktop composition root), and 6d
-(flash-operation dispatch) are complete — see below. The rest of step 6,
-and step 7 (Android seam), have not started.
+(calibration map-edit use case), 6c (desktop composition root), 6d
+(flash-operation dispatch), and 6e (platform selection) are complete — see
+below. The rest of step 6, and step 7 (Android seam), have not started.
 
 ## Verified Current Baseline
 
@@ -275,9 +275,19 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      design. `test_mainwindow` now fails on Google Mock violations; before
      6d it had 14 silent ones. See the
      [design notes](design-notes.md#flash-operation-dispatch).
-   - Move platform selection into `apps/desktop`. 6c moved construction
-     only: the J2534 unix/windows choice and the direct/remote backend
-     choice still live inside `serial_qt_compat` and `SerialPortActions`.
+   - **6e platform selection — complete.** `SerialPortActions` takes a
+     required backend factory and no longer knows direct from remote;
+     `desktop_serial_factory`'s `SerialConnection` and the composition
+     root's `serial_connection_from_args` own that rule, and the CAN
+     transport factory takes a backend factory too. The direct backend's
+     Unix/Windows differences are named hooks in BUILD-selected
+     `serial_port_actions_direct_{unix,windows}.cpp` files, reached through
+     one `j2534_api.h` include path, and the `fastecu` and `fastecu-bench`
+     binaries select the implementation. `remote_utility` left the
+     `serial_qt_compat` allowlist, and `STATUS_*` has one definition. Three
+     PRs (6e-1 to 6e-3; fill in the numbers). See the
+     [design notes](design-notes.md#platform-selection) and the
+     [platform-selection bench checklist](platform-selection-bench-checklist.md).
    - Remove compatibility wrappers, obsolete facades, duplicate status macros, and the temporary aggregate implementation target.
    - Re-run packaging and the existing hardware bench checklists for affected logging/flashing paths.
 
