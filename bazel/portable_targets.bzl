@@ -35,6 +35,9 @@ PORTABLE_PACKAGES = {
         "romraider_parser",
         "text_format",
     ],
+    "src/backend/diagnostics": [
+        "obd_frames",
+    ],
     "src/backend/flash": [
         "can_flash_uds_channel",
         "flash_device_lookup",

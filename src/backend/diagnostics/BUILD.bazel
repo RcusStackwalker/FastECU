@@ -1,0 +1,25 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = [
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+    "//tests:__pkg__",
+])
+
+cc_library(
+    name = "obd_frames",
+    srcs = ["obd_frames.cpp"],
+    hdrs = ["obd_frames.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/protocol",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "obd_frames_test",
+    srcs = ["obd_frames_test.cpp"],
+    deps = [":obd_frames"],
+)
