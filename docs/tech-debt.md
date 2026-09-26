@@ -108,12 +108,13 @@ Actions:
   protocol/policy selection, and log-file handling still live in the UI.
 - **Confirm or fix the OpenPort five-baud ASCII comparison.** Step 6g's
   `five_baud_header` (`src/backend/diagnostics/obd_frames.cpp`) preserved the
-  J2534 branch's comparison of response bytes against the ASCII characters
-  `'8'` and `'f'`, matching the direct-serial branch's numeric `0x08`/`0x8f`
-  comparison at the same offsets only by coincidence of digit value. Confirm
-  against a bench capture whether the OpenPort firmware genuinely echoes
-  ASCII here before changing it; see the
-  [design notes](design-notes.md#diagnostic-tools).
+  J2534 branch's comparison of response bytes `[5]`/`[7]` (iso9141) and
+  `[8]`/`[9]` (iso14230) against the ASCII characters `'8'`/`'8'` and
+  `'8'`/`'f'` -- different offsets from the direct-serial branch's numeric
+  `0x08`/`0x08` (bytes `[1]`/`[2]`) and `0x8F` (byte `[2]`) comparison, and a
+  match only by coincidence of digit value. Confirm against a bench capture
+  whether the OpenPort firmware genuinely echoes ASCII here before changing
+  it; see the [design notes](design-notes.md#diagnostic-tools).
 - **Fix DataTerminal's `delay(...)` script parser.** `split(")").at(1).split("(").at(0)`
   parses `delay(100)` to an empty string, so every scripted delay is
   currently 0 ms (`src/ui/desktop/dataterminal.cpp`). Pinned, not fixed, in

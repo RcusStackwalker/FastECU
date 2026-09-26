@@ -74,10 +74,12 @@ status below, refreshed after 6a-4/6a-5:
   the `//:backend_no_widgets` source scan that 6a-5 added and most of
   `//:portable_closure`'s Qt checking, which is gone: that check is now only
   the platform-label sweep.
-- The portable closure now spans `src/algorithms` plus twelve `src/backend`
-  package groups: `ports`, `logging` (+ `logging/protocols`), `protocol`,
-  `flash` (+ `flash/eeprom`), `config`, `checksum`, `definition`,
-  `diagnostics`, and `calibration`. Registration is single — `PORTABLE_PACKAGES` in
+- The portable closure now spans `src/algorithms` plus thirteen `src/backend`
+  package groups: `ports`, `logging` (+ `logging/protocols`), `protocol`
+  (+ `protocol/uds`), `flash` (+ `flash/ecu`), `config`, `checksum`,
+  `definition`, `diagnostics`, `calibration`, and `service_functions`.
+  `flash/eeprom` targets are swept as closure roots but not registered in
+  `PORTABLE_PACKAGES`. Registration is single — `PORTABLE_PACKAGES` in
   `bazel/portable_targets.bzl`, from which the `genquery`, the test's `data`
   list, and the registry the check reads are all derived.
 - The `serial_qt_compat` allowlist has shrunk from its frozen 20 entries to

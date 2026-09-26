@@ -371,18 +371,22 @@ Four behaviors look wrong but are deliberately unchanged, each pinned by a
 test rather than fixed, because fixing any of them needs a bench capture to
 confirm what the ECU actually expects:
 
-- **The OpenPort five-baud response check compares ASCII, not values.**
-  `five_baud_header`'s J2534 branch compares response bytes to the ASCII
-  characters `'8'` and `'f'` at fixed offsets, while the direct-serial branch
-  compares the same positions to the numeric bytes `0x08`/`0x08` and `0x8f`.
-  Whether the OpenPort firmware genuinely echoes ASCII digits here, or the
-  original code meant the numeric comparison and got it wrong, is not
-  something to guess at from the source.
+- **The OpenPort five-baud response check compares ASCII, not values, and at
+  different offsets.** `five_baud_header`'s J2534 branch checks response
+  bytes `[5]`/`[7]` (iso9141) and `[8]`/`[9]` (iso14230) against the ASCII
+  characters `'8'`/`'8'` and `'8'`/`'f'`, while the direct-serial branch
+  checks bytes `[1]`/`[2]` (iso9141) against the numeric values `0x08`/`0x08`
+  and just byte `[2]` (iso14230) against `0x8F`. Whether the OpenPort
+  firmware genuinely echoes ASCII digits here, or the original code meant the
+  numeric comparison and got it wrong, is not something to guess at from the
+  source.
 - **K-Line unframing keeps its length heuristics.** `unframe_data_response`
-  and `unframe_dtc_list_response` strip a fixed number of leading bytes
-  chosen by the frame's total length (`< 7`, `< 10`, otherwise) rather than
-  by parsing a length field. It reproduces today's behavior exactly; a
-  proper length-field parse is a separate, riskier change.
+  strips a fixed number of leading bytes chosen by the frame's total length
+  (`< 7` keeps the last byte, `< 10` drops 5, otherwise drops 6) rather than
+  by parsing a length field; `unframe_dtc_list_response` uses a coarser
+  two-tier version of the same idea (`< 7` keeps the last byte, otherwise
+  drops 4). Both reproduce today's behavior exactly; a proper length-field
+  parse is a separate, riskier change.
 - **DataTerminal's `delay(...)` parse yields 0.** `split(")").at(1).split("(").at(0)`
   parses `delay(100)` to an empty string, so every scripted delay is 0 ms.
   Scripts written against the existing (broken) timing would behave
