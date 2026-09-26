@@ -16,9 +16,6 @@
 #include <QGroupBox>
 #include <QLabel>
 
-// Forward declaration
-class SerialPortActions;
-
 QT_BEGIN_NAMESPACE
 namespace Ui
 {
@@ -41,8 +38,6 @@ class BiuOpsSubaruSwitches : public QWidget
     // QLabel *label;
 
     QStringList *switch_result;
-
-    // SerialPortActions *serial;
 
   private slots:
 
