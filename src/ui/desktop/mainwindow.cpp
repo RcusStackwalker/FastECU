@@ -9,6 +9,7 @@
 #include "src/backend/config/legacy/legacy_config_paths.h"
 #include "src/backend/config/menu_definition.h"
 #include "src/backend/flash/flash_device_lookup.h"
+#include "src/backend/flash/flash_operation_request.h"
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/ui/desktop/menu/menu_builder.h"
@@ -1097,11 +1098,10 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                 update_protocol_info(rom_number);
             }
             ecuCalDef[rom_number]->FlashMethod = configValues->flash_protocol_selected_protocol_name;
-            ecuCalDef[rom_number]->Kernel =
-                configValues->kernel_files_directory +
-                configValues->flash_protocol_kernel.at(
-                    configValues->flash_protocol_selected_id
-                        .toInt()); // check_kernel(ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod));
+            ecuCalDef[rom_number]->Kernel = QString::fromStdString(fastecu::flash::kernel_path(
+                configValues->kernel_files_directory.toStdString(),
+                configValues->flash_protocol_kernel.at(configValues->flash_protocol_selected_id.toInt())
+                    .toStdString()));
             ecuCalDef[rom_number]->KernelStartAddr =
                 configValues->flash_protocol_kernel_addr.at(configValues->flash_protocol_selected_id.toInt());
             ecuCalDef[rom_number]->McuType = configValues->flash_protocol_selected_mcu;
@@ -1123,11 +1123,10 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                                                    configValues->flash_protocol_selected_protocol_name);
             update_protocol_info(rom_number);
             ecuCalDef[rom_number]->FlashMethod = configValues->flash_protocol_selected_protocol_name;
-            ecuCalDef[rom_number]->Kernel =
-                configValues->kernel_files_directory +
-                configValues->flash_protocol_kernel.at(
-                    configValues->flash_protocol_selected_id
-                        .toInt()); // check_kernel(ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod));
+            ecuCalDef[rom_number]->Kernel = QString::fromStdString(fastecu::flash::kernel_path(
+                configValues->kernel_files_directory.toStdString(),
+                configValues->flash_protocol_kernel.at(configValues->flash_protocol_selected_id.toInt())
+                    .toStdString()));
             ecuCalDef[rom_number]->KernelStartAddr =
                 configValues->flash_protocol_kernel_addr.at(configValues->flash_protocol_selected_id.toInt());
             ecuCalDef[rom_number]->McuType = configValues->flash_protocol_selected_mcu;
@@ -1137,23 +1136,13 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
 
         const fastecu::config::ConfigPaths eeprom_paths = fastecu::config::paths_from_config_values(*configValues);
 
-        const fastecu::flash::FlashOperation operation = [&cmd_type]
-        {
-            if (cmd_type == "write")
-            {
-                return fastecu::flash::FlashOperation::Write;
-            }
-            if (cmd_type == "test_write")
-            {
-                return fastecu::flash::FlashOperation::TestWrite;
-            }
-            return fastecu::flash::FlashOperation::Read;
-        }();
+        const fastecu::flash::FlashOperation operation =
+            fastecu::flash::flash_operation_from_command(cmd_type.toStdString());
         std::optional<bytes::Bytes> portable_image =
             fastecu::flash::portableImageForOperation(operation, bytes::view(ecuCalDef[rom_number]->FullRomData));
 
         const std::string protocol = configValues->flash_protocol_selected_protocol_name.toStdString();
-        const bool denso_tcu = protocol == "sub_tcu_denso_sh7055_can" || protocol == "sub_tcu_denso_sh7058_can";
+        const bool denso_tcu = fastecu::flash::is_denso_tcu_protocol(protocol);
         if (operation == fastecu::flash::FlashOperation::Read && denso_tcu)
         {
             using fastecu::service_functions::DensoTcuReadAction;
@@ -1248,14 +1237,8 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                 QDateTime dateTime = dateTime.currentDateTime();
                 QString dateTimeString = dateTime.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
 
-                if (ecuCalDef[ecuCalDefIndex]->RomId.length())
-                {
-                    ecuCalDef[ecuCalDefIndex]->FileName = ecuCalDef[ecuCalDefIndex]->RomId + dateTimeString + ".bin";
-                }
-                else
-                {
-                    ecuCalDef[ecuCalDefIndex]->FileName = "read_image_" + dateTimeString + ".bin";
-                }
+                ecuCalDef[ecuCalDefIndex]->FileName = QString::fromStdString(fastecu::flash::read_image_filename(
+                    ecuCalDef[ecuCalDefIndex]->RomId.toStdString(), dateTimeString.toStdString()));
 
                 // emit LOG_D("Checking definitions, please wait...";
                 fileActions->open_subaru_rom_file(ecuCalDef[ecuCalDefIndex], ecuCalDef[ecuCalDefIndex]->FileName);
