@@ -125,7 +125,7 @@ and execution failures return a nonzero status in every mode.
 A `MUT_DMA` log protocol has been added for Mitsubishi M32R ECUs communicating over K-Line (MUT-II/MUT-III physical layer). It supports two modes:
 
 - **Free-form logging** — user-defined channel list loaded from a RomRaider-format logger XML (see `resources/shared/config/logger_mut_dma_example.xml`). The address IDs in the example file are placeholders; replace them with real ECU parameter IDs before use.
-- **Programmatic memory access** — `MainWindow::mut_read_memory` / `mut_write_memory` read and write arbitrary RAM. Writes are gated to the `0x4000–0xBFFF` window.
+- **Programmatic memory access** — `mutdma::read_memory` / `mutdma::write_memory` (in `//src/backend/protocol:mut_memory`) read and write arbitrary RAM, with no UI caller wired up yet. Writes are gated to the `0x4000–0xBFFF` window.
 
 **Status: NOT bench-qualified. Do not use on a live vehicle.**
 
