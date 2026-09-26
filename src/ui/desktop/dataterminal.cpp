@@ -2,6 +2,7 @@
 #include "src/ui/desktop/diagnostic_link_io.h"
 
 #include <QFile>
+#include <QtGlobal>
 
 #include <cstdint>
 
@@ -204,7 +205,7 @@ void DataTerminal::sendToInterface()
             const auto opened = link->open(fastecu::diagnostics::KlineLinkConfig{
                 .header = fastecu::diagnostics::KlineHeader::None,
                 .iso14230_connection = iso14230,
-                .baud = ui->klineBaudRate->text().toInt(),
+                .baud = qRound(ui->klineBaudRate->text().toDouble()),
                 .start_byte = 0x80,
                 .tester_id = tester,
                 .target_id = target,
@@ -292,7 +293,7 @@ void DataTerminal::sendToInterface()
             emit LOG_D("Opening interface...", true, true);
             const auto opened = link->open(fastecu::diagnostics::CanLinkConfig{
                 .iso15765 = iso15765,
-                .bitrate = ui->canBaudRate->text().toInt(),
+                .bitrate = qRound(ui->canBaudRate->text().toDouble()),
                 .extended_id = ui->canIdLength->currentIndex() == 1,
                 .source_id = source,
                 .destination_id = destination,
