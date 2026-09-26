@@ -1,6 +1,6 @@
 # Step 6f: Desktop logging composition
 
-Status: conversational design approved; written spec awaiting review.
+Status: written spec approved; implementation plan awaiting review.
 
 Baseline: `8d55e3ab`, following completion of modularization step 6e.
 
