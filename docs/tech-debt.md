@@ -71,8 +71,9 @@ Actions:
 
 `MainWindow` remains the central coordinator for startup, settings/config
 loading, serial/device setup, logging wiring, calibration lifecycle, ECU
-operation dispatch, log views, status updates, and dialogs. `mainwindow.h`
-still includes nearly every flash dialog module. `mainwindow.cpp` is about
+operation dispatch, log views, status updates, and dialogs. Since step 6d
+`mainwindow.h` includes no flash dialog, and flash dispatch runs through
+`FlashOperationController`. `mainwindow.cpp` is about
 2.5k lines (2,473 after step 6d) and `menu_actions.cpp` is down to 1,315 lines (from ~2.1k) after
 step 6b extracted the map-edit arithmetic into
 `//src/backend/calibration:map_edit`.
