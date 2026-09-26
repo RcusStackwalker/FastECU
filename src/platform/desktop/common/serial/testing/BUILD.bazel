@@ -12,10 +12,10 @@ qt_cc_library(
         # FakeBackend derives from SerialPortActionsDirect
         # (serial_port_actions_direct.h), which serial_platform_api's wrapped
         # target (serial_qt_compat) no longer carries after the direct/remote
-        # backend split (step 6e-1 task 5) -- depend on the owning target
-        # directly. This is a test-only target (:direct_serial_backend_for_tests):
-        # fake_serial_backend itself is testonly, and the binaries pick their
-        # own platform implementation (step 6e-3).
+        # backend split -- depend on :direct_serial_backend_for_tests, the
+        # testonly alias for the platform's direct backend. fake_serial_backend
+        # is itself testonly, and the binaries select their own platform
+        # implementation.
         "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
         "//src/platform/desktop/common/serial:serial_platform_api",
         "@googletest//:gtest",

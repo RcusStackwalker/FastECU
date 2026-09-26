@@ -119,15 +119,14 @@ DIRECT_SERIAL_BACKEND_VISIBILITY = [
     "//tests:__pkg__",
 ]
 
-# NOT IN THE BRIEF'S TEXT: qt_cc_library names its generated moc genrule after
-# the header's basename alone (moc_serial_port_actions_direct), not after the
-# calling target. Two qt_cc_library calls in this package both passing
-# serial_port_actions_direct.h through `hdrs` therefore collide at load time,
-# on every platform, regardless of target_compatible_with -- Bazel rejected
-# the package outright rather than failing only the wrong-OS build (see
-# task-9-report.md). Mocing the header once here and having both platform
-# targets depend on the result avoids the collision without touching the
-# vendored moc macro in third_party/qt/qt.bzl.
+# qt_cc_library names its generated moc genrule after the header's basename
+# alone (moc_serial_port_actions_direct), not after the calling target, so two
+# targets in one package cannot both list serial_port_actions_direct.h in
+# `hdrs`: the package fails to load on every platform, regardless of
+# target_compatible_with. Moc it once here and have both platform targets
+# depend on the result (see "One header cannot be moc'd by two targets" in
+# docs/design-notes.md). This avoids touching the vendored moc macro in
+# third_party/qt/qt.bzl.
 qt_cc_library(
     name = "serial_port_actions_direct_moc",
     srcs = [],
@@ -216,7 +215,7 @@ alias(
         "//src/platform/desktop/common/serial:__pkg__",
         # testing/fake_backend.h derives FakeBackend from
         # SerialPortActionsDirect, a real same-layer consumer of the header
-        # this target's underlying implementation owns (see task-9-report.md).
+        # this target's underlying implementation owns.
         "//src/platform/desktop/common/serial/testing:__pkg__",
         "//tests:__pkg__",
     ],

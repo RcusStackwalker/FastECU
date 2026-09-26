@@ -463,13 +463,17 @@ existing work instead of opening a parallel initiative:
 ### P2: Naming and source/data organization
 
 Some names and data placement still reflect earlier architecture:
-`log_operations_ssm.cpp` contains MUT/DMA bench utilities, and 31 source/header
-files define duplicate `STATUS_SUCCESS`/`STATUS_ERROR` macros.
+`log_operations_ssm.cpp` contains MUT/DMA bench utilities. The duplicate
+`STATUS_SUCCESS`/`STATUS_ERROR` macros are resolved: step 6e left one
+definition, in `src/platform/desktop/common/serial/serial_facade_codes.h`. They
+stay macros there because the Windows SDK's `ntstatus.h` defines
+`STATUS_SUCCESS` as one.
 
 Actions:
 
 - Move misplaced code into files and namespaces matching current ownership.
-- Replace repeated status macros with typed enums or shared result types.
+- Replace the facade's integer `STATUS_*` return codes with typed enums or
+  shared result types, under names that cannot collide with `ntstatus.h`.
 - Remove stale commented-out code while touching nearby behavior.
 
 ## Coverage growth sequence toward 80%

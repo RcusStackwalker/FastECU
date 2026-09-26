@@ -285,10 +285,10 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      one `j2534_api.h` include path, and the `fastecu` and `fastecu-bench`
      binaries select the implementation. `remote_utility` left the
      `serial_qt_compat` allowlist, and `STATUS_*` has one definition. Three
-     PRs (6e-1 to 6e-3; fill in the numbers). See the
+     PRs (6e-1 to 6e-3). See the
      [design notes](design-notes.md#platform-selection) and the
      [platform-selection bench checklist](platform-selection-bench-checklist.md).
-   - Remove compatibility wrappers, obsolete facades, duplicate status macros, and the temporary aggregate implementation target.
+   - Remove compatibility wrappers, obsolete facades, and the temporary aggregate implementation target. (Duplicate status macros are resolved: `STATUS_SUCCESS`/`STATUS_ERROR` have one definition, in `serial_facade_codes.h`.)
    - Re-run packaging and the existing hardware bench checklists for affected logging/flashing paths.
 
 7. **Add the Android-ready seam**
