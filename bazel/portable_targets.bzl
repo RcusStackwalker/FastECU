@@ -147,6 +147,7 @@ PORTABLE_PACKAGES = {
         "ports",
     ],
     "src/backend/protocol": [
+        "mut_memory",
         "protocol",
     ],
     "src/backend/protocol/uds": [

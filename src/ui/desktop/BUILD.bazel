@@ -108,7 +108,6 @@ qt_cc_library(
         "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/serial:serial_idle",
         "//src/platform/desktop/common/serial:serial_qt_compat",
-        "//src/platform/desktop/common/transport",
         "//src/ui/desktop/biu",
         "//src/ui/desktop/calibration:map_edit_adapter",
         "//src/ui/desktop/checksum:checksum_correction_command",

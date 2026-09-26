@@ -78,3 +78,27 @@ fastecu_portable_gtest(
         "//src/backend/protocol/testing:scripted_transports",
     ],
 )
+
+cc_library(
+    name = "mut_memory",
+    srcs = ["mut_memory.cpp"],
+    hdrs = ["mut_memory.h"],
+    deps = [
+        ":protocol",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/mut_dma",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "mut_memory_test",
+    srcs = ["mut_memory_test.cpp"],
+    deps = [
+        ":mut_memory",
+        "//src/algorithms/protocol/mut_dma",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/protocol/testing:scripted_transports",
+    ],
+)
