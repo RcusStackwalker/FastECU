@@ -284,8 +284,9 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      `serial_port_actions_direct_{unix,windows}.cpp` files, reached through
      one `j2534_api.h` include path, and the `fastecu` and `fastecu-bench`
      binaries select the implementation. `remote_utility` left the
-     `serial_qt_compat` allowlist, and `STATUS_*` has one definition. Three
-     PRs (6e-1 to 6e-3). See the
+     `serial_qt_compat` allowlist, and `STATUS_*` has one definition. Four
+     PRs (#373 spec and plan, #374 6e-1 connection choice, #375 6e-2 OS
+     split, #376 6e-3 link selection and close-out). See the
      [design notes](design-notes.md#platform-selection) and the
      [platform-selection bench checklist](platform-selection-bench-checklist.md).
    - Remove compatibility wrappers, obsolete facades, and the temporary aggregate implementation target. (Duplicate status macros are resolved: `STATUS_SUCCESS`/`STATUS_ERROR` have one definition, in `serial_facade_codes.h`.)
