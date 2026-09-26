@@ -62,8 +62,8 @@ int main(int argc, char *argv[])
 
         // Declared before the window so it outlives it: MainWindow holds
         // references into the composition until it is destroyed.
-        DesktopComposition composition;
-        MainWindow w(composition.services(), addr, password);
+        DesktopComposition composition{addr, password};
+        MainWindow w(composition.services(), addr);
 
         QScreen *screen = QGuiApplication::primaryScreen();
         QRect screenGeometry = screen->geometry();

@@ -14,7 +14,10 @@ qt_cc_library(
     deps = QT_DEPS + [
         "//src/backend/definitions",
         "//src/platform/desktop/common/logging",
+        "//src/platform/desktop/common/logging:logging_runtime",
         "//src/platform/desktop/common/ports",
+        "//src/platform/desktop/common/remote_utility",
+        "//src/platform/desktop/common/serial:desktop_serial_factory",
         "//src/ui/desktop:main_window_services",
     ],
 )
