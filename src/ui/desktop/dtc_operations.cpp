@@ -165,7 +165,7 @@ int DtcOperations::five_baud_init(const QString& protocol)
 
     if (serial->get_use_openport2_adapter())
     {
-        serial->set_j2534_ioctl(P1_MAX, 35);
+        serial->set_j2534_ioctl(kJ2534IoctlP1Max, 35);
     }
     else
     {
@@ -279,6 +279,10 @@ int DtcOperations::fast_init()
     return STATUS_SUCCESS;
 }
 
+// Legacy protocol framing mixes signed QByteArray::at() results and signed
+// literals into bitwise arithmetic; tracked in docs/tech-debt.md "Convert
+// suppressed signed-bitwise arithmetic to unsigned operands".
+// NOLINTBEGIN(bugprone-signed-bitwise)
 int DtcOperations::iso15765_init()
 {
     QByteArray output;
@@ -709,6 +713,7 @@ int DtcOperations::clear_dtc()
 
     return STATUS_SUCCESS;
 }
+// NOLINTEND(bugprone-signed-bitwise)
 
 /*
  * Calculate SSM checksum to message

@@ -56,7 +56,8 @@ void TestFacadeThreading::constructDestroy_withoutUse_noThreadNoHang()
     QElapsedTimer t;
     t.start();
     {
-        SerialPortActions serial; // never used: the I/O thread must not start
+        SerialPortActions serial{[]() -> SerialBackend *
+                                 { return nullptr; }}; // never used: the I/O thread must not start
     }
     QVERIFY2(t.elapsed() < 1000, "unused facade must construct/destruct instantly");
 }
@@ -64,12 +65,12 @@ void TestFacadeThreading::constructDestroy_withoutUse_noThreadNoHang()
 void TestFacadeThreading::getSet_marshalsToBackendThread()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
 
     QVERIFY(serial.set_add_ssm_header(true)); // first call: starts the I/O thread
     QVERIFY(fake != nullptr);
@@ -83,12 +84,12 @@ void TestFacadeThreading::getSet_marshalsToBackendThread()
 void TestFacadeThreading::scriptedRead_returnsThroughFacade()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
 
     serial.set_add_ssm_header(false); // force backend creation
     const QByteArray expected("\x80\xf0\x10\x02\xaa\xbb\x11", 7);
@@ -120,12 +121,12 @@ void TestFacadeThreading::backendException_propagatesWithoutHangingAndCleansUp()
 void TestFacadeThreading::transportAdapters_isOpenContainsBackendException()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false);
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
@@ -170,12 +171,12 @@ void TestFacadeThreading::transportAdapters_isOpenContainsBackendException()
 void TestFacadeThreading::transportAdapters_normalEmptyReadIsSuccess()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false);
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
@@ -198,12 +199,12 @@ void TestFacadeThreading::transportAdapters_normalEmptyReadIsSuccess()
 void TestFacadeThreading::transportAdapters_preCancelledReadSkipsBackend()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false);
     EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
     FastEcuSsmTransport ssm(&serial);
@@ -228,12 +229,12 @@ void TestFacadeThreading::transportAdapters_preCancelledReadSkipsBackend()
 void TestFacadeThreading::transportAdapters_postCallCancellationPrecedesDisconnect()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false);
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
@@ -270,12 +271,12 @@ void TestFacadeThreading::transportAdapters_postCallCancellationPrecedesDisconne
 void TestFacadeThreading::transportAdapters_backendReadExceptionMapsToInternal()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false);
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
@@ -300,12 +301,12 @@ void TestFacadeThreading::transportAdapters_backendReadExceptionMapsToInternal()
 void TestFacadeThreading::canTransport_truncatedFrameMapsToInternal()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false);
     EXPECT_CALL(*fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(QByteArray("\x01\x02\x03", 3)));
     cdbg::FastEcuCanTransport can(&serial);
@@ -362,12 +363,12 @@ void TestFacadeThreading::transportAdapters_nullOrClosedAdapterReturnsDisconnect
     // through the backend's is_serial_port_open() rather than a null check.
     {
         FakeBackend *fake = nullptr;
-        SerialPortActions serial("", "", nullptr, nullptr,
-                                 [&fake]() -> SerialBackend *
-                                 {
-                                     fake = new NiceFakeBackend();
-                                     return fake;
-                                 });
+        SerialPortActions serial(
+            [&fake]() -> SerialBackend *
+            {
+                fake = new NiceFakeBackend();
+                return fake;
+            });
         serial.set_add_ssm_header(false);
         EXPECT_CALL(*fake, is_serial_port_open()).WillRepeatedly(::testing::Return(false));
         FastEcuSsmTransport ssm(&serial);
@@ -408,12 +409,12 @@ void TestFacadeThreading::transportAdapters_nullOrClosedAdapterReturnsDisconnect
 void TestFacadeThreading::transportAdapters_writeSuccessAndCanFrameEncoding()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false);
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
@@ -447,12 +448,12 @@ void TestFacadeThreading::transportAdapters_writeSuccessAndCanFrameEncoding()
 void TestFacadeThreading::transportAdapters_disconnectDuringWriteMapsToDisconnected()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false);
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
@@ -487,12 +488,12 @@ void TestFacadeThreading::transportAdapters_disconnectDuringWriteMapsToDisconnec
 void TestFacadeThreading::transportAdapters_disconnectDuringReadMapsToDisconnected()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false);
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
@@ -530,12 +531,12 @@ void TestFacadeThreading::transportAdapters_disconnectDuringReadMapsToDisconnect
 void TestFacadeThreading::transportAdapters_backendWriteExceptionMapsToInternal()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false);
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
@@ -570,12 +571,12 @@ void TestFacadeThreading::transportAdapters_backendWriteExceptionMapsToInternal(
 void TestFacadeThreading::transportAdapters_backendNonStandardExceptionMapsToInternal()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false);
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
@@ -627,12 +628,12 @@ void TestFacadeThreading::transportAdapters_backendNonStandardExceptionMapsToInt
 void TestFacadeThreading::transportAdapters_cancellationPrecedesReadException()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false);
     FastEcuSsmTransport ssm(&serial);
     mutdma::FastEcuKlineTransport kline(&serial);
@@ -668,12 +669,12 @@ void TestFacadeThreading::transportAdapters_cancellationPrecedesReadException()
 void TestFacadeThreading::klineTransport_setBaudSuccessRejectionDisconnectException()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false);
     mutdma::FastEcuKlineTransport kline(&serial);
 
@@ -741,13 +742,13 @@ void TestFacadeThreading::workerThreadCaller_noAffinityWarnings()
 
     const QByteArray expected("\x80\xf0\x10\x01\x55\x66", 6);
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake, &expected]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 EXPECT_CALL(*fake, read_serial_data(100)).WillOnce(::testing::Return(expected));
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake, &expected]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            EXPECT_CALL(*fake, read_serial_data(100)).WillOnce(::testing::Return(expected));
+            return fake;
+        });
 
     QByteArray got;
     std::thread worker(
@@ -766,12 +767,12 @@ void TestFacadeThreading::workerThreadCaller_noAffinityWarnings()
 void TestFacadeThreading::concurrentCallers_serializeWithoutInterleaving()
 {
     FakeBackend *fake = nullptr;
-    SerialPortActions serial("", "", nullptr, nullptr,
-                             [&fake]() -> SerialBackend *
-                             {
-                                 fake = new NiceFakeBackend();
-                                 return fake;
-                             });
+    SerialPortActions serial(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial.set_add_ssm_header(false); // create backend
 
     std::atomic<int> activeCalls{0};
@@ -810,12 +811,12 @@ void TestFacadeThreading::destroyAfterUse_joinsIoThread()
     QPointer<QThread> ioThread;
     {
         FakeBackend *fake = nullptr;
-        SerialPortActions serial("", "", nullptr, nullptr,
-                                 [&fake]() -> SerialBackend *
-                                 {
-                                     fake = new NiceFakeBackend();
-                                     return fake;
-                                 });
+        SerialPortActions serial(
+            [&fake]() -> SerialBackend *
+            {
+                fake = new NiceFakeBackend();
+                return fake;
+            });
         serial.set_add_ssm_header(true);
         ioThread = fake->thread();
         QVERIFY(ioThread && ioThread->isRunning());
@@ -826,12 +827,12 @@ void TestFacadeThreading::destroyAfterUse_joinsIoThread()
 void TestFacadeThreading::destroyWhileReadInFlight_waitsForBackendCall()
 {
     FakeBackend *fake = nullptr;
-    auto *serial = new SerialPortActions("", "", nullptr, nullptr,
-                                         [&fake]() -> SerialBackend *
-                                         {
-                                             fake = new NiceFakeBackend();
-                                             return fake;
-                                         });
+    auto *serial = new SerialPortActions(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
 
     serial->set_add_ssm_header(false); // create backend before wiring gates
 
@@ -882,12 +883,12 @@ int run_throwing_backend_child()
     bool exceptionPropagated = false;
     {
         FakeBackend *fake = nullptr;
-        SerialPortActions serial("", "", nullptr, nullptr,
-                                 [&fake]() -> SerialBackend *
-                                 {
-                                     fake = new NiceFakeBackend();
-                                     return fake;
-                                 });
+        SerialPortActions serial(
+            [&fake]() -> SerialBackend *
+            {
+                fake = new NiceFakeBackend();
+                return fake;
+            });
         serial.set_add_ssm_header(false);
         EXPECT_CALL(*fake, read_serial_data(10))
             .WillOnce(::testing::Throw(std::runtime_error("scripted backend read failure")));

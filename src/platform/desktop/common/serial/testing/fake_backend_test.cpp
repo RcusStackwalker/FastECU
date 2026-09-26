@@ -13,7 +13,7 @@ class FakeBackendTest : public QObject
   private slots:
     void defaultActionsPreserveConfigurationThroughFacade()
     {
-        SerialPortActions serial("", "", nullptr, nullptr, []() -> SerialBackend * { return new NiceFakeBackend; });
+        SerialPortActions serial([]() -> SerialBackend * { return new NiceFakeBackend; });
         QVERIFY(serial.set_add_iso14230_header(true));
         QVERIFY(serial.set_can_source_address(0x7E1));
         QVERIFY(serial.set_serial_port_baudrate("10400"));
@@ -28,12 +28,12 @@ class FakeBackendTest : public QObject
     void expectationsScriptFacadeIoInOrder()
     {
         FakeBackend *fake = nullptr;
-        SerialPortActions serial("", "", nullptr, nullptr,
-                                 [&fake]() -> SerialBackend *
-                                 {
-                                     fake = new NiceFakeBackend;
-                                     return fake;
-                                 });
+        SerialPortActions serial(
+            [&fake]() -> SerialBackend *
+            {
+                fake = new NiceFakeBackend;
+                return fake;
+            });
         QVERIFY(serial.set_add_ssm_header(false)); // create backend before expectations
         ::testing::InSequence sequence;
         EXPECT_CALL(*fake, write_serial_data(QByteArray("request"))).WillOnce(::testing::Return(QByteArray("request")));
@@ -48,12 +48,12 @@ class FakeBackendTest : public QObject
         if (!mode.isEmpty())
         {
             FakeBackend *fake = nullptr;
-            SerialPortActions serial("", "", nullptr, nullptr,
-                                     [&fake]() -> SerialBackend *
-                                     {
-                                         fake = new NiceFakeBackend;
-                                         return fake;
-                                     });
+            SerialPortActions serial(
+                [&fake]() -> SerialBackend *
+                {
+                    fake = new NiceFakeBackend;
+                    return fake;
+                });
             QVERIFY(serial.set_add_ssm_header(false));
             if (mode == "unmet")
             {

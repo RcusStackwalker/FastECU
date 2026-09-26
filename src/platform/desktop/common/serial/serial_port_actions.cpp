@@ -2,25 +2,11 @@
 
 #include <utility>
 
-#include "remote_serial_backend.h"
 #include "serial_backend_host.h"
 
-SerialPortActions::SerialPortActions(QString peerAddress, QString password, QWebSocket *web_socket, QObject *parent,
-                                     std::function<SerialBackend *()> backendFactoryForTests)
-    : QObject{parent}, peerAddress(std::move(peerAddress)), password(std::move(password)), externalSocket(web_socket),
-      backendFactory(std::move(backendFactoryForTests))
+SerialPortActions::SerialPortActions(std::function<SerialBackend *()> backend_factory, QObject *parent)
+    : QObject{parent}, backendFactory(std::move(backend_factory))
 {
-    if (!backendFactory)
-    {
-        backendFactory = [this]() -> SerialBackend *
-        {
-            if (isDirectConnection())
-            {
-                return new SerialPortActionsDirect();
-            }
-            return new RemoteSerialBackend(this->peerAddress, this->password, this->externalSocket);
-        };
-    }
 }
 
 SerialPortActions::~SerialPortActions()
@@ -41,11 +27,6 @@ SerialPortActions::~SerialPortActions()
     {
         QThread::yieldCurrentThread();
     }
-}
-
-bool SerialPortActions::isDirectConnection(void)
-{
-    return (peerAddress == "");
 }
 
 void SerialPortActions::ensureBackendStarted()

@@ -12,15 +12,7 @@ import sys
 BUILD = "src/platform/desktop/common/serial/BUILD.bazel"
 
 # Regenerate ONLY by removing entries. See the step 3 design doc.
-#
-# One entry is not debt: //src/platform/desktop/common/remote_utility is a
-# same-layer sibling that depends on serial_qt_compat's websocketiodevice.h
-# / qtrohelper.hpp (not serial_port_actions.h), a legitimate platform-internal
-# edge that Step 1's serial_port_actions.h search does not surface. It is
-# listed here so the freeze test passes, but it is not expected to shrink
-# the way the serial_port_actions.h debt entries are.
 FROZEN = {
-    "//src/platform/desktop/common/remote_utility:__pkg__",
     "//src/platform/desktop/common/serial:__pkg__",
     "//src/platform/desktop/common/transport:__pkg__",
     "//src/ui/desktop:__pkg__",

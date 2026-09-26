@@ -306,24 +306,60 @@ Actions:
 - Delete `serial_qt_compat` once only the `remote_utility` edge and `//tests`
   remain, and fold its sources into the owning packages.
 
-### P2: Convert the get-key cipher arithmetic to unsigned operands
+### P2: Convert suppressed signed-bitwise arithmetic to unsigned operands
 
-`src/ui/desktop/get_key_operations_subaru.cpp` (the Subaru key-recovery
-dialog) mixes signed literals and `int` loop counters into unsigned bit
-arithmetic: 39 `bugprone-signed-bitwise` findings, suppressed with a
-`NOLINTBEGIN`/`NOLINTEND` block when step 6c-1 touched the file. None is a
-live defect under C++23 (signed left shifts such as `roundFunction`'s
-promoted `uint16_t << 16` wrap modulo 2^32 since C++20), but the code only
-works because every operand happens to be non-negative.
+Four files suppress `bugprone-signed-bitwise` behind
+`NOLINTBEGIN`/`NOLINTEND` blocks because legacy code mixes signed literals,
+loop counters, `QByteArray::at()` results, or vendor J2534 flag macros into
+bitwise operations. clang-tidy's changed-file gate (`bazel run
+//:clang_tidy_report_changed`) lints whole translation units, not touched
+lines, so any edit to one of these files — however small — puts its full
+existing finding count back in scope; each suppression below was added
+when a step needed to touch the file for an unrelated reason.
+
+- `src/ui/desktop/get_key_operations_subaru.cpp` (the Subaru key-recovery
+  dialog): 39 findings, suppressed when step 6c-1 touched the file. None
+  is a live defect under C++23 (signed left shifts such as
+  `roundFunction`'s promoted `uint16_t << 16` wrap modulo 2^32 since
+  C++20), but the code only works because every operand happens to be
+  non-negative.
+- `src/ui/desktop/dtc_operations.cpp`: 11 findings across five functions,
+  suppressed when step 6e-1 touched the file — `iso15765_init` (3),
+  `request_data` (2), `request_vehicle_info` (2), `request_dtc_list` (2),
+  `clear_dtc` (2). All combine a `uint16_t`/`uint8_t` protocol field
+  (`source_id`, `cmd`, a `QByteArray::at()` byte) with a small non-negative
+  mask or constant; none is a live defect.
+- `src/platform/desktop/common/serial/serial_port_actions_direct.cpp`: 8
+  findings across six functions, suppressed when step 6e-1 touched the
+  file — `read_serial_data` (2), `append_iso14230_header` (1),
+  `write_j2534_data` (1), `read_j2534_data` (2), `dump_msg` (1),
+  `set_j2534_iso9141` (1). The J2534 flag macros involved (`TX_DONE`,
+  `START_OF_MESSAGE`, `ISO15765_FRAME_PAD`, `ISO9141_NO_CHECKSUM`,
+  `CAN_ID_BOTH`) are all small positive constants, and the `QByteArray`
+  byte/mask sites (`received.at(0) & 0x3f`, `output[0] = output[0] |
+  msglength`) mask or truncate to the low bits that are unaffected by sign
+  extension either way; none is a live defect.
+- `src/ui/desktop/dataterminal.cpp`: 4 findings across two functions,
+  suppressed when step 6e-1 touched the file — `sendToInterface` (2),
+  `add_ssm_header` (2). Same pattern: a `uint8_t`/`toUInt()` id ANDed or
+  shifted with a small non-negative mask; none is a live defect.
 
 Actions:
 
-- Extract the pure cipher helpers (`get_bit`, `sBox`, `fFunction`,
-  `roundFunction`, `flipLeftRight`, `manyRoundAndFlip`) out of the dialog
-  into a free-function unit with a co-located test, and pin their current
-  outputs with characterization vectors.
-- Convert the operands to unsigned types, confirm the vectors are
-  unchanged, and remove the suppression block.
+- For `get_key_operations_subaru.cpp`: extract the pure cipher helpers
+  (`get_bit`, `sBox`, `fFunction`, `roundFunction`, `flipLeftRight`,
+  `manyRoundAndFlip`) out of the dialog into a free-function unit with a
+  co-located test, pin their current outputs with characterization
+  vectors, then convert the operands to unsigned types and remove the
+  suppression block.
+- For the other three files, convert each flagged site's operand types
+  (the protocol id/length fields and the relevant J2534 macros' consumers)
+  to unsigned, confirm the existing protocol/serial tests still pass, and
+  remove the corresponding suppression block. These functions have
+  hardware/QObject side effects rather than pure logic, so the
+  extract-and-characterize step above does not apply the same way; a
+  direct signed-to-unsigned conversion plus existing test coverage is
+  enough.
 
 ### P2: Pay down the SonarCloud code-smell backlog
 

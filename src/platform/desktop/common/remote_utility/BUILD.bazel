@@ -26,6 +26,6 @@ qt_cc_library(
         ":remote_utility_replicas",
         # remote_utility.h #includes websocketiodevice.h and qtrohelper.hpp,
         # both owned by the serial package.
-        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/serial:remote_serial_backend",
     ],
 )

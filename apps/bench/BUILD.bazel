@@ -142,6 +142,7 @@ qt_cc_binary(
         ":bench_session_runtime",
         ":sigint_cancellation_token",
         "//src/platform/desktop/common/ports",
+        "//src/platform/desktop/common/serial:desktop_serial_factory",
         "//src/platform/desktop/common/transport:flash_transports",
     ],
 )

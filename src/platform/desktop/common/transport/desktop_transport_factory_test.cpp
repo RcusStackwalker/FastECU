@@ -32,7 +32,7 @@ const QString kBluetoothPort = "cu.Bluetooth-Incoming-Port - ";
 DesktopCanTransportConfig configWith(FakeBackend **captured, QStringList ports, QString openResult)
 {
     DesktopCanTransportConfig config;
-    config.backend_factory_for_tests = [captured, ports, openResult]() -> SerialBackend *
+    config.backend_factory = [captured, ports, openResult]() -> SerialBackend *
     {
         auto *fake = new NiceFakeBackend();
         EXPECT_CALL(*fake, check_serial_ports()).WillRepeatedly(::testing::Return(ports));
@@ -155,6 +155,19 @@ class TestDesktopTransportFactory : public QObject
 
         QVERIFY(!transport.has_value());
         QCOMPARE(transport.error().kind, ErrorKind::Disconnected);
+    }
+
+    void refusesAConfigWithoutABackendFactory()
+    {
+        const DesktopCanTransportConfig config;
+
+        const auto ports = list_desktop_serial_ports(config);
+        QVERIFY(!ports.has_value());
+        QCOMPARE(ports.error().kind, ErrorKind::InvalidConfig);
+
+        const auto transport = open_desktop_can_flash_transport(config, kColtCan);
+        QVERIFY(!transport.has_value());
+        QCOMPARE(transport.error().kind, ErrorKind::InvalidConfig);
     }
 };
 

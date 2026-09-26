@@ -541,7 +541,7 @@ void RemoteSerialBackend::reset_connection()
 
 // NOTE: pinned quirk, preserved verbatim from the old facade (serial_port_actions.cpp
 // read_serial_obd_data, lines 1005-1016): the remote branch was never populated in the
-// original if/else — only the isDirectConnection() branch called through and logged a
+// original if/else — only the facade's former direct-connection branch called through and logged a
 // response; the remote path fell through and returned a default-constructed (empty)
 // QByteArray without ever calling serial_remote. The .rep does expose this slot
 // (SerialPortActionsRemoteReplica::read_serial_obd_data), so this looks like an

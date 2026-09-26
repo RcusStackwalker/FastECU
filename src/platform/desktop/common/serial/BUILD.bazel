@@ -26,46 +26,27 @@ qt_replica_library(
     deps = QT_DEPS,
 )
 
-# TRANSITIONAL. Carries serial_port_actions.h to its backend and UI
-# callers, all of which are layering violations that step 5 (backend)
-# and step 6 (ui) remove. Task 8 replaces the public visibility below
-# with an enumerated allowlist frozen by
-# scripts/check-serial-compat-allowlist.py. Do not add new callers.
+# TRANSITIONAL. Carries serial_port_actions.h to its UI callers, all of
+# which are layering violations step 6 removes. The visibility list below
+# is frozen by scripts/check-serial-compat-allowlist.py. Do not add new
+# callers.
 qt_cc_library(
     name = "serial_qt_compat",
     srcs = [
-        "remote_serial_backend.cpp",
         "serial_backend_host.cpp",
         "serial_port_actions.cpp",
-        "serial_port_actions_direct.cpp",
-        "websocketiodevice.cpp",
     ],
-    hdrs = [
-        "remote_serial_backend.h",
-        "serial_port_actions.h",
-        "serial_port_actions_direct.h",
-        "websocketiodevice.h",
-    ],
+    hdrs = ["serial_port_actions.h"],
     copts = COMMON_COPTS,
-    # qtrohelper.hpp is included by remote_serial_backend.cpp in this
-    # package, and by remote_utility.h in the sibling package.
     normal_hdrs = [
-        "j2534_driver_selection.h",
-        "qtrohelper.hpp",
         "serial_backend.h",
         "serial_backend_host.h",
+        "serial_facade_codes.h",
     ],
     visibility = [
-        # Legitimate platform-internal edge, NOT part of the debt frozen
-        # below: remote_utility.h #includes websocketiodevice.h and
-        # qtrohelper.hpp, both owned by this package (see the normal_hdrs
-        # comment above). Same-layer sibling dependency, not a layering
-        # violation, so it is not expected to shrink.
-        "//src/platform/desktop/common/remote_utility:__pkg__",
         # TRANSITIONAL. Every entry below is a layering violation removed by
-        # step 5 (backend) or step 6 (ui). Frozen by
-        # scripts/check-serial-compat-allowlist.py -- this list may
-        # shrink, never grow.
+        # step 6 (ui). Frozen by scripts/check-serial-compat-allowlist.py --
+        # this list may shrink, never grow.
         "//src/platform/desktop/common/serial:__pkg__",
         "//src/platform/desktop/common/transport:__pkg__",
         "//src/ui/desktop:__pkg__",
@@ -73,7 +54,50 @@ qt_cc_library(
         "//tests:__pkg__",
     ],
     deps = QT_DEPS + [
-        ":serial_replicas",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/qt_compat",
+    ],
+)
+
+# isJ2534CapableEntry and the J2534 driver-registry helpers. Shared by the
+# direct backend and the desktop CAN transport factory.
+qt_cc_library(
+    name = "j2534_driver_selection",
+    srcs = [],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["j2534_driver_selection.h"],
+    visibility = [
+        "//src/platform/desktop/common/serial:__pkg__",
+        "//src/platform/desktop/common/transport:__pkg__",
+    ],
+    deps = QT_DEPS,
+)
+
+# The local backend: QSerialPort plus the platform J2534 library. Reached
+# through make_direct_serial_backend() (direct_serial_backend.h).
+qt_cc_library(
+    name = "direct_serial_backend",
+    srcs = [
+        "direct_serial_backend.cpp",
+        "serial_port_actions_direct.cpp",
+    ],
+    hdrs = ["serial_port_actions_direct.h"],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["direct_serial_backend.h"],
+    visibility = [
+        "//src/platform/desktop/common/serial:__pkg__",
+        # testing/fake_backend.h derives FakeBackend from
+        # SerialPortActionsDirect, a real same-layer consumer of the header
+        # this target owns. Widening a new target's visibility to a
+        # same-layer platform package is allowed (unlike serial_qt_compat's
+        # frozen list).
+        "//src/platform/desktop/common/serial/testing:__pkg__",
+        "//tests:__pkg__",
+    ],
+    deps = QT_DEPS + [
+        ":j2534_driver_selection",
+        ":serial_qt_compat",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/qt_compat",
     ] + select({
@@ -83,6 +107,30 @@ qt_cc_library(
         "@platforms//os:windows": ["//src/platform/desktop/windows/j2534"],
         "//conditions:default": ["//src/platform/desktop/unix/j2534"],
     }),
+)
+
+# The remote backend (Qt Remote Objects over a websocket), plus the websocket
+# device and QtRO helper that remote_utility also uses.
+qt_cc_library(
+    name = "remote_serial_backend",
+    srcs = [
+        "remote_serial_backend.cpp",
+        "websocketiodevice.cpp",
+    ],
+    hdrs = [
+        "remote_serial_backend.h",
+        "websocketiodevice.h",
+    ],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["qtrohelper.hpp"],
+    visibility = [
+        "//src/platform/desktop/common/remote_utility:__pkg__",
+        "//src/platform/desktop/common/serial:__pkg__",
+    ],
+    deps = QT_DEPS + [
+        ":serial_qt_compat",
+        ":serial_replicas",
+    ],
 )
 
 # Constructor-only entry point to SerialPortActions for the desktop
@@ -95,8 +143,15 @@ qt_cc_library(
     hdrs = [],
     copts = COMMON_COPTS,
     normal_hdrs = ["desktop_serial_factory.h"],
-    visibility = ["//apps/desktop:__pkg__"],
-    deps = QT_DEPS + [":serial_qt_compat"],
+    visibility = [
+        "//apps/bench:__pkg__",
+        "//apps/desktop:__pkg__",
+    ],
+    deps = QT_DEPS + [
+        ":direct_serial_backend",
+        ":remote_serial_backend",
+        ":serial_qt_compat",
+    ],
 )
 
 fastecu_qttest(
@@ -105,6 +160,8 @@ fastecu_qttest(
     src = "desktop_serial_factory_test.cpp",
     deps = [
         ":desktop_serial_factory",
+        ":direct_serial_backend",
+        ":remote_serial_backend",
         ":serial_qt_compat",
     ],
 )
@@ -138,6 +195,7 @@ fastecu_qttest(
     size = "small",
     src = "direct_backend_test.cpp",
     deps = [
+        ":direct_serial_backend",
         ":serial_qt_compat",
         "//src/platform/desktop/common/transport",
     ],
@@ -147,7 +205,7 @@ fastecu_qttest(
     name = "test_remote_backend_smoke",
     size = "small",
     src = "remote_backend_smoke_test.cpp",
-    deps = [":serial_qt_compat"],
+    deps = [":remote_serial_backend"],
 )
 
 fastecu_qttest(
@@ -159,6 +217,7 @@ fastecu_qttest(
         "//conditions:default": [],
     }),
     deps = [
+        ":direct_serial_backend",
         ":serial_qt_compat",
         "//src/platform/desktop/unix/j2534/testing:mock_openport",
     ],

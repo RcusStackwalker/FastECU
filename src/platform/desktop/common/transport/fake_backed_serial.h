@@ -35,17 +35,17 @@ template <typename Mock = NiceFakeBackend> class FakeBackedSerial
     }
 
     explicit FakeBackedSerial(Arrange arrange)
-        : serial_(std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                      [this, arrange = std::move(arrange)]() -> SerialBackend *
-                                                      {
-                                                          auto *fake = new Mock();
-                                                          if (arrange)
-                                                          {
-                                                              arrange(*fake);
-                                                          }
-                                                          fake_ = fake;
-                                                          return fake;
-                                                      }))
+        : serial_(std::make_unique<SerialPortActions>(
+              [this, arrange = std::move(arrange)]() -> SerialBackend *
+              {
+                  auto *fake = new Mock();
+                  if (arrange)
+                  {
+                      arrange(*fake);
+                  }
+                  fake_ = fake;
+                  return fake;
+              }))
     {
         // Any marshaled call forces the backend into existence; this one is
         // otherwise inert. It is the call a StrictMock fixture must arrange.

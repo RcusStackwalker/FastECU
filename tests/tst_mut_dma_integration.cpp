@@ -43,6 +43,7 @@
 #endif
 #include <unistd.h> // read/write/close
 
+#include "src/platform/desktop/common/serial/direct_serial_backend.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
@@ -54,6 +55,15 @@
 
 using namespace mutdma;
 using namespace std::chrono_literals;
+
+namespace
+{
+// The real local backend, as the desktop app's DirectSerial connection builds it.
+std::function<SerialBackend *()> directBackend()
+{
+    return [] { return make_direct_serial_backend().release(); };
+}
+} // namespace
 
 // Scripted mock Openport 2.0 on the master side of a PTY. Buffer-driven (not purely
 // line-based) so it can faithfully consume the raw data bytes that trail an "att"
@@ -269,7 +279,7 @@ void MutDmaIntegrationTest::connectsOverMockPty_facadeReportsOpen()
         MockOpenPortThread mockThread(master);
         MockOpenPort& mock = *mockThread.mock;
 
-        SerialPortActions spad; // empty peerAddress -> direct connection
+        SerialPortActions spad{directBackend()}; // the real direct backend
         const QString opened = connectFacade(spad, QString::fromLocal8Bit(name.data()));
 
         QVERIFY2(!opened.isEmpty(), "facade open_serial_port() returned empty");
@@ -281,7 +291,7 @@ void MutDmaIntegrationTest::connectsOverMockPty_facadeReportsOpen()
 
 void MutDmaIntegrationTest::setBaud_throughAdapter_trueWhenConnected_falseWhenClosed()
 {
-    SerialPortActions closed; // never opened
+    SerialPortActions closed{directBackend()}; // never opened
     FastEcuKlineTransport closedTr(&closed);
     // change_port_speed returns STATUS_ERROR when the port is not open -> false.
     const auto closedResult = closedTr.setBaud(15625);
@@ -295,7 +305,7 @@ void MutDmaIntegrationTest::setBaud_throughAdapter_trueWhenConnected_falseWhenCl
         MockOpenPortThread mockThread(master);
         MockOpenPort& mock = *mockThread.mock;
 
-        SerialPortActions spad;
+        SerialPortActions spad{directBackend()};
         QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty(), "connect failed");
 
         FastEcuKlineTransport tr(&spad);
@@ -316,7 +326,7 @@ void MutDmaIntegrationTest::write_throughAdapter_putsExactFrameOnWire()
         MockOpenPortThread mockThread(master);
         MockOpenPort& mock = *mockThread.mock;
 
-        SerialPortActions spad;
+        SerialPortActions spad{directBackend()};
         QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty(), "connect failed");
 
         FastEcuKlineTransport tr(&spad);
@@ -354,7 +364,7 @@ void MutDmaIntegrationTest::read_throughAdapter_returnsEcuReplyBytes()
         MockOpenPortThread mockThread(master);
         MockOpenPort& mock = *mockThread.mock;
 
-        SerialPortActions spad;
+        SerialPortActions spad{directBackend()};
         QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty(), "connect failed");
 
         FastEcuKlineTransport tr(&spad);
@@ -386,7 +396,7 @@ void MutDmaIntegrationTest::driverPollOnce_throughAdapter_decodesStreamFrameFrom
         MockOpenPortThread mockThread(master);
         MockOpenPort& mock = *mockThread.mock;
 
-        SerialPortActions spad;
+        SerialPortActions spad{directBackend()};
         QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty(), "connect failed");
 
         FastEcuKlineTransport tr(&spad);

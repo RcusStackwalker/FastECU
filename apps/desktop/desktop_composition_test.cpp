@@ -2,6 +2,8 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <variant>
+
 #include "apps/desktop/desktop_composition.h"
 #include "src/backend/definitions/file_actions.h"
 
@@ -54,6 +56,21 @@ class DesktopCompositionTest : public QObject
             DesktopComposition composition{{}, {}, root.path()};
             QCOMPARE(composition.services().file_actions.ConfigValuesStruct.base_config_directory, root.path());
         }
+    }
+
+    void emptyHostSelectsTheDirectBackend()
+    {
+        QVERIFY(std::holds_alternative<DirectSerial>(serial_connection_from_args({}, {})));
+        QVERIFY(std::holds_alternative<DirectSerial>(serial_connection_from_args({}, "ignored")));
+    }
+
+    void nonEmptyHostSelectsTheRemoteBackendWithItsCredentials()
+    {
+        const SerialConnection connection = serial_connection_from_args("peer.example:1234", "secret");
+        const auto *remote = std::get_if<RemoteSerial>(&connection);
+        QVERIFY(remote != nullptr);
+        QCOMPARE(remote->address, QString("peer.example:1234"));
+        QCOMPARE(remote->password, QString("secret"));
     }
 };
 

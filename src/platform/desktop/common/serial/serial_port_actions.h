@@ -12,12 +12,8 @@
 #include <memory>
 #include <type_traits>
 
-// Kept for consumers that relied on this header's transitive includes
-// (QSerialPort types, WebSocketIoDevice). Candidates for removal in spec 1b.
-#include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
-#include "websocketiodevice.h"
-
 #include "serial_backend.h"
+#include "src/platform/desktop/common/serial/serial_facade_codes.h"
 
 class SerialBackendHost;
 
@@ -37,15 +33,15 @@ class SerialPortActions : public QObject
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   public:
-    explicit SerialPortActions(QString peerAddress = "", QString password = "", QWebSocket *web_socket = nullptr,
-                               QObject *parent = nullptr, std::function<SerialBackend *()> backendFactoryForTests = {});
+    // backend_factory builds the backend this facade drives; it is called
+    // once, lazily, on the I/O thread. The composition root chooses it
+    // (desktop_serial_factory.h); the facade never knows which it is.
+    explicit SerialPortActions(std::function<SerialBackend *()> backend_factory, QObject *parent = nullptr);
 
     // Teardown-ordering precondition: callers must not start new calls while
     // the destructor is running. Calls already executing on the backend thread
     // are drained before ~SerialPortActions() joins the I/O thread.
     ~SerialPortActions();
-
-    bool isDirectConnection(void);
 
     bool get_serialPortAvailable();
     bool set_serialPortAvailable(bool value);
@@ -294,9 +290,6 @@ class SerialPortActions : public QObject
         }
     }
 
-    QString peerAddress;
-    QString password;
-    QWebSocket *externalSocket = nullptr;
     std::function<SerialBackend *()> backendFactory;
 
     QMutex startMutex;

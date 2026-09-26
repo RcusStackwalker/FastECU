@@ -9,6 +9,11 @@ qt_cc_library(
     hdrs = ["fake_backend.h"],
     copts = COMMON_COPTS,
     deps = QT_DEPS + [
+        # FakeBackend derives from SerialPortActionsDirect
+        # (serial_port_actions_direct.h), which serial_platform_api's wrapped
+        # target (serial_qt_compat) no longer carries after the direct/remote
+        # backend split -- depend on the owning target directly.
+        "//src/platform/desktop/common/serial:direct_serial_backend",
         "//src/platform/desktop/common/serial:serial_platform_api",
         "@googletest//:gtest",
     ],

@@ -362,7 +362,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     serial = &services_.serial;
     remote_utility = &services_.remote_utility;
-    if (!serial->isDirectConnection())
+    if (!peerAddress.isEmpty())
     {
         netSplashProgressBar->setValue(0);
         netSplashProgressBar->setFormat("Connecting to J2534 and serial devices...");

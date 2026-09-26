@@ -19,7 +19,7 @@ class SerialIdleTest : public QObject
     void resetsTheConnectionThenRestoresTheIdleLineSettingsInOrder()
     {
         FakeBackend *fake = nullptr;
-        SerialPortActions serial{"", "", nullptr, nullptr, [&fake]() -> SerialBackend *
+        SerialPortActions serial{[&fake]() -> SerialBackend *
                                  {
                                      fake = new NiceFakeBackend;
                                      return fake;

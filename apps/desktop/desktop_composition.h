@@ -51,3 +51,6 @@ class DesktopComposition
     QtClock logging_clock_;
     std::unique_ptr<fastecu::desktop::logging::LoggingEngine> logging_engine_;
 };
+
+// The desktop app's direct/remote rule: no --host means the local adapter.
+SerialConnection serial_connection_from_args(const QString& host, const QString& password);
