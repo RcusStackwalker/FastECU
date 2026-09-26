@@ -21,9 +21,10 @@ const QColor MainWindow::RED_LIGHT_ON = QColor(255, 64, 64);
 const QColor MainWindow::YELLOW_LIGHT_ON = QColor(223, 223, 64);
 const QColor MainWindow::GREEN_LIGHT_ON = QColor(64, 255, 64);
 
-MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, QWidget *parent,
-                       const QString& config_root)
-    : QMainWindow(parent), peerAddress(peerAddress), peerPassword(peerPassword), ui{std::make_unique<Ui::MainWindow>()}
+MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, const QString& peerPassword,
+                       QWidget *parent)
+    : QMainWindow(parent), services_(services), peerAddress(peerAddress), peerPassword(peerPassword),
+      ui{std::make_unique<Ui::MainWindow>()}
 {
     ui->setupUi(this);
     qApp->installEventFilter(this);
@@ -63,21 +64,15 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
 
     setSplashScreenProgress("Reading config files...", 10);
-    fileActions = std::make_unique<FileActions>(m_configFileSystem, m_configResourceBundle, m_configFileRepository,
-                                                m_definitionFileWriter, fileActionsEvents_);
+    fileActions = &services_.file_actions;
     configValues = &fileActions->ConfigValuesStruct;
-
-    fileActions->set_base_dirs(
-        configValues, (config_root.isEmpty() ? configValues->base_config_directory : config_root).toStdString());
 
     software_name = configValues->software_name;
     software_title = configValues->software_title;
     software_version = configValues->software_version;
     this->setWindowTitle(software_title + " " + software_version);
 
-    QThread *syslog_thread = new QThread();
-    syslogger = new SystemLogger(configValues->syslog_files_directory, software_name, software_version);
-    syslogger->moveToThread(syslog_thread);
+    syslogger = &services_.syslogger;
     QObject::connect(this, &MainWindow::LOG_E, syslogger, &SystemLogger::log_messages);
     QObject::connect(this, &MainWindow::LOG_W, syslogger, &SystemLogger::log_messages);
     QObject::connect(this, &MainWindow::LOG_I, syslogger, &SystemLogger::log_messages);
@@ -85,11 +80,6 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     QObject::connect(this, &MainWindow::enable_log_write_to_file, syslogger, &SystemLogger::enable_log_write_to_file);
     QObject::connect(syslogger, &SystemLogger::send_message_to_log_window, this,
                      &MainWindow::send_message_to_log_window);
-    QObject::connect(syslogger, &SystemLogger::finished, syslog_thread, &QThread::quit);
-    QObject::connect(syslogger, &SystemLogger::finished, syslogger, &SystemLogger::deleteLater);
-    QObject::connect(syslog_thread, &QThread::finished, syslog_thread, &QThread::deleteLater);
-    QObject::connect(syslog_thread, &QThread::started, syslogger, &SystemLogger::run);
-    syslog_thread->start();
 
     setupLoggingEngine();
 
@@ -109,7 +99,7 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     emit LOG_D("64-bit executable", true, true);
 #endif
 
-    QObject::connect(&fileActionsEvents_, &QtEventSink::logged, this,
+    QObject::connect(&services_.file_action_events, &QtEventSink::logged, this,
                      [this](int level, QString message)
                      {
                          switch (static_cast<fastecu::LogLevel>(level))
@@ -128,10 +118,11 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
                              break;
                          }
                      });
-    QObject::connect(&fileActionsEvents_, &QtEventSink::noticed, this,
+    QObject::connect(&services_.file_action_events, &QtEventSink::noticed, this,
                      [this](QString message) { QMessageBox::warning(this, software_title, message); });
 
-    definitionAuthoringDialog = new fastecu::ui::DefinitionAuthoringDialog(*fileActions, m_configFileRepository, this);
+    definitionAuthoringDialog =
+        new fastecu::ui::DefinitionAuthoringDialog(*fileActions, services_.config_repository, this);
     QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_E, syslogger,
                      &SystemLogger::log_messages);
     QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_W, syslogger,
@@ -233,7 +224,7 @@ MainWindow::MainWindow(const QString& peerAddress, const QString& peerPassword, 
     {
         const fastecu::config::ConfigPaths menu_paths = fastecu::config::paths_from_config_values(*configValues);
         fastecu::Result<fastecu::config::MenuDefinition> menu_definition =
-            fastecu::config::load_menu_definition(menu_paths, m_configFileRepository);
+            fastecu::config::load_menu_definition(menu_paths, services_.config_repository);
         if (!menu_definition.has_value())
         {
             // The same modal read_menu_file raised itself (file_actions.cpp:813);

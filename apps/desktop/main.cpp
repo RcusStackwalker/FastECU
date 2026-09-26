@@ -1,5 +1,6 @@
 #include <QCommandLineParser>
 #include "src/ui/desktop/mainwindow.h"
+#include "apps/desktop/desktop_composition.h"
 
 #include <QApplication>
 
@@ -59,7 +60,10 @@ int main(int argc, char *argv[])
         QString addr = cmdParser.value(cmdHost);
         QString password = cmdParser.value(cmdPassword);
 
-        MainWindow w(addr, password, nullptr);
+        // Declared before the window so it outlives it: MainWindow holds
+        // references into the composition until it is destroyed.
+        DesktopComposition composition;
+        MainWindow w(composition.services(), addr, password);
 
         QScreen *screen = QGuiApplication::primaryScreen();
         QRect screenGeometry = screen->geometry();

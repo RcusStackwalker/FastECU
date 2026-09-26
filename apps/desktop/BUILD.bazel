@@ -1,7 +1,30 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_binary")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_binary", "qt_cc_library")
 
 # Only the root //:fastecu alias consumes this composition root.
 package(default_visibility = ["//:__pkg__"])
+
+# Builds and owns MainWindow's long-lived services. Private to this package.
+qt_cc_library(
+    name = "composition",
+    srcs = ["desktop_composition.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["desktop_composition.h"],
+    visibility = ["//visibility:private"],
+    deps = QT_DEPS + [
+        "//src/backend/definitions",
+        "//src/platform/desktop/common/logging",
+        "//src/platform/desktop/common/ports",
+        "//src/ui/desktop:main_window_services",
+    ],
+)
+
+fastecu_qttest(
+    name = "desktop_composition_test",
+    size = "small",
+    src = "desktop_composition_test.cpp",
+    deps = [":composition"],
+)
 
 qt_cc_binary(
     name = "fastecu",
@@ -14,6 +37,7 @@ qt_cc_binary(
     # or it is removed, add the platform select() back here or the Windows link
     # loses J2534 with no signal in this file.
     deps = [
+        ":composition",
         "//src/ui/desktop",
     ],
 )
