@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
@@ -6,6 +7,20 @@ package(default_visibility = [
     "//src/platform:__subpackages__",
     "//tests:__pkg__",
 ])
+
+# Publishes this platform's J2534 API at the shared path
+# src/platform/desktop/j2534/j2534_api.h; see j2534_api.h.
+cc_library(
+    name = "j2534_api",
+    hdrs = ["j2534_api.h"],
+    include_prefix = "src/platform/desktop/j2534",
+    strip_include_prefix = "/src/platform/desktop/unix/j2534",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [":j2534"],
+)
 
 qt_cc_library(
     name = "j2534",

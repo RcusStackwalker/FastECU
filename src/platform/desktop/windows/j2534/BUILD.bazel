@@ -13,6 +13,17 @@ WINDOWS_ONLY = select({
     "//conditions:default": ["@platforms//:incompatible"],
 })
 
+# Publishes this platform's J2534 API at the shared path
+# src/platform/desktop/j2534/j2534_api.h; see j2534_api.h.
+cc_library(
+    name = "j2534_api",
+    hdrs = ["j2534_api.h"],
+    include_prefix = "src/platform/desktop/j2534",
+    strip_include_prefix = "/src/platform/desktop/windows/j2534",
+    target_compatible_with = WINDOWS_ONLY,
+    deps = [":j2534"],
+)
+
 qt_cc_library(
     name = "j2534",
     srcs = ["J2534_win.cpp"],

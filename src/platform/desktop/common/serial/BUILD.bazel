@@ -63,7 +63,10 @@ qt_cc_library(
 # direct backend and the desktop CAN transport factory.
 qt_cc_library(
     name = "j2534_driver_selection",
-    srcs = [],
+    srcs = select({
+        "@platforms//os:windows": ["j2534_driver_selection_windows.cpp"],
+        "//conditions:default": ["j2534_driver_selection_unix.cpp"],
+    }),
     hdrs = [],
     copts = COMMON_COPTS,
     normal_hdrs = ["j2534_driver_selection.h"],
@@ -74,6 +77,28 @@ qt_cc_library(
     deps = QT_DEPS,
 )
 
+fastecu_qttest(
+    name = "j2534_driver_selection_unix_test",
+    size = "small",
+    src = "j2534_driver_selection_unix_test.cpp",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [":j2534_driver_selection"],
+)
+
+fastecu_qttest(
+    name = "j2534_driver_selection_windows_test",
+    size = "small",
+    src = "j2534_driver_selection_windows_test.cpp",
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [":j2534_driver_selection"],
+)
+
 # The local backend: QSerialPort plus the platform J2534 library. Reached
 # through make_direct_serial_backend() (direct_serial_backend.h).
 qt_cc_library(
@@ -81,7 +106,10 @@ qt_cc_library(
     srcs = [
         "direct_serial_backend.cpp",
         "serial_port_actions_direct.cpp",
-    ],
+    ] + select({
+        "@platforms//os:windows": ["serial_port_actions_direct_windows.cpp"],
+        "//conditions:default": ["serial_port_actions_direct_unix.cpp"],
+    }),
     hdrs = ["serial_port_actions_direct.h"],
     copts = COMMON_COPTS,
     normal_hdrs = ["direct_serial_backend.h"],
@@ -101,12 +129,32 @@ qt_cc_library(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/qt_compat",
     ] + select({
-        # serial_port_actions_direct.h #includes J2534_unix.h or J2534_win.h
-        # behind a Q_OS_UNIX/Q_OS_WIN32 guard; the header must be a declared
-        # input on whichever platform is actually compiling it.
-        "@platforms//os:windows": ["//src/platform/desktop/windows/j2534"],
-        "//conditions:default": ["//src/platform/desktop/unix/j2534"],
+        # The platform J2534 API behind src/platform/desktop/j2534/j2534_api.h.
+        "@platforms//os:windows": ["//src/platform/desktop/windows/j2534:j2534_api"],
+        "//conditions:default": ["//src/platform/desktop/unix/j2534:j2534_api"],
     }),
+)
+
+fastecu_qttest(
+    name = "direct_backend_hooks_unix_test",
+    size = "small",
+    src = "direct_backend_hooks_unix_test.cpp",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [":direct_serial_backend"],
+)
+
+fastecu_qttest(
+    name = "direct_backend_hooks_windows_test",
+    size = "small",
+    src = "direct_backend_hooks_windows_test.cpp",
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [":direct_serial_backend"],
 )
 
 # The remote backend (Qt Remote Objects over a websocket), plus the websocket

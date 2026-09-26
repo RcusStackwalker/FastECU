@@ -21,11 +21,7 @@
 #include <thread>
 #include <chrono>
 
-#if defined Q_OS_UNIX
-#include "src/platform/desktop/unix/j2534/J2534_unix.h"
-#elif defined Q_OS_WIN32
-#include "src/platform/desktop/windows/j2534/J2534_win.h"
-#endif
+#include "src/platform/desktop/j2534/j2534_api.h"
 
 #include "serial_backend.h"
 #include "src/platform/desktop/common/serial/serial_facade_codes.h"
@@ -613,6 +609,26 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     int init_j2534_connection();
     J2534 *j2534;
 
+    // Per-OS hooks. Declared once here and defined in exactly one of
+    // serial_port_actions_direct_unix.cpp / serial_port_actions_direct_windows.cpp,
+    // which the BUILD file selects; each replaces one former OS preprocessor branch.
+    // Protected so tests can pin the pure ones.
+    struct ResolvedPort
+    {
+        QString port;
+        bool is_j2534 = false;
+    };
+    void connect_j2534_logs();
+    void settle_after_programming_voltage();
+    void append_j2534_interfaces(QStringList& serial_ports);
+    ResolvedPort resolve_port(const QString& entry) const;
+    void select_j2534_dll();
+    bool open_j2534_transport();
+    void close_j2534_transport();
+    void log_j2534_opened();
+    void adopt_j2534_channel_id();
+    bool j2534_tx_done();
+
   private:
     QSerialPort *serial;
 
@@ -635,11 +651,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     void dump_msg(PASSTHRU_MSG *msg);
     void reportJ2534Error();
 
-#if defined Q_OS_UNIX
     unsigned int protocol = ISO9141;
-#elif defined Q_OS_WIN32
-    unsigned int protocol = ISO9141;
-#endif
 
     bool J2534_init_ok = false;
     bool J2534_open_ok = false;
@@ -652,9 +664,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
 
     int line_end_check_1_toggled(int state);
     int line_end_check_2_toggled(int state);
-#ifdef Q_OS_WIN32
     QMap<QString, QString> installed_drivers;
-#endif
 
     QByteArray append_ssm_header(QByteArray output);
     QByteArray append_iso9141_header(QByteArray output);
@@ -667,9 +677,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     QStringList check_serial_ports();
     QString open_serial_port();*/
 
-#if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
     QMap<QString, QString> getAllJ2534DriversNames();
-#endif
     QStringList check_j2534_devices(QMap<QString, QString> installed_drivers);
 
   private slots:
