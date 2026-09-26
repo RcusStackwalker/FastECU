@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include <QProgressBar>
 #include <QScopeGuard>
 #include <QSplashScreen>
 #include <cstddef>
@@ -11,11 +12,12 @@
 #include "src/backend/config/menu_definition.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_operation_request.h"
+#include "src/platform/desktop/common/flash/flash_workflow.h"
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/serial/serial_idle.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/ui/desktop/menu/menu_builder.h"
-#include "src/ui/desktop/service_functions/denso_tcu_read_preflight.h"
+#include "src/ui/desktop/flash/operation/flash_operation_controller.h"
 
 const QColor MainWindow::RED_LIGHT_OFF = QColor(96, 32, 32);
 const QColor MainWindow::YELLOW_LIGHT_OFF = QColor(96, 96, 32);
@@ -1069,6 +1071,10 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         }
 
         QByteArray fullRomDataTmp;
+        // The read branch allocates the next calibration slot before dispatch
+        // (update_protocol_info reads it); anything but a successful read
+        // releases it again.
+        bool release_read_slot = false;
 
         if (cmd_type == "test_write" || cmd_type == "write")
         {
@@ -1124,6 +1130,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         {
             rom_number = ecuCalDefIndex;
             ecuCalDef[rom_number] = new FileActions::EcuCalDefStructure;
+            release_read_slot = true;
             while (ecuCalDef[rom_number]->RomInfo.length() < ecuCalDef[rom_number]->RomInfoStrings.length())
             {
                 ecuCalDef[rom_number]->RomInfo.append(" ");
@@ -1143,103 +1150,51 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
 
         emit LOG_D("Protocol to use: " + configValues->flash_protocol_selected_protocol_name, true, true);
 
-        const fastecu::config::ConfigPaths eeprom_paths = fastecu::config::paths_from_config_values(*configValues);
-
         const fastecu::flash::FlashOperation operation =
             fastecu::flash::flash_operation_from_command(cmd_type.toStdString());
-        std::optional<bytes::Bytes> portable_image =
-            fastecu::flash::portableImageForOperation(operation, bytes::view(ecuCalDef[rom_number]->FullRomData));
 
-        const std::string protocol = configValues->flash_protocol_selected_protocol_name.toStdString();
-        const bool denso_tcu = fastecu::flash::is_denso_tcu_protocol(protocol);
-        if (operation == fastecu::flash::FlashOperation::Read && denso_tcu)
-        {
-            using fastecu::service_functions::DensoTcuReadAction;
-            const DensoTcuReadAction action = fastecu::service_functions::choose_denso_tcu_read_action(this);
-            switch (action)
-            {
-            case DensoTcuReadAction::Dump:
-                emit LOG_I("Read memory with flashmethod '" + QString::fromStdString(protocol) + "' and kernel '" +
-                               ecuCalDef[rom_number]->Kernel + "'",
-                           true, true);
-                break;
-            case DensoTcuReadAction::Relearn:
-                emit LOG_I("Attempting TCU relearn", true, true);
-                break;
-            case DensoTcuReadAction::ReadParameters:
-                emit LOG_I("Attempting to read TCU parameters", true, true);
-                break;
-            case DensoTcuReadAction::SetParameters:
-                emit LOG_I("Attempting to set TCU parameters", true, true);
-                break;
-            case DensoTcuReadAction::Cancelled:
-                emit LOG_I("No option selected", true, true);
-                break;
-            }
-            if (fastecu::service_functions::run_denso_tcu_service_action(action, serial, protocol, this))
-            {
-                return 0;
-            }
-        }
-        auto workflow = fastecu::flash::FlashWorkflowFactory::tryCreate({
+        fastecu::flash::FlashOperationController controller{*serial, this};
+        QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_E, syslogger,
+                         &SystemLogger::log_messages);
+        QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_W, syslogger,
+                         &SystemLogger::log_messages);
+        QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_I, syslogger,
+                         &SystemLogger::log_messages);
+        QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_D, syslogger,
+                         &SystemLogger::log_messages);
+        QObject::connect(&controller, qOverload<QString>(&fastecu::flash::FlashOperationController::external_logger),
+                         this, &MainWindow::external_logger);
+        QObject::connect(&controller, qOverload<int>(&fastecu::flash::FlashOperationController::external_logger), this,
+                         &MainWindow::external_logger_set_progressbar_value);
+
+        const fastecu::flash::FlashOperationOutcome outcome = controller.run({
             .operation = operation,
-            .protocol = protocol,
+            .protocol = configValues->flash_protocol_selected_protocol_name.toStdString(),
             .mcu = ecuCalDef[rom_number]->McuType.toStdString(),
-            .image = std::move(portable_image),
-            .paths = eeprom_paths,
+            .kernel_path = ecuCalDef[rom_number]->Kernel.toStdString(),
+            .image =
+                fastecu::flash::portableImageForOperation(operation, bytes::view(ecuCalDef[rom_number]->FullRomData)),
+            .paths = fastecu::config::paths_from_config_values(*configValues),
             .display_filename = ecuCalDef[rom_number]->FileName.toStdString(),
-            .serial = serial,
         });
 
-        /*
-         * Denso CAN
-         */
-        if (workflow)
+        if (outcome.status == fastecu::flash::FlashOperationStatus::Completed)
         {
-            fastecu::flash::FlashDialog flash_module(std::move(workflow), operation, ecuCalDef[rom_number]->FileName,
-                                                     this);
-            QObject::connect<void (fastecu::flash::FlashDialog::*)(QString)>(
-                &flash_module, &fastecu::flash::FlashDialog::external_logger, this, &MainWindow::external_logger);
-            QObject::connect<void (fastecu::flash::FlashDialog::*)(int)>(
-                &flash_module, &fastecu::flash::FlashDialog::external_logger, this,
-                &MainWindow::external_logger_set_progressbar_value);
-            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_E, syslogger,
-                             &SystemLogger::log_messages);
-            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_W, syslogger,
-                             &SystemLogger::log_messages);
-            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_I, syslogger,
-                             &SystemLogger::log_messages);
-            QObject::connect(&flash_module, &fastecu::flash::FlashDialog::LOG_D, syslogger,
-                             &SystemLogger::log_messages);
-            fastecu::flash::FlashDialogResult dialog_result = flash_module.run();
-            if (dialog_result.accepted_read_bytes)
+            if (outcome.read_bytes)
             {
-                ecuCalDef[rom_number]->FullRomData =
-                    bytes::toQByteArray(bytes::ByteView(*dialog_result.accepted_read_bytes));
+                ecuCalDef[rom_number]->FullRomData = bytes::toQByteArray(bytes::ByteView(*outcome.read_bytes));
             }
-            if (dialog_result.rom_id)
+            if (outcome.rom_id)
             {
-                ecuCalDef[rom_number]->RomId = QString::fromStdString(*dialog_result.rom_id);
+                ecuCalDef[rom_number]->RomId = QString::fromStdString(*outcome.rom_id);
             }
         }
-        /*
-         * Hitachi ECU Boot Mode
-         */
-        /*
-         * Hitachi ECU
-         */
-        /*
-         * Unknown flashmethod
-         */
-        else
-        {
-            QMessageBox::warning(this, tr("Unknown flashmethod"),
-                                 "Unknown flashmethod! Flashmethod \"" +
-                                     configValues->flash_protocol_selected_protocol_name + "\" not yet implemented!");
-        }
-        // ecuOperationsSubaru = new EcuOperationsSubaru(serial, ecuCalDef[rom_number], cmd_type, this);
 
-        if (cmd_type == "read")
+        if (outcome.status == fastecu::flash::FlashOperationStatus::ServiceActionHandled)
+        {
+            // The old goto skipped the post-operation block entirely.
+        }
+        else if (cmd_type == "read")
         {
             if (ecuCalDef[ecuCalDefIndex]->FullRomData.length())
             {
@@ -1249,7 +1204,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                 ecuCalDef[ecuCalDefIndex]->FileName = QString::fromStdString(fastecu::flash::read_image_filename(
                     ecuCalDef[ecuCalDefIndex]->RomId.toStdString(), dateTimeString.toStdString()));
 
-                // emit LOG_D("Checking definitions, please wait...";
                 fileActions->open_subaru_rom_file(ecuCalDef[ecuCalDefIndex], ecuCalDef[ecuCalDefIndex]->FileName);
                 update_protocol_info(ecuCalDefIndex);
                 if (!ecuCalDef[ecuCalDefIndex]->use_romraider_definition &&
@@ -1258,12 +1212,12 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                     prompt_for_missing_definition(ecuCalDef[ecuCalDefIndex]);
                 }
 
-                // emit LOG_D("Building treewidget, please wait...";
                 calibrationTreeWidget->buildCalibrationFilesTree(ecuCalDefIndex, ui->calibrationFilesTreeWidget,
                                                                  ecuCalDef[ecuCalDefIndex]);
                 calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget,
                                                                 ecuCalDef[ecuCalDefIndex]);
 
+                release_read_slot = false;
                 ecuCalDefIndex++;
                 save_calibration_file_as();
             }
@@ -1271,6 +1225,12 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         else
         {
             ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
+        }
+
+        if (release_read_slot)
+        {
+            delete ecuCalDef[rom_number];
+            ecuCalDef[rom_number] = nullptr;
         }
     }
     return 0;

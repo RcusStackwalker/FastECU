@@ -59,7 +59,6 @@
 // Flash modules
 
 // OBD
-#include "src/ui/desktop/flash/common/flash_dialog.h"
 
 #include "src/platform/desktop/common/logging/systemlogger.h"
 

@@ -100,6 +100,8 @@ qt_cc_library(
         # mainwindow.h includes imut_dma_init.h, mitsu_colt_can_cdbg_driver.h
         # and mut_dma_driver.h directly.
         "//src/backend/protocol",
+        # mainwindow.cpp calls portableImageForOperation directly.
+        "//src/platform/desktop/common/flash:flash_worker",
         "//src/platform/desktop/common/logging",
         "//src/platform/desktop/common/logging:logging_adapters",
         "//src/platform/desktop/common/logging:logging_runtime",
@@ -113,6 +115,7 @@ qt_cc_library(
         "//src/ui/desktop/checksum:checksum_correction_command",
         "//src/ui/desktop/definition:definition_authoring_dialog",
         "//src/ui/desktop/flash/common:flash_dialog",
+        "//src/ui/desktop/flash/operation:flash_operation_controller",
         "//src/ui/desktop/hexedit",
         "//src/ui/desktop/menu:menu_builder",
         "//src/ui/desktop/service_functions:denso_tcu_read_preflight",

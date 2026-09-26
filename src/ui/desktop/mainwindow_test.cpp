@@ -484,6 +484,7 @@ class MainWindowTest : public QObject
 
         QTest::qWait(window.vbatt_timer_timeout + 100);
         QVERIFY(!window.vbatt_timer->isActive());
+        QVERIFY(window.ecuCalDef[window.ecuCalDefIndex] == nullptr);
     }
 
     void futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo_data()
@@ -652,6 +653,40 @@ class MainWindowTest : public QObject
         QVERIFY(!operation_driver.timedOut());
         QCOMPARE(operation_driver.unexpectedFlashDialogCount(), 0);
         QVERIFY(!window.vbatt_timer->isActive());
+    }
+
+    // Spec behavior change 2: a read that produces no calibration releases
+    // the slot it allocated instead of leaking it.
+    void readOfAnUnsupportedProtocolReleasesTheReadSlot()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.serial != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+
+        window.serial_ports = {"OpenPort 2.0"};
+        window.serial_port_list->clear();
+        window.serial_port_list->addItem("OpenPort 2.0");
+        window.serial_port_list->setCurrentIndex(0);
+        window.configValues->flash_protocol_selected_make = "Subaru";
+        window.configValues->flash_protocol_selected_protocol_name = "sub_ecu_not_a_real_protocol";
+        window.configValues->flash_protocol_selected_mcu = "SH7058";
+        window.configValues->flash_protocol_selected_id = "0";
+        window.configValues->flash_protocol_kernel = {"test-kernel.bin"};
+        window.configValues->flash_protocol_kernel_addr = {"0xFFFF3000"};
+        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
+        const int slot = window.ecuCalDefIndex;
+
+        ModalDriver operation_driver{QString()};
+        operation_driver.start();
+        QCOMPARE(startEcuOperations(window, "read"), 0);
+        operation_driver.stop();
+
+        QVERIFY(!operation_driver.timedOut());
+        QCOMPARE(window.ecuCalDefIndex, slot);
+        QVERIFY(window.ecuCalDef[slot] == nullptr);
     }
 
   private:
