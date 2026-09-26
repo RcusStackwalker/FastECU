@@ -36,6 +36,7 @@ PORTABLE_PACKAGES = {
         "text_format",
     ],
     "src/backend/diagnostics": [
+        "dtc_session",
         "obd_frames",
     ],
     "src/backend/flash": [
