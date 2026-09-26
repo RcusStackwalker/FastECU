@@ -275,38 +275,42 @@ Design rules:
   `set_p1_max` calls `set_j2534_ioctl(kJ2534IoctlP1Max, ms)` on J2534 and
   `set_kline_timings(SERIAL_P1_MAX, ms)` otherwise.
 - **Errors.** No new `ErrorKind`. The adapter maps:
-  - a facade `STATUS_ERROR`, a `false` setter, or an empty
-    `open_serial_port` result → `Disconnected`;
-  - cancellation observed before a call → `Cancelled`.
+  - a `false` setter → `InvalidConfig`, as `DesktopKlineFlashTransport`
+    does (setters only record state, so they cannot report a lost adapter);
+  - an empty `open_serial_port` result, a non-zero `fast_init` or
+    `set_j2534_ioctl` status, or a null facade → `Disconnected`;
+  - a read whose token is cancelled before or after the facade call →
+    `Cancelled`.
 
   Response interpretation belongs to the session, which uses `BadResponse`
   for NRCs, short frames, and mismatched response IDs.
 - **Cancellation is best-effort,** exactly as in `DesktopKlineFlashTransport`.
-  The token is checked before each call. An in-flight read returns through
+  Only `read` and `read_obd` take a token; the session checks cancellation
+  between steps and inside every `IClock::sleep`. An in-flight read returns through
   its own bounded timeout.
 
 ### Platform adapter: `SerialDiagnosticLink`
 
-Target `//src/platform/desktop/common/transport:serial_diagnostic_link`
-implements `IDiagnosticLink` over a non-owning `SerialPortActions*`. It lives
-in the `transport` package because that package is already on the frozen
-`serial_qt_compat` list and holds the other facade adapters. A new platform
-package would need a new allowlist entry, which the ratchet forbids.
+Target `//src/platform/desktop/common/diagnostics:serial_diagnostic_link`
+implements `IDiagnosticLink` over a non-owning `SerialPortActions*`. The new
+`//src/platform/desktop/common/diagnostics` package reaches the facade through
+`//src/platform/desktop/common/serial:serial_platform_api`, the same-layer
+handle `//src/platform/desktop/common/service_functions` already uses, so the
+frozen `serial_qt_compat` list does not grow. The package also holds the DTC
+worker, and its visibility mirrors `service_functions`: `//apps/desktop`,
+`//src/platform/...`, `//src/ui/...`, and `//tests`.
 
-Visibility is per target. The package `default_visibility` loses its
-GRANDFATHERED `//src/ui/desktop` entry. `:serial_diagnostic_link` alone
-grants these packages:
+`serial_diagnostic_link.h` forward-declares `SerialPortActions`, so including
+it does not carry `serial_port_actions.h` to the UI. `MainWindow`'s
+`show_dtc_window`, `show_subaru_biu_window`, and `show_terminal_window`
+construct a `SerialDiagnosticLink` from the facade pointer they already hold
+and pass the dialog an `IDiagnosticLink&`. The dialogs therefore depend on the
+backend port alone; only `DtcOperations` also reaches platform code, for
+`DtcWorker`. No composition-root change is needed.
 
-- `//src/ui/desktop`, for DTC, DataTerminal, and `show_subaru_biu_window`;
-- `//src/ui/desktop/biu`;
-- `//src/platform/desktop/common/diagnostics`, for the DTC worker.
-
-This is the `ui → platform` direction the layering permits, narrowed from a
-whole package to one adapter, as the `service_functions` grant already is.
-
-The UI constructs the adapter from the forward-declared `SerialPortActions*`
-it already holds, as `ServiceFunctionDialog` does with
-`SerialPortActionsConfigurator`. No composition-root change is needed.
+The `transport` package's `default_visibility` loses its GRANDFATHERED
+`//src/ui/desktop` entry once `mainwindow.h` stops including
+`fastecu_kline_transport.h`; nothing else in `//src/ui/desktop` uses it.
 
 A package-owned `FakeDiagnosticLink` (`testonly`) goes in
 `//src/backend/protocol/testing`, beside the existing transport fakes.
@@ -391,12 +395,16 @@ it is not on the allowlist.
 as follows:
 
 - The Read and Clear buttons start a worker, and are disabled while it runs.
-- `closeEvent` calls `requestStop()` and waits for the worker, whose session
-  performs the reset.
+- `closeEvent` calls `requestStop()`, waits for the worker, and then calls
+  `link.reset()`, as today's `closeEvent` resets the facade. The session's own
+  epilogue has already reset after a run; the second reset is harmless.
 - Log lines forward to the existing `LOG_*` signals.
 - The dialog drops `delay()`, `run()`, `kill_process`, the protocol
-  constants, and its `SerialPortActions` include. It keeps the
-  forward-declared pointer.
+  constants, and every `SerialPortActions` reference; it takes an
+  `IDiagnosticLink&` from `show_dtc_window`.
+- A failed run logs one error line, `DTC operation failed: <detail>`. Today
+  some failures (an empty stored-DTC list, a facade `fast_init` error with
+  no fallback success) end silently; this line is new output.
 
 ### BIU
 
@@ -413,15 +421,14 @@ The keep-alive `QTimer` and the synchronous UI-thread model are unchanged.
 calls `MainWindow::open_serial_port()`, which persists config and updates
 the status bar, and that is step 6h's connection work. The window
 constructs a `SerialDiagnosticLink` over the already-open facade and hands
-it to the dialog without calling `open()`.
+it to the dialog, which never calls `open()`.
 
 `//src/ui/desktop/biu` drops `serial_qt_compat` from its deps. The entry is
 removed from the visibility list and from `FROZEN`.
 
 ### DataTerminal
 
-`DataTerminal` constructs a `SerialDiagnosticLink` from its forward-declared
-pointer. The K-Line path validates the form as today, then calls
+`DataTerminal` takes an `IDiagnosticLink&` from `show_terminal_window`. The K-Line path validates the form as today, then calls
 `open(KlineLinkConfig{header = None, iso14230_connection = protocol == "iso14230", baud, 0x80, tester, target})`.
 The CAN path calls
 `open(CanLinkConfig{iso15765 = protocol == "iso15765", bitrate, extended_id = index == 1, tester, target})`.
@@ -440,7 +447,8 @@ A `gh stack`, as with step 6e:
 1. **6g spec and plan** (docs only).
 2. **6g-1: the port and cleanup.**
    - `IDiagnosticLink` and `FakeDiagnosticLink`;
-   - `SerialDiagnosticLink` with setter-order and J2534/direct tests;
+   - the `//src/platform/desktop/common/diagnostics` package with
+     `SerialDiagnosticLink` and its setter-order and J2534/direct tests;
    - `//src/backend/protocol:mut_memory` with tests; the `MainWindow`
      helpers and the `fastecu_kline_transport.h` include deleted, the
      `//src/ui/desktop:transport` dependency dropped, and the GRANDFATHERED
@@ -472,7 +480,19 @@ A `gh stack`, as with step 6e:
    inherits header, CAN, or 29-bit flags from an earlier tool. Each send
    already ends with a reset, so this changes behavior only when another
    tool left flags set.
-4. **Removed:** `hexcommander.*` (never built), the uncalled MUT memory
+4. **A failed DTC run always logs one error line** with the failure detail.
+   A failed `open()` now ends the run with `Disconnected`; today the
+   ignored `open_serial_port` result let init proceed and fail later.
+5. **DTC PID pages `0x81`–`0xE0` are accepted.** `request_data` compares
+   `QByteArray::at()` (a signed `char` on x86 and macOS) with the `uint8_t`
+   PID. So the PID echo for requests `0x80`, `0xA0`, and `0xC0` never
+   matches, and those pages are logged as a wrong response and discarded.
+   The session compares unsigned bytes. That is the behaviour where `char`
+   is already unsigned (Linux on ARM).
+6. **Each DTC run starts clean.** The dialog's `fast_init_ok` member was
+   never reset, so after one successful fast init, every later fast init
+   in the same dialog passed its check. Each session now starts fresh.
+7. **Removed:** `hexcommander.*` (never built), the uncalled MUT memory
    members (moved), and DTC's uncalled `run()` and unread `kill_process`.
 
 **Deliberately unchanged, pinned by tests:**
