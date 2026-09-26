@@ -67,20 +67,23 @@ whether to wait for the remote serial and utility sources, although its
 constructor already receives the peer address (`MainWindow w(services,
 addr)` in `apps/desktop/main.cpp`).
 
-**Constructor call sites.** Production: only
-`desktop_serial_factory.cpp` (`make_serial_port_actions(peer_address,
-peer_password, log_sink)`), called from `DesktopComposition`. Tests
-using the five-argument constructor with an empty peer and a fake backend
-factory:
+**Constructor call sites.** Production has two, and both carry the
+direct/remote rule:
 
-- `src/ui/desktop/mainwindow_test.cpp`
-- `src/ui/desktop/service_functions/denso_tcu_read_preflight_test.cpp`
-- `src/ui/desktop/flash/operation/flash_operation_controller_test.cpp`
-- `src/platform/desktop/common/service_functions/serial_facade_configurator_test.cpp`
-- `src/platform/desktop/common/transport/fake_backed_serial.h`
-- `src/platform/desktop/common/transport/desktop_mixed_can_flash_transport_test.cpp`
-- `src/platform/desktop/common/flash/flash_workflow_test.cpp`
-- `src/platform/desktop/common/serial/facade_threading_test.cpp`
+- `desktop_serial_factory.cpp` (`make_serial_port_actions(peer_address,
+  peer_password, log_sink)`), called from `DesktopComposition`;
+- `src/platform/desktop/common/transport/desktop_transport_factory.cpp`,
+  which builds a facade from `DesktopCanTransportConfig::peer_address` /
+  `peer_password` / `backend_factory_for_tests` for `fastecu-bench`
+  (`apps/bench/main.cpp`), which never sets a peer.
+
+Tests: about forty sites across thirteen files use the five-argument
+constructor with an empty peer and a fake backend factory (`"", "",
+nullptr, nullptr, <factory>`, or `nullptr, parent` in
+`mainwindow_test.cpp`), and nine default-construct a facade that drives
+the real direct backend (`facade_threading_test.cpp` once, never started;
+`tests/serial_pty_e2e_test.cpp` once; `tests/tst_mut_dma_integration.cpp`
+six times).
 
 **OS guards.** In `serial_port_actions_direct.cpp`: J2534 log-signal
 hookup in the constructor and in the J2534 re-create path (Unix only);
@@ -98,10 +101,14 @@ identical `protocol = ISO9141` branches, `installed_drivers` and
 `isJ2534CapableEntry`'s body. `direct_backend_test.cpp` guards the
 `isJ2534CapableEntry` assertions with `Q_OS_UNIX`.
 
-**Status macros.** `STATUS_SUCCESS 0x00` / `STATUS_ERROR 0x01` are defined in
+**Facade codes.** `STATUS_SUCCESS 0x00` / `STATUS_ERROR 0x01` are defined in
 both `serial_port_actions_direct.h:618` and `src/ui/desktop/dtc_operations.h:55`.
 Consumers in `src/ui/desktop`, `common/transport`, and `//tests` reach the
-serial copy through the facade header.
+serial copy through the facade header. So do two parameter ids passed
+through the facade: `SERIAL_P1_MAX` (a `set_kline_timings` id, defined with
+`SERIAL_P1_MIN`…`SERIAL_P4_MAX` in the direct header) and the J2534 IOCTL id
+`P1_MAX` (`0x07` in both `J2534_tactrix_*.h`), both used by
+`dtc_operations.cpp`.
 
 **Link.** `apps/desktop/BUILD.bazel`'s `fastecu` carries a comment warning
 that the J2534 libraries reach the link only through `serial_qt_compat`'s
@@ -130,14 +137,14 @@ declared with `QRemoteObjectReplica::State`.
 **Bazel split** (all in `//src/platform/desktop/common/serial`):
 
 - `:serial_qt_compat` keeps `serial_port_actions.*`, `serial_backend_host.*`,
-  `serial_backend.h`, and the new `serial_status.h`. Its deps lose the J2534
+  `serial_backend.h`, and the new `serial_facade_codes.h`. Its deps lose the J2534
   `select()` and `:serial_replicas`. Its visibility list loses
   `//src/platform/desktop/common/remote_utility:__pkg__` and gains nothing;
   `FROZEN` in `scripts/check-serial-compat-allowlist.py` drops the same
   entry.
 - New `:direct_serial_backend`: `serial_port_actions_direct.*`, with the
   J2534 `select()`. Depends on `:serial_qt_compat` (for `serial_backend.h`
-  and `serial_status.h`) and `:j2534_driver_selection`.
+  and `serial_facade_codes.h`) and `:j2534_driver_selection`.
 - New `:j2534_driver_selection`: `j2534_driver_selection.h`, visible to
   this package and `//src/platform/desktop/common/transport`
   (`desktop_transport_factory.cpp` uses `isJ2534CapableEntry`).
@@ -170,29 +177,45 @@ unchanged. `make_serial_backend_factory` returns the
 `std::function<SerialBackend *()>` for the connection, so the choice can be
 tested without starting the facade's I/O thread.
 
-**Composition root.** `DesktopComposition` maps the command-line host to
-the connection: an empty host is `DirectSerial{}`, anything else
-`RemoteSerial{host, password}`. This is the only place the rule lives.
+**Composition root.** `desktop_composition.h` declares
+`SerialConnection serial_connection_from_args(const QString& host, const
+QString& password)`: an empty host is `DirectSerial{}`, anything else
+`RemoteSerial{host, password}`. `DesktopComposition` calls it. This is the
+only place the rule lives.
+
+**Direct backend entry point.** `direct_serial_backend.h` (in
+`:direct_serial_backend`) declares `std::unique_ptr<SerialBackend>
+make_direct_serial_backend();`, defined in `direct_serial_backend.cpp`.
+The factory and the tests that drive the real direct backend use it
+instead of naming `SerialPortActionsDirect`.
+
+**Transport factory and bench.** `DesktopCanTransportConfig` drops
+`peer_address`, `peer_password`, and `backend_factory_for_tests`, and
+gains a required `std::function<SerialBackend *()> backend_factory`; an
+empty one fails with `ErrorKind::InvalidConfig`. `fastecu-bench` passes
+`make_serial_backend_factory(DirectSerial{})`, so `desktop_serial_factory`
+becomes visible to `//apps/bench`. The bench's behavior is unchanged: it
+was always direct.
 
 **`MainWindow`.** The splash wait tests the peer address it already
 receives (`!peer_address.isEmpty()`) instead of
 `serial->isDirectConnection()`. No new `MainWindowServices` field.
 
-**Status codes.** New `serial_status.h`:
-
-```cpp
-inline constexpr int STATUS_SUCCESS = 0x00;
-inline constexpr int STATUS_ERROR = 0x01;
-```
-
-The macro definitions in `serial_port_actions_direct.h` and
-`dtc_operations.h` are deleted; both include `serial_status.h`. The values
-are unchanged. `dtc_operations.h`'s other constants are untouched.
+**Facade codes.** New `serial_facade_codes.h` in `:serial_qt_compat`
+holds what crosses the facade as numbers: `STATUS_SUCCESS`/`STATUS_ERROR`
+and `SERIAL_P1_MIN`…`SERIAL_P4_MAX`, moved verbatim from the direct header
+and still macros (the Windows SDK's `ntstatus.h` defines `STATUS_SUCCESS`
+as a macro, which would break a constexpr of that name in any translation
+unit including both), plus `inline constexpr std::uint32_t kJ2534IoctlP1Max
+= 0x07;`. `dtc_operations.cpp` passes `kJ2534IoctlP1Max` instead of the
+J2534 header's `P1_MAX`, and the direct backend `static_assert`s the two
+are equal. The copies in `serial_port_actions_direct.h` and
+`dtc_operations.h` are deleted; both include `serial_facade_codes.h`.
 
 **Include-what-you-use.** Every consumer that compiled only through the
 facade's transitive includes adds what it uses: `<QSerialPort>` for
 `QSerialPort::NoParity` (`menu_actions.cpp`) and `QSerialPort::EvenParity`
-(`log_operations_ssm.cpp`), `serial_status.h` for `STATUS_*` (transport,
+(`log_operations_ssm.cpp`), `serial_facade_codes.h` for `STATUS_*` (transport,
 `src/ui/desktop`, `//tests`). A consumer needing the direct backend's J2534
 types (`tests/tst_serial_port_crash.cpp`) depends on
 `:direct_serial_backend` explicitly. The build tells us the full list; the
@@ -209,7 +232,12 @@ facade header.
 - `desktop_composition_test`: an empty host builds a direct session; a
   non-empty host a remote one.
 - `mainwindow_test`: the remote splash wait is keyed on the peer address.
-- The eight test construction sites switch to the new constructor.
+- `desktop_transport_factory_test`: an empty `backend_factory` fails both
+  entry points with `InvalidConfig`.
+- The ~40 fake-backend test sites switch to the new constructor, and the
+  nine default-constructed ones pass
+  `[] { return make_direct_serial_backend().release(); }` (or a factory
+  that is never invoked, for the never-started facade).
 
 ### 6e-2: the J2534 OS split moves into BUILD-selected sources
 
@@ -278,16 +306,17 @@ Test files may keep a small standard-macro guard where ADR 0005 allows it
 
 **Link seam.**
 
-- New header-only `:direct_serial_backend_api` declares
-  `std::unique_ptr<SerialBackend> make_direct_serial_backend();` (ownership
-  released into the facade's raw-pointer factory at the call site).
+- New header-only `:direct_serial_backend_api` holds
+  `direct_serial_backend.h` (from 6e-1).
 - `:direct_serial_backend` splits into `:direct_serial_backend_unix` and
   `:direct_serial_backend_windows`, each holding the common sources, its own
-  hook file, its own `j2534_api` dependency, the definition of
-  `make_direct_serial_backend()`, and a `target_compatible_with` for its OS.
+  hook file, `direct_serial_backend.cpp`, its own `j2534_api` dependency,
+  and a `target_compatible_with` for its OS.
 - `:desktop_serial_factory` depends only on `:direct_serial_backend_api`.
-- `apps/desktop`'s `fastecu` binary gains the `select()` between the two
-  implementations, replacing the "no signal in this file" comment.
+- `apps/desktop` gains an `alias` named `direct_serial_backend` with the
+  `select()` between the two implementations, used by `fastecu` and
+  `desktop_composition_test`; it replaces the "no signal in this file"
+  comment. `apps/bench`'s `fastecu-bench` gets the same `select()`.
 - Test targets needing a real direct backend (`desktop_serial_factory_test`,
   `test_direct_backend`, `test_direct_backend_pty`, the `//tests` crash and
   PTY suites) depend on a test-only `:direct_serial_backend_for_tests`
@@ -321,8 +350,9 @@ OSes, and Windows compiles only in CI.
 - Every PR passes `bazel test --config=release //...`,
   `prek run --all-files`, and `bazel run //:clang_tidy_report_changed`.
   The full Windows/macOS/Linux CI matrix is mandatory for 6e-2 and 6e-3.
-- The bench checklists gain one pending entry, recorded as **not yet
-  qualified** until run: a macOS OpenPort 2.0 connect plus MUT logging
+- A new platform-selection bench checklist
+  (written in 6e-3) records these entries as **not yet qualified** until run:
+  a `fastecu-bench ports`/`connect` smoke, a macOS OpenPort 2.0 connect plus MUT logging
   smoke (the Unix path), and a Windows J2534 connect. A remote-session smoke
   (`--host` against a remote peer) is run if a peer is available and
   recorded as unverified otherwise.
