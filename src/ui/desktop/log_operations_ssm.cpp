@@ -62,7 +62,7 @@ void MainWindow::ssm_init()
     output.append((uint8_t)0x78);
     output.append((uint8_t)0x12);
     output.append((uint8_t)0x34);
-    output.append((uint8_t)0x00);
+    output.append(static_cast<char>(0x00));
     serial->write_serial_data_echo_check(output);
     // delay(1000);
     for (int i = 0; i < 10; i++)
@@ -78,7 +78,7 @@ void MainWindow::ssm_init()
     emit LOG_D("Issue init cmd...", true, true);
     received.clear();
     output.clear();
-    output.append((uint8_t)0x00);
+    output.append(static_cast<char>(0x00));
     output.append((uint8_t)0x46);
     output.append((uint8_t)0x48);
     output.append((uint8_t)0x49);
@@ -96,9 +96,9 @@ void MainWindow::ssm_init()
     received.clear();
     output.clear();
     output.append((uint8_t)0x12);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
-    output.append((uint8_t)0x00);
+    output.append(static_cast<char>(0x00));
+    output.append(static_cast<char>(0x00));
+    output.append(static_cast<char>(0x00));
     serial->write_serial_data(output);
     received.append(serial->read_serial_data(500));
 
@@ -240,10 +240,10 @@ void MainWindow::ssm_can_init()
         control_unit_addr = 0x7E1;
     }
 
-    const uint8_t cu_addr_b3 = (uint8_t)((control_unit_addr >> 24) & 0xFF);
-    const uint8_t cu_addr_b2 = (uint8_t)((control_unit_addr >> 16) & 0xFF);
-    const uint8_t cu_addr_b1 = (uint8_t)((control_unit_addr >> 8) & 0xFF);
-    const uint8_t cu_addr_b0 = (uint8_t)(control_unit_addr & 0xFF);
+    const uint8_t cu_addr_b3 = static_cast<uint8_t>((control_unit_addr >> 24U) & 0xFFU);
+    const uint8_t cu_addr_b2 = static_cast<uint8_t>((control_unit_addr >> 16U) & 0xFFU);
+    const uint8_t cu_addr_b1 = static_cast<uint8_t>((control_unit_addr >> 8U) & 0xFFU);
+    const uint8_t cu_addr_b0 = static_cast<uint8_t>(control_unit_addr & 0xFFU);
 
     emit LOG_D(QString(Q_FUNC_INFO) + " " + configValues->flash_protocol_selected_log_protocol, true, true);
 
@@ -315,7 +315,7 @@ void MainWindow::parse_log_value_list(QByteArray received, const QString& protoc
                 // true);
                 uint8_t ecu_bit = logValues->log_value_ecu_bit.at(i).toUInt();
                 uint16_t value = (uint8_t)received.at(ecu_byte_index);
-                if (((value) & (1 << (ecu_bit))))
+                if (((value) & (1U << (ecu_bit))))
                 {
                     logValues->log_value_enabled.replace(i, "1");
                     emit LOG_D("Byte: 0x" + QString::number(value, 16) + " - ECU byte index " +
@@ -353,7 +353,7 @@ void MainWindow::parse_log_value_list(QByteArray received, const QString& protoc
                 // emit LOG_D("1 " + switch_byte_index, true, true);
                 uint8_t value = (uint8_t)received.at(switch_byte_index);
                 // emit LOG_D("2", true, true);
-                if (((value) & (1 << (switch_bit))))
+                if (((value) & (1U << (switch_bit))))
                 {
                     logValues->log_switch_enabled.replace(i, "1");
                     // emit LOG_D("Switch: " + logValues->log_switch_id.at(i) + " " + logValues->log_switch_name.at(i) +
