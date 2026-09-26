@@ -13,7 +13,17 @@
 #include <unistd.h>
 #include <poll.h>
 
+#include "src/platform/desktop/common/serial/direct_serial_backend.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
+
+namespace
+{
+// The real local backend, as the desktop app's DirectSerial connection builds it.
+std::function<SerialBackend *()> directBackend()
+{
+    return [] { return make_direct_serial_backend().release(); };
+}
+} // namespace
 
 // End-to-end over a pseudo-terminal, all through the production stack:
 // facade -> I/O thread -> real SerialPortActionsDirect -> QSerialPort(pty).
@@ -83,7 +93,7 @@ void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
             }
         });
 
-    SerialPortActions serial; // default factory: real direct backend
+    SerialPortActions serial{directBackend()}; // default factory: real direct backend
     QByteArray response;
     QString opened;
     std::thread worker(

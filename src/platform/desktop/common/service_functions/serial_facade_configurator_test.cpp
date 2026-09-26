@@ -35,12 +35,12 @@ struct Harness
 {
     Harness()
     {
-        serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                     [this]() -> SerialBackend *
-                                                     {
-                                                         fake = new NiceFakeBackend;
-                                                         return fake;
-                                                     });
+        serial = std::make_unique<SerialPortActions>(
+            [this]() -> SerialBackend *
+            {
+                fake = new NiceFakeBackend;
+                return fake;
+            });
         serial->set_add_ssm_header(false); // start the facade's backend thread
         EXPECT_CALL(*fake, open_serial_port()).WillRepeatedly(::testing::Return(QStringLiteral("fake-port")));
         EXPECT_CALL(*fake, is_serial_port_open()).WillRepeatedly(::testing::Return(true));

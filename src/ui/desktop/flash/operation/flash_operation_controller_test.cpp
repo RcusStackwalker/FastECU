@@ -60,12 +60,12 @@ class BoxDriver final : public QObject
 
 std::unique_ptr<SerialPortActions> fakeSerial(FakeBackend **fake)
 {
-    auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                      [fake]() -> SerialBackend *
-                                                      {
-                                                          *fake = new NiceFakeBackend;
-                                                          return *fake;
-                                                      });
+    auto serial = std::make_unique<SerialPortActions>(
+        [fake]() -> SerialBackend *
+        {
+            *fake = new NiceFakeBackend;
+            return *fake;
+        });
     if (!serial->set_add_ssm_header(false) || *fake == nullptr)
     {
         return nullptr;

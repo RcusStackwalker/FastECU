@@ -22,7 +22,7 @@ Result<std::unique_ptr<SerialPortActions>> make_serial(const DesktopCanTransport
     {
         return fail(ErrorKind::InvalidConfig, "no serial backend factory");
     }
-    return std::make_unique<SerialPortActions>(QString{}, QString{}, nullptr, nullptr, config.backend_factory);
+    return std::make_unique<SerialPortActions>(config.backend_factory);
 }
 
 } // namespace

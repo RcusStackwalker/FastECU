@@ -35,12 +35,12 @@ constexpr MixedCanConfig config()
 
 std::unique_ptr<SerialPortActions> make_serial(FakeBackend *& fake)
 {
-    auto serial = std::make_unique<SerialPortActions>("", "", nullptr, nullptr,
-                                                      [&fake]() -> SerialBackend *
-                                                      {
-                                                          fake = new NiceFakeBackend();
-                                                          return fake;
-                                                      });
+    auto serial = std::make_unique<SerialPortActions>(
+        [&fake]() -> SerialBackend *
+        {
+            fake = new NiceFakeBackend();
+            return fake;
+        });
     serial->set_add_ssm_header(false);
     EXPECT_CALL(*fake, open_serial_port()).WillRepeatedly(::testing::Return(QStringLiteral("fake-adapter")));
     return serial;

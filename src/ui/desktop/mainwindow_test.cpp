@@ -187,12 +187,13 @@ class ModalDriver final : public QObject
 
 std::unique_ptr<SerialPortActions> fakeSerial(QObject *parent, FakeBackend **fake)
 {
-    auto serial = std::make_unique<SerialPortActions>("", "", nullptr, parent,
-                                                      [fake]() -> SerialBackend *
-                                                      {
-                                                          *fake = new NiceFakeBackend;
-                                                          return *fake;
-                                                      });
+    auto serial = std::make_unique<SerialPortActions>(
+        [fake]() -> SerialBackend *
+        {
+            *fake = new NiceFakeBackend;
+            return *fake;
+        },
+        parent);
     if (!serial->set_add_ssm_header(false) || *fake == nullptr)
     {
         return nullptr;
@@ -444,6 +445,18 @@ class MainWindowTest : public QObject
         QVERIFY(QDir(version_dir + "syslogs").exists());
         QVERIFY(QDir(version_dir + "definitions").exists());
         QVERIFY(QFile::exists(window.configValues->config_file));
+    }
+
+    // A direct session (no peer address) must never wait for a remote source.
+    void directSessionStartupNeverWaitsForARemoteSource()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.serial != nullptr);
+        EXPECT_CALL(*services.fake, waitForSource()).Times(0);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
     }
 
     void handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePolling_data()
