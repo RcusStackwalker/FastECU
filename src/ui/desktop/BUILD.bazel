@@ -105,6 +105,7 @@ qt_cc_library(
         "//src/platform/desktop/common/logging:logging_runtime",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/remote_utility",
+        "//src/platform/desktop/common/serial:serial_idle",
         "//src/platform/desktop/common/serial:serial_qt_compat",
         "//src/platform/desktop/common/transport",
         "//src/ui/desktop/biu",

@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include <QScopeGuard>
 #include <QSplashScreen>
 #include <cstddef>
 #include <iterator>
@@ -11,6 +12,7 @@
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_operation_request.h"
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
+#include "src/platform/desktop/common/serial/serial_idle.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/ui/desktop/menu/menu_builder.h"
 #include "src/ui/desktop/service_functions/denso_tcu_read_preflight.h"
@@ -1037,19 +1039,26 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         configValues->kernel_files_directory.append("/");
     }
 
+    // Every path from here on -- including the write-preflight early returns
+    // and the Denso TCU service-action return -- restores the serial facade
+    // and stops battery polling on exit.
+    const auto cleanup = qScopeGuard(
+        [this]
+        {
+            vbatt_timer->stop();
+            fastecu::desktop::serial::reset_serial_to_idle(*serial);
+            ecuid.clear();
+            ecu_init_complete = false;
+            emit log_transport_list->currentIndexChanged(log_transport_list->currentIndex());
+            serial->change_port_speed("4800");
+        });
+
     if (configValues->flash_protocol_selected_make == "Subaru" ||
         configValues->flash_protocol_selected_make == "Mitsubishi")
     {
-        serial->reset_connection();
+        fastecu::desktop::serial::reset_serial_to_idle(*serial);
         ecuid.clear();
         ecu_init_complete = false;
-        serial->set_is_iso14230_connection(false);
-        serial->set_is_29_bit_id(false);
-        serial->set_add_iso14230_header(false);
-        serial->set_is_can_connection(false);
-        serial->set_is_iso15765_connection(false);
-        serial->set_serial_port_parity(QSerialPort::NoParity);
-        serial->set_serial_port_baudrate("4800");
 
         update_vbatt();
         vbatt_timer->start();
@@ -1169,7 +1178,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             }
             if (fastecu::service_functions::run_denso_tcu_service_action(action, serial, protocol, this))
             {
-                goto ecu_operation_cleanup;
+                return 0;
             }
         }
         auto workflow = fastecu::flash::FlashWorkflowFactory::tryCreate({
@@ -1264,22 +1273,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
         }
     }
-ecu_operation_cleanup:
-    vbatt_timer->stop();
-
-    serial->reset_connection();
-    ecuid.clear();
-    ecu_init_complete = false;
-    serial->set_is_iso14230_connection(false);
-    serial->set_is_29_bit_id(false);
-    serial->set_add_iso14230_header(false);
-    serial->set_is_can_connection(false);
-    serial->set_is_iso15765_connection(false);
-    serial->set_serial_port_parity(QSerialPort::NoParity);
-    serial->set_serial_port_baudrate("4800");
-    emit log_transport_list->currentIndexChanged(log_transport_list->currentIndex());
-    serial->change_port_speed("4800");
-
     return 0;
 }
 

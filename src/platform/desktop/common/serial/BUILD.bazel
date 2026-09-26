@@ -109,6 +109,30 @@ fastecu_qttest(
     ],
 )
 
+# The idle line state MainWindow restores before and after every ECU
+# operation. It calls the facade, so it lives beside it; serial_qt_compat's
+# frozen visibility list could not gain the calling UI package.
+qt_cc_library(
+    name = "serial_idle",
+    srcs = ["serial_idle.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["serial_idle.h"],
+    visibility = ["//src/ui/desktop:__pkg__"],
+    deps = QT_DEPS + [":serial_qt_compat"],
+)
+
+fastecu_qttest(
+    name = "serial_idle_test",
+    size = "small",
+    src = "serial_idle_test.cpp",
+    deps = [
+        ":serial_idle",
+        ":serial_qt_compat",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
+)
+
 fastecu_qttest(
     name = "test_direct_backend",
     size = "small",
