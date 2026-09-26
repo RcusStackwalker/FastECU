@@ -54,6 +54,7 @@ qt_cc_library(
         "qtrohelper.hpp",
         "serial_backend.h",
         "serial_backend_host.h",
+        "serial_facade_codes.h",
     ],
     visibility = [
         # Legitimate platform-internal edge, NOT part of the debt frozen

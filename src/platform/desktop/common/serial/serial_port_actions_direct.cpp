@@ -13,6 +13,8 @@
 #include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
 
+static_assert(kJ2534IoctlP1Max == P1_MAX, "serial_facade_codes.h must match the J2534 header's P1_MAX");
+
 namespace
 {
 // RAII counter: marks a J2534 read as in-flight so a reentrant teardown
@@ -802,6 +804,11 @@ QByteArray SerialPortActionsDirect::read_serial_obd_data(uint16_t timeout_arg)
     return received;
 }
 
+// Legacy protocol framing mixes signed QByteArray::at() results and signed
+// vendor J2534 flag macros into bitwise arithmetic; see docs/tech-debt.md
+// "Convert the get-key cipher arithmetic to unsigned operands" for the
+// established precedent (this file's instances are not yet tracked there).
+// NOLINTBEGIN(bugprone-signed-bitwise)
 QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout_arg)
 {
     QByteArray received;
@@ -900,6 +907,7 @@ QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout_arg)
     }
     return received;
 }
+// NOLINTEND(bugprone-signed-bitwise)
 
 QByteArray SerialPortActionsDirect::write_serial_data(QByteArray output)
 {
@@ -1053,6 +1061,7 @@ QByteArray SerialPortActionsDirect::append_iso9141_header(QByteArray output)
     return output;
 }
 
+// NOLINTBEGIN(bugprone-signed-bitwise): see the note above read_serial_data().
 QByteArray SerialPortActionsDirect::append_iso14230_header(QByteArray output)
 {
     uint8_t chk_sum = 0;
@@ -1083,7 +1092,9 @@ QByteArray SerialPortActionsDirect::append_iso14230_header(QByteArray output)
 
     return output;
 }
+// NOLINTEND(bugprone-signed-bitwise)
 
+// NOLINTBEGIN(bugprone-signed-bitwise): see the note above read_serial_data().
 int SerialPortActionsDirect::write_j2534_data(QByteArray output)
 {
     PASSTHRU_MSG txmsg;
@@ -1133,6 +1144,7 @@ int SerialPortActionsDirect::write_j2534_data(QByteArray output)
 
     return STATUS_SUCCESS;
 }
+// NOLINTEND(bugprone-signed-bitwise)
 
 int SerialPortActionsDirect::send_periodic_j2534_data(QByteArray output, int timeout_arg)
 {
@@ -1196,6 +1208,7 @@ bool SerialPortActionsDirect::get_is_tx_done()
 #endif
 }
 
+// NOLINTBEGIN(bugprone-signed-bitwise): see the note above read_serial_data().
 QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout_arg)
 {
     PASSTHRU_MSG rxmsg;
@@ -1249,6 +1262,7 @@ QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout_arg)
 exit:
     return received;
 }
+// NOLINTEND(bugprone-signed-bitwise)
 
 int SerialPortActionsDirect::set_j2534_ioctl(unsigned long parameter, int value)
 {
@@ -1294,6 +1308,7 @@ unsigned long SerialPortActionsDirect::read_vbatt()
     return STATUS_SUCCESS;
 }
 
+// NOLINTBEGIN(bugprone-signed-bitwise): see the note above read_serial_data().
 void SerialPortActionsDirect::dump_msg(PASSTHRU_MSG *msg)
 {
     QByteArray datamsg;
@@ -1310,6 +1325,7 @@ void SerialPortActionsDirect::dump_msg(PASSTHRU_MSG *msg)
     }
     // emit LOG_D("Timestamp: " + msg->Timestamp << "msg length: " + msg->DataSize << "msg: " + datamsg;
 }
+// NOLINTEND(bugprone-signed-bitwise)
 
 bool SerialPortActionsDirect::get_serial_num(char *serial_arg)
 {
@@ -1600,6 +1616,7 @@ int SerialPortActionsDirect::set_j2534_can_filters()
     return STATUS_SUCCESS;
 }
 
+// NOLINTBEGIN(bugprone-signed-bitwise): see the note above read_serial_data().
 int SerialPortActionsDirect::set_j2534_iso9141()
 {
     baudrate = serial_port_baudrate.toUInt();
@@ -1657,6 +1674,7 @@ int SerialPortActionsDirect::set_j2534_iso9141()
 
     return STATUS_SUCCESS;
 }
+// NOLINTEND(bugprone-signed-bitwise)
 
 int SerialPortActionsDirect::set_j2534_iso9141_timings()
 {

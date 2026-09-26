@@ -1,6 +1,8 @@
 #include "dataterminal.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 
+#include <QFile>
+
 DataTerminal::DataTerminal(SerialPortActions *serial_arg, QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::DataTerminalWindow>()}
 {
@@ -104,6 +106,11 @@ void DataTerminal::listenInterface()
     }
 }
 
+// Legacy protocol framing mixes signed QByteArray::at()/toUInt() results into
+// bitwise arithmetic; see docs/tech-debt.md "Convert the get-key cipher
+// arithmetic to unsigned operands" for the established precedent (this
+// file's instances are not yet tracked there).
+// NOLINTBEGIN(bugprone-signed-bitwise)
 void DataTerminal::sendToInterface()
 {
     bool serialOk = true;
@@ -336,12 +343,14 @@ void DataTerminal::sendToInterface()
         serial->reset_connection();
     }
 }
+// NOLINTEND(bugprone-signed-bitwise)
 
 /*
  * Add SSM header to message
  *
  * @return parsed message
  */
+// NOLINTBEGIN(bugprone-signed-bitwise): see the note above sendToInterface().
 QByteArray DataTerminal::add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100)
 {
     uint8_t length = output.length();
@@ -358,6 +367,7 @@ QByteArray DataTerminal::add_ssm_header(QByteArray output, uint8_t tester_id, ui
     emit LOG_D("Constructed SSM message: " + parse_message_to_hex(output), true, true);
     return output;
 }
+// NOLINTEND(bugprone-signed-bitwise)
 
 /*
  * Calculate SSM checksum to message

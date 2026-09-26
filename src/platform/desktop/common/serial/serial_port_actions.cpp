@@ -4,6 +4,7 @@
 
 #include "remote_serial_backend.h"
 #include "serial_backend_host.h"
+#include "serial_port_actions_direct.h"
 
 SerialPortActions::SerialPortActions(QString peerAddress, QString password, QWebSocket *web_socket, QObject *parent,
                                      std::function<SerialBackend *()> backendFactoryForTests)

@@ -12,13 +12,10 @@
 #include <memory>
 #include <type_traits>
 
-// Kept for consumers that relied on this header's transitive includes
-// (QSerialPort types, WebSocketIoDevice). Candidates for removal in spec 1b.
-#include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
-#include "websocketiodevice.h"
-
 #include "serial_backend.h"
+#include "src/platform/desktop/common/serial/serial_facade_codes.h"
 
+class QWebSocket;
 class SerialBackendHost;
 
 // Thin marshaling facade over a SerialBackend hosted on the SerialIoThread.

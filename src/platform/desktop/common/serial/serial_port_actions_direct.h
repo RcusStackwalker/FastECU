@@ -28,6 +28,7 @@
 #endif
 
 #include "serial_backend.h"
+#include "src/platform/desktop/common/serial/serial_facade_codes.h"
 
 class SerialPortActionsDirect : public QObject, public SerialBackend
 {
@@ -109,15 +110,6 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     std::uint32_t can_destination_address = 0;
     std::uint32_t iso15765_source_address = 0;
     std::uint32_t iso15765_destination_address = 0;
-
-#define SERIAL_P1_MIN 0x00 // J2534 says this may not be changed
-#define SERIAL_P1_MAX 0x01
-#define SERIAL_P2_MIN 0x02 // J2534 says this may not be changed
-#define SERIAL_P2_MAX 0x03 // J2534 says this may not be changed
-#define SERIAL_P3_MIN 0x04
-#define SERIAL_P3_MAX 0x05 // J2534 says this may not be changed
-#define SERIAL_P4_MIN 0x06
-#define SERIAL_P4_MAX 0x07 // J2534 says this may not be changed
 
     std::uint8_t _P1_MAX = 10;
     bool set_kline_timings(std::uint32_t parameter, int value) override;
@@ -614,9 +606,6 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
         NORM_MSG_START_IND = 0x80,
         TX_LB_START_IND = 0xA0,
     };
-
-#define STATUS_SUCCESS 0x00
-#define STATUS_ERROR 0x01
 
   protected:
     // protected so tests can drive the J2534 lifetime (reset_connection

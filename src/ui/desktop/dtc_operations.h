@@ -18,6 +18,7 @@
 #include "src/backend/definitions/kernelcomms.h"
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/definitions/file_actions.h"
+#include "src/platform/desktop/common/serial/serial_facade_codes.h"
 #include <ui_dtc_operations.h>
 
 // Forward declaration
@@ -51,9 +52,6 @@ class DtcOperations : public QDialog
   private:
     FileActions::EcuCalDefStructure *ecuCalDef{};
     QString cmd_type;
-
-#define STATUS_SUCCESS 0x00
-#define STATUS_ERROR 0x01
 
     bool kill_process = false;
     bool five_baud_init_iso9141_ok = false;
