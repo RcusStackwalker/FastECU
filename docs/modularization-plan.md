@@ -256,9 +256,9 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      facade is reached through the constructor-only
      `//src/platform/desktop/common/serial:desktop_serial_factory`, so the
      frozen `serial_qt_compat` allowlist did not grow. The dead
-     `EcuOperations` class was deleted. Three PRs (6c-1 deletion, 6c-2
-     `FileActions`/syslogger/`Settings`, 6c-3 facades and engine) plus this
-     close-out. Logging-protocol registration stays in `MainWindow`; see the
+     `EcuOperations` class was deleted. Three PRs (#363 6c-1 deletion,
+     #364 6c-2 `FileActions`/syslogger/`Settings`, #365 6c-3 facades and
+     engine) plus this close-out (#366). Logging-protocol registration stays in `MainWindow`; see the
      [design notes](design-notes.md#desktop-composition-root) and the
      [tech-debt roadmap](tech-debt.md).
    - Move platform selection into `apps/desktop`. 6c moved construction
