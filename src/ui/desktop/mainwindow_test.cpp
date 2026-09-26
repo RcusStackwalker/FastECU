@@ -23,6 +23,12 @@
 
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
+#include "src/platform/desktop/common/logging/systemlogger.h"
+#include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
+#include "src/platform/desktop/common/ports/qt_event_sink.h"
+#include "src/platform/desktop/common/ports/qt_file_repository.h"
+#include "src/platform/desktop/common/ports/qt_file_system.h"
+#include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 
 namespace
 {
@@ -206,6 +212,38 @@ bool writeTextFile(const QString& path, const char *contents)
     return file.write(contents) == static_cast<qint64>(std::strlen(contents));
 }
 
+// The services DesktopComposition builds in the real app, minus the syslog
+// thread: the logger lives on the test thread, which is enough for a receiver.
+struct TestServices
+{
+    explicit TestServices(const QString& config_root)
+        : file_actions(file_system, resource_bundle, file_repository, file_writer, events)
+    {
+        FileActions::ConfigValuesStructure *config = &file_actions.ConfigValuesStruct;
+        file_actions.set_base_dirs(config, config_root.toStdString());
+        syslogger = std::make_unique<SystemLogger>(config->syslog_files_directory, config->software_name,
+                                                   config->software_version);
+    }
+
+    MainWindowServices services()
+    {
+        return {
+            .file_actions = file_actions,
+            .config_repository = file_repository,
+            .file_action_events = events,
+            .syslogger = *syslogger,
+        };
+    }
+
+    QtFileSystem file_system;
+    QtResourceBundle resource_bundle;
+    QtFileRepository file_repository;
+    QtAtomicFileWriter file_writer;
+    QtEventSink events;
+    FileActions file_actions;
+    std::unique_ptr<SystemLogger> syslogger;
+};
+
 } // namespace
 
 class MainWindowTest : public QObject
@@ -365,7 +403,8 @@ class MainWindowTest : public QObject
     {
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
-        MainWindow window{"", "", nullptr, config_root_.path()};
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
         constructor_driver.stop();
 
         const QString version_dir = config_root_.path() + "/" + window.software_version + "/";
@@ -393,7 +432,8 @@ class MainWindowTest : public QObject
 
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
-        MainWindow window{"", "", nullptr, config_root_.path()};
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
         constructor_driver.stop();
 
         FakeBackend *fake = nullptr;
@@ -456,7 +496,8 @@ class MainWindowTest : public QObject
         QFETCH(QString, protocol);
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
-        MainWindow window{"", "", nullptr, config_root_.path()};
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
         constructor_driver.stop();
 
         FakeBackend *fake = nullptr;
@@ -515,7 +556,8 @@ class MainWindowTest : public QObject
         QFETCH(QString, kernel_address);
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
-        MainWindow window{"", "", nullptr, config_root_.path()};
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
         constructor_driver.stop();
 
         FakeBackend *fake = nullptr;

@@ -51,6 +51,7 @@
 #include "src/ui/desktop/definition/definition_authoring_dialog.h"
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
 #include "src/ui/desktop/logbox.h"
+#include "src/ui/desktop/main_window_services.h"
 #include "src/ui/desktop/settings.h"
 #include "src/ui/desktop/dtc_operations.h"
 #include "src/ui/desktop/hexedit/hexedit.h"
@@ -77,10 +78,7 @@
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
-#include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
-#include "src/platform/desktop/common/ports/qt_file_system.h"
-#include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"
 
 // Forward declaration
@@ -103,14 +101,15 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
   public:
-    // An empty config_root uses the platform's default FastECU directory.
-    MainWindow(const QString& peerAddress = "", const QString& peerPassword = "", QWidget *parent = nullptr,
-               const QString& config_root = {});
+    MainWindow(MainWindowServices services, const QString& peerAddress = "", const QString& peerPassword = "",
+               QWidget *parent = nullptr);
     ~MainWindow();
 
     void delay(int n);
 
   private:
+    MainWindowServices services_;
+
     enum
     {
         _LOG_E = 0, // error
@@ -169,13 +168,8 @@ class MainWindow : public QMainWindow
     int connectionTimeOutDelay = 5;
     int connectionTimeOutDelayCount = 50;
 
-    QtFileSystem m_configFileSystem;
-    QtResourceBundle m_configResourceBundle;
-    QtFileRepository m_configFileRepository;
-    QtAtomicFileWriter m_definitionFileWriter;
     fastecu::ui::ChecksumCorrectionCommand m_checksumCorrectionCommand;
-    QtEventSink fileActionsEvents_{this};
-    std::unique_ptr<FileActions> fileActions;
+    FileActions *fileActions = nullptr;
     fastecu::ui::DefinitionAuthoringDialog *definitionAuthoringDialog = nullptr;
     FileActions::LogValuesStructure *logValues;
     FileActions::ConfigValuesStructure *configValues;

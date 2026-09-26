@@ -785,7 +785,7 @@ void MainWindow::show_hex_editor()
 
 void MainWindow::show_preferences_window()
 {
-    Settings settings(configValues);
+    Settings settings(*fileActions, configValues);
     settings.exec();
     // fileActions->save_config_file();
 }
