@@ -106,7 +106,10 @@ qt_cc_library(
     srcs = [
         "direct_serial_backend.cpp",
         "serial_port_actions_direct.cpp",
-    ],
+    ] + select({
+        "@platforms//os:windows": ["serial_port_actions_direct_windows.cpp"],
+        "//conditions:default": ["serial_port_actions_direct_unix.cpp"],
+    }),
     hdrs = ["serial_port_actions_direct.h"],
     copts = COMMON_COPTS,
     normal_hdrs = ["direct_serial_backend.h"],
@@ -130,6 +133,28 @@ qt_cc_library(
         "@platforms//os:windows": ["//src/platform/desktop/windows/j2534:j2534_api"],
         "//conditions:default": ["//src/platform/desktop/unix/j2534:j2534_api"],
     }),
+)
+
+fastecu_qttest(
+    name = "direct_backend_hooks_unix_test",
+    size = "small",
+    src = "direct_backend_hooks_unix_test.cpp",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [":direct_serial_backend"],
+)
+
+fastecu_qttest(
+    name = "direct_backend_hooks_windows_test",
+    size = "small",
+    src = "direct_backend_hooks_windows_test.cpp",
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [":direct_serial_backend"],
 )
 
 # The remote backend (Qt Remote Objects over a websocket), plus the websocket
