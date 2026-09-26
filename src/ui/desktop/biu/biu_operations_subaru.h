@@ -14,13 +14,11 @@
 #include <QWidget>
 #include <QDialog>
 
+#include "src/backend/protocol/idiagnostic_link.h"
 #include "src/ui/desktop/biu/biu_ops_subaru_switches.h"
 #include "src/ui/desktop/biu/biu_ops_subaru_data.h"
 #include "src/ui/desktop/biu/biu_ops_subaru_input1.h"
 #include "src/ui/desktop/biu/biu_ops_subaru_input2.h"
-
-// Forward declaration
-class SerialPortActions;
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -40,7 +38,7 @@ class BiuOperationsSubaru : public QDialog
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   public:
-    explicit BiuOperationsSubaru(SerialPortActions *serial_arg, QWidget *parent = nullptr);
+    explicit BiuOperationsSubaru(fastecu::diagnostics::IDiagnosticLink& link, QWidget *parent = nullptr);
     ~BiuOperationsSubaru();
 
   private:
@@ -312,7 +310,7 @@ class BiuOperationsSubaru : public QDialog
     void close_results_windows();
     void closeEvent(QCloseEvent *event);
 
-    SerialPortActions *serial;
+    fastecu::diagnostics::IDiagnosticLink *link = nullptr;
     QByteArray *biu_tt_result;
     QByteArray *biu_option_result;
     QStringList *switch_result;

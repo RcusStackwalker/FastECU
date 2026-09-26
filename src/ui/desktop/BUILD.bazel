@@ -32,6 +32,20 @@ cc_library(
     hdrs = ["main_window_services.h"],
 )
 
+# QByteArray boundary for the synchronous diagnostic dialogs.
+qt_cc_library(
+    name = "diagnostic_link_io",
+    srcs = [],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["diagnostic_link_io.h"],
+    deps = QT_DEPS + [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/qt_compat",
+        "//src/backend/protocol",
+    ],
+)
+
 qt_cc_library(
     name = "desktop",
     srcs = [
@@ -75,6 +89,7 @@ qt_cc_library(
         "//conditions:default": [],
     }),
     deps = QT_DEPS + [
+        ":diagnostic_link_io",
         ":main_window_services",
         "//resources/desktop:font_resource",
         "//resources/desktop:icons_resource",
@@ -95,6 +110,7 @@ qt_cc_library(
         # mainwindow.h includes imut_dma_init.h, mitsu_colt_can_cdbg_driver.h
         # and mut_dma_driver.h directly.
         "//src/backend/protocol",
+        "//src/platform/desktop/common/diagnostics:serial_diagnostic_link",
         # mainwindow.cpp calls portableImageForOperation directly.
         "//src/platform/desktop/common/flash:flash_worker",
         "//src/platform/desktop/common/logging",

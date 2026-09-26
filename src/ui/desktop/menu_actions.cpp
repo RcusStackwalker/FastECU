@@ -2,6 +2,7 @@
 #include "src/algorithms/menu/menu_command.h"
 #include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/backend/calibration/map_edit.h"
+#include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
@@ -802,7 +803,8 @@ void MainWindow::show_subaru_biu_window()
     serial->change_port_speed("10400");
     // serial->change_port_speed("4800");
 
-    BiuOperationsSubaru biuOperationsSubaru(serial, this);
+    fastecu::diagnostics::SerialDiagnosticLink link(serial);
+    BiuOperationsSubaru biuOperationsSubaru(link, this);
     QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_E, syslogger, &SystemLogger::log_messages);
     QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_W, syslogger, &SystemLogger::log_messages);
     QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_I, syslogger, &SystemLogger::log_messages);

@@ -2,17 +2,17 @@
 #include <ui_biu_operations_subaru.h>
 
 #include <cstddef>
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/ui/desktop/diagnostic_link_io.h"
 #include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 
-BiuOperationsSubaru::BiuOperationsSubaru(SerialPortActions *serial_arg, QWidget *parent)
+BiuOperationsSubaru::BiuOperationsSubaru(fastecu::diagnostics::IDiagnosticLink& link_arg, QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::BiuOperationsSubaruWindow>()}
 {
     ui->setupUi(this);
 
     ui->progressbar->hide();
 
-    this->serial = serial_arg;
+    this->link = &link_arg;
 
     biuOpsSubaruSwitchesIo = nullptr;
     biuOpsSubaruSwitchesLighting = nullptr;
@@ -329,7 +329,7 @@ void BiuOperationsSubaru::prepare_biu_msg()
         output.append(cmd.at(i));
     }
 
-    output[0] = output[0] | (output.length() - 3);
+    output[0] = static_cast<char>(static_cast<uint8_t>(output[0]) | static_cast<uint8_t>(output.length() - 3));
     uint8_t chk_sum = calculate_checksum(output, false);
     output.append((uint8_t)chk_sum);
 
@@ -351,14 +351,14 @@ void BiuOperationsSubaru::send_biu_msg()
 
     if (connection_state == NOT_CONNECTED && current_command == CONNECT)
     {
-        serial->fast_init(output);
+        static_cast<void>(link->fast_init(bytes::view(output)));
     }
     else
     {
-        serial->write_serial_data_echo_check(output);
+        diagnostic_link_io::write(*link, output);
     }
 
-    received = serial->read_serial_data(serial_read_long_timeout);
+    received = diagnostic_link_io::read_or_empty(*link, serial_read_long_timeout);
 
     /*
     received.clear();
@@ -604,13 +604,13 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         return;
     }
 
-    if (((uint8_t)message.at(0) & 0x80) != 0x80 || (uint8_t)message.at(1) != 0xf0 || (uint8_t)message.at(2) != 0x40)
+    if (((uint8_t)message.at(0) & 0x80U) != 0x80 || (uint8_t)message.at(1) != 0xf0 || (uint8_t)message.at(2) != 0x40)
     {
         emit LOG_I("Invalid message received: invalid header", true, true);
         return;
     }
 
-    if (((uint8_t)message.at(0) & 0x7F) != (uint8_t)message.length() - 4)
+    if (((uint8_t)message.at(0) & 0x7FU) != (uint8_t)message.length() - 4)
     {
         emit LOG_I("Invalid message received: invalid length", true, true);
         return;
@@ -671,10 +671,10 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             while (index < (message.length() - 1))
             {
-                byte = QString("%1").arg(message.at(index) & 0x0f, 2, 16, QLatin1Char('0'));
+                byte = QString("%1").arg((uint8_t)message.at(index) & 0x0fU, 2, 16, QLatin1Char('0'));
                 dtc_code = "B" + byte;
                 index++;
-                byte = QString("%1").arg(message.at(index) & 0xff, 2, 16, QLatin1Char('0'));
+                byte = QString("%1").arg((uint8_t)message.at(index) & 0xffU, 2, 16, QLatin1Char('0'));
                 dtc_code.append(byte);
                 index++;
                 for (int i = 0; i < biu_dtc_list.length(); i += 2)
@@ -738,7 +738,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         {
             for (index = 5; index < (message.length() - 1); index++)
             {
-                int bit_mask = 1;
+                unsigned bit_mask = 1;
                 for (int bit_counter = 0; bit_counter < 8; bit_counter++)
                 {
                     i = ((index - 5) * 8) + bit_counter;
@@ -752,7 +752,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
                         switch_result->append("OFF");
                     }
                     // emit LOG_I(switch_result->at(2 * i) + switch_result->at(2 * i + 1), true, true);
-                    bit_mask = bit_mask << 1;
+                    bit_mask = bit_mask << 1U;
                 }
             }
         }
@@ -776,7 +776,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         {
             for (index = 5; index < (message.length() - 1); index++)
             {
-                int bit_mask = 1;
+                unsigned bit_mask = 1;
                 for (int bit_counter = 0; bit_counter < 8; bit_counter++)
                 {
                     i = ((index - 5) * 8) + bit_counter;
@@ -790,7 +790,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
                         switch_result->append("OFF");
                     }
                     // emit LOG_I(switch_result, true, true);
-                    bit_mask = bit_mask << 1;
+                    bit_mask = bit_mask << 1U;
                 }
             }
         }
@@ -963,8 +963,8 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             // room lamp off delay time
             temp = biu_tt_names.at(0);
-            biu_tt_result->append((uint8_t)message.at(5) & 0x03);
-            calc_result = (uint8_t)message.at(5) & 0x03;
+            biu_tt_result->append((uint8_t)message.at(5) & 0x03U);
+            calc_result = (uint8_t)message.at(5) & 0x03U;
             if (calc_result == 0)
             {
                 temp.append("Normal");
@@ -987,8 +987,8 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             // auto-lock time
             temp = biu_tt_names.at(2);
-            biu_tt_result->append((uint8_t)message.at(6) & 0x07);
-            calc_result = ((uint8_t)message.at(6) & 0x07) * 10;
+            biu_tt_result->append((uint8_t)message.at(6) & 0x07U);
+            calc_result = ((uint8_t)message.at(6) & 0x07U) * 10;
             temp.append(QString("%1 ").arg(calc_result));
             temp.append(biu_tt_names.at(3));
             data_result->append(temp);
@@ -998,8 +998,8 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             if (message.length() == 9)
             {
                 temp = biu_tt_names.at(4);
-                biu_tt_result->append((uint8_t)message.at(7) & 0x0F);
-                calc_result = (((((uint8_t)message.at(7) & 0x0F) + 4) & 0x0F) - 4) * 0.5;
+                biu_tt_result->append((uint8_t)message.at(7) & 0x0FU);
+                calc_result = (((((uint8_t)message.at(7) & 0x0FU) + 4) & 0x0FU) - 4) * 0.5;
                 temp.append(QString("%1 ").arg(calc_result));
                 temp.append(biu_tt_names.at(5));
                 data_result->append(temp);
@@ -1029,7 +1029,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         {
             for (index = 5; index < (message.length() - 1); index++)
             {
-                int bit_mask = 1;
+                unsigned bit_mask = 1;
                 for (int bit_counter = 0; bit_counter < 8; bit_counter++)
                 {
                     i = ((index - 5) * 8) + bit_counter;
@@ -1043,7 +1043,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
                         switch_result->append(biu_option_names.at(i * 3 + 2));
                     }
                     // emit LOG_I(switch_result->at(2 * i) + switch_result->at(2 * i + 1), true, true);
-                    bit_mask = bit_mask << 1;
+                    bit_mask = bit_mask << 1U;
                 }
 
                 biu_option_result->append((uint8_t)message.at(index));
@@ -1063,7 +1063,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         current_command = TESTER_PRESENT;
         data_result->clear();
 
-        int condition = (uint8_t)message.at(5) & 0x07;
+        int condition = (uint8_t)message.at(5) & 0x07U;
         data_result->append("VDC/ABS Condition: " + QString::number(condition));
         // emit LOG_I(data_result, true, true);
 
@@ -1081,9 +1081,9 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         current_command = TESTER_PRESENT;
         data_result->clear();
 
-        condition = (uint8_t)message.at(5) & 0x0F;
+        condition = (uint8_t)message.at(5) & 0x0FU;
         data_result->append("Destination:    " + QString::number(condition));
-        condition = (uint8_t)message.at(6) & 0x3F;
+        condition = (uint8_t)message.at(6) & 0x3FU;
         data_result->append("Touchscreen SW: " + QString::number(condition));
         // emit LOG_I(data_result, true, true);
 
@@ -1101,7 +1101,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         current_command = TESTER_PRESENT;
         data_result->clear();
 
-        if ((uint8_t)message.at(5) & 0x01)
+        if ((uint8_t)message.at(5) & 0x01U)
         {
             setting = "Factory";
         }
