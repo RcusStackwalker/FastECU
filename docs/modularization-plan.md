@@ -41,8 +41,8 @@ corrections are in the [flash qualification matrix](flash-qualification-matrix.m
   deleted the legacy flash package, the drain ratchet, and `ssm:qt_compat`.
 
 Step 6 (thin desktop shell) is under way: 6a (de-widget `FileActions`), 6b
-(calibration map-edit use case), and 6c (desktop composition root) are
-complete — see below. The rest of step 6,
+(calibration map-edit use case), 6c (desktop composition root), and 6d
+(flash-operation dispatch) are complete — see below. The rest of step 6,
 and step 7 (Android seam), have not started.
 
 ## Verified Current Baseline
@@ -261,6 +261,20 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      engine) plus this close-out (#366). Logging-protocol registration stays in `MainWindow`; see the
      [design notes](design-notes.md#desktop-composition-root) and the
      [tech-debt roadmap](tech-debt.md).
+   - **6d flash-operation dispatch — complete.** `MainWindow::start_ecu_operations`
+     no longer routes flash operations. Pure decisions live in the portable
+     `//src/backend/flash:flash_operation_request`, the idle-line serial reset
+     in `//src/platform/desktop/common/serial:serial_idle`, and Denso TCU
+     routing, workflow creation, and the `FlashDialog` in
+     `//src/ui/desktop/flash/operation:flash_operation_controller`.
+     `mainwindow.h` no longer includes `flash_dialog.h`. A scope guard
+     replaced the `goto`, which also made the write-preflight early returns
+     stop battery polling, and a read that produces no calibration now
+     releases its slot. The function went from 291 to 221 lines: write
+     preflight, read-slot preparation, and the calibration handoff stay by
+     design. `test_mainwindow` now fails on Google Mock violations; before
+     6d it had 14 silent ones. See the
+     [design notes](design-notes.md#flash-operation-dispatch).
    - Move platform selection into `apps/desktop`. 6c moved construction
      only: the J2534 unix/windows choice and the direct/remote backend
      choice still live inside `serial_qt_compat` and `SerialPortActions`.

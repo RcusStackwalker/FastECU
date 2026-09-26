@@ -73,7 +73,7 @@ Actions:
 loading, serial/device setup, logging wiring, calibration lifecycle, ECU
 operation dispatch, log views, status updates, and dialogs. `mainwindow.h`
 still includes nearly every flash dialog module. `mainwindow.cpp` is about
-2.5k lines and `menu_actions.cpp` is down to 1,315 lines (from ~2.1k) after
+2.5k lines (2,473 after step 6d) and `menu_actions.cpp` is down to 1,315 lines (from ~2.1k) after
 step 6b extracted the map-edit arithmetic into
 `//src/backend/calibration:map_edit`.
 
@@ -90,8 +90,11 @@ Actions:
 - Introduce small application services behind `MainWindow`: protocol selection,
   calibration sessions, logging sessions, flash-operation dispatch, and
   settings persistence.
-- Replace direct construction of all flash dialogs from `MainWindow` with a
-  typed operation registry/factory that owns module-specific dependencies.
+- Flash dispatch runs through `FlashOperationController` (step 6d); what
+  remains in `MainWindow::start_ecu_operations` is write preflight,
+  checksum correction, and the post-read calibration handoff, which all
+  mutate `ecuCalDef` and move with the "Replace parallel-list data models"
+  work rather than on their own.
 - Keep new file, protocol, and hardware logic out of `MainWindow`.
 - Move logging-protocol registration (`MainWindow::setupLoggingEngine()`'s
   three `registerProtocol` calls) into the composition root. It stayed in
@@ -99,11 +102,6 @@ Actions:
   to pick ECU vs TCU; moving it needs that choice passed in as data (for
   example a `target_is_ecu` field in the logging snapshot) rather than read
   from a widget inside the factory.
-- Remove the `goto ecu_operation_cleanup;` in
-  `MainWindow::start_ecu_operations` (the Denso TCU service-action branch).
-  `run_denso_tcu_service_action()` already returns a bool, so a guarded branch
-  around the flash-routing tail expresses the same skip without a jump. This
-  was planned in the wave-5 consolidation and never landed.
 - **Fix or defer the `wrx02` write-path predicate (step 6b defect (a); see
   the [design notes](design-notes.md#calibration-defect-letters)).** `element_byte_address` (`src/backend/calibration/map_edit.cpp`)
   still carries two different predicates for the `wrx02` flash-method
