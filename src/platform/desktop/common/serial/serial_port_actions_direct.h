@@ -21,11 +21,7 @@
 #include <thread>
 #include <chrono>
 
-#if defined Q_OS_UNIX
-#include "src/platform/desktop/unix/j2534/J2534_unix.h"
-#elif defined Q_OS_WIN32
-#include "src/platform/desktop/windows/j2534/J2534_win.h"
-#endif
+#include "src/platform/desktop/j2534/j2534_api.h"
 
 #include "serial_backend.h"
 #include "src/platform/desktop/common/serial/serial_facade_codes.h"
