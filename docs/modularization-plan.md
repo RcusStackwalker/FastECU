@@ -261,6 +261,9 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      close-out. Logging-protocol registration stays in `MainWindow`; see the
      [design notes](design-notes.md#desktop-composition-root) and the
      [tech-debt roadmap](tech-debt.md).
+   - Move platform selection into `apps/desktop`. 6c moved construction
+     only: the J2534 unix/windows choice and the direct/remote backend
+     choice still live inside `serial_qt_compat` and `SerialPortActions`.
    - Remove compatibility wrappers, obsolete facades, duplicate status macros, and the temporary aggregate implementation target.
    - Re-run packaging and the existing hardware bench checklists for affected logging/flashing paths.
 
