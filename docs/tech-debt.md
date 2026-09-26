@@ -208,33 +208,29 @@ Actions:
 
 ### P1: Isolate flash-operation orchestration
 
-Portable Colt CAN, Subaru Mitsubishi M32R K-Line, and Denso SH705x EEPROM operations now register with
-`FlashWorkflowFactory` and run through the common `FlashDialog`. The
-remaining legacy operation pairs (the Unisia Jecs M32R ECU and bootmode
-families) use `FlashOperationWorker`, and
-shared SSM framing, seed/payload transforms, CRC, byte formatting, byte
-stuffing, and ISO-15765 setup have been consolidated. The remaining safe
-generalization opportunities are maintained in the
+Every flash family — ECU, TCU, EEPROM, JTAG (removed), BDM, and bootmode —
+now registers with `FlashWorkflowFactory` and runs through the common
+`FlashDialog`. `FlashOperationWorker` and the per-family legacy operation
+classes it backed are gone: the step 5 tail's wave 7 deleted the package
+(`src/platform/desktop/common/flash/legacy/`) along with the drain ratchet
+that tracked it. Shared SSM framing, seed/payload transforms, CRC, byte
+formatting, byte stuffing, and ISO-15765 setup have been consolidated. The
+remaining safe generalization opportunities are maintained in the
 [protocol generalization notes](protocol-generalization-opportunities.md).
 
-The operation classes still combine request construction, response validation,
-retries, progress reporting, prompts, full-facade serial I/O, and ROM mutation.
-Wave 1 is in progress: the Mitsubishi M32R K-Line sibling is portable while
-Hitachi M32R K-Line and any shared cluster factoring remain follow-ups. The
-legacy drain contains 25 operation sources. Only a small number of families
-have scripted operation-level coverage.
+Coverage is uneven across families: some carry only the plan/executor unit
+tests each wave added, with no scripted operation-level (`FlashWorkflow` +
+`FlashDialog`) coverage.
 
 Actions:
 
-- For each flash family that changes, extract a family-specific session/driver
-  over the smallest applicable transport interface.
+- For each flash family that changes, extend its `FlashPlan`/`IFlashExecutor`
+  pair rather than adding new orchestration surface.
 - Move response validation and block planning into pure byte-native helpers, in
   line with ADR 0004, while keeping Qt conversion at file/serial boundaries.
 - Add scripted tests for handshake failure, read success, write cancellation,
   erase/write rejection, stop requests, timeouts, and checksum mismatch before
   changing wire behavior.
-- Keep prompts behind `FlashOperationWorker::PromptFn` or a narrower injected
-  interface.
 - Do not force all ECU families into one state machine unless verified protocol
   behavior demonstrates a stable shared abstraction.
 
@@ -249,9 +245,6 @@ diagnostics.
 
 Actions:
 
-- Migrate flash family drivers from `SerialPortActions*` to the existing small
-  transports plus separate port-configuration and adapter-diagnostics
-  interfaces.
 - Move the CDBG logging start path's real port/mode setup out of the protocol
   class so the handshake can be scripted headlessly.
 - Continue separating J2534 discovery, PE-bitness/bridge lifecycle, PassThru
@@ -266,13 +259,14 @@ The build-graph ratchet for the section above.
 `//src/platform/desktop/common/serial:serial_qt_compat` carries
 `serial_port_actions.h` to callers that should not have it, and its `visibility`
 list is frozen by `scripts/check-serial-compat-allowlist.py`: the list may
-shrink, never grow. It currently holds 13 entries — 8 under `src/ui/desktop`,
-0 in backend (step 5e relocated the former `//src/backend/flash` entry to
-`//src/platform/desktop/common/flash/legacy`, which now carries the
-flash-family debt), plus `src/platform/desktop/common/transport`, the serial
-package itself, `//src/platform/desktop/common/flash/legacy`, and `//tests`.
-One entry, `//src/platform/desktop/common/remote_utility`, is not debt: it is
-a same-layer sibling using `websocketiodevice.h`/`qtrohelper.hpp` rather than
+shrink, never grow. It currently holds 6 entries — `//src/ui/desktop:__pkg__`
+and `//src/ui/desktop/biu:__pkg__` under UI, 0 in backend, plus
+`//src/platform/desktop/common/serial:__pkg__` (the package itself),
+`//src/platform/desktop/common/transport:__pkg__`, and `//tests:__pkg__`. The
+step 5 tail's wave 7 deleted the `//src/platform/desktop/common/flash/legacy`
+entry along with the package it named. One entry,
+`//src/platform/desktop/common/remote_utility`, is not debt: it is a
+same-layer sibling using `websocketiodevice.h`/`qtrohelper.hpp` rather than
 the serial facade, and is not expected to shrink.
 
 The allowlist makes this debt measurable, which the prose above cannot: each
@@ -309,7 +303,10 @@ count, since count and blast radius are not the same thing here.
 `new`/`delete`, 172, Critical) concentrate in the legacy per-vendor flash-op
 files, `J2534_unix.cpp`, and `ecu_operations.cpp` — the hardware-facing layer
 this document's introduction calls out as needing bench verification before
-qualification. Several `S1117` messages name variables that look
+qualification. The legacy per-vendor flash-op files were deleted in wave 7
+of the step 5 tail; these counts predate that deletion and have not been
+rescanned since, so treat the flash-op share of them as stale rather than
+current. Several `S1117` messages name variables that look
 copy-paste-shadowed rather than intentionally reused (e.g. a local shadowing
 `timeout_local` or `LOG_I`), which would mean the outer variable silently
 never takes effect. Treat each instance as a triage question, not a
@@ -339,9 +336,11 @@ are triaged out of the same neighborhood.
 **Phase 3 — bulk mechanical modernization (mechanical, higher volume).**
 `cpp:S6022` (use `std::byte`, 580) and `cpp:S5945` (C array →
 `std::array`/`std::vector`, 197) concentrate in the same legacy per-vendor
-flash-op file family (SH705x K-Line/CAN/DensoCAN/diesel siblings); fix both
-rules per file in one pass rather than one rule across all files, so the same
-buffer-handling lines aren't touched twice. `cpp:S125` (539, remove
+flash-op file family (SH705x K-Line/CAN/DensoCAN/diesel siblings), which wave
+7 of the step 5 tail deleted — these counts are likewise stale for that
+share and unscanned since; fix both rules per file in one pass rather than
+one rule across all files, so the same buffer-handling lines aren't touched
+twice. `cpp:S125` (539, remove
 commented-out code) has no behavior risk — fold its removal into whichever
 file is already open for Phase 1/2/3 work rather than a dedicated sweep, plus
 one pass each on the two worst offenders (`mainwindow.cpp`, `ecu_operations.cpp`).

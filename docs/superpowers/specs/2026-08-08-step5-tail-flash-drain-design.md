@@ -1,5 +1,7 @@
 # Step 5 Tail — Per-Family Flash Drain — Design
 
+**Status:** complete on this branch — wave 7b; the completion criterion holds, with two documented exceptions (see below).
+
 ## Portable desktop registration pattern
 
 Migrated families are selected by the ordered `FlashWorkflowFactory` registry
@@ -7,7 +9,7 @@ and executed through the common `FlashDialog`. Future migrations compose a
 workflow registration rather than adding a family dialog or `MainWindow`
 branch. Unregistered protocols continue through legacy dispatch.
 
-**Status:** Wave 1 in progress 2026-08-12. The `tail` row of the
+The `tail` row of the
 [step-5 umbrella design](2026-07-22-step5-backend-portable-design.md), and the
 last work in step 5. Depends on 5c (merged, PR #79) and 5e (merged, PR #161),
 which unblocked it by moving the `serial_qt_compat` allowlist entry onto the
@@ -39,6 +41,29 @@ Exact and machine-checked:
   [The shim that stays](#the-shim-that-stays).
 - All 27 rows in the [flash qualification matrix](../../flash-qualification-matrix.md)
   read `portable=yes` with `hardware_status=experimental`.
+
+**Met in wave 7** ([design](2026-09-25-step5-tail-wave7-unisia-jecs-m32r-bootmode-design.md)):
+`REMAINING` emptied in 7a; 7b deleted the package, the ratchet, the allowlist
+entry, and `ssm:qt_compat`. `protocol:qt_compat` remains by ADR 0004.
+
+One row is a deliberate exception to the last bullet: `FlashEcuSubaruHitachiM32rJtag`
+reads `portable=—`, `hardware_status=unqualified`, not `yes`/`experimental` —
+wave 6c-2 removed it outright (unreachable, stub `read_mem()`/`write_mem()`)
+rather than migrating it, so it never re-enters the matrix as a migrated
+family; see the
+[6c-2 removal design](2026-09-25-step5-tail-wave6c2-hitachi-m32r-jtag-removal-design.md).
+Every other row is `portable=yes`/`experimental`.
+
+The `serial_qt_compat` `FROZEN` set (`scripts/check-serial-compat-allowlist.py`)
+is down to six entries, not only "UI entries ... and the adjudicated
+`remote_utility` carve-out" as the bullet above anticipated: the two UI
+entries (`//src/ui/desktop:__pkg__`, `//src/ui/desktop/biu:__pkg__`, step 6's
+to remove) and `remote_utility` are there as expected, but so are
+`//src/platform/desktop/common/serial:__pkg__`,
+`//src/platform/desktop/common/transport:__pkg__`, and `//tests:__pkg__` —
+non-UI residue this criterion did not name, legitimately present per
+[the serial_qt_compat allowlist item in the tech-debt roadmap](../../tech-debt.md#p1-drain-the-serial_qt_compat-allowlist),
+and left for step 5/6 follow-up rather than this wave.
 
 ## Findings that shaped the scope
 
@@ -161,7 +186,7 @@ each cluster. A four-family cluster is 4.5-7.3k lines and does not fit one PR.
 | **3** | `FlashEcuSubaruHitachiM32rCan`, `FlashTcuCvtSubaruHitachiM32rCan`, `FlashTcuCvtSubaruMitsuMH8111Can`, `FlashTcuCvtSubaruMitsuMH8104Can` | 4,506 | First four-family cluster; first crossing of the ECU/TCU boundary within one cluster. |
 | **4** | `FlashEcuSubaruDenso1N83M_1_5MCan`, `FlashEcuSubaruDenso1N83M_4MCan`, `FlashEcuSubaruDensoSH72531Can`, `FlashEcuSubaruDensoSH72543CanDiesel` | 5,971 | Highest whole-file clone ratio in the tree; function-level measurement found the substrate payoff small — see [Doc fixes carried by wave 4](#doc-fixes-carried-by-wave-4). |
 | **5** | `FlashEcuSubaruDensoSH7058Can`, `FlashEcuSubaruDensoSH7058CanDiesel`, `FlashTcuSubaruDensoSH705xCan`, `FlashEcuSubaruDensoSH705xDensoCan` | 7,305 | Largest by volume; taken once the pattern has settled. Introduces `TransportKind::CanRawIso15765`: DensoCAN transitions to 29-bit raw CAN for its bootloader, then returns to 11-bit ISO-15765 for proprietary `BEEF` kernel traffic, which is not UDS. |
-| **6** | `FlashEcuSubaruDensoSH705xKline`, `FlashEcuSubaruHitachiSH7058Can`, `FlashEcuSubaruHitachiSH72543rCan`, `FlashEcuSubaruUnisiaJecs`, `FlashEcuSubaruUnisiaJecsM32r`, `FlashTcuSubaruHitachiM32rCan`, `FlashTcuSubaruHitachiM32rKline`, `FlashEcuSubaruHitachiM32rJtag`, `FlashEcuSubaruDensoMC68HC16Y5_02_BDM` | 8,118 | Nine singletons; no common, 5c-style ports. |
+| **6** | `FlashEcuSubaruDensoSH705xKline`, `FlashEcuSubaruHitachiSH7058Can`, `FlashEcuSubaruHitachiSH72543rCan`, `FlashEcuSubaruUnisiaJecs`, `FlashEcuSubaruUnisiaJecsM32r`, `FlashTcuSubaruHitachiM32rCan`, `FlashTcuSubaruHitachiM32rKline`, `FlashEcuSubaruHitachiM32rJtag`, `FlashEcuSubaruDensoMC68HC16Y5_02_BDM` | 8,118 | Nine singletons; no common, 5c-style ports. Wave 6 found these families call `write_serial_data_echo_check`, which `IKlineFlashTransport::write()` already is; no new shared port was needed, and the calls on no port fell from six to two, then to one in wave 7. |
 | **7** | `FlashEcuSubaruUnisiaJecsM32rBootMode` + teardown | 655 | The only family needing new port surface. Also deletes `FlashOperationWorker`, `legacy_flash_utils`, the package, its allowlist entry, the drain ratchet, and `ssm:qt_compat`. |
 
 Wave line counts sum to 31,704, matching the package total exactly — no family
