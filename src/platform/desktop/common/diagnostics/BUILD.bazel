@@ -36,3 +36,28 @@ fastecu_qttest(
         "//src/platform/desktop/common/transport:fake_backed_serial",
     ],
 )
+
+# Runs run_dtc_session on its own thread. Mirrors ServiceFunctionWorker
+# without the operator gate: a DTC read/clear has no confirmation step.
+qt_cc_library(
+    name = "dtc_worker",
+    srcs = ["dtc_worker.cpp"],
+    hdrs = ["dtc_worker.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + [
+        "//src/backend/diagnostics:dtc_session",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+        "//src/platform/desktop/common/ports",
+    ],
+)
+
+fastecu_qttest(
+    name = "dtc_worker_test",
+    src = "dtc_worker_test.cpp",
+    deps = [
+        ":dtc_worker",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/protocol/testing:fake_diagnostic_link",
+    ],
+)
