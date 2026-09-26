@@ -107,9 +107,8 @@ void DataTerminal::listenInterface()
 }
 
 // Legacy protocol framing mixes signed QByteArray::at()/toUInt() results into
-// bitwise arithmetic; see docs/tech-debt.md "Convert the get-key cipher
-// arithmetic to unsigned operands" for the established precedent (this
-// file's instances are not yet tracked there).
+// bitwise arithmetic; tracked in docs/tech-debt.md "Convert suppressed
+// signed-bitwise arithmetic to unsigned operands".
 // NOLINTBEGIN(bugprone-signed-bitwise)
 void DataTerminal::sendToInterface()
 {

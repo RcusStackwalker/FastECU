@@ -12,8 +12,7 @@ qt_cc_library(
         # FakeBackend derives from SerialPortActionsDirect
         # (serial_port_actions_direct.h), which serial_platform_api's wrapped
         # target (serial_qt_compat) no longer carries after the direct/remote
-        # backend split (step 6e-1 task 5) -- depend on the owning target
-        # directly.
+        # backend split -- depend on the owning target directly.
         "//src/platform/desktop/common/serial:direct_serial_backend",
         "//src/platform/desktop/common/serial:serial_platform_api",
         "@googletest//:gtest",

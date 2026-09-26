@@ -805,9 +805,9 @@ QByteArray SerialPortActionsDirect::read_serial_obd_data(uint16_t timeout_arg)
 }
 
 // Legacy protocol framing mixes signed QByteArray::at() results and signed
-// vendor J2534 flag macros into bitwise arithmetic; see docs/tech-debt.md
-// "Convert the get-key cipher arithmetic to unsigned operands" for the
-// established precedent (this file's instances are not yet tracked there).
+// vendor J2534 flag macros into bitwise arithmetic; tracked in
+// docs/tech-debt.md "Convert suppressed signed-bitwise arithmetic to
+// unsigned operands".
 // NOLINTBEGIN(bugprone-signed-bitwise)
 QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout_arg)
 {

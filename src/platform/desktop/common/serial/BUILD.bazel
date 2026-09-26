@@ -87,11 +87,11 @@ qt_cc_library(
     normal_hdrs = ["direct_serial_backend.h"],
     visibility = [
         "//src/platform/desktop/common/serial:__pkg__",
-        # Not in the brief's text: testing/fake_backend.h derives FakeBackend
-        # from SerialPortActionsDirect, a real same-layer consumer of the
-        # header this target now owns. Widening a new target's visibility to
-        # a same-layer platform package is allowed (unlike serial_qt_compat's
-        # frozen list); see task-5-report.md.
+        # testing/fake_backend.h derives FakeBackend from
+        # SerialPortActionsDirect, a real same-layer consumer of the header
+        # this target owns. Widening a new target's visibility to a
+        # same-layer platform package is allowed (unlike serial_qt_compat's
+        # frozen list).
         "//src/platform/desktop/common/serial/testing:__pkg__",
         "//tests:__pkg__",
     ],
