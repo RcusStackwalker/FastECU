@@ -14,7 +14,7 @@ class DesktopCompositionTest : public QObject
     {
         QTemporaryDir root;
         QVERIFY(root.isValid());
-        DesktopComposition composition{root.path()};
+        DesktopComposition composition{{}, {}, root.path()};
 
         const MainWindowServices first = composition.services();
         const MainWindowServices second = composition.services();
@@ -23,6 +23,10 @@ class DesktopCompositionTest : public QObject
         QCOMPARE(&first.config_repository, &second.config_repository);
         QCOMPARE(&first.file_action_events, &second.file_action_events);
         QCOMPARE(&first.syslogger, &second.syslogger);
+        QCOMPARE(&first.serial, &second.serial);
+        QCOMPARE(&first.remote_utility, &second.remote_utility);
+        QCOMPARE(&first.logging_engine, &second.logging_engine);
+        QCOMPARE(&first.logging_clock, &second.logging_clock);
         QCOMPARE(first.file_actions.ConfigValuesStruct.base_config_directory, root.path());
     }
 
@@ -35,7 +39,7 @@ class DesktopCompositionTest : public QObject
         QElapsedTimer elapsed;
         elapsed.start();
         {
-            DesktopComposition composition{root.path()};
+            DesktopComposition composition{{}, {}, root.path()};
         }
         QVERIFY2(elapsed.elapsed() < 5000, "composition teardown took longer than 5 s");
     }
@@ -47,7 +51,7 @@ class DesktopCompositionTest : public QObject
         QVERIFY(root.isValid());
         for (int iteration = 0; iteration < 2; ++iteration)
         {
-            DesktopComposition composition{root.path()};
+            DesktopComposition composition{{}, {}, root.path()};
             QCOMPARE(composition.services().file_actions.ConfigValuesStruct.base_config_directory, root.path());
         }
     }

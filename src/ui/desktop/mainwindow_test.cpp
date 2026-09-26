@@ -23,12 +23,15 @@
 
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
+#include "src/platform/desktop/common/logging/logging_engine.h"
 #include "src/platform/desktop/common/logging/systemlogger.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
+#include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
+#include "src/platform/desktop/common/remote_utility/remote_utility.h"
 
 namespace
 {
@@ -223,6 +226,7 @@ struct TestServices
         file_actions.set_base_dirs(config, config_root.toStdString());
         syslogger = std::make_unique<SystemLogger>(config->syslog_files_directory, config->software_name,
                                                    config->software_version);
+        serial = fakeSerial(nullptr, &fake);
     }
 
     MainWindowServices services()
@@ -232,6 +236,10 @@ struct TestServices
             .config_repository = file_repository,
             .file_action_events = events,
             .syslogger = *syslogger,
+            .serial = *serial,
+            .remote_utility = remote_utility,
+            .logging_engine = logging_engine,
+            .logging_clock = logging_clock,
         };
     }
 
@@ -242,6 +250,11 @@ struct TestServices
     QtEventSink events;
     FileActions file_actions;
     std::unique_ptr<SystemLogger> syslogger;
+    FakeBackend *fake = nullptr;
+    std::unique_ptr<SerialPortActions> serial; // null if the fake backend failed to start
+    RemoteUtility remote_utility{"", ""};
+    QtClock logging_clock;
+    fastecu::desktop::logging::LoggingEngine logging_engine;
 };
 
 } // namespace
@@ -404,6 +417,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.serial != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
 
@@ -433,14 +447,11 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.serial != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
 
-        FakeBackend *fake = nullptr;
-        std::unique_ptr<SerialPortActions> serial = fakeSerial(&window, &fake);
-        QVERIFY(serial != nullptr);
-        delete window.serial;
-        window.serial = serial.release();
+        FakeBackend *fake = services.fake;
         EXPECT_CALL(*fake, set_use_openport2_adapter(true)).WillOnce(::testing::DoDefault());
         EXPECT_CALL(*fake, read_vbatt()).WillOnce(::testing::Return(12500UL));
         EXPECT_CALL(*fake, open_serial_port()).Times(0);
@@ -497,14 +508,11 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.serial != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
 
-        FakeBackend *fake = nullptr;
-        std::unique_ptr<SerialPortActions> serial = fakeSerial(&window, &fake);
-        QVERIFY(serial != nullptr);
-        delete window.serial;
-        window.serial = serial.release();
+        FakeBackend *fake = services.fake;
         EXPECT_CALL(*fake, open_serial_port()).Times(0);
         EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
         EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
@@ -557,14 +565,11 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.serial != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
 
-        FakeBackend *fake = nullptr;
-        std::unique_ptr<SerialPortActions> serial = fakeSerial(&window, &fake);
-        QVERIFY(serial != nullptr);
-        delete window.serial;
-        window.serial = serial.release();
+        FakeBackend *fake = services.fake;
         EXPECT_CALL(*fake, open_serial_port()).Times(0);
         EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
         EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);

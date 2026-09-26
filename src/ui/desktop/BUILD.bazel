@@ -137,7 +137,9 @@ fastecu_qttest(
     deps = [
         ":desktop",
         "//src/platform/desktop/common/logging",
+        "//src/platform/desktop/common/logging:logging_runtime",
         "//src/platform/desktop/common/ports",
+        "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
 )

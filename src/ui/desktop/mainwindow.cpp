@@ -21,10 +21,8 @@ const QColor MainWindow::RED_LIGHT_ON = QColor(255, 64, 64);
 const QColor MainWindow::YELLOW_LIGHT_ON = QColor(223, 223, 64);
 const QColor MainWindow::GREEN_LIGHT_ON = QColor(64, 255, 64);
 
-MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, const QString& peerPassword,
-                       QWidget *parent)
-    : QMainWindow(parent), services_(services), peerAddress(peerAddress), peerPassword(peerPassword),
-      ui{std::make_unique<Ui::MainWindow>()}
+MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, QWidget *parent)
+    : QMainWindow(parent), services_(services), peerAddress(peerAddress), ui{std::make_unique<Ui::MainWindow>()}
 {
     ui->setupUi(this);
     qApp->installEventFilter(this);
@@ -357,13 +355,8 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     connect(timer, &QTimer::timeout, this, [&]() { QApplication::processEvents(); });
     timer->start();
 
-    serial = new SerialPortActions(peerAddress, peerPassword, nullptr, this);
-    QObject::connect(serial, &SerialPortActions::LOG_E, syslogger, &SystemLogger::log_messages);
-    QObject::connect(serial, &SerialPortActions::LOG_W, syslogger, &SystemLogger::log_messages);
-    QObject::connect(serial, &SerialPortActions::LOG_I, syslogger, &SystemLogger::log_messages);
-    QObject::connect(serial, &SerialPortActions::LOG_D, syslogger, &SystemLogger::log_messages);
-
-    remote_utility = new RemoteUtility(peerAddress, peerPassword, nullptr, this);
+    serial = &services_.serial;
+    remote_utility = &services_.remote_utility;
     if (!serial->isDirectConnection())
     {
         netSplashProgressBar->setValue(0);
@@ -2426,16 +2419,12 @@ void MainWindow::update_vbatt()
 
 void MainWindow::setupLoggingEngine()
 {
-    loggingEngine = new fastecu::desktop::logging::LoggingEngine(this);
+    loggingEngine = &services_.logging_engine;
 
     connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::valuesUpdated, this,
             &MainWindow::handleLoggingValuesUpdated);
     connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::sessionEnded, this,
             &MainWindow::handleLoggingSessionEnded);
-    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_E, syslogger, &SystemLogger::log_messages);
-    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_W, syslogger, &SystemLogger::log_messages);
-    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_I, syslogger, &SystemLogger::log_messages);
-    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::LOG_D, syslogger, &SystemLogger::log_messages);
 
     loggingEngine->registerProtocol("MUT_DMA",
                                     [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
@@ -2483,7 +2472,7 @@ void MainWindow::setupLoggingEngine()
                                         bool targetIsEcu = ecu_radio_button->isChecked();
                                         bool useOpenport2Adapter = serial->get_use_openport2_adapter();
                                         return std::make_unique<fastecu::logging::SsmLoggingProtocol>(
-                                            m_loggingClock, std::move(transport), snapshot.session.channels(),
+                                            services_.logging_clock, std::move(transport), snapshot.session.channels(),
                                             snapshot.response_offsets, targetIsEcu, useOpenport2Adapter);
                                     });
 }

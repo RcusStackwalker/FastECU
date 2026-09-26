@@ -101,8 +101,7 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
   public:
-    MainWindow(MainWindowServices services, const QString& peerAddress = "", const QString& peerPassword = "",
-               QWidget *parent = nullptr);
+    MainWindow(MainWindowServices services, const QString& peerAddress = "", QWidget *parent = nullptr);
     ~MainWindow();
 
     void delay(int n);
@@ -128,9 +127,8 @@ class MainWindow : public QMainWindow
     QMutex restartQuestionActive;
 
     QString peerAddress;
-    QString peerPassword;
     QSplashScreen *netSplash;
-    RemoteUtility *remote_utility;
+    RemoteUtility *remote_utility = nullptr;
     static const QColor RED_LIGHT_OFF;
     static const QColor RED_LIGHT_ON;
     static const QColor YELLOW_LIGHT_OFF;
@@ -176,7 +174,7 @@ class MainWindow : public QMainWindow
     std::array<FileActions::EcuCalDefStructure *, 100> ecuCalDef{};
     // FileActions::EcuCalDefStructure *ecuCalDefTemp;
 
-    SerialPortActions *serial;
+    SerialPortActions *serial = nullptr;
     // QTimer *serial_poll_timer;
     uint16_t serial_poll_timer_timeout = 500;
     QString serial_port_baudrate = "4800";
@@ -231,7 +229,6 @@ class MainWindow : public QMainWindow
 
     fastecu::desktop::logging::LoggingEngine *loggingEngine = nullptr;
     std::optional<fastecu::desktop::logging::DesktopLoggingSnapshot> activeLoggingSnapshot;
-    QtClock m_loggingClock;
     QString activeLogValueProtocolFilter;
 
     LogBox *logBoxes;
