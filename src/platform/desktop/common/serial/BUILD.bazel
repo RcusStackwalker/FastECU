@@ -63,7 +63,10 @@ qt_cc_library(
 # direct backend and the desktop CAN transport factory.
 qt_cc_library(
     name = "j2534_driver_selection",
-    srcs = [],
+    srcs = select({
+        "@platforms//os:windows": ["j2534_driver_selection_windows.cpp"],
+        "//conditions:default": ["j2534_driver_selection_unix.cpp"],
+    }),
     hdrs = [],
     copts = COMMON_COPTS,
     normal_hdrs = ["j2534_driver_selection.h"],
@@ -72,6 +75,28 @@ qt_cc_library(
         "//src/platform/desktop/common/transport:__pkg__",
     ],
     deps = QT_DEPS,
+)
+
+fastecu_qttest(
+    name = "j2534_driver_selection_unix_test",
+    size = "small",
+    src = "j2534_driver_selection_unix_test.cpp",
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [":j2534_driver_selection"],
+)
+
+fastecu_qttest(
+    name = "j2534_driver_selection_windows_test",
+    size = "small",
+    src = "j2534_driver_selection_windows_test.cpp",
+    target_compatible_with = select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = [":j2534_driver_selection"],
 )
 
 # The local backend: QSerialPort plus the platform J2534 library. Reached

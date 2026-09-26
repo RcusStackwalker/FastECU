@@ -18,15 +18,7 @@
 // getAllJ2534DriversNames() and carry no description; open_serial_port()
 // already treats every one of them as J2534-capable, so this must stay true
 // there or it regresses Windows.
-inline bool isJ2534CapableEntry(QStringView entry)
-{
-#if defined Q_OS_UNIX
-    const qsizetype separator = entry.indexOf(QStringView(u" - "));
-    return separator >= 0 && entry.sliced(separator + 3).contains(QStringView(u"OpenPort 2.0"), Qt::CaseInsensitive);
-#else
-    return !entry.isEmpty();
-#endif
-}
+bool isJ2534CapableEntry(QStringView entry);
 
 inline QString resolveJ2534DllForConnection(const QString& selectedVendor, const QString& installedDllName,
                                             const QStringList& detectedDrivers)
