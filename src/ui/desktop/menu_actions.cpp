@@ -594,6 +594,7 @@ void MainWindow::toggle_realtime()
             return;
         }
 
+        snapshot->target_is_ecu = ecu_radio_button->isChecked();
         activeLoggingSnapshot.emplace(*snapshot);
         const auto started = loggingEngine->start(config, std::move(*snapshot));
         if (!started)

@@ -13,7 +13,6 @@
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_operation_request.h"
 #include "src/platform/desktop/common/flash/flash_workflow.h"
-#include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/serial/serial_idle.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/ui/desktop/menu/menu_builder.h"
@@ -2361,56 +2360,6 @@ void MainWindow::setupLoggingEngine()
             &MainWindow::handleLoggingValuesUpdated);
     connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::sessionEnded, this,
             &MainWindow::handleLoggingSessionEnded);
-
-    loggingEngine->registerProtocol("MUT_DMA",
-                                    [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
-                                    {
-                                        auto transport = std::make_unique<mutdma::FastEcuKlineTransport>(serial);
-                                        auto init = std::make_unique<mutdma::AlreadyInMode>(125000);
-                                        return std::make_unique<fastecu::logging::MutDmaLoggingProtocol>(
-                                            std::move(transport), std::move(init), snapshot.session.channels());
-                                    });
-
-    loggingEngine->registerProtocol(
-        "CDBG",
-        [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
-            -> fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>
-        {
-            const auto configured = fastecu::desktop::logging::configure_cdbg_serial({
-                .disable_iso14230 = [this]() { return serial->set_is_iso14230_connection(false); },
-                .disable_iso14230_header = [this]() { return serial->set_add_iso14230_header(false); },
-                .enable_raw_can = [this]() { return serial->set_is_can_connection(true); },
-                .disable_iso15765 = [this]() { return serial->set_is_iso15765_connection(false); },
-                .select_11_bit_ids = [this]() { return serial->set_is_29_bit_id(false); },
-                .select_500k_baud = [this]() { return serial->set_can_speed("500000"); },
-                .select_reply_id = [this]()
-                { return serial->set_can_destination_address(MitsuColtCanCdbg::kReplyCanId); },
-            });
-            if (!configured)
-            {
-                return std::unexpected(configured.error());
-            }
-            const QString opened_port = serial->open_serial_port();
-            if (opened_port.isEmpty() || !serial->is_serial_port_open())
-            {
-                return fastecu::fail(fastecu::ErrorKind::Disconnected, "unable to open CAN adapter for CDBG logging");
-            }
-            auto transport = std::make_unique<cdbg::FastEcuCanTransport>(serial);
-            return std::unique_ptr<fastecu::logging::LoggingProtocol>(
-                std::make_unique<fastecu::logging::CdbgLoggingProtocol>(std::move(transport),
-                                                                        snapshot.session.channels()));
-        });
-
-    loggingEngine->registerProtocol("SSM",
-                                    [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
-                                    {
-                                        auto transport = std::make_unique<FastEcuSsmTransport>(serial);
-                                        bool targetIsEcu = ecu_radio_button->isChecked();
-                                        bool useOpenport2Adapter = serial->get_use_openport2_adapter();
-                                        return std::make_unique<fastecu::logging::SsmLoggingProtocol>(
-                                            services_.logging_clock, std::move(transport), snapshot.session.channels(),
-                                            snapshot.response_offsets, targetIsEcu, useOpenport2Adapter);
-                                    });
 }
 
 void MainWindow::handleLoggingValuesUpdated(const QVector<fastecu::logging::LogSample>& samples)

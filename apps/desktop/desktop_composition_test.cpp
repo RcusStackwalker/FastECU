@@ -3,6 +3,12 @@
 #include <QTest>
 
 #include <variant>
+#include <QMap>
+#include "src/platform/desktop/common/logging/logging_worker.h"
+#include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
+#define private public
+#include "src/platform/desktop/common/logging/logging_engine.h"
+#undef private
 
 #include "apps/desktop/desktop_composition.h"
 #include "src/backend/definitions/file_actions.h"
@@ -12,6 +18,14 @@ class DesktopCompositionTest : public QObject
     Q_OBJECT
 
   private slots:
+    void compositionRegistersAllLoggingProtocolsWithoutWindow()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        DesktopComposition composition{{}, {}, root.path()};
+        QCOMPARE(composition.services().logging_engine.registrations_.keys(), (QStringList{"CDBG", "MUT_DMA", "SSM"}));
+    }
+
     void servicesReferToTheCompositionsOwnObjects()
     {
         QTemporaryDir root;
@@ -28,7 +42,6 @@ class DesktopCompositionTest : public QObject
         QCOMPARE(&first.serial, &second.serial);
         QCOMPARE(&first.remote_utility, &second.remote_utility);
         QCOMPARE(&first.logging_engine, &second.logging_engine);
-        QCOMPARE(&first.logging_clock, &second.logging_clock);
         QCOMPARE(first.file_actions.ConfigValuesStruct.base_config_directory, root.path());
     }
 

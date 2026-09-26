@@ -69,6 +69,18 @@ FileActions::LogValuesStructure reordered_log_values()
 
 } // namespace
 
+TEST(DesktopLoggingSnapshotAdapterTest, CapturesTargetIndependentlyOfLaterSnapshots)
+{
+    auto snapshot = desktop_logging::make_desktop_logging_snapshot(
+        reordered_log_values(), portable_logging::LoggingProtocolId::Ssm, "SSM", valid_policy());
+    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
+    EXPECT_TRUE(snapshot->target_is_ecu);
+    snapshot->target_is_ecu = false;
+    const auto tcu_run = *snapshot;
+    snapshot->target_is_ecu = true;
+    EXPECT_FALSE(tcu_run.target_is_ecu);
+}
+
 TEST(DesktopLoggingSnapshotAdapterTest, StableIdUpdatesOriginalRowAfterReorder)
 {
     FileActions::LogValuesStructure values = reordered_log_values();

@@ -1,7 +1,6 @@
 #pragma once
 
 class FileActions;
-class QtClock;
 class QtEventSink;
 class QtFileRepository;
 class RemoteUtility;
@@ -25,5 +24,4 @@ struct MainWindowServices
     SerialPortActions& serial;
     RemoteUtility& remote_utility;
     fastecu::desktop::logging::LoggingEngine& logging_engine;
-    QtClock& logging_clock;
 };

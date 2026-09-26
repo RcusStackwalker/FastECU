@@ -5,6 +5,7 @@
 #include "src/platform/desktop/common/logging/logging_engine.h"
 #include "src/platform/desktop/common/logging/systemlogger.h"
 #include "src/platform/desktop/common/remote_utility/remote_utility.h"
+#include "src/platform/desktop/common/transport/desktop_logging_protocol_registration.h"
 
 DesktopComposition::DesktopComposition(const QString& peer_address, const QString& peer_password,
                                        const QString& config_root)
@@ -30,6 +31,7 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
     QObject::connect(logging_engine_.get(), &LoggingEngine::LOG_W, syslogger_.get(), &SystemLogger::log_messages);
     QObject::connect(logging_engine_.get(), &LoggingEngine::LOG_I, syslogger_.get(), &SystemLogger::log_messages);
     QObject::connect(logging_engine_.get(), &LoggingEngine::LOG_D, syslogger_.get(), &SystemLogger::log_messages);
+    fastecu::desktop::logging::register_desktop_logging_protocols(*logging_engine_, *serial_, logging_clock_);
 }
 
 DesktopComposition::~DesktopComposition()
@@ -66,6 +68,5 @@ MainWindowServices DesktopComposition::services()
         .serial = *serial_,
         .remote_utility = *remote_utility_,
         .logging_engine = *logging_engine_,
-        .logging_clock = logging_clock_,
     };
 }

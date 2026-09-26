@@ -12,6 +12,7 @@
 #include <QTimer>
 
 #include <gmock/gmock.h>
+#include "src/backend/logging/testing/scripted_logging_protocol.h"
 
 #include <algorithm>
 #include <cstring>
@@ -29,7 +30,6 @@
 #include "src/platform/desktop/common/logging/logging_engine.h"
 #include "src/platform/desktop/common/logging/systemlogger.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
-#include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
@@ -255,7 +255,6 @@ struct TestServices
             .serial = *serial,
             .remote_utility = remote_utility,
             .logging_engine = logging_engine,
-            .logging_clock = logging_clock,
         };
     }
 
@@ -269,7 +268,6 @@ struct TestServices
     FakeBackend *fake = nullptr;
     std::unique_ptr<SerialPortActions> serial; // null if the fake backend failed to start
     RemoteUtility remote_utility{"", ""};
-    QtClock logging_clock;
     fastecu::desktop::logging::LoggingEngine logging_engine;
 };
 
@@ -766,6 +764,101 @@ class MainWindowTest : public QObject
         QCOMPARE(operation_driver.checksumWarningCount(), 1);
         QCOMPARE(calibration->FullRomData, QByteArray(16, '\x5a'));
         QVERIFY(!window.vbatt_timer->isActive());
+    }
+
+    void windowPreservesInjectedLoggingFactory()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.serial != nullptr);
+        bool called = false;
+        services.logging_engine.registerProtocol(
+            "SSM",
+            [&called](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+            {
+                called = !snapshot.target_is_ecu;
+                auto protocol = std::make_unique<ScriptedLoggingProtocol>();
+                protocol->blockPollUntilCancelled();
+                return protocol;
+            });
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        // This test checks ownership, not UI error dialogs. The next test
+        // drives actual menu dispatch and checks the selected target.
+        QObject::disconnect(&services.logging_engine, nullptr, &window, nullptr);
+        auto session = fastecu::logging::make_logging_session(
+            fastecu::logging::LoggingProtocolId::Ssm,
+            {{.id = "rpm",
+              .address = 0x10,
+              .length = 1,
+              .raw_assembly = fastecu::logging::RawAssembly::UnsignedIntegerDecimal,
+              .from_byte_expression = "x",
+              .unit = "rpm",
+              .decimal_precision = 0}},
+            {.poll_timeout = std::chrono::milliseconds{50},
+             .car_silence_miss_threshold = 20,
+             .reconnect_attempt_threshold = 100,
+             .reconnect_retry_period = 20});
+        QVERIFY(session);
+        QVERIFY(services.logging_engine.start(
+            {.protocolId = "SSM"}, {.session = std::move(*session), .response_offsets = {0}, .target_is_ecu = false}));
+        services.logging_engine.stop();
+        QVERIFY(called);
+    }
+
+    void loggingCapturesTargetForEachRun()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.serial != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        window.vbatt_timer->stop();
+        window.ecu_init_complete = true;
+        window.configValues->flash_protocol_selected_log_protocol = "SSM";
+        window.protocol = "SSM";
+        auto *menu = window.ui->menubar->addMenu("Test logging");
+        auto *action = menu->addAction("Logging");
+        action->setCheckable(true);
+        auto& values = *window.logValues;
+        values = FileActions::LogValuesStructure{};
+        values.log_value_id = {"rpm"};
+        values.log_value_protocol = {"SSM"};
+        values.log_value_name = {"rpm"};
+        values.log_value_description = {"rpm"};
+        values.log_value_ecu_byte_index = {"0"};
+        values.log_value_ecu_bit = {"0"};
+        values.log_value_target = {"ECU"};
+        values.log_value_address = {"000010"};
+        values.log_value_conversions = {{{"rpm", "x", "0", "0", "100", "1"}}};
+        values.log_value_length = {"1"};
+        values.log_value = {"0"};
+        values.log_value_enabled = {"1"};
+        values.lower_panel_log_value_id = {"rpm"};
+        std::vector<bool> targets;
+        services.logging_engine.registerProtocol(
+            "SSM",
+            [&targets](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+            {
+                targets.push_back(snapshot.target_is_ecu);
+                auto protocol = std::make_unique<ScriptedLoggingProtocol>();
+                protocol->blockPollUntilCancelled();
+                return protocol;
+            });
+        for (bool target : {true, false})
+        {
+            window.ecu_radio_button->setAutoExclusive(false);
+            window.ecu_radio_button->setChecked(target);
+            action->setChecked(true);
+            QVERIFY(QMetaObject::invokeMethod(&window, "menu_action_triggered", Qt::DirectConnection,
+                                              Q_ARG(QString, QStringLiteral("toggle_realtime"))));
+            QVERIFY(window.activeLoggingSnapshot.has_value());
+            QCOMPARE(window.activeLoggingSnapshot->target_is_ecu, target);
+            services.logging_engine.stop();
+        }
+        QCOMPARE(targets, (std::vector<bool>{true, false}));
     }
 
   private:

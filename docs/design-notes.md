@@ -284,6 +284,43 @@ broken one.
 `NullEventSink`. It now takes the caller's instance, so diagnostics from a
 save reach the log window instead of being dropped.
 
+## Logging composition
+
+Step 6f moves the MUT/DMA, CDBG, and SSM registrations into
+`register_desktop_logging_protocols`, called once by `DesktopComposition`
+before constructing the window. The helper is a separate
+`//src/platform/desktop/common/transport:logging_protocol_registration`
+target, visible to the composition root and its own package. The transport
+package already has permission to use `serial_qt_compat`; neither the
+composition root nor the logging runtime gains direct facade access.
+
+Registration performs no adapter I/O. The engine still invokes factories
+synchronously during `start()`, before launching the existing worker. CDBG
+keeps its seven ordered settings, first-failure return, and short-circuited
+port-open check. MUT/DMA keeps `AlreadyInMode(125000)`. Factories retain the
+serial facade and clock by reference; the composition destroys the engine
+before either service, including during application restart.
+
+`DesktopLoggingSnapshot::target_is_ecu` captures the radio-button selection
+after snapshot validation and before the UI copy and engine start. SSM uses
+that per-run value and queries the adapter capability when its factory runs.
+Factories never read widgets. `MainWindowServices` no longer exposes the
+logging clock, and `MainWindow::setupLoggingEngine()` only wires signals.
+The UI still owns protocol/policy selection, connection orchestration, and
+log-file handling. Its transport dependency remains for the standalone
+MUT memory helpers in `log_operations_ssm.cpp`.
+
+Factory tests use the real serial facade with a fake backend, including CDBG
+setup failures and handshake, SSM target/adapter variants and nonsequential
+sample offsets, and MUT initialization/channel bytes. SSM/MUT factories are
+invoked synchronously through test-local access; engine lifecycle tests and
+CDBG's public-engine startup test cover worker integration. The composition
+registration test inspects keys without opening hardware, and UI regressions
+cover per-run selection and preservation of injected factories.
+
+Hardware qualification is tracked separately in the
+[logging-composition bench checklist](logging-composition-bench-checklist.md).
+
 ## Flash-operation dispatch
 
 ### `start_ecu_operations` cleanup is a scope guard

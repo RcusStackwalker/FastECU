@@ -68,17 +68,10 @@
 #include "src/backend/protocol/mut_dma_driver.h"
 #include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/backend/protocol/imut_dma_init.h"
-#include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
-#include "src/platform/desktop/common/transport/fastecu_can_transport.h"
-#include "src/backend/logging/protocols/portable_ssm_logging_protocol.h"
-#include "src/backend/logging/protocols/portable_mut_dma_logging_protocol.h"
-#include "src/backend/logging/protocols/portable_cdbg_logging_protocol.h"
 #include "src/platform/desktop/common/logging/logging_engine.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
-#include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
-#include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"
 
 // Forward declaration
 class SerialPortActions;
