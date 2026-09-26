@@ -97,4 +97,5 @@ judgment call: within a clone cluster, each family is ported to a tested
 portable executor first, and only then is what is provably identical between
 the tested executors factored into a shared core. Extraction never happens
 against the untested Qt sources. See the
-[tail design](superpowers/specs/2026-08-08-step5-tail-flash-drain-design.md).
+[design notes](design-notes.md#flash-architecture) for where this rule was
+applied and declined.

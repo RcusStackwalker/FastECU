@@ -20,74 +20,29 @@ exist, `bazel/fastecu_sources.bzl` is deleted in favour of package-owned
 `BUILD.bazel` targets, and every `src/algorithms` package is split into a
 portable target plus a transitional `:qt_compat` shim.
 
-**Step 5 (portable backend workflows): 5a through 5e complete; flash-tail drain
-complete on this branch (wave 7b)**,
-and is itself decomposed — see the
-[step-5 umbrella design](superpowers/specs/2026-07-22-step5-backend-portable-design.md)
-and the [5d decomposition design](superpowers/specs/2026-07-24-step5d-fileactions-decomposition-design.md)
-for the `FileActions` breakdown:
+**Step 5 (portable backend workflows) is complete.** The backend owns no
+threads, reaches Qt only through the transitional adapters that ADR 0016's
+visibility gate permits, and every flash family runs as a portable
+`FlashPlan` + executor pair behind `FlashWorkflowFactory` and the common
+`FlashDialog`. Decisions and hardware knowledge from its design work are kept
+in the [design notes](design-notes.md); per-family wire behavior and
+corrections are in the [flash qualification matrix](flash-qualification-matrix.md).
 
-- 5a port/error foundation — merged 2026-07-22 (PR #73).
-- 5b logging use-case thread inversion — merged 2026-07-23 (PR #78).
-- 5c flash preflight/execution seam — merged 2026-07-24 (PR #79).
-- 5d-1 config/settings foundation — merged 2026-07-25 (PR #80).
-- 5d-2 checksum use case — merged 2026-07-25 (PR #81).
-- 5d-3 definition use case — merged 2026-07-30 (PR #86).
-- 5d-4 calibration use case — merged 2026-07-31 (PR #117), plus follow-ups
-  #126/#127/#128/#129/#131/#133.
-- 5d-4b map cell/axis decode — merged 2026-08-01 (PR #134).
-- 5d-6 flash-definition glue — merged 2026-08-01 (PR #138).
-- 5d-5 NRC/DTC diagnostics tables — merged 2026-08-06 (PR #153); see the
-  [5d-5 design](superpowers/specs/2026-08-06-step5d5-diagnostics-and-logger-glue-design.md).
-- 5d-5b logger definition parser, conf operations and service glue — merged
-  2026-08-07 (PR #154). **5d is now complete.**
-- **5e backend portability closure — complete on this branch (2026-08-07),
-  pending merge to master: zero `//src/backend/...` entries remain in the
-  `serial_qt_compat` allowlist and `//src/backend/flash` and
-  `//src/backend/checksum` carry no `QT_DEPS`, verified by
-  `//:serial_compat_allowlist` and `//:portable_closure`.** See the
-  [5e design](superpowers/specs/2026-08-07-step5e-backend-portability-closure-design.md).
-- TCU service-functions package — PR 1 (portable sessions) and PR 2 (desktop
-  wiring), groundwork for wave 5.
+- 5a port/error foundation (#73); 5b logging use-case thread inversion (#78);
+  5c flash preflight/execution seam (#79).
+- 5d `FileActions` decomposition: config/settings (#80), checksum (#81),
+  definitions (#86), calibration (#117 and follow-ups, #134), flash-definition
+  glue (#138), NRC/DTC tables (#153), logger definitions and conf (#154).
+- 5e backend portability closure: no `//src/backend/...` entry remains in the
+  `serial_qt_compat` allowlist.
+- The flash-family tail drained 27 legacy families in eight waves (wave 0,
+  2026-08-08, through wave 7, #360 and #361). One family, the unreachable
+  Hitachi M32R JTAG stub, was removed rather than migrated (#358). Wave 7
+  deleted the legacy flash package, the drain ratchet, and `ssm:qt_compat`.
 
 Step 6 (thin desktop shell) is under way: 6a (de-widget `FileActions`) and 6b
 (calibration map-edit use case) are complete — see below. The rest of step 6,
-and step 7 (Android seam), have not started. The per-family flash tail is
-under way — see the
-[tail design](superpowers/specs/2026-08-08-step5-tail-flash-drain-design.md)
-for the eight-wave sequencing:
-
-- Wave 0 `FlashEcuMitsuM32rCan` — merged 2026-08-08. Installs
-  `//:legacy_flash_drain`, taking it from 27 families to 26; waves 1-7
-  ratchet the rest down to zero.
-- Wave 1 `FlashEcuSubaruMitsuM32rKline`, `FlashEcuSubaruHitachiM32rKline` —
-  merged.
-- Wave 2 `FlashEcuSubaruDensoMC68HC16Y5_02`, `FlashEcuSubaruDensoSH7055_02` —
-  merged. Takes the drain from 24 remaining families to 22.
-- Wave 3 `FlashEcuSubaruHitachiM32rCan`, `FlashTcuCvtSubaruHitachiM32rCan`, `FlashTcuCvtSubaruMitsuMH8111Can`, `FlashTcuCvtSubaruMitsuMH8104Can` — merged. Takes the drain from 22 remaining families to 18.
-- Wave 4 `FlashEcuSubaruDenso1N83M_1_5MCan`, `FlashEcuSubaruDenso1N83M_4MCan`, `FlashEcuSubaruDensoSH72531Can`, `FlashEcuSubaruDensoSH72543CanDiesel` — merged. Takes the drain from 18 remaining families to 14.
-- Wave 5 `FlashEcuSubaruDensoSH7058Can`, `FlashEcuSubaruDensoSH7058CanDiesel`, `FlashTcuSubaruDensoSH705xCan`, `FlashEcuSubaruDensoSH705xDensoCan` — complete on this branch (2026-09-13). Takes the drain from 14 remaining families to 10; all four rows remain automated-only and `experimental` pending hardware qualification.
-- Wave 5's cluster-close comparison reused only proven ISO-15765 crypto constants. `single_window_plan` was evaluated and intentionally not widened: its kernel-free, no-test-write, one-write/erase-window contract does not match these kernel-backed, 16-block families, three of which support test-write.
-
-- Wave 6a-1 `FlashTcuSubaruHitachiM32rKline` — merged (#347).
-- Wave 6a-2 `FlashTcuSubaruHitachiM32rCan` — merged (#348).
-- Wave 6a-3 `FlashEcuSubaruHitachiSH72543rCan` — merged (#349). See the
-  [family design](superpowers/specs/2026-09-20-step5-tail-wave6a3-hitachi-sh72543r-can-design.md).
-- Wave 6a-4 `FlashEcuSubaruHitachiSH7058Can` — merged (#350).
-- Wave 6b-1 `FlashEcuSubaruUnisiaJecs` — merged (#352), on the raw K-Line
-  transport foundation (#351).
-- Wave 6b-2 `FlashEcuSubaruDensoSH705xKline` — merged (#355, #356).
-- Wave 6c-1 `FlashEcuSubaruDensoMC68HC16Y5_02_BDM` — merged (#357). See the
-  [family design](superpowers/specs/2026-09-25-step5-tail-wave6c1-denso-mc68hc16-bdm-design.md).
-- Wave 6c-2 `FlashEcuSubaruHitachiM32rJtag` — removed, not migrated (#358):
-  it was unreachable and its read and write were stubs. See the
-  [removal design](superpowers/specs/2026-09-25-step5-tail-wave6c2-hitachi-m32r-jtag-removal-design.md).
-- Wave 6c-3 `FlashEcuSubaruUnisiaJecsM32r` — merged (#359).
-- Wave 7 `FlashEcuSubaruUnisiaJecsM32rBootMode` — 7a merged (#360); 7b (legacy
-  package teardown) implemented on this branch: 7a migrated the family, 7b
-  deletes the legacy package, the drain ratchet, its allowlist entry, and
-  `ssm:qt_compat`. Takes the drain from 1 remaining family to zero. See the
-  [family design](superpowers/specs/2026-09-25-step5-tail-wave7-unisia-jecs-m32r-bootmode-design.md).
+and step 7 (Android seam), have not started.
 
 ## Verified Current Baseline
 
@@ -222,7 +177,7 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
    - **Amendment 4:** the checksum correction dialog is now **one aggregated summary** instead of one per family — a deliberate behavior change, bench-checklist item recorded in Task 9 Step 8.
    - Note for step 5's benefit: each `:qt_compat` target is transitional debt whose only remaining callers are backend and UI. Step 5 should drain them and delete the shims.
 
-5. **Make backend workflows portable — 5a through 5e complete; flash-tail drain complete on this branch (wave 7b), with 0 legacy families remaining**
+5. **Make backend workflows portable — complete (wave 7, #361)**
    - Sub-step status and PR numbers are tracked in the Status section above.
    - Define capability-specific ports for byte-stream/K-Line, CAN frames, SSM, file repositories, settings, monotonic clock/delay, cancellation, and event delivery.
    - Backend owns no threads. Platform code runs blocking, bounded, cancellable backend calls on Qt workers or future Kotlin coroutines.
@@ -241,8 +196,7 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      transitional `Legacy*Adapter` targets and `src/backend/definitions`.
 
 6. **Finish the thin desktop shell**
-   - **6a de-widget `FileActions` — complete (2026-09-02).** See the
-     [6a design](superpowers/specs/2026-09-01-step6a-file-actions-dewidget-design.md).
+   - **6a de-widget `FileActions` — complete (2026-09-02).**
      Five PRs (6a-1 menu split, 6a-2 definition-authoring dialog, 6a-3
      `IEventSink`/`QWidget` removal, 6a-4 expression-shim drain, 6a-5 the
      `//:backend_no_widgets` guard) ran in parallel with the flash drain
@@ -258,8 +212,10 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      `EcuCalDefStructure` staying `QString`/`QStringList`-typed — was this
      slice's explicit non-goal; see the "Replace parallel-list data models"
      entry in the [tech-debt roadmap](tech-debt.md).
-   - **6b calibration map-edit use case — complete.** See the
-     [6b design](superpowers/specs/2026-09-03-step6b-calibration-map-edit-design.md).
+   - **6b calibration map-edit use case — complete.** The defect letters
+     (a)–(h) below are defined in the
+     [design notes](design-notes.md#calibration-defect-letters), which also
+     record a [caution about files edited before #274](design-notes.md#files-edited-before-pr-274-may-hold-wrong-bytes).
      Moved the calibration map-*edit* arithmetic out of
      `src/ui/desktop/menu_actions.cpp` into the portable
      `//src/backend/calibration:map_edit` target: the byte codec
