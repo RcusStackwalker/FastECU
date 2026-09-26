@@ -2,11 +2,6 @@
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/algorithms/protocol/qt_compat/qt_bytes.h"
-#include "src/algorithms/protocol/mut_dma/mut_dma_memory.h"
-#include "src/backend/protocol/transport_legacy_compat.h"
-
-using namespace mutdma;
-using namespace std::chrono_literals;
 
 bool MainWindow::ecu_init()
 {
@@ -488,52 +483,4 @@ void MainWindow::log_to_file()
             datalog_file_outstream << "\n";
         }
     }
-}
-
-// MUT/DMA memory read/write bench utilities. Preserved here (moved from the now-deleted
-// log_operations_mitsubishi.cpp, which also held the per-cycle MUT/DMA logging loop that
-// Task 8 replaced with MutDmaLoggingProtocol) because they are standalone bench helpers,
-// not part of the per-cycle logging path this refactor removes -- each opens its own
-// short-lived FastEcuKlineTransport/MutDmaDriver rather than using the per-session
-// mut_driver/mut_transport members that were removed along with the old logging loop.
-bool MainWindow::mut_write_memory(quint16 addr, const QByteArray& bytes)
-{
-    if (addr < 0x4000 || addr > 0xBFFF) // writable RAM window guard
-    {
-        emit LOG_E("MUT/DMA: refusing write outside 0x4000-0xBFFF", true, true);
-        return false;
-    }
-    FastEcuKlineTransport tr(serial);
-    AlreadyInMode init(125000);
-    MutDmaDriver d(tr, init);
-    return d.writeMemory(addr, bytes::view(bytes), fastecu::transport_legacy_compat::detail::never_cancelled())
-        .has_value();
-}
-
-QByteArray MainWindow::mut_read_memory(quint16 addr, int len)
-{
-    FastEcuKlineTransport tr(serial);
-    AlreadyInMode init(125000);
-    MutDmaDriver d(tr, init);
-
-    QByteArray out;
-    int off = 0;
-    while (off < len)
-    {
-        int chunk = qMin(40, len - off);
-        const std::vector<Channel> ch = planReadChannels(quint16(addr + off), chunk);
-        const auto& cancellation = fastecu::transport_legacy_compat::detail::never_cancelled();
-        if (!d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation))
-        {
-            break;
-        }
-        auto values = d.pollOnce(50ms, cancellation);
-        if (!values)
-        {
-            break;
-        }
-        out.append(bytes::toQByteArray(reassembleRead(*values)));
-        off += chunk;
-    }
-    return out;
 }

@@ -1,4 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = ["//src:__subpackages__"])
 
@@ -11,4 +12,21 @@ cc_library(
         "scripted_ssm_transport.h",
     ],
     deps = ["//src/backend/protocol"],
+)
+
+cc_library(
+    name = "fake_diagnostic_link",
+    testonly = True,
+    hdrs = ["fake_diagnostic_link.h"],
+    deps = ["//src/backend/protocol"],
+)
+
+fastecu_portable_gtest(
+    name = "fake_diagnostic_link_test",
+    srcs = ["fake_diagnostic_link_test.cpp"],
+    deps = [
+        ":fake_diagnostic_link",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )

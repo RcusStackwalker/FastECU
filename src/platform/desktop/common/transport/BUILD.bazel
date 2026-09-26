@@ -6,11 +6,6 @@ package(default_visibility = [
     "//apps/desktop:__pkg__",
     "//src/platform:__subpackages__",
     "//tests:__pkg__",
-    # GRANDFATHERED (Task 5 human decision): //src/ui/desktop includes the
-    # three fastecu_*_transport.h headers directly (mainwindow.h:101,104,109).
-    # This is a real ui -> platform edge the modularization plan has not yet
-    # removed.
-    "//src/ui/desktop:__pkg__",
     # Task 7's desktop dialog owns the existing SSM transport adapter passed
     # into ServiceFunctionWorker; this does not grow serial_qt_compat's frozen
     # direct-consumer allowlist.

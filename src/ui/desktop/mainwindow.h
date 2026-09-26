@@ -66,7 +66,6 @@
 
 // Mitsubishi MUT/DMA protocol core (namespace mutdma)
 #include "src/backend/protocol/mut_dma_driver.h"
-#include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/backend/protocol/imut_dma_init.h"
 #include "src/platform/desktop/common/logging/logging_engine.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
@@ -278,10 +277,6 @@ class MainWindow : public QMainWindow
     QByteArray add_ssm_header(QByteArray output, bool dec_0x100);
     uint8_t calculate_checksum(const QByteArray& output, bool dec_0x100);
     void log_to_file();
-
-    // MUT/DMA memory read/write bench utilities (impl. in log_operations_ssm.cpp)
-    bool mut_write_memory(quint16 addr, const QByteArray& bytes);
-    QByteArray mut_read_memory(quint16 addr, int len);
 
     void setupLoggingEngine();
     void restoreLoggingUiState();
