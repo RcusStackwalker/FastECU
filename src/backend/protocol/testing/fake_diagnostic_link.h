@@ -92,6 +92,10 @@ class FakeDiagnosticLink final : public IDiagnosticLink
         calls.push_back("fast_init " + hex(wakeup));
         return next(fast_inits_);
     }
+    // Echoes the input unconditionally. The real adapter instead returns the
+    // facade's echo-check result (which can legitimately differ from what
+    // was written), so callers must not rely on this return value to assert
+    // anything beyond "write was called" -- assert on `calls` instead.
     Result<bytes::Bytes> write(bytes::ByteView data) override
     {
         calls.push_back("write " + hex(data));
