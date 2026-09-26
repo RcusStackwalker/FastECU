@@ -1,10 +1,12 @@
 
 #include <cstdio>
+#include <memory>
 
 #include <QCoreApplication>
 #include <QtTest>
 
 #include "serial_backend.h"
+#include "src/platform/desktop/common/serial/direct_serial_backend.h"
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
 #include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
 
@@ -22,6 +24,7 @@ class TestDirectBackend : public QObject
     void j2534DriverViews_wow6432NodeVendorIsDiscoverable();
     void j2534DriverViews_laterViewOverwritesOnCollision();
     void j2534CapableEntry_matchesOnlyTheAdapterDescription();
+    void makeDirectSerialBackend_buildsTheDirectBackend();
 };
 
 void TestDirectBackend::getSet_roundtrip_throughInterface()
@@ -123,6 +126,12 @@ void TestDirectBackend::j2534CapableEntry_matchesOnlyTheAdapterDescription()
     QVERIFY(isJ2534CapableEntry(u"Acme J2534 DLL"));
     QVERIFY(!isJ2534CapableEntry(u""));
 #endif
+}
+
+void TestDirectBackend::makeDirectSerialBackend_buildsTheDirectBackend()
+{
+    const std::unique_ptr<SerialBackend> backend = make_direct_serial_backend();
+    QVERIFY(dynamic_cast<SerialPortActionsDirect *>(backend.get()) != nullptr);
 }
 
 int main(int argc, char **argv)

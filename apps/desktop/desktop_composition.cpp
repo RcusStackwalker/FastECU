@@ -21,7 +21,7 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
     QObject::connect(syslog_thread_.get(), &QThread::started, syslogger_.get(), &SystemLogger::run);
     syslog_thread_->start();
 
-    serial_ = make_serial_port_actions(peer_address, peer_password, *syslogger_);
+    serial_ = make_serial_port_actions(serial_connection_from_args(peer_address, peer_password), *syslogger_);
     remote_utility_ = std::make_unique<RemoteUtility>(peer_address, peer_password, nullptr, nullptr);
 
     using fastecu::desktop::logging::LoggingEngine;
@@ -45,6 +45,15 @@ DesktopComposition::~DesktopComposition()
     syslog_thread_->quit();
     syslog_thread_->wait();
     syslogger_.reset();
+}
+
+SerialConnection serial_connection_from_args(const QString& host, const QString& password)
+{
+    if (host.isEmpty())
+    {
+        return DirectSerial{};
+    }
+    return RemoteSerial{.address = host, .password = password};
 }
 
 MainWindowServices DesktopComposition::services()

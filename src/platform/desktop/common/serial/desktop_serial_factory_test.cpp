@@ -1,8 +1,12 @@
 #include <QStringList>
 #include <QTest>
 
+#include <memory>
+
 #include "src/platform/desktop/common/serial/desktop_serial_factory.h"
+#include "src/platform/desktop/common/serial/remote_serial_backend.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
 
 class RecordingLogSink : public QObject
 {
@@ -23,18 +27,28 @@ class DesktopSerialFactoryTest : public QObject
     Q_OBJECT
 
   private slots:
-    void buildsADirectFacadeWhenNoPeerIsGiven()
+    void directConnectionBuildsTheDirectBackend()
     {
-        RecordingLogSink sink;
-        const OwnedSerialPortActions serial = make_serial_port_actions({}, {}, sink);
-        QVERIFY(serial != nullptr);
-        QVERIFY(serial->isDirectConnection());
+        const auto factory = make_serial_backend_factory(DirectSerial{});
+        QVERIFY(factory);
+        const std::unique_ptr<SerialBackend> backend{factory()};
+        QVERIFY(dynamic_cast<SerialPortActionsDirect *>(backend.get()) != nullptr);
+    }
+
+    // An unreachable peer: RemoteSerialBackend's constructor does not block
+    // on it (see remote_backend_smoke_test.cpp).
+    void remoteConnectionBuildsTheRemoteBackend()
+    {
+        const auto factory = make_serial_backend_factory(RemoteSerial{"local:fastecu-test-nonexistent", "pw"});
+        QVERIFY(factory);
+        const std::unique_ptr<SerialBackend> backend{factory()};
+        QVERIFY(dynamic_cast<RemoteSerialBackend *>(backend.get()) != nullptr);
     }
 
     void everyLogLevelReachesTheSink()
     {
         RecordingLogSink sink;
-        const OwnedSerialPortActions serial = make_serial_port_actions({}, {}, sink);
+        const OwnedSerialPortActions serial = make_serial_port_actions(DirectSerial{}, sink);
         QVERIFY(serial != nullptr);
         sink.messages.clear();
 
