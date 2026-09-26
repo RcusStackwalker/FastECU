@@ -154,3 +154,37 @@ qt_cc_library(
         "//src/platform/desktop/common/serial:serial_qt_compat",
     ],
 )
+
+qt_cc_library(
+    name = "logging_protocol_registration",
+    srcs = ["desktop_logging_protocol_registration.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["desktop_logging_protocol_registration.h"],
+    visibility = [
+        "//apps/desktop:__pkg__",
+        "//src/platform/desktop/common/transport:__pkg__",
+    ],
+    deps = QT_DEPS + [
+        ":transport",
+        "//src/backend/logging/protocols",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+        "//src/platform/desktop/common/logging:logging_runtime",
+        "//src/platform/desktop/common/serial:serial_qt_compat",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_desktop_logging_protocol_registration",
+    size = "small",
+    src = "desktop_logging_protocol_registration_test.cpp",
+    deps = [
+        ":fake_backed_serial",
+        ":logging_protocol_registration",
+        ":setter_sequence_expectations",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/platform/desktop/common/logging:logging_runtime",
+    ],
+)
