@@ -12,6 +12,7 @@
 #include <QTimer>
 
 #include <gmock/gmock.h>
+#include "src/backend/logging/testing/scripted_logging_protocol.h"
 
 #include <algorithm>
 #include <cstring>
@@ -766,6 +767,60 @@ class MainWindowTest : public QObject
         QCOMPARE(operation_driver.checksumWarningCount(), 1);
         QCOMPARE(calibration->FullRomData, QByteArray(16, '\x5a'));
         QVERIFY(!window.vbatt_timer->isActive());
+    }
+
+    void loggingCapturesTargetForEachRun()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.serial != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        window.vbatt_timer->stop();
+        window.ecu_init_complete = true;
+        window.configValues->flash_protocol_selected_log_protocol = "SSM";
+        window.protocol = "SSM";
+        auto *menu = window.ui->menubar->addMenu("Test logging");
+        auto *action = menu->addAction("Logging");
+        action->setCheckable(true);
+        auto& values = *window.logValues;
+        values = FileActions::LogValuesStructure{};
+        values.log_value_id = {"rpm"};
+        values.log_value_protocol = {"SSM"};
+        values.log_value_name = {"rpm"};
+        values.log_value_description = {"rpm"};
+        values.log_value_ecu_byte_index = {"0"};
+        values.log_value_ecu_bit = {"0"};
+        values.log_value_target = {"ECU"};
+        values.log_value_address = {"000010"};
+        values.log_value_conversions = {{{"rpm", "x", "0", "0", "100", "1"}}};
+        values.log_value_length = {"1"};
+        values.log_value = {"0"};
+        values.log_value_enabled = {"1"};
+        values.lower_panel_log_value_id = {"rpm"};
+        std::vector<bool> targets;
+        services.logging_engine.registerProtocol(
+            "SSM",
+            [&targets](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
+            {
+                targets.push_back(snapshot.target_is_ecu);
+                auto protocol = std::make_unique<ScriptedLoggingProtocol>();
+                protocol->blockPollUntilCancelled();
+                return protocol;
+            });
+        for (bool target : {true, false})
+        {
+            window.ecu_radio_button->setAutoExclusive(false);
+            window.ecu_radio_button->setChecked(target);
+            action->setChecked(true);
+            QVERIFY(QMetaObject::invokeMethod(&window, "menu_action_triggered", Qt::DirectConnection,
+                                              Q_ARG(QString, QStringLiteral("toggle_realtime"))));
+            QVERIFY(window.activeLoggingSnapshot.has_value());
+            QCOMPARE(window.activeLoggingSnapshot->target_is_ecu, target);
+            services.logging_engine.stop();
+        }
+        QCOMPARE(targets, (std::vector<bool>{true, false}));
     }
 
   private:

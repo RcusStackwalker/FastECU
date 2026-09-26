@@ -2405,7 +2405,7 @@ void MainWindow::setupLoggingEngine()
                                     [this](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
                                     {
                                         auto transport = std::make_unique<FastEcuSsmTransport>(serial);
-                                        bool targetIsEcu = ecu_radio_button->isChecked();
+                                        bool targetIsEcu = snapshot.target_is_ecu;
                                         bool useOpenport2Adapter = serial->get_use_openport2_adapter();
                                         return std::make_unique<fastecu::logging::SsmLoggingProtocol>(
                                             services_.logging_clock, std::move(transport), snapshot.session.channels(),

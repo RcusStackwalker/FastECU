@@ -21,6 +21,7 @@ struct DesktopLoggingSnapshot
     std::vector<std::size_t> response_offsets;
     std::unordered_map<std::string, int> index_by_id;
     std::unordered_set<std::string> enabled_ids;
+    bool target_is_ecu = true;
 };
 
 fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const FileActions::LogValuesStructure& log_values,

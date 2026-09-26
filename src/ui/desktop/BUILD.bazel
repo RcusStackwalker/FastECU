@@ -139,6 +139,7 @@ fastecu_qttest(
     linkstatic = True,
     deps = [
         ":desktop",
+        "//src/backend/logging/testing:scripted_logging_protocol",
         "//src/platform/desktop/common/logging",
         "//src/platform/desktop/common/logging:logging_runtime",
         "//src/platform/desktop/common/ports",
