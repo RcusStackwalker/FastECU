@@ -284,7 +284,41 @@ broken one.
 `NullEventSink`. It now takes the caller's instance, so diagnostics from a
 save reach the log window instead of being dropped.
 
+## Flash-operation dispatch
+
+### `start_ecu_operations` cleanup is a scope guard
+
+The idle-line serial reset, battery-polling stop, and log-transport
+re-selection run from a `qScopeGuard` constructed right after the port check.
+Every exit from that point runs them. Before step 6d the Denso TCU service
+path reached them through a `goto`, and the write-preflight early returns
+("No file selected!", Cancel on the checksum warning) skipped them, leaving
+battery polling running.
+
+### The read slot is allocated early and released on failure
+
+The read path still allocates `ecuCalDef[ecuCalDefIndex]` before dispatch,
+because `update_protocol_info` reads it. Anything but a successful read with
+data (cancel, failure, `Unsupported`, a handled TCU service action) deletes
+it and resets the slot to `nullptr`, its state before the first read.
+
+### `reset_serial_to_idle` lives beside the facade
+
+It calls `SerialPortActions` methods, so it needs the facade's definition,
+and `serial_qt_compat`'s frozen visibility list could not gain the UI
+package that calls it. It lives in the serial package as `serial_idle`,
+visible only to `//src/ui/desktop`. `FlashOperationController` only passes
+the facade pointer through, so it needs no serial edge at all.
+
 ## Testing
+
+### QtTest suites using Google Mock must fail on its failures
+
+QtTest's exit status ignores Google Mock. A suite that uses it calls
+`::testing::InitGoogleMock(&argc, argv)` in `main` and returns non-zero when
+`::testing::Test::HasFailure()`. `test_mainwindow` lacked this until step
+6d and passed with 14 violated expectations, all of them expectations that
+had never matched the real call sequence.
 
 ### Grep does not prove code is dead
 
