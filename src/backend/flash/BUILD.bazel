@@ -106,6 +106,19 @@ fastecu_portable_gtest(
     ],
 )
 
+cc_library(
+    name = "flash_operation_request",
+    srcs = ["flash_operation_request.cpp"],
+    hdrs = ["flash_operation_request.h"],
+    deps = [":flash_types"],
+)
+
+fastecu_portable_gtest(
+    name = "flash_operation_request_test",
+    srcs = ["flash_operation_request_test.cpp"],
+    deps = [":flash_operation_request"],
+)
+
 fastecu_portable_gtest(
     name = "bound_flash_attempt_test",
     srcs = ["bound_flash_attempt_test.cpp"],

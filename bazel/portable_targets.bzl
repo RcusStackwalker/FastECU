@@ -39,6 +39,7 @@ PORTABLE_PACKAGES = {
         "can_flash_uds_channel",
         "flash_device_lookup",
         "flash_executor",
+        "flash_operation_request",
         "flash_plan",
         "flash_types",
         "flash_validation",
