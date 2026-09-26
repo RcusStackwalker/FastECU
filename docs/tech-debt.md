@@ -282,15 +282,12 @@ The build-graph ratchet for the section above.
 `//src/platform/desktop/common/serial:serial_qt_compat` carries
 `serial_port_actions.h` to callers that should not have it, and its `visibility`
 list is frozen by `scripts/check-serial-compat-allowlist.py`: the list may
-shrink, never grow. It currently holds 6 entries — `//src/ui/desktop:__pkg__`
+shrink, never grow. It currently holds 5 entries — `//src/ui/desktop:__pkg__`
 and `//src/ui/desktop/biu:__pkg__` under UI, 0 in backend, plus
 `//src/platform/desktop/common/serial:__pkg__` (the package itself),
 `//src/platform/desktop/common/transport:__pkg__`, and `//tests:__pkg__`. The
 step 5 tail's wave 7 deleted the `//src/platform/desktop/common/flash/legacy`
-entry along with the package it named. One entry,
-`//src/platform/desktop/common/remote_utility`, is not debt: it is a
-same-layer sibling using `websocketiodevice.h`/`qtrohelper.hpp` rather than
-the serial facade, and is not expected to shrink.
+entry along with the package it named.
 
 The allowlist makes this debt measurable, which the prose above cannot: each
 removed entry is a layer that no longer reaches the full facade. Every entry is
@@ -303,8 +300,8 @@ Actions:
   drop when the list shrinks.
 - Treat a needed new entry as a design failure, not a paperwork step: backend or
   UI code reaching for `serial_port_actions.h` is the dependency being removed.
-- Delete `serial_qt_compat` once only the `remote_utility` edge and `//tests`
-  remain, and fold its sources into the owning packages.
+- Delete `serial_qt_compat` once only `//tests` remains, and fold its
+  sources into the owning packages.
 
 ### P2: Convert suppressed signed-bitwise arithmetic to unsigned operands
 
@@ -466,13 +463,17 @@ existing work instead of opening a parallel initiative:
 ### P2: Naming and source/data organization
 
 Some names and data placement still reflect earlier architecture:
-`log_operations_ssm.cpp` contains MUT/DMA bench utilities, and 31 source/header
-files define duplicate `STATUS_SUCCESS`/`STATUS_ERROR` macros.
+`log_operations_ssm.cpp` contains MUT/DMA bench utilities. The duplicate
+`STATUS_SUCCESS`/`STATUS_ERROR` macros are resolved: step 6e left one
+definition, in `src/platform/desktop/common/serial/serial_facade_codes.h`. They
+stay macros there because the Windows SDK's `ntstatus.h` defines
+`STATUS_SUCCESS` as one.
 
 Actions:
 
 - Move misplaced code into files and namespaces matching current ownership.
-- Replace repeated status macros with typed enums or shared result types.
+- Replace the facade's integer `STATUS_*` return codes with typed enums or
+  shared result types, under names that cannot collide with `ntstatus.h`.
 - Remove stale commented-out code while touching nearby behavior.
 
 ## Coverage growth sequence toward 80%

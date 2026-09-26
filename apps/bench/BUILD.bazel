@@ -128,6 +128,16 @@ fastecu_portable_gtest(
     ],
 )
 
+# The platform choice for the local serial backend, named by the binary.
+alias(
+    name = "direct_serial_backend",
+    actual = select({
+        "@platforms//os:windows": "//src/platform/desktop/common/serial:direct_serial_backend_windows",
+        "//conditions:default": "//src/platform/desktop/common/serial:direct_serial_backend_unix",
+    }),
+    visibility = ["//visibility:private"],
+)
+
 # The only Qt-touching code in this package (and the only code CI cannot
 # exercise against real hardware): bench_session wires IBenchSession to the
 # desktop CAN transport, main.cpp is argv/stdin plumbing. Every decision
@@ -140,6 +150,7 @@ qt_cc_binary(
         ":bench_core",
         ":bench_files",
         ":bench_session_runtime",
+        ":direct_serial_backend",
         ":sigint_cancellation_token",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/serial:desktop_serial_factory",

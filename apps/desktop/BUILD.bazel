@@ -22,25 +22,34 @@ qt_cc_library(
     ],
 )
 
+# The platform choice for the local serial backend, named by the binary.
+alias(
+    name = "direct_serial_backend",
+    actual = select({
+        "@platforms//os:windows": "//src/platform/desktop/common/serial:direct_serial_backend_windows",
+        "//conditions:default": "//src/platform/desktop/common/serial:direct_serial_backend_unix",
+    }),
+    visibility = ["//visibility:private"],
+)
+
 fastecu_qttest(
     name = "desktop_composition_test",
     size = "small",
     src = "desktop_composition_test.cpp",
-    deps = [":composition"],
+    deps = [
+        ":composition",
+        ":direct_serial_backend",
+    ],
 )
 
 qt_cc_binary(
     name = "fastecu",
     srcs = ["main.cpp"],
     copts = COMMON_COPTS,
-    # main.cpp includes no J2534 header, so the platform j2534 libraries are not
-    # declared here. They reach the link transitively via :composition ->
-    # //src/platform/desktop/common/serial:desktop_serial_factory ->
-    # :direct_serial_backend, whose own select() picks the J2534 library. If
-    # that chain changes, add the platform select() back here or the Windows
-    # link loses J2534 with no signal in this file.
+    # :direct_serial_backend picks the platform's local serial backend.
     deps = [
         ":composition",
+        ":direct_serial_backend",
         "//src/ui/desktop",
     ],
 )
