@@ -23,8 +23,7 @@
 
 #include <ui_data_terminal.h>
 
-// Forward declaration
-class SerialPortActions;
+#include "src/backend/protocol/idiagnostic_link.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -44,7 +43,7 @@ class DataTerminal : public QDialog
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   public:
-    explicit DataTerminal(SerialPortActions *serial_arg, QWidget *parent = nullptr);
+    explicit DataTerminal(fastecu::diagnostics::IDiagnosticLink& link, QWidget *parent = nullptr);
     ~DataTerminal();
 
   private:
@@ -62,7 +61,7 @@ class DataTerminal : public QDialog
     QString parse_message_to_hex(const QByteArray& received);
     void delay(int timeout);
 
-    SerialPortActions *serial;
+    fastecu::diagnostics::IDiagnosticLink *link = nullptr;
 
   signals:
 
