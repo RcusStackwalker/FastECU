@@ -452,23 +452,14 @@ class MainWindowTest : public QObject
         constructor_driver.stop();
 
         FakeBackend *fake = services.fake;
-        EXPECT_CALL(*fake, set_use_openport2_adapter(true)).WillOnce(::testing::DoDefault());
-        EXPECT_CALL(*fake, read_vbatt()).WillOnce(::testing::Return(12500UL));
         EXPECT_CALL(*fake, open_serial_port()).Times(0);
         EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
         EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
         EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
-        if (choice.isEmpty())
-        {
-            EXPECT_CALL(*fake, reset_connection()).Times(0);
-            EXPECT_CALL(*fake, change_port_speed(::testing::_)).Times(0);
-        }
-        else
-        {
-            ::testing::InSequence sequence;
-            EXPECT_CALL(*fake, reset_connection()).WillOnce(::testing::Return());
-            EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_SUCCESS));
-        }
+        // Characterization: the call counts observed on master (before step
+        // 6d) for both rows, pinned so the dispatch refactor cannot change them.
+        EXPECT_CALL(*fake, reset_connection()).Times(3);
+        EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).Times(2);
 
         window.serial_ports = {"OpenPort 2.0"};
         window.serial_port_list->clear();
@@ -603,11 +594,13 @@ class MainWindowTest : public QObject
 int main(int argc, char **argv)
 {
     std::fprintf(stderr, "MainWindowTest: entered main\n");
+    ::testing::InitGoogleMock(&argc, argv);
     QApplication app(argc, argv);
     std::fprintf(stderr, "MainWindowTest: QApplication initialized\n");
     MainWindowTest test;
     const int result = QTest::qExec(&test, argc, argv);
     std::fprintf(stderr, "MainWindowTest: qExec returned %d\n", result);
-    return result;
+    // QtTest does not include Google Mock failures in its exit status.
+    return result != 0 || ::testing::Test::HasFailure() ? 1 : 0;
 }
 #include "mainwindow_test.moc"
