@@ -1,14 +1,16 @@
 #include "dataterminal.h"
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/ui/desktop/diagnostic_link_io.h"
 
 #include <QFile>
 
-DataTerminal::DataTerminal(SerialPortActions *serial_arg, QWidget *parent)
+#include <cstdint>
+
+DataTerminal::DataTerminal(fastecu::diagnostics::IDiagnosticLink& link_arg, QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::DataTerminalWindow>()}
 {
     ui->setupUi(this);
 
-    this->serial = serial_arg;
+    this->link = &link_arg;
 
     // Set initial values
     ui->klineProtocol->addItem("SSM");
@@ -168,44 +170,49 @@ void DataTerminal::sendToInterface()
         emit LOG_D("Send message via K-Line", true, true);
 
         emit LOG_D("Checking protocol: " + ui->klineProtocol->currentText(), true, true);
+        bool iso14230 = false;
         if (ui->klineProtocol->currentText() == "SSM")
         {
-            serial->set_is_iso14230_connection(false);
+            iso14230 = false;
         }
         else if (ui->klineProtocol->currentText() == "iso14230")
         {
-            serial->set_is_iso14230_connection(true);
+            iso14230 = true;
         }
         else
         {
             serialOk = false;
         }
-
         emit LOG_D("Checking baudrate: " + ui->klineBaudRate->text(), true, true);
-        if (ui->klineBaudRate->text().toDouble() >= 300 && ui->klineBaudRate->text().toDouble() <= 2000000)
-        {
-            serial->set_serial_port_baudrate(ui->klineBaudRate->text());
-        }
-        else
+        // clang-tidy's DeMorgan rewrite (>= / && / <=  ->  < / || / >) is not value-identical
+        // here: QString::toDouble() parses "nan"/"NaN" text to NaN with ok=true, and NaN fails
+        // every relational operator, so the flipped form would treat a NaN baud rate as
+        // in-range instead of rejecting it.
+        // NOLINTNEXTLINE(readability-simplify-boolean-expr)
+        if (!(ui->klineBaudRate->text().toDouble() >= 300 && ui->klineBaudRate->text().toDouble() <= 2000000))
         {
             serialOk = false;
         }
-
         emit LOG_D("Checking tester id: " + ui->klineTesterId->text(), true, true);
-        serial->set_kline_tester_id(ui->klineTesterId->text().toUInt(&ok, 16));
-
+        const auto tester = static_cast<std::uint8_t>(ui->klineTesterId->text().toUInt(&ok, 16));
         emit LOG_D("Checking target id: " + ui->klineTargetId->text(), true, true);
-        serial->set_kline_target_id(ui->klineTargetId->text().toUInt(&ok, 16));
-
+        const auto target = static_cast<std::uint8_t>(ui->klineTargetId->text().toUInt(&ok, 16));
         if (serialOk)
         {
             emit LOG_D("All good, setting interface...", true, true);
-            serial->set_kline_startbyte(0x80);
-            serial->set_is_can_connection(false);
-            serial->set_is_iso15765_connection(false);
-            serial->set_is_29_bit_id(false);
             emit LOG_D("Opening interface...", true, true);
-            serial->open_serial_port();
+            const auto opened = link->open(fastecu::diagnostics::KlineLinkConfig{
+                .header = fastecu::diagnostics::KlineHeader::None,
+                .iso14230_connection = iso14230,
+                .baud = ui->klineBaudRate->text().toInt(),
+                .start_byte = 0x80,
+                .tester_id = tester,
+                .target_id = target,
+            });
+            if (!opened.has_value())
+            {
+                emit LOG_E("Unable to open interface: " + QString::fromStdString(opened.error().detail), true, true);
+            }
         }
 
         QStringList msg_local; // = ui->klineMsgToSend->text().split(" ");
@@ -241,56 +248,59 @@ void DataTerminal::sendToInterface()
                     j++;
                 }
             }
-            serial->write_serial_data_echo_check(output);
+            diagnostic_link_io::write(*link, output);
             delay(rspDelay);
-            received = serial->read_serial_data(serial_read_short_timeout);
+            received = diagnostic_link_io::read_or_empty(*link, serial_read_short_timeout);
             emit LOG_I("Response: " + parse_message_to_hex(received), true, true);
         }
-        serial->reset_connection();
+        static_cast<void>(link->reset());
     }
     else if (interfaceTypeName.startsWith("sendCanMessage"))
     {
         emit LOG_D("Send message via CAN / iso15765", true, true);
 
         emit LOG_D("Checking protocol: " + ui->canProtocol->currentText(), true, true);
-        serial->set_is_can_connection(false);
-        serial->set_is_iso15765_connection(false);
+        bool iso15765 = false;
         if (ui->canProtocol->currentText() == "CAN")
         {
-            serial->set_is_can_connection(true);
+            iso15765 = false;
         }
         else if (ui->canProtocol->currentText() == "iso15765")
         {
-            serial->set_is_iso15765_connection(true);
+            iso15765 = true;
         }
         else
         {
             serialOk = false;
         }
         emit LOG_D("Checking baudrate: " + ui->canBaudRate->text(), true, true);
-        if (ui->canBaudRate->text().toDouble() >= 300 && ui->canBaudRate->text().toDouble() <= 2000000)
-        {
-            serial->set_can_speed(ui->canBaudRate->text());
-        }
-        else
+        // See the K-Line baudrate check above; the same NaN-vs-DeMorgan hazard applies to this
+        // field's toDouble() call.
+        // NOLINTNEXTLINE(readability-simplify-boolean-expr)
+        if (!(ui->canBaudRate->text().toDouble() >= 300 && ui->canBaudRate->text().toDouble() <= 2000000))
         {
             serialOk = false;
         }
-
         emit LOG_D("Checking CAN ID length: " + ui->canIdLength->currentText(), true, true);
-        serial->set_is_29_bit_id(ui->canIdLength->currentIndex());
-
         emit LOG_D("Checking tester id: " + ui->canTesterId->text(), true, true);
-        serial->set_iso15765_source_address(ui->canTesterId->text().toUInt(&ok, 16));
-
+        const std::uint32_t source = ui->canTesterId->text().toUInt(&ok, 16);
         emit LOG_D("Checking target id: " + ui->canTargetId->text(), true, true);
-        serial->set_iso15765_destination_address(ui->canTargetId->text().toUInt(&ok, 16));
-
+        const std::uint32_t destination = ui->canTargetId->text().toUInt(&ok, 16);
         if (serialOk)
         {
             emit LOG_D("All good, setting interface...", true, true);
             emit LOG_D("Opening interface...", true, true);
-            serial->open_serial_port();
+            const auto opened = link->open(fastecu::diagnostics::CanLinkConfig{
+                .iso15765 = iso15765,
+                .bitrate = ui->canBaudRate->text().toInt(),
+                .extended_id = ui->canIdLength->currentIndex() == 1,
+                .source_id = source,
+                .destination_id = destination,
+            });
+            if (!opened.has_value())
+            {
+                emit LOG_E("Unable to open interface: " + QString::fromStdString(opened.error().detail), true, true);
+            }
         }
 
         QStringList msg_local; // = ui->canMsgToSend->text().split(" ");
@@ -333,13 +343,13 @@ void DataTerminal::sendToInterface()
                     j++;
                 }
             }
-            serial->write_serial_data_echo_check(output);
+            diagnostic_link_io::write(*link, output);
 
             delay(rspDelay);
-            received = serial->read_serial_data(serial_read_short_timeout);
+            received = diagnostic_link_io::read_or_empty(*link, serial_read_short_timeout);
             emit LOG_I("Response: " + parse_message_to_hex(received), true, true);
         }
-        serial->reset_connection();
+        static_cast<void>(link->reset());
     }
 }
 // NOLINTEND(bugprone-signed-bitwise)
