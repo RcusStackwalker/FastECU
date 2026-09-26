@@ -135,6 +135,36 @@ TEST(DtcSession, Iso9141DirectReadRunsTheFullSequence)
     EXPECT_TRUE(h.link.script_consumed());
 }
 
+TEST(DtcSession, MultiFrameVinIsConcatenatedAndLoggedBothWays)
+{
+    Harness h;
+    h.link.queue_five_baud(b({0x55, 0x08, 0x08}));
+    // The 7 PID-support pages, "status since cleared", and "VIN length"
+    // requests: all no-frame, so the run reaches the VIN request (09 02).
+    for (int i = 0; i < 9; ++i)
+    {
+        h.link.queue_no_frame();
+    }
+    // Three K-Line frames for the VIN, exercising all three
+    // unframe_data_response size tiers: <7 (n/a here), <10 (drop 5) for the
+    // first two frames, and >=10 (drop 6) for the third.
+    h.link.queue_read(b({0x48, 0x6B, 0x10, 0x49, 0x02, 0x31, 0x32, 0xCC}));
+    h.link.queue_read(b({0x48, 0x6B, 0x10, 0x49, 0x02, 0x33, 0x34, 0xCC}));
+    h.link.queue_read(b({0x48, 0x6B, 0x10, 0x49, 0x02, 0x35, 0x36, 0x37, 0x38, 0x39, 0xCC}));
+    h.link.queue_no_frame(); // ends the VIN frame-collection loop
+
+    const auto report = h.run(ObdProtocol::Iso9141, DtcOperation::Read);
+
+    // Everything after the VIN request (CAL ID/CVN items, then stored DTCs)
+    // gets the fake's default no-frame answer, so the stored-DTC request
+    // fails with "no stored DTC response" -- assert on the logs, which are
+    // emitted before that failure, rather than on the (absent) report.
+    EXPECT_THAT(report, IsErr(ErrorKind::BadResponse));
+    const auto info_lines = lines(h.events, LogLevel::Info);
+    EXPECT_THAT(info_lines, Contains("VIN: 31 32 33 34 36 37 38 39 "));
+    EXPECT_THAT(info_lines, Contains("VIN: 12346789"));
+}
+
 TEST(DtcSession, OpenPortUsesPlainReadsAndTheAsciiFiveBaudCheck)
 {
     Harness h;
