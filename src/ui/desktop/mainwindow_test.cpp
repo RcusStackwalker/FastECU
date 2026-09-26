@@ -587,6 +587,73 @@ class MainWindowTest : public QObject
         QCOMPARE(operation_driver.portableEcuIgnitionCount(), 1);
     }
 
+    // Spec behavior change 1: "No file selected!" returns after the entry
+    // reset started battery polling; it must now run the cleanup.
+    void writeWithoutASelectedCalibrationStopsVoltagePolling()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.serial != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+
+        FakeBackend *fake = services.fake;
+        EXPECT_CALL(*fake, open_serial_port()).Times(0);
+        EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
+        EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
+        window.serial_ports = {"OpenPort 2.0"};
+        window.serial_port_list->clear();
+        window.serial_port_list->addItem("OpenPort 2.0");
+        window.serial_port_list->setCurrentIndex(0);
+        window.configValues->flash_protocol_selected_make = "Subaru";
+        window.configValues->flash_protocol_selected_protocol_name = "sub_ecu_denso_sh7058_can";
+        window.configValues->flash_protocol_selected_mcu = "SH7058";
+        window.configValues->flash_protocol_selected_id = "0";
+        window.configValues->flash_protocol_kernel = {"test-kernel.bin"};
+        window.configValues->flash_protocol_kernel_addr = {"0xFFFF3000"};
+        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
+
+        ModalDriver operation_driver{QString()};
+        operation_driver.start();
+        QCOMPARE(startEcuOperations(window, "write"), 0);
+        operation_driver.stop();
+
+        QVERIFY(!operation_driver.timedOut());
+        QVERIFY(!window.vbatt_timer->isActive());
+    }
+
+    // Characterization: only Subaru and Mitsubishi dispatch, but every make
+    // gets the cleanup.
+    void otherMakesSkipDispatchButStillRunCleanup()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.serial != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+
+        FakeBackend *fake = services.fake;
+        EXPECT_CALL(*fake, open_serial_port()).Times(0);
+        EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
+        window.serial_ports = {"OpenPort 2.0"};
+        window.serial_port_list->clear();
+        window.serial_port_list->addItem("OpenPort 2.0");
+        window.serial_port_list->setCurrentIndex(0);
+        window.configValues->flash_protocol_selected_make = "Nissan";
+        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
+
+        ModalDriver operation_driver{QString()};
+        operation_driver.start();
+        QCOMPARE(startEcuOperations(window, "read"), 0);
+        operation_driver.stop();
+
+        QVERIFY(!operation_driver.timedOut());
+        QCOMPARE(operation_driver.unexpectedFlashDialogCount(), 0);
+        QVERIFY(!window.vbatt_timer->isActive());
+    }
+
   private:
     QTemporaryDir config_root_;
 };
