@@ -93,8 +93,13 @@ Actions:
 - Replace direct construction of all flash dialogs from `MainWindow` with a
   typed operation registry/factory that owns module-specific dependencies.
 - Keep new file, protocol, and hardware logic out of `MainWindow`.
-- **Fix or defer the `wrx02` write-path predicate (step 6b spec defect
-  (a)).** `element_byte_address` (`src/backend/calibration/map_edit.cpp`)
+- Remove the `goto ecu_operation_cleanup;` in
+  `MainWindow::start_ecu_operations` (the Denso TCU service-action branch).
+  `run_denso_tcu_service_action()` already returns a bool, so a guarded branch
+  around the flash-routing tail expresses the same skip without a jump. This
+  was planned in the wave-5 consolidation and never landed.
+- **Fix or defer the `wrx02` write-path predicate (step 6b defect (a); see
+  the [design notes](design-notes.md#calibration-defect-letters)).** `element_byte_address` (`src/backend/calibration/map_edit.cpp`)
   still carries two different predicates for the `wrx02` flash-method
   address fixup depending on its `for_write` parameter — one for reads, one
   for writes — subtracting `0x8000` under different conditions; a cell near
@@ -102,8 +107,7 @@ Actions:
   write-side predicate matches the documented `apply_flash_method_padding`
   rule (inserting `0x8000` bytes at `0x20000` for images under `190 * 1024`;
   see `calibration_service.h`), which suggests the read side is the wrong
-  copy, but the step 6b design (spec section "(a)") requires confirming that
-  against a real `wrx02` definition before landing a fix rather than
+  copy, but step 6b required confirming that against a real `wrx02` definition before landing a fix rather than
   guessing. Measurement taken while closing out step 6b: `grep -rl wrx02`
   across both the `mmc-definitions` and `mmc-patches` corpora finds **zero**
   ROMs anywhere that declare `wrx02` as their flash method, so there is no
@@ -233,6 +237,20 @@ Actions:
   changing wire behavior.
 - Do not force all ECU families into one state machine unless verified protocol
   behavior demonstrates a stable shared abstraction.
+- Unify the near-duplicate workflow classes in
+  `src/platform/desktop/common/flash/flash_workflow.cpp`:
+  `KernelBackedCanFlashWorkflow` duplicates the sibling
+  `SimpleCanFlashWorkflow` plus lazy kernel resolution, a confirmation loop
+  and a transport parameter, and `ColtWorkflow` hand-rolls the same
+  confirmation loop. They are three of the file's sixteen sibling
+  `FlashWorkflow` classes. This was deferred
+  because it changes routing for every merged CAN family and needs its own
+  risk budget; `single_window_plan` was considered and rejected as the vehicle.
+- Investigate converging the per-family `nonfatal_query` implementations in the
+  Denso and Hitachi ISO-15765 executors onto the shared `non_fatal_query` in
+  `uds_client_exchange_common.h`. Every version differs from the others and
+  from the helper, so this is behavior-changing work on characterization-tested
+  wire sequences, not a substitution.
 
 ### P1: Narrow serial and hardware interfaces
 
@@ -362,6 +380,27 @@ existing work instead of opening a parallel initiative:
   don't land on an existing P1 item stay a plain backlog — re-run the `sonar
   list issues` query above when picking up unrelated work in a file to see if
   it carries one, rather than scheduling a dedicated phase for them.
+- Duplication clusters a 2026-09-05 new-code scan found outside the flash
+  executors, none yet extracted: the `parse_axis`/`parse_table` skeleton shared
+  by `src/backend/definition/{ecuflash,romraider}_parser.cpp`; the
+  dialog→validate→write tail of the two wizards in
+  `src/ui/desktop/definition/definition_authoring_dialog.cpp`; and the XML-load
+  preamble and `text_or_empty` helper in
+  `src/backend/config/{car_model,protocol}_catalog.cpp`. The five adapters in
+  `src/platform/desktop/common/transport/`, whose read/write guards differed
+  only by a label string, need re-measuring.
+- Test scaffolding left duplicated when `FakeCancellationToken` was adopted: a
+  local `NeverCancelled` in `subaru_denso_mc68hc16y5_02_executor_test.cpp` and
+  `subaru_denso_sh7055_02_executor_test.cpp`, and a family-local
+  `RecordingClock` repeated across roughly ten executor tests. Move them onto
+  the package-owned fakes in `src/backend/ports/testing/`.
+- `WriteSelection.ReproducesTheFourSpaceQDomIndent`
+  (`src/backend/logging/logger_conf_test.cpp`) pins pugixml output against
+  bytes captured from the deleted `QDomDocument::save(output, 4)` writer. It
+  was transitional, proving the logger-conf migration once. Replace it with a
+  golden regenerated from pugixml's own output plus the existing
+  `write_selection` → `read_selection` round trip; keep the four-space
+  `format_indent` setting itself.
 
 ### P2: Naming and source/data organization
 

@@ -8,7 +8,7 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 
 An independently maintained fork of [miikasyvanen/FastECU](https://github.com/miikasyvanen/FastECU) — a Qt 6 desktop application for reading, flashing, and logging Subaru and Mitsubishi ECUs/TCUs over J2534, K-Line, and CAN. GPLv3.
 
-The fork's ongoing work is a modularization program: making `src/backend` portable (Qt-free, thread-free, filesystem-free) behind injected ports so the core can be reused outside the Qt desktop app. Read the [step-5 umbrella design](docs/superpowers/specs/2026-07-22-step5-backend-portable-design.md) and the [tech-debt roadmap](docs/tech-debt.md) for current priorities before making structural changes.
+The fork's ongoing work is a modularization program: making `src/backend` portable (Qt-free, thread-free, filesystem-free) behind injected ports so the core can be reused outside the Qt desktop app. Read the [modularization plan](docs/modularization-plan.md) and the [tech-debt roadmap](docs/tech-debt.md) for current priorities, and the [design notes](docs/design-notes.md) for the reasoning behind past decisions, before making structural changes.
 
 Two documents carry conventions this file only points at: the [coding style guide](docs/coding-style.md) for how C++ is written here, and the [ADRs](docs/adr/README.md) for structural decisions. Style questions are settled by the guide, not by an ADR.
 
@@ -45,7 +45,7 @@ Dependencies flow one way: `apps/desktop` → `src/ui` → `src/platform` → `s
 
 ### Error and byte conventions
 
-- Backend operations return `fastecu::Result<T>` (`std::expected<T, Error>`), checked with `.has_value()` and never the implicit `operator bool`. **Exceptions never cross a port.** The `ErrorKind` set is closed — don't add a value without amending the step-5 design doc.
+- Backend operations return `fastecu::Result<T>` (`std::expected<T, Error>`), checked with `.has_value()` and never the implicit `operator bool`. **Exceptions never cross a port.** The `ErrorKind` set is closed — don't add a value without an ADR.
 - Pure protocol, checksum, logging, and flash logic uses `bytes::Byte` / `bytes::Bytes` / `bytes::ByteView` from `src/algorithms/protocol/bytes.h`. `QByteArray` is a boundary type only, converted explicitly via `qt_bytes.h`.
 
 ## Build-graph guardrails

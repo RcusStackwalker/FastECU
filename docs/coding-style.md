@@ -154,9 +154,8 @@ Keeping the declaration inside the `if` above is the `Result`/`Status`
 instance of the general minimum-scope rule below.
 
 Exceptions never cross a port. The `ErrorKind` set is closed: the values are
-in `src/backend/ports/error.h`, and adding one means amending the
-[step-5 backend-portable design](superpowers/specs/2026-07-22-step5-backend-portable-design.md)
-that fixes them.
+in `src/backend/ports/error.h`, and adding one needs an
+[ADR](adr/README.md).
 
 ## Scope
 
