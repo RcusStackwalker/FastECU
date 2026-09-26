@@ -116,27 +116,58 @@ objects that PR moves (`file_actions`, `config_repository`,
 ### `DesktopComposition`
 
 A `qt_cc_library` `//apps/desktop:composition`
-(`apps/desktop/desktop_composition.{h,cpp}`), visible only within
-`apps/desktop`:
+(`apps/desktop/desktop_composition.{h,cpp}`), private to `apps/desktop`:
 
 ```cpp
 class DesktopComposition
 {
   public:
-    DesktopComposition(const QString& peerAddress, const QString& peerPassword, const QString& config_root,
-                       std::function<SerialBackend *()> serialBackendForTests = {});
+    DesktopComposition(const QString& peerAddress, const QString& peerPassword, const QString& config_root = {});
+    ~DesktopComposition();
     MainWindowServices services();
 };
 ```
 
 It connects the `LOG_E/W/I/D` signals of `SerialPortActions` and
-`LoggingEngine` to `SystemLogger::log_messages`, and the syslogger thread's
-`started`/`finished` lifecycle, exactly as `MainWindow` does today.
-`config_root` empty means "use the configured base directory", as today.
+`LoggingEngine` to `SystemLogger::log_messages`, and starts the syslogger
+thread, as `MainWindow` does today. `config_root` empty means "use the
+configured base directory", as today.
+
+Its destructor releases dependents first — engine, remote utility, serial
+facade — then quits and joins the syslogger thread and deletes the logger.
+Today the syslogger and its thread are never stopped: the
+`SystemLogger::finished` signal the old wiring waits on is never emitted, so
+each `RESTART_CODE` iteration leaks a running thread. Stopping it is the one
+deliberate behavior change in this step.
 
 `main.cpp` becomes: parse arguments, construct `QApplication`, construct
 `DesktopComposition`, construct `MainWindow{composition.services(), addr}`,
 center and show, `exec`, loop on `RESTART_CODE`.
+
+### Reaching the serial facade from `apps/desktop`
+
+`SerialPortActions` lives in `serial_qt_compat`, whose visibility list is
+frozen and shrink-only (`scripts/check-serial-compat-allowlist.py`);
+`apps/desktop` is not on it and must not be added. A new target in the same
+package, `//src/platform/desktop/common/serial:desktop_serial_factory`,
+visible only to `apps/desktop`, exposes construction and nothing else:
+
+```cpp
+struct SerialPortActionsDeleter
+{
+    void operator()(SerialPortActions *serial) const;
+};
+using OwnedSerialPortActions = std::unique_ptr<SerialPortActions, SerialPortActionsDeleter>;
+
+OwnedSerialPortActions make_serial_port_actions(const QString& peer_address, const QString& peer_password,
+                                                QObject& log_sink);
+```
+
+`SerialPortActions` stays an incomplete type in `apps/desktop`: the
+composition only binds a reference to it for `MainWindowServices`. The
+factory routes the facade's `LOG_*` signals to `log_sink`'s
+`log_messages(QString, bool, bool)` slot, so the composition never needs the
+facade's declaration.
 
 ### What stays in `MainWindow`
 
@@ -159,7 +190,10 @@ center and show, `exec`, loop on `RESTART_CODE`.
 It drops its three adapters, its `QtAtomicFileWriter`, its event sink, and
 the throwaway `FileActions`; `save_config_file()` calls
 `fileActions.save_config_file(configValues)`. The one construction site in
-`menu_actions.cpp` passes `*fileActions`.
+`menu_actions.cpp` passes `*fileActions`. The throwaway instance reported to
+a `NullEventSink`; the shared one reports to `MainWindow`'s sink, so any
+diagnostic the save emits now reaches the log window instead of being
+dropped.
 
 ### Dead code
 
@@ -194,11 +228,16 @@ today.
   `NiceFakeBackend`, and passes them to the new constructor. The three
   `window.serial = serial.release()` overwrites go away; its
   `#define private public` stays for its other private accesses.
-- New `//apps/desktop:composition_test` (`fastecu_qttest`, offscreen,
-  `QTemporaryDir` config root, fake serial backend): constructing a
-  composition succeeds; `services()` returns references to the composition's
-  own objects; destroying it with an idle engine completes without crash or
-  hang. This pins the destruction order the design depends on.
+- New `//apps/desktop:desktop_composition_test` (`fastecu_qttest`,
+  `QTemporaryDir` config root, direct-mode serial facade as the old
+  `MainWindow` tests already constructed): `services()` returns stable
+  references to the composition's own objects; destroying it immediately
+  after construction, and constructing it twice in one process as the restart
+  loop does, completes without crash or hang.
+- New `//src/platform/desktop/common/serial:desktop_serial_factory_test`:
+  each `LOG_*` level reaches the sink's `log_messages` slot.
+- New `//src/ui/desktop:test_settings`: destroying `Settings` writes the
+  config file through the injected `FileActions`.
 - `bazel test --config=release //...` green on all three CI platforms.
 - Manual smoke on macOS: start the packaged app in local mode, open and
   close Settings (config saved), and quit; start with `-s` against a running
@@ -216,8 +255,8 @@ Four PRs, each green on its own:
    the engine. The constructor changes here, so `mainwindow_test` switches
    to passing services in this PR; its `window.serial` overwrites remain
    until 6c-3.
-3. **6c-3** — move `SerialPortActions`, `RemoteUtility`, `LoggingEngine`, and
-   `QtClock` into the composition; drop the `window.serial` overwrites from
+3. **6c-3** — add `desktop_serial_factory`; move `SerialPortActions`,
+   `RemoteUtility`, `LoggingEngine`, and `QtClock` into the composition; drop the `window.serial` overwrites from
    `mainwindow_test`; add `composition_test`.
 4. **6c-4** — docs: mark the step 6 construction bullet complete in the
    modularization plan, update the "P1: Separate UI from application logic"
