@@ -40,8 +40,9 @@ corrections are in the [flash qualification matrix](flash-qualification-matrix.m
   Hitachi M32R JTAG stub, was removed rather than migrated (#358). Wave 7
   deleted the legacy flash package, the drain ratchet, and `ssm:qt_compat`.
 
-Step 6 (thin desktop shell) is under way: 6a (de-widget `FileActions`) and 6b
-(calibration map-edit use case) are complete — see below. The rest of step 6,
+Step 6 (thin desktop shell) is under way: 6a (de-widget `FileActions`), 6b
+(calibration map-edit use case), and 6c (desktop composition root) are
+complete — see below. The rest of step 6,
 and step 7 (Android seam), have not started.
 
 ## Verified Current Baseline
@@ -247,7 +248,22 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      same "Replace parallel-list data models" tech-debt entry.
    - Implement Qt adapters for backend ports and marshal events to the GUI thread.
    - Keep `MainWindow` and dialogs responsible only for presentation, input collection, signal wiring, and calling backend use cases.
-   - Move construction and platform selection into `apps/desktop`.
+   - **6c desktop composition root — complete.** `apps/desktop`'s
+     `DesktopComposition` builds and owns `FileActions` and its port
+     adapters, the syslogger and its thread, the serial facade, the remote
+     utility, the logging clock, and the logging engine, and passes
+     `MainWindow` a `MainWindowServices` struct of references. The serial
+     facade is reached through the constructor-only
+     `//src/platform/desktop/common/serial:desktop_serial_factory`, so the
+     frozen `serial_qt_compat` allowlist did not grow. The dead
+     `EcuOperations` class was deleted. Three PRs (#363 6c-1 deletion,
+     #364 6c-2 `FileActions`/syslogger/`Settings`, #365 6c-3 facades and
+     engine) plus this close-out (#366). Logging-protocol registration stays in `MainWindow`; see the
+     [design notes](design-notes.md#desktop-composition-root) and the
+     [tech-debt roadmap](tech-debt.md).
+   - Move platform selection into `apps/desktop`. 6c moved construction
+     only: the J2534 unix/windows choice and the direct/remote backend
+     choice still live inside `serial_qt_compat` and `SerialPortActions`.
    - Remove compatibility wrappers, obsolete facades, duplicate status macros, and the temporary aggregate implementation target.
    - Re-run packaging and the existing hardware bench checklists for affected logging/flashing paths.
 
