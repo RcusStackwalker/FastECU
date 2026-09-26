@@ -132,8 +132,10 @@ qt_cc_library(
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_operation_request",
         "//src/backend/ports",
-        # mainwindow.h includes imut_dma_init.h, mitsu_colt_can_cdbg_driver.h
-        # and mut_dma_driver.h directly.
+        # Not included directly by mainwindow.h/.cpp any more; needed
+        # transitively for idiagnostic_link.h, which biu_operations_subaru.h,
+        # dataterminal.h, and serial_diagnostic_link.h (used by
+        # menu_actions.cpp) each include.
         "//src/backend/protocol",
         "//src/platform/desktop/common/diagnostics:serial_diagnostic_link",
         # mainwindow.cpp calls portableImageForOperation directly.
