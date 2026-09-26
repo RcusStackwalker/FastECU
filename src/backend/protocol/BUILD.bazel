@@ -17,6 +17,7 @@ cc_library(
     ],
     hdrs = [
         "ican_transport.h",
+        "idiagnostic_link.h",
         "ikline_transport.h",
         "imut_dma_init.h",
         "issm_transport.h",
