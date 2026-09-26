@@ -15,11 +15,6 @@
 #include <QWidget>
 
 #include "src/backend/definitions/file_actions.h"
-#include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
-#include "src/platform/desktop/common/ports/qt_file_repository.h"
-#include "src/platform/desktop/common/ports/qt_file_system.h"
-#include "src/platform/desktop/common/ports/qt_resource_bundle.h"
-#include "src/backend/ports/event_sink.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -33,7 +28,8 @@ class Settings : public QDialog
     Q_OBJECT
 
   public:
-    explicit Settings(FileActions::ConfigValuesStructure *configValues, QWidget *parent = nullptr);
+    explicit Settings(FileActions& fileActions, FileActions::ConfigValuesStructure *configValues,
+                      QWidget *parent = nullptr);
     ~Settings();
 
   private slots:
@@ -41,16 +37,8 @@ class Settings : public QDialog
   private:
     void closeEvent(QCloseEvent *bar);
 
+    FileActions& fileActions;
     FileActions::ConfigValuesStructure *configValues;
-    // FileActions's constructor now takes the config/settings ports (see
-    // src/ui/desktop/mainwindow.h/.cpp for the same pattern); Settings
-    // constructs its own throwaway FileActions in save_config_file() below,
-    // so it needs its own port instances too.
-    QtFileSystem m_configFileSystem;
-    QtResourceBundle m_configResourceBundle;
-    QtFileRepository m_configFileRepository;
-    QtAtomicFileWriter m_definitionFileWriter;
-    fastecu::NullEventSink m_fileActionsEvents;
 
     QLineEdit *ecuflash_def_dir_lineedit{};
     QLineEdit *romraider_logger_file_lineedit{};

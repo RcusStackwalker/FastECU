@@ -131,3 +131,14 @@ fastecu_qttest(
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
 )
+
+fastecu_qttest(
+    name = "test_settings",
+    size = "small",
+    src = "settings_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    # Static for the same reason as test_mainwindow above.
+    linkstatic = True,
+    deps = [":desktop"],
+)
