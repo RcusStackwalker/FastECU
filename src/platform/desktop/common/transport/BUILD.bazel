@@ -150,6 +150,7 @@ qt_cc_library(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/flash:flash_executor",
+        "//src/platform/desktop/common/serial:j2534_driver_selection",
         "//src/platform/desktop/common/serial:serial_qt_compat",
     ],
 )
