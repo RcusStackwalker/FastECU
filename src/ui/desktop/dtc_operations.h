@@ -32,12 +32,16 @@ class DtcOperations : public QDialog
 
   protected:
     void closeEvent(QCloseEvent *event) override;
+    void reject() override;
 
   private:
     void start(fastecu::diagnostics::DtcOperation operation);
     void forwardLog(int level, const QString& message);
     void finish(const fastecu::diagnostics::DtcWorkerResult& result);
     void setButtonsEnabled(bool enabled);
+    // Stops and joins a running worker, then resets the facade. Shared by
+    // closeEvent() and reject() (Escape), so neither path can bypass it.
+    void stopWorker();
 
     fastecu::diagnostics::IDiagnosticLink& link_;
     std::unique_ptr<Ui::DtcOperationsWindow> ui;

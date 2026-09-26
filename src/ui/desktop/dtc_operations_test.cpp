@@ -7,6 +7,8 @@
 #include <QTest>
 
 #include <algorithm>
+#include <string>
+#include <vector>
 
 #include "src/backend/protocol/testing/fake_diagnostic_link.h"
 
@@ -44,8 +46,28 @@ class DtcOperationsTest : public QObject
         timer.start();
         dialog->close();
         QVERIFY(timer.elapsed() < 400);
-        QCOMPARE(link.calls.back(), std::string("reset"));
-        QVERIFY(std::find(link.calls.begin(), link.calls.end(), "set_header None") != link.calls.end());
+        // The cancelled session's own epilogue ("set_header None", "reset")
+        // runs first, then the dialog's stopWorker() resets a second time.
+        QVERIFY(link.calls.size() >= 3);
+        const std::vector<std::string> tail(link.calls.end() - 3, link.calls.end());
+        QCOMPARE(tail, (std::vector<std::string>{"set_header None", "reset", "reset"}));
+        delete dialog;
+    }
+
+    void escapeDuringARunStopsTheWorkerAndResets()
+    {
+        FakeDiagnosticLink link;
+        link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08}); // accepted -> 500 ms sleep follows
+        auto *dialog = new DtcOperations(link);
+        dialog->findChild<QPushButton *>("readDtcButton")->click();
+        QTest::qWait(50);
+        QElapsedTimer timer;
+        timer.start();
+        QTest::keyClick(dialog, Qt::Key_Escape); // QDialog's default handling calls reject()
+        QVERIFY(timer.elapsed() < 400);
+        QVERIFY(link.calls.size() >= 3);
+        const std::vector<std::string> tail(link.calls.end() - 3, link.calls.end());
+        QCOMPARE(tail, (std::vector<std::string>{"set_header None", "reset", "reset"}));
         delete dialog;
     }
 };

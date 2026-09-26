@@ -111,7 +111,7 @@ void DtcOperations::setButtonsEnabled(bool enabled)
     ui->clearDtcButton->setEnabled(enabled);
 }
 
-void DtcOperations::closeEvent(QCloseEvent *event)
+void DtcOperations::stopWorker()
 {
     if (worker_)
     {
@@ -122,5 +122,24 @@ void DtcOperations::closeEvent(QCloseEvent *event)
     // Today's closeEvent reset the facade; the session epilogue already reset
     // after a run, and a second reset is harmless.
     static_cast<void>(link_.reset());
-    QDialog::closeEvent(event);
+}
+
+void DtcOperations::closeEvent(QCloseEvent *event)
+{
+    // QDialog::closeEvent() itself calls reject() when visible, so route
+    // through it here rather than also calling stopWorker() directly --
+    // otherwise the window-close path would stop the worker twice (once
+    // here, once via the reject() override below).
+    reject();
+    event->accept();
+}
+
+void DtcOperations::reject()
+{
+    // QDialog::reject() (Escape) does not go through closeEvent(), so it
+    // would otherwise leave a run's worker thread alive and the facade
+    // un-reset. Run the same stop path here; closeEvent() above also funnels
+    // into this, so the stop path runs exactly once either way.
+    stopWorker();
+    QDialog::reject();
 }
