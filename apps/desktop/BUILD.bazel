@@ -18,6 +18,7 @@ qt_cc_library(
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/serial:desktop_serial_factory",
+        "//src/platform/desktop/common/transport:logging_protocol_registration",
         "//src/ui/desktop:main_window_services",
     ],
 )
