@@ -98,7 +98,10 @@ qt_cc_library(
     hdrs = [],
     copts = COMMON_COPTS,
     normal_hdrs = ["desktop_serial_factory.h"],
-    visibility = ["//apps/desktop:__pkg__"],
+    visibility = [
+        "//apps/bench:__pkg__",
+        "//apps/desktop:__pkg__",
+    ],
     deps = QT_DEPS + [":serial_qt_compat"],
 )
 

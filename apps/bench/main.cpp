@@ -15,6 +15,7 @@
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/ports/event_sink.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
+#include "src/platform/desktop/common/serial/desktop_serial_factory.h"
 #include "src/platform/desktop/common/transport/desktop_transport_factory.h"
 
 namespace
@@ -29,6 +30,14 @@ using fastecu::bench::IBenchEnvironment;
 using fastecu::bench::IBenchSession;
 using fastecu::bench::SigintCancellationToken;
 using fastecu::bench::TrafficEvidence;
+
+// fastecu-bench always drives the local adapter.
+fastecu::flash::DesktopCanTransportConfig direct_transport_config()
+{
+    fastecu::flash::DesktopCanTransportConfig config;
+    config.backend_factory = make_serial_backend_factory(DirectSerial{});
+    return config;
+}
 
 class StderrEventSink final : public fastecu::IEventSink
 {
@@ -55,7 +64,7 @@ class DesktopBenchEnvironment final : public IBenchEnvironment
 
     Result<std::vector<std::string>> list_ports(const GlobalOptions&) override
     {
-        return fastecu::flash::list_desktop_serial_ports(fastecu::flash::DesktopCanTransportConfig{});
+        return fastecu::flash::list_desktop_serial_ports(direct_transport_config());
     }
 
     Result<std::reference_wrapper<IBenchSession>> session(const GlobalOptions& options,
@@ -67,7 +76,7 @@ class DesktopBenchEnvironment final : public IBenchEnvironment
         }
 
         last_setup_traffic_ = {};
-        fastecu::flash::DesktopCanTransportConfig transport_config;
+        fastecu::flash::DesktopCanTransportConfig transport_config = direct_transport_config();
         transport_config.port_name = options.port_name;
         constexpr fastecu::flash::Iso15765Config kCanConfig{
             .bitrate = 500000, .request_id = 0x7E0, .response_id = 0x7E8, .extended_id = false};

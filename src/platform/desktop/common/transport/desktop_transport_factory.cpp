@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <format>
+#include <utility>
 
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
@@ -15,18 +16,25 @@ namespace fastecu::flash
 namespace
 {
 
-std::unique_ptr<SerialPortActions> make_serial(const DesktopCanTransportConfig& config)
+Result<std::unique_ptr<SerialPortActions>> make_serial(const DesktopCanTransportConfig& config)
 {
-    return std::make_unique<SerialPortActions>(QString::fromStdString(config.peer_address),
-                                               QString::fromStdString(config.peer_password), nullptr, nullptr,
-                                               config.backend_factory_for_tests);
+    if (!config.backend_factory)
+    {
+        return fail(ErrorKind::InvalidConfig, "no serial backend factory");
+    }
+    return std::make_unique<SerialPortActions>(QString{}, QString{}, nullptr, nullptr, config.backend_factory);
 }
 
 } // namespace
 
 Result<std::vector<std::string>> list_desktop_serial_ports(const DesktopCanTransportConfig& config)
 {
-    auto serial = make_serial(config);
+    auto made = make_serial(config);
+    if (!made.has_value())
+    {
+        return std::unexpected(made.error());
+    }
+    std::unique_ptr<SerialPortActions> serial = std::move(*made);
     std::vector<std::string> ports;
     for (const QString& port : serial->check_serial_ports())
     {
@@ -38,7 +46,12 @@ Result<std::vector<std::string>> list_desktop_serial_ports(const DesktopCanTrans
 Result<std::unique_ptr<ICanFlashTransport>> open_desktop_can_flash_transport(const DesktopCanTransportConfig& config,
                                                                              const Iso15765Config& can)
 {
-    auto serial = make_serial(config);
+    auto made = make_serial(config);
+    if (!made.has_value())
+    {
+        return std::unexpected(made.error());
+    }
+    std::unique_ptr<SerialPortActions> serial = std::move(*made);
 
     const QStringList detected = serial->check_serial_ports();
     if (detected.isEmpty())

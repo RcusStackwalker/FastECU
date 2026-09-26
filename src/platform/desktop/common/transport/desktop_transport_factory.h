@@ -26,13 +26,11 @@ struct DesktopCanTransportConfig
 {
     // Empty selects the first detected device.
     std::string port_name;
-    // Empty means a local J2534 adapter rather than a remote host.
-    std::string peer_address;
-    std::string peer_password;
 
-    // Test seam only: forwarded to SerialPortActions' backendFactoryForTests
-    // parameter. Empty in production, which selects the real backend.
-    std::function<SerialBackend *()> backend_factory_for_tests;
+    // Builds the serial backend the facade drives; required. Production
+    // passes make_serial_backend_factory(DirectSerial{}) from
+    // desktop_serial_factory.h; tests pass a fake.
+    std::function<SerialBackend *()> backend_factory;
 };
 
 Result<std::vector<std::string>> list_desktop_serial_ports(const DesktopCanTransportConfig& config);
