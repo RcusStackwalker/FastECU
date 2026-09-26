@@ -999,7 +999,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             {
                 temp = biu_tt_names.at(4);
                 biu_tt_result->append((uint8_t)message.at(7) & 0x0FU);
-                calc_result = (((((uint8_t)message.at(7) & 0x0FU) + 4) & 0x0FU) - 4) * 0.5;
+                calc_result = (static_cast<int>((((uint8_t)message.at(7) & 0x0FU) + 4U) & 0x0FU) - 4) * 0.5;
                 temp.append(QString("%1 ").arg(calc_result));
                 temp.append(biu_tt_names.at(5));
                 data_result->append(temp);
