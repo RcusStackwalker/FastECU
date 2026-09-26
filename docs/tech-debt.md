@@ -301,6 +301,25 @@ Actions:
 - Delete `serial_qt_compat` once only the `remote_utility` edge and `//tests`
   remain, and fold its sources into the owning packages.
 
+### P2: Convert the get-key cipher arithmetic to unsigned operands
+
+`src/ui/desktop/get_key_operations_subaru.cpp` (the Subaru key-recovery
+dialog) mixes signed literals and `int` loop counters into unsigned bit
+arithmetic: 39 `bugprone-signed-bitwise` findings, suppressed with a
+`NOLINTBEGIN`/`NOLINTEND` block when step 6c-1 touched the file. None is a
+live defect under C++23 (signed left shifts such as `roundFunction`'s
+promoted `uint16_t << 16` wrap modulo 2^32 since C++20), but the code only
+works because every operand happens to be non-negative.
+
+Actions:
+
+- Extract the pure cipher helpers (`get_bit`, `sBox`, `fFunction`,
+  `roundFunction`, `flipLeftRight`, `manyRoundAndFlip`) out of the dialog
+  into a free-function unit with a co-located test, and pin their current
+  outputs with characterization vectors.
+- Convert the operands to unsigned types, confirm the vectors are
+  unchanged, and remove the suppression block.
+
 ### P2: Pay down the SonarCloud code-smell backlog
 
 Snapshot taken 2026-09-06 via `sonar list issues --project

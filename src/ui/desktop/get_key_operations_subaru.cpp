@@ -48,6 +48,11 @@ void GetKeyOperationsSubaru::closeEvent(QCloseEvent *bar)
     // kill_process = true;
 }
 
+// The key-recovery cipher arithmetic below predates the clang-tidy gate and
+// mixes signed literals and loop counters into unsigned bit operations. Its
+// conversion needs characterization tests first; see "Convert the get-key
+// cipher arithmetic to unsigned operands" in docs/tech-debt.md.
+// NOLINTBEGIN(bugprone-signed-bitwise)
 int GetKeyOperationsSubaru::load_and_apply_linear_approx()
 {
     // QFileDialog openDialog;
@@ -523,3 +528,4 @@ void GetKeyOperationsSubaru::findApprox(uint16_t **approxTable)
         }
     }
 }
+// NOLINTEND(bugprone-signed-bitwise)
