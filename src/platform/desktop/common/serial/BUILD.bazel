@@ -85,6 +85,30 @@ qt_cc_library(
     }),
 )
 
+# Constructor-only entry point to SerialPortActions for the desktop
+# composition root. serial_qt_compat's visibility is a frozen, shrink-only
+# allowlist; this target lets //apps/desktop own the facade without joining
+# that list or seeing the facade's API.
+qt_cc_library(
+    name = "desktop_serial_factory",
+    srcs = ["desktop_serial_factory.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["desktop_serial_factory.h"],
+    visibility = ["//apps/desktop:__pkg__"],
+    deps = QT_DEPS + [":serial_qt_compat"],
+)
+
+fastecu_qttest(
+    name = "desktop_serial_factory_test",
+    size = "small",
+    src = "desktop_serial_factory_test.cpp",
+    deps = [
+        ":desktop_serial_factory",
+        ":serial_qt_compat",
+    ],
+)
+
 fastecu_qttest(
     name = "test_direct_backend",
     size = "small",
