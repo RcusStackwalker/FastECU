@@ -1,6 +1,6 @@
 # Step 6f: Desktop logging composition
 
-Status: written spec approved; implementation plan awaiting review.
+Status: implemented and locally tested; final review and cross-platform qualification pending.
 
 Baseline: `8d55e3ab`, following completion of modularization step 6e.
 

@@ -97,12 +97,10 @@ Actions:
   mutate `ecuCalDef` and move with the "Replace parallel-list data models"
   work rather than on their own.
 - Keep new file, protocol, and hardware logic out of `MainWindow`.
-- Move logging-protocol registration (`MainWindow::setupLoggingEngine()`'s
-  three `registerProtocol` calls) into the composition root. It stayed in
-  `MainWindow` in step 6c because the SSM factory reads `ecu_radio_button`
-  to pick ECU vs TCU; moving it needs that choice passed in as data (for
-  example a `target_is_ecu` field in the logging snapshot) rather than read
-  from a widget inside the factory.
+- Logging-protocol registration is composition-owned as of step 6f. The
+  platform transport package builds the three protocols; the UI passes the
+  ECU/TCU choice in the logging snapshot. Connection orchestration,
+  protocol/policy selection, and log-file handling still live in the UI.
 - **Fix or defer the `wrx02` write-path predicate (step 6b defect (a); see
   the [design notes](design-notes.md#calibration-defect-letters)).** `element_byte_address` (`src/backend/calibration/map_edit.cpp`)
   still carries two different predicates for the `wrx02` flash-method

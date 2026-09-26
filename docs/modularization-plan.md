@@ -43,7 +43,9 @@ corrections are in the [flash qualification matrix](flash-qualification-matrix.m
 Step 6 (thin desktop shell) is under way: 6a (de-widget `FileActions`), 6b
 (calibration map-edit use case), 6c (desktop composition root), 6d
 (flash-operation dispatch), and 6e (platform selection) are complete — see
-below. The rest of step 6, and step 7 (Android seam), have not started.
+below. Step 6f (logging composition) is implemented on its feature branch;
+cross-platform CI and hardware qualification remain pending. The rest of
+step 6, and step 7 (Android seam), have not started.
 
 ## Verified Current Baseline
 
@@ -258,7 +260,8 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      frozen `serial_qt_compat` allowlist did not grow. The dead
      `EcuOperations` class was deleted. Three PRs (#363 6c-1 deletion,
      #364 6c-2 `FileActions`/syslogger/`Settings`, #365 6c-3 facades and
-     engine) plus this close-out (#366). Logging-protocol registration stays in `MainWindow`; see the
+     engine) plus this close-out (#366). Logging-protocol registration was
+     deferred here and moved by step 6f; see the
      [design notes](design-notes.md#desktop-composition-root) and the
      [tech-debt roadmap](tech-debt.md).
    - **6d flash-operation dispatch — complete.** `MainWindow::start_ecu_operations`
@@ -289,6 +292,15 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      split, #376 6e-3 link selection and close-out). See the
      [design notes](design-notes.md#platform-selection) and the
      [platform-selection bench checklist](platform-selection-bench-checklist.md).
+   - **6f logging composition — implemented; CI and bench qualification pending.**
+     `DesktopComposition` registers MUT/DMA, CDBG, and SSM through
+     `//src/platform/desktop/common/transport:logging_protocol_registration`.
+     `MainWindow` captures ECU/TCU selection in the per-run snapshot and wires
+     logging signals; its services no longer expose the clock. Factory setup,
+     errors, and engine lifetime semantics are preserved without expanding
+     `serial_qt_compat` visibility. The UI transport edge remains for standalone
+     MUT memory helpers. See the [design notes](design-notes.md#logging-composition)
+     and [bench checklist](logging-composition-bench-checklist.md).
    - Remove compatibility wrappers, obsolete facades, and the temporary aggregate implementation target. (Duplicate status macros are resolved: `STATUS_SUCCESS`/`STATUS_ERROR` have one definition, in `serial_facade_codes.h`.)
    - Re-run packaging and the existing hardware bench checklists for affected logging/flashing paths.
 
