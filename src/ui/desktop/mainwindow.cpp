@@ -1154,14 +1154,14 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             fastecu::flash::flash_operation_from_command(cmd_type.toStdString());
 
         fastecu::flash::FlashOperationController controller{*serial, this};
-        QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_E, syslogger,
-                         &SystemLogger::log_messages);
-        QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_W, syslogger,
-                         &SystemLogger::log_messages);
-        QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_I, syslogger,
-                         &SystemLogger::log_messages);
-        QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_D, syslogger,
-                         &SystemLogger::log_messages);
+        // Relay through MainWindow's own LOG_* signals: the syslogger runs on
+        // its own thread, and a queued line whose sender (this stack-local
+        // controller) is already destroyed reaches log_messages with a null
+        // sender() and is dropped.
+        QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_E, this, &MainWindow::LOG_E);
+        QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_W, this, &MainWindow::LOG_W);
+        QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_I, this, &MainWindow::LOG_I);
+        QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_D, this, &MainWindow::LOG_D);
         QObject::connect(&controller, qOverload<QString>(&fastecu::flash::FlashOperationController::external_logger),
                          this, &MainWindow::external_logger);
         QObject::connect(&controller, qOverload<int>(&fastecu::flash::FlashOperationController::external_logger), this,

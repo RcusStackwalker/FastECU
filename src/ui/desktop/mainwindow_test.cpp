@@ -8,10 +8,12 @@
 #include <QStringList>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QSignalSpy>
 #include <QTimer>
 
 #include <gmock/gmock.h>
 
+#include <algorithm>
 #include <cstring>
 #include <cstdio>
 #include <memory>
@@ -19,6 +21,7 @@
 
 #define private public
 #include "src/ui/desktop/mainwindow.h"
+#include "ui_mainwindow.h"
 #undef private
 
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
@@ -39,6 +42,7 @@ namespace
 constexpr auto kTcuChooserText = "Choose which option";
 constexpr auto kTcuIgnitionText = "Turn ignition ON and press OK to start initializing connection to TCU";
 constexpr auto kLegacyEcuIgnitionText = "Turn ignition ON and press OK to start initializing connection to ECU";
+constexpr auto kNoChecksumModuleText = "WARNING! There is no checksum module for this ROM!";
 constexpr auto kPortableEcuIgnitionText = "Turn ignition ON and press OK to start initializing the ECU connection.";
 
 class ModalDriver final : public QObject
@@ -83,6 +87,10 @@ class ModalDriver final : public QObject
         return legacy_ecu_ignition_count_;
     }
 
+    int checksumWarningCount() const
+    {
+        return checksum_warning_count_;
+    }
     int portableEcuIgnitionCount() const
     {
         return portable_ecu_ignition_count_;
@@ -129,6 +137,12 @@ class ModalDriver final : public QObject
                     message_box->done(QMessageBox::Cancel);
                     return;
                 }
+                if (message_box->text().startsWith(kNoChecksumModuleText))
+                {
+                    ++checksum_warning_count_;
+                    message_box->done(QMessageBox::Cancel);
+                    return;
+                }
                 if (message_box->text() == kPortableEcuIgnitionText)
                 {
                     ++portable_ecu_ignition_count_;
@@ -167,6 +181,7 @@ class ModalDriver final : public QObject
     int unexpected_flash_dialog_count_ = 0;
     int legacy_ecu_ignition_count_ = 0;
     int portable_ecu_ignition_count_ = 0;
+    int checksum_warning_count_ = 0;
     bool timed_out_ = false;
 };
 
@@ -473,6 +488,10 @@ class MainWindowTest : public QObject
         window.configValues->flash_protocol_kernel_addr = {"0x100000"};
         window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
 
+        // The TCU log lines must come from MainWindow, which outlives the
+        // queued delivery to the syslogger's thread; a short-lived sender's
+        // queued lines are dropped once it is destroyed.
+        QSignalSpy info_lines{&window, &MainWindow::LOG_I};
         ModalDriver operation_driver{choice};
         operation_driver.start();
         QCOMPARE(startEcuOperations(window, "read"), 0);
@@ -485,6 +504,9 @@ class MainWindowTest : public QObject
         QTest::qWait(window.vbatt_timer_timeout + 100);
         QVERIFY(!window.vbatt_timer->isActive());
         QVERIFY(window.ecuCalDef[window.ecuCalDefIndex] == nullptr);
+        const QString expected_line = choice.isEmpty() ? "No option selected" : "Attempting TCU relearn";
+        QVERIFY(std::ranges::any_of(info_lines, [&](const QList<QVariant>& arguments)
+                                    { return arguments.at(0).toString() == expected_line; }));
     }
 
     void futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo_data()
@@ -687,6 +709,50 @@ class MainWindowTest : public QObject
         QVERIFY(!operation_driver.timedOut());
         QCOMPARE(window.ecuCalDefIndex, slot);
         QVERIFY(window.ecuCalDef[slot] == nullptr);
+    }
+
+    // Spec behavior change 1, second early return: Cancel on the
+    // no-checksum-module warning must also stop battery polling.
+    void cancellingTheChecksumWarningStopsVoltagePolling()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.serial != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+
+        FakeBackend *fake = services.fake;
+        EXPECT_CALL(*fake, open_serial_port()).Times(0);
+        EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
+        EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
+        window.serial_ports = {"OpenPort 2.0"};
+        window.serial_port_list->clear();
+        window.serial_port_list->addItem("OpenPort 2.0");
+        window.serial_port_list->setCurrentIndex(0);
+        window.configValues->flash_protocol_selected_make = "Subaru";
+        window.configValues->flash_protocol_selected_protocol_name = "sub_ecu_denso_sh7058_can";
+        window.configValues->flash_protocol_selected_checksum = "n/a";
+        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
+
+        // One loaded calibration, selected in the calibration files tree.
+        auto calibration = std::make_unique<FileActions::EcuCalDefStructure>();
+        calibration->FullRomData = QByteArray(16, '\x5a');
+        window.ecuCalDef[0] = calibration.get();
+        auto *item = new QTreeWidgetItem(QStringList{"test.bin"});
+        window.ui->calibrationFilesTreeWidget->addTopLevelItem(item);
+        item->setSelected(true);
+
+        ModalDriver operation_driver{QString()};
+        operation_driver.start();
+        QCOMPARE(startEcuOperations(window, "write"), 0);
+        operation_driver.stop();
+        window.ecuCalDef[0] = nullptr;
+
+        QVERIFY(!operation_driver.timedOut());
+        QCOMPARE(operation_driver.checksumWarningCount(), 1);
+        QCOMPARE(calibration->FullRomData, QByteArray(16, '\x5a'));
+        QVERIFY(!window.vbatt_timer->isActive());
     }
 
   private:
