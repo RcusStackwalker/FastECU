@@ -5,6 +5,13 @@
 
 #include <array>
 
+namespace
+{
+// Return codes of this dialog's own helpers.
+constexpr int kStatusSuccess = 0x00;
+constexpr int kStatusError = 0x01;
+} // namespace
+
 GetKeyOperationsSubaru::GetKeyOperationsSubaru(QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::EcuOperationsWindow>()}
 {
@@ -19,7 +26,7 @@ GetKeyOperationsSubaru::GetKeyOperationsSubaru(QWidget *parent)
 
     result = load_and_apply_linear_approx();
 
-    if (result == STATUS_SUCCESS)
+    if (result == kStatusSuccess)
     {
         QMessageBox::information(this, tr("Get Key Operation"),
                                  "Get Key operation completed succesfully, press OK to exit");
@@ -39,7 +46,6 @@ GetKeyOperationsSubaru::~GetKeyOperationsSubaru()
 void GetKeyOperationsSubaru::closeEvent(QCloseEvent *bar)
 {
     // kill_process = true;
-    // ecuOperations->kill_process = true;
 }
 
 int GetKeyOperationsSubaru::load_and_apply_linear_approx()
@@ -63,7 +69,7 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     if (!unencryptedFile.open(QIODevice::ReadOnly))
     {
         QMessageBox::warning(this, tr("File"), "Unable to open file for reading");
-        return STATUS_ERROR;
+        return kStatusError;
     }
     QByteArray unencryptedFileData = unencryptedFile.readAll();
     unencryptedFile.close();
@@ -72,7 +78,7 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     if (!encryptedFile.open(QIODevice::ReadOnly))
     {
         QMessageBox::warning(this, tr("File"), "Unable to open file for reading");
-        return STATUS_ERROR;
+        return kStatusError;
     }
     QByteArray encryptedFileData = encryptedFile.readAll();
     encryptedFile.close();
@@ -365,7 +371,7 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     emit LOG_I("Predicted k3: 0x" + QString::number(k3, 16), true, true);
     emit LOG_I("End Time", true, true);
 
-    return STATUS_SUCCESS;
+    return kStatusSuccess;
 }
 
 uint8_t GetKeyOperationsSubaru::get_bit(uint32_t value, int bit_num)
@@ -406,7 +412,7 @@ int GetKeyOperationsSubaru::linear_approx_test()
         }
     }
 
-    return STATUS_SUCCESS;
+    return kStatusSuccess;
 }
 
 uint16_t GetKeyOperationsSubaru::applyMask(uint16_t value, uint16_t mask)

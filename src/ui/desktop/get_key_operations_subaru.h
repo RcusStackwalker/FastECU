@@ -4,8 +4,7 @@
 
 #include <QFileDialog>
 #include <QMessageBox>
-
-#include "src/ui/desktop/ecu_operations.h"
+#include <QDialog>
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -44,8 +43,6 @@ class GetKeyOperationsSubaru : public QDialog
     uint32_t roundFunction(uint32_t roundInput, uint16_t keyInput);
     uint16_t fFunction(uint16_t wordInput, uint16_t keyInput);
     void findApprox(uint16_t **approxTable);
-
-    EcuOperations *ecuOperations{};
 
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;

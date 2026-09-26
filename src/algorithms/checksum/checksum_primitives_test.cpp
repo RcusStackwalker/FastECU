@@ -52,7 +52,7 @@ TEST(CksAdd8, AddsOneOnCarry)
 
 TEST(CksAdd8, MatchesReflashBlockShape)
 {
-    // Matches EcuOperations::npk_raw_flashblock's real call shape: a
+    // Matches the call shape of the deleted EcuOperations::npk_raw_flashblock: a
     // 131-byte block (3-byte address header + 128-byte payload).
     // Repeated carry corrections over 131 additions of 0x02 give 7,
     // not the naive mod-256 sum of 131*2 = 262 -> 6.
