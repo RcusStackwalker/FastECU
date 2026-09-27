@@ -215,8 +215,7 @@ TEST(IdentifyKlineSsm2, RejectsABadChecksum)
 {
     Harness h;
     bytes::Bytes corrupt = kShortEcuInit;
-    // NOLINTNEXTLINE(bugprone-signed-bitwise)
-    corrupt.back() ^= 0x01;
+    corrupt.back() ^= 0x01U;
     h.link.queue_read(corrupt);
     EXPECT_THAT(h.run(SsmVariant::KlineSsm2), IsErrWith(ErrorKind::BadResponse, HasSubstr("checksum")));
 }
