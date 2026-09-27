@@ -702,6 +702,44 @@ to the end of the source rather than the top. At the top,
 `serial_facade_codes.h`'s `STATUS_SUCCESS` macro collides with an enum in
 `definition_file_convert.h`, and the build fails for that reason instead.
 
+## UI channels
+
+### The UI owns the channels
+
+`LogChannel` and `RemotePeer` live in `//src/ui/desktop/channels` and hold
+only signals. The UI states what it needs; `DesktopComposition` decides what
+answers it. That keeps `SystemLogger` and `RemoteUtility` platform-only
+without cutting portable ports for them: Android's first target needs
+neither, and `IEventSink::log` has no timestamp or linefeed flags, which the
+UI's `LOG_*` call sites rely on.
+
+### The `LOG_*` names are a contract
+
+`SystemLogger::log_messages` reads a line's level from the name of the
+signal that delivered it. `LogChannel`'s signals are named `LOG_E`, `LOG_W`,
+`LOG_I`, and `LOG_D`, and UI objects connect their own `LOG_*` signals to
+them signal-to-signal, so the logger sees the channel's signal and its name.
+Renaming either side silently mislabels or drops lines;
+`desktop_composition_test` pins the prefixes.
+
+### Lines from destroyed dialogs are no longer dropped
+
+A queued call reaches its receiver with a null `sender()` when the sender was
+destroyed first, and `log_messages` drops such a line. Before 6j, the
+stack-local DTC, BIU, and DataTerminal dialogs and short-lived flash classes
+connected straight to the logger, so what they logged just before closing
+could be lost. Every UI line now reaches the logger from `LogChannel`, which
+outlives them; `relayedLineSurvivesItsSenderButADirectOneDoesNot` pins both
+the fix and the old behavior.
+
+### The remote wait is a direct-connected signal
+
+`RemotePeer::wait_for_source` emits `wait_requested`, which the composition
+connects to `RemoteUtility::waitForSource` with `Qt::DirectConnection`, so
+the call blocks as the direct call did. A headless test cannot run the wait —
+it loops until a peer answers — so `desktop_composition_test` checks only
+that the signal is connected.
+
 ## Testing
 
 ### QtTest suites using Google Mock must fail on its failures

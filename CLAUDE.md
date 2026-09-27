@@ -53,7 +53,8 @@ Dependencies flow one way: `apps/desktop` → `src/ui` → `src/platform` → `s
 The root package holds guards for invariants the compiler cannot see. They fail CI, not your editor, and each one's script in `scripts/` states the rule it enforces — read that before working around a failure.
 
 - **`//:portable_closure`** — no `//src/platform` label may be reachable from a portable target. It fails `bazel build`, not the test suite. Register new portable targets in `PORTABLE_PACKAGES` (`bazel/portable_targets.bzl`). Qt needs no guard: it is unreachable from a portable package by construction.
-- **Ratchet lists only shrink.** Some guards freeze a list of remaining transitional debt — the `qt_layer` package group in `bazel/qt/BUILD.bazel` and the GRANDFATHERED `//src/ui/desktop` entries in platform packages' `default_visibility`. Entries come out as the work lands; **an entry may never go in.** Needing to add one means the change took the legacy path and should be rewritten to take the portable one.
+- **Ratchet lists only shrink.** Some guards freeze a list of remaining transitional debt — the `qt_layer` package group in `bazel/qt/BUILD.bazel`. Entries come out as the work lands; **an entry may never go in.** Needing to add one means the change took the legacy path and should be rewritten to take the portable one.
+- **A `ui → platform` edge goes to a designed adapter.** A platform target the UI calls directly is written for the UI and names `//src/ui/desktop` in its own target-level `visibility`, never in a package's `default_visibility`. Anything else the UI needs from the platform reaches it through a UI-owned channel or a backend port that the composition root wires.
 - Windows 32-bit J2534 vendor DLLs are reached through an out-of-process bridge under `src/platform/desktop/windows/j2534/`; the x86 host binary is built in-graph via the platform transition in `bazel/x86_windows_transition.bzl`.
 
 ## Writing targets and tests

@@ -318,22 +318,6 @@ Actions:
 - Keep lifecycle coverage for teardown with in-flight calls, helper-process
   failure, timeouts, and adapter removal on each supported platform.
 
-### P1: Remove the GRANDFATHERED UI → platform edges (step 6j)
-
-`//src/ui/desktop` still depends directly on two platform packages, each
-marked GRANDFATHERED in its `default_visibility`:
-`//src/platform/desktop/common/logging` (`SystemLogger`, used across
-`MainWindow` and `menu_actions`) and
-`//src/platform/desktop/common/remote_utility` (`RemoteUtility`, used by
-`MainWindow`). They are the last `ui → platform` edges outside the
-composition root.
-
-Actions:
-
-- Design a seam for each through `MainWindowServices`, as 6f and 6h did
-  for logging protocols and the connection.
-- Remove each GRANDFATHERED entry with the code that needed it.
-
 ### P2: Identify Subaru CAN ECUs with SSM `AA`
 
 Step 6h kept CAN identification byte-faithful: iso15765 sends UDS

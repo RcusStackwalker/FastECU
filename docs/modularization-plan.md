@@ -49,9 +49,10 @@ SSM identification)** are complete, pending bench qualification.
 **6i (serial facade retirement)** is complete: `serial_qt_compat` is now the
 platform-only `serial_port_actions`, `serial_platform_api` and
 `//:serial_compat_allowlist` are gone, and no facade header reaches a
-production UI target. Next is **6j**: the two GRANDFATHERED `ui → platform`
-edges, `SystemLogger` and `RemoteUtility`, not yet designed. Step 7 (Android
-seam) has not started.
+production UI target. **6j (UI channels)** is complete: `MainWindow` reaches the system logger and
+the remote utility through two UI-owned channels the composition root wires,
+and no GRANDFATHERED visibility entry remains. What is left of step 6 is its
+last two bullets below. Step 7 (Android seam) has not started.
 
 ## Verified Current Baseline
 
@@ -162,7 +163,7 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      - `ui → algorithms` **(deviation from this bullet's original list, discovered and adjudicated during Task 8)**
      - composition roots → UI and platform implementations
    - **Deviation:** the permitted-directions list above gains `ui → algorithms`, which this bullet originally omitted. Seven real edges exist from `src/ui/**` directly into `src/algorithms/**` headers (`cipher.h`, `menu_command.h`, `qt_bytes.h`, `mut_dma_memory.h`); all seven run downward (ui depending on algorithms, never the reverse) and create no cycle. The Task 8 visibility lockdown grants this direction in every `src/algorithms/*/BUILD.bazel` package template.
-   - **Also grandfathered (human decision, Task 5, unchanged by Task 8):** three `ui → platform` edges — `//src/ui/desktop` depends directly on `//src/platform/desktop/common/{logging,remote_utility,transport}` (`mainwindow.h` includes `systemlogger.h`, `remote_utility.h`, and three `fastecu_*_transport.h` headers). These are called out with `GRANDFATHERED` comments on the three platform packages' `default_visibility`, not covered by the general platform template.
+   - **Also grandfathered (human decision, Task 5, unchanged by Task 8):** three `ui → platform` edges — `//src/ui/desktop` depends directly on `//src/platform/desktop/common/{logging,remote_utility,transport}` (`mainwindow.h` includes `systemlogger.h`, `remote_utility.h`, and three `fastecu_*_transport.h` headers). These were called out with `GRANDFATHERED` comments on the three platform packages' `default_visibility`, not covered by the general platform template — the `transport` entry was removed by step 6g and the `logging`/`remote_utility` entries by step 6j, so none remain.
    - Added a CI layering check for the one deliberately frozen violation: `//:serial_compat_allowlist` (a `py_test` running `scripts/check-serial-compat-allowlist.py`) fails the build if the `serial_qt_compat` transitional target's visibility allowlist grows past its frozen 20 entries (19 layering-violation debt entries carrying `serial_port_actions.h` into backend/ui callers, plus one legitimate same-layer `platform → platform` sibling edge to `remote_utility`). The list may only shrink as steps 5/6's backend and ui migrations remove callers.
    - Everything under `src/` and `apps/` is now visibility-restricted per the permitted directions above (previously all `//visibility:public`); a deliberately illegal `algorithms → ui` dependency was proven to be rejected by Bazel during verification.
    - Note for step 4's benefit: the broader Qt/JNI/OpenSSL closure check (rejecting those deps from the final algorithms/backend closures) was deliberately deferred, not implemented in Task 8. All 43 Qt-coupled files under `src/algorithms` would fail such a check today (`QT_DEPS` and `@openssl` are standing, adjudicated exceptions — third-party portability debt deferred on purpose). That check lands with step 4's first portable module instead.
@@ -367,6 +368,19 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      on the sandboxed builds. `fake_backed_serial` moved to
      `serial/testing`. No behavior change, so no bench checklist. See the
      [design notes](design-notes.md#serial-facade-retirement).
+   - **6j UI channels — complete.** `MainWindowServices` carries two
+     signal-only `QObject`s from the new `//src/ui/desktop/channels` package
+     instead of `SystemLogger` and `RemoteUtility`: `LogChannel`, whose
+     `LOG_*` signals every UI logger relays through, and `RemotePeer`, for
+     the startup wait, connection-state changes, and the log/progress mirror.
+     `DesktopComposition` connects both to the platform objects and keeps the
+     remote mirror's `isValid` check. The two GRANDFATHERED `//src/ui/desktop`
+     entries are gone; `logging_runtime` and `logging_adapters` name the UI in
+     their own target-level visibility as UI-facing adapters. One behavior
+     change: a line logged by a dialog destroyed before the syslog thread
+     delivered it used to be dropped and is now logged. Two PRs after the
+     spec (6j-1 log channel, 6j-2 remote peer and close-out). See the
+     [design notes](design-notes.md#ui-channels).
    - Remove compatibility wrappers, obsolete facades, and the temporary aggregate implementation target. (Duplicate status macros are resolved: `STATUS_SUCCESS`/`STATUS_ERROR` have one definition, in `serial_facade_codes.h`.)
    - Re-run packaging and the existing hardware bench checklists for affected logging/flashing paths.
 
