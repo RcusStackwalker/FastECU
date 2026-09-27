@@ -23,10 +23,8 @@
 #include <initializer_list>
 #include <utility>
 
-#define private public
 #include "src/ui/desktop/mainwindow.h"
 #include "ui_mainwindow.h"
-#undef private
 
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
 #include "src/platform/desktop/common/connection/testing/adapter_connection_harness.h"
@@ -190,15 +188,7 @@ class ModalDriver final : public QObject
     bool timed_out_ = false;
 };
 
-// start_ecu_operations is a private slot, and this file reaches MainWindow's
-// internals through `#define private public` above. That works for data
-// members, whose access is checked only while compiling, but not for a call to
-// an out-of-line member function on MSVC: the Microsoft ABI encodes the access
-// level in the mangled name, so a call compiled here as public looks for a
-// symbol mainwindow.cpp never emitted and the Windows link fails on it alone.
-// The Itanium ABI does not encode access, which is why Linux and macOS link
-// either way. Calling the slot by name through the metaobject mangles nothing,
-// and is what logging_engine_test.cpp already does for its private slots.
+// Invoke the slot through Qt, as the menu dispatch does.
 int startEcuOperations(MainWindow& window, const QString& cmd_type)
 {
     int result = -1;
@@ -232,47 +222,6 @@ QByteArray frame(std::initializer_list<int> values)
 
 // A valid SSM2 ECU init response carrying ECU ID 3152584006.
 const QByteArray kEcuInit = frame({0x80, 0xF0, 0x10, 0x09, 0xFF, 0xA2, 0x10, 0x11, 0x31, 0x52, 0x58, 0x40, 0x06, 0x6C});
-
-// Selects the fixture's last vehicle row using `protocol`.
-void selectProtocol(MainWindow& window, const QString& protocol)
-{
-    QVERIFY(window.configSession->select_by_protocol_name(protocol.toStdString()));
-}
-
-// Selects the fixture's first Subaru row using `protocol`. The flash tests
-// dispatch only for Subaru/Mitsubishi, and sub_ecu_denso_sh7058's last row
-// is a Nissan one.
-void selectSubaruProtocol(MainWindow& window, const QString& protocol)
-{
-    const auto vehicles = window.configSession->vehicles();
-    const auto it =
-        std::ranges::find_if(vehicles, [&](const fastecu::config::ResolvedCarModel& vehicle)
-                             { return vehicle.make == "Subaru" && vehicle.protocol_name == protocol.toStdString(); });
-    QVERIFY(it != vehicles.end());
-    QVERIFY(window.configSession->select_row(static_cast<std::size_t>(it - vehicles.begin())).has_value());
-}
-
-// Selects the fixture's first vehicle row of `make`.
-void selectMake(MainWindow& window, const QString& make)
-{
-    const auto vehicles = window.configSession->vehicles();
-    const auto it = std::ranges::find(vehicles, make.toStdString(), &fastecu::config::ResolvedCarModel::make);
-    QVERIFY(it != vehicles.end());
-    QVERIFY(window.configSession->select_row(static_cast<std::size_t>(it - vehicles.begin())).has_value());
-}
-
-// Points the window at one open port on the given make and log transport.
-void prepareConnect(MainWindow& window, FakeBackend& fake, const QString& make, const QString& transport)
-{
-    window.vbatt_timer->stop();
-    window.serial_ports = {"ttyUSB0"};
-    window.serial_port_list->clear();
-    window.serial_port_list->addItem("ttyUSB0");
-    selectMake(window, make);
-    window.configSession->settings().selected_log_transport = transport.toStdString();
-    window.configSession->settings().selected_log_protocol = "SSM";
-    ON_CALL(fake, open_serial_port()).WillByDefault(::testing::Return(QString("ttyUSB0")));
-}
 
 bool triggerMenu(MainWindow& window, const char *command)
 {
@@ -1800,6 +1749,47 @@ class MainWindowTest : public QObject
     }
 
   private:
+    // Selects the fixture's last vehicle row using `protocol`.
+    static void selectProtocol(MainWindow& window, const QString& protocol)
+    {
+        QVERIFY(window.configSession->select_by_protocol_name(protocol.toStdString()));
+    }
+
+    // Selects the fixture's first Subaru row using `protocol`. The flash tests
+    // dispatch only for Subaru/Mitsubishi, and sub_ecu_denso_sh7058's last row
+    // is a Nissan one.
+    static void selectSubaruProtocol(MainWindow& window, const QString& protocol)
+    {
+        const auto vehicles = window.configSession->vehicles();
+        const auto it = std::ranges::find_if(
+            vehicles, [&](const fastecu::config::ResolvedCarModel& vehicle)
+            { return vehicle.make == "Subaru" && vehicle.protocol_name == protocol.toStdString(); });
+        QVERIFY(it != vehicles.end());
+        QVERIFY(window.configSession->select_row(static_cast<std::size_t>(it - vehicles.begin())).has_value());
+    }
+
+    // Selects the fixture's first vehicle row of `make`.
+    static void selectMake(MainWindow& window, const QString& make)
+    {
+        const auto vehicles = window.configSession->vehicles();
+        const auto it = std::ranges::find(vehicles, make.toStdString(), &fastecu::config::ResolvedCarModel::make);
+        QVERIFY(it != vehicles.end());
+        QVERIFY(window.configSession->select_row(static_cast<std::size_t>(it - vehicles.begin())).has_value());
+    }
+
+    // Points the window at one open port on the given make and log transport.
+    static void prepareConnect(MainWindow& window, FakeBackend& fake, const QString& make, const QString& transport)
+    {
+        window.vbatt_timer->stop();
+        window.serial_ports = {"ttyUSB0"};
+        window.serial_port_list->clear();
+        window.serial_port_list->addItem("ttyUSB0");
+        selectMake(window, make);
+        window.configSession->settings().selected_log_transport = transport.toStdString();
+        window.configSession->settings().selected_log_protocol = "SSM";
+        ON_CALL(fake, open_serial_port()).WillByDefault(::testing::Return(QString("ttyUSB0")));
+    }
+
     // The logging setup loggingCapturesTargetForEachRun and
     // loggingUsesTheSessionLogProtocol share: an identified ECU, a
     // "Logging" menu action, and one enabled `log_protocol` value.

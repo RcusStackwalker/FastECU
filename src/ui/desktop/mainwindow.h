@@ -92,6 +92,8 @@ class MainWindow : public QMainWindow
 {
     Q_OBJECT
 
+    friend class MainWindowTest;
+
   public:
     MainWindow(MainWindowServices services, const QString& peerAddress = "", QWidget *parent = nullptr);
     ~MainWindow();
