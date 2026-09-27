@@ -7,13 +7,9 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-# MainWindow's connection handling over the serial facade. Reaches
-# serial_port_actions.h through serial_platform_api, as the diagnostics
-# package does, so the frozen serial_qt_compat allowlist does not grow. The
-# header forward-declares SerialPortActions, so the UI does not include the
-# facade header through it. The facade header is still reachable from the UI
-# through this dependency, and nothing stops a UI source from including it
-# (see docs/tech-debt.md, "Drain the serial_qt_compat allowlist").
+# MainWindow's connection handling over the serial facade. The header
+# forward-declares SerialPortActions, so the UI never includes the facade
+# header through it.
 qt_cc_library(
     name = "adapter_connection",
     srcs = ["adapter_connection.cpp"],
@@ -29,7 +25,7 @@ fastecu_qttest(
     src = "adapter_connection_test.cpp",
     deps = [
         ":adapter_connection",
+        "//src/platform/desktop/common/serial/testing:fake_backed_serial",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
-        "//src/platform/desktop/common/transport:fake_backed_serial",
     ],
 )

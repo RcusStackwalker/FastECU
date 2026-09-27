@@ -4,8 +4,8 @@ package(default_visibility = ["//src/ui/desktop:__pkg__"])
 
 # Runs one flash operation for MainWindow: Denso TCU service routing,
 # portable workflow creation, the FlashDialog, and the unknown-protocol
-# warning. It only passes SerialPortActions* through, so it needs no
-# serial_qt_compat edge.
+# warning. It only passes SerialPortActions* through, so it needs no facade
+# dependency.
 qt_cc_library(
     name = "flash_operation_controller",
     srcs = ["flash_operation_controller.cpp"],

@@ -2,7 +2,7 @@
 // in desktop_can_flash_transport_test.cpp and
 // desktop_kline_flash_transport_test.cpp exercise it indirectly; these three
 // cases pin the properties those sites rely on but never assert.
-#include "src/platform/desktop/common/transport/fake_backed_serial.h"
+#include "src/platform/desktop/common/serial/testing/fake_backed_serial.h"
 
 #include <QCoreApplication>
 #include <QTest>

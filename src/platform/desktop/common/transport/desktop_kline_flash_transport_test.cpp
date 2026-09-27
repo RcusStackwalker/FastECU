@@ -21,7 +21,7 @@
 
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
-#include "src/platform/desktop/common/transport/fake_backed_serial.h"
+#include "src/platform/desktop/common/serial/testing/fake_backed_serial.h"
 #include "src/platform/desktop/common/transport/setter_sequence_expectations.h"
 
 using fastecu::ErrorKind;

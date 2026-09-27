@@ -15,7 +15,7 @@
 #include "src/platform/desktop/common/logging/logging_engine.h"
 #undef private
 #include "src/platform/desktop/common/transport/desktop_logging_protocol_registration.h"
-#include "src/platform/desktop/common/transport/fake_backed_serial.h"
+#include "src/platform/desktop/common/serial/testing/fake_backed_serial.h"
 #include "src/platform/desktop/common/transport/setter_sequence_expectations.h"
 
 using namespace fastecu::desktop::logging;

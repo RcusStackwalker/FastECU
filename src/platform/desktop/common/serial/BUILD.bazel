@@ -259,10 +259,8 @@ qt_cc_library(
     ],
 )
 
-# Constructor-only entry point to SerialPortActions for the desktop
-# composition root. serial_qt_compat's visibility is a frozen, shrink-only
-# allowlist; this target lets //apps/desktop own the facade without joining
-# that list or seeing the facade's API.
+# Constructor-only entry point to SerialPortActions for the composition
+# roots: they own the facade without seeing its API.
 qt_cc_library(
     name = "desktop_serial_factory",
     srcs = ["desktop_serial_factory.cpp"],
@@ -293,8 +291,7 @@ fastecu_qttest(
 )
 
 # The idle line state MainWindow restores before and after every ECU
-# operation. It calls the facade, so it lives beside it; serial_qt_compat's
-# frozen visibility list could not gain the calling UI package.
+# operation. It calls the facade, so it lives beside it.
 qt_cc_library(
     name = "serial_idle",
     srcs = ["serial_idle.cpp"],

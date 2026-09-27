@@ -11,7 +11,7 @@
 #include <gmock/gmock.h>
 
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
-#include "src/platform/desktop/common/transport/fake_backed_serial.h"
+#include "src/platform/desktop/common/serial/testing/fake_backed_serial.h"
 
 using fastecu::desktop::connection::AdapterConnection;
 using fastecu::desktop::connection::log_transport_from_text;

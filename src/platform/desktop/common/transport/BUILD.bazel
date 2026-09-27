@@ -6,9 +6,8 @@ package(default_visibility = [
     "//apps/desktop:__pkg__",
     "//src/platform:__subpackages__",
     "//tests:__pkg__",
-    # Task 7's desktop dialog owns the existing SSM transport adapter passed
-    # into ServiceFunctionWorker; this does not grow serial_qt_compat's frozen
-    # direct-consumer allowlist.
+    # The service-function dialog owns the SSM transport adapter it passes
+    # into ServiceFunctionWorker.
     "//src/ui/desktop/service_functions:__pkg__",
 ])
 
@@ -34,34 +33,6 @@ qt_cc_library(
     ],
 )
 
-# Test fixture pairing a SerialPortActions facade with a Google Mock backend.
-# It lives in this package rather than beside fake_backend.h in
-# //src/platform/desktop/common/serial/testing because it needs
-# serial_port_actions.h, and serial_qt_compat's visibility list is frozen by
-# //:serial_compat_allowlist -- that list may shrink, never grow, and this
-# package is already on it.
-qt_cc_library(
-    name = "fake_backed_serial",
-    testonly = True,
-    srcs = [],
-    hdrs = [],
-    copts = COMMON_COPTS,
-    # Header-only class template, no Q_OBJECT: normal_hdrs, not hdrs, so moc
-    # does not run over it -- same convention as `transport` below.
-    normal_hdrs = ["fake_backed_serial.h"],
-    deps = QT_DEPS + [
-        "//src/platform/desktop/common/serial:serial_port_actions",
-        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
-        "@googletest//:gtest",
-    ],
-)
-
-fastecu_qttest(
-    name = "test_fake_backed_serial",
-    src = "fake_backed_serial_test.cpp",
-    deps = [":fake_backed_serial"],
-)
-
 # Google Mock cardinality helper shared by the two flash-transport suites,
 # which run the same data-driven "fails at each setter in turn" test. Qt-free
 # and independent of the fixture above, hence a plain cc_library.
@@ -76,10 +47,10 @@ fastecu_qttest(
     name = "test_desktop_kline_flash_transport",
     src = "desktop_kline_flash_transport_test.cpp",
     deps = [
-        ":fake_backed_serial",
         ":flash_transports",
         ":setter_sequence_expectations",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/serial/testing:fake_backed_serial",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
 )
@@ -88,10 +59,10 @@ fastecu_qttest(
     name = "test_desktop_can_flash_transport",
     src = "desktop_can_flash_transport_test.cpp",
     deps = [
-        ":fake_backed_serial",
         ":flash_transports",
         ":setter_sequence_expectations",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/serial/testing:fake_backed_serial",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
 )
@@ -175,11 +146,11 @@ fastecu_qttest(
     size = "small",
     src = "desktop_logging_protocol_registration_test.cpp",
     deps = [
-        ":fake_backed_serial",
         ":logging_protocol_registration",
         ":setter_sequence_expectations",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/platform/desktop/common/logging:logging_runtime",
+        "//src/platform/desktop/common/serial/testing:fake_backed_serial",
     ],
 )
