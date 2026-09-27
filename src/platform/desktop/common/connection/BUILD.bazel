@@ -10,8 +10,10 @@ package(default_visibility = [
 # MainWindow's connection handling over the serial facade. Reaches
 # serial_port_actions.h through serial_platform_api, as the diagnostics
 # package does, so the frozen serial_qt_compat allowlist does not grow. The
-# header forward-declares SerialPortActions, so the UI never sees the facade
-# header.
+# header forward-declares SerialPortActions, so the UI does not include the
+# facade header through it. The facade header is still reachable from the UI
+# through this dependency, and nothing stops a UI source from including it
+# (see docs/tech-debt.md, "Drain the serial_qt_compat allowlist").
 qt_cc_library(
     name = "adapter_connection",
     srcs = ["adapter_connection.cpp"],

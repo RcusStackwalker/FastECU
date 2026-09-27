@@ -5,12 +5,37 @@
 #include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 #include "ui_mainwindow.h"
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
 
 #include <algorithm>
 #include <array>
 #include <chrono>
 #include <utility>
+#include <optional>
+#include "src/backend/diagnostics/ssm_identify.h"
+#include "src/backend/ports/event_sink.h"
+#include "src/platform/desktop/common/ports/qt_clock.h"
+
+namespace
+{
+// The log transport's identification exchange. Raw CAN never identified: its
+// legacy branch tested a protocol value no configuration sets.
+std::optional<fastecu::diagnostics::SsmVariant> ssm_variant_for_transport(const QString& transport)
+{
+    if (transport == "SSM")
+    {
+        return fastecu::diagnostics::SsmVariant::Ssm1;
+    }
+    if (transport == "K-Line")
+    {
+        return fastecu::diagnostics::SsmVariant::KlineSsm2;
+    }
+    if (transport == "iso15765")
+    {
+        return fastecu::diagnostics::SsmVariant::Iso15765Uds;
+    }
+    return std::nullopt;
+}
+} // namespace
 
 void MainWindow::menu_action_triggered(const QString& action)
 {
@@ -378,8 +403,14 @@ void MainWindow::paste_value()
     set_maptablewidget_items();
 }
 
-int MainWindow::connect_to_ecu()
+void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
 {
+    stop_identification();
+    if (loggingEngine->isRunning())
+    {
+        loggingEngine->stop();
+        restoreLoggingUiState();
+    }
     ecuid.clear();
     ecu_init_complete = false;
     set_status_bar_label(false, false, "");
@@ -387,33 +418,152 @@ int MainWindow::connect_to_ecu()
 
     qDebug() << "Opening interface, please wait...";
     open_serial_port();
-    if (connection->is_open())
+    if (!connection->is_open())
     {
-        serial_port_list->setDisabled(true);
-        refresh_serial_port_list->setDisabled(true);
-        qDebug() << "Initialising ECU, please wait...";
-        int loopcount = 0;
-        while (!ecu_init_complete && loopcount < 5)
+        QMessageBox::warning(this, tr("Serial port"), "Could not open interface!");
+        if (on_done)
         {
-            ecu_init();
-            delay(500);
-            loopcount++;
+            on_done(false);
         }
-        if (!ecu_init_complete)
+        return;
+    }
+    serial_port_list->setDisabled(true);
+    refresh_serial_port_list->setDisabled(true);
+
+    const std::optional<fastecu::diagnostics::SsmVariant> variant =
+        configValues->flash_protocol_selected_make == "Subaru"
+            ? ssm_variant_for_transport(configValues->flash_protocol_selected_log_transport)
+            : std::nullopt;
+    if (!variant.has_value())
+    {
+        // ecu_init did nothing for other makes and for raw CAN; the legacy
+        // loop spent 2.5 s on it and then disconnected.
+        disconnect_from_ecu();
+        if (on_done)
         {
-            disconnect_from_ecu();
+            on_done(true);
+        }
+        return;
+    }
+
+    qDebug() << "Initialising ECU, please wait...";
+    connect_done_ = std::move(on_done);
+    set_identification_in_progress(true);
+    const quint64 generation = ++identify_generation_;
+    identify_link_ = std::make_unique<fastecu::diagnostics::SerialDiagnosticLink>(&connection->facade());
+    identify_worker_ = std::make_unique<fastecu::diagnostics::SsmIdentifyWorker>(
+        fastecu::diagnostics::SsmIdentifyRequest{*variant, ecu_radio_button->isChecked()
+                                                               ? fastecu::diagnostics::SsmTarget::Ecu
+                                                               : fastecu::diagnostics::SsmTarget::Tcu},
+        *identify_link_, std::make_unique<QtClock>());
+    connect(
+        identify_worker_.get(), &fastecu::diagnostics::SsmIdentifyWorker::logEvent, this,
+        [this](int level, const QString& message)
+        {
+            if (level == static_cast<int>(fastecu::LogLevel::Warning))
+            {
+                emit LOG_W(message, true, true);
+            }
+            else
+            {
+                emit LOG_D(message, true, true);
+            }
+        },
+        Qt::QueuedConnection);
+    connect(
+        identify_worker_.get(), &fastecu::diagnostics::SsmIdentifyWorker::completed, this,
+        [this, generation](const fastecu::diagnostics::SsmIdentifyWorkerResult& result)
+        {
+            if (generation == identify_generation_)
+            {
+                finish_identification(result);
+            }
+        },
+        Qt::QueuedConnection);
+    identify_worker_->start();
+}
+
+void MainWindow::finish_identification(const fastecu::diagnostics::SsmIdentifyWorkerResult& result)
+{
+    // Capability parsing can open a notice and re-enter the connection flow.
+    // Keep this attempt's continuation separate from any nested connection.
+    auto done = std::exchange(connect_done_, {});
+    const quint64 generation = identify_generation_;
+    identify_worker_.reset(); // joins; run() has already returned or is returning
+    identify_link_.reset();
+    if (result.success)
+    {
+        ecu_init_complete = true;
+        ecuid = result.ecu_id;
+        emit LOG_D("ECU ID: " + ecuid, true, true);
+        set_status_bar_label(true, !ecuid.isEmpty(), ecuid);
+        if (!result.init_response.isEmpty())
+        {
+            parse_log_value_list(result.init_response, "SSM");
         }
     }
     else
     {
-        QMessageBox::warning(this, tr("Serial port"), "Could not open interface!");
-        return STATUS_ERROR;
+        emit LOG_W("ECU identification failed: " + result.error_detail, true, true);
+        disconnect_from_ecu();
     }
-    return STATUS_SUCCESS;
+    // A port that opened counts as connected even when identification failed.
+    // A nested start or stop during capability parsing cancels this attempt.
+    if (done)
+    {
+        done(!result.success || generation == identify_generation_);
+    }
+    // Keep the selected target fixed through parsing and the logging snapshot.
+    // An older completion must not unlock a nested identification's controls.
+    if (!identify_worker_)
+    {
+        set_identification_in_progress(false);
+    }
+}
+
+void MainWindow::stop_identification()
+{
+    ++identify_generation_;
+    if (!identify_worker_)
+    {
+        return;
+    }
+    identify_worker_->requestStop();
+    identify_worker_->wait();
+    identify_worker_.reset();
+    identify_link_.reset();
+    set_identification_in_progress(false);
+    // connect_to_ecu locked the port selector once the port opened. A
+    // cancelled identification leaves no ECU connected, so unlock it the way
+    // disconnect_from_ecu does, whichever entry point cancelled.
+    serial_port_list->setEnabled(true);
+    refresh_serial_port_list->setEnabled(true);
+    if (auto done = std::exchange(connect_done_, {}); done)
+    {
+        done(false);
+    }
+}
+
+void MainWindow::set_identification_in_progress(bool in_progress)
+{
+    log_transport_list->setEnabled(!in_progress);
+    ecu_radio_button->setEnabled(!in_progress);
+    tcu_radio_button->setEnabled(!in_progress);
+    for (QMenu *menu : ui->menubar->findChildren<QMenu *>())
+    {
+        for (QAction *action : menu->actions())
+        {
+            if (action->text() == "Connect" || action->text() == "Logging")
+            {
+                action->setEnabled(!in_progress);
+            }
+        }
+    }
 }
 
 void MainWindow::disconnect_from_ecu()
 {
+    stop_identification();
     qDebug() << "Disconnecting...";
     ecuid.clear();
     ecu_init_complete = false;
@@ -529,69 +679,20 @@ void MainWindow::toggle_realtime()
         qDebug() << "Start datalog";
         if (!ecu_init_complete)
         {
-            if (connect_to_ecu())
-            {
-                restoreLoggingUiState();
-                QMessageBox::information(this, tr("ECU connection"), "Unable to connect to ECU");
-                return;
-            }
-        }
-        logging_state = true;
-
-        fastecu::desktop::logging::LogSessionConfig config;
-        fastecu::logging::LoggingProtocolId protocol_id;
-        fastecu::logging::LoggingPolicy logging_policy{};
-        if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
-        {
-            config.protocolId = "MUT_DMA";
-            activeLogValueProtocolFilter = "MUT_DMA";
-            protocol_id = fastecu::logging::LoggingProtocolId::MutDma;
-            logging_policy = {.poll_timeout = 50ms,
-                              .car_silence_miss_threshold = 20,
-                              .reconnect_attempt_threshold = 100,
-                              .reconnect_retry_period = 20};
-        }
-        else if (configValues->flash_protocol_selected_log_protocol == "CDBG")
-        {
-            config.protocolId = "CDBG";
-            activeLogValueProtocolFilter = "CDBG";
-            protocol_id = fastecu::logging::LoggingProtocolId::Cdbg;
-            logging_policy = {.poll_timeout = 50ms,
-                              .car_silence_miss_threshold = 20,
-                              .reconnect_attempt_threshold = 100,
-                              .reconnect_retry_period = 20};
-        }
-        else
-        {
-            config.protocolId = "SSM";
-            activeLogValueProtocolFilter = protocol;
-            protocol_id = fastecu::logging::LoggingProtocolId::Ssm;
-            logging_policy = {.poll_timeout = 300ms,
-                              .car_silence_miss_threshold = 10,
-                              .reconnect_attempt_threshold = 30,
-                              .reconnect_retry_period = 10};
-        }
-
-        auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
-            *logValues, protocol_id, activeLogValueProtocolFilter, logging_policy);
-        if (!snapshot)
-        {
-            emit LOG_E("Logging session failed to start: " + QString::fromStdString(snapshot.error().detail), true,
-                       true);
-            restoreLoggingUiState();
-            QMessageBox::information(this, tr("Logging"), "Unable to start logging");
+            connect_to_ecu(
+                [this](bool connected)
+                {
+                    if (!connected)
+                    {
+                        restoreLoggingUiState();
+                        QMessageBox::information(this, tr("ECU connection"), "Unable to connect to ECU");
+                        return;
+                    }
+                    continue_start_logging();
+                });
             return;
         }
-
-        snapshot->target_is_ecu = ecu_radio_button->isChecked();
-        activeLoggingSnapshot.emplace(*snapshot);
-        const auto started = loggingEngine->start(config, std::move(*snapshot));
-        if (!started)
-        {
-            restoreLoggingUiState();
-            QMessageBox::information(this, tr("Logging"), "Unable to start logging");
-            return;
-        }
+        continue_start_logging();
     }
     else
     {
@@ -605,6 +706,67 @@ void MainWindow::toggle_realtime()
         loggingEngine->stop();
 
         // disconnect_from_ecu();
+    }
+}
+
+void MainWindow::continue_start_logging()
+{
+    using namespace std::chrono_literals;
+
+    logging_state = true;
+
+    fastecu::desktop::logging::LogSessionConfig config;
+    fastecu::logging::LoggingProtocolId protocol_id;
+    fastecu::logging::LoggingPolicy logging_policy{};
+    if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
+    {
+        config.protocolId = "MUT_DMA";
+        activeLogValueProtocolFilter = "MUT_DMA";
+        protocol_id = fastecu::logging::LoggingProtocolId::MutDma;
+        logging_policy = {.poll_timeout = 50ms,
+                          .car_silence_miss_threshold = 20,
+                          .reconnect_attempt_threshold = 100,
+                          .reconnect_retry_period = 20};
+    }
+    else if (configValues->flash_protocol_selected_log_protocol == "CDBG")
+    {
+        config.protocolId = "CDBG";
+        activeLogValueProtocolFilter = "CDBG";
+        protocol_id = fastecu::logging::LoggingProtocolId::Cdbg;
+        logging_policy = {.poll_timeout = 50ms,
+                          .car_silence_miss_threshold = 20,
+                          .reconnect_attempt_threshold = 100,
+                          .reconnect_retry_period = 20};
+    }
+    else
+    {
+        config.protocolId = "SSM";
+        activeLogValueProtocolFilter = protocol;
+        protocol_id = fastecu::logging::LoggingProtocolId::Ssm;
+        logging_policy = {.poll_timeout = 300ms,
+                          .car_silence_miss_threshold = 10,
+                          .reconnect_attempt_threshold = 30,
+                          .reconnect_retry_period = 10};
+    }
+
+    auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
+        *logValues, protocol_id, activeLogValueProtocolFilter, logging_policy);
+    if (!snapshot.has_value())
+    {
+        emit LOG_E("Logging session failed to start: " + QString::fromStdString(snapshot.error().detail), true, true);
+        restoreLoggingUiState();
+        QMessageBox::information(this, tr("Logging"), "Unable to start logging");
+        return;
+    }
+
+    snapshot->target_is_ecu = ecu_radio_button->isChecked();
+    activeLoggingSnapshot.emplace(*snapshot);
+    const auto started = loggingEngine->start(config, std::move(*snapshot));
+    if (!started.has_value())
+    {
+        restoreLoggingUiState();
+        QMessageBox::information(this, tr("Logging"), "Unable to start logging");
+        return;
     }
 }
 
@@ -643,6 +805,7 @@ void MainWindow::toggle_log_to_file()
 
 void MainWindow::show_dtc_window()
 {
+    stop_identification();
     const QString port = selected_serial_port();
     if (port.isEmpty())
     {
@@ -701,6 +864,7 @@ void MainWindow::show_preferences_window()
 
 void MainWindow::show_subaru_biu_window()
 {
+    stop_identification();
     const QString port = selected_serial_port();
     if (port.isEmpty())
     {
@@ -714,6 +878,12 @@ void MainWindow::show_subaru_biu_window()
     fastecu::diagnostics::SerialDiagnosticLink link(&connection->facade());
     const auto opened = link.open(fastecu::diagnostics::KlineLinkConfig{
         .header = fastecu::diagnostics::KlineHeader::None, .iso14230_connection = true, .baud = 10400});
+    if (opened.has_value())
+    {
+        // The legacy BIU path opened through open_serial_port, which also
+        // remembered the port; keep that.
+        remember_opened_port(port, connection->opened_port());
+    }
     set_status_bar_label(opened.has_value(), false, "");
     if (!opened.has_value())
     {
@@ -735,6 +905,7 @@ void MainWindow::show_subaru_biu_window()
 
 void MainWindow::show_terminal_window()
 {
+    stop_identification();
     const QString port = selected_serial_port();
     if (port.isEmpty())
     {

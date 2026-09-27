@@ -7,10 +7,7 @@
 
 #include <gmock/gmock.h>
 
-#include <memory>
-
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
-#include "src/platform/desktop/common/serial/testing/fake_backend.h"
+#include "src/platform/desktop/common/connection/testing/adapter_connection_harness.h"
 
 namespace fastecu::flash
 {
@@ -58,21 +55,6 @@ class BoxDriver final : public QObject
     QTimer timer_;
 };
 
-std::unique_ptr<SerialPortActions> fakeSerial(FakeBackend **fake)
-{
-    auto serial = std::make_unique<SerialPortActions>(
-        [fake]() -> SerialBackend *
-        {
-            *fake = new NiceFakeBackend;
-            return *fake;
-        });
-    if (!serial->set_add_ssm_header(false) || *fake == nullptr)
-    {
-        return nullptr;
-    }
-    return serial;
-}
-
 void expectNoEcuIo(FakeBackend& fake)
 {
     EXPECT_CALL(fake, open_serial_port()).Times(0);
@@ -90,11 +72,12 @@ class FlashOperationControllerTest : public QObject
   private slots:
     void unknownProtocolIsUnsupportedAndWarnsWithoutSerialIo()
     {
-        FakeBackend *fake = nullptr;
-        std::unique_ptr<SerialPortActions> serial = fakeSerial(&fake);
-        QVERIFY(serial != nullptr);
+        fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
+        FakeBackend *fake = adapter.fake();
+        QVERIFY(fake != nullptr);
+        SerialPortActions& serial = adapter.connection().facade();
         expectNoEcuIo(*fake);
-        FlashOperationController controller{*serial, nullptr};
+        FlashOperationController controller{serial, nullptr};
         BoxDriver driver;
 
         const FlashOperationOutcome outcome = controller.run({
@@ -115,11 +98,12 @@ class FlashOperationControllerTest : public QObject
 
     void cancelledDensoTcuChooserIsHandledWithoutSerialIo()
     {
-        FakeBackend *fake = nullptr;
-        std::unique_ptr<SerialPortActions> serial = fakeSerial(&fake);
-        QVERIFY(serial != nullptr);
+        fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
+        FakeBackend *fake = adapter.fake();
+        QVERIFY(fake != nullptr);
+        SerialPortActions& serial = adapter.connection().facade();
         expectNoEcuIo(*fake);
-        FlashOperationController controller{*serial, nullptr};
+        FlashOperationController controller{serial, nullptr};
         BoxDriver driver;
 
         const FlashOperationOutcome outcome = controller.run({

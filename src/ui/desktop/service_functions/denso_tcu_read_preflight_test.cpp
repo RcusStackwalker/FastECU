@@ -11,11 +11,9 @@
 
 #include <gmock/gmock.h>
 
-#include <memory>
 #include <utility>
 
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
-#include "src/platform/desktop/common/serial/testing/fake_backend.h"
+#include "src/platform/desktop/common/connection/testing/adapter_connection_harness.h"
 #include "src/ui/desktop/service_functions/service_function_dialog.h"
 
 namespace fastecu::service_functions
@@ -223,21 +221,6 @@ class ServiceActionDriver final : public QObject
     bool timed_out_ = false;
 };
 
-std::unique_ptr<SerialPortActions> recordingSerial(FakeBackend **fake)
-{
-    auto serial = std::make_unique<SerialPortActions>(
-        [fake]() -> SerialBackend *
-        {
-            *fake = new NiceFakeBackend;
-            return *fake;
-        });
-    if (!serial->set_add_ssm_header(false) || *fake == nullptr)
-    {
-        return nullptr;
-    }
-    return serial;
-}
-
 void expectNoBackendIo(FakeBackend& fake)
 {
     EXPECT_CALL(fake, is_serial_port_open()).Times(0);
@@ -306,14 +289,15 @@ class DensoTcuReadPreflightTest : public QObject
     {
         QFETCH(int, action);
         QFETCH(bool, handled);
-        FakeBackend *fake = nullptr;
-        auto serial = recordingSerial(&fake);
-        QVERIFY(serial != nullptr);
+        fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
+        FakeBackend *fake = adapter.fake();
+        QVERIFY(fake != nullptr);
+        SerialPortActions& serial = adapter.connection().facade();
         expectNoBackendIo(*fake);
 
         ServiceActionDriver driver{false};
         driver.start();
-        QCOMPARE(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), serial.get(),
+        QCOMPARE(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial,
                                               "sub_tcu_denso_sh7058_can", nullptr),
                  handled);
         QTest::qWait(20);
@@ -333,14 +317,15 @@ class DensoTcuReadPreflightTest : public QObject
     void decliningIgnitionSkipsEveryServiceDialogAndSerialCall()
     {
         QFETCH(int, action);
-        FakeBackend *fake = nullptr;
-        auto serial = recordingSerial(&fake);
-        QVERIFY(serial != nullptr);
+        fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
+        FakeBackend *fake = adapter.fake();
+        QVERIFY(fake != nullptr);
+        SerialPortActions& serial = adapter.connection().facade();
         expectNoBackendIo(*fake);
 
         ServiceActionDriver driver{false};
         driver.start();
-        QVERIFY(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), serial.get(),
+        QVERIFY(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial,
                                              "sub_tcu_denso_sh7058_can", nullptr));
 
         QVERIFY(!driver.timedOut());
@@ -364,14 +349,15 @@ class DensoTcuReadPreflightTest : public QObject
     {
         QFETCH(int, action);
         QFETCH(QString, title);
-        FakeBackend *fake = nullptr;
-        auto serial = recordingSerial(&fake);
-        QVERIFY(serial != nullptr);
+        fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
+        FakeBackend *fake = adapter.fake();
+        QVERIFY(fake != nullptr);
+        SerialPortActions& serial = adapter.connection().facade();
         expectNoBackendIo(*fake);
 
         ServiceActionDriver driver{true};
         driver.start();
-        QVERIFY(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), serial.get(),
+        QVERIFY(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial,
                                              "sub_tcu_denso_sh7058_can", nullptr));
 
         QVERIFY(!driver.timedOut());

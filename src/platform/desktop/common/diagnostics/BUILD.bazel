@@ -61,3 +61,29 @@ fastecu_qttest(
         "//src/backend/protocol/testing:fake_diagnostic_link",
     ],
 )
+
+# Runs the connect-time SSM identification retry loop on its own thread,
+# shaped like DtcWorker.
+qt_cc_library(
+    name = "ssm_identify_worker",
+    srcs = ["ssm_identify_worker.cpp"],
+    hdrs = ["ssm_identify_worker.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS + [
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/qt_compat",
+        "//src/backend/diagnostics:ssm_identify",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+    ],
+)
+
+fastecu_qttest(
+    name = "ssm_identify_worker_test",
+    src = "ssm_identify_worker_test.cpp",
+    deps = [
+        ":ssm_identify_worker",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/protocol/testing:fake_diagnostic_link",
+    ],
+)

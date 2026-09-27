@@ -138,6 +138,8 @@ qt_cc_library(
         # dataterminal.h, and serial_diagnostic_link.h (used by
         # menu_actions.cpp) each include.
         "//src/backend/protocol",
+        "//src/backend/diagnostics:ssm_identify",
+        "//src/platform/desktop/common/diagnostics:ssm_identify_worker",
         "//src/platform/desktop/common/connection:adapter_connection",
         "//src/platform/desktop/common/diagnostics:serial_diagnostic_link",
         # mainwindow.cpp calls portableImageForOperation directly.
@@ -148,7 +150,6 @@ qt_cc_library(
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/serial:serial_idle",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
         "//src/ui/desktop/biu",
         "//src/ui/desktop/calibration:map_edit_adapter",
         "//src/ui/desktop/checksum:checksum_correction_command",

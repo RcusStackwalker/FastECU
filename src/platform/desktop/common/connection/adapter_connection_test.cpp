@@ -73,6 +73,14 @@ class TestAdapterConnection : public QObject
         QVERIFY(!connection.is_open());
     }
 
+    void openedPortAsksTheFacade()
+    {
+        FakeBackedSerial serial;
+        EXPECT_CALL(serial.fake(), get_openedSerialPort()).WillOnce(Return(QString("ttyUSB0")));
+        AdapterConnection connection(*serial);
+        QCOMPARE(connection.opened_port(), QString("ttyUSB0"));
+    }
+
     void canTransportIsRawCanElevenBit()
     {
         FakeBackedSerial serial;
