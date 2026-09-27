@@ -1,6 +1,7 @@
 #include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
 
 #include <QCoreApplication>
+#include <QSerialPort>
 #include <QTest>
 
 #include <gmock/gmock.h>
@@ -15,6 +16,7 @@ using fastecu::FakeCancellationToken;
 using fastecu::diagnostics::CanLinkConfig;
 using fastecu::diagnostics::KlineHeader;
 using fastecu::diagnostics::KlineLinkConfig;
+using fastecu::diagnostics::Parity;
 using fastecu::diagnostics::SerialDiagnosticLink;
 using ::testing::InSequence;
 using ::testing::Return;
@@ -37,6 +39,8 @@ class TestSerialDiagnosticLink : public QObject
             EXPECT_CALL(serial.fake(), set_add_iso9141_header(false)).WillOnce(Return(true));
             EXPECT_CALL(serial.fake(), set_add_iso14230_header(true)).WillOnce(Return(true));
             EXPECT_CALL(serial.fake(), set_serial_port_baudrate(QString("10400"))).WillOnce(Return(true));
+            EXPECT_CALL(serial.fake(), set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)))
+                .WillOnce(Return(true));
             EXPECT_CALL(serial.fake(), set_kline_startbyte(0xC0)).WillOnce(Return(true));
             EXPECT_CALL(serial.fake(), set_kline_tester_id(0xF1)).WillOnce(Return(true));
             EXPECT_CALL(serial.fake(), set_kline_target_id(0x33)).WillOnce(Return(true));
@@ -80,6 +84,20 @@ class TestSerialDiagnosticLink : public QObject
                                         .source_id = 0x7E0,
                                         .destination_id = 0x7E8})
                     .has_value());
+    }
+
+    void evenParityIsAppliedBeforeTheOpen()
+    {
+        FakeBackedSerial serial;
+        {
+            InSequence order;
+            EXPECT_CALL(serial.fake(), set_serial_port_baudrate(QString("1953"))).WillOnce(Return(true));
+            EXPECT_CALL(serial.fake(), set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::EvenParity)))
+                .WillOnce(Return(true));
+            EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(Return(QString("ttyUSB0")));
+        }
+        SerialDiagnosticLink link(serial.get());
+        QVERIFY(link.open(KlineLinkConfig{.baud = 1953, .parity = Parity::Even}).has_value());
     }
 
     void failingSetterIsInvalidConfigAndStopsTheSequence()

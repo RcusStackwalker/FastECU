@@ -18,6 +18,7 @@ using fastecu::testing::IsOkAnd;
 using ::testing::ElementsAre;
 using ::testing::Optional;
 using namespace std::chrono_literals;
+using namespace fastecu::diagnostics;
 
 TEST(FakeDiagnosticLink, RecordsEveryCallInOrder)
 {
@@ -77,4 +78,14 @@ TEST(FakeDiagnosticLink, ReadHonoursCancellation)
     link.queue_read(bytes::Bytes{0x41});
     EXPECT_THAT(link.read(200ms, token), IsErr(ErrorKind::Cancelled));
     EXPECT_FALSE(link.script_consumed());
+}
+
+TEST(FakeDiagnosticLink, RecordsEvenParityAndStaysSilentForNone)
+{
+    FakeDiagnosticLink link;
+    static_cast<void>(link.open(KlineLinkConfig{.baud = 1953, .parity = Parity::Even}));
+    static_cast<void>(link.open(KlineLinkConfig{.baud = 4800}));
+    EXPECT_EQ(link.calls.at(0),
+              "open kline header=None iso14230=false baud=1953 start=00 tester=00 target=00 parity=Even");
+    EXPECT_EQ(link.calls.at(1), "open kline header=None iso14230=false baud=4800 start=00 tester=00 target=00");
 }

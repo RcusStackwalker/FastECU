@@ -36,6 +36,17 @@ constexpr std::string_view to_string(KlineHeader header) noexcept
     return "None";
 }
 
+enum class Parity
+{
+    None,
+    Even,
+};
+
+constexpr std::string_view to_string(Parity parity) noexcept
+{
+    return parity == Parity::Even ? "Even" : "None";
+}
+
 struct KlineLinkConfig
 {
     KlineHeader header = KlineHeader::None;
@@ -44,6 +55,7 @@ struct KlineLinkConfig
     std::uint8_t start_byte = 0;
     std::uint8_t tester_id = 0;
     std::uint8_t target_id = 0;
+    Parity parity = Parity::None; // SSM1 runs 1953 8E1
 };
 
 struct CanLinkConfig

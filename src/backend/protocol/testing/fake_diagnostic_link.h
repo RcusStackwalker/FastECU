@@ -50,9 +50,10 @@ class FakeDiagnosticLink final : public IDiagnosticLink
 
     Status open(const KlineLinkConfig& c) override
     {
-        calls.push_back(std::format("open kline header={} iso14230={} baud={} start={:02X} tester={:02X} target={:02X}",
-                                    to_string(c.header), c.iso14230_connection, c.baud, c.start_byte, c.tester_id,
-                                    c.target_id));
+        calls.push_back(
+            std::format("open kline header={} iso14230={} baud={} start={:02X} tester={:02X} target={:02X}{}",
+                        to_string(c.header), c.iso14230_connection, c.baud, c.start_byte, c.tester_id, c.target_id,
+                        c.parity == Parity::Even ? " parity=Even" : ""));
         return next(opens_);
     }
     Status open(const CanLinkConfig& c) override
