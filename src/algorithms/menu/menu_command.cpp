@@ -12,7 +12,7 @@ struct MenuCommandMapping
     MenuCommand command;
 };
 
-constexpr std::array<MenuCommandMapping, 37> kMenuCommandMappings = {
+constexpr std::array<MenuCommandMapping, 34> kMenuCommandMappings = {
     MenuCommandMapping{"new", MenuCommand::New},
     {"open_calibration", MenuCommand::OpenCalibration},
     {"save_calibration", MenuCommand::SaveCalibration},
@@ -43,9 +43,6 @@ constexpr std::array<MenuCommandMapping, 37> kMenuCommandMappings = {
     {"setlogviews", MenuCommand::SetLogViews},
     {"dtc_window", MenuCommand::DtcWindow},
     {"hex_editor", MenuCommand::HexEditor},
-    {"haltech_ic7", MenuCommand::HaltechIc7},
-    {"simulate_obd", MenuCommand::SimulateObd},
-    {"can_listener", MenuCommand::CanListener},
     {"biu_communication", MenuCommand::BiuCommunication},
     {"get_key", MenuCommand::GetKey},
     {"terminal", MenuCommand::Terminal},
