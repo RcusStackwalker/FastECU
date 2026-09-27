@@ -173,6 +173,13 @@ class MainWindow : public QMainWindow
     QString serial_port_prefix;
     QStringList serial_ports;
 
+    // The port chosen in the toolbar, or empty when there is none. Inline so
+    // tests reaching it through `#define private public` link on MSVC too.
+    QString selected_serial_port() const
+    {
+        return serial_ports.value(serial_port_list->currentIndex());
+    }
+
     int ecu_protocols_list_length = 6;
     QString current_car_model = "";
 

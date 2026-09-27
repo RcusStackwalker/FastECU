@@ -844,6 +844,66 @@ class MainWindowTest : public QObject
         QCOMPARE(targets, (std::vector<bool>{true, false}));
     }
 
+    void selectedSerialPortIsEmptyWithoutPorts()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.fake != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        window.serial_ports.clear();
+        window.serial_port_list->clear();
+        QCOMPARE(window.selected_serial_port(), QString());
+        window.serial_ports = {"ttyUSB0"};
+        window.serial_port_list->addItem("ttyUSB0");
+        QCOMPARE(window.selected_serial_port(), QString("ttyUSB0"));
+    }
+
+    void dtcWindowWithoutAPortWarnsInsteadOfCrashing()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.fake != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        window.serial_ports.clear();
+        window.serial_port_list->clear();
+        EXPECT_CALL(*services.fake, set_serial_port_list(::testing::_)).Times(0);
+        ModalDriver driver{QString()};
+        driver.start();
+        for (const char *command : {"dtc_window", "biu_communication", "terminal"})
+        {
+            QVERIFY(QMetaObject::invokeMethod(&window, "menu_action_triggered", Qt::DirectConnection,
+                                              Q_ARG(QString, QString::fromLatin1(command))));
+        }
+        driver.stop();
+        QVERIFY(!driver.timedOut());
+    }
+
+    void disconnectReturnsTheAdapterToIdle()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.fake != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        {
+            ::testing::InSequence order;
+            EXPECT_CALL(*services.fake, reset_connection());
+            EXPECT_CALL(*services.fake, set_serial_port_baudrate(QString("4800")));
+            EXPECT_CALL(*services.fake, set_serial_port_parity(0));
+        }
+        EXPECT_CALL(*services.fake, set_is_can_connection(::testing::_)).Times(0);
+        QVERIFY(QMetaObject::invokeMethod(&window, "menu_action_triggered", Qt::DirectConnection,
+                                          Q_ARG(QString, QStringLiteral("disconnect_from_ecu"))));
+        // Check now, so facade teardown cannot over-saturate the expectations.
+        QVERIFY(::testing::Mock::VerifyAndClearExpectations(services.fake));
+        QVERIFY(window.serial_port_list->isEnabled());
+    }
+
   private:
     QTemporaryDir config_root_;
 };
