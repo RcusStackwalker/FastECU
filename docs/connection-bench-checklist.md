@@ -58,3 +58,11 @@ Run `bazel test --config=release //...` first.
 | 14 | Port refresh and log-transport switching, then connect | The newly chosen port and transport are used | Not yet tested |
 | 15 | Read ROM on an OpenPort 2.0 | Battery voltage updates in the flash window during the operation | Not yet tested |
 | 16 | SSM1 connect, then a DTC read over K-Line | The DTC session opens with no parity (previously it could inherit SSM1's even parity) | Not yet tested |
+| 17 | Connect while Mitsubishi MUT/DMA logging is running | Logging stops cleanly (Logging action unchecks, no error dialog), then the connect runs; with "Log to file" on, the datalog file stays open and the next logging session appends to it | Not yet tested |
+| 18 | Connect while Subaru K-Line logging is running | Logging stops cleanly, then identification runs and completes; the status bar shows the ECU ID | Not yet tested |
+| 19 | ECU/TCU radio buttons during #1, and during #8 until logging has started | Both radio buttons are disabled; they re-enable when identification finishes | Not yet tested |
+| 20 | Battery voltage on an OpenPort 2.0 during #1 | The voltage display stops updating while identification runs and resumes afterwards; identification is not disturbed | Not yet tested |
+| 21 | Start logging, Subaru K-Line with the ECU unpowered, then open the DTC window before the five attempts finish | Identification stops; "Unable to connect to ECU" appears; the DTC window opens; after closing it the port list and refresh button are enabled | Not yet tested |
+| 22 | As #21, but with a port refresh, a log-transport change, the BIU window, and the terminal window in place of DTC | Same as #21 for each | Not yet tested |
+| 23 | BIU window on a newly chosen port, then restart the application | The BIU port is the one selected after restart | Not yet tested |
+| 24 | Connect, Subaru, iso15765 (#6), then check the system log | The log shows `ECU ID:` followed by the `F182` ID (before step 6h the ID was not recorded for iso15765) | Not yet tested |
