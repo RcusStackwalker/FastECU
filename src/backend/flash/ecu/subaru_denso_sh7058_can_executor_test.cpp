@@ -22,9 +22,10 @@
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
-#include "src/backend/ports/testing/recording_clock.h"
+#include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
+using ::testing::_;
 using ::testing::Contains;
 using ::testing::ElementsAre;
 
@@ -574,7 +575,7 @@ TEST(SubaruDensoSh7058CanExecutor, BoundAttemptResetsBeforeConfiguringAndOpening
     RecordingCanFlashTransport *observed = transport.get();
     FakeCancellationToken cancellation;
     observed->cancellation_on_open = &cancellation;
-    RecordingClock clock;
+    FakeClock clock;
     RecordingEventSink events;
 
     auto attempt =
@@ -594,7 +595,7 @@ TEST(SubaruDensoSh7058CanExecutor, StartupCancellationBeforeResetTouchesNoLifecy
     RecordingCanFlashTransport *observed = transport.get();
     FakeCancellationToken cancellation;
     cancellation.set_cancelled(true);
-    RecordingClock clock;
+    FakeClock clock;
     RecordingEventSink events;
 
     auto attempt =
@@ -614,7 +615,7 @@ TEST(SubaruDensoSh7058CanExecutor, StartupCancellationAfterResetSkipsConfigureOp
     RecordingCanFlashTransport *observed = transport.get();
     FakeCancellationToken cancellation;
     observed->cancellation_on_reset = &cancellation;
-    RecordingClock clock;
+    FakeClock clock;
     RecordingEventSink events;
 
     auto attempt =
@@ -634,7 +635,7 @@ TEST(SubaruDensoSh7058CanExecutor, StartupCancellationDuringConfigureSkipsOpenAn
     RecordingCanFlashTransport *observed = transport.get();
     FakeCancellationToken cancellation;
     observed->cancellation_on_configure = &cancellation;
-    RecordingClock clock;
+    FakeClock clock;
     RecordingEventSink events;
 
     auto attempt =
@@ -654,7 +655,7 @@ TEST(SubaruDensoSh7058CanExecutor, StartupResetFailurePropagatesWithoutConfigure
     RecordingCanFlashTransport *observed = transport.get();
     observed->reset_result = fail(ErrorKind::Internal, "petrol reset marker");
     FakeCancellationToken cancellation;
-    RecordingClock clock;
+    FakeClock clock;
     RecordingEventSink events;
 
     auto attempt =
@@ -679,7 +680,7 @@ TEST(SubaruDensoSh7058CanExecutor, AllFiveValidatedEnumsProduceTheirFixedSecurit
         configure_and_open(executor, *plan, transport);
         script_bootloader_connection(transport, variant, false);
         FakeCancellationToken cancellation;
-        RecordingClock clock;
+        FakeClock clock;
         RecordingEventSink events;
 
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -780,7 +781,10 @@ TEST(SubaruDensoSh7058CanExecutor, ProbeTimeoutUploadsLiteral129ByteKernelThenRe
     script_129_byte_kernel_upload(transport.scripted);
     script_zero_read_pages(transport.scripted);
     FakeCancellationToken cancellation;
-    RecordingClock clock;
+    MockClock clock;
+    EXPECT_CALL(clock, sleep(50ms, _)).Times(12);
+    EXPECT_CALL(clock, sleep(100ms, _)).Times(1);
+    EXPECT_CALL(clock, sleep(200ms, _)).Times(2);
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -794,9 +798,6 @@ TEST(SubaruDensoSh7058CanExecutor, ProbeTimeoutUploadsLiteral129ByteKernelThenRe
     EXPECT_TRUE(has_log(events, LogLevel::Info, "VIN: VIN"));
     EXPECT_TRUE(has_log(events, LogLevel::Info, "CVN: 1234"));
     EXPECT_TRUE(has_log(events, LogLevel::Info, "Kernel ID: KID"));
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 50ms), 12);
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 100ms), 1);
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 200ms), 2);
     EXPECT_THAT(transport.read_timeouts, Contains(10ms));
 }
 
@@ -1305,7 +1306,7 @@ TEST(SubaruDensoSh7058CanExecutor, StrictUdsExchangeReadsResponsePendingWithoutR
     transport.scripted.queueRead(response(bytes::Bytes{0x7F, 0x27, 0x35}));
 
     FakeCancellationToken cancellation;
-    RecordingClock clock;
+    FakeClock clock;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);

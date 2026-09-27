@@ -23,11 +23,15 @@
 #include "src/backend/flash/testing/scripted_mixed_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
-#include "src/backend/ports/testing/recording_clock.h"
+#include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
+using ::testing::_;
+using ::testing::AtLeast;
 using ::testing::Contains;
+using ::testing::DoAll;
 using ::testing::ElementsAre;
+using ::testing::InvokeWithoutArgs;
 
 namespace fastecu::flash
 {
@@ -51,31 +55,6 @@ constexpr std::array<bytes::Byte, 8> kCallerFirstCommitBytes{0x41, 0x9D, 0xE3, 0
 constexpr std::array<bytes::Byte, 8> kCallerSecondCommitBytes{0x72, 0x0C, 0xF1, 0x96, 0x3B, 0xD4, 0x58, 0xAE};
 constexpr std::array<bytes::Byte, 8> kExpectedFirstCommitWireBytes{0x41, 0x9D, 0xE3, 0x27, 0xB8, 0x06, 0xCA, 0x5F};
 constexpr std::array<bytes::Byte, 8> kExpectedSecondCommitWireBytes{0x72, 0x0C, 0xF1, 0x96, 0x3B, 0xD4, 0x58, 0xAE};
-
-class CancellingClock final : public FakeClock
-{
-  public:
-    CancellingClock(FakeCancellationToken& cancellation, std::chrono::milliseconds trigger)
-        : cancellation_(cancellation), trigger_(trigger)
-    {
-    }
-
-    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
-    {
-        calls.push_back(duration);
-        if (duration == trigger_)
-        {
-            cancellation_.set_cancelled(true);
-        }
-        return FakeClock::sleep(duration, cancellation);
-    }
-
-    std::vector<std::chrono::milliseconds> calls;
-
-  private:
-    FakeCancellationToken& cancellation_;
-    std::chrono::milliseconds trigger_;
-};
 
 // Keeps the existing strict scripted transport while recording the timeout
 // used for each BEEF read. The executor owns all protocol behavior; this is
@@ -912,7 +891,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, AlreadyRunningKernelReadsEveryPageAndRet
     configure_and_open(executor, *plan, transport);
     script_live_read(transport, test_case, 0x00);
     FakeCancellationToken cancellation;
-    RecordingClock clock;
+    FakeClock clock;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1002,7 +981,10 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ProbeTimeoutTransitionsThroughRawUploadA
     transport.queueIsoRead(kernel_id_response());
     script_read_pages(transport, test_case.rom_size);
     FakeCancellationToken cancellation;
-    RecordingClock clock;
+    MockClock clock;
+    EXPECT_CALL(clock, sleep(3ms, _)).Times(AtLeast(1));
+    EXPECT_CALL(clock, sleep(1ms, _)).Times(AtLeast(1));
+    EXPECT_CALL(clock, sleep(200ms, _)).Times(AtLeast(1));
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1013,9 +995,6 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ProbeTimeoutTransitionsThroughRawUploadA
     EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel,
                                                                           ScriptedMixedCanMode::RawBootloader,
                                                                           ScriptedMixedCanMode::Iso15765Kernel}));
-    EXPECT_THAT(clock.sleep_calls, Contains(3ms));
-    EXPECT_THAT(clock.sleep_calls, Contains(1ms));
-    EXPECT_THAT(clock.sleep_calls, Contains(200ms));
     EXPECT_EQ(events.logs, expected_legacy_upload_read_logs(test_case.rom_size));
 }
 
@@ -1104,18 +1083,18 @@ TEST(SubaruDensoSh705xDensoCanExecutor, KernelIdProbeAndPostUploadVerificationWa
     transport.scripted.queueIsoRead(kernel_id_response());
     script_read_pages(transport.scripted, test_case.rom_size);
     FakeCancellationToken cancellation;
-    RecordingClock clock;
+    MockClock clock;
+    EXPECT_CALL(clock, sleep(3ms, _)).Times(1000);
+    EXPECT_CALL(clock, sleep(1ms, _)).Times(1);
+    // upload_kernel() already owns two 200 ms waits (checksum and jump).
+    // request_kernel_id() adds one before the initial probe and one before
+    // the post-upload kernel-ID verification.
+    EXPECT_CALL(clock, sleep(200ms, _)).Times(4);
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 3ms), 1000);
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 1ms), 1);
-    // upload_kernel() already owns two 200 ms waits (checksum and jump).
-    // request_kernel_id() adds one before the initial probe and one before
-    // the post-upload kernel-ID verification.
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 200ms), 4);
     EXPECT_TRUE(transport.scripted.scriptConsumed());
 }
 
@@ -1135,15 +1114,15 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CrcIntervalsAndFlashBufferAcknowledgemen
     script_first_flash_block(transport.scripted, false);
     script_compare(transport.scripted, *device, false);
     FakeCancellationToken cancellation;
-    RecordingClock clock;
+    MockClock clock;
+    // get_changed_blocks() sleeps after every one of the sixteen CRC checks,
+    // including the final check in each of the two comparison passes.
+    EXPECT_CALL(clock, sleep(5ms, _)).Times(32);
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
-    // get_changed_blocks() sleeps after every one of the sixteen CRC checks,
-    // including the final check in each of the two comparison passes.
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 5ms), 32);
     EXPECT_TRUE(std::any_of(transport.iso_read_timeouts.begin(), transport.iso_read_timeouts.end(),
                             [](const auto& entry)
                             { return entry.first == std::optional<std::uint8_t>{0x22} && entry.second == 800ms; }));
@@ -1216,7 +1195,9 @@ TEST(SubaruDensoSh705xDensoCanExecutor, InitialKernelProbeTreatsLegacyNontermina
         // exchange. Cancellation on its 3 ms pacing wait bounds each case.
         transport.expectRawWrite(raw_request({0xFF, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}));
         FakeCancellationToken cancellation;
-        CancellingClock clock(cancellation, 3ms);
+        MockClock clock;
+        EXPECT_CALL(clock, sleep(3ms, _))
+            .WillOnce(DoAll(InvokeWithoutArgs([&] { cancellation.set_cancelled(true); }), clock.sleep_on_fake()));
         RecordingEventSink events;
 
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1692,7 +1673,9 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationStopsWakeAndUploadAtTheirLoo
         transport.queueNoIsoFrame();
         transport.expectRawWrite(raw_request({0xFF, 0x86, 0, 0, 0, 0, 0, 0}));
         FakeCancellationToken cancellation;
-        CancellingClock clock(cancellation, 3ms);
+        MockClock clock;
+        EXPECT_CALL(clock, sleep(3ms, _))
+            .WillOnce(DoAll(InvokeWithoutArgs([&] { cancellation.set_cancelled(true); }), clock.sleep_on_fake()));
         RecordingEventSink events;
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
         ASSERT_FALSE(result.has_value());
@@ -1718,7 +1701,9 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationStopsWakeAndUploadAtTheirLoo
         transport.queueRawRead(raw_response({0x7A, 0x9C, 0, 0, 0, 0, 0, 0}));
         transport.expectRawWrite(raw_request({0x7A, 0xAE, 0x11, 0x22, 0x33, 0x44, 0x55, 0x00}));
         FakeCancellationToken cancellation;
-        CancellingClock clock(cancellation, 1ms);
+        MockClock clock;
+        EXPECT_CALL(clock, sleep(1ms, _))
+            .WillOnce(DoAll(InvokeWithoutArgs([&] { cancellation.set_cancelled(true); }), clock.sleep_on_fake()));
         RecordingEventSink events;
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
         ASSERT_FALSE(result.has_value());
@@ -1794,7 +1779,7 @@ void expect_legacy_write_logs(FlashOperation operation)
     script_first_flash_block(transport, operation == FlashOperation::TestWrite);
     script_compare(transport, *device, false);
     FakeCancellationToken cancellation;
-    RecordingClock clock;
+    FakeClock clock;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);

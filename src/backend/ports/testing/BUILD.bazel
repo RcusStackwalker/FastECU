@@ -23,6 +23,26 @@ cc_library(
 )
 
 cc_library(
+    name = "mock_clock",
+    hdrs = ["mock_clock.h"],
+    deps = [
+        ":fake_clock",
+        "//src/backend/ports",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "mock_clock_test",
+    srcs = ["mock_clock_test.cpp"],
+    deps = [
+        ":fake_cancellation_token",
+        ":mock_clock",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
+cc_library(
     name = "recording_clock",
     hdrs = ["recording_clock.h"],
     deps = [

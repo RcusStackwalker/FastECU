@@ -22,11 +22,14 @@
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
-#include "src/backend/ports/testing/recording_clock.h"
+#include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
+using ::testing::_;
 using ::testing::Contains;
+using ::testing::DoAll;
 using ::testing::ElementsAre;
+using ::testing::InvokeWithoutArgs;
 
 namespace fastecu
 {
@@ -192,26 +195,6 @@ bytes::Bytes kernel_id_response()
 {
     return {0x00, 0x00, 0x07, 0xE8, 0xBE, 0xEF, 0x00, 0x04, 0x41, 0x4B, 0x49, 0x44};
 }
-
-class TimelineClock final : public RecordingClock
-{
-  public:
-    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
-    {
-        if (timeline != nullptr)
-        {
-            timeline->push_back(std::format("sleep:{}", duration.count()));
-        }
-        if (cancel_during_sleep != nullptr)
-        {
-            cancel_during_sleep->set_cancelled(true);
-        }
-        return RecordingClock::sleep(duration, cancellation);
-    }
-
-    FakeCancellationToken *cancel_during_sleep = nullptr;
-    std::vector<std::string> *timeline = nullptr;
-};
 
 class EraseCancellingEventSink final : public RecordingEventSink
 {
@@ -603,10 +586,12 @@ TEST(SubaruDensoSh7058CanDieselExecutor, BoundAttemptPreservesResetQuietPeriodCo
     RecordingCanFlashTransport *observed_transport = transport.get();
     FakeCancellationToken cancellation;
     observed_transport->cancellation_on_open = &cancellation;
-    TimelineClock clock;
     std::vector<std::string> timeline;
-    clock.timeline = &timeline;
     observed_transport->timeline = &timeline;
+    MockClock clock;
+    EXPECT_CALL(clock, sleep).Times(0);
+    EXPECT_CALL(clock, sleep(500ms, _))
+        .WillOnce(DoAll(InvokeWithoutArgs([&] { timeline.emplace_back("sleep:500"); }), clock.sleep_on_fake()));
     RecordingEventSink events;
 
     auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanDieselExecutor>(),
@@ -616,7 +601,6 @@ TEST(SubaruDensoSh7058CanDieselExecutor, BoundAttemptPreservesResetQuietPeriodCo
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_THAT(observed_transport->lifecycle, ElementsAre("reset_connection", "configure", "open", "close"));
-    EXPECT_THAT(clock.sleep_calls, ElementsAre(500ms));
     EXPECT_THAT(timeline, ElementsAre("reset_connection", "sleep:500", "configure", "open", "close"));
 }
 
@@ -627,11 +611,18 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StartupCancellationAfterResetSkipsConfi
     auto transport = std::make_unique<RecordingCanFlashTransport>();
     RecordingCanFlashTransport *observed_transport = transport.get();
     FakeCancellationToken cancellation;
-    TimelineClock clock;
     std::vector<std::string> timeline;
-    clock.timeline = &timeline;
     observed_transport->timeline = &timeline;
-    clock.cancel_during_sleep = &cancellation;
+    MockClock clock;
+    EXPECT_CALL(clock, sleep).Times(0);
+    EXPECT_CALL(clock, sleep(500ms, _))
+        .WillOnce(DoAll(InvokeWithoutArgs(
+                            [&]
+                            {
+                                timeline.emplace_back("sleep:500");
+                                cancellation.set_cancelled(true);
+                            }),
+                        clock.sleep_on_fake()));
     RecordingEventSink events;
 
     auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanDieselExecutor>(),
@@ -641,7 +632,6 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StartupCancellationAfterResetSkipsConfi
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_THAT(observed_transport->lifecycle, ElementsAre("reset_connection"));
-    EXPECT_THAT(clock.sleep_calls, ElementsAre(500ms));
     EXPECT_THAT(timeline, ElementsAre("reset_connection", "sleep:500"));
 }
 
@@ -658,7 +648,9 @@ TEST(SubaruDensoSh7058CanDieselExecutor, AlreadyRunningKernelReadsBothLiteralRom
         script_kernel_alive(transport.scripted);
         script_zero_read_pages(transport.scripted, variant.rom_size);
         FakeCancellationToken cancellation;
-        TimelineClock clock;
+        MockClock clock;
+        EXPECT_CALL(clock, sleep).Times(0);
+        EXPECT_CALL(clock, sleep(200ms, _)).Times(1);
         RecordingEventSink events;
 
         const auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -687,7 +679,6 @@ TEST(SubaruDensoSh7058CanDieselExecutor, AlreadyRunningKernelReadsBothLiteralRom
         EXPECT_EQ(transport.read_timeouts.front(), 800ms);
         EXPECT_TRUE(std::all_of(transport.read_timeouts.begin() + 1, transport.read_timeouts.end(),
                                 [](std::chrono::milliseconds timeout) { return timeout == 2000ms; }));
-        EXPECT_THAT(clock.sleep_calls, ElementsAre(200ms));
         EXPECT_THAT(events.notices, ElementsAre("Reading ROM, please wait..."));
         EXPECT_TRUE(has_exact_log(events, LogLevel::Info,
                                   "Connecting to Subaru 07+ Diesel 32-bit CAN bootloader, please wait..."));
@@ -722,7 +713,10 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadsLiteralKernelAtEachGenerationAdd
         script_129_byte_kernel_upload(transport.scripted, variant.kernel_address);
         FakeCancellationToken cancellation;
         PhaseCancellingEventSink events(cancellation, "Kernel", 1);
-        TimelineClock clock;
+        MockClock clock;
+        EXPECT_CALL(clock, sleep(50ms, _)).Times(12);
+        EXPECT_CALL(clock, sleep(100ms, _)).Times(1);
+        EXPECT_CALL(clock, sleep(200ms, _)).Times(2);
 
         const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
@@ -760,9 +754,6 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadsLiteralKernelAtEachGenerationAdd
         EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 500ms), 3);
         EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 10ms), 3);
         EXPECT_EQ(std::count(transport.read_timeouts.begin(), transport.read_timeouts.end(), 800ms), 2);
-        EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 50ms), 12);
-        EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 100ms), 1);
-        EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 200ms), 2);
         EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait...", "Reading ROM, please wait..."));
         EXPECT_TRUE(has_exact_log(events, LogLevel::Info,
                                   "Connecting to Subaru 07+ Diesel 32-bit CAN bootloader, please wait..."));
@@ -1171,7 +1162,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StrictUdsPendingRetriesAreBoundedAndNev
         transport.scripted.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE8, 0x7F, 0x27, 0x78});
     }
     FakeCancellationToken cancellation;
-    TimelineClock clock;
+    FakeClock clock;
     RecordingEventSink events;
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1210,7 +1201,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, CancellationStopsAtPendingRetryBoundary
     FakeCancellationToken cancellation;
     transport.cancellation_to_trigger = &cancellation;
     transport.cancel_after_read_count = 8;
-    TimelineClock clock;
+    FakeClock clock;
     RecordingEventSink events;
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1423,7 +1414,9 @@ TEST(SubaruDensoSh7058CanDieselExecutor, RealWriteErasesProgramsCommitsAndVerifi
     script_flash_block(transport.scripted, kSh7058Blocks[0], 0x00, false);
     script_compare(transport.scripted, kSh7058Blocks, std::nullopt);
     FakeCancellationToken cancellation;
-    TimelineClock clock;
+    MockClock clock;
+    EXPECT_CALL(clock, sleep(5ms, _)).Times(32);
+    EXPECT_CALL(clock, sleep(200ms, _)).Times(1);
     RecordingEventSink events;
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1454,8 +1447,6 @@ TEST(SubaruDensoSh7058CanDieselExecutor, RealWriteErasesProgramsCommitsAndVerifi
     EXPECT_EQ(write_progress.front(), (RecordedPhaseProgress{"Write", 3, 4, 0, 0x1000}));
     EXPECT_EQ(write_progress[8], (RecordedPhaseProgress{"Write", 3, 4, 0x0FFF, 0x1000}));
     EXPECT_EQ(write_progress.back(), (RecordedPhaseProgress{"Write", 3, 4, 0x1000, 0x1000}));
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 5ms), 32);
-    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 200ms), 1);
 }
 
 TEST(SubaruDensoSh7058CanDieselExecutor, NonzeroLargeBlockCommitsEveryWindowWithOrderedChangedByteProgress)
@@ -1600,7 +1591,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, UploadedKernelReachesFirstReadPageBefor
     FakeCancellationToken cancellation;
     transport.cancellation_to_trigger = &cancellation;
     transport.cancel_after_read_count = 18;
-    TimelineClock clock;
+    FakeClock clock;
     RecordingEventSink events;
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);

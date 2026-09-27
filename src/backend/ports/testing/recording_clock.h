@@ -10,10 +10,10 @@ namespace fastecu
 // A FakeClock that records every requested sleep duration, in call order,
 // before delegating. A cancelled sleep is still recorded.
 //
-// Deliberately not final: a test needing extra sleep-time behavior (a
-// timeline, cancelling mid-sleep) derives from this and calls
-// RecordingClock::sleep rather than keeping its own duration list.
-class RecordingClock : public FakeClock
+// For asserting the exact ordered list of sleeps. To assert that a sleep
+// happens (n times) or not, or to fail or trigger something on one, use
+// MockClock rather than deriving from this or from FakeClock.
+class RecordingClock final : public FakeClock
 {
   public:
     Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override

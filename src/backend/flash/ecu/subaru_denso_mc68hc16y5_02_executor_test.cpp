@@ -17,10 +17,15 @@
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
+using ::testing::_;
+using ::testing::DoAll;
 using ::testing::ElementsAre;
+using ::testing::InvokeWithoutArgs;
+using ::testing::Return;
 
 namespace fastecu::flash
 {
@@ -358,29 +363,6 @@ void script_write_prefix(ScriptedKlineFlashTransport& transport, const flashdev_
         transport.exchange(framed(0x25, composeBe(device.fblocks[block_no].start)), framed(0x65));
     }
 }
-
-class CancelAfterFirstPageClock final : public FakeClock
-{
-  public:
-    explicit CancelAfterFirstPageClock(ToggleCancellation& cancellation) : cancellation_(cancellation)
-    {
-    }
-
-    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
-    {
-        Status result = FakeClock::sleep(duration, cancellation);
-        if (result.has_value() && duration == 1ms && !cancelled_after_page_)
-        {
-            cancelled_after_page_ = true;
-            cancellation_.cancel();
-        }
-        return result;
-    }
-
-  private:
-    ToggleCancellation& cancellation_;
-    bool cancelled_after_page_ = false;
-};
 
 config::ConfigPaths eeprom_paths()
 {
@@ -847,7 +829,10 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadCancelsBetweenPages)
     script_read_page(transport, 0x00000000, 0xA5);
 
     ToggleCancellation cancellation;
-    CancelAfterFirstPageClock clock(cancellation);
+    MockClock clock;
+    // Cancel only after the first page's 1 ms pacing sleep has completed.
+    EXPECT_CALL(clock, sleep(1ms, _))
+        .WillOnce(DoAll(clock.sleep_on_fake(), InvokeWithoutArgs([&] { cancellation.cancel(); }), Return(Status{})));
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),

@@ -13,12 +13,15 @@
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
 namespace
 {
 using namespace fastecu;
 using namespace fastecu::flash;
+using ::testing::DoAll;
+using ::testing::InvokeWithoutArgs;
 
 // Matches the executor's private kRomSize/block_size: 0x80000 / 96 = 5461
 // remainder 32, so the ROM read is 5462 blocks with a 32-byte tail.
@@ -120,21 +123,12 @@ class TracingTransport : public ScriptedKlineFlashTransport
     std::vector<Step>& trace_;
 };
 
-class TracingClock final : public FakeClock
+// Every sleep appends Step::Sleep to the shared trace, then advances time.
+void trace_sleeps(MockClock& clock, std::vector<Step>& trace)
 {
-  public:
-    explicit TracingClock(std::vector<Step>& trace) : trace_(trace)
-    {
-    }
-    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& token) override
-    {
-        trace_.push_back(Step::Sleep);
-        return FakeClock::sleep(duration, token);
-    }
-
-  private:
-    std::vector<Step>& trace_;
-};
+    ON_CALL(clock, sleep)
+        .WillByDefault(DoAll(InvokeWithoutArgs([&trace] { trace.push_back(Step::Sleep); }), clock.sleep_on_fake()));
+}
 
 // This family's connect_bootloader() consumes five transport.read() calls
 // (id, 0x81, 0x83, seed request, key send) before the ROM read loop starts,
@@ -437,7 +431,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsABlockResponseOfTheWrongLength)
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
 }
 
-// See the comment on Step/TracingTransport/TracingClock above for why this
+// See the comment on Step/TracingTransport/trace_sleeps above for why this
 // test exists: it is the only one in this suite that can distinguish the
 // legacy write/delay(100)/read/delay(100) order from any other interleaving
 // of the same four calls.
@@ -459,7 +453,8 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PacesEachBlockReadAsWriteThenDelayThenRe
     }
 
     SubaruTcuHitachiM32rKlineExecutor executor;
-    TracingClock clock{trace};
+    MockClock clock;
+    trace_sleeps(clock, trace);
     ManualCancellationToken cancellation;
     RecordingEventSink events;
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
@@ -512,7 +507,8 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, StopsPromptlyWhenCancelledMidRead)
     }
 
     SubaruTcuHitachiM32rKlineExecutor executor;
-    TracingClock clock{trace};
+    MockClock clock;
+    trace_sleeps(clock, trace);
     RecordingEventSink events;
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
