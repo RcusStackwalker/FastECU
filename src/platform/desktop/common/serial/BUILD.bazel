@@ -161,6 +161,10 @@ qt_cc_library(
         "//src/algorithms/protocol/qt_compat",
         "//src/platform/desktop/unix/j2534:j2534_api",
     ],
+    # Composition roots link the selected implementation beside a
+    # declaration-only factory dependency, so its entry point must survive
+    # archive ordering.
+    alwayslink = True,
 )
 
 # Windows compiles only in CI; kept textually symmetric with the Unix target
@@ -192,6 +196,7 @@ qt_cc_library(
         "//src/algorithms/protocol/qt_compat",
         "//src/platform/desktop/windows/j2534:j2534_api",
     ],
+    alwayslink = True,
 )
 
 # For tests that drive the real direct backend. Production binaries select
