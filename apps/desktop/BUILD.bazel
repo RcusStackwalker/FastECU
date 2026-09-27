@@ -49,6 +49,7 @@ qt_cc_library(
 
 qt_cc_library(
     name = "startup_test_platform",
+    testonly = True,
     srcs = select({
         "@platforms//os:macos": ["startup_test_platform_macos.cpp"],
         "//conditions:default": ["startup_test_platform_other.cpp"],
