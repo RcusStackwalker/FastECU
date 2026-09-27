@@ -1,7 +1,9 @@
 #include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
 
+#include <QSerialPort>
 #include <QString>
 
+#include <cstdint>
 #include <exception>
 #include <functional>
 #include <initializer_list>
@@ -81,6 +83,12 @@ Status SerialDiagnosticLink::open(const KlineLinkConfig& c)
                      [&] { return serial_->set_add_iso14230_header(c.header == KlineHeader::Iso14230); }},
                     {"set_serial_port_baudrate",
                      [&] { return serial_->set_serial_port_baudrate(QString::number(c.baud)); }},
+                    {"set_serial_port_parity",
+                     [&]
+                     {
+                         return serial_->set_serial_port_parity(static_cast<std::uint8_t>(
+                             c.parity == Parity::Even ? QSerialPort::EvenParity : QSerialPort::NoParity));
+                     }},
                     {"set_kline_startbyte", [&] { return serial_->set_kline_startbyte(c.start_byte); }},
                     {"set_kline_tester_id", [&] { return serial_->set_kline_tester_id(c.tester_id); }},
                     {"set_kline_target_id", [&] { return serial_->set_kline_target_id(c.target_id); }},

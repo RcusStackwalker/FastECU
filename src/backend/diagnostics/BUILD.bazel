@@ -4,7 +4,7 @@ load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 package(default_visibility = [
     "//src/backend:__subpackages__",
     "//src/platform:__subpackages__",
-    # Step 6g's dialogs (DtcOperations et al.) are the only consumer.
+    # Step 6g's dialogs and step 6h's MainWindow identification.
     "//src/ui/desktop:__pkg__",
     "//tests:__pkg__",
 ])
@@ -47,6 +47,29 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/protocol/testing:fake_diagnostic_link",
+    ],
+)
+
+cc_library(
+    name = "ssm_identify",
+    srcs = ["ssm_identify.cpp"],
+    hdrs = ["ssm_identify.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "ssm_identify_test",
+    srcs = ["ssm_identify_test.cpp"],
+    deps = [
+        ":ssm_identify",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:fake_diagnostic_link",
     ],

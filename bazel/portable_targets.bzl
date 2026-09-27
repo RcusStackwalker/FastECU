@@ -38,6 +38,7 @@ PORTABLE_PACKAGES = {
     "src/backend/diagnostics": [
         "dtc_session",
         "obd_frames",
+        "ssm_identify",
     ],
     "src/backend/flash": [
         "can_flash_uds_channel",
