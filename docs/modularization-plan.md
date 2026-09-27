@@ -1,417 +1,314 @@
 # FastECU Modularization and Android-Readiness Plan
 
-## Status
+## Current State and Destination
 
-The Bazel migration prerequisite is complete. Commit `66dd62e` removed qmake,
-and ADR 0001 records Bazel as the sole build graph for the application, tests,
-release packaging, SonarCloud inputs, and coverage. This plan starts from that
-post-migration state; it does not include another build-system cutover or any
-qmake/Bazel synchronization work.
+Reviewed against revision `a41e3a51` on 2026-09-27. Steps 1-5 and 6a-6j
+are implemented. Step 6 remains open because desktop consumers still depend
+on Qt-typed parallel-list models and `FileActions`; step 7 has not started.
+Implementation completion and hardware qualification are separate statuses.
 
-The post-migration baseline characterization is complete. PR
-[#46](https://github.com/RcusStackwalker/FastECU/pull/46) merged the exact
-reviewed head `3ce7c3d` into `master` as `08e7d194` on 2026-07-19. It converted
-the 13 approved headless test labels to GoogleTest and added checksum, parser,
-ROM-decoding, and flash-planning characterization without changing production
-source, source layout, packaging, workflows, or `docs/coverage-baseline.txt`.
+The portable algorithms and backend workflows already exist: configuration,
+definitions, calibration and map editing, checksums, logging, diagnostics,
+service functions, and the retained flash families. The remaining work is to
+migrate desktop consumers onto those APIs and retire their legacy bridges,
+not to extract the same parsers and workflows again.
 
-Steps 1 through 4 are complete: the `apps/`, `src/`, and `resources/` trees
-exist, `bazel/fastecu_sources.bzl` is deleted in favour of package-owned
-`BUILD.bazel` targets, and every `src/algorithms` package is split into a
-portable target plus a transitional `:qt_compat` shim.
-
-**Step 5 (portable backend workflows) is complete.** The backend owns no
-threads, reaches Qt only through the transitional adapters that ADR 0016's
-visibility gate permits, and every flash family runs as a portable
-`FlashPlan` + executor pair behind `FlashWorkflowFactory` and the common
-`FlashDialog`. Decisions and hardware knowledge from its design work are kept
-in the [design notes](design-notes.md); per-family wire behavior and
-corrections are in the [flash qualification matrix](flash-qualification-matrix.md).
-
-- 5a port/error foundation (#73); 5b logging use-case thread inversion (#78);
-  5c flash preflight/execution seam (#79).
-- 5d `FileActions` decomposition: config/settings (#80), checksum (#81),
-  definitions (#86), calibration (#117 and follow-ups, #134), flash-definition
-  glue (#138), NRC/DTC tables (#153), logger definitions and conf (#154).
-- 5e backend portability closure: no `//src/backend/...` entry remains in the
-  `serial_qt_compat` allowlist.
-- The flash-family tail drained 27 legacy families in eight waves (wave 0,
-  2026-08-08, through wave 7, #360 and #361). One family, the unreachable
-  Hitachi M32R JTAG stub, was removed rather than migrated (#358). Wave 7
-  deleted the legacy flash package, the drain ratchet, and `ssm:qt_compat`.
-
-Step 6 (thin desktop shell) is under way: 6a (de-widget `FileActions`), 6b
-(calibration map-edit use case), 6c (desktop composition root), 6d
-(flash-operation dispatch), 6e (platform selection), and 6f (logging
-composition, merged as [#378](https://github.com/RcusStackwalker/FastECU/pull/378))
-are complete — see below. **6g (diagnostic tools)** and **6h (connection and
-SSM identification)** are complete, pending bench qualification.
-**6i (serial facade retirement)** is complete: `serial_qt_compat` is now the
-platform-only `serial_port_actions`, `serial_platform_api` and
-`//:serial_compat_allowlist` are gone, and no facade header reaches a
-production UI target. **6j (UI channels)** is complete: `MainWindow` reaches the system logger and
-the remote utility through two UI-owned channels the composition root wires,
-and no GRANDFATHERED visibility entry remains. What is left of step 6 is its
-last two bullets below. Step 7 (Android seam) has not started.
-
-## Verified Current Baseline
-
-Verified on 2026-08-06 against `master` at `9b94a9c`, except the CI-guard
-count, the `:qt_compat` shim count, and the `file_actions.cpp` size/QWidget
-status below, refreshed after 6a-4/6a-5:
-
-- Bazel 9.1.1 with Bzlmod is the only active project build graph. No qmake
-  project files remain (ADR 0001, ADR 0007).
-- `bazel/fastecu_sources.bzl` is deleted. `//:fastecu` is an alias to the
-  package-owned `//apps/desktop:fastecu`, and every target under `src/` and
-  `apps/` is visibility-restricted to the permitted layering directions.
-- One CI guard enforces what the compiler cannot: `//:portable_closure`
-  (no `//src/platform` label in the portable closure, a `genquery` plus a
-  `genrule`, with no script behind it). Step 6i deleted a second,
-  `//:serial_compat_allowlist`. Another rule —
-  no Qt in a portable package — needs no guard target: `@rules_qt` is not in the
-  root module's repo mapping at all, and Qt and our own Qt-typed transitional
-  code are reached only through targets whose visibility is
-  `//bazel/qt:qt_layer`, which no portable package is in, so a violation fails
-  to load or to analyse
-  ([ADR 0016](adr/0016-enforce-qt-reachability-by-visibility.md)). It replaced
-  the `//:backend_no_widgets` source scan that 6a-5 added and most of
-  `//:portable_closure`'s Qt checking, which is gone: that check is now only
-  the platform-label sweep.
-- The portable closure now spans `src/algorithms` plus thirteen `src/backend`
-  package groups: `ports`, `logging` (+ `logging/protocols`), `protocol`
-  (+ `protocol/uds`), `flash` (+ `flash/ecu`), `config`, `checksum`,
-  `definition`, `diagnostics`, `calibration`, and `service_functions`.
-  `flash/eeprom` targets are swept as closure roots but not registered in
-  `PORTABLE_PACKAGES`. Registration is single — `PORTABLE_PACKAGES` in
-  `bazel/portable_targets.bzl`, from which the `genquery`, the test's `data`
-  list, and the registry the check reads are all derived.
-- The `serial_qt_compat` allowlist has shrunk from its frozen 20 entries to
-  14. Only two backend entries remain: `//src/backend/flash` (holding
-  `FlashUtils::configureIso15765Can(SerialPortActions*)`, a disclosed 5c gap)
-  and `//src/backend/logging/protocols`. The rest are `src/ui/desktop` entries
-  that step 6 drains, plus the legitimate same-layer `remote_utility` edge.
-  Step 6i deleted the target and its guard; see the 6i entry under step 6.
-- Two `:qt_compat` shims survive in `src/algorithms` (`protocol`,
-  `protocol/ssm`). `expression`'s was drained and deleted by 6a-4;
-  `diagnostics` (including `qt_dtc_parser` / `qt_nrc_parser`) was drained and
-  deleted by 5d-5; `crypto` was removed; `menu`'s was drained and deleted by
-  step 6b (PR 6b-3) — its only consumer was `menu_actions.cpp`, which neither
-  the flash drain nor 6a owned.
-- The legacy `src/backend/definitions/file_actions.cpp` god object is down to
-  ~1k lines (986) and, as of 6a-3, no longer inherits `QWidget` or declares
-  `Q_OBJECT`; it is distinct from the new portable `src/backend/definition/`.
-  Three named legacy adapters bridge it to portable use cases:
-  `LegacyConfigAdapter`, `LegacyCalibrationAdapter`, and the flash-side
-  snapshot path replaced by 5d-6's `eeprom_read_plan`.
-- Tests are package-owned and co-located as `src/**/*_test.cpp` (Amendment 3).
-  `tests/` retains only cross-package integration and platform harness suites:
-  the J2534 bridge tests, the serial PTY end-to-end test, PE bitness, and the
-  MUT/DMA integration test.
-- The `docs/coverage-baseline.txt` overall-coverage ratchet has been removed;
-  coverage now gates once through the SonarCloud Quality Gate on new code.
-  See the [tech-debt roadmap](tech-debt.md).
-- Android rules, NDK configuration, native facade targets, and Android source
-  directories are still not present.
-
-## Summary
-
-Starting from the Bazel-only baseline, reorganize FastECU first without
-changing behavior, then progressively establish this dependency direction:
+The current boundary is:
 
 ```text
-Desktop UI ─────┐
-Desktop platform ├──► backend ───► algorithms
-Android/JNI ────┘
+Desktop composition roots ──► UI + desktop adapters
+Desktop UI ─────────────────► designed UI-facing adapters + backend + algorithms
+Desktop adapters ───────────► backend + algorithms
+Future Android native seam ─► backend + algorithms
+Backend ────────────────────► algorithms
 ```
 
-Final source layout:
+Composition wires UI-owned channels to platform services. A UI dependency on
+a platform target is allowed when that target is a deliberately designed
+adapter with target-level visibility for the UI; it does not grant access to
+platform internals.
 
-- `apps/desktop`: executable entry point and dependency composition.
-- `src/ui/desktop`: Qt widgets, dialogs, forms, resources, and embedded hex editor.
-- `src/platform/desktop/{common,unix,windows}`: Qt, filesystem, serial, J2534, remote, OpenSSL, and threading adapters.
-- `src/backend`: portable application workflows and injected platform ports.
-- `src/algorithms`: portable deterministic C++20 algorithms and models.
-- `src/platform/android/native`: versioned native facade and Android build fixture.
-- `resources/shared`: configurations and kernels.
-- `resources/desktop`: fonts, icons, and desktop images.
+### Established foundations
 
-Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future Kotlin application supplies a different UI and Android USB platform implementation while reusing both layers.
+- Bazel is the sole build graph, with package-owned targets, tests, and
+  restricted visibility. The project uses C++23. OpenSSL has been removed;
+  pugixml is the adopted portable XML dependency. There is no remaining
+  aggregate implementation target to retire.
+- Portable backend code owns workflow policy, uses injected ports, and owns
+  no threads or direct filesystem I/O. Desktop adapters supply those services.
+- All retained flash families use portable plans and executors through the
+  common workflow/dialog architecture. The unreachable Hitachi M32R JTAG
+  stub was removed rather than migrated.
+- Desktop composition owns long-lived services and logging registration.
+  Flash dispatch, diagnostics, connection/identification, platform selection,
+  and UI channels have been separated from their former central wiring.
+- The serial facade is platform-only. No GRANDFATHERED UI visibility entry
+  remains. Designed UI-facing adapters still exist and are intentional.
 
-## Modularization Roadmap
+### Remaining structural debt
 
-1. **Capture the post-migration modularization baseline — complete (2026-07-19)**
-   - Used the existing Bazel CI and packaging paths without adding a second build graph or restoring qmake compatibility.
-   - Recorded the Windows, macOS, and Linux build/test matrix, Windows/macOS packaging checks, unchanged coverage baseline, and representative golden outputs from exact revision `3ce7c3d` before the first source move.
-   - Added characterization vectors for parsers, expressions, checksums, protocol frames, ROM transformations, and existing flash planning before relocating code.
+- `FileActions` remains in the legacy `src/backend/definitions` package,
+  distinct from portable `src/backend/definition`. Its configuration,
+  logging, and calibration structures already have standalone headers but
+  remain Qt-typed and are exposed through historical `FileActions` aliases.
+- Four bridges remain: `LegacyConfigAdapter`, `LegacyLoggerAdapter`,
+  `LegacyDefinitionAdapter`, and `LegacyCalibrationAdapter`. Desktop code
+  still consumes their parallel lists and shared mutable state.
+- `MainWindow` retains calibration-slot ownership and portions of write
+  preflight, checksum correction, and post-read calibration handoff. Logging
+  selection, connection orchestration, and log-file handling also retain UI
+  coordination; presentation-only coordination need not become a portable port.
+- One algorithms-side Qt shim remains:
+  `src/algorithms/protocol/qt_compat`, containing byte-container conversions.
+  Those conversions are still needed at desktop boundaries. The SSM shim is
+  gone.
+- Android build configuration, native facade, and smoke fixture do not exist.
 
-2. **Perform mechanical source organization - complete (2026-07-19)**
-   - Move files in bounded groups using `git mv`; change only paths, includes, QRC references, and Bazel source lists.
-   - Separate each flash-module dialog into desktop UI ownership and each `_operation` implementation into transitional backend ownership.
-   - Move protocol codecs/math to algorithms, protocol drivers/orchestration to backend, and concrete transports to platform.
-   - Preserve class names, behavior, `//:fastecu`, packaging entry points, and existing test labels.
-   - Retain the aggregate Bazel target until every move passes the complete desktop matrix.
+The destination remains a reusable, Qt-, JNI-, and OS-independent algorithms
+and backend core, with desktop presentation and adapters outside it. Finish
+the desktop model and bridge migrations before starting the Android seam.
+Android v1 remains MUT/DMA live logging over USB serial, API 29, `arm64-v8a`;
+the Kotlin product app and real Android USB implementation are later work.
 
-3. **Replace the monolithic Bazel graph — complete (2026-07-20)**
-   - Added package-owned `BUILD.bazel` targets under each module and replaced `bazel/fastecu_sources.bzl` (deleted).
-   - Kept `//:fastecu` as an alias to `//apps/desktop:fastecu`.
-   - Made targets private by default (Task 8) and permit only:
-     - `algorithms → algorithms`
-     - `backend → algorithms/backend`
-     - `platform → backend/algorithms`
-     - `ui → backend`
-     - `ui → algorithms` **(deviation from this bullet's original list, discovered and adjudicated during Task 8)**
-     - composition roots → UI and platform implementations
-   - **Deviation:** the permitted-directions list above gains `ui → algorithms`, which this bullet originally omitted. Seven real edges exist from `src/ui/**` directly into `src/algorithms/**` headers (`cipher.h`, `menu_command.h`, `qt_bytes.h`, `mut_dma_memory.h`); all seven run downward (ui depending on algorithms, never the reverse) and create no cycle. The Task 8 visibility lockdown grants this direction in every `src/algorithms/*/BUILD.bazel` package template.
-   - **Also grandfathered (human decision, Task 5, unchanged by Task 8):** three `ui → platform` edges — `//src/ui/desktop` depends directly on `//src/platform/desktop/common/{logging,remote_utility,transport}` (`mainwindow.h` includes `systemlogger.h`, `remote_utility.h`, and three `fastecu_*_transport.h` headers). These were called out with `GRANDFATHERED` comments on the three platform packages' `default_visibility`, not covered by the general platform template — the `transport` entry was removed by step 6g and the `logging`/`remote_utility` entries by step 6j, so none remain.
-   - Added a CI layering check for the one deliberately frozen violation: `//:serial_compat_allowlist` (a `py_test` running `scripts/check-serial-compat-allowlist.py`) fails the build if the `serial_qt_compat` transitional target's visibility allowlist grows past its frozen 20 entries (19 layering-violation debt entries carrying `serial_port_actions.h` into backend/ui callers, plus one legitimate same-layer `platform → platform` sibling edge to `remote_utility`). The list may only shrink as steps 5/6's backend and ui migrations remove callers.
-   - Everything under `src/` and `apps/` is now visibility-restricted per the permitted directions above (previously all `//visibility:public`); a deliberately illegal `algorithms → ui` dependency was proven to be rejected by Bazel during verification.
-   - Note for step 4's benefit: the broader Qt/JNI/OpenSSL closure check (rejecting those deps from the final algorithms/backend closures) was deliberately deferred, not implemented in Task 8. All 43 Qt-coupled files under `src/algorithms` would fail such a check today (`QT_DEPS` and `@openssl` are standing, adjudicated exceptions — third-party portability debt deferred on purpose). That check lands with step 4's first portable module instead.
-   - Used explicitly named `*_qt_compat` targets during migration (`serial_qt_compat`); still transitional as of this date, to be removed once steps 5/6 finish removing its debt callers.
+## Architectural Rules Learned
 
-4. **Make all algorithms portable — complete (2026-07-22)**
-   - Use the declared GoogleTest/GoogleMock 1.17.0.bcr.2 dependency for new
-     Qt-free `cc_test` targets.
-   - Introduce `fastecu`-namespaced byte containers, validated value models, typed identifiers, `Result<T>`, structured errors, and immutable parsed definitions.
-   - Migrate in this order, writing golden tests before each conversion:
-     1. Byte, endian, NRC/DTC, and expression helpers.
-     2. MUT/DMA, SSM, CDBG, and flash-protocol codecs.
-     3. Shared SSM framing, seed/key, payload cipher, CRC, and response validation.
-     4. Every checksum family.
-     5. Config, logger, RomRaider, and EcuFlash definition parsing.
-     6. Calibration scaling/map calculations and ROM mutation.
-     7. Flash block planning and verification algorithms.
-   - Replace `QString`, `QByteArray`, `QVector`, and parallel `QStringList` models with standard C++ types.
-   - Retain separate protocol-family state machines; do not create a universal flashing abstraction.
-   - Every `src/algorithms` package is now split into a portable target plus a sibling `:qt_compat` shim, and `//:portable_closure` confirmed at the time, through the Python check it then used, `OK: 9 portable algorithms targets, none reach Qt.` — proven non-vacuous by injecting a `QT_DEPS` dependency into a portable target and observing the check fail before restoring the file.
-   - **Amendment 1:** step 4 narrowed to Qt removal only. `Result<T>`, structured errors, typed identifiers, validated value models, and the parsing/calibration/flash-planning migrations (originally items 5-7 of the ordered list above) move to step 5.
-   - **Amendment 2:** the closure check rejects **Qt and JNI only**. `@openssl` remains in `src/algorithms/crypto`; **step 7 decides its fate** once NDK cross-compilation makes the real constraint visible.
-   - **Amendment 3:** new tests are co-located as `src/**/*_test.cpp`, not added under `tests/`. Existing `tests/` files are retained as legacy contract holders against the `:qt_compat` shims and are retired only when those shims die.
-   - **Amendment 4:** the checksum correction dialog is now **one aggregated summary** instead of one per family — a deliberate behavior change, bench-checklist item recorded in Task 9 Step 8.
-   - Note for step 5's benefit: each `:qt_compat` target is transitional debt whose only remaining callers are backend and UI. Step 5 should drain them and delete the shims.
+The [design notes](design-notes.md) preserve the rationale and rejected
+alternatives; the [ADRs](adr/README.md) record accepted structural decisions.
+The rules below constrain the remaining milestones.
 
-5. **Make backend workflows portable — complete (wave 7, #361)**
-   - Sub-step status and PR numbers are tracked in the Status section above.
-   - Define capability-specific ports for byte-stream/K-Line, CAN frames, SSM, file repositories, settings, monotonic clock/delay, cancellation, and event delivery.
-   - Backend owns no threads. Platform code runs blocking, bounded, cancellable backend calls on Qt workers or future Kotlin coroutines.
-   - Split `FileActions` and `MainWindow` responsibilities into definition, calibration, checksum, logging, flash, and service-functions use cases.
-   - Convert logging to typed `start`, bounded `poll`, and `stop` sessions. Samples carry stable channel ID, numeric/raw value, and unit; UI owns locale formatting.
-   - Convert flashing to preflight plus execution: build and validate a `FlashPlan`, obtain UI confirmation before irreversible I/O, and execute without backend dialogs.
-   - Migrate each ECU/TCU/EEPROM/JTAG/BDM operation family independently behind scripted transports, preserving its existing wire sequence.
-   - Remove direct `QMessageBox`, `QFileDialog`, widget, filesystem, and
-     `SerialPortActions` access from backend code. As of 5e (2026-08-07),
-     `SerialPortActions` access is fully removed from backend production
-     code — verified by `//:serial_compat_allowlist` and
-     `//:portable_closure`. As of 6a (2026-09-02), `QMessageBox`,
-     `QFileDialog`, and widget access are gone too — verified then by
-     `//:backend_no_widgets`, now by the ADR 0016 visibility gate — leaving
-     only filesystem access inside the
-     transitional `Legacy*Adapter` targets and `src/backend/definitions`.
+- **Reuse portable policy.** `LoggingUseCase::run()` owns miss counting,
+  reconnect cadence, and status transitions. Platform code supplies execution
+  context and forwards events. Protocol-level `start`/`poll`/`stop` does not
+  mean a future platform should rebuild the use-case loop.
+- **Keep errors and outcomes explicit.** Backend ports return `Result<T>` /
+  `Status`; exceptions never cross ports or the future native ABI. Ordinary
+  non-response is a successful value, distinct from a transport fault or
+  timeout error. I/O must be bounded and cancellable, and platform teardown
+  must unblock active reads. The returned result is authoritative, while
+  events carry notices and progress.
+- **Keep lifecycle at the caller.** Flash attempts own transport setup and
+  final cleanup; executors receive the appropriate open transport. Preserve
+  protocol-required transitions inside the wire sequence and typed
+  executor/transport binding. See [ADR 0015](adr/0015-caller-owns-flash-transport-lifetime.md).
+- **Keep operator decisions outside executors.** Collect confirmations before
+  an attempt or between bounded workflow attempts. An event sink never waits
+  for an answer. Preserve cancellation, close/error precedence, and the
+  composition lifetime that keeps services alive until their consumers stop.
+- **Use the narrowest useful boundary.** Name distinct wire behaviors
+  explicitly, such as raw versus echo-checked writes. Keep single-consumer
+  presentation flows in the UI. Desktop-specific services may use concrete
+  adapters or UI-owned channels; do not invent portable ports for services
+  the portable core does not need.
+- **Preserve model ownership and compatibility.** Logger definitions, operator
+  selections, ECU capabilities, and live samples have different writers.
+  Preserve that separation, SSM raw-value assembly, existing file formatting,
+  and calibration layout rules while replacing their representations.
+- **Prove sharing and corrections.** Share protocol code only after byte-level
+  tests establish equivalent behavior. Keep family-specific sequencing,
+  timeouts, retry rules, and safety policy explicit. A defect correction needs
+  local evidence, a reproducing test, exact corrected expectations, and a
+  qualification note; use a mutation check to prove the test detects it.
+  See the [protocol-sharing boundary](protocol-generalization-opportunities.md)
+  and [flash qualification matrix](flash-qualification-matrix.md).
+- **Enforce boundaries through the build graph.** Qt reachability is gated by
+  [ADR 0016 visibility](adr/0016-enforce-qt-reachability-by-visibility.md).
+  Remove transitional entries from `qt_layer` as consumers migrate; never add
+  new ones. `implementation_deps` keeps facade headers out of production UI
+  compile inputs, enforced by sandboxed Linux/macOS builds. Windows alone
+  does not prove that header boundary.
+- **Register portable roots explicitly.** `//:portable_closure` is a build-time
+  check for reachable `//src/platform` labels, not a Qt/JNI source scan.
+  [The registry](../bazel/portable_targets.bzl) names individual targets;
+  merely putting a new library in a listed package does not cover it.
 
-6. **Finish the thin desktop shell**
-   - **6a de-widget `FileActions` — complete (2026-09-02).**
-     Five PRs (6a-1 menu split, 6a-2 definition-authoring dialog, 6a-3
-     `IEventSink`/`QWidget` removal, 6a-4 expression-shim drain, 6a-5 the
-     `//:backend_no_widgets` guard) ran in parallel with the flash drain
-     without editing a file under
-     `src/platform/desktop/common/flash/legacy/` or
-     `src/ui/desktop/flash/`. `FileActions` no longer inherits `QWidget` or
-     declares `Q_OBJECT`, and `//:backend_no_widgets` enforced for all of
-     `src/backend` that no file referenced `QMessageBox`, `QFileDialog`,
-     `QDialog`, `QWidget`, or `Q_OBJECT` outside a comment (a `*_test.cpp`
-     file's own QtTest fixture class was the one carve-out); ADR 0016 has
-     since replaced that scan with build-graph visibility. Removing Qt
-     *types* — `ConfigValuesStructure`/`LogValuesStructure`/
-     `EcuCalDefStructure` staying `QString`/`QStringList`-typed — was this
-     slice's explicit non-goal; see the "Replace parallel-list data models"
-     entry in the [tech-debt roadmap](tech-debt.md).
-   - **6b calibration map-edit use case — complete.** The defect letters
-     (a)–(h) below are defined in the
-     [design notes](design-notes.md#calibration-defect-letters), which also
-     record a [caution about files edited before #274](design-notes.md#files-edited-before-pr-274-may-hold-wrong-bytes).
-     Moved the calibration map-*edit* arithmetic out of
-     `src/ui/desktop/menu_actions.cpp` into the portable
-     `//src/backend/calibration:map_edit` target: the byte codec
-     (`read_raw_element`/`encode_scaled_value`), `resolve_edit_target` and
-     `MapElementSpec` (target resolution and display helpers), and all four
-     `apply_*` edit operations (`apply_increment`, `apply_set_expression`,
-     `apply_interpolation`, `apply_paste`), plus the drain of
-     `//src/algorithms/menu:qt_compat` (its only consumer,
-     `menu_action_triggered`'s re-parsing of the action string, was deleted
-     once the typed `MenuCommand` could be passed straight down). Four PRs —
-     #271 (6b-1 byte codec), #272 (6b-2 target resolution and display
-     helpers), #274 (fix the unambiguous write-path defects — later written
-     up as spec defects (f)-(h): a signed-multi-byte byte-swap and int24
-     always reading zero, the write path's inverted byte order, and garbage
-     float-storage writes), and #275 (6b-3 edit operations and shim drain,
-     which fixed spec defects (d) and (e) by construction) — plus a follow-on
-     session that fixed spec defect (c) (uniform bounds enforcement, via
-     `encode_guarded`) and spec defect (b) (the strided `start_position`/
-     `interval` layout), landing in PR 6b-4 (pending — this doc update is
-     part of it). Spec defect (a) (the `wrx02` read/write predicate
-     mismatch) is deliberately deferred: no ROM in either the
-     `mmc-definitions` or `mmc-patches` corpus declares `wrx02` as its flash
-     method, so there is no real definition to confirm the fix against; see
-     the "Fix or defer the `wrx02` write-path predicate" entry in the
-     [tech-debt roadmap](tech-debt.md). `//:portable_closure` and
-     `//:backend_no_widgets` both continued to pass throughout; the explicit
-     non-goal, as in 6a, was converting `FileActions::EcuCalDefStructure`
-     away from `QString`/`QStringList` — it stays Qt-typed, tracked under the
-     same "Replace parallel-list data models" tech-debt entry.
-   - Implement Qt adapters for backend ports and marshal events to the GUI thread.
-   - Keep `MainWindow` and dialogs responsible only for presentation, input collection, signal wiring, and calling backend use cases.
-   - **6c desktop composition root — complete.** `apps/desktop`'s
-     `DesktopComposition` builds and owns `FileActions` and its port
-     adapters, the syslogger and its thread, the serial facade, the remote
-     utility, the logging clock, and the logging engine, and passes
-     `MainWindow` a `MainWindowServices` struct of references. The serial
-     facade is reached through the constructor-only
-     `//src/platform/desktop/common/serial:desktop_serial_factory`, so the
-     frozen `serial_qt_compat` allowlist did not grow. The dead
-     `EcuOperations` class was deleted. Three PRs (#363 6c-1 deletion,
-     #364 6c-2 `FileActions`/syslogger/`Settings`, #365 6c-3 facades and
-     engine) plus this close-out (#366). Logging-protocol registration was
-     deferred here and moved by step 6f; see the
-     [design notes](design-notes.md#desktop-composition-root) and the
-     [tech-debt roadmap](tech-debt.md).
-   - **6d flash-operation dispatch — complete.** `MainWindow::start_ecu_operations`
-     no longer routes flash operations. Pure decisions live in the portable
-     `//src/backend/flash:flash_operation_request`, the idle-line serial reset
-     in `//src/platform/desktop/common/serial:serial_idle`, and Denso TCU
-     routing, workflow creation, and the `FlashDialog` in
-     `//src/ui/desktop/flash/operation:flash_operation_controller`.
-     `mainwindow.h` no longer includes `flash_dialog.h`. A scope guard
-     replaced the `goto`, which also made the write-preflight early returns
-     stop battery polling, and a read that produces no calibration now
-     releases its slot. The function went from 291 to 221 lines: write
-     preflight, read-slot preparation, and the calibration handoff stay by
-     design. `test_mainwindow` now fails on Google Mock violations; before
-     6d it had 14 silent ones. See the
-     [design notes](design-notes.md#flash-operation-dispatch).
-   - **6e platform selection — complete.** `SerialPortActions` takes a
-     required backend factory and no longer knows direct from remote;
-     `desktop_serial_factory`'s `SerialConnection` and the composition
-     root's `serial_connection_from_args` own that rule, and the CAN
-     transport factory takes a backend factory too. The direct backend's
-     Unix/Windows differences are named hooks in BUILD-selected
-     `serial_port_actions_direct_{unix,windows}.cpp` files, reached through
-     one `j2534_api.h` include path, and the `fastecu` and `fastecu-bench`
-     binaries select the implementation. `remote_utility` left the
-     `serial_qt_compat` allowlist, and `STATUS_*` has one definition. Four
-     PRs (#373 spec and plan, #374 6e-1 connection choice, #375 6e-2 OS
-     split, #376 6e-3 link selection and close-out). See the
-     [design notes](design-notes.md#platform-selection) and the
-     [platform-selection bench checklist](platform-selection-bench-checklist.md).
-   - **6f logging composition — complete, merged
-     ([#378](https://github.com/RcusStackwalker/FastECU/pull/378)); bench
-     qualification pending.** `DesktopComposition` registers MUT/DMA, CDBG, and
-     SSM through
-     `//src/platform/desktop/common/transport:logging_protocol_registration`.
-     `MainWindow` captures ECU/TCU selection in the per-run snapshot and wires
-     logging signals; its services no longer expose the clock. Factory setup,
-     errors, and engine lifetime semantics are preserved without expanding
-     `serial_qt_compat` visibility. The UI transport edge remained for
-     standalone MUT memory helpers until step 6g moved them; see below. See
-     the [design notes](design-notes.md#logging-composition)
-     and [bench checklist](logging-composition-bench-checklist.md).
-   - **6g diagnostic tools — complete**, pending bench qualification (see the
-     [diagnostics bench checklist](diagnostics-bench-checklist.md)). The BIU,
-     DataTerminal, and DTC dialogs no longer include `serial_port_actions.h`.
-     They talk to a new backend port, `IDiagnosticLink`
-     (`src/backend/protocol`), through the platform adapter
-     `SerialDiagnosticLink` (`//src/platform/desktop/common/diagnostics`),
-     which reaches the facade through `serial_platform_api` rather than a new
-     `serial_qt_compat` entry. DTC protocol logic is now a portable
-     `run_dtc_session` in the new `//src/backend/diagnostics` package
-     (registered in `PORTABLE_PACKAGES`), run off the UI thread by
-     `DtcWorker` (also `//src/platform/desktop/common/diagnostics`). The
-     standalone MUT/DMA memory helpers moved out of `MainWindow` into the
-     portable `//src/backend/protocol:mut_memory`. Removed: the
-     `//src/ui/desktop/biu` entry in the `serial_qt_compat` allowlist and
-     `FROZEN` list, the GRANDFATHERED `//src/ui/desktop` entry in the
-     `transport` package's `default_visibility` (`mainwindow.h` no longer
-     includes `fastecu_kline_transport.h`), dead `hexcommander.{h,cpp,ui}`,
-     and — via [#379](https://github.com/RcusStackwalker/FastECU/pull/379),
-     landed ahead of this stack — dead `kline_listener`/`canbus_listener`.
-     Four PRs, not yet numbered (6g-1 the port and cleanup, 6g-2 BIU, 6g-3
-     DataTerminal, 6g-4 DTC and close-out). See the
-     [design notes](design-notes.md#diagnostic-tools) and the
-     [diagnostics bench checklist](diagnostics-bench-checklist.md).
-   - **6h connection and SSM identification — complete**, pending bench
-     qualification (see the
-     [connection bench checklist](connection-bench-checklist.md)). No
-     `//src/ui/desktop` source includes `serial_port_actions.h`, and
-     `//src/ui/desktop:__pkg__` is gone from the `serial_qt_compat`
-     allowlist and `FROZEN`. Nothing enforces the first of these yet: the
-     header still reaches the UI transitively through
-     `serial_platform_api`, so a new include would build (a gap
-     closed by 6i). `MainWindow` talks to a concrete platform
-     adapter, `AdapterConnection` (`//src/platform/desktop/common/connection`),
-     and hands the facade on only as a forward-declared reference. SSM ECU
-     identification is a portable `identify_ssm_ecu` in
-     `//src/backend/diagnostics`, run off the UI thread by `SsmIdentifyWorker`;
-     SSM2 init responses are validated the way RomRaider validates them.
-     `KlineLinkConfig` gained a parity field. The unshipped developer toggles
-     `can_listener`, `simulate_obd`, and `test_haltech_ic7_display` were
-     deleted. Five PRs, not yet numbered (6h-0 spec and plan, 6h-1 toggles,
-     6h-2 identification, 6h-3 adapter, 6h-4 worker and close-out). See the
-     [design notes](design-notes.md#connection-and-identification).
-   - **6i serial facade retirement — complete.** `serial_qt_compat` was
-     renamed in place to `//src/platform/desktop/common/serial:serial_port_actions`,
-     visible only to `//src/platform/desktop:__subpackages__` and `//tests`,
-     so visibility now guards direct dependencies. `serial_platform_api`,
-     `//:serial_compat_allowlist`, and its script are deleted. Every adapter
-     that forward-declares `SerialPortActions` takes it through
-     `implementation_deps`, and `websocket_io` was split out of
-     `remote_serial_backend` so `remote_utility` stops carrying
-     `serial_backend.h`; a production UI include of a facade header now fails
-     on the sandboxed builds. `fake_backed_serial` moved to
-     `serial/testing`. No behavior change, so no bench checklist. See the
-     [design notes](design-notes.md#serial-facade-retirement).
-   - **6j UI channels — complete.** `MainWindowServices` carries two
-     signal-only `QObject`s from the new `//src/ui/desktop/channels` package
-     instead of `SystemLogger` and `RemoteUtility`: `LogChannel`, whose
-     `LOG_*` signals every UI logger relays through, and `RemotePeer`, for
-     the startup wait, connection-state changes, and the log/progress mirror.
-     `DesktopComposition` connects both to the platform objects and keeps the
-     remote mirror's `isValid` check. The two GRANDFATHERED `//src/ui/desktop`
-     entries are gone; `logging_runtime` and `logging_adapters` name the UI in
-     their own target-level visibility as UI-facing adapters. One behavior
-     change: a line logged by a dialog destroyed before the syslog thread
-     delivered it used to be dropped and is now logged. Two PRs after the
-     spec (6j-1 log channel, 6j-2 remote peer and close-out). See the
-     [design notes](design-notes.md#ui-channels).
-   - Remove compatibility wrappers, obsolete facades, and the temporary aggregate implementation target. (Duplicate status macros are resolved: `STATUS_SUCCESS`/`STATUS_ERROR` have one definition, in `serial_facade_codes.h`.)
-   - Re-run packaging and the existing hardware bench checklists for affected logging/flashing paths.
+## Remaining Roadmap
 
-7. **Add the Android-ready seam**
-   - Pin `rules_android` 0.7.3, `rules_kotlin` 2.4.0, and Android NDK r29 (`29.0.14206865`) in Bazel configuration.
-   - Define `--config=android_arm64_api29` for API 29 and `arm64-v8a`.
-   - Add a versioned C ABI with `fastecu_v1_*` symbols, opaque session handles, fixed-width POD types, caller-owned buffers, structured error codes, and transport callback tables.
-   - Expose MUT/DMA session lifecycle through create/start/poll/stop/destroy operations. Neither portable layer includes `jni.h`.
-   - Add host ABI contract tests and a no-UI `//src/platform/android:android_native_smoke_apk` fixture proving Android cross-compilation, exported symbols, and native packaging.
-   - Stop before adding the Kotlin product app, Android USB implementation, or real-device behavior.
+Steps 6k-6n are ordered consumer migrations. Each slice should land with its
+own regression coverage and remove the bridge it makes unnecessary. Reuse
+existing portable records and services; extend them only where a consumer
+requires a missing capability. Preserve behavior unless a correction is
+explicitly evidenced and recorded.
 
-## Public Interfaces and Error Handling
+### 6k — Configuration and protocol models
 
-- Portable errors distinguish invalid configuration/definition, timeout, disconnected transport, malformed or rejected ECU response, cancellation, unsupported operation, and internal failure.
-- Exceptions never cross backend ports or the native ABI.
-- Reads must have explicit timeouts and support cancellation; platform teardown must unblock active reads.
-- The later JNI adapter maps Kotlin data classes and USB operations to the versioned C ABI. STL and C++ object layouts are never exposed across JNI.
+Migrate startup, settings persistence, vehicle/protocol selection, and their
+composition wiring from `ConfigValuesStructure` to existing portable config
+and catalog APIs. Keep widget state in the UI; use complete typed records for
+application data instead of synchronized parallel lists.
 
-## Test and Completion Gates
+**Exit gate:** those consumers no longer depend on the legacy configuration
+model or `LegacyConfigAdapter`. Retire legacy path glue when its remaining
+calibration consumers migrate. Tests preserve config/protocol loading,
+selection, provisioning paths, save round trips, and surfaced failures.
 
-- Run `bazel build -k --config=release //:fastecu //tests/...` and `bazel test -k --config=release //tests/... //:bazel_openssl_wiring` after every migration group.
-- Require unchanged golden vectors for all mechanically moved or extracted behavior.
-- Test parser validation, checksum correction/error outcomes, protocol malformed frames, timeouts, disconnects, cancellation, flash preflight rejection, and scripted successful operations.
-- Require the portable algorithms/backend tests to run as Qt-free host `cc_test`s.
-- Require Windows/macOS/Linux desktop CI, Windows/macOS packaging, coverage ratchet, module-boundary checks, and the Android arm64 smoke build.
-- Keep real ECU/adapter verification as a separate documented bench gate; no reorganized flashing or logging path is considered hardware-qualified solely from unit tests.
+### 6l — Logging models
 
-## Assumptions
+Migrate logging selection, capability application, display adapters, and
+per-run snapshots away from `LogValuesStructure`. Use the existing logger
+definition parser, definition/selection models, and logging session APIs.
+Keep immutable definition data separate from operator choices, ECU support,
+and live samples; loading or changing selection must not re-enable channels
+that the ECU disabled.
 
-- Bazel is the sole supported build system. The qmake removal in `66dd62e` and ADR 0001 is complete, and this plan must not recreate qmake project files or source-list synchronization checks.
-- All algorithms and shared backend workflows must be portable before Kotlin product development starts.
-- Android v1 will target MUT/DMA live logging over USB serial, API 29, and `arm64-v8a`.
-- Windows, macOS, and Linux desktop behavior remains supported throughout.
-- Keep `rules_android` isolated behind the Android fixture so desktop targets do not depend on the Android rule stack. Tooling references: [rules_android](https://github.com/bazelbuild/rules_android), [rules_kotlin](https://github.com/bazel-contrib/rules_kotlin), [Android NDK](https://developer.android.com/ndk/downloads).
+**Exit gate:** no production consumer needs the legacy logging lists or
+`LegacyLoggerAdapter`. Tests cover selection persistence, capability
+preservation, stable channel identity, raw-value/conversion compatibility,
+and session snapshots. Backend policy stays in `LoggingUseCase::run()`;
+this slice does not add live reconfiguration or change CDBG wire behavior.
+
+### 6m — Definition and calibration sessions
+
+Migrate remaining definition lookup, ROM open/save, map display/editing, and
+calibration ownership onto the portable definition/calibration APIs. Replace
+the fixed raw-pointer calibration slots with explicit session ownership.
+Move the remaining write preflight, checksum orchestration, and post-read
+handoff with their calibration model, keeping dialogs and confirmations in
+the desktop UI.
+
+**Exit gate:** consumers no longer require `EcuCalDefStructure`,
+`LegacyDefinitionAdapter`, or `LegacyCalibrationAdapter`. Tests cover
+resolution and inheritance, ROM round trips, map addressing and edits,
+checksum outcomes, and failed/cancelled reads leaving no occupied session.
+Preserve the documented [calibration corrections and open defects](design-notes.md#calibration)
+without silently changing pinned behavior during a model migration.
+
+### 6n — Desktop closure
+
+Remove `FileActions` once its consumers use the extracted services directly.
+Wire those services through desktop composition. Retain the portable kernel
+constants/models currently in `src/backend/definitions:models`, moving them
+to appropriate portable ownership before retiring the legacy package.
+Remove remaining compatibility glue and obsolete checks tied to deleted
+files as their callers disappear.
+
+Move the byte-conversion helper out of algorithms into a desktop boundary
+package with deliberate UI-facing visibility. Preserve explicit conversions
+and their tests; retiring a shim does not mean duplicating conversion code
+or forcing Qt-owned buffers out of the UI and platform layers.
+
+**Exit gate:** no Qt-typed legacy package remains under algorithms/backend;
+all corresponding transitional `qt_layer` entries are removed, and portable
+closure coverage includes the resulting targets. Production UI still cannot
+reach serial facade headers. Desktop composition, restart, cancellation,
+teardown, and packaging checks pass. Any outstanding hardware qualification
+is recorded separately rather than implied by this structural completion.
+
+### 7 — Android seam
+
+Start after 6n. First prove the portable closure can cross-compile with an
+Android C++23 toolchain. Validate and pin compatible Bazel Android rules and
+NDK versions at this milestone; the original prospective version pins were
+not an implemented or verified toolchain. Keep Android dependencies isolated
+from desktop targets, adding Kotlin rules only if the fixture requires them.
+
+Introduce the native facade under `src/platform/android/native`: versioned
+`fastecu_v1_*` C symbols, opaque handles, fixed-width POD values, caller-owned
+buffers, structured errors, and transport callbacks. Wrap the existing
+logging use case and cancellation/event contracts so the caller supplies
+execution context without duplicating reconnect or polling policy. Keep
+STL layouts and exceptions behind the ABI and JNI out of the portable core.
+
+**Exit gate:** host ABI contract tests cover ownership, buffer sizing,
+invalid inputs, cancellation, errors, and teardown. An API-29/arm64 no-UI
+`android_native_smoke_apk` fixture proves native compilation, exported
+symbols, and packaging. Desktop builds remain independent of Android setup.
+This proves a native seam, not Android USB behavior or device qualification;
+the Kotlin product application remains out of scope.
+
+## Verification and Qualification
+
+### Automated gates
+
+For implementation milestones, run focused package-owned tests while making
+changes, then the current repository-wide gates:
+
+```sh
+bazel build -k --config=release //...
+bazel test -k --config=release //...
+bazel run --config=release //:clang_tidy_report_changed
+```
+
+The build includes `//:portable_closure`. Qt restrictions are enforced by
+visibility, not the deleted `backend_no_widgets` or serial allowlist scans.
+The deleted OpenSSL wiring target is not a gate.
+
+Require the Windows/macOS/Linux CI matrix and Windows/macOS packaging checks.
+Coverage is gated through SonarCloud on new code; the former overall coverage
+baseline ratchet is gone. Follow the [coding style and testing conventions](coding-style.md)
+and use package-owned mocks. QtTest suites using Google Mock must propagate
+its failures into their exit status. An empty Windows QtTest log is not
+proof of a crash; see the [coverage reliability notes](tech-debt.md#p0-make-coverage-results-trustworthy).
+
+Portable tests cover parser/model validation, checksum and ROM outcomes,
+scripted successful operations, malformed replies, non-response, timeout,
+disconnect, cancellation, and preflight rejection without real hardware.
+Preserve golden vectors for mechanically migrated behavior. UI/platform
+tests cover wiring, execution context, and lifetime. Add Android ABI and
+smoke-build gates only when step 7 creates them.
+
+### Hardware evidence is a separate gate
+
+Use the [flash qualification matrix](flash-qualification-matrix.md) for each
+family's supported operations, deliberate corrections, and hardware status.
+Use its linked family checklists for verification; a portable executor and
+passing automated tests do not make a family hardware-qualified.
+
+Desktop qualification remains tracked in the [logging engine checklist](logging-engine-bench-checklist.md),
+[logging composition checklist](logging-composition-bench-checklist.md),
+[diagnostics checklist](diagnostics-bench-checklist.md),
+[connection checklist](connection-bench-checklist.md),
+[platform-selection checklist](platform-selection-bench-checklist.md), and
+[checksum-dialog notes](checksum-dialog-bench-notes.md). Keep the
+[CDBG checklist](cdbg-can-logging-bench-checklist.md) for its specific wire path.
+
+There is limited real bench evidence: the [bench CLI checklist](bench-cli-checklist.md)
+records verified effects of the Colt redirect helpers, with a carrier
+verification caveat and no retained raw CAN trace. It does not qualify the
+CLI or desktop workflow end to end. Preserve that scope and all unresolved
+family-specific gates, including the Hitachi M32R CAN TCU erase-scope gate.
+Record ECU, adapter, operation, revision, traces/results, and sign-off before
+advancing a hardware status.
+
+### Related work
+
+The [technical debt roadmap](tech-debt.md) owns outstanding defects and
+broader cleanup; the [logging debt notes](logging-engine-tech-debt.md) and
+[protocol-sharing notes](protocol-generalization-opportunities.md) hold focused
+follow-ups. Their historical snapshots can lag code: verify a finding before
+scheduling it. For example, logger parsing is already portable, and CDBG
+serial setup is already in desktop protocol registration rather than the
+portable protocol's `start()`.
+
+Do not turn every debt item into an Android prerequisite. Evidence-dependent
+protocol changes, generic Sonar cleanup, and broader UI features remain
+separate work. In particular, the `wrx02` predicate, calibration selection
+bounds, DataTerminal delay parsing, and CAN identification changes need their
+own focused treatment rather than being hidden in a structural migration.
+
+## Completed Milestones
+
+These identifiers remain stable for existing references. Detailed rationale
+lives in the [design notes](design-notes.md); per-family behavior lives in the
+[qualification matrix](flash-qualification-matrix.md). Git history retains the
+completed specs and implementation plans.
+
+| Step | Implemented outcome |
+|---|---|
+| Prerequisite | Bazel-only build; qmake removed (`66dd62e`, ADR 0001). |
+| 1 | Post-migration characterization and golden baseline (#46). |
+| 2 | Mechanical organization into `apps`, `src`, and `resources`. |
+| 3 | Package-owned targets and restricted visibility; aggregate source manifest removed. |
+| 4 | Portable algorithms; transitional Qt conversions isolated. Later steps drained all but the byte-conversion shim. |
+| 5 | Portable ports, logging policy, definition/config/calibration/checksum services, and flash plan/executor migration. Wave 7 removed legacy flash implementations; Qt-typed desktop bridges remain for step 6. |
+| 6a | `FileActions` de-widgeted; definition-authoring dialogs moved to UI. |
+| 6b | Portable calibration map-edit use case; documented corrections (b)-(h) fixed, (a) remains open. |
+| 6c | Desktop composition owns service construction and teardown. |
+| 6d | Flash dispatch separated; calibration preflight and handoff intentionally retained for model migration. |
+| 6e | Direct/remote selection and OS implementations selected by composition/build wiring. |
+| 6f | Logging protocol registration moved to desktop composition. |
+| 6g | Diagnostic link boundary, portable DTC sessions and MUT memory helpers; dead tools removed. |
+| 6h | Connection adapter and asynchronous SSM identification; legacy UI serial access drained. |
+| 6i | Serial facade restricted to platform; transitive headers hidden and obsolete allowlist removed. |
+| 6j | UI-owned logging/remote channels; remaining GRANDFATHERED visibility entries removed. |
+
+“Implemented” in this ledger does not supersede any pending bench checklist.
