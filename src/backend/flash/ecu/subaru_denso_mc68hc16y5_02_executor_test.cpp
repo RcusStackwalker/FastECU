@@ -15,6 +15,7 @@
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -30,15 +31,6 @@ using bytes::composeBeWithChecksum;
 using bytes::u24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
-
-class NeverCancelled : public ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return false;
-    }
-};
 
 class ToggleCancellation final : public ICancellationToken
 {
@@ -420,7 +412,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WrongFamilyPlanFails)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
@@ -488,7 +480,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, MalformedFamilyPlanFailsBeforeAnyIo)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     OpenScriptedKlineFlashTransport transport;
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
@@ -522,7 +514,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
     script_crc_compare(transport, *device, *plan->image(), std::nullopt);
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
@@ -551,7 +543,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, PresentEmptyUploadFrameIsNotNoFrameSucces
     transport.exchange(stock_upload_request(), bytes::Bytes{});
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -572,7 +564,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
     script_crc_compare(transport, *device, *plan->image(), std::nullopt);
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
@@ -605,7 +597,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, NoFrameBootInitFallsBackToKernelAlivePoll
     script_crc_compare(transport, *device, *plan->image(), std::nullopt);
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
@@ -631,7 +623,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelW
     script_crc_compare(transport, *device, *plan->image(), std::nullopt);
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
@@ -650,7 +642,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFailsWithNoValidResponseAtAll)
     transport.queue_no_frame();
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -685,7 +677,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ShortKlineWriteFailsBeforeRead)
     ShortWriteTransport transport;
     transport.queue_no_frame(); // legacy operation.cpp:69-70 initial drain
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
@@ -700,7 +692,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, InitialDrainTransportErrorStopsBeforeBoot
     OpenScriptedKlineFlashTransport transport;
     transport.queue_error(ErrorKind::Disconnected, "drain failed");
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
@@ -748,7 +740,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadReturnsAssembledPageBytes)
     }
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -778,7 +770,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TpuReadHonorsDeclaredPackedRomSize)
         script_read_page(transport, device->fblocks[0].start + offset, 0x6a);
     }
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
 
@@ -801,7 +793,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsMalformedPageResponse)
     script_read_page(transport, 0x00000000, 0xA5, 0x44);
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -819,7 +811,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsTruncatedValidMarkerResponse)
                        bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x43});
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -838,7 +830,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ReadRejectsShortPageResponse)
                        framed(0x43, bytes::Bytes(0x3FF, 0xA5)));
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -877,7 +869,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteSkipsWhenNoBlockDiffers)
     script_crc_compare(transport, *device, image, std::nullopt);
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -914,7 +906,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteReflashesOnlyDifferingBlocks)
     script_crc_compare(transport, *device, image, std::nullopt);
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -948,7 +940,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteSendsValidateNotCommit)
     script_crc_compare(transport, *device, image, kDifferingBlock);
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -976,7 +968,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedEraseResponse)
     transport.exchange(framed(0x25, composeBe(device->fblocks[kDifferingBlock].start)), framed(0x64));
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1045,7 +1037,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt
     }
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
@@ -1084,7 +1076,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead
     }
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
@@ -1110,7 +1102,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsTruncatedBlockCrcAfterBounded
     }
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1132,7 +1124,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteRejectsNegativeBlockCrcResponse)
                        framed(0x7F, bytes::Bytes{0x00, 0x00, 0x00, 0x00}));
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1155,7 +1147,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WritePropagatesBlockCrcDrainError)
     transport.queue_error(ErrorKind::Disconnected, "CRC drain failed");
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1176,7 +1168,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedFlashBufferResponse)
     transport.exchange(write_chunk_request(*device, image, kBlock, 0), bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x62});
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1203,7 +1195,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteFailsOnRejectedCommitResponse)
     transport.exchange(framed(0x24, composeBe(start, 0x10_b, 0x00_b, crc)), bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x64});
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1230,7 +1222,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteFailsOnRejectedValidateResponse)
     transport.exchange(framed(0x23, composeBe(start, 0x10_b, 0x00_b, crc)), bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x63});
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1255,7 +1247,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, WriteLogsRemainingMismatchAfterVerificati
     script_crc_compare(transport, *device, image, kBlock);
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoMc68hc16y5_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());

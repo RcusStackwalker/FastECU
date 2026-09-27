@@ -23,6 +23,7 @@ PORTABLE_PACKAGES = {
         "config_paths",
         "menu_definition",
         "protocol_catalog",
+        "protocols_document",
         "provisioning",
     ],
     "src/backend/definition": [

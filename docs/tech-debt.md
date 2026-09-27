@@ -284,11 +284,14 @@ Actions:
   `FlashWorkflow` classes. This was deferred
   because it changes routing for every merged CAN family and needs its own
   risk budget; `single_window_plan` was considered and rejected as the vehicle.
-- Investigate converging the per-family `nonfatal_query` implementations in the
-  Denso and Hitachi ISO-15765 executors onto the shared `non_fatal_query` in
-  `uds_client_exchange_common.h`. Every version differs from the others and
-  from the helper, so this is behavior-changing work on characterization-tested
-  wire sequences, not a substitution.
+- Investigate converging the two remaining per-family `nonfatal_query`
+  implementations, in the Denso BEEF CAN executors
+  (`subaru_denso_sh7058_can_executor.cpp` and
+  `subaru_denso_sh7058_can_diesel_executor.cpp`), onto the shared
+  `non_fatal_query` in `uds_client_exchange_common.h`; the other ISO-15765
+  executors already wrap it. Both return the reply rather than only logging it
+  and differ from the helper, so this is behavior-changing work on
+  characterization-tested wire sequences, not a substitution.
 
 ### P1: Narrow serial and hardware interfaces
 
@@ -503,19 +506,12 @@ existing work instead of opening a parallel initiative:
   list issues` query above when picking up unrelated work in a file to see if
   it carries one, rather than scheduling a dedicated phase for them.
 - Duplication clusters a 2026-09-05 new-code scan found outside the flash
-  executors, none yet extracted: the `parse_axis`/`parse_table` skeleton shared
-  by `src/backend/definition/{ecuflash,romraider}_parser.cpp`; the
+  executors, not yet extracted: the `parse_axis`/`parse_table` skeleton shared
+  by `src/backend/definition/{ecuflash,romraider}_parser.cpp`, and the
   dialog→validate→write tail of the two wizards in
-  `src/ui/desktop/definition/definition_authoring_dialog.cpp`; and the XML-load
-  preamble and `text_or_empty` helper in
-  `src/backend/config/{car_model,protocol}_catalog.cpp`. The five adapters in
-  `src/platform/desktop/common/transport/`, whose read/write guards differed
-  only by a label string, need re-measuring.
-- Test scaffolding left duplicated when `FakeCancellationToken` was adopted: a
-  local `NeverCancelled` in `subaru_denso_mc68hc16y5_02_executor_test.cpp` and
-  `subaru_denso_sh7055_02_executor_test.cpp`, and a family-local
-  `RecordingClock` repeated across roughly ten executor tests. Move them onto
-  the package-owned fakes in `src/backend/ports/testing/`.
+  `src/ui/desktop/definition/definition_authoring_dialog.cpp`. The five
+  adapters in `src/platform/desktop/common/transport/`, whose read/write guards
+  differed only by a label string, need re-measuring.
 - `WriteSelection.ReproducesTheFourSpaceQDomIndent`
   (`src/backend/logging/logger_conf_test.cpp`) pins pugixml output against
   bytes captured from the deleted `QDomDocument::save(output, 4)` writer. It

@@ -29,6 +29,7 @@
 #include "src/backend/flash/ecu/testing/can_executor_conformance.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
@@ -37,6 +38,7 @@ namespace
 using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::FakeClock;
+using fastecu::RecordingClock;
 using fastecu::RecordingEventSink;
 using fastecu::flash::build_subaru_tcu_cvt_mitsu_mh8104_can_plan;
 using fastecu::flash::FlashOperation;
@@ -291,16 +293,6 @@ bytes::Bytes writeRom()
 
 // Records every ctx.clock.sleep() call's ms argument, so the erase step's
 // 8000ms/5000ms delays can be asserted without a real multi-second wait.
-class RecordingClock final : public FakeClock
-{
-  public:
-    fastecu::Status sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken& cancellation) override
-    {
-        sleep_calls.push_back(duration);
-        return FakeClock::sleep(duration, cancellation);
-    }
-    std::vector<std::chrono::milliseconds> sleep_calls;
-};
 
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ConnectSkipsTheRestWhenKernelAlreadyRunning)
 {

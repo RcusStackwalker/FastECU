@@ -22,6 +22,25 @@ cc_library(
     deps = ["//src/backend/ports"],
 )
 
+cc_library(
+    name = "recording_clock",
+    hdrs = ["recording_clock.h"],
+    deps = [
+        ":fake_clock",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "recording_clock_test",
+    srcs = ["recording_clock_test.cpp"],
+    deps = [
+        ":fake_cancellation_token",
+        ":recording_clock",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
 fastecu_portable_gtest(
     name = "fake_cancellation_token_test",
     srcs = ["fake_cancellation_token_test.cpp"],

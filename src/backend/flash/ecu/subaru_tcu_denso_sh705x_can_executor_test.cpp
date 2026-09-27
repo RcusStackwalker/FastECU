@@ -24,6 +24,7 @@
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
 using ::testing::Contains;
@@ -127,12 +128,11 @@ std::span<const BlockFixture> blocks_for(const Case& test_case)
                                      : std::span<const BlockFixture>(kSh7058Blocks);
 }
 
-class RecordingClock final : public FakeClock
+class TimelineClock final : public RecordingClock
 {
   public:
     Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
     {
-        sleeps.push_back(duration);
         if (timeline != nullptr)
         {
             timeline->push_back(std::format("sleep:{}", duration.count()));
@@ -143,14 +143,13 @@ class RecordingClock final : public FakeClock
         }
         if (duration == 500ms && cancel_after_successful_sleep != nullptr)
         {
-            FakeClock::sleep(duration, cancellation);
+            RecordingClock::sleep(duration, cancellation);
             cancel_after_successful_sleep->set_cancelled(true);
             return {};
         }
-        return FakeClock::sleep(duration, cancellation);
+        return RecordingClock::sleep(duration, cancellation);
     }
 
-    std::vector<std::chrono::milliseconds> sleeps;
     std::vector<std::string> *timeline = nullptr;
     FakeCancellationToken *cancel_during_sleep = nullptr;
     FakeCancellationToken *cancel_after_successful_sleep = nullptr;
@@ -882,7 +881,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, AlreadyRunningKernelReadsBothMcuGeometries
         configure_and_open(executor, *plan, transport);
         script_kernel_alive(transport.scripted, test_case.mcu == "SH7058");
         script_read_pages(transport.scripted, test_case.rom_size);
-        RecordingClock clock;
+        TimelineClock clock;
         RecordingEventSink events;
 
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1357,7 +1356,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutRunsIdentityStrictUdsUploadAnd
     transport.expectWrite(beef_request(0x03, composeBe(0x00_b, u24(kReadPageSize), std::uint16_t{kReadPageSize})));
     transport.queueRead(bytes::Bytes{0x00, 0x00, 0x07, 0xE9, 0xBE, 0xEF, 0x00, 0x01, 0x43});
     FakeCancellationToken cancellation;
-    RecordingClock clock;
+    TimelineClock clock;
     RecordingEventSink events;
 
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1366,8 +1365,8 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutRunsIdentityStrictUdsUploadAnd
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
-    EXPECT_THAT(clock.sleeps, Contains(50ms));
-    EXPECT_THAT(clock.sleeps, Contains(500ms));
+    EXPECT_THAT(clock.sleep_calls, Contains(50ms));
+    EXPECT_THAT(clock.sleep_calls, Contains(500ms));
     EXPECT_TRUE(has_log(events, LogLevel::Info, "ECU ID: 4543553031"));
     EXPECT_TRUE(has_log(events, LogLevel::Info, "CAL ID: CAL"));
     EXPECT_THAT(events.notices, ElementsAre("Preparing, please wait...", "Reading ROM, please wait..."));
@@ -1392,7 +1391,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, ProbeTimeoutUploadsFixed129ByteKernelThenS
     transport.scripted.queue_no_frame();
     script_read_pages(transport.scripted, 0x00080000);
     FakeCancellationToken cancellation;
-    RecordingClock clock;
+    TimelineClock clock;
     std::vector<std::string> timeline;
     transport.timeline = &timeline;
     clock.timeline = &timeline;
@@ -1515,7 +1514,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, RestartResetConfigureAndOpenFailuresPropag
             observed->restart_open_result = fail(failure.kind, "restart open marker");
         }
         FakeCancellationToken cancellation;
-        RecordingClock clock;
+        TimelineClock clock;
         RecordingEventSink events;
         auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruTcuDensoSh705xCanExecutor>(),
                                           std::move(transport));
@@ -1527,7 +1526,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, RestartResetConfigureAndOpenFailuresPropag
         EXPECT_EQ(observed->lifecycle, failure.expected_lifecycle);
         EXPECT_EQ(observed->scripted.close_call_count_, 1);
         EXPECT_TRUE(observed->scripted.scriptConsumed());
-        EXPECT_THAT(clock.sleeps, testing::Not(Contains(500ms)));
+        EXPECT_THAT(clock.sleep_calls, testing::Not(Contains(500ms)));
     }
 }
 
@@ -1572,7 +1571,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterKernelStartAndWithinResta
         {
             observed->cancellation_on_open = &cancellation;
         }
-        RecordingClock clock;
+        TimelineClock clock;
         RecordingEventSink events;
         auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruTcuDensoSh705xCanExecutor>(),
                                           std::move(transport));
@@ -1584,7 +1583,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationAfterKernelStartAndWithinResta
         EXPECT_EQ(observed->lifecycle, test_case.expected_lifecycle);
         EXPECT_EQ(observed->scripted.close_call_count_, 1);
         EXPECT_TRUE(observed->scripted.scriptConsumed());
-        EXPECT_THAT(clock.sleeps, testing::Not(Contains(500ms)));
+        EXPECT_THAT(clock.sleep_calls, testing::Not(Contains(500ms)));
     }
 }
 
@@ -1602,7 +1601,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationDuringOrImmediatelyAfterRestar
         script_strict_session_and_security(observed->scripted);
         script_kernel_upload(observed->scripted, kCases[1]);
         FakeCancellationToken cancellation;
-        RecordingClock clock;
+        TimelineClock clock;
         if (cancellation_returns_from_sleep)
         {
             clock.cancel_after_successful_sleep = &cancellation;
@@ -1619,7 +1618,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationDuringOrImmediatelyAfterRestar
 
         ASSERT_FALSE(result.has_value());
         EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
-        EXPECT_THAT(clock.sleeps, Contains(500ms));
+        EXPECT_THAT(clock.sleep_calls, Contains(500ms));
         EXPECT_EQ(observed->scripted.close_call_count_, 1);
         EXPECT_TRUE(observed->scripted.scriptConsumed());
         EXPECT_EQ(std::count_if(observed->writes.begin(), observed->writes.end(), [](const bytes::Bytes& write)

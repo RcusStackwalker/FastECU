@@ -1,35 +1,19 @@
 #include "src/backend/config/protocol_catalog.h"
+#include "src/backend/config/protocols_document.h"
 
 #include <format>
 #include <set>
-#include <string_view>
 
 #include <pugixml.hpp>
 
 namespace fastecu::config
 {
-namespace
-{
-
-std::string text_or_empty(pugi::xml_node protocol, std::string_view tag)
-{
-    return protocol.child(tag).text().as_string();
-}
-
-} // namespace
-
 Result<ProtocolCatalog> load_protocol_catalog(const ConfigPaths& paths, IFileRepository& file_repository)
 {
-    Result<std::vector<std::uint8_t>> bytes = file_repository.read(paths.protocols_file);
-    if (!bytes.has_value())
+    Result<pugi::xml_document> doc = load_protocols_document(paths, file_repository);
+    if (!doc.has_value())
     {
-        return std::unexpected(bytes.error());
-    }
-
-    pugi::xml_document doc;
-    if (pugi::xml_parse_result parsed = doc.load_buffer(bytes->data(), bytes->size()); !parsed)
-    {
-        return fail(ErrorKind::InvalidConfig, std::format("protocols parse error: {}", parsed.description()));
+        return std::unexpected(doc.error());
     }
 
     ProtocolCatalog catalog;
@@ -40,7 +24,7 @@ Result<ProtocolCatalog> load_protocol_catalog(const ConfigPaths& paths, IFileRep
     // all distinct, so this rejects malformed input without rejecting
     // anything that works today.
     std::set<std::string> seen_protocol_names;
-    pugi::xml_node protocols = doc.child("config").child("protocols");
+    pugi::xml_node protocols = doc->child("config").child("protocols");
     for (pugi::xml_node protocol : protocols.children("protocol"))
     {
         ProtocolEntry entry;

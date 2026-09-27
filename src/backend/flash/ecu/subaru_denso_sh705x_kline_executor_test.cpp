@@ -28,6 +28,7 @@
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
@@ -1014,15 +1015,6 @@ TEST(SubaruDensoSh705xKlineExecutor, EachRejectedWriteStepStopsLaterCommands)
 
 TEST(SubaruDensoSh705xKlineExecutor, CompareUsesLegacyTimeoutsAndPacing)
 {
-    struct RecordingClock final : FakeClock
-    {
-        Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
-        {
-            sleeps.push_back(duration);
-            return FakeClock::sleep(duration, cancellation);
-        }
-        std::vector<std::chrono::milliseconds> sleeps;
-    };
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     const bytes::Bytes image = sh7055_image();
     script_probe_alive(transport);
@@ -1038,7 +1030,7 @@ TEST(SubaruDensoSh705xKlineExecutor, CompareUsesLegacyTimeoutsAndPacing)
     // probe: 100 settle + 200 kernel-ID settle; then 16 x 5ms block pacing.
     std::vector<std::chrono::milliseconds> expected_sleeps{100ms, 200ms};
     expected_sleeps.insert(expected_sleeps.end(), 16, 5ms);
-    EXPECT_EQ(clock.sleeps, expected_sleeps);
+    EXPECT_EQ(clock.sleep_calls, expected_sleeps);
     std::vector<std::chrono::milliseconds> expected_reads{800ms};
     for (int i = 0; i < 16; ++i)
     {
@@ -1053,15 +1045,6 @@ TEST(SubaruDensoSh705xKlineExecutor, WriteStepsUseLegacyTimeoutsWithoutSettleDel
     // init_flash_write():905/947/1000 500ms; reflash_block():1080 500ms;
     // flash_block():1171/1231/1335 3000ms; the delay(500)/(50)/(200) there are
     // commented out in legacy and stay omitted.
-    struct RecordingClock final : FakeClock
-    {
-        Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
-        {
-            sleeps.push_back(duration);
-            return FakeClock::sleep(duration, cancellation);
-        }
-        std::vector<std::chrono::milliseconds> sleeps;
-    };
     ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
     const bytes::Bytes image = sh7055_image();
     script_probe_alive(transport);
@@ -1079,7 +1062,7 @@ TEST(SubaruDensoSh705xKlineExecutor, WriteStepsUseLegacyTimeoutsWithoutSettleDel
                 IsOk());
     std::vector<std::chrono::milliseconds> expected_sleeps{100ms, 200ms};
     expected_sleeps.insert(expected_sleeps.end(), 32, 5ms); // two compares, no write-path delays
-    EXPECT_EQ(clock.sleeps, expected_sleeps);
+    EXPECT_EQ(clock.sleep_calls, expected_sleeps);
     std::vector<std::chrono::milliseconds> compare_reads;
     for (int i = 0; i < 16; ++i)
     {
