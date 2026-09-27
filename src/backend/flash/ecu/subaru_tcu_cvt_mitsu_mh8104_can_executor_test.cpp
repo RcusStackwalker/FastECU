@@ -29,7 +29,7 @@
 #include "src/backend/flash/ecu/testing/can_executor_conformance.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_clock.h"
-#include "src/backend/ports/testing/recording_clock.h"
+#include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
@@ -38,7 +38,7 @@ namespace
 using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::FakeClock;
-using fastecu::RecordingClock;
+using fastecu::MockClock;
 using fastecu::RecordingEventSink;
 using fastecu::flash::build_subaru_tcu_cvt_mitsu_mh8104_can_plan;
 using fastecu::flash::FlashOperation;
@@ -50,6 +50,8 @@ using fastecu::flash::SubaruTcuCvtMitsuMh8104CanPlan;
 // CanExecutorConformance's must be brought in wholesale rather than by a
 // single using-declaration.
 using namespace fastecu::flash::testing;
+using testing::_;
+using testing::AtLeast;
 using testing::HasSubstr;
 using testing::IsEmpty;
 
@@ -478,7 +480,9 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, ReadDisconnectMidDumpLoopPropagates)
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteFlashesTheBlockToleratingEveryContentMismatch)
 {
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
-    RecordingClock clock;
+    MockClock clock;
+    EXPECT_CALL(clock, sleep(8000ms, _)).Times(AtLeast(1));
+    EXPECT_CALL(clock, sleep(5000ms, _)).Times(AtLeast(1));
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     SubaruTcuCvtMitsuMh8104CanExecutor executor;
@@ -527,8 +531,6 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteFlashesTheBlockToleratingEveryCont
     EXPECT_EQ(result->operation, FlashOperation::Write);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_THAT(events.notices, testing::Contains("Writing ROM, please wait..."));
-    EXPECT_THAT(clock.sleep_calls, testing::Contains(8000ms));
-    EXPECT_THAT(clock.sleep_calls, testing::Contains(5000ms));
 }
 
 TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteStopsOnATimeoutBetweenChunks)
@@ -542,7 +544,7 @@ TEST(SubaruTcuCvtMitsuMh8104CanExecutor, WriteStopsOnATimeoutBetweenChunks)
     // per-chunk read, proving a genuine transport failure (not just an
     // absent reply) still stops the write.
     ScriptedCanFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
-    RecordingClock clock;
+    FakeClock clock;
     RecordingEventSink events;
     fastecu::ManualCancellationToken cancellation;
     SubaruTcuCvtMitsuMh8104CanExecutor executor;

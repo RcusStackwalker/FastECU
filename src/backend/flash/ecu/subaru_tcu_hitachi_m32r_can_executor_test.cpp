@@ -25,6 +25,7 @@
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
@@ -36,6 +37,7 @@ using bytes::Bytes;
 using fastecu::ErrorKind;
 using fastecu::FakeClock;
 using fastecu::ManualCancellationToken;
+using fastecu::MockClock;
 using fastecu::RecordingEventSink;
 using fastecu::Status;
 using fastecu::flash::build_subaru_tcu_hitachi_m32r_can_plan;
@@ -47,6 +49,7 @@ using fastecu::flash::ScriptedCanFlashTransport;
 using fastecu::flash::ScriptedTransportInitialState;
 using fastecu::flash::SubaruTcuHitachiM32rCanExecutor;
 using testing::Contains;
+using testing::DoAll;
 using testing::HasSubstr;
 using testing::Not;
 using testing::Pair;
@@ -405,26 +408,17 @@ class TracingTransport final : public ScriptedCanFlashTransport
     std::vector<Call>& trace_;
 };
 
-class TracingClock final : public FakeClock
+// Every sleep appends {Sleep, duration} to the shared trace, then advances time.
+void trace_sleeps(MockClock& clock, std::vector<Call>& trace)
 {
-  public:
-    explicit TracingClock(std::vector<Call>& trace) : trace_(trace)
-    {
-    }
-
-    Status sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken& cancellation) override
-    {
-        trace_.push_back({CallKind::Sleep, duration});
-        return FakeClock::sleep(duration, cancellation);
-    }
-
-  private:
-    std::vector<Call>& trace_;
-};
+    ON_CALL(clock, sleep)
+        .WillByDefault(DoAll([&trace](std::chrono::milliseconds duration, const fastecu::ICancellationToken&)
+                             { trace.push_back({CallKind::Sleep, duration}); }, clock.sleep_on_fake()));
+}
 
 fastecu::Result<fastecu::flash::FlashExecutionResult> execute(SubaruTcuHitachiM32rCanExecutor& executor, FlashPlan plan,
-                                                              ScriptedCanFlashTransport& transport, FakeClock& clock,
-                                                              RecordingEventSink& events)
+                                                              ScriptedCanFlashTransport& transport,
+                                                              fastecu::IClock& clock, RecordingEventSink& events)
 {
     ManualCancellationToken cancellation;
     return executor.execute(plan, transport, clock, cancellation, events);
@@ -467,7 +461,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, FullConnectPreservesFrameOrderPacingAndTim
     scriptFullConnect(transport);
     scriptSilentReadWindow(transport);
     SubaruTcuHitachiM32rCanExecutor executor;
-    TracingClock clock{trace};
+    MockClock clock;
+    trace_sleeps(clock, trace);
     RecordingEventSink events;
 
     const auto result = execute(executor, readPlan(), transport, clock, events);
@@ -829,7 +824,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, ReadLoopPacesEveryPageAndKeepsLegacyTimeou
     scriptDumpLoop(transport);
     scriptStop(transport);
     SubaruTcuHitachiM32rCanExecutor executor;
-    TracingClock clock{trace};
+    MockClock clock;
+    trace_sleeps(clock, trace);
     RecordingEventSink events;
 
     const auto result = execute(executor, readPlan(), transport, clock, events);
@@ -1340,7 +1336,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, EraseTransportErrorDoesNotLogTheDoNotPanic
 // Cancels a shared ManualCancellationToken the instant a chosen write
 // completes -- used to reach exchange_optional's own "cancelled after write"
 // checkpoint precisely, before any read is ever attempted. (Tripping instead
-// on the pre-read sleep, as TripAfterTraceLengthClock does elsewhere in this
+// on the pre-read sleep, as trace_sleeps_then_trip does elsewhere in this
 // file, does not isolate this checkpoint here: the scripted transport's own
 // read() observes the now-cancelled token and fails first with its own
 // "scripted CAN read cancelled" message, never reaching exchange_optional's
@@ -1452,7 +1448,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WriteLoopPacesEveryFrameAndKeepsLegacyTime
     TracingTransport transport{trace};
     scriptFullWrite(transport);
     SubaruTcuHitachiM32rCanExecutor executor;
-    TracingClock clock{trace};
+    MockClock clock;
+    trace_sleeps(clock, trace);
     RecordingEventSink events;
 
     const auto result = execute(executor, writePlan(), transport, clock, events);
@@ -1779,30 +1776,23 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WithNoScriptToStopItTheWriteStillNeverTouc
 // observe its own trip and fail one iteration too early, with the bare,
 // unlabeled Cancelled error FakeClock::sleep produces instead of the
 // checkpoint's real message.
-class TripAfterTraceLengthClock final : public FakeClock
+void trace_sleeps_then_trip(MockClock& clock, std::vector<Call>& trace, std::size_t trip_at,
+                            ManualCancellationToken& cancellation)
 {
-  public:
-    TripAfterTraceLengthClock(std::vector<Call>& trace, std::size_t trip_at, ManualCancellationToken& cancellation)
-        : trace_(trace), trip_at_(trip_at), cancellation_(cancellation)
-    {
-    }
-
-    Status sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken& cancellation) override
-    {
-        const Status result = FakeClock::sleep(duration, cancellation);
-        trace_.push_back({CallKind::Sleep, duration});
-        if (trace_.size() == trip_at_)
-        {
-            cancellation_.cancel();
-        }
-        return result;
-    }
-
-  private:
-    std::vector<Call>& trace_;
-    std::size_t trip_at_;
-    ManualCancellationToken& cancellation_;
-};
+    ON_CALL(clock, sleep)
+        .WillByDefault(
+            [&clock, &trace, trip_at, &cancellation](std::chrono::milliseconds duration,
+                                                     const fastecu::ICancellationToken& token)
+            {
+                const Status result = clock.fake().sleep(duration, token);
+                trace.push_back({CallKind::Sleep, duration});
+                if (trace.size() == trip_at)
+                {
+                    cancellation.cancel();
+                }
+                return result;
+            });
+}
 
 // Flips a shared ManualCancellationToken after a chosen number of progress()
 // calls. reflash_block's data-frame loop calls events.progress() exactly
@@ -1887,7 +1877,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, CancellationDuringTheReadLoopStopsAtTheNex
     SubaruTcuHitachiM32rCanExecutor executor;
     ManualCancellationToken cancellation;
     const std::vector<Call> expected_prefix = readTracePrefix(kCancelAfterPages);
-    TripAfterTraceLengthClock clock{trace, expected_prefix.size(), cancellation};
+    MockClock clock;
+    trace_sleeps_then_trip(clock, trace, expected_prefix.size(), cancellation);
     RecordingEventSink events;
 
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
@@ -1919,7 +1910,8 @@ TEST(SubaruTcuHitachiM32rCanExecutor, CancellationDuringTheWriteLoopStopsAtTheNe
     }
     SubaruTcuHitachiM32rCanExecutor executor;
     ManualCancellationToken cancellation;
-    TracingClock clock{trace};
+    MockClock clock;
+    trace_sleeps(clock, trace);
     TripAfterProgressCallsEventSink events{kCancelAfterFrames, cancellation};
 
     const auto result = executor.execute(writePlan(), transport, clock, cancellation, events);
