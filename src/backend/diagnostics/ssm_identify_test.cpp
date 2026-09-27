@@ -143,7 +143,7 @@ TEST(IdentifyKlineSsm2, NoAnswerIsTimeoutAfterTheLegacyReadBudget)
     Harness h;
     EXPECT_THAT(h.run(SsmVariant::KlineSsm2), IsErr(ErrorKind::Timeout));
     // open, write, one 200 ms read, then ten 50 ms reads waiting for a header.
-    EXPECT_EQ(h.link.calls.size(), 13U);
+    ASSERT_EQ(h.link.calls.size(), 13U);
     EXPECT_EQ(h.link.calls.back(), "read 50");
 }
 
