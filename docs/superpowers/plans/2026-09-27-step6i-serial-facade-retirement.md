@@ -83,7 +83,7 @@ Run:
 ```bash
 bazel query --noshow_progress 'rdeps(//..., //src/platform/desktop/common/serial:serial_qt_compat + //src/platform/desktop/common/serial:serial_platform_api, 1)' | grep -v ':moc_' | sort > /tmp/6i-before.txt; wc -l /tmp/6i-before.txt
 ```
-Expected: 26 lines (the two targets themselves plus the 24 dependents listed in the spec's "Current state" table). Keep the file for Step 8.
+Expected: 26 lines (the two old targets plus the 24 dependents listed in the spec's "Current state" table). Keep the file for Step 8.
 
 - [ ] **Step 3: Rewrite the facade target**
 
@@ -146,7 +146,7 @@ grep -rl 'serial:serial_qt_compat\|serial:serial_platform_api\|":serial_qt_compa
       -e 's#":serial_qt_compat"#":serial_port_actions"#g'
 grep -rn 'serial_qt_compat\|serial_platform_api' --include=BUILD.bazel src tests apps
 ```
-(On Linux use `sed -i` without `''`.) Expected: the second `grep` prints only comments. Buildifier may now see a duplicate in a `deps` list where a target named both old labels (`fake_serial_backend_test` in `serial/testing` did not; check with the next step).
+(On Linux use `sed -i` without `''`.) Expected: the second `grep` prints only comments. No target lists both old labels today, so the rename cannot create a duplicate `deps` entry; `prek` (buildifier) would flag one in Step 9.
 
 - [ ] **Step 6: Delete the root guard and its script**
 
