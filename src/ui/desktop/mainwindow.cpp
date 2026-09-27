@@ -359,13 +359,14 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     connect(timer, &QTimer::timeout, this, [&]() { QApplication::processEvents(); });
     timer->start();
 
-    serial = &services_.serial;
+    connection = &services_.connection;
+    serial = &connection->facade();
     remote_utility = &services_.remote_utility;
     if (!peerAddress.isEmpty())
     {
         netSplashProgressBar->setValue(0);
         netSplashProgressBar->setFormat("Connecting to J2534 and serial devices...");
-        serial->waitForSource();
+        connection->wait_for_source();
         netSplashProgressBar->setValue(1);
         netSplashProgressBar->setFormat("Connecting to utility functions...");
         remote_utility->waitForSource();
@@ -376,7 +377,8 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     timer->stop();
     netSplash->close();
     timer->deleteLater();
-    connect(serial, &SerialPortActions::stateChanged, this, &MainWindow::network_state_changed, Qt::DirectConnection);
+    connect(connection, &fastecu::desktop::connection::AdapterConnection::stateChanged, this,
+            &MainWindow::network_state_changed, Qt::DirectConnection);
     connect(remote_utility, &RemoteUtility::stateChanged, this, &MainWindow::network_state_changed,
             Qt::DirectConnection);
 
@@ -455,7 +457,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     serial_port_list->setFixedHeight(toolbar_item_size.height());
     serial_port_list->setFixedWidth(180);
     serial_port_list->setObjectName("serial_port_list");
-    serial_ports = serial->check_serial_ports();
+    serial_ports = connection->available_ports();
     for (int i = 0; i < serial_ports.length(); i++)
     {
         serial_port_list->addItem(serial_ports.at(i));
@@ -485,8 +487,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     serial_port = serial_port_prefix + configValues->serial_port;
     serial_port_baudrate = default_serial_port_baudrate;
-    serial->set_serial_port_baudrate(serial_port_baudrate);
-    serial->set_serial_port(serial_port);
+    connection->set_initial_port(serial_port, serial_port_baudrate);
     /*
         serial_poll_timer = new QTimer(this);
         serial_poll_timer->setInterval(serial_poll_timer_timeout);
@@ -800,35 +801,14 @@ void MainWindow::log_transport_changed()
     // emit LOG_D("Change log transport";
     QComboBox *log_transport_list = ui->toolBar->findChild<QComboBox *>("log_transport_list");
 
-    serial->set_is_can_connection(false);
-    serial->set_is_iso15765_connection(false);
-    if (log_transport_list->currentText() == "CAN")
-    {
-        serial->set_is_can_connection(true);
-        serial->set_is_iso15765_connection(false);
-        serial->set_is_29_bit_id(false);
-        serial->set_can_speed("500000");
-    }
-    else if (log_transport_list->currentText() == "iso15765")
-    {
-        serial->set_is_can_connection(false);
-        serial->set_is_iso15765_connection(true);
-        serial->set_is_29_bit_id(true);
-        serial->set_can_speed("500000");
-    }
-    else if (log_transport_list->currentText() == "K-Line")
-    {
-        if (configValues->flash_protocol_selected_log_protocol == "SSM")
-        {
-            serial->change_port_speed("4800");
-        }
-    }
+    connection->apply_log_transport(
+        fastecu::desktop::connection::log_transport_from_text(log_transport_list->currentText()),
+        configValues->flash_protocol_selected_log_protocol == "SSM");
 
     protocol = configValues->flash_protocol_selected_log_protocol;
     configValues->flash_protocol_selected_log_transport = log_transport_list->currentText();
     fileActions->save_config_file(configValues);
 
-    serial->reset_connection();
     ecuid.clear();
     ecu_init_complete = false;
     // ssm_init_poll_timer->start();
@@ -852,22 +832,16 @@ void MainWindow::check_serial_ports()
     // serial_poll_timer->stop();
     // ssm_init_poll_timer->stop();
 
-    serial->reset_connection();
+    connection->clear_link_flags();
     ecuid.clear();
     ecu_init_complete = false;
-    serial->set_is_iso14230_connection(false);
-    serial->set_is_29_bit_id(false);
-    serial->set_add_iso14230_header(false);
-    serial->set_is_can_connection(false);
-    serial->set_is_iso15765_connection(false);
-    serial->set_serial_port_baudrate("4800");
     emit log_transport_list->currentIndexChanged(log_transport_list->currentIndex());
     // if(configValues->flash_method != "subarucan" && configValues->flash_method != "subarucan_iso")
 
     // QStringList j2534_list = serial->getAvailableJ2534Libs();
     // emit LOG_D("J2534 Vehicle PassThru Interfaces:" << j2534_list;
 
-    serial_ports = serial->check_serial_ports();
+    serial_ports = connection->available_ports();
     serial_port_list->clear();
 
     for (int i = 0; i < serial_ports.length(); i++)
@@ -887,45 +861,36 @@ void MainWindow::check_serial_ports()
 
 void MainWindow::open_serial_port()
 {
-    if (!serial_ports.empty())
+    const QString port = selected_serial_port();
+    if (port.isEmpty())
     {
-        // QStringList serial_port = serial_ports.at(serial_port_list->currentIndex()).split(" - ");
-        QStringList serial_port_arg;
-        serial_port_arg.append(serial_ports.at(serial_port_list->currentIndex()));
-
-        // emit LOG_D("Serial ports" << serial_ports;
-
-        // if (serial_port.length() < 2)
-        //     serial_port.append("Unknown");
-
-        // emit LOG_D("Serial port" << serial_port;
-        serial->set_serial_port_list(serial_port_arg);
-        QString opened_serial_port = serial->open_serial_port();
-        if (opened_serial_port != "")
+        return;
+    }
+    connection->select_port(port);
+    QString opened_serial_port = connection->open();
+    if (opened_serial_port != "")
+    {
+        if (opened_serial_port != previous_serial_port)
         {
-            if (opened_serial_port != previous_serial_port)
-            {
-                ecuid.clear();
-                ecu_init_complete = false;
-            }
-            // emit LOG_D("Serial port" << opened_serial_port << "opened" << previous_serial_port;
-            previous_serial_port = opened_serial_port;
-            configValues->serial_port = serial_port_arg.at(0);
-            fileActions->save_config_file(configValues);
-            if (ecuid == "")
-            {
-                set_status_bar_label(true, false, "");
-            }
-            else
-            {
-                set_status_bar_label(true, true, ecuid);
-            }
+            ecuid.clear();
+            ecu_init_complete = false;
+        }
+        previous_serial_port = opened_serial_port;
+        configValues->serial_port = port;
+        fileActions->save_config_file(configValues);
+        if (ecuid == "")
+        {
+            set_status_bar_label(true, false, "");
         }
         else
         {
-            set_status_bar_label(false, false, "");
-            ecu_init_complete = false;
+            set_status_bar_label(true, true, ecuid);
         }
+    }
+    else
+    {
+        set_status_bar_label(false, false, "");
+        ecu_init_complete = false;
     }
 }
 
@@ -947,10 +912,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         return 0;
     }
 
-    QStringList spl;
-    spl.append(serial_ports.at(serial_port_list->currentIndex()));
-
-    serial->set_serial_port_list(spl);
+    connection->select_port(selected_serial_port());
 
     if (configValues->kernel_files_directory.at(configValues->kernel_files_directory.length() - 1) != '/')
     {
@@ -964,17 +926,17 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         [this]
         {
             vbatt_timer->stop();
-            fastecu::desktop::serial::reset_serial_to_idle(*serial);
+            fastecu::desktop::serial::reset_serial_to_idle(connection->facade());
             ecuid.clear();
             ecu_init_complete = false;
             emit log_transport_list->currentIndexChanged(log_transport_list->currentIndex());
-            serial->change_port_speed("4800");
+            connection->set_port_speed(4800);
         });
 
     if (configValues->flash_protocol_selected_make == "Subaru" ||
         configValues->flash_protocol_selected_make == "Mitsubishi")
     {
-        fastecu::desktop::serial::reset_serial_to_idle(*serial);
+        fastecu::desktop::serial::reset_serial_to_idle(connection->facade());
         ecuid.clear();
         ecu_init_complete = false;
 
@@ -1069,7 +1031,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         const fastecu::flash::FlashOperation operation =
             fastecu::flash::flash_operation_from_command(cmd_type.toStdString());
 
-        fastecu::flash::FlashOperationController controller{*serial, this};
+        fastecu::flash::FlashOperationController controller{connection->facade(), this};
         // Relay through MainWindow's own LOG_* signals: the syslogger runs on
         // its own thread, and a queued line whose sender (this stack-local
         // controller) is already destroyed reaches log_messages with a null
@@ -2206,14 +2168,12 @@ void MainWindow::send_message_to_log_window(const QString& msg)
 
 void MainWindow::update_vbatt()
 {
-    unsigned long vBatt = 0;
-
-    if (!serial->get_use_openport2_adapter())
+    const std::optional<unsigned long> reading = connection->battery_millivolts();
+    if (!reading.has_value())
     {
         return;
     }
-
-    vBatt = serial->read_vbatt();
+    const unsigned long vBatt = *reading;
 
     QDialog *ecuOperationsWindow = this->findChild<QDialog *>("EcuOperationsWindow");
     if (ecuOperationsWindow)

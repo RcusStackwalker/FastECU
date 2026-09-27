@@ -12,6 +12,7 @@
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "src/platform/desktop/common/serial/desktop_serial_factory.h"
+#include "src/platform/desktop/common/connection/adapter_connection.h"
 #include "src/ui/desktop/main_window_services.h"
 
 class QThread;
@@ -47,6 +48,7 @@ class DesktopComposition
     std::unique_ptr<QThread> syslog_thread_;
     std::unique_ptr<SystemLogger> syslogger_;
     OwnedSerialPortActions serial_;
+    std::unique_ptr<fastecu::desktop::connection::AdapterConnection> connection_;
     std::unique_ptr<RemoteUtility> remote_utility_;
     QtClock logging_clock_;
     std::unique_ptr<fastecu::desktop::logging::LoggingEngine> logging_engine_;

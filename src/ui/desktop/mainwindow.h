@@ -68,6 +68,7 @@
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
+#include "src/platform/desktop/common/connection/adapter_connection.h"
 
 // Forward declaration
 class SerialPortActions;
@@ -159,6 +160,7 @@ class MainWindow : public QMainWindow
     std::array<FileActions::EcuCalDefStructure *, 100> ecuCalDef{};
     // FileActions::EcuCalDefStructure *ecuCalDefTemp;
 
+    fastecu::desktop::connection::AdapterConnection *connection = nullptr;
     SerialPortActions *serial = nullptr;
     // QTimer *serial_poll_timer;
     uint16_t serial_poll_timer_timeout = 500;
@@ -170,6 +172,13 @@ class MainWindow : public QMainWindow
     QString previous_serial_port;
     QString serial_port_prefix;
     QStringList serial_ports;
+
+    // The port chosen in the toolbar, or empty when there is none. Inline so
+    // tests reaching it through `#define private public` link on MSVC too.
+    QString selected_serial_port() const
+    {
+        return serial_ports.value(serial_port_list->currentIndex());
+    }
 
     int ecu_protocols_list_length = 6;
     QString current_car_model = "";

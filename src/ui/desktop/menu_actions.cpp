@@ -383,11 +383,11 @@ int MainWindow::connect_to_ecu()
     ecuid.clear();
     ecu_init_complete = false;
     set_status_bar_label(false, false, "");
-    serial->reset_connection();
+    connection->reset();
 
     qDebug() << "Opening interface, please wait...";
     open_serial_port();
-    if (serial->is_serial_port_open())
+    if (connection->is_open())
     {
         serial_port_list->setDisabled(true);
         refresh_serial_port_list->setDisabled(true);
@@ -418,10 +418,7 @@ void MainWindow::disconnect_from_ecu()
     ecuid.clear();
     ecu_init_complete = false;
     set_status_bar_label(false, false, "");
-    serial->reset_connection();
-
-    serial->set_serial_port_baudrate("4800");
-    serial->set_serial_port_parity(QSerialPort::NoParity);
+    connection->return_to_idle();
 
     serial_port_list->setEnabled(true);
     refresh_serial_port_list->setEnabled(true);
@@ -646,17 +643,20 @@ void MainWindow::toggle_log_to_file()
 
 void MainWindow::show_dtc_window()
 {
-    serial->reset_connection();
+    const QString port = selected_serial_port();
+    if (port.isEmpty())
+    {
+        QMessageBox::warning(this, tr("Serial port"), "No serial port selected!");
+        return;
+    }
+    connection->reset();
     ecuid.clear();
     ecu_init_complete = false;
-
-    QStringList spl;
-    spl.append(serial_ports.at(serial_port_list->currentIndex()));
-    serial->set_serial_port_list(spl);
+    connection->select_port(port);
 
     emit LOG_D("Starting DTC operations", true, true);
 
-    fastecu::diagnostics::SerialDiagnosticLink link(serial);
+    fastecu::diagnostics::SerialDiagnosticLink link(&connection->facade());
     DtcOperations dtcOperations(link, this);
     QObject::connect(&dtcOperations, &DtcOperations::LOG_E, syslogger, &SystemLogger::log_messages);
     QObject::connect(&dtcOperations, &DtcOperations::LOG_W, syslogger, &SystemLogger::log_messages);
@@ -701,16 +701,25 @@ void MainWindow::show_preferences_window()
 
 void MainWindow::show_subaru_biu_window()
 {
-    serial->reset_connection();
+    const QString port = selected_serial_port();
+    if (port.isEmpty())
+    {
+        QMessageBox::warning(this, tr("Serial port"), "No serial port selected!");
+        return;
+    }
     ecuid.clear();
     ecu_init_complete = false;
-    serial->set_add_iso14230_header(false);
-    serial->set_is_iso14230_connection(true);
-    open_serial_port();
-    serial->change_port_speed("10400");
-    // serial->change_port_speed("4800");
+    connection->select_port(port);
 
-    fastecu::diagnostics::SerialDiagnosticLink link(serial);
+    fastecu::diagnostics::SerialDiagnosticLink link(&connection->facade());
+    const auto opened = link.open(fastecu::diagnostics::KlineLinkConfig{
+        .header = fastecu::diagnostics::KlineHeader::None, .iso14230_connection = true, .baud = 10400});
+    set_status_bar_label(opened.has_value(), false, "");
+    if (!opened.has_value())
+    {
+        emit LOG_E("BIU: could not open the interface: " + QString::fromStdString(opened.error().detail), true, true);
+    }
+
     BiuOperationsSubaru biuOperationsSubaru(link, this);
     QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_E, syslogger, &SystemLogger::log_messages);
     QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_W, syslogger, &SystemLogger::log_messages);
@@ -721,15 +730,19 @@ void MainWindow::show_subaru_biu_window()
 
     emit LOG_D("BIU stopped", true, true);
 
-    serial->set_add_iso14230_header(false);
+    static_cast<void>(link.set_header(fastecu::diagnostics::KlineHeader::None));
 }
 
 void MainWindow::show_terminal_window()
 {
-    QStringList serial_port_arg;
-    serial_port_arg.append(serial_ports.at(serial_port_list->currentIndex()));
-    serial->set_serial_port_list(serial_port_arg);
-    fastecu::diagnostics::SerialDiagnosticLink link(serial);
+    const QString port = selected_serial_port();
+    if (port.isEmpty())
+    {
+        QMessageBox::warning(this, tr("Serial port"), "No serial port selected!");
+        return;
+    }
+    connection->select_port(port);
+    fastecu::diagnostics::SerialDiagnosticLink link(&connection->facade());
     DataTerminal hexCommander(link, this);
     QObject::connect(&hexCommander, &DataTerminal::LOG_E, syslogger, &SystemLogger::log_messages);
     QObject::connect(&hexCommander, &DataTerminal::LOG_W, syslogger, &SystemLogger::log_messages);

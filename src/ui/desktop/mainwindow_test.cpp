@@ -25,8 +25,8 @@
 #include "ui_mainwindow.h"
 #undef private
 
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
+#include "src/platform/desktop/common/connection/testing/adapter_connection_harness.h"
 #include "src/platform/desktop/common/logging/logging_engine.h"
 #include "src/platform/desktop/common/logging/systemlogger.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
@@ -185,22 +185,6 @@ class ModalDriver final : public QObject
     bool timed_out_ = false;
 };
 
-std::unique_ptr<SerialPortActions> fakeSerial(QObject *parent, FakeBackend **fake)
-{
-    auto serial = std::make_unique<SerialPortActions>(
-        [fake]() -> SerialBackend *
-        {
-            *fake = new NiceFakeBackend;
-            return *fake;
-        },
-        parent);
-    if (!serial->set_add_ssm_header(false) || *fake == nullptr)
-    {
-        return nullptr;
-    }
-    return serial;
-}
-
 // start_ecu_operations is a private slot, and this file reaches MainWindow's
 // internals through `#define private public` above. That works for data
 // members, whose access is checked only while compiling, but not for a call to
@@ -242,7 +226,6 @@ struct TestServices
         file_actions.set_base_dirs(config, config_root.toStdString());
         syslogger = std::make_unique<SystemLogger>(config->syslog_files_directory, config->software_name,
                                                    config->software_version);
-        serial = fakeSerial(nullptr, &fake);
     }
 
     MainWindowServices services()
@@ -252,7 +235,7 @@ struct TestServices
             .config_repository = file_repository,
             .file_action_events = events,
             .syslogger = *syslogger,
-            .serial = *serial,
+            .connection = adapter.connection(),
             .remote_utility = remote_utility,
             .logging_engine = logging_engine,
         };
@@ -265,8 +248,8 @@ struct TestServices
     QtEventSink events;
     FileActions file_actions;
     std::unique_ptr<SystemLogger> syslogger;
-    FakeBackend *fake = nullptr;
-    std::unique_ptr<SerialPortActions> serial; // null if the fake backend failed to start
+    fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
+    FakeBackend *fake = adapter.fake(); // null if the fake backend failed to start
     RemoteUtility remote_utility{"", ""};
     fastecu::desktop::logging::LoggingEngine logging_engine;
 };
@@ -431,7 +414,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
-        QVERIFY(services.serial != nullptr);
+        QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
 
@@ -451,7 +434,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
-        QVERIFY(services.serial != nullptr);
+        QVERIFY(services.fake != nullptr);
         EXPECT_CALL(*services.fake, waitForSource()).Times(0);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -473,7 +456,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
-        QVERIFY(services.serial != nullptr);
+        QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
 
@@ -533,7 +516,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
-        QVERIFY(services.serial != nullptr);
+        QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
 
@@ -590,7 +573,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
-        QVERIFY(services.serial != nullptr);
+        QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
 
@@ -628,7 +611,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
-        QVERIFY(services.serial != nullptr);
+        QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
 
@@ -664,7 +647,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
-        QVERIFY(services.serial != nullptr);
+        QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
 
@@ -695,7 +678,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
-        QVERIFY(services.serial != nullptr);
+        QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
 
@@ -729,7 +712,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
-        QVERIFY(services.serial != nullptr);
+        QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
 
@@ -771,7 +754,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
-        QVERIFY(services.serial != nullptr);
+        QVERIFY(services.fake != nullptr);
         bool called = false;
         services.logging_engine.registerProtocol(
             "SSM",
@@ -812,7 +795,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
-        QVERIFY(services.serial != nullptr);
+        QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
         window.vbatt_timer->stop();
@@ -859,6 +842,66 @@ class MainWindowTest : public QObject
             services.logging_engine.stop();
         }
         QCOMPARE(targets, (std::vector<bool>{true, false}));
+    }
+
+    void selectedSerialPortIsEmptyWithoutPorts()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.fake != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        window.serial_ports.clear();
+        window.serial_port_list->clear();
+        QCOMPARE(window.selected_serial_port(), QString());
+        window.serial_ports = {"ttyUSB0"};
+        window.serial_port_list->addItem("ttyUSB0");
+        QCOMPARE(window.selected_serial_port(), QString("ttyUSB0"));
+    }
+
+    void dtcWindowWithoutAPortWarnsInsteadOfCrashing()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.fake != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        window.serial_ports.clear();
+        window.serial_port_list->clear();
+        EXPECT_CALL(*services.fake, set_serial_port_list(::testing::_)).Times(0);
+        ModalDriver driver{QString()};
+        driver.start();
+        for (const char *command : {"dtc_window", "biu_communication", "terminal"})
+        {
+            QVERIFY(QMetaObject::invokeMethod(&window, "menu_action_triggered", Qt::DirectConnection,
+                                              Q_ARG(QString, QString::fromLatin1(command))));
+        }
+        driver.stop();
+        QVERIFY(!driver.timedOut());
+    }
+
+    void disconnectReturnsTheAdapterToIdle()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.fake != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        {
+            ::testing::InSequence order;
+            EXPECT_CALL(*services.fake, reset_connection());
+            EXPECT_CALL(*services.fake, set_serial_port_baudrate(QString("4800")));
+            EXPECT_CALL(*services.fake, set_serial_port_parity(0));
+        }
+        EXPECT_CALL(*services.fake, set_is_can_connection(::testing::_)).Times(0);
+        QVERIFY(QMetaObject::invokeMethod(&window, "menu_action_triggered", Qt::DirectConnection,
+                                          Q_ARG(QString, QStringLiteral("disconnect_from_ecu"))));
+        // Check now, so facade teardown cannot over-saturate the expectations.
+        QVERIFY(::testing::Mock::VerifyAndClearExpectations(services.fake));
+        QVERIFY(window.serial_port_list->isEnabled());
     }
 
   private:

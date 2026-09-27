@@ -4,8 +4,11 @@ class FileActions;
 class QtEventSink;
 class QtFileRepository;
 class RemoteUtility;
-class SerialPortActions;
 class SystemLogger;
+namespace fastecu::desktop::connection
+{
+class AdapterConnection;
+}
 namespace fastecu::desktop::logging
 {
 class LoggingEngine;
@@ -21,7 +24,7 @@ struct MainWindowServices
     QtFileRepository& config_repository;
     QtEventSink& file_action_events;
     SystemLogger& syslogger;
-    SerialPortActions& serial;
+    fastecu::desktop::connection::AdapterConnection& connection;
     RemoteUtility& remote_utility;
     fastecu::desktop::logging::LoggingEngine& logging_engine;
 };
