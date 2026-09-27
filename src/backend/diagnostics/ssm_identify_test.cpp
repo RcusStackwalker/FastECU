@@ -22,6 +22,7 @@ using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using ::testing::ElementsAre;
 using ::testing::HasSubstr;
+using ::testing::IsEmpty;
 
 namespace
 {
@@ -214,6 +215,7 @@ TEST(IdentifyKlineSsm2, RejectsABadChecksum)
 {
     Harness h;
     bytes::Bytes corrupt = kShortEcuInit;
+    // NOLINTNEXTLINE(bugprone-signed-bitwise)
     corrupt.back() ^= 0x01;
     h.link.queue_read(corrupt);
     EXPECT_THAT(h.run(SsmVariant::KlineSsm2), IsErrWith(ErrorKind::BadResponse, HasSubstr("checksum")));
@@ -394,4 +396,46 @@ TEST(IdentifySsm1, CancellingDuringTheDrainIsCancelled)
     // 18 calls reach the first trailing read; cancel a few reads into the drain.
     h.token.set_predicate([&h] { return h.link.calls.size() > 22; });
     EXPECT_THAT(h.run(SsmVariant::Ssm1), IsErr(ErrorKind::Cancelled));
+}
+
+TEST(IdentifyIso15765Uds, ReadsF182FromTheEcu)
+{
+    Harness h;
+    h.link.queue_read(b({0x00, 0x00, 0x07, 0xE8, 0x62, 0xF1, 0x82, 0x12, 0x34, 0x56, 0x78, 0x9A}));
+    const auto result = h.run(SsmVariant::Iso15765Uds);
+    ASSERT_THAT(result, IsOk());
+    EXPECT_EQ(result->ecu_id, "123456789A");
+    EXPECT_THAT(result->init_response, IsEmpty());
+    EXPECT_THAT(h.link.calls,
+                ElementsAre("open can iso15765=true bitrate=500000 extended=false source=7E0 destination=7E8",
+                            "write 00 00 07 E0 22 F1 82", "read 100"));
+}
+
+TEST(IdentifyIso15765Uds, TcuIsAddressedAs7E1)
+{
+    Harness h;
+    h.link.queue_read(b({0x00, 0x00, 0x07, 0xE8, 0x62, 0xF1, 0x82, 0x01}));
+    ASSERT_THAT(h.run(SsmVariant::Iso15765Uds, SsmTarget::Tcu), IsOk());
+    EXPECT_EQ(h.link.calls.at(0), "open can iso15765=true bitrate=500000 extended=false source=7E1 destination=7E8");
+    EXPECT_EQ(h.link.calls.at(1), "write 00 00 07 E1 22 F1 82");
+}
+
+TEST(IdentifyIso15765Uds, NegativeResponseIsBadResponse)
+{
+    Harness h;
+    h.link.queue_read(b({0x00, 0x00, 0x07, 0xE8, 0x7F, 0x22, 0x31}));
+    EXPECT_THAT(h.run(SsmVariant::Iso15765Uds), IsErr(ErrorKind::BadResponse));
+}
+
+TEST(IdentifyIso15765Uds, AnAnswerWithNoIdBytesIsBadResponse)
+{
+    Harness h;
+    h.link.queue_read(b({0x00, 0x00, 0x07, 0xE8, 0x62, 0xF1, 0x82}));
+    EXPECT_THAT(h.run(SsmVariant::Iso15765Uds), IsErr(ErrorKind::BadResponse));
+}
+
+TEST(IdentifyIso15765Uds, NoAnswerIsTimeout)
+{
+    Harness h;
+    EXPECT_THAT(h.run(SsmVariant::Iso15765Uds), IsErr(ErrorKind::Timeout));
 }

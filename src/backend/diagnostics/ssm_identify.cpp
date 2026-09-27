@@ -3,6 +3,7 @@
 #include <array>
 #include <chrono>
 #include <cstddef>
+#include <cstdint>
 #include <format>
 #include <string>
 #include <utility>
@@ -288,6 +289,40 @@ Result<SsmIdentity> identify_ssm1(IDiagnosticLink& link, const ICancellationToke
     return identity;
 }
 
+Result<SsmIdentity> identify_iso15765_uds(IDiagnosticLink& link, const ICancellationToken& cancellation,
+                                          SsmTarget target)
+{
+    const std::uint32_t source = target == SsmTarget::Ecu ? 0x7E0 : 0x7E1;
+    if (auto opened = link.open(CanLinkConfig{
+            .iso15765 = true, .bitrate = 500000, .extended_id = false, .source_id = source, .destination_id = 0x7E8});
+        !opened.has_value())
+    {
+        return std::unexpected(opened.error());
+    }
+    const std::array<bytes::Byte, 7> request{
+        0x00, 0x00, static_cast<bytes::Byte>((source >> 8U) & 0xFFU), static_cast<bytes::Byte>(source & 0xFFU), 0x22,
+        0xF1, 0x82};
+    if (auto written = check_written(link, request); !written.has_value())
+    {
+        return std::unexpected(written.error());
+    }
+
+    bytes::Bytes frame;
+    if (auto got = read_into(link, frame, 100ms, cancellation); !got.has_value())
+    {
+        return std::unexpected(got.error());
+    }
+    if (frame.empty())
+    {
+        return fail(ErrorKind::Timeout, "no answer to ReadDataByIdentifier F182");
+    }
+    if (frame.size() <= 7 || frame[4] != 0x62 || frame[5] != 0xF1 || frame[6] != 0x82)
+    {
+        return fail(ErrorKind::BadResponse, "unexpected answer to ReadDataByIdentifier F182: " + spaced_hex(frame));
+    }
+    return SsmIdentity{upper_hex(bytes::ByteView(frame).subspan(7)), {}};
+}
+
 } // namespace
 
 bytes::Bytes ssm_frame(bytes::ByteView payload, SsmTarget target)
@@ -312,14 +347,14 @@ Result<SsmIdentity> identify_ssm_ecu(IDiagnosticLink& link, IClock& clock, const
 {
     switch (request.variant)
     {
-    case SsmVariant::KlineSsm2:
-        return identify_kline_ssm2(link, clock, cancellation, request.target);
     case SsmVariant::Ssm1:
         return identify_ssm1(link, cancellation);
+    case SsmVariant::KlineSsm2:
+        return identify_kline_ssm2(link, clock, cancellation, request.target);
     case SsmVariant::Iso15765Uds:
-        break;
+        return identify_iso15765_uds(link, cancellation, request.target);
     }
-    return fail(ErrorKind::Unsupported, "SSM identification variant is not implemented yet");
+    return fail(ErrorKind::Internal, "unknown SSM identification variant");
 }
 
 } // namespace fastecu::diagnostics
