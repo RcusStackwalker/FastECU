@@ -522,6 +522,92 @@ per-OS targets depend on it instead of moc'ing the header themselves, and
 host OS. This is a Bazel/Qt integration limit, not a design preference — a
 future header split into per-OS pieces should keep it in mind.
 
+## Connection and identification
+
+### `AdapterConnection` is a concrete adapter, not a port
+
+`MainWindow`'s connection handling -- port listing, opening, the
+log-transport flag profile, idle resets, battery voltage -- is desktop-facade
+detail: port-name strings, OpenPort-only voltage, remote-replica waits.
+Android's first target, MUT/DMA logging over USB, would reuse almost none of
+it. So `//src/platform/desktop/common/connection:adapter_connection` is a
+concrete Qt class `MainWindow` calls directly, and each member reproduces the
+facade call sequence it replaced, pinned by `adapter_connection_test`. The
+portable part is the protocol: `identify_ssm_ecu` in `//src/backend/diagnostics`.
+If a later platform needs connection lifecycle, a port can be cut from the
+adapter's surface then.
+
+### The two idle resets stay separate
+
+`clear_link_flags` (a port refresh) clears every link flag; `return_to_idle`
+(a disconnect) resets baud and parity and leaves the flags alone.
+`connect_to_ecu` does not reapply the flags `log_transport_changed` set, so a
+disconnect that cleared them would make the next connect on a CAN transport
+open as K-Line. A port refresh still leaves parity as it found it -- pinned,
+not fixed.
+
+### SSM2 identification is validated the way RomRaider validates it
+
+RomRaider's `SSMResponseProcessor.validateResponse` is the reference: header
+`0x80`, tester `0xF0`, the requested target, response code `0xFF`, and the
+checksum. The legacy code checked only the length, so a corrupted frame
+became a wrong ECU ID and wrong log capabilities. The frame is first cut to
+its declared length, because the legacy code accepted trailing bytes.
+SSM1 keeps its length-only check: RomRaider has no SSM1, and its checks are
+SSM2's.
+
+### There is no write that skips the echo check
+
+`IDiagnosticLink` has one write, echo-checked. SSM1 was the only caller of a
+plain `write_serial_data`, for two of its three wake-up writes; they are
+echo-checked now. RomRaider has no such write either -- it strips the K-Line
+echo from the response by length. This is a bench-gated behavior change.
+
+### Connect is asynchronous
+
+`SsmIdentifyWorker` runs the five-attempt loop off the UI thread. While it
+runs, the log-transport combo and the Connect and Logging actions are
+disabled; every other entry point that touches the facade (disconnect, flash
+operations, window teardown) stops it first. A completion queued by a worker
+that was stopped is recognised by a generation counter and dropped, because
+Qt still delivers an event posted before its sender died. Logging start
+waits through a continuation. A connect still counts as successful when the
+port opened and identification failed, as before.
+
+### Pinned quirks
+
+- A connect succeeds when the port opens, even if identification fails.
+- Raw-CAN identification does nothing: its legacy branch tested a protocol
+  value no configuration sets.
+- SSM1 is checked by length only.
+- CAN identification uses UDS `22 F1 82`, not SSM `AA`, so CAN logging gets
+  no capability bits (see the [tech-debt roadmap](tech-debt.md)).
+- `log_transport_changed` sets 29-bit identifiers for iso15765 and 11-bit for
+  raw CAN.
+- A port refresh leaves parity unchanged.
+
+### Behavior changes
+
+1. The developer toggles `can_listener`, `simulate_obd`, and
+   `test_haltech_ic7_display` are deleted. None was ever in the shipped
+   `menu.cfg`; each looped forever on the UI thread.
+2. SSM identification runs off the UI thread and can be cancelled.
+3. SSM2 init responses are validated; trailing bytes are dropped.
+4. SSM1's two plain writes are echo-checked.
+5. K-Line SSM2 identification opens the link itself with the settings it
+   used to inherit.
+6. Every K-Line `IDiagnosticLink::open` now sets parity explicitly, so an
+   even parity left by SSM1 no longer leaks into a later DTC or BIU session.
+7. BIU opens directly at 10400 instead of opening and then changing speed.
+8. A non-Subaru connect -- every Mitsubishi MUT/DMA logging start -- skips
+   2.5 s of empty retries.
+9. Short or malformed init frames fail as `BadResponse` instead of reading
+   out of range.
+10. SSM1's trailing drain stops after 100 reads, and a trailing frame too
+    short for an ID is ignored instead of becoming a truncated ID.
+11. With no serial port present, the DTC, BIU, and terminal commands warn
+    instead of indexing past the end of the port list.
+
 ## Testing
 
 ### QtTest suites using Google Mock must fail on its failures

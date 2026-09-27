@@ -44,11 +44,11 @@ Step 6 (thin desktop shell) is under way: 6a (de-widget `FileActions`), 6b
 (calibration map-edit use case), 6c (desktop composition root), 6d
 (flash-operation dispatch), 6e (platform selection), and 6f (logging
 composition, merged as [#378](https://github.com/RcusStackwalker/FastECU/pull/378))
-are complete — see below. **6g (diagnostic tools) is complete**, pending
-bench qualification. Next is **6h**: the `MainWindow` connection service and
-SSM ECU identification, plus a decision on the dev toggles `can_listener`,
-`simulate_obd`, and `test_haltech_ic7_display`. Step 7 (Android seam) has not
-started.
+are complete — see below. **6g (diagnostic tools)** and **6h (connection and
+SSM identification)** are complete, pending bench qualification. Next is
+**6i**: delete `serial_qt_compat`, whose visibility list now holds only the
+serial package itself, `transport`, and `//tests`, and fold its sources into
+the owning packages. Step 7 (Android seam) has not started.
 
 ## Verified Current Baseline
 
@@ -332,6 +332,22 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      DataTerminal, 6g-4 DTC and close-out). See the
      [design notes](design-notes.md#diagnostic-tools) and the
      [diagnostics bench checklist](diagnostics-bench-checklist.md).
+   - **6h connection and SSM identification — complete**, pending bench
+     qualification (see the
+     [connection bench checklist](connection-bench-checklist.md)). No
+     `//src/ui/desktop` source includes `serial_port_actions.h`, and
+     `//src/ui/desktop:__pkg__` is gone from the `serial_qt_compat`
+     allowlist and `FROZEN`. `MainWindow` talks to a concrete platform
+     adapter, `AdapterConnection` (`//src/platform/desktop/common/connection`),
+     and hands the facade on only as a forward-declared reference. SSM ECU
+     identification is a portable `identify_ssm_ecu` in
+     `//src/backend/diagnostics`, run off the UI thread by `SsmIdentifyWorker`;
+     SSM2 init responses are validated the way RomRaider validates them.
+     `KlineLinkConfig` gained a parity field. The unshipped developer toggles
+     `can_listener`, `simulate_obd`, and `test_haltech_ic7_display` were
+     deleted. Five PRs, not yet numbered (6h-0 spec and plan, 6h-1 toggles,
+     6h-2 identification, 6h-3 adapter, 6h-4 worker and close-out). See the
+     [design notes](design-notes.md#connection-and-identification).
    - Remove compatibility wrappers, obsolete facades, and the temporary aggregate implementation target. (Duplicate status macros are resolved: `STATUS_SUCCESS`/`STATUS_ERROR` have one definition, in `serial_facade_codes.h`.)
    - Re-run packaging and the existing hardware bench checklists for affected logging/flashing paths.
 

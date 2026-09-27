@@ -315,15 +315,13 @@ The build-graph ratchet for the section above.
 `//src/platform/desktop/common/serial:serial_qt_compat` carries
 `serial_port_actions.h` to callers that should not have it, and its `visibility`
 list is frozen by `scripts/check-serial-compat-allowlist.py`: the list may
-shrink, never grow. It currently holds 4 entries: `//src/ui/desktop:__pkg__`
-under UI (0 in backend), plus `//src/platform/desktop/common/serial:__pkg__`
-(the package itself), `//src/platform/desktop/common/transport:__pkg__`, and
-`//tests:__pkg__`. Step 6g removed `//src/ui/desktop/biu:__pkg__`: BIU now
-reaches the facade through `IDiagnosticLink`/`SerialDiagnosticLink` instead.
-`//src/ui/desktop:__pkg__` is step 6h's to remove, once `MainWindow`'s
-connection orchestration no longer needs the full facade directly. The step
-5 tail's wave 7 deleted the `//src/platform/desktop/common/flash/legacy`
-entry along with the package it named.
+shrink, never grow. It currently holds 3 entries, none of them UI or
+backend: `//src/platform/desktop/common/serial:__pkg__` (the package itself),
+`//src/platform/desktop/common/transport:__pkg__`, and `//tests:__pkg__`.
+Step 6g removed `//src/ui/desktop/biu:__pkg__`, and step 6h removed
+`//src/ui/desktop:__pkg__`: `MainWindow` now talks to `AdapterConnection`.
+The step 5 tail's wave 7 deleted the `//src/platform/desktop/common/flash/legacy`
+entry along with the package it named. Deleting the target itself is step 6i.
 
 The allowlist makes this debt measurable, which the prose above cannot: each
 removed entry is a layer that no longer reaches the full facade. Every entry is
@@ -338,6 +336,22 @@ Actions:
   UI code reaching for `serial_port_actions.h` is the dependency being removed.
 - Delete `serial_qt_compat` once only `//tests` remains, and fold its
   sources into the owning packages.
+
+### P2: Identify Subaru CAN ECUs with SSM `AA`
+
+Step 6h kept CAN identification byte-faithful: iso15765 sends UDS
+`22 F1 82` and gets an ID but no capability bits, so CAN logging never
+filters log values by what the ECU supports, and raw CAN identifies nothing
+(its legacy branch tested a protocol value no configuration sets). RomRaider
+identifies over CAN with SSM `AA` to 0x7E0 and gets `EA` plus the same
+capability bytes K-Line returns.
+
+Actions:
+
+- Capture an `AA`/`EA` exchange on a bench CAN ECU before changing anything.
+- Add an `SsmVariant` for it in `identify_ssm_ecu`, validated like SSM2, and
+  route both CAN transports to it.
+- Qualify it on the [connection bench checklist](connection-bench-checklist.md).
 
 ### P2: Convert suppressed signed-bitwise arithmetic to unsigned operands
 
