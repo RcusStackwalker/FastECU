@@ -9,6 +9,7 @@
 #include <QTemporaryDir>
 #include <QTest>
 #include <QSignalSpy>
+#include <QSemaphore>
 #include <QTimer>
 
 #include <gmock/gmock.h>
@@ -1009,6 +1010,8 @@ class MainWindowTest : public QObject
         QVERIFY(!window.ecu_init_complete);
         QVERIFY(window.log_transport_list->isEnabled());
         QVERIFY(window.serial_port_list->isEnabled());
+        QVERIFY(window.ecu_radio_button->isEnabled());
+        QVERIFY(window.tcu_radio_button->isEnabled());
     }
 
     void disconnectDuringIdentificationCancelsAndDropsTheResult()
@@ -1030,12 +1033,23 @@ class MainWindowTest : public QObject
         QVERIFY(window.identify_worker_ == nullptr);
         QVERIFY(window.log_transport_list->isEnabled());
         QVERIFY(window.serial_port_list->isEnabled());
+        QVERIFY(window.ecu_radio_button->isEnabled());
+        QVERIFY(window.tcu_radio_button->isEnabled());
         QTest::qWait(200); // any completion already queued must be dropped
         QVERIFY(!window.ecu_init_complete);
     }
 
+    void loggingStartWaitsForIdentification_data()
+    {
+        QTest::addColumn<bool>("target_is_ecu");
+        QTest::newRow("ECU") << true;
+        QTest::newRow("TCU") << false;
+    }
+
     void loggingStartWaitsForIdentification()
     {
+        QFETCH(bool, target_is_ecu);
+        QSemaphore response_gate;
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
@@ -1044,9 +1058,17 @@ class MainWindowTest : public QObject
         constructor_driver.stop();
         prepareConnect(window, *services.fake, "Subaru", "iso15765");
         window.protocol = "SSM";
+        (target_is_ecu ? window.ecu_radio_button : window.tcu_radio_button)->setChecked(true);
+        EXPECT_CALL(*services.fake, write_serial_data_echo_check(
+                                        frame({0x00, 0x00, 0x07, target_is_ecu ? 0xE0 : 0xE1, 0x22, 0xF1, 0x82})));
         EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
-            .WillOnce(
-                ::testing::Return(frame({0x00, 0x00, 0x07, 0xE8, 0x62, 0xF1, 0x82, 0x12, 0x34, 0x56, 0x78, 0x9A})))
+            .WillOnce(::testing::Invoke(
+                [&response_gate](std::uint16_t)
+                {
+                    // Bound the wait so an assertion failure can still join the worker.
+                    response_gate.tryAcquire(1, 5000);
+                    return frame({0x00, 0x00, 0x07, 0xE8, 0x62, 0xF1, 0x82, 0x12, 0x34, 0x56, 0x78, 0x9A});
+                }))
             .WillRepeatedly(::testing::Return(QByteArray{}));
         auto *menu = window.ui->menubar->addMenu("Test logging");
         auto *action = menu->addAction("Logging");
@@ -1066,19 +1088,29 @@ class MainWindowTest : public QObject
         values.log_value = {"0"};
         values.log_value_enabled = {"1"};
         values.lower_panel_log_value_id = {"rpm"};
-        services.logging_engine.registerProtocol("SSM",
-                                                 [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
-                                                 {
-                                                     auto protocol = std::make_unique<ScriptedLoggingProtocol>();
-                                                     protocol->blockPollUntilCancelled();
-                                                     return protocol;
-                                                 });
+        bool target_frozen_in_continuation = false;
+        services.logging_engine.registerProtocol(
+            "SSM",
+            [&window, &target_frozen_in_continuation](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
+            {
+                target_frozen_in_continuation =
+                    !window.ecu_radio_button->isEnabled() && !window.tcu_radio_button->isEnabled();
+                auto protocol = std::make_unique<ScriptedLoggingProtocol>();
+                protocol->blockPollUntilCancelled();
+                return protocol;
+            });
 
         action->setChecked(true);
         QVERIFY(triggerMenu(window, "toggle_realtime"));
         QVERIFY(!window.activeLoggingSnapshot.has_value()); // still identifying
+        (target_is_ecu ? window.tcu_radio_button : window.ecu_radio_button)->click();
+        response_gate.release();
         QTRY_VERIFY_WITH_TIMEOUT(window.activeLoggingSnapshot.has_value(), 5000);
         QCOMPARE(window.ecuid, QString("123456789A"));
+        QCOMPARE(window.activeLoggingSnapshot->target_is_ecu, target_is_ecu);
+        QVERIFY(target_frozen_in_continuation);
+        QVERIFY(window.ecu_radio_button->isEnabled());
+        QVERIFY(window.tcu_radio_button->isEnabled());
         services.logging_engine.stop();
     }
 
@@ -1226,6 +1258,7 @@ class MainWindowTest : public QObject
         window.connect_to_ecu([&first_result](bool connected) { first_result = connected; });
         QVERIFY(window.identify_worker_->wait(5000));
         bool restarted = false;
+        bool target_frozen_in_notice = false;
         QTimer notice_driver;
         notice_driver.setInterval(5);
         QObject::connect(&notice_driver, &QTimer::timeout,
@@ -1237,6 +1270,8 @@ class MainWindowTest : public QObject
                                  {
                                      if (!restarted)
                                      {
+                                         target_frozen_in_notice = !window.ecu_radio_button->isEnabled() &&
+                                                                   !window.tcu_radio_button->isEnabled();
                                          restarted = true;
                                          window.connect_to_ecu([&second_result](bool connected)
                                                                { second_result = connected; });
@@ -1249,6 +1284,9 @@ class MainWindowTest : public QObject
         QCoreApplication::processEvents();
         notice_driver.stop();
         QVERIFY(restarted);
+        QVERIFY(target_frozen_in_notice);
+        QVERIFY(!window.ecu_radio_button->isEnabled());
+        QVERIFY(!window.tcu_radio_button->isEnabled());
         QVERIFY(window.identify_worker_ != nullptr);
         QVERIFY(first_result.has_value());
         QVERIFY(!*first_result);
@@ -1256,6 +1294,8 @@ class MainWindowTest : public QObject
         window.stop_identification();
         QVERIFY(second_result.has_value());
         QVERIFY(!*second_result);
+        QVERIFY(window.ecu_radio_button->isEnabled());
+        QVERIFY(window.tcu_radio_button->isEnabled());
     }
 
   private:

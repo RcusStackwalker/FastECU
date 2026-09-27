@@ -491,7 +491,6 @@ void MainWindow::finish_identification(const fastecu::diagnostics::SsmIdentifyWo
     const quint64 generation = identify_generation_;
     identify_worker_.reset(); // joins; run() has already returned or is returning
     identify_link_.reset();
-    set_identification_in_progress(false);
     if (result.success)
     {
         ecu_init_complete = true;
@@ -513,6 +512,12 @@ void MainWindow::finish_identification(const fastecu::diagnostics::SsmIdentifyWo
     if (done)
     {
         done(!result.success || generation == identify_generation_);
+    }
+    // Keep the selected target fixed through parsing and the logging snapshot.
+    // An older completion must not unlock a nested identification's controls.
+    if (!identify_worker_)
+    {
+        set_identification_in_progress(false);
     }
 }
 
@@ -537,6 +542,8 @@ void MainWindow::stop_identification()
 void MainWindow::set_identification_in_progress(bool in_progress)
 {
     log_transport_list->setEnabled(!in_progress);
+    ecu_radio_button->setEnabled(!in_progress);
+    tcu_radio_button->setEnabled(!in_progress);
     for (QMenu *menu : ui->menubar->findChildren<QMenu *>())
     {
         for (QAction *action : menu->actions())
