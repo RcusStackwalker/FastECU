@@ -73,14 +73,14 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     software_version = configValues->software_version;
     this->setWindowTitle(software_title + " " + software_version);
 
-    syslogger = &services_.syslogger;
-    QObject::connect(this, &MainWindow::LOG_E, syslogger, &SystemLogger::log_messages);
-    QObject::connect(this, &MainWindow::LOG_W, syslogger, &SystemLogger::log_messages);
-    QObject::connect(this, &MainWindow::LOG_I, syslogger, &SystemLogger::log_messages);
-    QObject::connect(this, &MainWindow::LOG_D, syslogger, &SystemLogger::log_messages);
-    QObject::connect(this, &MainWindow::enable_log_write_to_file, syslogger, &SystemLogger::enable_log_write_to_file);
-    QObject::connect(syslogger, &SystemLogger::send_message_to_log_window, this,
-                     &MainWindow::send_message_to_log_window);
+    log_channel = &services_.log;
+    using fastecu::ui::LogChannel;
+    QObject::connect(this, &MainWindow::LOG_E, log_channel, &LogChannel::LOG_E);
+    QObject::connect(this, &MainWindow::LOG_W, log_channel, &LogChannel::LOG_W);
+    QObject::connect(this, &MainWindow::LOG_I, log_channel, &LogChannel::LOG_I);
+    QObject::connect(this, &MainWindow::LOG_D, log_channel, &LogChannel::LOG_D);
+    QObject::connect(this, &MainWindow::enable_log_write_to_file, log_channel, &LogChannel::enable_log_write_to_file);
+    QObject::connect(log_channel, &LogChannel::log_window_message, this, &MainWindow::send_message_to_log_window);
 
     setupLoggingEngine();
 
@@ -124,21 +124,25 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     definitionAuthoringDialog =
         new fastecu::ui::DefinitionAuthoringDialog(*fileActions, services_.config_repository, this);
-    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_E, syslogger,
-                     &SystemLogger::log_messages);
-    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_W, syslogger,
-                     &SystemLogger::log_messages);
-    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_I, syslogger,
-                     &SystemLogger::log_messages);
-    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_D, syslogger,
-                     &SystemLogger::log_messages);
+    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_E, log_channel,
+                     &fastecu::ui::LogChannel::LOG_E);
+    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_W, log_channel,
+                     &fastecu::ui::LogChannel::LOG_W);
+    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_I, log_channel,
+                     &fastecu::ui::LogChannel::LOG_I);
+    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_D, log_channel,
+                     &fastecu::ui::LogChannel::LOG_D);
 
     emit enable_log_write_to_file(true);
 
-    QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_E, syslogger, &SystemLogger::log_messages);
-    QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_W, syslogger, &SystemLogger::log_messages);
-    QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_I, syslogger, &SystemLogger::log_messages);
-    QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_D, syslogger, &SystemLogger::log_messages);
+    QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_E, log_channel,
+                     &fastecu::ui::LogChannel::LOG_E);
+    QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_W, log_channel,
+                     &fastecu::ui::LogChannel::LOG_W);
+    QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_I, log_channel,
+                     &fastecu::ui::LogChannel::LOG_I);
+    QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_D, log_channel,
+                     &fastecu::ui::LogChannel::LOG_D);
 
     fileActions->check_config_dirs(configValues);
 
@@ -1041,10 +1045,8 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             fastecu::flash::flash_operation_from_command(cmd_type.toStdString());
 
         fastecu::flash::FlashOperationController controller{connection->facade(), this};
-        // Relay through MainWindow's own LOG_* signals: the syslogger runs on
-        // its own thread, and a queued line whose sender (this stack-local
-        // controller) is already destroyed reaches log_messages with a null
-        // sender() and is dropped.
+        // Relay through MainWindow's own LOG_* signals, like every UI logger;
+        // see LogChannel for why lines go through a long-lived sender.
         QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_E, this, &MainWindow::LOG_E);
         QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_W, this, &MainWindow::LOG_W);
         QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_I, this, &MainWindow::LOG_I);
@@ -2077,10 +2079,10 @@ template <typename FLASH_CLASS> FLASH_CLASS *MainWindow::connect_signals_and_run
                                                  &MainWindow::external_logger_set_progressbar_value);
 
     // If signal is not overloaded, QObject::connect<> template will deduce type automatically
-    QObject::connect(object, &FLASH_CLASS::LOG_E, syslogger, &SystemLogger::log_messages);
-    QObject::connect(object, &FLASH_CLASS::LOG_W, syslogger, &SystemLogger::log_messages);
-    QObject::connect(object, &FLASH_CLASS::LOG_I, syslogger, &SystemLogger::log_messages);
-    QObject::connect(object, &FLASH_CLASS::LOG_D, syslogger, &SystemLogger::log_messages);
+    QObject::connect(object, &FLASH_CLASS::LOG_E, log_channel, &fastecu::ui::LogChannel::LOG_E);
+    QObject::connect(object, &FLASH_CLASS::LOG_W, log_channel, &fastecu::ui::LogChannel::LOG_W);
+    QObject::connect(object, &FLASH_CLASS::LOG_I, log_channel, &fastecu::ui::LogChannel::LOG_I);
+    QObject::connect(object, &FLASH_CLASS::LOG_D, log_channel, &fastecu::ui::LogChannel::LOG_D);
 
     object->run();
     return object;

@@ -55,12 +55,11 @@
 #include "src/ui/desktop/settings.h"
 #include "src/ui/desktop/dtc_operations.h"
 #include "src/ui/desktop/hexedit/hexedit.h"
+#include "src/ui/desktop/channels/log_channel.h"
 
 // Flash modules
 
 // OBD
-
-#include "src/platform/desktop/common/logging/systemlogger.h"
 
 #include "src/platform/desktop/common/remote_utility/remote_utility.h"
 
@@ -262,7 +261,7 @@ class MainWindow : public QMainWindow
 
     QSize toolbar_item_size = QSize(24, 24);
 
-    SystemLogger *syslogger;
+    fastecu::ui::LogChannel *log_channel = nullptr;
 
     bool eventFilter(QObject *target, QEvent *event);
 

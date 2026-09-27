@@ -77,7 +77,6 @@ MainWindowServices DesktopComposition::services()
         .file_actions = file_actions_,
         .config_repository = file_repository_,
         .file_action_events = file_action_events_,
-        .syslogger = *syslogger_,
         .log = log_channel_,
         .connection = *connection_,
         .remote_utility = *remote_utility_,

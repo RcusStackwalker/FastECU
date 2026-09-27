@@ -4,7 +4,6 @@ class FileActions;
 class QtEventSink;
 class QtFileRepository;
 class RemoteUtility;
-class SystemLogger;
 namespace fastecu::desktop::connection
 {
 class AdapterConnection;
@@ -27,7 +26,6 @@ struct MainWindowServices
     FileActions& file_actions; // set_base_dirs already applied
     QtFileRepository& config_repository;
     QtEventSink& file_action_events;
-    SystemLogger& syslogger;
     fastecu::ui::LogChannel& log;
     fastecu::desktop::connection::AdapterConnection& connection;
     RemoteUtility& remote_utility;

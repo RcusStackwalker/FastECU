@@ -5,11 +5,16 @@ package(default_visibility = [
     "//apps/desktop:__pkg__",
     "//src/platform:__subpackages__",
     "//tests:__pkg__",
-    # GRANDFATHERED (Task 5 human decision): //src/ui/desktop includes
-    # systemlogger.h directly (mainwindow.h:95). This is a real ui ->
-    # platform edge the modularization plan has not yet removed.
-    "//src/ui/desktop:__pkg__",
 ])
+
+# UI-facing adapters, like connection:adapter_connection: MainWindow holds the
+# LoggingEngine and builds its snapshots and values through these adapters.
+UI_FACING_VISIBILITY = [
+    "//apps/desktop:__pkg__",
+    "//src/platform:__subpackages__",
+    "//src/ui/desktop:__pkg__",
+    "//tests:__pkg__",
+]
 
 qt_cc_library(
     name = "logging",
@@ -63,6 +68,7 @@ qt_cc_library(
     normal_hdrs = [
         "cdbg_serial_setup.h",
     ],
+    visibility = UI_FACING_VISIBILITY,
     deps = QT_DEPS + [
         ":logging_adapters",
         "//src/backend/logging:logging_use_case",
@@ -83,6 +89,7 @@ qt_cc_library(
         "logging_snapshot_adapter.h",
         "logging_value_adapter.h",
     ],
+    visibility = UI_FACING_VISIBILITY,
     deps = QT_DEPS + [
         "//src/backend/definitions",
         "//src/backend/logging:logging_session",
