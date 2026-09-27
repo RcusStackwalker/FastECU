@@ -40,6 +40,9 @@ class AdapterConnection final : public QObject
     void select_port(const QString& port);
     // The opened port's name; empty when nothing opened.
     QString open();
+    // The name open() last returned, as the facade still holds it; for a
+    // caller that opened the port through the diagnostic link instead.
+    QString opened_port();
     bool is_open();
     void reset();
     void apply_log_transport(LogTransport transport, bool ssm_protocol);

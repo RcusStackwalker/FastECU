@@ -917,6 +917,36 @@ class MainWindowTest : public QObject
         QVERIFY(!driver.timedOut());
     }
 
+    void biuWindowRemembersTheOpenedPort()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.fake != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        prepareConnect(window, *services.fake, "Subaru", "K-Line");
+        ON_CALL(*services.fake, get_openedSerialPort()).WillByDefault(::testing::Return(QString("ttyUSB0")));
+        window.previous_serial_port.clear();
+        window.configValues->serial_port = "none";
+        window.fileActions->save_config_file(window.configValues);
+        const QString config_file =
+            config_root_.path() + "/" + FileActions::ConfigValuesStructure{}.software_version + "/config/fastecu.cfg";
+
+        ModalDriver driver{QString()};
+        driver.start();
+        QVERIFY(triggerMenu(window, "biu_communication"));
+        driver.stop();
+
+        // As open_serial_port did for the legacy BIU path: the chosen port is
+        // remembered for the next launch and as the previously opened port.
+        QCOMPARE(window.previous_serial_port, QString("ttyUSB0"));
+        QCOMPARE(window.configValues->serial_port, QString("ttyUSB0"));
+        QFile saved{config_file};
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QVERIFY(saved.readAll().contains(R"(data="ttyUSB0")"));
+    }
+
     void disconnectReturnsTheAdapterToIdle()
     {
         ModalDriver constructor_driver{QString()};

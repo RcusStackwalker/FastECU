@@ -56,6 +56,11 @@ QString AdapterConnection::open()
     return facade_.open_serial_port();
 }
 
+QString AdapterConnection::opened_port()
+{
+    return facade_.get_openedSerialPort();
+}
+
 bool AdapterConnection::is_open()
 {
     return facade_.is_serial_port_open();

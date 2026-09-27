@@ -878,6 +878,12 @@ void MainWindow::show_subaru_biu_window()
     fastecu::diagnostics::SerialDiagnosticLink link(&connection->facade());
     const auto opened = link.open(fastecu::diagnostics::KlineLinkConfig{
         .header = fastecu::diagnostics::KlineHeader::None, .iso14230_connection = true, .baud = 10400});
+    if (opened.has_value())
+    {
+        // The legacy BIU path opened through open_serial_port, which also
+        // remembered the port; keep that.
+        remember_opened_port(port, connection->opened_port());
+    }
     set_status_bar_label(opened.has_value(), false, "");
     if (!opened.has_value())
     {

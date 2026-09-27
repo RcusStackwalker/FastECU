@@ -873,14 +873,7 @@ void MainWindow::open_serial_port()
     QString opened_serial_port = connection->open();
     if (opened_serial_port != "")
     {
-        if (opened_serial_port != previous_serial_port)
-        {
-            ecuid.clear();
-            ecu_init_complete = false;
-        }
-        previous_serial_port = opened_serial_port;
-        configValues->serial_port = port;
-        fileActions->save_config_file(configValues);
+        remember_opened_port(port, opened_serial_port);
         if (ecuid == "")
         {
             set_status_bar_label(true, false, "");
@@ -895,6 +888,18 @@ void MainWindow::open_serial_port()
         set_status_bar_label(false, false, "");
         ecu_init_complete = false;
     }
+}
+
+void MainWindow::remember_opened_port(const QString& port, const QString& opened_port)
+{
+    if (opened_port != previous_serial_port)
+    {
+        ecuid.clear();
+        ecu_init_complete = false;
+    }
+    previous_serial_port = opened_port;
+    configValues->serial_port = port;
+    fileActions->save_config_file(configValues);
 }
 
 int MainWindow::start_ecu_operations(const QString& cmd_type)

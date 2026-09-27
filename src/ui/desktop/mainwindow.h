@@ -179,6 +179,10 @@ class MainWindow : public QMainWindow
         return serial_ports.value(serial_port_list->currentIndex());
     }
 
+    // open_serial_port's bookkeeping once a port opened: forget the ECU when
+    // the port changed, and remember the port for the next launch.
+    void remember_opened_port(const QString& port, const QString& opened_port);
+
     int ecu_protocols_list_length = 6;
     QString current_car_model = "";
 
