@@ -159,6 +159,9 @@ class TestAdapterConnection : public QObject
             EXPECT_CALL(serial.fake(), set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)))
                 .WillOnce(Return(true));
         }
+        EXPECT_CALL(serial.fake(), set_is_iso14230_connection(_)).Times(0);
+        EXPECT_CALL(serial.fake(), set_is_29_bit_id(_)).Times(0);
+        EXPECT_CALL(serial.fake(), set_add_iso14230_header(_)).Times(0);
         EXPECT_CALL(serial.fake(), set_is_can_connection(_)).Times(0);
         EXPECT_CALL(serial.fake(), set_is_iso15765_connection(_)).Times(0);
         AdapterConnection connection(*serial);
