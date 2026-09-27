@@ -220,11 +220,13 @@ bytes; the legacy code silently produced a shorter ID in that case.
    up to 10 × 50 ms until `[3] + 5` bytes are present. It stops at the first
    budget exhausted and returns `Timeout` if nothing arrived and
    `BadResponse` if the frame is short.
-4. Validation, following RomRaider: `[0] == 0x80`, `[1] == 0xF0`,
-   `[2] ==` the request's target (`0x10` or `0x18`), `[3] == len − 5`,
-   `[4] == 0xFF`, and the last byte equals the checksum of everything before
-   it. The first failure returns `BadResponse` naming the field and carrying
-   the frame in hex.
+4. The frame is the first `[3] + 5` bytes. The legacy code accepted
+   `len >= [3] + 5`, so any trailing bytes are dropped rather than rejected.
+   Validation then follows RomRaider: `[3] >= 1`, so there is a response
+   code; `[0] == 0x80`; `[1] == 0xF0`; `[2] ==` the request's target
+   (`0x10` or `0x18`); `[4] == 0xFF`; and the last byte equals the checksum
+   of everything before it. The first failure returns `BadResponse` naming
+   the field and carrying the frame in hex.
 5. It returns `{parse_ssm_ecu_id(frame), frame}`. An ID that does not parse is
    `BadResponse`.
 
@@ -235,13 +237,21 @@ bytes; the legacy code silently produced a shorter ID in that case.
    logs them and does not check them, as today.
 3. It writes `00 46 48 49` and reads 2 × 500 ms, the same way.
 4. It writes `12 00 00 00` and reads 500 ms.
-5. On `len == [3] + 5` it succeeds. The legacy code then drains the line in
-   100 ms reads, re-parsing every frame, so the last one wins. The port keeps
-   reading 100 ms at a time until a read comes back empty, and the last
-   non-empty read that satisfies the length check becomes `init_response`.
-   RomRaider's checks are SSM2-specific and are not applied here. **Pinned:**
-   the length is the only check on SSM1.
-6. All three writes are echo-checked `link.write`.
+5. On `len >= 4` and `len == [3] + 5` it succeeds, provided
+   `parse_ssm_ecu_id` accepts the frame. An empty read is `Timeout`;
+   anything else is `BadResponse`. The legacy code read `[3]` of a shorter
+   frame out of range.
+6. The trailing read reproduces the legacy loop, which parses at most one
+   extra frame. It reads 100 ms once. If that read is non-empty and
+   `parse_ssm_ecu_id` accepts it, it replaces both `ecu_id` and
+   `init_response`, with no length check, as today. It then keeps reading
+   100 ms at a time until a read comes back empty, and discards what it
+   reads. **Deviation:** the drain stops after 100 reads (about 10 s),
+   where the legacy loop never ended on a line that never went quiet. **Deviation:** a trailing frame too short for an ID is ignored,
+   where the legacy code turned it into a truncated ID. RomRaider's checks
+   are SSM2-specific and are not applied here. **Pinned:** the length is
+   the only check on SSM1's first frame.
+7. All three writes are echo-checked `link.write`.
 
 **`Iso15765Uds`:**
 
@@ -258,15 +268,20 @@ the worker turns results into log lines.
 ### Platform: `SsmIdentifyWorker`
 
 `//src/platform/desktop/common/diagnostics:ssm_identify_worker` is a
-`QThread` that follows `DtcWorker`. It takes the facade (forward-declared),
-builds a `SerialDiagnosticLink`, a steady `IClock`, and a cancellation token,
-and runs up to 5 attempts of `identify_ssm_ecu`, sleeping 500 ms through the
-clock between them. `Cancelled` ends the loop immediately; `Timeout` and
-`BadResponse` go to the next attempt, and the last error is reported if all
-attempts fail. Each failed attempt is reported through a `progress(QString)`
-signal. `completed(bool ok, QString ecu_id, QByteArray init_response,
-QString error)` is emitted exactly once per `run()`. `cancel()` is safe from
-any thread, and the destructor cancels and joins.
+`QThread` shaped like `DtcWorker`. It takes an `SsmIdentifyRequest`, a
+non-owned `IDiagnosticLink&`, and an owned `std::unique_ptr<IClock>`, and it
+owns a `ManualCancellationToken`. It runs up to 5 attempts of
+`identify_ssm_ecu`, sleeping 500 ms through the clock between attempts but
+not after the last one. (The legacy loop also slept 500 ms after a
+successful attempt and after the last one; nothing waited on that.)
+`Cancelled` ends the loop immediately. `Timeout` and `BadResponse` go on to
+the next attempt, and the last error is reported if every attempt fails.
+Each failed attempt is reported through `logEvent(int level, QString)`, as
+`DtcWorker` reports its lines. `completed(SsmIdentifyWorkerResult)` is
+emitted exactly once per `run()`; the result carries `success`,
+`error_kind`, `error_detail`, `ecu_id`, and `init_response`. `requestStop()`
+is safe from any thread, and the destructor stops the worker and joins it.
+`MainWindow` owns the `SerialDiagnosticLink` the worker uses.
 
 ### Platform: `AdapterConnection`
 
@@ -336,9 +351,11 @@ survives a port refresh. That quirk is pinned, not fixed.
   check, moved into its own function.
 - `disconnect_from_ecu`, `closeEvent`, and `start_ecu_operations` cancel and
   join any running worker before they touch the facade.
-- The BIU dialog is prepared through the link:
-  `link.open(KlineLinkConfig{.header = None, .iso14230_connection = true, .baud = 10400})`
-  before `exec()`, and `link.set_header(KlineHeader::None)` after.
+- The BIU dialog is prepared through the adapter and the link:
+  `connection.select_port(current port)`, then
+  `link.open(KlineLinkConfig{.header = None, .iso14230_connection = true, .baud = 10400})`,
+  and the status bar is updated from the result, as `open_serial_port` did.
+  After `exec()` it calls `link.set_header(KlineHeader::None)`.
 - Deleted: `ecu_init`, `ssm_init`, `ssm_kline_init`, `ssm_can_init`,
   `add_ssm_header`, `calculate_checksum`, `parse_ecuid`, and
   `ecu_init_started`. `log_operations_ssm.cpp` keeps `parse_log_value_list`
