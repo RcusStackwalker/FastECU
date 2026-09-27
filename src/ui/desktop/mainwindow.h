@@ -304,12 +304,20 @@ class MainWindow : public QMainWindow
     // on_done(false) means the port did not open or identification was
     // stopped; on_done(true) means the port opened, whether or not the ECU
     // answered (unchanged from the synchronous code).
+    //
+    // on_done(false) can run synchronously inside stop_identification(),
+    // before that caller (disconnect, flash, DTC, BIU, terminal, a port or
+    // transport change) goes on to use the facade. on_done must therefore not
+    // start a connection or otherwise touch the facade synchronously; defer
+    // any such work to the event loop.
     void connect_to_ecu(std::function<void(bool)> on_done = {});
     void continue_start_logging();
     void finish_identification(const fastecu::diagnostics::SsmIdentifyWorkerResult& result);
     // Cancels and joins a running identification, restores the controls
     // (including the port selector connect_to_ecu locked), and tells a waiting
-    // caller the connect did not complete.
+    // caller the connect did not complete. That caller's on_done(false) runs
+    // here, synchronously, before stop_identification returns (see
+    // connect_to_ecu for the contract this places on on_done).
     void stop_identification();
     void set_identification_in_progress(bool in_progress);
 
