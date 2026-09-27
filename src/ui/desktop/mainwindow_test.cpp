@@ -42,6 +42,8 @@
 namespace
 {
 
+const ApplicationIdentity kTestApplication{.name = "FastECU", .title = "FastECU", .version = "0.1.0-beta.5"};
+
 constexpr auto kTcuChooserText = "Choose which option";
 constexpr auto kTcuIgnitionText = "Turn ignition ON and press OK to start initializing connection to TCU";
 constexpr auto kLegacyEcuIgnitionText = "Turn ignition ON and press OK to start initializing connection to ECU";
@@ -231,6 +233,34 @@ QByteArray frame(std::initializer_list<int> values)
 // A valid SSM2 ECU init response carrying ECU ID 3152584006.
 const QByteArray kEcuInit = frame({0x80, 0xF0, 0x10, 0x09, 0xFF, 0xA2, 0x10, 0x11, 0x31, 0x52, 0x58, 0x40, 0x06, 0x6C});
 
+// Selects the fixture's last vehicle row using `protocol`.
+void selectProtocol(MainWindow& window, const QString& protocol)
+{
+    QVERIFY(window.configSession->select_by_protocol_name(protocol.toStdString()));
+}
+
+// Selects the fixture's first Subaru row using `protocol`. The flash tests
+// dispatch only for Subaru/Mitsubishi, and sub_ecu_denso_sh7058's last row
+// is a Nissan one.
+void selectSubaruProtocol(MainWindow& window, const QString& protocol)
+{
+    const auto vehicles = window.configSession->vehicles();
+    const auto it =
+        std::ranges::find_if(vehicles, [&](const fastecu::config::ResolvedCarModel& vehicle)
+                             { return vehicle.make == "Subaru" && vehicle.protocol_name == protocol.toStdString(); });
+    QVERIFY(it != vehicles.end());
+    QVERIFY(window.configSession->select_row(static_cast<std::size_t>(it - vehicles.begin())).has_value());
+}
+
+// Selects the fixture's first vehicle row of `make`.
+void selectMake(MainWindow& window, const QString& make)
+{
+    const auto vehicles = window.configSession->vehicles();
+    const auto it = std::ranges::find(vehicles, make.toStdString(), &fastecu::config::ResolvedCarModel::make);
+    QVERIFY(it != vehicles.end());
+    QVERIFY(window.configSession->select_row(static_cast<std::size_t>(it - vehicles.begin())).has_value());
+}
+
 // Points the window at one open port on the given make and log transport.
 void prepareConnect(MainWindow& window, FakeBackend& fake, const QString& make, const QString& transport)
 {
@@ -238,9 +268,9 @@ void prepareConnect(MainWindow& window, FakeBackend& fake, const QString& make, 
     window.serial_ports = {"ttyUSB0"};
     window.serial_port_list->clear();
     window.serial_port_list->addItem("ttyUSB0");
-    window.configValues->flash_protocol_selected_make = make;
-    window.configValues->flash_protocol_selected_log_transport = transport;
-    window.configValues->flash_protocol_selected_log_protocol = "SSM";
+    selectMake(window, make);
+    window.configSession->settings().selected_log_transport = transport.toStdString();
+    window.configSession->settings().selected_log_protocol = "SSM";
     ON_CALL(fake, open_serial_port()).WillByDefault(::testing::Return(QString("ttyUSB0")));
 }
 
@@ -255,15 +285,16 @@ bool triggerMenu(MainWindow& window, const char *command)
 struct TestServices
 {
     explicit TestServices(const QString& config_root)
-        : file_actions(file_system, resource_bundle, file_repository, file_writer, events)
+        : config_status(config.initialize(config_root.toStdString(), kTestApplication.version)),
+          file_actions(file_system, resource_bundle, file_repository, file_writer, events, config)
     {
-        FileActions::ConfigValuesStructure *config = &file_actions.ConfigValuesStruct;
-        file_actions.set_base_dirs(config, config_root.toStdString());
     }
 
     MainWindowServices services()
     {
         return {
+            .application = kTestApplication,
+            .config = config,
             .file_actions = file_actions,
             .config_repository = file_repository,
             .file_action_events = events,
@@ -279,6 +310,9 @@ struct TestServices
     QtFileRepository file_repository;
     QtAtomicFileWriter file_writer;
     QtEventSink events;
+    QtEventSink config_events;
+    fastecu::config::ConfigSession config{file_system, resource_bundle, file_repository, config_events};
+    fastecu::Status config_status; // declared after `config`: initialized from it
     FileActions file_actions;
     fastecu::ui::LogChannel log_channel;
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
@@ -300,7 +334,7 @@ class MainWindowTest : public QObject
         // Pass the fixture root explicitly: Qt resolves the Windows home from
         // the account profile before trying HOME/USERPROFILE fallbacks.
         const QString config_dir =
-            config_root_.path() + "/" + FileActions::ConfigValuesStructure{}.software_version + "/config/";
+            config_root_.path() + "/" + QString::fromStdString(kTestApplication.version) + "/config/";
         qInfo() << "Fixture config:" << config_dir << "Qt home:" << QDir::homePath();
         QVERIFY(QDir().mkpath(config_dir));
         QVERIFY(writeTextFile(config_dir + "fastecu.cfg",
@@ -421,6 +455,78 @@ class MainWindowTest : public QObject
       <kernel_addr>0xFFFF3000</kernel_addr>
       <description>Denso SH7058 K-Line</description>
     </protocol>
+    <protocol name="sub_ecu_denso_sh7058_can_future">
+      <ecu>Denso SH7058</ecu>
+      <mcu>SH7058</mcu>
+      <mode>OBD2</mode>
+      <checksum>yes</checksum>
+      <read>yes</read>
+      <test_write>yes</test_write>
+      <write>yes</write>
+      <flash_transport>iso15765,CAN</flash_transport>
+      <log_transport>K-Line</log_transport>
+      <log_protocol>SSM</log_protocol>
+      <cal_id_ascii>yes</cal_id_ascii>
+      <cal_id_addr>0x2004</cal_id_addr>
+      <cal_id_length>8</cal_id_length>
+      <kernel>test-kernel.bin</kernel>
+      <kernel_addr>0xFFFF3000</kernel_addr>
+      <description>Denso SH7058 CAN</description>
+    </protocol>
+    <protocol name="sub_ecu_denso_sh7058_densocan_extra">
+      <ecu>Denso SH7058</ecu>
+      <mcu>SH7058</mcu>
+      <mode>OBD2</mode>
+      <checksum>yes</checksum>
+      <read>yes</read>
+      <test_write>yes</test_write>
+      <write>yes</write>
+      <flash_transport>iso15765,CAN</flash_transport>
+      <log_transport>K-Line</log_transport>
+      <log_protocol>SSM</log_protocol>
+      <cal_id_ascii>yes</cal_id_ascii>
+      <cal_id_addr>0x2004</cal_id_addr>
+      <cal_id_length>8</cal_id_length>
+      <kernel>test-kernel.bin</kernel>
+      <kernel_addr>0xFFFF3000</kernel_addr>
+      <description>Denso SH7058 CAN</description>
+    </protocol>
+    <protocol name="sub_ecu_not_a_real_protocol">
+      <ecu>Denso SH7058</ecu>
+      <mcu>SH7058</mcu>
+      <mode>OBD2</mode>
+      <checksum>yes</checksum>
+      <read>yes</read>
+      <test_write>yes</test_write>
+      <write>yes</write>
+      <flash_transport>iso15765,CAN</flash_transport>
+      <log_transport>K-Line</log_transport>
+      <log_protocol>SSM</log_protocol>
+      <cal_id_ascii>yes</cal_id_ascii>
+      <cal_id_addr>0x2004</cal_id_addr>
+      <cal_id_length>8</cal_id_length>
+      <kernel>test-kernel.bin</kernel>
+      <kernel_addr>0xFFFF3000</kernel_addr>
+      <description>Denso SH7058 CAN</description>
+    </protocol>
+    <protocol name="sub_ecu_denso_sh7058_can_checksum_na">
+      <ecu>Denso SH7058</ecu>
+      <mcu>SH7058</mcu>
+      <mode>OBD2</mode>
+      <checksum>n/a</checksum>
+      <read>yes</read>
+      <test_write>yes</test_write>
+      <write>yes</write>
+      <flash_transport>iso15765,CAN</flash_transport>
+      <log_transport>K-Line</log_transport>
+      <log_protocol>SSM</log_protocol>
+      <cal_id_ascii>yes</cal_id_ascii>
+      <cal_id_addr>0x2004</cal_id_addr>
+      <cal_id_length>8</cal_id_length>
+      <kernel>test-kernel.bin</kernel>
+      <kernel_addr>0xFFFF3000</kernel_addr>
+      <description>Denso SH7058 CAN</description>
+    </protocol>
   </protocols>
   <car_models>
     <car_model>
@@ -434,12 +540,124 @@ class MainWindowTest : public QObject
       <year/>
       <protocol>sub_tcu_denso_sh7058_can</protocol>
     </car_model>
+    <car_model>
+      <make>Subaru</make>
+      <model>Can</model>
+      <version>Test</version>
+      <type/>
+      <kw/>
+      <hp/>
+      <fuel/>
+      <year/>
+      <protocol>sub_ecu_denso_sh7058_can</protocol>
+    </car_model>
+    <car_model>
+      <make>Subaru</make>
+      <model>DensoCan</model>
+      <version>Test</version>
+      <type/>
+      <kw/>
+      <hp/>
+      <fuel/>
+      <year/>
+      <protocol>sub_ecu_denso_sh7058_densocan</protocol>
+    </car_model>
+    <car_model>
+      <make>Subaru</make>
+      <model>KLine</model>
+      <version>Test</version>
+      <type/>
+      <kw/>
+      <hp/>
+      <fuel/>
+      <year/>
+      <protocol>sub_ecu_denso_sh7058</protocol>
+    </car_model>
+    <car_model>
+      <make>Subaru</make>
+      <model>Future</model>
+      <version>Test</version>
+      <type/>
+      <kw/>
+      <hp/>
+      <fuel/>
+      <year/>
+      <protocol>sub_ecu_denso_sh7058_can_future</protocol>
+    </car_model>
+    <car_model>
+      <make>Subaru</make>
+      <model>Extra</model>
+      <version>Test</version>
+      <type/>
+      <kw/>
+      <hp/>
+      <fuel/>
+      <year/>
+      <protocol>sub_ecu_denso_sh7058_densocan_extra</protocol>
+    </car_model>
+    <car_model>
+      <make>Subaru</make>
+      <model>Unsupported</model>
+      <version>Test</version>
+      <type/>
+      <kw/>
+      <hp/>
+      <fuel/>
+      <year/>
+      <protocol>sub_ecu_not_a_real_protocol</protocol>
+    </car_model>
+    <car_model>
+      <make>Subaru</make>
+      <model>ChecksumNa</model>
+      <version>Test</version>
+      <type/>
+      <kw/>
+      <hp/>
+      <fuel/>
+      <year/>
+      <protocol>sub_ecu_denso_sh7058_can_checksum_na</protocol>
+    </car_model>
+    <car_model>
+      <make>Mitsubishi</make>
+      <model>Colt</model>
+      <version>Test</version>
+      <type/>
+      <kw/>
+      <hp/>
+      <fuel/>
+      <year/>
+      <protocol>sub_ecu_denso_sh7058</protocol>
+    </car_model>
+    <car_model>
+      <make>Nissan</make>
+      <model>Test</model>
+      <version>Test</version>
+      <type/>
+      <kw/>
+      <hp/>
+      <fuel/>
+      <year/>
+      <protocol>sub_ecu_denso_sh7058</protocol>
+    </car_model>
+    <car_model>
+      <make>Subaru</make>
+      <model>Orphan</model>
+      <version>Test</version>
+      <type/>
+      <kw/>
+      <hp/>
+      <fuel/>
+      <year/>
+      <protocol>sub_ecu_orphan</protocol>
+    </car_model>
   </car_models>
 </config>
 )"));
-        const QString kernel_dir = config_root_.path() + "/kernels/";
+        const QString kernel_dir =
+            config_root_.path() + "/" + QString::fromStdString(kTestApplication.version) + "/kernels/";
         QVERIFY(QDir().mkpath(kernel_dir));
         QVERIFY(writeTextFile(kernel_dir + "test-kernel.bin", "ABCD"));
+        QVERIFY(writeTextFile(kernel_dir + "tcu_kernel.bin", "ABCD"));
     }
 
     void explicitConfigRootLoadsFixtureAndProvisionsDirectories()
@@ -447,18 +665,20 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
 
         const QString version_dir = config_root_.path() + "/" + window.software_version + "/";
-        QCOMPARE(window.configValues->base_config_directory, config_root_.path());
-        QCOMPARE(window.configValues->config_file, version_dir + "config/fastecu.cfg");
-        QCOMPARE(window.configValues->flash_protocol_model, QStringList{"Test"});
-        QCOMPARE(window.configValues->syslog_files_directory, version_dir + "syslogs/");
+        const fastecu::config::ConfigPaths paths = window.configSession->provisioned_paths();
+        QCOMPARE(paths.base_config_directory, config_root_.path().toStdString());
+        QCOMPARE(paths.config_file, (version_dir + "config/fastecu.cfg").toStdString());
+        QCOMPARE(window.configSession->vehicles().front().model, std::string("Test"));
+        QCOMPARE(paths.syslog_files_directory, (version_dir + "syslogs/").toStdString());
         QVERIFY(QDir(version_dir + "syslogs").exists());
         QVERIFY(QDir(version_dir + "definitions").exists());
-        QVERIFY(QFile::exists(window.configValues->config_file));
+        QVERIFY(QFile::exists(QString::fromStdString(paths.config_file)));
     }
 
     // A direct session (no peer address) must never wait for a remote source.
@@ -467,6 +687,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         EXPECT_CALL(*services.fake, waitForSource()).Times(0);
         MainWindow window{services.services()};
@@ -478,6 +699,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         MainWindow window{services.services()};
         constructor_driver.stop();
         QSignalSpy lines{&services.log_channel, &fastecu::ui::LogChannel::LOG_I};
@@ -495,6 +717,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QSignalSpy enables{&services.log_channel, &fastecu::ui::LogChannel::enable_log_write_to_file};
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -508,6 +731,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QSignalSpy waits{&services.remote_peer, &fastecu::ui::RemotePeer::wait_requested};
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -520,6 +744,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         MainWindow window{services.services()};
         constructor_driver.stop();
         QSignalSpy lines{&services.remote_peer, &fastecu::ui::RemotePeer::log_window_message};
@@ -543,6 +768,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         MainWindow window{services.services()};
         constructor_driver.stop();
         QSignalSpy debug_lines{&window, &MainWindow::LOG_D};
@@ -569,6 +795,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -587,13 +814,7 @@ class MainWindowTest : public QObject
         window.serial_port_list->clear();
         window.serial_port_list->addItem("OpenPort 2.0");
         window.serial_port_list->setCurrentIndex(0);
-        window.configValues->flash_protocol_selected_make = "Subaru";
-        window.configValues->flash_protocol_selected_protocol_name = "sub_tcu_denso_sh7058_can";
-        window.configValues->flash_protocol_selected_mcu = "SH7058";
-        window.configValues->flash_protocol_selected_id = "0";
-        window.configValues->flash_protocol_kernel = {"tcu_kernel.bin"};
-        window.configValues->flash_protocol_kernel_addr = {"0x100000"};
-        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
+        selectSubaruProtocol(window, "sub_tcu_denso_sh7058_can");
 
         // The TCU log lines are relayed through MainWindow's own LOG_* signals.
         QSignalSpy info_lines{&window, &MainWindow::LOG_I};
@@ -627,6 +848,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -640,13 +862,7 @@ class MainWindowTest : public QObject
         window.serial_port_list->clear();
         window.serial_port_list->addItem("OpenPort 2.0");
         window.serial_port_list->setCurrentIndex(0);
-        window.configValues->flash_protocol_selected_make = "Subaru";
-        window.configValues->flash_protocol_selected_protocol_name = protocol;
-        window.configValues->flash_protocol_selected_mcu = "SH7058";
-        window.configValues->flash_protocol_selected_id = "0";
-        window.configValues->flash_protocol_kernel = {"test-kernel.bin"};
-        window.configValues->flash_protocol_kernel_addr = {"0xFFFF3000"};
-        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
+        selectSubaruProtocol(window, protocol);
 
         ModalDriver operation_driver{QString()};
         operation_driver.start();
@@ -662,28 +878,23 @@ class MainWindowTest : public QObject
     void representativePortableRoutesReachFactoryBeforeLegacyFallback_data()
     {
         QTest::addColumn<QString>("protocol");
-        QTest::addColumn<QString>("mcu");
-        QTest::addColumn<QString>("kernel_address");
-        QTest::newRow("petrol") << QString("sub_ecu_denso_sh7058_can") << QString("SH7058") << QString("0xFFFF3000");
-        QTest::newRow("densocan") << QString("sub_ecu_denso_sh7058_densocan") << QString("SH7058")
-                                  << QString("0xFFFF3000");
+        QTest::newRow("petrol") << QString("sub_ecu_denso_sh7058_can");
+        QTest::newRow("densocan") << QString("sub_ecu_denso_sh7058_densocan");
         // Wave 6b-2: the Denso SH705x K-Line family (sub_ecu_denso_sh7055_04*
         // and sub_ecu_denso_sh7058*) moved off FlashEcuSubaruDensoSH705xKline
         // onto this same portable factory path; see
         // exactDensoKlineIdsStillDispatchToTheLegacyKlineDialog in prior
         // revisions of this file for the characterization test this replaces.
-        QTest::newRow("denso_sh705x_kline")
-            << QString("sub_ecu_denso_sh7058") << QString("SH7058") << QString("0xFFFF3000");
+        QTest::newRow("denso_sh705x_kline") << QString("sub_ecu_denso_sh7058");
     }
 
     void representativePortableRoutesReachFactoryBeforeLegacyFallback()
     {
         QFETCH(QString, protocol);
-        QFETCH(QString, mcu);
-        QFETCH(QString, kernel_address);
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -697,13 +908,7 @@ class MainWindowTest : public QObject
         window.serial_port_list->clear();
         window.serial_port_list->addItem("OpenPort 2.0");
         window.serial_port_list->setCurrentIndex(0);
-        window.configValues->flash_protocol_selected_make = "Subaru";
-        window.configValues->flash_protocol_selected_protocol_name = protocol;
-        window.configValues->flash_protocol_selected_mcu = mcu;
-        window.configValues->flash_protocol_selected_id = "0";
-        window.configValues->flash_protocol_kernel = {"test-kernel.bin"};
-        window.configValues->flash_protocol_kernel_addr = {kernel_address};
-        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
+        selectSubaruProtocol(window, protocol);
 
         ModalDriver operation_driver{QString()};
         operation_driver.start();
@@ -722,6 +927,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -734,13 +940,7 @@ class MainWindowTest : public QObject
         window.serial_port_list->clear();
         window.serial_port_list->addItem("OpenPort 2.0");
         window.serial_port_list->setCurrentIndex(0);
-        window.configValues->flash_protocol_selected_make = "Subaru";
-        window.configValues->flash_protocol_selected_protocol_name = "sub_ecu_denso_sh7058_can";
-        window.configValues->flash_protocol_selected_mcu = "SH7058";
-        window.configValues->flash_protocol_selected_id = "0";
-        window.configValues->flash_protocol_kernel = {"test-kernel.bin"};
-        window.configValues->flash_protocol_kernel_addr = {"0xFFFF3000"};
-        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
+        selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can");
 
         ModalDriver operation_driver{QString()};
         operation_driver.start();
@@ -758,6 +958,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -769,8 +970,7 @@ class MainWindowTest : public QObject
         window.serial_port_list->clear();
         window.serial_port_list->addItem("OpenPort 2.0");
         window.serial_port_list->setCurrentIndex(0);
-        window.configValues->flash_protocol_selected_make = "Nissan";
-        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
+        selectMake(window, "Nissan");
 
         ModalDriver operation_driver{QString()};
         operation_driver.start();
@@ -789,6 +989,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -797,13 +998,7 @@ class MainWindowTest : public QObject
         window.serial_port_list->clear();
         window.serial_port_list->addItem("OpenPort 2.0");
         window.serial_port_list->setCurrentIndex(0);
-        window.configValues->flash_protocol_selected_make = "Subaru";
-        window.configValues->flash_protocol_selected_protocol_name = "sub_ecu_not_a_real_protocol";
-        window.configValues->flash_protocol_selected_mcu = "SH7058";
-        window.configValues->flash_protocol_selected_id = "0";
-        window.configValues->flash_protocol_kernel = {"test-kernel.bin"};
-        window.configValues->flash_protocol_kernel_addr = {"0xFFFF3000"};
-        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
+        selectSubaruProtocol(window, "sub_ecu_not_a_real_protocol");
         const int slot = window.ecuCalDefIndex;
 
         ModalDriver operation_driver{QString()};
@@ -823,6 +1018,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -835,10 +1031,7 @@ class MainWindowTest : public QObject
         window.serial_port_list->clear();
         window.serial_port_list->addItem("OpenPort 2.0");
         window.serial_port_list->setCurrentIndex(0);
-        window.configValues->flash_protocol_selected_make = "Subaru";
-        window.configValues->flash_protocol_selected_protocol_name = "sub_ecu_denso_sh7058_can";
-        window.configValues->flash_protocol_selected_checksum = "n/a";
-        window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
+        selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na");
 
         // One loaded calibration, selected in the calibration files tree.
         auto calibration = std::make_unique<FileActions::EcuCalDefStructure>();
@@ -865,6 +1058,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         bool called = false;
         services.logging_engine.registerProtocol(
@@ -906,31 +1100,12 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
-        window.vbatt_timer->stop();
-        window.ecu_init_complete = true;
-        window.configValues->flash_protocol_selected_log_protocol = "SSM";
-        window.protocol = "SSM";
-        auto *menu = window.ui->menubar->addMenu("Test logging");
-        auto *action = menu->addAction("Logging");
-        action->setCheckable(true);
-        auto& values = *window.logValues;
-        values = FileActions::LogValuesStructure{};
-        values.log_value_id = {"rpm"};
-        values.log_value_protocol = {"SSM"};
-        values.log_value_name = {"rpm"};
-        values.log_value_description = {"rpm"};
-        values.log_value_ecu_byte_index = {"0"};
-        values.log_value_ecu_bit = {"0"};
-        values.log_value_target = {"ECU"};
-        values.log_value_address = {"000010"};
-        values.log_value_conversions = {{{"rpm", "x", "0", "0", "100", "1"}}};
-        values.log_value_length = {"1"};
-        values.log_value = {"0"};
-        values.log_value_enabled = {"1"};
-        values.lower_panel_log_value_id = {"rpm"};
+        window.configSession->settings().selected_log_protocol = "SSM";
+        QAction *action = prepareLogging(window, "SSM");
         std::vector<bool> targets;
         services.logging_engine.registerProtocol(
             "SSM",
@@ -955,11 +1130,176 @@ class MainWindowTest : public QObject
         QCOMPARE(targets, (std::vector<bool>{true, false}));
     }
 
+    void acceptedVehicleChoiceSelectsTheRowAndSavesIt()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        const std::string flash_transport = services.config.settings().selected_flash_transport;
+        const std::string log_transport = services.config.settings().selected_log_transport;
+
+        window.apply_vehicle_choice(QDialog::Accepted, 1);
+
+        QCOMPARE(*services.config.selected_row(), std::size_t{1});
+        QCOMPARE(services.config.settings().selected_log_protocol, std::string("SSM"));
+        QCOMPARE(services.config.settings().selected_flash_transport, flash_transport);
+        QCOMPARE(services.config.settings().selected_log_transport, log_transport);
+
+        // Saved: a fresh session over the same root restores row 1.
+        QtEventSink reread_events;
+        fastecu::config::ConfigSession reread{services.file_system, services.resource_bundle, services.file_repository,
+                                              reread_events};
+        QVERIFY(reread.initialize(config_root_.path().toStdString(), kTestApplication.version).has_value());
+        QCOMPARE(reread.settings().selected_protocol_id, std::string("1"));
+    }
+
+    void cancelledVehicleChoiceChangesNothing()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        const auto before = services.config.settings();
+
+        window.apply_vehicle_choice(QDialog::Rejected, 1);
+
+        QVERIFY(services.config.settings() == before);
+    }
+
+    void acceptedProtocolChoiceSelectsTheLastMatchingRow()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        const auto vehicles = services.config.vehicles();
+        std::size_t last = 0;
+        for (std::size_t i = 0; i < vehicles.size(); ++i)
+        {
+            if (vehicles[i].protocol_name == "sub_ecu_denso_sh7058")
+            {
+                last = i;
+            }
+        }
+
+        window.apply_protocol_choice(QDialog::Accepted, std::string("sub_ecu_denso_sh7058"));
+
+        QCOMPARE(*services.config.selected_row(), last);
+    }
+
+    void romFlashMethodSelectsTheLastMatchingRow()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        auto calibration = std::make_unique<FileActions::EcuCalDefStructure>();
+        calibration->RomInfo.resize(FileActions::DefFile + 1);
+        calibration->RomInfo[FileActions::FlashMethod] = "sub_ecu_denso_sh7058";
+        window.ecuCalDef[0] = calibration.get();
+
+        window.update_protocol_info(0);
+        window.ecuCalDef[0] = nullptr;
+
+        QCOMPARE(*services.config.selected_row(), std::size_t{9}); // rows 3, 8, 9 match; the last wins
+        QCOMPARE(services.config.selected_vehicle()->make, std::string("Nissan"));
+    }
+
+    void unmatchedRomFlashMethodChangesNothing()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        const auto before = services.config.settings();
+        auto calibration = std::make_unique<FileActions::EcuCalDefStructure>();
+        calibration->RomInfo.resize(FileActions::DefFile + 1);
+        calibration->RomInfo[FileActions::FlashMethod] = "no_such_protocol";
+        window.ecuCalDef[0] = calibration.get();
+
+        window.update_protocol_info(0);
+        window.ecuCalDef[0] = nullptr;
+
+        QVERIFY(services.config.settings() == before);
+    }
+
+    void unresolvedProtocolRowLeavesReadAndWriteUnavailable()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+
+        // The fixture's menu.cfg is empty; add the three actions
+        // set_flash_arrow_state looks up by text.
+        auto *menu = window.ui->menubar->addMenu("Test flash");
+        const QList<QAction *> actions{menu->addAction("Read from ecu"), menu->addAction("Test write to ecu"),
+                                       menu->addAction("Write to ecu")};
+
+        // A resolved row with every capability enables all three...
+        selectProtocol(window, "sub_ecu_denso_sh7058_can");
+        window.set_flash_arrow_state();
+        for (QAction *action : actions)
+        {
+            QVERIFY2(action->isEnabled(), qPrintable(action->text()));
+        }
+
+        // ...and the unresolved row 10 (no <protocol> of that name) none.
+        selectProtocol(window, "sub_ecu_orphan");
+        window.set_flash_arrow_state();
+        for (QAction *action : actions)
+        {
+            QVERIFY2(!action->isEnabled(), qPrintable(action->text()));
+        }
+    }
+
+    void loggingUsesTheSessionLogProtocol()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        QVERIFY(services.fake != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        prepareLogging(window, "CDBG");
+        services.logging_engine.registerProtocol("CDBG",
+                                                 [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
+                                                 {
+                                                     auto protocol = std::make_unique<ScriptedLoggingProtocol>();
+                                                     protocol->blockPollUntilCancelled();
+                                                     return protocol;
+                                                 });
+        window.configSession->settings().selected_log_protocol = "CDBG";
+
+        ModalDriver driver{QString()};
+        driver.start();
+        window.continue_start_logging();
+        driver.stop();
+        services.logging_engine.stop();
+
+        QCOMPARE(window.activeLogValueProtocolFilter, QString("CDBG"));
+    }
+
     void selectedSerialPortIsEmptyWithoutPorts()
     {
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -976,6 +1316,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -998,16 +1339,17 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
         prepareConnect(window, *services.fake, "Subaru", "K-Line");
         ON_CALL(*services.fake, get_openedSerialPort()).WillByDefault(::testing::Return(QString("ttyUSB0")));
         window.previous_serial_port.clear();
-        window.configValues->serial_port = "none";
-        window.fileActions->save_config_file(window.configValues);
+        window.configSession->settings().serial_port = "none";
+        window.save_settings();
         const QString config_file =
-            config_root_.path() + "/" + FileActions::ConfigValuesStructure{}.software_version + "/config/fastecu.cfg";
+            config_root_.path() + "/" + QString::fromStdString(kTestApplication.version) + "/config/fastecu.cfg";
 
         ModalDriver driver{QString()};
         driver.start();
@@ -1017,7 +1359,7 @@ class MainWindowTest : public QObject
         // As open_serial_port did for the legacy BIU path: the chosen port is
         // remembered for the next launch and as the previously opened port.
         QCOMPARE(window.previous_serial_port, QString("ttyUSB0"));
-        QCOMPARE(window.configValues->serial_port, QString("ttyUSB0"));
+        QCOMPARE(window.configSession->settings().serial_port, std::string("ttyUSB0"));
         QFile saved{config_file};
         QVERIFY(saved.open(QIODevice::ReadOnly));
         QVERIFY(saved.readAll().contains(R"(data="ttyUSB0")"));
@@ -1028,6 +1370,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -1050,6 +1393,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -1071,6 +1415,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -1106,6 +1451,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -1125,6 +1471,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -1159,6 +1506,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         QVERIFY(services.fake != nullptr);
         MainWindow window{services.services()};
         constructor_driver.stop();
@@ -1225,6 +1573,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         MainWindow window{services.services()};
         constructor_driver.stop();
         prepareConnect(window, *services.fake, "Subaru", "K-Line");
@@ -1240,6 +1589,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         auto window = std::make_unique<MainWindow>(services.services());
         constructor_driver.stop();
         prepareConnect(*window, *services.fake, "Subaru", "K-Line");
@@ -1256,6 +1606,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         MainWindow window{services.services()};
         constructor_driver.stop();
         prepareConnect(window, *services.fake, "Subaru", "K-Line");
@@ -1306,6 +1657,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         MainWindow window{services.services()};
         constructor_driver.stop();
         prepareConnect(window, *services.fake, "Subaru", "K-Line");
@@ -1359,6 +1711,7 @@ class MainWindowTest : public QObject
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
         TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
         MainWindow window{services.services()};
         constructor_driver.stop();
         prepareConnect(window, *services.fake, "Subaru", "K-Line");
@@ -1411,6 +1764,35 @@ class MainWindowTest : public QObject
     }
 
   private:
+    // The logging setup loggingCapturesTargetForEachRun and
+    // loggingUsesTheSessionLogProtocol share: an identified ECU, a
+    // "Logging" menu action, and one enabled `log_protocol` value.
+    static QAction *prepareLogging(MainWindow& window, const QString& log_protocol)
+    {
+        window.vbatt_timer->stop();
+        window.ecu_init_complete = true;
+        window.protocol = log_protocol;
+        auto *menu = window.ui->menubar->addMenu("Test logging");
+        auto *action = menu->addAction("Logging");
+        action->setCheckable(true);
+        auto& values = *window.logValues;
+        values = FileActions::LogValuesStructure{};
+        values.log_value_id = {"rpm"};
+        values.log_value_protocol = {log_protocol};
+        values.log_value_name = {"rpm"};
+        values.log_value_description = {"rpm"};
+        values.log_value_ecu_byte_index = {"0"};
+        values.log_value_ecu_bit = {"0"};
+        values.log_value_target = {"ECU"};
+        values.log_value_address = {"000010"};
+        values.log_value_conversions = {{{"rpm", "x", "0", "0", "100", "1"}}};
+        values.log_value_length = {"1"};
+        values.log_value = {"0"};
+        values.log_value_enabled = {"1"};
+        values.lower_panel_log_value_id = {"rpm"};
+        return action;
+    }
+
     QTemporaryDir config_root_;
 };
 

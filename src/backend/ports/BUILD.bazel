@@ -3,6 +3,8 @@ load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
     "//apps/bench:__pkg__",
+    # The desktop composition root's startup diagnostics present port errors.
+    "//apps/desktop:__pkg__",
     "//src/backend:__subpackages__",
     "//src/platform:__subpackages__",
     "//src/ui:__subpackages__",

@@ -1,4 +1,5 @@
 #include <QElapsedTimer>
+#include <QScopeGuard>
 #include <QTemporaryDir>
 #include <QTest>
 
@@ -11,6 +12,7 @@
 #undef private
 
 #include "apps/desktop/desktop_composition.h"
+#include "apps/desktop/startup_diagnostics.h"
 #include "src/backend/definitions/file_actions.h"
 
 #include <QDir>
@@ -31,6 +33,19 @@ namespace
 
 using fastecu::ui::LogChannel;
 using fastecu::ui::RemotePeer;
+
+constexpr auto kVersion = "0.1.0-beta.5";
+
+bool writeFile(const QString& path, const QString& text)
+{
+    QFile file{path};
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+    {
+        return false;
+    }
+    const QByteArray bytes = text.toUtf8();
+    return file.write(bytes) == bytes.size();
+}
 
 // Holds the syslog thread inside one queued call until release(), so a test
 // can emit and destroy senders before the logger sees their lines.
@@ -114,7 +129,101 @@ class DesktopCompositionTest : public QObject
         QCOMPARE(&first.connection, &second.connection);
         QCOMPARE(&first.remote, &second.remote);
         QCOMPARE(&first.logging_engine, &second.logging_engine);
-        QCOMPARE(first.file_actions.ConfigValuesStruct.base_config_directory, root.path());
+        QCOMPARE(&first.config, &second.config);
+        QCOMPARE(&first.application, &second.application);
+    }
+
+    void failedStartupBuildsNoServicesAndPerformsNoEcuIo()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString config_dir = root.path() + "/" + kVersion + "/config/";
+        QVERIFY(QDir().mkpath(config_dir));
+        QVERIFY(
+            writeFile(config_dir + "protocols.cfg", R"(<config name="FastECU"><protocols/><car_models/></config>)"));
+
+        DesktopComposition composition{{}, {}, root.path()};
+
+        QVERIFY(!composition.started());
+        QVERIFY(composition.startup_error().has_value());
+        QVERIFY(QString::fromStdString(composition.startup_error()->detail).contains(config_dir + "protocols.cfg"));
+        // Nothing that could log, thread, or talk to an ECU was created.
+        QVERIFY(!composition.file_actions_);
+        QVERIFY(!composition.syslog_thread_);
+        QVERIFY(!composition.syslogger_);
+        QVERIFY(!composition.serial_);
+        QVERIFY(!composition.connection_);
+        QVERIFY(!composition.remote_utility_);
+        QVERIFY(!composition.logging_engine_);
+    } // teardown after a failed start must not crash
+
+    void malformedSettingsRejectStartup()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString config_dir = root.path() + "/" + kVersion + "/config/";
+        QVERIFY(QDir().mkpath(config_dir));
+        QVERIFY(writeFile(config_dir + "fastecu.cfg", "<config"));
+
+        DesktopComposition composition{{}, {}, root.path()};
+
+        QVERIFY(!composition.started());
+        const QString text = startup_failure_text(*composition.startup_error());
+        QVERIFY(text.contains(config_dir + "fastecu.cfg"));
+        QVERIFY(!composition.serial_);
+    }
+
+    void settingsRewriteFailureIsAStartupWarning()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString config_dir = root.path() + "/" + kVersion + "/config/";
+        QVERIFY(QDir().mkpath(config_dir));
+        const QString config_file = config_dir + "fastecu.cfg";
+        QVERIFY(writeFile(config_file, R"(<config name="FastECU" version="t"><software_settings/></config>)"));
+        QVERIFY(QFile::setPermissions(config_file, QFileDevice::ReadOwner));
+        const auto restore =
+            qScopeGuard([&] { QFile::setPermissions(config_file, QFileDevice::ReadOwner | QFileDevice::WriteOwner); });
+        if (QFile probe{config_file}; probe.open(QIODevice::WriteOnly | QIODevice::Append))
+        {
+            QSKIP("this filesystem ignores the read-only permission");
+        }
+
+        DesktopComposition composition{{}, {}, root.path()};
+
+        QVERIFY(composition.started());
+        QVERIFY(std::ranges::any_of(composition.startup_warnings(),
+                                    [&](const QString& warning) { return warning.contains(config_file); }));
+    }
+
+    void servicesShareTheCompositionsSession()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        DesktopComposition composition{{}, {}, root.path()};
+        QVERIFY(composition.started());
+        QCOMPARE(&composition.services().config, &composition.config_);
+        QCOMPARE(composition.services().application.version, std::string(kVersion));
+        QCOMPARE(QString::fromStdString(composition.config_.provisioned_paths().base_config_directory), root.path());
+    }
+
+    void restartSeesSavedSettingsButNotTheDatalogDirectory()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        std::string provisioned_datalogs;
+        {
+            DesktopComposition first{{}, {}, root.path()};
+            QVERIFY(first.started());
+            provisioned_datalogs = first.config_.provisioned_paths().datalog_files_directory;
+            first.config_.settings().serial_port = "ttyRESTART";
+            first.config_.settings().datalog_files_directory = root.path().toStdString() + "/elsewhere/";
+            QVERIFY(first.config_.save().has_value());
+        }
+        DesktopComposition second{{}, {}, root.path()};
+        QVERIFY(second.started());
+        QCOMPARE(second.config_.settings().serial_port, std::string("ttyRESTART"));
+        QCOMPARE(second.config_.settings().datalog_files_directory, provisioned_datalogs);
     }
 
     void waitRequestIsWiredToTheRemoteUtility()
@@ -229,7 +338,8 @@ class DesktopCompositionTest : public QObject
         QTemporaryDir root;
         QVERIFY(root.isValid());
         DesktopComposition composition{{}, {}, root.path()};
-        const QString syslog_dir = composition.services().file_actions.ConfigValuesStruct.syslog_files_directory;
+        const QString syslog_dir =
+            QString::fromStdString(composition.services().config.effective_paths().syslog_files_directory);
         QVERIFY(!syslog_dir.isEmpty());
         QVERIFY(QDir().mkpath(syslog_dir));
         LogChannel& log = composition.services().log;
@@ -274,7 +384,9 @@ class DesktopCompositionTest : public QObject
         for (int iteration = 0; iteration < 2; ++iteration)
         {
             DesktopComposition composition{{}, {}, root.path()};
-            QCOMPARE(composition.services().file_actions.ConfigValuesStruct.base_config_directory, root.path());
+            QVERIFY(composition.started());
+            QCOMPARE(QString::fromStdString(composition.services().config.provisioned_paths().base_config_directory),
+                     root.path());
         }
     }
 

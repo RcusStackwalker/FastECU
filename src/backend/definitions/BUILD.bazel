@@ -63,6 +63,7 @@ fastecu_qttest(
     src = "ecuflash_definition_parsing_test.cpp",
     deps = [
         ":definitions",
+        "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:recording_event_sink",
         "//src/platform/desktop/common/ports",
@@ -74,6 +75,7 @@ fastecu_qttest(
     src = "file_actions_parsing_test.cpp",
     deps = [
         ":definitions",
+        "//src/backend/config:config_session",
         "//src/backend/definition:ecuflash_parser",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:recording_event_sink",
@@ -92,6 +94,7 @@ fastecu_qttest(
     src = "rom_transformations_test.cpp",
     deps = [
         ":definitions",
+        "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:recording_event_sink",
         "//src/platform/desktop/common/ports",
@@ -156,7 +159,7 @@ cc_library(
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/calibration:calibration_service",
         "//src/backend/calibration/legacy:legacy_calibration_adapter",
-        "//src/backend/config/legacy:legacy_config_adapter",
+        "//src/backend/config:config_session",
         "//src/backend/definition:definition_service",
         "//src/backend/definition/legacy:legacy_definition_adapter",
         "//src/backend/logging:logger_conf",

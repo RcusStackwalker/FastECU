@@ -7,32 +7,28 @@
 
 void FileActions::create_romraider_def_id_list()
 {
-    if (ConfigValuesStruct.romraider_definition_files.isEmpty())
+    const std::vector<std::string>& handles = configSession_.settings().romraider_definition_files;
+    if (handles.empty())
     {
         events_.log(fastecu::LogLevel::Debug, "No RomRaider definition files");
         return;
     }
 
-    std::vector<std::string> handles;
-    handles.reserve(static_cast<std::size_t>(ConfigValuesStruct.romraider_definition_files.size()));
-    for (const QString& handle : ConfigValuesStruct.romraider_definition_files)
+    for (const std::string& handle : handles)
     {
-        events_.log(fastecu::LogLevel::Debug,
-                    std::format("Reading RomRaider ID's from file: {}", handle.toStdString()));
-        handles.push_back(handle.toStdString());
+        events_.log(fastecu::LogLevel::Debug, std::format("Reading RomRaider ID's from file: {}", handle));
     }
 
     const fastecu::Status replaced = definitionAdapter_.replace_romraider_catalog(definitionIndexes, handles);
     if (!replaced.has_value())
     {
         log_definition_error("Unable to build RomRaider definition catalog", replaced.error());
-        for (const QString& handle : ConfigValuesStruct.romraider_definition_files)
+        for (const std::string& handle : handles)
         {
-            if (!definitionFileSystem_.exists(handle.toStdString()))
+            if (!definitionFileSystem_.exists(handle))
             {
-                events_.notice(
-                    std::format("Ecu definition file: Unable to open romraider definition file {} for reading",
-                                handle.toStdString()));
+                events_.notice(std::format(
+                    "Ecu definition file: Unable to open romraider definition file {} for reading", handle));
                 break;
             }
         }
@@ -40,8 +36,7 @@ void FileActions::create_romraider_def_id_list()
     }
 
     strip_legacy_address_prefixes(definitionIndexes.romraider_def_cal_id_addr);
-    events_.log(fastecu::LogLevel::Debug, std::format("{} RomRaider definition files found",
-                                                      ConfigValuesStruct.romraider_definition_files.size()));
+    events_.log(fastecu::LogLevel::Debug, std::format("{} RomRaider definition files found", handles.size()));
     events_.log(fastecu::LogLevel::Debug,
                 std::format("{} RomRaider ecu id's found", definitionIndexes.romraider_def_cal_id.size()));
 }
@@ -108,8 +103,8 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCal
 FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefStructure *ecuCalDef,
                                                                      const QString& cal_id)
 {
-    if (ConfigValuesStruct.romraider_definition_files.isEmpty() &&
-        ConfigValuesStruct.ecuflash_definition_files_directory.isEmpty())
+    if (configSession_.settings().romraider_definition_files.empty() &&
+        configSession_.settings().ecuflash_definition_files_directory.empty())
     {
         events_.notice("Ecu definition file: No RomRaider definition file(s), use definition manager at "
                        "'Edit' menu to choose file(s)");

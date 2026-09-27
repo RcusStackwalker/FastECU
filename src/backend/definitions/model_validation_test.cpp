@@ -30,7 +30,7 @@ class TestModelValidation : public QObject
 
     void flashProtocols_acceptMatchingRows()
     {
-        FileActions::ConfigValuesStructure config;
+        fastecu::definitions::ConfigValuesStructure config;
         appendFlashProtocol(config);
 
         QStringList errors;
@@ -40,8 +40,8 @@ class TestModelValidation : public QObject
 
     void configValues_compareByValue()
     {
-        FileActions::ConfigValuesStructure value;
-        const FileActions::ConfigValuesStructure same;
+        fastecu::definitions::ConfigValuesStructure value;
+        const fastecu::definitions::ConfigValuesStructure same;
         QVERIFY(value == same);
 
         value.software_name = "changed";
@@ -50,7 +50,7 @@ class TestModelValidation : public QObject
 
     void flashProtocols_reportMismatchedRows()
     {
-        FileActions::ConfigValuesStructure config;
+        fastecu::definitions::ConfigValuesStructure config;
         appendFlashProtocol(config);
         config.flash_protocol_kernel.clear();
 
@@ -165,7 +165,7 @@ class TestModelValidation : public QObject
     }
 
   private:
-    static void appendFlashProtocol(FileActions::ConfigValuesStructure& config)
+    static void appendFlashProtocol(fastecu::definitions::ConfigValuesStructure& config)
     {
         config.flash_protocol_id << "0";
         config.flash_protocol_alias << "alias";

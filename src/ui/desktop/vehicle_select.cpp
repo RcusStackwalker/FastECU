@@ -4,8 +4,15 @@
 #include <algorithm>
 #include <functional>
 
-VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, QWidget *parent)
-    : QDialog(parent), configValues(configValues), ui{std::make_unique<Ui::VehicleSelect>()}
+#include "src/ui/desktop/config_fields.h"
+
+using fastecu::config::ProtocolEntry;
+using fastecu::config::ResolvedCarModel;
+using fastecu::ui::protocol_field;
+using fastecu::ui::qs;
+
+VehicleSelect::VehicleSelect(const fastecu::config::ConfigSession& config, QWidget *parent)
+    : QDialog(parent), config(config), ui{std::make_unique<Ui::VehicleSelect>()}
 {
     ui->setupUi(this);
 
@@ -49,18 +56,18 @@ VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, Q
     ui->car_model_tree_widget->setFont(font);
     ui->car_version_tree_widget->setFont(font);
 
-    int index = configValues->flash_protocol_selected_id.toInt();
+    const ResolvedCarModel *selected = config.selected_vehicle();
+    const QString selected_make = selected != nullptr ? qs(selected->make) : QString();
 
     QStringList car_makes;
     QStringList car_makes_sorted;
     bool car_make_changed_saved = false;
 
-    for (int i = 0; i < configValues->flash_protocol_id.length(); i++)
+    for (const ResolvedCarModel& vehicle : config.vehicles())
     {
-        if (!car_makes.contains(configValues->flash_protocol_make.at(i)))
+        if (!car_makes.contains(qs(vehicle.make)))
         {
-            // qDebug() << "Make found:" << configValues->flash_protocol_make.at(i);
-            car_makes.append(configValues->flash_protocol_make.at(i));
+            car_makes.append(qs(vehicle.make));
         }
     }
 
@@ -73,7 +80,7 @@ VehicleSelect::VehicleSelect(FileActions::ConfigValuesStructure *configValues, Q
         item->setText(0, car_makes_sorted.at(i));
         item->setFirstColumnSpanned(true);
         ui->car_make_tree_widget->addTopLevelItem(item);
-        if (car_makes_sorted.at(i) == configValues->flash_protocol_selected_make)
+        if (car_makes_sorted.at(i) == selected_make)
         {
             car_make_changed_saved = true;
             ui->car_make_tree_widget->setCurrentItem(item);
@@ -118,23 +125,21 @@ VehicleSelect::~VehicleSelect()
 
 void VehicleSelect::car_model_selected()
 {
-    configValues->flash_protocol_selected_id = flash_protocol_id;
-    configValues->flash_protocol_selected_make = flash_protocol_make;
-    configValues->flash_protocol_selected_model = flash_protocol_model;
-    configValues->flash_protocol_selected_version = flash_protocol_version;
-    configValues->flash_protocol_selected_protocol_name = flash_protocol_family;
-    configValues->flash_protocol_selected_description = flash_protocol_description;
-    configValues->flash_protocol_selected_log_protocol =
-        configValues->flash_protocol_log_protocol.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_mcu =
-        configValues->flash_protocol_mcu.at(configValues->flash_protocol_selected_id.toInt());
-    configValues->flash_protocol_selected_checksum =
-        configValues->flash_protocol_checksum.at(configValues->flash_protocol_selected_id.toInt());
-
-    qDebug() << "Selected MCU:" << configValues->flash_protocol_selected_mcu;
+    // Tentative: the caller applies an accepted choice to the session.
+    bool parsed = false;
+    const qulonglong row = flash_protocol_id.toULongLong(&parsed);
+    if (parsed)
+    {
+        chosenRow = static_cast<std::size_t>(row);
+    }
     accept();
 
     close();
+}
+
+std::optional<std::size_t> VehicleSelect::chosen_row() const
+{
+    return chosenRow;
 }
 
 void VehicleSelect::car_make_treewidget_item_selected()
@@ -172,14 +177,12 @@ void VehicleSelect::car_make_treewidget_item_selected()
                 &VehicleSelect::car_model_treewidget_item_selected);
 
         qDebug() << "Add models data based on selected make";
-        for (int i = 0; i < configValues->flash_protocol_id.length(); i++)
+        for (const ResolvedCarModel& vehicle : config.vehicles())
         {
-            if (!car_models.contains(configValues->flash_protocol_model.at(i)) &&
-                configValues->flash_protocol_make.at(i) == car_make &&
-                !configValues->flash_protocol_model.at(i).isEmpty())
+            const QString model = qs(vehicle.model);
+            if (!car_models.contains(model) && qs(vehicle.make) == car_make && !model.isEmpty())
             {
-                // qDebug() << "Model found:" << configValues->flash_protocol_model.at(i);
-                car_models.append(configValues->flash_protocol_model.at(i));
+                car_models.append(model);
             }
         }
         qDebug() << "Sort models data items alphabetically";
@@ -193,7 +196,7 @@ void VehicleSelect::car_make_treewidget_item_selected()
             item_local->setText(0, car_models_sorted.at(i));
             item_local->setFirstColumnSpanned(true);
             ui->car_model_tree_widget->addTopLevelItem(item_local);
-            if (car_models_sorted.at(i) == configValues->flash_protocol_selected_model)
+            if (config.selected_vehicle() != nullptr && car_models_sorted.at(i) == qs(config.selected_vehicle()->model))
             {
                 qDebug() << "Car model changed to saved model";
                 car_model_changed_saved = true;
@@ -260,27 +263,28 @@ void VehicleSelect::car_model_treewidget_item_selected()
                 &VehicleSelect::car_version_treewidget_item_selected);
 
         qDebug() << "Add versions data based on selected model";
-        for (int i = 0; i < configValues->flash_protocol_id.length(); i++)
+        const auto vehicles = config.vehicles();
+        for (std::size_t i = 0; i < vehicles.size(); i++)
         {
-            if (configValues->flash_protocol_model.at(i) == car_model &&
-                configValues->flash_protocol_make.at(i) == flash_protocol_make)
+            const ResolvedCarModel& vehicle = vehicles[i];
+            if (qs(vehicle.model) == car_model && qs(vehicle.make) == flash_protocol_make)
             {
-                // qDebug() << "Model found:" << configValues->flash_protocol_model.at(i);
-                id.append(configValues->flash_protocol_id.at(i));
-                version.append(configValues->flash_protocol_version.at(i));
-                type.append(configValues->flash_protocol_type.at(i));
-                kw.append(configValues->flash_protocol_kw.at(i));
-                hp.append(configValues->flash_protocol_hp.at(i));
-                fuel.append(configValues->flash_protocol_fuel.at(i));
-                year.append(configValues->flash_protocol_year.at(i));
-                ecu.append(configValues->flash_protocol_ecu.at(i));
-                mcu.append(configValues->flash_protocol_mcu.at(i));
-                mode.append(configValues->flash_protocol_mode.at(i));
-                checksum.append(configValues->flash_protocol_checksum.at(i));
-                read.append(configValues->flash_protocol_read.at(i));
-                write.append(configValues->flash_protocol_write.at(i));
-                family.append(configValues->flash_protocol_protocol_name.at(i));
-                description.append(configValues->flash_protocol_description.at(i));
+                // A row's id is its catalog position.
+                id.append(QString::number(i));
+                version.append(qs(vehicle.version));
+                type.append(qs(vehicle.type));
+                kw.append(qs(vehicle.kw));
+                hp.append(qs(vehicle.hp));
+                fuel.append(qs(vehicle.fuel));
+                year.append(qs(vehicle.year));
+                ecu.append(protocol_field(vehicle, &ProtocolEntry::ecu));
+                mcu.append(protocol_field(vehicle, &ProtocolEntry::mcu));
+                mode.append(protocol_field(vehicle, &ProtocolEntry::mode));
+                checksum.append(protocol_field(vehicle, &ProtocolEntry::checksum));
+                read.append(protocol_field(vehicle, &ProtocolEntry::read));
+                write.append(protocol_field(vehicle, &ProtocolEntry::write));
+                family.append(qs(vehicle.protocol_name));
+                description.append(protocol_field(vehicle, &ProtocolEntry::description));
             }
         }
 
@@ -340,7 +344,7 @@ void VehicleSelect::car_model_treewidget_item_selected()
             ui->car_version_tree_widget->addTopLevelItem(item_local);
 
             qDebug() << "Check if car version selected";
-            if (id.at(i) == configValues->flash_protocol_selected_id)
+            if (id.at(i) == qs(config.settings().selected_protocol_id))
             {
                 qDebug() << "Car version changed to saved model";
                 car_version_changed_saved = true;

@@ -4,11 +4,13 @@
 
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -52,6 +54,13 @@ class TestRomTransformations : public QObject
     Q_OBJECT
 
   private slots:
+    // A fresh session per test: settings edits must not leak between cases.
+    void init()
+    {
+        config_ = std::make_unique<fastecu::config::testing::ConfigSessionFixture>();
+        QVERIFY(config_->initialize().has_value());
+    }
+
     void definition_backed_rom_decodes_storage_types_scaling_and_axes()
     {
         QTemporaryDir dir;
@@ -122,11 +131,12 @@ class TestRomTransformations : public QObject
         QVERIFY(!romPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        actions.ConfigValuesStruct.primary_definition_base = "romraider";
-        actions.ConfigValuesStruct.use_romraider_definitions = "enabled";
-        actions.ConfigValuesStruct.use_ecuflash_definitions = "disabled";
-        actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                            config_->session);
+        config_->session.settings().primary_definition_base = "romraider";
+        config_->session.settings().use_romraider_definitions = "enabled";
+        config_->session.settings().use_ecuflash_definitions = "disabled";
+        config_->session.settings().romraider_definition_files = {definitionPath.toStdString()};
         actions.definitionIndexes.romraider_def_cal_id = {"CAL1"};
         actions.definitionIndexes.romraider_def_cal_id_addr = {"0"};
         actions.definitionIndexes.romraider_def_ecu_id = {"TEST_ECU"};
@@ -164,10 +174,10 @@ class TestRomTransformations : public QObject
     }
 
   private:
-    // FileActions's constructor now takes the config/settings ports (Task
-    // 11 of the step5d-1 plan); these are unused by the parsing paths this
-    // test exercises, so plain default-constructed Qt port implementations
-    // are sufficient.
+    // FileActions's constructor takes the file ports and the configuration
+    // session; the parsing paths this test exercises only read settings, so
+    // plain Qt ports and an in-memory session are sufficient.
+    std::unique_ptr<fastecu::config::testing::ConfigSessionFixture> config_;
     QtFileSystem fileSystem_;
     QtResourceBundle resourceBundle_;
     QtFileRepository fileRepository_;

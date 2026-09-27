@@ -1,8 +1,13 @@
 #pragma once
+#include <string>
 
 class FileActions;
 class QtEventSink;
 class QtFileRepository;
+namespace fastecu::config
+{
+class ConfigSession;
+}
 namespace fastecu::desktop::connection
 {
 class AdapterConnection;
@@ -21,9 +26,19 @@ class RemotePeer;
 // (apps/desktop's DesktopComposition, or a test fixture) builds them, keeps
 // them alive for MainWindow's whole lifetime, and passes this struct to its
 // constructor.
+// Composition-supplied application metadata.
+struct ApplicationIdentity
+{
+    std::string name;
+    std::string title;
+    std::string version;
+};
+
 struct MainWindowServices
 {
-    FileActions& file_actions; // set_base_dirs already applied
+    const ApplicationIdentity& application;
+    fastecu::config::ConfigSession& config; // initialized before MainWindow is built
+    FileActions& file_actions;
     QtFileRepository& config_repository;
     QtEventSink& file_action_events;
     fastecu::ui::LogChannel& log;

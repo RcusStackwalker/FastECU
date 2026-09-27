@@ -14,6 +14,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/definitions/definition_indexes.h"
 #include "src/backend/ports/event_sink.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
@@ -66,9 +67,11 @@ TEST(DefinitionAuthoringDialogTest, ConstructsAndExposesTheFourLogSignals)
     QtFileRepository config_repository;
     QtAtomicFileWriter writer;
     fastecu::NullEventSink events;
-    FileActions file_actions(file_system, resource_bundle, config_repository, writer, events);
+    fastecu::config::testing::ConfigSessionFixture config;
+    ASSERT_TRUE(config.initialize().has_value());
+    FileActions file_actions(file_system, resource_bundle, config_repository, writer, events, config.session);
 
-    DefinitionAuthoringDialog dialog(file_actions, repository, &parent);
+    DefinitionAuthoringDialog dialog(file_actions, config.session, repository, &parent);
 
     EXPECT_TRUE(QSignalSpy(&dialog, &DefinitionAuthoringDialog::LOG_E).isValid());
     EXPECT_TRUE(QSignalSpy(&dialog, &DefinitionAuthoringDialog::LOG_W).isValid());

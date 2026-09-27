@@ -1,4 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library", "qt_ui_basename_libraries")
 
 package(default_visibility = [
@@ -30,6 +31,30 @@ qt_ui_basename_libraries(
 cc_library(
     name = "main_window_services",
     hdrs = ["main_window_services.h"],
+)
+
+# Display helpers over the configuration session's std::string records.
+qt_cc_library(
+    name = "config_fields",
+    srcs = ["config_fields.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["config_fields.h"],
+    deps = QT_DEPS + [
+        "//src/backend/config:car_model_catalog",
+        "//src/backend/config:config_session",
+        "//src/backend/config:protocol_catalog",
+    ],
+)
+
+fastecu_gtest(
+    name = "config_fields_test",
+    size = "small",
+    srcs = ["config_fields_test.cpp"],
+    deps = [
+        ":config_fields",
+        "//src/backend/config/testing:config_session_fixture",
+    ],
 )
 
 # QByteArray boundary for the synchronous diagnostic dialogs.
@@ -127,7 +152,8 @@ qt_cc_library(
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/calibration:map_edit",
         "//src/backend/checksum:checksum_selection",
-        "//src/backend/config/legacy:legacy_config_paths",
+        ":config_fields",
+        "//src/backend/config:config_session",
         "//src/backend/config:menu_definition",
         "//src/backend/definitions",
         "//src/backend/flash:flash_device_lookup",
@@ -179,6 +205,7 @@ fastecu_qttest(
     linkstatic = True,
     deps = [
         ":desktop",
+        "//src/backend/config:config_session",
         "//src/backend/logging/testing:scripted_logging_protocol",
         "//src/platform/desktop/common/connection/testing:adapter_connection_harness",
         "//src/platform/desktop/common/logging:logging_runtime",
@@ -197,5 +224,37 @@ fastecu_qttest(
     env = {"QT_QPA_PLATFORM": "offscreen"},
     # Static for the same reason as test_mainwindow above.
     linkstatic = True,
-    deps = [":desktop"],
+    deps = [
+        ":desktop",
+        "//src/backend/config:config_session",
+        "//src/platform/desktop/common/ports",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_vehicle_select",
+    size = "small",
+    src = "vehicle_select_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    # Static for the same reason as test_mainwindow above.
+    linkstatic = True,
+    deps = [
+        ":desktop",
+        "//src/backend/config/testing:config_session_fixture",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_protocol_select",
+    size = "small",
+    src = "protocol_select_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    # Static for the same reason as test_mainwindow above.
+    linkstatic = True,
+    deps = [
+        ":desktop",
+        "//src/backend/config/testing:config_session_fixture",
+    ],
 )

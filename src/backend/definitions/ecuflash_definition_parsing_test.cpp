@@ -5,11 +5,13 @@
 
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -65,6 +67,13 @@ class TestEcuflashDefinitionParsing : public QObject
 {
     Q_OBJECT
   private slots:
+    // A fresh session per test: settings edits must not leak between cases.
+    void init()
+    {
+        config_ = std::make_unique<fastecu::config::testing::ConfigSessionFixture>();
+        QVERIFY(config_->initialize().has_value());
+    }
+
     void parses_subcategory_level_userlevel_description()
     {
         QTemporaryDir dir;
@@ -79,7 +88,8 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(!defPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                config_->session);
         fileActions.definitionIndexes.ecuflash_def_cal_id << "TESTCAL";
         fileActions.definitionIndexes.ecuflash_def_filename << defPath;
 
@@ -104,14 +114,19 @@ class TestEcuflashDefinitionParsing : public QObject
                                              "<flashmethod>denso_can</flashmethod></romid></rom>");
         QVERIFY(!defPath.isEmpty());
 
+        // One vehicle whose protocol declares both aliases.
+        fastecu::config::testing::ConfigSessionFixture aliasConfig;
+        aliasConfig.put_protocols(R"(<config name="FastECU"><protocols>
+  <protocol name="sub_ecu_denso_can" alias="denso_kline,denso_can"><mcu>SH7058</mcu></protocol>
+</protocols><car_models>
+  <car_model><make>Subaru</make><model>Test</model><protocol>sub_ecu_denso_can</protocol></car_model>
+</car_models></config>)");
+        QVERIFY(aliasConfig.initialize().has_value());
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                aliasConfig.session);
         fileActions.definitionIndexes.ecuflash_def_cal_id = {"TESTCAL"};
         fileActions.definitionIndexes.ecuflash_def_filename = {defPath};
-        auto& config = fileActions.ConfigValuesStruct;
-        config.flash_protocol_id = {"subaru-denso"};
-        config.flash_protocol_alias = {"denso_kline,denso_can"};
-        config.flash_protocol_protocol_name = {"sub_ecu_denso_can"};
 
         FileActions::EcuCalDefStructure ecuCalDef;
         QCOMPARE(fileActions.read_ecuflash_ecu_def(&ecuCalDef, "TESTCAL"), &ecuCalDef);
@@ -131,7 +146,8 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(!defPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                config_->session);
         fileActions.definitionIndexes.ecuflash_def_cal_id << "TESTCAL";
         fileActions.definitionIndexes.ecuflash_def_filename << defPath;
 
@@ -153,7 +169,8 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(!defPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                config_->session);
         fileActions.definitionIndexes.ecuflash_def_cal_id << "TESTCAL";
         fileActions.definitionIndexes.ecuflash_def_filename << defPath;
 
@@ -175,7 +192,8 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(!defPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                config_->session);
         fileActions.definitionIndexes.ecuflash_def_cal_id << "TESTCAL";
         fileActions.definitionIndexes.ecuflash_def_filename << defPath;
 
@@ -199,7 +217,8 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(!defPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                config_->session);
         fileActions.definitionIndexes.ecuflash_def_cal_id << "TESTCAL";
         fileActions.definitionIndexes.ecuflash_def_filename << defPath;
 
@@ -223,7 +242,8 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(!defPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                config_->session);
         fileActions.definitionIndexes.ecuflash_def_cal_id << "TESTCAL";
         fileActions.definitionIndexes.ecuflash_def_filename << defPath;
 
@@ -259,7 +279,8 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(!childPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                config_->session);
         fileActions.definitionIndexes.ecuflash_def_cal_id = {"CHILD_TEST", "BASE_TEST"};
         fileActions.definitionIndexes.ecuflash_def_filename = {childPath, basePath};
 
@@ -299,7 +320,8 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(!definitionPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                config_->session);
         fileActions.definitionIndexes.ecuflash_def_cal_id = {"PARTIAL"};
         fileActions.definitionIndexes.ecuflash_def_filename = {
             definitionPath,
@@ -331,8 +353,9 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(!definitionPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        fileActions.ConfigValuesStruct.ecuflash_definition_files_directory = dir.path();
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                config_->session);
+        config_->session.settings().ecuflash_definition_files_directory = dir.path().toStdString();
         auto& indexes = fileActions.definitionIndexes;
         indexes.ecuflash_def_cal_id = {"sentinel-id"};
         indexes.ecuflash_def_cal_id_addr = {"sentinel-address"};
@@ -363,8 +386,9 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(!definitionPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        fileActions.ConfigValuesStruct.ecuflash_definition_files_directory = workspace.path();
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                config_->session);
+        config_->session.settings().ecuflash_definition_files_directory = workspace.path().toStdString();
 
         fileActions.create_ecuflash_def_id_list();
         QCOMPARE(fileActions.definitionIndexes.ecuflash_def_cal_id, QStringList({"REMOVED_XML"}));
@@ -389,7 +413,8 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(!definitionPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                config_->session);
         auto& indexes = fileActions.definitionIndexes;
         indexes.ecuflash_def_cal_id = {"BROKEN"};
         indexes.ecuflash_def_cal_id_addr = {"0"};
@@ -425,7 +450,8 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(dir.isValid());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                config_->session);
         auto& indexes = fileActions.definitionIndexes;
         indexes.ecuflash_def_cal_id = {"MISSING"};
         indexes.ecuflash_def_cal_id_addr = {"0"};
@@ -469,8 +495,9 @@ class TestEcuflashDefinitionParsing : public QObject
         QVERIFY(!definitionPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        fileActions.ConfigValuesStruct.ecuflash_definition_files_directory = dir.path();
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink,
+                                config_->session);
+        config_->session.settings().ecuflash_definition_files_directory = dir.path().toStdString();
         fileActions.create_ecuflash_def_id_list();
 
         FileActions::EcuCalDefStructure ecuCalDef;
@@ -507,10 +534,10 @@ class TestEcuflashDefinitionParsing : public QObject
         return writeDefFileAt(path, xml);
     }
 
-    // FileActions's constructor now takes the config/settings ports (Task
-    // 11 of the step5d-1 plan); these are unused by the parsing paths this
-    // test exercises, so plain default-constructed Qt port implementations
-    // are sufficient.
+    // FileActions's constructor takes the file ports and the configuration
+    // session; the parsing paths this test exercises only read settings, so
+    // plain Qt ports and an in-memory session are sufficient.
+    std::unique_ptr<fastecu::config::testing::ConfigSessionFixture> config_;
     QtFileSystem fileSystem_;
     QtResourceBundle resourceBundle_;
     CountingFileRepository fileRepository_;

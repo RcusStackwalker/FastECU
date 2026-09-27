@@ -12,6 +12,8 @@ qt_cc_library(
     normal_hdrs = ["desktop_composition.h"],
     visibility = ["//visibility:private"],
     deps = QT_DEPS + [
+        ":startup",
+        "//src/backend/config:config_session",
         "//src/backend/definitions",
         "//src/platform/desktop/common/connection:adapter_connection",
         "//src/platform/desktop/common/logging",
@@ -24,6 +26,32 @@ qt_cc_library(
         "//src/ui/desktop/channels:log_channel",
         "//src/ui/desktop/channels:remote_peer",
     ],
+)
+
+# Startup diagnostics and the platform's default configuration root, one
+# source per platform.
+qt_cc_library(
+    name = "startup",
+    srcs = ["startup_diagnostics.cpp"] + select({
+        "@platforms//os:windows": ["default_config_root_windows.cpp"],
+        "//conditions:default": ["default_config_root_unix.cpp"],
+    }),
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = [
+        "default_config_root.h",
+        "startup_diagnostics.h",
+        "startup_event_sink.h",
+    ],
+    visibility = ["//visibility:private"],
+    deps = QT_DEPS + ["//src/backend/ports"],
+)
+
+fastecu_qttest(
+    name = "startup_diagnostics_test",
+    size = "small",
+    src = "startup_diagnostics_test.cpp",
+    deps = [":startup"],
 )
 
 # The platform choice for the local serial backend, named by the binary.
@@ -58,6 +86,7 @@ qt_cc_binary(
     deps = [
         ":composition",
         ":direct_serial_backend",
+        ":startup",
         "//src/ui/desktop",
     ],
 )

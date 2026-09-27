@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <memory>
+#include <optional>
 
 // #include <QDesktopWidget>
 #include <QWidget>
@@ -11,7 +13,7 @@
 #include <QCheckBox>
 #include <QScreen>
 
-#include "src/backend/definitions/file_actions.h"
+#include "src/backend/config/config_session.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -25,8 +27,12 @@ class VehicleSelect : public QDialog
     Q_OBJECT
 
   public:
-    explicit VehicleSelect(FileActions::ConfigValuesStructure *configValues, QWidget *parent = nullptr);
+    explicit VehicleSelect(const fastecu::config::ConfigSession& config, QWidget *parent = nullptr);
     ~VehicleSelect();
+
+    // The accepted row; empty until the operator chooses one. The session
+    // itself is never changed here: the caller applies an accepted choice.
+    std::optional<std::size_t> chosen_row() const;
 
   private:
     QFont font;
@@ -58,7 +64,8 @@ class VehicleSelect : public QDialog
     QString flash_protocol_description;
     QString flash_protocol_family;
 
-    FileActions::ConfigValuesStructure *configValues;
+    const fastecu::config::ConfigSession& config;
+    std::optional<std::size_t> chosenRow;
 
   private slots:
     void car_model_selected();

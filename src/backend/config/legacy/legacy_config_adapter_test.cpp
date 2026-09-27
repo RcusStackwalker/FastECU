@@ -21,7 +21,7 @@ TEST(LegacyConfigAdapterTest, SetBaseDirsPopulatesConfigValuesStructureAndReturn
     InMemoryResourceBundle bundle;
     InMemoryFileRepository repo;
     LegacyConfigAdapter adapter(fs, bundle, repo);
-    FileActions::ConfigValuesStructure values;
+    fastecu::definitions::ConfigValuesStructure values;
 
     auto *returned = adapter.set_base_dirs(&values, "/base");
 
@@ -36,7 +36,7 @@ TEST(LegacyConfigAdapterTest, ReadConfigFilePopulatesConfigValuesStructureFields
     InMemoryResourceBundle bundle;
     InMemoryFileRepository repo;
     LegacyConfigAdapter adapter(fs, bundle, repo);
-    FileActions::ConfigValuesStructure values;
+    fastecu::definitions::ConfigValuesStructure values;
     values.config_file = "fastecu.cfg";
     std::string xml = R"(<?xml version="1.0"?><config name="FastECU" version="x"><software_settings>)"
                       R"(<setting name="serial_port"><value data="COM7"/></setting>)"
@@ -62,7 +62,7 @@ TEST(LegacyConfigAdapterTest, ReadConfigFileNormalizesTrailingSlashInMemory)
     InMemoryResourceBundle bundle;
     InMemoryFileRepository repo;
     LegacyConfigAdapter adapter(fs, bundle, repo);
-    FileActions::ConfigValuesStructure values;
+    fastecu::definitions::ConfigValuesStructure values;
     values.config_file = "fastecu.cfg";
     std::string xml = R"(<?xml version="1.0"?><config name="FastECU" version="x"><software_settings>)"
                       R"(<setting name="calibration_files_directory"><value data="/cal/no/trailing/slash"/></setting>)"
@@ -94,7 +94,7 @@ TEST(LegacyConfigAdapterTest, ReadProtocolsFileWithNoCarModelsLeavesListsEmpty)
     InMemoryResourceBundle bundle;
     InMemoryFileRepository repo;
     LegacyConfigAdapter adapter(fs, bundle, repo);
-    FileActions::ConfigValuesStructure values;
+    fastecu::definitions::ConfigValuesStructure values;
     values.protocols_file = "protocols.cfg";
     std::string xml = R"(<?xml version="1.0"?><config name="FastECU" version="x"><protocols>)"
                       R"(<protocol name="p1"><ecu>E1</ecu><mcu>M1</mcu></protocol>)"
@@ -118,7 +118,7 @@ TEST(LegacyConfigAdapterTest, ReadProtocolsFileJoinsCarModelWithMatchingProtocol
     InMemoryResourceBundle bundle;
     InMemoryFileRepository repo;
     LegacyConfigAdapter adapter(fs, bundle, repo);
-    FileActions::ConfigValuesStructure values;
+    fastecu::definitions::ConfigValuesStructure values;
     values.protocols_file = "protocols.cfg";
     std::string xml = R"(<?xml version="1.0"?><config name="FastECU" version="x">)"
                       R"(<protocols>)"
@@ -180,7 +180,7 @@ TEST(LegacyConfigAdapterTest, ReadProtocolsFileResetsSelectionEqualToCatalogSize
     InMemoryResourceBundle bundle;
     InMemoryFileRepository repo;
     LegacyConfigAdapter adapter(fs, bundle, repo);
-    FileActions::ConfigValuesStructure values;
+    fastecu::definitions::ConfigValuesStructure values;
     values.protocols_file = "protocols.cfg";
     values.flash_protocol_selected_id = "1";
     const std::string xml = R"(<?xml version="1.0"?><config><protocols>)"
@@ -207,7 +207,7 @@ TEST(LegacyConfigAdapterTest, ReadProtocolsFileUnmatchedCarModelGetsPlaceholders
     InMemoryResourceBundle bundle;
     InMemoryFileRepository repo;
     LegacyConfigAdapter adapter(fs, bundle, repo);
-    FileActions::ConfigValuesStructure values;
+    fastecu::definitions::ConfigValuesStructure values;
     values.protocols_file = "protocols.cfg";
     std::string xml = R"(<?xml version="1.0"?><config name="FastECU" version="x">)"
                       R"(<protocols>)"

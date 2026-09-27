@@ -18,6 +18,7 @@
 namespace
 {
 
+using fastecu::config::ProtocolEntry;
 using fastecu::definition::DefinitionCatalog;
 using fastecu::definition::DefinitionFormat;
 using fastecu::definition::DefinitionIndexEntry;
@@ -133,25 +134,20 @@ int lineAfterClosingTag(const QStringList& lines, const QString& tagName)
 
 FileActions::FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBundle& resource_bundle,
                          fastecu::IFileRepository& file_repository, fastecu::IAtomicFileWriter& atomic_file_writer,
-                         fastecu::IEventSink& events)
-    : configAdapter_(file_system, resource_bundle, file_repository), definitionFileSystem_(file_system),
-      definitionFileRepository_(file_repository), loggerResourceBundle_(resource_bundle),
-      loggerAtomicFileWriter_(atomic_file_writer), definitionService_(file_system, file_repository, atomic_file_writer),
-      definitionAdapter_(definitionService_), calibrationAdapter_(file_repository), events_(events)
+                         fastecu::IEventSink& events, fastecu::config::ConfigSession& config)
+    : configSession_(config), definitionFileSystem_(file_system), definitionFileRepository_(file_repository),
+      loggerResourceBundle_(resource_bundle), loggerAtomicFileWriter_(atomic_file_writer),
+      definitionService_(file_system, file_repository, atomic_file_writer), definitionAdapter_(definitionService_),
+      calibrationAdapter_(file_repository), events_(events)
 {
 }
 
 fastecu::Result<DefinitionCatalog> FileActions::build_definition_catalog(DefinitionFormat format)
 {
-    if (format == DefinitionFormat::RomRaider && !ConfigValuesStruct.romraider_definition_files.isEmpty())
+    const fastecu::config::AppConfig& settings = configSession_.settings();
+    if (format == DefinitionFormat::RomRaider && !settings.romraider_definition_files.empty())
     {
-        std::vector<std::string> handles;
-        handles.reserve(static_cast<std::size_t>(ConfigValuesStruct.romraider_definition_files.size()));
-        for (const QString& handle : ConfigValuesStruct.romraider_definition_files)
-        {
-            handles.push_back(handle.toStdString());
-        }
-        return definitionService_.build_romraider_catalog(handles);
+        return definitionService_.build_romraider_catalog(settings.romraider_definition_files);
     }
     if (format == DefinitionFormat::EcuFlash)
     {
@@ -161,12 +157,11 @@ fastecu::Result<DefinitionCatalog> FileActions::build_definition_catalog(Definit
         {
             explicitHandles.push_back(handle.toStdString());
         }
-        if (ConfigValuesStruct.ecuflash_definition_files_directory.isEmpty() && explicitHandles.empty())
+        if (settings.ecuflash_definition_files_directory.empty() && explicitHandles.empty())
         {
             return catalogFromLegacyLists(definitionIndexes, format);
         }
-        return definitionService_.build_ecuflash_catalog(
-            ConfigValuesStruct.ecuflash_definition_files_directory.toStdString(), explicitHandles);
+        return definitionService_.build_ecuflash_catalog(settings.ecuflash_definition_files_directory, explicitHandles);
     }
     return catalogFromLegacyLists(definitionIndexes, format);
 }
@@ -304,19 +299,16 @@ void FileActions::apply_flash_method_alias(EcuCalDefStructure& ecuCalDef)
         return;
     }
     const QString flashMethod = ecuCalDef.RomInfo.at(FlashMethod);
-    for (qsizetype index = 0; index < ConfigValuesStruct.flash_protocol_id.size() &&
-                              index < ConfigValuesStruct.flash_protocol_alias.size() &&
-                              index < ConfigValuesStruct.flash_protocol_protocol_name.size();
-         ++index)
+    for (const fastecu::config::ResolvedCarModel& vehicle : configSession_.vehicles())
     {
-        const QStringList aliases = ConfigValuesStruct.flash_protocol_alias.at(index).split(",");
+        const QStringList aliases =
+            QString::fromStdString(fastecu::config::protocol_field_or_placeholder(vehicle, &ProtocolEntry::alias))
+                .split(",");
         if (aliases.contains(flashMethod))
         {
             events_.log(fastecu::LogLevel::Debug, std::format("Alias: {}", flashMethod.toStdString()));
-            events_.log(
-                fastecu::LogLevel::Debug,
-                std::format("Protocol: {}", ConfigValuesStruct.flash_protocol_protocol_name.at(index).toStdString()));
-            ecuCalDef.RomInfo.replace(FlashMethod, ConfigValuesStruct.flash_protocol_protocol_name.at(index));
+            events_.log(fastecu::LogLevel::Debug, std::format("Protocol: {}", vehicle.protocol_name));
+            ecuCalDef.RomInfo.replace(FlashMethod, QString::fromStdString(vehicle.protocol_name));
             return;
         }
     }
@@ -344,7 +336,8 @@ void FileActions::normalize_definition_addresses(EcuCalDefStructure& ecuCalDef)
     }
 }
 
-bool FileActions::validate_flash_protocols(const ConfigValuesStructure& configValues, QStringList *errors)
+bool FileActions::validate_flash_protocols(const fastecu::definitions::ConfigValuesStructure& configValues,
+                                           QStringList *errors)
 {
     QStringList localErrors;
     QStringList *out = errors ? errors : &localErrors;
@@ -530,70 +523,24 @@ QStringList FileActions::collect_ecuflash_definition_body_lines(const QStringLis
     return bodyLines;
 }
 
-FileActions::ConfigValuesStructure *FileActions::set_base_dirs(ConfigValuesStructure *configValues,
-                                                               std::string_view app_root_path)
+const fastecu::config::ResolvedCarModel& FileActions::selectedVehicle() const
 {
-    return configAdapter_.set_base_dirs(configValues, app_root_path);
-}
-
-FileActions::ConfigValuesStructure *FileActions::check_config_dirs(ConfigValuesStructure *configValues)
-{
-    return configAdapter_.check_config_dirs(configValues);
-}
-
-FileActions::ConfigValuesStructure *FileActions::read_config_file(ConfigValuesStructure *configValues)
-{
-    return configAdapter_.read_config_file(configValues);
-}
-
-FileActions::ConfigValuesStructure *FileActions::save_config_file(FileActions::ConfigValuesStructure *configValues)
-{
-    return configAdapter_.save_config_file(configValues);
-}
-
-FileActions::ConfigValuesStructure *FileActions::read_protocols_file(FileActions::ConfigValuesStructure *configValues)
-{
-    configAdapter_.read_protocols_file(configValues);
-
-    // Restores legacy read_protocols_file's final step (file_actions.cpp
-    // history, formerly lines ~1385-1389): validate the populated
-    // flash_protocol_* lists and log (not surface as an error) whatever
-    // validate_flash_protocols finds. This runs here rather than inside
-    // LegacyConfigAdapter::read_protocols_file because validate_flash_protocols
-    // is a FileActions static method, and //src/backend/definitions
-    // (FileActions's target) already depends on
-    // //src/backend/config:legacy_config_adapter -- the adapter calling
-    // back into FileActions would form a hard Bazel dependency cycle (see
-    // src/backend/config/BUILD.bazel's legacy_config_adapter comment for
-    // the same constraint already documented there). FileActions is the
-    // only public entry point every caller (MainWindow, protocol_select,
-    // vehicle_select) actually uses, so validation still runs on every
-    // real read_protocols_file call.
-    QStringList validationErrors;
-    if (!validate_flash_protocols(*configValues, &validationErrors))
-    {
-        logValidationErrors("Invalid protocols file:", validationErrors);
-    }
-
-    return configValues;
+    // The composition initializes the session before building FileActions,
+    // and the session only ever holds a valid row.
+    return *configSession_.selected_vehicle();
 }
 
 FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogValuesStructure *logValues,
                                                                const QString& ecu_id, bool modify)
 {
-    ConfigValuesStructure *configValues = &ConfigValuesStruct;
-
-    const std::string handle = configValues->logger_file.toStdString();
+    const std::string handle = configSession_.effective_paths().logger_file;
     const std::string ecu_key = ecu_id.toStdString();
 
-    events_.log(fastecu::LogLevel::Debug, std::format("Looking for ECU ID: {} in logger def file: {}",
-                                                      ecu_id.toStdString(), configValues->logger_file.toStdString()));
+    events_.log(fastecu::LogLevel::Debug,
+                std::format("Looking for ECU ID: {} in logger def file: {}", ecu_id.toStdString(), handle));
 
     const auto warnUnreadable = [&]
-    {
-        events_.notice(std::format("Logger file: Unable to open logger config file '{}' for reading",
-                                   configValues->logger_file.toStdString()));
-    };
+    { events_.notice(std::format("Logger file: Unable to open logger config file '{}' for reading", handle)); };
 
     fastecu::logging::LoggerDefinitionService service(definitionFileRepository_, loggerResourceBundle_,
                                                       loggerAtomicFileWriter_);
@@ -696,23 +643,22 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
 FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
 {
     LogValuesStructure *logValues = &LogValuesStruct;
-    ConfigValuesStructure *configValues = &ConfigValuesStruct;
+    fastecu::config::AppConfig& settings = configSession_.settings();
 
     fastecu::logging::LoggerDefinitionService service(definitionFileRepository_, loggerResourceBundle_,
                                                       loggerAtomicFileWriter_);
 
     const auto handle =
-        service.resolve_definition_handle(configValues->romraider_logger_definition_file.toStdString(),
-                                          configValues->flash_protocol_selected_log_protocol.toStdString(),
-                                          configValues->config_files_directory.toStdString());
+        service.resolve_definition_handle(settings.romraider_logger_definition_file, settings.selected_log_protocol,
+                                          configSession_.effective_paths().config_files_directory);
     if (!handle)
     {
         events_.notice(std::format("Logger file: Unable to resolve logger definition file: {}", handle.error().detail));
         return logValues;
     }
-    if (configValues->romraider_logger_definition_file.isEmpty() && !handle->empty())
+    if (settings.romraider_logger_definition_file.empty() && !handle->empty())
     {
-        configValues->romraider_logger_definition_file = QString::fromStdString(*handle);
+        settings.romraider_logger_definition_file = *handle;
         events_.log(fastecu::LogLevel::Debug, std::format("Using bundled CDBG logger definition: {}", *handle));
     }
 
@@ -743,8 +689,9 @@ QString FileActions::parse_hex_ecuid(uint8_t byte)
     QString ecuid_byte;
     static constexpr std::string_view chars = "0123456789ABCDEF";
 
-    ecuid_byte = (QChar)chars[(byte >> 4) & 0xF];
-    ecuid_byte.append((QChar)chars[(byte >> 0) & 0xF]);
+    const unsigned value = byte;
+    ecuid_byte = (QChar)chars[(value >> 4U) & 0xFU];
+    ecuid_byte.append((QChar)chars[value & 0xFU]);
     // emit LOG_D("Constructed byte: " + ecuid_byte;
 
     return ecuid_byte;
@@ -806,7 +753,7 @@ void FileActions::apply_missing_definition_defaults(FileActions::EcuCalDefStruct
     ecuCalDef->RomInfo.replace(InternalIdAddress, "");
     ecuCalDef->RomInfo.replace(InternalIdString, "");
     ecuCalDef->RomInfo.replace(EcuId, "");
-    ecuCalDef->RomInfo.replace(Make, ConfigValuesStruct.flash_protocol_selected_make);
+    ecuCalDef->RomInfo.replace(Make, QString::fromStdString(selectedVehicle().make));
     // No FileSize write here: open_subaru_rom_file already set RomInfo[FileSize]
     // unconditionally from the pre-padding length, which is exactly the value
     // this block used to end up with. Rewriting it after the fact would pick up
@@ -817,11 +764,12 @@ void FileActions::apply_missing_definition_defaults(FileActions::EcuCalDefStruct
 FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef,
                                                                    QString filename)
 {
-    ConfigValuesStructure *configValues = &ConfigValuesStruct;
+    const fastecu::config::AppConfig& settings = configSession_.settings();
 
     bool id_is_ascii = false;
 
-    fastecu::Status opened = calibrationAdapter_.open_rom_bytes(*ecuCalDef, filename, *configValues);
+    fastecu::Status opened = calibrationAdapter_.open_rom_bytes(
+        *ecuCalDef, filename, configSession_.effective_paths().calibration_files_directory);
     if (!opened.has_value())
     {
         log_definition_error("Unable to open calibration file", opened.error());
@@ -833,10 +781,10 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     ecuCalDef->use_ecuflash_definition = false;
     ecuCalDef->use_romraider_definition = false;
 
-    if ((configValues->primary_definition_base == "ecuflash" || configValues->use_romraider_definitions != "enabled") &&
-        configValues->ecuflash_definition_files_directory.length())
+    if ((settings.primary_definition_base == "ecuflash" || settings.use_romraider_definitions != "enabled") &&
+        !settings.ecuflash_definition_files_directory.empty())
     {
-        if (configValues->use_ecuflash_definitions == "enabled")
+        if (settings.use_ecuflash_definitions == "enabled")
         {
             parse_ecuid_ecuflash_def_files(ecuCalDef, id_is_ascii);
             if (ecuCalDef->RomId != "")
@@ -845,7 +793,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                 read_ecuflash_ecu_def(ecuCalDef, ecuCalDef->RomId);
             }
         }
-        if (!ecuCalDef->use_ecuflash_definition && configValues->use_romraider_definitions == "enabled")
+        if (!ecuCalDef->use_ecuflash_definition && settings.use_romraider_definitions == "enabled")
         {
             parse_ecuid_romraider_def_files(ecuCalDef, id_is_ascii);
             if (ecuCalDef->RomId != "")
@@ -855,9 +803,9 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
             }
         }
     }
-    else if (configValues->primary_definition_base == "romraider" && !configValues->romraider_definition_files.empty())
+    else if (settings.primary_definition_base == "romraider" && !settings.romraider_definition_files.empty())
     {
-        if (configValues->use_romraider_definitions == "enabled")
+        if (settings.use_romraider_definitions == "enabled")
         {
             parse_ecuid_romraider_def_files(ecuCalDef, id_is_ascii);
             if (ecuCalDef->RomId != "")
@@ -866,7 +814,7 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
                 read_romraider_ecu_def(ecuCalDef, ecuCalDef->RomId);
             }
         }
-        if (!ecuCalDef->use_romraider_definition && configValues->use_ecuflash_definitions == "enabled")
+        if (!ecuCalDef->use_romraider_definition && settings.use_ecuflash_definitions == "enabled")
         {
             parse_ecuid_ecuflash_def_files(ecuCalDef, id_is_ascii);
             if (ecuCalDef->RomId != "")
@@ -884,20 +832,23 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     // continue-without / rejected path. Applying them here unconditionally
     // would stamp them over a definition the user just created or imported.
 
-    calibrationAdapter_.bind_protocol(*configValues, ecuCalDef->RomInfo.at(FlashMethod));
+    // No match changes nothing, as the legacy scan did.
+    configSession_.select_by_protocol_name(ecuCalDef->RomInfo.at(FlashMethod).toStdString());
+    const std::string selected_checksum =
+        fastecu::config::protocol_field_or_placeholder(selectedVehicle(), &ProtocolEntry::checksum);
 
     QString checksum_module = ecuCalDef->RomInfo.at(FlashMethod);
     checksum_module.remove(0, 3);
     checksum_module.insert(0, "checksum");
-    if (configValues->flash_protocol_selected_checksum == "yes")
+    if (selected_checksum == "yes")
     {
         ecuCalDef->RomInfo.replace(ChecksumModule, checksum_module);
     }
-    if (configValues->flash_protocol_selected_checksum == "n/a")
+    if (selected_checksum == "n/a")
     {
         ecuCalDef->RomInfo.replace(ChecksumModule, "Not implemented yet");
     }
-    if (configValues->flash_protocol_selected_checksum == "no")
+    if (selected_checksum == "no")
     {
         ecuCalDef->RomInfo.replace(ChecksumModule, "No checksums");
     }
@@ -905,7 +856,8 @@ FileActions::EcuCalDefStructure *FileActions::open_subaru_rom_file(FileActions::
     // FileName/FullFileName were already set by
     // LegacyCalibrationAdapter::open_rom_bytes (including its "default.bin"
     // fallback for an empty basename).
-    ecuCalDef->McuType = configValues->flash_protocol_selected_mcu;
+    ecuCalDef->McuType =
+        QString::fromStdString(fastecu::config::protocol_field_or_placeholder(selectedVehicle(), &ProtocolEntry::mcu));
     ecuCalDef->OemEcuFile = true;
     ecuCalDef->FileSize = QString::number(ecuCalDef->FullRomData.length());
     ecuCalDef->RomInfo.replace(FileSize, QString::number(ecuCalDef->FullRomData.length() / 1024) + "kb");

@@ -5,6 +5,7 @@
 #include <QStringList>
 #include <QWidget>
 
+#include "src/backend/config/config_session.h"
 #include "src/backend/definition/definition_writer.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/ports/file_repository.h"
@@ -46,8 +47,8 @@ class DefinitionAuthoringDialog : public QObject
     Q_OBJECT
 
   public:
-    DefinitionAuthoringDialog(FileActions& file_actions, fastecu::IFileRepository& repository,
-                              QWidget *parent = nullptr);
+    DefinitionAuthoringDialog(FileActions& file_actions, const fastecu::config::ConfigSession& config,
+                              fastecu::IFileRepository& repository, QWidget *parent = nullptr);
 
     // Both return true when the ROM may continue to be used -- including
     // when the user cancels out, which legacy signalled by returning
@@ -63,6 +64,7 @@ class DefinitionAuthoringDialog : public QObject
 
   private:
     FileActions& fileActions_;
+    const fastecu::config::ConfigSession& config_;
     fastecu::IFileRepository& repository_;
     QWidget *parent_;
 };

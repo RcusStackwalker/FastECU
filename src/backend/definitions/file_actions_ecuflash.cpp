@@ -3,18 +3,19 @@
 // Qt compatibility wrappers over the portable definition service.
 
 #include <set>
+#include <string>
 
 void FileActions::create_ecuflash_def_id_list()
 {
-    if (ConfigValuesStruct.ecuflash_definition_files_directory.isEmpty())
+    const std::string& directory = configSession_.settings().ecuflash_definition_files_directory;
+    if (directory.empty())
     {
         events_.log(fastecu::LogLevel::Debug, "No EcuFlash definition files directory");
         return;
     }
 
-    const fastecu::Status replaced = definitionAdapter_.replace_ecuflash_catalog(
-        definitionIndexes, ConfigValuesStruct.ecuflash_definition_files_directory.toStdString(),
-        submittedEcuflashHandles_);
+    const fastecu::Status replaced =
+        definitionAdapter_.replace_ecuflash_catalog(definitionIndexes, directory, submittedEcuflashHandles_);
     if (!replaced.has_value())
     {
         log_definition_error("Unable to build EcuFlash definition catalog", replaced.error());

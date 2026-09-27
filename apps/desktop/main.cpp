@@ -1,10 +1,12 @@
 #include <QCommandLineParser>
 #include "src/ui/desktop/mainwindow.h"
 #include "apps/desktop/desktop_composition.h"
+#include "apps/desktop/startup_diagnostics.h"
 
 #include <QApplication>
 
 #include <algorithm>
+#include <cstdlib>
 #include <span>
 #include <string_view>
 
@@ -63,6 +65,13 @@ int main(int argc, char *argv[])
         // Declared before the window so it outlives it: MainWindow holds
         // references into the composition until it is destroyed.
         DesktopComposition composition{addr, password};
+        if (!composition.started())
+        {
+            present_startup_failure(*composition.startup_error());
+            return_code = EXIT_FAILURE;
+            break;
+        }
+        present_startup_warnings(composition.startup_warnings());
         MainWindow w(composition.services(), addr);
 
         QScreen *screen = QGuiApplication::primaryScreen();

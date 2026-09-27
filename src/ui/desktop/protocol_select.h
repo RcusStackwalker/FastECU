@@ -1,6 +1,8 @@
 #pragma once
 
 #include <memory>
+#include <optional>
+#include <string>
 
 #include <QWidget>
 #include <QDialog>
@@ -10,7 +12,7 @@
 #include <QCheckBox>
 #include <QScreen>
 
-#include "src/backend/definitions/file_actions.h"
+#include "src/backend/config/config_session.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -24,8 +26,13 @@ class ProtocolSelect : public QDialog
     Q_OBJECT
 
   public:
-    explicit ProtocolSelect(FileActions::ConfigValuesStructure *configValues, QWidget *parent = nullptr);
+    explicit ProtocolSelect(const fastecu::config::ConfigSession& config, QWidget *parent = nullptr);
     ~ProtocolSelect();
+
+    // The accepted protocol name; empty until the operator chooses one. The
+    // session itself is never changed here: the caller applies an accepted
+    // choice.
+    std::optional<std::string> chosen_protocol_name() const;
 
   private:
     QFont font;
@@ -36,7 +43,8 @@ class ProtocolSelect : public QDialog
     bool header_font_bold = false;
     QString header_font_family = "Franklin Gothic";
 
-    FileActions::ConfigValuesStructure *configValues;
+    const fastecu::config::ConfigSession& config;
+    std::optional<std::string> chosenProtocolName;
 
   private slots:
     void car_model_selected();

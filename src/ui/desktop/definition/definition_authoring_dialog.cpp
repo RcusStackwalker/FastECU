@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <QVBoxLayout>
 
+#include "src/ui/desktop/config_fields.h"
 #include "src/ui/desktop/definition/definition_header_form.h"
 
 namespace fastecu::ui
@@ -112,16 +113,15 @@ void record_definition(fastecu::definitions::DefinitionIndexes& indexes, const H
     indexes.ecuflash_def_filename.append(filename);
 }
 
-DefinitionAuthoringDialog::DefinitionAuthoringDialog(FileActions& file_actions, fastecu::IFileRepository& repository,
-                                                     QWidget *parent)
-    : QObject(parent), fileActions_(file_actions), repository_(repository), parent_(parent)
+DefinitionAuthoringDialog::DefinitionAuthoringDialog(FileActions& file_actions,
+                                                     const fastecu::config::ConfigSession& config,
+                                                     fastecu::IFileRepository& repository, QWidget *parent)
+    : QObject(parent), fileActions_(file_actions), config_(config), repository_(repository), parent_(parent)
 {
 }
 
 bool DefinitionAuthoringDialog::create_new_definition(FileActions::EcuCalDefStructure *ecuCalDef)
 {
-    FileActions::ConfigValuesStructure *configValues = &fileActions_.ConfigValuesStruct;
-
     emit LOG_D("Create header", true, true);
     // `dialog` owns the form's editors, and form.editors is read as far down
     // as the record_definition call, so it stays alive for the whole
@@ -135,7 +135,7 @@ bool DefinitionAuthoringDialog::create_new_definition(FileActions::EcuCalDefStru
     }
 
     QString filename =
-        select_definition_path(parent_, configValues->ecuflash_definition_files_directory, PathMode::Save);
+        select_definition_path(parent_, qs(config_.settings().ecuflash_definition_files_directory), PathMode::Save);
     if (filename.isEmpty())
     {
         return true;
@@ -173,10 +173,8 @@ bool DefinitionAuthoringDialog::create_new_definition(FileActions::EcuCalDefStru
 
 bool DefinitionAuthoringDialog::use_existing_definition(FileActions::EcuCalDefStructure *ecuCalDef)
 {
-    FileActions::ConfigValuesStructure *configValues = &fileActions_.ConfigValuesStruct;
-
     const QString source =
-        select_definition_path(parent_, configValues->ecuflash_definition_files_directory, PathMode::Open);
+        select_definition_path(parent_, qs(config_.settings().ecuflash_definition_files_directory), PathMode::Open);
     if (source.isEmpty())
     {
         return true;
@@ -215,7 +213,7 @@ bool DefinitionAuthoringDialog::use_existing_definition(FileActions::EcuCalDefSt
     }
 
     QString filename =
-        select_definition_path(parent_, configValues->ecuflash_definition_files_directory, PathMode::Save);
+        select_definition_path(parent_, qs(config_.settings().ecuflash_definition_files_directory), PathMode::Save);
     if (filename.isEmpty())
     {
         return true;

@@ -19,8 +19,7 @@
 #include "src/backend/definitions/ecu_cal_def.h"
 #include "src/backend/definitions/log_values.h"
 #include "src/backend/calibration/legacy/legacy_calibration_adapter.h"
-#include "src/backend/config/legacy/legacy_config_adapter.h"
-#include "src/backend/config/config_paths.h"
+#include "src/backend/config/config_session.h"
 #include "src/backend/definition/definition_service.h"
 #include "src/backend/definition/legacy/legacy_definition_adapter.h"
 #include "src/backend/ports/atomic_file_writer.h"
@@ -40,22 +39,14 @@ class FileActions
   public:
     FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBundle& resource_bundle,
                 fastecu::IFileRepository& file_repository, fastecu::IAtomicFileWriter& atomic_file_writer,
-                fastecu::IEventSink& events);
+                fastecu::IEventSink& events, fastecu::config::ConfigSession& config);
 
     uint8_t float_precision = 15;
     // QString ecu_protocol;
 
-    // Defined in config_values.h (see that file's comment for why it is not
-    // a nested struct here anymore) and re-exposed under its historical
-    // name so every existing `FileActions::ConfigValuesStructure` call site
-    // keeps compiling unchanged.
-    using ConfigValuesStructure = fastecu::definitions::ConfigValuesStructure;
-    ConfigValuesStructure ConfigValuesStruct;
-
-    // The legacy EcuFlash/RomRaider definition index lists, extracted out of
-    // ConfigValuesStructure (see definition_indexes.h's comment): they are
-    // derived catalog data FileActions builds and appends to, not
-    // application configuration.
+    // The legacy EcuFlash/RomRaider definition index lists (see
+    // definition_indexes.h's comment): derived catalog data FileActions
+    // builds and appends to, not application configuration.
     using DefinitionIndexes = fastecu::definitions::DefinitionIndexes;
     DefinitionIndexes definitionIndexes;
 
@@ -102,28 +93,9 @@ class FileActions
         DefFile,
     };
 
-    /****************************************************
-     * Check if FastECU dir exists in users home folder
-     * If not, create one with appropriate files
-     ***************************************************/
-    ConfigValuesStructure *set_base_dirs(ConfigValuesStructure *configValues, std::string_view app_root_path);
-    ConfigValuesStructure *check_config_dirs(ConfigValuesStructure *configValues);
-
-    /****************************
-     * Read FastECU config file
-     ***************************/
-    ConfigValuesStructure *read_config_file(ConfigValuesStructure *configValues);
-
-    /****************************
-     * Save FastECU config file
-     ***************************/
-    ConfigValuesStructure *save_config_file(FileActions::ConfigValuesStructure *configValues);
-
-    /*************************************
-     * Read FastECU flash protocols file
-     ************************************/
-    ConfigValuesStructure *read_protocols_file(FileActions::ConfigValuesStructure *configValues);
-    static bool validate_flash_protocols(const ConfigValuesStructure& configValues, QStringList *errors = nullptr);
+    // No caller remains; it goes with config_values.h in the next step.
+    static bool validate_flash_protocols(const fastecu::definitions::ConfigValuesStructure& configValues,
+                                         QStringList *errors = nullptr);
     static bool validate_logger_values(const LogValuesStructure& logValues, QStringList *errors = nullptr);
     static bool validate_logger_switches(const LogValuesStructure& logValues, QStringList *errors = nullptr);
     static bool validate_calibration_maps(const EcuCalDefStructure& ecuCalDef, QStringList *errors = nullptr);
@@ -220,8 +192,10 @@ class FileActions
     static void strip_legacy_address_prefixes(QStringList& addresses);
     void apply_flash_method_alias(EcuCalDefStructure& ecuCalDef);
     void normalize_definition_addresses(EcuCalDefStructure& ecuCalDef);
+    const fastecu::config::ResolvedCarModel& selectedVehicle() const;
 
-    fastecu::config::LegacyConfigAdapter configAdapter_;
+    // The composition's session, initialized before FileActions is built.
+    fastecu::config::ConfigSession& configSession_;
     fastecu::IFileSystem& definitionFileSystem_;
     fastecu::IFileRepository& definitionFileRepository_;
     fastecu::IResourceBundle& loggerResourceBundle_;

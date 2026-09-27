@@ -1,43 +1,120 @@
+#include <QApplication>
+#include <QDir>
 #include <QFile>
+#include <QMessageBox>
 #include <QTemporaryDir>
 #include <QTest>
+#include <QTimer>
 
-#include "src/backend/definitions/file_actions.h"
-#include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
+#include "src/backend/config/config_session.h"
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "src/ui/desktop/settings.h"
 
+namespace
+{
+
+// Accepts every message box that appears while it lives, recording its text.
+class ModalCollector
+{
+  public:
+    ModalCollector()
+    {
+        QObject::connect(&timer_, &QTimer::timeout,
+                         [this]
+                         {
+                             if (auto *box = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()))
+                             {
+                                 texts_.append(box->text());
+                                 box->accept();
+                             }
+                         });
+        timer_.start(10);
+    }
+    const QStringList& texts() const
+    {
+        return texts_;
+    }
+
+  private:
+    QTimer timer_;
+    QStringList texts_;
+};
+
+struct SessionOnDisk
+{
+    explicit SessionOnDisk(const QString& root)
+    {
+        status = session.initialize(root.toStdString(), "0.1.0-beta.5");
+    }
+    QtFileSystem file_system;
+    QtResourceBundle resource_bundle;
+    QtFileRepository file_repository;
+    QtEventSink events;
+    fastecu::config::ConfigSession session{file_system, resource_bundle, file_repository, events};
+    fastecu::Status status;
+};
+
+} // namespace
+
 class SettingsTest : public QObject
 {
     Q_OBJECT
 
   private slots:
-    void closingSettingsSavesTheConfigThroughTheInjectedFileActions()
+    void closingSettingsSavesThroughTheSession()
     {
         QTemporaryDir root;
         QVERIFY(root.isValid());
-        QtFileSystem file_system;
-        QtResourceBundle resource_bundle;
-        QtFileRepository file_repository;
-        QtAtomicFileWriter file_writer;
-        QtEventSink events;
-        FileActions file_actions{file_system, resource_bundle, file_repository, file_writer, events};
-        FileActions::ConfigValuesStructure *config = &file_actions.ConfigValuesStruct;
-        file_actions.set_base_dirs(config, root.path().toStdString());
-        file_actions.check_config_dirs(config);
-        // check_config_dirs may seed a default config; remove it so the
-        // assertion below can only pass if Settings wrote it.
-        QFile::remove(config->config_file);
-        QVERIFY(!QFile::exists(config->config_file));
+        SessionOnDisk disk{root.path()};
+        QVERIFY(disk.status.has_value());
+        const QString config_file = QString::fromStdString(disk.session.provisioned_paths().config_file);
+        QVERIFY(QFile::remove(config_file));
 
         {
-            Settings settings{file_actions, config};
+            Settings settings{disk.session};
         }
 
-        QVERIFY(QFile::exists(config->config_file));
+        QVERIFY(QFile::exists(config_file));
+    }
+
+    void editsReachTheSessionLive()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        SessionOnDisk disk{root.path()};
+        QVERIFY(disk.status.has_value());
+        Settings settings{disk.session};
+
+        QVERIFY(QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection,
+                                          Q_ARG(int, 40)));
+
+        QCOMPARE(disk.session.settings().toolbar_iconsize, std::string("40"));
+    }
+
+    void failedSaveKeepsEditsAndWarnsTheOperator()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        SessionOnDisk disk{root.path()};
+        QVERIFY(disk.status.has_value());
+        const QString config_file = QString::fromStdString(disk.session.provisioned_paths().config_file);
+        QVERIFY(QFile::remove(config_file));
+        QVERIFY(QDir().mkpath(config_file)); // a directory where the file goes: every write fails
+
+        ModalCollector boxes;
+        {
+            Settings settings{disk.session};
+            QVERIFY(QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection,
+                                              Q_ARG(int, 40)));
+            settings.close();
+        }
+
+        QCOMPARE(disk.session.settings().toolbar_iconsize, std::string("40"));
+        QVERIFY(!boxes.texts().isEmpty());
+        QVERIFY(boxes.texts().front().contains(config_file));
     }
 };
 

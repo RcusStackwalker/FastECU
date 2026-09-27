@@ -1,8 +1,10 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <memory>
 #include <optional>
+#include <string>
 
 // Exit application with this code to restart it instead of quitting:
 // qApp->exit(RESTART_CODE)
@@ -47,6 +49,7 @@
 #include "src/ui/desktop/dataterminal.h"
 #include "src/ui/desktop/get_key_operations_subaru.h"
 #include "src/backend/calibration/map_edit.h"
+#include "src/backend/config/config_session.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/ui/desktop/checksum/checksum_correction_command.h"
 #include "src/ui/desktop/definition/definition_authoring_dialog.h"
@@ -155,7 +158,7 @@ class MainWindow : public QMainWindow
     FileActions *fileActions = nullptr;
     fastecu::ui::DefinitionAuthoringDialog *definitionAuthoringDialog = nullptr;
     FileActions::LogValuesStructure *logValues;
-    FileActions::ConfigValuesStructure *configValues;
+    fastecu::config::ConfigSession *configSession = nullptr;
     std::array<FileActions::EcuCalDefStructure *, 100> ecuCalDef{};
     // FileActions::EcuCalDefStructure *ecuCalDefTemp;
 
@@ -290,6 +293,14 @@ class MainWindow : public QMainWindow
     void SetComboBoxItemEnabled(QComboBox *comboBox, int index, bool enabled);
     void set_flash_arrow_state();
     void update_protocol_info(int rom_number);
+    // The session's selected vehicle; always valid once constructed.
+    const fastecu::config::ResolvedCarModel& selected_vehicle() const;
+    // Saves the session's settings, logging a failure.
+    void save_settings();
+    // Apply a finished dialog's tentative choice: only an accepted one
+    // reaches the session. Both then run the matching *_finished slot.
+    void apply_vehicle_choice(int result, std::optional<std::size_t> row);
+    void apply_protocol_choice(int result, std::optional<std::string> protocol_name);
     QStringList create_flash_transports_list();
     QStringList create_log_transports_list();
     // QString check_kernel(QString flash_method);
