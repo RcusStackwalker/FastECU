@@ -74,11 +74,10 @@ TEST(ConfigSessionInitialize, CopiesBundledResourcesThroughProvisioning)
 {
     ConfigSessionFixture f;
     f.resource_bundle.bundles["kernels"]["k.bin"] = {1};
-    f.file_system.files["kernels/k.bin"] = {1};
 
     ASSERT_THAT(f.initialize(), IsOk());
 
-    EXPECT_TRUE(f.file_system.exists(f.paths.kernel_files_directory + "k.bin"));
+    EXPECT_EQ(f.file_repository.files.at(f.paths.kernel_files_directory + "k.bin"), (std::vector<std::uint8_t>{1}));
 }
 
 TEST(ConfigSessionInitialize, AbsentSettingsTakeCompiledInDefaults)

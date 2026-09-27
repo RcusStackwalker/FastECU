@@ -80,7 +80,8 @@ Status ConfigSession::initialize(std::string_view app_root, std::string_view ver
     vehicles_.clear();
 
     const ConfigPaths paths = resolve_config_paths(app_root, version);
-    if (Status provisioned = provision_config_directories(paths, file_system_, resource_bundle_, events_);
+    if (Status provisioned =
+            provision_config_directories(paths, file_system_, resource_bundle_, file_repository_, events_);
         !provisioned.has_value())
     {
         return std::unexpected(Error{provisioned.error().kind,

@@ -1,8 +1,10 @@
 #include "src/backend/config/provisioning.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <format>
 #include <iterator>
+#include <string>
 #include <vector>
 
 namespace fastecu::config
@@ -31,8 +33,8 @@ Status ensure_directory(IFileSystem& fs, const std::string& path, IEventSink& ev
     return {};
 }
 
-Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, const std::string& bundle_id,
-                             const std::string& target_directory, IEventSink& events)
+Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, IFileRepository& file_repository,
+                             const std::string& bundle_id, const std::string& target_directory, IEventSink& events)
 {
     Result<std::vector<std::string>> names = bundle.list(bundle_id);
     if (!names.has_value())
@@ -47,23 +49,21 @@ Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, const std
             continue;
         }
         events.log(LogLevel::Debug, std::format("Provisioning default file: {}", target));
-        // The bundle port has no direct filesystem-to-filesystem copy; write
-        // through IFileSystem by reading bytes from the bundle and treating
-        // the write as a same-content copy is out of this port's scope, so
-        // this loop asks the filesystem port to copy from a bundle-resolved
-        // source name, matching how the legacy code copied from the ":/..."
-        // resource path directly with QFile::copy.
-        //
-        // The fs.exists(target) check above already carved out "already
-        // provisioned" (the one non-fatal case for this step), so any
-        // failure copy_file returns here is a genuine I/O error and must
-        // stop the sequence, per the plan's global create_directory/
-        // copy_file/remove_file failure contract.
-        Status result = fs.copy_file(bundle_id + "/" + name, target, false);
-        if (!result.has_value())
+        // The bytes come from the bundle port itself: the bundle's files are
+        // compiled-in resources (Qt ":/..." in production) that no file path
+        // the filesystem port understands reaches. Any failure past the
+        // already-provisioned check above is a genuine error and stops the
+        // sequence.
+        Result<std::vector<std::uint8_t>> bytes = bundle.read(bundle_id, name);
+        if (!bytes.has_value())
         {
             events.log(LogLevel::Error, std::format("Unable to provision default file: {}", target));
-            return at_path(result.error(), target);
+            return at_path(bytes.error(), target);
+        }
+        if (Status written = file_repository.write(target, *bytes); !written.has_value())
+        {
+            events.log(LogLevel::Error, std::format("Unable to provision default file: {}", target));
+            return at_path(written.error(), target);
         }
     }
     return {};
@@ -72,7 +72,7 @@ Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, const std
 } // namespace
 
 Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, IResourceBundle& resource_bundle,
-                                    IEventSink& events)
+                                    IFileRepository& file_repository, IEventSink& events)
 {
     if (Status r = ensure_directory(fs, paths.base_config_directory, events); !r.has_value())
     {
@@ -137,12 +137,14 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, I
         }
     }
 
-    if (Status r = copy_bundle_if_absent(fs, resource_bundle, "config", paths.config_files_directory, events);
+    if (Status r =
+            copy_bundle_if_absent(fs, resource_bundle, file_repository, "config", paths.config_files_directory, events);
         !r.has_value())
     {
         return r;
     }
-    if (Status r = copy_bundle_if_absent(fs, resource_bundle, "kernels", paths.kernel_files_directory, events);
+    if (Status r = copy_bundle_if_absent(fs, resource_bundle, file_repository, "kernels", paths.kernel_files_directory,
+                                         events);
         !r.has_value())
     {
         return r;

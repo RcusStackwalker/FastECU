@@ -251,7 +251,7 @@ LegacyConfigAdapter::check_config_dirs(fastecu::definitions::ConfigValuesStructu
 {
     fastecu::NullEventSink events;
     ConfigPaths paths = paths_from_config_values(*values);
-    provision_config_directories(paths, file_system_, resource_bundle_, events);
+    provision_config_directories(paths, file_system_, resource_bundle_, file_repository_, events);
     return values;
 }
 
