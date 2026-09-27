@@ -31,13 +31,13 @@
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
 #include "src/platform/desktop/common/connection/testing/adapter_connection_harness.h"
 #include "src/platform/desktop/common/logging/logging_engine.h"
-#include "src/platform/desktop/common/logging/systemlogger.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "src/platform/desktop/common/remote_utility/remote_utility.h"
+#include "src/ui/desktop/channels/log_channel.h"
 
 namespace
 {
@@ -250,8 +250,8 @@ bool triggerMenu(MainWindow& window, const char *command)
                                      Q_ARG(QString, QString::fromLatin1(command)));
 }
 
-// The services DesktopComposition builds in the real app, minus the syslog
-// thread: the logger lives on the test thread, which is enough for a receiver.
+// The services DesktopComposition builds in the real app. The channels are
+// left unwired: tests spy on them.
 struct TestServices
 {
     explicit TestServices(const QString& config_root)
@@ -259,8 +259,6 @@ struct TestServices
     {
         FileActions::ConfigValuesStructure *config = &file_actions.ConfigValuesStruct;
         file_actions.set_base_dirs(config, config_root.toStdString());
-        syslogger = std::make_unique<SystemLogger>(config->syslog_files_directory, config->software_name,
-                                                   config->software_version);
     }
 
     MainWindowServices services()
@@ -269,7 +267,7 @@ struct TestServices
             .file_actions = file_actions,
             .config_repository = file_repository,
             .file_action_events = events,
-            .syslogger = *syslogger,
+            .log = log_channel,
             .connection = adapter.connection(),
             .remote_utility = remote_utility,
             .logging_engine = logging_engine,
@@ -282,7 +280,7 @@ struct TestServices
     QtAtomicFileWriter file_writer;
     QtEventSink events;
     FileActions file_actions;
-    std::unique_ptr<SystemLogger> syslogger;
+    fastecu::ui::LogChannel log_channel;
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
     FakeBackend *fake = adapter.fake(); // null if the fake backend failed to start
     RemoteUtility remote_utility{"", ""};
@@ -475,6 +473,36 @@ class MainWindowTest : public QObject
         constructor_driver.stop();
     }
 
+    void windowLogLinesReachTheLogChannel()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        QSignalSpy lines{&services.log_channel, &fastecu::ui::LogChannel::LOG_I};
+
+        emit window.LOG_I("probe line", true, false);
+
+        QCOMPARE(lines.count(), 1);
+        QCOMPARE(lines.at(0).at(0).toString(), QString("probe line"));
+        QCOMPARE(lines.at(0).at(1).toBool(), true);
+        QCOMPARE(lines.at(0).at(2).toBool(), false);
+    }
+
+    void windowEnablesFileLoggingThroughTheChannel()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QSignalSpy enables{&services.log_channel, &fastecu::ui::LogChannel::enable_log_write_to_file};
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+
+        QVERIFY(
+            std::ranges::any_of(enables, [](const QList<QVariant>& arguments) { return arguments.at(0).toBool(); }));
+    }
+
     void handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePolling_data()
     {
         QTest::addColumn<QString>("choice");
@@ -517,9 +545,7 @@ class MainWindowTest : public QObject
         window.configValues->flash_protocol_kernel_addr = {"0x100000"};
         window.configValues->kernel_files_directory = config_root_.path() + "/kernels/";
 
-        // The TCU log lines must come from MainWindow, which outlives the
-        // queued delivery to the syslogger's thread; a short-lived sender's
-        // queued lines are dropped once it is destroyed.
+        // The TCU log lines are relayed through MainWindow's own LOG_* signals.
         QSignalSpy info_lines{&window, &MainWindow::LOG_I};
         ModalDriver operation_driver{choice};
         operation_driver.start();

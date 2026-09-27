@@ -821,10 +821,10 @@ void MainWindow::show_dtc_window()
 
     fastecu::diagnostics::SerialDiagnosticLink link(&connection->facade());
     DtcOperations dtcOperations(link, this);
-    QObject::connect(&dtcOperations, &DtcOperations::LOG_E, syslogger, &SystemLogger::log_messages);
-    QObject::connect(&dtcOperations, &DtcOperations::LOG_W, syslogger, &SystemLogger::log_messages);
-    QObject::connect(&dtcOperations, &DtcOperations::LOG_I, syslogger, &SystemLogger::log_messages);
-    QObject::connect(&dtcOperations, &DtcOperations::LOG_D, syslogger, &SystemLogger::log_messages);
+    QObject::connect(&dtcOperations, &DtcOperations::LOG_E, log_channel, &fastecu::ui::LogChannel::LOG_E);
+    QObject::connect(&dtcOperations, &DtcOperations::LOG_W, log_channel, &fastecu::ui::LogChannel::LOG_W);
+    QObject::connect(&dtcOperations, &DtcOperations::LOG_I, log_channel, &fastecu::ui::LogChannel::LOG_I);
+    QObject::connect(&dtcOperations, &DtcOperations::LOG_D, log_channel, &fastecu::ui::LogChannel::LOG_D);
 
     dtcOperations.exec();
 
@@ -891,10 +891,10 @@ void MainWindow::show_subaru_biu_window()
     }
 
     BiuOperationsSubaru biuOperationsSubaru(link, this);
-    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_E, syslogger, &SystemLogger::log_messages);
-    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_W, syslogger, &SystemLogger::log_messages);
-    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_I, syslogger, &SystemLogger::log_messages);
-    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_D, syslogger, &SystemLogger::log_messages);
+    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_E, log_channel, &fastecu::ui::LogChannel::LOG_E);
+    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_W, log_channel, &fastecu::ui::LogChannel::LOG_W);
+    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_I, log_channel, &fastecu::ui::LogChannel::LOG_I);
+    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_D, log_channel, &fastecu::ui::LogChannel::LOG_D);
 
     biuOperationsSubaru.exec();
 
@@ -915,10 +915,10 @@ void MainWindow::show_terminal_window()
     connection->select_port(port);
     fastecu::diagnostics::SerialDiagnosticLink link(&connection->facade());
     DataTerminal hexCommander(link, this);
-    QObject::connect(&hexCommander, &DataTerminal::LOG_E, syslogger, &SystemLogger::log_messages);
-    QObject::connect(&hexCommander, &DataTerminal::LOG_W, syslogger, &SystemLogger::log_messages);
-    QObject::connect(&hexCommander, &DataTerminal::LOG_I, syslogger, &SystemLogger::log_messages);
-    QObject::connect(&hexCommander, &DataTerminal::LOG_D, syslogger, &SystemLogger::log_messages);
+    QObject::connect(&hexCommander, &DataTerminal::LOG_E, log_channel, &fastecu::ui::LogChannel::LOG_E);
+    QObject::connect(&hexCommander, &DataTerminal::LOG_W, log_channel, &fastecu::ui::LogChannel::LOG_W);
+    QObject::connect(&hexCommander, &DataTerminal::LOG_I, log_channel, &fastecu::ui::LogChannel::LOG_I);
+    QObject::connect(&hexCommander, &DataTerminal::LOG_D, log_channel, &fastecu::ui::LogChannel::LOG_D);
 
     hexCommander.exec();
 }
