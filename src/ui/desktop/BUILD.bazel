@@ -186,6 +186,7 @@ fastecu_qttest(
         "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
         "//src/ui/desktop/channels:log_channel",
+        "//src/ui/desktop/channels:remote_peer",
     ],
 )
 

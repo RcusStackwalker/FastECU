@@ -15,3 +15,11 @@ qt_cc_library(
     copts = COMMON_COPTS,
     deps = QT_DEPS,
 )
+
+qt_cc_library(
+    name = "remote_peer",
+    srcs = [],
+    hdrs = ["remote_peer.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS,
+)

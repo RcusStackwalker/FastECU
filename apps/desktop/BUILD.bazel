@@ -22,6 +22,7 @@ qt_cc_library(
         "//src/platform/desktop/common/transport:logging_protocol_registration",
         "//src/ui/desktop:main_window_services",
         "//src/ui/desktop/channels:log_channel",
+        "//src/ui/desktop/channels:remote_peer",
     ],
 )
 
@@ -43,7 +44,9 @@ fastecu_qttest(
         ":composition",
         ":direct_serial_backend",
         "//src/platform/desktop/common/logging",
+        "//src/platform/desktop/common/remote_utility",
         "//src/ui/desktop/channels:log_channel",
+        "//src/ui/desktop/channels:remote_peer",
     ],
 )
 

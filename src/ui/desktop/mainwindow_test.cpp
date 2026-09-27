@@ -38,6 +38,7 @@
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "src/platform/desktop/common/remote_utility/remote_utility.h"
 #include "src/ui/desktop/channels/log_channel.h"
+#include "src/ui/desktop/channels/remote_peer.h"
 
 namespace
 {
@@ -270,6 +271,7 @@ struct TestServices
             .log = log_channel,
             .connection = adapter.connection(),
             .remote_utility = remote_utility,
+            .remote = remote_peer,
             .logging_engine = logging_engine,
         };
     }
@@ -284,6 +286,7 @@ struct TestServices
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
     FakeBackend *fake = adapter.fake(); // null if the fake backend failed to start
     RemoteUtility remote_utility{"", ""};
+    fastecu::ui::RemotePeer remote_peer;
     fastecu::desktop::logging::LoggingEngine logging_engine;
 };
 
