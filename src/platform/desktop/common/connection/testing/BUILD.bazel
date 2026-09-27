@@ -1,0 +1,19 @@
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+
+package(default_visibility = ["//src/ui/desktop:__pkg__"])
+
+# Lets UI-layer tests build MainWindow over a fake backend without seeing
+# serial_port_actions.h: the facade lives behind the harness's .cpp.
+qt_cc_library(
+    name = "adapter_connection_harness",
+    testonly = True,
+    srcs = ["adapter_connection_harness.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["adapter_connection_harness.h"],
+    deps = QT_DEPS + [
+        "//src/platform/desktop/common/connection:adapter_connection",
+        "//src/platform/desktop/common/serial:serial_platform_api",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+    ],
+)

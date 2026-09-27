@@ -23,6 +23,7 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
     syslog_thread_->start();
 
     serial_ = make_serial_port_actions(serial_connection_from_args(peer_address, peer_password), *syslogger_);
+    connection_ = std::make_unique<fastecu::desktop::connection::AdapterConnection>(*serial_);
     remote_utility_ = std::make_unique<RemoteUtility>(peer_address, peer_password, nullptr, nullptr);
 
     using fastecu::desktop::logging::LoggingEngine;
@@ -40,6 +41,7 @@ DesktopComposition::~DesktopComposition()
     // and every service logs to the syslogger.
     logging_engine_.reset();
     remote_utility_.reset();
+    connection_.reset();
     serial_.reset();
     // The logger lives on its own thread; stop and join it before deleting
     // it. (Before step 6c neither was ever stopped: SystemLogger::finished,
@@ -65,7 +67,7 @@ MainWindowServices DesktopComposition::services()
         .config_repository = file_repository_,
         .file_action_events = file_action_events_,
         .syslogger = *syslogger_,
-        .serial = *serial_,
+        .connection = *connection_,
         .remote_utility = *remote_utility_,
         .logging_engine = *logging_engine_,
     };

@@ -359,7 +359,8 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     connect(timer, &QTimer::timeout, this, [&]() { QApplication::processEvents(); });
     timer->start();
 
-    serial = &services_.serial;
+    connection = &services_.connection;
+    serial = &connection->facade();
     remote_utility = &services_.remote_utility;
     if (!peerAddress.isEmpty())
     {
