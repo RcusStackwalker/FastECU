@@ -466,4 +466,68 @@ Status populate_optional_boolean(pugi::xml_node table, std::string_view attribut
     return {};
 }
 
+Status populate_map_header(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                           std::string_view definition_id)
+{
+    if (auto status = populate_common_map_attributes(table, map, source, definition_id); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
+    if (map.name.empty())
+    {
+        return invalid(source, "element <table> attribute 'name'", "missing or empty map name", definition_id);
+    }
+    auto address = optional_address(table, source, definition_id);
+    if (!address.has_value())
+    {
+        return std::unexpected(address.error());
+    }
+    map.address = *address;
+    return {};
+}
+
+Status populate_map_size(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                         std::string_view definition_id)
+{
+    if (auto status = populate_optional_dimension(table, "sizex", map.x_size, source, definition_id);
+        !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
+    return populate_optional_dimension(table, "sizey", map.y_size, source, definition_id);
+}
+
+Status populate_map_orientation(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                                std::string_view definition_id)
+{
+    if (auto status = populate_optional_boolean(table, "swapxy", map.swap_xy, source, definition_id);
+        !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
+    if (auto status = populate_optional_boolean(table, "flipx", map.flip_x, source, definition_id); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
+    return populate_optional_boolean(table, "flipy", map.flip_y, source, definition_id);
+}
+
+std::string map_scaling_fallback_name(const UnresolvedCalibrationMap& map)
+{
+    return map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name;
+}
+
+void adopt_inline_scaling(const UnresolvedScaling& scaling, UnresolvedCalibrationMap& map)
+{
+    map.scaling_name = scaling.name;
+    if (!map.storage_type)
+    {
+        map.storage_type = scaling.storage_type;
+    }
+    if (map.endian.empty())
+    {
+        map.endian = scaling.endian;
+    }
+}
+
 } // namespace fastecu::definition

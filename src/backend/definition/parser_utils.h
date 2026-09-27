@@ -66,6 +66,88 @@ Status populate_optional_boolean(pugi::xml_node table, std::string_view attribut
                                  std::optional<bool>& destination, std::string_view source,
                                  std::string_view definition_id);
 
+// The <table> attributes and checks both definition formats read the same way. Each parser
+// keeps its own parse_table / parse_axis and composes these with its format-specific rules.
+Status populate_map_header(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                           std::string_view definition_id);
+Status populate_map_size(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                         std::string_view definition_id);
+Status populate_map_orientation(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
+                                std::string_view definition_id);
+std::string map_scaling_fallback_name(const UnresolvedCalibrationMap& map);
+void adopt_inline_scaling(const UnresolvedScaling& scaling, UnresolvedCalibrationMap& map);
+
+// Reads the map's scaling reference and parses its inline <scaling> child, if any, into the map.
+// The scaling is returned rather than stored so the caller can apply format rules before keeping it.
+// ParseScaling: Result<UnresolvedScaling>(pugi::xml_node scaling_node, std::string fallback_name).
+template <typename ParseScaling>
+Result<std::optional<UnresolvedScaling>> parse_map_scaling(pugi::xml_node table, UnresolvedCalibrationMap& map,
+                                                           ParseScaling parse_scaling)
+{
+    map.scaling_name = value_or_empty(table.attribute("scaling"));
+    const pugi::xml_node scaling_node = table.child("scaling");
+    if (!scaling_node)
+    {
+        return std::optional<UnresolvedScaling>{};
+    }
+    auto scaling = parse_scaling(scaling_node, map_scaling_fallback_name(map));
+    if (!scaling.has_value())
+    {
+        return std::unexpected(scaling.error());
+    }
+    adopt_inline_scaling(*scaling, map);
+    return std::optional<UnresolvedScaling>{std::move(*scaling)};
+}
+
+// ParseScaling: as for parse_map_scaling.
+template <typename ParseScaling>
+Result<UnresolvedAxisDefinition> parse_axis_definition(pugi::xml_node table, std::uint32_t default_size,
+                                                       std::string_view source, std::string_view definition_id,
+                                                       std::vector<UnresolvedScaling>& scalings,
+                                                       ParseScaling parse_scaling)
+{
+    UnresolvedAxisDefinition axis;
+    if (auto status = populate_common_axis_attributes(table, axis, source, definition_id); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
+    if (axis.name.empty())
+    {
+        return invalid(source, std::format("element <table> type '{}' attribute 'name'", axis.type),
+                       "missing or empty axis name", definition_id);
+    }
+    auto address = optional_address(table, source, definition_id);
+    if (!address.has_value())
+    {
+        return std::unexpected(address.error());
+    }
+    axis.address = *address;
+
+    if (const char *size_attribute =
+            table.attribute("elements") ? "elements" : (table.attribute("size") ? "size" : nullptr);
+        size_attribute)
+    {
+        auto size = dimension_attribute(table, size_attribute, default_size, source, definition_id);
+        if (!size.has_value())
+        {
+            return std::unexpected(size.error());
+        }
+        axis.size = *size;
+    }
+    axis.scaling_name = value_or_empty(table.attribute("scaling"));
+    if (const pugi::xml_node scaling_node = table.child("scaling"))
+    {
+        auto scaling = parse_scaling(scaling_node, axis.scaling_name.empty() ? axis.name : axis.scaling_name);
+        if (!scaling.has_value())
+        {
+            return std::unexpected(scaling.error());
+        }
+        apply_scaling_to_axis(*scaling, axis);
+        scalings.push_back(std::move(*scaling));
+    }
+    return axis;
+}
+
 template <typename ParseAxis>
 Status populate_axes(pugi::xml_node table, UnresolvedCalibrationMap& map, std::string_view source,
                      std::string_view definition_id, std::vector<UnresolvedScaling>& scalings, ParseAxis parse_axis)

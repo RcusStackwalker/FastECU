@@ -156,6 +156,30 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
     EXPECT_EQ(result->scalings.at(3).format, "0.00");
 }
 
+TEST(EcuFlashParserTest, InlineBloblistScalingMakesTheMapSelectable)
+{
+    const auto xml = bytes(R"xml(
+      <rom><romid><xmlid>SELECT</xmlid></romid>
+      <table name="Mode" address="40" type="1D">
+        <scaling storagetype="bloblist" endian="little"><data name="off" value="00"/>
+                 <data name="on" value="01"/></scaling>
+      </table></rom>)xml");
+
+    auto result = parse_ecuflash_definition(xml, "select.xml");
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_EQ(result->maps.size(), 1U);
+    const auto& map = result->maps.front();
+    EXPECT_EQ(map.type, "Selectable");
+    EXPECT_EQ(map.scaling_name, "Mode");
+    EXPECT_EQ(map.storage_type, StorageType::Bloblist);
+    EXPECT_EQ(map.endian, "little");
+    ASSERT_EQ(result->scalings.size(), 1U);
+    EXPECT_EQ(result->scalings.front().name, "Mode");
+    EXPECT_EQ(result->scalings.front().selections,
+              (std::vector<std::pair<std::string, std::string>>{{"disabled", "00"}, {"enabled", "01"}}));
+}
+
 TEST(EcuFlashParserTest, PreservesStaticAxisDataWithoutAnExplicitSize)
 {
     auto result = parse_ecuflash_definition(bytes(R"xml(
