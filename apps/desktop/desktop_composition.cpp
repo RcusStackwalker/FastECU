@@ -37,6 +37,29 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
     connection_ = std::make_unique<fastecu::desktop::connection::AdapterConnection>(*serial_);
     remote_utility_ = std::make_unique<RemoteUtility>(peer_address, peer_password, nullptr, nullptr);
 
+    // The UI reaches the remote utility only through the peer channel. The
+    // mirror is dropped while the replica is not valid, as MainWindow did.
+    using fastecu::ui::RemotePeer;
+    QObject::connect(&remote_peer_, &RemotePeer::wait_requested, remote_utility_.get(), &RemoteUtility::waitForSource,
+                     Qt::DirectConnection);
+    QObject::connect(&remote_peer_, &RemotePeer::log_window_message, remote_utility_.get(),
+                     [utility = remote_utility_.get()](const QString& message)
+                     {
+                         if (utility->isValid())
+                         {
+                             utility->send_log_window_message(message);
+                         }
+                     });
+    QObject::connect(&remote_peer_, &RemotePeer::progress, remote_utility_.get(),
+                     [utility = remote_utility_.get()](int value)
+                     {
+                         if (utility->isValid())
+                         {
+                             utility->set_progressbar_value(value);
+                         }
+                     });
+    QObject::connect(remote_utility_.get(), &RemoteUtility::stateChanged, &remote_peer_, &RemotePeer::stateChanged);
+
     using fastecu::desktop::logging::LoggingEngine;
     logging_engine_ = std::make_unique<LoggingEngine>();
     QObject::connect(logging_engine_.get(), &LoggingEngine::LOG_E, syslogger_.get(), &SystemLogger::log_messages);
@@ -79,7 +102,7 @@ MainWindowServices DesktopComposition::services()
         .file_action_events = file_action_events_,
         .log = log_channel_,
         .connection = *connection_,
-        .remote_utility = *remote_utility_,
+        .remote = remote_peer_,
         .logging_engine = *logging_engine_,
     };
 }

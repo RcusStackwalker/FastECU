@@ -7,7 +7,7 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-# UI-facing adapters, like connection:adapter_connection: MainWindow holds the
+# UI-facing adapters, as connection:adapter_connection is: MainWindow holds the
 # LoggingEngine and builds its snapshots and values through these adapters.
 UI_FACING_VISIBILITY = [
     "//apps/desktop:__pkg__",

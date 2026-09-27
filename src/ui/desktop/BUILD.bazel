@@ -147,11 +147,11 @@ qt_cc_library(
         "//src/platform/desktop/common/logging:logging_adapters",
         "//src/platform/desktop/common/logging:logging_runtime",
         "//src/platform/desktop/common/ports",
-        "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/serial:serial_idle",
         "//src/ui/desktop/biu",
         "//src/ui/desktop/calibration:map_edit_adapter",
         "//src/ui/desktop/channels:log_channel",
+        "//src/ui/desktop/channels:remote_peer",
         "//src/ui/desktop/checksum:checksum_correction_command",
         "//src/ui/desktop/definition:definition_authoring_dialog",
         "//src/ui/desktop/flash/operation:flash_operation_controller",
@@ -183,9 +183,9 @@ fastecu_qttest(
         "//src/platform/desktop/common/connection/testing:adapter_connection_harness",
         "//src/platform/desktop/common/logging:logging_runtime",
         "//src/platform/desktop/common/ports",
-        "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
         "//src/ui/desktop/channels:log_channel",
+        "//src/ui/desktop/channels:remote_peer",
     ],
 )
 

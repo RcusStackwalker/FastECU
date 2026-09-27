@@ -5,10 +5,6 @@ package(default_visibility = [
     "//apps/desktop:__pkg__",
     "//src/platform:__subpackages__",
     "//tests:__pkg__",
-    # GRANDFATHERED (Task 5 human decision): //src/ui/desktop includes
-    # remote_utility.h directly (mainwindow.h:97). This is a real ui ->
-    # platform edge the modularization plan has not yet removed.
-    "//src/ui/desktop:__pkg__",
 ])
 
 qt_replica_library(

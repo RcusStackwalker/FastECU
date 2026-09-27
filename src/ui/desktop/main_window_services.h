@@ -3,7 +3,6 @@
 class FileActions;
 class QtEventSink;
 class QtFileRepository;
-class RemoteUtility;
 namespace fastecu::desktop::connection
 {
 class AdapterConnection;
@@ -15,7 +14,8 @@ class LoggingEngine;
 namespace fastecu::ui
 {
 class LogChannel;
-}
+class RemotePeer;
+} // namespace fastecu::ui
 
 // Long-lived services MainWindow uses but does not own. A composition root
 // (apps/desktop's DesktopComposition, or a test fixture) builds them, keeps
@@ -28,6 +28,6 @@ struct MainWindowServices
     QtEventSink& file_action_events;
     fastecu::ui::LogChannel& log;
     fastecu::desktop::connection::AdapterConnection& connection;
-    RemoteUtility& remote_utility;
+    fastecu::ui::RemotePeer& remote;
     fastecu::desktop::logging::LoggingEngine& logging_engine;
 };

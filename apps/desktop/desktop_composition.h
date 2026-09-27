@@ -15,6 +15,7 @@
 #include "src/platform/desktop/common/connection/adapter_connection.h"
 #include "src/ui/desktop/main_window_services.h"
 #include "src/ui/desktop/channels/log_channel.h"
+#include "src/ui/desktop/channels/remote_peer.h"
 
 class QThread;
 class RemoteUtility;
@@ -49,6 +50,7 @@ class DesktopComposition
     QtEventSink file_action_events_;
     FileActions file_actions_;
     fastecu::ui::LogChannel log_channel_;
+    fastecu::ui::RemotePeer remote_peer_;
     std::unique_ptr<QThread> syslog_thread_;
     std::unique_ptr<SystemLogger> syslogger_;
     OwnedSerialPortActions serial_;

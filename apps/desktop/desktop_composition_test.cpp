@@ -22,12 +22,15 @@
 #include <memory>
 
 #include "src/platform/desktop/common/logging/systemlogger.h"
+#include "src/platform/desktop/common/remote_utility/remote_utility.h"
 #include "src/ui/desktop/channels/log_channel.h"
+#include "src/ui/desktop/channels/remote_peer.h"
 
 namespace
 {
 
 using fastecu::ui::LogChannel;
+using fastecu::ui::RemotePeer;
 
 // Holds the syslog thread inside one queued call until release(), so a test
 // can emit and destroy senders before the logger sees their lines.
@@ -109,9 +112,51 @@ class DesktopCompositionTest : public QObject
         QCOMPARE(&first.file_action_events, &second.file_action_events);
         QCOMPARE(&first.log, &second.log);
         QCOMPARE(&first.connection, &second.connection);
-        QCOMPARE(&first.remote_utility, &second.remote_utility);
+        QCOMPARE(&first.remote, &second.remote);
         QCOMPARE(&first.logging_engine, &second.logging_engine);
         QCOMPARE(first.file_actions.ConfigValuesStruct.base_config_directory, root.path());
+    }
+
+    void waitRequestIsWiredToTheRemoteUtility()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        DesktopComposition composition{{}, {}, root.path()};
+        // Running the wait needs a peer; it loops until one answers, so this
+        // checks the wiring without invoking it: isSignalConnected is
+        // protected, so disconnect-and-report-whether-anything-was-there
+        // is the public way to observe the same fact.
+        QVERIFY(QObject::disconnect(&composition.services().remote, &RemotePeer::wait_requested, nullptr, nullptr));
+    }
+
+    void remoteStateChangesReachThePeer()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        DesktopComposition composition{{}, {}, root.path()};
+        QSignalSpy changes{&composition.services().remote, &RemotePeer::stateChanged};
+
+        emit composition.remote_utility_->stateChanged(QRemoteObjectReplica::Suspect, QRemoteObjectReplica::Valid);
+
+        QCOMPARE(changes.count(), 1);
+        QCOMPARE(changes.at(0).at(0).value<QRemoteObjectReplica::State>(), QRemoteObjectReplica::Suspect);
+        QCOMPARE(changes.at(0).at(1).value<QRemoteObjectReplica::State>(), QRemoteObjectReplica::Valid);
+    }
+
+    // No --host: the replica never becomes valid, so the mirror drops both.
+    void mirroringWithoutAPeerReturnsPromptly()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        DesktopComposition composition{{}, {}, root.path()};
+        RemotePeer& remote = composition.services().remote;
+        QVERIFY(!composition.remote_utility_->isValid());
+
+        QElapsedTimer elapsed;
+        elapsed.start();
+        emit remote.log_window_message("mirrored line");
+        emit remote.progress(42);
+        QVERIFY2(elapsed.elapsed() < 1000, "mirroring without a peer blocked");
     }
 
     void channelLevelsReachTheLogWindowWithTheirPrefix()
@@ -192,6 +237,7 @@ class DesktopCompositionTest : public QObject
 
         emit log.enable_log_write_to_file(true);
         emit log.LOG_I("to file", false, true);
+        emit log.LOG_D("debug to file", false, true);
         // log_messages signals the window before it writes the file; the
         // sentinel's window line proves the earlier write has finished.
         emit log.LOG_I("sentinel", false, false);
@@ -201,7 +247,9 @@ class DesktopCompositionTest : public QObject
         QCOMPARE(files.size(), 1);
         QFile file{QDir(syslog_dir).filePath(files.first())};
         QVERIFY(file.open(QIODevice::ReadOnly));
-        QVERIFY(file.readAll().contains("to file"));
+        const QByteArray contents = file.readAll();
+        QVERIFY(contents.contains("to file"));
+        QVERIFY(contents.contains("debug to file"));
     }
 
     // SystemLogger::run() spends its first second in a processEvents loop on
