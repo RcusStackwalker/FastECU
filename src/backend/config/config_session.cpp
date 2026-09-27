@@ -61,6 +61,11 @@ std::unexpected<Error> failed(const Error& error, std::string_view what, std::st
 
 } // namespace
 
+std::string protocol_field_or_placeholder(const ResolvedCarModel& row, std::string ProtocolEntry::*field)
+{
+    return row.protocol.has_value() ? (*row.protocol).*field : std::string(kMissingProtocolField);
+}
+
 ConfigSession::ConfigSession(IFileSystem& file_system, IResourceBundle& resource_bundle,
                              IFileRepository& file_repository, IEventSink& events)
     : file_system_(file_system), resource_bundle_(resource_bundle), file_repository_(file_repository), events_(events)
@@ -201,6 +206,32 @@ const ResolvedCarModel *ConfigSession::selected_vehicle() const
 {
     const Result<std::size_t> row = selected_row();
     return row.has_value() ? &vehicles_[*row] : nullptr;
+}
+
+Status ConfigSession::select_row(std::size_t row)
+{
+    if (!initialized_)
+    {
+        return fail(ErrorKind::Internal, "configuration session is not initialized");
+    }
+    if (row >= vehicles_.size())
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("vehicle row {} is out of range ({} rows)", row, vehicles_.size()));
+    }
+    settings_.selected_protocol_id = std::to_string(row);
+    settings_.selected_log_protocol = protocol_field_or_placeholder(vehicles_[row], &ProtocolEntry::log_protocol);
+    return {};
+}
+
+bool ConfigSession::select_by_protocol_name(std::string_view protocol_name)
+{
+    if (!initialized_)
+    {
+        return false;
+    }
+    const std::optional<std::size_t> row = find_car_model_by_protocol_name(vehicles_, protocol_name);
+    return row.has_value() && select_row(*row).has_value();
 }
 
 } // namespace fastecu::config

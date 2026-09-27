@@ -263,7 +263,7 @@ TEST(LoadAppConfig, StillRewritesTheFileOnLoad)
 
     ASSERT_TRUE(load_app_config(paths, repo).has_value());
 
-    ASSERT_EQ(repo.write_calls.size(), 1u);
+    ASSERT_EQ(repo.write_calls.size(), 1U);
     EXPECT_EQ(repo.write_calls.front().first, "fastecu.cfg");
 }
 

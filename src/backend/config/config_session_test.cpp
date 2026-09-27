@@ -19,6 +19,9 @@ using fastecu::LogLevel;
 using fastecu::RecordingEventSink;
 using fastecu::config::AppConfig;
 using fastecu::config::ConfigPaths;
+using fastecu::config::kMissingProtocolField;
+using fastecu::config::protocol_field_or_placeholder;
+using fastecu::config::ProtocolEntry;
 using fastecu::config::resolve_config_paths;
 using fastecu::config::testing::ConfigSessionFixture;
 using fastecu::config::testing::kVersion;
@@ -394,6 +397,96 @@ TEST(ConfigSessionSave, DatalogDirectoryDoesNotRoundTrip)
 
     ASSERT_THAT(f.initialize(), IsOk());
     EXPECT_EQ(f.session.settings().datalog_files_directory, f.paths.datalog_files_directory);
+}
+
+// --- selection ------------------------------------------------------------
+
+TEST(ConfigSessionSelect, RowChangesTheSavedRowAndLogProtocolOnly)
+{
+    ConfigSessionFixture f;
+    f.put_settings(setting("flash_transport", "CAN") + setting("log_transport", "J2534") +
+                   setting("log_protocol", "SSM"));
+    ASSERT_THAT(f.initialize(), IsOk());
+
+    ASSERT_THAT(f.session.select_row(1), IsOk());
+
+    EXPECT_EQ(f.session.settings().selected_protocol_id, "1");
+    EXPECT_EQ(f.session.settings().selected_log_protocol, "MUT_DMA");
+    EXPECT_EQ(f.session.settings().selected_flash_transport, "CAN");
+    EXPECT_EQ(f.session.settings().selected_log_transport, "J2534");
+    EXPECT_EQ(f.session.selected_vehicle()->model, "Colt");
+}
+
+TEST(ConfigSessionSelect, InvalidRowFailsWithoutChangingSettings)
+{
+    ConfigSessionFixture f;
+    ASSERT_THAT(f.initialize(), IsOk());
+    const AppConfig before = f.session.settings();
+
+    EXPECT_THAT(f.session.select_row(4), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_EQ(f.session.settings(), before);
+}
+
+TEST(ConfigSessionSelect, BeforeInitializationFails)
+{
+    ConfigSessionFixture f;
+    EXPECT_THAT(f.session.select_row(0), IsErr(ErrorKind::Internal));
+    EXPECT_FALSE(f.session.select_by_protocol_name("proto_a"));
+}
+
+TEST(ConfigSessionSelect, SelectionDoesNotSave)
+{
+    ConfigSessionFixture f;
+    ASSERT_THAT(f.initialize(), IsOk());
+    const std::size_t writes = f.file_repository.write_calls.size();
+    ASSERT_THAT(f.session.select_row(2), IsOk());
+    EXPECT_TRUE(f.session.select_by_protocol_name("proto_b"));
+    EXPECT_EQ(f.file_repository.write_calls.size(), writes);
+}
+
+TEST(ConfigSessionSelect, ProtocolNameUsesTheLastMatchingRow)
+{
+    ConfigSessionFixture f;
+    ASSERT_THAT(f.initialize(), IsOk());
+
+    EXPECT_TRUE(f.session.select_by_protocol_name("proto_a")); // rows 0 and 2
+
+    EXPECT_EQ(*f.session.selected_row(), 2U);
+    EXPECT_EQ(f.session.settings().selected_log_protocol, "SSM");
+}
+
+TEST(ConfigSessionSelect, UnmatchedProtocolNameChangesNothing)
+{
+    ConfigSessionFixture f;
+    f.put_settings(setting("protocol_id", "1") + setting("log_protocol", "CDBG"));
+    ASSERT_THAT(f.initialize(), IsOk());
+    const AppConfig before = f.session.settings();
+
+    EXPECT_FALSE(f.session.select_by_protocol_name("no_such_protocol"));
+    EXPECT_EQ(f.session.settings(), before);
+}
+
+TEST(ConfigSessionSelect, UnresolvedRowSelectsWithPlaceholders)
+{
+    ConfigSessionFixture f;
+    ASSERT_THAT(f.initialize(), IsOk());
+
+    EXPECT_TRUE(f.session.select_by_protocol_name("missing_proto"));
+
+    EXPECT_EQ(*f.session.selected_row(), 3U);
+    EXPECT_EQ(f.session.settings().selected_log_protocol, std::string(kMissingProtocolField));
+    const auto& vehicle = *f.session.selected_vehicle();
+    EXPECT_FALSE(vehicle.protocol.has_value());
+    EXPECT_EQ(protocol_field_or_placeholder(vehicle, &ProtocolEntry::mcu), " ");
+    EXPECT_EQ(protocol_field_or_placeholder(vehicle, &ProtocolEntry::read), " "); // not "yes": unavailable
+}
+
+TEST(ConfigSessionSelect, PlaceholderHelperReturnsResolvedFields)
+{
+    ConfigSessionFixture f;
+    ASSERT_THAT(f.initialize(), IsOk());
+    EXPECT_EQ(protocol_field_or_placeholder(f.session.vehicles()[1], &ProtocolEntry::checksum), "n/a");
+    EXPECT_EQ(protocol_field_or_placeholder(f.session.vehicles()[0], &ProtocolEntry::description), "Protocol A");
 }
 
 } // namespace

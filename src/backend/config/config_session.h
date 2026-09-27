@@ -1,6 +1,7 @@
 #pragma once
 #include <cstddef>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -15,6 +16,15 @@
 
 namespace fastecu::config
 {
+
+// What legacy code showed for a protocol field of a vehicle whose protocol
+// reference did not resolve: a single space, not an empty string.
+inline constexpr std::string_view kMissingProtocolField = " ";
+
+// `row.protocol->*field`, or kMissingProtocolField when the reference did not
+// resolve. Capabilities ("read", "write", ...) therefore never read "yes" for
+// an unresolved row.
+std::string protocol_field_or_placeholder(const ResolvedCarModel& row, std::string ProtocolEntry::*field);
 
 // The application's configuration for one run: provisioned paths, the
 // user's settings, and the vehicle catalog. AppConfig::selected_protocol_id
@@ -53,6 +63,14 @@ class ConfigSession
     Result<std::size_t> selected_row() const;
     // nullptr unless selected_row() has a value.
     const ResolvedCarModel *selected_vehicle() const;
+
+    // Makes `row` the saved row and sets the logging protocol from its
+    // protocol (the placeholder when unresolved). Transports are untouched,
+    // and nothing is written until save(). An invalid row changes nothing.
+    Status select_row(std::size_t row);
+    // select_row() on the LAST row whose protocol_name matches, as the
+    // legacy ROM-open scan did. Returns false, changing nothing, if none do.
+    bool select_by_protocol_name(std::string_view protocol_name);
 
   private:
     IFileSystem& file_system_;
