@@ -24,8 +24,7 @@ qt_cc_library(
     copts = COMMON_COPTS,
     deps = QT_DEPS + [
         ":remote_utility_replicas",
-        # remote_utility.h #includes websocketiodevice.h and qtrohelper.hpp,
-        # both owned by the serial package.
-        "//src/platform/desktop/common/serial:remote_serial_backend",
+        # remote_utility.h includes websocketiodevice.h and qtrohelper.hpp.
+        "//src/platform/desktop/common/serial:websocket_io",
     ],
 )

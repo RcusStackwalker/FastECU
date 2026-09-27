@@ -235,27 +235,33 @@ fastecu_qttest(
     deps = [":direct_serial_backend_for_tests"],
 )
 
-# The remote backend (Qt Remote Objects over a websocket), plus the websocket
-# device and QtRO helper that remote_utility also uses.
+# The QIODevice-over-websocket adapter and the Qt Remote Objects helper,
+# shared by the remote serial backend and remote_utility. Carries no facade
+# header, so remote_utility (and the UI above it) does not reach the facade.
 qt_cc_library(
-    name = "remote_serial_backend",
-    srcs = [
-        "remote_serial_backend.cpp",
-        "websocketiodevice.cpp",
-    ],
-    hdrs = [
-        "remote_serial_backend.h",
-        "websocketiodevice.h",
-    ],
+    name = "websocket_io",
+    srcs = ["websocketiodevice.cpp"],
+    hdrs = ["websocketiodevice.h"],
     copts = COMMON_COPTS,
     normal_hdrs = ["qtrohelper.hpp"],
     visibility = [
         "//src/platform/desktop/common/remote_utility:__pkg__",
         "//src/platform/desktop/common/serial:__pkg__",
     ],
+    deps = QT_DEPS,
+)
+
+# The remote backend (Qt Remote Objects over a websocket).
+qt_cc_library(
+    name = "remote_serial_backend",
+    srcs = ["remote_serial_backend.cpp"],
+    hdrs = ["remote_serial_backend.h"],
+    copts = COMMON_COPTS,
+    visibility = ["//src/platform/desktop/common/serial:__pkg__"],
     deps = QT_DEPS + [
         ":serial_port_actions",
         ":serial_replicas",
+        ":websocket_io",
     ],
 )
 
