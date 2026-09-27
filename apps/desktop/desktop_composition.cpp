@@ -19,6 +19,17 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
     syslogger_ =
         std::make_unique<SystemLogger>(config->syslog_files_directory, config->software_name, config->software_version);
     syslogger_->moveToThread(syslog_thread_.get());
+    // The UI logs through the channel: the logger reads each line's level from
+    // the channel's LOG_* signal name, and the channel outlives every sender.
+    using fastecu::ui::LogChannel;
+    QObject::connect(&log_channel_, &LogChannel::LOG_E, syslogger_.get(), &SystemLogger::log_messages);
+    QObject::connect(&log_channel_, &LogChannel::LOG_W, syslogger_.get(), &SystemLogger::log_messages);
+    QObject::connect(&log_channel_, &LogChannel::LOG_I, syslogger_.get(), &SystemLogger::log_messages);
+    QObject::connect(&log_channel_, &LogChannel::LOG_D, syslogger_.get(), &SystemLogger::log_messages);
+    QObject::connect(&log_channel_, &LogChannel::enable_log_write_to_file, syslogger_.get(),
+                     &SystemLogger::enable_log_write_to_file);
+    QObject::connect(syslogger_.get(), &SystemLogger::send_message_to_log_window, &log_channel_,
+                     &LogChannel::log_window_message);
     QObject::connect(syslog_thread_.get(), &QThread::started, syslogger_.get(), &SystemLogger::run);
     syslog_thread_->start();
 
@@ -67,6 +78,7 @@ MainWindowServices DesktopComposition::services()
         .config_repository = file_repository_,
         .file_action_events = file_action_events_,
         .syslogger = *syslogger_,
+        .log = log_channel_,
         .connection = *connection_,
         .remote_utility = *remote_utility_,
         .logging_engine = *logging_engine_,

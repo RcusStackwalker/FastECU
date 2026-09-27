@@ -14,6 +14,7 @@
 #include "src/platform/desktop/common/serial/desktop_serial_factory.h"
 #include "src/platform/desktop/common/connection/adapter_connection.h"
 #include "src/ui/desktop/main_window_services.h"
+#include "src/ui/desktop/channels/log_channel.h"
 
 class QThread;
 class RemoteUtility;
@@ -28,6 +29,8 @@ class LoggingEngine;
 // references to them. Must outlive the MainWindow it serves.
 class DesktopComposition
 {
+    friend class DesktopCompositionTest;
+
   public:
     // An empty config_root uses the platform's default FastECU directory.
     DesktopComposition(const QString& peer_address, const QString& peer_password, const QString& config_root = {});
@@ -45,6 +48,7 @@ class DesktopComposition
     QtAtomicFileWriter file_writer_;
     QtEventSink file_action_events_;
     FileActions file_actions_;
+    fastecu::ui::LogChannel log_channel_;
     std::unique_ptr<QThread> syslog_thread_;
     std::unique_ptr<SystemLogger> syslogger_;
     OwnedSerialPortActions serial_;

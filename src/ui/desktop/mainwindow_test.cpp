@@ -38,6 +38,7 @@
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "src/platform/desktop/common/remote_utility/remote_utility.h"
+#include "src/ui/desktop/channels/log_channel.h"
 
 namespace
 {
@@ -270,6 +271,7 @@ struct TestServices
             .config_repository = file_repository,
             .file_action_events = events,
             .syslogger = *syslogger,
+            .log = log_channel,
             .connection = adapter.connection(),
             .remote_utility = remote_utility,
             .logging_engine = logging_engine,
@@ -283,6 +285,7 @@ struct TestServices
     QtEventSink events;
     FileActions file_actions;
     std::unique_ptr<SystemLogger> syslogger;
+    fastecu::ui::LogChannel log_channel;
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
     FakeBackend *fake = adapter.fake(); // null if the fake backend failed to start
     RemoteUtility remote_utility{"", ""};

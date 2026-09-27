@@ -13,6 +13,75 @@
 #include "apps/desktop/desktop_composition.h"
 #include "src/backend/definitions/file_actions.h"
 
+#include <QDir>
+#include <QFile>
+#include <QSemaphore>
+#include <QSignalSpy>
+
+#include <algorithm>
+#include <memory>
+
+#include "src/platform/desktop/common/logging/systemlogger.h"
+#include "src/ui/desktop/channels/log_channel.h"
+
+namespace
+{
+
+using fastecu::ui::LogChannel;
+
+// Holds the syslog thread inside one queued call until release(), so a test
+// can emit and destroy senders before the logger sees their lines.
+class SyslogGate
+{
+  public:
+    explicit SyslogGate(SystemLogger& logger)
+    {
+        QMetaObject::invokeMethod(
+            &logger,
+            [this]
+            {
+                entered_.release();
+                open_.acquire();
+            },
+            Qt::QueuedConnection);
+        entered_.acquire();
+    }
+    ~SyslogGate()
+    {
+        release();
+    }
+    SyslogGate(const SyslogGate&) = delete;
+    SyslogGate& operator=(const SyslogGate&) = delete;
+
+    void release()
+    {
+        if (!released_)
+        {
+            released_ = true;
+            open_.release();
+        }
+    }
+
+  private:
+    QSemaphore entered_;
+    QSemaphore open_;
+    bool released_ = false;
+};
+
+bool has_line_ending_with(const QSignalSpy& spy, const QString& suffix)
+{
+    return std::ranges::any_of(spy, [&](const QList<QVariant>& arguments)
+                               { return arguments.at(0).toString().endsWith(suffix); });
+}
+
+bool has_line_containing(const QSignalSpy& spy, const QString& text)
+{
+    return std::ranges::any_of(spy, [&](const QList<QVariant>& arguments)
+                               { return arguments.at(0).toString().contains(text); });
+}
+
+} // namespace
+
 class DesktopCompositionTest : public QObject
 {
     Q_OBJECT
@@ -39,10 +108,101 @@ class DesktopCompositionTest : public QObject
         QCOMPARE(&first.config_repository, &second.config_repository);
         QCOMPARE(&first.file_action_events, &second.file_action_events);
         QCOMPARE(&first.syslogger, &second.syslogger);
+        QCOMPARE(&first.log, &second.log);
         QCOMPARE(&first.connection, &second.connection);
         QCOMPARE(&first.remote_utility, &second.remote_utility);
         QCOMPARE(&first.logging_engine, &second.logging_engine);
         QCOMPARE(first.file_actions.ConfigValuesStruct.base_config_directory, root.path());
+    }
+
+    void channelLevelsReachTheLogWindowWithTheirPrefix()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        DesktopComposition composition{{}, {}, root.path()};
+        LogChannel& log = composition.services().log;
+        QSignalSpy window{&log, &LogChannel::log_window_message};
+
+        emit log.LOG_E("error line", true, false);
+        emit log.LOG_W("warning line", true, false);
+        emit log.LOG_I("info line", true, false);
+
+        // Match by content: the logger's own "SystemLogger started..." line
+        // can reach the window too.
+        QTRY_VERIFY(has_line_ending_with(window, "(II) info line"));
+        QVERIFY(has_line_ending_with(window, "(EE) error line"));
+        QVERIFY(has_line_ending_with(window, "(WW) warning line"));
+    }
+
+    void debugLinesStayOutOfTheLogWindow()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        DesktopComposition composition{{}, {}, root.path()};
+        LogChannel& log = composition.services().log;
+        QSignalSpy window{&log, &LogChannel::log_window_message};
+
+        emit log.LOG_D("debug line", true, false);
+        emit log.LOG_I("sentinel", false, false);
+
+        QTRY_VERIFY(has_line_ending_with(window, "sentinel"));
+        QVERIFY(!has_line_containing(window, "debug line"));
+    }
+
+    // A dialog that logs and is destroyed before the syslog thread delivers
+    // its line: through the channel the line survives; connected straight to
+    // the logger, as UI code did before step 6j, it is dropped.
+    void relayedLineSurvivesItsSenderButADirectOneDoesNot()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        DesktopComposition composition{{}, {}, root.path()};
+        LogChannel& log = composition.services().log;
+        QSignalSpy window{&log, &LogChannel::log_window_message};
+
+        {
+            SyslogGate gate{*composition.syslogger_};
+            auto relayed = std::make_unique<LogChannel>();
+            QObject::connect(relayed.get(), &LogChannel::LOG_I, &log, &LogChannel::LOG_I);
+            auto direct = std::make_unique<LogChannel>();
+            QObject::connect(direct.get(), &LogChannel::LOG_I, composition.syslogger_.get(),
+                             &SystemLogger::log_messages);
+
+            emit relayed->LOG_I("relayed line", false, false);
+            emit direct->LOG_I("direct line", false, false);
+            relayed.reset();
+            direct.reset();
+        }
+        emit log.LOG_I("sentinel", false, false);
+
+        QTRY_VERIFY(has_line_ending_with(window, "sentinel"));
+        QVERIFY(has_line_ending_with(window, "relayed line"));
+        QVERIFY(!has_line_containing(window, "direct line"));
+    }
+
+    void enablingFileLoggingWritesASyslogFile()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        DesktopComposition composition{{}, {}, root.path()};
+        const QString syslog_dir = composition.services().file_actions.ConfigValuesStruct.syslog_files_directory;
+        QVERIFY(!syslog_dir.isEmpty());
+        QVERIFY(QDir().mkpath(syslog_dir));
+        LogChannel& log = composition.services().log;
+        QSignalSpy window{&log, &LogChannel::log_window_message};
+
+        emit log.enable_log_write_to_file(true);
+        emit log.LOG_I("to file", false, true);
+        // log_messages signals the window before it writes the file; the
+        // sentinel's window line proves the earlier write has finished.
+        emit log.LOG_I("sentinel", false, false);
+
+        QTRY_VERIFY(has_line_ending_with(window, "sentinel"));
+        const QStringList files = QDir(syslog_dir).entryList({"log_fastecu_*.txt"}, QDir::Files);
+        QCOMPARE(files.size(), 1);
+        QFile file{QDir(syslog_dir).filePath(files.first())};
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QVERIFY(file.readAll().contains("to file"));
     }
 
     // SystemLogger::run() spends its first second in a processEvents loop on
