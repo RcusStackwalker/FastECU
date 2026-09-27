@@ -302,6 +302,12 @@ a dedicated I/O thread. Most flash operation classes still receive the full
 port configuration, adapter discovery, protocol mode setup, blocking I/O, and
 diagnostics.
 
+Since step 6i the facade is platform-only: `serial_port_actions` is visible
+to `src/platform/desktop` and `//tests` alone, and the adapters above it take
+it through `implementation_deps`, so its headers do not reach production UI
+targets. UI tests still see them through `FakeBackend`, which derives from
+`SerialPortActionsDirect`.
+
 Actions:
 
 - Move the CDBG logging start path's real port/mode setup out of the protocol
@@ -312,47 +318,21 @@ Actions:
 - Keep lifecycle coverage for teardown with in-flight calls, helper-process
   failure, timeouts, and adapter removal on each supported platform.
 
-### P1: Drain the `serial_qt_compat` allowlist
+### P1: Remove the GRANDFATHERED UI → platform edges (step 6j)
 
-The build-graph ratchet for the section above.
-`//src/platform/desktop/common/serial:serial_qt_compat` carries
-`serial_port_actions.h` to callers that should not have it, and its `visibility`
-list is frozen by `scripts/check-serial-compat-allowlist.py`: the list may
-shrink, never grow. It currently holds 3 entries, none of them UI or
-backend: `//src/platform/desktop/common/serial:__pkg__` (the package itself),
-`//src/platform/desktop/common/transport:__pkg__`, and `//tests:__pkg__`.
-Step 6g removed `//src/ui/desktop/biu:__pkg__`, and step 6h removed
-`//src/ui/desktop:__pkg__`: `MainWindow` now talks to `AdapterConnection`.
-The step 5 tail's wave 7 deleted the `//src/platform/desktop/common/flash/legacy`
-entry along with the package it named. Deleting the target itself is step 6i.
-
-The allowlist makes this debt measurable, which the prose above cannot: each
-removed entry is a layer that no longer depends on the facade target by name.
-Every entry is a dependency step 5 (backend) or step 6 (ui) exists to remove.
-
-The allowlist does not prove a layer cannot reach the facade. That gap is
-unguarded. `serial_platform_api` re-exports `serial_qt_compat`, and
-`//src/ui/desktop` depends on `adapter_connection` and the diagnostics
-package, which both depend on `serial_platform_api`. So
-`serial_port_actions.h` is still reachable from the UI transitively, and the
-repository has no `layering_check`. A UI source that adds
-`#include ".../serial_port_actions.h"` builds, and
-`//:serial_compat_allowlist` stays green. Step 6h left no UI source including
-the header, but only review keeps it that way. Step 6i closes the gap when it
-deletes `serial_qt_compat`: the facade header must then be reachable only from
-the platform packages that implement or adapt it, or a guard must check that.
+`//src/ui/desktop` still depends directly on two platform packages, each
+marked GRANDFATHERED in its `default_visibility`:
+`//src/platform/desktop/common/logging` (`SystemLogger`, used across
+`MainWindow` and `menu_actions`) and
+`//src/platform/desktop/common/remote_utility` (`RemoteUtility`, used by
+`MainWindow`). They are the last `ui → platform` edges outside the
+composition root.
 
 Actions:
 
-- Remove `FROZEN` entries in `scripts/check-serial-compat-allowlist.py` as the
-  matching `visibility` entries are deleted; the check prints the entries to
-  drop when the list shrinks.
-- Treat a needed new entry as a design failure, not a paperwork step: backend or
-  UI code reaching for `serial_port_actions.h` is the dependency being removed.
-- Delete `serial_qt_compat` once only `//tests` remains, and fold its
-  sources into the owning packages.
-- In 6i, stop `serial_port_actions.h` reaching `//src/ui/desktop` through
-  `serial_platform_api`, or add a guard that rejects a UI include of it.
+- Design a seam for each through `MainWindowServices`, as 6f and 6h did
+  for logging protocols and the connection.
+- Remove each GRANDFATHERED entry with the code that needed it.
 
 ### P2: Identify Subaru CAN ECUs with SSM `AA`
 

@@ -15,9 +15,8 @@ qt_cc_library(
     srcs = ["adapter_connection.cpp"],
     hdrs = ["adapter_connection.h"],
     copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        "//src/platform/desktop/common/serial:serial_port_actions",
-    ],
+    implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
+    deps = QT_DEPS,
 )
 
 fastecu_qttest(

@@ -45,10 +45,13 @@ Step 6 (thin desktop shell) is under way: 6a (de-widget `FileActions`), 6b
 (flash-operation dispatch), 6e (platform selection), and 6f (logging
 composition, merged as [#378](https://github.com/RcusStackwalker/FastECU/pull/378))
 are complete — see below. **6g (diagnostic tools)** and **6h (connection and
-SSM identification)** are complete, pending bench qualification. Next is
-**6i**: delete `serial_qt_compat`, whose visibility list now holds only the
-serial package itself, `transport`, and `//tests`, and fold its sources into
-the owning packages. Step 7 (Android seam) has not started.
+SSM identification)** are complete, pending bench qualification.
+**6i (serial facade retirement)** is complete: `serial_qt_compat` is now the
+platform-only `serial_port_actions`, `serial_platform_api` and
+`//:serial_compat_allowlist` are gone, and no facade header reaches a
+production UI target. Next is **6j**: the two GRANDFATHERED `ui → platform`
+edges, `SystemLogger` and `RemoteUtility`, not yet designed. Step 7 (Android
+seam) has not started.
 
 ## Verified Current Baseline
 
@@ -61,10 +64,10 @@ status below, refreshed after 6a-4/6a-5:
 - `bazel/fastecu_sources.bzl` is deleted. `//:fastecu` is an alias to the
   package-owned `//apps/desktop:fastecu`, and every target under `src/` and
   `apps/` is visibility-restricted to the permitted layering directions.
-- Two CI guards enforce what the compiler cannot: `//:portable_closure`
+- One CI guard enforces what the compiler cannot: `//:portable_closure`
   (no `//src/platform` label in the portable closure, a `genquery` plus a
-  `genrule`, with no script behind it) and `//:serial_compat_allowlist`
-  (frozen, shrink-only). A third rule —
+  `genrule`, with no script behind it). Step 6i deleted a second,
+  `//:serial_compat_allowlist`. Another rule —
   no Qt in a portable package — needs no guard target: `@rules_qt` is not in the
   root module's repo mapping at all, and Qt and our own Qt-typed transitional
   code are reached only through targets whose visibility is
@@ -87,6 +90,7 @@ status below, refreshed after 6a-4/6a-5:
   `FlashUtils::configureIso15765Can(SerialPortActions*)`, a disclosed 5c gap)
   and `//src/backend/logging/protocols`. The rest are `src/ui/desktop` entries
   that step 6 drains, plus the legitimate same-layer `remote_utility` edge.
+  Step 6i deleted the target and its guard; see the 6i entry under step 6.
 - Two `:qt_compat` shims survive in `src/algorithms` (`protocol`,
   `protocol/ssm`). `expression`'s was drained and deleted by 6a-4;
   `diagnostics` (including `qt_dtc_parser` / `qt_nrc_parser`) was drained and
@@ -339,8 +343,8 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      `//src/ui/desktop:__pkg__` is gone from the `serial_qt_compat`
      allowlist and `FROZEN`. Nothing enforces the first of these yet: the
      header still reaches the UI transitively through
-     `serial_platform_api`, so a new include would build (an unguarded gap,
-     recorded in the [tech-debt roadmap](tech-debt.md) for 6i). `MainWindow` talks to a concrete platform
+     `serial_platform_api`, so a new include would build (a gap
+     closed by 6i). `MainWindow` talks to a concrete platform
      adapter, `AdapterConnection` (`//src/platform/desktop/common/connection`),
      and hands the facade on only as a forward-declared reference. SSM ECU
      identification is a portable `identify_ssm_ecu` in
@@ -351,6 +355,18 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      deleted. Five PRs, not yet numbered (6h-0 spec and plan, 6h-1 toggles,
      6h-2 identification, 6h-3 adapter, 6h-4 worker and close-out). See the
      [design notes](design-notes.md#connection-and-identification).
+   - **6i serial facade retirement — complete.** `serial_qt_compat` was
+     renamed in place to `//src/platform/desktop/common/serial:serial_port_actions`,
+     visible only to `//src/platform/desktop:__subpackages__` and `//tests`,
+     so visibility now guards direct dependencies. `serial_platform_api`,
+     `//:serial_compat_allowlist`, and its script are deleted. Every adapter
+     that forward-declares `SerialPortActions` takes it through
+     `implementation_deps`, and `websocket_io` was split out of
+     `remote_serial_backend` so `remote_utility` stops carrying
+     `serial_backend.h`; a production UI include of a facade header now fails
+     on the sandboxed builds. `fake_backed_serial` moved to
+     `serial/testing`. No behavior change, so no bench checklist. See the
+     [design notes](design-notes.md#serial-facade-retirement).
    - Remove compatibility wrappers, obsolete facades, and the temporary aggregate implementation target. (Duplicate status macros are resolved: `STATUS_SUCCESS`/`STATUS_ERROR` have one definition, in `serial_facade_codes.h`.)
    - Re-run packaging and the existing hardware bench checklists for affected logging/flashing paths.
 

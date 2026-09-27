@@ -17,6 +17,7 @@ qt_cc_library(
         "service_function_worker.h",
     ],
     copts = COMMON_COPTS,
+    implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
     normal_hdrs = [
         "serial_facade_configurator.h",
     ],
@@ -25,7 +26,6 @@ qt_cc_library(
         "//src/backend/protocol",
         "//src/backend/service_functions:service_function_session",
         "//src/platform/desktop/common/ports",
-        "//src/platform/desktop/common/serial:serial_port_actions",
     ],
 )
 
