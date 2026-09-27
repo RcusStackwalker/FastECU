@@ -14,13 +14,13 @@ qt_cc_library(
     srcs = ["serial_diagnostic_link.cpp"],
     hdrs = [],
     copts = COMMON_COPTS,
+    implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
     normal_hdrs = ["serial_diagnostic_link.h"],
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/ports",
         "//src/backend/protocol",
-        "//src/platform/desktop/common/serial:serial_port_actions",
     ],
 )
 

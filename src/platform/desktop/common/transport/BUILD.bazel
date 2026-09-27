@@ -20,6 +20,7 @@ qt_cc_library(
     ],
     hdrs = [],
     copts = COMMON_COPTS,
+    implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
     normal_hdrs = [
         "fastecu_can_transport.h",
         "fastecu_kline_transport.h",
@@ -29,7 +30,6 @@ qt_cc_library(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/protocol",
-        "//src/platform/desktop/common/serial:serial_port_actions",
     ],
 )
 
@@ -102,6 +102,7 @@ qt_cc_library(
     ],
     hdrs = [],
     copts = COMMON_COPTS,
+    implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
     # Neither adapter derives from QObject (no Q_OBJECT, no signals/slots),
     # so their headers go through normal_hdrs rather than hdrs (which would
     # run every header through moc unconditionally) -- same convention as
@@ -117,7 +118,6 @@ qt_cc_library(
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/flash:flash_executor",
         "//src/platform/desktop/common/serial:j2534_driver_selection",
-        "//src/platform/desktop/common/serial:serial_port_actions",
     ],
 )
 
@@ -126,6 +126,7 @@ qt_cc_library(
     srcs = ["desktop_logging_protocol_registration.cpp"],
     hdrs = [],
     copts = COMMON_COPTS,
+    implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
     normal_hdrs = ["desktop_logging_protocol_registration.h"],
     visibility = [
         "//apps/desktop:__pkg__",
@@ -137,7 +138,6 @@ qt_cc_library(
         "//src/backend/ports",
         "//src/backend/protocol",
         "//src/platform/desktop/common/logging:logging_runtime",
-        "//src/platform/desktop/common/serial:serial_port_actions",
     ],
 )
 
