@@ -19,11 +19,15 @@ Success means:
   made it for Qt.
 - No facade header (`serial_port_actions.h`, `serial_backend.h`,
   `serial_backend_host.h`, `serial_facade_codes.h`) is in the compile inputs
-  of any `//src/ui/...` or `//src/backend/...` target. On the sandboxed Linux
+  of any production (non-`testonly`) `//src/ui/...` or `//src/backend/...`
+  target. UI tests keep seeing them through
+  `connection/testing:adapter_connection_harness`, whose `FakeBackend`
+  derives from `SerialPortActionsDirect`; they need the concrete fake to set
+  expectations. On the sandboxed Linux
   and macOS builds a UI `#include` of one fails with "file not found"; this is
   demonstrated once, by hand, and recorded in the 6i-2 PR.
 - No production source changes behavior. Only BUILD files, one target split,
-  and documentation change.
+  two include spellings in `remote_utility.h`, and documentation change.
 
 ## Non-goals
 
@@ -176,7 +180,10 @@ qt_cc_library(
 `remote_serial_backend` drops those files and depends on `:websocket_io`;
 `remote_utility` depends on `:websocket_io` instead of
 `:remote_serial_backend`, and `remote_serial_backend`'s visibility loses
-`remote_utility`. This removes the last path from the UI to a facade header
+`remote_utility`. `remote_utility.h` spells the two includes by full
+workspace path: the bare `"websocketiodevice.h"` resolved only because
+`serial_replicas` (a `qt_replica_library` with `includes = ["."]`) put the
+serial directory on the include path through `remote_serial_backend`. This removes the last path from the UI to a facade header
 while leaving the GRANDFATHERED edge itself for 6j.
 
 `websocketiodevice.h` is moc'd (`Q_OBJECT`), and its moc genrule is named
