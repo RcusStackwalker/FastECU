@@ -21,6 +21,7 @@ class StartupEventSink : public fastecu::IEventSink
     }
     void progress(int, int) override
     {
+        // Configuration startup has no progress consumer; this sink collects diagnostics for the presenter.
     }
     void notice(std::string_view message) override
     {

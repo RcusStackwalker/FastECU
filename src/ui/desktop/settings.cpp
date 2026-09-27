@@ -60,8 +60,7 @@ void Settings::closeEvent(QCloseEvent *bar)
 
 int Settings::save_config_file()
 {
-    const fastecu::Status saved = config.save();
-    if (!saved.has_value())
+    if (const fastecu::Status saved = config.save(); !saved.has_value())
     {
         // The edits stay in the session; the operator learns why they did
         // not reach the file.

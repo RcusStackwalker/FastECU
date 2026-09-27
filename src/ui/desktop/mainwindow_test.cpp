@@ -11,6 +11,7 @@
 #include <QSignalSpy>
 #include <QSemaphore>
 #include <QTimer>
+#include <QTreeWidget>
 
 #include <gmock/gmock.h>
 #include "src/backend/logging/testing/scripted_logging_protocol.h"
@@ -1079,6 +1080,268 @@ class MainWindowTest : public QObject
         QCOMPARE(targets, (std::vector<bool>{true, false}));
     }
 
+    void chooserDialogsApplyAcceptedChoicesAndIgnoreCancellation_data()
+    {
+        QTest::addColumn<bool>("protocol");
+        QTest::addColumn<bool>("accept");
+        QTest::newRow("vehicle-accept") << false << true;
+        QTest::newRow("vehicle-cancel") << false << false;
+        QTest::newRow("protocol-accept") << true << true;
+        QTest::newRow("protocol-cancel") << true << false;
+    }
+
+    void chooserDialogsApplyAcceptedChoicesAndIgnoreCancellation()
+    {
+        QFETCH(bool, protocol);
+        QFETCH(bool, accept);
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        copyFixtureConfig(root.path());
+        TestServices services{root.path()};
+        QVERIFY(services.config_status.has_value());
+        QVERIFY(services.config.select_row(0).has_value());
+        QVERIFY(services.config.save().has_value());
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        const auto target = services.config.vehicles()[1];
+        std::size_t expected = 1;
+        if (protocol)
+        {
+            for (std::size_t row = 0; row < services.config.vehicles().size(); ++row)
+            {
+                if (services.config.vehicles()[row].protocol_name == target.protocol_name)
+                {
+                    expected = row;
+                }
+            }
+        }
+        QTimer driver;
+        QElapsedTimer deadline;
+        bool driven = false;
+        bool unexpected = false;
+        bool timed_out = false;
+        QObject::connect(&driver, &QTimer::timeout,
+                         [&]
+                         {
+                             auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                             if (deadline.elapsed() > 3000)
+                             {
+                                 timed_out = true;
+                                 if (dialog)
+                                 {
+                                     dialog->reject();
+                                 }
+                                 return;
+                             }
+                             if (!dialog)
+                             {
+                                 return;
+                             }
+                             const char *expected_class = protocol ? "ProtocolSelect" : "VehicleSelect";
+                             if (!dialog->inherits(expected_class))
+                             {
+                                 unexpected = true;
+                                 dialog->reject();
+                                 return;
+                             }
+                             auto selectText = [](QTreeWidget *tree, const QString& text)
+                             {
+                                 if (!tree)
+                                 {
+                                     return false;
+                                 }
+                                 for (int i = 0; i < tree->topLevelItemCount(); ++i)
+                                 {
+                                     if (tree->topLevelItem(i)->text(0) == text)
+                                     {
+                                         tree->setCurrentItem(tree->topLevelItem(i));
+                                         return true;
+                                     }
+                                 }
+                                 return false;
+                             };
+                             bool selected = false;
+                             if (protocol)
+                             {
+                                 selected = selectText(dialog->findChild<QTreeWidget *>("treeWidget"),
+                                                       QString::fromStdString(target.protocol_name));
+                             }
+                             else
+                             {
+                                 selected = selectText(dialog->findChild<QTreeWidget *>("car_make_tree_widget"),
+                                                       QString::fromStdString(target.make)) &&
+                                            selectText(dialog->findChild<QTreeWidget *>("car_model_tree_widget"),
+                                                       QString::fromStdString(target.model));
+                                 auto *versions = dialog->findChild<QTreeWidget *>("car_version_tree_widget");
+                                 selected = selected && versions != nullptr;
+                                 bool row_found = false;
+                                 if (versions)
+                                 {
+                                     for (int i = 0; i < versions->topLevelItemCount(); ++i)
+                                     {
+                                         auto *item = versions->topLevelItem(i);
+                                         if (item->text(12) == "1")
+                                         {
+                                             versions->setCurrentItem(item);
+                                             row_found = true;
+                                             break;
+                                         }
+                                     }
+                                 }
+                                 selected = selected && row_found;
+                             }
+                             auto *button =
+                                 dialog->findChild<QPushButton *>(accept ? "select_button" : "cancel_button");
+                             driven = selected && button && button->isEnabled();
+                             if (driven)
+                             {
+                                 button->click();
+                             }
+                             else
+                             {
+                                 unexpected = true;
+                                 dialog->reject();
+                             }
+                         });
+        deadline.start();
+        driver.start(5);
+        if (protocol)
+        {
+            window.select_protocol();
+        }
+        else
+        {
+            window.select_vehicle();
+        }
+        driver.stop();
+        QVERIFY(driven);
+        QVERIFY(!unexpected);
+        QVERIFY(!timed_out);
+        QCOMPARE(*services.config.selected_row(), accept ? expected : std::size_t{0});
+        TestServices reread{root.path()};
+        QVERIFY(reread.config_status.has_value());
+        QCOMPARE(*reread.config.selected_row(), accept ? expected : std::size_t{0});
+    }
+
+    void definitionManagerRemovesSelectedRowsAndSavesSurvivingOrder()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        copyFixtureConfig(root.path());
+        TestServices services{root.path()};
+        QVERIFY(services.config_status.has_value());
+        services.config.settings().romraider_definition_files = {"/first.xml", "/middle.xml", "/last.xml"};
+        QVERIFY(services.config.save().has_value());
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        QTimer driver;
+        QElapsedTimer deadline;
+        bool driven = false;
+        bool unexpected = false;
+        bool unchanged_without_selection = false;
+        QStringList displayed;
+        QObject::connect(&driver, &QTimer::timeout,
+                         [&]
+                         {
+                             auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                             if (!dialog)
+                             {
+                                 return;
+                             }
+                             if (deadline.elapsed() > 3000 || dialog->objectName() != "ecu_definition_manager_dialog")
+                             {
+                                 unexpected = true;
+                                 dialog->reject();
+                                 return;
+                             }
+                             auto *list = dialog->findChild<QListWidget *>("ecu_definition_files_list");
+                             QPushButton *remove = nullptr;
+                             for (auto *button : dialog->findChildren<QPushButton *>())
+                             {
+                                 if (button->text() == "Remove file")
+                                 {
+                                     remove = button;
+                                 }
+                             }
+                             if (!list || !remove || list->count() != 3)
+                             {
+                                 unexpected = true;
+                                 dialog->reject();
+                                 return;
+                             }
+                             list->clearSelection();
+                             remove->click();
+                             unchanged_without_selection =
+                                 services.config.settings().romraider_definition_files ==
+                                 std::vector<std::string>{"/first.xml", "/middle.xml", "/last.xml"};
+                             list->item(1)->setSelected(true);
+                             remove->click();
+                             for (int i = 0; i < list->count(); ++i)
+                             {
+                                 displayed.append(list->item(i)->text());
+                             }
+                             driven = true;
+                             dialog->reject();
+                         });
+        deadline.start();
+        driver.start(5);
+        window.ecu_definition_manager();
+        driver.stop();
+        QVERIFY(driven);
+        QVERIFY(!unexpected);
+        QVERIFY(unchanged_without_selection);
+        QCOMPARE(displayed, (QStringList{"/first.xml", "/last.xml"}));
+        const std::vector<std::string> expected{"/first.xml", "/last.xml"};
+        QCOMPARE(services.config.settings().romraider_definition_files, expected);
+        TestServices reread{root.path()};
+        QVERIFY(reread.config_status.has_value());
+        QCOMPARE(reread.config.settings().romraider_definition_files, expected);
+    }
+
+    void numericWindowGeometryRestoresAndPersistsAcrossWindowStates()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        copyFixtureConfig(root.path());
+        TestServices services{root.path()};
+        QVERIFY(services.config_status.has_value());
+        services.config.settings().window_width = "900";
+        services.config.settings().window_height = "700";
+        QVERIFY(services.config.save().has_value());
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        QCOMPARE(window.size(), QSize(900, 700));
+        window.show();
+        window.resize(950, 750);
+        QCoreApplication::processEvents();
+        QCOMPARE(window.size(), QSize(950, 750));
+        TestServices resized{root.path()};
+        QVERIFY(resized.config_status.has_value());
+        QCOMPARE(resized.config.settings().window_width, std::string("950"));
+        QCOMPARE(resized.config.settings().window_height, std::string("750"));
+        window.showMaximized();
+        QCoreApplication::processEvents();
+        QCOMPARE(services.config.settings().window_width, std::string("maximized"));
+        QCOMPARE(services.config.settings().window_height, std::string("maximized"));
+        TestServices maximized{root.path()};
+        QVERIFY(maximized.config_status.has_value());
+        QCOMPARE(maximized.config.settings().window_width, std::string("maximized"));
+        window.showNormal();
+        QCoreApplication::processEvents();
+        QCOMPARE(services.config.settings().window_width, std::to_string(window.width()));
+        QCOMPARE(services.config.settings().window_height, std::to_string(window.height()));
+        TestServices restored{root.path()};
+        QVERIFY(restored.config_status.has_value());
+        QCOMPARE(restored.config.settings().window_width, services.config.settings().window_width);
+        QCOMPARE(restored.config.settings().window_height, services.config.settings().window_height);
+    }
+
     void acceptedVehicleChoiceSelectsTheRowAndSavesIt()
     {
         ModalDriver constructor_driver{QString()};
@@ -1749,6 +2012,17 @@ class MainWindowTest : public QObject
     }
 
   private:
+    void copyFixtureConfig(const QString& root)
+    {
+        const QString suffix = "/" + QString::fromStdString(kTestApplication.version) + "/config/";
+        const QDir source{config_root_.path() + suffix};
+        QVERIFY(QDir().mkpath(root + suffix));
+        for (const QString& name : source.entryList(QDir::Files))
+        {
+            QVERIFY(QFile::copy(source.filePath(name), root + suffix + name));
+        }
+    }
+
     // Selects the fixture's last vehicle row using `protocol`.
     static void selectProtocol(MainWindow& window, const QString& protocol)
     {

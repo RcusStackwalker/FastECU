@@ -47,11 +47,28 @@ qt_cc_library(
     deps = QT_DEPS + ["//src/backend/ports"],
 )
 
+qt_cc_library(
+    name = "startup_test_platform",
+    srcs = select({
+        "@platforms//os:macos": ["startup_test_platform_macos.cpp"],
+        "//conditions:default": ["startup_test_platform_other.cpp"],
+    }),
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["startup_test_platform.h"],
+    visibility = ["//visibility:private"],
+    deps = QT_DEPS,
+)
+
 fastecu_qttest(
     name = "startup_diagnostics_test",
     size = "small",
     src = "startup_diagnostics_test.cpp",
-    deps = [":startup"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":startup",
+        ":startup_test_platform",
+    ],
 )
 
 # The platform choice for the local serial backend, named by the binary.

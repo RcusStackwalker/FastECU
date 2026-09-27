@@ -169,8 +169,8 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     QRect qrect = MainWindow::geometry();
 
-    const fastecu::config::AppConfig& window_settings = configSession->settings();
-    if (window_settings.window_width != "maximized" && window_settings.window_height != "maximized")
+    if (const fastecu::config::AppConfig& window_settings = configSession->settings();
+        window_settings.window_width != "maximized" && window_settings.window_height != "maximized")
     {
         this->setGeometry(qrect.x(), qrect.y(), qs(window_settings.window_width).toInt(),
                           qs(window_settings.window_height).toInt());
@@ -721,8 +721,7 @@ void MainWindow::update_protocol_info(int rom_number)
     // The last matching row wins, as the legacy scan did; no match changes
     // nothing.
     const std::string flash_method = ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod).toStdString();
-    const bool info_updated = configSession->select_by_protocol_name(flash_method);
-    if (info_updated)
+    if (const bool info_updated = configSession->select_by_protocol_name(flash_method); info_updated)
     {
         emit LOG_D("Protocol info for selected ROM updated", true, true);
     }
