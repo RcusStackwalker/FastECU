@@ -336,50 +336,6 @@ void FileActions::normalize_definition_addresses(EcuCalDefStructure& ecuCalDef)
     }
 }
 
-bool FileActions::validate_flash_protocols(const fastecu::definitions::ConfigValuesStructure& configValues,
-                                           QStringList *errors)
-{
-    QStringList localErrors;
-    QStringList *out = errors ? errors : &localErrors;
-    const int rows = configValues.flash_protocol_id.size();
-
-    validateListLength("flash_protocol", "alias", configValues.flash_protocol_alias.size(), rows, out);
-    validateListLength("flash_protocol", "make", configValues.flash_protocol_make.size(), rows, out);
-    validateListLength("flash_protocol", "model", configValues.flash_protocol_model.size(), rows, out);
-    validateListLength("flash_protocol", "version", configValues.flash_protocol_version.size(), rows, out);
-    validateListLength("flash_protocol", "type", configValues.flash_protocol_type.size(), rows, out);
-    validateListLength("flash_protocol", "kw", configValues.flash_protocol_kw.size(), rows, out);
-    validateListLength("flash_protocol", "hp", configValues.flash_protocol_hp.size(), rows, out);
-    validateListLength("flash_protocol", "fuel", configValues.flash_protocol_fuel.size(), rows, out);
-    validateListLength("flash_protocol", "year", configValues.flash_protocol_year.size(), rows, out);
-    validateListLength("flash_protocol", "ecu", configValues.flash_protocol_ecu.size(), rows, out);
-    validateListLength("flash_protocol", "mcu", configValues.flash_protocol_mcu.size(), rows, out);
-    validateListLength("flash_protocol", "mode", configValues.flash_protocol_mode.size(), rows, out);
-    validateListLength("flash_protocol", "checksum", configValues.flash_protocol_checksum.size(), rows, out);
-    validateListLength("flash_protocol", "read", configValues.flash_protocol_read.size(), rows, out);
-    validateListLength("flash_protocol", "test_write", configValues.flash_protocol_test_write.size(), rows, out);
-    validateListLength("flash_protocol", "write", configValues.flash_protocol_write.size(), rows, out);
-    validateListLength("flash_protocol", "flash_transport", configValues.flash_protocol_flash_transport.size(), rows,
-                       out);
-    validateListLength("flash_protocol", "log_transport", configValues.flash_protocol_log_transport.size(), rows, out);
-    validateListLength("flash_protocol", "log_protocol", configValues.flash_protocol_log_protocol.size(), rows, out);
-    validateListLength("flash_protocol", "ecu_id_ascii", configValues.flash_protocol_ecu_id_ascii.size(), rows, out);
-    validateListLength("flash_protocol", "ecu_id_addr", configValues.flash_protocol_ecu_id_addr.size(), rows, out);
-    validateListLength("flash_protocol", "ecu_id_length", configValues.flash_protocol_ecu_id_length.size(), rows, out);
-    validateListLength("flash_protocol", "cal_id_ascii", configValues.flash_protocol_cal_id_ascii.size(), rows, out);
-    validateListLength("flash_protocol", "cal_id_addr", configValues.flash_protocol_cal_id_addr.size(), rows, out);
-    validateListLength("flash_protocol", "cal_id_length", configValues.flash_protocol_cal_id_length.size(), rows, out);
-    validateListLength("flash_protocol", "kernel", configValues.flash_protocol_kernel.size(), rows, out);
-    validateListLength("flash_protocol", "kernel_addr", configValues.flash_protocol_kernel_addr.size(), rows, out);
-    validateListLength("flash_protocol", "description", configValues.flash_protocol_description.size(), rows, out);
-    validateListLength("flash_protocol", "protocol_name", configValues.flash_protocol_protocol_name.size(), rows, out);
-
-    validateRequiredField("flash_protocol", "id", configValues.flash_protocol_id, out);
-    validateRequiredField("flash_protocol", "protocol_name", configValues.flash_protocol_protocol_name, out);
-
-    return out->isEmpty();
-}
-
 bool FileActions::validate_logger_values(const LogValuesStructure& logValues, QStringList *errors)
 {
     QStringList localErrors;

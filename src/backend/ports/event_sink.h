@@ -37,8 +37,8 @@ class IEventSink
     virtual void notice(std::string_view message) = 0;
 };
 
-// A no-op sink for call sites (like LegacyConfigAdapter) that do not yet
-// have anywhere to route progress/log events.
+// A no-op sink for call sites that do not yet have anywhere to route
+// progress/log events.
 class NullEventSink : public IEventSink
 {
   public:

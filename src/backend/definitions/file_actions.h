@@ -14,7 +14,6 @@
 #include <vector>
 
 #include "src/backend/definitions/kernelmemorymodels.h"
-#include "src/backend/definitions/config_values.h"
 #include "src/backend/definitions/definition_indexes.h"
 #include "src/backend/definitions/ecu_cal_def.h"
 #include "src/backend/definitions/log_values.h"
@@ -93,9 +92,6 @@ class FileActions
         DefFile,
     };
 
-    // No caller remains; it goes with config_values.h in the next step.
-    static bool validate_flash_protocols(const fastecu::definitions::ConfigValuesStructure& configValues,
-                                         QStringList *errors = nullptr);
     static bool validate_logger_values(const LogValuesStructure& logValues, QStringList *errors = nullptr);
     static bool validate_logger_switches(const LogValuesStructure& logValues, QStringList *errors = nullptr);
     static bool validate_calibration_maps(const EcuCalDefStructure& ecuCalDef, QStringList *errors = nullptr);

@@ -22,8 +22,9 @@ void default_if_empty(std::string& field, std::string_view fallback)
     }
 }
 
-// The compiled-in defaults ConfigValuesStructure carried. A nonempty loaded
-// value wins; AppConfig itself keeps "" as its not-present value.
+// The compiled-in defaults the legacy configuration struct carried. A
+// nonempty loaded value wins; AppConfig itself keeps "" as its not-present
+// value.
 AppConfig with_defaults(AppConfig settings, const ConfigPaths& paths)
 {
     default_if_empty(settings.window_width, "default");

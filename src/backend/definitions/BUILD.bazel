@@ -35,20 +35,6 @@ cc_library(
     ],
 )
 
-# Qt-typed (QString/QStringList/QDir members) but no QObject/Q_OBJECT.
-# ConfigValuesStructure, extracted out of FileActions (see config_values.h's
-# comment). Kept out of `definitions`'s own hdrs and given its own
-# cc_library, mirroring the `models` split above -- for the identical
-# reason (avoiding a Bazel dependency cycle), this time with
-# //src/backend/config/legacy:legacy_config_adapter rather than //src/backend/flash.
-cc_library(
-    name = "config_values",
-    srcs = [],
-    hdrs = ["config_values.h"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS_NO_WIDGETS,
-)
-
 # FileActions's legacy definition indexes, a leaf so
 # //src/backend/definition/legacy can use them without depending on FileActions.
 cc_library(
@@ -111,7 +97,7 @@ cc_library(
 
 # LogValuesStructure, extracted out of FileActions (see log_values.h's
 # comment). Kept out of `definitions`'s own hdrs and given its own
-# cc_library, mirroring the config_values/ecu_cal_def splits above -- for
+# cc_library, mirroring the ecu_cal_def split above -- for
 # the identical reason (avoiding a Bazel dependency cycle), this time with
 # //src/backend/logging/legacy:legacy_logger_adapter.
 cc_library(
@@ -147,7 +133,6 @@ cc_library(
     ],
     copts = COMMON_COPTS,
     deps = QT_DEPS_NO_WIDGETS + [
-        ":config_values",
         ":definition_indexes",
         ":ecu_cal_def",
         ":legacy_definition_columns",

@@ -28,37 +28,6 @@ class TestModelValidation : public QObject
         QVERIFY(!(value == same));
     }
 
-    void flashProtocols_acceptMatchingRows()
-    {
-        fastecu::definitions::ConfigValuesStructure config;
-        appendFlashProtocol(config);
-
-        QStringList errors;
-        QVERIFY(FileActions::validate_flash_protocols(config, &errors));
-        QVERIFY(errors.isEmpty());
-    }
-
-    void configValues_compareByValue()
-    {
-        fastecu::definitions::ConfigValuesStructure value;
-        const fastecu::definitions::ConfigValuesStructure same;
-        QVERIFY(value == same);
-
-        value.software_name = "changed";
-        QVERIFY(!(value == same));
-    }
-
-    void flashProtocols_reportMismatchedRows()
-    {
-        fastecu::definitions::ConfigValuesStructure config;
-        appendFlashProtocol(config);
-        config.flash_protocol_kernel.clear();
-
-        QStringList errors;
-        QVERIFY(!FileActions::validate_flash_protocols(config, &errors));
-        QVERIFY(errors.contains("flash_protocol.kernel has 0 entries, expected 1"));
-    }
-
     void loggerValues_acceptMatchingRows()
     {
         FileActions::LogValuesStructure logValues;
@@ -165,40 +134,6 @@ class TestModelValidation : public QObject
     }
 
   private:
-    static void appendFlashProtocol(fastecu::definitions::ConfigValuesStructure& config)
-    {
-        config.flash_protocol_id << "0";
-        config.flash_protocol_alias << "alias";
-        config.flash_protocol_make << "Subaru";
-        config.flash_protocol_model << "Impreza";
-        config.flash_protocol_version << "v1";
-        config.flash_protocol_type << "ECU";
-        config.flash_protocol_kw << "100";
-        config.flash_protocol_hp << "134";
-        config.flash_protocol_fuel << "petrol";
-        config.flash_protocol_year << "2005";
-        config.flash_protocol_ecu << "Denso";
-        config.flash_protocol_mcu << "SH7058";
-        config.flash_protocol_mode << "OBD2";
-        config.flash_protocol_checksum << "yes";
-        config.flash_protocol_read << "yes";
-        config.flash_protocol_test_write << "yes";
-        config.flash_protocol_write << "yes";
-        config.flash_protocol_flash_transport << "CAN";
-        config.flash_protocol_log_transport << "K-Line";
-        config.flash_protocol_log_protocol << "SSM";
-        config.flash_protocol_ecu_id_ascii << "no";
-        config.flash_protocol_ecu_id_addr << "0x0";
-        config.flash_protocol_ecu_id_length << "0";
-        config.flash_protocol_cal_id_ascii << "yes";
-        config.flash_protocol_cal_id_addr << "0x2000";
-        config.flash_protocol_cal_id_length << "8";
-        config.flash_protocol_kernel << "kernel.bin";
-        config.flash_protocol_kernel_addr << "0xFFFF3000";
-        config.flash_protocol_description << "description";
-        config.flash_protocol_protocol_name << "sub_ecu_denso";
-    }
-
     static void appendLoggerValue(FileActions::LogValuesStructure& logValues)
     {
         logValues.log_value_protocol << "SSM";

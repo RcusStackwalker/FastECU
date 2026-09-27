@@ -14,8 +14,8 @@
 // depended on the whole `definitions` target, that's a cycle Bazel rejects
 // outright. FileActions re-exposes this type as `FileActions::LogValuesStructure`
 // via a `using` alias (see file_actions.h) so no external call site's
-// spelling changes. This mirrors the existing config_values.h / ecu_cal_def.h
-// splits in this same directory.
+// spelling changes. This mirrors the existing ecu_cal_def.h split in this
+// same directory.
 namespace fastecu::definitions
 {
 
