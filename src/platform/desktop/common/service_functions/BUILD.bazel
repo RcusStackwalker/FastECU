@@ -25,7 +25,7 @@ qt_cc_library(
         "//src/backend/protocol",
         "//src/backend/service_functions:service_function_session",
         "//src/platform/desktop/common/ports",
-        "//src/platform/desktop/common/serial:serial_platform_api",
+        "//src/platform/desktop/common/serial:serial_port_actions",
     ],
 )
 

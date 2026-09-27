@@ -7,9 +7,7 @@ package(default_visibility = [
     "//tests:__pkg__",
 ])
 
-# IDiagnosticLink over the serial facade. Reaches serial_port_actions.h
-# through serial_platform_api, as service_functions does, so the frozen
-# serial_qt_compat allowlist does not grow. The header forward-declares
+# IDiagnosticLink over the serial facade. The header forward-declares
 # SerialPortActions, so UI callers never see the facade header.
 qt_cc_library(
     name = "serial_diagnostic_link",
@@ -22,7 +20,7 @@ qt_cc_library(
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/ports",
         "//src/backend/protocol",
-        "//src/platform/desktop/common/serial:serial_platform_api",
+        "//src/platform/desktop/common/serial:serial_port_actions",
     ],
 )
 
@@ -32,8 +30,8 @@ fastecu_qttest(
     deps = [
         ":serial_diagnostic_link",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/serial/testing:fake_backed_serial",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
-        "//src/platform/desktop/common/transport:fake_backed_serial",
     ],
 )
 

@@ -8,6 +8,7 @@
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_worker.h"
 #include <QMap>
+#include <array>
 #include <optional>
 // Test the registered factories synchronously without adding a production
 // inspection API. Engine/worker lifecycle has its own suite.
@@ -15,7 +16,7 @@
 #include "src/platform/desktop/common/logging/logging_engine.h"
 #undef private
 #include "src/platform/desktop/common/transport/desktop_logging_protocol_registration.h"
-#include "src/platform/desktop/common/transport/fake_backed_serial.h"
+#include "src/platform/desktop/common/serial/testing/fake_backed_serial.h"
 #include "src/platform/desktop/common/transport/setter_sequence_expectations.h"
 
 using namespace fastecu::desktop::logging;
@@ -86,9 +87,10 @@ class DesktopLoggingProtocolRegistrationTest : public QObject
 
     void cdbg_setup_failure_stops_at_failed_step()
     {
-        const char *details[] = {"disable ISO 14230 mode",      "disable ISO 14230 header",      "enable raw CAN mode",
-                                 "disable ISO 15765 mode",      "select 11-bit CAN identifiers", "select 500000 baud",
-                                 "select CDBG reply identifier"};
+        const std::array<const char *, 7> details = {"disable ISO 14230 mode",        "disable ISO 14230 header",
+                                                     "enable raw CAN mode",           "disable ISO 15765 mode",
+                                                     "select 11-bit CAN identifiers", "select 500000 baud",
+                                                     "select CDBG reply identifier"};
         for (int failure = 0; failure < 7; ++failure)
         {
             FakeBackedSerial serial;
@@ -118,9 +120,13 @@ class DesktopLoggingProtocolRegistrationTest : public QObject
             expectCdbgSetup(serial.fake());
             EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(Return(empty ? QString{} : QString{"fake"}));
             if (empty)
+            {
                 EXPECT_CALL(serial.fake(), is_serial_port_open()).Times(0);
+            }
             else
+            {
                 EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(Return(false));
+            }
             const auto result = engine.start({.protocolId = "CDBG"}, snapshot(LoggingProtocolId::Cdbg));
             QVERIFY(!result);
             QCOMPARE(result.error().kind, fastecu::ErrorKind::Disconnected);
@@ -143,10 +149,12 @@ class DesktopLoggingProtocolRegistrationTest : public QObject
             ::testing::InSequence order;
             expectCdbgSetup(serial.fake());
             EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(Return(QString{"fake"}));
-            const char *requests[] = {"0101000000000000", "1200020000000000", "13008c536b330000", "1400000000000631",
-                                      "1500000000000000", "1600010000804000", "060001000100000a"};
-            const char *replies[] = {"0000000000000000", "0000000012345678", "0000000100000000", "0000000000000000",
-                                     "0000000000000000", "0000000000000000", "0000000000000000"};
+            const std::array<const char *, 7> requests = {"0101000000000000", "1200020000000000", "13008c536b330000",
+                                                          "1400000000000631", "1500000000000000", "1600010000804000",
+                                                          "060001000100000a"};
+            const std::array<const char *, 7> replies = {"0000000000000000", "0000000012345678", "0000000100000000",
+                                                         "0000000000000000", "0000000000000000", "0000000000000000",
+                                                         "0000000000000000"};
             for (int i = 0; i < 7; ++i)
             {
                 EXPECT_CALL(serial.fake(), write_serial_data_echo_check(QByteArray::fromHex("00000630") +
@@ -188,7 +196,9 @@ class DesktopLoggingProtocolRegistrationTest : public QObject
                     EXPECT_CALL(serial.fake(), read_serial_data(openport ? 1000 : 10))
                         .WillOnce(Return(QByteArray::fromHex("80f01004e80000006c")));
                     if (!openport)
+                    {
                         EXPECT_CALL(serial.fake(), read_serial_data(980)).WillOnce(Return(QByteArray{}));
+                    }
                 }
                 QVERIFY((*result)->start(cancellation));
                 QVERIFY((*result)->stop());

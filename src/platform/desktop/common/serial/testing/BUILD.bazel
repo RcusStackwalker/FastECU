@@ -10,14 +10,10 @@ qt_cc_library(
     copts = COMMON_COPTS,
     deps = QT_DEPS + [
         # FakeBackend derives from SerialPortActionsDirect
-        # (serial_port_actions_direct.h), which serial_platform_api's wrapped
-        # target (serial_qt_compat) no longer carries after the direct/remote
-        # backend split -- depend on :direct_serial_backend_for_tests, the
-        # testonly alias for the platform's direct backend. fake_serial_backend
-        # is itself testonly, and the binaries select their own platform
-        # implementation.
+        # (serial_port_actions_direct.h), owned by the platform's direct
+        # backend; :direct_serial_backend_for_tests is its testonly alias.
         "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
-        "//src/platform/desktop/common/serial:serial_platform_api",
+        "//src/platform/desktop/common/serial:serial_port_actions",
         "@googletest//:gtest",
     ],
 )
@@ -27,6 +23,29 @@ fastecu_qttest(
     src = "fake_backend_test.cpp",
     deps = [
         ":fake_serial_backend",
-        "//src/platform/desktop/common/serial:serial_platform_api",
+        "//src/platform/desktop/common/serial:serial_port_actions",
     ],
+)
+
+# A SerialPortActions facade over a Google Mock FakeBackend.
+qt_cc_library(
+    name = "fake_backed_serial",
+    testonly = True,
+    srcs = [],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    # Header-only class template, no Q_OBJECT: normal_hdrs, not hdrs, so moc
+    # does not run over it.
+    normal_hdrs = ["fake_backed_serial.h"],
+    deps = QT_DEPS + [
+        ":fake_serial_backend",
+        "//src/platform/desktop/common/serial:serial_port_actions",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_fake_backed_serial",
+    src = "fake_backed_serial_test.cpp",
+    deps = [":fake_backed_serial"],
 )

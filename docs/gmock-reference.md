@@ -21,7 +21,7 @@ expectations. Set up expectations before starting worker calls, then join those
 calls before verifying or destroying the mock. The facade owns the backend.
 
 The transport suites do all of that through the
-[FakeBackedSerial fixture](../src/platform/desktop/common/transport/fake_backed_serial.h),
+[FakeBackedSerial fixture](../src/platform/desktop/common/serial/testing/fake_backed_serial.h),
 which performs the lazy-creation call in its constructor, so `fake()` is a
 reference that is valid immediately. Name a `StrictMock` as its template
 argument, and pass its `arrange` callback the expectations that construction
@@ -45,7 +45,7 @@ EXPECT_CALL(serial.fake(), read_serial_data(50))
   expectations otherwise take precedence.
 - `NiceFakeBackend` allows uninteresting calls. Explicitly forbid operations
   with `.Times(0)` when testing cancellation or failure short-circuiting.
-  The [FakeBackedSerial fixture test](../src/platform/desktop/common/transport/fake_backed_serial_test.cpp)
+  The [FakeBackedSerial fixture test](../src/platform/desktop/common/serial/testing/fake_backed_serial_test.cpp)
   uses `StrictMock<FakeBackend>` to forbid every call the test has not arranged.
 - Use `DoDefault()` when an expected setter must also update configuration.
   `Return(true)` reports success but replaces that default state update.
