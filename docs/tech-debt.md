@@ -202,10 +202,10 @@ extracted into portable use cases under
 `Legacy*Adapter`; checksum dispatch has also been extracted, under
 `src/backend/checksum/`, but is reached directly from the desktop UI's
 `ChecksumCorrectionCommand` rather than through a `Legacy*Adapter`. What
-remains inside `FileActions` is logger definition/conf reading, config
-persistence, the EcuFlash/RomRaider definition-lookup parsers, ROM open/save,
-and the nested `ConfigValuesStructure` / `LogValuesStructure` /
-`EcuCalDefStructure` models, still `QString`/`QStringList` typed.
+remains inside `FileActions` is logger definition/conf reading, the
+EcuFlash/RomRaider definition-lookup parsers, ROM open/save, and the
+`LogValuesStructure` / `EcuCalDefStructure` models, still
+`QString`/`QStringList` typed.
 
 Actions:
 
@@ -221,7 +221,7 @@ Actions:
 Validation now catches several length mismatches after parsing, but core models
 are still represented by large parallel `QStringList` collections and raw
 index/pointer ownership. Examples include
-`FileActions::ConfigValuesStructure`, `LogValuesStructure`, and
+`LogValuesStructure` and
 `EcuCalDefStructure`; `MainWindow` also owns a fixed raw-pointer array of 100
 calibration definitions.
 
@@ -245,7 +245,7 @@ Actions:
   pointers, and return `std::optional`/explicit result types instead of null or
   partially filled structures.
 - Confirm this clears SonarCloud's `cpp:S1820` (struct exceeds 20 fields) on
-  `ConfigValuesStructure`, `LogValuesStructure`, and `EcuCalDefStructure` — see
+  `LogValuesStructure` and `EcuCalDefStructure` — see
   "P2: Pay down the SonarCloud code-smell backlog" below; don't track it twice.
 
 ### P1: Isolate flash-operation orchestration
@@ -456,7 +456,7 @@ organization"; do not track it twice.
 
 **Phase 4 — structural rules, absorbed into existing P1 items, not a new
 track.** `cpp:S1820` (struct exceeds 20 fields, 26 instances) is exactly
-`ConfigValuesStructure`, `LogValuesStructure`, and `EcuCalDefStructure` —
+`LogValuesStructure` and `EcuCalDefStructure` —
 already tracked above under "P1: Replace parallel-list data models".
 `cpp:S3776` (cognitive complexity, 89 instances) hits `map_edit.cpp` at the
 same functions already named under "P1: Separate UI from application logic"'s

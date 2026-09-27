@@ -740,6 +740,18 @@ the call blocks as the direct call did. A headless test cannot run the wait —
 it loops until a peer answers — so `desktop_composition_test` checks only
 that the signal is connected.
 
+## Configuration session
+
+`fastecu::config::ConfigSession` replaced `ConfigValuesStructure`, `LegacyConfigAdapter`, and `legacy_config_paths` in step 6k. `DesktopComposition` owns it and initializes it before building any other service. The same session reaches `MainWindow` through `MainWindowServices` and reaches `FileActions` by constructor.
+
+- **One saved selection.** `AppConfig::selected_protocol_id` is the only selection state. Make, model, MCU, checksum, capabilities, and description are derived from the selected `ResolvedCarModel` and never cached. Vehicle rows keep file order, and a row's id is its position. Choosers sort only their presentation.
+- **Paths.** Provisioned paths are fixed for the run. Effective paths take only the calibration and datalog directories from settings, so editing them never moves the config, kernel, definition, or syslog files.
+- **Startup rejection (intentional behavior change).** `LegacyConfigAdapter` ignored provisioning and load failures, and startup proceeded into empty vehicle lists. A provisioning failure, an unreadable or malformed `fastecu.cfg`, an unreadable `protocols.cfg`, or one with no car models now shows the failing path and reason, then exits before `MainWindow` or the syslog thread exists, with no ECU I/O. A failed rewrite of a successfully loaded `fastecu.cfg` stays nonfatal and is shown as a startup warning. `DesktopCompositionTest::failedStartupBuildsNoServicesAndPerformsNoEcuIo` pins this and was mutation-checked.
+- **Kept quirks.** An invalid saved row selects row 0 without replacing the saved transports or log protocol. Protocol-name selection takes the last matching row. An unresolved protocol reference stays `std::nullopt` and shows the single-space placeholder, with no capabilities. The writer's `logfiles_directory` versus the reader's `datalog_files_directory` still keeps the datalog directory from round-tripping, and `ConfigSessionSave.DatalogDirectoryDoesNotRoundTrip` pins it.
+- **Definition indexes are not settings.** The eight EcuFlash/RomRaider index lists live in `FileActions::DefinitionIndexes` until `FileActions` itself is retired.
+
+Bundled-default provisioning formerly copied CWD-relative config resources through the filesystem. It now reads `IResourceBundle` bytes and writes them through `IFileRepository`, so fresh config roots provision correctly before startup rejection is evaluated. Existing user files are preserved.
+
 ## Testing
 
 ### QtTest suites using Google Mock must fail on its failures
