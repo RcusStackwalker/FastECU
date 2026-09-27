@@ -188,6 +188,106 @@ Result<SsmIdentity> identify_kline_ssm2(IDiagnosticLink& link, IClock& clock, co
     return SsmIdentity{std::move(*ecu_id), std::move(frame)};
 }
 
+constexpr int kSsm1MaxDrainReads = 100;
+
+// Writes `request`, then reads `count` times for `timeout`, discarding what
+// arrives: ssm_init logged these bytes and never used them.
+Status write_then_discard(IDiagnosticLink& link, bytes::ByteView request, int count, std::chrono::milliseconds timeout,
+                          const ICancellationToken& cancellation)
+{
+    if (auto written = check_written(link, request); !written.has_value())
+    {
+        return written;
+    }
+    bytes::Bytes discarded;
+    for (int i = 0; i < count; ++i)
+    {
+        if (auto got = read_into(link, discarded, timeout, cancellation); !got.has_value())
+        {
+            return std::unexpected(got.error());
+        }
+    }
+    return {};
+}
+
+Result<SsmIdentity> identify_ssm1(IDiagnosticLink& link, const ICancellationToken& cancellation)
+{
+    if (auto opened = link.open(KlineLinkConfig{.header = KlineHeader::None, .baud = 1953, .parity = Parity::Even});
+        !opened.has_value())
+    {
+        return std::unexpected(opened.error());
+    }
+    // Every write is echo-checked: IDiagnosticLink has no other kind. The
+    // legacy ssm_init sent the second and third without the echo check.
+    if (auto woken =
+            write_then_discard(link, std::array<bytes::Byte, 4>{0x78, 0x12, 0x34, 0x00}, 10, 500ms, cancellation);
+        !woken.has_value())
+    {
+        return std::unexpected(woken.error());
+    }
+    if (auto woken =
+            write_then_discard(link, std::array<bytes::Byte, 4>{0x00, 0x46, 0x48, 0x49}, 2, 500ms, cancellation);
+        !woken.has_value())
+    {
+        return std::unexpected(woken.error());
+    }
+    if (auto written = check_written(link, std::array<bytes::Byte, 4>{0x12, 0x00, 0x00, 0x00}); !written.has_value())
+    {
+        return std::unexpected(written.error());
+    }
+
+    bytes::Bytes frame;
+    if (auto got = read_into(link, frame, 500ms, cancellation); !got.has_value())
+    {
+        return std::unexpected(got.error());
+    }
+    if (frame.empty())
+    {
+        return fail(ErrorKind::Timeout, "no SSM1 init response");
+    }
+    // Pinned: the length is the only check on SSM1.
+    if (frame.size() < 4 || frame.size() != frame[3] + kSsmFrameOverhead)
+    {
+        return bad_frame("length does not match its length byte", frame);
+    }
+    auto ecu_id = parse_ssm_ecu_id(frame);
+    if (!ecu_id.has_value())
+    {
+        return bad_frame("is too short for an ECU ID", frame);
+    }
+    SsmIdentity identity{std::move(*ecu_id), std::move(frame)};
+
+    // ssm_init parsed at most one more frame, unchecked, then drained.
+    bytes::Bytes trailing;
+    auto got = read_into(link, trailing, 100ms, cancellation);
+    if (!got.has_value())
+    {
+        return std::unexpected(got.error());
+    }
+    if (!*got)
+    {
+        return identity;
+    }
+    if (auto trailing_id = parse_ssm_ecu_id(trailing); trailing_id.has_value())
+    {
+        identity = SsmIdentity{std::move(*trailing_id), std::move(trailing)};
+    }
+    for (int i = 0; i < kSsm1MaxDrainReads; ++i)
+    {
+        bytes::Bytes discarded;
+        auto drained = read_into(link, discarded, 100ms, cancellation);
+        if (!drained.has_value())
+        {
+            return std::unexpected(drained.error());
+        }
+        if (!*drained)
+        {
+            break;
+        }
+    }
+    return identity;
+}
+
 } // namespace
 
 bytes::Bytes ssm_frame(bytes::ByteView payload, SsmTarget target)
@@ -215,6 +315,7 @@ Result<SsmIdentity> identify_ssm_ecu(IDiagnosticLink& link, IClock& clock, const
     case SsmVariant::KlineSsm2:
         return identify_kline_ssm2(link, clock, cancellation, request.target);
     case SsmVariant::Ssm1:
+        return identify_ssm1(link, cancellation);
     case SsmVariant::Iso15765Uds:
         break;
     }

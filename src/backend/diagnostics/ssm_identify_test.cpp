@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
+#include <algorithm>
 #include <initializer_list>
 #include <string>
 
@@ -243,4 +244,154 @@ TEST(IdentifyKlineSsm2, LinkErrorsPassThrough)
     opening.link.queue_open(fastecu::fail(ErrorKind::Disconnected, "no port"));
     EXPECT_THAT(opening.run(SsmVariant::KlineSsm2), IsErr(ErrorKind::Disconnected));
     EXPECT_EQ(opening.link.calls.size(), 1U);
+}
+
+namespace
+{
+const std::string kSsm1Open =
+    "open kline header=None iso14230=false baud=1953 start=00 tester=00 target=00 parity=Even";
+
+// The 12 reads that follow the two wake-up writes, all silent.
+void queue_silent_wakeup(FakeDiagnosticLink& link)
+{
+    for (int i = 0; i < 12; ++i)
+    {
+        link.queue_no_frame();
+    }
+}
+
+std::vector<std::string> ssm1_calls_through_first_frame()
+{
+    std::vector<std::string> calls{kSsm1Open, "write 78 12 34 00"};
+    for (int i = 0; i < 10; ++i)
+    {
+        calls.emplace_back("read 500");
+    }
+    calls.emplace_back("write 00 46 48 49");
+    calls.emplace_back("read 500");
+    calls.emplace_back("read 500");
+    calls.emplace_back("write 12 00 00 00");
+    calls.emplace_back("read 500");
+    return calls;
+}
+} // namespace
+
+TEST(IdentifySsm1, SendsTheSsm1SequenceAtEvenParity)
+{
+    Harness h;
+    queue_silent_wakeup(h.link);
+    h.link.queue_read(kShortEcuInit);
+    const auto result = h.run(SsmVariant::Ssm1);
+    ASSERT_THAT(result, IsOk());
+    EXPECT_EQ(result->ecu_id, "3152584006");
+    EXPECT_EQ(result->init_response, kShortEcuInit);
+    auto expected = ssm1_calls_through_first_frame();
+    expected.emplace_back("read 100"); // the trailing read comes back empty
+    EXPECT_EQ(h.link.calls, expected);
+}
+
+TEST(IdentifySsm1, WakeupResponsesAreNotPartOfTheFrame)
+{
+    Harness h;
+    h.link.queue_read(b({0x01, 0x02}));
+    for (int i = 0; i < 11; ++i)
+    {
+        h.link.queue_no_frame();
+    }
+    h.link.queue_read(kShortEcuInit);
+    const auto result = h.run(SsmVariant::Ssm1);
+    ASSERT_THAT(result, IsOk());
+    EXPECT_EQ(result->init_response, kShortEcuInit);
+}
+
+// Pinned: SSM1 is checked by length only. RomRaider's checks are SSM2's.
+TEST(IdentifySsm1, OnlyTheLengthIsChecked)
+{
+    Harness h;
+    queue_silent_wakeup(h.link);
+    const bytes::Bytes odd = b({0x12, 0x34, 0x56, 0x09, 0x00, 0xA2, 0x10, 0x11, 0x31, 0x52, 0x58, 0x40, 0x06, 0x00});
+    h.link.queue_read(odd);
+    ASSERT_THAT(h.run(SsmVariant::Ssm1), IsOk());
+}
+
+TEST(IdentifySsm1, LengthMismatchIsBadResponse)
+{
+    Harness h;
+    queue_silent_wakeup(h.link);
+    bytes::Bytes mismatch = kShortEcuInit;
+    mismatch[3] = 0x0A;
+    h.link.queue_read(mismatch);
+    EXPECT_THAT(h.run(SsmVariant::Ssm1), IsErr(ErrorKind::BadResponse));
+}
+
+TEST(IdentifySsm1, ShortFrameIsBadResponseNotAnOutOfRangeRead)
+{
+    Harness h;
+    queue_silent_wakeup(h.link);
+    h.link.queue_read(b({0x80, 0xF0}));
+    EXPECT_THAT(h.run(SsmVariant::Ssm1), IsErr(ErrorKind::BadResponse));
+}
+
+TEST(IdentifySsm1, NoAnswerIsTimeout)
+{
+    Harness h;
+    EXPECT_THAT(h.run(SsmVariant::Ssm1), IsErr(ErrorKind::Timeout));
+    EXPECT_EQ(h.link.calls, ssm1_calls_through_first_frame());
+}
+
+TEST(IdentifySsm1, ATrailingFrameWithAnIdReplacesTheFirst)
+{
+    Harness h;
+    queue_silent_wakeup(h.link);
+    h.link.queue_read(kShortEcuInit);
+    const bytes::Bytes second = b({0x80, 0xF0, 0x10, 0x09, 0xFF, 0xA2, 0x10, 0x11, 0x01, 0x02, 0x03, 0x04, 0x05, 0x5A});
+    h.link.queue_read(second);
+    const auto result = h.run(SsmVariant::Ssm1);
+    ASSERT_THAT(result, IsOk());
+    EXPECT_EQ(result->ecu_id, "0102030405");
+    EXPECT_EQ(result->init_response, second);
+    auto expected = ssm1_calls_through_first_frame();
+    expected.emplace_back("read 100"); // the second frame
+    expected.emplace_back("read 100"); // the drain, empty
+    EXPECT_EQ(h.link.calls, expected);
+}
+
+TEST(IdentifySsm1, ATrailingFrameTooShortForAnIdIsIgnored)
+{
+    Harness h;
+    queue_silent_wakeup(h.link);
+    h.link.queue_read(kShortEcuInit);
+    h.link.queue_read(b({0x01, 0x02}));
+    const auto result = h.run(SsmVariant::Ssm1);
+    ASSERT_THAT(result, IsOk());
+    EXPECT_EQ(result->ecu_id, "3152584006");
+    EXPECT_EQ(result->init_response, kShortEcuInit);
+}
+
+TEST(IdentifySsm1, Ssm1DrainStopsAfterOneHundredReads)
+{
+    Harness h;
+    queue_silent_wakeup(h.link);
+    h.link.queue_read(kShortEcuInit);
+    for (int i = 0; i < 150; ++i)
+    {
+        h.link.queue_read(b({0x55}));
+    }
+    ASSERT_THAT(h.run(SsmVariant::Ssm1), IsOk());
+    const auto trailing = std::count(h.link.calls.begin(), h.link.calls.end(), std::string("read 100"));
+    EXPECT_EQ(trailing, 101); // one trailing frame, then at most 100 drain reads
+}
+
+TEST(IdentifySsm1, CancellingDuringTheDrainIsCancelled)
+{
+    Harness h;
+    queue_silent_wakeup(h.link);
+    h.link.queue_read(kShortEcuInit);
+    for (int i = 0; i < 150; ++i)
+    {
+        h.link.queue_read(b({0x55}));
+    }
+    // 18 calls reach the first trailing read; cancel a few reads into the drain.
+    h.token.set_predicate([&h] { return h.link.calls.size() > 22; });
+    EXPECT_THAT(h.run(SsmVariant::Ssm1), IsErr(ErrorKind::Cancelled));
 }
