@@ -105,8 +105,7 @@ struct CatalogLists
     QStringList *sources;
 };
 
-Status populate_catalog(definitions::ConfigValuesStructure& next, const DefinitionCatalog& catalog,
-                        DefinitionFormat format)
+Status populate_catalog(definitions::DefinitionIndexes& next, const DefinitionCatalog& catalog, DefinitionFormat format)
 {
     CatalogLists lists =
         format == DefinitionFormat::RomRaider
@@ -352,7 +351,7 @@ LegacyDefinitionAdapter::LegacyDefinitionAdapter(DefinitionService& service) : s
 {
 }
 
-Status LegacyDefinitionAdapter::replace_romraider_catalog(definitions::ConfigValuesStructure& current,
+Status LegacyDefinitionAdapter::replace_romraider_catalog(definitions::DefinitionIndexes& current,
                                                           std::span<const std::string> ordered_handles)
 {
     auto catalog = service_.build_romraider_catalog(ordered_handles);
@@ -360,7 +359,7 @@ Status LegacyDefinitionAdapter::replace_romraider_catalog(definitions::ConfigVal
     {
         return std::unexpected(catalog.error());
     }
-    definitions::ConfigValuesStructure next = current;
+    definitions::DefinitionIndexes next = current;
     auto populated = populate_catalog(next, *catalog, DefinitionFormat::RomRaider);
     if (!populated.has_value())
     {
@@ -370,7 +369,7 @@ Status LegacyDefinitionAdapter::replace_romraider_catalog(definitions::ConfigVal
     return {};
 }
 
-Status LegacyDefinitionAdapter::replace_ecuflash_catalog(definitions::ConfigValuesStructure& current,
+Status LegacyDefinitionAdapter::replace_ecuflash_catalog(definitions::DefinitionIndexes& current,
                                                          std::string_view directory,
                                                          std::span<const std::string> explicit_handles)
 {
@@ -379,7 +378,7 @@ Status LegacyDefinitionAdapter::replace_ecuflash_catalog(definitions::ConfigValu
     {
         return std::unexpected(catalog.error());
     }
-    definitions::ConfigValuesStructure next = current;
+    definitions::DefinitionIndexes next = current;
     auto populated = populate_catalog(next, *catalog, DefinitionFormat::EcuFlash);
     if (!populated.has_value())
     {

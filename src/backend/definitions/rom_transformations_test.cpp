@@ -127,10 +127,10 @@ class TestRomTransformations : public QObject
         actions.ConfigValuesStruct.use_romraider_definitions = "enabled";
         actions.ConfigValuesStruct.use_ecuflash_definitions = "disabled";
         actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
-        actions.ConfigValuesStruct.romraider_def_cal_id = {"CAL1"};
-        actions.ConfigValuesStruct.romraider_def_cal_id_addr = {"0"};
-        actions.ConfigValuesStruct.romraider_def_ecu_id = {"TEST_ECU"};
-        actions.ConfigValuesStruct.romraider_def_filename = {definitionPath};
+        actions.definitionIndexes.romraider_def_cal_id = {"CAL1"};
+        actions.definitionIndexes.romraider_def_cal_id_addr = {"0"};
+        actions.definitionIndexes.romraider_def_ecu_id = {"TEST_ECU"};
+        actions.definitionIndexes.romraider_def_filename = {definitionPath};
 
         FileActions::EcuCalDefStructure parsed;
         QCOMPARE(actions.read_romraider_ecu_def(&parsed, "CAL1"), &parsed);

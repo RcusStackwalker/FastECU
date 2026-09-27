@@ -5,28 +5,28 @@
 #include <string>
 #include <vector>
 
-FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(ConfigValuesStructure *configValues)
+void FileActions::create_romraider_def_id_list()
 {
-    if (configValues->romraider_definition_files.isEmpty())
+    if (ConfigValuesStruct.romraider_definition_files.isEmpty())
     {
         events_.log(fastecu::LogLevel::Debug, "No RomRaider definition files");
-        return configValues;
+        return;
     }
 
     std::vector<std::string> handles;
-    handles.reserve(static_cast<std::size_t>(configValues->romraider_definition_files.size()));
-    for (const QString& handle : configValues->romraider_definition_files)
+    handles.reserve(static_cast<std::size_t>(ConfigValuesStruct.romraider_definition_files.size()));
+    for (const QString& handle : ConfigValuesStruct.romraider_definition_files)
     {
         events_.log(fastecu::LogLevel::Debug,
                     std::format("Reading RomRaider ID's from file: {}", handle.toStdString()));
         handles.push_back(handle.toStdString());
     }
 
-    const fastecu::Status replaced = definitionAdapter_.replace_romraider_catalog(*configValues, handles);
+    const fastecu::Status replaced = definitionAdapter_.replace_romraider_catalog(definitionIndexes, handles);
     if (!replaced.has_value())
     {
         log_definition_error("Unable to build RomRaider definition catalog", replaced.error());
-        for (const QString& handle : configValues->romraider_definition_files)
+        for (const QString& handle : ConfigValuesStruct.romraider_definition_files)
         {
             if (!definitionFileSystem_.exists(handle.toStdString()))
             {
@@ -36,15 +36,14 @@ FileActions::ConfigValuesStructure *FileActions::create_romraider_def_id_list(Co
                 break;
             }
         }
-        return configValues;
+        return;
     }
 
-    strip_legacy_address_prefixes(configValues->romraider_def_cal_id_addr);
+    strip_legacy_address_prefixes(definitionIndexes.romraider_def_cal_id_addr);
+    events_.log(fastecu::LogLevel::Debug, std::format("{} RomRaider definition files found",
+                                                      ConfigValuesStruct.romraider_definition_files.size()));
     events_.log(fastecu::LogLevel::Debug,
-                std::format("{} RomRaider definition files found", configValues->romraider_definition_files.size()));
-    events_.log(fastecu::LogLevel::Debug,
-                std::format("{} RomRaider ecu id's found", configValues->romraider_def_cal_id.size()));
-    return configValues;
+                std::format("{} RomRaider ecu id's found", definitionIndexes.romraider_def_cal_id.size()));
 }
 
 FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_base_def(EcuCalDefStructure *ecuCalDef)
@@ -116,11 +115,11 @@ FileActions::EcuCalDefStructure *FileActions::read_romraider_ecu_def(EcuCalDefSt
                        "'Edit' menu to choose file(s)");
         return nullptr;
     }
-    if (ConfigValuesStruct.romraider_def_cal_id.isEmpty())
+    if (definitionIndexes.romraider_def_cal_id.isEmpty())
     {
         return nullptr;
     }
-    if (!ConfigValuesStruct.romraider_def_cal_id.contains(cal_id))
+    if (!definitionIndexes.romraider_def_cal_id.contains(cal_id))
     {
         return ecuCalDef;
     }

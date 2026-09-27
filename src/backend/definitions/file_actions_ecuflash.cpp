@@ -4,43 +4,43 @@
 
 #include <set>
 
-FileActions::ConfigValuesStructure *FileActions::create_ecuflash_def_id_list(ConfigValuesStructure *configValues)
+void FileActions::create_ecuflash_def_id_list()
 {
-    if (configValues->ecuflash_definition_files_directory.isEmpty())
+    if (ConfigValuesStruct.ecuflash_definition_files_directory.isEmpty())
     {
         events_.log(fastecu::LogLevel::Debug, "No EcuFlash definition files directory");
-        return configValues;
+        return;
     }
 
     const fastecu::Status replaced = definitionAdapter_.replace_ecuflash_catalog(
-        *configValues, configValues->ecuflash_definition_files_directory.toStdString(), submittedEcuflashHandles_);
+        definitionIndexes, ConfigValuesStruct.ecuflash_definition_files_directory.toStdString(),
+        submittedEcuflashHandles_);
     if (!replaced.has_value())
     {
         log_definition_error("Unable to build EcuFlash definition catalog", replaced.error());
-        return configValues;
+        return;
     }
 
-    strip_legacy_address_prefixes(configValues->ecuflash_def_cal_id_addr);
+    strip_legacy_address_prefixes(definitionIndexes.ecuflash_def_cal_id_addr);
     std::set<QString> sources;
-    for (const QString& source : configValues->ecuflash_def_filename)
+    for (const QString& source : definitionIndexes.ecuflash_def_filename)
     {
         sources.insert(source);
     }
     events_.log(fastecu::LogLevel::Debug, std::format("{} EcuFlash definition files found", sources.size()));
     events_.log(fastecu::LogLevel::Debug,
-                std::format("{} EcuFlash ecu id's found", configValues->ecuflash_def_cal_id.size()));
-    return configValues;
+                std::format("{} EcuFlash ecu id's found", definitionIndexes.ecuflash_def_cal_id.size()));
 }
 
 FileActions::EcuCalDefStructure *FileActions::read_ecuflash_ecu_def(EcuCalDefStructure *ecuCalDef,
                                                                     const QString& cal_id)
 {
-    if (ConfigValuesStruct.ecuflash_def_cal_id.isEmpty())
+    if (definitionIndexes.ecuflash_def_cal_id.isEmpty())
     {
         return nullptr;
     }
     events_.log(fastecu::LogLevel::Debug, std::format("Search ID: {}", cal_id.toStdString()));
-    if (!ConfigValuesStruct.ecuflash_def_cal_id.contains(cal_id))
+    if (!definitionIndexes.ecuflash_def_cal_id.contains(cal_id))
     {
         return ecuCalDef;
     }

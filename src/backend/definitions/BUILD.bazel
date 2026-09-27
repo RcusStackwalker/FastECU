@@ -49,6 +49,15 @@ cc_library(
     deps = QT_DEPS_NO_WIDGETS,
 )
 
+# FileActions's legacy definition indexes, a leaf so
+# //src/backend/definition/legacy can use them without depending on FileActions.
+cc_library(
+    name = "definition_indexes",
+    hdrs = ["definition_indexes.h"],
+    copts = COMMON_COPTS,
+    deps = QT_DEPS_NO_WIDGETS,
+)
+
 fastecu_qttest(
     name = "test_ecuflash_definition_parsing",
     src = "ecuflash_definition_parsing_test.cpp",
@@ -136,6 +145,7 @@ cc_library(
     copts = COMMON_COPTS,
     deps = QT_DEPS_NO_WIDGETS + [
         ":config_values",
+        ":definition_indexes",
         ":ecu_cal_def",
         ":legacy_definition_columns",
         ":log_values",

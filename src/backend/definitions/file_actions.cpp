@@ -23,17 +23,17 @@ using fastecu::definition::DefinitionFormat;
 using fastecu::definition::DefinitionIndexEntry;
 using fastecu::definition::IdEncoding;
 
-fastecu::Result<DefinitionCatalog> catalogFromLegacyLists(const FileActions::ConfigValuesStructure& config,
+fastecu::Result<DefinitionCatalog> catalogFromLegacyLists(const FileActions::DefinitionIndexes& indexes,
                                                           DefinitionFormat format)
 {
     const QStringList *ids =
-        format == DefinitionFormat::RomRaider ? &config.romraider_def_cal_id : &config.ecuflash_def_cal_id;
+        format == DefinitionFormat::RomRaider ? &indexes.romraider_def_cal_id : &indexes.ecuflash_def_cal_id;
     const QStringList *addresses =
-        format == DefinitionFormat::RomRaider ? &config.romraider_def_cal_id_addr : &config.ecuflash_def_cal_id_addr;
+        format == DefinitionFormat::RomRaider ? &indexes.romraider_def_cal_id_addr : &indexes.ecuflash_def_cal_id_addr;
     const QStringList *ecuIds =
-        format == DefinitionFormat::RomRaider ? &config.romraider_def_ecu_id : &config.ecuflash_def_ecu_id;
+        format == DefinitionFormat::RomRaider ? &indexes.romraider_def_ecu_id : &indexes.ecuflash_def_ecu_id;
     const QStringList *sources =
-        format == DefinitionFormat::RomRaider ? &config.romraider_def_filename : &config.ecuflash_def_filename;
+        format == DefinitionFormat::RomRaider ? &indexes.romraider_def_filename : &indexes.ecuflash_def_filename;
 
     const bool completeShape =
         sources->size() == ids->size() && addresses->size() == ids->size() && ecuIds->size() == ids->size();
@@ -156,27 +156,27 @@ fastecu::Result<DefinitionCatalog> FileActions::build_definition_catalog(Definit
     if (format == DefinitionFormat::EcuFlash)
     {
         std::vector<std::string> explicitHandles;
-        explicitHandles.reserve(static_cast<std::size_t>(ConfigValuesStruct.ecuflash_def_filename.size()));
-        for (const QString& handle : ConfigValuesStruct.ecuflash_def_filename)
+        explicitHandles.reserve(static_cast<std::size_t>(definitionIndexes.ecuflash_def_filename.size()));
+        for (const QString& handle : definitionIndexes.ecuflash_def_filename)
         {
             explicitHandles.push_back(handle.toStdString());
         }
         if (ConfigValuesStruct.ecuflash_definition_files_directory.isEmpty() && explicitHandles.empty())
         {
-            return catalogFromLegacyLists(ConfigValuesStruct, format);
+            return catalogFromLegacyLists(definitionIndexes, format);
         }
         return definitionService_.build_ecuflash_catalog(
             ConfigValuesStruct.ecuflash_definition_files_directory.toStdString(), explicitHandles);
     }
-    return catalogFromLegacyLists(ConfigValuesStruct, format);
+    return catalogFromLegacyLists(definitionIndexes, format);
 }
 
 QString FileActions::definition_source(DefinitionFormat format, const QString& id) const
 {
-    const QStringList *ids = format == DefinitionFormat::RomRaider ? &ConfigValuesStruct.romraider_def_cal_id
-                                                                   : &ConfigValuesStruct.ecuflash_def_cal_id;
-    const QStringList *sources = format == DefinitionFormat::RomRaider ? &ConfigValuesStruct.romraider_def_filename
-                                                                       : &ConfigValuesStruct.ecuflash_def_filename;
+    const QStringList *ids = format == DefinitionFormat::RomRaider ? &definitionIndexes.romraider_def_cal_id
+                                                                   : &definitionIndexes.ecuflash_def_cal_id;
+    const QStringList *sources = format == DefinitionFormat::RomRaider ? &definitionIndexes.romraider_def_filename
+                                                                       : &definitionIndexes.ecuflash_def_filename;
     const qsizetype index = ids->indexOf(id);
     return index >= 0 && index < sources->size() ? sources->at(index) : QString{};
 }

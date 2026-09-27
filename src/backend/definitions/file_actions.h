@@ -15,6 +15,7 @@
 
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/definitions/config_values.h"
+#include "src/backend/definitions/definition_indexes.h"
 #include "src/backend/definitions/ecu_cal_def.h"
 #include "src/backend/definitions/log_values.h"
 #include "src/backend/calibration/legacy/legacy_calibration_adapter.h"
@@ -50,6 +51,13 @@ class FileActions
     // keeps compiling unchanged.
     using ConfigValuesStructure = fastecu::definitions::ConfigValuesStructure;
     ConfigValuesStructure ConfigValuesStruct;
+
+    // The legacy EcuFlash/RomRaider definition index lists, extracted out of
+    // ConfigValuesStructure (see definition_indexes.h's comment): they are
+    // derived catalog data FileActions builds and appends to, not
+    // application configuration.
+    using DefinitionIndexes = fastecu::definitions::DefinitionIndexes;
+    DefinitionIndexes definitionIndexes;
 
     struct protocolsStructure
     {
@@ -137,14 +145,14 @@ class FileActions
     /*****************************************************
      * Search and read RomRaider ECU definition from file
      *****************************************************/
-    ConfigValuesStructure *create_romraider_def_id_list(ConfigValuesStructure *configValues);
+    void create_romraider_def_id_list();
     EcuCalDefStructure *read_romraider_ecu_base_def(FileActions::EcuCalDefStructure *ecuCalDef);
     EcuCalDefStructure *read_romraider_ecu_def(FileActions::EcuCalDefStructure *ecuCalDef, const QString& ecuId);
 
     /*****************************************************
      * Search and read RomRaider ECU definition from file
      *****************************************************/
-    ConfigValuesStructure *create_ecuflash_def_id_list(ConfigValuesStructure *configValues);
+    void create_ecuflash_def_id_list();
     // EcuCalDefStructure *read_ecuflash_ecu_base_def(FileActions::EcuCalDefStructure *ecuCalDef);
     EcuCalDefStructure *read_ecuflash_ecu_def(FileActions::EcuCalDefStructure *ecuCalDef, const QString& cal_id);
 

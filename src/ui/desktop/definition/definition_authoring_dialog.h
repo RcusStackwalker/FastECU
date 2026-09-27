@@ -26,11 +26,11 @@ namespace fastecu::ui
 HeaderFormEditors populate_header_dialog(QDialog& dialog, const QStringList& labels, const QStringList& names,
                                          const QStringList& values);
 
-// Appends one entry to each of the four ecuflash_def_* config lists, taking
+// Appends one entry to each of the four ecuflash_def_* index lists, taking
 // the calibration ID from `input` and the ID address and ECU ID from the
 // form's editors. Called only once the definition has actually been written,
 // so a failed write leaves the lists untouched.
-void record_definition(FileActions::ConfigValuesStructure& config, const HeaderFormEditors& editors,
+void record_definition(fastecu::definitions::DefinitionIndexes& indexes, const HeaderFormEditors& editors,
                        const fastecu::definition::DefinitionHeaderInput& input, const QString& filename);
 
 // The two interactive definition-authoring wizards, moved out of

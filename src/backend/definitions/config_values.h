@@ -71,15 +71,6 @@ struct ConfigValuesStructure
     QString use_ecuflash_definitions = "disabled";
     QString primary_definition_base = "ecuflash";
 
-    QStringList ecuflash_def_cal_id;
-    QStringList ecuflash_def_cal_id_addr;
-    QStringList ecuflash_def_ecu_id;
-    QStringList ecuflash_def_filename;
-    QStringList romraider_def_cal_id;
-    QStringList romraider_def_cal_id_addr;
-    QStringList romraider_def_ecu_id;
-    QStringList romraider_def_filename;
-
     QStringList flash_protocol_id;
     QStringList flash_protocol_alias;
     QStringList flash_protocol_make;

@@ -14,6 +14,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/backend/definitions/definition_indexes.h"
 #include "src/backend/ports/event_sink.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
@@ -132,12 +133,12 @@ TEST(DefinitionAuthoringDialogTest, HeaderEditorsStayReadableWhileTheCallerOwnsT
     EXPECT_TRUE(tracked.isNull());
 }
 
-// The four ecuflash_def_* config lists are appended to only once the
+// The four ecuflash_def_* index lists are appended to only once the
 // definition has been written; both wizards funnel that through
 // record_definition, which sits after the submit_*_definition status check.
 // This pins which form field lands in which list and that repeated records
 // append index-aligned entries rather than overwriting.
-TEST(DefinitionAuthoringDialogTest, RecordDefinitionAppendsTheFourConfigListsInStep)
+TEST(DefinitionAuthoringDialogTest, RecordDefinitionAppendsTheFourIndexListsInStep)
 {
     QDialog dialog;
     const QStringList labels{"XML ID", "Internal ID address", "ECU ID"};
@@ -147,7 +148,7 @@ TEST(DefinitionAuthoringDialogTest, RecordDefinitionAppendsTheFourConfigListsInS
     const auto input = fastecu::ui::definition_header_input(editors);
     ASSERT_TRUE(input.has_value());
 
-    FileActions::ConfigValuesStructure config;
+    fastecu::definitions::DefinitionIndexes config;
     record_definition(config, editors, *input, "defs/colt.xml");
 
     EXPECT_THAT(config.ecuflash_def_cal_id, ElementsAre(QString("3352a403")));

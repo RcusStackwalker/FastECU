@@ -211,10 +211,10 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     }
 
     setSplashScreenProgress("Preparing EcuFlash ROM definitions...", 10);
-    fileActions->create_ecuflash_def_id_list(configValues);
+    fileActions->create_ecuflash_def_id_list();
 
     setSplashScreenProgress("Preparing RomRaider ROM definitions...", 10);
-    fileActions->create_romraider_def_id_list(configValues);
+    fileActions->create_romraider_def_id_list();
 
     if (QDir(configValues->kernel_files_directory).exists())
     {

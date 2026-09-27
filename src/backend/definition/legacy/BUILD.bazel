@@ -16,7 +16,7 @@ cc_library(
     deps = QT_DEPS_NO_WIDGETS + [
         "//src/backend/definition:definition_service",
         "//src/backend/definition:text_format",
-        "//src/backend/definitions:config_values",
+        "//src/backend/definitions:definition_indexes",
         "//src/backend/definitions:ecu_cal_def",
         "//src/backend/definitions:legacy_definition_columns",
         "//src/backend/ports",
@@ -29,7 +29,7 @@ fastecu_gtest(
     copts = ["-I."],
     deps = [
         ":legacy_definition_adapter",
-        "//src/backend/definitions:config_values",
+        "//src/backend/definitions:definition_indexes",
         "//src/backend/definitions:ecu_cal_def",
         "//src/backend/ports",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",

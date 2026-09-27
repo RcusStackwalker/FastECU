@@ -103,13 +103,13 @@ HeaderFormEditors populate_header_dialog(QDialog& dialog, const QStringList& lab
     return editors;
 }
 
-void record_definition(FileActions::ConfigValuesStructure& config, const HeaderFormEditors& editors,
+void record_definition(fastecu::definitions::DefinitionIndexes& indexes, const HeaderFormEditors& editors,
                        const fastecu::definition::DefinitionHeaderInput& input, const QString& filename)
 {
-    config.ecuflash_def_cal_id.append(QString::fromStdString(input.xml_id));
-    config.ecuflash_def_cal_id_addr.append(line_edit_value(editors, "internalidaddress"));
-    config.ecuflash_def_ecu_id.append(line_edit_value(editors, "ecuid"));
-    config.ecuflash_def_filename.append(filename);
+    indexes.ecuflash_def_cal_id.append(QString::fromStdString(input.xml_id));
+    indexes.ecuflash_def_cal_id_addr.append(line_edit_value(editors, "internalidaddress"));
+    indexes.ecuflash_def_ecu_id.append(line_edit_value(editors, "ecuid"));
+    indexes.ecuflash_def_filename.append(filename);
 }
 
 DefinitionAuthoringDialog::DefinitionAuthoringDialog(FileActions& file_actions, fastecu::IFileRepository& repository,
@@ -167,7 +167,7 @@ bool DefinitionAuthoringDialog::create_new_definition(FileActions::EcuCalDefStru
         return false;
     }
 
-    record_definition(*configValues, form.editors, *input, filename);
+    record_definition(fileActions_.definitionIndexes, form.editors, *input, filename);
     return true;
 }
 
@@ -249,7 +249,7 @@ bool DefinitionAuthoringDialog::use_existing_definition(FileActions::EcuCalDefSt
         return false;
     }
 
-    record_definition(*configValues, form.editors, *input, filename);
+    record_definition(fileActions_.definitionIndexes, form.editors, *input, filename);
     return true;
 }
 
