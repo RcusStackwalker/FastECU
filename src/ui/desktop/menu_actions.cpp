@@ -533,6 +533,11 @@ void MainWindow::stop_identification()
     identify_worker_.reset();
     identify_link_.reset();
     set_identification_in_progress(false);
+    // connect_to_ecu locked the port selector once the port opened. A
+    // cancelled identification leaves no ECU connected, so unlock it the way
+    // disconnect_from_ecu does, whichever entry point cancelled.
+    serial_port_list->setEnabled(true);
+    refresh_serial_port_list->setEnabled(true);
     if (auto done = std::exchange(connect_done_, {}); done)
     {
         done(false);

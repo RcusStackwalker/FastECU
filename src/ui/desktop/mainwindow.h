@@ -307,8 +307,9 @@ class MainWindow : public QMainWindow
     void connect_to_ecu(std::function<void(bool)> on_done = {});
     void continue_start_logging();
     void finish_identification(const fastecu::diagnostics::SsmIdentifyWorkerResult& result);
-    // Cancels and joins a running identification, restores the controls, and
-    // tells a waiting caller the connect did not complete.
+    // Cancels and joins a running identification, restores the controls
+    // (including the port selector connect_to_ecu locked), and tells a waiting
+    // caller the connect did not complete.
     void stop_identification();
     void set_identification_in_progress(bool in_progress);
 

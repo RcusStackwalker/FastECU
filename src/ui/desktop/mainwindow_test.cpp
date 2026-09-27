@@ -1206,6 +1206,8 @@ class MainWindowTest : public QObject
         bool cancelled = false;
         window.connect_to_ecu([&cancelled](bool connected) { cancelled = !connected; });
         QVERIFY(window.identify_worker_ != nullptr);
+        QVERIFY(!window.serial_port_list->isEnabled());
+        QVERIFY(!window.refresh_serial_port_list->isEnabled());
         QTimer close_dialog;
         close_dialog.setInterval(5);
         QObject::connect(&close_dialog, &QTimer::timeout,
@@ -1238,6 +1240,10 @@ class MainWindowTest : public QObject
         }
         QVERIFY(window.identify_worker_ == nullptr);
         QVERIFY(cancelled);
+        // A cancelled identification leaves no ECU connected, so the port
+        // selector unlocks as it does after Disconnect.
+        QVERIFY(window.serial_port_list->isEnabled());
+        QVERIFY(window.refresh_serial_port_list->isEnabled());
         QTest::qWait(200);
         QVERIFY(!window.ecu_init_complete);
     }
