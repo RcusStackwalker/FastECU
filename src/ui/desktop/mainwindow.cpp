@@ -627,7 +627,15 @@ void MainWindow::save_settings()
 {
     if (const fastecu::Status saved = configSession->save(); !saved.has_value())
     {
-        emit LOG_E(qs(saved.error().detail), true, true);
+        if (last_settings_save_error != saved.error())
+        {
+            last_settings_save_error = saved.error();
+            emit LOG_E(qs(saved.error().detail), true, true);
+        }
+    }
+    else
+    {
+        last_settings_save_error.reset();
     }
 }
 

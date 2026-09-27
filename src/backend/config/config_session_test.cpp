@@ -58,18 +58,6 @@ TEST(ConfigSessionInitialize, CustomRootIsHonored)
     EXPECT_EQ(f.session.provisioned_paths(), resolve_config_paths("/custom", kVersion));
 }
 
-TEST(ConfigSessionInitialize, MigratesThePreviousVersionConfigThroughProvisioning)
-{
-    ConfigSessionFixture f;
-    f.file_system.directory_entries[f.paths.base_config_directory].push_back(
-        fastecu::DirEntry{.name = "0.1.0-beta.4", .is_directory = true, .modified_time_epoch_seconds = 100});
-    f.file_system.files[f.paths.base_config_directory + "/0.1.0-beta.4/config/fastecu.cfg"] = {7};
-
-    ASSERT_THAT(f.initialize(), IsOk());
-
-    EXPECT_EQ(f.file_system.files[f.paths.config_files_directory + "fastecu.cfg"], (std::vector<std::uint8_t>{7}));
-}
-
 TEST(ConfigSessionInitialize, CopiesBundledResourcesThroughProvisioning)
 {
     ConfigSessionFixture f;

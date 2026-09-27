@@ -39,6 +39,7 @@ class Settings : public QDialog
     void closeEvent(QCloseEvent *bar);
 
     fastecu::config::ConfigSession& config;
+    bool close_save_attempted = false;
 
     QLineEdit *ecuflash_def_dir_lineedit{};
     QLineEdit *romraider_logger_file_lineedit{};

@@ -123,7 +123,7 @@ The rules below constrain the remaining milestones.
 
 ## Remaining Roadmap
 
-Steps 6k-6n are ordered consumer migrations. Each slice should land with its
+Steps 6l-6n are ordered consumer migrations. Each slice should land with its
 own regression coverage and remove the bridge it makes unnecessary. Reuse
 existing portable records and services; extend them only where a consumer
 requires a missing capability. Preserve behavior unless a correction is

@@ -1334,6 +1334,42 @@ class MainWindowTest : public QObject
         QVERIFY(!driver.timedOut());
     }
 
+    void repeatedSaveFailuresLogOnceUntilASuccess()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        TestServices services{root.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        QSignalSpy errors{&window, &MainWindow::LOG_E};
+        const QString config_file = QString::fromStdString(services.config.provisioned_paths().config_file);
+        QVERIFY(QFile::remove(config_file));
+        QVERIFY(QDir().mkpath(config_file));
+
+        services.config.settings().toolbar_iconsize = "48";
+        window.save_settings();
+        window.save_settings();
+        window.save_settings();
+        QCOMPARE(errors.size(), 1);
+        QVERIFY(errors.front().front().toString().contains(config_file));
+        QCOMPARE(services.config.settings().toolbar_iconsize, std::string("48"));
+
+        QVERIFY(QDir().rmdir(config_file));
+        window.save_settings();
+        QCOMPARE(errors.size(), 1);
+        QFile saved{config_file};
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QVERIFY(saved.readAll().contains(R"(data="48")"));
+        saved.close();
+        QVERIFY(QFile::remove(config_file));
+        QVERIFY(QDir().mkpath(config_file));
+        window.save_settings();
+        QCOMPARE(errors.size(), 2);
+    }
+
     void biuWindowRemembersTheOpenedPort()
     {
         ModalDriver constructor_driver{QString()};

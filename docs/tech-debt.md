@@ -198,8 +198,9 @@ constructs no dialog or message box — Qt Widgets are unreachable from all of
 ([ADR 0016](adr/0016-enforce-qt-reachability-by-visibility.md)). Expression and diagnostic parsing, the
 EcuFlash/RomRaider parsers, ROM open/save, and config persistence have been
 extracted into portable use cases under
-`src/backend/{definition,calibration,config}/`, each reached through a
-`Legacy*Adapter`; checksum dispatch has also been extracted, under
+`src/backend/{definition,calibration,config}/`; definition and calibration are
+reached through a `Legacy*Adapter`, while config is reached through
+`ConfigSession`. Checksum dispatch has also been extracted, under
 `src/backend/checksum/`, but is reached directly from the desktop UI's
 `ChecksumCorrectionCommand` rather than through a `Legacy*Adapter`. What
 remains inside `FileActions` is logger definition/conf reading, the

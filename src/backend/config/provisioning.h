@@ -15,6 +15,8 @@ namespace fastecu::config
 // not already present, and prunes syslogs down to the newest 20. Bundled
 // files are read through `resource_bundle` and written through
 // `file_repository`; a failure to do either names the target file.
+// `file_system` and `file_repository` must refer to the same backing storage:
+// existence checks and migration copies must be visible to repository reads.
 Status provision_config_directories(const ConfigPaths& paths, IFileSystem& file_system,
                                     IResourceBundle& resource_bundle, IFileRepository& file_repository,
                                     IEventSink& events);

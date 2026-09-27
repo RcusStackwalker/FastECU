@@ -40,13 +40,22 @@ Settings::Settings(fastecu::config::ConfigSession& config, QWidget *parent)
 Settings::~Settings()
 {
     qDebug() << "Save config file before exit, bye bye!";
-    save_config_file();
+    if (close_save_attempted)
+    {
+        // Retry persistence without repeating the notification shown on close.
+        (void)config.save();
+    }
+    else
+    {
+        save_config_file();
+    }
 }
 
 void Settings::closeEvent(QCloseEvent *bar)
 {
     qDebug() << "Save config file before exit, bye bye!";
     save_config_file();
+    close_save_attempted = true;
 }
 
 int Settings::save_config_file()

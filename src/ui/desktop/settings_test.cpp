@@ -94,6 +94,30 @@ class SettingsTest : public QObject
         QCOMPARE(disk.session.settings().toolbar_iconsize, std::string("40"));
     }
 
+    void destructionRetriesPersistenceAfterClose()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        SessionOnDisk disk{root.path()};
+        QVERIFY(disk.status.has_value());
+        const QString config_file = QString::fromStdString(disk.session.provisioned_paths().config_file);
+        QVERIFY(QFile::remove(config_file));
+        QVERIFY(QDir().mkpath(config_file));
+        ModalCollector boxes;
+        {
+            Settings settings{disk.session};
+            settings.close();
+            QCOMPARE(boxes.texts().size(), 1);
+            QVERIFY(QDir().rmdir(config_file));
+            QVERIFY(QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection,
+                                              Q_ARG(int, 48)));
+        }
+        QCOMPARE(boxes.texts().size(), 1);
+        QFile saved{config_file};
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QVERIFY(saved.readAll().contains(R"(data="48")"));
+    }
+
     void failedSaveKeepsEditsAndWarnsTheOperator()
     {
         QTemporaryDir root;
@@ -113,7 +137,7 @@ class SettingsTest : public QObject
         }
 
         QCOMPARE(disk.session.settings().toolbar_iconsize, std::string("40"));
-        QVERIFY(!boxes.texts().isEmpty());
+        QCOMPARE(boxes.texts().size(), 1);
         QVERIFY(boxes.texts().front().contains(config_file));
     }
 };

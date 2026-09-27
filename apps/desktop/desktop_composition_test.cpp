@@ -157,6 +157,28 @@ class DesktopCompositionTest : public QObject
         QVERIFY(!composition.logging_engine_);
     } // teardown after a failed start must not crash
 
+    void migrationLoadsPreviousVersionSettingsFromDisk()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        const QString previous_dir = root.path() + "/0.1.0-beta.4/config/";
+        QVERIFY(QDir().mkpath(previous_dir));
+        QVERIFY(writeFile(previous_dir + "fastecu.cfg",
+                          R"(<config name="FastECU"><software_settings>
+<setting name="serial_port"><value data="ttyMIGRATED_UNIQUE"/></setting>
+</software_settings></config>)"));
+        const QString current_file = root.path() + "/" + kVersion + "/config/fastecu.cfg";
+        QVERIFY(!QFile::exists(current_file));
+
+        DesktopComposition composition{{}, {}, root.path()};
+
+        QVERIFY(composition.started());
+        QCOMPARE(composition.config_.settings().serial_port, std::string("ttyMIGRATED_UNIQUE"));
+        QFile saved{current_file};
+        QVERIFY(saved.open(QIODevice::ReadOnly));
+        QVERIFY(saved.readAll().contains("ttyMIGRATED_UNIQUE"));
+    }
+
     void malformedSettingsRejectStartup()
     {
         QTemporaryDir root;
