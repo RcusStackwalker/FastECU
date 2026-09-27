@@ -195,6 +195,63 @@ TEST(RomRaiderParserTest, ConvertsSwitchStatesToSelectableScaling)
                                                    }));
 }
 
+TEST(RomRaiderParserTest, SwitchWithInlineScalingAppendsTableStatesAfterScalingData)
+{
+    const auto xml = bytes(R"xml(
+      <roms><rom><romid><xmlid>SWITCHES</xmlid></romid>
+      <table name="Feature Switch" storageaddress="2A" type="Switch">
+        <scaling name="switch-scale" storagetype="uint8"><data name="auto" value="02"/></scaling>
+        <state name="off" data="00"/><state name="on" data="01"/>
+      </table></rom></roms>)xml");
+
+    auto result = parse_romraider_definition(xml, "switches.xml", "SWITCHES");
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_EQ(result->maps.size(), 1U);
+    EXPECT_EQ(result->maps.front().type, "Selectable");
+    EXPECT_EQ(result->maps.front().storage_type, StorageType::Bloblist);
+    EXPECT_EQ(result->maps.front().scaling_name, "switch-scale");
+    ASSERT_EQ(result->scalings.size(), 1U);
+    EXPECT_EQ(result->scalings.front().storage_type, StorageType::Bloblist);
+    EXPECT_EQ(result->scalings.front().selections, (std::vector<std::pair<std::string, std::string>>{
+                                                       {"auto", "02"},
+                                                       {"disabled", "00"},
+                                                       {"enabled", "01"},
+                                                   }));
+}
+
+TEST(RomRaiderParserTest, AxisScalingFallsBackToTheAxisTableAttributes)
+{
+    const auto xml = bytes(R"xml(
+      <roms><rom><romid><xmlid>FALLBACK</xmlid></romid>
+      <table name="Fuel" type="2D" sizey="2">
+        <table type="Y Axis" name="Load" elements="2" storagetype="uint8" endian="little"
+               minvalue="1" maxvalue="9">
+          <scaling units="g/rev" expression="x"/>
+        </table>
+      </table></rom></roms>)xml");
+
+    auto result = parse_romraider_definition(xml, "fallback.xml", "FALLBACK");
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_EQ(result->scalings.size(), 1U);
+    const auto& scaling = result->scalings.front();
+    EXPECT_EQ(scaling.name, "Load");
+    EXPECT_EQ(scaling.storage_type, StorageType::Uint8);
+    EXPECT_EQ(scaling.endian, "little");
+    EXPECT_EQ(scaling.minimum, "1");
+    EXPECT_EQ(scaling.maximum, "9");
+}
+
+TEST(RomRaiderParserTest, AxisWithoutANameIsInvalidConfigNamingTheAxisType)
+{
+    auto result = parse_romraider_definition(bytes(R"xml(
+      <roms><rom><romid><xmlid>A</xmlid></romid><table name="Fuel" type="3D">
+      <table type="X Axis"/></table></rom></roms>)xml"),
+                                             "bad-axis.xml", "A");
+    expect_invalid_with_context(result, "bad-axis.xml", "type 'X Axis'");
+}
+
 TEST(RomRaiderParserTest, NormalizesLegacyTwoDimensionalYAxisDimensions)
 {
     const auto xml = bytes(R"xml(

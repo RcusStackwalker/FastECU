@@ -134,138 +134,63 @@ Result<UnresolvedScaling> parse_scaling(pugi::xml_node node, std::string fallbac
 Result<UnresolvedAxisDefinition> parse_axis(pugi::xml_node table, std::uint32_t default_size, std::string_view source,
                                             std::string_view definition_id, std::vector<UnresolvedScaling>& scalings)
 {
-    UnresolvedAxisDefinition axis;
-    if (auto status = populate_common_axis_attributes(table, axis, source, definition_id); !status.has_value())
-    {
-        return std::unexpected(status.error());
-    }
-    if (axis.name.empty())
-    {
-        return invalid(source, std::format("element <table> type '{}' attribute 'name'", axis.type),
-                       "missing or empty axis name", definition_id);
-    }
-    auto address = optional_address(table, source, definition_id);
-    if (!address)
-    {
-        return std::unexpected(address.error());
-    }
-    axis.address = *address;
-
-    if (const char *size_attribute =
-            table.attribute("elements") ? "elements" : (table.attribute("size") ? "size" : nullptr);
-        size_attribute)
-    {
-        auto size = dimension_attribute(table, size_attribute, default_size, source, definition_id);
-        if (!size)
-        {
-            return std::unexpected(size.error());
-        }
-        axis.size = *size;
-    }
-    axis.scaling_name = value_or_empty(table.attribute("scaling"));
-    if (const pugi::xml_node scaling_node = table.child("scaling"))
-    {
-        auto scaling = parse_scaling(scaling_node, axis.scaling_name.empty() ? axis.name : axis.scaling_name, source,
-                                     definition_id);
-        if (!scaling.has_value())
-        {
-            return std::unexpected(scaling.error());
-        }
-        apply_scaling_to_axis(*scaling, axis);
-        scalings.push_back(std::move(*scaling));
-    }
-    return axis;
+    return parse_axis_definition(
+        table, default_size, source, definition_id, scalings,
+        [&](pugi::xml_node scaling_node, std::string fallback_name)
+        { return parse_scaling(scaling_node, std::move(fallback_name), source, definition_id); });
 }
 
 Result<UnresolvedCalibrationMap> parse_table(pugi::xml_node table, std::string_view source,
                                              std::string_view definition_id, std::vector<UnresolvedScaling>& scalings)
 {
     UnresolvedCalibrationMap map;
-    if (auto status = populate_common_map_attributes(table, map, source, definition_id); !status.has_value())
+    if (auto status = populate_map_header(table, map, source, definition_id); !status.has_value())
     {
         return std::unexpected(status.error());
     }
-    if (map.name.empty())
-    {
-        return invalid(source, "element <table> attribute 'name'", "missing or empty map name", definition_id);
-    }
-    const bool is_top_level_x_axis = map.type == "X Axis";
-    const bool is_top_level_y_axis = map.type == "Y Axis";
 
-    auto address = optional_address(table, source, definition_id);
-    if (!address)
-    {
-        return std::unexpected(address.error());
-    }
-    map.address = *address;
-
-    if (is_top_level_x_axis || is_top_level_y_axis)
+    // A top-level axis table is a 2D map sized by its own element count.
+    if (const bool is_x_axis = map.type == "X Axis"; is_x_axis || map.type == "Y Axis")
     {
         auto elements = dimension_attribute(table, "elements", 1, source, definition_id);
-        if (!elements)
+        if (!elements.has_value())
         {
             return std::unexpected(elements.error());
         }
         map.type = "2D";
-        map.x_size = is_top_level_x_axis ? *elements : 1;
-        map.y_size = is_top_level_y_axis ? *elements : 1;
+        map.x_size = is_x_axis ? *elements : 1;
+        map.y_size = is_x_axis ? 1 : *elements;
     }
-    else
-    {
-        if (auto status = populate_optional_dimension(table, "sizex", map.x_size, source, definition_id); !status)
-        {
-            return std::unexpected(status.error());
-        }
-        if (auto status = populate_optional_dimension(table, "sizey", map.y_size, source, definition_id); !status)
-        {
-            return std::unexpected(status.error());
-        }
-    }
-
-    if (auto status = populate_optional_boolean(table, "swapxy", map.swap_xy, source, definition_id); !status)
+    else if (auto status = populate_map_size(table, map, source, definition_id); !status.has_value())
     {
         return std::unexpected(status.error());
     }
-    if (auto status = populate_optional_boolean(table, "flipx", map.flip_x, source, definition_id); !status)
-    {
-        return std::unexpected(status.error());
-    }
-    if (auto status = populate_optional_boolean(table, "flipy", map.flip_y, source, definition_id); !status)
+    if (auto status = populate_map_orientation(table, map, source, definition_id); !status.has_value())
     {
         return std::unexpected(status.error());
     }
 
-    map.scaling_name = value_or_empty(table.attribute("scaling"));
-    if (const pugi::xml_node scaling_node = table.child("scaling"))
+    auto scaling =
+        parse_map_scaling(table, map, [&](pugi::xml_node scaling_node, std::string fallback_name)
+                          { return parse_scaling(scaling_node, std::move(fallback_name), source, definition_id); });
+    if (!scaling.has_value())
     {
-        auto parsed_scaling =
-            parse_scaling(scaling_node, map.scaling_name.empty() ? map.id.value_or(map.name) : map.scaling_name, source,
-                          definition_id);
-        if (!parsed_scaling.has_value())
-        {
-            return std::unexpected(parsed_scaling.error());
-        }
-        UnresolvedScaling& scaling = *parsed_scaling;
-        map.scaling_name = scaling.name;
-        if (!map.storage_type)
-        {
-            map.storage_type = scaling.storage_type;
-        }
-        if (map.endian.empty())
-        {
-            map.endian = scaling.endian;
-        }
-        if (scaling.storage_type == StorageType::Bloblist)
+        return std::unexpected(scaling.error());
+    }
+    if (scaling->has_value())
+    {
+        if ((*scaling)->storage_type == StorageType::Bloblist)
         {
             map.type = "Selectable";
         }
-        scalings.push_back(std::move(scaling));
+        scalings.push_back(std::move(**scaling));
     }
 
-    if (auto status = populate_axes(table, map, source, definition_id, scalings, parse_axis); !status)
+    if (auto status = populate_axes(table, map, source, definition_id, scalings, parse_axis); !status.has_value())
     {
         return std::unexpected(status.error());
     }
+    // A map with no axis but bare <data> children carries its X axis values inline.
     if (map.x_axis == UnresolvedAxisDefinition{} && table.child("data"))
     {
         map.x_axis.type = "Static X Axis";

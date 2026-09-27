@@ -506,9 +506,8 @@ existing work instead of opening a parallel initiative:
   list issues` query above when picking up unrelated work in a file to see if
   it carries one, rather than scheduling a dedicated phase for them.
 - Duplication clusters a 2026-09-05 new-code scan found outside the flash
-  executors, not yet extracted: the `parse_axis`/`parse_table` skeleton shared
-  by `src/backend/definition/{ecuflash,romraider}_parser.cpp`, and the
-  dialog→validate→write tail of the two wizards in
+  executors, not yet extracted: the dialog→validate→write tail of the two
+  wizards in
   `src/ui/desktop/definition/definition_authoring_dialog.cpp`. The five
   adapters in `src/platform/desktop/common/transport/`, whose read/write guards
   differed only by a label string, need re-measuring.
