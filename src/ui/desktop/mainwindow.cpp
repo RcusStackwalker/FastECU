@@ -14,7 +14,6 @@
 #include "src/backend/flash/flash_operation_request.h"
 #include "src/platform/desktop/common/flash/flash_workflow.h"
 #include "src/platform/desktop/common/serial/serial_idle.h"
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/ui/desktop/menu/menu_builder.h"
 #include "src/ui/desktop/flash/operation/flash_operation_controller.h"
 
@@ -360,7 +359,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     timer->start();
 
     connection = &services_.connection;
-    serial = &connection->facade();
     remote_utility = &services_.remote_utility;
     if (!peerAddress.isEmpty())
     {
@@ -529,6 +527,8 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
 MainWindow::~MainWindow()
 {
+    connect_done_ = nullptr;
+    stop_identification();
     if (logging_state)
     {
         loggingEngine->stop();
@@ -798,6 +798,7 @@ void MainWindow::set_flash_arrow_state()
 
 void MainWindow::log_transport_changed()
 {
+    stop_identification();
     // emit LOG_D("Change log transport";
     QComboBox *log_transport_list = ui->toolBar->findChild<QComboBox *>("log_transport_list");
 
@@ -825,6 +826,7 @@ void MainWindow::flash_transport_changed()
 
 void MainWindow::check_serial_ports()
 {
+    stop_identification();
     QComboBox *serial_port_list = ui->toolBar->findChild<QComboBox *>("serial_port_list");
     QString prev_serial_port = serial_port_list->currentText();
     int index = 0;
@@ -861,6 +863,7 @@ void MainWindow::check_serial_ports()
 
 void MainWindow::open_serial_port()
 {
+    stop_identification();
     const QString port = selected_serial_port();
     if (port.isEmpty())
     {
@@ -896,6 +899,7 @@ void MainWindow::open_serial_port()
 
 int MainWindow::start_ecu_operations(const QString& cmd_type)
 {
+    stop_identification();
     set_realtime_state(false);
     toggle_realtime();
 
@@ -2041,20 +2045,6 @@ QString MainWindow::parse_message_to_hex(const QByteArray& received)
     return msg;
 }
 
-QString MainWindow::parse_ecuid(QByteArray received)
-{
-    QString msg;
-    received.remove(0, 8);
-    received.remove(5, received.length() - 5);
-
-    for (int i = 0; i < received.length(); i++)
-    {
-        msg.append(QString("%1").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUpper());
-    }
-
-    return msg;
-}
-
 bool MainWindow::eventFilter(QObject *target, QEvent *event)
 {
     Q_UNUSED(target)
@@ -2168,6 +2158,10 @@ void MainWindow::send_message_to_log_window(const QString& msg)
 
 void MainWindow::update_vbatt()
 {
+    if (identify_worker_)
+    {
+        return;
+    }
     const std::optional<unsigned long> reading = connection->battery_millivolts();
     if (!reading.has_value())
     {

@@ -15,9 +15,11 @@
 #include "src/backend/logging/testing/scripted_logging_protocol.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <cstdio>
 #include <memory>
+#include <initializer_list>
 #include <utility>
 
 #define private public
@@ -213,6 +215,38 @@ bool writeTextFile(const QString& path, const char *contents)
         return false;
     }
     return file.write(contents) == static_cast<qint64>(std::strlen(contents));
+}
+
+QByteArray frame(std::initializer_list<int> values)
+{
+    QByteArray out;
+    for (int v : values)
+    {
+        out.append(static_cast<char>(v));
+    }
+    return out;
+}
+
+// A valid SSM2 ECU init response carrying ECU ID 3152584006.
+const QByteArray kEcuInit = frame({0x80, 0xF0, 0x10, 0x09, 0xFF, 0xA2, 0x10, 0x11, 0x31, 0x52, 0x58, 0x40, 0x06, 0x6C});
+
+// Points the window at one open port on the given make and log transport.
+void prepareConnect(MainWindow& window, FakeBackend& fake, const QString& make, const QString& transport)
+{
+    window.vbatt_timer->stop();
+    window.serial_ports = {"ttyUSB0"};
+    window.serial_port_list->clear();
+    window.serial_port_list->addItem("ttyUSB0");
+    window.configValues->flash_protocol_selected_make = make;
+    window.configValues->flash_protocol_selected_log_transport = transport;
+    window.configValues->flash_protocol_selected_log_protocol = "SSM";
+    ON_CALL(fake, open_serial_port()).WillByDefault(::testing::Return(QString("ttyUSB0")));
+}
+
+bool triggerMenu(MainWindow& window, const char *command)
+{
+    return QMetaObject::invokeMethod(&window, "menu_action_triggered", Qt::DirectConnection,
+                                     Q_ARG(QString, QString::fromLatin1(command)));
 }
 
 // The services DesktopComposition builds in the real app, minus the syslog
@@ -902,6 +936,326 @@ class MainWindowTest : public QObject
         // Check now, so facade teardown cannot over-saturate the expectations.
         QVERIFY(::testing::Mock::VerifyAndClearExpectations(services.fake));
         QVERIFY(window.serial_port_list->isEnabled());
+    }
+
+    void connectOnAnotherMakeDisconnectsWithoutIdentifying()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.fake != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        prepareConnect(window, *services.fake, "Mitsubishi", "K-Line");
+        EXPECT_CALL(*services.fake, write_serial_data_echo_check(::testing::_)).Times(0);
+        EXPECT_CALL(*services.fake, set_serial_port_parity(0)).Times(::testing::AtLeast(1));
+
+        QElapsedTimer elapsed;
+        elapsed.start();
+        QVERIFY(triggerMenu(window, "connect_to_ecu"));
+        QVERIFY(elapsed.elapsed() < 1000); // the legacy loop waited 2.5 s here
+        QVERIFY(window.identify_worker_ == nullptr);
+        QVERIFY(!window.ecu_init_complete);
+        QVERIFY(window.serial_port_list->isEnabled());
+    }
+
+    void subaruKlineConnectIdentifiesOffTheUiThread()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.fake != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        prepareConnect(window, *services.fake, "Subaru", "K-Line");
+        std::atomic<bool> read_off_ui_thread = false;
+        EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
+            .WillOnce(::testing::Invoke(
+                [&window, &read_off_ui_thread](std::uint16_t)
+                {
+                    read_off_ui_thread.store(QThread::currentThread() != window.thread());
+                    return kEcuInit;
+                }))
+            .WillRepeatedly(::testing::Return(QByteArray{}));
+
+        QVERIFY(triggerMenu(window, "connect_to_ecu"));
+        QVERIFY(window.identify_worker_ != nullptr);
+        QVERIFY(!window.log_transport_list->isEnabled());
+        QVERIFY(!window.serial_port_list->isEnabled());
+
+        constructor_driver.start();
+        QTRY_VERIFY_WITH_TIMEOUT(window.identify_worker_ == nullptr, 5000);
+        constructor_driver.stop();
+        QVERIFY(window.ecu_init_complete);
+        QCOMPARE(window.ecuid, QString("3152584006"));
+        QVERIFY(read_off_ui_thread.load());
+        QVERIFY(window.identify_worker_ == nullptr);
+        QVERIFY(window.log_transport_list->isEnabled());
+        QVERIFY(!window.serial_port_list->isEnabled()); // stays locked while connected, as before
+    }
+
+    void subaruConnectThatNeverAnswersDisconnectsAndRestoresControls()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.fake != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        prepareConnect(window, *services.fake, "Subaru", "K-Line");
+
+        QVERIFY(triggerMenu(window, "connect_to_ecu"));
+        QTRY_VERIFY_WITH_TIMEOUT(window.identify_worker_ == nullptr, 15000);
+        QVERIFY(!window.ecu_init_complete);
+        QVERIFY(window.log_transport_list->isEnabled());
+        QVERIFY(window.serial_port_list->isEnabled());
+    }
+
+    void disconnectDuringIdentificationCancelsAndDropsTheResult()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.fake != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        prepareConnect(window, *services.fake, "Subaru", "K-Line");
+
+        EXPECT_CALL(*services.fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(kEcuInit));
+        QVERIFY(triggerMenu(window, "connect_to_ecu"));
+        QVERIFY(window.identify_worker_ != nullptr);
+        // Leave a successful completion queued on the UI thread before cancelling.
+        QVERIFY(window.identify_worker_->wait(5000));
+        QVERIFY(triggerMenu(window, "disconnect_from_ecu"));
+        QVERIFY(window.identify_worker_ == nullptr);
+        QVERIFY(window.log_transport_list->isEnabled());
+        QVERIFY(window.serial_port_list->isEnabled());
+        QTest::qWait(200); // any completion already queued must be dropped
+        QVERIFY(!window.ecu_init_complete);
+    }
+
+    void loggingStartWaitsForIdentification()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.fake != nullptr);
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        prepareConnect(window, *services.fake, "Subaru", "iso15765");
+        window.protocol = "SSM";
+        EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
+            .WillOnce(
+                ::testing::Return(frame({0x00, 0x00, 0x07, 0xE8, 0x62, 0xF1, 0x82, 0x12, 0x34, 0x56, 0x78, 0x9A})))
+            .WillRepeatedly(::testing::Return(QByteArray{}));
+        auto *menu = window.ui->menubar->addMenu("Test logging");
+        auto *action = menu->addAction("Logging");
+        action->setCheckable(true);
+        auto& values = *window.logValues;
+        values = FileActions::LogValuesStructure{};
+        values.log_value_id = {"rpm"};
+        values.log_value_protocol = {"SSM"};
+        values.log_value_name = {"rpm"};
+        values.log_value_description = {"rpm"};
+        values.log_value_ecu_byte_index = {"0"};
+        values.log_value_ecu_bit = {"0"};
+        values.log_value_target = {"ECU"};
+        values.log_value_address = {"000010"};
+        values.log_value_conversions = {{{"rpm", "x", "0", "0", "100", "1"}}};
+        values.log_value_length = {"1"};
+        values.log_value = {"0"};
+        values.log_value_enabled = {"1"};
+        values.lower_panel_log_value_id = {"rpm"};
+        services.logging_engine.registerProtocol("SSM",
+                                                 [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
+                                                 {
+                                                     auto protocol = std::make_unique<ScriptedLoggingProtocol>();
+                                                     protocol->blockPollUntilCancelled();
+                                                     return protocol;
+                                                 });
+
+        action->setChecked(true);
+        QVERIFY(triggerMenu(window, "toggle_realtime"));
+        QVERIFY(!window.activeLoggingSnapshot.has_value()); // still identifying
+        QTRY_VERIFY_WITH_TIMEOUT(window.activeLoggingSnapshot.has_value(), 5000);
+        QCOMPARE(window.ecuid, QString("123456789A"));
+        services.logging_engine.stop();
+    }
+
+    void batterySamplingDoesNotUseTheFacadeDuringIdentification()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        prepareConnect(window, *services.fake, "Subaru", "K-Line");
+        QVERIFY(triggerMenu(window, "connect_to_ecu"));
+        EXPECT_CALL(*services.fake, get_use_openport2_adapter()).Times(0);
+        window.update_vbatt();
+        QVERIFY(window.identify_worker_ != nullptr);
+        QVERIFY(::testing::Mock::VerifyAndClearExpectations(services.fake));
+    }
+
+    void windowDestructionJoinsIdentificationWithoutContinuingLogging()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        auto window = std::make_unique<MainWindow>(services.services());
+        constructor_driver.stop();
+        prepareConnect(*window, *services.fake, "Subaru", "K-Line");
+        bool continued = false;
+        window->connect_to_ecu([&continued](bool) { continued = true; });
+        QVERIFY(window->identify_worker_ != nullptr);
+        window.reset();
+        QTest::qWait(200);
+        QVERIFY(!continued);
+    }
+
+    void connectStopsAnActiveLoggingWorkerBeforeIdentification()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        prepareConnect(window, *services.fake, "Subaru", "K-Line");
+        services.logging_engine.registerProtocol("SSM",
+                                                 [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
+                                                 {
+                                                     auto protocol = std::make_unique<ScriptedLoggingProtocol>();
+                                                     protocol->blockPollUntilCancelled();
+                                                     return protocol;
+                                                 });
+        auto session = fastecu::logging::make_logging_session(
+            fastecu::logging::LoggingProtocolId::Ssm,
+            {{.id = "rpm",
+              .address = 0x10,
+              .length = 1,
+              .raw_assembly = fastecu::logging::RawAssembly::UnsignedIntegerDecimal,
+              .from_byte_expression = "x",
+              .unit = "rpm",
+              .decimal_precision = 0}},
+            {.poll_timeout = std::chrono::milliseconds{50},
+             .car_silence_miss_threshold = 20,
+             .reconnect_attempt_threshold = 100,
+             .reconnect_retry_period = 20});
+        QVERIFY(session.has_value());
+        fastecu::desktop::logging::DesktopLoggingSnapshot snapshot{.session = std::move(*session)};
+        QVERIFY(services.logging_engine.start({"SSM"}, std::move(snapshot)).has_value());
+        QTRY_VERIFY(services.logging_engine.isRunning());
+        window.logging_state = true;
+        QVERIFY(triggerMenu(window, "connect_to_ecu"));
+        QVERIFY(window.identify_worker_ != nullptr);
+        QVERIFY(!services.logging_engine.isRunning());
+        QVERIFY(!window.logging_state);
+    }
+
+    void connectionEntryPointsStopIdentification_data()
+    {
+        QTest::addColumn<QString>("entry_point");
+        for (const char *name : {"log_transport_changed", "check_serial_ports", "open_serial_port", "show_dtc_window",
+                                 "show_subaru_biu_window", "show_terminal_window"})
+        {
+            QTest::newRow(name) << QString::fromLatin1(name);
+        }
+    }
+
+    void connectionEntryPointsStopIdentification()
+    {
+        QFETCH(QString, entry_point);
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        prepareConnect(window, *services.fake, "Subaru", "K-Line");
+        bool cancelled = false;
+        window.connect_to_ecu([&cancelled](bool connected) { cancelled = !connected; });
+        QVERIFY(window.identify_worker_ != nullptr);
+        QTimer close_dialog;
+        close_dialog.setInterval(5);
+        QObject::connect(&close_dialog, &QTimer::timeout,
+                         []
+                         {
+                             for (QWidget *widget : QApplication::topLevelWidgets())
+                             {
+                                 if (auto *dialog = qobject_cast<QDialog *>(widget); dialog && dialog->isVisible())
+                                 {
+                                     dialog->reject();
+                                 }
+                             }
+                         });
+        close_dialog.start();
+        if (entry_point == "show_dtc_window")
+        {
+            window.show_dtc_window();
+        }
+        else if (entry_point == "show_subaru_biu_window")
+        {
+            window.show_subaru_biu_window();
+        }
+        else if (entry_point == "show_terminal_window")
+        {
+            window.show_terminal_window();
+        }
+        else
+        {
+            QVERIFY(QMetaObject::invokeMethod(&window, entry_point.toLatin1().constData(), Qt::DirectConnection));
+        }
+        QVERIFY(window.identify_worker_ == nullptr);
+        QVERIFY(cancelled);
+        QTest::qWait(200);
+        QVERIFY(!window.ecu_init_complete);
+    }
+
+    void nestedConnectDuringCapabilityNoticeKeepsEachContinuation()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        prepareConnect(window, *services.fake, "Subaru", "K-Line");
+        EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
+            .WillOnce(::testing::Return(kEcuInit))
+            .WillRepeatedly(::testing::Return(QByteArray{}));
+        std::optional<bool> first_result;
+        std::optional<bool> second_result;
+        window.connect_to_ecu([&first_result](bool connected) { first_result = connected; });
+        QVERIFY(window.identify_worker_->wait(5000));
+        bool restarted = false;
+        QTimer notice_driver;
+        notice_driver.setInterval(5);
+        QObject::connect(&notice_driver, &QTimer::timeout,
+                         [&]
+                         {
+                             for (QWidget *widget : QApplication::topLevelWidgets())
+                             {
+                                 if (auto *notice = qobject_cast<QMessageBox *>(widget); notice && notice->isVisible())
+                                 {
+                                     if (!restarted)
+                                     {
+                                         restarted = true;
+                                         window.connect_to_ecu([&second_result](bool connected)
+                                                               { second_result = connected; });
+                                     }
+                                     notice->accept();
+                                 }
+                             }
+                         });
+        notice_driver.start();
+        QCoreApplication::processEvents();
+        notice_driver.stop();
+        QVERIFY(restarted);
+        QVERIFY(window.identify_worker_ != nullptr);
+        QVERIFY(first_result.has_value());
+        QVERIFY(!*first_result);
+        QVERIFY(!second_result.has_value());
+        window.stop_identification();
+        QVERIFY(second_result.has_value());
+        QVERIFY(!*second_result);
     }
 
   private:

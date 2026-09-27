@@ -69,9 +69,10 @@
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/connection/adapter_connection.h"
+#include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
+#include "src/platform/desktop/common/diagnostics/ssm_identify_worker.h"
 
-// Forward declaration
-class SerialPortActions;
+#include <functional>
 
 extern void log_error(const QString& message, bool timestamp, bool linefeed);
 extern void log_warning(const QString& message, bool timestamp, bool linefeed);
@@ -127,7 +128,6 @@ class MainWindow : public QMainWindow
 
     bool logging_state = false;
     bool log_params_request_started = false;
-    bool ecu_init_started = false;
     bool ecu_init_complete = false;
 
     int ecuCalDefIndex = 0;
@@ -161,7 +161,6 @@ class MainWindow : public QMainWindow
     // FileActions::EcuCalDefStructure *ecuCalDefTemp;
 
     fastecu::desktop::connection::AdapterConnection *connection = nullptr;
-    SerialPortActions *serial = nullptr;
     // QTimer *serial_poll_timer;
     uint16_t serial_poll_timer_timeout = 500;
     QString serial_port_baudrate = "4800";
@@ -273,12 +272,7 @@ class MainWindow : public QMainWindow
     float calculate_value_from_expression(QStringList expression);
 
     // log_operations
-    void ssm_init();
-    void ssm_kline_init();
-    void ssm_can_init();
     void parse_log_value_list(QByteArray received, const QString& protocol_arg);
-    QByteArray add_ssm_header(QByteArray output, bool dec_0x100);
-    uint8_t calculate_checksum(const QByteArray& output, bool dec_0x100);
     void log_to_file();
 
     void setupLoggingEngine();
@@ -306,7 +300,25 @@ class MainWindow : public QMainWindow
     void interpolate_value(fastecu::calibration::InterpolationMode mode);
     void copy_value();
     void paste_value();
-    int connect_to_ecu();
+    // Opens the port and, for Subaru, identifies the ECU on a worker thread.
+    // on_done(false) means the port did not open or identification was
+    // stopped; on_done(true) means the port opened, whether or not the ECU
+    // answered (unchanged from the synchronous code).
+    void connect_to_ecu(std::function<void(bool)> on_done = {});
+    void continue_start_logging();
+    void finish_identification(const fastecu::diagnostics::SsmIdentifyWorkerResult& result);
+    // Cancels and joins a running identification, restores the controls, and
+    // tells a waiting caller the connect did not complete.
+    void stop_identification();
+    void set_identification_in_progress(bool in_progress);
+
+    // Declared link first, so the worker (which uses it) is destroyed first.
+    std::unique_ptr<fastecu::diagnostics::SerialDiagnosticLink> identify_link_;
+    std::unique_ptr<fastecu::diagnostics::SsmIdentifyWorker> identify_worker_;
+    std::function<void(bool)> connect_done_;
+    // Bumped by every start and stop, so a completion queued by a worker that
+    // was stopped is recognised as stale and dropped.
+    quint64 identify_generation_ = 0;
     void disconnect_from_ecu();
     void ecu_definition_manager();
     void logger_definition_manager();
@@ -342,7 +354,6 @@ class MainWindow : public QMainWindow
     void calibration_data_treewidget_item_collapsed(QTreeWidgetItem *item);
 
     // log_operations.c
-    bool ecu_init();
     void handleLoggingValuesUpdated(const QVector<fastecu::logging::LogSample>& samples);
     void handleLoggingSessionEnded(fastecu::desktop::logging::SessionEndReason reason, const QString& message);
 
@@ -371,7 +382,6 @@ class MainWindow : public QMainWindow
     void add_new_logger_definition_file();
     void remove_logger_definition_file();
     QString parse_message_to_hex(const QByteArray& received);
-    QString parse_ecuid(QByteArray received);
     void set_status_bar_label(bool serialConnectionState, bool ecuConnectionState, const QString& romId);
     void custom_menu_requested(QPoint pos);
     void selectable_combobox_item_changed(const QString& item);
