@@ -142,6 +142,38 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "config_session",
+    srcs = ["config_session.cpp"],
+    hdrs = ["config_session.h"],
+    # The package default plus the composition root that owns the session.
+    visibility = [
+        "//apps/desktop:__pkg__",
+        "//src/backend:__subpackages__",
+        "//src/platform:__subpackages__",
+        "//src/ui:__subpackages__",
+        "//tests:__pkg__",
+    ],
+    deps = [
+        ":app_config",
+        ":car_model_catalog",
+        ":config_paths",
+        ":protocol_catalog",
+        ":provisioning",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "config_session_test",
+    srcs = ["config_session_test.cpp"],
+    deps = [
+        ":config_session",
+        "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
+cc_library(
     name = "menu_definition",
     srcs = ["menu_definition.cpp"],
     hdrs = ["menu_definition.h"],
