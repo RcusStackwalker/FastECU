@@ -337,7 +337,10 @@ Both `algorithms` and `backend` become Qt-, JNI-, and OS-independent. The future
      [connection bench checklist](connection-bench-checklist.md)). No
      `//src/ui/desktop` source includes `serial_port_actions.h`, and
      `//src/ui/desktop:__pkg__` is gone from the `serial_qt_compat`
-     allowlist and `FROZEN`. `MainWindow` talks to a concrete platform
+     allowlist and `FROZEN`. Nothing enforces the first of these yet: the
+     header still reaches the UI transitively through
+     `serial_platform_api`, so a new include would build (an unguarded gap,
+     recorded in the [tech-debt roadmap](tech-debt.md) for 6i). `MainWindow` talks to a concrete platform
      adapter, `AdapterConnection` (`//src/platform/desktop/common/connection`),
      and hands the facade on only as a forward-declared reference. SSM ECU
      identification is a portable `identify_ssm_ecu` in
