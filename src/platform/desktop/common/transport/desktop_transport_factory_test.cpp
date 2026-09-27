@@ -1,6 +1,6 @@
 // Unit tests for the transport factory. Exists so //apps/bench can obtain an
-// ICanFlashTransport without naming SerialPortActions, whose visibility list
-// //:serial_compat_allowlist freezes.
+// ICanFlashTransport without naming SerialPortActions, whose target is
+// platform-only.
 #include "src/platform/desktop/common/transport/desktop_transport_factory.h"
 
 #include <QTest>

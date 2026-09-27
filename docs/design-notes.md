@@ -654,6 +654,54 @@ opened and identification failed, as before.
 16. A successful iso15765 identification sets the ECU ID. The legacy
     `ssm_can_init` set only the status bar and `ecu_init_complete`.
 
+## Serial facade retirement
+
+### Visibility and `implementation_deps` replaced the allowlist script
+
+`//:serial_compat_allowlist` froze `serial_qt_compat`'s visibility list so it
+could only shrink. Once only platform packages and `//tests` remained, the
+freeze had nothing left to protect, and it never covered transitive reach:
+the facade headers still arrived in UI compile actions through ordinary
+`deps` on the adapters. Step 6i renamed the target to `serial_port_actions`,
+restricted its visibility to `//src/platform/desktop:__subpackages__` and
+`//tests`, and moved every adapter whose public header forward-declares
+`SerialPortActions` onto `implementation_deps`. Bazel still links the facade
+into dependents, but its headers are no longer inputs to their compiles.
+Notes above that name `serial_qt_compat` or `serial_platform_api` describe
+the state before this step.
+
+### Windows does not enforce it
+
+The sandbox is what turns a missing header input into "file not found".
+Windows builds are unsandboxed, so there the header is on disk under the
+execroot and a UI include of it would compile. Linux and macOS CI catch the
+same include, so the check holds across the three-platform matrix, not on
+any one Windows machine.
+
+### UI tests still see the facade headers
+
+`connection/testing:adapter_connection_harness` hands UI tests a
+`FakeBackend`, which derives from `SerialPortActionsDirect`, so testonly UI
+targets receive `serial_backend.h` and its siblings. Tests need the concrete
+fake to set expectations; production targets do not reach it.
+
+### `websocket_io` is separate from the remote backend
+
+`remote_utility.h` needs `websocketiodevice.h` and `qtrohelper.hpp` and took
+them from `remote_serial_backend`, whose public header includes
+`serial_backend.h`. Through the GRANDFATHERED UI edge to `remote_utility`
+that was the one remaining path from production UI code to a facade header.
+The two files are now `serial:websocket_io`, and `remote_utility.h` includes
+them by full path: the bare spellings had resolved only through
+`serial_replicas`' `includes = ["."]`.
+
+### A probe include goes last in the file
+
+To show that a UI source cannot include a facade header, append the include
+to the end of the source rather than the top. At the top,
+`serial_facade_codes.h`'s `STATUS_SUCCESS` macro collides with an enum in
+`definition_file_convert.h`, and the build fails for that reason instead.
+
 ## Testing
 
 ### QtTest suites using Google Mock must fail on its failures

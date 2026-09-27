@@ -15,9 +15,8 @@ namespace fastecu::flash
 // Device selection plus construction for the desktop CAN flash transport.
 //
 // Exists so a consumer outside src/platform can obtain an ICanFlashTransport
-// without naming SerialPortActions. A direct dependency on serial_qt_compat
-// would require adding that consumer to its visibility list, which
-// //:serial_compat_allowlist freezes as "may shrink, never grow".
+// without naming SerialPortActions, whose target is visible only to
+// src/platform/desktop and //tests.
 //
 // Performs the sequence MainWindow does by hand (mainwindow.cpp:347, 448, 479):
 // construct SerialPortActions, check_serial_ports(), set_serial_port_list(),
