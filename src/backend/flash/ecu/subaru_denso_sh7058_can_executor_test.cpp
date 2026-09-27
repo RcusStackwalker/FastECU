@@ -22,6 +22,7 @@
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
 using ::testing::Contains;
@@ -106,18 +107,6 @@ constexpr std::array<BlockFixture, 16> kBlocks{{
     {0x000C0000, 0x00020000, 0xC39BE4A8},
     {0x000E0000, 0x00020000, 0xC39BE4A8},
 }};
-
-class RecordingClock final : public FakeClock
-{
-  public:
-    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
-    {
-        sleeps.push_back(duration);
-        return FakeClock::sleep(duration, cancellation);
-    }
-
-    std::vector<std::chrono::milliseconds> sleeps;
-};
 
 class EraseCancellingEventSink final : public RecordingEventSink
 {
@@ -805,9 +794,9 @@ TEST(SubaruDensoSh7058CanExecutor, ProbeTimeoutUploadsLiteral129ByteKernelThenRe
     EXPECT_TRUE(has_log(events, LogLevel::Info, "VIN: VIN"));
     EXPECT_TRUE(has_log(events, LogLevel::Info, "CVN: 1234"));
     EXPECT_TRUE(has_log(events, LogLevel::Info, "Kernel ID: KID"));
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 50ms), 12);
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 100ms), 1);
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 200ms), 2);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 50ms), 12);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 100ms), 1);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 200ms), 2);
     EXPECT_THAT(transport.read_timeouts, Contains(10ms));
 }
 

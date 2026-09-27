@@ -63,12 +63,38 @@ fastecu_portable_gtest(
     ],
 )
 
+# Shared by the two catalogs that load protocols.cfg; pugixml stays out of
+# their public headers, so this target is package-private.
+cc_library(
+    name = "protocols_document",
+    srcs = ["protocols_document.cpp"],
+    hdrs = ["protocols_document.h"],
+    visibility = ["//visibility:private"],
+    deps = [
+        ":config_paths",
+        "//src/backend/ports",
+        "@pugixml",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "protocols_document_test",
+    srcs = ["protocols_document_test.cpp"],
+    deps = [
+        ":protocols_document",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:result_matchers",
+        "@pugixml",
+    ],
+)
+
 cc_library(
     name = "protocol_catalog",
     srcs = ["protocol_catalog.cpp"],
     hdrs = ["protocol_catalog.h"],
     deps = [
         ":config_paths",
+        ":protocols_document",
         "//src/backend/ports",
         "@pugixml",
     ],
@@ -95,6 +121,7 @@ cc_library(
     deps = [
         ":config_paths",
         ":protocol_catalog",
+        ":protocols_document",
         "//src/backend/ports",
         "@pugixml",
     ],

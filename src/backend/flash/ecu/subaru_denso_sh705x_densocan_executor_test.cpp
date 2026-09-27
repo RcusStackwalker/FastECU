@@ -23,6 +23,7 @@
 #include "src/backend/flash/testing/scripted_mixed_can_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
 using ::testing::Contains;
@@ -74,18 +75,6 @@ class CancellingClock final : public FakeClock
   private:
     FakeCancellationToken& cancellation_;
     std::chrono::milliseconds trigger_;
-};
-
-class RecordingClock final : public FakeClock
-{
-  public:
-    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
-    {
-        sleeps.push_back(duration);
-        return FakeClock::sleep(duration, cancellation);
-    }
-
-    std::vector<std::chrono::milliseconds> sleeps;
 };
 
 // Keeps the existing strict scripted transport while recording the timeout
@@ -1024,9 +1013,9 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ProbeTimeoutTransitionsThroughRawUploadA
     EXPECT_EQ(transport.modeChanges(), (std::vector<ScriptedMixedCanMode>{ScriptedMixedCanMode::Iso15765Kernel,
                                                                           ScriptedMixedCanMode::RawBootloader,
                                                                           ScriptedMixedCanMode::Iso15765Kernel}));
-    EXPECT_THAT(clock.sleeps, Contains(3ms));
-    EXPECT_THAT(clock.sleeps, Contains(1ms));
-    EXPECT_THAT(clock.sleeps, Contains(200ms));
+    EXPECT_THAT(clock.sleep_calls, Contains(3ms));
+    EXPECT_THAT(clock.sleep_calls, Contains(1ms));
+    EXPECT_THAT(clock.sleep_calls, Contains(200ms));
     EXPECT_EQ(events.logs, expected_legacy_upload_read_logs(test_case.rom_size));
 }
 
@@ -1121,12 +1110,12 @@ TEST(SubaruDensoSh705xDensoCanExecutor, KernelIdProbeAndPostUploadVerificationWa
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
     ASSERT_TRUE(result.has_value()) << result.error().detail;
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 3ms), 1000);
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 1ms), 1);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 3ms), 1000);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 1ms), 1);
     // upload_kernel() already owns two 200 ms waits (checksum and jump).
     // request_kernel_id() adds one before the initial probe and one before
     // the post-upload kernel-ID verification.
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 200ms), 4);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 200ms), 4);
     EXPECT_TRUE(transport.scripted.scriptConsumed());
 }
 
@@ -1154,7 +1143,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CrcIntervalsAndFlashBufferAcknowledgemen
     ASSERT_TRUE(result.has_value()) << result.error().detail;
     // get_changed_blocks() sleeps after every one of the sixteen CRC checks,
     // including the final check in each of the two comparison passes.
-    EXPECT_EQ(std::count(clock.sleeps.begin(), clock.sleeps.end(), 5ms), 32);
+    EXPECT_EQ(std::count(clock.sleep_calls.begin(), clock.sleep_calls.end(), 5ms), 32);
     EXPECT_TRUE(std::any_of(transport.iso_read_timeouts.begin(), transport.iso_read_timeouts.end(),
                             [](const auto& entry)
                             { return entry.first == std::optional<std::uint8_t>{0x22} && entry.second == 800ms; }));

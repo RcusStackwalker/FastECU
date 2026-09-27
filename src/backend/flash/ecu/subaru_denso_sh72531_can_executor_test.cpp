@@ -30,6 +30,7 @@
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
 namespace
@@ -38,6 +39,7 @@ using namespace std::chrono_literals;
 using fastecu::ErrorKind;
 using fastecu::FakeClock;
 using fastecu::LogLevel;
+using fastecu::RecordingClock;
 using fastecu::RecordingEventSink;
 using fastecu::flash::build_subaru_denso_sh72531_can_plan;
 using fastecu::flash::FlashOperation;
@@ -59,17 +61,6 @@ using testing::Pair;
 // (subaru_denso_sh7055_02_executor_test.cpp) and wave-3
 // (subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp) recording clocks: a
 // FakeClock with one extra hook, so no fake or port changes shape.
-class RecordingClock final : public FakeClock
-{
-  public:
-    fastecu::Status sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken& cancellation) override
-    {
-        sleep_calls.push_back(duration);
-        return FakeClock::sleep(duration, cancellation);
-    }
-
-    std::vector<std::chrono::milliseconds> sleep_calls;
-};
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_sh72531_can";
 constexpr std::string_view kMcu = "SH72531";

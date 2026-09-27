@@ -18,7 +18,9 @@
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
+#include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 
 using ::testing::ElementsAre;
@@ -32,15 +34,6 @@ using bytes::composeBeWithChecksum;
 using bytes::u24;
 using namespace bytes::literals;
 using namespace std::chrono_literals;
-
-class NeverCancelled final : public ICancellationToken
-{
-  public:
-    bool cancelled() const override
-    {
-        return false;
-    }
-};
 
 class ToggleCancellation final : public ICancellationToken
 {
@@ -113,18 +106,6 @@ class CancelAfterEraseTransport final : public ScriptedKlineFlashTransport
   private:
     ToggleCancellation& cancellation_;
     bool erase_response_pending_ = false;
-};
-
-class RecordingClock final : public FakeClock
-{
-  public:
-    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
-    {
-        sleep_calls.push_back(duration);
-        return FakeClock::sleep(duration, cancellation);
-    }
-
-    std::vector<std::chrono::milliseconds> sleep_calls;
 };
 
 class CancelAtPostUploadDelayClock final : public FakeClock
@@ -477,7 +458,7 @@ TEST(SubaruDensoSh7055_02Executor, KernelAlreadyAliveSkipsWrxInitEcuIdAndUpload)
     script_crc_compare(transport, *device, *plan->image(), std::nullopt);
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -502,7 +483,7 @@ TEST(SubaruDensoSh7055_02Executor, KernelAliveReadReturnsNoRomId)
     }
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -525,7 +506,7 @@ TEST(SubaruDensoSh7055_02Executor, RejectsMissingConfirmationAndMalformedFamilyB
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
         FakeClock clock;
-        NeverCancelled cancellation;
+        FakeCancellationToken cancellation;
         RecordingEventSink events;
         SubaruDensoSh7055_02Executor executor;
 
@@ -556,7 +537,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
     }
 
     RecordingClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -596,7 +577,7 @@ TEST(SubaruDensoSh7055_02Executor, OpenPort2UploadDelayCancellationStopsBeforeRe
     transport.exchange(exact_upload_request());
 
     CancelAtPostUploadDelayClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -627,7 +608,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadReturnsAssembledPageBytes)
     }
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -651,7 +632,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadRejectsMalformedPageResponse)
                        framed(0x44, bytes::Bytes(0x400, 0xA5)));
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -674,7 +655,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadRejectsTruncatedPageResponse)
                        framed(0x43, bytes::Bytes{0xA5}));
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -722,7 +703,7 @@ TEST(SubaruDensoSh7055_02Executor, NoFrameWrxReplyRetriesUntilExactResponse)
     }
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
@@ -741,7 +722,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePathSkipsEcuIdRead)
     script_crc_compare(transport, *device, *plan->image(), std::nullopt);
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -766,7 +747,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteSkipsWhenNoBlockDiffers)
     script_crc_compare(transport, *device, image, std::nullopt);
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -803,7 +784,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteReflashesOnlyDifferingBlocks)
     script_crc_compare(transport, *device, image, std::nullopt);
 
     RecordingClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -838,7 +819,7 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteSendsValidateNotCommit)
     script_crc_compare(transport, *device, image, kDifferingBlock);
 
     RecordingClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -866,7 +847,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedEraseResponse)
     transport.exchange(framed(0x25, composeBe(device->fblocks[kDifferingBlock].start)), framed(0x64));
 
     RecordingClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -915,7 +896,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsCrcResponseMarkedFailed)
                        framed(0x42, bytes::Bytes{0x7F}));
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -954,7 +935,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsFragmentedBlockCrcAndDrainsIt)
     }
 
     RecordingClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
@@ -988,7 +969,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteAcceptsBlockCrcAfterEmptyInitialRead)
     }
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
@@ -1013,7 +994,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedBlockCrcAfterBoundedRead
     }
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1035,7 +1016,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsNegativeBlockCrcResponse)
                        framed(0x7F, bytes::Bytes{0x00, 0x00, 0x00, 0x00}));
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1057,7 +1038,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePropagatesBlockCrcDrainError)
     transport.queue_error(ErrorKind::Disconnected, "CRC drain failed");
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1079,7 +1060,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteRejectsTruncatedFlashInitResponse)
     transport.exchange(framed(0x05), bytes::Bytes{0xBE, 0xEF, 0x00, 0x05, 0x45, 0xA5, 0x00, 0x00, 0x02});
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1102,7 +1083,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedProgVoltResponse)
     transport.exchange(framed(0x04), framed(0x7F, bytes::Bytes{0x04, 0xB0}));
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1123,7 +1104,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedFlashBufferResponse)
     transport.exchange(write_chunk_request(*device, image, kBlock, 0), bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x62});
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1148,7 +1129,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteFailsOnRejectedCommitResponse)
     transport.exchange(commit_request(*device, image, kBlock, 0, false), bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x64});
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1173,7 +1154,7 @@ TEST(SubaruDensoSh7055_02Executor, TestWriteFailsOnRejectedValidateResponse)
     transport.exchange(commit_request(*device, image, kBlock, 0, true), bytes::Bytes{0xBE, 0xEF, 0x00, 0x01, 0x63});
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
@@ -1198,7 +1179,7 @@ TEST(SubaruDensoSh7055_02Executor, WriteLogsRemainingMismatchAfterVerification)
     script_crc_compare(transport, *device, image, kBlock);
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
@@ -1219,7 +1200,7 @@ TEST(SubaruDensoSh7055_02Executor, WrxInitLoopExhaustsAfter20Attempts)
     transport.queue_no_frame();
 
     FakeClock clock;
-    NeverCancelled cancellation;
+    FakeCancellationToken cancellation;
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
