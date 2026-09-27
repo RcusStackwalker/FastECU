@@ -117,7 +117,7 @@ fastecu_qttest(
     target_compatible_with = UNIX_ONLY,
     deps = [
         "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/unix/j2534/testing:mock_openport",
     ],
 )
@@ -135,7 +135,7 @@ fastecu_qttest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/protocol",
         "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/common/transport",
         "//src/platform/desktop/unix/j2534/testing:mock_openport",
     ],
@@ -148,7 +148,7 @@ fastecu_qttest(
     target_compatible_with = UNIX_ONLY,
     deps = [
         "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/unix/j2534",
         "//src/platform/desktop/unix/j2534/testing:mock_openport",
     ],

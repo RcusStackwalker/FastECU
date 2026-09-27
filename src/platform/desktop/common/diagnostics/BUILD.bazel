@@ -22,7 +22,7 @@ qt_cc_library(
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/ports",
         "//src/backend/protocol",
-        "//src/platform/desktop/common/serial:serial_platform_api",
+        "//src/platform/desktop/common/serial:serial_port_actions",
     ],
 )
 

@@ -59,14 +59,6 @@ echo "OK: no //src/platform label is reachable from a portable target." > $@""",
 )
 
 py_test(
-    name = "serial_compat_allowlist",
-    size = "small",
-    srcs = ["scripts/check-serial-compat-allowlist.py"],
-    data = ["//src/platform/desktop/common/serial:BUILD.bazel"],
-    main = "scripts/check-serial-compat-allowlist.py",
-)
-
-py_test(
     name = "windows_preprocessor_guards",
     size = "small",
     srcs = ["scripts/check-windows-preprocessor-guards.py"],

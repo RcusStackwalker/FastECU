@@ -17,7 +17,7 @@ qt_cc_library(
     normal_hdrs = ["adapter_connection_harness.h"],
     deps = QT_DEPS + [
         "//src/platform/desktop/common/connection:adapter_connection",
-        "//src/platform/desktop/common/serial:serial_platform_api",
+        "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
 )

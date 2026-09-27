@@ -30,7 +30,7 @@ qt_cc_library(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/protocol",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/serial:serial_port_actions",
     ],
 )
 
@@ -50,7 +50,7 @@ qt_cc_library(
     # does not run over it -- same convention as `transport` below.
     normal_hdrs = ["fake_backed_serial.h"],
     deps = QT_DEPS + [
-        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
         "@googletest//:gtest",
     ],
@@ -146,7 +146,7 @@ qt_cc_library(
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/flash:flash_executor",
         "//src/platform/desktop/common/serial:j2534_driver_selection",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/serial:serial_port_actions",
     ],
 )
 
@@ -166,7 +166,7 @@ qt_cc_library(
         "//src/backend/ports",
         "//src/backend/protocol",
         "//src/platform/desktop/common/logging:logging_runtime",
-        "//src/platform/desktop/common/serial:serial_qt_compat",
+        "//src/platform/desktop/common/serial:serial_port_actions",
     ],
 )
 
