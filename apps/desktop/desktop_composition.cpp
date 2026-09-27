@@ -102,7 +102,6 @@ MainWindowServices DesktopComposition::services()
         .file_action_events = file_action_events_,
         .log = log_channel_,
         .connection = *connection_,
-        .remote_utility = *remote_utility_,
         .remote = remote_peer_,
         .logging_engine = *logging_engine_,
     };

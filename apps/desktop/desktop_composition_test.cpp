@@ -112,7 +112,6 @@ class DesktopCompositionTest : public QObject
         QCOMPARE(&first.file_action_events, &second.file_action_events);
         QCOMPARE(&first.log, &second.log);
         QCOMPARE(&first.connection, &second.connection);
-        QCOMPARE(&first.remote_utility, &second.remote_utility);
         QCOMPARE(&first.remote, &second.remote);
         QCOMPARE(&first.logging_engine, &second.logging_engine);
         QCOMPARE(first.file_actions.ConfigValuesStruct.base_config_directory, root.path());

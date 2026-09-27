@@ -31,6 +31,7 @@
 #include <QSplashScreen>
 #include <QAtomicInteger>
 #include <QFontDatabase>
+#include <QRemoteObjectReplica>
 
 #include <QFuture>
 #include <QDebug>
@@ -56,12 +57,11 @@
 #include "src/ui/desktop/dtc_operations.h"
 #include "src/ui/desktop/hexedit/hexedit.h"
 #include "src/ui/desktop/channels/log_channel.h"
+#include "src/ui/desktop/channels/remote_peer.h"
 
 // Flash modules
 
 // OBD
-
-#include "src/platform/desktop/common/remote_utility/remote_utility.h"
 
 #include "src/platform/desktop/common/logging/logging_engine.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
@@ -117,7 +117,7 @@ class MainWindow : public QMainWindow
 
     QString peerAddress;
     QSplashScreen *netSplash;
-    RemoteUtility *remote_utility = nullptr;
+    fastecu::ui::RemotePeer *remote_peer = nullptr;
     static const QColor RED_LIGHT_OFF;
     static const QColor RED_LIGHT_ON;
     static const QColor YELLOW_LIGHT_OFF;

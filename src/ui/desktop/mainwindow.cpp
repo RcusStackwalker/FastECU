@@ -363,7 +363,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     timer->start();
 
     connection = &services_.connection;
-    remote_utility = &services_.remote_utility;
+    remote_peer = &services_.remote;
     if (!peerAddress.isEmpty())
     {
         netSplashProgressBar->setValue(0);
@@ -371,7 +371,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
         connection->wait_for_source();
         netSplashProgressBar->setValue(1);
         netSplashProgressBar->setFormat("Connecting to utility functions...");
-        remote_utility->waitForSource();
+        remote_peer->wait_for_source();
         netSplashProgressBar->setValue(2);
     }
     external_logger("Connection successfull.");
@@ -381,7 +381,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     timer->deleteLater();
     connect(connection, &fastecu::desktop::connection::AdapterConnection::stateChanged, this,
             &MainWindow::network_state_changed, Qt::DirectConnection);
-    connect(remote_utility, &RemoteUtility::stateChanged, this, &MainWindow::network_state_changed,
+    connect(remote_peer, &fastecu::ui::RemotePeer::stateChanged, this, &MainWindow::network_state_changed,
             Qt::DirectConnection);
 
     // Set timer to read vbatt value
@@ -2093,10 +2093,7 @@ void MainWindow::external_logger(const QString& message)
 {
     emit LOG_D(Q_FUNC_INFO, true, false);
     emit LOG_D(" " + message, false, true);
-    if (remote_utility->isValid())
-    {
-        remote_utility->send_log_window_message(message);
-    }
+    emit remote_peer->log_window_message(message);
 }
 
 // External progress bar slot
@@ -2104,10 +2101,7 @@ void MainWindow::external_logger_set_progressbar_value(int value)
 {
     emit LOG_D(Q_FUNC_INFO, true, false);
     emit LOG_D(" " + QString::number(value), false, true);
-    if (remote_utility->isValid())
-    {
-        remote_utility->set_progressbar_value(value);
-    }
+    emit remote_peer->progress(value);
 }
 
 void MainWindow::send_message_to_log_window(const QString& msg)

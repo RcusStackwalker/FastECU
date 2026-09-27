@@ -36,7 +36,6 @@
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
-#include "src/platform/desktop/common/remote_utility/remote_utility.h"
 #include "src/ui/desktop/channels/log_channel.h"
 #include "src/ui/desktop/channels/remote_peer.h"
 
@@ -270,7 +269,6 @@ struct TestServices
             .file_action_events = events,
             .log = log_channel,
             .connection = adapter.connection(),
-            .remote_utility = remote_utility,
             .remote = remote_peer,
             .logging_engine = logging_engine,
         };
@@ -285,7 +283,6 @@ struct TestServices
     fastecu::ui::LogChannel log_channel;
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
     FakeBackend *fake = adapter.fake(); // null if the fake backend failed to start
-    RemoteUtility remote_utility{"", ""};
     fastecu::ui::RemotePeer remote_peer;
     fastecu::desktop::logging::LoggingEngine logging_engine;
 };
@@ -504,6 +501,56 @@ class MainWindowTest : public QObject
 
         QVERIFY(
             std::ranges::any_of(enables, [](const QList<QVariant>& arguments) { return arguments.at(0).toBool(); }));
+    }
+
+    void directSessionStartupNeverRequestsTheRemoteWait()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QSignalSpy waits{&services.remote_peer, &fastecu::ui::RemotePeer::wait_requested};
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+
+        QCOMPARE(waits.count(), 0);
+    }
+
+    void externalLoggerMirrorsToTheRemotePeer()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        QSignalSpy lines{&services.remote_peer, &fastecu::ui::RemotePeer::log_window_message};
+        QSignalSpy progress{&services.remote_peer, &fastecu::ui::RemotePeer::progress};
+
+        // Private slots: call by name so the Windows link needs no mangled
+        // private symbol (see startEcuOperations).
+        QVERIFY(QMetaObject::invokeMethod(&window, "external_logger", Qt::DirectConnection,
+                                          Q_ARG(QString, QString("mirrored line"))));
+        QVERIFY(QMetaObject::invokeMethod(&window, "external_logger_set_progressbar_value", Qt::DirectConnection,
+                                          Q_ARG(int, 42)));
+
+        QCOMPARE(lines.count(), 1);
+        QCOMPARE(lines.at(0).at(0).toString(), QString("mirrored line"));
+        QCOMPARE(progress.count(), 1);
+        QCOMPARE(progress.at(0).at(0).toInt(), 42);
+    }
+
+    void peerStateChangesReachTheWindow()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        QSignalSpy debug_lines{&window, &MainWindow::LOG_D};
+
+        emit services.remote_peer.stateChanged(QRemoteObjectReplica::Valid, QRemoteObjectReplica::Default);
+
+        QVERIFY(std::ranges::any_of(debug_lines, [](const QList<QVariant>& arguments)
+                                    { return arguments.at(0).toString() == "Network connection established"; }));
     }
 
     void handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePolling_data()
