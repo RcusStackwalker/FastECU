@@ -237,6 +237,7 @@ class DesktopCompositionTest : public QObject
 
         emit log.enable_log_write_to_file(true);
         emit log.LOG_I("to file", false, true);
+        emit log.LOG_D("debug to file", false, true);
         // log_messages signals the window before it writes the file; the
         // sentinel's window line proves the earlier write has finished.
         emit log.LOG_I("sentinel", false, false);
@@ -246,7 +247,9 @@ class DesktopCompositionTest : public QObject
         QCOMPARE(files.size(), 1);
         QFile file{QDir(syslog_dir).filePath(files.first())};
         QVERIFY(file.open(QIODevice::ReadOnly));
-        QVERIFY(file.readAll().contains("to file"));
+        const QByteArray contents = file.readAll();
+        QVERIFY(contents.contains("to file"));
+        QVERIFY(contents.contains("debug to file"));
     }
 
     // SystemLogger::run() spends its first second in a processEvents loop on
