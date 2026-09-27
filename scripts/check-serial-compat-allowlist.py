@@ -15,7 +15,6 @@ BUILD = "src/platform/desktop/common/serial/BUILD.bazel"
 FROZEN = {
     "//src/platform/desktop/common/serial:__pkg__",
     "//src/platform/desktop/common/transport:__pkg__",
-    "//src/ui/desktop:__pkg__",
     "//tests:__pkg__",
 }
 

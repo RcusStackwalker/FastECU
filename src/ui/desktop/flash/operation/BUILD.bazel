@@ -30,6 +30,6 @@ fastecu_qttest(
     env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":flash_operation_controller",
-        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/connection/testing:adapter_connection_harness",
     ],
 )
