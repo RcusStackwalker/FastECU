@@ -1,0 +1,69 @@
+#include "src/platform/desktop/common/diagnostics/ssm_identify_worker.h"
+
+#include <utility>
+
+#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
+#include "src/backend/ports/event_sink.h"
+
+namespace fastecu::diagnostics
+{
+
+SsmIdentifyWorker::SsmIdentifyWorker(SsmIdentifyRequest request, IDiagnosticLink& link, std::unique_ptr<IClock> clock,
+                                     QObject *parent)
+    : QThread(parent), request_(request), link_(link), clock_(std::move(clock))
+{
+    qRegisterMetaType<SsmIdentifyWorkerResult>();
+}
+
+SsmIdentifyWorker::~SsmIdentifyWorker()
+{
+    requestStop();
+    // run() uses owned members; join fully before they are destroyed.
+    wait();
+}
+
+void SsmIdentifyWorker::requestStop()
+{
+    cancellation_.cancel();
+}
+
+void SsmIdentifyWorker::run()
+{
+    Result<SsmIdentity> outcome = fail(ErrorKind::Internal, "no identification attempt ran");
+    for (int attempt = 1; attempt <= kMaxAttempts; ++attempt)
+    {
+        if (attempt > 1)
+        {
+            if (auto slept = clock_->sleep(kRetryDelay, cancellation_); !slept.has_value())
+            {
+                outcome = std::unexpected(slept.error());
+                break;
+            }
+        }
+        outcome = identify_ssm_ecu(link_, *clock_, cancellation_, request_);
+        if (outcome.has_value() || outcome.error().kind == ErrorKind::Cancelled)
+        {
+            break;
+        }
+        emit logEvent(static_cast<int>(LogLevel::Warning), QString("ECU identification attempt %1 of %2 failed: %3")
+                                                               .arg(attempt)
+                                                               .arg(kMaxAttempts)
+                                                               .arg(QString::fromStdString(outcome.error().detail)));
+    }
+
+    SsmIdentifyWorkerResult result;
+    result.success = outcome.has_value();
+    if (outcome.has_value())
+    {
+        result.ecu_id = QString::fromStdString(outcome->ecu_id);
+        result.init_response = bytes::toQByteArray(outcome->init_response);
+    }
+    else
+    {
+        result.error_kind = outcome.error().kind;
+        result.error_detail = QString::fromStdString(outcome.error().detail);
+    }
+    emit completed(result);
+}
+
+} // namespace fastecu::diagnostics
