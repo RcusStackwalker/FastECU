@@ -128,9 +128,6 @@ class MainWindow : public QMainWindow
     bool log_params_request_started = false;
     bool ecu_init_started = false;
     bool ecu_init_complete = false;
-    bool haltech_ic7_display_on = false;
-    bool simulate_obd_on = false;
-    bool can_listener_on = false;
 
     int ecuCalDefIndex = 0;
 
@@ -312,11 +309,6 @@ class MainWindow : public QMainWindow
     QColor get_map_cell_color(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex);
     void show_preferences_window();
 
-    void toggle_haltech_ic7_display();
-    int test_haltech_ic7_display();
-    void toggle_simulate_obd();
-    void toggle_can_listener();
-    int simulate_obd();
     void show_dtc_window();
     void show_hex_editor();
     void show_subaru_biu_window();
@@ -357,7 +349,6 @@ class MainWindow : public QMainWindow
     void flash_transport_changed();
     void check_serial_ports();
     void open_serial_port();
-    int can_listener();
     int start_ecu_operations(const QString& cmd_type);
     void close_calibration();
     void close_calibration_map(QObject *obj);

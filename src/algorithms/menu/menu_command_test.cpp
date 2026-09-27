@@ -18,3 +18,13 @@ TEST(MenuCommandPortable, UnknownCommandMapsToEmptyId)
 {
     EXPECT_TRUE(menu_command_id(MenuCommand::Unknown).empty());
 }
+
+// Step 6h deleted these developer toggles. A hand-edited menu.cfg that still
+// names one must take the ordinary unknown-command path.
+TEST(MenuCommandPortable, RetiredDeveloperTogglesMapToUnknown)
+{
+    for (const char *id : {"haltech_ic7", "simulate_obd", "can_listener"})
+    {
+        EXPECT_EQ(menu_command_from_id(id), MenuCommand::Unknown) << id;
+    }
+}
