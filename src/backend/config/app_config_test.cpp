@@ -9,6 +9,7 @@ using fastecu::InMemoryFileRepository;
 using fastecu::config::AppConfig;
 using fastecu::config::ConfigPaths;
 using fastecu::config::load_app_config;
+using fastecu::config::parse_app_config;
 using fastecu::config::save_app_config;
 
 namespace
@@ -223,4 +224,54 @@ TEST(SaveAppConfigThenLoadAppConfig, EveryOtherFieldRoundTrips)
     EXPECT_EQ(reloaded->use_ecuflash_definitions, "enabled");
     EXPECT_EQ(reloaded->ecuflash_definition_files_directory, "ecu/");
     EXPECT_EQ(reloaded->romraider_logger_definition_file, "logger.xml");
+}
+
+namespace
+{
+void put_text(InMemoryFileRepository& repo, const std::string& handle, std::string_view text)
+{
+    repo.files[handle] = std::vector<std::uint8_t>(text.begin(), text.end());
+}
+
+constexpr std::string_view kUnnormalizedCalibrationDir =
+    R"(<config name="FastECU" version="x"><software_settings>)"
+    R"(<setting name="calibration_files_directory"><value data="/cal"/></setting>)"
+    R"(</software_settings></config>)";
+} // namespace
+
+TEST(ParseAppConfig, ReadsWithoutWritingAndKeepsTheParserContract)
+{
+    InMemoryFileRepository repo;
+    ConfigPaths paths;
+    paths.config_file = "fastecu.cfg";
+    put_text(repo, paths.config_file, kUnnormalizedCalibrationDir);
+
+    const auto parsed = parse_app_config(paths, repo);
+
+    ASSERT_TRUE(parsed.has_value());
+    EXPECT_EQ(parsed->calibration_files_directory, "/cal"); // unnormalized
+    EXPECT_EQ(parsed->serial_port, "");                     // absent stays empty
+    EXPECT_TRUE(repo.write_calls.empty());
+}
+
+TEST(LoadAppConfig, StillRewritesTheFileOnLoad)
+{
+    InMemoryFileRepository repo;
+    ConfigPaths paths;
+    paths.config_file = "fastecu.cfg";
+    put_text(repo, paths.config_file, kUnnormalizedCalibrationDir);
+
+    ASSERT_TRUE(load_app_config(paths, repo).has_value());
+
+    ASSERT_EQ(repo.write_calls.size(), 1u);
+    EXPECT_EQ(repo.write_calls.front().first, "fastecu.cfg");
+}
+
+TEST(ParseAppConfig, MissingFileIsAnError)
+{
+    InMemoryFileRepository repo;
+    ConfigPaths paths;
+    paths.config_file = "absent.cfg";
+
+    EXPECT_FALSE(parse_app_config(paths, repo).has_value());
 }

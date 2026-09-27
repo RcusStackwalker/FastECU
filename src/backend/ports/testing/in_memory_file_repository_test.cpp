@@ -78,3 +78,17 @@ TEST(InMemoryFileRepository, ReadCountIsPerHandleAndIncludesFailures)
     EXPECT_EQ(repository.read_count("missing"), 1);
     EXPECT_EQ(repository.read_count("unread"), 0);
 }
+
+TEST(InMemoryFileRepository, WriteErrorIsReturnedAndNothingIsStored)
+{
+    fastecu::InMemoryFileRepository repo;
+    repo.write_errors["a.cfg"] = fastecu::Error{fastecu::ErrorKind::Internal, "read-only"};
+    const std::vector<std::uint8_t> bytes{1, 2, 3};
+
+    const fastecu::Status written = repo.write("a.cfg", bytes);
+
+    ASSERT_FALSE(written.has_value());
+    EXPECT_EQ(written.error().detail, "read-only");
+    EXPECT_FALSE(repo.files.contains("a.cfg"));
+    EXPECT_TRUE(repo.write_calls.empty());
+}

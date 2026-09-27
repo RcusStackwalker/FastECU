@@ -25,7 +25,7 @@ void append_trailing_slash_if_missing(std::string& path)
 
 } // namespace
 
-Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& file_repository)
+Result<AppConfig> parse_app_config(const ConfigPaths& paths, IFileRepository& file_repository)
 {
     Result<std::vector<std::uint8_t>> bytes = file_repository.read(paths.config_file);
     if (!bytes.has_value())
@@ -142,14 +142,21 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
         }
     }
 
-    // Matches legacy FileActions::read_config_file (file_actions.cpp:910),
-    // which rewrites the config file on every load by calling
-    // save_config_file on the just-parsed struct. The save's result is
-    // fire-and-forget (legacy disregards it too): a failure here must not be
-    // surfaced as a load failure, and the caller of load_app_config sees the
-    // pre-save, unnormalized value, not save_app_config's normalized copy.
-    (void)save_app_config(config, paths, file_repository);
+    return config;
+}
 
+Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& file_repository)
+{
+    Result<AppConfig> config = parse_app_config(paths, file_repository);
+    if (!config.has_value())
+    {
+        return config;
+    }
+    // Matches legacy FileActions::read_config_file (file_actions.cpp:910),
+    // which rewrites the config file on every load. The save's result is
+    // fire-and-forget; callers needing to observe it use parse_app_config
+    // and save_app_config themselves (ConfigSession does).
+    (void)save_app_config(*config, paths, file_repository);
     return config;
 }
 
