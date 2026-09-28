@@ -1,5 +1,7 @@
 load("@hedron_compile_commands//:refresh_compile_commands.bzl", "refresh_compile_commands")
 
+package(default_visibility = ["//visibility:private"])
+
 # Shared compile_commands.json foundation. Consumed by the clang-tidy migration
 # (//:clang_tidy_* targets) -- keep this target and its label stable for that.
 # Hedron's default @//... covers every host-compatible workspace target.

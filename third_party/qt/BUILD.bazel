@@ -1,3 +1,5 @@
+package(default_visibility = ["//visibility:private"])
+
 # The Qt module libraries, visible only to //bazel/qt, which re-aliases them
 # behind the //bazel/qt:qt_layer and :widget_layer package groups. Nothing
 # else in the repo can reach Qt: @rules_qt is not in the root module's repo

@@ -3,7 +3,7 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_test")
 load("//bazel:x86_windows_transition.bzl", "x86_windows_binary")
 
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = ["//visibility:private"])
 
 # Windows-only process/ABI fixture: it must remain outside a production
 # package because it is loaded by cross-bitness bridge integration tests.

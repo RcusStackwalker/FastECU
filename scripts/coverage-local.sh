@@ -31,7 +31,7 @@ cd "$repo_root"
 # name; %p prevents collisions between concurrent processes from that binary.
 #
 # BAZEL_TEST_CONFIG lets a caller select a different named config from
-# .bazelrc; the SonarCloud build-wrapper step (.github/workflows/sonar.yml)
+# bazel/coverage.bazelrc; the SonarCloud build-wrapper step (.github/workflows/sonar.yml)
 # passes `sonar`, which layers on :coverage with the disk cache disabled.
 bazel test \
   --config="$bazel_test_config" \
@@ -79,7 +79,7 @@ set -- $llvm_cov
   -ignore-filename-regex="$coverage_ignore_regex" \
   > "$coverage_root/llvm-cov.report.tmp"
 
-# `--config=coverage` pins `-ffile-compilation-dir=.` (see .bazelrc), so the
+# `--config=coverage` pins `-ffile-compilation-dir=.` (see bazel/coverage.bazelrc), so the
 # coverage mapping embedded in the binaries carries workspace-relative source
 # paths (e.g. "src/foo.cpp") instead of the execroot-absolute ones clang would
 # otherwise record. `llvm-cov show` prints those relative paths verbatim as

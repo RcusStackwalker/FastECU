@@ -4,6 +4,8 @@
 # visibility error naming both ends. See
 # docs/adr/0016-enforce-qt-reachability-by-visibility.md.
 
+package(default_visibility = ["//visibility:private"])
+
 # Packages that may link any Qt module. `src/backend` and `src/algorithms` are
 # absent except for the leaf packages that exist to hold Qt-typed transitional
 # code -- the `legacy` adapters and the `qt_compat` shims. A new package under
