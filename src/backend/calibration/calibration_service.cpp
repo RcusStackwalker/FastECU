@@ -326,9 +326,9 @@ Result<std::string> decode_bloblist_hex(bytes::ByteView rom_data, std::uint64_t 
     const auto base_address = static_cast<std::size_t>(address);
     for (std::uint32_t i = 0; i < byte_count; ++i)
     {
-        const std::uint8_t byte = rom_data[base_address + i];
-        result += kHexDigits[(byte >> 4) & 0x0F];
-        result += kHexDigits[byte & 0x0F];
+        const unsigned byte = rom_data[base_address + i];
+        result += kHexDigits[(byte >> 4U) & 0x0FU];
+        result += kHexDigits[byte & 0x0FU];
     }
     return result;
 }

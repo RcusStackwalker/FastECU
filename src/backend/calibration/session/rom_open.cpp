@@ -1,5 +1,6 @@
 #include "src/backend/calibration/session/rom_open.h"
 
+#include <algorithm>
 #include <format>
 #include <ranges>
 #include <string_view>
@@ -35,14 +36,8 @@ std::string_view format_name(definition::DefinitionFormat format)
 // Legacy: QString(alias).split(",").contains(flash_method).
 bool alias_list_contains(std::string_view aliases, std::string_view flash_method)
 {
-    for (const auto part : std::views::split(aliases, ','))
-    {
-        if (std::string_view{part.begin(), part.end()} == flash_method)
-        {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(std::views::split(aliases, ','), [flash_method](const auto part)
+                               { return std::string_view{part.begin(), part.end()} == flash_method; });
 }
 
 } // namespace
