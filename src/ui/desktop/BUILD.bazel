@@ -178,7 +178,9 @@ qt_cc_library(
         "//src/platform/desktop/common/serial:serial_idle",
         "//src/ui/desktop/biu",
         "//src/backend/calibration/session:calibration_workspace",
+        "//src/ui/desktop/calibration:calibration_view_state",
         "//src/ui/desktop/calibration:legacy_calibration_view",
+        "//src/ui/desktop/calibration:rom_info",
         "//src/ui/desktop/calibration:session_key",
         "//src/ui/desktop/calibration:map_edit_adapter",
         "//src/ui/desktop/channels:log_channel",
@@ -261,5 +263,19 @@ fastecu_qttest(
     deps = [
         ":desktop",
         "//src/backend/config/testing:config_session_fixture",
+    ],
+)
+
+fastecu_qttest(
+    name = "test_calibration_treewidget",
+    size = "small",
+    src = "calibration_treewidget_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    linkstatic = True,
+    deps = [
+        ":desktop",
+        "//src/ui/desktop/calibration:calibration_view_state",
+        "//src/ui/desktop/calibration:session_key",
     ],
 )

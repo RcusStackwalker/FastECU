@@ -42,6 +42,7 @@
 #include <QMutex>
 
 #include "src/backend/calibration/session/calibration_workspace.h"
+#include "src/ui/desktop/calibration/calibration_view_state.h"
 #include "src/ui/desktop/calibration_maps.h"
 #include "src/ui/desktop/calibration_treewidget.h"
 #include "src/ui/desktop/protocol_select.h"
@@ -174,6 +175,7 @@ class MainWindow : public QMainWindow
     {
         fastecu::calibration::SessionId id;
         std::unique_ptr<FileActions::EcuCalDefStructure> legacy;
+        fastecu::ui::CalibrationViewState view;
     };
     std::vector<OpenCalibration> calibrations_;
     fastecu::calibration::CalibrationWorkspace *calibrationWorkspace = nullptr;
@@ -181,6 +183,9 @@ class MainWindow : public QMainWindow
     FileActions::EcuCalDefStructure *legacy_calibration(fastecu::calibration::SessionId id);
     std::optional<fastecu::calibration::SessionId> session_of(const QTreeWidgetItem *files_item) const;
     FileActions::EcuCalDefStructure *selected_legacy_calibration();
+    OpenCalibration *open_calibration(fastecu::calibration::SessionId id);
+    OpenCalibration *selected_open_calibration();
+    void set_category_expanded(QTreeWidgetItem *item, bool expanded);
     QTreeWidgetItem *files_tree_item(fastecu::calibration::SessionId id) const;
     bool add_calibration(fastecu::calibration::SessionId id);
 
@@ -292,7 +297,7 @@ class MainWindow : public QMainWindow
 
     // fileactions.c
     bool open_calibration_file(QString filename);
-    void prompt_for_missing_definition(FileActions::EcuCalDefStructure *ecuCalDef);
+    void prompt_for_missing_definition(fastecu::calibration::SessionId id);
     void save_calibration_file();
     void save_calibration_file_as();
     void runChecksumCorrection(FileActions::EcuCalDefStructure *ecuCalDef);

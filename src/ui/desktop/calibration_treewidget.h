@@ -6,8 +6,9 @@
 #include <QLabel>
 #include <QPushButton>
 
+#include "src/backend/calibration/session/calibration_session.h"
+#include "src/ui/desktop/calibration/calibration_view_state.h"
 #include "src/ui/desktop/calibration/session_key.h"
-#include "src/backend/definitions/file_actions.h"
 
 class CalibrationTreeWidget : public QWidget
 {
@@ -22,13 +23,11 @@ class CalibrationTreeWidget : public QWidget
   public:
     CalibrationTreeWidget();
 
-    QTreeWidget *buildCalibrationFilesTree(fastecu::calibration::SessionId session, QTreeWidget *filesTreeWidget,
-                                           FileActions::EcuCalDefStructure *ecuCalDef);
-    QTreeWidget *buildCalibrationDataTree(QTreeWidget *dataTreeWidget, FileActions::EcuCalDefStructure *ecuCalDef);
-    void *calibrationDataTreeWidgetItemExpanded(FileActions::EcuCalDefStructure *ecuCalDef,
-                                                const QString& categoryName);
-    void *calibrationDataTreeWidgetItemCollapsed(FileActions::EcuCalDefStructure *ecuCalDef,
-                                                 const QString& categoryName);
+    QTreeWidget *buildCalibrationFilesTree(fastecu::calibration::SessionId session_id, QTreeWidget *filesTreeWidget,
+                                           const fastecu::calibration::CalibrationSession& session);
+    QTreeWidget *buildCalibrationDataTree(QTreeWidget *dataTreeWidget,
+                                          const fastecu::calibration::CalibrationSession& session,
+                                          const fastecu::ui::CalibrationViewState& view);
     /*
         QStringList RomInfoStrings = {
             "XmlId",
