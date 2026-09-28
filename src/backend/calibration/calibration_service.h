@@ -141,6 +141,13 @@ struct MapCellValues
 };
 using MapCellValuesList = std::vector<MapCellValues>;
 
+// One entry of compute_map_cell_values: the same decode for a single map, for
+// callers that decode on demand. A failure here is exactly the error the
+// whole-definition function stores in that map's `error` field.
+Result<MapCellValues> compute_one_map_cell_values(const definition::RomDefinition& rom_definition,
+                                                  const definition::CalibrationMap& map, bytes::ByteView rom_data,
+                                                  int float_precision);
+
 // One entry per rom_definition.maps, in the same order. Never fails as a
 // whole -- per-map failures land in each entry's `error`.
 //

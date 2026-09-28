@@ -13,6 +13,7 @@
 
 #include "apps/desktop/desktop_composition.h"
 #include "apps/desktop/startup_diagnostics.h"
+#include "src/backend/calibration/session/calibration_workspace.h"
 #include "src/backend/definitions/file_actions.h"
 
 #include <QDir>
@@ -155,7 +156,33 @@ class DesktopCompositionTest : public QObject
         QVERIFY(!composition.connection_);
         QVERIFY(!composition.remote_utility_);
         QVERIFY(!composition.logging_engine_);
+        QVERIFY(!composition.rom_open_);
+        QVERIFY(!composition.calibration_workspace_);
     } // teardown after a failed start must not crash
+
+    void workspaceOpensARomFromDisk()
+    {
+        QTemporaryDir root;
+        QVERIFY(root.isValid());
+        DesktopComposition composition{{}, {}, root.path()};
+        QVERIFY(composition.started());
+        QVERIFY(composition.calibration_workspace_);
+
+        const QString rom_path = root.filePath("synthetic.bin");
+        QFile rom{rom_path};
+        QVERIFY(rom.open(QIODevice::WriteOnly));
+        QCOMPARE(rom.write(QByteArray(2048, '\x5A')), qint64{2048});
+        rom.close();
+
+        const auto opened = composition.calibration_workspace_->open_file(rom_path.toStdString());
+
+        QVERIFY(opened.has_value());
+        const auto *session = composition.calibration_workspace_->find(opened->id);
+        QVERIFY(session != nullptr);
+        QCOMPARE(session->source().display_name, std::string("synthetic.bin"));
+        QCOMPARE(session->protocol().file_size_label, std::string("2kb"));
+        QCOMPARE(session->rom().size(), std::size_t{2048});
+    }
 
     void migrationLoadsPreviousVersionSettingsFromDisk()
     {

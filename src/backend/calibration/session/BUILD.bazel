@@ -1,0 +1,91 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+# Portable calibration sessions: typed ROM + definition ownership that
+# replaces the legacy EcuCalDefStructure (step 6m).
+package(default_visibility = [
+    "//apps/desktop:__pkg__",
+    "//src/backend:__subpackages__",
+    "//src/platform:__subpackages__",
+    "//src/ui:__subpackages__",
+])
+
+cc_library(
+    name = "calibration_session",
+    srcs = ["calibration_session.cpp"],
+    hdrs = ["calibration_session.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/calibration:calibration_service",
+        "//src/backend/definition:definition_model",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "calibration_session_test",
+    srcs = ["calibration_session_test.cpp"],
+    deps = [
+        ":calibration_session",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
+cc_library(
+    name = "definition_catalogs",
+    hdrs = ["definition_catalogs.h"],
+    deps = [
+        "//src/backend/definition:definition_model",
+        "//src/backend/ports",
+    ],
+)
+
+cc_library(
+    name = "rom_open",
+    srcs = ["rom_open.cpp"],
+    hdrs = ["rom_open.h"],
+    deps = [
+        ":calibration_session",
+        ":definition_catalogs",
+        "//src/backend/calibration:calibration_service",
+        "//src/backend/config:config_session",
+        "//src/backend/definition:definition_model",
+        "//src/backend/definition:definition_service",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "rom_open_test",
+    srcs = ["rom_open_test.cpp"],
+    deps = [
+        ":rom_open",
+        "//src/backend/calibration/session/testing:fake_definition_catalogs",
+        "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
+cc_library(
+    name = "calibration_workspace",
+    srcs = ["calibration_workspace.cpp"],
+    hdrs = ["calibration_workspace.h"],
+    deps = [
+        ":calibration_session",
+        ":rom_open",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "calibration_workspace_test",
+    srcs = ["calibration_workspace_test.cpp"],
+    deps = [
+        ":calibration_workspace",
+        "//src/backend/calibration/session/testing:fake_definition_catalogs",
+        "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)

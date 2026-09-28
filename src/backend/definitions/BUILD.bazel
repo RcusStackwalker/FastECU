@@ -130,6 +130,7 @@ cc_library(
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/calibration:calibration_service",
         "//src/backend/calibration/legacy:legacy_calibration_adapter",
+        "//src/backend/calibration/session:definition_catalogs",
         "//src/backend/config:config_session",
         "//src/backend/definition:definition_service",
         "//src/backend/definition/legacy:legacy_definition_adapter",

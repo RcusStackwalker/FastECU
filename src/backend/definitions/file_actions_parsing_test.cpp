@@ -253,6 +253,24 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(actions.definitionIndexes.romraider_def_cal_id, (QStringList{"ZZZ_FIRST", "AAA_SECOND"}));
     }
 
+    void indexed_source_answers_from_the_startup_indexes()
+    {
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        actions.definitionIndexes.ecuflash_def_cal_id = {"ECUFLASH_ID"};
+        actions.definitionIndexes.ecuflash_def_filename = {"/defs/ecuflash.xml"};
+        actions.definitionIndexes.romraider_def_cal_id = {"ROMRAIDER_ID"};
+        actions.definitionIndexes.romraider_def_filename = {"/defs/romraider.xml"};
+
+        using fastecu::definition::DefinitionFormat;
+        QCOMPARE(actions.indexed_source(DefinitionFormat::EcuFlash, "ECUFLASH_ID"),
+                 std::optional<std::string>("/defs/ecuflash.xml"));
+        QCOMPARE(actions.indexed_source(DefinitionFormat::RomRaider, "ROMRAIDER_ID"),
+                 std::optional<std::string>("/defs/romraider.xml"));
+        QCOMPARE(actions.indexed_source(DefinitionFormat::EcuFlash, "ROMRAIDER_ID"), std::optional<std::string>{});
+        QCOMPARE(actions.indexed_source(DefinitionFormat::RomRaider, "UNKNOWN"), std::optional<std::string>{});
+    }
+
     void malformed_romraider_catalog_file_is_skipped_and_replaces_with_empty_catalog()
     {
         QTemporaryDir dir;

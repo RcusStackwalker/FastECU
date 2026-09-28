@@ -10,6 +10,7 @@
 #include <cstring>
 #include <iostream>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -17,6 +18,7 @@
 #include "src/backend/definitions/definition_indexes.h"
 #include "src/backend/definitions/ecu_cal_def.h"
 #include "src/backend/calibration/legacy/legacy_calibration_adapter.h"
+#include "src/backend/calibration/session/definition_catalogs.h"
 #include "src/backend/config/config_session.h"
 #include "src/backend/definition/definition_service.h"
 #include "src/backend/definition/legacy/legacy_definition_adapter.h"
@@ -32,12 +34,27 @@
 #include <unistd.h>
 #endif // Windows
 
-class FileActions
+class FileActions : public fastecu::calibration::IDefinitionCatalogs
 {
   public:
     FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBundle& resource_bundle,
                 fastecu::IFileRepository& file_repository, fastecu::IAtomicFileWriter& atomic_file_writer,
                 fastecu::IEventSink& events, fastecu::config::ConfigSession& config);
+
+    // IDefinitionCatalogs: the same catalogs the legacy open path builds, so a
+    // session open matches against exactly what FileActions would.
+    fastecu::Result<fastecu::definition::DefinitionCatalog>
+    catalog(fastecu::definition::DefinitionFormat format) override
+    {
+        return build_definition_catalog(format);
+    }
+    std::optional<std::string> indexed_source(fastecu::definition::DefinitionFormat format,
+                                              std::string_view id) override
+    {
+        const QString source =
+            definition_source(format, QString::fromUtf8(id.data(), static_cast<qsizetype>(id.size())));
+        return source.isEmpty() ? std::nullopt : std::optional<std::string>{source.toStdString()};
+    }
 
     uint8_t float_precision = 15;
     // QString ecu_protocol;

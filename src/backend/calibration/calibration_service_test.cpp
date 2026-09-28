@@ -864,5 +864,42 @@ TEST(ComputeMapCellValues, ReturnsEmptyListForADefinitionWithNoMaps)
     EXPECT_TRUE(result->empty());
 }
 
+TEST(ComputeOneMapCellValues, MatchesTheWholeDefinitionEntry)
+{
+    definition::RomDefinition rom = one_map_definition(0);
+    definition::CalibrationMap second = rom.maps.at(0);
+    second.name = "Second";
+    second.address = 1;
+    rom.maps.push_back(second);
+    const std::vector<std::uint8_t> data{5, 6, 7, 8};
+
+    const auto whole = compute_map_cell_values(rom, data, 15);
+    ASSERT_THAT(whole, fastecu::testing::IsOk());
+
+    for (std::size_t index = 0; index < rom.maps.size(); ++index)
+    {
+        const auto one = compute_one_map_cell_values(rom, rom.maps.at(index), data, 15);
+        ASSERT_THAT(one, fastecu::testing::IsOk());
+        EXPECT_EQ(one->map_data, whole->at(index).map_data) << index;
+        EXPECT_EQ(one->x_axis_data, whole->at(index).x_axis_data) << index;
+        EXPECT_EQ(one->y_axis_data, whole->at(index).y_axis_data) << index;
+    }
+    EXPECT_EQ(whole->at(1).map_data, "6,7,8,");
+}
+
+TEST(ComputeOneMapCellValues, ReportsTheErrorTheWholeDefinitionStores)
+{
+    definition::RomDefinition rom = one_map_definition(0xF0000000);
+    const std::vector<std::uint8_t> data{5, 6, 7};
+
+    const auto one = compute_one_map_cell_values(rom, rom.maps.at(0), data, 15);
+    const auto whole = compute_map_cell_values(rom, data, 15);
+
+    ASSERT_THAT(one, fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(whole, fastecu::testing::IsOk());
+    ASSERT_TRUE(whole->at(0).error.has_value());
+    EXPECT_EQ(one.error(), *whole->at(0).error);
+}
+
 } // namespace
 } // namespace fastecu::calibration
