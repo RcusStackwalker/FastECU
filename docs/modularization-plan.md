@@ -159,6 +159,14 @@ automated success alone does not establish hardware qualification.
 
 ### 6m — Definition and calibration sessions
 
+In progress. 6m-1 added the portable `CalibrationSession`, `RomOpenUseCase`
+and `CalibrationWorkspace` (composition-owned, stable session IDs). 6m-2 moved
+ownership and identity: `MainWindow` holds one legacy view per workspace
+session, addressed by `SessionId` rather than tree position, and the post-read
+handoff adopts an image only after a successful read. Rendering, every
+mutation, and retirement of the legacy model remain for 6m-3; see the
+[step 6m design](superpowers/specs/2026-09-28-step6m-calibration-sessions-design.md).
+
 Migrate remaining definition lookup, ROM open/save, map display/editing, and
 calibration ownership onto the portable definition/calibration APIs. Replace
 the fixed raw-pointer calibration slots with explicit session ownership.
