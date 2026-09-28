@@ -85,9 +85,11 @@ ElementRun axis_element_run(const definition::AxisDefinition& axis, std::uint32_
     };
 }
 
-Result<MapCellValues> compute_one_map(const definition::RomDefinition& rom_definition,
-                                      const definition::CalibrationMap& map, bytes::ByteView rom_data,
-                                      int float_precision)
+} // namespace
+
+Result<MapCellValues> compute_one_map_cell_values(const definition::RomDefinition& rom_definition,
+                                                  const definition::CalibrationMap& map, bytes::ByteView rom_data,
+                                                  int float_precision)
 {
     MapCellValues values;
     const definition::Scaling *scaling = definition::find_scaling(rom_definition, map.scaling_name);
@@ -156,8 +158,6 @@ Result<MapCellValues> compute_one_map(const definition::RomDefinition& rom_defin
 
     return values;
 }
-
-} // namespace
 
 Result<std::vector<std::uint8_t>> read_rom(std::string_view file_handle, IFileRepository& file_repository)
 {
@@ -340,7 +340,7 @@ Result<MapCellValuesList> compute_map_cell_values(const definition::RomDefinitio
     results.reserve(rom_definition.maps.size());
     for (const definition::CalibrationMap& map : rom_definition.maps)
     {
-        auto computed = compute_one_map(rom_definition, map, rom_data, float_precision);
+        auto computed = compute_one_map_cell_values(rom_definition, map, rom_data, float_precision);
         if (computed.has_value())
         {
             results.push_back(std::move(*computed));
