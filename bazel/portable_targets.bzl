@@ -13,6 +13,9 @@ PORTABLE_PACKAGES = {
         "calibration_service",
         "map_edit",
     ],
+    "src/backend/calibration/session": [
+        "calibration_session",
+    ],
     "src/backend/checksum": [
         "checksum_selection",
         "dispatch",
