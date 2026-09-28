@@ -3,15 +3,14 @@
 /*****************************************************************************/
 /* Public methods */
 /*****************************************************************************/
-HexEdit::HexEdit(FileActions::EcuCalDefStructure *ecuCalDef, QWidget *parent)
-    : QMainWindow(parent), ecuCalDef(ecuCalDef)
+HexEdit::HexEdit(const QByteArray& data, const QString& file_name, QWidget *parent) : QMainWindow(parent)
 {
     setAcceptDrops(true);
     init();
     setCurrentFile("");
 
-    hexEdit->setData(ecuCalDef->FullRomData);
-    setCurrentFile(ecuCalDef->FileName);
+    hexEdit->setData(data);
+    setCurrentFile(file_name);
 
     this->show();
 }

@@ -4,7 +4,8 @@ CalibrationTreeWidget::CalibrationTreeWidget()
 {
 }
 
-QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(int ecuCalDefIndex, QTreeWidget *filesTreeWidget,
+QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(fastecu::calibration::SessionId session,
+                                                              QTreeWidget *filesTreeWidget,
                                                               FileActions::EcuCalDefStructure *ecuCalDef)
 {
     QString filename(ecuCalDef->FileName);
@@ -21,7 +22,7 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(int ecuCalDefIndex
     calFilesTree->setFont(filesItemFont);
 
     QTreeWidgetItem *topLevelFilesTreeItem = new QTreeWidgetItem();
-    topLevelFilesTreeItem->setText(2, QString::number(ecuCalDefIndex));
+    topLevelFilesTreeItem->setText(2, fastecu::ui::session_key_text(session));
     topLevelFilesTreeItem->setCheckState(0, Qt::Unchecked);
     topLevelFilesTreeItem->setFirstColumnSpanned(true);
     calFilesTree->addTopLevelItem(topLevelFilesTreeItem);

@@ -5,6 +5,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 // Exit application with this code to restart it instead of quitting:
 // qApp->exit(RESTART_CODE)
@@ -40,6 +41,7 @@
 #include <QThread>
 #include <QMutex>
 
+#include "src/backend/calibration/session/calibration_workspace.h"
 #include "src/ui/desktop/calibration_maps.h"
 #include "src/ui/desktop/calibration_treewidget.h"
 #include "src/ui/desktop/protocol_select.h"
@@ -134,8 +136,6 @@ class MainWindow : public QMainWindow
     bool log_params_request_started = false;
     bool ecu_init_complete = false;
 
-    int ecuCalDefIndex = 0;
-
     uint16_t receive_timeout = 500;
     uint16_t serial_read_timeout = 2000;
     uint16_t serial_read_extra_short_timeout = 50;
@@ -167,8 +167,22 @@ class MainWindow : public QMainWindow
     void write_logger_csv_cells(bool header);
     fastecu::config::ConfigSession *configSession = nullptr;
     std::optional<fastecu::Error> last_settings_save_error;
-    std::array<FileActions::EcuCalDefStructure *, 100> ecuCalDef{};
-    // FileActions::EcuCalDefStructure *ecuCalDefTemp;
+    // One legacy view per open workspace session, in files-tree order.
+    // Transitional (step 6m-2): until 6m-3 the view is the only byte store
+    // the UI reads or writes; the session is looked up by id, never position.
+    struct OpenCalibration
+    {
+        fastecu::calibration::SessionId id;
+        std::unique_ptr<FileActions::EcuCalDefStructure> legacy;
+    };
+    std::vector<OpenCalibration> calibrations_;
+    fastecu::calibration::CalibrationWorkspace *calibrationWorkspace = nullptr;
+
+    FileActions::EcuCalDefStructure *legacy_calibration(fastecu::calibration::SessionId id);
+    std::optional<fastecu::calibration::SessionId> session_of(const QTreeWidgetItem *files_item) const;
+    FileActions::EcuCalDefStructure *selected_legacy_calibration();
+    QTreeWidgetItem *files_tree_item(fastecu::calibration::SessionId id) const;
+    bool add_calibration(fastecu::calibration::SessionId id);
 
     fastecu::desktop::connection::AdapterConnection *connection = nullptr;
     // QTimer *serial_poll_timer;
@@ -300,7 +314,7 @@ class MainWindow : public QMainWindow
     template <typename FLASH_CLASS> FLASH_CLASS *connect_signals_and_run_module(FLASH_CLASS *object);
     void SetComboBoxItemEnabled(QComboBox *comboBox, int index, bool enabled);
     void set_flash_arrow_state();
-    void update_protocol_info(int rom_number);
+    void update_protocol_info(const QString& flash_method);
     // The session's selected vehicle; always valid once constructed.
     const fastecu::config::ResolvedCarModel& selected_vehicle() const;
     // Saves the session's settings, logging a failure.

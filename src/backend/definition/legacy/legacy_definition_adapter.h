@@ -24,6 +24,12 @@ class LegacyDefinitionAdapter
     // rebuilding the catalog and loading the same definition again.
     Status replace_definition(definitions::EcuCalDefStructure&, const DefinitionCatalog&, DefinitionFormat,
                               std::string_view id, RomDefinition *resolved = nullptr);
+    // Replaces `current`'s definition columns with `definition`'s -- the part
+    // of replace_definition after the load. Atomic: on failure `current` is
+    // unchanged. Used to build the transitional legacy view of an already
+    // resolved calibration session (step 6m-2).
+    static Status project_definition(definitions::EcuCalDefStructure& current, const RomDefinition& definition,
+                                     DefinitionFormat format);
     Status create_definition(std::string_view destination, const DefinitionHeaderInput&, bool allow_overwrite = false);
     Status import_definition(std::string_view source, std::string_view destination, const DefinitionHeaderInput&);
 

@@ -132,6 +132,8 @@ class DesktopCompositionTest : public QObject
         QCOMPARE(&first.logging_engine, &second.logging_engine);
         QCOMPARE(&first.config, &second.config);
         QCOMPARE(&first.application, &second.application);
+        QCOMPARE(&first.calibrations, composition.calibration_workspace_.get());
+        QCOMPARE(&second.calibrations, &first.calibrations);
     }
 
     void failedStartupBuildsNoServicesAndPerformsNoEcuIo()

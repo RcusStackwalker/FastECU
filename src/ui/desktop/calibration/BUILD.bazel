@@ -13,6 +13,7 @@ qt_cc_library(
     copts = COMMON_COPTS,
     normal_hdrs = ["map_edit_adapter.h"],
     deps = QT_DEPS + [
+        ":session_key",
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/calibration:map_edit",
         "//src/backend/definitions:ecu_cal_def",
@@ -24,4 +25,46 @@ fastecu_gtest(
     srcs = ["map_edit_adapter_test.cpp"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [":map_edit_adapter"],
+)
+
+qt_cc_library(
+    name = "session_key",
+    srcs = ["session_key.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["session_key.h"],
+    deps = QT_DEPS + ["//src/backend/calibration/session:calibration_session"],
+)
+
+fastecu_gtest(
+    name = "session_key_test",
+    srcs = ["session_key_test.cpp"],
+    deps = [":session_key"],
+)
+
+qt_cc_library(
+    name = "legacy_calibration_view",
+    srcs = ["legacy_calibration_view.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["legacy_calibration_view.h"],
+    deps = QT_DEPS + [
+        "//src/backend/calibration/session:calibration_session",
+        "//src/backend/definition/legacy:legacy_definition_adapter",
+        "//src/backend/definitions",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_gtest(
+    name = "legacy_calibration_view_test",
+    srcs = ["legacy_calibration_view_test.cpp"],
+    deps = [
+        ":legacy_calibration_view",
+        "//src/backend/calibration/session:rom_open",
+        "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/definition:definition_service",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:result_matchers",
+    ],
 )

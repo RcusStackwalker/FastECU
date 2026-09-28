@@ -388,6 +388,36 @@ Status LegacyDefinitionAdapter::replace_ecuflash_catalog(definitions::Definition
     return {};
 }
 
+Status LegacyDefinitionAdapter::project_definition(definitions::EcuCalDefStructure& current,
+                                                   const RomDefinition& definition, DefinitionFormat format)
+{
+    definitions::EcuCalDefStructure next = current;
+    clear_map_rows(next);
+    clear_scaling_rows(next);
+    auto rom_info = populate_rom_info(next, definition);
+    if (!rom_info.has_value())
+    {
+        return rom_info;
+    }
+    next.use_romraider_definition = format == DefinitionFormat::RomRaider;
+    next.use_ecuflash_definition = format == DefinitionFormat::EcuFlash;
+    for (const Scaling& scaling : definition.scalings)
+    {
+        append_scaling(next, scaling);
+    }
+    for (const CalibrationMap& map : definition.maps)
+    {
+        append_map(next, definition, map);
+    }
+    auto aligned = validate_definition_alignment(next);
+    if (!aligned.has_value())
+    {
+        return aligned;
+    }
+    current = std::move(next);
+    return {};
+}
+
 Status LegacyDefinitionAdapter::replace_definition(definitions::EcuCalDefStructure& current,
                                                    const DefinitionCatalog& catalog, DefinitionFormat format,
                                                    std::string_view id, RomDefinition *resolved)
@@ -397,31 +427,10 @@ Status LegacyDefinitionAdapter::replace_definition(definitions::EcuCalDefStructu
     {
         return std::unexpected(definition.error());
     }
-
-    definitions::EcuCalDefStructure next = current;
-    clear_map_rows(next);
-    clear_scaling_rows(next);
-    auto rom_info = populate_rom_info(next, *definition);
-    if (!rom_info.has_value())
+    if (auto projected = project_definition(current, *definition, format); !projected.has_value())
     {
-        return rom_info;
+        return projected;
     }
-    next.use_romraider_definition = format == DefinitionFormat::RomRaider;
-    next.use_ecuflash_definition = format == DefinitionFormat::EcuFlash;
-    for (const Scaling& scaling : definition->scalings)
-    {
-        append_scaling(next, scaling);
-    }
-    for (const CalibrationMap& map : definition->maps)
-    {
-        append_map(next, *definition, map);
-    }
-    auto aligned = validate_definition_alignment(next);
-    if (!aligned.has_value())
-    {
-        return aligned;
-    }
-    current = std::move(next);
     // Hand the already-resolved definition back when the caller asked for it,
     // so nothing downstream has to rebuild a catalog and load it a second time.
     if (resolved != nullptr)

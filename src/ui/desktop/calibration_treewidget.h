@@ -6,6 +6,7 @@
 #include <QLabel>
 #include <QPushButton>
 
+#include "src/ui/desktop/calibration/session_key.h"
 #include "src/backend/definitions/file_actions.h"
 
 class CalibrationTreeWidget : public QWidget
@@ -21,7 +22,7 @@ class CalibrationTreeWidget : public QWidget
   public:
     CalibrationTreeWidget();
 
-    QTreeWidget *buildCalibrationFilesTree(int ecuCalDefIndex, QTreeWidget *filesTreeWidget,
+    QTreeWidget *buildCalibrationFilesTree(fastecu::calibration::SessionId session, QTreeWidget *filesTreeWidget,
                                            FileActions::EcuCalDefStructure *ecuCalDef);
     QTreeWidget *buildCalibrationDataTree(QTreeWidget *dataTreeWidget, FileActions::EcuCalDefStructure *ecuCalDef);
     void *calibrationDataTreeWidgetItemExpanded(FileActions::EcuCalDefStructure *ecuCalDef,

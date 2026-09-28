@@ -9,6 +9,7 @@
 
 #include <QString>
 
+#include "src/ui/desktop/calibration/session_key.h"
 #include "src/backend/calibration/map_edit.h"
 #include "src/backend/definitions/ecu_cal_def.h"
 
@@ -112,12 +113,13 @@ std::int64_t raw_element_value_from_text(const calibration::MapElementSpec& spec
 // and map index -- the same format read unguarded in five places today.
 struct MapWindowId
 {
-    int rom_number{0};
+    calibration::SessionId session{};
     int map_number{0};
 };
 
-// Returns nullopt for a null window or an object name with fewer than the
-// two leading comma-separated fields this needs.
+// Returns nullopt for a null window, an object name with fewer than the two
+// leading comma-separated fields this needs, or a first field that is not a
+// session key.
 std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window);
 
 // Everything an edit operation needs about the active map window, resolved

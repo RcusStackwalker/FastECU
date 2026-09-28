@@ -616,5 +616,50 @@ TEST_F(LegacyDefinitionAdapterTest, CreationAndImportPropagateExactServiceFailur
     EXPECT_EQ(writer.replace_calls.size(), 1U);
 }
 
+TEST_F(LegacyDefinitionAdapterTest, ProjectingALoadedDefinitionEqualsReplacingIt)
+{
+    repository.files["one.xml"] = bytes(R"xml(
+      <rom><romid><xmlid>ONE</xmlid><internalidaddress>100</internalidaddress>
+        <internalidstring>ONE-ID</internalidstring><make>Subaru</make>
+        <flashmethod>denso</flashmethod></romid>
+        <scaling name="raw" toexpr="x" frexpr="x" format="%d" storagetype="uint8" endian="big"/>
+        <table name="Idle" address="20" type="1D" category="Idle" scaling="raw" storagetype="uint8"/>
+      </rom>)xml");
+    auto catalog = DefinitionCatalog::create({DefinitionIndexEntry{
+        .format = DefinitionFormat::EcuFlash,
+        .definition_id = "ONE",
+        .internal_id = "ONE-ID",
+        .internal_id_address = 0x100,
+        .internal_id_encoding = IdEncoding::Ascii,
+        .source = "one.xml",
+    }});
+    ASSERT_THAT(catalog, fastecu::testing::IsOk());
+    definitions::EcuCalDefStructure replaced;
+    ASSERT_THAT(adapter.replace_definition(replaced, *catalog, DefinitionFormat::EcuFlash, "ONE"),
+                fastecu::testing::IsOk());
+    auto loaded = service.load(*catalog, DefinitionFormat::EcuFlash, "ONE");
+    ASSERT_THAT(loaded, fastecu::testing::IsOk());
+
+    definitions::EcuCalDefStructure projected;
+    ASSERT_THAT(LegacyDefinitionAdapter::project_definition(projected, *loaded, DefinitionFormat::EcuFlash),
+                fastecu::testing::IsOk());
+
+    EXPECT_EQ(projected, replaced);
+    EXPECT_TRUE(projected.use_ecuflash_definition);
+    EXPECT_EQ(projected.NameList, QStringList{"Idle"});
+}
+
+TEST_F(LegacyDefinitionAdapterTest, AFailedProjectionLeavesTheValueUnchanged)
+{
+    definitions::EcuCalDefStructure value;
+    value.RomInfoStrings = {"too", "short"};
+    value.FileName = "kept.bin";
+    const definitions::EcuCalDefStructure before = value;
+
+    EXPECT_THAT(LegacyDefinitionAdapter::project_definition(value, RomDefinition{}, DefinitionFormat::EcuFlash),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_EQ(value, before);
+}
+
 } // namespace
 } // namespace fastecu::definition

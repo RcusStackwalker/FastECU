@@ -3,7 +3,10 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QMdiArea>
+#include <QMdiSubWindow>
 #include <QMessageBox>
+#include <QRadioButton>
 #include <QPushButton>
 #include <QStringList>
 #include <QTemporaryDir>
@@ -38,6 +41,11 @@
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "src/ui/desktop/channels/log_channel.h"
 #include "src/ui/desktop/channels/remote_peer.h"
+#include "src/backend/calibration/session/calibration_workspace.h"
+#include "src/backend/calibration/session/rom_open.h"
+#include "src/backend/definition/definition_service.h"
+#include "src/ui/desktop/calibration/session_key.h"
+#include "src/ui/desktop/hexedit/hexedit.h"
 
 namespace
 {
@@ -49,6 +57,7 @@ constexpr auto kTcuIgnitionText = "Turn ignition ON and press OK to start initia
 constexpr auto kLegacyEcuIgnitionText = "Turn ignition ON and press OK to start initializing connection to ECU";
 constexpr auto kNoChecksumModuleText = "WARNING! There is no checksum module for this ROM!";
 constexpr auto kPortableEcuIgnitionText = "Turn ignition ON and press OK to start initializing the ECU connection.";
+constexpr auto kContinueWithoutDefinitionText = "Continue without definition file";
 
 class ModalDriver final : public QObject
 {
@@ -95,6 +104,10 @@ class ModalDriver final : public QObject
     int checksumWarningCount() const
     {
         return checksum_warning_count_;
+    }
+    int missingDefinitionPromptCount() const
+    {
+        return missing_definition_prompt_count_;
     }
     int portableEcuIgnitionCount() const
     {
@@ -164,6 +177,24 @@ class ModalDriver final : public QObject
             }
         }
 
+        for (QWidget *widget : QApplication::topLevelWidgets())
+        {
+            auto *dialog = qobject_cast<QDialog *>(widget);
+            if (dialog == nullptr || !dialog->isVisible())
+            {
+                continue;
+            }
+            for (QRadioButton *button : dialog->findChildren<QRadioButton *>())
+            {
+                if (button->text() == kContinueWithoutDefinitionText)
+                {
+                    ++missing_definition_prompt_count_;
+                    dialog->reject(); // the continue-without path
+                    return;
+                }
+            }
+        }
+
         if (elapsed_.elapsed() > 3000)
         {
             timed_out_ = true;
@@ -187,6 +218,7 @@ class ModalDriver final : public QObject
     int legacy_ecu_ignition_count_ = 0;
     int portable_ecu_ignition_count_ = 0;
     int checksum_warning_count_ = 0;
+    int missing_definition_prompt_count_ = 0;
     bool timed_out_ = false;
 };
 
@@ -200,6 +232,18 @@ int startEcuOperations(MainWindow& window, const QString& cmd_type)
         return -1;
     }
     return result;
+}
+
+// A synthetic image on disk for the open-file path.
+QString writeRom(const QTemporaryDir& dir, const QString& name, char fill, int size = 64)
+{
+    const QString path = dir.filePath(name);
+    QFile file{path};
+    if (!file.open(QIODevice::WriteOnly) || file.write(QByteArray(size, fill)) != size)
+    {
+        return {};
+    }
+    return path;
 }
 
 bool writeTextFile(const QString& path, const char *contents)
@@ -247,6 +291,7 @@ struct TestServices
             .application = kTestApplication,
             .config = config,
             .file_actions = file_actions,
+            .calibrations = calibrations,
             .logger_model = logger_model,
             .logger_definitions = logger_definitions,
             .config_repository = file_repository,
@@ -267,6 +312,10 @@ struct TestServices
     fastecu::config::ConfigSession config{file_system, resource_bundle, file_repository, config_events};
     fastecu::Status config_status; // declared after `config`: initialized from it
     FileActions file_actions;
+    fastecu::definition::DefinitionService definition_service{file_system, file_repository, file_writer};
+    fastecu::calibration::RomOpenUseCase rom_open{
+        file_actions, definition_service, file_repository, file_system, events, config};
+    fastecu::calibration::CalibrationWorkspace calibrations{rom_open};
     fastecu::logging::LoggerModel logger_model;
     fastecu::logging::LoggerDefinitionService logger_definitions{file_repository, resource_bundle, file_writer};
     fastecu::ui::LogChannel log_channel;
@@ -784,7 +833,8 @@ class MainWindowTest : public QObject
 
         QTest::qWait(window.vbatt_timer_timeout + 100);
         QVERIFY(!window.vbatt_timer->isActive());
-        QVERIFY(window.ecuCalDef[window.ecuCalDefIndex] == nullptr);
+        QVERIFY(window.calibrations_.empty());
+        QVERIFY(services.calibrations.ids().empty());
         const QString expected_line = choice.isEmpty() ? "No option selected" : "Attempting TCU relearn";
         QVERIFY(std::ranges::any_of(info_lines, [&](const QList<QVariant>& arguments)
                                     { return arguments.at(0).toString() == expected_line; }));
@@ -939,7 +989,7 @@ class MainWindowTest : public QObject
 
     // Spec behavior change 2: a read that produces no calibration releases
     // the slot it allocated instead of leaking it.
-    void readOfAnUnsupportedProtocolReleasesTheReadSlot()
+    void readOfAnUnsupportedProtocolAddsNoCalibration()
     {
         ModalDriver constructor_driver{QString()};
         constructor_driver.start();
@@ -954,7 +1004,7 @@ class MainWindowTest : public QObject
         window.serial_port_list->addItem("OpenPort 2.0");
         window.serial_port_list->setCurrentIndex(0);
         selectSubaruProtocol(window, "sub_ecu_not_a_real_protocol");
-        const int slot = window.ecuCalDefIndex;
+        QCOMPARE(window.calibrations_.size(), std::size_t{0});
 
         ModalDriver operation_driver{QString()};
         operation_driver.start();
@@ -962,8 +1012,9 @@ class MainWindowTest : public QObject
         operation_driver.stop();
 
         QVERIFY(!operation_driver.timedOut());
-        QCOMPARE(window.ecuCalDefIndex, slot);
-        QVERIFY(window.ecuCalDef[slot] == nullptr);
+        QCOMPARE(window.calibrations_.size(), std::size_t{0});
+        QVERIFY(services.calibrations.ids().empty());
+        QCOMPARE(window.ui->calibrationFilesTreeWidget->topLevelItemCount(), 0);
     }
 
     // Spec behavior change 1, second early return: Cancel on the
@@ -986,26 +1037,145 @@ class MainWindowTest : public QObject
         window.serial_port_list->clear();
         window.serial_port_list->addItem("OpenPort 2.0");
         window.serial_port_list->setCurrentIndex(0);
+        QTemporaryDir roms;
+        const QString rom_path = writeRom(roms, "test.bin", '\x5a', 16);
+        QVERIFY(!rom_path.isEmpty());
+        ModalDriver open_driver{QString()};
+        open_driver.start();
+        QCOMPARE(window.open_calibration_file(rom_path), 0);
+        open_driver.stop();
+        QCOMPARE(open_driver.missingDefinitionPromptCount(), 1);
         selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na");
-
-        // One loaded calibration, selected in the calibration files tree.
-        auto calibration = std::make_unique<FileActions::EcuCalDefStructure>();
-        calibration->FullRomData = QByteArray(16, '\x5a');
-        window.ecuCalDef[0] = calibration.get();
-        auto *item = new QTreeWidgetItem(QStringList{"test.bin"});
-        window.ui->calibrationFilesTreeWidget->addTopLevelItem(item);
-        item->setSelected(true);
 
         ModalDriver operation_driver{QString()};
         operation_driver.start();
         QCOMPARE(startEcuOperations(window, "write"), 0);
         operation_driver.stop();
-        window.ecuCalDef[0] = nullptr;
 
         QVERIFY(!operation_driver.timedOut());
         QCOMPARE(operation_driver.checksumWarningCount(), 1);
-        QCOMPARE(calibration->FullRomData, QByteArray(16, '\x5a'));
+        QCOMPARE(window.calibrations_.front().legacy->FullRomData, QByteArray(16, '\x5a'));
         QVERIFY(!window.vbatt_timer->isActive());
+    }
+
+    void definitionlessOpenPromptsOnceAndAppliesPlaceholders()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        QTemporaryDir roms;
+        const QString path = writeRom(roms, "a.bin", '\x11');
+
+        ModalDriver driver{QString()};
+        driver.start();
+        QCOMPARE(window.open_calibration_file(path), 0);
+        driver.stop();
+
+        QVERIFY(!driver.timedOut());
+        QCOMPARE(driver.missingDefinitionPromptCount(), 1);
+        QCOMPARE(window.calibrations_.size(), std::size_t{1});
+        const auto& legacy = *window.calibrations_.front().legacy;
+        QCOMPARE(legacy.RomInfo.at(FileActions::XmlId), QString("UnknownID"));
+        QCOMPARE(legacy.FileName, QString("a.bin"));
+        QCOMPARE(services.calibrations.ids().size(), std::size_t{1});
+        QCOMPARE(window.ui->calibrationFilesTreeWidget->topLevelItem(0)->text(2),
+                 fastecu::ui::session_key_text(window.calibrations_.front().id));
+    }
+
+    void closingAMiddleRomKeepsLaterRomsAddressable()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        QTemporaryDir roms;
+        ModalDriver driver{QString()};
+        driver.start();
+        QCOMPARE(window.open_calibration_file(writeRom(roms, "a.bin", '\x0a')), 0);
+        QCOMPARE(window.open_calibration_file(writeRom(roms, "b.bin", '\x0b')), 0);
+        QCOMPARE(window.open_calibration_file(writeRom(roms, "c.bin", '\x0c')), 0);
+        driver.stop();
+        QCOMPARE(window.calibrations_.size(), std::size_t{3});
+        const auto a = window.calibrations_.at(0).id;
+        const auto c = window.calibrations_.at(2).id;
+        QTreeWidget *files = window.ui->calibrationFilesTreeWidget;
+        const QString c_key = files->topLevelItem(2)->text(2);
+
+        for (int i = 0; i < files->topLevelItemCount(); ++i)
+        {
+            files->topLevelItem(i)->setSelected(i == 1);
+        }
+        window.close_calibration();
+
+        QCOMPARE(window.calibrations_.size(), std::size_t{2});
+        QCOMPARE(services.calibrations.ids(), (std::vector{a, c}));
+        QCOMPARE(files->topLevelItemCount(), 2);
+        QCOMPARE(files->topLevelItem(1)->text(2), c_key); // not renumbered
+        QVERIFY(window.legacy_calibration(c) != nullptr);
+        QCOMPARE(window.legacy_calibration(c)->FileName, QString("c.bin"));
+        QCOMPARE(window.legacy_calibration(c)->FullRomData.at(0), '\x0c');
+    }
+
+    void windowsOfAClosedRomAreInert()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        QTemporaryDir roms;
+        ModalDriver driver{QString()};
+        driver.start();
+        QCOMPARE(window.open_calibration_file(writeRom(roms, "a.bin", '\x0a')), 0);
+        QCOMPARE(window.open_calibration_file(writeRom(roms, "b.bin", '\x0b')), 0);
+        driver.stop();
+        const auto b = window.calibrations_.at(1).id;
+        window.close_calibration(); // b is selected after its open
+        QVERIFY(window.legacy_calibration(b) == nullptr);
+
+        const QString stale = fastecu::ui::session_key_text(b) + ",0,Idle";
+        auto *content = new QWidget;
+        QMdiSubWindow *sub = window.ui->mdiArea->addSubWindow(content);
+        sub->setObjectName(stale);
+        content->setObjectName(stale);
+        window.ui->mdiArea->setActiveSubWindow(sub);
+        QObject destroyed_window;
+        destroyed_window.setObjectName(stale);
+
+        window.set_maptablewidget_items();
+        window.selectable_combobox_item_changed("anything");
+        window.checkbox_state_changed(2);
+        window.close_calibration_map(&destroyed_window);
+
+        QCOMPARE(window.calibrations_.size(), std::size_t{1});
+        QCOMPARE(window.ui->calibrationFilesTreeWidget->topLevelItemCount(), 1);
+    }
+
+    void hexEditorOutlivesItsRom()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        QTemporaryDir roms;
+        ModalDriver driver{QString()};
+        driver.start();
+        QCOMPARE(window.open_calibration_file(writeRom(roms, "a.bin", '\x0a')), 0);
+        driver.stop();
+
+        window.show_hex_editor();
+        window.close_calibration();
+
+        QCOMPARE(window.findChildren<HexEdit *>().size(), qsizetype{1});
+        QVERIFY(window.calibrations_.empty());
     }
 
     void windowPreservesInjectedLoggingFactory()
@@ -1419,13 +1589,7 @@ class MainWindowTest : public QObject
         QVERIFY(services.config_status.has_value());
         MainWindow window{services.services()};
         constructor_driver.stop();
-        auto calibration = std::make_unique<FileActions::EcuCalDefStructure>();
-        calibration->RomInfo.resize(FileActions::DefFile + 1);
-        calibration->RomInfo[FileActions::FlashMethod] = "sub_ecu_denso_sh7058";
-        window.ecuCalDef[0] = calibration.get();
-
-        window.update_protocol_info(0);
-        window.ecuCalDef[0] = nullptr;
+        window.update_protocol_info("sub_ecu_denso_sh7058");
 
         QCOMPARE(*services.config.selected_row(), std::size_t{9}); // rows 3, 8, 9 match; the last wins
         QCOMPARE(services.config.selected_vehicle()->make, std::string("Nissan"));
@@ -1440,13 +1604,7 @@ class MainWindowTest : public QObject
         MainWindow window{services.services()};
         constructor_driver.stop();
         const auto before = services.config.settings();
-        auto calibration = std::make_unique<FileActions::EcuCalDefStructure>();
-        calibration->RomInfo.resize(FileActions::DefFile + 1);
-        calibration->RomInfo[FileActions::FlashMethod] = "no_such_protocol";
-        window.ecuCalDef[0] = calibration.get();
-
-        window.update_protocol_info(0);
-        window.ecuCalDef[0] = nullptr;
+        window.update_protocol_info("no_such_protocol");
 
         QVERIFY(services.config.settings() == before);
     }

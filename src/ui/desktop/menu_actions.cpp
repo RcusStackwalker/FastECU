@@ -184,6 +184,11 @@ void MainWindow::inc_dec_value(fastecu::calibration::IncrementStep step)
     {
         return;
     }
+    FileActions::EcuCalDefStructure *legacy = legacy_calibration(id->session);
+    if (legacy == nullptr)
+    {
+        return;
+    }
 
     QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
     if (!mapTableWidget)
@@ -191,27 +196,26 @@ void MainWindow::inc_dec_value(fastecu::calibration::IncrementStep step)
         return;
     }
 
-    emit LOG_D("Map " + ecuCalDef[id->rom_number]->NameList.at(id->map_number) + " scaling " +
-                   ecuCalDef[id->rom_number]->MapScalingNameList.at(id->map_number) +
-                   " min / max: " + ecuCalDef[id->rom_number]->MinValueList.at(id->map_number) + " / " +
-                   ecuCalDef[id->rom_number]->MaxValueList.at(id->map_number),
-               true, true);
+    emit LOG_D(
+        "Map " + legacy->NameList.at(id->map_number) + " scaling " + legacy->MapScalingNameList.at(id->map_number) +
+            " min / max: " + legacy->MinValueList.at(id->map_number) + " / " + legacy->MaxValueList.at(id->map_number),
+        true, true);
 
-    auto edit = fastecu::ui::resolve_active_map_edit(w, *ecuCalDef[id->rom_number], id->map_number);
+    auto edit = fastecu::ui::resolve_active_map_edit(w, *legacy, id->map_number);
     if (!edit)
     {
         return;
     }
 
-    const auto patch = fastecu::calibration::apply_increment(bytes::view(ecuCalDef[id->rom_number]->FullRomData),
-                                                             edit->spec(), edit->x_size(), edit->cell_text(),
-                                                             edit->range(), step, fileActions->float_precision);
+    const auto patch =
+        fastecu::calibration::apply_increment(bytes::view(legacy->FullRomData), edit->spec(), edit->x_size(),
+                                              edit->cell_text(), edit->range(), step, fileActions->float_precision);
     if (!patch.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
         return;
     }
-    fastecu::ui::apply_patch(*ecuCalDef[id->rom_number], id->map_number, edit->kind(), *patch);
+    fastecu::ui::apply_patch(*legacy, id->map_number, edit->kind(), *patch);
     set_maptablewidget_items();
 }
 
@@ -222,6 +226,11 @@ void MainWindow::set_value()
     QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
     const auto id = fastecu::ui::parse_map_window_id(w);
     if (!id)
+    {
+        return;
+    }
+    FileActions::EcuCalDefStructure *legacy = legacy_calibration(id->session);
+    if (legacy == nullptr)
     {
         return;
     }
@@ -243,21 +252,21 @@ void MainWindow::set_value()
         return;
     }
 
-    auto edit = fastecu::ui::resolve_active_map_edit(w, *ecuCalDef[id->rom_number], id->map_number);
+    auto edit = fastecu::ui::resolve_active_map_edit(w, *legacy, id->map_number);
     if (!edit)
     {
         return;
     }
 
-    const auto patch = fastecu::calibration::apply_set_expression(
-        bytes::view(ecuCalDef[id->rom_number]->FullRomData), edit->spec(), edit->x_size(), edit->cell_text(),
-        edit->range(), text.toStdString(), fileActions->float_precision);
+    const auto patch = fastecu::calibration::apply_set_expression(bytes::view(legacy->FullRomData), edit->spec(),
+                                                                  edit->x_size(), edit->cell_text(), edit->range(),
+                                                                  text.toStdString(), fileActions->float_precision);
     if (!patch.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
         return;
     }
-    fastecu::ui::apply_patch(*ecuCalDef[id->rom_number], id->map_number, edit->kind(), *patch);
+    fastecu::ui::apply_patch(*legacy, id->map_number, edit->kind(), *patch);
     set_maptablewidget_items();
 }
 
@@ -269,6 +278,11 @@ void MainWindow::interpolate_value(fastecu::calibration::InterpolationMode mode)
     {
         return;
     }
+    FileActions::EcuCalDefStructure *legacy = legacy_calibration(id->session);
+    if (legacy == nullptr)
+    {
+        return;
+    }
 
     QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
     if (!mapTableWidget)
@@ -276,21 +290,21 @@ void MainWindow::interpolate_value(fastecu::calibration::InterpolationMode mode)
         return;
     }
 
-    auto edit = fastecu::ui::resolve_active_map_edit(w, *ecuCalDef[id->rom_number], id->map_number);
+    auto edit = fastecu::ui::resolve_active_map_edit(w, *legacy, id->map_number);
     if (!edit)
     {
         return;
     }
 
-    const auto patch = fastecu::calibration::apply_interpolation(bytes::view(ecuCalDef[id->rom_number]->FullRomData),
-                                                                 edit->spec(), edit->x_size(), edit->cell_text(),
-                                                                 edit->range(), mode, fileActions->float_precision);
+    const auto patch =
+        fastecu::calibration::apply_interpolation(bytes::view(legacy->FullRomData), edit->spec(), edit->x_size(),
+                                                  edit->cell_text(), edit->range(), mode, fileActions->float_precision);
     if (!patch.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
         return;
     }
-    fastecu::ui::apply_patch(*ecuCalDef[id->rom_number], id->map_number, edit->kind(), *patch);
+    fastecu::ui::apply_patch(*legacy, id->map_number, edit->kind(), *patch);
     set_maptablewidget_items();
 }
 
@@ -351,6 +365,11 @@ void MainWindow::paste_value()
     {
         return;
     }
+    FileActions::EcuCalDefStructure *legacy = legacy_calibration(id->session);
+    if (legacy == nullptr)
+    {
+        return;
+    }
 
     QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
     if (!mapTableWidget)
@@ -358,7 +377,7 @@ void MainWindow::paste_value()
         return;
     }
 
-    auto edit = fastecu::ui::resolve_active_map_edit(w, *ecuCalDef[id->rom_number], id->map_number);
+    auto edit = fastecu::ui::resolve_active_map_edit(w, *legacy, id->map_number);
     if (!edit)
     {
         return;
@@ -393,14 +412,14 @@ void MainWindow::paste_value()
     const std::uint32_t y_size = edit->kind() == fastecu::calibration::EditTargetKind::XAxis ? 1U : spec.y_size;
 
     const auto patch =
-        fastecu::calibration::apply_paste(bytes::view(ecuCalDef[id->rom_number]->FullRomData), spec, x_size, y_size,
-                                          edit->cell_text(), edit->range(), pasted_rows, fileActions->float_precision);
+        fastecu::calibration::apply_paste(bytes::view(legacy->FullRomData), spec, x_size, y_size, edit->cell_text(),
+                                          edit->range(), pasted_rows, fileActions->float_precision);
     if (!patch.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
         return;
     }
-    fastecu::ui::apply_patch(*ecuCalDef[id->rom_number], id->map_number, edit->kind(), *patch);
+    fastecu::ui::apply_patch(*legacy, id->map_number, edit->kind(), *patch);
     set_maptablewidget_items();
 }
 
@@ -836,22 +855,16 @@ void MainWindow::show_hex_editor()
 {
     emit LOG_D("Show hex editor", true, true);
 
-    int rom_number = 0;
-
-    QTreeWidgetItem *selectedItem = nullptr;
-    int item_count = ui->calibrationFilesTreeWidget->selectedItems().count();
-    if (item_count)
+    // The window shows itself from its own constructor and is parented to
+    // MainWindow, so without WA_DeleteOnClose every invocation left a
+    // closed-but-alive HexEdit -- and its copy of the ROM data -- alive
+    // until MainWindow was destroyed. HexEdit::closeEvent() ignores the
+    // event when the user cancels a save prompt, and Qt only deletes on an
+    // accepted close, so cancelling still keeps the window. It holds its own
+    // copy of the image, so it may outlive the ROM it was opened from.
+    if (FileActions::EcuCalDefStructure *legacy = selected_legacy_calibration(); legacy != nullptr)
     {
-        selectedItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
-        rom_number = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selectedItem);
-
-        // The window shows itself from its own constructor and is parented to
-        // MainWindow, so without WA_DeleteOnClose every invocation left a
-        // closed-but-alive HexEdit -- and its copy of the ROM data -- alive
-        // until MainWindow was destroyed. HexEdit::closeEvent() ignores the
-        // event when the user cancels a save prompt, and Qt only deletes on an
-        // accepted close, so cancelling still keeps the window.
-        HexEdit *hexEdit = new HexEdit(ecuCalDef[rom_number], this);
+        HexEdit *hexEdit = new HexEdit(legacy->FullRomData, legacy->FileName, this);
         hexEdit->setAttribute(Qt::WA_DeleteOnClose);
     }
 }
@@ -938,35 +951,31 @@ void MainWindow::winols_csv_to_romraider_xml()
 
 void MainWindow::set_maptablewidget_items()
 {
-    int mapRomNumber = 0;
-    int mapNumber = 0;
-    QString mapName = "";
-
     QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
-    if (w)
+    const auto id = fastecu::ui::parse_map_window_id(w);
+    FileActions::EcuCalDefStructure *legacy = id.has_value() ? legacy_calibration(id->session) : nullptr;
+    if (legacy != nullptr)
     {
-        QStringList mapWindowString = w->objectName().split(",");
-        mapRomNumber = mapWindowString.at(0).toInt();
-        mapNumber = mapWindowString.at(1).toInt();
-        mapName = mapWindowString.at(2);
+        const int mapNumber = id->map_number;
+        const QString mapName = w->objectName().split(",").value(2);
 
         QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
         if (mapTableWidget)
         {
-            int xSize = ecuCalDef[mapRomNumber]->XSizeList.at(mapNumber).toInt();
-            int ySize = ecuCalDef[mapRomNumber]->YSizeList.at(mapNumber).toInt();
+            int xSize = legacy->XSizeList.at(mapNumber).toInt();
+            int ySize = legacy->YSizeList.at(mapNumber).toInt();
             int mapSize = xSize * ySize;
 
             int xSizeOffset = 0;
             int ySizeOffset = 0;
 
-            if (ecuCalDef[mapRomNumber]->YSizeList.at(mapNumber).toInt() > 1)
+            if (legacy->YSizeList.at(mapNumber).toInt() > 1)
             {
                 xSizeOffset = 1;
             }
-            if (ecuCalDef[mapRomNumber]->XSizeList.at(mapNumber).toInt() > 1 ||
-                ecuCalDef[mapRomNumber]->XScaleTypeList.at(mapNumber) == "Static Y Axis" ||
-                ecuCalDef[mapRomNumber]->XScaleTypeList.at(mapNumber) == "Static X Axis")
+            if (legacy->XSizeList.at(mapNumber).toInt() > 1 ||
+                legacy->XScaleTypeList.at(mapNumber) == "Static Y Axis" ||
+                legacy->XScaleTypeList.at(mapNumber) == "Static X Axis")
             {
                 ySizeOffset = 1;
             }
@@ -977,7 +986,7 @@ void MainWindow::set_maptablewidget_items()
 
             if (xSize > 1)
             {
-                QStringList xScaleCellText = ecuCalDef[mapRomNumber]->XScaleData.at(mapNumber).split(",");
+                QStringList xScaleCellText = legacy->XScaleData.at(mapNumber).split(",");
                 for (int i = 0; i < xSize; i++)
                 {
                     QTableWidgetItem *cellItem;
@@ -1000,17 +1009,16 @@ void MainWindow::set_maptablewidget_items()
                         xScaleCellText.insert(i, QString::number(i));
                         xScaleCellDataText = xScaleCellText.at(i);
                     }
-                    else if (ecuCalDef[mapRomNumber]->XScaleTypeList.at(mapNumber) == "Static Y Axis" ||
-                             ecuCalDef[mapRomNumber]->XScaleTypeList.at(mapNumber) == "Static X Axis")
+                    else if (legacy->XScaleTypeList.at(mapNumber) == "Static Y Axis" ||
+                             legacy->XScaleTypeList.at(mapNumber) == "Static X Axis")
                     {
                         xScaleCellDataText = xScaleCellText.at(i);
                     }
                     else
                     {
-                        xScaleCellDataText =
-                            QString::number(xScaleCellText.at(i).toFloat(), 'f',
-                                            fastecu::calibration::map_value_decimal_count(
-                                                ecuCalDef[mapRomNumber]->XScaleFormatList.at(mapNumber).toStdString()));
+                        xScaleCellDataText = QString::number(xScaleCellText.at(i).toFloat(), 'f',
+                                                             fastecu::calibration::map_value_decimal_count(
+                                                                 legacy->XScaleFormatList.at(mapNumber).toStdString()));
                     }
 
                     if (i < xScaleCellText.count())
@@ -1021,7 +1029,7 @@ void MainWindow::set_maptablewidget_items()
             }
             if (ySize > 1)
             {
-                QStringList yScaleCellText = ecuCalDef[mapRomNumber]->YScaleData.at(mapNumber).split(",");
+                QStringList yScaleCellText = legacy->YScaleData.at(mapNumber).split(",");
                 for (int i = 0; i < ySize; i++)
                 {
                     QTableWidgetItem *cellItem;
@@ -1031,19 +1039,18 @@ void MainWindow::set_maptablewidget_items()
                     cellItem->setFont(cellFont);
                     if (i < yScaleCellText.count())
                     {
-                        cellItem->setText(QString::number(
-                            yScaleCellText.at(i).toFloat(), 'f',
-                            fastecu::calibration::map_value_decimal_count(
-                                ecuCalDef[mapRomNumber]->YScaleFormatList.at(mapNumber).toStdString())));
+                        cellItem->setText(QString::number(yScaleCellText.at(i).toFloat(), 'f',
+                                                          fastecu::calibration::map_value_decimal_count(
+                                                              legacy->YScaleFormatList.at(mapNumber).toStdString())));
                     }
                 }
             }
-            QStringList mapDataCellText = ecuCalDef[mapRomNumber]->MapData.at(mapNumber).split(",");
+            QStringList mapDataCellText = legacy->MapData.at(mapNumber).split(",");
             for (int i = 0; i < mapSize; i++)
             {
                 int yPos = 0;
                 int xPos = 0;
-                if (ecuCalDef[mapRomNumber]->XSizeList.at(mapNumber).toUInt() > 1)
+                if (legacy->XSizeList.at(mapNumber).toUInt() > 1)
                 {
                     yPos = i / xSize + ySizeOffset;
                 }
@@ -1051,7 +1058,7 @@ void MainWindow::set_maptablewidget_items()
                 {
                     yPos = i / xSize;
                 }
-                if (ecuCalDef[mapRomNumber]->YSizeList.at(mapNumber).toUInt() > 1)
+                if (legacy->YSizeList.at(mapNumber).toUInt() > 1)
                 {
                     xPos = i - (yPos - ySizeOffset) * xSize + xSizeOffset;
                 }
@@ -1066,19 +1073,17 @@ void MainWindow::set_maptablewidget_items()
 
                 cellItem->setTextAlignment(Qt::AlignCenter);
                 cellItem->setFont(cellFont);
-                cellItem->setBackground(
-                    QBrush(get_map_cell_color(ecuCalDef[mapRomNumber], mapDataCellText.at(i).toFloat(), mapNumber)));
-                // if (ecuCalDef[mapRomNumber]->TypeList.at(mapNumber) == "1D")
+                cellItem->setBackground(QBrush(get_map_cell_color(legacy, mapDataCellText.at(i).toFloat(), mapNumber)));
+                // if (legacy->TypeList.at(mapNumber) == "1D")
                 cellItem->setForeground(Qt::black);
                 // else
                 //     cellItem->setForeground(Qt::white);
 
                 if (i < mapDataCellText.count())
                 {
-                    cellItem->setText(
-                        QString::number(mapDataCellText.at(i).toFloat(), 'f',
-                                        fastecu::calibration::map_value_decimal_count(
-                                            ecuCalDef[mapRomNumber]->FormatList.at(mapNumber).toStdString())));
+                    cellItem->setText(QString::number(
+                        mapDataCellText.at(i).toFloat(), 'f',
+                        fastecu::calibration::map_value_decimal_count(legacy->FormatList.at(mapNumber).toStdString())));
                 }
             }
         }

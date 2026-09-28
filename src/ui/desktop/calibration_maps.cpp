@@ -3,8 +3,8 @@
 
 #include <algorithm>
 
-CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int romIndex, int mapIndex,
-                                 QRect mdiAreaSize, QWidget *parent)
+CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, fastecu::calibration::SessionId session,
+                                 int mapIndex, QRect mdiAreaSize, QWidget *parent)
     : QWidget(parent), ui{std::make_unique<Ui::CalibrationMaps>()}
 {
     ui->setupUi(this);
@@ -12,8 +12,8 @@ CalibrationMaps::CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int
     this->setParent(parent);
     this->setAttribute(Qt::WA_DeleteOnClose);
 
-    QString mapWindowObjectName =
-        QString::number(romIndex) + "," + QString::number(mapIndex) + "," + ecuCalDef->NameList.at(mapIndex);
+    QString mapWindowObjectName = fastecu::ui::session_key_text(session) + "," + QString::number(mapIndex) + "," +
+                                  ecuCalDef->NameList.at(mapIndex);
 
     this->setObjectName(mapWindowObjectName);
     this->setWindowTitle(ecuCalDef->NameList.at(mapIndex) + " - " + ecuCalDef->FileName);

@@ -294,16 +294,24 @@ TEST(ParseMapWindowId, ReturnsNulloptForANullWindow)
     EXPECT_FALSE(parse_map_window_id(nullptr).has_value());
 }
 
-TEST(ParseMapWindowId, ParsesRomAndMapNumberFromAWellFormedObjectName)
+TEST(ParseMapWindowId, ParsesSessionAndMapNumberFromAWellFormedObjectName)
 {
     QMdiSubWindow window;
-    window.setObjectName("2,7,Timing,uint16");
+    window.setObjectName("12,7,Timing,uint16");
 
     const auto id = parse_map_window_id(&window);
 
     ASSERT_TRUE(id.has_value());
-    EXPECT_EQ(id->rom_number, 2);
+    EXPECT_EQ(id->session, calibration::SessionId{12});
     EXPECT_EQ(id->map_number, 7);
+}
+
+TEST(ParseMapWindowId, ReturnsNulloptWhenTheSessionKeyIsNotDecimal)
+{
+    QMdiSubWindow window;
+    window.setObjectName("x,7,Timing");
+
+    EXPECT_FALSE(parse_map_window_id(&window).has_value());
 }
 
 // Legacy read mapWindowString.at(0)/.at(1)/.at(2)/.at(3) unguarded; this is
