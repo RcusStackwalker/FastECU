@@ -28,38 +28,6 @@ class TestModelValidation : public QObject
         QVERIFY(!(value == same));
     }
 
-    void loggerValues_acceptMatchingRows()
-    {
-        FileActions::LogValuesStructure logValues;
-        appendLoggerValue(logValues);
-
-        QStringList errors;
-        QVERIFY(FileActions::validate_logger_values(logValues, &errors));
-        QVERIFY(errors.isEmpty());
-    }
-
-    void loggerValues_reportMissingRequiredId()
-    {
-        FileActions::LogValuesStructure logValues;
-        appendLoggerValue(logValues);
-        logValues.log_value_id[0] = "";
-
-        QStringList errors;
-        QVERIFY(!FileActions::validate_logger_values(logValues, &errors));
-        QVERIFY(errors.contains("log_value.id[0] is required"));
-    }
-
-    void loggerSwitches_reportMismatchedRows()
-    {
-        FileActions::LogValuesStructure logValues;
-        appendLoggerSwitch(logValues);
-        logValues.log_switch_state.clear();
-
-        QStringList errors;
-        QVERIFY(!FileActions::validate_logger_switches(logValues, &errors));
-        QVERIFY(errors.contains("log_switch.state has 0 entries, expected 1"));
-    }
-
     void calibrationMaps_reportMismatchedRows()
     {
         FileActions::EcuCalDefStructure ecuCalDef;
@@ -134,36 +102,6 @@ class TestModelValidation : public QObject
     }
 
   private:
-    static void appendLoggerValue(FileActions::LogValuesStructure& logValues)
-    {
-        logValues.log_value_protocol << "SSM";
-        logValues.log_value_id << "P1";
-        logValues.log_value_name << "Engine Speed";
-        logValues.log_value_description << "RPM";
-        logValues.log_value_ecu_byte_index << "0";
-        logValues.log_value_ecu_bit << "0";
-        logValues.log_value_target << "ECU";
-        logValues.log_value_address << "0x1234";
-        logValues.log_value_conversions.append(QList<fastecu::logging::Conversion>{{"rpm", "x", "0", "", "", ""}});
-        logValues.log_value_length << "2";
-        logValues.log_value << "0.00";
-        logValues.log_value_enabled << "1";
-    }
-
-    static void appendLoggerSwitch(FileActions::LogValuesStructure& logValues)
-    {
-        logValues.log_switch_protocol << "SSM";
-        logValues.log_switch_id << "S1";
-        logValues.log_switch_name << "Switch";
-        logValues.log_switch_description << "Description";
-        logValues.log_switch_address << "0x20";
-        logValues.log_switch_ecu_byte_index << "0";
-        logValues.log_switch_ecu_bit << "1";
-        logValues.log_switch_target << "ECU";
-        logValues.log_switch_enabled << "0";
-        logValues.log_switch_state << "0";
-    }
-
     static void appendCalibrationMap(FileActions::EcuCalDefStructure& ecuCalDef)
     {
         ecuCalDef.IdList << "map1";

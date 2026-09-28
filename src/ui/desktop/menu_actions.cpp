@@ -751,7 +751,7 @@ void MainWindow::continue_start_logging()
     }
 
     auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
-        *logValues, protocol_id, activeLogValueProtocolFilter, logging_policy);
+        *loggerModel, protocol_id, activeLogValueProtocolFilter, logging_policy);
     if (!snapshot.has_value())
     {
         emit LOG_E("Logging session failed to start: " + QString::fromStdString(snapshot.error().detail), true, true);

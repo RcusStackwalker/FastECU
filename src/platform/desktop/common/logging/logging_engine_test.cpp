@@ -36,7 +36,10 @@ DesktopLoggingSnapshot snapshot()
                                                       .reconnect_attempt_threshold = 1000,
                                                       .reconnect_retry_period = 0});
     Q_ASSERT(session.has_value());
-    return DesktopLoggingSnapshot{.session = std::move(*session), .index_by_id = {{"rpm", 0}}, .enabled_ids = {"rpm"}};
+    return DesktopLoggingSnapshot{.session = std::move(*session),
+                                  .protocol = "SSM",
+                                  .identities_by_id = {{"rpm", {"SSM", "rpm"}}},
+                                  .enabled_ids = {"rpm"}};
 }
 
 class BlockingFailureProtocol final : public fastecu::logging::LoggingProtocol

@@ -136,22 +136,26 @@ wiring now use the portable `ConfigSession` and catalog records.
 `ConfigValuesStructure`, `LegacyConfigAdapter`, and `legacy_config_paths` have
 been removed. Startup rejection is an intentional correction, documented in
 [Configuration session](design-notes.md#configuration-session), together with
-the preserved selection and persistence quirks. Steps 6l–6n remain.
+the preserved selection and persistence quirks. Steps 6m–6n remain.
 
 ### 6l — Logging models
 
-Migrate logging selection, capability application, display adapters, and
-per-run snapshots away from `LogValuesStructure`. Use the existing logger
-definition parser, definition/selection models, and logging session APIs.
-Keep immutable definition data separate from operator choices, ECU support,
-and live samples; loading or changing selection must not re-enable channels
-that the ECU disabled.
+Implemented in two slices: 6l-1 adds the portable `LoggerModel`, support-aware
+defaults and explicit selection fallback; 6l-2 migrates desktop composition,
+chooser, displays, CSV, snapshots and sample application. `LogValuesStructure`,
+`LegacyLoggerAdapter`, logger-specific `FileActions` code and the logging legacy
+Qt visibility grant are removed. Definition defaults, operator choices, support
+and desktop values have separate ownership.
 
-**Exit gate:** no production consumer needs the legacy logging lists or
-`LegacyLoggerAdapter`. Tests cover selection persistence, capability
-preservation, stable channel identity, raw-value/conversion compatibility,
-and session snapshots. Backend policy stays in `LoggingUseCase::run()`;
-this slice does not add live reconfiguration or change CDBG wire behavior.
+Automated coverage includes selection persistence/failures, nonfatal definition
+loads, capability preservation, stable identities, unresolved IDs, raw-value and
+conversion compatibility, immutable snapshots and logging/connection lifecycles.
+The chooser's duplicate-label correction and CSV's protocol-scoped identity
+correction have reproductions, exact corrected assertions and mutation checks;
+see [Logger ownership and stable identities](design-notes.md#logger-ownership-and-stable-identities).
+Backend policy stays in `LoggingUseCase::run()`. Platform CI/packaging gates and
+hardware bench qualification require their recorded results before release;
+automated success alone does not establish hardware qualification.
 
 ### 6m — Definition and calibration sessions
 

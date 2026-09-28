@@ -42,8 +42,11 @@ DesktopLoggingSnapshot snapshot(LoggingProtocolId id, std::uint32_t address = 0x
                                          .reconnect_attempt_threshold = 100,
                                          .reconnect_retry_period = 20});
     Q_ASSERT(session);
-    return {
-        .session = std::move(*session), .response_offsets = {0}, .index_by_id = {{"load", 0}}, .enabled_ids = {"load"}};
+    return {.session = std::move(*session),
+            .response_offsets = {0},
+            .protocol = "SSM",
+            .identities_by_id = {{"load", {"SSM", "load"}}},
+            .enabled_ids = {"load"}};
 }
 
 void expectCdbgSetup(FakeBackend& fake, int failure = 7)

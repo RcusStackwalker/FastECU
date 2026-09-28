@@ -91,7 +91,7 @@ qt_cc_library(
     ],
     visibility = UI_FACING_VISIBILITY,
     deps = QT_DEPS + [
-        "//src/backend/definitions",
+        "//src/backend/logging:logger_model",
         "//src/backend/logging:logging_session",
         "//src/backend/ports",
     ],

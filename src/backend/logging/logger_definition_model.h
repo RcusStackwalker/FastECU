@@ -21,9 +21,7 @@ struct Conversion
     bool operator==(const Conversion&) const = default;
 };
 
-// One <parameter>. `protocol` stays a field rather than becoming a grouping
-// key because every consumer filters with `log_value_protocol.at(j) ==
-// protocol`; regrouping is step-6 work.
+// One <parameter>. Identity is (protocol, id); order follows the XML.
 struct LoggerParameter
 {
     std::string protocol;
@@ -51,10 +49,7 @@ struct LoggerSwitch
     std::string ecu_byte_index;
     std::string ecu_bit;
     std::string target;
-    // Always false out of the parser: the definition XML carries no switch
-    // "enabled" attribute (file_actions.cpp:1261 hardcodes "0" when building
-    // the legacy log_switch_enabled list). Populated from the ECU's runtime
-    // capability response by Task 8, not by parse_logger_definition.
+    // XML defaults only. LoggerModel owns runtime support separately.
     bool enabled{false};
 
     bool operator==(const LoggerSwitch&) const = default;

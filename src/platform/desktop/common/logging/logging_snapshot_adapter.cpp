@@ -1,5 +1,6 @@
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 
+#include <QStringList>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -31,28 +32,20 @@ fastecu::Result<QString> effective_protocol_filter(fastecu::logging::LoggingProt
     return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging protocol");
 }
 
-bool selected_by_protocol(fastecu::logging::LoggingProtocolId protocol, const QString& enabled)
-{
-    // Legacy SSM polls every lower-panel slot to preserve response offsets,
-    // while MUT/DMA excludes disabled values.  CDBG has no enabled filter.
-    return protocol != fastecu::logging::LoggingProtocolId::MutDma || enabled == "1";
-}
-
 fastecu::Result<fastecu::logging::LoggingChannel>
-channel_from_legacy_row(const FileActions::LogValuesStructure& log_values, int row,
-                        fastecu::logging::LoggingProtocolId protocol)
+channel_from_parameter(const fastecu::logging::LoggerParameter& parameter, fastecu::logging::LoggingProtocolId protocol)
 {
-    const auto& conversions = log_values.log_value_conversions.at(row);
-    if (conversions.isEmpty() || conversions.at(0).units.empty() || conversions.at(0).expr.empty() ||
+    const auto& conversions = parameter.conversions;
+    if (conversions.empty() || conversions.at(0).units.empty() || conversions.at(0).expr.empty() ||
         conversions.at(0).format.empty())
     {
         return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "malformed logging conversion");
     }
 
     bool address_ok = false;
-    const uint address = log_values.log_value_address.at(row).toUInt(&address_ok, 16);
+    const uint address = QString::fromStdString(parameter.address).toUInt(&address_ok, 16);
     bool length_ok = false;
-    const uint length = log_values.log_value_length.at(row).toUInt(&length_ok);
+    const uint length = QString::fromStdString(parameter.length).toUInt(&length_ok);
     if (!address_ok || !length_ok)
     {
         return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging address or length");
@@ -66,7 +59,7 @@ channel_from_legacy_row(const FileActions::LogValuesStructure& log_values, int r
     }
 
     return fastecu::logging::LoggingChannel{
-        .id = log_values.log_value_id.at(row).toStdString(),
+        .id = parameter.id,
         .address = static_cast<std::uint32_t>(address),
         .length = static_cast<std::size_t>(length),
         .raw_assembly = protocol == fastecu::logging::LoggingProtocolId::Ssm
@@ -80,85 +73,74 @@ channel_from_legacy_row(const FileActions::LogValuesStructure& log_values, int r
 
 } // namespace
 
-fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const FileActions::LogValuesStructure& log_values,
+fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const fastecu::logging::LoggerModel& model,
                                                                       fastecu::logging::LoggingProtocolId protocol,
                                                                       const QString& protocol_filter,
                                                                       fastecu::logging::LoggingPolicy policy)
 {
-    if (!FileActions::validate_logger_values(log_values))
-    {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "malformed legacy logging value lists");
-    }
-
-    auto filter = effective_protocol_filter(protocol, protocol_filter);
-    if (!filter)
+    const auto filter = effective_protocol_filter(protocol, protocol_filter);
+    if (!filter.has_value())
     {
         return std::unexpected(filter.error());
     }
-
+    const auto key = filter->toStdString();
     std::vector<fastecu::logging::LoggingChannel> channels;
     std::vector<std::size_t> response_offsets;
-    std::unordered_map<std::string, int> selected_indices_by_id;
+    std::unordered_map<std::string, fastecu::logging::LoggerIdentity> identities;
     std::unordered_set<std::string> enabled_ids;
-    channels.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
-    response_offsets.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
-    selected_indices_by_id.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
-    enabled_ids.reserve(static_cast<std::size_t>(log_values.lower_panel_log_value_id.size()));
-
-    for (qsizetype lower_panel_index = 0; lower_panel_index < log_values.lower_panel_log_value_id.size();
-         ++lower_panel_index)
+    const auto& selected_ids = model.selection().lower_panel_ids;
+    for (std::size_t slot = 0; slot < selected_ids.size(); ++slot)
     {
-        const QString& lower_panel_id = log_values.lower_panel_log_value_id.at(lower_panel_index);
-        int selected_row = -1;
-        for (int row = 0; row < log_values.log_value_id.size(); ++row)
+        const auto& id = selected_ids[slot];
+        const fastecu::logging::LoggerParameter *selected = nullptr;
+        for (const auto& p : model.definition().parameters)
         {
-            if (log_values.log_value_id.at(row) != lower_panel_id || log_values.log_value_protocol.at(row) != *filter ||
-                !selected_by_protocol(protocol, log_values.log_value_enabled.at(row)))
+            if (p.id != id || p.protocol != key ||
+                (protocol == fastecu::logging::LoggingProtocolId::MutDma && !model.parameter_supported(key, id)))
             {
                 continue;
             }
-            if (selected_row >= 0)
+            if (selected != nullptr)
             {
                 return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
                                      "duplicate logging value id in selected protocol");
             }
-            selected_row = row;
+            selected = &p;
         }
-        if (selected_row < 0)
+        if (selected == nullptr)
         {
             continue;
         }
-
-        auto channel = channel_from_legacy_row(log_values, selected_row, protocol);
-        if (!channel)
+        auto channel = channel_from_parameter(*selected, protocol);
+        if (!channel.has_value())
         {
             return std::unexpected(channel.error());
         }
-        if (!selected_indices_by_id.emplace(channel->id, selected_row).second)
+        if (!identities.emplace(id, fastecu::logging::LoggerIdentity{key, id}).second)
         {
             return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "duplicate lower-panel logging value id");
         }
-        if (protocol != fastecu::logging::LoggingProtocolId::Ssm ||
-            log_values.log_value_enabled.at(selected_row) == "1")
+        if (protocol != fastecu::logging::LoggingProtocolId::Ssm || model.parameter_supported(key, id))
         {
-            enabled_ids.insert(channel->id);
+            enabled_ids.insert(id);
         }
         if (protocol == fastecu::logging::LoggingProtocolId::Ssm)
         {
-            response_offsets.push_back(static_cast<std::size_t>(lower_panel_index));
+            response_offsets.push_back(slot);
         }
         channels.push_back(std::move(*channel));
     }
-
     auto session = fastecu::logging::make_logging_session(protocol, std::move(channels), policy);
-    if (!session)
+    if (!session.has_value())
     {
         return std::unexpected(session.error());
     }
     return DesktopLoggingSnapshot{
         .session = std::move(*session),
         .response_offsets = std::move(response_offsets),
-        .index_by_id = std::move(selected_indices_by_id),
+        .protocol = key,
+        .selection = model.selection(),
+        .identities_by_id = std::move(identities),
         .enabled_ids = std::move(enabled_ids),
     };
 }

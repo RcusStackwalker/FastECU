@@ -102,6 +102,10 @@ Actions:
   mutate `ecuCalDef` and move with the "Replace parallel-list data models"
   work rather than on their own.
 - Keep new file, protocol, and hardware logic out of `MainWindow`.
+- Logging model and definition service ownership moved to composition in step
+  6l; immutable definitions, selection, ECU support and desktop values are
+  separate. The legacy logging lists/bridge are gone. The two identity corrections
+  have automated evidence; [bench qualification remains pending](design-notes.md#logger-ownership-and-stable-identities).
 - Logging-protocol registration is composition-owned as of step 6f. The
   platform transport package builds the three protocols; the UI passes the
   ECU/TCU choice in the logging snapshot. Connection orchestration,

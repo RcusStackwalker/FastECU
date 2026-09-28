@@ -159,7 +159,12 @@ class MainWindow : public QMainWindow
     fastecu::ui::ChecksumCorrectionCommand m_checksumCorrectionCommand;
     FileActions *fileActions = nullptr;
     fastecu::ui::DefinitionAuthoringDialog *definitionAuthoringDialog = nullptr;
-    FileActions::LogValuesStructure *logValues;
+    fastecu::logging::LoggerModel *loggerModel;
+    fastecu::desktop::logging::DesktopLoggerValues loggerValues;
+    void load_logger_definition();
+    void load_logger_selection();
+    void save_logger_selection();
+    void write_logger_csv_cells(bool header);
     fastecu::config::ConfigSession *configSession = nullptr;
     std::optional<fastecu::Error> last_settings_save_error;
     std::array<FileActions::EcuCalDefStructure *, 100> ecuCalDef{};

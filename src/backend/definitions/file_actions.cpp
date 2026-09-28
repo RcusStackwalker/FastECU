@@ -11,9 +11,6 @@
 #include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/backend/calibration/calibration_service.h"
 #include "src/algorithms/diagnostics/nrc_parser.h"
-#include "src/backend/logging/legacy/legacy_logger_adapter.h"
-#include "src/backend/logging/logger_conf.h"
-#include "src/backend/logging/logger_definition_service.h"
 
 namespace
 {
@@ -103,20 +100,6 @@ bool validateRequiredField(const QString& group, const QString& name, const QStr
     return valid;
 }
 
-void logValidationErrors(const QString& group, const QStringList& errors)
-{
-    for (const QString& error : errors)
-    {
-        qWarning().noquote() << group << error;
-    }
-}
-
-std::vector<std::string> toStdStrings(const QStringList& values)
-{
-    return values | std::views::transform([](const QString& value) { return value.toStdString(); }) |
-           std::ranges::to<std::vector>();
-}
-
 int lineAfterClosingTag(const QStringList& lines, const QString& tagName)
 {
     const QString closeTag = "</" + tagName + ">";
@@ -132,11 +115,10 @@ int lineAfterClosingTag(const QStringList& lines, const QString& tagName)
 
 } // namespace
 
-FileActions::FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBundle& resource_bundle,
+FileActions::FileActions(fastecu::IFileSystem& file_system, fastecu::IResourceBundle& /*resource_bundle*/,
                          fastecu::IFileRepository& file_repository, fastecu::IAtomicFileWriter& atomic_file_writer,
                          fastecu::IEventSink& events, fastecu::config::ConfigSession& config)
     : configSession_(config), definitionFileSystem_(file_system), definitionFileRepository_(file_repository),
-      loggerResourceBundle_(resource_bundle), loggerAtomicFileWriter_(atomic_file_writer),
       definitionService_(file_system, file_repository, atomic_file_writer), definitionAdapter_(definitionService_),
       calibrationAdapter_(file_repository), events_(events)
 {
@@ -336,52 +318,6 @@ void FileActions::normalize_definition_addresses(EcuCalDefStructure& ecuCalDef)
     }
 }
 
-bool FileActions::validate_logger_values(const LogValuesStructure& logValues, QStringList *errors)
-{
-    QStringList localErrors;
-    QStringList *out = errors ? errors : &localErrors;
-    const int rows = logValues.log_value_id.size();
-
-    validateListLength("log_value", "protocol", logValues.log_value_protocol.size(), rows, out);
-    validateListLength("log_value", "name", logValues.log_value_name.size(), rows, out);
-    validateListLength("log_value", "description", logValues.log_value_description.size(), rows, out);
-    validateListLength("log_value", "ecu_byte_index", logValues.log_value_ecu_byte_index.size(), rows, out);
-    validateListLength("log_value", "ecu_bit", logValues.log_value_ecu_bit.size(), rows, out);
-    validateListLength("log_value", "target", logValues.log_value_target.size(), rows, out);
-    validateListLength("log_value", "address", logValues.log_value_address.size(), rows, out);
-    validateListLength("log_value", "conversions", logValues.log_value_conversions.size(), rows, out);
-    validateListLength("log_value", "length", logValues.log_value_length.size(), rows, out);
-    validateListLength("log_value", "value", logValues.log_value.size(), rows, out);
-    validateListLength("log_value", "enabled", logValues.log_value_enabled.size(), rows, out);
-
-    validateRequiredField("log_value", "protocol", logValues.log_value_protocol, out);
-    validateRequiredField("log_value", "id", logValues.log_value_id, out);
-
-    return out->isEmpty();
-}
-
-bool FileActions::validate_logger_switches(const LogValuesStructure& logValues, QStringList *errors)
-{
-    QStringList localErrors;
-    QStringList *out = errors ? errors : &localErrors;
-    const int rows = logValues.log_switch_id.size();
-
-    validateListLength("log_switch", "protocol", logValues.log_switch_protocol.size(), rows, out);
-    validateListLength("log_switch", "name", logValues.log_switch_name.size(), rows, out);
-    validateListLength("log_switch", "description", logValues.log_switch_description.size(), rows, out);
-    validateListLength("log_switch", "address", logValues.log_switch_address.size(), rows, out);
-    validateListLength("log_switch", "ecu_byte_index", logValues.log_switch_ecu_byte_index.size(), rows, out);
-    validateListLength("log_switch", "ecu_bit", logValues.log_switch_ecu_bit.size(), rows, out);
-    validateListLength("log_switch", "target", logValues.log_switch_target.size(), rows, out);
-    validateListLength("log_switch", "enabled", logValues.log_switch_enabled.size(), rows, out);
-    validateListLength("log_switch", "state", logValues.log_switch_state.size(), rows, out);
-
-    validateRequiredField("log_switch", "protocol", logValues.log_switch_protocol, out);
-    validateRequiredField("log_switch", "id", logValues.log_switch_id, out);
-
-    return out->isEmpty();
-}
-
 bool FileActions::validate_calibration_maps(const EcuCalDefStructure& ecuCalDef, QStringList *errors)
 {
     QStringList localErrors;
@@ -484,161 +420,6 @@ const fastecu::config::ResolvedCarModel& FileActions::selectedVehicle() const
     // The composition initializes the session before building FileActions,
     // and the session only ever holds a valid row.
     return *configSession_.selected_vehicle();
-}
-
-FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogValuesStructure *logValues,
-                                                               const QString& ecu_id, bool modify)
-{
-    const std::string handle = configSession_.effective_paths().logger_file;
-    const std::string ecu_key = ecu_id.toStdString();
-
-    events_.log(fastecu::LogLevel::Debug,
-                std::format("Looking for ECU ID: {} in logger def file: {}", ecu_id.toStdString(), handle));
-
-    const auto warnUnreadable = [&]
-    { events_.notice(std::format("Logger file: Unable to open logger config file '{}' for reading", handle)); };
-
-    fastecu::logging::LoggerDefinitionService service(definitionFileRepository_, loggerResourceBundle_,
-                                                      loggerAtomicFileWriter_);
-
-    if (modify)
-    {
-        fastecu::logging::LoggerSelection selection{.protocol = logValues->logging_values_protocol.toStdString(),
-                                                    .gauge_ids = toStdStrings(logValues->dashboard_log_value_id),
-                                                    .lower_panel_ids =
-                                                        toStdStrings(logValues->lower_panel_log_value_id),
-                                                    .switch_ids = toStdStrings(logValues->lower_panel_switch_id)};
-        if (auto saved = service.save_selection(handle, ecu_key, selection); !saved)
-        {
-            warnUnreadable();
-            return nullptr;
-        }
-        return logValues;
-    }
-
-    // A read must never write: load_selection reports "this ECU has no entry"
-    // as an empty optional and leaves the file alone, so the no-definition
-    // check below still runs before anything is persisted.
-    const auto stored = service.load_selection(handle, ecu_key);
-    if (!stored)
-    {
-        warnUnreadable();
-        return nullptr;
-    }
-
-    // Legacy cleared the three selection lists here -- right after the conf
-    // file opened and before it knew whether this ECU had an entry. Preserved
-    // deliberately: on the no-definition-loaded branch below this method
-    // returns without repopulating them, and MainWindow::update_logbox_values
-    // walks lower_panel_log_value_id against the log box layout that
-    // update_logboxes just rebuilt from an empty definition. Leaving stale ids
-    // in the list there would index past the end of an empty layout.
-    logValues->dashboard_log_value_id.clear();
-    logValues->lower_panel_log_value_id.clear();
-    logValues->lower_panel_switch_id.clear();
-
-    if (stored->has_value())
-    {
-        events_.log(fastecu::LogLevel::Debug, std::format("Found ECU ID {}", ecu_id.toStdString()));
-        fastecu::logging::apply_selection(**stored, *logValues);
-        return logValues;
-    }
-
-    // Only reachable with the ECU id absent, which is the only state legacy
-    // ever surfaced this warning from.
-    if (logValues->log_value_protocol.empty())
-    {
-        events_.notice("Logger definition file: No logger definition file selected, returning without initializing log "
-                       "parameters!");
-        events_.log(fastecu::LogLevel::Debug,
-                    "No logger definition file selected, returning without initializing log parameters!");
-        return nullptr;
-    }
-
-    events_.log(fastecu::LogLevel::Debug, "ECU ID not found, initializing log parameters");
-
-    // Only the three fields default_selection reads. zip truncates to the
-    // shortest list, so a caller-supplied struct whose parallel arrays are
-    // skewed yields fewer rows instead of indexing past the end of one.
-    //
-    // as_const on each input, not `const auto&` on the binding: zip's
-    // reference type is a tuple of references, so a const-qualified tuple
-    // still hands out mutable elements. Zipping const ranges makes the
-    // elements themselves const. (std::views::as_const, the tidier spelling,
-    // is not in libc++ yet.)
-    fastecu::logging::LoggerDefinition definition;
-    for (const auto& [protocol, id, enabled] :
-         std::views::zip(std::as_const(logValues->log_value_protocol), std::as_const(logValues->log_value_id),
-                         std::as_const(logValues->log_value_enabled)))
-    {
-        definition.parameters.push_back(
-            {.protocol = protocol.toStdString(), .id = id.toStdString(), .enabled = enabled == "1"});
-    }
-    // No protocol here: default_selection reads LoggerSwitch::protocol
-    // nowhere, and zipping log_switch_protocol in would truncate the walk
-    // against a list legacy never consulted on this path.
-    for (const auto& [id, enabled] :
-         std::views::zip(std::as_const(logValues->log_switch_id), std::as_const(logValues->log_switch_enabled)))
-    {
-        // `enabled` carries the ECU's runtime capability response, not the XML
-        // default -- this is the state default_selection must filter on.
-        definition.switches.push_back({.id = id.toStdString(), .enabled = enabled == "1"});
-    }
-
-    const auto selection =
-        service.load_or_initialize_selection(handle, ecu_key, fastecu::logging::default_selection(definition));
-    if (!selection)
-    {
-        warnUnreadable();
-        return nullptr;
-    }
-    fastecu::logging::apply_selection(*selection, *logValues);
-
-    return logValues;
-}
-
-FileActions::LogValuesStructure *FileActions::read_logger_definition_file()
-{
-    LogValuesStructure *logValues = &LogValuesStruct;
-    fastecu::config::AppConfig& settings = configSession_.settings();
-
-    fastecu::logging::LoggerDefinitionService service(definitionFileRepository_, loggerResourceBundle_,
-                                                      loggerAtomicFileWriter_);
-
-    const auto handle =
-        service.resolve_definition_handle(settings.romraider_logger_definition_file, settings.selected_log_protocol,
-                                          configSession_.effective_paths().config_files_directory);
-    if (!handle)
-    {
-        events_.notice(std::format("Logger file: Unable to resolve logger definition file: {}", handle.error().detail));
-        return logValues;
-    }
-    if (settings.romraider_logger_definition_file.empty() && !handle->empty())
-    {
-        settings.romraider_logger_definition_file = *handle;
-        events_.log(fastecu::LogLevel::Debug, std::format("Using bundled CDBG logger definition: {}", *handle));
-    }
-
-    const auto definition = service.load_definition(*handle);
-    if (!definition)
-    {
-        events_.notice(std::format("Logger file: Unable to open logger definition file '{}' for reading: {}", *handle,
-                                   definition.error().detail));
-        return logValues;
-    }
-
-    fastecu::logging::apply_definition(*definition, *logValues);
-    fastecu::logging::apply_selection(fastecu::logging::initial_selection(*definition), *logValues);
-
-    QStringList validationErrors;
-    validate_logger_values(*logValues, &validationErrors);
-    validate_logger_switches(*logValues, &validationErrors);
-    if (!validationErrors.isEmpty())
-    {
-        logValidationErrors("Invalid logger definition:", validationErrors);
-    }
-
-    return logValues;
 }
 
 QString FileActions::parse_hex_ecuid(uint8_t byte)

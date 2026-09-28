@@ -16,7 +16,6 @@
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/definitions/definition_indexes.h"
 #include "src/backend/definitions/ecu_cal_def.h"
-#include "src/backend/definitions/log_values.h"
 #include "src/backend/calibration/legacy/legacy_calibration_adapter.h"
 #include "src/backend/config/config_session.h"
 #include "src/backend/definition/definition_service.h"
@@ -60,13 +59,6 @@ class FileActions
         QStringList send_timeout;
     } protocolsStruct;
 
-    // Defined in log_values.h (see that file's comment for why it is not a
-    // nested struct here anymore) and re-exposed under its historical name
-    // so every existing `FileActions::LogValuesStructure` call site keeps
-    // compiling unchanged.
-    using LogValuesStructure = fastecu::definitions::LogValuesStructure;
-    LogValuesStructure LogValuesStruct;
-
     using EcuCalDefStructure = fastecu::definitions::EcuCalDefStructure;
     EcuCalDefStructure EcuCalDefStruct;
 
@@ -92,23 +84,10 @@ class FileActions
         DefFile,
     };
 
-    static bool validate_logger_values(const LogValuesStructure& logValues, QStringList *errors = nullptr);
-    static bool validate_logger_switches(const LogValuesStructure& logValues, QStringList *errors = nullptr);
     static bool validate_calibration_maps(const EcuCalDefStructure& ecuCalDef, QStringList *errors = nullptr);
     static QStringList collect_ecuflash_base_header_fields(const EcuCalDefStructure& ecuCalDef,
                                                            const QStringList& defData, int *endIndex = nullptr);
     static QStringList collect_ecuflash_definition_body_lines(const QStringList& defData, int startIndex);
-
-    /************************
-     * Read logger def file
-     ***********************/
-    LogValuesStructure *read_logger_definition_file();
-
-    /*************************
-     * Read logger conf file
-     ************************/
-    LogValuesStructure *read_logger_conf(FileActions::LogValuesStructure *logValues, const QString& ecu_id,
-                                         bool modify);
 
     /*****************************************************
      * Search and read RomRaider ECU definition from file
@@ -194,8 +173,6 @@ class FileActions
     fastecu::config::ConfigSession& configSession_;
     fastecu::IFileSystem& definitionFileSystem_;
     fastecu::IFileRepository& definitionFileRepository_;
-    fastecu::IResourceBundle& loggerResourceBundle_;
-    fastecu::IAtomicFileWriter& loggerAtomicFileWriter_;
     fastecu::definition::DefinitionService definitionService_;
     fastecu::definition::LegacyDefinitionAdapter definitionAdapter_;
     struct ResolvedDefinition

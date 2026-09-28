@@ -17,6 +17,16 @@ LoggerIdentity identity(std::string_view protocol, std::string_view id)
 }
 unsigned decimal(std::string_view text)
 {
+    const auto first = text.find_first_not_of(" \t\n\r\v\f");
+    if (first == std::string_view::npos)
+    {
+        return 0;
+    }
+    text = text.substr(first, text.find_last_not_of(" \t\n\r\v\f") - first + 1);
+    if (text.starts_with('+'))
+    {
+        text.remove_prefix(1);
+    }
     unsigned value = 0;
     const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value);
     return parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size() ? value : 0;

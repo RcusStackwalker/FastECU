@@ -1,265 +1,167 @@
 #include "mainwindow.h"
-#include "ui_mainwindow.h"
 
 #include <algorithm>
-#include <functional>
+#include <QDialogButtonBox>
+
+#include "src/ui/desktop/config_fields.h"
+
+namespace
+{
+// Each combo item owns an identity; presentation labels need not be unique.
+struct LoggerChoice
+{
+    QString name;
+    QStringList identity;
+};
+void populate_choices(QComboBox& combo, std::vector<LoggerChoice> choices, const QString& protocol,
+                      const std::string& selected)
+{
+    std::stable_sort(choices.begin(), choices.end(), [](const auto& a, const auto& b) { return a.name < b.name; });
+    for (const auto& choice : choices)
+    {
+        combo.addItem(choice.name, choice.identity);
+    }
+    combo.setCurrentIndex(combo.findData(QStringList{protocol, QString::fromStdString(selected)}));
+}
+void populate_parameter_choices(QComboBox& combo, const fastecu::logging::LoggerModel& model, const QString& protocol,
+                                const std::string& selected)
+{
+    std::vector<LoggerChoice> choices;
+    const auto key = protocol.toStdString();
+    for (const auto& p : model.definition().parameters)
+    {
+        if (p.protocol == key && model.parameter_supported(key, p.id))
+        {
+            choices.push_back({QString::fromStdString(p.name), {protocol, QString::fromStdString(p.id)}});
+        }
+    }
+    populate_choices(combo, std::move(choices), protocol, selected);
+}
+void populate_switch_choices(QComboBox& combo, const fastecu::logging::LoggerModel& model, const QString& protocol,
+                             const std::string& selected)
+{
+    std::vector<LoggerChoice> choices;
+    const auto key = protocol.toStdString();
+    for (const auto& p : model.definition().switches)
+    {
+        if (p.protocol == key && model.switch_supported(key, p.id))
+        {
+            choices.push_back({QString::fromStdString(p.name), {protocol, QString::fromStdString(p.id)}});
+        }
+    }
+    populate_choices(combo, std::move(choices), protocol, selected);
+}
+bool apply_choice(fastecu::logging::LoggerSelection& selection, std::vector<std::string>& ids, const QComboBox *combo,
+                  int index)
+{
+    if (combo == nullptr || index < 0)
+    {
+        return false;
+    }
+    const auto identity = combo->itemData(index).toStringList();
+    const auto slot = combo->objectName().split(' ').last().toUInt();
+    if (identity.size() != 2 || slot >= ids.size())
+    {
+        return false;
+    }
+    selection.protocol = identity[0].toStdString();
+    ids[slot] = identity[1].toStdString();
+    return true;
+}
+} // namespace
 
 void MainWindow::change_log_values(int tab_index, const QString& protocol_arg)
 {
-    auto change_log_values_dialog = std::make_unique<QDialog>();
-    QVBoxLayout *main_layout = new QVBoxLayout();
-    QTabWidget *tab_widget = new QTabWidget();
-    QSpacerItem *button_spacer = new QSpacerItem(1, 1, QSizePolicy::Expanding, QSizePolicy::Fixed);
-
-    QHBoxLayout *button_layout = new QHBoxLayout();
-    QPushButton *button_ok = new QPushButton("Ok");
-    QPushButton *button_cancel = new QPushButton("Cancel");
-    button_layout->addSpacerItem(button_spacer);
-    button_layout->addWidget(button_ok);
-    button_layout->addWidget(button_cancel);
-
-    connect(button_ok, SIGNAL(clicked()), change_log_values_dialog.get(), SLOT(close()));
-    connect(button_cancel, SIGNAL(clicked()), change_log_values_dialog.get(), SLOT(close()));
-
-    change_log_values_dialog->setLayout(main_layout);
-    main_layout->addWidget(tab_widget);
-    main_layout->addLayout(button_layout);
-
-    QWidget *gauge_widget = new QWidget();
-    QWidget *digital_widget = new QWidget();
-    QWidget *switch_widget = new QWidget();
-    QGridLayout *gauge_value_layout = new QGridLayout();
-    QGridLayout *digital_value_layout = new QGridLayout();
-    QGridLayout *switch_value_layout = new QGridLayout();
-    gauge_widget->setLayout(gauge_value_layout);
-    digital_widget->setLayout(digital_value_layout);
-    switch_widget->setLayout(switch_value_layout);
-
-    tab_widget->addTab(gauge_widget, "Gauges");
-    tab_widget->addTab(digital_widget, "Digital");
-    tab_widget->addTab(switch_widget, "Switches");
-
-    QLabel *title_label;
-    QLabel *log_value_label;
-    QComboBox *log_value_combobox;
-    QComboBox *log_units_combobox;
-    QLineEdit *log_value_title_text;
-
-    logValues->log_values_names_sorted.clear();
-    for (int i = 0; i < logValues->log_value_id.count(); i++)
+    QDialog dialog{this};
+    auto *main_layout = new QVBoxLayout(&dialog);
+    auto *tabs = new QTabWidget(&dialog);
+    main_layout->addWidget(tabs);
+    const auto add_parameters =
+        [&](const std::vector<std::string>& ids, const QString& title, const QString& kind, auto slot)
     {
-        if (logValues->log_value_protocol.at(i) == protocol_arg && logValues->log_value_enabled.at(i) == "1")
+        auto *page = new QWidget(tabs);
+        auto *layout = new QGridLayout(page);
+        for (std::size_t i = 0; i < ids.size(); ++i)
         {
-            logValues->log_values_names_sorted.append(logValues->log_value_name.at(i));
-        }
-    }
-    std::sort(logValues->log_values_names_sorted.begin(), logValues->log_values_names_sorted.end(),
-              std::less<QString>());
-
-    for (int i = 0; i < logValues->dashboard_log_value_id.length(); i++)
-    {
-        log_value_label = new QLabel("Gauge " + QString::number(i + 1));
-        log_value_combobox = new QComboBox();
-        log_units_combobox = new QComboBox();
-        log_value_title_text = new QLineEdit();
-
-        log_value_combobox->setObjectName("Gauge value " + QString::number(i));
-        log_value_combobox->addItems(logValues->log_values_names_sorted);
-        log_units_combobox->setObjectName("Gauge unit " + QString::number(i));
-        log_value_title_text->setObjectName("Gauge title " + QString::number(i));
-
-        gauge_value_layout->addWidget(log_value_label, i + 1, 0);
-        gauge_value_layout->addWidget(log_value_combobox, i + 1, 1);
-        gauge_value_layout->addWidget(log_units_combobox, i + 1, 2);
-        gauge_value_layout->addWidget(log_value_title_text, i + 1, 3);
-
-        for (int j = 0; j < logValues->log_value_id.length(); j++)
-        {
-            if (logValues->log_value_protocol.at(j) == protocol_arg)
+            auto *combo = new QComboBox(page);
+            combo->setObjectName(kind + " value " + QString::number(i));
+            populate_parameter_choices(*combo, *loggerModel, protocol_arg, ids[i]);
+            auto *units = new QComboBox(page);
+            units->setObjectName(kind + " unit " + QString::number(i));
+            if (const auto *p = loggerModel->parameter(protocol_arg.toStdString(), ids[i]); p != nullptr)
             {
-                if (logValues->dashboard_log_value_id.at(i) == logValues->log_value_id.at(j))
+                for (const auto& conversion : p->conversions)
                 {
-                    for (const auto& conversion : logValues->log_value_conversions.at(j))
-                    {
-                        log_units_combobox->addItem(QString::fromStdString(conversion.units));
-                    }
-                    for (int k = 0; k < logValues->log_values_names_sorted.length(); k++)
-                    {
-                        if (logValues->log_values_names_sorted.at(k) == logValues->log_value_name.at(j))
-                        {
-                            log_value_combobox->setCurrentIndex(k);
-                            break;
-                        }
-                    }
-                    break;
+                    units->addItem(fastecu::ui::qs(conversion.units));
                 }
             }
+            auto *name = new QLineEdit(page);
+            name->setObjectName(kind + " title " + QString::number(i));
+            layout->addWidget(new QLabel(kind + " " + QString::number(i + 1), page), static_cast<int>(i), 0);
+            layout->addWidget(combo, static_cast<int>(i), 1);
+            layout->addWidget(units, static_cast<int>(i), 2);
+            layout->addWidget(name, static_cast<int>(i), 3);
+            connect(combo, qOverload<int>(&QComboBox::currentIndexChanged), this, slot);
         }
-        connect(log_value_combobox, SIGNAL(currentIndexChanged(int)), this, SLOT(change_log_gauge_value(int)));
-    }
-
-    for (int i = 0; i < logValues->lower_panel_log_value_id.length(); i++)
+        tabs->addTab(page, title);
+    };
+    const auto& selection = loggerModel->selection();
+    add_parameters(selection.gauge_ids, "Gauges", "Gauge", &MainWindow::change_log_gauge_value);
+    add_parameters(selection.lower_panel_ids, "Digital", "Digital", &MainWindow::change_log_digital_value);
+    auto *switch_page = new QWidget(tabs);
+    auto *switch_layout = new QGridLayout(switch_page);
+    for (std::size_t i = 0; i < selection.switch_ids.size(); ++i)
     {
-        log_value_label = new QLabel("Digital " + QString::number(i + 1));
-        log_value_combobox = new QComboBox();
-        log_units_combobox = new QComboBox();
-        log_value_title_text = new QLineEdit();
-
-        log_value_combobox->setObjectName("Digital value " + QString::number(i));
-        log_value_combobox->addItems(logValues->log_values_names_sorted);
-        log_units_combobox->setObjectName("Digital unit " + QString::number(i));
-        log_value_title_text->setObjectName("Digital title " + QString::number(i));
-
-        digital_value_layout->addWidget(log_value_label, i, 0);
-        digital_value_layout->addWidget(log_value_combobox, i, 1);
-        digital_value_layout->addWidget(log_units_combobox, i, 2);
-        digital_value_layout->addWidget(log_value_title_text, i, 3);
-
-        for (int j = 0; j < logValues->log_value_id.length(); j++)
-        {
-            if (logValues->log_value_protocol.at(j) == protocol_arg)
-            {
-                if (logValues->lower_panel_log_value_id.at(i) == logValues->log_value_id.at(j))
-                {
-                    for (const auto& conversion : logValues->log_value_conversions.at(j))
-                    {
-                        log_units_combobox->addItem(QString::fromStdString(conversion.units));
-                    }
-                    for (int k = 0; k < logValues->log_values_names_sorted.length(); k++)
-                    {
-                        if (logValues->log_values_names_sorted.at(k) == logValues->log_value_name.at(j))
-                        {
-                            log_value_combobox->setCurrentIndex(k);
-                            break;
-                        }
-                    }
-                    break;
-                }
-            }
-        }
-        connect(log_value_combobox, SIGNAL(currentIndexChanged(int)), this, SLOT(change_log_digital_value(int)));
+        auto *combo = new QComboBox(switch_page);
+        combo->setObjectName("Switch value " + QString::number(i));
+        populate_switch_choices(*combo, *loggerModel, protocol_arg, selection.switch_ids[i]);
+        auto *name = new QLineEdit(switch_page);
+        name->setObjectName("Switch title " + QString::number(i));
+        switch_layout->addWidget(new QLabel("Switch " + QString::number(i + 1), switch_page), static_cast<int>(i), 0);
+        switch_layout->addWidget(combo, static_cast<int>(i), 1);
+        switch_layout->addWidget(name, static_cast<int>(i), 2);
+        connect(combo, qOverload<int>(&QComboBox::currentIndexChanged), this, &MainWindow::change_log_switch_value);
     }
-
-    logValues->log_switches_names_sorted.clear();
-    for (int i = 0; i < logValues->log_switch_id.count(); i++)
-    {
-        if (logValues->log_switch_protocol.at(i) == "SSM" && logValues->log_switch_enabled.at(i) == "1")
-        {
-            logValues->log_switches_names_sorted.append(logValues->log_switch_name.at(i));
-        }
-    }
-    std::sort(logValues->log_switches_names_sorted.begin(), logValues->log_switches_names_sorted.end(),
-              std::less<QString>());
-
-    for (int i = 0; i < logValues->lower_panel_switch_id.length(); i++)
-    {
-        log_value_label = new QLabel("Switch " + QString::number(i + 1));
-        log_value_combobox = new QComboBox();
-        log_value_title_text = new QLineEdit();
-
-        log_value_combobox->setObjectName("Switch value " + QString::number(i));
-        log_value_combobox->addItems(logValues->log_switches_names_sorted);
-        log_value_title_text->setObjectName("Switch title " + QString::number(i));
-
-        switch_value_layout->addWidget(log_value_label, i, 0);
-        switch_value_layout->addWidget(log_value_combobox, i, 1);
-        switch_value_layout->addWidget(log_value_title_text, i, 2);
-
-        for (int j = 0; j < logValues->log_switch_id.length(); j++)
-        {
-            if (logValues->log_switch_protocol.at(j) == protocol_arg)
-            {
-                if (logValues->lower_panel_switch_id.at(i) == logValues->log_switch_id.at(j))
-                {
-                    for (int k = 0; k < logValues->log_switches_names_sorted.length(); k++)
-                    {
-                        if (logValues->log_switches_names_sorted.at(k) == logValues->log_switch_name.at(j))
-                        {
-                            log_value_combobox->setCurrentIndex(k);
-                        }
-                    }
-                }
-            }
-        }
-        connect(log_value_combobox, SIGNAL(currentIndexChanged(int)), this, SLOT(change_log_switch_value(int)));
-    }
-
-    change_log_values_dialog->exec();
+    tabs->addTab(switch_page, "Switches");
+    tabs->setCurrentIndex(tab_index);
+    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
+    main_layout->addWidget(buttons);
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    // Edits are applied and saved immediately, preserving Cancel's behavior.
+    dialog.exec();
 }
 
 void MainWindow::change_log_gauge_value(int index)
 {
-    QObject *obj = sender();
-    QStringList comboIndex = obj->objectName().split(" ");
-    QComboBox *log_gauge_box;
-    log_gauge_box = obj->parent()->findChild<QComboBox *>(obj->objectName());
-
-    if (log_gauge_box)
+    auto selection = loggerModel->selection();
+    if (apply_choice(selection, selection.gauge_ids, qobject_cast<QComboBox *>(sender()), index))
     {
-        for (int i = 0; i < logValues->log_value_name.length(); i++)
-        {
-            if (logValues->log_value_protocol.at(i) == protocol)
-            {
-                if (logValues->log_value_name.at(i) == log_gauge_box->currentText())
-                {
-                    logValues->dashboard_log_value_id.replace(comboIndex.at(2).toUInt(), logValues->log_value_id.at(i));
-                }
-            }
-        }
+        const auto protocol = QString::fromStdString(selection.protocol);
+        loggerModel->set_selection(std::move(selection));
         update_logboxes(protocol);
-        fileActions->read_logger_conf(logValues, ecuid, true);
+        save_logger_selection();
     }
 }
-
 void MainWindow::change_log_digital_value(int index)
 {
-    QObject *obj = sender();
-    QStringList comboIndex = obj->objectName().split(" ");
-    QComboBox *log_digital_box;
-    log_digital_box = obj->parent()->findChild<QComboBox *>(obj->objectName());
-
-    if (log_digital_box)
+    auto selection = loggerModel->selection();
+    if (apply_choice(selection, selection.lower_panel_ids, qobject_cast<QComboBox *>(sender()), index))
     {
-        for (int i = 0; i < logValues->log_value_name.length(); i++)
-        {
-            if (logValues->log_value_protocol.at(i) == protocol)
-            {
-                if (logValues->log_value_name.at(i) == log_digital_box->currentText())
-                {
-                    // qDebug() << "Change value at" << comboIndex.at(2) << "to" << logValues->log_value_id.at(i);
-                    logValues->lower_panel_log_value_id.replace(comboIndex.at(2).toUInt(),
-                                                                logValues->log_value_id.at(i));
-                }
-            }
-        }
-        // qDebug() << "Update logboxes";
+        const auto protocol = QString::fromStdString(selection.protocol);
+        loggerModel->set_selection(std::move(selection));
         update_logboxes(protocol);
-        // qDebug() << "Update logfile";
-        fileActions->read_logger_conf(logValues, ecuid, true);
-        // qDebug() << "Done";
+        save_logger_selection();
     }
 }
-
 void MainWindow::change_log_switch_value(int index)
 {
-    QObject *obj = sender();
-    QStringList comboIndex = obj->objectName().split(" ");
-    QComboBox *log_switch_box;
-    log_switch_box = obj->parent()->findChild<QComboBox *>(obj->objectName());
-
-    if (log_switch_box)
+    auto selection = loggerModel->selection();
+    if (apply_choice(selection, selection.switch_ids, qobject_cast<QComboBox *>(sender()), index))
     {
-        for (int i = 0; i < logValues->log_switch_name.length(); i++)
-        {
-            if (logValues->log_switch_protocol.at(i) == protocol)
-            {
-                if (logValues->log_switch_name.at(i) == log_switch_box->currentText())
-                {
-                    logValues->lower_panel_switch_id.replace(comboIndex.at(2).toUInt(), logValues->log_switch_id.at(i));
-                }
-            }
-        }
+        const auto protocol = QString::fromStdString(selection.protocol);
+        loggerModel->set_selection(std::move(selection));
         update_logboxes(protocol);
-        fileActions->read_logger_conf(logValues, ecuid, true);
+        save_logger_selection();
     }
 }

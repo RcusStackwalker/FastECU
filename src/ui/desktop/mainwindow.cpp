@@ -9,6 +9,7 @@
 #include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 #include "src/backend/checksum/checksum_selection.h"
 #include "src/backend/config/menu_definition.h"
+#include "src/backend/logging/logger_definition_service.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_operation_request.h"
 #include "src/platform/desktop/common/flash/flash_workflow.h"
@@ -456,11 +457,12 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     connect(refresh_serial_port_list, SIGNAL(clicked(bool)), this, SLOT(check_serial_ports()));
     ui->toolBar->addWidget(refresh_serial_port_list);
 
-    logValues = &fileActions->LogValuesStruct;
-    logValues = fileActions->read_logger_definition_file();
+    loggerModel = &services_.logger_model;
+    load_logger_definition();
+    loggerValues.initialize(*loggerModel);
     logBoxes = new LogBox();
 
-    if (logValues != nullptr)
+    if (loggerModel != nullptr)
     {
         update_logboxes(qs(configSession->settings().selected_log_protocol));
     }
@@ -1745,7 +1747,7 @@ void MainWindow::change_gauge_values()
 {
     change_log_values(0, protocol);
     // if (ecu_init_complete)
-    //     fileActions->read_logger_conf(logValues, ecuid, true);
+    //     save_logger_selection();
 }
 
 void MainWindow::change_digital_values()
@@ -1776,90 +1778,139 @@ void MainWindow::update_logboxes(const QString& protocol_arg)
         delete wg;
     }
 
-    for (int i = 0; i < logValues->lower_panel_switch_id.count(); i++)
+    const auto key = protocol_arg.toStdString();
+    const auto& selection = loggerModel->selection();
+    for (std::size_t slot = 0; slot < selection.switch_ids.size(); ++slot)
     {
-        for (int j = 0; j < logValues->log_switch_id.length(); j++)
+        const auto& id = selection.switch_ids[slot];
+        const auto *item = loggerModel->switch_definition(key, id);
+        if (item == nullptr)
         {
-            if (logValues->lower_panel_switch_id.at(i) == logValues->log_switch_id.at(j) &&
-                logValues->log_switch_protocol.at(j) == protocol_arg)
-            {
-                // emit LOG_D("Switch:" << logValues->log_switch_name.at(j);
-                QGroupBox *switchBox =
-                    logBoxes->drawLogBoxes("switch", i, switchBoxCount, logValues->log_switch_name.at(j),
-                                           logValues->log_switch_name.at(j), logValues->log_switch_state.at(j));
-                switchBox->setAttribute(Qt::WA_TransparentForMouseEvents);
-                ui->switchBoxLayout->addWidget(switchBox);
-            }
+            continue;
         }
+        const auto name = qs(item->name);
+        auto *box = logBoxes->drawLogBoxes("switch", static_cast<int>(slot), switchBoxCount, name, name,
+                                           loggerValues.switch_value(key, id));
+        box->setAttribute(Qt::WA_TransparentForMouseEvents);
+        ui->switchBoxLayout->addWidget(box);
     }
-    for (int i = 0; i < logValues->lower_panel_log_value_id.count(); i++)
+    for (std::size_t slot = 0; slot < selection.lower_panel_ids.size(); ++slot)
     {
-        for (int j = 0; j < logValues->log_value_id.length(); j++)
+        const auto& id = selection.lower_panel_ids[slot];
+        const auto *item = loggerModel->parameter(key, id);
+        if (item == nullptr)
         {
-            if (logValues->lower_panel_log_value_id.at(i) == logValues->log_value_id.at(j) &&
-                logValues->log_value_protocol.at(j) == protocol_arg)
-            {
-                // emit LOG_D("Log value:" << logValues->log_value_name.at(j);
-                const auto& conversions = logValues->log_value_conversions.at(j);
-                const QString unit =
-                    conversions.isEmpty() ? QString() : QString::fromStdString(conversions.at(0).units);
-                QGroupBox *logBox = logBoxes->drawLogBoxes("log", i, logBoxCount, logValues->log_value_name.at(j), unit,
-                                                           logValues->log_value.at(j));
-                logBox->setAttribute(Qt::WA_TransparentForMouseEvents);
-                ui->logBoxLayout->addWidget(logBox);
-            }
+            continue;
         }
+        const auto unit = item->conversions.empty() ? QString{} : qs(item->conversions.front().units);
+        auto *box = logBoxes->drawLogBoxes("log", static_cast<int>(slot), logBoxCount, qs(item->name), unit,
+                                           loggerValues.parameter_value(key, id));
+        box->setAttribute(Qt::WA_TransparentForMouseEvents);
+        ui->logBoxLayout->addWidget(box);
     }
 }
 
 void MainWindow::update_logbox_values(const QString& protocol_arg)
 {
-    int index = 0;
-    QString warningMin;
-    QString warningMax;
-    QString labelText;
-    QString label;
-    QString unit;
-
-    QScreen *screen = QGuiApplication::primaryScreen();
-    QRect size = screen->geometry();
-
-    for (int i = 0; i < logValues->lower_panel_log_value_id.length(); i++)
+    const auto key = protocol_arg.toStdString();
+    const auto& ids = loggerModel->selection().lower_panel_ids;
+    // Layout positions can differ from selection slots when IDs are unresolved.
+    // Labels keep the original slot in their object name.
+    for (std::size_t slot = 0; slot < ids.size(); ++slot)
     {
-        QWidget *wg = ui->logBoxLayout->itemAt(i)->widget();
-        QVBoxLayout *logVBoxLayout = wg->findChild<QVBoxLayout *>();
-        if (logVBoxLayout)
+        const auto *item = loggerModel->parameter(key, ids[slot]);
+        if (item == nullptr)
         {
-            QLabel *log_label = wg->findChild<QLabel *>("log_label" + QString::number(i));
-            if (log_label)
-            {
-
-                for (int j = 0; j < logValues->log_value_id.count(); j++)
-                {
-                    if (logValues->log_value_id.at(j) == logValues->lower_panel_log_value_id.at(i) &&
-                        logValues->log_value_protocol.at(j) == protocol_arg)
-                    {
-                        index = j;
-                    }
-                }
-
-                const auto& conversions = logValues->log_value_conversions.at(index);
-                unit = conversions.isEmpty() ? QString() : QString::fromStdString(conversions.at(0).units);
-
-                labelText = logValues->log_value.at(index);
-                labelText.append(" <font size=1px color=grey>");
-                labelText.append(unit);
-                labelText.append("</font>");
-
-                log_label->setAlignment(Qt::AlignRight);
-                log_label->setText(labelText);
-                int labelFontSize = size.width() / 90;
-                QFont f("Arial", labelFontSize);
-                log_label->setFont(f);
-            }
+            continue;
         }
+        auto *label = ui->centralwidget->findChild<QLabel *>("log_label" + QString::number(slot));
+        if (label == nullptr)
+        {
+            continue;
+        }
+        const auto unit = item->conversions.empty() ? QString{} : qs(item->conversions.front().units);
+        const auto text = loggerValues.parameter_value(key, ids[slot]);
+        label->setAlignment(Qt::AlignRight);
+        label->setText(text + " <font size=1px color=grey>" + unit + "</font>");
+        const auto size = QGuiApplication::primaryScreen()->geometry();
+        label->setFont(QFont("Arial", size.width() / 90));
     }
     delay(1);
+}
+
+void MainWindow::load_logger_definition()
+{
+    auto& settings = configSession->settings();
+    auto& service = services_.logger_definitions;
+    const auto handle =
+        service.resolve_definition_handle(settings.romraider_logger_definition_file, settings.selected_log_protocol,
+                                          configSession->effective_paths().config_files_directory);
+    if (!handle.has_value())
+    {
+        services_.file_action_events.notice("Logger file: Unable to resolve logger definition file: " +
+                                            handle.error().detail);
+        return;
+    }
+    if (settings.romraider_logger_definition_file.empty() && !handle->empty())
+    {
+        settings.romraider_logger_definition_file = *handle;
+        emit LOG_D("Using bundled CDBG logger definition: " + qs(*handle), true, true);
+    }
+    auto definition = service.load_definition(*handle);
+    if (!definition.has_value())
+    {
+        services_.file_action_events.notice("Logger file: Unable to open logger definition file '" + *handle +
+                                            "' for reading: " + definition.error().detail);
+        return;
+    }
+    loggerModel->install_definition(std::move(*definition));
+}
+
+void MainWindow::load_logger_selection()
+{
+    const auto& handle = configSession->effective_paths().logger_file;
+    auto& service = services_.logger_definitions;
+    const auto stored = service.load_selection(handle, ecuid.toStdString());
+    if (!stored.has_value())
+    {
+        services_.file_action_events.notice("Logger file: Unable to open logger config file '" + handle +
+                                            "' for reading");
+        return;
+    }
+    // A successful read clears IDs even if no ECU entry or definition exists.
+    loggerModel->set_selection({.protocol = loggerModel->selection().protocol});
+    if (stored->has_value())
+    {
+        loggerModel->set_selection(**stored);
+        return;
+    }
+    if (loggerModel->definition().parameters.empty())
+    {
+        services_.file_action_events.notice("Logger definition file: No logger definition file selected, returning "
+                                            "without initializing log parameters!");
+        return;
+    }
+    const auto selected =
+        service.load_or_initialize_selection(handle, ecuid.toStdString(), loggerModel->default_selection());
+    if (!selected.has_value())
+    {
+        services_.file_action_events.notice("Logger file: Unable to open logger config file '" + handle +
+                                            "' for reading");
+        return;
+    }
+    loggerModel->set_selection(*selected);
+}
+
+void MainWindow::save_logger_selection()
+{
+    const auto& handle = configSession->effective_paths().logger_file;
+    const auto saved =
+        services_.logger_definitions.save_selection(handle, ecuid.toStdString(), loggerModel->selection());
+    if (!saved.has_value())
+    {
+        services_.file_action_events.notice("Logger file: Unable to open logger config file '" + handle +
+                                            "' for reading");
+    }
 }
 
 void MainWindow::setSplashScreenProgress(const QString& text, int incValue)
@@ -2203,7 +2254,7 @@ void MainWindow::handleLoggingValuesUpdated(const QVector<fastecu::logging::LogS
     }
     for (const auto& sample : samples)
     {
-        const auto applied = fastecu::desktop::logging::apply_log_sample(*activeLoggingSnapshot, sample, *logValues);
+        const auto applied = fastecu::desktop::logging::apply_log_sample(*activeLoggingSnapshot, sample, loggerValues);
         if (!applied)
         {
             emit LOG_E(QString::fromStdString(applied.error().detail), true, true);
