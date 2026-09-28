@@ -60,7 +60,8 @@ A movable value owning:
 - `RomProtocolInfo protocol`: flash method after alias resolution, checksum
   module label, MCU type, kernel path, kernel start address, ROM ID, and the
   file-size label.
-- `bool synced_with_ecu`, `bool dirty`.
+- `bool dirty`. The legacy `SyncedWithEcu` and `OemEcuFile` flags have no
+  reader and are not carried over.
 
 Interface: read-only accessors for all of the above;
 `Result<MapCellValues> decode_map(std::size_t map_index) const`, delegating to
@@ -85,7 +86,9 @@ Owns sessions in open order. Operations:
 - `Status close(SessionId)`
 - `CalibrationSession *find(SessionId)` and a `const` overload; `nullptr` for
   an unknown or closed ID.
-- `std::span<...> sessions() const` in open order.
+- `std::vector<SessionId> ids() const` in open order. Sessions are held by
+  `std::unique_ptr`, so pointers from `find` stay valid until that session
+  closes.
 
 A session is inserted only after its open or adoption succeeds. A failed open,
 a failed read, and a cancelled read leave the workspace unchanged. The legacy
@@ -95,16 +98,24 @@ capacity of 100 is not preserved as a limit.
 
 Moves the logic of `FileActions::open_subaru_rom_file` onto typed inputs and
 outputs. Dependencies: `definition::DefinitionService`, `IFileRepository`,
-`IEventSink`, and the portable `config::ConfigSession`. Sequence, in the
-legacy order:
+`IFileSystem`, `IEventSink`, the portable `config::ConfigSession`, and a new
+narrow port, `IDefinitionCatalogs` (`catalog(DefinitionFormat)`).
+`FileActions` implements that port with its existing `build_definition_catalog`,
+so catalog sources, including definitions authored this session, are
+unchanged; step 6n replaces the implementation. Sequence, in the legacy
+order:
 
 1. Read the ROM (`calibration::read_rom`), or for an ECU image back it up to
-   `<calibration_files_directory>/read.bin` (`calibration::backup_rom`) and
-   name it `read_image_<timestamp>.bin` when no filename is given.
+   `<calibration_files_directory>/read.bin` (`calibration::backup_rom`). The
+   caller names the image, as `MainWindow` already does with
+   `flash::read_image_filename`. An empty name is rejected; the legacy
+   timestamp fallback was unreachable and would need a clock port.
 2. Match against the primary then secondary catalog with the legacy settings
    precedence: `primary_definition_base`, the two `use_*_definitions` flags,
    and the EcuFlash directory / RomRaider file list, via
-   `DefinitionService::match_rom` and `load`.
+   `DefinitionService::match_rom` and `load`. When matching fails, the
+   previous ROM ID (for an ECU read, the one the ECU reported) is still looked
+   up in the catalog and loaded, as legacy did.
 3. Strip `0x` address prefixes and resolve the flash-method alias against
    the vehicle catalog.
 4. Select the vehicle by protocol name in `ConfigSession`.
@@ -122,18 +133,22 @@ whether the vehicle selection changed.
   catalog protocol, and changes nothing otherwise.
 - A size-validation failure still opens the ROM, with the definition's maps
   emptied (legacy `NameList.clear()`), and emits the existing notice.
-- A matched but unresolvable definition logs the existing warning and opens
-  with no decoded maps.
+- A definition file that no longer exists opens the ROM without a
+  definition, logs the load failure, and shows the existing
+  "Unable to open ECU definition file" notice. The legacy "no resolved
+  definition" warning becomes unreachable, because the use case holds the
+  definition it loaded.
 - The file-size label is `<unpadded length / 1024>kb`.
 - The checksum-module label: `checksum<method minus its first three
   characters>` for `yes`, `Not implemented yet` for `n/a`, `No checksums` for
   `no`.
-- An empty filename for a disk open is an error. An empty ECU-image filename
-  becomes the generated read-image name.
+- An empty filename for a disk open is an error, as is an empty ECU-image
+  filename or image.
 - `x_axis_data` / `y_axis_data` keep their `" "` default for an absent axis.
 
-6m-1 wires the workspace into `DesktopComposition` and `MainWindowServices`.
-No consumer calls it yet, and `FileActions` keeps its legacy open path.
+6m-1 wires the workspace into `DesktopComposition`. `MainWindowServices`
+gains the field in 6m-2, where `MainWindow` first uses it. No consumer calls
+the workspace yet, and `FileActions` keeps its legacy open path.
 
 ## 6m-2 — Read-only consumers and ownership
 
