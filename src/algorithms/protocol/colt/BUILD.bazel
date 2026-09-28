@@ -10,20 +10,16 @@ cc_library(
     name = "mitsu_colt_can_protocol",
     srcs = ["mitsu_colt_can_protocol.cpp"],
     hdrs = ["mitsu_colt_can_protocol.h"],
-    deps = [
-        "//src/algorithms/protocol",
-        "//src/algorithms/protocol/uds",
-    ],
+    implementation_deps = ["//src/algorithms/protocol/uds"],
+    deps = ["//src/algorithms/protocol"],
 )
 
 cc_library(
     name = "mitsu_colt_can_vendor_ext_protocol",
     srcs = ["mitsu_colt_can_vendor_ext_protocol.cpp"],
     hdrs = ["mitsu_colt_can_vendor_ext_protocol.h"],
-    deps = [
-        "//src/algorithms/protocol",
-        "//src/algorithms/protocol/uds",
-    ],
+    implementation_deps = ["//src/algorithms/protocol/uds"],
+    deps = ["//src/algorithms/protocol"],
 )
 
 cc_library(
@@ -38,7 +34,9 @@ fastecu_portable_gtest(
     srcs = ["mitsu_colt_can_protocol_test.cpp"],
     deps = [
         ":mitsu_colt_can_protocol",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/algorithms/protocol/testing:byte_test_utils",
+        "@googletest//:gtest",
     ],
 )
 
@@ -48,11 +46,15 @@ fastecu_portable_gtest(
     deps = [
         ":mitsu_colt_can_vendor_ext_protocol",
         "//src/algorithms/protocol/testing:byte_test_utils",
+        "@googletest//:gtest",
     ],
 )
 
 fastecu_portable_gtest(
     name = "test_mitsu_colt_can_cdbg_protocol",
     srcs = ["mitsu_colt_can_cdbg_protocol_test.cpp"],
-    deps = [":mitsu_colt_can_cdbg_protocol"],
+    deps = [
+        ":mitsu_colt_can_cdbg_protocol",
+        "@googletest//:gtest",
+    ],
 )

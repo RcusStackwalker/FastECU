@@ -7,9 +7,7 @@ cc_library(
     name = "ssm",
     srcs = ["ssm_protocol_core.cpp"],
     hdrs = ["ssm_protocol_core.h"],
-    deps = [
-        "//src/algorithms/protocol",
-    ],
+    deps = ["//src/algorithms/protocol"],
 )
 
 fastecu_portable_gtest(
@@ -18,6 +16,8 @@ fastecu_portable_gtest(
     srcs = ["ssm_protocol_core_test.cpp"],
     deps = [
         ":ssm",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/algorithms/protocol/testing:byte_test_utils",
+        "@googletest//:gtest",
     ],
 )

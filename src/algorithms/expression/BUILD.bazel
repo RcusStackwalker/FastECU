@@ -12,5 +12,8 @@ cc_library(
 fastecu_portable_gtest(
     name = "expression_evaluator_test",
     srcs = ["expression_evaluator_test.cpp"],
-    deps = [":expression"],
+    deps = [
+        ":expression",
+        "@googletest//:gtest",
+    ],
 )

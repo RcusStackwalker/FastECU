@@ -40,23 +40,39 @@ cc_library(
 fastecu_portable_gtest(
     name = "checksum_test",
     srcs = ["checksum_test.cpp"],
-    deps = [":checksum"],
+    deps = [
+        ":checksum",
+        "//src/algorithms/protocol/testing:byte_matchers",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
     name = "checksum_ecu_mitsu_m32r_can_test",
     srcs = ["checksum_ecu_mitsu_m32r_can_test.cpp"],
-    deps = [":checksum"],
+    deps = [
+        ":checksum",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/testing:byte_matchers",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
     name = "checksum_primitives_test",
     srcs = ["checksum_primitives_test.cpp"],
-    deps = [":checksum"],
+    deps = [
+        ":checksum",
+        "//src/algorithms/protocol/testing:byte_matchers",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
     name = "denso_checksum_table_test",
     srcs = ["denso_checksum_table_test.cpp"],
-    deps = [":checksum"],
+    deps = [
+        ":checksum",
+        "@googletest//:gtest",
+    ],
 )

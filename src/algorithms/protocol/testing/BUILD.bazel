@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -20,11 +20,11 @@ cc_library(
     ],
 )
 
-cc_test(
+fastecu_portable_gtest(
     name = "byte_matchers_test",
     srcs = ["byte_matchers_test.cpp"],
     deps = [
         ":byte_matchers",
-        "@googletest//:gtest_main",
+        "@googletest//:gtest",
     ],
 )

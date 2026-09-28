@@ -16,22 +16,26 @@ cc_library(
         "uds_pdu.h",
         "uds_response.h",
     ],
-    deps = [
-        "//src/algorithms/diagnostics",
-        "//src/algorithms/protocol",
-    ],
+    implementation_deps = ["//src/algorithms/diagnostics"],
+    deps = ["//src/algorithms/protocol"],
 )
 
 fastecu_portable_gtest(
     name = "uds_pdu_test",
     srcs = ["uds_pdu_test.cpp"],
-    deps = [":uds"],
+    deps = [
+        ":uds",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
     name = "uds_response_test",
     srcs = ["uds_response_test.cpp"],
-    deps = [":uds"],
+    deps = [
+        ":uds",
+        "@googletest//:gtest",
+    ],
 )
 
 # Header-only. Named bytes shared by the Subaru CAN and K-Line bootloader/
