@@ -7,6 +7,8 @@ namespace fastecu::config
 
 struct ConfigPaths
 {
+    bool operator==(const ConfigPaths&) const = default;
+
     std::string base_config_directory;
     std::string version_config_directory;
     std::string calibration_files_directory;

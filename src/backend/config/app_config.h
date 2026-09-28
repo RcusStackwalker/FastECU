@@ -10,6 +10,8 @@ namespace fastecu::config
 
 struct AppConfig
 {
+    bool operator==(const AppConfig&) const = default;
+
     std::string window_width;
     std::string window_height;
     std::string toolbar_iconsize;
@@ -28,6 +30,11 @@ struct AppConfig
     std::string romraider_logger_definition_file;
     std::string datalog_files_directory;
 };
+
+// Reads and parses fastecu.cfg without writing anything back. Absent
+// settings stay "" and directory values are returned as written in the
+// file (unnormalized) -- the contract load_app_config has always had.
+Result<AppConfig> parse_app_config(const ConfigPaths& paths, IFileRepository& file_repository);
 
 // Replaces FileActions::read_config_file.
 Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& file_repository);

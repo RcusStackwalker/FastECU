@@ -1,0 +1,23 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+# Config-package-owned test fixture: a ConfigSession over in-memory ports
+# with a small, fully known protocols.cfg.
+package(default_visibility = [
+    "//apps/desktop:__pkg__",
+    "//src/backend:__subpackages__",
+    "//src/ui:__subpackages__",
+])
+
+cc_library(
+    name = "config_session_fixture",
+    testonly = True,
+    hdrs = ["config_session_fixture.h"],
+    deps = [
+        "//src/backend/config:config_paths",
+        "//src/backend/config:config_session",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:in_memory_file_system",
+        "//src/backend/ports/testing:in_memory_resource_bundle",
+        "//src/backend/ports/testing:recording_event_sink",
+    ],
+)

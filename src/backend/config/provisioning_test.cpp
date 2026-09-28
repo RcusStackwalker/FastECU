@@ -185,3 +185,31 @@ TEST(ProvisionConfigDirectories, FirstCreateDirectoryFailureStopsTheSequence)
     ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsErr(ErrorKind::Internal));
     EXPECT_FALSE(fs.exists(paths.calibration_files_directory));
 }
+
+TEST(ProvisionConfigDirectories, CreateDirectoryFailureNamesThePath)
+{
+    InMemoryFileSystem fs;
+    fs.create_directory_error = fastecu::Error{ErrorKind::Internal, "permission denied"};
+    InMemoryResourceBundle bundle;
+    RecordingEventSink events;
+    ConfigPaths paths = test_paths();
+
+    EXPECT_THAT(provision_config_directories(paths, fs, bundle, events),
+                fastecu::testing::IsErrWith(ErrorKind::Internal,
+                                            ::testing::AllOf(::testing::HasSubstr(paths.base_config_directory),
+                                                             ::testing::HasSubstr("permission denied"))));
+}
+
+TEST(ProvisionConfigDirectories, BundleCopyFailureNamesTheTarget)
+{
+    InMemoryFileSystem fs;
+    InMemoryResourceBundle bundle;
+    // Listed in the bundle but absent as a copy source, so copy_file fails.
+    bundle.bundles["config"]["menu.cfg"] = {1};
+    RecordingEventSink events;
+    ConfigPaths paths = test_paths();
+
+    EXPECT_THAT(provision_config_directories(paths, fs, bundle, events),
+                fastecu::testing::IsErrWith(ErrorKind::Internal,
+                                            ::testing::HasSubstr(paths.config_files_directory + "menu.cfg")));
+}

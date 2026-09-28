@@ -21,6 +21,7 @@ PORTABLE_PACKAGES = {
         "app_config",
         "car_model_catalog",
         "config_paths",
+        "config_session",
         "menu_definition",
         "protocol_catalog",
         "protocols_document",

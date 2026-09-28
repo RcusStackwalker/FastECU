@@ -41,6 +41,10 @@ class InMemoryFileRepository : public IFileRepository
     }
     Status write(std::string_view h, std::span<const std::uint8_t> d) override
     {
+        if (auto error = write_errors.find(std::string(h)); error != write_errors.end())
+        {
+            return std::unexpected(error->second);
+        }
         std::vector<std::uint8_t> data(d.begin(), d.end());
         write_calls.push_back({std::string(h), data});
         files[std::string(h)] = std::move(data);
@@ -48,6 +52,7 @@ class InMemoryFileRepository : public IFileRepository
     }
     std::map<std::string, std::vector<std::uint8_t>> files;
     std::map<std::string, Error> read_errors;
+    std::map<std::string, Error> write_errors;
     std::optional<Result<std::vector<std::uint8_t>>> next_read_result;
     std::vector<std::string> read_handles;
     std::vector<std::pair<std::string, std::vector<std::uint8_t>>> write_calls;

@@ -10,6 +10,13 @@ namespace fastecu::config
 namespace
 {
 
+// Provisioning errors reach the operator at startup, so each names the path
+// it failed on; the port's own detail is only the reason.
+std::unexpected<Error> at_path(const Error& error, std::string_view path)
+{
+    return std::unexpected(Error{error.kind, std::format("{}: {}", path, error.detail)});
+}
+
 Status ensure_directory(IFileSystem& fs, const std::string& path, IEventSink& events)
 {
     if (fs.exists(path))
@@ -19,7 +26,7 @@ Status ensure_directory(IFileSystem& fs, const std::string& path, IEventSink& ev
     if (Status result = fs.create_directory(path); !result.has_value())
     {
         events.log(LogLevel::Error, std::format("Unable to create directory: {}", path));
-        return result;
+        return at_path(result.error(), path);
     }
     return {};
 }
@@ -56,7 +63,7 @@ Status copy_bundle_if_absent(IFileSystem& fs, IResourceBundle& bundle, const std
         if (!result.has_value())
         {
             events.log(LogLevel::Error, std::format("Unable to provision default file: {}", target));
-            return result;
+            return at_path(result.error(), target);
         }
     }
     return {};
@@ -153,7 +160,7 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, I
             Status r = fs.remove_file(paths.syslog_files_directory + files[i].name);
             if (!r.has_value())
             {
-                return r;
+                return at_path(r.error(), paths.syslog_files_directory + files[i].name);
             }
         }
     }
