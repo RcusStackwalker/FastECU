@@ -55,6 +55,14 @@ class CheckTest(unittest.TestCase):
         self.assertIn("pkg/BUILD.bazel", output)
         self.assertEqual(self.diffs, [(["pkg/BUILD.bazel"], [])])
 
+    def test_drift_message_tells_the_contributor_to_commit(self) -> None:
+        def gazelle(_root: Path) -> int:
+            self.build.write_text("# regenerated\n")
+            return 0
+
+        _, output = self.run_check(gazelle)
+        self.assertIn("commit", output)
+
     def test_created_file_is_drift_and_reported_as_added(self) -> None:
         def gazelle(root: Path) -> int:
             (root / "new").mkdir()

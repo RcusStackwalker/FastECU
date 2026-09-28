@@ -113,7 +113,11 @@ def check(
     for path in paths:
         print(f"  {path}", file=out)
     show_diff(root, paths, [path for path in paths if path not in before])
-    print("Review the changes above, `git add` them, and push again.", file=out)
+    print(
+        "Review the changes above, then `git add` and commit them before pushing again: "
+        "a re-push with the fixes only staged passes this check but sends the stale files.",
+        file=out,
+    )
     return 1
 
 
