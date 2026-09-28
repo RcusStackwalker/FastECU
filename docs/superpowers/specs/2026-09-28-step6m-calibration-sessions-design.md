@@ -22,8 +22,8 @@ The step lands as three stacked pull requests (`gh stack`):
 | Slice | Content | Legacy model after the slice |
 |---|---|---|
 | 6m-1 | Portable session, workspace, and ROM-open use case; composition wiring | Unchanged; still used by every consumer |
-| 6m-2 | Read-only consumers and slot ownership move to the workspace | Built transiently for mutating callers only |
-| 6m-3 | Mutating consumers; legacy model, adapters, and ratchet entries retired | Deleted |
+| 6m-2 | Ownership and identity move to the workspace; open, ECU-read adoption and close go through it | One legacy view per session, built once at open, owned beside it |
+| 6m-3 | Tree, map windows and every mutation onto the session; legacy model, adapters, and ratchet entries retired | Deleted |
 
 ## Decisions
 
@@ -152,15 +152,30 @@ whether the vehicle selection changed.
 gains the field in 6m-2, where `MainWindow` first uses it. No consumer calls
 the workspace yet, and `FileActions` keeps its legacy open path.
 
-## 6m-2 — Read-only consumers and ownership
+## 6m-2 — Ownership and identity
 
-- Remove `std::array<EcuCalDefStructure *, 100> ecuCalDef` and
-  `ecuCalDefIndex` from `MainWindow`. Every lookup goes through
-  `workspace.find(id)`.
-- Calibration-file tree rows and map sub-window identifiers carry the
-  `SessionId`. Remove every `split(",").at(0).toInt()` slot parse and the
-  close-time renumbering (`mainwindow.cpp`, `menu_actions.cpp`).
-- File open and post-ECU-read open call the workspace.
+The original split (read-only consumers in 6m-2, mutation in 6m-3) does not
+survive the code. Map windows re-render from the text the edit paths patch, the
+selectable and switch handlers write bytes directly, and `HexEdit` and the map
+windows keep their struct for their whole lifetime. A per-call projection would
+therefore be a long-lived second byte store. 6m-2 instead moves ownership and
+identity only, and leaves every reader and writer on one legacy view.
+
+- `MainWindowServices` carries the `CalibrationWorkspace`. Remove
+  `std::array<EcuCalDefStructure *, 100> ecuCalDef` and `ecuCalDefIndex` from
+  `MainWindow`. It owns, per open session and in files-tree order, the
+  `SessionId` and one `std::unique_ptr<EcuCalDefStructure>` legacy view.
+- The legacy view is built once, when the session opens, by a UI-side
+  projection that reproduces what `FileActions::open_subaru_rom_file` left in
+  the slot (golden-equivalence tested against it). Until 6m-3 the view is the
+  only byte store the UI reads or writes. Nothing reads the session's bytes
+  after the projection, and 6m-3 reverses that ownership.
+- Calibration-file tree rows and map sub-window names carry the `SessionId`.
+  Every lookup is by ID, and the close-time renumbering is removed. A window
+  or row whose session has closed finds nothing and does nothing.
+- File open and the post-read handoff call the workspace.
+  `adopt_read_image` is called only after a successful read, so the
+  pre-created slot and its failure-path `delete` disappear.
   `prompt_for_missing_definition` runs when the new session has no definition.
   The dialog stays in the UI. Create and import keep their current behavior:
   they write a definition file and do not re-open the ROM, which remains
@@ -168,22 +183,25 @@ the workspace yet, and `FileActions` keeps its legacy open path.
   keeps the definition-less session and shows the legacy placeholder ROM info
   (XML ID `UnknownID`; empty internal ID address, internal ID string, and ECU
   ID; make from the selected vehicle; definition file blank) only on that
-  path. `DefHeaderStrings` / `DefHeaderNames` move to the authoring dialog as
-  UI constants.
-- `CalibrationTreeWidget` builds from the session's definition maps.
-- `CalibrationMaps` renders from `decode_map`. A UI helper converts the typed
-  result into cell text, preserving current formatting, precision, and
-  min/max cell coloring.
-- `HexEdit` reads the session's ROM bytes.
+  path.
+- Closing a ROM closes its session and frees its legacy view, which legacy
+  leaked.
+- `HexEdit` takes the image bytes and file name by value instead of keeping
+  the struct.
 
-**Transitional projection.** Map edit, save, write, and checksum still take
-`EcuCalDefStructure`. A UI-side helper in `src/ui/desktop` builds one from a
-session for a single call and writes the resulting bytes back through
-`write_bytes`. It adds no `qt_layer` entry, has its own tests, and is deleted
-in 6m-3. It must not be kept alive between calls.
+## 6m-3 — Rendering, mutation and retirement
 
-## 6m-3 — Mutation and retirement
-
+- **Tree and view state.** `CalibrationTreeWidget` builds from the session's
+  definition and protocol info. Which map windows are open and which
+  categories are expanded (legacy `VisibleList`, `CategoryExpandedList`,
+  `RomInfoExpanded`) move to UI view state keyed by `SessionId`.
+- **Map windows.** `CalibrationMaps` and `set_maptablewidget_items` render
+  from `decode_map`. A UI helper converts the typed result into cell text,
+  preserving current formatting, precision, and min/max cell coloring.
+- **Switch and selectable handlers** write through `write_bytes`, keeping the
+  `wrx02` address adjustment unchanged (defect (a) stays open).
+- `DefHeaderStrings` / `DefHeaderNames` move to the authoring dialog as UI
+  constants.
 - **Map edits.** `map_edit_adapter` stops patching the text columns and calls
   `write_bytes`; the view re-decodes. The selectable-map path (legacy direct
   write into `MapData`) writes the selection's byte value. A characterization
@@ -193,15 +211,14 @@ in 6m-3. It must not be kept alive between calls.
   and operator notice, and success clears `dirty`.
 - **Write preflight and checksum.** Protocol-info refresh from the selected
   vehicle moves onto `RomProtocolInfo`. Checksum correction keeps its legacy
-  semantics: it mutates the session's bytes, the bytes are restored only when
-  the operator cancels, and a completed write leaves the corrected checksums
-  in the open ROM. A test pins this. The `n/a` warning and confirmation stay
-  in the UI.
-- **Post-read handoff.** `adopt_read_image` is called only after a successful
-  read. The pre-created slot and its failure-path `delete` disappear.
+  semantics: the corrected image is what gets written or saved, and the open
+  ROM's bytes are restored afterwards, whether the operator cancelled or the
+  write or save completed (`start_ecu_operations` and both save paths restore
+  their pre-correction copy). A test pins this. The `n/a` warning and
+  confirmation stay in the UI.
 - **Retirement.** Delete `EcuCalDefStructure`, both legacy adapters and their
   packages, `legacy_definition_columns.h`, the ROM open/save and
-  definition-column code in `FileActions`, the transitional projection, and
+  definition-column code in `FileActions`, the legacy view projection, and
   tests covering only deleted code. Remove the two `qt_layer` entries.
   `checksum_selection.h` and `map_edit.h` comments naming the legacy struct are
   updated.
