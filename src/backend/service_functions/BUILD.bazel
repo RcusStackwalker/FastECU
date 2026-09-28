@@ -2,11 +2,12 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
-    "//src/backend:__subpackages__",
-    "//src/platform:__subpackages__",
-    # Task 7's desktop dialog consumes the portable sessions and value types.
-    "//src/ui/desktop/service_functions:__pkg__",
-    "//tests:__pkg__",
+    "//bazel/layers:backend",
+    "//bazel/layers:platform",
+    "//bazel/layers:tests",
+    # The desktop service-function dialog consumes the portable sessions and
+    # value types; the rest of the UI layer does not.
+    "//bazel/layers:ui_service_functions",
 ])
 
 cc_library(

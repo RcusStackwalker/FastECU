@@ -4,7 +4,7 @@ load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 # not name. apps/desktop's composition root connects them to the platform
 # objects; the UI connects to them. They hold no logic.
 package(default_visibility = [
-    "//apps/desktop:__pkg__",
+    "//bazel/layers:apps_desktop",
     "//src/ui/desktop:__subpackages__",
 ])
 

@@ -1,0 +1,121 @@
+# One package_group per architectural layer, so a BUILD file states who may
+# depend on it by layer name instead of a hand-copied list of package paths.
+#
+#   algorithms -> backend -> platform -> ui -> apps
+#
+# Dependencies flow one way and a group grants visibility to *consumers*, so a
+# package's `default_visibility` names the layers allowed to depend on it. Each
+# group is exactly the set of packages it names -- none is widened for
+# convenience -- so a layer never gains access by being renamed. The Qt
+# reachability gates are separate and live in //bazel/qt (ADR 0016).
+
+# --- The layers ---------------------------------------------------------
+
+package_group(
+    name = "algorithms",
+    packages = ["//src/algorithms/..."],
+)
+
+package_group(
+    name = "backend",
+    packages = ["//src/backend/..."],
+)
+
+package_group(
+    name = "platform",
+    packages = ["//src/platform/..."],
+)
+
+package_group(
+    name = "ui",
+    packages = ["//src/ui/..."],
+)
+
+# Every package under //src, for shared test support that any layer may use.
+package_group(
+    name = "src",
+    packages = ["//src/..."],
+)
+
+# The root `tests` package only; its subpackages are not granted access.
+package_group(
+    name = "tests",
+    packages = ["//tests"],
+)
+
+# --- The applications ---------------------------------------------------
+
+package_group(
+    name = "apps",
+    packages = ["//apps/..."],
+)
+
+# The desktop application is the composition root that wires ports to adapters.
+package_group(
+    name = "apps_desktop",
+    packages = ["//apps/desktop"],
+)
+
+package_group(
+    name = "apps_bench",
+    packages = ["//apps/bench"],
+)
+
+# --- Individual UI packages that non-UI layers grant access to -----------
+# Backend and platform packages name these where a dialog or the main window
+# consumes their types directly, without opening the whole UI layer.
+
+package_group(
+    name = "ui_desktop",
+    packages = ["//src/ui/desktop"],
+)
+
+package_group(
+    name = "ui_service_functions",
+    packages = ["//src/ui/desktop/service_functions"],
+)
+
+# --- Consumer sets that recur across packages --------------------------
+# Named by the lowest layer that may depend on a package, and everything above
+# it. `tests` is included in each because tests exercise every layer.
+
+# Portable backend code: usable from the backend and every layer above it.
+package_group(
+    name = "backend_and_above",
+    includes = [
+        ":backend",
+        ":platform",
+        ":tests",
+        ":ui",
+    ],
+)
+
+# Pure algorithms: usable from every //src layer.
+package_group(
+    name = "algorithms_and_above",
+    includes = [
+        ":algorithms",
+        ":backend_and_above",
+    ],
+)
+
+# Platform-only code: the platform layer and the desktop composition root that
+# wires its adapters.
+package_group(
+    name = "platform_and_composition_root",
+    includes = [
+        ":apps_desktop",
+        ":platform",
+        ":tests",
+    ],
+)
+
+# UI-only code: the UI layer and the desktop composition root that builds it.
+package_group(
+    name = "ui_and_composition_root",
+    includes = [
+        ":apps_desktop",
+        ":tests",
+        ":ui",
+    ],
+)

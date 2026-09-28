@@ -1,11 +1,7 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("//bazel:x86_windows_transition.bzl", "x86_windows_binary")
 
-package(default_visibility = [
-    "//apps/desktop:__pkg__",
-    "//src/platform:__subpackages__",
-    "//tests:__pkg__",
-])
+package(default_visibility = ["//bazel/layers:platform_and_composition_root"])
 
 cc_binary(
     name = "j2534_bridge_host_native",

@@ -2,8 +2,8 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
-    "//apps/bench:__pkg__",
-    "//src:__subpackages__",
+    "//bazel/layers:apps_bench",
+    "//bazel/layers:src",
 ])
 
 cc_library(

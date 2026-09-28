@@ -1,6 +1,6 @@
 load("//bazel:qt_common.bzl", "qt_resource_via_qrc")
 
-package(default_visibility = ["//src/ui:__subpackages__"])
+package(default_visibility = ["//bazel/layers:ui"])
 
 qt_resource_via_qrc(
     name = "font_resource",

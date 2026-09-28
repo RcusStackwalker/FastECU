@@ -1,9 +1,9 @@
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
-    "//src/platform:__subpackages__",
-    "//src/ui:__subpackages__",
-    "//tests:__pkg__",
+    "//bazel/layers:platform",
+    "//bazel/layers:tests",
+    "//bazel/layers:ui",
 ])
 
 qt_cc_library(

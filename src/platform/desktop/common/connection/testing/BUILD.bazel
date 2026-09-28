@@ -1,9 +1,9 @@
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
-    "//src/ui/desktop:__pkg__",
+    "//bazel/layers:ui_desktop",
+    "//bazel/layers:ui_service_functions",
     "//src/ui/desktop/flash/operation:__pkg__",
-    "//src/ui/desktop/service_functions:__pkg__",
 ])
 
 # Lets UI-layer tests build MainWindow over a fake backend without seeing
