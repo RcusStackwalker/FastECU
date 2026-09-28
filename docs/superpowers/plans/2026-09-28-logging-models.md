@@ -45,3 +45,9 @@ stacked PRs to the verified public, user-owned origin (two CI workloads). Hosted
 Windows/Linux/macOS CI and real ECU/TCU bench outcomes are separate gates and
 must not be inferred from local success. No merge or hardware qualification is
 performed by this migration.
+
+Delivery: [6l-1 (#409)](https://github.com/RcusStackwalker/FastECU/pull/409)
+and [6l-2 (#410)](https://github.com/RcusStackwalker/FastECU/pull/410) remain
+drafts. Hosted CI filters PRs to `master`, so both target `master` for gate
+execution. Merge 6l-1 first; the [cutover-only comparison](https://github.com/RcusStackwalker/FastECU/compare/feat/6l-1-logger-model...feat/6l-logging-models)
+is the review scope for 6l-2 until the first PR merges and its normal diff narrows.
