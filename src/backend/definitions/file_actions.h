@@ -10,6 +10,7 @@
 #include <cstring>
 #include <iostream>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -46,6 +47,13 @@ class FileActions : public fastecu::calibration::IDefinitionCatalogs
     catalog(fastecu::definition::DefinitionFormat format) override
     {
         return build_definition_catalog(format);
+    }
+    std::optional<std::string> indexed_source(fastecu::definition::DefinitionFormat format,
+                                              std::string_view id) override
+    {
+        const QString source =
+            definition_source(format, QString::fromUtf8(id.data(), static_cast<qsizetype>(id.size())));
+        return source.isEmpty() ? std::nullopt : std::optional<std::string>{source.toStdString()};
     }
 
     uint8_t float_precision = 15;

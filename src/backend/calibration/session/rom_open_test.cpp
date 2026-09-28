@@ -446,5 +446,45 @@ TEST_F(RomOpenDefinitions, SizeRejectionKeepsHeaderAndDropsMaps)
     EXPECT_THAT(log_text(), Contains(HasSubstr("Error in expected ROM size")));
 }
 
+// The production catalog is rebuilt on every open and skips unreadable files,
+// so a definition deleted after startup is absent from it. Legacy still
+// found it in the startup indexes and reported the missing file.
+TEST_F(RomOpenDefinitions, AnIndexedDefinitionMissingFromTheCatalogNotifiesOnEcuRead)
+{
+    enable_ecuflash_primary();
+    catalogs.indexed_sources[{DefinitionFormat::EcuFlash, "TESTROM"}] = "/defs/gone.xml";
+
+    const auto outcome = opener.adopt_read_image(ReadImage{
+        .rom = synthetic_rom(),
+        .filename = "x.bin",
+        .rom_id = "TESTROM",
+        .protocol_name = "proto_b",
+    });
+
+    ASSERT_THAT(outcome, IsOk());
+    EXPECT_FALSE(outcome->contents.definition.has_value());
+    EXPECT_THAT(log_text(), Contains(HasSubstr("Unable to read EcuFlash definition TESTROM")));
+    EXPECT_THAT(notices(),
+                Contains("Ecu definitions file: Unable to open ECU definition file /defs/gone.xml for reading"));
+}
+
+TEST_F(RomOpenDefinitions, AnIndexedDefinitionThatStillExistsIsLoggedWithoutANotice)
+{
+    enable_ecuflash_primary();
+    catalogs.indexed_sources[{DefinitionFormat::EcuFlash, "TESTROM"}] = "/defs/test.xml";
+
+    const auto outcome = opener.adopt_read_image(ReadImage{
+        .rom = synthetic_rom(),
+        .filename = "x.bin",
+        .rom_id = "TESTROM",
+        .protocol_name = "proto_b",
+    });
+
+    ASSERT_THAT(outcome, IsOk());
+    EXPECT_FALSE(outcome->contents.definition.has_value());
+    EXPECT_THAT(log_text(), Contains(HasSubstr("Unable to read EcuFlash definition TESTROM")));
+    EXPECT_THAT(notices(), IsEmpty());
+}
+
 } // namespace
 } // namespace fastecu::calibration

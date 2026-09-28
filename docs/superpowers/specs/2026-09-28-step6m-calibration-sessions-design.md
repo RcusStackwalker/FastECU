@@ -99,7 +99,9 @@ capacity of 100 is not preserved as a limit.
 Moves the logic of `FileActions::open_subaru_rom_file` onto typed inputs and
 outputs. Dependencies: `definition::DefinitionService`, `IFileRepository`,
 `IFileSystem`, `IEventSink`, the portable `config::ConfigSession`, and a new
-narrow port, `IDefinitionCatalogs` (`catalog(DefinitionFormat)`).
+narrow port, `IDefinitionCatalogs` (`catalog(DefinitionFormat)`, plus
+`indexed_source(DefinitionFormat, id)` so a definition that became
+unreadable after indexing still reaches the legacy load-failure notice).
 `FileActions` implements that port with its existing `build_definition_catalog`,
 so catalog sources, including definitions authored this session, are
 unchanged; step 6n replaces the implementation. Sequence, in the legacy

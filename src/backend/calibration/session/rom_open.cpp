@@ -225,14 +225,25 @@ std::optional<ResolvedDefinition> RomOpenUseCase::try_format(definition::Definit
     {
         return std::nullopt;
     }
-    auto entry = catalog->find(format, rom_id);
-    if (!entry.has_value())
+    std::string source;
+    Result<definition::RomDefinition> loaded = fail(ErrorKind::InvalidConfig, "definition is not in the catalog");
+    if (auto entry = catalog->find(format, rom_id); entry.has_value())
     {
-        return std::nullopt;
+        source = entry->get().source;
+        loaded = definitions_.load(*catalog, format, rom_id);
     }
-    const std::string source = entry->get().source;
-
-    Result<definition::RomDefinition> loaded = definitions_.load(*catalog, format, rom_id);
+    else
+    {
+        // The fresh catalog skips files that became unreadable after the
+        // sources were indexed. Legacy loaded from those indexes, so such a
+        // definition still reached the load failure and its notice.
+        std::optional<std::string> indexed = catalogs_.indexed_source(format, rom_id);
+        if (!indexed.has_value())
+        {
+            return std::nullopt;
+        }
+        source = std::move(*indexed);
+    }
     if (!loaded.has_value())
     {
         log_error(std::format("Unable to read {} definition {}", format_name(format), rom_id), loaded.error());

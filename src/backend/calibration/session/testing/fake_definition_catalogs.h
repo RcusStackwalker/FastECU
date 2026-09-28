@@ -1,6 +1,9 @@
 #pragma once
 
 #include <map>
+#include <optional>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -24,7 +27,14 @@ class FakeDefinitionCatalogs : public IDefinitionCatalogs
             found == entries.end() ? std::vector<definition::DefinitionIndexEntry>{} : found->second);
     }
 
+    std::optional<std::string> indexed_source(definition::DefinitionFormat format, std::string_view id) override
+    {
+        auto found = indexed_sources.find({format, std::string{id}});
+        return found == indexed_sources.end() ? std::nullopt : std::optional<std::string>{found->second};
+    }
+
     std::map<definition::DefinitionFormat, std::vector<definition::DefinitionIndexEntry>> entries;
+    std::map<std::pair<definition::DefinitionFormat, std::string>, std::string> indexed_sources;
     std::map<definition::DefinitionFormat, Error> errors;
     std::vector<definition::DefinitionFormat> calls;
 };
