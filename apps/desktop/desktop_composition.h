@@ -7,9 +7,12 @@
 #include <QStringList>
 
 #include "apps/desktop/startup_event_sink.h"
+#include "src/backend/calibration/session/calibration_workspace.h"
+#include "src/backend/calibration/session/rom_open.h"
 #include "src/backend/config/config_session.h"
 #include "src/backend/logging/logger_model.h"
 #include "src/backend/logging/logger_definition_service.h"
+#include "src/backend/definition/definition_service.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/ports/error.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
@@ -71,6 +74,9 @@ class DesktopComposition
     fastecu::logging::LoggerDefinitionService logger_definitions_{file_repository_, resource_bundle_, file_writer_};
     std::optional<fastecu::Error> startup_error_;
     std::unique_ptr<FileActions> file_actions_;
+    std::unique_ptr<fastecu::definition::DefinitionService> definition_service_;
+    std::unique_ptr<fastecu::calibration::RomOpenUseCase> rom_open_;
+    std::unique_ptr<fastecu::calibration::CalibrationWorkspace> calibration_workspace_;
     fastecu::ui::LogChannel log_channel_;
     fastecu::ui::RemotePeer remote_peer_;
     std::unique_ptr<QThread> syslog_thread_;

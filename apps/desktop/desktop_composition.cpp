@@ -30,6 +30,11 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
 
     file_actions_ = std::make_unique<FileActions>(file_system_, resource_bundle_, file_repository_, file_writer_,
                                                   file_action_events_, config_);
+    definition_service_ =
+        std::make_unique<fastecu::definition::DefinitionService>(file_system_, file_repository_, file_writer_);
+    rom_open_ = std::make_unique<fastecu::calibration::RomOpenUseCase>(
+        *file_actions_, *definition_service_, file_repository_, file_system_, file_action_events_, config_);
+    calibration_workspace_ = std::make_unique<fastecu::calibration::CalibrationWorkspace>(*rom_open_);
 
     syslog_thread_ = std::make_unique<QThread>();
     syslogger_ = std::make_unique<SystemLogger>(
@@ -105,6 +110,10 @@ DesktopComposition::~DesktopComposition()
     }
     syslogger_.reset();
     syslog_thread_.reset();
+    // The workspace's opener borrows file_actions_ as its catalog source.
+    calibration_workspace_.reset();
+    rom_open_.reset();
+    definition_service_.reset();
     file_actions_.reset(); // before config_, which it references
 }
 
