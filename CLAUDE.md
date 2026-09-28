@@ -66,6 +66,7 @@ The root package holds guards for invariants the compiler cannot see. They fail 
 - `qt_cc_library` lists moc'd headers in `hdrs` and everything else in `normal_hdrs` — a `Q_OBJECT` header missing from `hdrs` links but fails at runtime.
 - Platform differences go in separate source files selected by the BUILD file, not `#ifdef` branches inside a shared source; the [coding style guide](docs/coding-style.md) covers the test-side rule and what to do where separating sources is impractical. Where a guard is unavoidable, spell it `_WIN32` — a bare `WIN32` is rejected, because Bazel does not define it and the branch would silently take the POSIX path on Windows.
 - Cross-document references in Markdown are links with human-readable text, not backticked paths — lychee checks links under `prek` and cannot see a path written as inline code.
+- BUILD files in gazelle-managed areas are regenerated, not hand-edited: run `bazel run //:gazelle` and commit the result. The managed areas and the reasoning are in [ADR 0017](docs/adr/0017-manage-build-files-with-gazelle.md).
 
 ## Hardware-facing caution
 

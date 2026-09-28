@@ -96,8 +96,7 @@ The spike diff is evidence for the plan's first task, not a committed artifact.
    (runs in parallel with `pre-commit`), same `setup-bazel` step as the `bazel`
    job, then
    `prek run --hook-stage pre-push --all-files gazelle --show-diff-on-failure`.
-7. **Documentation.** A short ADR recording the decision, and a note in the
-   [coding style guide](../../coding-style.md) on how to regenerate locally.
+7. **Documentation.** ADR 0017 records the decision and the regenerate/widen steps; [CLAUDE.md](../../../CLAUDE.md) points to it.
 8. **One-time baseline commit.** The pilot lands together with the reviewed
    result of the first gazelle run over `src/algorithms`, so the check is green
    from day one. Each change in that baseline is reviewed and must still build
