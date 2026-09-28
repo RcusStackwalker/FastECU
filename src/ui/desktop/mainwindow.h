@@ -186,6 +186,8 @@ class MainWindow : public QMainWindow
     OpenCalibration *open_calibration(fastecu::calibration::SessionId id);
     OpenCalibration *selected_open_calibration();
     void set_category_expanded(QTreeWidgetItem *item, bool expanded);
+    void refresh_write_metadata(fastecu::calibration::CalibrationSession& session,
+                                FileActions::EcuCalDefStructure& legacy, const QString& kernel_dir);
     QTreeWidgetItem *files_tree_item(fastecu::calibration::SessionId id) const;
     bool add_calibration(fastecu::calibration::SessionId id);
 

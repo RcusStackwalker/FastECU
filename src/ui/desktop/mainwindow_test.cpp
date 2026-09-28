@@ -45,6 +45,8 @@
 #include "src/backend/calibration/session/rom_open.h"
 #include "src/backend/definition/definition_service.h"
 #include "src/ui/desktop/calibration/session_key.h"
+#include "src/backend/flash/flash_operation_request.h"
+#include "src/ui/desktop/calibration/legacy_calibration_view.h"
 #include "src/ui/desktop/hexedit/hexedit.h"
 
 namespace
@@ -1254,6 +1256,76 @@ class MainWindowTest : public QObject
         QVERIFY(data->topLevelItem(0)->isExpanded());
         QVERIFY(window.calibrations_.at(0).view.rom_info_expanded);
         QVERIFY(!window.calibrations_.at(1).view.rom_info_expanded);
+    }
+
+    // The write path's metadata refresh decides the kernel and MCU handed to
+    // a real ECU, so it is tested directly: an empty definition flash method
+    // is filled from the selected vehicle (and the vehicle re-selected by
+    // it); a definition-less ROM (" ") is not; kernel and MCU always come
+    // from the vehicle selected afterwards.
+    void writeMetadataFillsAnEmptyDefinitionFlashMethod()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na");
+        const std::string selected = services.config.selected_vehicle()->protocol_name;
+        fastecu::calibration::CalibrationSession session(
+            fastecu::calibration::SessionId{41},
+            fastecu::calibration::SessionContents{
+                .source = {.display_name = "d.bin", .path = "/d.bin"},
+                .rom = std::vector<std::uint8_t>(16, 0),
+                .definition =
+                    fastecu::calibration::ResolvedDefinition{
+                        .id = "D", .definition = {.format = fastecu::definition::DefinitionFormat::EcuFlash}},
+            });
+        auto legacy = fastecu::ui::project_legacy_calibration(session);
+        QVERIFY(legacy.has_value());
+        QCOMPARE(legacy->view->RomInfo.at(FileActions::FlashMethod), QString(""));
+
+        window.refresh_write_metadata(session, *legacy->view, "/kernels/");
+
+        const auto& vehicle = *services.config.selected_vehicle();
+        QCOMPARE(session.protocol().flash_method, selected);
+        QCOMPARE(vehicle.protocol_name, selected);
+        QCOMPARE(session.protocol().mcu_type,
+                 fastecu::config::protocol_field_or_placeholder(vehicle, &fastecu::config::ProtocolEntry::mcu));
+        QCOMPARE(session.protocol().kernel_path,
+                 fastecu::flash::kernel_path("/kernels/", fastecu::config::protocol_field_or_placeholder(
+                                                              vehicle, &fastecu::config::ProtocolEntry::kernel)));
+        QCOMPARE(legacy->view->RomInfo.at(FileActions::FlashMethod), QString::fromStdString(selected));
+        QCOMPARE(legacy->view->McuType, QString::fromStdString(session.protocol().mcu_type));
+        QCOMPARE(legacy->view->Kernel, QString::fromStdString(session.protocol().kernel_path));
+        QCOMPARE(legacy->view->FlashMethod, QString::fromStdString(selected));
+    }
+
+    void writeMetadataLeavesADefinitionlessFlashMethodAlone()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na");
+        fastecu::calibration::CalibrationSession session(
+            fastecu::calibration::SessionId{42},
+            fastecu::calibration::SessionContents{.source = {.display_name = "n.bin", .path = "/n.bin"},
+                                                  .rom = std::vector<std::uint8_t>(16, 0)});
+        auto legacy = fastecu::ui::project_legacy_calibration(session);
+        QVERIFY(legacy.has_value());
+
+        window.refresh_write_metadata(session, *legacy->view, "/kernels/");
+
+        const auto& vehicle = *services.config.selected_vehicle();
+        QCOMPARE(session.protocol().flash_method, std::string{});
+        QCOMPARE(legacy->view->RomInfo.at(FileActions::FlashMethod), QString(" "));
+        QCOMPARE(session.protocol().mcu_type,
+                 fastecu::config::protocol_field_or_placeholder(vehicle, &fastecu::config::ProtocolEntry::mcu));
+        QCOMPARE(legacy->view->McuType, QString::fromStdString(session.protocol().mcu_type));
     }
 
     void windowPreservesInjectedLoggingFactory()

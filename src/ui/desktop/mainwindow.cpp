@@ -976,6 +976,31 @@ void MainWindow::remember_opened_port(const QString& port, const QString& opened
     save_settings();
 }
 
+// The write path's ROM-metadata refresh: legacy filled an empty flash method
+// -- "" only when a definition left it empty; a definition-less ROM shows " "
+// -- then refreshed the vehicle selection before taking kernel/MCU from it.
+// These values reach the ECU, so the helper is tested on its own.
+void MainWindow::refresh_write_metadata(fastecu::calibration::CalibrationSession& session,
+                                        FileActions::EcuCalDefStructure& legacy, const QString& kernel_dir)
+{
+    fastecu::calibration::RomProtocolInfo protocol = session.protocol();
+    if (fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::FlashMethod)
+            .isEmpty())
+    {
+        protocol.flash_method = selected_vehicle().protocol_name;
+        session.set_protocol(protocol);
+        update_protocol_info(qs(protocol.flash_method));
+    }
+    protocol.kernel_path = fastecu::flash::kernel_path(
+        kernel_dir.toStdString(),
+        fastecu::config::protocol_field_or_placeholder(selected_vehicle(), &ProtocolEntry::kernel));
+    protocol.kernel_start_address = protocol_field(selected_vehicle(), &ProtocolEntry::kernel_addr).toStdString();
+    protocol.mcu_type = protocol_field(selected_vehicle(), &ProtocolEntry::mcu).toStdString();
+    session.set_protocol(protocol);
+    fastecu::ui::refresh_legacy_metadata(session, legacy);
+    legacy.FlashMethod = qs(selected_vehicle().protocol_name);
+}
+
 int MainWindow::start_ecu_operations(const QString& cmd_type)
 {
     stop_identification();
@@ -1066,28 +1091,14 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                 }
             }
             OpenCalibration *open = selected_open_calibration();
-            fastecu::calibration::CalibrationSession *session = calibrationWorkspace->find(open->id);
-            fastecu::calibration::RomProtocolInfo protocol = session->protocol();
-            // Legacy filled an empty flash method -- "" only when a definition
-            // left it empty; a definition-less ROM shows " " -- then refreshed
-            // the vehicle selection before taking kernel/MCU from it.
-            if (fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(*session),
-                                            fastecu::ui::RomInfoRow::FlashMethod)
-                    .isEmpty())
+            fastecu::calibration::CalibrationSession *session =
+                open != nullptr ? calibrationWorkspace->find(open->id) : nullptr;
+            if (session == nullptr)
             {
-                protocol.flash_method = selected_vehicle().protocol_name;
-                session->set_protocol(protocol);
-                update_protocol_info(qs(protocol.flash_method));
+                QMessageBox::warning(this, tr("Write ROM"), "No file selected!");
+                return 0;
             }
-            protocol.kernel_path = fastecu::flash::kernel_path(
-                kernel_dir.toStdString(),
-                fastecu::config::protocol_field_or_placeholder(selected_vehicle(), &ProtocolEntry::kernel));
-            protocol.kernel_start_address =
-                protocol_field(selected_vehicle(), &ProtocolEntry::kernel_addr).toStdString();
-            protocol.mcu_type = protocol_field(selected_vehicle(), &ProtocolEntry::mcu).toStdString();
-            session->set_protocol(protocol);
-            fastecu::ui::refresh_legacy_metadata(*session, *legacy);
-            legacy->FlashMethod = qs(selected_vehicle().protocol_name);
+            refresh_write_metadata(*session, *legacy, kernel_dir);
 
             if (protocol_field(selected_vehicle(), &ProtocolEntry::checksum) != "n/a")
             {
