@@ -3,459 +3,183 @@
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 
 #include <chrono>
-#include <functional>
-#include <string>
-#include <vector>
-
-#include <QString>
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/backend/logging/logger_definition_model.h"
-
-namespace desktop_logging = fastecu::desktop::logging;
-namespace portable_logging = fastecu::logging;
-
+namespace desktop = fastecu::desktop::logging;
+namespace logging = fastecu::logging;
 using namespace std::chrono_literals;
 
 namespace
 {
-
-portable_logging::LoggingPolicy valid_policy()
+logging::LoggingPolicy policy()
 {
-    return {
-        .poll_timeout = 100ms,
-        .car_silence_miss_threshold = 3,
-        .reconnect_attempt_threshold = 5,
-        .reconnect_retry_period = 10,
-    };
+    return {.poll_timeout = 100ms,
+            .car_silence_miss_threshold = 3,
+            .reconnect_attempt_threshold = 5,
+            .reconnect_retry_period = 10};
 }
-
-// Appends a row with an explicit, fully-formed conversions list so
-// malformed-conversion cases can hand in a deliberately broken one.
-void append_value_with_conversions(FileActions::LogValuesStructure& values, const QString& id, const QString& protocol,
-                                   const QString& enabled, const QList<fastecu::logging::Conversion>& conversions,
-                                   const QString& address = QStringLiteral("000010"),
-                                   const QString& length = QStringLiteral("1"))
+logging::LoggerParameter parameter(std::string id, std::string protocol = "SSM", bool enabled = true)
 {
-    values.log_value_id.append(id);
-    values.log_value_protocol.append(protocol);
-    values.log_value_name.append(id);
-    values.log_value_description.append(id);
-    values.log_value_ecu_byte_index.append(QStringLiteral("0"));
-    values.log_value_ecu_bit.append(QStringLiteral("0"));
-    values.log_value_target.append(QStringLiteral("ECU"));
-    values.log_value_address.append(address);
-    values.log_value_conversions.append(conversions);
-    values.log_value_length.append(length);
-    values.log_value.append(QStringLiteral("unchanged- ") + id);
-    values.log_value_enabled.append(enabled);
+    return {.protocol = std::move(protocol),
+            .id = std::move(id),
+            .address = "000010",
+            .length = "1",
+            .enabled = enabled,
+            .conversions = {{"rpm", "x", "0.00", "0", "100", "1"}}};
 }
-
-void append_value(FileActions::LogValuesStructure& values, const QString& id, const QString& protocol,
-                  const QString& enabled, const QString& format = QStringLiteral("0.00"))
+logging::LoggerModel model(logging::LoggerDefinition def, std::vector<std::string> ids)
 {
-    append_value_with_conversions(values, id, protocol, enabled, {{"rpm", "x", format.toStdString(), "0", "100", "1"}});
+    logging::LoggerModel result;
+    result.install_definition(std::move(def));
+    result.set_selection({.protocol = "SSM", .lower_panel_ids = std::move(ids)});
+    return result;
 }
-
-FileActions::LogValuesStructure reordered_log_values()
+TEST(DesktopLoggingSnapshotAdapterTest, StableIdentitySurvivesSelectionEditsAndDefinitionReordering)
 {
-    FileActions::LogValuesStructure values;
-    append_value(values, QStringLiteral("coolant"), QStringLiteral("SSM"), QStringLiteral("1"));
-    append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
-    values.lower_panel_log_value_id = {QStringLiteral("rpm"), QStringLiteral("coolant")};
-    return values;
-}
-
-} // namespace
-
-TEST(DesktopLoggingSnapshotAdapterTest, CapturesTargetIndependentlyOfLaterSnapshots)
-{
-    auto snapshot = desktop_logging::make_desktop_logging_snapshot(
-        reordered_log_values(), portable_logging::LoggingProtocolId::Ssm, "SSM", valid_policy());
+    auto values =
+        model({.parameters = {parameter("coolant"), parameter("rpm"), parameter("rpm", "CDBG")}}, {"rpm", "coolant"});
+    auto snapshot = desktop::make_desktop_logging_snapshot(values, logging::LoggingProtocolId::Ssm, "SSM", policy());
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-    EXPECT_TRUE(snapshot->target_is_ecu);
-    snapshot->target_is_ecu = false;
-    const auto tcu_run = *snapshot;
-    snapshot->target_is_ecu = true;
-    EXPECT_FALSE(tcu_run.target_is_ecu);
+    EXPECT_EQ(snapshot->protocol, "SSM");
+    EXPECT_EQ(snapshot->identities_by_id.at("rpm"), (logging::LoggerIdentity{"SSM", "rpm"}));
+    values.set_selection({.protocol = "CDBG", .lower_panel_ids = {"rpm"}});
+    EXPECT_EQ(snapshot->selection.lower_panel_ids, (std::vector<std::string>{"rpm", "coolant"}));
+    auto reordered =
+        model({.parameters = {parameter("rpm", "CDBG"), parameter("rpm"), parameter("coolant")}}, {"coolant"});
+    desktop::DesktopLoggerValues cache;
+    cache.initialize(reordered);
+    ASSERT_THAT(desktop::apply_log_sample(*snapshot, {.channel_id = "rpm", .numeric_value = 1234.5}, cache),
+                fastecu::testing::IsOk());
+    EXPECT_EQ(cache.parameter_value("SSM", "rpm"), "1234.50");
+    EXPECT_EQ(cache.parameter_value("CDBG", "rpm"), "0.00");
+    EXPECT_EQ(cache.parameter_value("SSM", "coolant"), "0.00");
 }
-
-TEST(DesktopLoggingSnapshotAdapterTest, StableIdUpdatesOriginalRowAfterReorder)
+TEST(DesktopLoggingSnapshotAdapterTest, PreservesProtocolSelectionAndDisabledSsmOffsets)
 {
-    FileActions::LogValuesStructure values = reordered_log_values();
-    auto snapshot = desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
-                                                                   QStringLiteral("SSM"), valid_policy());
-
-    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-    ASSERT_EQ(snapshot->index_by_id.at("rpm"), 1);
-    const portable_logging::LogSample sample{
-        .channel_id = "rpm",
-        .numeric_value = 1234.5,
-        .raw_value = "4938",
-        .unit = "rpm",
-    };
-
-    ASSERT_THAT(desktop_logging::apply_log_sample(*snapshot, sample, values), fastecu::testing::IsOk());
-    EXPECT_EQ(values.log_value.at(1), QStringLiteral("1234.50"));
-    EXPECT_EQ(values.log_value.at(0), QStringLiteral("unchanged- coolant"));
-}
-
-TEST(DesktopLoggingValueAdapterTest, FormatsFixedDecimalEquivalently)
-{
-    EXPECT_EQ(desktop_logging::format_logging_value(2.0, 0), QStringLiteral("2"));
-    EXPECT_EQ(desktop_logging::format_logging_value(-1.25, 2), QStringLiteral("-1.25"));
-    EXPECT_EQ(desktop_logging::format_logging_value(1.2, 3), QStringLiteral("1.200"));
-}
-
-TEST(DesktopLoggingValueAdapterTest, MissingStableIdDoesNotUpdateAnotherRow)
-{
-    FileActions::LogValuesStructure values = reordered_log_values();
-    auto snapshot = desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
-                                                                   QStringLiteral("SSM"), valid_policy());
-    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-
-    const portable_logging::LogSample sample{
-        .channel_id = "missing",
-        .numeric_value = 1234.5,
-        .raw_value = "4938",
-        .unit = "rpm",
-    };
-
-    ASSERT_THAT(desktop_logging::apply_log_sample(*snapshot, sample, values),
-                fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
-    EXPECT_EQ(values.log_value.at(0), QStringLiteral("unchanged- coolant"));
-    EXPECT_EQ(values.log_value.at(1), QStringLiteral("unchanged- rpm"));
-}
-
-TEST(DesktopLoggingSnapshotAdapterTest, PreservesLegacyProtocolSelectionRules)
-{
-    FileActions::LogValuesStructure values;
-    append_value(values, QStringLiteral("ssm-disabled"), QStringLiteral("CAR_SSM"), QStringLiteral("0"));
-    append_value(values, QStringLiteral("mut-disabled"), QStringLiteral("MUT_DMA"), QStringLiteral("0"));
-    append_value(values, QStringLiteral("mut-enabled"), QStringLiteral("MUT_DMA"), QStringLiteral("1"));
-    append_value(values, QStringLiteral("cdbg-disabled"), QStringLiteral("CDBG"), QStringLiteral("0"));
-    values.lower_panel_log_value_id = {
-        QStringLiteral("ssm-disabled"),
-        QStringLiteral("mut-disabled"),
-        QStringLiteral("mut-enabled"),
-        QStringLiteral("cdbg-disabled"),
-    };
-
-    auto ssm = desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
-                                                              QStringLiteral("CAR_SSM"), valid_policy());
-    auto mut = desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::MutDma,
-                                                              QStringLiteral("ignored"), valid_policy());
-    auto cdbg = desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Cdbg,
-                                                               QStringLiteral("ignored"), valid_policy());
-
+    auto values = model({.parameters = {parameter("other", "OTHER"), parameter("off", "CAR_SSM", false),
+                                        parameter("on", "CAR_SSM"), parameter("mut-off", "MUT_DMA", false),
+                                        parameter("mut-on", "MUT_DMA"), parameter("cdbg-off", "CDBG", false)}},
+                        {"other", "missing", "off", "on", "mut-off", "mut-on", "cdbg-off"});
+    const auto ssm =
+        desktop::make_desktop_logging_snapshot(values, logging::LoggingProtocolId::Ssm, "CAR_SSM", policy());
+    const auto mut =
+        desktop::make_desktop_logging_snapshot(values, logging::LoggingProtocolId::MutDma, "ignored", policy());
+    const auto cdbg =
+        desktop::make_desktop_logging_snapshot(values, logging::LoggingProtocolId::Cdbg, "ignored", policy());
     ASSERT_THAT(ssm, fastecu::testing::IsOk());
     ASSERT_THAT(mut, fastecu::testing::IsOk());
     ASSERT_THAT(cdbg, fastecu::testing::IsOk());
-    EXPECT_EQ(ssm->session.channels().at(0).id, "ssm-disabled");
-    ASSERT_EQ(mut->session.channels().size(), 1U);
-    EXPECT_EQ(mut->session.channels().at(0).id, "mut-enabled");
-    EXPECT_EQ(cdbg->session.channels().at(0).id, "cdbg-disabled");
+    EXPECT_EQ(ssm->response_offsets, (std::vector<std::size_t>{2, 3}));
+    EXPECT_FALSE(ssm->enabled_ids.contains("off"));
+    EXPECT_TRUE(ssm->enabled_ids.contains("on"));
+    EXPECT_EQ(ssm->session.channels().at(0).raw_assembly, logging::RawAssembly::DecimalBytesConcatenated);
+    EXPECT_EQ(mut->session.channels().size(), 1);
+    EXPECT_EQ(mut->session.channels().at(0).id, "mut-on");
+    EXPECT_EQ(mut->session.channels().at(0).raw_assembly, logging::RawAssembly::UnsignedIntegerDecimal);
+    EXPECT_EQ(cdbg->session.channels().at(0).id, "cdbg-off");
+    desktop::DesktopLoggerValues cache;
+    cache.initialize(values);
+    ASSERT_THAT(desktop::apply_log_sample(*ssm, {.channel_id = "off", .numeric_value = 9}, cache),
+                fastecu::testing::IsOk());
+    ASSERT_THAT(desktop::apply_log_sample(*ssm, {.channel_id = "on", .numeric_value = 2}, cache),
+                fastecu::testing::IsOk());
+    EXPECT_EQ(cache.parameter_value("CAR_SSM", "off"), "0.00");
+    EXPECT_EQ(cache.parameter_value("CAR_SSM", "on"), "2.00");
 }
-
-TEST(DesktopLoggingSnapshotAdapterTest, SsmRetainsDisabledOffsetsButDoesNotUpdateDisabledRows)
+TEST(DesktopLoggingValueAdapterTest, UnknownSamplesAndMissingCacheEntriesDoNotUpdateOtherIdentities)
 {
-    FileActions::LogValuesStructure values;
-    append_value(values, QStringLiteral("other-protocol"), QStringLiteral("OTHER"), QStringLiteral("1"));
-    append_value(values, QStringLiteral("ssm-disabled"), QStringLiteral("CAR_SSM"), QStringLiteral("0"));
-    append_value(values, QStringLiteral("ssm-enabled"), QStringLiteral("CAR_SSM"), QStringLiteral("1"));
-    values.lower_panel_log_value_id = {
-        QStringLiteral("other-protocol"),
-        QStringLiteral("ssm-disabled"),
-        QStringLiteral("ssm-enabled"),
-    };
-    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
-        values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("CAR_SSM"), valid_policy());
-
+    const auto values = model({.parameters = {parameter("rpm")}}, {"rpm"});
+    const auto snapshot =
+        desktop::make_desktop_logging_snapshot(values, logging::LoggingProtocolId::Ssm, "SSM", policy());
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-    ASSERT_EQ(snapshot->session.channels().size(), 2U);
-    EXPECT_EQ(snapshot->session.channels().at(0).id, "ssm-disabled");
-    EXPECT_EQ(snapshot->session.channels().at(1).id, "ssm-enabled");
-    EXPECT_EQ(snapshot->response_offsets, (std::vector<std::size_t>{1, 2}));
-    EXPECT_FALSE(snapshot->enabled_ids.contains("ssm-disabled"));
-    EXPECT_TRUE(snapshot->enabled_ids.contains("ssm-enabled"));
-
-    const portable_logging::LogSample disabled_sample{
-        .channel_id = "ssm-disabled", .numeric_value = 1.0, .raw_value = "1", .unit = "rpm"};
-    const portable_logging::LogSample enabled_sample{
-        .channel_id = "ssm-enabled", .numeric_value = 2.0, .raw_value = "2", .unit = "rpm"};
-    ASSERT_THAT(desktop_logging::apply_log_sample(*snapshot, disabled_sample, values), fastecu::testing::IsOk());
-    ASSERT_THAT(desktop_logging::apply_log_sample(*snapshot, enabled_sample, values), fastecu::testing::IsOk());
-    EXPECT_EQ(values.log_value.at(1), QStringLiteral("unchanged- ssm-disabled"));
-    EXPECT_EQ(values.log_value.at(2), QStringLiteral("2.00"));
-}
-
-TEST(DesktopLoggingValueAdapterTest, DisabledSsmSampleRejectsMutatedSnapshotRow)
-{
-    FileActions::LogValuesStructure values;
-    append_value(values, QStringLiteral("ssm-disabled"), QStringLiteral("CAR_SSM"), QStringLiteral("0"));
-    append_value(values, QStringLiteral("ssm-enabled"), QStringLiteral("CAR_SSM"), QStringLiteral("1"));
-    values.lower_panel_log_value_id = {
-        QStringLiteral("ssm-disabled"),
-        QStringLiteral("ssm-enabled"),
-    };
-    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
-        values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("CAR_SSM"), valid_policy());
-    ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-
-    values.log_value_id.replace(0, QStringLiteral("reordered-other-row"));
-    const portable_logging::LogSample sample{
-        .channel_id = "ssm-disabled", .numeric_value = 1.0, .raw_value = "1", .unit = "rpm"};
-    ASSERT_THAT(desktop_logging::apply_log_sample(*snapshot, sample, values),
+    desktop::DesktopLoggerValues cache;
+    cache.initialize(values);
+    EXPECT_THAT(desktop::apply_log_sample(*snapshot, {.channel_id = "unknown", .numeric_value = 8}, cache),
                 fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
-    EXPECT_EQ(values.log_value.at(0), QStringLiteral("unchanged- ssm-disabled"));
-    EXPECT_EQ(values.log_value.at(1), QStringLiteral("unchanged- ssm-enabled"));
+    EXPECT_EQ(cache.parameter_value("SSM", "rpm"), "0.00");
+    desktop::DesktopLoggerValues empty;
+    EXPECT_THAT(desktop::apply_log_sample(*snapshot, {.channel_id = "rpm", .numeric_value = 8}, empty),
+                fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
 }
-
-TEST(DesktopLoggingSnapshotAdapterTest, RejectsDuplicateStableIds)
+TEST(DesktopLoggingValueAdapterTest, CacheNamespacesAndFixedDecimalFormatting)
 {
-    FileActions::LogValuesStructure values = reordered_log_values();
-    append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
-
-    ASSERT_THAT(desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
-                                                               QStringLiteral("SSM"), valid_policy()),
-                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    const auto values =
+        model({.parameters = {parameter("rpm")}, .switches = {{.protocol = "SSM", .id = "rpm"}}}, {"rpm"});
+    desktop::DesktopLoggerValues cache;
+    cache.initialize(values);
+    EXPECT_EQ(cache.parameter_value("SSM", "rpm"), "0.00");
+    EXPECT_EQ(cache.switch_value("SSM", "rpm"), "0");
+    EXPECT_EQ(desktop::format_logging_value(2.0, 0), "2");
+    EXPECT_EQ(desktop::format_logging_value(-1.25, 2), "-1.25");
+    EXPECT_EQ(desktop::format_logging_value(1.2, 3), "1.200");
 }
-
-TEST(DesktopLoggingSnapshotAdapterTest, AllowsSameOpaqueIdInDifferentProtocols)
+TEST(DesktopLoggingSnapshotAdapterTest, FirstConversionAndTargetAreCapturedByValue)
 {
-    FileActions::LogValuesStructure values;
-    append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
-    append_value(values, QStringLiteral("rpm"), QStringLiteral("CDBG"), QStringLiteral("1"));
-    values.lower_panel_log_value_id = {QStringLiteral("rpm")};
-
-    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(
-        values, portable_logging::LoggingProtocolId::Ssm, QStringLiteral("SSM"), valid_policy());
-
+    auto p = parameter("rpm");
+    p.conversions.push_back({"wrong", "x*2", "0.000", "0", "100", "1"});
+    auto values = model({.parameters = {p}}, {"rpm"});
+    auto snapshot = desktop::make_desktop_logging_snapshot(values, logging::LoggingProtocolId::Ssm, "SSM", policy());
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-    ASSERT_EQ(snapshot->session.channels().size(), 1U);
-    EXPECT_EQ(snapshot->index_by_id.at("rpm"), 0);
+    EXPECT_EQ(snapshot->session.channels().at(0).decimal_precision, 2);
+    EXPECT_EQ(snapshot->session.channels().at(0).from_byte_expression, "x");
+    EXPECT_EQ(snapshot->session.channels().at(0).unit, "rpm");
+    snapshot->target_is_ecu = false;
+    const auto copy = *snapshot;
+    snapshot->target_is_ecu = true;
+    values.set_parameter_supported("SSM", "rpm", false);
+    EXPECT_FALSE(copy.target_is_ecu);
+    EXPECT_TRUE(copy.enabled_ids.contains("rpm"));
 }
-
-TEST(DesktopLoggingSnapshotAdapterTest, RejectsDuplicateOpaqueIdWithinSelectedProtocol)
+TEST(DesktopLoggingSnapshotAdapterTest, RejectsMalformedChannelsAndDuplicateIds)
 {
-    FileActions::LogValuesStructure values;
-    append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
-    append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
-    values.lower_panel_log_value_id = {QStringLiteral("rpm")};
-
-    ASSERT_THAT(desktop_logging::make_desktop_logging_snapshot(values, portable_logging::LoggingProtocolId::Ssm,
-                                                               QStringLiteral("SSM"), valid_policy()),
-                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
-}
-
-namespace
-{
-
-// Table-driven coverage of the legacy-input validation/error paths in
-// make_desktop_logging_snapshot: each case builds a deliberately invalid
-// FileActions::LogValuesStructure (or protocol/filter pairing) and asserts
-// both the resulting ErrorKind and a substring of the human-readable detail,
-// so the assertion is tied to the specific validation branch it targets.
-struct SnapshotFailureCase
-{
-    const char *name;
-    std::function<FileActions::LogValuesStructure()> build_values;
-    portable_logging::LoggingProtocolId protocol;
-    QString protocol_filter;
-    fastecu::ErrorKind expected_kind;
-    std::string expected_detail_substring;
-};
-
-std::vector<SnapshotFailureCase> snapshot_failure_cases()
-{
-    return {
-        {
-            "EmptySsmProtocolFilter",
-            []
-            {
-                FileActions::LogValuesStructure values;
-                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
-                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
-                return values;
-            },
-            portable_logging::LoggingProtocolId::Ssm,
-            QString(),
-            fastecu::ErrorKind::InvalidConfig,
-            "protocol filter is empty",
-        },
-        {
-            "UnknownProtocolId",
-            []
-            {
-                FileActions::LogValuesStructure values;
-                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
-                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
-                return values;
-            },
-            // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
-            static_cast<portable_logging::LoggingProtocolId>(99),
-            QStringLiteral("SSM"),
-            fastecu::ErrorKind::InvalidConfig,
-            "invalid logging protocol",
-        },
-        {
-            "MalformedConversionTooFewFields",
-            []
-            {
-                FileActions::LogValuesStructure values;
-                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
-                                              {{"rpm", "x", "", "", "", ""}});
-                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
-                return values;
-            },
-            portable_logging::LoggingProtocolId::Ssm,
-            QStringLiteral("SSM"),
-            fastecu::ErrorKind::InvalidConfig,
-            "malformed logging conversion",
-        },
-        {
-            "MalformedConversionEmptyByteExpression",
-            []
-            {
-                FileActions::LogValuesStructure values;
-                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
-                                              {{"rpm", "", "0.00", "0", "100", "1"}});
-                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
-                return values;
-            },
-            portable_logging::LoggingProtocolId::Ssm,
-            QStringLiteral("SSM"),
-            fastecu::ErrorKind::InvalidConfig,
-            "malformed logging conversion",
-        },
-        {
-            "InvalidHexAddress",
-            []
-            {
-                FileActions::LogValuesStructure values;
-                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
-                                              {{"rpm", "x", "0.00", "0", "100", "1"}}, QStringLiteral("zzzzzz"));
-                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
-                return values;
-            },
-            portable_logging::LoggingProtocolId::Ssm,
-            QStringLiteral("SSM"),
-            fastecu::ErrorKind::InvalidConfig,
-            "invalid logging address or length",
-        },
-        {
-            "InvalidDecimalLength",
-            []
-            {
-                FileActions::LogValuesStructure values;
-                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
-                                              {{"rpm", "x", "0.00", "0", "100", "1"}}, QStringLiteral("000010"),
-                                              QStringLiteral("not-a-number"));
-                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
-                return values;
-            },
-            portable_logging::LoggingProtocolId::Ssm,
-            QStringLiteral("SSM"),
-            fastecu::ErrorKind::InvalidConfig,
-            "invalid logging address or length",
-        },
-        {
-            "PrecisionExceedsUint8Max",
-            []
-            {
-                FileActions::LogValuesStructure values;
-                const QString format = QStringLiteral("0.") + QString(300, QChar('0'));
-                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"), format);
-                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
-                return values;
-            },
-            portable_logging::LoggingProtocolId::Ssm,
-            QStringLiteral("SSM"),
-            fastecu::ErrorKind::InvalidConfig,
-            "precision is too large",
-        },
-        {
-            "StructurallyInconsistentValueLists",
-            []
-            {
-                FileActions::LogValuesStructure values;
-                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
-                // Appends an id with no matching entry in the other parallel
-                // lists, breaking the list-length invariant.
-                values.log_value_id.append(QStringLiteral("stray"));
-                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
-                return values;
-            },
-            portable_logging::LoggingProtocolId::Ssm,
-            QStringLiteral("SSM"),
-            fastecu::ErrorKind::InvalidConfig,
-            "malformed legacy logging value lists",
-        },
-        {
-            "ChannelValidationFailureFromInvalidByteExpression",
-            []
-            {
-                FileActions::LogValuesStructure values;
-                append_value_with_conversions(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"),
-                                              {{"rpm", "not_an_expr", "0.00", "0", "100", "1"}});
-                values.lower_panel_log_value_id = {QStringLiteral("rpm")};
-                return values;
-            },
-            portable_logging::LoggingProtocolId::Ssm,
-            QStringLiteral("SSM"),
-            fastecu::ErrorKind::InvalidConfig,
-            "invalid logging channel",
-        },
-        {
-            "SessionValidationFailureFromEmptyCdbgSelection",
-            []
-            {
-                FileActions::LogValuesStructure values;
-                append_value(values, QStringLiteral("ssm-only"), QStringLiteral("SSM"), QStringLiteral("1"));
-                values.lower_panel_log_value_id = {QStringLiteral("ssm-only")};
-                return values;
-            },
-            portable_logging::LoggingProtocolId::Cdbg,
-            QStringLiteral("ignored"),
-            fastecu::ErrorKind::InvalidConfig,
-            "no CDBG log parameters selected",
-        },
-        {
-            "DuplicateLowerPanelId",
-            []
-            {
-                FileActions::LogValuesStructure values;
-                append_value(values, QStringLiteral("rpm"), QStringLiteral("SSM"), QStringLiteral("1"));
-                values.lower_panel_log_value_id = {QStringLiteral("rpm"), QStringLiteral("rpm")};
-                return values;
-            },
-            portable_logging::LoggingProtocolId::Ssm,
-            QStringLiteral("SSM"),
-            fastecu::ErrorKind::InvalidConfig,
-            "duplicate lower-panel logging value id",
-        },
-    };
-}
-
-void expect_snapshot_rejected(const SnapshotFailureCase& test_case)
-{
-    SCOPED_TRACE(test_case.name);
-    const FileActions::LogValuesStructure values = test_case.build_values();
-    const auto snapshot = desktop_logging::make_desktop_logging_snapshot(values, test_case.protocol,
-                                                                         test_case.protocol_filter, valid_policy());
-
-    ASSERT_THAT(snapshot, fastecu::testing::IsErr(test_case.expected_kind));
-    EXPECT_THAT(snapshot.error().detail, ::testing::HasSubstr(test_case.expected_detail_substring))
-        << "detail was: " << snapshot.error().detail;
-}
-
-} // namespace
-
-TEST(DesktopLoggingSnapshotAdapterTest, RejectsInvalidLegacyInputs)
-{
-    for (const auto& test_case : snapshot_failure_cases())
+    for (int problem = 0; problem < 10; ++problem)
     {
-        ASSERT_NO_FATAL_FAILURE(expect_snapshot_rejected(test_case));
+        auto p = parameter("rpm");
+        std::vector<std::string> ids{"rpm"};
+        auto protocol = logging::LoggingProtocolId::Ssm;
+        QString filter = "SSM";
+        logging::LoggerDefinition def;
+        switch (problem)
+        {
+        case 0:
+            p.conversions.clear();
+            break;
+        case 1:
+            p.conversions.front().expr.clear();
+            break;
+        case 2:
+            p.address = "invalid";
+            break;
+        case 3:
+            p.length = "invalid";
+            break;
+        case 4:
+            p.length = "0";
+            break;
+        case 5:
+            p.conversions.front().format = "0." + std::string(256, '0');
+            break;
+        case 6:
+            def.parameters.push_back(p);
+            break;
+        case 7:
+            ids.push_back("rpm");
+            break;
+        case 8:
+            filter.clear();
+            break;
+        case 9:
+            protocol = static_cast<logging::LoggingProtocolId>(999);
+            break;
+        default:
+            FAIL() << "invalid malformed-channel test case";
+            return;
+        }
+        def.parameters.push_back(p);
+        const auto values = model(std::move(def), std::move(ids));
+        EXPECT_THAT(desktop::make_desktop_logging_snapshot(values, protocol, filter, policy()),
+                    fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig))
+            << problem;
     }
 }
+} // namespace

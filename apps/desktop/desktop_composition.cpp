@@ -138,6 +138,8 @@ MainWindowServices DesktopComposition::services()
         .application = kApplication,
         .config = config_,
         .file_actions = *file_actions_,
+        .logger_model = logger_model_,
+        .logger_definitions = logger_definitions_,
         .config_repository = file_repository_,
         .file_action_events = file_action_events_,
         .log = log_channel_,

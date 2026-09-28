@@ -25,6 +25,7 @@
 #include <utility>
 
 #include "src/ui/desktop/mainwindow.h"
+#include "src/backend/logging/logger_definition_service.h"
 #include "ui_mainwindow.h"
 
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
@@ -246,6 +247,8 @@ struct TestServices
             .application = kTestApplication,
             .config = config,
             .file_actions = file_actions,
+            .logger_model = logger_model,
+            .logger_definitions = logger_definitions,
             .config_repository = file_repository,
             .file_action_events = events,
             .log = log_channel,
@@ -264,6 +267,8 @@ struct TestServices
     fastecu::config::ConfigSession config{file_system, resource_bundle, file_repository, config_events};
     fastecu::Status config_status; // declared after `config`: initialized from it
     FileActions file_actions;
+    fastecu::logging::LoggerModel logger_model;
+    fastecu::logging::LoggerDefinitionService logger_definitions{file_repository, resource_bundle, file_writer};
     fastecu::ui::LogChannel log_channel;
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
     FakeBackend *fake = adapter.fake(); // null if the fake backend failed to start
@@ -1747,32 +1752,153 @@ class MainWindowTest : public QObject
         QTest::newRow("TCU") << false;
     }
 
-    // Synthetic reproductions retained through the consumer cutover. The
-    // assertions in 6l-1 record the legacy defects; 6l-2 asserts corrected IDs.
-    void chooserDuplicateLabelIdentity()
+    // Synthetic fixtures reproduced legacy label/ID lookups in 6l-1.
+    // These assertions pin the corrected identities and empty CSV cells.
+    void loggingSelectionFailureSemanticsAndSupportPreservation()
+    {
+        ModalDriver driver{QString()};
+        driver.start();
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
+        window.vbatt_timer->stop();
+        const auto cfg = QString::fromStdString(services.config.effective_paths().logger_file);
+        window.ecuid = "MODEL_TEST";
+        installLoggingFixture(
+            window,
+            {.parameters = {{.protocol = "SSM", .id = "rpm", .ecu_byte_index = "0", .ecu_bit = "0", .enabled = true}},
+             .switches = {{.protocol = "SSM", .id = "flag", .ecu_byte_index = "5", .enabled = true}}},
+            {.protocol = "SSM", .gauge_ids = {"old"}, .lower_panel_ids = {"old"}, .switch_ids = {"old"}});
+        const auto previous = window.loggerModel->selection();
+        QVERIFY(QFile::remove(cfg));
+        window.load_logger_selection();
+        QVERIFY(window.loggerModel->selection() == previous);
+        window.loggerModel->set_selection({.protocol = "SSM", .gauge_ids = {"operator-edit", "unresolved"}});
+        const auto edited = window.loggerModel->selection();
+        window.save_logger_selection();
+        QVERIFY(window.loggerModel->selection() == edited);
+        QVERIFY(writeTextFile(cfg, "<config><logger/></config>"));
+        window.loggerModel->set_parameter_supported("SSM", "rpm", false);
+        window.load_logger_selection();
+        QVERIFY(window.loggerModel->selection().gauge_ids.empty());
+        QCOMPARE(window.loggerModel->selection().switch_ids, (std::vector<std::string>{"flag"}));
+        QVERIFY(!window.loggerModel->parameter_supported("SSM", "rpm"));
+        QVERIFY(writeTextFile(
+            cfg,
+            R"(<config><logger><ecu id="MODEL_TEST"><protocol id="SSM"><parameters><gauges><parameter id="unknown"/></gauges><lower_panel><parameter id="rpm"/></lower_panel></parameters><switches><switch id="flag"/></switches></protocol></ecu></logger></config>)"));
+        window.load_logger_selection();
+        QCOMPARE(window.loggerModel->selection().gauge_ids, (std::vector<std::string>{"unknown"}));
+        QVERIFY(!window.loggerModel->parameter_supported("SSM", "rpm"));
+        // A valid capability byte updates parameters; missing switch bytes retain flags.
+        window.parse_log_value_list(frame({0, 0, 0, 0, 0, 1}), "SSM");
+        QVERIFY(window.loggerModel->parameter_supported("SSM", "rpm"));
+        QVERIFY(window.loggerModel->switch_supported("SSM", "flag"));
+        QVERIFY(window.loggerModel->definition().parameters.front().enabled);
+        window.save_logger_selection();
+        const auto stored = services.logger_definitions.load_selection(cfg.toStdString(), "MODEL_TEST");
+        QVERIFY(stored.has_value());
+        QVERIFY(stored->has_value());
+        QVERIFY(**stored == window.loggerModel->selection());
+        // Missing definitions clear stale IDs after a successful read and never persist defaults.
+        installLoggingFixture(window, {}, {.protocol = "SSM", .lower_panel_ids = {"stale"}});
+        QVERIFY(writeTextFile(cfg, "<config><logger/></config>"));
+        window.load_logger_selection();
+        QVERIFY(window.loggerModel->selection().lower_panel_ids.empty());
+        QFile conf{cfg};
+        QVERIFY(conf.open(QIODevice::ReadOnly));
+        QCOMPARE(conf.readAll(), QByteArray("<config><logger/></config>"));
+        driver.stop();
+    }
+
+    void loggingDefinitionFailureIsNonfatal()
+    {
+        ModalDriver driver{QString()};
+        driver.start();
+        TestServices services{config_root_.path()};
+        services.config.settings().romraider_logger_definition_file = "/missing/logger.xml";
+        MainWindow window{services.services()};
+        QVERIFY(window.loggerModel->definition().parameters.empty());
+        QVERIFY(window.loggerModel->selection().lower_panel_ids.empty());
+        QVERIFY(window.ui != nullptr);
+        driver.stop();
+    }
+
+    void unresolvedDisplaySlotsAreSkippedAndUpdateTheirOriginalLabels()
     {
         ModalDriver driver{QString()};
         driver.start();
         TestServices services{config_root_.path()};
         MainWindow window{services.services()};
         driver.stop();
+        installLoggingFixture(window,
+                              {.parameters = {{.protocol = "SSM",
+                                               .id = "rpm",
+                                               .name = "Speed",
+                                               .conversions = {{"rpm", "x", "0.00", "0", "100", "1"}}}}},
+                              {.protocol = "SSM", .lower_panel_ids = {"unresolved", "rpm", "another-unresolved"}});
+        window.update_logboxes("SSM");
+        QCOMPARE(window.ui->logBoxLayout->count(), 1);
+        QVERIFY(window.loggerValues.set_parameter_value({"SSM", "rpm"}, "123.00"));
+        window.update_logbox_values("SSM");
+        const auto *label = window.findChild<QLabel *>("log_label1");
+        QVERIFY(label != nullptr);
+        QCOMPARE(label->text(), QString("123.00 <font size=1px color=grey>rpm</font>"));
+        QCOMPARE(label->alignment(), Qt::Alignment(Qt::AlignRight));
+        QCOMPARE(label->font().pointSize(), QGuiApplication::primaryScreen()->geometry().width() / 90);
+    }
+
+    void chooserDuplicateLabelIdentity_data()
+    {
+        QTest::addColumn<int>("tab");
+        QTest::addColumn<QString>("kind");
+        QTest::newRow("gauge") << 0 << QString("Gauge");
+        QTest::newRow("digital") << 1 << QString("Digital");
+        QTest::newRow("switch") << 2 << QString("Switch");
+    }
+
+    void chooserDuplicateLabelIdentity()
+    {
+        QFETCH(int, tab);
+        QFETCH(QString, kind);
+        ModalDriver driver{QString()};
+        driver.start();
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
+        driver.stop();
         prepareLogging(window, "SSM");
-        auto& values = *window.logValues;
-        values.log_value_id = {"first", "second"};
-        values.log_value_protocol = {"SSM", "SSM"};
-        values.log_value_name = {"Same", "Same"};
-        values.log_value_conversions = {{{"rpm", "x", "0", "0", "100", "1"}}, {{"rpm", "x", "0", "0", "100", "1"}}};
-        values.log_value = {"1", "2"};
-        values.lower_panel_log_value_id = {"second"};
-        QComboBox combo{&window};
-        combo.setObjectName("Digital value 0");
-        combo.addItem("Same", QStringList{"SSM", "first"});
-        combo.addItem("Same", QStringList{"SSM", "second"});
-        combo.setCurrentIndex(1);
-        QObject::connect(&combo, qOverload<int>(&QComboBox::currentIndexChanged), &window,
-                         &MainWindow::change_log_digital_value);
-        combo.setCurrentIndex(0);
-        QCOMPARE(values.lower_panel_log_value_id.at(0), QString("second")); // legacy resolves the last label
+        installLoggingFixture(
+            window,
+            {.parameters = {{.protocol = "OTHER", .id = "first", .name = "Same", .enabled = true},
+                            {.protocol = "SSM", .id = "first", .name = "Same", .enabled = true},
+                            {.protocol = "SSM", .id = "second", .name = "Same", .enabled = true}},
+             .switches = {{.protocol = "OTHER", .id = "first", .name = "Same", .enabled = true},
+                          {.protocol = "SSM", .id = "first", .name = "Same", .enabled = true},
+                          {.protocol = "SSM", .id = "second", .name = "Same", .enabled = true}}},
+            {.protocol = "SSM", .gauge_ids = {"second"}, .lower_panel_ids = {"second"}, .switch_ids = {"second"}});
+        bool inspected = false;
+        QTimer::singleShot(0, &window,
+                           [&]
+                           {
+                               auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+                               QVERIFY(dialog != nullptr);
+                               auto *combo = dialog->findChild<QComboBox *>(kind + " value 0");
+                               QVERIFY(combo != nullptr);
+                               QCOMPARE(combo->count(), 2);
+                               QCOMPARE(combo->currentData().toStringList(), (QStringList{"SSM", "second"}));
+                               QCOMPARE(combo->itemText(0), QString("Same"));
+                               QCOMPARE(combo->itemText(1), QString("Same"));
+                               combo->setCurrentIndex(0);
+                               inspected = true;
+                               dialog->reject();
+                           });
+        window.change_log_values(tab, "SSM");
+        QVERIFY(inspected);
+        const auto& selected = window.loggerModel->selection();
+        QCOMPARE((tab == 0   ? selected.gauge_ids
+                  : tab == 1 ? selected.lower_panel_ids
+                             : selected.switch_ids)
+                     .at(0),
+                 std::string("first"));
+        QCOMPARE(selected.protocol, std::string("SSM"));
     }
 
     void csvSharedIdProtocolIdentity()
@@ -1783,12 +1909,36 @@ class MainWindowTest : public QObject
         MainWindow window{services.services()};
         driver.stop();
         prepareLogging(window, "CDBG");
-        auto& values = *window.logValues;
-        values.log_value_id = {"rpm", "rpm"};
-        values.log_value_protocol = {"SSM", "CDBG"};
-        values.log_value_name = {"Wrong SSM", "Correct CDBG"};
-        values.log_value = {"11.00", "22.00"};
-        values.dashboard_log_value_id.clear();
+        installLoggingFixture(window,
+                              {.parameters = {{.protocol = "SSM",
+                                               .id = "rpm",
+                                               .name = "Wrong SSM",
+                                               .address = "10",
+                                               .length = "1",
+                                               .enabled = true,
+                                               .conversions = {{"rpm", "x", "0.00", "0", "100", "1"}}},
+                                              {.protocol = "CDBG",
+                                               .id = "rpm",
+                                               .name = "Correct CDBG",
+                                               .address = "10",
+                                               .length = "1",
+                                               .enabled = true,
+                                               .conversions = {{"rpm", "x", "0.00", "0", "100", "1"}}}}},
+                              {.protocol = "CDBG",
+                               .gauge_ids = {"missing"},
+                               .lower_panel_ids = {"rpm", "unresolved"},
+                               .switch_ids = {"missing-switch"}});
+        QVERIFY(window.loggerValues.set_parameter_value({"SSM", "rpm"}, "11.00"));
+        QVERIFY(window.loggerValues.set_parameter_value({"CDBG", "rpm"}, "22.00"));
+        auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
+            *window.loggerModel, fastecu::logging::LoggingProtocolId::Cdbg, "CDBG",
+            {.poll_timeout = std::chrono::milliseconds{50},
+             .car_silence_miss_threshold = 20,
+             .reconnect_attempt_threshold = 100,
+             .reconnect_retry_period = 20});
+        QVERIFY(snapshot.has_value());
+        window.activeLoggingSnapshot = *snapshot;
+        window.protocol = "SSM"; // active run, not mutable UI choice, owns CSV protocol
         QVERIFY(QDir().mkpath(QString::fromStdString(services.config.effective_paths().datalog_files_directory)));
         window.write_datalog_to_file = true;
         window.log_to_file();
@@ -1797,8 +1947,10 @@ class MainWindowTest : public QObject
         QFile csv{window.datalog_file.fileName()};
         QVERIFY(csv.open(QIODevice::ReadOnly));
         const auto content = csv.readAll();
-        QVERIFY(content.startsWith("Time,Wrong SSM,\n"));
-        QVERIFY(content.contains(",11.00,\n")); // legacy chooses the first ID across all protocols
+        QVERIFY(content.startsWith("Time,,Correct CDBG,,,\n"));
+        QVERIFY(content.contains(",,22.00,,,\n"));
+        QVERIFY(!content.contains("Wrong SSM"));
+        QVERIFY(!content.contains("11.00"));
         window.datalog_file.close();
     }
 
@@ -1830,21 +1982,18 @@ class MainWindowTest : public QObject
         auto *menu = window.ui->menubar->addMenu("Test logging");
         auto *action = menu->addAction("Logging");
         action->setCheckable(true);
-        auto& values = *window.logValues;
-        values = FileActions::LogValuesStructure{};
-        values.log_value_id = {"rpm"};
-        values.log_value_protocol = {"SSM"};
-        values.log_value_name = {"rpm"};
-        values.log_value_description = {"rpm"};
-        values.log_value_ecu_byte_index = {"0"};
-        values.log_value_ecu_bit = {"0"};
-        values.log_value_target = {"ECU"};
-        values.log_value_address = {"000010"};
-        values.log_value_conversions = {{{"rpm", "x", "0", "0", "100", "1"}}};
-        values.log_value_length = {"1"};
-        values.log_value = {"0"};
-        values.log_value_enabled = {"1"};
-        values.lower_panel_log_value_id = {"rpm"};
+        installLoggingFixture(window,
+                              {.parameters = {{.protocol = std::string("SSM"),
+                                               .id = "rpm",
+                                               .name = "rpm",
+                                               .address = "000010",
+                                               .length = "1",
+                                               .ecu_byte_index = "0",
+                                               .ecu_bit = "0",
+                                               .target = "ECU",
+                                               .enabled = true,
+                                               .conversions = {{"rpm", "x", "0", "0", "100", "1"}}}}},
+                              {.protocol = std::string("SSM"), .lower_panel_ids = {"rpm"}});
         bool target_frozen_in_continuation = false;
         services.logging_engine.registerProtocol(
             "SSM",
@@ -1864,6 +2013,7 @@ class MainWindowTest : public QObject
         response_gate.release();
         QTRY_VERIFY_WITH_TIMEOUT(window.activeLoggingSnapshot.has_value(), 5000);
         QCOMPARE(window.ecuid, QString("123456789A"));
+        QVERIFY(window.loggerModel->parameter_supported("SSM", "rpm"));
         QCOMPARE(window.activeLoggingSnapshot->target_is_ecu, target_is_ecu);
         QVERIFY(target_frozen_in_continuation);
         QVERIFY(window.ecu_radio_button->isEnabled());
@@ -2122,6 +2272,15 @@ class MainWindowTest : public QObject
     // The logging setup loggingCapturesTargetForEachRun and
     // loggingUsesTheSessionLogProtocol share: an identified ECU, a
     // "Logging" menu action, and one enabled `log_protocol` value.
+    static void installLoggingFixture(MainWindow& window, fastecu::logging::LoggerDefinition definition,
+                                      fastecu::logging::LoggerSelection selection)
+    {
+        *window.loggerModel = fastecu::logging::LoggerModel{};
+        window.loggerModel->install_definition(std::move(definition));
+        window.loggerModel->set_selection(std::move(selection));
+        window.loggerValues.initialize(*window.loggerModel);
+    }
+
     static QAction *prepareLogging(MainWindow& window, const QString& log_protocol)
     {
         window.vbatt_timer->stop();
@@ -2130,21 +2289,18 @@ class MainWindowTest : public QObject
         auto *menu = window.ui->menubar->addMenu("Test logging");
         auto *action = menu->addAction("Logging");
         action->setCheckable(true);
-        auto& values = *window.logValues;
-        values = FileActions::LogValuesStructure{};
-        values.log_value_id = {"rpm"};
-        values.log_value_protocol = {log_protocol};
-        values.log_value_name = {"rpm"};
-        values.log_value_description = {"rpm"};
-        values.log_value_ecu_byte_index = {"0"};
-        values.log_value_ecu_bit = {"0"};
-        values.log_value_target = {"ECU"};
-        values.log_value_address = {"000010"};
-        values.log_value_conversions = {{{"rpm", "x", "0", "0", "100", "1"}}};
-        values.log_value_length = {"1"};
-        values.log_value = {"0"};
-        values.log_value_enabled = {"1"};
-        values.lower_panel_log_value_id = {"rpm"};
+        installLoggingFixture(window,
+                              {.parameters = {{.protocol = log_protocol.toStdString(),
+                                               .id = "rpm",
+                                               .name = "rpm",
+                                               .address = "000010",
+                                               .length = "1",
+                                               .ecu_byte_index = "0",
+                                               .ecu_bit = "0",
+                                               .target = "ECU",
+                                               .enabled = true,
+                                               .conversions = {{"rpm", "x", "0", "0", "100", "1"}}}}},
+                              {.protocol = log_protocol.toStdString(), .lower_panel_ids = {"rpm"}});
         return action;
     }
 

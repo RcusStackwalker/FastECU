@@ -4,6 +4,11 @@
 class FileActions;
 class QtEventSink;
 class QtFileRepository;
+namespace fastecu::logging
+{
+class LoggerModel;
+class LoggerDefinitionService;
+} // namespace fastecu::logging
 namespace fastecu::config
 {
 class ConfigSession;
@@ -39,6 +44,8 @@ struct MainWindowServices
     const ApplicationIdentity& application;
     fastecu::config::ConfigSession& config; // initialized before MainWindow is built
     FileActions& file_actions;
+    fastecu::logging::LoggerModel& logger_model;
+    fastecu::logging::LoggerDefinitionService& logger_definitions;
     QtFileRepository& config_repository;
     QtEventSink& file_action_events;
     fastecu::ui::LogChannel& log;

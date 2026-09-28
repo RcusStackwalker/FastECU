@@ -15,6 +15,8 @@ qt_cc_library(
         ":startup",
         "//src/backend/config:config_session",
         "//src/backend/definitions",
+        "//src/backend/logging:logger_definition_service",
+        "//src/backend/logging:logger_model",
         "//src/platform/desktop/common/connection:adapter_connection",
         "//src/platform/desktop/common/logging",
         "//src/platform/desktop/common/logging:logging_runtime",

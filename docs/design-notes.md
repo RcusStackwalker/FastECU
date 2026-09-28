@@ -159,18 +159,54 @@ looks like a bug, but it is the exact input every shipped RomRaider conversion
 expression was written against. Do not normalize it without auditing every
 shipped expression.
 
-### Fan logger definitions out once, at load
+### Logger ownership and stable identities
 
-The legacy logging value structure's `enabled` fields start from the XML
-attribute, then get overwritten at runtime by the ECU's capability response.
-Re-fanning a parsed definition into that structure after logging has started
-silently re-enables channels the ECU said it does not support. The fan-out runs
-exactly once, at load, and no selection path may rewrite definition fields.
-Fields are owned by the definition, by the operator's selection, by live
-samples, or by both definition and runtime capability; only the definition
-fan-out writes the first kind. The type system does not enforce this;
-`selection_round_trip_leaves_enabled_flags_untouched` in
-`legacy_logger_adapter_test.cpp` pins it.
+Step 6l replaces the parallel logging lists with the portable `LoggerModel`.
+`DesktopComposition` owns it and `LoggerDefinitionService`; `MainWindowServices`
+passes references to the GUI. The definition installs once and is exposed only
+as const data. XML `enabled` defaults stay immutable. Operator selection, ECU
+support and the desktop display cache have separate owners. Selection reads
+and edits never restore XML support flags. Parameters and switches use separate
+(protocol, ID) namespaces; defaults and presentation retain definition order.
+Startup chooses the first 15 gauges, 12 digital values and 20 switches without
+filtering support; missing-ECU defaults use current support at those limits.
+
+Capability application preserves the legacy asymmetry: unavailable parameter
+bytes disable parameters, unavailable switch bytes retain previous flags.
+Identification without capability bytes never calls capability application.
+Unreadable selection files leave choices alone; successful reads clear selected
+IDs before resolving an entry. Without parameter definitions an absent ECU is
+never initialized. Failed saves retain operator edits, and definition failures
+remain nonfatal. Unresolved IDs survive selection round trips, are omitted from
+displays and retain their column positions as empty CSV cells.
+
+Per-run snapshots capture the protocol, stable identities, support, conversion
+and target as owned values. SSM still polls disabled channels at their original
+lower-panel offsets and concatenates decimal byte spellings; MUT/DMA filters
+unsupported channels; CDBG does not filter on support. Only the first conversion
+is used, with fixed decimal display formatting. Later selection edits never
+change the worker's session. CSV retains its file lifetime, schema, trailing
+commas, column order and numeric formatting; it resolves the current selection
+in the active run's captured protocol.
+
+Two deliberate corrections are qualified by synthetic automated evidence:
+
+- **Chooser identity:** the legacy slot resolved labels and selected the last
+  matching definition when two labels were identical. Items now carry protocol
+  and ID, for gauges, digital values and switches. The duplicate-label fixture
+  first reproduced that behavior on 6l-1; the corrected fixture asserts the exact
+  selected ID in every panel. A mutation that resolves to the last item fails
+  all three cases.
+- **CSV protocol identity:** the legacy `indexOf(id)` selected the first ID in
+  any protocol. A shared-ID fixture reproduced the wrong SSM column for CDBG.
+  CSV now resolves within the captured run protocol even if the UI protocol
+  changes. Exact header/value assertions also cover unresolved cells. A mutation
+  choosing the definition's first protocol fails the fixture.
+
+The [logging composition bench checklist](logging-composition-bench-checklist.md)
+remains the hardware qualification gate. These corrections and the migration
+have automated coverage only; they are not ECU/TCU bench-qualified. Android,
+live reconfiguration, CDBG wire changes and calibration migration are outside 6l.
 
 ### pugixml indents with a tab by default
 

@@ -8,6 +8,8 @@
 
 #include "apps/desktop/startup_event_sink.h"
 #include "src/backend/config/config_session.h"
+#include "src/backend/logging/logger_model.h"
+#include "src/backend/logging/logger_definition_service.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/ports/error.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
@@ -65,6 +67,8 @@ class DesktopComposition
     QtEventSink file_action_events_;
     StartupEventSink startup_events_;
     fastecu::config::ConfigSession config_;
+    fastecu::logging::LoggerModel logger_model_;
+    fastecu::logging::LoggerDefinitionService logger_definitions_{file_repository_, resource_bundle_, file_writer_};
     std::optional<fastecu::Error> startup_error_;
     std::unique_ptr<FileActions> file_actions_;
     fastecu::ui::LogChannel log_channel_;
