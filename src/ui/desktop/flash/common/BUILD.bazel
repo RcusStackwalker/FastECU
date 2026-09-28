@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//bazel/layers:apps_desktop",
@@ -9,7 +9,6 @@ qt_cc_library(
     name = "flash_dialog",
     srcs = ["flash_dialog.cpp"],
     hdrs = ["flash_dialog.h"],
-    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/backend/ports",
         "//src/platform/desktop/common/flash:flash_worker",

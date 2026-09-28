@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:ui"])
 
@@ -9,8 +9,6 @@ package(default_visibility = ["//bazel/layers:ui"])
 qt_cc_library(
     name = "map_edit_adapter",
     srcs = ["map_edit_adapter.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = ["map_edit_adapter.h"],
     deps = QT_DEPS + [
         ":session_key",
@@ -30,8 +28,6 @@ fastecu_gtest(
 qt_cc_library(
     name = "session_key",
     srcs = ["session_key.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = ["session_key.h"],
     deps = QT_DEPS + ["//src/backend/calibration/session:calibration_session"],
 )
@@ -45,8 +41,6 @@ fastecu_gtest(
 qt_cc_library(
     name = "rom_info",
     srcs = ["rom_info.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = ["rom_info.h"],
     deps = QT_DEPS + ["//src/backend/calibration/session:calibration_session"],
 )
@@ -61,8 +55,6 @@ cc_library(
 qt_cc_library(
     name = "map_presentation",
     srcs = ["map_presentation.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = ["map_presentation.h"],
     deps = QT_DEPS + ["//src/backend/calibration/session:calibration_session"],
 )

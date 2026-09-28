@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_binary", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_binary", "qt_cc_library")
 
 # Only the root //:fastecu alias consumes this composition root.
 package(default_visibility = ["//:__pkg__"])
@@ -7,8 +7,6 @@ package(default_visibility = ["//:__pkg__"])
 qt_cc_library(
     name = "composition",
     srcs = ["desktop_composition.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = ["desktop_composition.h"],
     visibility = ["//visibility:private"],
     deps = QT_DEPS + [
@@ -42,8 +40,6 @@ qt_cc_library(
         "@platforms//os:windows": ["default_config_root_windows.cpp"],
         "//conditions:default": ["default_config_root_unix.cpp"],
     }),
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = [
         "default_config_root.h",
         "startup_diagnostics.h",
@@ -60,8 +56,6 @@ qt_cc_library(
         "@platforms//os:macos": ["startup_test_platform_macos.cpp"],
         "//conditions:default": ["startup_test_platform_other.cpp"],
     }),
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = ["startup_test_platform.h"],
     visibility = ["//visibility:private"],
     deps = QT_DEPS,
@@ -105,7 +99,6 @@ fastecu_qttest(
 qt_cc_binary(
     name = "fastecu",
     srcs = ["main.cpp"],
-    copts = COMMON_COPTS,
     # :direct_serial_backend picks the platform's local serial backend.
     deps = [
         ":composition",

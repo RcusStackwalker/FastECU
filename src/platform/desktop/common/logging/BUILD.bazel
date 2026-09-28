@@ -1,5 +1,5 @@
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:platform_and_composition_root"])
 
@@ -14,7 +14,6 @@ qt_cc_library(
     name = "logging",
     srcs = ["systemlogger.cpp"],
     hdrs = ["systemlogger.h"],
-    copts = COMMON_COPTS,
     deps = QT_DEPS,
 )
 
@@ -58,7 +57,6 @@ qt_cc_library(
         "logging_engine.h",
         "logging_worker.h",
     ],
-    copts = COMMON_COPTS,
     normal_hdrs = [
         "cdbg_serial_setup.h",
     ],
@@ -77,8 +75,6 @@ qt_cc_library(
         "logging_snapshot_adapter.cpp",
         "logging_value_adapter.cpp",
     ],
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = [
         "logging_snapshot_adapter.h",
         "logging_value_adapter.h",

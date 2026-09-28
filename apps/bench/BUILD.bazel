@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_binary")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_binary")
 
 package(default_visibility = [
     "//:__pkg__",
@@ -145,7 +145,6 @@ alias(
 qt_cc_binary(
     name = "fastecu-bench",
     srcs = ["main.cpp"],
-    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         ":bench_core",
         ":bench_files",

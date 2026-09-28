@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//bazel/layers:platform",
@@ -16,7 +16,6 @@ qt_cc_library(
         "flash_worker.h",
         "flash_workflow.h",
     ],
-    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/backend/config:protocol_catalog",
         "//src/backend/definition:text_format",

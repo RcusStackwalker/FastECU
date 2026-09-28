@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//bazel/layers:ui_desktop",
@@ -12,8 +12,6 @@ qt_cc_library(
     name = "adapter_connection_harness",
     testonly = True,
     srcs = ["adapter_connection_harness.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
     implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
     normal_hdrs = ["adapter_connection_harness.h"],
     deps = QT_DEPS + [
