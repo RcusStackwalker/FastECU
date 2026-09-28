@@ -38,6 +38,9 @@
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
 #include "src/ui/desktop/channels/log_channel.h"
 #include "src/ui/desktop/channels/remote_peer.h"
+#include "src/backend/calibration/session/calibration_workspace.h"
+#include "src/backend/calibration/session/rom_open.h"
+#include "src/backend/definition/definition_service.h"
 
 namespace
 {
@@ -247,6 +250,7 @@ struct TestServices
             .application = kTestApplication,
             .config = config,
             .file_actions = file_actions,
+            .calibrations = calibrations,
             .logger_model = logger_model,
             .logger_definitions = logger_definitions,
             .config_repository = file_repository,
@@ -267,6 +271,10 @@ struct TestServices
     fastecu::config::ConfigSession config{file_system, resource_bundle, file_repository, config_events};
     fastecu::Status config_status; // declared after `config`: initialized from it
     FileActions file_actions;
+    fastecu::definition::DefinitionService definition_service{file_system, file_repository, file_writer};
+    fastecu::calibration::RomOpenUseCase rom_open{
+        file_actions, definition_service, file_repository, file_system, events, config};
+    fastecu::calibration::CalibrationWorkspace calibrations{rom_open};
     fastecu::logging::LoggerModel logger_model;
     fastecu::logging::LoggerDefinitionService logger_definitions{file_repository, resource_bundle, file_writer};
     fastecu::ui::LogChannel log_channel;

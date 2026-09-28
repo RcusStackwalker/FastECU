@@ -147,6 +147,7 @@ MainWindowServices DesktopComposition::services()
         .application = kApplication,
         .config = config_,
         .file_actions = *file_actions_,
+        .calibrations = *calibration_workspace_,
         .logger_model = logger_model_,
         .logger_definitions = logger_definitions_,
         .config_repository = file_repository_,
