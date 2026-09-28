@@ -252,5 +252,32 @@ TEST_F(LegacyCalibrationView, EmptyDefinitionFlashMethodIsTheWriteFillCondition)
     EXPECT_EQ(rom_info_value(rom_info_values(plain_session), RomInfoRow::FlashMethod), QString(" "));
 }
 
+TEST_F(LegacyCalibrationView, RefreshCopiesSessionMetadata)
+{
+    cfg.file_repository.files["/cal/a.bin"] = synthetic_rom();
+    const auto outcome = opener.open_file("/cal/a.bin");
+    ASSERT_THAT(outcome, IsOk());
+    calibration::CalibrationSession session(calibration::SessionId{1}, outcome->contents);
+    FileActions::EcuCalDefStructure legacy = projected(*outcome);
+    legacy.MapData = QStringList{"untouched"};
+
+    calibration::RomProtocolInfo protocol = session.protocol();
+    protocol.flash_method = "proto_b";
+    protocol.kernel_path = "/k/b.bin";
+    protocol.kernel_start_address = "0x0";
+    protocol.mcu_type = "M32R";
+    protocol.rom_id = "RID";
+    session.set_protocol(protocol);
+
+    refresh_legacy_metadata(session, legacy);
+
+    EXPECT_EQ(legacy.RomInfo.at(FileActions::FlashMethod), QString("proto_b"));
+    EXPECT_EQ(legacy.Kernel, QString("/k/b.bin"));
+    EXPECT_EQ(legacy.KernelStartAddr, QString("0x0"));
+    EXPECT_EQ(legacy.McuType, QString("M32R"));
+    EXPECT_EQ(legacy.RomId, QString("RID"));
+    EXPECT_EQ(legacy.MapData, QStringList{"untouched"});
+}
+
 } // namespace
 } // namespace fastecu::ui

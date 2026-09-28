@@ -49,6 +49,7 @@ qt_cc_library(
     copts = COMMON_COPTS,
     normal_hdrs = ["legacy_calibration_view.h"],
     deps = QT_DEPS + [
+        ":rom_info",
         "//src/backend/calibration/session:calibration_session",
         "//src/backend/definition/legacy:legacy_definition_adapter",
         "//src/backend/definitions",

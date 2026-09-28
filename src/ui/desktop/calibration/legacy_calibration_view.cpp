@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "src/backend/definition/legacy/legacy_definition_adapter.h"
+#include "src/ui/desktop/calibration/rom_info.h"
 
 namespace fastecu::ui
 {
@@ -26,16 +27,24 @@ void strip_hex_prefix(QString& address)
 
 } // namespace
 
+void refresh_legacy_metadata(const calibration::CalibrationSession& session, FileActions::EcuCalDefStructure& legacy)
+{
+    const QStringList values = rom_info_values(session);
+    for (const RomInfoRow row : {RomInfoRow::FlashMethod, RomInfoRow::ChecksumModule, RomInfoRow::FileSize})
+    {
+        legacy.RomInfo[static_cast<int>(row)] = rom_info_value(values, row);
+    }
+    const calibration::RomProtocolInfo& protocol = session.protocol();
+    legacy.RomId = qs(protocol.rom_id);
+    legacy.McuType = qs(protocol.mcu_type);
+    legacy.Kernel = qs(protocol.kernel_path);
+    legacy.KernelStartAddr = qs(protocol.kernel_start_address);
+}
+
 Result<LegacyCalibrationView> project_legacy_calibration(const calibration::CalibrationSession& session)
 {
     auto view = std::make_unique<FileActions::EcuCalDefStructure>();
     FileActions::EcuCalDefStructure& legacy = *view;
-    // MainWindow's pre-fill of a fresh slot.
-    while (legacy.RomInfo.length() < legacy.RomInfoStrings.length())
-    {
-        legacy.RomInfo.append(" ");
-    }
-
     const calibration::RomProtocolInfo& protocol = session.protocol();
     if (const calibration::ResolvedDefinition *definition = session.definition(); definition != nullptr)
     {
@@ -45,7 +54,6 @@ Result<LegacyCalibrationView> project_legacy_calibration(const calibration::Cali
         {
             return std::unexpected(projected.error());
         }
-        strip_hex_prefix(legacy.RomInfo[FileActions::InternalIdAddress]);
         for (QStringList *addresses : {&legacy.AddressList, &legacy.XScaleAddressList, &legacy.YScaleAddressList})
         {
             for (QString& address : *addresses)
@@ -53,22 +61,10 @@ Result<LegacyCalibrationView> project_legacy_calibration(const calibration::Cali
                 strip_hex_prefix(address);
             }
         }
-        legacy.RomInfo[FileActions::FlashMethod] = qs(protocol.flash_method);
     }
-    else if (!protocol.flash_method.empty())
-    {
-        legacy.RomInfo[FileActions::FlashMethod] = qs(protocol.flash_method);
-    }
-    if (!protocol.checksum_module.empty())
-    {
-        legacy.RomInfo[FileActions::ChecksumModule] = qs(protocol.checksum_module);
-    }
-    legacy.RomInfo[FileActions::FileSize] = qs(protocol.file_size_label);
+    legacy.RomInfo = rom_info_values(session);
     legacy.FileSize = QString::number(static_cast<qulonglong>(protocol.unpadded_size));
-    legacy.RomId = qs(protocol.rom_id);
-    legacy.McuType = qs(protocol.mcu_type);
-    legacy.Kernel = qs(protocol.kernel_path);
-    legacy.KernelStartAddr = qs(protocol.kernel_start_address);
+    refresh_legacy_metadata(session, legacy);
     if (session.source().origin == calibration::RomOrigin::EcuRead)
     {
         legacy.FlashMethod = qs(protocol.flash_method);
