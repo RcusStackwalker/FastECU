@@ -17,13 +17,15 @@ definition XML schema, ROM file format, or hardware support changes belong in
 this step. Corrections are out of scope unless separately evidenced; every
 legacy quirk named below is preserved and pinned by a test.
 
-The step lands as three stacked pull requests (`gh stack`):
+The step lands as five pull requests (`gh stack`):
 
 | Slice | Content | Legacy model after the slice |
 |---|---|---|
 | 6m-1 | Portable session, workspace, and ROM-open use case; composition wiring | Unchanged; still used by every consumer |
 | 6m-2 | Ownership and identity move to the workspace; open, ECU-read adoption and close go through it | One legacy view per session, built once at open, owned beside it |
-| 6m-3 | Tree, map windows and every mutation onto the session; legacy model, adapters, and ratchet entries retired | Deleted |
+| 6m-3 | Tree, ROM-info display and view state from the session; session protocol info is the metadata truth | Byte store and map columns only; metadata refreshed from the session |
+| 6m-4 | Map windows, every edit path, hex, save, write and checksum on session bytes | Read-only map columns; holds no bytes |
+| 6m-5 | Legacy model, adapters, projection and ratchet entries retired; step close-out | Deleted |
 
 ## Decisions
 
@@ -189,19 +191,32 @@ identity only, and leaves every reader and writer on one legacy view.
 - `HexEdit` takes the image bytes and file name by value instead of keeping
   the struct.
 
-## 6m-3 — Rendering, mutation and retirement
+## 6m-3 — Tree, ROM info and view state
 
-- **Tree and view state.** `CalibrationTreeWidget` builds from the session's
-  definition and protocol info. Which map windows are open and which
-  categories are expanded (legacy `VisibleList`, `CategoryExpandedList`,
-  `RomInfoExpanded`) move to UI view state keyed by `SessionId`.
+- `CalibrationTreeWidget` builds from the session's definition and protocol
+  info with the same text, icons, check states and tooltips as the legacy
+  columns (`append_map`'s `legacy_value` placeholders included). Which map
+  windows are open and which categories are expanded (legacy `VisibleList`,
+  `CategoryExpandedList`, `RomInfoExpanded`) move to UI view state keyed by
+  `SessionId`, as do the "continue without definition" placeholders.
+- `RomProtocolInfo` becomes the truth for ROM metadata. The write path's
+  fill of an empty flash method (legacy: only when a definition left it
+  empty), and its kernel/MCU refresh, go through `set_protocol`. The legacy
+  view's metadata fields are refreshed one-way from the session for the
+  readers that remain until 6m-4.
+- `DefHeaderStrings` / `DefHeaderNames` move to the authoring dialog as UI
+  constants, and the dialog no longer takes the legacy struct.
+- `close_calibration` closes every map window of the closed session by key,
+  not only those named in the displayed data tree.
+
+## 6m-4 — Map windows, mutation, save and write
+
+
 - **Map windows.** `CalibrationMaps` and `set_maptablewidget_items` render
   from `decode_map`. A UI helper converts the typed result into cell text,
   preserving current formatting, precision, and min/max cell coloring.
 - **Switch and selectable handlers** write through `write_bytes`, keeping the
   `wrx02` address adjustment unchanged (defect (a) stays open).
-- `DefHeaderStrings` / `DefHeaderNames` move to the authoring dialog as UI
-  constants.
 - **Map edits.** `map_edit_adapter` stops patching the text columns and calls
   `write_bytes`; the view re-decodes. The selectable-map path (legacy direct
   write into `MapData`) writes the selection's byte value. A characterization
@@ -216,6 +231,8 @@ identity only, and leaves every reader and writer on one legacy view.
   write or save completed (`start_ecu_operations` and both save paths restore
   their pre-correction copy). A test pins this. The `n/a` warning and
   confirmation stay in the UI.
+## 6m-5 — Retirement and close-out
+
 - **Retirement.** Delete `EcuCalDefStructure`, both legacy adapters and their
   packages, `legacy_definition_columns.h`, the ROM open/save and
   definition-column code in `FileActions`, the legacy view projection, and
