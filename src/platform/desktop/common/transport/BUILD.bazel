@@ -2,13 +2,11 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
-    "//apps/bench:__pkg__",
-    "//apps/desktop:__pkg__",
-    "//src/platform:__subpackages__",
-    "//tests:__pkg__",
+    "//bazel/layers:apps_bench",
+    "//bazel/layers:platform_and_composition_root",
     # The service-function dialog owns the SSM transport adapter it passes
     # into ServiceFunctionWorker.
-    "//src/ui/desktop/service_functions:__pkg__",
+    "//bazel/layers:ui_service_functions",
 ])
 
 qt_cc_library(
@@ -129,7 +127,7 @@ qt_cc_library(
     implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
     normal_hdrs = ["desktop_logging_protocol_registration.h"],
     visibility = [
-        "//apps/desktop:__pkg__",
+        "//bazel/layers:apps_desktop",
         "//src/platform/desktop/common/transport:__pkg__",
     ],
     deps = QT_DEPS + [

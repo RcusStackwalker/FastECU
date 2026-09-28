@@ -3,9 +3,9 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 # Config-package-owned test fixture: a ConfigSession over in-memory ports
 # with a small, fully known protocols.cfg.
 package(default_visibility = [
-    "//apps/desktop:__pkg__",
-    "//src/backend:__subpackages__",
-    "//src/ui:__subpackages__",
+    "//bazel/layers:apps_desktop",
+    "//bazel/layers:backend",
+    "//bazel/layers:ui",
 ])
 
 cc_library(

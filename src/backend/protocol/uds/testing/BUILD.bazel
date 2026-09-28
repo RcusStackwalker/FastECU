@@ -4,8 +4,8 @@ load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 package(
     default_testonly = True,
     default_visibility = [
-        "//src:__subpackages__",
-        "//tests:__pkg__",
+        "//bazel/layers:src",
+        "//bazel/layers:tests",
     ],
 )
 

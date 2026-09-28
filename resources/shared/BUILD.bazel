@@ -3,9 +3,9 @@ load("//bazel:qt_common.bzl", "qt_resource_via_qrc")
 
 # //src/backend/definitions and tests consume these resources.
 package(default_visibility = [
+    "//bazel/layers:tests",
     "//src/backend/definitions:__pkg__",
     "//src/platform/desktop/common/ports:__pkg__",
-    "//tests:__pkg__",
 ])
 
 # resources/shared/protocols_cfg_eeprom_capabilities_test.cpp pins protocols.cfg's

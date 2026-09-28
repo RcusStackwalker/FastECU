@@ -2,10 +2,10 @@ load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_library")
 
 package(default_visibility = [
-    "//apps:__subpackages__",
-    "//src/platform:__subpackages__",
-    "//src/ui:__subpackages__",
-    "//tests:__pkg__",
+    "//bazel/layers:apps",
+    "//bazel/layers:platform",
+    "//bazel/layers:tests",
+    "//bazel/layers:ui",
 ])
 
 # The only target in this package visible to //src/backend/definitions, whose
@@ -36,11 +36,11 @@ qt_cc_library(
             "qt_settings.h",
         ],
     visibility = [
-        "//apps:__subpackages__",
+        "//bazel/layers:apps",
+        "//bazel/layers:platform",
+        "//bazel/layers:tests",
+        "//bazel/layers:ui",
         "//src/backend/definitions:__pkg__",
-        "//src/platform:__subpackages__",
-        "//src/ui:__subpackages__",
-        "//tests:__pkg__",
     ],
     deps = [
         "//bazel/qt:core",

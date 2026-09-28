@@ -2,9 +2,9 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
-    "//src/backend:__subpackages__",
-    "//src/platform:__subpackages__",
-    "//tests:__pkg__",
+    "//bazel/layers:backend",
+    "//bazel/layers:platform",
+    "//bazel/layers:tests",
 ])
 
 cc_library(
@@ -17,9 +17,9 @@ cc_library(
     srcs = ["denso_sh705x_eeprom_common.cpp"],
     hdrs = ["denso_sh705x_eeprom_common.h"],
     visibility = [
+        "//bazel/layers:platform",
+        "//bazel/layers:tests",
         "//src/backend/flash/eeprom:__subpackages__",
-        "//src/platform:__subpackages__",
-        "//tests:__pkg__",
     ],
     deps = [
         "//src/backend/flash:flash_plan",
@@ -79,8 +79,8 @@ cc_library(
     srcs = ["denso_sh705x_eeprom_kline_executor.cpp"],
     hdrs = ["denso_sh705x_eeprom_kline_executor.h"],
     visibility = [
-        "//src/platform:__subpackages__",
-        "//tests:__pkg__",
+        "//bazel/layers:platform",
+        "//bazel/layers:tests",
     ],
     deps = [
         ":denso_sh705x_eeprom_common",
@@ -112,8 +112,8 @@ cc_library(
     srcs = ["denso_sh705x_eeprom_can_executor.cpp"],
     hdrs = ["denso_sh705x_eeprom_can_executor.h"],
     visibility = [
-        "//src/platform:__subpackages__",
-        "//tests:__pkg__",
+        "//bazel/layers:platform",
+        "//bazel/layers:tests",
     ],
     deps = [
         ":denso_sh705x_eeprom_common",

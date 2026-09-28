@@ -1,11 +1,7 @@
 load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library", "qt_cc_test", "qt_cpp_moc_headers")
 
-package(default_visibility = [
-    "//apps/desktop:__pkg__",
-    "//src/platform:__subpackages__",
-    "//tests:__pkg__",
-])
+package(default_visibility = ["//bazel/layers:platform_and_composition_root"])
 
 # root //:windows_preprocessor_guards reads serial_port_actions_direct.h as
 # `data`; that reference is plumbing, not a layer dependency, so export it to
@@ -42,8 +38,8 @@ qt_cc_library(
         "serial_facade_codes.h",
     ],
     visibility = [
+        "//bazel/layers:tests",
         "//src/platform/desktop:__subpackages__",
-        "//tests:__pkg__",
     ],
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
@@ -105,10 +101,10 @@ qt_cc_library(
 )
 
 DIRECT_SERIAL_BACKEND_VISIBILITY = [
-    "//apps/bench:__pkg__",
-    "//apps/desktop:__pkg__",
+    "//bazel/layers:apps_bench",
+    "//bazel/layers:apps_desktop",
+    "//bazel/layers:tests",
     "//src/platform/desktop/common/serial:__pkg__",
-    "//tests:__pkg__",
 ]
 
 # qt_cc_library names its generated moc genrule after the header's basename
@@ -280,8 +276,8 @@ qt_cc_library(
     implementation_deps = [":serial_port_actions"],
     normal_hdrs = ["desktop_serial_factory.h"],
     visibility = [
-        "//apps/bench:__pkg__",
-        "//apps/desktop:__pkg__",
+        "//bazel/layers:apps_bench",
+        "//bazel/layers:apps_desktop",
     ],
     deps = QT_DEPS + [
         ":direct_serial_backend_api",
@@ -310,7 +306,7 @@ qt_cc_library(
     copts = COMMON_COPTS,
     implementation_deps = [":serial_port_actions"],
     normal_hdrs = ["serial_idle.h"],
-    visibility = ["//src/ui/desktop:__pkg__"],
+    visibility = ["//bazel/layers:ui_desktop"],
     deps = QT_DEPS,
 )
 

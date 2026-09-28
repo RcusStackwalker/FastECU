@@ -1,19 +1,13 @@
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
-package(default_visibility = [
-    "//apps/desktop:__pkg__",
-    "//src/platform:__subpackages__",
-    "//tests:__pkg__",
-])
+package(default_visibility = ["//bazel/layers:platform_and_composition_root"])
 
 # UI-facing adapters, as connection:adapter_connection is: MainWindow holds the
 # LoggingEngine and builds its snapshots and values through these adapters.
 UI_FACING_VISIBILITY = [
-    "//apps/desktop:__pkg__",
-    "//src/platform:__subpackages__",
-    "//src/ui/desktop:__pkg__",
-    "//tests:__pkg__",
+    "//bazel/layers:platform_and_composition_root",
+    "//bazel/layers:ui_desktop",
 ]
 
 qt_cc_library(

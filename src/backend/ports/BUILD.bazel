@@ -2,13 +2,10 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
 package(default_visibility = [
-    "//apps/bench:__pkg__",
+    "//bazel/layers:apps_bench",
     # The desktop composition root's startup diagnostics present port errors.
-    "//apps/desktop:__pkg__",
-    "//src/backend:__subpackages__",
-    "//src/platform:__subpackages__",
-    "//src/ui:__subpackages__",
-    "//tests:__pkg__",
+    "//bazel/layers:apps_desktop",
+    "//bazel/layers:backend_and_above",
 ])
 
 cc_library(
