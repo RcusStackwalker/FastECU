@@ -163,8 +163,11 @@ In progress. 6m-1 added the portable `CalibrationSession`, `RomOpenUseCase`
 and `CalibrationWorkspace` (composition-owned, stable session IDs). 6m-2 moved
 ownership and identity: `MainWindow` holds one legacy view per workspace
 session, addressed by `SessionId` rather than tree position, and the post-read
-handoff adopts an image only after a successful read. Rendering, every
-mutation, and retirement of the legacy model remain for 6m-3; see the
+handoff adopts an image only after a successful read. 6m-3 renders the
+calibration trees and ROM info from the session, keeps per-ROM view state in
+the UI, and makes the session's protocol info the metadata truth. Map windows,
+edits, save, write and checksum move to session bytes in 6m-4; 6m-5 retires the
+legacy model. See the
 [step 6m design](superpowers/specs/2026-09-28-step6m-calibration-sessions-design.md).
 
 Migrate remaining definition lookup, ROM open/save, map display/editing, and
