@@ -3,6 +3,9 @@
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
+#include <QFileDialog>
+#include <QLineEdit>
+#include <QScopeGuard>
 #include <QMdiArea>
 #include <QMdiSubWindow>
 #include <QMessageBox>
@@ -46,7 +49,9 @@
 #include "src/backend/definition/definition_service.h"
 #include "src/ui/desktop/calibration/session_key.h"
 #include "src/backend/flash/flash_operation_request.h"
-#include "src/ui/desktop/calibration/legacy_calibration_view.h"
+#include "src/ui/desktop/calibration/rom_info.h"
+#include "src/ui/desktop/calibration_maps.h"
+#include "src/backend/calibration/session/rom_save.h"
 #include "src/ui/desktop/hexedit/hexedit.h"
 
 namespace
@@ -294,6 +299,7 @@ struct TestServices
             .config = config,
             .file_actions = file_actions,
             .calibrations = calibrations,
+            .rom_save = rom_save,
             .logger_model = logger_model,
             .logger_definitions = logger_definitions,
             .config_repository = file_repository,
@@ -318,6 +324,7 @@ struct TestServices
     fastecu::calibration::RomOpenUseCase rom_open{
         file_actions, definition_service, file_repository, file_system, events, config};
     fastecu::calibration::CalibrationWorkspace calibrations{rom_open};
+    fastecu::calibration::RomSaveUseCase rom_save{file_repository, events};
     fastecu::logging::LoggerModel logger_model;
     fastecu::logging::LoggerDefinitionService logger_definitions{file_repository, resource_bundle, file_writer};
     fastecu::ui::LogChannel log_channel;
@@ -1056,7 +1063,8 @@ class MainWindowTest : public QObject
 
         QVERIFY(!operation_driver.timedOut());
         QCOMPARE(operation_driver.checksumWarningCount(), 1);
-        QCOMPARE(window.calibrations_.front().legacy->FullRomData, QByteArray(16, '\x5a'));
+        QVERIFY(std::ranges::all_of(services.calibrations.find(window.calibrations_.front().id)->rom(),
+                                    [](auto byte) { return byte == 0x5a; }));
         QVERIFY(!window.vbatt_timer->isActive());
     }
 
@@ -1086,7 +1094,8 @@ class MainWindowTest : public QObject
                  "Make: " + QString::fromStdString(services.config.selected_vehicle()->make));
         QCOMPARE(window.calibrations_.front().view.missing_definition_make,
                  std::optional<QString>(QString::fromStdString(services.config.selected_vehicle()->make)));
-        QCOMPARE(window.calibrations_.front().legacy->FileName, QString("a.bin"));
+        QCOMPARE(services.calibrations.find(window.calibrations_.front().id)->source().display_name,
+                 std::string{"a.bin"});
         QCOMPARE(services.calibrations.ids().size(), std::size_t{1});
         QCOMPARE(window.ui->calibrationFilesTreeWidget->topLevelItem(0)->text(2),
                  fastecu::ui::session_key_text(window.calibrations_.front().id));
@@ -1123,9 +1132,9 @@ class MainWindowTest : public QObject
         QCOMPARE(services.calibrations.ids(), (std::vector{a, c}));
         QCOMPARE(files->topLevelItemCount(), 2);
         QCOMPARE(files->topLevelItem(1)->text(2), c_key); // not renumbered
-        QVERIFY(window.legacy_calibration(c) != nullptr);
-        QCOMPARE(window.legacy_calibration(c)->FileName, QString("c.bin"));
-        QCOMPARE(window.legacy_calibration(c)->FullRomData.at(0), '\x0c');
+        QVERIFY(services.calibrations.find(c) != nullptr);
+        QCOMPARE(services.calibrations.find(c)->source().display_name, std::string{"c.bin"});
+        QCOMPARE(services.calibrations.find(c)->rom()[0], std::uint8_t{0x0c});
     }
 
     void windowsOfAClosedRomAreInert()
@@ -1144,7 +1153,7 @@ class MainWindowTest : public QObject
         driver.stop();
         const auto b = window.calibrations_.at(1).id;
         window.close_calibration(); // b is selected after its open
-        QVERIFY(window.legacy_calibration(b) == nullptr);
+        QVERIFY(services.calibrations.find(b) == nullptr);
 
         const QString stale = fastecu::ui::session_key_text(b) + ",0,Idle";
         auto *content = new QWidget;
@@ -1282,11 +1291,11 @@ class MainWindowTest : public QObject
                     fastecu::calibration::ResolvedDefinition{
                         .id = "D", .definition = {.format = fastecu::definition::DefinitionFormat::EcuFlash}},
             });
-        auto legacy = fastecu::ui::project_legacy_calibration(session);
-        QVERIFY(legacy.has_value());
-        QCOMPARE(legacy->view->RomInfo.at(FileActions::FlashMethod), QString(""));
+        QCOMPARE(
+            fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::FlashMethod),
+            QString(""));
 
-        window.refresh_write_metadata(session, *legacy->view, "/kernels/");
+        window.refresh_write_metadata(session, "/kernels/");
 
         const auto& vehicle = *services.config.selected_vehicle();
         QCOMPARE(session.protocol().flash_method, selected);
@@ -1296,10 +1305,9 @@ class MainWindowTest : public QObject
         QCOMPARE(session.protocol().kernel_path,
                  fastecu::flash::kernel_path("/kernels/", fastecu::config::protocol_field_or_placeholder(
                                                               vehicle, &fastecu::config::ProtocolEntry::kernel)));
-        QCOMPARE(legacy->view->RomInfo.at(FileActions::FlashMethod), QString::fromStdString(selected));
-        QCOMPARE(legacy->view->McuType, QString::fromStdString(session.protocol().mcu_type));
-        QCOMPARE(legacy->view->Kernel, QString::fromStdString(session.protocol().kernel_path));
-        QCOMPARE(legacy->view->FlashMethod, QString::fromStdString(selected));
+        QCOMPARE(
+            fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::FlashMethod),
+            QString::fromStdString(selected));
     }
 
     void writeMetadataLeavesADefinitionlessFlashMethodAlone()
@@ -1315,17 +1323,314 @@ class MainWindowTest : public QObject
             fastecu::calibration::SessionId{42},
             fastecu::calibration::SessionContents{.source = {.display_name = "n.bin", .path = "/n.bin"},
                                                   .rom = std::vector<std::uint8_t>(16, 0)});
-        auto legacy = fastecu::ui::project_legacy_calibration(session);
-        QVERIFY(legacy.has_value());
 
-        window.refresh_write_metadata(session, *legacy->view, "/kernels/");
+        window.refresh_write_metadata(session, "/kernels/");
 
         const auto& vehicle = *services.config.selected_vehicle();
         QCOMPARE(session.protocol().flash_method, std::string{});
-        QCOMPARE(legacy->view->RomInfo.at(FileActions::FlashMethod), QString(" "));
+        QCOMPARE(
+            fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::FlashMethod),
+            QString(" "));
         QCOMPARE(session.protocol().mcu_type,
                  fastecu::config::protocol_field_or_placeholder(vehicle, &fastecu::config::ProtocolEntry::mcu));
-        QCOMPARE(legacy->view->McuType, QString::fromStdString(session.protocol().mcu_type));
+    }
+
+    void checksumAndSaveUseATemporaryImage()
+    {
+        ModalDriver driver{QString()};
+        driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        selectSubaruProtocol(window, "sub_ecu_denso_sh7058");
+        QTemporaryDir files;
+        QVERIFY(writeTextFile(
+            files.path() + "/definition.xml",
+            R"(<rom><romid><xmlid>SAVE</xmlid><flashmethod>sub_ecu_denso_sh7058</flashmethod></romid></rom>)"));
+        services.config.settings().primary_definition_base = "ecuflash";
+        services.config.settings().use_ecuflash_definitions = "enabled";
+        services.config.settings().ecuflash_definition_files_directory = files.path().toStdString();
+        services.file_actions.create_ecuflash_def_id_list();
+        const QString path = files.path() + "/save.bin";
+        const auto opened = services.calibrations.adopt_read_image({
+            .rom = bytes::Bytes(1024UZ * 1024, 0),
+            .filename = path.toStdString(),
+            .rom_id = "SAVE",
+            .protocol_name = "sub_ecu_denso_sh7058",
+        });
+        QVERIFY(opened.has_value());
+        QVERIFY(window.add_calibration(opened->id));
+        selectSubaruProtocol(window, "sub_ecu_denso_sh7058");
+        auto *session = services.calibrations.find(opened->id);
+        QVERIFY(session != nullptr);
+        QVERIFY(session->definition() != nullptr);
+        QVERIFY(session->write_bytes(0, bytes::Bytes{1}).has_value());
+        const bytes::Bytes original(session->rom().begin(), session->rom().end());
+        bytes::Bytes operation_image = original;
+
+        window.runChecksumCorrection(*session, operation_image);
+
+        QVERIFY(operation_image != original);
+        QVERIFY(std::ranges::equal(session->rom(), original));
+        QVERIFY(session->dirty());
+        window.save_calibration_file();
+        const auto saved = services.file_repository.read(path.toStdString());
+        QVERIFY(saved.has_value());
+        QVERIFY(*saved == operation_image);
+        QVERIFY(std::ranges::equal(session->rom(), original));
+        QVERIFY(!session->dirty());
+        QVERIFY(session->write_bytes(0, bytes::Bytes{2}).has_value());
+        const bytes::Bytes edited(session->rom().begin(), session->rom().end());
+        // A directory is a deterministic failed file write on every platform.
+        session->mark_saved(files.path().toStdString());
+        QVERIFY(session->write_bytes(0, bytes::Bytes{2}).has_value());
+        const auto source = session->source();
+        window.save_calibration_file();
+        QVERIFY(session->source() == source);
+        QVERIFY(session->dirty());
+        QVERIFY(std::ranges::equal(session->rom(), edited));
+        driver.stop();
+        QVERIFY(!driver.timedOut());
+    }
+
+    void saveAsChangesSourceAndTreeOnlyAfterSuccess()
+    {
+        const bool native_disabled = QApplication::testAttribute(Qt::AA_DontUseNativeDialogs);
+        QApplication::setAttribute(Qt::AA_DontUseNativeDialogs, true);
+        const auto restore_dialogs =
+            qScopeGuard([&] { QApplication::setAttribute(Qt::AA_DontUseNativeDialogs, native_disabled); });
+        ModalDriver driver{QString()};
+        driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        QTemporaryDir files;
+        const QString original_path = writeRom(files, "original.bin", '\x11');
+        QCOMPARE(window.open_calibration_file(original_path), 0);
+        auto *session = services.calibrations.find(window.calibrations_.front().id);
+        QVERIFY(session != nullptr);
+        auto protocol = session->protocol();
+        protocol.mcu_type.clear(); // Unknown MCU preserves bytes without a checksum dialog.
+        session->set_protocol(protocol);
+        QVERIFY(session->write_bytes(0, bytes::Bytes{9}).has_value());
+        const auto original_source = session->source();
+        QTreeWidgetItem *row = window.ui->calibrationFilesTreeWidget->topLevelItem(0);
+        const QString original_label = row->text(0);
+        driver.stop();
+
+        const auto save_as = [&](const QString& target, bool cancel, bool fail)
+        {
+            QTimer timer;
+            timer.setInterval(5);
+            bool handled = false;
+            bool timed_out = false;
+            QElapsedTimer deadline;
+            deadline.start();
+            QObject::connect(
+                &timer, &QTimer::timeout, &window,
+                [&]
+                {
+                    for (auto *widget : QApplication::topLevelWidgets())
+                    {
+                        auto *dialog = qobject_cast<QFileDialog *>(widget);
+                        if (dialog == nullptr || !dialog->isVisible())
+                        {
+                            continue;
+                        }
+                        if (deadline.elapsed() > 3000)
+                        {
+                            timed_out = true;
+                            dialog->reject();
+                            return;
+                        }
+                        if (handled)
+                        {
+                            continue;
+                        }
+                        handled = true;
+                        if (cancel)
+                        {
+                            dialog->reject();
+                            return;
+                        }
+                        dialog->setDirectory(QFileInfo(target).absolutePath());
+                        dialog->selectFile(QFileInfo(target).fileName());
+                        if (auto *edit = dialog->findChild<QLineEdit *>("fileNameEdit"); edit != nullptr)
+                        {
+                            edit->setText(QFileInfo(target).fileName());
+                        }
+                        if (fail)
+                        {
+                            QObject::connect(dialog, &QDialog::accepted, &window, [target] { QDir().mkdir(target); });
+                        }
+                        QMetaObject::invokeMethod(dialog, "accept", Qt::QueuedConnection);
+                    }
+                    // Close the existing cancellation/failure informational notice.
+                    for (auto *widget : QApplication::topLevelWidgets())
+                    {
+                        if (auto *box = qobject_cast<QMessageBox *>(widget); box != nullptr && box->isVisible())
+                        {
+                            box->accept();
+                        }
+                    }
+                });
+            timer.start();
+            window.save_calibration_file_as();
+            timer.stop();
+            if (timed_out)
+            {
+                qWarning() << "Save As dialog timed out for" << target;
+            }
+            return handled && !timed_out;
+        };
+
+        QVERIFY(save_as({}, true, false));
+        QVERIFY(session->source() == original_source);
+        QVERIFY(session->dirty());
+        QCOMPARE(row->text(0), original_label);
+        const QString blocked = files.path() + "/blocked.bin";
+        QVERIFY(save_as(blocked, false, true));
+        QVERIFY(session->source() == original_source);
+        QVERIFY(session->dirty());
+        QCOMPARE(row->text(0), original_label);
+        QVERIFY(save_as(files.path() + "/renamed.", false, false));
+        QCOMPARE(session->source().path, (files.path() + "/renamed.bin").toStdString());
+        QCOMPARE(session->source().display_name, std::string{"renamed.bin"});
+        QVERIFY(!session->dirty());
+        QVERIFY(row->text(0).contains("renamed.bin"));
+        const auto saved = services.file_repository.read(session->source().path);
+        QVERIFY(saved.has_value());
+        QCOMPARE(saved->at(0), std::uint8_t{9});
+        QCOMPARE(session->rom()[0], std::uint8_t{9});
+    }
+
+    void selectableSignalEditsItsEmittingSession()
+    {
+        ModalDriver driver{QString()};
+        driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        window.show();
+        QApplication::processEvents();
+        QTemporaryDir files;
+        QVERIFY(writeTextFile(files.path() + "/selector.xml", R"(
+<rom><romid><xmlid>SELECT</xmlid></romid>
+<table name="Mode" category="Controls" address="0" type="1D" sizex="1" sizey="1">
+<scaling storagetype="bloblist" endian="big"><data name="off" value="00"/><data name="on" value="01"/></scaling>
+</table></rom>)"));
+        services.config.settings().primary_definition_base = "ecuflash";
+        services.config.settings().use_ecuflash_definitions = "enabled";
+        services.config.settings().ecuflash_definition_files_directory = files.path().toStdString();
+        services.file_actions.create_ecuflash_def_id_list();
+        const auto open_map = [&](const QString& name) -> CalibrationMaps *
+        {
+            const auto opened = services.calibrations.adopt_read_image({
+                .rom = bytes::Bytes(16, 0),
+                .filename = name.toStdString(),
+                .rom_id = "SELECT",
+            });
+            if (!opened.has_value() || !window.add_calibration(opened->id))
+            {
+                return nullptr;
+            }
+            auto *file_tree = window.ui->calibrationFilesTreeWidget;
+            for (int row = 0; row < file_tree->topLevelItemCount(); ++row)
+            {
+                file_tree->topLevelItem(row)->setSelected(row == file_tree->topLevelItemCount() - 1);
+            }
+            window.calibration_files_treewidget_item_selected(
+                file_tree->topLevelItem(file_tree->topLevelItemCount() - 1));
+            QTreeWidget *tree = window.ui->calibrationDataTreeWidget;
+            for (int i = 0; i < tree->topLevelItemCount(); ++i)
+            {
+                auto *category = tree->topLevelItem(i);
+                if (category->text(0) == "Controls" && category->childCount() != 0)
+                {
+                    tree->setCurrentItem(category->child(0));
+                    window.calibration_data_treewidget_item_selected(category->child(0));
+                    const auto windows = window.ui->mdiArea->subWindowList();
+                    if (windows.isEmpty())
+                    {
+                        return nullptr;
+                    }
+                    window.ui->mdiArea->setActiveSubWindow(windows.back());
+                    return qobject_cast<CalibrationMaps *>(windows.back()->widget());
+                }
+            }
+            return nullptr;
+        };
+        CalibrationMaps *first = open_map(files.path() + "/first.bin");
+        QVERIFY(first != nullptr);
+        const auto first_id = services.calibrations.ids().front();
+        CalibrationMaps *second = open_map(files.path() + "/second.bin");
+        QVERIFY(second != nullptr);
+        QVERIFY(first != second);
+        const auto second_id = services.calibrations.ids().back();
+        QVERIFY(window.ui->mdiArea->activeSubWindow()->widget() == second);
+
+        // Emit from the inactive first map while the second ROM/window is selected.
+        first->selectable_combobox_item_changed("enabled");
+
+        QCOMPARE(services.calibrations.find(first_id)->rom()[0], std::uint8_t{1});
+        QVERIFY(services.calibrations.find(first_id)->dirty());
+        QCOMPARE(services.calibrations.find(second_id)->rom()[0], std::uint8_t{0});
+        QVERIFY(!services.calibrations.find(second_id)->dirty());
+        driver.stop();
+        QVERIFY(!driver.timedOut());
+    }
+
+    void failedMapDecodeDoesNotOccupyAView()
+    {
+        ModalDriver driver{QString()};
+        driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        QTemporaryDir files;
+        QCOMPARE(window.open_calibration_file(writeRom(files, "bad.bin", '\x11')), 0);
+        driver.stop();
+        const auto id = window.calibrations_.front().id;
+        auto *session = services.calibrations.find(id);
+        QVERIFY(session != nullptr);
+        fastecu::definition::RomDefinition definition{.format = fastecu::definition::DefinitionFormat::EcuFlash};
+        definition.scalings.push_back({.name = "Raw"});
+        fastecu::definition::CalibrationMap map;
+        map.name = "Broken";
+        map.category = "Controls";
+        map.type = "1D";
+        map.address = 1000; // Beyond the opened 16-byte image.
+        map.x_size = 1;
+        map.y_size = 1;
+        map.storage_type = fastecu::definition::StorageType::Uint8;
+        map.scaling_name = "Raw";
+        definition.maps.push_back(map);
+        *session = fastecu::calibration::CalibrationSession(
+            id, {
+                    .source = session->source(),
+                    .rom = bytes::Bytes(16, 0),
+                    .definition =
+                        fastecu::calibration::ResolvedDefinition{.id = "BAD", .definition = std::move(definition)},
+                });
+        window.calibration_files_treewidget_item_selected(window.ui->calibrationFilesTreeWidget->topLevelItem(0));
+        QTreeWidget *tree = window.ui->calibrationDataTreeWidget;
+        QTreeWidgetItem *item = nullptr;
+        for (int i = 0; i < tree->topLevelItemCount(); ++i)
+        {
+            auto *category = tree->topLevelItem(i);
+            if (category->text(0) == "Controls")
+            {
+                item = category->child(0);
+            }
+        }
+        QVERIFY(item != nullptr);
+        QSignalSpy errors(&window, &MainWindow::LOG_E);
+        tree->setCurrentItem(item);
+        window.calibration_data_treewidget_item_selected(item);
+        QVERIFY(window.ui->mdiArea->subWindowList().isEmpty());
+        QVERIFY(window.calibrations_.front().view.open_maps.empty());
+        QCOMPARE(item->checkState(0), Qt::Unchecked);
+        QVERIFY(!errors.isEmpty());
     }
 
     void windowPreservesInjectedLoggingFactory()

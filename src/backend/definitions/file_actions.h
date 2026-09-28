@@ -16,12 +16,9 @@
 
 #include "src/backend/definitions/kernelmemorymodels.h"
 #include "src/backend/definitions/definition_indexes.h"
-#include "src/backend/definitions/ecu_cal_def.h"
-#include "src/backend/calibration/legacy/legacy_calibration_adapter.h"
 #include "src/backend/calibration/session/definition_catalogs.h"
 #include "src/backend/config/config_session.h"
 #include "src/backend/definition/definition_service.h"
-#include "src/backend/definition/legacy/legacy_definition_adapter.h"
 #include "src/backend/ports/atomic_file_writer.h"
 #include "src/backend/ports/event_sink.h"
 #include "src/backend/ports/file_repository.h"
@@ -41,8 +38,7 @@ class FileActions : public fastecu::calibration::IDefinitionCatalogs
                 fastecu::IFileRepository& file_repository, fastecu::IAtomicFileWriter& atomic_file_writer,
                 fastecu::IEventSink& events, fastecu::config::ConfigSession& config);
 
-    // IDefinitionCatalogs: the same catalogs the legacy open path builds, so a
-    // session open matches against exactly what FileActions would.
+    // Catalogs and startup source indexes used by the calibration session.
     fastecu::Result<fastecu::definition::DefinitionCatalog>
     catalog(fastecu::definition::DefinitionFormat format) override
     {
@@ -61,7 +57,7 @@ class FileActions : public fastecu::calibration::IDefinitionCatalogs
 
     // The legacy EcuFlash/RomRaider definition index lists (see
     // definition_indexes.h's comment): derived catalog data FileActions
-    // builds and appends to, not application configuration.
+    // replaces from portable catalogs, not application configuration.
     using DefinitionIndexes = fastecu::definitions::DefinitionIndexes;
     DefinitionIndexes definitionIndexes;
 
@@ -76,76 +72,9 @@ class FileActions : public fastecu::calibration::IDefinitionCatalogs
         QStringList send_timeout;
     } protocolsStruct;
 
-    using EcuCalDefStructure = fastecu::definitions::EcuCalDefStructure;
-    EcuCalDefStructure EcuCalDefStruct;
-
-    // EcuCalDefStructure *ecuCalDefTemp;
-
-    enum RomInfoEnum
-    {
-        XmlId,
-        InternalIdAddress,
-        InternalIdString,
-        EcuId,
-        Make,
-        Market,
-        Model,
-        SubModel,
-        Transmission,
-        Year,
-        FlashMethod,
-        MemModel,
-        ChecksumModule,
-        RomBase,
-        FileSize,
-        DefFile,
-    };
-
-    static bool validate_calibration_maps(const EcuCalDefStructure& ecuCalDef, QStringList *errors = nullptr);
-    static QStringList collect_ecuflash_base_header_fields(const QStringList& header_names, const QStringList& defData,
-                                                           int *endIndex = nullptr);
-    static QStringList collect_ecuflash_definition_body_lines(const QStringList& defData, int startIndex);
-
-    /*****************************************************
-     * Search and read RomRaider ECU definition from file
-     *****************************************************/
     void create_romraider_def_id_list();
-    EcuCalDefStructure *read_romraider_ecu_base_def(FileActions::EcuCalDefStructure *ecuCalDef);
-    EcuCalDefStructure *read_romraider_ecu_def(FileActions::EcuCalDefStructure *ecuCalDef, const QString& ecuId);
-
-    /*****************************************************
-     * Search and read RomRaider ECU definition from file
-     *****************************************************/
     void create_ecuflash_def_id_list();
-    // EcuCalDefStructure *read_ecuflash_ecu_base_def(FileActions::EcuCalDefStructure *ecuCalDef);
-    EcuCalDefStructure *read_ecuflash_ecu_def(FileActions::EcuCalDefStructure *ecuCalDef, const QString& cal_id);
-
-    // EcuCalDefStructure *read_ecuflash_ecu_def_test(FileActions::EcuCalDefStructure *ecuCalDef, QString cal_id);
-
     QString parse_hex_ecuid(uint8_t byte);
-    EcuCalDefStructure *parse_ecuid_ecuflash_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii);
-    EcuCalDefStructure *parse_ecuid_romraider_def_files(FileActions::EcuCalDefStructure *ecuCalDef, bool is_ascii);
-
-    /*******************************************************************
-     * Placeholder RomInfo fields for a ROM the user chose to open
-     * without a definition file. Only the caller that owns the
-     * chooser dialog (MainWindow::prompt_for_missing_definition) knows
-     * whether that choice was made, so this is deliberately not
-     * applied by open_subaru_rom_file itself.
-     ******************************************************************/
-    void apply_missing_definition_defaults(FileActions::EcuCalDefStructure *ecuCalDef);
-
-    /***********************************************
-     * Open ECU ROM file, including possible
-     * checksum calculations and value conversions
-     **********************************************/
-    EcuCalDefStructure *open_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef, QString fileName);
-
-    /***********************************************
-     * Save ECU ROM file, including possible
-     * checksum calculations and value conversions
-     **********************************************/
-    EcuCalDefStructure *save_subaru_rom_file(FileActions::EcuCalDefStructure *ecuCalDef, const QString& fileName);
 
     /**************************************************
      * Parse negative response code message
@@ -172,37 +101,10 @@ class FileActions : public fastecu::calibration::IDefinitionCatalogs
     build_definition_catalog(fastecu::definition::DefinitionFormat format);
     QString definition_source(fastecu::definition::DefinitionFormat format, const QString& id) const;
     void log_definition_error(const QString& operation, const fastecu::Error& error);
-    fastecu::Status load_configured_definition(EcuCalDefStructure& ecu_cal_def,
-                                               fastecu::definition::DefinitionFormat format,
-                                               const QString& definition_id);
-    // The definition load_configured_definition last resolved successfully,
-    // or nullptr when that was for a different format/id (or never happened).
-    const fastecu::definition::RomDefinition *resolved_definition(fastecu::definition::DefinitionFormat format,
-                                                                  const QString& definition_id) const;
-    bool log_definition_load_failure(const QString& operation, const fastecu::Error& error, const QString& source,
-                                     const QString& warning_title, const QString& warning_text);
-    static void strip_legacy_address_prefixes(QStringList& addresses);
-    void apply_flash_method_alias(EcuCalDefStructure& ecuCalDef);
-    void normalize_definition_addresses(EcuCalDefStructure& ecuCalDef);
-    const fastecu::config::ResolvedCarModel& selectedVehicle() const;
-
     // The composition's session, initialized before FileActions is built.
     fastecu::config::ConfigSession& configSession_;
     fastecu::IFileSystem& definitionFileSystem_;
-    fastecu::IFileRepository& definitionFileRepository_;
     fastecu::definition::DefinitionService definitionService_;
-    fastecu::definition::LegacyDefinitionAdapter definitionAdapter_;
-    struct ResolvedDefinition
-    {
-        fastecu::definition::DefinitionFormat format;
-        QString id;
-        fastecu::definition::RomDefinition definition;
-    };
-    std::optional<ResolvedDefinition> resolvedDefinition_;
     std::vector<std::string> submittedEcuflashHandles_;
-    // Declared last so that definitionFileRepository_ -- its constructor
-    // argument -- is already initialized: C++ initializes members in
-    // declaration order regardless of initializer-list order.
-    fastecu::calibration::LegacyCalibrationAdapter calibrationAdapter_;
     fastecu::IEventSink& events_;
 };

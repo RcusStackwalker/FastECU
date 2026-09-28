@@ -1,0 +1,381 @@
+#include <algorithm>
+#include <array>
+#include <string>
+#include <vector>
+
+#include <QCheckBox>
+#include <QComboBox>
+#include <QSignalSpy>
+#include <QTableWidget>
+#include <QTest>
+
+#include "src/backend/calibration/session/calibration_workspace.h"
+#include "src/backend/calibration/session/testing/fake_definition_catalogs.h"
+#include "src/backend/config/testing/config_session_fixture.h"
+#include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
+#include "src/ui/desktop/calibration_maps.h"
+
+namespace
+{
+using fastecu::calibration::SessionId;
+using fastecu::definition::DefinitionFormat;
+
+struct MapFixture
+{
+    fastecu::config::testing::ConfigSessionFixture cfg;
+    fastecu::InMemoryAtomicFileWriter writer;
+    fastecu::definition::DefinitionService definitions{cfg.file_system, cfg.file_repository, writer};
+    fastecu::calibration::testing::FakeDefinitionCatalogs catalogs;
+    fastecu::calibration::RomOpenUseCase opener{catalogs,        definitions, cfg.file_repository,
+                                                cfg.file_system, cfg.events,  cfg.session};
+    fastecu::calibration::CalibrationWorkspace workspace{opener};
+
+    fastecu::Result<SessionId> open(std::string_view table, bool constant = false)
+    {
+        const auto initialized = cfg.initialize();
+        if (!initialized.has_value())
+        {
+            return std::unexpected(initialized.error());
+        }
+        auto& settings = cfg.session.settings();
+        settings.primary_definition_base = "ecuflash";
+        settings.use_ecuflash_definitions = "enabled";
+        settings.ecuflash_definition_files_directory = "/defs/";
+        const std::string xml = std::string(R"xml(<rom>
+          <romid><xmlid>MAPS</xmlid><internalidaddress>0</internalidaddress>
+            <internalidstring>MAPS</internalidstring></romid>
+          <scaling name="Raw" toexpr="x" frexpr="x" format="%.1f" storagetype="uint8" endian="big"/>
+          <scaling name="Modes" storagetype="bloblist"><data name="Off" value="0000"/>
+            <data name="On" value="0001"/></scaling>
+        )xml") + std::string(table) +
+                                "</rom>";
+        cfg.put("/defs/maps.xml", xml);
+        cfg.file_system.files["/defs/maps.xml"] = {};
+        catalogs.entries[DefinitionFormat::EcuFlash] = {{.format = DefinitionFormat::EcuFlash,
+                                                         .definition_id = "MAPS",
+                                                         .internal_id = "MAPS",
+                                                         .internal_id_address = 0,
+                                                         .internal_id_encoding = fastecu::definition::IdEncoding::Ascii,
+                                                         .source = "/defs/maps.xml"}};
+        std::vector<std::uint8_t> bytes(128);
+        const std::string identity = "MAPS";
+        std::copy(identity.begin(), identity.end(), bytes.begin());
+        for (int i = 0; i < 4; ++i)
+        {
+            bytes[32 + i] = static_cast<std::uint8_t>(constant ? 10 : 10 + 10 * i);
+        }
+        bytes[64] = 1;
+        bytes[65] = 2;
+        bytes[80] = 3;
+        bytes[81] = 4;
+        bytes[97] = 1;
+        cfg.file_repository.files["/cal/maps.bin"] = std::move(bytes);
+        const auto opened = workspace.open_file("/cal/maps.bin");
+        if (!opened.has_value())
+        {
+            return std::unexpected(opened.error());
+        }
+        if (workspace.find(opened->id)->definition() == nullptr)
+        {
+            return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "synthetic map definition did not resolve");
+        }
+        return opened->id;
+    }
+};
+
+constexpr auto kXAxis = R"(<table type="X Axis" name="Speed" address="40" elements="2" scaling="Raw"/>)";
+constexpr auto kYAxis = R"(<table type="Y Axis" name="Load" address="50" elements="2" scaling="Raw"/>)";
+
+std::string numeric_table(std::string_view type, int x, int y, std::string_view axes = {})
+{
+    return "<table name=\"Timing\" type=\"" + std::string(type) + "\" address=\"20\" scaling=\"Raw\" sizex=\"" +
+           std::to_string(x) + "\" sizey=\"" + std::to_string(y) + "\">" + std::string(axes) + "</table>";
+}
+
+void replace_definition(fastecu::calibration::CalibrationSession& session,
+                        fastecu::calibration::ResolvedDefinition definition)
+{
+    const auto rom = session.rom();
+    fastecu::calibration::SessionContents contents{.source = session.source(),
+                                                   .rom = std::vector<std::uint8_t>(rom.begin(), rom.end()),
+                                                   .definition = std::move(definition),
+                                                   .protocol = session.protocol()};
+    session = fastecu::calibration::CalibrationSession(session.id(), std::move(contents));
+}
+
+QTableWidget *table_of(CalibrationMaps& map)
+{
+    return map.findChild<QTableWidget *>();
+}
+} // namespace
+
+class CalibrationMapsTest : public QObject
+{
+    Q_OBJECT
+
+  private slots:
+    void layoutsAndRefresh_data()
+    {
+        QTest::addColumn<QString>("type");
+        QTest::addColumn<int>("x");
+        QTest::addColumn<int>("y");
+        QTest::addColumn<int>("rows");
+        QTest::addColumn<int>("cols");
+        QTest::addColumn<int>("bodyRow");
+        QTest::addColumn<int>("bodyCol");
+        QTest::newRow("1D") << "1D" << 1 << 1 << 1 << 1 << 0 << 0;
+        QTest::newRow("X 2D") << "2D" << 2 << 1 << 2 << 2 << 1 << 0;
+        QTest::newRow("Y 2D") << "2D" << 1 << 2 << 2 << 2 << 0 << 1;
+        QTest::newRow("3D") << "3D" << 2 << 2 << 3 << 3 << 1 << 1;
+    }
+
+    void layoutsAndRefresh()
+    {
+        QFETCH(QString, type);
+        QFETCH(int, x);
+        QFETCH(int, y);
+        QFETCH(int, rows);
+        QFETCH(int, cols);
+        QFETCH(int, bodyRow);
+        QFETCH(int, bodyCol);
+        MapFixture fixture;
+        const auto id = fixture.open(numeric_table(type.toStdString(), x, y,
+                                                   (x > 1 ? std::string(kXAxis) : std::string{}) +
+                                                       (y > 1 ? std::string(kYAxis) : std::string{})));
+        QVERIFY(id.has_value());
+        if (type == "2D" && y > 1)
+        {
+            // EcuFlash normalizes a 2D Y axis into its X dimension. Supply
+            // the legacy vertical resolved geometry the UI still supports.
+            auto *session = fixture.workspace.find(*id);
+            auto definition = *session->definition();
+            auto& typedMap = definition.definition.maps[0];
+            typedMap.x_size = 1;
+            typedMap.y_size = 2;
+            typedMap.y_axis = typedMap.x_axis;
+            typedMap.x_axis = {};
+            replace_definition(*session, std::move(definition));
+        }
+        CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+        auto *table = table_of(map);
+        QVERIFY(table != nullptr);
+        QCOMPARE(table->rowCount(), rows);
+        QCOMPARE(table->columnCount(), cols);
+        QVERIFY(table->item(bodyRow, bodyCol) != nullptr);
+        QCOMPARE(table->item(bodyRow, bodyCol)->text(), "10.0");
+        QCOMPARE(table->item(bodyRow + (y > 1 ? y - 1 : 0), bodyCol + (x > 1 ? x - 1 : 0))->text(),
+                 QString::number(10 * x * y, 'f', 1));
+        if (x > 1)
+        {
+            QCOMPARE(table->item(0, bodyCol)->text(), "1.0");
+            QCOMPARE(table->item(0, bodyCol + 1)->text(), "2.0");
+        }
+        if (y > 1)
+        {
+            QCOMPARE(table->item(bodyRow, 0)->text(), "3.0");
+            QCOMPARE(table->item(bodyRow + 1, 0)->text(), "4.0");
+        }
+        QSignalSpy changed(table, &QTableWidget::cellChanged);
+        const std::array<std::uint8_t, 1> edit{55};
+        QVERIFY(fixture.workspace.find(*id)->write_bytes(32, edit).has_value());
+        map.refresh();
+        QCOMPARE(table->item(bodyRow, bodyCol)->text(), "55.0");
+        QCOMPARE(changed.count(), 0);
+        QCOMPARE(table->rowCount(), rows);
+        QCOMPARE(table->columnCount(), cols);
+    }
+
+    void staticAxisLabels_data()
+    {
+        QTest::addColumn<QString>("axisType");
+        QTest::newRow("static X") << "Static X Axis";
+        QTest::newRow("static Y") << "Static Y Axis";
+    }
+
+    void staticAxisLabels()
+    {
+        QFETCH(QString, axisType);
+        MapFixture fixture;
+        const std::string axis = "<table type=\"" + std::string("Static X Axis") +
+                                 "\" name=\"Labels\" elements=\"2\"><data>Low</data><data>High</data></table>";
+        const auto id = fixture.open(numeric_table("2D", 2, 1, axis));
+        QVERIFY(id.has_value());
+        if (axisType == "Static Y Axis")
+        {
+            // The retained UI accepts this legacy tag; the typed resolver
+            // currently emits only Static X Axis, so supply its equivalent
+            // resolved shape directly after opening the normal fixture.
+            auto *session = fixture.workspace.find(*id);
+            auto definition = *session->definition();
+            definition.definition.maps[0].x_axis.type = "Static Y Axis";
+            replace_definition(*session, std::move(definition));
+        }
+        CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+        auto *table = table_of(map);
+        QCOMPARE(table->rowCount(), 2);
+        QCOMPARE(table->columnCount(), 2);
+        QCOMPARE(table->item(0, 0)->text(), "Low");
+        QCOMPARE(table->item(0, 1)->text(), "High");
+        const std::array<std::uint8_t, 1> edit{77};
+        QVERIFY(fixture.workspace.find(*id)->write_bytes(32, edit).has_value());
+        map.refresh();
+        QCOMPARE(table->item(0, 0)->text(), "Low");
+        QCOMPARE(table->item(1, 0)->text(), "77.0");
+    }
+
+    void absentAxisUsesSequentialFallback()
+    {
+        MapFixture fixture;
+        const auto id = fixture.open(numeric_table("2D", 2, 1));
+        QVERIFY(id.has_value());
+        CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+        auto *table = table_of(map);
+        QCOMPARE(table->item(0, 0)->text(), "0");
+        QCOMPARE(table->item(0, 1)->text(), "1");
+        map.refresh();
+        QCOMPARE(table->item(0, 0)->text(), "0");
+        QCOMPARE(table->item(0, 1)->text(), "1");
+    }
+
+    void selectableReflectsBlobBytesWithoutEmittingEditSignal()
+    {
+        MapFixture fixture;
+        const auto id = fixture.open(R"(<table name="Mode" type="Selectable" address="60" scaling="Modes"/>)");
+        QVERIFY(id.has_value());
+        CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+        auto *table = table_of(map);
+        auto *combo = qobject_cast<QComboBox *>(table->cellWidget(0, 0));
+        QVERIFY(combo != nullptr);
+        QCOMPARE(table->rowCount(), 1);
+        QCOMPARE(table->columnCount(), 1);
+        QCOMPARE(combo->count(), 2);
+        QCOMPARE(combo->currentText(), "On");
+        QSignalSpy edits(&map, &CalibrationMaps::selectable_combobox_item_changed);
+        QSignalSpy changes(combo, &QComboBox::currentTextChanged);
+        const std::array<std::uint8_t, 2> off{0, 0};
+        QVERIFY(fixture.workspace.find(*id)->write_bytes(96, off).has_value());
+        map.refresh();
+        QCOMPARE(combo->currentText(), "Off");
+        QCOMPARE(edits.count(), 0);
+        QCOMPARE(changes.count(), 0);
+        QCOMPARE(table->cellWidget(0, 0), combo);
+    }
+
+    void retainedMultiSelectableGeometryKeepsLegacyNumericCell()
+    {
+        MapFixture fixture;
+        const auto id = fixture.open(numeric_table("1D", 1, 1));
+        QVERIFY(id.has_value());
+        auto *session = fixture.workspace.find(*id);
+        auto definition = *session->definition();
+        auto& typedMap = definition.definition.maps[0];
+        typedMap.type = "MultiSelectable";
+        typedMap.y_axis.type = "Y Axis";
+        typedMap.y_axis.name = "Labels";
+        typedMap.y_axis.units = "Label";
+        replace_definition(*session, std::move(definition));
+        CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+        auto *table = table_of(map);
+        QCOMPARE(table->rowCount(), 1);
+        QCOMPARE(table->columnCount(), 1);
+        QVERIFY(table->item(0, 0) != nullptr);
+        QCOMPARE(table->item(0, 0)->text(), "10.0");
+        const std::array<std::uint8_t, 1> edit{55};
+        QVERIFY(session->write_bytes(32, edit).has_value());
+        QSignalSpy changed(table, &QTableWidget::cellChanged);
+        map.refresh();
+        QCOMPARE(table->item(0, 0)->text(), "55.0");
+        QCOMPARE(changed.count(), 0);
+    }
+
+    void retainedSwitchRefreshKeepsUncheckedControlWithoutEmittingEdits()
+    {
+        MapFixture fixture;
+        const auto id = fixture.open(numeric_table("1D", 1, 1));
+        QVERIFY(id.has_value());
+        auto *session = fixture.workspace.find(*id);
+        auto definition = *session->definition();
+        definition.definition.maps[0].type = "Switch";
+        replace_definition(*session, std::move(definition));
+        CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+        auto *table = table_of(map);
+        QCOMPARE(table->rowCount(), 1);
+        QCOMPARE(table->columnCount(), 1);
+        auto *checkbox = qobject_cast<QCheckBox *>(table->cellWidget(0, 0));
+        QVERIFY(checkbox != nullptr);
+        QVERIFY(!checkbox->isChecked());
+        QSignalSpy edits(&map, &CalibrationMaps::checkbox_state_changed);
+        checkbox->setChecked(true);
+        QCOMPARE(edits.count(), 1);
+        edits.clear();
+        map.refresh();
+        QCOMPARE(table->cellWidget(0, 0), checkbox);
+        QVERIFY(!checkbox->isChecked());
+        QCOMPARE(edits.count(), 0);
+        QVERIFY(!session->dirty());
+    }
+
+    void colorsKeepOpeningBoundsDuringRefreshAndReopenUsesCurrentValues()
+    {
+        MapFixture fixture;
+        const auto id = fixture.open(numeric_table("2D", 2, 1, kXAxis));
+        QVERIFY(id.has_value());
+        CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+        auto *table = table_of(map);
+        const auto minimumColor = table->item(1, 0)->background().color();
+        const auto maximumColor = table->item(1, 1)->background().color();
+        QVERIFY(minimumColor != maximumColor);
+        const std::array<std::uint8_t, 1> edit{30};
+        QVERIFY(fixture.workspace.find(*id)->write_bytes(32, edit).has_value());
+        map.refresh();
+        QCOMPARE(table->item(1, 0)->background().color(), maximumColor);
+        QCOMPARE(table->item(1, 1)->background().color(), maximumColor);
+        CalibrationMaps reopened(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+        auto *reopenedTable = table_of(reopened);
+        QCOMPARE(reopenedTable->item(1, 0)->background().color(), maximumColor);
+        QCOMPARE(reopenedTable->item(1, 1)->background().color(), minimumColor);
+        // Reopening must not alter the already open window's color bounds.
+        map.refresh();
+        QCOMPARE(table->item(1, 1)->background().color(), maximumColor);
+    }
+
+    void constantMapHasFiniteStableColors()
+    {
+        MapFixture fixture;
+        const auto id = fixture.open(numeric_table("2D", 2, 1, kXAxis), true);
+        QVERIFY(id.has_value());
+        CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+        auto *table = table_of(map);
+        const auto color = table->item(1, 0)->background().color();
+        QVERIFY(color.isValid());
+        QCOMPARE(table->item(1, 1)->background().color(), color);
+        const std::array<std::uint8_t, 1> edit{30};
+        QVERIFY(fixture.workspace.find(*id)->write_bytes(32, edit).has_value());
+        map.refresh();
+        QCOMPARE(table->item(1, 0)->background().color(), color);
+        CalibrationMaps reopened(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+        QCOMPARE(table_of(reopened)->item(1, 1)->background().color(), color);
+    }
+
+    void closedSessionRefreshIsInertAfterAnotherSessionOpens()
+    {
+        MapFixture fixture;
+        const auto id = fixture.open(numeric_table("1D", 1, 1));
+        QVERIFY(id.has_value());
+        CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+        auto *table = table_of(map);
+        QSignalSpy changed(table, &QTableWidget::cellChanged);
+        QVERIFY(fixture.workspace.close(*id).has_value());
+        const auto replacement = fixture.workspace.open_file("/cal/maps.bin");
+        QVERIFY(replacement.has_value());
+        QVERIFY(replacement->id != *id);
+        const std::array<std::uint8_t, 1> edit{99};
+        QVERIFY(fixture.workspace.find(replacement->id)->write_bytes(32, edit).has_value());
+        map.refresh();
+        QCOMPARE(table->item(0, 0)->text(), "10.0");
+        QCOMPARE(changed.count(), 0);
+    }
+};
+
+QTEST_MAIN(CalibrationMapsTest)
+#include "calibration_maps_test.moc"

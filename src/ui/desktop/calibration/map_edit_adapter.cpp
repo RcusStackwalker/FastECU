@@ -3,38 +3,35 @@
 #include <bit>
 #include <utility>
 
-#include <QDebug>
 #include <QMdiSubWindow>
 #include <QString>
 #include <QTableWidget>
 #include <QTableWidgetSelectionRange>
-
-#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
 
 namespace fastecu::ui
 {
 namespace
 {
 
-// FileActions::RomInfoEnum::FlashMethod (src/backend/definitions/file_actions.h)
-// is 10. Duplicated here as a literal rather than pulling in file_actions.h --
-// and with it the full legacy FileActions dependency graph (legacy config /
-// calibration / definition adapters) -- into this lightweight adapter package.
-constexpr int kFlashMethodRomInfoIndex = 10;
-
-// StartPosList/IntervalList (and their XScale*/YScale* variants) are
-// hex_text-formatted (legacy_definition_adapter.cpp:225-226), same convention
-// as AddressList, so parsed the same way -- toUInt(&ok, 16). Unlike
-// AddressList (required: a parse failure there is a malformed-definition bug
-// worth warning about), a missing or unparsable start/interval value falls
-// back to 1 -- "no striding" -- silently, matching MapElementSpec's own
-// default and decode_scaled_values' EcuCalDefStructure default (definition_
-// resolver.cpp:350-351, :377-378).
-std::uint32_t parse_stride_field(const QString& text)
+std::string legacy_text(std::string_view text)
 {
-    bool ok = false;
-    const std::uint32_t parsed = text.toUInt(&ok, 16);
-    return ok ? parsed : 1;
+    return text.empty() ? " " : std::string(text);
+}
+
+const std::string& target_text(const calibration::MapCellValues& values, calibration::EditTargetKind kind)
+{
+    switch (kind)
+    {
+    case calibration::EditTargetKind::MapBody:
+        return values.map_data;
+    case calibration::EditTargetKind::XAxis:
+        return values.x_axis_data;
+    case calibration::EditTargetKind::YAxis:
+        return values.y_axis_data;
+    case calibration::EditTargetKind::Rejected:
+        std::unreachable();
+    }
+    std::unreachable();
 }
 
 } // namespace
@@ -60,107 +57,49 @@ calibration::MapElementSpec MapElementFields::spec() const&
     return spec;
 }
 
-MapElementFields collect_map_element_fields(const definitions::EcuCalDefStructure& def, int map_number,
+MapElementFields collect_map_element_fields(const calibration::CalibrationSession& session, int map_number,
                                             calibration::EditTargetKind kind)
 {
     MapElementFields fields;
-
-    QString address_text;
-    QString storage_type_text;
-
-    switch (kind)
+    const auto& def = session.definition()->definition;
+    const auto& map = def.maps.at(static_cast<std::size_t>(map_number));
+    const definition::Scaling *scaling = nullptr;
+    if (kind == calibration::EditTargetKind::MapBody)
     {
-    // FromByteList/MinValueList/MaxValueList/CoarseIncList/FineIncList use
-    // QStringList::value() rather than at() -- consistent with RomInfo below.
-    // paste_value (menu_actions.cpp) is a MapBody-only, no-clamp, no-from_byte
-    // caller: on master it never read any of these five fields, so a
-    // caller-supplied def with one of them shorter than expected (a
-    // hand-built test fixture, or a ragged real-world definition) must not
-    // newly crash the adapter merely because collect_map_element_fields
-    // gathers the whole spec unconditionally. AddressList/StorageTypeList/
-    // EndianList/ToByteList stay on at(): every caller needs those four to
-    // do anything meaningful, so an out-of-range index there is a genuine
-    // malformed-definition bug worth surfacing loudly rather than papering
-    // over with a silent default.
-    case calibration::EditTargetKind::MapBody:
-        address_text = def.AddressList.at(map_number);
-        storage_type_text = def.StorageTypeList.at(map_number);
-        fields.endian_ = def.EndianList.at(map_number).toStdString();
-        fields.to_byte_ = def.ToByteList.at(map_number).toStdString();
-        fields.from_byte_ = def.FromByteList.value(map_number).toStdString();
-        fields.min_value_ = def.MinValueList.value(map_number).toStdString();
-        fields.max_value_ = def.MaxValueList.value(map_number).toStdString();
-        fields.coarse_increment_ = def.CoarseIncList.value(map_number).toDouble();
-        fields.fine_increment_ = def.FineIncList.value(map_number).toDouble();
-        fields.start_position_ = parse_stride_field(def.StartPosList.value(map_number));
-        fields.interval_ = parse_stride_field(def.IntervalList.value(map_number));
-        break;
-    case calibration::EditTargetKind::XAxis:
-        address_text = def.XScaleAddressList.at(map_number);
-        storage_type_text = def.XScaleStorageTypeList.at(map_number);
-        fields.endian_ = def.XScaleEndianList.at(map_number).toStdString();
-        fields.to_byte_ = def.XScaleToByteList.at(map_number).toStdString();
-        fields.from_byte_ = def.XScaleFromByteList.value(map_number).toStdString();
-        fields.min_value_ = def.XScaleMinValueList.value(map_number).toStdString();
-        fields.max_value_ = def.XScaleMaxValueList.value(map_number).toStdString();
-        fields.coarse_increment_ = def.XScaleCoarseIncList.value(map_number).toDouble();
-        fields.fine_increment_ = def.XScaleFineIncList.value(map_number).toDouble();
-        fields.start_position_ = parse_stride_field(def.XScaleStartPosList.value(map_number));
-        fields.interval_ = parse_stride_field(def.XScaleIntervalList.value(map_number));
-        break;
-    case calibration::EditTargetKind::YAxis:
-        address_text = def.YScaleAddressList.at(map_number);
-        storage_type_text = def.YScaleStorageTypeList.at(map_number);
-        fields.endian_ = def.YScaleEndianList.at(map_number).toStdString();
-        fields.to_byte_ = def.YScaleToByteList.at(map_number).toStdString();
-        fields.from_byte_ = def.YScaleFromByteList.value(map_number).toStdString();
-        fields.min_value_ = def.YScaleMinValueList.value(map_number).toStdString();
-        fields.max_value_ = def.YScaleMaxValueList.value(map_number).toStdString();
-        fields.coarse_increment_ = def.YScaleCoarseIncList.value(map_number).toDouble();
-        fields.fine_increment_ = def.YScaleFineIncList.value(map_number).toDouble();
-        fields.start_position_ = parse_stride_field(def.YScaleStartPosList.value(map_number));
-        fields.interval_ = parse_stride_field(def.YScaleIntervalList.value(map_number));
-        break;
-    case calibration::EditTargetKind::Rejected:
-        // A programming error at this point -- the caller resolves the edit
-        // target before collecting fields for it. `assert(false)` compiles
-        // out under NDEBUG (--config=release, how this ships), which would
-        // let a caller that got this wrong fall through to a
-        // default-constructed MapElementFields -- address 0, no storage
-        // type -- and write_rom_data_value would go pack bytes at ROM offset
-        // 0. std::unreachable() cannot silently continue: reaching it is
-        // undefined behavior by contract, not a soft default. All three
-        // current call sites resolve the edit target before calling this
-        // function, so this case is genuinely unreachable, not a recoverable
-        // runtime error -- a Result-returning signature would be the more
-        // idiomatic shape for a reachable failure, but would thread an error
-        // path through every caller for a case none of them can hit.
-        std::unreachable();
+        scaling = definition::find_scaling(def, map.scaling_name);
+        fields.address_ = map.address.value_or(0);
+        fields.storage_type_ = map.storage_type ? map.storage_type : scaling ? scaling->storage_type : std::nullopt;
+        fields.endian_ = legacy_text(!map.endian.empty() ? map.endian : scaling ? scaling->endian : "");
+        fields.from_byte_ = scaling ? legacy_text(scaling->from_byte) : " ";
+        fields.to_byte_ = scaling ? legacy_text(scaling->to_byte) : " ";
+        fields.start_position_ = map.start_position;
+        fields.interval_ = map.interval;
     }
-
-    bool address_ok = false;
-    const std::uint32_t parsed_address = address_text.toUInt(&address_ok, 16);
-    if (!address_ok)
+    else
     {
-        qWarning() << "collect_map_element_fields: failed to parse hex address" << address_text << "for map"
-                   << map_number;
+        if (kind == calibration::EditTargetKind::Rejected)
+        {
+            std::unreachable();
+        }
+        const auto& axis = kind == calibration::EditTargetKind::XAxis ? map.x_axis : map.y_axis;
+        const bool present = !axis.type.empty();
+        scaling = present ? definition::find_scaling(def, axis.scaling_name) : nullptr;
+        fields.address_ = present ? axis.address.value_or(0) : 0;
+        fields.storage_type_ = present ? axis.storage_type : std::nullopt;
+        fields.endian_ = present ? legacy_text(axis.endian) : " ";
+        fields.from_byte_ = present ? legacy_text(axis.from_byte) : " ";
+        fields.to_byte_ = present ? legacy_text(axis.to_byte) : " ";
+        fields.start_position_ = present ? axis.start_position : 1;
+        fields.interval_ = present ? axis.interval : 1;
     }
-    fields.address_ = parsed_address;
-
-    fields.storage_type_ = definition::storage_type_from_text(storage_type_text.toStdString());
-
-    // X/Y size are always the map's own geometry -- axes don't carry a
-    // separate size field in EcuCalDefStructure.
-    fields.x_size_ = def.XSizeList.at(map_number).toUInt();
-    fields.y_size_ = def.YSizeList.at(map_number).toUInt();
-
-    // QStringList::value(), not at(): a caller-supplied def with a
-    // shorter-than-expected RomInfo (e.g. a hand-built test fixture) must not
-    // crash the adapter -- it should simply see an empty flash method, same
-    // as if the field were present but blank.
-    fields.flash_method_ = def.RomInfo.value(kFlashMethodRomInfoIndex).toStdString();
-    fields.rom_file_size_ = def.FileSize.toUInt();
-
+    fields.min_value_ = scaling ? legacy_text(scaling->minimum) : " ";
+    fields.max_value_ = scaling ? legacy_text(scaling->maximum) : " ";
+    fields.coarse_increment_ = scaling ? QString::fromStdString(scaling->coarse_increment).toDouble() : 0.0;
+    fields.fine_increment_ = scaling ? QString::fromStdString(scaling->fine_increment).toDouble() : 0.0;
+    fields.x_size_ = map.x_size;
+    fields.y_size_ = map.y_size;
+    fields.flash_method_ = session.protocol().flash_method;
+    fields.rom_file_size_ = session.protocol().unpadded_size;
     return fields;
 }
 
@@ -240,8 +179,8 @@ ResolvedEdit::ResolvedEdit(MapElementFields fields, calibration::EditTarget targ
     }
 }
 
-std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window, const definitions::EcuCalDefStructure& def,
-                                                    int map_number)
+std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window,
+                                                    const calibration::CalibrationSession& session, int map_number)
 {
     if (!window)
     {
@@ -263,21 +202,25 @@ std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window, const
                                                 .first_col = first.leftColumn(),
                                                 .last_row = first.bottomRow(),
                                                 .last_col = first.rightColumn()};
-    const calibration::MapDimensions dims{.x_size = def.XSizeList.at(map_number).toUInt(),
-                                          .y_size = def.YSizeList.at(map_number).toUInt()};
-    const auto target =
-        calibration::resolve_edit_target(selection, dims, def.XScaleTypeList.at(map_number).toStdString());
+    if (!session.definition() || map_number < 0 ||
+        static_cast<std::size_t>(map_number) >= session.definition()->definition.maps.size())
+    {
+        return std::nullopt;
+    }
+    const auto& map = session.definition()->definition.maps[static_cast<std::size_t>(map_number)];
+    const calibration::MapDimensions dims{.x_size = map.x_size, .y_size = map.y_size};
+    const auto target = calibration::resolve_edit_target(selection, dims, legacy_text(map.x_axis.type));
     if (target.kind == calibration::EditTargetKind::Rejected)
     {
         return std::nullopt;
     }
-
-    auto fields = collect_map_element_fields(def, map_number, target.kind);
-
-    const QStringList& source = target.kind == calibration::EditTargetKind::YAxis   ? def.YScaleData
-                                : target.kind == calibration::EditTargetKind::XAxis ? def.XScaleData
-                                                                                    : def.MapData;
-    const QStringList parts = source.at(map_number).split(",");
+    const auto decoded = session.decode_map(static_cast<std::size_t>(map_number));
+    if (!decoded.has_value())
+    {
+        return std::nullopt;
+    }
+    auto fields = collect_map_element_fields(session, map_number, target.kind);
+    const QStringList parts = QString::fromStdString(target_text(*decoded, target.kind)).split(",");
     std::vector<std::string> owned_cell_text;
     owned_cell_text.reserve(static_cast<std::size_t>(parts.size()));
     for (const auto& part : parts)
@@ -288,68 +231,47 @@ std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window, const
     return ResolvedEdit(std::move(fields), target, std::move(owned_cell_text), map_number);
 }
 
-void apply_patch(definitions::EcuCalDefStructure& def, int map_number, calibration::EditTargetKind kind,
-                 const calibration::EditPatch& patch)
+Status apply_patch(calibration::CalibrationSession& session, int map_number, calibration::EditTargetKind kind,
+                   const calibration::EditPatch& patch)
 {
-    QStringList *target = nullptr;
-    switch (kind)
+    if (kind == calibration::EditTargetKind::Rejected)
     {
-    case calibration::EditTargetKind::YAxis:
-        target = &def.YScaleData;
-        break;
-    case calibration::EditTargetKind::XAxis:
-        target = &def.XScaleData;
-        break;
-    case calibration::EditTargetKind::MapBody:
-        target = &def.MapData;
-        break;
-    case calibration::EditTargetKind::Rejected:
-        // Same reasoning as collect_map_element_fields's Rejected case in
-        // this same file: resolve_active_map_edit already turns a Rejected
-        // target into nullopt, so no caller can reach this with a real
-        // ResolvedEdit's kind(). Explicit case (not `default:`) so -Wswitch
-        // catches a future EditTargetKind enumerator.
         std::unreachable();
     }
-
-    QStringList cell_text = target->at(map_number).split(",");
+    const auto decoded = session.decode_map(static_cast<std::size_t>(map_number));
+    if (!decoded.has_value())
+    {
+        return std::unexpected(decoded.error());
+    }
+    // Preserve the legacy comma-split extent, including the trailing blank.
+    const auto count = QString::fromStdString(target_text(*decoded, kind)).split(",").size();
+    const auto size = session.rom().size();
     for (const auto& cell : patch)
     {
-        // resolve_edit_target's XAxis branch (map_edit.cpp) shifts rows back
-        // by +1 to skip the 3D map's header row, but never shifts columns --
-        // correct for a 3D map (which has a header column too), but wrong
-        // for a "2D" map with y_size == 1 (no header column: see
-        // calibration_maps.cpp's xSizeOffset = 0). Selecting that layout's
-        // sole X-axis breakpoint yields range.first_col == -1, which
-        // resolve_edit_target propagates into a patch cell whose index is
-        // static_cast<std::uint32_t>(-1) -- a huge value once unsigned. Left
-        // unchecked, cell_text.replace(index, ...) below is an out-of-bounds
-        // write (QStringList::replace's Q_ASSERT_X compiles out under
-        // --config=release), and the ROM write would target a nonsense
-        // offset too. Fixing resolve_edit_target's column shift itself is
-        // out of scope here (pre-existing behavior from an earlier PR); this
-        // guard just makes apply_patch drop such a cell instead of
-        // corrupting memory, mirroring apply_paste's (map_edit.cpp)
-        // established precedent of silently skipping cells that fall
-        // outside a target's real extent rather than failing the whole
-        // operation. This guards apply_patch's own WRITE only: the edit
-        // operations in map_edit.cpp still do an unchecked cell_text READ for
-        // the identical pre-existing layout bug -- apply_set_expression and
-        // apply_increment index the span directly, apply_interpolation does
-        // so through cell_at(...) -- out of scope here just like the
-        // underlying column shift itself. This fix narrows the class of harm
-        // from a possible OOB write to a possible OOB read; it does not close
-        // the class entirely. Recorded as a deferred action in
-        // docs/tech-debt.md ("Fix resolve_edit_target's y_size == 1 column
-        // shift"), which also states what a real fix requires.
-        if (cell.index >= static_cast<std::uint32_t>(cell_text.size()))
+        if (cell.index >= static_cast<std::uint64_t>(count))
         {
             continue;
         }
-        cell_text.replace(static_cast<int>(cell.index), QString::fromStdString(cell.display_text));
-        bytes::overwriteAt(bytes::mutableView(def.FullRomData), cell.byte_address, cell.bytes);
+        if (cell.byte_address > size || cell.bytes.size() > size - cell.byte_address)
+        {
+            return fail(ErrorKind::InvalidConfig, "map edit byte range is outside the ROM image");
+        }
     }
-    target->replace(map_number, cell_text.join(","));
+    for (const auto& cell : patch)
+    {
+        // The pre-existing coordinate quirk can produce UINT32_MAX. Skip it
+        // before writing bytes, just as the legacy text adapter did.
+        if (cell.index >= static_cast<std::uint64_t>(count))
+        {
+            continue;
+        }
+        const auto written = session.write_bytes(cell.byte_address, cell.bytes);
+        if (!written.has_value())
+        {
+            return written;
+        }
+    }
+    return {};
 }
 
 } // namespace fastecu::ui

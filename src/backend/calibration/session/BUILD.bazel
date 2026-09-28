@@ -1,8 +1,7 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
 
-# Portable calibration sessions: typed ROM + definition ownership that
-# replaces the legacy EcuCalDefStructure (step 6m).
+# Portable calibration sessions: typed ROM and definition ownership.
 package(default_visibility = [
     "//apps/desktop:__pkg__",
     "//src/backend:__subpackages__",
@@ -87,5 +86,29 @@ fastecu_portable_gtest(
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "rom_save_test",
+    srcs = ["rom_save_test.cpp"],
+    deps = [
+        ":rom_open",
+        ":rom_save",
+        "//src/backend/calibration/session/testing:fake_definition_catalogs",
+        "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
+
+cc_library(
+    name = "rom_save",
+    srcs = ["rom_save.cpp"],
+    hdrs = ["rom_save.h"],
+    deps = [
+        ":calibration_session",
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
     ],
 )

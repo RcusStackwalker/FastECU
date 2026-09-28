@@ -74,8 +74,7 @@ void ChecksumCorrectionCommand::showFamilyResultDialog(const ChecksumResult& fam
     }
 }
 
-ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView rom_data, bool use_romraider_definition,
-                                                        bool use_ecuflash_definition,
+ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView rom_data, bool has_definition,
                                                         const fastecu::checksum::ChecksumSelection& selection,
                                                         QWidget *parent)
 {
@@ -90,7 +89,7 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView rom_data
         return result;
     }
 
-    if (!use_romraider_definition && !use_ecuflash_definition)
+    if (!has_definition)
     {
         if (!confirmProceedWithoutDefinition(parent))
         {

@@ -11,8 +11,8 @@ struct ChecksumSelection
     std::string make;          // the selected vehicle's make (ConfigSession)
     std::string checksum_flag; // the selected vehicle's checksum flag: "yes"/"no"/"n/a" verbatim
     std::string flash_method;  // the selected vehicle's protocol_name
-    std::string mcu_type;      // EcuCalDefStructure::McuType
-    std::string rom_id;        // EcuCalDefStructure::RomId
+    std::string mcu_type;      // calibration session protocol MCU
+    std::string rom_id;        // calibration session protocol ROM ID
 };
 
 struct ChecksumCorrectionOutcome

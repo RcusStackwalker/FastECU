@@ -13,7 +13,7 @@ namespace fastecu::ui
 // which data-tree categories are expanded, and whether the operator chose
 // "continue without definition" (and with which vehicle make). Legacy kept
 // these as VisibleList / CategoryExpandedList / RomInfoExpanded / RomInfo
-// placeholders inside EcuCalDefStructure; they are UI state, not calibration
+// placeholders inside the retired parallel-list model; they are UI state, not calibration
 // data.
 struct CalibrationViewState
 {

@@ -4,9 +4,8 @@ load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = ["//src/ui:__subpackages__"])
 
-# Qt-linked (EcuCalDefStructure is QString/QStringList typed; resolve_active_map_edit
-# reads QTableWidget/QMdiSubWindow selection state) but declares no QObject of its
-# own, so the header goes through normal_hdrs -- matching //src/ui/desktop/menu:menu_builder.
+# Session edit adapter reads QTableWidget/QMdiSubWindow selection state.
+# Declares no QObject of its own, so the header goes through normal_hdrs.
 qt_cc_library(
     name = "map_edit_adapter",
     srcs = ["map_edit_adapter.cpp"],
@@ -17,7 +16,7 @@ qt_cc_library(
         ":session_key",
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/calibration:map_edit",
-        "//src/backend/definitions:ecu_cal_def",
+        "//src/backend/calibration/session:calibration_session",
     ],
 )
 
@@ -44,35 +43,6 @@ fastecu_gtest(
 )
 
 qt_cc_library(
-    name = "legacy_calibration_view",
-    srcs = ["legacy_calibration_view.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
-    normal_hdrs = ["legacy_calibration_view.h"],
-    deps = QT_DEPS + [
-        ":rom_info",
-        "//src/backend/calibration/session:calibration_session",
-        "//src/backend/definition/legacy:legacy_definition_adapter",
-        "//src/backend/definitions",
-        "//src/backend/ports",
-    ],
-)
-
-fastecu_gtest(
-    name = "legacy_calibration_view_test",
-    srcs = ["legacy_calibration_view_test.cpp"],
-    deps = [
-        ":legacy_calibration_view",
-        ":rom_info",
-        "//src/backend/calibration/session:rom_open",
-        "//src/backend/config/testing:config_session_fixture",
-        "//src/backend/definition:definition_service",
-        "//src/backend/ports/testing:in_memory_atomic_file_writer",
-        "//src/backend/ports/testing:result_matchers",
-    ],
-)
-
-qt_cc_library(
     name = "rom_info",
     srcs = ["rom_info.cpp"],
     hdrs = [],
@@ -86,4 +56,31 @@ cc_library(
     name = "calibration_view_state",
     hdrs = ["calibration_view_state.h"],
     deps = QT_DEPS,
+)
+
+qt_cc_library(
+    name = "map_presentation",
+    srcs = ["map_presentation.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["map_presentation.h"],
+    deps = QT_DEPS + ["//src/backend/calibration/session:calibration_session"],
+)
+
+fastecu_gtest(
+    name = "map_presentation_test",
+    srcs = ["map_presentation_test.cpp"],
+    deps = [":map_presentation"],
+)
+
+fastecu_gtest(
+    name = "rom_info_test",
+    srcs = ["rom_info_test.cpp"],
+    deps = [":rom_info"],
+)
+
+fastecu_gtest(
+    name = "hex_parse_qt_compat_test",
+    srcs = ["hex_parse_qt_compat_test.cpp"],
+    deps = ["//src/backend/definition:text_format"],
 )

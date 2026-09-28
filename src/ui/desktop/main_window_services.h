@@ -16,7 +16,8 @@ class ConfigSession;
 namespace fastecu::calibration
 {
 class CalibrationWorkspace;
-}
+class RomSaveUseCase;
+} // namespace fastecu::calibration
 namespace fastecu::desktop::connection
 {
 class AdapterConnection;
@@ -49,6 +50,7 @@ struct MainWindowServices
     fastecu::config::ConfigSession& config; // initialized before MainWindow is built
     FileActions& file_actions;
     fastecu::calibration::CalibrationWorkspace& calibrations;
+    fastecu::calibration::RomSaveUseCase& rom_save;
     fastecu::logging::LoggerModel& logger_model;
     fastecu::logging::LoggerDefinitionService& logger_definitions;
     QtFileRepository& config_repository;

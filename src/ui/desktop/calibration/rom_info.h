@@ -10,8 +10,7 @@
 namespace fastecu::ui
 {
 
-// The "ROM Info" rows of the calibration data tree, in legacy order
-// (EcuCalDefStructure::RomInfoStrings / FileActions::RomInfoEnum).
+// The "ROM Info" rows of the calibration data tree, in the established order.
 enum class RomInfoRow : int
 {
     XmlId,

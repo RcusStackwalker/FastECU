@@ -39,7 +39,7 @@ constexpr auto kHexDigits = std::to_array("0123456789abcdef");
 
 std::string_view map_from_byte(const definition::Scaling *scaling)
 {
-    // LegacyCalibrationAdapter put the single-space placeholder in
+    // The desktop historically put the single-space placeholder in
     // FromByteList when a map had no scaling. The expression evaluator treats
     // that blank expression as zero.
     return scaling != nullptr ? std::string_view(scaling->from_byte) : std::string_view(" ");

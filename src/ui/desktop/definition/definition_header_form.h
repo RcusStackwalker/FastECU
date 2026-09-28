@@ -31,6 +31,10 @@ struct HeaderFormEditors
 HeaderFormEditors build_header_form(QGridLayout *grid, const QStringList& labels, const QStringList& names,
                                     const QStringList& values);
 
+// Reads imported EcuFlash header values in requested order as alternating
+// names and values. Missing fields and malformed XML yield blank values.
+QStringList collect_ecuflash_base_header_fields(const QStringList& header_names, const QStringList& definition_lines);
+
 // Maps the form's editors onto a DefinitionHeaderInput by objectName().
 // `internalidaddress` is parsed as hex: empty yields nullopt, unparseable
 // yields ErrorKind::InvalidConfig. Only xmlid and internalidaddress are

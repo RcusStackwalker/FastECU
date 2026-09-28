@@ -232,7 +232,7 @@ bool DefinitionAuthoringDialog::use_existing_definition()
     const QByteArray sourceBytes(reinterpret_cast<const char *>(sourceContents->data()),
                                  static_cast<qsizetype>(sourceContents->size()));
     const QStringList headerData =
-        FileActions::collect_ecuflash_base_header_fields(definition_header_names(), {QString::fromUtf8(sourceBytes)});
+        collect_ecuflash_base_header_fields(definition_header_names(), {QString::fromUtf8(sourceBytes)});
 
     // headerData is a flat (name, value, name, value, ...) list; split it
     // into the two parallel lists build_header_form expects.

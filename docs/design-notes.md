@@ -269,6 +269,53 @@ letter:
 
 (b) through (h) are fixed; (f) through (h) landed in #274.
 
+### Calibration session ownership and operation images
+
+The desktop composition owns `CalibrationWorkspace` and outlives its windows.
+Each calibration has a stable `SessionId`, never reused within the workspace;
+files-tree rows, map windows and UI view state use that ID instead of a slot
+position. Closing one ROM does not renumber another. A stale ID resolves to
+nothing, so delayed UI actions cannot edit a different session. Close removes
+the session's map windows and view state together; map color ranges belong to
+the open map view and must not outlive its session. Expanded categories, open
+maps and missing-definition placeholders are UI state, separate from ROM data.
+
+The session owns the ROM bytes, optional resolved definition and protocol
+metadata. ROM bytes are the only truth for values: map windows decode on
+demand, edits call `write_bytes`, and views re-decode. The final consumer slice
+reads map metadata directly from the typed definition too, instead of retaining
+a read-only legacy projection. Definition-less ROMs remain modeled sessions.
+Hex display receives its own snapshot rather than retaining calibration data.
+
+Checksum correction works on a temporary operation image for save or write.
+The corrected image reaches the repository or flash request; completion,
+failure and cancellation leave editable session bytes unchanged. A successful
+`RomSaveUseCase` write updates the source path and basename (with `default.bin`
+when no basename exists), preserves the file/ECU-read origin and clears dirty.
+Failure preserves the source and dirty state and emits the existing error log
+and operator notice. A subsequent edit marks the session dirty again. Checksum
+warnings and operator confirmations remain in the UI.
+
+Open retains the legacy primary/secondary definition precedence and reported
+ROM-ID fallback, vehicle selection, unpadded file-size label and subsequent
+flash-method padding. A size-validation failure retains the definition header
+with no maps; an unreadable indexed definition opens without a definition and
+keeps its load-failure notice. Create/import writes a definition and does not
+reopen the definition-less session. Failed or cancelled ECU reads create no
+session; successful reads are adopted after dispatch completes.
+
+`EcuCalDefStructure`, legacy definition/calibration adapters, legacy columns and
+the projection are retired. `FileActions`, its definition catalog implementation,
+portable kernel models and the Qt byte-conversion boundary remain for step 6n.
+The [calibration defect letters](#calibration-defect-letters) still apply,
+including the open `wrx02` predicate mismatch. No wire sequence, definition
+schema, ROM format or hardware support change is part of this migration.
+
+Release still requires recorded full build/test, formatting, changed-file
+static-analysis and platform CI/packaging results. Post-read adoption and
+checksum/save/write paths require bench re-verification before release;
+automated coverage does not establish hardware qualification.
+
 ## Build and guards
 
 ### Keep portable targets out of packages with a legacy glob
@@ -493,12 +540,13 @@ path reached them through a `goto`, and the write-preflight early returns
 ("No file selected!", Cancel on the checksum warning) skipped them, leaving
 battery polling running.
 
-### The read slot is allocated early and released on failure
+### A read enters the workspace only after success
 
-The read path still allocates `ecuCalDef[ecuCalDefIndex]` before dispatch,
-because `update_protocol_info` reads it. Anything but a successful read with
-data (cancel, failure, `Unsupported`, a handled TCU service action) deletes
-it and resets the slot to `nullptr`, its state before the first read.
+Since step 6m, the post-read handoff adopts an image into the calibration
+workspace only after a successful read with data. Cancellation, failure,
+`Unsupported` and handled TCU service actions leave the workspace unchanged.
+There is no preallocated calibration slot to release. Post-read handoff still
+requires bench re-verification before release.
 
 ### `reset_serial_to_idle` lives beside the facade
 

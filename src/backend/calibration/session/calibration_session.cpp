@@ -46,6 +46,18 @@ bool CalibrationSession::dirty() const
     return dirty_;
 }
 
+void CalibrationSession::mark_saved(std::string_view path)
+{
+    const std::size_t slash = path.find_last_of('/');
+    const std::string_view name = slash == std::string_view::npos ? path : path.substr(slash + 1);
+    // Copy both views before changing source: path may refer to source().path.
+    std::string saved_path{path};
+    std::string saved_name = name.empty() ? std::string{"default.bin"} : std::string{name};
+    contents_.source.path = std::move(saved_path);
+    contents_.source.display_name = std::move(saved_name);
+    dirty_ = false;
+}
+
 Result<MapCellValues> CalibrationSession::decode_map(std::size_t map_index) const
 {
     if (!contents_.definition.has_value())

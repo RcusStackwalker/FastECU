@@ -18,6 +18,7 @@ PORTABLE_PACKAGES = {
         "calibration_workspace",
         "definition_catalogs",
         "rom_open",
+        "rom_save",
     ],
     "src/backend/checksum": [
         "checksum_selection",
