@@ -30,6 +30,34 @@ jobs:
       - name: Run pre-commit hooks
         run: prek run --all-files
 
+  gazelle:
+    name: gazelle (BUILD files)
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: bazel-contrib/setup-bazel@c5acdfb288317d0b5c0bbd7a396a3dc868bb0f86 # 0.19.0
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+          disk-cache: fastecu-gazelle-${{ runner.os }}
+          cache-save: false
+
+      # Mirrors the Bazel job so module resolution sees the same host tools; drop
+      # it if a run shows gazelle resolving without Qt.
+      - name: Install Qt for host tools (Linux)
+        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
+        with:
+          version: ${{ env.QT_VERSION }}
+          modules: ${{ env.QT_MODULES }}
+
+      - name: Install prek
+        run: pipx install prek
+
+      - name: Check BUILD files are up to date
+        run: prek run gazelle --hook-stage pre-push --all-files --show-diff-on-failure
+
   sonarcloud:
     name: SonarCloud
     needs: pre-commit
