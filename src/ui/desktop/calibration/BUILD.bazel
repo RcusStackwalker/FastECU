@@ -61,10 +61,20 @@ fastecu_gtest(
     srcs = ["legacy_calibration_view_test.cpp"],
     deps = [
         ":legacy_calibration_view",
+        ":rom_info",
         "//src/backend/calibration/session:rom_open",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/definition:definition_service",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:result_matchers",
     ],
+)
+
+qt_cc_library(
+    name = "rom_info",
+    srcs = ["rom_info.cpp"],
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["rom_info.h"],
+    deps = QT_DEPS + ["//src/backend/calibration/session:calibration_session"],
 )
