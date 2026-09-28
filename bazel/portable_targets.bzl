@@ -15,6 +15,7 @@ PORTABLE_PACKAGES = {
     ],
     "src/backend/calibration/session": [
         "calibration_session",
+        "calibration_workspace",
         "definition_catalogs",
         "rom_open",
     ],

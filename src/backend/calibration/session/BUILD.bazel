@@ -66,3 +66,26 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:result_matchers",
     ],
 )
+
+cc_library(
+    name = "calibration_workspace",
+    srcs = ["calibration_workspace.cpp"],
+    hdrs = ["calibration_workspace.h"],
+    deps = [
+        ":calibration_session",
+        ":rom_open",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "calibration_workspace_test",
+    srcs = ["calibration_workspace_test.cpp"],
+    deps = [
+        ":calibration_workspace",
+        "//src/backend/calibration/session/testing:fake_definition_catalogs",
+        "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:result_matchers",
+    ],
+)
