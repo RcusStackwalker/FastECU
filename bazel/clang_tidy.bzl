@@ -2,8 +2,6 @@
 
 load("@rules_python//python:defs.bzl", "py_binary")
 
-_MODES = ["report", "fix"]
-
 def _clang_tidy_runner_impl(name, visibility, mode, changed):
     """A runnable clang-tidy pass over the whole tree or only changed files.
 
@@ -49,7 +47,7 @@ def _clang_tidy_runner_impl(name, visibility, mode, changed):
 clang_tidy_runner = macro(
     implementation = _clang_tidy_runner_impl,
     attrs = {
-        "mode": attr.string(mandatory = True, values = _MODES, configurable = False),
+        "mode": attr.string(mandatory = True, values = ["report", "fix"], configurable = False),
         "changed": attr.bool(default = False, configurable = False),
     },
     doc = "A clang-tidy runner for report or fix mode, optionally restricted to changed files.",
