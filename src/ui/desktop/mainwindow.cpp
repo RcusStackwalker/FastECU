@@ -1,4 +1,7 @@
 #include "mainwindow.h"
+#include "src/ui/desktop/calibration/legacy_calibration_view.h"
+#include "src/ui/desktop/calibration/map_edit_adapter.h"
+#include "src/ui/desktop/calibration/session_key.h"
 #include "ui_mainwindow.h"
 #include <QProgressBar>
 #include <QScopeGuard>
@@ -73,6 +76,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     setSplashScreenProgress("Reading config files...", 10);
     fileActions = &services_.file_actions;
     configSession = &services_.config;
+    calibrationWorkspace = &services_.calibrations;
 
     software_name = qs(services_.application.name);
     software_title = qs(services_.application.title);
@@ -483,7 +487,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     */
     log_file_timer = std::make_unique<QElapsedTimer>();
 
-    if (ecuCalDefIndex > 0)
+    if (!calibrations_.empty())
     {
         const QModelIndex index = ui->calibrationFilesTreeWidget->selectionModel()->currentIndex();
         emit ui->calibrationFilesTreeWidget->clicked(index);
@@ -714,16 +718,82 @@ void MainWindow::select_vehicle_finished(int result)
     status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolEntry::description) + " ");
 }
 
-void MainWindow::update_protocol_info(int rom_number)
+FileActions::EcuCalDefStructure *MainWindow::legacy_calibration(fastecu::calibration::SessionId id)
 {
+    const auto found = std::ranges::find_if(calibrations_, [id](const OpenCalibration& open) { return open.id == id; });
+    return found == calibrations_.end() ? nullptr : found->legacy.get();
+}
 
-    emit LOG_D("Update protocol info by selected ROM with FlashMethod: " +
-                   ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod),
-               true, true);
+std::optional<fastecu::calibration::SessionId> MainWindow::session_of(const QTreeWidgetItem *files_item) const
+{
+    return files_item == nullptr ? std::nullopt : fastecu::ui::parse_session_key(files_item->text(2));
+}
+
+FileActions::EcuCalDefStructure *MainWindow::selected_legacy_calibration()
+{
+    const QList<QTreeWidgetItem *> selected = ui->calibrationFilesTreeWidget->selectedItems();
+    const auto id = selected.isEmpty() ? std::nullopt : session_of(selected.at(0));
+    return id.has_value() ? legacy_calibration(*id) : nullptr;
+}
+
+QTreeWidgetItem *MainWindow::files_tree_item(fastecu::calibration::SessionId id) const
+{
+    for (int i = 0; i < ui->calibrationFilesTreeWidget->topLevelItemCount(); ++i)
+    {
+        QTreeWidgetItem *item = ui->calibrationFilesTreeWidget->topLevelItem(i);
+        if (session_of(item) == id)
+        {
+            return item;
+        }
+    }
+    return nullptr;
+}
+
+// Presents a session the workspace just opened: its one legacy view, the
+// protocol refresh, the missing-definition prompt, and both trees -- in the
+// order the legacy slot path ran them.
+bool MainWindow::add_calibration(fastecu::calibration::SessionId id)
+{
+    const fastecu::calibration::CalibrationSession *session = calibrationWorkspace->find(id);
+    if (session == nullptr)
+    {
+        return false;
+    }
+    auto projected = fastecu::ui::project_legacy_calibration(*session);
+    if (!projected.has_value())
+    {
+        emit LOG_E("Unable to present calibration file [" + QString(fastecu::to_string(projected.error().kind)) +
+                       "]: " + qs(projected.error().detail),
+                   true, true);
+        (void)calibrationWorkspace->close(id);
+        return false;
+    }
+    if (projected->decode_error.has_value())
+    {
+        emit LOG_E("Error decoding calibration map values [" +
+                       QString(fastecu::to_string(projected->decode_error->kind)) +
+                       "]: " + qs(projected->decode_error->detail),
+                   true, true);
+    }
+    FileActions::EcuCalDefStructure *legacy = projected->view.get();
+    calibrations_.push_back(OpenCalibration{.id = id, .legacy = std::move(projected->view)});
+
+    update_protocol_info(legacy->RomInfo.at(fileActions->FlashMethod));
+    if (!legacy->use_romraider_definition && !legacy->use_ecuflash_definition)
+    {
+        prompt_for_missing_definition(legacy);
+    }
+    calibrationTreeWidget->buildCalibrationFilesTree(id, ui->calibrationFilesTreeWidget, legacy);
+    calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, legacy);
+    return true;
+}
+
+void MainWindow::update_protocol_info(const QString& flash_method)
+{
+    emit LOG_D("Update protocol info by selected ROM with FlashMethod: " + flash_method, true, true);
     // The last matching row wins, as the legacy scan did; no match changes
     // nothing.
-    const std::string flash_method = ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod).toStdString();
-    if (const bool info_updated = configSession->select_by_protocol_name(flash_method); info_updated)
+    if (const bool info_updated = configSession->select_by_protocol_name(flash_method.toStdString()); info_updated)
     {
         emit LOG_D("Protocol info for selected ROM updated", true, true);
     }
@@ -898,9 +968,11 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
     set_realtime_state(false);
     toggle_realtime();
 
-    int rom_number = 0;
+    FileActions::EcuCalDefStructure *legacy = nullptr;
+    QString read_kernel_path;
+    QString read_kernel_address;
+    QString read_mcu;
 
-    QTreeWidgetItem *selectedItem = nullptr;
     int item_count = ui->calibrationFilesTreeWidget->selectedItems().count();
 
     QComboBox *serial_port_list = ui->toolBar->findChild<QComboBox *>("serial_port_list");
@@ -949,25 +1021,20 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         }
 
         QByteArray fullRomDataTmp;
-        // The read branch allocates the next calibration slot before dispatch
-        // (update_protocol_info reads it); anything but a successful read
-        // releases it again.
-        bool release_read_slot = false;
 
         if (cmd_type == "test_write" || cmd_type == "write")
         {
             if (item_count > 0)
             {
-                selectedItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
-                rom_number = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selectedItem);
+                legacy = selected_legacy_calibration();
             }
-            else
+            if (legacy == nullptr)
             {
                 QMessageBox::warning(this, tr("Write ROM"), "No file selected!");
                 return 0;
             }
 
-            fullRomDataTmp = ecuCalDef[rom_number]->FullRomData;
+            fullRomDataTmp = legacy->FullRomData;
             if (protocol_field(selected_vehicle(), &ProtocolEntry::checksum) == "n/a")
             {
                 QMessageBox msgBox(
@@ -980,44 +1047,37 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                 if (ret == QMessageBox::Cancel)
                 {
                     emit LOG_D("Write canceled!", true, true);
-                    ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
+                    legacy->FullRomData = fullRomDataTmp;
                     return 0;
                 }
             }
-            if (ecuCalDef[rom_number]->RomInfo.at(fileActions->FlashMethod) == "")
+            if (legacy->RomInfo.at(fileActions->FlashMethod) == "")
             {
-                ecuCalDef[rom_number]->RomInfo.replace(fileActions->FlashMethod, qs(selected_vehicle().protocol_name));
-                update_protocol_info(rom_number);
+                legacy->RomInfo.replace(fileActions->FlashMethod, qs(selected_vehicle().protocol_name));
+                update_protocol_info(legacy->RomInfo.at(fileActions->FlashMethod));
             }
-            ecuCalDef[rom_number]->FlashMethod = qs(selected_vehicle().protocol_name);
-            ecuCalDef[rom_number]->Kernel = QString::fromStdString(fastecu::flash::kernel_path(
+            legacy->FlashMethod = qs(selected_vehicle().protocol_name);
+            legacy->Kernel = QString::fromStdString(fastecu::flash::kernel_path(
                 kernel_dir.toStdString(),
                 fastecu::config::protocol_field_or_placeholder(selected_vehicle(), &ProtocolEntry::kernel)));
-            ecuCalDef[rom_number]->KernelStartAddr = protocol_field(selected_vehicle(), &ProtocolEntry::kernel_addr);
-            ecuCalDef[rom_number]->McuType = protocol_field(selected_vehicle(), &ProtocolEntry::mcu);
+            legacy->KernelStartAddr = protocol_field(selected_vehicle(), &ProtocolEntry::kernel_addr);
+            legacy->McuType = protocol_field(selected_vehicle(), &ProtocolEntry::mcu);
 
             if (protocol_field(selected_vehicle(), &ProtocolEntry::checksum) != "n/a")
             {
-                runChecksumCorrection(ecuCalDef[rom_number]);
+                runChecksumCorrection(legacy);
             }
         }
         else
         {
-            rom_number = ecuCalDefIndex;
-            ecuCalDef[rom_number] = new FileActions::EcuCalDefStructure;
-            release_read_slot = true;
-            while (ecuCalDef[rom_number]->RomInfo.length() < ecuCalDef[rom_number]->RomInfoStrings.length())
-            {
-                ecuCalDef[rom_number]->RomInfo.append(" ");
-            }
-            ecuCalDef[rom_number]->RomInfo.replace(fileActions->FlashMethod, qs(selected_vehicle().protocol_name));
-            update_protocol_info(rom_number);
-            ecuCalDef[rom_number]->FlashMethod = qs(selected_vehicle().protocol_name);
-            ecuCalDef[rom_number]->Kernel = QString::fromStdString(fastecu::flash::kernel_path(
+            // Nothing is allocated before the read: the image is adopted into
+            // a session only after it succeeded.
+            update_protocol_info(qs(selected_vehicle().protocol_name));
+            read_kernel_path = QString::fromStdString(fastecu::flash::kernel_path(
                 kernel_dir.toStdString(),
                 fastecu::config::protocol_field_or_placeholder(selected_vehicle(), &ProtocolEntry::kernel)));
-            ecuCalDef[rom_number]->KernelStartAddr = protocol_field(selected_vehicle(), &ProtocolEntry::kernel_addr);
-            ecuCalDef[rom_number]->McuType = protocol_field(selected_vehicle(), &ProtocolEntry::mcu);
+            read_kernel_address = protocol_field(selected_vehicle(), &ProtocolEntry::kernel_addr);
+            read_mcu = protocol_field(selected_vehicle(), &ProtocolEntry::mcu);
         }
 
         emit LOG_D("Protocol to use: " + qs(selected_vehicle().protocol_name), true, true);
@@ -1040,25 +1100,13 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         const fastecu::flash::FlashOperationOutcome outcome = controller.run({
             .operation = operation,
             .protocol = selected_vehicle().protocol_name,
-            .mcu = ecuCalDef[rom_number]->McuType.toStdString(),
-            .kernel_path = ecuCalDef[rom_number]->Kernel.toStdString(),
-            .image =
-                fastecu::flash::portableImageForOperation(operation, bytes::view(ecuCalDef[rom_number]->FullRomData)),
+            .mcu = (legacy != nullptr ? legacy->McuType : read_mcu).toStdString(),
+            .kernel_path = (legacy != nullptr ? legacy->Kernel : read_kernel_path).toStdString(),
+            .image = fastecu::flash::portableImageForOperation(
+                operation, legacy != nullptr ? bytes::view(legacy->FullRomData) : bytes::ByteView{}),
             .paths = configSession->effective_paths(),
-            .display_filename = ecuCalDef[rom_number]->FileName.toStdString(),
+            .display_filename = legacy != nullptr ? legacy->FileName.toStdString() : std::string{},
         });
-
-        if (outcome.status == fastecu::flash::FlashOperationStatus::Completed)
-        {
-            if (outcome.read_bytes)
-            {
-                ecuCalDef[rom_number]->FullRomData = bytes::toQByteArray(bytes::ByteView(*outcome.read_bytes));
-            }
-            if (outcome.rom_id)
-            {
-                ecuCalDef[rom_number]->RomId = QString::fromStdString(*outcome.rom_id);
-            }
-        }
 
         if (outcome.status == fastecu::flash::FlashOperationStatus::ServiceActionHandled)
         {
@@ -1066,41 +1114,28 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         }
         else if (cmd_type == "read")
         {
-            if (ecuCalDef[ecuCalDefIndex]->FullRomData.length())
+            if (outcome.status == fastecu::flash::FlashOperationStatus::Completed && outcome.read_bytes &&
+                !outcome.read_bytes->empty())
             {
-                QDateTime dateTime = dateTime.currentDateTime();
-                QString dateTimeString = dateTime.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
-
-                ecuCalDef[ecuCalDefIndex]->FileName = QString::fromStdString(fastecu::flash::read_image_filename(
-                    ecuCalDef[ecuCalDefIndex]->RomId.toStdString(), dateTimeString.toStdString()));
-
-                fileActions->open_subaru_rom_file(ecuCalDef[ecuCalDefIndex], ecuCalDef[ecuCalDefIndex]->FileName);
-                update_protocol_info(ecuCalDefIndex);
-                if (!ecuCalDef[ecuCalDefIndex]->use_romraider_definition &&
-                    !ecuCalDef[ecuCalDefIndex]->use_ecuflash_definition)
+                const QString dateTimeString = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
+                const std::string rom_id = outcome.rom_id.value_or(std::string{});
+                const auto opened = calibrationWorkspace->adopt_read_image(fastecu::calibration::ReadImage{
+                    .rom = *outcome.read_bytes,
+                    .filename = fastecu::flash::read_image_filename(rom_id, dateTimeString.toStdString()),
+                    .rom_id = rom_id,
+                    .protocol_name = selected_vehicle().protocol_name,
+                    .kernel_path = read_kernel_path.toStdString(),
+                    .kernel_start_address = read_kernel_address.toStdString(),
+                });
+                if (opened.has_value() && add_calibration(opened->id))
                 {
-                    prompt_for_missing_definition(ecuCalDef[ecuCalDefIndex]);
+                    save_calibration_file_as();
                 }
-
-                calibrationTreeWidget->buildCalibrationFilesTree(ecuCalDefIndex, ui->calibrationFilesTreeWidget,
-                                                                 ecuCalDef[ecuCalDefIndex]);
-                calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget,
-                                                                ecuCalDef[ecuCalDefIndex]);
-
-                release_read_slot = false;
-                ecuCalDefIndex++;
-                save_calibration_file_as();
             }
         }
-        else
+        else if (legacy != nullptr)
         {
-            ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
-        }
-
-        if (release_read_slot)
-        {
-            delete ecuCalDef[rom_number];
-            ecuCalDef[rom_number] = nullptr;
+            legacy->FullRomData = fullRomDataTmp;
         }
     }
     return 0;
@@ -1108,7 +1143,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
 
 void MainWindow::custom_menu_requested(QPoint pos)
 {
-    if (ecuCalDefIndex == 0)
+    if (calibrations_.empty())
     {
         emit LOG_D("No calibration to select!", true, true);
         return;
@@ -1139,35 +1174,12 @@ bool MainWindow::open_calibration_file(QString filename)
         }
     }
 
-    ecuCalDef[ecuCalDefIndex] = new FileActions::EcuCalDefStructure;
-
-    while (ecuCalDef[ecuCalDefIndex]->RomInfo.length() < ecuCalDef[ecuCalDefIndex]->RomInfoStrings.length())
+    const auto opened = calibrationWorkspace->open_file(filename.toStdString());
+    if (!opened.has_value())
     {
-        ecuCalDef[ecuCalDefIndex]->RomInfo.append(" ");
-    }
-
-    ecuCalDef[ecuCalDefIndex] = fileActions->open_subaru_rom_file(ecuCalDef[ecuCalDefIndex], std::move(filename));
-    if (ecuCalDef[ecuCalDefIndex] != nullptr)
-    {
-        update_protocol_info(ecuCalDefIndex);
-        if (!ecuCalDef[ecuCalDefIndex]->use_romraider_definition && !ecuCalDef[ecuCalDefIndex]->use_ecuflash_definition)
-        {
-            prompt_for_missing_definition(ecuCalDef[ecuCalDefIndex]);
-        }
-
-        calibrationTreeWidget->buildCalibrationFilesTree(ecuCalDefIndex, ui->calibrationFilesTreeWidget,
-                                                         ecuCalDef[ecuCalDefIndex]);
-        calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, ecuCalDef[ecuCalDefIndex]);
-
-        ecuCalDefIndex++;
-    }
-    else
-    {
-        // emit LOG_D("Failed!!";
-        ecuCalDef[ecuCalDefIndex] = {};
         return 1;
     }
-    return 0;
+    return add_calibration(opened->id) ? 0 : 1;
 }
 
 void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *ecuCalDef)
@@ -1268,153 +1280,136 @@ void MainWindow::runChecksumCorrection(FileActions::EcuCalDefStructure *ecuCalDe
 
 void MainWindow::save_calibration_file()
 {
-    if (ecuCalDefIndex == 0)
+    FileActions::EcuCalDefStructure *legacy = selected_legacy_calibration();
+    if (legacy == nullptr)
     {
         QMessageBox::information(this, tr("Calibration file"), "No calibration to save!");
         return;
     }
 
-    QTreeWidgetItem *selectedItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
+    QByteArray fullRomDataTmp = legacy->FullRomData;
 
-    int rom_number = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selectedItem);
+    runChecksumCorrection(legacy);
 
-    QByteArray fullRomDataTmp = ecuCalDef[rom_number]->FullRomData;
-
-    // update_protocol_info(rom_number);
-    runChecksumCorrection(ecuCalDef[rom_number]);
-
-    if (ecuCalDef[rom_number] != nullptr)
+    // save_subaru_rom_file returns nullptr when the write failed (it has
+    // already told the user so); do not follow that with the log lines
+    // that read as a successful save.
+    if (fileActions->save_subaru_rom_file(legacy, legacy->FullFileName) != nullptr)
     {
-        // save_subaru_rom_file returns nullptr when the write failed (it has
-        // already told the user so); do not follow that with the log lines
-        // that read as a successful save.
-        if (fileActions->save_subaru_rom_file(ecuCalDef[rom_number], ecuCalDef[rom_number]->FullFileName) != nullptr)
-        {
-            emit LOG_D("ecuCalDef->FileName: " + ecuCalDef[rom_number]->FileName, true, true);
-            emit LOG_D("ecuCalDef->FullFileName: " + ecuCalDef[rom_number]->FullFileName, true, true);
-        }
-        else
-        {
-            emit LOG_E("Calibration file not saved: " + ecuCalDef[rom_number]->FullFileName, true, true);
-        }
+        emit LOG_D("ecuCalDef->FileName: " + legacy->FileName, true, true);
+        emit LOG_D("ecuCalDef->FullFileName: " + legacy->FullFileName, true, true);
+    }
+    else
+    {
+        emit LOG_E("Calibration file not saved: " + legacy->FullFileName, true, true);
     }
 
-    ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
+    legacy->FullRomData = fullRomDataTmp;
 }
 
 void MainWindow::save_calibration_file_as()
 {
-    if (ecuCalDefIndex == 0)
+    FileActions::EcuCalDefStructure *legacy = selected_legacy_calibration();
+    if (legacy == nullptr)
     {
         QMessageBox::information(this, tr("Calibration file"), "No calibration to save!");
         return;
     }
 
-    QTreeWidgetItem *selectedItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
-
     emit LOG_D("Save as: Check selected ROM number", true, true);
-    int rom_number = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selectedItem);
 
-    QByteArray fullRomDataTmp = ecuCalDef[rom_number]->FullRomData;
+    QByteArray fullRomDataTmp = legacy->FullRomData;
 
-    // update_protocol_info(rom_number);
-    runChecksumCorrection(ecuCalDef[rom_number]);
+    runChecksumCorrection(legacy);
 
-    if (ecuCalDef[rom_number] != nullptr)
+    QString filename = ui->calibrationFilesTreeWidget->selectedItems().at(0)->text(0);
+    // QString filename = "";
+
+    QFileDialog saveDialog;
+    saveDialog.setDefaultSuffix("bin");
+    emit LOG_D("Save as: Check if OEM ECU file", true, true);
+
+    filename = QFileDialog::getSaveFileName(this, tr("Save calibration file"),
+                                            qs(configSession->effective_paths().calibration_files_directory) + filename,
+                                            tr("Calibration file (*.bin)"));
+
+    if (filename.isEmpty())
     {
-        QString filename = ui->calibrationFilesTreeWidget->selectedItems().at(0)->text(0);
-        // QString filename = "";
-
-        QFileDialog saveDialog;
-        saveDialog.setDefaultSuffix("bin");
-        emit LOG_D("Save as: Check if OEM ECU file", true, true);
-
-        filename =
-            QFileDialog::getSaveFileName(this, tr("Save calibration file"),
-                                         qs(configSession->effective_paths().calibration_files_directory) + filename,
-                                         tr("Calibration file (*.bin)"));
-
-        if (filename.isEmpty())
-        {
-            // ecuCalDef[rom_number]->FileName = "No name.bin";
-            ui->calibrationFilesTreeWidget->selectedItems().at(0)->setText(0, ecuCalDef[rom_number]->FileName);
-            QMessageBox::information(this, tr("Calibration file"), "No file name selected");
-            ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
-            return;
-        }
-
-        if (filename.endsWith(QString(".")))
-        {
-            filename.remove(filename.length() - 1, 1);
-        }
-        if (!filename.endsWith(QString(".bin")))
-        {
-            filename.append(QString(".bin"));
-        }
-
-        // A nullptr return means the write failed (the warning dialog for it
-        // was already raised inside save_subaru_rom_file); leave the tree item
-        // showing the name the ROM still has on disk and log the failure
-        // instead of the two "saved as" lines.
-        if (fileActions->save_subaru_rom_file(ecuCalDef[rom_number], filename) != nullptr)
-        {
-            ui->calibrationFilesTreeWidget->selectedItems().at(0)->setText(0, ecuCalDef[rom_number]->FileName);
-            emit LOG_D("ecuCalDef->FileName: " + ecuCalDef[rom_number]->FileName, true, true);
-            emit LOG_D("ecuCalDef->FullFileName: " + ecuCalDef[rom_number]->FullFileName, true, true);
-        }
-        else
-        {
-            emit LOG_E("Calibration file not saved: " + filename, true, true);
-        }
+        // legacy->FileName = "No name.bin";
+        ui->calibrationFilesTreeWidget->selectedItems().at(0)->setText(0, legacy->FileName);
+        QMessageBox::information(this, tr("Calibration file"), "No file name selected");
+        legacy->FullRomData = fullRomDataTmp;
+        return;
     }
-    ecuCalDef[rom_number]->FullRomData = fullRomDataTmp;
+
+    if (filename.endsWith(QString(".")))
+    {
+        filename.remove(filename.length() - 1, 1);
+    }
+    if (!filename.endsWith(QString(".bin")))
+    {
+        filename.append(QString(".bin"));
+    }
+
+    // A nullptr return means the write failed (the warning dialog for it
+    // was already raised inside save_subaru_rom_file); leave the tree item
+    // showing the name the ROM still has on disk and log the failure
+    // instead of the two "saved as" lines.
+    if (fileActions->save_subaru_rom_file(legacy, filename) != nullptr)
+    {
+        ui->calibrationFilesTreeWidget->selectedItems().at(0)->setText(0, legacy->FileName);
+        emit LOG_D("ecuCalDef->FileName: " + legacy->FileName, true, true);
+        emit LOG_D("ecuCalDef->FullFileName: " + legacy->FullFileName, true, true);
+    }
+    else
+    {
+        emit LOG_E("Calibration file not saved: " + filename, true, true);
+    }
+
+    legacy->FullRomData = fullRomDataTmp;
 }
 
 void MainWindow::selectable_combobox_item_changed(const QString& item)
 {
-    int mapRomNumber = 0;
-    int mapNumber = 0;
     bool bStatus = false;
 
     // bool ok = false;
 
     QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
-    if (w)
+    const auto id = fastecu::ui::parse_map_window_id(w);
+    FileActions::EcuCalDefStructure *legacy = id.has_value() ? legacy_calibration(id->session) : nullptr;
+    if (legacy != nullptr)
     {
-        QStringList mapWindowString = w->objectName().split(",");
-        mapRomNumber = mapWindowString.at(0).toInt();
-        mapNumber = mapWindowString.at(1).toInt();
+        const int mapNumber = id->map_number;
 
         QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
         if (mapTableWidget)
         {
-            QStringList selectionsNameList = ecuCalDef[mapRomNumber]->SelectionsNameList.at(mapNumber).split(",");
-            QStringList selectionsValueList = ecuCalDef[mapRomNumber]->SelectionsValueList.at(mapNumber).split(",");
+            QStringList selectionsNameList = legacy->SelectionsNameList.at(mapNumber).split(",");
+            QStringList selectionsValueList = legacy->SelectionsValueList.at(mapNumber).split(",");
 
             for (int j = 0; j < selectionsNameList.length(); j++)
             {
                 if (selectionsNameList.at(j) == item)
                 {
-                    // emit LOG_D("Old selectable value was: " + ecuCalDef[mapRomNumber]->MapData.at(mapNumber), true,
+                    // emit LOG_D("Old selectable value was: " + legacy->MapData.at(mapNumber), true,
                     // true);
-                    ecuCalDef[mapRomNumber]->MapData.replace(mapNumber, selectionsValueList.at(j));
-                    // emit LOG_D("New selectable value is: " + ecuCalDef[mapRomNumber]->MapData.at(mapNumber), true,
+                    legacy->MapData.replace(mapNumber, selectionsValueList.at(j));
+                    // emit LOG_D("New selectable value is: " + legacy->MapData.at(mapNumber), true,
                     // true);
 
-                    if (ecuCalDef[mapRomNumber]->StorageTypeList.at(mapNumber) == "bloblist")
+                    if (legacy->StorageTypeList.at(mapNumber) == "bloblist")
                     {
                         uint8_t storagesize = 0;
                         uint8_t dataByte = 0;
-                        uint32_t byteAddress = ecuCalDef[mapRomNumber]->AddressList.at(mapNumber).toUInt(&bStatus, 16);
-                        storagesize =
-                            ecuCalDef[mapRomNumber]->SelectionsValueList.at(mapNumber).split(",").at(0).length() / 2;
+                        uint32_t byteAddress = legacy->AddressList.at(mapNumber).toUInt(&bStatus, 16);
+                        storagesize = legacy->SelectionsValueList.at(mapNumber).split(",").at(0).length() / 2;
                         for (int k = 0; k < storagesize; k++)
                         {
-                            dataByte = ecuCalDef[mapRomNumber]
-                                           ->MapData.at(mapNumber)
+                            dataByte = legacy->MapData.at(mapNumber)
                                            .mid(static_cast<qsizetype>(k * 2), 2)
                                            .toUInt(&bStatus, 16);
-                            ecuCalDef[mapRomNumber]->FullRomData[byteAddress + k] = dataByte;
+                            legacy->FullRomData[byteAddress + k] = dataByte;
                         }
                     }
                 }
@@ -1428,27 +1423,24 @@ void MainWindow::checkbox_state_changed(int state)
 
     bool bStatus;
 
-    int map_rom_number = 0;
-    int map_number = 0;
-
     QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
-    if (w)
+    const auto id = fastecu::ui::parse_map_window_id(w);
+    FileActions::EcuCalDefStructure *legacy = id.has_value() ? legacy_calibration(id->session) : nullptr;
+    if (legacy != nullptr)
     {
-        QStringList mapWindowString = w->objectName().split(",");
-        map_rom_number = mapWindowString.at(0).toInt();
-        map_number = mapWindowString.at(1).toInt();
+        const int map_number = id->map_number;
 
         QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
         if (mapTableWidget)
         {
-            QStringList switch_states = ecuCalDef[map_rom_number]->StateList.at(map_number).split(",");
+            QStringList switch_states = legacy->StateList.at(map_number).split(",");
             int switch_states_length = (switch_states.length() - 1);
             for (int i = 0; i < switch_states_length; i += 2)
             {
                 QStringList switch_data = switch_states.at(i + 1).split(" ");
-                uint32_t byte_address = ecuCalDef[map_rom_number]->AddressList.at(map_number).toUInt(&bStatus, 16);
-                if (ecuCalDef[map_rom_number]->RomInfo.at(fileActions->FlashMethod) == "wrx02" &&
-                    ecuCalDef[map_rom_number]->FileSize.toUInt() < (170 * 1024) && byte_address > 0x27FFF)
+                uint32_t byte_address = legacy->AddressList.at(map_number).toUInt(&bStatus, 16);
+                if (legacy->RomInfo.at(fileActions->FlashMethod) == "wrx02" &&
+                    legacy->FileSize.toUInt() < (170 * 1024) && byte_address > 0x27FFF)
                 {
                     byte_address -= 0x8000;
                 }
@@ -1457,11 +1449,11 @@ void MainWindow::checkbox_state_changed(int state)
                     for (int j = 0; j < switch_data.length(); j++)
                     {
                         emit LOG_D("Old switch value " + QString::number(j) +
-                                       " is: " + ecuCalDef[map_rom_number]->FullRomData[byte_address + j],
+                                       " is: " + legacy->FullRomData[byte_address + j],
                                    true, true);
-                        ecuCalDef[map_rom_number]->FullRomData[byte_address + j] = (uint8_t)switch_data.at(j).toUInt();
+                        legacy->FullRomData[byte_address + j] = (uint8_t)switch_data.at(j).toUInt();
                         emit LOG_D("New switch value " + QString::number(j) +
-                                       " is: " + ecuCalDef[map_rom_number]->FullRomData[byte_address + j],
+                                       " is: " + legacy->FullRomData[byte_address + j],
                                    true, true);
                     }
                 }
@@ -1470,11 +1462,11 @@ void MainWindow::checkbox_state_changed(int state)
                     for (int j = 0; j < switch_data.length(); j++)
                     {
                         emit LOG_D("Old switch value" + QString::number(j) +
-                                       " is: " + ecuCalDef[map_rom_number]->FullRomData[byte_address + j],
+                                       " is: " + legacy->FullRomData[byte_address + j],
                                    true, true);
-                        ecuCalDef[map_rom_number]->FullRomData[byte_address + j] = (uint8_t)switch_data.at(j).toUInt();
+                        legacy->FullRomData[byte_address + j] = (uint8_t)switch_data.at(j).toUInt();
                         emit LOG_D("New switch value" + QString::number(j) +
-                                       " is: " + ecuCalDef[map_rom_number]->FullRomData[byte_address + j],
+                                       " is: " + legacy->FullRomData[byte_address + j],
                                    true, true);
                     }
                 }
@@ -1494,14 +1486,17 @@ void MainWindow::calibration_files_treewidget_item_selected(QTreeWidgetItem *ite
         item_local->setCheckState(0, Qt::Unchecked);
     }
 
-    int rom_number = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selectedItem);
-
     selectedItem->setCheckState(0, Qt::Checked);
 
     QString romId = selectedItem->text(1);
 
-    calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, ecuCalDef[rom_number]);
-    update_protocol_info(rom_number);
+    FileActions::EcuCalDefStructure *legacy = selected_legacy_calibration();
+    if (legacy == nullptr)
+    {
+        return;
+    }
+    calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, legacy);
+    update_protocol_info(legacy->RomInfo.at(fileActions->FlashMethod));
     /*
         QComboBox *flash_method_list = ui->toolBar->findChild<QComboBox*>("flash_method_list");
         for (int i = 0; i < flash_method_list->count(); i++)
@@ -1540,27 +1535,31 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
 
         QTreeWidgetItem *selectedFilesTreeItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
         QTreeWidgetItem *selectedDataTreeItem = item;
-        int romNumber = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selectedFilesTreeItem);
-        int mapIndex = selectedDataTreeItem->text(1).toInt();
-        int romIndex = selectedFilesTreeItem->text(2).toInt();
-        for (int i = 0; i < ecuCalDef[romNumber]->NameList.count(); i++)
+        const auto session = session_of(selectedFilesTreeItem);
+        FileActions::EcuCalDefStructure *legacy = session.has_value() ? legacy_calibration(*session) : nullptr;
+        if (legacy == nullptr)
         {
-            if (ecuCalDef[romNumber]->NameList.at(i) == selectedText && i == mapIndex)
+            return;
+        }
+        int mapIndex = selectedDataTreeItem->text(1).toInt();
+        for (int i = 0; i < legacy->NameList.count(); i++)
+        {
+            if (legacy->NameList.at(i) == selectedText && i == mapIndex)
             {
-                if (ecuCalDef[romNumber]->VisibleList.at(i) == "1")
+                if (legacy->VisibleList.at(i) == "1")
                 {
                     int map_index = 0;
                     QList<QMdiSubWindow *> list = ui->mdiArea->findChildren<QMdiSubWindow *>();
                     foreach (QMdiSubWindow *w, list)
                     {
                         map_index++;
-                        if (w->objectName().startsWith(QString::number(romIndex) + "," + QString::number(i) + "," +
-                                                       ecuCalDef[romNumber]->NameList.at(i)))
+                        if (w->objectName().startsWith(fastecu::ui::session_key_text(*session) + "," +
+                                                       QString::number(i) + "," + legacy->NameList.at(i)))
                         {
                             if (w->objectName() == ui->mdiArea->activeSubWindow()->objectName())
                             {
                                 ui->mdiArea->removeSubWindow(w);
-                                ecuCalDef[romNumber]->VisibleList.replace(i, "0");
+                                legacy->VisibleList.replace(i, "0");
                                 item->setCheckState(0, Qt::Unchecked);
                             }
                             else
@@ -1573,11 +1572,11 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
                 }
                 else
                 {
-                    ecuCalDef[romNumber]->VisibleList.replace(i, "1");
+                    legacy->VisibleList.replace(i, "1");
                     item->setCheckState(0, Qt::Checked);
 
                     CalibrationMaps *calibrationMaps =
-                        new CalibrationMaps(ecuCalDef[romNumber], romIndex, i, ui->mdiArea->contentsRect());
+                        new CalibrationMaps(legacy, *session, i, ui->mdiArea->contentsRect());
                     QMdiSubWindow *subWindow = ui->mdiArea->addSubWindow(calibrationMaps);
                     if (subWindow)
                     {
@@ -1603,32 +1602,40 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
 
 void MainWindow::calibration_data_treewidget_item_expanded(QTreeWidgetItem *item)
 {
-    QTreeWidgetItem *selectedItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
-
     int itemIndex = ui->calibrationDataTreeWidget->indexOfTopLevelItem(item);
-    int romNumber = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selectedItem);
     QString categoryName = ui->calibrationDataTreeWidget->topLevelItem(itemIndex)->text(0);
+    FileActions::EcuCalDefStructure *legacy = selected_legacy_calibration();
+    if (legacy == nullptr)
+    {
+        return;
+    }
 
-    calibrationTreeWidget->calibrationDataTreeWidgetItemExpanded(ecuCalDef[romNumber], categoryName);
+    calibrationTreeWidget->calibrationDataTreeWidgetItemExpanded(legacy, categoryName);
 }
 
 void MainWindow::calibration_data_treewidget_item_collapsed(QTreeWidgetItem *item)
 {
-    QTreeWidgetItem *selectedItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
-
     int itemIndex = ui->calibrationDataTreeWidget->indexOfTopLevelItem(item);
-    int romNumber = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selectedItem);
     QString categoryName = ui->calibrationDataTreeWidget->topLevelItem(itemIndex)->text(0);
+    FileActions::EcuCalDefStructure *legacy = selected_legacy_calibration();
+    if (legacy == nullptr)
+    {
+        return;
+    }
 
-    calibrationTreeWidget->calibrationDataTreeWidgetItemCollapsed(ecuCalDef[romNumber], categoryName);
+    calibrationTreeWidget->calibrationDataTreeWidgetItemCollapsed(legacy, categoryName);
 }
 
 void MainWindow::close_calibration()
 {
-    QTreeWidgetItem *selectedItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
-
-    int romNumber = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selectedItem);
-    int romIndex = ui->calibrationFilesTreeWidget->selectedItems().at(0)->text(2).toInt();
+    const QList<QTreeWidgetItem *> selected = ui->calibrationFilesTreeWidget->selectedItems();
+    const auto id = selected.isEmpty() ? std::nullopt : session_of(selected.at(0));
+    if (!id.has_value())
+    {
+        return;
+    }
+    const int romNumber = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selected.at(0));
+    const QString romKey = fastecu::ui::session_key_text(*id);
 
     for (int i = 0; i < ui->calibrationDataTreeWidget->topLevelItemCount(); i++)
     {
@@ -1638,9 +1645,8 @@ void MainWindow::close_calibration()
             {
                 int mapNumber = ui->calibrationDataTreeWidget->topLevelItem(i)->child(j)->text(1).toInt();
                 QString mapName = ui->calibrationDataTreeWidget->topLevelItem(i)->child(j)->text(0);
-                QString mapType = ecuCalDef[romNumber]->TypeList.at(mapNumber);
 
-                QString calMapWindowName = QString::number(romIndex) + "," + QString::number(mapNumber) + "," + mapName;
+                QString calMapWindowName = romKey + "," + QString::number(mapNumber) + "," + mapName;
                 QMdiSubWindow *w = ui->mdiArea->subWindowList().at(k);
                 if (w->objectName().startsWith(calMapWindowName))
                 {
@@ -1650,18 +1656,8 @@ void MainWindow::close_calibration()
         }
     }
     delete ui->calibrationFilesTreeWidget->takeTopLevelItem(romNumber);
-
-    ecuCalDefIndex--;
-    for (int i = romNumber; i < ecuCalDefIndex; i++)
-    {
-        if (ecuCalDefIndex > romNumber)
-        {
-            ecuCalDef[i] = ecuCalDef[i + 1];
-            int rom_index = ui->calibrationFilesTreeWidget->topLevelItem(i)->text(2).toInt();
-            ui->calibrationFilesTreeWidget->topLevelItem(i)->setText(2, QString::number(rom_index - 1));
-        }
-    }
-    ecuCalDef[ecuCalDefIndex] = {};
+    std::erase_if(calibrations_, [&id](const OpenCalibration& open) { return open.id == *id; });
+    (void)calibrationWorkspace->close(*id);
 
     if (ui->calibrationFilesTreeWidget->topLevelItemCount() > 0)
     {
@@ -1692,21 +1688,23 @@ void MainWindow::close_calibration()
 
 void MainWindow::close_calibration_map(QObject *obj)
 {
-    QStringList mapWindowString = obj->objectName().split(",");
-    int mapRomNumber = mapWindowString.at(0).toInt();
+    const QStringList mapWindowString = obj->objectName().split(",");
+    const auto id = mapWindowString.isEmpty() ? std::nullopt : fastecu::ui::parse_session_key(mapWindowString.at(0));
+    QTreeWidgetItem *romItem = id.has_value() ? files_tree_item(*id) : nullptr;
+    FileActions::EcuCalDefStructure *legacy = id.has_value() ? legacy_calibration(*id) : nullptr;
+    if (romItem == nullptr || legacy == nullptr || mapWindowString.size() < 3)
+    {
+        return; // the ROM was closed before its window
+    }
     const QString& mapName = mapWindowString.at(2);
 
     for (int i = 0; i < ui->calibrationFilesTreeWidget->topLevelItemCount(); i++)
     {
         ui->calibrationFilesTreeWidget->topLevelItem(i)->setSelected(false);
     }
-    QTreeWidgetItem *currentItem = ui->calibrationFilesTreeWidget->topLevelItem(mapRomNumber);
-    currentItem->setSelected(true);
+    romItem->setSelected(true);
     const QModelIndex index = ui->calibrationFilesTreeWidget->selectionModel()->currentIndex();
     emit ui->calibrationFilesTreeWidget->clicked(index);
-
-    QTreeWidgetItem *selectedItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
-    int romIndex = selectedItem->text(2).toInt();
 
     QTreeWidgetItem *item;
     for (int i = 0; i < ui->calibrationDataTreeWidget->topLevelItemCount(); i++)
@@ -1716,16 +1714,13 @@ void MainWindow::close_calibration_map(QObject *obj)
             item = ui->calibrationDataTreeWidget->topLevelItem(i)->child(j);
             if (item->text(0) == mapName)
             {
-                if (mapRomNumber == romIndex)
-                {
-                    item->setCheckState(0, Qt::Unchecked);
-                }
+                item->setCheckState(0, Qt::Unchecked);
 
-                for (int i_local = 0; i_local < ecuCalDef[mapRomNumber]->NameList.count(); i_local++)
+                for (int i_local = 0; i_local < legacy->NameList.count(); i_local++)
                 {
-                    if (ecuCalDef[mapRomNumber]->NameList.at(i_local) == mapName)
+                    if (legacy->NameList.at(i_local) == mapName)
                     {
-                        ecuCalDef[mapRomNumber]->VisibleList.replace(i_local, "0");
+                        legacy->VisibleList.replace(i_local, "0");
                     }
                 }
             }

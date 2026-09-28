@@ -10,6 +10,7 @@
 #include <QComboBox>
 #include <QCheckBox>
 
+#include "src/ui/desktop/calibration/session_key.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/ui/desktop/verticallabel.h"
 
@@ -25,8 +26,8 @@ class CalibrationMaps : public QWidget
     Q_OBJECT
 
   public:
-    explicit CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, int romIndex, int mapIndex, QRect mdiAreaSize,
-                             QWidget *parent = nullptr);
+    explicit CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, fastecu::calibration::SessionId session,
+                             int mapIndex, QRect mdiAreaSize, QWidget *parent = nullptr);
     ~CalibrationMaps();
 
     int mapCellWidthSelectable = 240;
