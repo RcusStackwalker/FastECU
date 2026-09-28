@@ -73,7 +73,8 @@ class TestModelValidation : public QObject
         };
 
         int endIndex = -1;
-        const QStringList headerData = FileActions::collect_ecuflash_base_header_fields(ecuCalDef, xmlLines, &endIndex);
+        const QStringList headerData =
+            FileActions::collect_ecuflash_base_header_fields(ecuCalDef.DefHeaderNames, xmlLines, &endIndex);
 
         QCOMPARE(headerData.count("include"), 1);
         QCOMPARE(headerData.at(headerData.indexOf("include") + 1), QString());

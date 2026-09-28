@@ -350,7 +350,7 @@ bool FileActions::validate_calibration_maps(const EcuCalDefStructure& ecuCalDef,
     return out->isEmpty();
 }
 
-QStringList FileActions::collect_ecuflash_base_header_fields(const EcuCalDefStructure& ecuCalDef,
+QStringList FileActions::collect_ecuflash_base_header_fields(const QStringList& header_names,
                                                              const QStringList& defData, int *endIndex)
 {
     QStringList headerData;
@@ -368,7 +368,7 @@ QStringList FileActions::collect_ecuflash_base_header_fields(const EcuCalDefStru
         }
 
         const QDomElement romid = root.firstChildElement("romid");
-        for (const QString& name : ecuCalDef.DefHeaderNames)
+        for (const QString& name : header_names)
         {
             const QDomElement element =
                 (name == "include" || name == "notes") ? root.firstChildElement(name) : romid.firstChildElement(name);
@@ -379,7 +379,7 @@ QStringList FileActions::collect_ecuflash_base_header_fields(const EcuCalDefStru
         }
     }
 
-    for (const QString& name : ecuCalDef.DefHeaderNames)
+    for (const QString& name : header_names)
     {
         headerData << name << values.value(name);
     }

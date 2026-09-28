@@ -172,3 +172,10 @@ TEST(DefinitionAuthoringDialogTest, RecordDefinitionAppendsTheFourIndexListsInSt
     EXPECT_THAT(config.ecuflash_def_ecu_id, ElementsAre(QString("39670016"), QString("39670017")));
     EXPECT_THAT(config.ecuflash_def_filename, ElementsAre(QString("defs/colt.xml"), QString("defs/z27a.xml")));
 }
+
+TEST(DefinitionHeaderFields, MatchTheLegacyModelVerbatim)
+{
+    const FileActions::EcuCalDefStructure legacy;
+    EXPECT_EQ(fastecu::ui::definition_header_labels(), legacy.DefHeaderStrings);
+    EXPECT_EQ(fastecu::ui::definition_header_names(), legacy.DefHeaderNames);
+}

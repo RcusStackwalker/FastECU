@@ -120,7 +120,49 @@ DefinitionAuthoringDialog::DefinitionAuthoringDialog(FileActions& file_actions,
 {
 }
 
-bool DefinitionAuthoringDialog::create_new_definition(FileActions::EcuCalDefStructure *ecuCalDef)
+QStringList definition_header_labels()
+{
+    return {
+        "XML ID",
+        "Internal ID Address",
+        "Internal ID String",
+        "ECU ID",
+        "Make",
+        "Market",
+        "Model",
+        "Submodel",
+        "Transmission",
+        "Year",
+        "Flash Method",
+        "Memory Model",
+        "Checksum Module",
+        "Include",
+        "Notes",
+    };
+}
+
+QStringList definition_header_names()
+{
+    return {
+        "xmlid",
+        "internalidaddress",
+        "internalidstring",
+        "ecuid",
+        "make",
+        "market",
+        "model",
+        "submodel",
+        "transmission",
+        "year",
+        "flashmethod",
+        "memmodel",
+        "checksummodule",
+        "include",
+        "notes",
+    };
+}
+
+bool DefinitionAuthoringDialog::create_new_definition()
 {
     emit LOG_D("Create header", true, true);
     // `dialog` owns the form's editors, and form.editors is read as far down
@@ -128,7 +170,7 @@ bool DefinitionAuthoringDialog::create_new_definition(FileActions::EcuCalDefStru
     // function rather than living inside run_header_dialog.
     QDialog dialog(parent_);
     const HeaderDialogResult form =
-        run_header_dialog(dialog, ecuCalDef->DefHeaderStrings, ecuCalDef->DefHeaderNames, {});
+        run_header_dialog(dialog, definition_header_labels(), definition_header_names(), {});
     if (!form.accepted)
     {
         return true;
@@ -171,7 +213,7 @@ bool DefinitionAuthoringDialog::create_new_definition(FileActions::EcuCalDefStru
     return true;
 }
 
-bool DefinitionAuthoringDialog::use_existing_definition(FileActions::EcuCalDefStructure *ecuCalDef)
+bool DefinitionAuthoringDialog::use_existing_definition()
 {
     const QString source =
         select_definition_path(parent_, qs(config_.settings().ecuflash_definition_files_directory), PathMode::Open);
@@ -190,7 +232,7 @@ bool DefinitionAuthoringDialog::use_existing_definition(FileActions::EcuCalDefSt
     const QByteArray sourceBytes(reinterpret_cast<const char *>(sourceContents->data()),
                                  static_cast<qsizetype>(sourceContents->size()));
     const QStringList headerData =
-        FileActions::collect_ecuflash_base_header_fields(*ecuCalDef, {QString::fromUtf8(sourceBytes)});
+        FileActions::collect_ecuflash_base_header_fields(definition_header_names(), {QString::fromUtf8(sourceBytes)});
 
     // headerData is a flat (name, value, name, value, ...) list; split it
     // into the two parallel lists build_header_form expects.
@@ -206,7 +248,7 @@ bool DefinitionAuthoringDialog::use_existing_definition(FileActions::EcuCalDefSt
     // As in create_new_definition: `dialog` outlives every read of
     // form.editors below, down to the record_definition call.
     QDialog dialog(parent_);
-    const HeaderDialogResult form = run_header_dialog(dialog, ecuCalDef->DefHeaderStrings, names, values);
+    const HeaderDialogResult form = run_header_dialog(dialog, definition_header_labels(), names, values);
     if (!form.accepted)
     {
         return true;

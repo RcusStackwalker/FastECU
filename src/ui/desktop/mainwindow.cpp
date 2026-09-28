@@ -1208,12 +1208,12 @@ void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *
         if (createNewRadioButton->isChecked())
         {
             emit LOG_D(createNewRadioButton->text(), true, true);
-            definitionAuthoringDialog->create_new_definition(ecuCalDef);
+            definitionAuthoringDialog->create_new_definition();
         }
         else if (useExistingRadioButton->isChecked())
         {
             emit LOG_D(useExistingRadioButton->text(), true, true);
-            definitionAuthoringDialog->use_existing_definition(ecuCalDef);
+            definitionAuthoringDialog->use_existing_definition();
         }
     }
     // The "continue without definition" placeholders belong to this branch
