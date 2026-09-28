@@ -7,6 +7,9 @@ bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 bazel_dep(name = "pugixml", version = "1.15")
 
+bazel_dep(name = "gazelle", version = "0.54.0", dev_dependency = True)
+bazel_dep(name = "gazelle_cc", version = "0.6.0", dev_dependency = True)
+
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.defaults(python_version = "3.14")
 python.toolchain(python_version = "3.14")

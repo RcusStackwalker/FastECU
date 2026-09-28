@@ -3,6 +3,18 @@
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "qt_cc_test")
 
+def _with_implicit_deps(implicit, deps):
+    """Prepend the macro's own deps; drop repeats gazelle lists explicitly.
+
+    Needs a plain list, which is why the macro's `deps` is not configurable: a
+    configurable attribute reaches a symbolic macro as a select() and cannot be
+    de-duplicated.
+    """
+    seen = {}
+    for label in implicit + deps:
+        seen[str(label)] = label
+    return list(seen.values())
+
 def _fastecu_portable_gtest_impl(
         name,
         visibility,
@@ -25,17 +37,17 @@ def _fastecu_portable_gtest_impl(
         size = size,
         tags = tags,
         target_compatible_with = target_compatible_with,
-        deps = [
-            "//src/algorithms/protocol/testing:byte_matchers",
-            "@googletest//:gtest_main",
-        ] + deps,
+        deps = _with_implicit_deps([
+            Label("//src/algorithms/protocol/testing:byte_matchers"),
+            Label("@googletest//:gtest_main"),
+        ], deps),
     )
 
 fastecu_portable_gtest = macro(
     implementation = _fastecu_portable_gtest_impl,
     attrs = {
         "srcs": attr.label_list(mandatory = True, allow_files = True),
-        "deps": attr.label_list(default = []),
+        "deps": attr.label_list(default = [], configurable = False),
         "data": attr.label_list(default = [], allow_files = True),
         "env": attr.string_dict(default = {}),
         "tags": attr.string_list(default = [], configurable = False),
