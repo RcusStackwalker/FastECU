@@ -139,7 +139,8 @@ TEST_F(LoggerDefinitionServiceTest, LoadsAnExistingSelectionWithoutWriting)
     repository_.files["logger.cfg"] = bytes_of(kConfWithEcu);
     const auto definition = fastecu::logging::LoggerDefinition{};
 
-    const auto selection = service().load_or_initialize_selection("logger.cfg", "ECUID1", definition);
+    const auto selection =
+        service().load_or_initialize_selection("logger.cfg", "ECUID1", fastecu::logging::default_selection(definition));
     ASSERT_THAT(selection, fastecu::testing::IsOk());
     EXPECT_THAT(selection->gauge_ids, ElementsAre("P2"));
     EXPECT_TRUE(writer_.replace_calls.empty()) << "reading must not write";
@@ -152,7 +153,8 @@ TEST_F(LoggerDefinitionServiceTest, InitializesAndPersistsWhenTheEcuIsAbsent)
         bytes::ByteView(reinterpret_cast<const bytes::Byte *>(kDefinition.data()), kDefinition.size()), "logger.xml");
     ASSERT_THAT(parsed, fastecu::testing::IsOk());
 
-    const auto selection = service().load_or_initialize_selection("logger.cfg", "NEWECU", *parsed);
+    const auto selection =
+        service().load_or_initialize_selection("logger.cfg", "NEWECU", fastecu::logging::default_selection(*parsed));
     ASSERT_THAT(selection, fastecu::testing::IsOk());
     // Enabled-only walk: P1 is enabled, P2 is not.
     EXPECT_THAT(selection->gauge_ids, ElementsAre("P1"));
@@ -164,7 +166,7 @@ TEST_F(LoggerDefinitionServiceTest, InitializingReadsTheConfExactlyOnce)
 {
     repository_.files["logger.cfg"] = bytes_of("<config><logger/></config>");
 
-    ASSERT_THAT(service().load_or_initialize_selection("logger.cfg", "NEWECU", fastecu::logging::LoggerDefinition{}),
+    ASSERT_THAT(service().load_or_initialize_selection("logger.cfg", "NEWECU", fastecu::logging::LoggerSelection{}),
                 fastecu::testing::IsOk());
     // load_or_initialize_selection shares load_selection's single read rather
     // than re-reading before it writes: no TOCTOU window inside the service.
@@ -186,7 +188,7 @@ TEST_F(LoggerDefinitionServiceTest, SaveSelectionReplacesTheFileAtomically)
 
 TEST_F(LoggerDefinitionServiceTest, InitializePropagatesAnUnreadableHandle)
 {
-    ASSERT_THAT(service().load_or_initialize_selection("missing.cfg", "NEWECU", fastecu::logging::LoggerDefinition{}),
+    ASSERT_THAT(service().load_or_initialize_selection("missing.cfg", "NEWECU", fastecu::logging::LoggerSelection{}),
                 fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
     EXPECT_TRUE(writer_.replace_calls.empty()) << "a failed read must not write";
 }
@@ -198,7 +200,7 @@ TEST_F(LoggerDefinitionServiceTest, InitializePropagatesAWriteSelectionFailure)
     // surface that rather than replace the file.
     repository_.files["logger.cfg"] = bytes_of("<notconfig/>");
 
-    ASSERT_THAT(service().load_or_initialize_selection("logger.cfg", "NEWECU", fastecu::logging::LoggerDefinition{}),
+    ASSERT_THAT(service().load_or_initialize_selection("logger.cfg", "NEWECU", fastecu::logging::LoggerSelection{}),
                 fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
     EXPECT_TRUE(writer_.replace_calls.empty()) << "a refused write must not reach the writer";
 }
@@ -209,7 +211,7 @@ TEST_F(LoggerDefinitionServiceTest, InitializePropagatesAReplaceFailure)
     writer_.replace_error = fastecu::Error{fastecu::ErrorKind::Internal, "disk full"};
 
     const auto selection =
-        service().load_or_initialize_selection("logger.cfg", "NEWECU", fastecu::logging::LoggerDefinition{});
+        service().load_or_initialize_selection("logger.cfg", "NEWECU", fastecu::logging::LoggerSelection{});
     ASSERT_THAT(selection, fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
     EXPECT_THAT(selection.error().detail, HasSubstr("disk full"));
 }
@@ -241,3 +243,17 @@ TEST_F(LoggerDefinitionServiceTest, SaveSelectionPropagatesAReplaceFailure)
 }
 
 } // namespace
+
+TEST_F(LoggerDefinitionServiceTest, PersistsExplicitFallbackIncludingUnresolvedIds)
+{
+    repository_.files["logger.cfg"] = bytes_of("<config><logger/></config>");
+    const fastecu::logging::LoggerSelection fallback{
+        .protocol = "MUT_DMA", .gauge_ids = {"unknown", "rpm"}, .lower_panel_ids = {"rpm"}};
+    const auto result = service().load_or_initialize_selection("logger.cfg", "NEWECU", fallback);
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(*result, fallback);
+    const auto stored = fastecu::logging::read_selection(writer_.files.at("logger.cfg"), "NEWECU", "logger.cfg");
+    ASSERT_THAT(stored, fastecu::testing::IsOk());
+    ASSERT_TRUE(stored->has_value());
+    EXPECT_EQ(**stored, fallback);
+}

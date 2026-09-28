@@ -585,7 +585,8 @@ FileActions::LogValuesStructure *FileActions::read_logger_conf(FileActions::LogV
         definition.switches.push_back({.id = id.toStdString(), .enabled = enabled == "1"});
     }
 
-    const auto selection = service.load_or_initialize_selection(handle, ecu_key, definition);
+    const auto selection =
+        service.load_or_initialize_selection(handle, ecu_key, fastecu::logging::default_selection(definition));
     if (!selection)
     {
         warnUnreadable();

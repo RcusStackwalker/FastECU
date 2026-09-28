@@ -142,6 +142,7 @@ PORTABLE_PACKAGES = {
         "logger_definition_model",
         "logger_definition_parser",
         "logger_definition_service",
+        "logger_model",
         "logging_conversion",
         "logging_session",
         "logging_types",

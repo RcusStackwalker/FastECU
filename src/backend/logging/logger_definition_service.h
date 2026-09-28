@@ -40,10 +40,10 @@ class LoggerDefinitionService
     Result<std::optional<LoggerSelection>> load_selection(std::string_view conf_handle, std::string_view ecu_id);
 
     // load_selection, plus: when that ECU has no entry, composes
-    // default_selection(definition) and persists it, so the write is an
+    // the explicit fallback and persists it, so the write is an
     // explicit step rather than a side effect of a read.
     Result<LoggerSelection> load_or_initialize_selection(std::string_view conf_handle, std::string_view ecu_id,
-                                                         const LoggerDefinition& definition);
+                                                         const LoggerSelection& fallback);
 
     Status save_selection(std::string_view conf_handle, std::string_view ecu_id, const LoggerSelection& selection);
 
