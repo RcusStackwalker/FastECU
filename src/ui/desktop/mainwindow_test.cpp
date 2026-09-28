@@ -45,6 +45,8 @@
 #include "src/backend/calibration/session/rom_open.h"
 #include "src/backend/definition/definition_service.h"
 #include "src/ui/desktop/calibration/session_key.h"
+#include "src/backend/flash/flash_operation_request.h"
+#include "src/ui/desktop/calibration/legacy_calibration_view.h"
 #include "src/ui/desktop/hexedit/hexedit.h"
 
 namespace
@@ -1077,9 +1079,14 @@ class MainWindowTest : public QObject
         QVERIFY(!driver.timedOut());
         QCOMPARE(driver.missingDefinitionPromptCount(), 1);
         QCOMPARE(window.calibrations_.size(), std::size_t{1});
-        const auto& legacy = *window.calibrations_.front().legacy;
-        QCOMPARE(legacy.RomInfo.at(FileActions::XmlId), QString("UnknownID"));
-        QCOMPARE(legacy.FileName, QString("a.bin"));
+        QTreeWidgetItem *rom_info = window.ui->calibrationDataTreeWidget->topLevelItem(0);
+        QCOMPARE(rom_info->text(0), QString("ROM Info"));
+        QCOMPARE(rom_info->child(0)->text(0), QString("XML ID: UnknownID"));
+        QCOMPARE(rom_info->child(4)->text(0),
+                 "Make: " + QString::fromStdString(services.config.selected_vehicle()->make));
+        QCOMPARE(window.calibrations_.front().view.missing_definition_make,
+                 std::optional<QString>(QString::fromStdString(services.config.selected_vehicle()->make)));
+        QCOMPARE(window.calibrations_.front().legacy->FileName, QString("a.bin"));
         QCOMPARE(services.calibrations.ids().size(), std::size_t{1});
         QCOMPARE(window.ui->calibrationFilesTreeWidget->topLevelItem(0)->text(2),
                  fastecu::ui::session_key_text(window.calibrations_.front().id));
@@ -1176,6 +1183,149 @@ class MainWindowTest : public QObject
 
         QCOMPARE(window.findChildren<HexEdit *>().size(), qsizetype{1});
         QVERIFY(window.calibrations_.empty());
+    }
+
+    void closingARomClosesAllOfItsWindows()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        QTemporaryDir roms;
+        ModalDriver driver{QString()};
+        driver.start();
+        QCOMPARE(window.open_calibration_file(writeRom(roms, "a.bin", '\x0a')), 0);
+        QCOMPARE(window.open_calibration_file(writeRom(roms, "b.bin", '\x0b')), 0);
+        driver.stop();
+        const QString a_key = fastecu::ui::session_key_text(window.calibrations_.at(0).id);
+        const QString b_key = fastecu::ui::session_key_text(window.calibrations_.at(1).id);
+        for (const QString& name : {a_key + ",0,X", a_key + ",1,Y", b_key + ",0,Z"})
+        {
+            auto *content = new QWidget;
+            QMdiSubWindow *sub = window.ui->mdiArea->addSubWindow(content);
+            sub->setObjectName(name);
+        }
+        // The data tree still shows b; select a's row directly, as keyboard
+        // navigation would, without rebuilding the data tree.
+        QTreeWidget *files = window.ui->calibrationFilesTreeWidget;
+        files->topLevelItem(0)->setSelected(true);
+        files->topLevelItem(1)->setSelected(false);
+
+        window.close_calibration();
+
+        QStringList remaining;
+        for (QMdiSubWindow *sub : window.ui->mdiArea->subWindowList())
+        {
+            remaining << sub->objectName();
+        }
+        QCOMPARE(remaining, QStringList{b_key + ",0,Z"});
+    }
+
+    void viewStateIsKeptPerRom()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        QTemporaryDir roms;
+        ModalDriver driver{QString()};
+        driver.start();
+        QCOMPARE(window.open_calibration_file(writeRom(roms, "a.bin", '\x0a')), 0);
+        QCOMPARE(window.open_calibration_file(writeRom(roms, "b.bin", '\x0b')), 0);
+        driver.stop();
+        QTreeWidget *files = window.ui->calibrationFilesTreeWidget;
+        QTreeWidget *data = window.ui->calibrationDataTreeWidget;
+        const auto select_rom = [&](int row)
+        {
+            for (int i = 0; i < files->topLevelItemCount(); ++i)
+            {
+                files->topLevelItem(i)->setSelected(i == row);
+            }
+            window.calibration_files_treewidget_item_selected(files->topLevelItem(row));
+        };
+
+        select_rom(0);
+        window.calibration_data_treewidget_item_expanded(data->topLevelItem(0)); // ROM Info
+        select_rom(1);
+        QVERIFY(!data->topLevelItem(0)->isExpanded());
+        select_rom(0);
+        QVERIFY(data->topLevelItem(0)->isExpanded());
+        QVERIFY(window.calibrations_.at(0).view.rom_info_expanded);
+        QVERIFY(!window.calibrations_.at(1).view.rom_info_expanded);
+    }
+
+    // The write path's metadata refresh decides the kernel and MCU handed to
+    // a real ECU, so it is tested directly: an empty definition flash method
+    // is filled from the selected vehicle (and the vehicle re-selected by
+    // it); a definition-less ROM (" ") is not; kernel and MCU always come
+    // from the vehicle selected afterwards.
+    void writeMetadataFillsAnEmptyDefinitionFlashMethod()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na");
+        const std::string selected = services.config.selected_vehicle()->protocol_name;
+        fastecu::calibration::CalibrationSession session(
+            fastecu::calibration::SessionId{41},
+            fastecu::calibration::SessionContents{
+                .source = {.display_name = "d.bin", .path = "/d.bin"},
+                .rom = std::vector<std::uint8_t>(16, 0),
+                .definition =
+                    fastecu::calibration::ResolvedDefinition{
+                        .id = "D", .definition = {.format = fastecu::definition::DefinitionFormat::EcuFlash}},
+            });
+        auto legacy = fastecu::ui::project_legacy_calibration(session);
+        QVERIFY(legacy.has_value());
+        QCOMPARE(legacy->view->RomInfo.at(FileActions::FlashMethod), QString(""));
+
+        window.refresh_write_metadata(session, *legacy->view, "/kernels/");
+
+        const auto& vehicle = *services.config.selected_vehicle();
+        QCOMPARE(session.protocol().flash_method, selected);
+        QCOMPARE(vehicle.protocol_name, selected);
+        QCOMPARE(session.protocol().mcu_type,
+                 fastecu::config::protocol_field_or_placeholder(vehicle, &fastecu::config::ProtocolEntry::mcu));
+        QCOMPARE(session.protocol().kernel_path,
+                 fastecu::flash::kernel_path("/kernels/", fastecu::config::protocol_field_or_placeholder(
+                                                              vehicle, &fastecu::config::ProtocolEntry::kernel)));
+        QCOMPARE(legacy->view->RomInfo.at(FileActions::FlashMethod), QString::fromStdString(selected));
+        QCOMPARE(legacy->view->McuType, QString::fromStdString(session.protocol().mcu_type));
+        QCOMPARE(legacy->view->Kernel, QString::fromStdString(session.protocol().kernel_path));
+        QCOMPARE(legacy->view->FlashMethod, QString::fromStdString(selected));
+    }
+
+    void writeMetadataLeavesADefinitionlessFlashMethodAlone()
+    {
+        ModalDriver constructor_driver{QString()};
+        constructor_driver.start();
+        TestServices services{config_root_.path()};
+        QVERIFY(services.config_status.has_value());
+        MainWindow window{services.services()};
+        constructor_driver.stop();
+        selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na");
+        fastecu::calibration::CalibrationSession session(
+            fastecu::calibration::SessionId{42},
+            fastecu::calibration::SessionContents{.source = {.display_name = "n.bin", .path = "/n.bin"},
+                                                  .rom = std::vector<std::uint8_t>(16, 0)});
+        auto legacy = fastecu::ui::project_legacy_calibration(session);
+        QVERIFY(legacy.has_value());
+
+        window.refresh_write_metadata(session, *legacy->view, "/kernels/");
+
+        const auto& vehicle = *services.config.selected_vehicle();
+        QCOMPARE(session.protocol().flash_method, std::string{});
+        QCOMPARE(legacy->view->RomInfo.at(FileActions::FlashMethod), QString(" "));
+        QCOMPARE(session.protocol().mcu_type,
+                 fastecu::config::protocol_field_or_placeholder(vehicle, &fastecu::config::ProtocolEntry::mcu));
+        QCOMPARE(legacy->view->McuType, QString::fromStdString(session.protocol().mcu_type));
     }
 
     void windowPreservesInjectedLoggingFactory()

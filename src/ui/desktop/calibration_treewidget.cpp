@@ -1,36 +1,42 @@
 #include "calibration_treewidget.h"
 
+#include "src/ui/desktop/calibration/rom_info.h"
+
 CalibrationTreeWidget::CalibrationTreeWidget()
 {
 }
 
-QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(fastecu::calibration::SessionId session,
-                                                              QTreeWidget *filesTreeWidget,
-                                                              FileActions::EcuCalDefStructure *ecuCalDef)
+namespace
 {
-    QString filename(ecuCalDef->FileName);
 
-    /**************************
-     * Create files tree
-     *************************/
+QString legacy_value(const std::string& value)
+{
+    return value.empty() ? QString(" ") : QString::fromStdString(value);
+}
+
+} // namespace
+
+QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(fastecu::calibration::SessionId session_id,
+                                                              QTreeWidget *filesTreeWidget,
+                                                              const fastecu::calibration::CalibrationSession& session)
+{
     QTreeWidget *calFilesTree = filesTreeWidget;
     calFilesTree->setAnimated(true);
     calFilesTree->setFocusPolicy(Qt::NoFocus);
-    // calFilesTree->setStyleSheet("QListView::item:selected {background : transparent; border: solid 2px red;}");
     QFont filesItemFont;
     filesItemFont.setPixelSize(14);
     calFilesTree->setFont(filesItemFont);
 
     QTreeWidgetItem *topLevelFilesTreeItem = new QTreeWidgetItem();
-    topLevelFilesTreeItem->setText(2, fastecu::ui::session_key_text(session));
+    topLevelFilesTreeItem->setText(2, fastecu::ui::session_key_text(session_id));
     topLevelFilesTreeItem->setCheckState(0, Qt::Unchecked);
     topLevelFilesTreeItem->setFirstColumnSpanned(true);
     calFilesTree->addTopLevelItem(topLevelFilesTreeItem);
 
-    topLevelFilesTreeItem->setText(0, filename);
-    if (!ecuCalDef->IdList.empty())
+    topLevelFilesTreeItem->setText(0, QString::fromStdString(session.source().display_name));
+    if (const auto *resolved = session.definition(); resolved != nullptr && !resolved->definition.maps.empty())
     {
-        topLevelFilesTreeItem->setText(1, ecuCalDef->IdList.at(0));
+        topLevelFilesTreeItem->setText(1, legacy_value(resolved->definition.maps.front().id));
     }
     calFilesTree->expandItem(topLevelFilesTreeItem);
 
@@ -46,147 +52,91 @@ QTreeWidget *CalibrationTreeWidget::buildCalibrationFilesTree(fastecu::calibrati
 }
 
 QTreeWidget *CalibrationTreeWidget::buildCalibrationDataTree(QTreeWidget *dataTreeWidget,
-                                                             FileActions::EcuCalDefStructure *ecuCalDef)
+                                                             const fastecu::calibration::CalibrationSession& session,
+                                                             const fastecu::ui::CalibrationViewState& view)
 {
-    bool treeCategoryCreated = false;
-
-    /**************************
-     * Create data tree
-     *************************/
     dataTreeWidget->clear();
 
     QTreeWidget *calDataTree = dataTreeWidget;
-
     calDataTree->setAnimated(true);
     calDataTree->setFocusPolicy(Qt::NoFocus);
-
     QFont dataItemFont;
     dataItemFont.setPixelSize(12);
     calDataTree->setFont(dataItemFont);
 
-    // If OEM ecu file, add ROM info
-    if (!ecuCalDef->RomInfo.empty())
+    const QStringList labels = fastecu::ui::rom_info_labels();
+    const QStringList values = fastecu::ui::rom_info_values(session, view.missing_definition_make);
+    QTreeWidgetItem *romInfoItem = new QTreeWidgetItem();
+    romInfoItem->setText(0, "ROM Info");
+    calDataTree->addTopLevelItem(romInfoItem);
+    if (view.rom_info_expanded)
     {
-        QTreeWidgetItem *topLevelDataTreeItem = new QTreeWidgetItem();
-        topLevelDataTreeItem->setText(0, "ROM Info");
-        calDataTree->addTopLevelItem(topLevelDataTreeItem);
-        if (ecuCalDef->RomInfoExpanded == "1")
-        {
-            topLevelDataTreeItem->setExpanded(true);
-        }
-
-        for (int i = 0; i < ecuCalDef->RomInfo.length(); i++)
-        {
-            emit LOG_D("Set " + ecuCalDef->RomInfoStrings.at(i) + ": " + ecuCalDef->RomInfo.at(i), true, true);
-            QTreeWidgetItem *item = new QTreeWidgetItem();
-            item->setText(0, ecuCalDef->RomInfoStrings.at(i) + ": " + ecuCalDef->RomInfo.at(i));
-            calDataTree->topLevelItem(0)->addChild(item);
-        }
+        romInfoItem->setExpanded(true);
+    }
+    for (int i = 0; i < values.length(); i++)
+    {
+        emit LOG_D("Set " + labels.at(i) + ": " + values.at(i), true, true);
+        QTreeWidgetItem *item = new QTreeWidgetItem();
+        item->setText(0, labels.at(i) + ": " + values.at(i));
+        calDataTree->topLevelItem(0)->addChild(item);
     }
 
-    for (int j = 0; j < ecuCalDef->NameList.count(); j++)
+    const fastecu::calibration::ResolvedDefinition *resolved = session.definition();
+    const std::size_t map_count = resolved != nullptr ? resolved->definition.maps.size() : 0;
+    for (std::size_t j = 0; j < map_count; j++)
     {
-        // emit LOG_D("Check map: " + ecuCalDef->NameList[j] + " in category: " + ecuCalDef->CategoryList[j], true,
-        // true);
-        if (ecuCalDef->CategoryList[j] != "" && ecuCalDef->CategoryList[j] != " ")
+        const fastecu::definition::CalibrationMap& map = resolved->definition.maps[j];
+        const QString category = legacy_value(map.category);
+        const QString name = legacy_value(map.name);
+        if (category == " " || name == " ")
         {
-            // emit LOG_D("Map category: " + ecuCalDef->CategoryList[j], true, true);
-            if (ecuCalDef->NameList[j] != "" && ecuCalDef->NameList[j] != " ")
+            continue;
+        }
+        bool treeCategoryCreated = false;
+        for (int i = 0; i < calDataTree->topLevelItemCount(); i++)
+        {
+            if (calDataTree->topLevelItem(i)->text(0) == category)
             {
-                // emit LOG_D("Map: " + ecuCalDef->NameList[j], true, true);
-                treeCategoryCreated = false;
-                for (int i = 0; i < calDataTree->topLevelItemCount(); i++)
-                {
-                    if (calDataTree->topLevelItem(i)->text(0) == ecuCalDef->CategoryList[j])
-                    {
-                        treeCategoryCreated = true;
-                    }
-                }
-                if (!treeCategoryCreated)
-                {
-                    // emit emit LOG_D("Create category: " + ecuCalDef->CategoryList[j], true, true);
-                    QTreeWidgetItem *topLevelDataTreeItem = new QTreeWidgetItem();
-                    topLevelDataTreeItem->setText(0, ecuCalDef->CategoryList[j]);
-                    calDataTree->addTopLevelItem(topLevelDataTreeItem);
-                    // treeChildCreated = false;
-                    if (ecuCalDef->CategoryExpandedList.at(j) == "1")
-                    {
-                        topLevelDataTreeItem->setExpanded(true);
-                    }
-                }
-                for (int i = 0; i < calDataTree->topLevelItemCount(); i++)
-                {
-                    if (calDataTree->topLevelItem(i)->text(0) == ecuCalDef->CategoryList[j])
-                    {
-                        // emit LOG_D("Add map: " + ecuCalDef->NameList[j] + " to category: " +
-                        // ecuCalDef->CategoryList[j], true, true);
-                        QTreeWidgetItem *item = new QTreeWidgetItem();
-                        if (ecuCalDef->TypeList[j] == "1D" || ecuCalDef->TypeList[j] == "Selectable" ||
-                            (ecuCalDef->YSizeList.at(j).toInt() == 1 && ecuCalDef->XSizeList.at(j).toInt() == 1))
-                        {
-                            item->setIcon(0, QIcon(":/icons/1D-64.png"));
-                        }
-                        else if (ecuCalDef->TypeList[j] == "2D")
-                        {
-                            item->setIcon(0, QIcon(":/icons/2D-64.png"));
-                        }
-                        else if (ecuCalDef->TypeList[j] == "3D")
-                        {
-                            item->setIcon(0, QIcon(":/icons/3D-64.png"));
-                        }
-                        if (ecuCalDef->VisibleList.at(j) == "1")
-                        {
-                            item->setCheckState(0, Qt::Checked);
-                        }
-                        else
-                        {
-                            item->setCheckState(0, Qt::Unchecked);
-                        }
-                        item->setText(0, ecuCalDef->NameList[j]);
-                        item->setText(1, QString::number(j));
-                        calDataTree->topLevelItem(i)->addChild(item);
-                        item->setToolTip(0, ecuCalDef->NameList[j] + ecuCalDef->DescriptionList[j]);
-                    }
-                }
+                treeCategoryCreated = true;
             }
+        }
+        if (!treeCategoryCreated)
+        {
+            QTreeWidgetItem *categoryItem = new QTreeWidgetItem();
+            categoryItem->setText(0, category);
+            calDataTree->addTopLevelItem(categoryItem);
+            if (view.expanded_categories.contains(category))
+            {
+                categoryItem->setExpanded(true);
+            }
+        }
+        const QString type = legacy_value(map.type);
+        for (int i = 0; i < calDataTree->topLevelItemCount(); i++)
+        {
+            if (calDataTree->topLevelItem(i)->text(0) != category)
+            {
+                continue;
+            }
+            QTreeWidgetItem *item = new QTreeWidgetItem();
+            if (type == "1D" || type == "Selectable" || (map.y_size == 1 && map.x_size == 1))
+            {
+                item->setIcon(0, QIcon(":/icons/1D-64.png"));
+            }
+            else if (type == "2D")
+            {
+                item->setIcon(0, QIcon(":/icons/2D-64.png"));
+            }
+            else if (type == "3D")
+            {
+                item->setIcon(0, QIcon(":/icons/3D-64.png"));
+            }
+            item->setCheckState(0, view.open_maps.contains(j) ? Qt::Checked : Qt::Unchecked);
+            item->setText(0, name);
+            item->setText(1, QString::number(j));
+            calDataTree->topLevelItem(i)->addChild(item);
+            item->setToolTip(0, name + legacy_value(map.description));
         }
     }
 
     return calDataTree;
-}
-
-void *CalibrationTreeWidget::calibrationDataTreeWidgetItemExpanded(FileActions::EcuCalDefStructure *ecuCalDef,
-                                                                   const QString& categoryName)
-{
-    for (int i = 0; i < ecuCalDef->CategoryList.count(); i++)
-    {
-        if (ecuCalDef->CategoryList.at(i) == categoryName)
-        {
-            ecuCalDef->CategoryExpandedList.replace(i, "1");
-        }
-    }
-    if (categoryName == "ROM Info")
-    {
-        ecuCalDef->RomInfoExpanded = "1";
-    }
-
-    return nullptr;
-}
-
-void *CalibrationTreeWidget::calibrationDataTreeWidgetItemCollapsed(FileActions::EcuCalDefStructure *ecuCalDef,
-                                                                    const QString& categoryName)
-{
-    for (int i = 0; i < ecuCalDef->CategoryList.count(); i++)
-    {
-        if (ecuCalDef->CategoryList.at(i) == categoryName)
-        {
-            ecuCalDef->CategoryExpandedList.replace(i, "0");
-        }
-    }
-    if (categoryName == "ROM Info")
-    {
-        ecuCalDef->RomInfoExpanded = "0";
-    }
-
-    return nullptr;
 }

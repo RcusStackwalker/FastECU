@@ -1,4 +1,5 @@
 #include "src/ui/desktop/calibration/legacy_calibration_view.h"
+#include "src/ui/desktop/calibration/rom_info.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -180,6 +181,102 @@ TEST_F(LegacyCalibrationView, SizeRejectedDefinitionShowsNoMaps)
     EXPECT_EQ(view.RomInfo, legacy.RomInfo);
     EXPECT_EQ(view.FullRomData, legacy.FullRomData);
     EXPECT_EQ(view.use_ecuflash_definition, legacy.use_ecuflash_definition);
+}
+
+TEST_F(LegacyCalibrationView, RomInfoLabelsAndRowsMatchLegacyIndices)
+{
+    const FileActions::EcuCalDefStructure legacy;
+    EXPECT_EQ(rom_info_labels(), legacy.RomInfoStrings);
+    EXPECT_EQ(static_cast<int>(RomInfoRow::FlashMethod), FileActions::FlashMethod);
+    EXPECT_EQ(static_cast<int>(RomInfoRow::DefFile), FileActions::DefFile);
+    EXPECT_EQ(kRomInfoRowCount, legacy.RomInfoStrings.size());
+}
+
+TEST_F(LegacyCalibrationView, RomInfoMatchesTheLegacyViewForEveryOpenKind)
+{
+    cfg.file_repository.files["/cal/a.bin"] = synthetic_rom();
+    const auto plain = opener.open_file("/cal/a.bin");
+    ASSERT_THAT(plain, IsOk());
+    const calibration::CalibrationSession plain_session(calibration::SessionId{1}, plain->contents);
+    EXPECT_EQ(rom_info_values(plain_session), projected(*plain).RomInfo);
+
+    enable_ecuflash_definitions();
+    ASSERT_THAT(cfg.session.select_row(0), IsOk());
+    const auto defined = opener.open_file("/cal/a.bin");
+    ASSERT_THAT(defined, IsOk());
+    ASSERT_TRUE(defined->contents.definition.has_value());
+    const calibration::CalibrationSession defined_session(calibration::SessionId{2}, defined->contents);
+    EXPECT_EQ(rom_info_values(defined_session), projected(*defined).RomInfo);
+
+    ASSERT_THAT(cfg.session.select_row(0), IsOk());
+    const auto read = opener.adopt_read_image(
+        calibration::ReadImage{.rom = synthetic_rom(), .filename = "r.bin", .rom_id = "X", .protocol_name = "proto_b"});
+    ASSERT_THAT(read, IsOk());
+    const calibration::CalibrationSession read_session(calibration::SessionId{3}, read->contents);
+    EXPECT_EQ(rom_info_values(read_session), projected(*read).RomInfo);
+}
+
+TEST_F(LegacyCalibrationView, ContinueWithoutPlaceholdersMatchLegacy)
+{
+    cfg.file_repository.files["/cal/a.bin"] = synthetic_rom();
+    const auto outcome = opener.open_file("/cal/a.bin");
+    ASSERT_THAT(outcome, IsOk());
+    const calibration::CalibrationSession session(calibration::SessionId{1}, outcome->contents);
+    FileActions::EcuCalDefStructure legacy = projected(*outcome);
+
+    file_actions.apply_missing_definition_defaults(&legacy); // make from the selected vehicle
+
+    EXPECT_EQ(rom_info_values(session, QString::fromStdString(cfg.session.selected_vehicle()->make)), legacy.RomInfo);
+    EXPECT_EQ(rom_info_value(legacy.RomInfo, RomInfoRow::XmlId), QString("UnknownID"));
+}
+
+TEST_F(LegacyCalibrationView, EmptyDefinitionFlashMethodIsTheWriteFillCondition)
+{
+    // Legacy filled the flash method on write only when RomInfo held "" --
+    // a definition with no <flashmethod>. A definition-less ROM holds " ".
+    enable_ecuflash_definitions();
+    std::string text{kDefinition};
+    text.erase(text.find("<flashmethod>alias_a</flashmethod>"),
+               std::string_view("<flashmethod>alias_a</flashmethod>").size());
+    cfg.put("/defs/test.xml", text);
+    cfg.file_repository.files["/cal/a.bin"] = synthetic_rom();
+    const auto defined = opener.open_file("/cal/a.bin");
+    ASSERT_THAT(defined, IsOk());
+    const calibration::CalibrationSession defined_session(calibration::SessionId{1}, defined->contents);
+    EXPECT_EQ(rom_info_value(rom_info_values(defined_session), RomInfoRow::FlashMethod), QString(""));
+
+    cfg.session.settings().use_ecuflash_definitions = "disabled";
+    const auto plain = opener.open_file("/cal/a.bin");
+    ASSERT_THAT(plain, IsOk());
+    const calibration::CalibrationSession plain_session(calibration::SessionId{2}, plain->contents);
+    EXPECT_EQ(rom_info_value(rom_info_values(plain_session), RomInfoRow::FlashMethod), QString(" "));
+}
+
+TEST_F(LegacyCalibrationView, RefreshCopiesSessionMetadata)
+{
+    cfg.file_repository.files["/cal/a.bin"] = synthetic_rom();
+    const auto outcome = opener.open_file("/cal/a.bin");
+    ASSERT_THAT(outcome, IsOk());
+    calibration::CalibrationSession session(calibration::SessionId{1}, outcome->contents);
+    FileActions::EcuCalDefStructure legacy = projected(*outcome);
+    legacy.MapData = QStringList{"untouched"};
+
+    calibration::RomProtocolInfo protocol = session.protocol();
+    protocol.flash_method = "proto_b";
+    protocol.kernel_path = "/k/b.bin";
+    protocol.kernel_start_address = "0x0";
+    protocol.mcu_type = "M32R";
+    protocol.rom_id = "RID";
+    session.set_protocol(protocol);
+
+    refresh_legacy_metadata(session, legacy);
+
+    EXPECT_EQ(legacy.RomInfo.at(FileActions::FlashMethod), QString("proto_b"));
+    EXPECT_EQ(legacy.Kernel, QString("/k/b.bin"));
+    EXPECT_EQ(legacy.KernelStartAddr, QString("0x0"));
+    EXPECT_EQ(legacy.McuType, QString("M32R"));
+    EXPECT_EQ(legacy.RomId, QString("RID"));
+    EXPECT_EQ(legacy.MapData, QStringList{"untouched"});
 }
 
 } // namespace

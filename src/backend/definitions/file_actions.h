@@ -102,8 +102,8 @@ class FileActions : public fastecu::calibration::IDefinitionCatalogs
     };
 
     static bool validate_calibration_maps(const EcuCalDefStructure& ecuCalDef, QStringList *errors = nullptr);
-    static QStringList collect_ecuflash_base_header_fields(const EcuCalDefStructure& ecuCalDef,
-                                                           const QStringList& defData, int *endIndex = nullptr);
+    static QStringList collect_ecuflash_base_header_fields(const QStringList& header_names, const QStringList& defData,
+                                                           int *endIndex = nullptr);
     static QStringList collect_ecuflash_definition_body_lines(const QStringList& defData, int startIndex);
 
     /*****************************************************

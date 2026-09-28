@@ -24,4 +24,9 @@ struct LegacyCalibrationView
 
 Result<LegacyCalibrationView> project_legacy_calibration(const calibration::CalibrationSession& session);
 
+// One-way copy of the session's ROM metadata into a legacy view (step 6m-3).
+// The session is the only writer; readers that still take the legacy struct
+// see the refreshed values.
+void refresh_legacy_metadata(const calibration::CalibrationSession& session, FileActions::EcuCalDefStructure& legacy);
+
 } // namespace fastecu::ui

@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "src/ui/desktop/calibration/legacy_calibration_view.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
+#include "src/ui/desktop/calibration/rom_info.h"
 #include "src/ui/desktop/calibration/session_key.h"
 #include "ui_mainwindow.h"
 #include <QProgressBar>
@@ -718,10 +719,23 @@ void MainWindow::select_vehicle_finished(int result)
     status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolEntry::description) + " ");
 }
 
-FileActions::EcuCalDefStructure *MainWindow::legacy_calibration(fastecu::calibration::SessionId id)
+MainWindow::OpenCalibration *MainWindow::open_calibration(fastecu::calibration::SessionId id)
 {
     const auto found = std::ranges::find_if(calibrations_, [id](const OpenCalibration& open) { return open.id == id; });
-    return found == calibrations_.end() ? nullptr : found->legacy.get();
+    return found == calibrations_.end() ? nullptr : &*found;
+}
+
+MainWindow::OpenCalibration *MainWindow::selected_open_calibration()
+{
+    const QList<QTreeWidgetItem *> selected = ui->calibrationFilesTreeWidget->selectedItems();
+    const auto id = selected.isEmpty() ? std::nullopt : session_of(selected.at(0));
+    return id.has_value() ? open_calibration(*id) : nullptr;
+}
+
+FileActions::EcuCalDefStructure *MainWindow::legacy_calibration(fastecu::calibration::SessionId id)
+{
+    OpenCalibration *open = open_calibration(id);
+    return open != nullptr ? open->legacy.get() : nullptr;
 }
 
 std::optional<fastecu::calibration::SessionId> MainWindow::session_of(const QTreeWidgetItem *files_item) const
@@ -731,9 +745,8 @@ std::optional<fastecu::calibration::SessionId> MainWindow::session_of(const QTre
 
 FileActions::EcuCalDefStructure *MainWindow::selected_legacy_calibration()
 {
-    const QList<QTreeWidgetItem *> selected = ui->calibrationFilesTreeWidget->selectedItems();
-    const auto id = selected.isEmpty() ? std::nullopt : session_of(selected.at(0));
-    return id.has_value() ? legacy_calibration(*id) : nullptr;
+    OpenCalibration *open = selected_open_calibration();
+    return open != nullptr ? open->legacy.get() : nullptr;
 }
 
 QTreeWidgetItem *MainWindow::files_tree_item(fastecu::calibration::SessionId id) const
@@ -775,16 +788,17 @@ bool MainWindow::add_calibration(fastecu::calibration::SessionId id)
                        "]: " + qs(projected->decode_error->detail),
                    true, true);
     }
-    FileActions::EcuCalDefStructure *legacy = projected->view.get();
     calibrations_.push_back(OpenCalibration{.id = id, .legacy = std::move(projected->view)});
 
-    update_protocol_info(legacy->RomInfo.at(fileActions->FlashMethod));
-    if (!legacy->use_romraider_definition && !legacy->use_ecuflash_definition)
+    update_protocol_info(
+        fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(*session), fastecu::ui::RomInfoRow::FlashMethod));
+    if (session->definition() == nullptr)
     {
-        prompt_for_missing_definition(legacy);
+        prompt_for_missing_definition(id);
     }
-    calibrationTreeWidget->buildCalibrationFilesTree(id, ui->calibrationFilesTreeWidget, legacy);
-    calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, legacy);
+    const OpenCalibration *open = open_calibration(id);
+    calibrationTreeWidget->buildCalibrationFilesTree(id, ui->calibrationFilesTreeWidget, *session);
+    calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, *session, open->view);
     return true;
 }
 
@@ -962,6 +976,31 @@ void MainWindow::remember_opened_port(const QString& port, const QString& opened
     save_settings();
 }
 
+// The write path's ROM-metadata refresh: legacy filled an empty flash method
+// -- "" only when a definition left it empty; a definition-less ROM shows " "
+// -- then refreshed the vehicle selection before taking kernel/MCU from it.
+// These values reach the ECU, so the helper is tested on its own.
+void MainWindow::refresh_write_metadata(fastecu::calibration::CalibrationSession& session,
+                                        FileActions::EcuCalDefStructure& legacy, const QString& kernel_dir)
+{
+    fastecu::calibration::RomProtocolInfo protocol = session.protocol();
+    if (fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::FlashMethod)
+            .isEmpty())
+    {
+        protocol.flash_method = selected_vehicle().protocol_name;
+        session.set_protocol(protocol);
+        update_protocol_info(qs(protocol.flash_method));
+    }
+    protocol.kernel_path = fastecu::flash::kernel_path(
+        kernel_dir.toStdString(),
+        fastecu::config::protocol_field_or_placeholder(selected_vehicle(), &ProtocolEntry::kernel));
+    protocol.kernel_start_address = protocol_field(selected_vehicle(), &ProtocolEntry::kernel_addr).toStdString();
+    protocol.mcu_type = protocol_field(selected_vehicle(), &ProtocolEntry::mcu).toStdString();
+    session.set_protocol(protocol);
+    fastecu::ui::refresh_legacy_metadata(session, legacy);
+    legacy.FlashMethod = qs(selected_vehicle().protocol_name);
+}
+
 int MainWindow::start_ecu_operations(const QString& cmd_type)
 {
     stop_identification();
@@ -1051,17 +1090,15 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                     return 0;
                 }
             }
-            if (legacy->RomInfo.at(fileActions->FlashMethod) == "")
+            OpenCalibration *open = selected_open_calibration();
+            fastecu::calibration::CalibrationSession *session =
+                open != nullptr ? calibrationWorkspace->find(open->id) : nullptr;
+            if (session == nullptr)
             {
-                legacy->RomInfo.replace(fileActions->FlashMethod, qs(selected_vehicle().protocol_name));
-                update_protocol_info(legacy->RomInfo.at(fileActions->FlashMethod));
+                QMessageBox::warning(this, tr("Write ROM"), "No file selected!");
+                return 0;
             }
-            legacy->FlashMethod = qs(selected_vehicle().protocol_name);
-            legacy->Kernel = QString::fromStdString(fastecu::flash::kernel_path(
-                kernel_dir.toStdString(),
-                fastecu::config::protocol_field_or_placeholder(selected_vehicle(), &ProtocolEntry::kernel)));
-            legacy->KernelStartAddr = protocol_field(selected_vehicle(), &ProtocolEntry::kernel_addr);
-            legacy->McuType = protocol_field(selected_vehicle(), &ProtocolEntry::mcu);
+            refresh_write_metadata(*session, *legacy, kernel_dir);
 
             if (protocol_field(selected_vehicle(), &ProtocolEntry::checksum) != "n/a")
             {
@@ -1182,7 +1219,7 @@ bool MainWindow::open_calibration_file(QString filename)
     return add_calibration(opened->id) ? 0 : 1;
 }
 
-void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *ecuCalDef)
+void MainWindow::prompt_for_missing_definition(fastecu::calibration::SessionId id)
 {
     QDialog *definitionDialog = new QDialog(this);
     QVBoxLayout *vBoxLayout = new QVBoxLayout(definitionDialog);
@@ -1208,12 +1245,12 @@ void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *
         if (createNewRadioButton->isChecked())
         {
             emit LOG_D(createNewRadioButton->text(), true, true);
-            definitionAuthoringDialog->create_new_definition(ecuCalDef);
+            definitionAuthoringDialog->create_new_definition();
         }
         else if (useExistingRadioButton->isChecked())
         {
             emit LOG_D(useExistingRadioButton->text(), true, true);
-            definitionAuthoringDialog->use_existing_definition(ecuCalDef);
+            definitionAuthoringDialog->use_existing_definition();
         }
     }
     // The "continue without definition" placeholders belong to this branch
@@ -1222,7 +1259,10 @@ void MainWindow::prompt_for_missing_definition(FileActions::EcuCalDefStructure *
     if (continueWithoutRadioButton->isChecked() || result == QDialog::Rejected)
     {
         emit LOG_D(continueWithoutRadioButton->text(), true, true);
-        fileActions->apply_missing_definition_defaults(ecuCalDef);
+        if (OpenCalibration *open = open_calibration(id); open != nullptr)
+        {
+            open->view.missing_definition_make = qs(selected_vehicle().make);
+        }
     }
 }
 
@@ -1490,13 +1530,16 @@ void MainWindow::calibration_files_treewidget_item_selected(QTreeWidgetItem *ite
 
     QString romId = selectedItem->text(1);
 
-    FileActions::EcuCalDefStructure *legacy = selected_legacy_calibration();
-    if (legacy == nullptr)
+    OpenCalibration *open = selected_open_calibration();
+    const fastecu::calibration::CalibrationSession *session =
+        open != nullptr ? calibrationWorkspace->find(open->id) : nullptr;
+    if (session == nullptr)
     {
         return;
     }
-    calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, legacy);
-    update_protocol_info(legacy->RomInfo.at(fileActions->FlashMethod));
+    calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, *session, open->view);
+    update_protocol_info(
+        fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(*session), fastecu::ui::RomInfoRow::FlashMethod));
     /*
         QComboBox *flash_method_list = ui->toolBar->findChild<QComboBox*>("flash_method_list");
         for (int i = 0; i < flash_method_list->count(); i++)
@@ -1536,17 +1579,18 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
         QTreeWidgetItem *selectedFilesTreeItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
         QTreeWidgetItem *selectedDataTreeItem = item;
         const auto session = session_of(selectedFilesTreeItem);
-        FileActions::EcuCalDefStructure *legacy = session.has_value() ? legacy_calibration(*session) : nullptr;
-        if (legacy == nullptr)
+        OpenCalibration *open = session.has_value() ? open_calibration(*session) : nullptr;
+        if (open == nullptr)
         {
             return;
         }
+        FileActions::EcuCalDefStructure *legacy = open->legacy.get();
         int mapIndex = selectedDataTreeItem->text(1).toInt();
         for (int i = 0; i < legacy->NameList.count(); i++)
         {
             if (legacy->NameList.at(i) == selectedText && i == mapIndex)
             {
-                if (legacy->VisibleList.at(i) == "1")
+                if (open->view.open_maps.contains(static_cast<std::size_t>(i)))
                 {
                     int map_index = 0;
                     QList<QMdiSubWindow *> list = ui->mdiArea->findChildren<QMdiSubWindow *>();
@@ -1559,7 +1603,7 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
                             if (w->objectName() == ui->mdiArea->activeSubWindow()->objectName())
                             {
                                 ui->mdiArea->removeSubWindow(w);
-                                legacy->VisibleList.replace(i, "0");
+                                open->view.open_maps.erase(static_cast<std::size_t>(i));
                                 item->setCheckState(0, Qt::Unchecked);
                             }
                             else
@@ -1572,7 +1616,7 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
                 }
                 else
                 {
-                    legacy->VisibleList.replace(i, "1");
+                    open->view.open_maps.insert(static_cast<std::size_t>(i));
                     item->setCheckState(0, Qt::Checked);
 
                     CalibrationMaps *calibrationMaps =
@@ -1602,28 +1646,35 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
 
 void MainWindow::calibration_data_treewidget_item_expanded(QTreeWidgetItem *item)
 {
-    int itemIndex = ui->calibrationDataTreeWidget->indexOfTopLevelItem(item);
-    QString categoryName = ui->calibrationDataTreeWidget->topLevelItem(itemIndex)->text(0);
-    FileActions::EcuCalDefStructure *legacy = selected_legacy_calibration();
-    if (legacy == nullptr)
-    {
-        return;
-    }
-
-    calibrationTreeWidget->calibrationDataTreeWidgetItemExpanded(legacy, categoryName);
+    set_category_expanded(item, true);
 }
 
 void MainWindow::calibration_data_treewidget_item_collapsed(QTreeWidgetItem *item)
 {
-    int itemIndex = ui->calibrationDataTreeWidget->indexOfTopLevelItem(item);
-    QString categoryName = ui->calibrationDataTreeWidget->topLevelItem(itemIndex)->text(0);
-    FileActions::EcuCalDefStructure *legacy = selected_legacy_calibration();
-    if (legacy == nullptr)
+    set_category_expanded(item, false);
+}
+
+void MainWindow::set_category_expanded(QTreeWidgetItem *item, bool expanded)
+{
+    const int itemIndex = ui->calibrationDataTreeWidget->indexOfTopLevelItem(item);
+    OpenCalibration *open = selected_open_calibration();
+    if (itemIndex < 0 || open == nullptr)
     {
         return;
     }
-
-    calibrationTreeWidget->calibrationDataTreeWidgetItemCollapsed(legacy, categoryName);
+    const QString categoryName = ui->calibrationDataTreeWidget->topLevelItem(itemIndex)->text(0);
+    if (expanded)
+    {
+        open->view.expanded_categories.insert(categoryName);
+    }
+    else
+    {
+        open->view.expanded_categories.erase(categoryName);
+    }
+    if (categoryName == "ROM Info")
+    {
+        open->view.rom_info_expanded = expanded;
+    }
 }
 
 void MainWindow::close_calibration()
@@ -1637,22 +1688,12 @@ void MainWindow::close_calibration()
     const int romNumber = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selected.at(0));
     const QString romKey = fastecu::ui::session_key_text(*id);
 
-    for (int i = 0; i < ui->calibrationDataTreeWidget->topLevelItemCount(); i++)
+    const QString windowPrefix = romKey + ",";
+    for (QMdiSubWindow *w : ui->mdiArea->subWindowList())
     {
-        for (int j = 0; j < ui->calibrationDataTreeWidget->topLevelItem(i)->childCount(); j++)
+        if (w->objectName().startsWith(windowPrefix))
         {
-            for (int k = 0; k < ui->mdiArea->subWindowList().count(); k++)
-            {
-                int mapNumber = ui->calibrationDataTreeWidget->topLevelItem(i)->child(j)->text(1).toInt();
-                QString mapName = ui->calibrationDataTreeWidget->topLevelItem(i)->child(j)->text(0);
-
-                QString calMapWindowName = romKey + "," + QString::number(mapNumber) + "," + mapName;
-                QMdiSubWindow *w = ui->mdiArea->subWindowList().at(k);
-                if (w->objectName().startsWith(calMapWindowName))
-                {
-                    ui->mdiArea->removeSubWindow(w);
-                }
-            }
+            ui->mdiArea->removeSubWindow(w);
         }
     }
     delete ui->calibrationFilesTreeWidget->takeTopLevelItem(romNumber);
@@ -1691,8 +1732,8 @@ void MainWindow::close_calibration_map(QObject *obj)
     const QStringList mapWindowString = obj->objectName().split(",");
     const auto id = mapWindowString.isEmpty() ? std::nullopt : fastecu::ui::parse_session_key(mapWindowString.at(0));
     QTreeWidgetItem *romItem = id.has_value() ? files_tree_item(*id) : nullptr;
-    FileActions::EcuCalDefStructure *legacy = id.has_value() ? legacy_calibration(*id) : nullptr;
-    if (romItem == nullptr || legacy == nullptr || mapWindowString.size() < 3)
+    OpenCalibration *open = id.has_value() ? open_calibration(*id) : nullptr;
+    if (romItem == nullptr || open == nullptr || mapWindowString.size() < 3)
     {
         return; // the ROM was closed before its window
     }
@@ -1716,11 +1757,11 @@ void MainWindow::close_calibration_map(QObject *obj)
             {
                 item->setCheckState(0, Qt::Unchecked);
 
-                for (int i_local = 0; i_local < legacy->NameList.count(); i_local++)
+                for (int i_local = 0; i_local < open->legacy->NameList.count(); i_local++)
                 {
-                    if (legacy->NameList.at(i_local) == mapName)
+                    if (open->legacy->NameList.at(i_local) == mapName)
                     {
-                        legacy->VisibleList.replace(i_local, "0");
+                        open->view.open_maps.erase(static_cast<std::size_t>(i_local));
                     }
                 }
             }

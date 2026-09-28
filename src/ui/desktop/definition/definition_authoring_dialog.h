@@ -42,6 +42,11 @@ void record_definition(fastecu::definitions::DefinitionIndexes& indexes, const H
 // Dialogs are parented to the QWidget passed in, not to FileActions: 6a-3
 // removes QWidget from FileActions entirely, and the legacy
 // `new QDialog(this)` leaked one dialog per invocation.
+// The EcuFlash definition header fields the authoring forms edit, in form
+// order: display labels and the matching <romid>/<rom> element names.
+QStringList definition_header_labels();
+QStringList definition_header_names();
+
 class DefinitionAuthoringDialog : public QObject
 {
     Q_OBJECT
@@ -53,8 +58,8 @@ class DefinitionAuthoringDialog : public QObject
     // Both return true when the ROM may continue to be used -- including
     // when the user cancels out, which legacy signalled by returning
     // ecuCalDef unchanged. false means a genuine failure (legacy nullptr).
-    bool create_new_definition(FileActions::EcuCalDefStructure *ecuCalDef);
-    bool use_existing_definition(FileActions::EcuCalDefStructure *ecuCalDef);
+    bool create_new_definition();
+    bool use_existing_definition();
 
   signals:
     void LOG_E(QString message, bool timestamp, bool linefeed);
