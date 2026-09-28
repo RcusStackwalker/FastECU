@@ -1,6 +1,6 @@
 load("//bazel:qt_targets.bzl", "qt_cc_test", "qt_cpp_moc_headers")
 
-package(default_visibility = ["//visibility:public"])
+package(default_visibility = ["//visibility:private"])
 
 # Retained under tests/: this is a release-mode process probe whose contract
 # is that QT_FORCE_ASSERTS aborts a child process even with QT_NO_DEBUG.
@@ -30,7 +30,7 @@ qt_cc_test(
     # locks/threads are held at that instant, the child deadlocks trying to use them
     # before it ever reaches the deliberate abort() -- hanging the SonarCloud job for the
     # rest of its 6h runner timeout instead of failing. Excluded from the `sonar` config
-    # in .bazelrc; still runs under plain `bazel test` and local coverage runs.
+    # in bazel/coverage.bazelrc; still runs under plain `bazel test` and local coverage runs.
     tags = ["no-sonar-build-wrapper"],
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],

@@ -1,6 +1,7 @@
+package(default_visibility = ["//visibility:private"])
+
 exports_files([
     "gtest_targets.bzl",
-    "openssl_ext.bzl",
     "qt_common.bzl",
     "qt_remote_objects.bzl",
     "qt_targets.bzl",

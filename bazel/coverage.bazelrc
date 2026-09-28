@@ -1,0 +1,55 @@
+# The `coverage` and `sonar` configs. Imported by the root .bazelrc.
+
+# Source-based coverage instrumentation for the local llvm-cov pipeline
+# (scripts/coverage-local.sh). Kept separate from `bazel coverage` so the
+# existing llvm-profdata/llvm-cov report format is preserved for SonarCloud
+# and the coverage ratchet.
+build:coverage --compilation_mode=dbg
+build:coverage --copt=-fprofile-instr-generate
+build:coverage --copt=-fcoverage-mapping
+build:coverage --linkopt=-fprofile-instr-generate
+build:coverage --linkopt=-fcoverage-mapping
+# -fprofile-instr-generate/-fcoverage-mapping are LLVM's source-based coverage
+# flags; GCC doesn't understand them. macOS's default `cc` is already Clang,
+# but Linux's default `cc` is GCC, so force Clang explicitly for this config.
+build:coverage --repo_env=CC=clang
+build:coverage --repo_env=CXX=clang++
+# Static linking, because scripts/coverage-local.sh hands llvm-cov the cc_test
+# executables and skips shared libraries. --compilation_mode=dbg above makes
+# Bazel link cc_library targets as .so on Linux (dynamic_mode=default applies
+# to fastbuild and dbg), which put every library's coverage mapping in an
+# object llvm-cov never saw: SonarCloud's report held only headers and test
+# translation units, so new_coverage read 0.0% on any PR that touched a .cpp.
+# macOS links statically already, which is why local reports looked complete.
+build:coverage --dynamic_mode=off
+# Record a relative compilation directory in the coverage mapping. Without it
+# clang records the compiler's CWD -- Bazel's execroot -- and `llvm-cov show`
+# prints each file's section header as <execroot>/src/foo.cpp, an absolute path
+# that is outside sonar.projectBaseDir and that the header rewrite in
+# scripts/coverage-local.sh then prefixes a second time. (`llvm-cov report`
+# prints the mapping name unjoined, so its table stays relative and hides the
+# difference.) With "." the header is workspace-relative on every host, llvm-cov
+# resolves the source against the script's CWD (the repo root), and the rewrite
+# has one well-defined input to turn absolute.
+build:coverage --copt=-ffile-compilation-dir=.
+
+# Used by scripts/coverage-local.sh's BAZEL_TEST_CONFIG when wrapped with the
+# SonarCloud build wrapper: a disk-cache hit skips the compiler subprocess the
+# wrapper needs to trace, so this disables it.
+build:sonar --config=coverage
+build:sonar --disk_cache=
+# The build wrapper traces compiler subprocesses via an injected interceptor
+# library; Bazel's default darwin-sandbox strategy runs each action inside
+# sandbox-exec, which silently drops most of those traces (SonarSource's own
+# guidance for Bazel: https://community.sonarsource.com/t/issues-with-compile-commands-json-generated-from-bazel/138015).
+# Without this, bw-output/compile_commands.json only captured 65 of the
+# project's several hundred compilation units. This only needs to apply to
+# the wrapped compile invocation (see .github/workflows/sonar.yml), so
+# --spawn_strategy=local/--strategy=Genrule=local are passed on that command
+# line directly rather than baked in here -- the unwrapped `bazel test` run
+# in scripts/coverage-local.sh gets Bazel's normal sandboxed execution.
+# The build-wrapper's process-tracing interceptor deadlocks fork()-based tests
+# (see tests/force_asserts/BUILD.bazel) instead of letting them fail, hanging
+# the job. Skip tag-marked tests only for this config; they still run under
+# plain `bazel test` and local coverage runs.
+build:sonar --test_tag_filters=-no-sonar-build-wrapper
