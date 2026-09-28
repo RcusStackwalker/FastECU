@@ -71,7 +71,7 @@ Result<std::optional<LoggerSelection>> LoggerDefinitionService::load_selection(s
 
 Result<LoggerSelection> LoggerDefinitionService::load_or_initialize_selection(std::string_view conf_handle,
                                                                               std::string_view ecu_id,
-                                                                              const LoggerDefinition& definition)
+                                                                              const LoggerSelection& fallback)
 {
     bytes::Bytes contents;
     auto stored = load_selection(conf_handle, ecu_id, contents);
@@ -84,7 +84,7 @@ Result<LoggerSelection> LoggerDefinitionService::load_or_initialize_selection(st
         return std::move(**stored);
     }
 
-    LoggerSelection selection = default_selection(definition);
+    LoggerSelection selection = fallback;
     auto written = write_selection(contents, ecu_id, selection, conf_handle);
     if (!written)
     {

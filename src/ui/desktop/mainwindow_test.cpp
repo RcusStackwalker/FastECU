@@ -1747,6 +1747,61 @@ class MainWindowTest : public QObject
         QTest::newRow("TCU") << false;
     }
 
+    // Synthetic reproductions retained through the consumer cutover. The
+    // assertions in 6l-1 record the legacy defects; 6l-2 asserts corrected IDs.
+    void chooserDuplicateLabelIdentity()
+    {
+        ModalDriver driver{QString()};
+        driver.start();
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
+        driver.stop();
+        prepareLogging(window, "SSM");
+        auto& values = *window.logValues;
+        values.log_value_id = {"first", "second"};
+        values.log_value_protocol = {"SSM", "SSM"};
+        values.log_value_name = {"Same", "Same"};
+        values.log_value_conversions = {{{"rpm", "x", "0", "0", "100", "1"}}, {{"rpm", "x", "0", "0", "100", "1"}}};
+        values.log_value = {"1", "2"};
+        values.lower_panel_log_value_id = {"second"};
+        QComboBox combo{&window};
+        combo.setObjectName("Digital value 0");
+        combo.addItem("Same", QStringList{"SSM", "first"});
+        combo.addItem("Same", QStringList{"SSM", "second"});
+        combo.setCurrentIndex(1);
+        QObject::connect(&combo, qOverload<int>(&QComboBox::currentIndexChanged), &window,
+                         &MainWindow::change_log_digital_value);
+        combo.setCurrentIndex(0);
+        QCOMPARE(values.lower_panel_log_value_id.at(0), QString("second")); // legacy resolves the last label
+    }
+
+    void csvSharedIdProtocolIdentity()
+    {
+        ModalDriver driver{QString()};
+        driver.start();
+        TestServices services{config_root_.path()};
+        MainWindow window{services.services()};
+        driver.stop();
+        prepareLogging(window, "CDBG");
+        auto& values = *window.logValues;
+        values.log_value_id = {"rpm", "rpm"};
+        values.log_value_protocol = {"SSM", "CDBG"};
+        values.log_value_name = {"Wrong SSM", "Correct CDBG"};
+        values.log_value = {"11.00", "22.00"};
+        values.dashboard_log_value_id.clear();
+        QVERIFY(QDir().mkpath(QString::fromStdString(services.config.effective_paths().datalog_files_directory)));
+        window.write_datalog_to_file = true;
+        window.log_to_file();
+        window.log_to_file();
+        window.datalog_file_outstream.flush();
+        QFile csv{window.datalog_file.fileName()};
+        QVERIFY(csv.open(QIODevice::ReadOnly));
+        const auto content = csv.readAll();
+        QVERIFY(content.startsWith("Time,Wrong SSM,\n"));
+        QVERIFY(content.contains(",11.00,\n")); // legacy chooses the first ID across all protocols
+        window.datalog_file.close();
+    }
+
     void loggingStartWaitsForIdentification()
     {
         QFETCH(bool, target_is_ecu);

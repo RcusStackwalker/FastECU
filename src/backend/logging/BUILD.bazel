@@ -155,3 +155,21 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:result_matchers",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "logger_model_test",
+    srcs = ["logger_model_test.cpp"],
+    deps = [":logger_model"],
+)
+
+cc_library(
+    name = "logger_model",
+    srcs = ["logger_model.cpp"],
+    hdrs = ["logger_model.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":logger_conf",
+        ":logger_definition_model",
+        "//src/algorithms/protocol",
+    ],
+)
