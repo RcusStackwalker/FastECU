@@ -38,7 +38,12 @@ and `rules_go` 0.59.0). Gazelle was run in diff mode over `src/algorithms`.
   `protocol`, ... kept). `map_kind cc_test fastecu_portable_gtest` matched the
   existing per-file test targets. The diff over 11 BUILD files consisted of
   dependency changes only, apart from `qt_compat` (excluded from the pilot):
-  - `@googletest//:gtest` added to 23 test targets;
+  - `@googletest//:gtest` added to 23 test targets. This is redundant with the
+    `@googletest//:gtest_main` the macro already supplies (`gtest_main` depends
+    on `gtest`), but the labels differ so it is not a duplicate. **Accepted
+    as-is:** each test names what it includes, and suppressing it with
+    `gazelle:resolve` would also give libraries such as `byte_matchers`
+    `gtest_main`, which links a `main()` into a library;
   - `//src/algorithms/protocol/testing:byte_matchers` added to 7 test targets;
   - some `deps` moved to `implementation_deps` (headers used only in `.cpp`);
   - `//pkg` labels normalised to `:pkg` for same-package references;
@@ -123,7 +128,8 @@ PR opened -> CI `gazelle` job runs the same hook -> pass/fail
 The pilot is done when all of the following hold, verified in this order:
 
 1. **Baseline is explained.** The first gazelle run over `src/algorithms`
-   produces only the change classes listed in the spike findings. Any other
+   produces only the change classes listed in the spike findings, including the
+   accepted redundant `@googletest//:gtest` on tests. Any other
    class is either fixed with a directive or explained in the baseline commit.
 2. **Baseline is safe.** After the baseline commit,
    `bazel build --config=release //...` and
