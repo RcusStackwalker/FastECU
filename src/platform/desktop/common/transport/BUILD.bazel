@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//bazel/layers:apps_bench",
@@ -16,8 +16,6 @@ qt_cc_library(
         "fastecu_kline_transport.cpp",
         "fastecu_ssm_transport.cpp",
     ],
-    hdrs = [],
-    copts = COMMON_COPTS,
     implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
     normal_hdrs = [
         "fastecu_can_transport.h",
@@ -98,8 +96,6 @@ qt_cc_library(
         "desktop_mixed_can_flash_transport.cpp",
         "desktop_transport_factory.cpp",
     ],
-    hdrs = [],
-    copts = COMMON_COPTS,
     implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
     # Neither adapter derives from QObject (no Q_OBJECT, no signals/slots),
     # so their headers go through normal_hdrs rather than hdrs (which would
@@ -122,8 +118,6 @@ qt_cc_library(
 qt_cc_library(
     name = "logging_protocol_registration",
     srcs = ["desktop_logging_protocol_registration.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
     implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
     normal_hdrs = ["desktop_logging_protocol_registration.h"],
     visibility = [

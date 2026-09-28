@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = [
     "//bazel/layers:platform_and_composition_root",
@@ -10,8 +10,6 @@ package(default_visibility = [
 qt_cc_library(
     name = "serial_diagnostic_link",
     srcs = ["serial_diagnostic_link.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
     implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
     normal_hdrs = ["serial_diagnostic_link.h"],
     deps = QT_DEPS + [
@@ -39,7 +37,6 @@ qt_cc_library(
     name = "dtc_worker",
     srcs = ["dtc_worker.cpp"],
     hdrs = ["dtc_worker.h"],
-    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/backend/diagnostics:dtc_session",
         "//src/backend/ports",
@@ -64,7 +61,6 @@ qt_cc_library(
     name = "ssm_identify_worker",
     srcs = ["ssm_identify_worker.cpp"],
     hdrs = ["ssm_identify_worker.h"],
-    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/qt_compat",

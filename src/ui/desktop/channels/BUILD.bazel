@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 # Signal-only endpoints through which the UI reaches desktop services it does
 # not name. apps/desktop's composition root connects them to the platform
@@ -12,7 +12,6 @@ qt_cc_library(
     name = "log_channel",
     srcs = [],
     hdrs = ["log_channel.h"],
-    copts = COMMON_COPTS,
     deps = QT_DEPS,
 )
 
@@ -20,6 +19,5 @@ qt_cc_library(
     name = "remote_peer",
     srcs = [],
     hdrs = ["remote_peer.h"],
-    copts = COMMON_COPTS,
     deps = QT_DEPS,
 )

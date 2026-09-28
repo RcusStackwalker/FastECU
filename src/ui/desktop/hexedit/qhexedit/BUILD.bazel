@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:ui_and_composition_root"])
 
@@ -14,6 +14,5 @@ qt_cc_library(
         "commands.h",
         "qhexedit.h",
     ],
-    copts = COMMON_COPTS,
     deps = QT_DEPS,
 )

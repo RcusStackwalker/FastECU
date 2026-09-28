@@ -31,7 +31,6 @@ qt_cc_library(
         "serial_port_actions.cpp",
     ],
     hdrs = ["serial_port_actions.h"],
-    copts = COMMON_COPTS,
     normal_hdrs = [
         "serial_backend.h",
         "serial_backend_host.h",
@@ -55,8 +54,6 @@ qt_cc_library(
         "@platforms//os:windows": ["j2534_driver_selection_windows.cpp"],
         "//conditions:default": ["j2534_driver_selection_unix.cpp"],
     }),
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = ["j2534_driver_selection.h"],
     visibility = [
         "//src/platform/desktop/common/serial:__pkg__",
@@ -93,8 +90,6 @@ fastecu_qttest(
 qt_cc_library(
     name = "direct_serial_backend_api",
     srcs = [],
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = ["direct_serial_backend.h"],
     visibility = ["//src/platform/desktop/common/serial:__pkg__"],
     deps = QT_DEPS,
@@ -119,7 +114,6 @@ qt_cc_library(
     name = "serial_port_actions_direct_moc",
     srcs = [],
     hdrs = ["serial_port_actions_direct.h"],
-    copts = COMMON_COPTS,
     visibility = ["//visibility:private"],
     deps = QT_DEPS + [
         ":serial_port_actions",
@@ -138,8 +132,6 @@ qt_cc_library(
         "serial_port_actions_direct.cpp",
         "serial_port_actions_direct_unix.cpp",
     ],
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = [
         "direct_serial_backend.h",
         "serial_port_actions_direct.h",
@@ -173,8 +165,6 @@ qt_cc_library(
         "serial_port_actions_direct.cpp",
         "serial_port_actions_direct_windows.cpp",
     ],
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = [
         "direct_serial_backend.h",
         "serial_port_actions_direct.h",
@@ -243,7 +233,6 @@ qt_cc_library(
     name = "websocket_io",
     srcs = ["websocketiodevice.cpp"],
     hdrs = ["websocketiodevice.h"],
-    copts = COMMON_COPTS,
     normal_hdrs = ["qtrohelper.hpp"],
     visibility = [
         "//src/platform/desktop/common/remote_utility:__pkg__",
@@ -257,7 +246,6 @@ qt_cc_library(
     name = "remote_serial_backend",
     srcs = ["remote_serial_backend.cpp"],
     hdrs = ["remote_serial_backend.h"],
-    copts = COMMON_COPTS,
     visibility = ["//src/platform/desktop/common/serial:__pkg__"],
     deps = QT_DEPS + [
         ":serial_port_actions",
@@ -271,8 +259,6 @@ qt_cc_library(
 qt_cc_library(
     name = "desktop_serial_factory",
     srcs = ["desktop_serial_factory.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
     implementation_deps = [":serial_port_actions"],
     normal_hdrs = ["desktop_serial_factory.h"],
     visibility = [
@@ -302,8 +288,6 @@ fastecu_qttest(
 qt_cc_library(
     name = "serial_idle",
     srcs = ["serial_idle.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
     implementation_deps = [":serial_port_actions"],
     normal_hdrs = ["serial_idle.h"],
     visibility = ["//bazel/layers:ui_desktop"],

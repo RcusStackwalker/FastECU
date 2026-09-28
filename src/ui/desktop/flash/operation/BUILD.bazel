@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:ui_desktop"])
 
@@ -10,7 +10,6 @@ qt_cc_library(
     name = "flash_operation_controller",
     srcs = ["flash_operation_controller.cpp"],
     hdrs = ["flash_operation_controller.h"],
-    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
         "//src/backend/config:config_paths",

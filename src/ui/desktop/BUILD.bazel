@@ -1,6 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library", "qt_ui_basename_libraries")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library", "qt_ui_basename_libraries")
 
 package(default_visibility = ["//bazel/layers:ui_and_composition_root"])
 
@@ -32,8 +32,6 @@ cc_library(
 qt_cc_library(
     name = "config_fields",
     srcs = ["config_fields.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = ["config_fields.h"],
     deps = QT_DEPS + [
         "//src/backend/config:car_model_catalog",
@@ -58,8 +56,6 @@ fastecu_gtest(
 qt_cc_library(
     name = "diagnostic_link_io",
     srcs = [],
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = ["diagnostic_link_io.h"],
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
@@ -73,7 +69,6 @@ qt_cc_library(
     name = "dtc_operations",
     srcs = ["dtc_operations.cpp"],
     hdrs = ["dtc_operations.h"],
-    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         ":ui_dtc_operations",
         "//src/backend/diagnostics:dtc_session",
@@ -126,7 +121,6 @@ qt_cc_library(
         "vehicle_select.h",
         "verticallabel.h",
     ],
-    copts = COMMON_COPTS,
     linkopts = select({
         "@platforms//os:windows": [
             "opengl32.lib",

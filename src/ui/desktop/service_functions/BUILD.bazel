@@ -1,4 +1,4 @@
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:ui_and_composition_root"])
 
@@ -6,7 +6,6 @@ qt_cc_library(
     name = "service_function_dialog",
     srcs = ["service_function_dialog.cpp"],
     hdrs = ["service_function_dialog.h"],
-    copts = COMMON_COPTS,
     deps = QT_DEPS + [
         "//src/backend/service_functions:read_parameters_session",
         "//src/backend/service_functions:relearn_session",
@@ -23,7 +22,6 @@ qt_cc_library(
     name = "denso_tcu_read_preflight",
     srcs = ["denso_tcu_read_preflight.cpp"],
     hdrs = ["denso_tcu_read_preflight.h"],
-    copts = COMMON_COPTS,
     deps = QT_DEPS + [":service_function_dialog"],
 )
 

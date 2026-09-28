@@ -1,5 +1,5 @@
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:ui"])
 
@@ -8,8 +8,6 @@ package(default_visibility = ["//bazel/layers:ui"])
 qt_cc_library(
     name = "checksum_correction_command",
     srcs = ["checksum_correction_command.cpp"],
-    hdrs = [],
-    copts = COMMON_COPTS,
     normal_hdrs = ["checksum_correction_command.h"],
     deps = QT_DEPS + [
         # checksum_result.h is included directly by
