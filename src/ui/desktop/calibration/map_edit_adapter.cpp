@@ -221,7 +221,12 @@ std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window)
     {
         return std::nullopt;
     }
-    return MapWindowId{.rom_number = parts.at(0).toInt(), .map_number = parts.at(1).toInt()};
+    const std::optional<calibration::SessionId> session = parse_session_key(parts.at(0));
+    if (!session.has_value())
+    {
+        return std::nullopt;
+    }
+    return MapWindowId{.session = *session, .map_number = parts.at(1).toInt()};
 }
 
 ResolvedEdit::ResolvedEdit(MapElementFields fields, calibration::EditTarget target,
