@@ -4,7 +4,7 @@ load("@rules_python//python:defs.bzl", "py_binary")
 
 _MODES = ["report", "fix"]
 
-def clang_tidy_runner(name, mode, changed = False):
+def _clang_tidy_runner_impl(name, visibility, mode, changed):
     """A runnable clang-tidy pass over the whole tree or only changed files.
 
     Hedron's refresh is aquery-based and never executes compile actions, so
@@ -23,13 +23,13 @@ def clang_tidy_runner(name, mode, changed = False):
 
     Args:
       name: Name of the target.
+      visibility: Caller visibility forwarded to the runner target.
       mode: "report" to only list findings, "fix" to apply available fixes.
       changed: Restrict the run to files changed against the merge base.
     """
-    if mode not in _MODES:
-        fail("mode must be one of %s, got %r" % (_MODES, mode))
     py_binary(
         name = name,
+        visibility = visibility,
         srcs = ["//:scripts/clang_tidy_runner.py"],
         args = [mode] + (["--changed"] if changed else []) + [
             "--compdb-tool",
@@ -45,3 +45,12 @@ def clang_tidy_runner(name, mode, changed = False):
         main = "//:scripts/clang_tidy_runner.py",
         deps = ["@python_deps//pyyaml"],
     )
+
+clang_tidy_runner = macro(
+    implementation = _clang_tidy_runner_impl,
+    attrs = {
+        "mode": attr.string(mandatory = True, values = _MODES, configurable = False),
+        "changed": attr.bool(default = False, configurable = False),
+    },
+    doc = "A clang-tidy runner for report or fix mode, optionally restricted to changed files.",
+)
