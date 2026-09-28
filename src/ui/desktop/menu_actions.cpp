@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "src/algorithms/menu/menu_command.h"
 #include "src/algorithms/protocol/qt_compat/qt_bytes.h"
+#include "src/ui/desktop/config_fields.h"
 #include "src/backend/calibration/map_edit.h"
 #include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
@@ -431,8 +432,8 @@ void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
     refresh_serial_port_list->setDisabled(true);
 
     const std::optional<fastecu::diagnostics::SsmVariant> variant =
-        configValues->flash_protocol_selected_make == "Subaru"
-            ? ssm_variant_for_transport(configValues->flash_protocol_selected_log_transport)
+        selected_vehicle().make == "Subaru"
+            ? ssm_variant_for_transport(fastecu::ui::qs(configSession->settings().selected_log_transport))
             : std::nullopt;
     if (!variant.has_value())
     {
@@ -591,9 +592,9 @@ void MainWindow::ecu_definition_manager()
     QListWidget *definition_files = new QListWidget;
     definition_files->setObjectName("ecu_definition_files_list");
     definition_files->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    for (int i = 0; i < configValues->romraider_definition_files.length(); i++)
+    for (const std::string& file : configSession->settings().romraider_definition_files)
     {
-        new QListWidgetItem(configValues->romraider_definition_files.at(i), definition_files);
+        new QListWidgetItem(fastecu::ui::qs(file), definition_files);
     }
     definitions_manager_layout->addWidget(definition_files);
 
@@ -718,7 +719,7 @@ void MainWindow::continue_start_logging()
     fastecu::desktop::logging::LogSessionConfig config;
     fastecu::logging::LoggingProtocolId protocol_id;
     fastecu::logging::LoggingPolicy logging_policy{};
-    if (configValues->flash_protocol_selected_log_protocol == "MUT_DMA")
+    if (configSession->settings().selected_log_protocol == "MUT_DMA")
     {
         config.protocolId = "MUT_DMA";
         activeLogValueProtocolFilter = "MUT_DMA";
@@ -728,7 +729,7 @@ void MainWindow::continue_start_logging()
                           .reconnect_attempt_threshold = 100,
                           .reconnect_retry_period = 20};
     }
-    else if (configValues->flash_protocol_selected_log_protocol == "CDBG")
+    else if (configSession->settings().selected_log_protocol == "CDBG")
     {
         config.protocolId = "CDBG";
         activeLogValueProtocolFilter = "CDBG";
@@ -857,9 +858,8 @@ void MainWindow::show_hex_editor()
 
 void MainWindow::show_preferences_window()
 {
-    Settings settings(*fileActions, configValues);
+    Settings settings(*configSession);
     settings.exec();
-    // fileActions->save_config_file();
 }
 
 void MainWindow::show_subaru_biu_window()

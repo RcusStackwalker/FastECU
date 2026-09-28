@@ -34,7 +34,7 @@ FlashFamily family_for_protocol(std::string_view protocol_name)
 
 // CONFIRMED: the Denso security-variant suffix lives directly on the
 // protocol name. mainwindow.cpp copies
-// configValues->flash_protocol_selected_protocol_name -- which already
+// the selected vehicle's protocol_name -- which already
 // carries "_ecutek"/"_cobb"/"_ecutek_racerom"/"_ecutek_racerom_alt" straight
 // from the protocol's XML `name` attribute in
 // resources/shared/config/protocols.cfg (e.g. line 385

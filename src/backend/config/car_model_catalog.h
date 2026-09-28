@@ -76,9 +76,9 @@ std::vector<ResolvedCarModel> resolve_car_models(const ProtocolCatalog& protocol
 // one protocol (in the shipped protocols.cfg, 65 <car_model> elements
 // reference only 49 distinct protocols -- sub_ecu_denso_mc68hc16y5_02 alone
 // is referenced by 6). They cannot be rejected at intake, and which row wins
-// is observable: open_subaru_rom_file binds
-// flash_protocol_selected_{make,model,version} from it. Switching to
-// first-match would change the vehicle shown for every shared protocol.
+// is observable: open_subaru_rom_file binds the selected vehicle's
+// make/model/version from it. Switching to first-match would change the
+// vehicle shown for every shared protocol.
 std::optional<std::size_t> find_car_model_by_protocol_name(std::span<const ResolvedCarModel> resolved_car_models,
                                                            std::string_view flash_method);
 

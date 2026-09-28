@@ -162,7 +162,7 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesRomRaiderCatalogWithAlignedTypedRows
         bytes("<roms><rom><romid><xmlid>FIRST</xmlid><internalidaddress>1A0</internalidaddress>"
               "<ecuid>ECU-1</ecuid></romid></rom></roms>");
     const std::vector<std::string> handles{"second.xml", "first.xml"};
-    definitions::ConfigValuesStructure value;
+    definitions::DefinitionIndexes value;
     value.romraider_def_cal_id = {"sentinel-id"};
     value.romraider_def_cal_id_addr = {"sentinel-address"};
     value.romraider_def_ecu_id = {"sentinel-ecu"};
@@ -189,7 +189,7 @@ TEST_F(LegacyDefinitionAdapterTest, ReplacesEcuFlashCatalogWithAlignedTypedRows)
     repository.files["outside.xml"] =
         bytes("<rom><romid><xmlid>OUTSIDE</xmlid><internalidaddress>20</internalidaddress>"
               "<ecuid>ECU-OUTSIDE</ecuid></romid></rom>");
-    definitions::ConfigValuesStructure value;
+    definitions::DefinitionIndexes value;
     value.ecuflash_def_cal_id = {"sentinel-id"};
     value.ecuflash_def_cal_id_addr = {"sentinel-address"};
     value.ecuflash_def_ecu_id = {"sentinel-ecu"};
@@ -215,9 +215,7 @@ TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogSkipsUnreadableHandleAndRepla
 {
     file_system.directory_entries["defs"] = {};
     repository.read_errors["outside.xml"] = Error{ErrorKind::Disconnected, "submitted definition unavailable"};
-    definitions::ConfigValuesStructure value;
-    value.software_name = "unchanged software";
-    value.primary_definition_base = "unchanged base";
+    definitions::DefinitionIndexes value;
     value.romraider_def_cal_id = {"romraider-id"};
     value.romraider_def_filename = {"romraider.xml"};
     value.ecuflash_def_cal_id = {"outside-id"};
@@ -230,8 +228,6 @@ TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogSkipsUnreadableHandleAndRepla
     // DefinitionService::build_catalog), so this replace succeeds with an empty EcuFlash
     // catalog; the unrelated RomRaider lists are untouched.
     ASSERT_THAT(adapter.replace_ecuflash_catalog(value, "defs", explicit_handles), fastecu::testing::IsOk());
-    EXPECT_EQ(value.software_name, "unchanged software");
-    EXPECT_EQ(value.primary_definition_base, "unchanged base");
     EXPECT_EQ(value.romraider_def_cal_id, QStringList{"romraider-id"});
     EXPECT_EQ(value.romraider_def_filename, QStringList{"romraider.xml"});
     EXPECT_TRUE(value.ecuflash_def_cal_id.isEmpty());
@@ -243,9 +239,7 @@ TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogSkipsUnreadableHandleAndRepla
 TEST_F(LegacyDefinitionAdapterTest, RomRaiderCatalogSkipsUnreadableHandleAndReplacesWithEmptyCatalog)
 {
     repository.read_errors["bad.xml"] = Error{ErrorKind::Disconnected, "read failed"};
-    definitions::ConfigValuesStructure value;
-    value.software_name = "unchanged software";
-    value.primary_definition_base = "unchanged base";
+    definitions::DefinitionIndexes value;
     value.romraider_def_cal_id = {"sentinel-id"};
     value.romraider_def_cal_id_addr = {"sentinel-address"};
     value.romraider_def_ecu_id = {"sentinel-ecu"};
@@ -257,8 +251,6 @@ TEST_F(LegacyDefinitionAdapterTest, RomRaiderCatalogSkipsUnreadableHandleAndRepl
 
     ASSERT_THAT(adapter.replace_romraider_catalog(value, std::vector<std::string>{"bad.xml"}),
                 fastecu::testing::IsOk());
-    EXPECT_EQ(value.software_name, "unchanged software");
-    EXPECT_EQ(value.primary_definition_base, "unchanged base");
     EXPECT_TRUE(value.romraider_def_cal_id.isEmpty());
     EXPECT_TRUE(value.romraider_def_cal_id_addr.isEmpty());
     EXPECT_TRUE(value.romraider_def_ecu_id.isEmpty());
@@ -272,8 +264,7 @@ TEST_F(LegacyDefinitionAdapterTest, RomRaiderCatalogSkipsUnreadableHandleAndRepl
 TEST_F(LegacyDefinitionAdapterTest, EcuFlashCatalogDiscoveryFailurePreservesCompleteOriginalValue)
 {
     file_system.list_directory_errors["defs"] = Error{ErrorKind::Disconnected, "catalog directory unavailable"};
-    definitions::ConfigValuesStructure value;
-    value.software_name = "unchanged software";
+    definitions::DefinitionIndexes value;
     value.ecuflash_def_cal_id = {"outside-id"};
     const auto original = value;
 

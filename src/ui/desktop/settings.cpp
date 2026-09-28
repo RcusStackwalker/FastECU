@@ -4,13 +4,16 @@
 #include <memory>
 
 #include <QFileDialog>
+#include <QMessageBox>
 
-Settings::Settings(FileActions& fileActions, FileActions::ConfigValuesStructure *configValues, QWidget *parent)
-    : QDialog(parent), fileActions(fileActions), ui{std::make_unique<Ui::Settings>()}
+#include "src/ui/desktop/config_fields.h"
+
+using fastecu::ui::qs;
+
+Settings::Settings(fastecu::config::ConfigSession& config, QWidget *parent)
+    : QDialog(parent), config(config), ui{std::make_unique<Ui::Settings>()}
 {
     ui->setupUi(this);
-
-    this->configValues = configValues;
 
     ui->list_widget->setViewMode(QListView::IconMode);
     // ui->list_widget->setIconSize(QSize(96, 84));
@@ -19,8 +22,8 @@ Settings::Settings(FileActions& fileActions, FileActions::ConfigValuesStructure 
     // ui->list_widget->setFixedWidth(160);
     ui->list_widget->setSpacing(10);
 
-    ui->dir_page->setLayout(create_files_config_page(configValues));
-    ui->ui_page->setLayout(create_ui_config_page(configValues));
+    ui->dir_page->setLayout(create_files_config_page());
+    ui->ui_page->setLayout(create_ui_config_page());
 
     ui->save_button->hide();
     // connect(ui->save_button, SIGNAL (clicked()), this, SLOT (save_config_file()));
@@ -37,36 +40,50 @@ Settings::Settings(FileActions& fileActions, FileActions::ConfigValuesStructure 
 Settings::~Settings()
 {
     qDebug() << "Save config file before exit, bye bye!";
-    save_config_file();
+    if (close_save_attempted)
+    {
+        // Retry persistence without repeating the notification shown on close.
+        (void)config.save();
+    }
+    else
+    {
+        save_config_file();
+    }
 }
 
 void Settings::closeEvent(QCloseEvent *bar)
 {
     qDebug() << "Save config file before exit, bye bye!";
     save_config_file();
+    close_save_attempted = true;
 }
 
 int Settings::save_config_file()
 {
-    qDebug() << "Save config file";
-    fileActions.save_config_file(configValues);
-    qDebug() << "Config file saved";
-
+    if (const fastecu::Status saved = config.save(); !saved.has_value())
+    {
+        // The edits stay in the session; the operator learns why they did
+        // not reach the file.
+        QMessageBox::warning(this, tr("Settings"),
+                             tr("Unable to save settings.\n\n%1").arg(QString::fromStdString(saved.error().detail)));
+        return 1;
+    }
     return 0;
 }
 
-QVBoxLayout *Settings::create_files_config_page(FileActions::ConfigValuesStructure *configValues)
+QVBoxLayout *Settings::create_files_config_page()
 {
     QGroupBox *romraider_definitions_group = new QGroupBox(tr("RomRaider Definition Files"));
     /*
-    qDebug() << "Calibration path:" << configValues->calibration_files_directory;
-    qDebug() << "Romraider definition files:" << configValues->romraider_definition_files;
-    qDebug() << "EcuFlash definition path:" << configValues->ecuflash_definition_files_directory;
-    qDebug() << "Log files path:" << configValues->log_files_directory;
+    qDebug() << "Calibration path:" << qs(config.settings().calibration_files_directory);
+    qDebug() << "Romraider definition files:" <<
+    fastecu::ui::qstring_list(config.settings().romraider_definition_files); qDebug() << "EcuFlash definition path:" <<
+    qs(config.settings().ecuflash_definition_files_directory); qDebug() << "Log files path:" <<
+    qs(config.settings().datalog_files_directory);
 */
 
     QCheckBox *romraider_defs_enabled = new QCheckBox("Enabled");
-    if (configValues->use_romraider_definitions == "enabled")
+    if (config.settings().use_romraider_definitions == "enabled")
     {
         romraider_defs_enabled->setChecked(true);
     }
@@ -74,13 +91,13 @@ QVBoxLayout *Settings::create_files_config_page(FileActions::ConfigValuesStructu
 
     romraider_definition_files_list = new QListWidget;
 
-    for (int i = 0; i < configValues->romraider_definition_files.length(); i++)
+    for (const std::string& file : config.settings().romraider_definition_files)
     {
-        new QListWidgetItem(configValues->romraider_definition_files.at(i), romraider_definition_files_list);
+        new QListWidgetItem(qs(file), romraider_definition_files_list);
     }
 
     QCheckBox *romraider_as_primary_def_base = new QCheckBox("Use as primary");
-    if (configValues->primary_definition_base == "romraider")
+    if (config.settings().primary_definition_base == "romraider")
     {
         romraider_as_primary_def_base->setChecked(true);
     }
@@ -110,7 +127,7 @@ QVBoxLayout *Settings::create_files_config_page(FileActions::ConfigValuesStructu
     romraider_def_files_layout->addLayout(romraider_def_files_buttons_layout);
 
     QCheckBox *ecuflash_defs_enabled = new QCheckBox("Enabled");
-    if (configValues->use_ecuflash_definitions == "enabled")
+    if (config.settings().use_ecuflash_definitions == "enabled")
     {
         ecuflash_defs_enabled->setChecked(true);
     }
@@ -118,7 +135,7 @@ QVBoxLayout *Settings::create_files_config_page(FileActions::ConfigValuesStructu
 
     QGroupBox *ecuflash_def_dir_group = new QGroupBox(tr("EcuFlash Definition Files Directory"));
     ecuflash_def_dir_lineedit = new QLineEdit;
-    ecuflash_def_dir_lineedit->setText(configValues->ecuflash_definition_files_directory);
+    ecuflash_def_dir_lineedit->setText(qs(config.settings().ecuflash_definition_files_directory));
 
     QPushButton *ecuflash_def_dir_browse_button = new QPushButton;
     ecuflash_def_dir_browse_button->setIcon(QIcon(":/icons/document-open.png"));
@@ -130,7 +147,7 @@ QVBoxLayout *Settings::create_files_config_page(FileActions::ConfigValuesStructu
 
     QGroupBox *romraider_logger_file_group = new QGroupBox(tr("RomRaider Logger File"));
     romraider_logger_file_lineedit = new QLineEdit;
-    romraider_logger_file_lineedit->setText(configValues->romraider_logger_definition_file);
+    romraider_logger_file_lineedit->setText(qs(config.settings().romraider_logger_definition_file));
 
     QPushButton *romraider_logger_file_browse_button = new QPushButton;
     romraider_logger_file_browse_button->setIcon(QIcon(":/icons/document-open.png"));
@@ -142,7 +159,7 @@ QVBoxLayout *Settings::create_files_config_page(FileActions::ConfigValuesStructu
 
     QGroupBox *ecu_cal_dir_group = new QGroupBox(tr("Calibrations Directory"));
     ecu_cal_dir_lineedit = new QLineEdit;
-    ecu_cal_dir_lineedit->setText(configValues->calibration_files_directory);
+    ecu_cal_dir_lineedit->setText(qs(config.settings().calibration_files_directory));
 
     QPushButton *ecu_cal_dir_browse_button = new QPushButton;
     ecu_cal_dir_browse_button->setIcon(QIcon(":/icons/document-open.png"));
@@ -155,7 +172,7 @@ QVBoxLayout *Settings::create_files_config_page(FileActions::ConfigValuesStructu
     QGroupBox *log_files_group = new QGroupBox(tr("Logfiles Directory"));
 
     log_files_dir_lineedit = new QLineEdit;
-    log_files_dir_lineedit->setText(configValues->datalog_files_directory);
+    log_files_dir_lineedit->setText(qs(config.settings().datalog_files_directory));
 
     QPushButton *log_files_dir_browse_button = new QPushButton;
     log_files_dir_browse_button->setIcon(QIcon(":/icons/document-open.png"));
@@ -197,12 +214,12 @@ QVBoxLayout *Settings::create_files_config_page(FileActions::ConfigValuesStructu
     return directory_layout;
 }
 
-QVBoxLayout *Settings::create_ui_config_page(FileActions::ConfigValuesStructure *configValues)
+QVBoxLayout *Settings::create_ui_config_page()
 {
     QGroupBox *toolbar_group = new QGroupBox(tr("Toolbar settings"));
     QLabel *toolbar_iconsize_label = new QLabel("Toolbar icon size:");
     toolbar_iconsize_spinbox = new QSpinBox();
-    toolbar_iconsize_spinbox->setValue(configValues->toolbar_iconsize.toInt());
+    toolbar_iconsize_spinbox->setValue(qs(config.settings().toolbar_iconsize).toInt());
     connect(toolbar_iconsize_spinbox, SIGNAL(valueChanged(int)), this, SLOT(toolbar_iconsize_value_changed(int)));
 
     QHBoxLayout *toolbar_layout = new QHBoxLayout;
@@ -251,11 +268,11 @@ void Settings::romraider_defs_enabled_checkbox(int state)
 {
     if (state)
     {
-        configValues->use_romraider_definitions = "enabled";
+        config.settings().use_romraider_definitions = "enabled";
     }
     else
     {
-        configValues->use_romraider_definitions = "disabled";
+        config.settings().use_romraider_definitions = "disabled";
     }
 }
 
@@ -263,11 +280,11 @@ void Settings::ecuflash_defs_enabled_checkbox(int state)
 {
     if (state)
     {
-        configValues->use_ecuflash_definitions = "enabled";
+        config.settings().use_ecuflash_definitions = "enabled";
     }
     else
     {
-        configValues->use_ecuflash_definitions = "disabled";
+        config.settings().use_ecuflash_definitions = "disabled";
     }
 }
 
@@ -275,24 +292,24 @@ void Settings::romraider_as_primary_def_base_checkbox(int state)
 {
     if (state)
     {
-        configValues->primary_definition_base = "romraider";
+        config.settings().primary_definition_base = "romraider";
     }
     else
     {
-        configValues->primary_definition_base = "ecuflash";
+        config.settings().primary_definition_base = "ecuflash";
     }
 }
 
 void Settings::toolbar_iconsize_value_changed(int value)
 {
-    configValues->toolbar_iconsize = QString::number(value);
+    config.settings().toolbar_iconsize = QString::number(value).toStdString();
 }
 
 void Settings::set_ecuflash_def_dir()
 {
 
     QString ecuflash_definition_dir = QFileDialog::getExistingDirectory(
-        this, tr("Select EcuFlash definition directory"), configValues->ecuflash_definition_files_directory,
+        this, tr("Select EcuFlash definition directory"), qs(config.settings().ecuflash_definition_files_directory),
         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
     qDebug() << "Selected path:" << ecuflash_definition_dir;
@@ -300,9 +317,9 @@ void Settings::set_ecuflash_def_dir()
     //     ecuflash_definition_dir.append("/");
     if (!ecuflash_definition_dir.isEmpty())
     {
-        configValues->ecuflash_definition_files_directory = ecuflash_definition_dir;
+        config.settings().ecuflash_definition_files_directory = ecuflash_definition_dir.toStdString();
         ecuflash_def_dir_lineedit->clear();
-        ecuflash_def_dir_lineedit->setText(configValues->ecuflash_definition_files_directory);
+        ecuflash_def_dir_lineedit->setText(qs(config.settings().ecuflash_definition_files_directory));
     }
     // else
     //     QMessageBox::information(this, tr("EcuFlash definition directory"), "No directory selected");
@@ -313,9 +330,9 @@ void Settings::set_romraider_logger_file()
     QString file_dir;
 
     QDir dir;
-    if (configValues->romraider_logger_definition_file.length() > 0)
+    if (!config.settings().romraider_logger_definition_file.empty())
     {
-        QFileInfo def_file_name(configValues->romraider_logger_definition_file);
+        QFileInfo def_file_name(qs(config.settings().romraider_logger_definition_file));
         QString def_file_dir = def_file_name.absoluteFilePath();
         file_dir.append(def_file_dir);
     }
@@ -328,9 +345,9 @@ void Settings::set_romraider_logger_file()
     qDebug() << "Filename:" << filename;
     if (!filename.isEmpty())
     {
-        configValues->romraider_logger_definition_file = filename;
+        config.settings().romraider_logger_definition_file = filename.toStdString();
         romraider_logger_file_lineedit->clear();
-        romraider_logger_file_lineedit->setText(configValues->romraider_logger_definition_file);
+        romraider_logger_file_lineedit->setText(qs(config.settings().romraider_logger_definition_file));
     }
     // else
     //     QMessageBox::information(this, tr("RomRaider logger file"), "No logger file selected");
@@ -340,7 +357,7 @@ void Settings::set_ecu_cal_dir()
 {
 
     QString calibration_dir = QFileDialog::getExistingDirectory(
-        this, tr("Select calibrations directory"), configValues->calibration_files_directory,
+        this, tr("Select calibrations directory"), qs(config.settings().calibration_files_directory),
         QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
     qDebug() << "Selected path:" << calibration_dir;
@@ -348,9 +365,9 @@ void Settings::set_ecu_cal_dir()
     //     calibration_dir.append("/");
     if (!calibration_dir.isEmpty())
     {
-        configValues->calibration_files_directory = calibration_dir;
+        config.settings().calibration_files_directory = calibration_dir.toStdString();
         ecu_cal_dir_lineedit->clear();
-        ecu_cal_dir_lineedit->setText(configValues->calibration_files_directory);
+        ecu_cal_dir_lineedit->setText(qs(config.settings().calibration_files_directory));
     }
     // else
     //     QMessageBox::information(this, tr("Calibration directory"), "No directory selected");
@@ -359,18 +376,18 @@ void Settings::set_ecu_cal_dir()
 void Settings::set_log_files_dir()
 {
 
-    QString logfiles_dir =
-        QFileDialog::getExistingDirectory(this, tr("Select logfiles directory"), configValues->datalog_files_directory,
-                                          QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    QString logfiles_dir = QFileDialog::getExistingDirectory(
+        this, tr("Select logfiles directory"), qs(config.settings().datalog_files_directory),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
 
     qDebug() << "Selected path:" << logfiles_dir;
     // if (!logfiles_dir.endsWith("/") && !logfiles_dir.endsWith("\\"))
     //     logfiles_dir.append("/");
     if (!logfiles_dir.isEmpty())
     {
-        configValues->datalog_files_directory = logfiles_dir;
+        config.settings().datalog_files_directory = logfiles_dir.toStdString();
         log_files_dir_lineedit->clear();
-        log_files_dir_lineedit->setText(configValues->datalog_files_directory);
+        log_files_dir_lineedit->setText(qs(config.settings().datalog_files_directory));
     }
     // else
     //     QMessageBox::information(this, tr("Logger files directory"), "No directory selected");
@@ -381,10 +398,9 @@ void Settings::add_definition_files()
     QString file_dir;
 
     QDir dir;
-    if (configValues->romraider_definition_files.count() > 0)
+    if (!config.settings().romraider_definition_files.empty())
     {
-        QFileInfo def_file_name(
-            configValues->romraider_definition_files[configValues->romraider_definition_files.count() - 1]);
+        QFileInfo def_file_name(qs(config.settings().romraider_definition_files.back()));
         QString def_file_dir = def_file_name.absoluteFilePath();
         file_dir.append(def_file_dir);
     }
@@ -399,7 +415,7 @@ void Settings::add_definition_files()
     {
         romraider_definition_files_list->addItem(filename);
         romraider_definition_files_list->update();
-        configValues->romraider_definition_files.append(filename);
+        config.settings().romraider_definition_files.push_back(filename.toStdString());
     }
     // else
     //     QMessageBox::information(this, tr("RomRaider definition file"), "No definition file selected");
@@ -414,10 +430,11 @@ void Settings::remove_definition_files()
         delete romraider_definition_files_list->takeItem(romraider_definition_files_list->row(item));
     }
 
-    configValues->romraider_definition_files.clear();
+    config.settings().romraider_definition_files.clear();
 
     for (int i = 0; i < romraider_definition_files_list->count(); ++i)
     {
-        configValues->romraider_definition_files.append(romraider_definition_files_list->item(i)->text());
+        config.settings().romraider_definition_files.push_back(
+            romraider_definition_files_list->item(i)->text().toStdString());
     }
 }

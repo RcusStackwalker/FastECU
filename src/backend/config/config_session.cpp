@@ -22,8 +22,9 @@ void default_if_empty(std::string& field, std::string_view fallback)
     }
 }
 
-// The compiled-in defaults ConfigValuesStructure carried. A nonempty loaded
-// value wins; AppConfig itself keeps "" as its not-present value.
+// The compiled-in defaults the legacy configuration struct carried. A
+// nonempty loaded value wins; AppConfig itself keeps "" as its not-present
+// value.
 AppConfig with_defaults(AppConfig settings, const ConfigPaths& paths)
 {
     default_if_empty(settings.window_width, "default");
@@ -80,7 +81,8 @@ Status ConfigSession::initialize(std::string_view app_root, std::string_view ver
     vehicles_.clear();
 
     const ConfigPaths paths = resolve_config_paths(app_root, version);
-    if (Status provisioned = provision_config_directories(paths, file_system_, resource_bundle_, events_);
+    if (Status provisioned =
+            provision_config_directories(paths, file_system_, resource_bundle_, file_repository_, events_);
         !provisioned.has_value())
     {
         return std::unexpected(Error{provisioned.error().kind,

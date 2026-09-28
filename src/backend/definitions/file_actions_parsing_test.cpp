@@ -5,12 +5,14 @@
 
 #include <cstdint>
 #include <map>
+#include <memory>
 #include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "src/backend/config/config_session.h"
 #include "src/backend/definition/ecuflash_parser.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/definitions/file_actions.h"
@@ -67,6 +69,13 @@ QString writeTextFile(const QTemporaryDir& dir, const QString& name, const QByte
     return writeTextFileAt(dir.filePath(name), contents);
 }
 
+// The minimal RomRaider definition the MINIMAL_TEST case below writes, with
+// its <xmlid> text swapped for the argument.
+QByteArray romraiderDefinitionWithId(const QString& xmlId)
+{
+    return ("<roms><rom><romid><xmlid>" + xmlId + "</xmlid></romid></rom></roms>").toUtf8();
+}
+
 bool sinkContainsMessage(const fastecu::RecordingEventSink& sink, fastecu::LogLevel level, const QString& text)
 {
     return std::ranges::any_of(sink.logs, [&](const auto& entry)
@@ -85,63 +94,6 @@ class TestFileActionsParsing : public QObject
     Q_OBJECT
 
   private slots:
-    void application_config_reads_valid_values_and_preserves_defaults()
-    {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString path = writeTextFile(dir, "fastecu.cfg",
-                                           R"(<config name="FastECU" version="test">
-  <software_settings>
-    <setting name="window_size"><value width="1024"/><value height="768"/></setting>
-    <setting name="toolbar_iconsize"><value data="24"/></setting>
-    <setting name="serial_port"><value data="TEST_PORT"/></setting>
-    <setting name="protocol_id"><value data="7"/></setting>
-    <setting name="flash_transport"><value data="iso15765"/></setting>
-    <setting name="log_transport"><value data="K-Line"/></setting>
-    <setting name="log_protocol"><value data="SSM"/></setting>
-  </software_settings>
-</config>)");
-        QVERIFY(!path.isEmpty());
-
-        fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        FileActions::ConfigValuesStructure config;
-        config.config_file = path;
-
-        QCOMPARE(actions.read_config_file(&config), &config);
-        QCOMPARE(config.window_width, QString("1024"));
-        QCOMPARE(config.window_height, QString("768"));
-        QCOMPARE(config.toolbar_iconsize, QString("24"));
-        QCOMPARE(config.serial_port, QString("TEST_PORT"));
-        QCOMPARE(config.flash_protocol_selected_id, QString("7"));
-        QCOMPARE(config.flash_protocol_selected_flash_transport, QString("iso15765"));
-        QCOMPARE(config.flash_protocol_selected_log_transport, QString("K-Line"));
-        QCOMPARE(config.flash_protocol_selected_log_protocol, QString("SSM"));
-        QCOMPARE(config.baudrate, QString("4800"));
-        QCOMPARE(config.window_size, QString("default"));
-        QCOMPARE(config.use_romraider_definitions, QString("disabled"));
-        QCOMPARE(config.use_ecuflash_definitions, QString("disabled"));
-        QCOMPARE(config.primary_definition_base, QString("ecuflash"));
-    }
-
-    void application_config_malformed_retains_defaults()
-    {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString path = writeTextFile(dir, "malformed.cfg", "<config><software_settings>");
-        QVERIFY(!path.isEmpty());
-
-        fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        FileActions::ConfigValuesStructure config;
-        config.config_file = path;
-
-        QCOMPARE(actions.read_config_file(&config), &config);
-        QCOMPARE(config.serial_port, QString("ttyUSB0"));
-        QCOMPARE(config.toolbar_iconsize, QString("32"));
-        QCOMPARE(config.use_romraider_definitions, QString("disabled"));
-    }
-
     void logger_definition_reads_parameter_and_switch()
     {
         QTemporaryDir dir;
@@ -159,8 +111,8 @@ class TestFileActionsParsing : public QObject
         QVERIFY(!path.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        actions.ConfigValuesStruct.romraider_logger_definition_file = path;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        session().settings().romraider_logger_definition_file = path.toStdString();
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
         QCOMPARE(values, &actions.LogValuesStruct);
@@ -200,8 +152,8 @@ class TestFileActionsParsing : public QObject
         QVERIFY(!path.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        actions.ConfigValuesStruct.romraider_logger_definition_file = path;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        session().settings().romraider_logger_definition_file = path.toStdString();
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
         QCOMPARE(values, &actions.LogValuesStruct);
@@ -234,8 +186,8 @@ class TestFileActionsParsing : public QObject
         QVERIFY(!path.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        actions.ConfigValuesStruct.romraider_logger_definition_file = path;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        session().settings().romraider_logger_definition_file = path.toStdString();
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
         // Every parameter is enabled="0", yet the lists are seeded to their caps.
@@ -265,8 +217,8 @@ class TestFileActionsParsing : public QObject
         QVERIFY(!path.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        actions.ConfigValuesStruct.romraider_logger_definition_file = path;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        session().settings().romraider_logger_definition_file = path.toStdString();
 
         FileActions::LogValuesStructure *values = actions.read_logger_definition_file();
         QCOMPARE(values->log_value_id.size(), 2);
@@ -278,10 +230,8 @@ class TestFileActionsParsing : public QObject
 
     void logger_config_reads_selected_ids()
     {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString path = writeTextFile(dir, "logger.cfg",
-                                           R"(<config><logger><ecu id="TEST_ECU"><protocol id="SSM"><parameters>
+        const QString path = writeLoggerFile(
+            R"(<config><logger><ecu id="TEST_ECU"><protocol id="SSM"><parameters>
   <gauges><parameter id="P1" name=""/></gauges>
   <lower_panel><parameter id="P2" name=""/></lower_panel>
 </parameters><switches><switch id="S1" name=""/></switches>
@@ -289,8 +239,7 @@ class TestFileActionsParsing : public QObject
         QVERIFY(!path.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        actions.ConfigValuesStruct.logger_file = path;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
         FileActions::LogValuesStructure values;
 
         QCOMPARE(actions.read_logger_conf(&values, "TEST_ECU", false), &values);
@@ -306,9 +255,7 @@ class TestFileActionsParsing : public QObject
     // and qDebug()-ing `written`.
     void logger_conf_writes_four_space_indented_xml()
     {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString conf = writeTextFile(dir, "logger.cfg", "<config><logger></logger></config>");
+        const QString conf = writeLoggerFile("<config><logger></logger></config>");
         QVERIFY(!conf.isEmpty());
 
         // A real writer, not the fixture's in-memory one: the conf write now
@@ -316,8 +263,7 @@ class TestFileActionsParsing : public QObject
         // assertions below read the bytes back off disk.
         QtAtomicFileWriter writer;
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer, eventSink);
-        actions.ConfigValuesStruct.logger_file = conf;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer, eventSink, session());
         FileActions::LogValuesStructure values;
         values.log_value_protocol << "SSM" << "SSM";
         values.log_value_id << "P1" << "P2";
@@ -345,8 +291,9 @@ class TestFileActionsParsing : public QObject
     void logger_conf_returns_nullptr_when_the_file_is_missing()
     {
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        actions.ConfigValuesStruct.logger_file = "/nonexistent/logger.cfg";
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        QFile::remove(loggerFile());
+        QVERIFY(!QFile::exists(loggerFile()));
         FileActions::LogValuesStructure values;
         values.log_value_protocol << "SSM";
         values.log_value_id << "P1";
@@ -368,14 +315,11 @@ class TestFileActionsParsing : public QObject
     // an empty selection instead of re-seeding defaults.
     void logger_conf_without_a_definition_warns_and_writes_nothing()
     {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString conf = writeTextFile(dir, "logger.cfg", "<config><logger></logger></config>");
+        const QString conf = writeLoggerFile("<config><logger></logger></config>");
         QVERIFY(!conf.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        actions.ConfigValuesStruct.logger_file = conf;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
         FileActions::LogValuesStructure values;
         // No definition loaded, but a stale selection from a previous ECU.
         values.dashboard_log_value_id << "STALE";
@@ -401,15 +345,12 @@ class TestFileActionsParsing : public QObject
 
     void logger_conf_round_trips_a_modified_selection()
     {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString conf = writeTextFile(dir, "logger.cfg", "<config><logger/></config>");
+        const QString conf = writeLoggerFile("<config><logger/></config>");
         QVERIFY(!conf.isEmpty());
 
         QtAtomicFileWriter writer;
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer, eventSink);
-        actions.ConfigValuesStruct.logger_file = conf;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer, eventSink, session());
         FileActions::LogValuesStructure values;
         values.log_value_protocol << "SSM" << "SSM";
         values.log_value_id << "P1" << "P2";
@@ -457,14 +398,14 @@ class TestFileActionsParsing : public QObject
         QVERIFY(!definitionPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
-        QCOMPARE(actions.create_romraider_def_id_list(&actions.ConfigValuesStruct), &actions.ConfigValuesStruct);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        session().settings().romraider_definition_files = {definitionPath.toStdString()};
+        actions.create_romraider_def_id_list();
 
-        const int idIndex = actions.ConfigValuesStruct.romraider_def_cal_id.indexOf("CAL_TEST");
+        const int idIndex = actions.definitionIndexes.romraider_def_cal_id.indexOf("CAL_TEST");
         QVERIFY(idIndex >= 0);
-        QCOMPARE(actions.ConfigValuesStruct.romraider_def_cal_id_addr.at(idIndex), QString("0"));
-        QCOMPARE(actions.ConfigValuesStruct.romraider_def_filename.at(idIndex), definitionPath);
+        QCOMPARE(actions.definitionIndexes.romraider_def_cal_id_addr.at(idIndex), QString("0"));
+        QCOMPARE(actions.definitionIndexes.romraider_def_filename.at(idIndex), definitionPath);
 
         FileActions::EcuCalDefStructure ecu;
         while (ecu.RomInfo.size() < ecu.RomInfoStrings.size())
@@ -496,15 +437,15 @@ class TestFileActionsParsing : public QObject
         QVERIFY(!definitionPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
-        QCOMPARE(actions.create_romraider_def_id_list(&actions.ConfigValuesStruct), &actions.ConfigValuesStruct);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        session().settings().romraider_definition_files = {definitionPath.toStdString()};
+        actions.create_romraider_def_id_list();
 
-        const int idIndex = actions.ConfigValuesStruct.romraider_def_cal_id.indexOf("MINIMAL_TEST");
+        const int idIndex = actions.definitionIndexes.romraider_def_cal_id.indexOf("MINIMAL_TEST");
         QVERIFY(idIndex >= 0);
-        QCOMPARE(actions.ConfigValuesStruct.romraider_def_cal_id_addr.at(idIndex), QString(""));
-        QCOMPARE(actions.ConfigValuesStruct.romraider_def_ecu_id.at(idIndex), QString(""));
-        QCOMPARE(actions.ConfigValuesStruct.romraider_def_filename.at(idIndex), definitionPath);
+        QCOMPARE(actions.definitionIndexes.romraider_def_cal_id_addr.at(idIndex), QString(""));
+        QCOMPARE(actions.definitionIndexes.romraider_def_ecu_id.at(idIndex), QString(""));
+        QCOMPARE(actions.definitionIndexes.romraider_def_filename.at(idIndex), definitionPath);
 
         FileActions::EcuCalDefStructure ecu;
         while (ecu.RomInfo.size() < ecu.RomInfoStrings.size())
@@ -552,15 +493,13 @@ class TestFileActionsParsing : public QObject
         QVERIFY(!definitionPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        actions.ConfigValuesStruct.romraider_definition_files = {definitionPath};
-        QCOMPARE(actions.create_romraider_def_id_list(&actions.ConfigValuesStruct), &actions.ConfigValuesStruct);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        session().settings().romraider_definition_files = {definitionPath.toStdString()};
+        actions.create_romraider_def_id_list();
 
-        // One protocol row declaring "wrx02" as an alias, mirroring
-        // resources/shared/config/protocols.cfg:133.
-        actions.ConfigValuesStruct.flash_protocol_id = {"0"};
-        actions.ConfigValuesStruct.flash_protocol_alias = {"wrx02"};
-        actions.ConfigValuesStruct.flash_protocol_protocol_name = {"sub_ecu_denso_mc68hc16y5_02"};
+        // The session's catalog is the bundled protocols.cfg, whose first
+        // vehicle with a "wrx02"-aliased protocol uses
+        // sub_ecu_denso_mc68hc16y5_02.
 
         FileActions::EcuCalDefStructure ecu;
         while (ecu.RomInfo.size() < ecu.RomInfoStrings.size())
@@ -576,6 +515,24 @@ class TestFileActionsParsing : public QObject
         QVERIFY(ecu.RomInfo.at(FileActions::FlashMethod) != QString("wrx02"));
     }
 
+    void definition_index_rebuild_keeps_file_order()
+    {
+        // Two RomRaider definition files; the index lists follow the order
+        // of romraider_definition_files, whatever the IDs sort to.
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString second = writeTextFile(dir, "b.xml", romraiderDefinitionWithId("ZZZ_FIRST"));
+        const QString first = writeTextFile(dir, "a.xml", romraiderDefinitionWithId("AAA_SECOND"));
+        fastecu::RecordingEventSink eventSink;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        session().settings().romraider_definition_files = {second.toStdString(), first.toStdString()};
+
+        actions.create_romraider_def_id_list();
+
+        QCOMPARE(actions.definitionIndexes.romraider_def_filename, (QStringList{second, first}));
+        QCOMPARE(actions.definitionIndexes.romraider_def_cal_id, (QStringList{"ZZZ_FIRST", "AAA_SECOND"}));
+    }
+
     void malformed_romraider_catalog_file_is_skipped_and_replaces_with_empty_catalog()
     {
         QTemporaryDir dir;
@@ -584,23 +541,22 @@ class TestFileActionsParsing : public QObject
         QVERIFY(!definitionPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        auto& config = actions.ConfigValuesStruct;
-        config.romraider_definition_files = {definitionPath};
-        config.romraider_def_cal_id = {"sentinel-id"};
-        config.romraider_def_cal_id_addr = {"sentinel-address"};
-        config.romraider_def_ecu_id = {"sentinel-ecu"};
-        config.romraider_def_filename = {"sentinel-source"};
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        session().settings().romraider_definition_files = {definitionPath.toStdString()};
+        actions.definitionIndexes.romraider_def_cal_id = {"sentinel-id"};
+        actions.definitionIndexes.romraider_def_cal_id_addr = {"sentinel-address"};
+        actions.definitionIndexes.romraider_def_ecu_id = {"sentinel-ecu"};
+        actions.definitionIndexes.romraider_def_filename = {"sentinel-source"};
 
-        QCOMPARE(actions.create_romraider_def_id_list(&config), &config);
+        actions.create_romraider_def_id_list();
 
         // A malformed file among a directory's worth of configured definitions is skipped
         // rather than treated as fatal (see DefinitionService::build_catalog), so this
         // replace succeeds with an empty catalog instead of preserving the old rows.
-        QVERIFY(config.romraider_def_cal_id.isEmpty());
-        QVERIFY(config.romraider_def_cal_id_addr.isEmpty());
-        QVERIFY(config.romraider_def_ecu_id.isEmpty());
-        QVERIFY(config.romraider_def_filename.isEmpty());
+        QVERIFY(actions.definitionIndexes.romraider_def_cal_id.isEmpty());
+        QVERIFY(actions.definitionIndexes.romraider_def_cal_id_addr.isEmpty());
+        QVERIFY(actions.definitionIndexes.romraider_def_ecu_id.isEmpty());
+        QVERIFY(actions.definitionIndexes.romraider_def_filename.isEmpty());
         QCOMPARE(logCountAt(eventSink, fastecu::LogLevel::Error), 0);
     }
 
@@ -612,13 +568,12 @@ class TestFileActionsParsing : public QObject
         QVERIFY(!definitionPath.isEmpty());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        auto& config = actions.ConfigValuesStruct;
-        config.romraider_definition_files = {definitionPath};
-        config.romraider_def_cal_id = {"BROKEN"};
-        config.romraider_def_cal_id_addr = {"0"};
-        config.romraider_def_ecu_id = {"sentinel-ecu"};
-        config.romraider_def_filename = {definitionPath};
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        session().settings().romraider_definition_files = {definitionPath.toStdString()};
+        actions.definitionIndexes.romraider_def_cal_id = {"BROKEN"};
+        actions.definitionIndexes.romraider_def_cal_id_addr = {"0"};
+        actions.definitionIndexes.romraider_def_ecu_id = {"sentinel-ecu"};
+        actions.definitionIndexes.romraider_def_filename = {definitionPath};
 
         FileActions::EcuCalDefStructure ecu;
         ecu.RomInfo = QStringList(ecu.RomInfoStrings.size(), "sentinel-rom-info");
@@ -646,7 +601,7 @@ class TestFileActionsParsing : public QObject
     void romraider_base_missing_source_logs_context_and_preserves_state()
     {
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
         FileActions::EcuCalDefStructure ecu;
         ecu.RomInfo = QStringList(ecu.RomInfoStrings.size(), "sentinel-rom-info");
         ecu.RomInfo[FileActions::XmlId] = "BASE";
@@ -664,7 +619,7 @@ class TestFileActionsParsing : public QObject
     void romraider_base_missing_definition_id_logs_context_and_preserves_state()
     {
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
         FileActions::EcuCalDefStructure ecu;
         ecu.DefinitionFileName = "base.xml";
         ecu.RomInfo = QStringList(ecu.RomInfoStrings.size(), " ");
@@ -685,7 +640,7 @@ class TestFileActionsParsing : public QObject
         QVERIFY(dir.isValid());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
         FileActions::EcuCalDefStructure ecu;
         ecu.RomInfo = QStringList(ecu.RomInfoStrings.size(), "sentinel-rom-info");
         ecu.DefinitionFileName = dir.filePath("missing-romraider.xml");
@@ -709,12 +664,11 @@ class TestFileActionsParsing : public QObject
     void malformed_compatibility_catalog_columns_preserve_rom_id()
     {
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        auto& config = actions.ConfigValuesStruct;
-        config.romraider_def_cal_id = {"AB10"};
-        config.romraider_def_cal_id_addr = {"0", "1"};
-        config.romraider_def_ecu_id = {};
-        config.romraider_def_filename = {"hex-definition.xml"};
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        actions.definitionIndexes.romraider_def_cal_id = {"AB10"};
+        actions.definitionIndexes.romraider_def_cal_id_addr = {"0", "1"};
+        actions.definitionIndexes.romraider_def_ecu_id = {};
+        actions.definitionIndexes.romraider_def_filename = {"hex-definition.xml"};
 
         FileActions::EcuCalDefStructure ecu;
         ecu.RomId = "sentinel-rom-id";
@@ -751,11 +705,10 @@ class TestFileActionsParsing : public QObject
 
         QtAtomicFileWriter writer;
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer, eventSink);
-        auto& config = actions.ConfigValuesStruct;
-        config.ecuflash_definition_files_directory = oldDirectory;
-        QCOMPARE(actions.create_ecuflash_def_id_list(&config), &config);
-        QCOMPARE(config.ecuflash_def_cal_id, QStringList({"OLD_DIRECTORY_XML"}));
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, writer, eventSink, session());
+        session().settings().ecuflash_definition_files_directory = oldDirectory.toStdString();
+        actions.create_ecuflash_def_id_list();
+        QCOMPARE(actions.definitionIndexes.ecuflash_def_cal_id, QStringList({"OLD_DIRECTORY_XML"}));
 
         auto input = validHeaderInput();
         input.xml_id = "SUBMITTED_XML";
@@ -769,21 +722,21 @@ class TestFileActionsParsing : public QObject
         }
         QVERIFY(QFile::exists(submittedPath));
 
-        config.ecuflash_definition_files_directory = newDirectory;
-        QCOMPARE(actions.create_ecuflash_def_id_list(&config), &config);
+        session().settings().ecuflash_definition_files_directory = newDirectory.toStdString();
+        actions.create_ecuflash_def_id_list();
 
-        QCOMPARE(config.ecuflash_def_cal_id, QStringList({"NEW_DIRECTORY_XML", "SUBMITTED_XML"}));
-        QCOMPARE(config.ecuflash_def_cal_id_addr, QStringList({"30", "20"}));
-        QCOMPARE(config.ecuflash_def_ecu_id, QStringList({"NEW_DIRECTORY_ECU", "SUBMITTED_ECU"}));
-        QCOMPARE(config.ecuflash_def_filename, QStringList({newPath, submittedPath}));
-        QVERIFY(!config.ecuflash_def_filename.contains(oldPath));
+        QCOMPARE(actions.definitionIndexes.ecuflash_def_cal_id, QStringList({"NEW_DIRECTORY_XML", "SUBMITTED_XML"}));
+        QCOMPARE(actions.definitionIndexes.ecuflash_def_cal_id_addr, QStringList({"30", "20"}));
+        QCOMPARE(actions.definitionIndexes.ecuflash_def_ecu_id, QStringList({"NEW_DIRECTORY_ECU", "SUBMITTED_ECU"}));
+        QCOMPARE(actions.definitionIndexes.ecuflash_def_filename, QStringList({newPath, submittedPath}));
+        QVERIFY(!actions.definitionIndexes.ecuflash_def_filename.contains(oldPath));
     }
 
     void successful_submission_provenance_is_sorted_and_deduplicated()
     {
         atomicFileWriter_.reset();
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
         const auto input = validHeaderInput();
 
         QVERIFY(actions.submit_new_definition("z.xml", input));
@@ -802,25 +755,25 @@ class TestFileActionsParsing : public QObject
         };
         atomicFileWriter_.replace_error = backendError;
         fastecu::RecordingEventSink eventSink;
-        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        auto& config = actions.ConfigValuesStruct;
-        config.ecuflash_def_cal_id = {"sentinel-id"};
-        config.ecuflash_def_cal_id_addr = {"sentinel-address"};
-        config.ecuflash_def_ecu_id = {"sentinel-ecu"};
-        config.ecuflash_def_filename = {"sentinel-source"};
-        const QStringList ids = config.ecuflash_def_cal_id;
-        const QStringList addresses = config.ecuflash_def_cal_id_addr;
-        const QStringList ecuIds = config.ecuflash_def_ecu_id;
-        const QStringList sources = config.ecuflash_def_filename;
+        FileActions actions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
+        auto& indexes = actions.definitionIndexes;
+        indexes.ecuflash_def_cal_id = {"sentinel-id"};
+        indexes.ecuflash_def_cal_id_addr = {"sentinel-address"};
+        indexes.ecuflash_def_ecu_id = {"sentinel-ecu"};
+        indexes.ecuflash_def_filename = {"sentinel-source"};
+        const QStringList ids = indexes.ecuflash_def_cal_id;
+        const QStringList addresses = indexes.ecuflash_def_cal_id_addr;
+        const QStringList ecuIds = indexes.ecuflash_def_ecu_id;
+        const QStringList sources = indexes.ecuflash_def_filename;
 
         const fastecu::Status result = actions.submit_new_definition("unavailable.xml", validHeaderInput());
 
         QVERIFY(!result.has_value());
         QCOMPARE(result.error(), backendError);
-        QCOMPARE(config.ecuflash_def_cal_id, ids);
-        QCOMPARE(config.ecuflash_def_cal_id_addr, addresses);
-        QCOMPARE(config.ecuflash_def_ecu_id, ecuIds);
-        QCOMPARE(config.ecuflash_def_filename, sources);
+        QCOMPARE(indexes.ecuflash_def_cal_id, ids);
+        QCOMPARE(indexes.ecuflash_def_cal_id_addr, addresses);
+        QCOMPARE(indexes.ecuflash_def_ecu_id, ecuIds);
+        QCOMPARE(indexes.ecuflash_def_filename, sources);
         QCOMPARE(logCountAt(eventSink, fastecu::LogLevel::Error), 1);
         QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "Unable to create definition"));
         QVERIFY(sinkContainsMessage(eventSink, fastecu::LogLevel::Error, "Disconnected"));
@@ -855,7 +808,7 @@ class TestFileActionsParsing : public QObject
         romFile.close();
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
 
         FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
         while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
@@ -882,7 +835,7 @@ class TestFileActionsParsing : public QObject
         romFile.close();
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
 
         FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
         while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
@@ -904,7 +857,7 @@ class TestFileActionsParsing : public QObject
         QVERIFY(dir.isValid());
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
         FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
         while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
         {
@@ -933,7 +886,7 @@ class TestFileActionsParsing : public QObject
         const QString romPath = dir.filePath("saved.bin");
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.FullRomData = QByteArray("\xCA\xFE\xBA\xBE", 4);
 
@@ -959,7 +912,7 @@ class TestFileActionsParsing : public QObject
         const QString romPath = dir.filePath("no-such-directory/saved.bin");
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
 
         FileActions::EcuCalDefStructure ecuCalDef;
         ecuCalDef.FullRomData = QByteArray("\xCA\xFE", 2);
@@ -987,8 +940,7 @@ class TestFileActionsParsing : public QObject
         romFile.close();
 
         fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        fileActions.ConfigValuesStruct.flash_protocol_selected_make = "Subaru";
+        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink, session());
 
         FileActions::EcuCalDefStructure *ecuCalDef = new FileActions::EcuCalDefStructure;
         while (ecuCalDef->RomInfo.length() < ecuCalDef->RomInfoStrings.length())
@@ -1010,7 +962,9 @@ class TestFileActionsParsing : public QObject
         QCOMPARE(ecuCalDef->RomInfo.at(FileActions::InternalIdAddress), QString(""));
         QCOMPARE(ecuCalDef->RomInfo.at(FileActions::InternalIdString), QString(""));
         QCOMPARE(ecuCalDef->RomInfo.at(FileActions::EcuId), QString(""));
-        QCOMPARE(ecuCalDef->RomInfo.at(FileActions::Make), QString("Subaru"));
+        // The selected vehicle's make: opening this ROM matched no protocol,
+        // so the session's saved row is unchanged.
+        QCOMPARE(ecuCalDef->RomInfo.at(FileActions::Make), QString::fromStdString(session().selected_vehicle()->make));
         QCOMPARE(ecuCalDef->RomInfo.at(FileActions::DefFile), QString(" "));
         // FileSize stays the value open_subaru_rom_file computed; the
         // placeholder block must not recompute it from a padded image.
@@ -1018,51 +972,45 @@ class TestFileActionsParsing : public QObject
         delete ecuCalDef;
     }
 
-    // Settings::save_config_file() (src/ui/desktop/settings.cpp) constructs
-    // a throwaway FileActions purely to forward one call to
-    // FileActions::save_config_file(configValues) -- Settings itself
-    // derives from QDialog and needs a live QApplication to construct, so
-    // this test exercises the actual call chain one layer down instead
-    // (the `new FileActions` in Settings::save_config_file was a genuine
-    // S5025 leak, fixed with std::make_unique; this proves the forwarding
-    // call still works end to end through a real Qt file write).
-    void save_config_file_forwards_to_config_adapter_and_writes_file()
+    // Every test gets a fresh configuration session provisioned in its own
+    // temporary root.
+    void init()
     {
-        QTemporaryDir dir;
-        QVERIFY(dir.isValid());
-        const QString configPath = dir.filePath("fastecu.cfg");
-
-        fastecu::RecordingEventSink eventSink;
-        FileActions fileActions(fileSystem_, resourceBundle_, fileRepository_, atomicFileWriter_, eventSink);
-        FileActions::ConfigValuesStructure config;
-        config.config_file = configPath;
-        config.serial_port = "COM9";
-        config.calibration_files_directory = "/cal/no/trailing/slash";
-
-        FileActions::ConfigValuesStructure *returned = fileActions.save_config_file(&config);
-
-        QCOMPARE(returned, &config);
-        // save_config_file's normalization (trailing-slash append) must be
-        // visible in the same struct the caller passed in.
-        QCOMPARE(config.calibration_files_directory, QString("/cal/no/trailing/slash/"));
-
-        QFile writtenFile(configPath);
-        QVERIFY(writtenFile.exists());
-        QVERIFY(writtenFile.open(QIODevice::ReadOnly));
-        const QByteArray contents = writtenFile.readAll();
-        QVERIFY(contents.contains("COM9"));
-        QVERIFY(contents.contains("/cal/no/trailing/slash/"));
+        session_.reset();
+        sessionRoot_ = std::make_unique<QTemporaryDir>();
+        QVERIFY(sessionRoot_->isValid());
+        session_ = std::make_unique<fastecu::config::ConfigSession>(fileSystem_, resourceBundle_, fileRepository_,
+                                                                    sessionEvents_);
+        const fastecu::Status initialized = session_->initialize(sessionRoot_->path().toStdString(), "test");
+        if (!initialized.has_value())
+        {
+            QFAIL(initialized.error().detail.c_str());
+        }
     }
 
   private:
-    // FileActions's constructor now takes the config/settings ports (Task
-    // 11 of the step5d-1 plan); these are unused by the parsing paths this
-    // test exercises, so plain default-constructed Qt port implementations
-    // are sufficient.
+    fastecu::config::ConfigSession& session()
+    {
+        return *session_;
+    }
+    QString loggerFile() const
+    {
+        return QString::fromStdString(session_->effective_paths().logger_file);
+    }
+    // Replaces the provisioned logger.cfg (a copy of the bundled one).
+    QString writeLoggerFile(const QByteArray& contents) const
+    {
+        QFile::remove(loggerFile());
+        return writeTextFileAt(loggerFile(), contents);
+    }
+
     QtFileSystem fileSystem_;
     QtResourceBundle resourceBundle_;
     QtFileRepository fileRepository_;
     fastecu::InMemoryAtomicFileWriter atomicFileWriter_;
+    fastecu::RecordingEventSink sessionEvents_;
+    std::unique_ptr<QTemporaryDir> sessionRoot_;
+    std::unique_ptr<fastecu::config::ConfigSession> session_;
 };
 
 QTEST_APPLESS_MAIN(TestFileActionsParsing)

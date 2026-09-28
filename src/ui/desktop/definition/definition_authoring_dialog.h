@@ -5,6 +5,7 @@
 #include <QStringList>
 #include <QWidget>
 
+#include "src/backend/config/config_session.h"
 #include "src/backend/definition/definition_writer.h"
 #include "src/backend/definitions/file_actions.h"
 #include "src/backend/ports/file_repository.h"
@@ -26,11 +27,11 @@ namespace fastecu::ui
 HeaderFormEditors populate_header_dialog(QDialog& dialog, const QStringList& labels, const QStringList& names,
                                          const QStringList& values);
 
-// Appends one entry to each of the four ecuflash_def_* config lists, taking
+// Appends one entry to each of the four ecuflash_def_* index lists, taking
 // the calibration ID from `input` and the ID address and ECU ID from the
 // form's editors. Called only once the definition has actually been written,
 // so a failed write leaves the lists untouched.
-void record_definition(FileActions::ConfigValuesStructure& config, const HeaderFormEditors& editors,
+void record_definition(fastecu::definitions::DefinitionIndexes& indexes, const HeaderFormEditors& editors,
                        const fastecu::definition::DefinitionHeaderInput& input, const QString& filename);
 
 // The two interactive definition-authoring wizards, moved out of
@@ -46,8 +47,8 @@ class DefinitionAuthoringDialog : public QObject
     Q_OBJECT
 
   public:
-    DefinitionAuthoringDialog(FileActions& file_actions, fastecu::IFileRepository& repository,
-                              QWidget *parent = nullptr);
+    DefinitionAuthoringDialog(FileActions& file_actions, const fastecu::config::ConfigSession& config,
+                              fastecu::IFileRepository& repository, QWidget *parent = nullptr);
 
     // Both return true when the ROM may continue to be used -- including
     // when the user cancels out, which legacy signalled by returning
@@ -63,6 +64,7 @@ class DefinitionAuthoringDialog : public QObject
 
   private:
     FileActions& fileActions_;
+    const fastecu::config::ConfigSession& config_;
     fastecu::IFileRepository& repository_;
     QWidget *parent_;
 };

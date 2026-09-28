@@ -12,6 +12,8 @@ qt_cc_library(
     normal_hdrs = ["desktop_composition.h"],
     visibility = ["//visibility:private"],
     deps = QT_DEPS + [
+        ":startup",
+        "//src/backend/config:config_session",
         "//src/backend/definitions",
         "//src/platform/desktop/common/connection:adapter_connection",
         "//src/platform/desktop/common/logging",
@@ -23,6 +25,50 @@ qt_cc_library(
         "//src/ui/desktop:main_window_services",
         "//src/ui/desktop/channels:log_channel",
         "//src/ui/desktop/channels:remote_peer",
+    ],
+)
+
+# Startup diagnostics and the platform's default configuration root, one
+# source per platform.
+qt_cc_library(
+    name = "startup",
+    srcs = ["startup_diagnostics.cpp"] + select({
+        "@platforms//os:windows": ["default_config_root_windows.cpp"],
+        "//conditions:default": ["default_config_root_unix.cpp"],
+    }),
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = [
+        "default_config_root.h",
+        "startup_diagnostics.h",
+        "startup_event_sink.h",
+    ],
+    visibility = ["//visibility:private"],
+    deps = QT_DEPS + ["//src/backend/ports"],
+)
+
+qt_cc_library(
+    name = "startup_test_platform",
+    testonly = True,
+    srcs = select({
+        "@platforms//os:macos": ["startup_test_platform_macos.cpp"],
+        "//conditions:default": ["startup_test_platform_other.cpp"],
+    }),
+    hdrs = [],
+    copts = COMMON_COPTS,
+    normal_hdrs = ["startup_test_platform.h"],
+    visibility = ["//visibility:private"],
+    deps = QT_DEPS,
+)
+
+fastecu_qttest(
+    name = "startup_diagnostics_test",
+    size = "small",
+    src = "startup_diagnostics_test.cpp",
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":startup",
+        ":startup_test_platform",
     ],
 )
 
@@ -58,6 +104,7 @@ qt_cc_binary(
     deps = [
         ":composition",
         ":direct_serial_backend",
+        ":startup",
         "//src/ui/desktop",
     ],
 )

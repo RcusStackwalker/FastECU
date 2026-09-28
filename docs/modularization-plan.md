@@ -48,11 +48,11 @@ platform internals.
 ### Remaining structural debt
 
 - `FileActions` remains in the legacy `src/backend/definitions` package,
-  distinct from portable `src/backend/definition`. Its configuration,
-  logging, and calibration structures already have standalone headers but
+  distinct from portable `src/backend/definition`. Its logging and
+  calibration structures already have standalone headers but
   remain Qt-typed and are exposed through historical `FileActions` aliases.
-- Four bridges remain: `LegacyConfigAdapter`, `LegacyLoggerAdapter`,
-  `LegacyDefinitionAdapter`, and `LegacyCalibrationAdapter`. Desktop code
+- Three bridges remain: `LegacyLoggerAdapter`, `LegacyDefinitionAdapter`,
+  and `LegacyCalibrationAdapter`. Desktop code
   still consumes their parallel lists and shared mutable state.
 - `MainWindow` retains calibration-slot ownership and portions of write
   preflight, checksum correction, and post-read calibration handoff. Logging
@@ -123,7 +123,7 @@ The rules below constrain the remaining milestones.
 
 ## Remaining Roadmap
 
-Steps 6k-6n are ordered consumer migrations. Each slice should land with its
+Steps 6l-6n are ordered consumer migrations. Each slice should land with its
 own regression coverage and remove the bridge it makes unnecessary. Reuse
 existing portable records and services; extend them only where a consumer
 requires a missing capability. Preserve behavior unless a correction is
@@ -131,15 +131,12 @@ explicitly evidenced and recorded.
 
 ### 6k — Configuration and protocol models
 
-Migrate startup, settings persistence, vehicle/protocol selection, and their
-composition wiring from `ConfigValuesStructure` to existing portable config
-and catalog APIs. Keep widget state in the UI; use complete typed records for
-application data instead of synchronized parallel lists.
-
-**Exit gate:** those consumers no longer depend on the legacy configuration
-model or `LegacyConfigAdapter`. Retire legacy path glue when its remaining
-calibration consumers migrate. Tests preserve config/protocol loading,
-selection, provisioning paths, save round trips, and surfaced failures.
+Done: startup, settings persistence, vehicle/protocol selection, and composition
+wiring now use the portable `ConfigSession` and catalog records.
+`ConfigValuesStructure`, `LegacyConfigAdapter`, and `legacy_config_paths` have
+been removed. Startup rejection is an intentional correction, documented in
+[Configuration session](design-notes.md#configuration-session), together with
+the preserved selection and persistence quirks. Steps 6l–6n remain.
 
 ### 6l — Logging models
 

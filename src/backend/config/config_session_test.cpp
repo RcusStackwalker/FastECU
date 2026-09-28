@@ -58,27 +58,14 @@ TEST(ConfigSessionInitialize, CustomRootIsHonored)
     EXPECT_EQ(f.session.provisioned_paths(), resolve_config_paths("/custom", kVersion));
 }
 
-TEST(ConfigSessionInitialize, MigratesThePreviousVersionConfigThroughProvisioning)
-{
-    ConfigSessionFixture f;
-    f.file_system.directory_entries[f.paths.base_config_directory].push_back(
-        fastecu::DirEntry{.name = "0.1.0-beta.4", .is_directory = true, .modified_time_epoch_seconds = 100});
-    f.file_system.files[f.paths.base_config_directory + "/0.1.0-beta.4/config/fastecu.cfg"] = {7};
-
-    ASSERT_THAT(f.initialize(), IsOk());
-
-    EXPECT_EQ(f.file_system.files[f.paths.config_files_directory + "fastecu.cfg"], (std::vector<std::uint8_t>{7}));
-}
-
 TEST(ConfigSessionInitialize, CopiesBundledResourcesThroughProvisioning)
 {
     ConfigSessionFixture f;
     f.resource_bundle.bundles["kernels"]["k.bin"] = {1};
-    f.file_system.files["kernels/k.bin"] = {1};
 
     ASSERT_THAT(f.initialize(), IsOk());
 
-    EXPECT_TRUE(f.file_system.exists(f.paths.kernel_files_directory + "k.bin"));
+    EXPECT_EQ(f.file_repository.files.at(f.paths.kernel_files_directory + "k.bin"), (std::vector<std::uint8_t>{1}));
 }
 
 TEST(ConfigSessionInitialize, AbsentSettingsTakeCompiledInDefaults)
@@ -107,11 +94,20 @@ TEST(ConfigSessionInitialize, AbsentSettingsTakeCompiledInDefaults)
 TEST(ConfigSessionInitialize, LoadedScalarsOverrideDefaults)
 {
     ConfigSessionFixture f;
-    f.put_settings(setting("serial_port", "COM7") + setting("toolbar_iconsize", "24") +
-                   setting("primary_definition_base", "romraider") + setting("use_ecuflash_definitions", "enabled"));
+    f.put_settings(R"(<setting name="window_size"><value width="1024"/><value height="768"/></setting>)" +
+                   setting("serial_port", "COM7") + setting("toolbar_iconsize", "24") + setting("protocol_id", "2") +
+                   setting("flash_transport", "iso15765") + setting("log_transport", "K-Line") +
+                   setting("log_protocol", "SSM") + setting("primary_definition_base", "romraider") +
+                   setting("use_ecuflash_definitions", "enabled"));
     ASSERT_THAT(f.initialize(), IsOk());
+    EXPECT_EQ(f.session.settings().window_width, "1024");
+    EXPECT_EQ(f.session.settings().window_height, "768");
     EXPECT_EQ(f.session.settings().serial_port, "COM7");
     EXPECT_EQ(f.session.settings().toolbar_iconsize, "24");
+    EXPECT_EQ(f.session.settings().selected_protocol_id, "2");
+    EXPECT_EQ(f.session.settings().selected_flash_transport, "iso15765");
+    EXPECT_EQ(f.session.settings().selected_log_transport, "K-Line");
+    EXPECT_EQ(f.session.settings().selected_log_protocol, "SSM");
     EXPECT_EQ(f.session.settings().primary_definition_base, "romraider");
     EXPECT_EQ(f.session.settings().use_ecuflash_definitions, "enabled");
 }

@@ -4,8 +4,15 @@
 #include <algorithm>
 #include <functional>
 
-ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues, QWidget *parent)
-    : QDialog(parent), configValues(configValues), ui{std::make_unique<Ui::ProtocolSelect>()}
+#include "src/ui/desktop/config_fields.h"
+
+using fastecu::config::ProtocolEntry;
+using fastecu::config::ResolvedCarModel;
+using fastecu::ui::protocol_field;
+using fastecu::ui::qs;
+
+ProtocolSelect::ProtocolSelect(const fastecu::config::ConfigSession& config, QWidget *parent)
+    : QDialog(parent), config(config), ui{std::make_unique<Ui::ProtocolSelect>()}
 {
     ui->setupUi(this);
 
@@ -30,12 +37,14 @@ ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues,
     int protocol_width = 0;
     int description_width = 0;
 
-    for (int i = 0; i < configValues->flash_protocol_id.length(); i++)
+    // Vehicle-backed: one entry per distinct protocol name any vehicle uses,
+    // unresolved references included.
+    const auto vehicles = config.vehicles();
+    for (const ResolvedCarModel& vehicle : vehicles)
     {
-        if (!protocols.contains(configValues->flash_protocol_protocol_name.at(i)))
+        if (!protocols.contains(qs(vehicle.protocol_name)))
         {
-            // qDebug() << "Make found:" << configValues->flash_protocol_make.at(i);
-            protocols.append(configValues->flash_protocol_protocol_name.at(i));
+            protocols.append(qs(vehicle.protocol_name));
         }
     }
 
@@ -44,12 +53,11 @@ ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues,
 
     for (int i = 0; i < protocols_sorted.length(); i++)
     {
-        for (int j = 0; j < configValues->flash_protocol_id.length(); j++)
+        for (const ResolvedCarModel& vehicle : vehicles)
         {
-            if (protocols_sorted.at(i) == configValues->flash_protocol_protocol_name.at(j))
+            if (protocols_sorted.at(i) == qs(vehicle.protocol_name))
             {
-                qDebug() << protocols_sorted.at(i) << configValues->flash_protocol_protocol_name.at(j);
-                descriptions_sorted.append(configValues->flash_protocol_description.at(j));
+                descriptions_sorted.append(protocol_field(vehicle, &ProtocolEntry::description));
                 text_width = fm.horizontalAdvance(descriptions_sorted.at(i));
                 if (text_width > description_width)
                 {
@@ -85,7 +93,8 @@ ProtocolSelect::ProtocolSelect(FileActions::ConfigValuesStructure *configValues,
         item->setText(1, descriptions_sorted.at(i));
         item->setFirstColumnSpanned(true);
         ui->treeWidget->addTopLevelItem(item);
-        if (protocols_sorted.at(i) == configValues->flash_protocol_selected_protocol_name)
+        if (config.selected_vehicle() != nullptr &&
+            protocols_sorted.at(i) == qs(config.selected_vehicle()->protocol_name))
         {
             protocol_changed_saved = true;
             ui->treeWidget->setCurrentItem(item);
@@ -114,26 +123,16 @@ void ProtocolSelect::car_model_selected()
     QString protocol_name = ui->treeWidget->selectedItems().at(0)->text(0);
     qDebug() << "Selected protocol:" << protocol_name;
 
-    for (int i = 0; i < configValues->flash_protocol_id.length(); i++)
-    {
-        if (configValues->flash_protocol_protocol_name.at(i) == protocol_name)
-        {
-            configValues->flash_protocol_selected_id = configValues->flash_protocol_id.at(i);
-            configValues->flash_protocol_selected_make = configValues->flash_protocol_make.at(i);
-            configValues->flash_protocol_selected_model = configValues->flash_protocol_model.at(i);
-            configValues->flash_protocol_selected_version = configValues->flash_protocol_version.at(i);
-            configValues->flash_protocol_selected_protocol_name = configValues->flash_protocol_protocol_name.at(i);
-            configValues->flash_protocol_selected_description = ui->treeWidget->selectedItems().at(0)->text(1);
-            configValues->flash_protocol_selected_log_protocol = configValues->flash_protocol_log_protocol.at(i);
-            configValues->flash_protocol_selected_mcu = configValues->flash_protocol_mcu.at(i);
-            configValues->flash_protocol_selected_checksum = configValues->flash_protocol_checksum.at(i);
-        }
-    }
-
-    qDebug() << "Selected MCU:" << configValues->flash_protocol_selected_mcu;
+    // Tentative: the caller applies an accepted choice to the session.
+    chosenProtocolName = protocol_name.toStdString();
     accept();
 
     close();
+}
+
+std::optional<std::string> ProtocolSelect::chosen_protocol_name() const
+{
+    return chosenProtocolName;
 }
 
 void ProtocolSelect::protocol_treewidget_item_selected()

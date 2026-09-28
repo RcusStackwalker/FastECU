@@ -1,5 +1,6 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/config/provisioning.h"
+#include "src/backend/ports/testing/in_memory_file_repository.h"
 #include "src/backend/ports/testing/in_memory_file_system.h"
 #include "src/backend/ports/testing/in_memory_resource_bundle.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
@@ -9,6 +10,7 @@
 
 using fastecu::DirEntry;
 using fastecu::ErrorKind;
+using fastecu::InMemoryFileRepository;
 using fastecu::InMemoryFileSystem;
 using fastecu::InMemoryResourceBundle;
 using fastecu::LogLevel;
@@ -37,10 +39,11 @@ TEST(ProvisionConfigDirectories, CreatesEveryDirectoryOnFirstRun)
 {
     InMemoryFileSystem fs;
     InMemoryResourceBundle bundle;
+    InMemoryFileRepository repo;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
-    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, repo, events), fastecu::testing::IsOk());
 
     EXPECT_TRUE(fs.exists(paths.base_config_directory));
     EXPECT_TRUE(fs.exists(paths.calibration_files_directory));
@@ -55,12 +58,13 @@ TEST(ProvisionConfigDirectories, IdempotentOnSecondRun)
 {
     InMemoryFileSystem fs;
     InMemoryResourceBundle bundle;
+    InMemoryFileRepository repo;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
-    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, repo, events), fastecu::testing::IsOk());
     auto directories_after_first = fs.directories;
-    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, repo, events), fastecu::testing::IsOk());
     EXPECT_EQ(fs.directories, directories_after_first);
 }
 
@@ -68,44 +72,61 @@ TEST(ProvisionConfigDirectories, CopiesBundledResourceFilesNotAlreadyPresent)
 {
     InMemoryFileSystem fs;
     InMemoryResourceBundle bundle;
+    InMemoryFileRepository repo;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     bundle.bundles["config"]["fastecu.cfg"] = {1};
     bundle.bundles["kernels"]["k1.bin"] = {2};
-    // The bundle's contents are compiled-in resources (Qt ":/..." paths in
-    // production) that already exist as QFile-readable files before
-    // provisioning runs -- list() enumerates their names, copy_file reads
-    // their bytes directly. Model that pre-existing-ness here so the fake
-    // mirrors production instead of requiring a nonexistent
-    // IFileSystem::write_bytes to bridge the two ports.
-    fs.files["config/fastecu.cfg"] = {1};
-    fs.files["kernels/k1.bin"] = {2};
 
-    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, repo, events), fastecu::testing::IsOk());
 
-    EXPECT_TRUE(fs.exists(paths.config_files_directory + "fastecu.cfg"));
-    EXPECT_TRUE(fs.exists(paths.kernel_files_directory + "k1.bin"));
+    EXPECT_EQ(repo.files[paths.config_files_directory + "fastecu.cfg"], (std::vector<std::uint8_t>{1}));
+    EXPECT_EQ(repo.files[paths.kernel_files_directory + "k1.bin"], (std::vector<std::uint8_t>{2}));
+}
+
+// The regression: bundled files used to be copied from "<bundle>/<name>", a
+// path relative to the working directory that never reached the compiled-in
+// (Qt ":/") resources. The bytes must come from the bundle itself, with no
+// such relative file anywhere on disk.
+TEST(ProvisionConfigDirectories, WritesTheBundledBytesWithoutARelativeSourceFile)
+{
+    InMemoryFileSystem fs;
+    InMemoryResourceBundle bundle;
+    InMemoryFileRepository repo;
+    RecordingEventSink events;
+    ConfigPaths paths = test_paths();
+    bundle.bundles["config"]["fastecu.cfg"] = {0x3C, 0x63, 0x3E};
+    ASSERT_FALSE(fs.exists("config/fastecu.cfg"));
+
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, repo, events), fastecu::testing::IsOk());
+
+    ASSERT_EQ(repo.write_calls.size(), 1U);
+    EXPECT_EQ(repo.write_calls.front().first, paths.config_files_directory + "fastecu.cfg");
+    EXPECT_EQ(repo.write_calls.front().second, (std::vector<std::uint8_t>{0x3C, 0x63, 0x3E}));
 }
 
 TEST(ProvisionConfigDirectories, DoesNotOverwriteAnExistingUserFile)
 {
     InMemoryFileSystem fs;
     InMemoryResourceBundle bundle;
+    InMemoryFileRepository repo;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     bundle.bundles["config"]["fastecu.cfg"] = {9, 9, 9};
     fs.create_directory(paths.config_files_directory);
     fs.files[paths.config_files_directory + "fastecu.cfg"] = {1, 2, 3}; // user's own copy
 
-    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, repo, events), fastecu::testing::IsOk());
 
     EXPECT_EQ(fs.files[paths.config_files_directory + "fastecu.cfg"], (std::vector<std::uint8_t>{1, 2, 3}));
+    EXPECT_TRUE(repo.write_calls.empty());
 }
 
 TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
 {
     InMemoryFileSystem fs;
     InMemoryResourceBundle bundle;
+    InMemoryFileRepository repo;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     fs.create_directory(paths.syslog_files_directory);
@@ -117,7 +138,7 @@ TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
             DirEntry{.name = name, .is_directory = false, .modified_time_epoch_seconds = i});
     }
 
-    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, repo, events), fastecu::testing::IsOk());
 
     int remaining = 0;
     for (auto& [path, bytes] : fs.files)
@@ -139,27 +160,11 @@ TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
     }
 }
 
-TEST(ProvisionConfigDirectories, BundleCopyFailurePropagatesRatherThanBeingSwallowed)
-{
-    InMemoryFileSystem fs;
-    InMemoryResourceBundle bundle;
-    RecordingEventSink events;
-    ConfigPaths paths = test_paths();
-    // A bundled kernel file nested under a subdirectory that provisioning
-    // never creates. Its destination's parent directory doesn't exist, so
-    // copy_file fails for a genuine I/O-style reason -- not the "already
-    // exists" case the fs.exists(target) pre-check already carves out as
-    // non-fatal -- and that failure must propagate, not be swallowed.
-    bundle.bundles["kernels"]["missing_subdir/k2.bin"] = {3};
-    fs.files["kernels/missing_subdir/k2.bin"] = {3};
-
-    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsErr(ErrorKind::Internal));
-}
-
 TEST(ProvisionConfigDirectories, MigratesPreviousVersionConfigFileForward)
 {
     InMemoryFileSystem fs;
     InMemoryResourceBundle bundle;
+    InMemoryFileRepository repo;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     // A previous-version directory "0.9" already exists under base, newer
@@ -168,7 +173,7 @@ TEST(ProvisionConfigDirectories, MigratesPreviousVersionConfigFileForward)
         DirEntry{.name = "0.9", .is_directory = true, .modified_time_epoch_seconds = 100});
     fs.files[paths.base_config_directory + "/0.9/config/fastecu.cfg"] = {7, 7, 7};
 
-    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsOk());
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, repo, events), fastecu::testing::IsOk());
 
     ASSERT_TRUE(fs.exists(paths.config_files_directory + "fastecu.cfg"));
     EXPECT_EQ(fs.files[paths.config_files_directory + "fastecu.cfg"], (std::vector<std::uint8_t>{7, 7, 7}));
@@ -179,10 +184,12 @@ TEST(ProvisionConfigDirectories, FirstCreateDirectoryFailureStopsTheSequence)
     InMemoryFileSystem fs;
     fs.create_directory_error = fastecu::Error{ErrorKind::Internal, "permission denied"};
     InMemoryResourceBundle bundle;
+    InMemoryFileRepository repo;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
-    ASSERT_THAT(provision_config_directories(paths, fs, bundle, events), fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(provision_config_directories(paths, fs, bundle, repo, events),
+                fastecu::testing::IsErr(ErrorKind::Internal));
     EXPECT_FALSE(fs.exists(paths.calibration_files_directory));
 }
 
@@ -191,25 +198,59 @@ TEST(ProvisionConfigDirectories, CreateDirectoryFailureNamesThePath)
     InMemoryFileSystem fs;
     fs.create_directory_error = fastecu::Error{ErrorKind::Internal, "permission denied"};
     InMemoryResourceBundle bundle;
+    InMemoryFileRepository repo;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
-    EXPECT_THAT(provision_config_directories(paths, fs, bundle, events),
+    EXPECT_THAT(provision_config_directories(paths, fs, bundle, repo, events),
                 fastecu::testing::IsErrWith(ErrorKind::Internal,
                                             ::testing::AllOf(::testing::HasSubstr(paths.base_config_directory),
                                                              ::testing::HasSubstr("permission denied"))));
 }
 
-TEST(ProvisionConfigDirectories, BundleCopyFailureNamesTheTarget)
+namespace
+{
+// Lists its files but cannot read them.
+class UnreadableResourceBundle : public InMemoryResourceBundle
+{
+  public:
+    fastecu::Result<std::vector<std::uint8_t>> read(std::string_view, std::string_view) override
+    {
+        return fastecu::fail(ErrorKind::Internal, "resource unreadable");
+    }
+};
+} // namespace
+
+TEST(ProvisionConfigDirectories, BundleReadFailureNamesTheTarget)
 {
     InMemoryFileSystem fs;
-    InMemoryResourceBundle bundle;
-    // Listed in the bundle but absent as a copy source, so copy_file fails.
+    UnreadableResourceBundle bundle;
     bundle.bundles["config"]["menu.cfg"] = {1};
+    InMemoryFileRepository repo;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
-    EXPECT_THAT(provision_config_directories(paths, fs, bundle, events),
-                fastecu::testing::IsErrWith(ErrorKind::Internal,
-                                            ::testing::HasSubstr(paths.config_files_directory + "menu.cfg")));
+    EXPECT_THAT(
+        provision_config_directories(paths, fs, bundle, repo, events),
+        fastecu::testing::IsErrWith(ErrorKind::Internal,
+                                    ::testing::AllOf(::testing::HasSubstr(paths.config_files_directory + "menu.cfg"),
+                                                     ::testing::HasSubstr("resource unreadable"))));
+    EXPECT_TRUE(repo.write_calls.empty());
+}
+
+TEST(ProvisionConfigDirectories, RepositoryWriteFailureNamesTheTarget)
+{
+    InMemoryFileSystem fs;
+    InMemoryResourceBundle bundle;
+    bundle.bundles["config"]["menu.cfg"] = {1};
+    InMemoryFileRepository repo;
+    ConfigPaths paths = test_paths();
+    repo.write_errors[paths.config_files_directory + "menu.cfg"] = fastecu::Error{ErrorKind::Internal, "disk full"};
+    RecordingEventSink events;
+
+    EXPECT_THAT(
+        provision_config_directories(paths, fs, bundle, repo, events),
+        fastecu::testing::IsErrWith(ErrorKind::Internal,
+                                    ::testing::AllOf(::testing::HasSubstr(paths.config_files_directory + "menu.cfg"),
+                                                     ::testing::HasSubstr("disk full"))));
 }

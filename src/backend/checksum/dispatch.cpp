@@ -71,7 +71,7 @@ enum class Route
 struct RouteSpec
 {
     std::string_view prefix;
-    std::string_view make; // ConfigValuesStructure::flash_protocol_selected_make
+    std::string_view make; // the selected vehicle's make (ConfigSession)
     Route route;
     std::uint32_t table_offset = 0;
     std::int32_t address_offset = 0;

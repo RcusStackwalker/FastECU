@@ -35,16 +35,11 @@ cc_library(
     ],
 )
 
-# Qt-typed (QString/QStringList/QDir members) but no QObject/Q_OBJECT.
-# ConfigValuesStructure, extracted out of FileActions (see config_values.h's
-# comment). Kept out of `definitions`'s own hdrs and given its own
-# cc_library, mirroring the `models` split above -- for the identical
-# reason (avoiding a Bazel dependency cycle), this time with
-# //src/backend/config/legacy:legacy_config_adapter rather than //src/backend/flash.
+# FileActions's legacy definition indexes, a leaf so
+# //src/backend/definition/legacy can use them without depending on FileActions.
 cc_library(
-    name = "config_values",
-    srcs = [],
-    hdrs = ["config_values.h"],
+    name = "definition_indexes",
+    hdrs = ["definition_indexes.h"],
     copts = COMMON_COPTS,
     deps = QT_DEPS_NO_WIDGETS,
 )
@@ -54,6 +49,7 @@ fastecu_qttest(
     src = "ecuflash_definition_parsing_test.cpp",
     deps = [
         ":definitions",
+        "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:recording_event_sink",
         "//src/platform/desktop/common/ports",
@@ -65,6 +61,7 @@ fastecu_qttest(
     src = "file_actions_parsing_test.cpp",
     deps = [
         ":definitions",
+        "//src/backend/config:config_session",
         "//src/backend/definition:ecuflash_parser",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:recording_event_sink",
@@ -83,6 +80,7 @@ fastecu_qttest(
     src = "rom_transformations_test.cpp",
     deps = [
         ":definitions",
+        "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:recording_event_sink",
         "//src/platform/desktop/common/ports",
@@ -99,7 +97,7 @@ cc_library(
 
 # LogValuesStructure, extracted out of FileActions (see log_values.h's
 # comment). Kept out of `definitions`'s own hdrs and given its own
-# cc_library, mirroring the config_values/ecu_cal_def splits above -- for
+# cc_library, mirroring the ecu_cal_def split above -- for
 # the identical reason (avoiding a Bazel dependency cycle), this time with
 # //src/backend/logging/legacy:legacy_logger_adapter.
 cc_library(
@@ -135,7 +133,7 @@ cc_library(
     ],
     copts = COMMON_COPTS,
     deps = QT_DEPS_NO_WIDGETS + [
-        ":config_values",
+        ":definition_indexes",
         ":ecu_cal_def",
         ":legacy_definition_columns",
         ":log_values",
@@ -146,7 +144,7 @@ cc_library(
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/calibration:calibration_service",
         "//src/backend/calibration/legacy:legacy_calibration_adapter",
-        "//src/backend/config/legacy:legacy_config_adapter",
+        "//src/backend/config:config_session",
         "//src/backend/definition:definition_service",
         "//src/backend/definition/legacy:legacy_definition_adapter",
         "//src/backend/logging:logger_conf",

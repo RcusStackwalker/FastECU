@@ -14,7 +14,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 
-#include "src/backend/definitions/file_actions.h"
+#include "src/backend/config/config_session.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -28,8 +28,9 @@ class Settings : public QDialog
     Q_OBJECT
 
   public:
-    explicit Settings(FileActions& fileActions, FileActions::ConfigValuesStructure *configValues,
-                      QWidget *parent = nullptr);
+    // Edits `config`'s settings live and saves them on close (and, as a
+    // fallback, on destruction); a failed save is reported to the operator.
+    explicit Settings(fastecu::config::ConfigSession& config, QWidget *parent = nullptr);
     ~Settings();
 
   private slots:
@@ -37,8 +38,8 @@ class Settings : public QDialog
   private:
     void closeEvent(QCloseEvent *bar);
 
-    FileActions& fileActions;
-    FileActions::ConfigValuesStructure *configValues;
+    fastecu::config::ConfigSession& config;
+    bool close_save_attempted = false;
 
     QLineEdit *ecuflash_def_dir_lineedit{};
     QLineEdit *romraider_logger_file_lineedit{};
@@ -49,8 +50,8 @@ class Settings : public QDialog
 
     QListWidget *romraider_definition_files_list{};
 
-    QVBoxLayout *create_files_config_page(FileActions::ConfigValuesStructure *configValues);
-    QVBoxLayout *create_ui_config_page(FileActions::ConfigValuesStructure *configValues);
+    QVBoxLayout *create_files_config_page();
+    QVBoxLayout *create_ui_config_page();
     void create_list_icons();
     void change_page(QListWidgetItem *current, QListWidgetItem *previous);
     void set_ecuflash_def_dir();

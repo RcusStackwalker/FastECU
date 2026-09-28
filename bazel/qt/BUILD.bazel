@@ -15,7 +15,6 @@ package_group(
         "//resources/...",
         "//src/algorithms/protocol/qt_compat",
         "//src/backend/calibration/legacy",
-        "//src/backend/config/legacy",
         "//src/backend/definition/legacy",
         "//src/backend/definitions",
         "//src/backend/logging/legacy",

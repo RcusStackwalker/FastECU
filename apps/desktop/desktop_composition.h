@@ -1,10 +1,15 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include <QString>
+#include <QStringList>
 
+#include "apps/desktop/startup_event_sink.h"
+#include "src/backend/config/config_session.h"
 #include "src/backend/definitions/file_actions.h"
+#include "src/backend/ports/error.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
@@ -28,6 +33,10 @@ class LoggingEngine;
 // The desktop application's composition root: builds and owns every
 // long-lived service MainWindow uses, and hands MainWindow non-owning
 // references to them. Must outlive the MainWindow it serves.
+//
+// The configuration session is initialized first. If that fails, nothing
+// else is built -- no logger, thread, or ECU connection -- and started()
+// is false; main() presents startup_error() and exits.
 class DesktopComposition
 {
     friend class DesktopCompositionTest;
@@ -40,6 +49,12 @@ class DesktopComposition
     DesktopComposition(const DesktopComposition&) = delete;
     DesktopComposition& operator=(const DesktopComposition&) = delete;
 
+    bool started() const;
+    const std::optional<fastecu::Error>& startup_error() const;
+    // Nonfatal configuration warnings raised while starting.
+    QStringList startup_warnings() const;
+
+    // Requires started().
     MainWindowServices services();
 
   private:
@@ -48,7 +63,10 @@ class DesktopComposition
     QtFileRepository file_repository_;
     QtAtomicFileWriter file_writer_;
     QtEventSink file_action_events_;
-    FileActions file_actions_;
+    StartupEventSink startup_events_;
+    fastecu::config::ConfigSession config_;
+    std::optional<fastecu::Error> startup_error_;
+    std::unique_ptr<FileActions> file_actions_;
     fastecu::ui::LogChannel log_channel_;
     fastecu::ui::RemotePeer remote_peer_;
     std::unique_ptr<QThread> syslog_thread_;

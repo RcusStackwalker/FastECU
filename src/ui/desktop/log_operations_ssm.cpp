@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "src/algorithms/protocol/qt_compat/qt_bytes.h"
+#include "src/ui/desktop/config_fields.h"
 
 void MainWindow::parse_log_value_list(QByteArray received, const QString& protocol_arg)
 {
@@ -92,8 +93,8 @@ void MainWindow::log_to_file()
             QDateTime dateTime = dateTime.currentDateTime();
             QString dateTimeString = dateTime.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
 
-            QString log_file_name = configValues->datalog_files_directory;
-            if (configValues->datalog_files_directory.at(configValues->datalog_files_directory.length() - 1) != '/')
+            QString log_file_name = fastecu::ui::qs(configSession->effective_paths().datalog_files_directory);
+            if (!log_file_name.endsWith('/'))
             {
                 log_file_name.append("/");
             }
