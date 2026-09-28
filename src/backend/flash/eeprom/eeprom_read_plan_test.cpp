@@ -172,7 +172,7 @@ TEST(BuildEepromReadPlanTest, KernelHandleIsDirectoryPlusFilenameWithNoAddedSepa
     EXPECT_EQ(repository.read_handles.back(), "kernels/ssmk_can_tp_sh7058.bin");
 }
 
-// The deliberate divergence from LegacyCalibrationAdapter::bind_protocol,
+// The deliberate divergence from the calibration session opener,
 // which substitutes a single-space placeholder here. A placeholder MCU or
 // kernel address would build a plan that flashes garbage to an ECU.
 TEST(BuildEepromReadPlanTest, ProtocolWithNoCarModelIsRejected)

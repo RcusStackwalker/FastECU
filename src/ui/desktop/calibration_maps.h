@@ -11,7 +11,8 @@
 #include <QCheckBox>
 
 #include "src/ui/desktop/calibration/session_key.h"
-#include "src/backend/definitions/file_actions.h"
+#include "src/backend/calibration/session/calibration_workspace.h"
+#include "src/ui/desktop/calibration/map_presentation.h"
 #include "src/ui/desktop/verticallabel.h"
 
 QT_BEGIN_NAMESPACE
@@ -26,8 +27,9 @@ class CalibrationMaps : public QWidget
     Q_OBJECT
 
   public:
-    explicit CalibrationMaps(FileActions::EcuCalDefStructure *ecuCalDef, fastecu::calibration::SessionId session,
-                             int mapIndex, QRect mdiAreaSize, QWidget *parent = nullptr);
+    explicit CalibrationMaps(fastecu::calibration::CalibrationWorkspace& workspace,
+                             fastecu::calibration::SessionId session, int mapIndex, QRect mdiAreaSize,
+                             QWidget *parent = nullptr);
     ~CalibrationMaps();
 
     int mapCellWidthSelectable = 240;
@@ -44,29 +46,10 @@ class CalibrationMaps : public QWidget
     int ySizeOffset = 0;
 
   private:
-    enum RomInfoEnum
-    {
-        XmlId,
-        InternalIdAddress,
-        Make,
-        Model,
-        SubModel,
-        Market,
-        Transmission,
-        Year,
-        EcuId,
-        InternalIdString,
-        MemModel,
-        ChecksumModule,
-        RomBase,
-        FlashMethod,
-        FileSize,
-    };
-
     void setMapTableWidgetSize(int maxWidth, int maxHeight, int sizeX);
-    void setMapTableWidgetItems(FileActions::EcuCalDefStructure *ecuCalDef, int mapIndex);
-    int getMapValueDecimalCount(const QString& valueFormat);
-    QColor getMapCellColor(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex);
+
+  public:
+    void refresh(); // Resolves the stable identity; a closed session is inert.
 
   private slots:
     // void fetchFromEcu();
@@ -82,6 +65,9 @@ class CalibrationMaps : public QWidget
     void checkbox_state_changed(int);
 
   private:
-  private:
+    fastecu::calibration::CalibrationWorkspace& workspace_;
+    fastecu::calibration::SessionId session_;
+    int map_index_;
+    fastecu::ui::MapColorBounds color_bounds_;
     std::unique_ptr<Ui::CalibrationMaps> ui;
 };

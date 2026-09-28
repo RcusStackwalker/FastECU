@@ -98,9 +98,11 @@ Actions:
   settings persistence.
 - Flash dispatch runs through `FlashOperationController` (step 6d); what
   remains in `MainWindow::start_ecu_operations` is write preflight,
-  checksum correction, and the post-read calibration handoff, which all
-  mutate `ecuCalDef` and move with the "Replace parallel-list data models"
-  work rather than on their own.
+  checksum correction, and the post-read calibration handoff. Step 6m moved
+  them onto composition-owned calibration sessions; checksum uses a temporary
+  operation image and successful reads are adopted after dispatch. Dialogs and
+  confirmations remain in the UI. Post-read and checksum bench re-verification
+  remain required before release.
 - Keep new file, protocol, and hardware logic out of `MainWindow`.
 - Logging model and definition service ownership moved to composition in step
   6l; immutable definitions, selection, ECU support and desktop values are
@@ -195,63 +197,41 @@ Actions:
 
 ### P1: Split `FileActions`
 
-`FileActions` (`src/backend/definitions/file_actions.{h,cpp}`, 986 lines plus
-a 236-line header) no longer inherits `QWidget`, declares no `Q_OBJECT`, and
-constructs no dialog or message box — Qt Widgets are unreachable from all of
-`src/backend`, enforced by the visibility of the `//bazel/qt:widgets` alias
-([ADR 0016](adr/0016-enforce-qt-reachability-by-visibility.md)). Expression and diagnostic parsing, the
-EcuFlash/RomRaider parsers, ROM open/save, and config persistence have been
-extracted into portable use cases under
-`src/backend/{definition,calibration,config}/`; definition and calibration are
-reached through a `Legacy*Adapter`, while config is reached through
-`ConfigSession`. Checksum dispatch has also been extracted, under
-`src/backend/checksum/`, but is reached directly from the desktop UI's
-`ChecksumCorrectionCommand` rather than through a `Legacy*Adapter`. What
-remains inside `FileActions` is logger definition/conf reading, the
-EcuFlash/RomRaider definition-lookup parsers, ROM open/save, and the
-`LogValuesStructure` / `EcuCalDefStructure` models, still
-`QString`/`QStringList` typed.
+`FileActions` no longer inherits `QWidget`, declares no `Q_OBJECT`, and
+constructs no dialog or message box. Qt Widgets remain unreachable from
+`src/backend` through [ADR 0016](adr/0016-enforce-qt-reachability-by-visibility.md).
+Portable definition, calibration, config, logging and checksum APIs now serve
+their consumers directly. Step 6m retired ROM open/save wrappers, definition
+columns, both definition/calibration legacy adapters and `EcuCalDefStructure`.
+The earlier logging migration retired `LogValuesStructure` and its bridge.
 
-Actions:
-
-- Extract `LoggerDefinitionParser` as a non-widget component with explicit
-  inputs and results, following the definition-parser precedent.
-- Move nested data structures to standalone model headers so parsers, logging,
-  calibration editing, and tests do not depend on `FileActions`.
-- Remove the `Legacy*Adapter` compatibility wrappers after all callers use the
-  extracted APIs.
+Step 6n still must replace `FileActions`' definition catalog/index ownership,
+wire the remaining services through desktop composition, move retained portable
+kernel constants/models to appropriate ownership and delete `FileActions` and
+its remaining Qt legacy package. The Qt byte-conversion helper also needs a
+designed desktop boundary with explicit conversions and tests. Retire obsolete
+checks as their underlying files disappear; the Qt ratchet only shrinks.
 
 ### P1: Replace parallel-list data models
 
-Validation now catches several length mismatches after parsing, but core models
-are still represented by large parallel `QStringList` collections and raw
-index/pointer ownership. Examples include
-`LogValuesStructure` and
-`EcuCalDefStructure`; `MainWindow` also owns a fixed raw-pointer array of 100
-calibration definitions.
+The logger and calibration parallel-list models are retired. Typed logger,
+protocol and definition records own their data; composition-owned
+`CalibrationWorkspace` replaces the fixed raw-pointer calibration array.
+Map metadata and values use sessions directly, without a legacy projection.
+Controlled byte edits and decode-on-demand prevent a second mutable value store.
+See [calibration session ownership and operation images](design-notes.md#calibration-session-ownership-and-operation-images).
 
-Risks:
+Remaining checks:
 
-- Every mutation must keep many lists aligned, and validation only detects an
-  inconsistency after it has been created.
-- UI, logging, and protocol code use integer indexes into shared mutable state.
-- Tests must populate unrelated fields and cannot express model invariants in
-  the type system.
-
-Actions:
-
-- Convert high-churn rows to typed values one area at a time, starting with
-  `LoggerChannel`, `LoggerSwitch`, `ProtocolDefinition`, `CalibrationMap`, and
-  `RomDefinition`.
-- Make parsers construct and validate complete records instead of appending to
-  parallel lists.
-- Return immutable models or controlled mutation APIs after parsing.
-- Replace raw fixed-capacity ownership with containers of values or smart
-  pointers, and return `std::optional`/explicit result types instead of null or
-  partially filled structures.
-- Confirm this clears SonarCloud's `cpp:S1820` (struct exceeds 20 fields) on
-  `LogValuesStructure` and `EcuCalDefStructure` — see
-  "P2: Pay down the SonarCloud code-smell backlog" below; don't track it twice.
+- Confirm removal of SonarCloud's `cpp:S1820` findings on the deleted
+  `LogValuesStructure` and `EcuCalDefStructure`; track other model findings in
+  the SonarCloud backlog rather than recreating this completed migration.
+- Record full release build/test, formatting, changed-file static-analysis and
+  platform CI/packaging results before release.
+- Re-verify post-read handoff and checksum/save/write paths on the bench before
+  release. This model migration does not establish hardware qualification.
+- Keep the documented `wrx02` address predicate defect open until separately
+  evidenced and corrected; model retirement is not a correction to its behavior.
 
 ### P1: Isolate flash-operation orchestration
 

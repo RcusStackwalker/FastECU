@@ -184,8 +184,8 @@ void MainWindow::inc_dec_value(fastecu::calibration::IncrementStep step)
     {
         return;
     }
-    FileActions::EcuCalDefStructure *legacy = legacy_calibration(id->session);
-    if (legacy == nullptr)
+    auto *session = calibrationWorkspace->find(id->session);
+    if (session == nullptr)
     {
         return;
     }
@@ -196,26 +196,26 @@ void MainWindow::inc_dec_value(fastecu::calibration::IncrementStep step)
         return;
     }
 
-    emit LOG_D(
-        "Map " + legacy->NameList.at(id->map_number) + " scaling " + legacy->MapScalingNameList.at(id->map_number) +
-            " min / max: " + legacy->MinValueList.at(id->map_number) + " / " + legacy->MaxValueList.at(id->map_number),
-        true, true);
-
-    auto edit = fastecu::ui::resolve_active_map_edit(w, *legacy, id->map_number);
+    auto edit = fastecu::ui::resolve_active_map_edit(w, *session, id->map_number);
     if (!edit)
     {
         return;
     }
 
     const auto patch =
-        fastecu::calibration::apply_increment(bytes::view(legacy->FullRomData), edit->spec(), edit->x_size(),
-                                              edit->cell_text(), edit->range(), step, fileActions->float_precision);
+        fastecu::calibration::apply_increment(session->rom(), edit->spec(), edit->x_size(), edit->cell_text(),
+                                              edit->range(), step, fastecu::calibration::kCellFloatPrecision);
     if (!patch.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
         return;
     }
-    fastecu::ui::apply_patch(*legacy, id->map_number, edit->kind(), *patch);
+    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), *patch);
+    if (!applied.has_value())
+    {
+        QMessageBox::warning(this, tr("Set value"), QString::fromStdString(applied.error().detail));
+        return;
+    }
     set_maptablewidget_items();
 }
 
@@ -229,8 +229,8 @@ void MainWindow::set_value()
     {
         return;
     }
-    FileActions::EcuCalDefStructure *legacy = legacy_calibration(id->session);
-    if (legacy == nullptr)
+    auto *session = calibrationWorkspace->find(id->session);
+    if (session == nullptr)
     {
         return;
     }
@@ -252,21 +252,26 @@ void MainWindow::set_value()
         return;
     }
 
-    auto edit = fastecu::ui::resolve_active_map_edit(w, *legacy, id->map_number);
+    auto edit = fastecu::ui::resolve_active_map_edit(w, *session, id->map_number);
     if (!edit)
     {
         return;
     }
 
-    const auto patch = fastecu::calibration::apply_set_expression(bytes::view(legacy->FullRomData), edit->spec(),
-                                                                  edit->x_size(), edit->cell_text(), edit->range(),
-                                                                  text.toStdString(), fileActions->float_precision);
+    const auto patch = fastecu::calibration::apply_set_expression(session->rom(), edit->spec(), edit->x_size(),
+                                                                  edit->cell_text(), edit->range(), text.toStdString(),
+                                                                  fastecu::calibration::kCellFloatPrecision);
     if (!patch.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
         return;
     }
-    fastecu::ui::apply_patch(*legacy, id->map_number, edit->kind(), *patch);
+    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), *patch);
+    if (!applied.has_value())
+    {
+        QMessageBox::warning(this, tr("Set value"), QString::fromStdString(applied.error().detail));
+        return;
+    }
     set_maptablewidget_items();
 }
 
@@ -278,8 +283,8 @@ void MainWindow::interpolate_value(fastecu::calibration::InterpolationMode mode)
     {
         return;
     }
-    FileActions::EcuCalDefStructure *legacy = legacy_calibration(id->session);
-    if (legacy == nullptr)
+    auto *session = calibrationWorkspace->find(id->session);
+    if (session == nullptr)
     {
         return;
     }
@@ -290,21 +295,26 @@ void MainWindow::interpolate_value(fastecu::calibration::InterpolationMode mode)
         return;
     }
 
-    auto edit = fastecu::ui::resolve_active_map_edit(w, *legacy, id->map_number);
+    auto edit = fastecu::ui::resolve_active_map_edit(w, *session, id->map_number);
     if (!edit)
     {
         return;
     }
 
     const auto patch =
-        fastecu::calibration::apply_interpolation(bytes::view(legacy->FullRomData), edit->spec(), edit->x_size(),
-                                                  edit->cell_text(), edit->range(), mode, fileActions->float_precision);
+        fastecu::calibration::apply_interpolation(session->rom(), edit->spec(), edit->x_size(), edit->cell_text(),
+                                                  edit->range(), mode, fastecu::calibration::kCellFloatPrecision);
     if (!patch.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
         return;
     }
-    fastecu::ui::apply_patch(*legacy, id->map_number, edit->kind(), *patch);
+    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), *patch);
+    if (!applied.has_value())
+    {
+        QMessageBox::warning(this, tr("Set value"), QString::fromStdString(applied.error().detail));
+        return;
+    }
     set_maptablewidget_items();
 }
 
@@ -365,8 +375,8 @@ void MainWindow::paste_value()
     {
         return;
     }
-    FileActions::EcuCalDefStructure *legacy = legacy_calibration(id->session);
-    if (legacy == nullptr)
+    auto *session = calibrationWorkspace->find(id->session);
+    if (session == nullptr)
     {
         return;
     }
@@ -377,7 +387,7 @@ void MainWindow::paste_value()
         return;
     }
 
-    auto edit = fastecu::ui::resolve_active_map_edit(w, *legacy, id->map_number);
+    auto edit = fastecu::ui::resolve_active_map_edit(w, *session, id->map_number);
     if (!edit)
     {
         return;
@@ -412,14 +422,19 @@ void MainWindow::paste_value()
     const std::uint32_t y_size = edit->kind() == fastecu::calibration::EditTargetKind::XAxis ? 1U : spec.y_size;
 
     const auto patch =
-        fastecu::calibration::apply_paste(bytes::view(legacy->FullRomData), spec, x_size, y_size, edit->cell_text(),
-                                          edit->range(), pasted_rows, fileActions->float_precision);
+        fastecu::calibration::apply_paste(session->rom(), spec, x_size, y_size, edit->cell_text(), edit->range(),
+                                          pasted_rows, fastecu::calibration::kCellFloatPrecision);
     if (!patch.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
         return;
     }
-    fastecu::ui::apply_patch(*legacy, id->map_number, edit->kind(), *patch);
+    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), *patch);
+    if (!applied.has_value())
+    {
+        QMessageBox::warning(this, tr("Set value"), QString::fromStdString(applied.error().detail));
+        return;
+    }
     set_maptablewidget_items();
 }
 
@@ -862,9 +877,10 @@ void MainWindow::show_hex_editor()
     // event when the user cancels a save prompt, and Qt only deletes on an
     // accepted close, so cancelling still keeps the window. It holds its own
     // copy of the image, so it may outlive the ROM it was opened from.
-    if (FileActions::EcuCalDefStructure *legacy = selected_legacy_calibration(); legacy != nullptr)
+    if (auto *session = selected_calibration(); session != nullptr)
     {
-        HexEdit *hexEdit = new HexEdit(legacy->FullRomData, legacy->FileName, this);
+        HexEdit *hexEdit = new HexEdit(bytes::toQByteArray(session->rom()),
+                                       QString::fromStdString(session->source().display_name), this);
         hexEdit->setAttribute(Qt::WA_DeleteOnClose);
     }
 }
@@ -951,162 +967,14 @@ void MainWindow::winols_csv_to_romraider_xml()
 
 void MainWindow::set_maptablewidget_items()
 {
-    QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
-    const auto id = fastecu::ui::parse_map_window_id(w);
-    FileActions::EcuCalDefStructure *legacy = id.has_value() ? legacy_calibration(id->session) : nullptr;
-    if (legacy != nullptr)
+    auto *window = ui->mdiArea->activeSubWindow();
+    const auto id = fastecu::ui::parse_map_window_id(window);
+    if (!id.has_value() || calibrationWorkspace->find(id->session) == nullptr)
     {
-        const int mapNumber = id->map_number;
-        const QString mapName = w->objectName().split(",").value(2);
-
-        QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
-        if (mapTableWidget)
-        {
-            int xSize = legacy->XSizeList.at(mapNumber).toInt();
-            int ySize = legacy->YSizeList.at(mapNumber).toInt();
-            int mapSize = xSize * ySize;
-
-            int xSizeOffset = 0;
-            int ySizeOffset = 0;
-
-            if (legacy->YSizeList.at(mapNumber).toInt() > 1)
-            {
-                xSizeOffset = 1;
-            }
-            if (legacy->XSizeList.at(mapNumber).toInt() > 1 ||
-                legacy->XScaleTypeList.at(mapNumber) == "Static Y Axis" ||
-                legacy->XScaleTypeList.at(mapNumber) == "Static X Axis")
-            {
-                ySizeOffset = 1;
-            }
-
-            QFont cellFont = mapTableWidget->font();
-            cellFont.setPointSize(cellFontSize);
-            cellFont.setFamily("Franklin Gothic");
-
-            if (xSize > 1)
-            {
-                QStringList xScaleCellText = legacy->XScaleData.at(mapNumber).split(",");
-                for (int i = 0; i < xSize; i++)
-                {
-                    QTableWidgetItem *cellItem;
-                    if (ySize > 1)
-                    {
-                        cellItem = mapTableWidget->item(0, i + 1);
-                    }
-                    else
-                    {
-                        cellItem = mapTableWidget->item(0, i);
-                    }
-
-                    cellItem->setTextAlignment(Qt::AlignCenter);
-                    cellItem->setFont(cellFont);
-
-                    QString xScaleCellDataText;
-
-                    if (xScaleCellText.at(i) == " ")
-                    {
-                        xScaleCellText.insert(i, QString::number(i));
-                        xScaleCellDataText = xScaleCellText.at(i);
-                    }
-                    else if (legacy->XScaleTypeList.at(mapNumber) == "Static Y Axis" ||
-                             legacy->XScaleTypeList.at(mapNumber) == "Static X Axis")
-                    {
-                        xScaleCellDataText = xScaleCellText.at(i);
-                    }
-                    else
-                    {
-                        xScaleCellDataText = QString::number(xScaleCellText.at(i).toFloat(), 'f',
-                                                             fastecu::calibration::map_value_decimal_count(
-                                                                 legacy->XScaleFormatList.at(mapNumber).toStdString()));
-                    }
-
-                    if (i < xScaleCellText.count())
-                    {
-                        cellItem->setText(xScaleCellDataText);
-                    }
-                }
-            }
-            if (ySize > 1)
-            {
-                QStringList yScaleCellText = legacy->YScaleData.at(mapNumber).split(",");
-                for (int i = 0; i < ySize; i++)
-                {
-                    QTableWidgetItem *cellItem;
-                    cellItem = mapTableWidget->item(i + 1, 0);
-
-                    cellItem->setTextAlignment(Qt::AlignCenter);
-                    cellItem->setFont(cellFont);
-                    if (i < yScaleCellText.count())
-                    {
-                        cellItem->setText(QString::number(yScaleCellText.at(i).toFloat(), 'f',
-                                                          fastecu::calibration::map_value_decimal_count(
-                                                              legacy->YScaleFormatList.at(mapNumber).toStdString())));
-                    }
-                }
-            }
-            QStringList mapDataCellText = legacy->MapData.at(mapNumber).split(",");
-            for (int i = 0; i < mapSize; i++)
-            {
-                int yPos = 0;
-                int xPos = 0;
-                if (legacy->XSizeList.at(mapNumber).toUInt() > 1)
-                {
-                    yPos = i / xSize + ySizeOffset;
-                }
-                else
-                {
-                    yPos = i / xSize;
-                }
-                if (legacy->YSizeList.at(mapNumber).toUInt() > 1)
-                {
-                    xPos = i - (yPos - ySizeOffset) * xSize + xSizeOffset;
-                }
-                else
-                {
-                    xPos = i - (yPos - ySizeOffset) * xSize;
-                }
-
-                // qDebug() << "X pos:" << xPos << "Y pos:" << yPos;
-                QTableWidgetItem *cellItem; // = new QTableWidgetItem;
-                cellItem = mapTableWidget->item(yPos, xPos);
-
-                cellItem->setTextAlignment(Qt::AlignCenter);
-                cellItem->setFont(cellFont);
-                cellItem->setBackground(QBrush(get_map_cell_color(legacy, mapDataCellText.at(i).toFloat(), mapNumber)));
-                // if (legacy->TypeList.at(mapNumber) == "1D")
-                cellItem->setForeground(Qt::black);
-                // else
-                //     cellItem->setForeground(Qt::white);
-
-                if (i < mapDataCellText.count())
-                {
-                    cellItem->setText(QString::number(
-                        mapDataCellText.at(i).toFloat(), 'f',
-                        fastecu::calibration::map_value_decimal_count(legacy->FormatList.at(mapNumber).toStdString())));
-                }
-            }
-        }
+        return;
     }
-}
-
-QColor MainWindow::get_map_cell_color(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex)
-{
-    const float mapMinValue = ecuCalDef->MapCellColorMin.at(mapIndex).toFloat();
-    const float mapMaxValue = ecuCalDef->MapCellColorMax.at(mapIndex).toFloat();
-
-    // Maps mapMinValue -> hue 0, mapMaxValue -> hue 210/360, clamping to that
-    // range at both ends. mapMinValue == mapMaxValue would divide by zero,
-    // producing a non-finite hue that's undefined (effectively invalid) as a
-    // QColor::fromHsvF argument -- guarded to 0.0 instead, a well-defined
-    // choice consistent with the clamp.
-    constexpr double kScaleStart = 210.0 / 360.0;
-    double color_value = 0.0;
-    if (mapMaxValue != mapMinValue)
+    if (auto *map = qobject_cast<CalibrationMaps *>(window->widget()); map != nullptr)
     {
-        color_value =
-            std::clamp(kScaleStart * (mapDataValue - mapMinValue) / (mapMaxValue - mapMinValue), 0.0, kScaleStart);
+        map->refresh();
     }
-
-    return QColor::fromHsvF(color_value, 0.85, 0.85);
 }

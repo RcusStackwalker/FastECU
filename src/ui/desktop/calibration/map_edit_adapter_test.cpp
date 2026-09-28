@@ -59,152 +59,119 @@ const auto *map_edit_adapter_environment = ::testing::AddGlobalTestEnvironment(n
 // ref-qualification itself; see PlucksMapBodyFields below for the ordinary,
 // non-dangling usage this class expects from every caller.
 
-definitions::EcuCalDefStructure two_by_two_def()
+definition::RomDefinition two_by_two_definition()
 {
-    definitions::EcuCalDefStructure def;
-    def.NameList << "Timing";
-    def.AddressList << "10000";
-    def.StorageTypeList << "uint16";
-    def.EndianList << "big";
-    def.ToByteList << "x";
-    def.FromByteList << "x*2";
-    def.MinValueList << " ";
-    def.MaxValueList << " ";
-    def.CoarseIncList << "1.0";
-    def.FineIncList << "0.1";
-    def.XSizeList << "2";
-    def.YSizeList << "2";
-    def.StartPosList << "0x2";
-    def.IntervalList << "0x3";
-    def.FileSize = "196608";
+    definition::RomDefinition def;
+    definition::Scaling scaling;
+    scaling.name = "body";
+    scaling.from_byte = "x*2";
+    scaling.coarse_increment = "1.0";
+    scaling.fine_increment = "0.1";
+    def.scalings.push_back(scaling);
+    definition::CalibrationMap map;
+    map.name = "Timing";
+    map.address = 16;
+    map.storage_type = definition::StorageType::Uint16;
+    map.endian = "big";
+    map.scaling_name = "body";
+    map.x_size = 2;
+    map.y_size = 2;
+    map.start_position = 2;
+    map.interval = 3;
+    map.x_axis.type = "X Axis";
+    map.x_axis.address = 64;
+    map.x_axis.storage_type = definition::StorageType::Uint8;
+    map.x_axis.from_byte = "x*10";
+    map.x_axis.to_byte = "x/10";
+    map.y_axis.type = "Y Axis";
+    map.y_axis.address = 80;
+    map.y_axis.storage_type = definition::StorageType::Int16;
+    map.y_axis.endian = "big";
+    map.y_axis.from_byte = "x/4";
+    map.y_axis.to_byte = "x*4";
+    def.maps.push_back(map);
     return def;
 }
 
-TEST(MapEditAdapter, PlucksMapBodyFields)
+calibration::CalibrationSession session_from(definition::RomDefinition def = two_by_two_definition())
 {
-    const auto def = two_by_two_def();
+    calibration::SessionContents contents;
+    contents.rom.resize(128);
+    for (unsigned i = 0; i < 4; ++i)
+    {
+        contents.rom[19 + i * 6] = static_cast<std::uint8_t>(i + 1);
+    }
+    contents.definition = calibration::ResolvedDefinition{.definition = std::move(def)};
+    contents.protocol.flash_method = "wrx02";
+    contents.protocol.unpadded_size = 123;
+    return calibration::CalibrationSession(calibration::SessionId{1}, std::move(contents));
+}
 
-    const auto fields = collect_map_element_fields(def, 0, calibration::EditTargetKind::MapBody);
+TEST(MapEditAdapter, PlucksTypedFieldsAndUnpaddedProtocolSize)
+{
+    const auto session = session_from();
+    const auto fields = collect_map_element_fields(session, 0, calibration::EditTargetKind::MapBody);
     const auto spec = fields.spec();
-
-    EXPECT_EQ(spec.address, 0x10000U);
+    EXPECT_EQ(spec.address, 16U);
     EXPECT_EQ(spec.storage_type, definition::StorageType::Uint16);
-    EXPECT_EQ(spec.endian, "big");
     EXPECT_EQ(spec.from_byte, "x*2");
+    EXPECT_EQ(spec.to_byte, "x");
+    EXPECT_EQ(spec.min_value, " ");
     EXPECT_DOUBLE_EQ(spec.fine_increment, 0.1);
-    // Spec defect (b): StartPosList/IntervalList are hex_text-formatted, same
-    // convention as AddressList -- 0x2/0x3 here, not decimal 2/3.
     EXPECT_EQ(spec.start_position, 2U);
     EXPECT_EQ(spec.interval, 3U);
+    EXPECT_EQ(spec.flash_method, "wrx02");
+    EXPECT_EQ(spec.rom_file_size, 123U);
 }
 
-// StartPosList/IntervalList default to 1 (no striding) when absent or
-// unparsable, matching MapElementSpec's own default and
-// decode_scaled_values' EcuCalDefStructure default -- unlike AddressList,
-// which warns and falls back to 0 (FallsBackToZeroOnABadHexAddress below),
-// since 1 is a meaningful, safe "not strided" value rather than an obviously
-// wrong placeholder.
-TEST(MapEditAdapter, FallsBackToOneWhenStartPositionOrIntervalIsMissing)
+TEST(MapEditAdapter, AxisUsesResolvedFieldsAndScalingBounds)
 {
-    definitions::EcuCalDefStructure def = two_by_two_def();
-    def.StartPosList.clear();
-    def.IntervalList.clear();
-
-    const auto fields = collect_map_element_fields(def, 0, calibration::EditTargetKind::MapBody);
+    auto def = two_by_two_definition();
+    def.maps[0].x_axis.scaling_name = "body";
+    def.maps[0].x_axis.start_position = 4;
+    def.maps[0].x_axis.interval = 5;
+    const auto session = session_from(std::move(def));
+    const auto fields = collect_map_element_fields(session, 0, calibration::EditTargetKind::XAxis);
     const auto spec = fields.spec();
-
-    EXPECT_EQ(spec.start_position, 1U);
-    EXPECT_EQ(spec.interval, 1U);
-}
-
-TEST(MapEditAdapter, PlucksXAxisFieldsFromTheXScaleLists)
-{
-    definitions::EcuCalDefStructure def = two_by_two_def();
-    def.XScaleAddressList << "20000";
-    def.XScaleStorageTypeList << "uint8";
-    def.XScaleEndianList << "little";
-    def.XScaleToByteList << "x/10";
-    def.XScaleFromByteList << "x*10";
-    def.XScaleMinValueList << " ";
-    def.XScaleMaxValueList << " ";
-    def.XScaleCoarseIncList << "2.0";
-    def.XScaleFineIncList << "0.5";
-    def.XScaleStartPosList << "0x4";
-    def.XScaleIntervalList << "0x5";
-
-    const auto fields = collect_map_element_fields(def, 0, calibration::EditTargetKind::XAxis);
-    const auto spec = fields.spec();
-
-    EXPECT_EQ(spec.address, 0x20000U);
+    EXPECT_EQ(spec.address, 64U);
     EXPECT_EQ(spec.storage_type, definition::StorageType::Uint8);
-    EXPECT_EQ(spec.endian, "little");
-    EXPECT_EQ(spec.to_byte, "x/10");
     EXPECT_EQ(spec.from_byte, "x*10");
-    EXPECT_DOUBLE_EQ(spec.coarse_increment, 2.0);
-    EXPECT_DOUBLE_EQ(spec.fine_increment, 0.5);
+    EXPECT_EQ(spec.to_byte, "x/10");
     EXPECT_EQ(spec.start_position, 4U);
     EXPECT_EQ(spec.interval, 5U);
+    EXPECT_DOUBLE_EQ(spec.fine_increment, 0.1);
 }
 
-TEST(MapEditAdapter, PlucksYAxisFieldsFromTheYScaleLists)
+TEST(MapEditAdapter, BodyStorageAndEndianFallBackToScalingButAxesUseResolvedStorage)
 {
-    definitions::EcuCalDefStructure def = two_by_two_def();
-    def.YScaleAddressList << "30000";
-    def.YScaleStorageTypeList << "int16";
-    def.YScaleEndianList << "big";
-    def.YScaleToByteList << "x*4";
-    def.YScaleFromByteList << "x/4";
-    def.YScaleMinValueList << " ";
-    def.YScaleMaxValueList << " ";
-    def.YScaleCoarseIncList << "3.0";
-    def.YScaleFineIncList << "0.25";
-    def.YScaleStartPosList << "0x6";
-    def.YScaleIntervalList << "0x7";
-
-    const auto fields = collect_map_element_fields(def, 0, calibration::EditTargetKind::YAxis);
-    const auto spec = fields.spec();
-
-    EXPECT_EQ(spec.address, 0x30000U);
-    EXPECT_EQ(spec.storage_type, definition::StorageType::Int16);
-    EXPECT_EQ(spec.endian, "big");
-    EXPECT_EQ(spec.to_byte, "x*4");
-    EXPECT_EQ(spec.from_byte, "x/4");
-    EXPECT_DOUBLE_EQ(spec.coarse_increment, 3.0);
-    EXPECT_DOUBLE_EQ(spec.fine_increment, 0.25);
-    EXPECT_EQ(spec.start_position, 6U);
-    EXPECT_EQ(spec.interval, 7U);
+    auto def = two_by_two_definition();
+    def.maps[0].storage_type.reset();
+    def.maps[0].endian.clear();
+    def.scalings[0].storage_type = definition::StorageType::Float;
+    def.scalings[0].endian = "little";
+    def.maps[0].x_axis.scaling_name = "body";
+    const auto session = session_from(std::move(def));
+    const auto body = collect_map_element_fields(session, 0, calibration::EditTargetKind::MapBody);
+    EXPECT_EQ(body.spec().storage_type, definition::StorageType::Float);
+    EXPECT_EQ(body.spec().endian, "little");
+    const auto axis = collect_map_element_fields(session, 0, calibration::EditTargetKind::XAxis);
+    EXPECT_EQ(axis.spec().storage_type, definition::StorageType::Uint8);
+    EXPECT_EQ(axis.spec().endian, " ");
 }
 
-TEST(MapEditAdapter, ReadsFlashMethodAndRomFileSizeFromTheSharedRomInfo)
+TEST(MapEditAdapter, MissingScalingAndAxisRetainLegacyPlaceholders)
 {
-    definitions::EcuCalDefStructure def = two_by_two_def();
-    def.RomInfo.clear();
-    for (int i = 0; i < 16; ++i)
-    {
-        def.RomInfo << "";
-    }
-    def.RomInfo[10] = "wrx02";
-    def.FileSize = "12345";
-
-    const auto fields = collect_map_element_fields(def, 0, calibration::EditTargetKind::MapBody);
-    const auto spec = fields.spec();
-
-    EXPECT_EQ(spec.flash_method, "wrx02");
-    EXPECT_EQ(spec.rom_file_size, 12345U);
-}
-
-// Only the fallback value is asserted here; collect_map_element_fields also
-// logs a qWarning on this path (not observed by this test -- would need a
-// custom Qt message handler installed for the duration of the test).
-TEST(MapEditAdapter, FallsBackToZeroOnABadHexAddress)
-{
-    definitions::EcuCalDefStructure def = two_by_two_def();
-    def.AddressList[0] = "not-hex";
-
-    const auto fields = collect_map_element_fields(def, 0, calibration::EditTargetKind::MapBody);
-    const auto spec = fields.spec();
-
-    EXPECT_EQ(spec.address, 0U);
+    auto def = two_by_two_definition();
+    def.maps[0].scaling_name.clear();
+    def.maps[0].x_axis = {};
+    const auto session = session_from(std::move(def));
+    const auto body = collect_map_element_fields(session, 0, calibration::EditTargetKind::MapBody);
+    EXPECT_EQ(body.spec().from_byte, " ");
+    const auto axis = collect_map_element_fields(session, 0, calibration::EditTargetKind::XAxis);
+    EXPECT_EQ(axis.spec().endian, " ");
+    EXPECT_EQ(axis.spec().to_byte, " ");
+    EXPECT_EQ(axis.spec().address, 0U);
+    EXPECT_EQ(axis.spec().start_position, 1U);
 }
 
 TEST(FormatRawElementValue, FormatsUnsignedRawValueAsPlainDecimal)
@@ -325,14 +292,6 @@ TEST(ParseMapWindowId, ReturnsNulloptForATooShortObjectName)
     EXPECT_FALSE(parse_map_window_id(&window).has_value());
 }
 
-definitions::EcuCalDefStructure two_by_two_map_body_def()
-{
-    auto def = two_by_two_def();
-    def.MapData << "1,2,3,4";
-    def.XScaleTypeList << "Linear";
-    return def;
-}
-
 // Builds a map subwindow the way the legacy handlers found it: a
 // QTableWidget child whose objectName() matches the subwindow's own, with
 // row/column 0 reserved for axis headers (matching resolve_edit_target's
@@ -349,7 +308,7 @@ QTableWidget *build_map_window(QMdiSubWindow& window, int rows, int cols)
 
 TEST(ResolveActiveMapEdit, ReturnsNulloptForANullWindow)
 {
-    EXPECT_FALSE(resolve_active_map_edit(nullptr, two_by_two_map_body_def(), 0).has_value());
+    EXPECT_FALSE(resolve_active_map_edit(nullptr, session_from(), 0).has_value());
 }
 
 TEST(ResolveActiveMapEdit, ReturnsNulloptWhenNoMatchingTableWidgetIsFound)
@@ -358,7 +317,7 @@ TEST(ResolveActiveMapEdit, ReturnsNulloptWhenNoMatchingTableWidgetIsFound)
     window.setObjectName("0,0,Timing,uint16");
     // Deliberately no QTableWidget child added.
 
-    EXPECT_FALSE(resolve_active_map_edit(&window, two_by_two_map_body_def(), 0).has_value());
+    EXPECT_FALSE(resolve_active_map_edit(&window, session_from(), 0).has_value());
 }
 
 TEST(ResolveActiveMapEdit, ReturnsNulloptWhenTheSelectionIsEmpty)
@@ -366,7 +325,7 @@ TEST(ResolveActiveMapEdit, ReturnsNulloptWhenTheSelectionIsEmpty)
     QMdiSubWindow window;
     build_map_window(window, 3, 3);
 
-    EXPECT_FALSE(resolve_active_map_edit(&window, two_by_two_map_body_def(), 0).has_value());
+    EXPECT_FALSE(resolve_active_map_edit(&window, session_from(), 0).has_value());
 }
 
 TEST(ResolveActiveMapEdit, ResolvesAMapBodySelectionToItsSpecRangeAndCellText)
@@ -376,7 +335,7 @@ TEST(ResolveActiveMapEdit, ResolvesAMapBodySelectionToItsSpecRangeAndCellText)
     // Widget row/col 0 are axis headers; (1, 1) is the top-left data cell.
     table->setRangeSelected(QTableWidgetSelectionRange(1, 1, 1, 1), true);
 
-    const auto def = two_by_two_map_body_def();
+    const auto def = session_from();
     const auto edit = resolve_active_map_edit(&window, def, 0);
 
     ASSERT_TRUE(edit.has_value());
@@ -388,13 +347,30 @@ TEST(ResolveActiveMapEdit, ResolvesAMapBodySelectionToItsSpecRangeAndCellText)
     EXPECT_EQ(edit->range().last_row, 0);
     EXPECT_EQ(edit->range().last_col, 0);
 
-    ASSERT_EQ(edit->cell_text().size(), 4U);
-    EXPECT_EQ(edit->cell_text()[0], "1");
-    EXPECT_EQ(edit->cell_text()[3], "4");
+    ASSERT_EQ(edit->cell_text().size(), 5U);
+    EXPECT_EQ(edit->cell_text()[0], "2");
+    EXPECT_EQ(edit->cell_text()[3], "8");
+    EXPECT_EQ(edit->cell_text()[4], "");
 
     const auto spec = edit->spec();
-    EXPECT_EQ(spec.address, 0x10000U);
+    EXPECT_EQ(spec.address, 16U);
     EXPECT_EQ(spec.storage_type, definition::StorageType::Uint16);
+}
+
+TEST(ResolveActiveMapEdit, OwnsDecodedSnapshotAcrossSessionEdits)
+{
+    QMdiSubWindow window;
+    auto *table = build_map_window(window, 3, 3);
+    table->setRangeSelected(QTableWidgetSelectionRange(1, 1, 1, 1), true);
+    auto session = session_from();
+    const auto edit = resolve_active_map_edit(&window, session, 0);
+    ASSERT_TRUE(edit.has_value());
+    const calibration::EditPatch patch{{.index = 0, .byte_address = 18, .bytes = {0, 7}}};
+    ASSERT_TRUE(apply_patch(session, 0, calibration::EditTargetKind::MapBody, patch).has_value());
+    EXPECT_EQ(edit->cell_text()[0], "2");
+    const auto refreshed = resolve_active_map_edit(&window, session, 0);
+    ASSERT_TRUE(refreshed.has_value());
+    EXPECT_EQ(refreshed->cell_text()[0], "14");
 }
 
 TEST(ResolveActiveMapEdit, ReturnsNulloptForAStaticAxisSelection)
@@ -405,51 +381,81 @@ TEST(ResolveActiveMapEdit, ReturnsNulloptForAStaticAxisSelection)
     // when the definition marks it static.
     table->setRangeSelected(QTableWidgetSelectionRange(1, 0, 1, 0), true);
 
-    auto def = two_by_two_map_body_def();
-    def.XScaleTypeList[0] = "Static Y Axis";
+    auto definition = two_by_two_definition();
+    definition.maps[0].x_axis.type = "Static Y Axis";
+    auto def = session_from(std::move(definition));
 
     EXPECT_FALSE(resolve_active_map_edit(&window, def, 0).has_value());
 }
 
-// Regression test for the out-of-bounds write described in apply_patch's
-// guard comment (map_edit_adapter.cpp): resolve_edit_target's XAxis branch
-// shifts rows back by +1 for the header row a 3D map has, but never shifts
-// columns -- correct for a 3D map (which also has a header column), but
-// wrong for a "2D" map (y_size == 1, no header column), where selecting the
-// sole X-axis breakpoint yields range.first_col == -1 and therefore a
-// CellPatch whose index is static_cast<std::uint32_t>(-1). Before the guard,
-// QStringList::replace(index, ...) with that index is an out-of-bounds write
-// (Q_ASSERT_X compiles out under --config=release, so this is a real memory
-// hazard in release builds, not just a debug-mode abort). This test drives
-// apply_patch directly with a hand-built CellPatch carrying that same
-// deliberately-out-of-range index, bypassing resolve_edit_target entirely --
-// see this suite's own doc comment on why an end-to-end
-// resolve_active_map_edit-driven repro was impractical here (XAxis on a
-// y_size == 1 map is rejected upstream as a "static axis" selection by
-// resolve_edit_target's is_static_x/is_static_y handling before it can ever
-// produce first_col == -1 through the normal table-selection path in a unit
-// test, so the direct/targeted form below is the maintainable option).
-TEST(ApplyPatch, DropsACellWhoseIndexIsOutOfBoundsInsteadOfCorruptingMemory)
+TEST(ApplyPatch, DropsInvalidCellIndex)
 {
-    auto def = two_by_two_map_body_def();
-    def.XScaleData << "10,20";
-    def.FullRomData = QByteArray(8, '\0');
-    const QByteArray rom_before = def.FullRomData;
+    auto session = session_from();
+    const auto before = std::vector<std::uint8_t>(session.rom().begin(), session.rom().end());
+    calibration::EditPatch patch{
+        {.index = static_cast<std::uint32_t>(-1), .display_text = "999", .byte_address = 64, .bytes = {1, 2}}};
+    ASSERT_TRUE(apply_patch(session, 0, calibration::EditTargetKind::XAxis, patch).has_value());
+    EXPECT_EQ(std::vector<std::uint8_t>(session.rom().begin(), session.rom().end()), before);
+    EXPECT_FALSE(session.dirty());
+}
 
-    calibration::EditPatch patch;
-    patch.push_back(calibration::CellPatch{
-        .index = static_cast<std::uint32_t>(-1), .display_text = "999", .byte_address = 4, .bytes = {0x01, 0x02}});
+TEST(ApplyPatch, PreservesLegacyTrailingBlankExtent)
+{
+    auto session = session_from();
+    const calibration::EditPatch patch{{.index = 4, .byte_address = 0, .bytes = {9}}};
+    ASSERT_TRUE(apply_patch(session, 0, calibration::EditTargetKind::MapBody, patch).has_value());
+    EXPECT_EQ(session.rom()[0], 9);
+    EXPECT_TRUE(session.dirty());
+}
 
-    apply_patch(def, 0, calibration::EditTargetKind::XAxis, patch);
+TEST(ApplyPatch, FailedPatchPreservesAlreadyDirtyStateAndRejectsOverflow)
+{
+    auto session = session_from();
+    const std::array<std::uint8_t, 1> initial{9};
+    ASSERT_TRUE(session.write_bytes(0, initial).has_value());
+    const auto before = std::vector<std::uint8_t>(session.rom().begin(), session.rom().end());
+    const calibration::EditPatch patch{{.index = 0, .byte_address = UINT64_MAX, .bytes = {1}}};
+    EXPECT_FALSE(apply_patch(session, 0, calibration::EditTargetKind::MapBody, patch).has_value());
+    EXPECT_EQ(std::vector<std::uint8_t>(session.rom().begin(), session.rom().end()), before);
+    EXPECT_TRUE(session.dirty());
+}
 
-    // The out-of-range cell must be dropped entirely: the XScaleData text is
-    // untouched (not corrupted, not extended, not misinterpreted as a
-    // negative/huge Qt index), and the ROM bytes it would have written are
-    // never applied either -- both writes are skipped together, matching
-    // apply_paste's precedent of dropping an out-of-extent cell wholesale
-    // rather than partially applying it.
-    EXPECT_EQ(def.XScaleData.at(0), "10,20");
-    EXPECT_EQ(def.FullRomData, rom_before);
+TEST(ApplyPatch, ValidatesAllRangesBeforeWriting)
+{
+    auto session = session_from();
+    const auto before = std::vector<std::uint8_t>(session.rom().begin(), session.rom().end());
+    calibration::EditPatch patch{{.index = 0, .byte_address = 18, .bytes = {0, 7}},
+                                 {.index = 1, .byte_address = 127, .bytes = {0, 8}}};
+    EXPECT_FALSE(apply_patch(session, 0, calibration::EditTargetKind::MapBody, patch).has_value());
+    EXPECT_EQ(std::vector<std::uint8_t>(session.rom().begin(), session.rom().end()), before);
+    EXPECT_FALSE(session.dirty());
+}
+
+TEST(ApplyPatch, WritesBodyAndAxesAndDecodesBytesInsteadOfPatchText)
+{
+    auto session = session_from();
+    auto expected = std::vector<std::uint8_t>(session.rom().begin(), session.rom().end());
+    expected[19] = 7;
+    expected[64] = 3;
+    expected[83] = 12;
+    const calibration::EditPatch body{{.index = 0, .display_text = "wrong", .byte_address = 18, .bytes = {0, 7}}};
+    const calibration::EditPatch x{{.index = 0, .display_text = "wrong", .byte_address = 64, .bytes = {3}}};
+    const calibration::EditPatch y{{.index = 1, .display_text = "wrong", .byte_address = 82, .bytes = {0, 12}}};
+    ASSERT_TRUE(apply_patch(session, 0, calibration::EditTargetKind::MapBody, body).has_value());
+    ASSERT_TRUE(apply_patch(session, 0, calibration::EditTargetKind::XAxis, x).has_value());
+    ASSERT_TRUE(apply_patch(session, 0, calibration::EditTargetKind::YAxis, y).has_value());
+    EXPECT_EQ(std::vector<std::uint8_t>(session.rom().begin(), session.rom().end()), expected);
+    EXPECT_EQ(session.rom()[18], 0);
+    EXPECT_EQ(session.rom()[19], 7);
+    EXPECT_EQ(session.rom()[64], 3);
+    EXPECT_EQ(session.rom()[82], 0);
+    EXPECT_EQ(session.rom()[83], 12);
+    const auto decoded = session.decode_map(0);
+    ASSERT_TRUE(decoded.has_value());
+    EXPECT_EQ(decoded->map_data, "14,4,6,8,");
+    EXPECT_EQ(decoded->x_axis_data, "30,0,");
+    EXPECT_EQ(decoded->y_axis_data, "0,3,");
+    EXPECT_TRUE(session.dirty());
 }
 
 } // namespace

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <optional>
 
+#include <QDomDocument>
 #include <QHash>
 #include <QLabel>
 
@@ -38,6 +39,42 @@ HeaderFormEditors build_header_form(QGridLayout *grid, const QStringList& labels
         }
     }
     return editors;
+}
+
+QStringList collect_ecuflash_base_header_fields(const QStringList& header_names, const QStringList& definition_lines)
+{
+    QStringList headerData;
+    QHash<QString, QString> values;
+
+    QDomDocument xml;
+    if (xml.setContent(definition_lines.join(QString())))
+    {
+        QDomElement root = xml.documentElement();
+        int depth = 0;
+        while (!root.isNull() && root.tagName() != "rom" && depth < 5)
+        {
+            root = root.firstChildElement();
+            ++depth;
+        }
+
+        const QDomElement romid = root.firstChildElement("romid");
+        for (const QString& name : header_names)
+        {
+            const QDomElement element =
+                (name == "include" || name == "notes") ? root.firstChildElement(name) : romid.firstChildElement(name);
+            if (!element.isNull())
+            {
+                values.insert(name, element.text());
+            }
+        }
+    }
+
+    for (const QString& name : header_names)
+    {
+        headerData << name << values.value(name);
+    }
+
+    return headerData;
 }
 
 fastecu::Result<fastecu::definition::DefinitionHeaderInput> definition_header_input(const HeaderFormEditors& editors)

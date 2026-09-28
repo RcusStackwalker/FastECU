@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "src/algorithms/protocol/bytes.h"
@@ -90,8 +91,10 @@ class CalibrationSession
     const ResolvedDefinition *definition() const;
     const RomProtocolInfo& protocol() const;
     void set_protocol(RomProtocolInfo protocol);
-    // True once any write_bytes succeeded.
+    // True once any write_bytes succeeded since the last save.
     bool dirty() const;
+    // Updates the saved path and basename, clears dirty, and preserves origin.
+    void mark_saved(std::string_view path);
 
     // Cells and axes of definition()->definition.maps[map_index], decoded from
     // the current bytes. InvalidConfig for an index past the last map or a

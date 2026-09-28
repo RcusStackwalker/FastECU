@@ -15,6 +15,7 @@ qt_cc_library(
         ":startup",
         "//src/backend/calibration/session:calibration_workspace",
         "//src/backend/calibration/session:rom_open",
+        "//src/backend/calibration/session:rom_save",
         "//src/backend/config:config_session",
         "//src/backend/definition:definition_service",
         "//src/backend/definitions",

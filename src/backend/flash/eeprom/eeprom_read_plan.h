@@ -22,15 +22,15 @@ namespace fastecu::flash
 // car-model-derived lists, so a protocol referenced by no <car_model> can
 // never be the selected one; a direct scan would accept exactly those names,
 // widening the accepted input set on the path that writes to an ECU. It also
-// keeps this in lockstep with LegacyCalibrationAdapter::bind_protocol, which
+// keeps this in lockstep with the calibration session opener, which
 // uses the same pair, so the two can never disagree about which
 // ProtocolEntry a protocol name denotes.
 //
 // An unresolved protocol is a HARD ERROR here (ErrorKind::InvalidConfig).
-// This diverges deliberately from bind_protocol, which substitutes a
+// This diverges deliberately from the session opener, which substitutes a
 // single-space placeholder for a protocol-derived field: a placeholder MCU
 // or kernel address would build a plan that flashes garbage to an ECU. Do
-// not "make this consistent" with the calibration adapter.
+// not "make this consistent" with the session opener.
 //
 // Every fallible validation decidable from catalog metadata runs before the
 // kernel read, so an invalid mode, security variant, MCU/region, or definitely

@@ -16,6 +16,7 @@ class TestableChecksumCommand : public ChecksumCorrectionCommand
   public:
     bool proceedWithoutDefinitionAnswer = true; // "DO IT!" by default
     bool cancelWithoutModuleAnswer = false;     // "OK" (proceed) by default
+    int missingDefinitionDialogCount = 0;
     int badRomSizeDialogCount = 0;
     int familyResultDialogCount = 0;
     ChecksumResult lastFamilyResult;
@@ -23,6 +24,7 @@ class TestableChecksumCommand : public ChecksumCorrectionCommand
   protected:
     bool confirmProceedWithoutDefinition(QWidget *) override
     {
+        ++missingDefinitionDialogCount;
         return proceedWithoutDefinitionAnswer;
     }
     void showBadRomSizeDialog(QWidget *) override
@@ -69,7 +71,7 @@ TEST(ChecksumCorrectionCommand, DecliningGateReturnsUnchangedWithNoFamilyDialog)
     command.proceedWithoutDefinitionAnswer = false;
     const bytes::Bytes rom(524288, 0);
 
-    ChecksumCorrectionResult result = command.run(rom, false, false, subaruM32rKlineSelection(), nullptr);
+    ChecksumCorrectionResult result = command.run(rom, false, subaruM32rKlineSelection(), nullptr);
 
     EXPECT_FALSE(result.corrected_rom_data.has_value());
     EXPECT_FALSE(result.canceled_due_to_missing_module);
@@ -81,7 +83,7 @@ TEST(ChecksumCorrectionCommand, AcceptingGateWithoutLinkedDefinitionCorrectsRom)
     TestableChecksumCommand command;
     const bytes::Bytes rom(524288, 0);
 
-    ChecksumCorrectionResult result = command.run(rom, false, false, subaruM32rKlineSelection(), nullptr);
+    ChecksumCorrectionResult result = command.run(rom, false, subaruM32rKlineSelection(), nullptr);
 
     ASSERT_TRUE(result.corrected_rom_data.has_value());
     EXPECT_EQ(command.familyResultDialogCount, 1);
@@ -95,9 +97,25 @@ TEST(ChecksumCorrectionCommand, GateNotConsultedWhenDefinitionAlreadyLinked)
     command.proceedWithoutDefinitionAnswer = false; // would abort if the gate were (wrongly) shown
     const bytes::Bytes rom(524288, 0);
 
-    ChecksumCorrectionResult result = command.run(rom, true, false, subaruM32rKlineSelection(), nullptr);
+    ChecksumCorrectionResult result = command.run(rom, true, subaruM32rKlineSelection(), nullptr);
 
     ASSERT_TRUE(result.corrected_rom_data.has_value());
+}
+
+TEST(ChecksumCorrectionCommand, HeaderOnlyDefinitionBypassesMissingDefinitionGate)
+{
+    TestableChecksumCommand command;
+    command.proceedWithoutDefinitionAnswer = false;
+    const bytes::Bytes rom(524288, 0);
+    // Definition presence is independent of map count: a header-only definition
+    // supplies checksum selection metadata and still links this image.
+    constexpr bool hasDefinition = true;
+
+    const auto result = command.run(rom, hasDefinition, subaruM32rKlineSelection(), nullptr);
+
+    ASSERT_TRUE(result.corrected_rom_data.has_value());
+    EXPECT_EQ(command.missingDefinitionDialogCount, 0);
+    EXPECT_EQ(command.familyResultDialogCount, 1);
 }
 
 TEST(ChecksumCorrectionCommand, DisabledDieselChecksumPreservesRomData)
@@ -106,7 +124,7 @@ TEST(ChecksumCorrectionCommand, DisabledDieselChecksumPreservesRomData)
     bytes::Bytes rom(1024UZ * 1024, 0);
     bytes::writeU32Be(rom, 0x0FFB88, 0x5AA5A55A);
 
-    const ChecksumCorrectionResult result = command.run(rom, true, false, subaruDensoSh7058DieselSelection(), nullptr);
+    const ChecksumCorrectionResult result = command.run(rom, true, subaruDensoSh7058DieselSelection(), nullptr);
 
     ASSERT_TRUE(result.corrected_rom_data.has_value());
     EXPECT_EQ(*result.corrected_rom_data, rom);
@@ -118,7 +136,7 @@ TEST(ChecksumCorrectionCommand, BadRomSizeShowsDialogAndMakesNoCorrection)
     TestableChecksumCommand command;
     const bytes::Bytes rom(4096, 0); // wrong size for M32R_512KB
 
-    ChecksumCorrectionResult result = command.run(rom, true, false, subaruM32rKlineSelection(), nullptr);
+    ChecksumCorrectionResult result = command.run(rom, true, subaruM32rKlineSelection(), nullptr);
 
     EXPECT_FALSE(result.corrected_rom_data.has_value());
     EXPECT_EQ(command.badRomSizeDialogCount, 1);
@@ -131,7 +149,7 @@ TEST(ChecksumCorrectionCommand, NoModuleWithChecksumFlagNoAsksNothingAndDoesNotC
     selection.checksum_flag = "no";
     const bytes::Bytes rom(524288, 0);
 
-    ChecksumCorrectionResult result = command.run(rom, true, false, selection, nullptr);
+    ChecksumCorrectionResult result = command.run(rom, true, selection, nullptr);
 
     EXPECT_FALSE(result.canceled_due_to_missing_module);
 }
@@ -144,7 +162,7 @@ TEST(ChecksumCorrectionCommand, NoModuleWithChecksumFlagNaAsksAndRespectsCancel)
     selection.checksum_flag = "n/a";
     const bytes::Bytes rom(524288, 0);
 
-    ChecksumCorrectionResult result = command.run(rom, true, false, selection, nullptr);
+    ChecksumCorrectionResult result = command.run(rom, true, selection, nullptr);
 
     EXPECT_TRUE(result.canceled_due_to_missing_module);
 }
@@ -159,7 +177,7 @@ TEST(ChecksumCorrectionCommand, UnknownMcuTypeReturnsUnmodifiedRomAndRunsNoDialo
     selection.mcu_type = "M32170";
 
     const bytes::Bytes rom(100, bytes::Byte{0});
-    const ChecksumCorrectionResult result = command.run(bytes::ByteView(rom), true, false, selection, nullptr);
+    const ChecksumCorrectionResult result = command.run(bytes::ByteView(rom), true, selection, nullptr);
 
     EXPECT_TRUE(result.unknown_mcu_type);
     EXPECT_FALSE(result.corrected_rom_data.has_value());
@@ -178,10 +196,12 @@ TEST(ChecksumCorrectionCommand, ValidMcuCorrectsRomAndReturnsChangedBytes)
     selection.rom_id = "39670016";
 
     const bytes::Bytes rom(524288, bytes::Byte{0}); // SH7055 romsize -> Corrected
-    const ChecksumCorrectionResult result = command.run(bytes::ByteView(rom), true, false, selection, nullptr);
+    const bytes::Bytes original = rom;
+    const ChecksumCorrectionResult result = command.run(bytes::ByteView(rom), true, selection, nullptr);
 
     ASSERT_TRUE(result.corrected_rom_data.has_value());
     EXPECT_EQ(result.corrected_rom_data->size(), 524288U);
     EXPECT_NE(*result.corrected_rom_data, rom);
+    EXPECT_EQ(rom, original);
     EXPECT_EQ(command.familyResultDialogCount, 1);
 }

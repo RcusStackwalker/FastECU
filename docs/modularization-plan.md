@@ -136,7 +136,7 @@ wiring now use the portable `ConfigSession` and catalog records.
 `ConfigValuesStructure`, `LegacyConfigAdapter`, and `legacy_config_paths` have
 been removed. Startup rejection is an intentional correction, documented in
 [Configuration session](design-notes.md#configuration-session), together with
-the preserved selection and persistence quirks. Steps 6m–6n remain.
+the preserved selection and persistence quirks. Step 6n remains.
 
 ### 6l — Logging models
 
@@ -159,30 +159,30 @@ automated success alone does not establish hardware qualification.
 
 ### 6m — Definition and calibration sessions
 
-In progress. 6m-1 added the portable `CalibrationSession`, `RomOpenUseCase`
-and `CalibrationWorkspace` (composition-owned, stable session IDs). 6m-2 moved
-ownership and identity: `MainWindow` holds one legacy view per workspace
-session, addressed by `SessionId` rather than tree position, and the post-read
-handoff adopts an image only after a successful read. 6m-3 renders the
-calibration trees and ROM info from the session, keeps per-ROM view state in
-the UI, and makes the session's protocol info the metadata truth. Map windows,
-edits, save, write and checksum move to session bytes in 6m-4; 6m-5 retires the
-legacy model. See the
-[step 6m design](superpowers/specs/2026-09-28-step6m-calibration-sessions-design.md).
+Implemented. Portable `CalibrationSession`, `RomOpenUseCase`,
+`RomSaveUseCase` and `CalibrationWorkspace` own calibration data through the
+composition root. Trees, ROM info, map windows, edits, hex display, save,
+write preflight and checksum use sessions directly. The final consumer slice
+also reads typed map metadata directly; no read-only legacy projection remains.
+`EcuCalDefStructure`, both legacy definition/calibration adapters and their
+packages, legacy columns and the two `qt_layer` entries are retired.
 
-Migrate remaining definition lookup, ROM open/save, map display/editing, and
-calibration ownership onto the portable definition/calibration APIs. Replace
-the fixed raw-pointer calibration slots with explicit session ownership.
-Move the remaining write preflight, checksum orchestration, and post-read
-handoff with their calibration model, keeping dialogs and confirmations in
-the desktop UI.
+Stable session IDs replace fixed raw-pointer slots. UI view state stays keyed
+by session; map values decode from the current ROM bytes. Save and write use a
+temporary operation image for checksum correction, leaving editable session
+bytes unchanged on completion or cancellation. See
+[calibration session ownership and operation images](design-notes.md#calibration-session-ownership-and-operation-images)
+for lifetime rules and preserved behavior.
 
-**Exit gate:** consumers no longer require `EcuCalDefStructure`,
-`LegacyDefinitionAdapter`, or `LegacyCalibrationAdapter`. Tests cover
-resolution and inheritance, ROM round trips, map addressing and edits,
-checksum outcomes, and failed/cancelled reads leaving no occupied session.
-Preserve the documented [calibration corrections and open defects](design-notes.md#calibration)
-without silently changing pinned behavior during a model migration.
+The exit requirements remain definition resolution and inheritance, ROM round
+trips, map addressing and edits, checksum outcomes, and failed/cancelled reads
+leaving no occupied session. Preserve the documented
+[calibration corrections and open defects](design-notes.md#calibration).
+Full release build/test, formatting, changed-file static analysis and platform
+CI/packaging gates require their recorded results. Post-read handoff and
+checksum paths still need bench re-verification before release; this migration
+establishes no new hardware qualification. `FileActions` and the remaining
+legacy package closure belong to step 6n.
 
 ### 6n — Desktop closure
 

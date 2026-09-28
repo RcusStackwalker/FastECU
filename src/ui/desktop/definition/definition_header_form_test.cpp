@@ -43,8 +43,7 @@ class DefinitionFormEnvironment final : public ::testing::Environment
 
 const auto *definition_form_environment = ::testing::AddGlobalTestEnvironment(new DefinitionFormEnvironment);
 
-// The field names the real EcuCalDefStructure::DefHeaderNames carries, in
-// the order definitionHeaderInput maps them.
+// The authored header field names, in the order the form maps them.
 const QStringList kNames = {"xmlid",
                             "internalidaddress",
                             "internalidstring",
@@ -236,4 +235,55 @@ TEST(NormalizeXmlSuffixTest, StripsOneTrailingDotThenAppendsXml)
     EXPECT_EQ(normalize_xml_suffix("foo.xml"), "foo.xml");
     EXPECT_EQ(normalize_xml_suffix("foo.bar"), "foo.bar.xml");
     EXPECT_EQ(normalize_xml_suffix("/tmp/a b/def."), "/tmp/a b/def.xml");
+}
+
+TEST(ImportedHeaderFieldsTest, PreservesFieldOrderAndDefaultsAbsentOptionalFields)
+{
+    const QString xml = "<rom><romid><xmlid>BASE_TEST</xmlid>"
+                        "<internalidaddress>0x2000</internalidaddress><internalidstring>TESTID</internalidstring>"
+                        "<ecuid>TESTECU</ecuid><make>Subaru</make><market>USDM</market><model>Impreza</model>"
+                        "<year>2004</year><flashmethod>sub_ecu_denso_sh7055</flashmethod><memmodel>SH7055</memmodel>"
+                        "<checksummodule>checksum_ecu_subaru_denso_sh7055</checksummodule></romid></rom>";
+
+    const auto fields = fastecu::ui::collect_ecuflash_base_header_fields(kNames, {xml});
+
+    ASSERT_EQ(fields.size(), kNames.size() * 2);
+    const QStringList expectedValues = {"BASE_TEST",
+                                        "0x2000",
+                                        "TESTID",
+                                        "TESTECU",
+                                        "Subaru",
+                                        "USDM",
+                                        "Impreza",
+                                        "",
+                                        "",
+                                        "2004",
+                                        "sub_ecu_denso_sh7055",
+                                        "SH7055",
+                                        "checksum_ecu_subaru_denso_sh7055",
+                                        "",
+                                        ""};
+    for (qsizetype index = 0; index < kNames.size(); ++index)
+    {
+        EXPECT_EQ(fields.at(index * 2), kNames.at(index));
+        EXPECT_EQ(fields.at(index * 2 + 1), expectedValues.at(index));
+    }
+}
+
+TEST(ImportedHeaderFieldsTest, ReadsIncludeAndNotesFromWrappedRom)
+{
+    const QStringList names{"xmlid", "include", "notes"};
+    const QStringList lines{"<roms><rom><romid><xmlid>  BASE  </xmlid></romid>",
+                            "<include>OEM_BASE</include><notes>Text &amp; notes</notes></rom></roms>"};
+
+    EXPECT_EQ(fastecu::ui::collect_ecuflash_base_header_fields(names, lines),
+              (QStringList{"xmlid", "  BASE  ", "include", "OEM_BASE", "notes", "Text & notes"}));
+}
+
+TEST(ImportedHeaderFieldsTest, MalformedXmlLeavesEveryRequestedFieldBlank)
+{
+    const QStringList names{"xmlid", "include", "notes"};
+
+    EXPECT_EQ(fastecu::ui::collect_ecuflash_base_header_fields(names, {"<rom><romid>"}),
+              (QStringList{"xmlid", "", "include", "", "notes", ""}));
 }

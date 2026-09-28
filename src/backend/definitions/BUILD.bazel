@@ -35,8 +35,7 @@ cc_library(
     ],
 )
 
-# FileActions's legacy definition indexes, a leaf so
-# //src/backend/definition/legacy can use them without depending on FileActions.
+# FileActions startup definition indexes for desktop catalog browsing.
 cc_library(
     name = "definition_indexes",
     hdrs = ["definition_indexes.h"],
@@ -69,71 +68,25 @@ fastecu_qttest(
     ],
 )
 
-fastecu_qttest(
-    name = "test_model_validation",
-    src = "model_validation_test.cpp",
-    deps = [":definitions"],
-)
-
-fastecu_qttest(
-    name = "test_rom_transformations",
-    src = "rom_transformations_test.cpp",
-    deps = [
-        ":definitions",
-        "//src/backend/config/testing:config_session_fixture",
-        "//src/backend/ports/testing:in_memory_atomic_file_writer",
-        "//src/backend/ports/testing:recording_event_sink",
-        "//src/platform/desktop/common/ports",
-    ],
-)
-
-cc_library(
-    name = "ecu_cal_def",
-    srcs = [],
-    hdrs = ["ecu_cal_def.h"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS_NO_WIDGETS,
-)
-
-cc_library(
-    name = "legacy_definition_columns",
-    srcs = [],
-    hdrs = ["legacy_definition_columns.h"],
-    copts = COMMON_COPTS,
-    visibility = [
-        "//src/backend/definition/legacy:__pkg__",
-        "//src/backend/definitions:__pkg__",
-    ],
-    deps = QT_DEPS_NO_WIDGETS + [":ecu_cal_def"],
-)
-
 cc_library(
     name = "definitions",
     srcs = [
         "file_actions.cpp",
-        "file_actions_ecuflash.cpp",
-        "file_actions_romraider.cpp",
     ],
     hdrs = [
         "file_actions.h",
-        "legacy_definition_columns.h",
     ],
     copts = COMMON_COPTS,
     deps = QT_DEPS_NO_WIDGETS + [
         ":definition_indexes",
-        ":ecu_cal_def",
-        ":legacy_definition_columns",
         ":models",
         "//resources/shared:config_resource",
         "//resources/shared:kernels_resource",
         "//src/algorithms/diagnostics",
         "//src/algorithms/protocol/qt_compat",
-        "//src/backend/calibration:calibration_service",
-        "//src/backend/calibration/legacy:legacy_calibration_adapter",
         "//src/backend/calibration/session:definition_catalogs",
         "//src/backend/config:config_session",
         "//src/backend/definition:definition_service",
-        "//src/backend/definition/legacy:legacy_definition_adapter",
         "//src/backend/ports",
     ],
 )

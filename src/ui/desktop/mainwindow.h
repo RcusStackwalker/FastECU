@@ -168,26 +168,22 @@ class MainWindow : public QMainWindow
     void write_logger_csv_cells(bool header);
     fastecu::config::ConfigSession *configSession = nullptr;
     std::optional<fastecu::Error> last_settings_save_error;
-    // One legacy view per open workspace session, in files-tree order.
-    // Transitional (step 6m-2): until 6m-3 the view is the only byte store
-    // the UI reads or writes; the session is looked up by id, never position.
+    // Desktop owns only identity and presentation; the workspace owns ROM data.
     struct OpenCalibration
     {
         fastecu::calibration::SessionId id;
-        std::unique_ptr<FileActions::EcuCalDefStructure> legacy;
         fastecu::ui::CalibrationViewState view;
     };
     std::vector<OpenCalibration> calibrations_;
     fastecu::calibration::CalibrationWorkspace *calibrationWorkspace = nullptr;
 
-    FileActions::EcuCalDefStructure *legacy_calibration(fastecu::calibration::SessionId id);
+    fastecu::calibration::CalibrationSession *calibration(fastecu::calibration::SessionId id);
     std::optional<fastecu::calibration::SessionId> session_of(const QTreeWidgetItem *files_item) const;
-    FileActions::EcuCalDefStructure *selected_legacy_calibration();
+    fastecu::calibration::CalibrationSession *selected_calibration();
     OpenCalibration *open_calibration(fastecu::calibration::SessionId id);
     OpenCalibration *selected_open_calibration();
     void set_category_expanded(QTreeWidgetItem *item, bool expanded);
-    void refresh_write_metadata(fastecu::calibration::CalibrationSession& session,
-                                FileActions::EcuCalDefStructure& legacy, const QString& kernel_dir);
+    void refresh_write_metadata(fastecu::calibration::CalibrationSession& session, const QString& kernel_dir);
     QTreeWidgetItem *files_tree_item(fastecu::calibration::SessionId id) const;
     bool add_calibration(fastecu::calibration::SessionId id);
 
@@ -302,7 +298,9 @@ class MainWindow : public QMainWindow
     void prompt_for_missing_definition(fastecu::calibration::SessionId id);
     void save_calibration_file();
     void save_calibration_file_as();
-    void runChecksumCorrection(FileActions::EcuCalDefStructure *ecuCalDef);
+    void runChecksumCorrection(const fastecu::calibration::CalibrationSession& session, bytes::Bytes& image);
+    void set_map_selection(fastecu::calibration::SessionId id, int map_index, const QString& item);
+    void set_map_switch(fastecu::calibration::SessionId id, int map_index, int state);
     QStringList parse_stringlist_from_expression_string(QString expression, QString x);
     float calculate_value_from_expression(QStringList expression);
 
@@ -379,7 +377,6 @@ class MainWindow : public QMainWindow
     void toggle_realtime();
     void toggle_log_to_file();
     void set_maptablewidget_items();
-    QColor get_map_cell_color(FileActions::EcuCalDefStructure *ecuCalDef, float mapDataValue, int mapIndex);
     void show_preferences_window();
 
     void show_dtc_window();

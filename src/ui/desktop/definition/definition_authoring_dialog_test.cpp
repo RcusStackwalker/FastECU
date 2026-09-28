@@ -173,9 +173,14 @@ TEST(DefinitionAuthoringDialogTest, RecordDefinitionAppendsTheFourIndexListsInSt
     EXPECT_THAT(config.ecuflash_def_filename, ElementsAre(QString("defs/colt.xml"), QString("defs/z27a.xml")));
 }
 
-TEST(DefinitionHeaderFields, MatchTheLegacyModelVerbatim)
+TEST(DefinitionHeaderFields, PinsAuthoredHeaderFields)
 {
-    const FileActions::EcuCalDefStructure legacy;
-    EXPECT_EQ(fastecu::ui::definition_header_labels(), legacy.DefHeaderStrings);
-    EXPECT_EQ(fastecu::ui::definition_header_names(), legacy.DefHeaderNames);
+    EXPECT_EQ(fastecu::ui::definition_header_labels(),
+              (QStringList{"XML ID", "Internal ID Address", "Internal ID String", "ECU ID", "Make", "Market", "Model",
+                           "Submodel", "Transmission", "Year", "Flash Method", "Memory Model", "Checksum Module",
+                           "Include", "Notes"}));
+    EXPECT_EQ(
+        fastecu::ui::definition_header_names(),
+        (QStringList{"xmlid", "internalidaddress", "internalidstring", "ecuid", "make", "market", "model", "submodel",
+                     "transmission", "year", "flashmethod", "memmodel", "checksummodule", "include", "notes"}));
 }

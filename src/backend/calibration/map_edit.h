@@ -83,8 +83,8 @@ EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions di
 
 // One run of editable elements: a map's cells, or one axis's points. The
 // non-owning counterpart of calibration_service.h's ElementRun, for the write
-// side. string_view fields borrow from the EcuCalDefStructure lists the UI
-// adapter reads them out of, which always outlive the call. Never store one.
+// side. string_view fields borrow from the UI adapter's owned field snapshot,
+// which must outlive the call. Never store one.
 struct MapElementSpec
 {
     std::uint64_t address{0};
@@ -98,7 +98,7 @@ struct MapElementSpec
     std::string_view max_value{" "};
     double coarse_increment{0.0};
     double fine_increment{0.0};
-    // The map's own geometry (from XSizeList/YSizeList), NOT the resolved
+    // The map's own geometry (from the typed definition), NOT the resolved
     // edit-run width. In particular this does NOT carry the Y-axis override
     // to 1 that EditTarget::x_size (above) does -- indexing a Y-axis edit's
     // cells with this field instead of the resolved EditTarget::x_size
@@ -111,7 +111,7 @@ struct MapElementSpec
     // The strided-layout inputs (spec's defect (b)): decode_scaled_values
     // lays elements out at address + (start_position-1)*width +
     // index*width*interval, not a flat address + index*width. Defaulted to 1
-    // (no striding, matching decode_scaled_values' own EcuCalDefStructure
+    // (no striding, matching the typed definition's
     // default) so a spec built without setting these behaves exactly as the
     // old flat layout did.
     std::uint32_t start_position{1};

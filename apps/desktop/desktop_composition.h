@@ -9,6 +9,7 @@
 #include "apps/desktop/startup_event_sink.h"
 #include "src/backend/calibration/session/calibration_workspace.h"
 #include "src/backend/calibration/session/rom_open.h"
+#include "src/backend/calibration/session/rom_save.h"
 #include "src/backend/config/config_session.h"
 #include "src/backend/logging/logger_model.h"
 #include "src/backend/logging/logger_definition_service.h"
@@ -77,6 +78,7 @@ class DesktopComposition
     std::unique_ptr<fastecu::definition::DefinitionService> definition_service_;
     std::unique_ptr<fastecu::calibration::RomOpenUseCase> rom_open_;
     std::unique_ptr<fastecu::calibration::CalibrationWorkspace> calibration_workspace_;
+    fastecu::calibration::RomSaveUseCase rom_save_{file_repository_, file_action_events_};
     fastecu::ui::LogChannel log_channel_;
     fastecu::ui::RemotePeer remote_peer_;
     std::unique_ptr<QThread> syslog_thread_;

@@ -11,7 +11,7 @@
 
 #include "src/ui/desktop/calibration/session_key.h"
 #include "src/backend/calibration/map_edit.h"
-#include "src/backend/definitions/ecu_cal_def.h"
+#include "src/backend/calibration/session/calibration_session.h"
 
 class QMdiSubWindow;
 
@@ -50,7 +50,7 @@ class MapElementFields
     calibration::MapElementSpec spec() const&& = delete;
 
   private:
-    friend MapElementFields collect_map_element_fields(const definitions::EcuCalDefStructure&, int,
+    friend MapElementFields collect_map_element_fields(const calibration::CalibrationSession&, int,
                                                        calibration::EditTargetKind);
 
     MapElementFields() = default;
@@ -72,17 +72,8 @@ class MapElementFields
     std::uint64_t rom_file_size_{0};
 };
 
-// Plucks one element run's fields out of the Qt-typed model. `kind` selects
-// between the map-body lists, the XScale* lists, and the YScale* lists -- the
-// field-plucking half of what the three duplicated legacy blocks did.
-//
-// Takes fastecu::definitions::EcuCalDefStructure rather than
-// FileActions::EcuCalDefStructure (the same type, via FileActions's `using
-// EcuCalDefStructure = fastecu::definitions::EcuCalDefStructure` alias) so
-// this package can depend on the lightweight //src/backend/definitions:ecu_cal_def
-// target instead of pulling in the full legacy FileActions god object.
-// Callers holding a FileActions::EcuCalDefStructure pass it in unchanged.
-MapElementFields collect_map_element_fields(const definitions::EcuCalDefStructure& def, int map_number,
+// Collects the resolved definition and protocol fields for one element run.
+MapElementFields collect_map_element_fields(const calibration::CalibrationSession& def, int map_number,
                                             calibration::EditTargetKind kind);
 
 // Formats read_raw_element's raw value the same way the deleted legacy
@@ -180,7 +171,7 @@ class ResolvedEdit
     }
 
   private:
-    friend std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *, const definitions::EcuCalDefStructure&,
+    friend std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *, const calibration::CalibrationSession&,
                                                                int);
 
     // MapElementFields's default constructor is private (only
@@ -209,15 +200,12 @@ class ResolvedEdit
 // three cases the legacy per-function blocks handled with a bare `return`,
 // plus the (practically unreachable) case of the table widget not being
 // found.
-std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window, const definitions::EcuCalDefStructure& def,
+std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window, const calibration::CalibrationSession& def,
                                                     int map_number);
 
-// Applies one apply_*() operation's patch: writes each CellPatch's bytes
-// into FullRomData, replaces the matching entry of the split cell text, and
-// rejoins into whichever of MapData/XScaleData/YScaleData `kind` names. The
-// "write back" half of the three closing statements every legacy edit
-// function shared.
-void apply_patch(definitions::EcuCalDefStructure& def, int map_number, calibration::EditTargetKind kind,
-                 const calibration::EditPatch& patch);
+// Validates every retained cell byte range before writing session bytes.
+// Invalid cell indices are skipped; display text is decoded from bytes.
+Status apply_patch(calibration::CalibrationSession& def, int map_number, calibration::EditTargetKind kind,
+                   const calibration::EditPatch& patch);
 
 } // namespace fastecu::ui
