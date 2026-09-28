@@ -1,0 +1,15 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+# Session-package-owned test doubles.
+package(default_visibility = [
+    "//apps/desktop:__pkg__",
+    "//src/backend:__subpackages__",
+    "//src/ui:__subpackages__",
+])
+
+cc_library(
+    name = "fake_definition_catalogs",
+    testonly = True,
+    hdrs = ["fake_definition_catalogs.h"],
+    deps = ["//src/backend/calibration/session:definition_catalogs"],
+)

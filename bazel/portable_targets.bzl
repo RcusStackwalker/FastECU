@@ -15,6 +15,8 @@ PORTABLE_PACKAGES = {
     ],
     "src/backend/calibration/session": [
         "calibration_session",
+        "definition_catalogs",
+        "rom_open",
     ],
     "src/backend/checksum": [
         "checksum_selection",
