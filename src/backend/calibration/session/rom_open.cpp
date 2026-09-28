@@ -1,6 +1,8 @@
 #include "src/backend/calibration/session/rom_open.h"
 
 #include <format>
+#include <ranges>
+#include <string_view>
 #include <utility>
 
 #include "src/backend/calibration/calibration_service.h"
@@ -23,6 +25,24 @@ std::string display_name(std::string_view path)
 std::string checksum_module_for(const std::string& flash_method)
 {
     return "checksum" + (flash_method.size() > 3 ? flash_method.substr(3) : std::string{});
+}
+
+std::string_view format_name(definition::DefinitionFormat format)
+{
+    return format == definition::DefinitionFormat::EcuFlash ? "EcuFlash" : "RomRaider";
+}
+
+// Legacy: QString(alias).split(",").contains(flash_method).
+bool alias_list_contains(std::string_view aliases, std::string_view flash_method)
+{
+    for (const auto part : std::views::split(aliases, ','))
+    {
+        if (std::string_view{part.begin(), part.end()} == flash_method)
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 } // namespace
@@ -147,22 +167,103 @@ RomOpenOutcome RomOpenUseCase::finish(Seed seed)
     return outcome;
 }
 
-std::optional<ResolvedDefinition> RomOpenUseCase::find_definition(std::span<const std::uint8_t> /*rom*/,
-                                                                  std::string& /*rom_id*/)
+std::optional<ResolvedDefinition> RomOpenUseCase::find_definition(std::span<const std::uint8_t> rom,
+                                                                  std::string& rom_id)
 {
-    return std::nullopt; // Task 4
+    using definition::DefinitionFormat;
+    const config::AppConfig& settings = config_.settings();
+    const bool ecuflash_enabled = settings.use_ecuflash_definitions == "enabled";
+    const bool romraider_enabled = settings.use_romraider_definitions == "enabled";
+
+    std::optional<ResolvedDefinition> found;
+    if ((settings.primary_definition_base == "ecuflash" || !romraider_enabled) &&
+        !settings.ecuflash_definition_files_directory.empty())
+    {
+        if (ecuflash_enabled)
+        {
+            found = try_format(DefinitionFormat::EcuFlash, rom, rom_id);
+        }
+        if (!found.has_value() && romraider_enabled)
+        {
+            found = try_format(DefinitionFormat::RomRaider, rom, rom_id);
+        }
+    }
+    else if (settings.primary_definition_base == "romraider" && !settings.romraider_definition_files.empty())
+    {
+        if (romraider_enabled)
+        {
+            found = try_format(DefinitionFormat::RomRaider, rom, rom_id);
+        }
+        if (!found.has_value() && ecuflash_enabled)
+        {
+            found = try_format(DefinitionFormat::EcuFlash, rom, rom_id);
+        }
+    }
+    return found;
 }
 
-std::optional<ResolvedDefinition> RomOpenUseCase::try_format(definition::DefinitionFormat /*format*/,
-                                                             std::span<const std::uint8_t> /*rom*/,
-                                                             std::string& /*rom_id*/)
+std::optional<ResolvedDefinition> RomOpenUseCase::try_format(definition::DefinitionFormat format,
+                                                             std::span<const std::uint8_t> rom, std::string& rom_id)
 {
-    return std::nullopt; // Task 4
+    const std::string match_operation = std::format("Unable to match {} definition", format_name(format));
+    Result<definition::DefinitionCatalog> catalog = catalogs_.catalog(format);
+    if (!catalog.has_value())
+    {
+        log_error(match_operation, catalog.error());
+        return std::nullopt;
+    }
+
+    Result<definition::DefinitionIndexEntry> match = definitions_.match_rom(*catalog, rom);
+    if (match.has_value())
+    {
+        rom_id = match->definition_id;
+        events_.log(LogLevel::Debug, std::format("{} cal id {} found", format_name(format), rom_id));
+    }
+    else
+    {
+        // Legacy keeps the previous ID -- for an ECU read, the one the ECU
+        // reported -- and still tries to load it below.
+        log_error(match_operation, match.error());
+    }
+
+    if (rom_id.empty())
+    {
+        return std::nullopt;
+    }
+    auto entry = catalog->find(format, rom_id);
+    if (!entry.has_value())
+    {
+        return std::nullopt;
+    }
+    const std::string source = entry->get().source;
+
+    Result<definition::RomDefinition> loaded = definitions_.load(*catalog, format, rom_id);
+    if (!loaded.has_value())
+    {
+        log_error(std::format("Unable to read {} definition {}", format_name(format), rom_id), loaded.error());
+        if (!source.empty() && !file_system_.exists(source))
+        {
+            events_.notice(
+                std::format("Ecu definitions file: Unable to open ECU definition file {} for reading", source));
+        }
+        return std::nullopt;
+    }
+    return ResolvedDefinition{.format = format, .id = rom_id, .definition = std::move(*loaded)};
 }
 
 std::string RomOpenUseCase::resolve_alias(const std::string& flash_method)
 {
-    return flash_method; // Task 4
+    for (const config::ResolvedCarModel& vehicle : config_.vehicles())
+    {
+        const std::string aliases = config::protocol_field_or_placeholder(vehicle, &config::ProtocolEntry::alias);
+        if (alias_list_contains(aliases, flash_method))
+        {
+            events_.log(LogLevel::Debug, std::format("Alias: {}", flash_method));
+            events_.log(LogLevel::Debug, std::format("Protocol: {}", vehicle.protocol_name));
+            return vehicle.protocol_name;
+        }
+    }
+    return flash_method;
 }
 
 void RomOpenUseCase::log_error(std::string_view operation, const Error& error)
