@@ -96,7 +96,7 @@ The rules below constrain the remaining milestones.
   timeouts, retry rules, and safety policy explicit. A defect correction needs
   local evidence, a reproducing test, exact corrected expectations, and a
   qualification note; use a mutation check to prove the test detects it.
-  See the [protocol-sharing boundary](protocol-generalization-opportunities.md)
+  See the [protocol-sharing boundary](design-notes.md#where-port-then-factor-shared-code-and-where-it-did-not)
   and [flash qualification matrix](flash-qualification-matrix.md).
 - **Enforce boundaries through the build graph.** Qt reachability is gated by
   [ADR 0016 visibility](adr/0016-enforce-qt-reachability-by-visibility.md).
@@ -111,104 +111,26 @@ The rules below constrain the remaining milestones.
 
 ## Remaining Roadmap
 
-Steps 6l-6n are ordered consumer migrations. Each slice should land with its
-own regression coverage and remove the bridge it makes unnecessary. Reuse
-existing portable records and services; extend them only where a consumer
-requires a missing capability. Preserve behavior unless a correction is
-explicitly evidenced and recorded.
+Steps 1-6n are structurally implemented (see the
+[completed milestones](#completed-milestones)); Step 7 is the only remaining
+milestone. Implementation completion is not hardware qualification: full
+release build/test, formatting, changed-file static analysis and platform
+CI/packaging results must be recorded before release, and the post-read
+handoff and checksum/save/write paths still need bench re-verification. The
+migrations establish no new hardware qualification, and automated success
+alone does not either.
 
-### 6k — Configuration and protocol models
-
-Done: startup, settings persistence, vehicle/protocol selection, and composition
-wiring now use the portable `ConfigSession` and catalog records.
-`ConfigValuesStructure`, `LegacyConfigAdapter`, and `legacy_config_paths` have
-been removed. Startup rejection is an intentional correction, documented in
-[Configuration session](design-notes.md#configuration-session), together with
-the preserved selection and persistence quirks. Step 6n is completed below.
-
-### 6l — Logging models
-
-Implemented in two slices: 6l-1 adds the portable `LoggerModel`, support-aware
-defaults and explicit selection fallback; 6l-2 migrates desktop composition,
-chooser, displays, CSV, snapshots and sample application. `LogValuesStructure`,
-`LegacyLoggerAdapter`, logger-specific `FileActions` code and the logging legacy
-Qt visibility grant are removed. Definition defaults, operator choices, support
-and desktop values have separate ownership.
-
-Automated coverage includes selection persistence/failures, nonfatal definition
-loads, capability preservation, stable identities, unresolved IDs, raw-value and
-conversion compatibility, immutable snapshots and logging/connection lifecycles.
-The chooser's duplicate-label correction and CSV's protocol-scoped identity
-correction have reproductions, exact corrected assertions and mutation checks;
-see [Logger ownership and stable identities](design-notes.md#logger-ownership-and-stable-identities).
-Backend policy stays in `LoggingUseCase::run()`. Platform CI/packaging gates and
-hardware bench qualification require their recorded results before release;
-automated success alone does not establish hardware qualification.
-
-### 6m — Definition and calibration sessions
-
-Implemented. Portable `CalibrationSession`, `RomOpenUseCase`,
-`RomSaveUseCase` and `CalibrationWorkspace` own calibration data through the
-composition root. Trees, ROM info, map windows, edits, hex display, save,
-write preflight and checksum use sessions directly. The final consumer slice
-also reads typed map metadata directly; no read-only legacy projection remains.
-`EcuCalDefStructure`, both legacy definition/calibration adapters and their
-packages, legacy columns and the two `qt_layer` entries are retired.
-
-Stable session IDs replace fixed raw-pointer slots. UI view state stays keyed
-by session; map values decode from the current ROM bytes. Save and write use a
-temporary operation image for checksum correction, leaving editable session
-bytes unchanged on completion or cancellation. See
-[calibration session ownership and operation images](design-notes.md#calibration-session-ownership-and-operation-images)
-for lifetime rules and preserved behavior.
-
-The exit requirements remain definition resolution and inheritance, ROM round
-trips, map addressing and edits, checksum outcomes, and failed/cancelled reads
-leaving no occupied session. Preserve the documented
+The desktop-closure exit gate holds: no Qt-typed legacy package remains under
+algorithms/backend, all transitional `qt_layer` entries are removed, portable
+closure coverage includes the resulting portable targets, and production UI
+cannot reach serial facade headers. Preserve the documented
 [calibration corrections and open defects](design-notes.md#calibration).
-Full release build/test, formatting, changed-file static analysis and platform
-CI/packaging gates require their recorded results. Post-read handoff and
-checksum paths still need bench re-verification before release; this migration
-establishes no new hardware qualification. `FileActions` was retired by 6n-1;
-kernel models and the byte shim were relocated by 6n-2 and 6n-3.
-
-### 6n — Desktop closure
-
-**6n-1 — Catalog and authoring consumers: implemented.** Desktop composition
-owns `DefinitionCatalogSession`, sharing the portable `DefinitionService`
-with ROM opening. Startup lookup provenance uses typed ID/source records;
-authored destinations are registered only after successful writes. MainWindow
-and definition dialogs use the session directly. `FileActions`, parallel
-`DefinitionIndexes`, their tests/targets and the backend Qt visibility grant
-are retired. Configuration and kernel resource registration is explicit in
-composition. See [desktop catalog lookup and authoring ownership](design-notes.md#desktop-catalog-lookup-and-authoring-ownership).
-
-**6n-2 — Kernel models: implemented.** The byte-identical kernel command and
-flash memory-model headers now live in separate portable targets under
-`src/backend/flash/kernel`. Flash consumers use the new memory-model target;
-`src/backend/definitions` and its old `:models` target are retired. Device
-data, lookup interfaces and command values are unchanged.
-
-**6n-3 — Desktop byte boundary: implemented.**
-The byte-conversion helper and its tests now live under
-`src/platform/desktop/common/bytes`, with target-level UI-facing visibility.
-Explicit conversions and Qt-owned buffers remain at existing desktop call
-sites. The old algorithms shim and its `qt_layer` entry are removed.
-
-**Exit gate:** no Qt-typed legacy package remains under algorithms/backend;
-all corresponding transitional `qt_layer` entries are removed, and portable
-closure coverage includes the resulting portable targets. Production UI still
-cannot reach serial facade headers. Desktop composition, restart,
-cancellation, and teardown checks pass in the release suite. Platform CI,
-packaging, and hardware qualification remain separate release gates; structural
-completion does not imply those results.
 
 ### 7 — Android seam
 
 Start after 6n. First prove the portable closure can cross-compile with an
 Android C++23 toolchain. Validate and pin compatible Bazel Android rules and
-NDK versions at this milestone; the original prospective version pins were
-not an implemented or verified toolchain. Keep Android dependencies isolated
+NDK versions at this milestone. Keep Android dependencies isolated
 from desktop targets, adding Kotlin rules only if the fixture requires them.
 
 Introduce the native facade under `src/platform/android/native`: versioned
@@ -239,12 +161,10 @@ bazel run --config=release //:clang_tidy_report_changed
 ```
 
 The build includes `//:portable_closure`. Qt restrictions are enforced by
-visibility, not the deleted `backend_no_widgets` or serial allowlist scans.
-The deleted OpenSSL wiring target is not a gate.
+visibility.
 
 Require the Windows/macOS/Linux CI matrix and Windows/macOS packaging checks.
-Coverage is gated through SonarCloud on new code; the former overall coverage
-baseline ratchet is gone. Follow the [coding style and testing conventions](coding-style.md)
+Coverage is gated through SonarCloud on new code. Follow the [coding style and testing conventions](coding-style.md)
 and use package-owned mocks. QtTest suites using Google Mock must propagate
 its failures into their exit status. An empty Windows QtTest log is not
 proof of a crash; see the [coverage reliability notes](tech-debt.md#p0-make-coverage-results-trustworthy).
@@ -282,12 +202,8 @@ advancing a hardware status.
 ### Related work
 
 The [technical debt roadmap](tech-debt.md) owns outstanding defects and
-broader cleanup; the [logging debt notes](logging-engine-tech-debt.md) and
-[protocol-sharing notes](protocol-generalization-opportunities.md) hold focused
-follow-ups. Their historical snapshots can lag code: verify a finding before
-scheduling it. For example, logger parsing is already portable, and CDBG
-serial setup is already in desktop protocol registration rather than the
-portable protocol's `start()`.
+broader cleanup; its "Logging engine follow-ups" section holds the focused logging items.
+Those findings can lag code: verify one before scheduling it.
 
 Do not turn every debt item into an Android prerequisite. Evidence-dependent
 protocol changes, generic Sonar cleanup, and broader UI features remain
@@ -320,5 +236,9 @@ completed specs and implementation plans.
 | 6h | Connection adapter and asynchronous SSM identification; legacy UI serial access drained. |
 | 6i | Serial facade restricted to platform; transitive headers hidden and obsolete allowlist removed. |
 | 6j | UI-owned logging/remote channels; remaining GRANDFATHERED visibility entries removed. |
+| 6k | Portable `ConfigSession` and catalog records replace the legacy config structures and adapter; startup rejection is an intentional correction ([Configuration session](design-notes.md#configuration-session)). |
+| 6l | Portable `LoggerModel` with separate ownership of definitions, selection, support and desktop values; chooser and CSV identity corrections carry reproductions and mutation checks ([Logger ownership](design-notes.md#logger-ownership-and-stable-identities)). |
+| 6m | Portable `CalibrationSession`, `RomOpenUseCase`, `RomSaveUseCase` and `CalibrationWorkspace` with stable session IDs; save and write correct checksums on a temporary operation image ([session ownership](design-notes.md#calibration-session-ownership-and-operation-images)). |
+| 6n | Desktop closure: `DefinitionCatalogSession` replaces `FileActions` (6n-1); kernel models move to `src/backend/flash/kernel` (6n-2); the Qt byte helper moves to `src/platform/desktop/common/bytes` (6n-3). |
 
 “Implemented” in this ledger does not supersede any pending bench checklist.
