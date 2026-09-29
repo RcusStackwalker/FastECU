@@ -37,6 +37,8 @@ MANAGED_ROOTS = tuple(
         "src/ui/desktop/calibration",
         "src/ui/desktop/checksum",
         "src/ui/desktop/menu",
+        "apps/bench/testing",
+        "src/platform/desktop/common/connection/testing",
     )
 )
 

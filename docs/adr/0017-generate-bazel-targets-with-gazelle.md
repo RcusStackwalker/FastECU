@@ -19,8 +19,10 @@ for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_d
 `src/backend/diagnostics`, `src/backend/config`, `src/backend/definition`,
 `src/backend/calibration`, `src/backend/logging`,
 `src/backend/service_functions`, `src/backend/flash`,
-`src/ui/desktop/calibration`, `src/ui/desktop/checksum` and
-`src/ui/desktop/menu`, including their subpackages. The legacy Qt-backed
+`src/ui/desktop/calibration`, `src/ui/desktop/checksum`,
+`src/ui/desktop/menu`, `apps/bench/testing` and
+`src/platform/desktop/common/connection/testing`, including their
+subpackages. The legacy Qt-backed
 `src/backend/definitions` remains unmanaged.
 
 - Grouping is `cc_group unit`; `cc_test` is mapped to `fastecu_portable_gtest`.
@@ -29,7 +31,10 @@ for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_d
   `resolve` directives map Qt headers to Core, Gui and Widgets for all managed
   packages. The three managed UI packages likewise map tests to `fastecu_gtest`. Their libraries declare no `Q_OBJECT`, so they use plain `cc_library`
   with `COMMON_COPTS` instead of the moc-bearing `qt_cc_library`; the header-only
-  calibration view state retains its existing compiler settings. Compiler
+  calibration view state retains its existing compiler settings. The connection
+  test harness also uses plain `cc_library` with `COMMON_COPTS` and no moc;
+  package-local header mappings resolve its unmanaged Qt-macro providers.
+  Bench fixtures retain the portable test mapping. Compiler
   options, visibility and offscreen test environments remain hand-owned;
   generated dependencies replace the broad Qt module set.
   `cc_group directory` was rejected: it merges the per-file tests and overlaps

@@ -225,8 +225,16 @@ class CheckTest(unittest.TestCase):
             "src/ui/desktop/calibration/testing/new/BUILD.bazel",
             "src/ui/desktop/checksum/BUILD.bazel",
             "src/ui/desktop/menu/BUILD.bazel",
+            "apps/bench/testing/BUILD.bazel",
+            "apps/bench/testing/nested/BUILD.bazel",
+            "src/platform/desktop/common/connection/testing/BUILD.bazel",
+            "src/platform/desktop/common/connection/testing/nested/BUILD.bazel",
         ]
         unmanaged = [
+            "apps/bench/BUILD.bazel",
+            "apps/bench/testing_extra/BUILD.bazel",
+            "src/platform/desktop/common/connection/BUILD.bazel",
+            "src/platform/desktop/common/connection/testing_extra/BUILD.bazel",
             "src/ui/desktop/calibration_extra/BUILD.bazel",
             "src/ui/desktop/checksum_extra/BUILD.bazel",
             "src/ui/desktop/menu_extra/BUILD.bazel",
