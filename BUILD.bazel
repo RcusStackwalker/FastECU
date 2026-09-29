@@ -200,6 +200,15 @@ fi
 echo "OK: no //src/platform label is reachable from a portable target." > $@""",
 )
 
+# The registered portable roots as a label list, for scripts/android-cross-compile.sh
+# to build with the Android NDK. A genquery rather than a target depending on them:
+# the roots are deliberately not visible from the root package.
+genquery(
+    name = "portable_roots",
+    expression = "set(" + " ".join(CLOSURE_ROOTS) + ")",
+    scope = CLOSURE_ROOTS,
+)
+
 py_test(
     name = "windows_preprocessor_guards",
     size = "small",

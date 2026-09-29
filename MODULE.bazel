@@ -3,7 +3,8 @@ module(name = "fastecu")
 bazel_dep(name = "rules_cc", version = "0.2.22")
 bazel_dep(name = "rules_python", version = "2.2.0")
 bazel_dep(name = "fastecu_qt", version = "0.0.0")
-bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "rules_android_ndk", version = "0.1.5")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 bazel_dep(name = "pugixml", version = "1.15")
 
@@ -45,6 +46,12 @@ msvc_sysroot = use_extension("//bazel/toolchains:msvc_sysroot_ext.bzl", "msvc_sy
 use_repo(msvc_sysroot, "msvc_sysroot")
 
 register_toolchains("//bazel/toolchains/windows_x86_msvc:windows_x86_msvc_toolchain")
+
+# Android NDK for the step-7 cross-compile spike. Not registered here: the
+# toolchains are selected only by `--config=android` (bazel/android.bazelrc), so
+# desktop builds never need an NDK. The extension reads ANDROID_NDK_HOME lazily.
+android_ndk = use_extension("@rules_android_ndk//:extension.bzl", "android_ndk_repository_extension")
+use_repo(android_ndk, "androidndk")
 
 bazel_dep(name = "hedron_compile_commands", dev_dependency = True)
 
