@@ -105,7 +105,7 @@ The rules below constrain the remaining milestones.
   compile inputs, enforced by sandboxed Linux/macOS builds. Windows alone
   does not prove that header boundary.
 - **Portable means location.** Everything under `//src/backend/...` and
-  `//src/algorithms/...` is portable; there is no registry. The
+  `//src/algorithms/...` is portable. The
   [portable-core gate](../scripts/android-cross-compile.sh) fails if a
   `//src/platform` label is reachable from it and builds all of it for Android
   arm64, so it is not a Qt/JNI source scan.

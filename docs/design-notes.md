@@ -388,16 +388,6 @@ package, and a new portable target's glob can equally pull in a legacy Qt
 file. Land portable code in its own package, and use explicit `srcs` lists for
 any target sharing a package with legacy code.
 
-### The portable-core gate replaced the `PORTABLE_PACKAGES` registry
-
-`//:portable_closure` swept a hand-maintained list of target names
-(`bazel/portable_targets.bzl`), so a new portable `cc_library` that was not
-added by name went unchecked, without any failure or warning. This was missed
-once (wave 6a-1) and left targets unguarded until noticed later. Step 7 replaced
-the registry, its genquery and the genrule with `scripts/android-cross-compile.sh`,
-which takes `//src/backend/...` and `//src/algorithms/...` as the portable set:
-new targets are covered by location, with nothing to register.
-
 ### A glob fails when any one pattern matches nothing
 
 Bazel fails a `glob()` if any single pattern matches no files, unless
