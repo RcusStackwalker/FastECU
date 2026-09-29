@@ -42,7 +42,7 @@ qt_cc_library(
     ],
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/qt_compat",
+        "//src/platform/desktop/common/bytes:qt_bytes",
     ],
 )
 
@@ -118,7 +118,7 @@ qt_cc_library(
     deps = QT_DEPS + [
         ":serial_port_actions",
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/qt_compat",
+        "//src/platform/desktop/common/bytes:qt_bytes",
     ] + select({
         "@platforms//os:windows": ["//src/platform/desktop/windows/j2534:j2534_api"],
         "//conditions:default": ["//src/platform/desktop/unix/j2534:j2534_api"],
@@ -146,7 +146,7 @@ qt_cc_library(
         ":serial_port_actions",
         ":serial_port_actions_direct_moc",
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/qt_compat",
+        "//src/platform/desktop/common/bytes:qt_bytes",
         "//src/platform/desktop/unix/j2534:j2534_api",
     ],
     # Composition roots link the selected implementation beside a
@@ -179,7 +179,7 @@ qt_cc_library(
         ":serial_port_actions",
         ":serial_port_actions_direct_moc",
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/qt_compat",
+        "//src/platform/desktop/common/bytes:qt_bytes",
         "//src/platform/desktop/windows/j2534:j2534_api",
     ],
     alwayslink = True,

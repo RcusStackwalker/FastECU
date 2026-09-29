@@ -10,7 +10,7 @@
 #include <string_view>
 
 #include "src/algorithms/protocol/fixed_buffer.h"
-#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
+#include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
 
 static_assert(kJ2534IoctlP1Max == P1_MAX, "serial_facade_codes.h must match the J2534 header's P1_MAX");

@@ -4,7 +4,7 @@
 #include <chrono>
 #include <cstdint>
 
-#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
+#include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/protocol/idiagnostic_link.h"
 

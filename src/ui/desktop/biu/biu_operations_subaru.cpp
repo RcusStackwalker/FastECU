@@ -3,7 +3,7 @@
 
 #include <cstddef>
 #include "src/ui/desktop/diagnostic_link_io.h"
-#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
+#include "src/platform/desktop/common/bytes/qt_bytes.h"
 
 BiuOperationsSubaru::BiuOperationsSubaru(fastecu::diagnostics::IDiagnosticLink& link_arg, QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::BiuOperationsSubaruWindow>()}

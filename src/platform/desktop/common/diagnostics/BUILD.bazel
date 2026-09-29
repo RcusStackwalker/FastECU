@@ -14,9 +14,9 @@ qt_cc_library(
     normal_hdrs = ["serial_diagnostic_link.h"],
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/qt_compat",
         "//src/backend/ports",
         "//src/backend/protocol",
+        "//src/platform/desktop/common/bytes:qt_bytes",
     ],
 )
 
@@ -63,10 +63,10 @@ qt_cc_library(
     hdrs = ["ssm_identify_worker.h"],
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/qt_compat",
         "//src/backend/diagnostics:ssm_identify",
         "//src/backend/ports",
         "//src/backend/protocol",
+        "//src/platform/desktop/common/bytes:qt_bytes",
     ],
 )
 

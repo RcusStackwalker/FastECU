@@ -7,15 +7,13 @@
 package(default_visibility = ["//visibility:private"])
 
 # Packages that may link any Qt module. `src/backend` and `src/algorithms` are
-# absent except for the leaf packages that exist to hold Qt-typed transitional
-# code -- the `legacy` adapters and the `qt_compat` shims. A new package under
-# either is denied by default and has to be added here deliberately.
+# absent. A new package under either is denied by default and has to be added
+# here deliberately.
 package_group(
     name = "qt_layer",
     packages = [
         "//apps/...",
         "//resources/...",
-        "//src/algorithms/protocol/qt_compat",
         "//src/platform/...",
         "//src/ui/...",
         "//tests/...",
