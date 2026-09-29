@@ -1,0 +1,33 @@
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_common.bzl", "COMMON_COPTS")
+
+package(default_visibility = ["//visibility:private"])
+
+cc_library(
+    name = "qt_bytes",
+    hdrs = ["qt_bytes.h"],
+    copts = COMMON_COPTS,
+    visibility = [
+        "//bazel/layers:platform",
+        "//bazel/layers:tests",
+        "//src/ui/desktop:__pkg__",
+        "//src/ui/desktop/biu:__pkg__",
+    ],
+    deps = [
+        "//bazel/qt:core",
+        "//src/algorithms/protocol",
+    ],
+)
+
+fastecu_gtest(
+    name = "qt_bytes_test",
+    srcs = ["qt_bytes_test.cpp"],
+    deps = [
+        ":qt_bytes",
+        "//bazel/qt:core",
+        "//src/algorithms/protocol",
+        "@googletest//:gtest",
+    ],
+)
