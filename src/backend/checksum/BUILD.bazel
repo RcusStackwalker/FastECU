@@ -13,15 +13,21 @@ cc_library(
     name = "dispatch",
     srcs = ["dispatch.cpp"],
     hdrs = ["dispatch.h"],
-    deps = [
-        ":checksum_selection",
+    implementation_deps = [
         "//src/algorithms/checksum",
         "//src/backend/flash:flash_device_lookup",
+    ],
+    deps = [
+        ":checksum_selection",
+        "//src/algorithms/protocol",
     ],
 )
 
 fastecu_portable_gtest(
     name = "dispatch_test",
     srcs = ["dispatch_test.cpp"],
-    deps = [":dispatch"],
+    deps = [
+        ":dispatch",
+        "@googletest//:gtest",
+    ],
 )

@@ -23,16 +23,19 @@ cc_library(
 fastecu_portable_gtest(
     name = "obd_frames_test",
     srcs = ["obd_frames_test.cpp"],
-    deps = [":obd_frames"],
+    deps = [
+        ":obd_frames",
+        "@googletest//:gtest",
+    ],
 )
 
 cc_library(
     name = "dtc_session",
     srcs = ["dtc_session.cpp"],
     hdrs = ["dtc_session.h"],
+    implementation_deps = ["//src/algorithms/diagnostics"],
     deps = [
         ":obd_frames",
-        "//src/algorithms/diagnostics",
         "//src/algorithms/protocol",
         "//src/backend/ports",
         "//src/backend/protocol",
@@ -50,6 +53,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:recording_event_sink",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:fake_diagnostic_link",
+        "@googletest//:gtest",
     ],
 )
 
@@ -73,5 +77,6 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:fake_diagnostic_link",
+        "@googletest//:gtest",
     ],
 )

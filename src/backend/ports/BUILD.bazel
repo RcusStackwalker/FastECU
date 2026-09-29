@@ -32,17 +32,24 @@ fastecu_portable_gtest(
     deps = [
         ":ports",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
 fastecu_portable_gtest(
     name = "manual_cancellation_token_test",
     srcs = ["manual_cancellation_token_test.cpp"],
-    deps = [":ports"],
+    deps = [
+        ":ports",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
     name = "duration_cast_test",
     srcs = ["duration_cast_test.cpp"],
-    deps = [":ports"],
+    deps = [
+        ":ports",
+        "@googletest//:gtest",
+    ],
 )

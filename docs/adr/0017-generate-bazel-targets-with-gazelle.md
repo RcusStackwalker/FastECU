@@ -14,7 +14,9 @@ found when a build broke.
 
 `gazelle` with the `gazelle_cc` extension generates `cc_library` and test targets
 for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_diff` in the root
-`BUILD.bazel`. Currently that is `src/algorithms`, without `qt_compat`.
+`BUILD.bazel`. Currently that is `src/algorithms`, without `qt_compat`, plus
+`src/backend/ports`, `src/backend/protocol`, `src/backend/checksum` and
+`src/backend/diagnostics`, including their subpackages.
 
 - Grouping is `cc_group unit`; `cc_test` is mapped to `fastecu_portable_gtest`.
   `cc_group directory` was rejected: it merges the per-file tests and overlaps
@@ -28,7 +30,7 @@ for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_d
   intentional library boundaries, visibility, comments, runtime metadata and
   configuration directives. Hand-edit those choices, then run the pipeline to
   reconcile generated attributes.
-- `scripts/gazelle_check.py` runs Gazelle, discovers the pilot's BUILD files
+- `scripts/gazelle_check.py` runs Gazelle, discovers the managed BUILD files
   (including new ones), then runs the pinned `buildifier` and `buildifier-lint`
   prek hooks. Formatting excludes `qt_compat`. Its broader `*.bazel` snapshot
   still detects changed, created or deleted files without treating preexisting
@@ -41,8 +43,8 @@ for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_d
 - To preview generation without writing:
   `bazel run --config=release //:gazelle_diff`. This previews Gazelle output;
   the complete update command also applies Buildifier formatting and lint fixes.
-- To widen: add a path to `GAZELLE_ARGS`, regenerate, and review the diff in its own pull
-  request.
+- To widen: add a path to `GAZELLE_ARGS` and the checker's `MANAGED_ROOTS`,
+  regenerate, and review the diff in its own pull request.
 
 ## Consequences
 

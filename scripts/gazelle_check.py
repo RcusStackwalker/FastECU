@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate and format the algorithms pilot with Gazelle and pinned prek hooks.
+"""Generate and format managed packages with Gazelle and pinned prek hooks.
 
 Exit codes: 0 = unchanged (or successfully corrected with --fix),
 1 = corrections made, 2 = tool or lint failure. Snapshot all *.bazel files
@@ -19,6 +19,17 @@ from typing import TextIO
 
 GAZELLE_TARGET = "//:gazelle"
 BUILD_FILE_PATHSPEC = "*.bazel"
+# Keep these roots aligned with GAZELLE_ARGS in the root BUILD.bazel.
+MANAGED_ROOTS = tuple(
+    Path(path)
+    for path in (
+        "src/algorithms",
+        "src/backend/ports",
+        "src/backend/protocol",
+        "src/backend/checksum",
+        "src/backend/diagnostics",
+    )
+)
 
 ListFiles = Callable[[Path], Sequence[str]]
 RunGazelle = Callable[[Path], int]
@@ -90,14 +101,13 @@ def run_bazel_gazelle(root: Path) -> int:
 
 
 def managed_build_files(root: Path, list_files: ListFiles) -> list[str]:
-    """Discover existing pilot BUILD files after generation, including new ones."""
-    pilot = Path("src/algorithms")
-    excluded = pilot / "protocol/qt_compat"
+    """Discover managed BUILD files after generation, including new ones."""
+    excluded = Path("src/algorithms/protocol/qt_compat")
     return sorted(
         relative
         for relative in list_files(root)
         if Path(relative).name == "BUILD.bazel"
-        and Path(relative).is_relative_to(pilot)
+        and any(Path(relative).is_relative_to(managed) for managed in MANAGED_ROOTS)
         and not Path(relative).is_relative_to(excluded)
         and (root / relative).is_file()
     )

@@ -33,6 +33,7 @@ fastecu_portable_gtest(
     deps = [
         ":protocol",
         "//src/backend/protocol/testing:scripted_transports",
+        "@googletest//:gtest",
     ],
 )
 
@@ -46,6 +47,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
+        "@googletest//:gtest",
     ],
 )
 
@@ -53,11 +55,12 @@ fastecu_portable_gtest(
     name = "test_transport",
     srcs = ["transport_test.cpp"],
     deps = [
-        ":protocol",
         "//src/algorithms/protocol/testing:byte_test_utils",
+        "//src/backend/ports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
+        "@googletest//:gtest",
     ],
 )
 
@@ -70,6 +73,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
+        "@googletest//:gtest",
     ],
 )
 
@@ -77,10 +81,10 @@ cc_library(
     name = "mut_memory",
     srcs = ["mut_memory.cpp"],
     hdrs = ["mut_memory.h"],
+    implementation_deps = ["//src/algorithms/protocol/mut_dma"],
     deps = [
         ":protocol",
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/mut_dma",
         "//src/backend/ports",
     ],
 )
@@ -94,5 +98,6 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
+        "@googletest//:gtest",
     ],
 )

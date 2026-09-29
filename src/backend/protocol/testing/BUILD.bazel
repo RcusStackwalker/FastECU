@@ -28,5 +28,6 @@ fastecu_portable_gtest(
         ":fake_diagnostic_link",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )

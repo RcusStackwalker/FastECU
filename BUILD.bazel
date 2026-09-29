@@ -17,7 +17,13 @@ gazelle_binary(
     tags = ["manual"],
 )
 
-GAZELLE_ARGS = ["src/algorithms"]
+GAZELLE_ARGS = [
+    "src/algorithms",
+    "src/backend/ports",
+    "src/backend/protocol",
+    "src/backend/checksum",
+    "src/backend/diagnostics",
+]
 
 gazelle(
     name = "gazelle",
