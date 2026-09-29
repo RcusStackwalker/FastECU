@@ -14,7 +14,7 @@ found when a build broke.
 
 `gazelle` with the `gazelle_cc` extension generates `cc_library` and test targets
 for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_diff` in the root
-`BUILD.bazel`. Currently that is `src/algorithms`, including `qt_compat`, plus
+`BUILD.bazel`. Currently that is `src/algorithms`, plus
 `src/backend/ports`, `src/backend/protocol`, `src/backend/checksum`,
 `src/backend/diagnostics`, `src/backend/config`, `src/backend/definition`,
 `src/backend/calibration`, `src/backend/logging`,
