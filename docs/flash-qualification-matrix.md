@@ -9,7 +9,7 @@
 | `scope` | ECU, TCU, EEPROM, JTAG, BDM, or bootmode |
 | `transport` | K-Line, raw CAN, ISO-15765, SSM, JTAG, or BDM |
 | `operations` | Actual supported `read`, `test_write`, `write` set; no inferred capability |
-| `portable` | `yes` only when plan + executor are in enforced portable closure |
+| `portable` | `yes` only when plan + executor live under `src/backend` or `src/algorithms` and pass the portable-core gate |
 | `automated_evidence` | Golden/state-machine test labels and last qualifying revision |
 | `hardware_status` | `unqualified`, `experimental`, or `proven` |
 | `hardware_evidence` | Date, ECU/TCU/adapter identity, operation, operator/report reference; `—` if absent |
