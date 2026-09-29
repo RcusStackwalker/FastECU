@@ -11,6 +11,10 @@ from unittest import mock
 import gazelle_check as gc
 
 _BUILD = "BUILD.bazel"
+_PKG_BUILD = f"pkg/{_BUILD}"
+_NEW_BUILD = f"new/{_BUILD}"
+_REGENERATED = "# regenerated\n"
+_FORMATTED = "# formatted\n"
 
 
 def list_all(root: Path) -> list[str]:
@@ -51,17 +55,17 @@ class CheckTest(unittest.TestCase):
 
     def test_modified_file_is_drift(self) -> None:
         def gazelle(_root: Path) -> int:
-            self.build.write_text("# regenerated\n")
+            self.build.write_text(_REGENERATED)
             return 0
 
         code, output = self.run_check(gazelle)
         self.assertEqual(code, 1)
-        self.assertIn("pkg/BUILD.bazel", output)
-        self.assertEqual(self.diffs, [(["pkg/BUILD.bazel"], [])])
+        self.assertIn(_PKG_BUILD, output)
+        self.assertEqual(self.diffs, [([_PKG_BUILD], [])])
 
     def test_drift_message_tells_the_contributor_to_commit(self) -> None:
         def gazelle(_root: Path) -> int:
-            self.build.write_text("# regenerated\n")
+            self.build.write_text(_REGENERATED)
             return 0
 
         _, output = self.run_check(gazelle)
@@ -75,8 +79,8 @@ class CheckTest(unittest.TestCase):
 
         code, output = self.run_check(gazelle)
         self.assertEqual(code, 1)
-        self.assertIn("new/BUILD.bazel", output)
-        self.assertEqual(self.diffs, [(["new/BUILD.bazel"], ["new/BUILD.bazel"])])
+        self.assertIn(_NEW_BUILD, output)
+        self.assertEqual(self.diffs, [([_NEW_BUILD], [_NEW_BUILD])])
 
     def test_deleted_file_is_drift(self) -> None:
         def gazelle(_root: Path) -> int:
@@ -85,7 +89,7 @@ class CheckTest(unittest.TestCase):
 
         code, output = self.run_check(gazelle)
         self.assertEqual(code, 1)
-        self.assertIn("pkg/BUILD.bazel", output)
+        self.assertIn(_PKG_BUILD, output)
 
     def test_preexisting_uncommitted_edit_is_not_drift(self) -> None:
         self.build.write_text("# contributor edit, not yet staged\n")
@@ -107,8 +111,8 @@ class CheckTest(unittest.TestCase):
         self.assertEqual(code, 2)
 
     def test_snapshot_ignores_listed_but_missing_files(self) -> None:
-        snapshot = gc.snapshot(self.root, lambda _root: ["pkg/BUILD.bazel", "gone/BUILD.bazel"])
-        self.assertEqual(list(snapshot), ["pkg/BUILD.bazel"])
+        snapshot = gc.snapshot(self.root, lambda _root: [_PKG_BUILD, "gone/BUILD.bazel"])
+        self.assertEqual(list(snapshot), [_PKG_BUILD])
 
     def pilot_build(self):
         path = self.root / "src/algorithms/example/BUILD.bazel"
@@ -123,7 +127,7 @@ class CheckTest(unittest.TestCase):
         def hook(root, name, files):
             calls.append(name)
             if len(calls) == 1:
-                build.write_text("# formatted\n")
+                build.write_text(_FORMATTED)
                 return 1
             return 0
 
@@ -135,13 +139,13 @@ class CheckTest(unittest.TestCase):
         build = self.pilot_build()
 
         def hook(root, name, files):
-            if build.read_text() != "# formatted\n":
-                build.write_text("# formatted\n")
+            if build.read_text() != _FORMATTED:
+                build.write_text(_FORMATTED)
                 return 1
             return 0
 
         self.assertEqual(self.run_check(lambda root: 0, hook, fix=True)[0], 0)
-        self.assertEqual(build.read_text(), "# formatted\n")
+        self.assertEqual(build.read_text(), _FORMATTED)
 
     def test_formatter_failure_without_corrections_exits_two(self):
         self.pilot_build()
@@ -153,7 +157,7 @@ class CheckTest(unittest.TestCase):
         build = self.pilot_build()
 
         def hook(*args):
-            build.write_text(build.read_text() + "# change\n")
+            build.write_text("# change\n")
             return 1
 
         self.assertEqual(self.run_check(lambda root: 0, hook)[0], 2)
@@ -185,7 +189,7 @@ class CheckTest(unittest.TestCase):
 
     def test_fix_returns_zero_after_corrections(self):
         def gazelle(root):
-            self.build.write_text("# regenerated\n")
+            self.build.write_text(_REGENERATED)
             return 0
 
         code, output = self.run_check(gazelle, fix=True)
@@ -217,14 +221,14 @@ class EnvironmentTest(unittest.TestCase):
             mock.patch.object(gc.shutil, "which", return_value=None),
             self.assertRaisesRegex(gc.GazelleCheckError, "prek"),
         ):
-            gc.run_prek_hook(Path("."), "buildifier", ["BUILD.bazel"])
+            gc.run_prek_hook(Path("."), "buildifier", [_BUILD])
 
     def test_main_fix_applies_pipeline(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
 
             def gazelle(root):
-                (root / "BUILD.bazel").write_text("# generated\n")
+                (root / _BUILD).write_text("# generated\n")
                 return 0
 
             with (
@@ -235,7 +239,7 @@ class EnvironmentTest(unittest.TestCase):
                 mock.patch.object(gc.sys, "stderr", new=StringIO()),
             ):
                 self.assertEqual(gc.main(["--fix"]), 0)
-                self.assertEqual((root / "BUILD.bazel").read_text(), "# generated\n")
+                self.assertEqual((root / _BUILD).read_text(), "# generated\n")
 
     def test_main_reports_process_errors_as_exit_two(self):
         with (
