@@ -210,12 +210,18 @@ class CheckTest(unittest.TestCase):
             "src/backend/calibration/BUILD.bazel",
             "src/backend/calibration/session/BUILD.bazel",
             "src/backend/calibration/session/testing/new/BUILD.bazel",
+            "src/backend/logging/BUILD.bazel",
+            "src/backend/logging/protocols/BUILD.bazel",
+            "src/backend/logging/testing/new/BUILD.bazel",
+            "src/backend/service_functions/BUILD.bazel",
         ]
         unmanaged = [
             "src/backend/flash/BUILD.bazel",
             "src/backend/definitions/BUILD.bazel",
             "src/backend/ports_extra/BUILD.bazel",
             "src/backend/calibration_extra/BUILD.bazel",
+            "src/backend/logging_extra/BUILD.bazel",
+            "src/backend/service_functions_extra/BUILD.bazel",
             "src/algorithms/protocol/qt_compat/BUILD.bazel",
         ]
 

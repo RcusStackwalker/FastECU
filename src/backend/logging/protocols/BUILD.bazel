@@ -12,6 +12,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
+        "@googletest//:gtest",
     ],
 )
 
@@ -20,9 +21,11 @@ fastecu_portable_gtest(
     srcs = ["mut_dma_logging_protocol_test.cpp"],
     deps = [
         ":protocols",
+        "//src/algorithms/protocol/mut_dma",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
+        "@googletest//:gtest",
     ],
 )
 
@@ -31,10 +34,12 @@ fastecu_portable_gtest(
     srcs = ["ssm_logging_protocol_test.cpp"],
     deps = [
         ":protocols",
+        "//src/algorithms/protocol/ssm",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
+        "@googletest//:gtest",
     ],
 )
 
@@ -50,9 +55,11 @@ cc_library(
         "portable_mut_dma_logging_protocol.h",
         "portable_ssm_logging_protocol.h",
     ],
+    implementation_deps = ["//src/algorithms/protocol/ssm"],
     deps = [
-        "//src/algorithms/protocol/ssm",
+        "//src/algorithms/protocol",
         "//src/backend/logging:logging_use_case",
+        "//src/backend/ports",
         "//src/backend/protocol",
     ],
 )
