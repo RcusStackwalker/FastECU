@@ -291,12 +291,12 @@ void QHexEdit::setCursorPosition(qint64 position)
     if (_editAreaIsBar)
     {
         _pxCursorX = x / 2 * _pxCharWidth + _pxPosBarX;
-        _cursorPosition = position & 0xFFFFFFFFFFFFFFFE;
+        _cursorPosition = position - position % 2;
     }
     if (_editAreaIsAscii)
     {
         _pxCursorX = x / 2 * _pxCharWidth + _pxPosAsciiX;
-        _cursorPosition = position & 0xFFFFFFFFFFFFFFFE;
+        _cursorPosition = position - position % 2;
     }
     else
     {
