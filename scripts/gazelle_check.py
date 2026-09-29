@@ -83,14 +83,24 @@ def run_bazel_gazelle(root: Path) -> int:
     bazel = shutil.which("bazel") or shutil.which("bazelisk")
     if bazel is None:
         raise GazelleCheckError("bazel (or bazelisk) was not found on PATH")
-    return subprocess.run([bazel, "run", GAZELLE_TARGET], cwd=root, check=False).returncode
+    # Same options as the documented build commands, so a push does not make the
+    # Bazel server discard its analysis cache over a changed configuration.
+    return subprocess.run(
+        [bazel, "run", "--config=release", GAZELLE_TARGET], cwd=root, check=False
+    ).returncode
 
 
 def git_show_diff(root: Path, paths: Sequence[str], added: Sequence[str]) -> None:
-    """Print the change; created files are marked intent-to-add so `git diff` shows them."""
-    if added:
-        subprocess.run(["git", "add", "--intent-to-add", "--", *added], cwd=root, check=False)
-    subprocess.run(["git", "--no-pager", "diff", "--", *paths], cwd=root, check=False)
+    """Print the change without touching the index; created files are diffed against nothing."""
+    existing = [path for path in paths if path not in added]
+    if existing:
+        subprocess.run(["git", "--no-pager", "diff", "--", *existing], cwd=root, check=False)
+    for path in added:
+        subprocess.run(
+            ["git", "--no-pager", "diff", "--no-index", "--", "/dev/null", path],
+            cwd=root,
+            check=False,
+        )
 
 
 def check(

@@ -41,7 +41,6 @@ jobs:
         with:
           bazelisk-cache: true
           repository-cache: true
-          disk-cache: fastecu-gazelle-${{ runner.os }}
           cache-save: false
 
       # Mirrors the Bazel job so module resolution sees the same host tools; drop
@@ -56,7 +55,7 @@ jobs:
         run: pipx install prek
 
       - name: Check BUILD files are up to date
-        run: prek run gazelle --hook-stage pre-push --all-files --show-diff-on-failure
+        run: prek run gazelle --hook-stage pre-push --all-files
 
   sonarcloud:
     name: SonarCloud
