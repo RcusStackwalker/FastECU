@@ -388,14 +388,6 @@ package, and a new portable target's glob can equally pull in a legacy Qt
 file. Land portable code in its own package, and use explicit `srcs` lists for
 any target sharing a package with legacy code.
 
-### `PORTABLE_PACKAGES` lists targets, not packages
-
-`bazel/portable_targets.bzl` maps each package to a list of target names. A
-package already being listed does not cover a new target added to it: every new
-portable `cc_library` must be added by name, or `//:portable_closure` never
-checks it, without any failure or warning. This was missed once (wave 6a-1) and
-left targets unguarded until noticed later.
-
 ### A glob fails when any one pattern matches nothing
 
 Bazel fails a `glob()` if any single pattern matches no files, unless

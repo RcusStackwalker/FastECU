@@ -104,10 +104,11 @@ The rules below constrain the remaining milestones.
   new ones. `implementation_deps` keeps facade headers out of production UI
   compile inputs, enforced by sandboxed Linux/macOS builds. Windows alone
   does not prove that header boundary.
-- **Register portable roots explicitly.** `//:portable_closure` is a build-time
-  check for reachable `//src/platform` labels, not a Qt/JNI source scan.
-  [The registry](../bazel/portable_targets.bzl) names individual targets;
-  merely putting a new library in a listed package does not cover it.
+- **Portable means location.** Everything under `//src/backend/...` and
+  `//src/algorithms/...` is portable. The
+  [portable-core gate](../scripts/android-cross-compile.sh) fails if a
+  `//src/platform` label is reachable from it and builds all of it for Android
+  arm64, so it is not a Qt/JNI source scan.
 
 ## Remaining Roadmap
 
@@ -122,16 +123,16 @@ alone does not either.
 
 The desktop-closure exit gate holds: no Qt-typed legacy package remains under
 algorithms/backend, all transitional `qt_layer` entries are removed, portable
-closure coverage includes the resulting portable targets, and production UI
+the portable-core gate covers the resulting portable targets, and production UI
 cannot reach serial facade headers. Preserve the documented
 [calibration corrections and open defects](design-notes.md#calibration).
 
 ### 7 — Android seam
 
 Start after 6n. **Done (spike):** the portable closure cross-compiles for
-Android arm64 with C++23. Every target registered in
-`bazel/portable_targets.bzl` (portable gtest binaries included, compile and
-link only) builds under `--config=android`, pinned to `rules_android_ndk`
+Android arm64 with C++23. Everything under `//src/backend/...` and
+`//src/algorithms/...` (portable gtest binaries included, compile and link
+only) builds under `--config=android`, pinned to `rules_android_ndk`
 0.1.5 and verified against NDK r30 (30.0.16248370, C++23 via the NDK's libc++).
 Run it with `scripts/android-cross-compile.sh` (needs `ANDROID_NDK_HOME`); CI
 runs it as the `android-cross-compile` job. The NDK toolchain is registered
@@ -167,8 +168,9 @@ bazel test -k --config=release //...
 bazel run --config=release //:clang_tidy_report_changed
 ```
 
-The build includes `//:portable_closure`. Qt restrictions are enforced by
-visibility.
+The portable-core gate (`scripts/android-cross-compile.sh`, CI job
+`android-cross-compile`) is separate from `bazel build //...`. Qt restrictions
+are enforced by visibility.
 
 Require the Windows/macOS/Linux CI matrix and Windows/macOS packaging checks.
 Coverage is gated through SonarCloud on new code. Follow the [coding style and testing conventions](coding-style.md)

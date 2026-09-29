@@ -44,7 +44,7 @@ subpackages. The legacy Qt-backed
   generated dependencies replace the broad Qt module set.
   `cc_group directory` was rejected: it merges the per-file tests and overlaps
   deliberately split libraries.
-- Gazelle does not write `visibility`, `PORTABLE_PACKAGES` or the `qt_layer`
+- Gazelle does not write `visibility` or the `qt_layer`
   group. A new package needs a hand-written `package(default_visibility = ...)`
   **before** the first run: without one, gazelle emits
   `visibility = ["//visibility:public"]` on the new targets.

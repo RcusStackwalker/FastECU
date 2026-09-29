@@ -58,7 +58,7 @@ jobs:
         run: prek run gazelle --hook-stage pre-push --all-files
 
   android-cross-compile:
-    name: Android cross-compile (portable closure)
+    name: Portable core (platform-free, Android build)
     needs: pre-commit
     runs-on: ubuntu-26.04
     timeout-minutes: 45
@@ -78,9 +78,9 @@ jobs:
           version: ${{ env.QT_VERSION }}
           modules: ${{ env.QT_MODULES }}
 
-      # Compile/link only: the gate is that every registered portable target
-      # builds with the NDK. Uses the NDK preinstalled on the runner image.
-      - name: Build portable closure for Android arm64
+      # Compile/link only: the gate is that everything under src/backend and
+      # src/algorithms builds with the NDK. Uses the NDK preinstalled on the runner image.
+      - name: Check portable core reaches no platform code and builds for Android arm64
         run: |
           export ANDROID_NDK_HOME="${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}"
           scripts/android-cross-compile.sh
