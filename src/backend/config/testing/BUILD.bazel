@@ -12,6 +12,13 @@ cc_library(
     name = "config_session_fixture",
     testonly = True,
     hdrs = ["config_session_fixture.h"],
+    visibility = [
+        "//bazel/layers:apps_desktop",
+        "//bazel/layers:backend",
+        "//bazel/layers:ui",
+        # Desktop catalog session tests reuse the configuration-owned fixture.
+        "//src/platform/desktop/common/definition:__pkg__",
+    ],
     deps = [
         "//src/backend/config:config_paths",
         "//src/backend/config:config_session",
