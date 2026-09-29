@@ -126,8 +126,12 @@ integration cases, offscreen cancellation and invalid-header flows, 75 MainWindo
 cases, and desktop composition lifecycle tests.
 
 Gazelle generation/check and all-file prek checks passed. Changed-file clang-tidy
-reported nine translation units clean with zero findings. Local macOS packaging
-produced a temporary app zip successfully. Portable closure and sandboxed macOS
+reported nine translation units clean with zero findings. Local macOS packaging with the Bazel-pinned Qt 6.8.3 deployment tool produced
+an app zip without deployment errors. Strict bundle signature verification failed
+with "code has no resources but signature indicates they must be present";
+macOS packaging remains unqualified. The initial run with Homebrew Qt 6.11.1
+had unresolved library paths despite returning zero, so its emitted zip is not
+verification evidence. The packaging script is unchanged by this slice. Portable closure and sandboxed macOS
 UI compilation passed; serial facade implementation dependencies remain intact.
 Windows/Linux CI, Windows packaging, and hardware qualification remain release
 gates to be recorded separately.
@@ -137,3 +141,10 @@ creation; grant this package narrow access to the configuration test fixture;
 keep header metadata notes and document notes distinct; explicitly register bundle
 resources in composition and provisioning test fixtures; explicitly discard
 already-reported nonfatal startup scan errors.
+
+Independent final review found no Critical or Important issues. Its sole Minor
+finding was the premature packaging PASS record, corrected above after inspecting
+the deploy logs and verifying the resulting bundle. No implementation fix was
+required. Hardware behavior, Windows/Linux runtime qualification, macOS artifact
+deployability, kernel-model relocation and byte-helper relocation remain outside
+this slice's completion claim.
