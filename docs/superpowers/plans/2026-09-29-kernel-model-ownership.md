@@ -1,6 +1,6 @@
 # 6n-2 Kernel Model Ownership Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Move the last portable kernel headers into flash ownership and retire `src/backend/definitions` without changing device data or flash behavior.
 
@@ -43,11 +43,11 @@
 - Produces: `//src/backend/flash/kernel:memory_models` with header `src/backend/flash/kernel/kernelmemorymodels.h`; `//src/backend/flash/kernel:commands` with header `src/backend/flash/kernel/kernelcomms.h`.
 - Preserves: `fastecu::flash::find_flash_device(std::string_view) -> const flashdev_t *` and `find_flash_device_index(std::string_view) -> int`.
 
-- [ ] **Step 1: Capture baseline header hashes and focused tests.** Run `shasum -a 256 src/backend/definitions/kernelmemorymodels.h src/backend/definitions/kernelcomms.h` and save the two digest values in the execution notes. Run `bazel test --config=release //src/backend/flash:flash_device_lookup_test //src/backend/flash/ecu/...`; expect all available targets to pass.
-- [ ] **Step 2: Relocate headers and create targets.** Move both files without editing their contents. Add `cc_library(name = "memory_models", hdrs = ["kernelmemorymodels.h"])` and `cc_library(name = "commands", hdrs = ["kernelcomms.h"])` with package default visibility `//bazel/layers:backend_and_above`; remove old BUILD and empty directory.
-- [ ] **Step 3: Migrate consumers.** Replace exact old header include paths with `src/backend/flash/kernel/kernelmemorymodels.h`; replace old `//src/backend/definitions:models` dependencies with `//src/backend/flash/kernel:memory_models`. Update stale source/test path comments that cite moved headers; leave data and wire literals untouched.
-- [ ] **Step 4: Prove data and references are preserved.** Re-run `shasum -a 256` on the new headers and compare with Step 1. Run `rg -n '#include \"src/backend/definitions/|//src/backend/definitions:models' src`; expect no active includes or Bazel labels. Check remaining historical comments separately and update navigable path references to the new location. Run `python3 scripts/gazelle_check.py --fix` followed by `python3 scripts/gazelle_check.py`; expect no drift. Inspect any Gazelle changes before committing.
-- [ ] **Step 5: Run affected tests and commit.** Run `bazel test --config=release //src/backend/flash:flash_device_lookup_test //src/backend/flash/ecu/...`; expect PASS. Run `git diff --check` and commit only the migration with message `refactor(flash): move kernel models into flash ownership`.
+- [x] **Step 1: Capture baseline header hashes and focused tests.** Run `shasum -a 256 src/backend/definitions/kernelmemorymodels.h src/backend/definitions/kernelcomms.h` and save the two digest values in the execution notes. Run `bazel test --config=release //src/backend/flash:flash_device_lookup_test //src/backend/flash/ecu/...`; expect all available targets to pass.
+- [x] **Step 2: Relocate headers and create targets.** Move both files without editing their contents. Add `cc_library(name = "memory_models", hdrs = ["kernelmemorymodels.h"])` and `cc_library(name = "commands", hdrs = ["kernelcomms.h"])` with package default visibility `//bazel/layers:backend_and_above`; remove old BUILD and empty directory.
+- [x] **Step 3: Migrate consumers.** Replace exact old header include paths with `src/backend/flash/kernel/kernelmemorymodels.h`; replace old `//src/backend/definitions:models` dependencies with `//src/backend/flash/kernel:memory_models`. Update stale source/test path comments that cite moved headers; leave data and wire literals untouched.
+- [x] **Step 4: Prove data and references are preserved.** Re-run `shasum -a 256` on the new headers and compare with Step 1. Run `rg -n '#include \"src/backend/definitions/|//src/backend/definitions:models' src`; expect no active includes or Bazel labels. Check remaining historical comments separately and update navigable path references to the new location. Run `python3 scripts/gazelle_check.py --fix` followed by `python3 scripts/gazelle_check.py`; expect no drift. Inspect any Gazelle changes before committing.
+- [x] **Step 5: Run affected tests and commit.** Run `bazel test --config=release //src/backend/flash:flash_device_lookup_test //src/backend/flash/ecu/...`; expect PASS. Run `git diff --check` and commit only the migration with message `refactor(flash): move kernel models into flash ownership`.
 
 ### Task 2: Verify closure and record slice status
 
@@ -60,10 +60,16 @@
 - Consumes: migrated `//src/backend/flash/kernel:{memory_models,commands}` from Task 1.
 - Produces: accurate 6n-2 completion status; 6n-3 remains open.
 
-- [ ] **Step 1: Run repository verification.** Run `bazel build -k --config=release //...`, `bazel test -k --config=release //...`, and `bazel build --config=release //:portable_closure //apps/desktop:fastecu`; expect build and tests to pass, while recording any platform-only skips. Run `prek run --all-files` and the repository's changed-source clang-tidy target; expect no findings caused by this slice.
-- [ ] **Step 2: Update documentation.** Mark 6n-2 implemented in `docs/modularization-plan.md`; preserve 6n and 6n-3 as open. State that kernel models now live in `src/backend/flash/kernel`, with no data changes. Record actual verification and qualification limits here in the execution notes.
-- [ ] **Step 3: Inspect and commit.** Run `git diff --check`, inspect `git diff --stat` and `git status --short`, then commit documentation and execution record as `docs: record kernel model ownership migration`.
+- [x] **Step 1: Run repository verification.** Run `bazel build -k --config=release //...`, `bazel test -k --config=release //...`, and `bazel build --config=release //:portable_closure //apps/desktop:fastecu`; expect build and tests to pass, while recording any platform-only skips. Run `prek run --all-files` and the repository's changed-source clang-tidy target; expect no findings caused by this slice.
+- [x] **Step 2: Update documentation.** Mark 6n-2 implemented in `docs/modularization-plan.md`; preserve 6n and 6n-3 as open. State that kernel models now live in `src/backend/flash/kernel`, with no data changes. Record actual verification and qualification limits here in the execution notes.
+- [x] **Step 3: Inspect and commit.** Run `git diff --check`, inspect `git diff --stat` and `git status --short`, then commit documentation and execution record as `docs: record kernel model ownership migration`.
 
 ## Execution Notes
 
-To be filled during execution with baseline/new hashes, command results, platform skips, and qualification limits. Do not pre-mark any task complete.
+Executed on macOS from `docs/6n-2-kernel-model-ownership`.
+
+- `kernelmemorymodels.h` SHA-256 before/after: `d048ae9b458f56e7409f535ba34edac8a57afb5ee74dbbc081164e1e77891768`; `kernelcomms.h`: `e36168d2f6316763331413da262b962d80f82397f67388261682dbc5cc923def`. Git reports both as 100% renames.
+- Baseline and migrated focused flash suites: 62/62 pass. The interim missing-package analysis failure proved the old dependency path was load-bearing before migration.
+- Gazelle consistency and release `//...` build pass (770 targets). Full release tests: 237 pass, seven Windows-only targets skipped on macOS. Portable closure and desktop application build pass.
+- All-file pre-commit checks pass. Changed-source clang-tidy surfaced a pre-existing missing default in a flash test now analyzed due to its changed include; an explicit `FAIL()` default was added. Rerun: 29 translation units clean, zero findings. Standalone moved headers have no co-located source for direct clang-tidy analysis; their compiled consumers and focused tests were checked separately.
+- No hardware, Windows/Linux runtime, or packaging qualification was performed in this slice. Prior macOS package signature qualification remains outstanding. 6n-3 remains open.

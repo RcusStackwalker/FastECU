@@ -166,6 +166,8 @@ TEST(SubaruDensoMc68hc16y5_02Plan, ValidatorRejectsEveryNonCanonicalWireField)
         case 4:
             wire.bootloader_ok[2] = 0xb4;
             break;
+        default:
+            FAIL() << "unexpected field " << field;
         }
         auto plan = validate_and_build(std::move(fields));
         ASSERT_THAT(plan, fastecu::testing::IsOk());
