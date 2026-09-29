@@ -1,3 +1,7 @@
+# gazelle:resolve cc src/platform/desktop/common/serial/websocketiodevice.h //src/platform/desktop/common/serial:websocket_io
+# gazelle:resolve cc src/platform/desktop/common/serial/qtrohelper.hpp //src/platform/desktop/common/serial:websocket_io
+# gazelle:resolve cc rep_remote_utility_replica.h :remote_utility_replicas
+# gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
 load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
 load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
@@ -13,9 +17,10 @@ qt_cc_library(
     name = "remote_utility",
     srcs = ["remote_utility.cpp"],
     hdrs = ["remote_utility.h"],
-    deps = QT_DEPS + [
-        ":remote_utility_replicas",
-        # remote_utility.h includes websocketiodevice.h and qtrohelper.hpp.
+    implementation_deps = ["//src/platform/desktop/common/remote_utility:remote_utility_replicas"],
+    deps = [
+        "//bazel/qt:core",
+        "//bazel/qt:remote_objects",
         "//src/platform/desktop/common/serial:websocket_io",
     ],
 )

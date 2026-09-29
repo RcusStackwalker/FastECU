@@ -1,6 +1,9 @@
+# gazelle:resolve cc src/platform/desktop/common/serial/desktop_serial_factory.h //src/platform/desktop/common/serial:desktop_serial_factory
+# gazelle:resolve cc src/platform/desktop/common/transport/desktop_transport_factory.h //src/platform/desktop/common/transport:flash_transports
+# gazelle:map_kind cc_binary qt_cc_binary //bazel:qt_targets.bzl
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
-load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_binary")
+load("//bazel:qt_targets.bzl", "qt_cc_binary")
 
 package(default_visibility = [
     "//:__pkg__",
@@ -27,10 +30,12 @@ cc_library(
         "bench_session_interface.h",
         "bench_types.h",
     ],
-    deps = [
-        "//src/algorithms/protocol",
+    implementation_deps = [
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/algorithms/protocol/uds",
+    ],
+    deps = [
+        "//src/algorithms/protocol",
         "//src/backend/ports",
         "//src/backend/protocol/uds:uds_client",
     ],
@@ -39,7 +44,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "bench_format_test",
     srcs = ["bench_format_test.cpp"],
-    deps = [":bench_core"],
+    deps = [
+        ":bench_core",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -48,6 +56,7 @@ fastecu_portable_gtest(
     deps = [
         ":bench_core",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -58,6 +67,9 @@ fastecu_portable_gtest(
         ":bench_core",
         "//apps/bench/testing:fake_bench_files",
         "//apps/bench/testing:fake_bench_session",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
+        "//src/algorithms/protocol/testing:byte_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -74,6 +86,7 @@ fastecu_portable_gtest(
     deps = [
         ":bench_files",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -81,11 +94,16 @@ cc_library(
     name = "bench_session_runtime",
     srcs = ["bench_session.cpp"],
     hdrs = ["bench_session.h"],
-    deps = [
-        ":bench_core",
+    implementation_deps = [
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_vendor_ext_protocol",
+        "//src/algorithms/protocol/uds",
+    ],
+    deps = [
+        ":bench_core",
         "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
         "//src/backend/protocol/uds:uds_client",
     ],
 )
@@ -95,12 +113,16 @@ fastecu_portable_gtest(
     srcs = ["bench_session_test.cpp"],
     deps = [
         ":bench_session_runtime",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
         "//src/algorithms/protocol/colt:mitsu_colt_can_vendor_ext_protocol",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -114,7 +136,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "sigint_cancellation_token_test",
     srcs = ["sigint_cancellation_token_test.cpp"],
-    deps = [":sigint_cancellation_token"],
+    deps = [
+        ":sigint_cancellation_token",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -125,6 +150,9 @@ fastecu_portable_gtest(
         "//apps/bench/testing:fake_bench_environment",
         "//apps/bench/testing:fake_bench_files",
         "//apps/bench/testing:fake_bench_session",
+        "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
+        "//src/algorithms/protocol/testing:byte_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -145,12 +173,16 @@ alias(
 qt_cc_binary(
     name = "fastecu-bench",
     srcs = ["main.cpp"],
-    deps = QT_DEPS + [
+    deps = [
+        # Select and link the backend implementation; no header names this alias.
+        ":direct_serial_backend",  # keep
         ":bench_core",
         ":bench_files",
         ":bench_session_runtime",
-        ":direct_serial_backend",
         ":sigint_cancellation_token",
+        "//bazel/qt:core",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/ports",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/serial:desktop_serial_factory",
         "//src/platform/desktop/common/transport:flash_transports",

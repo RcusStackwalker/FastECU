@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import ast
+import re
 import shutil
 import subprocess
 import tempfile
@@ -232,17 +234,64 @@ class CheckTest(unittest.TestCase):
             "src/platform/desktop/common/connection/testing/BUILD.bazel",
             "src/platform/desktop/common/connection/testing/nested/BUILD.bazel",
         ]
+        managed.extend(
+            [
+                "src/platform/desktop/common/ports/BUILD.bazel",
+                "src/platform/desktop/common/ports/nested/BUILD.bazel",
+            ]
+        )
+        managed.extend(
+            [
+                "src/ui/desktop/definition/BUILD.bazel",
+                "src/ui/desktop/definition/nested/BUILD.bazel",
+            ]
+        )
+        managed.extend(
+            [
+                "src/platform/desktop/unix/j2534/BUILD.bazel",
+                "src/platform/desktop/unix/j2534/nested/BUILD.bazel",
+            ]
+        )
+        managed.extend(
+            [
+                "src/platform/desktop/windows/j2534/BUILD.bazel",
+                "src/platform/desktop/windows/j2534/nested/BUILD.bazel",
+            ]
+        )
+        managed.extend(["apps/bench/BUILD.bazel", "apps/bench/nested/BUILD.bazel"])
+        managed.extend(["src/ui/desktop/biu/BUILD.bazel", "src/ui/desktop/biu/nested/BUILD.bazel"])
+        managed.extend(
+            ["src/ui/desktop/hexedit/BUILD.bazel", "src/ui/desktop/hexedit/nested/BUILD.bazel"]
+        )
+        managed.extend(
+            [
+                "src/platform/desktop/common/remote_utility/BUILD.bazel",
+                "src/platform/desktop/common/remote_utility/nested/BUILD.bazel",
+            ]
+        )
+        managed.extend(
+            [
+                "src/platform/desktop/unix/j2534/testing/BUILD.bazel",
+                "src/platform/desktop/windows/j2534/j2534_bridge_host/BUILD.bazel",
+                "src/ui/desktop/hexedit/qhexedit/BUILD.bazel",
+            ]
+        )
         unmanaged = [
+            "src/platform/desktop/common/ports_extra/BUILD.bazel",
+            "src/ui/desktop/definition_extra/BUILD.bazel",
+            "src/platform/desktop/unix/j2534_extra/BUILD.bazel",
+            "src/platform/desktop/windows/j2534_extra/BUILD.bazel",
+            "apps/bench_extra/BUILD.bazel",
+            "src/ui/desktop/biu_extra/BUILD.bazel",
+            "src/ui/desktop/hexedit_extra/BUILD.bazel",
+            "src/platform/desktop/common/remote_utility_extra/BUILD.bazel",
             "src/ui/desktop/channels_extra/BUILD.bazel",
             "src/ui/desktop/BUILD.bazel",
-            "apps/bench/BUILD.bazel",
-            "apps/bench/testing_extra/BUILD.bazel",
             "src/platform/desktop/common/connection/BUILD.bazel",
             "src/platform/desktop/common/connection/testing_extra/BUILD.bazel",
             "src/ui/desktop/calibration_extra/BUILD.bazel",
             "src/ui/desktop/checksum_extra/BUILD.bazel",
             "src/ui/desktop/menu_extra/BUILD.bazel",
-            "src/ui/desktop/definition/BUILD.bazel",
             "src/backend/flash_extra/BUILD.bazel",
             "src/backend/definitions/BUILD.bazel",
             "src/backend/ports_extra/BUILD.bazel",
@@ -270,6 +319,12 @@ class CheckTest(unittest.TestCase):
         for relative in unmanaged:
             with self.subTest(relative=relative):
                 self.assertEqual((self.root / relative).read_text(), _REGENERATED)
+
+    def test_managed_roots_match_gazelle_args(self):
+        build = Path(__file__).resolve().parents[1] / "BUILD.bazel"
+        match = re.search(r"GAZELLE_ARGS = (\[.*?\])", build.read_text(), re.S)
+        self.assertIsNotNone(match)
+        self.assertEqual(tuple(map(Path, ast.literal_eval(match.group(1)))), gc.MANAGED_ROOTS)
 
     def test_fix_preserves_gazelle_failure(self):
         self.assertEqual(self.run_check(lambda root: 1, fix=True)[0], 2)

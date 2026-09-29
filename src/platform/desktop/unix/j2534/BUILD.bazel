@@ -1,6 +1,8 @@
+# gazelle:alias_kind qt_cc_library cc_library
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:platform_and_composition_root"])
 
@@ -9,8 +11,9 @@ package(default_visibility = ["//bazel/layers:platform_and_composition_root"])
 cc_library(
     name = "j2534_api",
     hdrs = ["j2534_api.h"],
-    include_prefix = "src/platform/desktop/j2534",
-    strip_include_prefix = "/src/platform/desktop/unix/j2534",
+    # Shared API path selects the OS-specific implementation.
+    include_prefix = "src/platform/desktop/j2534",  # keep
+    strip_include_prefix = "/src/platform/desktop/unix/j2534",  # keep
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
@@ -18,27 +21,35 @@ cc_library(
     deps = [":j2534"],
 )
 
+# Temporarily hand-owned: pinned alias_kind merging preserves existing attributes.
+# See ADR 0017; plain libraries and tests in this package regenerate normally.
+# keep
 qt_cc_library(
     name = "j2534",
     srcs = ["J2534_unix.cpp"],
     hdrs = ["J2534_unix.h"],
-    normal_hdrs = ["J2534_tactrix_unix.h"],
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
-    deps = QT_DEPS + [":serial_byte_buffer"],
+    deps = [
+        ":j2534_types",
+        ":serial_byte_buffer",
+        "//bazel/qt:core",
+        "//bazel/qt:serial_port",
+    ],
 )
 
-qt_cc_library(
+cc_library(
     name = "serial_byte_buffer",
     srcs = ["serial_byte_buffer.cpp"],
     hdrs = ["serial_byte_buffer.h"],
+    copts = COMMON_COPTS,
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
-    deps = QT_DEPS,
+    deps = ["//bazel/qt:core"],
 )
 
 fastecu_gtest(
@@ -48,5 +59,17 @@ fastecu_gtest(
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
-    deps = [":serial_byte_buffer"],
+    deps = [
+        ":serial_byte_buffer",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "j2534_types",
+    hdrs = ["J2534_tactrix_unix.h"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
 )
