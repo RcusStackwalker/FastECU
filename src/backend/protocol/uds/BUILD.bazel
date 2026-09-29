@@ -13,10 +13,9 @@ cc_library(
         "iuds_channel.h",
         "uds_client.h",
     ],
+    implementation_deps = ["//src/algorithms/protocol/uds"],
     deps = [
-        "//src/algorithms/diagnostics",
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/uds",
         "//src/backend/ports",
     ],
 )
@@ -26,10 +25,12 @@ fastecu_portable_gtest(
     srcs = ["uds_client_test.cpp"],
     deps = [
         ":uds_client",
+        "//src/algorithms/protocol/uds",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/uds/testing:scripted_uds_channel",
+        "@googletest//:gtest",
     ],
 )

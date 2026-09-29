@@ -196,6 +196,42 @@ class CheckTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("commit", output)
 
+    def test_backend_batch_and_new_subpackages_are_formatted(self):
+        managed = [
+            "src/backend/ports/BUILD.bazel",
+            "src/backend/ports/testing/new/BUILD.bazel",
+            "src/backend/protocol/BUILD.bazel",
+            "src/backend/protocol/uds/testing/BUILD.bazel",
+            "src/backend/checksum/BUILD.bazel",
+            "src/backend/diagnostics/BUILD.bazel",
+        ]
+        unmanaged = [
+            "src/backend/flash/BUILD.bazel",
+            "src/backend/definitions/BUILD.bazel",
+            "src/backend/ports_extra/BUILD.bazel",
+            "src/algorithms/protocol/qt_compat/BUILD.bazel",
+        ]
+
+        def gazelle(root):
+            for relative in managed + unmanaged:
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(_REGENERATED)
+            return 0
+
+        def hook(root, name, files):
+            for relative in files:
+                (root / relative).write_text(_FORMATTED)
+            return 0
+
+        self.assertEqual(self.run_check(gazelle, hook, fix=True)[0], 0)
+        for relative in managed:
+            with self.subTest(relative=relative):
+                self.assertEqual((self.root / relative).read_text(), _FORMATTED)
+        for relative in unmanaged:
+            with self.subTest(relative=relative):
+                self.assertEqual((self.root / relative).read_text(), _REGENERATED)
+
     def test_fix_preserves_gazelle_failure(self):
         self.assertEqual(self.run_check(lambda root: 1, fix=True)[0], 2)
 
