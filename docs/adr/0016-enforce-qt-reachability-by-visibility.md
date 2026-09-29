@@ -108,3 +108,13 @@ Costs and risks:
 `//src/backend/definitions`, for three QtTest suites that exercise
 `FileActions` against the real Qt ports. That grant moved to the `:ports`
 target.
+
+## Update (2026-09-29)
+
+Step 6n completed the transitional drain this ADR anticipated. The
+`//src/backend/definitions` package, the `FileActions` family and the `:ports`
+grant described above no longer exist, and neither do the `legacy` and
+`qt_compat` subpackages or the `qt_bytes.h` shim under `src/algorithms`; the
+Qt byte helper now lives in `src/platform/desktop/common/bytes`. The
+`qt_layer` group stays as the gate for Qt-typed code, and the ratchet rule
+stands: entries only come out.

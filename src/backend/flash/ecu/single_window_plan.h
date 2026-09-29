@@ -20,7 +20,7 @@ namespace fastecu::flash
 // This shares plan *validation* only. The executors of these same families
 // stay deliberately un-factored, because their look-alike blocks differ in
 // timeouts, retry counts and response strictness: see
-// denso_iso15765_can_common.h and docs/protocol-generalization-opportunities.md.
+// denso_iso15765_can_common.h and the port-then-factor section of docs/design-notes.md.
 struct SingleWindowPlanSpec
 {
     // The one qualified name every message composes from, e.g.

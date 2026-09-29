@@ -115,13 +115,10 @@ They are listed in the family's
 
 - [ ] **`M32R_512KB` MCU binding.** This binding is confirmed in-repo, not an
       external unknown: `protocols.cfg` declares `<mcu>M32R_512KB</mcu>` for
-      `sub_tcu_hitachi_m32r_can`, and that is the value the runtime actually
-      uses end to end (cfg parse → `legacy_config_adapter` →
-      `flash_protocol_selected_mcu` → `ecuCalDef->McuType` → the portable
-      workflow's `.mcu`, checked by `validate_subaru_tcu_hitachi_m32r_can_plan`
-      — see the [flash qualification matrix](flash-qualification-matrix.md)
-      row for the full chain with file:line citations). Legacy read the same
-      `ecuCalDef->McuType` field to select its own block table. What remains
+      `sub_tcu_hitachi_m32r_can`, `protocol_catalog.cpp` parses it into
+      `ProtocolEntry::mcu`, and the portable workflow's `.mcu` is checked by
+      `validate_subaru_tcu_hitachi_m32r_can_plan` — see the
+      [flash qualification matrix](flash-qualification-matrix.md) row. What remains
       to confirm here is narrower than "where does this binding come from":
       it is **only whether the cfg value matches the physical TCU**. **Its
       blast radius now includes which regions get erased**, not merely what

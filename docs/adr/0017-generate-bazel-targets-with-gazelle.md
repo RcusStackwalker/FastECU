@@ -152,3 +152,9 @@ in GoogleTest suites. Generated Qt assets, shared moc owners, platform selection
 and exceptional process/ABI fixtures remain explicitly hand-owned where needed.
 Completion of the broader migration requires every surviving C++ package to be
 covered and ordinary attributes to regenerate, with exceptions documented.
+
+## Update (2026-09-29)
+
+The legacy Qt-backed `src/backend/definitions` package named above was retired
+in step 6n, and the `qt_compat` package override no longer applies to any
+surviving package. The scope list and the header-mapping rules otherwise stand.
