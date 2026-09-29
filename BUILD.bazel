@@ -8,6 +8,25 @@ package(default_visibility = ["//visibility:public"])
 # Scope is GAZELLE_ARGS: widening gazelle to another area means adding a path.
 # gazelle:cc_group unit
 # gazelle:map_kind cc_test fastecu_portable_gtest //bazel:gtest_targets.bzl
+# Shared Qt system-header mappings are inherited by managed subpackages.
+# gazelle:resolve cc QAction //bazel/qt:gui
+# gazelle:resolve cc QApplication //bazel/qt:widgets
+# gazelle:resolve cc QByteArray //bazel/qt:core
+# gazelle:resolve cc QColor //bazel/qt:gui
+# gazelle:resolve cc QIcon //bazel/qt:gui
+# gazelle:resolve cc QMdiSubWindow //bazel/qt:widgets
+# gazelle:resolve cc QMenu //bazel/qt:widgets
+# gazelle:resolve cc QMenuBar //bazel/qt:widgets
+# gazelle:resolve cc QMessageBox //bazel/qt:widgets
+# gazelle:resolve cc QObject //bazel/qt:core
+# gazelle:resolve cc QPushButton //bazel/qt:widgets
+# gazelle:resolve cc QSignalMapper //bazel/qt:core
+# gazelle:resolve cc QString //bazel/qt:core
+# gazelle:resolve cc QStringList //bazel/qt:core
+# gazelle:resolve cc QTableWidget //bazel/qt:widgets
+# gazelle:resolve cc QTableWidgetSelectionRange //bazel/qt:widgets
+# gazelle:resolve cc QToolBar //bazel/qt:widgets
+# gazelle:resolve cc QWidget //bazel/qt:widgets
 # `manual` keeps `bazel build //...` (every CI matrix leg, SonarCloud) from
 # fetching a Go SDK and compiling gazelle; `bazel run //:gazelle` still builds it.
 gazelle_binary(
