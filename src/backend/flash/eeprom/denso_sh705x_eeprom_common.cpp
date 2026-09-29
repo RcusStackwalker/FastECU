@@ -63,7 +63,7 @@ Result<DensoSh705xEepromUploadSizes> denso_sh705x_eeprom_upload_sizes(FlashFamil
     return fail(ErrorKind::InvalidConfig, "unsupported family for Denso SH705x EEPROM kernel upload");
 }
 
-// Literal values transcribed from src/backend/definitions/kernelmemorymodels.h
+// Literal values transcribed from src/backend/flash/kernel/kernelmemorymodels.h
 // (eblocks_SH7055[0], line 279-281; eblocks_SH7058[0], line 221-223). Do not
 // derive these from anywhere else; the MCU table is the single source of
 // truth both this function and resolve_mcu_bounds() below read from -- and
@@ -87,7 +87,7 @@ Result<MemoryRegion> resolve_sh705x_eeprom_region(const std::string& mcu_name)
 namespace
 {
 
-// Literal values transcribed from src/backend/definitions/kernelmemorymodels.h
+// Literal values transcribed from src/backend/flash/kernel/kernelmemorymodels.h
 // (kblocks_SH7055/kblocks_SH7058). Do not derive these from anywhere else;
 // the MCU table is the single source of truth the legacy code also reads
 // from.

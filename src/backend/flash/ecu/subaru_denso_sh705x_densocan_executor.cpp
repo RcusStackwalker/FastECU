@@ -10,7 +10,7 @@
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
-#include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/flash_phase_progress.h"
 #include "src/backend/flash/flash_device_lookup.h"
 

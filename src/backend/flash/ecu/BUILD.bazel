@@ -95,8 +95,8 @@ cc_library(
         "//src/backend/flash:flash_validation",
     ],
     deps = [
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_plan",
+        "//src/backend/flash/kernel:memory_models",
     ],
 )
 
@@ -213,9 +213,9 @@ cc_library(
     hdrs = ["subaru_denso_sh7058_can_diesel_plan.h"],
     implementation_deps = [
         ":subaru_denso_sh7058_can_diesel_types",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/kernel:memory_models",
     ],
     deps = ["//src/backend/flash:flash_plan"],
 )
@@ -341,9 +341,9 @@ cc_library(
     srcs = ["subaru_denso_mc68hc16y5_02_plan.cpp"],
     hdrs = ["subaru_denso_mc68hc16y5_02_plan.h"],
     implementation_deps = [
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/kernel:memory_models",
     ],
     deps = ["//src/backend/flash:flash_plan"],
 )
@@ -353,9 +353,9 @@ cc_library(
     srcs = ["subaru_denso_sh7055_02_plan.cpp"],
     hdrs = ["subaru_denso_sh7055_02_plan.h"],
     implementation_deps = [
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/kernel:memory_models",
     ],
     deps = ["//src/backend/flash:flash_plan"],
 )
@@ -366,9 +366,9 @@ cc_library(
     hdrs = ["subaru_denso_sh705x_densocan_plan.h"],
     implementation_deps = [
         ":subaru_denso_sh705x_densocan_types",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/kernel:memory_models",
     ],
     deps = ["//src/backend/flash:flash_plan"],
 )
@@ -379,9 +379,9 @@ cc_library(
     hdrs = ["subaru_tcu_denso_sh705x_can_plan.h"],
     implementation_deps = [
         ":subaru_tcu_denso_sh705x_can_types",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/kernel:memory_models",
     ],
     deps = ["//src/backend/flash:flash_plan"],
 )
@@ -392,9 +392,9 @@ cc_library(
     hdrs = ["subaru_denso_sh7058_can_plan.h"],
     implementation_deps = [
         ":subaru_denso_sh7058_can_types",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/kernel:memory_models",
     ],
     deps = ["//src/backend/flash:flash_plan"],
 )
@@ -448,8 +448,8 @@ cc_library(
         ":flash_phase_progress",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash/kernel:memory_models",
     ],
     deps = [
         ":subaru_denso_sh705x_densocan_plan",
@@ -464,8 +464,8 @@ cc_library(
     implementation_deps = [
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash/kernel:memory_models",
     ],
     deps = [
         ":subaru_denso_mc68hc16y5_02_plan",
@@ -481,8 +481,8 @@ cc_library(
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash/kernel:memory_models",
     ],
     deps = [
         ":subaru_denso_sh7055_02_plan",
@@ -498,9 +498,9 @@ fastecu_portable_gtest(
         ":subaru_denso_sh7055_02_plan",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/kernel:memory_models",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
@@ -520,10 +520,10 @@ fastecu_portable_gtest(
         ":subaru_denso_mc68hc16y5_02_plan",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/eeprom:eeprom_read_plan",
+        "//src/backend/flash/kernel:memory_models",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
@@ -554,9 +554,9 @@ cc_library(
     hdrs = ["mitsu_colt_m32r_can_plan.h"],
     implementation_deps = [
         "//src/algorithms/protocol/colt:mitsu_colt_can_protocol",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/kernel:memory_models",
     ],
     deps = [
         "//src/algorithms/protocol",
@@ -670,9 +670,9 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_mc68hc16y5_02_plan_test.cpp"],
     deps = [
         ":subaru_denso_mc68hc16y5_02_plan",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/kernel:memory_models",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
@@ -683,9 +683,9 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_sh7055_02_plan_test.cpp"],
     deps = [
         ":subaru_denso_sh7055_02_plan",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/kernel:memory_models",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
@@ -708,8 +708,8 @@ fastecu_portable_gtest(
         ":subaru_denso_sh705x_densocan_executor",
         ":subaru_denso_sh705x_densocan_plan",
         "//src/algorithms/protocol",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash/kernel:memory_models",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
@@ -1014,8 +1014,8 @@ cc_library(
         "//src/backend/flash:flash_validation",
     ],
     deps = [
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_plan",
+        "//src/backend/flash/kernel:memory_models",
         "//src/backend/ports",
     ],
 )
@@ -1025,10 +1025,10 @@ fastecu_portable_gtest(
     srcs = ["subaru_denso_sh705x_kline_plan_test.cpp"],
     deps = [
         ":subaru_denso_sh705x_kline_plan",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_plan",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/kernel:memory_models",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
@@ -1044,8 +1044,8 @@ cc_library(
         "//src/algorithms/diagnostics",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash/kernel:memory_models",
     ],
     deps = [
         ":subaru_denso_sh705x_kline_plan",
@@ -1062,9 +1062,9 @@ fastecu_portable_gtest(
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
-        "//src/backend/definitions:models",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
+        "//src/backend/flash/kernel:memory_models",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",

@@ -166,7 +166,7 @@ cc_library(
     name = "flash_device_lookup",
     srcs = ["flash_device_lookup.cpp"],
     hdrs = ["flash_device_lookup.h"],
-    deps = ["//src/backend/definitions:models"],
+    deps = ["//src/backend/flash/kernel:memory_models"],
 )
 
 fastecu_portable_gtest(

@@ -2,9 +2,8 @@
 
 ## Current State and Destination
 
-Reviewed on 2026-09-29. Steps 1-5, 6a-6m and 6n-1 are implemented.
-Step 6 remains open for kernel-model relocation and the desktop byte-conversion
-boundary; step 7 has not started.
+Reviewed on 2026-09-29. Steps 1-5, 6a-6m and 6n-1 through 6n-2 are implemented.
+Step 6 remains open for the desktop byte-conversion boundary; step 7 has not started.
 Implementation completion and hardware qualification are separate statuses.
 
 The portable algorithms and backend workflows already exist: configuration,
@@ -47,8 +46,6 @@ platform internals.
 
 ### Remaining structural debt
 
-- `src/backend/definitions` retains only portable kernel constants and memory
-  models, pending relocation to their appropriate portable ownership.
 - `MainWindow` retains presentation coordination for write preflight, checksum
   interaction, logging selection, connection orchestration and log-file handling;
   single-consumer presentation flows need not become portable ports.
@@ -189,9 +186,11 @@ and definition dialogs use the session directly. `FileActions`, parallel
 are retired. Configuration and kernel resource registration is explicit in
 composition. See [desktop catalog lookup and authoring ownership](design-notes.md#desktop-catalog-lookup-and-authoring-ownership).
 
-**6n-2 — Kernel models: remaining.** Retain the portable kernel constants/models
-currently in `src/backend/definitions:models`, moving them to appropriate
-portable ownership before retiring the package.
+**6n-2 — Kernel models: implemented.** The byte-identical kernel command and
+flash memory-model headers now live in separate portable targets under
+`src/backend/flash/kernel`. Flash consumers use the new memory-model target;
+`src/backend/definitions` and its old `:models` target are retired. Device
+data, lookup interfaces and command values are unchanged.
 
 **6n-3 — Desktop byte boundary: remaining.**
 Move the byte-conversion helper out of algorithms into a desktop boundary

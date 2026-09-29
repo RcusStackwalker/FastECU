@@ -5,7 +5,7 @@
 #include <span>
 #include <string_view>
 
-#include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/flash_plan.h"
 
 namespace fastecu::flash

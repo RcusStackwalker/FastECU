@@ -1,6 +1,6 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
-#include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 
@@ -166,6 +166,8 @@ TEST(SubaruDensoMc68hc16y5_02Plan, ValidatorRejectsEveryNonCanonicalWireField)
         case 4:
             wire.bootloader_ok[2] = 0xb4;
             break;
+        default:
+            FAIL() << "unexpected field " << field;
         }
         auto plan = validate_and_build(std::move(fields));
         ASSERT_THAT(plan, fastecu::testing::IsOk());

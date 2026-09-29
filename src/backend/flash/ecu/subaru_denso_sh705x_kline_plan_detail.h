@@ -1,6 +1,6 @@
 #pragma once
 
-#include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/ports/result.h"
 
 // Test seam: the static device tables all satisfy this check, so its failure

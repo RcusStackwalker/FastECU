@@ -1,0 +1,13 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//bazel/layers:backend_and_above"])
+
+cc_library(
+    name = "memory_models",
+    hdrs = ["kernelmemorymodels.h"],
+)
+
+cc_library(
+    name = "commands",
+    hdrs = ["kernelcomms.h"],
+)

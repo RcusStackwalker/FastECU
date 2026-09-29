@@ -11,7 +11,7 @@ namespace fastecu::flash
 namespace
 {
 
-// Literal values transcribed from src/backend/definitions/kernelmemorymodels.h:
+// Literal values transcribed from src/backend/flash/kernel/kernelmemorymodels.h:
 //   eblocks_SH7055[0] = {0x00000000, 0x00000100} (line 280)
 //   kblocks_SH7055[0] = {0xFFFF6004, 0x00006000} (line 276)
 // Do not derive these from anywhere else; the MCU table is the single source
