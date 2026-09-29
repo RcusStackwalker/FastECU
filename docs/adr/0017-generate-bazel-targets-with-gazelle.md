@@ -13,7 +13,7 @@ found when a build broke.
 ## Decision
 
 `gazelle` with the `gazelle_cc` extension generates `cc_library` and test targets
-for the areas listed in the `args` of the `//:gazelle` target in the root
+for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_diff` in the root
 `BUILD.bazel`. Currently that is `src/algorithms`, without `qt_compat`.
 
 - Grouping is `cc_group unit`; `cc_test` is mapped to `fastecu_portable_gtest`.
@@ -23,15 +23,25 @@ for the areas listed in the `args` of the `//:gazelle` target in the root
   group. A new package needs a hand-written `package(default_visibility = ...)`
   **before** the first run: without one, gazelle emits
   `visibility = ["//visibility:public"]` on the new targets.
-- `scripts/gazelle_check.py` runs gazelle and fails if any `*.bazel` file changed,
-  was created, or was deleted. It is a prek `pre-push` hook, and the `gazelle`
-  job in `pr.yml` runs the same hook.
-- To regenerate: `bazel run //:gazelle`, then review and `git add` the result.
-- To preview without writing, run the built binary directly:
-  `bazel-bin/gazelle_cc_binary_/gazelle_cc_binary -mode=diff -repo_root=. -build_file_name=BUILD.bazel src/algorithms`.
-  Flags cannot be passed through `bazel run //:gazelle --`, because the runner
-  places the rule's `args` (the scope path) before them.
-- To widen: add a path to `args`, regenerate, and review the diff in its own pull
+- Gazelle owns source/header lists, generated dependencies and dependency
+  classification (`deps` versus `implementation_deps`). People own target names,
+  intentional library boundaries, visibility, comments, runtime metadata and
+  configuration directives. Hand-edit those choices, then run the pipeline to
+  reconcile generated attributes.
+- `scripts/gazelle_check.py` runs Gazelle, discovers the pilot's BUILD files
+  (including new ones), then runs the pinned `buildifier` and `buildifier-lint`
+  prek hooks. Formatting excludes `qt_compat`. Its broader `*.bazel` snapshot
+  still detects changed, created or deleted files without treating preexisting
+  uncommitted edits as drift. The prek `pre-push` hook and the `gazelle` job in
+  `pr.yml` use this same checker.
+- To update completely: `python3 scripts/gazelle_check.py --fix`, then review and
+  commit the output. It returns **0** on success, including corrections. Without
+  `--fix`, exits are **0** unchanged, **1** corrections made, **2** tool or lint
+  failure. Formatter corrections are confirmed with another formatter pass.
+- To preview generation without writing:
+  `bazel run --config=release //:gazelle_diff`. This previews Gazelle output;
+  the complete update command also applies Buildifier formatting and lint fixes.
+- To widen: add a path to `GAZELLE_ARGS`, regenerate, and review the diff in its own pull
   request.
 
 ## Consequences
@@ -39,7 +49,13 @@ for the areas listed in the `args` of the `//:gazelle` target in the root
 BUILD files under gazelle are reproducible from the sources, and CI rejects a
 stale one. Gazelle adds a redundant `@googletest//:gtest` to tests
 (`gtest_main`, supplied by the macro, already depends on it); this is accepted
-because suppressing it would also give libraries `gtest_main`.
+because suppressing it would also give libraries `gtest_main`. Keep explicit
+framework dependencies even when the test macro also supplies them. Use standard
+Buildifier formatting, conventional `srcs = [` assignments, and put associated
+tests after their libraries while retaining architectural comments. For a
+runtime dependency Gazelle cannot infer, use a narrowly scoped `# keep` comment
+with an explanation; do not freeze entire generated lists. See the
+[Gazelle preservation rules](https://github.com/bazel-contrib/bazel-gazelle/blob/master/gazelle-reference.md).
 
 `fastecu_portable_gtest` deduplicates its `deps`, because gazelle lists
 `byte_matchers` that the macro also adds and Bazel rejects a repeated label. A
@@ -52,7 +68,8 @@ Gazelle leaves an unused `cc_test` load behind when `map_kind` converts a raw
 
 This is an exception to [ADR 0002](0002-use-prek-for-fast-local-checks.md), which
 reserves prek for fast checks: the hook needs Bazel, so it runs at `pre-push`
-only and is filtered to C++ and BUILD file changes. `--no-verify` bypasses it
+only and is filtered to C++, BUILD, `.bzl`, module, checker and hook-configuration
+changes. `--no-verify` bypasses it
 locally; CI is the gate.
 
 Other macros (`qt_cc_library`, `fastecu_gtest`) need their own `map_kind` and moc

@@ -25,12 +25,12 @@ repos:
         files: \.(h|hh|hpp|hxx)$
         entry: bash -c 'hits=$(grep -n "^[[:space:]]*using namespace" "$@" /dev/null); if [ -n "$hits" ]; then echo "$hits"; exit 1; fi' --
       - id: gazelle
-        name: BUILD files match gazelle output
+        name: BUILD files match Gazelle and Buildifier output
         language: python
         entry: scripts/gazelle_check.py
         pass_filenames: false
         stages: [pre-push]
-        files: '(\.(c|cc|cpp|cxx|h|hh|hpp|hxx)$)|((^|/)BUILD\.bazel$)|(^MODULE\.bazel$)|(^scripts/gazelle_check\.py$)'
+        files: '(\.(c|cc|cpp|cxx|h|hh|hpp|hxx)$)|((^|/)BUILD\.bazel$)|(\.bzl$)|(^MODULE\.bazel$)|(^\.pre-commit-config\.yaml$)|(^scripts/gazelle_check(_test)?\.py$)'
 
   - repo: https://github.com/lycheeverse/lychee.git
     rev: lychee-v0.24.2
