@@ -47,10 +47,10 @@ cc_library(
     name = "set_parameters_session",
     srcs = ["set_parameters_session.cpp"],
     hdrs = ["set_parameters_session.h"],
+    implementation_deps = ["//src/algorithms/protocol/ssm"],
     deps = [
         ":service_function_session",
         ":tcu_parameter_table",
-        "//src/algorithms/protocol/ssm",
     ],
 )
 
@@ -64,13 +64,19 @@ cc_library(
 fastecu_portable_gtest(
     name = "service_function_types_test",
     srcs = ["service_function_types_test.cpp"],
-    deps = [":service_function_types"],
+    deps = [
+        ":service_function_types",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
     name = "tcu_parameter_table_test",
     srcs = ["tcu_parameter_table_test.cpp"],
-    deps = [":tcu_parameter_table"],
+    deps = [
+        ":tcu_parameter_table",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
@@ -78,10 +84,12 @@ fastecu_portable_gtest(
     srcs = ["read_parameters_session_test.cpp"],
     deps = [
         ":read_parameters_session",
+        "//src/backend/ports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
+        "@googletest//:gtest",
     ],
 )
 
@@ -90,10 +98,13 @@ fastecu_portable_gtest(
     srcs = ["set_parameters_session_test.cpp"],
     deps = [
         ":set_parameters_session",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/ports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
+        "@googletest//:gtest",
     ],
 )
 
@@ -102,9 +113,11 @@ fastecu_portable_gtest(
     srcs = ["relearn_session_test.cpp"],
     deps = [
         ":relearn_session",
+        "//src/backend/ports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:result_matchers",
         "//src/backend/protocol/testing:scripted_transports",
+        "@googletest//:gtest",
     ],
 )

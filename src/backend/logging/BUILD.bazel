@@ -18,12 +18,12 @@ cc_library(
     name = "logger_definition_parser",
     srcs = ["logger_definition_parser.cpp"],
     hdrs = ["logger_definition_parser.h"],
+    implementation_deps = ["@pugixml"],
     visibility = ["//visibility:public"],
     deps = [
         ":logger_definition_model",
         "//src/algorithms/protocol",
         "//src/backend/ports",
-        "@pugixml",
     ],
 )
 
@@ -33,6 +33,7 @@ fastecu_portable_gtest(
     deps = [
         ":logger_definition_parser",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -40,12 +41,12 @@ cc_library(
     name = "logger_conf",
     srcs = ["logger_conf.cpp"],
     hdrs = ["logger_conf.h"],
+    implementation_deps = ["@pugixml"],
     visibility = ["//visibility:public"],
     deps = [
         ":logger_definition_model",
         "//src/algorithms/protocol",
         "//src/backend/ports",
-        "@pugixml",
     ],
 )
 
@@ -55,6 +56,7 @@ fastecu_portable_gtest(
     deps = [
         ":logger_conf",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -81,6 +83,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:in_memory_resource_bundle",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -88,10 +91,12 @@ cc_library(
     name = "logging_session",
     srcs = ["logging_session.cpp"],
     hdrs = ["logging_session.h"],
-    deps = [
-        ":logging_types",
+    implementation_deps = [
         "//src/algorithms/expression",
         "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
+    ],
+    deps = [
+        ":logging_types",
         "//src/backend/ports",
     ],
 )
@@ -102,6 +107,7 @@ fastecu_portable_gtest(
     deps = [
         ":logging_session",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -109,9 +115,12 @@ cc_library(
     name = "logging_conversion",
     srcs = ["logging_conversion.cpp"],
     hdrs = ["logging_conversion.h"],
-    deps = [
+    implementation_deps = [
         ":logging_session",
         "//src/algorithms/expression",
+    ],
+    deps = [
+        ":logging_types",
         "//src/backend/ports",
     ],
 )
@@ -121,7 +130,10 @@ fastecu_portable_gtest(
     srcs = ["logging_conversion_test.cpp"],
     deps = [
         ":logging_conversion",
+        ":logging_session",
+        "//src/backend/ports",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -133,9 +145,10 @@ cc_library(
         "logging_protocol.h",
         "logging_use_case.h",
     ],
+    implementation_deps = [":logging_conversion"],
     deps = [
-        ":logging_conversion",
         ":logging_session",
+        ":logging_types",
         "//src/backend/ports",
     ],
 )
@@ -148,22 +161,26 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:recording_event_sink",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
 fastecu_portable_gtest(
     name = "logger_model_test",
     srcs = ["logger_model_test.cpp"],
-    deps = [":logger_model"],
+    deps = [
+        ":logger_model",
+        "@googletest//:gtest",
+    ],
 )
 
 cc_library(
     name = "logger_model",
     srcs = ["logger_model.cpp"],
     hdrs = ["logger_model.h"],
+    implementation_deps = [":logger_conf"],
     visibility = ["//visibility:public"],
     deps = [
-        ":logger_conf",
         ":logger_definition_model",
         "//src/algorithms/protocol",
     ],

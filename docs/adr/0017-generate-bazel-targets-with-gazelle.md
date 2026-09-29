@@ -16,8 +16,9 @@ found when a build broke.
 for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_diff` in the root
 `BUILD.bazel`. Currently that is `src/algorithms`, without `qt_compat`, plus
 `src/backend/ports`, `src/backend/protocol`, `src/backend/checksum`,
-`src/backend/diagnostics`, `src/backend/config`, `src/backend/definition` and
-`src/backend/calibration`, including their subpackages.
+`src/backend/diagnostics`, `src/backend/config`, `src/backend/definition`,
+`src/backend/calibration`, `src/backend/logging` and
+`src/backend/service_functions`, including their subpackages.
 
 - Grouping is `cc_group unit`; `cc_test` is mapped to `fastecu_portable_gtest`.
   `cc_group directory` was rejected: it merges the per-file tests and overlaps
