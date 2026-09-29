@@ -166,4 +166,40 @@ TEST_F(DefinitionCatalogSessionIntegration, RemovedDiscoveredFileIsNotRetriedByR
                 testing::Not(testing::Contains(testing::Pair(fastecu::LogLevel::Error, testing::_))));
 }
 
+TEST_F(DefinitionCatalogSessionIntegration, RomOpenFindsAnAuthoredDefinitionOutsideConfiguredDirectory)
+{
+    auto input = header();
+    input.internal_id_address = 0x10;
+    ASSERT_THAT(session.submit_new_definition(path("outside.xml"), input, true), IsOk());
+    config.session.settings().primary_definition_base = "ecuflash";
+    config.session.settings().use_ecuflash_definitions = "enabled";
+    config.session.settings().use_romraider_definitions = "disabled";
+    std::vector<std::uint8_t> rom(512);
+    std::ranges::copy(std::string{"A1B2C3"}, rom.begin() + 0x10);
+    ASSERT_THAT(files.write(path("rom.bin"), rom), IsOk());
+    fastecu::calibration::RomOpenUseCase opener(session, service, files, file_system, config.events, config.session);
+    auto outcome = opener.open_file(path("rom.bin"));
+    ASSERT_THAT(outcome, IsOk());
+    ASSERT_TRUE(outcome->contents.definition.has_value());
+    EXPECT_EQ(outcome->contents.definition->id, "NEW_XML");
+    EXPECT_EQ(outcome->contents.definition->definition.source, path("outside.xml"));
+}
+
+TEST_F(DefinitionCatalogSessionIntegration, RomOpenReportsAnIndexedFileDeletedAfterRefresh)
+{
+    ASSERT_THAT(service.create_definition(path("defs/gone.xml"), header()), IsOk());
+    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    ASSERT_TRUE(QFile::remove(root.filePath("defs/gone.xml")));
+    config.session.settings().primary_definition_base = "ecuflash";
+    config.session.settings().use_ecuflash_definitions = "enabled";
+    config.session.settings().use_romraider_definitions = "disabled";
+    fastecu::calibration::RomOpenUseCase opener(session, service, files, file_system, config.events, config.session);
+    auto outcome =
+        opener.adopt_read_image({.rom = std::vector<std::uint8_t>(512), .filename = "read.bin", .rom_id = "NEW_XML"});
+    ASSERT_THAT(outcome, IsOk());
+    EXPECT_FALSE(outcome->contents.definition.has_value());
+    EXPECT_THAT(config.events.notices, testing::Contains("Ecu definitions file: Unable to open ECU definition file " +
+                                                         path("defs/gone.xml") + " for reading"));
+}
+
 } // namespace

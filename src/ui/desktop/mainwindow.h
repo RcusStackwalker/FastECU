@@ -53,7 +53,7 @@
 #include "src/ui/desktop/get_key_operations_subaru.h"
 #include "src/backend/calibration/map_edit.h"
 #include "src/backend/config/config_session.h"
-#include "src/backend/definitions/file_actions.h"
+#include "src/platform/desktop/common/definition/definition_catalog_session.h"
 #include "src/ui/desktop/checksum/checksum_correction_command.h"
 #include "src/ui/desktop/definition/definition_authoring_dialog.h"
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
@@ -158,7 +158,6 @@ class MainWindow : public QMainWindow
     int connectionTimeOutDelayCount = 50;
 
     fastecu::ui::ChecksumCorrectionCommand m_checksumCorrectionCommand;
-    FileActions *fileActions = nullptr;
     fastecu::ui::DefinitionAuthoringDialog *definitionAuthoringDialog = nullptr;
     fastecu::logging::LoggerModel *loggerModel;
     fastecu::desktop::logging::DesktopLoggerValues loggerValues;

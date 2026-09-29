@@ -28,12 +28,12 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
         return;
     }
 
-    file_actions_ = std::make_unique<FileActions>(file_system_, resource_bundle_, file_repository_, file_writer_,
-                                                  file_action_events_, config_);
     definition_service_ =
         std::make_unique<fastecu::definition::DefinitionService>(file_system_, file_repository_, file_writer_);
+    definition_catalogs_ = std::make_unique<fastecu::desktop::definition::DefinitionCatalogSession>(
+        *definition_service_, config_, file_system_, file_action_events_);
     rom_open_ = std::make_unique<fastecu::calibration::RomOpenUseCase>(
-        *file_actions_, *definition_service_, file_repository_, file_system_, file_action_events_, config_);
+        *definition_catalogs_, *definition_service_, file_repository_, file_system_, file_action_events_, config_);
     calibration_workspace_ = std::make_unique<fastecu::calibration::CalibrationWorkspace>(*rom_open_);
 
     syslog_thread_ = std::make_unique<QThread>();
@@ -110,11 +110,11 @@ DesktopComposition::~DesktopComposition()
     }
     syslogger_.reset();
     syslog_thread_.reset();
-    // The workspace's opener borrows file_actions_ as its catalog source.
+    // The workspace's opener borrows definition_catalogs_ as its catalog source.
     calibration_workspace_.reset();
     rom_open_.reset();
+    definition_catalogs_.reset();
     definition_service_.reset();
-    file_actions_.reset(); // before config_, which it references
 }
 
 bool DesktopComposition::started() const
@@ -146,7 +146,7 @@ MainWindowServices DesktopComposition::services()
     return {
         .application = kApplication,
         .config = config_,
-        .file_actions = *file_actions_,
+        .definition_catalogs = *definition_catalogs_,
         .calibrations = *calibration_workspace_,
         .rom_save = rom_save_,
         .logger_model = logger_model_,

@@ -1,7 +1,10 @@
 #pragma once
 #include <string>
 
-class FileActions;
+namespace fastecu::desktop::definition
+{
+class DefinitionCatalogSession;
+}
 class QtEventSink;
 class QtFileRepository;
 namespace fastecu::logging
@@ -48,7 +51,7 @@ struct MainWindowServices
 {
     const ApplicationIdentity& application;
     fastecu::config::ConfigSession& config; // initialized before MainWindow is built
-    FileActions& file_actions;
+    fastecu::desktop::definition::DefinitionCatalogSession& definition_catalogs;
     fastecu::calibration::CalibrationWorkspace& calibrations;
     fastecu::calibration::RomSaveUseCase& rom_save;
     fastecu::logging::LoggerModel& logger_model;

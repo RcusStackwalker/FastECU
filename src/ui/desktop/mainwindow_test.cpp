@@ -31,6 +31,7 @@
 #include <utility>
 
 #include "src/ui/desktop/mainwindow.h"
+#include "src/platform/desktop/common/definition/definition_catalog_session.h"
 #include "src/backend/logging/logger_definition_service.h"
 #include "ui_mainwindow.h"
 
@@ -288,7 +289,7 @@ struct TestServices
 {
     explicit TestServices(const QString& config_root)
         : config_status(config.initialize(config_root.toStdString(), kTestApplication.version)),
-          file_actions(file_system, resource_bundle, file_repository, file_writer, events, config)
+          definition_catalogs(definition_service, config, file_system, events)
     {
     }
 
@@ -297,7 +298,7 @@ struct TestServices
         return {
             .application = kTestApplication,
             .config = config,
-            .file_actions = file_actions,
+            .definition_catalogs = definition_catalogs,
             .calibrations = calibrations,
             .rom_save = rom_save,
             .logger_model = logger_model,
@@ -319,10 +320,10 @@ struct TestServices
     QtEventSink config_events;
     fastecu::config::ConfigSession config{file_system, resource_bundle, file_repository, config_events};
     fastecu::Status config_status; // declared after `config`: initialized from it
-    FileActions file_actions;
     fastecu::definition::DefinitionService definition_service{file_system, file_repository, file_writer};
+    fastecu::desktop::definition::DefinitionCatalogSession definition_catalogs;
     fastecu::calibration::RomOpenUseCase rom_open{
-        file_actions, definition_service, file_repository, file_system, events, config};
+        definition_catalogs, definition_service, file_repository, file_system, events, config};
     fastecu::calibration::CalibrationWorkspace calibrations{rom_open};
     fastecu::calibration::RomSaveUseCase rom_save{file_repository, events};
     fastecu::logging::LoggerModel logger_model;
@@ -1350,7 +1351,8 @@ class MainWindowTest : public QObject
         services.config.settings().primary_definition_base = "ecuflash";
         services.config.settings().use_ecuflash_definitions = "enabled";
         services.config.settings().ecuflash_definition_files_directory = files.path().toStdString();
-        services.file_actions.create_ecuflash_def_id_list();
+        QVERIFY(
+            services.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash).has_value());
         const QString path = files.path() + "/save.bin";
         const auto opened = services.calibrations.adopt_read_image({
             .rom = bytes::Bytes(1024UZ * 1024, 0),
@@ -1522,7 +1524,8 @@ class MainWindowTest : public QObject
         services.config.settings().primary_definition_base = "ecuflash";
         services.config.settings().use_ecuflash_definitions = "enabled";
         services.config.settings().ecuflash_definition_files_directory = files.path().toStdString();
-        services.file_actions.create_ecuflash_def_id_list();
+        QVERIFY(
+            services.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash).has_value());
         const auto open_map = [&](const QString& name) -> CalibrationMaps *
         {
             const auto opened = services.calibrations.adopt_read_image({

@@ -50,8 +50,8 @@ qt_cc_library(
         "//bazel/qt:widgets",
         "//src/backend/config:config_session",
         "//src/backend/definition:definition_writer",
-        "//src/backend/definitions",
         "//src/backend/ports",
+        "//src/platform/desktop/common/definition:definition_catalog_session",
     ],
 )
 
@@ -66,9 +66,11 @@ fastecu_gtest(
         "//bazel/qt:test",
         "//bazel/qt:widgets",
         "//src/backend/config/testing:config_session_fixture",
-        "//src/backend/definitions:definition_indexes",
         "//src/backend/ports",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:result_matchers",
+        "//src/platform/desktop/common/definition:definition_catalog_session",
         "//src/platform/desktop/common/ports",
         "@googletest//:gtest",
     ],

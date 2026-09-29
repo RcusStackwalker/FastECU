@@ -76,7 +76,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
 
     setSplashScreenProgress("Reading config files...", 10);
-    fileActions = &services_.file_actions;
     configSession = &services_.config;
     calibrationWorkspace = &services_.calibrations;
 
@@ -134,8 +133,8 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     QObject::connect(&services_.file_action_events, &QtEventSink::noticed, this,
                      [this](QString message) { QMessageBox::warning(this, software_title, message); });
 
-    definitionAuthoringDialog =
-        new fastecu::ui::DefinitionAuthoringDialog(*fileActions, *configSession, services_.config_repository, this);
+    definitionAuthoringDialog = new fastecu::ui::DefinitionAuthoringDialog(
+        services_.definition_catalogs, *configSession, services_.config_repository, this);
     QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_E, log_channel,
                      &fastecu::ui::LogChannel::LOG_E);
     QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_W, log_channel,
@@ -196,10 +195,12 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     }
 
     setSplashScreenProgress("Preparing EcuFlash ROM definitions...", 10);
-    fileActions->create_ecuflash_def_id_list();
+    // Scan errors are nonfatal and already reported by the session.
+    static_cast<void>(services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash));
 
     setSplashScreenProgress("Preparing RomRaider ROM definitions...", 10);
-    fileActions->create_romraider_def_id_list();
+    // Scan errors are nonfatal and already reported by the session.
+    static_cast<void>(services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::RomRaider));
 
     if (const QString kernel_dir = qs(configSession->effective_paths().kernel_files_directory);
         QDir(kernel_dir).exists())
@@ -1434,16 +1435,6 @@ void MainWindow::calibration_files_treewidget_item_selected(QTreeWidgetItem *ite
     calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, *session, open->view);
     update_protocol_info(
         fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(*session), fastecu::ui::RomInfoRow::FlashMethod));
-    /*
-        QComboBox *flash_method_list = ui->toolBar->findChild<QComboBox*>("flash_method_list");
-        for (int i = 0; i < flash_method_list->count(); i++)
-        {
-            if(ecuCalDef[romNumber]->RomInfo.at(fileActions->FlashMethod) == flash_method_list->itemText(i))
-            {
-                flash_method_list->setCurrentIndex(i);
-            }
-        }
-        */
 }
 
 void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item)

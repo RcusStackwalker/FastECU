@@ -136,6 +136,33 @@ TEST_F(DefinitionCatalogSession, DirectoryChangeDropsDiscoveryWithoutChangingOth
     EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW"), "/new/new.xml");
     EXPECT_EQ(session.indexed_source(DefinitionFormat::RomRaider, "RR"), "rr.xml");
 }
+
+TEST_F(DefinitionCatalogSession, RemovedDiscoveredFilesAreNotReadAgain)
+{
+    put_ecuflash("/defs", "old.xml", "OLD");
+    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    config.file_system.directory_entries["/defs"].clear();
+    config.file_repository.files.erase("/defs/old.xml");
+    config.file_repository.read_handles.clear();
+    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    EXPECT_THAT(config.file_repository.read_handles, testing::IsEmpty());
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "OLD"), std::nullopt);
+}
+
+TEST_F(DefinitionCatalogSession, FailedRomraiderScanPreservesLookupAndNotifiesFirstMissingFile)
+{
+    put_romraider("old.xml", "OLD");
+    config.session.settings().romraider_definition_files = {"old.xml"};
+    ASSERT_THAT(session.refresh_index(DefinitionFormat::RomRaider), IsOk());
+    config.put("a.xml", "<roms><rom><romid><xmlid>DUPLICATE</xmlid><ecuid>A</ecuid></romid></rom></roms>");
+    config.put("b.xml", "<roms><rom><romid><xmlid>DUPLICATE</xmlid><ecuid>B</ecuid></romid></rom></roms>");
+    config.session.settings().romraider_definition_files = {"missing.xml", "a.xml", "b.xml"};
+    EXPECT_THAT(session.refresh_index(DefinitionFormat::RomRaider),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::RomRaider, "OLD"), "old.xml");
+    EXPECT_THAT(config.events.notices,
+                ElementsAre("Ecu definition file: Unable to open romraider definition file missing.xml for reading"));
+}
 TEST_F(DefinitionCatalogSession, SuccessfulCreateImmediatelyRegistersSource)
 {
     ASSERT_THAT(session.submit_new_definition("outside.xml", header(), true), IsOk());
@@ -169,6 +196,10 @@ TEST_F(DefinitionCatalogSession, InvalidHeadersDoNotWriteOrRegister)
                 IsErrWith(fastecu::ErrorKind::InvalidConfig, "definition XML ID is required"));
     EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
     EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, ""), std::nullopt);
+    config.put("base.xml", "<rom><romid><xmlid>BASE</xmlid></romid></rom>");
+    EXPECT_THAT(session.submit_imported_definition("base.xml", "invalid-import.xml", input),
+                IsErrWith(fastecu::ErrorKind::InvalidConfig, "definition XML ID is required"));
+    EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
 }
 
 TEST_F(DefinitionCatalogSession, OverwriteRequiresExplicitAuthorization)

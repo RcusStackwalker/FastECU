@@ -147,7 +147,7 @@ qt_cc_library(
         "//src/backend/logging:logger_model",
         "//src/backend/logging:logger_definition_service",
         "//src/backend/config:menu_definition",
-        "//src/backend/definitions",
+        "//src/platform/desktop/common/definition:definition_catalog_session",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_operation_request",
         "//src/backend/ports",
@@ -194,6 +194,9 @@ fastecu_qttest(
     linkstatic = True,
     deps = [
         ":desktop",
+        # TestServices provisions the real bundle without desktop composition.
+        "//resources/shared:config_resource",  # keep
+        "//resources/shared:kernels_resource",  # keep
         "//src/backend/calibration/session:calibration_workspace",
         "//src/backend/calibration/session:rom_open",
         "//src/backend/calibration/session:rom_save",
