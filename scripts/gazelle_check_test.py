@@ -175,7 +175,7 @@ class CheckTest(unittest.TestCase):
 
         def gazelle(root):
             self.pilot_build()
-            excluded = root / "src/algorithms/protocol/qt_compat/nested/BUILD.bazel"
+            excluded = root / "src/backend/definitions/nested/BUILD.bazel"
             excluded.parent.mkdir(parents=True)
             excluded.write_text("# excluded\n")
             return 0
@@ -219,6 +219,8 @@ class CheckTest(unittest.TestCase):
             "src/backend/flash/ecu/BUILD.bazel",
             "src/backend/flash/ecu/testing/new/BUILD.bazel",
             "src/backend/flash/testing/BUILD.bazel",
+            "src/algorithms/protocol/qt_compat/BUILD.bazel",
+            "src/algorithms/protocol/qt_compat/nested/BUILD.bazel",
         ]
         unmanaged = [
             "src/backend/flash_extra/BUILD.bazel",
@@ -227,7 +229,6 @@ class CheckTest(unittest.TestCase):
             "src/backend/calibration_extra/BUILD.bazel",
             "src/backend/logging_extra/BUILD.bazel",
             "src/backend/service_functions_extra/BUILD.bazel",
-            "src/algorithms/protocol/qt_compat/BUILD.bazel",
         ]
 
         def gazelle(root):

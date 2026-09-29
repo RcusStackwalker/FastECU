@@ -1,6 +1,10 @@
+# Qt headers are system includes; map them explicitly for generated deps.
+# gazelle:resolve cc QByteArray //bazel/qt:core
+# gazelle:resolve cc QString //bazel/qt:core
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS")
+load("//bazel:qt_common.bzl", "COMMON_COPTS")
 
 # The Qt half of //src/algorithms/protocol, in its own package so that one
 # stays free of Qt by visibility rather than by a source scan -- see
@@ -14,7 +18,10 @@ cc_library(
     name = "qt_compat",
     hdrs = ["qt_bytes.h"],
     copts = COMMON_COPTS,
-    deps = QT_DEPS_NO_WIDGETS + ["//src/algorithms/protocol"],
+    deps = [
+        "//bazel/qt:core",
+        "//src/algorithms/protocol",
+    ],
 )
 
 fastecu_gtest(
@@ -22,6 +29,8 @@ fastecu_gtest(
     srcs = ["bytes_qt_compat_test.cpp"],
     deps = [
         ":qt_compat",
+        "//bazel/qt:core",
         "//src/algorithms/protocol",
+        "@googletest//:gtest",
     ],
 )

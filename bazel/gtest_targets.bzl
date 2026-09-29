@@ -69,6 +69,15 @@ def fastecu_gtest(
         copts = [],
         size = "small",
         qt_deps = QT_DEPS_NO_WIDGETS):
+    implicit_deps = qt_deps + [
+        "//src/algorithms/protocol/testing:byte_matchers",
+        "@googletest//:gtest_main",
+    ]
+
+    # Gazelle may list Qt and framework deps supplied here too. Preserve
+    # configurable callers, whose select() branches cannot be deduplicated.
+    all_deps = _with_implicit_deps(implicit_deps, deps) if type(implicit_deps) == "list" and type(deps) == "list" else implicit_deps + deps
+
     # qt_cc_test (not bare cc_test) is required here: it wires up the
     # per-platform Qt plugin data + QT_PLUGIN_PATH/QT_QPA_PLATFORM_PLUGIN_PATH
     # env that widget-instantiating tests need to find "offscreen" (Linux),
@@ -84,8 +93,5 @@ def fastecu_gtest(
         size = size,
         tags = tags,
         target_compatible_with = target_compatible_with,
-        deps = qt_deps + [
-            "//src/algorithms/protocol/testing:byte_matchers",
-            "@googletest//:gtest_main",
-        ] + deps,
+        deps = all_deps,
     )
