@@ -6,6 +6,7 @@
 #include <QFileDialog>
 #include <QLineEdit>
 #include <QScopeGuard>
+#include <QSettings>
 #include <QMdiArea>
 #include <QMdiSubWindow>
 #include <QMessageBox>
@@ -345,6 +346,11 @@ class MainWindowTest : public QObject
     void initTestCase()
     {
         QVERIFY(config_root_.isValid());
+        // Keep the hex editor's QSettings out of the real user store.
+        QCoreApplication::setOrganizationName("FastECU-test");
+        QCoreApplication::setApplicationName("mainwindow-test");
+        QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, config_root_.path() + "/settings");
+        QSettings::setDefaultFormat(QSettings::IniFormat);
         // Pass the fixture root explicitly: Qt resolves the Windows home from
         // the account profile before trying HOME/USERPROFILE fallbacks.
         const QString config_dir =

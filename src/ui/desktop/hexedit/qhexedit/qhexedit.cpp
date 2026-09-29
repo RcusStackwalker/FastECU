@@ -253,8 +253,9 @@ bool QHexEdit::barArea()
 
 void QHexEdit::setBytesPerLine(int count)
 {
-    _bytesPerLine = count;
-    _hexCharsInLine = count * 3 - 1;
+    // Layout divides by the line length.
+    _bytesPerLine = std::max(count, 1);
+    _hexCharsInLine = _bytesPerLine * 3 - 1;
 
     adjust();
     setCursorPosition(_cursorPosition);
@@ -290,12 +291,12 @@ void QHexEdit::setCursorPosition(qint64 position)
     if (_editAreaIsBar)
     {
         _pxCursorX = x / 2 * _pxCharWidth + _pxPosBarX;
-        _cursorPosition = position & 0xFFFFFFFFFFFFFFFE;
+        _cursorPosition = position - position % 2;
     }
     if (_editAreaIsAscii)
     {
         _pxCursorX = x / 2 * _pxCharWidth + _pxPosAsciiX;
-        _cursorPosition = position & 0xFFFFFFFFFFFFFFFE;
+        _cursorPosition = position - position % 2;
     }
     else
     {
