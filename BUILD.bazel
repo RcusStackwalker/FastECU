@@ -20,6 +20,7 @@ package(default_visibility = ["//visibility:public"])
 # gazelle:resolve cc QMessageBox //bazel/qt:widgets
 # gazelle:resolve cc QObject //bazel/qt:core
 # gazelle:resolve cc QPushButton //bazel/qt:widgets
+# gazelle:resolve cc QRemoteObjectReplica //bazel/qt:remote_objects
 # gazelle:resolve cc QSignalMapper //bazel/qt:core
 # gazelle:resolve cc QString //bazel/qt:core
 # gazelle:resolve cc QStringList //bazel/qt:core
@@ -50,6 +51,7 @@ GAZELLE_ARGS = [
     "src/ui/desktop/calibration",
     "src/ui/desktop/checksum",
     "src/ui/desktop/menu",
+    "src/ui/desktop/channels",
     "apps/bench/testing",
     "src/platform/desktop/common/connection/testing",
 ]
