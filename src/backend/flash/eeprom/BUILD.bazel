@@ -16,6 +16,7 @@ cc_library(
     name = "denso_sh705x_eeprom_common",
     srcs = ["denso_sh705x_eeprom_common.cpp"],
     hdrs = ["denso_sh705x_eeprom_common.h"],
+    implementation_deps = ["//src/backend/flash:flash_validation"],
     visibility = [
         "//bazel/layers:platform",
         "//bazel/layers:tests",
@@ -23,8 +24,6 @@ cc_library(
     ],
     deps = [
         "//src/backend/flash:flash_plan",
-        "//src/backend/flash:flash_types",
-        "//src/backend/flash:flash_validation",
         "//src/backend/ports",
     ],
 )
@@ -35,6 +34,7 @@ fastecu_portable_gtest(
     deps = [
         ":denso_sh705x_eeprom_common",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -45,6 +45,7 @@ fastecu_portable_gtest(
         ":eeprom_read_plan",
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -52,12 +53,14 @@ cc_library(
     name = "eeprom_read_plan",
     srcs = ["eeprom_read_plan.cpp"],
     hdrs = ["eeprom_read_plan.h"],
-    deps = [
+    implementation_deps = [
         ":denso_sh705x_eeprom_common",
         "//src/backend/config:car_model_catalog",
-        "//src/backend/config:config_paths",
         "//src/backend/config:protocol_catalog",
         "//src/backend/definition:text_format",
+    ],
+    deps = [
+        "//src/backend/config:config_paths",
         "//src/backend/flash:flash_plan",
         "//src/backend/flash:flash_types",
         "//src/backend/ports",
@@ -71,6 +74,7 @@ fastecu_portable_gtest(
         ":eeprom_read_plan",
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -78,18 +82,17 @@ cc_library(
     name = "denso_sh705x_eeprom_kline",
     srcs = ["denso_sh705x_eeprom_kline_executor.cpp"],
     hdrs = ["denso_sh705x_eeprom_kline_executor.h"],
+    implementation_deps = [
+        ":denso_sh705x_eeprom_common",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash/ecu:denso_sh705x_kline_common",
+    ],
     visibility = [
         "//bazel/layers:platform",
         "//bazel/layers:tests",
     ],
-    deps = [
-        ":denso_sh705x_eeprom_common",
-        "//src/algorithms/protocol",
-        "//src/algorithms/protocol/ssm",
-        "//src/backend/flash:flash_executor",
-        "//src/backend/flash/ecu:denso_sh705x_kline_common",
-        "//src/backend/ports",
-    ],
+    deps = ["//src/backend/flash:flash_executor"],
 )
 
 fastecu_portable_gtest(
@@ -98,12 +101,14 @@ fastecu_portable_gtest(
     deps = [
         ":denso_sh705x_eeprom_common",
         ":denso_sh705x_eeprom_kline",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
         "//src/backend/flash/testing:scripted_flash_transports",
-        "//src/backend/ports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -111,33 +116,34 @@ cc_library(
     name = "denso_sh705x_eeprom_can",
     srcs = ["denso_sh705x_eeprom_can_executor.cpp"],
     hdrs = ["denso_sh705x_eeprom_can_executor.h"],
+    implementation_deps = [
+        ":denso_sh705x_eeprom_common",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+    ],
     visibility = [
         "//bazel/layers:platform",
         "//bazel/layers:tests",
     ],
-    deps = [
-        ":denso_sh705x_eeprom_common",
-        "//src/algorithms/protocol",
-        "//src/algorithms/protocol/ssm",
-        "//src/backend/flash:flash_executor",
-        "//src/backend/ports",
-    ],
+    deps = ["//src/backend/flash:flash_executor"],
 )
 
+# For WrongConcreteTransportTypeReturnsInvalidConfigWithNoIo, which
+# deliberately passes a K-Line-shaped fake to prove the dynamic_cast
+# guard rejects it -- same cross-family reuse the brief calls for.
 fastecu_portable_gtest(
     name = "denso_sh705x_eeprom_can_executor_test",
     srcs = ["denso_sh705x_eeprom_can_executor_test.cpp"],
     deps = [
-        "//src/backend/ports/testing:result_matchers",
-        ":denso_sh705x_eeprom_common",
         ":denso_sh705x_eeprom_can",
-        "//src/backend/ports",
+        ":denso_sh705x_eeprom_common",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/ports/testing:recording_event_sink",
-        # For WrongConcreteTransportTypeReturnsInvalidConfigWithNoIo, which
-        # deliberately passes a K-Line-shaped fake to prove the dynamic_cast
-        # guard rejects it -- same cross-family reuse the brief calls for.
-        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )

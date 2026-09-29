@@ -9,9 +9,8 @@ cc_library(
     name = "single_window_plan_cases",
     hdrs = ["single_window_plan_cases.h"],
     deps = [
+        "//src/algorithms/protocol",
         "//src/backend/flash:flash_plan",
-        "//src/backend/flash:flash_types",
-        "//src/backend/flash/testing:flash_printers",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
