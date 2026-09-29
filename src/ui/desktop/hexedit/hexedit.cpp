@@ -380,17 +380,18 @@ void HexEdit::loadFile(const QString& fileName)
 
 void HexEdit::readSettings()
 {
+    // Defaults match OptionsDialog: an unpersisted store must not read as zero.
     QSettings settings;
     QPoint pos = settings.value("pos", QPoint(200, 200)).toPoint();
     QSize size = settings.value("size", QSize(610, 460)).toSize();
     move(pos);
     resize(size);
 
-    hexEdit->setAddressArea(settings.value("AddressArea").toBool());
-    hexEdit->setAsciiArea(settings.value("AsciiArea").toBool());
-    hexEdit->setBarArea(settings.value("BarArea").toBool());
-    hexEdit->setHighlighting(settings.value("Highlighting").toBool());
-    hexEdit->setOverwriteMode(settings.value("OverwriteMode").toBool());
+    hexEdit->setAddressArea(settings.value("AddressArea", true).toBool());
+    hexEdit->setAsciiArea(settings.value("AsciiArea", true).toBool());
+    hexEdit->setBarArea(settings.value("BarArea", true).toBool());
+    hexEdit->setHighlighting(settings.value("Highlighting", true).toBool());
+    hexEdit->setOverwriteMode(settings.value("OverwriteMode", true).toBool());
     hexEdit->setReadOnly(settings.value("ReadOnly").toBool());
 
     hexEdit->setHighlightingColor(settings.value("HighlightingColor").value<QColor>());
@@ -404,8 +405,8 @@ void HexEdit::readSettings()
     hexEdit->setBarFontColor(settings.value("BarFontColor").value<QColor>());
     hexEdit->setHexFontColor(settings.value("HexFontColor").value<QColor>());
 
-    hexEdit->setAddressWidth(settings.value("AddressAreaWidth").toInt());
-    hexEdit->setBytesPerLine(settings.value("BytesPerLine").toInt());
+    hexEdit->setAddressWidth(settings.value("AddressAreaWidth", 4).toInt());
+    hexEdit->setBytesPerLine(settings.value("BytesPerLine", 16).toInt());
     hexEdit->setHexCaps(settings.value("HexCaps", true).toBool());
 }
 
