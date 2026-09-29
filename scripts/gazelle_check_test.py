@@ -204,11 +204,18 @@ class CheckTest(unittest.TestCase):
             "src/backend/protocol/uds/testing/BUILD.bazel",
             "src/backend/checksum/BUILD.bazel",
             "src/backend/diagnostics/BUILD.bazel",
+            "src/backend/config/BUILD.bazel",
+            "src/backend/config/testing/new/BUILD.bazel",
+            "src/backend/definition/BUILD.bazel",
+            "src/backend/calibration/BUILD.bazel",
+            "src/backend/calibration/session/BUILD.bazel",
+            "src/backend/calibration/session/testing/new/BUILD.bazel",
         ]
         unmanaged = [
             "src/backend/flash/BUILD.bazel",
             "src/backend/definitions/BUILD.bazel",
             "src/backend/ports_extra/BUILD.bazel",
+            "src/backend/calibration_extra/BUILD.bazel",
             "src/algorithms/protocol/qt_compat/BUILD.bazel",
         ]
 

@@ -27,6 +27,7 @@ fastecu_portable_gtest(
     deps = [
         ":calibration_session",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -43,12 +44,11 @@ cc_library(
     name = "rom_open",
     srcs = ["rom_open.cpp"],
     hdrs = ["rom_open.h"],
+    implementation_deps = ["//src/backend/calibration:calibration_service"],
     deps = [
         ":calibration_session",
         ":definition_catalogs",
-        "//src/backend/calibration:calibration_service",
         "//src/backend/config:config_session",
-        "//src/backend/definition:definition_model",
         "//src/backend/definition:definition_service",
         "//src/backend/ports",
     ],
@@ -63,6 +63,7 @@ fastecu_portable_gtest(
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -86,6 +87,7 @@ fastecu_portable_gtest(
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -99,6 +101,7 @@ fastecu_portable_gtest(
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -108,7 +111,6 @@ cc_library(
     hdrs = ["rom_save.h"],
     deps = [
         ":calibration_session",
-        "//src/algorithms/protocol",
         "//src/backend/ports",
     ],
 )

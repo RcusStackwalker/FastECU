@@ -15,8 +15,9 @@ found when a build broke.
 `gazelle` with the `gazelle_cc` extension generates `cc_library` and test targets
 for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_diff` in the root
 `BUILD.bazel`. Currently that is `src/algorithms`, without `qt_compat`, plus
-`src/backend/ports`, `src/backend/protocol`, `src/backend/checksum` and
-`src/backend/diagnostics`, including their subpackages.
+`src/backend/ports`, `src/backend/protocol`, `src/backend/checksum`,
+`src/backend/diagnostics`, `src/backend/config`, `src/backend/definition` and
+`src/backend/calibration`, including their subpackages.
 
 - Grouping is `cc_group unit`; `cc_test` is mapped to `fastecu_portable_gtest`.
   `cc_group directory` was rejected: it merges the per-file tests and overlaps
