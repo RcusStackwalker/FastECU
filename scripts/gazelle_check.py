@@ -28,6 +28,9 @@ MANAGED_ROOTS = tuple(
         "src/backend/protocol",
         "src/backend/checksum",
         "src/backend/diagnostics",
+        "src/backend/config",
+        "src/backend/definition",
+        "src/backend/calibration",
     )
 )
 

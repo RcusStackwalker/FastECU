@@ -12,7 +12,10 @@ cc_library(
 fastecu_portable_gtest(
     name = "config_paths_test",
     srcs = ["config_paths_test.cpp"],
-    deps = [":config_paths"],
+    deps = [
+        ":config_paths",
+        "@googletest//:gtest",
+    ],
 )
 
 cc_library(
@@ -35,6 +38,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:in_memory_resource_bundle",
         "//src/backend/ports/testing:recording_event_sink",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -42,10 +46,10 @@ cc_library(
     name = "app_config",
     srcs = ["app_config.cpp"],
     hdrs = ["app_config.h"],
+    implementation_deps = ["@pugixml"],
     deps = [
         ":config_paths",
         "//src/backend/ports",
-        "@pugixml",
     ],
 )
 
@@ -56,6 +60,7 @@ fastecu_portable_gtest(
         ":app_config",
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -80,6 +85,7 @@ fastecu_portable_gtest(
         ":protocols_document",
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
         "@pugixml",
     ],
 )
@@ -88,11 +94,13 @@ cc_library(
     name = "protocol_catalog",
     srcs = ["protocol_catalog.cpp"],
     hdrs = ["protocol_catalog.h"],
+    implementation_deps = [
+        ":protocols_document",
+        "@pugixml",
+    ],
     deps = [
         ":config_paths",
-        ":protocols_document",
         "//src/backend/ports",
-        "@pugixml",
     ],
 )
 
@@ -107,6 +115,7 @@ fastecu_portable_gtest(
         ":protocol_catalog",
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -114,12 +123,14 @@ cc_library(
     name = "car_model_catalog",
     srcs = ["car_model_catalog.cpp"],
     hdrs = ["car_model_catalog.h"],
+    implementation_deps = [
+        ":protocols_document",
+        "@pugixml",
+    ],
     deps = [
         ":config_paths",
         ":protocol_catalog",
-        ":protocols_document",
         "//src/backend/ports",
-        "@pugixml",
     ],
 )
 
@@ -134,6 +145,7 @@ fastecu_portable_gtest(
         ":car_model_catalog",
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -141,6 +153,10 @@ cc_library(
     name = "config_session",
     srcs = ["config_session.cpp"],
     hdrs = ["config_session.h"],
+    implementation_deps = [
+        ":protocol_catalog",
+        ":provisioning",
+    ],
     # The package default plus the composition root that owns the session.
     visibility = [
         "//bazel/layers:apps_desktop",
@@ -150,8 +166,6 @@ cc_library(
         ":app_config",
         ":car_model_catalog",
         ":config_paths",
-        ":protocol_catalog",
-        ":provisioning",
         "//src/backend/ports",
     ],
 )
@@ -163,6 +177,7 @@ fastecu_portable_gtest(
         ":config_session",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -170,10 +185,10 @@ cc_library(
     name = "menu_definition",
     srcs = ["menu_definition.cpp"],
     hdrs = ["menu_definition.h"],
+    implementation_deps = ["@pugixml"],
     deps = [
         ":config_paths",
         "//src/backend/ports",
-        "@pugixml",
     ],
 )
 
@@ -188,5 +203,6 @@ fastecu_portable_gtest(
         ":menu_definition",
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )

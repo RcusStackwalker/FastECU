@@ -21,16 +21,19 @@ cc_library(
 fastecu_portable_gtest(
     name = "text_format_test",
     srcs = ["text_format_test.cpp"],
-    deps = [":text_format"],
+    deps = [
+        ":text_format",
+        "@googletest//:gtest",
+    ],
 )
 
 cc_library(
     name = "parser_utils",
     srcs = ["parser_utils.cpp"],
     hdrs = ["parser_utils.h"],
+    implementation_deps = [":text_format"],
     deps = [
         ":definition_model",
-        ":text_format",
         "//src/backend/ports",
         "@pugixml",
     ],
@@ -39,53 +42,55 @@ cc_library(
 fastecu_portable_gtest(
     name = "parser_utils_test",
     srcs = ["parser_utils_test.cpp"],
-    deps = [":parser_utils"],
+    deps = [
+        ":parser_utils",
+        "@googletest//:gtest",
+    ],
 )
 
 cc_library(
     name = "romraider_parser",
     srcs = ["romraider_parser.cpp"],
     hdrs = ["romraider_parser.h"],
-    deps = [
-        ":definition_model",
+    implementation_deps = [
         ":parser_utils",
         "//src/backend/ports",
         "@pugixml",
     ],
+    deps = [":definition_model"],
 )
 
 cc_library(
     name = "ecuflash_parser",
     srcs = ["ecuflash_parser.cpp"],
     hdrs = ["ecuflash_parser.h"],
-    deps = [
-        ":definition_model",
+    implementation_deps = [
         ":parser_utils",
         "//src/backend/ports",
         "@pugixml",
     ],
+    deps = [":definition_model"],
 )
 
 cc_library(
     name = "definition_resolver",
     srcs = ["definition_resolver.cpp"],
     hdrs = ["definition_resolver.h"],
-    deps = [
-        ":definition_model",
-        "//src/backend/ports",
-    ],
+    deps = [":definition_model"],
 )
 
 cc_library(
     name = "definition_service",
     srcs = ["definition_service.cpp"],
     hdrs = ["definition_service.h"],
-    deps = [
-        ":definition_model",
+    implementation_deps = [
         ":definition_resolver",
-        ":definition_writer",
         ":ecuflash_parser",
         ":romraider_parser",
+    ],
+    deps = [
+        ":definition_model",
+        ":definition_writer",
         "//src/backend/ports",
     ],
 )
@@ -94,12 +99,14 @@ cc_library(
     name = "definition_writer",
     srcs = ["definition_writer.cpp"],
     hdrs = ["definition_writer.h"],
-    deps = [
-        ":definition_model",
+    implementation_deps = [
         ":ecuflash_parser",
         ":text_format",
-        "//src/backend/ports",
         "@pugixml",
+    ],
+    deps = [
+        ":definition_model",
+        "//src/backend/ports",
     ],
 )
 
@@ -110,6 +117,7 @@ fastecu_portable_gtest(
         ":definition_writer",
         ":ecuflash_parser",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -122,6 +130,7 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:in_memory_file_repository",
         "//src/backend/ports/testing:in_memory_file_system",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -131,6 +140,7 @@ fastecu_portable_gtest(
     deps = [
         ":definition_model",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -140,6 +150,7 @@ fastecu_portable_gtest(
     deps = [
         ":romraider_parser",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -149,6 +160,7 @@ fastecu_portable_gtest(
     deps = [
         ":ecuflash_parser",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -160,5 +172,6 @@ fastecu_portable_gtest(
         ":ecuflash_parser",
         ":romraider_parser",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
