@@ -15,7 +15,9 @@ fastecu_portable_gtest(
     srcs = ["fake_bench_session_test.cpp"],
     deps = [
         ":fake_bench_session",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -41,6 +43,8 @@ fastecu_portable_gtest(
     srcs = ["fake_bench_files_test.cpp"],
     deps = [
         ":fake_bench_files",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )

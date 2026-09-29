@@ -1,4 +1,9 @@
-load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
+# Providers use unmanaged Qt macros, so Gazelle cannot index their headers.
+# gazelle:resolve cc src/platform/desktop/common/connection/adapter_connection.h //src/platform/desktop/common/connection:adapter_connection
+# gazelle:resolve cc src/platform/desktop/common/serial/testing/fake_backend.h //src/platform/desktop/common/serial/testing:fake_serial_backend
+# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions.h //src/platform/desktop/common/serial:serial_port_actions
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:qt_common.bzl", "COMMON_COPTS")
 
 package(default_visibility = [
     "//bazel/layers:ui_desktop",
@@ -6,15 +11,21 @@ package(default_visibility = [
     "//src/ui/desktop/flash/operation:__pkg__",
 ])
 
+# No Q_OBJECT: ordinary headers and COMMON_COPTS preserve the no-moc build.
 # Lets UI-layer tests build MainWindow over a fake backend without seeing
 # serial_port_actions.h: the facade lives behind the harness's .cpp.
-qt_cc_library(
+cc_library(
     name = "adapter_connection_harness",
     testonly = True,
     srcs = ["adapter_connection_harness.cpp"],
+    hdrs = ["adapter_connection_harness.h"],
+    # Preserve the former Qt macro's explicit PIC option on non-Windows hosts.
+    copts = COMMON_COPTS + select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["-fPIC"],
+    }),
     implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
-    normal_hdrs = ["adapter_connection_harness.h"],
-    deps = QT_DEPS + [
+    deps = [
         "//src/platform/desktop/common/connection:adapter_connection",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
     ],
