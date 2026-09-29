@@ -7,6 +7,5 @@ build:android --host_cxxopt=-std=c++23
 build:android --repo_env=ANDROID_NDK_HOME
 # The NDK toolchain does not link libc++ into executables on its own; the portable
 # gtest binaries (compiled only, never run on the host) need it to link.
-build:android --linkopt=-static-libstdc++
 build:android --linkopt=-lc++_static
 build:android --linkopt=-lc++abi
