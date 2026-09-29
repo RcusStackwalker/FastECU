@@ -597,6 +597,9 @@ void QHexEdit::setFont(const QFont& font)
     _pxCharWidth = metrics.width(QLatin1Char('2'));
 #endif
     _pxCharHeight = metrics.height();
+    // A platform with no installed fonts reports zero-pixel glyphs; layout divides by both.
+    _pxCharWidth = std::max(_pxCharWidth, 1);
+    _pxCharHeight = std::max(_pxCharHeight, 1);
     _pxGapAdr = _pxCharWidth / 2;
     _pxGapAdrHex = _pxCharWidth;
     _pxGapHexAscii = 2 * _pxCharWidth;

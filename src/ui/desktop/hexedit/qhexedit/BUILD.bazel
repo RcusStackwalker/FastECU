@@ -1,5 +1,5 @@
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
-load("//bazel:qt_targets.bzl", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "fastecu_qttest", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:ui_and_composition_root"])
 
@@ -20,4 +20,12 @@ qt_cc_library(
         "//bazel/qt:gui",
         "//bazel/qt:widgets",
     ],
+)
+
+fastecu_qttest(
+    name = "qhexedit_test",
+    src = "qhexedit_test.cpp",
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [":qhexedit"],
 )
