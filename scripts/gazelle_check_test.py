@@ -11,6 +11,10 @@ from unittest import mock
 import gazelle_check as gc
 
 _BUILD = "BUILD.bazel"
+_PKG_BUILD = f"pkg/{_BUILD}"
+_NEW_BUILD = f"new/{_BUILD}"
+_REGENERATED = "# regenerated\n"
+_FORMATTED = "# formatted\n"
 
 
 def list_all(root: Path) -> list[str]:
@@ -30,13 +34,17 @@ class CheckTest(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
-    def run_check(self, run_gazelle) -> tuple[int, str]:
+    def run_check(
+        self, run_gazelle, run_hook=lambda _root, _hook, _files: 0, fix=False
+    ) -> tuple[int, str]:
         out = StringIO()
 
         def show_diff(_root: Path, paths, added) -> None:
             self.diffs.append((list(paths), list(added)))
 
-        code = gc.check(self.root, list_all, run_gazelle, show_diff, out)
+        code = gc.check(
+            self.root, list_all, run_gazelle, show_diff, out, run_hook=run_hook, fix=fix
+        )
         return code, out.getvalue()
 
     def test_unchanged_tree_is_clean(self) -> None:
@@ -47,17 +55,17 @@ class CheckTest(unittest.TestCase):
 
     def test_modified_file_is_drift(self) -> None:
         def gazelle(_root: Path) -> int:
-            self.build.write_text("# regenerated\n")
+            self.build.write_text(_REGENERATED)
             return 0
 
         code, output = self.run_check(gazelle)
         self.assertEqual(code, 1)
-        self.assertIn("pkg/BUILD.bazel", output)
-        self.assertEqual(self.diffs, [(["pkg/BUILD.bazel"], [])])
+        self.assertIn(_PKG_BUILD, output)
+        self.assertEqual(self.diffs, [([_PKG_BUILD], [])])
 
     def test_drift_message_tells_the_contributor_to_commit(self) -> None:
         def gazelle(_root: Path) -> int:
-            self.build.write_text("# regenerated\n")
+            self.build.write_text(_REGENERATED)
             return 0
 
         _, output = self.run_check(gazelle)
@@ -71,8 +79,8 @@ class CheckTest(unittest.TestCase):
 
         code, output = self.run_check(gazelle)
         self.assertEqual(code, 1)
-        self.assertIn("new/BUILD.bazel", output)
-        self.assertEqual(self.diffs, [(["new/BUILD.bazel"], ["new/BUILD.bazel"])])
+        self.assertIn(_NEW_BUILD, output)
+        self.assertEqual(self.diffs, [([_NEW_BUILD], [_NEW_BUILD])])
 
     def test_deleted_file_is_drift(self) -> None:
         def gazelle(_root: Path) -> int:
@@ -81,7 +89,7 @@ class CheckTest(unittest.TestCase):
 
         code, output = self.run_check(gazelle)
         self.assertEqual(code, 1)
-        self.assertIn("pkg/BUILD.bazel", output)
+        self.assertIn(_PKG_BUILD, output)
 
     def test_preexisting_uncommitted_edit_is_not_drift(self) -> None:
         self.build.write_text("# contributor edit, not yet staged\n")
@@ -103,8 +111,93 @@ class CheckTest(unittest.TestCase):
         self.assertEqual(code, 2)
 
     def test_snapshot_ignores_listed_but_missing_files(self) -> None:
-        snapshot = gc.snapshot(self.root, lambda _root: ["pkg/BUILD.bazel", "gone/BUILD.bazel"])
-        self.assertEqual(list(snapshot), ["pkg/BUILD.bazel"])
+        snapshot = gc.snapshot(self.root, lambda _root: [_PKG_BUILD, "gone/BUILD.bazel"])
+        self.assertEqual(list(snapshot), [_PKG_BUILD])
+
+    def pilot_build(self):
+        path = self.root / "src/algorithms/example/BUILD.bazel"
+        path.parent.mkdir(parents=True)
+        path.write_text("# original\n")
+        return path
+
+    def test_formatter_correction_is_drift_and_confirmed(self):
+        build = self.pilot_build()
+        calls = []
+
+        def hook(root, name, files):
+            calls.append(name)
+            if len(calls) == 1:
+                build.write_text(_FORMATTED)
+                return 1
+            return 0
+
+        code, _ = self.run_check(lambda root: 0, hook)
+        self.assertEqual(code, 1)
+        self.assertEqual(calls, ["buildifier", "buildifier", "buildifier-lint"])
+
+    def test_fix_returns_zero_after_formatter_correction(self):
+        build = self.pilot_build()
+
+        def hook(root, name, files):
+            if build.read_text() != _FORMATTED:
+                build.write_text(_FORMATTED)
+                return 1
+            return 0
+
+        self.assertEqual(self.run_check(lambda root: 0, hook, fix=True)[0], 0)
+        self.assertEqual(build.read_text(), _FORMATTED)
+
+    def test_formatter_failure_without_corrections_exits_two(self):
+        self.pilot_build()
+        code, output = self.run_check(lambda root: 0, lambda *args: 1)
+        self.assertEqual(code, 2)
+        self.assertIn("buildifier failed", output)
+
+    def test_formatter_retry_failure_exits_two(self):
+        build = self.pilot_build()
+
+        def hook(*args):
+            build.write_text("# change\n")
+            return 1
+
+        self.assertEqual(self.run_check(lambda root: 0, hook)[0], 2)
+
+    def test_linter_failure_exits_two_even_with_fix(self):
+        self.pilot_build()
+
+        def hook(root, name, files):
+            return 1 if name == "buildifier-lint" else 0
+
+        self.assertEqual(self.run_check(lambda root: 0, hook, fix=True)[0], 2)
+
+    def test_new_build_is_formatted_and_exclusions_are_respected(self):
+        seen = []
+
+        def gazelle(root):
+            self.pilot_build()
+            excluded = root / "src/algorithms/protocol/qt_compat/nested/BUILD.bazel"
+            excluded.parent.mkdir(parents=True)
+            excluded.write_text("# excluded\n")
+            return 0
+
+        def hook(root, name, files):
+            seen.append(list(files))
+            return 0
+
+        self.assertEqual(self.run_check(gazelle, hook)[0], 1)
+        self.assertEqual(seen, [["src/algorithms/example/BUILD.bazel"]] * 2)
+
+    def test_fix_returns_zero_after_corrections(self):
+        def gazelle(root):
+            self.build.write_text(_REGENERATED)
+            return 0
+
+        code, output = self.run_check(gazelle, fix=True)
+        self.assertEqual(code, 0)
+        self.assertIn("commit", output)
+
+    def test_fix_preserves_gazelle_failure(self):
+        self.assertEqual(self.run_check(lambda root: 1, fix=True)[0], 2)
 
 
 class EnvironmentTest(unittest.TestCase):
@@ -120,8 +213,41 @@ class EnvironmentTest(unittest.TestCase):
             mock.patch.object(gc, "repo_root", side_effect=gc.GazelleCheckError("no repo")),
             mock.patch.object(gc.sys, "stderr", new=StringIO()) as stderr,
         ):
-            self.assertEqual(gc.main(), 2)
+            self.assertEqual(gc.main([]), 2)
         self.assertIn("no repo", stderr.getvalue())
+
+    def test_missing_prek_is_actionable(self):
+        with (
+            mock.patch.object(gc.shutil, "which", return_value=None),
+            self.assertRaisesRegex(gc.GazelleCheckError, "prek"),
+        ):
+            gc.run_prek_hook(Path("."), "buildifier", [_BUILD])
+
+    def test_main_fix_applies_pipeline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def gazelle(root):
+                (root / _BUILD).write_text("# generated\n")
+                return 0
+
+            with (
+                mock.patch.object(gc, "repo_root", return_value=root),
+                mock.patch.object(gc, "git_list_build_files", side_effect=list_all),
+                mock.patch.object(gc, "run_bazel_gazelle", side_effect=gazelle),
+                mock.patch.object(gc, "git_show_diff"),
+                mock.patch.object(gc.sys, "stderr", new=StringIO()),
+            ):
+                self.assertEqual(gc.main(["--fix"]), 0)
+                self.assertEqual((root / _BUILD).read_text(), "# generated\n")
+
+    def test_main_reports_process_errors_as_exit_two(self):
+        with (
+            mock.patch.object(gc, "repo_root", side_effect=OSError("tool cannot start")),
+            mock.patch.object(gc.sys, "stderr", new=StringIO()) as stderr,
+        ):
+            self.assertEqual(gc.main([]), 2)
+        self.assertIn("tool cannot start", stderr.getvalue())
 
 
 @unittest.skipUnless(shutil.which("git"), "git is required")

@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
-"""Regenerate BUILD files with gazelle and fail if any *.bazel file changed.
+"""Generate and format the algorithms pilot with Gazelle and pinned prek hooks.
 
-Exit codes: 0 = BUILD files are up to date, 1 = gazelle changed, created or
-deleted a file, 2 = the check could not run (no repository, no bazel, or
-gazelle itself failed).
-
-prek only notices tracked files that a hook modifies, so this script compares
-its own before/after snapshot and also catches created and deleted files.
+Exit codes: 0 = unchanged (or successfully corrected with --fix),
+1 = corrections made, 2 = tool or lint failure. Snapshot all *.bazel files
+before and after to catch additions, deletions and changes beyond tracked files.
 """
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import shutil
 import subprocess
@@ -24,6 +22,7 @@ BUILD_FILE_PATHSPEC = "*.bazel"
 
 ListFiles = Callable[[Path], Sequence[str]]
 RunGazelle = Callable[[Path], int]
+RunHook = Callable[[Path, str, Sequence[str]], int]
 ShowDiff = Callable[[Path, Sequence[str], Sequence[str]], None]
 
 
@@ -90,6 +89,27 @@ def run_bazel_gazelle(root: Path) -> int:
     ).returncode
 
 
+def managed_build_files(root: Path, list_files: ListFiles) -> list[str]:
+    """Discover existing pilot BUILD files after generation, including new ones."""
+    pilot = Path("src/algorithms")
+    excluded = pilot / "protocol/qt_compat"
+    return sorted(
+        relative
+        for relative in list_files(root)
+        if Path(relative).name == "BUILD.bazel"
+        and Path(relative).is_relative_to(pilot)
+        and not Path(relative).is_relative_to(excluded)
+        and (root / relative).is_file()
+    )
+
+
+def run_prek_hook(root: Path, hook: str, files: Sequence[str]) -> int:
+    prek = shutil.which("prek")
+    if prek is None:
+        raise GazelleCheckError("prek was not found on PATH")
+    return subprocess.run([prek, "run", hook, "--files", *files], cwd=root, check=False).returncode
+
+
 def git_show_diff(root: Path, paths: Sequence[str], added: Sequence[str]) -> None:
     """Print the change without touching the index; created files are diffed against nothing."""
     existing = [path for path in paths if path not in added]
@@ -109,17 +129,38 @@ def check(
     run_gazelle: RunGazelle,
     show_diff: ShowDiff,
     out: TextIO,
+    *,
+    run_hook: RunHook = run_prek_hook,
+    fix: bool = False,
 ) -> int:
     before = snapshot(root, list_files)
     exit_code = run_gazelle(root)
     if exit_code != 0:
         print(f"gazelle failed (exit {exit_code}); BUILD files were not checked.", file=out)
         return 2
+    files = managed_build_files(root, list_files)
+    if files:
+        pre_format = snapshot(root, lambda _root: files)
+        exit_code = run_hook(root, "buildifier", files)
+        # prek returns 1 for successful corrections too. Confirm a correcting
+        # formatter succeeds on a second pass; an unchanged failure is an error.
+        if exit_code == 1 and pre_format != snapshot(root, lambda _root: files):
+            exit_code = run_hook(root, "buildifier", files)
+        if exit_code != 0:
+            print(f"buildifier failed (exit {exit_code}); BUILD files were not checked.", file=out)
+            return 2
+        exit_code = run_hook(root, "buildifier-lint", files)
+        if exit_code != 0:
+            print(
+                f"buildifier-lint failed (exit {exit_code}); BUILD files were not checked.",
+                file=out,
+            )
+            return 2
     after = snapshot(root, list_files)
     paths = changed_paths(before, after)
     if not paths:
         return 0
-    print("gazelle changed these BUILD files:", file=out)
+    print("Gazelle/Buildifier changed these BUILD files:", file=out)
     for path in paths:
         print(f"  {path}", file=out)
     show_diff(root, paths, [path for path in paths if path not in before])
@@ -128,15 +169,25 @@ def check(
         "a re-push with the fixes only staged passes this check but sends the stale files.",
         file=out,
     )
-    return 1
+    return 0 if fix else 1
 
 
-def main() -> int:
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--fix", action="store_true", help="apply corrections and return 0 on success"
+    )
+    args = parser.parse_args(argv)
     try:
         return check(
-            repo_root(), git_list_build_files, run_bazel_gazelle, git_show_diff, sys.stderr
+            repo_root(),
+            git_list_build_files,
+            run_bazel_gazelle,
+            git_show_diff,
+            sys.stderr,
+            fix=args.fix,
         )
-    except GazelleCheckError as error:
+    except (GazelleCheckError, OSError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
 

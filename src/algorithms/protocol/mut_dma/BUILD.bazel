@@ -5,18 +5,16 @@ package(default_visibility = ["//bazel/layers:algorithms_and_above"])
 
 cc_library(
     name = "mut_dma",
-    srcs =
-        [
-            "mut_dma_codec.cpp",
-            "mut_dma_freeform.cpp",
-            "mut_dma_memory.cpp",
-        ],
-    hdrs =
-        [
-            "mut_dma_codec.h",
-            "mut_dma_freeform.h",
-            "mut_dma_memory.h",
-        ],
+    srcs = [
+        "mut_dma_codec.cpp",
+        "mut_dma_freeform.cpp",
+        "mut_dma_memory.cpp",
+    ],
+    hdrs = [
+        "mut_dma_codec.h",
+        "mut_dma_freeform.h",
+        "mut_dma_memory.h",
+    ],
     deps = ["//src/algorithms/protocol"],
 )
 
