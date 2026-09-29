@@ -9,7 +9,7 @@
 // its size into the at() call at compile time; child_body is noinline to
 // prevent the entire if(pid==0) branch from being optimized away via
 // cross-function UB propagation (which happened with a local QByteArray).
-#include <QtTest>
+#include <gtest/gtest.h>
 #include <QByteArray>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -30,27 +30,23 @@ __attribute__((noinline)) static int child_body()
     return 0; // reached only when asserts are stripped
 }
 
-class TestForceAsserts : public QObject
+class TestForceAsserts : public ::testing::Test
 {
-    Q_OBJECT
-  private slots:
-    void outOfBoundsAtAborts();
+
+  public:
 };
 
-void TestForceAsserts::outOfBoundsAtAborts()
+TEST_F(TestForceAsserts, outOfBoundsAtAborts)
 {
     pid_t pid = fork();
-    QVERIFY2(pid >= 0, "fork failed");
+    ASSERT_TRUE(pid >= 0) << "fork failed";
     if (pid == 0)
     {
         int r = child_body();
         _exit(r); // _exit(0) when asserts stripped, never reached with FORCE_ASSERTS
     }
     int status = 0;
-    QVERIFY2(waitpid(pid, &status, 0) == pid, "waitpid failed");
-    QVERIFY2(WIFSIGNALED(status), "child exited normally; bounds check did not fire");
-    QCOMPARE(WTERMSIG(status), SIGABRT);
+    ASSERT_TRUE(waitpid(pid, &status, 0) == pid) << "waitpid failed";
+    ASSERT_TRUE(WIFSIGNALED(status)) << "child exited normally; bounds check did not fire";
+    ASSERT_EQ(WTERMSIG(status), SIGABRT);
 }
-
-QTEST_APPLESS_MAIN(TestForceAsserts)
-#include "tst_force_asserts.moc"

@@ -1,3 +1,4 @@
+#include "src/platform/desktop/common/testing/core_application_environment.h"
 // Integration tests: the MUT/DMA host client driven through FastECU's REAL serial
 // stack against a scripted mock Openport 2.0 over a pseudo-terminal (PTY).
 //
@@ -24,7 +25,8 @@
 //                                     -> generic "aro" (same minimal mock that makes
 //                                     init_j2534_connection succeed in the crash suite).
 
-#include <QtTest>
+#include <gtest/gtest.h>
+#include "src/platform/desktop/common/testing/event_helpers.h"
 #include <QByteArray>
 #include <QVector>
 #include <QStringList>
@@ -77,9 +79,8 @@ std::function<SerialBackend *()> directBackend()
 // QCoreApplication::processEvents() pumps from the backend's blocking reads, a
 // same-thread mock relying on the caller's event loop to dispatch its notifier would
 // never see the caller's writes and the connect handshake would hang/fail.
-class MockOpenPort : public QObject
+class MockOpenPort final : public QObject
 {
-    Q_OBJECT
   public:
     explicit MockOpenPort(int masterFd, QObject *parent = nullptr)
         : QObject(parent), fd(masterFd), notifier(new QSocketNotifier(masterFd, QSocketNotifier::Read, this))
@@ -89,7 +90,7 @@ class MockOpenPort : public QObject
 
     // The exact payload bytes of the last host data write ("att" message body).
     QByteArray lastWrite;
-    // Polled from the test thread (QTRY_VERIFY_WITH_TIMEOUT) while set from the mock
+    // Polled from the test thread (event wait) while set from the mock
     // thread's onReadable(), so it needs to be atomic.
     std::atomic<bool> sawWrite{false};
 
@@ -119,7 +120,7 @@ class MockOpenPort : public QObject
         ::write(fd, f.constData(), f.size());
     }
 
-  private slots:
+  private:
     void onReadable()
     {
         std::array<char, 512> buf{};
@@ -225,7 +226,7 @@ class MockOpenPortThread : public QThread
 
     // Safe to call from the test thread: sawWrite is atomic, and the tests only
     // touch the other (non-atomic) members after synchronizing via sawWrite or
-    // with enough of a timing gap (QTest::qWait) that the mock thread is idle.
+    // with enough of a timing gap (event processing) that the mock thread is idle.
     MockOpenPort *mock = nullptr;
 
   protected:
@@ -243,18 +244,11 @@ class MockOpenPortThread : public QThread
     QSemaphore ready;
 };
 
-class MutDmaIntegrationTest : public QObject
+class MutDmaIntegrationTest : public ::testing::Test
 {
-    Q_OBJECT
 
-  private slots:
-    void connectsOverMockPty_facadeReportsOpen();
-    void setBaud_throughAdapter_trueWhenConnected_falseWhenClosed();
-    void write_throughAdapter_putsExactFrameOnWire();
-    void read_throughAdapter_returnsEcuReplyBytes();
-    void driverPollOnce_throughAdapter_decodesStreamFrameFromWire();
-
-  private:
+  public:
+  protected:
     // Build a SerialPortActions facade (direct mode) connected to `mock` over the
     // PTY whose slave is `name`. Returns the opened-port string ("" on failure).
     static QString connectFacade(SerialPortActions& spad, const QString& name)
@@ -270,11 +264,11 @@ class MutDmaIntegrationTest : public QObject
     }
 };
 
-void MutDmaIntegrationTest::connectsOverMockPty_facadeReportsOpen()
+TEST_F(MutDmaIntegrationTest, connectsOverMockPty_facadeReportsOpen)
 {
     int master = -1, slave = -1;
     std::array<char, 256> name{};
-    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
+    ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
         MockOpenPortThread mockThread(master);
         MockOpenPort& mock = *mockThread.mock;
@@ -282,52 +276,52 @@ void MutDmaIntegrationTest::connectsOverMockPty_facadeReportsOpen()
         SerialPortActions spad{directBackend()}; // the real direct backend
         const QString opened = connectFacade(spad, QString::fromLocal8Bit(name.data()));
 
-        QVERIFY2(!opened.isEmpty(), "facade open_serial_port() returned empty");
-        QVERIFY(spad.is_serial_port_open());
-        QVERIFY(spad.get_use_openport2_adapter());
+        ASSERT_TRUE(!opened.isEmpty()) << "facade open_serial_port() returned empty";
+        ASSERT_TRUE(spad.is_serial_port_open());
+        ASSERT_TRUE(spad.get_use_openport2_adapter());
     }
     ::close(master);
 }
 
-void MutDmaIntegrationTest::setBaud_throughAdapter_trueWhenConnected_falseWhenClosed()
+TEST_F(MutDmaIntegrationTest, setBaud_throughAdapter_trueWhenConnected_falseWhenClosed)
 {
     SerialPortActions closed{directBackend()}; // never opened
     FastEcuKlineTransport closedTr(&closed);
     // change_port_speed returns STATUS_ERROR when the port is not open -> false.
     const auto closedResult = closedTr.setBaud(15625);
-    QVERIFY(!closedResult);
-    QCOMPARE(closedResult.error().kind, fastecu::ErrorKind::Disconnected);
+    ASSERT_TRUE(!closedResult);
+    ASSERT_EQ(closedResult.error().kind, fastecu::ErrorKind::Disconnected);
 
     int master = -1, slave = -1;
     std::array<char, 256> name{};
-    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
+    ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
         MockOpenPortThread mockThread(master);
         MockOpenPort& mock = *mockThread.mock;
 
         SerialPortActions spad{directBackend()};
-        QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty(), "connect failed");
+        ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
 
         FastEcuKlineTransport tr(&spad);
         // Connected + Openport branch -> change_port_speed routes to SET_CONFIG ioctl
         // and returns STATUS_SUCCESS -> adapter setBaud() == true.
-        QVERIFY(tr.setBaud(15625));
-        QVERIFY(tr.setBaud(62500));
+        ASSERT_TRUE(tr.setBaud(15625));
+        ASSERT_TRUE(tr.setBaud(62500));
     }
     ::close(master);
 }
 
-void MutDmaIntegrationTest::write_throughAdapter_putsExactFrameOnWire()
+TEST_F(MutDmaIntegrationTest, write_throughAdapter_putsExactFrameOnWire)
 {
     int master = -1, slave = -1;
     std::array<char, 256> name{};
-    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
+    ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
         MockOpenPortThread mockThread(master);
         MockOpenPort& mock = *mockThread.mock;
 
         SerialPortActions spad{directBackend()};
-        QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty(), "connect failed");
+        ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
 
         FastEcuKlineTransport tr(&spad);
 
@@ -338,34 +332,35 @@ void MutDmaIntegrationTest::write_throughAdapter_putsExactFrameOnWire()
         payload.append(char(0x12));
         payload.append(char(0x34)); // addr16 (l_command word)
         const QByteArray frame = bytes::toQByteArray(buildCommandFrame(0x87, bytes::view(payload), TRAILER_STD));
-        QCOMPARE(frame.size(), FRAME_LEN);
-        QVERIFY(verifyFrame(bytes::view(frame)));
+        ASSERT_EQ(frame.size(), FRAME_LEN);
+        ASSERT_TRUE(verifyFrame(bytes::view(frame)));
 
-        QTest::qWait(100);  // let all connect-handshake bytes reach the mock
-        mock.resetParser(); // then start capture from a clean buffer
+        fastecu::testing::process_events_for(
+            std::chrono::milliseconds(100)); // let all connect-handshake bytes reach the mock
+        mock.resetParser();                  // then start capture from a clean buffer
 
         const auto written = tr.write(bytes::view(frame));
-        QVERIFY(written);
-        QCOMPARE(*written, static_cast<std::size_t>(frame.size()));
+        ASSERT_TRUE(written);
+        ASSERT_EQ(*written, static_cast<std::size_t>(frame.size()));
 
         // Pump the event loop so the mock's QSocketNotifier drains and captures it.
-        QTRY_VERIFY_WITH_TIMEOUT(mock.sawWrite, 1000);
-        QCOMPARE(mock.lastWrite, frame); // exact bytes, including the 0x0D trailer
+        ASSERT_TRUE(fastecu::testing::wait_until([&] { return bool(mock.sawWrite); }, std::chrono::milliseconds(1000)));
+        ASSERT_EQ(mock.lastWrite, frame); // exact bytes, including the 0x0D trailer
     }
     ::close(master);
 }
 
-void MutDmaIntegrationTest::read_throughAdapter_returnsEcuReplyBytes()
+TEST_F(MutDmaIntegrationTest, read_throughAdapter_returnsEcuReplyBytes)
 {
     int master = -1, slave = -1;
     std::array<char, 256> name{};
-    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
+    ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
         MockOpenPortThread mockThread(master);
         MockOpenPort& mock = *mockThread.mock;
 
         SerialPortActions spad{directBackend()};
-        QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty(), "connect failed");
+        ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
 
         FastEcuKlineTransport tr(&spad);
         fastecu::FakeCancellationToken cancellation;
@@ -380,24 +375,24 @@ void MutDmaIntegrationTest::read_throughAdapter_returnsEcuReplyBytes()
         mock.injectDataFrame(reply);
 
         const auto read = tr.read(500ms, cancellation);
-        QVERIFY(read);
-        QVERIFY(read->has_value());
-        QCOMPARE(bytes::toQByteArray(read->value()), reply);
+        ASSERT_TRUE(read);
+        ASSERT_TRUE(read->has_value());
+        ASSERT_EQ(bytes::toQByteArray(read->value()), reply);
     }
     ::close(master);
 }
 
-void MutDmaIntegrationTest::driverPollOnce_throughAdapter_decodesStreamFrameFromWire()
+TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFromWire)
 {
     int master = -1, slave = -1;
     std::array<char, 256> name{};
-    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
+    ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
         MockOpenPortThread mockThread(master);
         MockOpenPort& mock = *mockThread.mock;
 
         SerialPortActions spad{directBackend()};
-        QVERIFY2(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty(), "connect failed");
+        ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
 
         FastEcuKlineTransport tr(&spad);
         fastecu::FakeCancellationToken cancellation;
@@ -424,13 +419,16 @@ void MutDmaIntegrationTest::driverPollOnce_throughAdapter_decodesStreamFrameFrom
         mock.injectDataFrame(frame);
 
         const auto values = driver.pollOnce(500ms, cancellation);
-        QVERIFY(values);
-        QCOMPARE(values->size(), std::size_t(2));
-        QCOMPARE(values->at(0), std::uint32_t(0x42));
-        QCOMPARE(values->at(1), std::uint32_t(0xDEAD));
+        ASSERT_TRUE(values);
+        ASSERT_EQ(values->size(), std::size_t(2));
+        ASSERT_EQ(values->at(0), std::uint32_t(0x42));
+        ASSERT_EQ(values->at(1), std::uint32_t(0xDEAD));
     }
     ::close(master);
 }
 
-QTEST_GUILESS_MAIN(MutDmaIntegrationTest)
-#include "tst_mut_dma_integration.moc"
+namespace
+{
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
+}

@@ -1,9 +1,10 @@
+#include "src/platform/desktop/common/testing/widgets_application_environment.h"
 #include <QApplication>
 #include <QElapsedTimer>
 #include <QMessageBox>
 #include <QTimer>
 #include <QDir>
-#include <QTest>
+#include <gtest/gtest.h>
 
 #include "apps/desktop/default_config_root.h"
 #include "apps/desktop/startup_diagnostics.h"
@@ -89,89 +90,88 @@ class StartupModalDriver
 };
 } // namespace
 
-class StartupDiagnosticsTest : public QObject
+class StartupDiagnosticsTest : public ::testing::Test
 {
-    Q_OBJECT
 
-  private slots:
-    void realPresentersReportSeverityAndOrderedDetails()
-    {
-        StartupModalDriver dialogs;
-        MessageCapture messages;
-        const QString detail = QStringLiteral("Invalid /tmp/配置/protocols.cfg: broken");
-        present_startup_failure({fastecu::ErrorKind::InvalidConfig, detail.toStdString()});
-        present_startup_warnings({"first /a.cfg", "second /b.cfg"});
-        QCOMPARE(dialogs.icons, (QList<QMessageBox::Icon>{QMessageBox::Critical, QMessageBox::Warning}));
-        QCOMPARE(dialogs.titles, (QStringList{startup_message_box_title(), startup_message_box_title()}));
-        QVERIFY(dialogs.texts[0].contains(detail));
-        QVERIFY(dialogs.texts[1].contains("first /a.cfg\nsecond /b.cfg"));
-        // Platform plugins may emit their own warnings; compare the presenter's messages.
-        int failure = messages.texts.indexOf(dialogs.texts[0]);
-        int warning = messages.texts.indexOf(dialogs.texts[1]);
-        QVERIFY(failure >= 0);
-        QVERIFY(warning > failure);
-        QCOMPARE(messages.levels[failure], QtCriticalMsg);
-        QCOMPARE(messages.levels[warning], QtWarningMsg);
-        QVERIFY(!dialogs.unexpected);
-        QVERIFY(!dialogs.timed_out);
-    }
-
-    void emptyWarningsDoNotOpenAModalOrLog()
-    {
-        StartupModalDriver dialogs;
-        MessageCapture messages;
-        present_startup_warnings({});
-        QCoreApplication::processEvents();
-        QVERIFY(dialogs.texts.isEmpty());
-        QVERIFY(messages.texts.isEmpty());
-    }
-
-    void sinkRetainsBoundedUtf8DiagnosticsInOrder()
-    {
-        StartupEventSink sink;
-        const std::string bounded = "\xE8\xAD\xA6\xE5\x91\x8A suffix";
-        const std::string_view warning{bounded.data(), std::size_t{6}};
-        sink.log(fastecu::LogLevel::Debug, "debug");
-        sink.log(fastecu::LogLevel::Info, "info");
-        sink.log(fastecu::LogLevel::Warning, warning);
-        sink.progress(0, 10);
-        sink.log(fastecu::LogLevel::Error, "\xC3\xA9"
-                                           "chec");
-        sink.notice(std::string_view{"notice ignored", 6});
-        sink.progress(10, 10);
-        QCOMPARE(sink.warnings(), (QStringList{QString::fromUtf8("\xE8\xAD\xA6\xE5\x91\x8A"),
-                                               QString::fromUtf8("\xC3\xA9"
-                                                                 "chec"),
-                                               "notice"}));
-    }
-
-    void failureTextCarriesTheDetail()
-    {
-        const QString text = startup_failure_text(
-            fastecu::Error{fastecu::ErrorKind::InvalidConfig, "Unable to load protocols /r/protocols.cfg: bad"});
-        QVERIFY(text.contains("/r/protocols.cfg"));
-        QVERIFY(text.contains("bad"));
-    }
-
-    void warningTextListsEveryWarning()
-    {
-        const QString text = startup_warning_text({"first /a.cfg", "second"});
-        QVERIFY(text.contains("first /a.cfg"));
-        QVERIFY(text.contains("second"));
-    }
-
-    void defaultRootIsUnderHomeAndEndsInFastEcu()
-    {
-        const QString root = default_config_root();
-        QVERIFY(root.startsWith(QDir::homePath() + "/"));
-        QVERIFY(root.endsWith("/FastECU/"));
-    }
+  public:
 };
+
+TEST_F(StartupDiagnosticsTest, realPresentersReportSeverityAndOrderedDetails)
+{
+    StartupModalDriver dialogs;
+    MessageCapture messages;
+    const QString detail = QStringLiteral("Invalid /tmp/配置/protocols.cfg: broken");
+    present_startup_failure({fastecu::ErrorKind::InvalidConfig, detail.toStdString()});
+    present_startup_warnings({"first /a.cfg", "second /b.cfg"});
+    ASSERT_EQ(dialogs.icons, (QList<QMessageBox::Icon>{QMessageBox::Critical, QMessageBox::Warning}));
+    ASSERT_EQ(dialogs.titles, (QStringList{startup_message_box_title(), startup_message_box_title()}));
+    ASSERT_TRUE(dialogs.texts[0].contains(detail));
+    ASSERT_TRUE(dialogs.texts[1].contains("first /a.cfg\nsecond /b.cfg"));
+    // Platform plugins may emit their own warnings; compare the presenter's messages.
+    int failure = messages.texts.indexOf(dialogs.texts[0]);
+    int warning = messages.texts.indexOf(dialogs.texts[1]);
+    ASSERT_TRUE(failure >= 0);
+    ASSERT_TRUE(warning > failure);
+    ASSERT_EQ(messages.levels[failure], QtCriticalMsg);
+    ASSERT_EQ(messages.levels[warning], QtWarningMsg);
+    ASSERT_TRUE(!dialogs.unexpected);
+    ASSERT_TRUE(!dialogs.timed_out);
+}
+
+TEST_F(StartupDiagnosticsTest, emptyWarningsDoNotOpenAModalOrLog)
+{
+    StartupModalDriver dialogs;
+    MessageCapture messages;
+    present_startup_warnings({});
+    QCoreApplication::processEvents();
+    ASSERT_TRUE(dialogs.texts.isEmpty());
+    ASSERT_TRUE(messages.texts.isEmpty());
+}
+
+TEST_F(StartupDiagnosticsTest, sinkRetainsBoundedUtf8DiagnosticsInOrder)
+{
+    StartupEventSink sink;
+    const std::string bounded = "\xE8\xAD\xA6\xE5\x91\x8A suffix";
+    const std::string_view warning{bounded.data(), std::size_t{6}};
+    sink.log(fastecu::LogLevel::Debug, "debug");
+    sink.log(fastecu::LogLevel::Info, "info");
+    sink.log(fastecu::LogLevel::Warning, warning);
+    sink.progress(0, 10);
+    sink.log(fastecu::LogLevel::Error, "\xC3\xA9"
+                                       "chec");
+    sink.notice(std::string_view{"notice ignored", 6});
+    sink.progress(10, 10);
+    ASSERT_EQ(sink.warnings(), (QStringList{QString::fromUtf8("\xE8\xAD\xA6\xE5\x91\x8A"),
+                                            QString::fromUtf8("\xC3\xA9"
+                                                              "chec"),
+                                            "notice"}));
+}
+
+TEST_F(StartupDiagnosticsTest, failureTextCarriesTheDetail)
+{
+    const QString text = startup_failure_text(
+        fastecu::Error{fastecu::ErrorKind::InvalidConfig, "Unable to load protocols /r/protocols.cfg: bad"});
+    ASSERT_TRUE(text.contains("/r/protocols.cfg"));
+    ASSERT_TRUE(text.contains("bad"));
+}
+
+TEST_F(StartupDiagnosticsTest, warningTextListsEveryWarning)
+{
+    const QString text = startup_warning_text({"first /a.cfg", "second"});
+    ASSERT_TRUE(text.contains("first /a.cfg"));
+    ASSERT_TRUE(text.contains("second"));
+}
+
+TEST_F(StartupDiagnosticsTest, defaultRootIsUnderHomeAndEndsInFastEcu)
+{
+    const QString root = default_config_root();
+    ASSERT_TRUE(root.startsWith(QDir::homePath() + "/"));
+    ASSERT_TRUE(root.endsWith("/FastECU/"));
+}
 
 int main(int argc, char **argv)
 {
-    QApplication app(argc, argv);
-    StartupDiagnosticsTest test;
-    return QTest::qExec(&test, argc, argv);
+    ::testing::InitGoogleTest(&argc, argv);
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment);
+    return RUN_ALL_TESTS();
 }
-#include "startup_diagnostics_test.moc"

@@ -9,7 +9,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPointer>
-#include <QSignalSpy>
+#include "src/platform/desktop/common/testing/signal_recorder.h"
 #include <QStringList>
 #include <QTemporaryDir>
 #include <QTimer>
@@ -77,10 +77,10 @@ TEST(DefinitionAuthoringDialogTest, ConstructsAndExposesTheFourLogSignals)
 
     DefinitionAuthoringDialog dialog(catalogs, config.session, repository, &parent);
 
-    EXPECT_TRUE(QSignalSpy(&dialog, &DefinitionAuthoringDialog::LOG_E).isValid());
-    EXPECT_TRUE(QSignalSpy(&dialog, &DefinitionAuthoringDialog::LOG_W).isValid());
-    EXPECT_TRUE(QSignalSpy(&dialog, &DefinitionAuthoringDialog::LOG_I).isValid());
-    EXPECT_TRUE(QSignalSpy(&dialog, &DefinitionAuthoringDialog::LOG_D).isValid());
+    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_E).is_valid());
+    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_W).is_valid());
+    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_I).is_valid());
+    EXPECT_TRUE(fastecu::testing::SignalRecorder(&dialog, &DefinitionAuthoringDialog::LOG_D).is_valid());
 }
 
 // Regression test for the use-after-free this package shipped with: the form

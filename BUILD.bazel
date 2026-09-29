@@ -66,7 +66,6 @@ package(default_visibility = ["//visibility:public"])
 # gazelle:resolve cc QSerialPort //bazel/qt:serial_port
 # gazelle:resolve cc QSerialPortInfo //bazel/qt:serial_port
 # gazelle:resolve cc QSettings //bazel/qt:core
-# gazelle:resolve cc QSignalSpy //bazel/qt:test
 # gazelle:resolve cc QSocketNotifier //bazel/qt:core
 # gazelle:resolve cc QStatusBar //bazel/qt:widgets
 # gazelle:resolve cc QTemporaryDir //bazel/qt:core
@@ -113,6 +112,25 @@ GAZELLE_ARGS = [
     "src/ui/desktop/biu",
     "src/ui/desktop/hexedit",
     "src/platform/desktop/common/remote_utility",
+    "tests",
+    "src/platform/desktop/common/service_functions",
+    "src/platform/desktop/common/transport",
+    "src/platform/desktop/common/bytes",
+    "src/platform/desktop/common/connection",
+    "src/platform/desktop/common/testing",
+    "src/platform/desktop/common/flash",
+    "src/platform/desktop/common/definition",
+    "src/platform/desktop/common/diagnostics",
+    "src/platform/desktop/common/logging",
+    "src/platform/desktop/common/serial",
+    "src/platform/desktop/common/serial/testing",
+    "src/ui/desktop",
+    "src/ui/desktop/service_functions",
+    "src/ui/desktop/flash/operation",
+    "src/ui/desktop/flash/common",
+    "apps/desktop",
+    "tests/force_asserts",
+    "resources/shared",
 ]
 
 gazelle(

@@ -1,4 +1,6 @@
-load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+# Tests regenerate; production sources and helper binaries retain existing owners.
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_common.bzl", "qt_resource_via_qrc")
 
 # Composition and desktop test fixtures provision these resources.
@@ -32,30 +34,38 @@ exports_files(
     ],
 )
 
-fastecu_portable_gtest(
+fastecu_gtest(
     name = "test_protocols_cfg_eeprom_capabilities",
     size = "small",
     srcs = ["protocols_cfg_eeprom_capabilities_test.cpp"],
     data = [":config/protocols.cfg"],
     env = {"PROTOCOLS_CFG_PATH": "$(location :config/protocols.cfg)"},
+    qt = False,
+    deps = ["@googletest//:gtest"],
 )
 
-fastecu_portable_gtest(
+fastecu_gtest(
     name = "test_protocols_cfg_subaru_mitsu_m32r_kline",
     size = "small",
     srcs = ["protocols_cfg_subaru_mitsu_m32r_kline_test.cpp"],
     data = [":config/protocols.cfg"],
     env = {"PROTOCOLS_CFG_PATH": "$(location :config/protocols.cfg)"},
+    qt = False,
+    deps = ["@googletest//:gtest"],
 )
 
-fastecu_portable_gtest(
+fastecu_gtest(
     name = "test_protocols_cfg_subaru_hitachi_m32r_kline",
     size = "small",
     srcs = ["protocols_cfg_subaru_hitachi_m32r_kline_test.cpp"],
     data = [":config/protocols.cfg"],
     env = {"PROTOCOLS_CFG_PATH": "$(location :config/protocols.cfg)"},
+    qt = False,
+    deps = ["@googletest//:gtest"],
 )
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_resource_via_qrc(
     name = "config_resource",
     files = glob(["config/*"]),
@@ -63,6 +73,8 @@ qt_resource_via_qrc(
     deps = ["//bazel/qt:core"],
 )
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_resource_via_qrc(
     name = "kernels_resource",
     files = glob(["kernels/*"]),

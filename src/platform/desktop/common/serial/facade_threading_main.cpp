@@ -1,10 +1,9 @@
 #include <cstdio>
 
-#include <QCoreApplication>
+#include "src/platform/desktop/common/testing/core_application_environment.h"
 
 #include <gmock/gmock.h>
 
-int run_test_facade_threading(int argc, char **argv);
 int run_throwing_backend_child();
 
 int main(int argc, char **argv)
@@ -22,11 +21,12 @@ int main(int argc, char **argv)
     setvbuf(stderr, nullptr, _IONBF, 0);
 
     ::testing::InitGoogleMock(&argc, argv);
-    QCoreApplication app(argc, argv);
     if (qEnvironmentVariableIsSet("FASTECU_THROWING_BACKEND_CHILD"))
     {
+        QCoreApplication app(argc, argv);
         return run_throwing_backend_child();
     }
 
-    return run_test_facade_threading(argc, argv);
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
+    return RUN_ALL_TESTS();
 }

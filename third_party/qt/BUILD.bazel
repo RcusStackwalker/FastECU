@@ -21,7 +21,6 @@ package(default_visibility = ["//visibility:private"])
         "gui",
         "remote_objects",
         "serial_port",
-        "test",
         "web_sockets",
         "widgets",
         "xml",

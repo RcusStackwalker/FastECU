@@ -1,4 +1,15 @@
-load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+# Tests regenerate; production sources and helper binaries retain existing owners.
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# gazelle:exclude adapter_connection.cpp
+# gazelle:exclude adapter_connection.h
+# gazelle:resolve cc src/platform/desktop/common/connection/adapter_connection.h //src/platform/desktop/common/connection:adapter_connection
+# gazelle:resolve cc src/platform/desktop/common/serial/testing/fake_backed_serial.h //src/platform/desktop/common/serial/testing:fake_backed_serial
+# gazelle:resolve cc src/platform/desktop/common/serial/testing/fake_backend.h //src/platform/desktop/common/serial/testing:fake_serial_backend
+# gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
+# gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
+# gazelle:resolve cc src/platform/desktop/common/testing/signal_recorder.h //src/platform/desktop/common/testing:signal_recorder
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//bazel/layers:platform_and_composition_root",
@@ -8,6 +19,8 @@ package(default_visibility = [
 # MainWindow's connection handling over the serial facade. The header
 # forward-declares SerialPortActions, so the UI never includes the facade
 # header through it.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "adapter_connection",
     srcs = ["adapter_connection.cpp"],
@@ -16,12 +29,19 @@ qt_cc_library(
     deps = QT_DEPS,
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "adapter_connection_test",
-    src = "adapter_connection_test.cpp",
+    srcs = ["adapter_connection_test.cpp"],
+    use_gtest_main = False,
     deps = [
-        ":adapter_connection",
+        "//bazel/qt:core",
+        "//bazel/qt:serial_port",
+        "//src/platform/desktop/common/connection:adapter_connection",
         "//src/platform/desktop/common/serial/testing:fake_backed_serial",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
+        "@googletest//:gtest",
     ],
 )

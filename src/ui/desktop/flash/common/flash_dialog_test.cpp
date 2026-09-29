@@ -1,6 +1,8 @@
+#include <QTimer>
+#include "src/platform/desktop/common/testing/widgets_application_environment.h"
 #include "src/ui/desktop/flash/common/flash_dialog.h"
 
-#include <QtTest>
+#include <gtest/gtest.h>
 
 #include <chrono>
 #include <condition_variable>
@@ -220,99 +222,103 @@ class RecordingDialog final : public FlashDialog
     }
     void showFailure(const Error&) override
     {
-        QFAIL("unexpected failure");
+        FAIL() << "unexpected failure";
     }
 };
 
-class FlashDialogTest : public QObject
+class FlashDialogTest : public ::testing::Test
 {
-    Q_OBJECT
-  private slots:
-    void returnsAcceptedBytesAndUsesNormalizedReadTitle()
-    {
-        RecordingDialog dialog(std::make_unique<ScriptedWorkflow>(), FlashOperation::Read, "ignored.bin");
-        const FlashDialogResult result = dialog.run();
-        QCOMPARE(dialog.windowTitle(), QString("Read ROM from ECU"));
-        QCOMPARE(dialog.prompts, QList{FlashPromptKind::Begin});
-        QVERIFY(dialog.success_shown);
-        QCOMPARE(result.outcome, FlashWorkflowOutcome::Succeeded);
-        QCOMPARE(result.accepted_read_bytes, bytes::Bytes({0x12, 0x34}));
-        QCOMPARE(result.rom_id, std::string("123456789A_"));
-    }
 
+  public:
     // Closing the dialog is the only cancel path in the app: the workflow must
     // hear the cancelled attempt and get to present its post-attempt notice.
-    void closingMidAttemptSubmitsCancelledAndPresentsTheNotice()
-    {
-        auto owned = std::make_unique<CancellableWorkflow>();
-        CancellableWorkflow *workflow = owned.get();
-        RecordingDialog dialog(std::move(owned), FlashOperation::Write, "rom.bin");
-        QTimer::singleShot(0, &dialog,
-                           [&dialog, workflow]
-                           {
-                               QVERIFY(workflow->attempt_ != nullptr);
-                               QVERIFY(workflow->attempt_->waitUntilStarted());
-                               dialog.close();
-                           });
-        const FlashDialogResult result = dialog.run();
-        QCOMPARE(result.outcome, FlashWorkflowOutcome::Cancelled);
-        QCOMPARE(dialog.prompts, (QList{FlashPromptKind::Begin, FlashPromptKind::RemoveProgrammingVoltage}));
-        QCOMPARE(workflow->attempt_results, QList{ErrorKind::Cancelled});
-        QVERIFY(!dialog.success_shown);
-
-        // The worker emitted finished before closeEvent joined it; that queued
-        // delivery must not submit the attempt a second time.
-        QCoreApplication::sendPostedEvents();
-        QCoreApplication::processEvents();
-        QCOMPARE(workflow->attempt_results, QList{ErrorKind::Cancelled});
-        QCOMPARE(dialog.prompts, (QList{FlashPromptKind::Begin, FlashPromptKind::RemoveProgrammingVoltage}));
-        QVERIFY(!dialog.success_shown);
-    }
-
-    void runsASecondAttemptAfterAPromptBetweenAttempts()
-    {
-        auto owned = std::make_unique<TwoAttemptWorkflow>();
-        TwoAttemptWorkflow *workflow = owned.get();
-        RecordingDialog dialog(std::move(owned), FlashOperation::Write, "rom.bin");
-        const FlashDialogResult result = dialog.run();
-        QCOMPARE(result.outcome, FlashWorkflowOutcome::Succeeded);
-        QCOMPARE(dialog.prompts, (QList{FlashPromptKind::Begin, FlashPromptKind::RemoveMod1}));
-        QCOMPARE(workflow->attempts, (QList{true, true}));
-        QVERIFY(dialog.success_shown);
-    }
-
-    void programmingVoltageNoticeKeepsTheSixC3AdviceByDefault()
-    {
-        const auto notice = FlashDialog::programmingVoltageNotice(
-            {FlashPromptKind::RemoveProgrammingVoltage, {{"outcome", "failed"}, {"external_vpp", "yes"}}});
-        QCOMPARE(notice.title, QString("Programming voltage"));
-        QVERIFY(notice.text.contains("Remove VPP voltage"));
-        QVERIFY(notice.text.contains("do not power it off"));
-    }
-
-    void programmingVoltageNoticeWithoutPowerOffAdviceOnFailure()
-    {
-        const auto notice = FlashDialog::programmingVoltageNotice(
-            {FlashPromptKind::RemoveProgrammingVoltage,
-             {{"outcome", "failed"}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}});
-        QVERIFY(notice.text.contains("Remove VPP voltage"));
-        QVERIFY(!notice.text.contains("do not power it off"));
-        QVERIFY(notice.text.contains("try again"));
-    }
-
-    void programmingVoltageNoticeWithoutPowerOffAdviceOnSuccess()
-    {
-        const auto notice = FlashDialog::programmingVoltageNotice(
-            {FlashPromptKind::RemoveProgrammingVoltage,
-             {{"outcome", "succeeded"}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}});
-        QVERIFY(notice.text.contains("Remove VPP voltage"));
-        QVERIFY(notice.text.contains("request SSM Init"));
-        QVERIFY(!notice.text.contains("did not complete"));
-    }
 };
+
+TEST_F(FlashDialogTest, returnsAcceptedBytesAndUsesNormalizedReadTitle)
+{
+    RecordingDialog dialog(std::make_unique<ScriptedWorkflow>(), FlashOperation::Read, "ignored.bin");
+    const FlashDialogResult result = dialog.run();
+    ASSERT_EQ(dialog.windowTitle(), QString("Read ROM from ECU"));
+    ASSERT_EQ(dialog.prompts, QList{FlashPromptKind::Begin});
+    ASSERT_TRUE(dialog.success_shown);
+    ASSERT_EQ(result.outcome, FlashWorkflowOutcome::Succeeded);
+    ASSERT_EQ(result.accepted_read_bytes, bytes::Bytes({0x12, 0x34}));
+    ASSERT_EQ(result.rom_id, std::string("123456789A_"));
+}
+
+TEST_F(FlashDialogTest, closingMidAttemptSubmitsCancelledAndPresentsTheNotice)
+{
+    auto owned = std::make_unique<CancellableWorkflow>();
+    CancellableWorkflow *workflow = owned.get();
+    RecordingDialog dialog(std::move(owned), FlashOperation::Write, "rom.bin");
+    QTimer::singleShot(0, &dialog,
+                       [&dialog, workflow]
+                       {
+                           ASSERT_TRUE(workflow->attempt_ != nullptr);
+                           ASSERT_TRUE(workflow->attempt_->waitUntilStarted());
+                           dialog.close();
+                       });
+    const FlashDialogResult result = dialog.run();
+    ASSERT_EQ(result.outcome, FlashWorkflowOutcome::Cancelled);
+    ASSERT_EQ(dialog.prompts, (QList{FlashPromptKind::Begin, FlashPromptKind::RemoveProgrammingVoltage}));
+    ASSERT_EQ(workflow->attempt_results, QList{ErrorKind::Cancelled});
+    ASSERT_TRUE(!dialog.success_shown);
+
+    // The worker emitted finished before closeEvent joined it; that queued
+    // delivery must not submit the attempt a second time.
+    QCoreApplication::sendPostedEvents();
+    QCoreApplication::processEvents();
+    ASSERT_EQ(workflow->attempt_results, QList{ErrorKind::Cancelled});
+    ASSERT_EQ(dialog.prompts, (QList{FlashPromptKind::Begin, FlashPromptKind::RemoveProgrammingVoltage}));
+    ASSERT_TRUE(!dialog.success_shown);
+}
+
+TEST_F(FlashDialogTest, runsASecondAttemptAfterAPromptBetweenAttempts)
+{
+    auto owned = std::make_unique<TwoAttemptWorkflow>();
+    TwoAttemptWorkflow *workflow = owned.get();
+    RecordingDialog dialog(std::move(owned), FlashOperation::Write, "rom.bin");
+    const FlashDialogResult result = dialog.run();
+    ASSERT_EQ(result.outcome, FlashWorkflowOutcome::Succeeded);
+    ASSERT_EQ(dialog.prompts, (QList{FlashPromptKind::Begin, FlashPromptKind::RemoveMod1}));
+    ASSERT_EQ(workflow->attempts, (QList{true, true}));
+    ASSERT_TRUE(dialog.success_shown);
+}
+
+TEST_F(FlashDialogTest, programmingVoltageNoticeKeepsTheSixC3AdviceByDefault)
+{
+    const auto notice = FlashDialog::programmingVoltageNotice(
+        {FlashPromptKind::RemoveProgrammingVoltage, {{"outcome", "failed"}, {"external_vpp", "yes"}}});
+    ASSERT_EQ(notice.title, QString("Programming voltage"));
+    ASSERT_TRUE(notice.text.contains("Remove VPP voltage"));
+    ASSERT_TRUE(notice.text.contains("do not power it off"));
+}
+
+TEST_F(FlashDialogTest, programmingVoltageNoticeWithoutPowerOffAdviceOnFailure)
+{
+    const auto notice = FlashDialog::programmingVoltageNotice(
+        {FlashPromptKind::RemoveProgrammingVoltage,
+         {{"outcome", "failed"}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}});
+    ASSERT_TRUE(notice.text.contains("Remove VPP voltage"));
+    ASSERT_TRUE(!notice.text.contains("do not power it off"));
+    ASSERT_TRUE(notice.text.contains("try again"));
+}
+
+TEST_F(FlashDialogTest, programmingVoltageNoticeWithoutPowerOffAdviceOnSuccess)
+{
+    const auto notice = FlashDialog::programmingVoltageNotice(
+        {FlashPromptKind::RemoveProgrammingVoltage,
+         {{"outcome", "succeeded"}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}});
+    ASSERT_TRUE(notice.text.contains("Remove VPP voltage"));
+    ASSERT_TRUE(notice.text.contains("request SSM Init"));
+    ASSERT_TRUE(!notice.text.contains("did not complete"));
+}
 
 } // namespace
 } // namespace fastecu::flash
 
-QTEST_MAIN(fastecu::flash::FlashDialogTest)
-#include "flash_dialog_test.moc"
+namespace
+{
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment);
+}

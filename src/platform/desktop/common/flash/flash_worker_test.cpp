@@ -1,3 +1,4 @@
+#include "src/platform/desktop/common/testing/core_application_environment.h"
 // Deterministic cancel/unblock/join teardown coverage for FlashWorker (step
 // 5c, Task 11). Every plan built below uses build_denso_sh705x_eeprom_plan
 // with a FakeClock injected into the worker -- both are real, already-tested
@@ -8,14 +9,15 @@
 // checks, defeating the point of proving the *transport* unblock (not a
 // timing coincidence) is what makes teardown prompt. For the same reason the
 // suite waits on condition variables and thread joins throughout, and never
-// on QSignalSpy::wait() -- see the note in the first test.
+// on signal recorder::wait() -- see the note in the first test.
 #include "src/platform/desktop/common/flash/flash_worker.h"
 #include "src/platform/desktop/common/flash/flash_workflow.h"
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
-#include <QSignalSpy>
-#include <QTest>
+#include "src/platform/desktop/common/testing/signal_recorder.h"
+#include "src/platform/desktop/common/testing/event_helpers.h"
+#include <gtest/gtest.h>
 
 #include <chrono>
 #include <memory>
@@ -117,118 +119,120 @@ bytes::Bytes requestKernelIdRequest()
 
 } // namespace
 
-class TestFlashWorker : public QObject
+class TestFlashWorker : public ::testing::Test
 {
-    Q_OBJECT
 
-  private slots:
-
-    void closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWallClockSleep()
-    {
-        auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromKline));
-        QVERIFY(plan.has_value());
-
-        auto transport = std::make_unique<ScriptedKlineFlashTransport>();
-        ScriptedKlineFlashTransport *rawTransport = transport.get();
-        // connect_bootloader()'s initial kernel-alive probe: the write must
-        // be scripted so it succeeds, so the ensuing read() is the one that
-        // actually blocks.
-        rawTransport->expectWrite(requestKernelIdRequest());
-        rawTransport->queueBlockingRead();
-
-        FlashWorker worker(FlashAttempt{
-            fastecu::flash::bind_flash_attempt(std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(),
-                                               std::move(transport)),
-            std::make_unique<FakeClock>()});
-        QSignalSpy finishedSpy(&worker, &FlashWorker::finished);
-
-        worker.start();
-        // Wait on the transport's own condition variable, not a fixed sleep:
-        // requestStop() must land while read() is genuinely blocked for this
-        // test to prove anything about unblocking.
-        QVERIFY(rawTransport->waitUntilBlockingReadEntered(std::chrono::milliseconds(2000)));
-        worker.requestStop();
-
-        QElapsedTimer timer;
-        timer.start();
-        // wait() joins the worker thread, and finished is emitted as the last
-        // act of run(), so the join is what makes the spy's contents final.
-        // QSignalSpy::wait() must NOT be used here: the spy is connected with
-        // Qt::DirectConnection and so records the emission on the worker
-        // thread, which routinely wins the race to emit before wait() snapshots
-        // its baseline count -- wait() is edge-triggered and reports only
-        // emissions arriving strictly after that snapshot, so it would return
-        // false after burning its full timeout.
-        QVERIFY(worker.wait(2000));
-        // The proof this test exists for: unblock is a condition-variable
-        // wakeup inside the fake, not a wall-clock wait, so teardown
-        // completes in well under the 2000ms test timeout budget.
-        QVERIFY(timer.elapsed() < 500);
-
-        QCOMPARE(finishedSpy.count(), 1);
-        auto result = finishedSpy.at(0).at(0).value<FlashWorkerResult>();
-        QVERIFY(!result.success);
-        QCOMPARE(result.error_kind, ErrorKind::Cancelled);
-        QCOMPARE(rawTransport->close_call_count_, 1);
-    }
-
-    void oneAndOnlyOneTerminalResultIsEmitted()
-    {
-        // A CAN-shaped plan handed to the K-Line executor: transport_setup()
-        // rejects it before any I/O (zero writes/reads
-        // scripted below, on purpose -- reaching the transport at all here
-        // would itself be a bug).
-        auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromCan));
-        QVERIFY(plan.has_value());
-
-        auto transport = std::make_unique<ScriptedKlineFlashTransport>();
-        FlashWorker worker(FlashAttempt{
-            fastecu::flash::bind_flash_attempt(std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(),
-                                               std::move(transport)),
-            std::make_unique<FakeClock>()});
-        QSignalSpy finishedSpy(&worker, &FlashWorker::finished);
-
-        worker.start();
-        // Joining is both necessary and sufficient: run() emits finished last,
-        // so once the thread is joined the spy cannot gain further entries from
-        // it. See the note in the test above for why QSignalSpy::wait() is the
-        // wrong tool for "has this worker finished yet".
-        QVERIFY(worker.wait(2000));
-        // Give any (bug-induced) second emission from another path a chance to
-        // arrive before asserting there is exactly one.
-        QTest::qWait(50);
-
-        QCOMPARE(finishedSpy.count(), 1);
-        auto result = finishedSpy.at(0).at(0).value<FlashWorkerResult>();
-        QVERIFY(!result.success);
-        QCOMPARE(result.error_kind, ErrorKind::InvalidConfig);
-    }
-
-    void phaseProgressIsForwardedAlongsideLegacyProgress()
-    {
-        auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromKline));
-        QVERIFY(plan.has_value());
-
-        auto attempt = std::make_unique<FakeBoundAttempt>(std::move(*plan));
-        FlashWorker worker(FlashAttempt{std::move(attempt), std::make_unique<FakeClock>()});
-        QSignalSpy legacySpy(&worker, &FlashWorker::progressChanged);
-        QSignalSpy phaseSpy(&worker, &FlashWorker::phaseProgressChanged);
-
-        worker.start();
-        QVERIFY(worker.wait(2000));
-        QCoreApplication::processEvents();
-
-        QCOMPARE(legacySpy.count(), 1);
-        QCOMPARE(legacySpy.at(0).at(0).toInt(), 1);
-        QCOMPARE(legacySpy.at(0).at(1).toInt(), 1);
-        QCOMPARE(phaseSpy.count(), 1);
-        QCOMPARE(phaseSpy.at(0).at(0).toString(), QString("Connect to ECU"));
-        QCOMPARE(phaseSpy.at(0).at(1).toInt(), 1);
-        QCOMPARE(phaseSpy.at(0).at(2).toInt(), 2);
-        QCOMPARE(phaseSpy.at(0).at(3).toInt(), 1);
-        QCOMPARE(phaseSpy.at(0).at(4).toInt(), 1);
-    }
+  public:
 };
 
-QTEST_GUILESS_MAIN(TestFlashWorker)
-#include "flash_worker_test.moc"
+TEST_F(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWallClockSleep)
+{
+    auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromKline));
+    ASSERT_TRUE(plan.has_value());
+
+    auto transport = std::make_unique<ScriptedKlineFlashTransport>();
+    ScriptedKlineFlashTransport *rawTransport = transport.get();
+    // connect_bootloader()'s initial kernel-alive probe: the write must
+    // be scripted so it succeeds, so the ensuing read() is the one that
+    // actually blocks.
+    rawTransport->expectWrite(requestKernelIdRequest());
+    rawTransport->queueBlockingRead();
+
+    FlashWorker worker(
+        FlashAttempt{fastecu::flash::bind_flash_attempt(
+                         std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport)),
+                     std::make_unique<FakeClock>()});
+    fastecu::testing::SignalRecorder finishedSpy(&worker, &FlashWorker::finished);
+
+    worker.start();
+    // Wait on the transport's own condition variable, not a fixed sleep:
+    // requestStop() must land while read() is genuinely blocked for this
+    // test to prove anything about unblocking.
+    ASSERT_TRUE(rawTransport->waitUntilBlockingReadEntered(std::chrono::milliseconds(2000)));
+    worker.requestStop();
+
+    QElapsedTimer timer;
+    timer.start();
+    // wait() joins the worker thread, and finished is emitted as the last
+    // act of run(), so the join is what makes the spy's contents final.
+    // signal recorder::wait() must NOT be used here: the spy is connected with
+    // Qt::DirectConnection and so records the emission on the worker
+    // thread, which routinely wins the race to emit before wait() snapshots
+    // its baseline count -- wait() is edge-triggered and reports only
+    // emissions arriving strictly after that snapshot, so it would return
+    // false after burning its full timeout.
+    ASSERT_TRUE(worker.wait(2000));
+    // The proof this test exists for: unblock is a condition-variable
+    // wakeup inside the fake, not a wall-clock wait, so teardown
+    // completes in well under the 2000ms test timeout budget.
+    ASSERT_TRUE(timer.elapsed() < 500);
+
+    ASSERT_EQ(finishedSpy.count(), 1);
+    auto result = std::get<0>(finishedSpy.snapshot().at(0));
+    ASSERT_TRUE(!result.success);
+    ASSERT_EQ(result.error_kind, ErrorKind::Cancelled);
+    ASSERT_EQ(rawTransport->close_call_count_, 1);
+}
+
+TEST_F(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
+{
+    // A CAN-shaped plan handed to the K-Line executor: transport_setup()
+    // rejects it before any I/O (zero writes/reads
+    // scripted below, on purpose -- reaching the transport at all here
+    // would itself be a bug).
+    auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromCan));
+    ASSERT_TRUE(plan.has_value());
+
+    auto transport = std::make_unique<ScriptedKlineFlashTransport>();
+    FlashWorker worker(
+        FlashAttempt{fastecu::flash::bind_flash_attempt(
+                         std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport)),
+                     std::make_unique<FakeClock>()});
+    fastecu::testing::SignalRecorder finishedSpy(&worker, &FlashWorker::finished);
+
+    worker.start();
+    // Joining is both necessary and sufficient: run() emits finished last,
+    // so once the thread is joined the spy cannot gain further entries from
+    // it. See the note in the test above for why signal recorder::wait() is the
+    // wrong tool for "has this worker finished yet".
+    ASSERT_TRUE(worker.wait(2000));
+    // Give any (bug-induced) second emission from another path a chance to
+    // arrive before asserting there is exactly one.
+    fastecu::testing::process_events_for(std::chrono::milliseconds(50));
+
+    ASSERT_EQ(finishedSpy.count(), 1);
+    auto result = std::get<0>(finishedSpy.snapshot().at(0));
+    ASSERT_TRUE(!result.success);
+    ASSERT_EQ(result.error_kind, ErrorKind::InvalidConfig);
+}
+
+TEST_F(TestFlashWorker, phaseProgressIsForwardedAlongsideLegacyProgress)
+{
+    auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromKline));
+    ASSERT_TRUE(plan.has_value());
+
+    auto attempt = std::make_unique<FakeBoundAttempt>(std::move(*plan));
+    FlashWorker worker(FlashAttempt{std::move(attempt), std::make_unique<FakeClock>()});
+    fastecu::testing::SignalRecorder legacySpy(&worker, &FlashWorker::progressChanged);
+    fastecu::testing::SignalRecorder phaseSpy(&worker, &FlashWorker::phaseProgressChanged);
+
+    worker.start();
+    ASSERT_TRUE(worker.wait(2000));
+    QCoreApplication::processEvents();
+
+    ASSERT_EQ(legacySpy.count(), 1);
+    ASSERT_EQ(std::get<0>(legacySpy.snapshot().at(0)), 1);
+    ASSERT_EQ(std::get<1>(legacySpy.snapshot().at(0)), 1);
+    ASSERT_EQ(phaseSpy.count(), 1);
+    ASSERT_EQ(std::get<0>(phaseSpy.snapshot().at(0)), QString("Connect to ECU"));
+    ASSERT_EQ(std::get<1>(phaseSpy.snapshot().at(0)), 1);
+    ASSERT_EQ(std::get<2>(phaseSpy.snapshot().at(0)), 2);
+    ASSERT_EQ(std::get<3>(phaseSpy.snapshot().at(0)), 1);
+    ASSERT_EQ(std::get<4>(phaseSpy.snapshot().at(0)), 1);
+}
+
+namespace
+{
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
+}

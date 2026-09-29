@@ -68,10 +68,13 @@ def fastecu_gtest(
         target_compatible_with = [],
         copts = [],
         size = "small",
-        qt_deps = QT_DEPS_NO_WIDGETS):
-    implicit_deps = qt_deps + [
+        qt_deps = QT_DEPS_NO_WIDGETS,
+        qt = True,
+        use_gtest_main = True,
+        **kwargs):
+    implicit_deps = (qt_deps if qt else []) + [
         "//src/algorithms/protocol/testing:byte_matchers",
-        "@googletest//:gtest_main",
+        "@googletest//:gtest_main" if use_gtest_main else "@googletest//:gtest",
     ]
 
     # Gazelle may list Qt and framework deps supplied here too. Preserve
@@ -84,14 +87,16 @@ def fastecu_gtest(
     # "xcb"/"windows" runtime plugins under Bazel's test sandbox. A bare
     # cc_test only gets that on macOS (Qt frameworks resolve plugins via
     # rpath), which is why Linux/Windows widget tests failed here before.
-    qt_cc_test(
+    test_rule = qt_cc_test if qt else cc_test
+    test_rule(
         name = name,
         srcs = srcs,
-        copts = COMMON_COPTS + copts,
+        copts = (COMMON_COPTS if qt else []) + copts,
         data = data,
         env = env,
         size = size,
         tags = tags,
         target_compatible_with = target_compatible_with,
         deps = all_deps,
+        **kwargs
     )

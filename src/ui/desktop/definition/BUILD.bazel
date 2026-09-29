@@ -63,7 +63,6 @@ fastecu_gtest(
         ":definition_authoring_dialog",
         ":definition_header_form",
         "//bazel/qt:core",
-        "//bazel/qt:test",
         "//bazel/qt:widgets",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports",
@@ -72,6 +71,7 @@ fastecu_gtest(
         "//src/backend/ports/testing:result_matchers",
         "//src/platform/desktop/common/definition:definition_catalog_session",
         "//src/platform/desktop/common/ports",
+        "//src/platform/desktop/common/testing:signal_recorder",
         "@googletest//:gtest",
     ],
 )

@@ -1,5 +1,43 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+
+# Tests regenerate; production sources and helper binaries retain existing owners.
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# gazelle:exclude desktop_can_flash_transport.cpp
+# gazelle:exclude desktop_can_flash_transport.h
+# gazelle:exclude desktop_kline_flash_transport.cpp
+# gazelle:exclude desktop_kline_flash_transport.h
+# gazelle:exclude desktop_logging_protocol_registration.cpp
+# gazelle:exclude desktop_logging_protocol_registration.h
+# gazelle:exclude desktop_mixed_can_flash_transport.cpp
+# gazelle:exclude desktop_mixed_can_flash_transport.h
+# gazelle:exclude desktop_transport_factory.cpp
+# gazelle:exclude desktop_transport_factory.h
+# gazelle:exclude fastecu_can_transport.cpp
+# gazelle:exclude fastecu_can_transport.h
+# gazelle:exclude fastecu_kline_transport.cpp
+# gazelle:exclude fastecu_kline_transport.h
+# gazelle:exclude fastecu_ssm_transport.cpp
+# gazelle:exclude fastecu_ssm_transport.h
+# gazelle:exclude setter_sequence_expectations.h
+# gazelle:resolve cc src/backend/ports/testing/fake_cancellation_token.h //src/backend/ports/testing:fake_cancellation_token
+# gazelle:resolve cc src/backend/ports/testing/fake_clock.h //src/backend/ports/testing:fake_clock
+# gazelle:resolve cc src/platform/desktop/common/logging/logging_engine.h //src/platform/desktop/common/logging:logging_runtime
+# gazelle:resolve cc src/platform/desktop/common/logging/logging_snapshot_adapter.h //src/platform/desktop/common/logging:logging_adapters
+# gazelle:resolve cc src/platform/desktop/common/logging/logging_worker.h //src/platform/desktop/common/logging:logging_runtime
+# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions.h //src/platform/desktop/common/serial:serial_port_actions
+# gazelle:resolve cc src/platform/desktop/common/serial/testing/fake_backed_serial.h //src/platform/desktop/common/serial/testing:fake_backed_serial
+# gazelle:resolve cc src/platform/desktop/common/serial/testing/fake_backend.h //src/platform/desktop/common/serial/testing:fake_serial_backend
+# gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
+# gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
+# gazelle:resolve cc src/platform/desktop/common/testing/signal_recorder.h //src/platform/desktop/common/testing:signal_recorder
+# gazelle:resolve cc src/platform/desktop/common/transport/desktop_can_flash_transport.h //src/platform/desktop/common/transport:flash_transports
+# gazelle:resolve cc src/platform/desktop/common/transport/desktop_kline_flash_transport.h //src/platform/desktop/common/transport:flash_transports
+# gazelle:resolve cc src/platform/desktop/common/transport/desktop_logging_protocol_registration.h //src/platform/desktop/common/transport:logging_protocol_registration
+# gazelle:resolve cc src/platform/desktop/common/transport/desktop_mixed_can_flash_transport.h //src/platform/desktop/common/transport:flash_transports
+# gazelle:resolve cc src/platform/desktop/common/transport/desktop_transport_factory.h //src/platform/desktop/common/transport:flash_transports
+# gazelle:resolve cc src/platform/desktop/common/transport/setter_sequence_expectations.h //src/platform/desktop/common/transport:setter_sequence_expectations
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//bazel/layers:apps_bench",
@@ -9,6 +47,8 @@ package(default_visibility = [
     "//bazel/layers:ui_service_functions",
 ])
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "transport",
     srcs = [
@@ -32,6 +72,8 @@ qt_cc_library(
 # Google Mock cardinality helper shared by the two flash-transport suites,
 # which run the same data-driven "fails at each setter in turn" test. Qt-free
 # and independent of the fixture above, hence a plain cc_library.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 cc_library(
     name = "setter_sequence_expectations",
     testonly = True,
@@ -39,46 +81,64 @@ cc_library(
     deps = ["@googletest//:gtest"],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_desktop_kline_flash_transport",
-    src = "desktop_kline_flash_transport_test.cpp",
+    srcs = ["desktop_kline_flash_transport_test.cpp"],
+    use_gtest_main = False,
     deps = [
-        ":flash_transports",
-        ":setter_sequence_expectations",
+        "//bazel/qt:core",
+        "//bazel/qt:serial_port",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/platform/desktop/common/serial/testing:fake_backed_serial",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/transport:flash_transports",
+        "//src/platform/desktop/common/transport:setter_sequence_expectations",
+        "@googletest//:gtest",
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_desktop_can_flash_transport",
-    src = "desktop_can_flash_transport_test.cpp",
+    srcs = ["desktop_can_flash_transport_test.cpp"],
+    use_gtest_main = False,
     deps = [
-        ":flash_transports",
-        ":setter_sequence_expectations",
+        "//bazel/qt:core",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/platform/desktop/common/serial/testing:fake_backed_serial",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/transport:flash_transports",
+        "//src/platform/desktop/common/transport:setter_sequence_expectations",
+        "@googletest//:gtest",
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_desktop_mixed_can_flash_transport",
-    src = "desktop_mixed_can_flash_transport_test.cpp",
+    srcs = ["desktop_mixed_can_flash_transport_test.cpp"],
     deps = [
-        ":flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/transport:flash_transports",
+        "@googletest//:gtest",
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_desktop_transport_factory",
-    src = "desktop_transport_factory_test.cpp",
+    srcs = ["desktop_transport_factory_test.cpp"],
+    use_gtest_main = False,
     deps = [
-        ":flash_transports",
+        "//bazel/qt:core",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/transport:flash_transports",
+        "@googletest//:gtest",
     ],
 )
 
@@ -88,6 +148,8 @@ fastecu_qttest(
 # FlashWorker, a different consumer set than the mutdma/cdbg/ssm logging
 # adapters in `transport` -- kept out of that target's srcs/normal_hdrs
 # above to avoid compiling them twice under two separate library targets.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "flash_transports",
     srcs = [
@@ -115,6 +177,8 @@ qt_cc_library(
     ],
 )
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "logging_protocol_registration",
     srcs = ["desktop_logging_protocol_registration.cpp"],
@@ -133,16 +197,23 @@ qt_cc_library(
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_desktop_logging_protocol_registration",
     size = "small",
-    src = "desktop_logging_protocol_registration_test.cpp",
+    srcs = ["desktop_logging_protocol_registration_test.cpp"],
+    use_gtest_main = False,
     deps = [
-        ":logging_protocol_registration",
-        ":setter_sequence_expectations",
+        "//bazel/qt:core",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
+        "//src/platform/desktop/common/logging:logging_adapters",
         "//src/platform/desktop/common/logging:logging_runtime",
         "//src/platform/desktop/common/serial/testing:fake_backed_serial",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
+        "//src/platform/desktop/common/transport:logging_protocol_registration",
+        "//src/platform/desktop/common/transport:setter_sequence_expectations",
+        "@googletest//:gtest",
     ],
 )

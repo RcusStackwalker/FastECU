@@ -1,3 +1,5 @@
+#include "src/platform/desktop/common/testing/widgets_application_environment.h"
+#include <string>
 #include <QApplication>
 #include <QCheckBox>
 #include <QGroupBox>
@@ -7,7 +9,7 @@
 #include <QFile>
 #include <QMessageBox>
 #include <QTemporaryDir>
-#include <QTest>
+#include <gtest/gtest.h>
 #include <QTimer>
 
 #include "src/backend/config/config_session.h"
@@ -63,187 +65,210 @@ struct SessionOnDisk
 
 } // namespace
 
-class SettingsTest : public QObject
+class SettingsTest : public ::testing::Test
 {
-    Q_OBJECT
 
-  private slots:
-    void providerCheckboxesPersistBothDirections_data()
-    {
-        QTest::addColumn<bool>("enabled");
-        QTest::newRow("enabled-romraider") << true;
-        QTest::newRow("disabled-ecuflash") << false;
-    }
-
-    void providerCheckboxesPersistBothDirections()
-    {
-        QFETCH(bool, enabled);
-        QTemporaryDir root;
-        QVERIFY(root.isValid());
-        SessionOnDisk disk{root.path()};
-        QVERIFY(disk.status.has_value());
-        {
-            Settings settings{disk.session};
-            const auto boxes = settings.findChildren<QCheckBox *>();
-            QCOMPARE(boxes.size(), 3);
-            for (auto *box : boxes)
-            {
-                box->setChecked(!enabled);
-                box->click();
-                QCOMPARE(box->isChecked(), enabled);
-            }
-            QCOMPARE(disk.session.settings().use_romraider_definitions, std::string(enabled ? "enabled" : "disabled"));
-            QCOMPARE(disk.session.settings().use_ecuflash_definitions, std::string(enabled ? "enabled" : "disabled"));
-            QCOMPARE(disk.session.settings().primary_definition_base, std::string(enabled ? "romraider" : "ecuflash"));
-        }
-        SessionOnDisk reread{root.path()};
-        QVERIFY(reread.status.has_value());
-        QCOMPARE(reread.session.settings().use_romraider_definitions,
-                 disk.session.settings().use_romraider_definitions);
-        QCOMPARE(reread.session.settings().use_ecuflash_definitions, disk.session.settings().use_ecuflash_definitions);
-        QCOMPARE(reread.session.settings().primary_definition_base, disk.session.settings().primary_definition_base);
-    }
-
-    void removingDefinitionsPreservesOrderAndPersistsEmptyList_data()
-    {
-        QTest::addColumn<bool>("remove_all");
-        QTest::newRow("surviving-order") << false;
-        QTest::newRow("empty-list") << true;
-    }
-
-    void removingDefinitionsPreservesOrderAndPersistsEmptyList()
-    {
-        QFETCH(bool, remove_all);
-        QTemporaryDir root;
-        QVERIFY(root.isValid());
-        SessionOnDisk disk{root.path()};
-        QVERIFY(disk.status.has_value());
-        disk.session.settings().romraider_definition_files = {"/first.xml", "/middle.xml", "/last.xml"};
-        {
-            Settings settings{disk.session};
-            QListWidget *list = nullptr;
-            for (auto *candidate : settings.findChildren<QListWidget *>())
-            {
-                if (candidate->count() == 3 && candidate->item(0)->text() == "/first.xml")
-                {
-                    list = candidate;
-                }
-            }
-            QVERIFY(list != nullptr);
-            QCOMPARE(list->item(1)->text(), QString("/middle.xml"));
-            QCOMPARE(list->item(2)->text(), QString("/last.xml"));
-            QPushButton *remove = nullptr;
-            for (auto *button : settings.findChildren<QPushButton *>())
-            {
-                if (button->text() == "Remove")
-                {
-                    remove = button;
-                }
-            }
-            QVERIFY(remove != nullptr);
-            list->clearSelection();
-            remove->click();
-            QCOMPARE(disk.session.settings().romraider_definition_files,
-                     (std::vector<std::string>{"/first.xml", "/middle.xml", "/last.xml"}));
-            list->setCurrentRow(1);
-            remove->click();
-            QCOMPARE(disk.session.settings().romraider_definition_files,
-                     (std::vector<std::string>{"/first.xml", "/last.xml"}));
-            if (remove_all)
-            {
-                while (list->count() > 0)
-                {
-                    list->setCurrentRow(0);
-                    remove->click();
-                }
-                QVERIFY(disk.session.settings().romraider_definition_files.empty());
-                remove->click();
-                QVERIFY(disk.session.settings().romraider_definition_files.empty());
-            }
-        }
-        SessionOnDisk reread{root.path()};
-        QVERIFY(reread.status.has_value());
-        QCOMPARE(reread.session.settings().romraider_definition_files,
-                 disk.session.settings().romraider_definition_files);
-    }
-
-    void closingSettingsSavesThroughTheSession()
-    {
-        QTemporaryDir root;
-        QVERIFY(root.isValid());
-        SessionOnDisk disk{root.path()};
-        QVERIFY(disk.status.has_value());
-        const QString config_file = QString::fromStdString(disk.session.provisioned_paths().config_file);
-        QVERIFY(QFile::remove(config_file));
-
-        {
-            Settings settings{disk.session};
-        }
-
-        QVERIFY(QFile::exists(config_file));
-    }
-
-    void editsReachTheSessionLive()
-    {
-        QTemporaryDir root;
-        QVERIFY(root.isValid());
-        SessionOnDisk disk{root.path()};
-        QVERIFY(disk.status.has_value());
-        Settings settings{disk.session};
-
-        QVERIFY(QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection,
-                                          Q_ARG(int, 40)));
-
-        QCOMPARE(disk.session.settings().toolbar_iconsize, std::string("40"));
-    }
-
-    void destructionRetriesPersistenceAfterClose()
-    {
-        QTemporaryDir root;
-        QVERIFY(root.isValid());
-        SessionOnDisk disk{root.path()};
-        QVERIFY(disk.status.has_value());
-        const QString config_file = QString::fromStdString(disk.session.provisioned_paths().config_file);
-        QVERIFY(QFile::remove(config_file));
-        QVERIFY(QDir().mkpath(config_file));
-        ModalCollector boxes;
-        {
-            Settings settings{disk.session};
-            settings.close();
-            QCOMPARE(boxes.texts().size(), 1);
-            QVERIFY(QDir().rmdir(config_file));
-            QVERIFY(QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection,
-                                              Q_ARG(int, 48)));
-        }
-        QCOMPARE(boxes.texts().size(), 1);
-        QFile saved{config_file};
-        QVERIFY(saved.open(QIODevice::ReadOnly));
-        QVERIFY(saved.readAll().contains(R"(data="48")"));
-    }
-
-    void failedSaveKeepsEditsAndWarnsTheOperator()
-    {
-        QTemporaryDir root;
-        QVERIFY(root.isValid());
-        SessionOnDisk disk{root.path()};
-        QVERIFY(disk.status.has_value());
-        const QString config_file = QString::fromStdString(disk.session.provisioned_paths().config_file);
-        QVERIFY(QFile::remove(config_file));
-        QVERIFY(QDir().mkpath(config_file)); // a directory where the file goes: every write fails
-
-        ModalCollector boxes;
-        {
-            Settings settings{disk.session};
-            QVERIFY(QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection,
-                                              Q_ARG(int, 40)));
-            settings.close();
-        }
-
-        QCOMPARE(disk.session.settings().toolbar_iconsize, std::string("40"));
-        QCOMPARE(boxes.texts().size(), 1);
-        QVERIFY(boxes.texts().front().contains(config_file));
-    }
+  public:
 };
 
-QTEST_MAIN(SettingsTest)
-#include "settings_test.moc"
+struct providerCheckboxesPersistBothDirectionsCase
+{
+    std::string name;
+    bool enabled;
+};
+class providerCheckboxesPersistBothDirectionsParameters
+    : public SettingsTest,
+      public ::testing::WithParamInterface<providerCheckboxesPersistBothDirectionsCase>
+{
+};
+
+INSTANTIATE_TEST_SUITE_P(Rows, providerCheckboxesPersistBothDirectionsParameters,
+                         ::testing::Values(providerCheckboxesPersistBothDirectionsCase{"enabled_romraider", true},
+                                           providerCheckboxesPersistBothDirectionsCase{"disabled_ecuflash", false}),
+                         [](const ::testing::TestParamInfo<providerCheckboxesPersistBothDirectionsCase>& info)
+                         { return info.param.name; });
+
+TEST_P(providerCheckboxesPersistBothDirectionsParameters, providerCheckboxesPersistBothDirections)
+{
+    const bool enabled = GetParam().enabled;
+    QTemporaryDir root;
+    ASSERT_TRUE(root.isValid());
+    SessionOnDisk disk{root.path()};
+    ASSERT_TRUE(disk.status.has_value());
+    {
+        Settings settings{disk.session};
+        const auto boxes = settings.findChildren<QCheckBox *>();
+        ASSERT_EQ(boxes.size(), 3);
+        for (auto *box : boxes)
+        {
+            box->setChecked(!enabled);
+            box->click();
+            ASSERT_EQ(box->isChecked(), enabled);
+        }
+        ASSERT_EQ(disk.session.settings().use_romraider_definitions, std::string(enabled ? "enabled" : "disabled"));
+        ASSERT_EQ(disk.session.settings().use_ecuflash_definitions, std::string(enabled ? "enabled" : "disabled"));
+        ASSERT_EQ(disk.session.settings().primary_definition_base, std::string(enabled ? "romraider" : "ecuflash"));
+    }
+    SessionOnDisk reread{root.path()};
+    ASSERT_TRUE(reread.status.has_value());
+    ASSERT_EQ(reread.session.settings().use_romraider_definitions, disk.session.settings().use_romraider_definitions);
+    ASSERT_EQ(reread.session.settings().use_ecuflash_definitions, disk.session.settings().use_ecuflash_definitions);
+    ASSERT_EQ(reread.session.settings().primary_definition_base, disk.session.settings().primary_definition_base);
+}
+
+struct removingDefinitionsPreservesOrderAndPersistsEmptyListCase
+{
+    std::string name;
+    bool remove_all;
+};
+class removingDefinitionsPreservesOrderAndPersistsEmptyListParameters
+    : public SettingsTest,
+      public ::testing::WithParamInterface<removingDefinitionsPreservesOrderAndPersistsEmptyListCase>
+{
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    Rows, removingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
+    ::testing::Values(removingDefinitionsPreservesOrderAndPersistsEmptyListCase{"surviving_order", false},
+                      removingDefinitionsPreservesOrderAndPersistsEmptyListCase{"empty_list", true}),
+    [](const ::testing::TestParamInfo<removingDefinitionsPreservesOrderAndPersistsEmptyListCase>& info)
+    { return info.param.name; });
+
+TEST_P(removingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
+       removingDefinitionsPreservesOrderAndPersistsEmptyList)
+{
+    const bool remove_all = GetParam().remove_all;
+    QTemporaryDir root;
+    ASSERT_TRUE(root.isValid());
+    SessionOnDisk disk{root.path()};
+    ASSERT_TRUE(disk.status.has_value());
+    disk.session.settings().romraider_definition_files = {"/first.xml", "/middle.xml", "/last.xml"};
+    {
+        Settings settings{disk.session};
+        QListWidget *list = nullptr;
+        for (auto *candidate : settings.findChildren<QListWidget *>())
+        {
+            if (candidate->count() == 3 && candidate->item(0)->text() == "/first.xml")
+            {
+                list = candidate;
+            }
+        }
+        ASSERT_TRUE(list != nullptr);
+        ASSERT_EQ(list->item(1)->text(), QString("/middle.xml"));
+        ASSERT_EQ(list->item(2)->text(), QString("/last.xml"));
+        QPushButton *remove = nullptr;
+        for (auto *button : settings.findChildren<QPushButton *>())
+        {
+            if (button->text() == "Remove")
+            {
+                remove = button;
+            }
+        }
+        ASSERT_TRUE(remove != nullptr);
+        list->clearSelection();
+        remove->click();
+        ASSERT_EQ(disk.session.settings().romraider_definition_files,
+                  (std::vector<std::string>{"/first.xml", "/middle.xml", "/last.xml"}));
+        list->setCurrentRow(1);
+        remove->click();
+        ASSERT_EQ(disk.session.settings().romraider_definition_files,
+                  (std::vector<std::string>{"/first.xml", "/last.xml"}));
+        if (remove_all)
+        {
+            while (list->count() > 0)
+            {
+                list->setCurrentRow(0);
+                remove->click();
+            }
+            ASSERT_TRUE(disk.session.settings().romraider_definition_files.empty());
+            remove->click();
+            ASSERT_TRUE(disk.session.settings().romraider_definition_files.empty());
+        }
+    }
+    SessionOnDisk reread{root.path()};
+    ASSERT_TRUE(reread.status.has_value());
+    ASSERT_EQ(reread.session.settings().romraider_definition_files, disk.session.settings().romraider_definition_files);
+}
+
+TEST_F(SettingsTest, closingSettingsSavesThroughTheSession)
+{
+    QTemporaryDir root;
+    ASSERT_TRUE(root.isValid());
+    SessionOnDisk disk{root.path()};
+    ASSERT_TRUE(disk.status.has_value());
+    const QString config_file = QString::fromStdString(disk.session.provisioned_paths().config_file);
+    ASSERT_TRUE(QFile::remove(config_file));
+
+    {
+        Settings settings{disk.session};
+    }
+
+    ASSERT_TRUE(QFile::exists(config_file));
+}
+
+TEST_F(SettingsTest, editsReachTheSessionLive)
+{
+    QTemporaryDir root;
+    ASSERT_TRUE(root.isValid());
+    SessionOnDisk disk{root.path()};
+    ASSERT_TRUE(disk.status.has_value());
+    Settings settings{disk.session};
+
+    ASSERT_TRUE(
+        QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection, Q_ARG(int, 40)));
+
+    ASSERT_EQ(disk.session.settings().toolbar_iconsize, std::string("40"));
+}
+
+TEST_F(SettingsTest, destructionRetriesPersistenceAfterClose)
+{
+    QTemporaryDir root;
+    ASSERT_TRUE(root.isValid());
+    SessionOnDisk disk{root.path()};
+    ASSERT_TRUE(disk.status.has_value());
+    const QString config_file = QString::fromStdString(disk.session.provisioned_paths().config_file);
+    ASSERT_TRUE(QFile::remove(config_file));
+    ASSERT_TRUE(QDir().mkpath(config_file));
+    ModalCollector boxes;
+    {
+        Settings settings{disk.session};
+        settings.close();
+        ASSERT_EQ(boxes.texts().size(), 1);
+        ASSERT_TRUE(QDir().rmdir(config_file));
+        ASSERT_TRUE(QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection,
+                                              Q_ARG(int, 48)));
+    }
+    ASSERT_EQ(boxes.texts().size(), 1);
+    QFile saved{config_file};
+    ASSERT_TRUE(saved.open(QIODevice::ReadOnly));
+    ASSERT_TRUE(saved.readAll().contains(R"(data="48")"));
+}
+
+TEST_F(SettingsTest, failedSaveKeepsEditsAndWarnsTheOperator)
+{
+    QTemporaryDir root;
+    ASSERT_TRUE(root.isValid());
+    SessionOnDisk disk{root.path()};
+    ASSERT_TRUE(disk.status.has_value());
+    const QString config_file = QString::fromStdString(disk.session.provisioned_paths().config_file);
+    ASSERT_TRUE(QFile::remove(config_file));
+    ASSERT_TRUE(QDir().mkpath(config_file)); // a directory where the file goes: every write fails
+
+    ModalCollector boxes;
+    {
+        Settings settings{disk.session};
+        ASSERT_TRUE(QMetaObject::invokeMethod(&settings, "toolbar_iconsize_value_changed", Qt::DirectConnection,
+                                              Q_ARG(int, 40)));
+        settings.close();
+    }
+
+    ASSERT_EQ(disk.session.settings().toolbar_iconsize, std::string("40"));
+    ASSERT_EQ(boxes.texts().size(), 1);
+    ASSERT_TRUE(boxes.texts().front().contains(config_file));
+}
+
+namespace
+{
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment);
+}

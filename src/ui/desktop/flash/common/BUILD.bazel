@@ -1,10 +1,21 @@
-load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+# Tests regenerate; production sources and helper binaries retain existing owners.
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# gazelle:exclude flash_dialog.cpp
+# gazelle:exclude flash_dialog.h
+# gazelle:resolve cc src/backend/flash/ecu/subaru_unisia_jecs_m32r_kline_plan.h //src/backend/flash/ecu:subaru_unisia_jecs_m32r_kline_plan
+# gazelle:resolve cc src/backend/ports/testing/fake_clock.h //src/backend/ports/testing:fake_clock
+# gazelle:resolve cc src/platform/desktop/common/testing/widgets_application_environment.h //src/platform/desktop/common/testing:widgets_application_environment
+# gazelle:resolve cc src/ui/desktop/flash/common/flash_dialog.h //src/ui/desktop/flash/common:flash_dialog
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//bazel/layers:apps_desktop",
     "//bazel/layers:ui",
 ])
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "flash_dialog",
     srcs = ["flash_dialog.cpp"],
@@ -16,14 +27,17 @@ qt_cc_library(
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_flash_dialog",
-    src = "flash_dialog_test.cpp",
+    srcs = ["flash_dialog_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
-        ":flash_dialog",
+        "//bazel/qt:core",
         "//src/backend/flash/ecu:subaru_unisia_jecs_m32r_kline_plan",
         "//src/backend/ports/testing:fake_clock",
+        "//src/platform/desktop/common/testing:widgets_application_environment",
+        "//src/ui/desktop/flash/common:flash_dialog",
+        "@googletest//:gtest",
     ],
 )

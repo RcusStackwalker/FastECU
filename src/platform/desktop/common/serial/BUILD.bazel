@@ -1,5 +1,53 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+
+# Tests regenerate; production sources and helper binaries retain existing owners.
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# gazelle:exclude desktop_serial_factory.cpp
+# gazelle:exclude desktop_serial_factory.h
+# gazelle:exclude direct_serial_backend.cpp
+# gazelle:exclude direct_serial_backend.h
+# gazelle:exclude j2534_driver_selection.h
+# gazelle:exclude j2534_driver_selection_unix.cpp
+# gazelle:exclude j2534_driver_selection_windows.cpp
+# gazelle:exclude qtrohelper.hpp
+# gazelle:exclude recording_log_sink.h
+# gazelle:exclude remote_serial_backend.cpp
+# gazelle:exclude remote_serial_backend.h
+# gazelle:exclude serial_backend.h
+# gazelle:exclude serial_backend_host.cpp
+# gazelle:exclude serial_backend_host.h
+# gazelle:exclude serial_facade_codes.h
+# gazelle:exclude serial_idle.cpp
+# gazelle:exclude serial_idle.h
+# gazelle:exclude serial_port_actions.cpp
+# gazelle:exclude serial_port_actions.h
+# gazelle:exclude serial_port_actions_direct.cpp
+# gazelle:exclude serial_port_actions_direct.h
+# gazelle:exclude serial_port_actions_direct_unix.cpp
+# gazelle:exclude serial_port_actions_direct_windows.cpp
+# gazelle:exclude websocketiodevice.cpp
+# gazelle:exclude websocketiodevice.h
+# gazelle:resolve cc remote_serial_backend.h //src/platform/desktop/common/serial:remote_serial_backend
+# gazelle:resolve cc serial_backend.h //src/platform/desktop/common/serial:serial_port_actions
+# gazelle:resolve cc src/backend/ports/testing/fake_cancellation_token.h //src/backend/ports/testing:fake_cancellation_token
+# gazelle:resolve cc src/platform/desktop/common/bytes/qt_bytes.h //src/platform/desktop/common/bytes:qt_bytes
+# gazelle:resolve cc src/platform/desktop/common/serial/desktop_serial_factory.h //src/platform/desktop/common/serial:desktop_serial_factory
+# gazelle:resolve cc src/platform/desktop/common/serial/direct_serial_backend.h //src/platform/desktop/common/serial:direct_serial_backend_api
+# gazelle:resolve cc src/platform/desktop/common/serial/j2534_driver_selection.h //src/platform/desktop/common/serial:j2534_driver_selection
+# gazelle:resolve cc src/platform/desktop/common/serial/recording_log_sink.h //src/platform/desktop/common/serial:recording_log_sink
+# gazelle:resolve cc src/platform/desktop/common/serial/remote_serial_backend.h //src/platform/desktop/common/serial:remote_serial_backend
+# gazelle:resolve cc src/platform/desktop/common/serial/serial_idle.h //src/platform/desktop/common/serial:serial_idle
+# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions.h //src/platform/desktop/common/serial:serial_port_actions
+# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions_direct.h //src/platform/desktop/common/serial:serial_port_actions_direct_moc
+# gazelle:resolve cc src/platform/desktop/common/serial/testing/fake_backend.h //src/platform/desktop/common/serial/testing:fake_serial_backend
+# gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
+# gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
+# gazelle:resolve cc src/platform/desktop/common/transport/fastecu_can_transport.h //src/platform/desktop/common/transport:transport
+# gazelle:resolve cc src/platform/desktop/common/transport/fastecu_kline_transport.h //src/platform/desktop/common/transport:transport
+# gazelle:resolve cc src/platform/desktop/common/transport/fastecu_ssm_transport.h //src/platform/desktop/common/transport:transport
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_library", "qt_cc_test", "qt_cpp_moc_headers")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:platform_and_composition_root"])
 
@@ -12,6 +60,8 @@ exports_files(
     visibility = ["//:__pkg__"],
 )
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_replica_library(
     name = "serial_replicas",
     reps = ["serial_port_actions.rep"],
@@ -24,6 +74,8 @@ qt_replica_library(
 # this target. Adapters whose public headers forward-declare
 # SerialPortActions take it as implementation_deps so its headers stay out
 # of their dependents' compile inputs.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "serial_port_actions",
     srcs = [
@@ -48,6 +100,8 @@ qt_cc_library(
 
 # isJ2534CapableEntry and the J2534 driver-registry helpers. Shared by the
 # direct backend and the desktop CAN transport factory.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "j2534_driver_selection",
     srcs = select({
@@ -62,31 +116,41 @@ qt_cc_library(
     deps = QT_DEPS,
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "j2534_driver_selection_unix_test",
     size = "small",
-    src = "j2534_driver_selection_unix_test.cpp",
+    srcs = ["j2534_driver_selection_unix_test.cpp"],
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
-    deps = [":j2534_driver_selection"],
+    deps = [
+        "//src/platform/desktop/common/serial:j2534_driver_selection",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
+    ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "j2534_driver_selection_windows_test",
     size = "small",
-    src = "j2534_driver_selection_windows_test.cpp",
+    srcs = ["j2534_driver_selection_windows_test.cpp"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
-    deps = [":j2534_driver_selection"],
+    deps = [
+        "//src/platform/desktop/common/serial:j2534_driver_selection",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
+    ],
 )
 
 # make_direct_serial_backend(), declared without an implementation. A binary
 # links exactly one of :direct_serial_backend_unix / _windows beside it; the
 # binary's own select() names the platform.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "direct_serial_backend_api",
     srcs = [],
@@ -110,6 +174,8 @@ DIRECT_SERIAL_BACKEND_VISIBILITY = [
 # depend on the result (see "One header cannot be moc'd by two targets" in
 # docs/design-notes.md). This avoids touching the vendored moc macro in
 # third_party/qt/qt.bzl.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "serial_port_actions_direct_moc",
     srcs = [],
@@ -125,6 +191,8 @@ qt_cc_library(
     }),
 )
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "direct_serial_backend_unix",
     srcs = [
@@ -158,6 +226,8 @@ qt_cc_library(
 # Windows compiles only in CI; kept textually symmetric with the Unix target
 # above rather than factored, so a CI-only compile failure is easy to
 # correlate with its Unix counterpart.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "direct_serial_backend_windows",
     srcs = [
@@ -187,6 +257,8 @@ qt_cc_library(
 
 # For tests that drive the real direct backend. Production binaries select
 # the implementation themselves (apps/desktop, apps/bench).
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 alias(
     name = "direct_serial_backend_for_tests",
     testonly = True,
@@ -204,31 +276,41 @@ alias(
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "direct_backend_hooks_unix_test",
     size = "small",
-    src = "direct_backend_hooks_unix_test.cpp",
+    srcs = ["direct_backend_hooks_unix_test.cpp"],
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
-    deps = [":direct_serial_backend_for_tests"],
+    deps = [
+        "//src/platform/desktop/common/serial:serial_port_actions_direct_moc",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
+    ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "direct_backend_hooks_windows_test",
     size = "small",
-    src = "direct_backend_hooks_windows_test.cpp",
+    srcs = ["direct_backend_hooks_windows_test.cpp"],
     target_compatible_with = select({
         "@platforms//os:windows": [],
         "//conditions:default": ["@platforms//:incompatible"],
     }),
-    deps = [":direct_serial_backend_for_tests"],
+    deps = [
+        "//src/platform/desktop/common/serial:serial_port_actions_direct_moc",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
+    ],
 )
 
 # The QIODevice-over-websocket adapter and the Qt Remote Objects helper,
 # shared by the remote serial backend and remote_utility. Carries no facade
 # header, so remote_utility (and the UI above it) does not reach the facade.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "websocket_io",
     srcs = ["websocketiodevice.cpp"],
@@ -242,6 +324,8 @@ qt_cc_library(
 )
 
 # The remote backend (Qt Remote Objects over a websocket).
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "remote_serial_backend",
     srcs = ["remote_serial_backend.cpp"],
@@ -256,6 +340,8 @@ qt_cc_library(
 
 # Constructor-only entry point to SerialPortActions for the composition
 # roots: they own the facade without seeing its API.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "desktop_serial_factory",
     srcs = ["desktop_serial_factory.cpp"],
@@ -271,20 +357,26 @@ qt_cc_library(
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "desktop_serial_factory_test",
     size = "small",
-    src = "desktop_serial_factory_test.cpp",
+    srcs = ["desktop_serial_factory_test.cpp"],
     deps = [
-        ":desktop_serial_factory",
-        ":direct_serial_backend_for_tests",
-        ":remote_serial_backend",
-        ":serial_port_actions",
+        "//bazel/qt:core",
+        "//src/platform/desktop/common/serial:desktop_serial_factory",
+        "//src/platform/desktop/common/serial:recording_log_sink",
+        "//src/platform/desktop/common/serial:remote_serial_backend",
+        "//src/platform/desktop/common/serial:serial_port_actions",
+        "//src/platform/desktop/common/serial:serial_port_actions_direct_moc",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
     ],
 )
 
 # The idle line state MainWindow restores before and after every ECU
 # operation. It calls the facade, so it lives beside it.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "serial_idle",
     srcs = ["serial_idle.cpp"],
@@ -294,72 +386,106 @@ qt_cc_library(
     deps = QT_DEPS,
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "serial_idle_test",
     size = "small",
-    src = "serial_idle_test.cpp",
+    srcs = ["serial_idle_test.cpp"],
+    use_gtest_main = False,
     deps = [
-        ":serial_idle",
-        ":serial_port_actions",
+        "//bazel/qt:core",
+        "//bazel/qt:serial_port",
+        "//src/platform/desktop/common/serial:serial_idle",
+        "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_direct_backend",
     size = "small",
-    src = "direct_backend_test.cpp",
+    srcs = ["direct_backend_test.cpp"],
+    use_gtest_main = False,
     deps = [
-        ":direct_serial_backend_for_tests",
-        ":serial_port_actions",
-        "//src/platform/desktop/common/transport",
+        "//bazel/qt:core",
+        "//src/platform/desktop/common/serial:direct_serial_backend_api",
+        "//src/platform/desktop/common/serial:j2534_driver_selection",
+        "//src/platform/desktop/common/serial:serial_port_actions",
+        "//src/platform/desktop/common/serial:serial_port_actions_direct_moc",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_remote_backend_smoke",
     size = "small",
-    src = "remote_backend_smoke_test.cpp",
-    deps = [":remote_serial_backend"],
+    srcs = ["remote_backend_smoke_test.cpp"],
+    use_gtest_main = False,
+    deps = [
+        "//bazel/qt:core",
+        "//src/platform/desktop/common/serial:remote_serial_backend",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
+    ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_direct_backend_pty",
     size = "small",
-    src = "direct_backend_pty_test.cpp",
+    srcs = ["direct_backend_pty_test.cpp"],
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
+    use_gtest_main = False,
     deps = [
-        ":direct_serial_backend_for_tests",
-        ":serial_port_actions",
-        "//src/platform/desktop/unix/j2534/testing:mock_openport",
+        "//bazel/qt:core",
+        "//bazel/qt:serial_port",
+        "//src/platform/desktop/common/serial:serial_port_actions_direct_moc",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
     ],
-)
-
-qt_cpp_moc_headers(
-    name = "facade_threading_test_moc",
-    srcs = ["facade_threading_test.cpp"],
-    deps = QT_DEPS,
 )
 
 # Custom main is retained: it dispatches child-process mode and makes crash
 # diagnostics unbuffered before Qt starts, behavior gtest/QtTest mains cannot
 # express through fixtures or Bazel environment variables.
-qt_cc_test(
+fastecu_gtest(
     name = "test_facade_threading",
     size = "small",
-    srcs = [
-        "facade_threading_main.cpp",
-        "facade_threading_test.cpp",
-    ],
+    srcs = ["facade_threading_test.cpp"],
     copts = COMMON_COPTS,
-    deps = QT_DEPS + [
-        ":facade_threading_test_moc",
-        ":serial_port_actions",
+    use_gtest_main = False,
+    deps = [
+        "//bazel/qt:core",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/bytes:qt_bytes",
+        "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/transport",
+        "@googletest//:gtest",
+    ],
+)
+
+# String-connected slot used by the factory requires an actual Qt meta-object.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
+qt_cc_library(
+    name = "recording_log_sink",
+    testonly = True,
+    srcs = [],
+    hdrs = ["recording_log_sink.h"],
+    deps = ["//bazel/qt:core"],
+)
+
+cc_binary(
+    name = "facade_threading_main",
+    srcs = ["facade_threading_main.cpp"],
+    deps = [
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
     ],
 )

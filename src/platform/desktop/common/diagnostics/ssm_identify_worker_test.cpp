@@ -1,8 +1,10 @@
+#include "src/platform/desktop/common/testing/widgets_application_environment.h"
 #include "src/platform/desktop/common/diagnostics/ssm_identify_worker.h"
 
 #include <QCoreApplication>
-#include <QSignalSpy>
-#include <QTest>
+#include "src/platform/desktop/common/testing/signal_recorder.h"
+#include "src/platform/desktop/common/testing/event_helpers.h"
+#include <gtest/gtest.h>
 
 #include <algorithm>
 #include <atomic>
@@ -59,86 +61,89 @@ class BlockingClock final : public IClock
 };
 } // namespace
 
-class SsmIdentifyWorkerTest : public QObject
+class SsmIdentifyWorkerTest : public ::testing::Test
 {
-    Q_OBJECT
 
-  private slots:
-
-    void stopsAtTheFirstSuccess()
-    {
-        FakeDiagnosticLink link;
-        link.queue_read(kShortEcuInit);
-        auto clock = std::make_unique<FakeClock>();
-        SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::KlineSsm2, SsmTarget::Ecu}, link, std::move(clock));
-        QSignalSpy done(&worker, &SsmIdentifyWorker::completed);
-        worker.start();
-        QVERIFY(done.wait(5000));
-        worker.wait();
-        QCOMPARE(done.count(), 1);
-        const auto result = done.at(0).at(0).value<SsmIdentifyWorkerResult>();
-        QVERIFY(result.success);
-        QCOMPARE(result.ecu_id, QString("3152584006"));
-        QCOMPARE(result.init_response.size(), qsizetype{14});
-        QCOMPARE(opens(link), 1);
-    }
-
-    void retriesFiveTimesThenReportsTheLastError()
-    {
-        FakeDiagnosticLink link;
-        auto clock = std::make_unique<FakeClock>();
-        FakeClock *clock_view = clock.get();
-        SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::KlineSsm2, SsmTarget::Ecu}, link, std::move(clock));
-        QSignalSpy logs(&worker, &SsmIdentifyWorker::logEvent);
-        QSignalSpy done(&worker, &SsmIdentifyWorker::completed);
-        worker.start();
-        QVERIFY(done.wait(5000));
-        worker.wait();
-        const auto result = done.at(0).at(0).value<SsmIdentifyWorkerResult>();
-        QVERIFY(!result.success);
-        QCOMPARE(result.error_kind, ErrorKind::Timeout);
-        QCOMPARE(opens(link), 5);
-        QCOMPARE(logs.count(), 5);
-        // Five 200 ms settle sleeps inside the attempts and four 500 ms gaps
-        // between them; no sleep after the last attempt.
-        QCOMPARE(clock_view->elapsed().count(), 3000);
-    }
-
-    void stopBeforeStartCancelsAfterOneAttempt()
-    {
-        FakeDiagnosticLink link;
-        SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::KlineSsm2, SsmTarget::Ecu}, link,
-                                 std::make_unique<FakeClock>());
-        QSignalSpy done(&worker, &SsmIdentifyWorker::completed);
-        worker.requestStop();
-        worker.start();
-        QVERIFY(done.wait(5000));
-        worker.wait();
-        QCOMPARE(done.at(0).at(0).value<SsmIdentifyWorkerResult>().error_kind, ErrorKind::Cancelled);
-        QCOMPARE(opens(link), 1);
-    }
-
-    void destroyingARunningWorkerJoinsIt()
-    {
-        FakeDiagnosticLink link;
-        BlockingClock *clock_view = nullptr;
-        {
-            auto clock = std::make_unique<BlockingClock>();
-            clock_view = clock.get();
-            SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::KlineSsm2, SsmTarget::Ecu}, link, std::move(clock));
-            worker.start();
-            // Spin until the worker enters sleep(), proving run() is executing.
-            QTRY_VERIFY(clock_view->entered);
-        }
-        // The destructor returned, so the thread has stopped touching the link.
-        // The destructor called requestStop() which cancelled the sleep,
-        // and called wait() which joined the thread.
-        const auto calls_after = link.calls.size();
-        QTest::qWait(50);
-        QCOMPARE(link.calls.size(), calls_after);
-        QCOMPARE(opens(link), 1); // Exactly one attempt started.
-    }
+  public:
 };
 
-QTEST_MAIN(SsmIdentifyWorkerTest)
-#include "ssm_identify_worker_test.moc"
+TEST_F(SsmIdentifyWorkerTest, stopsAtTheFirstSuccess)
+{
+    FakeDiagnosticLink link;
+    link.queue_read(kShortEcuInit);
+    auto clock = std::make_unique<FakeClock>();
+    SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::KlineSsm2, SsmTarget::Ecu}, link, std::move(clock));
+    fastecu::testing::SignalRecorder done(&worker, &SsmIdentifyWorker::completed);
+    worker.start();
+    ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
+    worker.wait();
+    ASSERT_EQ(done.count(), 1);
+    const auto result = std::get<0>(done.snapshot().at(0));
+    ASSERT_TRUE(result.success);
+    ASSERT_EQ(result.ecu_id, QString("3152584006"));
+    ASSERT_EQ(result.init_response.size(), qsizetype{14});
+    ASSERT_EQ(opens(link), 1);
+}
+
+TEST_F(SsmIdentifyWorkerTest, retriesFiveTimesThenReportsTheLastError)
+{
+    FakeDiagnosticLink link;
+    auto clock = std::make_unique<FakeClock>();
+    FakeClock *clock_view = clock.get();
+    SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::KlineSsm2, SsmTarget::Ecu}, link, std::move(clock));
+    fastecu::testing::SignalRecorder logs(&worker, &SsmIdentifyWorker::logEvent);
+    fastecu::testing::SignalRecorder done(&worker, &SsmIdentifyWorker::completed);
+    worker.start();
+    ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
+    worker.wait();
+    const auto result = std::get<0>(done.snapshot().at(0));
+    ASSERT_TRUE(!result.success);
+    ASSERT_EQ(result.error_kind, ErrorKind::Timeout);
+    ASSERT_EQ(opens(link), 5);
+    ASSERT_EQ(logs.count(), 5);
+    // Five 200 ms settle sleeps inside the attempts and four 500 ms gaps
+    // between them; no sleep after the last attempt.
+    ASSERT_EQ(clock_view->elapsed().count(), 3000);
+}
+
+TEST_F(SsmIdentifyWorkerTest, stopBeforeStartCancelsAfterOneAttempt)
+{
+    FakeDiagnosticLink link;
+    SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::KlineSsm2, SsmTarget::Ecu}, link,
+                             std::make_unique<FakeClock>());
+    fastecu::testing::SignalRecorder done(&worker, &SsmIdentifyWorker::completed);
+    worker.requestStop();
+    worker.start();
+    ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
+    worker.wait();
+    ASSERT_EQ(std::get<0>(done.snapshot().at(0)).error_kind, ErrorKind::Cancelled);
+    ASSERT_EQ(opens(link), 1);
+}
+
+TEST_F(SsmIdentifyWorkerTest, destroyingARunningWorkerJoinsIt)
+{
+    FakeDiagnosticLink link;
+    BlockingClock *clock_view = nullptr;
+    {
+        auto clock = std::make_unique<BlockingClock>();
+        clock_view = clock.get();
+        SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::KlineSsm2, SsmTarget::Ecu}, link, std::move(clock));
+        worker.start();
+        // Spin until the worker enters sleep(), proving run() is executing.
+        ASSERT_TRUE(
+            fastecu::testing::wait_until([&] { return clock_view->entered.load(); }, std::chrono::milliseconds(5000)));
+    }
+    // The destructor returned, so the thread has stopped touching the link.
+    // The destructor called requestStop() which cancelled the sleep,
+    // and called wait() which joined the thread.
+    const auto calls_after = link.calls.size();
+    fastecu::testing::process_events_for(std::chrono::milliseconds(50));
+    ASSERT_EQ(link.calls.size(), calls_after);
+    ASSERT_EQ(opens(link), 1); // Exactly one attempt started.
+}
+
+namespace
+{
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment);
+}
