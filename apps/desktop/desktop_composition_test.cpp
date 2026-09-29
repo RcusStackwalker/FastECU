@@ -14,7 +14,7 @@
 #include "apps/desktop/desktop_composition.h"
 #include "apps/desktop/startup_diagnostics.h"
 #include "src/backend/calibration/session/calibration_workspace.h"
-#include "src/backend/definitions/file_actions.h"
+#include "src/platform/desktop/common/definition/definition_catalog_session.h"
 
 #include <QDir>
 #include <QFile>
@@ -111,6 +111,7 @@ class DesktopCompositionTest : public QObject
         QTemporaryDir root;
         QVERIFY(root.isValid());
         DesktopComposition composition{{}, {}, root.path()};
+        QVERIFY(composition.started());
         QCOMPARE(composition.services().logging_engine.registrations_.keys(), (QStringList{"CDBG", "MUT_DMA", "SSM"}));
     }
 
@@ -123,7 +124,7 @@ class DesktopCompositionTest : public QObject
         const MainWindowServices first = composition.services();
         const MainWindowServices second = composition.services();
 
-        QCOMPARE(&first.file_actions, &second.file_actions);
+        QCOMPARE(&first.definition_catalogs, &second.definition_catalogs);
         QCOMPARE(&first.config_repository, &second.config_repository);
         QCOMPARE(&first.file_action_events, &second.file_action_events);
         QCOMPARE(&first.log, &second.log);
@@ -151,7 +152,8 @@ class DesktopCompositionTest : public QObject
         QVERIFY(composition.startup_error().has_value());
         QVERIFY(QString::fromStdString(composition.startup_error()->detail).contains(config_dir + "protocols.cfg"));
         // Nothing that could log, thread, or talk to an ECU was created.
-        QVERIFY(!composition.file_actions_);
+        QVERIFY(!composition.definition_catalogs_);
+        QVERIFY(!composition.definition_service_);
         QVERIFY(!composition.syslog_thread_);
         QVERIFY(!composition.syslogger_);
         QVERIFY(!composition.serial_);

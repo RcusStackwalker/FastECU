@@ -2,16 +2,16 @@
 
 ## Current State and Destination
 
-Reviewed against revision `a41e3a51` on 2026-09-27. Steps 1-5 and 6a-6j
-are implemented. Step 6 remains open because desktop consumers still depend
-on Qt-typed parallel-list models and `FileActions`; step 7 has not started.
+Reviewed on 2026-09-29. Steps 1-5, 6a-6m and 6n-1 are implemented.
+Step 6 remains open for kernel-model relocation and the desktop byte-conversion
+boundary; step 7 has not started.
 Implementation completion and hardware qualification are separate statuses.
 
 The portable algorithms and backend workflows already exist: configuration,
 definitions, calibration and map editing, checksums, logging, diagnostics,
 service functions, and the retained flash families. The remaining work is to
-migrate desktop consumers onto those APIs and retire their legacy bridges,
-not to extract the same parsers and workflows again.
+finish the remaining ownership relocations. Desktop consumers now use the
+portable configuration, logging and calibration records directly.
 
 The current boundary is:
 
@@ -47,17 +47,11 @@ platform internals.
 
 ### Remaining structural debt
 
-- `FileActions` remains in the legacy `src/backend/definitions` package,
-  distinct from portable `src/backend/definition`. Its logging and
-  calibration structures already have standalone headers but
-  remain Qt-typed and are exposed through historical `FileActions` aliases.
-- Three bridges remain: `LegacyLoggerAdapter`, `LegacyDefinitionAdapter`,
-  and `LegacyCalibrationAdapter`. Desktop code
-  still consumes their parallel lists and shared mutable state.
-- `MainWindow` retains calibration-slot ownership and portions of write
-  preflight, checksum correction, and post-read calibration handoff. Logging
-  selection, connection orchestration, and log-file handling also retain UI
-  coordination; presentation-only coordination need not become a portable port.
+- `src/backend/definitions` retains only portable kernel constants and memory
+  models, pending relocation to their appropriate portable ownership.
+- `MainWindow` retains presentation coordination for write preflight, checksum
+  interaction, logging selection, connection orchestration and log-file handling;
+  single-consumer presentation flows need not become portable ports.
 - One algorithms-side Qt shim remains:
   `src/algorithms/protocol/qt_compat`, containing byte-container conversions.
   Those conversions are still needed at desktop boundaries. The SSM shim is
@@ -66,7 +60,7 @@ platform internals.
 
 The destination remains a reusable, Qt-, JNI-, and OS-independent algorithms
 and backend core, with desktop presentation and adapters outside it. Finish
-the desktop model and bridge migrations before starting the Android seam.
+the desktop closure before starting the Android seam.
 Android v1 remains MUT/DMA live logging over USB serial, API 29, `arm64-v8a`;
 the Kotlin product app and real Android USB implementation are later work.
 
@@ -181,18 +175,25 @@ leaving no occupied session. Preserve the documented
 Full release build/test, formatting, changed-file static analysis and platform
 CI/packaging gates require their recorded results. Post-read handoff and
 checksum paths still need bench re-verification before release; this migration
-establishes no new hardware qualification. `FileActions` and the remaining
-legacy package closure belong to step 6n.
+establishes no new hardware qualification. `FileActions` is retired by 6n-1; the remaining
+kernel-model package and byte shim closure belong to later 6n slices.
 
 ### 6n — Desktop closure
 
-Remove `FileActions` once its consumers use the extracted services directly.
-Wire those services through desktop composition. Retain the portable kernel
-constants/models currently in `src/backend/definitions:models`, moving them
-to appropriate portable ownership before retiring the legacy package.
-Remove remaining compatibility glue and obsolete checks tied to deleted
-files as their callers disappear.
+**6n-1 — Catalog and authoring consumers: implemented.** Desktop composition
+owns `DefinitionCatalogSession`, sharing the portable `DefinitionService`
+with ROM opening. Startup lookup provenance uses typed ID/source records;
+authored destinations are registered only after successful writes. MainWindow
+and definition dialogs use the session directly. `FileActions`, parallel
+`DefinitionIndexes`, their tests/targets and the backend Qt visibility grant
+are retired. Configuration and kernel resource registration is explicit in
+composition. See [desktop catalog lookup and authoring ownership](design-notes.md#desktop-catalog-lookup-and-authoring-ownership).
 
+**6n-2 — Kernel models: remaining.** Retain the portable kernel constants/models
+currently in `src/backend/definitions:models`, moving them to appropriate
+portable ownership before retiring the package.
+
+**6n-3 — Desktop byte boundary: remaining.**
 Move the byte-conversion helper out of algorithms into a desktop boundary
 package with deliberate UI-facing visibility. Preserve explicit conversions
 and their tests; retiring a shim does not mean duplicating conversion code

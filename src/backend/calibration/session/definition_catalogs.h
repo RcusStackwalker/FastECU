@@ -11,8 +11,8 @@ namespace fastecu::calibration
 {
 
 // Where a ROM open finds definitions to match and load. The desktop's
-// implementation is FileActions, which builds catalogs from the configured
-// sources and the definitions authored this session; step 6n replaces it.
+// implementation builds catalogs from configured sources and definitions
+// authored this session, retaining startup source provenance independently.
 class IDefinitionCatalogs
 {
   public:

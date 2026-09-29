@@ -41,7 +41,7 @@ Dependencies flow one way: `apps/desktop` → `src/ui` → `src/platform` → `s
 - **`src/backend/ports/`** — the injected-port interfaces, plus `Result<T>` and `Error`. Transport ports (`IKlineTransport`, `ICanTransport`, `ISsmTransport`) deliberately stay in `src/backend/protocol/` instead.
 - **`src/platform/desktop/`** — the Qt and OS adapters: an implementation of every port, J2534 and serial, the worker threads.
 - **`src/ui/desktop/`** — widgets, `.ui` forms, `MainWindow`, dialogs, bundled hex editor.
-- **`src/backend/definitions/`** — the legacy `FileActions` god object, being decomposed into use cases. Distinct from the newer `src/backend/definition/`; add to that one, not this one.
+- Add portable definition logic to **`src/backend/definition/`**. The older `src/backend/definitions/` package is reserved for retained kernel headers pending relocation.
 
 ### Error and byte conventions
 

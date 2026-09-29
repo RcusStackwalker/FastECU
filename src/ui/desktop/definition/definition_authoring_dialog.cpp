@@ -104,19 +104,10 @@ HeaderFormEditors populate_header_dialog(QDialog& dialog, const QStringList& lab
     return editors;
 }
 
-void record_definition(fastecu::definitions::DefinitionIndexes& indexes, const HeaderFormEditors& editors,
-                       const fastecu::definition::DefinitionHeaderInput& input, const QString& filename)
-{
-    indexes.ecuflash_def_cal_id.append(QString::fromStdString(input.xml_id));
-    indexes.ecuflash_def_cal_id_addr.append(line_edit_value(editors, "internalidaddress"));
-    indexes.ecuflash_def_ecu_id.append(line_edit_value(editors, "ecuid"));
-    indexes.ecuflash_def_filename.append(filename);
-}
-
-DefinitionAuthoringDialog::DefinitionAuthoringDialog(FileActions& file_actions,
+DefinitionAuthoringDialog::DefinitionAuthoringDialog(fastecu::desktop::definition::DefinitionCatalogSession& catalogs,
                                                      const fastecu::config::ConfigSession& config,
                                                      fastecu::IFileRepository& repository, QWidget *parent)
-    : QObject(parent), fileActions_(file_actions), config_(config), repository_(repository), parent_(parent)
+    : QObject(parent), catalogs_(catalogs), config_(config), repository_(repository), parent_(parent)
 {
 }
 
@@ -166,7 +157,7 @@ bool DefinitionAuthoringDialog::create_new_definition()
 {
     emit LOG_D("Create header", true, true);
     // `dialog` owns the form's editors, and form.editors is read as far down
-    // as the record_definition call, so it stays alive for the whole
+    // as the submission, so it stays alive for the whole
     // function rather than living inside run_header_dialog.
     QDialog dialog(parent_);
     const HeaderDialogResult form =
@@ -200,7 +191,8 @@ bool DefinitionAuthoringDialog::create_new_definition()
         }
     }
 
-    const fastecu::Status status = fileActions_.submit_new_definition(filename.toStdString(), *input);
+    const fastecu::Status status =
+        catalogs_.submit_new_definition(filename.toStdString(), *input, /*allow_overwrite=*/true);
     if (!status.has_value())
     {
         QMessageBox::warning(parent_, tr("Definition file"),
@@ -209,7 +201,6 @@ bool DefinitionAuthoringDialog::create_new_definition()
         return false;
     }
 
-    record_definition(fileActions_.definitionIndexes, form.editors, *input, filename);
     return true;
 }
 
@@ -246,7 +237,7 @@ bool DefinitionAuthoringDialog::use_existing_definition()
 
     emit LOG_D("Create header", true, true);
     // As in create_new_definition: `dialog` outlives every read of
-    // form.editors below, down to the record_definition call.
+    // form.editors below, down to the submission.
     QDialog dialog(parent_);
     const HeaderDialogResult form = run_header_dialog(dialog, definition_header_labels(), names, values);
     if (!form.accepted)
@@ -280,7 +271,7 @@ bool DefinitionAuthoringDialog::use_existing_definition()
     }
 
     const fastecu::Status status =
-        fileActions_.submit_imported_definition(source.toStdString(), filename.toStdString(), *input);
+        catalogs_.submit_imported_definition(source.toStdString(), filename.toStdString(), *input);
     if (!status.has_value())
     {
         QMessageBox::warning(parent_, tr("Definition file"),
@@ -289,7 +280,6 @@ bool DefinitionAuthoringDialog::use_existing_definition()
         return false;
     }
 
-    record_definition(fileActions_.definitionIndexes, form.editors, *input, filename);
     return true;
 }
 

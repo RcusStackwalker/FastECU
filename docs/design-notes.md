@@ -237,6 +237,33 @@ only wrap that caller. The non-UI remainder (`apply_missing_definition_defaults`
 stayed in the backend. Precedent: a single-consumer UI flow moves to `src/ui`;
 anything a second caller will need gets a port.
 
+### Desktop catalog lookup and authoring ownership
+
+Step 6n-1 replaces `FileActions` and its parallel definition indexes with a
+composition-owned `DefinitionCatalogSession` in the desktop platform layer.
+It implements the existing portable `IDefinitionCatalogs` interface and shares
+one `DefinitionService` with ROM opening. The dialogs retain operator decisions;
+the session records authored destinations only after successful writes.
+
+Startup lookup provenance and fresh catalogs have different lifetimes. A fresh
+scan does not replace the retained lookup: a file deleted after startup still
+needs to produce the established ROM-open notice. Explicit refresh replaces
+one format's lookup only on success; empty configured sources retain it,
+while a successful scan that skips every unusable file clears it.
+
+Retained lookup uses ordered typed ID/source records with first-match behavior.
+It deliberately does not use `DefinitionCatalog`, whose validation rejects
+conflicting duplicate identities. Successful authoring appends a lookup record
+and remembers its destination for discovery outside the configured directory.
+Changing directories drops prior discovery on refresh, preserving authored
+handles. No new parser, portable port, worker, or backend policy is introduced.
+
+Composition now links configuration and kernel resource registration explicitly;
+it previously obtained both through `FileActions`. Test composition supplies
+the same registration directly. The workspace and ROM opener stop before the
+catalog session, which stops before its borrowed service and configuration.
+This structural migration establishes no new hardware qualification.
+
 ## Calibration
 
 ### Files edited before PR #274 may hold wrong bytes
