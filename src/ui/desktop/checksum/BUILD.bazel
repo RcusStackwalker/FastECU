@@ -1,24 +1,29 @@
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_common.bzl", "COMMON_COPTS")
 
 package(default_visibility = ["//bazel/layers:ui"])
 
-# Qt-linked (QMessageBox/QString) but no QObject/Q_OBJECT, so the header goes
-# through normal_hdrs rather than hdrs.
-qt_cc_library(
+# Qt-linked (QMessageBox/QString) but no QObject/Q_OBJECT, so a plain
+# cc_library suffices.
+# checksum_result.h is included directly by this command's header; its
+# generated dependencies name the owner instead of relying on an adapter.
+cc_library(
     name = "checksum_correction_command",
     srcs = ["checksum_correction_command.cpp"],
-    normal_hdrs = ["checksum_correction_command.h"],
-    deps = QT_DEPS + [
-        # checksum_result.h is included directly by
-        # checksum_correction_command.h; before step 5e it arrived via the
-        # backend adapter this command replaced, so declare it rather than
-        # inherit it through //src/backend/checksum.
+    hdrs = ["checksum_correction_command.h"],
+    copts = COMMON_COPTS,
+    implementation_deps = [
+        "//bazel/qt:core",
+        "//bazel/qt:widgets",
+        "//src/backend/checksum:dispatch",
+        "//src/backend/flash:flash_device_lookup",
+    ],
+    deps = [
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/backend/checksum:checksum_selection",
-        "//src/backend/checksum:dispatch",
-        "//src/backend/flash:flash_device_lookup",
     ],
 )
 
@@ -26,5 +31,9 @@ fastecu_gtest(
     name = "checksum_correction_command_test",
     srcs = ["checksum_correction_command_test.cpp"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
-    deps = [":checksum_correction_command"],
+    deps = [
+        ":checksum_correction_command",
+        "//bazel/qt:widgets",
+        "@googletest//:gtest",
+    ],
 )
