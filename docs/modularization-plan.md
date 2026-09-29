@@ -2,14 +2,13 @@
 
 ## Current State and Destination
 
-Reviewed on 2026-09-29. Steps 1-5, 6a-6m and 6n-1 through 6n-2 are implemented.
-Step 6 remains open for the desktop byte-conversion boundary; step 7 has not started.
+Reviewed on 2026-09-29. Steps 1-6, including 6n-3, are structurally implemented.
+Step 7 has not started.
 Implementation completion and hardware qualification are separate statuses.
 
 The portable algorithms and backend workflows already exist: configuration,
 definitions, calibration and map editing, checksums, logging, diagnostics,
-service functions, and the retained flash families. The remaining work is to
-finish the remaining ownership relocations. Desktop consumers now use the
+service functions, and the retained flash families. Desktop consumers use the
 portable configuration, logging and calibration records directly.
 
 The current boundary is:
@@ -43,21 +42,19 @@ platform internals.
   and UI channels have been separated from their former central wiring.
 - The serial facade is platform-only. No GRANDFATHERED UI visibility entry
   remains. Designed UI-facing adapters still exist and are intentional.
+- Qt byte-container conversions live under `src/platform/desktop/common/bytes`,
+  with target-level visibility for their desktop UI consumers.
 
 ### Remaining structural debt
 
 - `MainWindow` retains presentation coordination for write preflight, checksum
   interaction, logging selection, connection orchestration and log-file handling;
   single-consumer presentation flows need not become portable ports.
-- One algorithms-side Qt shim remains:
-  `src/algorithms/protocol/qt_compat`, containing byte-container conversions.
-  Those conversions are still needed at desktop boundaries. The SSM shim is
-  gone.
 - Android build configuration, native facade, and smoke fixture do not exist.
 
 The destination remains a reusable, Qt-, JNI-, and OS-independent algorithms
-and backend core, with desktop presentation and adapters outside it. Finish
-the desktop closure before starting the Android seam.
+and backend core, with desktop presentation and adapters outside it. Desktop
+closure is structurally complete; Android seam work follows.
 Android v1 remains MUT/DMA live logging over USB serial, API 29, `arm64-v8a`;
 the Kotlin product app and real Android USB implementation are later work.
 
@@ -127,7 +124,7 @@ wiring now use the portable `ConfigSession` and catalog records.
 `ConfigValuesStructure`, `LegacyConfigAdapter`, and `legacy_config_paths` have
 been removed. Startup rejection is an intentional correction, documented in
 [Configuration session](design-notes.md#configuration-session), together with
-the preserved selection and persistence quirks. Step 6n remains.
+the preserved selection and persistence quirks. Step 6n is completed below.
 
 ### 6l — Logging models
 
@@ -172,8 +169,8 @@ leaving no occupied session. Preserve the documented
 Full release build/test, formatting, changed-file static analysis and platform
 CI/packaging gates require their recorded results. Post-read handoff and
 checksum paths still need bench re-verification before release; this migration
-establishes no new hardware qualification. `FileActions` is retired by 6n-1; the remaining
-kernel-model package and byte shim closure belong to later 6n slices.
+establishes no new hardware qualification. `FileActions` was retired by 6n-1;
+kernel models and the byte shim were relocated by 6n-2 and 6n-3.
 
 ### 6n — Desktop closure
 
@@ -192,18 +189,19 @@ flash memory-model headers now live in separate portable targets under
 `src/backend/definitions` and its old `:models` target are retired. Device
 data, lookup interfaces and command values are unchanged.
 
-**6n-3 — Desktop byte boundary: remaining.**
-Move the byte-conversion helper out of algorithms into a desktop boundary
-package with deliberate UI-facing visibility. Preserve explicit conversions
-and their tests; retiring a shim does not mean duplicating conversion code
-or forcing Qt-owned buffers out of the UI and platform layers.
+**6n-3 — Desktop byte boundary: implemented.**
+The byte-conversion helper and its tests now live under
+`src/platform/desktop/common/bytes`, with target-level UI-facing visibility.
+Explicit conversions and Qt-owned buffers remain at existing desktop call
+sites. The old algorithms shim and its `qt_layer` entry are removed.
 
 **Exit gate:** no Qt-typed legacy package remains under algorithms/backend;
 all corresponding transitional `qt_layer` entries are removed, and portable
-closure coverage includes the resulting targets. Production UI still cannot
-reach serial facade headers. Desktop composition, restart, cancellation,
-teardown, and packaging checks pass. Any outstanding hardware qualification
-is recorded separately rather than implied by this structural completion.
+closure coverage includes the resulting portable targets. Production UI still
+cannot reach serial facade headers. Desktop composition, restart,
+cancellation, and teardown checks pass in the release suite. Platform CI,
+packaging, and hardware qualification remain separate release gates; structural
+completion does not imply those results.
 
 ### 7 — Android seam
 

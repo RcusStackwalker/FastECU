@@ -42,11 +42,7 @@ of formatting is irrelevant on an error path.
 
 Two things are deliberately outside this rule:
 
-- `QString`-based code in `src/ui`, `src/platform`, and the legacy
-  `src/backend/definitions/file_actions.cpp` monolith. `file_actions.cpp` is
-  slated for extraction into portable use cases by the
-  [modularization plan](modularization-plan.md)'s step 5; the pieces adopt
-  `std::format` as they land as portable code.
+- `QString`-based code in `src/ui` and `src/platform`.
 - Path and filename joining (for example `src/backend/config/config_paths.cpp`).
   There is no message text and nothing to search for, so a format string buys
   nothing.
@@ -64,7 +60,7 @@ aliases from `src/algorithms/protocol/bytes.h`:
 
 `QByteArray` is a boundary type only; the reasoning and the exact boundaries
 are in [ADR 0004](adr/0004-limit-qbytearray-to-qt-boundaries.md). Conversions
-go through `src/algorithms/protocol/qt_compat/qt_bytes.h` and stay explicit, so that
+go through `src/platform/desktop/common/bytes/qt_bytes.h` and stay explicit, so that
 copies are visible at the call site.
 
 Build frames with `bytes::composeBe`, `bytes::composeBeWithExtraCapacity`, and

@@ -1,6 +1,6 @@
 # 6n-3 Desktop Byte Boundary Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Finish desktop closure by moving the Qt byte helper out of algorithms without changing conversion behavior.
 
@@ -40,10 +40,10 @@
 - Produces: `//src/platform/desktop/common/bytes:qt_bytes`, exporting `qt_bytes.h` and every existing `bytes` overload with unchanged signatures.
 - Visibility: `//bazel/layers:platform`, `//bazel/layers:tests`, `//src/ui/desktop:__pkg__`, `//src/ui/desktop/biu:__pkg__`; no package-wide UI grant.
 
-- [ ] **Step 1: Record baseline.** Run `shasum -a 256 src/algorithms/protocol/qt_compat/qt_bytes.h` and `bazel test --config=release //src/algorithms/protocol/qt_compat:test_bytes`; record hash and PASS in execution notes.
-- [ ] **Step 2: Move the helper and test.** Copy the header without editing its contents. Move the test, update its include to the new path, and retain existing portable and Qt cases. Create a `cc_library` with `hdrs = ["qt_bytes.h"]`, `deps = ["//bazel/qt:core", "//src/algorithms/protocol"]`, and the target-level visibility above. Use `fastecu_gtest(name = "qt_bytes_test", srcs = ["qt_bytes_test.cpp"], deps = [":qt_bytes", "//bazel/qt:core", "//src/algorithms/protocol", "@googletest//:gtest"])` for the co-located test.
-- [ ] **Step 3: Add focused boundary assertions.** In `qt_bytes_test.cpp`, add tests named `emptyConversions`, `ownedRoundTripPreservesBinaryBytes`, `mutableViewAliasesSource`, `fromQByteArrayCopiesSource`, and `shortQByteArrayWriteIsNoOp`. Assert exact sizes and bytes, including `0x00`/`0xFF`; mutate the source after the owning conversion and assert the copy retains its original bytes. Keep the existing trailing-space and endian tests.
-- [ ] **Step 4: Verify the new target.** Run `bazel test --config=release //src/platform/desktop/common/bytes:qt_bytes_test`; expect PASS. Re-run the header hash at its new path; expect the Step 1 digest. Keep the old package until Task 2 replaces its consumers.
+- [x] **Step 1: Record baseline.** Run `shasum -a 256 src/algorithms/protocol/qt_compat/qt_bytes.h` and `bazel test --config=release //src/algorithms/protocol/qt_compat:test_bytes`; record hash and PASS in execution notes.
+- [x] **Step 2: Move the helper and test.** Copy the header without editing its contents. Move the test, update its include to the new path, and retain existing portable and Qt cases. Create a `cc_library` with `hdrs = ["qt_bytes.h"]`, `deps = ["//bazel/qt:core", "//src/algorithms/protocol"]`, and the target-level visibility above. Use `fastecu_gtest(name = "qt_bytes_test", srcs = ["qt_bytes_test.cpp"], deps = [":qt_bytes", "//bazel/qt:core", "//src/algorithms/protocol", "@googletest//:gtest"])` for the co-located test.
+- [x] **Step 3: Add focused boundary assertions.** In `qt_bytes_test.cpp`, add tests named `emptyConversions`, `ownedRoundTripPreservesBinaryBytes`, `mutableViewAliasesSource`, `fromQByteArrayCopiesSource`, and `shortQByteArrayWriteIsNoOp`. Assert exact sizes and bytes, including `0x00`/`0xFF`; mutate the source after the owning conversion and assert the copy retains its original bytes. Keep the existing trailing-space and endian tests.
+- [x] **Step 4: Verify the new target.** Run `bazel test --config=release //src/platform/desktop/common/bytes:qt_bytes_test`; expect PASS. Re-run the header hash at its new path; expect the Step 1 digest. Keep the old package until Task 2 replaces its consumers.
 
 ### Task 2: Migrate consumers and retire transitional visibility
 
@@ -57,10 +57,10 @@
 - Consumes: `//src/platform/desktop/common/bytes:qt_bytes` from Task 1.
 - Produces: no active include or Bazel label referring to `src/algorithms/protocol/qt_compat`; `qt_layer` contains no algorithms or backend entry.
 
-- [ ] **Step 1: Replace includes and labels.** Replace each active old header include with `src/platform/desktop/common/bytes/qt_bytes.h` and each old dependency with `//src/platform/desktop/common/bytes:qt_bytes`. Remove the old BUILD file and remove `//src/algorithms/protocol/qt_compat` from `qt_layer`.
-- [ ] **Step 2: Regenerate and inspect Bazel files.** Run `python3 scripts/gazelle_check.py --fix`, inspect the BUILD diff for the intended labels and visibility, then run `python3 scripts/gazelle_check.py`; expect no drift. Do not accept unrelated generated changes.
-- [ ] **Step 3: Check active references and affected tests.** Run `rg -n 'src/algorithms/protocol/qt_compat' src apps tests --glob '!*.md'`; expect no matches. Run `bazel test --config=release //src/platform/desktop/common/bytes:qt_bytes_test //src/platform/desktop/common/serial/... //src/platform/desktop/common/transport/... //src/platform/desktop/common/diagnostics/... //src/ui/desktop/... //tests:mut_dma_integration_tests`; expect all compatible targets to pass.
-- [ ] **Step 4: Commit the relocation.** Run `git diff --check`, inspect `git status --short`, and commit the migration as `refactor(desktop): move Qt byte conversion to desktop boundary`.
+- [x] **Step 1: Replace includes and labels.** Replace each active old header include with `src/platform/desktop/common/bytes/qt_bytes.h` and each old dependency with `//src/platform/desktop/common/bytes:qt_bytes`. Remove the old BUILD file and remove `//src/algorithms/protocol/qt_compat` from `qt_layer`.
+- [x] **Step 2: Regenerate and inspect Bazel files.** Run `python3 scripts/gazelle_check.py --fix`, inspect the BUILD diff for the intended labels and visibility, then run `python3 scripts/gazelle_check.py`; expect no drift. Do not accept unrelated generated changes.
+- [x] **Step 3: Check active references and affected tests.** Run `rg -n 'src/algorithms/protocol/qt_compat' src apps tests --glob '!*.md'`; expect no matches. Run `bazel test --config=release //src/platform/desktop/common/bytes:qt_bytes_test //src/platform/desktop/common/serial/... //src/platform/desktop/common/transport/... //src/platform/desktop/common/diagnostics/... //src/ui/desktop/... //tests:mut_dma_integration_tests`; expect all compatible targets to pass.
+- [x] **Step 4: Commit the relocation.** Run `git diff --check`, inspect `git status --short`, and commit the migration as `refactor(desktop): move Qt byte conversion to desktop boundary`.
 
 ### Task 3: Verify closure and record status
 
@@ -72,10 +72,16 @@
 - Consumes: the completed `:qt_bytes` migration from Task 2.
 - Produces: accurate step 6 structural status, with qualification limits recorded separately.
 
-- [ ] **Step 1: Run closure and repository gates.** Run `bazel build --config=release //:portable_closure //apps/desktop:fastecu`, `bazel build -k --config=release //...`, `bazel test -k --config=release //...`, `prek run --all-files`, and `bazel run --config=release //:clang_tidy_report_changed`; expect no failures caused by this slice. Record platform skips and any pre-existing failures accurately.
-- [ ] **Step 2: Update current documentation.** Mark 6n-3 and step 6 structurally complete in `docs/modularization-plan.md` only if Step 1 passes. Update current path and status guidance in `CLAUDE.md`, `docs/coding-style.md`, `docs/design-notes.md`, and `docs/tech-debt.md`. Leave historical ADR decisions intact; add a dated subsequent note only if necessary to prevent their old paths from reading as current guidance. Keep hardware and packaging status separate.
-- [ ] **Step 3: Review and commit the record.** Run `git diff --check`, inspect `git diff --stat` and `git status --short`, then commit documentation and this plan's execution notes as `docs: record desktop byte boundary closure`.
+- [x] **Step 1: Run closure and repository gates.** Run `bazel build --config=release //:portable_closure //apps/desktop:fastecu`, `bazel build -k --config=release //...`, `bazel test -k --config=release //...`, `prek run --all-files`, and `bazel run --config=release //:clang_tidy_report_changed`; expect no failures caused by this slice. Record platform skips and any pre-existing failures accurately.
+- [x] **Step 2: Update current documentation.** Mark 6n-3 and step 6 structurally complete in `docs/modularization-plan.md` only if Step 1 passes. Update current path and status guidance in `CLAUDE.md`, `docs/coding-style.md`, `docs/design-notes.md`, and `docs/tech-debt.md`. Leave historical ADR decisions intact; add a dated subsequent note only if necessary to prevent their old paths from reading as current guidance. Keep hardware and packaging status separate.
+- [x] **Step 3: Review and commit the record.** Run `git diff --check`, inspect `git diff --stat` and `git status --short`, then commit documentation and this plan's execution notes as `docs: record desktop byte boundary closure`.
 
 ## Execution Notes
 
-Not started. Record header hashes, focused and repository gate results, platform skips, and qualification limits here during execution.
+Executed on macOS from `work/6n-3-desktop-byte-boundary` in an isolated worktree.
+
+- Baseline `//src/algorithms/protocol/qt_compat:test_bytes` passed. The new target failed on its missing header before the header was copied, then passed. `qt_bytes.h` SHA-256 before and after relocation: `0ec100f0e944615db48c7d7fb0b8a57e6326ea10a964f2b6955659dae31491ad`.
+- Removing the old package caused the expected missing-package analysis failure in the transport package. After migration, Gazelle consistency passed; the affected suite passed 41 tests with two Windows-only skips.
+- Portable closure and desktop app build passed. Release `//...` build passed for 770 targets. Release `//...` tests passed: 237 pass, seven platform skips on macOS.
+- `prek run --all-files` passed. Changed-file clang-tidy analyzed 17 translation units with zero findings. Its report noted that `diagnostic_link_io.h` has no co-located source in the compile database, so its includers were not analyzed by that specific command.
+- No hardware bench, Windows/Linux runtime, or packaging qualification was performed for this slice. Step 6 is structurally complete; those release qualifications remain separate.

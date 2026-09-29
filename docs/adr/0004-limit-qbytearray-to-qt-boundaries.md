@@ -61,3 +61,7 @@ serial adapters until a local byte-native boundary is practical.
 The byte-type conventions this decision implies — `ByteView` for read-only
 input, `Bytes` for owned output, fixed arrays for fixed-size frames — are
 stated in [the coding style guide](../coding-style.md).
+
+As of step 6n-3 (2026-09-29), the explicit Qt conversion helper lives at
+`src/platform/desktop/common/bytes/qt_bytes.h`. The path in the original
+decision above records its location when this ADR was accepted.

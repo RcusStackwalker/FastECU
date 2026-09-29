@@ -333,9 +333,10 @@ session; successful reads are adopted after dispatch completes.
 
 `EcuCalDefStructure`, legacy definition/calibration adapters, legacy columns and
 the projection are retired. `FileActions` and its definition catalog implementation are retired.
-The Qt byte-conversion boundary remains for step 6n. Kernel models now have
-flash ownership under `src/backend/flash/kernel`, with the header contents
-preserved byte-for-byte.
+The Qt byte-conversion helper now lives at
+`src/platform/desktop/common/bytes/qt_bytes.h`, with target-level visibility
+for its desktop UI consumers. Kernel models have flash ownership under
+`src/backend/flash/kernel`, with the header contents preserved byte-for-byte.
 The [calibration defect letters](#calibration-defect-letters) still apply,
 including the open `wrx02` predicate mismatch. No wire sequence, definition
 schema, ROM format or hardware support change is part of this migration.
