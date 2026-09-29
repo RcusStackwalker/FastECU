@@ -1,4 +1,5 @@
-load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
+# gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
+load("//bazel:qt_targets.bzl", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:ui_and_composition_root"])
 
@@ -14,5 +15,9 @@ qt_cc_library(
         "commands.h",
         "qhexedit.h",
     ],
-    deps = QT_DEPS,
+    deps = [
+        "//bazel/qt:core",
+        "//bazel/qt:gui",
+        "//bazel/qt:widgets",
+    ],
 )

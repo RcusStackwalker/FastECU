@@ -1,5 +1,9 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+# gazelle:alias_kind qt_cc_library cc_library
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_library")
 
 package(default_visibility = [
     "//bazel/layers:apps",
@@ -12,28 +16,26 @@ package(default_visibility = [
 # QtTest suites exercise FileActions against the real Qt ports. Backend
 # production code depends on nothing here; keeping the grant on this target
 # rather than the package keeps the rest of it out of backend's reach.
-qt_cc_library(
+cc_library(
     name = "ports",
-    srcs =
-        [
-            "qt_atomic_file_writer.cpp",
-            "qt_clock.cpp",
-            "qt_event_sink.cpp",
-            "qt_file_repository.cpp",
-            "qt_file_system.cpp",
-            "qt_resource_bundle.cpp",
-            "qt_settings.cpp",
-        ],
-    hdrs = ["qt_event_sink.h"],  # MOC header
-    normal_hdrs =
-        [
-            "qt_atomic_file_writer.h",
-            "qt_clock.h",
-            "qt_file_repository.h",
-            "qt_file_system.h",
-            "qt_resource_bundle.h",
-            "qt_settings.h",
-        ],
+    srcs = [
+        "qt_atomic_file_writer.cpp",
+        "qt_clock.cpp",
+        "qt_file_repository.cpp",
+        "qt_file_system.cpp",
+        "qt_resource_bundle.cpp",
+        "qt_settings.cpp",
+    ],
+    hdrs = [
+        "qt_atomic_file_writer.h",
+        "qt_clock.h",
+        "qt_file_repository.h",
+        "qt_file_system.h",
+        "qt_resource_bundle.h",
+        "qt_settings.h",
+    ],
+    copts = COMMON_COPTS,
+    implementation_deps = ["//bazel/qt:core"],
     visibility = [
         "//bazel/layers:apps",
         "//bazel/layers:platform",
@@ -42,7 +44,8 @@ qt_cc_library(
         "//src/backend/definitions:__pkg__",
     ],
     deps = [
-        "//bazel/qt:core",
+        # Re-export the signal endpoint through the stable public ports label.
+        ":qt_event_sink",  # keep
         "//src/backend/ports",
     ],
 )
@@ -52,8 +55,9 @@ fastecu_gtest(
     srcs = ["qt_atomic_file_writer_test.cpp"],
     deps = [
         ":ports",
-        "//src/backend/ports",
+        "//bazel/qt:core",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -63,8 +67,12 @@ fastecu_gtest(
     srcs = ["qt_port_adapters_test.cpp"],
     deps = [
         ":ports",
+        ":qt_event_sink",
+        "//bazel/qt:core",
+        "//bazel/qt:test",
         "//src/backend/ports",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -72,11 +80,12 @@ fastecu_gtest(
     name = "test_qt_resource_bundle",
     srcs = ["qt_resource_bundle_test.cpp"],
     deps = [
+        # Resource registration is linked without a C++ include.
+        "//resources/shared:config_resource",  # keep
+        "//resources/shared:kernels_resource",  # keep
         ":ports",
-        "//resources/shared:config_resource",
-        "//resources/shared:kernels_resource",
-        "//src/backend/ports",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )
 
@@ -85,7 +94,22 @@ fastecu_gtest(
     srcs = ["qt_file_system_test.cpp"],
     deps = [
         ":ports",
-        "//src/backend/ports",
+        "//bazel/qt:core",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+# Temporarily hand-owned: pinned alias_kind merging preserves existing attributes.
+# See ADR 0017; plain libraries and tests in this package regenerate normally.
+# keep
+qt_cc_library(
+    name = "qt_event_sink",
+    srcs = ["qt_event_sink.cpp"],
+    hdrs = ["qt_event_sink.h"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//bazel/qt:core",
+        "//src/backend/ports",
     ],
 )

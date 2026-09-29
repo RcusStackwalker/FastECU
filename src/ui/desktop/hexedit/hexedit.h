@@ -16,7 +16,7 @@
 
 #include "./qhexedit/qhexedit.h"
 #include "optionsdialog.h"
-#include "qmainwindow.h"
+#include <QMainWindow>
 #include "searchdialog.h"
 #include <QByteArray>
 #include <QString>

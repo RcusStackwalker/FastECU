@@ -1,4 +1,5 @@
-load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
+# gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
+load("//bazel:qt_targets.bzl", "qt_cc_library")
 
 package(default_visibility = [
     "//bazel/layers:src",
@@ -8,11 +9,12 @@ package(default_visibility = [
 qt_cc_library(
     name = "mock_openport",
     testonly = True,
-    srcs = [],
+    # Required by the header-only moc macro.
+    srcs = [],  # keep
     hdrs = ["mock_openport.h"],
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
-    deps = QT_DEPS + ["//src/platform/desktop/unix/j2534"],
+    deps = ["//src/platform/desktop/unix/j2534"],
 )

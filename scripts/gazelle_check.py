@@ -38,8 +38,15 @@ MANAGED_ROOTS = tuple(
         "src/ui/desktop/checksum",
         "src/ui/desktop/menu",
         "src/ui/desktop/channels",
-        "apps/bench/testing",
+        "apps/bench",
         "src/platform/desktop/common/connection/testing",
+        "src/platform/desktop/common/ports",
+        "src/ui/desktop/definition",
+        "src/platform/desktop/unix/j2534",
+        "src/platform/desktop/windows/j2534",
+        "src/ui/desktop/biu",
+        "src/ui/desktop/hexedit",
+        "src/platform/desktop/common/remote_utility",
     )
 )
 

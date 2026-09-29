@@ -28,6 +28,58 @@ package(default_visibility = ["//visibility:public"])
 # gazelle:resolve cc QTableWidgetSelectionRange //bazel/qt:widgets
 # gazelle:resolve cc QToolBar //bazel/qt:widgets
 # gazelle:resolve cc QWidget //bazel/qt:widgets
+# gazelle:resolve cc QAbstractScrollArea //bazel/qt:widgets
+# gazelle:resolve cc QBrush //bazel/qt:gui
+# gazelle:resolve cc QButtonGroup //bazel/qt:widgets
+# gazelle:resolve cc QClipboard //bazel/qt:gui
+# gazelle:resolve cc QColorDialog //bazel/qt:widgets
+# gazelle:resolve cc QCoreApplication //bazel/qt:core
+# gazelle:resolve cc QDateTime //bazel/qt:core
+# gazelle:resolve cc QDebug //bazel/qt:core
+# gazelle:resolve cc QDialog //bazel/qt:widgets
+# gazelle:resolve cc QDialogButtonBox //bazel/qt:widgets
+# gazelle:resolve cc QDir //bazel/qt:core
+# gazelle:resolve cc QDirIterator //bazel/qt:core
+# gazelle:resolve cc QDomDocument //bazel/qt:xml
+# gazelle:resolve cc QDragEnterEvent //bazel/qt:gui
+# gazelle:resolve cc QDropEvent //bazel/qt:gui
+# gazelle:resolve cc QElapsedTimer //bazel/qt:core
+# gazelle:resolve cc QFile //bazel/qt:core
+# gazelle:resolve cc QFileDialog //bazel/qt:widgets
+# gazelle:resolve cc QFileInfo //bazel/qt:core
+# gazelle:resolve cc QFontDialog //bazel/qt:widgets
+# gazelle:resolve cc QGridLayout //bazel/qt:widgets
+# gazelle:resolve cc QGroupBox //bazel/qt:widgets
+# gazelle:resolve cc QHash //bazel/qt:core
+# gazelle:resolve cc QKeyEvent //bazel/qt:gui
+# gazelle:resolve cc QLabel //bazel/qt:widgets
+# gazelle:resolve cc QLineEdit //bazel/qt:widgets
+# gazelle:resolve cc QList //bazel/qt:core
+# gazelle:resolve cc QMainWindow //bazel/qt:widgets
+# gazelle:resolve cc QPainter //bazel/qt:gui
+# gazelle:resolve cc QPen //bazel/qt:gui
+# gazelle:resolve cc QPointer //bazel/qt:core
+# gazelle:resolve cc QRadioButton //bazel/qt:widgets
+# gazelle:resolve cc QSaveFile //bazel/qt:core
+# gazelle:resolve cc QScrollBar //bazel/qt:widgets
+# gazelle:resolve cc QSemaphore //bazel/qt:core
+# gazelle:resolve cc QSerialPort //bazel/qt:serial_port
+# gazelle:resolve cc QSerialPortInfo //bazel/qt:serial_port
+# gazelle:resolve cc QSettings //bazel/qt:core
+# gazelle:resolve cc QSignalSpy //bazel/qt:test
+# gazelle:resolve cc QSocketNotifier //bazel/qt:core
+# gazelle:resolve cc QStatusBar //bazel/qt:widgets
+# gazelle:resolve cc QTemporaryDir //bazel/qt:core
+# gazelle:resolve cc QTextEdit //bazel/qt:widgets
+# gazelle:resolve cc QThread //bazel/qt:core
+# gazelle:resolve cc QTime //bazel/qt:core
+# gazelle:resolve cc QTimer //bazel/qt:core
+# gazelle:resolve cc QUndoCommand //bazel/qt:widgets
+# gazelle:resolve cc QUndoStack //bazel/qt:widgets
+# gazelle:resolve cc QVBoxLayout //bazel/qt:widgets
+# gazelle:resolve cc QVariant //bazel/qt:core
+# gazelle:resolve cc QtCore //bazel/qt:core
+# gazelle:resolve cc QtRemoteObjects/qremoteobjectnode.h //bazel/qt:remote_objects
 # `manual` keeps `bazel build //...` (every CI matrix leg, SonarCloud) from
 # fetching a Go SDK and compiling gazelle; `bazel run //:gazelle` still builds it.
 gazelle_binary(
@@ -52,8 +104,15 @@ GAZELLE_ARGS = [
     "src/ui/desktop/checksum",
     "src/ui/desktop/menu",
     "src/ui/desktop/channels",
-    "apps/bench/testing",
+    "apps/bench",
     "src/platform/desktop/common/connection/testing",
+    "src/platform/desktop/common/ports",
+    "src/ui/desktop/definition",
+    "src/platform/desktop/unix/j2534",
+    "src/platform/desktop/windows/j2534",
+    "src/ui/desktop/biu",
+    "src/ui/desktop/hexedit",
+    "src/platform/desktop/common/remote_utility",
 ]
 
 gazelle(
@@ -103,6 +162,7 @@ py_test(
         "scripts/gazelle_check.py",
         "scripts/gazelle_check_test.py",
     ],
+    data = ["BUILD.bazel"],
     imports = ["scripts"],
     main = "scripts/gazelle_check_test.py",
 )

@@ -20,7 +20,10 @@ for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_d
 `src/backend/calibration`, `src/backend/logging`,
 `src/backend/service_functions`, `src/backend/flash`,
 `src/ui/desktop/calibration`, `src/ui/desktop/checksum`,
-`src/ui/desktop/menu`, `src/ui/desktop/channels`, `apps/bench/testing` and
+`src/ui/desktop/menu`, `src/ui/desktop/channels`, `src/ui/desktop/definition`,
+`src/ui/desktop/biu`, `src/ui/desktop/hexedit`, `apps/bench`,
+`src/platform/desktop/common/ports`, `src/platform/desktop/common/remote_utility`,
+`src/platform/desktop/unix/j2534`, `src/platform/desktop/windows/j2534` and
 `src/platform/desktop/common/connection/testing`, including their
 subpackages. The legacy Qt-backed
 `src/backend/definitions` remains unmanaged.
@@ -28,8 +31,10 @@ subpackages. The legacy Qt-backed
 - Grouping is `cc_group unit`; `cc_test` is mapped to `fastecu_portable_gtest`.
   The `qt_compat` package overrides the mapping to `fastecu_gtest` and explicitly
   uses the shared Qt header mappings in the root `BUILD.bazel`. These inherited
-  `resolve` directives map Qt headers to Core, Gui and Widgets for all managed
-  packages. The three managed UI packages likewise map tests to `fastecu_gtest`. Their libraries declare no `Q_OBJECT`, so they use plain `cc_library`
+  `resolve` directives map encountered headers to their Qt modules, including
+  Core, Gui, Widgets, Xml, SerialPort, Test and RemoteObjects. Managed UI
+  packages with GoogleTest suites map tests to `fastecu_gtest`. Moc-free
+  libraries use plain `cc_library`
   with `COMMON_COPTS` instead of the moc-bearing `qt_cc_library`; the header-only
   calibration view state retains its existing compiler settings. The connection
   test harness also uses plain `cc_library` with `COMMON_COPTS` and no moc;
@@ -101,6 +106,49 @@ header-only libraries declare `Q_OBJECT`, so every generated `hdrs` entry must
 run through moc; target names and visibility remain hand-owned. Empty `srcs`
 attributes are kept because the Qt macro requires them even for header-only
 libraries. This mapping is suitable only when all library headers need moc.
-Packages mixing moc and
-ordinary headers still need explicit `hdrs` / `normal_hdrs` handling, and
-`fastecu_qttest` needs its own mapping before its packages can be added.
+Mixed packages split ordinary headers into plain `cc_library` targets and keep
+only `Q_OBJECT` headers in `qt_cc_library.hdrs`. The ports package re-exports
+its private `qt_event_sink` moc library through the existing `ports` label;
+Unix J2534 publishes ordinary type declarations through `j2534_types`.
+Windows J2534 uses a plain library and obtains bridge headers from their
+existing owners. Shared J2534 API include prefixes remain explicitly kept,
+along with OS constraints, x86 transitions and the externally sourced
+`pe_bitness_x64_fixture` rule.
+
+Gazelle 0.54.0 and gazelle_cc 0.6.0 remain unmodified. In mixed packages,
+`alias_kind qt_cc_library cc_library` recognizes the existing macro without
+converting plain libraries. However, this pinned combination has a merging
+limitation: gazelle_cc emits the alias kind on generated rules, while Gazelle's
+merger looks up mergeable attributes using that kind without its underlying
+`cc_library` metadata. Existing source/header/dependency attributes therefore
+remain unchanged rather than regenerating. The three affected moc rules are
+explicitly hand-owned with explained rule keeps:
+
+- `//src/platform/desktop/common/ports:qt_event_sink`
+- `//src/ui/desktop/definition:definition_authoring_dialog`
+- `//src/platform/desktop/unix/j2534:j2534`
+
+Their dependency lists were generated through the standard library shape and
+verified with their moc-bearing shapes. Plain libraries and tests in these
+packages are fully generated. Remove these temporary keeps when an approved
+upstream version fixes alias merging; until then, changes to their sources or
+includes require updating these rules by hand.
+
+Packages containing only moc libraries use `map_kind cc_library qt_cc_library`.
+Bench uses `map_kind cc_binary qt_cc_binary` for its existing binary and keeps
+the portable GoogleTest mapping. The binary's selected direct backend is an
+explained dependency keep. Designer-form and remote-replica generation remain
+hand-owned; package-local resolutions connect `ui_*.h` and
+`rep_remote_utility_replica.h` to their generated targets. Resource registration
+is retained with dependency keeps wherever no include expresses the link.
+Unmanaged platform and UI header providers have package-local resolutions.
+
+The checker now covers **51 of 67 C++ packages**, including the eleven packages
+added in this phase. The remaining sixteen packages await the separate
+QtTest-to-GoogleTest migration and mixed-header cleanup. That prerequisite must
+preserve coverage, application initialization, event-loop waits, offscreen
+settings, platform constraints and process-test behavior; `QSignalSpy` may stay
+in GoogleTest suites. Generated Qt assets, shared moc owners, platform selection
+and exceptional process/ABI fixtures remain explicitly hand-owned where needed.
+Completion of the broader migration requires every surviving C++ package to be
+covered and ordinary attributes to regenerate, with exceptions documented.
