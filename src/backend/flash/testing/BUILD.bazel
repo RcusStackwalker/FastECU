@@ -23,7 +23,9 @@ fastecu_portable_gtest(
     srcs = ["scripted_flash_transports_test.cpp"],
     deps = [
         ":scripted_flash_transports",
+        "//src/algorithms/protocol/testing:byte_matchers",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "@googletest//:gtest",
     ],
 )
 
@@ -37,5 +39,8 @@ cc_library(
 fastecu_portable_gtest(
     name = "flash_printers_test",
     srcs = ["flash_printers_test.cpp"],
-    deps = [":flash_printers"],
+    deps = [
+        ":flash_printers",
+        "@googletest//:gtest",
+    ],
 )

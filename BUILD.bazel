@@ -28,6 +28,7 @@ GAZELLE_ARGS = [
     "src/backend/calibration",
     "src/backend/logging",
     "src/backend/service_functions",
+    "src/backend/flash",
 ]
 
 gazelle(
