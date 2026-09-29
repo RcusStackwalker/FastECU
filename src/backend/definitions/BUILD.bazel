@@ -1,87 +1,12 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:qt_common.bzl", "COMMON_COPTS", "QT_DEPS_NO_WIDGETS", "fastecu_qttest")
 
-# Everything here but :models is Qt-typed, so the package default is the same
-# group that gates Qt itself -- otherwise the portable half of src/backend
-# could depend on FileActions and pull Qt in transitively. See
-# docs/adr/0016-enforce-qt-reachability-by-visibility.md.
-package(default_visibility = ["//bazel/qt:qt_layer"])
+# Portable kernel headers retained until step 6n-2 relocates their ownership.
+package(default_visibility = ["//bazel/layers:backend_and_above"])
 
-# root //:windows_preprocessor_guards reads this header directly as `data`;
-# that reference is plumbing, not a layer dependency, so export it to the
-# root package specifically rather than widen the package's general
-# default_visibility.
-exports_files(
-    ["file_actions.h"],
-    visibility = ["//:__pkg__"],
-)
-
-# Pure data headers, no project includes. Split out so that
-# //src/backend/flash can depend on them without creating a
-# definitions <-> flash cycle via flash_utils.h.
-# The one Qt-free target in this package, and the one with consumers outside
-# the Qt layer: //src/backend/flash and //src/backend/flash/ecu are portable.
 cc_library(
     name = "models",
     hdrs = [
         "kernelcomms.h",
         "kernelmemorymodels.h",
-    ],
-    visibility = ["//bazel/layers:backend_and_above"],
-)
-
-# FileActions startup definition indexes for desktop catalog browsing.
-cc_library(
-    name = "definition_indexes",
-    hdrs = ["definition_indexes.h"],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS_NO_WIDGETS,
-)
-
-fastecu_qttest(
-    name = "test_ecuflash_definition_parsing",
-    src = "ecuflash_definition_parsing_test.cpp",
-    deps = [
-        ":definitions",
-        "//src/backend/config/testing:config_session_fixture",
-        "//src/backend/ports/testing:in_memory_atomic_file_writer",
-        "//src/backend/ports/testing:recording_event_sink",
-        "//src/platform/desktop/common/ports",
-    ],
-)
-
-fastecu_qttest(
-    name = "test_file_actions_parsing",
-    src = "file_actions_parsing_test.cpp",
-    deps = [
-        ":definitions",
-        "//src/backend/config:config_session",
-        "//src/backend/definition:ecuflash_parser",
-        "//src/backend/ports/testing:in_memory_atomic_file_writer",
-        "//src/backend/ports/testing:recording_event_sink",
-        "//src/platform/desktop/common/ports",
-    ],
-)
-
-cc_library(
-    name = "definitions",
-    srcs = [
-        "file_actions.cpp",
-    ],
-    hdrs = [
-        "file_actions.h",
-    ],
-    copts = COMMON_COPTS,
-    deps = QT_DEPS_NO_WIDGETS + [
-        ":definition_indexes",
-        ":models",
-        "//resources/shared:config_resource",
-        "//resources/shared:kernels_resource",
-        "//src/algorithms/diagnostics",
-        "//src/algorithms/protocol/qt_compat",
-        "//src/backend/calibration/session:definition_catalogs",
-        "//src/backend/config:config_session",
-        "//src/backend/definition:definition_service",
-        "//src/backend/ports",
     ],
 )

@@ -1,6 +1,6 @@
 # 6n-1: Desktop definition catalog and authoring ownership
 
-Status: approved by the user on 2026-09-29; implementation plan pending review.
+Status: approved and implemented on 2026-09-29; platform CI and hardware qualification remain separate release gates.
 
 ## Intent and scope
 

@@ -16,7 +16,6 @@ package_group(
         "//apps/...",
         "//resources/...",
         "//src/algorithms/protocol/qt_compat",
-        "//src/backend/definitions",
         "//src/platform/...",
         "//src/ui/...",
         "//tests/...",
