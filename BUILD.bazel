@@ -1,8 +1,28 @@
+load("@gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@rules_python//python:defs.bzl", "py_test")
 load("//bazel:clang_tidy.bzl", "clang_tidy_runner")
 load("//bazel:portable_targets.bzl", "CLOSURE_ROOTS")
 
 package(default_visibility = ["//visibility:public"])
+
+# Scope is the `args` list: widening gazelle to another area means adding a path.
+# gazelle:cc_group unit
+# gazelle:map_kind cc_test fastecu_portable_gtest //bazel:gtest_targets.bzl
+# gazelle:exclude src/algorithms/protocol/qt_compat
+# `manual` keeps `bazel build //...` (every CI matrix leg, SonarCloud) from
+# fetching a Go SDK and compiling gazelle; `bazel run //:gazelle` still builds it.
+gazelle_binary(
+    name = "gazelle_cc_binary",
+    languages = ["@gazelle_cc//language/cc"],
+    tags = ["manual"],
+)
+
+gazelle(
+    name = "gazelle",
+    args = ["src/algorithms"],
+    gazelle = ":gazelle_cc_binary",
+    tags = ["manual"],
+)
 
 # Symbolic macros cannot implicitly declare their hardcoded source inputs.
 exports_files([".clang-tidy"])
@@ -27,6 +47,17 @@ py_test(
     imports = ["scripts"],
     main = "scripts/clang_tidy_runner_test.py",
     deps = ["@python_deps//pyyaml"],
+)
+
+py_test(
+    name = "gazelle_check_test",
+    size = "small",
+    srcs = [
+        "scripts/gazelle_check.py",
+        "scripts/gazelle_check_test.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/gazelle_check_test.py",
 )
 
 # Every //src/platform label reachable from a portable target, however many

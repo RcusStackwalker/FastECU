@@ -21,11 +21,17 @@ cc_library(
 fastecu_portable_gtest(
     name = "diagnostics_test",
     srcs = ["diagnostics_test.cpp"],
-    deps = [":diagnostics"],
+    deps = [
+        ":diagnostics",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
     name = "dtc_tables_test",
     srcs = ["dtc_tables_test.cpp"],
-    deps = [":diagnostics"],
+    deps = [
+        ":diagnostics",
+        "@googletest//:gtest",
+    ],
 )

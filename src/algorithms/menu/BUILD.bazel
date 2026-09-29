@@ -12,5 +12,8 @@ cc_library(
 fastecu_portable_gtest(
     name = "menu_command_test",
     srcs = ["menu_command_test.cpp"],
-    deps = [":menu"],
+    deps = [
+        ":menu",
+        "@googletest//:gtest",
+    ],
 )

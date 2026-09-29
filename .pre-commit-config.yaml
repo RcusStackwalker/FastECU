@@ -1,3 +1,6 @@
+default_install_hook_types: [pre-commit, pre-push]
+default_stages: [pre-commit]
+
 repos:
   - repo: builtin
     hooks:
@@ -21,6 +24,13 @@ repos:
         language: system
         files: \.(h|hh|hpp|hxx)$
         entry: bash -c 'hits=$(grep -n "^[[:space:]]*using namespace" "$@" /dev/null); if [ -n "$hits" ]; then echo "$hits"; exit 1; fi' --
+      - id: gazelle
+        name: BUILD files match gazelle output
+        language: python
+        entry: scripts/gazelle_check.py
+        pass_filenames: false
+        stages: [pre-push]
+        files: '(\.(c|cc|cpp|cxx|h|hh|hpp|hxx)$)|((^|/)BUILD\.bazel$)|(^MODULE\.bazel$)|(^scripts/gazelle_check\.py$)'
 
   - repo: https://github.com/lycheeverse/lychee.git
     rev: lychee-v0.24.2

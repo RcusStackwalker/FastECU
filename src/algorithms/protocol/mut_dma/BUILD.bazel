@@ -23,23 +23,35 @@ cc_library(
 fastecu_portable_gtest(
     name = "mut_dma_test",
     srcs = ["mut_dma_test.cpp"],
-    deps = [":mut_dma"],
+    deps = [
+        ":mut_dma",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
     name = "test_codec",
     srcs = ["codec_test.cpp"],
-    deps = [":mut_dma"],
+    deps = [
+        ":mut_dma",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
     name = "test_freeform",
     srcs = ["freeform_test.cpp"],
-    deps = [":mut_dma"],
+    deps = [
+        ":mut_dma",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_portable_gtest(
     name = "test_memory",
     srcs = ["memory_test.cpp"],
-    deps = [":mut_dma"],
+    deps = [
+        ":mut_dma",
+        "@googletest//:gtest",
+    ],
 )
