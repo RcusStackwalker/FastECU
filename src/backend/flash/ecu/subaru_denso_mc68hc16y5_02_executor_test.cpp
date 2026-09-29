@@ -9,7 +9,7 @@
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
-#include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
 #include "src/backend/flash/flash_device_lookup.h"

@@ -24,7 +24,7 @@ using namespace std::chrono_literals;
 
 // ---------------------------------------------------------------------
 // Literal protocol constants transcribed from
-// src/backend/definitions/kernelcomms.h.
+// src/backend/flash/kernel/kernelcomms.h.
 // ---------------------------------------------------------------------
 constexpr std::uint16_t kSubKernelStartComm = 0xbeef; // SUB_KERNEL_START_COMM
 constexpr std::uint8_t kSubKernelId = 0x01;           // SUB_KERNEL_ID

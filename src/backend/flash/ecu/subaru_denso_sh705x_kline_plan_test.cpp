@@ -12,7 +12,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/subaru_denso_sh705x_kline_plan_detail.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_plan.h"

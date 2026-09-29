@@ -7,7 +7,7 @@
 #include <utility>
 
 #include "src/algorithms/protocol/colt/mitsu_colt_can_protocol.h"
-#include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
 

@@ -2,7 +2,7 @@
 
 #include <string_view>
 
-#include "src/backend/definitions/kernelmemorymodels.h"
+#include "src/backend/flash/kernel/kernelmemorymodels.h"
 
 namespace fastecu::flash
 {
