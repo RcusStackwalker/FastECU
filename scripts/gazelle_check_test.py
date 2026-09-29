@@ -198,6 +198,8 @@ class CheckTest(unittest.TestCase):
 
     def test_managed_batches_and_new_subpackages_are_formatted(self):
         managed = [
+            "src/ui/desktop/channels/BUILD.bazel",
+            "src/ui/desktop/channels/nested/BUILD.bazel",
             "src/backend/ports/BUILD.bazel",
             "src/backend/ports/testing/new/BUILD.bazel",
             "src/backend/protocol/BUILD.bazel",
@@ -231,6 +233,8 @@ class CheckTest(unittest.TestCase):
             "src/platform/desktop/common/connection/testing/nested/BUILD.bazel",
         ]
         unmanaged = [
+            "src/ui/desktop/channels_extra/BUILD.bazel",
+            "src/ui/desktop/BUILD.bazel",
             "apps/bench/BUILD.bazel",
             "apps/bench/testing_extra/BUILD.bazel",
             "src/platform/desktop/common/connection/BUILD.bazel",

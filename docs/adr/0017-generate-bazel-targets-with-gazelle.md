@@ -20,7 +20,7 @@ for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_d
 `src/backend/calibration`, `src/backend/logging`,
 `src/backend/service_functions`, `src/backend/flash`,
 `src/ui/desktop/calibration`, `src/ui/desktop/checksum`,
-`src/ui/desktop/menu`, `apps/bench/testing` and
+`src/ui/desktop/menu`, `src/ui/desktop/channels`, `apps/bench/testing` and
 `src/platform/desktop/common/connection/testing`, including their
 subpackages. The legacy Qt-backed
 `src/backend/definitions` remains unmanaged.
@@ -96,5 +96,11 @@ only and is filtered to C++, BUILD, `.bzl`, module, checker and hook-configurati
 changes. `--no-verify` bypasses it
 locally; CI is the gate.
 
-Other macros (`qt_cc_library`, `fastecu_qttest`) need their own `map_kind` and moc
-`hdrs` / `normal_hdrs` handling before their packages can be added.
+The channels package maps `cc_library` to `qt_cc_library` locally. Both of its
+header-only libraries declare `Q_OBJECT`, so every generated `hdrs` entry must
+run through moc; target names and visibility remain hand-owned. Empty `srcs`
+attributes are kept because the Qt macro requires them even for header-only
+libraries. This mapping is suitable only when all library headers need moc.
+Packages mixing moc and
+ordinary headers still need explicit `hdrs` / `normal_hdrs` handling, and
+`fastecu_qttest` needs its own mapping before its packages can be added.
