@@ -10,6 +10,10 @@
 #include <span>
 #include <string_view>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 int main(int argc, char *argv[])
 {
     QCommandLineParser cmdParser;
