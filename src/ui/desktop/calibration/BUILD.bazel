@@ -1,18 +1,29 @@
+# Qt system headers need explicit mappings for generated dependencies.
+# gazelle:resolve cc QApplication //bazel/qt:widgets
+# gazelle:resolve cc QColor //bazel/qt:gui
+# gazelle:resolve cc QMdiSubWindow //bazel/qt:widgets
+# gazelle:resolve cc QString //bazel/qt:core
+# gazelle:resolve cc QStringList //bazel/qt:core
+# gazelle:resolve cc QTableWidget //bazel/qt:widgets
+# gazelle:resolve cc QTableWidgetSelectionRange //bazel/qt:widgets
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_common.bzl", "COMMON_COPTS")
 
 package(default_visibility = ["//bazel/layers:ui"])
 
 # Session edit adapter reads QTableWidget/QMdiSubWindow selection state.
-# Declares no QObject of its own, so the header goes through normal_hdrs.
-qt_cc_library(
+# Declares no QObject of its own, so a plain cc_library suffices.
+cc_library(
     name = "map_edit_adapter",
     srcs = ["map_edit_adapter.cpp"],
-    normal_hdrs = ["map_edit_adapter.h"],
-    deps = QT_DEPS + [
+    hdrs = ["map_edit_adapter.h"],
+    copts = COMMON_COPTS,
+    implementation_deps = ["//bazel/qt:widgets"],
+    deps = [
         ":session_key",
-        "//src/algorithms/protocol/qt_compat",
+        "//bazel/qt:core",
         "//src/backend/calibration:map_edit",
         "//src/backend/calibration/session:calibration_session",
     ],
@@ -22,57 +33,88 @@ fastecu_gtest(
     name = "map_edit_adapter_test",
     srcs = ["map_edit_adapter_test.cpp"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
-    deps = [":map_edit_adapter"],
+    deps = [
+        ":map_edit_adapter",
+        "//bazel/qt:core",
+        "//bazel/qt:widgets",
+        "@googletest//:gtest",
+    ],
 )
 
-qt_cc_library(
+cc_library(
     name = "session_key",
     srcs = ["session_key.cpp"],
-    normal_hdrs = ["session_key.h"],
-    deps = QT_DEPS + ["//src/backend/calibration/session:calibration_session"],
+    hdrs = ["session_key.h"],
+    copts = COMMON_COPTS,
+    deps = [
+        "//bazel/qt:core",
+        "//src/backend/calibration/session:calibration_session",
+    ],
 )
 
 fastecu_gtest(
     name = "session_key_test",
     srcs = ["session_key_test.cpp"],
-    deps = [":session_key"],
+    deps = [
+        ":session_key",
+        "@googletest//:gtest",
+    ],
 )
 
-qt_cc_library(
+cc_library(
     name = "rom_info",
     srcs = ["rom_info.cpp"],
-    normal_hdrs = ["rom_info.h"],
-    deps = QT_DEPS + ["//src/backend/calibration/session:calibration_session"],
+    hdrs = ["rom_info.h"],
+    copts = COMMON_COPTS,
+    deps = [
+        "//bazel/qt:core",
+        "//src/backend/calibration/session:calibration_session",
+    ],
 )
 
 # Header-only: UI presentation state of one open calibration.
 cc_library(
     name = "calibration_view_state",
     hdrs = ["calibration_view_state.h"],
-    deps = QT_DEPS,
+    deps = ["//bazel/qt:core"],
 )
 
-qt_cc_library(
+cc_library(
     name = "map_presentation",
     srcs = ["map_presentation.cpp"],
-    normal_hdrs = ["map_presentation.h"],
-    deps = QT_DEPS + ["//src/backend/calibration/session:calibration_session"],
+    hdrs = ["map_presentation.h"],
+    copts = COMMON_COPTS,
+    deps = [
+        "//bazel/qt:core",
+        "//bazel/qt:gui",
+        "//src/backend/calibration/session:calibration_session",
+    ],
 )
 
 fastecu_gtest(
     name = "map_presentation_test",
     srcs = ["map_presentation_test.cpp"],
-    deps = [":map_presentation"],
+    deps = [
+        ":map_presentation",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_gtest(
     name = "rom_info_test",
     srcs = ["rom_info_test.cpp"],
-    deps = [":rom_info"],
+    deps = [
+        ":rom_info",
+        "@googletest//:gtest",
+    ],
 )
 
 fastecu_gtest(
     name = "hex_parse_qt_compat_test",
     srcs = ["hex_parse_qt_compat_test.cpp"],
-    deps = ["//src/backend/definition:text_format"],
+    deps = [
+        "//bazel/qt:core",
+        "//src/backend/definition:text_format",
+        "@googletest//:gtest",
+    ],
 )

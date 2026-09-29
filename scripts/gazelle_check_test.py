@@ -196,7 +196,7 @@ class CheckTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("commit", output)
 
-    def test_backend_batch_and_new_subpackages_are_formatted(self):
+    def test_managed_batches_and_new_subpackages_are_formatted(self):
         managed = [
             "src/backend/ports/BUILD.bazel",
             "src/backend/ports/testing/new/BUILD.bazel",
@@ -221,8 +221,16 @@ class CheckTest(unittest.TestCase):
             "src/backend/flash/testing/BUILD.bazel",
             "src/algorithms/protocol/qt_compat/BUILD.bazel",
             "src/algorithms/protocol/qt_compat/nested/BUILD.bazel",
+            "src/ui/desktop/calibration/BUILD.bazel",
+            "src/ui/desktop/calibration/testing/new/BUILD.bazel",
+            "src/ui/desktop/checksum/BUILD.bazel",
+            "src/ui/desktop/menu/BUILD.bazel",
         ]
         unmanaged = [
+            "src/ui/desktop/calibration_extra/BUILD.bazel",
+            "src/ui/desktop/checksum_extra/BUILD.bazel",
+            "src/ui/desktop/menu_extra/BUILD.bazel",
+            "src/ui/desktop/definition/BUILD.bazel",
             "src/backend/flash_extra/BUILD.bazel",
             "src/backend/definitions/BUILD.bazel",
             "src/backend/ports_extra/BUILD.bazel",

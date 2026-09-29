@@ -18,13 +18,20 @@ for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_d
 `src/backend/ports`, `src/backend/protocol`, `src/backend/checksum`,
 `src/backend/diagnostics`, `src/backend/config`, `src/backend/definition`,
 `src/backend/calibration`, `src/backend/logging`,
-`src/backend/service_functions` and `src/backend/flash`, including their
-subpackages. The legacy Qt-backed `src/backend/definitions` remains unmanaged.
+`src/backend/service_functions`, `src/backend/flash`,
+`src/ui/desktop/calibration`, `src/ui/desktop/checksum` and
+`src/ui/desktop/menu`, including their subpackages. The legacy Qt-backed
+`src/backend/definitions` remains unmanaged.
 
 - Grouping is `cc_group unit`; `cc_test` is mapped to `fastecu_portable_gtest`.
   The `qt_compat` package overrides the mapping to `fastecu_gtest` and explicitly
-  resolves its Qt headers to `//bazel/qt:core`. Compiler options and Qt visibility
-  remain hand-owned; generated dependencies replace the broad Qt module set.
+  resolves its Qt headers to `//bazel/qt:core`. The three managed UI packages
+  likewise map tests to `fastecu_gtest` and resolve Qt headers to Core, Gui and
+  Widgets. Their libraries declare no `Q_OBJECT`, so they use plain `cc_library`
+  with `COMMON_COPTS` instead of the moc-bearing `qt_cc_library`; the header-only
+  calibration view state retains its existing compiler settings. Compiler
+  options, visibility and offscreen test environments remain hand-owned;
+  generated dependencies replace the broad Qt module set.
   `cc_group directory` was rejected: it merges the per-file tests and overlaps
   deliberately split libraries.
 - Gazelle does not write `visibility`, `PORTABLE_PACKAGES` or the `qt_layer`

@@ -34,6 +34,9 @@ MANAGED_ROOTS = tuple(
         "src/backend/logging",
         "src/backend/service_functions",
         "src/backend/flash",
+        "src/ui/desktop/calibration",
+        "src/ui/desktop/checksum",
+        "src/ui/desktop/menu",
     )
 )
 
