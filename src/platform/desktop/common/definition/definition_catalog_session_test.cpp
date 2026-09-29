@@ -16,6 +16,11 @@ using testing::ElementsAre;
 using testing::Field;
 using testing::HasSubstr;
 
+fastecu::definition::DefinitionHeaderInput header()
+{
+    return {.xml_id = "NEW_XML", .internal_id = "A1B2C3", .ecu_id = "ECU-42", .internal_id_address = 0x1A0};
+}
+
 class DefinitionCatalogSession : public testing::Test
 {
   protected:
@@ -130,5 +135,65 @@ TEST_F(DefinitionCatalogSession, DirectoryChangeDropsDiscoveryWithoutChangingOth
     EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "OLD"), std::nullopt);
     EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW"), "/new/new.xml");
     EXPECT_EQ(session.indexed_source(DefinitionFormat::RomRaider, "RR"), "rr.xml");
+}
+TEST_F(DefinitionCatalogSession, SuccessfulCreateImmediatelyRegistersSource)
+{
+    ASSERT_THAT(session.submit_new_definition("outside.xml", header(), true), IsOk());
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), "outside.xml");
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::RomRaider, "NEW_XML"), std::nullopt);
+}
+
+TEST_F(DefinitionCatalogSession, FailedWritesPreserveLookupAndLogExactError)
+{
+    put_ecuflash("/defs", "old.xml", "OLD");
+    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    writer.replace_error = {fastecu::ErrorKind::Disconnected, "atomic destination unavailable"};
+    EXPECT_THAT(session.submit_new_definition("unavailable.xml", header(), true),
+                IsErrWith(fastecu::ErrorKind::Disconnected, "atomic destination unavailable"));
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "OLD"), "/defs/old.xml");
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
+    EXPECT_THAT(config.events.logs, testing::Contains(testing::Pair(
+                                        fastecu::LogLevel::Error,
+                                        "Unable to create definition [Disconnected]: atomic destination unavailable")));
+    auto catalog = session.catalog(DefinitionFormat::EcuFlash);
+    ASSERT_THAT(catalog, IsOk());
+    EXPECT_THAT(catalog->entries(),
+                ElementsAre(Field(&fastecu::definition::DefinitionIndexEntry::definition_id, "OLD")));
+}
+
+TEST_F(DefinitionCatalogSession, InvalidHeadersDoNotWriteOrRegister)
+{
+    auto input = header();
+    input.xml_id.clear();
+    EXPECT_THAT(session.submit_new_definition("invalid.xml", input, true),
+                IsErrWith(fastecu::ErrorKind::InvalidConfig, "definition XML ID is required"));
+    EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, ""), std::nullopt);
+}
+
+TEST_F(DefinitionCatalogSession, OverwriteRequiresExplicitAuthorization)
+{
+    config.file_system.files["existing.xml"] = {};
+    EXPECT_THAT(session.submit_new_definition("existing.xml", header(), false),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
+    ASSERT_THAT(session.submit_new_definition("existing.xml", header(), true), IsOk());
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), "existing.xml");
+}
+
+TEST_F(DefinitionCatalogSession, ImportRegistersOnlyAfterSuccessfulWrite)
+{
+    config.put("base.xml", "<rom><romid><xmlid>BASE</xmlid></romid><table name=\"Preserved\"/></rom>");
+    writer.replace_error = {fastecu::ErrorKind::Disconnected, "atomic destination unavailable"};
+    EXPECT_THAT(session.submit_imported_definition("base.xml", "imported.xml", header()),
+                IsErrWith(fastecu::ErrorKind::Disconnected, "atomic destination unavailable"));
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
+    EXPECT_THAT(config.events.logs, testing::Contains(testing::Pair(
+                                        fastecu::LogLevel::Error,
+                                        "Unable to import definition [Disconnected]: atomic destination unavailable")));
+    writer.replace_error.reset();
+    ASSERT_THAT(session.submit_imported_definition("base.xml", "imported.xml", header()), IsOk());
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), "imported.xml");
 }
 } // namespace

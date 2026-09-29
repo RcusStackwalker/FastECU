@@ -105,4 +105,45 @@ Status DefinitionCatalogSession::refresh_index(DefinitionFormat format)
     return {};
 }
 
+void DefinitionCatalogSession::remember_submission(std::string_view destination, std::string_view id)
+{
+    const auto position = std::ranges::lower_bound(submitted_ecuflash_handles_, destination);
+    if (position == submitted_ecuflash_handles_.end() || *position != destination)
+    {
+        submitted_ecuflash_handles_.emplace(position, destination);
+    }
+    ecuflash_index_.push_back({std::string{id}, std::string{destination}});
+}
+
+Status DefinitionCatalogSession::submit_new_definition(std::string_view destination,
+                                                       const fastecu::definition::DefinitionHeaderInput& input,
+                                                       bool allow_overwrite)
+{
+    Status status = definitions_.create_definition(destination, input, allow_overwrite);
+    if (!status.has_value())
+    {
+        log_error("Unable to create definition", status.error());
+    }
+    else
+    {
+        remember_submission(destination, input.xml_id);
+    }
+    return status;
+}
+
+Status DefinitionCatalogSession::submit_imported_definition(std::string_view source, std::string_view destination,
+                                                            const fastecu::definition::DefinitionHeaderInput& input)
+{
+    Status status = definitions_.import_definition(source, destination, input);
+    if (!status.has_value())
+    {
+        log_error("Unable to import definition", status.error());
+    }
+    else
+    {
+        remember_submission(destination, input.xml_id);
+    }
+    return status;
+}
+
 } // namespace fastecu::desktop::definition

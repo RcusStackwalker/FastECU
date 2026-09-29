@@ -26,6 +26,10 @@ class DefinitionCatalogSession final : public calibration::IDefinitionCatalogs
     std::optional<std::string> indexed_source(fastecu::definition::DefinitionFormat format,
                                               std::string_view id) override;
     Status refresh_index(fastecu::definition::DefinitionFormat format);
+    Status submit_new_definition(std::string_view destination, const fastecu::definition::DefinitionHeaderInput& input,
+                                 bool allow_overwrite);
+    Status submit_imported_definition(std::string_view source, std::string_view destination,
+                                      const fastecu::definition::DefinitionHeaderInput& input);
 
   private:
     struct IndexedSource
@@ -36,6 +40,7 @@ class DefinitionCatalogSession final : public calibration::IDefinitionCatalogs
 
     std::vector<IndexedSource>& index(fastecu::definition::DefinitionFormat format);
     void log_error(std::string_view operation, const Error& error);
+    void remember_submission(std::string_view destination, std::string_view id);
 
     fastecu::definition::DefinitionService& definitions_;
     config::ConfigSession& config_;

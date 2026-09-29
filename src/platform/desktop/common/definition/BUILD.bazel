@@ -1,5 +1,5 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
-load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest", "fastecu_portable_gtest")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -29,6 +29,20 @@ fastecu_portable_gtest(
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_gtest(
+    name = "definition_catalog_session_integration_test",
+    srcs = ["definition_catalog_session_integration_test.cpp"],
+    deps = [
+        ":definition_catalog_session",
+        "//src/backend/calibration/session:rom_open",
+        "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/definition:ecuflash_parser",
+        "//src/backend/ports/testing:result_matchers",
+        "//src/platform/desktop/common/ports",
         "@googletest//:gtest",
     ],
 )
