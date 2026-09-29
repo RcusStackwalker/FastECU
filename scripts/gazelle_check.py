@@ -108,13 +108,11 @@ def run_bazel_gazelle(root: Path) -> int:
 
 def managed_build_files(root: Path, list_files: ListFiles) -> list[str]:
     """Discover managed BUILD files after generation, including new ones."""
-    excluded = Path("src/algorithms/protocol/qt_compat")
     return sorted(
         relative
         for relative in list_files(root)
         if Path(relative).name == "BUILD.bazel"
         and any(Path(relative).is_relative_to(managed) for managed in MANAGED_ROOTS)
-        and not Path(relative).is_relative_to(excluded)
         and (root / relative).is_file()
     )
 

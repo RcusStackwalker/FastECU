@@ -14,7 +14,7 @@ found when a build broke.
 
 `gazelle` with the `gazelle_cc` extension generates `cc_library` and test targets
 for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_diff` in the root
-`BUILD.bazel`. Currently that is `src/algorithms`, without `qt_compat`, plus
+`BUILD.bazel`. Currently that is `src/algorithms`, including `qt_compat`, plus
 `src/backend/ports`, `src/backend/protocol`, `src/backend/checksum`,
 `src/backend/diagnostics`, `src/backend/config`, `src/backend/definition`,
 `src/backend/calibration`, `src/backend/logging`,
@@ -22,6 +22,9 @@ for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_d
 subpackages. The legacy Qt-backed `src/backend/definitions` remains unmanaged.
 
 - Grouping is `cc_group unit`; `cc_test` is mapped to `fastecu_portable_gtest`.
+  The `qt_compat` package overrides the mapping to `fastecu_gtest` and explicitly
+  resolves its Qt headers to `//bazel/qt:core`. Compiler options and Qt visibility
+  remain hand-owned; generated dependencies replace the broad Qt module set.
   `cc_group directory` was rejected: it merges the per-file tests and overlaps
   deliberately split libraries.
 - Gazelle does not write `visibility`, `PORTABLE_PACKAGES` or the `qt_layer`
@@ -35,7 +38,7 @@ subpackages. The legacy Qt-backed `src/backend/definitions` remains unmanaged.
   reconcile generated attributes.
 - `scripts/gazelle_check.py` runs Gazelle, discovers the managed BUILD files
   (including new ones), then runs the pinned `buildifier` and `buildifier-lint`
-  prek hooks. Formatting excludes `qt_compat`. Its broader `*.bazel` snapshot
+  prek hooks. Its broader `*.bazel` snapshot
   still detects changed, created or deleted files without treating preexisting
   uncommitted edits as drift. The prek `pre-push` hook and the `gazelle` job in
   `pr.yml` use this same checker.
@@ -68,6 +71,10 @@ configurable attribute reaches a symbolic macro as a `select()` and cannot be
 deduplicated, so the macro's `deps` is not configurable: a test that needs
 `select()` in `deps` must use another macro or `fastecu_gtest`.
 
+`fastecu_gtest` also deduplicates implicit Qt and framework dependencies when
+`deps` and `qt_deps` are plain lists. Configurable expressions retain their
+existing behavior and must avoid repeating implicit dependencies themselves.
+
 Gazelle leaves an unused `cc_test` load behind when `map_kind` converts a raw
 `cc_test`; buildifier removes it, and gazelle does not add it back.
 
@@ -77,5 +84,5 @@ only and is filtered to C++, BUILD, `.bzl`, module, checker and hook-configurati
 changes. `--no-verify` bypasses it
 locally; CI is the gate.
 
-Other macros (`qt_cc_library`, `fastecu_gtest`) need their own `map_kind` and moc
+Other macros (`qt_cc_library`, `fastecu_qttest`) need their own `map_kind` and moc
 `hdrs` / `normal_hdrs` handling before their packages can be added.
