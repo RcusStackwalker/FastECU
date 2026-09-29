@@ -11,7 +11,7 @@
 #include <cstddef>
 #include <iterator>
 #include <utility>
-#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
+#include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/backend/checksum/checksum_selection.h"
 #include "src/backend/config/menu_definition.h"
 #include "src/backend/logging/logger_definition_service.h"

@@ -9,7 +9,7 @@
 #include <initializer_list>
 #include <string>
 
-#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
+#include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/backend/ports/duration_cast.h"
 #include "src/platform/desktop/common/serial/serial_facade_codes.h"
 #include "src/platform/desktop/common/serial/serial_port_actions.h"

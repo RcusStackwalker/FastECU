@@ -36,7 +36,7 @@ C++23 (`std::expected`, `std::format`, ranges). MSVC uses `/std:c++latest`; `.ba
 
 Dependencies flow one way: `apps/desktop` → `src/ui` → `src/platform` → `src/backend` → `src/algorithms`. `platform → backend` is permitted — platform implements backend-owned interfaces — and the reverse never is.
 
-- **`src/algorithms/`** — pure, Qt-free logic: protocol codecs, checksum, expression evaluation, diagnostics. A couple of packages carry a `qt_compat` subpackage shimming Qt types for legacy callers; don't add new ones.
+- **`src/algorithms/`** — pure, Qt-free logic: protocol codecs, checksum, expression evaluation, diagnostics.
 - **`src/backend/`** — use cases and domain model. Most targets here are **portable**: no Qt, no threads, no filesystem.
 - **`src/backend/ports/`** — the injected-port interfaces, plus `Result<T>` and `Error`. Transport ports (`IKlineTransport`, `ICanTransport`, `ISsmTransport`) deliberately stay in `src/backend/protocol/` instead.
 - **`src/platform/desktop/`** — the Qt and OS adapters: an implementation of every port, J2534 and serial, the worker threads.
@@ -46,7 +46,7 @@ Dependencies flow one way: `apps/desktop` → `src/ui` → `src/platform` → `s
 ### Error and byte conventions
 
 - Backend operations return `fastecu::Result<T>` (`std::expected<T, Error>`), checked with `.has_value()` and never the implicit `operator bool`. **Exceptions never cross a port.** The `ErrorKind` set is closed — don't add a value without an ADR.
-- Pure protocol, checksum, logging, and flash logic uses `bytes::Byte` / `bytes::Bytes` / `bytes::ByteView` from `src/algorithms/protocol/bytes.h`. `QByteArray` is a boundary type only, converted explicitly via `qt_bytes.h`.
+- Pure protocol, checksum, logging, and flash logic uses `bytes::Byte` / `bytes::Bytes` / `bytes::ByteView` from `src/algorithms/protocol/bytes.h`. `QByteArray` is a boundary type only, converted explicitly via `src/platform/desktop/common/bytes/qt_bytes.h`.
 
 ## Build-graph guardrails
 

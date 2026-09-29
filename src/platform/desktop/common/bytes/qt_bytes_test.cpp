@@ -7,7 +7,7 @@
 #include <cstdint>
 
 #include "src/algorithms/protocol/bytes.h"
-#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
+#include "src/platform/desktop/common/bytes/qt_bytes.h"
 
 using ::testing::ElementsAre;
 
@@ -145,4 +145,43 @@ TEST(TestBytes, qByteArrayToHex_preservesTrailingSpaceFormat)
 {
     ASSERT_EQ(bytes::toHex(QByteArray::fromHex("800102ff")), QString("80 01 02 ff "));
     ASSERT_EQ(bytes::toHex(QByteArray()), QString());
+}
+
+TEST(TestBytes, emptyConversions)
+{
+    const QByteArray empty;
+    EXPECT_TRUE(bytes::view(empty).empty());
+    EXPECT_TRUE(bytes::fromQByteArray(empty).empty());
+    EXPECT_TRUE(bytes::toQByteArray(bytes::ByteView{}).isEmpty());
+}
+
+TEST(TestBytes, ownedRoundTripPreservesBinaryBytes)
+{
+    const QByteArray original = QByteArray::fromHex("00ff7f");
+    const bytes::Bytes owned = bytes::fromQByteArray(original);
+    ASSERT_THAT(owned, ElementsAre(0x00, 0xFF, 0x7F));
+    EXPECT_EQ(bytes::toQByteArray(owned), original);
+}
+
+TEST(TestBytes, mutableViewAliasesSource)
+{
+    QByteArray original = QByteArray::fromHex("001122");
+    auto borrowed = bytes::mutableView(original);
+    borrowed[1] = 0xFF;
+    EXPECT_EQ(original, QByteArray::fromHex("00ff22"));
+}
+
+TEST(TestBytes, fromQByteArrayCopiesSource)
+{
+    QByteArray original = QByteArray::fromHex("00ff");
+    const bytes::Bytes owned = bytes::fromQByteArray(original);
+    original[0] = '\x7f';
+    EXPECT_THAT(owned, ElementsAre(0x00, 0xFF));
+}
+
+TEST(TestBytes, shortQByteArrayWriteIsNoOp)
+{
+    QByteArray original = QByteArray::fromHex("aabb");
+    bytes::writeU32Be(original, 0, 0x12345678);
+    EXPECT_EQ(original, QByteArray::fromHex("aabb"));
 }

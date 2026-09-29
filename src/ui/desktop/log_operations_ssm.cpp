@@ -1,6 +1,6 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
+#include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/ui/desktop/config_fields.h"
 
 void MainWindow::parse_log_value_list(QByteArray received, const QString& protocol_arg)

@@ -1,7 +1,7 @@
 #include "get_key_operations_subaru.h"
 #include <ui_ecu_operations.h>
 #include <QRandomGenerator>
-#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
+#include "src/platform/desktop/common/bytes/qt_bytes.h"
 
 #include <array>
 

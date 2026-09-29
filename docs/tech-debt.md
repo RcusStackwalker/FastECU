@@ -195,23 +195,6 @@ Actions:
   findings on the same functions — see "P2: Pay down the SonarCloud
   code-smell backlog" below; don't track it twice.
 
-### P1: Split `FileActions`
-
-`FileActions` no longer inherits `QWidget`, declares no `Q_OBJECT`, and
-constructs no dialog or message box. Qt Widgets remain unreachable from
-`src/backend` through [ADR 0016](adr/0016-enforce-qt-reachability-by-visibility.md).
-Portable definition, calibration, config, logging and checksum APIs now serve
-their consumers directly. Step 6m retired ROM open/save wrappers, definition
-columns, both definition/calibration legacy adapters and `EcuCalDefStructure`.
-The earlier logging migration retired `LogValuesStructure` and its bridge.
-
-Step 6n still must replace `FileActions`' definition catalog/index ownership,
-wire the remaining services through desktop composition, move retained portable
-kernel constants/models to appropriate ownership and delete `FileActions` and
-its remaining Qt legacy package. The Qt byte-conversion helper also needs a
-designed desktop boundary with explicit conversions and tests. Retire obsolete
-checks as their underlying files disappear; the Qt ratchet only shrinks.
-
 ### P1: Replace parallel-list data models
 
 The logger and calibration parallel-list models are retired. Typed logger,

@@ -2,7 +2,7 @@
 
 #include <utility>
 
-#include "src/algorithms/protocol/qt_compat/qt_bytes.h"
+#include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/backend/ports/event_sink.h"
 
 namespace fastecu::diagnostics

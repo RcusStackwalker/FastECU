@@ -59,9 +59,9 @@ qt_cc_library(
     normal_hdrs = ["diagnostic_link_io.h"],
     deps = QT_DEPS + [
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/qt_compat",
         "//src/backend/ports",
         "//src/backend/protocol",
+        "//src/platform/desktop/common/bytes:qt_bytes",
     ],
 )
 
@@ -139,7 +139,7 @@ qt_cc_library(
         "//src/algorithms/diagnostics",
         "//src/algorithms/menu",
         "//src/algorithms/protocol",
-        "//src/algorithms/protocol/qt_compat",
+        "//src/platform/desktop/common/bytes:qt_bytes",
         "//src/backend/calibration:map_edit",
         "//src/backend/checksum:checksum_selection",
         ":config_fields",
