@@ -128,9 +128,16 @@ cannot reach serial facade headers. Preserve the documented
 
 ### 7 — Android seam
 
-Start after 6n. First prove the portable closure can cross-compile with an
-Android C++23 toolchain. Validate and pin compatible Bazel Android rules and
-NDK versions at this milestone. Keep Android dependencies isolated
+Start after 6n. **Done (spike):** the portable closure cross-compiles for
+Android arm64 with C++23. Every target registered in
+`bazel/portable_targets.bzl` (portable gtest binaries included, compile and
+link only) builds under `--config=android`, pinned to `rules_android_ndk`
+0.1.5 and verified against NDK r30 (30.0.16248370, C++23 via the NDK's libc++).
+Run it with `scripts/android-cross-compile.sh` (needs `ANDROID_NDK_HOME`); CI
+runs it as the `android-cross-compile` job. The NDK toolchain is registered
+only by `--config=android` ([android.bazelrc](../bazel/android.bazelrc)), so
+desktop builds need no NDK. Still open: the API level (the plan targets 29;
+the spike used the toolchain default) and a hermetic NDK pin for CI. Keep Android dependencies isolated
 from desktop targets, adding Kotlin rules only if the fixture requires them.
 
 Introduce the native facade under `src/platform/android/native`: versioned
