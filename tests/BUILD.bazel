@@ -202,17 +202,3 @@ fastecu_gtest(
         "@googletest//:gtest",
     ],
 )
-
-# Preserve the public label; pinned Gazelle requires a test prefix or suffix in mixed packages.
-# keep
-test_suite(
-    name = "mut_dma_integration_tests",
-    tests = [":mut_dma_integration_tests_test"],
-)
-
-# Preserve the public label; pinned Gazelle requires a test prefix or suffix in mixed packages.
-# keep
-test_suite(
-    name = "serial_crash_tests",
-    tests = [":serial_crash_tests_test"],
-)

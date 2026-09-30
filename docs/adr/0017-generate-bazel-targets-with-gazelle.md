@@ -158,10 +158,10 @@ No C++ test may have a whole-rule keep.
 Exceptional main sources are excluded from discovery and retained with narrow
 source-entry keeps, so Gazelle cannot treat them as shared package runners.
 DLL fixtures and other helper binaries remain excluded and hand-owned.
-The legacy `//tests:mut_dma_integration_tests` and `//tests:serial_crash_tests`
-labels are compatibility test suites pointing to generated `_test` targets: the pinned
-unit-group generator appends `_test` to nonstandard names in mixed packages.
-Test suites preserve execution through `bazel test` on the original labels.
+Generated test labels end in `_test`: the pinned unit-group generator appends
+`_test` to nonstandard names in mixed packages. The former
+`//tests:mut_dma_integration_tests`, `//tests:serial_crash_tests` and
+`//tests/force_asserts:tst_force_asserts` labels were not retained as aliases.
 Platform constraints and runtime settings remain on the generated tests.
 
 The checker rejects uncovered C++ test packages, whole-rule test keeps, and
