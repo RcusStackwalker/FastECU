@@ -1,8 +1,9 @@
 # Logging composition — bench verification checklist
 
-Step 6f changes ownership of logging factories and captures ECU/TCU selection
-in each session snapshot. It preserves protocol bytes, CDBG setup order,
-MUT/DMA's 125000 baud initialization, and existing worker/serial threading.
+Desktop composition owns the logging protocol factories, and each session
+snapshot captures the ECU/TCU selection. Protocol bytes, CDBG setup order,
+MUT/DMA's 125000 baud initialization, and worker/serial threading follow the
+established sequences.
 Automated tests are regression evidence, not hardware qualification.
 
 All scenarios below are **unrun**. Record each applicable adapter/OS/protocol

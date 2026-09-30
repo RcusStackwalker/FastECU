@@ -15,27 +15,19 @@ The target state is:
 
 ## Current snapshot
 
-Observed on 2026-08-05:
-
 - FastECU is a Qt 6/C++23 desktop application. Bazel is the sole target graph for
   the application, tests, release packaging, coverage, compile commands, and
-  clang-tidy; the qmake project files have been removed (ADR 0001).
-- The tracked maintained C++ surface, excluding tests, `src/ui/desktop/hexedit/`,
-  and generated Qt files, is approximately 390 `.cpp`/`.h` files and 93k lines.
-  Tests contain approximately 24k lines across 104 `.cpp`/`.h` files.
+  clang-tidy (ADR 0001).
 - Tests are strongest around protocol codecs, logging, serial threading, J2534
-  bridge behavior, definition parsing, the extracted config/calibration use
-  cases, and, as of step 6b, calibration map-edit/interpolation/bounds
-  behavior. Checksum families, most flash orchestration, and UI workflows
-  remain lightly covered.
+  bridge behavior, definition parsing, and the config, calibration and
+  map-edit use cases. Checksum families, most flash orchestration, and UI
+  workflows remain lightly covered.
 - CI builds and tests on Windows, macOS, and Linux, verifies macOS/Windows
   packages, produces coverage for SonarCloud, and runs a blocking clang-tidy
   report over the PR's changed files.
-- Focused background notes remain in the
-  [logging-engine notes](logging-engine-tech-debt.md) and the
-  [protocol generalization notes](protocol-generalization-opportunities.md);
-  those documents contain the current logging-specific gaps and safe
-  protocol-sharing boundary.
+- The [protocol-sharing boundary](design-notes.md#where-port-then-factor-shared-code-and-where-it-did-not)
+  lives in the design notes; logging-specific gaps are under
+  "P2: Logging engine follow-ups" below.
 
 ## Priorities
 
@@ -69,19 +61,10 @@ Actions:
 
 ### P1: Separate UI from application logic
 
-`MainWindow` remains the central coordinator for startup, settings/config
-loading, serial/device setup, logging wiring, calibration lifecycle, ECU
-operation dispatch, log views, status updates, and dialogs. Since step 6d
-`mainwindow.h` includes no flash dialog, and flash dispatch runs through
-`FlashOperationController`. `mainwindow.cpp` is 2,422 lines, unchanged by
-step 6g -- its diagnostic-tools window setup (`show_dtc_window`,
-`show_subaru_biu_window`, `show_terminal_window`) lives in
-`menu_actions.cpp`, now 1,309 lines (from 1,306) after each of those three
-functions was given a local `SerialDiagnosticLink` to pass to its dialog.
-Step 6g's other size changes -- the MUT memory helpers moving out of
-`log_operations_ssm.cpp` and their declarations out of `mainwindow.h`, and
-`hexcommander.{h,cpp}` being deleted outright -- land outside these two
-files.
+`MainWindow` remains the central coordinator for presentation: write preflight,
+checksum interaction, connection orchestration, logging selection, log views,
+status updates, and dialogs. The diagnostic-tools window setup lives in
+`menu_actions.cpp`.
 
 Risks:
 
@@ -93,27 +76,13 @@ Risks:
 
 Actions:
 
-- Introduce small application services behind `MainWindow`: protocol selection,
-  calibration sessions, logging sessions, flash-operation dispatch, and
-  settings persistence.
-- Flash dispatch runs through `FlashOperationController` (step 6d); what
-  remains in `MainWindow::start_ecu_operations` is write preflight,
-  checksum correction, and the post-read calibration handoff. Step 6m moved
-  them onto composition-owned calibration sessions; checksum uses a temporary
-  operation image and successful reads are adopted after dispatch. Dialogs and
-  confirmations remain in the UI. Post-read and checksum bench re-verification
-  remain required before release.
-- Keep new file, protocol, and hardware logic out of `MainWindow`.
-- Logging model and definition service ownership moved to composition in step
-  6l; immutable definitions, selection, ECU support and desktop values are
-  separate. The legacy logging lists/bridge are gone. The two identity corrections
-  have automated evidence; [bench qualification remains pending](design-notes.md#logger-ownership-and-stable-identities).
-- Logging-protocol registration is composition-owned as of step 6f. The
-  platform transport package builds the three protocols; the UI passes the
-  ECU/TCU choice in the logging snapshot. Connection orchestration,
-  protocol/policy selection, and log-file handling still live in the UI.
-- **Confirm or fix the OpenPort five-baud ASCII comparison.** Step 6g's
-  `five_baud_header` (`src/backend/diagnostics/obd_frames.cpp`) preserved the
+- Keep new file, protocol, and hardware logic out of `MainWindow`. Dialogs and
+  confirmations for write preflight and checksum correction stay in the UI;
+  post-read and checksum/save/write bench re-verification remain required
+  before release, and the logger identity corrections still await
+  [bench qualification](design-notes.md#logger-ownership-and-stable-identities).
+- **Confirm or fix the OpenPort five-baud ASCII comparison.**
+  `five_baud_header` (`src/backend/diagnostics/obd_frames.cpp`) preserves the
   J2534 branch's comparison of response bytes `[5]`/`[7]` (iso9141) and
   `[8]`/`[9]` (iso14230) against the ASCII characters `'8'`/`'8'` and
   `'8'`/`'f'` -- different offsets from the direct-serial branch's numeric
@@ -195,41 +164,11 @@ Actions:
   findings on the same functions — see "P2: Pay down the SonarCloud
   code-smell backlog" below; don't track it twice.
 
-### P1: Replace parallel-list data models
-
-The logger and calibration parallel-list models are retired. Typed logger,
-protocol and definition records own their data; composition-owned
-`CalibrationWorkspace` replaces the fixed raw-pointer calibration array.
-Map metadata and values use sessions directly, without a legacy projection.
-Controlled byte edits and decode-on-demand prevent a second mutable value store.
-See [calibration session ownership and operation images](design-notes.md#calibration-session-ownership-and-operation-images).
-
-Remaining checks:
-
-- Confirm removal of SonarCloud's `cpp:S1820` findings on the deleted
-  `LogValuesStructure` and `EcuCalDefStructure`; track other model findings in
-  the SonarCloud backlog rather than recreating this completed migration.
-- Record full release build/test, formatting, changed-file static-analysis and
-  platform CI/packaging results before release.
-- Re-verify post-read handoff and checksum/save/write paths on the bench before
-  release. This model migration does not establish hardware qualification.
-- Keep the documented `wrx02` address predicate defect open until separately
-  evidenced and corrected; model retirement is not a correction to its behavior.
-
 ### P1: Isolate flash-operation orchestration
 
-Every flash family — ECU, TCU, EEPROM, JTAG (removed), BDM, and bootmode —
-now registers with `FlashWorkflowFactory` and runs through the common
-`FlashDialog`. `FlashOperationWorker` and the per-family legacy operation
-classes it backed are gone: the step 5 tail's wave 7 deleted the package
-(`src/platform/desktop/common/flash/legacy/`) along with the drain ratchet
-that tracked it. Shared SSM framing, seed/payload transforms, CRC, byte
-formatting, byte stuffing, and ISO-15765 setup have been consolidated. The
-remaining safe generalization opportunities are maintained in the
-[protocol generalization notes](protocol-generalization-opportunities.md).
-
-Coverage is uneven across families: some carry only the plan/executor unit
-tests each wave added, with no scripted operation-level (`FlashWorkflow` +
+Every flash family registers with `FlashWorkflowFactory` and runs through the
+common `FlashDialog`. Coverage is uneven across families: some carry only the
+plan/executor unit tests, with no scripted operation-level (`FlashWorkflow` +
 `FlashDialog`) coverage.
 
 Actions:
@@ -270,16 +209,13 @@ a dedicated I/O thread. Most flash operation classes still receive the full
 port configuration, adapter discovery, protocol mode setup, blocking I/O, and
 diagnostics.
 
-Since step 6i the facade is platform-only: `serial_port_actions` is visible
-to `src/platform/desktop` and `//tests` alone, and the adapters above it take
-it through `implementation_deps`, so its headers do not reach production UI
-targets. UI tests still see them through `FakeBackend`, which derives from
-`SerialPortActionsDirect`.
+The facade is platform-only: `serial_port_actions` is visible to
+`src/platform/desktop` and `//tests` alone, and adapters take it through
+`implementation_deps`. UI tests still see its headers through `FakeBackend`,
+which derives from `SerialPortActionsDirect`.
 
 Actions:
 
-- Move the CDBG logging start path's real port/mode setup out of the protocol
-  class so the handshake can be scripted headlessly.
 - Continue separating J2534 discovery, PE-bitness/bridge lifecycle, PassThru
   types, configuration, and message transport from higher-level serial
   behavior.
@@ -359,90 +295,43 @@ Actions:
 
 ### P2: Pay down the SonarCloud code-smell backlog
 
-Snapshot taken 2026-09-06 via `sonar list issues --project
-RcusStackwalker_FastECU --statuses OPEN,CONFIRMED --format json` (paginate
-with `--page`, 500/page): 3,870 open issues, all `CODE_SMELL` (no open bugs
-or vulnerabilities), 2,613 Major / 901 Critical / 354 Minor / 2 Info, ~517
-estimated remediation hours. No new ratchet job is needed to stop this from
-growing: the project's "Sonar way" quality gate is Clean-as-You-Code and its
-`new_maintainability_rating` condition already fails a PR that introduces
-enough new code-smell debt (confirmed via `sonar api get
-"/api/qualitygates/show?id=9&organization=rcusstackwalker"`). What follows is
-a plan to pay down the *existing* backlog, ordered by risk rather than by raw
-count, since count and blast radius are not the same thing here.
+The last recorded scan (2026-09-06, via `sonar list issues --project
+RcusStackwalker_FastECU --statuses OPEN,CONFIRMED --format json`, 500 per
+page) found 3,870 open issues, all `CODE_SMELL` (no bugs or vulnerabilities),
+about 517 estimated remediation hours. Its per-rule counts predate the deletion
+of the legacy per-vendor flash-operation files, the parallel-list structs and
+the `FileActions` family, which held most of the top findings, so **re-run the
+scan before scheduling any of it** and discard counts that no longer apply.
 
-**Phase 1 — correctness-risk triage (highest priority, not highest count).**
-`cpp:S1117` (declaration shadows an outer variable, 550 instances),
-`cpp:S5276` (implicit narrowing conversion, 204), and `cpp:S5025` (raw
-`new`/`delete`, 172, Critical) concentrate in the legacy per-vendor flash-op
-files and `J2534_unix.cpp` — the hardware-facing layer
-this document's introduction calls out as needing bench verification before
-qualification. The legacy per-vendor flash-op files were deleted in wave 7
-of the step 5 tail; these counts predate that deletion and have not been
-rescanned since, so treat the flash-op share of them as stale rather than
-current. Several `S1117` messages name variables that look
-copy-paste-shadowed rather than intentionally reused (e.g. a local shadowing
-`timeout_local` or `LOG_I`), which would mean the outer variable silently
-never takes effect. Treat each instance as a triage question, not a
-mechanical rename:
+No ratchet job is needed to stop the backlog growing: the project's "Sonar
+way" quality gate is Clean-as-You-Code, and its `new_maintainability_rating`
+condition already fails a PR that introduces enough new code-smell debt.
+Order the paydown by risk, not by count:
 
-- Read every `S1117`/`S5276` instance in the top 10 offending files and
-  classify it cosmetic (safe rename, explicit cast) vs. suspicious (outer
-  variable's intended assignment never happens).
-- For any suspicious instance, write a characterization test pinning current
-  behavior before changing it — this is a behavior fix, not a style fix, and
-  falls under the same TDD discipline as the flash-orchestration work above.
-- Fix `S5025` instances where a `new`/`delete` pair is unambiguous and scoped
-  to one function (mechanical RAII conversion); flag instances where
-  ownership crosses functions or threads for the same closer review given to
-  other serial/threading code in this document.
-- Confirm on the next scan that new `cpp:S1117` findings no longer include
-  the `emit`-signal false positives bulk-resolved above.
-
-**Phase 2 — high-leverage Critical cleanup (mechanical, low risk).**
-`cpp:S5028` (macro should be `const`/`constexpr`/an enum) accounts for 366
-Critical findings, and 295 of them (80%) sit in two headers:
-`J2534_tactrix_unix.h` (163) and `kernelcomms.h` (132). This is a pure type
-change with no value change — the largest Critical-count reduction available
-for the least risk, and a good second move once Phase 1's bug-shaped findings
-are triaged out of the same neighborhood.
-
-**Phase 3 — bulk mechanical modernization (mechanical, higher volume).**
-`cpp:S6022` (use `std::byte`, 580) and `cpp:S5945` (C array →
-`std::array`/`std::vector`, 197) concentrate in the same legacy per-vendor
-flash-op file family (SH705x K-Line/CAN/DensoCAN/diesel siblings), which wave
-7 of the step 5 tail deleted — these counts are likewise stale for that
-share and unscanned since; fix both rules per file in one pass rather than
-one rule across all files, so the same buffer-handling lines aren't touched
-twice. `cpp:S125` (539, remove
-commented-out code) has no behavior risk — fold its removal into whichever
-file is already open for Phase 1/2/3 work rather than a dedicated sweep, plus
-one pass on the worst offender (`mainwindow.cpp`; `ecu_operations.cpp`, formerly
-the other, was dead code and was deleted in step 6c).
-This is the same action already named below under "Naming and source/data
-organization"; do not track it twice.
-
-**Phase 4 — structural rules, absorbed into existing P1 items, not a new
-track.** `cpp:S1820` (struct exceeds 20 fields, 26 instances) is exactly
-`LogValuesStructure` and `EcuCalDefStructure` —
-already tracked above under "P1: Replace parallel-list data models".
-`cpp:S3776` (cognitive complexity, 89 instances) hits `map_edit.cpp` at the
-same functions already named under "P1: Separate UI from application logic"'s
-two pinned defects. Close these Sonar findings as a side effect of that
-existing work instead of opening a parallel initiative:
-
-- When resolving the parallel-list-model or `map_edit.cpp` P1 items, confirm
-  the corresponding `S1820`/`S3776` instances clear as part of that change.
-- The remaining scattered `S3776`/`S134` (nesting depth, 154) instances that
-  don't land on an existing P1 item stay a plain backlog — re-run the `sonar
-  list issues` query above when picking up unrelated work in a file to see if
-  it carries one, rather than scheduling a dedicated phase for them.
-- Duplication clusters a 2026-09-05 new-code scan found outside the flash
-  executors, not yet extracted: the dialog→validate→write tail of the two
-  wizards in
-  `src/ui/desktop/definition/definition_authoring_dialog.cpp`. The five
-  adapters in `src/platform/desktop/common/transport/`, whose read/write guards
-  differed only by a label string, need re-measuring.
+- **Correctness-risk triage first.** `cpp:S1117` (shadowed declarations),
+  `cpp:S5276` (implicit narrowing) and `cpp:S5025` (raw `new`/`delete`)
+  concentrated in the hardware-facing layer, and some `S1117` messages named
+  variables that looked copy-paste-shadowed rather than intentionally reused.
+  Treat each surviving instance as a triage question, not a mechanical rename:
+  classify it cosmetic or suspicious (an outer variable's intended assignment
+  never happens); pin suspicious ones with a characterization test before
+  changing them; convert `new`/`delete` pairs scoped to one function to RAII
+  and give cross-function or cross-thread ownership a closer review.
+- **Mechanical Critical cleanup.** `cpp:S5028` (macro should be
+  `const`/`constexpr`/an enum) was concentrated in `J2534_tactrix_unix.h` and
+  `kernelcomms.h`; a pure type change with no value change.
+- **Bulk modernization.** `cpp:S6022` (`std::byte`), `cpp:S5945` (C array to
+  `std::array`/`std::vector`) and `cpp:S125` (commented-out code): fix per
+  file in one pass, folded into whichever file is already open, rather than one
+  rule across all files.
+- **Structural rules ride on existing items.** `cpp:S3776` (cognitive
+  complexity) on `map_edit.cpp` clears with the `map_edit.cpp` defects above.
+  Scattered `S3776`/`S134` findings stay a plain backlog; re-run the query when
+  picking up a file.
+- Duplication clusters not yet extracted: the dialog→validate→write tail of
+  the two wizards in `src/ui/desktop/definition/definition_authoring_dialog.cpp`,
+  and the five adapters in `src/platform/desktop/common/transport/`, whose
+  read/write guards differed only by a label string and need re-measuring.
 - `WriteSelection.ReproducesTheFourSpaceQDomIndent`
   (`src/backend/logging/logger_conf_test.cpp`) pins pugixml output against
   bytes captured from the deleted `QDomDocument::save(output, 4)` writer. It
@@ -451,14 +340,58 @@ existing work instead of opening a parallel initiative:
   `write_selection` → `read_selection` round trip; keep the four-space
   `format_indent` setting itself.
 
+### P2: Logging engine follow-ups
+
+Findings specific to the `LoggingProtocol`/`LoggingWorker`/`LoggingEngine`
+architecture. Hardware qualification is gated by the
+[logging engine bench checklist](logging-engine-bench-checklist.md); the most
+consequential open checks are:
+
+1. **Plain-serial logging through `SerialIoThread`.** The backend owns
+   `QSerialPort` on its dedicated I/O thread and headless PTY coverage exists,
+   but continuous logging, adapter removal, and clean teardown still need
+   confirmation with a real non-J2534 adapter and ECU.
+2. **SSM's per-cycle `0xA8 0x01` request.** `SsmLoggingProtocol::poll()` sends
+   the request on every cycle. Confirm that supported ECUs treat it as strict
+   request/response rather than entering a continuous stream that repeated
+   requests could desynchronize.
+3. **CDBG logging.** Raw-CAN setup, handshake, security access, and stream
+   behavior remain gated by the
+   [CDBG CAN bench checklist](cdbg-can-logging-bench-checklist.md).
+
+The worker-thread prompts and progress reporting used by Mitsubishi M32R CAN
+flashing are tracked in the
+[Colt CZT CAN bench checklist](colt_czt_47110032_can_bench_checklist.md).
+
+Deferred behavior:
+
+- No live GUI indicator for `LoggingStatus::CarNotResponding`: the worker and
+  engine emit it, but `MainWindow` shows only a warning in the log window.
+- No live reconfiguration: changing channels, poll interval, or protocol
+  requires a stop/start; live changes would need an explicit path through
+  `LogSessionConfig` and `LoggingWorker`.
+- `SessionEndReason::StoppedByUser` is not observed by production callers,
+  because `LoggingEngine::stop()` disconnects worker signals before requesting
+  the stop. The worker branch is tested and remains a standalone contract.
+
+Minor code-level findings (verify before scheduling; these were recorded
+before several migrations):
+
+- `src/backend/protocol/issm_transport.h` defines `ISsmTransport` in the global
+  namespace, unlike `mutdma::IKlineTransport` and `cdbg::ICanTransport`.
+- `FastEcuSsmTransport::write()` discards the bytes returned by
+  `write_serial_data_echo_check()` and reports the input size unconditionally,
+  so an echo failure is not exposed.
+- `MainWindow::handleLoggingSessionEnded()` finds the menu action whose text is
+  `Logging`; similar text-based lookup is duplicated in `toggle_realtime()` and
+  `toggle_log_to_file()`.
+- `test_ssm_logging_protocol` includes timeout-bounded cases that wait on real
+  elapsed time; watch its runtime as timeout scenarios are added.
+
 ### P2: Naming and source/data organization
 
 Some names and data placement still reflect earlier architecture:
-`log_operations_ssm.cpp` contains MUT/DMA bench utilities. The duplicate
-`STATUS_SUCCESS`/`STATUS_ERROR` macros are resolved: step 6e left one
-definition, in `src/platform/desktop/common/serial/serial_facade_codes.h`. They
-stay macros there because the Windows SDK's `ntstatus.h` defines
-`STATUS_SUCCESS` as one.
+`log_operations_ssm.cpp` contains MUT/DMA bench utilities.
 
 Actions:
 

@@ -41,3 +41,4 @@ test --test_output=errors
 # The coverage and SonarCloud configs are kept in their own file.
 # `import`, not `try-import`: --config=coverage/sonar must fail loudly if it is missing.
 import %workspace%/bazel/coverage.bazelrc
+import %workspace%/bazel/android.bazelrc

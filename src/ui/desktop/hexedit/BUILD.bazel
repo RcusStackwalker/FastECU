@@ -1,3 +1,6 @@
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+
 # gazelle:resolve cc ui_searchdialog.h :ui_searchdialog
 # gazelle:resolve cc ui_optionsdialog.h :ui_optionsdialog
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
@@ -38,5 +41,19 @@ qt_cc_library(
         "//bazel/qt:widgets",
         "//resources/desktop:hexedit_resource",  # keep: Qt resource registration has no include.
         "//src/ui/desktop/hexedit/qhexedit",
+    ],
+)
+
+fastecu_gtest(
+    name = "hexedit_test",
+    srcs = ["hexedit_test.cpp"],
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        "//bazel/qt:core",
+        "//src/platform/desktop/common/testing:widgets_application_environment",
+        "//src/ui/desktop/hexedit",
+        "//src/ui/desktop/hexedit/qhexedit",
+        "@googletest//:gtest",
     ],
 )

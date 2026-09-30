@@ -1,17 +1,19 @@
 # Connection and identification -- bench verification checklist
 
-Step 6h moved `MainWindow`'s connection handling onto `AdapterConnection`
-and its SSM ECU identification into a portable `identify_ssm_ecu`, run off
-the UI thread by `SsmIdentifyWorker`. Most facade call sequences are
-unchanged and pinned by tests, but several wire-level behaviors changed on
-purpose (see the [design notes](design-notes.md#connection-and-identification)).
+`MainWindow`'s connection handling lives in `AdapterConnection`, and SSM ECU
+identification is the portable `identify_ssm_ecu`, run off the UI thread by
+`SsmIdentifyWorker`. Several wire-level behaviors differ deliberately from the
+original code (see the [design notes](design-notes.md#connection-and-identification)
+for the pinned quirks). Malformed-frame handling (short or malformed init
+frames fail as `BadResponse`, SSM1's trailing drain stops after 100 reads)
+has automated coverage only and no bench row.
 Automated tests (`ssm_identify_test.cpp`, `ssm_identify_worker_test.cpp`,
 `adapter_connection_test.cpp`, `serial_diagnostic_link_test.cpp`,
 `mainwindow_test.cpp`) are regression evidence, not hardware qualification.
 
 No row below is qualified until it is run on a bench and signed off. This
 checklist does not affect the [flash qualification matrix](flash-qualification-matrix.md);
-the only flash-path change is that a flash operation now stops a running
+the only flash-path interaction is that a flash operation stops a running
 identification first.
 
 Run `bazel test --config=release //...` first.
@@ -65,4 +67,4 @@ Run `bazel test --config=release //...` first.
 | 21 | Start logging, Subaru K-Line with the ECU unpowered, then open the DTC window before the five attempts finish | Identification stops; "Unable to connect to ECU" appears; the DTC window opens; after closing it the port list and refresh button are enabled | Not yet tested |
 | 22 | As #21, but with a port refresh, a log-transport change, the BIU window, and the terminal window in place of DTC | Same as #21 for each | Not yet tested |
 | 23 | BIU window on a newly chosen port, then restart the application | The BIU port is the one selected after restart | Not yet tested |
-| 24 | Connect, Subaru, iso15765 (#6), then check the system log | The log shows `ECU ID:` followed by the `F182` ID (before step 6h the ID was not recorded for iso15765) | Not yet tested |
+| 24 | Connect, Subaru, iso15765 (#6), then check the system log | The log shows `ECU ID:` followed by the `F182` ID (the ID is recorded for iso15765) | Not yet tested |

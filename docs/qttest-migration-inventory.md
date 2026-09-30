@@ -901,3 +901,16 @@ Application: Core.
 - `j2534_win_bridge_test`: `J2534WinBridge.OpensConnectsAndReadsThroughBridge`.
 
 The legacy plural integration and force-asserts labels remain runnable test suites pointing to the Gazelle-named executables. The release force-asserts SIGABRT check is unchanged. Runtime resources, offscreen settings, platform constraints, x86 fixture transitions and Sonar exclusions are preserved.
+
+
+## Tests added on master during migration
+
+The merge of master at `4a2f8e82` added two QtTest suites in already managed hex-editor packages. These are also converted, bringing the migrated total to 46 suites and 470 baseline case methods:
+
+| Original suite / case | GoogleTest replacement | Preserved behavior |
+| --- | --- | --- |
+| HexEditTest::unpersistableSettingsStillGiveAUsableLayout | HexEditTest.unpersistableSettingsStillGiveAUsableLayout | Unwritable temporary settings store and usable layout defaults |
+| HexEditTest::bytesPerLineIsNeverZero | HexEditTest.bytesPerLineIsNeverZero | Zero input clamps bytes per line |
+| QHexEditTest::showingAndResizingLaysOutWithoutCrashing | QHexEditTest.showingAndResizingLaysOutWithoutCrashing | Show/resize, 10 ms event processing, and 64-byte data |
+
+Both retain their labels, offscreen Widgets environments, and former main-macro DPI setting. MainWindow's newly added isolated QSettings directory is retained in its shared fixture initialization. No data tables or conditional skips were added by these suites.

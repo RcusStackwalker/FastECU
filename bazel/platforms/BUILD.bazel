@@ -11,6 +11,15 @@ platform(
     ],
 )
 
+# Android arm64 target for the step-7 cross-compile spike (`--config=android`).
+platform(
+    name = "android_arm64",
+    constraint_values = [
+        "@platforms//cpu:arm64",
+        "@platforms//os:android",
+    ],
+)
+
 # Exposes the raw source file to
 # //src/platform/desktop/windows/j2534:pe_bitness_x64_fixture (a separate
 # package), which builds it for the host (x64) platform as a distinct

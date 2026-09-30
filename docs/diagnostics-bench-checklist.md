@@ -1,12 +1,10 @@
 # Diagnostic tools -- bench verification checklist
 
-Step 6g moved the BIU, DataTerminal, and DTC dialogs off `SerialPortActions`
-onto the `IDiagnosticLink` port, with the OBD-II DTC session now running as
-a portable, cancellable `DtcWorker` off the UI thread. No wire framing
-changed: `IDiagnosticLink::open()` applies the same setters in one canonical
-order that the dialogs applied individually, five-baud and fast init use
-the same bytes, and the OpenPort five-baud ASCII comparison and the K-Line
-unframing heuristics are pinned exactly as they were (see the
+The BIU, DataTerminal, and DTC dialogs use the `IDiagnosticLink` port, and
+the OBD-II DTC session runs as a portable, cancellable `DtcWorker` off the UI
+thread. `IDiagnosticLink::open()` applies its setters in one canonical order,
+and the OpenPort five-baud ASCII comparison and the K-Line unframing
+heuristics are pinned quirks (see the
 [design notes](design-notes.md#diagnostic-tools)). Automated tests
 (`serial_diagnostic_link_test.cpp`, `dtc_session_test.cpp`,
 `obd_frames_test.cpp`, `dtc_worker_test.cpp`) are regression evidence, not
@@ -14,7 +12,7 @@ hardware qualification.
 
 No row below is qualified until it is run on a bench and signed off. This
 checklist does not affect the [flash qualification matrix](flash-qualification-matrix.md);
-none of step 6g's changes touch a flash path.
+it covers no flash path.
 
 Run `bazel test --config=release //...` first.
 
@@ -50,6 +48,8 @@ Run `bazel test --config=release //...` first.
 | 7 | Close the DTC dialog during vehicle info | Dialog closes promptly (worker is stopped and joined, not left running); the next DTC run on the same connection works | Not yet tested |
 | 8 | BIU connect and keep-alive | Connects and exchanges keep-alive messages for at least 30 s with no dropped connection | Not yet tested |
 | 9 | DataTerminal: SSM K-Line send, CAN iso15765 send, ordering with DTC | K-Line SSM send gets a response; CAN iso15765 send gets a response; after running DTC first, DataTerminal still sends with no header (its `open()` resets and sets every flag, so it does not inherit flags DTC left behind) | Not yet tested |
+| 10 | DTC run that fails (for example an empty stored-DTC list, or the ECU unpowered) | The log shows exactly one `DTC operation failed: ...` line; closing the dialog mid-run cancels the worker at the next sleep or read rather than instantly | Not yet tested |
+| 11 | Two DTC runs in one dialog on iso14230, with fast init accepted the first time and rejected the second | The second run's fast init is checked on its own: it falls back to five-baud instead of inheriting the first run's pass | Not yet tested |
 
 ## Sign-off
 

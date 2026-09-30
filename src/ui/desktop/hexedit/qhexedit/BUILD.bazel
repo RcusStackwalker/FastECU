@@ -1,3 +1,6 @@
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
 load("//bazel:qt_targets.bzl", "qt_cc_library")
 
@@ -19,5 +22,18 @@ qt_cc_library(
         "//bazel/qt:core",
         "//bazel/qt:gui",
         "//bazel/qt:widgets",
+    ],
+)
+
+fastecu_gtest(
+    name = "qhexedit_test",
+    srcs = ["qhexedit_test.cpp"],
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":qhexedit",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:widgets_application_environment",
+        "@googletest//:gtest",
     ],
 )

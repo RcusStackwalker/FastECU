@@ -118,9 +118,48 @@ Mitsubishi requires its initial handshake with one timeout policy; Hitachi uses
 optional probes, a short recovery-wake timeout, fallback parsing and tolerant
 write acknowledgements. A helper would have to expose timeout and tolerance
 policy at its boundary, recreating the configurable state machine that
-[port-then-factor](protocol-generalization-opportunities.md) exists to avoid.
+[port-then-factor](#where-port-then-factor-shared-code-and-where-it-did-not) exists to avoid.
 
 ### Where port-then-factor shared code, and where it did not
+
+Do not force all ECU families into one configurable state machine. Handshake
+order, service identifiers, field offsets, erase behavior and recovery
+semantics differ across K-Line/CAN and Denso/Hitachi/Mitsubishi families. The
+rule is an ordering, not a judgment call: within a clone cluster, port each
+family to a tested portable executor first, and only then factor out what is
+provably identical between the tested executors. Extraction never happens
+against untested Qt sources. Share pure byte algorithms, framing, validation
+primitives, block planning and workflow plumbing; keep protocol sequence and
+safety policy readable inside each verified family. Transfer loops stay
+family-specific until byte-level tests show that erase rules, address
+translation, response opcodes and retry semantics are identical. New or
+modified families take protocol sessions through `IKlineTransport`,
+`ICanTransport` or `ISsmTransport`, so handshake, timeout, rejection and
+cancellation paths are scriptable.
+
+Shared today, and not open extraction work:
+
+- The [SSM protocol core](../src/algorithms/protocol/ssm/ssm_protocol_core.h):
+  SSM headers and checksums, seed-key and payload transforms, the non-standard
+  CRC, frame validation and byte formatting. Do not reintroduce per-module
+  copies. Family-specific lookup tables stay at the call sites because they
+  are protocol data, not duplicate algorithms.
+- `src/backend/flash/flash_utils.*`: byte stuffing and ISO-15765 flash setup.
+- `src/algorithms/protocol/bytes.h` and
+  `src/platform/desktop/common/bytes/qt_bytes.h`: portable byte types and
+  explicit desktop Qt conversions.
+- `FlashDialog` and `FlashWorkflow`: logging signals, prompts, progress,
+  cancellation and worker-thread plumbing for every family.
+- `FlashAttemptOutcome` (private to `flash_workflow.cpp`): the
+  terminal/outcome/bytes/rom_id/failure bookkeeping shared by all
+  `FlashWorkflow` subclasses.
+
+Still-open opportunities, to be taken only with scripted tests first:
+family-aware response validators consuming `bytes::ByteView` and returning a
+structured result (never logging or choosing retry policy), and pure
+block-planning helpers.
+
+Where sharing happened, and where it did not:
 
 - Wave 3 produced `subaru_tcu_cvt_mitsu_can_common` for the MH8111 and MH8104
   TCU families.
@@ -131,8 +170,12 @@ policy at its boundary, recreating the configurable state machine that
 - Wave 6b-2 shared only byte-identical seed and encrypt tables with the EEPROM
   K-Line executor (`denso_sh705x_kline_common.h`).
 - Waves 1 and 6 declined any common code.
-- `single_window_plan` covers declarative plan validation for ten kernel-free
-  families; it was deliberately not widened to wave 5's kernel-backed,
+- `single_window_plan` (`src/backend/flash/ecu/single_window_plan.*`) covers
+  declarative plan validation for ten kernel-free families, those described
+  entirely by a protocol id, an MCU, a read window, a write window and one
+  image size. It shares plan validation only; the executors stay un-factored
+  because their look-alike blocks differ in timeouts, retry counts and response
+  strictness. It was deliberately not widened to wave 5's kernel-backed,
   16-block families.
 
 Each shared header names its consumers and what was compared.
@@ -161,7 +204,7 @@ shipped expression.
 
 ### Logger ownership and stable identities
 
-Step 6l replaces the parallel logging lists with the portable `LoggerModel`.
+The portable `LoggerModel` holds logger definitions, selection and support.
 `DesktopComposition` owns it and `LoggerDefinitionService`; `MainWindowServices`
 passes references to the GUI. The definition installs once and is exposed only
 as const data. XML `enabled` defaults stay immutable. Operator selection, ECU
@@ -215,7 +258,7 @@ spaces. Any pugixml writer for a file users already have on disk must set the
 indent explicitly (as `logger_conf.cpp` does), or every existing file
 reformats wholesale on the next write.
 
-## Definitions and `FileActions`
+## Definitions
 
 ### pugixml is an adjudicated dependency
 
@@ -239,8 +282,8 @@ anything a second caller will need gets a port.
 
 ### Desktop catalog lookup and authoring ownership
 
-Step 6n-1 replaces `FileActions` and its parallel definition indexes with a
-composition-owned `DefinitionCatalogSession` in the desktop platform layer.
+A composition-owned `DefinitionCatalogSession` in the desktop platform layer
+replaced the former `FileActions` and its parallel definition indexes.
 It implements the existing portable `IDefinitionCatalogs` interface and shares
 one `DefinitionService` with ROM opening. The dialogs retain operator decisions;
 the session records authored destinations only after successful writes.
@@ -331,18 +374,8 @@ keeps its load-failure notice. Create/import writes a definition and does not
 reopen the definition-less session. Failed or cancelled ECU reads create no
 session; successful reads are adopted after dispatch completes.
 
-`EcuCalDefStructure`, legacy definition/calibration adapters, legacy columns and
-the projection are retired. `FileActions` and its definition catalog implementation are retired.
-The Qt byte-conversion helper now lives at
-`src/platform/desktop/common/bytes/qt_bytes.h`, with target-level visibility
-for its desktop UI consumers. Kernel models have flash ownership under
-`src/backend/flash/kernel`, with the header contents preserved byte-for-byte.
 The [calibration defect letters](#calibration-defect-letters) still apply,
-including the open `wrx02` predicate mismatch. No wire sequence, definition
-schema, ROM format or hardware support change is part of this migration.
-
-Release still requires recorded full build/test, formatting, changed-file
-static-analysis and platform CI/packaging results. Post-read adoption and
+including the open `wrx02` predicate mismatch. Post-read adoption and
 checksum/save/write paths require bench re-verification before release;
 automated coverage does not establish hardware qualification.
 
@@ -354,14 +387,6 @@ A `glob()`-based target silently absorbs any new source dropped into its
 package, and a new portable target's glob can equally pull in a legacy Qt
 file. Land portable code in its own package, and use explicit `srcs` lists for
 any target sharing a package with legacy code.
-
-### `PORTABLE_PACKAGES` lists targets, not packages
-
-`bazel/portable_targets.bzl` maps each package to a list of target names. A
-package already being listed does not cover a new target added to it: every new
-portable `cc_library` must be added by name, or `//:portable_closure` never
-checks it, without any failure or warning. This was missed once (wave 6a-1) and
-left targets unguarded until noticed later.
 
 ### A glob fails when any one pattern matches nothing
 
@@ -384,22 +409,16 @@ is never emitted), so every restart leaked one.
 
 ### Construct the serial facade through `desktop_serial_factory`
 
-`apps/desktop` must not join `serial_qt_compat`'s frozen visibility list. The
-factory exposes construction only, returns an owner with a custom deleter, and
-keeps `SerialPortActions` an incomplete type in `apps/desktop`. It connects
+`apps/desktop` must not depend on the facade target directly. The factory
+exposes construction only, returns an owner with a custom deleter, and keeps
+`SerialPortActions` an incomplete type in `apps/desktop`. It connects
 the facade's `LOG_*` signals to the sink with string-based `SIGNAL`/`SLOT`,
 which fail only at runtime; `desktop_serial_factory_test` is what catches a
 broken one.
 
-### `Settings` saves through the shared `FileActions`
-
-`Settings` used to build a throwaway `FileActions` reporting to a
-`NullEventSink`. It now takes the caller's instance, so diagnostics from a
-save reach the log window instead of being dropped.
-
 ## Logging composition
 
-Step 6f moves the MUT/DMA, CDBG, and SSM registrations into
+The MUT/DMA, CDBG, and SSM registrations live in
 `register_desktop_logging_protocols`, called once by `DesktopComposition`
 before constructing the window. The helper is a separate
 `//src/platform/desktop/common/transport:logging_protocol_registration`
@@ -450,18 +469,16 @@ step. Only the P1-max mechanism (`set_j2534_ioctl` vs. `set_kline_timings`)
 is hidden inside `set_p1_max`, because both call sites want the same effect
 and neither caller needs to know which one ran.
 
-### `SerialDiagnosticLink` lives beside `service_functions`, not inside `serial_qt_compat`
+### `SerialDiagnosticLink` lives in its own platform package
 
-The new `//src/platform/desktop/common/diagnostics` package reaches the
-facade through `//src/platform/desktop/common/serial:serial_platform_api`,
-the same same-layer handle that `service_functions` already uses, instead of
-becoming a fourth caller added to the frozen `serial_qt_compat` visibility
-list. `serial_diagnostic_link.h` forward-declares `SerialPortActions`, so
+The `//src/platform/desktop/common/diagnostics` package reaches the facade
+through `//src/platform/desktop/common/serial:serial_port_actions` as an
+`implementation_deps` edge, like the other platform adapters.
+`serial_diagnostic_link.h` forward-declares `SerialPortActions`, so
 including it does not carry `serial_port_actions.h` to the UI; `MainWindow`
 constructs a `SerialDiagnosticLink` from the facade pointer it already holds
 and hands the dialogs an `IDiagnosticLink&`. This is also where `DtcWorker`
-lives: it is a Qt adapter with no `SerialPortActions` include of its own, so
-it needs no allowlist entry either.
+lives: it is a Qt adapter with no `SerialPortActions` include of its own.
 
 ### BIU and DataTerminal stay synchronous; DTC does not
 
@@ -512,52 +529,27 @@ confirm what the ECU actually expects:
 
 ### Behavior changes
 
-1. **DTC runs off the UI thread.** `DtcWorker` runs `run_dtc_session` on its
-   own thread, so the dialog stays responsive during a run. Cancellation is
-   best-effort, not step-by-step: `DtcRun` checks it only inside
-   `IClock::sleep` and inside `IDiagnosticLink::read`/`read_obd`, exactly as
-   `DesktopKlineFlashTransport` does elsewhere, not between every step. An
-   already-cancelled run still costs one `open()` and one init exchange
-   before the first sleep stops it; closing the dialog cancels the run and
-   waits for the worker to stop, it does not cut it off instantly.
-2. **DTC short responses fail cleanly.** An init or request response too
-   short for the legacy unchecked `at(i)` becomes an init failure or
-   `BadResponse` through `obd_frames.h`'s bounds-checked helpers, not an
-   assert or undefined behavior.
-3. **DataTerminal resets and sets every flag before opening.** `open()`
-   applies every field of `KlineLinkConfig`/`CanLinkConfig` in one canonical
-   order after a `reset()`, so DataTerminal no longer inherits header, CAN,
-   or 29-bit flags an earlier tool left set. Each send already ended with a
-   reset, so this only changes behavior when another tool left flags set
-   right before DataTerminal's own `open()`.
-4. **A failed DTC run always logs one error line.** `DtcOperations::finish`
-   logs `"DTC operation failed: " + result.error_detail` for any failed run.
-   Today some failures (an empty stored-DTC list, an ignored `open()` failure
-   that let fast init proceed and fail later) ended silently. The `open()`
-   case needs its own note: on iso14230, a failed `open()` during fast init
-   does not end the run immediately. `fast_init()`'s `open()` failure is
-   treated the same as any other fast-init failure, so `DtcRun::init()`
-   still falls back to five-baud -- reproducing today's behavior, where the
-   ignored `open_serial_port()` result let fast init's wire calls proceed
-   and fail on their own. The run ends in `Disconnected` only if the
-   five-baud path's own re-open also fails.
-5. **DTC PID pages `0x81`-`0xE0` are accepted.** The legacy `request_data`
-   compares a `QByteArray::at()` byte (a signed `char` on x86 and macOS)
-   against the `uint8_t` PID, so the echo check for PID requests `0x80`,
-   `0xA0`, and `0xC0` never matched and those supported-PID pages were
-   logged as a wrong response and discarded. `check_response` compares
-   `bytes::Byte` (unsigned), matching the behavior these platforms would
-   already see if `char` were unsigned there (as it is on Linux/ARM).
-6. **Each DTC run starts clean.** The legacy dialog's `fast_init_ok` member
-   was never reset, so once one fast init passed in a dialog's lifetime,
-   every later fast init in that same dialog passed its check too. Each
-   `DtcRun` is a fresh object with no equivalent state, so every run's fast
-   init is checked on its own merits.
+These differences from the original dialogs are listed as bench rows in the
+[diagnostics checklist](diagnostics-bench-checklist.md); the ones with no bench
+row are automated-only.
 
-Also a wording/format detail, not a behavior change: the legacy two-part
-`LOG_I` for `"Supported PIDs: "` put a timestamp on the first part and no
-linefeed before the second. `vehicle_info` now logs it as one `IEventSink::log`
-call. It renders identically; nothing downstream parses the split.
+- DTC runs off the UI thread. Cancellation is best-effort: `DtcRun` checks it
+  only inside `IClock::sleep` and `IDiagnosticLink::read`/`read_obd`, so an
+  already-cancelled run still costs one `open()` and one init exchange, and
+  closing the dialog waits for the worker to stop.
+- Short init or request responses fail as an init failure or `BadResponse`
+  through `obd_frames.h`'s bounds-checked helpers (automated only).
+- DataTerminal resets and sets every flag before opening, so it no longer
+  inherits header, CAN or 29-bit flags an earlier tool left set.
+- A failed DTC run always logs one error line. On iso14230 a failed `open()`
+  during fast init is treated like any other fast-init failure, so
+  `DtcRun::init()` still falls back to five-baud; the run ends `Disconnected`
+  only if the five-baud path's own re-open also fails.
+- PID pages `0x81`-`0xE0` are accepted: legacy compared a signed `char` against
+  the `uint8_t` PID, so echoes for `0x80`, `0xA0` and `0xC0` never matched.
+- Each DTC run starts clean; legacy never reset `fast_init_ok`.
+- `vehicle_info` logs `"Supported PIDs: "` as one `IEventSink::log` call. It
+  renders identically.
 
 ## Flash-operation dispatch
 
@@ -581,9 +573,8 @@ requires bench re-verification before release.
 ### `reset_serial_to_idle` lives beside the facade
 
 It calls `SerialPortActions` methods, so it needs the facade's definition,
-and `serial_qt_compat`'s frozen visibility list could not gain the UI
-package that calls it. It lives in the serial package as `serial_idle`,
-visible only to `//src/ui/desktop`. `FlashOperationController` only passes
+which the UI package that calls it must not see. It lives in the serial
+package as `serial_idle`, visible only to `//src/ui/desktop`. `FlashOperationController` only passes
 the facade pointer through, so it needs no serial edge at all.
 
 ## Platform selection
@@ -728,61 +719,47 @@ opened and identification failed, as before.
 
 ### Behavior changes
 
-1. The developer toggles `can_listener`, `simulate_obd`, and
-   `test_haltech_ic7_display` are deleted. None was ever in the shipped
-   `menu.cfg`; each looped forever on the UI thread.
-2. SSM identification runs off the UI thread and can be cancelled.
-3. SSM2 init responses are validated; trailing bytes are dropped.
-4. SSM1's two plain writes are echo-checked.
-5. K-Line SSM2 identification opens the link itself with the settings it
-   used to inherit.
-6. Every K-Line `IDiagnosticLink::open` now sets parity explicitly, so an
-   even parity left by SSM1 no longer leaks into a later DTC or BIU session.
-7. BIU opens directly at 10400 instead of opening and then changing speed.
-   As before, it saves the port it opened as the configured port.
-8. A non-Subaru connect -- every Mitsubishi MUT/DMA logging start -- skips
-   2.5 s of empty retries.
-9. Short or malformed init frames fail as `BadResponse` instead of reading
-   out of range.
-10. SSM1's trailing drain stops after 100 reads, and a trailing frame too
-    short for an ID is ignored instead of becoming a truncated ID.
-11. With no serial port present, the DTC, BIU, and terminal commands warn
-    instead of indexing past the end of the port list.
-12. Connect stops an active logging session -- including a MUT/DMA session
-    -- before it opens the port. The session ends as a user stop does, with
-    one difference: an open datalog file is not closed. That matches every
-    other session end outside the Logging toggle (adapter disconnect,
-    handshake or runtime failure), which leave `datalog_file` open too; the
-    next logging session appends to the same file. The file closes when
-    Logging or "Log to file" is switched off, or when a flash operation
-    starts.
-13. The ECU/TCU radio buttons are disabled during identification and the
-    logging continuation that follows it.
-14. Battery-voltage sampling is skipped while identification runs.
-15. A port refresh, opening a port, a log-transport change, the DTC, BIU,
-    and terminal windows, and a flash operation cancel a running
-    identification; a pending Start logging then reports "Unable to connect
-    to ECU". Legacy identification had no cancellation. After the cancel
-    the port stays open with no ECU identified, and the port selector is
-    unlocked.
-16. A successful iso15765 identification sets the ECU ID. The legacy
-    `ssm_can_init` set only the status bar and `ecu_init_complete`.
+Bench rows for these are in the
+[connection checklist](connection-bench-checklist.md); the malformed-frame
+items are automated-only.
+
+- The developer toggles `can_listener`, `simulate_obd` and
+  `test_haltech_ic7_display` are deleted; none was in the shipped `menu.cfg`
+  and each looped forever on the UI thread.
+- SSM identification runs off the UI thread and can be cancelled. A port
+  refresh, opening a port, a log-transport change, the DTC, BIU and terminal
+  windows, and a flash operation cancel it; a pending Start logging then
+  reports "Unable to connect to ECU", the port stays open with no ECU
+  identified, and the port selector is unlocked. The ECU/TCU radio buttons
+  and battery-voltage sampling are suspended while it runs.
+- SSM2 init responses are validated and trailing bytes dropped. Short or
+  malformed init frames fail as `BadResponse`. SSM1's trailing drain stops
+  after 100 reads and a trailing frame too short for an ID is ignored.
+- SSM1's two plain writes are echo-checked.
+- K-Line SSM2 identification opens the link itself with the settings it used
+  to inherit, and every K-Line `IDiagnosticLink::open` sets parity explicitly.
+- BIU opens directly at 10400 instead of opening and then changing speed; it
+  still saves the port it opened as the configured port.
+- A non-Subaru connect, including every Mitsubishi MUT/DMA logging start,
+  skips 2.5 s of empty retries.
+- With no serial port present, the DTC, BIU and terminal commands warn
+  instead of indexing past the end of the port list.
+- Connect stops an active logging session, including MUT/DMA, before it opens
+  the port. As with every session end outside the Logging toggle, an open
+  `datalog_file` is not closed and the next session appends to it; it closes
+  when Logging or "Log to file" is switched off, or when a flash operation
+  starts.
+- A successful iso15765 identification sets the ECU ID.
 
 ## Serial facade retirement
 
-### Visibility and `implementation_deps` replaced the allowlist script
+### Visibility and `implementation_deps` keep facade headers out of the UI
 
-`//:serial_compat_allowlist` froze `serial_qt_compat`'s visibility list so it
-could only shrink. Once only platform packages and `//tests` remained, the
-freeze had nothing left to protect, and it never covered transitive reach:
-the facade headers still arrived in UI compile actions through ordinary
-`deps` on the adapters. Step 6i renamed the target to `serial_port_actions`,
-restricted its visibility to `//src/platform/desktop:__subpackages__` and
-`//tests`, and moved every adapter whose public header forward-declares
-`SerialPortActions` onto `implementation_deps`. Bazel still links the facade
-into dependents, but its headers are no longer inputs to their compiles.
-Notes above that name `serial_qt_compat` or `serial_platform_api` describe
-the state before this step.
+`serial_port_actions` is visible only to `//src/platform/desktop:__subpackages__`
+and `//tests`. Every adapter whose public header forward-declares
+`SerialPortActions` takes it through `implementation_deps`, so Bazel still
+links the facade into dependents but its headers are not inputs to their
+compiles. Visibility alone would not cover this transitive reach.
 
 ### Windows does not enforce it
 
@@ -856,13 +833,12 @@ that the signal is connected.
 
 ## Configuration session
 
-`fastecu::config::ConfigSession` replaced `ConfigValuesStructure`, `LegacyConfigAdapter`, and `legacy_config_paths` in step 6k. `DesktopComposition` owns it and initializes it before building any other service. The same session reaches `MainWindow` through `MainWindowServices` and reaches `FileActions` by constructor.
+`fastecu::config::ConfigSession` owns configuration state. `DesktopComposition` owns it and initializes it before building any other service. The same session reaches `MainWindow` through `MainWindowServices`.
 
 - **One saved selection.** `AppConfig::selected_protocol_id` is the only selection state. Make, model, MCU, checksum, capabilities, and description are derived from the selected `ResolvedCarModel` and never cached. Vehicle rows keep file order, and a row's id is its position. Choosers sort only their presentation.
 - **Paths.** Provisioned paths are fixed for the run. Effective paths take only the calibration and datalog directories from settings, so editing them never moves the config, kernel, definition, or syslog files.
 - **Startup rejection (intentional behavior change).** `LegacyConfigAdapter` ignored provisioning and load failures, and startup proceeded into empty vehicle lists. A provisioning failure, an unreadable or malformed `fastecu.cfg`, an unreadable `protocols.cfg`, or one with no car models now shows the failing path and reason, then exits before `MainWindow` or the syslog thread exists, with no ECU I/O. A failed rewrite of a successfully loaded `fastecu.cfg` stays nonfatal and is shown as a startup warning. `DesktopCompositionTest::failedStartupBuildsNoServicesAndPerformsNoEcuIo` pins this and was mutation-checked.
 - **Kept quirks.** An invalid saved row selects row 0 without replacing the saved transports or log protocol. Protocol-name selection takes the last matching row. An unresolved protocol reference stays `std::nullopt` and shows the single-space placeholder, with no capabilities. The writer's `logfiles_directory` versus the reader's `datalog_files_directory` still keeps the datalog directory from round-tripping, and `ConfigSessionSave.DatalogDirectoryDoesNotRoundTrip` pins it.
-- **Definition indexes are not settings.** The eight EcuFlash/RomRaider index lists live in `FileActions::DefinitionIndexes` until `FileActions` itself is retired.
 
 Bundled-default provisioning formerly copied CWD-relative config resources through the filesystem. It now reads `IResourceBundle` bytes and writes them through `IFileRepository`, so fresh config roots provision correctly before startup rejection is evaluated. Existing user files are preserved.
 
@@ -928,56 +904,9 @@ entry could select it, its `read_mem()`/`write_mem()` were empty stubs that
 reported success, and its probe ignored every failure. Porting the stubs would
 have legitimized a no-op; porting only the probe would have added unreachable
 code. If M32R JTAG is ever revived, design it as a new family: the removed
-code's reply gates were unreliable. The legacy source is recoverable at commit
-`766475b8`. Its wire sequence, preserved here because no other copy remains:
-
-- **Session:** ISO-14230 header off; ISO-14230, CAN, ISO-15765 and 29-bit all
-  off; 4800 baud; no explicit parity.
-- **Framing:** each request is `BE EF 00 <len> <payload…> <sum8>` (8-bit sum of
-  every preceding byte), sent without echo drain, followed by a 10 ms delay and
-  one 200 ms framed read.
-- **Reply gate:** longer than 4 bytes, `[0]=BE`, `[1]=EF`, `[4]=<command>+0x40`,
-  `[8]=0x31` (`SUB_KERNEL_JTAG_IR_ACK`). The gate read out of bounds on a 5–8
-  byte reply; IDCODE and USERCODE also took `mid(9, 4)` and read `.at(0..3)`,
-  out of bounds below 13 bytes.
-- **Sequence** (payloads after the first two prefixed `0x40`,
-  `SUB_KERNEL_JTAG_COMMAND`):
-  1. Hard reset `80`, reply ignored.
-  2. IDCODE `01`, expect `[4]=41`; `[9..12]` big-endian: version bits 31–28,
-     part number 27–12, manufacturer 11–1.
-  3. USERCODE `30`, expect `[4]=70`; `[9..12]`: ROM bits 11–8, ISA 7–4, SDI
-     3–0.
-  4. BSR sample `40 01 02 20 00 00 01 D7` (IR `SAMPLE`, sub-command
-     `READ_BSR`, 471-bit scan), expect `[4]=80`, read until an empty reply.
-  5. MON_CODE ×12: `40 10 01 20 <word 0/1/2>`, outer loop 4 × inner loop 3,
-     expect `[4]=80`.
-  6. MON_CODE word 3: `40 10 01 20 7F F4 F0 00`.
-  7. MON_ACCESS `40 13 01 04 00 00 00 01`, then `…00`, expect `[4]=80`.
-  8. MON_DATA ×5: `40 11 00 20`, expect `[4]=80`, 100 ms after each.
-- **Tool-ROM code** (`inst_tool_rom_code`), four big-endian words:
-  `D1 C0 FF 00 / A0 C1 3F FC / 20 44 F0 00 / 7F F4 F0 00`.
-- **Register map** (from the removed `kernelcomms.h` block): commands
-  `READ_USERCODE=0x30`, `JTAG_COMMAND=0x40`; IR `SAMPLE=0x01` (used),
-  `EXTEST=0x00`, `IDCODE=0x02`, `BYPASS=0x3F`; registers `MON_CODE=0x10`,
-  `MON_DATA=0x11`, `MON_ACCESS=0x13` (used), plus unused `IDCODE=0x02`,
-  `USERCODE=0x03`, `MDM_SYSTEM=0x08`, `MDM_CONTROL=0x09`, `MDM_SETUP=0x0A`,
-  `MTM_CONTROL=0x0F`, `MON_PARAM=0x12`, `DMA_RADDR=0x18`, `DMA_RDATA=0x19`,
-  `DMA_RTYPE=0x1A`, `DMA_ACCESS=0x1B`, `RTDENB=0x20`; sub-commands `READ=0x00`,
-  `WRITE=0x01`, `READ_BSR=0x02`; IR ack `0x31`.
-- **Failure handling:** a failed IDCODE or USERCODE gate returned an error the
-  caller ignored; a failed tool-ROM gate abandoned the rest of that sequence,
-  also ignored; the operation then ran the empty stubs and reported success.
-- **Dead code, never reached** (its one caller was commented out):
-  `write_jtag_ir()` (`4b051f` reset, `4b0303` Shift-IR, `3b04<code>`,
-  `6b0001`/`7b0001` last bit, `4b0101` Run/Idle, trailing `0D`);
-  `write_jtag_dr()` (`4b0700` idle-8, `4b0201` Shift-DR, `3b1e<data>`,
-  last-bit variants, `4b0101`, `0D`); `read_jtag_dr()` (`4b0700`, `4b0201`,
-  `6b1f80000000` read-32, `4b0101`, `0D`); `read_response()` (reads until
-  empty, keeps the last non-empty reply, takes `mid(4, [byte 3])` and reverses
-  it). The end bit came from the first hex digit of the code or data string, tested
-  against `0x2` in `write_jtag_ir()` and `0x8` in `write_jtag_dr()`.
-  `set_rtdenb()` would have written IR `"20"`, then DR `"00000001"`, then read
-  the DR back.
+code's reply gates were unreliable and out of bounds on short replies. The
+legacy source, including the probe's wire sequence and register map, is
+recoverable at commit `766475b8` (`git show 766475b8:<path>`).
 
 ### Unisia Jecs M32R: two details left unresolved
 

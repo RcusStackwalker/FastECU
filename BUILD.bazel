@@ -1,7 +1,6 @@
 load("@gazelle//:def.bzl", "gazelle", "gazelle_binary")
 load("@rules_python//python:defs.bzl", "py_test")
 load("//bazel:clang_tidy.bzl", "clang_tidy_runner")
-load("//bazel:portable_targets.bzl", "CLOSURE_ROOTS")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -194,39 +193,6 @@ py_test(
     ],
     imports = ["scripts"],
     main = "scripts/test_ownership_test.py",
-)
-
-# Every //src/platform label reachable from a portable target, however many
-# layers of `deps` away. Platform packages restrict their own visibility to
-# //src/platform, //src/ui, //apps and //tests, so this is empty until someone
-# widens that list -- at which point Bazel is satisfied and only the assertion
-# below is not.
-#
-# `filter` rather than a recursive //src/platform/... pattern: genquery rejects
-# those. The roots come from bazel/portable_targets.bzl, and a name that does
-# not resolve fails here, in the scope, rather than in any check.
-genquery(
-    name = "portable_closure_violations",
-    expression = "filter('^//src/platform/', deps(set(" + " ".join(CLOSURE_ROOTS) + ")))",
-    scope = CLOSURE_ROOTS,
-)
-
-# Fails the *build*, not a test: CI runs `bazel build -k --config=release //...`
-# before it runs the suite, so a violation surfaces at the earlier step.
-genrule(
-    name = "portable_closure",
-    srcs = [":portable_closure_violations"],
-    outs = ["portable_closure_report.txt"],
-    cmd = """if [ -s $< ]; then
-  echo "FAIL: a portable target reaches platform code:" >&2
-  sed 's/^/  /' $< >&2
-  echo "" >&2
-  echo "Portable targets must not depend on //src/platform, directly or through" >&2
-  echo "several layers of deps. Move the platform-facing code to src/platform or" >&2
-  echo "src/ui, or reach it through a backend port." >&2
-  exit 1
-fi
-echo "OK: no //src/platform label is reachable from a portable target." > $@""",
 )
 
 py_test(

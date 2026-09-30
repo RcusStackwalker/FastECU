@@ -10,6 +10,7 @@
 #include <QFileDialog>
 #include <QLineEdit>
 #include <QScopeGuard>
+#include <QSettings>
 #include <QMdiArea>
 #include <QMdiSubWindow>
 #include <QMessageBox>
@@ -531,6 +532,11 @@ void MainWindowTest::SetUpTestSuite()
     }
     config_root_ = std::make_unique<QTemporaryDir>();
     ASSERT_TRUE(config_root_->isValid());
+    // Keep the hex editor settings isolated from the real user store.
+    QCoreApplication::setOrganizationName("FastECU-test");
+    QCoreApplication::setApplicationName("mainwindow-test");
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, config_root_->path() + "/settings");
+    QSettings::setDefaultFormat(QSettings::IniFormat);
     // Pass the fixture root explicitly: Qt resolves the Windows home from
     // the account profile before trying HOME/USERPROFILE fallbacks.
     const QString config_dir =
@@ -538,6 +544,7 @@ void MainWindowTest::SetUpTestSuite()
     qInfo() << "Fixture config:" << config_dir << "Qt home:" << QDir::homePath();
     ASSERT_TRUE(QDir().mkpath(config_dir));
     ASSERT_TRUE(writeTextFile(config_dir + "fastecu.cfg",
+
                               R"(<?xml version="1.0" encoding="UTF-8"?>
 <config name="FastECU" version="0.0-dev0">
   <software_settings>

@@ -1,10 +1,9 @@
 # Platform selection -- bench verification checklist
 
-Step 6e moved the serial layer's direct/remote choice into the desktop
-composition root and split the direct backend's Unix and Windows J2534 code
-into per-OS source files. No wire bytes changed, but the J2534 open path was
-reorganized on both operating systems and the Windows half is covered only
-by CI. None of the items below is qualified until it is run and signed off.
+The desktop composition root owns the serial layer's direct/remote choice,
+and the direct backend's Unix and Windows J2534 code lives in per-OS source
+files. The J2534 open path differs per operating system and the Windows half
+is covered only by CI. None of the items below is qualified until it is run and signed off.
 Run `bazel test --config=release //...` first.
 
 ## macOS / Linux (OpenPort 2.0)

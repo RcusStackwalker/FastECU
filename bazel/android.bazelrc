@@ -1,0 +1,11 @@
+# Opt-in Android cross-compile config (modularization plan, step 7). Requires
+# ANDROID_NDK_HOME; desktop builds do not import any of this.
+build:android --platforms=//bazel/platforms:android_arm64
+build:android --extra_toolchains=@androidndk//:all
+build:android --cxxopt=-std=c++23
+build:android --host_cxxopt=-std=c++23
+build:android --repo_env=ANDROID_NDK_HOME
+# The NDK toolchain does not link libc++ into executables on its own; the portable
+# gtest binaries (compiled only, never run on the host) need it to link.
+build:android --linkopt=-lc++_static
+build:android --linkopt=-lc++abi

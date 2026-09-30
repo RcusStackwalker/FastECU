@@ -253,8 +253,9 @@ bool QHexEdit::barArea()
 
 void QHexEdit::setBytesPerLine(int count)
 {
-    _bytesPerLine = count;
-    _hexCharsInLine = count * 3 - 1;
+    // Layout divides by the line length.
+    _bytesPerLine = std::max(count, 1);
+    _hexCharsInLine = _bytesPerLine * 3 - 1;
 
     adjust();
     setCursorPosition(_cursorPosition);
@@ -290,12 +291,12 @@ void QHexEdit::setCursorPosition(qint64 position)
     if (_editAreaIsBar)
     {
         _pxCursorX = x / 2 * _pxCharWidth + _pxPosBarX;
-        _cursorPosition = position & 0xFFFFFFFFFFFFFFFE;
+        _cursorPosition = position - position % 2;
     }
     if (_editAreaIsAscii)
     {
         _pxCursorX = x / 2 * _pxCharWidth + _pxPosAsciiX;
-        _cursorPosition = position & 0xFFFFFFFFFFFFFFFE;
+        _cursorPosition = position - position % 2;
     }
     else
     {
@@ -591,12 +592,9 @@ void QHexEdit::setFont(const QFont& font)
     theFont.setStyleHint(QFont::Monospace);
     QWidget::setFont(theFont);
     QFontMetrics metrics = fontMetrics();
-#if QT_VERSION > QT_VERSION_CHECK(5, 11, 0)
-    _pxCharWidth = metrics.horizontalAdvance(QLatin1Char('2'));
-#else
-    _pxCharWidth = metrics.width(QLatin1Char('2'));
-#endif
-    _pxCharHeight = metrics.height();
+    // A platform with no installed fonts reports zero-pixel glyphs; layout divides by both.
+    _pxCharWidth = std::max(metrics.horizontalAdvance(QLatin1Char('2')), 1);
+    _pxCharHeight = std::max(metrics.height(), 1);
     _pxGapAdr = _pxCharWidth / 2;
     _pxGapAdrHex = _pxCharWidth;
     _pxGapHexAscii = 2 * _pxCharWidth;
