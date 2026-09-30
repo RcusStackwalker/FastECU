@@ -37,10 +37,3 @@ fastecu_gtest(
         "@googletest//:gtest",
     ],
 )
-
-# Preserve the public label when Gazelle discovers additional test sources.
-# keep
-test_suite(
-    name = "tst_force_asserts",
-    tests = [":tst_force_asserts_test"],
-)

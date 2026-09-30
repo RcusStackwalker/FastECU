@@ -159,8 +159,7 @@ Exceptional main sources are excluded from discovery and retained with narrow
 source-entry keeps, so Gazelle cannot treat them as shared package runners.
 DLL fixtures and other helper binaries remain excluded and hand-owned.
 The legacy `//tests:mut_dma_integration_tests` and `//tests:serial_crash_tests`
-labels, plus `//tests/force_asserts:tst_force_asserts`, are compatibility
-test suites pointing to generated `_test` targets: the pinned
+labels are compatibility test suites pointing to generated `_test` targets: the pinned
 unit-group generator appends `_test` to nonstandard names in mixed packages.
 Test suites preserve execution through `bazel test` on the original labels.
 Platform constraints and runtime settings remain on the generated tests.
