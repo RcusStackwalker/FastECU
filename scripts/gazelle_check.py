@@ -87,6 +87,57 @@ _CPP_TEST_RULE = re.compile(
 )
 
 
+_CPP_PRODUCTION_RULE = re.compile(
+    r"^(?P<kind>cc_library|qt_cc_library|cc_binary|qt_cc_binary)\s*\(", re.MULTILINE
+)
+_RULE_NAME = re.compile(r"\bname\s*=\s*\"([^\"]+)\"")
+
+# Whole-rule keeps on C++ libraries and binaries that remain hand-owned. The
+# list only shrinks: migrate a rule to generation, then delete its entry. A
+# narrow attribute or dependency keep needs no entry.
+KEPT_CPP_PRODUCTION_RULES: frozenset[str] = frozenset(
+    {
+        "apps/desktop:composition",
+        "apps/desktop:fastecu",
+        "apps/desktop:startup",
+        "apps/desktop:startup_test_platform",
+        "src/platform/desktop/common/connection:adapter_connection",
+        "src/platform/desktop/common/diagnostics:dtc_worker",
+        "src/platform/desktop/common/diagnostics:serial_diagnostic_link",
+        "src/platform/desktop/common/diagnostics:ssm_identify_worker",
+        "src/platform/desktop/common/flash:flash_worker",
+        "src/platform/desktop/common/logging:logging",
+        "src/platform/desktop/common/logging:logging_adapters",
+        "src/platform/desktop/common/logging:logging_runtime",
+        "src/platform/desktop/common/ports:qt_event_sink",
+        "src/platform/desktop/common/serial:desktop_serial_factory",
+        "src/platform/desktop/common/serial:direct_serial_backend_api",
+        "src/platform/desktop/common/serial:direct_serial_backend_unix",
+        "src/platform/desktop/common/serial:direct_serial_backend_windows",
+        "src/platform/desktop/common/serial:j2534_driver_selection",
+        "src/platform/desktop/common/serial:recording_log_sink",
+        "src/platform/desktop/common/serial:remote_serial_backend",
+        "src/platform/desktop/common/serial:serial_idle",
+        "src/platform/desktop/common/serial:serial_port_actions",
+        "src/platform/desktop/common/serial:serial_port_actions_direct_moc",
+        "src/platform/desktop/common/serial:websocket_io",
+        "src/platform/desktop/common/service_functions:service_function_worker",
+        "src/platform/desktop/unix/j2534:j2534",
+        "src/platform/desktop/windows/j2534:pe_bitness_x64_fixture",
+        "src/ui/desktop/definition:definition_authoring_dialog",
+        "src/ui/desktop/flash/common:flash_dialog",
+        "src/ui/desktop/flash/operation:flash_operation_controller",
+        "src/ui/desktop/service_functions:denso_tcu_read_preflight",
+        "src/ui/desktop/service_functions:service_function_dialog",
+        "src/ui/desktop:config_fields",
+        "src/ui/desktop:desktop",
+        "src/ui/desktop:diagnostic_link_io",
+        "src/ui/desktop:dtc_operations",
+        "src/ui/desktop:main_window_services",
+        "tests:fake_j2534_dll_native",
+    }
+)
+
 _KEEP_COMMENT = re.compile(r"#\s*keep(?:: .*)?\s*$")
 
 
@@ -125,6 +176,58 @@ def validate_test_ownership(root: Path, files: Sequence[str]) -> None:
                     break
                 if _KEEP_COMMENT.fullmatch(line.strip()):
                     raise GazelleCheckError(f"{relative}: C++ test has a whole-rule keep")
+
+
+def _has_whole_rule_keep(source: str, match: re.Match[str]) -> bool:
+    if _rule_suffix_is_kept(source[match.start() :]):
+        return True
+    for line in reversed(source[: match.start()].splitlines()):
+        if line.strip() and not line.lstrip().startswith("#"):
+            return False
+        if _KEEP_COMMENT.fullmatch(line.strip()):
+            return True
+    return False
+
+
+def kept_production_rules(root: Path, files: Sequence[str]) -> set[str]:
+    """Labels (`dir:name`) of C++ libraries and binaries carrying a whole-rule keep."""
+    kept: set[str] = set()
+    for relative in files:
+        path = root / relative
+        if path.name != "BUILD.bazel" or not path.is_file():
+            continue
+        source = path.read_text()
+        for match in _CPP_PRODUCTION_RULE.finditer(source):
+            if not _has_whole_rule_keep(source, match):
+                continue
+            name = _RULE_NAME.search(source, match.end())
+            label = name.group(1) if name else "<unnamed>"
+            kept.add(f"{Path(relative).parent.as_posix()}:{label}")
+    return kept
+
+
+def validate_production_keeps(
+    root: Path,
+    files: Sequence[str],
+    allowed: frozenset[str] | None = None,
+) -> None:
+    """Reject whole-rule keeps on C++ libraries and binaries outside the shrinking allowlist.
+
+    Entries whose rule no longer carries a keep are stale and rejected too, so the
+    list shrinks as rules migrate to generation.
+    """
+    allowed = KEPT_CPP_PRODUCTION_RULES if allowed is None else allowed
+    kept = kept_production_rules(root, files)
+    for label in sorted(kept - allowed):
+        raise GazelleCheckError(
+            f"{label}: C++ library or binary has a whole-rule keep outside the "
+            "KEPT_CPP_PRODUCTION_RULES allowlist; use a narrow attribute or dependency keep"
+        )
+    for label in sorted(allowed - kept):
+        raise GazelleCheckError(
+            f"{label}: stale KEPT_CPP_PRODUCTION_RULES entry; the rule no longer has a "
+            "whole-rule keep, so remove the entry"
+        )
 
 
 def repo_root() -> Path:
@@ -226,8 +329,10 @@ def check(
     *,
     run_hook: RunHook = run_prek_hook,
     fix: bool = False,
+    allowed_keeps: frozenset[str] | None = None,
 ) -> int:
     validate_test_ownership(root, list_files(root))
+    validate_production_keeps(root, list_files(root), allowed_keeps)
     before = snapshot(root, list_files)
     exit_code = run_gazelle(root)
     if exit_code != 0:

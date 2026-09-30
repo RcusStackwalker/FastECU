@@ -166,3 +166,15 @@ Platform constraints and runtime settings remain on the generated tests.
 
 The checker rejects uncovered C++ test packages and whole-rule test keeps.
 Generation followed by a second checker run must be unchanged.
+
+### Production deferrals
+
+Production ownership is migrating package by package. The checker carries a
+shrinking `KEPT_CPP_PRODUCTION_RULES` allowlist of C++ library and binary labels
+that still have a whole-rule keep. A new whole-rule keep outside the list is
+rejected, and so is a listed label that no longer has one: delete the entry in
+the change that migrates the rule. Narrow attribute and dependency keeps are
+unrestricted. The desktop `bytes`, `definition`, `transport` and `serial/testing`
+packages are fully generated; their libraries are plain `cc_library` targets with
+`COMMON_COPTS`, and the `transport` and `flash_transports` aggregates keep their
+labels because generated rules merge into existing rules of the same name.

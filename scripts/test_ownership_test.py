@@ -59,5 +59,49 @@ class TestOwnershipTest(unittest.TestCase):
         gc.validate_test_ownership(self.root, [file])
 
 
+class ProductionKeepTest(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+
+    def write(self, text, path="pkg/BUILD.bazel"):
+        file = self.root / path
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(text)
+        return path
+
+    def test_rejects_new_whole_rule_keep(self):
+        file = self.write('# reason\n# keep\ncc_library(\n name = "lib",\n)')
+        with self.assertRaisesRegex(gc.GazelleCheckError, "pkg:lib.*allowlist"):
+            gc.validate_production_keeps(self.root, [file], frozenset())
+
+    def test_rejects_suffix_keep_on_moc_library_and_binary(self):
+        for kind in ("qt_cc_library", "cc_binary", "qt_cc_binary"):
+            file = self.write(f'{kind}(name = "x", srcs = ["x.cpp"]) # keep: reason')
+            with self.assertRaisesRegex(gc.GazelleCheckError, "pkg:x"):
+                gc.validate_production_keeps(self.root, [file], frozenset())
+
+    def test_accepts_allowlisted_keep(self):
+        file = self.write('# keep\ncc_library(name = "lib")')
+        gc.validate_production_keeps(self.root, [file], frozenset({"pkg:lib"}))
+
+    def test_rejects_stale_allowlist_entry(self):
+        file = self.write('cc_library(name = "lib")')
+        with self.assertRaisesRegex(gc.GazelleCheckError, "stale"):
+            gc.validate_production_keeps(self.root, [file], frozenset({"pkg:lib"}))
+
+    def test_accepts_narrow_attribute_and_dependency_keeps(self):
+        file = self.write(
+            'cc_library(\n name = "lib",\n srcs = ["a.cpp"],  # keep\n'
+            ' deps = [":link_only"],  # keep: registration\n)'
+        )
+        gc.validate_production_keeps(self.root, [file], frozenset())
+
+    def test_keep_above_unrelated_rule_does_not_leak(self):
+        file = self.write('# keep\nfastecu_gtest(name = "t")\ncc_library(name = "lib")')
+        gc.validate_production_keeps(self.root, [file], frozenset())
+
+
 if __name__ == "__main__":
     unittest.main()
