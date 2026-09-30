@@ -895,7 +895,7 @@ Application: Core.
 ## Native Windows probes
 
 - `j2534_bridge_protocol_test`: both pipe/frame cases retain their names.
-- `pe_bitness_test`: x86, x64 and missing-file checks remain in `PeBitness.DetectsBothArchitecturesAndRejectsMissingFile`; environment and positional arguments are retained.
+- `pe_bitness_test`: x86, x64 and missing-file checks remain in `PeBitness.DetectsBothArchitecturesAndRejectsMissingFile`; fixtures are read from the environment only; the positional-argument fallback and custom main were dropped.
 - `j2534_bridge_integration_test`: open/connect/read, write success/failure, voltage and child-crash helpers are called with fatal-failure propagation from `J2534BridgeIntegration.CallsAndChildCrashContracts`.
 - `j2534_bridge_client_test`: `J2534BridgeClient.OpensConnectsAndReadsThroughBridge`.
 - `j2534_win_bridge_test`: `J2534WinBridge.OpensConnectsAndReadsThroughBridge`.

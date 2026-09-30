@@ -1,5 +1,4 @@
 # gazelle:exclude j2534_bridge_integration_main.cpp
-# gazelle:exclude pe_bitness_main.cpp
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 
 # Tests regenerate; production sources and helper binaries retain existing owners.
@@ -77,16 +76,11 @@ fastecu_gtest(
     ],
 )
 
-# Cross-bitness PE probe with external x86/x64 fixtures and assert()-based
-# process exit semantics; no single production package owns both fixtures.
+# Cross-bitness PE probe with external x86/x64 fixtures; no single production
+# package owns both.
 fastecu_gtest(
     name = "pe_bitness_test",
-    srcs = [
-        "pe_bitness_test.cpp",
-        # Positional fixture arguments require a suite-specific entry point.
-        "pe_bitness_main.cpp",  # keep
-    ],
-    copts = ["/UNDEBUG"],
+    srcs = ["pe_bitness_test.cpp"],
     data = [
         "//bazel/platforms:x86_smoke_test_x86",
         "//src/platform/desktop/windows/j2534:pe_bitness_x64_fixture",
@@ -97,7 +91,6 @@ fastecu_gtest(
     },
     qt = False,
     target_compatible_with = WINDOWS_ONLY,
-    use_gtest_main = False,
     deps = [
         "//src/platform/desktop/windows/j2534:pe_bitness",
         "@googletest//:gtest",
