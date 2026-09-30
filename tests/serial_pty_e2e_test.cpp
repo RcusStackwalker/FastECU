@@ -115,11 +115,13 @@ TEST_F(TestPtyE2e, workerThread_writeRead_overPty_deliversFramedMessage)
     ASSERT_EQ(response, QByteArray("\x80\xf0\x10\x02\xaa\xbb\xcc", 7));
 }
 
-int main(int argc, char **argv)
+namespace
 {
-    ::testing::InitGoogleTest(&argc, argv);
-    setvbuf(stdout, nullptr, _IONBF, 0);
-    setvbuf(stderr, nullptr, _IONBF, 0);
-    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
-    return RUN_ALL_TESTS();
-}
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment(
+        []
+        {
+            setvbuf(stdout, nullptr, _IONBF, 0);
+            setvbuf(stderr, nullptr, _IONBF, 0);
+        }));
+} // namespace

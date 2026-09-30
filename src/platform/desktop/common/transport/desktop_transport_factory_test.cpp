@@ -173,9 +173,8 @@ TEST_F(TestDesktopTransportFactory, refusesAConfigWithoutABackendFactory)
     ASSERT_EQ(transport.error().kind, ErrorKind::InvalidConfig);
 }
 
-int main(int argc, char **argv)
+namespace
 {
-    ::testing::InitGoogleMock(&argc, argv);
+const auto *const application_environment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
-    return RUN_ALL_TESTS();
 }

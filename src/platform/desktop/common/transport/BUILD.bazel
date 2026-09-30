@@ -84,7 +84,6 @@ cc_library(
 fastecu_gtest(
     name = "test_desktop_kline_flash_transport",
     srcs = ["desktop_kline_flash_transport_test.cpp"],
-    use_gtest_main = False,
     deps = [
         "//bazel/qt:core",
         "//bazel/qt:serial_port",
@@ -102,7 +101,6 @@ fastecu_gtest(
 fastecu_gtest(
     name = "test_desktop_can_flash_transport",
     srcs = ["desktop_can_flash_transport_test.cpp"],
-    use_gtest_main = False,
     deps = [
         "//bazel/qt:core",
         "//src/backend/ports/testing:fake_cancellation_token",
@@ -132,7 +130,6 @@ fastecu_gtest(
 fastecu_gtest(
     name = "test_desktop_transport_factory",
     srcs = ["desktop_transport_factory_test.cpp"],
-    use_gtest_main = False,
     deps = [
         "//bazel/qt:core",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
@@ -201,7 +198,6 @@ fastecu_gtest(
     name = "test_desktop_logging_protocol_registration",
     size = "small",
     srcs = ["desktop_logging_protocol_registration_test.cpp"],
-    use_gtest_main = False,
     deps = [
         "//bazel/qt:core",
         "//src/backend/ports/testing:fake_cancellation_token",

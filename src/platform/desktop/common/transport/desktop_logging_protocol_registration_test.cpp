@@ -283,9 +283,8 @@ TEST_F(DesktopLoggingProtocolRegistrationTest, mut_dma_preserves_initialization_
     ASSERT_TRUE((*result)->stop());
 }
 
-int main(int argc, char **argv)
+namespace
 {
-    ::testing::InitGoogleMock(&argc, argv);
+const auto *const application_environment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
-    return RUN_ALL_TESTS();
 }

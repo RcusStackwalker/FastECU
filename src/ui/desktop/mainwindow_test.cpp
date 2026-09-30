@@ -417,7 +417,7 @@ class MainWindowTest : public ::testing::Test
         window.serial_ports = {"ttyUSB0"};
         window.serial_port_list->clear();
         window.serial_port_list->addItem("ttyUSB0");
-        selectMake(window, make);
+        ASSERT_NO_FATAL_FAILURE(selectMake(window, make));
         window.configSession->settings().selected_log_transport = transport.toStdString();
         window.configSession->settings().selected_log_protocol = "SSM";
         ON_CALL(fake, open_serial_port()).WillByDefault(::testing::Return(QString("ttyUSB0")));
@@ -1070,7 +1070,7 @@ void MainWindowTest::check_handledDensoTcuReadChoicesRunMainWindowCleanupAndStop
     window.serial_port_list->clear();
     window.serial_port_list->addItem("OpenPort 2.0");
     window.serial_port_list->setCurrentIndex(0);
-    selectSubaruProtocol(window, "sub_tcu_denso_sh7058_can");
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_tcu_denso_sh7058_can"));
 
     // The TCU log lines are relayed through MainWindow's own LOG_* signals.
     fastecu::testing::SignalRecorder info_lines{&window, &MainWindow::LOG_I};
@@ -1152,7 +1152,7 @@ void MainWindowTest::check_futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuI
     window.serial_port_list->clear();
     window.serial_port_list->addItem("OpenPort 2.0");
     window.serial_port_list->setCurrentIndex(0);
-    selectSubaruProtocol(window, protocol);
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, protocol));
 
     ModalDriver operation_driver{QString()};
     operation_driver.start();
@@ -1231,7 +1231,7 @@ void MainWindowTest::check_representativePortableRoutesReachFactoryBeforeLegacyF
     window.serial_port_list->clear();
     window.serial_port_list->addItem("OpenPort 2.0");
     window.serial_port_list->setCurrentIndex(0);
-    selectSubaruProtocol(window, protocol);
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, protocol));
 
     ModalDriver operation_driver{QString()};
     operation_driver.start();
@@ -1267,7 +1267,7 @@ void MainWindowTest::check_writeWithoutASelectedCalibrationStopsVoltagePolling()
     window.serial_port_list->clear();
     window.serial_port_list->addItem("OpenPort 2.0");
     window.serial_port_list->setCurrentIndex(0);
-    selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can");
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can"));
 
     ModalDriver operation_driver{QString()};
     operation_driver.start();
@@ -1300,7 +1300,7 @@ void MainWindowTest::check_otherMakesSkipDispatchButStillRunCleanup()
     window.serial_port_list->clear();
     window.serial_port_list->addItem("OpenPort 2.0");
     window.serial_port_list->setCurrentIndex(0);
-    selectMake(window, "Nissan");
+    ASSERT_NO_FATAL_FAILURE(selectMake(window, "Nissan"));
 
     ModalDriver operation_driver{QString()};
     operation_driver.start();
@@ -1331,7 +1331,7 @@ void MainWindowTest::check_readOfAnUnsupportedProtocolAddsNoCalibration()
     window.serial_port_list->clear();
     window.serial_port_list->addItem("OpenPort 2.0");
     window.serial_port_list->setCurrentIndex(0);
-    selectSubaruProtocol(window, "sub_ecu_not_a_real_protocol");
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_not_a_real_protocol"));
     ASSERT_EQ(window.calibrations_.size(), std::size_t{0});
 
     ModalDriver operation_driver{QString()};
@@ -1376,7 +1376,7 @@ void MainWindowTest::check_cancellingTheChecksumWarningStopsVoltagePolling()
     ASSERT_EQ(window.open_calibration_file(rom_path), 0);
     open_driver.stop();
     ASSERT_EQ(open_driver.missingDefinitionPromptCount(), 1);
-    selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na");
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na"));
 
     ModalDriver operation_driver{QString()};
     operation_driver.start();
@@ -1630,7 +1630,7 @@ void MainWindowTest::check_writeMetadataFillsAnEmptyDefinitionFlashMethod()
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
     constructor_driver.stop();
-    selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na");
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na"));
     const std::string selected = services.config.selected_vehicle()->protocol_name;
     fastecu::calibration::CalibrationSession session(
         fastecu::calibration::SessionId{41},
@@ -1671,7 +1671,7 @@ void MainWindowTest::check_writeMetadataLeavesADefinitionlessFlashMethodAlone()
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
     constructor_driver.stop();
-    selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na");
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na"));
     fastecu::calibration::CalibrationSession session(
         fastecu::calibration::SessionId{42},
         fastecu::calibration::SessionContents{.source = {.display_name = "n.bin", .path = "/n.bin"},
@@ -1699,7 +1699,7 @@ void MainWindowTest::check_checksumAndSaveUseATemporaryImage()
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    selectSubaruProtocol(window, "sub_ecu_denso_sh7058");
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058"));
     QTemporaryDir files;
     ASSERT_TRUE(writeTextFile(
         files.path() + "/definition.xml",
@@ -1718,7 +1718,7 @@ void MainWindowTest::check_checksumAndSaveUseATemporaryImage()
     });
     ASSERT_TRUE(opened.has_value());
     ASSERT_TRUE(window.add_calibration(opened->id));
-    selectSubaruProtocol(window, "sub_ecu_denso_sh7058");
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058"));
     auto *session = services.calibrations.find(opened->id);
     ASSERT_TRUE(session != nullptr);
     ASSERT_TRUE(session->definition() != nullptr);
@@ -2137,7 +2137,7 @@ void MainWindowTest::check_chooserDialogsApplyAcceptedChoicesAndIgnoreCancellati
 
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
-    copyFixtureConfig(root.path());
+    ASSERT_NO_FATAL_FAILURE(copyFixtureConfig(root.path()));
     TestServices services{root.path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.config.select_row(0).has_value());
@@ -2276,7 +2276,7 @@ void MainWindowTest::check_definitionManagerRemovesSelectedRowsAndSavesSurviving
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
-    copyFixtureConfig(root.path());
+    ASSERT_NO_FATAL_FAILURE(copyFixtureConfig(root.path()));
     TestServices services{root.path()};
     ASSERT_TRUE(services.config_status.has_value());
     services.config.settings().romraider_definition_files = {"/first.xml", "/middle.xml", "/last.xml"};
@@ -2358,7 +2358,7 @@ void MainWindowTest::check_numericWindowGeometryRestoresAndPersistsAcrossWindowS
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
-    copyFixtureConfig(root.path());
+    ASSERT_NO_FATAL_FAILURE(copyFixtureConfig(root.path()));
     TestServices services{root.path()};
     ASSERT_TRUE(services.config_status.has_value());
     services.config.settings().window_width = "900";
@@ -2532,7 +2532,7 @@ void MainWindowTest::check_unresolvedProtocolRowLeavesReadAndWriteUnavailable()
                                    menu->addAction("Write to ecu")};
 
     // A resolved row with every capability enables all three...
-    selectProtocol(window, "sub_ecu_denso_sh7058_can");
+    ASSERT_NO_FATAL_FAILURE(selectProtocol(window, "sub_ecu_denso_sh7058_can"));
     window.set_flash_arrow_state();
     for (QAction *action : actions)
     {
@@ -2540,7 +2540,7 @@ void MainWindowTest::check_unresolvedProtocolRowLeavesReadAndWriteUnavailable()
     }
 
     // ...and the unresolved row 10 (no <protocol> of that name) none.
-    selectProtocol(window, "sub_ecu_orphan");
+    ASSERT_NO_FATAL_FAILURE(selectProtocol(window, "sub_ecu_orphan"));
     window.set_flash_arrow_state();
     for (QAction *action : actions)
     {
@@ -2686,7 +2686,7 @@ void MainWindowTest::check_biuWindowRemembersTheOpenedPort()
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
     constructor_driver.stop();
-    prepareConnect(window, *services.fake, "Subaru", "K-Line");
+    ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     ON_CALL(*services.fake, get_openedSerialPort()).WillByDefault(::testing::Return(QString("ttyUSB0")));
     window.previous_serial_port.clear();
     window.configSession->settings().serial_port = "none";
@@ -2750,7 +2750,7 @@ void MainWindowTest::check_connectOnAnotherMakeDisconnectsWithoutIdentifying()
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
     constructor_driver.stop();
-    prepareConnect(window, *services.fake, "Mitsubishi", "K-Line");
+    ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Mitsubishi", "K-Line"));
     EXPECT_CALL(*services.fake, write_serial_data_echo_check(::testing::_)).Times(0);
     EXPECT_CALL(*services.fake, set_serial_port_parity(0)).Times(::testing::AtLeast(1));
 
@@ -2777,7 +2777,7 @@ void MainWindowTest::check_subaruKlineConnectIdentifiesOffTheUiThread()
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
     constructor_driver.stop();
-    prepareConnect(window, *services.fake, "Subaru", "K-Line");
+    ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     std::atomic<bool> read_off_ui_thread = false;
     EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
         .WillOnce(::testing::Invoke(
@@ -2819,7 +2819,7 @@ void MainWindowTest::check_subaruConnectThatNeverAnswersDisconnectsAndRestoresCo
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
     constructor_driver.stop();
-    prepareConnect(window, *services.fake, "Subaru", "K-Line");
+    ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
 
     ASSERT_TRUE(triggerMenu(window, "connect_to_ecu"));
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return window.identify_worker_ == nullptr; },
@@ -2845,7 +2845,7 @@ void MainWindowTest::check_disconnectDuringIdentificationCancelsAndDropsTheResul
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
     constructor_driver.stop();
-    prepareConnect(window, *services.fake, "Subaru", "K-Line");
+    ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
 
     EXPECT_CALL(*services.fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(kEcuInit));
     ASSERT_TRUE(triggerMenu(window, "connect_to_ecu"));
@@ -3153,7 +3153,7 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
     constructor_driver.stop();
-    prepareConnect(window, *services.fake, "Subaru", "iso15765");
+    ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "iso15765"));
     window.protocol = "SSM";
     (target_is_ecu ? window.ecu_radio_button : window.tcu_radio_button)->setChecked(true);
     EXPECT_CALL(*services.fake,
@@ -3223,7 +3223,7 @@ void MainWindowTest::check_batterySamplingDoesNotUseTheFacadeDuringIdentificatio
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
     constructor_driver.stop();
-    prepareConnect(window, *services.fake, "Subaru", "K-Line");
+    ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     ASSERT_TRUE(triggerMenu(window, "connect_to_ecu"));
     EXPECT_CALL(*services.fake, get_use_openport2_adapter()).Times(0);
     window.update_vbatt();
@@ -3244,7 +3244,7 @@ void MainWindowTest::check_windowDestructionJoinsIdentificationWithoutContinuing
     ASSERT_TRUE(services.config_status.has_value());
     auto window = std::make_unique<MainWindow>(services.services());
     constructor_driver.stop();
-    prepareConnect(*window, *services.fake, "Subaru", "K-Line");
+    ASSERT_NO_FATAL_FAILURE(prepareConnect(*window, *services.fake, "Subaru", "K-Line"));
     bool continued = false;
     window->connect_to_ecu([&continued](bool) { continued = true; });
     ASSERT_TRUE(window->identify_worker_ != nullptr);
@@ -3266,7 +3266,7 @@ void MainWindowTest::check_connectStopsAnActiveLoggingWorkerBeforeIdentification
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
     constructor_driver.stop();
-    prepareConnect(window, *services.fake, "Subaru", "K-Line");
+    ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     services.logging_engine.registerProtocol("SSM",
                                              [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
                                              {
@@ -3345,7 +3345,7 @@ void MainWindowTest::check_connectionEntryPointsStopIdentification(QString entry
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
     constructor_driver.stop();
-    prepareConnect(window, *services.fake, "Subaru", "K-Line");
+    ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     bool cancelled = false;
     window.connect_to_ecu([&cancelled](bool connected) { cancelled = !connected; });
     ASSERT_TRUE(window.identify_worker_ != nullptr);
@@ -3404,7 +3404,7 @@ void MainWindowTest::check_nestedConnectDuringCapabilityNoticeKeepsEachContinuat
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
     constructor_driver.stop();
-    prepareConnect(window, *services.fake, "Subaru", "K-Line");
+    ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
         .WillOnce(::testing::Return(kEcuInit))
         .WillRepeatedly(::testing::Return(QByteArray{}));
@@ -3458,14 +3458,17 @@ TEST_F(MainWindowTest, nestedConnectDuringCapabilityNoticeKeepsEachContinuation)
     ASSERT_NO_FATAL_FAILURE(check_nestedConnectDuringCapabilityNoticeKeepsEachContinuation());
 }
 
-int main(int argc, char **argv)
+namespace
 {
-    std::fprintf(stderr, "MainWindowTest: entered main\n");
-    ::testing::InitGoogleMock(&argc, argv);
+const auto *const application_environment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment);
-    std::fprintf(stderr, "MainWindowTest: QApplication initialized\n");
-    const int result = RUN_ALL_TESTS();
-    MainWindowTest::config_root_.reset();
-    // QtTest does not include Google Mock failures in its exit status.
-    return result != 0 || ::testing::Test::HasFailure() ? 1 : 0;
-}
+class MainWindowFixtureEnvironment : public ::testing::Environment
+{
+  public:
+    void TearDown() override
+    {
+        MainWindowTest::config_root_.reset();
+    }
+};
+const auto *const fixture_environment = ::testing::AddGlobalTestEnvironment(new MainWindowFixtureEnvironment);
+} // namespace

@@ -47,13 +47,16 @@ qt_cc_library(
 fastecu_gtest(
     name = "serial_diagnostic_link_test",
     srcs = ["serial_diagnostic_link_test.cpp"],
-    use_gtest_main = False,
     deps = [
-        ":serial_diagnostic_link",
+        "//bazel/qt:core",
+        "//bazel/qt:serial_port",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/diagnostics:serial_diagnostic_link",
+        "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/common/serial/testing:fake_backed_serial",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
         "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
     ],
 )
 
@@ -77,7 +80,6 @@ fastecu_gtest(
     name = "dtc_worker_test",
     srcs = ["dtc_worker_test.cpp"],
     deps = [
-        ":serial_diagnostic_link_test",
         "//bazel/qt:core",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/protocol/testing:fake_diagnostic_link",
@@ -110,7 +112,6 @@ fastecu_gtest(
     name = "ssm_identify_worker_test",
     srcs = ["ssm_identify_worker_test.cpp"],
     deps = [
-        ":serial_diagnostic_link_test",
         "//bazel/qt:core",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/protocol/testing:fake_diagnostic_link",

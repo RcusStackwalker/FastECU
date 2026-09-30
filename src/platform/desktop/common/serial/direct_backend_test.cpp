@@ -103,11 +103,13 @@ TEST_F(TestDirectBackend, makeDirectSerialBackend_buildsTheDirectBackend)
     ASSERT_TRUE(dynamic_cast<SerialPortActionsDirect *>(backend.get()) != nullptr);
 }
 
-int main(int argc, char **argv)
+namespace
 {
-    ::testing::InitGoogleTest(&argc, argv);
-    setvbuf(stdout, nullptr, _IONBF, 0);
-    setvbuf(stderr, nullptr, _IONBF, 0);
-    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
-    return RUN_ALL_TESTS();
-}
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment(
+        []
+        {
+            setvbuf(stdout, nullptr, _IONBF, 0);
+            setvbuf(stderr, nullptr, _IONBF, 0);
+        }));
+} // namespace

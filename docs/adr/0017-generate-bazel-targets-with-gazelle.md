@@ -14,25 +14,16 @@ found when a build broke.
 
 `gazelle` with the `gazelle_cc` extension generates `cc_library` and test targets
 for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_diff` in the root
-`BUILD.bazel`. Currently that is `src/algorithms`, plus
-`src/backend/ports`, `src/backend/protocol`, `src/backend/checksum`,
-`src/backend/diagnostics`, `src/backend/config`, `src/backend/definition`,
-`src/backend/calibration`, `src/backend/logging`,
-`src/backend/service_functions`, `src/backend/flash`,
-`src/ui/desktop/calibration`, `src/ui/desktop/checksum`,
-`src/ui/desktop/menu`, `src/ui/desktop/channels`, `src/ui/desktop/definition`,
-`src/ui/desktop/biu`, `src/ui/desktop/hexedit`, `apps/bench`,
-`src/platform/desktop/common/ports`, `src/platform/desktop/common/remote_utility`,
-`src/platform/desktop/unix/j2534`, `src/platform/desktop/windows/j2534` and
-`src/platform/desktop/common/connection/testing`, including their
-subpackages. The legacy Qt-backed
-`src/backend/definitions` remains unmanaged.
+`BUILD.bazel`. The scope includes every C++ test-owning package and the
+previously migrated production packages. `scripts/gazelle_check.py` carries
+the identical `MANAGED_ROOTS` list; its unit test checks agreement. Production
+library and binary ownership outside the earlier migration remains deferred.
 
 - Grouping is `cc_group unit`; `cc_test` is mapped to `fastecu_portable_gtest`.
   The `qt_compat` package overrides the mapping to `fastecu_gtest` and explicitly
   uses the shared Qt header mappings in the root `BUILD.bazel`. These inherited
   `resolve` directives map encountered headers to their Qt modules, including
-  Core, Gui, Widgets, Xml, SerialPort, Test and RemoteObjects. Managed UI
+  Core, Gui, Widgets, Xml, SerialPort and RemoteObjects. Managed UI
   packages with GoogleTest suites map tests to `fastecu_gtest`. Moc-free
   libraries use plain `cc_library`
   with `COMMON_COPTS` instead of the moc-bearing `qt_cc_library`; the header-only
@@ -143,12 +134,37 @@ hand-owned; package-local resolutions connect `ui_*.h` and
 is retained with dependency keeps wherever no include expresses the link.
 Unmanaged platform and UI header providers have package-local resolutions.
 
-The checker now covers **51 of 67 C++ packages**, including the eleven packages
-added in this phase. The remaining sixteen packages await the separate
-QtTest-to-GoogleTest migration and mixed-header cleanup. That prerequisite must
-preserve coverage, application initialization, event-loop waits, offscreen
-settings, platform constraints and process-test behavior; `QSignalSpy` may stay
-in GoogleTest suites. Generated Qt assets, shared moc owners, platform selection
-and exceptional process/ABI fixtures remain explicitly hand-owned where needed.
-Completion of the broader migration requires every surviving C++ package to be
-covered and ordinary attributes to regenerate, with exceptions documented.
+### Complete C++ test ownership
+
+All C++ test executables use GoogleTest and regenerate with `gazelle_cc`.
+The QtTest migration added the remaining eighteen test-owning packages and a
+new test-support package. Python build guards retain their existing ownership.
+The pinned Gazelle and gazelle_cc versions are unchanged.
+
+Each package has one recognized test mapping. Mixed packages use
+`fastecu_gtest`, with `qt = False` for portable tests and
+`use_gtest_main = False` for exceptional entry points. Ordinary Qt tests
+register explicit Core or Widgets GoogleTest environments; signal recording
+and event waits live in the test-only desktop support package.
+
+Newly covered mixed packages exclude production sources and headers from
+discovery and preserve production rules with explained keeps. Header
+resolutions point to existing public owners. Runtime resources, platform
+selection, constraints and non-inferable link dependencies remain explicit.
+These exclusions and resolutions are the maintenance cost of deferring
+production ownership; adding a test include still regenerates its dependency.
+No C++ test may have a whole-rule keep.
+
+Exceptional main sources are excluded from discovery and retained with narrow
+source-entry keeps, so Gazelle cannot treat them as shared package runners.
+DLL fixtures and other helper binaries remain excluded and hand-owned.
+The legacy `//tests:mut_dma_integration_tests` and `//tests:serial_crash_tests`
+labels, plus `//tests/force_asserts:tst_force_asserts`, are compatibility
+aliases to generated `_test` targets: the pinned
+unit-group generator appends `_test` to these plural names in mixed packages.
+Platform constraints and runtime settings remain on the generated tests.
+
+The checker rejects uncovered C++ test packages, whole-rule test keeps, and
+QtTest source or dependency usage. Generation followed by a second checker
+run must be unchanged. See the [migration inventory](../qttest-migration-inventory.md)
+for coverage correspondence and verification notes.

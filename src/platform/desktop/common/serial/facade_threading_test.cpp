@@ -1,3 +1,4 @@
+#include <QScopeGuard>
 #include <QPointer>
 #include <QThread>
 #include <gtest/gtest.h>
@@ -830,15 +831,29 @@ TEST_F(TestFacadeThreading, destroyWhileReadInFlight_waitsForBackendCall)
 
     QByteArray got;
     std::thread reader([&] { got = serial->read_serial_data(10); });
+    std::thread destroyer;
+    bool deletion_scheduled = false;
+    const auto cleanup = qScopeGuard(
+        [&]
+        {
+            continueRead.release();
+            if (reader.joinable())
+                reader.join();
+            if (destroyer.joinable())
+                destroyer.join();
+            if (!deletion_scheduled)
+                delete serial;
+        });
     ASSERT_TRUE(readEntered.tryAcquire(1, 1000)) << "backend read did not start";
 
     std::atomic<bool> destroyed{false};
-    std::thread destroyer(
+    destroyer = std::thread(
         [&]
         {
             delete serial;
             destroyed.store(true);
         });
+    deletion_scheduled = true;
 
     fastecu::testing::process_events_for(std::chrono::milliseconds(50));
     ASSERT_TRUE(!destroyed.load()) << "facade teardown must wait for the in-flight backend call";

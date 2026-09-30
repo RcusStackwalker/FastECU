@@ -174,7 +174,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, rawFrameAddsAndParsesBigEndianId)
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
     FakeCancellationToken cancellation;
-    configure_and_open(transport);
+    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
     ASSERT_TRUE(transport.enter_raw_bootloader_mode().has_value());
 
     const QByteArray expectedWrite = QByteArray::fromHex("000ffffe7a90000000000000");
@@ -225,7 +225,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, configureRejectsReconfigureWhileAlread
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
-    configure_and_open(transport);
+    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
 
     const auto reconfigure = transport.configure(config());
 
@@ -237,7 +237,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, poisonedTransitionMakesConfigureAndOpe
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
-    configure_and_open(transport);
+    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
     EXPECT_CALL(*fake, open_serial_port()).WillOnce(::testing::Return(QString{}));
 
     const auto transition = transport.enter_raw_bootloader_mode();
@@ -277,7 +277,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, rawTransitionFailsAtEverySetterAndMake
         FakeBackend *fake = nullptr;
         DesktopMixedCanFlashTransport transport(make_serial(fake));
         FakeCancellationToken cancellation;
-        configure_and_open(transport);
+        ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
         set_failure(*fake);
 
         const auto transition = transport.enter_raw_bootloader_mode();
@@ -295,7 +295,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, failedReopenMakesFollowingIoTerminal)
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
     FakeCancellationToken cancellation;
-    configure_and_open(transport);
+    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
     EXPECT_CALL(*fake, open_serial_port()).WillOnce(::testing::Return(QString{}));
 
     const auto transition = transport.enter_raw_bootloader_mode();
@@ -312,7 +312,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, rawReadRejectsShortFrameAndWrongReceiv
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
     FakeCancellationToken cancellation;
-    configure_and_open(transport);
+    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
     ASSERT_TRUE(transport.enter_raw_bootloader_mode().has_value());
 
     EXPECT_CALL(*fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(QByteArray::fromHex("000021")));
@@ -330,7 +330,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, clearReceiveBufferRejectsBackendFailur
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
-    configure_and_open(transport);
+    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
     ASSERT_TRUE(transport.enter_raw_bootloader_mode().has_value());
     EXPECT_CALL(*fake, clear_rx_buffer()).WillOnce(::testing::Return(STATUS_ERROR));
 
@@ -345,7 +345,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, detectsDisconnectionBeforeAndDuringIo)
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
     FakeCancellationToken cancellation;
-    configure_and_open(transport);
+    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
 
     EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(false));
     const auto before_write = transport.write_iso15765(bytes::Bytes{0x01}, cancellation);
@@ -365,7 +365,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, catchesStandardAndNonstandardBackendEx
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
     FakeCancellationToken cancellation;
-    configure_and_open(transport);
+    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
 
     EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_))
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend write failure")));
@@ -384,7 +384,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, cancellationAndUnblockSuppressSubseque
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
     FakeCancellationToken cancelled(true);
-    configure_and_open(transport);
+    ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
     EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
 
     const auto cancelled_write = transport.write_iso15765(bytes::Bytes{0x01}, cancelled);

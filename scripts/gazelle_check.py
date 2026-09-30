@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 import shutil
 import subprocess
 import sys
@@ -77,6 +78,47 @@ ShowDiff = Callable[[Path, Sequence[str], Sequence[str]], None]
 
 class GazelleCheckError(RuntimeError):
     """An actionable failure that is not BUILD file drift."""
+
+
+_CPP_TEST_RULE = re.compile(
+    r"^(?:cc_test|qt_cc_test|fastecu_(?:portable_)?gtest|fastecu_qttest)\s*\(", re.MULTILINE
+)
+_QTTEST_DEP = re.compile(r"(?:@[^\"]*//:qt_test|//bazel/qt:test|fastecu_qttest)")
+
+
+def validate_test_ownership(root: Path, files: Sequence[str]) -> None:
+    """All C++ test packages regenerate; keeps may preserve individual attributes only."""
+    for relative in files:
+        path = root / relative
+        if path.suffix not in {".bazel", ".bzl"} or not path.is_file():
+            continue
+        source = path.read_text()
+        if _QTTEST_DEP.search(source):
+            raise GazelleCheckError(f"{relative}: prohibited QtTest dependency or rule")
+        for match in _CPP_TEST_RULE.finditer(source):
+            if not any(Path(relative).is_relative_to(managed) for managed in MANAGED_ROOTS):
+                raise GazelleCheckError(f"{relative}: C++ test package outside Gazelle scope")
+            preceding = source[: match.start()].splitlines()
+            for line in reversed(preceding):
+                if line.strip() and not line.lstrip().startswith("#"):
+                    break
+                if line.strip() == "# keep":
+                    raise GazelleCheckError(f"{relative}: C++ test has a whole-rule keep")
+
+
+def validate_test_sources(root: Path) -> None:
+    """Reject repository-owned QtTest includes and executable framework usage."""
+    forbidden = re.compile(
+        r"#\s*include\s*[<\"](?:QtTest(?:/[^>\"]*)?|QTest|QSignalSpy)[>\"]"
+        r"|\bQTest::|\bQTEST_\w*MAIN\s*\(|\b(?:QVERIFY2?|QCOMPARE|QFETCH|QSKIP|QFAIL|QTRY_\w+)\s*\("
+    )
+    for directory in ("src", "apps", "tests"):
+        for path in (root / directory).rglob("*"):
+            if path.suffix not in {".cpp", ".cc", ".cxx", ".h", ".hpp"} or not path.is_file():
+                continue
+            source = re.sub(r"//[^\n]*|/\*.*?\*/", "", path.read_text(), flags=re.DOTALL)
+            if forbidden.search(source):
+                raise GazelleCheckError(f"{path.relative_to(root)}: prohibited QtTest source usage")
 
 
 def repo_root() -> Path:
@@ -179,6 +221,7 @@ def check(
     run_hook: RunHook = run_prek_hook,
     fix: bool = False,
 ) -> int:
+    validate_test_ownership(root, list_files(root))
     before = snapshot(root, list_files)
     exit_code = run_gazelle(root)
     if exit_code != 0:
@@ -225,8 +268,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     try:
+        root = repo_root()
+        validate_test_sources(root)
+        validate_test_ownership(
+            root, [str(path.relative_to(root)) for path in (root / "bazel").rglob("*.bzl")]
+        )
         return check(
-            repo_root(),
+            root,
             git_list_build_files,
             run_bazel_gazelle,
             git_show_diff,

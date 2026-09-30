@@ -185,6 +185,17 @@ py_test(
     main = "scripts/gazelle_check_test.py",
 )
 
+py_test(
+    name = "test_ownership_test",
+    size = "small",
+    srcs = [
+        "scripts/gazelle_check.py",
+        "scripts/test_ownership_test.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/test_ownership_test.py",
+)
+
 # Every //src/platform label reachable from a portable target, however many
 # layers of `deps` away. Platform packages restrict their own visibility to
 # //src/platform, //src/ui, //apps and //tests, so this is empty until someone

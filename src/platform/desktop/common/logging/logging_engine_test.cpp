@@ -250,7 +250,7 @@ TEST_P(start_rejectionsParameters, start_rejections)
     }
 
     const auto result = engine.start(LogSessionConfig{.protocolId = source == 1 ? "NOPE" : "TEST"}, snapshot());
-    expect_start_error(result, static_cast<fastecu::ErrorKind>(kind), detail.toStdString());
+    ASSERT_NO_FATAL_FAILURE(expect_start_error(result, static_cast<fastecu::ErrorKind>(kind), detail.toStdString()));
     ASSERT_EQ(ended_spy.count(), 0);
     ASSERT_EQ(error_spy.count(), 1);
 

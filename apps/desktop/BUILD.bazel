@@ -108,11 +108,13 @@ fastecu_gtest(
     size = "small",
     srcs = ["startup_diagnostics_test.cpp"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
-    use_gtest_main = False,
     deps = [
-        ":startup",
-        ":startup_test_platform",
+        "//apps/desktop:startup",
+        "//apps/desktop:startup_test_platform",
+        "//bazel/qt:core",
+        "//bazel/qt:widgets",
         "//src/platform/desktop/common/testing:widgets_application_environment",
+        "@googletest//:gtest",
     ],
 )
 
@@ -133,7 +135,8 @@ fastecu_gtest(
     size = "small",
     srcs = ["desktop_composition_test.cpp"],
     deps = [
-        ":startup_diagnostics_test",
+        # Selected implementation supplies the backend factory, without a direct include.
+        ":direct_serial_backend",  # keep
         "//apps/desktop:composition",
         "//apps/desktop:startup",
         "//bazel/qt:core",

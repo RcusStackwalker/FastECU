@@ -1,3 +1,4 @@
+#include <QScopeGuard>
 #include "src/platform/desktop/common/testing/widgets_application_environment.h"
 // Teardown, gate, and configuration-ordering coverage for
 // ServiceFunctionWorker. Follows flash_worker_test.cpp: a FakeClock plus
@@ -381,6 +382,7 @@ TEST_F(ServiceFunctionWorkerTest, destructorDoesNotDestroyOwnedStateWhileResumeI
                                                           std::make_unique<ScriptedSsmTransport>(),
                                                           std::make_unique<FakeClock>(), &configurator);
     worker->start();
+    const auto release_on_exit = qScopeGuard([&] { state->release.release(); });
     ASSERT_TRUE(state->entered.tryAcquire(1, 1000)) << "blocking session did not enter resume()";
 
     std::atomic<bool> destructor_returned{false};

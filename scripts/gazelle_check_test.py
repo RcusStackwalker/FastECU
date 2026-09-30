@@ -276,6 +276,20 @@ class CheckTest(unittest.TestCase):
                 "src/ui/desktop/hexedit/qhexedit/BUILD.bazel",
             ]
         )
+        managed.extend(
+            [
+                "src/ui/desktop/definition_extra/BUILD.bazel",
+                "src/ui/desktop/biu_extra/BUILD.bazel",
+                "src/ui/desktop/hexedit_extra/BUILD.bazel",
+                "src/ui/desktop/channels_extra/BUILD.bazel",
+                "src/ui/desktop/BUILD.bazel",
+                "src/platform/desktop/common/connection/BUILD.bazel",
+                "src/platform/desktop/common/connection/testing_extra/BUILD.bazel",
+                "src/ui/desktop/calibration_extra/BUILD.bazel",
+                "src/ui/desktop/checksum_extra/BUILD.bazel",
+                "src/ui/desktop/menu_extra/BUILD.bazel",
+            ]
+        )
         unmanaged = [
             "src/platform/desktop/common/ports_extra/BUILD.bazel",
             "src/ui/desktop/definition_extra/BUILD.bazel",
@@ -299,6 +313,7 @@ class CheckTest(unittest.TestCase):
             "src/backend/logging_extra/BUILD.bazel",
             "src/backend/service_functions_extra/BUILD.bazel",
         ]
+        unmanaged = [path for path in unmanaged if path not in managed]
 
         def gazelle(root):
             for relative in managed + unmanaged:

@@ -47,7 +47,7 @@
 # gazelle:resolve cc src/platform/desktop/common/definition/definition_catalog_session.h //src/platform/desktop/common/definition:definition_catalog_session
 # gazelle:resolve cc src/platform/desktop/common/logging/logging_engine.h //src/platform/desktop/common/logging:logging_runtime
 # gazelle:resolve cc src/platform/desktop/common/ports/qt_atomic_file_writer.h //src/platform/desktop/common/ports:ports
-# gazelle:resolve cc src/platform/desktop/common/ports/qt_event_sink.h //src/platform/desktop/common/ports:qt_event_sink
+# gazelle:resolve cc src/platform/desktop/common/ports/qt_event_sink.h //src/platform/desktop/common/ports:ports
 # gazelle:resolve cc src/platform/desktop/common/ports/qt_file_repository.h //src/platform/desktop/common/ports:ports
 # gazelle:resolve cc src/platform/desktop/common/ports/qt_file_system.h //src/platform/desktop/common/ports:ports
 # gazelle:resolve cc src/platform/desktop/common/ports/qt_resource_bundle.h //src/platform/desktop/common/ports:ports
@@ -123,7 +123,6 @@ fastecu_gtest(
     size = "small",
     srcs = ["config_fields_test.cpp"],
     deps = [
-        ":test_mainwindow",
         "//src/backend/config/testing:config_session_fixture",
         "//src/ui/desktop:config_fields",
         "@googletest//:gtest",
@@ -167,7 +166,6 @@ fastecu_gtest(
     copts = ["-DQT_WIDGETS_LIB"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
-        ":test_mainwindow",
         "//bazel/qt:core",
         "//bazel/qt:gui",
         "//bazel/qt:widgets",
@@ -284,32 +282,34 @@ fastecu_gtest(
     env = {"QT_QPA_PLATFORM": "offscreen"},
     # Static linking keeps MainWindow symbols available on Windows.
     linkstatic = True,
-    use_gtest_main = False,
     deps = [
-        "//src/platform/desktop/common/testing:widgets_application_environment",
-        "//src/platform/desktop/common/testing:signal_recorder",
-        "//src/platform/desktop/common/testing:event_helpers",
-        ":desktop",
         # TestServices provisions the real bundle without desktop composition.
         "//resources/shared:config_resource",  # keep
         "//resources/shared:kernels_resource",  # keep
+        "//bazel/qt:core",
+        "//bazel/qt:widgets",
         "//src/backend/calibration/session:calibration_workspace",
         "//src/backend/calibration/session:rom_open",
         "//src/backend/calibration/session:rom_save",
-        "//src/backend/config:config_session",
         "//src/backend/definition:definition_service",
         "//src/backend/flash:flash_operation_request",
         "//src/backend/logging:logger_definition_service",
-        "//src/backend/logging:logger_model",
         "//src/backend/logging/testing:scripted_logging_protocol",
         "//src/platform/desktop/common/connection/testing:adapter_connection_harness",
+        "//src/platform/desktop/common/definition:definition_catalog_session",
         "//src/platform/desktop/common/logging:logging_runtime",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
+        "//src/platform/desktop/common/testing:widgets_application_environment",
+        "//src/ui/desktop",
+        "//src/ui/desktop/calibration:rom_info",
         "//src/ui/desktop/calibration:session_key",
         "//src/ui/desktop/channels:log_channel",
         "//src/ui/desktop/channels:remote_peer",
         "//src/ui/desktop/hexedit",
+        "@googletest//:gtest",
     ],
 )
 
@@ -325,12 +325,10 @@ fastecu_gtest(
         # SessionOnDisk provisions the bundle without desktop composition.
         "//resources/shared:config_resource",  # keep
         "//resources/shared:kernels_resource",  # keep
-        ":test_mainwindow",
         "//bazel/qt:core",
         "//bazel/qt:widgets",
         "//src/backend/config:config_session",
         "//src/platform/desktop/common/ports",
-        "//src/platform/desktop/common/ports:qt_event_sink",
         "//src/platform/desktop/common/testing:widgets_application_environment",
         "//src/ui/desktop",
         "@googletest//:gtest",
@@ -346,7 +344,6 @@ fastecu_gtest(
     # Static for the same reason as test_mainwindow above.
     linkstatic = True,
     deps = [
-        ":test_mainwindow",
         "//src/backend/config/testing:config_session_fixture",
         "//src/platform/desktop/common/testing:widgets_application_environment",
         "//src/ui/desktop",
@@ -363,7 +360,6 @@ fastecu_gtest(
     # Static for the same reason as test_mainwindow above.
     linkstatic = True,
     deps = [
-        ":test_mainwindow",
         "//src/backend/config/testing:config_session_fixture",
         "//src/platform/desktop/common/testing:widgets_application_environment",
         "//src/ui/desktop",
@@ -379,7 +375,6 @@ fastecu_gtest(
     env = {"QT_QPA_PLATFORM": "offscreen"},
     linkstatic = True,
     deps = [
-        ":test_mainwindow",
         "//bazel/qt:gui",
         "//src/platform/desktop/common/testing:widgets_application_environment",
         "//src/ui/desktop",
@@ -396,7 +391,6 @@ fastecu_gtest(
     env = {"QT_QPA_PLATFORM": "offscreen"},
     linkstatic = True,
     deps = [
-        ":test_mainwindow",
         "//bazel/qt:widgets",
         "//src/backend/calibration/session:calibration_workspace",
         "//src/backend/calibration/session/testing:fake_definition_catalogs",

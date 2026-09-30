@@ -29,7 +29,7 @@ TEST(PeBitness, DetectsBothArchitecturesAndRejectsMissingFile)
     std::printf("All pe_bitness tests passed.\n");
 }
 
-int main(int argc, char **argv)
+int run_pe_bitness_tests(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
     x86Path = std::getenv("PE_BITNESS_X86_FIXTURE");

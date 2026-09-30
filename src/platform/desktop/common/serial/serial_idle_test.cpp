@@ -44,9 +44,8 @@ TEST_F(SerialIdleTest, resetsTheConnectionThenRestoresTheIdleLineSettingsInOrder
     fastecu::desktop::serial::reset_serial_to_idle(serial);
 }
 
-int main(int argc, char **argv)
+namespace
 {
-    ::testing::InitGoogleMock(&argc, argv);
+const auto *const application_environment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
-    return RUN_ALL_TESTS();
 }

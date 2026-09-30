@@ -6,6 +6,7 @@
 #include <QTimer>
 #include <gtest/gtest.h>
 #include <chrono>
+#include <atomic>
 #include <thread>
 
 using namespace std::chrono_literals;
@@ -15,12 +16,30 @@ using fastecu::testing::wait_until;
 
 namespace
 {
-const auto *const environment = ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
+QPointer<QCoreApplication> observed_application;
+class ApplicationTeardownObserver : public ::testing::Environment
+{
+    void TearDown() override
+    {
+        EXPECT_EQ(QCoreApplication::instance(), nullptr);
+        EXPECT_TRUE(observed_application.isNull());
+    }
+};
+// Environments tear down in reverse registration order.
+const auto *const teardown_observer = ::testing::AddGlobalTestEnvironment(new ApplicationTeardownObserver);
+const auto *const environment = ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment(
+    []
+    {
+        EXPECT_EQ(QCoreApplication::instance(), nullptr);
+        QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+    }));
 
 TEST(QtTestSupport, ApplicationLivesDuringFixtures)
 {
     ASSERT_NE(QCoreApplication::instance(), nullptr);
-    EXPECT_FALSE(QCoreApplication::arguments().empty());
+    observed_application = QCoreApplication::instance();
+    EXPECT_EQ(QCoreApplication::arguments().front(), QString("fastecu-test"));
+    EXPECT_TRUE(QCoreApplication::testAttribute(Qt::AA_ShareOpenGLContexts));
 }
 
 TEST(QtTestSupport, CapturesImmediateAndWorkerSignalsWithoutEventProcessing)
@@ -64,5 +83,39 @@ TEST(QtTestSupport, RecorderCanDieBeforeSender)
     }
     source.setObjectName("after destruction");
     process_events_for(2ms);
+}
+
+TEST(QtTestSupport, SenderCanDieBeforeRecorder)
+{
+    auto source = std::make_unique<QObject>();
+    SignalRecorder recorder(source.get(), &QObject::objectNameChanged);
+    source->setObjectName("retained");
+    source.reset();
+    ASSERT_EQ(recorder.count(), 1U);
+    EXPECT_EQ(std::get<0>(recorder.snapshot().front()), QString("retained"));
+}
+
+TEST(QtTestSupport, RecorderCanDisconnectWhileWorkerEmits)
+{
+    QObject source;
+    std::atomic<bool> stop{false};
+    std::atomic<bool> started{false};
+    auto recorder =
+        std::make_unique<SignalRecorder<decltype(&QObject::objectNameChanged)>>(&source, &QObject::objectNameChanged);
+    std::thread worker(
+        [&]
+        {
+            int count = 0;
+            while (!stop.load())
+            {
+                source.setObjectName(QString::number(count++));
+                started.store(true);
+            }
+        });
+    while (!started.load())
+        std::this_thread::yield();
+    recorder.reset();
+    stop.store(true);
+    worker.join();
 }
 } // namespace

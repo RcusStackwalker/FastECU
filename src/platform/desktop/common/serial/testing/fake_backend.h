@@ -24,7 +24,6 @@ ACTION(ThrowNonStandardBackendFailure)
 // requires are in docs/gmock-reference.md.
 class FakeBackend : public SerialPortActionsDirect
 {
-    Q_OBJECT
 
   public:
     FakeBackend()

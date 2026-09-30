@@ -1,3 +1,5 @@
+# gazelle:exclude j2534_bridge_integration_main.cpp
+# gazelle:exclude pe_bitness_main.cpp
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 
 # Tests regenerate; production sources and helper binaries retain existing owners.
@@ -9,9 +11,9 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 # gazelle:resolve cc src/backend/protocol/imut_dma_init.h //src/backend/protocol:protocol
 # gazelle:resolve cc src/backend/protocol/mut_dma_driver.h //src/backend/protocol:protocol
 # gazelle:resolve cc src/platform/desktop/common/bytes/qt_bytes.h //src/platform/desktop/common/bytes:qt_bytes
-# gazelle:resolve cc src/platform/desktop/common/serial/direct_serial_backend.h //src/platform/desktop/common/serial:direct_serial_backend_api
+# gazelle:resolve cc src/platform/desktop/common/serial/direct_serial_backend.h //src/platform/desktop/common/serial:direct_serial_backend_for_tests
 # gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions.h //src/platform/desktop/common/serial:serial_port_actions
-# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions_direct.h //src/platform/desktop/common/serial:serial_port_actions_direct_moc
+# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions_direct.h //src/platform/desktop/common/serial:direct_serial_backend_for_tests
 # gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
 # gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
 # gazelle:resolve cc src/platform/desktop/common/transport/fastecu_kline_transport.h //src/platform/desktop/common/transport:transport
@@ -79,7 +81,11 @@ fastecu_gtest(
 # process exit semantics; no single production package owns both fixtures.
 fastecu_gtest(
     name = "pe_bitness_test",
-    srcs = ["pe_bitness_test.cpp"],
+    srcs = [
+        "pe_bitness_test.cpp",
+        # Positional fixture arguments require a suite-specific entry point.
+        "pe_bitness_main.cpp",  # keep
+    ],
     copts = ["/UNDEBUG"],
     data = [
         "//bazel/platforms:x86_smoke_test_x86",
@@ -112,7 +118,11 @@ J2534_PROCESS_ENV = {
 # assertion flags because their observable contract is process/pipe behavior.
 fastecu_gtest(
     name = "j2534_bridge_integration_test",
-    srcs = ["j2534_bridge_integration_test.cpp"],
+    srcs = [
+        "j2534_bridge_integration_test.cpp",
+        # Positional fixture arguments require a suite-specific entry point.
+        "j2534_bridge_integration_main.cpp",  # keep
+    ],
     copts = ["/UNDEBUG"],
     data = J2534_PROCESS_DATA,
     env = J2534_PROCESS_ENV,
@@ -163,9 +173,8 @@ fastecu_gtest(
     name = "serial_pty_e2e_test",
     srcs = ["serial_pty_e2e_test.cpp"],
     target_compatible_with = UNIX_ONLY,
-    use_gtest_main = False,
     deps = [
-        "//src/platform/desktop/common/serial:direct_serial_backend_api",
+        "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
         "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/common/testing:core_application_environment",
         "@googletest//:gtest",
@@ -175,11 +184,11 @@ fastecu_gtest(
 # PTY/process integration intentionally remains centralized: it exercises
 # algorithms, backend transports, serial I/O, cancellation, and J2534 together.
 fastecu_gtest(
-    name = "mut_dma_integration_tests",
+    name = "mut_dma_integration_tests_test",
     srcs = ["tst_mut_dma_integration.cpp"],
     target_compatible_with = UNIX_ONLY,
     deps = [
-        "//src/algorithms/protocol",
+        "//bazel/qt:core",
         "//src/algorithms/protocol/mut_dma",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/protocol",
@@ -189,51 +198,35 @@ fastecu_gtest(
         "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/transport",
-        "//src/platform/desktop/unix/j2534/testing:mock_openport",
+        "@googletest//:gtest",
     ],
 )
 
 # Crash/teardown probe requires a real PTY and Unix J2534 process boundary.
 fastecu_gtest(
-    name = "serial_crash_tests",
+    name = "serial_crash_tests_test",
     srcs = ["tst_serial_port_crash.cpp"],
     target_compatible_with = UNIX_ONLY,
     deps = [
+        "//bazel/qt:core",
         "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
-        "//src/platform/desktop/common/serial:serial_port_actions",
-        "//src/platform/desktop/common/testing:core_application_environment",
-        "//src/platform/desktop/unix/j2534",
-        "//src/platform/desktop/unix/j2534/testing:mock_openport",
-    ],
-)
-
-fastecu_gtest(
-    name = "mut_dma_integration_tests_test",
-    srcs = ["tst_mut_dma_integration.cpp"],
-    deps = [
-        "//bazel/qt:core",
-        "//src/algorithms/protocol/mut_dma",
-        "//src/backend/ports/testing:fake_cancellation_token",
-        "//src/backend/protocol",
-        "//src/platform/desktop/common/bytes:qt_bytes",
-        "//src/platform/desktop/common/serial:direct_serial_backend_api",
-        "//src/platform/desktop/common/serial:serial_port_actions",
-        "//src/platform/desktop/common/testing:core_application_environment",
-        "//src/platform/desktop/common/testing:event_helpers",
-        "//src/platform/desktop/common/transport",
-        "@googletest//:gtest",
-    ],
-)
-
-fastecu_gtest(
-    name = "serial_crash_tests_test",
-    srcs = ["tst_serial_port_crash.cpp"],
-    deps = [
-        "//bazel/qt:core",
-        "//src/platform/desktop/common/serial:serial_port_actions_direct_moc",
         "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/unix/j2534",
         "//src/platform/desktop/unix/j2534/testing:mock_openport",
         "@googletest//:gtest",
     ],
+)
+
+# Preserve the public label; pinned Gazelle requires a test prefix or suffix in mixed packages.
+# keep
+alias(
+    name = "mut_dma_integration_tests",
+    actual = ":mut_dma_integration_tests_test",
+)
+
+# Preserve the public label; pinned Gazelle requires a test prefix or suffix in mixed packages.
+# keep
+alias(
+    name = "serial_crash_tests",
+    actual = ":serial_crash_tests_test",
 )

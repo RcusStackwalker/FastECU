@@ -1,5 +1,3 @@
-load("@rules_cc//cc:defs.bzl", "cc_binary")
-
 # Tests regenerate; production sources and helper binaries retain existing owners.
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 # gazelle:exclude desktop_serial_factory.cpp
@@ -32,13 +30,13 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 # gazelle:resolve cc src/backend/ports/testing/fake_cancellation_token.h //src/backend/ports/testing:fake_cancellation_token
 # gazelle:resolve cc src/platform/desktop/common/bytes/qt_bytes.h //src/platform/desktop/common/bytes:qt_bytes
 # gazelle:resolve cc src/platform/desktop/common/serial/desktop_serial_factory.h //src/platform/desktop/common/serial:desktop_serial_factory
-# gazelle:resolve cc src/platform/desktop/common/serial/direct_serial_backend.h //src/platform/desktop/common/serial:direct_serial_backend_api
+# gazelle:resolve cc src/platform/desktop/common/serial/direct_serial_backend.h //src/platform/desktop/common/serial:direct_serial_backend_for_tests
 # gazelle:resolve cc src/platform/desktop/common/serial/j2534_driver_selection.h //src/platform/desktop/common/serial:j2534_driver_selection
 # gazelle:resolve cc src/platform/desktop/common/serial/recording_log_sink.h //src/platform/desktop/common/serial:recording_log_sink
 # gazelle:resolve cc src/platform/desktop/common/serial/remote_serial_backend.h //src/platform/desktop/common/serial:remote_serial_backend
 # gazelle:resolve cc src/platform/desktop/common/serial/serial_idle.h //src/platform/desktop/common/serial:serial_idle
 # gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions.h //src/platform/desktop/common/serial:serial_port_actions
-# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions_direct.h //src/platform/desktop/common/serial:serial_port_actions_direct_moc
+# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions_direct.h //src/platform/desktop/common/serial:direct_serial_backend_for_tests
 # gazelle:resolve cc src/platform/desktop/common/serial/testing/fake_backend.h //src/platform/desktop/common/serial/testing:fake_serial_backend
 # gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
 # gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
@@ -48,6 +46,8 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_remote_objects.bzl", "qt_replica_library")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "qt_cc_library")
+
+# gazelle:exclude facade_threading_main.cpp
 
 package(default_visibility = ["//bazel/layers:platform_and_composition_root"])
 
@@ -285,7 +285,7 @@ fastecu_gtest(
         "//conditions:default": [],
     }),
     deps = [
-        "//src/platform/desktop/common/serial:serial_port_actions_direct_moc",
+        "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
         "//src/platform/desktop/common/testing:core_application_environment",
         "@googletest//:gtest",
     ],
@@ -300,7 +300,7 @@ fastecu_gtest(
         "//conditions:default": ["@platforms//:incompatible"],
     }),
     deps = [
-        "//src/platform/desktop/common/serial:serial_port_actions_direct_moc",
+        "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
         "//src/platform/desktop/common/testing:core_application_environment",
         "@googletest//:gtest",
     ],
@@ -364,10 +364,10 @@ fastecu_gtest(
     deps = [
         "//bazel/qt:core",
         "//src/platform/desktop/common/serial:desktop_serial_factory",
+        "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
         "//src/platform/desktop/common/serial:recording_log_sink",
         "//src/platform/desktop/common/serial:remote_serial_backend",
         "//src/platform/desktop/common/serial:serial_port_actions",
-        "//src/platform/desktop/common/serial:serial_port_actions_direct_moc",
         "//src/platform/desktop/common/testing:core_application_environment",
         "@googletest//:gtest",
     ],
@@ -390,7 +390,6 @@ fastecu_gtest(
     name = "serial_idle_test",
     size = "small",
     srcs = ["serial_idle_test.cpp"],
-    use_gtest_main = False,
     deps = [
         "//bazel/qt:core",
         "//bazel/qt:serial_port",
@@ -406,13 +405,11 @@ fastecu_gtest(
     name = "test_direct_backend",
     size = "small",
     srcs = ["direct_backend_test.cpp"],
-    use_gtest_main = False,
     deps = [
         "//bazel/qt:core",
-        "//src/platform/desktop/common/serial:direct_serial_backend_api",
+        "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
         "//src/platform/desktop/common/serial:j2534_driver_selection",
         "//src/platform/desktop/common/serial:serial_port_actions",
-        "//src/platform/desktop/common/serial:serial_port_actions_direct_moc",
         "//src/platform/desktop/common/testing:core_application_environment",
         "@googletest//:gtest",
     ],
@@ -422,7 +419,6 @@ fastecu_gtest(
     name = "test_remote_backend_smoke",
     size = "small",
     srcs = ["remote_backend_smoke_test.cpp"],
-    use_gtest_main = False,
     deps = [
         "//bazel/qt:core",
         "//src/platform/desktop/common/serial:remote_serial_backend",
@@ -439,11 +435,10 @@ fastecu_gtest(
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
-    use_gtest_main = False,
     deps = [
         "//bazel/qt:core",
         "//bazel/qt:serial_port",
-        "//src/platform/desktop/common/serial:serial_port_actions_direct_moc",
+        "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
         "//src/platform/desktop/common/testing:core_application_environment",
         "@googletest//:gtest",
     ],
@@ -455,7 +450,11 @@ fastecu_gtest(
 fastecu_gtest(
     name = "test_facade_threading",
     size = "small",
-    srcs = ["facade_threading_test.cpp"],
+    srcs = [
+        "facade_threading_test.cpp",
+        # Child dispatch and unbuffered diagnostics require this main.
+        "facade_threading_main.cpp",  # keep
+    ],
     copts = COMMON_COPTS,
     use_gtest_main = False,
     deps = [
@@ -464,6 +463,7 @@ fastecu_gtest(
         "//src/platform/desktop/common/bytes:qt_bytes",
         "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/testing:core_application_environment",  # keep
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/transport",
         "@googletest//:gtest",
@@ -479,13 +479,4 @@ qt_cc_library(
     srcs = [],
     hdrs = ["recording_log_sink.h"],
     deps = ["//bazel/qt:core"],
-)
-
-cc_binary(
-    name = "facade_threading_main",
-    srcs = ["facade_threading_main.cpp"],
-    deps = [
-        "//src/platform/desktop/common/testing:core_application_environment",
-        "@googletest//:gtest",
-    ],
 )

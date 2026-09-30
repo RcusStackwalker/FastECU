@@ -1,11 +1,3 @@
-# Tests regenerate; production sources and helper binaries retain existing owners.
-# gazelle:exclude core_application_environment.h
-# gazelle:exclude event_helpers.h
-# gazelle:exclude signal_recorder.h
-# gazelle:exclude widgets_application_environment.h
-# gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
-# gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
-# gazelle:resolve cc src/platform/desktop/common/testing/signal_recorder.h //src/platform/desktop/common/testing:signal_recorder
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 
@@ -17,8 +9,6 @@ package(default_visibility = [
     "//bazel/layers:ui",
 ])
 
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
 cc_library(
     name = "core_application_environment",
     testonly = True,
@@ -29,8 +19,6 @@ cc_library(
     ],
 )
 
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
 cc_library(
     name = "event_helpers",
     testonly = True,
@@ -38,8 +26,6 @@ cc_library(
     deps = ["//bazel/qt:core"],
 )
 
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
 cc_library(
     name = "signal_recorder",
     testonly = True,
@@ -51,16 +37,14 @@ fastecu_gtest(
     name = "qt_test_support_test",
     srcs = ["qt_test_support_test.cpp"],
     deps = [
+        ":core_application_environment",
+        ":event_helpers",
+        ":signal_recorder",
         "//bazel/qt:core",
-        "//src/platform/desktop/common/testing:core_application_environment",
-        "//src/platform/desktop/common/testing:event_helpers",
-        "//src/platform/desktop/common/testing:signal_recorder",
         "@googletest//:gtest",
     ],
 )
 
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
 cc_library(
     name = "widgets_application_environment",
     testonly = True,

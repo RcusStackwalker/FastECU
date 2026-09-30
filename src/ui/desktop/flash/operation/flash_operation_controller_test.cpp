@@ -123,9 +123,8 @@ TEST_F(FlashOperationControllerTest, cancelledDensoTcuChooserIsHandledWithoutSer
 
 } // namespace fastecu::flash
 
-int main(int argc, char **argv)
+namespace
 {
-    ::testing::InitGoogleMock(&argc, argv);
+const auto *const application_environment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment);
-    return RUN_ALL_TESTS();
 }

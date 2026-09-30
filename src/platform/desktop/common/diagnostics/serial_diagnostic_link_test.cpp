@@ -217,9 +217,8 @@ TEST_F(TestSerialDiagnosticLink, nullFacadeIsDisconnected)
     ASSERT_TRUE(!link.uses_j2534());
 }
 
-int main(int argc, char **argv)
+namespace
 {
-    ::testing::InitGoogleMock(&argc, argv);
+const auto *const application_environment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
-    return RUN_ALL_TESTS();
 }

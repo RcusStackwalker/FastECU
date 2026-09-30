@@ -17,7 +17,7 @@ qt_cc_library(
     name = "fake_serial_backend",
     testonly = True,
     srcs = [],
-    hdrs = ["fake_backend.h"],
+    normal_hdrs = ["fake_backend.h"],
     deps = QT_DEPS + [
         # FakeBackend derives from SerialPortActionsDirect
         # (serial_port_actions_direct.h), owned by the platform's direct
@@ -31,7 +31,6 @@ qt_cc_library(
 fastecu_gtest(
     name = "fake_backend_test",
     srcs = ["fake_backend_test.cpp"],
-    use_gtest_main = False,
     deps = [
         "//bazel/qt:core",
         "//src/platform/desktop/common/serial:serial_port_actions",
@@ -61,7 +60,6 @@ qt_cc_library(
 fastecu_gtest(
     name = "test_fake_backed_serial",
     srcs = ["fake_backed_serial_test.cpp"],
-    use_gtest_main = False,
     deps = [
         "//bazel/qt:core",
         "//src/platform/desktop/common/serial/testing:fake_backed_serial",

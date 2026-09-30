@@ -201,7 +201,7 @@ TEST(J2534BridgeIntegration, CallsAndChildCrashContracts)
     std::printf("All j2534_bridge_integration tests passed.\n");
 }
 
-int main(int argc, char **argv)
+int run_j2534_bridge_integration_tests(int argc, char **argv)
 {
     ::testing::InitGoogleTest(&argc, argv);
     // The host exe and fake DLL paths are 32-bit artifacts built outside

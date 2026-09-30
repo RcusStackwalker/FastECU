@@ -8,7 +8,7 @@ package(default_visibility = ["//visibility:private"])
 # is that QT_FORCE_ASSERTS aborts a child process even with QT_NO_DEBUG.
 
 fastecu_gtest(
-    name = "tst_force_asserts",
+    name = "tst_force_asserts_test",
     srcs = ["tst_force_asserts.cpp"],
     copts = [
         "-DQT_FORCE_ASSERTS",
@@ -36,4 +36,11 @@ fastecu_gtest(
         "//bazel/qt:core",
         "@googletest//:gtest",
     ],
+)
+
+# Preserve the public label when Gazelle discovers additional test sources.
+# keep
+alias(
+    name = "tst_force_asserts",
+    actual = ":tst_force_asserts_test",
 )
