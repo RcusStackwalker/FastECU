@@ -9,7 +9,7 @@ package(default_visibility = [
     "//bazel/layers:tests",
     "//src/platform/desktop/common/ports:__pkg__",
     # MainWindow test fixtures provision real configuration from the bundle.
-    "//src/ui/desktop:__pkg__",
+    "//src/ui/desktop/widgets:__pkg__",
 ])
 
 # resources/shared/protocols_cfg_eeprom_capabilities_test.cpp pins protocols.cfg's

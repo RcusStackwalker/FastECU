@@ -36,7 +36,7 @@
 #include <initializer_list>
 #include <utility>
 
-#include "src/ui/desktop/mainwindow.h"
+#include "src/ui/desktop/widgets/mainwindow.h"
 #include "src/platform/desktop/common/definition/definition_catalog_session.h"
 #include "src/backend/logging/logger_definition_service.h"
 #include "ui_mainwindow.h"
@@ -57,7 +57,7 @@
 #include "src/ui/desktop/calibration/session_key.h"
 #include "src/backend/flash/flash_operation_request.h"
 #include "src/ui/desktop/calibration/rom_info.h"
-#include "src/ui/desktop/calibration_maps.h"
+#include "src/ui/desktop/widgets/calibration_maps.h"
 #include "src/backend/calibration/session/rom_save.h"
 #include "src/ui/desktop/hexedit/hexedit.h"
 

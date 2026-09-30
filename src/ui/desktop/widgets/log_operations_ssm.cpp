@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+#include "src/ui/desktop/widgets/mainwindow.h"
 #include "ui_mainwindow.h"
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/ui/desktop/config_fields.h"

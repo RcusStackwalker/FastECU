@@ -1,8 +1,6 @@
 # Single moc library per package: every generated hdrs entry declares Q_OBJECT.
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
-# The preflight library is still hand-owned in its package.
-# gazelle:resolve cc src/ui/desktop/service_functions/denso_tcu_read_preflight.h //src/ui/desktop/service_functions:denso_tcu_read_preflight
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "qt_cc_library")
 

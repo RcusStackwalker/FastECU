@@ -4,7 +4,7 @@
 
 #include "src/backend/config/testing/config_session_fixture.h"
 #define private public
-#include "src/ui/desktop/protocol_select.h"
+#include "src/ui/desktop/widgets/protocol_select.h"
 #undef private
 #include "ui_protocol_select.h"
 

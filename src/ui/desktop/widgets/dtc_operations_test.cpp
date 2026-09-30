@@ -1,6 +1,6 @@
 #include "src/platform/desktop/common/testing/widgets_application_environment.h"
 #include <QKeyEvent>
-#include "src/ui/desktop/dtc_operations.h"
+#include "src/ui/desktop/widgets/dtc_operations.h"
 
 #include <QApplication>
 #include <QElapsedTimer>

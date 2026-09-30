@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+#include "src/ui/desktop/widgets/mainwindow.h"
 #include "src/backend/calibration/session/rom_save.h"
 #include "src/ui/desktop/calibration/map_presentation.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"

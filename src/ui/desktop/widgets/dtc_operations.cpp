@@ -1,4 +1,4 @@
-#include "src/ui/desktop/dtc_operations.h"
+#include "src/ui/desktop/widgets/dtc_operations.h"
 
 #include <QPushButton>
 #include <QStandardItemModel>

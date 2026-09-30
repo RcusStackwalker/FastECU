@@ -1,4 +1,4 @@
-#include "vehicle_select.h"
+#include "src/ui/desktop/widgets/vehicle_select.h"
 #include "ui_vehicle_select.h"
 
 #include <algorithm>

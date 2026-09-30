@@ -1,4 +1,4 @@
-#include "mainwindow.h"
+#include "src/ui/desktop/widgets/mainwindow.h"
 
 #include <algorithm>
 #include <QDialogButtonBox>

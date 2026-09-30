@@ -1,4 +1,4 @@
-#include "dataterminal.h"
+#include "src/ui/desktop/widgets/dataterminal.h"
 #include "src/ui/desktop/diagnostic_link_io.h"
 
 #include <QFile>

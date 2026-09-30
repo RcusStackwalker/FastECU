@@ -67,12 +67,17 @@ package_group(
 
 package_group(
     name = "ui_desktop",
-    packages = ["//src/ui/desktop"],
+    packages = ["//src/ui/desktop/widgets"],
 )
 
 package_group(
     name = "ui_service_functions",
-    packages = ["//src/ui/desktop/service_functions"],
+    packages = [
+        # The dialog consumes the service-function session and transport; the
+        # preflight test drives the same adapter harness.
+        "//src/ui/desktop/service_functions",
+        "//src/ui/desktop/service_functions/dialog",
+    ],
 )
 
 # --- Consumer sets that recur across packages --------------------------

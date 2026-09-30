@@ -1,5 +1,5 @@
 #include "src/platform/desktop/common/testing/widgets_application_environment.h"
-#include "src/ui/desktop/service_functions/service_function_dialog.h"
+#include "src/ui/desktop/service_functions/dialog/service_function_dialog.h"
 
 #include <QSpinBox>
 #include <QTableWidget>

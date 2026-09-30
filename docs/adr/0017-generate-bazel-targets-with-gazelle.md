@@ -212,3 +212,15 @@ alias remain hand-owned. Production libraries never resolve through that
 test-only alias; tests that need the runtime implementation keep it narrowly.
 Non-moc children undo the inherited `map_kind` with
 `map_kind cc_library cc_library`.
+
+The desktop UI separates widgets from ordinary helpers the same way. The
+`desktop` aggregate, the DTC dialog and their tests live in
+`src/ui/desktop/widgets`, a moc package; `main_window_services`, `config_fields`
+and `diagnostic_link_io` are plain generated libraries in the parent, which also
+keeps the Designer forms and their hand-owned generation. The widgets package
+resolves every generated `ui_*.h` header to its form's library and keeps the
+resource-registration dependencies, Windows link options, offscreen
+environments and static-link settings. The service-function dialog moved to a
+`dialog` child of the UI service-functions package, leaving the preflight in the
+ordinary parent. The `ui_desktop` and `ui_service_functions` visibility groups
+name exactly the relocated consumer packages.

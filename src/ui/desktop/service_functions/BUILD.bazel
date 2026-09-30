@@ -1,44 +1,20 @@
-# Tests regenerate; production sources and helper binaries retain existing owners.
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
-# gazelle:exclude denso_tcu_read_preflight.cpp
-# gazelle:exclude denso_tcu_read_preflight.h
-# gazelle:exclude service_function_dialog.cpp
-# gazelle:exclude service_function_dialog.h
-# gazelle:resolve cc src/platform/desktop/common/connection/testing/adapter_connection_harness.h //src/platform/desktop/common/connection/testing:adapter_connection_harness
-# gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
-# gazelle:resolve cc src/platform/desktop/common/testing/widgets_application_environment.h //src/platform/desktop/common/testing:widgets_application_environment
-# gazelle:resolve cc src/ui/desktop/service_functions/denso_tcu_read_preflight.h //src/ui/desktop/service_functions:denso_tcu_read_preflight
-# gazelle:resolve cc src/ui/desktop/service_functions/service_function_dialog.h //src/ui/desktop/service_functions:service_function_dialog
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS")
 
 package(default_visibility = ["//bazel/layers:ui_and_composition_root"])
 
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
-qt_cc_library(
-    name = "service_function_dialog",
-    srcs = ["service_function_dialog.cpp"],
-    hdrs = ["service_function_dialog.h"],
-    deps = QT_DEPS + [
-        "//src/backend/service_functions:read_parameters_session",
-        "//src/backend/service_functions:relearn_session",
-        "//src/backend/service_functions:service_function_types",
-        "//src/backend/service_functions:set_parameters_session",
-        "//src/backend/service_functions:tcu_parameter_table",
-        "//src/platform/desktop/common/ports",
-        "//src/platform/desktop/common/service_functions/worker:service_function_worker",
-        "//src/platform/desktop/common/transport",
-    ],
-)
-
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
-qt_cc_library(
+cc_library(
     name = "denso_tcu_read_preflight",
     srcs = ["denso_tcu_read_preflight.cpp"],
     hdrs = ["denso_tcu_read_preflight.h"],
-    deps = QT_DEPS + [":service_function_dialog"],
+    copts = COMMON_COPTS,
+    implementation_deps = [
+        "//bazel/qt:core",
+        "//bazel/qt:widgets",
+        "//src/ui/desktop/service_functions/dialog:service_function_dialog",
+    ],
 )
 
 fastecu_gtest(
@@ -47,26 +23,13 @@ fastecu_gtest(
     copts = ["-DQT_WIDGETS_LIB"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
+        ":denso_tcu_read_preflight",
         "//bazel/qt:core",
         "//bazel/qt:widgets",
         "//src/platform/desktop/common/connection/testing:adapter_connection_harness",
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/testing:widgets_application_environment",
-        "//src/ui/desktop/service_functions:denso_tcu_read_preflight",
-        "//src/ui/desktop/service_functions:service_function_dialog",
-        "@googletest//:gtest",
-    ],
-)
-
-fastecu_gtest(
-    name = "test_service_function_dialog",
-    srcs = ["service_function_dialog_test.cpp"],
-    copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
-    deps = [
-        "//bazel/qt:widgets",
-        "//src/platform/desktop/common/testing:widgets_application_environment",
-        "//src/ui/desktop/service_functions:service_function_dialog",
+        "//src/ui/desktop/service_functions/dialog:service_function_dialog",
         "@googletest//:gtest",
     ],
 )

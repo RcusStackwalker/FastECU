@@ -17,7 +17,7 @@
 #include <utility>
 
 #include "src/platform/desktop/common/connection/testing/adapter_connection_harness.h"
-#include "src/ui/desktop/service_functions/service_function_dialog.h"
+#include "src/ui/desktop/service_functions/dialog/service_function_dialog.h"
 
 namespace fastecu::service_functions
 {

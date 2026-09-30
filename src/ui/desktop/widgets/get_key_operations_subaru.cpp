@@ -1,4 +1,4 @@
-#include "get_key_operations_subaru.h"
+#include "src/ui/desktop/widgets/get_key_operations_subaru.h"
 #include <ui_ecu_operations.h>
 #include <QRandomGenerator>
 #include "src/platform/desktop/common/bytes/qt_bytes.h"

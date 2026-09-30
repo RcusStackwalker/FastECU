@@ -1,4 +1,4 @@
-#include "logbox.h"
+#include "src/ui/desktop/widgets/logbox.h"
 
 // #include "ui_preferences.h"
 
