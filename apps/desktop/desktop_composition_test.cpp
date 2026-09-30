@@ -52,6 +52,10 @@ bool writeFile(const QString& path, const QString& text)
 
 // Holds the syslog thread inside one queued call until release(), so a test
 // can emit and destroy senders before the logger sees their lines.
+//
+// The semaphores are shared with the queued call: after release() the syslog
+// thread may still be waking inside open.acquire(), so they must outlive the
+// gate rather than die with it.
 class SyslogGate
 {
   public:
@@ -59,13 +63,13 @@ class SyslogGate
     {
         QMetaObject::invokeMethod(
             &logger,
-            [this]
+            [state = state_]
             {
-                entered_.release();
-                open_.acquire();
+                state->entered.release();
+                state->open.acquire();
             },
             Qt::QueuedConnection);
-        entered_.acquire();
+        state_->entered.acquire();
     }
     ~SyslogGate()
     {
@@ -79,13 +83,18 @@ class SyslogGate
         if (!released_)
         {
             released_ = true;
-            open_.release();
+            state_->open.release();
         }
     }
 
   private:
-    QSemaphore entered_;
-    QSemaphore open_;
+    struct State
+    {
+        QSemaphore entered;
+        QSemaphore open;
+    };
+
+    std::shared_ptr<State> state_ = std::make_shared<State>();
     bool released_ = false;
 };
 
