@@ -7,7 +7,7 @@
 #include <memory>
 
 #include "src/backend/protocol/idiagnostic_link.h"
-#include "src/platform/desktop/common/diagnostics/dtc_worker.h"
+#include "src/platform/desktop/common/diagnostics/workers/dtc_worker.h"
 
 namespace Ui
 {

@@ -4,8 +4,8 @@
 
 #include "apps/desktop/default_config_root.h"
 
-#include "src/platform/desktop/common/logging/logging_engine.h"
-#include "src/platform/desktop/common/logging/systemlogger.h"
+#include "src/platform/desktop/common/logging/runtime/logging_engine.h"
+#include "src/platform/desktop/common/logging/runtime/systemlogger.h"
 #include "src/platform/desktop/common/remote_utility/remote_utility.h"
 #include "src/platform/desktop/common/transport/desktop_logging_protocol_registration.h"
 

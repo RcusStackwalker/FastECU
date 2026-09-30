@@ -27,7 +27,7 @@ qt_cc_library(
         "//src/backend/service_functions:set_parameters_session",
         "//src/backend/service_functions:tcu_parameter_table",
         "//src/platform/desktop/common/ports",
-        "//src/platform/desktop/common/service_functions:service_function_worker",
+        "//src/platform/desktop/common/service_functions/worker:service_function_worker",
         "//src/platform/desktop/common/transport",
     ],
 )

@@ -1,4 +1,4 @@
-#include "src/platform/desktop/common/diagnostics/ssm_identify_worker.h"
+#include "src/platform/desktop/common/diagnostics/workers/ssm_identify_worker.h"
 
 #include <utility>
 

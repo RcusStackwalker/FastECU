@@ -1,4 +1,4 @@
-#include "src/platform/desktop/common/logging/logging_worker.h"
+#include "src/platform/desktop/common/logging/runtime/logging_worker.h"
 
 #include <span>
 #include <utility>

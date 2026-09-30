@@ -4,9 +4,6 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 # The driver-selection header is an excluded selector source in the serial package.
 # gazelle:resolve cc src/platform/desktop/common/serial/j2534_driver_selection.h //src/platform/desktop/common/serial:j2534_driver_selection
 # Serial facade and logging runtime are still hand-owned in their packages.
-# gazelle:resolve cc src/platform/desktop/common/logging/logging_engine.h //src/platform/desktop/common/logging:logging_runtime
-# gazelle:resolve cc src/platform/desktop/common/logging/logging_snapshot_adapter.h //src/platform/desktop/common/logging:logging_adapters
-# gazelle:resolve cc src/platform/desktop/common/logging/logging_worker.h //src/platform/desktop/common/logging:logging_runtime
 # gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions.h //src/platform/desktop/common/serial:serial_port_actions
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_common.bzl", "COMMON_COPTS")
@@ -151,7 +148,8 @@ cc_library(
     implementation_deps = [
         ":transport",
         "//src/backend/logging/protocols",
-        "//src/platform/desktop/common/logging:logging_runtime",
+        "//src/platform/desktop/common/logging:cdbg_serial_setup",
+        "//src/platform/desktop/common/logging/runtime:logging_runtime",
         "//src/platform/desktop/common/serial:serial_port_actions",
     ],
     visibility = [
@@ -171,7 +169,7 @@ fastecu_gtest(
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
         "//src/platform/desktop/common/logging:logging_adapters",
-        "//src/platform/desktop/common/logging:logging_runtime",
+        "//src/platform/desktop/common/logging/runtime:logging_runtime",
         "//src/platform/desktop/common/serial/testing:fake_backed_serial",
         "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",

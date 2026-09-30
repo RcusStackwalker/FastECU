@@ -1,5 +1,5 @@
 #include "src/platform/desktop/common/testing/core_application_environment.h"
-#include "src/platform/desktop/common/diagnostics/ssm_identify_worker.h"
+#include "src/platform/desktop/common/diagnostics/workers/ssm_identify_worker.h"
 
 #include <QCoreApplication>
 #include "src/platform/desktop/common/testing/signal_recorder.h"

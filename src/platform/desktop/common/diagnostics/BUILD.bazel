@@ -1,26 +1,10 @@
-# Tests regenerate; production sources and helper binaries retain existing owners.
+# The serial facade is still hand-owned in its package.
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
-# gazelle:exclude dtc_worker.cpp
-# gazelle:exclude dtc_worker.h
-# gazelle:exclude serial_diagnostic_link.cpp
-# gazelle:exclude serial_diagnostic_link.h
-# gazelle:exclude ssm_identify_worker.cpp
-# gazelle:exclude ssm_identify_worker.h
-# gazelle:resolve cc src/backend/ports/testing/fake_cancellation_token.h //src/backend/ports/testing:fake_cancellation_token
-# gazelle:resolve cc src/backend/ports/testing/fake_clock.h //src/backend/ports/testing:fake_clock
-# gazelle:resolve cc src/backend/protocol/testing/fake_diagnostic_link.h //src/backend/protocol/testing:fake_diagnostic_link
-# gazelle:resolve cc src/platform/desktop/common/diagnostics/dtc_worker.h //src/platform/desktop/common/diagnostics:dtc_worker
-# gazelle:resolve cc src/platform/desktop/common/diagnostics/serial_diagnostic_link.h //src/platform/desktop/common/diagnostics:serial_diagnostic_link
-# gazelle:resolve cc src/platform/desktop/common/diagnostics/ssm_identify_worker.h //src/platform/desktop/common/diagnostics:ssm_identify_worker
 # gazelle:resolve cc src/platform/desktop/common/serial/serial_facade_codes.h //src/platform/desktop/common/serial:serial_port_actions
-# gazelle:resolve cc src/platform/desktop/common/serial/testing/fake_backed_serial.h //src/platform/desktop/common/serial/testing:fake_backed_serial
-# gazelle:resolve cc src/platform/desktop/common/serial/testing/fake_backend.h //src/platform/desktop/common/serial/testing:fake_serial_backend
-# gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
-# gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
-# gazelle:resolve cc src/platform/desktop/common/testing/signal_recorder.h //src/platform/desktop/common/testing:signal_recorder
-# gazelle:resolve cc src/platform/desktop/common/testing/widgets_application_environment.h //src/platform/desktop/common/testing:widgets_application_environment
+# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions.h //src/platform/desktop/common/serial:serial_port_actions
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_common.bzl", "COMMON_COPTS")
 
 package(default_visibility = [
     "//bazel/layers:platform_and_composition_root",
@@ -29,96 +13,33 @@ package(default_visibility = [
 
 # IDiagnosticLink over the serial facade. The header forward-declares
 # SerialPortActions, so UI callers never see the facade header.
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
-qt_cc_library(
+cc_library(
     name = "serial_diagnostic_link",
     srcs = ["serial_diagnostic_link.cpp"],
-    implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
-    normal_hdrs = ["serial_diagnostic_link.h"],
-    deps = QT_DEPS + [
-        "//src/algorithms/protocol",
+    hdrs = ["serial_diagnostic_link.h"],
+    copts = COMMON_COPTS,
+    implementation_deps = [
+        "//bazel/qt:core",
+        "//bazel/qt:serial_port",
         "//src/backend/ports",
-        "//src/backend/protocol",
         "//src/platform/desktop/common/bytes:qt_bytes",
+        "//src/platform/desktop/common/serial:serial_port_actions",
     ],
+    deps = ["//src/backend/protocol"],
 )
 
 fastecu_gtest(
     name = "serial_diagnostic_link_test",
     srcs = ["serial_diagnostic_link_test.cpp"],
     deps = [
+        ":serial_diagnostic_link",
         "//bazel/qt:core",
         "//bazel/qt:serial_port",
         "//src/backend/ports/testing:fake_cancellation_token",
-        "//src/platform/desktop/common/diagnostics:serial_diagnostic_link",
         "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/common/serial/testing:fake_backed_serial",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
         "//src/platform/desktop/common/testing:core_application_environment",
-        "@googletest//:gtest",
-    ],
-)
-
-# Runs run_dtc_session on its own thread. Mirrors ServiceFunctionWorker
-# without the operator gate: a DTC read/clear has no confirmation step.
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
-qt_cc_library(
-    name = "dtc_worker",
-    srcs = ["dtc_worker.cpp"],
-    hdrs = ["dtc_worker.h"],
-    deps = QT_DEPS + [
-        "//src/backend/diagnostics:dtc_session",
-        "//src/backend/ports",
-        "//src/backend/protocol",
-        "//src/platform/desktop/common/ports",
-    ],
-)
-
-fastecu_gtest(
-    name = "dtc_worker_test",
-    srcs = ["dtc_worker_test.cpp"],
-    deps = [
-        "//bazel/qt:core",
-        "//src/backend/ports/testing:fake_clock",
-        "//src/backend/protocol/testing:fake_diagnostic_link",
-        "//src/platform/desktop/common/diagnostics:dtc_worker",
-        "//src/platform/desktop/common/testing:core_application_environment",
-        "//src/platform/desktop/common/testing:event_helpers",
-        "//src/platform/desktop/common/testing:signal_recorder",
-        "@googletest//:gtest",
-    ],
-)
-
-# Runs the connect-time SSM identification retry loop on its own thread,
-# shaped like DtcWorker.
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
-qt_cc_library(
-    name = "ssm_identify_worker",
-    srcs = ["ssm_identify_worker.cpp"],
-    hdrs = ["ssm_identify_worker.h"],
-    deps = QT_DEPS + [
-        "//src/algorithms/protocol",
-        "//src/backend/diagnostics:ssm_identify",
-        "//src/backend/ports",
-        "//src/backend/protocol",
-        "//src/platform/desktop/common/bytes:qt_bytes",
-    ],
-)
-
-fastecu_gtest(
-    name = "ssm_identify_worker_test",
-    srcs = ["ssm_identify_worker_test.cpp"],
-    deps = [
-        "//bazel/qt:core",
-        "//src/backend/ports/testing:fake_clock",
-        "//src/backend/protocol/testing:fake_diagnostic_link",
-        "//src/platform/desktop/common/diagnostics:ssm_identify_worker",
-        "//src/platform/desktop/common/testing:core_application_environment",
-        "//src/platform/desktop/common/testing:event_helpers",
-        "//src/platform/desktop/common/testing:signal_recorder",
         "@googletest//:gtest",
     ],
 )

@@ -178,3 +178,13 @@ unrestricted. The desktop `bytes`, `definition`, `transport` and `serial/testing
 packages are fully generated; their libraries are plain `cc_library` targets with
 `COMMON_COPTS`, and the `transport` and `flash_transports` aggregates keep their
 labels because generated rules merge into existing rules of the same name.
+
+Platform packages that mixed ordinary helpers with moc workers are split by
+package, not by macro: ordinary code stays in the parent as plain `cc_library`
+targets, and moc code moves to a child that maps `cc_library` to
+`qt_cc_library` locally (`diagnostics/workers`, `logging/runtime`,
+`flash/worker`, `service_functions/worker`). Tests move with their
+implementations and keep their target names. The connection package and the UI
+flash dialog and controller packages are homogeneous moc packages and use the
+same mapping in place. A child that reaches the ports package's private event
+sink resolves `qt_event_sink.h` to the public `ports` label.

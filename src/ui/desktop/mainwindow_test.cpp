@@ -43,7 +43,7 @@
 
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
 #include "src/platform/desktop/common/connection/testing/adapter_connection_harness.h"
-#include "src/platform/desktop/common/logging/logging_engine.h"
+#include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
