@@ -64,8 +64,8 @@ fastecu_gtest(
     deps = ["@googletest//:gtest"],
 )
 
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
+# Resource libraries come from a custom macro that Gazelle does not know, so the
+# rule is hand-owned; it is linked for registration, not included.
 qt_resource_via_qrc(
     name = "config_resource",
     files = glob(["config/*"]),
@@ -73,8 +73,7 @@ qt_resource_via_qrc(
     deps = ["//bazel/qt:core"],
 )
 
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
+# Hand-owned for the same reason as config_resource: a custom resource macro.
 qt_resource_via_qrc(
     name = "kernels_resource",
     files = glob(["kernels/*"]),

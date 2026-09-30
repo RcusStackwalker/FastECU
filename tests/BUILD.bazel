@@ -26,7 +26,8 @@ package(default_visibility = ["//visibility:private"])
 
 # Windows-only process/ABI fixture: it must remain outside a production
 # package because it is loaded by cross-bitness bridge integration tests.
-# Production and runtime helper ownership is deferred by ADR 0017.
+# The shared-library DLL fixture is a native cc_binary with a module-definition
+# file and x86-only constraints, which Gazelle cannot infer; it stays hand-owned.
 # keep
 cc_binary(
     name = "fake_j2534_dll_native",
@@ -41,8 +42,8 @@ cc_binary(
     deps = ["//src/platform/desktop/windows/j2534:j2534_bridge_protocol"],
 )
 
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
+# Platform-transition wrapper around the DLL fixture above; not a C++ rule
+# Gazelle generates.
 x86_windows_binary(
     name = "fake_j2534_dll_x86",
     binary = ":fake_j2534_dll_native",

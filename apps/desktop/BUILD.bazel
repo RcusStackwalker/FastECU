@@ -1,69 +1,52 @@
-# Tests regenerate; production sources and helper binaries retain existing owners.
+# The executable keeps the Qt binary macro through the existing mapping.
+# gazelle:map_kind cc_binary qt_cc_binary //bazel:qt_targets.bzl
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
-# gazelle:exclude default_config_root.h
+# Platform implementation files are selected by select() in the BUILD rules,
+# so discovery must not treat any of them as a package source.
 # gazelle:exclude default_config_root_unix.cpp
 # gazelle:exclude default_config_root_windows.cpp
-# gazelle:exclude desktop_composition.cpp
-# gazelle:exclude desktop_composition.h
-# gazelle:exclude main.cpp
-# gazelle:exclude startup_diagnostics.cpp
-# gazelle:exclude startup_diagnostics.h
-# gazelle:exclude startup_event_sink.h
-# gazelle:exclude startup_test_platform.h
 # gazelle:exclude startup_test_platform_macos.cpp
 # gazelle:exclude startup_test_platform_other.cpp
-# gazelle:resolve cc apps/desktop/default_config_root.h //apps/desktop:startup
-# gazelle:resolve cc apps/desktop/desktop_composition.h //apps/desktop:composition
-# gazelle:resolve cc apps/desktop/startup_diagnostics.h //apps/desktop:startup
-# gazelle:resolve cc apps/desktop/startup_event_sink.h //apps/desktop:startup
-# gazelle:resolve cc apps/desktop/startup_test_platform.h //apps/desktop:startup_test_platform
-# gazelle:resolve cc src/backend/calibration/session/calibration_workspace.h //src/backend/calibration/session:calibration_workspace
-# gazelle:resolve cc src/platform/desktop/common/definition/definition_catalog_session.h //src/platform/desktop/common/definition:definition_catalog_session
-# gazelle:resolve cc src/platform/desktop/common/logging/runtime/logging_engine.h //src/platform/desktop/common/logging/runtime:logging_runtime
-# gazelle:resolve cc src/platform/desktop/common/logging/logging_snapshot_adapter.h //src/platform/desktop/common/logging:logging_adapters
-# gazelle:resolve cc src/platform/desktop/common/logging/runtime/logging_worker.h //src/platform/desktop/common/logging/runtime:logging_runtime
-# gazelle:resolve cc src/platform/desktop/common/logging/runtime/systemlogger.h //src/platform/desktop/common/logging/runtime:systemlogger
-# gazelle:resolve cc src/platform/desktop/common/remote_utility/remote_utility.h //src/platform/desktop/common/remote_utility:remote_utility
-# gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
-# gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
-# gazelle:resolve cc src/platform/desktop/common/testing/signal_recorder.h //src/platform/desktop/common/testing:signal_recorder
-# gazelle:resolve cc src/platform/desktop/common/testing/widgets_application_environment.h //src/platform/desktop/common/testing:widgets_application_environment
-# gazelle:resolve cc src/ui/desktop/channels/log_channel.h //src/ui/desktop/channels:log_channel
-# gazelle:resolve cc src/ui/desktop/channels/remote_peer.h //src/ui/desktop/channels:remote_peer
+# The ports package re-exports its private event sink through the `ports` label.
+# gazelle:resolve cc src/platform/desktop/common/ports/qt_event_sink.h //src/platform/desktop/common/ports
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_binary", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_binary")
 
 # Only the root //:fastecu alias consumes this composition root.
 package(default_visibility = ["//:__pkg__"])
 
 # Builds and owns MainWindow's long-lived services. Private to this package.
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
-qt_cc_library(
+cc_library(
     name = "composition",
     srcs = ["desktop_composition.cpp"],
-    normal_hdrs = ["desktop_composition.h"],
+    hdrs = ["desktop_composition.h"],
+    copts = COMMON_COPTS,
+    implementation_deps = [
+        "//src/platform/desktop/common/logging/runtime:logging_runtime",
+        "//src/platform/desktop/common/logging/runtime:systemlogger",
+        "//src/platform/desktop/common/remote_utility",
+        "//src/platform/desktop/common/transport:logging_protocol_registration",
+    ],
     visibility = ["//visibility:private"],
-    deps = QT_DEPS + [
-        ":startup",
+    deps = [
         # Composition provisions these resources; registration has no include.
         "//resources/shared:config_resource",  # keep
         "//resources/shared:kernels_resource",  # keep
+        ":startup",
+        "//bazel/qt:core",
         "//src/backend/calibration/session:calibration_workspace",
         "//src/backend/calibration/session:rom_open",
         "//src/backend/calibration/session:rom_save",
         "//src/backend/config:config_session",
         "//src/backend/definition:definition_service",
-        "//src/platform/desktop/common/definition:definition_catalog_session",
         "//src/backend/logging:logger_definition_service",
         "//src/backend/logging:logger_model",
+        "//src/backend/ports",
         "//src/platform/desktop/common/connection:adapter_connection",
-        "//src/platform/desktop/common/logging/runtime:systemlogger",
-        "//src/platform/desktop/common/logging/runtime:logging_runtime",
+        "//src/platform/desktop/common/definition:definition_catalog_session",
         "//src/platform/desktop/common/ports",
-        "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/serial:desktop_serial_factory",
-        "//src/platform/desktop/common/transport:logging_protocol_registration",
         "//src/ui/desktop:main_window_services",
         "//src/ui/desktop/channels:log_channel",
         "//src/ui/desktop/channels:remote_peer",
@@ -71,36 +54,40 @@ qt_cc_library(
 )
 
 # Startup diagnostics and the platform's default configuration root, one
-# source per platform.
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
-qt_cc_library(
+# source per platform. The select() cannot be inferred from an include, so the
+# whole `srcs` expression is a narrow keep: a new source here is added by hand,
+# and the platform-specific dependencies stay manually maintained.
+cc_library(
     name = "startup",
     srcs = ["startup_diagnostics.cpp"] + select({
         "@platforms//os:windows": ["default_config_root_windows.cpp"],
         "//conditions:default": ["default_config_root_unix.cpp"],
-    }),
-    normal_hdrs = [
+    }),  # keep
+    hdrs = [
         "default_config_root.h",
         "startup_diagnostics.h",
         "startup_event_sink.h",
     ],
+    copts = COMMON_COPTS,
+    implementation_deps = ["//bazel/qt:widgets"],
     visibility = ["//visibility:private"],
-    deps = QT_DEPS + ["//src/backend/ports"],
+    deps = [
+        "//bazel/qt:core",
+        "//src/backend/ports",
+    ],
 )
 
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
-qt_cc_library(
+cc_library(
     name = "startup_test_platform",
     testonly = True,
     srcs = select({
         "@platforms//os:macos": ["startup_test_platform_macos.cpp"],
         "//conditions:default": ["startup_test_platform_other.cpp"],
     }),
-    normal_hdrs = ["startup_test_platform.h"],
+    hdrs = ["startup_test_platform.h"],
+    copts = COMMON_COPTS,
     visibility = ["//visibility:private"],
-    deps = QT_DEPS,
+    deps = ["//bazel/qt:core"],
 )
 
 fastecu_gtest(
@@ -109,8 +96,8 @@ fastecu_gtest(
     srcs = ["startup_diagnostics_test.cpp"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
-        "//apps/desktop:startup",
-        "//apps/desktop:startup_test_platform",
+        ":startup",
+        ":startup_test_platform",
         "//bazel/qt:core",
         "//bazel/qt:widgets",
         "//src/platform/desktop/common/testing:widgets_application_environment",
@@ -118,9 +105,8 @@ fastecu_gtest(
     ],
 )
 
-# The platform choice for the local serial backend, named by the binary.
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
+# The platform choice for the local serial backend, named by the binary. The
+# OS selection is build configuration, so the alias is hand-owned.
 alias(
     name = "direct_serial_backend",
     actual = select({
@@ -137,8 +123,8 @@ fastecu_gtest(
     deps = [
         # Selected implementation supplies the backend factory, without a direct include.
         ":direct_serial_backend",  # keep
-        "//apps/desktop:composition",
-        "//apps/desktop:startup",
+        ":composition",
+        ":startup",
         "//bazel/qt:core",
         "//src/backend/calibration/session:calibration_workspace",
         "//src/platform/desktop/common/definition:definition_catalog_session",
@@ -155,16 +141,15 @@ fastecu_gtest(
     ],
 )
 
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
 qt_cc_binary(
     name = "fastecu",
     srcs = ["main.cpp"],
-    # :direct_serial_backend picks the platform's local serial backend.
     deps = [
+        # Selected implementation supplies the backend factory, without a direct include.
+        ":direct_serial_backend",  # keep
         ":composition",
-        ":direct_serial_backend",
         ":startup",
+        "//bazel/qt:widgets",
         "//src/ui/desktop/widgets:desktop",
     ],
 )
