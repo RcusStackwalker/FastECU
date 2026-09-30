@@ -25,9 +25,13 @@ void ensureBridgeHostStaged()
 {
     const char *hostSrc = std::getenv("J2534_BRIDGE_HOST_EXE");
     if (!hostSrc)
+    {
         return;
+    }
     if (fileExists("j2534_bridge_host.exe"))
+    {
         return;
+    }
     BOOL ok = CopyFileA(hostSrc, "j2534_bridge_host.exe", /*bFailIfExists=*/FALSE);
     ASSERT_TRUE(ok && "failed to stage j2534_bridge_host.exe next to the test binary");
     (void)ok;
@@ -41,7 +45,9 @@ TEST(J2534WinBridge, OpensConnectsAndReadsThroughBridge)
 
     const char *dllPath = std::getenv("FAKE_J2534_DLL_PATH");
     if (!dllPath)
+    {
         dllPath = "fake_j2534_dll.dll"; // built for x86; this test process is x64 (host arch)
+    }
 
     J2534 j2534;
     j2534.setDllName(dllPath);

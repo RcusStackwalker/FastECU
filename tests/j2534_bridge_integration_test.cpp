@@ -25,7 +25,9 @@ struct BridgeProcess
         SECURITY_ATTRIBUTES sa{sizeof(sa), nullptr, TRUE};
 
         if (!CreatePipe(&childStdinRead, &childStdinWrite, &sa, 0))
+        {
             return false;
+        }
         if (!CreatePipe(&childStdoutRead, &childStdoutWrite, &sa, 0))
         {
             CloseHandle(childStdinRead);
@@ -69,7 +71,9 @@ struct BridgeProcess
     void stop()
     {
         if (!pi.hProcess)
+        {
             return;
+        }
         writeFrame(toChildWrite, Function::Shutdown, nullptr, 0);
         if (WaitForSingleObject(pi.hProcess, 2000) == WAIT_TIMEOUT)
         {

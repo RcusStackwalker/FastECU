@@ -15,10 +15,14 @@ TEST(J2534BridgeClient, OpensConnectsAndReadsThroughBridge)
     // files copied next to it.
     const char *hostExe = std::getenv("J2534_BRIDGE_HOST_EXE");
     if (!hostExe)
+    {
         hostExe = "j2534_bridge_host.exe";
+    }
     const char *dllPath = std::getenv("FAKE_J2534_DLL_PATH");
     if (!dllPath)
+    {
         dllPath = "fake_j2534_dll.dll";
+    }
 
     J2534BridgeClient client(hostExe, dllPath);
     ASSERT_TRUE(client.start() && "client failed to spawn the bridge host");
