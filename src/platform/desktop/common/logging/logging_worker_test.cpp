@@ -52,13 +52,7 @@ LoggingSession session(LoggingPolicy policy = {.poll_timeout = 5ms,
 
 } // namespace
 
-class TestLoggingWorker : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(TestLoggingWorker, forwards_portable_states_samples_and_cancelled_result)
+TEST(TestLoggingWorker, forwards_portable_states_samples_and_cancelled_result)
 {
     ScriptedLoggingProtocol protocol;
     protocol.queueStartResult({});
@@ -98,7 +92,7 @@ TEST_F(TestLoggingWorker, forwards_portable_states_samples_and_cancelled_result)
     ASSERT_TRUE(protocol.stopCalled());
 }
 
-TEST_F(TestLoggingWorker, forwards_final_start_error_without_policy_mapping)
+TEST(TestLoggingWorker, forwards_final_start_error_without_policy_mapping)
 {
     ScriptedLoggingProtocol protocol;
     protocol.queueStartResult(fastecu::fail(fastecu::ErrorKind::BadResponse, "handshake rejected"));
@@ -118,7 +112,7 @@ TEST_F(TestLoggingWorker, forwards_final_start_error_without_policy_mapping)
     ASSERT_EQ(result.error().detail, std::string("handshake rejected"));
 }
 
-TEST_F(TestLoggingWorker, destruction_cancels_and_joins_a_blocked_poll)
+TEST(TestLoggingWorker, destruction_cancels_and_joins_a_blocked_poll)
 {
     ScriptedLoggingProtocol protocol;
     protocol.queueStartResult({});

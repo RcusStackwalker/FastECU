@@ -18,13 +18,7 @@ using fastecu::diagnostics::DtcWorkerResult;
 using fastecu::diagnostics::FakeDiagnosticLink;
 using fastecu::diagnostics::ObdProtocol;
 
-class DtcWorkerTest : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(DtcWorkerTest, reportsTheSessionOutcomeAndForwardsLogLines)
+TEST(DtcWorkerTest, reportsTheSessionOutcomeAndForwardsLogLines)
 {
     FakeDiagnosticLink link;
     link.queue_five_baud(bytes::Bytes{0x55, 0x00, 0x00}); // rejected
@@ -40,7 +34,7 @@ TEST_F(DtcWorkerTest, reportsTheSessionOutcomeAndForwardsLogLines)
     ASSERT_TRUE(logs.count() >= 2); // "Testing ..." and "iso9141 five baud init failed."
 }
 
-TEST_F(DtcWorkerTest, stopBeforeStartCancelsTheRun)
+TEST(DtcWorkerTest, stopBeforeStartCancelsTheRun)
 {
     FakeDiagnosticLink link;
     link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08});

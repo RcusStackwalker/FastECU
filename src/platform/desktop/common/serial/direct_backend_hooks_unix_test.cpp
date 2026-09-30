@@ -11,14 +11,7 @@ class HookProbe : public SerialPortActionsDirect
     using SerialPortActionsDirect::resolve_port;
 };
 
-class TestDirectBackendHooksUnix : public ::testing::Test
-{
-
-  public:
-    // macOS lists this port ahead of the adapter; it must fall back to plain serial.
-};
-
-TEST_F(TestDirectBackendHooksUnix, resolvePort_prefixesAndSplitsAnAdapterEntry)
+TEST(TestDirectBackendHooksUnix, resolvePort_prefixesAndSplitsAnAdapterEntry)
 {
     HookProbe probe;
     const auto resolved = probe.resolve_port("cu.usbmodem0 - OpenPort 2.0");
@@ -26,7 +19,8 @@ TEST_F(TestDirectBackendHooksUnix, resolvePort_prefixesAndSplitsAnAdapterEntry)
     ASSERT_TRUE(resolved.is_j2534);
 }
 
-TEST_F(TestDirectBackendHooksUnix, resolvePort_plainSerialEntryIsNotJ2534)
+// macOS lists this port ahead of the adapter; it must fall back to plain serial.
+TEST(TestDirectBackendHooksUnix, resolvePort_plainSerialEntryIsNotJ2534)
 {
     HookProbe probe;
     const auto bluetooth = probe.resolve_port("cu.Bluetooth-Incoming-Port - ");
@@ -37,7 +31,7 @@ TEST_F(TestDirectBackendHooksUnix, resolvePort_plainSerialEntryIsNotJ2534)
     ASSERT_TRUE(!usb.is_j2534);
 }
 
-TEST_F(TestDirectBackendHooksUnix, appendJ2534Interfaces_leavesTheListUntouched)
+TEST(TestDirectBackendHooksUnix, appendJ2534Interfaces_leavesTheListUntouched)
 {
     HookProbe probe;
     QStringList ports{"cu.usbmodem0 - OpenPort 2.0"};

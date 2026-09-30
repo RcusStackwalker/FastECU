@@ -65,13 +65,7 @@ void expectNoEcuIo(FakeBackend& fake)
 
 } // namespace
 
-class FlashOperationControllerTest : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(FlashOperationControllerTest, unknownProtocolIsUnsupportedAndWarnsWithoutSerialIo)
+TEST(FlashOperationControllerTest, unknownProtocolIsUnsupportedAndWarnsWithoutSerialIo)
 {
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
     FakeBackend *fake = adapter.fake();
@@ -97,7 +91,7 @@ TEST_F(FlashOperationControllerTest, unknownProtocolIsUnsupportedAndWarnsWithout
               QStringList{"Unknown flashmethod! Flashmethod \"sub_ecu_not_a_real_protocol\" not yet implemented!"});
 }
 
-TEST_F(FlashOperationControllerTest, cancelledDensoTcuChooserIsHandledWithoutSerialIo)
+TEST(FlashOperationControllerTest, cancelledDensoTcuChooserIsHandledWithoutSerialIo)
 {
     fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
     FakeBackend *fake = adapter.fake();

@@ -6,13 +6,7 @@
 
 using fastecu::config::testing::ConfigSessionFixture;
 
-class VehicleSelectTest : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(VehicleSelectTest, choosingRecordsTheRowWithoutTouchingTheSession)
+TEST(VehicleSelectTest, choosingRecordsTheRowWithoutTouchingTheSession)
 {
     ConfigSessionFixture f;
     ASSERT_TRUE(f.initialize().has_value());
@@ -27,7 +21,7 @@ TEST_F(VehicleSelectTest, choosingRecordsTheRowWithoutTouchingTheSession)
     ASSERT_TRUE(f.session.settings() == before);
 }
 
-TEST_F(VehicleSelectTest, rejectingLeavesNoChoice)
+TEST(VehicleSelectTest, rejectingLeavesNoChoice)
 {
     ConfigSessionFixture f;
     ASSERT_TRUE(f.initialize().has_value());

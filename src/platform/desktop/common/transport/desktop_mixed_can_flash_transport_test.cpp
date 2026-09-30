@@ -55,13 +55,7 @@ void configure_and_open(DesktopMixedCanFlashTransport& transport)
 
 } // namespace
 
-class TestDesktopMixedCanFlashTransport : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(TestDesktopMixedCanFlashTransport, initialResetReachesBackendAndReturnsFailure)
+TEST(TestDesktopMixedCanFlashTransport, initialResetReachesBackendAndReturnsFailure)
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
@@ -76,7 +70,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, initialResetReachesBackendAndReturnsFa
     ASSERT_EQ(failed.error().kind, ErrorKind::Internal);
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, initialResetAfterCloseReturnsDisconnected)
+TEST(TestDesktopMixedCanFlashTransport, initialResetAfterCloseReturnsDisconnected)
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
@@ -88,7 +82,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, initialResetAfterCloseReturnsDisconnec
     ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, configuresIsoThenTransitionsRawAndBack)
+TEST(TestDesktopMixedCanFlashTransport, configuresIsoThenTransitionsRawAndBack)
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
@@ -134,7 +128,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, configuresIsoThenTransitionsRawAndBack
     ASSERT_TRUE(transport.enter_iso15765_kernel_mode().has_value());
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, everyModeConfigurationClearsStickyIso14230HeaderState)
+TEST(TestDesktopMixedCanFlashTransport, everyModeConfigurationClearsStickyIso14230HeaderState)
 {
     FakeBackend *fake = nullptr;
     auto serial = make_serial(fake);
@@ -155,7 +149,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, everyModeConfigurationClearsStickyIso1
     ASSERT_EQ(observed->get_add_iso14230_header(), false);
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, preservesExtendedIsoIdDuringInitialConfigurationAndReturnTransition)
+TEST(TestDesktopMixedCanFlashTransport, preservesExtendedIsoIdDuringInitialConfigurationAndReturnTransition)
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
@@ -169,7 +163,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, preservesExtendedIsoIdDuringInitialCon
     ASSERT_TRUE(transport.enter_iso15765_kernel_mode().has_value());
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, rawFrameAddsAndParsesBigEndianId)
+TEST(TestDesktopMixedCanFlashTransport, rawFrameAddsAndParsesBigEndianId)
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
@@ -190,7 +184,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, rawFrameAddsAndParsesBigEndianId)
     ASSERT_EQ(frame->value().payload, (bytes::Bytes{0x7a, 0x96, 0, 0, 0, 0, 0, 0}));
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, configureFailsAtEverySetter)
+TEST(TestDesktopMixedCanFlashTransport, configureFailsAtEverySetter)
 {
     const std::array<std::function<void(FakeBackend&)>, 10> failures{
         [](FakeBackend& fake)
@@ -221,7 +215,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, configureFailsAtEverySetter)
     }
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, configureRejectsReconfigureWhileAlreadyConfigured)
+TEST(TestDesktopMixedCanFlashTransport, configureRejectsReconfigureWhileAlreadyConfigured)
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
@@ -233,7 +227,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, configureRejectsReconfigureWhileAlread
     ASSERT_EQ(reconfigure.error().kind, ErrorKind::InvalidConfig);
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, poisonedTransitionMakesConfigureAndOpenSurfaceTheStaleErrorEvenAfterClose)
+TEST(TestDesktopMixedCanFlashTransport, poisonedTransitionMakesConfigureAndOpenSurfaceTheStaleErrorEvenAfterClose)
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
@@ -256,7 +250,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, poisonedTransitionMakesConfigureAndOpe
     ASSERT_EQ(reopen.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, rawTransitionFailsAtEverySetterAndMakesIoTerminal)
+TEST(TestDesktopMixedCanFlashTransport, rawTransitionFailsAtEverySetterAndMakesIoTerminal)
 {
     const std::array<std::function<void(FakeBackend&)>, 8> failures{
         [](FakeBackend& fake)
@@ -290,7 +284,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, rawTransitionFailsAtEverySetterAndMake
     }
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, failedReopenMakesFollowingIoTerminal)
+TEST(TestDesktopMixedCanFlashTransport, failedReopenMakesFollowingIoTerminal)
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
@@ -307,7 +301,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, failedReopenMakesFollowingIoTerminal)
     ASSERT_EQ(write.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, rawReadRejectsShortFrameAndWrongReceiveId)
+TEST(TestDesktopMixedCanFlashTransport, rawReadRejectsShortFrameAndWrongReceiveId)
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
@@ -326,7 +320,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, rawReadRejectsShortFrameAndWrongReceiv
     ASSERT_EQ(wrong_id.error().kind, ErrorKind::BadResponse);
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, clearReceiveBufferRejectsBackendFailure)
+TEST(TestDesktopMixedCanFlashTransport, clearReceiveBufferRejectsBackendFailure)
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
@@ -339,7 +333,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, clearReceiveBufferRejectsBackendFailur
     ASSERT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, detectsDisconnectionBeforeAndDuringIo)
+TEST(TestDesktopMixedCanFlashTransport, detectsDisconnectionBeforeAndDuringIo)
 {
     ::testing::InSequence sequence;
     FakeBackend *fake = nullptr;
@@ -360,7 +354,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, detectsDisconnectionBeforeAndDuringIo)
     ASSERT_EQ(during_read.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, catchesStandardAndNonstandardBackendExceptions)
+TEST(TestDesktopMixedCanFlashTransport, catchesStandardAndNonstandardBackendExceptions)
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
@@ -379,7 +373,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, catchesStandardAndNonstandardBackendEx
     ASSERT_EQ(nonstandard.error().kind, ErrorKind::Internal);
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, cancellationAndUnblockSuppressSubsequentIo)
+TEST(TestDesktopMixedCanFlashTransport, cancellationAndUnblockSuppressSubsequentIo)
 {
     FakeBackend *fake = nullptr;
     DesktopMixedCanFlashTransport transport(make_serial(fake));
@@ -399,7 +393,7 @@ TEST_F(TestDesktopMixedCanFlashTransport, cancellationAndUnblockSuppressSubseque
     ASSERT_EQ(unblocked_read.error().kind, ErrorKind::Cancelled);
 }
 
-TEST_F(TestDesktopMixedCanFlashTransport, nonOwningCloseDoesNotDestroyCallerSerial)
+TEST(TestDesktopMixedCanFlashTransport, nonOwningCloseDoesNotDestroyCallerSerial)
 {
     FakeBackend *fake = nullptr;
     auto serial = make_serial(fake);

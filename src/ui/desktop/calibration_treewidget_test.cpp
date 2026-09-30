@@ -57,13 +57,7 @@ bool same_icon(const QTreeWidgetItem *item, const char *path)
 
 } // namespace
 
-class CalibrationTreeWidgetTest : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(CalibrationTreeWidgetTest, filesTreeCarriesNameFirstMapIdAndSessionKey)
+TEST(CalibrationTreeWidgetTest, filesTreeCarriesNameFirstMapIdAndSessionKey)
 {
     QTreeWidget files;
     CalibrationTreeWidget builder;
@@ -80,7 +74,7 @@ TEST_F(CalibrationTreeWidgetTest, filesTreeCarriesNameFirstMapIdAndSessionKey)
     ASSERT_TRUE(item->isSelected());
 }
 
-TEST_F(CalibrationTreeWidgetTest, dataTreeMatchesLegacyRules)
+TEST(CalibrationTreeWidgetTest, dataTreeMatchesLegacyRules)
 {
     QTreeWidget data;
     CalibrationTreeWidget builder;
@@ -124,7 +118,7 @@ TEST_F(CalibrationTreeWidgetTest, dataTreeMatchesLegacyRules)
     ASSERT_TRUE(same_icon(data.topLevelItem(3)->child(0), ":/icons/1D-64.png")); // Selectable
 }
 
-TEST_F(CalibrationTreeWidgetTest, definitionlessRomShowsOnlyRomInfo)
+TEST(CalibrationTreeWidgetTest, definitionlessRomShowsOnlyRomInfo)
 {
     QTreeWidget data;
     CalibrationTreeWidget builder;

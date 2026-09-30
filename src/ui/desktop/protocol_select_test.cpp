@@ -10,13 +10,7 @@
 
 using fastecu::config::testing::ConfigSessionFixture;
 
-class ProtocolSelectTest : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(ProtocolSelectTest, listsEachVehicleBackedProtocolOnce)
+TEST(ProtocolSelectTest, listsEachVehicleBackedProtocolOnce)
 {
     ConfigSessionFixture f;
     ASSERT_TRUE(f.initialize().has_value());
@@ -25,7 +19,7 @@ TEST_F(ProtocolSelectTest, listsEachVehicleBackedProtocolOnce)
     ASSERT_EQ(dialog.ui->treeWidget->topLevelItemCount(), 3);
 }
 
-TEST_F(ProtocolSelectTest, choosingRecordsTheProtocolName)
+TEST(ProtocolSelectTest, choosingRecordsTheProtocolName)
 {
     ConfigSessionFixture f;
     ASSERT_TRUE(f.initialize().has_value());
@@ -42,7 +36,7 @@ TEST_F(ProtocolSelectTest, choosingRecordsTheProtocolName)
     ASSERT_TRUE(f.session.settings() == before);
 }
 
-TEST_F(ProtocolSelectTest, rejectingLeavesNoChoice)
+TEST(ProtocolSelectTest, rejectingLeavesNoChoice)
 {
     ConfigSessionFixture f;
     ASSERT_TRUE(f.initialize().has_value());

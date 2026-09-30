@@ -21,13 +21,7 @@ QSpinBox *box(ServiceFunctionDialog& dialog, const char *name)
 
 } // namespace
 
-class ServiceFunctionDialogTest : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(ServiceFunctionDialogTest, setParametersSpinBoxesCarryTheLegacyPromptBounds)
+TEST(ServiceFunctionDialogTest, setParametersSpinBoxesCarryTheLegacyPromptBounds)
 {
     // legacy :162-202 -- eight prompts bounded 0-255 and one bounded
     // 0-65535. The value model makes these unrepresentable rather than
@@ -50,7 +44,7 @@ TEST_F(ServiceFunctionDialogTest, setParametersSpinBoxesCarryTheLegacyPromptBoun
     ASSERT_EQ(torque->maximum(), 65535);
 }
 
-TEST_F(ServiceFunctionDialogTest, everyFormFieldLandsInItsOwnStructMember)
+TEST(ServiceFunctionDialogTest, everyFormFieldLandsInItsOwnStructMember)
 {
     // Guards against a form-to-struct mix-up, which the wire-order table
     // in tcu_parameter_table_test cannot catch: nine distinct values in,
@@ -79,7 +73,7 @@ TEST_F(ServiceFunctionDialogTest, everyFormFieldLandsInItsOwnStructMember)
     ASSERT_EQ(values.torque_correction_awd, 0xbeef);
 }
 
-TEST_F(ServiceFunctionDialogTest, setParametersFormIsOneDialogNotNineModals)
+TEST(ServiceFunctionDialogTest, setParametersFormIsOneDialogNotNineModals)
 {
     // The legacy asks nine sequential QInputDialogs (:162-202); this shows
     // all nine at once so the operator can review before any write.
@@ -87,7 +81,7 @@ TEST_F(ServiceFunctionDialogTest, setParametersFormIsOneDialogNotNineModals)
     ASSERT_EQ(dialog.findChildren<QSpinBox *>().count(), 9);
 }
 
-TEST_F(ServiceFunctionDialogTest, readParametersRendersAllNineLegacyQualifiedLabelsAndValues)
+TEST(ServiceFunctionDialogTest, readParametersRendersAllNineLegacyQualifiedLabelsAndValues)
 {
     ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::ReadParameters};
     dialog.showReadout(TcuParameterReadout{
@@ -124,7 +118,7 @@ TEST_F(ServiceFunctionDialogTest, readParametersRendersAllNineLegacyQualifiedLab
     ASSERT_EQ(table->item(4, 1)->text(), QString("48879"));
 }
 
-TEST_F(ServiceFunctionDialogTest, readParametersHasNoSpinBoxes)
+TEST(ServiceFunctionDialogTest, readParametersHasNoSpinBoxes)
 {
     ServiceFunctionDialog dialog{nullptr, "sub_tcu_denso_sh7058_can", ServiceFunctionKind::ReadParameters};
     ASSERT_EQ(dialog.findChildren<QSpinBox *>().count(), 0);

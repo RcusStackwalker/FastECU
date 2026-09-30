@@ -23,13 +23,7 @@ using ::testing::InSequence;
 using ::testing::Return;
 using namespace std::chrono_literals;
 
-class TestSerialDiagnosticLink : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(TestSerialDiagnosticLink, klineOpenResetsAppliesEverySetterThenOpens)
+TEST(TestSerialDiagnosticLink, klineOpenResetsAppliesEverySetterThenOpens)
 {
     FakeBackedSerial serial;
     {
@@ -60,7 +54,7 @@ TEST_F(TestSerialDiagnosticLink, klineOpenResetsAppliesEverySetterThenOpens)
                     .has_value());
 }
 
-TEST_F(TestSerialDiagnosticLink, canOpenResetsAppliesEverySetterThenOpens)
+TEST(TestSerialDiagnosticLink, canOpenResetsAppliesEverySetterThenOpens)
 {
     FakeBackedSerial serial;
     {
@@ -86,7 +80,7 @@ TEST_F(TestSerialDiagnosticLink, canOpenResetsAppliesEverySetterThenOpens)
             .has_value());
 }
 
-TEST_F(TestSerialDiagnosticLink, evenParityIsAppliedBeforeTheOpen)
+TEST(TestSerialDiagnosticLink, evenParityIsAppliedBeforeTheOpen)
 {
     FakeBackedSerial serial;
     {
@@ -100,7 +94,7 @@ TEST_F(TestSerialDiagnosticLink, evenParityIsAppliedBeforeTheOpen)
     ASSERT_TRUE(link.open(KlineLinkConfig{.baud = 1953, .parity = Parity::Even}).has_value());
 }
 
-TEST_F(TestSerialDiagnosticLink, failingSetterIsInvalidConfigAndStopsTheSequence)
+TEST(TestSerialDiagnosticLink, failingSetterIsInvalidConfigAndStopsTheSequence)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), set_is_iso14230_connection(false)).WillOnce(Return(false));
@@ -112,7 +106,7 @@ TEST_F(TestSerialDiagnosticLink, failingSetterIsInvalidConfigAndStopsTheSequence
     ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
 }
 
-TEST_F(TestSerialDiagnosticLink, emptyOpenedPortIsDisconnected)
+TEST(TestSerialDiagnosticLink, emptyOpenedPortIsDisconnected)
 {
     FakeBackedSerial serial;
     ON_CALL(serial.fake(), set_is_iso14230_connection(::testing::_)).WillByDefault(Return(true));
@@ -133,7 +127,7 @@ TEST_F(TestSerialDiagnosticLink, emptyOpenedPortIsDisconnected)
     ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestSerialDiagnosticLink, setHeaderSetsAllThreeFlags)
+TEST(TestSerialDiagnosticLink, setHeaderSetsAllThreeFlags)
 {
     FakeBackedSerial serial;
     {
@@ -146,7 +140,7 @@ TEST_F(TestSerialDiagnosticLink, setHeaderSetsAllThreeFlags)
     ASSERT_TRUE(link.set_header(KlineHeader::Iso9141).has_value());
 }
 
-TEST_F(TestSerialDiagnosticLink, p1UsesTheJ2534IoctlOnOpenPort)
+TEST(TestSerialDiagnosticLink, p1UsesTheJ2534IoctlOnOpenPort)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), get_use_openport2_adapter()).WillRepeatedly(Return(true));
@@ -156,7 +150,7 @@ TEST_F(TestSerialDiagnosticLink, p1UsesTheJ2534IoctlOnOpenPort)
     ASSERT_TRUE(link.set_p1_max(35ms).has_value());
 }
 
-TEST_F(TestSerialDiagnosticLink, p1UsesKlineTimingsOnDirectSerial)
+TEST(TestSerialDiagnosticLink, p1UsesKlineTimingsOnDirectSerial)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), get_use_openport2_adapter()).WillRepeatedly(Return(false));
@@ -166,7 +160,7 @@ TEST_F(TestSerialDiagnosticLink, p1UsesKlineTimingsOnDirectSerial)
     ASSERT_TRUE(link.set_p1_max(25ms).has_value());
 }
 
-TEST_F(TestSerialDiagnosticLink, initCallsPassBytesThrough)
+TEST(TestSerialDiagnosticLink, initCallsPassBytesThrough)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), five_baud_init(QByteArray::fromHex("33")))
@@ -181,7 +175,7 @@ TEST_F(TestSerialDiagnosticLink, initCallsPassBytesThrough)
     ASSERT_EQ(fast.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestSerialDiagnosticLink, writeIsEchoCheckedAndReadsSelectTheFacadeCall)
+TEST(TestSerialDiagnosticLink, writeIsEchoCheckedAndReadsSelectTheFacadeCall)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), write_serial_data_echo_check(QByteArray::fromHex("0100")))
@@ -198,7 +192,7 @@ TEST_F(TestSerialDiagnosticLink, writeIsEchoCheckedAndReadsSelectTheFacadeCall)
     ASSERT_TRUE(none.has_value() && !none->has_value());
 }
 
-TEST_F(TestSerialDiagnosticLink, cancelledReadNeverReachesTheFacade)
+TEST(TestSerialDiagnosticLink, cancelledReadNeverReachesTheFacade)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), read_serial_data(::testing::_)).Times(0);
@@ -209,7 +203,7 @@ TEST_F(TestSerialDiagnosticLink, cancelledReadNeverReachesTheFacade)
     ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
 }
 
-TEST_F(TestSerialDiagnosticLink, nullFacadeIsDisconnected)
+TEST(TestSerialDiagnosticLink, nullFacadeIsDisconnected)
 {
     SerialDiagnosticLink link(nullptr);
     ASSERT_EQ(link.open(KlineLinkConfig{}).error().kind, ErrorKind::Disconnected);

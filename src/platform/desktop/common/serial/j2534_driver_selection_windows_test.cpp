@@ -6,13 +6,7 @@
 // Windows entries come from getAllJ2534DriversNames(), carry no description,
 // and open_serial_port() drives every one of them through J2534 -- rejecting
 // them here would regress Windows.
-class TestJ2534DriverSelectionWindows : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(TestJ2534DriverSelectionWindows, capableEntry_acceptsEveryNonEmptyEntry)
+TEST(TestJ2534DriverSelectionWindows, capableEntry_acceptsEveryNonEmptyEntry)
 {
     ASSERT_TRUE(isJ2534CapableEntry(u"cu.usbmodemTApU_RJO1 - OpenPort 2.0"));
     ASSERT_TRUE(isJ2534CapableEntry(u"cu.usbmodem0 - openport 2.0"));

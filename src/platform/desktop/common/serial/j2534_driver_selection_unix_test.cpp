@@ -5,13 +5,7 @@
 
 // Unix check_serial_ports() entries are "<portName> - <description>"; only the
 // description tells an adapter from a Bluetooth or debug-console port (#243).
-class TestJ2534DriverSelectionUnix : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(TestJ2534DriverSelectionUnix, capableEntry_matchesOnlyTheAdapterDescription)
+TEST(TestJ2534DriverSelectionUnix, capableEntry_matchesOnlyTheAdapterDescription)
 {
     ASSERT_TRUE(isJ2534CapableEntry(u"cu.usbmodemTApU_RJO1 - OpenPort 2.0"));
     ASSERT_TRUE(isJ2534CapableEntry(u"cu.usbmodem0 - openport 2.0")); // case-insensitive

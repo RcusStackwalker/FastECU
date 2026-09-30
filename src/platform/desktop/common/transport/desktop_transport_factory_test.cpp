@@ -45,27 +45,7 @@ DesktopCanTransportConfig configWith(FakeBackend **captured, QStringList ports, 
 }
 } // namespace
 
-class TestDesktopTransportFactory : public ::testing::Test
-{
-
-  public:
-    // Regression (issue #243): QSerialPortInfo sorts
-    // "cu.Bluetooth-Incoming-Port - " ahead of the adapter on macOS, so taking
-    // detected.front() landed on a port that open_serial_port() never drives
-    // through J2534 -- it silently degrades to a plain serial port, reports
-    // success, and every ISO-15765 exchange then times out with no response.
-
-    // The guards below sit inside the slot bodies, not around the slot
-    // declarations: moc does not evaluate Q_OS_UNIX, so a guarded declaration
-    // compiles but never reaches the meta-object and the test silently never
-    // runs.
-
-    // Naming the dead port explicitly must fail loudly for the same reason:
-    // ISO-15765 cannot run over a plain serial port, so accepting it only buys
-    // one read timeout per exchange.
-};
-
-TEST_F(TestDesktopTransportFactory, listsEveryDetectedPort)
+TEST(TestDesktopTransportFactory, listsEveryDetectedPort)
 {
     FakeBackend *fake = nullptr;
     const auto ports = list_desktop_serial_ports(configWith(&fake, {kOpenPort0, kOpenPort1}, ""));
@@ -75,7 +55,7 @@ TEST_F(TestDesktopTransportFactory, listsEveryDetectedPort)
     ASSERT_EQ(QString::fromStdString((*ports)[1]), kOpenPort1);
 }
 
-TEST_F(TestDesktopTransportFactory, refusesToOpenWhenNoDeviceIsDetected)
+TEST(TestDesktopTransportFactory, refusesToOpenWhenNoDeviceIsDetected)
 {
     FakeBackend *fake = nullptr;
     const auto transport = open_desktop_can_flash_transport(configWith(&fake, {}, kOpenPort0), kColtCan);
@@ -84,7 +64,7 @@ TEST_F(TestDesktopTransportFactory, refusesToOpenWhenNoDeviceIsDetected)
     ASSERT_EQ(transport.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsAbsent)
+TEST(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsAbsent)
 {
     FakeBackend *fake = nullptr;
     auto config = configWith(&fake, {kOpenPort0}, kOpenPort0);
@@ -95,7 +75,7 @@ TEST_F(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsAbsent)
     ASSERT_EQ(transport.error().kind, ErrorKind::InvalidConfig);
 }
 
-TEST_F(TestDesktopTransportFactory, selectsTheFirstJ2534DeviceWhenNoNameIsGiven)
+TEST(TestDesktopTransportFactory, selectsTheFirstJ2534DeviceWhenNoNameIsGiven)
 {
     FakeBackend *fake = nullptr;
     const auto transport =
@@ -105,7 +85,12 @@ TEST_F(TestDesktopTransportFactory, selectsTheFirstJ2534DeviceWhenNoNameIsGiven)
     ASSERT_EQ(fake->get_serial_port_list(), QStringList({kOpenPort0}));
 }
 
-TEST_F(TestDesktopTransportFactory, skipsNonJ2534PortsWhenNoNameIsGiven)
+// Regression (issue #243): QSerialPortInfo sorts
+// "cu.Bluetooth-Incoming-Port - " ahead of the adapter on macOS, so taking
+// detected.front() landed on a port that open_serial_port() never drives
+// through J2534 -- it silently degrades to a plain serial port, reports
+// success, and every ISO-15765 exchange then times out with no response.
+TEST(TestDesktopTransportFactory, skipsNonJ2534PortsWhenNoNameIsGiven)
 {
     FakeBackend *fake = nullptr;
     const auto transport =
@@ -122,7 +107,11 @@ TEST_F(TestDesktopTransportFactory, skipsNonJ2534PortsWhenNoNameIsGiven)
 #endif
 }
 
-TEST_F(TestDesktopTransportFactory, refusesToOpenWhenNoDetectedPortIsAJ2534Adapter)
+// The guards below sit inside the slot bodies, not around the slot
+// declarations: moc does not evaluate Q_OS_UNIX, so a guarded declaration
+// compiles but never reaches the meta-object and the test silently never
+// runs.
+TEST(TestDesktopTransportFactory, refusesToOpenWhenNoDetectedPortIsAJ2534Adapter)
 {
     FakeBackend *fake = nullptr;
     const auto transport =
@@ -136,7 +125,10 @@ TEST_F(TestDesktopTransportFactory, refusesToOpenWhenNoDetectedPortIsAJ2534Adapt
 #endif
 }
 
-TEST_F(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsNotAJ2534Adapter)
+// Naming the dead port explicitly must fail loudly for the same reason:
+// ISO-15765 cannot run over a plain serial port, so accepting it only buys
+// one read timeout per exchange.
+TEST(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsNotAJ2534Adapter)
 {
     FakeBackend *fake = nullptr;
     auto config = configWith(&fake, {kBluetoothPort, kOpenPort0}, kBluetoothPort);
@@ -151,7 +143,7 @@ TEST_F(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsNotAJ2534Ad
 #endif
 }
 
-TEST_F(TestDesktopTransportFactory, reportsDisconnectedWhenTheOpenFails)
+TEST(TestDesktopTransportFactory, reportsDisconnectedWhenTheOpenFails)
 {
     FakeBackend *fake = nullptr;
     const auto transport = open_desktop_can_flash_transport(configWith(&fake, {kOpenPort0}, ""), kColtCan);
@@ -160,7 +152,7 @@ TEST_F(TestDesktopTransportFactory, reportsDisconnectedWhenTheOpenFails)
     ASSERT_EQ(transport.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopTransportFactory, refusesAConfigWithoutABackendFactory)
+TEST(TestDesktopTransportFactory, refusesAConfigWithoutABackendFactory)
 {
     const DesktopCanTransportConfig config;
 

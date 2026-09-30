@@ -83,25 +83,7 @@ class TestableSerialPortActionsDirect : public SerialPortActionsDirect
     }
 };
 
-class SerialPortCrashTest : public ::testing::Test
-{
-
-  public:
-    // End-to-end over a mock serial (PTY): the connect handshake succeeds.
-
-    // The full field "Logging" flow over the mock: connect, then a realtime read
-    // loop with a reentrant read + teardown interleaved via the event loop.
-
-    // Post-refactor, reads no longer pump the event loop, so a queued
-    // reset_connection() cannot interleave mid-read: it runs strictly after
-    // the read completes and the caller drains the queue.
-
-    // Post-refactor: a blocking read must not pump the event loop, so any
-    // foreign queued event stays queued (not dispatched reentrantly) until the
-    // caller processes events itself.
-};
-
-TEST_F(SerialPortCrashTest, isSerialPortOpen_withNullSerial_doesNotCrash)
+TEST(SerialPortCrashTest, isSerialPortOpen_withNullSerial_doesNotCrash)
 {
     TestableJ2534 j2534;
     j2534.detachSerialPort();
@@ -110,7 +92,7 @@ TEST_F(SerialPortCrashTest, isSerialPortOpen_withNullSerial_doesNotCrash)
     ASSERT_EQ(j2534.is_serial_port_open(), false);
 }
 
-TEST_F(SerialPortCrashTest, readSerialData_withNullSerial_doesNotCrash)
+TEST(SerialPortCrashTest, readSerialData_withNullSerial_doesNotCrash)
 {
     TestableJ2534 j2534;
     j2534.detachSerialPort();
@@ -119,7 +101,7 @@ TEST_F(SerialPortCrashTest, readSerialData_withNullSerial_doesNotCrash)
     ASSERT_EQ(j2534.read_serial_data(3, 50), QByteArray());
 }
 
-TEST_F(SerialPortCrashTest, readSerialData_withNullSerial_doesNotBusySpin)
+TEST(SerialPortCrashTest, readSerialData_withNullSerial_doesNotBusySpin)
 {
     // Regression for a busy-spin the SerialByteBuffer wiring introduced: with
     // `serial` null (torn down), the read path's wait callable used to be a
@@ -163,7 +145,7 @@ TEST_F(SerialPortCrashTest, readSerialData_withNullSerial_doesNotBusySpin)
                           .arg(elapsedMs));
 }
 
-TEST_F(SerialPortCrashTest, passThruReadMsgs_withNullSerial_doesNotCrash)
+TEST(SerialPortCrashTest, passThruReadMsgs_withNullSerial_doesNotCrash)
 {
     TestableJ2534 j2534;
     j2534.detachSerialPort();
@@ -175,7 +157,7 @@ TEST_F(SerialPortCrashTest, passThruReadMsgs_withNullSerial_doesNotCrash)
     ASSERT_TRUE(true);
 }
 
-TEST_F(SerialPortCrashTest, readVbatt_throughNullJ2534Serial_doesNotCrash)
+TEST(SerialPortCrashTest, readVbatt_throughNullJ2534Serial_doesNotCrash)
 {
     TestableSerialPortActionsDirect spad;
     spad.installNullSerialJ2534();
@@ -188,7 +170,7 @@ TEST_F(SerialPortCrashTest, readVbatt_throughNullJ2534Serial_doesNotCrash)
     ASSERT_TRUE(true);
 }
 
-TEST_F(SerialPortCrashTest, reentrantReadDuringTeardown_viaEventLoop_doesNotCrash)
+TEST(SerialPortCrashTest, reentrantReadDuringTeardown_viaEventLoop_doesNotCrash)
 {
     // Reproduces the live reentrancy through a non-GUI event loop: FastECU pumps
     // processEvents() mid-operation (MainWindow::delay, reset_connection's
@@ -214,7 +196,8 @@ TEST_F(SerialPortCrashTest, reentrantReadDuringTeardown_viaEventLoop_doesNotCras
     ASSERT_TRUE(true);
 }
 
-TEST_F(SerialPortCrashTest, j2534Handshake_overMockPty_readVersionSucceeds)
+// End-to-end over a mock serial (PTY): the connect handshake succeeds.
+TEST(SerialPortCrashTest, j2534Handshake_overMockPty_readVersionSucceeds)
 {
     // Deterministic end-to-end of the OpenPort handshake with no hardware: the
     // real J2534 protocol code talks to a scripted mock dongle over a PTY.
@@ -242,7 +225,7 @@ TEST_F(SerialPortCrashTest, j2534Handshake_overMockPty_readVersionSucceeds)
     ::close(master);
 }
 
-TEST_F(SerialPortCrashTest, spadInitJ2534Connection_overMockPty_succeeds)
+TEST(SerialPortCrashTest, spadInitJ2534Connection_overMockPty_succeeds)
 {
     // Drives the full SerialPortActionsDirect connect orchestration
     // (open_serial_port -> PassThruOpen -> ReadVersion -> get_serial_num ->
@@ -261,7 +244,9 @@ TEST_F(SerialPortCrashTest, spadInitJ2534Connection_overMockPty_succeeds)
     ::close(master);
 }
 
-TEST_F(SerialPortCrashTest, loggingFlow_connectReadTeardownReentrancy_overMockPty_doesNotCrash)
+// The full field "Logging" flow over the mock: connect, then a realtime read
+// loop with a reentrant read + teardown interleaved via the event loop.
+TEST(SerialPortCrashTest, loggingFlow_connectReadTeardownReentrancy_overMockPty_doesNotCrash)
 {
     // Drives the field "Logging" scenario at the layer where it crashed, over the
     // mock dongle, with no hardware:
@@ -313,7 +298,10 @@ TEST_F(SerialPortCrashTest, loggingFlow_connectReadTeardownReentrancy_overMockPt
     ::close(master);
 }
 
-TEST_F(SerialPortCrashTest, resetQueuedDuringRead_runsAfterReadCompletes)
+// Post-refactor, reads no longer pump the event loop, so a queued
+// reset_connection() cannot interleave mid-read: it runs strictly after
+// the read completes and the caller drains the queue.
+TEST(SerialPortCrashTest, resetQueuedDuringRead_runsAfterReadCompletes)
 {
     // Reads are now atomic with respect to the event queue: read_serial_data
     // waits on the port's own fd (waitForReadyRead) instead of pumping
@@ -355,7 +343,10 @@ TEST_F(SerialPortCrashTest, resetQueuedDuringRead_runsAfterReadCompletes)
     ::close(master);
 }
 
-TEST_F(SerialPortCrashTest, blockingRead_doesNotDispatchQueuedEvents)
+// Post-refactor: a blocking read must not pump the event loop, so any
+// foreign queued event stays queued (not dispatched reentrantly) until the
+// caller processes events itself.
+TEST(SerialPortCrashTest, blockingRead_doesNotDispatchQueuedEvents)
 {
     // The old read paths pump QCoreApplication::processEvents() while waiting,
     // so ANY queued event — a timer, a user action, another serial call — runs

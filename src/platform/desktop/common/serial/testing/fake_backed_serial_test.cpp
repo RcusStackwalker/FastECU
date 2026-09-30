@@ -12,24 +12,10 @@
 
 #include <memory>
 
-class TestFakeBackedSerial : public ::testing::Test
-{
-
-  public:
-    // The facade creates its backend lazily, on the first marshaled call. The
-    // fixture makes that call itself, so fake() is usable with no forcing
-    // call and no null check at the test site.
-
-    // arrange() must run before the fixture's own forcing call reaches the
-    // backend. Under a StrictMock that call is a test failure unless the
-    // expectation is already in place, which is what makes this observable.
-
-    // release() hands the facade to a consumer (a transport, in the real
-    // suites) while fake() keeps answering, and the backend dies with whoever
-    // took the facade rather than with the fixture.
-};
-
-TEST_F(TestFakeBackedSerial, theBackendIsLiveAsSoonAsTheFixtureIsConstructed)
+// The facade creates its backend lazily, on the first marshaled call. The
+// fixture makes that call itself, so fake() is usable with no forcing
+// call and no null check at the test site.
+TEST(TestFakeBackedSerial, theBackendIsLiveAsSoonAsTheFixtureIsConstructed)
 {
     FakeBackedSerial serial;
 
@@ -38,7 +24,10 @@ TEST_F(TestFakeBackedSerial, theBackendIsLiveAsSoonAsTheFixtureIsConstructed)
     ASSERT_EQ(serial->read_vbatt(), 11676UL);
 }
 
-TEST_F(TestFakeBackedSerial, arrangeRunsBeforeTheFixtureTouchesTheBackend)
+// arrange() must run before the fixture's own forcing call reaches the
+// backend. Under a StrictMock that call is a test failure unless the
+// expectation is already in place, which is what makes this observable.
+TEST(TestFakeBackedSerial, arrangeRunsBeforeTheFixtureTouchesTheBackend)
 {
     FakeBackedSerial<::testing::StrictMock<FakeBackend>> serial{
         [](auto& fake)
@@ -50,7 +39,10 @@ TEST_F(TestFakeBackedSerial, arrangeRunsBeforeTheFixtureTouchesTheBackend)
     ASSERT_EQ(serial->read_vbatt(), 9000UL);
 }
 
-TEST_F(TestFakeBackedSerial, releaseTransfersTheFacadeAndLeavesTheFakeReachable)
+// release() hands the facade to a consumer (a transport, in the real
+// suites) while fake() keeps answering, and the backend dies with whoever
+// took the facade rather than with the fixture.
+TEST(TestFakeBackedSerial, releaseTransfersTheFacadeAndLeavesTheFakeReachable)
 {
     bool destroyed = false;
     {

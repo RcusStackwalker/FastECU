@@ -56,13 +56,7 @@ struct Harness
 
 } // namespace
 
-class SerialFacadeConfiguratorTest : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(SerialFacadeConfiguratorTest, isoConfigurationClearsAStaleKlineHeaderAndUsesTheRequiredOrder)
+TEST(SerialFacadeConfiguratorTest, isoConfigurationClearsAStaleKlineHeaderAndUsesTheRequiredOrder)
 {
     Harness harness;
     ASSERT_TRUE(harness.serial->set_add_iso14230_header(true));
@@ -88,7 +82,7 @@ TEST_F(SerialFacadeConfiguratorTest, isoConfigurationClearsAStaleKlineHeaderAndU
     ASSERT_EQ(harness.serial->get_add_iso14230_header(), false);
 }
 
-TEST_F(SerialFacadeConfiguratorTest, klineConfigurationPreservesLegacyOpenBaudHeaderOrder)
+TEST(SerialFacadeConfiguratorTest, klineConfigurationPreservesLegacyOpenBaudHeaderOrder)
 {
     Harness harness;
 
@@ -108,7 +102,7 @@ TEST_F(SerialFacadeConfiguratorTest, klineConfigurationPreservesLegacyOpenBaudHe
     ASSERT_TRUE(result.has_value());
 }
 
-TEST_F(SerialFacadeConfiguratorTest, nullFacadeIsDisconnected)
+TEST(SerialFacadeConfiguratorTest, nullFacadeIsDisconnected)
 {
     SerialPortActionsConfigurator configurator{nullptr};
 
@@ -118,7 +112,7 @@ TEST_F(SerialFacadeConfiguratorTest, nullFacadeIsDisconnected)
     ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(SerialFacadeConfiguratorTest, anEmptyOpenResultIsDisconnectedEvenWithAStaleOpenFlag)
+TEST(SerialFacadeConfiguratorTest, anEmptyOpenResultIsDisconnectedEvenWithAStaleOpenFlag)
 {
     Harness harness;
     EXPECT_CALL(*harness.fake, open_serial_port()).WillOnce(::testing::Return(QString{}));
@@ -129,7 +123,7 @@ TEST_F(SerialFacadeConfiguratorTest, anEmptyOpenResultIsDisconnectedEvenWithASta
     ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(SerialFacadeConfiguratorTest, aPortThatIsNotOpenAfterOpenIsDisconnected)
+TEST(SerialFacadeConfiguratorTest, aPortThatIsNotOpenAfterOpenIsDisconnected)
 {
     Harness harness;
     EXPECT_CALL(*harness.fake, is_serial_port_open()).WillOnce(::testing::Return(false));
@@ -148,7 +142,7 @@ struct eachBooleanSetterFailureIsInvalidConfigCase
     int setter;
 };
 class eachBooleanSetterFailureIsInvalidConfigParameters
-    : public SerialFacadeConfiguratorTest,
+    : public ::testing::Test,
       public ::testing::WithParamInterface<eachBooleanSetterFailureIsInvalidConfigCase>
 {
 };
@@ -213,7 +207,7 @@ TEST_P(eachBooleanSetterFailureIsInvalidConfigParameters, eachBooleanSetterFailu
     ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
 }
 
-TEST_F(SerialFacadeConfiguratorTest, aKlineHeaderSetterFailureIsInvalidConfig)
+TEST(SerialFacadeConfiguratorTest, aKlineHeaderSetterFailureIsInvalidConfig)
 {
     Harness harness;
     EXPECT_CALL(*harness.fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(false));
@@ -224,7 +218,7 @@ TEST_F(SerialFacadeConfiguratorTest, aKlineHeaderSetterFailureIsInvalidConfig)
     ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
 }
 
-TEST_F(SerialFacadeConfiguratorTest, aSetterExceptionBecomesInternalStatus)
+TEST(SerialFacadeConfiguratorTest, aSetterExceptionBecomesInternalStatus)
 {
     Harness harness;
     EXPECT_CALL(*harness.fake, set_is_iso14230_connection(false))
@@ -236,7 +230,7 @@ TEST_F(SerialFacadeConfiguratorTest, aSetterExceptionBecomesInternalStatus)
     ASSERT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
-TEST_F(SerialFacadeConfiguratorTest, anOpenExceptionBecomesInternalStatus)
+TEST(SerialFacadeConfiguratorTest, anOpenExceptionBecomesInternalStatus)
 {
     Harness harness;
     EXPECT_CALL(*harness.fake, open_serial_port())
@@ -248,7 +242,7 @@ TEST_F(SerialFacadeConfiguratorTest, anOpenExceptionBecomesInternalStatus)
     ASSERT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
-TEST_F(SerialFacadeConfiguratorTest, aRejectedBaudChangeIsInternal)
+TEST(SerialFacadeConfiguratorTest, aRejectedBaudChangeIsInternal)
 {
     Harness harness;
     EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_ERROR));
@@ -259,7 +253,7 @@ TEST_F(SerialFacadeConfiguratorTest, aRejectedBaudChangeIsInternal)
     ASSERT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
-TEST_F(SerialFacadeConfiguratorTest, aPortDropDuringRejectedBaudChangeIsDisconnected)
+TEST(SerialFacadeConfiguratorTest, aPortDropDuringRejectedBaudChangeIsDisconnected)
 {
     Harness harness;
     EXPECT_CALL(*harness.fake, is_serial_port_open())
@@ -273,7 +267,7 @@ TEST_F(SerialFacadeConfiguratorTest, aPortDropDuringRejectedBaudChangeIsDisconne
     ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(SerialFacadeConfiguratorTest, aStandardFacadeExceptionBecomesInternalStatus)
+TEST(SerialFacadeConfiguratorTest, aStandardFacadeExceptionBecomesInternalStatus)
 {
     Harness harness;
     EXPECT_CALL(*harness.fake, reset_connection())
@@ -292,7 +286,7 @@ TEST_F(SerialFacadeConfiguratorTest, aStandardFacadeExceptionBecomesInternalStat
     }
 }
 
-TEST_F(SerialFacadeConfiguratorTest, aNonStandardFacadeExceptionBecomesInternalStatus)
+TEST(SerialFacadeConfiguratorTest, aNonStandardFacadeExceptionBecomesInternalStatus)
 {
     Harness harness;
     EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(ThrowNonStandardBackendFailure());

@@ -119,13 +119,7 @@ bytes::Bytes requestKernelIdRequest()
 
 } // namespace
 
-class TestFlashWorker : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWallClockSleep)
+TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWallClockSleep)
 {
     auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromKline));
     ASSERT_TRUE(plan.has_value());
@@ -174,7 +168,7 @@ TEST_F(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithout
     ASSERT_EQ(rawTransport->close_call_count_, 1);
 }
 
-TEST_F(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
+TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
 {
     // A CAN-shaped plan handed to the K-Line executor: transport_setup()
     // rejects it before any I/O (zero writes/reads
@@ -206,7 +200,7 @@ TEST_F(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
     ASSERT_EQ(result.error_kind, ErrorKind::InvalidConfig);
 }
 
-TEST_F(TestFlashWorker, phaseProgressIsForwardedAlongsideLegacyProgress)
+TEST(TestFlashWorker, phaseProgressIsForwardedAlongsideLegacyProgress)
 {
     auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromKline));
     ASSERT_TRUE(plan.has_value());

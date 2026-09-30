@@ -30,13 +30,7 @@ __attribute__((noinline)) static int child_body()
     return 0; // reached only when asserts are stripped
 }
 
-class TestForceAsserts : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(TestForceAsserts, outOfBoundsAtAborts)
+TEST(TestForceAsserts, outOfBoundsAtAborts)
 {
     pid_t pid = fork();
     ASSERT_TRUE(pid >= 0) << "fork failed";

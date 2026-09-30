@@ -17,13 +17,7 @@
 
 using fastecu::diagnostics::FakeDiagnosticLink;
 
-class DtcOperationsTest : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(DtcOperationsTest, aFailedRunLogsOnceAndReenablesTheButtons)
+TEST(DtcOperationsTest, aFailedRunLogsOnceAndReenablesTheButtons)
 {
     FakeDiagnosticLink link; // five-baud answers nothing -> fails before any sleep
     DtcOperations dialog(link);
@@ -39,7 +33,7 @@ TEST_F(DtcOperationsTest, aFailedRunLogsOnceAndReenablesTheButtons)
     ASSERT_TRUE(logged);
 }
 
-TEST_F(DtcOperationsTest, closeDuringARunStopsTheWorkerAndResets)
+TEST(DtcOperationsTest, closeDuringARunStopsTheWorkerAndResets)
 {
     FakeDiagnosticLink link;
     link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08}); // accepted -> 500 ms sleep follows
@@ -58,7 +52,7 @@ TEST_F(DtcOperationsTest, closeDuringARunStopsTheWorkerAndResets)
     delete dialog;
 }
 
-TEST_F(DtcOperationsTest, escapeDuringARunStopsTheWorkerAndResets)
+TEST(DtcOperationsTest, escapeDuringARunStopsTheWorkerAndResets)
 {
     FakeDiagnosticLink link;
     link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08}); // accepted -> 500 ms sleep follows

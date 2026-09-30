@@ -162,19 +162,6 @@ void expect_start_error(fastecu::Status result, fastecu::ErrorKind kind, std::st
 
 } // namespace
 
-// signal recorder::wait() is safe in this suite -- unlike in logging_worker_test.cpp
-// -- because LoggingEngine does not emit on the worker thread. It receives
-// LoggingWorker's signals over a queued connection (worker and engine live on
-// different threads), so sessionEnded/valuesUpdated are re-emitted on this
-// thread from inside the very event loop wait() is running. The emission
-// therefore cannot precede wait()'s baseline snapshot the way it can when a
-// spy is attached straight to a QThread subclass's own signal.
-class TestLoggingEngine : public ::testing::Test
-{
-
-  public:
-};
-
 struct start_rejectionsCase
 {
     std::string name;
@@ -182,7 +169,7 @@ struct start_rejectionsCase
     int kind;
     QString detail;
 };
-class start_rejectionsParameters : public TestLoggingEngine, public ::testing::WithParamInterface<start_rejectionsCase>
+class start_rejectionsParameters : public ::testing::Test, public ::testing::WithParamInterface<start_rejectionsCase>
 {
 };
 
@@ -270,7 +257,14 @@ TEST_P(start_rejectionsParameters, start_rejections)
     ASSERT_TRUE(!engine.isRunning());
 }
 
-TEST_F(TestLoggingEngine, user_stop_publishes_joined_completion_exactly_once)
+// signal recorder::wait() is safe in this suite -- unlike in logging_worker_test.cpp
+// -- because LoggingEngine does not emit on the worker thread. It receives
+// LoggingWorker's signals over a queued connection (worker and engine live on
+// different threads), so sessionEnded/valuesUpdated are re-emitted on this
+// thread from inside the very event loop wait() is running. The emission
+// therefore cannot precede wait()'s baseline snapshot the way it can when a
+// spy is attached straight to a QThread subclass's own signal.
+TEST(TestLoggingEngine, user_stop_publishes_joined_completion_exactly_once)
 {
     LoggingEngine engine;
     auto *protocol = new ScriptedLoggingProtocol();
@@ -301,7 +295,7 @@ TEST_F(TestLoggingEngine, user_stop_publishes_joined_completion_exactly_once)
     ASSERT_EQ(error_spy.count(), 0);
 }
 
-TEST_F(TestLoggingEngine, completion_observer_can_immediately_start_a_second_run)
+TEST(TestLoggingEngine, completion_observer_can_immediately_start_a_second_run)
 {
     LoggingEngine engine;
     auto *first_protocol = new ScriptedLoggingProtocol();
@@ -347,7 +341,7 @@ TEST_F(TestLoggingEngine, completion_observer_can_immediately_start_a_second_run
     engine.stop();
 }
 
-TEST_F(TestLoggingEngine, explicit_stop_restart_ignores_stale_worker_events_and_preserves_handshake_classification)
+TEST(TestLoggingEngine, explicit_stop_restart_ignores_stale_worker_events_and_preserves_handshake_classification)
 {
     LoggingEngine engine;
     auto *first_protocol = new SampleThenBlockProtocol();
@@ -393,7 +387,7 @@ TEST_F(TestLoggingEngine, explicit_stop_restart_ignores_stale_worker_events_and_
     ASSERT_TRUE(!engine.isRunning());
 }
 
-TEST_F(TestLoggingEngine, natural_terminal_result_is_published_once_after_reprocessing_queued_delivery)
+TEST(TestLoggingEngine, natural_terminal_result_is_published_once_after_reprocessing_queued_delivery)
 {
     LoggingEngine engine;
     auto *protocol = new ScriptedLoggingProtocol();
@@ -413,7 +407,7 @@ TEST_F(TestLoggingEngine, natural_terminal_result_is_published_once_after_reproc
     ASSERT_TRUE(!engine.isRunning());
 }
 
-TEST_F(TestLoggingEngine, successful_worker_result_is_reported_as_runtime_failure)
+TEST(TestLoggingEngine, successful_worker_result_is_reported_as_runtime_failure)
 {
     LoggingEngine engine;
     auto *protocol = new ScriptedLoggingProtocol();
@@ -434,7 +428,7 @@ TEST_F(TestLoggingEngine, successful_worker_result_is_reported_as_runtime_failur
     ASSERT_TRUE(!engine.isRunning());
 }
 
-TEST_F(TestLoggingEngine, destruction_joins_blocked_run_without_publishing_completion)
+TEST(TestLoggingEngine, destruction_joins_blocked_run_without_publishing_completion)
 {
     std::atomic<int> protocol_stop_calls{0};
     int completion_count = 0;
@@ -453,7 +447,7 @@ TEST_F(TestLoggingEngine, destruction_joins_blocked_run_without_publishing_compl
     ASSERT_EQ(completion_count, 0);
 }
 
-TEST_F(TestLoggingEngine, every_cdbg_serial_setup_failure_is_structured_and_stops_before_later_steps)
+TEST(TestLoggingEngine, every_cdbg_serial_setup_failure_is_structured_and_stops_before_later_steps)
 {
     using fastecu::desktop::logging::CdbgSerialSetupActions;
     using fastecu::desktop::logging::configure_cdbg_serial;
@@ -478,7 +472,7 @@ TEST_F(TestLoggingEngine, every_cdbg_serial_setup_failure_is_structured_and_stop
     }
 }
 
-TEST_F(TestLoggingEngine, start_error_preserves_handshake_failure_ui_path)
+TEST(TestLoggingEngine, start_error_preserves_handshake_failure_ui_path)
 {
     LoggingEngine engine;
     auto *protocol = new ScriptedLoggingProtocol();
@@ -497,7 +491,7 @@ TEST_F(TestLoggingEngine, start_error_preserves_handshake_failure_ui_path)
     ASSERT_TRUE(!engine.isRunning());
 }
 
-TEST_F(TestLoggingEngine, disconnect_error_preserves_adapter_failure_ui_path)
+TEST(TestLoggingEngine, disconnect_error_preserves_adapter_failure_ui_path)
 {
     LoggingEngine engine;
     auto *protocol = new ScriptedLoggingProtocol();
@@ -515,7 +509,7 @@ TEST_F(TestLoggingEngine, disconnect_error_preserves_adapter_failure_ui_path)
     ASSERT_TRUE(!engine.isRunning());
 }
 
-TEST_F(TestLoggingEngine, post_start_failure_is_not_reported_as_handshake_failure)
+TEST(TestLoggingEngine, post_start_failure_is_not_reported_as_handshake_failure)
 {
     LoggingEngine engine;
     auto *protocol = new ScriptedLoggingProtocol();
@@ -533,7 +527,7 @@ TEST_F(TestLoggingEngine, post_start_failure_is_not_reported_as_handshake_failur
     ASSERT_EQ(std::get<0>(error_spy.snapshot().at(0)), QString("Logging session failed: bad stream frame"));
 }
 
-TEST_F(TestLoggingEngine, unexpected_cancelled_outcome_is_reported_as_runtime_failure)
+TEST(TestLoggingEngine, unexpected_cancelled_outcome_is_reported_as_runtime_failure)
 {
     LoggingEngine engine;
     auto *protocol = new ScriptedLoggingProtocol();
@@ -555,7 +549,7 @@ TEST_F(TestLoggingEngine, unexpected_cancelled_outcome_is_reported_as_runtime_fa
     ASSERT_TRUE(!engine.isRunning());
 }
 
-TEST_F(TestLoggingEngine, diagnostic_slot_forwards_error_level_with_timestamp_and_linefeed)
+TEST(TestLoggingEngine, diagnostic_slot_forwards_error_level_with_timestamp_and_linefeed)
 {
     LoggingEngine engine;
     fastecu::testing::SignalRecorder error_spy(&engine, &LoggingEngine::LOG_E);
@@ -570,7 +564,7 @@ TEST_F(TestLoggingEngine, diagnostic_slot_forwards_error_level_with_timestamp_an
     ASSERT_EQ(std::get<2>(error_spy.snapshot().at(0)), true);
 }
 
-TEST_F(TestLoggingEngine, diagnostic_slot_forwards_warning_level_with_timestamp_and_linefeed)
+TEST(TestLoggingEngine, diagnostic_slot_forwards_warning_level_with_timestamp_and_linefeed)
 {
     LoggingEngine engine;
     fastecu::testing::SignalRecorder warning_spy(&engine, &LoggingEngine::LOG_W);
@@ -585,7 +579,7 @@ TEST_F(TestLoggingEngine, diagnostic_slot_forwards_warning_level_with_timestamp_
     ASSERT_EQ(std::get<2>(warning_spy.snapshot().at(0)), true);
 }
 
-TEST_F(TestLoggingEngine, diagnostic_slot_forwards_info_level_with_timestamp_and_linefeed)
+TEST(TestLoggingEngine, diagnostic_slot_forwards_info_level_with_timestamp_and_linefeed)
 {
     LoggingEngine engine;
     fastecu::testing::SignalRecorder info_spy(&engine, &LoggingEngine::LOG_I);
@@ -600,7 +594,7 @@ TEST_F(TestLoggingEngine, diagnostic_slot_forwards_info_level_with_timestamp_and
     ASSERT_EQ(std::get<2>(info_spy.snapshot().at(0)), true);
 }
 
-TEST_F(TestLoggingEngine, diagnostic_slot_forwards_debug_level_with_timestamp_and_linefeed)
+TEST(TestLoggingEngine, diagnostic_slot_forwards_debug_level_with_timestamp_and_linefeed)
 {
     LoggingEngine engine;
     fastecu::testing::SignalRecorder debug_spy(&engine, &LoggingEngine::LOG_D);
@@ -615,7 +609,7 @@ TEST_F(TestLoggingEngine, diagnostic_slot_forwards_debug_level_with_timestamp_an
     ASSERT_EQ(std::get<2>(debug_spy.snapshot().at(0)), true);
 }
 
-TEST_F(TestLoggingEngine, portable_events_map_to_existing_status_and_value_signals)
+TEST(TestLoggingEngine, portable_events_map_to_existing_status_and_value_signals)
 {
     LoggingEngine engine;
     auto *protocol = new ScriptedLoggingProtocol();

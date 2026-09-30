@@ -34,105 +34,7 @@ using fastecu::FakeCancellationToken;
 using fastecu::flash::DesktopCanFlashTransport;
 using fastecu::flash::Iso15765Config;
 
-class TestDesktopCanFlashTransport : public ::testing::Test
-{
-
-  public:
-    // Data-driven sibling of configureChecksEveryBooleanSetterInOrderAndStops-
-    // AtFirstFailure() above (which only exercises the fifth setter's
-    // failure branch, set_can_speed): proves every remaining setter's own
-    // InvalidConfig return path independently.
-
-    // Success mirror of configureChecksEveryBooleanSetterInOrderAndStopsAt-
-    // FirstFailure() above: every setter is expected to succeed, so
-    // configure() must run all ten setters, in order, and return success.
-
-    // A K-Line session on the same facade leaves ISO-14230 auto-headers on.
-    // configure() must clear that state, or the first CAN frame goes out with
-    // a K-Line header attached.
-
-    // Success mirror of openFailureReturnsDisconnectedWithoutAnyWrite().
-
-    // reset_connection() is the diesel startup seam. This calls the real
-    // SerialPortActions facade over the existing fake backend rather than
-    // asserting on a transport double.
-
-    // write() success path: port open throughout, cancellation never fires.
-
-    // write() must observe cancellation.cancelled() before ever issuing the
-    // write -- the backend must never be touched at all. Distinct from the
-    // K-Line sibling, whose write() takes no cancellation token at all.
-
-    // write() disconnected-during path: the port closes as a side effect of
-    // the write call itself -- the post-write is_serial_port_open() check
-    // must catch this even though write_serial_data_echo_check() itself
-    // never signals failure via its return value.
-
-    // write() disconnected-before path: the port is already closed when
-    // write() is called -- write_serial_data_echo_check() must never be
-    // reached.
-
-    // read() success path: port open, cancellation never fires, backend
-    // returns scripted bytes.
-
-    // read() observes cancellation.cancelled() before ever issuing the read
-    // -- the backend must never be touched at all.
-
-    // read() disconnected-before path: the port is already closed when
-    // read() is called -- read_serial_data() must never be reached.
-
-    // read() disconnected-during path: the read returns data, then the
-    // post-read is_serial_port_open() check reports the closed port.
-
-    // The "already closed" guard at the top of every method: once close()
-    // has run, serial_ is null and every subsequent call must fail with
-    // Disconnected without touching the (now possibly destroyed) backend.
-
-    // write() must be skipped once request_unblock() has fired, exactly
-    // like read() -- the shared unblock_requested_ flag guards both.
-
-    // read() success path when the backend legitimately has nothing to
-    // report: raw.isEmpty() must map to a present-but-empty optional, not a
-    // failure.
-
-    // write()'s catch(const std::exception&) branch.
-
-    // write()'s bare catch(...) branch.
-
-    // read()'s catch(const std::exception&) branch, with cancellation never
-    // observed -- must map to Internal, not Cancelled.
-
-    // read()'s bare catch(...) branch, with cancellation never observed.
-
-    // read()'s post-read cancellation recheck (success path): cancellation
-    // becomes observed-true only *after* the backend call has already
-    // returned successfully -- must still map to Cancelled, not the bytes
-    // that were read.
-
-    // read()'s post-throw cancellation recheck, catch(const std::exception&)
-    // branch: cancellation becomes observed-true only after the backend
-    // call has already thrown -- must map to Cancelled, not Internal.
-
-    // read()'s post-throw cancellation recheck, bare catch(...) branch.
-
-    // Proves the non-owning constructor (step 5c, Task 17) -- see
-    // test_desktop_kline_flash_transport.cpp's identically-named test for
-    // the full rationale: MainWindow's single, session-lifetime
-    // SerialPortActions instance must survive close() on a transport that
-    // does not own it.
-
-    // request_unblock() has no real interrupt primitive to fire --
-    // SerialPortActions exposes none -- so it can only set a flag checked
-    // before the *next* read call. This test proves both halves of that
-    // documented, bounded-latency contract: (1) an already in-flight read
-    // does NOT return early just because request_unblock() fires -- it
-    // still returns only via its own existing timeout (simulated here by
-    // releasing the fake's continueRead gate); and (2) once
-    // request_unblock() has fired, the *next* call to read() returns
-    // immediately as Cancelled without ever reaching the backend.
-};
-
-TEST_F(TestDesktopCanFlashTransport, configureChecksEveryBooleanSetterInOrderAndStopsAtFirstFailure)
+TEST(TestDesktopCanFlashTransport, configureChecksEveryBooleanSetterInOrderAndStopsAtFirstFailure)
 {
     FakeBackedSerial serial;
     // Fail the *fifth* setter in configure()'s specified order
@@ -170,7 +72,7 @@ struct configureFailsAtEachRemainingSetterInTurnCase
     int setterIndex;
 };
 class configureFailsAtEachRemainingSetterInTurnParameters
-    : public TestDesktopCanFlashTransport,
+    : public ::testing::Test,
       public ::testing::WithParamInterface<configureFailsAtEachRemainingSetterInTurnCase>
 {
 };
@@ -189,6 +91,10 @@ INSTANTIATE_TEST_SUITE_P(
     [](const ::testing::TestParamInfo<configureFailsAtEachRemainingSetterInTurnCase>& info)
     { return info.param.name; });
 
+// Data-driven sibling of configureChecksEveryBooleanSetterInOrderAndStops-
+// AtFirstFailure() above (which only exercises the fifth setter's
+// failure branch, set_can_speed): proves every remaining setter's own
+// InvalidConfig return path independently.
 TEST_P(configureFailsAtEachRemainingSetterInTurnParameters, configureFailsAtEachRemainingSetterInTurn)
 {
     const int setterIndex = GetParam().setterIndex;
@@ -216,7 +122,7 @@ TEST_P(configureFailsAtEachRemainingSetterInTurnParameters, configureFailsAtEach
     ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
 }
 
-TEST_F(TestDesktopCanFlashTransport, openFailureReturnsDisconnectedWithoutAnyWrite)
+TEST(TestDesktopCanFlashTransport, openFailureReturnsDisconnectedWithoutAnyWrite)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(::testing::Return(QString{}));
@@ -229,7 +135,10 @@ TEST_F(TestDesktopCanFlashTransport, openFailureReturnsDisconnectedWithoutAnyWri
     ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopCanFlashTransport, configureSucceedsWhenEverySetterSucceeds)
+// Success mirror of configureChecksEveryBooleanSetterInOrderAndStopsAt-
+// FirstFailure() above: every setter is expected to succeed, so
+// configure() must run all ten setters, in order, and return success.
+TEST(TestDesktopCanFlashTransport, configureSucceedsWhenEverySetterSucceeds)
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
@@ -251,7 +160,10 @@ TEST_F(TestDesktopCanFlashTransport, configureSucceedsWhenEverySetterSucceeds)
     ASSERT_TRUE(result.has_value());
 }
 
-TEST_F(TestDesktopCanFlashTransport, configureClearsStickyIso14230HeaderState)
+// A K-Line session on the same facade leaves ISO-14230 auto-headers on.
+// configure() must clear that state, or the first CAN frame goes out with
+// a K-Line header attached.
+TEST(TestDesktopCanFlashTransport, configureClearsStickyIso14230HeaderState)
 {
     FakeBackedSerial serial;
     ASSERT_TRUE(serial->set_add_iso14230_header(true));
@@ -265,7 +177,8 @@ TEST_F(TestDesktopCanFlashTransport, configureClearsStickyIso14230HeaderState)
     ASSERT_EQ(observed->get_add_iso14230_header(), false);
 }
 
-TEST_F(TestDesktopCanFlashTransport, openSucceedsWhenBackendReturnsANonEmptyPortName)
+// Success mirror of openFailureReturnsDisconnectedWithoutAnyWrite().
+TEST(TestDesktopCanFlashTransport, openSucceedsWhenBackendReturnsANonEmptyPortName)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), open_serial_port()).WillOnce(::testing::Return(QStringLiteral("COM3")));
@@ -276,7 +189,10 @@ TEST_F(TestDesktopCanFlashTransport, openSucceedsWhenBackendReturnsANonEmptyPort
     ASSERT_TRUE(result.has_value());
 }
 
-TEST_F(TestDesktopCanFlashTransport, resetConnectionSucceedsAndReachesTheAdapter)
+// reset_connection() is the diesel startup seam. This calls the real
+// SerialPortActions facade over the existing fake backend rather than
+// asserting on a transport double.
+TEST(TestDesktopCanFlashTransport, resetConnectionSucceedsAndReachesTheAdapter)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), reset_connection()).WillOnce(::testing::Return());
@@ -287,7 +203,7 @@ TEST_F(TestDesktopCanFlashTransport, resetConnectionSucceedsAndReachesTheAdapter
     ASSERT_TRUE(result.has_value());
 }
 
-TEST_F(TestDesktopCanFlashTransport, restartIso15765ResetsConfiguresAndReopensInOrder)
+TEST(TestDesktopCanFlashTransport, restartIso15765ResetsConfiguresAndReopensInOrder)
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
@@ -312,7 +228,7 @@ TEST_F(TestDesktopCanFlashTransport, restartIso15765ResetsConfiguresAndReopensIn
     ASSERT_TRUE(result.has_value());
 }
 
-TEST_F(TestDesktopCanFlashTransport, restartIso15765CancellationBeforeResetTouchesNoBackendOperation)
+TEST(TestDesktopCanFlashTransport, restartIso15765CancellationBeforeResetTouchesNoBackendOperation)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), reset_connection()).Times(0);
@@ -337,7 +253,7 @@ TEST_F(TestDesktopCanFlashTransport, restartIso15765CancellationBeforeResetTouch
     ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
 }
 
-TEST_F(TestDesktopCanFlashTransport, restartIso15765ResetFailureStopsBeforeConfigurationOrOpen)
+TEST(TestDesktopCanFlashTransport, restartIso15765ResetFailureStopsBeforeConfigurationOrOpen)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), reset_connection())
@@ -354,7 +270,7 @@ TEST_F(TestDesktopCanFlashTransport, restartIso15765ResetFailureStopsBeforeConfi
     ASSERT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
-TEST_F(TestDesktopCanFlashTransport, restartIso15765ConfigureFailureStopsBeforeOpen)
+TEST(TestDesktopCanFlashTransport, restartIso15765ConfigureFailureStopsBeforeOpen)
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
@@ -375,7 +291,7 @@ TEST_F(TestDesktopCanFlashTransport, restartIso15765ConfigureFailureStopsBeforeO
     ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
 }
 
-TEST_F(TestDesktopCanFlashTransport, restartIso15765OpenFailurePropagatesAfterExactConfiguration)
+TEST(TestDesktopCanFlashTransport, restartIso15765OpenFailurePropagatesAfterExactConfiguration)
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
@@ -401,7 +317,7 @@ TEST_F(TestDesktopCanFlashTransport, restartIso15765OpenFailurePropagatesAfterEx
     ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopCanFlashTransport, resetConnectionReturnsDisconnectedAfterClose)
+TEST(TestDesktopCanFlashTransport, resetConnectionReturnsDisconnectedAfterClose)
 {
     FakeBackedSerial serial;
 
@@ -413,7 +329,7 @@ TEST_F(TestDesktopCanFlashTransport, resetConnectionReturnsDisconnectedAfterClos
     ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopCanFlashTransport, resetConnectionMapsStandardDriverExceptionsToInternal)
+TEST(TestDesktopCanFlashTransport, resetConnectionMapsStandardDriverExceptionsToInternal)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), reset_connection())
@@ -426,7 +342,7 @@ TEST_F(TestDesktopCanFlashTransport, resetConnectionMapsStandardDriverExceptions
     ASSERT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
-TEST_F(TestDesktopCanFlashTransport, resetConnectionMapsNonStandardDriverExceptionsToInternal)
+TEST(TestDesktopCanFlashTransport, resetConnectionMapsNonStandardDriverExceptionsToInternal)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), reset_connection()).WillOnce(ThrowNonStandardBackendFailure());
@@ -438,7 +354,8 @@ TEST_F(TestDesktopCanFlashTransport, resetConnectionMapsNonStandardDriverExcepti
     ASSERT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
-TEST_F(TestDesktopCanFlashTransport, writeSucceedsWhenPortStaysOpenThroughout)
+// write() success path: port open throughout, cancellation never fires.
+TEST(TestDesktopCanFlashTransport, writeSucceedsWhenPortStaysOpenThroughout)
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
@@ -455,7 +372,10 @@ TEST_F(TestDesktopCanFlashTransport, writeSucceedsWhenPortStaysOpenThroughout)
     ASSERT_TRUE(result.has_value());
 }
 
-TEST_F(TestDesktopCanFlashTransport, writeReturnsCancelledWhenCancellationIsAlreadyObservedBeforeIssuingWrite)
+// write() must observe cancellation.cancelled() before ever issuing the
+// write -- the backend must never be touched at all. Distinct from the
+// K-Line sibling, whose write() takes no cancellation token at all.
+TEST(TestDesktopCanFlashTransport, writeReturnsCancelledWhenCancellationIsAlreadyObservedBeforeIssuingWrite)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), write_serial_data_echo_check(::testing::_)).Times(0);
@@ -469,7 +389,11 @@ TEST_F(TestDesktopCanFlashTransport, writeReturnsCancelledWhenCancellationIsAlre
     ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
 }
 
-TEST_F(TestDesktopCanFlashTransport, writeFailsWithDisconnectedWhenPortClosesDuringWrite)
+// write() disconnected-during path: the port closes as a side effect of
+// the write call itself -- the post-write is_serial_port_open() check
+// must catch this even though write_serial_data_echo_check() itself
+// never signals failure via its return value.
+TEST(TestDesktopCanFlashTransport, writeFailsWithDisconnectedWhenPortClosesDuringWrite)
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
@@ -486,7 +410,10 @@ TEST_F(TestDesktopCanFlashTransport, writeFailsWithDisconnectedWhenPortClosesDur
     ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopCanFlashTransport, writeFailsWithDisconnectedWhenPortAlreadyClosedBeforeWrite)
+// write() disconnected-before path: the port is already closed when
+// write() is called -- write_serial_data_echo_check() must never be
+// reached.
+TEST(TestDesktopCanFlashTransport, writeFailsWithDisconnectedWhenPortAlreadyClosedBeforeWrite)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
@@ -501,7 +428,9 @@ TEST_F(TestDesktopCanFlashTransport, writeFailsWithDisconnectedWhenPortAlreadyCl
     ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopCanFlashTransport, readReturnsScriptedBytesOnSuccess)
+// read() success path: port open, cancellation never fires, backend
+// returns scripted bytes.
+TEST(TestDesktopCanFlashTransport, readReturnsScriptedBytesOnSuccess)
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
@@ -518,7 +447,9 @@ TEST_F(TestDesktopCanFlashTransport, readReturnsScriptedBytesOnSuccess)
     ASSERT_TRUE(result->value() == (bytes::Bytes{0x01, 0x02}));
 }
 
-TEST_F(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationIsAlreadyObservedBeforeIssuingRead)
+// read() observes cancellation.cancelled() before ever issuing the read
+// -- the backend must never be touched at all.
+TEST(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationIsAlreadyObservedBeforeIssuingRead)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), read_serial_data(::testing::_)).Times(0);
@@ -531,7 +462,9 @@ TEST_F(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationIsAlrea
     ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
 }
 
-TEST_F(TestDesktopCanFlashTransport, readReturnsDisconnectedWhenPortAlreadyClosedBeforeRead)
+// read() disconnected-before path: the port is already closed when
+// read() is called -- read_serial_data() must never be reached.
+TEST(TestDesktopCanFlashTransport, readReturnsDisconnectedWhenPortAlreadyClosedBeforeRead)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
@@ -545,7 +478,9 @@ TEST_F(TestDesktopCanFlashTransport, readReturnsDisconnectedWhenPortAlreadyClose
     ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopCanFlashTransport, readReturnsDisconnectedWhenPortClosesDuringRead)
+// read() disconnected-during path: the read returns data, then the
+// post-read is_serial_port_open() check reports the closed port.
+TEST(TestDesktopCanFlashTransport, readReturnsDisconnectedWhenPortClosesDuringRead)
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
@@ -561,7 +496,10 @@ TEST_F(TestDesktopCanFlashTransport, readReturnsDisconnectedWhenPortClosesDuring
     ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopCanFlashTransport, everyMethodFailsWithDisconnectedAfterClose)
+// The "already closed" guard at the top of every method: once close()
+// has run, serial_ is null and every subsequent call must fail with
+// Disconnected without touching the (now possibly destroyed) backend.
+TEST(TestDesktopCanFlashTransport, everyMethodFailsWithDisconnectedAfterClose)
 {
     FakeBackedSerial serial;
 
@@ -589,7 +527,9 @@ TEST_F(TestDesktopCanFlashTransport, everyMethodFailsWithDisconnectedAfterClose)
     ASSERT_EQ(readResult.error().kind, ErrorKind::Disconnected);
 }
 
-TEST_F(TestDesktopCanFlashTransport, writeIsSkippedWithCancelledAfterRequestUnblock)
+// write() must be skipped once request_unblock() has fired, exactly
+// like read() -- the shared unblock_requested_ flag guards both.
+TEST(TestDesktopCanFlashTransport, writeIsSkippedWithCancelledAfterRequestUnblock)
 {
     FakeBackedSerial serial;
 
@@ -605,7 +545,10 @@ TEST_F(TestDesktopCanFlashTransport, writeIsSkippedWithCancelledAfterRequestUnbl
     ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
 }
 
-TEST_F(TestDesktopCanFlashTransport, readReturnsEmptyOptionalWhenBackendReturnsNoBytes)
+// read() success path when the backend legitimately has nothing to
+// report: raw.isEmpty() must map to a present-but-empty optional, not a
+// failure.
+TEST(TestDesktopCanFlashTransport, readReturnsEmptyOptionalWhenBackendReturnsNoBytes)
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
@@ -621,7 +564,8 @@ TEST_F(TestDesktopCanFlashTransport, readReturnsEmptyOptionalWhenBackendReturnsN
     ASSERT_TRUE(!result->has_value());
 }
 
-TEST_F(TestDesktopCanFlashTransport, writeFailsWithInternalWhenDriverThrowsStandardException)
+// write()'s catch(const std::exception&) branch.
+TEST(TestDesktopCanFlashTransport, writeFailsWithInternalWhenDriverThrowsStandardException)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
@@ -637,7 +581,8 @@ TEST_F(TestDesktopCanFlashTransport, writeFailsWithInternalWhenDriverThrowsStand
     ASSERT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
-TEST_F(TestDesktopCanFlashTransport, writeFailsWithInternalWhenDriverThrowsNonStandardException)
+// write()'s bare catch(...) branch.
+TEST(TestDesktopCanFlashTransport, writeFailsWithInternalWhenDriverThrowsNonStandardException)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
@@ -652,7 +597,9 @@ TEST_F(TestDesktopCanFlashTransport, writeFailsWithInternalWhenDriverThrowsNonSt
     ASSERT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
-TEST_F(TestDesktopCanFlashTransport, readFailsWithInternalWhenDriverThrowsStandardExceptionAndNotCancelled)
+// read()'s catch(const std::exception&) branch, with cancellation never
+// observed -- must map to Internal, not Cancelled.
+TEST(TestDesktopCanFlashTransport, readFailsWithInternalWhenDriverThrowsStandardExceptionAndNotCancelled)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
@@ -667,7 +614,8 @@ TEST_F(TestDesktopCanFlashTransport, readFailsWithInternalWhenDriverThrowsStanda
     ASSERT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
-TEST_F(TestDesktopCanFlashTransport, readFailsWithInternalWhenDriverThrowsNonStandardExceptionAndNotCancelled)
+// read()'s bare catch(...) branch, with cancellation never observed.
+TEST(TestDesktopCanFlashTransport, readFailsWithInternalWhenDriverThrowsNonStandardExceptionAndNotCancelled)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
@@ -681,7 +629,11 @@ TEST_F(TestDesktopCanFlashTransport, readFailsWithInternalWhenDriverThrowsNonSta
     ASSERT_EQ(result.error().kind, ErrorKind::Internal);
 }
 
-TEST_F(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationBecomesObservedAfterASuccessfulRead)
+// read()'s post-read cancellation recheck (success path): cancellation
+// becomes observed-true only *after* the backend call has already
+// returned successfully -- must still map to Cancelled, not the bytes
+// that were read.
+TEST(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationBecomesObservedAfterASuccessfulRead)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
@@ -696,7 +648,10 @@ TEST_F(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationBecomes
     ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
 }
 
-TEST_F(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationBecomesObservedDuringAStandardExceptionThrow)
+// read()'s post-throw cancellation recheck, catch(const std::exception&)
+// branch: cancellation becomes observed-true only after the backend
+// call has already thrown -- must map to Cancelled, not Internal.
+TEST(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationBecomesObservedDuringAStandardExceptionThrow)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
@@ -712,8 +667,8 @@ TEST_F(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationBecomes
     ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
 }
 
-TEST_F(TestDesktopCanFlashTransport,
-       readReturnsCancelledWhenCancellationBecomesObservedDuringANonStandardExceptionThrow)
+// read()'s post-throw cancellation recheck, bare catch(...) branch.
+TEST(TestDesktopCanFlashTransport, readReturnsCancelledWhenCancellationBecomesObservedDuringANonStandardExceptionThrow)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
@@ -728,7 +683,7 @@ TEST_F(TestDesktopCanFlashTransport,
     ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
 }
 
-TEST_F(TestDesktopCanFlashTransport, closeIsIdempotentAndDestroysTheOwnedSerialPortActions)
+TEST(TestDesktopCanFlashTransport, closeIsIdempotentAndDestroysTheOwnedSerialPortActions)
 {
     bool destroyed = false;
     FakeBackedSerial serial{[&destroyed](auto& fake) { fake.destroyed = &destroyed; }};
@@ -748,7 +703,12 @@ TEST_F(TestDesktopCanFlashTransport, closeIsIdempotentAndDestroysTheOwnedSerialP
     ASSERT_TRUE(closeResult.has_value());
 }
 
-TEST_F(TestDesktopCanFlashTransport, closeOnANonOwningSerialPortActionsDoesNotDestroyIt)
+// Proves the non-owning constructor (step 5c, Task 17) -- see
+// test_desktop_kline_flash_transport.cpp's identically-named test for
+// the full rationale: MainWindow's single, session-lifetime
+// SerialPortActions instance must survive close() on a transport that
+// does not own it.
+TEST(TestDesktopCanFlashTransport, closeOnANonOwningSerialPortActionsDoesNotDestroyIt)
 {
     bool destroyed = false;
     FakeBackedSerial serial{[&destroyed](auto& fake) { fake.destroyed = &destroyed; }};
@@ -777,7 +737,16 @@ TEST_F(TestDesktopCanFlashTransport, closeOnANonOwningSerialPortActionsDoesNotDe
     ASSERT_TRUE(destroyed);
 }
 
-TEST_F(TestDesktopCanFlashTransport, requestUnblockCausesAPendingReadToReturnPromptly)
+// request_unblock() has no real interrupt primitive to fire --
+// SerialPortActions exposes none -- so it can only set a flag checked
+// before the *next* read call. This test proves both halves of that
+// documented, bounded-latency contract: (1) an already in-flight read
+// does NOT return early just because request_unblock() fires -- it
+// still returns only via its own existing timeout (simulated here by
+// releasing the fake's continueRead gate); and (2) once
+// request_unblock() has fired, the *next* call to read() returns
+// immediately as Cancelled without ever reaching the backend.
+TEST(TestDesktopCanFlashTransport, requestUnblockCausesAPendingReadToReturnPromptly)
 {
     FakeBackedSerial serial;
 
@@ -828,7 +797,7 @@ TEST_F(TestDesktopCanFlashTransport, requestUnblockCausesAPendingReadToReturnPro
     ASSERT_EQ(secondResult.error().kind, ErrorKind::Cancelled);
 }
 
-TEST_F(TestDesktopCanFlashTransport, fakeBackendReportsScriptedPortListAndBattery)
+TEST(TestDesktopCanFlashTransport, fakeBackendReportsScriptedPortListAndBattery)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), check_serial_ports()).WillOnce(::testing::Return(QStringList{"op2-0", "op2-1"}));

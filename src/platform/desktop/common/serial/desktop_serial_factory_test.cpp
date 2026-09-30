@@ -11,15 +11,7 @@
 
 #include "src/platform/desktop/common/serial/recording_log_sink.h"
 
-class DesktopSerialFactoryTest : public ::testing::Test
-{
-
-  public:
-    // An unreachable peer: RemoteSerialBackend's constructor does not block
-    // on it (see remote_backend_smoke_test.cpp).
-};
-
-TEST_F(DesktopSerialFactoryTest, directConnectionBuildsTheDirectBackend)
+TEST(DesktopSerialFactoryTest, directConnectionBuildsTheDirectBackend)
 {
     const auto factory = make_serial_backend_factory(DirectSerial{});
     ASSERT_TRUE(factory);
@@ -27,7 +19,9 @@ TEST_F(DesktopSerialFactoryTest, directConnectionBuildsTheDirectBackend)
     ASSERT_TRUE(dynamic_cast<SerialPortActionsDirect *>(backend.get()) != nullptr);
 }
 
-TEST_F(DesktopSerialFactoryTest, remoteConnectionBuildsTheRemoteBackend)
+// An unreachable peer: RemoteSerialBackend's constructor does not block
+// on it (see remote_backend_smoke_test.cpp).
+TEST(DesktopSerialFactoryTest, remoteConnectionBuildsTheRemoteBackend)
 {
     const auto factory = make_serial_backend_factory(RemoteSerial{"local:fastecu-test-nonexistent", "pw"});
     ASSERT_TRUE(factory);
@@ -35,7 +29,7 @@ TEST_F(DesktopSerialFactoryTest, remoteConnectionBuildsTheRemoteBackend)
     ASSERT_TRUE(dynamic_cast<RemoteSerialBackend *>(backend.get()) != nullptr);
 }
 
-TEST_F(DesktopSerialFactoryTest, everyLogLevelReachesTheSink)
+TEST(DesktopSerialFactoryTest, everyLogLevelReachesTheSink)
 {
     RecordingLogSink sink;
     const OwnedSerialPortActions serial = make_serial_port_actions(DirectSerial{}, sink);

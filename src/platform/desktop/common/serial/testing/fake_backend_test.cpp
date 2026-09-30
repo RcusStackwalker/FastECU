@@ -7,13 +7,7 @@
 #include "src/platform/desktop/common/serial/serial_port_actions.h"
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
 
-class FakeBackendTest : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(FakeBackendTest, defaultActionsPreserveConfigurationThroughFacade)
+TEST(FakeBackendTest, defaultActionsPreserveConfigurationThroughFacade)
 {
     SerialPortActions serial([]() -> SerialBackend * { return new NiceFakeBackend; });
     ASSERT_TRUE(serial.set_add_iso14230_header(true));
@@ -27,7 +21,7 @@ TEST_F(FakeBackendTest, defaultActionsPreserveConfigurationThroughFacade)
     ASSERT_EQ(serial.read_serial_data(10), QByteArray{});
 }
 
-TEST_F(FakeBackendTest, expectationsScriptFacadeIoInOrder)
+TEST(FakeBackendTest, expectationsScriptFacadeIoInOrder)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -44,7 +38,7 @@ TEST_F(FakeBackendTest, expectationsScriptFacadeIoInOrder)
     ASSERT_EQ(serial.read_serial_data(50), QByteArray("reply"));
 }
 
-TEST_F(FakeBackendTest, expectationFailuresProduceNonzeroExit)
+TEST(FakeBackendTest, expectationFailuresProduceNonzeroExit)
 {
     const QString mode = qEnvironmentVariable("FASTECU_GMOCK_FAILURE_PROBE");
     if (!mode.isEmpty())

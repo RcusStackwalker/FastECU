@@ -111,12 +111,6 @@ QTableWidget *table_of(CalibrationMaps& map)
 }
 } // namespace
 
-class CalibrationMapsTest : public ::testing::Test
-{
-
-  public:
-};
-
 struct layoutsAndRefreshCase
 {
     std::string name;
@@ -128,8 +122,7 @@ struct layoutsAndRefreshCase
     int bodyRow;
     int bodyCol;
 };
-class layoutsAndRefreshParameters : public CalibrationMapsTest,
-                                    public ::testing::WithParamInterface<layoutsAndRefreshCase>
+class layoutsAndRefreshParameters : public ::testing::Test, public ::testing::WithParamInterface<layoutsAndRefreshCase>
 {
 };
 
@@ -201,8 +194,7 @@ struct staticAxisLabelsCase
     std::string name;
     QString axisType;
 };
-class staticAxisLabelsParameters : public CalibrationMapsTest,
-                                   public ::testing::WithParamInterface<staticAxisLabelsCase>
+class staticAxisLabelsParameters : public ::testing::Test, public ::testing::WithParamInterface<staticAxisLabelsCase>
 {
 };
 
@@ -242,7 +234,7 @@ TEST_P(staticAxisLabelsParameters, staticAxisLabels)
     ASSERT_EQ(table->item(1, 0)->text(), "77.0");
 }
 
-TEST_F(CalibrationMapsTest, absentAxisUsesSequentialFallback)
+TEST(CalibrationMapsTest, absentAxisUsesSequentialFallback)
 {
     MapFixture fixture;
     const auto id = fixture.open(numeric_table("2D", 2, 1));
@@ -256,7 +248,7 @@ TEST_F(CalibrationMapsTest, absentAxisUsesSequentialFallback)
     ASSERT_EQ(table->item(0, 1)->text(), "1");
 }
 
-TEST_F(CalibrationMapsTest, selectableReflectsBlobBytesWithoutEmittingEditSignal)
+TEST(CalibrationMapsTest, selectableReflectsBlobBytesWithoutEmittingEditSignal)
 {
     MapFixture fixture;
     const auto id = fixture.open(R"(<table name="Mode" type="Selectable" address="60" scaling="Modes"/>)");
@@ -280,7 +272,7 @@ TEST_F(CalibrationMapsTest, selectableReflectsBlobBytesWithoutEmittingEditSignal
     ASSERT_EQ(table->cellWidget(0, 0), combo);
 }
 
-TEST_F(CalibrationMapsTest, retainedMultiSelectableGeometryKeepsLegacyNumericCell)
+TEST(CalibrationMapsTest, retainedMultiSelectableGeometryKeepsLegacyNumericCell)
 {
     MapFixture fixture;
     const auto id = fixture.open(numeric_table("1D", 1, 1));
@@ -307,7 +299,7 @@ TEST_F(CalibrationMapsTest, retainedMultiSelectableGeometryKeepsLegacyNumericCel
     ASSERT_EQ(changed.count(), 0);
 }
 
-TEST_F(CalibrationMapsTest, retainedSwitchRefreshKeepsUncheckedControlWithoutEmittingEdits)
+TEST(CalibrationMapsTest, retainedSwitchRefreshKeepsUncheckedControlWithoutEmittingEdits)
 {
     MapFixture fixture;
     const auto id = fixture.open(numeric_table("1D", 1, 1));
@@ -334,7 +326,7 @@ TEST_F(CalibrationMapsTest, retainedSwitchRefreshKeepsUncheckedControlWithoutEmi
     ASSERT_TRUE(!session->dirty());
 }
 
-TEST_F(CalibrationMapsTest, colorsKeepOpeningBoundsDuringRefreshAndReopenUsesCurrentValues)
+TEST(CalibrationMapsTest, colorsKeepOpeningBoundsDuringRefreshAndReopenUsesCurrentValues)
 {
     MapFixture fixture;
     const auto id = fixture.open(numeric_table("2D", 2, 1, kXAxis));
@@ -358,7 +350,7 @@ TEST_F(CalibrationMapsTest, colorsKeepOpeningBoundsDuringRefreshAndReopenUsesCur
     ASSERT_EQ(table->item(1, 1)->background().color(), maximumColor);
 }
 
-TEST_F(CalibrationMapsTest, constantMapHasFiniteStableColors)
+TEST(CalibrationMapsTest, constantMapHasFiniteStableColors)
 {
     MapFixture fixture;
     const auto id = fixture.open(numeric_table("2D", 2, 1, kXAxis), true);
@@ -376,7 +368,7 @@ TEST_F(CalibrationMapsTest, constantMapHasFiniteStableColors)
     ASSERT_EQ(table_of(reopened)->item(1, 1)->background().color(), color);
 }
 
-TEST_F(CalibrationMapsTest, closedSessionRefreshIsInertAfterAnotherSessionOpens)
+TEST(CalibrationMapsTest, closedSessionRefreshIsInertAfterAnotherSessionOpens)
 {
     MapFixture fixture;
     const auto id = fixture.open(numeric_table("1D", 1, 1));

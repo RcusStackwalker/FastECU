@@ -15,13 +15,7 @@
 // purely through the base-class pointer: get/set roundtrips hit the same
 // storage the backend's own I/O logic reads, and closed-port I/O calls
 // return their documented empty/error values without hardware.
-class TestDirectBackend : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(TestDirectBackend, getSet_roundtrip_throughInterface)
+TEST(TestDirectBackend, getSet_roundtrip_throughInterface)
 {
     SerialPortActionsDirect direct;
     SerialBackend *b = &direct;
@@ -46,7 +40,7 @@ TEST_F(TestDirectBackend, getSet_roundtrip_throughInterface)
     ASSERT_EQ(b->qobject(), static_cast<QObject *>(&direct));
 }
 
-TEST_F(TestDirectBackend, closedPort_ioCalls_returnEmpty)
+TEST(TestDirectBackend, closedPort_ioCalls_returnEmpty)
 {
     SerialPortActionsDirect direct;
     SerialBackend *b = &direct;
@@ -59,7 +53,7 @@ TEST_F(TestDirectBackend, closedPort_ioCalls_returnEmpty)
     b->waitForSource(); // default no-op must not block or crash
 }
 
-TEST_F(TestDirectBackend, j2534Selection_usesInstalledDllPathAfterVendorProbe)
+TEST(TestDirectBackend, j2534Selection_usesInstalledDllPathAfterVendorProbe)
 {
     const QString vendor = "Tactrix Inc. - OpenPort 2.0 J2534 DLL";
     const QString dllPath = "C:\\Program Files (x86)\\OpenECU\\OpenPort 2.0\\op20pt32.dll";
@@ -67,7 +61,7 @@ TEST_F(TestDirectBackend, j2534Selection_usesInstalledDllPathAfterVendorProbe)
     ASSERT_EQ(resolveJ2534DllForConnection(vendor, dllPath, QStringList() << vendor), dllPath);
 }
 
-TEST_F(TestDirectBackend, j2534DriverViews_wow6432NodeVendorIsDiscoverable)
+TEST(TestDirectBackend, j2534DriverViews_wow6432NodeVendorIsDiscoverable)
 {
     QMap<QString, QString> nativeView;
     nativeView["Tactrix Inc. - OpenPort 2.0 J2534 DLL"] = "C:\\Program Files\\OpenECU\\OpenPort 2.0\\op20pt32.dll";
@@ -83,7 +77,7 @@ TEST_F(TestDirectBackend, j2534DriverViews_wow6432NodeVendorIsDiscoverable)
     ASSERT_EQ(merged.value("Acme 32-bit-only J2534 DLL"), QString("C:\\Program Files (x86)\\Acme\\acme_j2534.dll"));
 }
 
-TEST_F(TestDirectBackend, j2534DriverViews_laterViewOverwritesOnCollision)
+TEST(TestDirectBackend, j2534DriverViews_laterViewOverwritesOnCollision)
 {
     QMap<QString, QString> wow64View;
     wow64View["Shared Vendor"] = "C:\\wow64\\path.dll";
@@ -97,7 +91,7 @@ TEST_F(TestDirectBackend, j2534DriverViews_laterViewOverwritesOnCollision)
     ASSERT_EQ(merged.value("Shared Vendor"), QString("C:\\native\\path.dll"));
 }
 
-TEST_F(TestDirectBackend, makeDirectSerialBackend_buildsTheDirectBackend)
+TEST(TestDirectBackend, makeDirectSerialBackend_buildsTheDirectBackend)
 {
     const std::unique_ptr<SerialBackend> backend = make_direct_serial_backend();
     ASSERT_TRUE(dynamic_cast<SerialPortActionsDirect *>(backend.get()) != nullptr);

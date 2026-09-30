@@ -76,13 +76,7 @@ QByteArray mutFrame(unsigned char command, unsigned char count, unsigned char ch
 }
 } // namespace
 
-class DesktopLoggingProtocolRegistrationTest : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(DesktopLoggingProtocolRegistrationTest, registration_performs_no_io)
+TEST(DesktopLoggingProtocolRegistrationTest, registration_performs_no_io)
 {
     FakeBackedSerial<::testing::StrictMock<FakeBackend>> serial(
         [](auto& fake) { EXPECT_CALL(fake, set_add_ssm_header(false)).WillOnce(Return(true)); });
@@ -92,7 +86,7 @@ TEST_F(DesktopLoggingProtocolRegistrationTest, registration_performs_no_io)
     ASSERT_EQ(engine.registrations_.keys(), (QStringList{"CDBG", "MUT_DMA", "SSM"}));
 }
 
-TEST_F(DesktopLoggingProtocolRegistrationTest, cdbg_setup_failure_stops_at_failed_step)
+TEST(DesktopLoggingProtocolRegistrationTest, cdbg_setup_failure_stops_at_failed_step)
 {
     const std::array<const char *, 7> details = {"disable ISO 14230 mode",        "disable ISO 14230 header",
                                                  "enable raw CAN mode",           "disable ISO 15765 mode",
@@ -115,7 +109,7 @@ TEST_F(DesktopLoggingProtocolRegistrationTest, cdbg_setup_failure_stops_at_faile
     }
 }
 
-TEST_F(DesktopLoggingProtocolRegistrationTest, cdbg_open_failure)
+TEST(DesktopLoggingProtocolRegistrationTest, cdbg_open_failure)
 {
     for (bool empty : {true, false})
     {
@@ -141,7 +135,7 @@ TEST_F(DesktopLoggingProtocolRegistrationTest, cdbg_open_failure)
     }
 }
 
-TEST_F(DesktopLoggingProtocolRegistrationTest, cdbg_success_preserves_start_sequence)
+TEST(DesktopLoggingProtocolRegistrationTest, cdbg_success_preserves_start_sequence)
 {
     FakeBackedSerial serial;
     fastecu::FakeClock clock;
@@ -179,7 +173,7 @@ TEST_F(DesktopLoggingProtocolRegistrationTest, cdbg_success_preserves_start_sequ
     engine.stop();
 }
 
-TEST_F(DesktopLoggingProtocolRegistrationTest, ssm_target_and_adapter_are_per_run)
+TEST(DesktopLoggingProtocolRegistrationTest, ssm_target_and_adapter_are_per_run)
 {
     FakeBackedSerial serial;
     auto clock = fastecu::make_auto_advancing_clock(10ms);
@@ -215,7 +209,7 @@ TEST_F(DesktopLoggingProtocolRegistrationTest, ssm_target_and_adapter_are_per_ru
     }
 }
 
-TEST_F(DesktopLoggingProtocolRegistrationTest, ssm_snapshot_offsets_reach_samples)
+TEST(DesktopLoggingProtocolRegistrationTest, ssm_snapshot_offsets_reach_samples)
 {
     FakeBackedSerial serial;
     fastecu::FakeClock clock;
@@ -248,7 +242,7 @@ TEST_F(DesktopLoggingProtocolRegistrationTest, ssm_snapshot_offsets_reach_sample
     ASSERT_EQ(samples->samples[1].raw_value, std::string("17"));
 }
 
-TEST_F(DesktopLoggingProtocolRegistrationTest, mut_dma_preserves_initialization_and_channels)
+TEST(DesktopLoggingProtocolRegistrationTest, mut_dma_preserves_initialization_and_channels)
 {
     FakeBackedSerial serial;
     fastecu::FakeClock clock;

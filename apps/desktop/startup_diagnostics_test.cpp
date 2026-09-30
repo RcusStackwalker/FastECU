@@ -90,13 +90,7 @@ class StartupModalDriver
 };
 } // namespace
 
-class StartupDiagnosticsTest : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(StartupDiagnosticsTest, realPresentersReportSeverityAndOrderedDetails)
+TEST(StartupDiagnosticsTest, realPresentersReportSeverityAndOrderedDetails)
 {
     StartupModalDriver dialogs;
     MessageCapture messages;
@@ -118,7 +112,7 @@ TEST_F(StartupDiagnosticsTest, realPresentersReportSeverityAndOrderedDetails)
     ASSERT_TRUE(!dialogs.timed_out);
 }
 
-TEST_F(StartupDiagnosticsTest, emptyWarningsDoNotOpenAModalOrLog)
+TEST(StartupDiagnosticsTest, emptyWarningsDoNotOpenAModalOrLog)
 {
     StartupModalDriver dialogs;
     MessageCapture messages;
@@ -128,7 +122,7 @@ TEST_F(StartupDiagnosticsTest, emptyWarningsDoNotOpenAModalOrLog)
     ASSERT_TRUE(messages.texts.isEmpty());
 }
 
-TEST_F(StartupDiagnosticsTest, sinkRetainsBoundedUtf8DiagnosticsInOrder)
+TEST(StartupDiagnosticsTest, sinkRetainsBoundedUtf8DiagnosticsInOrder)
 {
     StartupEventSink sink;
     const std::string bounded = "\xE8\xAD\xA6\xE5\x91\x8A suffix";
@@ -147,7 +141,7 @@ TEST_F(StartupDiagnosticsTest, sinkRetainsBoundedUtf8DiagnosticsInOrder)
                                             "notice"}));
 }
 
-TEST_F(StartupDiagnosticsTest, failureTextCarriesTheDetail)
+TEST(StartupDiagnosticsTest, failureTextCarriesTheDetail)
 {
     const QString text = startup_failure_text(
         fastecu::Error{fastecu::ErrorKind::InvalidConfig, "Unable to load protocols /r/protocols.cfg: bad"});
@@ -155,14 +149,14 @@ TEST_F(StartupDiagnosticsTest, failureTextCarriesTheDetail)
     ASSERT_TRUE(text.contains("bad"));
 }
 
-TEST_F(StartupDiagnosticsTest, warningTextListsEveryWarning)
+TEST(StartupDiagnosticsTest, warningTextListsEveryWarning)
 {
     const QString text = startup_warning_text({"first /a.cfg", "second"});
     ASSERT_TRUE(text.contains("first /a.cfg"));
     ASSERT_TRUE(text.contains("second"));
 }
 
-TEST_F(StartupDiagnosticsTest, defaultRootIsUnderHomeAndEndsInFastEcu)
+TEST(StartupDiagnosticsTest, defaultRootIsUnderHomeAndEndsInFastEcu)
 {
     const QString root = default_config_root();
     ASSERT_TRUE(root.startsWith(QDir::homePath() + "/"));

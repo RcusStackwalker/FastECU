@@ -236,12 +236,6 @@ void expectNoBackendIo(FakeBackend& fake)
 
 } // namespace
 
-class DensoTcuReadPreflightTest : public ::testing::Test
-{
-
-  public:
-};
-
 struct chooserReturnsTheActionNamedByEachLegacyButtonCase
 {
     std::string name;
@@ -249,7 +243,7 @@ struct chooserReturnsTheActionNamedByEachLegacyButtonCase
     int expected_action;
 };
 class chooserReturnsTheActionNamedByEachLegacyButtonParameters
-    : public DensoTcuReadPreflightTest,
+    : public ::testing::Test,
       public ::testing::WithParamInterface<chooserReturnsTheActionNamedByEachLegacyButtonCase>
 {
 };
@@ -284,7 +278,7 @@ TEST_P(chooserReturnsTheActionNamedByEachLegacyButtonParameters, chooserReturnsT
     ASSERT_EQ(static_cast<int>(action), expected_action);
 }
 
-TEST_F(DensoTcuReadPreflightTest, dismissingChooserReturnsCancelled)
+TEST(DensoTcuReadPreflightTest, dismissingChooserReturnsCancelled)
 {
     ChooserDriver driver{{}};
     driver.start();
@@ -301,7 +295,7 @@ struct dumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase
     bool handled;
 };
 class dumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters
-    : public DensoTcuReadPreflightTest,
+    : public ::testing::Test,
       public ::testing::WithParamInterface<dumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase>
 {
 };
@@ -343,7 +337,7 @@ struct decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase
     int action;
 };
 class decliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters
-    : public DensoTcuReadPreflightTest,
+    : public ::testing::Test,
       public ::testing::WithParamInterface<decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase>
 {
 };
@@ -390,7 +384,7 @@ struct acceptingIgnitionOpensTheMatchingRealServiceDialogCase
     QString title;
 };
 class acceptingIgnitionOpensTheMatchingRealServiceDialogParameters
-    : public DensoTcuReadPreflightTest,
+    : public ::testing::Test,
       public ::testing::WithParamInterface<acceptingIgnitionOpensTheMatchingRealServiceDialogCase>
 {
 };

@@ -30,13 +30,7 @@ std::function<SerialBackend *()> directBackend()
 // facade -> I/O thread -> real SerialPortActionsDirect -> QSerialPort(pty).
 // The caller is a WORKER thread (the LoggingWorker scenario, bench checklist
 // item 1); the "ECU" is a responder thread on the pty master.
-class TestPtyE2e : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(TestPtyE2e, workerThread_writeRead_overPty_deliversFramedMessage)
+TEST(TestPtyE2e, workerThread_writeRead_overPty_deliversFramedMessage)
 {
     int master = -1, slave = -1;
     std::array<char, 256> name{};

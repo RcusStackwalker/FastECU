@@ -27,13 +27,7 @@
 
 using namespace std::chrono_literals;
 
-class TestFacadeThreading : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(TestFacadeThreading, constructDestroy_withoutUse_noThreadNoHang)
+TEST(TestFacadeThreading, constructDestroy_withoutUse_noThreadNoHang)
 {
     QElapsedTimer t;
     t.start();
@@ -44,7 +38,7 @@ TEST_F(TestFacadeThreading, constructDestroy_withoutUse_noThreadNoHang)
     ASSERT_TRUE(t.elapsed() < 1000) << "unused facade must construct/destruct instantly";
 }
 
-TEST_F(TestFacadeThreading, getSet_marshalsToBackendThread)
+TEST(TestFacadeThreading, getSet_marshalsToBackendThread)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -63,7 +57,7 @@ TEST_F(TestFacadeThreading, getSet_marshalsToBackendThread)
     ASSERT_EQ(serial.get_serial_port_baudrate(), QString("10400"));
 }
 
-TEST_F(TestFacadeThreading, scriptedRead_returnsThroughFacade)
+TEST(TestFacadeThreading, scriptedRead_returnsThroughFacade)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -80,7 +74,7 @@ TEST_F(TestFacadeThreading, scriptedRead_returnsThroughFacade)
     ASSERT_EQ(serial.read_serial_data(100), expected);
 }
 
-TEST_F(TestFacadeThreading, backendException_propagatesWithoutHangingAndCleansUp)
+TEST(TestFacadeThreading, backendException_propagatesWithoutHangingAndCleansUp)
 {
     QProcess child;
     QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
@@ -100,7 +94,7 @@ TEST_F(TestFacadeThreading, backendException_propagatesWithoutHangingAndCleansUp
     ASSERT_EQ(child.exitCode(), 0);
 }
 
-TEST_F(TestFacadeThreading, transportAdapters_isOpenContainsBackendException)
+TEST(TestFacadeThreading, transportAdapters_isOpenContainsBackendException)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -150,7 +144,7 @@ TEST_F(TestFacadeThreading, transportAdapters_isOpenContainsBackendException)
     ASSERT_TRUE(!open);
 }
 
-TEST_F(TestFacadeThreading, transportAdapters_normalEmptyReadIsSuccess)
+TEST(TestFacadeThreading, transportAdapters_normalEmptyReadIsSuccess)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -178,7 +172,7 @@ TEST_F(TestFacadeThreading, transportAdapters_normalEmptyReadIsSuccess)
     ASSERT_TRUE(!canResult->has_value());
 }
 
-TEST_F(TestFacadeThreading, transportAdapters_preCancelledReadSkipsBackend)
+TEST(TestFacadeThreading, transportAdapters_preCancelledReadSkipsBackend)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -208,7 +202,7 @@ TEST_F(TestFacadeThreading, transportAdapters_preCancelledReadSkipsBackend)
     ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Cancelled);
 }
 
-TEST_F(TestFacadeThreading, transportAdapters_postCallCancellationPrecedesDisconnect)
+TEST(TestFacadeThreading, transportAdapters_postCallCancellationPrecedesDisconnect)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -250,7 +244,7 @@ TEST_F(TestFacadeThreading, transportAdapters_postCallCancellationPrecedesDiscon
     ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Cancelled);
 }
 
-TEST_F(TestFacadeThreading, transportAdapters_backendReadExceptionMapsToInternal)
+TEST(TestFacadeThreading, transportAdapters_backendReadExceptionMapsToInternal)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -280,7 +274,7 @@ TEST_F(TestFacadeThreading, transportAdapters_backendReadExceptionMapsToInternal
     ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Internal);
 }
 
-TEST_F(TestFacadeThreading, canTransport_truncatedFrameMapsToInternal)
+TEST(TestFacadeThreading, canTransport_truncatedFrameMapsToInternal)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -299,7 +293,7 @@ TEST_F(TestFacadeThreading, canTransport_truncatedFrameMapsToInternal)
     ASSERT_TRUE(result.error().kind == fastecu::ErrorKind::Internal);
 }
 
-TEST_F(TestFacadeThreading, transportAdapters_nullOrClosedAdapterReturnsDisconnectedBeforeOperation)
+TEST(TestFacadeThreading, transportAdapters_nullOrClosedAdapterReturnsDisconnectedBeforeOperation)
 {
     // A null serial pointer: adapters must fail without ever touching a backend.
     {
@@ -388,7 +382,7 @@ TEST_F(TestFacadeThreading, transportAdapters_nullOrClosedAdapterReturnsDisconne
     }
 }
 
-TEST_F(TestFacadeThreading, transportAdapters_writeSuccessAndCanFrameEncoding)
+TEST(TestFacadeThreading, transportAdapters_writeSuccessAndCanFrameEncoding)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -427,7 +421,7 @@ TEST_F(TestFacadeThreading, transportAdapters_writeSuccessAndCanFrameEncoding)
     ASSERT_EQ(*canResult, canPayload.size());
 }
 
-TEST_F(TestFacadeThreading, transportAdapters_disconnectDuringWriteMapsToDisconnected)
+TEST(TestFacadeThreading, transportAdapters_disconnectDuringWriteMapsToDisconnected)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -467,7 +461,7 @@ TEST_F(TestFacadeThreading, transportAdapters_disconnectDuringWriteMapsToDisconn
     ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Disconnected);
 }
 
-TEST_F(TestFacadeThreading, transportAdapters_disconnectDuringReadMapsToDisconnected)
+TEST(TestFacadeThreading, transportAdapters_disconnectDuringReadMapsToDisconnected)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -510,7 +504,7 @@ TEST_F(TestFacadeThreading, transportAdapters_disconnectDuringReadMapsToDisconne
     ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Disconnected);
 }
 
-TEST_F(TestFacadeThreading, transportAdapters_backendWriteExceptionMapsToInternal)
+TEST(TestFacadeThreading, transportAdapters_backendWriteExceptionMapsToInternal)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -550,7 +544,7 @@ TEST_F(TestFacadeThreading, transportAdapters_backendWriteExceptionMapsToInterna
     ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Internal);
 }
 
-TEST_F(TestFacadeThreading, transportAdapters_backendNonStandardExceptionMapsToInternal)
+TEST(TestFacadeThreading, transportAdapters_backendNonStandardExceptionMapsToInternal)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -607,7 +601,7 @@ TEST_F(TestFacadeThreading, transportAdapters_backendNonStandardExceptionMapsToI
     ASSERT_TRUE(canWrite.error().kind == fastecu::ErrorKind::Internal);
 }
 
-TEST_F(TestFacadeThreading, transportAdapters_cancellationPrecedesReadException)
+TEST(TestFacadeThreading, transportAdapters_cancellationPrecedesReadException)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -648,7 +642,7 @@ TEST_F(TestFacadeThreading, transportAdapters_cancellationPrecedesReadException)
     ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Cancelled);
 }
 
-TEST_F(TestFacadeThreading, klineTransport_setBaudSuccessRejectionDisconnectException)
+TEST(TestFacadeThreading, klineTransport_setBaudSuccessRejectionDisconnectException)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -714,7 +708,7 @@ static void warningCapture(QtMsgType type, const QMessageLogContext& ctx, const 
     }
 }
 
-TEST_F(TestFacadeThreading, workerThreadCaller_noAffinityWarnings)
+TEST(TestFacadeThreading, workerThreadCaller_noAffinityWarnings)
 {
     // The exact LoggingWorker scenario from the bench checklist: a non-GUI
     // thread drives the facade. Data must arrive and Qt must emit no
@@ -746,7 +740,7 @@ TEST_F(TestFacadeThreading, workerThreadCaller_noAffinityWarnings)
     ASSERT_TRUE(g_threadWarnings.isEmpty()) << qPrintable("affinity warnings: " + g_threadWarnings.join(" | "));
 }
 
-TEST_F(TestFacadeThreading, concurrentCallers_serializeWithoutInterleaving)
+TEST(TestFacadeThreading, concurrentCallers_serializeWithoutInterleaving)
 {
     FakeBackend *fake = nullptr;
     SerialPortActions serial(
@@ -788,7 +782,7 @@ TEST_F(TestFacadeThreading, concurrentCallers_serializeWithoutInterleaving)
     ASSERT_EQ(activeCalls.load(), 0);
 }
 
-TEST_F(TestFacadeThreading, destroyAfterUse_joinsIoThread)
+TEST(TestFacadeThreading, destroyAfterUse_joinsIoThread)
 {
     QPointer<QThread> ioThread;
     {
@@ -806,7 +800,7 @@ TEST_F(TestFacadeThreading, destroyAfterUse_joinsIoThread)
     ASSERT_TRUE(!ioThread || !ioThread->isRunning()) << "facade destruction must stop and join the I/O thread";
 }
 
-TEST_F(TestFacadeThreading, destroyWhileReadInFlight_waitsForBackendCall)
+TEST(TestFacadeThreading, destroyWhileReadInFlight_waitsForBackendCall)
 {
     FakeBackend *fake = nullptr;
     auto *serial = new SerialPortActions(

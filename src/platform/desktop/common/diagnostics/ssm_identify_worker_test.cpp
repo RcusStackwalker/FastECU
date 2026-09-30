@@ -61,13 +61,7 @@ class BlockingClock final : public IClock
 };
 } // namespace
 
-class SsmIdentifyWorkerTest : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(SsmIdentifyWorkerTest, stopsAtTheFirstSuccess)
+TEST(SsmIdentifyWorkerTest, stopsAtTheFirstSuccess)
 {
     FakeDiagnosticLink link;
     link.queue_read(kShortEcuInit);
@@ -85,7 +79,7 @@ TEST_F(SsmIdentifyWorkerTest, stopsAtTheFirstSuccess)
     ASSERT_EQ(opens(link), 1);
 }
 
-TEST_F(SsmIdentifyWorkerTest, retriesFiveTimesThenReportsTheLastError)
+TEST(SsmIdentifyWorkerTest, retriesFiveTimesThenReportsTheLastError)
 {
     FakeDiagnosticLink link;
     auto clock = std::make_unique<FakeClock>();
@@ -106,7 +100,7 @@ TEST_F(SsmIdentifyWorkerTest, retriesFiveTimesThenReportsTheLastError)
     ASSERT_EQ(clock_view->elapsed().count(), 3000);
 }
 
-TEST_F(SsmIdentifyWorkerTest, stopBeforeStartCancelsAfterOneAttempt)
+TEST(SsmIdentifyWorkerTest, stopBeforeStartCancelsAfterOneAttempt)
 {
     FakeDiagnosticLink link;
     SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::KlineSsm2, SsmTarget::Ecu}, link,
@@ -120,7 +114,7 @@ TEST_F(SsmIdentifyWorkerTest, stopBeforeStartCancelsAfterOneAttempt)
     ASSERT_EQ(opens(link), 1);
 }
 
-TEST_F(SsmIdentifyWorkerTest, destroyingARunningWorkerJoinsIt)
+TEST(SsmIdentifyWorkerTest, destroyingARunningWorkerJoinsIt)
 {
     FakeDiagnosticLink link;
     BlockingClock *clock_view = nullptr;

@@ -11,13 +11,7 @@
 // strictly mechanical wrap + manual smoke test before release). This suite
 // pins the only things that can be checked headlessly: construction against
 // an unreachable peer neither blocks nor crashes, and teardown is clean.
-class TestRemoteBackendSmoke : public ::testing::Test
-{
-
-  public:
-};
-
-TEST_F(TestRemoteBackendSmoke, constructAndDestroy_localPeer_noBlockNoCrash)
+TEST(TestRemoteBackendSmoke, constructAndDestroy_localPeer_noBlockNoCrash)
 {
     QElapsedTimer t;
     t.start();

@@ -226,15 +226,7 @@ class RecordingDialog final : public FlashDialog
     }
 };
 
-class FlashDialogTest : public ::testing::Test
-{
-
-  public:
-    // Closing the dialog is the only cancel path in the app: the workflow must
-    // hear the cancelled attempt and get to present its post-attempt notice.
-};
-
-TEST_F(FlashDialogTest, returnsAcceptedBytesAndUsesNormalizedReadTitle)
+TEST(FlashDialogTest, returnsAcceptedBytesAndUsesNormalizedReadTitle)
 {
     RecordingDialog dialog(std::make_unique<ScriptedWorkflow>(), FlashOperation::Read, "ignored.bin");
     const FlashDialogResult result = dialog.run();
@@ -246,7 +238,9 @@ TEST_F(FlashDialogTest, returnsAcceptedBytesAndUsesNormalizedReadTitle)
     ASSERT_EQ(result.rom_id, std::string("123456789A_"));
 }
 
-TEST_F(FlashDialogTest, closingMidAttemptSubmitsCancelledAndPresentsTheNotice)
+// Closing the dialog is the only cancel path in the app: the workflow must
+// hear the cancelled attempt and get to present its post-attempt notice.
+TEST(FlashDialogTest, closingMidAttemptSubmitsCancelledAndPresentsTheNotice)
 {
     auto owned = std::make_unique<CancellableWorkflow>();
     CancellableWorkflow *workflow = owned.get();
@@ -273,7 +267,7 @@ TEST_F(FlashDialogTest, closingMidAttemptSubmitsCancelledAndPresentsTheNotice)
     ASSERT_TRUE(!dialog.success_shown);
 }
 
-TEST_F(FlashDialogTest, runsASecondAttemptAfterAPromptBetweenAttempts)
+TEST(FlashDialogTest, runsASecondAttemptAfterAPromptBetweenAttempts)
 {
     auto owned = std::make_unique<TwoAttemptWorkflow>();
     TwoAttemptWorkflow *workflow = owned.get();
@@ -285,7 +279,7 @@ TEST_F(FlashDialogTest, runsASecondAttemptAfterAPromptBetweenAttempts)
     ASSERT_TRUE(dialog.success_shown);
 }
 
-TEST_F(FlashDialogTest, programmingVoltageNoticeKeepsTheSixC3AdviceByDefault)
+TEST(FlashDialogTest, programmingVoltageNoticeKeepsTheSixC3AdviceByDefault)
 {
     const auto notice = FlashDialog::programmingVoltageNotice(
         {FlashPromptKind::RemoveProgrammingVoltage, {{"outcome", "failed"}, {"external_vpp", "yes"}}});
@@ -294,7 +288,7 @@ TEST_F(FlashDialogTest, programmingVoltageNoticeKeepsTheSixC3AdviceByDefault)
     ASSERT_TRUE(notice.text.contains("do not power it off"));
 }
 
-TEST_F(FlashDialogTest, programmingVoltageNoticeWithoutPowerOffAdviceOnFailure)
+TEST(FlashDialogTest, programmingVoltageNoticeWithoutPowerOffAdviceOnFailure)
 {
     const auto notice = FlashDialog::programmingVoltageNotice(
         {FlashPromptKind::RemoveProgrammingVoltage,
@@ -304,7 +298,7 @@ TEST_F(FlashDialogTest, programmingVoltageNoticeWithoutPowerOffAdviceOnFailure)
     ASSERT_TRUE(notice.text.contains("try again"));
 }
 
-TEST_F(FlashDialogTest, programmingVoltageNoticeWithoutPowerOffAdviceOnSuccess)
+TEST(FlashDialogTest, programmingVoltageNoticeWithoutPowerOffAdviceOnSuccess)
 {
     const auto notice = FlashDialog::programmingVoltageNotice(
         {FlashPromptKind::RemoveProgrammingVoltage,

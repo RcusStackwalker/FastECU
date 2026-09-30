@@ -65,19 +65,13 @@ struct SessionOnDisk
 
 } // namespace
 
-class SettingsTest : public ::testing::Test
-{
-
-  public:
-};
-
 struct providerCheckboxesPersistBothDirectionsCase
 {
     std::string name;
     bool enabled;
 };
 class providerCheckboxesPersistBothDirectionsParameters
-    : public SettingsTest,
+    : public ::testing::Test,
       public ::testing::WithParamInterface<providerCheckboxesPersistBothDirectionsCase>
 {
 };
@@ -122,7 +116,7 @@ struct removingDefinitionsPreservesOrderAndPersistsEmptyListCase
     bool remove_all;
 };
 class removingDefinitionsPreservesOrderAndPersistsEmptyListParameters
-    : public SettingsTest,
+    : public ::testing::Test,
       public ::testing::WithParamInterface<removingDefinitionsPreservesOrderAndPersistsEmptyListCase>
 {
 };
@@ -190,7 +184,7 @@ TEST_P(removingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
     ASSERT_EQ(reread.session.settings().romraider_definition_files, disk.session.settings().romraider_definition_files);
 }
 
-TEST_F(SettingsTest, closingSettingsSavesThroughTheSession)
+TEST(SettingsTest, closingSettingsSavesThroughTheSession)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -206,7 +200,7 @@ TEST_F(SettingsTest, closingSettingsSavesThroughTheSession)
     ASSERT_TRUE(QFile::exists(config_file));
 }
 
-TEST_F(SettingsTest, editsReachTheSessionLive)
+TEST(SettingsTest, editsReachTheSessionLive)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -220,7 +214,7 @@ TEST_F(SettingsTest, editsReachTheSessionLive)
     ASSERT_EQ(disk.session.settings().toolbar_iconsize, std::string("40"));
 }
 
-TEST_F(SettingsTest, destructionRetriesPersistenceAfterClose)
+TEST(SettingsTest, destructionRetriesPersistenceAfterClose)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -244,7 +238,7 @@ TEST_F(SettingsTest, destructionRetriesPersistenceAfterClose)
     ASSERT_TRUE(saved.readAll().contains(R"(data="48")"));
 }
 
-TEST_F(SettingsTest, failedSaveKeepsEditsAndWarnsTheOperator)
+TEST(SettingsTest, failedSaveKeepsEditsAndWarnsTheOperator)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
