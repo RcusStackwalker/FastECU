@@ -112,47 +112,58 @@ bool has_line_containing(const auto& spy, const QString& text)
 
 } // namespace
 
+// DesktopComposition befriends this fixture only. TEST_F bodies are members of
+// generated subclasses, so they reach its private state through these accessors.
 class DesktopCompositionTest : public ::testing::Test
 {
-
-  public:
-    // teardown after a failed start must not crash
-
-    // No --host: the replica never becomes valid, so the mirror drops both.
-
-    // A dialog that logs and is destroyed before the syslog thread delivers
-    // its line: through the channel the line survives; connected straight to
-    // the logger, as UI code did before step 6j, it is dropped.
-
-    // SystemLogger::run() spends its first second in a processEvents loop on
-    // the syslog thread; the destructor must still stop and join it promptly.
-
-    // main() rebuilds the composition on every RESTART_CODE iteration.
-
   protected:
-    void check_compositionRegistersAllLoggingProtocolsWithoutWindow();
-    void check_servicesReferToTheCompositionsOwnObjects();
-    void check_failedStartupBuildsNoServicesAndPerformsNoEcuIo();
-    void check_workspaceOpensARomFromDisk();
-    void check_migrationLoadsPreviousVersionSettingsFromDisk();
-    void check_malformedSettingsRejectStartup();
-    void check_settingsRewriteFailureIsAStartupWarning();
-    void check_servicesShareTheCompositionsSession();
-    void check_restartSeesSavedSettingsButNotTheDatalogDirectory();
-    void check_waitRequestIsWiredToTheRemoteUtility();
-    void check_remoteStateChangesReachThePeer();
-    void check_mirroringWithoutAPeerReturnsPromptly();
-    void check_channelLevelsReachTheLogWindowWithTheirPrefix();
-    void check_debugLinesStayOutOfTheLogWindow();
-    void check_relayedLineSurvivesItsSenderButADirectOneDoesNot();
-    void check_enablingFileLoggingWritesASyslogFile();
-    void check_destructionRightAfterConstructionDoesNotHang();
-    void check_constructingTwiceInOneProcessSucceeds();
-    void check_emptyHostSelectsTheDirectBackend();
-    void check_nonEmptyHostSelectsTheRemoteBackendWithItsCredentials();
+    static auto& config_of(DesktopComposition& composition)
+    {
+        return composition.config_;
+    }
+    static auto& calibration_workspace_of(DesktopComposition& composition)
+    {
+        return composition.calibration_workspace_;
+    }
+    static auto& definition_catalogs_of(DesktopComposition& composition)
+    {
+        return composition.definition_catalogs_;
+    }
+    static auto& definition_service_of(DesktopComposition& composition)
+    {
+        return composition.definition_service_;
+    }
+    static auto& syslog_thread_of(DesktopComposition& composition)
+    {
+        return composition.syslog_thread_;
+    }
+    static auto& syslogger_of(DesktopComposition& composition)
+    {
+        return composition.syslogger_;
+    }
+    static auto& serial_of(DesktopComposition& composition)
+    {
+        return composition.serial_;
+    }
+    static auto& connection_of(DesktopComposition& composition)
+    {
+        return composition.connection_;
+    }
+    static auto& remote_utility_of(DesktopComposition& composition)
+    {
+        return composition.remote_utility_;
+    }
+    static auto& logging_engine_of(DesktopComposition& composition)
+    {
+        return composition.logging_engine_;
+    }
+    static auto& rom_open_of(DesktopComposition& composition)
+    {
+        return composition.rom_open_;
+    }
 };
 
-void DesktopCompositionTest::check_compositionRegistersAllLoggingProtocolsWithoutWindow()
+TEST_F(DesktopCompositionTest, compositionRegistersAllLoggingProtocolsWithoutWindow)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -161,12 +172,7 @@ void DesktopCompositionTest::check_compositionRegistersAllLoggingProtocolsWithou
     ASSERT_EQ(composition.services().logging_engine.registrations_.keys(), (QStringList{"CDBG", "MUT_DMA", "SSM"}));
 }
 
-TEST_F(DesktopCompositionTest, compositionRegistersAllLoggingProtocolsWithoutWindow)
-{
-    ASSERT_NO_FATAL_FAILURE(check_compositionRegistersAllLoggingProtocolsWithoutWindow());
-}
-
-void DesktopCompositionTest::check_servicesReferToTheCompositionsOwnObjects()
+TEST_F(DesktopCompositionTest, servicesReferToTheCompositionsOwnObjects)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -184,16 +190,12 @@ void DesktopCompositionTest::check_servicesReferToTheCompositionsOwnObjects()
     ASSERT_EQ(&first.logging_engine, &second.logging_engine);
     ASSERT_EQ(&first.config, &second.config);
     ASSERT_EQ(&first.application, &second.application);
-    ASSERT_EQ(&first.calibrations, composition.calibration_workspace_.get());
+    ASSERT_EQ(&first.calibrations, calibration_workspace_of(composition).get());
     ASSERT_EQ(&second.calibrations, &first.calibrations);
 }
 
-TEST_F(DesktopCompositionTest, servicesReferToTheCompositionsOwnObjects)
-{
-    ASSERT_NO_FATAL_FAILURE(check_servicesReferToTheCompositionsOwnObjects());
-}
-
-void DesktopCompositionTest::check_failedStartupBuildsNoServicesAndPerformsNoEcuIo()
+// teardown after a failed start must not crash
+TEST_F(DesktopCompositionTest, failedStartupBuildsNoServicesAndPerformsNoEcuIo)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -208,30 +210,25 @@ void DesktopCompositionTest::check_failedStartupBuildsNoServicesAndPerformsNoEcu
     ASSERT_TRUE(composition.startup_error().has_value());
     ASSERT_TRUE(QString::fromStdString(composition.startup_error()->detail).contains(config_dir + "protocols.cfg"));
     // Nothing that could log, thread, or talk to an ECU was created.
-    ASSERT_TRUE(!composition.definition_catalogs_);
-    ASSERT_TRUE(!composition.definition_service_);
-    ASSERT_TRUE(!composition.syslog_thread_);
-    ASSERT_TRUE(!composition.syslogger_);
-    ASSERT_TRUE(!composition.serial_);
-    ASSERT_TRUE(!composition.connection_);
-    ASSERT_TRUE(!composition.remote_utility_);
-    ASSERT_TRUE(!composition.logging_engine_);
-    ASSERT_TRUE(!composition.rom_open_);
-    ASSERT_TRUE(!composition.calibration_workspace_);
+    ASSERT_TRUE(!definition_catalogs_of(composition));
+    ASSERT_TRUE(!definition_service_of(composition));
+    ASSERT_TRUE(!syslog_thread_of(composition));
+    ASSERT_TRUE(!syslogger_of(composition));
+    ASSERT_TRUE(!serial_of(composition));
+    ASSERT_TRUE(!connection_of(composition));
+    ASSERT_TRUE(!remote_utility_of(composition));
+    ASSERT_TRUE(!logging_engine_of(composition));
+    ASSERT_TRUE(!rom_open_of(composition));
+    ASSERT_TRUE(!calibration_workspace_of(composition));
 }
 
-TEST_F(DesktopCompositionTest, failedStartupBuildsNoServicesAndPerformsNoEcuIo)
-{
-    ASSERT_NO_FATAL_FAILURE(check_failedStartupBuildsNoServicesAndPerformsNoEcuIo());
-}
-
-void DesktopCompositionTest::check_workspaceOpensARomFromDisk()
+TEST_F(DesktopCompositionTest, workspaceOpensARomFromDisk)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{{}, {}, root.path()};
     ASSERT_TRUE(composition.started());
-    ASSERT_TRUE(composition.calibration_workspace_);
+    ASSERT_TRUE(calibration_workspace_of(composition));
 
     const QString rom_path = root.filePath("synthetic.bin");
     QFile rom{rom_path};
@@ -239,22 +236,17 @@ void DesktopCompositionTest::check_workspaceOpensARomFromDisk()
     ASSERT_EQ(rom.write(QByteArray(2048, '\x5A')), qint64{2048});
     rom.close();
 
-    const auto opened = composition.calibration_workspace_->open_file(rom_path.toStdString());
+    const auto opened = calibration_workspace_of(composition)->open_file(rom_path.toStdString());
 
     ASSERT_TRUE(opened.has_value());
-    const auto *session = composition.calibration_workspace_->find(opened->id);
+    const auto *session = calibration_workspace_of(composition)->find(opened->id);
     ASSERT_TRUE(session != nullptr);
     ASSERT_EQ(session->source().display_name, std::string("synthetic.bin"));
     ASSERT_EQ(session->protocol().file_size_label, std::string("2kb"));
     ASSERT_EQ(session->rom().size(), std::size_t{2048});
 }
 
-TEST_F(DesktopCompositionTest, workspaceOpensARomFromDisk)
-{
-    ASSERT_NO_FATAL_FAILURE(check_workspaceOpensARomFromDisk());
-}
-
-void DesktopCompositionTest::check_migrationLoadsPreviousVersionSettingsFromDisk()
+TEST_F(DesktopCompositionTest, migrationLoadsPreviousVersionSettingsFromDisk)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -270,18 +262,13 @@ void DesktopCompositionTest::check_migrationLoadsPreviousVersionSettingsFromDisk
     DesktopComposition composition{{}, {}, root.path()};
 
     ASSERT_TRUE(composition.started());
-    ASSERT_EQ(composition.config_.settings().serial_port, std::string("ttyMIGRATED_UNIQUE"));
+    ASSERT_EQ(config_of(composition).settings().serial_port, std::string("ttyMIGRATED_UNIQUE"));
     QFile saved{current_file};
     ASSERT_TRUE(saved.open(QIODevice::ReadOnly));
     ASSERT_TRUE(saved.readAll().contains("ttyMIGRATED_UNIQUE"));
 }
 
-TEST_F(DesktopCompositionTest, migrationLoadsPreviousVersionSettingsFromDisk)
-{
-    ASSERT_NO_FATAL_FAILURE(check_migrationLoadsPreviousVersionSettingsFromDisk());
-}
-
-void DesktopCompositionTest::check_malformedSettingsRejectStartup()
+TEST_F(DesktopCompositionTest, malformedSettingsRejectStartup)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -294,15 +281,10 @@ void DesktopCompositionTest::check_malformedSettingsRejectStartup()
     ASSERT_TRUE(!composition.started());
     const QString text = startup_failure_text(*composition.startup_error());
     ASSERT_TRUE(text.contains(config_dir + "fastecu.cfg"));
-    ASSERT_TRUE(!composition.serial_);
+    ASSERT_TRUE(!serial_of(composition));
 }
 
-TEST_F(DesktopCompositionTest, malformedSettingsRejectStartup)
-{
-    ASSERT_NO_FATAL_FAILURE(check_malformedSettingsRejectStartup());
-}
-
-void DesktopCompositionTest::check_settingsRewriteFailureIsAStartupWarning()
+TEST_F(DesktopCompositionTest, settingsRewriteFailureIsAStartupWarning)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -325,28 +307,18 @@ void DesktopCompositionTest::check_settingsRewriteFailureIsAStartupWarning()
                                     [&](const QString& warning) { return warning.contains(config_file); }));
 }
 
-TEST_F(DesktopCompositionTest, settingsRewriteFailureIsAStartupWarning)
-{
-    ASSERT_NO_FATAL_FAILURE(check_settingsRewriteFailureIsAStartupWarning());
-}
-
-void DesktopCompositionTest::check_servicesShareTheCompositionsSession()
+TEST_F(DesktopCompositionTest, servicesShareTheCompositionsSession)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{{}, {}, root.path()};
     ASSERT_TRUE(composition.started());
-    ASSERT_EQ(&composition.services().config, &composition.config_);
+    ASSERT_EQ(&composition.services().config, &config_of(composition));
     ASSERT_EQ(composition.services().application.version, std::string(kVersion));
-    ASSERT_EQ(QString::fromStdString(composition.config_.provisioned_paths().base_config_directory), root.path());
+    ASSERT_EQ(QString::fromStdString(config_of(composition).provisioned_paths().base_config_directory), root.path());
 }
 
-TEST_F(DesktopCompositionTest, servicesShareTheCompositionsSession)
-{
-    ASSERT_NO_FATAL_FAILURE(check_servicesShareTheCompositionsSession());
-}
-
-void DesktopCompositionTest::check_restartSeesSavedSettingsButNotTheDatalogDirectory()
+TEST_F(DesktopCompositionTest, restartSeesSavedSettingsButNotTheDatalogDirectory)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -354,23 +326,18 @@ void DesktopCompositionTest::check_restartSeesSavedSettingsButNotTheDatalogDirec
     {
         DesktopComposition first{{}, {}, root.path()};
         ASSERT_TRUE(first.started());
-        provisioned_datalogs = first.config_.provisioned_paths().datalog_files_directory;
-        first.config_.settings().serial_port = "ttyRESTART";
-        first.config_.settings().datalog_files_directory = root.path().toStdString() + "/elsewhere/";
-        ASSERT_TRUE(first.config_.save().has_value());
+        provisioned_datalogs = config_of(first).provisioned_paths().datalog_files_directory;
+        config_of(first).settings().serial_port = "ttyRESTART";
+        config_of(first).settings().datalog_files_directory = root.path().toStdString() + "/elsewhere/";
+        ASSERT_TRUE(config_of(first).save().has_value());
     }
     DesktopComposition second{{}, {}, root.path()};
     ASSERT_TRUE(second.started());
-    ASSERT_EQ(second.config_.settings().serial_port, std::string("ttyRESTART"));
-    ASSERT_EQ(second.config_.settings().datalog_files_directory, provisioned_datalogs);
+    ASSERT_EQ(config_of(second).settings().serial_port, std::string("ttyRESTART"));
+    ASSERT_EQ(config_of(second).settings().datalog_files_directory, provisioned_datalogs);
 }
 
-TEST_F(DesktopCompositionTest, restartSeesSavedSettingsButNotTheDatalogDirectory)
-{
-    ASSERT_NO_FATAL_FAILURE(check_restartSeesSavedSettingsButNotTheDatalogDirectory());
-}
-
-void DesktopCompositionTest::check_waitRequestIsWiredToTheRemoteUtility()
+TEST_F(DesktopCompositionTest, waitRequestIsWiredToTheRemoteUtility)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -382,37 +349,28 @@ void DesktopCompositionTest::check_waitRequestIsWiredToTheRemoteUtility()
     ASSERT_TRUE(QObject::disconnect(&composition.services().remote, &RemotePeer::wait_requested, nullptr, nullptr));
 }
 
-TEST_F(DesktopCompositionTest, waitRequestIsWiredToTheRemoteUtility)
-{
-    ASSERT_NO_FATAL_FAILURE(check_waitRequestIsWiredToTheRemoteUtility());
-}
-
-void DesktopCompositionTest::check_remoteStateChangesReachThePeer()
+TEST_F(DesktopCompositionTest, remoteStateChangesReachThePeer)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{{}, {}, root.path()};
     fastecu::testing::SignalRecorder changes{&composition.services().remote, &RemotePeer::stateChanged};
 
-    emit composition.remote_utility_->stateChanged(QRemoteObjectReplica::Suspect, QRemoteObjectReplica::Valid);
+    emit remote_utility_of(composition)->stateChanged(QRemoteObjectReplica::Suspect, QRemoteObjectReplica::Valid);
 
     ASSERT_EQ(changes.count(), 1);
     ASSERT_EQ(std::get<0>(changes.snapshot().at(0)), QRemoteObjectReplica::Suspect);
     ASSERT_EQ(std::get<1>(changes.snapshot().at(0)), QRemoteObjectReplica::Valid);
 }
 
-TEST_F(DesktopCompositionTest, remoteStateChangesReachThePeer)
-{
-    ASSERT_NO_FATAL_FAILURE(check_remoteStateChangesReachThePeer());
-}
-
-void DesktopCompositionTest::check_mirroringWithoutAPeerReturnsPromptly()
+// No --host: the replica never becomes valid, so the mirror drops both.
+TEST_F(DesktopCompositionTest, mirroringWithoutAPeerReturnsPromptly)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{{}, {}, root.path()};
     RemotePeer& remote = composition.services().remote;
-    ASSERT_TRUE(!composition.remote_utility_->isValid());
+    ASSERT_TRUE(!remote_utility_of(composition)->isValid());
 
     QElapsedTimer elapsed;
     elapsed.start();
@@ -421,12 +379,7 @@ void DesktopCompositionTest::check_mirroringWithoutAPeerReturnsPromptly()
     ASSERT_TRUE(elapsed.elapsed() < 1000) << "mirroring without a peer blocked";
 }
 
-TEST_F(DesktopCompositionTest, mirroringWithoutAPeerReturnsPromptly)
-{
-    ASSERT_NO_FATAL_FAILURE(check_mirroringWithoutAPeerReturnsPromptly());
-}
-
-void DesktopCompositionTest::check_channelLevelsReachTheLogWindowWithTheirPrefix()
+TEST_F(DesktopCompositionTest, channelLevelsReachTheLogWindowWithTheirPrefix)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -446,12 +399,7 @@ void DesktopCompositionTest::check_channelLevelsReachTheLogWindowWithTheirPrefix
     ASSERT_TRUE(has_line_ending_with(window, "(WW) warning line"));
 }
 
-TEST_F(DesktopCompositionTest, channelLevelsReachTheLogWindowWithTheirPrefix)
-{
-    ASSERT_NO_FATAL_FAILURE(check_channelLevelsReachTheLogWindowWithTheirPrefix());
-}
-
-void DesktopCompositionTest::check_debugLinesStayOutOfTheLogWindow()
+TEST_F(DesktopCompositionTest, debugLinesStayOutOfTheLogWindow)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -467,12 +415,10 @@ void DesktopCompositionTest::check_debugLinesStayOutOfTheLogWindow()
     ASSERT_TRUE(!has_line_containing(window, "debug line"));
 }
 
-TEST_F(DesktopCompositionTest, debugLinesStayOutOfTheLogWindow)
-{
-    ASSERT_NO_FATAL_FAILURE(check_debugLinesStayOutOfTheLogWindow());
-}
-
-void DesktopCompositionTest::check_relayedLineSurvivesItsSenderButADirectOneDoesNot()
+// A dialog that logs and is destroyed before the syslog thread delivers
+// its line: through the channel the line survives; connected straight to
+// the logger, as UI code did before step 6j, it is dropped.
+TEST_F(DesktopCompositionTest, relayedLineSurvivesItsSenderButADirectOneDoesNot)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -481,11 +427,12 @@ void DesktopCompositionTest::check_relayedLineSurvivesItsSenderButADirectOneDoes
     fastecu::testing::SignalRecorder window{&log, &LogChannel::log_window_message};
 
     {
-        SyslogGate gate{*composition.syslogger_};
+        SyslogGate gate{*syslogger_of(composition)};
         auto relayed = std::make_unique<LogChannel>();
         QObject::connect(relayed.get(), &LogChannel::LOG_I, &log, &LogChannel::LOG_I);
         auto direct = std::make_unique<LogChannel>();
-        QObject::connect(direct.get(), &LogChannel::LOG_I, composition.syslogger_.get(), &SystemLogger::log_messages);
+        QObject::connect(direct.get(), &LogChannel::LOG_I, syslogger_of(composition).get(),
+                         &SystemLogger::log_messages);
 
         emit relayed->LOG_I("relayed line", false, false);
         emit direct->LOG_I("direct line", false, false);
@@ -500,12 +447,7 @@ void DesktopCompositionTest::check_relayedLineSurvivesItsSenderButADirectOneDoes
     ASSERT_TRUE(!has_line_containing(window, "direct line"));
 }
 
-TEST_F(DesktopCompositionTest, relayedLineSurvivesItsSenderButADirectOneDoesNot)
-{
-    ASSERT_NO_FATAL_FAILURE(check_relayedLineSurvivesItsSenderButADirectOneDoesNot());
-}
-
-void DesktopCompositionTest::check_enablingFileLoggingWritesASyslogFile()
+TEST_F(DesktopCompositionTest, enablingFileLoggingWritesASyslogFile)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -535,12 +477,9 @@ void DesktopCompositionTest::check_enablingFileLoggingWritesASyslogFile()
     ASSERT_TRUE(contents.contains("debug to file"));
 }
 
-TEST_F(DesktopCompositionTest, enablingFileLoggingWritesASyslogFile)
-{
-    ASSERT_NO_FATAL_FAILURE(check_enablingFileLoggingWritesASyslogFile());
-}
-
-void DesktopCompositionTest::check_destructionRightAfterConstructionDoesNotHang()
+// SystemLogger::run() spends its first second in a processEvents loop on
+// the syslog thread; the destructor must still stop and join it promptly.
+TEST_F(DesktopCompositionTest, destructionRightAfterConstructionDoesNotHang)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -552,12 +491,8 @@ void DesktopCompositionTest::check_destructionRightAfterConstructionDoesNotHang(
     ASSERT_TRUE(elapsed.elapsed() < 5000) << "composition teardown took longer than 5 s";
 }
 
-TEST_F(DesktopCompositionTest, destructionRightAfterConstructionDoesNotHang)
-{
-    ASSERT_NO_FATAL_FAILURE(check_destructionRightAfterConstructionDoesNotHang());
-}
-
-void DesktopCompositionTest::check_constructingTwiceInOneProcessSucceeds()
+// main() rebuilds the composition on every RESTART_CODE iteration.
+TEST_F(DesktopCompositionTest, constructingTwiceInOneProcessSucceeds)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
@@ -570,34 +505,19 @@ void DesktopCompositionTest::check_constructingTwiceInOneProcessSucceeds()
     }
 }
 
-TEST_F(DesktopCompositionTest, constructingTwiceInOneProcessSucceeds)
-{
-    ASSERT_NO_FATAL_FAILURE(check_constructingTwiceInOneProcessSucceeds());
-}
-
-void DesktopCompositionTest::check_emptyHostSelectsTheDirectBackend()
+TEST_F(DesktopCompositionTest, emptyHostSelectsTheDirectBackend)
 {
     ASSERT_TRUE(std::holds_alternative<DirectSerial>(serial_connection_from_args({}, {})));
     ASSERT_TRUE(std::holds_alternative<DirectSerial>(serial_connection_from_args({}, "ignored")));
 }
 
-TEST_F(DesktopCompositionTest, emptyHostSelectsTheDirectBackend)
-{
-    ASSERT_NO_FATAL_FAILURE(check_emptyHostSelectsTheDirectBackend());
-}
-
-void DesktopCompositionTest::check_nonEmptyHostSelectsTheRemoteBackendWithItsCredentials()
+TEST_F(DesktopCompositionTest, nonEmptyHostSelectsTheRemoteBackendWithItsCredentials)
 {
     const SerialConnection connection = serial_connection_from_args("peer.example:1234", "secret");
     const auto *remote = std::get_if<RemoteSerial>(&connection);
     ASSERT_TRUE(remote != nullptr);
     ASSERT_EQ(remote->address, QString("peer.example:1234"));
     ASSERT_EQ(remote->password, QString("secret"));
-}
-
-TEST_F(DesktopCompositionTest, nonEmptyHostSelectsTheRemoteBackendWithItsCredentials)
-{
-    ASSERT_NO_FATAL_FAILURE(check_nonEmptyHostSelectsTheRemoteBackendWithItsCredentials());
 }
 
 namespace
