@@ -1,7 +1,7 @@
 // Windows bodies of SerialPortActionsDirect's per-OS hooks; see their
 // declaration in serial_port_actions_direct.h. The BUILD file compiles
 // exactly one of this file and serial_port_actions_direct_unix.cpp.
-#include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
+#include "src/platform/desktop/common/serial/direct/serial_port_actions_direct.h"
 
 #include <QSettings>
 

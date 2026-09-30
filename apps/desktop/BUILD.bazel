@@ -124,8 +124,8 @@ fastecu_gtest(
 alias(
     name = "direct_serial_backend",
     actual = select({
-        "@platforms//os:windows": "//src/platform/desktop/common/serial:direct_serial_backend_windows",
-        "//conditions:default": "//src/platform/desktop/common/serial:direct_serial_backend_unix",
+        "@platforms//os:windows": "//src/platform/desktop/common/serial/direct/windows:serial_port_actions_direct_windows",
+        "//conditions:default": "//src/platform/desktop/common/serial/direct/unix:serial_port_actions_direct_unix",
     }),
     visibility = ["//visibility:private"],
 )

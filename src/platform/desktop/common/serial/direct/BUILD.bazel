@@ -1,0 +1,55 @@
+# The header declares Q_OBJECT; generated hdrs must run through moc. It is moc'd
+# once here and every implementation depends on the result: qt_cc_library names
+# its generated moc genrule after the header's basename alone, so two targets in
+# one package cannot both list serial_port_actions_direct.h in `hdrs` (see "One
+# header cannot be moc'd by two targets" in docs/design-notes.md).
+# gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
+# The shared J2534 API path selects the OS-specific header; the alias below
+# carries that choice.
+# gazelle:resolve cc src/platform/desktop/j2534/j2534_api.h :j2534_api
+load("//bazel:qt_targets.bzl", "qt_cc_library")
+
+package(
+    default_visibility = [
+        "//bazel/layers:tests",
+        "//src/platform/desktop/common/serial:__subpackages__",
+    ],
+)
+
+# root //:windows_preprocessor_guards reads serial_port_actions_direct.h as
+# `data`; that reference is plumbing, not a layer dependency, so export it to
+# the root package specifically rather than widen the package's general
+# default_visibility.
+exports_files(
+    ["serial_port_actions_direct.h"],
+    visibility = ["//:__pkg__"],
+)
+
+# The platform's J2534 API, published at the shared include path. Gazelle cannot
+# infer the OS choice, so the selection stays hand-owned.
+alias(
+    name = "j2534_api",
+    actual = select({
+        "@platforms//os:windows": "//src/platform/desktop/windows/j2534:j2534_api",
+        "//conditions:default": "//src/platform/desktop/unix/j2534:j2534_api",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+# The direct backend's class declaration. It carries no implementation: the
+# shared code lives in //.../direct/common and the platform hooks in
+# //.../direct/unix or //.../direct/windows.
+qt_cc_library(
+    name = "serial_port_actions_direct",
+    # The Qt macro requires srcs even for a header-only moc library.
+    srcs = [],  # keep
+    hdrs = ["serial_port_actions_direct.h"],
+    deps = [
+        "//bazel/qt:core",
+        "//bazel/qt:serial_port",
+        "//bazel/qt:widgets",
+        "//src/platform/desktop/common/serial:serial_backend",
+        "//src/platform/desktop/common/serial:serial_facade_codes",
+        "//src/platform/desktop/common/serial/direct:j2534_api",
+    ],
+)

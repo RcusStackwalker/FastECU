@@ -2,7 +2,7 @@
 
 // PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
 
-#include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
+#include "src/platform/desktop/common/serial/direct/serial_port_actions_direct.h"
 
 #include <QThread>
 

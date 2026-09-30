@@ -16,7 +16,7 @@
 #endif
 #include <unistd.h>
 
-#include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
+#include "src/platform/desktop/common/serial/direct/serial_port_actions_direct.h"
 
 // Backend behavior over a PTY (spec: reassembly, timeout, buffer clearing,
 // adapter-vanish). J2534 ioctl parameter handling stays with the crash suite's

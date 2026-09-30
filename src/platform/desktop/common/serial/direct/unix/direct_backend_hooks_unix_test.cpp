@@ -1,7 +1,7 @@
 #include "src/platform/desktop/common/testing/core_application_environment.h"
 #include <gtest/gtest.h>
 
-#include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
+#include "src/platform/desktop/common/serial/direct/serial_port_actions_direct.h"
 
 // Exposes the pure per-OS hooks of the direct backend.
 class HookProbe : public SerialPortActionsDirect

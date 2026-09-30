@@ -198,3 +198,17 @@ generation stays hand-owned, and the remote package resolves the generated
 `rep_serial_port_actions_replica.h` to it. The facade-threading test keeps its
 custom main as an excluded source with a narrow source-entry keep. The direct
 backend and the J2534 selector remain hand-owned until they migrate.
+
+The direct serial backend is split by responsibility under `serial/direct`: the
+header-only moc library for `serial_port_actions_direct.h`, the shared
+implementation in `direct/common`, and one hook library each in `direct/unix`
+and `direct/windows`. The moc library depends on neither implementation; the
+implementation and hooks depend on it. Because no include expresses it, each
+hook library keeps an explained dependency on the shared implementation, and
+the shared and hook libraries retain `alwayslink` so the selected backend
+survives archive ordering. The `j2534_api` selection alias, the OS-selecting
+`srcs` of `j2534_driver_selection`, and the `direct_serial_backend_for_tests`
+alias remain hand-owned. Production libraries never resolve through that
+test-only alias; tests that need the runtime implementation keep it narrowly.
+Non-moc children undo the inherited `map_kind` with
+`map_kind cc_library cc_library`.

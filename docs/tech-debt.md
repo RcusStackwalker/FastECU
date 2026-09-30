@@ -261,7 +261,7 @@ when a step needed to touch the file for an unrelated reason.
   `clear_dtc` (2). All combine a `uint16_t`/`uint8_t` protocol field
   (`source_id`, `cmd`, a `QByteArray::at()` byte) with a small non-negative
   mask or constant; none is a live defect.
-- `src/platform/desktop/common/serial/serial_port_actions_direct.cpp`: 8
+- `src/platform/desktop/common/serial/direct/common/serial_port_actions_direct.cpp`: 8
   findings across six functions, suppressed when step 6e-1 touched the
   file — `read_serial_data` (2), `append_iso14230_header` (1),
   `write_j2534_data` (1), `read_j2534_data` (2), `dump_msg` (1),
