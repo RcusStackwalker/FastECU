@@ -54,8 +54,7 @@ holds `QT_DEPS`, `qt_cc_library`, and `qt_cc_binary`; the rest moved to
 `bazel/qt_common.bzl`, loadable anywhere and re-exported by `qt_targets.bzl`.
 Losing `qt_cc_library` replaces the `Q_OBJECT` half of the scan: its `hdrs`
 attribute is the only route to moc in a library target, so no `src/backend`
-header is moc'd and a `Q_OBJECT` there fails at link. QtTest fixtures, the
-scan's carve-out, still get moc through `fastecu_qttest`.
+header is moc'd and a `Q_OBJECT` there fails at link.
 
 ## Consequences
 
@@ -85,8 +84,6 @@ Costs and risks:
 - `third_party/qt` is listed in `.bazelignore`. Without it the nested module is
   also a package of the main repo, where its own `@rules_qt` labels do not
   resolve.
-- A backend package could still moc a header by hand via `qt_cpp_moc_headers`,
-  which `fastecu_qttest` needs and cannot be split from.
 - `//src/backend/definitions` mixes the Qt-typed `FileActions` family with one
   Qt-free target, `:models`, which the portable `//src/backend/flash` packages
   use. Its package default is `//bazel/qt:qt_layer` and `:models` carries the
@@ -105,7 +102,7 @@ Costs and risks:
 ## Notes
 
 `src/platform/desktop/common/ports` granted its whole package to
-`//src/backend/definitions`, for three QtTest suites that exercise
+`//src/backend/definitions`, for three test suites that exercise
 `FileActions` against the real Qt ports. That grant moved to the `:ports`
 target.
 

@@ -126,7 +126,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         blocking_read_pending_ = true;
     }
     // Blocks until read() has actually entered the queued blocking read.
-    // Tests use this instead of a wall-clock QTest::qWait() to reach the
+    // Tests use this instead of a wall-clock sleep to reach the
     // "transport is mid-read" state before calling requestStop(), so what
     // they prove about unblocking does not depend on the worker thread
     // winning a race against a fixed sleep. Mirrors

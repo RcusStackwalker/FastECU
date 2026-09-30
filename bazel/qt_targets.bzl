@@ -15,7 +15,6 @@ load(
     _COMMON_COPTS = "COMMON_COPTS",
     _QT_DEPS_NO_WIDGETS = "QT_DEPS_NO_WIDGETS",
     _qt_cc_test = "qt_cc_test",
-    _qt_cpp_moc_headers = "qt_cpp_moc_headers",
     _qt_resource_via_qrc = "qt_resource_via_qrc",
     _qt_ui_basename_libraries = "qt_ui_basename_libraries",
 )
@@ -71,6 +70,5 @@ def qt_cc_binary(name, srcs, copts = [], **kwargs):
 COMMON_COPTS = _COMMON_COPTS
 QT_DEPS_NO_WIDGETS = _QT_DEPS_NO_WIDGETS
 qt_cc_test = _qt_cc_test
-qt_cpp_moc_headers = _qt_cpp_moc_headers
 qt_resource_via_qrc = _qt_resource_via_qrc
 qt_ui_basename_libraries = _qt_ui_basename_libraries

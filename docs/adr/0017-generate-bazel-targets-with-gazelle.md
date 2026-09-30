@@ -137,8 +137,8 @@ Unmanaged platform and UI header providers have package-local resolutions.
 ### Complete C++ test ownership
 
 All C++ test executables use GoogleTest and regenerate with `gazelle_cc`.
-The QtTest migration added the remaining eighteen test-owning packages and a
-new test-support package. Python build guards retain their existing ownership.
+Gazelle covers every test-owning package, including a test-only desktop
+support package. Python build guards retain their existing ownership.
 The pinned Gazelle and gazelle_cc versions are unchanged.
 
 Each package has one recognized test mapping. Mixed packages use
@@ -164,7 +164,5 @@ Generated test labels end in `_test`: the pinned unit-group generator appends
 `//tests/force_asserts:tst_force_asserts` labels were not retained as aliases.
 Platform constraints and runtime settings remain on the generated tests.
 
-The checker rejects uncovered C++ test packages, whole-rule test keeps, and
-QtTest source or dependency usage. Generation followed by a second checker
-run must be unchanged. See the [migration inventory](../qttest-migration-inventory.md)
-for coverage correspondence and verification notes.
+The checker rejects uncovered C++ test packages and whole-rule test keeps.
+Generation followed by a second checker run must be unchanged.

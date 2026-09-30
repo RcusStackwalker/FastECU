@@ -8,7 +8,7 @@ int run_throwing_backend_child();
 
 int main(int argc, char **argv)
 {
-    // Run the QTest classes' output unbuffered. These suites exercise the
+    // Run the suites' output unbuffered. These suites exercise the
     // serial facade's I/O-thread and QRemoteObjects teardown paths, which have
     // an intermittent, Windows-only crash (tracked separately). When Bazel
     // redirects stdout to test.log it is block-buffered, so a hard crash

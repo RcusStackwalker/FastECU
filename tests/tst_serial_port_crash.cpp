@@ -307,7 +307,7 @@ TEST(SerialPortCrashTest, resetQueuedDuringRead_runsAfterReadCompletes)
     // waits on the port's own fd (waitForReadyRead) instead of pumping
     // QCoreApplication::processEvents(), so a reset_connection() queued from
     // the event loop cannot fire mid-read. It stays queued until the read
-    // returns and the caller (or QTest's own loop) processes events.
+    // returns and the caller processes events.
     int master = -1, slave = -1;
     std::array<char, 256> name{};
     ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";

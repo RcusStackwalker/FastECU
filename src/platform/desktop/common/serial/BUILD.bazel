@@ -445,7 +445,7 @@ fastecu_gtest(
 )
 
 # Custom main is retained: it dispatches child-process mode and makes crash
-# diagnostics unbuffered before Qt starts, behavior gtest/QtTest mains cannot
+# diagnostics unbuffered before Qt starts, behavior the stock gtest main cannot
 # express through fixtures or Bazel environment variables.
 fastecu_gtest(
     name = "test_facade_threading",

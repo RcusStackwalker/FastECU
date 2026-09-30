@@ -54,18 +54,6 @@ class TestOwnershipTest(unittest.TestCase):
         )
         gc.validate_test_ownership(self.root, [file])
 
-    def test_rejects_qttest_dependency(self):
-        file = self.write(
-            "tests/BUILD.bazel", 'fastecu_gtest(name = "probe", deps = ["//bazel/qt:test"])'
-        )
-        with self.assertRaisesRegex(gc.GazelleCheckError, "QtTest"):
-            gc.validate_test_ownership(self.root, [file])
-
-    def test_rejects_qttest_source(self):
-        self.write("tests/probe.cpp", "#include <QSignalSpy>\n")
-        with self.assertRaisesRegex(gc.GazelleCheckError, "QtTest"):
-            gc.validate_test_sources(self.root)
-
     def test_python_test_does_not_require_cpp_ownership(self):
         file = self.write("unmanaged/BUILD.bazel", 'py_test(name = "guard")')
         gc.validate_test_ownership(self.root, [file])
