@@ -1,4 +1,3 @@
-# gazelle:exclude j2534_bridge_integration_main.cpp
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 
 # Tests regenerate; production sources and helper binaries retain existing owners.
@@ -107,21 +106,15 @@ J2534_PROCESS_ENV = {
     "J2534_BRIDGE_HOST_EXE": "$(location //src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86)",
 }
 
-# Cross-process x86 bridge integration probes retain handwritten mains and
-# assertion flags because their observable contract is process/pipe behavior.
+# Cross-process x86 bridge integration probe; its observable contract is
+# process/pipe behavior.
 fastecu_gtest(
     name = "j2534_bridge_integration_test",
-    srcs = [
-        "j2534_bridge_integration_test.cpp",
-        # Positional fixture arguments require a suite-specific entry point.
-        "j2534_bridge_integration_main.cpp",  # keep
-    ],
-    copts = ["/UNDEBUG"],
+    srcs = ["j2534_bridge_integration_test.cpp"],
     data = J2534_PROCESS_DATA,
     env = J2534_PROCESS_ENV,
     qt = False,
     target_compatible_with = WINDOWS_ONLY,
-    use_gtest_main = False,
     deps = [
         "//src/platform/desktop/windows/j2534:j2534_bridge_protocol",
         "@googletest//:gtest",

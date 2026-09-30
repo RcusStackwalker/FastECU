@@ -185,15 +185,36 @@ void test_child_crash_is_detected_as_broken_pipe(const std::string& hostExe, con
 
 } // namespace
 
-namespace
+// The host exe and fake DLL paths are 32-bit artifacts built outside Bazel
+// (scripts/compile-x86-bridge-artifacts.ps1 -- this Bazel setup has no
+// registered x86 Windows C++ toolchain), so they are passed in via the
+// J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH environment variables
+// (--test_env in .github/workflows/pr.yml).
+class J2534BridgeIntegration : public ::testing::Test
 {
-std::string hostExe, dllPath;
-}
+  protected:
+    static void SetUpTestSuite()
+    {
+        const char *hostExeEnv = std::getenv("J2534_BRIDGE_HOST_EXE");
+        const char *dllPathEnv = std::getenv("FAKE_J2534_DLL_PATH");
+        hostExe = hostExeEnv ? hostExeEnv : "";
+        dllPath = dllPathEnv ? dllPathEnv : "";
+    }
 
-TEST(J2534BridgeIntegration, CallsAndChildCrashContracts)
+    static std::string hostExe;
+    static std::string dllPath;
+};
+
+std::string J2534BridgeIntegration::hostExe;
+std::string J2534BridgeIntegration::dllPath;
+
+TEST_F(J2534BridgeIntegration, CallsAndChildCrashContracts)
 {
+    ASSERT_FALSE(hostExe.empty()) << "set J2534_BRIDGE_HOST_EXE";
+    ASSERT_FALSE(dllPath.empty()) << "set FAKE_J2534_DLL_PATH";
+
     BridgeProcess bridge;
-    ASSERT_TRUE(bridge.start(hostExe, dllPath) && "failed to spawn j2534_bridge_host");
+    ASSERT_TRUE(bridge.start(hostExe, dllPath)) << "failed to spawn j2534_bridge_host";
 
     ASSERT_NO_FATAL_FAILURE(test_open_connect_and_read(bridge));
     ASSERT_NO_FATAL_FAILURE(test_write_msgs_success_and_failure(bridge));
@@ -201,37 +222,4 @@ TEST(J2534BridgeIntegration, CallsAndChildCrashContracts)
     bridge.stop();
 
     ASSERT_NO_FATAL_FAILURE(test_child_crash_is_detected_as_broken_pipe(hostExe, dllPath));
-
-    std::printf("All j2534_bridge_integration tests passed.\n");
-}
-
-int run_j2534_bridge_integration_tests(int argc, char **argv)
-{
-    ::testing::InitGoogleTest(&argc, argv);
-    // The host exe and fake DLL paths are 32-bit artifacts built outside
-    // Bazel (scripts/compile-x86-bridge-artifacts.ps1 -- this Bazel setup has
-    // no registered x86 Windows C++ toolchain), so CI passes their paths in
-    // via J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH environment variables
-    // (--test_env in .github/workflows/pr.yml). argv is kept as a fallback
-    // for running this binary manually outside CI.
-    const char *hostExeEnv = std::getenv("J2534_BRIDGE_HOST_EXE");
-    const char *dllPathEnv = std::getenv("FAKE_J2534_DLL_PATH");
-    if (hostExeEnv && dllPathEnv)
-    {
-        hostExe = hostExeEnv;
-        dllPath = dllPathEnv;
-    }
-    else if (argc == 3)
-    {
-        hostExe = argv[1];
-        dllPath = argv[2];
-    }
-    else
-    {
-        std::fprintf(stderr, "usage: set J2534_BRIDGE_HOST_EXE/FAKE_J2534_DLL_PATH, or pass "
-                             "j2534_bridge_integration_test <host-exe-path> <fake-dll-path>\n");
-        return 1;
-    }
-
-    return RUN_ALL_TESTS();
 }
