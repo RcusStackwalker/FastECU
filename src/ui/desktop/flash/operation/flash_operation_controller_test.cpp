@@ -1,8 +1,9 @@
+#include "src/platform/desktop/common/testing/widgets_application_environment.h"
 #include "src/ui/desktop/flash/operation/flash_operation_controller.h"
 
 #include <QApplication>
 #include <QMessageBox>
-#include <QTest>
+#include <gtest/gtest.h>
 #include <QTimer>
 
 #include <gmock/gmock.h>
@@ -18,7 +19,6 @@ namespace
 // else, and records the texts it saw.
 class BoxDriver final : public QObject
 {
-    Q_OBJECT
 
   public:
     BoxDriver()
@@ -30,7 +30,7 @@ class BoxDriver final : public QObject
 
     QStringList texts;
 
-  private slots:
+  private:
     void drive()
     {
         for (QWidget *widget : QApplication::topLevelWidgets())
@@ -65,71 +65,60 @@ void expectNoEcuIo(FakeBackend& fake)
 
 } // namespace
 
-class FlashOperationControllerTest : public QObject
+TEST(FlashOperationControllerTest, unknownProtocolIsUnsupportedAndWarnsWithoutSerialIo)
 {
-    Q_OBJECT
+    fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
+    FakeBackend *fake = adapter.fake();
+    ASSERT_TRUE(fake != nullptr);
+    SerialPortActions& serial = adapter.connection().facade();
+    expectNoEcuIo(*fake);
+    FlashOperationController controller{serial, nullptr};
+    BoxDriver driver;
 
-  private slots:
-    void unknownProtocolIsUnsupportedAndWarnsWithoutSerialIo()
-    {
-        fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
-        FakeBackend *fake = adapter.fake();
-        QVERIFY(fake != nullptr);
-        SerialPortActions& serial = adapter.connection().facade();
-        expectNoEcuIo(*fake);
-        FlashOperationController controller{serial, nullptr};
-        BoxDriver driver;
+    const FlashOperationOutcome outcome = controller.run({
+        .operation = FlashOperation::Read,
+        .protocol = "sub_ecu_not_a_real_protocol",
+        .mcu = "SH7058",
+        .kernel_path = "/k/kernel.bin",
+        .image = std::nullopt,
+        .paths = {},
+        .display_filename = "",
+    });
 
-        const FlashOperationOutcome outcome = controller.run({
-            .operation = FlashOperation::Read,
-            .protocol = "sub_ecu_not_a_real_protocol",
-            .mcu = "SH7058",
-            .kernel_path = "/k/kernel.bin",
-            .image = std::nullopt,
-            .paths = {},
-            .display_filename = "",
-        });
+    ASSERT_EQ(outcome.status, FlashOperationStatus::Unsupported);
+    ASSERT_TRUE(!outcome.read_bytes.has_value());
+    ASSERT_EQ(driver.texts,
+              QStringList{"Unknown flashmethod! Flashmethod \"sub_ecu_not_a_real_protocol\" not yet implemented!"});
+}
 
-        QCOMPARE(outcome.status, FlashOperationStatus::Unsupported);
-        QVERIFY(!outcome.read_bytes.has_value());
-        QCOMPARE(driver.texts,
-                 QStringList{"Unknown flashmethod! Flashmethod \"sub_ecu_not_a_real_protocol\" not yet implemented!"});
-    }
+TEST(FlashOperationControllerTest, cancelledDensoTcuChooserIsHandledWithoutSerialIo)
+{
+    fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
+    FakeBackend *fake = adapter.fake();
+    ASSERT_TRUE(fake != nullptr);
+    SerialPortActions& serial = adapter.connection().facade();
+    expectNoEcuIo(*fake);
+    FlashOperationController controller{serial, nullptr};
+    BoxDriver driver;
 
-    void cancelledDensoTcuChooserIsHandledWithoutSerialIo()
-    {
-        fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
-        FakeBackend *fake = adapter.fake();
-        QVERIFY(fake != nullptr);
-        SerialPortActions& serial = adapter.connection().facade();
-        expectNoEcuIo(*fake);
-        FlashOperationController controller{serial, nullptr};
-        BoxDriver driver;
+    const FlashOperationOutcome outcome = controller.run({
+        .operation = FlashOperation::Read,
+        .protocol = "sub_tcu_denso_sh7058_can",
+        .mcu = "SH7058",
+        .kernel_path = "/k/tcu_kernel.bin",
+        .image = std::nullopt,
+        .paths = {},
+        .display_filename = "",
+    });
 
-        const FlashOperationOutcome outcome = controller.run({
-            .operation = FlashOperation::Read,
-            .protocol = "sub_tcu_denso_sh7058_can",
-            .mcu = "SH7058",
-            .kernel_path = "/k/tcu_kernel.bin",
-            .image = std::nullopt,
-            .paths = {},
-            .display_filename = "",
-        });
-
-        QCOMPARE(outcome.status, FlashOperationStatus::ServiceActionHandled);
-        QCOMPARE(driver.texts, QStringList{"Choose which option"});
-    }
-};
+    ASSERT_EQ(outcome.status, FlashOperationStatus::ServiceActionHandled);
+    ASSERT_EQ(driver.texts, QStringList{"Choose which option"});
+}
 
 } // namespace fastecu::flash
 
-int main(int argc, char **argv)
+namespace
 {
-    ::testing::InitGoogleMock(&argc, argv);
-    QApplication application(argc, argv);
-    fastecu::flash::FlashOperationControllerTest test;
-    const int result = QTest::qExec(&test, argc, argv);
-    // QtTest does not include Google Mock failures in its exit status.
-    return result != 0 || ::testing::Test::HasFailure() ? 1 : 0;
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment);
 }
-#include "flash_operation_controller_test.moc"

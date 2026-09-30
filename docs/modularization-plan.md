@@ -174,9 +174,8 @@ are enforced by visibility.
 
 Require the Windows/macOS/Linux CI matrix and Windows/macOS packaging checks.
 Coverage is gated through SonarCloud on new code. Follow the [coding style and testing conventions](coding-style.md)
-and use package-owned mocks. QtTest suites using Google Mock must propagate
-its failures into their exit status. An empty Windows QtTest log is not
-proof of a crash; see the [coverage reliability notes](tech-debt.md#p0-make-coverage-results-trustworthy).
+and use package-owned mocks. An empty Windows test log is not proof of a
+crash; see the [coverage reliability notes](tech-debt.md#p0-make-coverage-results-trustworthy).
 
 Portable tests cover parser/model validation, checksum and ROM outcomes,
 scripted successful operations, malformed replies, non-response, timeout,

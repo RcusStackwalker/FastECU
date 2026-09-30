@@ -23,9 +23,8 @@ namespace
 {
 
 // QMenuBar/QToolBar are QWidgets, which abort at construction without a live
-// QApplication. This suite links fastecu_gtest's plain gtest_main (it
-// declares no Q_OBJECT, so fastecu_qttest's QTEST_MAIN generator doesn't
-// apply), so bring one up via a ::testing::Environment, mirroring
+// QApplication. This suite links fastecu_gtest's plain gtest_main, so bring
+// one up via a ::testing::Environment, mirroring
 // QtPortEnvironment in
 // src/platform/desktop/common/ports/qt_port_adapters_test.cpp. SetUp() runs
 // after static initialization and after InitGoogleTest, and gtest tears the

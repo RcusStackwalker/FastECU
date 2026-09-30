@@ -1,18 +1,14 @@
-load("//bazel:qt_targets.bzl", "qt_cc_test", "qt_cpp_moc_headers")
+# Tests regenerate; production sources and helper binaries retain existing owners.
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 
 package(default_visibility = ["//visibility:private"])
 
 # Retained under tests/: this is a release-mode process probe whose contract
 # is that QT_FORCE_ASSERTS aborts a child process even with QT_NO_DEBUG.
 
-qt_cpp_moc_headers(
-    name = "force_asserts_cpp_mocs",
-    srcs = ["tst_force_asserts.cpp"],
-    deps = ["//bazel/qt:test"],
-)
-
-qt_cc_test(
-    name = "tst_force_asserts",
+fastecu_gtest(
+    name = "tst_force_asserts_test",
     srcs = ["tst_force_asserts.cpp"],
     copts = [
         "-DQT_FORCE_ASSERTS",
@@ -37,8 +33,7 @@ qt_cc_test(
         "//conditions:default": [],
     }),
     deps = [
-        ":force_asserts_cpp_mocs",
         "//bazel/qt:core",
-        "//bazel/qt:test",
+        "@googletest//:gtest",
     ],
 )

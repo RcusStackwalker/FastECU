@@ -58,9 +58,10 @@ fastecu_gtest(
         ":ports",
         ":qt_event_sink",
         "//bazel/qt:core",
-        "//bazel/qt:test",
         "//src/backend/ports",
         "//src/backend/ports/testing:result_matchers",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
         "@googletest//:gtest",
     ],
 )

@@ -1,26 +1,24 @@
-#include <QTest>
+#include <gtest/gtest.h>
+#include "src/platform/desktop/common/testing/widgets_application_environment.h"
+#include "src/platform/desktop/common/testing/event_helpers.h"
 
 #include "src/ui/desktop/hexedit/qhexedit/qhexedit.h"
 
-class QHexEditTest : public QObject
+// Layout divides by the glyph metrics. A runner without installed fonts (the
+// Windows offscreen CI job) reports zero-pixel glyphs, which would raise an
+// integer divide-by-zero here.
+TEST(QHexEditTest, showingAndResizingLaysOutWithoutCrashing)
 {
-    Q_OBJECT
+    QHexEdit edit;
+    edit.setData(QByteArray(64, '\x0a'));
+    edit.resize(300, 200);
+    edit.show();
+    fastecu::testing::process_events_for(std::chrono::milliseconds(10));
 
-  private slots:
-    // Layout divides by the glyph metrics. A runner without installed fonts (the
-    // Windows offscreen CI job) reports zero-pixel glyphs, which would raise an
-    // integer divide-by-zero here.
-    void showingAndResizingLaysOutWithoutCrashing()
-    {
-        QHexEdit edit;
-        edit.setData(QByteArray(64, '\x0a'));
-        edit.resize(300, 200);
-        edit.show();
-        QTest::qWait(10);
-
-        QCOMPARE(edit.data().size(), qsizetype{64});
-    }
-};
-
-QTEST_MAIN(QHexEditTest)
-#include "qhexedit_test.moc"
+    ASSERT_EQ(edit.data().size(), qsizetype{64});
+}
+namespace
+{
+const auto *const environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment({}, /*use_96_dpi=*/true));
+}

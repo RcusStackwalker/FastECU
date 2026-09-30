@@ -1,5 +1,29 @@
+# Tests regenerate; production sources and helper binaries retain existing owners.
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# gazelle:exclude cdbg_serial_setup.cpp
+# gazelle:exclude cdbg_serial_setup.h
+# gazelle:exclude logging_engine.cpp
+# gazelle:exclude logging_engine.h
+# gazelle:exclude logging_snapshot_adapter.cpp
+# gazelle:exclude logging_snapshot_adapter.h
+# gazelle:exclude logging_value_adapter.cpp
+# gazelle:exclude logging_value_adapter.h
+# gazelle:exclude logging_worker.cpp
+# gazelle:exclude logging_worker.h
+# gazelle:exclude systemlogger.cpp
+# gazelle:exclude systemlogger.h
+# gazelle:resolve cc src/backend/logging/testing/scripted_logging_protocol.h //src/backend/logging/testing:scripted_logging_protocol
+# gazelle:resolve cc src/backend/ports/testing/result_matchers.h //src/backend/ports/testing:result_matchers
+# gazelle:resolve cc src/platform/desktop/common/logging/cdbg_serial_setup.h //src/platform/desktop/common/logging:logging_runtime
+# gazelle:resolve cc src/platform/desktop/common/logging/logging_engine.h //src/platform/desktop/common/logging:logging_runtime
+# gazelle:resolve cc src/platform/desktop/common/logging/logging_snapshot_adapter.h //src/platform/desktop/common/logging:logging_adapters
+# gazelle:resolve cc src/platform/desktop/common/logging/logging_value_adapter.h //src/platform/desktop/common/logging:logging_adapters
+# gazelle:resolve cc src/platform/desktop/common/logging/logging_worker.h //src/platform/desktop/common/logging:logging_runtime
+# gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
+# gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
+# gazelle:resolve cc src/platform/desktop/common/testing/signal_recorder.h //src/platform/desktop/common/testing:signal_recorder
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:platform_and_composition_root"])
 
@@ -10,6 +34,8 @@ UI_FACING_VISIBILITY = [
     "//bazel/layers:ui_desktop",
 ]
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "logging",
     srcs = ["systemlogger.cpp"],
@@ -21,31 +47,41 @@ fastecu_gtest(
     name = "test_logging_adapters",
     srcs = ["logging_adapters_test.cpp"],
     deps = [
-        ":logging_adapters",
-        "//src/backend/logging:logger_definition_model",
         "//src/backend/ports/testing:result_matchers",
+        "//src/platform/desktop/common/logging:logging_adapters",
+        "@googletest//:gtest",
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_logging_engine",
-    src = "logging_engine_test.cpp",
+    srcs = ["logging_engine_test.cpp"],
     deps = [
-        ":logging_adapters",
-        ":logging_runtime",
         "//src/backend/logging/testing:scripted_logging_protocol",
+        "//src/platform/desktop/common/logging:logging_runtime",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
+        "@googletest//:gtest",
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_logging_worker",
-    src = "logging_worker_test.cpp",
+    srcs = ["logging_worker_test.cpp"],
     deps = [
-        ":logging_runtime",
+        "//bazel/qt:core",
         "//src/backend/logging/testing:scripted_logging_protocol",
+        "//src/platform/desktop/common/logging:logging_runtime",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
+        "@googletest//:gtest",
     ],
 )
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "logging_runtime",
     srcs = [
@@ -69,6 +105,8 @@ qt_cc_library(
     ],
 )
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "logging_adapters",
     srcs = [

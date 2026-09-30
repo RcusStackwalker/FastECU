@@ -14,10 +14,10 @@ cc_library(
     copts = COMMON_COPTS,
     implementation_deps = ["//bazel/qt:widgets"],
     deps = [
-        ":session_key",
         "//bazel/qt:core",
         "//src/backend/calibration:map_edit",
         "//src/backend/calibration/session:calibration_session",
+        "//src/ui/desktop/calibration:session_key",
     ],
 )
 
@@ -48,7 +48,7 @@ fastecu_gtest(
     name = "session_key_test",
     srcs = ["session_key_test.cpp"],
     deps = [
-        ":session_key",
+        "//src/ui/desktop/calibration:session_key",
         "@googletest//:gtest",
     ],
 )
@@ -96,7 +96,7 @@ fastecu_gtest(
     name = "rom_info_test",
     srcs = ["rom_info_test.cpp"],
     deps = [
-        ":rom_info",
+        "//src/ui/desktop/calibration:rom_info",
         "@googletest//:gtest",
     ],
 )

@@ -1,5 +1,6 @@
+#include "src/platform/desktop/common/testing/core_application_environment.h"
 
-#include <QtTest>
+#include <gtest/gtest.h>
 #include <array>
 #include <atomic>
 #include <cstdio>
@@ -29,18 +30,11 @@ std::function<SerialBackend *()> directBackend()
 // facade -> I/O thread -> real SerialPortActionsDirect -> QSerialPort(pty).
 // The caller is a WORKER thread (the LoggingWorker scenario, bench checklist
 // item 1); the "ECU" is a responder thread on the pty master.
-class TestPtyE2e : public QObject
-{
-    Q_OBJECT
-  private slots:
-    void workerThread_writeRead_overPty_deliversFramedMessage();
-};
-
-void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
+TEST(TestPtyE2e, workerThread_writeRead_overPty_deliversFramedMessage)
 {
     int master = -1, slave = -1;
     std::array<char, 256> name{};
-    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
+    ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
 
     // ECU responder: on receiving anything, replies with one SSM-framed
     // message (header 80 f0 10, len 02, payload aa bb, checksum byte).
@@ -110,18 +104,18 @@ void TestPtyE2e::workerThread_writeRead_overPty_deliversFramedMessage()
     responder.join(); // joins on its own via the poll timeout + stop check
     ::close(master);
 
-    QCOMPARE(opened, QString::fromLocal8Bit(name.data()));
-    QCOMPARE(received.left(3), QByteArray("\x01\x02\x03", 3));
-    QCOMPARE(response, QByteArray("\x80\xf0\x10\x02\xaa\xbb\xcc", 7));
+    ASSERT_EQ(opened, QString::fromLocal8Bit(name.data()));
+    ASSERT_EQ(received.left(3), QByteArray("\x01\x02\x03", 3));
+    ASSERT_EQ(response, QByteArray("\x80\xf0\x10\x02\xaa\xbb\xcc", 7));
 }
 
-int main(int argc, char **argv)
+namespace
 {
-    setvbuf(stdout, nullptr, _IONBF, 0);
-    setvbuf(stderr, nullptr, _IONBF, 0);
-    QCoreApplication app(argc, argv);
-    TestPtyE2e test;
-    return QTest::qExec(&test, argc, argv);
-}
-
-#include "serial_pty_e2e_test.moc"
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment(
+        []
+        {
+            setvbuf(stdout, nullptr, _IONBF, 0);
+            setvbuf(stderr, nullptr, _IONBF, 0);
+        }));
+} // namespace

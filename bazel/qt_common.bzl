@@ -7,11 +7,10 @@ to build a user interface. See
 docs/adr/0016-enforce-qt-reachability-by-visibility.md.
 """
 
-load("@fastecu_qt//:qt.bzl", "gen_ui_header", _qt_cc_test = "qt_cc_test", _qt_cpp_moc_headers = "qt_cpp_moc_headers", _qt_resource_via_qrc = "qt_resource_via_qrc")
+load("@fastecu_qt//:qt.bzl", "gen_ui_header", _qt_cc_test = "qt_cc_test", _qt_resource_via_qrc = "qt_resource_via_qrc")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 qt_cc_test = _qt_cc_test
-qt_cpp_moc_headers = _qt_cpp_moc_headers
 qt_resource_via_qrc = _qt_resource_via_qrc
 
 # qt_charts also pulls in qt_widgets transitively, so it stays out too.
@@ -20,7 +19,6 @@ QT_DEPS_NO_WIDGETS = [
     "//bazel/qt:gui",
     "//bazel/qt:remote_objects",
     "//bazel/qt:serial_port",
-    "//bazel/qt:test",
     "//bazel/qt:web_sockets",
     "//bazel/qt:xml",
 ]
@@ -34,60 +32,6 @@ COMMON_COPTS = [
     ],
     "//conditions:default": [],
 })
-
-def fastecu_qttest(
-        name,
-        src,
-        deps = [],
-        data = [],
-        env = {},
-        tags = [],
-        target_compatible_with = [],
-        copts = [],
-        size = "small",
-        qt_deps = QT_DEPS_NO_WIDGETS,
-        **kwargs):
-    """QtTest target with moc generation for a self-including C++ source.
-
-    Args:
-      name: Name of the test target.
-      src: The self-including test source; moc runs over it for the Q_OBJECT
-        fixture QtTest's slot mechanism requires.
-      deps: Additional dependencies for the test.
-      data: Runtime data for the test.
-      env: Environment variables for the test.
-      tags: Tags for the test.
-      target_compatible_with: Platform constraints for the test.
-      copts: Additional compiler options.
-      size: Test size.
-      qt_deps: Qt modules to compile and link against. Defaults to the
-        widget-free set; the qt_targets.bzl wrapper raises it to QT_DEPS for
-        the layers whose tests instantiate widgets.
-      **kwargs: Forwarded to the underlying cc_test. Pass an attribute here
-        only to override it for one target: anything named explicitly is set
-        on every caller, and for tri-state attributes like linkstatic that
-        replaces "let the platform decide" with a fixed value.
-    """
-    moc_target = name + "_moc"
-    qt_cpp_moc_headers(
-        name = moc_target,
-        srcs = [src],
-        deps = qt_deps,
-    )
-    _qt_cc_test(
-        name = name,
-        srcs = [src],
-        copts = COMMON_COPTS + copts,
-        data = data,
-        # Without a console, QtTest sends Windows results to OutputDebugString
-        # instead of the streams captured by Bazel, leaving failed logs empty.
-        env = {"QT_FORCE_STDERR_LOGGING": "1"} | env,
-        size = size,
-        tags = tags,
-        target_compatible_with = target_compatible_with,
-        deps = qt_deps + [":" + moc_target] + deps,
-        **kwargs
-    )
 
 def _basename(path):
     return path.split("/")[-1].rsplit(".", 1)[0]

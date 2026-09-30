@@ -1,12 +1,36 @@
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "QT_DEPS", "fastecu_qttest", "qt_cc_test")
+
+# Tests regenerate; production sources and helper binaries retain existing owners.
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# gazelle:exclude fake_j2534_dll.cpp
+# gazelle:resolve cc src/algorithms/protocol/mut_dma/mut_dma_codec.h //src/algorithms/protocol/mut_dma:mut_dma
+# gazelle:resolve cc src/algorithms/protocol/mut_dma/mut_dma_freeform.h //src/algorithms/protocol/mut_dma:mut_dma
+# gazelle:resolve cc src/backend/ports/testing/fake_cancellation_token.h //src/backend/ports/testing:fake_cancellation_token
+# gazelle:resolve cc src/backend/protocol/imut_dma_init.h //src/backend/protocol:protocol
+# gazelle:resolve cc src/backend/protocol/mut_dma_driver.h //src/backend/protocol:protocol
+# gazelle:resolve cc src/platform/desktop/common/bytes/qt_bytes.h //src/platform/desktop/common/bytes:qt_bytes
+# gazelle:resolve cc src/platform/desktop/common/serial/direct_serial_backend.h //src/platform/desktop/common/serial:direct_serial_backend_for_tests
+# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions.h //src/platform/desktop/common/serial:serial_port_actions
+# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions_direct.h //src/platform/desktop/common/serial:direct_serial_backend_for_tests
+# gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
+# gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
+# gazelle:resolve cc src/platform/desktop/common/transport/fastecu_kline_transport.h //src/platform/desktop/common/transport:transport
+# gazelle:resolve cc src/platform/desktop/unix/j2534/J2534_unix.h //src/platform/desktop/unix/j2534:j2534
+# gazelle:resolve cc src/platform/desktop/unix/j2534/testing/mock_openport.h //src/platform/desktop/unix/j2534/testing:mock_openport
+# gazelle:resolve cc src/platform/desktop/windows/j2534/J2534_win.h //src/platform/desktop/windows/j2534:j2534
+# gazelle:resolve cc src/platform/desktop/windows/j2534/j2534_bridge_client.h //src/platform/desktop/windows/j2534:j2534_bridge_client
+# gazelle:resolve cc src/platform/desktop/windows/j2534/j2534_bridge_protocol.h //src/platform/desktop/windows/j2534:j2534_bridge_protocol
+# gazelle:resolve cc src/platform/desktop/windows/j2534/pe_bitness.h //src/platform/desktop/windows/j2534:pe_bitness
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS")
 load("//bazel:x86_windows_transition.bzl", "x86_windows_binary")
 
 package(default_visibility = ["//visibility:private"])
 
 # Windows-only process/ABI fixture: it must remain outside a production
 # package because it is loaded by cross-bitness bridge integration tests.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 cc_binary(
     name = "fake_j2534_dll_native",
     srcs = ["fake_j2534_dll.cpp"],
@@ -20,6 +44,8 @@ cc_binary(
     deps = ["//src/platform/desktop/windows/j2534:j2534_bridge_protocol"],
 )
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 x86_windows_binary(
     name = "fake_j2534_dll_x86",
     binary = ":fake_j2534_dll_native",
@@ -37,20 +63,23 @@ WINDOWS_ONLY = select({
 
 # Windows wire-format probe; assert() is its test protocol, so release builds
 # explicitly re-enable assertions and retain the handwritten main.
-cc_test(
+fastecu_gtest(
     name = "j2534_bridge_protocol_test",
     srcs = ["j2534_bridge_protocol_test.cpp"],
     copts = ["/UNDEBUG"],
+    qt = False,
     target_compatible_with = WINDOWS_ONLY,
-    deps = ["//src/platform/desktop/windows/j2534:j2534_bridge_protocol"],
+    deps = [
+        "//src/platform/desktop/windows/j2534:j2534_bridge_protocol",
+        "@googletest//:gtest",
+    ],
 )
 
-# Cross-bitness PE probe with external x86/x64 fixtures and assert()-based
-# process exit semantics; no single production package owns both fixtures.
-cc_test(
+# Cross-bitness PE probe with external x86/x64 fixtures; no single production
+# package owns both.
+fastecu_gtest(
     name = "pe_bitness_test",
     srcs = ["pe_bitness_test.cpp"],
-    copts = ["/UNDEBUG"],
     data = [
         "//bazel/platforms:x86_smoke_test_x86",
         "//src/platform/desktop/windows/j2534:pe_bitness_x64_fixture",
@@ -59,8 +88,12 @@ cc_test(
         "PE_BITNESS_X86_FIXTURE": "$(location //bazel/platforms:x86_smoke_test_x86)",
         "PE_BITNESS_X64_FIXTURE": "$(location //src/platform/desktop/windows/j2534:pe_bitness_x64_fixture)",
     },
+    qt = False,
     target_compatible_with = WINDOWS_ONLY,
-    deps = ["//src/platform/desktop/windows/j2534:pe_bitness"],
+    deps = [
+        "//src/platform/desktop/windows/j2534:pe_bitness",
+        "@googletest//:gtest",
+    ],
 )
 
 J2534_PROCESS_DATA = [
@@ -73,36 +106,47 @@ J2534_PROCESS_ENV = {
     "J2534_BRIDGE_HOST_EXE": "$(location //src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86)",
 }
 
-# Cross-process x86 bridge integration probes retain handwritten mains and
-# assertion flags because their observable contract is process/pipe behavior.
-cc_test(
+# Cross-process x86 bridge integration probe; its observable contract is
+# process/pipe behavior.
+fastecu_gtest(
     name = "j2534_bridge_integration_test",
     srcs = ["j2534_bridge_integration_test.cpp"],
-    copts = ["/UNDEBUG"],
     data = J2534_PROCESS_DATA,
     env = J2534_PROCESS_ENV,
+    qt = False,
     target_compatible_with = WINDOWS_ONLY,
-    deps = ["//src/platform/desktop/windows/j2534:j2534_bridge_protocol"],
+    deps = [
+        "//src/platform/desktop/windows/j2534:j2534_bridge_protocol",
+        "@googletest//:gtest",
+    ],
 )
 
-cc_test(
+fastecu_gtest(
     name = "j2534_bridge_client_test",
     srcs = ["j2534_bridge_client_test.cpp"],
     copts = ["/UNDEBUG"],
     data = J2534_PROCESS_DATA,
     env = J2534_PROCESS_ENV,
+    qt = False,
     target_compatible_with = WINDOWS_ONLY,
-    deps = ["//src/platform/desktop/windows/j2534:j2534_bridge_client"],
+    deps = [
+        "//src/platform/desktop/windows/j2534:j2534_bridge_client",
+        "@googletest//:gtest",
+    ],
 )
 
-qt_cc_test(
+fastecu_gtest(
     name = "j2534_win_bridge_test",
     srcs = ["j2534_win_bridge_test.cpp"],
     copts = COMMON_COPTS + ["/UNDEBUG"],
     data = J2534_PROCESS_DATA,
     env = J2534_PROCESS_ENV,
+    qt = True,
     target_compatible_with = WINDOWS_ONLY,
-    deps = QT_DEPS + ["//src/platform/desktop/windows/j2534"],
+    deps = [
+        "//src/platform/desktop/windows/j2534",
+        "@googletest//:gtest",
+    ],
 )
 
 UNIX_ONLY = select({
@@ -111,45 +155,50 @@ UNIX_ONLY = select({
 })
 
 # Real pseudo-terminal end-to-end probe crosses serial, J2534, and OS APIs.
-fastecu_qttest(
+fastecu_gtest(
     name = "serial_pty_e2e_test",
-    src = "serial_pty_e2e_test.cpp",
+    srcs = ["serial_pty_e2e_test.cpp"],
     target_compatible_with = UNIX_ONLY,
     deps = [
         "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
         "//src/platform/desktop/common/serial:serial_port_actions",
-        "//src/platform/desktop/unix/j2534/testing:mock_openport",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
     ],
 )
 
 # PTY/process integration intentionally remains centralized: it exercises
 # algorithms, backend transports, serial I/O, cancellation, and J2534 together.
-fastecu_qttest(
-    name = "mut_dma_integration_tests",
-    src = "tst_mut_dma_integration.cpp",
+fastecu_gtest(
+    name = "mut_dma_integration_tests_test",
+    srcs = ["tst_mut_dma_integration.cpp"],
     target_compatible_with = UNIX_ONLY,
     deps = [
-        "//src/algorithms/protocol",
+        "//bazel/qt:core",
         "//src/algorithms/protocol/mut_dma",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/protocol",
         "//src/platform/desktop/common/bytes:qt_bytes",
         "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
         "//src/platform/desktop/common/serial:serial_port_actions",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/transport",
-        "//src/platform/desktop/unix/j2534/testing:mock_openport",
+        "@googletest//:gtest",
     ],
 )
 
 # Crash/teardown probe requires a real PTY and Unix J2534 process boundary.
-fastecu_qttest(
-    name = "serial_crash_tests",
-    src = "tst_serial_port_crash.cpp",
+fastecu_gtest(
+    name = "serial_crash_tests_test",
+    srcs = ["tst_serial_port_crash.cpp"],
     target_compatible_with = UNIX_ONLY,
     deps = [
+        "//bazel/qt:core",
         "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
-        "//src/platform/desktop/common/serial:serial_port_actions",
+        "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/unix/j2534",
         "//src/platform/desktop/unix/j2534/testing:mock_openport",
+        "@googletest//:gtest",
     ],
 )

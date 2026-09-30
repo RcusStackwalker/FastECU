@@ -1,32 +1,37 @@
 #include "src/platform/desktop/windows/j2534/pe_bitness.h"
 
-#include <cassert>
-#include <cstdio>
+#include <gtest/gtest.h>
 #include <cstdlib>
 
-int main(int argc, char **argv)
+class PeBitness : public ::testing::Test
 {
-    const char *x86Path = std::getenv("PE_BITNESS_X86_FIXTURE");
-    const char *x64Path = std::getenv("PE_BITNESS_X64_FIXTURE");
-    if ((!x86Path || !x64Path) && argc == 3)
+  protected:
+    static void SetUpTestSuite()
     {
-        x86Path = argv[1];
-        x64Path = argv[2];
+        x86Path = std::getenv("PE_BITNESS_X86_FIXTURE");
+        x64Path = std::getenv("PE_BITNESS_X64_FIXTURE");
     }
-    assert(x86Path && x64Path &&
-           "set PE_BITNESS_X86_FIXTURE/PE_BITNESS_X64_FIXTURE, or pass <x86-binary> <x64-binary> as args");
+
+    static const char *x86Path;
+    static const char *x64Path;
+};
+
+const char *PeBitness::x86Path = nullptr;
+const char *PeBitness::x64Path = nullptr;
+
+TEST_F(PeBitness, DetectsBothArchitecturesAndRejectsMissingFile)
+{
+    ASSERT_NE(x86Path, nullptr) << "set PE_BITNESS_X86_FIXTURE";
+    ASSERT_NE(x64Path, nullptr) << "set PE_BITNESS_X64_FIXTURE";
 
     bool is32 = false;
-    assert(isDll32Bit(x86Path, is32) && "isDll32Bit should succeed on a valid PE file");
-    assert(is32 && "x86 fixture should be detected as 32-bit");
+    ASSERT_TRUE(isDll32Bit(x86Path, is32)) << "isDll32Bit should succeed on a valid PE file";
+    EXPECT_TRUE(is32) << "x86 fixture should be detected as 32-bit";
 
     bool is32b = true;
-    assert(isDll32Bit(x64Path, is32b) && "isDll32Bit should succeed on a valid PE file");
-    assert(!is32b && "x64 fixture should be detected as 64-bit");
+    ASSERT_TRUE(isDll32Bit(x64Path, is32b)) << "isDll32Bit should succeed on a valid PE file";
+    EXPECT_FALSE(is32b) << "x64 fixture should be detected as 64-bit";
 
     bool unused = false;
-    assert(!isDll32Bit("Z:\\does\\not\\exist.dll", unused) && "missing file should fail cleanly");
-
-    std::printf("All pe_bitness tests passed.\n");
-    return 0;
+    EXPECT_FALSE(isDll32Bit("Z:\\does\\not\\exist.dll", unused)) << "missing file should fail cleanly";
 }

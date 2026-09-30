@@ -43,7 +43,6 @@ package_group(
         "gui",
         "remote_objects",
         "serial_port",
-        "test",
         "web_sockets",
         "xml",
     ]

@@ -1,3 +1,6 @@
+#include "src/platform/desktop/common/testing/widgets_application_environment.h"
+#include <string>
+#include "src/platform/desktop/common/testing/event_helpers.h"
 #include "src/ui/desktop/service_functions/denso_tcu_read_preflight.h"
 
 #include <QAbstractButton>
@@ -6,7 +9,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QStringList>
-#include <QTest>
+#include <gtest/gtest.h>
 #include <QTimer>
 
 #include <gmock/gmock.h>
@@ -27,7 +30,6 @@ constexpr auto kIgnitionText = "Turn ignition ON and press OK to start initializ
 
 class ChooserDriver final : public QObject
 {
-    Q_OBJECT
 
   public:
     explicit ChooserDriver(QString choice) : choice_(std::move(choice))
@@ -67,7 +69,7 @@ class ChooserDriver final : public QObject
         return button_labels_;
     }
 
-  private slots:
+  private:
     void drive()
     {
         for (QWidget *widget : QApplication::topLevelWidgets())
@@ -128,7 +130,6 @@ class ChooserDriver final : public QObject
 
 class ServiceActionDriver final : public QObject
 {
-    Q_OBJECT
 
   public:
     explicit ServiceActionDriver(bool accept_ignition) : accept_ignition_(accept_ignition)
@@ -173,7 +174,7 @@ class ServiceActionDriver final : public QObject
         return timed_out_;
     }
 
-  private slots:
+  private:
     void drive()
     {
         for (QWidget *widget : QApplication::topLevelWidgets())
@@ -235,141 +236,198 @@ void expectNoBackendIo(FakeBackend& fake)
 
 } // namespace
 
-class DensoTcuReadPreflightTest : public QObject
+struct chooserReturnsTheActionNamedByEachLegacyButtonCase
 {
-    Q_OBJECT
-
-  private slots:
-    void chooserReturnsTheActionNamedByEachLegacyButton_data()
-    {
-        QTest::addColumn<QString>("choice");
-        QTest::addColumn<int>("expected_action");
-        QTest::newRow("dump") << "Dump" << static_cast<int>(DensoTcuReadAction::Dump);
-        QTest::newRow("relearn") << "Relearn" << static_cast<int>(DensoTcuReadAction::Relearn);
-        QTest::newRow("read") << "Read Param" << static_cast<int>(DensoTcuReadAction::ReadParameters);
-        QTest::newRow("set") << "Set Param" << static_cast<int>(DensoTcuReadAction::SetParameters);
-    }
-
-    void chooserReturnsTheActionNamedByEachLegacyButton()
-    {
-        QFETCH(QString, choice);
-        QFETCH(int, expected_action);
-
-        ChooserDriver driver{choice};
-        driver.start();
-        const DensoTcuReadAction action = choose_denso_tcu_read_action(nullptr);
-
-        QVERIFY(driver.sawChooser());
-        QVERIFY(!driver.timedOut());
-        QCOMPARE(driver.text(), QString(kChooserText));
-        QCOMPARE(driver.information(), QString(kChooserInformation));
-        QCOMPARE(driver.buttonLabels(), QStringList({"Dump", "Read Param", "Relearn", "Set Param"}));
-        QCOMPARE(static_cast<int>(action), expected_action);
-    }
-
-    void dismissingChooserReturnsCancelled()
-    {
-        ChooserDriver driver{{}};
-        driver.start();
-
-        QCOMPARE(choose_denso_tcu_read_action(nullptr), DensoTcuReadAction::Cancelled);
-        QVERIFY(driver.sawChooser());
-        QVERIFY(!driver.timedOut());
-    }
-
-    void dumpAndCancelledReturnWithoutIgnitionOrSerialCalls_data()
-    {
-        QTest::addColumn<int>("action");
-        QTest::addColumn<bool>("handled");
-        QTest::newRow("dump") << static_cast<int>(DensoTcuReadAction::Dump) << false;
-        QTest::newRow("cancelled") << static_cast<int>(DensoTcuReadAction::Cancelled) << true;
-    }
-
-    void dumpAndCancelledReturnWithoutIgnitionOrSerialCalls()
-    {
-        QFETCH(int, action);
-        QFETCH(bool, handled);
-        fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
-        FakeBackend *fake = adapter.fake();
-        QVERIFY(fake != nullptr);
-        SerialPortActions& serial = adapter.connection().facade();
-        expectNoBackendIo(*fake);
-
-        ServiceActionDriver driver{false};
-        driver.start();
-        QCOMPARE(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial,
-                                              "sub_tcu_denso_sh7058_can", nullptr),
-                 handled);
-        QTest::qWait(20);
-
-        QCOMPARE(driver.ignitionCount(), 0);
-        QVERIFY(driver.serviceDialogTitles().isEmpty());
-    }
-
-    void decliningIgnitionSkipsEveryServiceDialogAndSerialCall_data()
-    {
-        QTest::addColumn<int>("action");
-        QTest::newRow("relearn") << static_cast<int>(DensoTcuReadAction::Relearn);
-        QTest::newRow("read") << static_cast<int>(DensoTcuReadAction::ReadParameters);
-        QTest::newRow("set") << static_cast<int>(DensoTcuReadAction::SetParameters);
-    }
-
-    void decliningIgnitionSkipsEveryServiceDialogAndSerialCall()
-    {
-        QFETCH(int, action);
-        fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
-        FakeBackend *fake = adapter.fake();
-        QVERIFY(fake != nullptr);
-        SerialPortActions& serial = adapter.connection().facade();
-        expectNoBackendIo(*fake);
-
-        ServiceActionDriver driver{false};
-        driver.start();
-        QVERIFY(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial,
-                                             "sub_tcu_denso_sh7058_can", nullptr));
-
-        QVERIFY(!driver.timedOut());
-        QCOMPARE(driver.ignitionCount(), 1);
-        QCOMPARE(driver.ignitionIcon(), QMessageBox::Warning);
-        QCOMPARE(driver.ignitionText(), QString(kIgnitionText));
-        QCOMPARE(driver.ignitionButtons(), QMessageBox::Ok | QMessageBox::Cancel);
-        QVERIFY(driver.serviceDialogTitles().isEmpty());
-    }
-
-    void acceptingIgnitionOpensTheMatchingRealServiceDialog_data()
-    {
-        QTest::addColumn<int>("action");
-        QTest::addColumn<QString>("title");
-        QTest::newRow("relearn") << static_cast<int>(DensoTcuReadAction::Relearn) << "TCU Relearn";
-        QTest::newRow("read") << static_cast<int>(DensoTcuReadAction::ReadParameters) << "Read TCU Parameters";
-        QTest::newRow("set") << static_cast<int>(DensoTcuReadAction::SetParameters) << "Set TCU Parameters";
-    }
-
-    void acceptingIgnitionOpensTheMatchingRealServiceDialog()
-    {
-        QFETCH(int, action);
-        QFETCH(QString, title);
-        fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
-        FakeBackend *fake = adapter.fake();
-        QVERIFY(fake != nullptr);
-        SerialPortActions& serial = adapter.connection().facade();
-        expectNoBackendIo(*fake);
-
-        ServiceActionDriver driver{true};
-        driver.start();
-        QVERIFY(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial,
-                                             "sub_tcu_denso_sh7058_can", nullptr));
-
-        QVERIFY(!driver.timedOut());
-        QCOMPARE(driver.ignitionCount(), 1);
-        QCOMPARE(driver.ignitionIcon(), QMessageBox::Warning);
-        QCOMPARE(driver.ignitionText(), QString(kIgnitionText));
-        QCOMPARE(driver.ignitionButtons(), QMessageBox::Ok | QMessageBox::Cancel);
-        QCOMPARE(driver.serviceDialogTitles(), QStringList({title}));
-    }
+    std::string name;
+    QString choice;
+    int expected_action;
 };
+class chooserReturnsTheActionNamedByEachLegacyButtonParameters
+    : public ::testing::Test,
+      public ::testing::WithParamInterface<chooserReturnsTheActionNamedByEachLegacyButtonCase>
+{
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    Rows, chooserReturnsTheActionNamedByEachLegacyButtonParameters,
+    ::testing::Values(chooserReturnsTheActionNamedByEachLegacyButtonCase{"dump", "Dump",
+                                                                         static_cast<int>(DensoTcuReadAction::Dump)},
+                      chooserReturnsTheActionNamedByEachLegacyButtonCase{"relearn", "Relearn",
+                                                                         static_cast<int>(DensoTcuReadAction::Relearn)},
+                      chooserReturnsTheActionNamedByEachLegacyButtonCase{
+                          "read", "Read Param", static_cast<int>(DensoTcuReadAction::ReadParameters)},
+                      chooserReturnsTheActionNamedByEachLegacyButtonCase{
+                          "set", "Set Param", static_cast<int>(DensoTcuReadAction::SetParameters)}),
+    [](const ::testing::TestParamInfo<chooserReturnsTheActionNamedByEachLegacyButtonCase>& info)
+    { return info.param.name; });
+
+TEST_P(chooserReturnsTheActionNamedByEachLegacyButtonParameters, chooserReturnsTheActionNamedByEachLegacyButton)
+{
+    const QString choice = GetParam().choice;
+    const int expected_action = GetParam().expected_action;
+
+    ChooserDriver driver{choice};
+    driver.start();
+    const DensoTcuReadAction action = choose_denso_tcu_read_action(nullptr);
+
+    ASSERT_TRUE(driver.sawChooser());
+    ASSERT_TRUE(!driver.timedOut());
+    ASSERT_EQ(driver.text(), QString(kChooserText));
+    ASSERT_EQ(driver.information(), QString(kChooserInformation));
+    ASSERT_EQ(driver.buttonLabels(), QStringList({"Dump", "Read Param", "Relearn", "Set Param"}));
+    ASSERT_EQ(static_cast<int>(action), expected_action);
+}
+
+TEST(DensoTcuReadPreflightTest, dismissingChooserReturnsCancelled)
+{
+    ChooserDriver driver{{}};
+    driver.start();
+
+    ASSERT_EQ(choose_denso_tcu_read_action(nullptr), DensoTcuReadAction::Cancelled);
+    ASSERT_TRUE(driver.sawChooser());
+    ASSERT_TRUE(!driver.timedOut());
+}
+
+struct dumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase
+{
+    std::string name;
+    int action;
+    bool handled;
+};
+class dumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters
+    : public ::testing::Test,
+      public ::testing::WithParamInterface<dumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase>
+{
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    Rows, dumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters,
+    ::testing::Values(dumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase{"dump",
+                                                                             static_cast<int>(DensoTcuReadAction::Dump),
+                                                                             false},
+                      dumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase{
+                          "cancelled", static_cast<int>(DensoTcuReadAction::Cancelled), true}),
+    [](const ::testing::TestParamInfo<dumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase>& info)
+    { return info.param.name; });
+
+TEST_P(dumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters, dumpAndCancelledReturnWithoutIgnitionOrSerialCalls)
+{
+    const int action = GetParam().action;
+    const bool handled = GetParam().handled;
+    fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
+    FakeBackend *fake = adapter.fake();
+    ASSERT_TRUE(fake != nullptr);
+    SerialPortActions& serial = adapter.connection().facade();
+    expectNoBackendIo(*fake);
+
+    ServiceActionDriver driver{false};
+    driver.start();
+    ASSERT_EQ(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial, "sub_tcu_denso_sh7058_can",
+                                           nullptr),
+              handled);
+    fastecu::testing::process_events_for(std::chrono::milliseconds(20));
+
+    ASSERT_EQ(driver.ignitionCount(), 0);
+    ASSERT_TRUE(driver.serviceDialogTitles().isEmpty());
+}
+
+struct decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase
+{
+    std::string name;
+    int action;
+};
+class decliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters
+    : public ::testing::Test,
+      public ::testing::WithParamInterface<decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase>
+{
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    Rows, decliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters,
+    ::testing::Values(
+        decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{"relearn",
+                                                                  static_cast<int>(DensoTcuReadAction::Relearn)},
+        decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{"read",
+                                                                  static_cast<int>(DensoTcuReadAction::ReadParameters)},
+        decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{"set",
+                                                                  static_cast<int>(DensoTcuReadAction::SetParameters)}),
+    [](const ::testing::TestParamInfo<decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase>& info)
+    { return info.param.name; });
+
+TEST_P(decliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters,
+       decliningIgnitionSkipsEveryServiceDialogAndSerialCall)
+{
+    const int action = GetParam().action;
+    fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
+    FakeBackend *fake = adapter.fake();
+    ASSERT_TRUE(fake != nullptr);
+    SerialPortActions& serial = adapter.connection().facade();
+    expectNoBackendIo(*fake);
+
+    ServiceActionDriver driver{false};
+    driver.start();
+    ASSERT_TRUE(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial,
+                                             "sub_tcu_denso_sh7058_can", nullptr));
+
+    ASSERT_TRUE(!driver.timedOut());
+    ASSERT_EQ(driver.ignitionCount(), 1);
+    ASSERT_EQ(driver.ignitionIcon(), QMessageBox::Warning);
+    ASSERT_EQ(driver.ignitionText(), QString(kIgnitionText));
+    ASSERT_EQ(driver.ignitionButtons(), QMessageBox::Ok | QMessageBox::Cancel);
+    ASSERT_TRUE(driver.serviceDialogTitles().isEmpty());
+}
+
+struct acceptingIgnitionOpensTheMatchingRealServiceDialogCase
+{
+    std::string name;
+    int action;
+    QString title;
+};
+class acceptingIgnitionOpensTheMatchingRealServiceDialogParameters
+    : public ::testing::Test,
+      public ::testing::WithParamInterface<acceptingIgnitionOpensTheMatchingRealServiceDialogCase>
+{
+};
+
+INSTANTIATE_TEST_SUITE_P(
+    Rows, acceptingIgnitionOpensTheMatchingRealServiceDialogParameters,
+    ::testing::Values(
+        acceptingIgnitionOpensTheMatchingRealServiceDialogCase{"relearn", static_cast<int>(DensoTcuReadAction::Relearn),
+                                                               "TCU Relearn"},
+        acceptingIgnitionOpensTheMatchingRealServiceDialogCase{
+            "read", static_cast<int>(DensoTcuReadAction::ReadParameters), "Read TCU Parameters"},
+        acceptingIgnitionOpensTheMatchingRealServiceDialogCase{
+            "set", static_cast<int>(DensoTcuReadAction::SetParameters), "Set TCU Parameters"}),
+    [](const ::testing::TestParamInfo<acceptingIgnitionOpensTheMatchingRealServiceDialogCase>& info)
+    { return info.param.name; });
+
+TEST_P(acceptingIgnitionOpensTheMatchingRealServiceDialogParameters, acceptingIgnitionOpensTheMatchingRealServiceDialog)
+{
+    const int action = GetParam().action;
+    const QString title = GetParam().title;
+    fastecu::desktop::connection::testing::AdapterConnectionHarness adapter;
+    FakeBackend *fake = adapter.fake();
+    ASSERT_TRUE(fake != nullptr);
+    SerialPortActions& serial = adapter.connection().facade();
+    expectNoBackendIo(*fake);
+
+    ServiceActionDriver driver{true};
+    driver.start();
+    ASSERT_TRUE(run_denso_tcu_service_action(static_cast<DensoTcuReadAction>(action), &serial,
+                                             "sub_tcu_denso_sh7058_can", nullptr));
+
+    ASSERT_TRUE(!driver.timedOut());
+    ASSERT_EQ(driver.ignitionCount(), 1);
+    ASSERT_EQ(driver.ignitionIcon(), QMessageBox::Warning);
+    ASSERT_EQ(driver.ignitionText(), QString(kIgnitionText));
+    ASSERT_EQ(driver.ignitionButtons(), QMessageBox::Ok | QMessageBox::Cancel);
+    ASSERT_EQ(driver.serviceDialogTitles(), QStringList({title}));
+}
 
 } // namespace fastecu::service_functions
 
-QTEST_MAIN(fastecu::service_functions::DensoTcuReadPreflightTest)
-#include "denso_tcu_read_preflight_test.moc"
+namespace
+{
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment({}, /*use_96_dpi=*/true));
+}

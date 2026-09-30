@@ -1,10 +1,29 @@
-load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+# Tests regenerate; production sources and helper binaries retain existing owners.
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# gazelle:exclude serial_facade_configurator.cpp
+# gazelle:exclude serial_facade_configurator.h
+# gazelle:exclude service_function_worker.cpp
+# gazelle:exclude service_function_worker.h
+# gazelle:resolve cc src/backend/ports/testing/fake_clock.h //src/backend/ports/testing:fake_clock
+# gazelle:resolve cc src/backend/protocol/testing/scripted_ssm_transport.h //src/backend/protocol/testing:scripted_transports
+# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions.h //src/platform/desktop/common/serial:serial_port_actions
+# gazelle:resolve cc src/platform/desktop/common/serial/testing/fake_backend.h //src/platform/desktop/common/serial/testing:fake_serial_backend
+# gazelle:resolve cc src/platform/desktop/common/service_functions/serial_facade_configurator.h //src/platform/desktop/common/service_functions:service_function_worker
+# gazelle:resolve cc src/platform/desktop/common/service_functions/service_function_worker.h //src/platform/desktop/common/service_functions:service_function_worker
+# gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
+# gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
+# gazelle:resolve cc src/platform/desktop/common/testing/signal_recorder.h //src/platform/desktop/common/testing:signal_recorder
+# gazelle:resolve cc src/platform/desktop/common/testing/widgets_application_environment.h //src/platform/desktop/common/testing:widgets_application_environment
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//bazel/layers:platform_and_composition_root",
     "//bazel/layers:ui",
 ])
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "service_function_worker",
     srcs = [
@@ -26,21 +45,30 @@ qt_cc_library(
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_serial_facade_configurator",
-    src = "serial_facade_configurator_test.cpp",
+    srcs = ["serial_facade_configurator_test.cpp"],
     deps = [
-        ":service_function_worker",
+        "//bazel/qt:core",
+        "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/service_functions:service_function_worker",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_service_function_worker",
-    src = "service_function_worker_test.cpp",
+    srcs = ["service_function_worker_test.cpp"],
     deps = [
-        ":service_function_worker",
+        "//bazel/qt:core",
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/protocol/testing:scripted_transports",
+        "//src/platform/desktop/common/service_functions:service_function_worker",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
+        "@googletest//:gtest",
     ],
 )

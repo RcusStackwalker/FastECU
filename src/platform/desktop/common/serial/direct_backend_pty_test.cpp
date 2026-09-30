@@ -1,10 +1,12 @@
+#include <QThread>
+#include "src/platform/desktop/common/testing/core_application_environment.h"
 
 #include <array>
 #include <cstdio>
 
 #include <QCoreApplication>
 #include <QSerialPort>
-#include <QtTest>
+#include <gtest/gtest.h>
 #include <thread>
 
 #if defined(__linux__)
@@ -19,24 +21,19 @@
 // Backend behavior over a PTY (spec: reassembly, timeout, buffer clearing,
 // adapter-vanish). J2534 ioctl parameter handling stays with the crash suite's
 // MockOpenPort + the bench checklist.
-class TestDirectBackendPty : public QObject
+class TestDirectBackendPty : public ::testing::Test
 {
-    Q_OBJECT
-  private slots:
-    void initTestCase();
-    void ptyRead_reassemblesFragmentedFrame();
-    void ptyRead_timesOutCleanOnSilence();
-    void ptyClearRxBuffer_discardsPendingBytes();
-    void ptyAdapterVanish_readReturnsCleanly();
-    void ptyParityChangesWhileOpen();
 
-  private:
+  public:
+    static void SetUpTestSuite();
+
+  protected:
     int openPtyBackend(SerialPortActionsDirect& backend);
 };
 
-void TestDirectBackendPty::initTestCase()
+void TestDirectBackendPty::SetUpTestSuite()
 {
-    QVERIFY(QCoreApplication::instance());
+    ASSERT_TRUE(QCoreApplication::instance());
 }
 
 int TestDirectBackendPty::openPtyBackend(SerialPortActionsDirect& backend)
@@ -56,11 +53,11 @@ int TestDirectBackendPty::openPtyBackend(SerialPortActionsDirect& backend)
     return master;
 }
 
-void TestDirectBackendPty::ptyRead_reassemblesFragmentedFrame()
+TEST_F(TestDirectBackendPty, ptyRead_reassemblesFragmentedFrame)
 {
     SerialPortActionsDirect direct;
     const int master = openPtyBackend(direct);
-    QVERIFY(master >= 0);
+    ASSERT_TRUE(master >= 0);
 
     // The "ECU" delivers one framed message in two fragments with a gap:
     // header first, payload+checksum 30ms later. The reader must reassemble.
@@ -73,56 +70,56 @@ void TestDirectBackendPty::ptyRead_reassemblesFragmentedFrame()
         });
     const QByteArray got = direct.read_serial_data(500);
     responder.join();
-    QCOMPARE(got, QByteArray("\x80\xf0\x10\x02\xaa\xbb\xcc", 7));
+    ASSERT_EQ(got, QByteArray("\x80\xf0\x10\x02\xaa\xbb\xcc", 7));
     ::close(master);
 }
 
-void TestDirectBackendPty::ptyRead_timesOutCleanOnSilence()
+TEST_F(TestDirectBackendPty, ptyRead_timesOutCleanOnSilence)
 {
     SerialPortActionsDirect direct;
     const int master = openPtyBackend(direct);
-    QVERIFY(master >= 0);
+    ASSERT_TRUE(master >= 0);
 
     QElapsedTimer t;
     t.start();
-    QCOMPARE(direct.read_serial_data(150), QByteArray());
+    ASSERT_EQ(direct.read_serial_data(150), QByteArray());
     const qint64 elapsed = t.elapsed();
-    QVERIFY2(elapsed >= 140 && elapsed < 1000, qPrintable(QString("timeout took %1 ms").arg(elapsed)));
+    ASSERT_TRUE(elapsed >= 140 && elapsed < 1000) << qPrintable(QString("timeout took %1 ms").arg(elapsed));
     ::close(master);
 }
 
-void TestDirectBackendPty::ptyClearRxBuffer_discardsPendingBytes()
+TEST_F(TestDirectBackendPty, ptyClearRxBuffer_discardsPendingBytes)
 {
     SerialPortActionsDirect direct;
     const int master = openPtyBackend(direct);
-    QVERIFY(master >= 0);
+    ASSERT_TRUE(master >= 0);
 
     ::write(master, "\x11\x22\x33", 3); // junk arrives...
     QThread::msleep(50);                // ...and lands in the buffer
     direct.clear_rx_buffer();           // must discard it
-    QCOMPARE(direct.read_serial_data(100), QByteArray());
+    ASSERT_EQ(direct.read_serial_data(100), QByteArray());
     ::close(master);
 }
 
-void TestDirectBackendPty::ptyAdapterVanish_readReturnsCleanly()
+TEST_F(TestDirectBackendPty, ptyAdapterVanish_readReturnsCleanly)
 {
     SerialPortActionsDirect direct;
     const int master = openPtyBackend(direct);
-    QVERIFY(master >= 0);
+    ASSERT_TRUE(master >= 0);
 
     ::close(master); // the adapter disappears
     // The read must come back empty (possibly via handle_error ->
     // reset_connection) without crashing or hanging.
-    QCOMPARE(direct.read_serial_data(100), QByteArray());
+    ASSERT_EQ(direct.read_serial_data(100), QByteArray());
 }
 
-void TestDirectBackendPty::ptyParityChangesWhileOpen()
+TEST_F(TestDirectBackendPty, ptyParityChangesWhileOpen)
 {
     SerialPortActionsDirect direct;
     const int master = openPtyBackend(direct);
-    QVERIFY(master >= 0);
-    QVERIFY(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
-    QCOMPARE(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
+    ASSERT_TRUE(master >= 0);
+    ASSERT_TRUE(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
+    ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
 
     const bool evenParitySet = direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::EvenParity));
 #if defined(__linux__)
@@ -130,26 +127,26 @@ void TestDirectBackendPty::ptyParityChangesWhileOpen()
     // the open-port NoParity path when this PTY cannot accept even parity.
     if (!evenParitySet)
     {
-        QVERIFY(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
-        QCOMPARE(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
+        ASSERT_TRUE(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
+        ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
         ::close(master);
         return;
     }
 #endif
-    QVERIFY(evenParitySet);
-    QCOMPARE(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::EvenParity));
-    QVERIFY(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
-    QCOMPARE(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
+    ASSERT_TRUE(evenParitySet);
+    ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::EvenParity));
+    ASSERT_TRUE(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
+    ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
     ::close(master);
 }
 
-int main(int argc, char **argv)
+namespace
 {
-    setvbuf(stdout, nullptr, _IONBF, 0);
-    setvbuf(stderr, nullptr, _IONBF, 0);
-    QCoreApplication app(argc, argv);
-    TestDirectBackendPty test;
-    return QTest::qExec(&test, argc, argv);
-}
-
-#include "direct_backend_pty_test.moc"
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment(
+        []
+        {
+            setvbuf(stdout, nullptr, _IONBF, 0);
+            setvbuf(stderr, nullptr, _IONBF, 0);
+        }));
+} // namespace

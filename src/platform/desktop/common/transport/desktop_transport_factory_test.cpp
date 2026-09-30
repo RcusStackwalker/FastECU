@@ -1,9 +1,10 @@
+#include "src/platform/desktop/common/testing/core_application_environment.h"
 // Unit tests for the transport factory. Exists so //apps/bench can obtain an
 // ICanFlashTransport without naming SerialPortActions, whose target is
 // platform-only.
 #include "src/platform/desktop/common/transport/desktop_transport_factory.h"
 
-#include <QTest>
+#include <gtest/gtest.h>
 #include <QCoreApplication>
 
 #include <gmock/gmock.h>
@@ -44,140 +45,128 @@ DesktopCanTransportConfig configWith(FakeBackend **captured, QStringList ports, 
 }
 } // namespace
 
-class TestDesktopTransportFactory : public QObject
+TEST(TestDesktopTransportFactory, listsEveryDetectedPort)
 {
-    Q_OBJECT
+    FakeBackend *fake = nullptr;
+    const auto ports = list_desktop_serial_ports(configWith(&fake, {kOpenPort0, kOpenPort1}, ""));
 
-  private slots:
-
-    void listsEveryDetectedPort()
-    {
-        FakeBackend *fake = nullptr;
-        const auto ports = list_desktop_serial_ports(configWith(&fake, {kOpenPort0, kOpenPort1}, ""));
-
-        QVERIFY(ports.has_value());
-        QCOMPARE(ports->size(), 2U);
-        QCOMPARE(QString::fromStdString((*ports)[1]), kOpenPort1);
-    }
-
-    void refusesToOpenWhenNoDeviceIsDetected()
-    {
-        FakeBackend *fake = nullptr;
-        const auto transport = open_desktop_can_flash_transport(configWith(&fake, {}, kOpenPort0), kColtCan);
-
-        QVERIFY(!transport.has_value());
-        QCOMPARE(transport.error().kind, ErrorKind::Disconnected);
-    }
-
-    void refusesToOpenWhenTheNamedDeviceIsAbsent()
-    {
-        FakeBackend *fake = nullptr;
-        auto config = configWith(&fake, {kOpenPort0}, kOpenPort0);
-        config.port_name = "cu.usbmodem7 - OpenPort 2.0";
-        const auto transport = open_desktop_can_flash_transport(config, kColtCan);
-
-        QVERIFY(!transport.has_value());
-        QCOMPARE(transport.error().kind, ErrorKind::InvalidConfig);
-    }
-
-    void selectsTheFirstJ2534DeviceWhenNoNameIsGiven()
-    {
-        FakeBackend *fake = nullptr;
-        const auto transport =
-            open_desktop_can_flash_transport(configWith(&fake, {kOpenPort0, kOpenPort1}, kOpenPort0), kColtCan);
-
-        QVERIFY(transport.has_value());
-        QCOMPARE(fake->get_serial_port_list(), QStringList({kOpenPort0}));
-    }
-
-    // Regression (issue #243): QSerialPortInfo sorts
-    // "cu.Bluetooth-Incoming-Port - " ahead of the adapter on macOS, so taking
-    // detected.front() landed on a port that open_serial_port() never drives
-    // through J2534 -- it silently degrades to a plain serial port, reports
-    // success, and every ISO-15765 exchange then times out with no response.
-    void skipsNonJ2534PortsWhenNoNameIsGiven()
-    {
-        FakeBackend *fake = nullptr;
-        const auto transport =
-            open_desktop_can_flash_transport(configWith(&fake, {kBluetoothPort, kOpenPort0}, kOpenPort0), kColtCan);
-
-        QVERIFY(transport.has_value());
-#if defined(Q_OS_UNIX)
-        QCOMPARE(fake->get_serial_port_list(), QStringList({kOpenPort0}));
-#else
-        // Windows entries come from the J2534 driver registry rather than the
-        // serial-port list, so every one of them is adapter-capable and the
-        // first is still the right choice.
-        QCOMPARE(fake->get_serial_port_list(), QStringList({kBluetoothPort}));
-#endif
-    }
-
-    // The guards below sit inside the slot bodies, not around the slot
-    // declarations: moc does not evaluate Q_OS_UNIX, so a guarded declaration
-    // compiles but never reaches the meta-object and the test silently never
-    // runs.
-    void refusesToOpenWhenNoDetectedPortIsAJ2534Adapter()
-    {
-        FakeBackend *fake = nullptr;
-        const auto transport =
-            open_desktop_can_flash_transport(configWith(&fake, {kBluetoothPort}, kBluetoothPort), kColtCan);
-
-#if defined(Q_OS_UNIX)
-        QVERIFY(!transport.has_value());
-        QCOMPARE(transport.error().kind, ErrorKind::Disconnected);
-#else
-        QVERIFY(transport.has_value());
-#endif
-    }
-
-    // Naming the dead port explicitly must fail loudly for the same reason:
-    // ISO-15765 cannot run over a plain serial port, so accepting it only buys
-    // one read timeout per exchange.
-    void refusesToOpenWhenTheNamedDeviceIsNotAJ2534Adapter()
-    {
-        FakeBackend *fake = nullptr;
-        auto config = configWith(&fake, {kBluetoothPort, kOpenPort0}, kBluetoothPort);
-        config.port_name = kBluetoothPort.toStdString();
-        const auto transport = open_desktop_can_flash_transport(config, kColtCan);
-
-#if defined(Q_OS_UNIX)
-        QVERIFY(!transport.has_value());
-        QCOMPARE(transport.error().kind, ErrorKind::InvalidConfig);
-#else
-        QVERIFY(transport.has_value());
-#endif
-    }
-
-    void reportsDisconnectedWhenTheOpenFails()
-    {
-        FakeBackend *fake = nullptr;
-        const auto transport = open_desktop_can_flash_transport(configWith(&fake, {kOpenPort0}, ""), kColtCan);
-
-        QVERIFY(!transport.has_value());
-        QCOMPARE(transport.error().kind, ErrorKind::Disconnected);
-    }
-
-    void refusesAConfigWithoutABackendFactory()
-    {
-        const DesktopCanTransportConfig config;
-
-        const auto ports = list_desktop_serial_ports(config);
-        QVERIFY(!ports.has_value());
-        QCOMPARE(ports.error().kind, ErrorKind::InvalidConfig);
-
-        const auto transport = open_desktop_can_flash_transport(config, kColtCan);
-        QVERIFY(!transport.has_value());
-        QCOMPARE(transport.error().kind, ErrorKind::InvalidConfig);
-    }
-};
-
-int main(int argc, char **argv)
-{
-    ::testing::InitGoogleMock(&argc, argv);
-    QCoreApplication application(argc, argv);
-    TestDesktopTransportFactory test;
-    const int result = QTest::qExec(&test, argc, argv);
-    // QtTest does not include Google Mock failures in its exit status.
-    return result != 0 || ::testing::Test::HasFailure() ? 1 : 0;
+    ASSERT_TRUE(ports.has_value());
+    ASSERT_EQ(ports->size(), 2U);
+    ASSERT_EQ(QString::fromStdString((*ports)[1]), kOpenPort1);
 }
-#include "desktop_transport_factory_test.moc"
+
+TEST(TestDesktopTransportFactory, refusesToOpenWhenNoDeviceIsDetected)
+{
+    FakeBackend *fake = nullptr;
+    const auto transport = open_desktop_can_flash_transport(configWith(&fake, {}, kOpenPort0), kColtCan);
+
+    ASSERT_TRUE(!transport.has_value());
+    ASSERT_EQ(transport.error().kind, ErrorKind::Disconnected);
+}
+
+TEST(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsAbsent)
+{
+    FakeBackend *fake = nullptr;
+    auto config = configWith(&fake, {kOpenPort0}, kOpenPort0);
+    config.port_name = "cu.usbmodem7 - OpenPort 2.0";
+    const auto transport = open_desktop_can_flash_transport(config, kColtCan);
+
+    ASSERT_TRUE(!transport.has_value());
+    ASSERT_EQ(transport.error().kind, ErrorKind::InvalidConfig);
+}
+
+TEST(TestDesktopTransportFactory, selectsTheFirstJ2534DeviceWhenNoNameIsGiven)
+{
+    FakeBackend *fake = nullptr;
+    const auto transport =
+        open_desktop_can_flash_transport(configWith(&fake, {kOpenPort0, kOpenPort1}, kOpenPort0), kColtCan);
+
+    ASSERT_TRUE(transport.has_value());
+    ASSERT_EQ(fake->get_serial_port_list(), QStringList({kOpenPort0}));
+}
+
+// Regression (issue #243): QSerialPortInfo sorts
+// "cu.Bluetooth-Incoming-Port - " ahead of the adapter on macOS, so taking
+// detected.front() landed on a port that open_serial_port() never drives
+// through J2534 -- it silently degrades to a plain serial port, reports
+// success, and every ISO-15765 exchange then times out with no response.
+TEST(TestDesktopTransportFactory, skipsNonJ2534PortsWhenNoNameIsGiven)
+{
+    FakeBackend *fake = nullptr;
+    const auto transport =
+        open_desktop_can_flash_transport(configWith(&fake, {kBluetoothPort, kOpenPort0}, kOpenPort0), kColtCan);
+
+    ASSERT_TRUE(transport.has_value());
+#if defined(Q_OS_UNIX)
+    ASSERT_EQ(fake->get_serial_port_list(), QStringList({kOpenPort0}));
+#else
+    // Windows entries come from the J2534 driver registry rather than the
+    // serial-port list, so every one of them is adapter-capable and the
+    // first is still the right choice.
+    ASSERT_EQ(fake->get_serial_port_list(), QStringList({kBluetoothPort}));
+#endif
+}
+
+// The guards below sit inside the slot bodies, not around the slot
+// declarations: moc does not evaluate Q_OS_UNIX, so a guarded declaration
+// compiles but never reaches the meta-object and the test silently never
+// runs.
+TEST(TestDesktopTransportFactory, refusesToOpenWhenNoDetectedPortIsAJ2534Adapter)
+{
+    FakeBackend *fake = nullptr;
+    const auto transport =
+        open_desktop_can_flash_transport(configWith(&fake, {kBluetoothPort}, kBluetoothPort), kColtCan);
+
+#if defined(Q_OS_UNIX)
+    ASSERT_TRUE(!transport.has_value());
+    ASSERT_EQ(transport.error().kind, ErrorKind::Disconnected);
+#else
+    ASSERT_TRUE(transport.has_value());
+#endif
+}
+
+// Naming the dead port explicitly must fail loudly for the same reason:
+// ISO-15765 cannot run over a plain serial port, so accepting it only buys
+// one read timeout per exchange.
+TEST(TestDesktopTransportFactory, refusesToOpenWhenTheNamedDeviceIsNotAJ2534Adapter)
+{
+    FakeBackend *fake = nullptr;
+    auto config = configWith(&fake, {kBluetoothPort, kOpenPort0}, kBluetoothPort);
+    config.port_name = kBluetoothPort.toStdString();
+    const auto transport = open_desktop_can_flash_transport(config, kColtCan);
+
+#if defined(Q_OS_UNIX)
+    ASSERT_TRUE(!transport.has_value());
+    ASSERT_EQ(transport.error().kind, ErrorKind::InvalidConfig);
+#else
+    ASSERT_TRUE(transport.has_value());
+#endif
+}
+
+TEST(TestDesktopTransportFactory, reportsDisconnectedWhenTheOpenFails)
+{
+    FakeBackend *fake = nullptr;
+    const auto transport = open_desktop_can_flash_transport(configWith(&fake, {kOpenPort0}, ""), kColtCan);
+
+    ASSERT_TRUE(!transport.has_value());
+    ASSERT_EQ(transport.error().kind, ErrorKind::Disconnected);
+}
+
+TEST(TestDesktopTransportFactory, refusesAConfigWithoutABackendFactory)
+{
+    const DesktopCanTransportConfig config;
+
+    const auto ports = list_desktop_serial_ports(config);
+    ASSERT_TRUE(!ports.has_value());
+    ASSERT_EQ(ports.error().kind, ErrorKind::InvalidConfig);
+
+    const auto transport = open_desktop_can_flash_transport(config, kColtCan);
+    ASSERT_TRUE(!transport.has_value());
+    ASSERT_EQ(transport.error().kind, ErrorKind::InvalidConfig);
+}
+
+namespace
+{
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
+}

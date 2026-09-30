@@ -1,4 +1,12 @@
-load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+# Tests regenerate; production sources and helper binaries retain existing owners.
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# gazelle:exclude flash_operation_controller.cpp
+# gazelle:exclude flash_operation_controller.h
+# gazelle:resolve cc src/platform/desktop/common/connection/testing/adapter_connection_harness.h //src/platform/desktop/common/connection/testing:adapter_connection_harness
+# gazelle:resolve cc src/platform/desktop/common/testing/widgets_application_environment.h //src/platform/desktop/common/testing:widgets_application_environment
+# gazelle:resolve cc src/ui/desktop/flash/operation/flash_operation_controller.h //src/ui/desktop/flash/operation:flash_operation_controller
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:ui_desktop"])
 
@@ -6,6 +14,8 @@ package(default_visibility = ["//bazel/layers:ui_desktop"])
 # portable workflow creation, the FlashDialog, and the unknown-protocol
 # warning. It only passes SerialPortActions* through, so it needs no facade
 # dependency.
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "flash_operation_controller",
     srcs = ["flash_operation_controller.cpp"],
@@ -21,14 +31,18 @@ qt_cc_library(
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "flash_operation_controller_test",
     size = "small",
-    src = "flash_operation_controller_test.cpp",
+    srcs = ["flash_operation_controller_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
-        ":flash_operation_controller",
+        "//bazel/qt:core",
+        "//bazel/qt:widgets",
         "//src/platform/desktop/common/connection/testing:adapter_connection_harness",
+        "//src/platform/desktop/common/testing:widgets_application_environment",
+        "//src/ui/desktop/flash/operation:flash_operation_controller",
+        "@googletest//:gtest",
     ],
 )

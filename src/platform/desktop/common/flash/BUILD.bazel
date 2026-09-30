@@ -1,4 +1,28 @@
-load("//bazel:qt_targets.bzl", "QT_DEPS", "fastecu_qttest", "qt_cc_library")
+# Tests regenerate; production sources and helper binaries retain existing owners.
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# gazelle:exclude flash_worker.cpp
+# gazelle:exclude flash_worker.h
+# gazelle:exclude flash_workflow.cpp
+# gazelle:exclude flash_workflow.h
+# gazelle:resolve cc src/algorithms/protocol/ssm/ssm_protocol_core.h //src/algorithms/protocol/ssm:ssm
+# gazelle:resolve cc src/backend/calibration/calibration_service.h //src/backend/calibration:calibration_service
+# gazelle:resolve cc src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h //src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_plan
+# gazelle:resolve cc src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h //src/backend/flash/ecu:subaru_denso_sh7058_can_plan
+# gazelle:resolve cc src/backend/flash/eeprom/denso_sh705x_eeprom_common.h //src/backend/flash/eeprom:denso_sh705x_eeprom_common
+# gazelle:resolve cc src/backend/flash/eeprom/denso_sh705x_eeprom_kline_executor.h //src/backend/flash/eeprom:denso_sh705x_eeprom_kline
+# gazelle:resolve cc src/backend/flash/testing/scripted_kline_flash_transport.h //src/backend/flash/testing:scripted_flash_transports
+# gazelle:resolve cc src/backend/ports/testing/fake_cancellation_token.h //src/backend/ports/testing:fake_cancellation_token
+# gazelle:resolve cc src/backend/ports/testing/fake_clock.h //src/backend/ports/testing:fake_clock
+# gazelle:resolve cc src/platform/desktop/common/flash/flash_worker.h //src/platform/desktop/common/flash:flash_worker
+# gazelle:resolve cc src/platform/desktop/common/flash/flash_workflow.h //src/platform/desktop/common/flash:flash_worker
+# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions.h //src/platform/desktop/common/serial:serial_port_actions
+# gazelle:resolve cc src/platform/desktop/common/serial/testing/fake_backend.h //src/platform/desktop/common/serial/testing:fake_serial_backend
+# gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
+# gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
+# gazelle:resolve cc src/platform/desktop/common/testing/signal_recorder.h //src/platform/desktop/common/testing:signal_recorder
+# gazelle:resolve cc src/platform/desktop/common/testing/widgets_application_environment.h //src/platform/desktop/common/testing:widgets_application_environment
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
 
 package(default_visibility = [
     "//bazel/layers:platform",
@@ -6,6 +30,8 @@ package(default_visibility = [
     "//bazel/layers:ui",
 ])
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 qt_cc_library(
     name = "flash_worker",
     srcs = [
@@ -85,26 +111,37 @@ qt_cc_library(
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_flash_worker",
-    src = "flash_worker_test.cpp",
+    srcs = ["flash_worker_test.cpp"],
     deps = [
-        ":flash_worker",
+        "//bazel/qt:core",
         "//src/algorithms/protocol/ssm",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
         "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports/testing:fake_clock",
+        "//src/platform/desktop/common/flash:flash_worker",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
+        "@googletest//:gtest",
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "test_flash_workflow",
-    src = "flash_workflow_test.cpp",
+    srcs = ["flash_workflow_test.cpp"],
     deps = [
-        ":flash_worker",
+        "//bazel/qt:core",
         "//src/backend/calibration:calibration_service",
+        "//src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_plan",
+        "//src/backend/flash/ecu:subaru_denso_sh7058_can_plan",
         "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/flash:flash_worker",
+        "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
     ],
 )

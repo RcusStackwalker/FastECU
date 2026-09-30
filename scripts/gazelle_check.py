@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import re
 import shutil
 import subprocess
 import sys
+import tokenize
 from collections.abc import Callable, Sequence
+from io import StringIO
 from pathlib import Path
 from typing import TextIO
 
@@ -47,6 +50,25 @@ MANAGED_ROOTS = tuple(
         "src/ui/desktop/biu",
         "src/ui/desktop/hexedit",
         "src/platform/desktop/common/remote_utility",
+        "tests",
+        "src/platform/desktop/common/service_functions",
+        "src/platform/desktop/common/transport",
+        "src/platform/desktop/common/bytes",
+        "src/platform/desktop/common/connection",
+        "src/platform/desktop/common/testing",
+        "src/platform/desktop/common/flash",
+        "src/platform/desktop/common/definition",
+        "src/platform/desktop/common/diagnostics",
+        "src/platform/desktop/common/logging",
+        "src/platform/desktop/common/serial",
+        "src/platform/desktop/common/serial/testing",
+        "src/ui/desktop",
+        "src/ui/desktop/service_functions",
+        "src/ui/desktop/flash/operation",
+        "src/ui/desktop/flash/common",
+        "apps/desktop",
+        "tests/force_asserts",
+        "resources/shared",
     )
 )
 
@@ -58,6 +80,51 @@ ShowDiff = Callable[[Path, Sequence[str], Sequence[str]], None]
 
 class GazelleCheckError(RuntimeError):
     """An actionable failure that is not BUILD file drift."""
+
+
+_CPP_TEST_RULE = re.compile(
+    r"^(?:cc_test|qt_cc_test|fastecu_(?:portable_)?gtest)\s*\(", re.MULTILINE
+)
+
+
+_KEEP_COMMENT = re.compile(r"#\s*keep(?:: .*)?\s*$")
+
+
+def _rule_suffix_is_kept(source: str) -> bool:
+    """Find the rule's closing parenthesis without confusing nested expressions."""
+    depth = 0
+    for token in tokenize.generate_tokens(StringIO(source).readline):
+        if token.type != tokenize.OP:
+            continue
+        if token.string == "(":
+            depth += 1
+        elif token.string == ")":
+            depth -= 1
+            if depth == 0:
+                row, column = token.end
+                suffix = source.splitlines()[row - 1][column:].strip()
+                return bool(_KEEP_COMMENT.fullmatch(suffix))
+    return False
+
+
+def validate_test_ownership(root: Path, files: Sequence[str]) -> None:
+    """All C++ test packages regenerate; keeps may preserve individual attributes only."""
+    for relative in files:
+        path = root / relative
+        if path.suffix not in {".bazel", ".bzl"} or not path.is_file():
+            continue
+        source = path.read_text()
+        for match in _CPP_TEST_RULE.finditer(source):
+            if not any(Path(relative).is_relative_to(managed) for managed in MANAGED_ROOTS):
+                raise GazelleCheckError(f"{relative}: C++ test package outside Gazelle scope")
+            if _rule_suffix_is_kept(source[match.start() :]):
+                raise GazelleCheckError(f"{relative}: C++ test has a whole-rule keep")
+            preceding = source[: match.start()].splitlines()
+            for line in reversed(preceding):
+                if line.strip() and not line.lstrip().startswith("#"):
+                    break
+                if _KEEP_COMMENT.fullmatch(line.strip()):
+                    raise GazelleCheckError(f"{relative}: C++ test has a whole-rule keep")
 
 
 def repo_root() -> Path:
@@ -160,6 +227,7 @@ def check(
     run_hook: RunHook = run_prek_hook,
     fix: bool = False,
 ) -> int:
+    validate_test_ownership(root, list_files(root))
     before = snapshot(root, list_files)
     exit_code = run_gazelle(root)
     if exit_code != 0:
@@ -206,8 +274,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     try:
+        root = repo_root()
+        validate_test_ownership(
+            root, [str(path.relative_to(root)) for path in (root / "bazel").rglob("*.bzl")]
+        )
         return check(
-            repo_root(),
+            root,
             git_list_build_files,
             run_bazel_gazelle,
             git_show_diff,

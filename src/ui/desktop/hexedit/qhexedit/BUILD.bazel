@@ -1,5 +1,8 @@
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
-load("//bazel:qt_targets.bzl", "fastecu_qttest", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:ui_and_composition_root"])
 
@@ -22,10 +25,15 @@ qt_cc_library(
     ],
 )
 
-fastecu_qttest(
+fastecu_gtest(
     name = "qhexedit_test",
-    src = "qhexedit_test.cpp",
+    srcs = ["qhexedit_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
-    deps = [":qhexedit"],
+    deps = [
+        ":qhexedit",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:widgets_application_environment",
+        "@googletest//:gtest",
+    ],
 )

@@ -20,11 +20,10 @@ ACTION(ThrowNonStandardBackendFailure)
 }
 
 // Google Mock backend for facade and desktop transport tests. What it
-// guarantees, how to set expectations against it, and the QtTest integration it
-// requires are in docs/gmock-reference.md.
+// guarantees, how to set expectations against it, and the Qt application
+// integration it requires are in docs/gmock-reference.md.
 class FakeBackend : public SerialPortActionsDirect
 {
-    Q_OBJECT
 
   public:
     FakeBackend()

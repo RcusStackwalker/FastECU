@@ -302,9 +302,8 @@ EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Timeout));
 ```
 
 Use `Not(IsOk())` only when the contract intentionally permits any error.
-Plain `std::optional` checks, the low-level Result API tests, and QtTest
-assertions keep their existing assertion APIs; GoogleTest assertions do not
-report failures to the QtTest runner. Production checks still use
+Plain `std::optional` checks and the low-level Result API tests use ordinary
+GoogleTest assertions. Production checks still use
 `.has_value()` as described under [Error handling](#error-handling).
 
 **Mocks are package-owned.** A package that defines an interface adds a
@@ -315,7 +314,7 @@ blast radius small when it changes. See
 [ADR 0008](adr/0008-use-package-owned-mocks.md).
 
 See the [serial backend Google Mock reference](gmock-reference.md) for
-expectations, default actions, call ordering, and QtTest failure propagation.
+expectations, default actions, call ordering, and subprocess failure propagation.
 
 **Platform-specific tests go in separate source files**, listed in the matching
 `*_UNIX_SRCS` / `*_UNIX_HDRS` / `*_WIN32_SRCS` Bazel list — not behind `#ifdef`

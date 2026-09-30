@@ -52,23 +52,27 @@ EXPECT_CALL(serial.fake(), read_serial_data(50))
 - Use `Throw(...)` for driver failures and lambda actions with synchronization
   primitives for calls that must block. Keep scenario state local to the test.
 
-## QtTest integration
+## Qt application integration
 
-GoogleTest runners report GMock failures automatically. QtTest runners do not.
-These suites initialize Google Mock before Qt and combine both failure states:
+Every C++ suite uses GoogleTest, so Google Mock failures contribute to the
+executable's exit status. Register a `CoreApplicationEnvironment` or
+`WidgetsApplicationEnvironment` from the
+[test support package](../src/platform/desktop/common/testing/BUILD.bazel)
+with `testing::AddGlobalTestEnvironment`. Application arguments remain owned
+until teardown, and the application outlives fixtures. Use the environment's
+pre-construction callback for application attributes.
 
-```cpp
-::testing::InitGoogleMock(&argc, argv);
-QCoreApplication application(argc, argv);
-ExampleTest test;
-const int result = QTest::qExec(&test, argc, argv);
-return result != 0 || ::testing::Test::HasFailure() ? 1 : 0;
-```
+Record signals with the typed `SignalRecorder`; inspect copied tuples from
+`snapshot()` after checking `count()`. Worker emissions are captured directly
+under synchronization. Keep thread joins and gates that establish completion.
+Use `wait_until` for queued events and `process_events_for` when checking that
+something remains absent for a deadline. Assert on the returned condition at
+the call site, and use `ASSERT_NO_FATAL_FAILURE` when a helper's fatal failure
+must stop dependent operations.
 
-Use `QApplication` for widget suites. Destroy mocks and join their worker
-threads before checking the final status. A QtTest `PASS` line alone does not
-prove GMock expectations passed; inspect the process exit status and GMock
-diagnostics. The backend test includes subprocess checks for unmet calls,
+Exceptional process runners use `use_gtest_main = False`, initialize Google
+Mock, and return `RUN_ALL_TESTS()`. Join workers and destroy mocks before
+returning. The backend suite verifies failing exit status for unmet calls,
 forbidden calls, and wrong arguments through the real facade's I/O thread.
 
 Depend on `//src/platform/desktop/common/serial/testing:fake_serial_backend`.

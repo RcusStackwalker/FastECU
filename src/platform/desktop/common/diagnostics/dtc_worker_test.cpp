@@ -1,8 +1,10 @@
+#include "src/platform/desktop/common/testing/core_application_environment.h"
 #include "src/platform/desktop/common/diagnostics/dtc_worker.h"
 
 #include <QCoreApplication>
-#include <QSignalSpy>
-#include <QTest>
+#include "src/platform/desktop/common/testing/signal_recorder.h"
+#include "src/platform/desktop/common/testing/event_helpers.h"
+#include <gtest/gtest.h>
 
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/backend/protocol/testing/fake_diagnostic_link.h"
@@ -16,41 +18,37 @@ using fastecu::diagnostics::DtcWorkerResult;
 using fastecu::diagnostics::FakeDiagnosticLink;
 using fastecu::diagnostics::ObdProtocol;
 
-class DtcWorkerTest : public QObject
+TEST(DtcWorkerTest, reportsTheSessionOutcomeAndForwardsLogLines)
 {
-    Q_OBJECT
+    FakeDiagnosticLink link;
+    link.queue_five_baud(bytes::Bytes{0x55, 0x00, 0x00}); // rejected
+    DtcWorker worker(DtcRequest{ObdProtocol::Iso9141, DtcOperation::Read}, link, std::make_unique<FakeClock>());
+    fastecu::testing::SignalRecorder logs(&worker, &DtcWorker::logEvent);
+    fastecu::testing::SignalRecorder done(&worker, &DtcWorker::completed);
+    worker.start();
+    ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
+    ASSERT_EQ(done.count(), 1);
+    const auto result = std::get<0>(done.snapshot().at(0));
+    ASSERT_TRUE(!result.success);
+    ASSERT_EQ(result.error_kind, ErrorKind::BadResponse);
+    ASSERT_TRUE(logs.count() >= 2); // "Testing ..." and "iso9141 five baud init failed."
+}
 
-  private slots:
+TEST(DtcWorkerTest, stopBeforeStartCancelsTheRun)
+{
+    FakeDiagnosticLink link;
+    link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08});
+    DtcWorker worker(DtcRequest{ObdProtocol::Iso9141, DtcOperation::Read}, link, std::make_unique<FakeClock>());
+    fastecu::testing::SignalRecorder done(&worker, &DtcWorker::completed);
+    worker.requestStop();
+    worker.start();
+    ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
+    ASSERT_EQ(std::get<0>(done.snapshot().at(0)).error_kind, ErrorKind::Cancelled);
+    ASSERT_EQ(link.calls.back(), std::string("reset"));
+}
 
-    void reportsTheSessionOutcomeAndForwardsLogLines()
-    {
-        FakeDiagnosticLink link;
-        link.queue_five_baud(bytes::Bytes{0x55, 0x00, 0x00}); // rejected
-        DtcWorker worker(DtcRequest{ObdProtocol::Iso9141, DtcOperation::Read}, link, std::make_unique<FakeClock>());
-        QSignalSpy logs(&worker, &DtcWorker::logEvent);
-        QSignalSpy done(&worker, &DtcWorker::completed);
-        worker.start();
-        QVERIFY(done.wait(5000));
-        QCOMPARE(done.count(), 1);
-        const auto result = done.at(0).at(0).value<DtcWorkerResult>();
-        QVERIFY(!result.success);
-        QCOMPARE(result.error_kind, ErrorKind::BadResponse);
-        QVERIFY(logs.count() >= 2); // "Testing ..." and "iso9141 five baud init failed."
-    }
-
-    void stopBeforeStartCancelsTheRun()
-    {
-        FakeDiagnosticLink link;
-        link.queue_five_baud(bytes::Bytes{0x55, 0x08, 0x08});
-        DtcWorker worker(DtcRequest{ObdProtocol::Iso9141, DtcOperation::Read}, link, std::make_unique<FakeClock>());
-        QSignalSpy done(&worker, &DtcWorker::completed);
-        worker.requestStop();
-        worker.start();
-        QVERIFY(done.wait(5000));
-        QCOMPARE(done.at(0).at(0).value<DtcWorkerResult>().error_kind, ErrorKind::Cancelled);
-        QCOMPARE(link.calls.back(), std::string("reset"));
-    }
-};
-
-QTEST_MAIN(DtcWorkerTest)
-#include "dtc_worker_test.moc"
+namespace
+{
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
+}

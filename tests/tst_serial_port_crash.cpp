@@ -1,3 +1,4 @@
+#include "src/platform/desktop/common/testing/core_application_environment.h"
 // Headless regression tests for the OpenPort/J2534 read-path crash.
 //
 // Crash report (macOS arm64): EXC_BAD_ACCESS, KERN_INVALID_ADDRESS at 0x8, in
@@ -21,7 +22,7 @@
 // the actual fault state (null serial) through both the low-level J2534 read
 // entry points and the real read_vbatt -> PassThruIoctl -> PassThruReadMsgs chain.
 
-#include <QtTest>
+#include <gtest/gtest.h>
 #include <QByteArray>
 #include <QElapsedTimer>
 
@@ -82,56 +83,25 @@ class TestableSerialPortActionsDirect : public SerialPortActionsDirect
     }
 };
 
-class SerialPortCrashTest : public QObject
-{
-    Q_OBJECT
-
-  private slots:
-    void isSerialPortOpen_withNullSerial_doesNotCrash();
-    void readSerialData_withNullSerial_doesNotCrash();
-    void readSerialData_withNullSerial_doesNotBusySpin();
-    void passThruReadMsgs_withNullSerial_doesNotCrash();
-    void readVbatt_throughNullJ2534Serial_doesNotCrash();
-    void reentrantReadDuringTeardown_viaEventLoop_doesNotCrash();
-
-    // End-to-end over a mock serial (PTY): the connect handshake succeeds.
-    void j2534Handshake_overMockPty_readVersionSucceeds();
-    void spadInitJ2534Connection_overMockPty_succeeds();
-
-    // The full field "Logging" flow over the mock: connect, then a realtime read
-    // loop with a reentrant read + teardown interleaved via the event loop.
-    void loggingFlow_connectReadTeardownReentrancy_overMockPty_doesNotCrash();
-
-    // Post-refactor, reads no longer pump the event loop, so a queued
-    // reset_connection() cannot interleave mid-read: it runs strictly after
-    // the read completes and the caller drains the queue.
-    void resetQueuedDuringRead_runsAfterReadCompletes();
-
-    // Post-refactor: a blocking read must not pump the event loop, so any
-    // foreign queued event stays queued (not dispatched reentrantly) until the
-    // caller processes events itself.
-    void blockingRead_doesNotDispatchQueuedEvents();
-};
-
-void SerialPortCrashTest::isSerialPortOpen_withNullSerial_doesNotCrash()
+TEST(SerialPortCrashTest, isSerialPortOpen_withNullSerial_doesNotCrash)
 {
     TestableJ2534 j2534;
     j2534.detachSerialPort();
     // J2534::is_serial_port_open() is `return serial->isOpen();` — the exact
     // null dereference from the crash report. Pre-fix: SIGSEGV at 0x8.
-    QCOMPARE(j2534.is_serial_port_open(), false);
+    ASSERT_EQ(j2534.is_serial_port_open(), false);
 }
 
-void SerialPortCrashTest::readSerialData_withNullSerial_doesNotCrash()
+TEST(SerialPortCrashTest, readSerialData_withNullSerial_doesNotCrash)
 {
     TestableJ2534 j2534;
     j2534.detachSerialPort();
     // read_serial_data() opens with `if (serial->isOpen())` — the guard itself
     // dereferences the null serial.
-    QCOMPARE(j2534.read_serial_data(3, 50), QByteArray());
+    ASSERT_EQ(j2534.read_serial_data(3, 50), QByteArray());
 }
 
-void SerialPortCrashTest::readSerialData_withNullSerial_doesNotBusySpin()
+TEST(SerialPortCrashTest, readSerialData_withNullSerial_doesNotBusySpin)
 {
     // Regression for a busy-spin the SerialByteBuffer wiring introduced: with
     // `serial` null (torn down), the read path's wait callable used to be a
@@ -154,7 +124,7 @@ void SerialPortCrashTest::readSerialData_withNullSerial_doesNotBusySpin()
     QElapsedTimer wall;
     wall.start();
 
-    QCOMPARE(j2534.read_serial_data(3, 50), QByteArray());
+    ASSERT_EQ(j2534.read_serial_data(3, 50), QByteArray());
 
     const qint64 elapsedMs = wall.elapsed();
     rusage after{};
@@ -169,14 +139,13 @@ void SerialPortCrashTest::readSerialData_withNullSerial_doesNotBusySpin()
     // to elapsed wall-clock; a properly-yielding sleep burns a small fraction
     // of it. Half the elapsed time (plus a small floor for scheduler noise on
     // a loaded CI box) safely separates the two without being timing-sensitive.
-    QVERIFY2(
-        cpuMs < elapsedMs / 2 + 5,
-        qPrintable(QString("closed-port read burned %1 ms of CPU across %2 ms wall-clock -- looks like a busy spin")
-                       .arg(cpuMs)
-                       .arg(elapsedMs)));
+    ASSERT_TRUE(cpuMs < elapsedMs / 2 + 5)
+        << qPrintable(QString("closed-port read burned %1 ms of CPU across %2 ms wall-clock -- looks like a busy spin")
+                          .arg(cpuMs)
+                          .arg(elapsedMs));
 }
 
-void SerialPortCrashTest::passThruReadMsgs_withNullSerial_doesNotCrash()
+TEST(SerialPortCrashTest, passThruReadMsgs_withNullSerial_doesNotCrash)
 {
     TestableJ2534 j2534;
     j2534.detachSerialPort();
@@ -185,10 +154,10 @@ void SerialPortCrashTest::passThruReadMsgs_withNullSerial_doesNotCrash()
     // The exact inner frame from the crash report: PassThruReadMsgs -> the read
     // path -> serial->isOpen(). Reaching the next line is the assertion.
     j2534.PassThruReadMsgs(0, &msg, &numMsgs, 50);
-    QVERIFY(true);
+    ASSERT_TRUE(true);
 }
 
-void SerialPortCrashTest::readVbatt_throughNullJ2534Serial_doesNotCrash()
+TEST(SerialPortCrashTest, readVbatt_throughNullJ2534Serial_doesNotCrash)
 {
     TestableSerialPortActionsDirect spad;
     spad.installNullSerialJ2534();
@@ -198,10 +167,10 @@ void SerialPortCrashTest::readVbatt_throughNullJ2534Serial_doesNotCrash()
     // read_vbatt -> PassThruIoctl(READ_VBATT) -> read path -> serial->isOpen()
     // with serial == null. Pre-fix: SIGSEGV at 0x8. Post-fix: returns cleanly.
     spad.read_vbatt();
-    QVERIFY(true);
+    ASSERT_TRUE(true);
 }
 
-void SerialPortCrashTest::reentrantReadDuringTeardown_viaEventLoop_doesNotCrash()
+TEST(SerialPortCrashTest, reentrantReadDuringTeardown_viaEventLoop_doesNotCrash)
 {
     // Reproduces the live reentrancy through a non-GUI event loop: FastECU pumps
     // processEvents() mid-operation (MainWindow::delay, reset_connection's
@@ -224,57 +193,60 @@ void SerialPortCrashTest::reentrantReadDuringTeardown_viaEventLoop_doesNotCrash(
     // dereferences j2534 unconditionally): SIGSEGV. Post-fix (read_vbatt guards
     // `use_openport2_adapter && j2534`): returns safely.
     QCoreApplication::processEvents();
-    QVERIFY(true);
+    ASSERT_TRUE(true);
 }
 
-void SerialPortCrashTest::j2534Handshake_overMockPty_readVersionSucceeds()
+// End-to-end over a mock serial (PTY): the connect handshake succeeds.
+TEST(SerialPortCrashTest, j2534Handshake_overMockPty_readVersionSucceeds)
 {
     // Deterministic end-to-end of the OpenPort handshake with no hardware: the
     // real J2534 protocol code talks to a scripted mock dongle over a PTY.
     int master = -1, slave = -1;
     std::array<char, 256> name{};
-    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
+    ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
         MockOpenPortThread mock(master);
 
         J2534 j2534;
         const QString ptyPath = QString::fromLocal8Bit(name.data());
-        QCOMPARE(j2534.open_serial_port(ptyPath), ptyPath);
+        ASSERT_EQ(j2534.open_serial_port(ptyPath), ptyPath);
 
         unsigned long devID = 1;
-        QCOMPARE(j2534.PassThruOpen(nullptr, &devID), (long)STATUS_NOERROR);
+        ASSERT_EQ(j2534.PassThruOpen(nullptr, &devID), (long)STATUS_NOERROR);
 
         std::array<char, 256> api{};
         std::array<char, 256> dll{};
         std::array<char, 256> fw{};
-        QCOMPARE(j2534.PassThruReadVersion(api.data(), dll.data(), fw.data(), devID), (long)STATUS_NOERROR);
-        QCOMPARE(QString::fromUtf8(fw.data()).trimmed(), QStringLiteral("1.17.4877"));
+        ASSERT_EQ(j2534.PassThruReadVersion(api.data(), dll.data(), fw.data(), devID), (long)STATUS_NOERROR);
+        ASSERT_EQ(QString::fromUtf8(fw.data()).trimmed(), QStringLiteral("1.17.4877"));
 
         j2534.close_serial_port();
     }
     ::close(master);
 }
 
-void SerialPortCrashTest::spadInitJ2534Connection_overMockPty_succeeds()
+TEST(SerialPortCrashTest, spadInitJ2534Connection_overMockPty_succeeds)
 {
     // Drives the full SerialPortActionsDirect connect orchestration
     // (open_serial_port -> PassThruOpen -> ReadVersion -> get_serial_num ->
     // K-line init) against the mock dongle over a PTY.
     int master = -1, slave = -1;
     std::array<char, 256> name{};
-    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
+    ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
         MockOpenPortThread mock(master);
 
         TestableSerialPortActionsDirect spad;
         spad.serial_port = QString::fromLocal8Bit(name.data());
 
-        QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
+        ASSERT_EQ(spad.runInitJ2534Connection(), STATUS_SUCCESS);
     }
     ::close(master);
 }
 
-void SerialPortCrashTest::loggingFlow_connectReadTeardownReentrancy_overMockPty_doesNotCrash()
+// The full field "Logging" flow over the mock: connect, then a realtime read
+// loop with a reentrant read + teardown interleaved via the event loop.
+TEST(SerialPortCrashTest, loggingFlow_connectReadTeardownReentrancy_overMockPty_doesNotCrash)
 {
     // Drives the field "Logging" scenario at the layer where it crashed, over the
     // mock dongle, with no hardware:
@@ -287,13 +259,13 @@ void SerialPortCrashTest::loggingFlow_connectReadTeardownReentrancy_overMockPty_
     // post-fix the read-path/j2534 guards make it safe.
     int master = -1, slave = -1;
     std::array<char, 256> name{};
-    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
+    ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
         MockOpenPortThread mock(master);
 
         TestableSerialPortActionsDirect spad;
         spad.serial_port = QString::fromLocal8Bit(name.data());
-        QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
+        ASSERT_EQ(spad.runInitJ2534Connection(), STATUS_SUCCESS);
         spad.use_openport2_adapter = true;
 
         // Realtime read loop over the live mock connection.
@@ -321,27 +293,30 @@ void SerialPortCrashTest::loggingFlow_connectReadTeardownReentrancy_overMockPty_
         // Pre-fix it dereferences the freed/null j2534; post-fix the guard makes it safe.
         QCoreApplication::processEvents();
 
-        QVERIFY(consumerRan);
+        ASSERT_TRUE(consumerRan);
     }
     ::close(master);
 }
 
-void SerialPortCrashTest::resetQueuedDuringRead_runsAfterReadCompletes()
+// Post-refactor, reads no longer pump the event loop, so a queued
+// reset_connection() cannot interleave mid-read: it runs strictly after
+// the read completes and the caller drains the queue.
+TEST(SerialPortCrashTest, resetQueuedDuringRead_runsAfterReadCompletes)
 {
     // Reads are now atomic with respect to the event queue: read_serial_data
     // waits on the port's own fd (waitForReadyRead) instead of pumping
     // QCoreApplication::processEvents(), so a reset_connection() queued from
     // the event loop cannot fire mid-read. It stays queued until the read
-    // returns and the caller (or QTest's own loop) processes events.
+    // returns and the caller processes events.
     int master = -1, slave = -1;
     std::array<char, 256> name{};
-    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
+    ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
         MockOpenPortThread mock(master);
 
         TestableSerialPortActionsDirect spad;
         spad.serial_port = QString::fromLocal8Bit(name.data());
-        QCOMPARE(spad.runInitJ2534Connection(), STATUS_SUCCESS);
+        ASSERT_EQ(spad.runInitJ2534Connection(), STATUS_SUCCESS);
         spad.use_openport2_adapter = true;
 
         // Withhold the READ_VBATT reply so the read below waits out its full
@@ -359,16 +334,19 @@ void SerialPortCrashTest::resetQueuedDuringRead_runsAfterReadCompletes()
             },
             Qt::QueuedConnection);
 
-        spad.read_vbatt();         // waits out its timeout; must NOT dispatch the reset
-        QCOMPARE(resetRan, false); // the queue no longer interleaves into reads
+        spad.read_vbatt();          // waits out its timeout; must NOT dispatch the reset
+        ASSERT_EQ(resetRan, false); // the queue no longer interleaves into reads
 
         QCoreApplication::processEvents();
-        QCOMPARE(resetRan, true); // the reset runs after, in order
+        ASSERT_EQ(resetRan, true); // the reset runs after, in order
     }
     ::close(master);
 }
 
-void SerialPortCrashTest::blockingRead_doesNotDispatchQueuedEvents()
+// Post-refactor: a blocking read must not pump the event loop, so any
+// foreign queued event stays queued (not dispatched reentrantly) until the
+// caller processes events itself.
+TEST(SerialPortCrashTest, blockingRead_doesNotDispatchQueuedEvents)
 {
     // The old read paths pump QCoreApplication::processEvents() while waiting,
     // so ANY queued event — a timer, a user action, another serial call — runs
@@ -376,24 +354,28 @@ void SerialPortCrashTest::blockingRead_doesNotDispatchQueuedEvents()
     // without dispatching foreign events.
     int master = -1, slave = -1;
     std::array<char, 256> name{};
-    QVERIFY2(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0, "openpty failed");
+    ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     // No responder: nothing arrives, the read waits out its full timeout.
 
     TestableSerialPortActionsDirect spad;
     spad.serial_port_prefix_linux = "";
     spad.serial_port_list = QStringList() << QString::fromLocal8Bit(name.data());
-    QCOMPARE(spad.open_serial_port(), QString::fromLocal8Bit(name.data()));
+    ASSERT_EQ(spad.open_serial_port(), QString::fromLocal8Bit(name.data()));
 
     bool dispatched = false;
-    QMetaObject::invokeMethod(this, [&dispatched] { dispatched = true; }, Qt::QueuedConnection);
+    QObject context;
+    QMetaObject::invokeMethod(&context, [&dispatched] { dispatched = true; }, Qt::QueuedConnection);
 
     spad.read_serial_data(200);
 
-    QCOMPARE(dispatched, false);       // FAILS pre-fix: the pump ran the lambda
+    ASSERT_EQ(dispatched, false);      // FAILS pre-fix: the pump ran the lambda
     QCoreApplication::processEvents(); // the event is still queued, not lost
-    QCOMPARE(dispatched, true);
+    ASSERT_EQ(dispatched, true);
     ::close(master);
 }
 
-QTEST_GUILESS_MAIN(SerialPortCrashTest)
-#include "tst_serial_port_crash.moc"
+namespace
+{
+const auto *const application_environment =
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
+}

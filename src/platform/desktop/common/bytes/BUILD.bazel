@@ -1,3 +1,7 @@
+# Tests regenerate; production sources and helper binaries retain existing owners.
+# gazelle:exclude qt_bytes.h
+# gazelle:resolve cc src/algorithms/protocol/bytes.h //src/algorithms/protocol:protocol
+# gazelle:resolve cc src/platform/desktop/common/bytes/qt_bytes.h //src/platform/desktop/common/bytes:qt_bytes
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
@@ -5,6 +9,8 @@ load("//bazel:qt_common.bzl", "COMMON_COPTS")
 
 package(default_visibility = ["//visibility:private"])
 
+# Production and runtime helper ownership is deferred by ADR 0017.
+# keep
 cc_library(
     name = "qt_bytes",
     hdrs = ["qt_bytes.h"],
@@ -25,9 +31,9 @@ fastecu_gtest(
     name = "qt_bytes_test",
     srcs = ["qt_bytes_test.cpp"],
     deps = [
-        ":qt_bytes",
         "//bazel/qt:core",
         "//src/algorithms/protocol",
+        "//src/platform/desktop/common/bytes:qt_bytes",
         "@googletest//:gtest",
     ],
 )
