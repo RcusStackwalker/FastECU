@@ -418,5 +418,5 @@ TEST_F(TestDesktopMixedCanFlashTransport, nonOwningCloseDoesNotDestroyCallerSeri
 namespace
 {
 const auto *const application_environment =
-    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

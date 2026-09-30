@@ -41,5 +41,5 @@ TEST_F(TestDirectBackendHooksWindows, txDone_isAlwaysTrue)
 namespace
 {
 const auto *const application_environment =
-    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

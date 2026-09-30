@@ -40,7 +40,7 @@ fastecu_gtest(
 
 # Preserve the public label when Gazelle discovers additional test sources.
 # keep
-alias(
+test_suite(
     name = "tst_force_asserts",
-    actual = ":tst_force_asserts_test",
+    tests = [":tst_force_asserts_test"],
 )

@@ -32,7 +32,8 @@ const auto *const environment = ::testing::AddGlobalTestEnvironment(new fastecu:
     {
         EXPECT_EQ(QCoreApplication::instance(), nullptr);
         QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
-    }));
+    },
+    /*use_96_dpi=*/true));
 
 TEST(QtTestSupport, ApplicationLivesDuringFixtures)
 {
@@ -40,6 +41,7 @@ TEST(QtTestSupport, ApplicationLivesDuringFixtures)
     observed_application = QCoreApplication::instance();
     EXPECT_EQ(QCoreApplication::arguments().front(), QString("fastecu-test"));
     EXPECT_TRUE(QCoreApplication::testAttribute(Qt::AA_ShareOpenGLContexts));
+    EXPECT_TRUE(QCoreApplication::testAttribute(Qt::AA_Use96Dpi));
 }
 
 TEST(QtTestSupport, CapturesImmediateAndWorkerSignalsWithoutEventProcessing)
@@ -113,7 +115,9 @@ TEST(QtTestSupport, RecorderCanDisconnectWhileWorkerEmits)
             }
         });
     while (!started.load())
+    {
         std::this_thread::yield();
+    }
     recorder.reset();
     stop.store(true);
     worker.join();

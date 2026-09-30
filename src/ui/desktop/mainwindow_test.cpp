@@ -526,7 +526,9 @@ class MainWindowTest : public ::testing::Test
 void MainWindowTest::SetUpTestSuite()
 {
     if (config_root_)
+    {
         return;
+    }
     config_root_ = std::make_unique<QTemporaryDir>();
     ASSERT_TRUE(config_root_->isValid());
     // Pass the fixture root explicitly: Qt resolves the Windows home from
@@ -1040,8 +1042,12 @@ INSTANTIATE_TEST_SUITE_P(
     {
         auto name = info.param.name;
         for (char& c : name)
+        {
             if (!std::isalnum(static_cast<unsigned char>(c)))
+            {
                 c = '_';
+            }
+        }
         return name;
     });
 void MainWindowTest::check_handledDensoTcuReadChoicesRunMainWindowCleanupAndStopVoltagePolling(
@@ -1128,8 +1134,12 @@ INSTANTIATE_TEST_SUITE_P(
     {
         auto name = info.param.name;
         for (char& c : name)
+        {
             if (!std::isalnum(static_cast<unsigned char>(c)))
+            {
                 c = '_';
+            }
+        }
         return name;
     });
 void MainWindowTest::check_futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo(QString protocol)
@@ -1207,8 +1217,12 @@ INSTANTIATE_TEST_SUITE_P(
     {
         auto name = info.param.name;
         for (char& c : name)
+        {
             if (!std::isalnum(static_cast<unsigned char>(c)))
+            {
                 c = '_';
+            }
+        }
         return name;
     });
 void MainWindowTest::check_representativePortableRoutesReachFactoryBeforeLegacyFallback(QString protocol)
@@ -2128,8 +2142,12 @@ INSTANTIATE_TEST_SUITE_P(
     {
         auto name = info.param.name;
         for (char& c : name)
+        {
             if (!std::isalnum(static_cast<unsigned char>(c)))
+            {
                 c = '_';
+            }
+        }
         return name;
     });
 void MainWindowTest::check_chooserDialogsApplyAcceptedChoicesAndIgnoreCancellation(bool protocol, bool accept)
@@ -3001,8 +3019,12 @@ INSTANTIATE_TEST_SUITE_P(Rows, chooserDuplicateLabelIdentityParameters,
                          {
                              auto name = info.param.name;
                              for (char& c : name)
+                             {
                                  if (!std::isalnum(static_cast<unsigned char>(c)))
+                                 {
                                      c = '_';
+                                 }
+                             }
                              return name;
                          });
 void MainWindowTest::check_chooserDuplicateLabelIdentity(int tab, QString kind)
@@ -3138,8 +3160,12 @@ INSTANTIATE_TEST_SUITE_P(Rows, loggingStartWaitsForIdentificationParameters,
                          {
                              auto name = info.param.name;
                              for (char& c : name)
+                             {
                                  if (!std::isalnum(static_cast<unsigned char>(c)))
+                                 {
                                      c = '_';
+                                 }
+                             }
                              return name;
                          });
 void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu)
@@ -3332,8 +3358,12 @@ INSTANTIATE_TEST_SUITE_P(Rows, connectionEntryPointsStopIdentificationParameters
                          {
                              auto name = info.param.name;
                              for (char& c : name)
+                             {
                                  if (!std::isalnum(static_cast<unsigned char>(c)))
+                                 {
                                      c = '_';
+                                 }
+                             }
                              return name;
                          });
 void MainWindowTest::check_connectionEntryPointsStopIdentification(QString entry_point)

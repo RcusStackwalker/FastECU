@@ -1,5 +1,7 @@
 # Tests regenerate; production sources and helper binaries retain existing owners.
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# gazelle:resolve cc ui_mainwindow.h //src/ui/desktop:ui_mainwindow
+# gazelle:resolve cc ui_protocol_select.h //src/ui/desktop:ui_protocol_select
 # gazelle:exclude calibration_maps.cpp
 # gazelle:exclude calibration_maps.h
 # gazelle:exclude calibration_treewidget.cpp
@@ -304,6 +306,7 @@ fastecu_gtest(
         "//src/platform/desktop/common/testing:signal_recorder",
         "//src/platform/desktop/common/testing:widgets_application_environment",
         "//src/ui/desktop",
+        "//src/ui/desktop:ui_mainwindow",
         "//src/ui/desktop/calibration:rom_info",
         "//src/ui/desktop/calibration:session_key",
         "//src/ui/desktop/channels:log_channel",
@@ -363,6 +366,7 @@ fastecu_gtest(
         "//src/backend/config/testing:config_session_fixture",
         "//src/platform/desktop/common/testing:widgets_application_environment",
         "//src/ui/desktop",
+        "//src/ui/desktop:ui_protocol_select",
         "@googletest//:gtest",
     ],
 )

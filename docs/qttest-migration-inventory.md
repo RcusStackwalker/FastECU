@@ -900,4 +900,4 @@ Application: Core.
 - `j2534_bridge_client_test`: `J2534BridgeClient.OpensConnectsAndReadsThroughBridge`.
 - `j2534_win_bridge_test`: `J2534WinBridge.OpensConnectsAndReadsThroughBridge`.
 
-The legacy plural integration labels remain aliases; the release force-asserts label and SIGABRT check are unchanged. Runtime resources, offscreen settings, platform constraints, x86 fixture transitions and Sonar exclusions are preserved.
+The legacy plural integration and force-asserts labels remain runnable test suites pointing to the Gazelle-named executables. The release force-asserts SIGABRT check is unchanged. Runtime resources, offscreen settings, platform constraints, x86 fixture transitions and Sonar exclusions are preserved.

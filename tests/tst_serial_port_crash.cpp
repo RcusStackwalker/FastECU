@@ -386,5 +386,5 @@ TEST_F(SerialPortCrashTest, blockingRead_doesNotDispatchQueuedEvents)
 namespace
 {
 const auto *const application_environment =
-    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

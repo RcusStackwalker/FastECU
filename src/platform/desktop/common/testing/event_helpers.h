@@ -20,12 +20,18 @@ template <typename Predicate> bool wait_until(Predicate predicate, std::chrono::
     for (;;)
     {
         if (predicate())
+        {
             return true;
+        }
         process_pending_events();
         if (predicate())
+        {
             return true;
+        }
         if (std::chrono::steady_clock::now() >= deadline)
+        {
             return false;
+        }
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 }

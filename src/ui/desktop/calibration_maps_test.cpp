@@ -1,5 +1,4 @@
 #include "src/platform/desktop/common/testing/widgets_application_environment.h"
-#include <string>
 #include <algorithm>
 #include <array>
 #include <string>
@@ -399,5 +398,5 @@ TEST_F(CalibrationMapsTest, closedSessionRefreshIsInertAfterAnotherSessionOpens)
 namespace
 {
 const auto *const application_environment =
-    ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment);
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

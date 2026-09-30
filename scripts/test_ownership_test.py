@@ -32,6 +32,22 @@ class TestOwnershipTest(unittest.TestCase):
         with self.assertRaisesRegex(gc.GazelleCheckError, "whole-rule keep"):
             gc.validate_test_ownership(self.root, [file])
 
+    def test_rejects_suffix_whole_rule_keep(self):
+        file = self.write(
+            "tests/BUILD.bazel", 'fastecu_gtest(name = "probe", srcs = ["p.cpp"]) # keep'
+        )
+        with self.assertRaisesRegex(gc.GazelleCheckError, "whole-rule keep"):
+            gc.validate_test_ownership(self.root, [file])
+
+    def test_rejects_keep_with_explanation(self):
+        for text in [
+            '# keep: intentional\nfastecu_gtest(name = "probe")',
+            'fastecu_gtest(name = "probe") # keep: intentional',
+        ]:
+            file = self.write("tests/BUILD.bazel", text)
+            with self.assertRaisesRegex(gc.GazelleCheckError, "whole-rule keep"):
+                gc.validate_test_ownership(self.root, [file])
+
     def test_accepts_narrow_source_keep(self):
         file = self.write(
             "tests/BUILD.bazel", 'fastecu_gtest(\n name = "probe",\n srcs = ["main.cpp"], # keep\n)'

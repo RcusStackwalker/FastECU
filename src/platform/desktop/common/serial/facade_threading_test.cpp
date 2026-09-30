@@ -838,11 +838,17 @@ TEST_F(TestFacadeThreading, destroyWhileReadInFlight_waitsForBackendCall)
         {
             continueRead.release();
             if (reader.joinable())
+            {
                 reader.join();
+            }
             if (destroyer.joinable())
+            {
                 destroyer.join();
+            }
             if (!deletion_scheduled)
+            {
                 delete serial;
+            }
         });
     ASSERT_TRUE(readEntered.tryAcquire(1, 1000)) << "backend read did not start";
 

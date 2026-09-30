@@ -111,7 +111,7 @@ DensoSh705xEepromInput validInput(FlashFamily family)
 bytes::Bytes requestKernelIdRequest()
 {
     bytes::Bytes out{
-        static_cast<bytes::Byte>((0xbeef >> 8) & 0xFF), static_cast<bytes::Byte>(0xbeef & 0xFF), 0x00, 0x01, 0x01,
+        static_cast<bytes::Byte>((0xbeefU >> 8U) & 0xFFU), static_cast<bytes::Byte>(0xbeefU & 0xFFU), 0x00, 0x01, 0x01,
     };
     out.push_back(bytes::sum8(out));
     return out;
@@ -234,5 +234,5 @@ TEST_F(TestFlashWorker, phaseProgressIsForwardedAlongsideLegacyProgress)
 namespace
 {
 const auto *const application_environment =
-    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

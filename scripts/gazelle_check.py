@@ -14,7 +14,9 @@ import re
 import shutil
 import subprocess
 import sys
+import tokenize
 from collections.abc import Callable, Sequence
+from io import StringIO
 from pathlib import Path
 from typing import TextIO
 
@@ -86,6 +88,26 @@ _CPP_TEST_RULE = re.compile(
 _QTTEST_DEP = re.compile(r"(?:@[^\"]*//:qt_test|//bazel/qt:test|fastecu_qttest)")
 
 
+_KEEP_COMMENT = re.compile(r"#\s*keep(?:: .*)?\s*$")
+
+
+def _rule_suffix_is_kept(source: str) -> bool:
+    """Find the rule's closing parenthesis without confusing nested expressions."""
+    depth = 0
+    for token in tokenize.generate_tokens(StringIO(source).readline):
+        if token.type != tokenize.OP:
+            continue
+        if token.string == "(":
+            depth += 1
+        elif token.string == ")":
+            depth -= 1
+            if depth == 0:
+                row, column = token.end
+                suffix = source.splitlines()[row - 1][column:].strip()
+                return bool(_KEEP_COMMENT.fullmatch(suffix))
+    return False
+
+
 def validate_test_ownership(root: Path, files: Sequence[str]) -> None:
     """All C++ test packages regenerate; keeps may preserve individual attributes only."""
     for relative in files:
@@ -98,11 +120,13 @@ def validate_test_ownership(root: Path, files: Sequence[str]) -> None:
         for match in _CPP_TEST_RULE.finditer(source):
             if not any(Path(relative).is_relative_to(managed) for managed in MANAGED_ROOTS):
                 raise GazelleCheckError(f"{relative}: C++ test package outside Gazelle scope")
+            if _rule_suffix_is_kept(source[match.start() :]):
+                raise GazelleCheckError(f"{relative}: C++ test has a whole-rule keep")
             preceding = source[: match.start()].splitlines()
             for line in reversed(preceding):
                 if line.strip() and not line.lstrip().startswith("#"):
                     break
-                if line.strip() == "# keep":
+                if _KEEP_COMMENT.fullmatch(line.strip()):
                     raise GazelleCheckError(f"{relative}: C++ test has a whole-rule keep")
 
 
