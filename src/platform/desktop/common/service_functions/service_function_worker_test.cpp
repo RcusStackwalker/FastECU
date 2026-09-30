@@ -1,5 +1,5 @@
 #include <QScopeGuard>
-#include "src/platform/desktop/common/testing/widgets_application_environment.h"
+#include "src/platform/desktop/common/testing/core_application_environment.h"
 // Teardown, gate, and configuration-ordering coverage for
 // ServiceFunctionWorker. Follows flash_worker_test.cpp: a FakeClock plus
 // condition variables and thread joins, never signal recorder::wait(), so no
@@ -408,5 +408,5 @@ TEST_F(ServiceFunctionWorkerTest, destructorDoesNotDestroyOwnedStateWhileResumeI
 namespace
 {
 const auto *const application_environment =
-    ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment({}, /*use_96_dpi=*/true));
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

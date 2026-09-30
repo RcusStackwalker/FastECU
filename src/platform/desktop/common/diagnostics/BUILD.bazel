@@ -84,9 +84,9 @@ fastecu_gtest(
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/protocol/testing:fake_diagnostic_link",
         "//src/platform/desktop/common/diagnostics:dtc_worker",
+        "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/testing:signal_recorder",
-        "//src/platform/desktop/common/testing:widgets_application_environment",
         "@googletest//:gtest",
     ],
 )
@@ -116,9 +116,9 @@ fastecu_gtest(
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/protocol/testing:fake_diagnostic_link",
         "//src/platform/desktop/common/diagnostics:ssm_identify_worker",
+        "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/testing:signal_recorder",
-        "//src/platform/desktop/common/testing:widgets_application_environment",
         "@googletest//:gtest",
     ],
 )

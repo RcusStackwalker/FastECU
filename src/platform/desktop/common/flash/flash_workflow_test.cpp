@@ -1,4 +1,4 @@
-#include "src/platform/desktop/common/testing/widgets_application_environment.h"
+#include "src/platform/desktop/common/testing/core_application_environment.h"
 #include "src/platform/desktop/common/flash/flash_workflow.h"
 
 #include <QDir>
@@ -2189,5 +2189,5 @@ TEST_F(FlashWorkflowTest, unisiaJecsM32rWriteOnReadOnlyVariantFailsBeforeAnyProm
 namespace
 {
 const auto *const application_environment =
-    ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment({}, /*use_96_dpi=*/true));
+    ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

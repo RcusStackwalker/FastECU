@@ -66,9 +66,9 @@ fastecu_gtest(
         "//src/backend/ports/testing:fake_clock",
         "//src/backend/protocol/testing:scripted_transports",
         "//src/platform/desktop/common/service_functions:service_function_worker",
+        "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/testing:signal_recorder",
-        "//src/platform/desktop/common/testing:widgets_application_environment",
         "@googletest//:gtest",
     ],
 )

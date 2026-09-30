@@ -141,7 +141,7 @@ fastecu_gtest(
         "//src/platform/desktop/common/flash:flash_worker",
         "//src/platform/desktop/common/serial:serial_port_actions",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
-        "//src/platform/desktop/common/testing:widgets_application_environment",
+        "//src/platform/desktop/common/testing:core_application_environment",
         "@googletest//:gtest",
     ],
 )
