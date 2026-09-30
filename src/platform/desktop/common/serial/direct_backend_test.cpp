@@ -6,7 +6,7 @@
 #include <QCoreApplication>
 #include <gtest/gtest.h>
 
-#include "serial_backend.h"
+#include "src/platform/desktop/common/serial/serial_backend.h"
 #include "src/platform/desktop/common/serial/direct_serial_backend.h"
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
 #include "src/platform/desktop/common/serial/serial_port_actions_direct.h"

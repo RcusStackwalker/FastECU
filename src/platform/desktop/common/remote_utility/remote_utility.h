@@ -2,7 +2,7 @@
 
 #include <QObject>
 #include <QtRemoteObjects/qremoteobjectnode.h>
-#include "src/platform/desktop/common/serial/websocketiodevice.h"
+#include "src/platform/desktop/common/serial/websocket/websocketiodevice.h"
 #include "src/platform/desktop/common/serial/qtrohelper.hpp"
 
 // Forward declaration

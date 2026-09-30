@@ -1,0 +1,15 @@
+# The sink declares Q_OBJECT; generated hdrs must run through moc.
+# gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
+load("//bazel:qt_targets.bzl", "qt_cc_library")
+
+package(default_visibility = ["//src/platform/desktop/common/serial:__pkg__"])
+
+# String-connected slot used by the factory requires an actual Qt meta-object.
+qt_cc_library(
+    name = "recording_log_sink",
+    testonly = True,
+    # The Qt macro requires srcs even for a header-only moc library.
+    srcs = [],  # keep
+    hdrs = ["recording_log_sink.h"],
+    deps = ["//bazel/qt:core"],
+)

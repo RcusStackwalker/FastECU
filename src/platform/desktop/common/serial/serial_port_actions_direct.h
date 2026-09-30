@@ -23,7 +23,7 @@
 
 #include "src/platform/desktop/j2534/j2534_api.h"
 
-#include "serial_backend.h"
+#include "src/platform/desktop/common/serial/serial_backend.h"
 #include "src/platform/desktop/common/serial/serial_facade_codes.h"
 
 class SerialPortActionsDirect : public QObject, public SerialBackend

@@ -12,7 +12,7 @@
 #include <memory>
 #include <type_traits>
 
-#include "serial_backend.h"
+#include "src/platform/desktop/common/serial/serial_backend.h"
 #include "src/platform/desktop/common/serial/serial_facade_codes.h"
 
 class SerialBackendHost;

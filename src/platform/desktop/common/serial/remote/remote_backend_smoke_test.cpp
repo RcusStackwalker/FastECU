@@ -5,7 +5,7 @@
 #include <QCoreApplication>
 #include <QWebSocket>
 #include <gtest/gtest.h>
-#include "remote_serial_backend.h"
+#include "src/platform/desktop/common/serial/remote/remote_serial_backend.h"
 
 // The remote path has no automated call-level tests (spec risk note: kept a
 // strictly mechanical wrap + manual smoke test before release). This suite

@@ -3,8 +3,8 @@
 #include <QObject>
 #include <QtRemoteObjects/qremoteobjectnode.h>
 
-#include "serial_backend.h"
-#include "websocketiodevice.h"
+#include "src/platform/desktop/common/serial/serial_backend.h"
+#include "src/platform/desktop/common/serial/websocket/websocketiodevice.h"
 
 class SerialPortActionsRemoteReplica;
 

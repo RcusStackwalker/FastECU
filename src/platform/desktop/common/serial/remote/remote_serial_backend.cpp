@@ -1,9 +1,9 @@
-#include "remote_serial_backend.h"
+#include "src/platform/desktop/common/serial/remote/remote_serial_backend.h"
 
 #include <QThread>
 #include <QWebSocket>
 #include <utility>
-#include "qtrohelper.hpp"
+#include "src/platform/desktop/common/serial/qtrohelper.hpp"
 #include "rep_serial_port_actions_replica.h"
 
 RemoteSerialBackend::RemoteSerialBackend(QString peerAddress, QString password, QWebSocket *externalSocket,

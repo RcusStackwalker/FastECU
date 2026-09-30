@@ -2,7 +2,7 @@
 
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/backend/ports/duration_cast.h"
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
 #include <QSerialPort>
 
 namespace fastecu::flash

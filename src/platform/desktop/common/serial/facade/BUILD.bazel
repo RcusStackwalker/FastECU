@@ -1,0 +1,60 @@
+# The facade declares Q_OBJECT; generated hdrs must run through moc.
+# gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# The custom main is a narrow source-entry keep; discovery must not treat it as
+# a shared package runner.
+# gazelle:exclude facade_threading_main.cpp
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_common.bzl", "COMMON_COPTS")
+load("//bazel:qt_targets.bzl", "qt_cc_library")
+
+package(default_visibility = [
+    "//bazel/layers:tests",
+    "//src/platform/desktop:__subpackages__",
+])
+
+# The SerialPortActions facade over the SerialBackend seam its two backends
+# implement. Platform-only: backend and UI code reach serial I/O through
+# backend ports and the platform adapters that implement them, never through
+# this target. Adapters whose public headers forward-declare
+# SerialPortActions take it as implementation_deps so its headers stay out
+# of their dependents' compile inputs.
+qt_cc_library(
+    name = "serial_port_actions",
+    srcs = ["serial_port_actions.cpp"],
+    hdrs = ["serial_port_actions.h"],
+    implementation_deps = ["//src/platform/desktop/common/serial:serial_backend_host"],
+    deps = [
+        "//bazel/qt:core",
+        "//bazel/qt:remote_objects",
+        "//src/platform/desktop/common/serial:serial_backend",
+        "//src/platform/desktop/common/serial:serial_facade_codes",
+    ],
+)
+
+# Custom main is retained: it dispatches child-process mode and makes crash
+# diagnostics unbuffered before Qt starts, behavior the stock gtest main cannot
+# express through fixtures or Bazel environment variables.
+fastecu_gtest(
+    name = "test_facade_threading",
+    size = "small",
+    srcs = [
+        "facade_threading_test.cpp",
+        # Child dispatch and unbuffered diagnostics require this main.
+        "facade_threading_main.cpp",  # keep
+    ],
+    copts = COMMON_COPTS,
+    use_gtest_main = False,
+    deps = [
+        # The custom main includes the environment header directly.
+        "//src/platform/desktop/common/testing:core_application_environment",  # keep
+        ":serial_port_actions",
+        "//bazel/qt:core",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/bytes:qt_bytes",
+        "//src/platform/desktop/common/serial/testing:fake_serial_backend",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/transport",
+        "@googletest//:gtest",
+    ],
+)

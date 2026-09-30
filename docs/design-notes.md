@@ -472,7 +472,7 @@ and neither caller needs to know which one ran.
 ### `SerialDiagnosticLink` lives in its own platform package
 
 The `//src/platform/desktop/common/diagnostics` package reaches the facade
-through `//src/platform/desktop/common/serial:serial_port_actions` as an
+through `//src/platform/desktop/common/serial/facade:serial_port_actions` as an
 `implementation_deps` edge, like the other platform adapters.
 `serial_diagnostic_link.h` forward-declares `SerialPortActions`, so
 including it does not carry `serial_port_actions.h` to the UI; `MainWindow`
@@ -782,8 +782,8 @@ fake to set expectations; production targets do not reach it.
 them from `remote_serial_backend`, whose public header includes
 `serial_backend.h`. Through the GRANDFATHERED UI edge to `remote_utility`
 that was the one remaining path from production UI code to a facade header.
-The two files are now `serial:websocket_io`, and `remote_utility.h` includes
-them by full path: the bare spellings had resolved only through
+The two files are now `serial/websocket:websocket_io` and `serial:qtrohelper`,
+and `remote_utility.h` includes them by full path: the bare spellings had resolved only through
 `serial_replicas`' `includes = ["."]`.
 
 ### A probe include goes last in the file

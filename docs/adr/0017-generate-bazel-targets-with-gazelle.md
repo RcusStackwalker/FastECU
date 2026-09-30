@@ -188,3 +188,13 @@ implementations and keep their target names. The connection package and the UI
 flash dialog and controller packages are homogeneous moc packages and use the
 same mapping in place. A child that reaches the ports package's private event
 sink resolves `qt_event_sink.h` to the public `ports` label.
+
+The serial package follows the same rule. The facade (`serial/facade`), the
+remote backend (`serial/remote`), the websocket device (`serial/websocket`) and
+the recording log sink (`serial/testing/log_sink`) are moc children; the backend
+interface, facade codes, backend host, factory, idle-state adapter and
+`qtrohelper.hpp` are plain generated libraries in the parent. Replica
+generation stays hand-owned, and the remote package resolves the generated
+`rep_serial_port_actions_replica.h` to it. The facade-threading test keeps its
+custom main as an excluded source with a narrow source-entry keep. The direct
+backend and the J2534 selector remain hand-owned until they migrate.

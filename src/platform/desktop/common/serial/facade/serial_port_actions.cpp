@@ -1,8 +1,8 @@
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
 
 #include <utility>
 
-#include "serial_backend_host.h"
+#include "src/platform/desktop/common/serial/serial_backend_host.h"
 
 SerialPortActions::SerialPortActions(std::function<SerialBackend *()> backend_factory, QObject *parent)
     : QObject{parent}, backendFactory(std::move(backend_factory))

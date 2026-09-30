@@ -2,7 +2,7 @@
 
 #include <QSerialPort>
 
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
 
 namespace fastecu::desktop::serial
 {
