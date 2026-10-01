@@ -1241,192 +1241,135 @@ class SubaruDensoSh7055_02Workflow final : public FlashWorkflow
     FlashAttemptOutcome outcome_;
 };
 
-class ColtWorkflow final : public FlashWorkflow
+// The prompt that collects each confirmation a single-attempt plan can carry,
+// arguments unchanged. The other ids belong to workflows with their own
+// staging; meeting one here is a routing defect, reported before any prompt
+// or hardware access.
+Result<FlashPromptStep> confirmationPrompt(const ConfirmationSpec& confirmation)
+{
+    using enum ConfirmationSpec::Id;
+    switch (confirmation.id)
+    {
+    case CycleIgnition:
+        return FlashPromptStep{FlashPromptKind::CycleIgnition, confirmation.arguments};
+    case EraseTrigger:
+        return FlashPromptStep{FlashPromptKind::ColtEraseTrigger, confirmation.arguments};
+    case TopRegionBootstrap:
+        return FlashPromptStep{FlashPromptKind::ColtTopRegionBootstrap, confirmation.arguments};
+    case BeginEepromRead:
+    case InspectEepromBytes:
+    case ApplyProgrammingVoltage:
+    case ApplyBootModeVoltages:
+        break;
+    }
+    return fail(ErrorKind::Internal,
+                std::format("confirmation {} has no single-attempt prompt", static_cast<int>(confirmation.id)));
+}
+
+// Begin, then one prompt per plan confirmation, in plan order.
+Result<std::vector<FlashPromptStep>> promptSequence(const FlashPlan& plan)
+{
+    std::vector<FlashPromptStep> prompts{FlashPromptStep{FlashPromptKind::Begin, {}}};
+    for (const ConfirmationSpec& confirmation : plan.confirmations())
+    {
+        Result<FlashPromptStep> prompt = confirmationPrompt(confirmation);
+        if (!prompt.has_value())
+        {
+            return std::unexpected(prompt.error());
+        }
+        prompts.push_back(std::move(*prompt));
+    }
+    return prompts;
+}
+
+using KernelFreePlanBuilder = Result<FlashPlan> (*)(FlashOperation, std::string_view, std::string_view,
+                                                    std::optional<bytes::Bytes>);
+using KernelBackedPlanBuilder = Result<FlashPlan> (*)(FlashOperation, std::string_view, std::string_view,
+                                                      std::optional<bytes::Bytes>, KernelImage);
+
+// Plan preparation for a kernel-free family: the builder needs no I/O, so the
+// plan is built with the workflow.
+template <KernelFreePlanBuilder Build> class EagerPlan
 {
   public:
-    explicit ColtWorkflow(FlashWorkflowRequest request)
-        : request_(std::move(request)), plan_(build_mitsu_colt_m32r_can_plan(request_.operation, request_.protocol,
-                                                                             request_.mcu, std::move(request_.image)))
+    explicit EagerPlan(FlashWorkflowRequest& request)
+        : plan_(Build(request.operation, request.protocol, request.mcu, std::move(request.image)))
     {
     }
 
-    FlashWorkflowStep next() override
+    Result<FlashPlan>& plan(const FlashWorkflowRequest&)
     {
-        if (!plan_)
-        {
-            return FlashFailureStep{plan_.error()};
-        }
-        if (outcome_.hasFailure())
-        {
-            return outcome_.takeFailure();
-        }
-        if (outcome_.terminal())
-        {
-            return outcome_.completedStep();
-        }
-        if (stage_ == 0)
-        {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        if (const auto confirmations = plan_->confirmations(); stage_ <= confirmations.size())
-        {
-            const auto& spec = confirmations[stage_ - 1];
-            return FlashPromptStep{spec.id == ConfirmationSpec::Id::EraseTrigger
-                                       ? FlashPromptKind::ColtEraseTrigger
-                                       : FlashPromptKind::ColtTopRegionBootstrap,
-                                   spec.arguments};
-        }
-        if (!attempted_)
-        {
-            attempted_ = true;
-            FlashPlan plan = std::move(*plan_);
-            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(plan), std::make_unique<MitsuColtM32rCanExecutor>(),
-                                                        std::make_unique<DesktopCanFlashTransport>(request_.serial)),
-                                     std::make_unique<QtClock>()};
-        }
-        return outcome_.completedStep();
-    }
-
-    void submit(FlashPromptResponse response) override
-    {
-        if (response != FlashPromptResponse::Accept)
-        {
-            outcome_.cancel();
-            return;
-        }
-        ++stage_;
-    }
-
-    void submit(FlashAttemptResult result) override
-    {
-        outcome_.record(std::move(result));
+        return plan_;
     }
 
   private:
-    FlashWorkflowRequest request_;
     Result<FlashPlan> plan_;
-    std::size_t stage_ = 0;
-    bool attempted_ = false;
-    FlashAttemptOutcome outcome_;
 };
 
-// Shared shape for every kernel-free, no-confirmation, single-attempt CAN
-// family in this file (step 5 tail wave 3): build the plan in the
-// constructor, prompt once, run the single executor attempt, report the
-// outcome. The four families below are compile-time-distinct only in which
-// plan builder and executor type they use, so they instantiate this
-// template rather than duplicating the ~50-line class body per family.
-template <typename ExecutorT, Result<FlashPlan> (*BuildPlan)(FlashOperation, std::string_view, std::string_view,
-                                                             std::optional<bytes::Bytes>)>
-class SimpleCanFlashWorkflow final : public FlashWorkflow
+// Plan preparation for a kernel-backed family: the catalog and kernel file are
+// read on the first next(), before Begin, and the result is kept. A missing
+// kernel therefore fails before any prompt, and the attempt carries the
+// kernel snapshot taken then even if the files change afterward.
+template <KernelBackedPlanBuilder Build> class CachedKernelPlan
 {
   public:
-    explicit SimpleCanFlashWorkflow(FlashWorkflowRequest request)
-        : request_(std::move(request)),
-          plan_(BuildPlan(request_.operation, request_.protocol, request_.mcu, std::move(request_.image)))
+    explicit CachedKernelPlan(const FlashWorkflowRequest&)
     {
     }
 
-    FlashWorkflowStep next() override
-    {
-        if (!plan_)
-        {
-            return FlashFailureStep{plan_.error()};
-        }
-        if (outcome_.hasFailure())
-        {
-            return outcome_.takeFailure();
-        }
-        if (outcome_.terminal())
-        {
-            return outcome_.completedStep();
-        }
-        if (!began_)
-        {
-            began_ = true;
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        if (!attempted_)
-        {
-            attempted_ = true;
-            FlashPlan plan = std::move(*plan_);
-            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(plan), std::make_unique<ExecutorT>(),
-                                                        std::make_unique<DesktopCanFlashTransport>(request_.serial)),
-                                     std::make_unique<QtClock>()};
-        }
-        return outcome_.completedStep();
-    }
-
-    void submit(FlashPromptResponse response) override
-    {
-        if (response != FlashPromptResponse::Accept)
-        {
-            outcome_.cancel();
-        }
-    }
-
-    void submit(FlashAttemptResult result) override
-    {
-        outcome_.record(std::move(result));
-    }
-
-  private:
-    FlashWorkflowRequest request_;
-    Result<FlashPlan> plan_;
-    bool began_ = false;
-    bool attempted_ = false;
-    FlashAttemptOutcome outcome_;
-};
-
-using SubaruHitachiM32rCanWorkflow =
-    SimpleCanFlashWorkflow<SubaruHitachiM32rCanExecutor, &build_subaru_hitachi_m32r_can_plan>;
-using SubaruTcuCvtHitachiM32rCanWorkflow =
-    SimpleCanFlashWorkflow<SubaruTcuCvtHitachiM32rCanExecutor, &build_subaru_tcu_cvt_hitachi_m32r_can_plan>;
-using SubaruTcuCvtMitsuMh8111CanWorkflow =
-    SimpleCanFlashWorkflow<SubaruTcuCvtMitsuMh8111CanExecutor, &build_subaru_tcu_cvt_mitsu_mh8111_can_plan>;
-using SubaruTcuCvtMitsuMh8104CanWorkflow =
-    SimpleCanFlashWorkflow<SubaruTcuCvtMitsuMh8104CanExecutor, &build_subaru_tcu_cvt_mitsu_mh8104_can_plan>;
-using SubaruDenso1n83m_1_5mCanWorkflow =
-    SimpleCanFlashWorkflow<SubaruDenso1n83m_1_5mCanExecutor, &build_subaru_denso_1n83m_1_5m_can_plan>;
-using SubaruDensoSh72531CanWorkflow =
-    SimpleCanFlashWorkflow<SubaruDensoSh72531CanExecutor, &build_subaru_denso_sh72531_can_plan>;
-using SubaruDensoSh72543CanDieselWorkflow =
-    SimpleCanFlashWorkflow<SubaruDensoSh72543CanDieselExecutor, &build_subaru_denso_sh72543_can_diesel_plan>;
-using SubaruDenso1n83m_4mCanWorkflow =
-    SimpleCanFlashWorkflow<SubaruDenso1n83m_4mCanExecutor, &build_subaru_denso_1n83m_4m_can_plan>;
-
-template <typename ExecutorT,
-          Result<FlashPlan> (*BuildPlan)(FlashOperation, std::string_view, std::string_view,
-                                         std::optional<bytes::Bytes>, KernelImage),
-          typename TransportT>
-class KernelBackedCanFlashWorkflow final : public FlashWorkflow
-{
-  public:
-    explicit KernelBackedCanFlashWorkflow(FlashWorkflowRequest request) : request_(std::move(request))
-    {
-    }
-
-    FlashWorkflowStep next() override
+    Result<FlashPlan>& plan(FlashWorkflowRequest& request)
     {
         if (!plan_.has_value())
         {
-            QtFileRepository repository;
-            Result<KernelImage> kernel = resolveKernel(request_, repository);
-            if (!kernel.has_value())
-            {
-                plan_ = std::unexpected(kernel.error());
-            }
-            else
-            {
-                plan_ = BuildPlan(request_.operation, request_.protocol, request_.mcu, std::move(request_.image),
-                                  std::move(*kernel));
-            }
+            plan_ = prepare(request);
         }
-        if (!plan_->has_value())
+        return *plan_;
+    }
+
+  private:
+    static Result<FlashPlan> prepare(FlashWorkflowRequest& request)
+    {
+        QtFileRepository repository;
+        Result<KernelImage> kernel = resolveKernel(request, repository);
+        if (!kernel.has_value())
         {
-            return FlashFailureStep{plan_->error()};
+            return std::unexpected(kernel.error());
+        }
+        return Build(request.operation, request.protocol, request.mcu, std::move(request.image), std::move(*kernel));
+    }
+
+    std::optional<Result<FlashPlan>> plan_;
+};
+
+// The control flow shared by every family whose operation is one attempt:
+// preflight, Begin, the plan's confirmations in order, the attempt, then its
+// result. Accepting a prompt advances to the next one; any other response
+// cancels before the attempt is made. Families differ only in the executor,
+// the desktop transport bound to it (bind_flash_attempt rejects a mismatch at
+// compile time), and how the plan is prepared.
+template <typename Executor, typename Transport, typename Preparation>
+class SingleAttemptFlashWorkflow final : public FlashWorkflow
+{
+  public:
+    explicit SingleAttemptFlashWorkflow(FlashWorkflowRequest request)
+        : request_(std::move(request)), preparation_(request_)
+    {
+    }
+
+    FlashWorkflowStep next() override
+    {
+        Result<FlashPlan>& plan = preparation_.plan(request_);
+        if (!plan.has_value())
+        {
+            return FlashFailureStep{plan.error()};
+        }
+        if (!prompts_.has_value())
+        {
+            prompts_ = promptSequence(*plan);
+        }
+        if (!prompts_->has_value())
+        {
+            return FlashFailureStep{prompts_->error()};
         }
         if (outcome_.hasFailure())
         {
@@ -1436,24 +1379,16 @@ class KernelBackedCanFlashWorkflow final : public FlashWorkflow
         {
             return outcome_.completedStep();
         }
-        if (!begun_)
+        if (const std::vector<FlashPromptStep>& prompts = **prompts_; accepted_ < prompts.size())
         {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        const auto confirmations = (*plan_)->confirmations();
-        if (confirmation_index_ < confirmations.size())
-        {
-            const ConfirmationSpec& confirmation = confirmations[confirmation_index_];
-            assert(confirmation.id == ConfirmationSpec::Id::CycleIgnition);
-            return FlashPromptStep{FlashPromptKind::CycleIgnition, confirmation.arguments};
+            return prompts[accepted_];
         }
         if (!attempted_)
         {
             attempted_ = true;
-            FlashPlan plan = std::move(**plan_);
             return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(plan), std::make_unique<ExecutorT>(),
-                                                        std::make_unique<TransportT>(request_.serial)),
+                                     bind_flash_attempt(std::move(*plan), std::make_unique<Executor>(),
+                                                        std::make_unique<Transport>(request_.serial)),
                                      std::make_unique<QtClock>()};
         }
         return outcome_.completedStep();
@@ -1466,14 +1401,7 @@ class KernelBackedCanFlashWorkflow final : public FlashWorkflow
             outcome_.cancel();
             return;
         }
-        if (!begun_)
-        {
-            begun_ = true;
-        }
-        else
-        {
-            ++confirmation_index_;
-        }
+        ++accepted_;
     }
 
     void submit(FlashAttemptResult result) override
@@ -1483,32 +1411,56 @@ class KernelBackedCanFlashWorkflow final : public FlashWorkflow
 
   private:
     FlashWorkflowRequest request_;
-    std::optional<Result<FlashPlan>> plan_;
-    bool begun_ = false;
-    std::size_t confirmation_index_ = 0;
+    Preparation preparation_;
+    std::optional<Result<std::vector<FlashPromptStep>>> prompts_;
+    std::size_t accepted_ = 0;
     bool attempted_ = false;
     FlashAttemptOutcome outcome_;
 };
 
+template <typename Executor, KernelFreePlanBuilder Build>
+using KernelFreeCanWorkflow = SingleAttemptFlashWorkflow<Executor, DesktopCanFlashTransport, EagerPlan<Build>>;
+
+template <typename Executor, typename Transport, KernelBackedPlanBuilder Build>
+using KernelBackedWorkflow = SingleAttemptFlashWorkflow<Executor, Transport, CachedKernelPlan<Build>>;
+
+// Colt write plans carry EraseTrigger, and the 512 KiB variants also
+// TopRegionBootstrap; read plans carry neither.
+using ColtWorkflow = KernelFreeCanWorkflow<MitsuColtM32rCanExecutor, &build_mitsu_colt_m32r_can_plan>;
+using SubaruHitachiM32rCanWorkflow =
+    KernelFreeCanWorkflow<SubaruHitachiM32rCanExecutor, &build_subaru_hitachi_m32r_can_plan>;
+using SubaruTcuCvtHitachiM32rCanWorkflow =
+    KernelFreeCanWorkflow<SubaruTcuCvtHitachiM32rCanExecutor, &build_subaru_tcu_cvt_hitachi_m32r_can_plan>;
+using SubaruTcuCvtMitsuMh8111CanWorkflow =
+    KernelFreeCanWorkflow<SubaruTcuCvtMitsuMh8111CanExecutor, &build_subaru_tcu_cvt_mitsu_mh8111_can_plan>;
+using SubaruTcuCvtMitsuMh8104CanWorkflow =
+    KernelFreeCanWorkflow<SubaruTcuCvtMitsuMh8104CanExecutor, &build_subaru_tcu_cvt_mitsu_mh8104_can_plan>;
+using SubaruDenso1n83m_1_5mCanWorkflow =
+    KernelFreeCanWorkflow<SubaruDenso1n83m_1_5mCanExecutor, &build_subaru_denso_1n83m_1_5m_can_plan>;
+using SubaruDensoSh72531CanWorkflow =
+    KernelFreeCanWorkflow<SubaruDensoSh72531CanExecutor, &build_subaru_denso_sh72531_can_plan>;
+using SubaruDensoSh72543CanDieselWorkflow =
+    KernelFreeCanWorkflow<SubaruDensoSh72543CanDieselExecutor, &build_subaru_denso_sh72543_can_diesel_plan>;
+using SubaruDenso1n83m_4mCanWorkflow =
+    KernelFreeCanWorkflow<SubaruDenso1n83m_4mCanExecutor, &build_subaru_denso_1n83m_4m_can_plan>;
+
+// DensoCAN plans carry exactly one CycleIgnition confirmation; the other
+// kernel-backed plans carry none.
 using SubaruDensoSh705xDensoCanWorkflow =
-    KernelBackedCanFlashWorkflow<SubaruDensoSh705xDensoCanExecutor, &build_subaru_denso_sh705x_densocan_plan,
-                                 DesktopMixedCanFlashTransport>;
-using SubaruTcuDensoSh705xCanWorkflow =
-    KernelBackedCanFlashWorkflow<SubaruTcuDensoSh705xCanExecutor, &build_subaru_tcu_denso_sh705x_can_plan,
-                                 DesktopCanFlashTransport>;
+    KernelBackedWorkflow<SubaruDensoSh705xDensoCanExecutor, DesktopMixedCanFlashTransport,
+                         &build_subaru_denso_sh705x_densocan_plan>;
+using SubaruTcuDensoSh705xCanWorkflow = KernelBackedWorkflow<SubaruTcuDensoSh705xCanExecutor, DesktopCanFlashTransport,
+                                                             &build_subaru_tcu_denso_sh705x_can_plan>;
 using SubaruDensoSh7058CanWorkflow =
-    KernelBackedCanFlashWorkflow<SubaruDensoSh7058CanExecutor, &build_subaru_denso_sh7058_can_plan,
-                                 DesktopCanFlashTransport>;
+    KernelBackedWorkflow<SubaruDensoSh7058CanExecutor, DesktopCanFlashTransport, &build_subaru_denso_sh7058_can_plan>;
 using SubaruDensoSh7058CanDieselWorkflow =
-    KernelBackedCanFlashWorkflow<SubaruDensoSh7058CanDieselExecutor, &build_subaru_denso_sh7058_can_diesel_plan,
-                                 DesktopCanFlashTransport>;
-// Wave 6b-2. The template is transport-parameterised; this family's plans
-// carry no ConfirmationSpec, so the sequence is kernel resolved on the first
-// step, the shared Begin prompt -- the legacy dialog's only prompt, "Turn
-// ignition ON" -- then the attempt.
-using SubaruDensoSh705xKlineWorkflow =
-    KernelBackedCanFlashWorkflow<SubaruDensoSh705xKlineExecutor, &build_subaru_denso_sh705x_kline_plan,
-                                 DesktopKlineFlashTransport>;
+    KernelBackedWorkflow<SubaruDensoSh7058CanDieselExecutor, DesktopCanFlashTransport,
+                         &build_subaru_denso_sh7058_can_diesel_plan>;
+// Wave 6b-2. The sequence is the kernel resolved on the first step, the shared
+// Begin prompt -- the legacy dialog's only prompt, "Turn ignition ON" -- then
+// the attempt.
+using SubaruDensoSh705xKlineWorkflow = KernelBackedWorkflow<SubaruDensoSh705xKlineExecutor, DesktopKlineFlashTransport,
+                                                            &build_subaru_denso_sh705x_kline_plan>;
 
 class EepromWorkflow final : public FlashWorkflow
 {
