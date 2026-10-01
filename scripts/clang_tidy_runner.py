@@ -708,12 +708,17 @@ def run_workflow(
 
     with tempfile.TemporaryDirectory(prefix="fastecu-clang-tidy-") as directory:
         temp_root = Path(directory).resolve()
-        filtered_database = (temp_root / "compile_commands.json").resolve()
-        if not filtered_database.is_relative_to(temp_root):
+        filtered_database = temp_root / "compile_commands.json"
+        try:
+            # Exclusive creation refuses existing files and symlinks, even if
+            # the temporary directory is modified between creation and this write.
+            with filtered_database.open("x", encoding="utf-8") as database_stream:
+                json.dump(entries, database_stream, indent=2)
+                database_stream.write("\n")
+        except (OSError, UnicodeError) as error:
             raise WorkflowError(
-                "internal error: filtered compilation database escaped its temp directory"
-            )
-        filtered_database.write_text(json.dumps(entries, indent=2) + "\n")
+                f"could not create filtered compilation database: {error}"
+            ) from error
         command = _executable_command(tools.run_clang_tidy, platform_name=platform_name) + [
             "-clang-tidy-binary",
             tools.clang_tidy,

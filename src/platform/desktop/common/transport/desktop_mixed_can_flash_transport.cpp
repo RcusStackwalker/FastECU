@@ -220,7 +220,7 @@ Result<std::optional<cdbg::CanFrame>> DesktopMixedCanFlashTransport::read_raw(st
 
 void DesktopMixedCanFlashTransport::request_unblock() noexcept
 {
-    unblock_requested_.store(true, std::memory_order_release);
+    unblock_requested_.store(true);
 }
 
 Status DesktopMixedCanFlashTransport::configure_iso(const MixedCanConfig& config)
@@ -394,7 +394,7 @@ Status DesktopMixedCanFlashTransport::io_ready(Mode required_mode, std::string_v
 
 Status DesktopMixedCanFlashTransport::write_serial(bytes::ByteView data, const ICancellationToken& cancellation)
 {
-    if (cancellation.cancelled() || unblock_requested_.load(std::memory_order_acquire))
+    if (cancellation.cancelled() || unblock_requested_.load())
     {
         return fail(ErrorKind::Cancelled, "mixed CAN write skipped due to cancellation/unblock");
     }
@@ -424,7 +424,7 @@ Status DesktopMixedCanFlashTransport::write_serial(bytes::ByteView data, const I
 Result<std::optional<bytes::Bytes>> DesktopMixedCanFlashTransport::read_serial(std::chrono::milliseconds timeout,
                                                                                const ICancellationToken& cancellation)
 {
-    if (cancellation.cancelled() || unblock_requested_.load(std::memory_order_acquire))
+    if (cancellation.cancelled() || unblock_requested_.load())
     {
         return fail(ErrorKind::Cancelled, "mixed CAN read skipped due to cancellation/unblock");
     }

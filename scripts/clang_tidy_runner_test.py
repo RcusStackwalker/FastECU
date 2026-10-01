@@ -6,7 +6,7 @@ import re
 import subprocess
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import nullcontext, redirect_stdout
 from io import StringIO
 from pathlib import Path, PurePath
 from unittest import mock
@@ -326,6 +326,30 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertEqual(runner.sys.executable, commands[1][0])
         self.assertEqual("C:/LLVM/bin/run-clang-tidy", commands[1][1])
         self.assertIn("-clang-tidy-binary", commands[1])
+
+    def test_filtered_database_refuses_existing_symlink(self) -> None:
+        _, fake_run = self.prebuild_fixture()
+        temp_root = self.root / "analysis-temp"
+        temp_root.mkdir()
+        victim = temp_root / "victim.json"
+        victim.write_text("do not overwrite\n")
+        (temp_root / "compile_commands.json").symlink_to(victim)
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS),
+            mock.patch.object(
+                runner.tempfile, "TemporaryDirectory", return_value=nullcontext(str(temp_root))
+            ),
+            self.assertRaises(runner.WorkflowError),
+        ):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_UNIX_COMPDB_TOOL,
+                platform_name="linux",
+                environ={},
+                command_runner=fake_run,
+            )
+        self.assertEqual(victim.read_text(), "do not overwrite\n")
 
     def test_windows_fix_is_rejected_before_refresh(self) -> None:
         command_runner = mock.Mock()
