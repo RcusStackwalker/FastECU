@@ -282,10 +282,34 @@ QByteArray frame(std::initializer_list<int> values)
 // A valid SSM2 ECU init response carrying ECU ID 3152584006.
 const QByteArray kEcuInit = frame({0x80, 0xF0, 0x10, 0x09, 0xFF, 0xA2, 0x10, 0x11, 0x31, 0x52, 0x58, 0x40, 0x06, 0x6C});
 
-bool triggerMenu(MainWindow& window, const char *command)
+// An action as the tests name it: `legacy_id` is the runtime-built menu's
+// objectName (menu.cfg id), `member` the name it has once the menu is static.
+struct ActionName
+{
+    const char *legacy_id;
+    const char *member;
+};
+
+constexpr ActionName kToggleRealtime{"toggle_realtime", "actionToggleRealtime"};
+constexpr ActionName kLogToFile{"log_to_file", "actionLogToFile"};
+constexpr ActionName kConnectToEcu{"connect_to_ecu", "actionConnectToEcu"};
+constexpr ActionName kDisconnectFromEcu{"disconnect_from_ecu", "actionDisconnectFromEcu"};
+constexpr ActionName kReadRomFromEcu{"read_rom_from_ecu", "actionReadRomFromEcu"};
+constexpr ActionName kTestWriteRomToEcu{"test_write_rom_to_ecu", "actionTestWriteRomToEcu"};
+constexpr ActionName kWriteRomToEcu{"write_rom_to_ecu", "actionWriteRomToEcu"};
+constexpr ActionName kDtcWindow{"dtc_window", "actionDtcWindow"};
+constexpr ActionName kBiuCommunication{"biu_communication", "actionBiuCommunication"};
+constexpr ActionName kTerminal{"terminal", "actionTerminal"};
+
+QAction *menuAction(MainWindow& window, const ActionName& name)
+{
+    return window.findChild<QAction *>(QString::fromLatin1(name.legacy_id));
+}
+
+bool triggerMenu(MainWindow& window, const ActionName& name)
 {
     return QMetaObject::invokeMethod(&window, "menu_action_triggered", Qt::DirectConnection,
-                                     Q_ARG(QString, QString::fromLatin1(command)));
+                                     Q_ARG(QString, QString::fromLatin1(name.legacy_id)));
 }
 
 // The services DesktopComposition builds in the real app. The channels are
@@ -441,9 +465,7 @@ class MainWindowTest : public ::testing::Test
         window.vbatt_timer->stop();
         window.ecu_init_complete = true;
         window.protocol = log_protocol;
-        auto *menu = window.ui->menubar->addMenu("Test logging");
-        auto *action = menu->addAction("Logging");
-        action->setCheckable(true);
+        QAction *action = menuAction(window, kToggleRealtime);
         installLoggingFixture(window,
                               {.parameters = {{.protocol = log_protocol.toStdString(),
                                                .id = "rpm",
@@ -500,6 +522,10 @@ class MainWindowTest : public ::testing::Test
     void check_acceptedProtocolChoiceSelectsTheLastMatchingRow();
     void check_romFlashMethodSelectsTheLastMatchingRow();
     void check_unmatchedRomFlashMethodChangesNothing();
+    void check_restoreLoggingUiStateUnchecksLogging();
+    void check_setRealtimeStateChecksAndUnchecksLogging();
+    void check_identificationDisablesLoggingAndConnectButNotDisconnect();
+    void check_logToFileActionDrivesWriteDatalogToFile();
     void check_unresolvedProtocolRowLeavesReadAndWriteUnavailable();
     void check_loggingUsesTheSessionLogProtocol();
     void check_selectedSerialPortIsEmptyWithoutPorts();
@@ -568,13 +594,6 @@ void MainWindowTest::SetUpTestSuite()
     <setting name="logger_definition_file"><value data="logger.cfg"/></setting>
     <setting name="datalog_files_directory"><value data="datalogs/"/></setting>
   </software_settings>
-</config>
-)"));
-    ASSERT_TRUE(writeTextFile(config_dir + "menu.cfg",
-                              R"(<?xml version="1.0" encoding="UTF-8"?>
-<config name="FastECU" version="0.0-dev0">
-  <ecu_menu_definitions/>
-  <popup_menu_definitions/>
 </config>
 )"));
     ASSERT_TRUE(writeTextFile(config_dir + "logger.cfg",
@@ -2105,8 +2124,7 @@ void MainWindowTest::check_loggingCapturesTargetForEachRun()
         window.ecu_radio_button->setAutoExclusive(false);
         window.ecu_radio_button->setChecked(target);
         action->setChecked(true);
-        ASSERT_TRUE(QMetaObject::invokeMethod(&window, "menu_action_triggered", Qt::DirectConnection,
-                                              Q_ARG(QString, QStringLiteral("toggle_realtime"))));
+        ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
         ASSERT_TRUE(window.activeLoggingSnapshot.has_value());
         ASSERT_EQ(window.activeLoggingSnapshot->target_is_ecu, target);
         services.logging_engine.stop();
@@ -2541,6 +2559,114 @@ TEST_F(MainWindowTest, unmatchedRomFlashMethodChangesNothing)
     ASSERT_NO_FATAL_FAILURE(check_unmatchedRomFlashMethodChangesNothing());
 }
 
+void MainWindowTest::check_restoreLoggingUiStateUnchecksLogging()
+{
+    ModalDriver constructor_driver{QString()};
+    constructor_driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    constructor_driver.stop();
+
+    QAction *logging = menuAction(window, kToggleRealtime);
+    ASSERT_NE(logging, nullptr);
+    ASSERT_TRUE(logging->isCheckable());
+    logging->setChecked(true);
+    window.logging_state = true;
+
+    window.restoreLoggingUiState();
+
+    EXPECT_FALSE(logging->isChecked());
+    EXPECT_FALSE(window.logging_state);
+}
+
+TEST_F(MainWindowTest, restoreLoggingUiStateUnchecksLogging)
+{
+    ASSERT_NO_FATAL_FAILURE(check_restoreLoggingUiStateUnchecksLogging());
+}
+
+void MainWindowTest::check_setRealtimeStateChecksAndUnchecksLogging()
+{
+    ModalDriver constructor_driver{QString()};
+    constructor_driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    constructor_driver.stop();
+
+    QAction *logging = menuAction(window, kToggleRealtime);
+    ASSERT_NE(logging, nullptr);
+
+    window.set_realtime_state(true);
+    EXPECT_TRUE(logging->isChecked());
+    window.set_realtime_state(false);
+    EXPECT_FALSE(logging->isChecked());
+}
+
+TEST_F(MainWindowTest, setRealtimeStateChecksAndUnchecksLogging)
+{
+    ASSERT_NO_FATAL_FAILURE(check_setRealtimeStateChecksAndUnchecksLogging());
+}
+
+void MainWindowTest::check_identificationDisablesLoggingAndConnectButNotDisconnect()
+{
+    ModalDriver constructor_driver{QString()};
+    constructor_driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    constructor_driver.stop();
+
+    QAction *logging = menuAction(window, kToggleRealtime);
+    QAction *connect_action = menuAction(window, kConnectToEcu);
+    QAction *disconnect_action = menuAction(window, kDisconnectFromEcu);
+    ASSERT_NE(logging, nullptr);
+    ASSERT_NE(connect_action, nullptr);
+    ASSERT_NE(disconnect_action, nullptr);
+
+    window.set_identification_in_progress(true);
+    EXPECT_FALSE(logging->isEnabled());
+    EXPECT_FALSE(connect_action->isEnabled());
+    EXPECT_TRUE(disconnect_action->isEnabled());
+
+    window.set_identification_in_progress(false);
+    EXPECT_TRUE(logging->isEnabled());
+    EXPECT_TRUE(connect_action->isEnabled());
+    EXPECT_TRUE(disconnect_action->isEnabled());
+}
+
+TEST_F(MainWindowTest, identificationDisablesLoggingAndConnectButNotDisconnect)
+{
+    ASSERT_NO_FATAL_FAILURE(check_identificationDisablesLoggingAndConnectButNotDisconnect());
+}
+
+void MainWindowTest::check_logToFileActionDrivesWriteDatalogToFile()
+{
+    ModalDriver constructor_driver{QString()};
+    constructor_driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    constructor_driver.stop();
+
+    QAction *log_to_file = menuAction(window, kLogToFile);
+    ASSERT_NE(log_to_file, nullptr);
+    ASSERT_TRUE(log_to_file->isCheckable());
+
+    log_to_file->setChecked(true);
+    window.toggle_log_to_file();
+    EXPECT_TRUE(window.write_datalog_to_file);
+
+    log_to_file->setChecked(false);
+    window.toggle_log_to_file();
+    EXPECT_FALSE(window.write_datalog_to_file);
+}
+
+TEST_F(MainWindowTest, logToFileActionDrivesWriteDatalogToFile)
+{
+    ASSERT_NO_FATAL_FAILURE(check_logToFileActionDrivesWriteDatalogToFile());
+}
+
 void MainWindowTest::check_unresolvedProtocolRowLeavesReadAndWriteUnavailable()
 {
     ModalDriver constructor_driver{QString()};
@@ -2550,11 +2676,12 @@ void MainWindowTest::check_unresolvedProtocolRowLeavesReadAndWriteUnavailable()
     MainWindow window{services.services()};
     constructor_driver.stop();
 
-    // The fixture's menu.cfg is empty; add the three actions
-    // set_flash_arrow_state looks up by text.
-    auto *menu = window.ui->menubar->addMenu("Test flash");
-    const QList<QAction *> actions{menu->addAction("Read from ecu"), menu->addAction("Test write to ecu"),
-                                   menu->addAction("Write to ecu")};
+    const QList<QAction *> actions{menuAction(window, kReadRomFromEcu), menuAction(window, kTestWriteRomToEcu),
+                                   menuAction(window, kWriteRomToEcu)};
+    for (QAction *action : actions)
+    {
+        ASSERT_NE(action, nullptr);
+    }
 
     // A resolved row with every capability enables all three...
     ASSERT_NO_FATAL_FAILURE(selectProtocol(window, "sub_ecu_denso_sh7058_can"));
@@ -2647,10 +2774,9 @@ void MainWindowTest::check_dtcWindowWithoutAPortWarnsInsteadOfCrashing()
     EXPECT_CALL(*services.fake, set_serial_port_list(::testing::_)).Times(0);
     ModalDriver driver{QString()};
     driver.start();
-    for (const char *command : {"dtc_window", "biu_communication", "terminal"})
+    for (const ActionName& command : {kDtcWindow, kBiuCommunication, kTerminal})
     {
-        ASSERT_TRUE(QMetaObject::invokeMethod(&window, "menu_action_triggered", Qt::DirectConnection,
-                                              Q_ARG(QString, QString::fromLatin1(command))));
+        ASSERT_TRUE(triggerMenu(window, command));
     }
     driver.stop();
     ASSERT_TRUE(!driver.timedOut());
@@ -2721,7 +2847,7 @@ void MainWindowTest::check_biuWindowRemembersTheOpenedPort()
 
     ModalDriver driver{QString()};
     driver.start();
-    ASSERT_TRUE(triggerMenu(window, "biu_communication"));
+    ASSERT_TRUE(triggerMenu(window, kBiuCommunication));
     driver.stop();
 
     // As open_serial_port did for the legacy BIU path: the chosen port is
@@ -2754,8 +2880,7 @@ void MainWindowTest::check_disconnectReturnsTheAdapterToIdle()
         EXPECT_CALL(*services.fake, set_serial_port_parity(0));
     }
     EXPECT_CALL(*services.fake, set_is_can_connection(::testing::_)).Times(0);
-    ASSERT_TRUE(QMetaObject::invokeMethod(&window, "menu_action_triggered", Qt::DirectConnection,
-                                          Q_ARG(QString, QStringLiteral("disconnect_from_ecu"))));
+    ASSERT_TRUE(triggerMenu(window, kDisconnectFromEcu));
     // Check now, so facade teardown cannot over-saturate the expectations.
     ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(services.fake));
     ASSERT_TRUE(window.serial_port_list->isEnabled());
@@ -2781,7 +2906,7 @@ void MainWindowTest::check_connectOnAnotherMakeDisconnectsWithoutIdentifying()
 
     QElapsedTimer elapsed;
     elapsed.start();
-    ASSERT_TRUE(triggerMenu(window, "connect_to_ecu"));
+    ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     ASSERT_TRUE(elapsed.elapsed() < 1000); // the legacy loop waited 2.5 s here
     ASSERT_TRUE(window.identify_worker_ == nullptr);
     ASSERT_TRUE(!window.ecu_init_complete);
@@ -2813,7 +2938,7 @@ void MainWindowTest::check_subaruKlineConnectIdentifiesOffTheUiThread()
             }))
         .WillRepeatedly(::testing::Return(QByteArray{}));
 
-    ASSERT_TRUE(triggerMenu(window, "connect_to_ecu"));
+    ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     ASSERT_TRUE(window.identify_worker_ != nullptr);
     ASSERT_TRUE(!window.log_transport_list->isEnabled());
     ASSERT_TRUE(!window.serial_port_list->isEnabled());
@@ -2846,7 +2971,7 @@ void MainWindowTest::check_subaruConnectThatNeverAnswersDisconnectsAndRestoresCo
     constructor_driver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
 
-    ASSERT_TRUE(triggerMenu(window, "connect_to_ecu"));
+    ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return window.identify_worker_ == nullptr; },
                                              std::chrono::milliseconds(15000)));
     ASSERT_TRUE(!window.ecu_init_complete);
@@ -2873,11 +2998,11 @@ void MainWindowTest::check_disconnectDuringIdentificationCancelsAndDropsTheResul
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
 
     EXPECT_CALL(*services.fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(kEcuInit));
-    ASSERT_TRUE(triggerMenu(window, "connect_to_ecu"));
+    ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     ASSERT_TRUE(window.identify_worker_ != nullptr);
     // Leave a successful completion queued on the UI thread before cancelling.
     ASSERT_TRUE(window.identify_worker_->wait(5000));
-    ASSERT_TRUE(triggerMenu(window, "disconnect_from_ecu"));
+    ASSERT_TRUE(triggerMenu(window, kDisconnectFromEcu));
     ASSERT_TRUE(window.identify_worker_ == nullptr);
     ASSERT_TRUE(window.log_transport_list->isEnabled());
     ASSERT_TRUE(window.serial_port_list->isEnabled());
@@ -3200,9 +3325,7 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu
                 return frame({0x00, 0x00, 0x07, 0xE8, 0x62, 0xF1, 0x82, 0x12, 0x34, 0x56, 0x78, 0x9A});
             }))
         .WillRepeatedly(::testing::Return(QByteArray{}));
-    auto *menu = window.ui->menubar->addMenu("Test logging");
-    auto *action = menu->addAction("Logging");
-    action->setCheckable(true);
+    QAction *action = menuAction(window, kToggleRealtime);
     installLoggingFixture(window,
                           {.parameters = {{.protocol = std::string("SSM"),
                                            .id = "rpm",
@@ -3228,7 +3351,7 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu
         });
 
     action->setChecked(true);
-    ASSERT_TRUE(triggerMenu(window, "toggle_realtime"));
+    ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
     ASSERT_TRUE(!window.activeLoggingSnapshot.has_value()); // still identifying
     (target_is_ecu ? window.tcu_radio_button : window.ecu_radio_button)->click();
     response_gate.release();
@@ -3257,7 +3380,7 @@ void MainWindowTest::check_batterySamplingDoesNotUseTheFacadeDuringIdentificatio
     MainWindow window{services.services()};
     constructor_driver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
-    ASSERT_TRUE(triggerMenu(window, "connect_to_ecu"));
+    ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     EXPECT_CALL(*services.fake, get_use_openport2_adapter()).Times(0);
     window.update_vbatt();
     ASSERT_TRUE(window.identify_worker_ != nullptr);
@@ -3326,7 +3449,7 @@ void MainWindowTest::check_connectStopsAnActiveLoggingWorkerBeforeIdentification
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return services.logging_engine.isRunning(); },
                                              std::chrono::milliseconds(5000)));
     window.logging_state = true;
-    ASSERT_TRUE(triggerMenu(window, "connect_to_ecu"));
+    ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     ASSERT_TRUE(window.identify_worker_ != nullptr);
     ASSERT_TRUE(!services.logging_engine.isRunning());
     ASSERT_TRUE(!window.logging_state);
