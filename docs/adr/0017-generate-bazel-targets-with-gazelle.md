@@ -17,7 +17,8 @@ for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_d
 `BUILD.bazel`. The scope includes every C++ test-owning package and the
 previously migrated production packages. `scripts/gazelle_check.py` carries
 the identical `MANAGED_ROOTS` list; its unit test checks agreement. Production
-library and binary ownership outside the earlier migration remains deferred.
+libraries and binaries regenerate everywhere except the documented exceptions
+below.
 
 - Grouping is `cc_group unit`; `cc_test` is mapped to `fastecu_portable_gtest`.
   The `qt_compat` package overrides the mapping to `fastecu_gtest` and explicitly
@@ -147,13 +148,12 @@ Each package has one recognized test mapping. Mixed packages use
 register explicit Core or Widgets GoogleTest environments; signal recording
 and event waits live in the test-only desktop support package.
 
-Newly covered mixed packages exclude production sources and headers from
-discovery and preserve production rules with explained keeps. Header
-resolutions point to existing public owners. Runtime resources, platform
-selection, constraints and non-inferable link dependencies remain explicit.
-These exclusions and resolutions are the maintenance cost of deferring
-production ownership; adding a test include still regenerates its dependency.
-No C++ test may have a whole-rule keep.
+Mixed packages were first covered by excluding production sources and headers
+and preserving their rules; the sections below record how each such package was
+later split into homogeneous packages and generated. Header resolutions point to
+existing public owners only where Gazelle cannot index one. Runtime resources,
+platform selection, constraints and non-inferable link dependencies remain
+explicit. No C++ test may have a whole-rule keep.
 
 Exceptional main sources are excluded from discovery and retained with narrow
 source-entry keeps, so Gazelle cannot treat them as shared package runners.
@@ -196,8 +196,9 @@ interface, facade codes, backend host, factory, idle-state adapter and
 `qtrohelper.hpp` are plain generated libraries in the parent. Replica
 generation stays hand-owned, and the remote package resolves the generated
 `rep_serial_port_actions_replica.h` to it. The facade-threading test keeps its
-custom main as an excluded source with a narrow source-entry keep. The direct
-backend and the J2534 selector remain hand-owned until they migrate.
+custom main as an excluded source with a narrow source-entry keep. The J2534
+driver-selection library keeps its OS-selecting `srcs` as an explained
+exception and generates its header and dependencies.
 
 The direct serial backend is split by responsibility under `serial/direct`: the
 header-only moc library for `serial_port_actions_direct.h`, the shared
@@ -224,3 +225,36 @@ environments and static-link settings. The service-function dialog moved to a
 `dialog` child of the UI service-functions package, leaving the preflight in the
 ordinary parent. The `ui_desktop` and `ui_service_functions` visibility groups
 name exactly the relocated consumer packages.
+
+The desktop composition root finishes the migration. The composition, startup
+and startup-test-support libraries are ordinary generated `cc_library` targets,
+and the `fastecu` executable is generated through the existing `qt_cc_binary`
+mapping. The startup library retains its per-OS `select()` of default-config-root
+sources as a narrow `srcs` keep, with those platform files excluded from
+discovery, so its platform-specific dependencies are maintained by hand. The
+resource-registration and selected-backend dependencies are explained keeps.
+
+### Homogeneous packages and remaining exceptions
+
+A package is either ordinary (plain `cc_library`, `COMMON_COPTS`) or a moc
+package (local `map_kind cc_library qt_cc_library`, every generated `hdrs` entry
+declares `Q_OBJECT`). Code that needs both is split into a parent and a child
+package rather than mixed under one mapping; a non-moc child of a moc package
+undoes the inherited mapping with `map_kind cc_library cc_library`. Header-only
+moc libraries keep an explained empty `srcs`. Every moc header has exactly one
+generation owner.
+
+The checker's `KEPT_CPP_PRODUCTION_RULES` allowlist now holds only these
+whole-rule exceptions:
+
+- `//src/platform/desktop/common/ports:qt_event_sink`,
+  `//src/ui/desktop/definition:definition_authoring_dialog` and
+  `//src/platform/desktop/unix/j2534:j2534`: the pinned `alias_kind` merging
+  limitation described above.
+- `//src/platform/desktop/windows/j2534:pe_bitness_x64_fixture` and
+  `//tests:fake_j2534_dll_native`: externally sourced or native DLL fixtures
+  with no discoverable local sources.
+
+Resource libraries, Designer-form libraries, replica libraries and OS-selection
+aliases are not C++ rules Gazelle generates, so they remain hand-owned with the
+concrete reason stated beside each rule.
