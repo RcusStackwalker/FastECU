@@ -252,10 +252,10 @@ an explicit `&`, even though the language allows the bare name to decay:
 
 ```cpp
 // Yes
-using FooWorkflow = SimpleCanFlashWorkflow<FooExecutor, &build_foo_plan>;
+using FooWorkflow = KernelFreeCanWorkflow<FooExecutor, &build_foo_plan>;
 
 // No
-using FooWorkflow = SimpleCanFlashWorkflow<FooExecutor, build_foo_plan>;
+using FooWorkflow = KernelFreeCanWorkflow<FooExecutor, build_foo_plan>;
 ```
 
 Both compile identically. The bare name is also valid in a genuinely boolean
