@@ -97,7 +97,6 @@ _RULE_NAME = re.compile(r"\bname\s*=\s*\"([^\"]+)\"")
 # narrow attribute or dependency keep needs no entry.
 KEPT_CPP_PRODUCTION_RULES: frozenset[str] = frozenset(
     {
-        "src/platform/desktop/common/ports:qt_event_sink",
         "src/platform/desktop/unix/j2534:j2534",
         "src/platform/desktop/windows/j2534:pe_bitness_x64_fixture",
         "src/ui/desktop/definition:definition_authoring_dialog",

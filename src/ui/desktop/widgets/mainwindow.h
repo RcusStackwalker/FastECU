@@ -56,7 +56,7 @@
 #include "src/platform/desktop/common/definition/definition_catalog_session.h"
 #include "src/ui/desktop/checksum/checksum_correction_command.h"
 #include "src/ui/desktop/definition/definition_authoring_dialog.h"
-#include "src/platform/desktop/common/ports/qt_event_sink.h"
+#include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 #include "src/ui/desktop/widgets/logbox.h"
 #include "src/ui/desktop/main_window_services.h"
 #include "src/ui/desktop/widgets/settings.h"

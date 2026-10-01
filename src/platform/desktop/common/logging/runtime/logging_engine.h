@@ -14,7 +14,7 @@
 #include "src/backend/logging/logging_protocol.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/runtime/logging_worker.h"
-#include "src/platform/desktop/common/ports/qt_event_sink.h"
+#include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 
 namespace fastecu::desktop::logging
 {
