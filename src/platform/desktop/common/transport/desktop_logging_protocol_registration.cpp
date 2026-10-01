@@ -5,7 +5,7 @@
 #include "src/backend/logging/protocols/portable_ssm_logging_protocol.h"
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
 #include "src/platform/desktop/common/transport/fastecu_can_transport.h"
 #include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/platform/desktop/common/transport/fastecu_ssm_transport.h"

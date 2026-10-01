@@ -10,7 +10,7 @@
 #include <memory>
 #include <stdexcept>
 
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
 
 using fastecu::ErrorKind;

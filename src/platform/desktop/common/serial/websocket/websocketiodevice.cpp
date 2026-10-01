@@ -5,7 +5,7 @@
 // Copyright (C) 2019 Ford Motor Company
 // SPDX-License-Identifier: LicenseRef-Qt-Commercial OR BSD-3-Clause
 
-#include "websocketiodevice.h"
+#include "src/platform/desktop/common/serial/websocket/websocketiodevice.h"
 
 WebSocketIoDevice::WebSocketIoDevice(QWebSocket *webSocket, QObject *parent) : QIODevice(parent), m_socket(webSocket)
 {

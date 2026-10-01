@@ -1,7 +1,7 @@
-#include "serial_backend_host.h"
+#include "src/platform/desktop/common/serial/serial_backend_host.h"
 
 #include <QCoreApplication>
-#include "serial_backend.h"
+#include "src/platform/desktop/common/serial/serial_backend.h"
 
 SerialBackendHost::SerialBackendHost()
 {

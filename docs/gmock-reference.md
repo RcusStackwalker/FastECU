@@ -8,7 +8,7 @@ their required interactions with `EXPECT_CALL`, instead of adding response flags
 exception switches, or string call logs to the shared backend.
 
 Start with the small [backend tests](../src/platform/desktop/common/serial/testing/fake_backend_test.cpp).
-The [facade tests](../src/platform/desktop/common/serial/facade_threading_test.cpp)
+The [facade tests](../src/platform/desktop/common/serial/facade/facade_threading_test.cpp)
 show exceptions and coordinated concurrent callers; the
 [CAN adapter tests](../src/platform/desktop/common/transport/desktop_can_flash_transport_test.cpp)
 show ordered configuration and stopping at the first failure.

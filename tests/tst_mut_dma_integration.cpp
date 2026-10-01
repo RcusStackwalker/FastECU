@@ -46,7 +46,7 @@
 #include <unistd.h> // read/write/close
 
 #include "src/platform/desktop/common/serial/direct_serial_backend.h"
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
 #include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"

@@ -8,7 +8,7 @@
 #include <utility>
 
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
 #include "src/platform/desktop/common/transport/desktop_can_flash_transport.h"
 
 namespace fastecu::flash

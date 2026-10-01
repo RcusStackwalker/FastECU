@@ -10,7 +10,6 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 # gazelle:resolve cc src/backend/protocol/mut_dma_driver.h //src/backend/protocol:protocol
 # gazelle:resolve cc src/platform/desktop/common/bytes/qt_bytes.h //src/platform/desktop/common/bytes:qt_bytes
 # gazelle:resolve cc src/platform/desktop/common/serial/direct_serial_backend.h //src/platform/desktop/common/serial:direct_serial_backend_for_tests
-# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions.h //src/platform/desktop/common/serial:serial_port_actions
 # gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions_direct.h //src/platform/desktop/common/serial:direct_serial_backend_for_tests
 # gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
 # gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
@@ -161,7 +160,7 @@ fastecu_gtest(
     target_compatible_with = UNIX_ONLY,
     deps = [
         "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
-        "//src/platform/desktop/common/serial:serial_port_actions",
+        "//src/platform/desktop/common/serial/facade:serial_port_actions",
         "//src/platform/desktop/common/testing:core_application_environment",
         "@googletest//:gtest",
     ],
@@ -180,7 +179,7 @@ fastecu_gtest(
         "//src/backend/protocol",
         "//src/platform/desktop/common/bytes:qt_bytes",
         "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
-        "//src/platform/desktop/common/serial:serial_port_actions",
+        "//src/platform/desktop/common/serial/facade:serial_port_actions",
         "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/transport",

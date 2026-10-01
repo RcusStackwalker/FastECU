@@ -4,7 +4,6 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 # The driver-selection header is an excluded selector source in the serial package.
 # gazelle:resolve cc src/platform/desktop/common/serial/j2534_driver_selection.h //src/platform/desktop/common/serial:j2534_driver_selection
 # Serial facade and logging runtime are still hand-owned in their packages.
-# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions.h //src/platform/desktop/common/serial:serial_port_actions
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_common.bzl", "COMMON_COPTS")
 
@@ -32,7 +31,7 @@ cc_library(
     implementation_deps = [
         "//src/backend/ports",
         "//src/platform/desktop/common/bytes:qt_bytes",
-        "//src/platform/desktop/common/serial:serial_port_actions",
+        "//src/platform/desktop/common/serial/facade:serial_port_actions",
     ],
     deps = ["//src/backend/protocol"],
 )
@@ -86,7 +85,7 @@ fastecu_gtest(
     deps = [
         ":flash_transports",
         "//src/backend/ports/testing:fake_cancellation_token",
-        "//src/platform/desktop/common/serial:serial_port_actions",
+        "//src/platform/desktop/common/serial/facade:serial_port_actions",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
         "//src/platform/desktop/common/testing:core_application_environment",
         "@googletest//:gtest",
@@ -132,7 +131,7 @@ cc_library(
         "//src/algorithms/protocol",
         "//src/platform/desktop/common/bytes:qt_bytes",
         "//src/platform/desktop/common/serial:j2534_driver_selection",
-        "//src/platform/desktop/common/serial:serial_port_actions",
+        "//src/platform/desktop/common/serial/facade:serial_port_actions",
     ],
     deps = [
         "//src/backend/flash:flash_executor",
@@ -150,7 +149,7 @@ cc_library(
         "//src/backend/logging/protocols",
         "//src/platform/desktop/common/logging:cdbg_serial_setup",
         "//src/platform/desktop/common/logging/runtime:logging_runtime",
-        "//src/platform/desktop/common/serial:serial_port_actions",
+        "//src/platform/desktop/common/serial/facade:serial_port_actions",
     ],
     visibility = [
         "//bazel/layers:apps_desktop",

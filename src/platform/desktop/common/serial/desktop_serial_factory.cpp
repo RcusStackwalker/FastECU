@@ -3,8 +3,8 @@
 #include <array>
 
 #include "src/platform/desktop/common/serial/direct_serial_backend.h"
-#include "src/platform/desktop/common/serial/remote_serial_backend.h"
-#include "src/platform/desktop/common/serial/serial_port_actions.h"
+#include "src/platform/desktop/common/serial/remote/remote_serial_backend.h"
+#include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
 
 namespace
 {

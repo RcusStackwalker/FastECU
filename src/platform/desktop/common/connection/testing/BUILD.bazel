@@ -20,7 +20,7 @@ qt_cc_library(
         "@platforms//os:windows": [],
         "//conditions:default": ["-fPIC"],
     }),
-    implementation_deps = ["//src/platform/desktop/common/serial:serial_port_actions"],
+    implementation_deps = ["//src/platform/desktop/common/serial/facade:serial_port_actions"],
     deps = [
         "//src/platform/desktop/common/connection:adapter_connection",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
