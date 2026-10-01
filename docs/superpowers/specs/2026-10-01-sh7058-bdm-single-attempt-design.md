@@ -108,7 +108,8 @@ The factory's `SubaruHitachiSh7058` case returns the K-Line alias for
 `FlashOperation::Read` and the CAN alias otherwise; TestWrite still fails at
 preflight with `Unsupported` from the builder. The route table is unchanged.
 If the factory and builder ever disagreed, the bound executor's
-`transport_setup` would reject the plan with `InvalidConfig` before configure.
+`transport_setup` would reject the plan with `Unsupported` ("SH7058 K-Line
+supports read only" or "SH7058 CAN supports write only") before configure.
 
 ### Denso MC68HC16Y5 BDM
 
@@ -173,9 +174,9 @@ Each commit builds and passes `bazel test --config=release //...` on its own.
    reusing `request`, `catalogPaths`, `recordingSerial` and
    `expectNoBackendIo`. They pass against the current code.
    - SH7058 Read and Write: running the bound attempt with an
-     already-cancelled token yields `ErrorKind::Cancelled` (not
-     `InvalidConfig`) with no backend I/O, proving the bound executor accepts
-     the plan for that operation.
+     already-cancelled token yields `ErrorKind::Cancelled` (not the
+     mismatched executor's `Unsupported`) with no backend I/O, proving the
+     bound executor accepts the plan for that operation.
    - SH7058: TestWrite fails with `Unsupported` and a wrong MCU with
      `InvalidConfig`, both before any prompt; an attempt result is propagated
      for success with read bytes, failure and cancellation.
