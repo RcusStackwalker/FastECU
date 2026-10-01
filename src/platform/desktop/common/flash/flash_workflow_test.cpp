@@ -2184,10 +2184,12 @@ TEST(FlashWorkflowTest, unisiaJecsM32rWriteOnReadOnlyVariantFailsBeforeAnyPrompt
     ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::Unsupported);
 }
 
-// Characterization of the twenty-two single-attempt families: twelve
-// kernel-free CAN families, four kernel-free K-Line families, Colt, and seven
-// kernel-backed families. Each runs preflight, Begin, the plan's
-// confirmations in order, then exactly one attempt.
+// Characterization of the twenty-four single-attempt families' Read path:
+// ten kernel-free CAN families, six kernel-free K-Line families, Colt, and
+// seven kernel-backed families. Each runs preflight, Begin, the plan's
+// confirmations in order, then exactly one attempt. Hitachi SH7058 and Denso
+// MC68HC16Y5 BDM read over K-Line; their Write sides are characterized after
+// this suite.
 struct SingleAttemptCase
 {
     std::string_view protocol;
@@ -2225,6 +2227,13 @@ std::vector<SingleAttemptCase> singleAttemptCases()
         {"sub_ecu_hitachi_m32r_kline", "M32R_512KB_1block", SubaruHitachiM32rKline, Kline, std::nullopt, {}},
         {"sub_tcu_hitachi_m32r_kline", "M32R_512KB", SubaruTcuHitachiM32rKline, Kline, std::nullopt, {}},
         {"sub_ecu_unisia_jecs_m3779x", "M3779x", SubaruUnisiaJecs, Kline, std::nullopt, {}},
+        {"sub_ecu_hitachi_sh7058_can",
+         "SH7058_1block",
+         SubaruHitachiSh7058,
+         Kline,
+         std::nullopt,
+         {FlashPromptKind::ConfirmSh7058Read}},
+        {"sub_ecu_denso_mc68hc16y5_02_bdm", "MC68HC16Y5", SubaruDensoMc68hc16y5_02Bdm, Kline, std::nullopt, {}},
         {"mitsu_ecu_m32r_can", "M32R_384KB_1block", MitsuColtM32rCan, CanIso15765, std::nullopt, {}},
         {"sub_ecu_denso_sh7055_densocan",
          "SH7055",
@@ -2584,6 +2593,254 @@ TEST(FlashWorkflowTest, kernelBackedFamiliesKeepTheirKernelSnapshotAfterFilesAre
         EXPECT_EQ(kernel->load_address, test.kernel->load_address);
         EXPECT_EQ(kernel->bytes, test.kernel->bytes);
     }
+}
+
+// Hitachi SH7058 Write runs over CAN with Begin as its only prompt; its Read
+// side (K-Line) is in singleAttemptCases().
+FlashWorkflowRequest sh7058Write()
+{
+    auto input = request("sub_ecu_hitachi_sh7058_can", FlashOperation::Write);
+    input.mcu = "SH7058_1block";
+    input.image = bytes::Bytes(0x100000, 0x5a);
+    return input;
+}
+
+TEST(FlashWorkflowTest, sh7058WriteBindsTheCanExecutorAfterBeginAlone)
+{
+    auto workflow = FlashWorkflowFactory::tryCreate(sh7058Write());
+    ASSERT_TRUE(workflow != nullptr);
+
+    std::vector<FlashPromptStep> prompts;
+    auto step = acceptEveryPrompt(*workflow, prompts);
+    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << failureDetail(step);
+    EXPECT_THAT(promptKinds(prompts), ::testing::ElementsAre(FlashPromptKind::Begin));
+
+    auto& attempt = std::get<FlashAttempt>(step);
+    const FlashPlan& plan = attempt.attempt->plan();
+    EXPECT_EQ(plan.family(), FlashFamily::SubaruHitachiSh7058);
+    EXPECT_EQ(plan.transport(), TransportKind::CanIso15765);
+    EXPECT_EQ(plan.operation(), FlashOperation::Write);
+    EXPECT_EQ(plan.image(), std::optional<bytes::Bytes>(bytes::Bytes(0x100000, 0x5a)));
+    EXPECT_TRUE(plan.confirmations().empty());
+
+    // The K-Line executor's transport_setup() rejects a Write plan as
+    // Unsupported, so reaching the pre-configure cancellation proves the CAN
+    // executor is bound. Nothing is configured or opened on the way.
+    FakeCancellationToken cancelled(true);
+    NullEventSink events;
+    EXPECT_THAT(attempt.attempt->run(*attempt.clock, cancelled, events),
+                fastecu::testing::IsErrWith(ErrorKind::Cancelled, ::testing::HasSubstr("before configure")));
+
+    workflow->submit(
+        FlashAttemptResult{.success = false, .error_kind = ErrorKind::Timeout, .error_detail = "no reply to 0x34"});
+    step = workflow->next();
+    ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
+    EXPECT_EQ(std::get<FlashFailureStep>(step).error, (Error{ErrorKind::Timeout, "no reply to 0x34"}));
+}
+
+TEST(FlashWorkflowTest, sh7058WriteCancelsWhenBeginIsDeclined)
+{
+    auto workflow = FlashWorkflowFactory::tryCreate(sh7058Write());
+    ASSERT_TRUE(workflow != nullptr);
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    workflow->submit(FlashPromptResponse::Decline);
+    for (int repeat = 0; repeat < 2; ++repeat)
+    {
+        const auto step = workflow->next();
+        ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
+        EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::Cancelled);
+    }
+}
+
+TEST(FlashWorkflowTest, sh7058WriteRejectsInvalidInputBeforeAnyPromptOrIo)
+{
+    FakeBackend *fake = nullptr;
+    auto serial = recordingSerial(&fake);
+    ASSERT_TRUE(serial != nullptr);
+    expectNoBackendIo(*fake);
+
+    struct Case
+    {
+        const char *name;
+        FlashOperation operation;
+        std::size_t image_size;
+        ErrorKind expected;
+    };
+    for (const Case& test : std::to_array<Case>({
+             {"test write", FlashOperation::TestWrite, 0x100000, ErrorKind::Unsupported},
+             {"short image", FlashOperation::Write, 0xFFFFF, ErrorKind::InvalidConfig},
+         }))
+    {
+        SCOPED_TRACE(test.name);
+        auto input = sh7058Write();
+        input.operation = test.operation;
+        input.image = bytes::Bytes(test.image_size, 0x5a);
+        input.serial = serial.get();
+        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        ASSERT_TRUE(workflow != nullptr);
+        for (int repeat = 0; repeat < 2; ++repeat)
+        {
+            const auto step = workflow->next();
+            ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
+            EXPECT_EQ(std::get<FlashFailureStep>(step).error.kind, test.expected);
+        }
+    }
+}
+
+// Denso MC68HC16Y5 BDM Write uploads the catalog kernel to RAM and starts it.
+// The desktop hands every Write the operator's ROM; BDM must drop it.
+FlashWorkflowRequest bdmWrite(const config::ConfigPaths& paths)
+{
+    auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::Write);
+    input.mcu = "MC68HC16Y5";
+    input.paths = paths;
+    input.image = bytes::Bytes(0x30000, 0x5a);
+    return input;
+}
+
+// catalog_mc68.bin (11 22 33) zero-padded to the 0x20-byte upload chunk.
+bytes::Bytes bdmCatalogKernelImage()
+{
+    bytes::Bytes image(0x20, 0x00);
+    image[0] = 0x11;
+    image[1] = 0x22;
+    image[2] = 0x33;
+    return image;
+}
+
+TEST(FlashWorkflowTest, mc68BdmWriteBindsItsExecutorAndReportsEveryOutcome)
+{
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const auto paths = catalogPaths(directory);
+    ASSERT_TRUE(paths.has_value());
+
+    for (const bool succeeded : {true, false})
+    {
+        SCOPED_TRACE(succeeded ? "succeeded" : "failed");
+        auto workflow = FlashWorkflowFactory::tryCreate(bdmWrite(*paths));
+        ASSERT_TRUE(workflow != nullptr);
+
+        std::vector<FlashPromptStep> prompts;
+        auto step = acceptEveryPrompt(*workflow, prompts);
+        ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << failureDetail(step);
+        EXPECT_THAT(promptKinds(prompts),
+                    ::testing::ElementsAre(FlashPromptKind::Begin, FlashPromptKind::ConfirmBdmKernelBootstrap));
+        EXPECT_THAT(prompts, ::testing::Each(::testing::Field(&FlashPromptStep::arguments, ::testing::IsEmpty())));
+
+        auto& attempt = std::get<FlashAttempt>(step);
+        const FlashPlan& plan = attempt.attempt->plan();
+        EXPECT_EQ(plan.family(), FlashFamily::SubaruDensoMc68hc16y5_02Bdm);
+        EXPECT_EQ(plan.transport(), TransportKind::Kline);
+        EXPECT_EQ(plan.operation(), FlashOperation::Write);
+        EXPECT_EQ(plan.image(), std::optional<bytes::Bytes>(bdmCatalogKernelImage()));
+        EXPECT_EQ(plan.transfer_region(), (MemoryRegion{0x20000, 0x20}));
+        EXPECT_FALSE(plan.kernel().has_value());
+
+        // transport_setup() validates the plan, so reaching the pre-configure
+        // cancellation proves the BDM executor owns it.
+        FakeCancellationToken cancelled(true);
+        NullEventSink events;
+        EXPECT_THAT(attempt.attempt->run(*attempt.clock, cancelled, events),
+                    fastecu::testing::IsErrWith(ErrorKind::Cancelled, ::testing::HasSubstr("before configure")));
+        EXPECT_FALSE(std::holds_alternative<FlashAttempt>(workflow->next()));
+
+        if (succeeded)
+        {
+            workflow->submit(FlashAttemptResult{.success = true});
+            step = workflow->next();
+            ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
+            EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::Succeeded);
+            EXPECT_FALSE(std::get<FlashCompletedStep>(step).accepted_read_bytes.has_value());
+        }
+        else
+        {
+            workflow->submit(FlashAttemptResult{
+                .success = false, .error_kind = ErrorKind::Disconnected, .error_detail = "adapter removed"});
+            step = workflow->next();
+            ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
+            EXPECT_EQ(std::get<FlashFailureStep>(step).error, (Error{ErrorKind::Disconnected, "adapter removed"}));
+        }
+    }
+}
+
+TEST(FlashWorkflowTest, mc68BdmWriteCancelsWhenEitherPromptIsDeclined)
+{
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const auto paths = catalogPaths(directory);
+    ASSERT_TRUE(paths.has_value());
+    const std::vector<FlashPromptKind> sequence{FlashPromptKind::Begin, FlashPromptKind::ConfirmBdmKernelBootstrap};
+
+    for (std::size_t declined = 0; declined < sequence.size(); ++declined)
+    {
+        SCOPED_TRACE(std::format("declining prompt {}", declined));
+        auto workflow = FlashWorkflowFactory::tryCreate(bdmWrite(*paths));
+        ASSERT_TRUE(workflow != nullptr);
+        for (std::size_t accepted = 0; accepted < declined; ++accepted)
+        {
+            ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, sequence[accepted]);
+            workflow->submit(FlashPromptResponse::Accept);
+        }
+        ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, sequence[declined]);
+        workflow->submit(FlashPromptResponse::Decline);
+        for (int repeat = 0; repeat < 2; ++repeat)
+        {
+            const auto step = workflow->next();
+            ASSERT_TRUE(std::holds_alternative<FlashCompletedStep>(step));
+            EXPECT_EQ(std::get<FlashCompletedStep>(step).outcome, FlashWorkflowOutcome::Cancelled);
+        }
+    }
+}
+
+TEST(FlashWorkflowTest, mc68BdmWriteWithoutItsKernelFailsBeforeAnyPromptOrIo)
+{
+    QTemporaryDir without_kernels;
+    ASSERT_TRUE(without_kernels.isValid());
+    const auto catalog_only = catalogPaths(without_kernels, false);
+    ASSERT_TRUE(catalog_only.has_value());
+    FakeBackend *fake = nullptr;
+    auto serial = recordingSerial(&fake);
+    ASSERT_TRUE(serial != nullptr);
+    expectNoBackendIo(*fake);
+
+    for (const bool has_catalog : {true, false})
+    {
+        SCOPED_TRACE(has_catalog ? "with catalog" : "without catalog");
+        auto input = bdmWrite(has_catalog ? *catalog_only : config::ConfigPaths{});
+        input.serial = serial.get();
+        auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+        ASSERT_TRUE(workflow != nullptr);
+        for (int repeat = 0; repeat < 2; ++repeat)
+        {
+            const auto step = workflow->next();
+            ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
+            EXPECT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::InvalidConfig);
+        }
+    }
+}
+
+TEST(FlashWorkflowTest, mc68BdmWriteKeepsItsKernelSnapshotAfterFilesAreRemoved)
+{
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const auto paths = catalogPaths(directory);
+    ASSERT_TRUE(paths.has_value());
+    auto workflow = FlashWorkflowFactory::tryCreate(bdmWrite(*paths));
+    ASSERT_TRUE(workflow != nullptr);
+
+    // The kernel is loaded before Begin; nothing on disk is read afterward.
+    ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
+    ASSERT_TRUE(QFile::remove(QString::fromStdString(paths->protocols_file)));
+    ASSERT_TRUE(QDir(directory.filePath("kernels")).removeRecursively());
+    workflow->submit(FlashPromptResponse::Accept);
+
+    std::vector<FlashPromptStep> prompts;
+    auto step = acceptEveryPrompt(*workflow, prompts);
+    ASSERT_TRUE(std::holds_alternative<FlashAttempt>(step)) << failureDetail(step);
+    EXPECT_THAT(promptKinds(prompts), ::testing::ElementsAre(FlashPromptKind::ConfirmBdmKernelBootstrap));
+    EXPECT_EQ(std::get<FlashAttempt>(step).attempt->plan().image(),
+              std::optional<bytes::Bytes>(bdmCatalogKernelImage()));
 }
 
 struct ColtWriteCase
