@@ -521,6 +521,12 @@ EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions di
         }
         first_row++;
         last_row++;
+        // A single-row map has no Y-axis header column to skip.
+        if (dims.y_size == 1)
+        {
+            first_col++;
+            last_col++;
+        }
         return {.kind = EditTargetKind::XAxis,
                 .range = {.first_row = first_row, .first_col = first_col, .last_row = last_row, .last_col = last_col},
                 .x_size = x_size};

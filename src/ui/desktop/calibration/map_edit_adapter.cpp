@@ -259,8 +259,10 @@ Status apply_patch(calibration::CalibrationSession& session, int map_number, cal
     }
     for (const auto& cell : patch)
     {
-        // The pre-existing coordinate quirk can produce UINT32_MAX. Skip it
-        // before writing bytes, just as the legacy text adapter did.
+        // Skip a cell past the decoded extent before writing bytes, just as
+        // the legacy text adapter did. resolve_edit_target no longer produces
+        // the out-of-range (UINT32_MAX) index this once caught; the guard
+        // stays as defense on the ROM write path.
         if (cell.index >= static_cast<std::uint64_t>(count))
         {
             continue;

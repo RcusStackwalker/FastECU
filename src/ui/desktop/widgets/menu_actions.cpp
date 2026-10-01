@@ -363,10 +363,9 @@ void MainWindow::copy_value()
 // column-offset adjustment CONDITIONALLY (only when y_size == 1), where
 // legacy paste_value applied its own `-1` column offset UNCONDITIONALLY.
 // For an ordinary 2D map these are identical; for a `y_size == 1` map,
-// legacy produced firstCol == -1 (an out-of-bounds column, the layout bug
-// map_edit_adapter.cpp's apply_patch guard now protects the write side of),
-// where routing paste through resolve_active_map_edit produces the correct
-// 0-based column instead.
+// legacy produced firstCol == -1 (an out-of-bounds column), where routing
+// paste through resolve_active_map_edit produces the correct 0-based column
+// instead, on the body and X-axis branches alike.
 void MainWindow::paste_value()
 {
     QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
