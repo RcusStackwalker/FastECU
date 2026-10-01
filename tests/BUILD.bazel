@@ -12,7 +12,7 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 # gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
 # gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
 # gazelle:resolve cc src/platform/desktop/common/transport/fastecu_kline_transport.h //src/platform/desktop/common/transport:transport
-# gazelle:resolve cc src/platform/desktop/unix/j2534/J2534_unix.h //src/platform/desktop/unix/j2534:j2534
+# gazelle:resolve cc src/platform/desktop/unix/j2534/driver/J2534_unix.h //src/platform/desktop/unix/j2534/driver:j2534
 # gazelle:resolve cc src/platform/desktop/unix/j2534/testing/mock_openport.h //src/platform/desktop/unix/j2534/testing:mock_openport
 # gazelle:resolve cc src/platform/desktop/windows/j2534/J2534_win.h //src/platform/desktop/windows/j2534:j2534
 # gazelle:resolve cc src/platform/desktop/windows/j2534/j2534_bridge_client.h //src/platform/desktop/windows/j2534:j2534_bridge_client
@@ -201,7 +201,7 @@ fastecu_gtest(
         "//bazel/qt:core",
         "//src/platform/desktop/common/serial/direct:serial_port_actions_direct",
         "//src/platform/desktop/common/testing:core_application_environment",
-        "//src/platform/desktop/unix/j2534",
+        "//src/platform/desktop/unix/j2534/driver:j2534",
         "//src/platform/desktop/unix/j2534/testing:mock_openport",
         "@googletest//:gtest",
     ],

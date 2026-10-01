@@ -45,7 +45,7 @@
 #include "src/platform/desktop/common/connection/testing/adapter_connection_harness.h"
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
-#include "src/platform/desktop/common/ports/qt_event_sink.h"
+#include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"

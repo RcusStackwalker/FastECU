@@ -1,4 +1,4 @@
-#include "src/platform/desktop/common/ports/qt_event_sink.h"
+#include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 
 void QtEventSink::log(fastecu::LogLevel lvl, std::string_view message)
 {

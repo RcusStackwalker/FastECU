@@ -16,5 +16,5 @@ qt_cc_library(
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
-    deps = ["//src/platform/desktop/unix/j2534"],
+    deps = ["//bazel/qt:core"],
 )

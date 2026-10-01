@@ -1,4 +1,4 @@
-#include "src/ui/desktop/definition/definition_authoring_dialog.h"
+#include "src/ui/desktop/definition/dialog/definition_authoring_dialog.h"
 
 #include <array>
 #include <memory>

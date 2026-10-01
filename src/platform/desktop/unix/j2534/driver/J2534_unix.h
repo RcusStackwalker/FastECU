@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <string_view>
 
-#include "J2534_tactrix_unix.h"
+#include "src/platform/desktop/unix/j2534/J2534_tactrix_unix.h"
 #include "src/platform/desktop/unix/j2534/serial_byte_buffer.h"
 
 // Note: J2534 derives from QObject (not QWidget) — it has no widget behaviour,

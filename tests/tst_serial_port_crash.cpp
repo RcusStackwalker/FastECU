@@ -36,7 +36,7 @@
 #include <sys/resource.h> // getrusage
 #include <unistd.h>       // read/write/close
 
-#include "src/platform/desktop/unix/j2534/J2534_unix.h"
+#include "src/platform/desktop/unix/j2534/driver/J2534_unix.h"
 #include "src/platform/desktop/common/serial/direct/serial_port_actions_direct.h"
 #include "src/platform/desktop/unix/j2534/testing/mock_openport.h"
 

@@ -1,9 +1,8 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
-# gazelle:alias_kind qt_cc_library cc_library
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS")
 
 package(default_visibility = [
     "//bazel/layers:apps",
@@ -34,7 +33,7 @@ cc_library(
     implementation_deps = ["//bazel/qt:core"],
     deps = [
         # Re-export the signal endpoint through the stable public ports label.
-        ":qt_event_sink",  # keep
+        "//src/platform/desktop/common/ports/event_sink:qt_event_sink",  # keep
         "//src/backend/ports",
     ],
 )
@@ -56,10 +55,10 @@ fastecu_gtest(
     srcs = ["qt_port_adapters_test.cpp"],
     deps = [
         ":ports",
-        ":qt_event_sink",
         "//bazel/qt:core",
         "//src/backend/ports",
         "//src/backend/ports/testing:result_matchers",
+        "//src/platform/desktop/common/ports/event_sink:qt_event_sink",
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/testing:signal_recorder",
         "@googletest//:gtest",
@@ -87,19 +86,5 @@ fastecu_gtest(
         "//bazel/qt:core",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
-    ],
-)
-
-# Temporarily hand-owned: pinned alias_kind merging preserves existing attributes.
-# See ADR 0017; plain libraries and tests in this package regenerate normally.
-# keep
-qt_cc_library(
-    name = "qt_event_sink",
-    srcs = ["qt_event_sink.cpp"],
-    hdrs = ["qt_event_sink.h"],
-    visibility = ["//visibility:private"],
-    deps = [
-        "//bazel/qt:core",
-        "//src/backend/ports",
     ],
 )

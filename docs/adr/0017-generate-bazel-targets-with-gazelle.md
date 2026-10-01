@@ -101,30 +101,23 @@ libraries. This mapping is suitable only when all library headers need moc.
 Mixed packages split ordinary headers into plain `cc_library` targets and keep
 only `Q_OBJECT` headers in `qt_cc_library.hdrs`. The ports package re-exports
 its private `qt_event_sink` moc library through the existing `ports` label;
-Unix J2534 publishes ordinary type declarations through `j2534_types`.
+Unix J2534 publishes ordinary type declarations through `j2534_types` and
+keeps its driver in a moc child.
 Windows J2534 uses a plain library and obtains bridge headers from their
 existing owners. Shared J2534 API include prefixes remain explicitly kept,
 along with OS constraints, x86 transitions and the externally sourced
 `pe_bitness_x64_fixture` rule.
 
-Gazelle 0.54.0 and gazelle_cc 0.6.0 remain unmodified. In mixed packages,
-`alias_kind qt_cc_library cc_library` recognizes the existing macro without
-converting plain libraries. However, this pinned combination has a merging
-limitation: gazelle_cc emits the alias kind on generated rules, while Gazelle's
-merger looks up mergeable attributes using that kind without its underlying
-`cc_library` metadata. Existing source/header/dependency attributes therefore
-remain unchanged rather than regenerating. The three affected moc rules are
-explicitly hand-owned with explained rule keeps:
-
-- `//src/platform/desktop/common/ports:qt_event_sink`
-- `//src/ui/desktop/definition:definition_authoring_dialog`
-- `//src/platform/desktop/unix/j2534:j2534`
-
-Their dependency lists were generated through the standard library shape and
-verified with their moc-bearing shapes. Plain libraries and tests in these
-packages are fully generated. Remove these temporary keeps when an approved
-upstream version fixes alias merging; until then, changes to their sources or
-includes require updating these rules by hand.
+Gazelle 0.54.0 and gazelle_cc 0.6.0 remain unmodified, and `alias_kind` is not
+used. The pinned combination emits the alias kind on generated rules while
+Gazelle's merger looks up mergeable attributes by that kind without its
+underlying `cc_library` metadata, so existing attributes on an aliased rule never
+regenerate. Mixed packages therefore split their moc libraries into children
+instead: `common/ports/event_sink`, `ui/desktop/definition/dialog` and
+`unix/j2534/driver`. The event sink child is private to the ports package, which
+keeps re-exporting it through the existing `ports` label with a dependency keep,
+so apps, workers and the UI see no change. Moving a header requires repointing
+its includes and any `gazelle:resolve` directive that names it.
 
 Packages containing only moc libraries use `map_kind cc_library qt_cc_library`.
 Bench uses `map_kind cc_binary qt_cc_binary` for its existing binary and keeps
@@ -244,16 +237,12 @@ undoes the inherited mapping with `map_kind cc_library cc_library`. Header-only
 moc libraries keep an explained empty `srcs`. Every moc header has exactly one
 generation owner.
 
-The checker's `KEPT_CPP_PRODUCTION_RULES` allowlist now holds only these
-whole-rule exceptions:
+The checker's `KEPT_CPP_PRODUCTION_RULES` allowlist now holds only these two
+whole-rule exceptions, both externally sourced or native DLL fixtures with no
+discoverable local sources:
 
-- `//src/platform/desktop/common/ports:qt_event_sink`,
-  `//src/ui/desktop/definition:definition_authoring_dialog` and
-  `//src/platform/desktop/unix/j2534:j2534`: the pinned `alias_kind` merging
-  limitation described above.
-- `//src/platform/desktop/windows/j2534:pe_bitness_x64_fixture` and
-  `//tests:fake_j2534_dll_native`: externally sourced or native DLL fixtures
-  with no discoverable local sources.
+- `//src/platform/desktop/windows/j2534:pe_bitness_x64_fixture`
+- `//tests:fake_j2534_dll_native`
 
 Resource libraries, Designer-form libraries, replica libraries and OS-selection
 aliases are not C++ rules Gazelle generates, so they remain hand-owned with the

@@ -1,10 +1,8 @@
-# gazelle:resolve cc src/ui/desktop/config_fields.h //src/ui/desktop:config_fields
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
-# gazelle:alias_kind qt_cc_library cc_library
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS")
 
 package(default_visibility = ["//bazel/layers:ui"])
 
@@ -31,47 +29,6 @@ fastecu_gtest(
         ":definition_header_form",
         "//bazel/qt:widgets",
         "//src/backend/ports/testing:result_matchers",
-        "@googletest//:gtest",
-    ],
-)
-
-# Q_OBJECT owns the LOG_* signals and requires generated moc code.
-# Temporarily hand-owned: pinned alias_kind merging preserves existing attributes.
-# See ADR 0017; plain libraries and tests in this package regenerate normally.
-# keep
-qt_cc_library(
-    name = "definition_authoring_dialog",
-    srcs = ["definition_authoring_dialog.cpp"],
-    hdrs = ["definition_authoring_dialog.h"],  # MOC header
-    implementation_deps = ["//src/ui/desktop:config_fields"],
-    deps = [
-        ":definition_header_form",
-        "//bazel/qt:core",
-        "//bazel/qt:widgets",
-        "//src/backend/config:config_session",
-        "//src/backend/definition:definition_writer",
-        "//src/backend/ports",
-        "//src/platform/desktop/common/definition:definition_catalog_session",
-    ],
-)
-
-fastecu_gtest(
-    name = "definition_authoring_dialog_test",
-    srcs = ["definition_authoring_dialog_test.cpp"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
-    deps = [
-        ":definition_authoring_dialog",
-        ":definition_header_form",
-        "//bazel/qt:core",
-        "//bazel/qt:widgets",
-        "//src/backend/config/testing:config_session_fixture",
-        "//src/backend/ports",
-        "//src/backend/ports/testing:in_memory_atomic_file_writer",
-        "//src/backend/ports/testing:in_memory_file_repository",
-        "//src/backend/ports/testing:result_matchers",
-        "//src/platform/desktop/common/definition:definition_catalog_session",
-        "//src/platform/desktop/common/ports",
-        "//src/platform/desktop/common/testing:signal_recorder",
         "@googletest//:gtest",
     ],
 )

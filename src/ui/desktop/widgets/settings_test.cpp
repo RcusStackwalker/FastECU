@@ -13,7 +13,7 @@
 #include <QTimer>
 
 #include "src/backend/config/config_session.h"
-#include "src/platform/desktop/common/ports/qt_event_sink.h"
+#include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"

@@ -1,7 +1,7 @@
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
-#include "src/platform/desktop/common/ports/qt_event_sink.h"
+#include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_settings.h"
 #include <QCoreApplication>

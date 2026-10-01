@@ -1,6 +1,6 @@
 #include "src/platform/desktop/common/flash/worker/flash_worker.h"
 
-#include "src/platform/desktop/common/ports/qt_event_sink.h"
+#include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 
 namespace fastecu::flash
 {
