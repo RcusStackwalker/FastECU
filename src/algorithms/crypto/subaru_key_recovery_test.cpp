@@ -117,17 +117,17 @@ TEST(SubaruKeyRecovery, EncryptIsTheSsmPayloadCipher)
     }
 }
 
-// k1 and k4 come from the linear approximation and match the real keys. k2
-// and k3 are the first keys consistent with the last unique pair alone; the
-// f-function is not injective in its key, so they need not be the real ones.
-TEST(SubaruKeyRecovery, RecoversTheDialogsKeysFromASyntheticPair)
+// 0x8000 words, of which every 16th repeats an earlier one.
+constexpr std::size_t kDistinctPairs = 0x8000 - 0x8000 / 16;
+
+TEST(SubaruKeyRecovery, RecoversTheRealKeysFromASyntheticPair)
 {
     const Pair pair = syntheticPair();
-    const auto keys = subaru_key_recovery::recover_keys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
-    ASSERT_TRUE(keys.has_value());
-    EXPECT_EQ(*keys, (Keys{0x3b61, 0x37ef, 0x9565, 0x1075}));
-    EXPECT_EQ((*keys)[0], kKeys[0]);
-    EXPECT_EQ((*keys)[3], kKeys[3]);
+    const auto recovery = subaru_key_recovery::recover_keys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
+    ASSERT_TRUE(recovery.has_value());
+    EXPECT_EQ(recovery->keys, kKeys);
+    EXPECT_EQ(recovery->distinct_pairs, kDistinctPairs);
+    EXPECT_EQ(recovery->reproduced_pairs, kDistinctPairs);
 }
 
 TEST(SubaruKeyRecovery, ReadsOnlyTheFirst128KiB)
@@ -135,9 +135,10 @@ TEST(SubaruKeyRecovery, ReadsOnlyTheFirst128KiB)
     Pair pair = syntheticPair();
     pair.plain.resize(pair.plain.size() + 8, 0x5a);
     pair.cipher.resize(pair.cipher.size() + 4, 0xa5);
-    const auto keys = subaru_key_recovery::recover_keys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
-    ASSERT_TRUE(keys.has_value());
-    EXPECT_EQ(*keys, (Keys{0x3b61, 0x37ef, 0x9565, 0x1075}));
+    const auto recovery = subaru_key_recovery::recover_keys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
+    ASSERT_TRUE(recovery.has_value());
+    EXPECT_EQ(recovery->keys, kKeys);
+    EXPECT_EQ(recovery->distinct_pairs, kDistinctPairs);
 }
 
 TEST(SubaruKeyRecovery, ShortInputFailsBeforeReading)
@@ -152,13 +153,31 @@ TEST(SubaruKeyRecovery, ShortInputFailsBeforeReading)
     EXPECT_EQ(subaru_key_recovery::recover_keys({}, {}), std::unexpected(Failure::InputTooShort));
 }
 
-// Word 0x7fff repeats word 0x3fff, so 0x7ffe is the last unique pair. Its
-// ciphertext is chosen so that, under the recovered k1 and k4, no k2 maps it:
-// the dialog's uint16_t search wrapped and never returned here.
-TEST(SubaruKeyRecovery, NoConsistentKeyFailsInsteadOfSearchingForever)
+// Word 0x7fff repeats word 0x3fff, so 0x7ffe is the last distinct pair. Its
+// ciphertext is chosen so that no k2 is consistent with it under the real k1
+// and k4; every other pair outvotes it.
+TEST(SubaruKeyRecovery, AMismatchedPairIsOutvoted)
 {
     Pair pair = syntheticPair();
     overwriteWord(pair.cipher, 0x7ffe, 0xc0eb535f);
+    const auto recovery = subaru_key_recovery::recover_keys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher));
+    ASSERT_TRUE(recovery.has_value());
+    EXPECT_EQ(recovery->keys, kKeys);
+    EXPECT_EQ(recovery->distinct_pairs, kDistinctPairs);
+    EXPECT_EQ(recovery->reproduced_pairs, kDistinctPairs - 1);
+}
+
+// A ciphertext unrelated to the plaintext leaves k1 and k4 meaningless, so no
+// k2 is consistent with a majority of the pairs.
+TEST(SubaruKeyRecovery, UnrelatedFilesFailWithoutAMajorityKey)
+{
+    Pair pair = syntheticPair();
+    pair.cipher.clear();
+    std::uint32_t state = 0x9e3779b9;
+    for (std::size_t i = 0; i < 0x8000; ++i)
+    {
+        bytes::appendU32Be(pair.cipher, xorshift(state));
+    }
     EXPECT_EQ(subaru_key_recovery::recover_keys(bytes::ByteView(pair.plain), bytes::ByteView(pair.cipher)),
               std::unexpected(Failure::NoMatchingKey));
 }

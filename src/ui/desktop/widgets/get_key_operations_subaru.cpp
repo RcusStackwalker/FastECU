@@ -84,17 +84,17 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     emit LOG_I("Files loaded successfully", true, true);
 
     emit LOG_I("Start Time", true, true);
-    const auto keys =
+    const auto recovery =
         subaru_key_recovery::recover_keys(bytes::view(unencryptedFileData), bytes::view(encryptedFileData));
-    if (!keys.has_value())
+    if (!recovery.has_value())
     {
         QMessageBox::warning(this, tr("Get Key Operation"),
-                             keys.error() == subaru_key_recovery::Failure::InputTooShort
+                             recovery.error() == subaru_key_recovery::Failure::InputTooShort
                                  ? "Both ROM files must be at least 128 KiB"
-                                 : "No key is consistent with these ROM files");
+                                 : "No key is consistent with most of these ROM files' words");
         return kStatusError;
     }
-    const auto& [k1, k2, k3, k4] = *keys;
+    const auto& [k1, k2, k3, k4] = recovery->keys;
 
     emit LOG_I("Predicted k4: 0x" + QString::number(k4, 16), true, true);
     emit LOG_I("Moving on to k1", true, true);
@@ -103,6 +103,9 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     emit LOG_I("Predicted k2: 0x" + QString::number(k2, 16), true, true);
     emit LOG_I("Moving on to k3", true, true);
     emit LOG_I("Predicted k3: 0x" + QString::number(k3, 16), true, true);
+    emit LOG_I("Keys reproduce " + QString::number(recovery->reproduced_pairs) + " of " +
+                   QString::number(recovery->distinct_pairs) + " distinct word pairs",
+               true, true);
     emit LOG_I("End Time", true, true);
 
     return kStatusSuccess;
