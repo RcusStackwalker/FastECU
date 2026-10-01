@@ -137,6 +137,16 @@ py_test(
 )
 
 py_test(
+    name = "windows_serial_campaign_test",
+    size = "small",
+    srcs = [
+        "scripts/windows_serial_campaign.py",
+        "scripts/windows_serial_campaign_test.py",
+    ],
+    main = "scripts/windows_serial_campaign_test.py",
+)
+
+py_test(
     name = "gazelle_check_test",
     size = "small",
     srcs = [

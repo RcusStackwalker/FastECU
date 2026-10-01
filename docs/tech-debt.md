@@ -57,6 +57,15 @@ Remaining gaps:
 
 Actions:
 
+- A temporary [Windows serial verification campaign](../.github/workflows/windows-serial-campaign.yml)
+  runs on the `chore/windows-serial-campaign` PR branch: two independent Windows
+  jobs run each compatible serial target 50 times, with normal and sequential
+  test scheduling. Both must complete with fresh results, no failed attempts,
+  and complete per-attempt evidence. A clean result means only "not reproduced
+  in this campaign"; build failures, missing runs, or missing evidence are
+  inconclusive. Preserve the commit, runner/tool versions, target and skip
+  inventory, counts, and CI links here before the artifacts expire (30 days),
+  then remove the temporary workflow, report script, and its test target.
 - Confirm whether the Windows serial crash still occurs. If it does, resolve
   or explicitly quarantine the failing test with a separate visible CI result
   and an owner; do not silently discard its exit status.
