@@ -1,0 +1,24 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = ["//bazel/layers:algorithms_and_above"])
+
+cc_library(
+    name = "subaru_key_recovery",
+    srcs = ["subaru_key_recovery.cpp"],
+    hdrs = ["subaru_key_recovery.h"],
+    implementation_deps = ["//src/algorithms/protocol/ssm"],
+    deps = ["//src/algorithms/protocol"],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_key_recovery_test",
+    size = "small",
+    srcs = ["subaru_key_recovery_test.cpp"],
+    deps = [
+        ":subaru_key_recovery",
+        "//src/algorithms/protocol",
+        "//src/algorithms/protocol/ssm",
+        "@googletest//:gtest",
+    ],
+)
