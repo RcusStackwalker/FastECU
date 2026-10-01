@@ -179,8 +179,7 @@ are enforced by visibility.
 
 Require the Windows/macOS/Linux CI matrix and Windows/macOS packaging checks.
 Coverage is gated through SonarCloud on new code. Follow the [coding style and testing conventions](coding-style.md)
-and use package-owned mocks. Open coverage-reliability gaps are tracked in the
-[coverage reliability notes](tech-debt.md#p0-make-coverage-results-trustworthy).
+and use package-owned mocks.
 
 Portable tests cover parser/model validation, checksum and ROM outcomes,
 scripted successful operations, malformed replies, non-response, timeout,
