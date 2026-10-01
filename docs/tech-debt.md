@@ -166,16 +166,17 @@ coverage.
 
 Actions:
 
-- Consolidate the three near-duplicate single-attempt workflows in
-  `src/platform/desktop/common/flash/flash_workflow.cpp`, which together
-  cover 14 families: the `SimpleCanFlashWorkflow` template (eight
-  kernel-free families), the `KernelBackedCanFlashWorkflow` template (five
-  kernel-backed families; it repeats `SimpleCanFlashWorkflow` plus lazy kernel
-  resolution, a confirmation loop and a transport parameter), and
-  `ColtWorkflow`, which hand-rolls the same confirmation loop. This changes
-  routing for every merged CAN family and needs its own risk budget;
-  `single_window_plan` was considered and rejected as the vehicle.
-- Treat the remaining multi-stage workflows as separate work, not part of that
+- Move the remaining hand-rolled single-attempt workflows in
+  `src/platform/desktop/common/flash/flash_workflow.cpp` onto the shared
+  `SingleAttemptFlashWorkflow`, which already runs the kernel-free CAN,
+  kernel-backed and Colt families. Each still repeats the Begin → one
+  attempt → result sequence: the Subaru Mitsu/Hitachi M32R K-Line, TCU
+  Hitachi M32R K-Line and CAN, Unisia Jecs, Hitachi SH72543R CAN, Hitachi
+  SH7058 (an extra read confirmation and a K-Line/CAN transport chosen at
+  run time), and Denso MC68HC16Y5 and SH7055 workflows (kernel resolution;
+  SH7055 adds an ignition-cycle confirmation). Extend the preparation and
+  binding policies only where a family's extra step is genuinely shared.
+- Treat the multi-stage workflows as separate work, not part of that
   consolidation: the EEPROM workflow's ignition-cycle and inspect-read
   re-attempts, the Unisia Jecs M32R boot-mode workflow's staged attempts, and
   the programming-voltage apply/remove notices.
