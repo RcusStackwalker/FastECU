@@ -488,6 +488,34 @@ TEST(ResolveEditTarget, TopRowSelectionOnAMultiColumnMapTargetsTheXAxis)
     EXPECT_EQ(target.x_size, 4U);
 }
 
+TEST(ResolveEditTarget, XAxisSelectionOnAMultiRowMapShiftsColumnsPastTheYAxisHeader)
+{
+    // y_size > 1 reserves widget column 0 for the Y axis, so widget columns
+    // 1..3 are X-axis elements 0..2.
+    const auto target = resolve_edit_target({.first_row = 0, .first_col = 1, .last_row = 0, .last_col = 3},
+                                            {.x_size = 4, .y_size = 4}, "X Axis");
+
+    EXPECT_EQ(target.kind, EditTargetKind::XAxis);
+    EXPECT_EQ(target.range.first_col, 0);
+    EXPECT_EQ(target.range.last_col, 2);
+}
+
+TEST(ResolveEditTarget, XAxisSelectionOnASingleRowMapKeepsColumnsInRange)
+{
+    // y_size == 1 has no Y-axis header column, so widget column 0 is X-axis
+    // element 0. It used to resolve to column -1 and index cell_text out of
+    // bounds.
+    const auto target = resolve_edit_target({.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
+                                            {.x_size = 8, .y_size = 1}, "X Axis");
+
+    EXPECT_EQ(target.kind, EditTargetKind::XAxis);
+    EXPECT_EQ(target.range.first_row, 0);
+    EXPECT_EQ(target.range.last_row, 0);
+    EXPECT_EQ(target.range.first_col, 0);
+    EXPECT_EQ(target.range.last_col, 2);
+    EXPECT_EQ(target.x_size, 8U);
+}
+
 TEST(ResolveEditTarget, StaticScaleTypesRejectAnAxisEdit)
 {
     for (const std::string_view type : {"Static X Axis", "Static Y Axis"})

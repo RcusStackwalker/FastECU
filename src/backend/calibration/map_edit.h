@@ -72,7 +72,9 @@ struct EditTarget
 //     1 (the Y axis is one element wide regardless of the map's own
 //     x_size).
 //   - otherwise, topRow() == 0 with a multi-column map targets the X axis:
-//     both row bounds get the same shift-back.
+//     both row bounds get the same shift-back, and a 1-row map (y_size == 1)
+//     also shifts its column bounds back, since it has no Y-axis header
+//     column (legacy left them at -1, an out-of-bounds element).
 //   - otherwise it's the map body: a 1-column map (x_size == 1) still shifts
 //     its row bounds back (there is no row-0 header to reserve), and a
 //     1-row map (y_size == 1) shifts its column bounds back, symmetrically.
