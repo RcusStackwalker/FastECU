@@ -43,26 +43,6 @@ decisions, not as generation cleanup.
 
 ## Priorities
 
-### P0: Make coverage results trustworthy
-
-Remaining gaps:
-
-- An intermittent Windows-only crash was historically reported in the serial
-  tests, first in the former aggregate `serial_backend_tests` target and then
-  in the package-owned targets split from it. It has not been verified,
-  reproduced or ruled out since the GoogleTest migration. Several serial
-  tests keep unbuffered stdout/stderr so a failing binary and test can be
-  isolated if it recurs; until then, do not attribute it to one suite or use
-  it as a reason to ignore unrelated coverage-test failures.
-
-Actions:
-
-- Confirm whether the Windows serial crash still occurs. If it does, resolve
-  or explicitly quarantine the failing test with a separate visible CI result
-  and an owner; do not silently discard its exit status.
-- Keep exclusions explicit and reviewed: tests, generated Qt files, vendored
-  `src/ui/desktop/hexedit/`, Bazel/external outputs, system libraries, and platform SDKs.
-
 ### P1: Separate UI from application logic
 
 The calibration and application logic already exists as portable backend
@@ -443,5 +423,8 @@ Actions:
   `SerialPortActions*` facade unless the compatibility reason is documented.
 - Coverage and static-analysis commands do not hide unexpected build or test
   failures.
+- Coverage exclusions stay explicit and reviewed: tests, generated Qt files,
+  vendored `src/ui/desktop/hexedit/`, Bazel/external outputs, system libraries,
+  and platform SDKs.
 - Generated files and build outputs remain ignored and out of review.
 - New debt is added here or to a narrower existing debt document.
