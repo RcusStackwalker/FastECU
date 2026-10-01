@@ -7,7 +7,7 @@
 #include <QEventLoop>
 
 #include "src/platform/desktop/common/flash/flash_workflow.h"
-#include "src/platform/desktop/common/flash/flash_worker.h"
+#include "src/platform/desktop/common/flash/worker/flash_worker.h"
 #include <ui_ecu_operations.h>
 
 namespace fastecu::flash

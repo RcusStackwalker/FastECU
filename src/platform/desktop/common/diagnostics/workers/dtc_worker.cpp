@@ -1,4 +1,4 @@
-#include "src/platform/desktop/common/diagnostics/dtc_worker.h"
+#include "src/platform/desktop/common/diagnostics/workers/dtc_worker.h"
 
 #include <utility>
 

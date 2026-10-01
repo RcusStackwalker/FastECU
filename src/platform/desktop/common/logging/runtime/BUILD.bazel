@@ -1,0 +1,75 @@
+# Engine, worker and system logger declare Q_OBJECT; generated hdrs must run
+# through moc.
+# gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# The ports package re-exports its private event sink through the `ports` label.
+# gazelle:resolve cc src/platform/desktop/common/ports/qt_event_sink.h //src/platform/desktop/common/ports
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "qt_cc_library")
+
+package(default_visibility = ["//bazel/layers:platform_and_composition_root"])
+
+# UI-facing, as the logging adapters are: MainWindow holds the LoggingEngine.
+UI_FACING_VISIBILITY = [
+    "//bazel/layers:platform_and_composition_root",
+    "//bazel/layers:ui_desktop",
+]
+
+qt_cc_library(
+    name = "systemlogger",
+    srcs = ["systemlogger.cpp"],
+    hdrs = ["systemlogger.h"],
+    deps = [
+        "//bazel/qt:core",
+        "//bazel/qt:widgets",
+    ],
+)
+
+qt_cc_library(
+    name = "logging_runtime",
+    srcs = [
+        "logging_engine.cpp",
+        "logging_worker.cpp",
+    ],
+    hdrs = [
+        "logging_engine.h",
+        "logging_worker.h",
+    ],
+    visibility = UI_FACING_VISIBILITY,
+    deps = [
+        "//bazel/qt:core",
+        "//src/backend/logging:logging_session",
+        "//src/backend/logging:logging_use_case",
+        "//src/backend/ports",
+        "//src/platform/desktop/common/logging:logging_adapters",
+        "//src/platform/desktop/common/ports",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_logging_engine",
+    srcs = ["logging_engine_test.cpp"],
+    deps = [
+        ":logging_runtime",
+        "//src/backend/logging/testing:scripted_logging_protocol",
+        "//src/platform/desktop/common/logging:cdbg_serial_setup",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_logging_worker",
+    srcs = ["logging_worker_test.cpp"],
+    deps = [
+        ":logging_runtime",
+        "//bazel/qt:core",
+        "//src/backend/logging/testing:scripted_logging_protocol",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
+        "@googletest//:gtest",
+    ],
+)

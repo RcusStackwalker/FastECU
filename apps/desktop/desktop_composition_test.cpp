@@ -6,10 +6,10 @@
 
 #include <variant>
 #include <QMap>
-#include "src/platform/desktop/common/logging/logging_worker.h"
+#include "src/platform/desktop/common/logging/runtime/logging_worker.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #define private public
-#include "src/platform/desktop/common/logging/logging_engine.h"
+#include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 #undef private
 
 #include "apps/desktop/desktop_composition.h"
@@ -26,7 +26,7 @@
 #include <algorithm>
 #include <memory>
 
-#include "src/platform/desktop/common/logging/systemlogger.h"
+#include "src/platform/desktop/common/logging/runtime/systemlogger.h"
 #include "src/platform/desktop/common/remote_utility/remote_utility.h"
 #include "src/ui/desktop/channels/log_channel.h"
 #include "src/ui/desktop/channels/remote_peer.h"

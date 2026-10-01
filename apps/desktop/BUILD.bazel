@@ -19,10 +19,10 @@
 # gazelle:resolve cc apps/desktop/startup_test_platform.h //apps/desktop:startup_test_platform
 # gazelle:resolve cc src/backend/calibration/session/calibration_workspace.h //src/backend/calibration/session:calibration_workspace
 # gazelle:resolve cc src/platform/desktop/common/definition/definition_catalog_session.h //src/platform/desktop/common/definition:definition_catalog_session
-# gazelle:resolve cc src/platform/desktop/common/logging/logging_engine.h //src/platform/desktop/common/logging:logging_runtime
+# gazelle:resolve cc src/platform/desktop/common/logging/runtime/logging_engine.h //src/platform/desktop/common/logging/runtime:logging_runtime
 # gazelle:resolve cc src/platform/desktop/common/logging/logging_snapshot_adapter.h //src/platform/desktop/common/logging:logging_adapters
-# gazelle:resolve cc src/platform/desktop/common/logging/logging_worker.h //src/platform/desktop/common/logging:logging_runtime
-# gazelle:resolve cc src/platform/desktop/common/logging/systemlogger.h //src/platform/desktop/common/logging:logging
+# gazelle:resolve cc src/platform/desktop/common/logging/runtime/logging_worker.h //src/platform/desktop/common/logging/runtime:logging_runtime
+# gazelle:resolve cc src/platform/desktop/common/logging/runtime/systemlogger.h //src/platform/desktop/common/logging/runtime:systemlogger
 # gazelle:resolve cc src/platform/desktop/common/remote_utility/remote_utility.h //src/platform/desktop/common/remote_utility:remote_utility
 # gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
 # gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
@@ -58,8 +58,8 @@ qt_cc_library(
         "//src/backend/logging:logger_definition_service",
         "//src/backend/logging:logger_model",
         "//src/platform/desktop/common/connection:adapter_connection",
-        "//src/platform/desktop/common/logging",
-        "//src/platform/desktop/common/logging:logging_runtime",
+        "//src/platform/desktop/common/logging/runtime:systemlogger",
+        "//src/platform/desktop/common/logging/runtime:logging_runtime",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/serial:desktop_serial_factory",
@@ -142,9 +142,9 @@ fastecu_gtest(
         "//bazel/qt:core",
         "//src/backend/calibration/session:calibration_workspace",
         "//src/platform/desktop/common/definition:definition_catalog_session",
-        "//src/platform/desktop/common/logging",
         "//src/platform/desktop/common/logging:logging_adapters",
-        "//src/platform/desktop/common/logging:logging_runtime",
+        "//src/platform/desktop/common/logging/runtime:logging_runtime",
+        "//src/platform/desktop/common/logging/runtime:systemlogger",
         "//src/platform/desktop/common/remote_utility",
         "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",

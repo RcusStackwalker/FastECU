@@ -1,9 +1,5 @@
-# Providers use unmanaged Qt macros, so Gazelle cannot index their headers.
-# gazelle:resolve cc src/platform/desktop/common/connection/adapter_connection.h //src/platform/desktop/common/connection:adapter_connection
-# gazelle:resolve cc src/platform/desktop/common/serial/testing/fake_backend.h //src/platform/desktop/common/serial/testing:fake_serial_backend
-# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions.h //src/platform/desktop/common/serial:serial_port_actions
-load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:qt_common.bzl", "COMMON_COPTS")
+load("//bazel:qt_targets.bzl", "qt_cc_library")
 
 package(default_visibility = [
     "//bazel/layers:ui_desktop",
@@ -14,7 +10,7 @@ package(default_visibility = [
 # No Q_OBJECT: ordinary headers and COMMON_COPTS preserve the no-moc build.
 # Lets UI-layer tests build MainWindow over a fake backend without seeing
 # serial_port_actions.h: the facade lives behind the harness's .cpp.
-cc_library(
+qt_cc_library(
     name = "adapter_connection_harness",
     testonly = True,
     srcs = ["adapter_connection_harness.cpp"],

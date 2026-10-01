@@ -8,14 +8,14 @@
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
-#include "src/platform/desktop/common/logging/logging_worker.h"
+#include "src/platform/desktop/common/logging/runtime/logging_worker.h"
 #include <QMap>
 #include <array>
 #include <optional>
 // Test the registered factories synchronously without adding a production
 // inspection API. Engine/worker lifecycle has its own suite.
 #define private public
-#include "src/platform/desktop/common/logging/logging_engine.h"
+#include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 #undef private
 #include "src/platform/desktop/common/transport/desktop_logging_protocol_registration.h"
 #include "src/platform/desktop/common/serial/testing/fake_backed_serial.h"

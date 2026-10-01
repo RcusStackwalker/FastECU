@@ -4,7 +4,7 @@
 // ServiceFunctionWorker. Follows flash_worker_test.cpp: a FakeClock plus
 // condition variables and thread joins, never signal recorder::wait(), so no
 // assertion depends on wall-clock timing.
-#include "src/platform/desktop/common/service_functions/service_function_worker.h"
+#include "src/platform/desktop/common/service_functions/worker/service_function_worker.h"
 
 #include <QCoreApplication>
 #include <QSemaphore>

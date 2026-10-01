@@ -1,0 +1,41 @@
+# The worker declares Q_OBJECT; generated hdrs must run through moc.
+# gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# The ports package re-exports its private event sink through the `ports` label.
+# gazelle:resolve cc src/platform/desktop/common/ports/qt_event_sink.h //src/platform/desktop/common/ports
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "qt_cc_library")
+
+package(default_visibility = [
+    "//bazel/layers:platform_and_composition_root",
+    "//bazel/layers:ui",
+])
+
+qt_cc_library(
+    name = "service_function_worker",
+    srcs = ["service_function_worker.cpp"],
+    hdrs = ["service_function_worker.h"],
+    implementation_deps = ["//src/platform/desktop/common/ports"],
+    deps = [
+        "//bazel/qt:core",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+        "//src/backend/service_functions:service_function_session",
+        "//src/platform/desktop/common/service_functions:serial_facade_configurator",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_service_function_worker",
+    srcs = ["service_function_worker_test.cpp"],
+    deps = [
+        ":service_function_worker",
+        "//bazel/qt:core",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/protocol/testing:scripted_transports",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
+        "@googletest//:gtest",
+    ],
+)

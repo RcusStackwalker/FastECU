@@ -10,7 +10,7 @@
 // timing coincidence) is what makes teardown prompt. For the same reason the
 // suite waits on condition variables and thread joins throughout, and never
 // on signal recorder::wait() -- see the note in the first test.
-#include "src/platform/desktop/common/flash/flash_worker.h"
+#include "src/platform/desktop/common/flash/worker/flash_worker.h"
 #include "src/platform/desktop/common/flash/flash_workflow.h"
 
 #include <QCoreApplication>

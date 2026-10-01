@@ -1,12 +1,10 @@
-# Tests regenerate; production sources and helper binaries retain existing owners.
+# Single moc library per package: every generated hdrs entry declares Q_OBJECT.
+# gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
-# gazelle:exclude flash_operation_controller.cpp
-# gazelle:exclude flash_operation_controller.h
-# gazelle:resolve cc src/platform/desktop/common/connection/testing/adapter_connection_harness.h //src/platform/desktop/common/connection/testing:adapter_connection_harness
-# gazelle:resolve cc src/platform/desktop/common/testing/widgets_application_environment.h //src/platform/desktop/common/testing:widgets_application_environment
-# gazelle:resolve cc src/ui/desktop/flash/operation/flash_operation_controller.h //src/ui/desktop/flash/operation:flash_operation_controller
+# The preflight library is still hand-owned in its package.
+# gazelle:resolve cc src/ui/desktop/service_functions/denso_tcu_read_preflight.h //src/ui/desktop/service_functions:denso_tcu_read_preflight
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "QT_DEPS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "qt_cc_library")
 
 package(default_visibility = ["//bazel/layers:ui_desktop"])
 
@@ -14,20 +12,22 @@ package(default_visibility = ["//bazel/layers:ui_desktop"])
 # portable workflow creation, the FlashDialog, and the unknown-protocol
 # warning. It only passes SerialPortActions* through, so it needs no facade
 # dependency.
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
 qt_cc_library(
     name = "flash_operation_controller",
     srcs = ["flash_operation_controller.cpp"],
     hdrs = ["flash_operation_controller.h"],
-    deps = QT_DEPS + [
-        "//src/algorithms/protocol",
-        "//src/backend/config:config_paths",
+    implementation_deps = [
+        "//bazel/qt:widgets",
         "//src/backend/flash:flash_operation_request",
-        "//src/backend/flash:flash_types",
-        "//src/platform/desktop/common/flash:flash_worker",
+        "//src/platform/desktop/common/flash:flash_workflow",
         "//src/ui/desktop/flash/common:flash_dialog",
         "//src/ui/desktop/service_functions:denso_tcu_read_preflight",
+    ],
+    deps = [
+        "//bazel/qt:core",
+        "//src/algorithms/protocol",
+        "//src/backend/config:config_paths",
+        "//src/backend/flash:flash_types",
     ],
 )
 
@@ -38,11 +38,11 @@ fastecu_gtest(
     copts = ["-DQT_WIDGETS_LIB"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
+        ":flash_operation_controller",
         "//bazel/qt:core",
         "//bazel/qt:widgets",
         "//src/platform/desktop/common/connection/testing:adapter_connection_harness",
         "//src/platform/desktop/common/testing:widgets_application_environment",
-        "//src/ui/desktop/flash/operation:flash_operation_controller",
         "@googletest//:gtest",
     ],
 )

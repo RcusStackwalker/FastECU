@@ -69,13 +69,13 @@
 
 // OBD
 
-#include "src/platform/desktop/common/logging/logging_engine.h"
+#include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/connection/adapter_connection.h"
 #include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
-#include "src/platform/desktop/common/diagnostics/ssm_identify_worker.h"
+#include "src/platform/desktop/common/diagnostics/workers/ssm_identify_worker.h"
 
 #include <functional>
 

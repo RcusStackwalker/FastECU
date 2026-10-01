@@ -12,7 +12,7 @@
 
 #include "src/backend/logging/testing/scripted_logging_protocol.h"
 #include "src/platform/desktop/common/logging/cdbg_serial_setup.h"
-#include "src/platform/desktop/common/logging/logging_engine.h"
+#include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 
 namespace fastecu::desktop::logging
 {

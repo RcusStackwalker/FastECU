@@ -1,0 +1,72 @@
+# Both workers declare Q_OBJECT; generated hdrs must run through moc.
+# gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# The ports package re-exports its private event sink through the `ports` label.
+# gazelle:resolve cc src/platform/desktop/common/ports/qt_event_sink.h //src/platform/desktop/common/ports
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "qt_cc_library")
+
+package(default_visibility = [
+    "//bazel/layers:platform_and_composition_root",
+    "//bazel/layers:ui",
+])
+
+# Runs run_dtc_session on its own thread. Mirrors ServiceFunctionWorker
+# without the operator gate: a DTC read/clear has no confirmation step.
+qt_cc_library(
+    name = "dtc_worker",
+    srcs = ["dtc_worker.cpp"],
+    hdrs = ["dtc_worker.h"],
+    implementation_deps = ["//src/platform/desktop/common/ports"],
+    deps = [
+        "//bazel/qt:core",
+        "//src/backend/diagnostics:dtc_session",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+    ],
+)
+
+fastecu_gtest(
+    name = "dtc_worker_test",
+    srcs = ["dtc_worker_test.cpp"],
+    deps = [
+        ":dtc_worker",
+        "//bazel/qt:core",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/protocol/testing:fake_diagnostic_link",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
+        "@googletest//:gtest",
+    ],
+)
+
+# Runs the connect-time SSM identification retry loop on its own thread,
+# shaped like DtcWorker.
+qt_cc_library(
+    name = "ssm_identify_worker",
+    srcs = ["ssm_identify_worker.cpp"],
+    hdrs = ["ssm_identify_worker.h"],
+    implementation_deps = ["//src/platform/desktop/common/bytes:qt_bytes"],
+    deps = [
+        "//bazel/qt:core",
+        "//src/backend/diagnostics:ssm_identify",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+    ],
+)
+
+fastecu_gtest(
+    name = "ssm_identify_worker_test",
+    srcs = ["ssm_identify_worker_test.cpp"],
+    deps = [
+        ":ssm_identify_worker",
+        "//bazel/qt:core",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/protocol/testing:fake_diagnostic_link",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
+        "@googletest//:gtest",
+    ],
+)

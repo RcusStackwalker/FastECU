@@ -1,0 +1,47 @@
+# The worker declares Q_OBJECT; generated hdrs must run through moc.
+# gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# The ports package re-exports its private event sink through the `ports` label.
+# gazelle:resolve cc src/platform/desktop/common/ports/qt_event_sink.h //src/platform/desktop/common/ports
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "qt_cc_library")
+
+package(default_visibility = [
+    "//bazel/layers:platform",
+    "//bazel/layers:tests",
+    "//bazel/layers:ui",
+])
+
+qt_cc_library(
+    name = "flash_worker",
+    srcs = ["flash_worker.cpp"],
+    hdrs = ["flash_worker.h"],
+    implementation_deps = ["//src/platform/desktop/common/ports"],
+    deps = [
+        "//bazel/qt:core",
+        "//src/algorithms/protocol",
+        "//src/backend/flash:flash_executor",
+        "//src/backend/flash:flash_plan",
+        "//src/backend/ports",
+        "//src/platform/desktop/common/flash:flash_workflow",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_flash_worker",
+    srcs = ["flash_worker_test.cpp"],
+    deps = [
+        ":flash_worker",
+        "//bazel/qt:core",
+        "//src/algorithms/protocol/ssm",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_common",
+        "//src/backend/flash/eeprom:denso_sh705x_eeprom_kline",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/platform/desktop/common/flash:flash_workflow",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "//src/platform/desktop/common/testing:signal_recorder",
+        "@googletest//:gtest",
+    ],
+)

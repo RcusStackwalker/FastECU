@@ -1,4 +1,4 @@
-#include "src/platform/desktop/common/flash/flash_worker.h"
+#include "src/platform/desktop/common/flash/worker/flash_worker.h"
 
 #include "src/platform/desktop/common/ports/qt_event_sink.h"
 

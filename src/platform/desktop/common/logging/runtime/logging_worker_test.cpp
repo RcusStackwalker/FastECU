@@ -7,7 +7,7 @@
 #include <chrono>
 
 #include "src/backend/logging/testing/scripted_logging_protocol.h"
-#include "src/platform/desktop/common/logging/logging_worker.h"
+#include "src/platform/desktop/common/logging/runtime/logging_worker.h"
 
 namespace fastecu::desktop::logging
 {

@@ -47,7 +47,7 @@
 # gazelle:resolve cc src/backend/protocol/testing/fake_diagnostic_link.h //src/backend/protocol/testing:fake_diagnostic_link
 # gazelle:resolve cc src/platform/desktop/common/connection/testing/adapter_connection_harness.h //src/platform/desktop/common/connection/testing:adapter_connection_harness
 # gazelle:resolve cc src/platform/desktop/common/definition/definition_catalog_session.h //src/platform/desktop/common/definition:definition_catalog_session
-# gazelle:resolve cc src/platform/desktop/common/logging/logging_engine.h //src/platform/desktop/common/logging:logging_runtime
+# gazelle:resolve cc src/platform/desktop/common/logging/runtime/logging_engine.h //src/platform/desktop/common/logging/runtime:logging_runtime
 # gazelle:resolve cc src/platform/desktop/common/ports/qt_atomic_file_writer.h //src/platform/desktop/common/ports:ports
 # gazelle:resolve cc src/platform/desktop/common/ports/qt_event_sink.h //src/platform/desktop/common/ports:ports
 # gazelle:resolve cc src/platform/desktop/common/ports/qt_file_repository.h //src/platform/desktop/common/ports:ports
@@ -157,7 +157,7 @@ qt_cc_library(
         "//src/backend/diagnostics:dtc_session",
         "//src/backend/ports",
         "//src/backend/protocol",
-        "//src/platform/desktop/common/diagnostics:dtc_worker",
+        "//src/platform/desktop/common/diagnostics/workers:dtc_worker",
         "//src/platform/desktop/common/ports",
     ],
 )
@@ -249,13 +249,14 @@ qt_cc_library(
         # menu_actions.cpp) each include.
         "//src/backend/protocol",
         "//src/backend/diagnostics:ssm_identify",
-        "//src/platform/desktop/common/diagnostics:ssm_identify_worker",
+        "//src/platform/desktop/common/diagnostics/workers:ssm_identify_worker",
         "//src/platform/desktop/common/connection:adapter_connection",
         "//src/platform/desktop/common/diagnostics:serial_diagnostic_link",
         # mainwindow.cpp calls portableImageForOperation directly.
-        "//src/platform/desktop/common/flash:flash_worker",
+        "//src/platform/desktop/common/flash:flash_workflow",
+        "//src/platform/desktop/common/flash/worker:flash_worker",
         "//src/platform/desktop/common/logging:logging_adapters",
-        "//src/platform/desktop/common/logging:logging_runtime",
+        "//src/platform/desktop/common/logging/runtime:logging_runtime",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/serial:serial_idle",
         "//src/ui/desktop/biu",
@@ -299,7 +300,7 @@ fastecu_gtest(
         "//src/backend/logging/testing:scripted_logging_protocol",
         "//src/platform/desktop/common/connection/testing:adapter_connection_harness",
         "//src/platform/desktop/common/definition:definition_catalog_session",
-        "//src/platform/desktop/common/logging:logging_runtime",
+        "//src/platform/desktop/common/logging/runtime:logging_runtime",
         "//src/platform/desktop/common/ports",
         "//src/platform/desktop/common/serial/testing:fake_serial_backend",
         "//src/platform/desktop/common/testing:event_helpers",

@@ -1,4 +1,4 @@
-#include "src/platform/desktop/common/service_functions/service_function_worker.h"
+#include "src/platform/desktop/common/service_functions/worker/service_function_worker.h"
 
 #include <QMutexLocker>
 
