@@ -213,7 +213,7 @@ Actions:
 
 ### P2: Convert suppressed signed-bitwise arithmetic to unsigned operands
 
-Three files still suppress `bugprone-signed-bitwise` behind
+Two files still suppress `bugprone-signed-bitwise` behind
 `NOLINTBEGIN`/`NOLINTEND` blocks because legacy code mixes signed literals,
 loop counters, `QByteArray::at()` results, or vendor J2534 flag macros into
 bitwise operations. Each block's comment points back to this section.
@@ -224,12 +224,6 @@ added when a step needed to touch the file for an unrelated reason. Re-run
 clang-tidy on a file for its current findings rather than relying on a count
 recorded here.
 
-- `src/ui/desktop/widgets/get_key_operations_subaru.cpp` (the Subaru
-  key-recovery dialog): one block spanning the linear-approximation and
-  cipher helpers. None of the findings is a live defect under C++23 (signed
-  left shifts such as `roundFunction`'s promoted `uint16_t << 16` wrap modulo
-  2^32 since C++20), but the code only works because every operand happens to
-  be non-negative.
 - `src/platform/desktop/common/serial/direct/common/serial_port_actions_direct.cpp`:
   one block per function around `read_serial_data`, `append_iso14230_header`,
   `write_j2534_data`, `read_j2534_data`, `dump_msg` and `set_j2534_iso9141`.
@@ -243,20 +237,13 @@ recorded here.
 
 Actions:
 
-- For `get_key_operations_subaru.cpp`: extract the pure cipher helpers
-  (`get_bit`, `sBox`, `fFunction`, `roundFunction`, `flipLeftRight`,
-  `manyRoundAndFlip`) out of the dialog into a free-function unit with a
-  co-located test, pin their current outputs with characterization
-  vectors, then convert the operands to unsigned types and remove the
-  suppression block.
-- For the other two files, convert each flagged site's operand types
-  (the protocol id/length fields and the relevant J2534 macros' consumers)
-  to unsigned, confirm the existing protocol/serial tests still pass, and
-  remove the corresponding suppression blocks. These functions have
-  hardware/QObject side effects rather than pure logic, so the
-  extract-and-characterize step above does not apply the same way; a
-  direct signed-to-unsigned conversion plus existing test coverage is
-  enough.
+- Convert each flagged site's operand types (the protocol id/length fields
+  and the relevant J2534 macros' consumers) to unsigned, confirm the
+  existing protocol/serial tests still pass, and remove the corresponding
+  suppression blocks. These functions have hardware/QObject side effects
+  rather than pure logic, so extracting them into a characterized pure unit
+  does not pay off; a direct signed-to-unsigned conversion plus existing
+  test coverage is enough.
 
 ### P2: Pay down the SonarCloud code-smell backlog
 
