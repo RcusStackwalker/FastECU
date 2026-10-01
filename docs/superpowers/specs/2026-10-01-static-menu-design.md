@@ -107,6 +107,14 @@ Changed on purpose:
   submenu-name-or-own-name prefix is dropped; an empty tooltip falls back to
   the action text.
 - Menu text is marked translatable. No translation files are added.
+- Broken icons are fixed. The six Testing-menu items point at
+  `:/icons/icons/gtk-about.png`, which does not exist (doubled `icons/`, no
+  such file in `icons.qrc`), so they show no icon today. Diagnostic Trouble
+  Codes gets the bundled `utilities-system-monitor.png`. Hex Editor, Terminal,
+  BIU communication, Get Encryption Key and WinOLS CSV to RomRaider XML get no
+  icon: nothing in `icons.qrc` fits them, and 16 other items already have none.
+  No new icon assets are added. The icon paths referenced only from
+  commented-out items and the unused popup section are not carried over.
 
 Pinned unchanged:
 
@@ -117,8 +125,8 @@ Pinned unchanged:
 - `Disconnect` stays enabled during identification; the flash-arrow rules for
   read, test write and write are unchanged.
 - Logging and log-to-file state propagation.
-- Icons are carried over by path. An icon that is null today stays null; the
-  characterization step records which.
+- The other 39 icon assignments (all that resolve in `icons.qrc` today) are
+  carried over by path.
 
 No ECU I/O, protocol or address-guard code is touched.
 
@@ -141,6 +149,10 @@ Tests first, against the current runtime-built menu.
    `shortcut="false"`) is an explicit, commented expectation, not a loosened
    assertion.
 5. **Shortcut collisions.** No two actions in the window share a key sequence.
+6. **Icons resolve.** Every action that names an icon has a non-null `QIcon`
+   from the bundled resources, so a mistyped path fails a test instead of
+   showing nothing. Step 1 records the six known-null items; step 4 expects
+   only Diagnostic Trouble Codes to gain an icon.
 
 The `qt_layer` ratchet list gets no new entry. BUILD files are regenerated with
 `python3 scripts/gazelle_check.py --fix`. Docs that name `menu.cfg`
