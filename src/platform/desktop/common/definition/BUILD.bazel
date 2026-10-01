@@ -12,7 +12,7 @@ cc_library(
         "//bazel/layers:apps",
         # Designed UI-facing catalog and authoring adapter.
         "//src/ui/desktop/widgets:__pkg__",
-        "//src/ui/desktop/definition:__pkg__",
+        "//src/ui/desktop/definition/dialog:__pkg__",
     ],
     deps = [
         "//src/backend/calibration/session:definition_catalogs",

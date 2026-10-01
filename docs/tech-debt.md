@@ -329,7 +329,7 @@ Order the paydown by risk, not by count:
   Scattered `S3776`/`S134` findings stay a plain backlog; re-run the query when
   picking up a file.
 - Duplication clusters not yet extracted: the dialog→validate→write tail of
-  the two wizards in `src/ui/desktop/definition/definition_authoring_dialog.cpp`,
+  the two wizards in `src/ui/desktop/definition/dialog/definition_authoring_dialog.cpp`,
   and the five adapters in `src/platform/desktop/common/transport/`, whose
   read/write guards differed only by a label string and need re-measuring.
 - `WriteSelection.ReproducesTheFourSpaceQDomIndent`

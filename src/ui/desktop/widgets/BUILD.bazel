@@ -151,7 +151,7 @@ qt_cc_library(
         "//src/ui/desktop/channels:log_channel",
         "//src/ui/desktop/channels:remote_peer",
         "//src/ui/desktop/checksum:checksum_correction_command",
-        "//src/ui/desktop/definition:definition_authoring_dialog",
+        "//src/ui/desktop/definition/dialog:definition_authoring_dialog",
         "//src/ui/desktop/hexedit",
     ],
 )
