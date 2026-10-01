@@ -61,12 +61,15 @@ compile error, so no null guards are needed.
 
 ### Shortcuts
 
-- Where Qt has a platform standard, set it with `QKeySequence::StandardKey`:
-  Open, Save, Save As, Copy, Paste. Designer stores only literal sequences, so
-  these are applied by a small function in `MainWindow` setup rather than in
-  the `.ui`.
-- Quit gets both `QKeySequence::Quit` and `Ctrl+Q`. `QKeySequence::Quit` is
-  unbound on Windows, where `Ctrl+Q` is bound today.
+- Where Qt has a platform standard, use its primary binding
+  (`QKeySequence(QKeySequence::StandardKey)`) for Open, Save, Save As, Copy,
+  Paste and Quit. Where Qt has none on a platform, fall back to the current
+  literal (`Ctrl+O`, `Ctrl+S`, `Ctrl+Shift+S`, `Ctrl+C`, `Ctrl+V`, `Ctrl+Q`).
+  `SaveAs` and `Quit` are unbound on Windows, so without the fallback those two
+  bindings would silently disappear there. Designer stores only literal
+  sequences, so this is applied by a small function in `MainWindow` setup rather
+  than in the `.ui`. Only the primary binding is used, so no alternates such as
+  `Ctrl+Insert` are added.
 - Every other shortcut keeps its current literal value in the `.ui`: `F3`,
   `F4`, `Space`, `+`, `-`, `Ctrl++`, `Ctrl+-`, `S`, `Ctrl+H`, `Ctrl+J`,
   `Ctrl+I`, `Ctrl+L`. The current `shortcut="false"` on Settings is not
