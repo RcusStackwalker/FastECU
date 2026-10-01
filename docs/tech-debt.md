@@ -26,6 +26,11 @@ The target state is:
 - CI builds and tests on Windows, macOS, and Linux, verifies macOS/Windows
   packages, produces coverage for SonarCloud, and runs a blocking clang-tidy
   report over the PR's changed files.
+- The historical Windows serial-test crash was not reproduced in the
+  [2026-10-01 verification campaign](windows-serial-verification-2026-10-01.md):
+  900 fresh target executions passed across normal and sequential scheduling.
+  The unverified historical report is no longer active P0 debt; this result
+  does not prove that an intermittent crash is impossible.
 - The [protocol-sharing boundary](design-notes.md#where-port-then-factor-shared-code-and-where-it-did-not)
   lives in the design notes; logging-specific gaps are under
   "P2: Logging engine follow-ups" below.
@@ -42,35 +47,6 @@ documented in the ADR are intentionally hand-owned; change them as design
 decisions, not as generation cleanup.
 
 ## Priorities
-
-### P0: Make coverage results trustworthy
-
-Remaining gaps:
-
-- An intermittent Windows-only crash was historically reported in the serial
-  tests, first in the former aggregate `serial_backend_tests` target and then
-  in the package-owned targets split from it. It has not been verified,
-  reproduced or ruled out since the GoogleTest migration. Several serial
-  tests keep unbuffered stdout/stderr so a failing binary and test can be
-  isolated if it recurs; until then, do not attribute it to one suite or use
-  it as a reason to ignore unrelated coverage-test failures.
-
-Actions:
-
-- A temporary [Windows serial verification campaign](../.github/workflows/windows-serial-campaign.yml)
-  runs on the `chore/windows-serial-campaign` PR branch: two independent Windows
-  jobs run each compatible serial target 50 times, with normal and sequential
-  test scheduling. Both must complete with fresh results, no failed attempts,
-  and complete per-attempt evidence. A clean result means only "not reproduced
-  in this campaign"; build failures, missing runs, or missing evidence are
-  inconclusive. Preserve the commit, runner/tool versions, target and skip
-  inventory, counts, and CI links here before the artifacts expire (30 days),
-  then remove the temporary workflow, report script, and its test target.
-- Confirm whether the Windows serial crash still occurs. If it does, resolve
-  or explicitly quarantine the failing test with a separate visible CI result
-  and an owner; do not silently discard its exit status.
-- Keep exclusions explicit and reviewed: tests, generated Qt files, vendored
-  `src/ui/desktop/hexedit/`, Bazel/external outputs, system libraries, and platform SDKs.
 
 ### P1: Separate UI from application logic
 
@@ -452,5 +428,8 @@ Actions:
   `SerialPortActions*` facade unless the compatibility reason is documented.
 - Coverage and static-analysis commands do not hide unexpected build or test
   failures.
+- Coverage exclusions stay explicit and reviewed: tests, generated Qt files,
+  vendored `src/ui/desktop/hexedit/`, Bazel/external outputs, system libraries,
+  and platform SDKs.
 - Generated files and build outputs remain ignored and out of review.
 - New debt is added here or to a narrower existing debt document.
