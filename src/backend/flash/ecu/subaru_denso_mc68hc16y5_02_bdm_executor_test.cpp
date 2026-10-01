@@ -10,6 +10,7 @@
 
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_bdm_plan.h"
 #include "src/backend/flash/ecu/subaru_unisia_jecs_plan.h"
+#include "src/backend/flash/flash_validation.h"
 #include "src/backend/flash/testing/scripted_kline_flash_transport.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
@@ -176,6 +177,27 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportSetupIs115200BaudPlainSerial)
     EXPECT_EQ(setup->tester_id, 0);
     EXPECT_EQ(setup->target_id, 0);
     EXPECT_EQ(setup->parity, KlineParity::None);
+}
+
+// The bootstrap consent is enforced past the builder: a Write plan assembled
+// without it never reaches the adapter.
+TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportSetupRejectsAWritePlanWithoutTheBootstrapConsent)
+{
+    auto plan = validate_and_build(FlashPlanFields{
+        .operation = FlashOperation::Write,
+        .family = FlashFamily::SubaruDensoMc68hc16y5_02Bdm,
+        .transport = TransportKind::Kline,
+        .target_id = std::string(kProtocol),
+        .mcu_name = std::string(kMcu),
+        .transfer_region = MemoryRegion{0x20000, 0x20},
+        .erase_regions = {},
+        .image = bytes::Bytes(0x20, 0xab),
+        .kernel = std::nullopt,
+        .family_plan = SubaruDensoMc68hc16y5_02BdmPlan{.baud = 115200},
+        .confirmations = {},
+    });
+    ASSERT_THAT(plan, IsOk());
+    EXPECT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.transport_setup(*plan), IsErr(ErrorKind::InvalidConfig));
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, BeforeConfigureClearsTheIso14230Header)

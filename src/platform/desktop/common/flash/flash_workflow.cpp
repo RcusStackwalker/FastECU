@@ -774,6 +774,8 @@ Result<FlashPromptStep> confirmationPrompt(const ConfirmationSpec& confirmation)
     case InspectEepromBytes:
     case ApplyProgrammingVoltage:
     case ApplyBootModeVoltages:
+    case StartKlineRead:
+    case KernelBootstrap:
         break;
     }
     return fail(ErrorKind::Internal,

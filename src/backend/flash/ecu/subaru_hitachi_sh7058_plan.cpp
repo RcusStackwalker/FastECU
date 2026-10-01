@@ -54,9 +54,18 @@ Status validate_subaru_hitachi_sh7058_plan(const FlashPlan& plan)
         plan.image().has_value() != !read || (!read && plan.image()->size() != kSize) || plan.kernel().has_value() ||
         (!read && (plan.erase_regions().size() != 1 || plan.erase_regions()[0].start != 0 ||
                    plan.erase_regions()[0].length != kSize)) ||
-        (read && !plan.erase_regions().empty()) || !plan.confirmations().empty())
+        (read && !plan.erase_regions().empty()))
     {
         return fail(ErrorKind::InvalidConfig, "invalid SH7058 flash geometry");
+    }
+    const auto confirmations = plan.confirmations();
+    const bool exactly_start_read = confirmations.size() == 1 &&
+                                    confirmations.front().id == ConfirmationSpec::Id::StartKlineRead &&
+                                    confirmations.front().arguments.empty();
+    if (read ? !exactly_start_read : !confirmations.empty())
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    "SH7058 Read requires exactly the StartKlineRead confirmation; Write requires none");
     }
     return {};
 }
@@ -94,7 +103,9 @@ Result<FlashPlan> build_subaru_hitachi_sh7058_plan(FlashOperation operation, std
         .image = std::move(image),
         .kernel = std::nullopt,
         .family_plan = read ? FamilyPlan{SubaruHitachiSh7058KlinePlan{}} : FamilyPlan{SubaruHitachiSh7058CanPlan{}},
-        .confirmations = {},
+        .confirmations =
+            read ? std::vector<ConfirmationSpec>{ConfirmationSpec{.id = ConfirmationSpec::Id::StartKlineRead}}
+                 : std::vector<ConfirmationSpec>{},
     };
     auto plan = validate_and_build(std::move(fields));
     if (!plan.has_value())

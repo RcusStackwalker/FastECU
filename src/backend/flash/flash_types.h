@@ -137,6 +137,13 @@ struct ConfirmationSpec
         // the executor started, that VPP and MOD1 are connected for M32R
         // boot mode.
         ApplyBootModeVoltages,
+        // Same contract as the four above. Hitachi SH7058 Read: the operator
+        // confirmed opening the adapter and starting the K-Line ROM read.
+        StartKlineRead,
+        // Same contract. Denso MC68HC16Y5 BDM Write: the operator confirmed
+        // uploading the kernel into RAM and starting it; the ROM is not
+        // written.
+        KernelBootstrap,
     };
 
     Id id;

@@ -67,9 +67,18 @@ Status validate_subaru_denso_mc68hc16y5_02_bdm_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "MC68HC16Y5 BDM wire parameters are invalid");
     }
-    if (!plan.erase_regions().empty() || plan.kernel().has_value() || !plan.confirmations().empty())
+    if (!plan.erase_regions().empty() || plan.kernel().has_value())
     {
         return fail(ErrorKind::InvalidConfig, "MC68HC16Y5 BDM plan shape is invalid");
+    }
+    const auto confirmations = plan.confirmations();
+    const bool exactly_bootstrap = confirmations.size() == 1 &&
+                                   confirmations.front().id == ConfirmationSpec::Id::KernelBootstrap &&
+                                   confirmations.front().arguments.empty();
+    if (plan.operation() == FlashOperation::Write ? !exactly_bootstrap : !confirmations.empty())
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    "MC68HC16Y5 BDM Write requires exactly the KernelBootstrap confirmation; Read requires none");
     }
     if (plan.operation() == FlashOperation::Read)
     {
@@ -152,7 +161,9 @@ Result<FlashPlan> build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation opera
         .image = std::move(image),
         .kernel = std::nullopt,
         .family_plan = SubaruDensoMc68hc16y5_02BdmPlan{.baud = kBaud},
-        .confirmations = {},
+        .confirmations = operation == FlashOperation::Write ? std::vector<ConfirmationSpec>{ConfirmationSpec{
+                                                                  .id = ConfirmationSpec::Id::KernelBootstrap}}
+                                                            : std::vector<ConfirmationSpec>{},
     });
     if (!plan.has_value())
     {
