@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-import ast
-import re
 import shutil
 import subprocess
 import tempfile
@@ -19,6 +17,15 @@ _REGENERATED = "# regenerated\n"
 _FORMATTED = "# formatted\n"
 
 
+_SCOPE = ("src", "apps", "tests", "resources/shared")
+
+
+def write_root_build(root: Path, body: str | None = None) -> None:
+    if body is None:
+        body = "GAZELLE_ARGS = [\n" + "".join(f'    "{path}",\n' for path in _SCOPE) + "]\n"
+    (root / _BUILD).write_text(body)
+
+
 def list_all(root: Path) -> list[str]:
     """Stand-in for git: every *.bazel file below root, repo-relative."""
     return sorted(p.relative_to(root).as_posix() for p in root.rglob("*.bazel"))
@@ -28,6 +35,7 @@ class CheckTest(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = tempfile.TemporaryDirectory()
         self.root = Path(self.temp_dir.name).resolve()
+        write_root_build(self.root)
         (self.root / "pkg").mkdir()
         self.build = self.root / "pkg" / _BUILD
         self.build.write_text("# original\n")
@@ -184,7 +192,7 @@ class CheckTest(unittest.TestCase):
 
         def gazelle(root):
             self.pilot_build()
-            excluded = root / "src/backend/definitions/nested/BUILD.bazel"
+            excluded = root / "bazel/definitions/nested/BUILD.bazel"
             excluded.parent.mkdir(parents=True)
             excluded.write_text("# excluded\n")
             return 0
@@ -207,120 +215,20 @@ class CheckTest(unittest.TestCase):
 
     def test_managed_batches_and_new_subpackages_are_formatted(self):
         managed = [
-            "src/ui/desktop/channels/BUILD.bazel",
-            "src/ui/desktop/channels/nested/BUILD.bazel",
             "src/backend/ports/BUILD.bazel",
             "src/backend/ports/testing/new/BUILD.bazel",
-            "src/backend/protocol/BUILD.bazel",
-            "src/backend/protocol/uds/testing/BUILD.bazel",
-            "src/backend/checksum/BUILD.bazel",
-            "src/backend/diagnostics/BUILD.bazel",
-            "src/backend/config/BUILD.bazel",
-            "src/backend/config/testing/new/BUILD.bazel",
-            "src/backend/definition/BUILD.bazel",
-            "src/backend/calibration/BUILD.bazel",
-            "src/backend/calibration/session/BUILD.bazel",
-            "src/backend/calibration/session/testing/new/BUILD.bazel",
-            "src/backend/logging/BUILD.bazel",
-            "src/backend/logging/protocols/BUILD.bazel",
-            "src/backend/logging/testing/new/BUILD.bazel",
-            "src/backend/service_functions/BUILD.bazel",
-            "src/backend/flash/BUILD.bazel",
-            "src/backend/flash/eeprom/BUILD.bazel",
-            "src/backend/flash/ecu/BUILD.bazel",
-            "src/backend/flash/ecu/testing/new/BUILD.bazel",
-            "src/backend/flash/testing/BUILD.bazel",
-            "src/algorithms/protocol/qt_compat/BUILD.bazel",
-            "src/algorithms/protocol/qt_compat/nested/BUILD.bazel",
-            "src/ui/desktop/calibration/BUILD.bazel",
-            "src/ui/desktop/calibration/testing/new/BUILD.bazel",
-            "src/ui/desktop/checksum/BUILD.bazel",
-            "src/ui/desktop/menu/BUILD.bazel",
-            "apps/bench/testing/BUILD.bazel",
-            "apps/bench/testing/nested/BUILD.bazel",
-            "src/platform/desktop/common/connection/testing/BUILD.bazel",
-            "src/platform/desktop/common/connection/testing/nested/BUILD.bazel",
-        ]
-        managed.extend(
-            [
-                "src/platform/desktop/common/ports/BUILD.bazel",
-                "src/platform/desktop/common/ports/nested/BUILD.bazel",
-            ]
-        )
-        managed.extend(
-            [
-                "src/ui/desktop/definition/BUILD.bazel",
-                "src/ui/desktop/definition/nested/BUILD.bazel",
-            ]
-        )
-        managed.extend(
-            [
-                "src/platform/desktop/unix/j2534/BUILD.bazel",
-                "src/platform/desktop/unix/j2534/nested/BUILD.bazel",
-            ]
-        )
-        managed.extend(
-            [
-                "src/platform/desktop/windows/j2534/BUILD.bazel",
-                "src/platform/desktop/windows/j2534/nested/BUILD.bazel",
-            ]
-        )
-        managed.extend(["apps/bench/BUILD.bazel", "apps/bench/nested/BUILD.bazel"])
-        managed.extend(["src/ui/desktop/biu/BUILD.bazel", "src/ui/desktop/biu/nested/BUILD.bazel"])
-        managed.extend(
-            ["src/ui/desktop/hexedit/BUILD.bazel", "src/ui/desktop/hexedit/nested/BUILD.bazel"]
-        )
-        managed.extend(
-            [
-                "src/platform/desktop/common/remote_utility/BUILD.bazel",
-                "src/platform/desktop/common/remote_utility/nested/BUILD.bazel",
-            ]
-        )
-        managed.extend(
-            [
-                "src/platform/desktop/unix/j2534/testing/BUILD.bazel",
-                "src/platform/desktop/windows/j2534/j2534_bridge_host/BUILD.bazel",
-                "src/ui/desktop/hexedit/qhexedit/BUILD.bazel",
-            ]
-        )
-        managed.extend(
-            [
-                "src/ui/desktop/definition_extra/BUILD.bazel",
-                "src/ui/desktop/biu_extra/BUILD.bazel",
-                "src/ui/desktop/hexedit_extra/BUILD.bazel",
-                "src/ui/desktop/channels_extra/BUILD.bazel",
-                "src/ui/desktop/BUILD.bazel",
-                "src/platform/desktop/common/connection/BUILD.bazel",
-                "src/platform/desktop/common/connection/testing_extra/BUILD.bazel",
-                "src/ui/desktop/calibration_extra/BUILD.bazel",
-                "src/ui/desktop/checksum_extra/BUILD.bazel",
-                "src/ui/desktop/menu_extra/BUILD.bazel",
-            ]
-        )
-        unmanaged = [
-            "src/platform/desktop/common/ports_extra/BUILD.bazel",
-            "src/ui/desktop/definition_extra/BUILD.bazel",
-            "src/platform/desktop/unix/j2534_extra/BUILD.bazel",
-            "src/platform/desktop/windows/j2534_extra/BUILD.bazel",
-            "apps/bench_extra/BUILD.bazel",
-            "src/ui/desktop/biu_extra/BUILD.bazel",
-            "src/ui/desktop/hexedit_extra/BUILD.bazel",
-            "src/platform/desktop/common/remote_utility_extra/BUILD.bazel",
-            "src/ui/desktop/channels_extra/BUILD.bazel",
             "src/ui/desktop/BUILD.bazel",
-            "src/platform/desktop/common/connection/BUILD.bazel",
-            "src/platform/desktop/common/connection/testing_extra/BUILD.bazel",
-            "src/ui/desktop/calibration_extra/BUILD.bazel",
-            "src/ui/desktop/checksum_extra/BUILD.bazel",
-            "src/ui/desktop/menu_extra/BUILD.bazel",
-            "src/backend/flash_extra/BUILD.bazel",
-            "src/backend/definitions/BUILD.bazel",
-            "src/backend/ports_extra/BUILD.bazel",
-            "src/backend/calibration_extra/BUILD.bazel",
-            "src/backend/logging_extra/BUILD.bazel",
-            "src/backend/service_functions_extra/BUILD.bazel",
+            "src/platform/desktop/common/brand_new/nested/BUILD.bazel",
+            "apps/bench/BUILD.bazel",
+            "tests/force_asserts/BUILD.bazel",
+            "resources/shared/BUILD.bazel",
         ]
-        unmanaged = [path for path in unmanaged if path not in managed]
+        unmanaged = [
+            "bazel/qt/BUILD.bazel",
+            "scripts/BUILD.bazel",
+            "srcish/BUILD.bazel",
+            "docs/BUILD.bazel",
+        ]
 
         def gazelle(root):
             for relative in managed + unmanaged:
@@ -342,14 +250,61 @@ class CheckTest(unittest.TestCase):
             with self.subTest(relative=relative):
                 self.assertEqual((self.root / relative).read_text(), _REGENERATED)
 
-    def test_managed_roots_match_gazelle_args(self):
-        build = Path(__file__).resolve().parents[1] / "BUILD.bazel"
-        match = re.search(r"GAZELLE_ARGS = (\[.*?\])", build.read_text(), re.S)
-        self.assertIsNotNone(match)
-        self.assertEqual(tuple(map(Path, ast.literal_eval(match.group(1)))), gc.MANAGED_ROOTS)
+    def test_new_cpp_test_package_outside_scope_is_rejected(self):
+        (self.root / "bazel" / "extra").mkdir(parents=True)
+        (self.root / "bazel" / "extra" / _BUILD).write_text('fastecu_gtest(name = "t")\n')
+        with self.assertRaisesRegex(gc.GazelleCheckError, "outside Gazelle scope"):
+            self.run_check(lambda _root: 0)
+
+    def test_new_nested_cpp_test_package_inside_scope_is_accepted(self):
+        nested = self.root / "src" / "backend" / "brand_new" / "testing"
+        nested.mkdir(parents=True)
+        (nested / _BUILD).write_text('fastecu_portable_gtest(name = "t")\n')
+        self.assertEqual(self.run_check(lambda _root: 0)[0], 0)
+
+    def test_managed_roots_are_read_from_gazelle_args(self):
+        self.assertEqual(gc.load_managed_roots(self.root), tuple(map(Path, _SCOPE)))
+
+    def test_real_root_build_declares_scope(self):
+        roots = gc.load_managed_roots(Path(__file__).resolve().parents[1])
+        self.assertEqual(roots, tuple(map(Path, _SCOPE)))
 
     def test_fix_preserves_gazelle_failure(self):
         self.assertEqual(self.run_check(lambda root: 1, fix=True)[0], 2)
+
+
+class LoadManagedRootsTest(unittest.TestCase):
+    def load(self, body: str | None) -> tuple[Path, ...]:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            if body is not None:
+                write_root_build(root, body)
+            return gc.load_managed_roots(root)
+
+    def test_missing_root_build_fails_clearly(self):
+        with self.assertRaisesRegex(gc.GazelleCheckError, "cannot read GAZELLE_ARGS"):
+            self.load(None)
+
+    def test_missing_assignment_fails_clearly(self):
+        with self.assertRaisesRegex(gc.GazelleCheckError, "not found"):
+            self.load("OTHER = []\n")
+
+    def test_computed_value_fails_clearly(self):
+        with self.assertRaisesRegex(gc.GazelleCheckError, "literal"):
+            self.load('GAZELLE_ARGS = ["src"] + EXTRA\n')
+
+    def test_empty_or_non_string_list_fails_clearly(self):
+        for body in ("GAZELLE_ARGS = []\n", "GAZELLE_ARGS = [1]\n", 'GAZELLE_ARGS = "src"\n'):
+            with self.subTest(body=body), self.assertRaisesRegex(gc.GazelleCheckError, "non-empty"):
+                self.load(body)
+
+    def test_syntax_error_fails_clearly(self):
+        with self.assertRaisesRegex(gc.GazelleCheckError, "cannot read GAZELLE_ARGS"):
+            self.load("GAZELLE_ARGS = [\n")
+
+    def test_starlark_is_not_executed(self):
+        roots = self.load('print("x")\nGAZELLE_ARGS = ["src"]\n')
+        self.assertEqual(roots, (Path("src"),))
 
 
 class EnvironmentTest(unittest.TestCase):
@@ -378,6 +333,7 @@ class EnvironmentTest(unittest.TestCase):
     def test_main_fix_applies_pipeline(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
+            write_root_build(root)
 
             def gazelle(root):
                 (root / _BUILD).write_text("# generated\n")

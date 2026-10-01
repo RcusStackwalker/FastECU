@@ -1,6 +1,8 @@
-# Designer forms and their generation stay in this package; the widgets that
-# consume the generated ui_*.h headers live in //src/ui/desktop/widgets, which
-# resolves each header to the form's library.
+# Designer forms are generated here by convention: ui_<name>.h resolves to this
+# package's ui_<name> target unless a child package owns its own forms.
+# gazelle:resolve_regexp cc ^ui_(.*)\.h$ //src/ui/desktop:ui_$1
+# Designer forms stay in this package; consumers such as //src/ui/desktop/widgets
+# reach each generated ui_*.h through the resolve_regexp above.
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
@@ -8,6 +10,8 @@ load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_ui_basename_libraries")
 
 package(default_visibility = ["//bazel/layers:ui_and_composition_root"])
 
+# Every *.ui file gets a ui_<name> library; Gazelle cannot see the generated
+# headers, so consumers resolve them through the resolve_regexp above.
 FORMS = [
     "calibration_map_table.ui",
     "data_terminal.ui",
@@ -20,8 +24,6 @@ FORMS = [
     "vehicle_select.ui",
 ]
 
-# Designer-form generation is hand-owned: Gazelle cannot see the generated
-# ui_*.h headers, which the widgets package resolves to these libraries.
 qt_ui_basename_libraries(
     name = "desktop_ui_libraries",
     forms = FORMS,

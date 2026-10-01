@@ -1,5 +1,3 @@
-# gazelle:resolve cc src/platform/desktop/common/serial/desktop_serial_factory.h //src/platform/desktop/common/serial:desktop_serial_factory
-# gazelle:resolve cc src/platform/desktop/common/transport/desktop_transport_factory.h //src/platform/desktop/common/transport:flash_transports
 # gazelle:map_kind cc_binary qt_cc_binary //bazel:qt_targets.bzl
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")

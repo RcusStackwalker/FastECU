@@ -42,7 +42,6 @@ alias(
 qt_cc_library(
     name = "serial_port_actions_direct",
     # The Qt macro requires srcs even for a header-only moc library.
-    srcs = [],  # keep
     hdrs = ["serial_port_actions_direct.h"],
     deps = [
         "//bazel/qt:core",

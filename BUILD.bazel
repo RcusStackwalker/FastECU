@@ -76,7 +76,10 @@ package(default_visibility = ["//visibility:public"])
 # gazelle:resolve cc QUndoStack //bazel/qt:widgets
 # gazelle:resolve cc QVBoxLayout //bazel/qt:widgets
 # gazelle:resolve cc QVariant //bazel/qt:core
+# gazelle:resolve cc QRemoteObjectPendingCallWatcher //bazel/qt:remote_objects
+# gazelle:resolve cc QWebSocket //bazel/qt:web_sockets
 # gazelle:resolve cc QtCore //bazel/qt:core
+# gazelle:resolve cc QtWebSockets/QtWebSockets //bazel/qt:web_sockets
 # gazelle:resolve cc QtRemoteObjects/qremoteobjectnode.h //bazel/qt:remote_objects
 # `manual` keeps `bazel build //...` (every CI matrix leg, SonarCloud) from
 # fetching a Go SDK and compiling gazelle; `bazel run //:gazelle` still builds it.
@@ -87,48 +90,9 @@ gazelle_binary(
 )
 
 GAZELLE_ARGS = [
-    "src/algorithms",
-    "src/backend/ports",
-    "src/backend/protocol",
-    "src/backend/checksum",
-    "src/backend/diagnostics",
-    "src/backend/config",
-    "src/backend/definition",
-    "src/backend/calibration",
-    "src/backend/logging",
-    "src/backend/service_functions",
-    "src/backend/flash",
-    "src/ui/desktop/calibration",
-    "src/ui/desktop/checksum",
-    "src/ui/desktop/menu",
-    "src/ui/desktop/channels",
-    "apps/bench",
-    "src/platform/desktop/common/connection/testing",
-    "src/platform/desktop/common/ports",
-    "src/ui/desktop/definition",
-    "src/platform/desktop/unix/j2534",
-    "src/platform/desktop/windows/j2534",
-    "src/ui/desktop/biu",
-    "src/ui/desktop/hexedit",
-    "src/platform/desktop/common/remote_utility",
+    "src",
+    "apps",
     "tests",
-    "src/platform/desktop/common/service_functions",
-    "src/platform/desktop/common/transport",
-    "src/platform/desktop/common/bytes",
-    "src/platform/desktop/common/connection",
-    "src/platform/desktop/common/testing",
-    "src/platform/desktop/common/flash",
-    "src/platform/desktop/common/definition",
-    "src/platform/desktop/common/diagnostics",
-    "src/platform/desktop/common/logging",
-    "src/platform/desktop/common/serial",
-    "src/platform/desktop/common/serial/testing",
-    "src/ui/desktop",
-    "src/ui/desktop/service_functions",
-    "src/ui/desktop/flash/operation",
-    "src/ui/desktop/flash/common",
-    "apps/desktop",
-    "tests/force_asserts",
     "resources/shared",
 ]
 

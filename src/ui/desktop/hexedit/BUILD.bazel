@@ -1,8 +1,6 @@
-# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# gazelle:resolve_regexp cc ^ui_(.*)\.h$ //src/ui/desktop/hexedit:ui_$1
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 
-# gazelle:resolve cc ui_searchdialog.h :ui_searchdialog
-# gazelle:resolve cc ui_optionsdialog.h :ui_optionsdialog
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
 load("//bazel:qt_targets.bzl", "qt_cc_library", "qt_ui_basename_libraries")
 

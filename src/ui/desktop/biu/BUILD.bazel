@@ -1,10 +1,4 @@
-# gazelle:resolve cc src/ui/desktop/diagnostic_link_io.h //src/ui/desktop:diagnostic_link_io
-# gazelle:resolve cc ui_biu_ops_subaru_input2.h :ui_biu_ops_subaru_input2
-# gazelle:resolve cc ui_biu_ops_subaru_switches.h :ui_biu_ops_subaru_switches
-# gazelle:resolve cc ui_biu_ops_subaru_input1.h :ui_biu_ops_subaru_input1
-# gazelle:resolve cc ui_biu_operations_subaru.h :ui_biu_operations_subaru
-# gazelle:resolve cc ui_biu_ops_subaru_data.h :ui_biu_ops_subaru_data
-# gazelle:resolve cc ui_biu_ops_subaru_dtcs.h :ui_biu_ops_subaru_dtcs
+# gazelle:resolve_regexp cc ^ui_(.*)\.h$ //src/ui/desktop/biu:ui_$1
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
 load("//bazel:qt_targets.bzl", "qt_cc_library", "qt_ui_basename_libraries")
 

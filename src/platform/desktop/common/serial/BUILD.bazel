@@ -1,7 +1,5 @@
 # The J2534 driver-selection sources are chosen per platform by the library's
 # own select(), so discovery must not treat either as a package source.
-# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
-# gazelle:resolve cc QRemoteObjectPendingCallWatcher //bazel/qt:remote_objects
 # gazelle:exclude j2534_driver_selection_unix.cpp
 # gazelle:exclude j2534_driver_selection_windows.cpp
 load("@rules_cc//cc:cc_library.bzl", "cc_library")

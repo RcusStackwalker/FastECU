@@ -10,7 +10,6 @@ qt_cc_library(
     name = "mock_openport",
     testonly = True,
     # Required by the header-only moc macro.
-    srcs = [],  # keep
     hdrs = ["mock_openport.h"],
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],

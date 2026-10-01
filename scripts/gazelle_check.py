@@ -9,6 +9,7 @@ before and after to catch additions, deletions and changes beyond tracked files.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import re
 import shutil
@@ -22,56 +23,6 @@ from typing import TextIO
 
 GAZELLE_TARGET = "//:gazelle"
 BUILD_FILE_PATHSPEC = "*.bazel"
-# Keep these roots aligned with GAZELLE_ARGS in the root BUILD.bazel.
-MANAGED_ROOTS = tuple(
-    Path(path)
-    for path in (
-        "src/algorithms",
-        "src/backend/ports",
-        "src/backend/protocol",
-        "src/backend/checksum",
-        "src/backend/diagnostics",
-        "src/backend/config",
-        "src/backend/definition",
-        "src/backend/calibration",
-        "src/backend/logging",
-        "src/backend/service_functions",
-        "src/backend/flash",
-        "src/ui/desktop/calibration",
-        "src/ui/desktop/checksum",
-        "src/ui/desktop/menu",
-        "src/ui/desktop/channels",
-        "apps/bench",
-        "src/platform/desktop/common/connection/testing",
-        "src/platform/desktop/common/ports",
-        "src/ui/desktop/definition",
-        "src/platform/desktop/unix/j2534",
-        "src/platform/desktop/windows/j2534",
-        "src/ui/desktop/biu",
-        "src/ui/desktop/hexedit",
-        "src/platform/desktop/common/remote_utility",
-        "tests",
-        "src/platform/desktop/common/service_functions",
-        "src/platform/desktop/common/transport",
-        "src/platform/desktop/common/bytes",
-        "src/platform/desktop/common/connection",
-        "src/platform/desktop/common/testing",
-        "src/platform/desktop/common/flash",
-        "src/platform/desktop/common/definition",
-        "src/platform/desktop/common/diagnostics",
-        "src/platform/desktop/common/logging",
-        "src/platform/desktop/common/serial",
-        "src/platform/desktop/common/serial/testing",
-        "src/ui/desktop",
-        "src/ui/desktop/service_functions",
-        "src/ui/desktop/flash/operation",
-        "src/ui/desktop/flash/common",
-        "apps/desktop",
-        "tests/force_asserts",
-        "resources/shared",
-    )
-)
-
 ListFiles = Callable[[Path], Sequence[str]]
 RunGazelle = Callable[[Path], int]
 RunHook = Callable[[Path, str, Sequence[str]], int]
@@ -80,6 +31,48 @@ ShowDiff = Callable[[Path, Sequence[str], Sequence[str]], None]
 
 class GazelleCheckError(RuntimeError):
     """An actionable failure that is not BUILD file drift."""
+
+
+ROOT_BUILD = "BUILD.bazel"
+SCOPE_VARIABLE = "GAZELLE_ARGS"
+
+
+def load_managed_roots(root: Path) -> tuple[Path, ...]:
+    """Read the literal GAZELLE_ARGS list from the root BUILD file without executing Starlark."""
+    build = root / ROOT_BUILD
+    try:
+        tree = ast.parse(build.read_text(), filename=str(build))
+    except (OSError, SyntaxError) as error:
+        raise GazelleCheckError(
+            f"cannot read {SCOPE_VARIABLE} from {ROOT_BUILD}: {error}"
+        ) from error
+    for node in tree.body:
+        if (
+            isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id == SCOPE_VARIABLE
+        ):
+            try:
+                values = ast.literal_eval(node.value)
+            except ValueError as error:
+                raise GazelleCheckError(
+                    f"{SCOPE_VARIABLE} in {ROOT_BUILD} must be a literal list of strings"
+                ) from error
+            if (
+                not isinstance(values, list)
+                or not values
+                or not all(isinstance(value, str) and value for value in values)
+            ):
+                raise GazelleCheckError(
+                    f"{SCOPE_VARIABLE} in {ROOT_BUILD} must be a non-empty literal list of strings"
+                )
+            return tuple(Path(value) for value in values)
+    raise GazelleCheckError(f"{SCOPE_VARIABLE} assignment not found in {ROOT_BUILD}")
+
+
+def _is_managed(relative: str, roots: Sequence[Path]) -> bool:
+    return any(Path(relative).is_relative_to(managed) for managed in roots)
 
 
 _CPP_TEST_RULE = re.compile(
@@ -122,7 +115,9 @@ def _rule_suffix_is_kept(source: str) -> bool:
     return False
 
 
-def validate_test_ownership(root: Path, files: Sequence[str]) -> None:
+def validate_test_ownership(
+    root: Path, files: Sequence[str], managed_roots: Sequence[Path]
+) -> None:
     """All C++ test packages regenerate; keeps may preserve individual attributes only."""
     for relative in files:
         path = root / relative
@@ -130,7 +125,7 @@ def validate_test_ownership(root: Path, files: Sequence[str]) -> None:
             continue
         source = path.read_text()
         for match in _CPP_TEST_RULE.finditer(source):
-            if not any(Path(relative).is_relative_to(managed) for managed in MANAGED_ROOTS):
+            if not _is_managed(relative, managed_roots):
                 raise GazelleCheckError(f"{relative}: C++ test package outside Gazelle scope")
             if _rule_suffix_is_kept(source[match.start() :]):
                 raise GazelleCheckError(f"{relative}: C++ test has a whole-rule keep")
@@ -253,13 +248,15 @@ def run_bazel_gazelle(root: Path) -> int:
     ).returncode
 
 
-def managed_build_files(root: Path, list_files: ListFiles) -> list[str]:
+def managed_build_files(
+    root: Path, list_files: ListFiles, managed_roots: Sequence[Path]
+) -> list[str]:
     """Discover managed BUILD files after generation, including new ones."""
     return sorted(
         relative
         for relative in list_files(root)
         if Path(relative).name == "BUILD.bazel"
-        and any(Path(relative).is_relative_to(managed) for managed in MANAGED_ROOTS)
+        and _is_managed(relative, managed_roots)
         and (root / relative).is_file()
     )
 
@@ -295,14 +292,15 @@ def check(
     fix: bool = False,
     allowed_keeps: frozenset[str] | None = None,
 ) -> int:
-    validate_test_ownership(root, list_files(root))
+    managed_roots = load_managed_roots(root)
+    validate_test_ownership(root, list_files(root), managed_roots)
     validate_production_keeps(root, list_files(root), allowed_keeps)
     before = snapshot(root, list_files)
     exit_code = run_gazelle(root)
     if exit_code != 0:
         print(f"gazelle failed (exit {exit_code}); BUILD files were not checked.", file=out)
         return 2
-    files = managed_build_files(root, list_files)
+    files = managed_build_files(root, list_files, managed_roots)
     if files:
         pre_format = snapshot(root, lambda _root: files)
         exit_code = run_hook(root, "buildifier", files)
@@ -345,7 +343,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         root = repo_root()
         validate_test_ownership(
-            root, [str(path.relative_to(root)) for path in (root / "bazel").rglob("*.bzl")]
+            root,
+            [str(path.relative_to(root)) for path in (root / "bazel").rglob("*.bzl")],
+            load_managed_roots(root),
         )
         return check(
             root,

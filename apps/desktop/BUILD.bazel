@@ -7,8 +7,6 @@
 # gazelle:exclude default_config_root_windows.cpp
 # gazelle:exclude startup_test_platform_macos.cpp
 # gazelle:exclude startup_test_platform_other.cpp
-# The ports package re-exports its private event sink through the `ports` label.
-# gazelle:resolve cc src/platform/desktop/common/ports/event_sink/qt_event_sink.h //src/platform/desktop/common/ports
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_binary")
@@ -46,6 +44,7 @@ cc_library(
         "//src/platform/desktop/common/connection:adapter_connection",
         "//src/platform/desktop/common/definition:definition_catalog_session",
         "//src/platform/desktop/common/ports",
+        "//src/platform/desktop/common/ports/event_sink:qt_event_sink",
         "//src/platform/desktop/common/serial:desktop_serial_factory",
         "//src/ui/desktop:main_window_services",
         "//src/ui/desktop/channels:log_channel",
@@ -62,7 +61,7 @@ cc_library(
     srcs = ["startup_diagnostics.cpp"] + select({
         "@platforms//os:windows": ["default_config_root_windows.cpp"],
         "//conditions:default": ["default_config_root_unix.cpp"],
-    }),  # keep
+    }),  # keep: per-OS source selection is hand-written
     hdrs = [
         "default_config_root.h",
         "startup_diagnostics.h",
@@ -83,7 +82,7 @@ cc_library(
     srcs = select({
         "@platforms//os:macos": ["startup_test_platform_macos.cpp"],
         "//conditions:default": ["startup_test_platform_other.cpp"],
-    }),
+    }),  # keep: per-OS source selection is hand-written
     hdrs = ["startup_test_platform.h"],
     copts = COMMON_COPTS,
     visibility = ["//visibility:private"],

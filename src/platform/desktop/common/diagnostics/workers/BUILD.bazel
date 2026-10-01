@@ -1,8 +1,5 @@
 # Both workers declare Q_OBJECT; generated hdrs must run through moc.
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
-# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
-# The ports package re-exports its private event sink through the `ports` label.
-# gazelle:resolve cc src/platform/desktop/common/ports/event_sink/qt_event_sink.h //src/platform/desktop/common/ports
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "qt_cc_library")
 
@@ -17,7 +14,7 @@ qt_cc_library(
     name = "dtc_worker",
     srcs = ["dtc_worker.cpp"],
     hdrs = ["dtc_worker.h"],
-    implementation_deps = ["//src/platform/desktop/common/ports"],
+    implementation_deps = ["//src/platform/desktop/common/ports/event_sink:qt_event_sink"],
     deps = [
         "//bazel/qt:core",
         "//src/backend/diagnostics:dtc_session",
