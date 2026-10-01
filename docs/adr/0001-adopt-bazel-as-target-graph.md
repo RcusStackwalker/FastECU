@@ -43,5 +43,3 @@ Costs and remaining risks:
   README and CI workflows.
 - Qt deployment and platform runtime collection still happen in packaging
   scripts outside Bazel actions.
-- Much of the application remains in the broad `fastecu_core_common` target;
-  target decomposition is tracked in the [tech-debt roadmap](../tech-debt.md).

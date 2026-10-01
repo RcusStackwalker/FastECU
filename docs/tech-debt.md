@@ -18,10 +18,11 @@ The target state is:
 - FastECU is a Qt 6/C++23 desktop application. Bazel is the sole target graph for
   the application, tests, release packaging, coverage, compile commands, and
   clang-tidy (ADR 0001).
+- Every C++ test is a GoogleTest executable; no QtTest suite remains.
 - Tests are strongest around protocol codecs, logging, serial threading, J2534
   bridge behavior, definition parsing, and the config, calibration and
-  map-edit use cases. Checksum families, most flash orchestration, and UI
-  workflows remain lightly covered.
+  map-edit use cases. Checksum families, flash workflow orchestration, and UI
+  workflows remain lightly or unevenly covered.
 - CI builds and tests on Windows, macOS, and Linux, verifies macOS/Windows
   packages, produces coverage for SonarCloud, and runs a blocking clang-tidy
   report over the PR's changed files.
@@ -29,54 +30,62 @@ The target state is:
   lives in the design notes; logging-specific gaps are under
   "P2: Logging engine follow-ups" below.
 
+### Gazelle snapshot
+
+[ADR 0017](adr/0017-generate-bazel-targets-with-gazelle.md) is implemented:
+Gazelle generates the source lists and dependencies of the C++ library,
+binary and test targets in its scope, every C++ test is covered, and
+`scripts/gazelle_check.py` rejects a stale BUILD file or a new whole-rule
+keep. Generation itself is established, not debt to pay down further. Architectural
+boundaries, target names, visibility, platform selections and the exceptions
+documented in the ADR are intentionally hand-owned; change them as design
+decisions, not as generation cleanup.
+
 ## Priorities
 
 ### P0: Make coverage results trustworthy
 
 Remaining gaps:
 
-- The package-owned serial tests inherit an intermittent Windows-only crash
-  from the former aggregate `serial_backend_tests` target. The split targets
-  retain unbuffered diagnostics so the failing binary and slot can be isolated;
-  until then, the crash should not be attributed to one suite or used as a
-  reason to ignore unrelated coverage-test failures.
-- An empty Windows `test.log` is **not** evidence of a crash. QtTest's own
-  transcript does not reach the stdout Bazel captures under the default
-  logger, so a QtTest suite's Windows log is empty whether it passed or
-  failed, and making stdio unbuffered does not change that. Verified on CI:
-  a build whose `main` wrote progress markers to stderr showed every marker,
-  including one printed after `qExec` returned, while the QtTest banner, the
-  `PASS` lines and the totals were all absent. To read a Windows failure,
-  pass `-o <file>,txt` to `qExec` and echo that file to stderr; that is how
-  the Windows-only failure fixed in #343 was finally diagnosed, after seven
-  runs whose empty logs had been read as silent crashes.
+- An intermittent Windows-only crash was historically reported in the serial
+  tests, first in the former aggregate `serial_backend_tests` target and then
+  in the package-owned targets split from it. It has not been verified,
+  reproduced or ruled out since the GoogleTest migration. Several serial
+  tests keep unbuffered stdout/stderr so a failing binary and test can be
+  isolated if it recurs; until then, do not attribute it to one suite or use
+  it as a reason to ignore unrelated coverage-test failures.
 
 Actions:
 
-- Resolve or explicitly quarantine the intermittent serial backend test with a
-  separate visible CI result and an owner; do not silently discard its exit
-  status.
+- Confirm whether the Windows serial crash still occurs. If it does, resolve
+  or explicitly quarantine the failing test with a separate visible CI result
+  and an owner; do not silently discard its exit status.
 - Keep exclusions explicit and reviewed: tests, generated Qt files, vendored
   `src/ui/desktop/hexedit/`, Bazel/external outputs, system libraries, and platform SDKs.
 
 ### P1: Separate UI from application logic
 
-`MainWindow` remains the central coordinator for presentation: write preflight,
-checksum interaction, connection orchestration, logging selection, log views,
-status updates, and dialogs. The diagnostic-tools window setup lives in
-`menu_actions.cpp`.
+The calibration and application logic already exists as portable backend
+code: configuration sessions, the calibration service, session and map-edit
+use cases, checksums, diagnostics and logging. What remains in the desktop UI
+is presentation: `MainWindow` still coordinates write preflight, checksum
+interaction, connection orchestration, logging selection, log views, status
+updates and dialogs, and the diagnostic-tools windows are set up in
+`src/ui/desktop/widgets/menu_actions.cpp`.
 
 Risks:
 
-- Most workflows require a live `QMainWindow` or `QApplication` to test.
-- Adding a flash module or application workflow tends to touch central UI code
-  and its large include graph.
-- Calibration rules and command behavior remain mixed with widget lookup,
-  message boxes, table selection, and shared state mutation.
+- Testing presentation flows needs a live `QMainWindow` or `QApplication`.
+- Widget selection (table and cell selection, menu actions found by their
+  text), dialogs and confirmations, and shared UI state mutation are
+  interleaved in central widget code with a large include graph.
+- Adding a flash module or application workflow still tends to touch that
+  central UI code.
 
 Actions:
 
-- Keep new file, protocol, and hardware logic out of `MainWindow`. Dialogs and
+- Keep new file, protocol, and hardware logic out of `MainWindow`; route it
+  through existing backend use cases. Dialogs and
   confirmations for write preflight and checksum correction stay in the UI;
   post-read and checksum/save/write bench re-verification remain required
   before release, and the logger identity corrections still await
@@ -92,7 +101,7 @@ Actions:
   it; see the [design notes](design-notes.md#diagnostic-tools).
 - **Fix DataTerminal's `delay(...)` script parser.** `split(")").at(1).split("(").at(0)`
   parses `delay(100)` to an empty string, so every scripted delay is
-  currently 0 ms (`src/ui/desktop/dataterminal.cpp`). Pinned, not fixed, in
+  currently 0 ms (`src/ui/desktop/widgets/dataterminal.cpp`). Pinned, not fixed, in
   step 6g because a real parse would change the timing of every existing
   delay script; see the [design notes](design-notes.md#diagnostic-tools).
 - **DTC session test gaps.** `dtc_session_test.cpp` does not yet cover: the
@@ -164,15 +173,40 @@ Actions:
   findings on the same functions — see "P2: Pay down the SonarCloud
   code-smell backlog" below; don't track it twice.
 
-### P1: Isolate flash-operation orchestration
+### P1: Consolidate flash workflow orchestration
 
-Every flash family registers with `FlashWorkflowFactory` and runs through the
-common `FlashDialog`. Coverage is uneven across families: some carry only the
-plan/executor unit tests, with no scripted operation-level (`FlashWorkflow` +
-`FlashDialog`) coverage.
+Isolation is complete: every retained flash family is a portable
+`FlashPlan`/`IFlashExecutor` pair, registers with `FlashWorkflowFactory`, and
+runs through the common `FlashDialog`. Two problems remain: uneven coverage and
+duplicated orchestration in the desktop workflows.
+
+Coverage is uneven across families: some carry only the plan/executor unit
+tests, with no scripted operation-level (`FlashWorkflow` + `FlashDialog`)
+coverage.
 
 Actions:
 
+- Consolidate the three near-duplicate single-attempt workflows in
+  `src/platform/desktop/common/flash/flash_workflow.cpp`, which together
+  cover 14 families: the `SimpleCanFlashWorkflow` template (eight
+  kernel-free families), the `KernelBackedCanFlashWorkflow` template (five
+  kernel-backed families; it repeats `SimpleCanFlashWorkflow` plus lazy kernel
+  resolution, a confirmation loop and a transport parameter), and
+  `ColtWorkflow`, which hand-rolls the same confirmation loop. This changes
+  routing for every merged CAN family and needs its own risk budget;
+  `single_window_plan` was considered and rejected as the vehicle.
+- Treat the remaining multi-stage workflows as separate work, not part of that
+  consolidation: the EEPROM workflow's ignition-cycle and inspect-read
+  re-attempts, the Unisia Jecs M32R boot-mode workflow's staged attempts, and
+  the programming-voltage apply/remove notices.
+- Investigate converging the two remaining per-family `nonfatal_query`
+  implementations, in the Denso BEEF CAN executors
+  (`subaru_denso_sh7058_can_executor.cpp` and
+  `subaru_denso_sh7058_can_diesel_executor.cpp`), onto the shared
+  `non_fatal_query` in `uds_client_exchange_common.h`; the other ISO-15765
+  executors already wrap it. Both return the reply rather than only logging it
+  and differ from the helper, so this is behavior-changing work on
+  characterization-tested wire sequences, not a substitution.
 - For each flash family that changes, extend its `FlashPlan`/`IFlashExecutor`
   pair rather than adding new orchestration surface.
 - Move response validation and block planning into pure byte-native helpers, in
@@ -182,35 +216,21 @@ Actions:
   changing wire behavior.
 - Do not force all ECU families into one state machine unless verified protocol
   behavior demonstrates a stable shared abstraction.
-- Unify the near-duplicate workflow classes in
-  `src/platform/desktop/common/flash/flash_workflow.cpp`:
-  `KernelBackedCanFlashWorkflow` duplicates the sibling
-  `SimpleCanFlashWorkflow` plus lazy kernel resolution, a confirmation loop
-  and a transport parameter, and `ColtWorkflow` hand-rolls the same
-  confirmation loop. They are three of the file's sixteen sibling
-  `FlashWorkflow` classes. This was deferred
-  because it changes routing for every merged CAN family and needs its own
-  risk budget; `single_window_plan` was considered and rejected as the vehicle.
-- Investigate converging the two remaining per-family `nonfatal_query`
-  implementations, in the Denso BEEF CAN executors
-  (`subaru_denso_sh7058_can_executor.cpp` and
-  `subaru_denso_sh7058_can_diesel_executor.cpp`), onto the shared
-  `non_fatal_query` in `uds_client_exchange_common.h`; the other ISO-15765
-  executors already wrap it. Both return the reply rather than only logging it
-  and differ from the helper, so this is behavior-changing work on
-  characterization-tested wire sequences, not a substitution.
 
 ### P1: Narrow serial and hardware interfaces
 
-`IKlineTransport`, `ICanTransport`, and `ISsmTransport` provide byte-native
-boundaries for newer protocol code, and the serial facade now marshals calls to
-a dedicated I/O thread. Most flash operation classes still receive the full
-`SerialPortActions*`, however, and serial/J2534 implementations still combine
-port configuration, adapter discovery, protocol mode setup, blocking I/O, and
-diagnostics.
+Portable flash executors already receive typed transports
+(`IKlineFlashTransport`, `ICanFlashTransport` and `IMixedCanFlashTransport`), and
+`IKlineTransport`, `ICanTransport` and `ISsmTransport` give the logging,
+diagnostics and protocol code byte-native boundaries; no code under
+`src/backend` includes the serial facade. The remaining work is on the desktop
+side: the `SerialPortActions` facade, which marshals calls to a dedicated I/O
+thread, and the direct serial/J2534 implementation behind it, which still
+combines port configuration, adapter discovery, protocol mode setup, blocking
+I/O, and diagnostics in `SerialPortActionsDirect`.
 
 The facade is platform-only: `serial_port_actions` is visible to
-`src/platform/desktop` and `//tests` alone, and adapters take it through
+`src/platform/desktop` and the test layer alone, and adapters take it through
 `implementation_deps`. UI tests still see its headers through `FakeBackend`,
 which derives from `SerialPortActionsDirect`.
 
@@ -218,7 +238,7 @@ Actions:
 
 - Continue separating J2534 discovery, PE-bitness/bridge lifecycle, PassThru
   types, configuration, and message transport from higher-level serial
-  behavior.
+  behavior in the direct implementation.
 - Keep lifecycle coverage for teardown with in-flight calls, helper-process
   failure, timeouts, and adapter removal on each supported platform.
 
@@ -240,41 +260,33 @@ Actions:
 
 ### P2: Convert suppressed signed-bitwise arithmetic to unsigned operands
 
-Four files suppress `bugprone-signed-bitwise` behind
+Three files still suppress `bugprone-signed-bitwise` behind
 `NOLINTBEGIN`/`NOLINTEND` blocks because legacy code mixes signed literals,
 loop counters, `QByteArray::at()` results, or vendor J2534 flag macros into
-bitwise operations. clang-tidy's changed-file gate (`bazel run
-//:clang_tidy_report_changed`) lints whole translation units, not touched
-lines, so any edit to one of these files — however small — puts its full
-existing finding count back in scope; each suppression below was added
-when a step needed to touch the file for an unrelated reason.
+bitwise operations. Each block's comment points back to this section.
+clang-tidy's changed-file gate (`bazel run //:clang_tidy_report_changed`)
+lints whole translation units, not touched lines, so any edit to one of these
+files puts all of its existing findings back in scope; each suppression was
+added when a step needed to touch the file for an unrelated reason. Re-run
+clang-tidy on a file for its current findings rather than relying on a count
+recorded here.
 
-- `src/ui/desktop/get_key_operations_subaru.cpp` (the Subaru key-recovery
-  dialog): 39 findings, suppressed when step 6c-1 touched the file. None
-  is a live defect under C++23 (signed left shifts such as
-  `roundFunction`'s promoted `uint16_t << 16` wrap modulo 2^32 since
-  C++20), but the code only works because every operand happens to be
-  non-negative.
-- `src/ui/desktop/widgets/dtc_operations.cpp`: 11 findings across five functions,
-  suppressed when step 6e-1 touched the file — `iso15765_init` (3),
-  `request_data` (2), `request_vehicle_info` (2), `request_dtc_list` (2),
-  `clear_dtc` (2). All combine a `uint16_t`/`uint8_t` protocol field
-  (`source_id`, `cmd`, a `QByteArray::at()` byte) with a small non-negative
-  mask or constant; none is a live defect.
-- `src/platform/desktop/common/serial/direct/common/serial_port_actions_direct.cpp`: 8
-  findings across six functions, suppressed when step 6e-1 touched the
-  file — `read_serial_data` (2), `append_iso14230_header` (1),
-  `write_j2534_data` (1), `read_j2534_data` (2), `dump_msg` (1),
-  `set_j2534_iso9141` (1). The J2534 flag macros involved (`TX_DONE`,
-  `START_OF_MESSAGE`, `ISO15765_FRAME_PAD`, `ISO9141_NO_CHECKSUM`,
-  `CAN_ID_BOTH`) are all small positive constants, and the `QByteArray`
-  byte/mask sites (`received.at(0) & 0x3f`, `output[0] = output[0] |
-  msglength`) mask or truncate to the low bits that are unaffected by sign
-  extension either way; none is a live defect.
-- `src/ui/desktop/dataterminal.cpp`: 4 findings across two functions,
-  suppressed when step 6e-1 touched the file — `sendToInterface` (2),
-  `add_ssm_header` (2). Same pattern: a `uint8_t`/`toUInt()` id ANDed or
-  shifted with a small non-negative mask; none is a live defect.
+- `src/ui/desktop/widgets/get_key_operations_subaru.cpp` (the Subaru
+  key-recovery dialog): one block spanning the linear-approximation and
+  cipher helpers. None of the findings is a live defect under C++23 (signed
+  left shifts such as `roundFunction`'s promoted `uint16_t << 16` wrap modulo
+  2^32 since C++20), but the code only works because every operand happens to
+  be non-negative.
+- `src/platform/desktop/common/serial/direct/common/serial_port_actions_direct.cpp`:
+  one block per function around `read_serial_data`, `append_iso14230_header`,
+  `write_j2534_data`, `read_j2534_data`, `dump_msg` and `set_j2534_iso9141`.
+  The J2534 flag macros involved (`TX_DONE`, `START_OF_MESSAGE`,
+  `ISO15765_FRAME_PAD`, `ISO9141_NO_CHECKSUM`, `CAN_ID_BOTH`) are small
+  positive constants, and the `QByteArray` byte/mask sites mask or truncate to
+  low bits that sign extension does not affect; none is a live defect.
+- `src/ui/desktop/widgets/dataterminal.cpp`: blocks around `sendToInterface`
+  and `add_ssm_header`, where a `uint8_t`/`toUInt()` id is ANDed or shifted
+  with a small non-negative mask; none is a live defect.
 
 Actions:
 
@@ -284,10 +296,10 @@ Actions:
   co-located test, pin their current outputs with characterization
   vectors, then convert the operands to unsigned types and remove the
   suppression block.
-- For the other three files, convert each flagged site's operand types
+- For the other two files, convert each flagged site's operand types
   (the protocol id/length fields and the relevant J2534 macros' consumers)
   to unsigned, confirm the existing protocol/serial tests still pass, and
-  remove the corresponding suppression block. These functions have
+  remove the corresponding suppression blocks. These functions have
   hardware/QObject side effects rather than pure logic, so the
   extract-and-characterize step above does not apply the same way; a
   direct signed-to-unsigned conversion plus existing test coverage is
@@ -295,13 +307,12 @@ Actions:
 
 ### P2: Pay down the SonarCloud code-smell backlog
 
-The last recorded scan (2026-09-06, via `sonar list issues --project
-RcusStackwalker_FastECU --statuses OPEN,CONFIRMED --format json`, 500 per
-page) found 3,870 open issues, all `CODE_SMELL` (no bugs or vulnerabilities),
-about 517 estimated remediation hours. Its per-rule counts predate the deletion
-of the legacy per-vendor flash-operation files, the parallel-list structs and
-the `FileActions` family, which held most of the top findings, so **re-run the
-scan before scheduling any of it** and discard counts that no longer apply.
+No current totals are recorded here: earlier per-rule counts predate large
+deletions and migrations. **Obtain a fresh scan before scheduling any of it**
+(for example `sonar list issues --project RcusStackwalker_FastECU --statuses
+OPEN,CONFIRMED --format json`, 500 per page) and work from its results. The
+rules named below were where findings concentrated in earlier scans; confirm
+each still applies before acting on it.
 
 No ratchet job is needed to stop the backlog growing: the project's "Sonar
 way" quality gate is Clean-as-You-Code, and its `new_maintainability_rating`
@@ -330,8 +341,9 @@ Order the paydown by risk, not by count:
   picking up a file.
 - Duplication clusters not yet extracted: the dialog→validate→write tail of
   the two wizards in `src/ui/desktop/definition/dialog/definition_authoring_dialog.cpp`,
-  and the five adapters in `src/platform/desktop/common/transport/`, whose
-  read/write guards differed only by a label string and need re-measuring.
+  and the transport adapters in `src/platform/desktop/common/transport/`,
+  whose read/write guards differed only by a label string and need
+  re-measuring.
 - `WriteSelection.ReproducesTheFourSpaceQDomIndent`
   (`src/backend/logging/logger_conf_test.cpp`) pins pugixml output against
   bytes captured from the deleted `QDomDocument::save(output, 4)` writer. It
@@ -370,28 +382,28 @@ Deferred behavior:
 - No live reconfiguration: changing channels, poll interval, or protocol
   requires a stop/start; live changes would need an explicit path through
   `LogSessionConfig` and `LoggingWorker`.
-- `SessionEndReason::StoppedByUser` is not observed by production callers,
-  because `LoggingEngine::stop()` disconnects worker signals before requesting
-  the stop. The worker branch is tested and remains a standalone contract.
+- `LoggingEngine::stop()` publishes `SessionEndReason::StoppedByUser` itself
+  after disconnecting the worker's signals, so the engine's mapping of a
+  worker `Cancelled` result to `StoppedByUser` is not reached from `stop()`.
 
-Minor code-level findings (verify before scheduling; these were recorded
-before several migrations):
+Minor code-level findings (confirmed against the code when this roadmap was
+last refreshed; re-check before scheduling):
 
 - `src/backend/protocol/issm_transport.h` defines `ISsmTransport` in the global
   namespace, unlike `mutdma::IKlineTransport` and `cdbg::ICanTransport`.
 - `FastEcuSsmTransport::write()` discards the bytes returned by
   `write_serial_data_echo_check()` and reports the input size unconditionally,
   so an echo failure is not exposed.
-- `MainWindow::handleLoggingSessionEnded()` finds the menu action whose text is
-  `Logging`; similar text-based lookup is duplicated in `toggle_realtime()` and
-  `toggle_log_to_file()`.
-- `test_ssm_logging_protocol` includes timeout-bounded cases that wait on real
-  elapsed time; watch its runtime as timeout scenarios are added.
+- `MainWindow::restoreLoggingUiState()` (`src/ui/desktop/widgets/mainwindow.cpp`)
+  finds the menu action whose text is `Logging`; the same text-based lookup is
+  repeated in `set_identification_in_progress()`, `set_realtime_state()` and
+  `toggle_realtime()`, and
+  `toggle_log_to_file()` looks up `Log to file` the same way
+  (`src/ui/desktop/widgets/menu_actions.cpp`).
 
 ### P2: Naming and source/data organization
 
-Some names and data placement still reflect earlier architecture:
-`log_operations_ssm.cpp` contains MUT/DMA bench utilities.
+Some names and data placement still reflect earlier architecture.
 
 Actions:
 

@@ -3,7 +3,9 @@
 ## Current State and Destination
 
 Reviewed on 2026-09-29. Steps 1-6, including 6n-3, are structurally implemented.
-Step 7 has not started.
+Step 7 has started with its Android cross-compilation spike: the portable core
+builds for Android arm64, gated in CI. The native facade and smoke fixture
+have not started.
 Implementation completion and hardware qualification are separate statuses.
 
 The portable algorithms and backend workflows already exist: configuration,
@@ -50,11 +52,14 @@ platform internals.
 - `MainWindow` retains presentation coordination for write preflight, checksum
   interaction, logging selection, connection orchestration and log-file handling;
   single-consumer presentation flows need not become portable ports.
-- Android build configuration, native facade, and smoke fixture do not exist.
+- Android build configuration exists only for the cross-compilation spike
+  (`--config=android`, `scripts/android-cross-compile.sh`, CI job
+  `android-cross-compile`); its API level and a hermetic NDK pin are still
+  open. The native facade and smoke fixture do not exist.
 
 The destination remains a reusable, Qt-, JNI-, and OS-independent algorithms
 and backend core, with desktop presentation and adapters outside it. Desktop
-closure is structurally complete; Android seam work follows.
+closure is structurally complete; the rest of the Android seam work follows.
 Android v1 remains MUT/DMA live logging over USB serial, API 29, `arm64-v8a`;
 the Kotlin product app and real Android USB implementation are later work.
 
@@ -174,8 +179,8 @@ are enforced by visibility.
 
 Require the Windows/macOS/Linux CI matrix and Windows/macOS packaging checks.
 Coverage is gated through SonarCloud on new code. Follow the [coding style and testing conventions](coding-style.md)
-and use package-owned mocks. An empty Windows test log is not proof of a
-crash; see the [coverage reliability notes](tech-debt.md#p0-make-coverage-results-trustworthy).
+and use package-owned mocks. Open coverage-reliability gaps are tracked in the
+[coverage reliability notes](tech-debt.md#p0-make-coverage-results-trustworthy).
 
 Portable tests cover parser/model validation, checksum and ROM outcomes,
 scripted successful operations, malformed replies, non-response, timeout,
