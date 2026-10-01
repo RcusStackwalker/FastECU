@@ -26,11 +26,6 @@ The target state is:
 - CI builds and tests on Windows, macOS, and Linux, verifies macOS/Windows
   packages, produces coverage for SonarCloud, and runs a blocking clang-tidy
   report over the PR's changed files.
-- The historical Windows serial-test crash was not reproduced in the
-  [2026-10-01 verification campaign](windows-serial-verification-2026-10-01.md):
-  900 fresh target executions passed across normal and sequential scheduling.
-  The unverified historical report is no longer active P0 debt; this result
-  does not prove that an intermittent crash is impossible.
 - The [protocol-sharing boundary](design-notes.md#where-port-then-factor-shared-code-and-where-it-did-not)
   lives in the design notes; logging-specific gaps are under
   "P2: Logging engine follow-ups" below.

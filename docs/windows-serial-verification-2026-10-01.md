@@ -1,16 +1,13 @@
 # Windows serial verification — 2026-10-01
 
-The historical Windows-only serial-test crash was **not reproduced in this
-campaign**. All nine Windows-compatible serial targets passed 50 fresh
+All nine Windows-compatible serial targets passed 50 fresh
 executions with normal scheduling and another 50 on a separate runner with
 sequential test scheduling: **900 target executions and 4,300 GoogleTest case
 executions**, with no failed, missing, cached, skipped, or disabled executions.
 
-This completes the one-off verification of the previously unverified crash
-report after the GoogleTest migration. It does not establish a root cause,
-prove that the migration fixed the crash, or rule out intermittent failures
-under other environments or workloads. No test was quarantined or excluded
-because of a failure, and no application or serial-test code was changed.
+This completes the one-off Windows serial verification after the GoogleTest
+migration. No test was quarantined or excluded because of a failure, and no
+application or serial-test behavior was changed.
 
 ## Provenance
 
@@ -102,8 +99,3 @@ removed from the final branch after evidence collection.
 The ordinary PR checks also passed on the campaign commit, including the full
 Windows/macOS/Linux Bazel jobs, SonarCloud, Gazelle, and the Android portable
 core build. These checks supplement, but are not counted in, the totals above.
-
-If the crash recurs, retain the failing binary, case output, environment, and
-exit status and reopen focused investigation. Existing unbuffered serial-test
-diagnostics remain in place. Do not attribute a recurrence to one suite
-without evidence or discard unrelated coverage-test failures.
