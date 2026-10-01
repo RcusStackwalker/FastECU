@@ -211,40 +211,6 @@ Actions:
   route both CAN transports to it.
 - Qualify it on the [connection bench checklist](connection-bench-checklist.md).
 
-### P2: Convert suppressed signed-bitwise arithmetic to unsigned operands
-
-Two files still suppress `bugprone-signed-bitwise` behind
-`NOLINTBEGIN`/`NOLINTEND` blocks because legacy code mixes signed literals,
-loop counters, `QByteArray::at()` results, or vendor J2534 flag macros into
-bitwise operations. Each block's comment points back to this section.
-clang-tidy's changed-file gate (`bazel run //:clang_tidy_report_changed`)
-lints whole translation units, not touched lines, so any edit to one of these
-files puts all of its existing findings back in scope; each suppression was
-added when a step needed to touch the file for an unrelated reason. Re-run
-clang-tidy on a file for its current findings rather than relying on a count
-recorded here.
-
-- `src/platform/desktop/common/serial/direct/common/serial_port_actions_direct.cpp`:
-  one block per function around `read_serial_data`, `append_iso14230_header`,
-  `write_j2534_data`, `read_j2534_data`, `dump_msg` and `set_j2534_iso9141`.
-  The J2534 flag macros involved (`TX_DONE`, `START_OF_MESSAGE`,
-  `ISO15765_FRAME_PAD`, `ISO9141_NO_CHECKSUM`, `CAN_ID_BOTH`) are small
-  positive constants, and the `QByteArray` byte/mask sites mask or truncate to
-  low bits that sign extension does not affect; none is a live defect.
-- `src/ui/desktop/widgets/dataterminal.cpp`: blocks around `sendToInterface`
-  and `add_ssm_header`, where a `uint8_t`/`toUInt()` id is ANDed or shifted
-  with a small non-negative mask; none is a live defect.
-
-Actions:
-
-- Convert each flagged site's operand types (the protocol id/length fields
-  and the relevant J2534 macros' consumers) to unsigned, confirm the
-  existing protocol/serial tests still pass, and remove the corresponding
-  suppression blocks. These functions have hardware/QObject side effects
-  rather than pure logic, so extracting them into a characterized pure unit
-  does not pay off; a direct signed-to-unsigned conversion plus existing
-  test coverage is enough.
-
 ### P2: Pay down the SonarCloud code-smell backlog
 
 No current totals are recorded here: earlier per-rule counts predate large

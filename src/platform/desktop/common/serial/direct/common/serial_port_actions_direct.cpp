@@ -39,6 +39,14 @@ template <std::size_t N> SCONFIG_LIST configList(std::array<SCONFIG, N>& params)
 {
     return {static_cast<unsigned long>(params.size()), params.data()};
 }
+
+// The vendor J2534 flag macros are int literals; these give them the unsigned
+// type of the PASSTHRU_MSG and PassThruConnect fields they are combined with.
+constexpr unsigned long kTxDone = TX_DONE;
+constexpr unsigned long kStartOfMessage = START_OF_MESSAGE;
+constexpr unsigned long kIso15765FramePad = ISO15765_FRAME_PAD;
+constexpr unsigned long kIso9141NoChecksum = ISO9141_NO_CHECKSUM;
+constexpr unsigned long kCanIdBoth = CAN_ID_BOTH;
 } // namespace
 
 SerialPortActionsDirect::SerialPortActionsDirect(QObject *parent) : QObject(parent), serial(new QSerialPort(this))
@@ -666,11 +674,6 @@ QByteArray SerialPortActionsDirect::read_serial_obd_data(uint16_t timeout_arg)
     return received;
 }
 
-// Legacy protocol framing mixes signed QByteArray::at() results and signed
-// vendor J2534 flag macros into bitwise arithmetic; tracked in
-// docs/tech-debt.md "Convert suppressed signed-bitwise arithmetic to
-// unsigned operands".
-// NOLINTBEGIN(bugprone-signed-bitwise)
 QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout_arg)
 {
     QByteArray received;
@@ -721,9 +724,9 @@ QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout_arg)
             {
                 // emit LOG_D("Read with ISO14230", true, true);
 
-                if (received.at(0) & 0x3f)
+                if (const auto format = static_cast<uint8_t>(received.at(0)); format & 0x3fU)
                 {
-                    msglen = (received.at(0) & 0x3f); // Byte in index 3 is payload, no +1 for checksum
+                    msglen = format & 0x3fU; // Byte in index 3 is payload, no +1 for checksum
                 }
                 else
                 {
@@ -769,7 +772,6 @@ QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout_arg)
     }
     return received;
 }
-// NOLINTEND(bugprone-signed-bitwise)
 
 QByteArray SerialPortActionsDirect::write_serial_data(QByteArray output)
 {
@@ -923,7 +925,6 @@ QByteArray SerialPortActionsDirect::append_iso9141_header(QByteArray output)
     return output;
 }
 
-// NOLINTBEGIN(bugprone-signed-bitwise): see the note above read_serial_data().
 QByteArray SerialPortActionsDirect::append_iso14230_header(QByteArray output)
 {
     uint8_t chk_sum = 0;
@@ -936,7 +937,7 @@ QByteArray SerialPortActionsDirect::append_iso14230_header(QByteArray output)
     output.insert(2, kline_tester_id);
     if (msglength < 0x40)
     {
-        output[0] = output[0] | msglength;
+        output[0] = static_cast<char>(static_cast<uint8_t>(output[0]) | msglength);
     }
     else
     {
@@ -954,9 +955,7 @@ QByteArray SerialPortActionsDirect::append_iso14230_header(QByteArray output)
 
     return output;
 }
-// NOLINTEND(bugprone-signed-bitwise)
 
-// NOLINTBEGIN(bugprone-signed-bitwise): see the note above read_serial_data().
 int SerialPortActionsDirect::write_j2534_data(QByteArray output)
 {
     PASSTHRU_MSG txmsg;
@@ -981,7 +980,7 @@ int SerialPortActionsDirect::write_j2534_data(QByteArray output)
                 txmsg.TxFlags = CAN_29BIT_ID;
             }
         }
-        txmsg.TxFlags |= ISO15765_FRAME_PAD;
+        txmsg.TxFlags |= kIso15765FramePad;
         txmsg.Timestamp = 0;
         txmsg.DataSize = txMsgLen;
         txmsg.ExtraDataIndex = 0;
@@ -1006,7 +1005,6 @@ int SerialPortActionsDirect::write_j2534_data(QByteArray output)
 
     return STATUS_SUCCESS;
 }
-// NOLINTEND(bugprone-signed-bitwise)
 
 int SerialPortActionsDirect::send_periodic_j2534_data(QByteArray output, int timeout_arg)
 {
@@ -1066,7 +1064,6 @@ bool SerialPortActionsDirect::get_is_tx_done()
     return j2534_tx_done();
 }
 
-// NOLINTBEGIN(bugprone-signed-bitwise): see the note above read_serial_data().
 QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout_arg)
 {
     PASSTHRU_MSG rxmsg;
@@ -1098,13 +1095,13 @@ QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout_arg)
         }
         else
         {
-            if (rxmsg.RxStatus & TX_DONE)
+            if (rxmsg.RxStatus & kTxDone)
             {
                 rxmsg.DataSize = 0;
                 rxmsg.Data[0] = 0x00;
                 j2534->PassThruReadMsgs(chanID, &rxmsg, &numRxMsg, timeout_arg);
             }
-            if (rxmsg.RxStatus & START_OF_MESSAGE)
+            if (rxmsg.RxStatus & kStartOfMessage)
             {
                 j2534->PassThruReadMsgs(chanID, &rxmsg, &numRxMsg, timeout_arg);
             }
@@ -1120,7 +1117,6 @@ QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout_arg)
 exit:
     return received;
 }
-// NOLINTEND(bugprone-signed-bitwise)
 
 int SerialPortActionsDirect::set_j2534_ioctl(unsigned long parameter, int value)
 {
@@ -1166,12 +1162,11 @@ unsigned long SerialPortActionsDirect::read_vbatt()
     return STATUS_SUCCESS;
 }
 
-// NOLINTBEGIN(bugprone-signed-bitwise): see the note above read_serial_data().
 void SerialPortActionsDirect::dump_msg(PASSTHRU_MSG *msg)
 {
     QByteArray datamsg;
 
-    if (msg->RxStatus & START_OF_MESSAGE)
+    if (msg->RxStatus & kStartOfMessage)
     {
         return; // skip
     }
@@ -1183,7 +1178,6 @@ void SerialPortActionsDirect::dump_msg(PASSTHRU_MSG *msg)
     }
     // emit LOG_D("Timestamp: " + msg->Timestamp << "msg length: " + msg->DataSize << "msg: " + datamsg;
 }
-// NOLINTEND(bugprone-signed-bitwise)
 
 bool SerialPortActionsDirect::get_serial_num(char *serial_arg)
 {
@@ -1431,7 +1425,7 @@ int SerialPortActionsDirect::set_j2534_can_filters()
         emit LOG_D("Set iso15765 filters", true, true);
         txmsg.ProtocolID = protocol;
         txmsg.RxStatus = 0;
-        txmsg.TxFlags = ISO15765_FRAME_PAD;
+        txmsg.TxFlags = kIso15765FramePad;
         txmsg.Timestamp = 0;
         txmsg.DataSize = 4;
         txmsg.ExtraDataIndex = 0;
@@ -1466,7 +1460,6 @@ int SerialPortActionsDirect::set_j2534_can_filters()
     return STATUS_SUCCESS;
 }
 
-// NOLINTBEGIN(bugprone-signed-bitwise): see the note above read_serial_data().
 int SerialPortActionsDirect::set_j2534_iso9141()
 {
     baudrate = serial_port_baudrate.toUInt();
@@ -1474,12 +1467,12 @@ int SerialPortActionsDirect::set_j2534_iso9141()
     if (is_iso14230_connection)
     {
         protocol = ISO14230;
-        flags = ISO9141_NO_CHECKSUM | CAN_ID_BOTH;
+        flags = kIso9141NoChecksum | kCanIdBoth;
     }
     else
     {
         protocol = ISO9141;
-        flags = ISO9141_NO_CHECKSUM;
+        flags = kIso9141NoChecksum;
     }
 
     emit LOG_D("Protocol: " + QString::number(protocol), true, true);
@@ -1493,7 +1486,7 @@ int SerialPortActionsDirect::set_j2534_iso9141()
             // sometimes it reads by 1 byte
             // Denso DST-i specific protocol, in fact ISO9141
             protocol = DSTI_ISO9141;
-            flags = ISO9141_NO_CHECKSUM;
+            flags = kIso9141NoChecksum;
             baudrate = 10400;
             break;
         case ISO14230:
@@ -1518,7 +1511,6 @@ int SerialPortActionsDirect::set_j2534_iso9141()
 
     return STATUS_SUCCESS;
 }
-// NOLINTEND(bugprone-signed-bitwise)
 
 int SerialPortActionsDirect::set_j2534_iso9141_timings()
 {
