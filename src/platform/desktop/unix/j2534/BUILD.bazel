@@ -1,8 +1,7 @@
-# gazelle:alias_kind qt_cc_library cc_library
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS", "qt_cc_library")
+load("//bazel:qt_targets.bzl", "COMMON_COPTS")
 
 package(default_visibility = ["//bazel/layers:platform_and_composition_root"])
 
@@ -18,26 +17,7 @@ cc_library(
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
-    deps = [":j2534"],
-)
-
-# Temporarily hand-owned: pinned alias_kind merging preserves existing attributes.
-# See ADR 0017; plain libraries and tests in this package regenerate normally.
-# keep
-qt_cc_library(
-    name = "j2534",
-    srcs = ["J2534_unix.cpp"],
-    hdrs = ["J2534_unix.h"],
-    target_compatible_with = select({
-        "@platforms//os:windows": ["@platforms//:incompatible"],
-        "//conditions:default": [],
-    }),
-    deps = [
-        ":j2534_types",
-        ":serial_byte_buffer",
-        "//bazel/qt:core",
-        "//bazel/qt:serial_port",
-    ],
+    deps = ["//src/platform/desktop/unix/j2534/driver:j2534"],
 )
 
 cc_library(

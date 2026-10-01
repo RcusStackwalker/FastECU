@@ -1,0 +1,21 @@
+# The driver declares Q_OBJECT; generated hdrs must run through moc.
+# gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
+load("//bazel:qt_targets.bzl", "qt_cc_library")
+
+package(default_visibility = ["//bazel/layers:platform_and_composition_root"])
+
+qt_cc_library(
+    name = "j2534",
+    srcs = ["J2534_unix.cpp"],
+    hdrs = ["J2534_unix.h"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//bazel/qt:core",
+        "//bazel/qt:serial_port",
+        "//src/platform/desktop/unix/j2534:j2534_types",
+        "//src/platform/desktop/unix/j2534:serial_byte_buffer",
+    ],
+)
