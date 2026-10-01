@@ -19,7 +19,7 @@ using Keys = std::array<std::uint16_t, 4>;
 enum class Failure
 {
     InputTooShort, // either input is shorter than kAnalyzedBytes
-    NoMatchingKey, // no 16-bit k2 or k3 is consistent with the last unique pair
+    NoMatchingKey, // no k2 or k3 is consistent with more than half the distinct pairs
 };
 
 // The attack reads exactly this many leading bytes of each input.
@@ -30,10 +30,22 @@ std::uint16_t f_function(std::uint16_t word, std::uint16_t key);
 // Four rounds under keys, then the final half swap.
 std::uint32_t encrypt(std::uint32_t plain, const Keys& keys);
 
+struct Recovery
+{
+    Keys keys;
+    // Pairs whose plaintext word does not occur earlier in the input.
+    std::size_t distinct_pairs = 0;
+    // Distinct pairs for which encrypt(plain, keys) == cipher.
+    std::size_t reproduced_pairs = 0;
+
+    bool operator==(const Recovery&) const = default;
+};
+
 // k1 and k4 come from a linear approximation over every distinct plaintext
-// word; k2 and k3 are then the lowest keys consistent with the last distinct
-// word alone. The f-function is not injective in its key, so k2 and k3 can
-// differ from the keys that produced the ciphertext.
-std::expected<Keys, Failure> recover_keys(bytes::ByteView plain, bytes::ByteView cipher);
+// word. Each distinct pair then votes for the k2 and k3 values consistent
+// with it; the key with the most votes wins, the lowest on a tie, and must
+// have more than half of them. A few mismatched words are outvoted, while
+// unrelated files or a wrong k1 or k4 fail with NoMatchingKey.
+std::expected<Recovery, Failure> recover_keys(bytes::ByteView plain, bytes::ByteView cipher);
 
 } // namespace subaru_key_recovery
