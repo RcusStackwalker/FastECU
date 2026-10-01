@@ -138,16 +138,16 @@ coverage.
 
 Actions:
 
-- Move the remaining hand-rolled single-attempt workflows in
-  `src/platform/desktop/common/flash/flash_workflow.cpp` onto the shared
-  `SingleAttemptFlashWorkflow`, which already runs the kernel-free CAN,
-  kernel-backed and Colt families. Each still repeats the Begin → one
-  attempt → result sequence: the Subaru Mitsu/Hitachi M32R K-Line, TCU
-  Hitachi M32R K-Line and CAN, Unisia Jecs, Hitachi SH72543R CAN, Hitachi
-  SH7058 (an extra read confirmation and a K-Line/CAN transport chosen at
-  run time), and Denso MC68HC16Y5 and SH7055 workflows (kernel resolution;
-  SH7055 adds an ignition-cycle confirmation). Extend the preparation and
-  binding policies only where a family's extra step is genuinely shared.
+- Decide whether the last two hand-rolled single-attempt workflows in
+  `src/platform/desktop/common/flash/flash_workflow.cpp` should join the
+  shared `SingleAttemptFlashWorkflow`. Both add a prompt their plan does not
+  carry: Hitachi SH7058 asks `ConfirmSh7058Read` on Read and binds a K-Line
+  executor for Read but a CAN executor for Write; Denso MC68HC16Y5 BDM asks
+  `ConfirmBdmKernelBootstrap` on Write and resolves a kernel only then.
+  Joining means either the plans emitting those confirmations (a backend
+  plan and validator change) or new workflow-side policies serving two
+  families; extend the preparation and binding policies only where a
+  family's extra step is genuinely shared.
 - Treat the multi-stage workflows as separate work, not part of that
   consolidation: the EEPROM workflow's ignition-cycle and inspect-read
   re-attempts, the Unisia Jecs M32R boot-mode workflow's staged attempts, and
