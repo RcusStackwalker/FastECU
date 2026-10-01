@@ -31,6 +31,8 @@ exports_files(
     visibility = [
         "//resources/shared:__pkg__",
         "//src/backend/config:__pkg__",
+        # legacy_menu_golden_test renders the shipped menu.cfg.
+        "//src/ui/desktop/menu:__pkg__",
     ],
 )
 

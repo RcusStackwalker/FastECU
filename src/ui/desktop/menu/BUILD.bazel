@@ -32,3 +32,29 @@ fastecu_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_gtest(
+    name = "legacy_menu_golden_test",
+    srcs = ["legacy_menu_golden_test.cpp"],
+    data = [
+        "testdata/legacy_menu.golden",
+        "//resources/shared:config/menu.cfg",
+    ],
+    env = {
+        "MENU_CFG_PATH": "$(location //resources/shared:config/menu.cfg)",
+        "MENU_GOLDEN_PATH": "$(location testdata/legacy_menu.golden)",
+        "QT_QPA_PLATFORM": "offscreen",
+    },
+    deps = [
+        # Icon resources register at link time; the test checks icons resolve.
+        "//resources/desktop:icons_resource",  # keep
+        ":menu_builder",
+        "//bazel/qt:core",
+        "//bazel/qt:widgets",
+        "//src/backend/config:menu_definition",
+        "//src/backend/ports/testing:in_memory_file_repository",
+        "//src/backend/ports/testing:result_matchers",
+        "//src/ui/desktop/menu/testing:menu_snapshot",
+        "@googletest//:gtest",
+    ],
+)
