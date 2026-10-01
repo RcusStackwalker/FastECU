@@ -32,17 +32,7 @@ class GetKeyOperationsSubaru : public QDialog
 
     bool kill_process = false;
 
-    int linear_approx_test(void);
     int load_and_apply_linear_approx();
-    uint8_t get_bit(uint32_t value, int bit_num);
-    uint16_t applyMask(uint16_t value, uint16_t mask);
-    uint16_t sBox(uint16_t sBoxInput);
-    uint32_t roundAndFlip(uint32_t input, uint16_t keyInput);
-    uint32_t manyRoundAndFlip(uint32_t input, uint16_t *keys, int numRounds);
-    uint32_t flipLeftRight(uint32_t flipInput);
-    uint32_t roundFunction(uint32_t roundInput, uint16_t keyInput);
-    uint16_t fFunction(uint16_t wordInput, uint16_t keyInput);
-    void findApprox(uint16_t **approxTable);
 
   private:
     std::unique_ptr<Ui::EcuOperationsWindow> ui;
