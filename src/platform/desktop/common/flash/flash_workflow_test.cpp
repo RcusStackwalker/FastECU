@@ -2184,9 +2184,10 @@ TEST(FlashWorkflowTest, unisiaJecsM32rWriteOnReadOnlyVariantFailsBeforeAnyPrompt
     ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::Unsupported);
 }
 
-// Characterization of the fourteen single-attempt families: eight kernel-free
-// CAN families, five kernel-backed families, and Colt. Each runs preflight,
-// Begin, the plan's confirmations in order, then exactly one attempt.
+// Characterization of the twenty-two single-attempt families: twelve
+// kernel-free CAN families, four kernel-free K-Line families, Colt, and seven
+// kernel-backed families. Each runs preflight, Begin, the plan's
+// confirmations in order, then exactly one attempt.
 struct SingleAttemptCase
 {
     std::string_view protocol;
@@ -2218,6 +2219,12 @@ std::vector<SingleAttemptCase> singleAttemptCases()
         {"sub_ecu_denso_sh72531_can", "SH72531", SubaruDensoSh72531Can, CanIso15765, std::nullopt, {}},
         {"sub_ecu_denso_sh72543_can_diesel", "SH72543d", SubaruDensoSh72543CanDiesel, CanIso15765, std::nullopt, {}},
         {"sub_ecu_denso_1n83m_4m_can", "N83M_4MB", SubaruDenso1n83m_4mCan, CanIso15765, std::nullopt, {}},
+        {"sub_tcu_hitachi_m32r_can", "M32R_512KB", SubaruTcuHitachiM32rCan, CanIso15765, std::nullopt, {}},
+        {"sub_ecu_hitachi_sh72543r_can", "SH72543R", SubaruHitachiSh72543rCan, CanIso15765, std::nullopt, {}},
+        {"sub_ecu_mitsu_m32r_kline", "M32R_512KB_4blocks", SubaruMitsuM32rKline, Kline, std::nullopt, {}},
+        {"sub_ecu_hitachi_m32r_kline", "M32R_512KB_1block", SubaruHitachiM32rKline, Kline, std::nullopt, {}},
+        {"sub_tcu_hitachi_m32r_kline", "M32R_512KB", SubaruTcuHitachiM32rKline, Kline, std::nullopt, {}},
+        {"sub_ecu_unisia_jecs_m3779x", "M3779x", SubaruUnisiaJecs, Kline, std::nullopt, {}},
         {"mitsu_ecu_m32r_can", "M32R_384KB_1block", MitsuColtM32rCan, CanIso15765, std::nullopt, {}},
         {"sub_ecu_denso_sh7055_densocan",
          "SH7055",
@@ -2248,6 +2255,18 @@ std::vector<SingleAttemptCase> singleAttemptCases()
          SubaruDensoSh705xKline,
          Kline,
          catalogKernel("sub_ecu_denso_sh7055_04", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
+         {}},
+        {"sub_ecu_denso_sh7055_02",
+         "SH7055",
+         SubaruDensoSh7055_02,
+         Kline,
+         catalogKernel("sub_ecu_denso_sh7055_02", 0xFFFF6004, {0xaa, 0xbb, 0xcc, 0xdd}),
+         {FlashPromptKind::CycleIgnition}},
+        {"sub_ecu_denso_mc68hc16y5_02",
+         "MC68HC16Y5",
+         SubaruDensoMc68hc16y5_02,
+         Kline,
+         catalogKernel("sub_ecu_denso_mc68hc16y5_02", 0x20000, {0x11, 0x22, 0x33}),
          {}},
     };
 }
