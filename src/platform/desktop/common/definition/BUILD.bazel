@@ -1,23 +1,9 @@
-# Tests regenerate; production sources and helper binaries retain existing owners.
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
-# gazelle:exclude definition_catalog_session.cpp
-# gazelle:exclude definition_catalog_session.h
-# gazelle:resolve cc src/backend/calibration/session/rom_open.h //src/backend/calibration/session:rom_open
-# gazelle:resolve cc src/backend/config/testing/config_session_fixture.h //src/backend/config/testing:config_session_fixture
-# gazelle:resolve cc src/backend/definition/ecuflash_parser.h //src/backend/definition:ecuflash_parser
-# gazelle:resolve cc src/backend/ports/testing/in_memory_atomic_file_writer.h //src/backend/ports/testing:in_memory_atomic_file_writer
-# gazelle:resolve cc src/backend/ports/testing/result_matchers.h //src/backend/ports/testing:result_matchers
-# gazelle:resolve cc src/platform/desktop/common/definition/definition_catalog_session.h //src/platform/desktop/common/definition:definition_catalog_session
-# gazelle:resolve cc src/platform/desktop/common/ports/qt_atomic_file_writer.h //src/platform/desktop/common/ports:ports
-# gazelle:resolve cc src/platform/desktop/common/ports/qt_file_repository.h //src/platform/desktop/common/ports:ports
-# gazelle:resolve cc src/platform/desktop/common/ports/qt_file_system.h //src/platform/desktop/common/ports:ports
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 
 package(default_visibility = ["//visibility:private"])
 
-# Production and runtime helper ownership is deferred by ADR 0017.
-# keep
 cc_library(
     name = "definition_catalog_session",
     srcs = ["definition_catalog_session.cpp"],
@@ -41,10 +27,10 @@ fastecu_gtest(
     srcs = ["definition_catalog_session_test.cpp"],
     qt = False,
     deps = [
+        ":definition_catalog_session",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
         "//src/backend/ports/testing:result_matchers",
-        "//src/platform/desktop/common/definition:definition_catalog_session",
         "@googletest//:gtest",
     ],
 )
@@ -53,12 +39,12 @@ fastecu_gtest(
     name = "definition_catalog_session_integration_test",
     srcs = ["definition_catalog_session_integration_test.cpp"],
     deps = [
+        ":definition_catalog_session",
         "//bazel/qt:core",
         "//src/backend/calibration/session:rom_open",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/definition:ecuflash_parser",
         "//src/backend/ports/testing:result_matchers",
-        "//src/platform/desktop/common/definition:definition_catalog_session",
         "//src/platform/desktop/common/ports",
         "@googletest//:gtest",
     ],

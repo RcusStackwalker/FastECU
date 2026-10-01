@@ -45,7 +45,14 @@ class CheckTest(unittest.TestCase):
             self.diffs.append((list(paths), list(added)))
 
         code = gc.check(
-            self.root, list_all, run_gazelle, show_diff, out, run_hook=run_hook, fix=fix
+            self.root,
+            list_all,
+            run_gazelle,
+            show_diff,
+            out,
+            run_hook=run_hook,
+            fix=fix,
+            allowed_keeps=frozenset(),
         )
         return code, out.getvalue()
 
@@ -381,6 +388,7 @@ class EnvironmentTest(unittest.TestCase):
                 mock.patch.object(gc, "git_list_build_files", side_effect=list_all),
                 mock.patch.object(gc, "run_bazel_gazelle", side_effect=gazelle),
                 mock.patch.object(gc, "git_show_diff"),
+                mock.patch.object(gc, "KEPT_CPP_PRODUCTION_RULES", frozenset()),
                 mock.patch.object(gc.sys, "stderr", new=StringIO()),
             ):
                 self.assertEqual(gc.main(["--fix"]), 0)
