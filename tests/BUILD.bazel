@@ -9,8 +9,6 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 # gazelle:resolve cc src/backend/protocol/imut_dma_init.h //src/backend/protocol:protocol
 # gazelle:resolve cc src/backend/protocol/mut_dma_driver.h //src/backend/protocol:protocol
 # gazelle:resolve cc src/platform/desktop/common/bytes/qt_bytes.h //src/platform/desktop/common/bytes:qt_bytes
-# gazelle:resolve cc src/platform/desktop/common/serial/direct_serial_backend.h //src/platform/desktop/common/serial:direct_serial_backend_for_tests
-# gazelle:resolve cc src/platform/desktop/common/serial/serial_port_actions_direct.h //src/platform/desktop/common/serial:direct_serial_backend_for_tests
 # gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
 # gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
 # gazelle:resolve cc src/platform/desktop/common/transport/fastecu_kline_transport.h //src/platform/desktop/common/transport:transport
@@ -159,7 +157,9 @@ fastecu_gtest(
     srcs = ["serial_pty_e2e_test.cpp"],
     target_compatible_with = UNIX_ONLY,
     deps = [
-        "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
+        # The real direct backend is linked at runtime, not included.
+        "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",  # keep
+        "//src/platform/desktop/common/serial:direct_serial_backend",
         "//src/platform/desktop/common/serial/facade:serial_port_actions",
         "//src/platform/desktop/common/testing:core_application_environment",
         "@googletest//:gtest",
@@ -173,12 +173,14 @@ fastecu_gtest(
     srcs = ["tst_mut_dma_integration.cpp"],
     target_compatible_with = UNIX_ONLY,
     deps = [
+        # The real direct backend is linked at runtime, not included.
+        "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",  # keep
         "//bazel/qt:core",
         "//src/algorithms/protocol/mut_dma",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/protocol",
         "//src/platform/desktop/common/bytes:qt_bytes",
-        "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
+        "//src/platform/desktop/common/serial:direct_serial_backend",
         "//src/platform/desktop/common/serial/facade:serial_port_actions",
         "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/common/testing:event_helpers",
@@ -193,8 +195,10 @@ fastecu_gtest(
     srcs = ["tst_serial_port_crash.cpp"],
     target_compatible_with = UNIX_ONLY,
     deps = [
+        # The real direct backend is linked at runtime, not included.
+        "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",  # keep
         "//bazel/qt:core",
-        "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",
+        "//src/platform/desktop/common/serial/direct:serial_port_actions_direct",
         "//src/platform/desktop/common/testing:core_application_environment",
         "//src/platform/desktop/unix/j2534",
         "//src/platform/desktop/unix/j2534/testing:mock_openport",

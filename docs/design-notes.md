@@ -592,8 +592,9 @@ own factory without touching the facade.
 ### Per-OS hooks sit behind one guard-free header
 
 Each former `Q_OS_*` branch in the direct backend is a protected member
-declared once in `serial_port_actions_direct.h` and defined in exactly one
-of `serial_port_actions_direct_unix.cpp` / `_windows.cpp`. Hook bodies were
+declared once in `direct/serial_port_actions_direct.h` and defined in exactly
+one of `direct/unix/serial_port_actions_direct_unix.cpp` /
+`direct/windows/serial_port_actions_direct_windows.cpp`. Hook bodies were
 moved verbatim, so a Windows regression shows up as a compile failure in
 the wrong file rather than as changed behavior. Both J2534 packages publish
 their API at `src/platform/desktop/j2534/j2534_api.h`, so the common code
@@ -603,9 +604,11 @@ has no guarded include.
 
 `desktop_serial_factory` links only the declaration of
 `make_direct_serial_backend()`. `fastecu` and `fastecu-bench` each carry a
-`select()` alias picking `direct_serial_backend_unix` or `_windows`; tests
-use `direct_serial_backend_for_tests`. A target that forgets the
-implementation fails to link.
+`select()` alias picking `direct/unix:serial_port_actions_direct_unix` or
+`direct/windows:serial_port_actions_direct_windows`; each hook library carries
+a dependency keep on the shared `direct/common` implementation. Tests use
+`direct_serial_backend_for_tests`, a narrow keep beside the header-owning
+library they include. A target that forgets the implementation fails to link.
 
 ### `STATUS_*` stay macros
 
@@ -617,14 +620,13 @@ implementation fails to link.
 
 `qt_cc_library`'s moc genrule names its generated file after the header's
 basename alone (`third_party/qt/qt.bzl`), not after the calling target, so
-`direct_serial_backend_unix` and `_windows` cannot both list
-`serial_port_actions_direct.h` in `hdrs` directly — the genrules would
-collide at load time, on every platform, regardless of
-`target_compatible_with`. The package-private
-`serial_port_actions_direct_moc` target mocs that header once; both
-per-OS targets depend on it instead of moc'ing the header themselves, and
-`direct_serial_backend_for_tests` is an alias to whichever one matches the
-host OS. This is a Bazel/Qt integration limit, not a design preference — a
+the per-OS hook libraries cannot both list `serial_port_actions_direct.h` in
+`hdrs` directly — the genrules would collide at load time, on every
+platform, regardless of `target_compatible_with`. The header-only
+`direct:serial_port_actions_direct` library mocs it once; the shared
+implementation and both per-OS hook libraries depend on it instead of
+moc'ing the header themselves, and `direct_serial_backend_for_tests` is an
+alias to whichever hook library matches the host OS. This is a Bazel/Qt integration limit, not a design preference — a
 future header split into per-OS pieces should keep it in mind.
 
 ## Connection and identification

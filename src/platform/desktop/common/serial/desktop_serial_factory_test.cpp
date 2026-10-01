@@ -7,7 +7,7 @@
 #include "src/platform/desktop/common/serial/desktop_serial_factory.h"
 #include "src/platform/desktop/common/serial/remote/remote_serial_backend.h"
 #include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
-#include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
+#include "src/platform/desktop/common/serial/direct/serial_port_actions_direct.h"
 
 #include "src/platform/desktop/common/serial/testing/log_sink/recording_log_sink.h"
 

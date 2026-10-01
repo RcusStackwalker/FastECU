@@ -4,7 +4,7 @@
 
 #include <cstdint>
 
-#include "src/platform/desktop/common/serial/serial_port_actions_direct.h"
+#include "src/platform/desktop/common/serial/direct/serial_port_actions_direct.h"
 
 // Thrown by tests that exercise an adapter's catch-all branch. It deliberately
 // does not derive from std::exception, so it is distinct from a runtime_error.

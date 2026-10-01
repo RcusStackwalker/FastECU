@@ -1,0 +1,55 @@
+# Only the parent package's header-only library declares Q_OBJECT; everything
+# here is ordinary code, so the inherited moc mapping is undone.
+# gazelle:map_kind cc_library cc_library @rules_cc//cc:cc_library.bzl
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_common.bzl", "COMMON_COPTS")
+
+package(
+    default_visibility = [
+        "//bazel/layers:apps_bench",
+        "//bazel/layers:apps_desktop",
+        "//bazel/layers:tests",
+        "//src/platform/desktop/common/serial:__subpackages__",
+    ],
+)
+
+WINDOWS_ONLY = select({
+    "@platforms//os:windows": [],
+    "//conditions:default": ["@platforms//:incompatible"],
+})
+
+# Windows compiles only in CI; kept textually symmetric with the Unix library
+# rather than factored, so a CI-only compile failure is easy to correlate with
+# its Unix counterpart.
+cc_library(
+    name = "serial_port_actions_direct_windows",
+    srcs = ["serial_port_actions_direct_windows.cpp"],
+    copts = COMMON_COPTS,
+    implementation_deps = [
+        "//bazel/qt:core",
+        "//src/platform/desktop/common/serial:j2534_driver_selection",
+        "//src/platform/desktop/common/serial/direct:serial_port_actions_direct",
+    ],
+    target_compatible_with = WINDOWS_ONLY,
+    deps = [
+        # Linking a hook library must also link the shared implementation it
+        # completes; no include names it.
+        "//src/platform/desktop/common/serial/direct/common:direct_serial_backend",  # keep
+    ],
+    alwayslink = True,
+)
+
+fastecu_gtest(
+    name = "direct_backend_hooks_windows_test",
+    size = "small",
+    srcs = ["direct_backend_hooks_windows_test.cpp"],
+    target_compatible_with = WINDOWS_ONLY,
+    deps = [
+        # The hooks under test are linked, not included.
+        ":serial_port_actions_direct_windows",  # keep
+        "//src/platform/desktop/common/serial/direct:serial_port_actions_direct",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
+    ],
+)

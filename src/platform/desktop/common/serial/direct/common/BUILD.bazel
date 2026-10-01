@@ -1,0 +1,64 @@
+# Only the parent package's header-only library declares Q_OBJECT; everything
+# here is ordinary code, so the inherited moc mapping is undone.
+# gazelle:map_kind cc_library cc_library @rules_cc//cc:cc_library.bzl
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_common.bzl", "COMMON_COPTS")
+
+package(
+    default_visibility = [
+        "//bazel/layers:tests",
+        "//src/platform/desktop/common/serial:__subpackages__",
+    ],
+)
+
+# Composition roots link the selected implementation beside a declaration-only
+# factory dependency, so its entry point must survive archive ordering.
+cc_library(
+    name = "direct_serial_backend",
+    srcs = ["direct_serial_backend.cpp"],
+    copts = COMMON_COPTS,
+    implementation_deps = [
+        "//src/platform/desktop/common/serial:direct_serial_backend",
+        "//src/platform/desktop/common/serial/direct:serial_port_actions_direct",
+    ],
+    deps = [
+        # The factory constructs the class whose members this library defines;
+        # no include names that implementation.
+        ":serial_port_actions_direct",  # keep
+    ],
+    alwayslink = True,
+)
+
+# The members of SerialPortActionsDirect shared by every platform. The platform
+# hook libraries supply the rest.
+cc_library(
+    name = "serial_port_actions_direct",
+    srcs = ["serial_port_actions_direct.cpp"],
+    copts = COMMON_COPTS,
+    implementation_deps = [
+        "//bazel/qt:core",
+        "//src/algorithms/protocol",
+        "//src/platform/desktop/common/bytes:qt_bytes",
+        "//src/platform/desktop/common/serial:j2534_driver_selection",
+        "//src/platform/desktop/common/serial/direct:serial_port_actions_direct",
+    ],
+    alwayslink = True,
+)
+
+fastecu_gtest(
+    name = "test_direct_backend",
+    size = "small",
+    srcs = ["direct_backend_test.cpp"],
+    deps = [
+        # The test drives the real backend, so a platform hook library must link.
+        "//src/platform/desktop/common/serial:direct_serial_backend_for_tests",  # keep
+        "//bazel/qt:core",
+        "//src/platform/desktop/common/serial:direct_serial_backend",
+        "//src/platform/desktop/common/serial:j2534_driver_selection",
+        "//src/platform/desktop/common/serial:serial_backend",
+        "//src/platform/desktop/common/serial/direct:serial_port_actions_direct",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
+    ],
+)
