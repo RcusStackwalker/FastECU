@@ -82,7 +82,8 @@ inside an executor:
 
 1. **Permission before starting** is a `ConfirmationSpec` collected up front;
    its presence in the plan means "granted" (the Unisia Jecs M32R "apply VPP"
-   prompt).
+   prompt, the Denso MC68HC16Y5 BDM kernel bootstrap, the Hitachi SH7058
+   K-Line read).
 2. **A decision between bounded attempts** is a workflow prompt between two
    `FlashAttempt`s. The workflow's `next()`/`submit()` step machine supports any
    number of attempts. The EEPROM inspect-then-retry loop and the Unisia Jecs
@@ -109,7 +110,7 @@ not add a `FlashOperation` value. Every plan, validator and workflow switches
 on that enum and no other family needs the shape. Carry the divergent payload
 in existing plan fields (BDM and the Unisia Jecs M32R bootmode kernel attempt
 both carry the kernel as the plan image) and make the difference explicit to
-the operator with a dedicated confirmation prompt.
+the operator with a dedicated `ConfirmationSpec` (BDM's `KernelBootstrap`).
 
 ### No shared helper for the Hitachi and Mitsubishi M32R K-Line families
 

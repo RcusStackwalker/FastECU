@@ -138,20 +138,11 @@ coverage.
 
 Actions:
 
-- Decide whether the last two hand-rolled single-attempt workflows in
-  `src/platform/desktop/common/flash/flash_workflow.cpp` should join the
-  shared `SingleAttemptFlashWorkflow`. Both add a prompt their plan does not
-  carry: Hitachi SH7058 asks `ConfirmSh7058Read` on Read and binds a K-Line
-  executor for Read but a CAN executor for Write; Denso MC68HC16Y5 BDM asks
-  `ConfirmBdmKernelBootstrap` on Write and resolves a kernel only then.
-  Joining means either the plans emitting those confirmations (a backend
-  plan and validator change) or new workflow-side policies serving two
-  families; extend the preparation and binding policies only where a
-  family's extra step is genuinely shared.
-- Treat the multi-stage workflows as separate work, not part of that
-  consolidation: the EEPROM workflow's ignition-cycle and inspect-read
-  re-attempts, the Unisia Jecs M32R boot-mode workflow's staged attempts, and
-  the programming-voltage apply/remove notices.
+- Treat the multi-stage workflows as separate work from
+  `SingleAttemptFlashWorkflow`, which now runs every single-attempt family:
+  the EEPROM workflow's ignition-cycle and inspect-read re-attempts, the
+  Unisia Jecs M32R boot-mode workflow's staged attempts, and the
+  programming-voltage apply/remove notices.
 - Investigate converging the two remaining per-family `nonfatal_query`
   implementations, in the Denso BEEF CAN executors
   (`subaru_denso_sh7058_can_executor.cpp` and
