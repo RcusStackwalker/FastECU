@@ -87,9 +87,8 @@ FlashCompletedStep completed(FlashWorkflowOutcome outcome, std::optional<bytes::
 // Every FlashWorkflow ends in exactly one of these four outcomes, reached
 // either directly from a FlashAttemptResult (record()) or from a workflow's
 // own staging logic (succeed()/cancel()/discard()/fail()). Owning the state
-// here, instead of in each workflow, is what let the six workflow classes
-// below stop repeating the same five fields and the same result-handling
-// branches.
+// here, instead of in each workflow, keeps the workflows below from repeating
+// the same five fields and the same result-handling branches.
 class FlashAttemptOutcome
 {
   public:
@@ -264,192 +263,6 @@ std::optional<bytes::Bytes> normalizeMc68Image(std::optional<bytes::Bytes> image
     }
     return packed;
 }
-
-class SubaruM32rKlineWorkflow final : public FlashWorkflow
-{
-  public:
-    explicit SubaruM32rKlineWorkflow(FlashWorkflowRequest request, bool hitachi)
-        : request_(std::move(request)), hitachi_(hitachi),
-          plan_(hitachi_ ? build_subaru_hitachi_m32r_kline_plan(request_.operation, request_.protocol, request_.mcu,
-                                                                std::move(request_.image))
-                         : build_subaru_mitsu_m32r_kline_plan(request_.operation, request_.protocol, request_.mcu,
-                                                              std::move(request_.image)))
-    {
-    }
-    FlashWorkflowStep next() override
-    {
-        if (!plan_)
-        {
-            return FlashFailureStep{plan_.error()};
-        }
-        if (outcome_.hasFailure())
-        {
-            return outcome_.takeFailure();
-        }
-        if (outcome_.terminal())
-        {
-            return outcome_.completedStep();
-        }
-        if (!begun_)
-        {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        if (!attempted_)
-        {
-            attempted_ = true;
-            if (hitachi_)
-            {
-                return FlashWorkflowStep{
-                    std::in_place_type<FlashAttempt>,
-                    bind_flash_attempt(std::move(*plan_), std::make_unique<SubaruHitachiM32rKlineExecutor>(),
-                                       std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
-                    std::make_unique<QtClock>()};
-            }
-            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(*plan_),
-                                                        std::make_unique<SubaruMitsuM32rKlineExecutor>(),
-                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
-                                     std::make_unique<QtClock>()};
-        }
-        return outcome_.completedStep();
-    }
-    void submit(FlashPromptResponse response) override
-    {
-        begun_ = true;
-        if (response != FlashPromptResponse::Accept)
-        {
-            outcome_.cancel();
-        }
-    }
-    void submit(FlashAttemptResult result) override
-    {
-        outcome_.record(std::move(result));
-    }
-
-  private:
-    FlashWorkflowRequest request_;
-    bool hitachi_;
-    Result<FlashPlan> plan_;
-    bool begun_ = false;
-    bool attempted_ = false;
-    FlashAttemptOutcome outcome_;
-};
-
-class SubaruTcuHitachiM32rKlineWorkflow final : public FlashWorkflow
-{
-  public:
-    explicit SubaruTcuHitachiM32rKlineWorkflow(FlashWorkflowRequest request)
-        : request_(std::move(request)),
-          plan_(build_subaru_tcu_hitachi_m32r_kline_plan(request_.operation, request_.protocol, request_.mcu,
-                                                         std::move(request_.image)))
-    {
-    }
-    FlashWorkflowStep next() override
-    {
-        if (!plan_)
-        {
-            return FlashFailureStep{plan_.error()};
-        }
-        if (outcome_.hasFailure())
-        {
-            return outcome_.takeFailure();
-        }
-        if (outcome_.terminal())
-        {
-            return outcome_.completedStep();
-        }
-        if (!begun_)
-        {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        if (!attempted_)
-        {
-            attempted_ = true;
-            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(*plan_),
-                                                        std::make_unique<SubaruTcuHitachiM32rKlineExecutor>(),
-                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
-                                     std::make_unique<QtClock>()};
-        }
-        return outcome_.completedStep();
-    }
-    void submit(FlashPromptResponse response) override
-    {
-        begun_ = true;
-        if (response != FlashPromptResponse::Accept)
-        {
-            outcome_.cancel();
-        }
-    }
-    void submit(FlashAttemptResult result) override
-    {
-        outcome_.record(std::move(result));
-    }
-
-  private:
-    FlashWorkflowRequest request_;
-    Result<FlashPlan> plan_;
-    bool begun_ = false;
-    bool attempted_ = false;
-    FlashAttemptOutcome outcome_;
-};
-
-class SubaruUnisiaJecsWorkflow final : public FlashWorkflow
-{
-  public:
-    explicit SubaruUnisiaJecsWorkflow(FlashWorkflowRequest request)
-        : request_(std::move(request)), plan_(build_subaru_unisia_jecs_plan(request_.operation, request_.protocol,
-                                                                            request_.mcu, std::move(request_.image)))
-    {
-    }
-    FlashWorkflowStep next() override
-    {
-        if (!plan_)
-        {
-            return FlashFailureStep{plan_.error()};
-        }
-        if (outcome_.hasFailure())
-        {
-            return outcome_.takeFailure();
-        }
-        if (outcome_.terminal())
-        {
-            return outcome_.completedStep();
-        }
-        if (!begun_)
-        {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        if (!attempted_)
-        {
-            attempted_ = true;
-            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(*plan_), std::make_unique<SubaruUnisiaJecsExecutor>(),
-                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
-                                     std::make_unique<QtClock>()};
-        }
-        return outcome_.completedStep();
-    }
-    void submit(FlashPromptResponse response) override
-    {
-        begun_ = true;
-        if (response != FlashPromptResponse::Accept)
-        {
-            outcome_.cancel();
-        }
-    }
-    void submit(FlashAttemptResult result) override
-    {
-        outcome_.record(std::move(result));
-    }
-
-  private:
-    FlashWorkflowRequest request_;
-    Result<FlashPlan> plan_;
-    bool begun_ = false;
-    bool attempted_ = false;
-    FlashAttemptOutcome outcome_;
-};
 
 // Wave 6c-3. The adapter check moved here from legacy write_mem() :434: an
 // adapter that supplies programming voltage needs no operator prompt. With no
@@ -863,137 +676,6 @@ class SubaruDensoMc68hc16y5_02BdmWorkflow final : public FlashWorkflow
     FlashAttemptOutcome outcome_;
 };
 
-// CAN sibling of SubaruTcuHitachiM32rKlineWorkflow above (wave 6a-2, task 6).
-// Unlike the K-Line family, this one supports Write as well as Read -- the
-// plan/attempted/outcome shape is otherwise identical. TestWrite is rejected
-// by build_subaru_tcu_hitachi_m32r_can_plan (deliberate divergence 1: the
-// legacy reflash_block ignored its test_write_arg and performed a real erase
-// and flash write, so there is no dry run to route to), and that rejection
-// surfaces here through the same `if (!plan_)` check every workflow in this
-// file uses. This family has exactly two independent TestWrite checks, not
-// four: the plan-builder check just named, and the plan-validator check in
-// the same file (subaru_tcu_hitachi_m32r_can_plan.cpp) that
-// SubaruTcuHitachiM32rCanExecutor::transport_setup()/execute() call on every
-// plan they are handed. This workflow and the executor are consumers of
-// those two checks, not additional checks of their own.
-class SubaruTcuHitachiM32rCanWorkflow final : public FlashWorkflow
-{
-  public:
-    explicit SubaruTcuHitachiM32rCanWorkflow(FlashWorkflowRequest request)
-        : request_(std::move(request)),
-          plan_(build_subaru_tcu_hitachi_m32r_can_plan(request_.operation, request_.protocol, request_.mcu,
-                                                       std::move(request_.image)))
-    {
-    }
-    FlashWorkflowStep next() override
-    {
-        if (!plan_)
-        {
-            return FlashFailureStep{plan_.error()};
-        }
-        if (outcome_.hasFailure())
-        {
-            return outcome_.takeFailure();
-        }
-        if (outcome_.terminal())
-        {
-            return outcome_.completedStep();
-        }
-        if (!begun_)
-        {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        if (!attempted_)
-        {
-            attempted_ = true;
-            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(*plan_),
-                                                        std::make_unique<SubaruTcuHitachiM32rCanExecutor>(),
-                                                        std::make_unique<DesktopCanFlashTransport>(request_.serial)),
-                                     std::make_unique<QtClock>()};
-        }
-        return outcome_.completedStep();
-    }
-    void submit(FlashPromptResponse response) override
-    {
-        begun_ = true;
-        if (response != FlashPromptResponse::Accept)
-        {
-            outcome_.cancel();
-        }
-    }
-    void submit(FlashAttemptResult result) override
-    {
-        outcome_.record(std::move(result));
-    }
-
-  private:
-    FlashWorkflowRequest request_;
-    Result<FlashPlan> plan_;
-    bool begun_ = false;
-    bool attempted_ = false;
-    FlashAttemptOutcome outcome_;
-};
-
-class SubaruHitachiSh72543rCanWorkflow final : public FlashWorkflow
-{
-  public:
-    explicit SubaruHitachiSh72543rCanWorkflow(FlashWorkflowRequest request)
-        : request_(std::move(request)),
-          plan_(build_subaru_hitachi_sh72543r_can_plan(request_.operation, request_.protocol, request_.mcu,
-                                                       std::move(request_.image)))
-    {
-    }
-    FlashWorkflowStep next() override
-    {
-        if (!plan_)
-        {
-            return FlashFailureStep{plan_.error()};
-        }
-        if (outcome_.hasFailure())
-        {
-            return outcome_.takeFailure();
-        }
-        if (outcome_.terminal())
-        {
-            return outcome_.completedStep();
-        }
-        if (!begun_)
-        {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        if (!attempted_)
-        {
-            attempted_ = true;
-            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(*plan_),
-                                                        std::make_unique<SubaruHitachiSh72543rCanExecutor>(),
-                                                        std::make_unique<DesktopCanFlashTransport>(request_.serial)),
-                                     std::make_unique<QtClock>()};
-        }
-        return outcome_.completedStep();
-    }
-    void submit(FlashPromptResponse response) override
-    {
-        begun_ = true;
-        if (response != FlashPromptResponse::Accept)
-        {
-            outcome_.cancel();
-        }
-    }
-    void submit(FlashAttemptResult result) override
-    {
-        outcome_.record(std::move(result));
-    }
-
-  private:
-    FlashWorkflowRequest request_;
-    Result<FlashPlan> plan_;
-    bool begun_ = false;
-    bool attempted_ = false;
-    FlashAttemptOutcome outcome_;
-};
-
 class SubaruHitachiSh7058Workflow final : public FlashWorkflow
 {
   public:
@@ -1069,174 +751,6 @@ class SubaruHitachiSh7058Workflow final : public FlashWorkflow
     Result<FlashPlan> plan_;
     bool begun_ = false;
     bool read_confirmed_ = false;
-    bool attempted_ = false;
-    FlashAttemptOutcome outcome_;
-};
-
-class SubaruDensoMc68hc16y5_02Workflow final : public FlashWorkflow
-{
-  public:
-    explicit SubaruDensoMc68hc16y5_02Workflow(FlashWorkflowRequest request) : request_(std::move(request))
-    {
-    }
-
-    FlashWorkflowStep next() override
-    {
-        if (!plan_.has_value())
-        {
-            // Desktop FullRomData is physically addressed after the legacy
-            // calibration adapter inserts the 0x20000-0x27fff RAM/kernel hole.
-            // Portable MC plans and executors use the packed flash-block image.
-            request_.image = normalizeMc68Image(std::move(request_.image), request_.mcu);
-            // Run the family builder first so recognized-but-unsupported
-            // revision 04 is rejected by the plan even without a catalog.
-            Result<FlashPlan> preflight = build_subaru_denso_mc68hc16y5_02_plan(
-                request_.operation, request_.protocol, request_.mcu, request_.image,
-                KernelImage{.id = request_.protocol + "-kernel", .load_address = 0x20000, .bytes = {0}});
-            if (!preflight.has_value())
-            {
-                plan_ = std::unexpected(preflight.error());
-            }
-            else
-            {
-                QtFileRepository repository;
-                Result<KernelImage> kernel = resolveKernel(request_, repository);
-                if (!kernel.has_value())
-                {
-                    plan_ = std::unexpected(kernel.error());
-                }
-                else
-                {
-                    plan_ = build_subaru_denso_mc68hc16y5_02_plan(request_.operation, request_.protocol, request_.mcu,
-                                                                  std::move(request_.image), std::move(*kernel));
-                }
-            }
-        }
-        if (!plan_->has_value())
-        {
-            return FlashFailureStep{plan_->error()};
-        }
-        if (outcome_.hasFailure())
-        {
-            return outcome_.takeFailure();
-        }
-        if (outcome_.terminal())
-        {
-            return outcome_.completedStep();
-        }
-        if (!begun_)
-        {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        if (!attempted_)
-        {
-            attempted_ = true;
-            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(**plan_),
-                                                        std::make_unique<SubaruDensoMc68hc16y5_02Executor>(),
-                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
-                                     std::make_unique<QtClock>()};
-        }
-        return outcome_.completedStep();
-    }
-
-    void submit(FlashPromptResponse response) override
-    {
-        begun_ = true;
-        if (response != FlashPromptResponse::Accept)
-        {
-            outcome_.cancel();
-        }
-    }
-
-    void submit(FlashAttemptResult result) override
-    {
-        outcome_.record(std::move(result));
-    }
-
-  private:
-    FlashWorkflowRequest request_;
-    std::optional<Result<FlashPlan>> plan_;
-    bool begun_ = false;
-    bool attempted_ = false;
-    FlashAttemptOutcome outcome_;
-};
-
-class SubaruDensoSh7055_02Workflow final : public FlashWorkflow
-{
-  public:
-    explicit SubaruDensoSh7055_02Workflow(FlashWorkflowRequest request) : request_(std::move(request))
-    {
-    }
-
-    FlashWorkflowStep next() override
-    {
-        if (!plan_.has_value())
-        {
-            QtFileRepository repository;
-            Result<KernelImage> kernel = resolveKernel(request_, repository);
-            if (!kernel.has_value())
-            {
-                plan_ = std::unexpected(kernel.error());
-            }
-            else
-            {
-                plan_ = build_subaru_denso_sh7055_02_plan(request_.operation, request_.protocol, request_.mcu,
-                                                          std::move(request_.image), std::move(*kernel));
-            }
-        }
-        if (!plan_->has_value())
-        {
-            return FlashFailureStep{plan_->error()};
-        }
-        if (outcome_.hasFailure())
-        {
-            return outcome_.takeFailure();
-        }
-        if (outcome_.terminal())
-        {
-            return outcome_.completedStep();
-        }
-        if (stage_ == 0)
-        {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        }
-        if (const auto confirmations = (*plan_)->confirmations(); stage_ <= confirmations.size())
-        {
-            const ConfirmationSpec& confirmation = confirmations[stage_ - 1];
-            return FlashPromptStep{FlashPromptKind::CycleIgnition, confirmation.arguments};
-        }
-        if (!attempted_)
-        {
-            attempted_ = true;
-            return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
-                                     bind_flash_attempt(std::move(**plan_),
-                                                        std::make_unique<SubaruDensoSh7055_02Executor>(),
-                                                        std::make_unique<DesktopKlineFlashTransport>(request_.serial)),
-                                     std::make_unique<QtClock>()};
-        }
-        return outcome_.completedStep();
-    }
-
-    void submit(FlashPromptResponse response) override
-    {
-        if (response != FlashPromptResponse::Accept)
-        {
-            outcome_.cancel();
-            return;
-        }
-        ++stage_;
-    }
-
-    void submit(FlashAttemptResult result) override
-    {
-        outcome_.record(std::move(result));
-    }
-
-  private:
-    FlashWorkflowRequest request_;
-    std::optional<Result<FlashPlan>> plan_;
-    std::size_t stage_ = 0;
     bool attempted_ = false;
     FlashAttemptOutcome outcome_;
 };
@@ -1341,6 +855,53 @@ template <KernelBackedPlanBuilder Build> class CachedKernelPlan
     std::optional<Result<FlashPlan>> plan_;
 };
 
+// Plan preparation for MC68HC16Y5_02: CachedKernelPlan's timing and snapshot,
+// with two family steps before the kernel is read.
+class Mc68KernelPlan
+{
+  public:
+    explicit Mc68KernelPlan(const FlashWorkflowRequest&)
+    {
+    }
+
+    Result<FlashPlan>& plan(FlashWorkflowRequest& request)
+    {
+        if (!plan_.has_value())
+        {
+            plan_ = prepare(request);
+        }
+        return *plan_;
+    }
+
+  private:
+    static Result<FlashPlan> prepare(FlashWorkflowRequest& request)
+    {
+        // Desktop FullRomData is physically addressed after the legacy
+        // calibration adapter inserts the 0x20000-0x27fff RAM/kernel hole.
+        // Portable MC plans and executors use the packed flash-block image.
+        request.image = normalizeMc68Image(std::move(request.image), request.mcu);
+        // Run the family builder first so recognized-but-unsupported
+        // revision 04 is rejected by the plan even without a catalog.
+        Result<FlashPlan> preflight = build_subaru_denso_mc68hc16y5_02_plan(
+            request.operation, request.protocol, request.mcu, request.image,
+            KernelImage{.id = request.protocol + "-kernel", .load_address = 0x20000, .bytes = {0}});
+        if (!preflight.has_value())
+        {
+            return std::unexpected(preflight.error());
+        }
+        QtFileRepository repository;
+        Result<KernelImage> kernel = resolveKernel(request, repository);
+        if (!kernel.has_value())
+        {
+            return std::unexpected(kernel.error());
+        }
+        return build_subaru_denso_mc68hc16y5_02_plan(request.operation, request.protocol, request.mcu,
+                                                     std::move(request.image), std::move(*kernel));
+    }
+
+    std::optional<Result<FlashPlan>> plan_;
+};
+
 // The control flow shared by every family whose operation is one attempt:
 // preflight, Begin, the plan's confirmations in order, the attempt, then its
 // result. Accepting a prompt advances to the next one; any other response
@@ -1418,8 +979,14 @@ class SingleAttemptFlashWorkflow final : public FlashWorkflow
     FlashAttemptOutcome outcome_;
 };
 
+template <typename Executor, typename Transport, KernelFreePlanBuilder Build>
+using KernelFreeWorkflow = SingleAttemptFlashWorkflow<Executor, Transport, EagerPlan<Build>>;
+
 template <typename Executor, KernelFreePlanBuilder Build>
-using KernelFreeCanWorkflow = SingleAttemptFlashWorkflow<Executor, DesktopCanFlashTransport, EagerPlan<Build>>;
+using KernelFreeCanWorkflow = KernelFreeWorkflow<Executor, DesktopCanFlashTransport, Build>;
+
+template <typename Executor, KernelFreePlanBuilder Build>
+using KernelFreeKlineWorkflow = KernelFreeWorkflow<Executor, DesktopKlineFlashTransport, Build>;
 
 template <typename Executor, typename Transport, KernelBackedPlanBuilder Build>
 using KernelBackedWorkflow = SingleAttemptFlashWorkflow<Executor, Transport, CachedKernelPlan<Build>>;
@@ -1443,6 +1010,21 @@ using SubaruDensoSh72543CanDieselWorkflow =
     KernelFreeCanWorkflow<SubaruDensoSh72543CanDieselExecutor, &build_subaru_denso_sh72543_can_diesel_plan>;
 using SubaruDenso1n83m_4mCanWorkflow =
     KernelFreeCanWorkflow<SubaruDenso1n83m_4mCanExecutor, &build_subaru_denso_1n83m_4m_can_plan>;
+// Supports Read and Write. TestWrite is rejected by the plan builder: the
+// legacy reflash_block ignored its test_write_arg and erased and wrote for
+// real, so there is no dry run to route to.
+using SubaruTcuHitachiM32rCanWorkflow =
+    KernelFreeCanWorkflow<SubaruTcuHitachiM32rCanExecutor, &build_subaru_tcu_hitachi_m32r_can_plan>;
+using SubaruHitachiSh72543rCanWorkflow =
+    KernelFreeCanWorkflow<SubaruHitachiSh72543rCanExecutor, &build_subaru_hitachi_sh72543r_can_plan>;
+
+using SubaruMitsuM32rKlineWorkflow =
+    KernelFreeKlineWorkflow<SubaruMitsuM32rKlineExecutor, &build_subaru_mitsu_m32r_kline_plan>;
+using SubaruHitachiM32rKlineWorkflow =
+    KernelFreeKlineWorkflow<SubaruHitachiM32rKlineExecutor, &build_subaru_hitachi_m32r_kline_plan>;
+using SubaruTcuHitachiM32rKlineWorkflow =
+    KernelFreeKlineWorkflow<SubaruTcuHitachiM32rKlineExecutor, &build_subaru_tcu_hitachi_m32r_kline_plan>;
+using SubaruUnisiaJecsWorkflow = KernelFreeKlineWorkflow<SubaruUnisiaJecsExecutor, &build_subaru_unisia_jecs_plan>;
 
 // DensoCAN plans carry exactly one CycleIgnition confirmation; the other
 // kernel-backed plans carry none.
@@ -1461,6 +1043,11 @@ using SubaruDensoSh7058CanDieselWorkflow =
 // the attempt.
 using SubaruDensoSh705xKlineWorkflow = KernelBackedWorkflow<SubaruDensoSh705xKlineExecutor, DesktopKlineFlashTransport,
                                                             &build_subaru_denso_sh705x_kline_plan>;
+// SH7055_02 plans carry exactly one CycleIgnition confirmation.
+using SubaruDensoSh7055_02Workflow =
+    KernelBackedWorkflow<SubaruDensoSh7055_02Executor, DesktopKlineFlashTransport, &build_subaru_denso_sh7055_02_plan>;
+using SubaruDensoMc68hc16y5_02Workflow =
+    SingleAttemptFlashWorkflow<SubaruDensoMc68hc16y5_02Executor, DesktopKlineFlashTransport, Mc68KernelPlan>;
 
 class EepromWorkflow final : public FlashWorkflow
 {
@@ -1739,9 +1326,9 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
     case Eeprom:
         return std::make_unique<EepromWorkflow>(std::move(request));
     case SubaruMitsuM32rKline:
-        return std::make_unique<SubaruM32rKlineWorkflow>(std::move(request), false);
+        return std::make_unique<SubaruMitsuM32rKlineWorkflow>(std::move(request));
     case SubaruHitachiM32rKline:
-        return std::make_unique<SubaruM32rKlineWorkflow>(std::move(request), true);
+        return std::make_unique<SubaruHitachiM32rKlineWorkflow>(std::move(request));
     case SubaruDensoMc68hc16y5_02:
         return std::make_unique<SubaruDensoMc68hc16y5_02Workflow>(std::move(request));
     case SubaruDensoSh7055_02:
