@@ -95,7 +95,7 @@ KEPT_CPP_PRODUCTION_RULES: frozenset[str] = frozenset(
     }
 )
 
-_KEEP_COMMENT = re.compile(r"#\s*keep(?:: .*)?\s*$")
+_KEEP_COMMENT = re.compile(r"#\s*+keep(?:: .*)?")
 
 
 def _rule_suffix_is_kept(source: str) -> bool:
