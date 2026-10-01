@@ -49,6 +49,7 @@ FlashPlanFields write_fields(std::uint32_t size)
     fields.operation = FlashOperation::Write;
     fields.transfer_region = MemoryRegion{0x20000, size};
     fields.image = bytes::Bytes(size, 0xab);
+    fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::KernelBootstrap}};
     return fields;
 }
 
@@ -167,6 +168,32 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, ValidatorRejectsHandBuiltShapes)
         fields.transfer_region = MemoryRegion{0, 0x28000};
         cases.push_back({"packed read region", std::move(fields), ErrorKind::InvalidConfig});
     }
+    {
+        auto fields = write_fields(0x20);
+        fields.confirmations = {};
+        cases.push_back({"write without consent", std::move(fields), ErrorKind::InvalidConfig});
+    }
+    {
+        auto fields = write_fields(0x20);
+        fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::StartKlineRead}};
+        cases.push_back({"write with another id", std::move(fields), ErrorKind::InvalidConfig});
+    }
+    {
+        auto fields = write_fields(0x20);
+        fields.confirmations = {
+            ConfirmationSpec{.id = ConfirmationSpec::Id::KernelBootstrap, .arguments = {{"unexpected", "argument"}}}};
+        cases.push_back({"consent with arguments", std::move(fields), ErrorKind::InvalidConfig});
+    }
+    {
+        auto fields = write_fields(0x20);
+        fields.confirmations.push_back(ConfirmationSpec{.id = ConfirmationSpec::Id::CycleIgnition});
+        cases.push_back({"write with an extra consent", std::move(fields), ErrorKind::InvalidConfig});
+    }
+    {
+        auto fields = read_fields();
+        fields.confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::KernelBootstrap}};
+        cases.push_back({"read with the bootstrap consent", std::move(fields), ErrorKind::InvalidConfig});
+    }
     cases.push_back({"unaligned image", write_fields(0x21), ErrorKind::InvalidConfig});
     cases.push_back({"oversize image", write_fields(0x8020), ErrorKind::InvalidConfig});
     {
@@ -190,6 +217,31 @@ TEST(SubaruDensoMc68hc16y5_02BdmPlan, ValidatorRejectsHandBuiltShapes)
         auto plan = validate_and_build(std::move(test_case.fields));
         ASSERT_THAT(plan, IsOk()) << test_case.name;
         EXPECT_THAT(validate_subaru_denso_mc68hc16y5_02_bdm_plan(*plan), IsErr(test_case.expected)) << test_case.name;
+    }
+}
+
+TEST(SubaruDensoMc68hc16y5_02BdmPlan, WriteCarriesTheKernelBootstrapConsentAndReadNone)
+{
+    const auto read =
+        build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt, std::nullopt);
+    ASSERT_THAT(read, IsOk());
+    EXPECT_TRUE(read->confirmations().empty());
+
+    const auto write = build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt,
+                                                                 kernel(bytes::Bytes(0x20, 0x01)));
+    ASSERT_THAT(write, IsOk());
+    ASSERT_EQ(write->confirmations().size(), 1U);
+    EXPECT_EQ(write->confirmations().front().id, ConfirmationSpec::Id::KernelBootstrap);
+    EXPECT_TRUE(write->confirmations().front().arguments.empty());
+}
+
+TEST(SubaruDensoMc68hc16y5_02BdmPlan, ValidatorAcceptsTheBuilderShapes)
+{
+    for (auto fields : {read_fields(), write_fields(0x20)})
+    {
+        auto plan = validate_and_build(std::move(fields));
+        ASSERT_THAT(plan, IsOk());
+        EXPECT_THAT(validate_subaru_denso_mc68hc16y5_02_bdm_plan(*plan), IsOk());
     }
 }
 } // namespace
