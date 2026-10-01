@@ -650,14 +650,15 @@ template <KernelFreePlanBuilder Build> class EagerPlan
     Result<FlashPlan> plan_;
 };
 
-// Plan preparation for a kernel-backed family: the catalog and kernel file are
-// read on the first next(), before Begin, and the result is kept. A missing
-// kernel therefore fails before any prompt, and the attempt carries the
-// kernel snapshot taken then even if the files change afterward.
-template <KernelBackedPlanBuilder Build> class CachedKernelPlan
+using PlanPreparation = Result<FlashPlan> (*)(FlashWorkflowRequest&);
+
+// Prepares the plan on the first next(), before Begin, and keeps the result:
+// a preparation failure is reported before any prompt, and the attempt
+// carries the snapshot taken then even if the files change afterward.
+template <PlanPreparation Prepare> class LazyPlan
 {
   public:
-    explicit CachedKernelPlan(const FlashWorkflowRequest&)
+    explicit LazyPlan(const FlashWorkflowRequest&)
     {
     }
 
@@ -665,113 +666,78 @@ template <KernelBackedPlanBuilder Build> class CachedKernelPlan
     {
         if (!plan_.has_value())
         {
-            plan_ = prepare(request);
+            plan_ = Prepare(request);
         }
         return *plan_;
     }
 
   private:
-    static Result<FlashPlan> prepare(FlashWorkflowRequest& request)
-    {
-        QtFileRepository repository;
-        Result<KernelImage> kernel = resolveKernel(request, repository);
-        if (!kernel.has_value())
-        {
-            return std::unexpected(kernel.error());
-        }
-        return Build(request.operation, request.protocol, request.mcu, std::move(request.image), std::move(*kernel));
-    }
-
     std::optional<Result<FlashPlan>> plan_;
 };
 
-// Plan preparation for MC68HC16Y5_02: CachedKernelPlan's timing and snapshot,
-// with two family steps before the kernel is read.
-class Mc68KernelPlan
+// A kernel-backed family: the catalog and kernel file are read, then the
+// family builder runs.
+template <KernelBackedPlanBuilder Build> Result<FlashPlan> prepareKernelBacked(FlashWorkflowRequest& request)
 {
-  public:
-    explicit Mc68KernelPlan(const FlashWorkflowRequest&)
+    QtFileRepository repository;
+    Result<KernelImage> kernel = resolveKernel(request, repository);
+    if (!kernel.has_value())
     {
+        return std::unexpected(kernel.error());
     }
+    return Build(request.operation, request.protocol, request.mcu, std::move(request.image), std::move(*kernel));
+}
 
-    Result<FlashPlan>& plan(FlashWorkflowRequest& request)
+// MC68HC16Y5_02: prepareKernelBacked with two family steps before the kernel
+// is read.
+Result<FlashPlan> prepareMc68(FlashWorkflowRequest& request)
+{
+    // Desktop FullRomData is physically addressed after the legacy
+    // calibration adapter inserts the 0x20000-0x27fff RAM/kernel hole.
+    // Portable MC plans and executors use the packed flash-block image.
+    request.image = normalizeMc68Image(std::move(request.image), request.mcu);
+    // Run the family builder first so recognized-but-unsupported
+    // revision 04 is rejected by the plan even without a catalog.
+    Result<FlashPlan> preflight = build_subaru_denso_mc68hc16y5_02_plan(
+        request.operation, request.protocol, request.mcu, request.image,
+        KernelImage{.id = request.protocol + "-kernel", .load_address = 0x20000, .bytes = {0}});
+    if (!preflight.has_value())
     {
-        if (!plan_.has_value())
-        {
-            plan_ = prepare(request);
-        }
-        return *plan_;
+        return std::unexpected(preflight.error());
     }
-
-  private:
-    static Result<FlashPlan> prepare(FlashWorkflowRequest& request)
+    QtFileRepository repository;
+    Result<KernelImage> kernel = resolveKernel(request, repository);
+    if (!kernel.has_value())
     {
-        // Desktop FullRomData is physically addressed after the legacy
-        // calibration adapter inserts the 0x20000-0x27fff RAM/kernel hole.
-        // Portable MC plans and executors use the packed flash-block image.
-        request.image = normalizeMc68Image(std::move(request.image), request.mcu);
-        // Run the family builder first so recognized-but-unsupported
-        // revision 04 is rejected by the plan even without a catalog.
-        Result<FlashPlan> preflight = build_subaru_denso_mc68hc16y5_02_plan(
-            request.operation, request.protocol, request.mcu, request.image,
-            KernelImage{.id = request.protocol + "-kernel", .load_address = 0x20000, .bytes = {0}});
-        if (!preflight.has_value())
-        {
-            return std::unexpected(preflight.error());
-        }
-        QtFileRepository repository;
-        Result<KernelImage> kernel = resolveKernel(request, repository);
-        if (!kernel.has_value())
-        {
-            return std::unexpected(kernel.error());
-        }
-        return build_subaru_denso_mc68hc16y5_02_plan(request.operation, request.protocol, request.mcu,
-                                                     std::move(request.image), std::move(*kernel));
+        return std::unexpected(kernel.error());
     }
+    return build_subaru_denso_mc68hc16y5_02_plan(request.operation, request.protocol, request.mcu,
+                                                 std::move(request.image), std::move(*kernel));
+}
 
-    std::optional<Result<FlashPlan>> plan_;
-};
-
-// Plan preparation for MC68HC16Y5 BDM: CachedKernelPlan's timing and
-// snapshot, but only Write reads the catalog -- its "write" uploads and
+// MC68HC16Y5 BDM: only Write reads the catalog -- its "write" uploads and
 // starts the cfg kernel. The operator's ROM (request.image) is never
 // forwarded: BDM never writes the ROM.
-class BdmKernelPlan
+Result<FlashPlan> prepareBdm(FlashWorkflowRequest& request)
 {
-  public:
-    explicit BdmKernelPlan(const FlashWorkflowRequest&)
+    if (request.operation != FlashOperation::Write)
     {
-    }
-
-    Result<FlashPlan>& plan(FlashWorkflowRequest& request)
-    {
-        if (!plan_.has_value())
-        {
-            plan_ = prepare(request);
-        }
-        return *plan_;
-    }
-
-  private:
-    static Result<FlashPlan> prepare(const FlashWorkflowRequest& request)
-    {
-        if (request.operation != FlashOperation::Write)
-        {
-            return build_subaru_denso_mc68hc16y5_02_bdm_plan(request.operation, request.protocol, request.mcu,
-                                                             std::nullopt, std::nullopt);
-        }
-        QtFileRepository repository;
-        Result<KernelImage> kernel = resolveKernel(request, repository);
-        if (!kernel.has_value())
-        {
-            return std::unexpected(kernel.error());
-        }
         return build_subaru_denso_mc68hc16y5_02_bdm_plan(request.operation, request.protocol, request.mcu, std::nullopt,
-                                                         std::move(*kernel));
+                                                         std::nullopt);
     }
+    QtFileRepository repository;
+    Result<KernelImage> kernel = resolveKernel(request, repository);
+    if (!kernel.has_value())
+    {
+        return std::unexpected(kernel.error());
+    }
+    return build_subaru_denso_mc68hc16y5_02_bdm_plan(request.operation, request.protocol, request.mcu, std::nullopt,
+                                                     std::move(*kernel));
+}
 
-    std::optional<Result<FlashPlan>> plan_;
-};
+template <KernelBackedPlanBuilder Build> using CachedKernelPlan = LazyPlan<&prepareKernelBacked<Build>>;
+using Mc68KernelPlan = LazyPlan<&prepareMc68>;
+using BdmKernelPlan = LazyPlan<&prepareBdm>;
 
 // The control flow shared by every family whose operation is one attempt:
 // preflight, Begin, the plan's confirmations in order, the attempt, then its
