@@ -1,0 +1,43 @@
+# The dialog declares Q_OBJECT; generated hdrs must run through moc.
+# gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
+# The ports package re-exports its private event sink through the `ports` label.
+# gazelle:resolve cc src/platform/desktop/common/ports/qt_event_sink.h //src/platform/desktop/common/ports
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+load("//bazel:qt_targets.bzl", "qt_cc_library")
+
+package(default_visibility = ["//bazel/layers:ui_and_composition_root"])
+
+qt_cc_library(
+    name = "service_function_dialog",
+    srcs = ["service_function_dialog.cpp"],
+    hdrs = ["service_function_dialog.h"],
+    implementation_deps = [
+        "//src/backend/service_functions:read_parameters_session",
+        "//src/backend/service_functions:relearn_session",
+        "//src/backend/service_functions:service_function_session",
+        "//src/backend/service_functions:set_parameters_session",
+        "//src/platform/desktop/common/ports",
+        "//src/platform/desktop/common/service_functions:serial_facade_configurator",
+        "//src/platform/desktop/common/service_functions/worker:service_function_worker",
+        "//src/platform/desktop/common/transport",
+    ],
+    deps = [
+        "//bazel/qt:widgets",
+        "//src/backend/service_functions:service_function_types",
+        "//src/backend/service_functions:tcu_parameter_table",
+    ],
+)
+
+fastecu_gtest(
+    name = "test_service_function_dialog",
+    srcs = ["service_function_dialog_test.cpp"],
+    copts = ["-DQT_WIDGETS_LIB"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":service_function_dialog",
+        "//bazel/qt:widgets",
+        "//src/platform/desktop/common/testing:widgets_application_environment",
+        "@googletest//:gtest",
+    ],
+)

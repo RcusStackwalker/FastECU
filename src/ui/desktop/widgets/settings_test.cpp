@@ -17,7 +17,7 @@
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
 #include "src/platform/desktop/common/ports/qt_resource_bundle.h"
-#include "src/ui/desktop/settings.h"
+#include "src/ui/desktop/widgets/settings.h"
 
 namespace
 {

@@ -2,7 +2,7 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/config/testing/config_session_fixture.h"
-#include "src/ui/desktop/vehicle_select.h"
+#include "src/ui/desktop/widgets/vehicle_select.h"
 
 using fastecu::config::testing::ConfigSessionFixture;
 

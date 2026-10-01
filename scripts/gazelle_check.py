@@ -105,13 +105,6 @@ KEPT_CPP_PRODUCTION_RULES: frozenset[str] = frozenset(
         "src/platform/desktop/unix/j2534:j2534",
         "src/platform/desktop/windows/j2534:pe_bitness_x64_fixture",
         "src/ui/desktop/definition:definition_authoring_dialog",
-        "src/ui/desktop/service_functions:denso_tcu_read_preflight",
-        "src/ui/desktop/service_functions:service_function_dialog",
-        "src/ui/desktop:config_fields",
-        "src/ui/desktop:desktop",
-        "src/ui/desktop:diagnostic_link_io",
-        "src/ui/desktop:dtc_operations",
-        "src/ui/desktop:main_window_services",
         "tests:fake_j2534_dll_native",
     }
 )

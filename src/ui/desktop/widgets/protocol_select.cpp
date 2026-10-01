@@ -1,4 +1,4 @@
-#include "protocol_select.h"
+#include "src/ui/desktop/widgets/protocol_select.h"
 #include "ui_protocol_select.h"
 
 #include <algorithm>

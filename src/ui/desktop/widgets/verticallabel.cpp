@@ -1,4 +1,4 @@
-#include "verticallabel.h"
+#include "src/ui/desktop/widgets/verticallabel.h"
 
 #include <QPainter>
 

@@ -1,4 +1,4 @@
-#include "calibration_maps.h"
+#include "src/ui/desktop/widgets/calibration_maps.h"
 #include <ui_calibration_map_table.h>
 
 #include <algorithm>

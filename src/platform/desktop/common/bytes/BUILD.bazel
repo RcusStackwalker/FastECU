@@ -15,6 +15,7 @@ cc_library(
         "//bazel/layers:tests",
         "//src/ui/desktop:__pkg__",
         "//src/ui/desktop/biu:__pkg__",
+        "//src/ui/desktop/widgets:__pkg__",
     ],
     deps = [
         "//bazel/qt:core",

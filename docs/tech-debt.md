@@ -255,7 +255,7 @@ when a step needed to touch the file for an unrelated reason.
   `roundFunction`'s promoted `uint16_t << 16` wrap modulo 2^32 since
   C++20), but the code only works because every operand happens to be
   non-negative.
-- `src/ui/desktop/dtc_operations.cpp`: 11 findings across five functions,
+- `src/ui/desktop/widgets/dtc_operations.cpp`: 11 findings across five functions,
   suppressed when step 6e-1 touched the file — `iso15765_init` (3),
   `request_data` (2), `request_vehicle_info` (2), `request_dtc_list` (2),
   `clear_dtc` (2). All combine a `uint16_t`/`uint8_t` protocol field

@@ -11,7 +11,7 @@ cc_library(
     visibility = [
         "//bazel/layers:apps",
         # Designed UI-facing catalog and authoring adapter.
-        "//src/ui/desktop:__pkg__",
+        "//src/ui/desktop/widgets:__pkg__",
         "//src/ui/desktop/definition:__pkg__",
     ],
     deps = [

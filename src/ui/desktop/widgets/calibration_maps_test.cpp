@@ -15,7 +15,7 @@
 #include "src/backend/calibration/session/testing/fake_definition_catalogs.h"
 #include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
-#include "src/ui/desktop/calibration_maps.h"
+#include "src/ui/desktop/widgets/calibration_maps.h"
 
 namespace
 {

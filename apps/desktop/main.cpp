@@ -1,5 +1,5 @@
 #include <QCommandLineParser>
-#include "src/ui/desktop/mainwindow.h"
+#include "src/ui/desktop/widgets/mainwindow.h"
 #include "apps/desktop/desktop_composition.h"
 #include "apps/desktop/startup_diagnostics.h"
 

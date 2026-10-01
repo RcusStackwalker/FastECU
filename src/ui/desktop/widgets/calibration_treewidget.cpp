@@ -1,4 +1,4 @@
-#include "calibration_treewidget.h"
+#include "src/ui/desktop/widgets/calibration_treewidget.h"
 
 #include "src/ui/desktop/calibration/rom_info.h"
 

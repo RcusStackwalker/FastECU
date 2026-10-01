@@ -8,7 +8,7 @@
 #include <optional>
 #include <utility>
 
-#include "src/ui/desktop/service_functions/service_function_dialog.h"
+#include "src/ui/desktop/service_functions/dialog/service_function_dialog.h"
 
 namespace fastecu::service_functions
 {

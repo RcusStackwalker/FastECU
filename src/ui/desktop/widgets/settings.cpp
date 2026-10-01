@@ -1,4 +1,4 @@
-#include "settings.h"
+#include "src/ui/desktop/widgets/settings.h"
 #include "ui_settings.h"
 
 #include <memory>

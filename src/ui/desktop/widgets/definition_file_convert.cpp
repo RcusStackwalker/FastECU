@@ -1,4 +1,4 @@
-#include "definition_file_convert.h"
+#include "src/ui/desktop/widgets/definition_file_convert.h"
 #include <ui_definition_file_convert.h>
 
 DefinitionFileConvert::DefinitionFileConvert(QWidget *parent)

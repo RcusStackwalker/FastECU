@@ -4,7 +4,7 @@
 #include <QTreeWidget>
 
 #include "src/ui/desktop/calibration/session_key.h"
-#include "src/ui/desktop/calibration_treewidget.h"
+#include "src/ui/desktop/widgets/calibration_treewidget.h"
 
 namespace
 {

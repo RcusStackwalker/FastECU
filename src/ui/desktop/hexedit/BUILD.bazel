@@ -50,9 +50,9 @@ fastecu_gtest(
     copts = ["-DQT_WIDGETS_LIB"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
+        ":hexedit",
         "//bazel/qt:core",
         "//src/platform/desktop/common/testing:widgets_application_environment",
-        "//src/ui/desktop/hexedit",
         "//src/ui/desktop/hexedit/qhexedit",
         "@googletest//:gtest",
     ],

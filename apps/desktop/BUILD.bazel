@@ -165,6 +165,6 @@ qt_cc_binary(
         ":composition",
         ":direct_serial_backend",
         ":startup",
-        "//src/ui/desktop",
+        "//src/ui/desktop/widgets:desktop",
     ],
 )

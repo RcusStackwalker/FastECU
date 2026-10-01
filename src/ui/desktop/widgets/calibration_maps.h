@@ -13,7 +13,7 @@
 #include "src/ui/desktop/calibration/session_key.h"
 #include "src/backend/calibration/session/calibration_workspace.h"
 #include "src/ui/desktop/calibration/map_presentation.h"
-#include "src/ui/desktop/verticallabel.h"
+#include "src/ui/desktop/widgets/verticallabel.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui
