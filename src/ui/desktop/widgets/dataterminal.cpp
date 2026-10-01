@@ -109,10 +109,6 @@ void DataTerminal::listenInterface()
     }
 }
 
-// Legacy protocol framing mixes signed QByteArray::at()/toUInt() results into
-// bitwise arithmetic; tracked in docs/tech-debt.md "Convert suppressed
-// signed-bitwise arithmetic to unsigned operands".
-// NOLINTBEGIN(bugprone-signed-bitwise)
 void DataTerminal::sendToInterface()
 {
     bool serialOk = true;
@@ -325,9 +321,10 @@ void DataTerminal::sendToInterface()
                                              "CAN message too long (use 4 ID bytes + 8 message bytes)");
                     }
                 }
-                for (int i = 3; i >= 0; i--)
+                const unsigned int can_tester_id = ui->canTesterId->text().toUInt(&ok, 16);
+                for (const unsigned int shift : {24U, 16U, 8U, 0U})
                 {
-                    output.append(((ui->canTesterId->text().toUInt(&ok, 16) >> (i * 8)) & 0xff));
+                    output.append(static_cast<char>((can_tester_id >> shift) & 0xffU));
                 }
                 for (int i = 0; i < msg_local.length(); i++)
                 {
@@ -353,14 +350,12 @@ void DataTerminal::sendToInterface()
         static_cast<void>(link->reset());
     }
 }
-// NOLINTEND(bugprone-signed-bitwise)
 
 /*
  * Add SSM header to message
  *
  * @return parsed message
  */
-// NOLINTBEGIN(bugprone-signed-bitwise): see the note above sendToInterface().
 QByteArray DataTerminal::add_ssm_header(QByteArray output, uint8_t tester_id, uint8_t target_id, bool dec_0x100)
 {
     uint8_t length = output.length();
@@ -368,8 +363,8 @@ QByteArray DataTerminal::add_ssm_header(QByteArray output, uint8_t tester_id, ui
     emit LOG_D("Append SSM header for message: " + parse_message_to_hex(output) + " length: " + QString::number(length),
                true, true);
     output.insert(0, (uint8_t)0x80);
-    output.insert(1, target_id & 0xFF);
-    output.insert(2, tester_id & 0xFF);
+    output.insert(1, static_cast<char>(target_id));
+    output.insert(2, static_cast<char>(tester_id));
     output.insert(3, length);
 
     output.append(calculate_checksum(output, dec_0x100));
@@ -377,7 +372,6 @@ QByteArray DataTerminal::add_ssm_header(QByteArray output, uint8_t tester_id, ui
     emit LOG_D("Constructed SSM message: " + parse_message_to_hex(output), true, true);
     return output;
 }
-// NOLINTEND(bugprone-signed-bitwise)
 
 /*
  * Calculate SSM checksum to message

@@ -14,6 +14,7 @@
 #else
 #include <util.h> // openpty
 #endif
+#include <poll.h>
 #include <unistd.h>
 
 #include "src/platform/desktop/common/serial/direct/serial_port_actions_direct.h"
@@ -137,6 +138,68 @@ TEST_F(TestDirectBackendPty, ptyParityChangesWhileOpen)
     ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::EvenParity));
     ASSERT_TRUE(direct.set_serial_port_parity(static_cast<std::uint8_t>(QSerialPort::NoParity)));
     ASSERT_EQ(direct.get_serial_port_parity(), static_cast<std::uint8_t>(QSerialPort::NoParity));
+    ::close(master);
+}
+
+namespace
+{
+// Collects what the backend wrote to the PTY until `count` bytes arrive or
+// the deadline passes. QSerialPort flushes from the event loop, so events are
+// pumped while waiting.
+QByteArray readFromMaster(int master, qsizetype count)
+{
+    QByteArray got;
+    QElapsedTimer t;
+    t.start();
+    while (got.size() < count && t.elapsed() < 1000)
+    {
+        QCoreApplication::processEvents();
+        pollfd fd{.fd = master, .events = POLLIN, .revents = 0};
+        if (::poll(&fd, 1, 10) > 0)
+        {
+            std::array<char, 64> buffer{};
+            const ssize_t n = ::read(master, buffer.data(), buffer.size());
+            if (n > 0)
+            {
+                got.append(buffer.data(), n);
+            }
+        }
+    }
+    return got;
+}
+} // namespace
+
+// A payload shorter than 0x40 has its length ORed into the start byte. The
+// start byte's top bit is set, so the folded byte is negative as a char.
+TEST_F(TestDirectBackendPty, ptyIso14230Write_foldsShortLengthIntoFormatByte)
+{
+    SerialPortActionsDirect direct;
+    const int master = openPtyBackend(direct);
+    ASSERT_TRUE(master >= 0);
+    direct.set_add_iso14230_header(true);
+    direct.set_kline_startbyte(0x80);
+    direct.set_kline_target_id(0x10);
+    direct.set_kline_tester_id(0xf1);
+
+    direct.write_serial_data(QByteArray("\x21\x81", 2));
+
+    // Checksum: 0x82 + 0x10 + 0xf1 + 0x21 + 0x81 = 0x225 -> 0x25.
+    ASSERT_EQ(readFromMaster(master, 6), QByteArray("\x82\x10\xf1\x21\x81\x25", 6));
+    ::close(master);
+}
+
+// The format byte's low six bits give the payload length; the header's fourth
+// byte already belongs to the payload. A trailing byte past that length stays
+// unread.
+TEST_F(TestDirectBackendPty, ptyIso14230Read_takesLengthFromFormatByte)
+{
+    SerialPortActionsDirect direct;
+    const int master = openPtyBackend(direct);
+    ASSERT_TRUE(master >= 0);
+    direct.set_is_iso14230_connection(true);
+
+    ::write(master, "\x82\x10\xf1\xaa\xbb\xcc\xdd", 7);
+    ASSERT_EQ(direct.read_serial_data(500), QByteArray("\x82\x10\xf1\xaa\xbb\xcc", 6));
     ::close(master);
 }
 
