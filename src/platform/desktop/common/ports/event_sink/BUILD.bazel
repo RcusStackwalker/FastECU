@@ -2,9 +2,14 @@
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
 load("//bazel:qt_targets.bzl", "qt_cc_library")
 
-# Private to the parent package, which re-exports the sink through the stable
-# public `ports` label for apps, platform workers and the UI.
-package(default_visibility = ["//src/platform/desktop/common/ports:__pkg__"])
+package(
+    default_visibility = [
+        "//bazel/layers:apps",
+        "//bazel/layers:platform",
+        "//bazel/layers:tests",
+        "//bazel/layers:ui_desktop",
+    ],
+)
 
 qt_cc_library(
     name = "qt_event_sink",

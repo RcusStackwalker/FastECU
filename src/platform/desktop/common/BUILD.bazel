@@ -1,0 +1,3 @@
+# Qt-backed tests in this subtree are generated as fastecu_gtest; portable
+# tests elsewhere keep the default fastecu_portable_gtest mapping.
+# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl

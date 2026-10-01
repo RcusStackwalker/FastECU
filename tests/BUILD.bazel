@@ -3,21 +3,6 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 # Tests regenerate; production sources and helper binaries retain existing owners.
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 # gazelle:exclude fake_j2534_dll.cpp
-# gazelle:resolve cc src/algorithms/protocol/mut_dma/mut_dma_codec.h //src/algorithms/protocol/mut_dma:mut_dma
-# gazelle:resolve cc src/algorithms/protocol/mut_dma/mut_dma_freeform.h //src/algorithms/protocol/mut_dma:mut_dma
-# gazelle:resolve cc src/backend/ports/testing/fake_cancellation_token.h //src/backend/ports/testing:fake_cancellation_token
-# gazelle:resolve cc src/backend/protocol/imut_dma_init.h //src/backend/protocol:protocol
-# gazelle:resolve cc src/backend/protocol/mut_dma_driver.h //src/backend/protocol:protocol
-# gazelle:resolve cc src/platform/desktop/common/bytes/qt_bytes.h //src/platform/desktop/common/bytes:qt_bytes
-# gazelle:resolve cc src/platform/desktop/common/testing/core_application_environment.h //src/platform/desktop/common/testing:core_application_environment
-# gazelle:resolve cc src/platform/desktop/common/testing/event_helpers.h //src/platform/desktop/common/testing:event_helpers
-# gazelle:resolve cc src/platform/desktop/common/transport/fastecu_kline_transport.h //src/platform/desktop/common/transport:transport
-# gazelle:resolve cc src/platform/desktop/unix/j2534/driver/J2534_unix.h //src/platform/desktop/unix/j2534/driver:j2534
-# gazelle:resolve cc src/platform/desktop/unix/j2534/testing/mock_openport.h //src/platform/desktop/unix/j2534/testing:mock_openport
-# gazelle:resolve cc src/platform/desktop/windows/j2534/J2534_win.h //src/platform/desktop/windows/j2534:j2534
-# gazelle:resolve cc src/platform/desktop/windows/j2534/j2534_bridge_client.h //src/platform/desktop/windows/j2534:j2534_bridge_client
-# gazelle:resolve cc src/platform/desktop/windows/j2534/j2534_bridge_protocol.h //src/platform/desktop/windows/j2534:j2534_bridge_protocol
-# gazelle:resolve cc src/platform/desktop/windows/j2534/pe_bitness.h //src/platform/desktop/windows/j2534:pe_bitness
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "COMMON_COPTS")
 load("//bazel:x86_windows_transition.bzl", "x86_windows_binary")

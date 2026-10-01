@@ -13,7 +13,6 @@ package(default_visibility = [
 qt_cc_library(
     name = "log_channel",
     # The Qt macro requires srcs even for a header-only moc library.
-    srcs = [],  # keep
     hdrs = ["log_channel.h"],
     deps = ["//bazel/qt:core"],
 )
@@ -21,7 +20,6 @@ qt_cc_library(
 qt_cc_library(
     name = "remote_peer",
     # The Qt macro requires srcs even for a header-only moc library.
-    srcs = [],  # keep
     hdrs = ["remote_peer.h"],
     deps = [
         "//bazel/qt:core",

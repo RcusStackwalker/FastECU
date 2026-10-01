@@ -7,6 +7,8 @@ from pathlib import Path
 
 import gazelle_check as gc
 
+ROOTS = (Path("tests"),)
+
 
 class TestOwnershipTest(unittest.TestCase):
     def setUp(self):
@@ -23,21 +25,21 @@ class TestOwnershipTest(unittest.TestCase):
     def test_rejects_uncovered_cpp_test_package(self):
         file = self.write("unmanaged/BUILD.bazel", 'cc_test(name = "probe", srcs = ["probe.cpp"])')
         with self.assertRaisesRegex(gc.GazelleCheckError, "outside Gazelle scope"):
-            gc.validate_test_ownership(self.root, [file])
+            gc.validate_test_ownership(self.root, [file], ROOTS)
 
     def test_rejects_whole_rule_keep(self):
         file = self.write(
             "tests/BUILD.bazel", '# reason\n# keep\nfastecu_gtest(\n name = "probe",\n)'
         )
         with self.assertRaisesRegex(gc.GazelleCheckError, "whole-rule keep"):
-            gc.validate_test_ownership(self.root, [file])
+            gc.validate_test_ownership(self.root, [file], ROOTS)
 
     def test_rejects_suffix_whole_rule_keep(self):
         file = self.write(
             "tests/BUILD.bazel", 'fastecu_gtest(name = "probe", srcs = ["p.cpp"]) # keep'
         )
         with self.assertRaisesRegex(gc.GazelleCheckError, "whole-rule keep"):
-            gc.validate_test_ownership(self.root, [file])
+            gc.validate_test_ownership(self.root, [file], ROOTS)
 
     def test_rejects_keep_with_explanation(self):
         for text in [
@@ -46,17 +48,17 @@ class TestOwnershipTest(unittest.TestCase):
         ]:
             file = self.write("tests/BUILD.bazel", text)
             with self.assertRaisesRegex(gc.GazelleCheckError, "whole-rule keep"):
-                gc.validate_test_ownership(self.root, [file])
+                gc.validate_test_ownership(self.root, [file], ROOTS)
 
     def test_accepts_narrow_source_keep(self):
         file = self.write(
             "tests/BUILD.bazel", 'fastecu_gtest(\n name = "probe",\n srcs = ["main.cpp"], # keep\n)'
         )
-        gc.validate_test_ownership(self.root, [file])
+        gc.validate_test_ownership(self.root, [file], ROOTS)
 
     def test_python_test_does_not_require_cpp_ownership(self):
         file = self.write("unmanaged/BUILD.bazel", 'py_test(name = "guard")')
-        gc.validate_test_ownership(self.root, [file])
+        gc.validate_test_ownership(self.root, [file], ROOTS)
 
 
 class ProductionKeepTest(unittest.TestCase):

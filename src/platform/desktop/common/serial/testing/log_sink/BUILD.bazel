@@ -9,7 +9,6 @@ qt_cc_library(
     name = "recording_log_sink",
     testonly = True,
     # The Qt macro requires srcs even for a header-only moc library.
-    srcs = [],  # keep
     hdrs = ["recording_log_sink.h"],
     deps = ["//bazel/qt:core"],
 )

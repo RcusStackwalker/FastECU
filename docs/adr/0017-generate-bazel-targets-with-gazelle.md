@@ -14,23 +14,24 @@ found when a build broke.
 
 `gazelle` with the `gazelle_cc` extension generates `cc_library` and test targets
 for the areas listed in `GAZELLE_ARGS`, shared by `//:gazelle` and `//:gazelle_diff` in the root
-`BUILD.bazel`. The scope includes every C++ test-owning package and the
-previously migrated production packages. `scripts/gazelle_check.py` carries
-the identical `MANAGED_ROOTS` list; its unit test checks agreement. Production
-libraries and binaries regenerate everywhere except the documented exceptions
-below.
+`BUILD.bazel`: `src`, `apps`, `tests` and `resources/shared`. The scope is
+declared once. `scripts/gazelle_check.py` reads that literal assignment with
+Python's `ast` module, without executing Starlark, and fails clearly when it is
+missing or malformed. A new nested package is therefore covered without further
+configuration. Production libraries and binaries regenerate everywhere except
+the documented exceptions below.
 
 - Grouping is `cc_group unit`; `cc_test` is mapped to `fastecu_portable_gtest`.
-  The `qt_compat` package overrides the mapping to `fastecu_gtest` and explicitly
-  uses the shared Qt header mappings in the root `BUILD.bazel`. These inherited
-  `resolve` directives map encountered headers to their Qt modules, including
-  Core, Gui, Widgets, Xml, SerialPort and RemoteObjects. Managed UI
-  packages with GoogleTest suites map tests to `fastecu_gtest`. Moc-free
+  `src/platform/desktop/common` and `src/ui/desktop` map tests to
+  `fastecu_gtest` once, and descendants inherit it; portable packages elsewhere
+  keep the default. The shared Qt header mappings live in the root
+  `BUILD.bazel` and are inherited by every package. These `resolve` directives map encountered headers to their Qt modules, including
+  Core, Gui, Widgets, Xml, SerialPort and RemoteObjects. Moc-free
   libraries use plain `cc_library`
   with `COMMON_COPTS` instead of the moc-bearing `qt_cc_library`; the header-only
   calibration view state retains its existing compiler settings. The connection
   test harness also uses plain `cc_library` with `COMMON_COPTS` and no moc;
-  package-local header mappings resolve its unmanaged Qt-macro providers.
+  the shared root mappings resolve its Qt-macro providers.
   Bench fixtures retain the portable test mapping. Compiler
   options, visibility and offscreen test environments remain hand-owned;
   generated dependencies replace the broad Qt module set.
@@ -58,8 +59,8 @@ below.
 - To preview generation without writing:
   `bazel run --config=release //:gazelle_diff`. This previews Gazelle output;
   the complete update command also applies Buildifier formatting and lint fixes.
-- To widen: add a path to `GAZELLE_ARGS` and the checker's `MANAGED_ROOTS`,
-  regenerate, and review the diff in its own pull request.
+- To widen: add a path to `GAZELLE_ARGS`, regenerate, and review the diff in
+  its own pull request.
 
 ## Consequences
 
@@ -95,12 +96,12 @@ locally; CI is the gate.
 
 The channels package maps `cc_library` to `qt_cc_library` locally. Both of its
 header-only libraries declare `Q_OBJECT`, so every generated `hdrs` entry must
-run through moc; target names and visibility remain hand-owned. Empty `srcs`
-attributes are kept because the Qt macro requires them even for header-only
-libraries. This mapping is suitable only when all library headers need moc.
+run through moc; target names and visibility remain hand-owned.
+`qt_cc_library.srcs` defaults to `[]`, so header-only libraries need no keep.
+This mapping is suitable only when all library headers need moc.
 Mixed packages split ordinary headers into plain `cc_library` targets and keep
-only `Q_OBJECT` headers in `qt_cc_library.hdrs`. The ports package re-exports
-its private `qt_event_sink` moc library through the existing `ports` label;
+only `Q_OBJECT` headers in `qt_cc_library.hdrs`. `qt_event_sink` is its own target with visibility for apps,
+platform, tests and the `ui_desktop` group, and consumers depend on it directly;
 Unix J2534 publishes ordinary type declarations through `j2534_types` and
 keeps its driver in a moc child.
 Windows J2534 uses a plain library and obtains bridge headers from their
@@ -114,19 +115,19 @@ Gazelle's merger looks up mergeable attributes by that kind without its
 underlying `cc_library` metadata, so existing attributes on an aliased rule never
 regenerate. Mixed packages therefore split their moc libraries into children
 instead: `common/ports/event_sink`, `ui/desktop/definition/dialog` and
-`unix/j2534/driver`. The event sink child is private to the ports package, which
-keeps re-exporting it through the existing `ports` label with a dependency keep,
-so apps, workers and the UI see no change. Moving a header requires repointing
-its includes and any `gazelle:resolve` directive that names it.
+`unix/j2534/driver`. Ordinary headers that Gazelle indexes need no `gazelle:resolve`; add one only
+for what it cannot see (generated headers, selected platform headers).
 
 Packages containing only moc libraries use `map_kind cc_library qt_cc_library`.
 Bench uses `map_kind cc_binary qt_cc_binary` for its existing binary and keeps
 the portable GoogleTest mapping. The binary's selected direct backend is an
 explained dependency keep. Designer-form and remote-replica generation remain
-hand-owned; package-local resolutions connect `ui_*.h` and
-`rep_remote_utility_replica.h` to their generated targets. Resource registration
+hand-owned. Forms are listed in each owner's `FORMS` (no `glob`, to keep
+Bazel loading cheap); a scoped `resolve_regexp` maps `ui_<name>.h` to that
+package's `ui_<name>` target, with `src/ui/desktop` as the default and the
+`biu` and `hexedit` children overriding it. Package-local resolutions connect
+the Remote Objects `rep_*_replica.h` headers to their generated targets. Resource registration
 is retained with dependency keeps wherever no include expresses the link.
-Unmanaged platform and UI header providers have package-local resolutions.
 
 ### Complete C++ test ownership
 
@@ -143,8 +144,8 @@ and event waits live in the test-only desktop support package.
 
 Mixed packages were first covered by excluding production sources and headers
 and preserving their rules; the sections below record how each such package was
-later split into homogeneous packages and generated. Header resolutions point to
-existing public owners only where Gazelle cannot index one. Runtime resources,
+later split into homogeneous packages and generated. Header resolutions are used
+only where Gazelle cannot index the provider. Runtime resources,
 platform selection, constraints and non-inferable link dependencies remain
 explicit. No C++ test may have a whole-rule keep.
 
@@ -179,8 +180,7 @@ targets, and moc code moves to a child that maps `cc_library` to
 `flash/worker`, `service_functions/worker`). Tests move with their
 implementations and keep their target names. The connection package and the UI
 flash dialog and controller packages are homogeneous moc packages and use the
-same mapping in place. A child that reaches the ports package's private event
-sink resolves `qt_event_sink.h` to the public `ports` label.
+same mapping in place. Children that use the event sink depend on `ports/event_sink:qt_event_sink`.
 
 The serial package follows the same rule. The facade (`serial/facade`), the
 remote backend (`serial/remote`), the websocket device (`serial/websocket`) and
@@ -212,7 +212,7 @@ The desktop UI separates widgets from ordinary helpers the same way. The
 `src/ui/desktop/widgets`, a moc package; `main_window_services`, `config_fields`
 and `diagnostic_link_io` are plain generated libraries in the parent, which also
 keeps the Designer forms and their hand-owned generation. The widgets package
-resolves every generated `ui_*.h` header to its form's library and keeps the
+reaches each generated `ui_*.h` through the `resolve_regexp` and keeps the
 resource-registration dependencies, Windows link options, offscreen
 environments and static-link settings. The service-function dialog moved to a
 `dialog` child of the UI service-functions package, leaving the preflight in the
@@ -222,8 +222,8 @@ name exactly the relocated consumer packages.
 The desktop composition root finishes the migration. The composition, startup
 and startup-test-support libraries are ordinary generated `cc_library` targets,
 and the `fastecu` executable is generated through the existing `qt_cc_binary`
-mapping. The startup library retains its per-OS `select()` of default-config-root
-sources as a narrow `srcs` keep, with those platform files excluded from
+mapping. The startup and startup-test-support libraries retain their per-OS `select()` of
+sources as narrow, explained `srcs` keeps, with those platform files excluded from
 discovery, so its platform-specific dependencies are maintained by hand. The
 resource-registration and selected-backend dependencies are explained keeps.
 
@@ -233,8 +233,7 @@ A package is either ordinary (plain `cc_library`, `COMMON_COPTS`) or a moc
 package (local `map_kind cc_library qt_cc_library`, every generated `hdrs` entry
 declares `Q_OBJECT`). Code that needs both is split into a parent and a child
 package rather than mixed under one mapping; a non-moc child of a moc package
-undoes the inherited mapping with `map_kind cc_library cc_library`. Header-only
-moc libraries keep an explained empty `srcs`. Every moc header has exactly one
+undoes the inherited mapping with `map_kind cc_library cc_library`. Every moc header has exactly one
 generation owner.
 
 The checker's `KEPT_CPP_PRODUCTION_RULES` allowlist now holds only these two

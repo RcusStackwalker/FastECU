@@ -31,12 +31,12 @@ QT_DEPS = _QT_DEPS_NO_WIDGETS + [
     "//bazel/qt:widgets",
 ]
 
-def qt_cc_library(name, srcs, hdrs = [], copts = [], **kwargs):
+def qt_cc_library(name, srcs = [], hdrs = [], copts = [], **kwargs):
     """A Qt library, running moc over `hdrs`, built with COMMON_COPTS.
 
     Args:
       name: A name for the rule.
-      srcs: The cpp files to compile.
+      srcs: The cpp files to compile. Empty for a header-only library.
       hdrs: The header files moc compiles to sources. Empty for a library whose
         public headers are all `normal_hdrs`.
       copts: Compiler options added after COMMON_COPTS.

@@ -1,7 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 
-# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 package(default_visibility = [
     "//bazel/layers:apps",
     "//bazel/layers:platform",

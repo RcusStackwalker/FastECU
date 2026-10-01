@@ -1,6 +1,5 @@
 # The facade declares Q_OBJECT; generated hdrs must run through moc.
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
-# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 # The custom main is a narrow source-entry keep; discovery must not treat it as
 # a shared package runner.
 # gazelle:exclude facade_threading_main.cpp

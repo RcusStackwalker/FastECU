@@ -1,6 +1,5 @@
 # The only library declares Q_OBJECT; generated hdrs must run through moc.
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
-# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 # The serial facade is still hand-owned in its package.
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_targets.bzl", "qt_cc_library")

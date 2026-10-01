@@ -1,6 +1,5 @@
 # The device declares Q_OBJECT; generated hdrs must run through moc.
 # gazelle:map_kind cc_library qt_cc_library //bazel:qt_targets.bzl
-# gazelle:resolve cc QtWebSockets/QtWebSockets //bazel/qt:web_sockets
 load("//bazel:qt_targets.bzl", "qt_cc_library")
 
 package(
