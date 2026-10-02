@@ -42,6 +42,34 @@ fastecu_gtest(
 )
 
 qt_cc_library(
+    name = "qt_identify_launcher",
+    srcs = ["qt_identify_launcher.cpp"],
+    hdrs = ["qt_identify_launcher.h"],
+    implementation_deps = ["//src/platform/desktop/common/bytes:qt_bytes"],
+    deps = [
+        "//bazel/qt:core",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+        "//src/platform/desktop/common/diagnostics/workers:ssm_identify_worker",
+        "//src/ui/desktop/connection:connection_ports",
+    ],
+)
+
+fastecu_gtest(
+    name = "qt_identify_launcher_test",
+    srcs = ["qt_identify_launcher_test.cpp"],
+    deps = [
+        ":qt_identify_launcher",
+        "//bazel/qt:core",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/protocol/testing:fake_diagnostic_link",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "@googletest//:gtest",
+    ],
+)
+
+qt_cc_library(
     name = "desktop",
     srcs = [
         "calibration_maps.cpp",
