@@ -380,6 +380,39 @@ including the open `wrx02` predicate mismatch. Post-read adoption and
 checksum/save/write paths require bench re-verification before release;
 automated coverage does not establish hardware qualification.
 
+### Preflight cancellation is not correction cancellation
+
+`CalibrationOperationCoordinator` sequences write preparation and Save/Save
+As in the UI layer, with a Qt-free closure; its dialogs go through
+`ICalibrationInteraction`, which `QtCalibrationInteraction` renders.
+`MainWindow` supplies the selected session, applies the status-label and
+files-tree updates, and keeps the port checks, cleanup guard, battery polling
+and flash dispatch. Two operator answers look alike but have different
+consequences, and both are compatibility requirements:
+
+- Cancelling the missing-checksum-module warning that precedes Write or Test
+  Write (the selected vehicle's checksum flag is `n/a`) stops the operation.
+  Nothing is refreshed, corrected or dispatched; the
+  [cleanup guard](#start_ecu_operations-cleanup-is-a-scope-guard) still runs.
+- Declining checksum correction, an unknown MCU, or a correction outcome
+  without bytes leaves the operation image unchanged and lets the write or
+  save continue with those bytes. The "Checksum calculation canceled!" log
+  belongs only to the declined missing-module case.
+
+Save As corrects before opening its picker; a dismissed picker or empty
+filename writes nothing. A successful Save As relabels the files-tree row of
+the session resolved before the picker opened, not the row selected
+afterwards.
+
+Test ownership follows the split. `calibration_operation_coordinator_test`
+(no Qt, a scripted interaction mock and the real `RomSaveUseCase`) owns the
+sequencing, logs, metadata refresh, filename normalization and persistence
+invariants; `qt_calibration_interaction_test` owns dialog text and wiring.
+`test_mainwindow` keeps the window's wiring: cleanup after a rejected
+preflight for both write commands, the status label, log forwarding to
+`LogChannel`, backend-corrected bytes reaching the saved file, and Save As
+relabelling across a selection change.
+
 ## Build and guards
 
 ### Keep portable targets out of packages with a legacy glob

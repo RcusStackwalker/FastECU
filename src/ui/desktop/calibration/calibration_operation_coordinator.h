@@ -37,8 +37,10 @@ enum class SaveMode
 enum class SaveOutcome
 {
     Saved,
-    // The operator dismissed the Save As picker; nothing was written.
+    // The operator dismissed the Save As picker or chose no filename;
+    // nothing was written.
     Cancelled,
+    // No session was selected; only the missing-calibration notice was shown.
     NoSelection,
     // The repository refused the write; the session is unchanged.
     Failed
@@ -74,7 +76,9 @@ class CalibrationOperationCoordinator
     // Persists a copy of the session bytes, checksum-corrected when correction
     // produced bytes, through RomSaveUseCase, which alone updates the saved
     // source and dirty state and reports a repository failure. Saving does not
-    // refresh write metadata.
+    // refresh write metadata. After a Saved Save As, the session's
+    // source().display_name names the new file; the owner refreshes any label
+    // showing it.
     SaveOutcome save(calibration::CalibrationSession *session, SaveMode mode);
 
   private:

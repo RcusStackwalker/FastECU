@@ -48,14 +48,19 @@ decisions, not as generation cleanup.
 The calibration and application logic already exists as portable backend
 code: configuration sessions, the calibration service, session and map-edit
 use cases, checksums, diagnostics and logging. What remains in the desktop UI
-is presentation: `MainWindow` still coordinates write preflight, checksum
-interaction, connection orchestration, logging selection, log views, status
-updates and dialogs, and the diagnostic-tools windows are set up in
+is presentation. Write preflight, checksum interaction and Save/Save As
+sequencing live in the UI-owned `CalibrationOperationCoordinator`, whose
+closure is Qt-free and whose dialogs sit behind `ICalibrationInteraction`
+(see the [calibration design notes](design-notes.md#preflight-cancellation-is-not-correction-cancellation)).
+`MainWindow` still coordinates connection orchestration, logging selection,
+log views, status updates and the remaining dialogs, and keeps the hardware
+lifecycle around flash dispatch; the diagnostic-tools windows are set up in
 `src/ui/desktop/widgets/menu_actions.cpp`.
 
 Risks:
 
-- Testing presentation flows needs a live `QMainWindow` or `QApplication`.
+- Testing the remaining presentation flows needs a live `QMainWindow` or
+  `QApplication`.
 - Widget selection (table and cell selection), dialogs and confirmations, and
   shared UI state mutation are interleaved in central widget code with a large
   include graph.

@@ -52,8 +52,8 @@
 #include "src/ui/desktop/widgets/get_key_operations_subaru.h"
 #include "src/backend/calibration/map_edit.h"
 #include "src/backend/config/config_session.h"
+#include "src/backend/ports/event_sink.h"
 #include "src/platform/desktop/common/definition/definition_catalog_session.h"
-#include "src/ui/desktop/checksum/checksum_correction_command.h"
 #include "src/ui/desktop/definition/dialog/definition_authoring_dialog.h"
 #include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 #include "src/ui/desktop/widgets/logbox.h"
@@ -82,6 +82,12 @@ extern void log_error(const QString& message, bool timestamp, bool linefeed);
 extern void log_warning(const QString& message, bool timestamp, bool linefeed);
 extern void log_info(const QString& message, bool timestamp, bool linefeed);
 extern void log_debug(const QString& message, bool timestamp, bool linefeed);
+
+namespace fastecu::ui
+{
+class CalibrationOperationCoordinator;
+class QtCalibrationInteraction;
+} // namespace fastecu::ui
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -156,7 +162,10 @@ class MainWindow : public QMainWindow
     int connectionTimeOutDelay = 5;
     int connectionTimeOutDelayCount = 50;
 
-    fastecu::ui::ChecksumCorrectionCommand m_checksumCorrectionCommand;
+    // Declared interaction first, so the coordinator borrowing it is
+    // destroyed first.
+    std::unique_ptr<fastecu::ui::QtCalibrationInteraction> calibration_interaction_;
+    std::unique_ptr<fastecu::ui::CalibrationOperationCoordinator> calibration_operations_;
     fastecu::ui::DefinitionAuthoringDialog *definitionAuthoringDialog = nullptr;
     fastecu::logging::LoggerModel *loggerModel;
     fastecu::desktop::logging::DesktopLoggerValues loggerValues;
@@ -181,7 +190,6 @@ class MainWindow : public QMainWindow
     OpenCalibration *open_calibration(fastecu::calibration::SessionId id);
     OpenCalibration *selected_open_calibration();
     void set_category_expanded(QTreeWidgetItem *item, bool expanded);
-    void refresh_write_metadata(fastecu::calibration::CalibrationSession& session, const QString& kernel_dir);
     QTreeWidgetItem *files_tree_item(fastecu::calibration::SessionId id) const;
     bool add_calibration(fastecu::calibration::SessionId id);
 
@@ -296,7 +304,6 @@ class MainWindow : public QMainWindow
     void prompt_for_missing_definition(fastecu::calibration::SessionId id);
     void save_calibration_file();
     void save_calibration_file_as();
-    void runChecksumCorrection(const fastecu::calibration::CalibrationSession& session, bytes::Bytes& image);
     void set_map_selection(fastecu::calibration::SessionId id, int map_index, const QString& item);
     void set_map_switch(fastecu::calibration::SessionId id, int map_index, int state);
     QStringList parse_stringlist_from_expression_string(QString expression, QString x);
@@ -322,6 +329,8 @@ class MainWindow : public QMainWindow
     const fastecu::config::ResolvedCarModel& selected_vehicle() const;
     // Saves the session's settings, logging a failure.
     void save_settings();
+    // Emits the LOG_* signal for `level`, with timestamp and linefeed.
+    void emit_log_line(fastecu::LogLevel level, const QString& message);
     // Apply a finished dialog's tentative choice: only an accepted one
     // reaches the session. Both then run the matching *_finished slot.
     void apply_vehicle_choice(int result, std::optional<std::size_t> row);

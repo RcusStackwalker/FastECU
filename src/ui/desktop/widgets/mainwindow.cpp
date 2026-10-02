@@ -1,7 +1,8 @@
 #include "src/ui/desktop/widgets/mainwindow.h"
-#include "src/backend/calibration/session/rom_save.h"
+#include "src/ui/desktop/calibration/calibration_operation_coordinator.h"
 #include "src/ui/desktop/calibration/map_presentation.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
+#include "src/ui/desktop/calibration/qt_calibration_interaction.h"
 #include "src/ui/desktop/calibration/rom_info.h"
 #include "src/ui/desktop/calibration/session_key.h"
 #include "ui_mainwindow.h"
@@ -10,11 +11,11 @@
 #include <QSplashScreen>
 #include <cstddef>
 #include <iterator>
+#include <optional>
+#include <string_view>
 #include <utility>
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
-#include "src/backend/checksum/checksum_selection.h"
 #include "src/backend/logging/logger_definition_service.h"
-#include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_operation_request.h"
 #include "src/platform/desktop/common/flash/flash_workflow.h"
 #include "src/platform/desktop/common/serial/serial_idle.h"
@@ -110,26 +111,24 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 #endif
 
     QObject::connect(&services_.file_action_events, &QtEventSink::logged, this,
-                     [this](int level, QString message)
-                     {
-                         switch (static_cast<fastecu::LogLevel>(level))
-                         {
-                         case fastecu::LogLevel::Error:
-                             emit LOG_E(message, true, true);
-                             break;
-                         case fastecu::LogLevel::Warning:
-                             emit LOG_W(message, true, true);
-                             break;
-                         case fastecu::LogLevel::Info:
-                             emit LOG_I(message, true, true);
-                             break;
-                         case fastecu::LogLevel::Debug:
-                             emit LOG_D(message, true, true);
-                             break;
-                         }
-                     });
+                     [this](int level, const QString& message)
+                     { emit_log_line(static_cast<fastecu::LogLevel>(level), message); });
     QObject::connect(&services_.file_action_events, &QtEventSink::noticed, this,
                      [this](QString message) { QMessageBox::warning(this, software_title, message); });
+
+    calibration_interaction_ = std::make_unique<fastecu::ui::QtCalibrationInteraction>(this);
+    calibration_operations_ = std::make_unique<fastecu::ui::CalibrationOperationCoordinator>(
+        *configSession, services_.rom_save, *calibration_interaction_,
+        fastecu::ui::CalibrationPresentationCallbacks{
+            .log = [this](fastecu::LogLevel level, std::string_view text)
+            { emit_log_line(level, QString::fromUtf8(text.data(), static_cast<qsizetype>(text.size()))); },
+            .protocol_description_changed =
+                [this](std::string_view description)
+            {
+                status_bar_ecu_label->setText(
+                    QString::fromUtf8(description.data(), static_cast<qsizetype>(description.size())) + " ");
+            },
+        });
 
     definitionAuthoringDialog = new fastecu::ui::DefinitionAuthoringDialog(
         services_.definition_catalogs, *configSession, services_.config_repository, this);
@@ -478,6 +477,25 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     startUpSplash->close();
     netSplash->deleteLater();
     emit LOG_I("FastECU initialized", true, true);
+}
+
+void MainWindow::emit_log_line(fastecu::LogLevel level, const QString& message)
+{
+    switch (level)
+    {
+    case fastecu::LogLevel::Error:
+        emit LOG_E(message, true, true);
+        break;
+    case fastecu::LogLevel::Warning:
+        emit LOG_W(message, true, true);
+        break;
+    case fastecu::LogLevel::Info:
+        emit LOG_I(message, true, true);
+        break;
+    case fastecu::LogLevel::Debug:
+        emit LOG_D(message, true, true);
+        break;
+    }
 }
 
 MainWindow::~MainWindow()
@@ -879,41 +897,16 @@ void MainWindow::remember_opened_port(const QString& port, const QString& opened
     save_settings();
 }
 
-// The write path's ROM-metadata refresh: legacy filled an empty flash method
-// -- "" only when a definition left it empty; a definition-less ROM shows " "
-// -- then refreshed the vehicle selection before taking kernel/MCU from it.
-// These values reach the ECU, so the helper is tested on its own.
-void MainWindow::refresh_write_metadata(fastecu::calibration::CalibrationSession& session, const QString& kernel_dir)
-{
-    fastecu::calibration::RomProtocolInfo protocol = session.protocol();
-    if (fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::FlashMethod)
-            .isEmpty())
-    {
-        protocol.flash_method = selected_vehicle().protocol_name;
-        session.set_protocol(protocol);
-        update_protocol_info(qs(protocol.flash_method));
-    }
-    protocol.kernel_path = fastecu::flash::kernel_path(
-        kernel_dir.toStdString(),
-        fastecu::config::protocol_field_or_placeholder(selected_vehicle(), &ProtocolEntry::kernel));
-    protocol.kernel_start_address = protocol_field(selected_vehicle(), &ProtocolEntry::kernel_addr).toStdString();
-    protocol.mcu_type = protocol_field(selected_vehicle(), &ProtocolEntry::mcu).toStdString();
-    session.set_protocol(protocol);
-}
-
 int MainWindow::start_ecu_operations(const QString& cmd_type)
 {
     stop_identification();
     set_realtime_state(false);
     toggle_realtime();
 
-    fastecu::calibration::CalibrationSession *session = nullptr;
-    bytes::Bytes operation_image;
+    std::optional<fastecu::ui::PreparedWrite> prepared_write;
     QString read_kernel_path;
     QString read_kernel_address;
     QString read_mcu;
-
-    const int item_count = ui->calibrationFilesTreeWidget->selectedItems().count();
 
     QComboBox *serial_port_list = ui->toolBar->findChild<QComboBox *>("serial_port_list");
     if (serial_port_list->currentText() == "")
@@ -962,37 +955,10 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
 
         if (cmd_type == "test_write" || cmd_type == "write")
         {
-            if (item_count > 0)
+            prepared_write = calibration_operations_->prepare_write(selected_calibration(), kernel_dir.toStdString());
+            if (!prepared_write.has_value())
             {
-                session = selected_calibration();
-            }
-            if (session == nullptr)
-            {
-                QMessageBox::warning(this, tr("Write ROM"), "No file selected!");
                 return 0;
-            }
-
-            operation_image.assign(session->rom().begin(), session->rom().end());
-            if (protocol_field(selected_vehicle(), &ProtocolEntry::checksum) == "n/a")
-            {
-                QMessageBox msgBox(
-                    QMessageBox::Warning, "Checksum warning",
-                    "WARNING! There is no checksum module for this ROM!\n"
-                    "Be aware that if this ROM need checksum correction it must be done with another software!",
-                    QMessageBox::Ok | QMessageBox::Cancel);
-                const auto ret = msgBox.exec();
-
-                if (ret == QMessageBox::Cancel)
-                {
-                    emit LOG_D("Write canceled!", true, true);
-                    return 0;
-                }
-            }
-            refresh_write_metadata(*session, kernel_dir);
-
-            if (protocol_field(selected_vehicle(), &ProtocolEntry::checksum) != "n/a")
-            {
-                runChecksumCorrection(*session, operation_image);
             }
         }
         else
@@ -1026,12 +992,13 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
 
         const fastecu::flash::FlashOperationOutcome outcome = controller.run({
             .operation = operation,
-            .protocol = selected_vehicle().protocol_name,
-            .mcu = session != nullptr ? session->protocol().mcu_type : read_mcu.toStdString(),
-            .kernel_path = session != nullptr ? session->protocol().kernel_path : read_kernel_path.toStdString(),
-            .image = fastecu::flash::portableImageForOperation(operation, operation_image),
+            .protocol = prepared_write.has_value() ? prepared_write->protocol : selected_vehicle().protocol_name,
+            .mcu = prepared_write.has_value() ? prepared_write->mcu : read_mcu.toStdString(),
+            .kernel_path = prepared_write.has_value() ? prepared_write->kernel_path : read_kernel_path.toStdString(),
+            .image = fastecu::flash::portableImageForOperation(
+                operation, prepared_write.has_value() ? bytes::ByteView{prepared_write->image} : bytes::ByteView{}),
             .paths = configSession->effective_paths(),
-            .display_filename = session != nullptr ? session->source().display_name : std::string{},
+            .display_filename = prepared_write.has_value() ? prepared_write->display_filename : std::string{},
         });
 
         if (outcome.status == fastecu::flash::FlashOperationStatus::ServiceActionHandled)
@@ -1151,117 +1118,24 @@ void MainWindow::prompt_for_missing_definition(fastecu::calibration::SessionId i
     }
 }
 
-// Replaces FileActions::checksum_correction, which was deleted in step 5e so
-// that no QMessageBox is raised from src/backend. The dialog sequence lives in
-// ChecksumCorrectionCommand; the log lines stay here, emitted through
-// MainWindow's own LOG_D/LOG_E signals (same signature FileActions used, so the
-// text carries over verbatim).
-void MainWindow::runChecksumCorrection(const fastecu::calibration::CalibrationSession& session,
-                                       bytes::Bytes& operation_image)
-{
-    const fastecu::checksum::ChecksumSelection selection{
-        .make = selected_vehicle().make,
-        .checksum_flag = fastecu::config::protocol_field_or_placeholder(selected_vehicle(), &ProtocolEntry::checksum),
-        .flash_method = selected_vehicle().protocol_name,
-        .mcu_type = session.protocol().mcu_type,
-        .rom_id = session.protocol().rom_id,
-    };
-    emit LOG_D("Protocol: " + qs(selection.flash_method), true, true);
-    emit LOG_D("Make: " + qs(selection.make), true, true);
-    emit LOG_D("Checksum: " + qs(selection.checksum_flag), true, true);
-    const flashdev_t *device = fastecu::flash::find_flash_device(selection.mcu_type);
-    if (device != nullptr)
-    {
-        emit LOG_D("ecuCalDef->McuType: " + qs(session.protocol().mcu_type) + " " +
-                       protocol_field(selected_vehicle(), &ProtocolEntry::mcu),
-                   true, true);
-        emit LOG_D("Size: 0x" + QString::number(operation_image.size(), 16) + " -> 0x" +
-                       QString::number(device->romsize, 16),
-                   true, true);
-    }
-    const auto result =
-        m_checksumCorrectionCommand.run(operation_image, session.definition() != nullptr, selection, this);
-    if (result.unknown_mcu_type)
-    {
-        emit LOG_E("Unknown MCU type: " + qs(session.protocol().mcu_type), true, true);
-        return;
-    }
-    if (result.canceled_due_to_missing_module)
-    {
-        emit LOG_D("Checksum calculation canceled!", true, true);
-    }
-    if (result.corrected_rom_data.has_value())
-    {
-        operation_image = *result.corrected_rom_data;
-    }
-}
-
 void MainWindow::save_calibration_file()
 {
-    auto *session = selected_calibration();
-    if (session == nullptr)
-    {
-        QMessageBox::information(this, tr("Calibration file"), "No calibration to save!");
-        return;
-    }
-    bytes::Bytes operation_image(session->rom().begin(), session->rom().end());
-    runChecksumCorrection(*session, operation_image);
-    const auto saved = services_.rom_save.save(*session, session->source().path, operation_image);
-    if (saved.has_value())
-    {
-        emit LOG_D("ecuCalDef->FileName: " + qs(session->source().display_name), true, true);
-        emit LOG_D("ecuCalDef->FullFileName: " + qs(session->source().path), true, true);
-    }
-    else
-    {
-        emit LOG_E("Calibration file not saved: " + qs(session->source().path), true, true);
-    }
+    // The coordinator reports every outcome; saving in place changes no label.
+    calibration_operations_->save(selected_calibration(), fastecu::ui::SaveMode::Save);
 }
 
 void MainWindow::save_calibration_file_as()
 {
-    auto *session = selected_calibration();
-    if (session == nullptr)
+    // Resolved once: the selection can change while the picker is open, and
+    // the label belongs to the session that was saved.
+    fastecu::calibration::CalibrationSession *session = selected_calibration();
+    if (calibration_operations_->save(session, fastecu::ui::SaveMode::SaveAs) != fastecu::ui::SaveOutcome::Saved)
     {
-        QMessageBox::information(this, tr("Calibration file"), "No calibration to save!");
         return;
     }
-    emit LOG_D("Save as: Check selected ROM number", true, true);
-    bytes::Bytes operation_image(session->rom().begin(), session->rom().end());
-    runChecksumCorrection(*session, operation_image);
-    QString filename = qs(session->source().display_name);
-    QFileDialog saveDialog;
-    saveDialog.setDefaultSuffix("bin");
-    emit LOG_D("Save as: Check if OEM ECU file", true, true);
-    filename = QFileDialog::getSaveFileName(this, tr("Save calibration file"),
-                                            qs(configSession->effective_paths().calibration_files_directory) + filename,
-                                            tr("Calibration file (*.bin)"));
-    if (filename.isEmpty())
+    if (QTreeWidgetItem *item = files_tree_item(session->id()); item != nullptr)
     {
-        QMessageBox::information(this, tr("Calibration file"), "No file name selected");
-        return;
-    }
-    if (filename.endsWith('.'))
-    {
-        filename.chop(1);
-    }
-    if (!filename.endsWith(".bin"))
-    {
-        filename.append(".bin");
-    }
-    const auto saved = services_.rom_save.save(*session, filename.toStdString(), operation_image);
-    if (saved.has_value())
-    {
-        if (auto *item = files_tree_item(session->id()); item != nullptr)
-        {
-            item->setText(0, qs(session->source().display_name));
-        }
-        emit LOG_D("ecuCalDef->FileName: " + qs(session->source().display_name), true, true);
-        emit LOG_D("ecuCalDef->FullFileName: " + qs(session->source().path), true, true);
-    }
-    else
-    {
-        emit LOG_E("Calibration file not saved: " + filename, true, true);
+        item->setText(0, qs(session->source().display_name));
     }
 }
 
