@@ -26,6 +26,24 @@ struct PreparedWrite
     std::string display_filename;
 };
 
+enum class SaveMode
+{
+    // Overwrites the session's current source path.
+    Save,
+    // Asks the operator for a destination after checksum interaction.
+    SaveAs
+};
+
+enum class SaveOutcome
+{
+    Saved,
+    // The operator dismissed the Save As picker; nothing was written.
+    Cancelled,
+    NoSelection,
+    // The repository refused the write; the session is unchanged.
+    Failed
+};
+
 // Presentation effects the coordinator asks of its owner. Both are required
 // and are called synchronously.
 struct CalibrationPresentationCallbacks
@@ -37,10 +55,10 @@ struct CalibrationPresentationCallbacks
 };
 
 // Sequences calibration operations for one session at a time: the pre-write
-// checksum warning, the write-metadata refresh, and checksum correction of an
-// operation image that never replaces the editable session bytes. Borrows its
-// services and retains no session between calls. The configuration session
-// must be initialized.
+// checksum warning, the write-metadata refresh, Save/Save As, and checksum
+// correction of an operation image that never replaces the editable session
+// bytes. Borrows its services and retains no session between calls. The
+// configuration session must be initialized.
 class CalibrationOperationCoordinator
 {
   public:
@@ -53,9 +71,16 @@ class CalibrationOperationCoordinator
     std::optional<PreparedWrite> prepare_write(calibration::CalibrationSession *session,
                                                std::string_view kernel_directory);
 
+    // Persists a copy of the session bytes, checksum-corrected when correction
+    // produced bytes, through RomSaveUseCase, which alone updates the saved
+    // source and dirty state and reports a repository failure. Saving does not
+    // refresh write metadata.
+    SaveOutcome save(calibration::CalibrationSession *session, SaveMode mode);
+
   private:
     void refresh_write_metadata(calibration::CalibrationSession& session, std::string_view kernel_directory);
     void correct_operation_image(const calibration::CalibrationSession& session, bytes::Bytes& image);
+    std::optional<std::string> choose_save_as_path(const calibration::CalibrationSession& session);
 
     config::ConfigSession& config_;
     calibration::RomSaveUseCase& saver_;

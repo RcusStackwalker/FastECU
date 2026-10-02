@@ -20,6 +20,9 @@ using config::ProtocolEntry;
 // The checksum flag of a protocol without a checksum module.
 constexpr std::string_view kNoChecksumModule = "n/a";
 
+// The suffix Save As ensures, compared case-sensitively.
+constexpr std::string_view kCalibrationSuffix = ".bin";
+
 const config::ResolvedCarModel& selected_vehicle(const config::ConfigSession& config)
 {
     // An initialized session only ever holds a valid row.
@@ -29,6 +32,21 @@ const config::ResolvedCarModel& selected_vehicle(const config::ConfigSession& co
 std::string selected_field(const config::ConfigSession& config, std::string ProtocolEntry::*field)
 {
     return config::protocol_field_or_placeholder(selected_vehicle(config), field);
+}
+
+// Legacy Save As normalization: drop one trailing dot, then append ".bin"
+// unless the name already ends in lowercase ".bin". Nothing else changes.
+std::string with_calibration_suffix(std::string path)
+{
+    if (path.ends_with('.'))
+    {
+        path.pop_back();
+    }
+    if (!path.ends_with(kCalibrationSuffix))
+    {
+        path.append(kCalibrationSuffix);
+    }
+    return path;
 }
 
 } // namespace
@@ -71,6 +89,38 @@ std::optional<PreparedWrite> CalibrationOperationCoordinator::prepare_write(cali
         .kernel_path = session->protocol().kernel_path,
         .display_filename = session->source().display_name,
     };
+}
+
+SaveOutcome CalibrationOperationCoordinator::save(calibration::CalibrationSession *session, SaveMode mode)
+{
+    if (session == nullptr)
+    {
+        interaction_.show_notice(CalibrationNotice::NoCalibrationToSave);
+        return SaveOutcome::NoSelection;
+    }
+    if (mode == SaveMode::SaveAs)
+    {
+        callbacks_.log(LogLevel::Debug, "Save as: Check selected ROM number");
+    }
+    bytes::Bytes image(session->rom().begin(), session->rom().end());
+    correct_operation_image(*session, image);
+
+    const std::optional<std::string> target =
+        mode == SaveMode::Save ? std::optional{session->source().path} : choose_save_as_path(*session);
+    if (!target.has_value())
+    {
+        return SaveOutcome::Cancelled;
+    }
+    // RomSaveUseCase logs and notices a repository failure itself; the
+    // operator gets no second notice from here.
+    if (!saver_.save(*session, *target, image).has_value())
+    {
+        callbacks_.log(LogLevel::Error, std::format("Calibration file not saved: {}", *target));
+        return SaveOutcome::Failed;
+    }
+    callbacks_.log(LogLevel::Debug, std::format("ecuCalDef->FileName: {}", session->source().display_name));
+    callbacks_.log(LogLevel::Debug, std::format("ecuCalDef->FullFileName: {}", session->source().path));
+    return SaveOutcome::Saved;
 }
 
 // Legacy filled an empty flash method only when a definition left it empty --
@@ -144,6 +194,23 @@ void CalibrationOperationCoordinator::correct_operation_image(const calibration:
     {
         image = *result.corrected_rom_data;
     }
+}
+
+// The picker opens on the effective calibration directory joined with the
+// session's file name, as legacy did. A dismissed picker or an empty choice
+// shows the missing-filename notice and returns nullopt.
+std::optional<std::string>
+CalibrationOperationCoordinator::choose_save_as_path(const calibration::CalibrationSession& session)
+{
+    callbacks_.log(LogLevel::Debug, "Save as: Check if OEM ECU file");
+    const std::optional<std::string> chosen = interaction_.choose_save_path(
+        config_.effective_paths().calibration_files_directory + session.source().display_name);
+    if (!chosen.has_value() || chosen->empty())
+    {
+        interaction_.show_notice(CalibrationNotice::NoSaveFilename);
+        return std::nullopt;
+    }
+    return with_calibration_suffix(*chosen);
 }
 
 } // namespace fastecu::ui
