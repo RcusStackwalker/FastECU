@@ -3,6 +3,10 @@
 #include "src/ui/desktop/calibration/map_presentation.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 #include "src/ui/desktop/calibration/qt_calibration_interaction.h"
+#include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
+#include "src/platform/desktop/common/ports/qt_clock.h"
+#include "src/ui/desktop/connection/connection_coordinator.h"
+#include "src/ui/desktop/widgets/qt_identify_launcher.h"
 #include "src/ui/desktop/calibration/rom_info.h"
 #include "src/ui/desktop/calibration/session_key.h"
 #include "ui_mainwindow.h"
@@ -129,6 +133,23 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
                     QString::fromUtf8(description.data(), static_cast<qsizetype>(description.size())) + " ");
             },
         });
+
+    identify_launcher_ = std::make_unique<fastecu::ui::QtIdentifyLauncher>(
+        [this] { return std::make_unique<fastecu::diagnostics::SerialDiagnosticLink>(&connection->facade()); },
+        [] { return std::make_unique<QtClock>(); },
+        [this](fastecu::LogLevel level, const QString& message)
+        {
+            if (level == fastecu::LogLevel::Warning)
+            {
+                emit LOG_W(message, true, true);
+            }
+            else
+            {
+                emit LOG_D(message, true, true);
+            }
+        });
+    connection_coordinator_ =
+        std::make_unique<fastecu::ui::ConnectionCoordinator>(*identify_launcher_, connection_presentation_);
 
     definitionAuthoringDialog = new fastecu::ui::DefinitionAuthoringDialog(
         services_.definition_catalogs, *configSession, services_.config_repository, this);
@@ -500,8 +521,7 @@ void MainWindow::emit_log_line(fastecu::LogLevel level, const QString& message)
 
 MainWindow::~MainWindow()
 {
-    connect_done_ = nullptr;
-    stop_identification();
+    connection_coordinator_->shutdown();
     if (logging_state)
     {
         loggingEngine->stop();
@@ -795,7 +815,7 @@ void MainWindow::set_flash_arrow_state()
 
 void MainWindow::log_transport_changed()
 {
-    stop_identification();
+    connection_coordinator_->cancel();
     // emit LOG_D("Change log transport";
     QComboBox *log_transport_list = ui->toolBar->findChild<QComboBox *>("log_transport_list");
 
@@ -823,7 +843,7 @@ void MainWindow::flash_transport_changed()
 
 void MainWindow::check_serial_ports()
 {
-    stop_identification();
+    connection_coordinator_->cancel();
     QComboBox *serial_port_list = ui->toolBar->findChild<QComboBox *>("serial_port_list");
     QString prev_serial_port = serial_port_list->currentText();
     int index = 0;
@@ -859,7 +879,7 @@ void MainWindow::check_serial_ports()
 
 void MainWindow::open_serial_port()
 {
-    stop_identification();
+    connection_coordinator_->cancel();
     const QString port = selected_serial_port();
     if (port.isEmpty())
     {
@@ -900,7 +920,7 @@ void MainWindow::remember_opened_port(const QString& port, const QString& opened
 
 int MainWindow::start_ecu_operations(const QString& cmd_type)
 {
-    stop_identification();
+    connection_coordinator_->cancel();
     set_realtime_state(false);
     toggle_realtime();
 
@@ -1916,7 +1936,7 @@ void MainWindow::send_message_to_log_window(const QString& msg)
 
 void MainWindow::update_vbatt()
 {
-    if (identify_worker_)
+    if (connection_coordinator_->identifying())
     {
         return;
     }

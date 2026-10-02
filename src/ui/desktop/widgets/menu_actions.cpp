@@ -17,6 +17,7 @@
 #include "src/backend/diagnostics/ssm_identify.h"
 #include "src/backend/ports/event_sink.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
+#include "src/ui/desktop/connection/connection_coordinator.h"
 
 namespace
 {
@@ -399,7 +400,7 @@ void MainWindow::paste_value()
 
 void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
 {
-    stop_identification();
+    connection_coordinator_->cancel();
     if (loggingEngine->isRunning())
     {
         loggingEngine->stop();
@@ -441,115 +442,49 @@ void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
     }
 
     qDebug() << "Initialising ECU, please wait...";
-    connect_done_ = std::move(on_done);
-    set_identification_in_progress(true);
-    const quint64 generation = ++identify_generation_;
-    identify_link_ = std::make_unique<fastecu::diagnostics::SerialDiagnosticLink>(&connection->facade());
-    identify_worker_ = std::make_unique<fastecu::diagnostics::SsmIdentifyWorker>(
+    connection_coordinator_->begin(
         fastecu::diagnostics::SsmIdentifyRequest{*variant, ecu_radio_button->isChecked()
                                                                ? fastecu::diagnostics::SsmTarget::Ecu
                                                                : fastecu::diagnostics::SsmTarget::Tcu},
-        *identify_link_, std::make_unique<QtClock>());
-    connect(
-        identify_worker_.get(), &fastecu::diagnostics::SsmIdentifyWorker::logEvent, this,
-        [this](int level, const QString& message)
-        {
-            if (level == static_cast<int>(fastecu::LogLevel::Warning))
-            {
-                emit LOG_W(message, true, true);
-            }
-            else
-            {
-                emit LOG_D(message, true, true);
-            }
-        },
-        Qt::QueuedConnection);
-    connect(
-        identify_worker_.get(), &fastecu::diagnostics::SsmIdentifyWorker::completed, this,
-        [this, generation](const fastecu::diagnostics::SsmIdentifyWorkerResult& result)
-        {
-            if (generation == identify_generation_)
-            {
-                finish_identification(result);
-            }
-        },
-        Qt::QueuedConnection);
-    identify_worker_->start();
+        std::move(on_done));
 }
 
-void MainWindow::finish_identification(const fastecu::diagnostics::SsmIdentifyWorkerResult& result)
+void MainWindow::ConnectionPresentation::set_controls_locked(bool locked)
 {
-    // Capability parsing can open a notice and re-enter the connection flow.
-    // Keep this attempt's continuation separate from any nested connection.
-    auto done = std::exchange(connect_done_, {});
-    const quint64 generation = identify_generation_;
-    identify_worker_.reset(); // joins; run() has already returned or is returning
-    identify_link_.reset();
-    if (result.success)
+    window_.log_transport_list->setEnabled(!locked);
+    window_.ecu_radio_button->setEnabled(!locked);
+    window_.tcu_radio_button->setEnabled(!locked);
+    window_.ui->actionConnectToEcu->setEnabled(!locked);
+    window_.ui->actionToggleRealtime->setEnabled(!locked);
+}
+
+void MainWindow::ConnectionPresentation::set_port_selector_enabled(bool enabled)
+{
+    window_.serial_port_list->setEnabled(enabled);
+    window_.refresh_serial_port_list->setEnabled(enabled);
+}
+
+void MainWindow::ConnectionPresentation::identified(const fastecu::ui::IdentifyOutcome& outcome)
+{
+    window_.ecu_init_complete = true;
+    window_.ecuid = QString::fromStdString(outcome.ecu_id);
+    emit window_.LOG_D("ECU ID: " + window_.ecuid, true, true);
+    window_.set_status_bar_label(true, !window_.ecuid.isEmpty(), window_.ecuid);
+    if (!outcome.init_response.empty())
     {
-        ecu_init_complete = true;
-        ecuid = result.ecu_id;
-        emit LOG_D("ECU ID: " + ecuid, true, true);
-        set_status_bar_label(true, !ecuid.isEmpty(), ecuid);
-        if (!result.init_response.isEmpty())
-        {
-            parse_log_value_list(result.init_response, "SSM");
-        }
-    }
-    else
-    {
-        emit LOG_W("ECU identification failed: " + result.error_detail, true, true);
-        disconnect_from_ecu();
-    }
-    // A port that opened counts as connected even when identification failed.
-    // A nested start or stop during capability parsing cancels this attempt.
-    if (done)
-    {
-        done(!result.success || generation == identify_generation_);
-    }
-    // Keep the selected target fixed through parsing and the logging snapshot.
-    // An older completion must not unlock a nested identification's controls.
-    if (!identify_worker_)
-    {
-        set_identification_in_progress(false);
+        window_.parse_log_value_list(bytes::toQByteArray(outcome.init_response), "SSM");
     }
 }
 
-void MainWindow::stop_identification()
+void MainWindow::ConnectionPresentation::identification_failed(const fastecu::ui::IdentifyOutcome& outcome)
 {
-    ++identify_generation_;
-    if (!identify_worker_)
-    {
-        return;
-    }
-    identify_worker_->requestStop();
-    identify_worker_->wait();
-    identify_worker_.reset();
-    identify_link_.reset();
-    set_identification_in_progress(false);
-    // connect_to_ecu locked the port selector once the port opened. A
-    // cancelled identification leaves no ECU connected, so unlock it the way
-    // disconnect_from_ecu does, whichever entry point cancelled.
-    serial_port_list->setEnabled(true);
-    refresh_serial_port_list->setEnabled(true);
-    if (auto done = std::exchange(connect_done_, {}); done)
-    {
-        done(false);
-    }
-}
-
-void MainWindow::set_identification_in_progress(bool in_progress)
-{
-    log_transport_list->setEnabled(!in_progress);
-    ecu_radio_button->setEnabled(!in_progress);
-    tcu_radio_button->setEnabled(!in_progress);
-    ui->actionConnectToEcu->setEnabled(!in_progress);
-    ui->actionToggleRealtime->setEnabled(!in_progress);
+    emit window_.LOG_W("ECU identification failed: " + QString::fromStdString(outcome.error_detail), true, true);
+    window_.disconnect_from_ecu();
 }
 
 void MainWindow::disconnect_from_ecu()
 {
-    stop_identification();
+    connection_coordinator_->cancel();
     qDebug() << "Disconnecting...";
     ecuid.clear();
     ecu_init_complete = false;
@@ -731,7 +666,7 @@ void MainWindow::toggle_log_to_file()
 
 void MainWindow::show_dtc_window()
 {
-    stop_identification();
+    connection_coordinator_->cancel();
     const QString port = selected_serial_port();
     if (port.isEmpty())
     {
@@ -784,7 +719,7 @@ void MainWindow::show_preferences_window()
 
 void MainWindow::show_subaru_biu_window()
 {
-    stop_identification();
+    connection_coordinator_->cancel();
     const QString port = selected_serial_port();
     if (port.isEmpty())
     {
@@ -825,7 +760,7 @@ void MainWindow::show_subaru_biu_window()
 
 void MainWindow::show_terminal_window()
 {
-    stop_identification();
+    connection_coordinator_->cancel();
     const QString port = selected_serial_port();
     if (port.isEmpty())
     {
