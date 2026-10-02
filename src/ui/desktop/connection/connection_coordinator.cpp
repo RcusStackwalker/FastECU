@@ -45,12 +45,24 @@ void ConnectionCoordinator::cancel()
     }
 }
 
+void ConnectionCoordinator::shutdown()
+{
+    pending_ = nullptr;
+    cancel();
+}
+
 void ConnectionCoordinator::on_completed(IdentifyGeneration generation, IdentifyOutcome outcome)
 {
-    if (generation != generation_)
+    // Qt still delivers an event posted by a worker that was stopped, so a
+    // completion tagged with an older generation is dropped. A completion for
+    // the current generation with no run live is a duplicate.
+    if (generation != generation_ || !running_)
     {
         return;
     }
+    // Capability parsing in identified() can open a notice and re-enter the
+    // connection flow. Take this attempt's continuation now so a nested
+    // connection cannot clobber it.
     auto done = std::exchange(pending_, {});
     launcher_.stop_and_join();
     running_ = false;
@@ -62,11 +74,19 @@ void ConnectionCoordinator::on_completed(IdentifyGeneration generation, Identify
     {
         presentation_.identification_failed(outcome);
     }
+    // A port that opened counts as connected even when identification failed.
+    // A nested start or cancel during identified() moved the generation, which
+    // cancels this attempt.
     if (done)
     {
-        done(true);
+        done(!outcome.success || generation == generation_);
     }
-    presentation_.set_controls_locked(false);
+    // Keep the controls locked while a nested attempt is running; an older
+    // completion must not unlock a newer attempt.
+    if (!running_)
+    {
+        presentation_.set_controls_locked(false);
+    }
 }
 
 } // namespace fastecu::ui

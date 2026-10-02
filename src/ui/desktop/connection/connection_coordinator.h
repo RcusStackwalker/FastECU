@@ -38,6 +38,11 @@ class ConnectionCoordinator
     // before a disconnect is dropped.
     void cancel();
 
+    // Drops the pending continuation without calling it, then cancels. For
+    // window teardown, where a pending Start-logging continuation must not fire
+    // into a half-destroyed window.
+    void shutdown();
+
     bool identifying() const
     {
         return running_;
