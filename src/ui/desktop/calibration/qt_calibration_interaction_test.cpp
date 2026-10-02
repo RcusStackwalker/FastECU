@@ -241,7 +241,12 @@ TEST(QtCalibrationInteraction, SavePathRoundTrip)
             observed.filter = dialog->nameFilters().value(0);
             // The non-native dialog takes its answer from the file-name field.
             auto *name_edit = dialog->findChild<QLineEdit *>("fileNameEdit");
-            ASSERT_NE(name_edit, nullptr);
+            if (!name_edit)
+            {
+                ADD_FAILURE() << "QFileDialog has no fileNameEdit child";
+                dialog->reject();
+                return;
+            }
             name_edit->setText(chosen);
             QMetaObject::invokeMethod(dialog, "accept", Qt::DirectConnection);
         },

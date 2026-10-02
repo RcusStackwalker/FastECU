@@ -135,6 +135,7 @@ void CalibrationOperationCoordinator::refresh_write_metadata(calibration::Calibr
     {
         protocol.flash_method = selected_vehicle(config_).protocol_name;
         session.set_protocol(protocol);
+        // Mirrored in MainWindow::update_protocol_info; keep the two in sync.
         callbacks_.log(LogLevel::Debug,
                        std::format("Update protocol info by selected ROM with FlashMethod: {}", protocol.flash_method));
         // The last matching row wins, as the legacy scan did; no match changes

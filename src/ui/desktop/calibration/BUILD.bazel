@@ -138,6 +138,7 @@ cc_library(
 fastecu_gtest(
     name = "qt_calibration_interaction_test",
     srcs = ["qt_calibration_interaction_test.cpp"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
     deps = [
         ":qt_calibration_interaction",
         "//bazel/qt:core",

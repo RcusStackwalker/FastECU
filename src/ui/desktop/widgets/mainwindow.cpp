@@ -771,6 +771,7 @@ bool MainWindow::add_calibration(fastecu::calibration::SessionId id)
 
 void MainWindow::update_protocol_info(const QString& flash_method)
 {
+    // Mirrored in CalibrationOperationCoordinator::refresh_write_metadata; keep the two in sync.
     emit LOG_D("Update protocol info by selected ROM with FlashMethod: " + flash_method, true, true);
     // The last matching row wins, as the legacy scan did; no match changes
     // nothing.
