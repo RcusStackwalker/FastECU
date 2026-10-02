@@ -727,7 +727,7 @@ Bench rows for these are in the
 items are automated-only.
 
 - The developer toggles `can_listener`, `simulate_obd` and
-  `test_haltech_ic7_display` are deleted; none was in the shipped `menu.cfg`
+  `test_haltech_ic7_display` are deleted; none was in the shipped menu
   and each looped forever on the UI thread.
 - SSM identification runs off the UI thread and can be cancelled. A port
   refresh, opening a port, a log-transport change, the DTC, BIU and terminal

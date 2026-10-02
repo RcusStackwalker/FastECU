@@ -20,8 +20,8 @@ namespace
 
 // QMdiSubWindow/QTableWidget are QWidgets, which abort at construction
 // without a live QApplication. This suite links fastecu_gtest's plain
-// gtest_main, so bring one up via a ::testing::Environment, mirroring MenuBuilderEnvironment in
-// src/ui/desktop/menu/menu_builder_test.cpp. SetUp() runs after static
+// gtest_main, so bring one up via a ::testing::Environment, as other widget
+// suites do. SetUp() runs after static
 // initialization and after InitGoogleTest, and gtest tears the Environment
 // down deterministically after all tests.
 class MapEditAdapterEnvironment final : public ::testing::Environment

@@ -56,9 +56,9 @@ updates and dialogs, and the diagnostic-tools windows are set up in
 Risks:
 
 - Testing presentation flows needs a live `QMainWindow` or `QApplication`.
-- Widget selection (table and cell selection, menu actions found by their
-  text), dialogs and confirmations, and shared UI state mutation are
-  interleaved in central widget code with a large include graph.
+- Widget selection (table and cell selection), dialogs and confirmations, and
+  shared UI state mutation are interleaved in central widget code with a large
+  include graph.
 - Adding a flash module or application workflow still tends to touch that
   central UI code.
 
@@ -291,12 +291,6 @@ last refreshed; re-check before scheduling):
 - `FastEcuSsmTransport::write()` discards the bytes returned by
   `write_serial_data_echo_check()` and reports the input size unconditionally,
   so an echo failure is not exposed.
-- `MainWindow::restoreLoggingUiState()` (`src/ui/desktop/widgets/mainwindow.cpp`)
-  finds the menu action whose text is `Logging`; the same text-based lookup is
-  repeated in `set_identification_in_progress()`, `set_realtime_state()` and
-  `toggle_realtime()`, and
-  `toggle_log_to_file()` looks up `Log to file` the same way
-  (`src/ui/desktop/widgets/menu_actions.cpp`).
 
 ### P2: Naming and source/data organization
 

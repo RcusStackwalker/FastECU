@@ -1055,16 +1055,4 @@
  </widget>
  <resources/>
  <connections/>
- <slots>
-  <slot>openCalFile()</slot>
-  <slot>closeCal()</slot>
-  <slot>menuActionTriggered()</slot>
-  <slot>toggleRealtime(bool)</slot>
-  <slot>toggleLogToFile(bool)</slot>
-  <slot>incDecValue()</slot>
-  <slot>setValue()</slot>
-  <slot>interpolateValue()</slot>
-  <slot>copyValue()</slot>
-  <slot>pasteValue()</slot>
- </slots>
 </ui>
