@@ -1,0 +1,33 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+
+package(default_visibility = ["//bazel/layers:ui"])
+
+# Header-only: the seam between the connection state machine and the window.
+cc_library(
+    name = "connection_ports",
+    hdrs = ["connection_ports.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/diagnostics:ssm_identify",
+    ],
+)
+
+cc_library(
+    name = "connection_coordinator",
+    srcs = ["connection_coordinator.cpp"],
+    hdrs = ["connection_coordinator.h"],
+    deps = [":connection_ports"],
+)
+
+fastecu_gtest(
+    name = "connection_coordinator_test",
+    srcs = ["connection_coordinator_test.cpp"],
+    # The coordinator's closure is Qt-free; keep the test's closure free too.
+    qt = False,
+    deps = [
+        ":connection_coordinator",
+        "//src/ui/desktop/connection/testing:fake_connection_ports",
+        "@googletest//:gtest",
+    ],
+)
