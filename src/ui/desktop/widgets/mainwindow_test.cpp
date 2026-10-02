@@ -140,6 +140,12 @@ class ModalDriver final : public QObject
         return timed_out_;
     }
 
+    // Texts of the message boxes no rule above recognised; each was accepted.
+    QStringList acceptedTexts() const
+    {
+        return accepted_texts_;
+    }
+
   private:
     void drive()
     {
@@ -189,6 +195,7 @@ class ModalDriver final : public QObject
                     return;
                 }
 
+                accepted_texts_ << message_box->text();
                 message_box->accept();
                 return;
             }
@@ -241,6 +248,7 @@ class ModalDriver final : public QObject
     int checksum_warning_count_ = 0;
     int missing_definition_prompt_count_ = 0;
     bool timed_out_ = false;
+    QStringList accepted_texts_;
 };
 
 // Invoke the slot through Qt, as the menu dispatch does.
@@ -3761,17 +3769,26 @@ TEST_F(MainWindowTest, toolbarKeepsMenuActionsBeforeTheTransportWidgets)
 
 void MainWindowTest::check_aStaleOrMalformedMenuCfgIsIgnored()
 {
-    const QString menu_cfg =
-        config_root_->path() + "/" + QString::fromStdString(kTestApplication.version) + "/config/menu.cfg";
+    // A private root, so the garbage file never reaches the shared fixture.
+    QTemporaryDir root;
+    ASSERT_TRUE(root.isValid());
+    ASSERT_NO_FATAL_FAILURE(copyFixtureConfig(root.path()));
+    const QString menu_cfg = root.path() + "/" + QString::fromStdString(kTestApplication.version) + "/config/menu.cfg";
     ASSERT_TRUE(writeTextFile(menu_cfg, "<<< not xml >>>"));
 
     ModalDriver constructor_driver{QString()};
     constructor_driver.start();
-    TestServices services{config_root_->path()};
+    TestServices services{root.path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
     constructor_driver.stop();
 
+    // The runtime menu loader raised this warning for an unreadable menu.cfg;
+    // ModalDriver accepts any box it does not recognise, so check its record.
+    for (const QString& text : constructor_driver.acceptedTexts())
+    {
+        EXPECT_FALSE(text.startsWith(QStringLiteral("Unable to load menu config file"))) << qPrintable(text);
+    }
     EXPECT_NE(window.ui->actionToggleRealtime, nullptr);
     EXPECT_EQ(window.ui->menubar->findChildren<QMenu *>().size(), 7);
 }
