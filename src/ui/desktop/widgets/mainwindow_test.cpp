@@ -40,7 +40,10 @@
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
+#include <cstdint>
 #include <fstream>
+#include <iostream>
+#include <set>
 #include <functional>
 #include <initializer_list>
 #include <iterator>
@@ -3929,6 +3932,50 @@ void MainWindowTest::check_toolbarKeepsMenuActionsBeforeTheTransportWidgets()
     constructor_driver.stop();
 
     const QList<QAction *> actions = window.ui->toolBar->actions();
+    // TEMP-DIAGNOSTIC (remove before merge): why do Widgets-class casts fail on Linux CI?
+    {
+        const auto chain = [](const QMetaObject *mo)
+        {
+            std::string out;
+            for (; mo != nullptr; mo = mo->superClass())
+            {
+                out +=
+                    std::string(mo->className()) + "@" + std::to_string(reinterpret_cast<std::uintptr_t>(mo)) + " > ";
+            }
+            return out;
+        };
+        std::cerr << "DIAG static QWidgetAction@" << reinterpret_cast<std::uintptr_t>(&QWidgetAction::staticMetaObject)
+                  << " QMenu@" << reinterpret_cast<std::uintptr_t>(&QMenu::staticMetaObject) << " QTableWidget@"
+                  << reinterpret_cast<std::uintptr_t>(&QTableWidget::staticMetaObject) << " QDialog@"
+                  << reinterpret_cast<std::uintptr_t>(&QDialog::staticMetaObject) << " QAction@"
+                  << reinterpret_cast<std::uintptr_t>(&QAction::staticMetaObject) << "\n";
+        for (int i = 8; i < std::min<int>(12, static_cast<int>(actions.size())); ++i)
+        {
+            std::cerr << "DIAG action[" << i << "] " << chain(actions[i]->metaObject()) << "\n";
+        }
+        for (QObject *child : window.ui->menubar->children())
+        {
+            std::cerr << "DIAG menubar child " << chain(child->metaObject()) << "\n";
+        }
+        std::cerr << "DIAG menubar actions=" << window.ui->menubar->actions().size() << "\n";
+        for (QAction *top : window.ui->menubar->actions())
+        {
+            std::cerr << "DIAG top '" << qPrintable(top->text()) << "' menuObject="
+                      << (top->menu<QObject *>() ? chain(top->menu<QObject *>()->metaObject()) : std::string("null"))
+                      << "\n";
+        }
+        std::ifstream maps("/proc/self/maps");
+        std::set<std::string> seen;
+        for (std::string line; std::getline(maps, line);)
+        {
+            const auto pos = line.find('/');
+            if (pos != std::string::npos && line.find("Qt6") != std::string::npos &&
+                seen.insert(line.substr(pos)).second)
+            {
+                std::cerr << "DIAG map " << line.substr(pos) << "\n";
+            }
+        }
+    }
     // Open, Save, |, Logging, Log to file, Read, Test write, Write, |, then widgets.
     ASSERT_GE(actions.size(), 10);
     EXPECT_TRUE(actions[2]->isSeparator());
