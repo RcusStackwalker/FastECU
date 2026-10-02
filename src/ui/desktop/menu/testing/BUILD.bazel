@@ -1,0 +1,19 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:qt_common.bzl", "COMMON_COPTS")
+
+package(
+    default_testonly = True,
+    default_visibility = ["//bazel/layers:ui"],
+)
+
+cc_library(
+    name = "menu_snapshot",
+    srcs = ["menu_snapshot.cpp"],
+    hdrs = ["menu_snapshot.h"],
+    copts = COMMON_COPTS,
+    implementation_deps = [
+        "//bazel/qt:core",
+        "//bazel/qt:gui",
+        "//bazel/qt:widgets",
+    ],
+)

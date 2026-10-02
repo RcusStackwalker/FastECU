@@ -25,7 +25,6 @@ package(default_visibility = [
 # false).
 exports_files(
     [
-        "config/menu.cfg",
         "config/protocols.cfg",
     ],
     visibility = [

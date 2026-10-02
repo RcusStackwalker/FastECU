@@ -20,7 +20,6 @@ ConfigPaths resolve_config_paths(std::string_view app_root_path, std::string_vie
     paths.datalog_files_directory = base + "/datalogs/";
     paths.syslog_files_directory = base + "/syslogs/";
     paths.config_file = paths.config_files_directory + "fastecu.cfg";
-    paths.menu_file = paths.config_files_directory + "menu.cfg";
     paths.protocols_file = paths.config_files_directory + "protocols.cfg";
     paths.logger_file = paths.config_files_directory + "logger.cfg";
 

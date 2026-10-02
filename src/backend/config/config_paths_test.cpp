@@ -17,7 +17,6 @@ TEST(ResolveConfigPaths, PathsContainingBuildStillNestUnderVersionDirectory)
     EXPECT_EQ(paths.datalog_files_directory, "/home/user/project/build/0.1.0-beta.5/datalogs/");
     EXPECT_EQ(paths.syslog_files_directory, "/home/user/project/build/0.1.0-beta.5/syslogs/");
     EXPECT_EQ(paths.config_file, "/home/user/project/build/0.1.0-beta.5/config/fastecu.cfg");
-    EXPECT_EQ(paths.menu_file, "/home/user/project/build/0.1.0-beta.5/config/menu.cfg");
     EXPECT_EQ(paths.protocols_file, "/home/user/project/build/0.1.0-beta.5/config/protocols.cfg");
     EXPECT_EQ(paths.logger_file, "/home/user/project/build/0.1.0-beta.5/config/logger.cfg");
 }

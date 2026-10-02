@@ -1,11 +1,13 @@
 #include "src/ui/desktop/widgets/mainwindow.h"
-#include "src/algorithms/menu/menu_command.h"
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/ui/desktop/config_fields.h"
 #include "src/backend/calibration/map_edit.h"
 #include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 #include "ui_mainwindow.h"
+
+#include <QAction>
+#include <QKeySequence>
 
 #include <algorithm>
 #include <array>
@@ -38,142 +40,100 @@ std::optional<fastecu::diagnostics::SsmVariant> ssm_variant_for_transport(const 
 }
 } // namespace
 
-void MainWindow::menu_action_triggered(const QString& action)
+void MainWindow::connect_menu_actions()
 {
-    switch (menu_command_from_id(action.toStdString()))
-    {
-    case MenuCommand::New:
-        qDebug() << action;
-        break;
-    case MenuCommand::OpenCalibration:
-        open_calibration_file(nullptr);
-        break;
-    case MenuCommand::SaveCalibration:
-        save_calibration_file();
-        break;
-    case MenuCommand::SaveCalibrationAs:
-        save_calibration_file_as();
-        break;
-    case MenuCommand::CloseCalibration:
-        close_calibration();
-        break;
-    case MenuCommand::Quit:
-        close_app();
-        break;
-    case MenuCommand::Undo:
-        qDebug() << action;
-        break;
-    case MenuCommand::Redo:
-        qDebug() << action;
-        break;
-    case MenuCommand::Copy:
-        copy_value();
-        break;
-    case MenuCommand::Paste:
-        paste_value();
-        break;
-    case MenuCommand::WinolsCsvToRomRaiderXml:
-        winols_csv_to_romraider_xml();
-        break;
-    case MenuCommand::Settings:
-        show_preferences_window();
-        break;
-    case MenuCommand::FineIncrement:
-        inc_dec_value(fastecu::calibration::IncrementStep::FineUp);
-        break;
-    case MenuCommand::FineDecrement:
-        inc_dec_value(fastecu::calibration::IncrementStep::FineDown);
-        break;
-    case MenuCommand::CoarseIncrement:
-        inc_dec_value(fastecu::calibration::IncrementStep::CoarseUp);
-        break;
-    case MenuCommand::CoarseDecrement:
-        inc_dec_value(fastecu::calibration::IncrementStep::CoarseDown);
-        break;
-    case MenuCommand::SetValue:
-        set_value();
-        break;
-    case MenuCommand::InterpolateHorizontal:
-        interpolate_value(fastecu::calibration::InterpolationMode::Horizontal);
-        break;
-    case MenuCommand::InterpolateVertical:
-        interpolate_value(fastecu::calibration::InterpolationMode::Vertical);
-        break;
-    case MenuCommand::InterpolateBidirectional:
-        interpolate_value(fastecu::calibration::InterpolationMode::Bidirectional);
-        break;
-    case MenuCommand::ToggleRealtime:
-        toggle_realtime();
-        break;
-    case MenuCommand::LogToFile:
-        toggle_log_to_file();
-        break;
-    case MenuCommand::ConnectToEcu:
-        connect_to_ecu();
-        break;
-    case MenuCommand::DisconnectFromEcu:
-        disconnect_from_ecu();
-        break;
-    case MenuCommand::ReadRomFromEcu:
-        start_ecu_operations("read");
-        break;
-    case MenuCommand::TestWriteRomToEcu:
-        start_ecu_operations("test_write");
-        break;
-    case MenuCommand::WriteRomToEcu:
-        start_ecu_operations("write");
-        break;
-    case MenuCommand::SetLogViews:
-        change_gauge_values();
-        break;
-    case MenuCommand::DtcWindow:
-        show_dtc_window();
-        break;
-    case MenuCommand::HexEditor:
-        show_hex_editor();
-        break;
-    case MenuCommand::BiuCommunication:
-        show_subaru_biu_window();
-        break;
-    case MenuCommand::GetKey:
-        show_subaru_get_key_window();
-        break;
-    case MenuCommand::Terminal:
-        show_terminal_window();
-        break;
-    case MenuCommand::About:
-        QMessageBox::information(this, tr("FastECU"),
-                                 "FastECU is open source tuning software for Subaru ECUs,\n"
-                                 "TCUs and also modifying BIU and ECUs of other car makes.\n"
-                                 "\n"
-                                 "This is beta test version for read and write ROMs via\n"
-                                 "K-Line and CAN connection with Open Port 2.0 or generic\n"
-                                 "OBD2 cable. Software is tested in Win7/Win10 32/64bit\n"
-                                 "and Linux amd64 and aarch64 platforms.\n"
-                                 "\n"
-                                 "There WILL be bugs and things that don't work. Be patient\n"
-                                 "with new versions relesed.\n"
-                                 "\n"
-                                 "All liability lies with the user. We are not responsible any\n"
-                                 "harm, laws broken or bricked ECUs that can follow for using\n"
-                                 "this software.\n"
-                                 "\n"
-                                 "\n"
-                                 "Huge thanks to following:\n"
-                                 "\n"
-                                 "fenugrec - author of nisprog software\n"
-                                 "rimwall - modifier of nisprog kernels for Subaru use\n"
-                                 "SergArb - testing and software development\n"
-                                 "alesv - testing and software development\n"
-                                 "jimihimisimi - testing and software development\n"
-                                 "\n"
-                                 "...and to all of you who had support software development by\n"
-                                 "donating! All, even the smallest amount of donates are welcome!\n");
-        break;
-    case MenuCommand::Unknown:
-        qWarning() << "Unhandled menu action:" << action;
-        break;
-    }
+    using fastecu::calibration::IncrementStep;
+    using fastecu::calibration::InterpolationMode;
+
+    // Lambdas, not member pointers: QAction::triggered carries a bool that
+    // these handlers do not take.
+    connect(ui->actionOpenCalibration, &QAction::triggered, this, [this] { open_calibration_file(nullptr); });
+    connect(ui->actionSaveCalibration, &QAction::triggered, this, [this] { save_calibration_file(); });
+    connect(ui->actionSaveCalibrationAs, &QAction::triggered, this, [this] { save_calibration_file_as(); });
+    connect(ui->actionCloseCalibration, &QAction::triggered, this, [this] { close_calibration(); });
+    connect(ui->actionQuit, &QAction::triggered, this, [this] { close_app(); });
+    connect(ui->actionCopy, &QAction::triggered, this, [this] { copy_value(); });
+    connect(ui->actionPaste, &QAction::triggered, this, [this] { paste_value(); });
+    connect(ui->actionSettings, &QAction::triggered, this, [this] { show_preferences_window(); });
+    connect(ui->actionCoarseIncrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::CoarseUp); });
+    connect(ui->actionCoarseDecrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::CoarseDown); });
+    connect(ui->actionFineIncrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::FineUp); });
+    connect(ui->actionFineDecrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::FineDown); });
+    connect(ui->actionSetValue, &QAction::triggered, this, [this] { set_value(); });
+    connect(ui->actionInterpolateHorizontal, &QAction::triggered, this,
+            [this] { interpolate_value(InterpolationMode::Horizontal); });
+    connect(ui->actionInterpolateVertical, &QAction::triggered, this,
+            [this] { interpolate_value(InterpolationMode::Vertical); });
+    connect(ui->actionInterpolateBidirectional, &QAction::triggered, this,
+            [this] { interpolate_value(InterpolationMode::Bidirectional); });
+    connect(ui->actionConnectToEcu, &QAction::triggered, this, [this] { connect_to_ecu(); });
+    connect(ui->actionDisconnectFromEcu, &QAction::triggered, this, [this] { disconnect_from_ecu(); });
+    connect(ui->actionToggleRealtime, &QAction::triggered, this, [this] { toggle_realtime(); });
+    connect(ui->actionLogToFile, &QAction::triggered, this, [this] { toggle_log_to_file(); });
+    connect(ui->actionReadRomFromEcu, &QAction::triggered, this, [this] { start_ecu_operations("read"); });
+    connect(ui->actionTestWriteRomToEcu, &QAction::triggered, this, [this] { start_ecu_operations("test_write"); });
+    connect(ui->actionWriteRomToEcu, &QAction::triggered, this, [this] { start_ecu_operations("write"); });
+    connect(ui->actionSetLogViews, &QAction::triggered, this, [this] { change_gauge_values(); });
+    connect(ui->actionDtcWindow, &QAction::triggered, this, [this] { show_dtc_window(); });
+    connect(ui->actionHexEditor, &QAction::triggered, this, [this] { show_hex_editor(); });
+    connect(ui->actionTerminal, &QAction::triggered, this, [this] { show_terminal_window(); });
+    connect(ui->actionBiuCommunication, &QAction::triggered, this, [this] { show_subaru_biu_window(); });
+    connect(ui->actionGetKey, &QAction::triggered, this, [this] { show_subaru_get_key_window(); });
+    connect(ui->actionWinolsCsvToRomRaiderXml, &QAction::triggered, this, [this] { winols_csv_to_romraider_xml(); });
+    connect(ui->actionAbout, &QAction::triggered, this, [this] { show_about_dialog(); });
+}
+
+namespace
+{
+// Qt's primary binding for a standard key, or `fallback` where the platform
+// has none (Save As and Quit on Windows). Designer stores only literal
+// sequences, so these are set here rather than in the .ui.
+void set_standard_shortcut(QAction *action, QKeySequence::StandardKey key, const char *fallback)
+{
+    const QKeySequence standard{key};
+    action->setShortcut(standard.isEmpty() ? QKeySequence{QString::fromLatin1(fallback)} : standard);
+}
+} // namespace
+
+void MainWindow::apply_standard_shortcuts()
+{
+    set_standard_shortcut(ui->actionOpenCalibration, QKeySequence::Open, "Ctrl+O");
+    set_standard_shortcut(ui->actionSaveCalibration, QKeySequence::Save, "Ctrl+S");
+    set_standard_shortcut(ui->actionSaveCalibrationAs, QKeySequence::SaveAs, "Ctrl+Shift+S");
+    set_standard_shortcut(ui->actionCopy, QKeySequence::Copy, "Ctrl+C");
+    set_standard_shortcut(ui->actionPaste, QKeySequence::Paste, "Ctrl+V");
+    set_standard_shortcut(ui->actionQuit, QKeySequence::Quit, "Ctrl+Q");
+}
+
+void MainWindow::show_about_dialog()
+{
+    QMessageBox::information(this, tr("FastECU"),
+                             "FastECU is open source tuning software for Subaru ECUs,\n"
+                             "TCUs and also modifying BIU and ECUs of other car makes.\n"
+                             "\n"
+                             "This is beta test version for read and write ROMs via\n"
+                             "K-Line and CAN connection with Open Port 2.0 or generic\n"
+                             "OBD2 cable. Software is tested in Win7/Win10 32/64bit\n"
+                             "and Linux amd64 and aarch64 platforms.\n"
+                             "\n"
+                             "There WILL be bugs and things that don't work. Be patient\n"
+                             "with new versions relesed.\n"
+                             "\n"
+                             "All liability lies with the user. We are not responsible any\n"
+                             "harm, laws broken or bricked ECUs that can follow for using\n"
+                             "this software.\n"
+                             "\n"
+                             "\n"
+                             "Huge thanks to following:\n"
+                             "\n"
+                             "fenugrec - author of nisprog software\n"
+                             "rimwall - modifier of nisprog kernels for Subaru use\n"
+                             "SergArb - testing and software development\n"
+                             "alesv - testing and software development\n"
+                             "jimihimisimi - testing and software development\n"
+                             "\n"
+                             "...and to all of you who had support software development by\n"
+                             "donating! All, even the smallest amount of donates are welcome!\n");
 }
 
 void MainWindow::inc_dec_value(fastecu::calibration::IncrementStep step)
@@ -583,16 +543,8 @@ void MainWindow::set_identification_in_progress(bool in_progress)
     log_transport_list->setEnabled(!in_progress);
     ecu_radio_button->setEnabled(!in_progress);
     tcu_radio_button->setEnabled(!in_progress);
-    for (QMenu *menu : ui->menubar->findChildren<QMenu *>())
-    {
-        for (QAction *action : menu->actions())
-        {
-            if (action->text() == "Connect" || action->text() == "Logging")
-            {
-                action->setEnabled(!in_progress);
-            }
-        }
-    }
+    ui->actionConnectToEcu->setEnabled(!in_progress);
+    ui->actionToggleRealtime->setEnabled(!in_progress);
 }
 
 void MainWindow::disconnect_from_ecu()
@@ -658,55 +610,14 @@ void MainWindow::logger_definition_manager()
 
 void MainWindow::set_realtime_state(bool state)
 {
-    QAction *logger;
-    QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
-    foreach (QMenu *menu, menus)
-    {
-        foreach (QAction *action, menu->actions())
-        {
-            if (action->isSeparator())
-            {
-            }
-            else if (action->menu())
-            {
-            }
-            else
-            {
-                if (action->text() == "Logging")
-                {
-                    action->setChecked(state);
-                }
-            }
-        }
-    }
+    ui->actionToggleRealtime->setChecked(state);
 }
 
 void MainWindow::toggle_realtime()
 {
     using namespace std::chrono_literals;
 
-    QAction *logger{};
-    QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
-    foreach (QMenu *menu, menus)
-    {
-        foreach (QAction *action, menu->actions())
-        {
-            if (action->isSeparator())
-            {
-            }
-            else if (action->menu())
-            {
-            }
-            else
-            {
-                if (action->text() == "Logging")
-                {
-                    logger = action;
-                    logging_state = logger->isChecked();
-                }
-            }
-        }
-    }
+    logging_state = ui->actionToggleRealtime->isChecked();
 
     if (logging_state)
     {
@@ -806,26 +717,7 @@ void MainWindow::continue_start_logging()
 
 void MainWindow::toggle_log_to_file()
 {
-    QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
-    foreach (QMenu *menu, menus)
-    {
-        foreach (QAction *action, menu->actions())
-        {
-            if (action->isSeparator())
-            {
-            }
-            else if (action->menu())
-            {
-            }
-            else
-            {
-                if (action->text() == "Log to file")
-                {
-                    write_datalog_to_file = action->isChecked();
-                }
-            }
-        }
-    }
+    write_datalog_to_file = ui->actionLogToFile->isChecked();
 
     if (!write_datalog_to_file)
     {
