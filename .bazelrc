@@ -8,11 +8,13 @@ build --features=-default_cpp_std
 
 build:linux --cxxopt=-std=c++23
 build:linux --host_cxxopt=-std=c++23
-# Position-independent executables reach Qt's exported staticMetaObject data
-# through the GOT. Without this the executable takes copy relocations of some
-# of them (QMenu, QWidgetAction, QTableWidget), so qobject_cast in our code
-# compares against a different QMetaObject than the objects Qt itself creates.
-build:linux --force_pic
+# Compile as PIC so the executable reaches Qt's exported staticMetaObject data
+# through the GOT. Non-PIC objects make the linker take copy relocations of
+# some of them (QMenu, QWidgetAction, QTableWidget), so qobject_cast in our
+# code compares against a different QMetaObject than the objects Qt itself
+# creates. A bare --copt, not --force_pic: that flag fails analysis of the
+# Android and Windows cross toolchains.
+build:linux --copt=-fPIC
 build:macos --cxxopt=-std=c++23
 build:macos --host_cxxopt=-std=c++23
 # needed for std::format
