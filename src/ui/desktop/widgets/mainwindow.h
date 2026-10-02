@@ -334,6 +334,9 @@ class MainWindow : public QMainWindow
     bool write_syslog(QString msg);
 
     // menuactions.c
+    void connect_menu_actions();
+    void apply_standard_shortcuts();
+    void show_about_dialog();
     void inc_dec_value(fastecu::calibration::IncrementStep step);
     void set_value();
     void interpolate_value(fastecu::calibration::InterpolationMode mode);
@@ -403,11 +406,6 @@ class MainWindow : public QMainWindow
     // log_operations.c
     void handleLoggingValuesUpdated(const QVector<fastecu::logging::LogSample>& samples);
     void handleLoggingSessionEnded(fastecu::desktop::logging::SessionEndReason reason, const QString& message);
-
-    // menu_actions.c
-    void connect_menu_actions();
-    void apply_standard_shortcuts();
-    void show_about_dialog();
 
     // mainwindow.c
     void select_protocol();

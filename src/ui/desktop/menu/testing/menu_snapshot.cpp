@@ -1,14 +1,18 @@
 #include "src/ui/desktop/menu/testing/menu_snapshot.h"
 
 #include <QAction>
+#include <QIcon>
 #include <QKeySequence>
+#include <QList>
 #include <QMenu>
 #include <QMenuBar>
+#include <QObject>
 #include <QString>
 #include <QStringList>
 #include <QToolBar>
 #include <QWidgetAction>
 
+#include <cstddef>
 #include <string>
 
 namespace

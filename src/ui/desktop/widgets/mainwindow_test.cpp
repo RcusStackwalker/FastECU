@@ -20,6 +20,7 @@
 #include <QRadioButton>
 #include <QPushButton>
 #include <QStringList>
+#include <QTableWidget>
 #include <QTemporaryDir>
 #include <QWidgetAction>
 #include <gtest/gtest.h>
@@ -33,7 +34,9 @@
 #include "src/backend/logging/testing/scripted_logging_protocol.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
+#include <cstddef>
 #include <cstdlib>
 #include <cstring>
 #include <cstdio>
@@ -572,6 +575,9 @@ class MainWindowTest : public ::testing::Test
     void check_noTwoActionsShareAShortcutAndNoneLostItsBinding();
     void check_toolbarKeepsMenuActionsBeforeTheTransportWidgets();
     void check_aStaleOrMalformedMenuCfgIsIgnored();
+    void check_everyMenuActionIsConnectedToTheWindow();
+    void check_triggeringLogToFileReachesItsHandler();
+    void check_tuneActionsEditTheSelectionThroughTheirOwnHandlers();
 };
 
 void MainWindowTest::SetUpTestSuite()
@@ -3648,6 +3654,15 @@ TEST_F(MainWindowTest, nestedConnectDuringCapabilityNoticeKeepsEachContinuation)
     ASSERT_NO_FATAL_FAILURE(check_nestedConnectDuringCapabilityNoticeKeepsEachContinuation());
 }
 
+// The golden pins the menu declared in mainwindow.ui. Against the menu that
+// was built at runtime from menu.cfg, it differs on purpose only in:
+// - tooltips: the "<name>\n\n" prefix is dropped, and an empty tooltip falls
+//   back to the action text;
+// - Diagnostic Trouble Codes gains an icon (its menu.cfg path never resolved);
+// - Open, Save, Save As, Copy, Paste and Quit take Qt's standard keys, with
+//   literal fallbacks where a platform has none (the golden records the
+//   portable text, e.g. "Ctrl+O");
+// - Settings' shortcut="false", which bound nothing, is not carried over.
 void MainWindowTest::check_menuMatchesTheGolden()
 {
     ModalDriver constructor_driver{QString()};
@@ -3658,7 +3673,9 @@ void MainWindowTest::check_menuMatchesTheGolden()
     constructor_driver.stop();
 
     const std::string actual = fastecu::ui::testing::menu_snapshot(*window.ui->menubar, *window.ui->toolBar);
-    std::ifstream file(std::getenv("MAIN_MENU_GOLDEN_PATH"), std::ios::binary);
+    const char *golden_path = std::getenv("MAIN_MENU_GOLDEN_PATH");
+    ASSERT_NE(golden_path, nullptr) << "MAIN_MENU_GOLDEN_PATH must be set by the Bazel target's env";
+    std::ifstream file(golden_path, std::ios::binary);
     ASSERT_TRUE(file.is_open());
     const std::string expected((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     EXPECT_EQ(actual, expected) << "actual snapshot:\n" << actual;
@@ -3796,6 +3813,197 @@ void MainWindowTest::check_aStaleOrMalformedMenuCfgIsIgnored()
 TEST_F(MainWindowTest, aStaleOrMalformedMenuCfgIsIgnored)
 {
     ASSERT_NO_FATAL_FAILURE(check_aStaleOrMalformedMenuCfgIsIgnored());
+}
+
+void MainWindowTest::check_everyMenuActionIsConnectedToTheWindow()
+{
+    ModalDriver constructor_driver{QString()};
+    constructor_driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    constructor_driver.stop();
+
+    // QObject::isSignalConnected and receivers() are protected, so probe with
+    // the public disconnect: it reports whether anything had connected the
+    // action's triggered signal to the window (the context of every handler
+    // lambda). It also breaks those connections, so nothing triggers the
+    // actions afterwards. Which handler each one reaches is pinned by the
+    // trigger-driven tests (Logging, Log to file, Connect, Disconnect, the
+    // Testing windows, the Tune actions).
+    int probed = 0;
+    QStringList unconnected;
+    for (QAction *action : window.findChildren<QAction *>())
+    {
+        if (!action->objectName().startsWith(QStringLiteral("action")))
+        {
+            continue;
+        }
+        ++probed;
+        if (!QObject::disconnect(action, &QAction::triggered, &window, nullptr))
+        {
+            unconnected << action->objectName();
+        }
+    }
+    EXPECT_EQ(probed, 31);
+    EXPECT_TRUE(unconnected.isEmpty()) << "not connected: " << qPrintable(unconnected.join(", "));
+}
+
+TEST_F(MainWindowTest, everyMenuActionIsConnectedToTheWindow)
+{
+    ASSERT_NO_FATAL_FAILURE(check_everyMenuActionIsConnectedToTheWindow());
+}
+
+void MainWindowTest::check_triggeringLogToFileReachesItsHandler()
+{
+    ModalDriver constructor_driver{QString()};
+    constructor_driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    constructor_driver.stop();
+
+    QAction *log_to_file = menuAction(window, kLogToFile);
+    ASSERT_NE(log_to_file, nullptr);
+    ASSERT_FALSE(log_to_file->isChecked());
+    ASSERT_FALSE(window.write_datalog_to_file);
+
+    // trigger() toggles the checkable action as a click does; the handler
+    // then reads the new state.
+    log_to_file->trigger();
+    EXPECT_TRUE(window.write_datalog_to_file);
+    log_to_file->trigger();
+    EXPECT_FALSE(window.write_datalog_to_file);
+}
+
+TEST_F(MainWindowTest, triggeringLogToFileReachesItsHandler)
+{
+    ASSERT_NO_FATAL_FAILURE(check_triggeringLogToFileReachesItsHandler());
+}
+
+void MainWindowTest::check_tuneActionsEditTheSelectionThroughTheirOwnHandlers()
+{
+    ModalDriver constructor_driver{QString()};
+    constructor_driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    constructor_driver.stop();
+    // A handler that fails reports through a message box; record any.
+    ModalDriver driver{QString()};
+    driver.start();
+    window.show();
+    QApplication::processEvents();
+
+    // A 3x3 uint8 map at 0x10 with identity scaling, so each cell is one ROM
+    // byte. inc="10" is the coarse step; EcuFlash derives the fine step (1).
+    QTemporaryDir files;
+    ASSERT_TRUE(files.isValid());
+    ASSERT_TRUE(writeTextFile(files.path() + "/grid.xml", R"(
+<rom><romid><xmlid>GRID</xmlid></romid>
+<scaling name="raw" toexpr="x" frexpr="x" format="%.0f" min="0" max="255" inc="10" storagetype="uint8" endian="big"/>
+<table name="Grid" category="Tune" address="10" type="3D" sizex="3" sizey="3" scaling="raw" storagetype="uint8" endian="big">
+<table type="X Axis" name="Column" address="0" elements="3" scaling="raw" storagetype="uint8" endian="big"/>
+<table type="Y Axis" name="Row" address="4" elements="3" scaling="raw" storagetype="uint8" endian="big"/>
+</table></rom>)"));
+    services.config.settings().primary_definition_base = "ecuflash";
+    services.config.settings().use_ecuflash_definitions = "enabled";
+    services.config.settings().ecuflash_definition_files_directory = files.path().toStdString();
+    ASSERT_TRUE(
+        services.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash).has_value());
+
+    // Row-major body. The zero edges and distinct corners make each
+    // interpolation direction produce a different grid.
+    constexpr std::size_t kBody = 0x10;
+    const bytes::Bytes body{0, 0, 20, 0, 100, 0, 40, 0, 60};
+    bytes::Bytes image(64, 0);
+    for (std::size_t i = 0; i < 3; ++i)
+    {
+        image[i] = static_cast<bytes::Byte>(i + 1);     // X axis
+        image[4 + i] = static_cast<bytes::Byte>(i + 1); // Y axis
+    }
+    std::ranges::copy(body, image.begin() + static_cast<std::ptrdiff_t>(kBody));
+    const auto opened = services.calibrations.adopt_read_image({
+        .rom = image,
+        .filename = "grid.bin",
+        .rom_id = "GRID",
+    });
+    ASSERT_TRUE(opened.has_value());
+    ASSERT_TRUE(window.add_calibration(opened->id));
+
+    auto *file_tree = window.ui->calibrationFilesTreeWidget;
+    ASSERT_EQ(file_tree->topLevelItemCount(), 1);
+    file_tree->topLevelItem(0)->setSelected(true);
+    window.calibration_files_treewidget_item_selected(file_tree->topLevelItem(0));
+    QTreeWidget *data_tree = window.ui->calibrationDataTreeWidget;
+    QTreeWidgetItem *grid_item = nullptr;
+    for (int i = 0; i < data_tree->topLevelItemCount(); ++i)
+    {
+        if (data_tree->topLevelItem(i)->text(0) == "Tune" && data_tree->topLevelItem(i)->childCount() != 0)
+        {
+            grid_item = data_tree->topLevelItem(i)->child(0);
+        }
+    }
+    ASSERT_NE(grid_item, nullptr);
+    data_tree->setCurrentItem(grid_item);
+    window.calibration_data_treewidget_item_selected(grid_item);
+    const QList<QMdiSubWindow *> windows = window.ui->mdiArea->subWindowList();
+    ASSERT_EQ(windows.size(), 1);
+    window.ui->mdiArea->setActiveSubWindow(windows.front());
+    auto *table = windows.front()->findChild<QTableWidget *>(windows.front()->objectName());
+    ASSERT_NE(table, nullptr);
+
+    // Row 0 and column 0 of a 3D map's table are its axes; the body starts
+    // at (1, 1).
+    const auto select = [table](int top, int left, int bottom, int right)
+    {
+        table->clearSelection();
+        table->setRangeSelected(QTableWidgetSelectionRange(top, left, bottom, right), true);
+    };
+    const auto grid = [&]
+    {
+        const bytes::ByteView rom = services.calibrations.find(opened->id)->rom();
+        const auto first = rom.begin() + static_cast<std::ptrdiff_t>(kBody);
+        return std::vector<int>(first, first + static_cast<std::ptrdiff_t>(body.size()));
+    };
+
+    // Chained on the centre cell (100): each step's size and sign tells the
+    // four increment actions apart.
+    const std::array<std::pair<QAction *, int>, 4> steps{{
+        {window.ui->actionCoarseIncrement, 110},
+        {window.ui->actionFineIncrement, 111},
+        {window.ui->actionFineDecrement, 110},
+        {window.ui->actionCoarseDecrement, 100},
+    }};
+    for (const auto& [action, expected] : steps)
+    {
+        select(2, 2, 2, 2);
+        action->trigger();
+        EXPECT_EQ(grid()[4], expected) << qPrintable(action->objectName());
+    }
+
+    // Each interpolation over the whole body, from the same starting grid.
+    const std::array<std::pair<QAction *, std::vector<int>>, 3> interpolations{{
+        {window.ui->actionInterpolateHorizontal, {0, 10, 20, 0, 0, 0, 40, 50, 60}},
+        {window.ui->actionInterpolateVertical, {0, 0, 20, 20, 0, 40, 40, 0, 60}},
+        {window.ui->actionInterpolateBidirectional, {0, 10, 20, 20, 30, 40, 40, 50, 60}},
+    }};
+    for (const auto& [action, expected] : interpolations)
+    {
+        ASSERT_TRUE(services.calibrations.find(opened->id)->write_bytes(kBody, body).has_value());
+        select(1, 1, 3, 3);
+        action->trigger();
+        EXPECT_EQ(grid(), expected) << qPrintable(action->objectName());
+    }
+
+    driver.stop();
+    EXPECT_TRUE(driver.acceptedTexts().isEmpty()) << qPrintable(driver.acceptedTexts().join(" | "));
+    ASSERT_TRUE(!driver.timedOut());
+}
+
+TEST_F(MainWindowTest, tuneActionsEditTheSelectionThroughTheirOwnHandlers)
+{
+    ASSERT_NO_FATAL_FAILURE(check_tuneActionsEditTheSelectionThroughTheirOwnHandlers());
 }
 
 namespace
