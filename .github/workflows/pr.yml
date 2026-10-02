@@ -43,6 +43,10 @@ jobs:
           repository-cache: true
           cache-save: false
 
+      - uses: ./.github/actions/buildbuddy
+        with:
+          api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
+
       # Mirrors the Bazel job so module resolution sees the same host tools; drop
       # it if a run shows gazelle resolving without Qt.
       - name: Install Qt for host tools (Linux)
@@ -70,6 +74,10 @@ jobs:
           bazelisk-cache: true
           repository-cache: true
           cache-save: false
+
+      - uses: ./.github/actions/buildbuddy
+        with:
+          api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
 
       # Module resolution needs the same host Qt tools as the Bazel job.
       - name: Install Qt for host tools (Linux)
@@ -118,8 +126,11 @@ jobs:
         with:
           bazelisk-cache: true
           repository-cache: true
-          disk-cache: fastecu-build-${{ runner.os }}
           cache-save: false
+
+      - uses: ./.github/actions/buildbuddy
+        with:
+          api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
 
       - name: Install Qt for host tools (Windows)
         if: runner.os == 'Windows'

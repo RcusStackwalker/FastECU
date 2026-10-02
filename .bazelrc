@@ -42,3 +42,14 @@ test --test_output=errors
 # `import`, not `try-import`: --config=coverage/sonar must fail loudly if it is missing.
 import %workspace%/bazel/coverage.bazelrc
 import %workspace%/bazel/android.bazelrc
+
+# BuildBuddy remote cache and build-event streaming. Opt-in: CI enables it via
+# .github/actions/buildbuddy, which writes the API key to .bazelrc.user.
+common:buildbuddy --bes_backend=grpcs://remote.buildbuddy.io
+common:buildbuddy --bes_results_url=https://app.buildbuddy.io/invocation/
+common:buildbuddy --remote_cache=grpcs://remote.buildbuddy.io
+common:buildbuddy --remote_timeout=3600
+common:buildbuddy --remote_upload_local_results
+
+# Machine-local overrides (and the CI-written BuildBuddy key); gitignored.
+try-import %workspace%/.bazelrc.user
