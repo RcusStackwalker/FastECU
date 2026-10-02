@@ -73,8 +73,7 @@
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/connection/adapter_connection.h"
-#include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
-#include "src/platform/desktop/common/diagnostics/workers/ssm_identify_worker.h"
+#include "src/ui/desktop/connection/connection_ports.h"
 
 #include <functional>
 
@@ -86,7 +85,9 @@ extern void log_debug(const QString& message, bool timestamp, bool linefeed);
 namespace fastecu::ui
 {
 class CalibrationOperationCoordinator;
+class ConnectionCoordinator;
 class QtCalibrationInteraction;
+class QtIdentifyLauncher;
 } // namespace fastecu::ui
 
 QT_BEGIN_NAMESPACE
@@ -356,29 +357,38 @@ class MainWindow : public QMainWindow
     // stopped; on_done(true) means the port opened, whether or not the ECU
     // answered (unchanged from the synchronous code).
     //
-    // on_done(false) can run synchronously inside stop_identification(),
-    // before that caller (disconnect, flash, DTC, BIU, terminal, a port or
-    // transport change) goes on to use the facade. on_done must therefore not
-    // start a connection or otherwise touch the facade synchronously; defer
-    // any such work to the event loop.
+    // Every entry point that touches the serial facade (disconnect, flash, DTC,
+    // BIU, terminal, a port or transport change) first calls
+    // connection_coordinator_->cancel(), which can run on_done(false)
+    // synchronously. on_done must therefore not start a connection or otherwise
+    // touch the facade synchronously; defer any such work to the event loop.
+    // See ConnectionCoordinator::begin.
     void connect_to_ecu(std::function<void(bool)> on_done = {});
     void continue_start_logging();
-    void finish_identification(const fastecu::diagnostics::SsmIdentifyWorkerResult& result);
-    // Cancels and joins a running identification, restores the controls
-    // (including the port selector connect_to_ecu locked), and tells a waiting
-    // caller the connect did not complete. That caller's on_done(false) runs
-    // here, synchronously, before stop_identification returns (see
-    // connect_to_ecu for the contract this places on on_done).
-    void stop_identification();
-    void set_identification_in_progress(bool in_progress);
 
-    // Declared link first, so the worker (which uses it) is destroyed first.
-    std::unique_ptr<fastecu::diagnostics::SerialDiagnosticLink> identify_link_;
-    std::unique_ptr<fastecu::diagnostics::SsmIdentifyWorker> identify_worker_;
-    std::function<void(bool)> connect_done_;
-    // Bumped by every start and stop, so a completion queued by a worker that
-    // was stopped is recognised as stale and dropped.
-    quint64 identify_generation_ = 0;
+    // What a connection attempt shows and changes in this window. Methods are
+    // defined in menu_actions.cpp.
+    class ConnectionPresentation final : public fastecu::ui::IConnectionPresentation
+    {
+      public:
+        explicit ConnectionPresentation(MainWindow& window) : window_(window)
+        {
+        }
+
+        void set_controls_locked(bool locked) override;
+        void set_port_selector_enabled(bool enabled) override;
+        void identified(const fastecu::ui::IdentifyOutcome& outcome) override;
+        void identification_failed(const fastecu::ui::IdentifyOutcome& outcome) override;
+
+      private:
+        MainWindow& window_;
+    };
+
+    // Declared in this order so the coordinator, which borrows the other two,
+    // is destroyed first.
+    ConnectionPresentation connection_presentation_{*this};
+    std::unique_ptr<fastecu::ui::QtIdentifyLauncher> identify_launcher_;
+    std::unique_ptr<fastecu::ui::ConnectionCoordinator> connection_coordinator_;
     void disconnect_from_ecu();
     void ecu_definition_manager();
     void logger_definition_manager();

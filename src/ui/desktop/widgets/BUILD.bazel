@@ -42,6 +42,34 @@ fastecu_gtest(
 )
 
 qt_cc_library(
+    name = "qt_identify_launcher",
+    srcs = ["qt_identify_launcher.cpp"],
+    hdrs = ["qt_identify_launcher.h"],
+    implementation_deps = ["//src/platform/desktop/common/bytes:qt_bytes"],
+    deps = [
+        "//bazel/qt:core",
+        "//src/backend/ports",
+        "//src/backend/protocol",
+        "//src/platform/desktop/common/diagnostics/workers:ssm_identify_worker",
+        "//src/ui/desktop/connection:connection_ports",
+    ],
+)
+
+fastecu_gtest(
+    name = "qt_identify_launcher_test",
+    srcs = ["qt_identify_launcher_test.cpp"],
+    deps = [
+        ":qt_identify_launcher",
+        "//bazel/qt:core",
+        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/protocol/testing:fake_diagnostic_link",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "//src/platform/desktop/common/testing:event_helpers",
+        "@googletest//:gtest",
+    ],
+)
+
+qt_cc_library(
     name = "desktop",
     srcs = [
         "calibration_maps.cpp",
@@ -73,11 +101,13 @@ qt_cc_library(
         "verticallabel.h",
     ],
     implementation_deps = [
+        ":qt_identify_launcher",
         "//src/algorithms/crypto:subaru_key_recovery",
         "//src/backend/diagnostics:ssm_identify",
         "//src/backend/flash:flash_operation_request",
         "//src/backend/logging:logger_definition_service",
         "//src/platform/desktop/common/bytes:qt_bytes",
+        "//src/platform/desktop/common/diagnostics:serial_diagnostic_link",
         "//src/platform/desktop/common/flash:flash_workflow",
         "//src/platform/desktop/common/serial:serial_idle",
         "//src/ui/desktop:config_fields",
@@ -93,6 +123,7 @@ qt_cc_library(
         "//src/ui/desktop/calibration:map_edit_adapter",
         "//src/ui/desktop/calibration:qt_calibration_interaction",
         "//src/ui/desktop/calibration:rom_info",
+        "//src/ui/desktop/connection:connection_coordinator",
         "//src/ui/desktop/flash/operation:flash_operation_controller",
     ],
     linkopts = select({
@@ -121,8 +152,6 @@ qt_cc_library(
         "//src/backend/protocol",
         "//src/platform/desktop/common/connection:adapter_connection",
         "//src/platform/desktop/common/definition:definition_catalog_session",
-        "//src/platform/desktop/common/diagnostics:serial_diagnostic_link",
-        "//src/platform/desktop/common/diagnostics/workers:ssm_identify_worker",
         "//src/platform/desktop/common/logging:logging_adapters",
         "//src/platform/desktop/common/logging/runtime:logging_runtime",
         "//src/platform/desktop/common/ports",
@@ -135,6 +164,7 @@ qt_cc_library(
         "//src/ui/desktop/calibration:session_key",
         "//src/ui/desktop/channels:log_channel",
         "//src/ui/desktop/channels:remote_peer",
+        "//src/ui/desktop/connection:connection_ports",
         "//src/ui/desktop/definition/dialog:definition_authoring_dialog",
         "//src/ui/desktop/hexedit",
     ],
@@ -157,6 +187,7 @@ fastecu_gtest(
         "//resources/shared:config_resource",  # keep
         "//resources/shared:kernels_resource",  # keep
         ":desktop",
+        ":qt_identify_launcher",
         "//bazel/qt:core",
         "//bazel/qt:widgets",
         "//src/backend/calibration/session:calibration_workspace",
@@ -184,6 +215,7 @@ fastecu_gtest(
         "//src/ui/desktop/calibration:session_key",
         "//src/ui/desktop/channels:log_channel",
         "//src/ui/desktop/channels:remote_peer",
+        "//src/ui/desktop/connection:connection_coordinator",
         "//src/ui/desktop/hexedit",
         "//src/ui/desktop/menu/testing:menu_snapshot",
         "@googletest//:gtest",

@@ -706,6 +706,14 @@ echo from the response by length. This is a bench-gated behavior change.
 
 ### Connect is asynchronous
 
+`ConnectionCoordinator` owns the state machine described here: the generation
+fence, the per-attempt continuation and the lock/unlock sequencing. It is
+Qt-free; `QtIdentifyLauncher` wraps the worker and `MainWindow`'s nested
+`ConnectionPresentation` locks the controls and shows results. `MainWindow`
+keeps the port-open preamble, disconnect, port refresh and the logging
+continuation, and calls `cancel()` at every entry point that touches the
+facade.
+
 `SsmIdentifyWorker` runs the five-attempt loop off the UI thread. The facade
 is used by one party at a time, so the UI keeps out of it while the worker
 runs:

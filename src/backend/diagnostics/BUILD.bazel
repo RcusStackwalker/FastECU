@@ -8,6 +8,8 @@ package(default_visibility = [
     # The desktop dialogs and MainWindow's identification use these types
     # directly; the rest of the UI layer does not.
     "//bazel/layers:ui_desktop",
+    # ConnectionCoordinator carries the identification request to its launcher.
+    "//bazel/layers:ui_connection",
 ])
 
 cc_library(

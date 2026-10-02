@@ -52,10 +52,13 @@ is presentation. Write preflight, checksum interaction and Save/Save As
 sequencing live in the UI-owned `CalibrationOperationCoordinator`, whose
 closure is Qt-free and whose dialogs sit behind `ICalibrationInteraction`
 (see the [calibration design notes](design-notes.md#preflight-cancellation-is-not-correction-cancellation)).
-`MainWindow` still coordinates connection orchestration, logging selection,
-log views, status updates and the remaining dialogs, and keeps the hardware
-lifecycle around flash dispatch; the diagnostic-tools windows are set up in
-`src/ui/desktop/widgets/menu_actions.cpp`.
+Connect, identify and cancel sequencing lives in the UI-owned
+`ConnectionCoordinator`, whose closure is Qt-free and whose worker sits behind
+`IIdentifyLauncher` (see the [design notes](design-notes.md#connect-is-asynchronous)).
+`MainWindow` still coordinates the port-open preamble, disconnect, port
+refresh, logging selection, log views, status updates and the remaining
+dialogs, and keeps the hardware lifecycle around flash dispatch; the
+diagnostic-tools windows are set up in `src/ui/desktop/widgets/menu_actions.cpp`.
 
 Risks:
 

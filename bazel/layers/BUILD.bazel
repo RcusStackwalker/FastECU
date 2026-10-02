@@ -71,6 +71,16 @@ package_group(
 )
 
 package_group(
+    name = "ui_connection",
+    packages = [
+        # The coordinator's request type is the identification request, and its
+        # fakes build one.
+        "//src/ui/desktop/connection",
+        "//src/ui/desktop/connection/testing",
+    ],
+)
+
+package_group(
     name = "ui_service_functions",
     packages = [
         # The dialog consumes the service-function session and transport; the

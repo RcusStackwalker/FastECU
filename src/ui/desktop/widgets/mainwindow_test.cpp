@@ -56,6 +56,8 @@
 
 #include "src/platform/desktop/common/serial/testing/fake_backend.h"
 #include "src/platform/desktop/common/connection/testing/adapter_connection_harness.h"
+#include "src/ui/desktop/connection/connection_coordinator.h"
+#include "src/ui/desktop/widgets/qt_identify_launcher.h"
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
@@ -2821,12 +2823,12 @@ void MainWindowTest::check_identificationDisablesLoggingAndConnectButNotDisconne
     ASSERT_NE(connect_action, nullptr);
     ASSERT_NE(disconnect_action, nullptr);
 
-    window.set_identification_in_progress(true);
+    window.connection_presentation_.set_controls_locked(true);
     EXPECT_FALSE(logging->isEnabled());
     EXPECT_FALSE(connect_action->isEnabled());
     EXPECT_TRUE(disconnect_action->isEnabled());
 
-    window.set_identification_in_progress(false);
+    window.connection_presentation_.set_controls_locked(false);
     EXPECT_TRUE(logging->isEnabled());
     EXPECT_TRUE(connect_action->isEnabled());
     EXPECT_TRUE(disconnect_action->isEnabled());
@@ -3105,7 +3107,7 @@ void MainWindowTest::check_connectOnAnotherMakeDisconnectsWithoutIdentifying()
     elapsed.start();
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     ASSERT_TRUE(elapsed.elapsed() < 1000); // the legacy loop waited 2.5 s here
-    ASSERT_TRUE(window.identify_worker_ == nullptr);
+    ASSERT_TRUE(!window.connection_coordinator_->identifying());
     ASSERT_TRUE(!window.ecu_init_complete);
     ASSERT_TRUE(window.serial_port_list->isEnabled());
 }
@@ -3136,18 +3138,18 @@ void MainWindowTest::check_subaruKlineConnectIdentifiesOffTheUiThread()
         .WillRepeatedly(::testing::Return(QByteArray{}));
 
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
-    ASSERT_TRUE(window.identify_worker_ != nullptr);
+    ASSERT_TRUE(window.connection_coordinator_->identifying());
     ASSERT_TRUE(!window.log_transport_list->isEnabled());
     ASSERT_TRUE(!window.serial_port_list->isEnabled());
 
     constructor_driver.start();
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return window.identify_worker_ == nullptr; },
+    ASSERT_TRUE(fastecu::testing::wait_until([&] { return !window.connection_coordinator_->identifying(); },
                                              std::chrono::milliseconds(5000)));
     constructor_driver.stop();
     ASSERT_TRUE(window.ecu_init_complete);
     ASSERT_EQ(window.ecuid, QString("3152584006"));
     ASSERT_TRUE(read_off_ui_thread.load());
-    ASSERT_TRUE(window.identify_worker_ == nullptr);
+    ASSERT_TRUE(!window.connection_coordinator_->identifying());
     ASSERT_TRUE(window.log_transport_list->isEnabled());
     ASSERT_TRUE(!window.serial_port_list->isEnabled()); // stays locked while connected, as before
 }
@@ -3169,7 +3171,7 @@ void MainWindowTest::check_subaruConnectThatNeverAnswersDisconnectsAndRestoresCo
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
 
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return window.identify_worker_ == nullptr; },
+    ASSERT_TRUE(fastecu::testing::wait_until([&] { return !window.connection_coordinator_->identifying(); },
                                              std::chrono::milliseconds(15000)));
     ASSERT_TRUE(!window.ecu_init_complete);
     ASSERT_TRUE(window.log_transport_list->isEnabled());
@@ -3196,11 +3198,11 @@ void MainWindowTest::check_disconnectDuringIdentificationCancelsAndDropsTheResul
 
     EXPECT_CALL(*services.fake, read_serial_data(::testing::_)).WillOnce(::testing::Return(kEcuInit));
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
-    ASSERT_TRUE(window.identify_worker_ != nullptr);
+    ASSERT_TRUE(window.connection_coordinator_->identifying());
     // Leave a successful completion queued on the UI thread before cancelling.
-    ASSERT_TRUE(window.identify_worker_->wait(5000));
+    ASSERT_TRUE(window.identify_launcher_->wait_for_worker(std::chrono::milliseconds(5000)));
     ASSERT_TRUE(triggerMenu(window, kDisconnectFromEcu));
-    ASSERT_TRUE(window.identify_worker_ == nullptr);
+    ASSERT_TRUE(!window.connection_coordinator_->identifying());
     ASSERT_TRUE(window.log_transport_list->isEnabled());
     ASSERT_TRUE(window.serial_port_list->isEnabled());
     ASSERT_TRUE(window.ecu_radio_button->isEnabled());
@@ -3583,7 +3585,7 @@ void MainWindowTest::check_batterySamplingDoesNotUseTheFacadeDuringIdentificatio
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     EXPECT_CALL(*services.fake, get_use_openport2_adapter()).Times(0);
     window.update_vbatt();
-    ASSERT_TRUE(window.identify_worker_ != nullptr);
+    ASSERT_TRUE(window.connection_coordinator_->identifying());
     ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(services.fake));
 }
 
@@ -3603,7 +3605,7 @@ void MainWindowTest::check_windowDestructionJoinsIdentificationWithoutContinuing
     ASSERT_NO_FATAL_FAILURE(prepareConnect(*window, *services.fake, "Subaru", "K-Line"));
     bool continued = false;
     window->connect_to_ecu([&continued](bool) { continued = true; });
-    ASSERT_TRUE(window->identify_worker_ != nullptr);
+    ASSERT_TRUE(window->connection_coordinator_->identifying());
     window.reset();
     fastecu::testing::process_events_for(std::chrono::milliseconds(200));
     ASSERT_TRUE(!continued);
@@ -3650,7 +3652,7 @@ void MainWindowTest::check_connectStopsAnActiveLoggingWorkerBeforeIdentification
                                              std::chrono::milliseconds(5000)));
     window.logging_state = true;
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
-    ASSERT_TRUE(window.identify_worker_ != nullptr);
+    ASSERT_TRUE(window.connection_coordinator_->identifying());
     ASSERT_TRUE(!services.logging_engine.isRunning());
     ASSERT_TRUE(!window.logging_state);
 }
@@ -3708,7 +3710,7 @@ void MainWindowTest::check_connectionEntryPointsStopIdentification(QString entry
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     bool cancelled = false;
     window.connect_to_ecu([&cancelled](bool connected) { cancelled = !connected; });
-    ASSERT_TRUE(window.identify_worker_ != nullptr);
+    ASSERT_TRUE(window.connection_coordinator_->identifying());
     ASSERT_TRUE(!window.serial_port_list->isEnabled());
     ASSERT_TRUE(!window.refresh_serial_port_list->isEnabled());
     QTimer close_dialog;
@@ -3741,7 +3743,7 @@ void MainWindowTest::check_connectionEntryPointsStopIdentification(QString entry
     {
         ASSERT_TRUE(QMetaObject::invokeMethod(&window, entry_point.toLatin1().constData(), Qt::DirectConnection));
     }
-    ASSERT_TRUE(window.identify_worker_ == nullptr);
+    ASSERT_TRUE(!window.connection_coordinator_->identifying());
     ASSERT_TRUE(cancelled);
     // A cancelled identification leaves no ECU connected, so the port
     // selector unlocks as it does after Disconnect.
@@ -3771,7 +3773,7 @@ void MainWindowTest::check_nestedConnectDuringCapabilityNoticeKeepsEachContinuat
     std::optional<bool> first_result;
     std::optional<bool> second_result;
     window.connect_to_ecu([&first_result](bool connected) { first_result = connected; });
-    ASSERT_TRUE(window.identify_worker_->wait(5000));
+    ASSERT_TRUE(window.identify_launcher_->wait_for_worker(std::chrono::milliseconds(5000)));
     bool restarted = false;
     bool target_frozen_in_notice = false;
     QTimer notice_driver;
@@ -3802,11 +3804,11 @@ void MainWindowTest::check_nestedConnectDuringCapabilityNoticeKeepsEachContinuat
     ASSERT_TRUE(target_frozen_in_notice);
     ASSERT_TRUE(!window.ecu_radio_button->isEnabled());
     ASSERT_TRUE(!window.tcu_radio_button->isEnabled());
-    ASSERT_TRUE(window.identify_worker_ != nullptr);
+    ASSERT_TRUE(window.connection_coordinator_->identifying());
     ASSERT_TRUE(first_result.has_value());
     ASSERT_TRUE(!*first_result);
     ASSERT_TRUE(!second_result.has_value());
-    window.stop_identification();
+    window.connection_coordinator_->cancel();
     ASSERT_TRUE(second_result.has_value());
     ASSERT_TRUE(!*second_result);
     ASSERT_TRUE(window.ecu_radio_button->isEnabled());

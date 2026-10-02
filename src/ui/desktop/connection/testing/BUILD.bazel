@@ -1,0 +1,12 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(
+    default_testonly = True,
+    default_visibility = ["//bazel/layers:ui"],
+)
+
+cc_library(
+    name = "fake_connection_ports",
+    hdrs = ["fake_connection_ports.h"],
+    deps = ["//src/ui/desktop/connection:connection_ports"],
+)
