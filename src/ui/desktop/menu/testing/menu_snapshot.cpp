@@ -85,7 +85,7 @@ std::string menu_snapshot(const QMenuBar& menubar, const QToolBar& toolbar)
     {
         if (qobject_cast<const QWidgetAction *>(action) != nullptr)
         {
-            continue;
+            break;
         }
         append_action(out, 1, *action);
     }

@@ -21,7 +21,6 @@
 #include <QRect>
 #include <QTimer>
 #include <QTableWidget>
-#include <QSignalMapper>
 #include <QInputDialog>
 #include <QLineEdit>
 #include <QClipboard>
@@ -406,7 +405,9 @@ class MainWindow : public QMainWindow
     void handleLoggingSessionEnded(fastecu::desktop::logging::SessionEndReason reason, const QString& message);
 
     // menu_actions.c
-    void menu_action_triggered(const QString& action);
+    void connect_menu_actions();
+    void apply_standard_shortcuts();
+    void show_about_dialog();
 
     // mainwindow.c
     void select_protocol();

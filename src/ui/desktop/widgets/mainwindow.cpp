@@ -13,14 +13,12 @@
 #include <utility>
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/backend/checksum/checksum_selection.h"
-#include "src/backend/config/menu_definition.h"
 #include "src/backend/logging/logger_definition_service.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_operation_request.h"
 #include "src/platform/desktop/common/flash/flash_workflow.h"
 #include "src/platform/desktop/common/serial/serial_idle.h"
 #include "src/ui/desktop/config_fields.h"
-#include "src/ui/desktop/menu/menu_builder.h"
 #include "src/ui/desktop/flash/operation/flash_operation_controller.h"
 
 using fastecu::config::ProtocolEntry;
@@ -212,22 +210,8 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     }
 
     setSplashScreenProgress("Setting up menus...", 10);
-    QSignalMapper *mapper = nullptr;
-    {
-        const fastecu::config::ConfigPaths menu_paths = configSession->effective_paths();
-        fastecu::Result<fastecu::config::MenuDefinition> menu_definition =
-            fastecu::config::load_menu_definition(menu_paths, services_.config_repository);
-        if (!menu_definition.has_value())
-        {
-            // The same modal read_menu_file raised itself (file_actions.cpp:813);
-            // 6a-3 routes this through IEventSink instead.
-            QMessageBox::warning(this, tr("Ecu menu file"),
-                                 QString("Unable to load menu config file '%1'").arg(qs(menu_paths.menu_file)));
-            menu_definition = fastecu::config::MenuDefinition{};
-        }
-        mapper = fastecu::ui::build_menus(*menu_definition, ui->menubar, ui->toolBar, this);
-    }
-    connect(mapper, SIGNAL(mappedString(QString)), this, SLOT(menu_action_triggered(QString)));
+    apply_standard_shortcuts();
+    connect_menu_actions();
 
     connect(ui->switchBoxWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(change_switch_values()));
     connect(ui->logBoxWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(change_digital_values()));
@@ -785,55 +769,9 @@ void MainWindow::update_protocol_info(const QString& flash_method)
 
 void MainWindow::set_flash_arrow_state()
 {
-    QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
-    foreach (QMenu *menu, menus)
-    {
-        foreach (QAction *action, menu->actions())
-        {
-            if (action->isSeparator())
-            {
-            }
-            else if (action->menu())
-            {
-            }
-            else
-            {
-                if (action->text() == "Read from ecu")
-                {
-                    if (protocol_capability(selected_vehicle(), &ProtocolEntry::read))
-                    {
-                        action->setEnabled(true);
-                    }
-                    else
-                    {
-                        action->setEnabled(false);
-                    }
-                }
-                if (action->text() == "Test write to ecu")
-                {
-                    if (protocol_capability(selected_vehicle(), &ProtocolEntry::test_write))
-                    {
-                        action->setEnabled(true);
-                    }
-                    else
-                    {
-                        action->setEnabled(false);
-                    }
-                }
-                if (action->text() == "Write to ecu")
-                {
-                    if (protocol_capability(selected_vehicle(), &ProtocolEntry::write))
-                    {
-                        action->setEnabled(true);
-                    }
-                    else
-                    {
-                        action->setEnabled(false);
-                    }
-                }
-            }
-        }
-    }
+    ui->actionReadRomFromEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolEntry::read));
+    ui->actionTestWriteRomToEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolEntry::test_write));
+    ui->actionWriteRomToEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolEntry::write));
 }
 
 void MainWindow::log_transport_changed()
@@ -2201,17 +2139,7 @@ void MainWindow::restoreLoggingUiState()
     activeLoggingSnapshot.reset();
     logging_state = false;
     log_params_request_started = false;
-    QList<QMenu *> menus = ui->menubar->findChildren<QMenu *>();
-    foreach (QMenu *menu, menus)
-    {
-        foreach (QAction *action, menu->actions())
-        {
-            if (action->text() == "Logging")
-            {
-                action->setChecked(false);
-            }
-        }
-    }
+    ui->actionToggleRealtime->setChecked(false);
 }
 
 void MainWindow::handleLoggingSessionEnded(fastecu::desktop::logging::SessionEndReason reason, const QString& message)

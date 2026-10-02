@@ -8,8 +8,11 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileDialog>
+#include <QKeySequence>
 #include <QLineEdit>
+#include <QMenu>
 #include <QScopeGuard>
+#include <QSet>
 #include <QSettings>
 #include <QMdiArea>
 #include <QMdiSubWindow>
@@ -18,6 +21,7 @@
 #include <QPushButton>
 #include <QStringList>
 #include <QTemporaryDir>
+#include <QWidgetAction>
 #include <gtest/gtest.h>
 #include "src/platform/desktop/common/testing/signal_recorder.h"
 #include "src/platform/desktop/common/testing/event_helpers.h"
@@ -30,10 +34,13 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstdlib>
 #include <cstring>
 #include <cstdio>
+#include <fstream>
 #include <memory>
 #include <initializer_list>
+#include <iterator>
 #include <utility>
 
 #include "src/ui/desktop/widgets/mainwindow.h"
@@ -60,6 +67,7 @@
 #include "src/ui/desktop/widgets/calibration_maps.h"
 #include "src/backend/calibration/session/rom_save.h"
 #include "src/ui/desktop/hexedit/hexedit.h"
+#include "src/ui/desktop/menu/testing/menu_snapshot.h"
 
 namespace
 {
@@ -282,34 +290,37 @@ QByteArray frame(std::initializer_list<int> values)
 // A valid SSM2 ECU init response carrying ECU ID 3152584006.
 const QByteArray kEcuInit = frame({0x80, 0xF0, 0x10, 0x09, 0xFF, 0xA2, 0x10, 0x11, 0x31, 0x52, 0x58, 0x40, 0x06, 0x6C});
 
-// An action as the tests name it: `legacy_id` is the runtime-built menu's
-// objectName (menu.cfg id), `member` the name it has once the menu is static.
+// An action as the tests name it: `member` is its objectName in mainwindow.ui.
 struct ActionName
 {
-    const char *legacy_id;
     const char *member;
 };
 
-constexpr ActionName kToggleRealtime{"toggle_realtime", "actionToggleRealtime"};
-constexpr ActionName kLogToFile{"log_to_file", "actionLogToFile"};
-constexpr ActionName kConnectToEcu{"connect_to_ecu", "actionConnectToEcu"};
-constexpr ActionName kDisconnectFromEcu{"disconnect_from_ecu", "actionDisconnectFromEcu"};
-constexpr ActionName kReadRomFromEcu{"read_rom_from_ecu", "actionReadRomFromEcu"};
-constexpr ActionName kTestWriteRomToEcu{"test_write_rom_to_ecu", "actionTestWriteRomToEcu"};
-constexpr ActionName kWriteRomToEcu{"write_rom_to_ecu", "actionWriteRomToEcu"};
-constexpr ActionName kDtcWindow{"dtc_window", "actionDtcWindow"};
-constexpr ActionName kBiuCommunication{"biu_communication", "actionBiuCommunication"};
-constexpr ActionName kTerminal{"terminal", "actionTerminal"};
+constexpr ActionName kToggleRealtime{"actionToggleRealtime"};
+constexpr ActionName kLogToFile{"actionLogToFile"};
+constexpr ActionName kConnectToEcu{"actionConnectToEcu"};
+constexpr ActionName kDisconnectFromEcu{"actionDisconnectFromEcu"};
+constexpr ActionName kReadRomFromEcu{"actionReadRomFromEcu"};
+constexpr ActionName kTestWriteRomToEcu{"actionTestWriteRomToEcu"};
+constexpr ActionName kWriteRomToEcu{"actionWriteRomToEcu"};
+constexpr ActionName kDtcWindow{"actionDtcWindow"};
+constexpr ActionName kBiuCommunication{"actionBiuCommunication"};
+constexpr ActionName kTerminal{"actionTerminal"};
 
 QAction *menuAction(MainWindow& window, const ActionName& name)
 {
-    return window.findChild<QAction *>(QString::fromLatin1(name.legacy_id));
+    return window.findChild<QAction *>(QString::fromLatin1(name.member));
 }
 
 bool triggerMenu(MainWindow& window, const ActionName& name)
 {
-    return QMetaObject::invokeMethod(&window, "menu_action_triggered", Qt::DirectConnection,
-                                     Q_ARG(QString, QString::fromLatin1(name.legacy_id)));
+    QAction *action = menuAction(window, name);
+    if (action == nullptr)
+    {
+        return false;
+    }
+    action->trigger();
+    return true;
 }
 
 // The services DesktopComposition builds in the real app. The channels are
@@ -548,6 +559,11 @@ class MainWindowTest : public ::testing::Test
     void check_connectStopsAnActiveLoggingWorkerBeforeIdentification();
     void check_connectionEntryPointsStopIdentification(QString entry_point);
     void check_nestedConnectDuringCapabilityNoticeKeepsEachContinuation();
+    void check_menuMatchesTheGolden();
+    void check_everyIconNamedByTheMenuResolves();
+    void check_noTwoActionsShareAShortcutAndNoneLostItsBinding();
+    void check_toolbarKeepsMenuActionsBeforeTheTransportWidgets();
+    void check_aStaleOrMalformedMenuCfgIsIgnored();
 };
 
 void MainWindowTest::SetUpTestSuite()
@@ -2123,8 +2139,11 @@ void MainWindowTest::check_loggingCapturesTargetForEachRun()
     {
         window.ecu_radio_button->setAutoExclusive(false);
         window.ecu_radio_button->setChecked(target);
-        action->setChecked(true);
+        // trigger() toggles a checkable action, as a click does: start
+        // unchecked so the handler sees Logging switched on.
+        action->setChecked(false);
         ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
+        ASSERT_TRUE(action->isChecked());
         ASSERT_TRUE(window.activeLoggingSnapshot.has_value());
         ASSERT_EQ(window.activeLoggingSnapshot->target_is_ecu, target);
         services.logging_engine.stop();
@@ -3350,8 +3369,11 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu
             return protocol;
         });
 
-    action->setChecked(true);
+    // trigger() toggles a checkable action, as a click does: start unchecked
+    // so the handler sees Logging switched on.
+    action->setChecked(false);
     ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
+    ASSERT_TRUE(action->isChecked());
     ASSERT_TRUE(!window.activeLoggingSnapshot.has_value()); // still identifying
     (target_is_ecu ? window.tcu_radio_button : window.ecu_radio_button)->click();
     response_gate.release();
@@ -3616,6 +3638,147 @@ void MainWindowTest::check_nestedConnectDuringCapabilityNoticeKeepsEachContinuat
 TEST_F(MainWindowTest, nestedConnectDuringCapabilityNoticeKeepsEachContinuation)
 {
     ASSERT_NO_FATAL_FAILURE(check_nestedConnectDuringCapabilityNoticeKeepsEachContinuation());
+}
+
+void MainWindowTest::check_menuMatchesTheGolden()
+{
+    ModalDriver constructor_driver{QString()};
+    constructor_driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    constructor_driver.stop();
+
+    const std::string actual = fastecu::ui::testing::menu_snapshot(*window.ui->menubar, *window.ui->toolBar);
+    std::ifstream file(std::getenv("MAIN_MENU_GOLDEN_PATH"), std::ios::binary);
+    ASSERT_TRUE(file.is_open());
+    const std::string expected((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    EXPECT_EQ(actual, expected) << "actual snapshot:\n" << actual;
+}
+
+TEST_F(MainWindowTest, menuMatchesTheGolden)
+{
+    ASSERT_NO_FATAL_FAILURE(check_menuMatchesTheGolden());
+}
+
+void MainWindowTest::check_everyIconNamedByTheMenuResolves()
+{
+    ModalDriver constructor_driver{QString()};
+    constructor_driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    constructor_driver.stop();
+
+    int without_icon = 0;
+    for (const QAction *action : window.findChildren<QAction *>())
+    {
+        if (!action->objectName().startsWith(QStringLiteral("action")))
+        {
+            continue;
+        }
+        without_icon += action->icon().isNull() ? 1 : 0;
+    }
+    // Set value, Interpolate bidirectional, Log views, Hex Editor, Terminal,
+    // BIU communication, Get Encryption Key and WinOLS CSV have no icon by
+    // design; any other null icon is a mistyped path.
+    EXPECT_EQ(without_icon, 8);
+}
+
+TEST_F(MainWindowTest, everyIconNamedByTheMenuResolves)
+{
+    ASSERT_NO_FATAL_FAILURE(check_everyIconNamedByTheMenuResolves());
+}
+
+void MainWindowTest::check_noTwoActionsShareAShortcutAndNoneLostItsBinding()
+{
+    ModalDriver constructor_driver{QString()};
+    constructor_driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    constructor_driver.stop();
+
+    QSet<QString> seen;
+    for (const QAction *action : window.findChildren<QAction *>())
+    {
+        for (const QKeySequence& sequence : action->shortcuts())
+        {
+            const QString text = sequence.toString(QKeySequence::PortableText);
+            EXPECT_FALSE(seen.contains(text)) << qPrintable(text) << " bound twice";
+            seen.insert(text);
+        }
+    }
+    for (const ActionName *name : {&kLogToFile, &kConnectToEcu, &kDisconnectFromEcu, &kToggleRealtime})
+    {
+        EXPECT_FALSE(menuAction(window, *name)->shortcuts().isEmpty()) << name->member;
+    }
+    // Open, Save, Save As, Copy, Paste and Quit had shortcuts in menu.cfg. Qt
+    // has no standard key for Save As or Quit on Windows, so each must still
+    // be bound there through its fallback.
+    for (const char *member : {"actionOpenCalibration", "actionSaveCalibration", "actionSaveCalibrationAs",
+                               "actionCopy", "actionPaste", "actionQuit"})
+    {
+        const auto *action = window.findChild<QAction *>(QString::fromLatin1(member));
+        ASSERT_NE(action, nullptr) << member;
+        EXPECT_FALSE(action->shortcut().isEmpty()) << member;
+    }
+}
+
+TEST_F(MainWindowTest, noTwoActionsShareAShortcutAndNoneLostItsBinding)
+{
+    ASSERT_NO_FATAL_FAILURE(check_noTwoActionsShareAShortcutAndNoneLostItsBinding());
+}
+
+void MainWindowTest::check_toolbarKeepsMenuActionsBeforeTheTransportWidgets()
+{
+    ModalDriver constructor_driver{QString()};
+    constructor_driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    constructor_driver.stop();
+
+    const QList<QAction *> actions = window.ui->toolBar->actions();
+    // Open, Save, |, Logging, Log to file, Read, Test write, Write, |, then widgets.
+    ASSERT_GE(actions.size(), 10);
+    EXPECT_TRUE(actions[2]->isSeparator());
+    EXPECT_TRUE(actions[8]->isSeparator());
+    // widgetForAction cannot tell these apart (every action has a tool button,
+    // separators have a separator widget); only a QWidgetAction hosts a widget
+    // that MainWindow added in code.
+    for (int i = 0; i < 9; ++i)
+    {
+        EXPECT_EQ(qobject_cast<QWidgetAction *>(actions[i]), nullptr) << i;
+    }
+    EXPECT_NE(qobject_cast<QWidgetAction *>(actions[9]), nullptr);
+}
+
+TEST_F(MainWindowTest, toolbarKeepsMenuActionsBeforeTheTransportWidgets)
+{
+    ASSERT_NO_FATAL_FAILURE(check_toolbarKeepsMenuActionsBeforeTheTransportWidgets());
+}
+
+void MainWindowTest::check_aStaleOrMalformedMenuCfgIsIgnored()
+{
+    const QString menu_cfg =
+        config_root_->path() + "/" + QString::fromStdString(kTestApplication.version) + "/config/menu.cfg";
+    ASSERT_TRUE(writeTextFile(menu_cfg, "<<< not xml >>>"));
+
+    ModalDriver constructor_driver{QString()};
+    constructor_driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    constructor_driver.stop();
+
+    EXPECT_NE(window.ui->actionToggleRealtime, nullptr);
+    EXPECT_EQ(window.ui->menubar->findChildren<QMenu *>().size(), 7);
+}
+
+TEST_F(MainWindowTest, aStaleOrMalformedMenuCfgIsIgnored)
+{
+    ASSERT_NO_FATAL_FAILURE(check_aStaleOrMalformedMenuCfgIsIgnored());
 }
 
 namespace

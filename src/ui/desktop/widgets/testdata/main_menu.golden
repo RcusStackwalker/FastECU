@@ -1,0 +1,55 @@
+[File]
+  Open calibration | keys=Ctrl+O | checkable=0 | icon=1 | tip=Open calibration file.
+  Save calibration | keys=Ctrl+S | checkable=0 | icon=1 | tip=Save calibration to file.
+  Save calibration as | keys=Ctrl+Shift+S | checkable=0 | icon=1 | tip=Save as calibration to file.
+  ---
+  Close calibration | keys= | checkable=0 | icon=1 | tip=Close active calibration file.
+  ---
+  Quit | keys=Ctrl+Q | checkable=0 | icon=1 | tip=Quit program.
+[Edit]
+  Copy | keys=Ctrl+C | checkable=0 | icon=1 | tip=Copy selected cell(s).
+  Paste | keys=Ctrl+V | checkable=0 | icon=1 | tip=Paste selected cell(s).
+  ---
+  Settings | keys= | checkable=0 | icon=1 | tip=Application settings.
+[Tune]
+  Inc coarse value | keys=+ | checkable=0 | icon=1 | tip=Inc coarse value
+  Dec coarse value | keys=- | checkable=0 | icon=1 | tip=Dec coarse value
+  Inc fine value | keys=Ctrl++ | checkable=0 | icon=1 | tip=Inc fine value
+  Dec fine value | keys=Ctrl+- | checkable=0 | icon=1 | tip=Dec fine value
+  Set value | keys=S | checkable=0 | icon=0 | tip=Set value
+  ---
+  Interpolate horizontal | keys=Ctrl+H | checkable=0 | icon=1 | tip=Interpolate horizontal
+  Interpolate vertical | keys=Ctrl+J | checkable=0 | icon=1 | tip=Interpolate vertical
+  Interpolate bidirectional | keys=Ctrl+I | checkable=0 | icon=0 | tip=Interpolate bidirectional
+[Ecu]
+  Connect | keys=F3 | checkable=0 | icon=1 | tip=Connect
+  Disconnect | keys=F4 | checkable=0 | icon=1 | tip=Disconnect
+  ---
+  Logging | keys=Space | checkable=1 | icon=1 | tip=Logging
+  Log to file | keys=Ctrl+L | checkable=1 | icon=1 | tip=Log to file
+  ---
+  Read from ecu | keys= | checkable=0 | icon=1 | tip=Read ROM from ECU
+  ---
+  Test write to ecu | keys= | checkable=0 | icon=1 | tip=Test write ROM to ECU
+  Write to ecu | keys= | checkable=0 | icon=1 | tip=Write ROM to ECU
+[View]
+  Log views | keys= | checkable=0 | icon=0 | tip=Set log views
+[Testing]
+  Diagnostic Trouble Codes | keys= | checkable=0 | icon=1 | tip=Diagnostic Trouble Codes
+  Hex Editor | keys= | checkable=0 | icon=0 | tip=Hex Editor
+  Terminal | keys= | checkable=0 | icon=0 | tip=Terminal
+  BIU communication | keys= | checkable=0 | icon=0 | tip=BIU communication
+  Get Encryption Key | keys= | checkable=0 | icon=0 | tip=Get Encryption Key
+  WinOLS CSV to RomRaider XML | keys= | checkable=0 | icon=0 | tip=WinOLS CSV to RomRaider XML
+[Help]
+  About | keys= | checkable=0 | icon=1 | tip=About
+[toolbar]
+  Open calibration | keys=Ctrl+O | checkable=0 | icon=1 | tip=Open calibration file.
+  Save calibration | keys=Ctrl+S | checkable=0 | icon=1 | tip=Save calibration to file.
+  ---
+  Logging | keys=Space | checkable=1 | icon=1 | tip=Logging
+  Log to file | keys=Ctrl+L | checkable=1 | icon=1 | tip=Log to file
+  Read from ecu | keys= | checkable=0 | icon=1 | tip=Read ROM from ECU
+  Test write to ecu | keys= | checkable=0 | icon=1 | tip=Test write ROM to ECU
+  Write to ecu | keys= | checkable=0 | icon=1 | tip=Write ROM to ECU
+  ---

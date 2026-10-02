@@ -74,10 +74,8 @@ qt_cc_library(
     ],
     implementation_deps = [
         "//src/algorithms/crypto:subaru_key_recovery",
-        "//src/algorithms/menu",
         "//src/backend/calibration/session:rom_save",
         "//src/backend/checksum:checksum_selection",
-        "//src/backend/config:menu_definition",
         "//src/backend/diagnostics:ssm_identify",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_operation_request",
@@ -98,7 +96,6 @@ qt_cc_library(
         "//src/ui/desktop/calibration:map_edit_adapter",
         "//src/ui/desktop/calibration:rom_info",
         "//src/ui/desktop/flash/operation:flash_operation_controller",
-        "//src/ui/desktop/menu:menu_builder",
     ],
     linkopts = select({
         "@platforms//os:windows": [
@@ -150,7 +147,11 @@ fastecu_gtest(
     size = "medium",
     srcs = ["mainwindow_test.cpp"],
     copts = ["-DQT_WIDGETS_LIB"],
-    env = {"QT_QPA_PLATFORM": "offscreen"},
+    data = ["testdata/main_menu.golden"],
+    env = {
+        "MAIN_MENU_GOLDEN_PATH": "$(location testdata/main_menu.golden)",
+        "QT_QPA_PLATFORM": "offscreen",
+    },
     # Static linking keeps MainWindow symbols available on Windows.
     linkstatic = True,
     deps = [
@@ -182,6 +183,7 @@ fastecu_gtest(
         "//src/ui/desktop/channels:log_channel",
         "//src/ui/desktop/channels:remote_peer",
         "//src/ui/desktop/hexedit",
+        "//src/ui/desktop/menu/testing:menu_snapshot",
         "@googletest//:gtest",
     ],
 )
