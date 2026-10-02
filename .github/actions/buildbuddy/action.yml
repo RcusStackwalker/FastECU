@@ -1,0 +1,24 @@
+name: BuildBuddy
+description: Point Bazel at the BuildBuddy remote cache and build-event service.
+inputs:
+  api-key:
+    description: BuildBuddy API key with read+write access.
+    required: true
+runs:
+  using: composite
+  steps:
+    # .bazelrc try-imports .bazelrc.user, so the key never lands in a tracked file.
+    - name: Write .bazelrc.user
+      shell: bash
+      env:
+        BUILDBUDDY_API_KEY: ${{ inputs.api-key }}
+      run: |
+        if [ -z "$BUILDBUDDY_API_KEY" ]; then
+          echo "::error::BUILDBUDDY_API_KEY is empty; same-repo PRs must have the secret."
+          exit 1
+        fi
+        echo "::add-mask::$BUILDBUDDY_API_KEY"
+        {
+          echo "common --config=buildbuddy"
+          echo "common --remote_header=x-buildbuddy-api-key=$BUILDBUDDY_API_KEY"
+        } > .bazelrc.user

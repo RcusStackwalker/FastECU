@@ -96,3 +96,6 @@ __pycache__/
 # Editor swap files
 *.sw[a-p]
 .superpowers/
+
+# Local/CI Bazel overrides (CI writes the BuildBuddy key here)
+.bazelrc.user
