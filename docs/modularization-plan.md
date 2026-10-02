@@ -49,9 +49,13 @@ platform internals.
 
 ### Remaining structural debt
 
-- `MainWindow` retains presentation coordination for write preflight, checksum
-  interaction, logging selection, connection orchestration and log-file handling;
-  single-consumer presentation flows need not become portable ports.
+- `MainWindow` retains presentation coordination for logging selection,
+  connection orchestration and log-file handling; single-consumer presentation
+  flows need not become portable ports. Write preflight, checksum interaction
+  and Save/Save As sequencing moved to the UI-owned
+  `CalibrationOperationCoordinator`, which has a Qt-free closure and stays in
+  the UI layer; `MainWindow` supplies its selected session and keeps the
+  hardware lifecycle around flash dispatch.
 - Android build configuration exists only for the cross-compilation spike
   (`--config=android`, `scripts/android-cross-compile.sh`, CI job
   `android-cross-compile`); its API level and a hermetic NDK pin are still

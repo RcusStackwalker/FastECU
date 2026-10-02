@@ -11,3 +11,6 @@
 *.hxx text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
+
+# Golden snapshots are compared byte-for-byte; keep LF on Windows checkouts.
+*.golden text eol=lf

@@ -41,9 +41,12 @@
 #include <cstring>
 #include <cstdio>
 #include <fstream>
-#include <memory>
+#include <functional>
 #include <initializer_list>
 #include <iterator>
+#include <memory>
+#include <optional>
+#include <tuple>
 #include <utility>
 
 #include "src/ui/desktop/widgets/mainwindow.h"
@@ -69,6 +72,10 @@
 #include "src/ui/desktop/calibration/rom_info.h"
 #include "src/ui/desktop/widgets/calibration_maps.h"
 #include "src/backend/calibration/session/rom_save.h"
+#include "src/backend/checksum/checksum_selection.h"
+#include "src/backend/checksum/dispatch.h"
+#include "src/backend/ports/testing/result_matchers.h"
+#include "src/ui/desktop/calibration/calibration_operation_coordinator.h"
 #include "src/ui/desktop/hexedit/hexedit.h"
 #include "src/ui/desktop/menu/testing/menu_snapshot.h"
 
@@ -81,6 +88,7 @@ constexpr auto kTcuChooserText = "Choose which option";
 constexpr auto kTcuIgnitionText = "Turn ignition ON and press OK to start initializing connection to TCU";
 constexpr auto kLegacyEcuIgnitionText = "Turn ignition ON and press OK to start initializing connection to ECU";
 constexpr auto kNoChecksumModuleText = "WARNING! There is no checksum module for this ROM!";
+constexpr auto kNoFileSelectedText = "No file selected!";
 constexpr auto kPortableEcuIgnitionText = "Turn ignition ON and press OK to start initializing the ECU connection.";
 constexpr auto kContinueWithoutDefinitionText = "Continue without definition file";
 
@@ -128,6 +136,10 @@ class ModalDriver final : public QObject
     int checksumWarningCount() const
     {
         return checksum_warning_count_;
+    }
+    int noFileSelectedCount() const
+    {
+        return no_file_selected_count_;
     }
     int missingDefinitionPromptCount() const
     {
@@ -197,6 +209,10 @@ class ModalDriver final : public QObject
                     message_box->done(QMessageBox::Cancel);
                     return;
                 }
+                if (message_box->text() == kNoFileSelectedText)
+                {
+                    ++no_file_selected_count_;
+                }
 
                 accepted_texts_ << message_box->text();
                 message_box->accept();
@@ -249,6 +265,7 @@ class ModalDriver final : public QObject
     int legacy_ecu_ignition_count_ = 0;
     int portable_ecu_ignition_count_ = 0;
     int checksum_warning_count_ = 0;
+    int no_file_selected_count_ = 0;
     int missing_definition_prompt_count_ = 0;
     bool timed_out_ = false;
     QStringList accepted_texts_;
@@ -334,6 +351,20 @@ bool triggerMenu(MainWindow& window, const ActionName& name)
     return true;
 }
 
+// A recorded LOG_* line as UTF-8 text with its timestamp and linefeed flags,
+// so a failed comparison prints readable text.
+using LogLine = std::tuple<std::string, bool, bool>;
+
+template <typename Recorder> std::vector<LogLine> logLines(const Recorder& recorder)
+{
+    std::vector<LogLine> lines;
+    for (const auto& [message, timestamp, linefeed] : recorder.snapshot())
+    {
+        lines.emplace_back(message.toStdString(), timestamp, linefeed);
+    }
+    return lines;
+}
+
 // The services DesktopComposition builds in the real app. The channels are
 // left unwired: tests spy on them.
 struct TestServices
@@ -409,10 +440,9 @@ class MainWindowTest : public ::testing::Test
     // no-checksum-module warning must also stop battery polling.
 
     // The write path's metadata refresh decides the kernel and MCU handed to
-    // a real ECU, so it is tested directly: an empty definition flash method
-    // is filled from the selected vehicle (and the vehicle re-selected by
-    // it); a definition-less ROM (" ") is not; kernel and MCU always come
-    // from the vehicle selected afterwards.
+    // a real ECU. CalibrationOperationCoordinator's own suite pins its rules;
+    // the window keeps one case for the owned coordinator and its status
+    // label.
 
     // Synthetic fixtures reproduced legacy label/ID lookups in 6l-1.
     // These assertions pin the corrected identities and empty CSV cells.
@@ -482,6 +512,92 @@ class MainWindowTest : public ::testing::Test
         window.loggerValues.initialize(*window.loggerModel);
     }
 
+    // Runs Save As on the window's selection and drives its file picker once:
+    // `on_picker` runs while the picker is open, then the picker is cancelled
+    // or accepts `target`. With `fail`, `target` becomes a directory as the
+    // picker accepts, so the write fails. Informational notices are closed.
+    // False when the picker never opened or timed out.
+    static bool driveSaveAs(MainWindow& window, const QString& target, bool cancel, bool fail,
+                            const std::function<void()>& on_picker = {})
+    {
+        QTimer timer;
+        timer.setInterval(5);
+        bool handled = false;
+        bool timed_out = false;
+        QElapsedTimer deadline;
+        deadline.start();
+        QObject::connect(
+            &timer, &QTimer::timeout, &window,
+            [&]
+            {
+                for (auto *widget : QApplication::topLevelWidgets())
+                {
+                    auto *dialog = qobject_cast<QFileDialog *>(widget);
+                    if (dialog == nullptr || !dialog->isVisible())
+                    {
+                        continue;
+                    }
+                    if (deadline.elapsed() > 3000)
+                    {
+                        timed_out = true;
+                        dialog->reject();
+                        return;
+                    }
+                    if (handled)
+                    {
+                        continue;
+                    }
+                    handled = true;
+                    if (on_picker)
+                    {
+                        on_picker();
+                    }
+                    if (cancel)
+                    {
+                        dialog->reject();
+                        return;
+                    }
+                    dialog->setDirectory(QFileInfo(target).absolutePath());
+                    dialog->selectFile(QFileInfo(target).fileName());
+                    if (auto *edit = dialog->findChild<QLineEdit *>("fileNameEdit"); edit != nullptr)
+                    {
+                        edit->setText(QFileInfo(target).fileName());
+                    }
+                    if (fail)
+                    {
+                        QObject::connect(dialog, &QDialog::accepted, &window, [target] { QDir().mkdir(target); });
+                    }
+                    QMetaObject::invokeMethod(dialog, "accept", Qt::QueuedConnection);
+                }
+                // Close the existing cancellation/failure informational notice.
+                for (auto *widget : QApplication::topLevelWidgets())
+                {
+                    if (auto *box = qobject_cast<QMessageBox *>(widget); box != nullptr && box->isVisible())
+                    {
+                        box->accept();
+                    }
+                }
+            });
+        timer.start();
+        window.save_calibration_file_as();
+        timer.stop();
+        if (timed_out)
+        {
+            qWarning() << "Save As dialog timed out for" << target;
+        }
+        return handled && !timed_out;
+    }
+
+    // Selects only the files-tree row at `index`, as a click would.
+    static void selectFilesRow(MainWindow& window, int index)
+    {
+        QTreeWidget *files = window.ui->calibrationFilesTreeWidget;
+        for (int i = 0; i < files->topLevelItemCount(); ++i)
+        {
+            files->topLevelItem(i)->setSelected(i == index);
+        }
+    }
+
     static QAction *prepareLogging(MainWindow& window, const QString& log_protocol)
     {
         window.vbatt_timer->stop();
@@ -518,20 +634,21 @@ class MainWindowTest : public ::testing::Test
                                                                                    int expected_ignition_count);
     void check_futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuIo(QString protocol);
     void check_representativePortableRoutesReachFactoryBeforeLegacyFallback(QString protocol);
-    void check_writeWithoutASelectedCalibrationStopsVoltagePolling();
+    void check_writeWithoutASelectedCalibrationStopsVoltagePolling(QString command);
     void check_otherMakesSkipDispatchButStillRunCleanup();
     void check_readOfAnUnsupportedProtocolAddsNoCalibration();
-    void check_cancellingTheChecksumWarningStopsVoltagePolling();
+    void check_cancellingTheChecksumWarningStopsVoltagePolling(QString command);
     void check_definitionlessOpenPromptsOnceAndAppliesPlaceholders();
     void check_closingAMiddleRomKeepsLaterRomsAddressable();
     void check_windowsOfAClosedRomAreInert();
     void check_hexEditorOutlivesItsRom();
     void check_closingARomClosesAllOfItsWindows();
     void check_viewStateIsKeptPerRom();
-    void check_writeMetadataFillsAnEmptyDefinitionFlashMethod();
-    void check_writeMetadataLeavesADefinitionlessFlashMethodAlone();
+    void check_writePreparationRefreshesMetadataAndStatusLabel();
     void check_checksumAndSaveUseATemporaryImage();
+    void check_calibrationLogsReachTheLogChannel();
     void check_saveAsChangesSourceAndTreeOnlyAfterSuccess();
+    void check_saveAsUpdatesOriginalSessionAfterSelectionChanges();
     void check_selectableSignalEditsItsEmittingSession();
     void check_failedMapDecodeDoesNotOccupyAView();
     void check_windowPreservesInjectedLoggingFactory();
@@ -1319,7 +1436,30 @@ TEST_P(representativePortableRoutesReachFactoryBeforeLegacyFallbackParameters,
     ASSERT_NO_FATAL_FAILURE(check_representativePortableRoutesReachFactoryBeforeLegacyFallback(GetParam().protocol));
 }
 
-void MainWindowTest::check_writeWithoutASelectedCalibrationStopsVoltagePolling()
+// Write and Test Write share one preflight, so each of its early returns is
+// pinned for both commands.
+struct writeCommandCase
+{
+    std::string name;
+    QString command;
+};
+std::vector<writeCommandCase> writeCommandRows()
+{
+    return {writeCommandCase{"write", "write"}, writeCommandCase{"test_write", "test_write"}};
+}
+std::string writeCommandName(const ::testing::TestParamInfo<writeCommandCase>& info)
+{
+    return info.param.name;
+}
+
+class writeWithoutASelectedCalibrationStopsVoltagePollingParameters
+    : public MainWindowTest,
+      public ::testing::WithParamInterface<writeCommandCase>
+{
+};
+INSTANTIATE_TEST_SUITE_P(Rows, writeWithoutASelectedCalibrationStopsVoltagePollingParameters,
+                         ::testing::ValuesIn(writeCommandRows()), writeCommandName);
+void MainWindowTest::check_writeWithoutASelectedCalibrationStopsVoltagePolling(QString command)
 {
     ModalDriver constructor_driver{QString()};
     constructor_driver.start();
@@ -1341,16 +1481,18 @@ void MainWindowTest::check_writeWithoutASelectedCalibrationStopsVoltagePolling()
 
     ModalDriver operation_driver{QString()};
     operation_driver.start();
-    ASSERT_EQ(startEcuOperations(window, "write"), 0);
+    ASSERT_EQ(startEcuOperations(window, command), 0);
     operation_driver.stop();
 
     ASSERT_TRUE(!operation_driver.timedOut());
+    ASSERT_EQ(operation_driver.noFileSelectedCount(), 1);
     ASSERT_TRUE(!window.vbatt_timer->isActive());
 }
 
-TEST_F(MainWindowTest, writeWithoutASelectedCalibrationStopsVoltagePolling)
+TEST_P(writeWithoutASelectedCalibrationStopsVoltagePollingParameters,
+       writeWithoutASelectedCalibrationStopsVoltagePolling)
 {
-    ASSERT_NO_FATAL_FAILURE(check_writeWithoutASelectedCalibrationStopsVoltagePolling());
+    ASSERT_NO_FATAL_FAILURE(check_writeWithoutASelectedCalibrationStopsVoltagePolling(GetParam().command));
 }
 
 void MainWindowTest::check_otherMakesSkipDispatchButStillRunCleanup()
@@ -1420,7 +1562,13 @@ TEST_F(MainWindowTest, readOfAnUnsupportedProtocolAddsNoCalibration)
     ASSERT_NO_FATAL_FAILURE(check_readOfAnUnsupportedProtocolAddsNoCalibration());
 }
 
-void MainWindowTest::check_cancellingTheChecksumWarningStopsVoltagePolling()
+class cancellingTheChecksumWarningStopsVoltagePollingParameters : public MainWindowTest,
+                                                                  public ::testing::WithParamInterface<writeCommandCase>
+{
+};
+INSTANTIATE_TEST_SUITE_P(Rows, cancellingTheChecksumWarningStopsVoltagePollingParameters,
+                         ::testing::ValuesIn(writeCommandRows()), writeCommandName);
+void MainWindowTest::check_cancellingTheChecksumWarningStopsVoltagePolling(QString command)
 {
     ModalDriver constructor_driver{QString()};
     constructor_driver.start();
@@ -1450,7 +1598,7 @@ void MainWindowTest::check_cancellingTheChecksumWarningStopsVoltagePolling()
 
     ModalDriver operation_driver{QString()};
     operation_driver.start();
-    ASSERT_EQ(startEcuOperations(window, "write"), 0);
+    ASSERT_EQ(startEcuOperations(window, command), 0);
     operation_driver.stop();
 
     ASSERT_TRUE(!operation_driver.timedOut());
@@ -1460,9 +1608,9 @@ void MainWindowTest::check_cancellingTheChecksumWarningStopsVoltagePolling()
     ASSERT_TRUE(!window.vbatt_timer->isActive());
 }
 
-TEST_F(MainWindowTest, cancellingTheChecksumWarningStopsVoltagePolling)
+TEST_P(cancellingTheChecksumWarningStopsVoltagePollingParameters, cancellingTheChecksumWarningStopsVoltagePolling)
 {
-    ASSERT_NO_FATAL_FAILURE(check_cancellingTheChecksumWarningStopsVoltagePolling());
+    ASSERT_NO_FATAL_FAILURE(check_cancellingTheChecksumWarningStopsVoltagePolling(GetParam().command));
 }
 
 void MainWindowTest::check_definitionlessOpenPromptsOnceAndAppliesPlaceholders()
@@ -1692,16 +1840,17 @@ TEST_F(MainWindowTest, viewStateIsKeptPerRom)
     ASSERT_NO_FATAL_FAILURE(check_viewStateIsKeptPerRom());
 }
 
-void MainWindowTest::check_writeMetadataFillsAnEmptyDefinitionFlashMethod()
+void MainWindowTest::check_writePreparationRefreshesMetadataAndStatusLabel()
 {
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
+    ModalDriver driver{QString()};
+    driver.start();
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     MainWindow window{services.services()};
-    constructor_driver.stop();
-    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na"));
-    const std::string selected = services.config.selected_vehicle()->protocol_name;
+    // The Subaru K-Line row's protocol is also used by a later Nissan row,
+    // which the empty-method fill reselects.
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058"));
+    window.status_bar_ecu_label->setText("stale");
     fastecu::calibration::CalibrationSession session(
         fastecu::calibration::SessionId{41},
         fastecu::calibration::SessionContents{
@@ -1714,52 +1863,29 @@ void MainWindowTest::check_writeMetadataFillsAnEmptyDefinitionFlashMethod()
     ASSERT_EQ(fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::FlashMethod),
               QString(""));
 
-    window.refresh_write_metadata(session, "/kernels/");
+    // The 16-byte image draws the checksum command's bad-size notice, which
+    // the driver accepts.
+    const std::optional<fastecu::ui::PreparedWrite> prepared =
+        window.calibration_operations_->prepare_write(&session, "/kernels/");
+    driver.stop();
 
-    const auto& vehicle = *services.config.selected_vehicle();
-    ASSERT_EQ(session.protocol().flash_method, selected);
-    ASSERT_EQ(vehicle.protocol_name, selected);
-    ASSERT_EQ(session.protocol().mcu_type,
-              fastecu::config::protocol_field_or_placeholder(vehicle, &fastecu::config::ProtocolEntry::mcu));
-    ASSERT_EQ(session.protocol().kernel_path,
-              fastecu::flash::kernel_path("/kernels/", fastecu::config::protocol_field_or_placeholder(
-                                                           vehicle, &fastecu::config::ProtocolEntry::kernel)));
-    ASSERT_EQ(fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::FlashMethod),
-              QString::fromStdString(selected));
+    ASSERT_TRUE(!driver.timedOut());
+    ASSERT_TRUE(prepared.has_value());
+    EXPECT_EQ(window.status_bar_ecu_label->text().toStdString(), std::string{"Denso SH7058 K-Line "});
+    EXPECT_EQ(services.config.selected_vehicle()->make, std::string{"Nissan"});
+    EXPECT_EQ(session.protocol().flash_method, std::string{"sub_ecu_denso_sh7058"});
+    EXPECT_EQ(fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::FlashMethod)
+                  .toStdString(),
+              std::string{"sub_ecu_denso_sh7058"});
+    EXPECT_EQ(session.protocol().mcu_type, std::string{"SH7058"});
+    EXPECT_EQ(prepared->kernel_path, std::string{"/kernels/test-kernel.bin"});
+    EXPECT_EQ(prepared->display_filename, std::string{"d.bin"});
+    EXPECT_THAT(prepared->image, ::testing::ElementsAreArray(session.rom()));
 }
 
-TEST_F(MainWindowTest, writeMetadataFillsAnEmptyDefinitionFlashMethod)
+TEST_F(MainWindowTest, writePreparationRefreshesMetadataAndStatusLabel)
 {
-    ASSERT_NO_FATAL_FAILURE(check_writeMetadataFillsAnEmptyDefinitionFlashMethod());
-}
-
-void MainWindowTest::check_writeMetadataLeavesADefinitionlessFlashMethodAlone()
-{
-    ModalDriver constructor_driver{QString()};
-    constructor_driver.start();
-    TestServices services{config_root_->path()};
-    ASSERT_TRUE(services.config_status.has_value());
-    MainWindow window{services.services()};
-    constructor_driver.stop();
-    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can_checksum_na"));
-    fastecu::calibration::CalibrationSession session(
-        fastecu::calibration::SessionId{42},
-        fastecu::calibration::SessionContents{.source = {.display_name = "n.bin", .path = "/n.bin"},
-                                              .rom = std::vector<std::uint8_t>(16, 0)});
-
-    window.refresh_write_metadata(session, "/kernels/");
-
-    const auto& vehicle = *services.config.selected_vehicle();
-    ASSERT_EQ(session.protocol().flash_method, std::string{});
-    ASSERT_EQ(fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::FlashMethod),
-              QString(" "));
-    ASSERT_EQ(session.protocol().mcu_type,
-              fastecu::config::protocol_field_or_placeholder(vehicle, &fastecu::config::ProtocolEntry::mcu));
-}
-
-TEST_F(MainWindowTest, writeMetadataLeavesADefinitionlessFlashMethodAlone)
-{
-    ASSERT_NO_FATAL_FAILURE(check_writeMetadataLeavesADefinitionlessFlashMethodAlone());
+    ASSERT_NO_FATAL_FAILURE(check_writePreparationRefreshesMetadataAndStatusLabel());
 }
 
 void MainWindowTest::check_checksumAndSaveUseATemporaryImage()
@@ -1794,17 +1920,27 @@ void MainWindowTest::check_checksumAndSaveUseATemporaryImage()
     ASSERT_TRUE(session->definition() != nullptr);
     ASSERT_TRUE(session->write_bytes(0, bytes::Bytes{1}).has_value());
     const bytes::Bytes original(session->rom().begin(), session->rom().end());
-    bytes::Bytes operation_image = original;
-
-    window.runChecksumCorrection(*session, operation_image);
-
-    ASSERT_TRUE(operation_image != original);
-    ASSERT_TRUE(std::ranges::equal(session->rom(), original));
+    // The expected bytes come from the backend dispatcher, independently of
+    // the coordinator's selection plumbing.
+    const fastecu::config::ResolvedCarModel& vehicle = *services.config.selected_vehicle();
+    const fastecu::checksum::ChecksumCorrectionOutcome correction = fastecu::checksum::apply_checksum_correction(
+        original, {
+                      .make = vehicle.make,
+                      .checksum_flag = fastecu::config::protocol_field_or_placeholder(
+                          vehicle, &fastecu::config::ProtocolEntry::checksum),
+                      .flash_method = vehicle.protocol_name,
+                      .mcu_type = session->protocol().mcu_type,
+                      .rom_id = session->protocol().rom_id,
+                  });
+    ASSERT_EQ(correction.status, fastecu::checksum::ChecksumCorrectionOutcome::Status::FamilyRan);
+    ASSERT_TRUE(correction.family_result.has_value());
+    ASSERT_TRUE(correction.family_result->ok());
+    const bytes::Bytes corrected = correction.family_result->romData;
+    ASSERT_TRUE(corrected != original);
     ASSERT_TRUE(session->dirty());
+
     window.save_calibration_file();
-    const auto saved = services.file_repository.read(path.toStdString());
-    ASSERT_TRUE(saved.has_value());
-    ASSERT_TRUE(*saved == operation_image);
+    EXPECT_THAT(services.file_repository.read(path.toStdString()), fastecu::testing::IsOkAnd(corrected));
     ASSERT_TRUE(std::ranges::equal(session->rom(), original));
     ASSERT_TRUE(!session->dirty());
     ASSERT_TRUE(session->write_bytes(0, bytes::Bytes{2}).has_value());
@@ -1824,6 +1960,44 @@ void MainWindowTest::check_checksumAndSaveUseATemporaryImage()
 TEST_F(MainWindowTest, checksumAndSaveUseATemporaryImage)
 {
     ASSERT_NO_FATAL_FAILURE(check_checksumAndSaveUseATemporaryImage());
+}
+
+void MainWindowTest::check_calibrationLogsReachTheLogChannel()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    QTemporaryDir files;
+    // A non-ASCII name shows the window decodes the coordinator's UTF-8.
+    const QString path = writeRom(files, QString::fromUtf8("caf\xc3\xa9.bin"), '\x22');
+    ASSERT_TRUE(!path.isEmpty());
+    ASSERT_EQ(window.open_calibration_file(path), 0);
+    driver.stop();
+    ASSERT_TRUE(!driver.timedOut());
+    auto *session = services.calibrations.find(window.calibrations_.front().id);
+    ASSERT_TRUE(session != nullptr);
+    auto protocol = session->protocol();
+    protocol.mcu_type.clear(); // Unknown MCU: an error line and no checksum dialog.
+    session->set_protocol(protocol);
+    ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058"));
+    fastecu::testing::SignalRecorder debug{&services.log_channel, &fastecu::ui::LogChannel::LOG_D};
+    fastecu::testing::SignalRecorder errors{&services.log_channel, &fastecu::ui::LogChannel::LOG_E};
+
+    window.save_calibration_file();
+
+    EXPECT_THAT(logLines(debug),
+                ::testing::ElementsAre(LogLine{"Protocol: sub_ecu_denso_sh7058", true, true},
+                                       LogLine{"Make: Subaru", true, true}, LogLine{"Checksum: yes", true, true},
+                                       LogLine{"ecuCalDef->FileName: caf\xc3\xa9.bin", true, true},
+                                       LogLine{"ecuCalDef->FullFileName: " + session->source().path, true, true}));
+    EXPECT_THAT(logLines(errors), ::testing::ElementsAre(LogLine{"Unknown MCU type: ", true, true}));
+}
+
+TEST_F(MainWindowTest, calibrationLogsReachTheLogChannel)
+{
+    ASSERT_NO_FATAL_FAILURE(check_calibrationLogsReachTheLogChannel());
 }
 
 void MainWindowTest::check_saveAsChangesSourceAndTreeOnlyAfterSuccess()
@@ -1851,82 +2025,16 @@ void MainWindowTest::check_saveAsChangesSourceAndTreeOnlyAfterSuccess()
     const QString original_label = row->text(0);
     driver.stop();
 
-    const auto save_as = [&](const QString& target, bool cancel, bool fail)
-    {
-        QTimer timer;
-        timer.setInterval(5);
-        bool handled = false;
-        bool timed_out = false;
-        QElapsedTimer deadline;
-        deadline.start();
-        QObject::connect(
-            &timer, &QTimer::timeout, &window,
-            [&]
-            {
-                for (auto *widget : QApplication::topLevelWidgets())
-                {
-                    auto *dialog = qobject_cast<QFileDialog *>(widget);
-                    if (dialog == nullptr || !dialog->isVisible())
-                    {
-                        continue;
-                    }
-                    if (deadline.elapsed() > 3000)
-                    {
-                        timed_out = true;
-                        dialog->reject();
-                        return;
-                    }
-                    if (handled)
-                    {
-                        continue;
-                    }
-                    handled = true;
-                    if (cancel)
-                    {
-                        dialog->reject();
-                        return;
-                    }
-                    dialog->setDirectory(QFileInfo(target).absolutePath());
-                    dialog->selectFile(QFileInfo(target).fileName());
-                    if (auto *edit = dialog->findChild<QLineEdit *>("fileNameEdit"); edit != nullptr)
-                    {
-                        edit->setText(QFileInfo(target).fileName());
-                    }
-                    if (fail)
-                    {
-                        QObject::connect(dialog, &QDialog::accepted, &window, [target] { QDir().mkdir(target); });
-                    }
-                    QMetaObject::invokeMethod(dialog, "accept", Qt::QueuedConnection);
-                }
-                // Close the existing cancellation/failure informational notice.
-                for (auto *widget : QApplication::topLevelWidgets())
-                {
-                    if (auto *box = qobject_cast<QMessageBox *>(widget); box != nullptr && box->isVisible())
-                    {
-                        box->accept();
-                    }
-                }
-            });
-        timer.start();
-        window.save_calibration_file_as();
-        timer.stop();
-        if (timed_out)
-        {
-            qWarning() << "Save As dialog timed out for" << target;
-        }
-        return handled && !timed_out;
-    };
-
-    ASSERT_TRUE(save_as({}, true, false));
+    ASSERT_TRUE(driveSaveAs(window, {}, true, false));
     ASSERT_TRUE(session->source() == original_source);
     ASSERT_TRUE(session->dirty());
     ASSERT_EQ(row->text(0), original_label);
     const QString blocked = files.path() + "/blocked.bin";
-    ASSERT_TRUE(save_as(blocked, false, true));
+    ASSERT_TRUE(driveSaveAs(window, blocked, false, true));
     ASSERT_TRUE(session->source() == original_source);
     ASSERT_TRUE(session->dirty());
     ASSERT_EQ(row->text(0), original_label);
-    ASSERT_TRUE(save_as(files.path() + "/renamed.", false, false));
+    ASSERT_TRUE(driveSaveAs(window, files.path() + "/renamed.", false, false));
     ASSERT_EQ(session->source().path, (files.path() + "/renamed.bin").toStdString());
     ASSERT_EQ(session->source().display_name, std::string{"renamed.bin"});
     ASSERT_TRUE(!session->dirty());
@@ -1940,6 +2048,62 @@ void MainWindowTest::check_saveAsChangesSourceAndTreeOnlyAfterSuccess()
 TEST_F(MainWindowTest, saveAsChangesSourceAndTreeOnlyAfterSuccess)
 {
     ASSERT_NO_FATAL_FAILURE(check_saveAsChangesSourceAndTreeOnlyAfterSuccess());
+}
+
+// The picker is modal but the files tree can still change selection under
+// it; the session selected when Save As started receives the save and the
+// row label, never the row selected later.
+void MainWindowTest::check_saveAsUpdatesOriginalSessionAfterSelectionChanges()
+{
+    const bool native_disabled = QApplication::testAttribute(Qt::AA_DontUseNativeDialogs);
+    QApplication::setAttribute(Qt::AA_DontUseNativeDialogs, true);
+    const auto restore_dialogs =
+        qScopeGuard([&] { QApplication::setAttribute(Qt::AA_DontUseNativeDialogs, native_disabled); });
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    QTemporaryDir files;
+    ASSERT_EQ(window.open_calibration_file(writeRom(files, "a.bin", '\x0a')), 0);
+    ASSERT_EQ(window.open_calibration_file(writeRom(files, "b.bin", '\x0b')), 0);
+    driver.stop();
+    ASSERT_EQ(window.calibrations_.size(), std::size_t{2});
+    auto *a = services.calibrations.find(window.calibrations_.at(0).id);
+    auto *b = services.calibrations.find(window.calibrations_.at(1).id);
+    ASSERT_TRUE(a != nullptr);
+    ASSERT_TRUE(b != nullptr);
+    for (auto *session : {a, b})
+    {
+        auto protocol = session->protocol();
+        protocol.mcu_type.clear(); // Unknown MCU preserves bytes without a checksum dialog.
+        session->set_protocol(protocol);
+    }
+    QTreeWidgetItem *a_row = window.files_tree_item(a->id());
+    QTreeWidgetItem *b_row = window.files_tree_item(b->id());
+    ASSERT_TRUE(a_row != nullptr);
+    ASSERT_TRUE(b_row != nullptr);
+    const auto b_source = b->source();
+    const std::string b_label = b_row->text(0).toStdString();
+    ASSERT_NO_FATAL_FAILURE(selectFilesRow(window, 0));
+    ASSERT_EQ(window.selected_calibration(), a);
+
+    const QString target = files.path() + "/renamed.bin";
+    ASSERT_TRUE(driveSaveAs(window, target, false, false, [&] { selectFilesRow(window, 1); }));
+
+    EXPECT_EQ(a->source().path, target.toStdString());
+    EXPECT_EQ(a->source().display_name, std::string{"renamed.bin"});
+    EXPECT_EQ(a_row->text(0).toStdString(), std::string{"renamed.bin"});
+    EXPECT_TRUE(b->source() == b_source);
+    EXPECT_EQ(b_row->text(0).toStdString(), b_label);
+    EXPECT_EQ(window.selected_calibration(), b);
+    EXPECT_THAT(services.file_repository.read(target.toStdString()),
+                fastecu::testing::IsOkAnd(::testing::Each(std::uint8_t{0x0a})));
+}
+
+TEST_F(MainWindowTest, saveAsUpdatesOriginalSessionAfterSelectionChanges)
+{
+    ASSERT_NO_FATAL_FAILURE(check_saveAsUpdatesOriginalSessionAfterSelectionChanges());
 }
 
 void MainWindowTest::check_selectableSignalEditsItsEmittingSession()

@@ -109,3 +109,84 @@ fastecu_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "calibration_interaction",
+    hdrs = ["calibration_interaction.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/checksum:checksum_selection",
+        "//src/ui/desktop/checksum:checksum_correction_result",
+    ],
+)
+
+cc_library(
+    name = "qt_calibration_interaction",
+    srcs = ["qt_calibration_interaction.cpp"],
+    hdrs = ["qt_calibration_interaction.h"],
+    copts = COMMON_COPTS,
+    implementation_deps = [
+        "//bazel/qt:core",
+        "//bazel/qt:widgets",
+    ],
+    deps = [
+        ":calibration_interaction",
+        "//src/ui/desktop/checksum:checksum_correction_command",
+    ],
+)
+
+fastecu_gtest(
+    name = "qt_calibration_interaction_test",
+    srcs = ["qt_calibration_interaction_test.cpp"],
+    env = {"QT_QPA_PLATFORM": "offscreen"},
+    deps = [
+        ":qt_calibration_interaction",
+        "//bazel/qt:core",
+        "//bazel/qt:widgets",
+        "//src/platform/desktop/common/testing:widgets_application_environment",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "calibration_operation_coordinator",
+    srcs = ["calibration_operation_coordinator.cpp"],
+    hdrs = ["calibration_operation_coordinator.h"],
+    implementation_deps = [
+        "//src/backend/checksum:checksum_selection",
+        "//src/backend/config:car_model_catalog",
+        "//src/backend/config:protocol_catalog",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/backend/flash:flash_operation_request",
+        "//src/ui/desktop/checksum:checksum_correction_result",
+    ],
+    deps = [
+        ":calibration_interaction",
+        "//src/algorithms/protocol",
+        "//src/backend/calibration/session:calibration_session",
+        "//src/backend/calibration/session:rom_save",
+        "//src/backend/config:config_session",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_gtest(
+    name = "calibration_operation_coordinator_test",
+    srcs = ["calibration_operation_coordinator_test.cpp"],
+    # The coordinator's closure is Qt-free; keep the test's closure free too.
+    qt = False,
+    deps = [
+        ":calibration_interaction",
+        ":calibration_operation_coordinator",
+        "//src/algorithms/protocol",
+        "//src/backend/calibration/session:calibration_session",
+        "//src/backend/calibration/session:rom_save",
+        "//src/backend/checksum:checksum_selection",
+        "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:result_matchers",
+        "//src/ui/desktop/calibration/testing:mock_calibration_interaction",
+        "//src/ui/desktop/checksum:checksum_correction_result",
+        "@googletest//:gtest",
+    ],
+)
