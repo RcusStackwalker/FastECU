@@ -109,3 +109,40 @@ fastecu_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "calibration_interaction",
+    hdrs = ["calibration_interaction.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/checksum:checksum_selection",
+        "//src/ui/desktop/checksum:checksum_correction_result",
+    ],
+)
+
+cc_library(
+    name = "qt_calibration_interaction",
+    srcs = ["qt_calibration_interaction.cpp"],
+    hdrs = ["qt_calibration_interaction.h"],
+    copts = COMMON_COPTS,
+    implementation_deps = [
+        "//bazel/qt:core",
+        "//bazel/qt:widgets",
+    ],
+    deps = [
+        ":calibration_interaction",
+        "//src/ui/desktop/checksum:checksum_correction_command",
+    ],
+)
+
+fastecu_gtest(
+    name = "qt_calibration_interaction_test",
+    srcs = ["qt_calibration_interaction_test.cpp"],
+    deps = [
+        ":qt_calibration_interaction",
+        "//bazel/qt:core",
+        "//bazel/qt:widgets",
+        "//src/platform/desktop/common/testing:widgets_application_environment",
+        "@googletest//:gtest",
+    ],
+)

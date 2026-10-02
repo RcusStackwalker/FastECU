@@ -20,6 +20,7 @@ cc_library(
         "//src/backend/flash:flash_device_lookup",
     ],
     deps = [
+        ":checksum_correction_result",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
         "//src/backend/checksum:checksum_selection",
@@ -35,4 +36,10 @@ fastecu_gtest(
         "//bazel/qt:widgets",
         "@googletest//:gtest",
     ],
+)
+
+cc_library(
+    name = "checksum_correction_result",
+    hdrs = ["checksum_correction_result.h"],
+    deps = ["//src/algorithms/protocol"],
 )

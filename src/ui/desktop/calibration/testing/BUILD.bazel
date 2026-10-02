@@ -1,0 +1,26 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_gtest")
+
+package(
+    default_testonly = True,
+    default_visibility = ["//bazel/layers:ui"],
+)
+
+cc_library(
+    name = "mock_calibration_interaction",
+    hdrs = ["mock_calibration_interaction.h"],
+    deps = [
+        "//src/ui/desktop/calibration:calibration_interaction",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_gtest(
+    name = "mock_calibration_interaction_test",
+    srcs = ["mock_calibration_interaction_test.cpp"],
+    qt = False,
+    deps = [
+        ":mock_calibration_interaction",
+        "@googletest//:gtest",
+    ],
+)
