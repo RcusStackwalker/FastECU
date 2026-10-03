@@ -748,11 +748,11 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
     QByteArray received;
     long result = STATUS_NOERROR;
 
-    const std::size_t apiLen = std::min(API_VERSION.size(), kVersionBufferSize - 1);
-    std::memcpy(pApiVersion, API_VERSION.data(), apiLen);
+    const std::size_t apiLen = std::min(kApiVersion.size(), kVersionBufferSize - 1);
+    std::memcpy(pApiVersion, kApiVersion.data(), apiLen);
     pApiVersion[apiLen] = '\0';
-    const std::size_t dllLen = std::min(DLL_VERSION.size(), kVersionBufferSize - 1);
-    std::memcpy(pDllVersion, DLL_VERSION.data(), dllLen);
+    const std::size_t dllLen = std::min(kDllVersion.size(), kVersionBufferSize - 1);
+    std::memcpy(pDllVersion, kDllVersion.data(), dllLen);
     pDllVersion[dllLen] = '\0';
     // strncpy(pFirmwareVersion, fw_version, strlen(fw_version));
 

@@ -35,9 +35,9 @@ void scriptValidHandshake(ScriptedKlineTransport& transport)
 {
     const std::vector<Channel> channels = {{0x8000, 2}};
     transport.expectWrite(mutdma::buildSetupFrame(0xA0, 1));
-    transport.queueRead(mutdma::buildCommandFrame(0xA5, bytes::Bytes{}, mutdma::TRAILER_STD));
+    transport.queueRead(mutdma::buildCommandFrame(0xA5, bytes::Bytes{}, mutdma::kTrailerStd));
     transport.expectWrite(mutdma::buildIdListFrame(0xA1, channels));
-    transport.queueRead(mutdma::buildCommandFrame(0x05, bytes::Bytes{}, mutdma::TRAILER_STD));
+    transport.queueRead(mutdma::buildCommandFrame(0x05, bytes::Bytes{}, mutdma::kTrailerStd));
 }
 
 std::unique_ptr<MutDmaLoggingProtocol> makeProtocol(std::unique_ptr<ScriptedKlineTransport> transport,
@@ -75,7 +75,7 @@ TEST(MutDmaLoggingProtocolTest, StartFailurePinsBadResponseForInvalidHandshake)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
     transport->expectWrite(mutdma::buildSetupFrame(0xA0, 1));
-    transport->queueRead(mutdma::buildCommandFrame(0x00, bytes::Bytes{}, mutdma::TRAILER_STD));
+    transport->queueRead(mutdma::buildCommandFrame(0x00, bytes::Bytes{}, mutdma::kTrailerStd));
     auto protocol = makeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
 
@@ -164,7 +164,7 @@ TEST(MutDmaLoggingProtocolTest, PollReturnsStableIdAndRawDecimalString)
 
     bytes::Bytes frame = {0x51, 0x12, 0x34};
     frame.push_back(mutdma::sum8(frame));
-    frame.push_back(mutdma::TRAILER_STD);
+    frame.push_back(mutdma::kTrailerStd);
     script->queueRead(frame);
 
     const auto result = protocol->poll(50ms, cancellation);

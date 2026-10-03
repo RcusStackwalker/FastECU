@@ -65,7 +65,7 @@ using testing::Pair;
 constexpr std::string_view kProtocol = "sub_ecu_denso_sh72531_can";
 constexpr std::string_view kMcu = "SH72531";
 
-// fblocks_SH72531: [0] = {0x00000000, 0x8000}, [1] = {0x00008000, 0x137F00},
+// kFlashBlocksSH72531: [0] = {0x00000000, 0x8000}, [1] = {0x00008000, 0x137F00},
 // [2] = {0x00137F00, 0x100}.
 constexpr std::uint32_t kImageStart = 0x00000000;
 constexpr std::uint32_t kBlockStart = 0x00008000;

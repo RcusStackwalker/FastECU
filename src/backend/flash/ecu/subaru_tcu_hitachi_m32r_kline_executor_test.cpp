@@ -176,11 +176,11 @@ bytes::Bytes seedResponse()
 
 bytes::Bytes expectedSeedKey()
 {
-    static constexpr std::array<std::uint16_t, 16> index = {0x0FE9, 0xCA58, 0x5E90, 0xDFF1, 0x690B, 0xF591,
-                                                            0x1794, 0x5C7B, 0xA7BF, 0x98E5, 0x0B63, 0xA1C9,
-                                                            0x79BF, 0xF413, 0x82B1, 0xA895};
+    static constexpr std::array<std::uint16_t, 16> kIndex = {0x0FE9, 0xCA58, 0x5E90, 0xDFF1, 0x690B, 0xF591,
+                                                             0x1794, 0x5C7B, 0xA7BF, 0x98E5, 0x0B63, 0xA1C9,
+                                                             0x79BF, 0xF413, 0x82B1, 0xA895};
     const bytes::Bytes seed{0xde, 0xad, 0xbe, 0xef};
-    return SsmProtocol::calculateSeedKey(seed, index, SsmProtocol::kIndexTransformationStock);
+    return SsmProtocol::calculateSeedKey(seed, kIndex, SsmProtocol::kIndexTransformationStock);
 }
 
 // The five legacy connect_bootloader() exchanges, byte-exact. Task 3 reuses

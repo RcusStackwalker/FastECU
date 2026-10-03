@@ -198,10 +198,10 @@ Result<std::string> parse_rom_id(bytes::ByteView response)
 // identical, so only the generation table is family-specific.
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    static constexpr std::array<std::uint16_t, 16> index = {0x0FE9, 0xCA58, 0x5E90, 0xDFF1, 0x690B, 0xF591,
-                                                            0x1794, 0x5C7B, 0xA7BF, 0x98E5, 0x0B63, 0xA1C9,
-                                                            0x79BF, 0xF413, 0x82B1, 0xA895};
-    return SsmProtocol::calculateSeedKey(seed, index, SsmProtocol::kIndexTransformationStock);
+    static constexpr std::array<std::uint16_t, 16> kIndex = {0x0FE9, 0xCA58, 0x5E90, 0xDFF1, 0x690B, 0xF591,
+                                                             0x1794, 0x5C7B, 0xA7BF, 0x98E5, 0x0B63, 0xA1C9,
+                                                             0x79BF, 0xF413, 0x82B1, 0xA895};
+    return SsmProtocol::calculateSeedKey(seed, kIndex, SsmProtocol::kIndexTransformationStock);
 }
 
 Result<std::string> connect_bootloader(IKlineFlashTransport& transport, IClock& clock,

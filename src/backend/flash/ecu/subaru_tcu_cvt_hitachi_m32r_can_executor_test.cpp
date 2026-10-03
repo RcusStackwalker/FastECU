@@ -446,7 +446,7 @@ TEST(SubaruTcuCvtHitachiM32rCanExecutor, WriteErasesThenFlashesEightBlocksOfSixt
 {
     // The 8 flashed blocks (M32R_512KB indices 3-10) are NOT uniformly 64
     // KiB: block index 3 is 32 KiB, the remaining seven are 64 KiB each
-    // (fblocks_M32R_512KB in kernelmemorymodels.h; the wave-3 plan's Global
+    // (kFlashBlocksM32R_512KB in kernelmemorymodels.h; the wave-3 plan's Global
     // Constraints table states 0x10000 for block 3, which does not match
     // the source -- see subaru_tcu_cvt_hitachi_m32r_can_executor.cpp's
     // kWriteBlocks comment). Scripted here with the real per-block sizes.

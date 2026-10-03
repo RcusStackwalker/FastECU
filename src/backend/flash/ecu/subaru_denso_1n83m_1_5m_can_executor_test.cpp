@@ -57,7 +57,7 @@ using testing::IsEmpty;
 constexpr std::string_view kProtocol = "sub_ecu_denso_1n83m_1_5m_can";
 constexpr std::string_view kMcu = "N83M_1_5MB";
 
-// fblocks_N83M_1_5MB: [0] = {0x08F9C000, 0x10000}, [1] = {0x08FAC000,
+// kFlashBlocksN83M_1_5MB: [0] = {0x08F9C000, 0x10000}, [1] = {0x08FAC000,
 // 0x173F00}, [2] = {0x0911FF00, 0x100}.
 constexpr std::uint32_t kImageStart = 0x08F9C000;
 constexpr std::uint32_t kBlockStart = 0x08FAC000;

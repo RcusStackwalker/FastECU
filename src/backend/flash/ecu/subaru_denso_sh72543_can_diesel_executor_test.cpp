@@ -59,7 +59,7 @@ using testing::Pair;
 constexpr std::string_view kProtocol = "sub_ecu_denso_sh72543_can_diesel";
 constexpr std::string_view kMcu = "SH72543d";
 
-// fblocks_SH72543d is the wave's only single-block table: [0] = {0x00008000,
+// kFlashBlocksSH72543d is the wave's only single-block table: [0] = {0x00008000,
 // 0x1F7F00}, with the 0x0-0x8000 entry commented out. The image is still based
 // at address 0 -- read_memory prepends 0x8000 of 0xFF, and write_memory
 // offsets its buffer pointer by fblocks[0].start before reflash_block indexes

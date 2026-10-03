@@ -495,12 +495,12 @@ Result<FlashExecutionResult> SubaruHitachiSh72543rCanExecutor::execute(const Fla
     if (plan.operation() == FlashOperation::Write)
     {
         // Legacy encrypt_payload:1165-1179. Keep the family's own schedule.
-        constexpr std::array<std::uint16_t, 4> keys{0xb740, 0x42da, 0xa7ca, 0x5fb1};
+        constexpr std::array<std::uint16_t, 4> kKeys{0xb740, 0x42da, 0xa7ca, 0x5fb1};
         if (auto status = session.checkpoint(); !status.has_value())
         {
             return std::unexpected(status.error());
         }
-        const auto encrypted = SsmProtocol::calculatePayload(*plan.image(), 0x200000, keys, kTransform);
+        const auto encrypted = SsmProtocol::calculatePayload(*plan.image(), 0x200000, kKeys, kTransform);
         auto erasing = phases.start("Erasing", 1);
         if (auto status = session.erase(); !status.has_value())
         {

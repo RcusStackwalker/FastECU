@@ -328,7 +328,7 @@ TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
         std::uint32_t interval{1};
         std::uint32_t index{0};
     };
-    static constexpr auto cases = std::to_array<Case>({
+    static constexpr auto kCases = std::to_array<Case>({
         {definition::StorageType::Uint8, "big", 0xAB},
         {definition::StorageType::Uint16, "big", 0x1234},
         {definition::StorageType::Uint16, "little", 0x1234},
@@ -350,7 +350,7 @@ TEST(EncodeScaledValue, RoundTripsThroughReadRawElementForEveryWidth)
         {definition::StorageType::Uint16, "big", 0x1234, /*start_position=*/2, /*interval=*/3, /*index=*/1},
     });
 
-    for (const auto& c : cases)
+    for (const auto& c : kCases)
     {
         MapElementSpec spec;
         spec.address = 0x10;
@@ -633,9 +633,9 @@ TEST(ApplyIncrement, AddsTheCoarseStepToEverySelectedCell)
     spec.x_size = 2;
     spec.y_size = 1;
 
-    static constexpr auto cells = std::to_array<std::string_view>({"10", "20"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"10", "20"});
     const auto patch =
-        apply_increment(rom, spec, /*x_size=*/2, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1},
+        apply_increment(rom, spec, /*x_size=*/2, kCells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1},
                         IncrementStep::CoarseUp, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -662,9 +662,9 @@ TEST(ApplyIncrement, ClampsToTheDefinitionMaximum)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    static constexpr auto cells = std::to_array<std::string_view>({"250"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"250"});
     const auto patch =
-        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+        apply_increment(rom, spec, /*x_size=*/1, kCells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseUp, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -688,8 +688,8 @@ TEST(ApplyIncrement, ReportsInvalidConfigWhenTheIncrementIsZero)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    static constexpr auto cells = std::to_array<std::string_view>({"0"});
-    ASSERT_THAT(apply_increment(rom, spec, /*x_size=*/1, cells,
+    static constexpr auto kCells = std::to_array<std::string_view>({"0"});
+    ASSERT_THAT(apply_increment(rom, spec, /*x_size=*/1, kCells,
                                 {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, IncrementStep::CoarseUp,
                                 15),
                 fastecu::testing::IsErr(ErrorKind::InvalidConfig));
@@ -716,9 +716,9 @@ TEST(ApplyIncrement, SaturationGuardLeavesUint8AtItsPreviousValuePastMax)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    static constexpr auto cells = std::to_array<std::string_view>({"250"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"250"});
     const auto patch =
-        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+        apply_increment(rom, spec, /*x_size=*/1, kCells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseUp, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -742,9 +742,9 @@ TEST(ApplyIncrement, SaturationGuardLeavesInt8AtItsPreviousValueCrossingSignBoun
     spec.x_size = 1;
     spec.y_size = 1;
 
-    static constexpr auto cells = std::to_array<std::string_view>({"100"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"100"});
     const auto patch =
-        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+        apply_increment(rom, spec, /*x_size=*/1, kCells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseUp, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -770,9 +770,9 @@ TEST(ApplyIncrement, SaturationGuardLeavesInt16AtItsPreviousValueCrossingSignBou
     spec.x_size = 1;
     spec.y_size = 1;
 
-    static constexpr auto cells = std::to_array<std::string_view>({"30000"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"30000"});
     const auto patch =
-        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+        apply_increment(rom, spec, /*x_size=*/1, kCells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseUp, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -796,9 +796,9 @@ TEST(ApplyIncrement, SaturationGuardLeavesUnsignedStorageAtItsPreviousValueOnANe
     spec.x_size = 1;
     spec.y_size = 1;
 
-    static constexpr auto cells = std::to_array<std::string_view>({"0"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"0"});
     const auto patch =
-        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+        apply_increment(rom, spec, /*x_size=*/1, kCells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseDown, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -825,9 +825,9 @@ TEST(ApplyIncrement, RetriesUntilTheEncodedValueActuallyChanges)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    static constexpr auto cells = std::to_array<std::string_view>({"10"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"10"});
     const auto patch =
-        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+        apply_increment(rom, spec, /*x_size=*/1, kCells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::FineUp, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -862,9 +862,9 @@ TEST(ApplyIncrement, SignWrapHeuristicStillRevertsAnInRangeNegativeToPositiveInc
     spec.coarse_increment = 5.0;
     spec.fine_increment = 1.0;
 
-    static constexpr auto cells = std::to_array<std::string_view>({"-1"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"-1"});
     const auto patch =
-        apply_increment(rom, spec, /*x_size=*/1, cells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
+        apply_increment(rom, spec, /*x_size=*/1, kCells, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0},
                         IncrementStep::CoarseUp, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -887,8 +887,8 @@ TEST(ApplyIncrement, ReportsInvalidConfigWhenTheRetryBoundIsExhausted)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    static constexpr auto cells = std::to_array<std::string_view>({"0"});
-    ASSERT_THAT(apply_increment(rom, spec, /*x_size=*/1, cells,
+    static constexpr auto kCells = std::to_array<std::string_view>({"0"});
+    ASSERT_THAT(apply_increment(rom, spec, /*x_size=*/1, kCells,
                                 {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, IncrementStep::CoarseUp,
                                 15),
                 fastecu::testing::IsErr(ErrorKind::InvalidConfig));
@@ -901,7 +901,7 @@ TEST(ApplySetExpression, AppliesEachOperatorToEveryCell)
         std::string_view input;
         std::string_view expected;
     };
-    static constexpr auto cases = std::to_array<Case>({
+    static constexpr auto kCases = std::to_array<Case>({
         {"+5", "15"},
         {"-5", "5"},
         {"*2", "20"},
@@ -909,7 +909,7 @@ TEST(ApplySetExpression, AppliesEachOperatorToEveryCell)
         {"42", "42"},
     });
 
-    for (const auto& c : cases)
+    for (const auto& c : kCases)
     {
         std::vector<std::uint8_t> rom(0x40, 0x00);
         rom[0x10] = 10;
@@ -923,9 +923,9 @@ TEST(ApplySetExpression, AppliesEachOperatorToEveryCell)
         spec.x_size = 1;
         spec.y_size = 1;
 
-        static constexpr auto cells = std::to_array<std::string_view>({"10"});
+        static constexpr auto kCells = std::to_array<std::string_view>({"10"});
         const auto patch =
-            apply_set_expression(rom, spec, /*x_size=*/1, cells,
+            apply_set_expression(rom, spec, /*x_size=*/1, kCells,
                                  {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, c.input, 15);
 
         ASSERT_THAT(patch, fastecu::testing::IsOk()) << c.input;
@@ -947,8 +947,8 @@ TEST(ApplySetExpression, ReportsInvalidConfigOnDivisionByZero)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    static constexpr auto cells = std::to_array<std::string_view>({"10"});
-    ASSERT_THAT(apply_set_expression(rom, spec, /*x_size=*/1, cells,
+    static constexpr auto kCells = std::to_array<std::string_view>({"10"});
+    ASSERT_THAT(apply_set_expression(rom, spec, /*x_size=*/1, kCells,
                                      {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "/0", 15),
                 fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
@@ -969,10 +969,10 @@ TEST(ApplySetExpression, RejectsAValueThatWouldOverflowTheStorageType)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    static constexpr auto cells = std::to_array<std::string_view>({"10"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"10"});
     // 300 overflows a uint8 -- the whole call fails instead of truncating
     // silently into the storage type.
-    ASSERT_THAT(apply_set_expression(rom, spec, /*x_size=*/1, cells,
+    ASSERT_THAT(apply_set_expression(rom, spec, /*x_size=*/1, kCells,
                                      {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "300", 15),
                 fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
@@ -993,8 +993,8 @@ TEST(ApplySetExpression, AllowsAnInRangeNegativeToPositiveEditOnSignedStorage)
     std::vector<std::uint8_t> rom(0x40, 0x00);
     rom[0x10] = 0xFB; // -5 as int8.
 
-    static constexpr auto cells = std::to_array<std::string_view>({"-5"});
-    const auto patch = apply_set_expression(rom, int8_spec(1, 1), /*x_size=*/1, cells,
+    static constexpr auto kCells = std::to_array<std::string_view>({"-5"});
+    const auto patch = apply_set_expression(rom, int8_spec(1, 1), /*x_size=*/1, kCells,
                                             {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "3", 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -1010,8 +1010,8 @@ TEST(ApplySetExpression, RejectsAValueOutsideTheSignedStorageRange)
     std::vector<std::uint8_t> rom(0x40, 0x00);
     rom[0x10] = 0xFB; // -5 as int8.
 
-    static constexpr auto cells = std::to_array<std::string_view>({"-5"});
-    ASSERT_THAT(apply_set_expression(rom, int8_spec(1, 1), /*x_size=*/1, cells,
+    static constexpr auto kCells = std::to_array<std::string_view>({"-5"});
+    ASSERT_THAT(apply_set_expression(rom, int8_spec(1, 1), /*x_size=*/1, kCells,
                                      {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "300", 15),
                 fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
@@ -1039,8 +1039,8 @@ TEST(ApplySetExpression, StillEncodesAtThePrecisionSixLegacyFidelityContract)
     spec.x_size = 1;
     spec.y_size = 1;
 
-    static constexpr auto cells = std::to_array<std::string_view>({"0"});
-    const auto patch = apply_set_expression(rom, spec, /*x_size=*/1, cells,
+    static constexpr auto kCells = std::to_array<std::string_view>({"0"});
+    const auto patch = apply_set_expression(rom, spec, /*x_size=*/1, kCells,
                                             {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, "1.6",
                                             /*float_precision=*/1);
 
@@ -1066,9 +1066,9 @@ MapElementSpec linear_uint8_spec(std::uint32_t x_size, std::uint32_t y_size)
 TEST(ApplyInterpolation, HorizontalFillsEachRowLinearlyBetweenItsEndpoints)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    static constexpr auto cells = std::to_array<std::string_view>({"0", "99", "99", "30"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"0", "99", "99", "30"});
 
-    const auto patch = apply_interpolation(rom, linear_uint8_spec(4, 1), /*x_size=*/4, cells,
+    const auto patch = apply_interpolation(rom, linear_uint8_spec(4, 1), /*x_size=*/4, kCells,
                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 3},
                                            InterpolationMode::Horizontal, 15);
 
@@ -1104,9 +1104,9 @@ TEST(ApplyInterpolation, HandlesASelectionWiderThanTheLegacyFixedArray)
 TEST(ApplyInterpolation, VerticalFillsEachColumnLinearlyBetweenItsEndpoints)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    static constexpr auto cells = std::to_array<std::string_view>({"0", "99", "99", "30"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"0", "99", "99", "30"});
 
-    const auto patch = apply_interpolation(rom, linear_uint8_spec(1, 4), /*x_size=*/1, cells,
+    const auto patch = apply_interpolation(rom, linear_uint8_spec(1, 4), /*x_size=*/1, kCells,
                                            {.first_row = 0, .first_col = 0, .last_row = 3, .last_col = 0},
                                            InterpolationMode::Vertical, 15);
 
@@ -1130,14 +1130,14 @@ TEST(ApplyInterpolation, BidirectionalCentreCellIsTheBilinearResultOfTheFourCorn
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
     // clang-format off
-    static constexpr auto cells = std::to_array<std::string_view>({
+    static constexpr auto kCells = std::to_array<std::string_view>({
         "0",   "0", "20",
         "0",   "0",  "0",
         "100", "0", "200",
     });
     // clang-format on
 
-    const auto patch = apply_interpolation(rom, linear_uint8_spec(3, 3), /*x_size=*/3, cells,
+    const auto patch = apply_interpolation(rom, linear_uint8_spec(3, 3), /*x_size=*/3, kCells,
                                            {.first_row = 0, .first_col = 0, .last_row = 2, .last_col = 2},
                                            InterpolationMode::Bidirectional, 15);
 
@@ -1156,12 +1156,12 @@ TEST(ApplyInterpolation, BidirectionalCentreCellIsTheBilinearResultOfTheFourCorn
 TEST(ApplyInterpolation, ClampsAnInterpolatedValueToTheDefinitionMaximum)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "200"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"0", "0", "200"});
 
     MapElementSpec spec = linear_uint8_spec(3, 1);
     spec.max_value = "100";
 
-    const auto patch = apply_interpolation(rom, spec, /*x_size=*/3, cells,
+    const auto patch = apply_interpolation(rom, spec, /*x_size=*/3, kCells,
                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
                                            InterpolationMode::Horizontal, 15);
 
@@ -1178,9 +1178,9 @@ TEST(ApplyInterpolation, ClampsAnInterpolatedValueToTheDefinitionMaximum)
 TEST(ApplyInterpolation, RejectsAnInterpolatedValueThatWouldOverflowTheStorageType)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "300"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"0", "0", "300"});
 
-    ASSERT_THAT(apply_interpolation(rom, linear_uint8_spec(3, 1), /*x_size=*/3, cells,
+    ASSERT_THAT(apply_interpolation(rom, linear_uint8_spec(3, 1), /*x_size=*/3, kCells,
                                     {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
                                     InterpolationMode::Horizontal, 15),
                 fastecu::testing::IsErr(ErrorKind::InvalidConfig));
@@ -1202,9 +1202,9 @@ TEST(ApplyInterpolation, AllowsAnInRangeNegativeToPositiveSweepOnSignedStorage)
     rom[0x11] = 0xFB; // -5
     rom[0x12] = 0xFB; // -5
 
-    static constexpr auto cells = std::to_array<std::string_view>({"-10", "0", "10"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"-10", "0", "10"});
 
-    const auto patch = apply_interpolation(rom, int8_spec(3, 1), /*x_size=*/3, cells,
+    const auto patch = apply_interpolation(rom, int8_spec(3, 1), /*x_size=*/3, kCells,
                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2},
                                            InterpolationMode::Horizontal, 15);
 
@@ -1225,9 +1225,9 @@ TEST(ApplyInterpolation, RejectsAnInterpolatedValueOutsideTheSignedStorageRange)
     rom[0x10] = 0xF6; // -10
     rom[0x11] = 0xFB; // -5
 
-    static constexpr auto cells = std::to_array<std::string_view>({"-10", "300"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"-10", "300"});
 
-    ASSERT_THAT(apply_interpolation(rom, int8_spec(2, 1), /*x_size=*/2, cells,
+    ASSERT_THAT(apply_interpolation(rom, int8_spec(2, 1), /*x_size=*/2, kCells,
                                     {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1},
                                     InterpolationMode::Horizontal, 15),
                 fastecu::testing::IsErr(ErrorKind::InvalidConfig));
@@ -1244,7 +1244,7 @@ TEST(ApplyInterpolation, RejectsAnInterpolatedValueOutsideTheSignedStorageRange)
 TEST(ApplyInterpolation, StillEncodesAtThePrecisionSixLegacyFidelityContract)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "10"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"0", "0", "0", "10"});
 
     MapElementSpec spec;
     spec.address = 0x10;
@@ -1255,7 +1255,7 @@ TEST(ApplyInterpolation, StillEncodesAtThePrecisionSixLegacyFidelityContract)
     spec.x_size = 4;
     spec.y_size = 1;
 
-    const auto patch = apply_interpolation(rom, spec, /*x_size=*/4, cells,
+    const auto patch = apply_interpolation(rom, spec, /*x_size=*/4, kCells,
                                            {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 3},
                                            InterpolationMode::Horizontal, /*float_precision=*/1);
 
@@ -1270,10 +1270,10 @@ TEST(ApplyInterpolation, StillEncodesAtThePrecisionSixLegacyFidelityContract)
 TEST(ApplyPaste, WritesTheClipboardBlockAnchoredAtTheSelectionCorner)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "0"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"0", "0", "0", "0"});
     const auto rows = std::to_array<std::vector<std::string_view>>({{"11", "22"}});
 
-    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
+    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, kCells,
                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1}, rows, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -1285,14 +1285,14 @@ TEST(ApplyPaste, WritesTheClipboardBlockAnchoredAtTheSelectionCorner)
 TEST(ApplyPaste, DropsCellsThatFallOutsideTheMap)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "0"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"0", "0", "0", "0"});
     // Three columns pasted into a two-column map: legacy silently drops the
     // third rather than reporting. Exercises the x_size half of the
     // two-dimension bounds check; DropsRowsThatFallOutsideTheMap below
     // exercises the y_size half.
     const auto rows = std::to_array<std::vector<std::string_view>>({{"11", "22", "33"}});
 
-    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
+    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, kCells,
                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 1}, rows, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -1309,11 +1309,11 @@ TEST(ApplyPaste, DropsCellsThatFallOutsideTheMap)
 TEST(ApplyPaste, DropsRowsThatFallOutsideTheMap)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "0"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"0", "0", "0", "0"});
     // Three rows pasted into a two-row map.
     const auto rows = std::to_array<std::vector<std::string_view>>({{"11"}, {"22"}, {"33"}});
 
-    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
+    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, kCells,
                                    {.first_row = 0, .first_col = 0, .last_row = 2, .last_col = 0}, rows, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -1329,14 +1329,14 @@ TEST(ApplyPaste, DropsRowsThatFallOutsideTheMap)
 TEST(ApplyPaste, ClampsAPastedValueToTheDefinitionMaximum)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "0"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"0", "0", "0", "0"});
     const auto rows = std::to_array<std::vector<std::string_view>>({{"9999"}});
 
     MapElementSpec spec = linear_uint8_spec(2, 2);
     spec.min_value = "0";
     spec.max_value = "255";
 
-    const auto patch = apply_paste(rom, spec, /*x_size=*/2, /*y_size=*/2, cells,
+    const auto patch = apply_paste(rom, spec, /*x_size=*/2, /*y_size=*/2, kCells,
                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -1353,10 +1353,10 @@ TEST(ApplyPaste, ClampsAPastedValueToTheDefinitionMaximum)
 TEST(ApplyPaste, RejectsAPastedValueThatWouldOverflowTheStorageType)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "0"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"0", "0", "0", "0"});
     const auto rows = std::to_array<std::vector<std::string_view>>({{"300"}});
 
-    ASSERT_THAT(apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
+    ASSERT_THAT(apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, kCells,
                             {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15),
                 fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
@@ -1371,10 +1371,10 @@ TEST(ApplyPaste, AllowsAnInRangeNegativeToPositivePasteOnSignedStorage)
     std::vector<std::uint8_t> rom(0x40, 0x00);
     rom[0x10] = 0xFB; // -5 as int8.
 
-    static constexpr auto cells = std::to_array<std::string_view>({"-5"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"-5"});
     const auto rows = std::to_array<std::vector<std::string_view>>({{"3"}});
 
-    const auto patch = apply_paste(rom, int8_spec(1, 1), /*x_size=*/1, /*y_size=*/1, cells,
+    const auto patch = apply_paste(rom, int8_spec(1, 1), /*x_size=*/1, /*y_size=*/1, kCells,
                                    {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());
@@ -1391,10 +1391,10 @@ TEST(ApplyPaste, RejectsAPastedValueOutsideTheSignedStorageRange)
     std::vector<std::uint8_t> rom(0x40, 0x00);
     rom[0x10] = 0xFB; // -5 as int8.
 
-    static constexpr auto cells = std::to_array<std::string_view>({"-5"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"-5"});
     const auto rows = std::to_array<std::vector<std::string_view>>({{"300"}});
 
-    ASSERT_THAT(apply_paste(rom, int8_spec(1, 1), /*x_size=*/1, /*y_size=*/1, cells,
+    ASSERT_THAT(apply_paste(rom, int8_spec(1, 1), /*x_size=*/1, /*y_size=*/1, kCells,
                             {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 0}, rows, 15),
                 fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
@@ -1408,10 +1408,10 @@ TEST(ApplyPaste, RejectsAPastedValueOutsideTheSignedStorageRange)
 TEST(ApplyPaste, SkipsCellsInARaggedRowShorterThanTheFirstRow)
 {
     std::vector<std::uint8_t> rom(0x40, 0x00);
-    static constexpr auto cells = std::to_array<std::string_view>({"0", "0", "0", "0"});
+    static constexpr auto kCells = std::to_array<std::string_view>({"0", "0", "0", "0"});
     const auto rows = std::to_array<std::vector<std::string_view>>({{"11", "22"}, {"33"}});
 
-    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, cells,
+    const auto patch = apply_paste(rom, linear_uint8_spec(2, 2), /*x_size=*/2, /*y_size=*/2, kCells,
                                    {.first_row = 0, .first_col = 0, .last_row = 1, .last_col = 1}, rows, 15);
 
     ASSERT_THAT(patch, fastecu::testing::IsOk());

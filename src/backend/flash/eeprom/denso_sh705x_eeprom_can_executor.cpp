@@ -227,9 +227,9 @@ std::uint64_t decrypt_racerom_seed(std::uint64_t base, std::uint64_t exponent, s
 bytes::Bytes generate_ecutek_racerom_can_seed_key(bytes::ByteView seed)
 {
     const std::uint32_t seed_word = bytes::readU32Be(seed, 0);
-    constexpr std::uint64_t d = 0x0A863281ULL;
-    constexpr std::uint64_t n = 0x0fda9293ULL;
-    const std::uint32_t decrypted = static_cast<std::uint32_t>(decrypt_racerom_seed(seed_word, d, n));
+    constexpr std::uint64_t kD = 0x0A863281ULL;
+    constexpr std::uint64_t kN = 0x0fda9293ULL;
+    const std::uint32_t decrypted = static_cast<std::uint32_t>(decrypt_racerom_seed(seed_word, kD, kN));
     return composeBe(decrypted);
 }
 

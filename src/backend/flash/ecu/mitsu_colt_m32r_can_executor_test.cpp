@@ -485,7 +485,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsInconsistentHandBuiltPlansBeforeAnyIo)
         fastecu::flash::MemoryRegion region;
         std::size_t image_size;
     };
-    static constexpr auto cases = std::to_array<Case>({
+    static constexpr auto kCases = std::to_array<Case>({
         {"target", "mitsu_ecu_m32r_can_typo", kMcu384, false, {0x8000, 0x58000}, 0x60000},
         {"mcu", kProtocol384, kMcu512, false, {0x8000, 0x58000}, 0x60000},
         {"vendor", kProtocol384, kMcu384, true, {0x8000, 0x58000}, 0x60000},
@@ -493,7 +493,7 @@ TEST(MitsuColtM32rCanExecutor, RejectsInconsistentHandBuiltPlansBeforeAnyIo)
         {"image", kProtocol384, kMcu384, false, {0x8000, 0x58000}, 0x80000},
     });
 
-    for (const Case& test : cases)
+    for (const Case& test : kCases)
     {
         ScriptedCanFlashTransport transport;
         FakeClock clock;

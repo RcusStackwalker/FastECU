@@ -8,7 +8,7 @@ namespace
 constexpr std::array<std::uint32_t, 256> makeCrcTable()
 {
     std::array<std::uint32_t, 256> t = {};
-    constexpr std::uint32_t polynomial = 0x5AA5A55A;
+    constexpr std::uint32_t kPolynomial = 0x5AA5A55A;
 
     for (std::uint32_t i = 0; i < t.size(); ++i)
     {
@@ -19,7 +19,7 @@ constexpr std::array<std::uint32_t, 256> makeCrcTable()
         {
             if ((crc ^ c) & 0x00000001U)
             {
-                crc = (crc >> 1) ^ polynomial;
+                crc = (crc >> 1) ^ kPolynomial;
             }
             else
             {

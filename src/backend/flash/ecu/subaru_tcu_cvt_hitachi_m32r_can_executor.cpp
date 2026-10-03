@@ -72,7 +72,7 @@ constexpr MemoryRegion kWindow{0x8000, 0x78000};
 constexpr std::uint32_t kOtherRequestId = 0x7e0;
 
 // M32R_512KB's 11 flash blocks (src/backend/flash/kernel/kernelmemorymodels.h,
-// fblocks_M32R_512KB): block 3 is 0x8000 bytes, NOT the uniform 0x10000 the
+// kFlashBlocksM32R_512KB): block 3 is 0x8000 bytes, NOT the uniform 0x10000 the
 // wave-3 plan's Global Constraints table states for it (a transcription slip
 // there -- confirmed directly against the source, block 3 is
 // {0x00008000, 0x00008000}, not {0x00008000, 0x00010000}). Legacy's

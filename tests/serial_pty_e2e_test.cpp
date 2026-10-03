@@ -59,7 +59,7 @@ TEST(TestPtyE2e, workerThread_writeRead_overPty_deliversFramedMessage)
     std::thread responder(
         [&]
         {
-            static constexpr auto reply = std::to_array("\x80\xf0\x10\x02\xaa\xbb\xcc");
+            static constexpr auto kReply = std::to_array("\x80\xf0\x10\x02\xaa\xbb\xcc");
             std::array<char, 64> buf{};
             bool replied = false;
             while (!stop.load())
@@ -76,7 +76,7 @@ TEST(TestPtyE2e, workerThread_writeRead_overPty_deliversFramedMessage)
                     received.append(buf.data(), int(n));
                     if (!replied)
                     {
-                        EXPECT_EQ(::write(master, reply.data(), 7), 7);
+                        EXPECT_EQ(::write(master, kReply.data(), 7), 7);
                         replied = true;
                     }
                 }

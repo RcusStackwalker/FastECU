@@ -129,7 +129,7 @@ Result<FlashPlan> write_plan(FlashOperation operation = FlashOperation::Write, b
     }
     if (image.empty())
     {
-        image.resize(flashdevices[index].romsize, bytes::Byte{0});
+        image.resize(kFlashDevices[index].romsize, bytes::Byte{0});
     }
     return build_subaru_denso_sh7055_02_plan(
         operation, "sub_ecu_denso_sh7055_02", "SH7055", std::move(image),
@@ -149,7 +149,7 @@ Result<FlashPlan> malformed_plan(std::vector<ConfirmationSpec> confirmations, st
         .transport = TransportKind::Kline,
         .target_id = "sub_ecu_denso_sh7055_02",
         .mcu_name = "SH7055",
-        .transfer_region = {flashdevices[index].fblocks[0].start, flashdevices[index].romsize},
+        .transfer_region = {kFlashDevices[index].fblocks[0].start, kFlashDevices[index].romsize},
         .erase_regions = {},
         .image = std::nullopt,
         .kernel = KernelImage{.id = "k", .load_address = 0xFFFF6004, .bytes = {0x01}},
@@ -496,7 +496,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadSurfacesEcuIdInResult)
     script_upload(transport);
     const int device_index = find_flash_device_index("SH7055");
     ASSERT_GE(device_index, 0);
-    const auto& device = flashdevices[device_index];
+    const auto& device = kFlashDevices[device_index];
     for (std::uint32_t offset = 0; offset < device.romsize; offset += 0x400)
     {
         script_read_page(transport, device.fblocks[0].start + offset, 0x5A);
@@ -564,7 +564,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadReturnsAssembledPageBytes)
     script_upload(transport);
     const int device_index = find_flash_device_index("SH7055");
     ASSERT_GE(device_index, 0);
-    const auto& device = flashdevices[device_index];
+    const auto& device = kFlashDevices[device_index];
 
     bytes::Bytes expected;
     for (std::uint32_t offset = 0; offset < device.romsize; offset += 0x400)
@@ -666,7 +666,7 @@ TEST(SubaruDensoSh7055_02Executor, NoFrameWrxReplyRetriesUntilExactResponse)
     script_upload(transport);
     const int device_index = find_flash_device_index("SH7055");
     ASSERT_GE(device_index, 0);
-    const auto& device = flashdevices[device_index];
+    const auto& device = kFlashDevices[device_index];
     for (std::uint32_t offset = 0; offset < device.romsize; offset += 0x400)
     {
         script_read_page(transport, device.fblocks[0].start + offset, 0x5A);

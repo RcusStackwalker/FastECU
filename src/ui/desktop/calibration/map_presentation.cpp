@@ -91,11 +91,11 @@ MapColorBounds opening_color_bounds(const MapPresentation& map)
 
 QColor map_cell_color(float value, MapColorBounds bounds)
 {
-    constexpr double scale = 210.0 / 360.0;
+    constexpr double kScale = 210.0 / 360.0;
     const double hue =
         bounds.maximum == bounds.minimum
             ? 0.0
-            : std::clamp(scale * (value - bounds.minimum) / (bounds.maximum - bounds.minimum), 0.0, scale);
+            : std::clamp(kScale * (value - bounds.minimum) / (bounds.maximum - bounds.minimum), 0.0, kScale);
     return QColor::fromHsvF(hue, 0.85, 0.85);
 }
 

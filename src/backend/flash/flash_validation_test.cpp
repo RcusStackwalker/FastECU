@@ -332,7 +332,7 @@ TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
 
 // A family that isn't the kernel-less Mitsu Colt CAN family must still carry
 // a kernel -- the optional relaxation (Step 5 tail, wave 0) is scoped to
-// MitsuColtM32rCan (family_requires_kernel_v's specialization), not a
+// MitsuColtM32rCan (kFamilyRequiresKernel's specialization), not a
 // blanket relaxation for every family.
 TEST(FlashValidationTest, MissingKernelIsRejectedForKlineFamilyByDefault)
 {

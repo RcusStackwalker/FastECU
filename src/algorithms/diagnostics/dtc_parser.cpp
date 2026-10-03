@@ -10,11 +10,11 @@ namespace
 
 std::string default_dtc_message(std::uint16_t dtc)
 {
-    static constexpr std::array<char, 4> prefixes = {'P', 'C', 'B', 'U'};
+    static constexpr std::array<char, 4> kPrefixes = {'P', 'C', 'B', 'U'};
     const std::size_t category = dtc >> 14;
     const std::uint16_t code = dtc & 0x3fff;
 
-    return std::format("{}{:04x} - Unknown error code", prefixes[category], code);
+    return std::format("{}{:04x} - Unknown error code", kPrefixes[category], code);
 }
 
 } // namespace

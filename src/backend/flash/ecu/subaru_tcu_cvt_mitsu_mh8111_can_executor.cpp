@@ -51,7 +51,7 @@ constexpr bytes::Byte kSessionKernelJump = 0x42;
 // 356-358, "hack for testing").
 constexpr MemoryRegion kReadRegion{0x8000, 0x78000};
 // The sole flashed block (block_modified skips 0-2, flashes only block 3 --
-// fblocks_MH8111[3] in kernelmemorymodels.h). Deliberately does NOT overlap
+// kFlashBlocksMH8111[3] in kernelmemorymodels.h). Deliberately does NOT overlap
 // kReadRegion -- see subaru_tcu_cvt_mitsu_mh8111_can_plan.cpp's comment.
 constexpr MemoryRegion kWriteRegion{0x80000, 0x100000};
 
@@ -373,7 +373,7 @@ Status erase_memory(Ctx& ctx)
 }
 
 // Legacy reflash_block, lines 636-826, called once (this family flashes
-// exactly one block, kWriteRegion / fblocks_MH8111[3]).
+// exactly one block, kWriteRegion / kFlashBlocksMH8111[3]).
 Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseReporter& progress)
 {
     constexpr std::uint32_t kChunkSize = 256;

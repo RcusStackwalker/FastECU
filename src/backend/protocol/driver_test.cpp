@@ -32,10 +32,10 @@ TEST(TestDriver, free_form_handshake_reaches_streaming)
     AlreadyInMode init(125000);
     // host setup (0xA0,N=1) -> ECU ACK-1 -> host id-list -> ECU ACK-2
     t.expectWrite(buildSetupFrame(0xA0, 1));
-    const MutDmaFrame ack1 = buildCommandFrame(0xA5, bytes::Bytes{}, TRAILER_STD);
+    const MutDmaFrame ack1 = buildCommandFrame(0xA5, bytes::Bytes{}, kTrailerStd);
     t.queueRead(ack1);
     t.expectWrite(buildIdListFrame(0xA1, ch));
-    const MutDmaFrame ack2 = buildCommandFrame(0x05, bytes::Bytes{}, TRAILER_STD);
+    const MutDmaFrame ack2 = buildCommandFrame(0x05, bytes::Bytes{}, kTrailerStd);
     t.queueRead(ack2);
     MutDmaDriver d(t, init);
     fastecu::FakeCancellationToken cancellation;
@@ -51,7 +51,7 @@ TEST(TestDriver, write_memory_sends_and_acks)
     const bytes::Bytes data = test_bytes::bytesFromHex("DEAD");
     const std::vector<MutDmaFrame> frames = buildWriteFrames(0x8010, data);
     t.expectWrite(frames.at(0));
-    t.queueRead(buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, TRAILER_STD)); // echo ack
+    t.queueRead(buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, kTrailerStd)); // echo ack
     MutDmaDriver d(t, init);
     fastecu::FakeCancellationToken cancellation;
     ASSERT_THAT(d.writeMemory(0x8010, data, cancellation), fastecu::testing::IsOk());
@@ -66,7 +66,7 @@ TEST(TestDriver, poll_decodes_stream_frame)
     // one streamed frame: [0x51][12 34][csum][0x0D]
     bytes::Bytes fr = {0x51, 0x12, 0x34};
     fr.push_back(sum8(fr));
-    fr.push_back(TRAILER_STD);
+    fr.push_back(kTrailerStd);
     t.queueRead(fr);
     MutDmaDriver d(t, init);
     d.setChannelsForTest(ch);
@@ -150,7 +150,7 @@ TEST(TestDriver, handshake_fails_on_bad_ack)
     AlreadyInMode init(125000);
     t.expectWrite(buildSetupFrame(0xA0, 1));
     // wrong ACK-1 opcode (0x00 instead of 0xA5/0xB5), though checksum is valid
-    t.queueRead(buildCommandFrame(0x00, bytes::Bytes{}, TRAILER_STD));
+    t.queueRead(buildCommandFrame(0x00, bytes::Bytes{}, kTrailerStd));
     MutDmaDriver d(t, init);
     fastecu::FakeCancellationToken cancellation;
     ASSERT_THAT(d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation),
@@ -163,7 +163,7 @@ TEST(TestDriver, poll_returns_empty_on_bad_frame)
     std::vector<Channel> ch = {{0x8000, 2}};
     ScriptedKlineTransport t;
     AlreadyInMode init(125000);
-    const bytes::Bytes bad = {0x51, 0x12, 0x34, 0x00, TRAILER_STD}; // wrong checksum
+    const bytes::Bytes bad = {0x51, 0x12, 0x34, 0x00, kTrailerStd}; // wrong checksum
     t.queueRead(bad);
     MutDmaDriver d(t, init);
     d.setChannelsForTest(ch);
@@ -179,7 +179,7 @@ TEST(TestDriver, write_memory_fails_on_bad_echo)
     AlreadyInMode init(125000);
     const bytes::Bytes data = test_bytes::bytesFromHex("DEAD");
     t.expectWrite(buildWriteFrames(0x8010, data).at(0));
-    MutDmaFrame badEcho = buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, TRAILER_STD);
+    MutDmaFrame badEcho = buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, kTrailerStd);
     badEcho[49] = static_cast<bytes::Byte>(badEcho[49] ^ 0xFF); // corrupt checksum
     t.queueRead(badEcho);
     MutDmaDriver d(t, init);
@@ -205,7 +205,7 @@ TEST(TestDriver, handshake_propagates_cancellation_from_bounded_read)
     ScriptedKlineTransport t;
     AlreadyInMode init(125000);
     t.expectWrite(buildSetupFrame(0xA0, 1));
-    t.queueRead(buildCommandFrame(0xA5, bytes::Bytes{}, TRAILER_STD));
+    t.queueRead(buildCommandFrame(0xA5, bytes::Bytes{}, kTrailerStd));
     MutDmaDriver d(t, init);
     fastecu::FakeCancellationToken cancellation(true);
 

@@ -19,8 +19,8 @@ struct ChecksumCorrectionOutcome
 {
     enum class Status
     {
-        UnknownMcuType,      // mcu_type not found in flashdevices[]
-        BadRomSize,          // rom size != flashdevices[index].romsize
+        UnknownMcuType,      // mcu_type not found in kFlashDevices[]
+        BadRomSize,          // rom size != kFlashDevices[index].romsize
         NoModuleForProtocol, // make/checksum_flag/flash_method matched no family
         FamilyRan,           // flash_method matched a family branch
     };

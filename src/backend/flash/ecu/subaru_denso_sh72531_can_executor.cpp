@@ -95,7 +95,7 @@ constexpr bytes::Byte kRoutineChecksum = 0x02;
 constexpr bytes::Byte kDataFormatIdentifier = 0x04;
 constexpr bytes::Byte kAddressAndLengthFormat = 0x44;
 
-// fblocks_SH72531[0].start. write_memory hands reflash_block
+// kFlashBlocksSH72531[0].start. write_memory hands reflash_block
 // &data_array[fdt->fblocks->start] (line 1140), i.e. fblocks[0].start, and
 // reflash_block then indexes newdata[i + blockaddr] (line 1225) -- so byte 0
 // of the plan image is this address, which for SH72531 is 0.

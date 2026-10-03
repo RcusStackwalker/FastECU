@@ -7,7 +7,7 @@ namespace mutdma
 MutDmaFrame buildSetupFrame(bytes::Byte setupCmd, bytes::Byte channelCount)
 {
     const bytes::Bytes payload{channelCount};
-    return buildCommandFrame(setupCmd, payload, TRAILER_FREEFORM);
+    return buildCommandFrame(setupCmd, payload, kTrailerFreeform);
 }
 bytes::Byte sizeToDescriptor(bytes::Byte len)
 {
@@ -49,7 +49,7 @@ bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const std::vector<Channel>& c
         idOff += 2;
     }
     f[total - 2] = sum8(f, 0, total - 2);
-    f[total - 1] = TRAILER_STD;
+    f[total - 1] = kTrailerStd;
     return f;
 }
 std::size_t responseDataLength(const std::vector<Channel>& channels)

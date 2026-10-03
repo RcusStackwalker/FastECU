@@ -400,8 +400,8 @@ TEST_F(Sh72543rExecutor, ForgedDryRunAndWireChangesAreRejectedBeforeIo)
 // legacy key schedule. Never call the production cipher to form expected frames.
 std::uint32_t referenceCipher(std::uint32_t word)
 {
-    constexpr std::array<unsigned, 32> box{5,  6, 7, 1, 9,  12, 13, 8, 10, 13, 2, 11, 15, 4,  0,  3,
-                                           11, 4, 6, 0, 15, 2,  13, 9, 5,  12, 1, 10, 3,  13, 14, 8};
+    constexpr std::array<unsigned, 32> kBox{5,  6, 7, 1, 9,  12, 13, 8, 10, 13, 2, 11, 15, 4,  0,  3,
+                                            11, 4, 6, 0, 15, 2,  13, 9, 5,  12, 1, 10, 3,  13, 14, 8};
     std::uint32_t left = word >> 16U;
     std::uint32_t right = word & 0xffffU;
     for (std::uint32_t round : {0xb740U, 0x42daU, 0xa7caU, 0x5fb1U})
@@ -411,7 +411,7 @@ std::uint32_t referenceCipher(std::uint32_t word)
         std::uint32_t f = 0;
         for (unsigned n = 0; n < 4; ++n)
         {
-            f |= box[(index >> (4U * n)) & 31U] << (4U * n);
+            f |= kBox[(index >> (4U * n)) & 31U] << (4U * n);
         }
         f = ((f >> 3U) | (f << 13U)) & 0xffffU;
         std::uint32_t next = left ^ f;

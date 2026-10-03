@@ -6,7 +6,7 @@ namespace fastecu::flash
 
 // Legacy: flash_ecu_subaru_denso_sh72531_can_operation.{h,cpp}. Region fields
 // carry what legacy hardcoded in read_memory (lines 828-830) and the 0x34/0x35
-// setup PDUs (lines 844-854, 881-891): fblocks_SH72531[1] exactly.
+// setup PDUs (lines 844-854, 881-891): kFlashBlocksSH72531[1] exactly.
 struct SubaruDensoSh72531CanPlan
 {
     std::uint32_t request_id;   // 0x7e0

@@ -162,7 +162,7 @@ bytes::Bytes encryptPayload(bytes::ByteView buf, std::uint32_t len)
     return SsmProtocol::calculatePayload(buf, len, kIndex, kTransform);
 }
 
-// For McuType "SH7055", eblocks_SH7055[0] == {start=0, len=0x100}
+// For McuType "SH7055", kEepromBlocksSH7055[0] == {start=0, len=0x100}
 // (src/backend/flash/kernel/kernelmemorymodels.h:279-281). read_mem()'s
 // skip_start/willget/numblocks/curblock arithmetic (lines 469-510) reduces,
 // for this start/length, to a single request with numblocks=8, curblock=0,

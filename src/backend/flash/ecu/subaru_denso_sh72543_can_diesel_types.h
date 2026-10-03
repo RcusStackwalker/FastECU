@@ -5,7 +5,7 @@ namespace fastecu::flash
 {
 
 // Legacy: flash_ecu_subaru_denso_sh72543_can_diesel_operation.{h,cpp}. Region
-// fields carry fblocks_SH72543d[0] exactly -- what execute() passes to
+// fields carry kFlashBlocksSH72543d[0] exactly -- what execute() passes to
 // read_memory (line 74) and what read_memory's 0x34/0x35 setup PDUs then
 // compute from those arguments (lines 826-842, 865-881). Unlike its three
 // siblings this family does not overwrite the arguments: that hardcode is

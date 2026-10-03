@@ -34,7 +34,7 @@ TEST(MutDmaPortable, BuildIdListFrameEncodesChannelsAndTrailer)
     EXPECT_EQ(f[5], bytes::Byte(0x80));
     EXPECT_EQ(f[6], bytes::Byte(0x04));
     EXPECT_EQ(f[f.size() - 2], sum8(f, 0, f.size() - 2));
-    EXPECT_EQ(f[f.size() - 1], TRAILER_STD);
+    EXPECT_EQ(f[f.size() - 1], kTrailerStd);
 }
 
 // Mirrors tests/test_freeform.cpp's TestFreeform.decode_stream_values -- same
@@ -59,7 +59,7 @@ TEST(MutDmaPortable, BuildWriteFramesEncodesSingleChunk)
     const std::vector<MutDmaFrame> frames = buildWriteFrames(0x8010, data);
     ASSERT_EQ(frames.size(), std::size_t(1));
     const MutDmaFrame& f = frames.at(0);
-    ASSERT_EQ(static_cast<int>(f.size()), FRAME_LEN);
+    ASSERT_EQ(static_cast<int>(f.size()), kFrameLen);
     EXPECT_EQ(f[0], bytes::Byte(0x87)); // cmd
     EXPECT_EQ(f[1], bytes::Byte(0x00)); // sub-selector hi (0x0003)
     EXPECT_EQ(f[2], bytes::Byte(0x03)); // sub-selector lo = write arbitrary

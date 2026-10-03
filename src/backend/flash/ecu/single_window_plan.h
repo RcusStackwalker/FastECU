@@ -37,7 +37,7 @@ struct SingleWindowPlanSpec
     // than the window it writes.
     MemoryRegion write_region;
     std::uint32_t image_size;
-    // False when the shared flashdevices[] entry is not what this family
+    // False when the shared kFlashDevices[] entry is not what this family
     // expects. Block counts, and which blocks matter, differ per family, so
     // the check stays with the family; the core composes the message.
     bool (*geometry_ok)(const flashdev_t& device);

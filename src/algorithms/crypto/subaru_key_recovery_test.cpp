@@ -71,13 +71,13 @@ TEST(SubaruKeyRecovery, FFunctionMatchesTheDialogImplementation)
         std::uint16_t key;
         std::uint16_t expected;
     };
-    static constexpr auto cases = std::to_array<Case>({{0x0000, 0x0000, 0xaaaa},
-                                                       {0xffff, 0x0000, 0x1111},
-                                                       {0x1234, 0x3b61, 0x4da4},
-                                                       {0xbeef, 0x8bef, 0xa256},
-                                                       {0x8000, 0x0001, 0xcaaa},
-                                                       {0x5a5a, 0xa5a5, 0x1111}});
-    for (const Case& test : cases)
+    static constexpr auto kCases = std::to_array<Case>({{0x0000, 0x0000, 0xaaaa},
+                                                        {0xffff, 0x0000, 0x1111},
+                                                        {0x1234, 0x3b61, 0x4da4},
+                                                        {0xbeef, 0x8bef, 0xa256},
+                                                        {0x8000, 0x0001, 0xcaaa},
+                                                        {0x5a5a, 0xa5a5, 0x1111}});
+    for (const Case& test : kCases)
     {
         SCOPED_TRACE(std::format("word {:#06x} key {:#06x}", test.word, test.key));
         EXPECT_EQ(subaru_key_recovery::f_function(test.word, test.key), test.expected);
@@ -91,12 +91,12 @@ TEST(SubaruKeyRecovery, EncryptMatchesTheDialogImplementation)
         std::uint32_t plain;
         std::uint32_t expected;
     };
-    static constexpr auto cases = std::to_array<Case>({{0x00000000, 0x777dc7f1},
-                                                       {0xffffffff, 0xeb20163a},
-                                                       {0x12345678, 0x76521e57},
-                                                       {0xdeadbeef, 0x47e819ed},
-                                                       {0x80000001, 0xf96d8aed}});
-    for (const Case& test : cases)
+    static constexpr auto kCases = std::to_array<Case>({{0x00000000, 0x777dc7f1},
+                                                        {0xffffffff, 0xeb20163a},
+                                                        {0x12345678, 0x76521e57},
+                                                        {0xdeadbeef, 0x47e819ed},
+                                                        {0x80000001, 0xf96d8aed}});
+    for (const Case& test : kCases)
     {
         SCOPED_TRACE(std::format("plain {:#010x}", test.plain));
         EXPECT_EQ(subaru_key_recovery::encrypt(test.plain, kKeys), test.expected);

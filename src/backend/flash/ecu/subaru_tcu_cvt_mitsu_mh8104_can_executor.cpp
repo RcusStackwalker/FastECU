@@ -61,7 +61,7 @@ using bytes::u24;
 // Legacy read_mem hardcodes start_addr = 0x8000, length = 0x78000
 // unconditionally (lines 364-366, "hack for testing"). Unlike MH8111 (whose
 // read window and sole flashed block do NOT overlap), this family's write
-// window is IDENTICAL -- both are fblocks_MH8104[3] (kernelmemorymodels.h).
+// window is IDENTICAL -- both are kFlashBlocksMH8104[3] (kernelmemorymodels.h).
 constexpr MemoryRegion kReadRegion{0x8000, 0x78000};
 constexpr MemoryRegion kWriteRegion{0x8000, 0x78000};
 
@@ -514,7 +514,7 @@ Status erase_memory(Ctx& ctx)
 }
 
 // Legacy reflash_block, lines 643-840, called once (this family flashes
-// exactly one block, kWriteRegion / fblocks_MH8104[3]).
+// exactly one block, kWriteRegion / kFlashBlocksMH8104[3]).
 Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseReporter& progress)
 {
     constexpr std::uint32_t kChunkSize = 128;

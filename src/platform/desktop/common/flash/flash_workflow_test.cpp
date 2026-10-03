@@ -118,7 +118,7 @@ bool writeFile(const QString& path, const QByteArray& contents)
 
 std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, bool include_kernel_files = true)
 {
-    constexpr auto catalog = R"(<?xml version="1.0" encoding="UTF-8"?>
+    constexpr auto kCatalog = R"(<?xml version="1.0" encoding="UTF-8"?>
 <config name="FastECU" version="0.0-dev0">
   <protocols>
     <protocol name="sub_ecu_denso_mc68hc16y5_02" alias="wrx02">
@@ -213,7 +213,7 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, 
 </config>)";
 
     const QString kernel_directory = directory.filePath("kernels");
-    if (!QDir().mkpath(kernel_directory) || !writeFile(directory.filePath("protocols.cfg"), catalog))
+    if (!QDir().mkpath(kernel_directory) || !writeFile(directory.filePath("protocols.cfg"), kCatalog))
     {
         return std::nullopt;
     }
@@ -291,39 +291,39 @@ void expectNoBackendIo(FakeBackend& fake)
 
 TEST(FlashWorkflowTest, recognizesEveryPortableFamilyPrefixAndLeavesLegacyAlone)
 {
-    static constexpr auto portable = std::to_array<const char *>({"mitsu_ecu_m32r_can",
-                                                                  "mitsu_ecu_m32r_can_vendor_ext",
-                                                                  "mitsu_ecu_m32r_can_512kb",
-                                                                  "mitsu_ecu_m32r_can_vendor_ext_512kb",
-                                                                  "sub_ecu_mitsu_m32r_kline",
-                                                                  "sub_ecu_hitachi_m32r_kline",
-                                                                  "sub_ecu_hitachi_m32r_kline_recovery",
-                                                                  "sub_ecu_eeprom_denso_sh7055_kline",
-                                                                  "sub_ecu_eeprom_denso_sh7058_kline",
-                                                                  "sub_ecu_eeprom_denso_sh7055_densocan",
-                                                                  "sub_ecu_eeprom_denso_sh7058_densocan",
-                                                                  "sub_ecu_eeprom_denso_sh7058_can",
-                                                                  "sub_ecu_eeprom_denso_sh7058_can_diesel",
-                                                                  "sub_ecu_hitachi_m32r_can",
-                                                                  "sub_tcu_hitachi_m32r_kline",
-                                                                  "sub_ecu_unisia_jecs_m3779x",
-                                                                  "sub_ecu_unisia_jecs_m3775x",
-                                                                  "sub_tcu_hitachi_m32r_can",
-                                                                  "sub_tcu_cvt_hitachi_m32r_can",
-                                                                  "sub_tcu_cvt_mitsu_mh8111_can",
-                                                                  "sub_tcu_cvt_mitsu_mh8104_can",
-                                                                  "sub_ecu_denso_1n83m_1_5m_can",
-                                                                  "sub_ecu_denso_sh72531_can",
-                                                                  "sub_ecu_denso_sh72543_can_diesel",
-                                                                  "sub_ecu_denso_sh7058_can_diesel",
-                                                                  "sub_ecu_denso_sh7059_can_diesel",
-                                                                  "sub_ecu_denso_1n83m_4m_can",
-                                                                  "sub_ecu_denso_mc68hc16y5_02_bdm",
-                                                                  "sub_ecu_unisia_jecs_20",
-                                                                  "sub_ecu_unisia_jecs_30",
-                                                                  "sub_ecu_unisia_jecs_40",
-                                                                  "sub_ecu_unisia_jecs_70"});
-    for (const char *protocol : portable)
+    static constexpr auto kPortable = std::to_array<const char *>({"mitsu_ecu_m32r_can",
+                                                                   "mitsu_ecu_m32r_can_vendor_ext",
+                                                                   "mitsu_ecu_m32r_can_512kb",
+                                                                   "mitsu_ecu_m32r_can_vendor_ext_512kb",
+                                                                   "sub_ecu_mitsu_m32r_kline",
+                                                                   "sub_ecu_hitachi_m32r_kline",
+                                                                   "sub_ecu_hitachi_m32r_kline_recovery",
+                                                                   "sub_ecu_eeprom_denso_sh7055_kline",
+                                                                   "sub_ecu_eeprom_denso_sh7058_kline",
+                                                                   "sub_ecu_eeprom_denso_sh7055_densocan",
+                                                                   "sub_ecu_eeprom_denso_sh7058_densocan",
+                                                                   "sub_ecu_eeprom_denso_sh7058_can",
+                                                                   "sub_ecu_eeprom_denso_sh7058_can_diesel",
+                                                                   "sub_ecu_hitachi_m32r_can",
+                                                                   "sub_tcu_hitachi_m32r_kline",
+                                                                   "sub_ecu_unisia_jecs_m3779x",
+                                                                   "sub_ecu_unisia_jecs_m3775x",
+                                                                   "sub_tcu_hitachi_m32r_can",
+                                                                   "sub_tcu_cvt_hitachi_m32r_can",
+                                                                   "sub_tcu_cvt_mitsu_mh8111_can",
+                                                                   "sub_tcu_cvt_mitsu_mh8104_can",
+                                                                   "sub_ecu_denso_1n83m_1_5m_can",
+                                                                   "sub_ecu_denso_sh72531_can",
+                                                                   "sub_ecu_denso_sh72543_can_diesel",
+                                                                   "sub_ecu_denso_sh7058_can_diesel",
+                                                                   "sub_ecu_denso_sh7059_can_diesel",
+                                                                   "sub_ecu_denso_1n83m_4m_can",
+                                                                   "sub_ecu_denso_mc68hc16y5_02_bdm",
+                                                                   "sub_ecu_unisia_jecs_20",
+                                                                   "sub_ecu_unisia_jecs_30",
+                                                                   "sub_ecu_unisia_jecs_40",
+                                                                   "sub_ecu_unisia_jecs_70"});
+    for (const char *protocol : kPortable)
     {
         ASSERT_TRUE(FlashWorkflowFactory::tryCreate(request(protocol)) != nullptr) << protocol;
     }
@@ -366,12 +366,12 @@ TEST(FlashWorkflowTest, successfulReadBytesAreAcceptedAutomatically)
 
 TEST(FlashWorkflowTest, unisiaJecsRoutesOnlyExactProtocolMcuPairs)
 {
-    static constexpr auto pairs = std::to_array<std::pair<const char *, const char *>>({
+    static constexpr auto kPairs = std::to_array<std::pair<const char *, const char *>>({
         {"sub_ecu_unisia_jecs_m3779x", "M3779x"},
         {"sub_ecu_unisia_jecs_m3775x", "M3775x"},
     });
 
-    for (const auto& [protocol, mcu] : pairs)
+    for (const auto& [protocol, mcu] : kPairs)
     {
         auto input = request(protocol);
         input.mcu = mcu;
@@ -394,12 +394,12 @@ TEST(FlashWorkflowTest, unisiaJecsRoutesOnlyExactProtocolMcuPairs)
 
 TEST(FlashWorkflowTest, unisiaJecsCrossPairsFailBeforeAttempt)
 {
-    static constexpr auto cross_pairs = std::to_array<std::pair<const char *, const char *>>({
+    static constexpr auto kCrossPairs = std::to_array<std::pair<const char *, const char *>>({
         {"sub_ecu_unisia_jecs_m3779x", "M3775x"},
         {"sub_ecu_unisia_jecs_m3775x", "M3779x"},
     });
 
-    for (const auto& [protocol, mcu] : cross_pairs)
+    for (const auto& [protocol, mcu] : kCrossPairs)
     {
         auto input = request(protocol);
         input.mcu = mcu;
@@ -1320,7 +1320,7 @@ TEST(FlashWorkflowTest, tcuUnsupportedOperationsFailBeforeTransportIo)
         FlashOperation operation;
         std::size_t image_size;
     };
-    constexpr std::array cases{
+    constexpr std::array kCases{
         Case{"sub_tcu_denso_sh7055_can", "SH7055", FlashOperation::Write, 0x80000},
         Case{"sub_tcu_denso_sh7055_can", "SH7055", FlashOperation::TestWrite, 0x80000},
         Case{"sub_tcu_denso_sh7058_can", "SH7058", FlashOperation::TestWrite, 0x100000},
@@ -1335,7 +1335,7 @@ TEST(FlashWorkflowTest, tcuUnsupportedOperationsFailBeforeTransportIo)
     ASSERT_TRUE(serial != nullptr);
     expectNoBackendIo(*fake);
 
-    for (const Case& test : cases)
+    for (const Case& test : kCases)
     {
         auto input = request(test.protocol, test.operation);
         input.mcu = test.mcu;

@@ -12,7 +12,7 @@ namespace
 {
 constexpr std::array kProtocols{std::string_view{"sub_ecu_denso_sh72543_can_diesel"}};
 
-// fblocks_SH72543d[0]. Unlike its three siblings, this family's read_memory
+// kFlashBlocksSH72543d[0]. Unlike its three siblings, this family's read_memory
 // does NOT hardcode over its own arguments -- the start_addr/length overwrite
 // is commented out (legacy lines 813-814) -- so the caller's
 // fblocks[0].start/len (legacy line 74) reach it, and the 0x34/0x35 setup
@@ -28,7 +28,7 @@ constexpr std::uint32_t kImageSize = 0x200000;
 constexpr std::uint32_t kLeadPad = 0x8000;
 constexpr std::uint32_t kTailPad = 0x100;
 
-// SH72543d's flash table has a single block: fblocks_SH72543d[0] == {0x8000,
+// SH72543d's flash table has a single block: kFlashBlocksSH72543d[0] == {0x8000,
 // 0x1F7F00}, so it is checked here.
 bool geometry_ok(const flashdev_t& device)
 {

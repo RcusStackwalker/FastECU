@@ -109,9 +109,9 @@ TEST(ChecksumCorrectionCommand, HeaderOnlyDefinitionBypassesMissingDefinitionGat
     const bytes::Bytes rom(524288, 0);
     // Definition presence is independent of map count: a header-only definition
     // supplies checksum selection metadata and still links this image.
-    constexpr bool hasDefinition = true;
+    constexpr bool kHasDefinition = true;
 
-    const auto result = command.run(rom, hasDefinition, subaruM32rKlineSelection(), nullptr);
+    const auto result = command.run(rom, kHasDefinition, subaruM32rKlineSelection(), nullptr);
 
     ASSERT_TRUE(result.corrected_rom_data.has_value());
     EXPECT_EQ(command.missingDefinitionDialogCount, 0);
@@ -171,7 +171,7 @@ TEST(ChecksumCorrectionCommand, UnknownMcuTypeReturnsUnmodifiedRomAndRunsNoDialo
 {
     // "M32170" is sub_ecu_mitsu_m32r_can's real, currently shipped <mcu>
     // value in resources/shared/config/protocols.cfg; it has no
-    // flashdevices[] entry. Formerly checksum_correction's early return.
+    // kFlashDevices[] entry. Formerly checksum_correction's early return.
     TestableChecksumCommand command;
     ChecksumSelection selection = subaruM32rKlineSelection();
     selection.mcu_type = "M32170";

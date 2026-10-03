@@ -12,7 +12,7 @@ namespace
 {
 constexpr std::array kProtocols{std::string_view{"sub_ecu_denso_1n83m_1_5m_can"}};
 
-// fblocks_N83M_1_5MB[1], the window legacy read_memory hardcodes over its own
+// kFlashBlocksN83M_1_5MB[1], the window legacy read_memory hardcodes over its own
 // arguments (lines 826-828) and the 0x34/0x35 setup PDUs spell out literally
 // (lines 842-852, 883-893).
 constexpr MemoryRegion kMainBlock{0x08FAC000, 0x00173F00};

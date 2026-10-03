@@ -7,7 +7,7 @@ namespace fastecu::flash
 // Legacy: flash_ecu_subaru_denso_1n83m_1_5m_can_operation.{h,cpp}. Single
 // protocol variant. The region fields carry what legacy hardcoded in
 // read_memory (lines 826-828) and the 0x34/0x35 setup PDUs (lines 842-852,
-// 883-893): fblocks_N83M_1_5MB[1] exactly.
+// 883-893): kFlashBlocksN83M_1_5MB[1] exactly.
 struct SubaruDenso1n83m_1_5mCanPlan
 {
     std::uint32_t request_id;   // 0x7e0

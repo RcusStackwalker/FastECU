@@ -38,7 +38,7 @@ void RemoteUtility::startOverNetwok()
     webSocket->setSslConfiguration(sslConfiguration);
     // Start node when Web Socket will be up
     QObject::connect(webSocket, &QWebSocket::connected, this, &RemoteUtility::websocket_connected);
-    node.setHeartbeatInterval(heartbeatInterval);
+    node.setHeartbeatInterval(kHeartbeatInterval);
     QObject::connect(webSocket, &QWebSocket::errorOccurred, this, [this](QAbstractSocket::SocketError error)
                      { qDebug() << this->metaObject()->className() << "startOverNetwok QWebSocket error:" << error; });
     // WebSocket over SSL
@@ -113,12 +113,12 @@ void RemoteUtility::ping(QString message)
 void RemoteUtility::start_keepalive(void)
 {
     connect(keepalive_timer, &QTimer::timeout, this, &RemoteUtility::send_keepalive);
-    keepalive_timer->start(keepalive_interval);
+    keepalive_timer->start(kKeepaliveInterval);
 }
 
 void RemoteUtility::send_keepalive(void)
 {
-    if (pings_sequently_missed == pings_sequently_missed_limit)
+    if (pings_sequently_missed == kPingsSequentlyMissedLimit)
     {
         qDebug() << "Missed keepalives limit exceeded. Assume the client is disconnected.";
         emit stateChanged(QRemoteObjectReplica::Suspect, remote_utility->state());

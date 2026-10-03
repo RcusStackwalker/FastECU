@@ -238,7 +238,7 @@ class BiuOperationsSubaru : public QDialog
         "Key lock solenoid         ", "volts", "Number of keys registered ", "keys ",
     };
 
-    static constexpr auto biu_data_factors =
+    static constexpr auto kBiuDataFactors =
         std::to_array<float>({0.0843, 0, 0.0843, 0,   0.0843, 0, 0.0843, 0, 0.0196, 0, 0.4, 0,
                               0.0196, 0, 0.5,    -40, 0.0392, 0, 0.4,    0, 0.0843, 0, 1,   0});
 
@@ -248,7 +248,7 @@ class BiuOperationsSubaru : public QDialog
         "Longitudinal g-force  ", "m/s^2", "Sport shift stages    ", "step ", "Shift position        ", "     ",
     };
 
-    static constexpr auto can_data_factors =
+    static constexpr auto kCanDataFactors =
         std::to_array<float>({0.0562, 0, 1, 0, 1, 0, 0.0016, 0, 0.001, 0, 1, -40, 0.1235, 0, 1, 0, 1, 0});
 
     QStringList biu_tt_names = {

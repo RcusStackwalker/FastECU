@@ -106,7 +106,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, WriteRequiresImageOfExactRomSize)
 
     const int index = find_flash_device_index("MC68HC16Y5");
     ASSERT_GE(index, 0);
-    bytes::Bytes rom(flashdevices[index].romsize, bytes::Byte{0});
+    bytes::Bytes rom(kFlashDevices[index].romsize, bytes::Byte{0});
     EXPECT_THAT(build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::Write, "sub_ecu_denso_mc68hc16y5_02",
                                                       "MC68HC16Y5", rom,
                                                       KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
@@ -119,13 +119,13 @@ TEST(SubaruDensoMc68hc16y5_02Plan, StockAndEcutekTestWritesCarryExactImage)
     ASSERT_GE(index, 0);
     for (const auto *protocol : {"sub_ecu_denso_mc68hc16y5_02", "sub_ecu_denso_mc68hc16y5_02_ecutek"})
     {
-        bytes::Bytes rom(flashdevices[index].romsize, bytes::Byte{0});
+        bytes::Bytes rom(kFlashDevices[index].romsize, bytes::Byte{0});
         auto plan =
             build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::TestWrite, protocol, "MC68HC16Y5", std::move(rom),
                                                   KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}});
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         ASSERT_TRUE(plan->image().has_value());
-        EXPECT_EQ(plan->image()->size(), flashdevices[index].romsize);
+        EXPECT_EQ(plan->image()->size(), kFlashDevices[index].romsize);
     }
 }
 
@@ -135,7 +135,7 @@ TEST(SubaruDensoMc68hc16y5_02Plan, TpuRejectsWriteAndTestWrite)
     ASSERT_GE(index, 0);
     for (const auto operation : {FlashOperation::Write, FlashOperation::TestWrite})
     {
-        bytes::Bytes rom(flashdevices[index].romsize, bytes::Byte{0});
+        bytes::Bytes rom(kFlashDevices[index].romsize, bytes::Byte{0});
         ASSERT_THAT(build_subaru_denso_mc68hc16y5_02_plan(
                         operation, "sub_ecu_denso_mc68hc16y5_02_tpu", "MC68HC16Y5_TPU", std::move(rom),
                         KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),

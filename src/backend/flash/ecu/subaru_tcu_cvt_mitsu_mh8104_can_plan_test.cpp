@@ -14,7 +14,7 @@ constexpr SingleWindowPlanCase kCase{
     .foreign_protocol = "sub_tcu_cvt_mitsu_mh8104_can_typo",
     .foreign_mcu = "MH8111",
     // MH8104's flash geometry is {0,0x4000},{0x4000,0x2000},{0x6000,0x2000},
-    // {0x8000,0x78000} (kernelmemorymodels.h fblocks_MH8104); block_modified
+    // {0x8000,0x78000} (kernelmemorymodels.h kFlashBlocksMH8104); block_modified
     // skips blocks 0-2, so write_mem's only reflash_block call targets block
     // 3: {0x8000, 0x78000}. read_mem hardcodes the SAME {0x8000, 0x78000}
     // window -- unlike MH8111, this family's read window and its sole

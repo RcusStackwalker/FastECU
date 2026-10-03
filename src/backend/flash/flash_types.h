@@ -186,7 +186,7 @@ using FamilyPlan =
 // Deliberately has no primary definition: a new alternative added to
 // FamilyPlan above must specialize this, right here, next to the variant it
 // classifies, or every use fails to compile. That is stricter than
-// family_requires_kernel_v below, which has a safe default (true) to fall
+// kFamilyRequiresKernel below, which has a safe default (true) to fall
 // back on -- there is no safe default family or transport to guess, and a
 // wrong guess would let a plan reach the executor of a different family.
 //
@@ -197,211 +197,211 @@ template <typename PlanT> struct FamilyTraits;
 
 template <> struct FamilyTraits<DensoSh705xEepromKlinePlan>
 {
-    static constexpr FlashFamily family = FlashFamily::DensoSh705xEepromKline;
-    static constexpr TransportKind transport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::DensoSh705xEepromKline;
+    static constexpr TransportKind kTransport = TransportKind::Kline;
 };
 
 template <> struct FamilyTraits<DensoSh705xEepromCanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::DensoSh705xEepromCan;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::DensoSh705xEepromCan;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<MitsuColtM32rCanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::MitsuColtM32rCan;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::MitsuColtM32rCan;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruMitsuM32rKlinePlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruMitsuM32rKline;
-    static constexpr TransportKind transport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruMitsuM32rKline;
+    static constexpr TransportKind kTransport = TransportKind::Kline;
 };
 
 template <> struct FamilyTraits<SubaruHitachiM32rKlinePlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruHitachiM32rKline;
-    static constexpr TransportKind transport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruHitachiM32rKline;
+    static constexpr TransportKind kTransport = TransportKind::Kline;
 };
 
 template <> struct FamilyTraits<SubaruDensoMc68hc16y5_02Plan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruDensoMc68hc16y5_02;
-    static constexpr TransportKind transport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoMc68hc16y5_02;
+    static constexpr TransportKind kTransport = TransportKind::Kline;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh7055_02Plan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruDensoSh7055_02;
-    static constexpr TransportKind transport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh7055_02;
+    static constexpr TransportKind kTransport = TransportKind::Kline;
 };
 
 template <> struct FamilyTraits<SubaruHitachiM32rCanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruHitachiM32rCan;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruHitachiM32rCan;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruTcuCvtHitachiM32rCanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruTcuCvtHitachiM32rCan;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruTcuCvtHitachiM32rCan;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruTcuCvtMitsuMh8111CanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruTcuCvtMitsuMh8111Can;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruTcuCvtMitsuMh8111Can;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruTcuCvtMitsuMh8104CanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruTcuCvtMitsuMh8104Can;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruTcuCvtMitsuMh8104Can;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDenso1n83m_1_5mCanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruDenso1n83m_1_5mCan;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruDenso1n83m_1_5mCan;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh72531CanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruDensoSh72531Can;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh72531Can;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh72543CanDieselPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruDensoSh72543CanDiesel;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh72543CanDiesel;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDenso1n83m_4mCanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruDenso1n83m_4mCan;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruDenso1n83m_4mCan;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh705xDensoCanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruDensoSh705xDensoCan;
-    static constexpr TransportKind transport = TransportKind::CanRawIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh705xDensoCan;
+    static constexpr TransportKind kTransport = TransportKind::CanRawIso15765;
 };
 
 template <> struct FamilyTraits<SubaruTcuDensoSh705xCanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruTcuDensoSh705xCan;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruTcuDensoSh705xCan;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh7058CanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruDensoSh7058Can;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh7058Can;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh7058CanDieselPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruDensoSh7058CanDiesel;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh7058CanDiesel;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruTcuHitachiM32rKlinePlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruTcuHitachiM32rKline;
-    static constexpr TransportKind transport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruTcuHitachiM32rKline;
+    static constexpr TransportKind kTransport = TransportKind::Kline;
 };
 
 template <> struct FamilyTraits<SubaruTcuHitachiM32rCanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruTcuHitachiM32rCan;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruTcuHitachiM32rCan;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruUnisiaJecsPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruUnisiaJecs;
-    static constexpr TransportKind transport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruUnisiaJecs;
+    static constexpr TransportKind kTransport = TransportKind::Kline;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh705xKlinePlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruDensoSh705xKline;
-    static constexpr TransportKind transport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh705xKline;
+    static constexpr TransportKind kTransport = TransportKind::Kline;
 };
 
 template <> struct FamilyTraits<SubaruDensoMc68hc16y5_02BdmPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruDensoMc68hc16y5_02Bdm;
-    static constexpr TransportKind transport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoMc68hc16y5_02Bdm;
+    static constexpr TransportKind kTransport = TransportKind::Kline;
 };
 
 template <> struct FamilyTraits<SubaruUnisiaJecsM32rKlinePlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruUnisiaJecsM32rKline;
-    static constexpr TransportKind transport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruUnisiaJecsM32rKline;
+    static constexpr TransportKind kTransport = TransportKind::Kline;
 };
 
 template <> struct FamilyTraits<SubaruUnisiaJecsM32rBootModeKernelPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruUnisiaJecsM32rBootModeKernel;
-    static constexpr TransportKind transport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruUnisiaJecsM32rBootModeKernel;
+    static constexpr TransportKind kTransport = TransportKind::Kline;
 };
 
 template <> struct FamilyTraits<SubaruUnisiaJecsM32rBootModeProgramPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruUnisiaJecsM32rBootModeProgram;
-    static constexpr TransportKind transport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruUnisiaJecsM32rBootModeProgram;
+    static constexpr TransportKind kTransport = TransportKind::Kline;
 };
 
 template <> struct FamilyTraits<SubaruHitachiSh72543rCanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruHitachiSh72543rCan;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruHitachiSh72543rCan;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruHitachiSh7058KlinePlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruHitachiSh7058;
-    static constexpr TransportKind transport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruHitachiSh7058;
+    static constexpr TransportKind kTransport = TransportKind::Kline;
 };
 
 template <> struct FamilyTraits<SubaruHitachiSh7058CanPlan>
 {
-    static constexpr FlashFamily family = FlashFamily::SubaruHitachiSh7058;
-    static constexpr TransportKind transport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::SubaruHitachiSh7058;
+    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
 };
 
 // Whether validate_and_build requires FlashPlanFields::kernel to be set for
 // this family's plan type. Defaults true (fail-closed): a family that skips
 // the kernel must opt out explicitly, right here, next to the variant it
 // classifies -- never by editing flash_validation.cpp.
-template <typename PlanT> inline constexpr bool family_requires_kernel_v = true;
+template <typename PlanT> inline constexpr bool kFamilyRequiresKernel = true;
 
 // Mitsu Colt CAN drives the ECU's own vendor bootloader and uploads only
 // compile-time RAM helper routines, not a loaded kernel image.
-template <> inline constexpr bool family_requires_kernel_v<MitsuColtM32rCanPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<MitsuColtM32rCanPlan> = false;
 
-template <> inline constexpr bool family_requires_kernel_v<SubaruMitsuM32rKlinePlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruMitsuM32rKlinePlan> = false;
 
-template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiM32rKlinePlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruHitachiM32rKlinePlan> = false;
 
 // Step 5 tail, wave 3. Jumps to the ECU's resident on-board kernel via
 // SecurityAccess + 0x10/0x42, uploading no image.
-template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiM32rCanPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruHitachiM32rCanPlan> = false;
 
 // Step 5 tail, wave 3. Jumps to the TCU's resident on-board kernel via
 // SecurityAccess + 0x10/0x02, uploading no image.
-template <> inline constexpr bool family_requires_kernel_v<SubaruTcuCvtHitachiM32rCanPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruTcuCvtHitachiM32rCanPlan> = false;
 
 // Step 5 tail, wave 3. Jumps to the TCU's resident on-board kernel via
 // SecurityAccess + 0x10/0x42, uploading no image (no kernel-alive pre-check
 // shortcut, unlike SubaruTcuCvtHitachiM32rCanPlan -- connect_bootloader
 // always runs its full sequence for this family).
-template <> inline constexpr bool family_requires_kernel_v<SubaruTcuCvtMitsuMh8111CanPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruTcuCvtMitsuMh8111CanPlan> = false;
 
 // Step 5 tail, wave 3. Jumps to the TCU's resident on-board kernel via
 // SecurityAccess + 0x10/0x42, uploading no image -- the same shape as
@@ -409,52 +409,52 @@ template <> inline constexpr bool family_requires_kernel_v<SubaruTcuCvtMitsuMh81
 // check in legacy after the kernel-alive probe is commented out
 // (`// return STATUS_ERROR;`); this family tolerates any ECU response
 // content and only a transport-level failure stops it.
-template <> inline constexpr bool family_requires_kernel_v<SubaruTcuCvtMitsuMh8104CanPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruTcuCvtMitsuMh8104CanPlan> = false;
 
 // Step 5 tail, wave 4. Jumps to the ECU's resident on-board kernel via
 // 0x10 0x42 (bench) or 0x10 0x62 (in-car), uploading no image.
-template <> inline constexpr bool family_requires_kernel_v<SubaruDenso1n83m_1_5mCanPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruDenso1n83m_1_5mCanPlan> = false;
 
 // Step 5 tail, wave 4. Same resident on-board kernel jump as its 1N83M
 // sibling, via 0x10 0x42 (bench) or 0x10 0x62 (in-car); no image is uploaded.
-template <> inline constexpr bool family_requires_kernel_v<SubaruDensoSh72531CanPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruDensoSh72531CanPlan> = false;
 
 // Step 5 tail, wave 4. Jumps to the ECU's resident on-board kernel via
 // 0x10 0x42 (bench) or 0x10 0x62 (in-car), uploading no image. Diesel family,
 // single-block flash geometry.
-template <> inline constexpr bool family_requires_kernel_v<SubaruDensoSh72543CanDieselPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruDensoSh72543CanDieselPlan> = false;
 
 // Step 5 tail, wave 4. The 4MB variant of the 1N83M family: same resident
 // on-board kernel jump via 0x10 0x42 (bench) or 0x10 0x62 (in-car), no image
 // uploaded.
-template <> inline constexpr bool family_requires_kernel_v<SubaruDenso1n83m_4mCanPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruDenso1n83m_4mCanPlan> = false;
 
 // Step 5 tail, wave 6a. Authenticates against the TCU's resident bootloader
 // via SecurityAccess and reads with 0xA0 block reads, uploading no image.
-template <> inline constexpr bool family_requires_kernel_v<SubaruTcuHitachiM32rKlinePlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruTcuHitachiM32rKlinePlan> = false;
 
 // Step 5 tail, wave 6a-2. Connects to the TCU's resident on-board kernel
 // (connect_bootloader) and drives it with page-read/block-write commands
 // over CAN; no image is uploaded.
-template <> inline constexpr bool family_requires_kernel_v<SubaruTcuHitachiM32rCanPlan> = false;
-template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiSh72543rCanPlan> = false;
-template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiSh7058KlinePlan> = false;
-template <> inline constexpr bool family_requires_kernel_v<SubaruHitachiSh7058CanPlan> = false;
-template <> inline constexpr bool family_requires_kernel_v<SubaruUnisiaJecsPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruTcuHitachiM32rCanPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruHitachiSh72543rCanPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruHitachiSh7058KlinePlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruHitachiSh7058CanPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruUnisiaJecsPlan> = false;
 
 // Step 5 tail, wave 6c-1. Write uploads the cfg kernel over BDM, but carries
 // it as the plan image (the bytes written to RAM), not as a KernelImage.
-template <> inline constexpr bool family_requires_kernel_v<SubaruDensoMc68hc16y5_02BdmPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruDensoMc68hc16y5_02BdmPlan> = false;
 
 // Step 5 tail, wave 6c-3. The ECU's own boot ROM handles flash mode; no
 // kernel is uploaded.
-template <> inline constexpr bool family_requires_kernel_v<SubaruUnisiaJecsM32rKlinePlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruUnisiaJecsM32rKlinePlan> = false;
 
 // Step 5 tail, wave 7. The kernel attempt carries the cfg kernel as its plan
 // image, as 6c-1 BDM does: the _bootmode cfg entries declare no kernel_addr,
 // and the M32R boot ROM places the kernel itself. The program attempt uploads
 // nothing.
-template <> inline constexpr bool family_requires_kernel_v<SubaruUnisiaJecsM32rBootModeKernelPlan> = false;
-template <> inline constexpr bool family_requires_kernel_v<SubaruUnisiaJecsM32rBootModeProgramPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruUnisiaJecsM32rBootModeKernelPlan> = false;
+template <> inline constexpr bool kFamilyRequiresKernel<SubaruUnisiaJecsM32rBootModeProgramPlan> = false;
 
 } // namespace fastecu::flash

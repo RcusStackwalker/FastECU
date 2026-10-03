@@ -14,7 +14,7 @@ constexpr SingleWindowPlanCase kCase{
     .foreign_protocol = "sub_tcu_cvt_mitsu_mh8111_can_typo",
     .foreign_mcu = "MH8104",
     // MH8111's flash geometry is {0,0x40000},{0x40000,0x20000},{0x60000,0x20000},
-    // {0x80000,0x100000} (kernelmemorymodels.h fblocks_MH8111); block_modified
+    // {0x80000,0x100000} (kernelmemorymodels.h kFlashBlocksMH8111); block_modified
     // skips blocks 0-2, so write_mem's only reflash_block call targets block
     // 3: {0x80000, 0x100000}. read_mem hardcodes {0x8000, 0x78000}
     // regardless. These two regions do NOT overlap -- a genuine legacy

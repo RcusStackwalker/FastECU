@@ -32,8 +32,8 @@ class J2534 : public QObject
     explicit J2534();
     ~J2534();
 
-    static constexpr std::string_view DLL_VERSION{"3.0.0"};
-    static constexpr std::string_view API_VERSION{"04.04"};
+    static constexpr std::string_view kDllVersion{"3.0.0"};
+    static constexpr std::string_view kApiVersion{"04.04"};
 
     // PassThruReadVersion's pApiVersion/pDllVersion/pFirmwareVersion out-parameters
     // must each point at a buffer of at least this many bytes; the implementation
