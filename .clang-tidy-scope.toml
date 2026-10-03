@@ -9,6 +9,7 @@
 
 [os.windows]
 prefixes = [
+  "bazel/platforms",
   "src/platform/desktop/windows",
   "src/platform/desktop/common/serial",
   "tests",

@@ -31,6 +31,7 @@ def _clang_tidy_runner_impl(name, visibility, mode, changed):
         srcs = [
             "//:scripts/clang_tidy_profile.py",
             "//:scripts/clang_tidy_runner.py",
+            "//:scripts/clang_tidy_scope.py",
         ],
         imports = ["scripts"],
         args = [mode] + (["--changed"] if changed else []) + [

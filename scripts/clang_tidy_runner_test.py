@@ -428,6 +428,121 @@ class ClangTidyRunnerTest(unittest.TestCase):
             )
         self.assertIn("could not write profile summary", stderr.getvalue())
 
+    def write_manifest(self, text: str) -> None:
+        (self.root / ".clang-tidy-scope.toml").write_text(text)
+
+    def test_gated_packages_need_c_sources_and_the_gating_keyword(self) -> None:
+        gating = "x(target_compatible_with = [])\n"
+        (self.root / "pkg").mkdir()
+        (self.root / "pkg" / "BUILD.bazel").write_text(gating)
+        (self.root / "pkg" / "a.cpp").write_text("int a;\n")
+        (self.root / "nosrc").mkdir()
+        (self.root / "nosrc" / "BUILD.bazel").write_text(gating)
+        (self.root / "plain").mkdir()
+        (self.root / "plain" / "BUILD.bazel").write_text("x()\n")
+        (self.root / "plain" / "b.cpp").write_text("int b;\n")
+        tree = runner._workspace_tree(self.root)
+        self.assertEqual([PurePath("pkg")], runner._gated_packages(tree))
+
+    def test_gated_packages_ignore_hidden_directories(self) -> None:
+        # Local checkouts such as .worktrees/<branch> hold whole copies of the repo.
+        hidden = self.root / ".worktrees" / "branch" / "pkg"
+        hidden.mkdir(parents=True)
+        (hidden / "BUILD.bazel").write_text("x(target_compatible_with = [])\n")
+        (hidden / "a.cpp").write_text("int a;\n")
+        tree = runner._workspace_tree(self.root)
+        self.assertEqual([], runner._gated_packages(tree))
+
+    def test_guard_fails_for_a_gated_package_the_manifest_omits(self) -> None:
+        self.write_manifest('[os.windows]\nprefixes = ["covered"]\n')
+        (self.root / "gated").mkdir()
+        (self.root / "gated" / "BUILD.bazel").write_text("x(target_compatible_with = [])\n")
+        (self.root / "gated" / "a.cpp").write_text("int a;\n")
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS),
+            self.assertRaisesRegex(runner.WorkflowError, "gated"),
+        ):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_UNIX_COMPDB_TOOL,
+                platform_name="linux",
+                environ={},
+                command_runner=lambda command, **kwargs: subprocess.CompletedProcess(command, 0),
+            )
+
+    def scoped_fixture(self) -> None:
+        self.write_manifest('[os.windows]\nprefixes = ["win"]\n')
+        (self.root / "win").mkdir()
+        windows_source = self.root / "win" / "w.cpp"
+        windows_source.write_text("int w;\n")
+        portable_source = self.root / "p.cpp"
+        portable_source.write_text("int p;\n")
+        self.write_database([windows_source, portable_source])
+
+    def run_scoped(
+        self, *, changed: bool = False, scope_os: str = "windows"
+    ) -> tuple[list[list[str]], str]:
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            commands.append(command)
+            return subprocess.CompletedProcess(command, 0, stdout="")
+
+        output = StringIO()
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS),
+            mock.patch.object(runner, "changed_files", return_value=[self.root / "p.h"]),
+            redirect_stdout(output),
+        ):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_UNIX_COMPDB_TOOL,
+                platform_name="linux",
+                environ={},
+                command_runner=fake_run,
+                build_args=[_CONFIG_RELEASE, "//..."],
+                compdb_args=[_CONFIG_RELEASE],
+                changed=changed,
+                scope_os=scope_os,
+            )
+        return commands, output.getvalue()
+
+    def test_scope_os_analyzes_only_that_oss_prefixes(self) -> None:
+        self.scoped_fixture()
+        _, output = self.run_scoped()
+        self.assertIn("Analyzing 1 translation units", output)
+
+    def test_scope_os_narrows_the_prebuild_but_not_the_refresh(self) -> None:
+        self.scoped_fixture()
+        commands, _ = self.run_scoped()
+        build = next(command for command in commands if command[:2] == ["bazel", "build"])
+        self.assertEqual(["bazel", "build", "--keep_going", _CONFIG_RELEASE, "//win/..."], build)
+        refresh = next(command for command in commands if command[0] == _UNIX_COMPDB_TOOL)
+        # Hedron's refresh rejects target patterns given at run time.
+        self.assertEqual([_UNIX_COMPDB_TOOL, _CONFIG_RELEASE], refresh)
+
+    def test_scope_os_with_changed_header_outside_scope_skips_cleanly(self) -> None:
+        self.scoped_fixture()
+        _, output = self.run_scoped(changed=True)
+        self.assertIn("no changed C/C++ translation units", output)
+
+    def test_unknown_scope_os_is_an_error(self) -> None:
+        self.scoped_fixture()
+        with self.assertRaisesRegex(runner.WorkflowError, "scope.*plan9"):
+            self.run_scoped(scope_os="plan9")
+
+    def test_scope_os_without_a_manifest_is_an_error(self) -> None:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+        with self.assertRaisesRegex(runner.WorkflowError, "scope manifest"):
+            self.run_scoped()
+
     def test_windows_report_wraps_extensionless_run_clang_tidy(self) -> None:
         # LLVM 18+ ships run-clang-tidy without a .py suffix (a shebang'd
         # Python script). Windows can't exec that directly -> WinError 193

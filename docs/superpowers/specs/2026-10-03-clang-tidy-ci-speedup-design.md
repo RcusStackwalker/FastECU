@@ -62,9 +62,10 @@ The runner measures itself.
   everything except Windows-exclusive code.
 - **Per-OS behavior.** Linux analyzes everything in its compile DB. Windows
   analyzes only translation units under the manifest's Windows prefixes.
-- **Narrower prebuild and refresh.** Scoped jobs also carry a build/refresh
-  target pattern for their prefixes, so Windows stops building `//...` only to
-  materialize generated headers.
+- **Narrower prebuild.** Scoped jobs build only their prefixes' targets, so
+  Windows stops building `//...` only to materialize generated headers. The
+  Hedron compile-DB refresh cannot take target patterns at run time, so it still
+  runs its aquery over `//...` (no compilation, cheap).
 - **Coverage guard.** A runner test fails if any `BUILD.bazel` uses
   `target_compatible_with` outside the manifest's prefixes, so a new
   platform-gated package cannot silently end up unanalyzed. Same style as the
@@ -99,7 +100,6 @@ Part 1 lands first so its data confirms the choices in Parts 2 and 3.
 
 ## Risks
 
-- Hedron's refresh with a narrowed target pattern needs verifying on Windows.
 - The prebuild may be slower than assumed if the remote cache does not cover
   generated headers; Part 1's phase timers will show this.
 
