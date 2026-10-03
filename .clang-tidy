@@ -22,7 +22,6 @@ Checks: >
   -bugprone-throwing-static-initialization,
   clang-analyzer-*,
   -clang-analyzer-cplusplus.NewDeleteLeaks,
-  -clang-analyzer-security.ArrayBound,
   modernize-avoid-c-arrays,
   modernize-deprecated-headers,
   performance-avoid-endl,
