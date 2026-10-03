@@ -241,7 +241,7 @@ Result<DefinitionIndexEntry> DefinitionService::match_rom(const DefinitionCatalo
         for (const std::vector<std::uint8_t>& candidate : *candidates)
         {
             if (candidate.size() <= rom.size() - offset &&
-                std::equal(candidate.begin(), candidate.end(), rom.begin() + static_cast<std::ptrdiff_t>(offset)))
+                std::ranges::equal(candidate, rom.subspan(offset, candidate.size())))
             {
                 return entry;
             }

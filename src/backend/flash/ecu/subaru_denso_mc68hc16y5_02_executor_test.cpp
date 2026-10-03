@@ -3,6 +3,9 @@
 // replacement for flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp.
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.h"
 
+#include <algorithm>
+#include <span>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -911,8 +914,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteSendsValidateNotCommit)
     ASSERT_LT(kDifferingBlock, device->numblocks);
     bytes::Bytes image(device->romsize, 0x00);
     const std::size_t image_offset = packed_block_offset(*device, kDifferingBlock);
-    std::fill(image.begin() + static_cast<std::ptrdiff_t>(image_offset),
-              image.begin() + static_cast<std::ptrdiff_t>(image_offset + device->fblocks[kDifferingBlock].len), 0xA5);
+    std::ranges::fill(std::span(image).subspan(image_offset, device->fblocks[kDifferingBlock].len), bytes::Byte{0xA5});
     auto plan = stock_write_plan(FlashOperation::TestWrite, image);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
