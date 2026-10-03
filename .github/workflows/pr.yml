@@ -213,5 +213,8 @@ jobs:
           retention-days: 14
 
       - name: clang-tidy report
+        # bash, not the Windows default pwsh: pwsh swallows the `--`, so bazel
+        # would read --profile as its own flag ("Expected value after --profile").
+        shell: bash
         run: |
           bazel run --config=release //:clang_tidy_report_changed -- --profile
