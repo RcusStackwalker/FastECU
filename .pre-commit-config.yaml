@@ -38,7 +38,8 @@ repos:
       - id: lychee
         files: \.md$
         # LYCHEE_VERSION must match `rev` above -- kept explicit because git worktrees break the hook's own version auto-detection (git-describe sees GIT_DIR pointed at this repo, not its clone) and fail commits with exit 100.
-        args: [LYCHEE_VERSION=0.24.2, --no-progress, --include-fragments, --cache, --max-cache-age, 1d]
+        # --offline: only local links and fragments are checked. Remote URLs flaked CI (406/503 from third-party sites, ~0.4% of runs) and a dead external link is not a reason to block a PR.
+        args: [LYCHEE_VERSION=0.24.2, --no-progress, --include-fragments, --offline]
 
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v22.1.5

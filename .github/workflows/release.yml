@@ -12,7 +12,35 @@ env:
   QT_VERSION: '6.8.3'
 
 jobs:
+  pre-commit:
+    name: pre-commit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install prek
+        run: pipx install prek
+
+      # Same cache as pr.yml. This is also the only run on master, so it is the
+      # one that saves the cache PRs fall back to when their own key is missing.
+      - name: Cache prek hook environments
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/prek
+          key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+
+      # no-commit-to-branch rejects any checkout of master, which is all this
+      # workflow ever sees (PR runs check out a detached merge ref instead).
+      - name: Run pre-commit hooks
+        run: prek run --all-files
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SKIP: no-commit-to-branch
+
   release:
+    needs: pre-commit
     runs-on: ubuntu-latest
     permissions:
       contents: write
