@@ -245,19 +245,10 @@ long J2534::PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, un
     switch ((int)ProtocolID)
     {
     case ISO9141:
-        pChannelID = (unsigned long *)ISO9141;
-        break;
     case ISO14230:
-        pChannelID = (unsigned long *)ISO14230;
-        break;
     case CAN:
-        pChannelID = (unsigned long *)CAN;
-        break;
     case ISO15765:
-        pChannelID = (unsigned long *)ISO15765;
-        break;
     case CAN_CH1:
-        pChannelID = (unsigned long *)CAN_CH1;
         break;
     default:
         return 0; // J2534_ERR_INVALID_PROTOCOL_ID;

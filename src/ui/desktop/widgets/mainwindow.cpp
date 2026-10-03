@@ -1671,8 +1671,7 @@ void MainWindow::save_logger_selection()
 void MainWindow::setSplashScreenProgress(const QString& text, int incValue)
 {
     startUpSplashLabel->setText(text);
-    int startUpSplashProgressBarValue = startUpSplashProgressBar->value();
-    startUpSplashProgressBar->setValue(startUpSplashProgressBarValue += incValue);
+    startUpSplashProgressBar->setValue(startUpSplashProgressBar->value() + incValue);
     QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
 }
 
