@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include <QCheckBox>
@@ -324,6 +325,26 @@ TEST(CalibrationMapsTest, retainedSwitchRefreshKeepsUncheckedControlWithoutEmitt
     ASSERT_TRUE(!checkbox->isChecked());
     ASSERT_EQ(edits.count(), edits_before_refresh);
     ASSERT_TRUE(!session->dirty());
+}
+
+TEST(CalibrationMapsTest, switchCheckboxEmitsQtCheckStateValues)
+{
+    MapFixture fixture;
+    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    ASSERT_TRUE(id.has_value());
+    auto *session = fixture.workspace.find(*id);
+    auto definition = *session->definition();
+    definition.definition.maps[0].type = "Switch";
+    replace_definition(*session, std::move(definition));
+    CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+    auto *checkbox = qobject_cast<QCheckBox *>(table_of(map)->cellWidget(0, 0));
+    ASSERT_TRUE(checkbox != nullptr);
+    fastecu::testing::SignalRecorder edits(&map, &CalibrationMaps::checkbox_state_changed);
+    checkbox->setChecked(true);
+    checkbox->setChecked(false);
+    ASSERT_EQ(edits.count(), 2u);
+    EXPECT_EQ(std::get<0>(edits.snapshot().at(0)), static_cast<int>(Qt::Checked));
+    EXPECT_EQ(std::get<0>(edits.snapshot().at(1)), static_cast<int>(Qt::Unchecked));
 }
 
 TEST(CalibrationMapsTest, colorsKeepOpeningBoundsDuringRefreshAndReopenUsesCurrentValues)

@@ -282,7 +282,8 @@ void CalibrationMaps::refresh()
         {
             checkbox = new QCheckBox("On/Off");
             ui->mapDataTableWidget->setCellWidget(0, 0, checkbox);
-            connect(checkbox, &QCheckBox::stateChanged, this, &CalibrationMaps::checkbox_state_changed);
+            connect(checkbox, &QCheckBox::checkStateChanged, this,
+                    [this](Qt::CheckState state) { emit checkbox_state_changed(static_cast<int>(state)); });
         }
         const QSignalBlocker blocker(checkbox);
         checkbox->setChecked(false);
