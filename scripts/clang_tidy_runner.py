@@ -714,6 +714,17 @@ def _post_fix_build(
         raise WorkflowError(f"post-fix Bazel build failed with exit code {result.returncode}")
 
 
+def _supports_check_profile(
+    command_runner: CommandRunner,
+    run_clang_tidy: str,
+    platform_name: str,
+    workspace: Path,
+) -> bool:
+    """Whether this run-clang-tidy accepts -enable-check-profile (added in LLVM 22)."""
+    command = [*_executable_command(run_clang_tidy, platform_name=platform_name), "-h"]
+    return "-enable-check-profile" in (_run_quiet(command_runner, command, workspace).stdout or "")
+
+
 def run_workflow(
     *,
     mode: str,
@@ -794,7 +805,16 @@ def run_workflow(
         fixes_directory.mkdir()
         command.extend(["-export-fixes", str(fixes_directory) + os.sep])
         if profile:
-            command.append("-enable-check-profile")
+            if _supports_check_profile(
+                command_runner, tools.run_clang_tidy, platform_name, workspace
+            ):
+                command.append("-enable-check-profile")
+            else:
+                print(
+                    "clang-tidy: warning: run-clang-tidy lacks -enable-check-profile "
+                    "(LLVM 22+); reporting phase timings only.",
+                    file=sys.stderr,
+                )
         print(f"Analyzing {len(entries)} translation units in {mode} mode.")
         with timings.phase("analysis"):
             tidy_result = _run_quiet(command_runner, command, workspace)

@@ -344,7 +344,12 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 self.assertIn("-extra-arg=-Wno-error", analysis_command)
 
     def run_with_report(
-        self, *, profile: bool, report: str, environ: dict[str, str]
+        self,
+        *,
+        profile: bool,
+        report: str,
+        environ: dict[str, str],
+        supports_profile: bool = True,
     ) -> tuple[list[list[str]], str]:
         source = self.root / _MAIN_CPP
         source.write_text("int main() { return 0; }\n")
@@ -353,6 +358,9 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
         def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
             commands.append(command)
+            if command[-1] == "-h":
+                usage = "[-enable-check-profile]" if supports_profile else "[-quiet]"
+                return subprocess.CompletedProcess(command, 0, stdout=usage)
             if "-clang-tidy-binary" in command:
                 return subprocess.CompletedProcess(command, 0, stdout=report)
             return subprocess.CompletedProcess(command, 0)
@@ -381,6 +389,22 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertIn("### clang-tidy profile", output)
         self.assertIn("bugprone-infinite-loop", output)
         self.assertIn("clang-tidy: analysis took", output)
+
+    def test_profile_degrades_to_phase_timings_when_run_clang_tidy_lacks_the_flag(self) -> None:
+        # LLVM before 22 (Ubuntu apt 21, Windows choco 20) has no such option.
+        stderr = StringIO()
+        with mock.patch.object(runner.sys, "stderr", stderr):
+            commands, output = self.run_with_report(
+                profile=True, report="", environ={}, supports_profile=False
+            )
+        self.assertNotIn("-enable-check-profile", commands[-1])
+        self.assertIn("lacks -enable-check-profile", stderr.getvalue())
+        self.assertIn("### clang-tidy profile", output)
+        self.assertIn("| analysis |", output)
+
+    def test_no_profile_flag_never_probes_run_clang_tidy(self) -> None:
+        commands, _ = self.run_with_report(profile=False, report=self._REPORT, environ={})
+        self.assertFalse([command for command in commands if command[-1] == "-h"])
 
     def test_no_profile_flag_leaves_the_command_unchanged(self) -> None:
         commands, output = self.run_with_report(profile=False, report=self._REPORT, environ={})
