@@ -16,6 +16,7 @@
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 #include "src/backend/calibration/calibration_service.h"
@@ -354,7 +355,7 @@ TEST(FlashWorkflowTest, preflightPrecedesPromptsAndDeclineCancels)
 TEST(FlashWorkflowTest, successfulReadBytesAreAcceptedAutomatically)
 {
     auto workflow = FlashWorkflowFactory::tryCreate(request("mitsu_ecu_m32r_can"));
-    (void)workflow->next();
+    std::ignore = workflow->next();
     workflow->submit(FlashPromptResponse::Accept);
     ASSERT_TRUE(std::holds_alternative<FlashAttempt>(workflow->next()));
     workflow->submit(FlashAttemptResult{.success = true, .read_bytes = bytes::Bytes{1, 2, 3}});

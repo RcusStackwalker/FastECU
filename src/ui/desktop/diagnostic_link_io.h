@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <tuple>
 
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/backend/ports/manual_cancellation_token.h"
@@ -27,7 +28,7 @@ inline QByteArray read_or_empty(fastecu::diagnostics::IDiagnosticLink& link, std
 
 inline void write(fastecu::diagnostics::IDiagnosticLink& link, const QByteArray& data)
 {
-    static_cast<void>(link.write(bytes::view(data)));
+    std::ignore = link.write(bytes::view(data));
 }
 
 } // namespace diagnostic_link_io

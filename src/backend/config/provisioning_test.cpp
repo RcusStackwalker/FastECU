@@ -113,7 +113,7 @@ TEST(ProvisionConfigDirectories, DoesNotOverwriteAnExistingUserFile)
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
     bundle.bundles["config"]["fastecu.cfg"] = {9, 9, 9};
-    fs.create_directory(paths.config_files_directory);
+    ASSERT_THAT(fs.create_directory(paths.config_files_directory), fastecu::testing::IsOk());
     fs.files[paths.config_files_directory + "fastecu.cfg"] = {1, 2, 3}; // user's own copy
 
     ASSERT_THAT(provision_config_directories(paths, fs, bundle, repo, events), fastecu::testing::IsOk());
@@ -129,7 +129,7 @@ TEST(ProvisionConfigDirectories, PrunesSyslogsKeepingNewest20)
     InMemoryFileRepository repo;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
-    fs.create_directory(paths.syslog_files_directory);
+    ASSERT_THAT(fs.create_directory(paths.syslog_files_directory), fastecu::testing::IsOk());
     for (int i = 0; i < 25; ++i)
     {
         std::string name = "log" + std::to_string(i) + ".txt";

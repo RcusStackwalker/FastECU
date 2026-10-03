@@ -2,6 +2,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <tuple>
 
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/backend/ports/testing/result_matchers.h"
@@ -83,8 +84,8 @@ TEST(FakeDiagnosticLink, ReadHonoursCancellation)
 TEST(FakeDiagnosticLink, RecordsEvenParityAndStaysSilentForNone)
 {
     FakeDiagnosticLink link;
-    static_cast<void>(link.open(KlineLinkConfig{.baud = 1953, .parity = Parity::Even}));
-    static_cast<void>(link.open(KlineLinkConfig{.baud = 4800}));
+    std::ignore = link.open(KlineLinkConfig{.baud = 1953, .parity = Parity::Even});
+    std::ignore = link.open(KlineLinkConfig{.baud = 4800});
     EXPECT_EQ(link.calls.at(0),
               "open kline header=None iso14230=false baud=1953 start=00 tester=00 target=00 parity=Even");
     EXPECT_EQ(link.calls.at(1), "open kline header=None iso14230=false baud=4800 start=00 tester=00 target=00");

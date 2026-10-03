@@ -5,6 +5,7 @@
 #include <QEventLoop>
 #include <chrono>
 #include <thread>
+#include <tuple>
 
 namespace fastecu::testing
 {
@@ -38,6 +39,6 @@ template <typename Predicate> bool wait_until(Predicate predicate, std::chrono::
 
 inline void process_events_for(std::chrono::milliseconds duration)
 {
-    (void)wait_until([] { return false; }, duration);
+    std::ignore = wait_until([] { return false; }, duration);
 }
 } // namespace fastecu::testing

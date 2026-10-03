@@ -4,6 +4,7 @@
 #include <QStandardItemModel>
 
 #include <ui_dtc_operations.h>
+#include <tuple>
 
 #include "src/backend/diagnostics/dtc_session.h"
 #include "src/backend/ports/event_sink.h"
@@ -121,7 +122,7 @@ void DtcOperations::stopWorker()
     }
     // Today's closeEvent reset the facade; the session epilogue already reset
     // after a run, and a second reset is harmless.
-    static_cast<void>(link_.reset());
+    std::ignore = link_.reset();
 }
 
 void DtcOperations::closeEvent(QCloseEvent *event)

@@ -50,7 +50,7 @@ TEST(FileSystem, CopyRespectsOverwriteFlag)
 TEST(FileSystem, RemoveThenNotExists)
 {
     InMemoryFileSystem fs;
-    fs.create_directory("/a");
+    ASSERT_THAT(fs.create_directory("/a"), fastecu::testing::IsOk());
     ASSERT_THAT(fs.remove_file("/a"), fastecu::testing::IsOk());
     EXPECT_FALSE(fs.exists("/a"));
 }

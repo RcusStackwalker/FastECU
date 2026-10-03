@@ -3,6 +3,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <tuple>
 
 #include "src/algorithms/protocol/uds/uds_response.h"
 #include "src/backend/ports/testing/fake_cancellation_token.h"
@@ -60,7 +61,7 @@ TEST(UdsClientTest, SleepsForThePreReadDelayBeforeTheFirstRead)
     f.channel.queueReceive(bytes::Bytes{0x50, 0x03});
 
     uds::UdsClient client = f.client();
-    (void)client.request(request, kPolicy, f.cancellation);
+    std::ignore = client.request(request, kPolicy, f.cancellation);
 
     // FakeClock::sleep advances elapsed() by the requested duration, so the
     // total is the only observable: one 50 ms pre-read delay and nothing else.
@@ -234,7 +235,7 @@ TEST(UdsClientTest, LogsOnceForEachAbsorbedPending)
     f.channel.queueReceive(bytes::Bytes{0x71, 0xE0});
 
     uds::UdsClient client = f.client();
-    (void)client.request(request, kPolicy, f.cancellation);
+    std::ignore = client.request(request, kPolicy, f.cancellation);
 
     int pending_lines = 0;
     for (const auto& entry : f.events.logs)

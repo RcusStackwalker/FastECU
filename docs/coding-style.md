@@ -153,6 +153,18 @@ Exceptions never cross a port. The `ErrorKind` set is closed: the values are
 in `src/backend/ports/error.h`, and adding one needs an
 [ADR](adr/README.md).
 
+A result discarded on purpose is assigned to `std::ignore` (from `<tuple>`),
+with a comment saying why when the reason is not obvious from the call:
+
+```cpp
+// A missing previous config is not an error for this step.
+std::ignore = fs.copy_file(previous_config_file, target, false);
+```
+
+Not `(void)call()` or `static_cast<void>(call())`: `std::ignore =` names the
+intent, and GCC ignores a cast on a `warn_unused_result` function. An unused
+variable or parameter is still marked `(void)name;`.
+
 ## Scope
 
 Give every variable the smallest scope that satisfies all of its uses — don't

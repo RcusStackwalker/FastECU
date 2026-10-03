@@ -3,6 +3,7 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <tuple>
 
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 
@@ -69,8 +70,8 @@ TEST(ScriptedUdsChannelTest, RecordsEveryReceiveTimeout)
     channel.queueReceive(bytes::Bytes{0x50});
     channel.queueReceive(bytes::Bytes{0x50});
 
-    (void)channel.receive(500ms, cancellation);
-    (void)channel.receive(3000ms, cancellation);
+    std::ignore = channel.receive(500ms, cancellation);
+    std::ignore = channel.receive(3000ms, cancellation);
 
     EXPECT_THAT(channel.timeouts_, ElementsAre(500ms, 3000ms));
     EXPECT_EQ(channel.last_timeout_, 3000ms);
@@ -95,9 +96,9 @@ TEST(ScriptedUdsChannelTest, ScriptConsumedReflectsRemainingWork)
     channel.queueReceive(bytes::Bytes{0x7E});
 
     EXPECT_FALSE(channel.scriptConsumed());
-    (void)channel.send(bytes::Bytes{0x3E}, cancellation);
+    std::ignore = channel.send(bytes::Bytes{0x3E}, cancellation);
     EXPECT_FALSE(channel.scriptConsumed());
-    (void)channel.receive(100ms, cancellation);
+    std::ignore = channel.receive(100ms, cancellation);
     EXPECT_TRUE(channel.scriptConsumed());
 }
 

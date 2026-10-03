@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <tuple>
 
 using namespace std::chrono_literals;
 using fastecu::ErrorKind;
@@ -111,8 +112,8 @@ TEST(MockClock, TimesZeroCatchAllForbidsOtherSleeps)
             FakeCancellationToken active;
             EXPECT_CALL(clock, sleep).Times(0);
             EXPECT_CALL(clock, sleep(500ms, _)).Times(1);
-            (void)clock.sleep(500ms, active);
-            (void)clock.sleep(1ms, active);
+            std::ignore = clock.sleep(500ms, active);
+            std::ignore = clock.sleep(1ms, active);
         },
         "called more times than expected");
 }

@@ -17,6 +17,7 @@
 #include <iterator>
 #include <optional>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/backend/logging/logger_definition_service.h"
@@ -214,11 +215,11 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     setSplashScreenProgress("Preparing EcuFlash ROM definitions...", 10);
     // Scan errors are nonfatal and already reported by the session.
-    static_cast<void>(services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash));
+    std::ignore = services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash);
 
     setSplashScreenProgress("Preparing RomRaider ROM definitions...", 10);
     // Scan errors are nonfatal and already reported by the session.
-    static_cast<void>(services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::RomRaider));
+    std::ignore = services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::RomRaider);
 
     if (const QString kernel_dir = qs(configSession->effective_paths().kernel_files_directory);
         QDir(kernel_dir).exists())
@@ -1422,7 +1423,7 @@ void MainWindow::close_calibration()
     }
     delete ui->calibrationFilesTreeWidget->takeTopLevelItem(romNumber);
     std::erase_if(calibrations_, [&id](const OpenCalibration& open) { return open.id == *id; });
-    (void)calibrationWorkspace->close(*id);
+    std::ignore = calibrationWorkspace->close(*id);
 
     if (ui->calibrationFilesTreeWidget->topLevelItemCount() > 0)
     {

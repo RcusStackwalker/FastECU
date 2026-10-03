@@ -2,6 +2,7 @@
 #include <ui_biu_operations_subaru.h>
 
 #include <cstddef>
+#include <tuple>
 #include "src/ui/desktop/diagnostic_link_io.h"
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 
@@ -351,7 +352,7 @@ void BiuOperationsSubaru::send_biu_msg()
 
     if (connection_state == NOT_CONNECTED && current_command == CONNECT)
     {
-        static_cast<void>(link->fast_init(bytes::view(output)));
+        std::ignore = link->fast_init(bytes::view(output));
     }
     else
     {

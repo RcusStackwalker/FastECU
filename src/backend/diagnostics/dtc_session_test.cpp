@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include "src/algorithms/diagnostics/dtc_parser.h"
@@ -183,7 +184,7 @@ TEST(DtcSession, Iso14230FastInitSuccess)
 {
     Harness h;
     h.link.queue_read(b({0x83, 0xF1, 0x10, 0xC1, 0xE9, 0x8F, 0xAE}));
-    static_cast<void>(h.run(ObdProtocol::Iso14230, DtcOperation::Read));
+    std::ignore = h.run(ObdProtocol::Iso14230, DtcOperation::Read);
     ASSERT_GE(h.link.calls.size(), 4U);
     EXPECT_THAT(std::vector<std::string>(h.link.calls.begin(), h.link.calls.begin() + 4),
                 ElementsAre("open kline header=Iso14230 iso14230=true baud=10400 start=C0 tester=F1 target=33",
@@ -196,7 +197,7 @@ TEST(DtcSession, RejectedFastInitFallsBackToFiveBaud)
     Harness h;
     h.link.queue_read(b({0x83, 0xF1, 0x10, 0x00, 0x00, 0x00}));
     h.link.queue_five_baud(b({0x55, 0xEF, 0x8F}));
-    static_cast<void>(h.run(ObdProtocol::Iso14230, DtcOperation::Read));
+    std::ignore = h.run(ObdProtocol::Iso14230, DtcOperation::Read);
     EXPECT_THAT(lines(h.events, LogLevel::Error), Contains("iso14230 fast init mode failed."));
     ASSERT_GE(h.link.calls.size(), 8U);
     EXPECT_THAT(std::vector<std::string>(h.link.calls.begin() + 3, h.link.calls.begin() + 8),
@@ -209,7 +210,7 @@ TEST(DtcSession, FacadeFastInitFailureFallsBackSilently)
     Harness h;
     h.link.queue_fast_init(fastecu::fail(ErrorKind::Disconnected, "fast_init failed"));
     h.link.queue_five_baud(b({0x55, 0xEF, 0x8F}));
-    static_cast<void>(h.run(ObdProtocol::Iso14230, DtcOperation::Read));
+    std::ignore = h.run(ObdProtocol::Iso14230, DtcOperation::Read);
     EXPECT_THAT(lines(h.events, LogLevel::Error), Not(Contains("iso14230 fast init mode failed.")));
     EXPECT_THAT(h.link.calls, Contains("five_baud 33"));
     EXPECT_THAT(h.link.calls, Contains("set_header Iso14230"));
@@ -285,7 +286,7 @@ TEST(DtcSession, WrongPidIsLoggedAndDiscarded)
     Harness h;
     h.link.queue_five_baud(b({0x55, 0x08, 0x08}));
     h.link.queue_read(b({0x48, 0x6B, 0x10, 0x41, 0x20, 0xBE, 0xCC}));
-    static_cast<void>(h.run(ObdProtocol::Iso9141, DtcOperation::Read));
+    std::ignore = h.run(ObdProtocol::Iso9141, DtcOperation::Read);
     EXPECT_THAT(lines(h.events, LogLevel::Error), Contains("Wrong response from ECU: 48 6b 10 41 20 be cc "));
     EXPECT_THAT(h.link.calls, Contains("write 01 20")); // the loop moved on
 }
@@ -300,7 +301,7 @@ TEST(DtcSession, HighPidPagesAreAccepted)
     }
     h.link.queue_read(b({0x48, 0x6B, 0x10, 0x41, 0x80, 0x01, 0x02, 0x03, 0x04, 0xCC}));
     h.link.queue_no_frame();
-    static_cast<void>(h.run(ObdProtocol::Iso9141, DtcOperation::Read));
+    std::ignore = h.run(ObdProtocol::Iso9141, DtcOperation::Read);
     EXPECT_THAT(lines(h.events, LogLevel::Info), Contains("Supported PIDs 0x81-0xa0: 01 02 03 04 "));
 }
 
