@@ -368,7 +368,7 @@ ChecksumSelection coltSelection(std::string flash_method, std::string mcu_type =
 
 TEST(ApplyChecksumCorrection, AllFourColtCanProtocolsRouteToTheMitsuM32rCanFamily)
 {
-    for (const auto [flash_method, mcu_type, size] :
+    for (const auto& [flash_method, mcu_type, size] :
          std::to_array<std::tuple<std::string_view, std::string_view, std::size_t>>({
              {"mitsu_ecu_m32r_can", "M32R_384KB_1block", 0x60000},
              {"mitsu_ecu_m32r_can_vendor_ext", "M32R_384KB_1block", 0x60000},

@@ -835,8 +835,8 @@ TEST(SubaruDensoSh7058CanExecutor, UploadB6ShortMalformedWrongIdAndAdapterReplie
 
 TEST(SubaruDensoSh7058CanExecutor, UploadB6CancellationAndDisconnectArePropagated)
 {
-    for (const auto [b6_reply, expected] : {std::pair{UploadB6Reply::Cancelled, ErrorKind::Cancelled},
-                                            std::pair{UploadB6Reply::Disconnected, ErrorKind::Disconnected}})
+    for (const auto& [b6_reply, expected] : {std::pair{UploadB6Reply::Cancelled, ErrorKind::Cancelled},
+                                             std::pair{UploadB6Reply::Disconnected, ErrorKind::Disconnected}})
     {
         SCOPED_TRACE(static_cast<int>(b6_reply));
         bytes::Bytes kernel_data(129, bytes::Byte{0});

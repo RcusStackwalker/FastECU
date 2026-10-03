@@ -859,8 +859,8 @@ TEST(SubaruDensoSh7058CanDieselExecutor, EveryB6ReplyIsRawAndIgnoredExceptCancel
         EXPECT_TRUE(transport.scripted.scriptConsumed());
     }
 
-    for (const auto [reply, expected] : {std::pair{UploadB6Reply::Cancelled, ErrorKind::Cancelled},
-                                         std::pair{UploadB6Reply::Disconnected, ErrorKind::Disconnected}})
+    for (const auto& [reply, expected] : {std::pair{UploadB6Reply::Cancelled, ErrorKind::Cancelled},
+                                          std::pair{UploadB6Reply::Disconnected, ErrorKind::Disconnected}})
     {
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 1;
