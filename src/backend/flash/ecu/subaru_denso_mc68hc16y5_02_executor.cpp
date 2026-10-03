@@ -526,8 +526,7 @@ Result<std::uint32_t> SubaruDensoMc68hc16y5_02Executor::read_block_crc(IKlineFla
         {
             const std::size_t needed = 10 - response.size();
             const std::size_t append_count = std::min(needed, (**more).size());
-            response.insert(response.end(), (**more).begin(),
-                            (**more).begin() + static_cast<std::ptrdiff_t>(append_count));
+            response.append_range(bytes::ByteView(**more).first(append_count));
         }
         if (Status slept = clock.sleep(100ms, cancellation); !slept.has_value())
         {
