@@ -19,7 +19,7 @@ namespace
 void copyCString(std::span<char> out, std::string_view text)
 {
     const std::size_t length = std::min(text.size(), out.size() - 1);
-    std::copy_n(text.data(), length, out.data());
+    std::ranges::copy(text.substr(0, length), out.begin());
     out[length] = '\0';
 }
 

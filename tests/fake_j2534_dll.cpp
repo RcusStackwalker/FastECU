@@ -13,7 +13,7 @@ constexpr std::size_t kJ2534TextBufferSize = 80;
 void copyJ2534Text(char *out, std::string_view text)
 {
     const std::size_t length = std::min(text.size(), kJ2534TextBufferSize - 1);
-    std::copy_n(text.data(), length, out);
+    std::ranges::copy(text.substr(0, length), out);
     out[length] = '\0';
 }
 
