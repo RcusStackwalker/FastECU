@@ -75,11 +75,14 @@ CheckOptions:
   # a digit (kFlashBlocksSH7058_1block). Matching skips the name entirely, so
   # the pattern itself enforces the k prefix and the CamelCase shape.
   - key: readability-identifier-naming.ConstexprVariableIgnoredRegexp
-    value: '^k[A-Z][A-Za-z0-9]*(([0-9]_[A-Za-z0-9]|[A-Za-z0-9]_[0-9])[A-Za-z0-9]*)*$'
+    value: '^k[A-Z]([A-Za-z0-9]|_?[0-9]_[A-Za-z]|_[0-9])*$'
 ```
 
 `llvm::Regex` is POSIX ERE (no lookaround) and is matched against the full
-identifier. Apart from the underscore, it is exactly as strict as `CamelCase`
+identifier. Every underscore sits inside a token that also holds its digit
+neighbour: `_[0-9]` (digit after) or `[0-9]_[A-Za-z]` (digit before, letter
+after, optionally preceded by `_` so one digit can serve two underscores, as
+in `_1_`). So no token can end on an underscore or produce `__`. Apart from the underscore, it is exactly as strict as `CamelCase`
 with the `k` prefix: the first character after `k` must be an uppercase
 letter. So a name it skips without an underscore would pass the usual check
 anyway, and any name it rejects falls through to that check.
@@ -90,7 +93,8 @@ anyway, and any name it rejects falls through to that check.
 | `kSubaruDensoMc68hc16y5_02BdmUploadChunk` | passes (`5_0`) |
 | `kFlashBlocksN83M_1_5MB` | passes (`M_1`, `1_5`) |
 | `kFoo_Bar` | flagged (no digit next to `_`) |
-| `kFoo_`, `k_Foo`, `kFoo__1`, `k5_0` | flagged |
+| `kFlashBlocksM32R_512KB_4blocks`, `kFlashBlocksMC68HC16Y5_TPU` | pass |
+| `kFoo_`, `k_Foo`, `kFoo__1`, `kFoo5__6`, `kFoo5_`, `k5_0` | flagged |
 
 Only the `ConstexprVariable` options are set. `readability-identifier-naming`
 reports nothing for kinds without a configured style, so enabling the check
