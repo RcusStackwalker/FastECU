@@ -295,6 +295,54 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertIn("-clang-tidy-binary", commands[1])
         self.assertNotIn("-fix", commands[1])
 
+    def test_report_does_not_turn_compiler_warnings_into_errors(self) -> None:
+        # The build is the warnings gate (REPO.bazel); clang-tidy runs a newer
+        # LLVM than the build compiler and must not fail on a diagnostic only
+        # that LLVM knows.
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            commands.append(command)
+            return subprocess.CompletedProcess(command, 0)
+
+        for platform_name, compdb_tool, tools in (
+            (
+                "linux",
+                _UNIX_COMPDB_TOOL,
+                runner.Tools(
+                    clang_tidy="/llvm/bin/clang-tidy", run_clang_tidy="/llvm/bin/run-clang-tidy"
+                ),
+            ),
+            (
+                "win32",
+                _WINDOWS_COMPDB_TOOL,
+                runner.Tools(
+                    clang_tidy="C:/LLVM/bin/clang-tidy.exe",
+                    run_clang_tidy="C:/LLVM/bin/run-clang-tidy.py",
+                ),
+            ),
+        ):
+            with self.subTest(platform=platform_name):
+                source = self.root / f"{platform_name}.cpp"
+                source.write_text("int source;\n")
+                self.write_database([source])
+                commands.clear()
+
+                with mock.patch.object(runner, "discover_tools", return_value=tools):
+                    runner.run_workflow(
+                        mode="report",
+                        workspace=self.root,
+                        compdb_tool=compdb_tool,
+                        platform_name=platform_name,
+                        environ={},
+                        command_runner=fake_run,
+                    )
+
+                analysis_command = next(
+                    command for command in commands if "-clang-tidy-binary" in command
+                )
+                self.assertIn("-extra-arg=-Wno-error", analysis_command)
+
     def test_windows_report_wraps_extensionless_run_clang_tidy(self) -> None:
         # LLVM 18+ ships run-clang-tidy without a .py suffix (a shebang'd
         # Python script). Windows can't exec that directly -> WinError 193

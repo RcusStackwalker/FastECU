@@ -726,6 +726,13 @@ def run_workflow(
             str(workspace / ".clang-tidy"),
             "-p",
             directory,
+            # REPO.bazel makes the build fail on warnings, so the extracted
+            # commands carry -Werror (/WX on Windows). clang-tidy reports
+            # compiler errors whatever its check filter says, and its LLVM is
+            # newer than the build compiler; without this a diagnostic only
+            # that LLVM knows would fail this gate. The build is the warnings
+            # gate.
+            "-extra-arg=-Wno-error",
         ]
         if macos_sdk is not None:
             command.extend(
