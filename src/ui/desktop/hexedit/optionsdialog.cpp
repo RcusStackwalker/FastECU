@@ -16,7 +16,7 @@ OptionsDialog::~OptionsDialog()
 {
 }
 
-void OptionsDialog::show()
+void OptionsDialog::showWithSettings()
 {
     readSettings();
     QWidget::show();

@@ -19,12 +19,12 @@ namespace fastecu::flash
 // in FlashPlan borrows from its caller after construction.
 struct FlashPlanFields
 {
-    FlashOperation operation;
-    FlashFamily family;
-    TransportKind transport;
+    FlashOperation operation{};
+    FlashFamily family{};
+    TransportKind transport{};
     std::string target_id;
     std::string mcu_name;
-    MemoryRegion transfer_region;
+    MemoryRegion transfer_region{};
     std::vector<MemoryRegion> erase_regions;
     std::optional<bytes::Bytes> image;
     // Optional because not every family uploads one. The EEPROM pair loads a

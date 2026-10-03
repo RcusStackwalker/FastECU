@@ -279,7 +279,7 @@ class QHEXEDIT_API QHexEdit : public QAbstractScrollArea
     /*! Set Font of QHexEdit
      * \param font
      */
-    void setFont(const QFont& font);
+    void setMonospaceFont(const QFont& font);
 
     /*! Gives back a formatted image of the content of QHexEdit
      */

@@ -22,7 +22,7 @@ struct Chunk
 {
     QByteArray data;
     QByteArray dataChanged;
-    qint64 absPos;
+    qint64 absPos{};
 };
 
 class Chunks : public QObject

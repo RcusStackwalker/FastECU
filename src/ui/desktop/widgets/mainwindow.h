@@ -179,7 +179,7 @@ class MainWindow : public QMainWindow
     // Desktop owns only identity and presentation; the workspace owns ROM data.
     struct OpenCalibration
     {
-        fastecu::calibration::SessionId id;
+        fastecu::calibration::SessionId id{};
         fastecu::ui::CalibrationViewState view;
     };
     std::vector<OpenCalibration> calibrations_;

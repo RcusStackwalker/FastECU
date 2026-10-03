@@ -113,10 +113,6 @@ CalibrationMaps::CalibrationMaps(fastecu::calibration::CalibrationWorkspace& wor
         {
             mapWindowObjectName = mapWindowObjectName + "," + "Y Axis";
         }
-        else if (map.x_size > 1)
-        {
-            mapWindowObjectName = mapWindowObjectName + "," + "X Axis";
-        }
         else
         {
             mapWindowObjectName = mapWindowObjectName + "," + "X Axis";

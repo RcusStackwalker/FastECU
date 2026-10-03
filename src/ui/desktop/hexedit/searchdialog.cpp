@@ -92,6 +92,8 @@ QByteArray SearchDialog::getContent(int comboIndex, const QString& input)
     case 1: // text
         findBa = input.toUtf8();
         break;
+    default:
+        break;
     }
     return findBa;
 }

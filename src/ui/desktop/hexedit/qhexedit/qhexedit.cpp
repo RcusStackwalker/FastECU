@@ -34,9 +34,9 @@ QHexEdit::QHexEdit(QWidget *parent)
       _chunks(new Chunks(this)), _cursorPosition(0), _lastEventSize(0), _undoStack(new UndoStack(_chunks, this))
 {
 #ifdef Q_OS_WIN32
-    setFont(QFont("Courier", 10));
+    setMonospaceFont(QFont("Courier", 10));
 #else
-    setFont(QFont("Monospace", 10));
+    setMonospaceFont(QFont("Monospace", 10));
 #endif
     setAddressAreaColor(this->palette().alternateBase().color());
     setHighlightingColor(QColor(0xff, 0xff, 0x99, 0xff));
@@ -586,7 +586,7 @@ QString QHexEdit::selectedData()
     return ba;
 }
 
-void QHexEdit::setFont(const QFont& font)
+void QHexEdit::setMonospaceFont(const QFont& font)
 {
     QFont theFont(font);
     theFont.setStyleHint(QFont::Monospace);
@@ -940,17 +940,13 @@ void QHexEdit::keyPressEvent(QKeyEvent *event)
                                 QString text = event->text();
                                 if (!text.isEmpty())
                                 {
-                                    if (_editAreaIsAscii)
-                                    {
-                                        key = (uchar)text.at(0).toLatin1();
-                                    }
-                                    else if (_editAreaIsBar)
+                                    if (_editAreaIsAscii || _editAreaIsBar)
                                     {
                                         key = (uchar)text.at(0).toLatin1();
                                     }
                                     else
                                     {
-                                        key = int(text.at(0).toLower().toLatin1());
+                                        key = static_cast<uchar>(text.at(0).toLower().toLatin1());
                                     }
                                 }
 
@@ -1359,11 +1355,8 @@ bool QHexEdit::focusNextPrevChild(bool next)
 {
     if (_addressArea)
     {
-        if ((next && _editAreaIsAscii) || (!next && !_editAreaIsAscii))
-        {
-            return QWidget::focusNextPrevChild(next);
-        }
-        else if ((next && _editAreaIsBar) || (!next && !_editAreaIsBar))
+        if ((next && _editAreaIsAscii) || (!next && !_editAreaIsAscii) || (next && _editAreaIsBar) ||
+            (!next && !_editAreaIsBar))
         {
             return QWidget::focusNextPrevChild(next);
         }

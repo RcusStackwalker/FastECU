@@ -61,7 +61,7 @@ bool is_unsigned_storage(std::optional<StorageType> storage_type);
 
 struct DefinitionIndexEntry
 {
-    DefinitionFormat format;
+    DefinitionFormat format{};
     std::string definition_id;
     std::string internal_id;
     std::optional<std::uint64_t> internal_id_address;
@@ -249,7 +249,7 @@ struct RomMetadata
 
 struct UnresolvedDefinition
 {
-    DefinitionFormat format;
+    DefinitionFormat format{};
     std::string source;
     RomIdentity identity;
     RomMetadata metadata;
@@ -262,7 +262,7 @@ struct UnresolvedDefinition
 
 struct RomDefinition
 {
-    DefinitionFormat format;
+    DefinitionFormat format{};
     std::string source;
     RomIdentity identity;
     RomMetadata metadata;

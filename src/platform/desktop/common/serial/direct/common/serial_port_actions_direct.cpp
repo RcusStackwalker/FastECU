@@ -1472,6 +1472,8 @@ int SerialPortActionsDirect::set_j2534_iso9141()
         case ISO14230:
             flags = ISO9141_K_LINE_ONLY;
             break;
+        default:
+            break;
         }
     }
 
@@ -1525,6 +1527,8 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
             break;
         case DSTI_ISO9141:
             scl = configList(scp_dsti_DSTI_ISO9141);
+            break;
+        default:
             break;
         }
 
@@ -1614,64 +1618,29 @@ void SerialPortActionsDirect::handle_error(QSerialPort::SerialPortError error)
         emit LOG_D("Error: " + QString::number(error), true, true);
     }
 
-    if (error == QSerialPort::NoError)
+    switch (error)
     {
-    }
-    else if (error == QSerialPort::DeviceNotFoundError)
-    {
+    case QSerialPort::DeviceNotFoundError:
+    case QSerialPort::OpenError:
+    case QSerialPort::NotOpenError:
+    case QSerialPort::WriteError:
+    case QSerialPort::ReadError:
+    case QSerialPort::ResourceError:
+    case QSerialPort::UnknownError:
         reset_connection();
-    }
-    else if (error == QSerialPort::PermissionError)
-    {
-    }
-    else if (error == QSerialPort::OpenError)
-    {
-        reset_connection();
-    }
-    else if (error == QSerialPort::NotOpenError)
-    {
-        reset_connection();
-    }
-    /*
-        else if (error == QSerialPort::ParityError)
-        {
-        }
-        else if (error == QSerialPort::FramingError)
-        {
-        }
-        else if (error == QSerialPort::BreakConditionError)
-        {
-        }
-    */
-    else if (error == QSerialPort::WriteError)
-    {
-        reset_connection();
-    }
-    else if (error == QSerialPort::ReadError)
-    {
-        reset_connection();
-    }
-    else if (error == QSerialPort::ResourceError)
-    {
-        reset_connection();
-    }
-    else if (error == QSerialPort::UnsupportedOperationError)
-    {
-    }
-    else if (error == QSerialPort::TimeoutError)
-    {
+        break;
+    case QSerialPort::TimeoutError:
         // The read paths now poll via serial->waitForReadyRead(1) instead of
         // pumping the event loop; QSerialPort emits this error whenever such a
         // wait elapses with no new bytes, which is the ordinary case on every
-        // polling tick, not a device/link failure. Previously this branch was
+        // polling tick, not a device/link failure. Previously this error was
         // unreachable (nothing called a wait-with-timeout API), so it could
         // safely reset the connection; now that would tear it down on routine
-        // polling latency. Leave it a no-op, like the other non-fatal branches
-        // above.
-    }
-    else if (error == QSerialPort::UnknownError)
-    {
-        reset_connection();
+        // polling latency. Leave it a no-op, like the other non-fatal errors.
+    // NoError, PermissionError, UnsupportedOperationError and the Parity/Framing/BreakCondition
+    // errors are non-fatal and deliberately left alone.
+    default:
+        break;
     }
 }
 

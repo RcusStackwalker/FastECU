@@ -193,7 +193,7 @@ void HexEdit::setSize(qint64 size)
 
 void HexEdit::showOptionsDialog()
 {
-    optionsDialog->show();
+    optionsDialog->showWithSettings();
 }
 
 void HexEdit::showSearchDialog()
@@ -397,7 +397,7 @@ void HexEdit::readSettings()
     hexEdit->setHighlightingColor(settings.value("HighlightingColor").value<QColor>());
     hexEdit->setAddressAreaColor(settings.value("AddressAreaColor").value<QColor>());
     hexEdit->setSelectionColor(settings.value("SelectionColor").value<QColor>());
-    hexEdit->setFont(settings.value("WidgetFont").value<QFont>());
+    hexEdit->setMonospaceFont(settings.value("WidgetFont").value<QFont>());
     hexEdit->setAddressFontColor(settings.value("AddressFontColor").value<QColor>());
     hexEdit->setAsciiAreaColor(settings.value("AsciiAreaColor").value<QColor>());
     hexEdit->setAsciiFontColor(settings.value("AsciiFontColor").value<QColor>());
