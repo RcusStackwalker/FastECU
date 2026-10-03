@@ -286,6 +286,15 @@ cc_args(
     env = {"VSLANG": "1033"},
 )
 
+cc_args(
+    name = "warnings_as_errors",
+    actions = [
+        "@rules_cc//cc/toolchains/actions:compile_actions",
+        "@rules_cc//cc/toolchains/actions:link_actions",
+    ],
+    args = ["/WX"],
+)
+
 # --- features (each overrides the corresponding GNU-style rules_cc default) ---
 
 cc_feature(
@@ -371,6 +380,15 @@ cc_feature(
     feature_name = "parse_showincludes",
 )
 
+# Requested for the main repository by REPO.bazel. Undefined features are
+# silently ignored by a rule-based toolchain, so without this the J2534
+# bridge binaries built here would skip the warnings gate.
+cc_feature(
+    name = "treat_warnings_as_errors_feature",
+    args = [":warnings_as_errors"],
+    feature_name = "treat_warnings_as_errors",
+)
+
 _ENABLED_FEATURES = [
     ":no_legacy_features",
     ":compiler_input_flags_feature",
@@ -396,7 +414,7 @@ cc_toolchain(
     ],
     compiler = "msvc-cl",
     enabled_features = _ENABLED_FEATURES,
-    known_features = _ENABLED_FEATURES,
+    known_features = _ENABLED_FEATURES + [":treat_warnings_as_errors_feature"],
     tool_map = ":tools",
 )
 
