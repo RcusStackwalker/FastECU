@@ -343,6 +343,67 @@ class ClangTidyRunnerTest(unittest.TestCase):
                 )
                 self.assertIn("-extra-arg=-Wno-error", analysis_command)
 
+    def run_with_report(
+        self, *, profile: bool, report: str, environ: dict[str, str]
+    ) -> tuple[list[list[str]], str]:
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            commands.append(command)
+            if "-clang-tidy-binary" in command:
+                return subprocess.CompletedProcess(command, 0, stdout=report)
+            return subprocess.CompletedProcess(command, 0)
+
+        output = StringIO()
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS),
+            redirect_stdout(output),
+        ):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_UNIX_COMPDB_TOOL,
+                platform_name="linux",
+                environ=environ,
+                command_runner=fake_run,
+                profile=profile,
+            )
+        return commands, output.getvalue()
+
+    _REPORT = "0.03 (100.0%) 0.00 (0.0%) 0.03 (100.0%) 0.03 (100.0%) bugprone-infinite-loop\n"
+
+    def test_profile_flag_enables_the_check_profile_and_prints_a_summary(self) -> None:
+        commands, output = self.run_with_report(profile=True, report=self._REPORT, environ={})
+        self.assertIn("-enable-check-profile", commands[-1])
+        self.assertIn("### clang-tidy profile", output)
+        self.assertIn("bugprone-infinite-loop", output)
+        self.assertIn("clang-tidy: analysis took", output)
+
+    def test_no_profile_flag_leaves_the_command_unchanged(self) -> None:
+        commands, output = self.run_with_report(profile=False, report=self._REPORT, environ={})
+        self.assertNotIn("-enable-check-profile", commands[-1])
+        self.assertNotIn("### clang-tidy profile", output)
+
+    def test_profile_summary_goes_to_github_step_summary(self) -> None:
+        summary = self.root / "summary.md"
+        _, output = self.run_with_report(
+            profile=True, report=self._REPORT, environ={"GITHUB_STEP_SUMMARY": str(summary)}
+        )
+        self.assertIn("bugprone-infinite-loop", summary.read_text())
+        self.assertNotIn("### clang-tidy profile", output)
+
+    def test_unwritable_step_summary_warns_instead_of_failing(self) -> None:
+        missing = self.root / "no-such-dir" / "summary.md"
+        stderr = StringIO()
+        with mock.patch.object(runner.sys, "stderr", stderr):
+            self.run_with_report(
+                profile=True, report=self._REPORT, environ={"GITHUB_STEP_SUMMARY": str(missing)}
+            )
+        self.assertIn("could not write profile summary", stderr.getvalue())
+
     def test_windows_report_wraps_extensionless_run_clang_tidy(self) -> None:
         # LLVM 18+ ships run-clang-tidy without a .py suffix (a shebang'd
         # Python script). Windows can't exec that directly -> WinError 193
@@ -1311,6 +1372,28 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
         self.assertFalse(tidy_invoked)
         self.assertIn("no changed C/C++ translation units", output.getvalue())
+
+
+class PhaseTimingsTest(unittest.TestCase):
+    def test_records_and_prints_each_phase(self) -> None:
+        ticks = iter([10.0, 12.5])
+        timings = runner.PhaseTimings(clock=lambda: next(ticks))
+        output = StringIO()
+        with redirect_stdout(output), timings.phase("prebuild"):
+            pass
+        self.assertEqual({"prebuild": 2.5}, timings.durations)
+        self.assertIn("clang-tidy: prebuild took 2.5s", output.getvalue())
+
+    def test_records_a_phase_that_raises(self) -> None:
+        ticks = iter([0.0, 1.0])
+        timings = runner.PhaseTimings(clock=lambda: next(ticks))
+        with (
+            redirect_stdout(StringIO()),
+            self.assertRaises(RuntimeError),
+            timings.phase("analysis"),
+        ):
+            raise RuntimeError("boom")
+        self.assertEqual({"analysis": 1.0}, timings.durations)
 
 
 if __name__ == "__main__":
