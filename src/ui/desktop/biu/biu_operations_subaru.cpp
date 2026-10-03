@@ -1,8 +1,10 @@
 #include "biu_operations_subaru.h"
 #include <ui_biu_operations_subaru.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <tuple>
+#include "src/algorithms/protocol/biu/subaru_biu_frame.h"
 #include "src/ui/desktop/diagnostic_link_io.h"
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 
@@ -207,12 +209,7 @@ void BiuOperationsSubaru::keep_alive()
 {
     if (current_command == TESTER_PRESENT)
     {
-        output.clear();
-        output.append((uint8_t)0x81);
-        output.append((uint8_t)0x40);
-        output.append((uint8_t)0xf0);
-        output.append((uint8_t)0x3E);
-        output.append((uint8_t)0xEF);
+        output = biu_subaru::keepAliveRequest();
     }
 
     send_biu_msg();
@@ -248,7 +245,7 @@ void BiuOperationsSubaru::parse_biu_cmd()
     cmd.clear();
     for (int i = 0; i < selected_item_msg.length(); i++)
     {
-        cmd.append(selected_item_msg.at(i).toUInt(&ok, 16));
+        cmd.push_back(static_cast<bytes::Byte>(selected_item_msg.at(i).toUInt(&ok, 16)));
     }
 
     if (selected_item_text == "SET:  Times & Temps")
@@ -304,10 +301,12 @@ void BiuOperationsSubaru::parse_biu_cmd()
 
 void BiuOperationsSubaru::prepare_biu_set_cmd(const QByteArray& cmd_settings)
 {
-    for (int i = 0; i < cmd_settings.length(); i++)
+    const auto settings = bytes::view(cmd_settings);
+    if (cmd.size() < 2 + settings.size())
     {
-        cmd[2 + i] = cmd_settings.at(i);
+        cmd.resize(2 + settings.size());
     }
+    std::copy(settings.begin(), settings.end(), cmd.begin() + 2);
 
     current_command = cmd[0];
     if (current_command == WRITE_DATA)
@@ -320,19 +319,7 @@ void BiuOperationsSubaru::prepare_biu_set_cmd(const QByteArray& cmd_settings)
 
 void BiuOperationsSubaru::prepare_biu_msg()
 {
-    output.clear();
-    output.append((uint8_t)0x80);
-    output.append((uint8_t)0x40);
-    output.append((uint8_t)0xf0);
-
-    for (int i = 0; i < cmd.length(); i++)
-    {
-        output.append(cmd.at(i));
-    }
-
-    output[0] = static_cast<char>(static_cast<uint8_t>(output[0]) | static_cast<uint8_t>(output.length() - 3));
-    uint8_t chk_sum = calculate_checksum(output, false);
-    output.append((uint8_t)chk_sum);
+    output = biu_subaru::buildRequest(cmd);
 
     send_biu_msg();
 }
@@ -352,221 +339,14 @@ void BiuOperationsSubaru::send_biu_msg()
 
     if (connection_state == NOT_CONNECTED && current_command == CONNECT)
     {
-        std::ignore = link->fast_init(bytes::view(output));
+        std::ignore = link->fast_init(output);
     }
     else
     {
-        diagnostic_link_io::write(*link, output);
+        std::ignore = link->write(output);
     }
 
     received = diagnostic_link_io::read_or_empty(*link, serial_read_long_timeout);
-
-    /*
-    received.clear();
-    switch (current_command)
-    {
-        case CONNECT:
-            received.append((uint8_t)0x83);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0xc1);
-            received.append((uint8_t)0xe9);
-            received.append((uint8_t)0x8f);
-            received.append((uint8_t)0xec);
-            break;
-        case DISCONNECT:
-            received.append((uint8_t)0x81);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0xc2);
-            received.append((uint8_t)0x73);
-            break;
-        case DTC_READ:
-            received.append((uint8_t)0x85);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x58);
-            received.append((uint8_t)0x01);
-            received.append((uint8_t)0x82);
-            received.append((uint8_t)0x21);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0xB1);
-            break;
-        case DTC_CLEAR:
-            received.append((uint8_t)0x83);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x54);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0x47);
-            break;
-        case TESTER_PRESENT:
-            received.append((uint8_t)0x81);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x7e);
-            received.append((uint8_t)0x2f);
-            break;
-        case IN_OUT_SWITCHES:
-            received.append((uint8_t)0x92);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x61);
-            received.append((uint8_t)0x50);
-            if (counter == 0) received.append((uint8_t)0x01);
-            else received.append((uint8_t)0x00);
-            if (counter == 0) received.append((uint8_t)0x01);
-            else received.append((uint8_t)0x00);
-            if (counter == 0) received.append((uint8_t)0x01);
-            else received.append((uint8_t)0x00);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x04);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0x08);
-            received.append((uint8_t)0x49);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0x01);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x2C);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0x80);
-            if (counter == 0) received.append((uint8_t)0xF8);
-            else received.append((uint8_t)0xF5);
-            counter = counter ^ 1;
-            break;
-        case LIGHTING_SWITCHES:
-            received.append((uint8_t)0x85);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x61);
-            received.append((uint8_t)0x51);
-            received.append((uint8_t)0xFF);
-            received.append((uint8_t)0xFF);
-            received.append((uint8_t)0xFF);
-            received.append((uint8_t)0x64);
-            break;
-        case BIU_DATA:
-            received.append((uint8_t)0x8E);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x61);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x8E);
-            received.append((uint8_t)0x8E);
-            if (counter == 0) received.append((uint8_t)0x8E);
-            else received.append((uint8_t)0x8A);
-            if (counter == 0) received.append((uint8_t)0x8A);
-            else received.append((uint8_t)0x8E);
-            received.append((uint8_t)0xF9);
-            received.append((uint8_t)0xFA);
-            received.append((uint8_t)0x48);
-            received.append((uint8_t)0x7C);
-            received.append((uint8_t)0x51);
-            received.append((uint8_t)0x58);
-            received.append((uint8_t)0xF0);
-            received.append((uint8_t)0x03);
-            received.append((uint8_t)0xE6);
-            counter = counter ^ 1;
-            break;
-        case CAN_DATA:
-            received.append((uint8_t)0x8F);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x61);
-            received.append((uint8_t)0x41);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0x00);
-            if (counter == 0) received.append((uint8_t)0xFF);
-            else received.append((uint8_t)0x3F);
-            if (counter == 0) received.append((uint8_t)0x3F);
-            else received.append((uint8_t)0xFF);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0xC0);
-            received.append((uint8_t)0x56);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0x51);
-            received.append((uint8_t)0xFD);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0x0F);
-            received.append((uint8_t)0x12);
-            counter = counter ^ 1;
-            break;
-        case TIME_TEMP_READ:
-            received.append((uint8_t)0x85);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x61);
-            received.append((uint8_t)0x52);
-            received.append((uint8_t)0x02);
-            received.append((uint8_t)0x03);
-            received.append((uint8_t)0x01);
-            received.append((uint8_t)0x6E);
-            break;
-        case OPTIONS_READ:
-            received.append((uint8_t)0x86);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x61);
-            received.append((uint8_t)0x53);
-            received.append((uint8_t)0x30);
-            received.append((uint8_t)0x16);
-            received.append((uint8_t)0x10);
-            received.append((uint8_t)0x02);
-            received.append((uint8_t)0xC2);
-            break;
-        case VDC_ABS_CONDITION:
-            received.append((uint8_t)0x83);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x61);
-            received.append((uint8_t)0x60);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0x74);
-            break;
-        case DEST_TOUCH_STATUS:
-            received.append((uint8_t)0x84);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x61);
-            received.append((uint8_t)0x61);
-            received.append((uint8_t)0x08);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0x7E);
-            break;
-        case FACTORY_STATUS:
-            received.append((uint8_t)0x83);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x61);
-            received.append((uint8_t)0x54);
-            received.append((uint8_t)0x00);
-            received.append((uint8_t)0x68);
-            break;
-        case TIME_TEMP_WRITE:
-            received.append((uint8_t)0x82);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x7B);
-            received.append((uint8_t)0x8A);
-            received.append((uint8_t)0xB7);
-            break;
-        case OPTIONS_WRITE:
-            received.append((uint8_t)0x82);
-            received.append((uint8_t)0xf0);
-            received.append((uint8_t)0x40);
-            received.append((uint8_t)0x7B);
-            received.append((uint8_t)0x8C);
-            received.append((uint8_t)0xB9);
-            break;
-
-        default:
-            break;
-    }
-    */
 
     parse_biu_message(received);
 
@@ -576,28 +356,9 @@ void BiuOperationsSubaru::send_biu_msg()
     }
 }
 
-uint8_t BiuOperationsSubaru::calculate_checksum(const QByteArray& out, bool exclude_last_byte)
-{
-    uint8_t checksum = 0;
-    int len = out.length();
-    if (exclude_last_byte)
-    {
-        len--;
-    }
-
-    for (qsizetype i = 0; i < len; i++)
-    {
-        checksum += (uint8_t)out.at(i);
-    }
-
-    return checksum;
-}
-
 void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 {
-    uint8_t chk_sum;
-
-    chk_sum = calculate_checksum(message, true);
+    const bytes::Byte chk_sum = biu_subaru::checksum(bytes::view(message), true);
 
     if (!message.length())
     {

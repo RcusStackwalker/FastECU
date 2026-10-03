@@ -38,6 +38,7 @@ qt_cc_library(
         "biu_ops_subaru_switches.h",
     ],
     implementation_deps = [
+        "//src/algorithms/protocol/biu:subaru_biu_frame",
         "//src/platform/desktop/common/bytes:qt_bytes",
         "//src/ui/desktop:diagnostic_link_io",
         "//src/ui/desktop/biu:ui_biu_operations_subaru",
@@ -51,6 +52,7 @@ qt_cc_library(
         "//bazel/qt:core",
         "//bazel/qt:serial_port",
         "//bazel/qt:widgets",
+        "//src/algorithms/protocol",
         "//src/backend/protocol",
     ],
 )
