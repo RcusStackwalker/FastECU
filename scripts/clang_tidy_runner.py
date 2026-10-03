@@ -22,6 +22,7 @@ import yaml
 
 SOURCE_SUFFIXES = frozenset((".c", ".cc", ".cpp", ".cxx"))
 HEADER_SUFFIXES = frozenset((".h", ".hpp"))
+CONFIG_FILE_NAME = ".clang-tidy"
 
 
 class WorkflowError(RuntimeError):
@@ -324,6 +325,15 @@ def filter_changed_entries(
                 )
 
     return [matched[key] for key in sorted(matched)], notes
+
+
+def config_changed(changed: Sequence[Path]) -> bool:
+    """Whether a clang-tidy configuration file is among the changed paths.
+
+    A config change can produce findings in files the change never touched,
+    so the changed-files run analyzes everything in scope instead.
+    """
+    return any(path.name == CONFIG_FILE_NAME for path in changed)
 
 
 def _search_directories(platform_name: str, environ: Mapping[str, str]) -> list[Path]:
@@ -849,9 +859,15 @@ def run_workflow(
                 )
         if changed:
             changed_paths = changed_files(workspace, command_runner)
-            entries, notes = filter_changed_entries(entries, changed_paths, workspace.resolve())
-            for note in notes:
-                print(note)
+            if config_changed(changed_paths):
+                print(
+                    f"clang-tidy: a {CONFIG_FILE_NAME} file changed; "
+                    "analyzing every translation unit in scope."
+                )
+            else:
+                entries, notes = filter_changed_entries(entries, changed_paths, workspace.resolve())
+                for note in notes:
+                    print(note)
     if changed and not entries:
         print("clang-tidy: no changed C/C++ translation units to analyze, skipping.")
         return

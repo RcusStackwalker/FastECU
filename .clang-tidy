@@ -1,3 +1,7 @@
+# Editing this file makes CI's changed-files clang-tidy run analyze every
+# translation unit in scope instead of only the changed ones
+# (config_changed in scripts/clang_tidy_runner.py): budget for a full run.
+#
 # bugprone-easily-swappable-parameters - too many warnings to be actionable
 # bugprone-reserved-identifier - need to get rid of _ prefixed macros
 # bugprone-throwing-static-initialization - can't be enabled due to googletest
