@@ -2,6 +2,9 @@
 # translation unit in scope instead of only the changed ones
 # (config_changed in scripts/clang_tidy_runner.py): budget for a full run.
 #
+# CI pins LLVM 22 for clang-tidy (CLANG_TIDY_LLVM_* in .github/workflows/pr.yml);
+# bumping it should touch this comment so the whole tree is re-checked.
+#
 # bugprone-easily-swappable-parameters - too many warnings to be actionable
 # bugprone-exception-escape - fires inside gmock MATCHER_P expansions, gmock's
 #   own matchers and Qt headers, none of which we can change

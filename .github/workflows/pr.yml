@@ -16,6 +16,10 @@ env:
   QT_MODULES: qtcharts qtserialport qtremoteobjects qtwebsockets
   # rules_qt supports Bazel builds on Qt 6.8.3.
   QT_VERSION: '6.8.3'
+  # The clang-tidy job's LLVM: the major comes from the Ubuntu archive, the
+  # exact version from Chocolatey. Keep the two in step.
+  CLANG_TIDY_LLVM_MAJOR: '22'
+  CLANG_TIDY_LLVM_VERSION: '22.1.8'
 
 jobs:
   pre-commit:
@@ -253,18 +257,24 @@ jobs:
           version: ${{ env.QT_VERSION }}
           modules: ${{ env.QT_MODULES }}
 
+      # Both OSes run the same LLVM release, pinned so a runner-image or
+      # Chocolatey bump cannot change what the gate flags. Moving it is an edit
+      # to .clang-tidy's header comment as well, which makes the run whole-tree.
       - name: Install clang-tidy (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install llvm -y --no-progress
+          choco install llvm --version=${{ env.CLANG_TIDY_LLVM_VERSION }} -y --no-progress
           "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install clang-tidy (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-tidy
+          sudo apt-get install -y clang-tidy-${{ env.CLANG_TIDY_LLVM_MAJOR }}
+          # The versioned package ships unversioned clang-tidy and
+          # run-clang-tidy here, which is where the runner looks them up.
+          echo "/usr/lib/llvm-${{ env.CLANG_TIDY_LLVM_MAJOR }}/bin" >> "$GITHUB_PATH"
 
       - name: clang-tidy report
         # bash, not the Windows default pwsh: pwsh swallows the `--`, so bazel
