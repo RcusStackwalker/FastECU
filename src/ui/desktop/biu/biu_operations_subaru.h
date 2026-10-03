@@ -1,5 +1,7 @@
 #pragma once
 
+#include "src/algorithms/protocol/bytes.h"
+
 #include <array>
 #include <memory>
 
@@ -301,7 +303,6 @@ class BiuOperationsSubaru : public QDialog
 
     QTimer *keep_alive_timer;
 
-    uint8_t calculate_checksum(const QByteArray& out, bool dec_0x100);
     void parse_biu_message(const QByteArray& message);
     QString parse_message_to_hex(const QByteArray& received);
     void delay(int timeout);
@@ -330,7 +331,7 @@ class BiuOperationsSubaru : public QDialog
     BiuOpsSubaruInput1 *biuOpsSubaruInput1{};
     BiuOpsSubaruInput2 *biuOpsSubaruInput2{};
 
-    QByteArray cmd, output;
+    bytes::Bytes cmd, output;
     int counter;
     uint8_t current_command;
     ConnectionState connection_state;

@@ -1,0 +1,20 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = ["//bazel/layers:algorithms_and_above"])
+
+cc_library(
+    name = "subaru_biu_frame",
+    srcs = ["subaru_biu_frame.cpp"],
+    hdrs = ["subaru_biu_frame.h"],
+    deps = ["//src/algorithms/protocol"],
+)
+
+fastecu_portable_gtest(
+    name = "subaru_biu_frame_test",
+    srcs = ["subaru_biu_frame_test.cpp"],
+    deps = [
+        ":subaru_biu_frame",
+        "@googletest//:gtest",
+    ],
+)
