@@ -423,6 +423,8 @@ locally before that gate ever sees the change:
 - `bazel run //:clang_tidy_report_changed` — the same changed-files scope as
   the PR gate; `bazel run //:clang_tidy_fix_changed` applies its fixes
   directly (macOS/Linux only; needs system LLVM on `PATH`).
+  Add `-- --profile` to the report run to see phase timings and the slowest
+  checks.
 - Running the Sonar CLI locally, against the same `sonar-project.properties`
   CI uses: install the SonarSource build wrapper for your platform from
   `https://sonarcloud.io/static/cpp/` (`build-wrapper-macosx-x86` on macOS,
