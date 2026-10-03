@@ -65,9 +65,9 @@ TEST_F(TestDirectBackendPty, ptyRead_reassemblesFragmentedFrame)
     std::thread responder(
         [master]
         {
-            ::write(master, "\x80\xf0\x10\x02", 4);
+            EXPECT_EQ(::write(master, "\x80\xf0\x10\x02", 4), 4);
             QThread::msleep(30);
-            ::write(master, "\xaa\xbb\xcc", 3);
+            EXPECT_EQ(::write(master, "\xaa\xbb\xcc", 3), 3);
         });
     const QByteArray got = direct.read_serial_data(500);
     responder.join();
@@ -95,9 +95,9 @@ TEST_F(TestDirectBackendPty, ptyClearRxBuffer_discardsPendingBytes)
     const int master = openPtyBackend(direct);
     ASSERT_TRUE(master >= 0);
 
-    ::write(master, "\x11\x22\x33", 3); // junk arrives...
-    QThread::msleep(50);                // ...and lands in the buffer
-    direct.clear_rx_buffer();           // must discard it
+    ASSERT_EQ(::write(master, "\x11\x22\x33", 3), 3); // junk arrives...
+    QThread::msleep(50);                              // ...and lands in the buffer
+    direct.clear_rx_buffer();                         // must discard it
     ASSERT_EQ(direct.read_serial_data(100), QByteArray());
     ::close(master);
 }
@@ -198,7 +198,7 @@ TEST_F(TestDirectBackendPty, ptyIso14230Read_takesLengthFromFormatByte)
     ASSERT_TRUE(master >= 0);
     direct.set_is_iso14230_connection(true);
 
-    ::write(master, "\x82\x10\xf1\xaa\xbb\xcc\xdd", 7);
+    ASSERT_EQ(::write(master, "\x82\x10\xf1\xaa\xbb\xcc\xdd", 7), 7);
     ASSERT_EQ(direct.read_serial_data(500), QByteArray("\x82\x10\xf1\xaa\xbb\xcc", 6));
     ::close(master);
 }

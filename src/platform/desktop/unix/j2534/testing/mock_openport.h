@@ -6,6 +6,7 @@
 #include <QThread>
 #include <array>
 #include <atomic>
+#include <tuple>
 #if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h>
 #else
@@ -76,7 +77,9 @@ class MockOpenPort : public QObject
             {
                 resp = "aro\r\n";
             }
-            ::write(fd, resp.constData(), resp.size());
+            // A short write surfaces as a missing reply, which the caller's
+            // read timeout reports.
+            std::ignore = ::write(fd, resp.constData(), resp.size());
         }
     }
 
