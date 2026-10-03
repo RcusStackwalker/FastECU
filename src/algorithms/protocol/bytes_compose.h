@@ -47,7 +47,7 @@ namespace detail
 // Deliberately not `static_assert(false, ...)`: P2593R1 support in MSVC is
 // newer than the rest of what this repo relies on, and MSVC builds with
 // /std:c++latest.
-template <typename> inline constexpr bool dependentFalse = false;
+template <typename> inline constexpr bool kDependentFalse = false;
 
 template <typename T> constexpr std::size_t widthBe(const T& arg)
 {
@@ -85,9 +85,9 @@ template <typename T> constexpr std::size_t widthBe(const T& arg)
     }
     else
     {
-        static_assert(dependentFalse<U>, "composeBe: argument must be Byte, std::uint16_t, u24(), "
-                                         "std::uint32_t, std::string_view, or a range of Byte. A bare "
-                                         "integer literal is an int -- write 0x34_b instead.");
+        static_assert(kDependentFalse<U>, "composeBe: argument must be Byte, std::uint16_t, u24(), "
+                                          "std::uint32_t, std::string_view, or a range of Byte. A bare "
+                                          "integer literal is an int -- write 0x34_b instead.");
         return 0;
     }
 }
@@ -124,9 +124,9 @@ template <typename T> void appendBe(Bytes& out, const T& arg)
     }
     else
     {
-        static_assert(dependentFalse<U>, "composeBe: argument must be Byte, std::uint16_t, u24(), "
-                                         "std::uint32_t, std::string_view, or a range of Byte. A bare "
-                                         "integer literal is an int -- write 0x34_b instead.");
+        static_assert(kDependentFalse<U>, "composeBe: argument must be Byte, std::uint16_t, u24(), "
+                                          "std::uint32_t, std::string_view, or a range of Byte. A bare "
+                                          "integer literal is an int -- write 0x34_b instead.");
     }
 }
 

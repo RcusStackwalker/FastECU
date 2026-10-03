@@ -15,10 +15,10 @@ TEST(TestFreeform, size_descriptor_mapping)
 TEST(TestFreeform, setup_frame)
 {
     const MutDmaFrame f = buildSetupFrame(0xA0, 3);
-    ASSERT_EQ(static_cast<int>(f.size()), FRAME_LEN);
+    ASSERT_EQ(static_cast<int>(f.size()), kFrameLen);
     ASSERT_EQ(f[0], bytes::Byte(0xA0));
     ASSERT_EQ(f[1], bytes::Byte(3)); // channel count
-    ASSERT_EQ(f[TRAILER_OFFSET], TRAILER_FREEFORM);
+    ASSERT_EQ(f[kTrailerOffset], kTrailerFreeform);
     ASSERT_TRUE(verifyFrame(f));
 }
 
@@ -44,7 +44,7 @@ TEST(TestFreeform, id_list_frame)
     ASSERT_EQ(f[6], bytes::Byte(0x04));
     // checksum at reqLen-2 over bytes [0..reqLen-3]; trailer 0x0D at reqLen-1
     ASSERT_EQ(f[f.size() - 2], sum8(f, 0, f.size() - 2));
-    ASSERT_EQ(f[f.size() - 1], TRAILER_STD);
+    ASSERT_EQ(f[f.size() - 1], kTrailerStd);
 }
 
 TEST(TestFreeform, decode_stream_values)

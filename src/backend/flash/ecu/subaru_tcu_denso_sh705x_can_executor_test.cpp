@@ -86,7 +86,7 @@ struct BlockFixture
     std::uint32_t zero_crc;
 };
 
-// Hand-derived from revision-59f4e442's selected flashdevices[] rows. The CRC
+// Hand-derived from revision-59f4e442's selected kFlashDevices[] rows. The CRC
 // literals use the legacy 0x5AA5A55A polynomial over plaintext zero bytes;
 // no production geometry or checksum helper participates in these fixtures.
 constexpr std::array<BlockFixture, 16> kSh7055Blocks{{

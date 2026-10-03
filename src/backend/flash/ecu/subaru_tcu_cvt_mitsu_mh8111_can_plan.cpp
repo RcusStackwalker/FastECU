@@ -19,7 +19,7 @@ constexpr MemoryRegion kReadRegion{0x8000, 0x78000};
 
 // Legacy write_mem's block_modified mask ({0,0,0,1}, only numblocks=4
 // entries relevant) skips blocks 0-2 and flashes only block 3 --
-// fblocks_MH8111[3] = {0x80000, 0x100000} (kernelmemorymodels.h). This does
+// kFlashBlocksMH8111[3] = {0x80000, 0x100000} (kernelmemorymodels.h). This does
 // NOT overlap kReadRegion ({0x8000, 0x78000} ends at 0x80000, exactly where
 // kWriteRegion begins) -- a genuine legacy asymmetry (read is an
 // incomplete diagnostic dump of the low region; write assumes a full
@@ -27,7 +27,7 @@ constexpr MemoryRegion kReadRegion{0x8000, 0x78000};
 // top block), preserved exactly rather than "fixed" into symmetry.
 constexpr MemoryRegion kWriteRegion{0x80000, 0x100000};
 
-// flashdevices[MH8111].romsize = 3*512*1024 = 0x180000 -- the family's true
+// kFlashDevices[MH8111].romsize = 3*512*1024 = 0x180000 -- the family's true
 // declared capacity. write_mem loads/encrypts the FULL image
 // (ecuCalDef->FullRomData) and reflash_block indexes it at absolute offsets
 // up to 0x180000 (fdt->fblocks[3].start + fdt->fblocks[3].len), even though

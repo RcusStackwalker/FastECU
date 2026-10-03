@@ -140,8 +140,8 @@ Status validate_subaru_denso_mc68hc16y5_02_plan(const FlashPlan& plan)
     {
         return fail(InvalidConfig, "Unknown MCU type");
     }
-    const std::uint32_t romsize = flashdevices[index].romsize;
-    if (plan.transfer_region().start != flashdevices[index].fblocks[0].start ||
+    const std::uint32_t romsize = kFlashDevices[index].romsize;
+    if (plan.transfer_region().start != kFlashDevices[index].fblocks[0].start ||
         plan.transfer_region().length != romsize)
     {
         return fail(InvalidConfig, "MC68HC16Y5_02 transfer region does not match the MCU");
@@ -179,7 +179,7 @@ Result<FlashPlan> build_subaru_denso_mc68hc16y5_02_plan(FlashOperation operation
     {
         return fail(ErrorKind::InvalidConfig, "Unknown MCU type");
     }
-    const std::uint32_t romsize = flashdevices[index].romsize;
+    const std::uint32_t romsize = kFlashDevices[index].romsize;
     if ((operation == FlashOperation::Write || operation == FlashOperation::TestWrite) &&
         (!image.has_value() || image->size() != romsize))
     {
@@ -192,7 +192,7 @@ Result<FlashPlan> build_subaru_denso_mc68hc16y5_02_plan(FlashOperation operation
         .transport = TransportKind::Kline,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
-        .transfer_region = MemoryRegion{flashdevices[index].fblocks[0].start, romsize},
+        .transfer_region = MemoryRegion{kFlashDevices[index].fblocks[0].start, romsize},
         .erase_regions = {}, // per-block erase happens inside the write executor
                              // (blank-page-per-modified-block, legacy
                              // flash_block():950-992), not a fixed up-front set

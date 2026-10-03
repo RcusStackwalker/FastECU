@@ -45,7 +45,7 @@ using namespace bytes::literals;
 constexpr std::uint32_t kRequestId = 0x7e0;
 
 // Matches resources/shared/config/protocols.cfg's CAN protocol entries'
-// kernel_addr for McuType "SH7055" (kblocks_SH7055[0].start), the same
+// kernel_addr for McuType "SH7055" (kKernelBlocksSH7055[0].start), the same
 // literal the K-Line sibling's test uses -- Task 7's own CAN characterization
 // test used this exact McuType/address pair too (see its makeEcuCalDef()).
 constexpr std::uint32_t kKernelStartAddr = 0xFFFF6004;
@@ -156,7 +156,7 @@ TEST(DensoSh705xEepromCanExecutorTest, SidB6TransferBlockRequestMatchesHardcoded
     EXPECT_THAT(sidB6TransferBlockRequest(0x003000, bytes::Bytes{0x55, 0x66, 0x77}),
                 ElementsAre(0x00, 0x00, 0x07, 0xE0, 0xB6, 0x00, 0x30, 0x00, 0x55, 0x66, 0x77));
 }
-// read_mem(), for McuType "SH7055" (eblocks_SH7055[0] == {start=0,
+// read_mem(), for McuType "SH7055" (kEepromBlocksSH7055[0] == {start=0,
 // len=0x100}): reduces to a single request with addr=0, pagesize=0x100.
 bytes::Bytes sidReadEepromRequestForSh7055(std::uint8_t eepromMode)
 {

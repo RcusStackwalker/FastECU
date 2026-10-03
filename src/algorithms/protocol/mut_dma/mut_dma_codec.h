@@ -7,13 +7,13 @@
 
 namespace mutdma
 {
-constexpr int FRAME_LEN = 51;
-constexpr bytes::Byte TRAILER_STD = 0x0D;
-constexpr bytes::Byte TRAILER_FREEFORM = 0x0A;
-constexpr int CHECKSUM_OFFSET = 49; // sum8 of bytes [0..48]
-constexpr int TRAILER_OFFSET = 50;
+constexpr int kFrameLen = 51;
+constexpr bytes::Byte kTrailerStd = 0x0D;
+constexpr bytes::Byte kTrailerFreeform = 0x0A;
+constexpr int kChecksumOffset = 49; // sum8 of bytes [0..48]
+constexpr int kTrailerOffset = 50;
 
-using MutDmaFrame = std::array<bytes::Byte, FRAME_LEN>;
+using MutDmaFrame = std::array<bytes::Byte, kFrameLen>;
 
 // 8-bit sum of len bytes starting at `from`.
 bytes::Byte sum8(bytes::ByteView bytes, std::size_t from, std::size_t len);

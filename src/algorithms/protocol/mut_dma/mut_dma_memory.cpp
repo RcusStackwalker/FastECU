@@ -15,7 +15,7 @@ std::vector<MutDmaFrame> buildWriteFrames(std::uint16_t addr, bytes::ByteView by
     std::size_t off = 0;
     while (off < bytes.size())
     {
-        const std::size_t chunk = std::min(static_cast<std::size_t>(MAX_WRITE_CHUNK), bytes.size() - off);
+        const std::size_t chunk = std::min(static_cast<std::size_t>(kMaxWriteChunk), bytes.size() - off);
         const std::uint16_t a = static_cast<std::uint16_t>(addr + off);
         bytes::Bytes payload;
         payload.reserve(5 + chunk);
@@ -25,7 +25,7 @@ std::vector<MutDmaFrame> buildWriteFrames(std::uint16_t addr, bytes::ByteView by
         payload.push_back(static_cast<bytes::Byte>(chunk));
         payload.insert(payload.end(), bytes.begin() + static_cast<std::ptrdiff_t>(off),
                        bytes.begin() + static_cast<std::ptrdiff_t>(off + chunk));
-        frames.push_back(buildCommandFrame(0x87, payload, TRAILER_STD));
+        frames.push_back(buildCommandFrame(0x87, payload, kTrailerStd));
         off += chunk;
     }
     return frames;

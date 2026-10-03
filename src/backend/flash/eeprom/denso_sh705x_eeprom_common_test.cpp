@@ -12,8 +12,8 @@ namespace
 {
 
 // Literal values transcribed from src/backend/flash/kernel/kernelmemorymodels.h:
-//   eblocks_SH7055[0] = {0x00000000, 0x00000100} (line 280)
-//   kblocks_SH7055[0] = {0xFFFF6004, 0x00006000} (line 276)
+//   kEepromBlocksSH7055[0] = {0x00000000, 0x00000100} (line 280)
+//   kKernelBlocksSH7055[0] = {0xFFFF6004, 0x00006000} (line 276)
 // Do not derive these from anywhere else; the MCU table is the single source
 // of truth the implementation also reads from.
 constexpr std::uint32_t kSh7055EepromStart = 0x00000000;

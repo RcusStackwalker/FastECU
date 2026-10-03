@@ -20,25 +20,25 @@ MutDmaFrame buildCommandFrame(bytes::Byte cmd, bytes::ByteView payload, bytes::B
     MutDmaFrame f{};
     f[0] = cmd;
     const std::size_t n =
-        std::min(payload.size(), static_cast<std::size_t>(CHECKSUM_OFFSET - 1)); // bytes 1..48 = 48 max
+        std::min(payload.size(), static_cast<std::size_t>(kChecksumOffset - 1)); // bytes 1..48 = 48 max
     std::copy_n(payload.begin(), n, f.begin() + 1);
-    f[CHECKSUM_OFFSET] = sum8(bytes::ByteView{f}.first(CHECKSUM_OFFSET));
-    f[TRAILER_OFFSET] = trailer;
+    f[kChecksumOffset] = sum8(bytes::ByteView{f}.first(kChecksumOffset));
+    f[kTrailerOffset] = trailer;
     return f;
 }
 
 bool verifyFrame(bytes::ByteView frame)
 {
-    if (frame.size() != FRAME_LEN)
+    if (frame.size() != kFrameLen)
     {
         return false;
     }
-    if (frame[CHECKSUM_OFFSET] != sum8(frame, 0, CHECKSUM_OFFSET))
+    if (frame[kChecksumOffset] != sum8(frame, 0, kChecksumOffset))
     {
         return false;
     }
-    const bytes::Byte t = frame[TRAILER_OFFSET];
-    return t == TRAILER_STD || t == TRAILER_FREEFORM;
+    const bytes::Byte t = frame[kTrailerOffset];
+    return t == kTrailerStd || t == kTrailerFreeform;
 }
 
 StreamFrame parseStreamFrame(bytes::ByteView frame)
@@ -48,7 +48,7 @@ StreamFrame parseStreamFrame(bytes::ByteView frame)
     {
         return s; // id + csum + trailer minimum
     }
-    if (frame[frame.size() - 1] != TRAILER_STD)
+    if (frame[frame.size() - 1] != kTrailerStd)
     {
         return s;
     }

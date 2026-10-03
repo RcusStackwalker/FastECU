@@ -93,7 +93,7 @@ constexpr bytes::Byte kRoutineChecksum = 0x02;
 constexpr bytes::Byte kDataFormatIdentifier = 0x04;
 constexpr bytes::Byte kAddressAndLengthFormat = 0x44;
 
-// fblocks_N83M_1_5MB[0].start -- reflash_block indexes the image as
+// kFlashBlocksN83M_1_5MB[0].start -- reflash_block indexes the image as
 // newdata[i + blockaddr - fdt->fblocks[0].start] (line 1225), so byte 0 of
 // the plan image is this address.
 constexpr std::uint32_t kImageStart = 0x08F9C000;

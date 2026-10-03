@@ -13,7 +13,7 @@ constexpr SingleWindowPlanCase kCase{
     .mcu = "SH72543d",
     .foreign_protocol = "sub_ecu_denso_sh72531_can",
     .foreign_mcu = "SH72531",
-    // fblocks_SH72543d has numblocks == 1 with fblocks[0] == {0x8000, 0x1F7F00};
+    // kFlashBlocksSH72543d has numblocks == 1 with fblocks[0] == {0x8000, 0x1F7F00};
     // this family is the only one in the wave with a single-block flash table.
     .read_region = MemoryRegion{.start = 0x00008000, .length = 0x001F7F00},
     .erase_region = MemoryRegion{.start = 0x00008000, .length = 0x001F7F00},

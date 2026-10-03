@@ -19,15 +19,15 @@ constexpr MemoryRegion kReadRegion{0x8000, 0x78000};
 
 // Legacy write_mem's block_modified mask ({0,0,0,1}, only numblocks=4
 // entries relevant) skips blocks 0-2 and flashes only block 3 --
-// fblocks_MH8104[3] = {0x8000, 0x78000} (kernelmemorymodels.h). Unlike
+// kFlashBlocksMH8104[3] = {0x8000, 0x78000} (kernelmemorymodels.h). Unlike
 // MH8111 (whose read window and sole flashed block do NOT overlap), this
 // family's write window is IDENTICAL to kReadRegion -- both are
-// fblocks_MH8104[3], a genuine per-family difference confirmed directly
+// kFlashBlocksMH8104[3], a genuine per-family difference confirmed directly
 // against kernelmemorymodels.h, not an assumption carried over from the
 // sibling family.
 constexpr MemoryRegion kWriteRegion{0x8000, 0x78000};
 
-// flashdevices[MH8104].romsize = 512*1024 = 0x80000 -- the family's true
+// kFlashDevices[MH8104].romsize = 512*1024 = 0x80000 -- the family's true
 // declared capacity (MH8104's real capacity, unlike MH8111's 0x180000).
 // write_mem loads/encrypts the FULL image (ecuCalDef->FullRomData) and
 // reflash_block indexes it at absolute offsets up to fdt->fblocks[3].start +

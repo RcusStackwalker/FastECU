@@ -610,7 +610,7 @@ Result<bytes::Bytes> read_memory(Ctx& ctx, const SubaruDensoSh72543CanDieselPlan
 // Legacy erase_memory, lines 1375-1488. Unlike its siblings this one takes the
 // block it is to erase -- `erase_memory(const flashdev_t *fdt, unsigned
 // blockno)` -- and write_memory calls it as
-// `erase_memory(&flashdevices[mcu_type_index], 0)` (line 1106), i.e. block 0,
+// `erase_memory(&kFlashDevices[mcu_type_index], 0)` (line 1106), i.e. block 0,
 // which is the plan's transfer region. Shape is otherwise the siblings': the
 // setup PDU, the erase trigger, then a bounded re-read loop that never
 // re-sends.
@@ -696,7 +696,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
         // The write image is based at address 0 (kImageStart), which is what
         // legacy does too, though it takes two lines to see: write_memory
         // passes `&data_array[fdt->fblocks->start]` (line 1129) -- the
-        // encrypted whole-ROM buffer offset by fblocks_SH72543d[0].start =
+        // encrypted whole-ROM buffer offset by kFlashBlocksSH72543d[0].start =
         // 0x8000 -- and reflash_block then indexes
         // `newdata[i + blockctr * blocksize]` (line 1217), a block-relative
         // index. The two compose to data_array[0x8000 + blockctr*256 + i],
@@ -772,7 +772,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
 }
 
 // Legacy write_memory, lines 1070-1149. block_modified is {1} over
-// numblocks == 1, so block 0 -- fblocks_SH72543d[0], the plan's transfer
+// numblocks == 1, so block 0 -- kFlashBlocksSH72543d[0], the plan's transfer
 // region -- is the one block erased and reflashed. Its three siblings all
 // flash block 1 of a three-block table; this family's table has a single
 // block because its 0x0-0x8000 entry is commented out.

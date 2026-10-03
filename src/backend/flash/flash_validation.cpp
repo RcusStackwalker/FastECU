@@ -40,7 +40,7 @@ bool family_matches_transport_variant(const FlashPlanFields& fields)
 {
     return std::visit(
         [&fields]<typename T>(const T&)
-        { return fields.family == FamilyTraits<T>::family && fields.transport == FamilyTraits<T>::transport; },
+        { return fields.family == FamilyTraits<T>::kFamily && fields.transport == FamilyTraits<T>::kTransport; },
         fields.family_plan);
 }
 } // namespace
@@ -89,7 +89,7 @@ Result<FlashPlan> validate_and_build(FlashPlanFields fields)
         }
     }
     if (const bool requires_kernel =
-            std::visit([]<typename T>(const T&) { return family_requires_kernel_v<T>; }, fields.family_plan);
+            std::visit([]<typename T>(const T&) { return kFamilyRequiresKernel<T>; }, fields.family_plan);
         requires_kernel && !fields.kernel.has_value())
     {
         return fail(ErrorKind::InvalidConfig, "family requires a kernel image");

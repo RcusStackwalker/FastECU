@@ -117,7 +117,7 @@ constexpr bytes::Byte kRoutineChecksum = 0x02;
 constexpr bytes::Byte kDataFormatIdentifier = 0x04;
 constexpr bytes::Byte kAddressAndLengthFormat = 0x44;
 
-// fblocks_N83M_4MB[0].start -- reflash_block indexes the image as
+// kFlashBlocksN83M_4MB[0].start -- reflash_block indexes the image as
 // newdata[i + blockaddr - fdt->fblocks[0].start] (line 1241) and write_memory
 // hands it &data_array[0] (line 1153), the whole encrypted ROM, so byte 0 of
 // the plan image is this address.

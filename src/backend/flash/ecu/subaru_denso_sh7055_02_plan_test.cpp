@@ -29,11 +29,11 @@ FlashPlanFields valid_sh7055_02_fields(FlashOperation operation = FlashOperation
         .transport = TransportKind::Kline,
         .target_id = "sub_ecu_denso_sh7055_02",
         .mcu_name = "SH7055",
-        .transfer_region = {flashdevices[index].fblocks[0].start, flashdevices[index].romsize},
+        .transfer_region = {kFlashDevices[index].fblocks[0].start, kFlashDevices[index].romsize},
         .erase_regions = {},
         .image = operation == FlashOperation::Read
                      ? std::nullopt
-                     : std::optional<bytes::Bytes>{bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0})},
+                     : std::optional<bytes::Bytes>{bytes::Bytes(kFlashDevices[index].romsize, bytes::Byte{0})},
         .kernel = test_kernel(),
         .family_plan =
             SubaruDensoSh7055_02Plan{
@@ -61,7 +61,7 @@ TEST(SubaruDensoSh7055_02Plan, BuildsBareReadAndWritePlansWithOperationSpecificE
     ASSERT_GE(index, 0);
     auto write =
         build_subaru_denso_sh7055_02_plan(FlashOperation::Write, "sub_ecu_denso_sh7055_02", "SH7055",
-                                          bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0}), test_kernel());
+                                          bytes::Bytes(kFlashDevices[index].romsize, bytes::Byte{0}), test_kernel());
     ASSERT_THAT(write, fastecu::testing::IsOk());
     EXPECT_FALSE(std::get<SubaruDensoSh7055_02Plan>(write->family_plan()).read_ecu_id);
 }
@@ -94,7 +94,7 @@ TEST(SubaruDensoSh7055_02Plan, EveryAcceptedPlanRequiresCycleIgnitionConfirmatio
                 operation, protocol, "SH7055",
                 operation == FlashOperation::Read
                     ? std::nullopt
-                    : std::optional<bytes::Bytes>{bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0})},
+                    : std::optional<bytes::Bytes>{bytes::Bytes(kFlashDevices[index].romsize, bytes::Byte{0})},
                 test_kernel());
             ASSERT_THAT(plan, fastecu::testing::IsOk());
             ASSERT_EQ(plan->confirmations().size(), 1U);
@@ -135,21 +135,21 @@ TEST(SubaruDensoSh7055_02Plan, WriteAndTestWriteRequireExactRomSize)
     for (const auto operation : {FlashOperation::Write, FlashOperation::TestWrite})
     {
         ASSERT_THAT(build_subaru_denso_sh7055_02_plan(operation, "sub_ecu_denso_sh7055_02", "SH7055",
-                                                      bytes::Bytes(flashdevices[index].romsize - 1, bytes::Byte{0}),
+                                                      bytes::Bytes(kFlashDevices[index].romsize - 1, bytes::Byte{0}),
                                                       test_kernel()),
                     fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 
         ASSERT_THAT(build_subaru_denso_sh7055_02_plan(operation, "sub_ecu_denso_sh7055_02", "SH7055",
-                                                      bytes::Bytes(flashdevices[index].romsize + 1, bytes::Byte{0}),
+                                                      bytes::Bytes(kFlashDevices[index].romsize + 1, bytes::Byte{0}),
                                                       test_kernel()),
                     fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 
-        auto exact =
-            build_subaru_denso_sh7055_02_plan(operation, "sub_ecu_denso_sh7055_02", "SH7055",
-                                              bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0}), test_kernel());
+        auto exact = build_subaru_denso_sh7055_02_plan(operation, "sub_ecu_denso_sh7055_02", "SH7055",
+                                                       bytes::Bytes(kFlashDevices[index].romsize, bytes::Byte{0}),
+                                                       test_kernel());
         ASSERT_THAT(exact, fastecu::testing::IsOk());
         ASSERT_TRUE(exact->image().has_value());
-        EXPECT_EQ(exact->image()->size(), flashdevices[index].romsize);
+        EXPECT_EQ(exact->image()->size(), kFlashDevices[index].romsize);
     }
 }
 
@@ -201,8 +201,8 @@ TEST(SubaruDensoSh7055_02Plan, ValidatorRejectsWrongTransferRegion)
 {
     const int index = find_flash_device_index("SH7055");
     ASSERT_GE(index, 0);
-    for (const auto region : {MemoryRegion{flashdevices[index].fblocks[0].start + 1, flashdevices[index].romsize},
-                              MemoryRegion{flashdevices[index].fblocks[0].start, flashdevices[index].romsize - 1}})
+    for (const auto region : {MemoryRegion{kFlashDevices[index].fblocks[0].start + 1, kFlashDevices[index].romsize},
+                              MemoryRegion{kFlashDevices[index].fblocks[0].start, kFlashDevices[index].romsize - 1}})
     {
         auto fields = valid_sh7055_02_fields();
         fields.transfer_region = region;

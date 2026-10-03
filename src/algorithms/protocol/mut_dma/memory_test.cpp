@@ -12,7 +12,7 @@ TEST(TestMemory, write_frame_single)
     const std::vector<MutDmaFrame> frames = buildWriteFrames(0x8010, data);
     ASSERT_EQ(frames.size(), std::size_t(1));
     const MutDmaFrame& f = frames.at(0);
-    ASSERT_EQ(static_cast<int>(f.size()), FRAME_LEN);
+    ASSERT_EQ(static_cast<int>(f.size()), kFrameLen);
     ASSERT_EQ(f[0], bytes::Byte(0x87)); // cmd
     ASSERT_EQ(f[1], bytes::Byte(0x00)); // sub-selector hi (0x0003)
     ASSERT_EQ(f[2], bytes::Byte(0x03)); // sub-selector lo = write arbitrary

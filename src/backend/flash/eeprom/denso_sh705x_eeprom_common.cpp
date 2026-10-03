@@ -64,7 +64,7 @@ Result<DensoSh705xEepromUploadSizes> denso_sh705x_eeprom_upload_sizes(FlashFamil
 }
 
 // Literal values transcribed from src/backend/flash/kernel/kernelmemorymodels.h
-// (eblocks_SH7055[0], line 279-281; eblocks_SH7058[0], line 221-223). Do not
+// (kEepromBlocksSH7055[0], line 279-281; kEepromBlocksSH7058[0], line 221-223). Do not
 // derive these from anywhere else; the MCU table is the single source of
 // truth both this function and resolve_mcu_bounds() below read from -- and
 // the only place these two literals are written (build_eeprom_read_plan calls
@@ -73,13 +73,13 @@ Result<MemoryRegion> resolve_sh705x_eeprom_region(const std::string& mcu_name)
 {
     if (mcu_name == "SH7055")
     {
-        return MemoryRegion{.start = /* eblocks_SH7055[0].start */ 0x00000000,
-                            .length = /* eblocks_SH7055[0].len */ 0x00000100};
+        return MemoryRegion{.start = /* kEepromBlocksSH7055[0].start */ 0x00000000,
+                            .length = /* kEepromBlocksSH7055[0].len */ 0x00000100};
     }
     if (mcu_name == "SH7058")
     {
-        return MemoryRegion{.start = /* eblocks_SH7058[0].start */ 0x00000000,
-                            .length = /* eblocks_SH7058[0].len */ 0x00000100};
+        return MemoryRegion{.start = /* kEepromBlocksSH7058[0].start */ 0x00000000,
+                            .length = /* kEepromBlocksSH7058[0].len */ 0x00000100};
     }
     return fail(ErrorKind::InvalidConfig, std::format("unknown SH705x mcu_name: {}", mcu_name));
 }
@@ -88,7 +88,7 @@ namespace
 {
 
 // Literal values transcribed from src/backend/flash/kernel/kernelmemorymodels.h
-// (kblocks_SH7055/kblocks_SH7058). Do not derive these from anywhere else;
+// (kKernelBlocksSH7055/kKernelBlocksSH7058). Do not derive these from anywhere else;
 // the MCU table is the single source of truth the legacy code also reads
 // from.
 struct McuBounds
@@ -108,16 +108,16 @@ Result<McuBounds> resolve_mcu_bounds(const std::string& mcu_name)
     {
         return McuBounds{
             .eeprom = *eeprom,
-            .kernel_ram = MemoryRegion{.start = /* kblocks_SH7055[0].start */ 0xFFFF6004,
-                                       .length = /* kblocks_SH7055[0].len */ 0x00006000},
+            .kernel_ram = MemoryRegion{.start = /* kKernelBlocksSH7055[0].start */ 0xFFFF6004,
+                                       .length = /* kKernelBlocksSH7055[0].len */ 0x00006000},
         };
     }
     if (mcu_name == "SH7058")
     {
         return McuBounds{
             .eeprom = *eeprom,
-            .kernel_ram = MemoryRegion{.start = /* kblocks_SH7058[0].start */ 0xFFFF3000,
-                                       .length = /* kblocks_SH7058[0].len */ 0x00009000},
+            .kernel_ram = MemoryRegion{.start = /* kKernelBlocksSH7058[0].start */ 0xFFFF3000,
+                                       .length = /* kKernelBlocksSH7058[0].len */ 0x00009000},
         };
     }
     return fail(ErrorKind::InvalidConfig, std::format("unknown SH705x mcu_name: {}", mcu_name));

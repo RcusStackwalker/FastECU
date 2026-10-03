@@ -11,7 +11,7 @@ TEST(FindFlashDevice, ReturnsDeviceForEveryMcuStringInShippedProtocolsCfg)
 {
     // Every distinct <mcu> value in resources/shared/config/protocols.cfg as
     // of this writing (grep -oP '(?<=<mcu>)[^<]*' resources/shared/config/protocols.cfg
-    // | sort -u), except M32170, which is not registered in flashdevices[]
+    // | sort -u), except M32170, which is not registered in kFlashDevices[]
     // -- exercised separately below since checksum correction's "Unknown MCU
     // type" path is not hypothetical, it fires for that real, currently
     // shipped protocol.
@@ -50,7 +50,7 @@ TEST(FindFlashDevice, ReturnsDeviceForEveryMcuStringInShippedProtocolsCfg)
 TEST(FindFlashDevice, ReturnsNullForUnknownMcuType)
 {
     // "M32170" is sub_ecu_mitsu_m32r_can's real, currently shipped <mcu>
-    // value in protocols.cfg; it is not registered in flashdevices[].
+    // value in protocols.cfg; it is not registered in kFlashDevices[].
     EXPECT_EQ(find_flash_device("M32170"), nullptr);
     EXPECT_EQ(find_flash_device("does_not_exist"), nullptr);
     EXPECT_EQ(find_flash_device_index("M32170"), -1);
@@ -71,10 +71,10 @@ TEST(FindFlashDevice, IndexAndPointerAgree)
 
     ASSERT_GE(index, 0);
     ASSERT_NE(device, nullptr);
-    EXPECT_STREQ(flashdevices[index].name, "M32R_384KB_1block");
+    EXPECT_STREQ(kFlashDevices[index].name, "M32R_384KB_1block");
     EXPECT_STREQ(device->name, "M32R_384KB_1block");
-    EXPECT_EQ(device->romsize, flashdevices[index].romsize);
-    EXPECT_EQ(device->fblocks[0].start, flashdevices[index].fblocks[0].start);
+    EXPECT_EQ(device->romsize, kFlashDevices[index].romsize);
+    EXPECT_EQ(device->fblocks[0].start, kFlashDevices[index].fblocks[0].start);
 }
 
 TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
@@ -119,7 +119,7 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
 
     for (std::size_t deviceIndex = 0; deviceIndex < kCount; ++deviceIndex)
     {
-        const flashdev_t& actual = flashdevices[deviceIndex];
+        const flashdev_t& actual = kFlashDevices[deviceIndex];
         const FlashDeviceSummary& summary = kExpected[deviceIndex];
         EXPECT_STREQ(actual.name, summary.name);
         EXPECT_EQ(actual.romsize, summary.romsize);
@@ -137,7 +137,7 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
         }
     }
 
-    const flashdev_t& sentinel = flashdevices[kCount];
+    const flashdev_t& sentinel = kFlashDevices[kCount];
     EXPECT_EQ(sentinel.name, nullptr);
     EXPECT_EQ(sentinel.romsize, std::uint32_t(0));
     EXPECT_EQ(sentinel.numblocks, 0U);

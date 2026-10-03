@@ -27,13 +27,13 @@ void script_chunk(ScriptedKlineTransport& t, std::uint16_t addr, const bytes::By
 {
     const auto channels = planReadChannels(addr, static_cast<int>(data.size()));
     t.expectWrite(buildSetupFrame(0xA0, static_cast<bytes::Byte>(channels.size())));
-    t.queueRead(buildCommandFrame(0xA5, bytes::Bytes{}, TRAILER_STD));
+    t.queueRead(buildCommandFrame(0xA5, bytes::Bytes{}, kTrailerStd));
     t.expectWrite(buildIdListFrame(0xA1, channels));
-    t.queueRead(buildCommandFrame(0x05, bytes::Bytes{}, TRAILER_STD));
+    t.queueRead(buildCommandFrame(0x05, bytes::Bytes{}, kTrailerStd));
     bytes::Bytes frame{0x51};
     frame.insert(frame.end(), data.begin(), data.end());
     frame.push_back(sum8(frame));
-    frame.push_back(TRAILER_STD);
+    frame.push_back(kTrailerStd);
     t.queueRead(frame);
 }
 
@@ -72,7 +72,7 @@ TEST(MutMemory, WriteAtBothWindowEdgesReachesTheDriver)
         fastecu::FakeCancellationToken token;
         const bytes::Bytes data{0xAB};
         t.expectWrite(buildWriteFrames(addr, data).at(0));
-        t.queueRead(buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, TRAILER_STD));
+        t.queueRead(buildCommandFrame(0x87, bytes::Bytes{0x80, 0x00}, kTrailerStd));
         EXPECT_THAT(write_memory(t, addr, data, token), IsOk()) << std::hex << addr;
         EXPECT_TRUE(t.scriptConsumed());
     }
@@ -125,9 +125,9 @@ TEST(MutMemory, ReadSkipsAChunkWhosePollReturnsNoFrame)
     fastecu::FakeCancellationToken token;
     const auto channels = planReadChannels(0x8000, 40);
     t.expectWrite(buildSetupFrame(0xA0, 40));
-    t.queueRead(buildCommandFrame(0xA5, bytes::Bytes{}, TRAILER_STD));
+    t.queueRead(buildCommandFrame(0xA5, bytes::Bytes{}, kTrailerStd));
     t.expectWrite(buildIdListFrame(0xA1, channels));
-    t.queueRead(buildCommandFrame(0x05, bytes::Bytes{}, TRAILER_STD));
+    t.queueRead(buildCommandFrame(0x05, bytes::Bytes{}, kTrailerStd));
     t.queue_no_frame();
     const bytes::Bytes second = counting(10, 0x40);
     script_chunk(t, 0x8028, second);
