@@ -425,6 +425,11 @@ locally before that gate ever sees the change:
   directly (macOS/Linux only; needs system LLVM on `PATH`).
   Add `-- --profile` to the report run to see phase timings and the slowest
   checks.
+- Platform-gated code is listed in the clang-tidy
+  [scope manifest](../.clang-tidy-scope.toml): Linux analyzes everything it can
+  build, Windows only its exclusive code (`-- --scope-os windows`). The runner
+  fails when a `BUILD.bazel` gates targets by platform and no manifest prefix
+  covers it.
 - Running the Sonar CLI locally, against the same `sonar-project.properties`
   CI uses: install the SonarSource build wrapper for your platform from
   `https://sonarcloud.io/static/cpp/` (`build-wrapper-macosx-x86` on macOS,
