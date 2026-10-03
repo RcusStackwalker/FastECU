@@ -6,10 +6,6 @@
 # bugprone-reserved-identifier - need to get rid of _ prefixed macros
 # bugprone-throwing-static-initialization - can't be enabled due to googletest
 # clang-analyzer-deadcode.DeadStores - need to eliminate dead code first
-# clang-diagnostic-error - TEMPORARY: Windows CI's clang-tidy resolves
-#   QByteArray::append((uint8_t)0x00) as ambiguous (char vs const char*,
-#   via null-pointer-constant conversion) even though MSVC builds it fine.
-#   Re-enable once the call sites are fixed to disambiguate explicitly.
 # bugprone-macro-parentheses - disabled due to PTfn macos in J2534_win.h
 ---
 Checks: >
@@ -35,7 +31,6 @@ Checks: >
   -clang-analyzer-cplusplus.NewDeleteLeaks,
   -clang-analyzer-deadcode.DeadStores,
   -clang-analyzer-security.ArrayBound,
-  -clang-diagnostic-error,
   -cppcoreguidelines-pro-type-member-init,
   modernize-avoid-c-arrays,
   modernize-deprecated-headers,
