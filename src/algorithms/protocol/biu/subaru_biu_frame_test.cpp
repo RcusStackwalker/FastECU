@@ -25,29 +25,11 @@ TEST(SubaruBiuFrame, MultiByteRequestFoldsPayloadLengthIntoFormatByte)
     EXPECT_THAT(biu_subaru::buildRequest(cmd), ElementsAre(0x82, 0x40, 0xF0, 0x21, 0x50, 0x23));
 }
 
-TEST(SubaruBiuFrame, ChecksumWrapsModulo256)
-{
-    const bytes::Bytes data{0xFF, 0x02};
-    EXPECT_EQ(biu_subaru::checksum(data, false), 0x01);
-}
-
-TEST(SubaruBiuFrame, ChecksumCanExcludeTheTrailingChecksumByte)
-{
-    const bytes::Bytes frame{0x81, 0x40, 0xF0, 0x3E, 0xEF};
-    EXPECT_EQ(biu_subaru::checksum(frame, true), 0xEF);
-    EXPECT_EQ(biu_subaru::checksum(frame, false), 0xDE);
-}
-
-TEST(SubaruBiuFrame, ChecksumOfEmptyInputIsZero)
-{
-    EXPECT_EQ(biu_subaru::checksum({}, true), 0x00);
-}
-
 TEST(SubaruBiuFrame, RequestsValidateAgainstTheirOwnChecksum)
 {
     const bytes::Bytes cmd{0x3E, 0x8A, 0x01, 0x02, 0x03};
     const bytes::Bytes frame = biu_subaru::buildRequest(cmd);
-    EXPECT_EQ(biu_subaru::checksum(frame, true), frame.back());
+    EXPECT_EQ(bytes::sum8(bytes::ByteView(frame).first(frame.size() - 1)), frame.back());
 }
 
 } // namespace

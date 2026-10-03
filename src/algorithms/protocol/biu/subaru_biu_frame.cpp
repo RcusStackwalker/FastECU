@@ -1,5 +1,7 @@
 #include "src/algorithms/protocol/biu/subaru_biu_frame.h"
 
+#include "src/algorithms/protocol/bytes_compose.h"
+
 namespace biu_subaru
 {
 
@@ -13,27 +15,10 @@ constexpr bytes::Byte kTesterPresent = 0x3E;
 
 } // namespace
 
-bytes::Byte checksum(bytes::ByteView data, bool excludeLast)
-{
-    if (excludeLast && !data.empty())
-    {
-        data = data.first(data.size() - 1);
-    }
-
-    bytes::Byte sum = 0;
-    for (const bytes::Byte value : data)
-    {
-        sum = static_cast<bytes::Byte>(sum + value);
-    }
-    return sum;
-}
-
 bytes::Bytes buildRequest(bytes::ByteView payload)
 {
-    bytes::Bytes frame{static_cast<bytes::Byte>(kFormatBase | payload.size()), kTarget, kSource};
-    frame.insert(frame.end(), payload.begin(), payload.end());
-    frame.push_back(checksum(frame, false));
-    return frame;
+    return bytes::composeBeWithChecksum(bytes::sum8, static_cast<bytes::Byte>(kFormatBase | payload.size()), kTarget,
+                                        kSource, payload);
 }
 
 bytes::Bytes keepAliveRequest()

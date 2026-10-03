@@ -358,13 +358,14 @@ void BiuOperationsSubaru::send_biu_msg()
 
 void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 {
-    const bytes::Byte chk_sum = biu_subaru::checksum(bytes::view(message), true);
-
     if (!message.length())
     {
         emit LOG_I("Invalid message received: zero length", true, true);
         return;
     }
+
+    const auto frame = bytes::view(message);
+    const bytes::Byte chk_sum = bytes::sum8(frame.first(frame.size() - 1));
 
     if (((uint8_t)message.at(0) & 0x80U) != 0x80 || (uint8_t)message.at(1) != 0xf0 || (uint8_t)message.at(2) != 0x40)
     {
