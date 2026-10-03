@@ -192,7 +192,7 @@ Status program(Session& s, const FlashPlan& plan)
     }
 
     // write_mem() :467-578. Data goes as-is; unlike 6c-3 there is no XOR.
-    const bytes::Bytes& image = *plan.image();
+    const bytes::Bytes& image = plan.image_or_empty();
     const auto blocks = static_cast<int>(image.size() / kBlock);
     for (int block = 0; block < blocks; ++block)
     {

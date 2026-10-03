@@ -421,7 +421,7 @@ TEST(SubaruDensoSh7055_02Executor, KernelAlreadyAliveSkipsWrxInitEcuIdAndUpload)
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     transport.queue_no_frame();
     transport.exchange(framed(0x01), framed(0x41, bytes::Bytes{'K'}));
-    script_crc_compare(transport, *device, *plan->image(), std::nullopt);
+    script_crc_compare(transport, *device, plan->image_or_empty(), std::nullopt);
 
     FakeClock clock;
     FakeCancellationToken cancellation;
@@ -689,7 +689,7 @@ TEST(SubaruDensoSh7055_02Executor, WritePathSkipsEcuIdRead)
     ASSERT_NE(device, nullptr);
     ScriptedKlineFlashTransport transport{fastecu::flash::ScriptedTransportInitialState::Open};
     script_write_connect_and_upload(transport);
-    script_crc_compare(transport, *device, *plan->image(), std::nullopt);
+    script_crc_compare(transport, *device, plan->image_or_empty(), std::nullopt);
 
     FakeClock clock;
     FakeCancellationToken cancellation;

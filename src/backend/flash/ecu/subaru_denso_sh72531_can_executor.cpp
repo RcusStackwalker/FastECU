@@ -798,7 +798,8 @@ Result<FlashExecutionResult> SubaruDensoSh72531CanExecutor::execute(const FlashP
 
     events.notice("Writing ROM, please wait...");
     info(ctx, "Writing ROM to ECU, Denso SH72531 using CAN");
-    if (const Status written = write_memory(ctx, *plan.image(), plan.transfer_region(), phases); !written.has_value())
+    if (const Status written = write_memory(ctx, plan.image_or_empty(), plan.transfer_region(), phases);
+        !written.has_value())
     {
         return std::unexpected(written.error());
     }

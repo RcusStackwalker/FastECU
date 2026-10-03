@@ -743,7 +743,7 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(const FlashPlan& 
     info(ctx, "Writing ROM to ECU using CAN");
     // validate_and_build guarantees a Write plan carries an image; write_mem
     // re-checks its length, as the legacy write_mem did.
-    if (const Status written = write_mem(ctx, plan, *plan.image(), phases); !written.has_value())
+    if (const Status written = write_mem(ctx, plan, plan.image_or_empty(), phases); !written.has_value())
     {
         return std::unexpected(written.error());
     }

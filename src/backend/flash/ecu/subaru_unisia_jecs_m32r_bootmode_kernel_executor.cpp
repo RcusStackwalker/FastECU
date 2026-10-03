@@ -44,7 +44,7 @@ Status upload(const FlashPlan& plan, IKlineFlashTransport& transport, IClock& cl
     // upload_kernel() :318-335: unframed 128-byte chunks, no reply read per
     // chunk.
     events.log(LogLevel::Info, "Uploading kernel, please wait...");
-    const bytes::Bytes& kernel = *plan.image();
+    const bytes::Bytes& kernel = plan.image_or_empty();
     const auto chunks = static_cast<int>(kernel.size() / kChunk);
     for (int index = 0; index < chunks; ++index)
     {

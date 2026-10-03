@@ -76,6 +76,14 @@ class FlashPlan
     {
         return fields_.kernel;
     }
+    // The image of a Write/TestWrite plan, which validate_and_build requires
+    // to carry one. Empty for a Read plan, so a caller that skips the
+    // operation check reads zero bytes (which every writer rejects by length)
+    // instead of dereferencing an empty optional.
+    const bytes::Bytes& image_or_empty() const;
+    // The kernel of a family that requires one (kFamilyRequiresKernel).
+    // Empty for a plan without one, for the same reason as image_or_empty().
+    const KernelImage& kernel_or_empty() const;
     const FamilyPlan& family_plan() const
     {
         return fields_.family_plan;

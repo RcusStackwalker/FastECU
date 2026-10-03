@@ -71,7 +71,8 @@ bytes::Bytes block_request(const FlashPlan& plan, std::uint32_t block, bool last
     const std::uint32_t address = block * 0x80;
     bytes::Bytes payload{0xaf, static_cast<bytes::Byte>(last ? 0x69 : 0x61), static_cast<bytes::Byte>(address >> 16U),
                          static_cast<bytes::Byte>(address >> 8U), static_cast<bytes::Byte>(address)};
-    payload.insert(payload.end(), plan.image()->begin() + address, plan.image()->begin() + address + 0x80);
+    payload.insert(payload.end(), plan.image_or_empty().begin() + address,
+                   plan.image_or_empty().begin() + address + 0x80);
     return request(payload);
 }
 

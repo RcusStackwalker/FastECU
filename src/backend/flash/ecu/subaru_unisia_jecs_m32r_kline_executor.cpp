@@ -334,7 +334,7 @@ Status enter_flash_mode(Session& s, std::uint32_t rom_size)
 
 Status write_rom(Session& s, const FlashPlan& plan)
 {
-    const bytes::Bytes& image = *plan.image();
+    const bytes::Bytes& image = plan.image_or_empty();
     const std::uint32_t rom_size = plan.transfer_region().length;
     if (Status entered = enter_flash_mode(s, rom_size); !entered.has_value())
     {

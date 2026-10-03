@@ -823,8 +823,9 @@ TEST(ComputeMapCellValues, DegradesPerMapWithoutFailingSiblings)
     ASSERT_EQ(result->size(), 2U);
     EXPECT_FALSE(result->at(0).error.has_value());
     EXPECT_EQ(result->at(0).map_data, "5,6,7,");
-    ASSERT_TRUE(result->at(1).error.has_value());
-    EXPECT_EQ(result->at(1).error->kind, ErrorKind::Internal);
+    const auto& second_error = result->at(1).error;
+    ASSERT_TRUE(second_error.has_value());
+    EXPECT_EQ(second_error->kind, ErrorKind::Internal);
     EXPECT_EQ(result->at(1).map_data, "");
 }
 
@@ -836,8 +837,9 @@ TEST(ComputeMapCellValues, FlagsAMapWithNoAddress)
     const std::vector<std::uint8_t> data{5, 6, 7};
     const auto result = compute_map_cell_values(rom, data, 15);
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->at(0).error.has_value());
-    EXPECT_EQ(result->at(0).error->kind, ErrorKind::InvalidConfig);
+    const auto& error = result->at(0).error;
+    ASSERT_TRUE(error.has_value());
+    EXPECT_EQ(error->kind, ErrorKind::InvalidConfig);
 }
 
 TEST(ComputeMapCellValues, RejectsOverflowingMapCellCount)
@@ -853,8 +855,9 @@ TEST(ComputeMapCellValues, RejectsOverflowingMapCellCount)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 1U);
-    ASSERT_TRUE(result->at(0).error.has_value());
-    EXPECT_EQ(result->at(0).error->kind, ErrorKind::InvalidConfig);
+    const auto& error = result->at(0).error;
+    ASSERT_TRUE(error.has_value());
+    EXPECT_EQ(error->kind, ErrorKind::InvalidConfig);
 }
 
 TEST(ComputeMapCellValues, ReturnsEmptyListForADefinitionWithNoMaps)
@@ -897,8 +900,9 @@ TEST(ComputeOneMapCellValues, ReportsTheErrorTheWholeDefinitionStores)
 
     ASSERT_THAT(one, fastecu::testing::IsErr(ErrorKind::Internal));
     ASSERT_THAT(whole, fastecu::testing::IsOk());
-    ASSERT_TRUE(whole->at(0).error.has_value());
-    EXPECT_EQ(one.error(), *whole->at(0).error);
+    const auto& whole_error = whole->at(0).error;
+    ASSERT_TRUE(whole_error.has_value());
+    EXPECT_EQ(one.error(), *whole_error);
 }
 
 } // namespace

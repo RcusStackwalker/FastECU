@@ -723,7 +723,7 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8104CanExecutor::execute(const F
 
     events.notice("Writing ROM, please wait...");
     info(ctx, "Writing ROM to Subaru Mitsubishi CAN 32bit TCUs, on board kernel");
-    if (const Status written = write_mem(ctx, *plan.image(), phases); !written.has_value())
+    if (const Status written = write_mem(ctx, plan.image_or_empty(), phases); !written.has_value())
     {
         return std::unexpected(written.error());
     }

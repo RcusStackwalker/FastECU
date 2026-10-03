@@ -3561,6 +3561,7 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu
                                              std::chrono::milliseconds(5000)));
     ASSERT_EQ(window.ecuid, QString("123456789A"));
     ASSERT_TRUE(window.loggerModel->parameter_supported("SSM", "rpm"));
+    ASSERT_TRUE(window.activeLoggingSnapshot.has_value());
     ASSERT_EQ(window.activeLoggingSnapshot->target_is_ecu, target_is_ecu);
     ASSERT_TRUE(target_frozen_in_continuation);
     ASSERT_TRUE(window.ecu_radio_button->isEnabled());

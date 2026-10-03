@@ -866,7 +866,8 @@ Result<FlashExecutionResult> SubaruDenso1n83m_4mCanExecutor::execute(const Flash
 
     events.notice("Writing ROM, please wait...");
     info(ctx, "Writing ROM to ECU, Denso 1N83M 4MB using CAN");
-    if (const Status written = write_memory(ctx, *plan.image(), plan.transfer_region(), phases); !written.has_value())
+    if (const Status written = write_memory(ctx, plan.image_or_empty(), plan.transfer_region(), phases);
+        !written.has_value())
     {
         return std::unexpected(written.error());
     }

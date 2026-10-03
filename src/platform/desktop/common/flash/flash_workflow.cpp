@@ -138,12 +138,13 @@ class FlashAttemptOutcome
     {
         return terminal_;
     }
-    bool hasFailure() const
+    // The recorded failure, moved out; empty if the workflow has not failed.
+    std::optional<FlashFailureStep> takeFailure()
     {
-        return failure_.has_value();
-    }
-    FlashFailureStep takeFailure()
-    {
+        if (!failure_.has_value())
+        {
+            return std::nullopt;
+        }
         return FlashFailureStep{std::move(*failure_)};
     }
     FlashCompletedStep completedStep()
@@ -295,9 +296,9 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
             return FlashPromptStep{FlashPromptKind::RemoveProgrammingVoltage,
                                    {{"outcome", attempt_outcome_}, {"external_vpp", needs_vpp_ ? "yes" : "no"}}};
         }
-        if (outcome_.hasFailure())
+        if (auto failure = outcome_.takeFailure(); failure.has_value())
         {
-            return outcome_.takeFailure();
+            return std::move(*failure);
         }
         if (outcome_.terminal())
         {
@@ -407,9 +408,9 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
             return FlashPromptStep{FlashPromptKind::RemoveProgrammingVoltage,
                                    {{"outcome", notice_outcome_}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}};
         }
-        if (outcome_.hasFailure())
+        if (auto failure = outcome_.takeFailure(); failure.has_value())
         {
-            return outcome_.takeFailure();
+            return std::move(*failure);
         }
         if (outcome_.terminal())
         {
@@ -427,9 +428,15 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         case Stage::RemoveMod1:
             return FlashPromptStep{FlashPromptKind::RemoveMod1, {}};
         case Stage::ProgramAttempt:
+        {
+            std::optional<FlashPlan>& program = (*built_)->program;
+            if (!program.has_value())
+            {
+                return FlashFailureStep{Error{ErrorKind::Internal, "the Unisia JECS program plan was not built"}};
+            }
             stage_ = Stage::AwaitProgram;
-            return attempt(std::move(*(*built_)->program),
-                           std::make_unique<SubaruUnisiaJecsM32rBootModeProgramExecutor>());
+            return attempt(std::move(*program), std::make_unique<SubaruUnisiaJecsM32rBootModeProgramExecutor>());
+        }
         case Stage::AwaitFirst:
         case Stage::AwaitProgram:
         case Stage::Notice:
@@ -558,7 +565,16 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
 
     FlashWorkflowStep firstAttempt()
     {
-        FlashPlan plan = std::move(*(*built_)->first);
+        if (!built_.has_value() || !built_->has_value())
+        {
+            return FlashFailureStep{Error{ErrorKind::Internal, "the Unisia JECS plans were not built"}};
+        }
+        std::optional<FlashPlan>& first = (*built_)->first;
+        if (!first.has_value())
+        {
+            return FlashFailureStep{Error{ErrorKind::Internal, "the Unisia JECS first-stage plan was not built"}};
+        }
+        FlashPlan plan = std::move(*first);
         if (!is_write())
         {
             return attempt(std::move(plan), std::make_unique<SubaruUnisiaJecsM32rKlineExecutor>());
@@ -769,9 +785,9 @@ class SingleAttemptFlashWorkflow final : public FlashWorkflow
         {
             return FlashFailureStep{prompts_->error()};
         }
-        if (outcome_.hasFailure())
+        if (auto failure = outcome_.takeFailure(); failure.has_value())
         {
-            return outcome_.takeFailure();
+            return std::move(*failure);
         }
         if (outcome_.terminal())
         {
@@ -909,9 +925,9 @@ class EepromWorkflow final : public FlashWorkflow
         {
             return FlashFailureStep{Error{ErrorKind::Unsupported, "EEPROM workflows support read operations only"}};
         }
-        if (outcome_.hasFailure())
+        if (auto failure = outcome_.takeFailure(); failure.has_value())
         {
-            return outcome_.takeFailure();
+            return std::move(*failure);
         }
         if (outcome_.terminal())
         {

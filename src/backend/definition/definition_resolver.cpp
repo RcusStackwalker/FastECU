@@ -21,14 +21,21 @@ std::string format_name(DefinitionFormat format)
     return format == DefinitionFormat::RomRaider ? "RomRaider" : "EcuFlash";
 }
 
+// The map's id when it is non-empty (the only kind usable as a stable key), else null.
+const std::string *stable_map_id(const UnresolvedCalibrationMap& map)
+{
+    return map.id.has_value() && !map.id->empty() ? &*map.id : nullptr;
+}
+
 bool has_stable_map_id(const UnresolvedCalibrationMap& map)
 {
-    return map.id.has_value() && !map.id->empty();
+    return stable_map_id(map) != nullptr;
 }
 
 std::string map_key(const UnresolvedCalibrationMap& map)
 {
-    return has_stable_map_id(map) ? *map.id : map.name;
+    const std::string *id = stable_map_id(map);
+    return id != nullptr ? *id : map.name;
 }
 
 bool maps_match(const UnresolvedCalibrationMap& left, const UnresolvedCalibrationMap& right)
@@ -213,18 +220,18 @@ class MapIndex
     void add(const UnresolvedCalibrationMap& map, std::size_t index)
     {
         by_name_[map.name].push_back(index);
-        if (has_stable_map_id(map))
+        if (const std::string *id = stable_map_id(map))
         {
-            by_id_[*map.id].push_back(index);
+            by_id_[*id].push_back(index);
         }
     }
 
     std::vector<std::size_t> candidates(const UnresolvedCalibrationMap& map) const
     {
         std::vector<std::size_t> result;
-        if (has_stable_map_id(map))
+        if (const std::string *id = stable_map_id(map))
         {
-            append_bucket(by_id_, *map.id, result);
+            append_bucket(by_id_, *id, result);
         }
         append_bucket(by_name_, map.name, result);
         std::ranges::sort(result);

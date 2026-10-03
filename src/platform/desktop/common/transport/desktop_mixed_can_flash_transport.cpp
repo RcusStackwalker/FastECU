@@ -82,11 +82,16 @@ Status DesktopMixedCanFlashTransport::enter_raw_bootloader_mode()
     {
         return ready;
     }
+    if (!stored_config_.has_value())
+    {
+        return fail(ErrorKind::InvalidConfig, "mixed CAN transport has no stored configuration");
+    }
+    const MixedCanConfig config = *stored_config_;
     if (const Status reset = reset_connection(); !reset.has_value())
     {
         return transition_failure(reset);
     }
-    if (const Status configured = configure_raw(stored_config_->bootloader); !configured.has_value())
+    if (const Status configured = configure_raw(config.bootloader); !configured.has_value())
     {
         return transition_failure(configured);
     }
@@ -132,11 +137,16 @@ Status DesktopMixedCanFlashTransport::enter_iso15765_kernel_mode()
     {
         return ready;
     }
+    if (!stored_config_.has_value())
+    {
+        return fail(ErrorKind::InvalidConfig, "mixed CAN transport has no stored configuration");
+    }
+    const MixedCanConfig config = *stored_config_;
     if (const Status reset = reset_connection(); !reset.has_value())
     {
         return transition_failure(reset);
     }
-    if (const Status configured = configure_iso(*stored_config_); !configured.has_value())
+    if (const Status configured = configure_iso(config); !configured.has_value())
     {
         return transition_failure(configured);
     }
@@ -205,6 +215,10 @@ Result<std::optional<cdbg::CanFrame>> DesktopMixedCanFlashTransport::read_raw(st
         return fail(ErrorKind::BadResponse, "raw CAN response lacks a four-byte arbitration ID");
     }
     const std::uint32_t id = bytes::readU32Be(raw->value());
+    if (!stored_config_.has_value())
+    {
+        return fail(ErrorKind::InvalidConfig, "mixed CAN transport has no stored configuration");
+    }
     if (id != stored_config_->bootloader.receive_id)
     {
         return fail(ErrorKind::BadResponse, std::format("expected raw CAN reply id 0x{:x}, got 0x{:x}",

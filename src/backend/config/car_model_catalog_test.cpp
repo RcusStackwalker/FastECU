@@ -203,9 +203,10 @@ TEST(ResolveCarModels, JoinsEachCarModelWithItsMatchingProtocol)
     EXPECT_EQ(resolved[0].make, "Mitsubishi");
     EXPECT_EQ(resolved[0].model, "Colt");
     EXPECT_EQ(resolved[0].protocol_name, "sub_ecu_denso_can");
-    ASSERT_TRUE(resolved[0].protocol.has_value());
-    EXPECT_EQ(resolved[0].protocol->mcu, "SH7058");
-    EXPECT_EQ(resolved[0].protocol->checksum, "yes");
+    const auto& resolved_protocol = resolved[0].protocol;
+    ASSERT_TRUE(resolved_protocol.has_value());
+    EXPECT_EQ(resolved_protocol->mcu, "SH7058");
+    EXPECT_EQ(resolved_protocol->checksum, "yes");
 }
 
 TEST(ResolveCarModels, UnmatchedProtocolNameYieldsNullopt)
@@ -246,8 +247,9 @@ TEST(ResolveCarModels, DuplicateProtocolNamesResolveToTheFirstMatch)
     std::vector<ResolvedCarModel> resolved = resolve_car_models(protocols, car_models);
 
     ASSERT_EQ(resolved.size(), 1U);
-    ASSERT_TRUE(resolved[0].protocol.has_value());
-    EXPECT_EQ(resolved[0].protocol->mcu, "FIRST");
+    const auto& resolved_protocol = resolved[0].protocol;
+    ASSERT_TRUE(resolved_protocol.has_value());
+    EXPECT_EQ(resolved_protocol->mcu, "FIRST");
 }
 
 // Last-match, deliberately asymmetric with resolve_car_models above: several

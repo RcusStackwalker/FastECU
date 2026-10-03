@@ -383,7 +383,8 @@ SubaruDensoMc68hc16y5_02BdmExecutor::execute(const FlashPlan& plan, IKlineFlashT
         return FlashExecutionResult{
             .operation = FlashOperation::Read, .read_bytes = std::move(*image), .rom_id = std::nullopt};
     }
-    if (auto booted = bootstrap_kernel(*plan.image(), transport, clock, cancellation, events); !booted.has_value())
+    if (auto booted = bootstrap_kernel(plan.image_or_empty(), transport, clock, cancellation, events);
+        !booted.has_value())
     {
         return std::unexpected(booted.error());
     }

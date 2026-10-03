@@ -1290,7 +1290,7 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
         QTreeWidgetItem *selectedDataTreeItem = item;
         const auto session = session_of(selectedFilesTreeItem);
         OpenCalibration *open = session.has_value() ? open_calibration(*session) : nullptr;
-        if (open == nullptr)
+        if (!session.has_value() || open == nullptr)
         {
             return;
         }
@@ -2006,6 +2006,11 @@ void MainWindow::handleLoggingValuesUpdated(const QVector<fastecu::logging::LogS
     }
     for (const auto& sample : samples)
     {
+        // Re-checked per sample: LOG_E below can reach a slot that ends the session.
+        if (!activeLoggingSnapshot)
+        {
+            return;
+        }
         const auto applied = fastecu::desktop::logging::apply_log_sample(*activeLoggingSnapshot, sample, loggerValues);
         if (!applied)
         {

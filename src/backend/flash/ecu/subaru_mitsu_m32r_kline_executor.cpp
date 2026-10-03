@@ -254,7 +254,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
         return fail(ErrorKind::Cancelled, "cancelled after erase");
     }
 
-    const bytes::Bytes encrypted = encrypt(*plan.image());
+    const bytes::Bytes encrypted = encrypt(plan.image_or_empty());
     const MemoryRegion region = plan.transfer_region();
     events.log(LogLevel::Info, "Starting ROM Flashing...");
     for (std::uint32_t offset = 0; offset < region.length; offset += p.chunk_size)
