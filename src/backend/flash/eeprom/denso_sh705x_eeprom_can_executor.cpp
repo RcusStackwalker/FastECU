@@ -371,7 +371,8 @@ Result<FlashExecutionResult> DensoSh705xEepromCanExecutor::execute(const FlashPl
         // "family requires a kernel image"). check_family above confirms
         // the family; it does not itself
         // guarantee a kernel -- validate_and_build is what does.
-        if (Status uploaded = upload_kernel(can_transport, clock, cancellation, events, can_plan, *plan.kernel());
+        if (Status uploaded =
+                upload_kernel(can_transport, clock, cancellation, events, can_plan, plan.kernel_or_empty());
             !uploaded.has_value())
         {
             return std::unexpected(uploaded.error());

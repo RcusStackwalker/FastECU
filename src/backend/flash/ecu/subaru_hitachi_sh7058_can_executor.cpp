@@ -103,11 +103,12 @@ class Session
         {
             return std::unexpected(seed.error());
         }
-        if (!prefix(*seed, {0x67, 0x01}) || (*seed)->size() < 10)
+        const std::optional<Bytes>& reply = *seed;
+        if (!reply.has_value() || !prefix(reply, {0x67, 0x01}) || reply->size() < 10)
         {
             return fail(ErrorKind::BadResponse, "invalid SH7058 seed");
         }
-        Bytes key = SsmProtocol::calculateSeedKey(bytes::ByteView{**seed}.subspan(6, 4), kSeedTable,
+        Bytes key = SsmProtocol::calculateSeedKey(bytes::ByteView{*reply}.subspan(6, 4), kSeedTable,
                                                   SsmProtocol::kIndexTransformationStock);
         Bytes request{0x27, 0x02};
         request.insert(request.end(), key.begin(), key.end());
@@ -332,8 +333,8 @@ Result<FlashExecutionResult> SubaruHitachiSh7058CanExecutor::execute(const Flash
     {
         return std::unexpected(status.error());
     }
-    const Bytes encrypted =
-        SsmProtocol::calculatePayload(*plan.image(), 0x100000, kPayloadTable, SsmProtocol::kIndexTransformationStock);
+    const Bytes encrypted = SsmProtocol::calculatePayload(plan.image_or_empty(), 0x100000, kPayloadTable,
+                                                          SsmProtocol::kIndexTransformationStock);
     if (auto status = session.erase(); !status.has_value())
     {
         return std::unexpected(status.error());

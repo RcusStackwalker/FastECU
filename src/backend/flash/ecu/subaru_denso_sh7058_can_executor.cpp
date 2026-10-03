@@ -1106,7 +1106,7 @@ Status reflash_block(Context& context, bytes::ByteView image, const FlashPlan& p
 Status write_memory(Context& context, const FlashPlan& plan, PhaseSequence& phases, PhaseReporter& compare_progress)
 {
     // write_mem(), revision 59f4e442:1027-1140.
-    const bytes::ByteView image = *plan.image();
+    const bytes::ByteView image = plan.image_or_empty();
     Result<CompareResult> before = compare_blocks(context, plan, image, &compare_progress);
     if (!before.has_value())
     {
@@ -1255,7 +1255,7 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanExecutor::execute(const FlashPl
     if (!kernel_alive)
     {
         events.notice("Preparing, please wait...");
-        if (const Status uploaded = upload_kernel(context, *plan.kernel()); !uploaded.has_value())
+        if (const Status uploaded = upload_kernel(context, plan.kernel_or_empty()); !uploaded.has_value())
         {
             return std::unexpected(uploaded.error());
         }

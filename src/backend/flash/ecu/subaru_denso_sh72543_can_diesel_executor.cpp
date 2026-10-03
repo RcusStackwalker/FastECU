@@ -888,7 +888,8 @@ Result<FlashExecutionResult> SubaruDensoSh72543CanDieselExecutor::execute(const 
 
     events.notice("Writing ROM, please wait...");
     info(ctx, "Writing ROM to ECU, Denso SH72543 Diesel using CAN");
-    if (const Status written = write_memory(ctx, *plan.image(), plan.transfer_region(), phases); !written.has_value())
+    if (const Status written = write_memory(ctx, plan.image_or_empty(), plan.transfer_region(), phases);
+        !written.has_value())
     {
         return std::unexpected(written.error());
     }

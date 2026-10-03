@@ -166,9 +166,11 @@ TEST(WriteSelection, UpdatesAnExistingEcuElement)
 
     const auto reread = read_selection(*written, "ECUID1", "conf.xml");
     ASSERT_THAT(reread, fastecu::testing::IsOkAnd(::testing::Optional(::testing::_)));
-    EXPECT_THAT((*reread)->gauge_ids, ElementsAre("X1", "X2"));
-    EXPECT_THAT((*reread)->lower_panel_ids, ElementsAre("X3"));
-    EXPECT_THAT((*reread)->switch_ids, ElementsAre("X4"));
+    const auto& reread_selection = *reread;
+    ASSERT_TRUE(reread_selection.has_value());
+    EXPECT_THAT(reread_selection->gauge_ids, ElementsAre("X1", "X2"));
+    EXPECT_THAT(reread_selection->lower_panel_ids, ElementsAre("X3"));
+    EXPECT_THAT(reread_selection->switch_ids, ElementsAre("X4"));
     // Exactly one <ecu> -- an update must not append a duplicate.
     EXPECT_EQ(text_of(*written).find("ECUID1"), text_of(*written).rfind("ECUID1"));
 }
@@ -203,7 +205,9 @@ TEST(WriteSelection, CreatesTheLoggerElementWhenConfigHasNone)
 
     const auto reread = read_selection(*written, "ECUID1", "conf.xml");
     ASSERT_THAT(reread, fastecu::testing::IsOkAnd(::testing::Optional(::testing::_)));
-    EXPECT_THAT((*reread)->gauge_ids, ElementsAre("P1"));
+    const auto& reread_selection = *reread;
+    ASSERT_TRUE(reread_selection.has_value());
+    EXPECT_THAT(reread_selection->gauge_ids, ElementsAre("P1"));
 }
 
 TEST(WriteSelection, RejectsAnEmptyDocument)
@@ -228,12 +232,16 @@ TEST(WriteSelection, AppendsANewEcuElementAndKeepsTheExistingOne)
 
     const auto original = read_selection(*written, "ECUID1", "conf.xml");
     ASSERT_THAT(original, fastecu::testing::IsOkAnd(::testing::Optional(::testing::_)));
-    EXPECT_THAT((*original)->gauge_ids, ElementsAre("P1", "P2"));
+    const auto& original_selection = *original;
+    ASSERT_TRUE(original_selection.has_value());
+    EXPECT_THAT(original_selection->gauge_ids, ElementsAre("P1", "P2"));
 
     const auto added = read_selection(*written, "ECUID2", "conf.xml");
     ASSERT_THAT(added, fastecu::testing::IsOkAnd(::testing::Optional(::testing::_)));
-    EXPECT_EQ((*added)->protocol, "CDBG");
-    EXPECT_THAT((*added)->gauge_ids, ElementsAre("Y1"));
+    const auto& added_selection = *added;
+    ASSERT_TRUE(added_selection.has_value());
+    EXPECT_EQ(added_selection->protocol, "CDBG");
+    EXPECT_THAT(added_selection->gauge_ids, ElementsAre("Y1"));
 }
 
 // The shipped resources/shared/config/logger.cfg opens with an XML

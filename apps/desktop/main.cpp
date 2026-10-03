@@ -69,9 +69,9 @@ int main(int argc, char *argv[])
         // Declared before the window so it outlives it: MainWindow holds
         // references into the composition until it is destroyed.
         DesktopComposition composition{addr, password};
-        if (!composition.started())
+        if (const auto& startup_error = composition.startup_error(); startup_error.has_value())
         {
-            present_startup_failure(*composition.startup_error());
+            present_startup_failure(*startup_error);
             return_code = EXIT_FAILURE;
             break;
         }

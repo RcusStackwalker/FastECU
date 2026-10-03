@@ -242,6 +242,29 @@ TEST(FlashValidationTest, ValidReadFieldsProduceAPlan)
     EXPECT_EQ(plan->total_transfer_bytes(), 0x1000U);
 }
 
+TEST(FlashValidationTest, ReadPlanHasNoImageButKeepsItsKernel)
+{
+    auto plan = validate_and_build(valid_read_fields());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    EXPECT_TRUE(plan->image_or_empty().empty());
+    EXPECT_EQ(plan->kernel_or_empty().id, "k");
+    EXPECT_EQ(plan->kernel_or_empty().load_address, 0xffff2000U);
+    EXPECT_EQ(plan->kernel_or_empty().bytes, bytes::Bytes{0x01});
+}
+
+TEST(FlashValidationTest, WritePlanExposesItsImage)
+{
+    auto fields = valid_read_fields();
+    fields.operation = FlashOperation::Write;
+    fields.image = bytes::Bytes(0x1000, 0xA5);
+    auto plan = validate_and_build(std::move(fields));
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    EXPECT_EQ(plan->image_or_empty().size(), 0x1000U);
+    EXPECT_EQ(plan->image(), bytes::Bytes(0x1000, 0xA5));
+}
+
 TEST(FlashValidationTest, EmptyTargetIdIsRejected)
 {
     auto fields = valid_read_fields();
@@ -317,6 +340,7 @@ TEST(FlashValidationTest, ReadWithImagePresentIsRejected)
 TEST(FlashValidationTest, EmptyKernelIdIsRejected)
 {
     auto fields = valid_read_fields();
+    ASSERT_TRUE(fields.kernel.has_value());
     fields.kernel->id.clear();
 
     ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
@@ -325,6 +349,7 @@ TEST(FlashValidationTest, EmptyKernelIdIsRejected)
 TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
 {
     auto fields = valid_read_fields();
+    ASSERT_TRUE(fields.kernel.has_value());
     fields.kernel->bytes.clear();
 
     ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
@@ -533,4 +558,13 @@ TEST(FlashValidation, StillRejectsDuplicateConfirmationIds)
 
     ASSERT_THAT(plan, ::testing::Not(fastecu::testing::IsOk()));
     EXPECT_THAT(plan.error().detail, ::testing::HasSubstr("duplicate confirmation id"));
+}
+
+TEST(FlashValidation, KernellessPlanYieldsAnEmptyKernel)
+{
+    auto plan = fastecu::flash::validate_and_build(kernellessReadFields());
+    ASSERT_THAT(plan, fastecu::testing::IsOk());
+
+    EXPECT_TRUE(plan->kernel_or_empty().id.empty());
+    EXPECT_TRUE(plan->kernel_or_empty().bytes.empty());
 }

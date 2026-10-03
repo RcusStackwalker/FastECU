@@ -48,7 +48,7 @@ TEST(SubaruDensoSh72543CanDieselPlan, WriteImageIsBasedAtAddressZero)
         FlashOperation::Write, "sub_ecu_denso_sh72543_can_diesel", "SH72543d", bytes::Bytes(0x200000, 0x00));
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->image()->size(), 0x200000U);
+    EXPECT_EQ(plan->image_or_empty().size(), 0x200000U);
     EXPECT_THAT(plan->transfer_region(), RegionIs(MemoryRegion{.start = 0x8000, .length = 0x1F7F00}));
 }
 } // namespace

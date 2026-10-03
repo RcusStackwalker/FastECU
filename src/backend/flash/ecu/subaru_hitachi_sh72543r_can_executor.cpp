@@ -500,7 +500,7 @@ Result<FlashExecutionResult> SubaruHitachiSh72543rCanExecutor::execute(const Fla
         {
             return std::unexpected(status.error());
         }
-        const auto encrypted = SsmProtocol::calculatePayload(*plan.image(), 0x200000, kKeys, kTransform);
+        const auto encrypted = SsmProtocol::calculatePayload(plan.image_or_empty(), 0x200000, kKeys, kTransform);
         auto erasing = phases.start("Erasing", 1);
         if (auto status = session.erase(); !status.has_value())
         {

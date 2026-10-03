@@ -628,7 +628,7 @@ Result<FlashExecutionResult> SubaruTcuCvtHitachiM32rCanExecutor::execute(const F
 
     events.notice("Writing ROM, please wait...");
     info(ctx, "Writing ROM to Subaru TCU Hitachi using CAN");
-    if (const Status written = write_mem(ctx, *plan.image(), phases); !written.has_value())
+    if (const Status written = write_mem(ctx, plan.image_or_empty(), phases); !written.has_value())
     {
         return std::unexpected(written.error());
     }

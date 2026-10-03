@@ -60,7 +60,7 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, KernelAlreadyAlignedIsNotPadded)
     const auto plan = build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(
         FlashOperation::Write, "sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", bytes::Bytes(0x100, 0x11));
     ASSERT_THAT(plan, IsOk());
-    EXPECT_EQ(plan->image()->size(), 0x100U);
+    EXPECT_EQ(plan->image_or_empty().size(), 0x100U);
 }
 
 TEST(SubaruUnisiaJecsM32rBootModePlan, EmptyKernelIsRejected)

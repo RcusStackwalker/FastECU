@@ -280,10 +280,12 @@ TEST(ConfigSessionVehicles, SharedProtocolRowsResolveToTheSameEntry)
 {
     ConfigSessionFixture f;
     ASSERT_THAT(f.initialize(), IsOk());
-    ASSERT_TRUE(f.session.vehicles()[0].protocol.has_value());
-    ASSERT_TRUE(f.session.vehicles()[2].protocol.has_value());
-    EXPECT_EQ(f.session.vehicles()[0].protocol->description, "Protocol A");
-    EXPECT_EQ(f.session.vehicles()[2].protocol->description, "Protocol A");
+    const auto& first_protocol = f.session.vehicles()[0].protocol;
+    const auto& third_protocol = f.session.vehicles()[2].protocol;
+    ASSERT_TRUE(first_protocol.has_value());
+    ASSERT_TRUE(third_protocol.has_value());
+    EXPECT_EQ(first_protocol->description, "Protocol A");
+    EXPECT_EQ(third_protocol->description, "Protocol A");
 }
 
 TEST(ConfigSessionVehicles, UnresolvedReferenceStaysNullopt)

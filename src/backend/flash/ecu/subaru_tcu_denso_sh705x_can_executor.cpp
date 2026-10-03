@@ -960,7 +960,7 @@ Status reflash_block(Context& context, bytes::ByteView image, const FlashPlan& p
 Status write_memory(Context& context, const FlashPlan& plan, PhaseSequence& phases, PhaseReporter& compare_progress)
 {
     // write_mem(), revision 59f4e442 lines 784-900.
-    const bytes::ByteView image = *plan.image();
+    const bytes::ByteView image = plan.image_or_empty();
     Result<CompareResult> before = compare_blocks(context, plan, image, &compare_progress);
     if (!before.has_value())
     {

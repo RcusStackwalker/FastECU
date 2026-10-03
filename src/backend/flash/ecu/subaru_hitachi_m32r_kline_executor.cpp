@@ -384,7 +384,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
     {
         return fail(ErrorKind::Cancelled, "cancelled after erase");
     }
-    const bytes::Bytes encrypted = encrypt(*plan.image());
+    const bytes::Bytes encrypted = encrypt(plan.image_or_empty());
     for (std::uint32_t address = 0; address < 0x80000; address += p.chunk_size)
     {
         if (cancellation.cancelled())

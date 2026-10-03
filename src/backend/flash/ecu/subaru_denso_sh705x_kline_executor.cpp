@@ -547,7 +547,7 @@ Result<std::optional<std::string>> start_session(IKlineFlashTransport& transport
     }
     events.notice("Preparing, please wait...");                                                       // :84
     events.log(LogLevel::Info, "Initializing Subaru 04 32-bit K-Line kernel upload, please wait..."); // :85
-    if (Status uploaded = upload_kernel(transport, clock, cancellation, events, family, *plan.kernel());
+    if (Status uploaded = upload_kernel(transport, clock, cancellation, events, family, plan.kernel_or_empty());
         !uploaded.has_value())
     {
         return std::unexpected(uploaded.error());

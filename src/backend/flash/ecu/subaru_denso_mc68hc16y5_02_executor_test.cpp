@@ -493,7 +493,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectsViaWrx02InitAndUploadsPaddedKerne
     transport.exchange(framed(0x01), framed(0x41, bytes::Bytes{'K', 'I', 'D'}));
     const flashdev_t *device = find_flash_device("MC68HC16Y5");
     ASSERT_NE(device, nullptr);
-    script_crc_compare(transport, *device, *plan->image(), std::nullopt);
+    script_crc_compare(transport, *device, plan->image_or_empty(), std::nullopt);
 
     FakeClock clock;
     FakeCancellationToken cancellation;
@@ -543,7 +543,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, ConnectFallsBackToKernelAlivePoll)
     transport.exchange(framed(0x01), framed(0x41, bytes::Bytes{'K'}));
     const flashdev_t *device = find_flash_device("MC68HC16Y5");
     ASSERT_NE(device, nullptr);
-    script_crc_compare(transport, *device, *plan->image(), std::nullopt);
+    script_crc_compare(transport, *device, plan->image_or_empty(), std::nullopt);
 
     FakeClock clock;
     FakeCancellationToken cancellation;
@@ -576,7 +576,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, NoFrameBootInitFallsBackToKernelAlivePoll
     transport.exchange(framed(0x01), framed(0x41, bytes::Bytes{'K'}));
     const flashdev_t *device = find_flash_device("MC68HC16Y5");
     ASSERT_NE(device, nullptr);
-    script_crc_compare(transport, *device, *plan->image(), std::nullopt);
+    script_crc_compare(transport, *device, plan->image_or_empty(), std::nullopt);
 
     FakeClock clock;
     FakeCancellationToken cancellation;
@@ -602,7 +602,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, EcutekUsesItsDistinctBootloaderAndKernelW
     transport.exchange(framed(0x01), framed(0x41, bytes::Bytes{'K'}));
     const flashdev_t *device = find_flash_device("MC68HC16Y5");
     ASSERT_NE(device, nullptr);
-    script_crc_compare(transport, *device, *plan->image(), std::nullopt);
+    script_crc_compare(transport, *device, plan->image_or_empty(), std::nullopt);
 
     FakeClock clock;
     FakeCancellationToken cancellation;

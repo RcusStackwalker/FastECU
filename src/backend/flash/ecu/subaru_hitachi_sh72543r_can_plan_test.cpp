@@ -43,7 +43,7 @@ TEST(Sh72543rPlan, BothAliasesHaveDistinctReadAndWriteWindows)
         ASSERT_EQ(write->erase_regions().size(), 1U);
         EXPECT_EQ(write->erase_regions()[0].start, 0x6000U);
         EXPECT_EQ(write->erase_regions()[0].length, 0x1fa000U);
-        EXPECT_EQ(write->image()->size(), 0x200000U);
+        EXPECT_EQ(write->image_or_empty().size(), 0x200000U);
     }
 }
 TEST(Sh72543rPlan, RejectsUnsupportedOperationsWithoutImage)
@@ -116,9 +116,11 @@ TEST(Sh72543rPlan, ForgedPlansCannotChangeWireOrGeometry)
             f.erase_regions[0].length--;
             break;
         case 11:
+            ASSERT_TRUE(f.image.has_value());
             f.image->pop_back();
             break;
         case 12:
+            ASSERT_TRUE(f.image.has_value());
             f.image->push_back(0);
             break;
         case 13:

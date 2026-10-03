@@ -568,7 +568,7 @@ TEST(FlashWorkflowTest, routesSh72543rAliasesAndPreservesImageAndIdentity)
             ASSERT_EQ(plan.transfer_region().start, operation == FlashOperation::Read ? 0U : 0x6000U);
             if (operation == FlashOperation::Write)
             {
-                ASSERT_EQ(*plan.image(), bytes::Bytes(0x200000, 0xa5));
+                ASSERT_EQ(plan.image(), bytes::Bytes(0x200000, 0xa5));
             }
             workflow->submit(FlashAttemptResult{
                 .success = true,

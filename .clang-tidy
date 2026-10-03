@@ -18,7 +18,6 @@ Checks: >
   -bugprone-macro-parentheses,
   -bugprone-narrowing-conversions,
   -bugprone-throwing-static-initialization,
-  -bugprone-unchecked-optional-access,
   clang-analyzer-*,
   -clang-analyzer-core.CallAndMessage,
   -clang-analyzer-core.NonNullParamChecker,

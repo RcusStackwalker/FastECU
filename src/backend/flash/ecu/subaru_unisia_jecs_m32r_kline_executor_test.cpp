@@ -370,6 +370,7 @@ TEST_P(SubaruUnisiaJecsM32rKlineReadSizes, ReadsEveryPageOfTheVariant)
     auto result = run(read_plan(protocol, mcu), transport, context);
 
     ASSERT_THAT(result, IsOk());
+    ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), rom_size);
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -388,6 +389,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsABootmodeProtocolWithTheSameWireSeq
     RunContext context;
     const auto result = run(read_plan("sub_ecu_unisia_jecs_30_bootmode", "M32R_256KB"), transport, context);
     ASSERT_THAT(result, IsOk());
+    ASSERT_TRUE(result->read_bytes.has_value());
     EXPECT_EQ(result->read_bytes->size(), 0x40000U);
     EXPECT_EQ(result->rom_id, std::optional<std::string>("123456789A_"));
     EXPECT_TRUE(transport.scriptConsumed());

@@ -18,12 +18,13 @@ TEST(FileSystem, CreateThenExists)
 TEST(InMemoryFileSystem, ConfiguredCreateDirectoryFailureIsReturned)
 {
     InMemoryFileSystem fs;
-    fs.create_directory_error = Error{ErrorKind::Internal, "mkdir failed"};
+    const Error injected{ErrorKind::Internal, "mkdir failed"};
+    fs.create_directory_error = injected;
 
     auto result = fs.create_directory("/config/");
 
     ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_EQ(result.error(), *fs.create_directory_error);
+    EXPECT_EQ(result.error(), injected);
     EXPECT_FALSE(fs.exists("/config/"));
 }
 

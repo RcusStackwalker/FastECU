@@ -311,7 +311,8 @@ DensoSh705xEepromKlineExecutor::execute(const FlashPlan& plan, IKlineFlashTransp
         // "family requires a kernel image"). check_family above confirms the
         // family tag; it does not itself guarantee a kernel --
         // validate_and_build is what does.
-        if (Status uploaded = upload_kernel(kline_transport, clock, cancellation, events, kline_plan, *plan.kernel());
+        if (Status uploaded =
+                upload_kernel(kline_transport, clock, cancellation, events, kline_plan, plan.kernel_or_empty());
             !uploaded.has_value())
         {
             return std::unexpected(uploaded.error());

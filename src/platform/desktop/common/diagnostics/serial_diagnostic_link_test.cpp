@@ -187,7 +187,9 @@ TEST(TestSerialDiagnosticLink, writeIsEchoCheckedAndReadsSelectTheFacadeCall)
     ASSERT_TRUE(link.write(bytes::Bytes{0x01, 0x00}).has_value());
     const auto frame = link.read(200ms, token);
     ASSERT_TRUE(frame.has_value() && frame->has_value());
-    ASSERT_EQ((*frame)->size(), std::size_t{2});
+    const auto& payload = *frame;
+    ASSERT_TRUE(payload.has_value());
+    ASSERT_EQ(payload->size(), std::size_t{2});
     const auto none = link.read_obd(200ms, token);
     ASSERT_TRUE(none.has_value() && !none->has_value());
 }

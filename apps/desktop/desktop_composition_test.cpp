@@ -279,7 +279,9 @@ TEST_F(DesktopCompositionTest, malformedSettingsRejectStartup)
     DesktopComposition composition{{}, {}, root.path()};
 
     ASSERT_TRUE(!composition.started());
-    const QString text = startup_failure_text(*composition.startup_error());
+    const auto& startup_error = composition.startup_error();
+    ASSERT_TRUE(startup_error.has_value());
+    const QString text = startup_failure_text(*startup_error);
     ASSERT_TRUE(text.contains(config_dir + "fastecu.cfg"));
     ASSERT_TRUE(!serial_of(composition));
 }

@@ -1301,6 +1301,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, KernelStartRejectsWrongSidShortTimeoutCanc
         }
         else
         {
+            ASSERT_TRUE(start.frame.has_value());
             transport.queueRead(*start.frame);
         }
         FakeCancellationToken cancellation;

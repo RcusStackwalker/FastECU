@@ -254,7 +254,9 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, AssemblesAPageDeliveredAcrossPolls)
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(read_plan(), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, IsOk());
-    EXPECT_TRUE(std::equal(result->read_bytes->begin(), result->read_bytes->begin() + 0x400, page_bytes(0).begin()));
+    const auto& read_bytes = result->read_bytes;
+    ASSERT_TRUE(read_bytes.has_value());
+    EXPECT_TRUE(std::equal(read_bytes->begin(), read_bytes->begin() + 0x400, page_bytes(0).begin()));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -350,7 +352,7 @@ enum class Gate
 // number of writes the executor must have made.
 std::size_t script_bootstrap(ScriptedKlineFlashTransport& transport, Gate broken = Gate::None)
 {
-    const bytes::Bytes padded = *write_plan().image();
+    const bytes::Bytes padded = write_plan().image_or_empty();
     nothing(transport); // write_mem() :226
     transport.expectRawWrite(ascii("wdmem 0x00020000 0x00000040"));
     if (broken == Gate::UploadCommand)
@@ -430,7 +432,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, AssemblesAnAcknowledgementSplitAcrossR
     transport.expectRawWrite(ascii("wdmem 0x00020000 0x00000040"));
     transport.queueRawRead(ascii("ACK_"));
     transport.queueRawRead(ascii("CMD_WDMEM"));
-    const bytes::Bytes padded = *write_plan().image();
+    const bytes::Bytes padded = write_plan().image_or_empty();
     transport.expectRawWrite(bytes::ByteView(padded).first(0x20));
     transport.queueRawRead(ascii("NAK"));
     nothing(transport);
@@ -487,7 +489,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, CancellationBetweenChunksStopsBeforeTh
     nothing(transport);
     transport.expectRawWrite(ascii("wdmem 0x00020000 0x00000040"));
     transport.queueRawRead(ascii("ACK_CMD_WDMEM"));
-    transport.expectRawWrite(bytes::ByteView(*write_plan().image()).first(0x20));
+    transport.expectRawWrite(bytes::ByteView(write_plan().image_or_empty()).first(0x20));
     transport.queueRawRead(ascii("ACK_WR"));
     FakeClock clock;
     FakeCancellationToken cancellation;
@@ -618,7 +620,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorOnWpcspReplyPropagates)
     // wpcsp reply read: write_mem() :296-305's ungated replies still
     // propagate a genuine transport error unchanged.
     FaultingTransport transport{FaultingTransport::Fault::RawReadError, /*fail_after_reads=*/9};
-    const bytes::Bytes padded = *write_plan().image();
+    const bytes::Bytes padded = write_plan().image_or_empty();
     nothing(transport); // write_mem() :226
     transport.expectRawWrite(ascii("wdmem 0x00020000 0x00000040"));
     transport.queueRawRead(ascii("ACK_CMD_WDMEM"));

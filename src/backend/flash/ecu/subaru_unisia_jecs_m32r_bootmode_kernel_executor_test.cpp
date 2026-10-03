@@ -45,7 +45,7 @@ FlashPlan kernel_plan()
 
 bytes::Bytes chunk(const FlashPlan& plan, std::size_t index)
 {
-    const auto begin = plan.image()->begin() + static_cast<std::ptrdiff_t>(index * 0x80);
+    const auto begin = plan.image_or_empty().begin() + static_cast<std::ptrdiff_t>(index * 0x80);
     return bytes::Bytes(begin, begin + 0x80);
 }
 

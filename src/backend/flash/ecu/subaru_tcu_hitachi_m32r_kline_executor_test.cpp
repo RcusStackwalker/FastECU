@@ -318,8 +318,10 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockUpToFiveTimes)
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_EQ(result->read_bytes->size(), kRomSize);
-    expectRomBlock(*result->read_bytes, 0, kBlockSize);
+    const auto& read_bytes = result->read_bytes;
+    ASSERT_TRUE(read_bytes.has_value());
+    EXPECT_EQ(read_bytes->size(), kRomSize);
+    expectRomBlock(*read_bytes, 0, kBlockSize);
 }
 
 // A read that returns no frame at all is what DesktopKlineFlashTransport
@@ -360,9 +362,11 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockWhenAReadProducesNoFrame)
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_EQ(result->read_bytes->size(), kRomSize);
-    expectRomBlock(*result->read_bytes, 0, kBlockSize);
-    expectRomBlock(*result->read_bytes, kRomSize - 32U, 32U);
+    const auto& read_bytes = result->read_bytes;
+    ASSERT_TRUE(read_bytes.has_value());
+    EXPECT_EQ(read_bytes->size(), kRomSize);
+    expectRomBlock(*read_bytes, 0, kBlockSize);
+    expectRomBlock(*read_bytes, kRomSize - 32U, 32U);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 

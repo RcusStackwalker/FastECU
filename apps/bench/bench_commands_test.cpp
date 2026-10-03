@@ -93,7 +93,7 @@ TEST(BenchCommands, ReadRejectsAShortReplyRatherThanPaddingIt)
     const auto outcome = harness.run(step(CommandId::Read, {"0x200", "4"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::BadResponse);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::BadResponse);
 }
 
 TEST(BenchCommands, ReadRejectsAddressesAndRangesOutsideTheTwentyFourBitWireField)
@@ -106,7 +106,7 @@ TEST(BenchCommands, ReadRejectsAddressesAndRangesOutsideTheTwentyFourBitWireFiel
         const auto outcome = harness.run(step(CommandId::Read, args));
 
         ASSERT_FALSE(outcome.ok);
-        EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+        EXPECT_EQ(outcome.error_kind, ErrorKind::InvalidConfig);
         EXPECT_TRUE(harness.session.requests.empty());
     }
 }
@@ -118,7 +118,7 @@ TEST(BenchCommands, DumpRejectsAnOverflowedRangeBeforeWritingOrIo)
     const auto outcome = harness.run(step(CommandId::Dump, {"0xfffff0", "32", "out.bin"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::InvalidConfig);
     EXPECT_TRUE(harness.session.requests.empty());
     EXPECT_TRUE(harness.files.saved.empty());
 }
@@ -165,7 +165,7 @@ TEST(BenchCommands, CrcCheckReportsANonZeroStatusAsFailure)
     const auto outcome = harness.run(step(CommandId::CrcCheck, {"0x8000"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::BadResponse);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::BadResponse);
 }
 
 TEST(BenchCommands, CrcCheckRejectsAWrongRoutineEcho)
@@ -176,7 +176,7 @@ TEST(BenchCommands, CrcCheckRejectsAWrongRoutineEcho)
     const auto outcome = harness.run(step(CommandId::CrcCheck, {"0x8000"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::BadResponse);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::BadResponse);
 }
 
 TEST(BenchCommands, CrcCheckRejectsAnAddressOutsideTheTwentyFourBitSpaceBeforeIo)
@@ -186,7 +186,7 @@ TEST(BenchCommands, CrcCheckRejectsAnAddressOutsideTheTwentyFourBitSpaceBeforeIo
     const auto outcome = harness.run(step(CommandId::CrcCheck, {"0x1000000"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::InvalidConfig);
     EXPECT_TRUE(harness.session.requests.empty());
 }
 
@@ -290,7 +290,7 @@ TEST(BenchCommands, EraseTreatsANonZeroStatusAsAFailureCarryingTheAmbiguityNote)
     const auto outcome = harness.run(destructiveStep(CommandId::Erase));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::BadResponse);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::BadResponse);
     EXPECT_NE(outcome.error_detail.find("0x5a28"), std::string::npos);
 }
 
@@ -302,7 +302,7 @@ TEST(BenchCommands, EraseRejectsAReplyWithNoStatusByte)
     const auto outcome = harness.run(destructiveStep(CommandId::Erase));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::BadResponse);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::BadResponse);
 }
 
 TEST(BenchCommands, EraseRejectsAWrongRoutineEcho)
@@ -313,7 +313,7 @@ TEST(BenchCommands, EraseRejectsAWrongRoutineEcho)
     const auto outcome = harness.run(destructiveStep(CommandId::Erase));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::BadResponse);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::BadResponse);
 }
 
 TEST(BenchCommands, DownloadSendsRequestDownloadThenTransferDataThenTheChecksum)
@@ -369,7 +369,7 @@ TEST(BenchCommands, DownloadFailsWhenTheCrcCheckReportsAMismatch)
     const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0x8000", "blob.bin"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::BadResponse);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::BadResponse);
 }
 
 TEST(BenchCommands, DownloadFailsWhenTheCrcCheckEchoesTheWrongRoutine)
@@ -382,7 +382,7 @@ TEST(BenchCommands, DownloadFailsWhenTheCrcCheckEchoesTheWrongRoutine)
     const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0x8000", "blob.bin"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::BadResponse);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::BadResponse);
     EXPECT_THAT(outcome.last_rx, test_bytes::BytesEq((bytes::Bytes{0x71, 0xE0, 0x00})));
 }
 
@@ -393,7 +393,7 @@ TEST(BenchCommands, DownloadFailsWhenTheFileIsMissing)
     const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0x8000", "absent.bin"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::InvalidConfig);
 }
 
 TEST(BenchCommands, DownloadRejectsEmptyAndOutOfRangePayloadsBeforeIo)
@@ -404,15 +404,15 @@ TEST(BenchCommands, DownloadRejectsEmptyAndOutOfRangePayloadsBeforeIo)
 
     const auto empty = harness.run(destructiveStep(CommandId::Download, {"0x8000", "empty.bin"}));
     ASSERT_FALSE(empty.ok);
-    EXPECT_EQ(empty.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(empty.error_kind, ErrorKind::InvalidConfig);
 
     const auto address = harness.run(destructiveStep(CommandId::Download, {"0x1000000", "two.bin"}));
     ASSERT_FALSE(address.ok);
-    EXPECT_EQ(address.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(address.error_kind, ErrorKind::InvalidConfig);
 
     const auto range = harness.run(destructiveStep(CommandId::Download, {"0xffffff", "two.bin"}));
     ASSERT_FALSE(range.ok);
-    EXPECT_EQ(range.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(range.error_kind, ErrorKind::InvalidConfig);
     EXPECT_TRUE(harness.session.requests.empty());
 }
 
@@ -424,7 +424,7 @@ TEST(BenchCommands, DownloadRejectsAPayloadLargerThanTheTwentyFourBitLengthField
     const auto outcome = harness.run(destructiveStep(CommandId::Download, {"0", "too-large.bin"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::InvalidConfig);
     EXPECT_TRUE(harness.session.requests.empty());
 }
 
@@ -514,7 +514,7 @@ TEST(BenchCommands, UploadRoutineFromFilePropagatesAMissingFileError)
         harness.run(destructiveStep(CommandId::UploadRoutine, {"erase-redirect", "--from", "absent.bin"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::InvalidConfig);
     EXPECT_TRUE(harness.session.requests.empty());
 }
 
@@ -526,7 +526,7 @@ TEST(BenchCommands, UploadRoutineRejectsAnEmptyFromFileBeforeIo)
     const auto outcome = harness.run(destructiveStep(CommandId::UploadRoutine, {"erase-page", "--from", "empty.bin"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::InvalidConfig);
     EXPECT_TRUE(harness.session.requests.empty());
 }
 
@@ -539,7 +539,7 @@ TEST(BenchCommands, UploadRoutineRejectsATypoedFromFlag)
         harness.run(destructiveStep(CommandId::UploadRoutine, {"erase-redirect", "--form", "custom.bin"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::InvalidConfig);
     EXPECT_TRUE(harness.session.requests.empty());
 }
 
@@ -551,7 +551,7 @@ TEST(BenchCommands, UploadRoutineRejectsAFromValueWithoutTheFlag)
     const auto outcome = harness.run(destructiveStep(CommandId::UploadRoutine, {"erase-redirect", "custom.bin"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::InvalidConfig);
     EXPECT_TRUE(harness.session.requests.empty());
 }
 
@@ -562,7 +562,7 @@ TEST(BenchCommands, UploadRoutineRejectsAnUnknownRoutineName)
     const auto outcome = harness.run(destructiveStep(CommandId::UploadRoutine, {"not-a-routine"}));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::InvalidConfig);
 }
 
 TEST(BenchCommands, RunStepRefusesADestructiveStepThatLostItsAcknowledgement)
@@ -575,7 +575,7 @@ TEST(BenchCommands, RunStepRefusesADestructiveStepThatLostItsAcknowledgement)
     const auto outcome = harness.run(step(CommandId::Erase));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::InvalidConfig);
     EXPECT_TRUE(harness.session.requests.empty());
 }
 
@@ -586,7 +586,7 @@ TEST(BenchCommands, RunStepRejectsAMalformedProgrammaticStepBeforeIndexingArgume
     const auto outcome = harness.run(step(CommandId::Read));
 
     ASSERT_FALSE(outcome.ok);
-    EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+    EXPECT_EQ(outcome.error_kind, ErrorKind::InvalidConfig);
     EXPECT_TRUE(harness.session.requests.empty());
 }
 
@@ -614,7 +614,7 @@ TEST(BenchCommands, AcknowledgementDoesNotLetSendCommandsBypassNamedDestructiveP
         const auto outcome = harness.run(destructiveStep(id, {"31", "e0"}));
 
         ASSERT_FALSE(outcome.ok);
-        EXPECT_EQ(outcome.error_kind.value(), ErrorKind::InvalidConfig);
+        EXPECT_EQ(outcome.error_kind, ErrorKind::InvalidConfig);
         EXPECT_TRUE(harness.session.requests.empty());
     }
 }
