@@ -70,10 +70,10 @@ TEST_F(QtIdentifyLauncherTest, ForwardsTheOutcomeTaggedWithTheStartGeneration)
     launcher.start(SsmIdentifyRequest{}, 7);
     ASSERT_TRUE(wait_for_completions(1));
 
-    EXPECT_EQ(completions.at(0).generation, 7u);
+    EXPECT_EQ(completions.at(0).generation, 7U);
     EXPECT_TRUE(completions.at(0).outcome.success);
     EXPECT_EQ(completions.at(0).outcome.ecu_id, "3152584006");
-    EXPECT_EQ(completions.at(0).outcome.init_response.size(), 14u);
+    EXPECT_EQ(completions.at(0).outcome.init_response.size(), 14U);
 }
 
 TEST_F(QtIdentifyLauncherTest, ReportsAFailureWithItsDetail)
@@ -97,8 +97,8 @@ TEST_F(QtIdentifyLauncherTest, AJoinedWorkersCompletionKeepsItsOwnGeneration)
     launcher.start(SsmIdentifyRequest{}, 8);
     ASSERT_TRUE(wait_for_completions(2));
 
-    EXPECT_EQ(completions.at(0).generation, 7u);
-    EXPECT_EQ(completions.at(1).generation, 8u);
+    EXPECT_EQ(completions.at(0).generation, 7U);
+    EXPECT_EQ(completions.at(1).generation, 8U);
 }
 
 TEST_F(QtIdentifyLauncherTest, StopAndJoinWithoutARunIsANoOp)
