@@ -74,9 +74,15 @@ The runner measures itself.
 **Accepted trade-off.** Portable code is no longer tidied under the Windows and
 macOS toolchains (the QByteArray ambiguity fixed in #474 was found that way).
 The per-OS build with warnings as errors remains the safety net. macOS loses
-tidy entirely; two files with `__APPLE__` guards
-(`qt_calibration_interaction_test.cpp`, `mock_openport.h`) are no longer
-analyzed under macOS defines.
+tidy entirely, including the one macOS-only source selected by `select()`
+(`apps/desktop/startup_test_platform_macos.cpp`) and the `__APPLE__` branches
+of `qt_calibration_interaction_test.cpp` and `mock_openport.h`. Likewise the
+`_WIN32` / `Q_OS_WIN` branches of otherwise portable files (hexedit, main
+window, file-system tests) are analyzed only under Linux defines. The guard
+counts `select()` on `@platforms//os:` as platform gating, and the runner fails
+(rather than skipping) when a scope prefix is missing or matches no translation
+unit. The guard runs in every mode, including `fix`, so a new platform-gated
+package is a decision made when it is added.
 
 ## Part 3: Tidy as a parallel job
 
