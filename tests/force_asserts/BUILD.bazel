@@ -13,13 +13,7 @@ fastecu_gtest(
     copts = [
         "-DQT_FORCE_ASSERTS",
         "-DQT_NO_DEBUG",
-    ] + select({
-        "@platforms//os:macos": [
-            "-mmacosx-version-min=10.15",
-            "-Wno-implicit-function-declaration",
-        ],
-        "//conditions:default": [],
-    }),
+    ],
     # The SonarCloud build-wrapper injects an interceptor library (DYLD_INSERT_LIBRARIES
     # on macOS) into every process it wraps so it can record compiler invocations. This
     # test's fork() duplicates only the calling thread, and if the interceptor's own
