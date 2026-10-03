@@ -206,7 +206,7 @@ TEST(TestAdapterConnection, forwardsFacadeStateChanges)
     AdapterConnection connection(*serial);
     fastecu::testing::SignalRecorder spy(&connection, &AdapterConnection::stateChanged);
     emit serial->stateChanged(QRemoteObjectReplica::Valid, QRemoteObjectReplica::Default);
-    ASSERT_EQ(spy.count(), 1);
+    ASSERT_EQ(spy.count(), 1u);
 }
 
 TEST(TestAdapterConnection, exposesTheSameFacade)

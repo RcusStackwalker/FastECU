@@ -185,7 +185,7 @@ TEST_P(layoutsAndRefreshParameters, layoutsAndRefresh)
     ASSERT_TRUE(fixture.workspace.find(*id)->write_bytes(32, edit).has_value());
     map.refresh();
     ASSERT_EQ(table->item(bodyRow, bodyCol)->text(), "55.0");
-    ASSERT_EQ(changed.count(), 0);
+    ASSERT_EQ(changed.count(), 0u);
     ASSERT_EQ(table->rowCount(), rows);
     ASSERT_EQ(table->columnCount(), cols);
 }
@@ -268,8 +268,8 @@ TEST(CalibrationMapsTest, selectableReflectsBlobBytesWithoutEmittingEditSignal)
     ASSERT_TRUE(fixture.workspace.find(*id)->write_bytes(96, off).has_value());
     map.refresh();
     ASSERT_EQ(combo->currentText(), "Off");
-    ASSERT_EQ(edits.count(), 0);
-    ASSERT_EQ(changes.count(), 0);
+    ASSERT_EQ(edits.count(), 0u);
+    ASSERT_EQ(changes.count(), 0u);
     ASSERT_EQ(table->cellWidget(0, 0), combo);
 }
 
@@ -297,7 +297,7 @@ TEST(CalibrationMapsTest, retainedMultiSelectableGeometryKeepsLegacyNumericCell)
     fastecu::testing::SignalRecorder changed(table, &QTableWidget::cellChanged);
     map.refresh();
     ASSERT_EQ(table->item(0, 0)->text(), "55.0");
-    ASSERT_EQ(changed.count(), 0);
+    ASSERT_EQ(changed.count(), 0u);
 }
 
 TEST(CalibrationMapsTest, retainedSwitchRefreshKeepsUncheckedControlWithoutEmittingEdits)
@@ -318,7 +318,7 @@ TEST(CalibrationMapsTest, retainedSwitchRefreshKeepsUncheckedControlWithoutEmitt
     ASSERT_TRUE(!checkbox->isChecked());
     fastecu::testing::SignalRecorder edits(&map, &CalibrationMaps::checkbox_state_changed);
     checkbox->setChecked(true);
-    ASSERT_EQ(edits.count(), 1);
+    ASSERT_EQ(edits.count(), 1u);
     const auto edits_before_refresh = edits.count();
     map.refresh();
     ASSERT_EQ(table->cellWidget(0, 0), checkbox);
@@ -405,7 +405,7 @@ TEST(CalibrationMapsTest, closedSessionRefreshIsInertAfterAnotherSessionOpens)
     ASSERT_TRUE(fixture.workspace.find(replacement->id)->write_bytes(32, edit).has_value());
     map.refresh();
     ASSERT_EQ(table->item(0, 0)->text(), "10.0");
-    ASSERT_EQ(changed.count(), 0);
+    ASSERT_EQ(changed.count(), 0u);
 }
 
 namespace

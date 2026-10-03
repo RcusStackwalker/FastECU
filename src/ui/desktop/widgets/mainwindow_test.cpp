@@ -1090,7 +1090,7 @@ void MainWindowTest::check_windowLogLinesReachTheLogChannel()
 
     emit window.LOG_I("probe line", true, false);
 
-    ASSERT_EQ(lines.count(), 1);
+    ASSERT_EQ(lines.count(), 1u);
     ASSERT_EQ(std::get<0>(lines.snapshot().at(0)), QString("probe line"));
     ASSERT_EQ(std::get<1>(lines.snapshot().at(0)), true);
     ASSERT_EQ(std::get<2>(lines.snapshot().at(0)), false);
@@ -1129,7 +1129,7 @@ void MainWindowTest::check_directSessionStartupNeverRequestsTheRemoteWait()
     MainWindow window{services.services()};
     constructor_driver.stop();
 
-    ASSERT_EQ(waits.count(), 0);
+    ASSERT_EQ(waits.count(), 0u);
 }
 
 TEST_F(MainWindowTest, directSessionStartupNeverRequestsTheRemoteWait)
@@ -1155,9 +1155,9 @@ void MainWindowTest::check_externalLoggerMirrorsToTheRemotePeer()
     ASSERT_TRUE(QMetaObject::invokeMethod(&window, "external_logger_set_progressbar_value", Qt::DirectConnection,
                                           Q_ARG(int, 42)));
 
-    ASSERT_EQ(lines.count(), 1);
+    ASSERT_EQ(lines.count(), 1u);
     ASSERT_EQ(std::get<0>(lines.snapshot().at(0)), QString("mirrored line"));
-    ASSERT_EQ(progress.count(), 1);
+    ASSERT_EQ(progress.count(), 1u);
     ASSERT_EQ(std::get<0>(progress.snapshot().at(0)), 42);
 }
 
@@ -3005,13 +3005,13 @@ void MainWindowTest::check_repeatedSaveFailuresLogOnceUntilASuccess()
     window.save_settings();
     window.save_settings();
     window.save_settings();
-    ASSERT_EQ(errors.count(), 1);
+    ASSERT_EQ(errors.count(), 1u);
     ASSERT_TRUE(std::get<0>(errors.snapshot().front()).contains(config_file));
     ASSERT_EQ(services.config.settings().toolbar_iconsize, std::string("48"));
 
     ASSERT_TRUE(QDir().rmdir(config_file));
     window.save_settings();
-    ASSERT_EQ(errors.count(), 1);
+    ASSERT_EQ(errors.count(), 1u);
     QFile saved{config_file};
     ASSERT_TRUE(saved.open(QIODevice::ReadOnly));
     ASSERT_TRUE(saved.readAll().contains(R"(data="48")"));
@@ -3019,7 +3019,7 @@ void MainWindowTest::check_repeatedSaveFailuresLogOnceUntilASuccess()
     ASSERT_TRUE(QFile::remove(config_file));
     ASSERT_TRUE(QDir().mkpath(config_file));
     window.save_settings();
-    ASSERT_EQ(errors.count(), 2);
+    ASSERT_EQ(errors.count(), 2u);
 }
 
 TEST_F(MainWindowTest, repeatedSaveFailuresLogOnceUntilASuccess)
@@ -3932,7 +3932,7 @@ void MainWindowTest::check_toolbarKeepsMenuActionsBeforeTheTransportWidgets()
 
     const QList<QAction *> actions = window.ui->toolBar->actions();
     // Open, Save, |, Logging, Log to file, Read, Test write, Write, |, then widgets.
-    ASSERT_GE(actions.size(), 10);
+    ASSERT_GE(actions.size(), 10u);
     EXPECT_TRUE(actions[2]->isSeparator());
     EXPECT_TRUE(actions[8]->isSeparator());
     // widgetForAction cannot tell these apart (every action has a tool button,
@@ -4114,7 +4114,7 @@ void MainWindowTest::check_tuneActionsEditTheSelectionThroughTheirOwnHandlers()
     data_tree->setCurrentItem(grid_item);
     window.calibration_data_treewidget_item_selected(grid_item);
     const QList<QMdiSubWindow *> windows = window.ui->mdiArea->subWindowList();
-    ASSERT_EQ(windows.size(), 1);
+    ASSERT_EQ(windows.size(), 1u);
     window.ui->mdiArea->setActiveSubWindow(windows.front());
     auto *table = windows.front()->findChild<QTableWidget *>(windows.front()->objectName());
     ASSERT_NE(table, nullptr);

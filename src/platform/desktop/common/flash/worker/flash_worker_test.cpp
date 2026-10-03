@@ -161,7 +161,7 @@ TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWa
     // completes in well under the 2000ms test timeout budget.
     ASSERT_TRUE(timer.elapsed() < 500);
 
-    ASSERT_EQ(finishedSpy.count(), 1);
+    ASSERT_EQ(finishedSpy.count(), 1u);
     auto result = std::get<0>(finishedSpy.snapshot().at(0));
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::Cancelled);
@@ -194,7 +194,7 @@ TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
     // arrive before asserting there is exactly one.
     fastecu::testing::process_events_for(std::chrono::milliseconds(50));
 
-    ASSERT_EQ(finishedSpy.count(), 1);
+    ASSERT_EQ(finishedSpy.count(), 1u);
     auto result = std::get<0>(finishedSpy.snapshot().at(0));
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::InvalidConfig);
@@ -214,10 +214,10 @@ TEST(TestFlashWorker, phaseProgressIsForwardedAlongsideLegacyProgress)
     ASSERT_TRUE(worker.wait(2000));
     QCoreApplication::processEvents();
 
-    ASSERT_EQ(legacySpy.count(), 1);
+    ASSERT_EQ(legacySpy.count(), 1u);
     ASSERT_EQ(std::get<0>(legacySpy.snapshot().at(0)), 1);
     ASSERT_EQ(std::get<1>(legacySpy.snapshot().at(0)), 1);
-    ASSERT_EQ(phaseSpy.count(), 1);
+    ASSERT_EQ(phaseSpy.count(), 1u);
     ASSERT_EQ(std::get<0>(phaseSpy.snapshot().at(0)), QString("Connect to ECU"));
     ASSERT_EQ(std::get<1>(phaseSpy.snapshot().at(0)), 1);
     ASSERT_EQ(std::get<2>(phaseSpy.snapshot().at(0)), 2);

@@ -231,8 +231,8 @@ TEST_F(ServiceFunctionWorkerTest, completesWithoutEverRequestingAGate)
     harness.worker->start();
     ASSERT_TRUE(harness.worker->wait(5000));
 
-    ASSERT_EQ(gates.count(), 0);
-    ASSERT_EQ(done.count(), 1);
+    ASSERT_EQ(gates.count(), 0u);
+    ASSERT_EQ(done.count(), 1u);
     const auto result = std::get<0>(done.snapshot().at(0));
     ASSERT_TRUE(result.success);
 }
@@ -260,7 +260,7 @@ TEST_F(ServiceFunctionWorkerTest, neverTouchesTheSerialFacadeWhenSetupFails)
 
     ASSERT_TRUE(harness.configurator.applied.empty());
     ASSERT_EQ(harness.session->resume_calls, 0);
-    ASSERT_EQ(done.count(), 1);
+    ASSERT_EQ(done.count(), 1u);
     const auto result = std::get<0>(done.snapshot().at(0));
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::Unsupported);
@@ -280,10 +280,10 @@ TEST_F(ServiceFunctionWorkerTest, blocksOnAGateUntilItIsAnswered)
     harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnEngineRunning), true);
     ASSERT_TRUE(harness.worker->wait(5000));
 
-    ASSERT_EQ(gates.count(), 1);
+    ASSERT_EQ(gates.count(), 1u);
     ASSERT_EQ(std::get<0>(gates.snapshot().at(0)), static_cast<int>(OperatorGateId::RelearnEngineRunning));
     ASSERT_EQ(harness.session->submitted, std::vector<GateResponse>{GateResponse::Accept});
-    ASSERT_EQ(done.count(), 1);
+    ASSERT_EQ(done.count(), 1u);
 }
 
 TEST_F(ServiceFunctionWorkerTest, aDeclinedGateReachesTheSessionAsDecline)
@@ -300,7 +300,7 @@ TEST_F(ServiceFunctionWorkerTest, aDeclinedGateReachesTheSessionAsDecline)
     harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnStaticSetup), false);
     ASSERT_TRUE(harness.worker->wait(5000));
 
-    ASSERT_EQ(gates.count(), 1);
+    ASSERT_EQ(gates.count(), 1u);
     ASSERT_EQ(std::get<0>(gates.snapshot().at(0)), static_cast<int>(OperatorGateId::RelearnStaticSetup));
     ASSERT_EQ(harness.session->submitted, std::vector<GateResponse>{GateResponse::Decline});
     const auto result = std::get<0>(done.snapshot().at(0));
@@ -323,9 +323,9 @@ TEST_F(ServiceFunctionWorkerTest, requestStopUnblocksAnOutstandingGate)
     harness.worker->requestStop();
     ASSERT_TRUE(harness.worker->wait(5000));
 
-    ASSERT_EQ(gates.count(), 1);
+    ASSERT_EQ(gates.count(), 1u);
     ASSERT_EQ(std::get<0>(gates.snapshot().at(0)), static_cast<int>(OperatorGateId::RelearnEngineRunning));
-    ASSERT_EQ(done.count(), 1);
+    ASSERT_EQ(done.count(), 1u);
     const auto result = std::get<0>(done.snapshot().at(0));
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::Cancelled);
@@ -350,11 +350,11 @@ TEST_F(ServiceFunctionWorkerTest, aStaleAnswerCannotSatisfyALaterGate)
     harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnEngineRunning), true);
     ASSERT_TRUE(harness.worker->wait(5000));
 
-    ASSERT_EQ(gates.count(), 2);
+    ASSERT_EQ(gates.count(), 2u);
     ASSERT_EQ(std::get<0>(gates.snapshot().at(0)), static_cast<int>(OperatorGateId::RelearnStaticSetup));
     ASSERT_EQ(std::get<0>(gates.snapshot().at(1)), static_cast<int>(OperatorGateId::RelearnEngineRunning));
     ASSERT_EQ(harness.session->submitted, std::vector<GateResponse>({GateResponse::Accept, GateResponse::Accept}));
-    ASSERT_EQ(done.count(), 1);
+    ASSERT_EQ(done.count(), 1u);
     const auto result = std::get<0>(done.snapshot().at(0));
     ASSERT_TRUE(result.success);
 }
@@ -368,7 +368,7 @@ TEST_F(ServiceFunctionWorkerTest, emitsFinishedExactlyOnceOnFailure)
     harness.worker->start();
     ASSERT_TRUE(harness.worker->wait(5000));
 
-    ASSERT_EQ(done.count(), 1);
+    ASSERT_EQ(done.count(), 1u);
     const auto result = std::get<0>(done.snapshot().at(0));
     ASSERT_EQ(result.error_kind, ErrorKind::BadResponse);
     ASSERT_EQ(result.error_detail, QString("TCU said no"));

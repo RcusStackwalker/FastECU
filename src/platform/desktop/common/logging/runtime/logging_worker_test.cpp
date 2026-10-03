@@ -82,10 +82,10 @@ TEST(TestLoggingWorker, forwards_portable_states_samples_and_cancelled_result)
     ASSERT_EQ(std::get<0>(state_spy.snapshot().at(1)), LoggingState::CarNotResponding);
     ASSERT_EQ(std::get<0>(state_spy.snapshot().at(2)), LoggingState::Running);
     const auto samples = std::get<0>(samples_spy.snapshot().at(0));
-    ASSERT_EQ(samples.size(), 1);
+    ASSERT_EQ(samples.size(), 1u);
     ASSERT_EQ(samples.at(0).channel_id, std::string("rpm"));
     ASSERT_EQ(samples.at(0).numeric_value, 1234.0);
-    ASSERT_EQ(finished_spy.count(), 1);
+    ASSERT_EQ(finished_spy.count(), 1u);
     const auto result = std::get<0>(finished_spy.snapshot().at(0));
     ASSERT_TRUE(!result.has_value());
     ASSERT_EQ(result.error().kind, fastecu::ErrorKind::Cancelled);

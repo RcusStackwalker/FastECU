@@ -23,9 +23,9 @@ TEST(MutDmaPortable, BuildIdListFrameEncodesChannelsAndTrailer)
 {
     const std::vector<Channel> ch = {{0x8000, 2}, {0x8004, 1}}; // N=2
     const bytes::Bytes f = buildIdListFrame(0xA1, ch);
-    ASSERT_EQ(static_cast<int>(f.size()), reqLen(2)); // ((2+3)>>2)+4+28 = 1+4+28 = 33
-    EXPECT_EQ(f[0], bytes::Byte(0xA1));               // rate selector
-    EXPECT_EQ(f[1], bytes::Byte(2));                  // count
+    ASSERT_EQ(f.size(), reqLen(2));     // ((2+3)>>2)+4+28 = 1+4+28 = 33
+    EXPECT_EQ(f[0], bytes::Byte(0xA1)); // rate selector
+    EXPECT_EQ(f[1], bytes::Byte(2));    // count
     // descriptors: ch0=2B->1 at bits[7:6], ch1=1B->0 at bits[5:4] => 0b01000000 = 0x40
     EXPECT_EQ(f[2], bytes::Byte(0x40));
     // ids start at offset 2 + ceil(N/4) = 2 + 1 = 3, big-endian u16
@@ -42,7 +42,7 @@ TEST(MutDmaPortable, BuildIdListFrameEncodesChannelsAndTrailer)
 TEST(MutDmaPortable, DecodeStreamValuesRoundTripsChannelSizes)
 {
     const std::vector<Channel> ch = {{0x8000, 2}, {0x8004, 1}, {0x8008, 4}};
-    EXPECT_EQ(responseDataLength(ch), 2 + 1 + 4);                         // 7
+    EXPECT_EQ(responseDataLength(ch), std::size_t{2 + 1 + 4});            // 7
     const bytes::Bytes data = {0x12, 0x34, 0x56, 0x89, 0xAB, 0xCD, 0xEF}; // BE per channel
     const std::vector<std::uint32_t> v = decodeStreamValues(ch, data);
     ASSERT_EQ(v.size(), std::size_t(3));

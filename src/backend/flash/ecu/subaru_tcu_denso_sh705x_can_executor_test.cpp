@@ -1940,7 +1940,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
         EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
         EXPECT_TRUE(transport.scriptConsumed());
         EXPECT_EQ(events.phase_progress_calls.back().phase_name, "Read");
-        EXPECT_EQ(events.phase_progress_calls.back().done, kReadPageSize);
+        EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(kReadPageSize));
     }
 
     // CRC loop: cancellation on the first completed comparison is observed
@@ -1993,7 +1993,7 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationInterruptsUploadReadCrcAndWrit
         EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
         EXPECT_TRUE(transport.scriptConsumed());
         EXPECT_EQ(events.phase_progress_calls.back().phase_name, "Write");
-        EXPECT_EQ(events.phase_progress_calls.back().done, kWriteChunkSize);
+        EXPECT_EQ(events.phase_progress_calls.back().done, static_cast<int>(kWriteChunkSize));
         EXPECT_TRUE(has_log(events, LogLevel::Error, kReflashRecoveryWarning));
     }
 }

@@ -55,9 +55,9 @@ TEST(LoggerModelTest, DefaultsUseCurrentSupportInDefinitionOrderAndKeepLimits)
     }
     LoggerModel model;
     ASSERT_TRUE(model.install_definition(std::move(def)));
-    EXPECT_EQ(model.selection().gauge_ids.size(), 15);
-    EXPECT_EQ(model.selection().lower_panel_ids.size(), 12);
-    EXPECT_EQ(model.selection().switch_ids.size(), 20);
+    EXPECT_EQ(model.selection().gauge_ids.size(), 15u);
+    EXPECT_EQ(model.selection().lower_panel_ids.size(), 12u);
+    EXPECT_EQ(model.selection().switch_ids.size(), 20u);
     model.set_parameter_supported("SSM", "0", false);
     model.set_switch_supported("SSM", "0", false);
     const auto fallback = model.default_selection();

@@ -14,9 +14,9 @@ template <std::size_t Rounds>
 uint32_t transformWord(uint32_t word, std::span<const std::uint16_t, Rounds> keytogenerateindex,
                        IndexTransformation indextransformation, bool reverse)
 {
-    for (int r = 0; r < Rounds; ++r)
+    for (std::size_t r = 0; r < Rounds; ++r)
     {
-        const int ki = reverse ? (Rounds - 1 - r) : r;
+        const std::size_t ki = reverse ? (Rounds - 1 - r) : r;
         const uint16_t wordtogenerateindex = word;
         const uint16_t wordtobeencrypted = word >> 16;
         uint32_t index = wordtogenerateindex ^ keytogenerateindex[ki];

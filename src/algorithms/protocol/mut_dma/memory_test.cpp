@@ -40,7 +40,7 @@ TEST(TestMemory, write_chunks_large_payload)
 TEST(TestMemory, read_plan_one_byte_channels)
 {
     std::vector<Channel> ch = planReadChannels(0x8000, 3);
-    ASSERT_EQ(ch.size(), 3);
+    ASSERT_EQ(ch.size(), 3u);
     ASSERT_EQ(ch.at(0).id, std::uint16_t(0x8000));
     ASSERT_EQ(ch.at(0).len, bytes::Byte(1));
     ASSERT_EQ(ch.at(2).id, std::uint16_t(0x8002));
