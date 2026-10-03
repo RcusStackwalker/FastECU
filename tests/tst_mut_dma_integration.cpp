@@ -141,7 +141,7 @@ class MockOpenPort final : public QObject
         {
             if (rawRemaining > 0)
             {
-                const int take = qMin(rawRemaining, rx.size());
+                const int take = static_cast<int>(qMin<qsizetype>(rawRemaining, rx.size()));
                 lastWrite.append(rx.left(take));
                 rx.remove(0, take);
                 rawRemaining -= take;
@@ -156,7 +156,7 @@ class MockOpenPort final : public QObject
                 continue;
             }
 
-            const int nl = rx.indexOf('\n');
+            const qsizetype nl = rx.indexOf('\n');
             if (nl < 0)
             {
                 return;

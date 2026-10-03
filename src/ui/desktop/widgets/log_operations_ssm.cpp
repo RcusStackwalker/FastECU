@@ -65,7 +65,7 @@ void MainWindow::log_to_file()
         else
         {
 
-            datalog_file_outstream << QString::number(log_file_timer->elapsed() / 1000.0F) << ",";
+            datalog_file_outstream << QString::number(static_cast<float>(log_file_timer->elapsed()) / 1000.0F) << ",";
             write_logger_csv_cells(false);
             datalog_file_outstream << "\n";
         }

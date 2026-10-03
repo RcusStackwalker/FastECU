@@ -49,7 +49,7 @@ class MockOpenPort : public QObject
         }
         rx.append(buf.data(), static_cast<int>(n));
 
-        int nl;
+        qsizetype nl;
         while ((nl = rx.indexOf('\n')) >= 0)
         {
             const QByteArray line = rx.left(nl).trimmed();

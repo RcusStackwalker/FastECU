@@ -147,7 +147,7 @@ class MainWindow : public QMainWindow
     int mapCellWidth1D = 96;
     int mapCellWidth = 54;
     int mapCellHeight = 26;
-    int cellFontSize = mapCellHeight / 2.25;
+    int cellFontSize = static_cast<int>(mapCellHeight / 2.25);
 
     int xSize = 0;
     int ySize = 0;

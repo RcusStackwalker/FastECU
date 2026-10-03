@@ -86,7 +86,7 @@ Result<bytes::Byte> read_address(std::uint16_t address, RawReadState& state, IKl
                 return value;
             }
             const std::size_t discard = state.synchronized ? 3U : 1U;
-            state.pending.erase(state.pending.begin(), state.pending.begin() + discard);
+            state.pending.erase(state.pending.begin(), state.pending.begin() + static_cast<std::ptrdiff_t>(discard));
             if (state.tuples_since_sync > 10U)
             {
                 state.synchronized = false;

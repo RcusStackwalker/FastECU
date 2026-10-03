@@ -36,7 +36,7 @@ class CalibrationMaps : public QWidget
     int mapCellWidth1D = 96;
     int mapCellWidth = 54;
     int mapCellHeight = 26;
-    int cellFontSize = mapCellHeight / 2.35;
+    int cellFontSize = static_cast<int>(mapCellHeight / 2.35);
 
     int startCol = 0;
     int startRow = 0;

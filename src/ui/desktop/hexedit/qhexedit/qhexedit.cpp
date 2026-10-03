@@ -286,8 +286,8 @@ void QHexEdit::setCursorPosition(qint64 position)
 
     // 3. Calc new position of cursor
     _bPosCurrent = position / 2;
-    _pxCursorY = ((position / 2 - _bPosFirst) / _bytesPerLine + 1) * _pxCharHeight;
-    int x = (position % (static_cast<qint64>(2 * _bytesPerLine)));
+    _pxCursorY = static_cast<int>(((position / 2 - _bPosFirst) / _bytesPerLine + 1) * _pxCharHeight);
+    int x = static_cast<int>(position % static_cast<qint64>(2 * _bytesPerLine));
     if (_editAreaIsBar)
     {
         _pxCursorX = x / 2 * _pxCharWidth + _pxPosBarX;
@@ -497,7 +497,7 @@ void QHexEdit::insert(qint64 pos, const QByteArray& ba)
 
 void QHexEdit::replace(qint64 pos, qint64 len, const QByteArray& ba)
 {
-    _undoStack->overwrite(pos, len, ba);
+    _undoStack->overwrite(pos, static_cast<int>(len), ba);
     refresh();
 }
 
@@ -982,17 +982,17 @@ void QHexEdit::keyPressEvent(QKeyEvent *event)
                                     // Change content
                                     if (_chunks->size() > 0)
                                     {
-                                        char ch = key;
+                                        char ch = static_cast<char>(key);
                                         if (!_editAreaIsAscii)
                                         {
                                             QByteArray hexValue = _chunks->data(_bPosCurrent, 1).toHex();
                                             if ((_cursorPosition % 2) == 0)
                                             {
-                                                hexValue[0] = key;
+                                                hexValue[0] = static_cast<char>(key);
                                             }
                                             else
                                             {
-                                                hexValue[1] = key;
+                                                hexValue[1] = static_cast<char>(key);
                                             }
                                             ch = QByteArray().fromHex(hexValue)[0];
                                         }
@@ -1001,11 +1001,11 @@ void QHexEdit::keyPressEvent(QKeyEvent *event)
                                             QByteArray hexValue = _chunks->data(_bPosCurrent, 1).toHex();
                                             if ((_cursorPosition % 2) == 0)
                                             {
-                                                hexValue[0] = key;
+                                                hexValue[0] = static_cast<char>(key);
                                             }
                                             else
                                             {
-                                                hexValue[1] = key;
+                                                hexValue[1] = static_cast<char>(key);
                                             }
                                             ch = QByteArray().fromHex(hexValue)[0];
                                         }
@@ -1251,7 +1251,7 @@ void QHexEdit::paintEvent(QPaintEvent *event)
     }
 
     // _cursorPosition counts in 2, _bPosFirst counts in 1
-    int hexPositionInShowData = _cursorPosition - 2 * _bPosFirst;
+    int hexPositionInShowData = static_cast<int>(_cursorPosition - 2 * _bPosFirst);
 
     // due to scrolling the cursor can go out of the currently displayed data
     if ((hexPositionInShowData >= 0) && (hexPositionInShowData < _hexDataShown.size()))

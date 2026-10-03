@@ -1780,7 +1780,7 @@ void MainWindow::remove_ecu_definition_file()
     QList<QModelIndex> index = definition_files->selectionModel()->selectedIndexes();
 
     int row = 0;
-    for (int i = index.length() - 1; i >= 0; i--)
+    for (auto i = static_cast<int>(index.length()) - 1; i >= 0; i--)
     {
         row = index.at(i).row();
         definition_files->model()->removeRow(row);
@@ -1942,7 +1942,7 @@ void MainWindow::update_vbatt()
         if (vBattLabel)
         {
             // emit LOG_D("Found ecuOperationsWindow->vBattLabel", true, true);
-            QString vBattText = QString("Battery: %1").arg(vBatt / 1000.0, 0, 'f', 3) + " V";
+            QString vBattText = QString("Battery: %1").arg(static_cast<double>(vBatt) / 1000.0, 0, 'f', 3) + " V";
             vBattLabel->setText(vBattText);
             emit LOG_D(vBattText, true, true);
         }
@@ -1955,7 +1955,7 @@ void MainWindow::update_vbatt()
         if (vBattLabel)
         {
             // emit LOG_D("Found biuOperationsSubaruWindow->vBattLabel", true, true);
-            QString vBattText = QString("Battery: %1").arg(vBatt / 1000.0, 0, 'f', 3) + " V";
+            QString vBattText = QString("Battery: %1").arg(static_cast<double>(vBatt) / 1000.0, 0, 'f', 3) + " V";
             vBattLabel->setText(vBattText);
             emit LOG_D(vBattText, true, true);
         }
@@ -1968,7 +1968,7 @@ void MainWindow::update_vbatt()
         if (vBattLabel)
         {
             // emit LOG_D("Found dtcOperationsWindow->vBattLabel", true, true);
-            QString vBattText = QString("Battery: %1").arg(vBatt / 1000.0, 0, 'f', 3) + " V";
+            QString vBattText = QString("Battery: %1").arg(static_cast<double>(vBatt) / 1000.0, 0, 'f', 3) + " V";
             vBattLabel->setText(vBattText);
             emit LOG_D(vBattText, true, true);
         }
@@ -1981,7 +1981,7 @@ void MainWindow::update_vbatt()
         if (vBattLabel)
         {
             emit LOG_D("Found dataTerminalWindow->vBattLabel", true, true);
-            QString vBattText = QString("Battery: %1").arg(vBatt / 1000.0, 0, 'f', 3) + " V";
+            QString vBattText = QString("Battery: %1").arg(static_cast<double>(vBatt) / 1000.0, 0, 'f', 3) + " V";
             vBattLabel->setText(vBattText);
             emit LOG_D(vBattText, true, true);
         }

@@ -579,7 +579,8 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             for (index = 5; index < (message.length() - 1); index++)
             {
                 biu_data_result = biu_data_names.at((static_cast<qsizetype>(index) - 5) * 2);
-                calc_result = ((uint8_t)message.at(index) * kBiuDataFactors[static_cast<ptrdiff_t>((index - 5) * 2)]) +
+                calc_result = (static_cast<float>(static_cast<uint8_t>(message.at(index))) *
+                               kBiuDataFactors[static_cast<ptrdiff_t>((index - 5) * 2)]) +
                               kBiuDataFactors[(index - 5) * 2 + 1];
                 biu_data_result.append(QString("%1 ").arg(calc_result));
                 biu_data_result.append(biu_data_names.at((index - 5) * 2 + 1));
@@ -726,8 +727,8 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             // room lamp off delay time
             temp = biu_tt_names.at(0);
-            biu_tt_result->append((uint8_t)message.at(5) & 0x03U);
-            calc_result = (uint8_t)message.at(5) & 0x03U;
+            biu_tt_result->append(static_cast<char>((uint8_t)message.at(5) & 0x03U));
+            calc_result = static_cast<float>((uint8_t)message.at(5) & 0x03U);
             if (calc_result == 0)
             {
                 temp.append("Normal");
@@ -750,8 +751,8 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             // auto-lock time
             temp = biu_tt_names.at(2);
-            biu_tt_result->append((uint8_t)message.at(6) & 0x07U);
-            calc_result = ((uint8_t)message.at(6) & 0x07U) * 10;
+            biu_tt_result->append(static_cast<char>((uint8_t)message.at(6) & 0x07U));
+            calc_result = static_cast<float>(((uint8_t)message.at(6) & 0x07U) * 10);
             temp.append(QString("%1 ").arg(calc_result));
             temp.append(biu_tt_names.at(3));
             data_result->append(temp);
@@ -761,8 +762,9 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             if (message.length() == 9)
             {
                 temp = biu_tt_names.at(4);
-                biu_tt_result->append((uint8_t)message.at(7) & 0x0FU);
-                calc_result = (static_cast<int>((((uint8_t)message.at(7) & 0x0FU) + 4U) & 0x0FU) - 4) * 0.5;
+                biu_tt_result->append(static_cast<char>((uint8_t)message.at(7) & 0x0FU));
+                calc_result =
+                    static_cast<float>((static_cast<int>((((uint8_t)message.at(7) & 0x0FU) + 4U) & 0x0FU) - 4) * 0.5);
                 temp.append(QString("%1 ").arg(calc_result));
                 temp.append(biu_tt_names.at(5));
                 data_result->append(temp);
@@ -809,7 +811,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
                     bit_mask = bit_mask << 1U;
                 }
 
-                biu_option_result->append((uint8_t)message.at(index));
+                biu_option_result->append(static_cast<char>((uint8_t)message.at(index)));
             }
         }
 
@@ -826,7 +828,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         current_command = TESTER_PRESENT;
         data_result->clear();
 
-        int condition = (uint8_t)message.at(5) & 0x07U;
+        int condition = static_cast<int>((uint8_t)message.at(5) & 0x07U);
         data_result->append("VDC/ABS Condition: " + QString::number(condition));
         // emit LOG_I(data_result, true, true);
 
@@ -844,9 +846,9 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         current_command = TESTER_PRESENT;
         data_result->clear();
 
-        condition = (uint8_t)message.at(5) & 0x0FU;
+        condition = static_cast<int>((uint8_t)message.at(5) & 0x0FU);
         data_result->append("Destination:    " + QString::number(condition));
-        condition = (uint8_t)message.at(6) & 0x3FU;
+        condition = static_cast<int>((uint8_t)message.at(6) & 0x3FU);
         data_result->append("Touchscreen SW: " + QString::number(condition));
         // emit LOG_I(data_result, true, true);
 

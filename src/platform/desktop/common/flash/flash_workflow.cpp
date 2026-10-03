@@ -259,7 +259,8 @@ std::optional<bytes::Bytes> normalizeMc68Image(std::optional<bytes::Bytes> image
     {
         const auto& block = device->fblocks[block_no];
         const std::size_t block_bytes = std::min<std::size_t>(block.len, packed_remaining);
-        packed.insert(packed.end(), image->begin() + block.start, image->begin() + block.start + block_bytes);
+        packed.insert(packed.end(), image->begin() + static_cast<std::ptrdiff_t>(block.start),
+                      image->begin() + static_cast<std::ptrdiff_t>(block.start + block_bytes));
         packed_remaining -= block_bytes;
     }
     return packed;

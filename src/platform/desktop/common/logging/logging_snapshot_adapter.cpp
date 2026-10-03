@@ -52,7 +52,7 @@ channel_from_parameter(const fastecu::logging::LoggerParameter& parameter, faste
     }
 
     const QStringList format_fields = QString::fromStdString(conversions.at(0).format).split('.');
-    const int precision = format_fields.size() > 1 ? format_fields.at(1).count('0') : 0;
+    const auto precision = static_cast<int>(format_fields.size() > 1 ? format_fields.at(1).count('0') : 0);
     if (precision > std::numeric_limits<std::uint8_t>::max())
     {
         return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "logging conversion precision is too large");
