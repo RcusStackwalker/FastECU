@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePath
 
 import clang_tidy_profile as profile_report
+import clang_tidy_scope as scope_manifest
 import yaml
 
 SOURCE_SUFFIXES = frozenset((".c", ".cc", ".cpp", ".cxx"))
@@ -227,6 +228,47 @@ def load_project_entries(workspace: Path, database: Path) -> list[dict[str, obje
     if not entries:
         raise WorkflowError("compilation database contains no workspace translation units")
     return entries
+
+
+def _gated_packages(tree: _WorkspaceTree) -> list[PurePath]:
+    """Packages whose BUILD file gates targets by platform and that own C/C++ sources."""
+    # Hidden directories hold other checkouts (.worktrees/<branch>) or tool state,
+    # never this workspace's own packages.
+    visible = {
+        relative: path
+        for relative, path in tree.files.items()
+        if not any(part.startswith(".") for part in relative.parts)
+    }
+    source_directories = {
+        relative.parent for relative in visible if relative.suffix.lower() in SOURCE_SUFFIXES
+    }
+    packages: list[PurePath] = []
+    for relative, path in visible.items():
+        is_build_file = relative.name in ("BUILD", "BUILD.bazel")
+        if not is_build_file or relative.parent not in source_directories:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError, UnicodeError:
+            continue
+        if "target_compatible_with" in text:
+            packages.append(relative.parent)
+    return sorted(packages)
+
+
+def _load_scope(workspace: Path) -> scope_manifest.ScopeManifest | None:
+    path = workspace / scope_manifest.MANIFEST_NAME
+    if not path.is_file():
+        return None
+    try:
+        return scope_manifest.load_manifest(path)
+    except scope_manifest.ScopeError as error:
+        raise WorkflowError(str(error)) from error
+
+
+def _retarget(args: Sequence[str], targets: Sequence[str]) -> list[str]:
+    """Keep the flag arguments and replace every positional target pattern."""
+    return [*(arg for arg in args if arg.startswith("-")), *targets]
 
 
 def filter_changed_entries(
@@ -737,11 +779,39 @@ def run_workflow(
     compdb_args: Sequence[str] = (),
     changed: bool = False,
     profile: bool = False,
+    scope_os: str | None = None,
 ) -> None:
     if mode not in ("report", "fix"):
         raise WorkflowError(f"unsupported mode: {mode}")
     if mode == "fix" and platform_name not in ("darwin", "linux"):
         raise WorkflowError("clang-tidy fix mode is supported only on macOS and Linux")
+
+    manifest = _load_scope(workspace)
+    scope_prefixes: tuple[PurePath, ...] = ()
+    if manifest is not None:
+        uncovered = scope_manifest.uncovered_gated_packages(
+            _gated_packages(_workspace_tree(workspace.resolve())), manifest
+        )
+        if uncovered:
+            listed = ", ".join(path.as_posix() for path in uncovered)
+            raise WorkflowError(
+                f"platform-gated packages are not named in {scope_manifest.MANIFEST_NAME}: "
+                f"{listed}; add each to [os.<name>] or [linux_covered]"
+            )
+    if scope_os is not None:
+        if manifest is None:
+            raise WorkflowError(
+                f"--scope-os needs the scope manifest {scope_manifest.MANIFEST_NAME}"
+            )
+        if scope_os not in manifest.os_prefixes:
+            raise WorkflowError(
+                f"scope manifest has no section for {scope_os!r}; "
+                f"known: {', '.join(sorted(manifest.os_prefixes))}"
+            )
+        scope_prefixes = manifest.os_prefixes[scope_os]
+        targets = scope_manifest.build_targets(scope_prefixes)
+        build_args = _retarget(build_args, targets)
+        # Not compdb_args: Hedron's refresh rejects target patterns given at run time.
 
     timings = PhaseTimings()
     with timings.phase("prebuild"):
@@ -753,12 +823,20 @@ def run_workflow(
 
     with timings.phase("filter"):
         entries = load_project_entries(workspace, workspace / "compile_commands.json")
+        if scope_os is not None:
+            tree = _workspace_tree(workspace.resolve())
+            entries = [
+                entry
+                for entry in entries
+                if (relative := _entry_relative_path(entry, tree)) is not None
+                and scope_manifest.in_scope(relative, scope_prefixes)
+            ]
         if changed:
             changed_paths = changed_files(workspace, command_runner)
             entries, notes = filter_changed_entries(entries, changed_paths, workspace.resolve())
             for note in notes:
                 print(note)
-    if changed and not entries:
+    if (changed or scope_os is not None) and not entries:
         print("clang-tidy: no changed C/C++ translation units to analyze, skipping.")
         return
     tools = discover_tools(mode, platform_name=platform_name, environ=environ)
@@ -853,6 +931,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("mode", choices=("report", "fix"))
     parser.add_argument("--changed", action="store_true")
     parser.add_argument("--profile", action="store_true")
+    parser.add_argument("--scope-os")
     parser.add_argument("--compdb-tool", required=True)
     parser.add_argument("--build-arg", action="append", default=[], dest="build_args")
     parser.add_argument("--compdb-arg", action="append", default=[], dest="compdb_args")
@@ -872,6 +951,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             compdb_args=args.compdb_args,
             changed=args.changed,
             profile=args.profile,
+            scope_os=args.scope_os,
         )
         return 0
     except WorkflowError as error:

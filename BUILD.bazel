@@ -131,6 +131,7 @@ py_test(
         "scripts/clang_tidy_profile.py",
         "scripts/clang_tidy_runner.py",
         "scripts/clang_tidy_runner_test.py",
+        "scripts/clang_tidy_scope.py",
     ],
     imports = ["scripts"],
     main = "scripts/clang_tidy_runner_test.py",
@@ -146,6 +147,17 @@ py_test(
     ],
     imports = ["scripts"],
     main = "scripts/clang_tidy_profile_test.py",
+)
+
+py_test(
+    name = "clang_tidy_scope_test",
+    size = "small",
+    srcs = [
+        "scripts/clang_tidy_scope.py",
+        "scripts/clang_tidy_scope_test.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/clang_tidy_scope_test.py",
 )
 
 py_test(
