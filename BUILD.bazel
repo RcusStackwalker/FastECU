@@ -128,12 +128,24 @@ py_test(
     name = "clang_tidy_runner_test",
     size = "small",
     srcs = [
+        "scripts/clang_tidy_profile.py",
         "scripts/clang_tidy_runner.py",
         "scripts/clang_tidy_runner_test.py",
     ],
     imports = ["scripts"],
     main = "scripts/clang_tidy_runner_test.py",
     deps = ["@python_deps//pyyaml"],
+)
+
+py_test(
+    name = "clang_tidy_profile_test",
+    size = "small",
+    srcs = [
+        "scripts/clang_tidy_profile.py",
+        "scripts/clang_tidy_profile_test.py",
+    ],
+    imports = ["scripts"],
+    main = "scripts/clang_tidy_profile_test.py",
 )
 
 py_test(
