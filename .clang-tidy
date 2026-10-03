@@ -3,7 +3,8 @@
 # (config_changed in scripts/clang_tidy_runner.py): budget for a full run.
 #
 # bugprone-easily-swappable-parameters - too many warnings to be actionable
-# bugprone-reserved-identifier - need to get rid of _ prefixed macros
+# bugprone-exception-escape - fires inside gmock MATCHER_P expansions, gmock's
+#   own matchers and Qt headers, none of which we can change
 # bugprone-throwing-static-initialization - can't be enabled due to googletest
 # clang-analyzer-cplusplus.NewDeleteLeaks - false positives on Qt parent-owned
 #   `new` (layouts and widgets handed to a parent are never leaked)
@@ -17,7 +18,6 @@ Checks: >
   -bugprone-macro-parentheses,
   -bugprone-misplaced-widening-cast,
   -bugprone-narrowing-conversions,
-  -bugprone-reserved-identifier,
   -bugprone-throwing-static-initialization,
   -bugprone-unchecked-optional-access,
   clang-analyzer-*,
@@ -61,3 +61,7 @@ CheckOptions:
   # which is why the pattern itself spells out the k prefix and CamelCase.
   - key: readability-identifier-naming.ConstexprVariableIgnoredRegexp
     value: '^k[A-Z]([A-Za-z0-9]|_?[0-9]_[A-Za-z]|_[0-9])*$'
+  # gmock's `_` wildcard matcher (`using ::testing::_;`) is the one reserved
+  # identifier this tree has to name.
+  - key: bugprone-reserved-identifier.AllowedIdentifiers
+    value: '_'
