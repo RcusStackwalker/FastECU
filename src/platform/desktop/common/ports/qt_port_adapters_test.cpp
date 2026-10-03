@@ -159,7 +159,7 @@ TEST(QtEventSinkTest, LogEmitsLoggedWithConvertedArgs)
 
     sink.log(LogLevel::Warning, "msg");
 
-    ASSERT_EQ(spy.count(), 1u);
+    ASSERT_EQ(spy.count(), 1U);
     const auto args = spy.snapshot().front();
     EXPECT_EQ(std::get<0>(args), static_cast<int>(LogLevel::Warning));
     EXPECT_EQ(std::get<1>(args), QString("msg"));
@@ -173,7 +173,7 @@ TEST(QtEventSinkTest, ProgressEmitsProgressedWithDoneAndTotal)
 
     sink.progress(3, 10);
 
-    ASSERT_EQ(spy.count(), 1u);
+    ASSERT_EQ(spy.count(), 1U);
     const auto args = spy.snapshot().front();
     EXPECT_EQ(std::get<0>(args), 3);
     EXPECT_EQ(std::get<1>(args), 10);
@@ -189,10 +189,10 @@ TEST(QtEventSinkTest, PhaseProgressPreservesLegacyProgressAndConvertsPhaseName)
 
     sink.phase_progress({.phase_name = "Write userspace", .phase_index = 4, .phase_count = 6, .done = 3, .total = 10});
 
-    ASSERT_EQ(legacySpy.count(), 1u);
+    ASSERT_EQ(legacySpy.count(), 1U);
     EXPECT_EQ(std::get<0>(legacySpy.snapshot().at(0)), 3);
     EXPECT_EQ(std::get<1>(legacySpy.snapshot().at(0)), 10);
-    ASSERT_EQ(phaseSpy.count(), 1u);
+    ASSERT_EQ(phaseSpy.count(), 1U);
     EXPECT_EQ(std::get<0>(phaseSpy.snapshot().at(0)), QString("Write userspace"));
     EXPECT_EQ(std::get<1>(phaseSpy.snapshot().at(0)), 4);
     EXPECT_EQ(std::get<2>(phaseSpy.snapshot().at(0)), 6);
@@ -208,7 +208,7 @@ TEST(QtEventSinkTest, NoticeEmitsNoticedWithMessage)
 
     sink.notice("done");
 
-    ASSERT_EQ(spy.count(), 1u);
+    ASSERT_EQ(spy.count(), 1U);
     const auto args = spy.snapshot().front();
     EXPECT_EQ(std::get<0>(args), QString("done"));
 }

@@ -18,21 +18,21 @@ uint32_t transformWord(uint32_t word, std::span<const std::uint16_t, Rounds> key
     {
         const std::size_t ki = reverse ? (Rounds - 1 - r) : r;
         const uint16_t wordtogenerateindex = word;
-        const uint16_t wordtobeencrypted = word >> 16;
+        const uint16_t wordtobeencrypted = word >> 16U;
         uint32_t index = wordtogenerateindex ^ keytogenerateindex[ki];
-        index += index << 16;
+        index += index << 16U;
 
         uint16_t encryptionkey = 0;
-        for (int n = 0; n < 4; ++n)
+        for (unsigned int n = 0; n < 4; ++n)
         {
-            encryptionkey += indextransformation[(index >> (n * 4)) & 0x1F] << (n * 4);
+            encryptionkey += indextransformation[(index >> (n * 4)) & 0x1FU] << (n * 4);
         }
 
-        encryptionkey = (encryptionkey >> 3) + (encryptionkey << 13);
-        word = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16);
+        encryptionkey = (encryptionkey >> 3U) + (encryptionkey << 13U);
+        word = (encryptionkey ^ wordtobeencrypted) + (wordtogenerateindex << 16U);
     }
 
-    return (word >> 16) + (word << 16);
+    return (word >> 16U) + (word << 16U);
 }
 
 } // namespace

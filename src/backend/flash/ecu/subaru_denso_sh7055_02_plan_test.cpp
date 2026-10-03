@@ -97,7 +97,7 @@ TEST(SubaruDensoSh7055_02Plan, EveryAcceptedPlanRequiresCycleIgnitionConfirmatio
                     : std::optional<bytes::Bytes>{bytes::Bytes(flashdevices[index].romsize, bytes::Byte{0})},
                 test_kernel());
             ASSERT_THAT(plan, fastecu::testing::IsOk());
-            ASSERT_EQ(plan->confirmations().size(), 1u);
+            ASSERT_EQ(plan->confirmations().size(), 1U);
             EXPECT_EQ(plan->confirmations().front().id, ConfirmationSpec::Id::CycleIgnition);
         }
     }

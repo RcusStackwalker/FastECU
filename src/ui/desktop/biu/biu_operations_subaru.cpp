@@ -611,7 +611,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         return;
     }
 
-    if (((uint8_t)message.at(0) & 0x7F) != (uint8_t)message.length() - 4)
+    if (((uint8_t)message.at(0) & 0x7FU) != static_cast<unsigned>((uint8_t)message.length() - 4))
     {
         emit LOG_I("Invalid message received: invalid length", true, true);
         return;

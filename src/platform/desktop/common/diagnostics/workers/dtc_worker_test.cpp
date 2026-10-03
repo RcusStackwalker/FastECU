@@ -27,7 +27,7 @@ TEST(DtcWorkerTest, reportsTheSessionOutcomeAndForwardsLogLines)
     fastecu::testing::SignalRecorder done(&worker, &DtcWorker::completed);
     worker.start();
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
-    ASSERT_EQ(done.count(), 1u);
+    ASSERT_EQ(done.count(), 1U);
     const auto result = std::get<0>(done.snapshot().at(0));
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::BadResponse);

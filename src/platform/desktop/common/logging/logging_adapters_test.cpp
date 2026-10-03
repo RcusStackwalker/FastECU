@@ -73,7 +73,7 @@ TEST(DesktopLoggingSnapshotAdapterTest, PreservesProtocolSelectionAndDisabledSsm
     EXPECT_FALSE(ssm->enabled_ids.contains("off"));
     EXPECT_TRUE(ssm->enabled_ids.contains("on"));
     EXPECT_EQ(ssm->session.channels().at(0).raw_assembly, logging::RawAssembly::DecimalBytesConcatenated);
-    EXPECT_EQ(mut->session.channels().size(), 1u);
+    EXPECT_EQ(mut->session.channels().size(), 1U);
     EXPECT_EQ(mut->session.channels().at(0).id, "mut-on");
     EXPECT_EQ(mut->session.channels().at(0).raw_assembly, logging::RawAssembly::UnsignedIntegerDecimal);
     EXPECT_EQ(cdbg->session.channels().at(0).id, "cdbg-off");

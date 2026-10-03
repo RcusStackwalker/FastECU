@@ -77,8 +77,8 @@ TEST(TestMitsuColtCanCdbgProtocol, batching_packs_channels_into_one_frame_when_t
     std::vector<CdbgChannel> channels = {{0x804FBF, 1}, {0x804DF2, 2}};
     std::vector<std::vector<CdbgChannel>> frames;
     ASSERT_TRUE(batchChannelsIntoFrames(channels, frames));
-    ASSERT_EQ(frames.size(), 1u);
-    ASSERT_EQ(frames.at(0).size(), 2u);
+    ASSERT_EQ(frames.size(), 1U);
+    ASSERT_EQ(frames.at(0).size(), 2U);
 }
 TEST(TestMitsuColtCanCdbgProtocol, batching_starts_a_new_frame_when_the_next_channel_would_overflow)
 {
@@ -89,9 +89,9 @@ TEST(TestMitsuColtCanCdbgProtocol, batching_starts_a_new_frame_when_the_next_cha
     std::vector<CdbgChannel> channels = {{0x804FBF, 4}, {0x804DF2, 4}, {0x8054AC, 2}};
     std::vector<std::vector<CdbgChannel>> frames;
     ASSERT_TRUE(batchChannelsIntoFrames(channels, frames));
-    ASSERT_EQ(frames.size(), 2u);
-    ASSERT_EQ(frames.at(0).size(), 1u);
-    ASSERT_EQ(frames.at(1).size(), 2u);
+    ASSERT_EQ(frames.size(), 2U);
+    ASSERT_EQ(frames.at(0).size(), 1U);
+    ASSERT_EQ(frames.at(1).size(), 2U);
 }
 TEST(TestMitsuColtCanCdbgProtocol, batching_rejects_empty_channel_list)
 {
@@ -131,7 +131,7 @@ TEST(TestMitsuColtCanCdbgProtocol, decode_frame_reads_big_endian_values_at_the_r
     std::vector<CdbgChannel> frameItems = {{0x804FBF, 1}, {0x804DF2, 2}};
     const CdbgFrame frame{0, 0x2A, 0x12, 0x34, 0, 0, 0, 0};
     std::vector<std::uint32_t> values = decodeFrame(0, frameItems, frame);
-    ASSERT_EQ(values.size(), 2u);
+    ASSERT_EQ(values.size(), 2U);
     ASSERT_EQ(values.at(0), std::uint32_t(0x2A));
     ASSERT_EQ(values.at(1), std::uint32_t(0x1234));
 }

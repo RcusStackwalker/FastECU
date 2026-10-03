@@ -238,8 +238,8 @@ TEST_P(start_rejectionsParameters, start_rejections)
 
     const auto result = engine.start(LogSessionConfig{.protocolId = source == 1 ? "NOPE" : "TEST"}, snapshot());
     ASSERT_NO_FATAL_FAILURE(expect_start_error(result, static_cast<fastecu::ErrorKind>(kind), detail.toStdString()));
-    ASSERT_EQ(ended_spy.count(), 0u);
-    ASSERT_EQ(error_spy.count(), 1u);
+    ASSERT_EQ(ended_spy.count(), 0U);
+    ASSERT_EQ(error_spy.count(), 1U);
 
     if (source != 0)
     {
@@ -250,10 +250,10 @@ TEST_P(start_rejectionsParameters, start_rejections)
     ASSERT_TRUE(engine.isRunning());
     active_protocol->releaseFailure();
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return ended_spy.count() != 0; }, std::chrono::milliseconds(2000)));
-    ASSERT_EQ(ended_spy.count(), 1u);
+    ASSERT_EQ(ended_spy.count(), 1U);
     ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::RuntimeFailed);
     ASSERT_EQ(std::get<1>(ended_spy.snapshot().at(0)), QString("active run failed"));
-    ASSERT_EQ(error_spy.count(), 2u);
+    ASSERT_EQ(error_spy.count(), 2U);
     ASSERT_TRUE(!engine.isRunning());
 }
 
@@ -286,13 +286,13 @@ TEST(TestLoggingEngine, user_stop_publishes_joined_completion_exactly_once)
     ASSERT_TRUE(engine.isRunning());
 
     engine.stop();
-    ASSERT_EQ(ended_spy.count(), 1u);
+    ASSERT_EQ(ended_spy.count(), 1U);
     ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::StoppedByUser);
     ASSERT_EQ(std::get<1>(ended_spy.snapshot().at(0)), QString());
     ASSERT_TRUE(!engine.isRunning());
     engine.stop();
-    ASSERT_EQ(ended_spy.count(), 1u);
-    ASSERT_EQ(error_spy.count(), 0u);
+    ASSERT_EQ(ended_spy.count(), 1U);
+    ASSERT_EQ(error_spy.count(), 0U);
 }
 
 TEST(TestLoggingEngine, completion_observer_can_immediately_start_a_second_run)
@@ -382,8 +382,8 @@ TEST(TestLoggingEngine, explicit_stop_restart_ignores_stale_worker_events_and_pr
     ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::StoppedByUser);
     ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(1)), SessionEndReason::HandshakeFailed);
     ASSERT_EQ(std::get<1>(ended_spy.snapshot().at(1)), QString("second handshake failed"));
-    ASSERT_EQ(status_spy.count(), 0u);
-    ASSERT_EQ(value_spy.count(), 0u);
+    ASSERT_EQ(status_spy.count(), 0U);
+    ASSERT_EQ(value_spy.count(), 0U);
     ASSERT_TRUE(!engine.isRunning());
 }
 
@@ -399,11 +399,11 @@ TEST(TestLoggingEngine, natural_terminal_result_is_published_once_after_reproces
 
     ASSERT_TRUE(engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()));
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return ended_spy.count() != 0; }, std::chrono::milliseconds(2000)));
-    ASSERT_EQ(ended_spy.count(), 1u);
+    ASSERT_EQ(ended_spy.count(), 1U);
 
     QCoreApplication::processEvents(QEventLoop::AllEvents);
     QCoreApplication::processEvents(QEventLoop::AllEvents);
-    ASSERT_EQ(ended_spy.count(), 1u);
+    ASSERT_EQ(ended_spy.count(), 1U);
     ASSERT_TRUE(!engine.isRunning());
 }
 
@@ -422,7 +422,7 @@ TEST(TestLoggingEngine, successful_worker_result_is_reported_as_runtime_failure)
     ASSERT_TRUE(QMetaObject::invokeMethod(&engine, "handleWorkerSessionFinished", Qt::DirectConnection,
                                           Q_ARG(fastecu::Status, fastecu::Status{})));
 
-    ASSERT_EQ(ended_spy.count(), 1u);
+    ASSERT_EQ(ended_spy.count(), 1U);
     ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::RuntimeFailed);
     ASSERT_EQ(std::get<1>(ended_spy.snapshot().at(0)), QString("logging run ended without an error"));
     ASSERT_TRUE(!engine.isRunning());
@@ -541,10 +541,10 @@ TEST(TestLoggingEngine, unexpected_cancelled_outcome_is_reported_as_runtime_fail
     ASSERT_TRUE(engine.start(LogSessionConfig{.protocolId = "TEST"}, snapshot()));
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return ended_spy.count() != 0; }, std::chrono::milliseconds(2000)));
 
-    ASSERT_EQ(ended_spy.count(), 1u);
+    ASSERT_EQ(ended_spy.count(), 1U);
     ASSERT_EQ(std::get<0>(ended_spy.snapshot().at(0)), SessionEndReason::RuntimeFailed);
     ASSERT_EQ(std::get<1>(ended_spy.snapshot().at(0)), QString("scripted poll cancelled"));
-    ASSERT_EQ(error_spy.count(), 1u);
+    ASSERT_EQ(error_spy.count(), 1U);
     ASSERT_EQ(std::get<0>(error_spy.snapshot().at(0)), QString("Logging session failed: scripted poll cancelled"));
     ASSERT_TRUE(!engine.isRunning());
 }
@@ -558,7 +558,7 @@ TEST(TestLoggingEngine, diagnostic_slot_forwards_error_level_with_timestamp_and_
                                           Q_ARG(int, static_cast<int>(fastecu::LogLevel::Error)),
                                           Q_ARG(QString, QString("error diagnostic"))));
 
-    ASSERT_EQ(error_spy.count(), 1u);
+    ASSERT_EQ(error_spy.count(), 1U);
     ASSERT_EQ(std::get<0>(error_spy.snapshot().at(0)), QString("error diagnostic"));
     ASSERT_EQ(std::get<1>(error_spy.snapshot().at(0)), true);
     ASSERT_EQ(std::get<2>(error_spy.snapshot().at(0)), true);
@@ -573,7 +573,7 @@ TEST(TestLoggingEngine, diagnostic_slot_forwards_warning_level_with_timestamp_an
                                           Q_ARG(int, static_cast<int>(fastecu::LogLevel::Warning)),
                                           Q_ARG(QString, QString("warning diagnostic"))));
 
-    ASSERT_EQ(warning_spy.count(), 1u);
+    ASSERT_EQ(warning_spy.count(), 1U);
     ASSERT_EQ(std::get<0>(warning_spy.snapshot().at(0)), QString("warning diagnostic"));
     ASSERT_EQ(std::get<1>(warning_spy.snapshot().at(0)), true);
     ASSERT_EQ(std::get<2>(warning_spy.snapshot().at(0)), true);
@@ -588,7 +588,7 @@ TEST(TestLoggingEngine, diagnostic_slot_forwards_info_level_with_timestamp_and_l
                                           Q_ARG(int, static_cast<int>(fastecu::LogLevel::Info)),
                                           Q_ARG(QString, QString("info diagnostic"))));
 
-    ASSERT_EQ(info_spy.count(), 1u);
+    ASSERT_EQ(info_spy.count(), 1U);
     ASSERT_EQ(std::get<0>(info_spy.snapshot().at(0)), QString("info diagnostic"));
     ASSERT_EQ(std::get<1>(info_spy.snapshot().at(0)), true);
     ASSERT_EQ(std::get<2>(info_spy.snapshot().at(0)), true);
@@ -603,7 +603,7 @@ TEST(TestLoggingEngine, diagnostic_slot_forwards_debug_level_with_timestamp_and_
                                           Q_ARG(int, static_cast<int>(fastecu::LogLevel::Debug)),
                                           Q_ARG(QString, QString("debug diagnostic"))));
 
-    ASSERT_EQ(debug_spy.count(), 1u);
+    ASSERT_EQ(debug_spy.count(), 1U);
     ASSERT_EQ(std::get<0>(debug_spy.snapshot().at(0)), QString("debug diagnostic"));
     ASSERT_EQ(std::get<1>(debug_spy.snapshot().at(0)), true);
     ASSERT_EQ(std::get<2>(debug_spy.snapshot().at(0)), true);
