@@ -705,7 +705,7 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8104CanExecutor::execute(const F
         // Legacy pads the unread low 0x8000 region with 0xFF (lines
         // 537-544), the same padding shape as the sibling MH8111 family.
         bytes::Bytes rom(kReadRegion.start, 0xFF);
-        rom.insert(rom.end(), window->begin(), window->end());
+        rom.append_range(*window);
         return FlashExecutionResult{
             .operation = FlashOperation::Read,
             .read_bytes = std::move(rom),

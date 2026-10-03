@@ -514,7 +514,7 @@ void script_flash_block(ScriptedCanFlashTransport& transport, const BlockFixture
     for (std::uint32_t address = block.start; address < block.start + block.length; address += kWriteChunkSize)
     {
         bytes::Bytes write_payload = be32(address);
-        write_payload.insert(write_payload.end(), chunk.begin(), chunk.end());
+        write_payload.append_range(chunk);
         transport.expectWrite(beef_request(0x22, write_payload));
         transport.queueRead(beef_response(0x62));
         if ((address + kWriteChunkSize - block.start) % kCommitSize == 0)

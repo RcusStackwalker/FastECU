@@ -101,7 +101,7 @@ void scriptWriteBody(ScriptedKlineFlashTransport& transport, bytes::ByteView ima
     {
         bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
                              static_cast<bytes::Byte>(address)};
-        request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x80);
+        request.append_range(bytes::ByteView(encrypted).subspan(address, 0x80));
         transport.exchange(frame(request));
         if ((address / 0x80) % 2 == 0)
         {
@@ -251,7 +251,7 @@ TEST(SubaruHitachiM32rKlineExecutor, EraseAcknowledgementAccumulatesBoundedFragm
     {
         bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
                              static_cast<bytes::Byte>(address)};
-        request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x80);
+        request.append_range(bytes::ByteView(encrypted).subspan(address, 0x80));
         transport.exchange(frame(request));
         transport.queue_no_frame();
     }
