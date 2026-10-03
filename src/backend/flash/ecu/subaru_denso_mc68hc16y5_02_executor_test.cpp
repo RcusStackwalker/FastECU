@@ -3,6 +3,9 @@
 // replacement for flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp.
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_executor.h"
 
+#include <algorithm>
+#include <span>
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -307,8 +310,7 @@ void script_block_transfer(ScriptedKlineFlashTransport& transport, const flashde
         // so folding would make both sides the same expression and a bug in the
         // splice would cancel out instead of failing the test.
         bytes::Bytes write_payload = composeBe(address);
-        write_payload.insert(write_payload.end(), image.begin() + block_image_offset + offset,
-                             image.begin() + block_image_offset + offset + kChunkSize);
+        write_payload.append_range(bytes::ByteView(image).subspan(block_image_offset + offset, kChunkSize));
         transport.exchange(framed(0x22, write_payload), framed(0x62));
 
         if ((offset + kChunkSize) % kCommitSize == 0)
@@ -346,7 +348,7 @@ bytes::Bytes write_chunk_request(const flashdev_t& device, bytes::ByteView image
     // image bytes must not share production's compose expression.
     bytes::Bytes payload = composeBe(block.start + offset);
     const std::size_t image_offset = packed_block_offset(device, block_no) + offset;
-    payload.insert(payload.end(), image.begin() + image_offset, image.begin() + image_offset + kChunkSize);
+    payload.append_range(bytes::ByteView(image).subspan(image_offset, kChunkSize));
     return framed(0x22, payload);
 }
 
@@ -912,7 +914,7 @@ TEST(SubaruDensoMc68hc16y5_02Executor, TestWriteSendsValidateNotCommit)
     ASSERT_LT(kDifferingBlock, device->numblocks);
     bytes::Bytes image(device->romsize, 0x00);
     const std::size_t image_offset = packed_block_offset(*device, kDifferingBlock);
-    std::fill(image.begin() + image_offset, image.begin() + image_offset + device->fblocks[kDifferingBlock].len, 0xA5);
+    std::ranges::fill(std::span(image).subspan(image_offset, device->fblocks[kDifferingBlock].len), bytes::Byte{0xA5});
     auto plan = stock_write_plan(FlashOperation::TestWrite, image);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 

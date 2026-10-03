@@ -64,7 +64,7 @@ Result<MapPresentation> present_map(const calibration::CalibrationSession& sessi
 
 QString format_map_value(const QString& value, const QString& format)
 {
-    const int decimals = format.contains('.') ? format.split('.').at(1).count(QLatin1Char('0')) : 0;
+    const auto decimals = static_cast<int>(format.contains('.') ? format.split('.').at(1).count(QLatin1Char('0')) : 0);
     return QString::number(value.toFloat(), 'f', decimals);
 }
 
@@ -96,7 +96,7 @@ QColor map_cell_color(float value, MapColorBounds bounds)
         bounds.maximum == bounds.minimum
             ? 0.0
             : std::clamp(kScale * (value - bounds.minimum) / (bounds.maximum - bounds.minimum), 0.0, kScale);
-    return QColor::fromHsvF(hue, 0.85, 0.85);
+    return QColor::fromHsvF(static_cast<float>(hue), 0.85F, 0.85F);
 }
 
 } // namespace fastecu::ui

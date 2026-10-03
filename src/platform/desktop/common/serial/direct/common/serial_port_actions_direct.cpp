@@ -97,7 +97,7 @@ int SerialPortActionsDirect::change_port_speed(QString portSpeed)
         {
             emit LOG_D("Adapter type is generic OBD2...", true, true);
 
-            if (serial->setBaudRate(serial_port_baudrate.toDouble()))
+            if (serial->setBaudRate(static_cast<qint32>(serial_port_baudrate.toDouble())))
             {
                 delay(50);
                 emit LOG_D("Baudrate set to " + portSpeed + " OK", true, true);
@@ -165,7 +165,7 @@ QByteArray SerialPortActionsDirect::five_baud_init(QByteArray output)
         }
         for (unsigned long i = 0; i < OutputMsg.NumOfBytes; i++)
         {
-            response.append(OutputMsg.BytePtr[i]);
+            response.append(static_cast<char>(OutputMsg.BytePtr[i]));
         }
     }
     else
@@ -200,7 +200,7 @@ QByteArray SerialPortActionsDirect::five_baud_init(QByteArray output)
         {
             // delay(30);
             output.clear();
-            output.append(~((uint8_t)response.at(2)));
+            output.append(static_cast<char>(~static_cast<uint8_t>(response.at(2))));
             write_serial_data_echo_check(output);
             response.append(read_serial_obd_data(200));
         }
@@ -488,7 +488,7 @@ QString SerialPortActionsDirect::open_serial_port()
         if (!(serial->isOpen() && serial->isWritable()))
         {
             serial->setPortName(serial_port);
-            serial->setBaudRate(serial_port_baudrate.toDouble());
+            serial->setBaudRate(static_cast<qint32>(serial_port_baudrate.toDouble()));
             serial->setDataBits(QSerialPort::Data8);
             serial->setStopBits(QSerialPort::OneStop);
             // serial->setParity(QSerialPort::EvenParity);
@@ -618,8 +618,8 @@ QByteArray SerialPortActionsDirect::set_error()
 {
     QByteArray received;
 
-    received.append((uint8_t)0x80);
-    received.append((uint8_t)0xf0);
+    received.append(static_cast<char>(0x80));
+    received.append(static_cast<char>(0xf0));
     received.append((uint8_t)0x10);
     received.append((uint8_t)0x03);
     received.append((uint8_t)0x7f);
@@ -887,17 +887,17 @@ QByteArray SerialPortActionsDirect::append_ssm_header(QByteArray output)
     uint8_t chk_sum = 0;
     uint8_t msglength = output.length();
 
-    output.insert(0, kline_startbyte);
-    output.insert(1, kline_target_id);
-    output.insert(2, kline_tester_id);
-    output.insert(3, msglength);
+    output.insert(0, static_cast<char>(kline_startbyte));
+    output.insert(1, static_cast<char>(kline_target_id));
+    output.insert(2, static_cast<char>(kline_tester_id));
+    output.insert(3, static_cast<char>(msglength));
 
     for (int i = 0; i < output.length(); i++)
     {
         chk_sum = chk_sum + output.at(i);
     }
 
-    output.append(chk_sum);
+    output.append(static_cast<char>(chk_sum));
 
     // LOG_D("Generated iso9141 message: " + parse_message_to_hex(output), true, true);
 
@@ -908,16 +908,16 @@ QByteArray SerialPortActionsDirect::append_iso9141_header(QByteArray output)
 {
     uint8_t chk_sum = 0;
 
-    output.insert(0, kline_startbyte);
-    output.insert(1, kline_target_id);
-    output.insert(2, kline_tester_id);
+    output.insert(0, static_cast<char>(kline_startbyte));
+    output.insert(1, static_cast<char>(kline_target_id));
+    output.insert(2, static_cast<char>(kline_tester_id));
 
     for (int i = 0; i < output.length(); i++)
     {
         chk_sum = chk_sum + output.at(i);
     }
 
-    output.append(chk_sum);
+    output.append(static_cast<char>(chk_sum));
 
     // LOG_D("Generated iso9141 message: " + parse_message_to_hex(output), true, true);
 
@@ -931,16 +931,16 @@ QByteArray SerialPortActionsDirect::append_iso14230_header(QByteArray output)
 
     // emit LOG_D("Adding iso14230 header to message", true, true);
 
-    output.insert(0, kline_startbyte);
-    output.insert(1, kline_target_id);
-    output.insert(2, kline_tester_id);
+    output.insert(0, static_cast<char>(kline_startbyte));
+    output.insert(1, static_cast<char>(kline_target_id));
+    output.insert(2, static_cast<char>(kline_tester_id));
     if (msglength < 0x40)
     {
         output[0] = static_cast<char>(static_cast<uint8_t>(output[0]) | msglength);
     }
     else
     {
-        output.insert(3, msglength);
+        output.insert(3, static_cast<char>(msglength));
     }
 
     for (int i = 0; i < output.length(); i++)
@@ -948,7 +948,7 @@ QByteArray SerialPortActionsDirect::append_iso14230_header(QByteArray output)
         chk_sum = chk_sum + output.at(i);
     }
 
-    output.append(chk_sum);
+    output.append(static_cast<char>(chk_sum));
 
     // LOG_D("Generated iso14230 message: " + parse_message_to_hex(output), true, true);
 
@@ -1089,7 +1089,7 @@ QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout_arg)
         {
             for (unsigned long i = 0; i < rxmsg.DataSize; i++)
             {
-                received.append((uint8_t)rxmsg.Data[i]);
+                received.append(static_cast<char>(rxmsg.Data[i]));
             }
         }
         else
@@ -1109,7 +1109,7 @@ QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout_arg)
             }
             for (unsigned long i = 0; i < rxmsg.DataSize; i++)
             {
-                received.append((uint8_t)rxmsg.Data[i]);
+                received.append(static_cast<char>(rxmsg.Data[i]));
             }
         }
     }
@@ -1648,7 +1648,7 @@ void SerialPortActionsDirect::accurate_delay(double timeout_arg)
 {
     double seconds = timeout_arg / 1000.0;
     auto spinStart = std::chrono::high_resolution_clock::now();
-    while ((std::chrono::high_resolution_clock::now() - spinStart).count() / 1e9 < seconds)
+    while (static_cast<double>((std::chrono::high_resolution_clock::now() - spinStart).count()) / 1e9 < seconds)
     {
         ;
     }

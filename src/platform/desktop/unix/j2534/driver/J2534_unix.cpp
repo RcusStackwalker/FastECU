@@ -56,7 +56,7 @@ QString J2534::open_serial_port(const QString& serial_port)
         if (!(serial->isOpen() && serial->isWritable()))
         {
             serial->setPortName(serial_port);
-            serial->setBaudRate(serial_port_baudrate.toDouble());
+            serial->setBaudRate(static_cast<qint32>(serial_port_baudrate.toDouble()));
             serial->setDataBits(QSerialPort::Data8);
             serial->setStopBits(QSerialPort::OneStop);
             serial->setParity(QSerialPort::NoParity);
@@ -146,16 +146,16 @@ QByteArray J2534::write_serial_iso14230_data(QByteArray output)
     uint8_t chk_sum = 0;
     uint8_t msglength = output.length();
 
-    output.insert(0, 0x80);
+    output.insert(0, static_cast<char>(0x80));
     output.insert(1, 0x10);
-    output.insert(2, 0xFC);
-    output.insert(3, msglength);
+    output.insert(2, static_cast<char>(0xFC));
+    output.insert(3, static_cast<char>(msglength));
 
     for (int i = 0; i < output.length(); i++)
     {
         chk_sum = chk_sum + output.at(i);
     }
-    output.append(chk_sum);
+    output.append(static_cast<char>(chk_sum));
 
     return output;
 }
@@ -397,7 +397,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                 msg_index = 0;
                 for (unsigned long i = 0; i < msg_byte_cnt; i++)
                 {
-                    pMsg->Data[msg_index++] = (uint8_t)msg.at(i);
+                    pMsg->Data[msg_index++] = (uint8_t)msg.at(static_cast<qsizetype>(i));
                 }
 
                 pMsg->RxStatus = NORM_MSG;
@@ -523,17 +523,17 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                     {
                         if (received.at(2) == '3' || received.at(2) == '4')
                         {
-                            pMsg->Data[msg_index++] = (uint8_t)received.at(i + 5);
+                            pMsg->Data[msg_index++] = (uint8_t)received.at(static_cast<qsizetype>(i) + 5);
                         }
                         if (received.at(2) == '5' || received.at(2) == '6')
                         {
                             if (chunk_cnt)
                             {
-                                pMsg->Data[msg_index++] = (uint8_t)received.at(i + 13);
+                                pMsg->Data[msg_index++] = (uint8_t)received.at(static_cast<qsizetype>(i) + 13);
                             }
                             else
                             {
-                                pMsg->Data[msg_index++] = (uint8_t)received.at(i + 9);
+                                pMsg->Data[msg_index++] = (uint8_t)received.at(static_cast<qsizetype>(i) + 9);
                             }
                         }
                     }
@@ -542,10 +542,10 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                     if (received.at(2) == '5')
                     {
                         std::array<char, 4> data{};
-                        data[0] = (uint8_t)received.at(8);
-                        data[1] = (uint8_t)received.at(7);
-                        data[2] = (uint8_t)received.at(6);
-                        data[3] = (uint8_t)received.at(5);
+                        data[0] = received.at(8);
+                        data[1] = received.at(7);
+                        data[2] = received.at(6);
+                        data[3] = received.at(5);
                         pMsg->Timestamp = parse_ts(data.data());
                         pMsg->DataSize = msg_index;
                         msg_cnt++;
@@ -570,19 +570,19 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                         {
                             if (chunk_cnt)
                             {
-                                pMsg->Data[msg_index++] = (uint8_t)received.at(i + 13);
+                                pMsg->Data[msg_index++] = (uint8_t)received.at(static_cast<qsizetype>(i) + 13);
                             }
                             else
                             {
-                                pMsg->Data[msg_index++] = (uint8_t)received.at(i + 9);
+                                pMsg->Data[msg_index++] = (uint8_t)received.at(static_cast<qsizetype>(i) + 9);
                             }
                         }
                     }
                     std::array<char, 4> data{};
-                    data[0] = (uint8_t)received.at(8);
-                    data[1] = (uint8_t)received.at(7);
-                    data[2] = (uint8_t)received.at(6);
-                    data[3] = (uint8_t)received.at(5);
+                    data[0] = received.at(8);
+                    data[1] = received.at(7);
+                    data[2] = received.at(6);
+                    data[3] = received.at(5);
                     pMsg->Timestamp = parse_ts(data.data());
                     pMsg->DataSize = msg_index;
                     msg_cnt++;
@@ -628,7 +628,7 @@ long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg,
         output.append(str.toUtf8());
         for (unsigned long i = 0; i < pMsg->DataSize; i++)
         {
-            output.append(pMsg->Data[i]);
+            output.append(static_cast<char>(pMsg->Data[i]));
         }
         write_serial_data(output);
         pMsg++;
@@ -650,7 +650,7 @@ long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG
     output.append(str.toUtf8());
     for (unsigned long i = 0; i < pMsg->DataSize; i++)
     {
-        output.append(pMsg->Data[i]);
+        output.append(static_cast<char>(pMsg->Data[i]));
     }
 
     write_serial_data(output);
@@ -690,17 +690,17 @@ long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long Filter
 
     for (unsigned long i = 0; i < pMaskMsg->DataSize; i++)
     {
-        output.append(pMaskMsg->Data[i]);
+        output.append(static_cast<char>(pMaskMsg->Data[i]));
     }
     for (unsigned long i = 0; i < pPatternMsg->DataSize; i++)
     {
-        output.append(pPatternMsg->Data[i]);
+        output.append(static_cast<char>(pPatternMsg->Data[i]));
     }
     if (pFlowControlMsg)
     {
         for (unsigned long i = 0; i < pFlowControlMsg->DataSize; i++)
         {
-            output.append(pFlowControlMsg->Data[i]);
+            output.append(static_cast<char>(pFlowControlMsg->Data[i]));
         }
     }
     // emit LOG_D("Send data:" << parseMessageToHex(output);
@@ -1091,7 +1091,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         received_local.clear();
         for (unsigned long i_local = 0; i_local < rxmsg.DataSize; i_local++)
         {
-            received_local.append(rxmsg.Data[i_local]);
+            received_local.append(static_cast<char>(rxmsg.Data[i_local]));
         }
         emit LOG_D("Response: " + parseMessageToHex(received_local), true, true);
         QString response = QString(received_local).split(" ").at(QString(received_local).split(" ").length() - 1);
@@ -1125,7 +1125,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         for (unsigned long i_local = 0; i_local < rxmsg.DataSize; i_local++)
         {
             response->BytePtr[i_local] = rxmsg.Data[i_local];
-            received_local.append(rxmsg.Data[i_local]);
+            received_local.append(static_cast<char>(rxmsg.Data[i_local]));
         }
         response->NumOfBytes = rxmsg.DataSize;
         emit LOG_D("Response: " + parseMessageToHex(received_local), true, true);
@@ -1140,7 +1140,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         output.append(str.toUtf8());
         for (i = 0; i < msg->DataSize; i++)
         {
-            output.append(msg->Data[i]);
+            output.append(static_cast<char>(msg->Data[i]));
         }
         write_serial_data(output);
         emit LOG_D("Sent: " + parseMessageToHex(output), true, true);

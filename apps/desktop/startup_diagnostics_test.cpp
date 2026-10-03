@@ -102,8 +102,8 @@ TEST(StartupDiagnosticsTest, realPresentersReportSeverityAndOrderedDetails)
     ASSERT_TRUE(dialogs.texts[0].contains(detail));
     ASSERT_TRUE(dialogs.texts[1].contains("first /a.cfg\nsecond /b.cfg"));
     // Platform plugins may emit their own warnings; compare the presenter's messages.
-    int failure = messages.texts.indexOf(dialogs.texts[0]);
-    int warning = messages.texts.indexOf(dialogs.texts[1]);
+    const qsizetype failure = messages.texts.indexOf(dialogs.texts[0]);
+    const qsizetype warning = messages.texts.indexOf(dialogs.texts[1]);
     ASSERT_TRUE(failure >= 0);
     ASSERT_TRUE(warning > failure);
     ASSERT_EQ(messages.levels[failure], QtCriticalMsg);

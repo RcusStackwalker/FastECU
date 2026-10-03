@@ -740,7 +740,8 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
             curspeed = 1;
         }
         const std::uint32_t bytes_after = flashbytesindex + kWriteChunkSize;
-        unsigned tleft = static_cast<unsigned>((static_cast<float>(flashbytescount - bytes_after)) / curspeed);
+        unsigned tleft =
+            static_cast<unsigned>((static_cast<float>(flashbytescount - bytes_after)) / static_cast<float>(curspeed));
         if (tleft > 9999U)
         {
             tleft = 9999U;

@@ -45,7 +45,7 @@ VehicleSelect::VehicleSelect(const fastecu::config::ConfigSession& config, QWidg
     // qDebug() << "Full width =" << width;
     ui->car_version_tree_widget->setMinimumWidth(width);
 
-    int height = width / 4.0 * 2.5 + 18;
+    const auto height = static_cast<int>(width / 4.0 * 2.5 + 18);
     this->setFixedHeight(height);
 
     font = ui->car_make_tree_widget->font();

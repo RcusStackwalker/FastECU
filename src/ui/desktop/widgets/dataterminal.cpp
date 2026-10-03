@@ -227,7 +227,7 @@ void DataTerminal::sendToInterface()
                 msg_local = msgList.at(j).split(" ");
                 for (int i = 0; i < msg_local.length(); i++)
                 {
-                    output.append(msg_local.at(i).toUInt(&ok, 16));
+                    output.append(static_cast<char>(msg_local.at(i).toUInt(&ok, 16)));
                 }
                 if (ui->klineProtocol->currentText() == "SSM")
                 {
@@ -242,7 +242,7 @@ void DataTerminal::sendToInterface()
                 if (msgList.at(j + 1).startsWith("delay"))
                 {
                     emit LOG_D("Set delay", true, true);
-                    delay(msgList.at(j + 1).split(")").at(1).split("(").at(0).toUInt());
+                    delay(static_cast<int>(msgList.at(j + 1).split(")").at(1).split("(").at(0).toUInt()));
                     j++;
                 }
             }
@@ -329,7 +329,7 @@ void DataTerminal::sendToInterface()
                 }
                 for (int i = 0; i < msg_local.length(); i++)
                 {
-                    output.append(msg_local.at(i).toUInt(&ok, 16));
+                    output.append(static_cast<char>(msg_local.at(i).toUInt(&ok, 16)));
                 }
                 emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
             }
@@ -338,7 +338,7 @@ void DataTerminal::sendToInterface()
                 if (msgList.at(j + 1).startsWith("delay"))
                 {
                     emit LOG_D("Set delay", true, true);
-                    rspDelay = msgList.at(j + 1).split(")").at(1).split("(").at(0).toUInt();
+                    rspDelay = static_cast<int>(msgList.at(j + 1).split(")").at(1).split("(").at(0).toUInt());
                     j++;
                 }
             }
@@ -363,12 +363,12 @@ QByteArray DataTerminal::add_ssm_header(QByteArray output, uint8_t tester_id, ui
 
     emit LOG_D("Append SSM header for message: " + parse_message_to_hex(output) + " length: " + QString::number(length),
                true, true);
-    output.insert(0, (uint8_t)0x80);
+    output.insert(0, static_cast<char>(0x80));
     output.insert(1, static_cast<char>(target_id));
     output.insert(2, static_cast<char>(tester_id));
-    output.insert(3, length);
+    output.insert(3, static_cast<char>(length));
 
-    output.append(calculate_checksum(output, dec_0x100));
+    output.append(static_cast<char>(calculate_checksum(output, dec_0x100)));
 
     emit LOG_D("Constructed SSM message: " + parse_message_to_hex(output), true, true);
     return output;

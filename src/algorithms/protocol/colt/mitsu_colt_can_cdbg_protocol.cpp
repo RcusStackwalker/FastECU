@@ -43,7 +43,7 @@ std::uint32_t seedToKey(std::uint32_t seed)
         data[i] = std::rotl(x, 3);
     }
 
-    int parity = (data[0] & 1U) + (data[1] & 1U) + (data[2] & 1U) + (data[3] & 1U);
+    const auto parity = (data[0] & 1U) + (data[1] & 1U) + (data[2] & 1U) + (data[3] & 1U);
     std::array<bytes::Byte, 4> n{};
     switch (parity)
     {
