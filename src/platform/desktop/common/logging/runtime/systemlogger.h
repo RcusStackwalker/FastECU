@@ -18,14 +18,6 @@ class SystemLogger : public QObject
     void delay(int timeout);
 
   private:
-    enum
-    {
-        _LOG_E = 0, // error
-        _LOG_W,     // warning
-        _LOG_I,     // info
-        _LOG_D,     // debug
-    };
-
     QString file_path;
     QString software_name;
     QString software_version;

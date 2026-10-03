@@ -80,7 +80,7 @@ bool SerialPortActionsDirect::is_serial_port_open()
 
 bool SerialPortActionsDirect::set_kline_timings(uint32_t parameter, int value)
 {
-    _P1_MAX = value;
+    p1_max_ms = value;
     return STATUS_SUCCESS;
 }
 
@@ -651,14 +651,14 @@ QByteArray SerialPortActionsDirect::read_serial_obd_data(uint16_t timeout_arg)
         if (serial->bytesAvailable())
         {
             // emit LOG_D("Byte(s) available", true, true);
-            QTime intervalTime = QTime::currentTime().addMSecs(_P1_MAX);
+            QTime intervalTime = QTime::currentTime().addMSecs(p1_max_ms);
             while (QTime::currentTime() < dieTime)
             {
                 if (serial->bytesAvailable())
                 {
                     // emit LOG_D("Byte available", true, true);
                     received.append(serial->read(1));
-                    intervalTime = QTime::currentTime().addMSecs(_P1_MAX);
+                    intervalTime = QTime::currentTime().addMSecs(p1_max_ms);
                 }
                 if (intervalTime < QTime::currentTime())
                 {

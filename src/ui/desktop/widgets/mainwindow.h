@@ -112,14 +112,6 @@ class MainWindow : public QMainWindow
   private:
     MainWindowServices services_;
 
-    enum
-    {
-        _LOG_E = 0, // error
-        _LOG_W,     // warning
-        _LOG_I,     // info
-        _LOG_D,     // debug
-    };
-
     QString software_name;
     QString software_title;
     QString software_version;

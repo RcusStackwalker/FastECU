@@ -107,7 +107,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     std::uint32_t iso15765_source_address = 0;
     std::uint32_t iso15765_destination_address = 0;
 
-    std::uint8_t _P1_MAX = 10;
+    std::uint8_t p1_max_ms = 10;
     bool set_kline_timings(std::uint32_t parameter, int value) override;
 
     bool is_serial_port_open() override;
