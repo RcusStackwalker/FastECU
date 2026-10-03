@@ -1,0 +1,9 @@
+"""Compiler and linker warnings in first-party code are errors.
+
+See docs/adr/0018-treat-first-party-warnings-as-errors.md. This applies to
+every package in this repository and to none of its external dependencies.
+--features=-treat_warnings_as_errors on the command line turns it off for a
+local build only; never commit an opt-out.
+"""
+
+repo(features = ["treat_warnings_as_errors"])
