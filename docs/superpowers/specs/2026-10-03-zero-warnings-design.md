@@ -11,10 +11,11 @@ stays at zero.
 repository: our sources and the moc/uic output generated from them. "Today's
 levels" means the toolchain defaults plus `COMMON_COPTS` — `-Wall` and
 Bazel's small additions on clang and GCC, and the MSVC default (no `/W`
-flag, effectively `/W1`). The gate covers every toolchain CI builds with:
-Apple clang (macOS job), GCC 15 (Linux job), clang on Linux (coverage and
-SonarCloud), the Android NDK clang (portable-core job), and MSVC for both
-the x64 build and the x86 J2534 bridge toolchain.
+flag, effectively `/W1`). The gate covers Apple clang (macOS job), GCC 15
+(Linux job), clang on Linux (coverage and SonarCloud), and MSVC for both
+the x64 build and the x86 J2534 bridge toolchain. The Android NDK clang
+(portable-core job) has no warnings today but is not gated; the desktop
+builds compile the same portable code.
 
 Out of scope:
 
@@ -83,17 +84,19 @@ mock handles a short write.
 and the two SH7058 CAN executor tests bind structured bindings by value;
 bind them by `const auto&`.
 
-**F. GCC 15 `-Warray-bounds` false positives.** Six call sites build a
-padded image with `bytes::Bytes rom(n, 0xFF)` and then
-`rom.insert(rom.end(), …)`: the MH8104 and MH8111 CAN executors and four
-tests (the two SH7058 CAN executor tests, the Hitachi M32R K-Line executor
-test, and the Unisia JECS M32R boot-mode plan test). GCC 15.3 reproduces the
-warning on the MH8104 executor, and three rewrites compile clean:
-`append_range`, reserve-then-insert, and size-then-copy. Use
-`rom.append_range(…)`; Apple clang 21's libc++ supports it. If the Android
-NDK's libc++ does not, use size-then-copy instead. Before rewriting either
-executor, confirm a test asserts the padded read result, and add a
-characterization test if none does.
+**F. GCC 15 `-Warray-bounds` false positives.** Seven sites grow a byte
+vector that already holds data: `rom.insert(rom.end(), …)` after
+`bytes::Bytes rom(n, 0xFF)` in the MH8104 and MH8111 CAN executors, the
+same `insert` pattern in the two SH7058 CAN executor tests and twice in the
+Hitachi M32R K-Line executor test, and a `resize` in the Unisia JECS M32R
+boot-mode plan test. GCC 15.3 reproduces every one. Use `append_range` for
+the `insert` sites and build the boot-mode expectation at full size, then
+fill its prefix; GCC 15.3 compiles all seven rewrites clean, and Apple
+clang 21's libc++ supports `append_range`. If the Android NDK's libc++ does
+not, use size-then-copy instead. Both executors already assert their padded
+read result (`ReadReturnsTheWindowPaddedWithFF`,
+`ReadReturnsTheLowerWindowPaddedWithFF`), so no characterization test is
+needed.
 
 **G. Discarded `[[nodiscard]]` results (MSVC C4834).** MSVC's
 `std::expected` is `[[nodiscard]]`; libc++'s and libstdc++'s are not, which
@@ -166,9 +169,10 @@ Two toolchains need attention:
   a `treat_warnings_as_errors` feature that passes `/WX` to compile and link
   actions, known but not enabled by default, so the J2534 bridge binaries
   are gated too.
-- Check whether `rules_android_ndk`'s toolchain defines the feature. If it
-  does not, record that in the ADR rather than adding a toolchain. The
-  portable code it builds is already gated by the three desktop builds.
+- `rules_android_ndk` 0.1.5 does not define the feature, so the Android
+  cross-compile is not gated. That is accepted and recorded in the ADR: the
+  portable code it builds is already gated by the three desktop builds, and
+  nothing is added to force it.
 
 clang-tidy reads compile commands extracted from the build, which will now
 carry `-Werror`. It reports compiler errors whatever its check filter says,
@@ -219,11 +223,15 @@ escape hatch exists only so local work is not blocked meanwhile.
 - Before the second PR: a clean, uncached macOS build of release `//...`
   prints no compiler or linker warning. Linux and Windows are verified by
   the second PR's CI.
-- The second PR temporarily carries a commit adding an unused local to a
-  portable source. The macOS, Linux, Windows, and portable-core jobs must
-  all fail on it; then the commit is dropped. Once the feature is on, a
-  warning is a failed action and is never cached, so caching cannot hide
-  one.
+- The second PR temporarily carries a commit that discards a
+  `[[nodiscard]]` result in a portable source and in the x86 J2534 bridge
+  (the one warning all three compilers report at today's levels). The
+  macOS, Linux, and Windows Bazel jobs must all fail on it; then the commit
+  is dropped. Once the feature is on, a warning is a failed action and is
+  never cached, so caching cannot hide one.
+- GCC-only warnings in portable sources can be reproduced without CI by
+  compiling them with GCC 15 in Docker (`gcc:15`, `-O2 -Wall`, googletest
+  and pugixml headers from the Bazel output base).
 - All CI jobs pass on the second PR: Bazel on three platforms, portable
   core, SonarCloud, clang-tidy, and pre-commit.
 - `bazel test --config=release //...` passes on each platform.
