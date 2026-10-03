@@ -453,6 +453,32 @@ class ClangTidyRunnerTest(unittest.TestCase):
         tree = runner._workspace_tree(self.root)
         self.assertEqual([], runner._gated_packages(tree))
 
+    def test_gated_packages_include_os_selected_sources(self) -> None:
+        (self.root / "sel").mkdir()
+        (self.root / "sel" / "BUILD.bazel").write_text(
+            'x(srcs = select({"@platforms//os:windows": ["w.cpp"], "//conditions:default": []}))\n'
+        )
+        (self.root / "sel" / "w.cpp").write_text("int w;\n")
+        tree = runner._workspace_tree(self.root)
+        self.assertEqual([PurePath("sel")], runner._gated_packages(tree))
+
+    def test_scope_prefix_that_does_not_exist_is_an_error(self) -> None:
+        self.write_manifest('[os.windows]\nprefixes = ["renamed_away"]\n')
+        source = self.root / _MAIN_CPP
+        source.write_text("int main() { return 0; }\n")
+        self.write_database([source])
+        with self.assertRaisesRegex(runner.WorkflowError, "renamed_away.*does not exist"):
+            self.run_scoped()
+
+    def test_scope_with_no_translation_units_is_an_error_not_a_skip(self) -> None:
+        self.write_manifest('[os.windows]\nprefixes = ["win"]\n')
+        (self.root / "win").mkdir()
+        portable_source = self.root / "p.cpp"
+        portable_source.write_text("int p;\n")
+        self.write_database([portable_source])
+        with self.assertRaisesRegex(runner.WorkflowError, "no translation units under"):
+            self.run_scoped()
+
     def test_guard_fails_for_a_gated_package_the_manifest_omits(self) -> None:
         self.write_manifest('[os.windows]\nprefixes = ["covered"]\n')
         (self.root / "gated").mkdir()

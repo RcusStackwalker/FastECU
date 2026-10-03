@@ -230,6 +230,11 @@ def load_project_entries(workspace: Path, database: Path) -> list[dict[str, obje
     return entries
 
 
+# A BUILD file gates sources by platform either with target_compatible_with or by
+# select()ing them on an OS constraint.
+_GATING_MARKERS = ("target_compatible_with", "@platforms//os:")
+
+
 def _gated_packages(tree: _WorkspaceTree) -> list[PurePath]:
     """Packages whose BUILD file gates targets by platform and that own C/C++ sources."""
     # Hidden directories hold other checkouts (.worktrees/<branch>) or tool state,
@@ -251,7 +256,7 @@ def _gated_packages(tree: _WorkspaceTree) -> list[PurePath]:
             text = path.read_text(encoding="utf-8")
         except OSError, UnicodeError:
             continue
-        if "target_compatible_with" in text:
+        if any(marker in text for marker in _GATING_MARKERS):
             packages.append(relative.parent)
     return sorted(packages)
 
@@ -809,6 +814,12 @@ def run_workflow(
                 f"known: {', '.join(sorted(manifest.os_prefixes))}"
             )
         scope_prefixes = manifest.os_prefixes[scope_os]
+        for prefix in scope_prefixes:
+            if not (workspace / prefix).is_dir():
+                raise WorkflowError(
+                    f"scope prefix {prefix.as_posix()} for {scope_os!r} does not exist "
+                    f"in the workspace; fix {scope_manifest.MANIFEST_NAME}"
+                )
         targets = scope_manifest.build_targets(scope_prefixes)
         build_args = _retarget(build_args, targets)
         # Not compdb_args: Hedron's refresh rejects target patterns given at run time.
@@ -831,12 +842,17 @@ def run_workflow(
                 if (relative := _entry_relative_path(entry, tree)) is not None
                 and scope_manifest.in_scope(relative, scope_prefixes)
             ]
+            if not entries:
+                raise WorkflowError(
+                    f"no translation units under the {scope_os!r} scope prefixes in the "
+                    "compilation database; the scope would silently analyze nothing"
+                )
         if changed:
             changed_paths = changed_files(workspace, command_runner)
             entries, notes = filter_changed_entries(entries, changed_paths, workspace.resolve())
             for note in notes:
                 print(note)
-    if (changed or scope_os is not None) and not entries:
+    if changed and not entries:
         print("clang-tidy: no changed C/C++ translation units to analyze, skipping.")
         return
     tools = discover_tools(mode, platform_name=platform_name, environ=environ)

@@ -430,6 +430,8 @@ locally before that gate ever sees the change:
   build, Windows only its exclusive code (`-- --scope-os windows`). The runner
   fails when a `BUILD.bazel` gates targets by platform and no manifest prefix
   covers it.
+  In CI, clang-tidy runs as its own `clang-tidy` job (Linux, plus Windows for
+  Windows-exclusive code), in parallel with the Bazel build and test job.
 - Running the Sonar CLI locally, against the same `sonar-project.properties`
   CI uses: install the SonarSource build wrapper for your platform from
   `https://sonarcloud.io/static/cpp/` (`build-wrapper-macosx-x86` on macOS,
