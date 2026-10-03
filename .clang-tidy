@@ -43,6 +43,7 @@ Checks: >
   readability-braces-around-statements,
   readability-container-size-empty,
   readability-duplicate-include,
+  readability-identifier-naming,
   readability-redundant-member-init,
   readability-simplify-boolean-expr,
   readability-uppercase-literal-suffix,
@@ -58,3 +59,16 @@ CheckOptions:
     value: '1'
   - key: modernize-deprecated-headers.CheckHeaderFile
     value: True
+  # Google C++ style, adopted one identifier kind at a time (#49); see the
+  # Naming section of docs/coding-style.md.
+  - key: readability-identifier-naming.ConstexprVariableCase
+    value: CamelCase
+  - key: readability-identifier-naming.ConstexprVariablePrefix
+    value: k
+  # Google's exception: an underscore may separate words only where
+  # capitalization cannot, i.e. next to a digit (kFlashBlocksSH7058_1block).
+  # Every underscore sits in a token holding its digit neighbour, so no name
+  # can end on one or contain "__". A matching name skips the check entirely,
+  # which is why the pattern itself spells out the k prefix and CamelCase.
+  - key: readability-identifier-naming.ConstexprVariableIgnoredRegexp
+    value: '^k[A-Z]([A-Za-z0-9]|_?[0-9]_[A-Za-z]|_[0-9])*$'

@@ -817,8 +817,8 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             for (index = 5; index < (message.length() - 1); index++)
             {
                 biu_data_result = biu_data_names.at(static_cast<qsizetype>((index - 5) * 2));
-                calc_result = ((uint8_t)message.at(index) * biu_data_factors[static_cast<ptrdiff_t>((index - 5) * 2)]) +
-                              biu_data_factors[(index - 5) * 2 + 1];
+                calc_result = ((uint8_t)message.at(index) * kBiuDataFactors[static_cast<ptrdiff_t>((index - 5) * 2)]) +
+                              kBiuDataFactors[(index - 5) * 2 + 1];
                 biu_data_result.append(QString("%1 ").arg(calc_result));
                 biu_data_result.append(biu_data_names.at((index - 5) * 2 + 1));
                 data_result->append(biu_data_result);
@@ -850,7 +850,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
             calc_result = bytes::readU16Le(bytes::view(message), 5);
             calc_result =
-                (calc_result * can_data_factors[static_cast<ptrdiff_t>(item * 2)]) + can_data_factors[item * 2 + 1];
+                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
             can_data_result.append(QString("%1 ").arg(calc_result));
             can_data_result.append(can_data_names.at(item * 2 + 1));
             data_result->append(can_data_result);
@@ -870,7 +870,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
             calc_result = (uint8_t)message.at(9);
             calc_result =
-                (calc_result * can_data_factors[static_cast<ptrdiff_t>(item * 2)]) + can_data_factors[item * 2 + 1];
+                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
             can_data_result.append(QString("%1 ").arg(calc_result));
             can_data_result.append(can_data_names.at(item * 2 + 1));
             data_result->append(can_data_result);
@@ -881,7 +881,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
             calc_result = bytes::readU16Le(bytes::view(message), 10);
             calc_result =
-                (calc_result * can_data_factors[static_cast<ptrdiff_t>(item * 2)]) + can_data_factors[item * 2 + 1];
+                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
             can_data_result.append(QString("%1 ").arg(calc_result));
             can_data_result.append(can_data_names.at(item * 2 + 1));
             data_result->append(can_data_result);
@@ -892,7 +892,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
             calc_result = bytes::readU16Le(bytes::view(message), 12);
             calc_result =
-                (calc_result * can_data_factors[static_cast<ptrdiff_t>(item * 2)]) + can_data_factors[item * 2 + 1];
+                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
             can_data_result.append(QString("%1 ").arg(calc_result));
             can_data_result.append(can_data_names.at(item * 2 + 1));
             data_result->append(can_data_result);
@@ -903,7 +903,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
             calc_result = (uint8_t)message.at(14);
             calc_result =
-                (calc_result * can_data_factors[static_cast<ptrdiff_t>(item * 2)]) + can_data_factors[item * 2 + 1];
+                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
             can_data_result.append(QString("%1 ").arg(calc_result));
             can_data_result.append(can_data_names.at(item * 2 + 1));
             data_result->append(can_data_result);
@@ -914,7 +914,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
             calc_result = (uint8_t)message.at(15);
             calc_result =
-                (calc_result * can_data_factors[static_cast<ptrdiff_t>(item * 2)]) + can_data_factors[item * 2 + 1];
+                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
             can_data_result.append(QString("%1 ").arg(calc_result));
             can_data_result.append(can_data_names.at(item * 2 + 1));
             data_result->append(can_data_result);
@@ -925,7 +925,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
             calc_result = (uint8_t)message.at(16);
             calc_result =
-                (calc_result * can_data_factors[static_cast<ptrdiff_t>(item * 2)]) + can_data_factors[item * 2 + 1];
+                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
             can_data_result.append(QString("%1 ").arg(calc_result));
             can_data_result.append(can_data_names.at(item * 2 + 1));
             data_result->append(can_data_result);
@@ -936,7 +936,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
             can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
             calc_result = (uint8_t)message.at(17);
             calc_result =
-                (calc_result * can_data_factors[static_cast<ptrdiff_t>(item * 2)]) + can_data_factors[item * 2 + 1];
+                (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
             can_data_result.append(QString("%1 ").arg(calc_result));
             can_data_result.append(can_data_names.at(item * 2 + 1));
             data_result->append(can_data_result);

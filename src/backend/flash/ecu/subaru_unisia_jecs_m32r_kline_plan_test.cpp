@@ -175,20 +175,20 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, RejectsTestWriteEverywhereAndWriteOnReadOnly
 
 TEST(SubaruUnisiaJecsM32rKlinePlan, WriteImageMustBeExactlyTheRomSize)
 {
-    constexpr std::string_view protocol = "sub_ecu_unisia_jecs_20";
-    constexpr std::string_view mcu = "M32R_128KB";
+    constexpr std::string_view kProtocol = "sub_ecu_unisia_jecs_20";
+    constexpr std::string_view kMcu = "M32R_128KB";
     // Legacy write_mem() :524 computed blocks = size / 0x80 and silently
     // dropped any tail; one byte over is exactly that trailing partial block.
     for (const std::size_t size : {std::size_t{0x20000 - 1}, std::size_t{0x20000 + 1}, std::size_t{0x10000}})
     {
-        EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Write, protocol, mcu,
+        EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Write, kProtocol, kMcu,
                                                              bytes::Bytes(size, 0x00), false),
                     IsErr(ErrorKind::InvalidConfig))
             << size;
     }
-    EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Write, protocol, mcu, std::nullopt, false),
+    EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Write, kProtocol, kMcu, std::nullopt, false),
                 IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Read, protocol, mcu,
+    EXPECT_THAT(build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Read, kProtocol, kMcu,
                                                          bytes::Bytes(0x20000, 0x00), false),
                 IsErr(ErrorKind::InvalidConfig));
 }

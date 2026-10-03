@@ -67,7 +67,7 @@ Result<pugi::xml_node> identity_element(pugi::xml_node rom, std::string_view sou
         return invalid(source, "element <rom> child <romid>", "duplicate singleton identity element");
     }
 
-    static constexpr std::array singleton_children{
+    static constexpr std::array kSingletonChildren{
         "xmlid",
         "internalidaddress",
         "internalidstring",
@@ -84,7 +84,7 @@ Result<pugi::xml_node> identity_element(pugi::xml_node rom, std::string_view sou
         "filesize",
         "notes",
     };
-    for (const char *child_name : singleton_children)
+    for (const char *child_name : kSingletonChildren)
     {
         const pugi::xml_node child = rom_id.child(child_name);
         if (child && child.next_sibling(child_name))

@@ -272,11 +272,11 @@ TEST_F(CalibrationOperationCoordinator, EmptyDefinedMethodReselectsBeforeChecksu
 {
     // Row 2 is the last proto_a row; making it a Nissan shows that the
     // checksum request reads the reselected vehicle, not row 0.
-    constexpr std::string_view subaru_forester = "<make>Subaru</make><model>Forester</model>";
+    constexpr std::string_view kSubaruForester = "<make>Subaru</make><model>Forester</model>";
     std::string protocols{config::testing::kStandardProtocols};
-    const std::size_t forester = protocols.find(subaru_forester);
+    const std::size_t forester = protocols.find(kSubaruForester);
     ASSERT_NE(forester, std::string::npos);
-    protocols.replace(forester, subaru_forester.size(), "<make>Nissan</make><model>Forester</model>");
+    protocols.replace(forester, kSubaruForester.size(), "<make>Nissan</make><model>Forester</model>");
     ASSERT_NO_FATAL_FAILURE(start(protocols));
     ASSERT_NO_FATAL_FAILURE(open_session(header_only_definition(), {}));
     expect_checksum({});

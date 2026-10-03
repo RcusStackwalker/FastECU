@@ -50,9 +50,9 @@ class RemoteUtility : public QObject
     void send_keepalive(void);
     void sendAutoDiscoveryMessage();
 
-    static constexpr int heartbeatInterval{0};
-    static constexpr int keepalive_interval{7000};
-    static constexpr int pings_sequently_missed_limit{5};
+    static constexpr int kHeartbeatInterval{0};
+    static constexpr int kKeepaliveInterval{7000};
+    static constexpr int kPingsSequentlyMissedLimit{5};
 
   private slots:
     void utilityRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);

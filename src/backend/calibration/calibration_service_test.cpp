@@ -600,7 +600,7 @@ TEST(DecodeScaledValues, FormattingMatchesCapturedQtGroundTruth)
         double value;
         const char *expected;
     };
-    static constexpr auto cases = std::to_array<Case>({
+    static constexpr auto kCases = std::to_array<Case>({
         {0.0, "0"},
         {-0.0, "0"},
         {1.0, "1"},
@@ -615,7 +615,7 @@ TEST(DecodeScaledValues, FormattingMatchesCapturedQtGroundTruth)
         {0.000000001, "1e-09"},
     });
     const std::vector<std::uint8_t> rom{0x01};
-    for (const Case& c : cases)
+    for (const Case& c : kCases)
     {
         const std::string literal = std::format("{:.20f}", c.value);
         const auto result = decode_scaled_values(rom, simple_run(1, literal), 15);

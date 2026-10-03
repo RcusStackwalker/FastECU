@@ -82,14 +82,14 @@ bytes::Bytes addHeader(bytes::ByteView output, bytes::Byte testerId, bytes::Byte
 
 bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte senderId)
 {
-    constexpr std::size_t headerLength = 4;
-    constexpr std::size_t checksumLength = 1;
-    if (frame.size() < headerLength + checksumLength)
+    constexpr std::size_t kHeaderLength = 4;
+    constexpr std::size_t kChecksumLength = 1;
+    if (frame.size() < kHeaderLength + kChecksumLength)
     {
         return false;
     }
 
-    if (const std::size_t payloadLength = frame[3]; frame.size() != headerLength + payloadLength + checksumLength)
+    if (const std::size_t payloadLength = frame[3]; frame.size() != kHeaderLength + payloadLength + kChecksumLength)
     {
         return false;
     }
@@ -99,7 +99,7 @@ bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte se
         return false;
     }
 
-    return bytes::sum8(frame.first(frame.size() - checksumLength)) == frame[frame.size() - checksumLength];
+    return bytes::sum8(frame.first(frame.size() - kChecksumLength)) == frame[frame.size() - kChecksumLength];
 }
 
 bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte receiverId, bytes::Byte senderId)

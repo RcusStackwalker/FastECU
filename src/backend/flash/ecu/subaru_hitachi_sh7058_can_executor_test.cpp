@@ -104,8 +104,9 @@ TEST(SubaruHitachiSh7058CanExecutor, ActiveKernelWritesAll4096Frames)
     auto plan =
         build_subaru_hitachi_sh7058_plan(FlashOperation::Write, "sub_ecu_hitachi_sh7058_can", "SH7058_1block", image);
     ASSERT_TRUE(plan.has_value());
-    constexpr std::array<std::uint16_t, 4> keys{0x14ca, 0x77f4, 0x973c, 0xf50e};
-    const auto encrypted = SsmProtocol::calculatePayload(image, 0x100000, keys, SsmProtocol::kIndexTransformationStock);
+    constexpr std::array<std::uint16_t, 4> kKeys{0x14ca, 0x77f4, 0x973c, 0xf50e};
+    const auto encrypted =
+        SsmProtocol::calculatePayload(image, 0x100000, kKeys, SsmProtocol::kIndexTransformationStock);
     ASSERT_GE(encrypted.size(), 4U);
     EXPECT_EQ(bytes::Bytes(encrypted.begin(), encrypted.begin() + 4), (bytes::Bytes{0x08, 0x03, 0xfd, 0x11}));
     const auto frame = [](bytes::ByteView payload)

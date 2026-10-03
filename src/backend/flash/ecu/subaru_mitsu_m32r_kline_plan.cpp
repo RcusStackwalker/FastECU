@@ -18,14 +18,14 @@ constexpr std::uint32_t kImageSize = 0x80000;
 
 bool geometry_ok(const flashdev_t& device)
 {
-    constexpr std::array<flashblock, 4> expected{{{0, 0x4000}, {0x4000, 0x2000}, {0x6000, 0x2000}, {0x8000, 0x78000}}};
-    if (device.romsize != kImageSize || device.numblocks != expected.size())
+    constexpr std::array<flashblock, 4> kExpected{{{0, 0x4000}, {0x4000, 0x2000}, {0x6000, 0x2000}, {0x8000, 0x78000}}};
+    if (device.romsize != kImageSize || device.numblocks != kExpected.size())
     {
         return false;
     }
-    for (std::size_t i = 0; i < expected.size(); ++i)
+    for (std::size_t i = 0; i < kExpected.size(); ++i)
     {
-        if (device.fblocks[i].start != expected[i].start || device.fblocks[i].len != expected[i].len)
+        if (device.fblocks[i].start != kExpected[i].start || device.fblocks[i].len != kExpected[i].len)
         {
             return false;
         }

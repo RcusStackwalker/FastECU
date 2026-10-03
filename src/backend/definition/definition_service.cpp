@@ -33,13 +33,13 @@ std::string join_path(std::string_view directory, std::string_view name)
 
 bool is_xml_handle(std::string_view handle)
 {
-    constexpr std::string_view suffix = ".xml";
-    if (handle.size() < suffix.size())
+    constexpr std::string_view kSuffix = ".xml";
+    if (handle.size() < kSuffix.size())
     {
         return false;
     }
-    const std::string_view candidate = handle.substr(handle.size() - suffix.size());
-    return std::equal(candidate.begin(), candidate.end(), suffix.begin(), [](unsigned char left, unsigned char right)
+    const std::string_view candidate = handle.substr(handle.size() - kSuffix.size());
+    return std::equal(candidate.begin(), candidate.end(), kSuffix.begin(), [](unsigned char left, unsigned char right)
                       { return std::tolower(left) == std::tolower(right); });
 }
 

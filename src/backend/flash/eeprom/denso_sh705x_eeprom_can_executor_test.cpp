@@ -224,9 +224,9 @@ bytes::Bytes generateEcutekRacecomCanSeedKey(bytes::ByteView seed)
     const std::uint32_t seedWord = (static_cast<std::uint32_t>(seed[0]) << 24) |
                                    (static_cast<std::uint32_t>(seed[1]) << 16) |
                                    (static_cast<std::uint32_t>(seed[2]) << 8) | static_cast<std::uint32_t>(seed[3]);
-    constexpr std::uint64_t d = 0x0A863281ULL;
-    constexpr std::uint64_t n = 0x0fda9293ULL;
-    const std::uint32_t decrypted = static_cast<std::uint32_t>(decryptRaceromSeed(seedWord, d, n));
+    constexpr std::uint64_t kD = 0x0A863281ULL;
+    constexpr std::uint64_t kN = 0x0fda9293ULL;
+    const std::uint32_t decrypted = static_cast<std::uint32_t>(decryptRaceromSeed(seedWord, kD, kN));
     return composeBe(decrypted);
 }
 // encrypt_payload(), this class's OWN key table, distinct from the K-Line
@@ -635,12 +635,12 @@ TEST(DensoSh705xEepromCanExecutorTest, FullBootloaderStockSecurityMode2MatchesLe
 TEST(DensoSh705xEepromCanExecutorTest, AllFourSecurityVariantsProduceDistinctSeedKeyFrames)
 {
     const bytes::Bytes seed{0x11, 0x22, 0x33, 0x44};
-    static constexpr auto variants =
+    static constexpr auto kVariants =
         std::to_array<DensoSecurityVariant>({DensoSecurityVariant::Stock, DensoSecurityVariant::EcuTek,
                                              DensoSecurityVariant::Cobb, DensoSecurityVariant::EcuTekRaceRom});
     std::vector<bytes::Bytes> seedKeyFrames;
 
-    for (DensoSecurityVariant security : variants)
+    for (DensoSecurityVariant security : kVariants)
     {
         auto plan = makeCanPlan(security, EepromReadMode::Mode2, kernelFixtureBytes(), kKernelStartAddr);
         ASSERT_THAT(plan, fastecu::testing::IsOk());

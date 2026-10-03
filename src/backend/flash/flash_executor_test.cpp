@@ -12,24 +12,24 @@ namespace
 
 TEST(TransportConfigProjectionTest, CopiesIso15765WireFields)
 {
-    constexpr SubaruHitachiM32rCanPlan plan{
+    constexpr SubaruHitachiM32rCanPlan kPlan{
         .request_id = 0x7e0,
         .response_id = 0x7e8,
         .bitrate = 500000,
         .extended_id = false,
     };
 
-    constexpr Iso15765Config config = iso15765_config_from(plan);
+    constexpr Iso15765Config kConfig = iso15765_config_from(kPlan);
 
-    EXPECT_EQ(config.bitrate, 500000);
-    EXPECT_EQ(config.request_id, 0x7e0U);
-    EXPECT_EQ(config.response_id, 0x7e8U);
-    EXPECT_FALSE(config.extended_id);
+    EXPECT_EQ(kConfig.bitrate, 500000);
+    EXPECT_EQ(kConfig.request_id, 0x7e0U);
+    EXPECT_EQ(kConfig.response_id, 0x7e8U);
+    EXPECT_FALSE(kConfig.extended_id);
 }
 
 TEST(TransportConfigProjectionTest, CopiesNonIso14230KlineWireFields)
 {
-    constexpr SubaruMitsuM32rKlinePlan plan{
+    constexpr SubaruMitsuM32rKlinePlan kPlan{
         .tester_id = 0xf0,
         .target_id = 0x10,
         .initial_baud = 4800,
@@ -38,12 +38,12 @@ TEST(TransportConfigProjectionTest, CopiesNonIso14230KlineWireFields)
         .unread_prefix_fill = 0x00,
     };
 
-    constexpr KlineConfig config = non_iso14230_kline_config_from(plan);
+    constexpr KlineConfig kConfig = non_iso14230_kline_config_from(kPlan);
 
-    EXPECT_EQ(config.baud, 4800);
-    EXPECT_FALSE(config.iso14230);
-    EXPECT_EQ(config.tester_id, 0xf0);
-    EXPECT_EQ(config.target_id, 0x10);
+    EXPECT_EQ(kConfig.baud, 4800);
+    EXPECT_FALSE(kConfig.iso14230);
+    EXPECT_EQ(kConfig.tester_id, 0xf0);
+    EXPECT_EQ(kConfig.target_id, 0x10);
 }
 
 FlashPlanFields kline_read_fields()

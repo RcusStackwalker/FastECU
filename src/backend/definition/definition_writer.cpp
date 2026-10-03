@@ -176,10 +176,10 @@ Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(std::span<const std::uint
                                                        const DefinitionHeaderInput& input)
 {
     pugi::xml_document document;
-    constexpr unsigned int parse_flags =
+    constexpr unsigned int kParseFlags =
         pugi::parse_default | pugi::parse_comments | pugi::parse_declaration | pugi::parse_pi | pugi::parse_doctype;
     if (const pugi::xml_parse_result parsed =
-            document.load_buffer(source.data(), source.size(), parse_flags, pugi::encoding_auto);
+            document.load_buffer(source.data(), source.size(), kParseFlags, pugi::encoding_auto);
         !parsed)
     {
         return fail(ErrorKind::InvalidConfig,

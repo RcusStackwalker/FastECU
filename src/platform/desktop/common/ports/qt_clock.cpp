@@ -18,7 +18,7 @@ std::chrono::steady_clock::time_point QtClock::now() const
 
 fastecu::Status QtClock::sleep(std::chrono::milliseconds duration, const fastecu::ICancellationToken& t)
 {
-    constexpr auto slice = 10ms;
+    constexpr auto kSlice = 10ms;
     auto remaining = duration;
     while (remaining > 0ms)
     {
@@ -26,7 +26,7 @@ fastecu::Status QtClock::sleep(std::chrono::milliseconds duration, const fastecu
         {
             return fastecu::fail(fastecu::ErrorKind::Cancelled);
         }
-        const auto step = remaining < slice ? remaining : slice;
+        const auto step = remaining < kSlice ? remaining : kSlice;
         QThread::msleep(fastecu::saturating_ms<unsigned long>(step));
         remaining -= step;
     }
