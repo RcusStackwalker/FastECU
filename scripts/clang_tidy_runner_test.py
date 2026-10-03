@@ -510,7 +510,11 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.write_database([windows_source, portable_source])
 
     def run_scoped(
-        self, *, changed: bool = False, scope_os: str = "windows"
+        self,
+        *,
+        changed: bool = False,
+        scope_os: str = "windows",
+        changed_paths: list[Path] | None = None,
     ) -> tuple[list[list[str]], str]:
         commands: list[list[str]] = []
 
@@ -521,7 +525,11 @@ class ClangTidyRunnerTest(unittest.TestCase):
         output = StringIO()
         with (
             mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS),
-            mock.patch.object(runner, "changed_files", return_value=[self.root / "p.h"]),
+            mock.patch.object(
+                runner,
+                "changed_files",
+                return_value=[self.root / "p.h"] if changed_paths is None else changed_paths,
+            ),
             redirect_stdout(output),
         ):
             runner.run_workflow(
@@ -1537,6 +1545,116 @@ class ClangTidyRunnerTest(unittest.TestCase):
 
         self.assertFalse(tidy_invoked)
         self.assertIn("no changed C/C++ translation units", output.getvalue())
+
+    def run_changed_workflow(self, committed: list[str]) -> tuple[list[str], str]:
+        """Report mode with --changed, where `committed` is the branch's diff.
+
+        Returns the files handed to run-clang-tidy and the captured stdout.
+        """
+        analyzed_files: list[str] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            if command == ["git", "merge-base", "HEAD", "origin/master"]:
+                return subprocess.CompletedProcess(command, 0, stdout="abc123\n")
+            if command == ["git", "diff", "--name-only", "abc123..HEAD"]:
+                return subprocess.CompletedProcess(
+                    command, 0, stdout="".join(f"{path}\n" for path in committed)
+                )
+            if command[:2] == ["git", "diff"] or command[:2] == ["git", "ls-files"]:
+                return subprocess.CompletedProcess(command, 0, stdout="")
+            if command == ["xcrun", "--show-sdk-path"]:
+                return subprocess.CompletedProcess(command, 0, stdout="/SDK/MacOSX.sdk\n")
+            if command[0] == _UNIX_TOOLS.run_clang_tidy:
+                compdb_dir = Path(command[command.index("-p") + 1])
+                database = json.loads((compdb_dir / "compile_commands.json").read_text())
+                analyzed_files.extend(entry["file"] for entry in database)
+            return subprocess.CompletedProcess(command, 0)
+
+        output = StringIO()
+        with (
+            mock.patch.object(runner, "discover_tools", return_value=_UNIX_TOOLS),
+            redirect_stdout(output),
+        ):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_UNIX_COMPDB_TOOL,
+                platform_name="darwin",
+                environ={},
+                command_runner=fake_run,
+                changed=True,
+            )
+        return analyzed_files, output.getvalue()
+
+    def two_sources(self) -> list[str]:
+        first = self.root / "first.cpp"
+        first.write_text("int first;\n")
+        second = self.root / "second.cpp"
+        second.write_text("int second;\n")
+        self.write_database([first, second])
+        return sorted([str(first), str(second)])
+
+    def test_config_changed_matches_clang_tidy_files_at_any_depth(self) -> None:
+        self.assertTrue(runner.config_changed([self.root / ".clang-tidy"]))
+        self.assertTrue(runner.config_changed([self.root / "src" / "pkg" / ".clang-tidy"]))
+        self.assertTrue(runner.config_changed([self.root / "a.cpp", self.root / ".clang-tidy"]))
+
+    def test_config_changed_ignores_look_alike_names(self) -> None:
+        self.assertFalse(runner.config_changed([]))
+        self.assertFalse(
+            runner.config_changed(
+                [
+                    self.root / ".clang-tidy-scope.toml",
+                    self.root / "old.clang-tidy",
+                    self.root / ".clang-tidy.bak",
+                    self.root / "docs" / "clang-tidy.md",
+                    self.root / _MAIN_CPP,
+                ]
+            )
+        )
+
+    def test_changed_root_config_analyzes_every_translation_unit(self) -> None:
+        expected = self.two_sources()
+
+        analyzed, output = self.run_changed_workflow([".clang-tidy"])
+
+        self.assertEqual(expected, sorted(analyzed))
+        self.assertIn("a .clang-tidy file changed", output)
+        self.assertNotIn("no changed C/C++ translation units", output)
+
+    def test_changed_nested_config_analyzes_every_translation_unit(self) -> None:
+        expected = self.two_sources()
+        (self.root / "pkg").mkdir()
+        (self.root / "pkg" / ".clang-tidy").write_text("InheritParentConfig: true\n")
+
+        analyzed, _ = self.run_changed_workflow(["pkg/.clang-tidy"])
+
+        self.assertEqual(expected, sorted(analyzed))
+
+    def test_changed_config_alongside_a_source_still_analyzes_everything(self) -> None:
+        expected = self.two_sources()
+
+        analyzed, _ = self.run_changed_workflow([".clang-tidy", "first.cpp"])
+
+        self.assertEqual(expected, sorted(analyzed))
+
+    def test_changed_scope_manifest_alone_does_not_widen(self) -> None:
+        self.two_sources()
+        self.write_manifest("[os.windows]\nprefixes = []\n")
+
+        analyzed, output = self.run_changed_workflow([".clang-tidy-scope.toml"])
+
+        self.assertEqual([], analyzed)
+        self.assertIn("no changed C/C++ translation units", output)
+
+    def test_scope_os_with_changed_config_analyzes_the_whole_scope(self) -> None:
+        self.scoped_fixture()
+
+        _, output = self.run_scoped(changed=True, changed_paths=[self.root / ".clang-tidy"])
+
+        # win/w.cpp only: widened, but p.cpp stays outside the windows scope.
+        self.assertIn("Analyzing 1 translation units", output)
+        self.assertNotIn("no changed C/C++ translation units", output)
 
 
 class PhaseTimingsTest(unittest.TestCase):

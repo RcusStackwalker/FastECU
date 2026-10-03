@@ -432,6 +432,9 @@ locally before that gate ever sees the change:
   covers it.
   In CI, clang-tidy runs as its own `clang-tidy` job (Linux, plus Windows for
   Windows-exclusive code), in parallel with the Bazel build and test job.
+  Changing any `.clang-tidy` file widens that changed-files run to every
+  translation unit in the OS's scope, because a new or retuned check can fire
+  in files the change never touched.
 - Running the Sonar CLI locally, against the same `sonar-project.properties`
   CI uses: install the SonarSource build wrapper for your platform from
   `https://sonarcloud.io/static/cpp/` (`build-wrapper-macosx-x86` on macOS,
