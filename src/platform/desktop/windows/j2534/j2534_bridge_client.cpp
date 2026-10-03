@@ -28,7 +28,9 @@ template <typename Resp> bool readAndValidateResponse(HANDLE pipe, Function expe
 {
     FrameHeader header{};
     if (!readFrame(pipe, header, &resp, sizeof(resp)))
+    {
         return false;
+    }
     return header.function == expectedFunction;
 }
 
@@ -50,7 +52,9 @@ bool J2534BridgeClient::start()
     SECURITY_ATTRIBUTES sa{sizeof(sa), nullptr, TRUE};
 
     if (!CreatePipe(&childStdinRead, &childStdinWrite, &sa, 0))
+    {
         return false;
+    }
     if (!CreatePipe(&childStdoutRead, &childStdoutWrite, &sa, 0))
     {
         CloseHandle(childStdinRead);
@@ -103,7 +107,9 @@ bool J2534BridgeClient::start()
 void J2534BridgeClient::stop()
 {
     if (!running_)
+    {
         return;
+    }
     writeFrame(toChildWrite_, Function::Shutdown, nullptr, 0);
     WaitForSingleObject(processInfo_.hProcess, 2000);
     CloseHandle(toChildWrite_);
@@ -111,7 +117,9 @@ void J2534BridgeClient::stop()
     CloseHandle(processInfo_.hProcess);
     CloseHandle(processInfo_.hThread);
     if (jobObject_)
+    {
         CloseHandle(jobObject_);
+    }
     running_ = false;
 }
 
@@ -218,7 +226,9 @@ long J2534BridgeClient::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHR
     req.channelId = ChannelID;
     req.timeout = Timeout;
     if (pMsg)
+    {
         req.msg = *pMsg;
+    }
     if (!writeFrame(toChildWrite_, Function::PassThruWriteMsgs, &req, sizeof(req)))
     {
         stop();
@@ -231,7 +241,9 @@ long J2534BridgeClient::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHR
         return ERR_FAILED;
     }
     if (pNumMsgs)
+    {
         *pNumMsgs = resp.numMsgs;
+    }
     return resp.result;
 }
 
@@ -242,7 +254,9 @@ long J2534BridgeClient::PassThruStartPeriodicMsg(unsigned long ChannelID, const 
     req.channelId = ChannelID;
     req.timeInterval = TimeInterval;
     if (pMsg)
+    {
         req.msg = *pMsg;
+    }
     if (!writeFrame(toChildWrite_, Function::PassThruStartPeriodicMsg, &req, sizeof(req)))
     {
         stop();
@@ -283,12 +297,18 @@ long J2534BridgeClient::PassThruStartMsgFilter(unsigned long ChannelID, unsigned
     req.channelId = ChannelID;
     req.filterType = FilterType;
     if (pMaskMsg)
+    {
         req.maskMsg = *pMaskMsg;
+    }
     if (pPatternMsg)
+    {
         req.patternMsg = *pPatternMsg;
+    }
     req.hasFlowControlMsg = (pFlowControlMsg != nullptr);
     if (pFlowControlMsg)
+    {
         req.flowControlMsg = *pFlowControlMsg;
+    }
     if (!writeFrame(toChildWrite_, Function::PassThruStartMsgFilter, &req, sizeof(req)))
     {
         stop();
@@ -357,11 +377,17 @@ long J2534BridgeClient::PassThruReadVersion(char *pApiVersion, char *pDllVersion
     // null-terminated buffers per the J2534 spec's 80-byte version-string
     // convention; copy that whole fixed shape back to the caller's buffer.
     if (pApiVersion)
+    {
         std::memcpy(pApiVersion, resp.apiVersion.data(), resp.apiVersion.size());
+    }
     if (pDllVersion)
+    {
         std::memcpy(pDllVersion, resp.dllVersion.data(), resp.dllVersion.size());
+    }
     if (pFirmwareVersion)
+    {
         std::memcpy(pFirmwareVersion, resp.firmwareVersion.data(), resp.firmwareVersion.size());
+    }
     return resp.result;
 }
 
@@ -380,7 +406,9 @@ long J2534BridgeClient::PassThruGetLastError(char *pErrorDescription)
         return ERR_FAILED;
     }
     if (pErrorDescription)
+    {
         std::memcpy(pErrorDescription, resp.errorDescription.data(), resp.errorDescription.size());
+    }
     return resp.result;
 }
 
@@ -405,10 +433,14 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
         const auto *scl = static_cast<const SCONFIG_LIST *>(pInput);
         constexpr unsigned long kMaxConfigParams = std::tuple_size_v<decltype(req.configParams)>;
         if (!scl || scl->NumOfParams > kMaxConfigParams)
+        {
             return ERR_FAILED;
+        }
         req.numConfigParams = scl->NumOfParams;
         for (unsigned long i = 0; i < scl->NumOfParams; ++i)
+        {
             req.configParams[i] = scl->ConfigPtr[i];
+        }
         break;
     }
     case FIVE_BAUD_INIT:
@@ -416,7 +448,9 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
     {
         const auto *inArr = static_cast<const SBYTE_ARRAY *>(pInput);
         if (!inArr || inArr->NumOfBytes > req.inputBytes.size())
+        {
             return ERR_FAILED;
+        }
         req.inputByteCount = inArr->NumOfBytes;
         std::memcpy(req.inputBytes.data(), inArr->BytePtr, inArr->NumOfBytes);
         break;
@@ -456,7 +490,9 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
         {
             unsigned long n = resp.outputByteCount;
             if (n > outArr->NumOfBytes)
+            {
                 n = outArr->NumOfBytes; // never overflow the caller's buffer
+            }
             std::memcpy(outArr->BytePtr, resp.outputBytes.data(), n);
             outArr->NumOfBytes = n;
         }
@@ -467,7 +503,9 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
     {
         auto *vbatt = static_cast<unsigned long *>(pOutput);
         if (vbatt)
+        {
             *vbatt = resp.vbatt;
+        }
         break;
     }
     default:

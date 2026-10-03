@@ -50,7 +50,9 @@ bool loadVendorApi(const char *dllPath, VendorApi& api)
 {
     api.module = LoadLibraryA(dllPath);
     if (!api.module)
+    {
         return false;
+    }
     // GetProcAddress names must match the DLL's exported symbol names exactly
     // (see tests/fake_j2534_dll.def for the fixture's matching export list).
     api.open = reinterpret_cast<PF_PassThruOpen>(GetProcAddress(api.module, "PassThruOpen"));
@@ -93,7 +95,9 @@ bool loadVendorApi(const char *dllPath, VendorApi& api)
 bool drainPayload(HANDLE pipe, std::uint32_t size)
 {
     if (size == 0)
+    {
         return true;
+    }
     std::vector<char> discard(size);
     return readFramePayload(pipe, discard.data(), size);
 }
@@ -116,7 +120,9 @@ bool readTypedRequest(HANDLE in, HANDLE out, const FrameHeader& header, Function
         return false;
     }
     if (!readFramePayload(in, &req, sizeof(req)))
+    {
         return false;
+    }
     return true;
 }
 
@@ -124,7 +130,9 @@ void handlePassThruOpen(const VendorApi& api, HANDLE in, HANDLE out, const Frame
 {
     PassThruOpenRequest req{};
     if (!readTypedRequest<PassThruOpenRequest, PassThruOpenResponse>(in, out, header, Function::PassThruOpen, req))
+    {
         return;
+    }
     PassThruOpenResponse resp{};
     unsigned long deviceId = 0;
     resp.result = api.open(req.hasName ? req.name.data() : nullptr, &deviceId);
@@ -136,7 +144,9 @@ void handlePassThruClose(const VendorApi& api, HANDLE in, HANDLE out, const Fram
 {
     PassThruCloseRequest req{};
     if (!readTypedRequest<PassThruCloseRequest, PassThruCloseResponse>(in, out, header, Function::PassThruClose, req))
+    {
         return;
+    }
     PassThruCloseResponse resp{};
     resp.result = api.close(req.deviceId);
     writeFrame(out, Function::PassThruClose, &resp, sizeof(resp));
@@ -147,7 +157,9 @@ void handlePassThruConnect(const VendorApi& api, HANDLE in, HANDLE out, const Fr
     PassThruConnectRequest req{};
     if (!readTypedRequest<PassThruConnectRequest, PassThruConnectResponse>(in, out, header, Function::PassThruConnect,
                                                                            req))
+    {
         return;
+    }
     PassThruConnectResponse resp{};
     unsigned long channelId = 0;
     resp.result = api.connect(req.deviceId, req.protocolId, req.flags, req.baudrate, &channelId);
@@ -160,7 +172,9 @@ void handlePassThruDisconnect(const VendorApi& api, HANDLE in, HANDLE out, const
     PassThruDisconnectRequest req{};
     if (!readTypedRequest<PassThruDisconnectRequest, PassThruDisconnectResponse>(in, out, header,
                                                                                  Function::PassThruDisconnect, req))
+    {
         return;
+    }
     PassThruDisconnectResponse resp{};
     resp.result = api.disconnect(req.channelId);
     writeFrame(out, Function::PassThruDisconnect, &resp, sizeof(resp));
@@ -171,7 +185,9 @@ void handlePassThruReadMsgs(const VendorApi& api, HANDLE in, HANDLE out, const F
     PassThruReadMsgsRequest req{};
     if (!readTypedRequest<PassThruReadMsgsRequest, PassThruReadMsgsResponse>(in, out, header,
                                                                              Function::PassThruReadMsgs, req))
+    {
         return;
+    }
     PassThruReadMsgsResponse resp{};
     unsigned long numMsgs = 1;
     resp.result = api.readMsgs(req.channelId, &resp.msg, &numMsgs, req.timeout);
@@ -184,7 +200,9 @@ void handlePassThruWriteMsgs(const VendorApi& api, HANDLE in, HANDLE out, const 
     PassThruWriteMsgsRequest req{};
     if (!readTypedRequest<PassThruWriteMsgsRequest, PassThruWriteMsgsResponse>(in, out, header,
                                                                                Function::PassThruWriteMsgs, req))
+    {
         return;
+    }
     PassThruWriteMsgsResponse resp{};
     unsigned long numMsgs = 1;
     resp.result = api.writeMsgs(req.channelId, &req.msg, &numMsgs, req.timeout);
@@ -197,7 +215,9 @@ void handlePassThruStartPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out,
     PassThruStartPeriodicMsgRequest req{};
     if (!readTypedRequest<PassThruStartPeriodicMsgRequest, PassThruStartPeriodicMsgResponse>(
             in, out, header, Function::PassThruStartPeriodicMsg, req))
+    {
         return;
+    }
     PassThruStartPeriodicMsgResponse resp{};
     unsigned long msgId = 0;
     resp.result = api.startPeriodicMsg(req.channelId, &req.msg, &msgId, req.timeInterval);
@@ -210,7 +230,9 @@ void handlePassThruStopPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out, 
     PassThruStopPeriodicMsgRequest req{};
     if (!readTypedRequest<PassThruStopPeriodicMsgRequest, PassThruStopPeriodicMsgResponse>(
             in, out, header, Function::PassThruStopPeriodicMsg, req))
+    {
         return;
+    }
     PassThruStopPeriodicMsgResponse resp{};
     resp.result = api.stopPeriodicMsg(req.channelId, req.msgId);
     writeFrame(out, Function::PassThruStopPeriodicMsg, &resp, sizeof(resp));
@@ -221,7 +243,9 @@ void handlePassThruStartMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, c
     PassThruStartMsgFilterRequest req{};
     if (!readTypedRequest<PassThruStartMsgFilterRequest, PassThruStartMsgFilterResponse>(
             in, out, header, Function::PassThruStartMsgFilter, req))
+    {
         return;
+    }
     PassThruStartMsgFilterResponse resp{};
     unsigned long msgId = 0;
     resp.result = api.startMsgFilter(req.channelId, req.filterType, &req.maskMsg, &req.patternMsg,
@@ -235,7 +259,9 @@ void handlePassThruStopMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, co
     PassThruStopMsgFilterRequest req{};
     if (!readTypedRequest<PassThruStopMsgFilterRequest, PassThruStopMsgFilterResponse>(
             in, out, header, Function::PassThruStopMsgFilter, req))
+    {
         return;
+    }
     PassThruStopMsgFilterResponse resp{};
     resp.result = api.stopMsgFilter(req.channelId, req.msgId);
     writeFrame(out, Function::PassThruStopMsgFilter, &resp, sizeof(resp));
@@ -246,7 +272,9 @@ void handlePassThruSetProgrammingVoltage(const VendorApi& api, HANDLE in, HANDLE
     PassThruSetProgrammingVoltageRequest req{};
     if (!readTypedRequest<PassThruSetProgrammingVoltageRequest, PassThruSetProgrammingVoltageResponse>(
             in, out, header, Function::PassThruSetProgrammingVoltage, req))
+    {
         return;
+    }
     PassThruSetProgrammingVoltageResponse resp{};
     resp.result = api.setProgrammingVoltage(req.deviceId, req.pin, req.voltage);
     writeFrame(out, Function::PassThruSetProgrammingVoltage, &resp, sizeof(resp));
@@ -257,7 +285,9 @@ void handlePassThruReadVersion(const VendorApi& api, HANDLE in, HANDLE out, cons
     PassThruReadVersionRequest req{};
     if (!readTypedRequest<PassThruReadVersionRequest, PassThruReadVersionResponse>(in, out, header,
                                                                                    Function::PassThruReadVersion, req))
+    {
         return;
+    }
     PassThruReadVersionResponse resp{};
     resp.result =
         api.readVersion(req.deviceId, resp.apiVersion.data(), resp.dllVersion.data(), resp.firmwareVersion.data());
@@ -269,7 +299,9 @@ void handlePassThruGetLastError(const VendorApi& api, HANDLE in, HANDLE out, con
     PassThruGetLastErrorRequest req{};
     if (!readTypedRequest<PassThruGetLastErrorRequest, PassThruGetLastErrorResponse>(
             in, out, header, Function::PassThruGetLastError, req))
+    {
         return;
+    }
     PassThruGetLastErrorResponse resp{};
     resp.result = api.getLastError(resp.errorDescription.data());
     writeFrame(out, Function::PassThruGetLastError, &resp, sizeof(resp));
@@ -279,7 +311,9 @@ void handlePassThruIoctl(const VendorApi& api, HANDLE in, HANDLE out, const Fram
 {
     PassThruIoctlRequest req{};
     if (!readTypedRequest<PassThruIoctlRequest, PassThruIoctlResponse>(in, out, header, Function::PassThruIoctl, req))
+    {
         return;
+    }
     PassThruIoctlResponse resp{};
 
     switch (req.ioctlId)
@@ -334,7 +368,9 @@ bool runLoop(const VendorApi& api)
     {
         FrameHeader header{};
         if (!readFrameHeader(in, header))
+        {
             return true; // pipe closed (parent exited) -- exit cleanly, not an error
+        }
 
         switch (header.function)
         {

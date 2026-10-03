@@ -15,12 +15,16 @@ bool isDll32Bit(const char *dllPath, bool& out32Bit)
 {
     std::FILE *f = std::fopen(dllPath, "rb");
     if (!f)
+    {
         return false;
+    }
 
     std::array<unsigned char, 64> dosHeader{};
     bool ok = std::fread(dosHeader.data(), 1, dosHeader.size(), f) == dosHeader.size();
-    if (ok && !(dosHeader[0] == 'M' && dosHeader[1] == 'Z'))
+    if (ok && (dosHeader[0] != 'M' || dosHeader[1] != 'Z'))
+    {
         ok = false;
+    }
 
     std::int32_t peOffset = 0;
     if (ok)
@@ -43,7 +47,9 @@ bool isDll32Bit(const char *dllPath, bool& out32Bit)
 
     std::fclose(f);
     if (!ok)
+    {
         return false;
+    }
 
     std::uint16_t machine = static_cast<std::uint16_t>(peAndMachine[4] | (peAndMachine[5] << 8));
     out32Bit = (machine == kImageFileMachineI386);

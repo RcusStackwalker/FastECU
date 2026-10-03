@@ -56,12 +56,18 @@ QStringList SerialPortActionsDirect::check_j2534_devices(QMap<QString, QString> 
                 j2534->PassThruClose(devID);
             }
             else
+            {
                 emit LOG_E(QString::number(devID) + " / " + vendor + " device not connected", true, true);
+            }
         }
         else
+        {
             emit LOG_D(j2534DllName + " not found", true, true);
+        }
         if (j2534DeviceFound)
+        {
             break;
+        }
     }
     emit LOG_D("Tested installed drivers: " + QString::number(driver_count), true, true);
 
@@ -78,7 +84,9 @@ QMap<QString, QString> SerialPortActionsDirect::getAllJ2534DriversNames()
 
     emit LOG_D("Found installed drivers: ", true, false);
     for (const QString& dllPath : drivers_map)
+    {
         emit LOG_D(dllPath + ", ", false, false);
+    }
     emit LOG_D(" ", false, true);
     return drivers_map;
 }
@@ -129,12 +137,18 @@ void SerialPortActionsDirect::select_j2534_dll()
     j2534_driver = check_j2534_devices(user_j2534_drivers);
     user_j2534_drivers[serial_port] = installedDllName;
     if (j2534_driver.isEmpty())
+    {
         j2534_driver = check_j2534_devices(user_j2534_drivers);
+    }
     const QString resolvedDllName = resolveJ2534DllForConnection(serial_port, installedDllName, j2534_driver);
     if (!resolvedDllName.isEmpty())
+    {
         j2534->setDllName(resolvedDllName.toLocal8Bit().data());
+    }
     else
+    {
         emit LOG_D("Initializing interface failed!", true, true);
+    }
 }
 
 bool SerialPortActionsDirect::open_j2534_transport()
