@@ -10,10 +10,13 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from collections.abc import Callable, Mapping, Sequence
+import time
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 
+import clang_tidy_profile as profile_report
 import yaml
 
 SOURCE_SUFFIXES = frozenset((".c", ".cc", ".cpp", ".cxx"))
@@ -32,6 +35,47 @@ class Tools:
 
 
 CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
+
+
+class PhaseTimings:
+    """Wall-clock duration of each named phase, printed as each one ends."""
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic) -> None:
+        self._clock = clock
+        self.durations: dict[str, float] = {}
+
+    @contextmanager
+    def phase(self, name: str) -> Iterator[None]:
+        start = self._clock()
+        try:
+            yield
+        finally:
+            elapsed = self._clock() - start
+            self.durations[name] = self.durations.get(name, 0.0) + elapsed
+            print(f"clang-tidy: {name} took {elapsed:.1f}s")
+
+
+def _emit_profile(
+    report: str,
+    timings: PhaseTimings,
+    translation_units: int,
+    environ: Mapping[str, str],
+) -> None:
+    """Publish the profile summary; a failure to write it never fails the gate."""
+    markdown = profile_report.render_markdown(
+        profile_report.parse_check_profile(report),
+        timings.durations,
+        translation_units,
+    )
+    summary_path = environ.get("GITHUB_STEP_SUMMARY")
+    if not summary_path:
+        print(markdown)
+        return
+    try:
+        with open(summary_path, "a", encoding="utf-8") as stream:
+            stream.write(markdown)
+    except OSError as error:
+        print(f"clang-tidy: warning: could not write profile summary: {error}", file=sys.stderr)
 
 
 @dataclass(frozen=True)
@@ -670,6 +714,17 @@ def _post_fix_build(
         raise WorkflowError(f"post-fix Bazel build failed with exit code {result.returncode}")
 
 
+def _supports_check_profile(
+    command_runner: CommandRunner,
+    run_clang_tidy: str,
+    platform_name: str,
+    workspace: Path,
+) -> bool:
+    """Whether this run-clang-tidy accepts -enable-check-profile (added in LLVM 22)."""
+    command = [*_executable_command(run_clang_tidy, platform_name=platform_name), "-h"]
+    return "-enable-check-profile" in (_run_quiet(command_runner, command, workspace).stdout or "")
+
+
 def run_workflow(
     *,
     mode: str,
@@ -681,26 +736,31 @@ def run_workflow(
     build_args: Sequence[str] = (),
     compdb_args: Sequence[str] = (),
     changed: bool = False,
+    profile: bool = False,
 ) -> None:
     if mode not in ("report", "fix"):
         raise WorkflowError(f"unsupported mode: {mode}")
     if mode == "fix" and platform_name not in ("darwin", "linux"):
         raise WorkflowError("clang-tidy fix mode is supported only on macOS and Linux")
 
-    _prebuild(command_runner, build_args, workspace)
-    refresh_code = _run(command_runner, [compdb_tool, *compdb_args], workspace)
+    timings = PhaseTimings()
+    with timings.phase("prebuild"):
+        _prebuild(command_runner, build_args, workspace)
+    with timings.phase("compdb-refresh"):
+        refresh_code = _run(command_runner, [compdb_tool, *compdb_args], workspace)
     if refresh_code:
         raise WorkflowError(f"compilation database refresher failed with exit code {refresh_code}")
 
-    entries = load_project_entries(workspace, workspace / "compile_commands.json")
-    if changed:
-        changed_paths = changed_files(workspace, command_runner)
-        entries, notes = filter_changed_entries(entries, changed_paths, workspace.resolve())
-        for note in notes:
-            print(note)
-        if not entries:
-            print("clang-tidy: no changed C/C++ translation units to analyze, skipping.")
-            return
+    with timings.phase("filter"):
+        entries = load_project_entries(workspace, workspace / "compile_commands.json")
+        if changed:
+            changed_paths = changed_files(workspace, command_runner)
+            entries, notes = filter_changed_entries(entries, changed_paths, workspace.resolve())
+            for note in notes:
+                print(note)
+    if changed and not entries:
+        print("clang-tidy: no changed C/C++ translation units to analyze, skipping.")
+        return
     tools = discover_tools(mode, platform_name=platform_name, environ=environ)
     macos_sdk = None
     if platform_name == "darwin":
@@ -744,8 +804,22 @@ def run_workflow(
         fixes_directory = Path(directory) / "fixes"
         fixes_directory.mkdir()
         command.extend(["-export-fixes", str(fixes_directory) + os.sep])
+        if profile:
+            if _supports_check_profile(
+                command_runner, tools.run_clang_tidy, platform_name, workspace
+            ):
+                command.append("-enable-check-profile")
+            else:
+                print(
+                    "clang-tidy: warning: run-clang-tidy lacks -enable-check-profile "
+                    "(LLVM 22+); reporting phase timings only.",
+                    file=sys.stderr,
+                )
         print(f"Analyzing {len(entries)} translation units in {mode} mode.")
-        tidy_result = _run_quiet(command_runner, command, workspace)
+        with timings.phase("analysis"):
+            tidy_result = _run_quiet(command_runner, command, workspace)
+        if profile:
+            _emit_profile(tidy_result.stdout or "", timings, len(entries), environ)
         tidy_code = tidy_result.returncode
         finding_count = _count_diagnostics(fixes_directory)
         if mode == "fix":
@@ -778,6 +852,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=("report", "fix"))
     parser.add_argument("--changed", action="store_true")
+    parser.add_argument("--profile", action="store_true")
     parser.add_argument("--compdb-tool", required=True)
     parser.add_argument("--build-arg", action="append", default=[], dest="build_args")
     parser.add_argument("--compdb-arg", action="append", default=[], dest="compdb_args")
@@ -796,6 +871,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             build_args=args.build_args,
             compdb_args=args.compdb_args,
             changed=args.changed,
+            profile=args.profile,
         )
         return 0
     except WorkflowError as error:

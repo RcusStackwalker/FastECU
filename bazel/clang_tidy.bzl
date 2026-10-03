@@ -28,7 +28,11 @@ def _clang_tidy_runner_impl(name, visibility, mode, changed):
     py_binary(
         name = name,
         visibility = visibility,
-        srcs = ["//:scripts/clang_tidy_runner.py"],
+        srcs = [
+            "//:scripts/clang_tidy_profile.py",
+            "//:scripts/clang_tidy_runner.py",
+        ],
+        imports = ["scripts"],
         args = [mode] + (["--changed"] if changed else []) + [
             "--compdb-tool",
             "$(location //bazel/compile_commands:refresh)",
