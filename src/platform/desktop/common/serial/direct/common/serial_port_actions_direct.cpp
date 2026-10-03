@@ -623,7 +623,7 @@ QByteArray SerialPortActionsDirect::set_error()
     received.append((uint8_t)0x10);
     received.append((uint8_t)0x03);
     received.append((uint8_t)0x7f);
-    received.append((uint8_t)0x00);
+    received.append('\0');
     received.append((uint8_t)0x13);
 
     return received;
@@ -778,7 +778,7 @@ QByteArray SerialPortActionsDirect::write_serial_data(QByteArray output)
     QByteArray received;
     QByteArray msg;
 
-    msg.append((uint8_t)0x00);
+    msg.append('\0');
 
     if (is_serial_port_open())
     {
@@ -822,7 +822,7 @@ QByteArray SerialPortActionsDirect::write_serial_data_echo_check(QByteArray outp
     QByteArray received;
     QByteArray msg;
 
-    msg.append((uint8_t)0x00);
+    msg.append('\0');
 
     if (is_serial_port_open())
     {
