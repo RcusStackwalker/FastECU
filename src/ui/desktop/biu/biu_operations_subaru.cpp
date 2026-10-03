@@ -578,7 +578,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         {
             for (index = 5; index < (message.length() - 1); index++)
             {
-                biu_data_result = biu_data_names.at(static_cast<qsizetype>((index - 5) * 2));
+                biu_data_result = biu_data_names.at((static_cast<qsizetype>(index) - 5) * 2);
                 calc_result = ((uint8_t)message.at(index) * kBiuDataFactors[static_cast<ptrdiff_t>((index - 5) * 2)]) +
                               kBiuDataFactors[(index - 5) * 2 + 1];
                 biu_data_result.append(QString("%1 ").arg(calc_result));
@@ -609,7 +609,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         {
 
             // front wheel speed
-            can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
+            can_data_result = can_data_names.at(static_cast<qsizetype>(item) * 2);
             calc_result = bytes::readU16Le(bytes::view(message), 5);
             calc_result =
                 (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
@@ -620,7 +620,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             // VDC/ABS latest f-code
             item++;
-            can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
+            can_data_result = can_data_names.at(static_cast<qsizetype>(item) * 2);
             can_data_result.append(QString("%1 ").arg((uint8_t)message.at(8), 2, 16, QLatin1Char('0')));
             can_data_result.append(QString("%1 ").arg((uint8_t)message.at(7), 2, 16, QLatin1Char('0')));
             can_data_result.append(can_data_names.at(item * 2 + 1));
@@ -629,7 +629,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             // Blower fan steps
             item++;
-            can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
+            can_data_result = can_data_names.at(static_cast<qsizetype>(item) * 2);
             calc_result = (uint8_t)message.at(9);
             calc_result =
                 (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
@@ -640,7 +640,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             // Fuel level resistance
             item++;
-            can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
+            can_data_result = can_data_names.at(static_cast<qsizetype>(item) * 2);
             calc_result = bytes::readU16Le(bytes::view(message), 10);
             calc_result =
                 (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
@@ -651,7 +651,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             // Fuel consumption
             item++;
-            can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
+            can_data_result = can_data_names.at(static_cast<qsizetype>(item) * 2);
             calc_result = bytes::readU16Le(bytes::view(message), 12);
             calc_result =
                 (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
@@ -662,7 +662,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             // engine coolant temp
             item++;
-            can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
+            can_data_result = can_data_names.at(static_cast<qsizetype>(item) * 2);
             calc_result = (uint8_t)message.at(14);
             calc_result =
                 (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
@@ -673,7 +673,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             // g-force
             item++;
-            can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
+            can_data_result = can_data_names.at(static_cast<qsizetype>(item) * 2);
             calc_result = (uint8_t)message.at(15);
             calc_result =
                 (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
@@ -684,7 +684,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             // sport shift
             item++;
-            can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
+            can_data_result = can_data_names.at(static_cast<qsizetype>(item) * 2);
             calc_result = (uint8_t)message.at(16);
             calc_result =
                 (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
@@ -695,7 +695,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
 
             // shift position
             item++;
-            can_data_result = can_data_names.at(static_cast<qsizetype>(item * 2));
+            can_data_result = can_data_names.at(static_cast<qsizetype>(item) * 2);
             calc_result = (uint8_t)message.at(17);
             calc_result =
                 (calc_result * kCanDataFactors[static_cast<ptrdiff_t>(item * 2)]) + kCanDataFactors[item * 2 + 1];
@@ -796,7 +796,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
                 for (int bit_counter = 0; bit_counter < 8; bit_counter++)
                 {
                     i = ((index - 5) * 8) + bit_counter;
-                    switch_result->append(biu_option_names.at(static_cast<qsizetype>(i * 3)));
+                    switch_result->append(biu_option_names.at(static_cast<qsizetype>(i) * 3));
                     if ((uint8_t)message.at(index) & bit_mask)
                     {
                         switch_result->append(biu_option_names.at(i * 3 + 1));

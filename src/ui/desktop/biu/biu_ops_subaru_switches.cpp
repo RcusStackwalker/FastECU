@@ -30,7 +30,7 @@ BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *
         label = new QLabel();
         label->setObjectName("Name" + QString::number(i));
         label->setFont(custom_font);
-        label->setText(switch_result->at(static_cast<qsizetype>(2 * i)));
+        label->setText(switch_result->at(2 * static_cast<qsizetype>(i)));
         ui->gridLayout->addWidget(label, row_num, col_num);
 
         label = new QLabel();

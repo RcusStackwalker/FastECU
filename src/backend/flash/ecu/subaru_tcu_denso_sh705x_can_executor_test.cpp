@@ -734,10 +734,10 @@ void expect_exact_read_phase_progress(const RecordingEventSink& events, int tota
     expect(2, "Read", 2, 0, total_bytes);
     for (int page = 1; page < pages; ++page)
     {
-        expect(static_cast<std::size_t>(page + 2), "Read", 2, page * static_cast<int>(kReadPageSize), total_bytes);
+        expect(static_cast<std::size_t>(page) + 2, "Read", 2, page * static_cast<int>(kReadPageSize), total_bytes);
     }
-    expect(static_cast<std::size_t>(pages + 2), "Read", 2, total_bytes - 1, total_bytes);
-    expect(static_cast<std::size_t>(pages + 3), "Read", 2, total_bytes, total_bytes);
+    expect(static_cast<std::size_t>(pages) + 2, "Read", 2, total_bytes - 1, total_bytes);
+    expect(static_cast<std::size_t>(pages) + 3, "Read", 2, total_bytes, total_bytes);
 }
 
 void append_compare_logs(std::vector<LogRecord>& logs, std::span<const BlockFixture> blocks,
@@ -1770,12 +1770,12 @@ TEST(SubaruTcuDensoSh705xCanExecutor, NonzeroLargeBlockUsesEveryWriteWindowAndEx
     expect_phase(1, "Kernel", 1, 1, 1);
     for (int done = 0; done <= 16; ++done)
     {
-        expect_phase(static_cast<std::size_t>(done + 2), "Compare", 2, done, 16);
+        expect_phase(static_cast<std::size_t>(done) + 2, "Compare", 2, done, 16);
     }
     expect_phase(19, "Write", 3, 0, 0x18000);
     for (int window = 1; window <= 191; ++window)
     {
-        expect_phase(static_cast<std::size_t>(19 + window), "Write", 3, window * 0x200, 0x18000);
+        expect_phase(19 + static_cast<std::size_t>(window), "Write", 3, window * 0x200, 0x18000);
     }
     expect_phase(211, "Write", 3, 0x17FFF, 0x18000);
     expect_phase(212, "Write", 3, 0x18000, 0x18000);

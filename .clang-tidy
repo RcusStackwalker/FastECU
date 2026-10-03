@@ -16,7 +16,6 @@ Checks: >
   -bugprone-easily-swappable-parameters,
   -bugprone-exception-escape,
   -bugprone-macro-parentheses,
-  -bugprone-misplaced-widening-cast,
   -bugprone-narrowing-conversions,
   -bugprone-throwing-static-initialization,
   -bugprone-unchecked-optional-access,

@@ -1146,7 +1146,7 @@ void QHexEdit::paintEvent(QPaintEvent *event)
             for (int row = 0, pxPosY = _pxCharHeight; (static_cast<qsizetype>(row * _bytesPerLine)) < _dataShown.size();
                  row++, pxPosY += _pxCharHeight)
             {
-                address = QString("%1").arg(_bPosFirst + static_cast<qint64>(row * _bytesPerLine) + _addressOffset,
+                address = QString("%1").arg(_bPosFirst + static_cast<qint64>(row) * _bytesPerLine + _addressOffset,
                                             _addrDigits, 16, QChar('0'));
                 painter.setPen(QPen(_addressFontColor));
                 painter.drawText(_pxPosAdrX - pxOfsX, pxPosY, hexCaps() ? address.toUpper() : address);
@@ -1164,7 +1164,7 @@ void QHexEdit::paintEvent(QPaintEvent *event)
             int pxPosX = _pxPosHexX - pxOfsX;
             int pxPosAsciiX2 = _pxPosAsciiX - pxOfsX;
             int pxPosBarX2 = _pxPosBarX - pxOfsX;
-            qint64 bPosLine = static_cast<qint64>(row * _bytesPerLine);
+            qint64 bPosLine = static_cast<qint64>(row) * _bytesPerLine;
             for (int colIdx = 0; ((bPosLine + colIdx) < _dataShown.size() && (colIdx < _bytesPerLine)); colIdx++)
             {
                 QColor c = viewport()->palette().color(QPalette::Base);
