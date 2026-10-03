@@ -121,7 +121,6 @@ TEST(TestFacadeThreading, transportAdapters_isOpenContainsBackendException)
     }
     ASSERT_TRUE(!open);
 
-    open = true;
     try
     {
         open = kline.isOpen();
@@ -132,7 +131,6 @@ TEST(TestFacadeThreading, transportAdapters_isOpenContainsBackendException)
     }
     ASSERT_TRUE(!open);
 
-    open = true;
     try
     {
         open = can.isOpen();

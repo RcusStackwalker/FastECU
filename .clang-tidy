@@ -5,7 +5,8 @@
 # bugprone-easily-swappable-parameters - too many warnings to be actionable
 # bugprone-reserved-identifier - need to get rid of _ prefixed macros
 # bugprone-throwing-static-initialization - can't be enabled due to googletest
-# clang-analyzer-deadcode.DeadStores - need to eliminate dead code first
+# clang-analyzer-cplusplus.NewDeleteLeaks - false positives on Qt parent-owned
+#   `new` (layouts and widgets handed to a parent are never leaked)
 # bugprone-macro-parentheses - disabled due to PTfn macos in J2534_win.h
 ---
 Checks: >
@@ -24,7 +25,6 @@ Checks: >
   -clang-analyzer-core.NonNullParamChecker,
   -clang-analyzer-core.UndefinedBinaryOperatorResult,
   -clang-analyzer-cplusplus.NewDeleteLeaks,
-  -clang-analyzer-deadcode.DeadStores,
   -clang-analyzer-security.ArrayBound,
   modernize-avoid-c-arrays,
   modernize-deprecated-headers,
