@@ -31,26 +31,16 @@ jobs:
       - name: Install prek
         run: pipx install prek
 
-      # The lychee hook downloads its own binary (cargo-binstall) on every cold
-      # run, and that is the job's dominant failure: ~1.5% of runs died on a
-      # GitHub 403/503 during the install. Its script installs into the prek
-      # checkout precisely so it can be cached, and takes a no-network fast path
-      # when lychee-<version> is already there. The key follows the hook revs, so
-      # bumping one in .pre-commit-config.yaml refreshes it. actions/cache saves
-      # only when the job succeeds, so a half-installed env is never persisted.
       - name: Cache prek hook environments
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/prek
           key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
-      # GITHUB_TOKEN lifts the shared-runner-IP anonymous API limit (the 403 that
-      # sent cargo-binstall down its unsupported cargo-install fallback) for the
-      # cache-miss path, and lychee uses it for github.com links.
       - name: Run pre-commit hooks
         run: prek run --all-files
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }} # authenticates binstall/lychee GitHub requests
 
   gazelle:
     name: gazelle (BUILD files)
