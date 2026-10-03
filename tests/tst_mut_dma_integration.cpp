@@ -271,7 +271,6 @@ TEST_F(MutDmaIntegrationTest, connectsOverMockPty_facadeReportsOpen)
     ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
         MockOpenPortThread mockThread(master);
-        MockOpenPort& mock = *mockThread.mock;
 
         SerialPortActions spad{directBackend()}; // the real direct backend
         const QString opened = connectFacade(spad, QString::fromLocal8Bit(name.data()));
@@ -297,7 +296,6 @@ TEST_F(MutDmaIntegrationTest, setBaud_throughAdapter_trueWhenConnected_falseWhen
     ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
         MockOpenPortThread mockThread(master);
-        MockOpenPort& mock = *mockThread.mock;
 
         SerialPortActions spad{directBackend()};
         ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";

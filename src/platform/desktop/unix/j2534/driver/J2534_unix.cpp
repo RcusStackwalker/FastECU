@@ -650,10 +650,6 @@ long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg,
 long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pMsgID,
                                      unsigned long TimeInterval)
 {
-    PASSTHRU_MSG rxmsg;
-    unsigned long numRxMsg;
-    unsigned long timeout = 10;
-
     QByteArray output;
     long result = STATUS_NOERROR;
 
@@ -750,7 +746,6 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
 {
     QByteArray output;
     QByteArray received;
-    const char *fw_version = "Main code version: 1.17.4877";
     long result = STATUS_NOERROR;
 
     const std::size_t apiLen = std::min(API_VERSION.size(), kVersionBufferSize - 1);
@@ -984,7 +979,6 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     long result = STATUS_NOERROR;
     std::string IoctlName;
 
-    SCONFIG *cfgitem;
     // const SCONFIG_LIST *inputlist = pInput;
 
     switch (IoctlID)
