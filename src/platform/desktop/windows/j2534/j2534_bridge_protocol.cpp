@@ -14,7 +14,9 @@ bool writeAll(HANDLE pipe, const void *data, std::uint32_t size)
     {
         DWORD chunk = 0;
         if (!WriteFile(pipe, bytes + written, size - written, &chunk, nullptr) || chunk == 0)
+        {
             return false;
+        }
         written += chunk;
     }
     return true;
@@ -28,7 +30,9 @@ bool readAll(HANDLE pipe, void *data, std::uint32_t size)
     {
         DWORD chunk = 0;
         if (!ReadFile(pipe, bytes + read, size - read, &chunk, nullptr) || chunk == 0)
+        {
             return false;
+        }
         read += chunk;
     }
     return true;
@@ -40,9 +44,13 @@ bool writeFrame(HANDLE pipe, Function function, const void *payload, std::uint32
 {
     FrameHeader header{function, payloadSize};
     if (!writeAll(pipe, &header, sizeof(header)))
+    {
         return false;
+    }
     if (payloadSize == 0)
+    {
         return true;
+    }
     return writeAll(pipe, payload, payloadSize);
 }
 
@@ -54,16 +62,22 @@ bool readFrameHeader(HANDLE pipe, FrameHeader& outHeader)
 bool readFramePayload(HANDLE pipe, void *payload, std::uint32_t payloadSize)
 {
     if (payloadSize == 0)
+    {
         return true;
+    }
     return readAll(pipe, payload, payloadSize);
 }
 
 bool readFrame(HANDLE pipe, FrameHeader& outHeader, void *payload, std::uint32_t payloadCapacity)
 {
     if (!readFrameHeader(pipe, outHeader))
+    {
         return false;
+    }
     if (outHeader.payloadSize > payloadCapacity)
+    {
         return false;
+    }
     return readFramePayload(pipe, payload, outHeader.payloadSize);
 }
 

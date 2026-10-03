@@ -1,6 +1,23 @@
 #include "J2534_tactrix_win.h"
 
-#include <cstring>
+#include <algorithm>
+#include <cstddef>
+#include <string_view>
+
+namespace
+{
+
+// SAE J2534-1 sizes every version and error-description buffer at 80 chars.
+constexpr std::size_t kJ2534TextBufferSize = 80;
+
+void copyJ2534Text(char *out, std::string_view text)
+{
+    const std::size_t length = std::min(text.size(), kJ2534TextBufferSize - 1);
+    std::ranges::copy(text.substr(0, length), out);
+    out[length] = '\0';
+}
+
+} // namespace
 
 extern "C"
 {
@@ -83,15 +100,15 @@ extern "C"
     __declspec(dllexport) long PT_CALL PassThruReadVersion(unsigned long /*DeviceID*/, char *pApiVersion,
                                                            char *pDllVersion, char *pFirmwareVersion)
     {
-        std::strcpy(pApiVersion, "04.04");
-        std::strcpy(pDllVersion, "1.0.0-fake");
-        std::strcpy(pFirmwareVersion, "0.0.0-fake");
+        copyJ2534Text(pApiVersion, "04.04");
+        copyJ2534Text(pDllVersion, "1.0.0-fake");
+        copyJ2534Text(pFirmwareVersion, "0.0.0-fake");
         return STATUS_NOERROR;
     }
 
     __declspec(dllexport) long PT_CALL PassThruGetLastError(char *pErrorDescription)
     {
-        std::strcpy(pErrorDescription, "fake DLL error");
+        copyJ2534Text(pErrorDescription, "fake DLL error");
         return STATUS_NOERROR;
     }
 
