@@ -114,12 +114,16 @@ changes nothing else.
   - `.clang-tidy` changed under `--scope-os windows` → all in-scope entries,
     not the whole compile database;
   - no config change → unchanged behavior.
-- **CI timeout.** The `clang-tidy` job has `timeout-minutes: 30`. PR 1
-  times a local whole-tree `bazel run //:clang_tidy_report -- --profile` and
-  records the analysis phase in its description. If that phase, scaled from
-  the local core count to the runner's four, exceeds 20 minutes, PR 1 raises
-  the job timeout to 60 minutes. Otherwise the timeout stays, and PR 2's CI run
-  is the first real measurement.
+- **CI timeout.** The `clang-tidy` job has `timeout-minutes: 30`. A local
+  whole-tree `bazel run //:clang_tidy_report -- --profile` (LLVM 23, 15 cores)
+  analyzed 481 translation units in 653 s, which is about 41 minutes on the
+  runner's four cores. PR 1 raises the job timeout to 60 minutes.
+- **PR 1 exercises itself.** PR 1 adds a comment to `.clang-tidy` saying that
+  editing the file makes CI analyze the whole tree. Besides warning editors of
+  the cost, the edit makes PR 1's own CI take the widened path. That gives the
+  first whole-tree run under CI's own clang-tidy (Linux 21.1.6, Windows
+  20.1.8): it measures the real duration and reveals any latent findings before
+  a single name changes. Findings it reveals are fixed in PR 1.
 - **Docs.** The style guide's Static analysis section gains one sentence:
   changing a `.clang-tidy` file makes the changed-files run analyze the whole
   tree.
@@ -157,9 +161,11 @@ produce a worse one or because auto-fix misses them:
 | `FRAME_LEN`, `TRAILER_STD`, ... | `kFrameLen`, `kTrailerStd`, ... | Plain rule |
 
 **Auto-fixed renames.** Everything else, mostly test locals (`cells` →
-`kCells`, `cases` → `kCases`), is renamed by `bazel run //:clang_tidy_fix`
-once the check is enabled. The runner rebuilds the analyzed targets after
-applying fixes. Before committing, each auto-renamed `x` → `kX` is checked
+`kCells`, `cases` → `kCases`), is renamed by a whole-tree `run-clang-tidy -fix`
+restricted to `readability-identifier-naming` and to workspace sources, then
+rebuilt with `bazel build //...`. The repo's `//:clang_tidy_fix` is not used
+here: under local LLVM 23 it would also apply fixes for the 53 unrelated
+findings noted under Verification. Before committing, each auto-renamed `x` → `kX` is checked
 against existing `kX` names in the same file, so a rename cannot silently start
 shadowing another constant.
 
@@ -188,22 +194,30 @@ joins the short list of rules with a mechanical check.
 1. **Regex.** Before touching code, run clang-tidy over a scratch translation
    unit holding the names in the table above. Confirm each passes or is flagged
    as listed. The scratch file is not committed.
-2. **Whole tree, locally.** `bazel run //:clang_tidy_report` with the final
-   config reports zero findings. `bazel build //...`, `bazel test //...`, and
-   `prek run --all-files` pass.
+2. **Whole tree, locally, naming only.** A whole-tree `run-clang-tidy` with
+   the final config restricted to `readability-identifier-naming` reports
+   zero findings. `bazel build //...`, `bazel test //...`, and
+   `prek run --all-files` pass. A full-config local report is not a gate:
+   local LLVM 23 reports 53 findings on today's tree from checks CI's
+   clang-tidy does not have or applies differently (48
+   `bugprone-signed-bitwise`, 4 `readability-uppercase-literal-suffix` on
+   literals inside `EXPECT_EQ` arguments, 1 `bugprone-unhandled-code-paths`).
+   They are out of scope here.
 3. **Old names.** A tree-wide search for every old name returns no hits.
-4. **CI.** PR 2 edits `.clang-tidy`, so with Part 1 in place the Linux job
-   analyzes the whole tree and the Windows job its whole scope. That is the
-   cross-version check (CI's LLVM differs from the local 23) and the Windows
-   check for code the macOS database cannot see.
+4. **CI.** PR 1 and PR 2 both edit `.clang-tidy`, so with Part 1 in place the
+   Linux job analyzes the whole tree and the Windows job its whole scope, on
+   both PRs. PR 1's run proves the tree is clean under CI's clang-tidy before
+   the rule exists; PR 2's run proves it stays clean with the rule on. It is
+   also the check for Windows code the macOS database cannot see.
 
 ## Slicing
 
 A two-PR stack, built with `gh stack`:
 
 1. **`ci/tidy-config-widening`** — "ci: whole-tree clang-tidy when .clang-tidy
-   changes (#49, 1/2)". Runner change, tests, CI timeout if needed, style-guide
-   sentence. Carries this spec and its plan.
+   changes (#49, 1/2)". Runner change, tests, the `.clang-tidy` comment, the
+   60-minute CI timeout, the style-guide sentence, and fixes for any findings
+   its own whole-tree run reveals. Carries this spec and its plan.
 2. **`style/constexpr-naming`** — "style: enforce kCamelCase constexpr
    variables (#49, 2/2)". Three commits so it reviews in layers:
    1. hand-chosen renames;
@@ -216,16 +230,18 @@ Issue #49 stays open for later slices.
 ## Risks
 
 - **Whole-tree CI duration.** Only PRs that change `.clang-tidy` pay for it,
-  and the clang-tidy job runs in parallel with build and test. The first real
-  measurement is PR 2's CI run. If it exceeds the timeout, raise the timeout in
-  PR 2.
-- **clang-tidy version skew.** Local LLVM 23; CI uses Ubuntu's packaged
-  clang-tidy and Chocolatey's LLVM on Windows. `ConstexprVariable` and its
-  `IgnoredRegexp` option are long established. PR 2's whole-tree CI run is the
-  check.
+  and the clang-tidy job runs in parallel with build and test. PR 1's own CI
+  run is the first real measurement; if it exceeds 60 minutes, raise the
+  timeout further in PR 1.
+- **clang-tidy version skew.** Local LLVM 23; CI uses clang-tidy 21.1.6
+  (Ubuntu) and LLVM 20.1.8 (Windows). `ConstexprVariable` and its
+  `IgnoredRegexp` option are long established, and the regex was probed on
+  23 only, so PR 2's whole-tree CI run is the cross-version check. Upgrading
+  CI's LLVM will surface the 53 LLVM-23 findings noted under Verification;
+  that upgrade is a separate change.
 - **Auto-fix misses.** Dependent names and macro bodies are not renamed. The
-  former are hand-renamed first; the runner's post-fix build and the old-name
-  search catch the rest.
+  former are hand-renamed first; the post-fix build and the old-name search
+  catch the rest.
 
 ## Success criteria
 
