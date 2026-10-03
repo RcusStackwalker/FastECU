@@ -1,0 +1,21 @@
+# Which OS runs clang-tidy over platform-gated code. Linux's job analyzes every
+# translation unit in its own compile database; other OSes analyze only their
+# exclusive code. Prefixes are workspace-relative directories, forward slashes.
+#
+# Every BUILD.bazel that sets target_compatible_with and has C/C++ sources must
+# fall under a prefix below, or the runner's guard fails. When it does, decide:
+# exclusive to one OS -> [os.<name>]; otherwise already built (and so analyzed)
+# on Linux -> [linux_covered].
+
+[os.windows]
+prefixes = [
+  "src/platform/desktop/windows",
+  "src/platform/desktop/common/serial",
+  "tests",
+]
+
+[linux_covered]
+prefixes = [
+  "src/platform/desktop/unix/j2534",
+  "src/platform/desktop/common/serial/direct/unix",
+]
