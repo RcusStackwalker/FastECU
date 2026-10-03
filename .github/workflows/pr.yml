@@ -210,7 +210,9 @@ jobs:
     name: clang-tidy (${{ matrix.os }})
     needs: pre-commit
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # 60, not 30: a .clang-tidy change makes the run whole-tree, which took
+    # ~41 minutes when scaled to a 4-core runner (scripts/clang_tidy_runner.py).
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
