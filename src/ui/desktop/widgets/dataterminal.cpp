@@ -5,6 +5,7 @@
 #include <QtGlobal>
 
 #include <cstdint>
+#include <tuple>
 
 DataTerminal::DataTerminal(fastecu::diagnostics::IDiagnosticLink& link_arg, QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::DataTerminalWindow>()}
@@ -250,7 +251,7 @@ void DataTerminal::sendToInterface()
             received = diagnostic_link_io::read_or_empty(*link, serial_read_short_timeout);
             emit LOG_I("Response: " + parse_message_to_hex(received), true, true);
         }
-        static_cast<void>(link->reset());
+        std::ignore = link->reset();
     }
     else if (interfaceTypeName.startsWith("sendCanMessage"))
     {
@@ -347,7 +348,7 @@ void DataTerminal::sendToInterface()
             received = diagnostic_link_io::read_or_empty(*link, serial_read_short_timeout);
             emit LOG_I("Response: " + parse_message_to_hex(received), true, true);
         }
-        static_cast<void>(link->reset());
+        std::ignore = link->reset();
     }
 }
 

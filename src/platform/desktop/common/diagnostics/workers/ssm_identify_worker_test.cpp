@@ -71,7 +71,7 @@ TEST(SsmIdentifyWorkerTest, stopsAtTheFirstSuccess)
     worker.start();
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
     worker.wait();
-    ASSERT_EQ(done.count(), 1);
+    ASSERT_EQ(done.count(), 1U);
     const auto result = std::get<0>(done.snapshot().at(0));
     ASSERT_TRUE(result.success);
     ASSERT_EQ(result.ecu_id, QString("3152584006"));
@@ -94,7 +94,7 @@ TEST(SsmIdentifyWorkerTest, retriesFiveTimesThenReportsTheLastError)
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::Timeout);
     ASSERT_EQ(opens(link), 5);
-    ASSERT_EQ(logs.count(), 5);
+    ASSERT_EQ(logs.count(), 5U);
     // Five 200 ms settle sleeps inside the attempts and four 500 ms gaps
     // between them; no sleep after the last attempt.
     ASSERT_EQ(clock_view->elapsed().count(), 3000);

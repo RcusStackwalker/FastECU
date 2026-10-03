@@ -2,6 +2,7 @@
 #include "ui_settings.h"
 
 #include <memory>
+#include <tuple>
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -43,7 +44,7 @@ Settings::~Settings()
     if (close_save_attempted)
     {
         // Retry persistence without repeating the notification shown on close.
-        (void)config.save();
+        std::ignore = config.save();
     }
     else
     {

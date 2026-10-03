@@ -89,7 +89,7 @@ class ScriptedSsmTransport : public ISsmTransport
     std::vector<bytes::Bytes> expected_;
     std::deque<fastecu::Result<OptionalBytes>> reads_;
     std::deque<fastecu::Result<std::size_t>> write_errors_;
-    int wIdx_ = 0;
+    std::size_t wIdx_ = 0;
     bool ok_ = true;
     bool open_ = true;
 };

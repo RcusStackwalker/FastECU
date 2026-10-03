@@ -3,6 +3,7 @@
 #include <functional>
 #include <optional>
 #include <string>
+#include <tuple>
 
 #include <QApplication>
 #include <QCoreApplication>
@@ -347,7 +348,7 @@ TEST(QtCalibrationInteraction, MigratedTranslationsUseMainWindowContext)
                 dialog->reject();
             },
             &timed_out);
-        (void)interaction.choose_save_path((directory.path() + "/read.bin").toStdString());
+        std::ignore = interaction.choose_save_path((directory.path() + "/read.bin").toStdString());
     }
     {
         DialogDriver<QMessageBox> driver(

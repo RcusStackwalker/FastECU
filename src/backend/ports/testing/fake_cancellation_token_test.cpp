@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <thread>
+#include <tuple>
 #include <vector>
 
 TEST(FakeCancellationToken, SupportsFixedMutableAndCheckCountBehavior)
@@ -65,7 +66,7 @@ TEST(FakeCancellationToken, ConcurrentChecksAreCountedExactly)
             {
                 for (std::size_t check = 0; check < kChecksPerThread; ++check)
                 {
-                    static_cast<void>(token.cancelled());
+                    std::ignore = token.cancelled();
                 }
             });
     }

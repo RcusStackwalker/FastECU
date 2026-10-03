@@ -351,8 +351,8 @@ TEST(ChecksumPortable, DensoDieselCorrectsSh72543SecondaryTableAfterPrimary)
     const ChecksumResult result = ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(original, 0x1FF800, 12);
 
     EXPECT_EQ(result.status, ChecksumResult::Status::Corrected);
-    EXPECT_EQ(bytes::readU32Be(result.romData, 0x1FF8F0), 0x5AA5A55A);
-    EXPECT_EQ(bytes::readU32Be(result.romData, 0x1FF8FC), 0x5AA5A55A);
+    EXPECT_EQ(bytes::readU32Be(result.romData, 0x1FF8F0), 0x5AA5A55AU);
+    EXPECT_EQ(bytes::readU32Be(result.romData, 0x1FF8FC), 0x5AA5A55AU);
 }
 
 TEST(ChecksumPortable, DensoSh7xxxReportsInvalidBlockRangeMessage)

@@ -76,7 +76,7 @@ TEST(TestPtyE2e, workerThread_writeRead_overPty_deliversFramedMessage)
                     received.append(buf.data(), int(n));
                     if (!replied)
                     {
-                        ::write(master, reply.data(), 7);
+                        EXPECT_EQ(::write(master, reply.data(), 7), 7);
                         replied = true;
                     }
                 }

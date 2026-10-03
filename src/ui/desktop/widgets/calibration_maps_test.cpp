@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <string>
+#include <tuple>
 #include <vector>
 
 #include <QCheckBox>
@@ -184,7 +185,7 @@ TEST_P(layoutsAndRefreshParameters, layoutsAndRefresh)
     ASSERT_TRUE(fixture.workspace.find(*id)->write_bytes(32, edit).has_value());
     map.refresh();
     ASSERT_EQ(table->item(bodyRow, bodyCol)->text(), "55.0");
-    ASSERT_EQ(changed.count(), 0);
+    ASSERT_EQ(changed.count(), 0U);
     ASSERT_EQ(table->rowCount(), rows);
     ASSERT_EQ(table->columnCount(), cols);
 }
@@ -267,8 +268,8 @@ TEST(CalibrationMapsTest, selectableReflectsBlobBytesWithoutEmittingEditSignal)
     ASSERT_TRUE(fixture.workspace.find(*id)->write_bytes(96, off).has_value());
     map.refresh();
     ASSERT_EQ(combo->currentText(), "Off");
-    ASSERT_EQ(edits.count(), 0);
-    ASSERT_EQ(changes.count(), 0);
+    ASSERT_EQ(edits.count(), 0U);
+    ASSERT_EQ(changes.count(), 0U);
     ASSERT_EQ(table->cellWidget(0, 0), combo);
 }
 
@@ -296,7 +297,7 @@ TEST(CalibrationMapsTest, retainedMultiSelectableGeometryKeepsLegacyNumericCell)
     fastecu::testing::SignalRecorder changed(table, &QTableWidget::cellChanged);
     map.refresh();
     ASSERT_EQ(table->item(0, 0)->text(), "55.0");
-    ASSERT_EQ(changed.count(), 0);
+    ASSERT_EQ(changed.count(), 0U);
 }
 
 TEST(CalibrationMapsTest, retainedSwitchRefreshKeepsUncheckedControlWithoutEmittingEdits)
@@ -317,13 +318,33 @@ TEST(CalibrationMapsTest, retainedSwitchRefreshKeepsUncheckedControlWithoutEmitt
     ASSERT_TRUE(!checkbox->isChecked());
     fastecu::testing::SignalRecorder edits(&map, &CalibrationMaps::checkbox_state_changed);
     checkbox->setChecked(true);
-    ASSERT_EQ(edits.count(), 1);
+    ASSERT_EQ(edits.count(), 1U);
     const auto edits_before_refresh = edits.count();
     map.refresh();
     ASSERT_EQ(table->cellWidget(0, 0), checkbox);
     ASSERT_TRUE(!checkbox->isChecked());
     ASSERT_EQ(edits.count(), edits_before_refresh);
     ASSERT_TRUE(!session->dirty());
+}
+
+TEST(CalibrationMapsTest, switchCheckboxEmitsQtCheckStateValues)
+{
+    MapFixture fixture;
+    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    ASSERT_TRUE(id.has_value());
+    auto *session = fixture.workspace.find(*id);
+    auto definition = *session->definition();
+    definition.definition.maps[0].type = "Switch";
+    replace_definition(*session, std::move(definition));
+    CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+    auto *checkbox = qobject_cast<QCheckBox *>(table_of(map)->cellWidget(0, 0));
+    ASSERT_TRUE(checkbox != nullptr);
+    fastecu::testing::SignalRecorder edits(&map, &CalibrationMaps::checkbox_state_changed);
+    checkbox->setChecked(true);
+    checkbox->setChecked(false);
+    ASSERT_EQ(edits.count(), 2U);
+    EXPECT_EQ(std::get<0>(edits.snapshot().at(0)), static_cast<int>(Qt::Checked));
+    EXPECT_EQ(std::get<0>(edits.snapshot().at(1)), static_cast<int>(Qt::Unchecked));
 }
 
 TEST(CalibrationMapsTest, colorsKeepOpeningBoundsDuringRefreshAndReopenUsesCurrentValues)
@@ -384,7 +405,7 @@ TEST(CalibrationMapsTest, closedSessionRefreshIsInertAfterAnotherSessionOpens)
     ASSERT_TRUE(fixture.workspace.find(replacement->id)->write_bytes(32, edit).has_value());
     map.refresh();
     ASSERT_EQ(table->item(0, 0)->text(), "10.0");
-    ASSERT_EQ(changed.count(), 0);
+    ASSERT_EQ(changed.count(), 0U);
 }
 
 namespace

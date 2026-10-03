@@ -907,7 +907,6 @@ QByteArray SerialPortActionsDirect::append_ssm_header(QByteArray output)
 QByteArray SerialPortActionsDirect::append_iso9141_header(QByteArray output)
 {
     uint8_t chk_sum = 0;
-    uint8_t msglength = output.length();
 
     output.insert(0, kline_startbyte);
     output.insert(1, kline_target_id);
@@ -1184,29 +1183,10 @@ bool SerialPortActionsDirect::get_serial_num(char *serial_arg)
     struct
     {
         unsigned int length;
-        unsigned int svcid;
-        unsigned short infosvcid;
-
-    } inbuf{};
-
-    struct
-    {
-        unsigned int length;
         std::array<unsigned char, 256> data;
     } outbuf{};
 
-    inbuf.length = 2;
-    inbuf.svcid = 5;     // info
-    inbuf.infosvcid = 1; // serial
-
     outbuf.length = outbuf.data.size() - 1; // reserve one byte for the null terminator
-                                            /*
-                                                if (j2534->PassThruIoctl(devID,TX_IOCTL_APP_SERVICE,&inbuf,&outbuf))
-                                                {
-                                                    serial[0] = 0;
-                                                    return false;
-                                                }
-                                            */
     memcpy(serial_arg, outbuf.data.data(), outbuf.length);
     serial_arg[outbuf.length] = 0;
     return true;

@@ -514,7 +514,7 @@ void script_flash_block(ScriptedCanFlashTransport& transport, const BlockFixture
     for (std::uint32_t address = block.start; address < block.start + block.length; address += kWriteChunkSize)
     {
         bytes::Bytes write_payload = be32(address);
-        write_payload.insert(write_payload.end(), chunk.begin(), chunk.end());
+        write_payload.append_range(chunk);
         transport.expectWrite(beef_request(0x22, write_payload));
         transport.queueRead(beef_response(0x62));
         if ((address + kWriteChunkSize - block.start) % kCommitSize == 0)
@@ -835,8 +835,8 @@ TEST(SubaruDensoSh7058CanExecutor, UploadB6ShortMalformedWrongIdAndAdapterReplie
 
 TEST(SubaruDensoSh7058CanExecutor, UploadB6CancellationAndDisconnectArePropagated)
 {
-    for (const auto [b6_reply, expected] : {std::pair{UploadB6Reply::Cancelled, ErrorKind::Cancelled},
-                                            std::pair{UploadB6Reply::Disconnected, ErrorKind::Disconnected}})
+    for (const auto& [b6_reply, expected] : {std::pair{UploadB6Reply::Cancelled, ErrorKind::Cancelled},
+                                             std::pair{UploadB6Reply::Disconnected, ErrorKind::Disconnected}})
     {
         SCOPED_TRACE(static_cast<int>(b6_reply));
         bytes::Bytes kernel_data(129, bytes::Byte{0});

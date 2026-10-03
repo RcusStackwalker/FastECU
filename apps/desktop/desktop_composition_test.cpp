@@ -358,7 +358,7 @@ TEST_F(DesktopCompositionTest, remoteStateChangesReachThePeer)
 
     emit remote_utility_of(composition)->stateChanged(QRemoteObjectReplica::Suspect, QRemoteObjectReplica::Valid);
 
-    ASSERT_EQ(changes.count(), 1);
+    ASSERT_EQ(changes.count(), 1U);
     ASSERT_EQ(std::get<0>(changes.snapshot().at(0)), QRemoteObjectReplica::Suspect);
     ASSERT_EQ(std::get<1>(changes.snapshot().at(0)), QRemoteObjectReplica::Valid);
 }
@@ -469,7 +469,7 @@ TEST_F(DesktopCompositionTest, enablingFileLoggingWritesASyslogFile)
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return has_line_ending_with(window, "sentinel"); },
                                              std::chrono::milliseconds(5000)));
     const QStringList files = QDir(syslog_dir).entryList({"log_fastecu_*.txt"}, QDir::Files);
-    ASSERT_EQ(files.size(), 1);
+    ASSERT_EQ(files.size(), 1U);
     QFile file{QDir(syslog_dir).filePath(files.first())};
     ASSERT_TRUE(file.open(QIODevice::ReadOnly));
     const QByteArray contents = file.readAll();

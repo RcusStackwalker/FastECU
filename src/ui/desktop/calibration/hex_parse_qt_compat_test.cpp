@@ -11,6 +11,7 @@
 
 #include <array>
 #include <cstdint>
+#include <tuple>
 
 namespace
 {
@@ -59,7 +60,7 @@ TEST(HexParseQtCompat, AgreesWithQtOnRejectionCases)
     for (const char *text : {"", "0x", "nonsense", "not_hex", "0xZZZZ"})
     {
         bool ok = true;
-        (void)QString(text).toUInt(&ok, 16);
+        std::ignore = QString(text).toUInt(&ok, 16);
         EXPECT_FALSE(ok) << "Qt unexpectedly accepted: " << text;
         EXPECT_FALSE(fastecu::definition::parse_hex_value(text).has_value()) << text;
     }
@@ -72,7 +73,7 @@ TEST(HexParseQtCompat, AgreesWithQtOnRejectionCases)
 TEST(HexParseQtCompat, DivergesAboveUint32ByDesign)
 {
     bool ok = true;
-    (void)QString("0x1FFFFFFFF").toUInt(&ok, 16);
+    std::ignore = QString("0x1FFFFFFFF").toUInt(&ok, 16);
     EXPECT_FALSE(ok); // Qt: overflow
 
     const auto parsed = fastecu::definition::parse_hex_value("0x1FFFFFFFF");

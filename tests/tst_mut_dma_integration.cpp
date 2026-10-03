@@ -117,7 +117,7 @@ class MockOpenPort final : public QObject
         f.append(char(0x00));               // NORM_MSG
         f.append(4, char(0x00));            // 4-byte timestamp (ignored here)
         f.append(payload);
-        ::write(fd, f.constData(), f.size());
+        EXPECT_EQ(::write(fd, f.constData(), f.size()), f.size());
     }
 
   private:
@@ -197,7 +197,8 @@ class MockOpenPort final : public QObject
 
     void reply(const char *s)
     {
-        ::write(fd, s, qstrlen(s));
+        const auto length = static_cast<ssize_t>(qstrlen(s));
+        EXPECT_EQ(::write(fd, s, qstrlen(s)), length);
     }
 
     int fd;
@@ -271,7 +272,6 @@ TEST_F(MutDmaIntegrationTest, connectsOverMockPty_facadeReportsOpen)
     ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
         MockOpenPortThread mockThread(master);
-        MockOpenPort& mock = *mockThread.mock;
 
         SerialPortActions spad{directBackend()}; // the real direct backend
         const QString opened = connectFacade(spad, QString::fromLocal8Bit(name.data()));
@@ -297,7 +297,6 @@ TEST_F(MutDmaIntegrationTest, setBaud_throughAdapter_trueWhenConnected_falseWhen
     ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
         MockOpenPortThread mockThread(master);
-        MockOpenPort& mock = *mockThread.mock;
 
         SerialPortActions spad{directBackend()};
         ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";

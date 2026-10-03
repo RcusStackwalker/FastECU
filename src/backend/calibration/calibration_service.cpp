@@ -7,6 +7,7 @@
 #include <limits>
 #include <string>
 #include <string_view>
+#include <tuple>
 
 #include "src/algorithms/expression/expression_evaluator.h"
 #include "src/backend/calibration/scaling_internal.h"
@@ -169,7 +170,7 @@ void backup_rom(std::span<const std::uint8_t> rom_data, std::string_view backup_
 {
     // Fire-and-forget, matching open_subaru_rom_file's own behavior of never
     // checking this write's result.
-    (void)file_repository.write(backup_handle, rom_data);
+    std::ignore = file_repository.write(backup_handle, rom_data);
 }
 
 std::uint32_t element_byte_size(std::optional<definition::StorageType> storage_type, const definition::Scaling *scaling)

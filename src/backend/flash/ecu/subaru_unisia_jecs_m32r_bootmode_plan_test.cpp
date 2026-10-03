@@ -3,6 +3,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <string_view>
@@ -43,8 +44,8 @@ TEST(SubaruUnisiaJecsM32rBootModePlan, KernelPlanPadsToWholeChunks)
         const auto plan = build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(FlashOperation::Write, variant.protocol,
                                                                              variant.mcu, bytes::Bytes(200, 0x5a));
         ASSERT_THAT(plan, IsOk()) << variant.protocol;
-        bytes::Bytes expected(200, 0x5a);
-        expected.resize(256, 0x00); // upload_kernel() :312-315
+        bytes::Bytes expected(256, 0x00); // upload_kernel() :312-315 pads to 256
+        std::fill_n(expected.begin(), 200, bytes::Byte{0x5a});
         EXPECT_EQ(plan->image(), std::optional<bytes::Bytes>(expected));
         EXPECT_EQ(plan->transfer_region(), (MemoryRegion{0, 256}));
         EXPECT_EQ(plan->family(), FlashFamily::SubaruUnisiaJecsM32rBootModeKernel);

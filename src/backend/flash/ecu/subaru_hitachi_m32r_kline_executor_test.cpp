@@ -55,8 +55,8 @@ void scriptReadChunks(ScriptedKlineFlashTransport& transport)
         const std::uint32_t address = logical + 0x100000;
         bytes::Bytes response(134, 0x5a);
         response[4] = 0xe0;
-        transport.exchange(frame({0xa0, 0, 0, static_cast<bytes::Byte>(address >> 16),
-                                  static_cast<bytes::Byte>(address >> 8), static_cast<bytes::Byte>(address), 0x7f}),
+        transport.exchange(frame({0xa0, 0, 0, static_cast<bytes::Byte>(address >> 16U),
+                                  static_cast<bytes::Byte>(address >> 8U), static_cast<bytes::Byte>(address), 0x7f}),
                            response);
     }
 }
@@ -99,9 +99,9 @@ void scriptWriteBody(ScriptedKlineFlashTransport& transport, bytes::ByteView ima
     const bytes::Bytes encrypted = encryptedImage(image);
     for (std::uint32_t address = 0; address < 0x80000; address += 0x80)
     {
-        bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
+        bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
                              static_cast<bytes::Byte>(address)};
-        request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x80);
+        request.append_range(bytes::ByteView(encrypted).subspan(address, 0x80));
         transport.exchange(frame(request));
         if ((address / 0x80) % 2 == 0)
         {
@@ -249,9 +249,9 @@ TEST(SubaruHitachiM32rKlineExecutor, EraseAcknowledgementAccumulatesBoundedFragm
     const bytes::Bytes encrypted = encryptedImage(image);
     for (std::uint32_t address = 0; address < 0x80000; address += 0x80)
     {
-        bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16), static_cast<bytes::Byte>(address >> 8),
+        bytes::Bytes request{0x36, static_cast<bytes::Byte>(address >> 16U), static_cast<bytes::Byte>(address >> 8U),
                              static_cast<bytes::Byte>(address)};
-        request.insert(request.end(), encrypted.begin() + address, encrypted.begin() + address + 0x80);
+        request.append_range(bytes::ByteView(encrypted).subspan(address, 0x80));
         transport.exchange(frame(request));
         transport.queue_no_frame();
     }

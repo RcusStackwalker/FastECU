@@ -4,6 +4,7 @@
 #include <format>
 #include <sstream>
 #include <string_view>
+#include <tuple>
 
 #include <pugixml.hpp>
 
@@ -156,7 +157,7 @@ Result<AppConfig> load_app_config(const ConfigPaths& paths, IFileRepository& fil
     // which rewrites the config file on every load. The save's result is
     // fire-and-forget; callers needing to observe it use parse_app_config
     // and save_app_config themselves (ConfigSession does).
-    (void)save_app_config(*config, paths, file_repository);
+    std::ignore = save_app_config(*config, paths, file_repository);
     return config;
 }
 

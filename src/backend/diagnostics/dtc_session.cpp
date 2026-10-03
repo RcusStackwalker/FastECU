@@ -3,6 +3,7 @@
 #include <array>
 #include <chrono>
 #include <string>
+#include <tuple>
 #include <utility>
 
 #include "src/algorithms/diagnostics/dtc_parser.h"
@@ -59,8 +60,8 @@ class DtcRun
     {
         const Status outcome = body();
         // Today's select_operation epilogue; its results were never checked.
-        static_cast<void>(link_.set_header(KlineHeader::None));
-        static_cast<void>(link_.reset());
+        std::ignore = link_.set_header(KlineHeader::None);
+        std::ignore = link_.reset();
         if (!outcome.has_value())
         {
             return std::unexpected(outcome.error());
@@ -115,7 +116,7 @@ class DtcRun
             return opened;
         }
         info("Testing " + name + " five baud init, please wait...");
-        static_cast<void>(link_.set_p1_max(35ms)); // result never checked today
+        std::ignore = link_.set_p1_max(35ms); // result never checked today
         auto response = link_.five_baud_init(kFiveBaudAddress);
         if (!response.has_value())
         {
@@ -126,14 +127,14 @@ class DtcRun
         const std::optional<KlineHeader> header = five_baud_header(requested, *response, j2534);
         if (!j2534)
         {
-            static_cast<void>(link_.set_p1_max(25ms));
+            std::ignore = link_.set_p1_max(25ms);
         }
         if (!header.has_value())
         {
             error(name + " five baud init failed.");
             return fail(ErrorKind::BadResponse, name + " five baud init failed");
         }
-        static_cast<void>(link_.set_header(*header));
+        std::ignore = link_.set_header(*header);
         info(name + " five baud init succesfully completed.");
         return {};
     }

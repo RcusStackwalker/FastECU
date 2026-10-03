@@ -116,7 +116,6 @@ int DefinitionFileConvert::convert_mappack_csv_file()
 
     bool is_comment = false;
     int index = 0;
-    int line_index = 0;
     /*
     while (!source_file.atEnd())
     {
@@ -129,7 +128,6 @@ int DefinitionFileConvert::convert_mappack_csv_file()
     */
     while (!source_file.atEnd())
     {
-        line_index++;
         line_data.clear();
         line = source_file.readLine();
         // line_data = line.split(";");
@@ -516,10 +514,8 @@ int DefinitionFileConvert::convert_mappack_csv_file()
     source_file.seek(0);
     line = source_file.readLine();
     titles = line.split(";");
-    line_index = 0;
     while (!source_file.atEnd())
     {
-        line_index++;
         line_data.clear();
         line = source_file.readLine();
         // line_data = line.split(";");

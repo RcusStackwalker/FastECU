@@ -17,6 +17,7 @@
 #include <iterator>
 #include <optional>
 #include <string_view>
+#include <tuple>
 #include <utility>
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/backend/logging/logger_definition_service.h"
@@ -214,11 +215,11 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     setSplashScreenProgress("Preparing EcuFlash ROM definitions...", 10);
     // Scan errors are nonfatal and already reported by the session.
-    static_cast<void>(services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash));
+    std::ignore = services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash);
 
     setSplashScreenProgress("Preparing RomRaider ROM definitions...", 10);
     // Scan errors are nonfatal and already reported by the session.
-    static_cast<void>(services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::RomRaider));
+    std::ignore = services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::RomRaider);
 
     if (const QString kernel_dir = qs(configSession->effective_paths().kernel_files_directory);
         QDir(kernel_dir).exists())
@@ -1274,26 +1275,17 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
 {
     const QModelIndex index = ui->calibrationDataTreeWidget->selectionModel()->currentIndex();
     QString selectedText = index.data(Qt::DisplayRole).toString();
-    int hierarchyLevel = 1;
-    QModelIndex seekRoot = index;
     QString selectedRom;
 
     selectedText = item->text(0);
 
-    while (seekRoot.parent() != QModelIndex())
-    {
-        seekRoot = seekRoot.parent();
-        hierarchyLevel++;
-    }
-
+    // A top-level item is a category header; selecting it opens nothing.
     if (ui->calibrationDataTreeWidget->indexOfTopLevelItem(item) > -1)
     {
-        hierarchyLevel = 1;
+        return;
     }
-    else if (ui->calibrationDataTreeWidget->indexOfTopLevelItem(item->parent()) > -1)
+    if (ui->calibrationDataTreeWidget->indexOfTopLevelItem(item->parent()) > -1)
     {
-        hierarchyLevel = 2;
-
         QTreeWidgetItem *selectedFilesTreeItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
         QTreeWidgetItem *selectedDataTreeItem = item;
         const auto session = session_of(selectedFilesTreeItem);
@@ -1317,11 +1309,9 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
             {
                 if (open->view.open_maps.contains(static_cast<std::size_t>(i)))
                 {
-                    int map_index = 0;
                     QList<QMdiSubWindow *> list = ui->mdiArea->findChildren<QMdiSubWindow *>();
                     foreach (QMdiSubWindow *w, list)
                     {
-                        map_index++;
                         if (w->objectName().startsWith(fastecu::ui::session_key_text(*session) + "," +
                                                        QString::number(i) + "," +
                                                        qs(maps[static_cast<std::size_t>(i)].name)))
@@ -1433,7 +1423,7 @@ void MainWindow::close_calibration()
     }
     delete ui->calibrationFilesTreeWidget->takeTopLevelItem(romNumber);
     std::erase_if(calibrations_, [&id](const OpenCalibration& open) { return open.id == *id; });
-    (void)calibrationWorkspace->close(*id);
+    std::ignore = calibrationWorkspace->close(*id);
 
     if (ui->calibrationFilesTreeWidget->topLevelItemCount() > 0)
     {
@@ -1809,12 +1799,10 @@ void MainWindow::remove_ecu_definition_file()
 
 void MainWindow::add_new_logger_definition_file()
 {
-    QObject *obj = sender();
 }
 
 void MainWindow::remove_logger_definition_file()
 {
-    QObject *obj = sender();
 }
 
 QString MainWindow::parse_message_to_hex(const QByteArray& received)

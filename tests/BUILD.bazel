@@ -4,7 +4,6 @@ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 # gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
 # gazelle:exclude fake_j2534_dll.cpp
 load("//bazel:gtest_targets.bzl", "fastecu_gtest")
-load("//bazel:qt_targets.bzl", "COMMON_COPTS")
 load("//bazel:x86_windows_transition.bzl", "x86_windows_binary")
 
 package(default_visibility = ["//visibility:private"])
@@ -44,12 +43,10 @@ WINDOWS_ONLY = select({
     "//conditions:default": ["@platforms//:incompatible"],
 })
 
-# Windows wire-format probe; assert() is its test protocol, so release builds
-# explicitly re-enable assertions and retain the handwritten main.
+# Windows wire-format probe.
 fastecu_gtest(
     name = "j2534_bridge_protocol_test",
     srcs = ["j2534_bridge_protocol_test.cpp"],
-    copts = ["/UNDEBUG"],
     qt = False,
     target_compatible_with = WINDOWS_ONLY,
     deps = [
@@ -107,7 +104,6 @@ fastecu_gtest(
 fastecu_gtest(
     name = "j2534_bridge_client_test",
     srcs = ["j2534_bridge_client_test.cpp"],
-    copts = ["/UNDEBUG"],
     data = J2534_PROCESS_DATA,
     env = J2534_PROCESS_ENV,
     qt = False,
@@ -121,7 +117,6 @@ fastecu_gtest(
 fastecu_gtest(
     name = "j2534_win_bridge_test",
     srcs = ["j2534_win_bridge_test.cpp"],
-    copts = COMMON_COPTS + ["/UNDEBUG"],
     data = J2534_PROCESS_DATA,
     env = J2534_PROCESS_ENV,
     qt = True,

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <tuple>
 #include <utility>
 #include <optional>
 #include "src/backend/diagnostics/ssm_identify.h"
@@ -755,7 +756,7 @@ void MainWindow::show_subaru_biu_window()
 
     emit LOG_D("BIU stopped", true, true);
 
-    static_cast<void>(link.set_header(fastecu::diagnostics::KlineHeader::None));
+    std::ignore = link.set_header(fastecu::diagnostics::KlineHeader::None);
 }
 
 void MainWindow::show_terminal_window()

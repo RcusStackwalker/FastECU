@@ -5,6 +5,7 @@
 #include <format>
 #include <iterator>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace fastecu::config
@@ -123,7 +124,7 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, I
         {
             // A missing previous config is not an error for this step;
             // matches QFile::copy's legacy silent-failure behavior.
-            fs.copy_file(previous_config_file, paths.config_files_directory + "fastecu.cfg", false);
+            std::ignore = fs.copy_file(previous_config_file, paths.config_files_directory + "fastecu.cfg", false);
         }
     }
 

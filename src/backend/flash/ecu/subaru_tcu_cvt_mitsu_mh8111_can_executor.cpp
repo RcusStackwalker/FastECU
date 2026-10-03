@@ -592,7 +592,7 @@ Result<FlashExecutionResult> SubaruTcuCvtMitsuMh8111CanExecutor::execute(const F
         // comment, is preserved). This differs from
         // SubaruTcuCvtHitachiM32rCan (Task 3), which pads with 0x00.
         bytes::Bytes rom(kReadRegion.start, 0xFF);
-        rom.insert(rom.end(), window->begin(), window->end());
+        rom.append_range(*window);
         return FlashExecutionResult{
             .operation = FlashOperation::Read,
             .read_bytes = std::move(rom),

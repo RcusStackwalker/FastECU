@@ -2,6 +2,7 @@
 #include <ui_biu_operations_subaru.h>
 
 #include <cstddef>
+#include <tuple>
 #include "src/ui/desktop/diagnostic_link_io.h"
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 
@@ -351,7 +352,7 @@ void BiuOperationsSubaru::send_biu_msg()
 
     if (connection_state == NOT_CONNECTED && current_command == CONNECT)
     {
-        static_cast<void>(link->fast_init(bytes::view(output)));
+        std::ignore = link->fast_init(bytes::view(output));
     }
     else
     {
@@ -610,7 +611,7 @@ void BiuOperationsSubaru::parse_biu_message(const QByteArray& message)
         return;
     }
 
-    if (((uint8_t)message.at(0) & 0x7FU) != (uint8_t)message.length() - 4)
+    if (((uint8_t)message.at(0) & 0x7FU) != static_cast<unsigned>((uint8_t)message.length() - 4))
     {
         emit LOG_I("Invalid message received: invalid length", true, true);
         return;
@@ -1152,7 +1153,7 @@ QString BiuOperationsSubaru::parse_message_to_hex(const QByteArray& received)
 {
     QByteArray msg;
 
-    for (unsigned long i = 0; i < received.length(); i++)
+    for (qsizetype i = 0; i < received.length(); i++)
     {
         msg.append(QString("%1 ").arg((uint8_t)received.at(i), 2, 16, QLatin1Char('0')).toUtf8());
     }

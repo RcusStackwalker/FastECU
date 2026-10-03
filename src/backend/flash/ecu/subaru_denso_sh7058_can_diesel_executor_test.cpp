@@ -510,7 +510,7 @@ void script_flash_block(ScriptedCanFlashTransport& transport, const BlockFixture
     for (std::uint32_t address = block.start; address < block.start + block.length; address += 0x200)
     {
         bytes::Bytes payload = be32(address);
-        payload.insert(payload.end(), chunk.begin(), chunk.end());
+        payload.append_range(chunk);
         transport.expectWrite(beef_request(0x22, payload));
         transport.queueRead(beef_response(0x62));
         if ((address + 0x200 - block.start) % 0x1000 == 0)
@@ -859,8 +859,8 @@ TEST(SubaruDensoSh7058CanDieselExecutor, EveryB6ReplyIsRawAndIgnoredExceptCancel
         EXPECT_TRUE(transport.scripted.scriptConsumed());
     }
 
-    for (const auto [reply, expected] : {std::pair{UploadB6Reply::Cancelled, ErrorKind::Cancelled},
-                                         std::pair{UploadB6Reply::Disconnected, ErrorKind::Disconnected}})
+    for (const auto& [reply, expected] : {std::pair{UploadB6Reply::Cancelled, ErrorKind::Cancelled},
+                                          std::pair{UploadB6Reply::Disconnected, ErrorKind::Disconnected}})
     {
         bytes::Bytes kernel_data(129, bytes::Byte{0});
         kernel_data.back() = 1;
