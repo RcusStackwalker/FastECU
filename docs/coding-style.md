@@ -3,7 +3,9 @@
 Conventions for C++ code in this repository. Everything here is the rule for
 new and edited code; there is no proposed/accepted lifecycle. Pre-existing
 sites that predate a rule are converted opportunistically as files are touched,
-not in repo-wide sweeps.
+not in repo-wide sweeps. [Naming](#naming) is the exception: clang-tidy
+enforces each naming rule from the change that adopts it, so that change
+renames every existing site.
 
 Architectural decisions — the build graph, CI ownership, layering boundaries —
 live in [the ADR index](adr/README.md) instead. If a convention is enforced by
@@ -11,7 +13,8 @@ a build-graph guard rather than by review, it belongs there and is cross-linked
 from here.
 
 Enforcement is PR review. Only a few of these rules have a mechanical check
-(`prek` formatting, the `#pragma once` check); the rest do not, by design.
+(`prek` formatting, the `#pragma once` check, clang-tidy for naming); the rest
+do not, by design.
 
 ## Strings and messages
 
@@ -409,6 +412,32 @@ output already says which case failed.
 never a bare path written as inline code — lychee, the link checker `prek`
 runs, resolves `[text](path)` links but cannot see a path spelled as
 `` `docs/foo.md` `` and so cannot catch it going stale.
+
+## Naming
+
+Names follow the
+[Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html#Naming),
+adopted one identifier kind at a time. Each kind listed here is enforced by
+clang-tidy's `readability-identifier-naming`, and the change that adopted it
+renamed every existing site, so a listed kind has no legacy exceptions. Kinds
+not listed yet follow the surrounding code.
+
+**Constexpr variables are `kCamelCase`** at every storage duration: namespace
+scope, static data members, function locals, static locals, and variable
+templates.
+
+```cpp
+inline constexpr std::size_t kReadPageSize = 0x100;
+template <typename> inline constexpr bool kDependentFalse = false;
+static constexpr auto kCells = std::to_array<std::string_view>({"10", "20"});
+```
+
+Google makes the `k` optional for function locals. Here it is required, because
+the check cannot tell storage durations apart and one rule is simpler to follow.
+
+**An underscore may separate words only where capitalization cannot**, which
+means next to a digit: `kFlashBlocksSH7058_1block`,
+`kSubaruDensoMc68hc16y5_02BdmUploadChunk`. `kFoo_Bar` is rejected.
 
 ## Formatting and headers
 
