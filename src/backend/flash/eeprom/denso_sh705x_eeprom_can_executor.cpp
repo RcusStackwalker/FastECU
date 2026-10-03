@@ -691,7 +691,7 @@ Status DensoSh705xEepromCanExecutor::upload_kernel(ICanFlashTransport& transport
         // corrected: an N-block kernel produces N+1 wire frames.
         const bytes::ByteView chunk =
             blockno < max_blocks
-                ? encrypted_view.subspan(static_cast<std::size_t>(blockno * kUploadChunkBytes), kUploadChunkBytes)
+                ? encrypted_view.subspan(static_cast<std::size_t>(blockno) * kUploadChunkBytes, kUploadChunkBytes)
                 : bytes::ByteView{};
 
         if (Status written = transport.write(sid_b6_request(request_id, block_addr, chunk), cancellation);

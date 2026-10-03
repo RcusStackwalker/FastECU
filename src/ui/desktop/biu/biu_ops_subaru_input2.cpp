@@ -30,7 +30,7 @@ BiuOpsSubaruInput2::BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray
 
             label = new QLabel();
             label->setObjectName("Name" + QString::number(i));
-            label->setText(biu_option_names->at(static_cast<qsizetype>(3 * i)));
+            label->setText(biu_option_names->at(3 * static_cast<qsizetype>(i)));
             ui->gridLayout->addWidget(label, i, 0);
 
             button_group = new QButtonGroup();
