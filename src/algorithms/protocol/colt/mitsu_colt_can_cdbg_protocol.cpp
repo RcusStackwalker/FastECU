@@ -37,6 +37,8 @@ std::uint32_t seedToKey(std::uint32_t seed)
         case 3:
             x = static_cast<bytes::Byte>(x + 2);
             break;
+        default:
+            break;
         }
         data[i] = std::rotl(x, 3);
     }

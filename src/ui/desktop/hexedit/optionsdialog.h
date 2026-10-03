@@ -17,7 +17,7 @@ class OptionsDialog : public QDialog
   public:
     explicit OptionsDialog(QWidget *parent = 0);
     ~OptionsDialog();
-    void show();
+    void showWithSettings();
 
   public slots:
     virtual void accept();

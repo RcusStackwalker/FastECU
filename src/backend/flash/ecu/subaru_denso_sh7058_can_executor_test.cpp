@@ -457,21 +457,17 @@ void script_crc(ScriptedCanFlashTransport& transport, const BlockFixture& block,
     payload.push_back(static_cast<bytes::Byte>(block.length));
     transport.expectWrite(beef_request(0x02, payload));
     transport.queueRead(beef_response(0x42, be32(crc)));
-    if (!stale.has_value())
-    {
-        transport.queue_no_frame();
-    }
-    else if (!stale->has_value())
+    if (stale.has_value() && !stale->has_value())
     {
         transport.queue_error(stale->error().kind, stale->error().detail);
     }
-    else if (!stale->value().has_value())
+    else if (stale.has_value() && stale->value().has_value())
     {
-        transport.queue_no_frame();
+        transport.queueRead(***stale);
     }
     else
     {
-        transport.queueRead(***stale);
+        transport.queue_no_frame();
     }
 }
 

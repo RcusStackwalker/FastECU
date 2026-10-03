@@ -216,12 +216,8 @@ int DefinitionFileConvert::convert_mappack_csv_file()
             }
             if (titles.at(i) == "DataOrg")
             {
-                if (line_data.at(i) == "eByte")
-                {
-                    stream.writeAttribute("storagetype", "uint8");
-                    stream.writeAttribute("endian", "big");
-                }
-                else if (line_data.at(i) == "eHiLo")
+                // "eByte" and any unrecognised value fall through to the uint8 default below.
+                if (line_data.at(i) == "eHiLo")
                 {
                     stream.writeAttribute("storagetype", "uint16");
                     stream.writeAttribute("endian", "big");
@@ -302,12 +298,8 @@ int DefinitionFileConvert::convert_mappack_csv_file()
                 }
                 if (titles.at(i) == "AxisX.DataOrg")
                 {
-                    if (line_data.at(i) == "eByte")
-                    {
-                        stream.writeAttribute("storagetype", "uint8");
-                        stream.writeAttribute("endian", "big");
-                    }
-                    else if (line_data.at(i) == "eHiLo")
+                    // "eByte" and any unrecognised value fall through to the uint8 default below.
+                    if (line_data.at(i) == "eHiLo")
                     {
                         stream.writeAttribute("storagetype", "uint16");
                         stream.writeAttribute("endian", "big");
@@ -380,12 +372,8 @@ int DefinitionFileConvert::convert_mappack_csv_file()
                 }
                 if (titles.at(i) == "AxisY.DataOrg")
                 {
-                    if (line_data.at(i) == "eByte")
-                    {
-                        stream.writeAttribute("storagetype", "uint8");
-                        stream.writeAttribute("endian", "big");
-                    }
-                    else if (line_data.at(i) == "eHiLo")
+                    // "eByte" and any unrecognised value fall through to the uint8 default below.
+                    if (line_data.at(i) == "eHiLo")
                     {
                         stream.writeAttribute("storagetype", "uint16");
                         stream.writeAttribute("endian", "big");

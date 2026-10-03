@@ -42,10 +42,10 @@ enum class KlineParity
 
 struct KlineConfig
 {
-    int baud;
-    bool iso14230;
-    std::uint8_t tester_id;
-    std::uint8_t target_id;
+    int baud{};
+    bool iso14230{};
+    std::uint8_t tester_id{};
+    std::uint8_t target_id{};
     KlineParity parity = KlineParity::None;
 };
 

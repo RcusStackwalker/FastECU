@@ -25,6 +25,7 @@
 //                                     -> generic "aro" (same minimal mock that makes
 //                                     init_j2534_connection succeed in the crash suite).
 
+#include <tuple>
 #include <gtest/gtest.h>
 #include "src/platform/desktop/common/testing/event_helpers.h"
 #include <QByteArray>
@@ -363,7 +364,7 @@ TEST_F(MutDmaIntegrationTest, read_throughAdapter_returnsEcuReplyBytes)
 
         FastEcuKlineTransport tr(&spad);
         fastecu::FakeCancellationToken cancellation;
-        tr.read(60ms, cancellation); // drain any residual init acks before the scripted exchange
+        std::ignore = tr.read(60ms, cancellation); // drain any residual init acks before the scripted exchange
 
         QByteArray reply;
         reply.append(char(0x05));
@@ -414,7 +415,7 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
         frame.append(char(sum8(bytes::view(frame))));
         frame.append(char(kTrailerStd));
 
-        tr.read(60ms, cancellation); // drain residual
+        std::ignore = tr.read(60ms, cancellation); // drain residual
         mock.injectDataFrame(frame);
 
         const auto values = driver.pollOnce(500ms, cancellation);

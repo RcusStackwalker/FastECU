@@ -1181,63 +1181,29 @@ void J2534::handle_error(QSerialPort::SerialPortError error)
 {
     // emit LOG_D("Error:" << QString::number(error), true, true);
 
-    if (error == QSerialPort::NoError)
+    switch (error)
     {
-    }
-    else if (error == QSerialPort::DeviceNotFoundError)
-    {
+    case QSerialPort::DeviceNotFoundError:
+    case QSerialPort::OpenError:
+    case QSerialPort::NotOpenError:
+    case QSerialPort::WriteError:
+    case QSerialPort::ReadError:
+    case QSerialPort::ResourceError:
+    case QSerialPort::UnknownError:
         close_serial_port();
-    }
-    else if (error == QSerialPort::PermissionError)
-    {
-    }
-    else if (error == QSerialPort::OpenError)
-    {
-        close_serial_port();
-    }
-    else if (error == QSerialPort::NotOpenError)
-    {
-        close_serial_port();
-    }
-    /*
-    else if (error == QSerialPort::ParityError)
-    {
-    }
-    else if (error == QSerialPort::FramingError)
-    {
-    }
-    else if (error == QSerialPort::BreakConditionError)
-    {
-    }
-*/
-    else if (error == QSerialPort::WriteError)
-    {
-        close_serial_port();
-    }
-    else if (error == QSerialPort::ReadError)
-    {
-        close_serial_port();
-    }
-    else if (error == QSerialPort::ResourceError)
-    {
-        close_serial_port();
-    }
-    else if (error == QSerialPort::UnsupportedOperationError)
-    {
-    }
-    else if (error == QSerialPort::TimeoutError)
-    {
+        break;
+    case QSerialPort::TimeoutError:
         // read_serial_data now polls via serial->waitForReadyRead(1) instead of
         // pumping the event loop; QSerialPort emits this error whenever such a
         // wait elapses with no new bytes, which is the ordinary case on every
-        // polling tick, not a device/link failure. Previously this branch was
+        // polling tick, not a device/link failure. Previously this error was
         // unreachable (nothing called a wait-with-timeout API), so it could
         // safely close the port; now that would tear down the connection on
         // routine polling latency. Leave it a no-op, like the other
-        // non-fatal branches above.
-    }
-    else if (error == QSerialPort::UnknownError)
-    {
-        close_serial_port();
+        // non-fatal errors.
+    // NoError, PermissionError, UnsupportedOperationError and the Parity/Framing/BreakCondition
+    // errors are non-fatal and deliberately left alone.
+    default:
+        break;
     }
 }
