@@ -4,5 +4,6 @@ exports_files([
     "googletest_char8_conversion.patch",
     "hedron_bazel9_py_binary.patch",
     "rules_qt_drop_intel_mac.patch",
+    "rules_qt_mac_single_rpath.patch",
     "rules_qt_windows_addons.patch",
 ])

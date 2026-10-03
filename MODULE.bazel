@@ -33,11 +33,15 @@ use_repo(pip, "python_deps")
 # select, so without this //:portable_backend_closure fails with an
 # unresolved-repo error the moment anything Qt-bearing enters the closure --
 # exactly when it has something to report.
+#
+# mac_single_rpath gives every Qt module's framework rpath to one shared
+# library, so Apple's ld sees it once per link instead of warning on each repeat.
 single_version_override(
     module_name = "rules_qt",
     patch_strip = 1,
     patches = [
         "//bazel/patches:rules_qt_drop_intel_mac.patch",
+        "//bazel/patches:rules_qt_mac_single_rpath.patch",
         "//bazel/patches:rules_qt_windows_addons.patch",
     ],
 )
