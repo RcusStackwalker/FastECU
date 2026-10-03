@@ -41,29 +41,27 @@ The runner measures itself.
 
 - **Phase timers.** Print the duration of prebuild, compile-DB refresh,
   filtering and analysis, plus the translation-unit count.
-- **`--profile-dir` flag.** Passes `-store-check-profile` through
-  `run-clang-tidy`; clang-tidy writes one JSON per translation unit with
-  per-check time.
-- **Aggregation.** After the run, sum the JSON and write a markdown summary to
-  `$GITHUB_STEP_SUMMARY`: top 15 checks by total time, top 15 translation
-  units, phase timings. Upload the raw JSON as an artifact, 14-day retention.
+- **`--profile` flag.** Adds `-enable-check-profile` to the `run-clang-tidy`
+  command. `run-clang-tidy` has no `-store-check-profile` passthrough, so there
+  is no per-file JSON; the aggregated per-check report is what we get.
+- **Aggregation.** The runner parses that report (summing wall time per check
+  across however many tables the LLVM version prints) and writes a markdown
+  summary to `$GITHUB_STEP_SUMMARY`: top 15 checks by total time and the phase
+  timings. Per-translation-unit ranking is out of scope.
 - **CI usage.** Profiling is on for every CI tidy run (negligible cost), so
-  data accumulates on all three OSes.
+  data accumulates.
 - **Tests.** Unit tests for aggregation and flag plumbing, alongside
   `scripts/clang_tidy_runner_test.py`.
 
-Part 1 also produces the per-OS translation-unit lists used to finalize the
-manifest in Part 2.
-
 ## Part 2: One full platform, scoped runs elsewhere
 
-- **Scope manifest.** A checked-in file lists, per OS, the path prefixes of
-  platform-conditional code. Candidates: `serial/direct/{unix,windows}`,
-  `unix/j2534`, `windows/j2534`, and platform-gated tests. Final membership is
-  taken from the per-OS translation-unit lists from Part 1.
-- **Per-OS behavior.**
-  - Linux analyzes everything in its compile DB, as today.
-  - Windows and macOS analyze only translation units under their own prefixes.
+- **Scope manifest** (`.clang-tidy-scope.toml`). Lists the path prefixes of
+  Windows-exclusive code, and the platform-gated packages that the full Linux
+  run already covers. An audit of every `target_compatible_with` found no
+  macOS-exclusive code, so **there is no macOS tidy job**: Linux covers
+  everything except Windows-exclusive code.
+- **Per-OS behavior.** Linux analyzes everything in its compile DB. Windows
+  analyzes only translation units under the manifest's Windows prefixes.
 - **Narrower prebuild and refresh.** Scoped jobs also carry a build/refresh
   target pattern for their prefixes, so Windows stops building `//...` only to
   materialize generated headers.
@@ -74,11 +72,14 @@ manifest in Part 2.
 
 **Accepted trade-off.** Portable code is no longer tidied under the Windows and
 macOS toolchains (the QByteArray ambiguity fixed in #474 was found that way).
-The per-OS build with warnings as errors remains the safety net.
+The per-OS build with warnings as errors remains the safety net. macOS loses
+tidy entirely; two files with `__APPLE__` guards
+(`qt_calibration_interaction_test.cpp`, `mock_openport.h`) are no longer
+analyzed under macOS defines.
 
 ## Part 3: Tidy as a parallel job
 
-- New `clang-tidy` job in `pr.yml`: matrix over the three OSes,
+- New `clang-tidy` job in `pr.yml`: matrix over Linux and Windows,
   `needs: pre-commit`, same setup as the `bazel` job (Qt, LLVM, BuildBuddy),
   `timeout-minutes: 30`, running `//:clang_tidy_report_changed`.
 - The `bazel` job drops its tidy step; its critical path becomes build + test.
