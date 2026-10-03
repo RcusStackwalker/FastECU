@@ -231,3 +231,5 @@ Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths, IF
 }
 
 } // namespace fastecu::config
+
+// tidy profile probe (throwaway, do not merge)

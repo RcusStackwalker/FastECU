@@ -172,3 +172,5 @@ Status provision_config_directories(const ConfigPaths& paths, IFileSystem& fs, I
 }
 
 } // namespace fastecu::config
+
+// tidy profile probe (throwaway, do not merge)

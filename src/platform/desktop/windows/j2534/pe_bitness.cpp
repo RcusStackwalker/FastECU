@@ -49,3 +49,5 @@ bool isDll32Bit(const char *dllPath, bool& out32Bit)
     out32Bit = (machine == kImageFileMachineI386);
     return true;
 }
+
+// tidy profile probe (throwaway, do not merge)

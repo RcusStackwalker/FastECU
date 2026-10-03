@@ -549,3 +549,5 @@ void CalibrationMaps::cellChanged(int curRow, int curCol, int prevRow, int prevC
         }
     }
 }
+
+// tidy profile probe (throwaway, do not merge)

@@ -476,3 +476,5 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
 
     return resp.result;
 }
+
+// tidy profile probe (throwaway, do not merge)

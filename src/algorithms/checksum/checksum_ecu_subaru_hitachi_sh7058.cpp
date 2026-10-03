@@ -134,3 +134,5 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::
     }
     return result;
 }
+
+// tidy profile probe (throwaway, do not merge)

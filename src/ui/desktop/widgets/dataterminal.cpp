@@ -421,3 +421,5 @@ void DataTerminal::delay(int timeout)
         QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
     }
 }
+
+// tidy profile probe (throwaway, do not merge)

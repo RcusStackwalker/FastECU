@@ -189,3 +189,5 @@ ServiceFunctionStep RelearnSession::resume(ISsmTransport& transport, IClock&, co
 }
 
 } // namespace fastecu::service_functions
+
+// tidy profile probe (throwaway, do not merge)
