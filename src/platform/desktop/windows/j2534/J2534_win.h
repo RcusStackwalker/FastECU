@@ -20,6 +20,8 @@
 #include "J2534_tactrix_win.h"
 #include "src/platform/desktop/windows/j2534/j2534_bridge_client.h"
 
+// name is token-pasted into a type and a member name, so it cannot be parenthesized.
+// NOLINTNEXTLINE(bugprone-macro-parentheses)
 #define PTfn(name) PF_##name *pf##name
 #define PText(name) PT_API PF_##name name
 
