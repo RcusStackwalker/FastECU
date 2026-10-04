@@ -2,8 +2,10 @@
 # translation unit in scope instead of only the changed ones
 # (config_changed in scripts/clang_tidy_runner.py): budget for a full run.
 #
-# CI pins LLVM 22 for clang-tidy (CLANG_TIDY_LLVM_* in .github/workflows/pr.yml);
+# CI pins LLVM 23 for clang-tidy (CLANG_TIDY_LLVM_* in .github/workflows/pr.yml);
 # bumping it should touch this comment so the whole tree is re-checked.
+# LLVM 22 cannot follow gtest's ASSERT_TRUE(opt.has_value()) guard, so
+# bugprone-unchecked-optional-access reports every later `*opt` in a test; 23 can.
 #
 # bugprone-easily-swappable-parameters - too many warnings to be actionable
 # bugprone-exception-escape - fires inside gmock MATCHER_P expansions, gmock's
@@ -40,6 +42,11 @@ HeaderFilterRegex: 'src/(algorithms|backend|platform|ui)/.*\.h'
 ExcludeHeaderFilterRegex: '([/\\\\]generated_ui[/\\\\].*|_replica)\.h'
 FormatStyle: none
 CheckOptions:
+  # LLVM 23 added this option with a default of false, which flags the literal
+  # in `x >> 1` and `x & 0x100` even when x is unsigned. LLVM 22 never did;
+  # keep that. Signed variables are still reported.
+  - key: bugprone-signed-bitwise.IgnorePositiveIntegerLiterals
+    value: true
   - key: readability-braces-around-statements.ShortStatementLines
     value: '1'
   - key: modernize-deprecated-headers.CheckHeaderFile

@@ -6,6 +6,7 @@
 
 #include <QThread>
 
+#include <algorithm>
 #include <array>
 #include <string_view>
 
@@ -17,6 +18,14 @@ static_assert(kJ2534IoctlP1Max == P1_MAX, "serial_facade_codes.h must match the 
 
 namespace
 {
+// Length of the next J2534 message: what is left to send, capped at what one
+// PASSTHRU_MSG can carry. The cap bounds the result, so the narrowing to long
+// (32 bits on Windows) is lossless.
+long nextPassThruChunkLength(const QByteArray& remaining)
+{
+    return static_cast<long>(std::min<qsizetype>(remaining.length(), PASSTHRU_MSG_DATA_SIZE));
+}
+
 // RAII counter: marks a J2534 read as in-flight so a reentrant teardown
 // (close_j2534_serial_port) won't free j2534 underneath it.
 struct J2534IoScope
@@ -959,13 +968,7 @@ int SerialPortActionsDirect::write_j2534_data(QByteArray output)
 {
     PASSTHRU_MSG txmsg;
     unsigned long NumMsgs;
-    long txMsgLen;
-
-    txMsgLen = output.length();
-    if (txMsgLen > PASSTHRU_MSG_DATA_SIZE)
-    {
-        txMsgLen = PASSTHRU_MSG_DATA_SIZE;
-    }
+    long txMsgLen = nextPassThruChunkLength(output);
 
     while (txMsgLen > 0)
     {
@@ -995,11 +998,7 @@ int SerialPortActionsDirect::write_j2534_data(QByteArray output)
         // emit LOG_D("Data sent: " + parse_message_to_hex(output);
 
         output.remove(0, txMsgLen);
-        txMsgLen = output.length();
-        if (txMsgLen > PASSTHRU_MSG_DATA_SIZE)
-        {
-            txMsgLen = PASSTHRU_MSG_DATA_SIZE;
-        }
+        txMsgLen = nextPassThruChunkLength(output);
     }
 
     return STATUS_SUCCESS;
@@ -1008,13 +1007,7 @@ int SerialPortActionsDirect::write_j2534_data(QByteArray output)
 int SerialPortActionsDirect::send_periodic_j2534_data(QByteArray output, int timeout_arg)
 {
     PASSTHRU_MSG txmsg;
-    long txMsgLen;
-
-    txMsgLen = output.length();
-    if (txMsgLen > PASSTHRU_MSG_DATA_SIZE)
-    {
-        txMsgLen = PASSTHRU_MSG_DATA_SIZE;
-    }
+    long txMsgLen = nextPassThruChunkLength(output);
 
     while (txMsgLen > 0)
     {
@@ -1032,11 +1025,7 @@ int SerialPortActionsDirect::send_periodic_j2534_data(QByteArray output, int tim
         }
         j2534->PassThruStartPeriodicMsg(chanID, &txmsg, &msgID, timeout_arg);
         output.remove(0, txMsgLen);
-        txMsgLen = output.length();
-        if (txMsgLen > PASSTHRU_MSG_DATA_SIZE)
-        {
-            txMsgLen = PASSTHRU_MSG_DATA_SIZE;
-        }
+        txMsgLen = nextPassThruChunkLength(output);
     }
 
     delay(10);

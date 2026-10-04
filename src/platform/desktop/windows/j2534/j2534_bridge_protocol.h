@@ -11,6 +11,9 @@ namespace j2534_bridge
 
 enum class Function : std::uint8_t
 {
+    // Never sent. The value of a zero-initialised FrameHeader before
+    // readFrameHeader() fills it in, and what a corrupt frame decodes to.
+    Invalid = 0,
     PassThruOpen = 1,
     PassThruClose = 2,
     PassThruConnect = 3,
@@ -30,8 +33,8 @@ enum class Function : std::uint8_t
 
 struct FrameHeader
 {
-    Function function;
-    std::uint32_t payloadSize;
+    Function function = Function::Invalid;
+    std::uint32_t payloadSize = 0;
 };
 
 struct PassThruOpenRequest

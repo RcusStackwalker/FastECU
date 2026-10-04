@@ -461,8 +461,8 @@ locally before that gate ever sees the change:
   covers it.
   In CI, clang-tidy runs as its own `clang-tidy` job (Linux, plus Windows for
   Windows-exclusive code), in parallel with the Bazel build and test job.
-  The job pins LLVM 22 on both OSes (`CLANG_TIDY_LLVM_*` in `pr.yml`), so a
-  newer local LLVM can report checks CI does not yet enable.
+  The job pins LLVM 23 on both OSes (`CLANG_TIDY_LLVM_*` in `pr.yml`), so an
+  older or newer local LLVM can report differently from CI; match the pin.
   Changing any `.clang-tidy` file widens that changed-files run to every
   translation unit in the OS's scope, because a new or retuned check can fire
   in files the change never touched.

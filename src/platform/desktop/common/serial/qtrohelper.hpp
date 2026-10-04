@@ -13,7 +13,9 @@ template <typename T> T qvariant_to_scalar(QVariant v);
 
 template <> inline long qvariant_to_scalar<long>(QVariant v)
 {
-    return v.toLongLong();
+    // QVariant stores integers as 64 bits; long is 32 bits on Windows. The
+    // value was a long on the sending side, so it round-trips.
+    return static_cast<long>(v.toLongLong());
 }
 
 template <> inline unsigned long qvariant_to_scalar<unsigned long>(QVariant v)
