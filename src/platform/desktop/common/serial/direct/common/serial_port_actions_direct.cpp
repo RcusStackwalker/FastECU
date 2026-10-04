@@ -1124,28 +1124,20 @@ int SerialPortActionsDirect::set_j2534_ioctl(unsigned long parameter, int value)
 
 unsigned long SerialPortActionsDirect::read_vbatt()
 {
-    // Guard j2534: reset_connection()/teardown can free it (and null it) while a
-    // read is dispatched reentrantly from a pumped event loop. Without this guard
-    // a reentrant read dereferences a freed/null j2534 (the field use-after-free).
-    if (use_openport2_adapter && j2534)
+    if (!use_openport2_adapter || !j2534)
     {
-        J2534IoScope io(j2534_io_depth_); // block teardown while this read runs
-        if (j2534->PassThruIoctl(chanID, kJ2534ReadVbatt, nullptr, &vBatt))
-        {
-            reportJ2534Error();
-            return kSerialError;
-        }
-        // emit LOG_D("Batt: " + QString::number(vBatt / 1000.0) + " V", true, true);
-
-        return vBatt;
-    }
-    else
-    {
-        // emit LOG_D("Adapter does not support reading voltage", true, true);
+        // Adapter does not support reading voltage
         return kSerialSuccess;
     }
+    J2534IoScope io(j2534_io_depth_); // block teardown while this read runs
+    if (j2534->PassThruIoctl(chanID, kJ2534ReadVbatt, nullptr, &vBatt))
+    {
+        reportJ2534Error();
+        return kSerialError;
+    }
+    // emit LOG_D("Batt: " + QString::number(vBatt / 1000.0) + " V", true, true);
 
-    return kSerialSuccess;
+    return vBatt;
 }
 
 void SerialPortActionsDirect::dump_msg(PASSTHRU_MSG *msg)
