@@ -135,7 +135,10 @@ TEST(BuiltinCatalogParity, DiffersFromProtocolsCfgOnlyByTheDocumentedFixes)
     ASSERT_TRUE(doc.load_file(path)) << path;
     const pugi::xml_node config = doc.child("config");
 
-    const std::vector<std::string> expected_protocol_differences{};
+    // Fix 1: the bundled file is lowercase; case-sensitive filesystems failed the read.
+    const std::string fix_1_kernel_diff = "protocol sub_tcu_denso_sh7055_can: kernel file 'ssmk_tcu_can_SH7055_35.bin' "
+                                          "catalog 'ssmk_tcu_can_sh7055_35.bin'";
+    const std::vector<std::string> expected_protocol_differences{fix_1_kernel_diff};
     const std::vector<std::string> expected_vehicle_differences{
         // Faithful generation: these two rows name protocols the file does not
         // define, so they have none.

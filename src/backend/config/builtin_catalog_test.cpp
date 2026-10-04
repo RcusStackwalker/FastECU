@@ -1,6 +1,9 @@
 #include "src/backend/config/builtin_catalog.h"
 
 #include <array>
+#include <cstdint>
+#include <optional>
+#include <string>
 #include <string_view>
 
 #include <gmock/gmock.h>
@@ -11,7 +14,20 @@ namespace
 
 using fastecu::config::builtin_catalog;
 using fastecu::config::catalog_problems;
+using fastecu::config::ProtocolSpec;
 using ::testing::UnorderedElementsAreArray;
+
+const ProtocolSpec& protocol_named(std::string_view name)
+{
+    const ProtocolSpec *protocol = builtin_catalog().find_protocol(name);
+    if (protocol == nullptr)
+    {
+        ADD_FAILURE() << "no built-in protocol " << name;
+        static constexpr ProtocolSpec kAbsent{};
+        return kAbsent;
+    }
+    return *protocol;
+}
 
 // Every inconsistency protocols.cfg carried. Each data fix removes its lines;
 // the reachability fix (Task 5) empties the list.
@@ -35,6 +51,11 @@ constexpr auto kKnownDefects = std::to_array<std::string_view>({
     "vehicle 'subaru-legacy-2-0-a-t-1990--sub-ecu-unisia-jecs-m3779x' has no protocol",
     "vehicle 'subaru-legacy-2-0-a-t-1990--sub-ecu-unisia-jecs-m3775x' has no protocol",
 });
+
+TEST(BuiltinCatalogFixes, Sh7055TcuKernelNamesTheBundledFile)
+{
+    EXPECT_EQ(protocol_named("sub_tcu_denso_sh7055_can").kernel, "ssmk_tcu_can_sh7055_35.bin");
+}
 
 TEST(BuiltinCatalog, ListsEveryProtocolsCfgEntry)
 {
