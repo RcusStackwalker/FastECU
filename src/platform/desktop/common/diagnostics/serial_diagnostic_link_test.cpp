@@ -144,7 +144,7 @@ TEST(TestSerialDiagnosticLink, p1UsesTheJ2534IoctlOnOpenPort)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), get_use_openport2_adapter()).WillRepeatedly(Return(true));
-    EXPECT_CALL(serial.fake(), set_j2534_ioctl(kJ2534IoctlP1Max, 35)).WillOnce(Return(STATUS_SUCCESS));
+    EXPECT_CALL(serial.fake(), set_j2534_ioctl(0x07, 35)).WillOnce(Return(kSerialSuccess));
     EXPECT_CALL(serial.fake(), set_kline_timings(::testing::_, ::testing::_)).Times(0);
     SerialDiagnosticLink link(serial.get());
     ASSERT_TRUE(link.set_p1_max(35ms).has_value());
@@ -154,7 +154,7 @@ TEST(TestSerialDiagnosticLink, p1UsesKlineTimingsOnDirectSerial)
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), get_use_openport2_adapter()).WillRepeatedly(Return(false));
-    EXPECT_CALL(serial.fake(), set_kline_timings(SERIAL_P1_MAX, 25)).WillOnce(Return(true));
+    EXPECT_CALL(serial.fake(), set_kline_timings(0x01, 25)).WillOnce(Return(true));
     EXPECT_CALL(serial.fake(), set_j2534_ioctl(::testing::_, ::testing::_)).Times(0);
     SerialDiagnosticLink link(serial.get());
     ASSERT_TRUE(link.set_p1_max(25ms).has_value());
@@ -165,7 +165,7 @@ TEST(TestSerialDiagnosticLink, initCallsPassBytesThrough)
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), five_baud_init(QByteArray::fromHex("33")))
         .WillOnce(Return(QByteArray::fromHex("550808")));
-    EXPECT_CALL(serial.fake(), fast_init(QByteArray::fromHex("81"))).WillOnce(Return(STATUS_ERROR));
+    EXPECT_CALL(serial.fake(), fast_init(QByteArray::fromHex("81"))).WillOnce(Return(kSerialError));
     SerialDiagnosticLink link(serial.get());
     const auto response = link.five_baud_init(0x33);
     ASSERT_TRUE(response.has_value());

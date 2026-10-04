@@ -558,7 +558,7 @@ void MainWindow::network_state_changed(QRemoteObjectReplica::State state, QRemot
 
         if (msgBox.clickedButton() == restartButton)
         {
-            qApp->exit(RESTART_CODE);
+            qApp->exit(kRestartCode);
         }
         else if (msgBox.clickedButton() == quitButton)
         {

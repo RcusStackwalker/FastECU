@@ -115,7 +115,7 @@ Status DesktopMixedCanFlashTransport::clear_receive_buffer()
         {
             return fail(ErrorKind::Disconnected, "mixed CAN adapter disconnected before receive-buffer clear");
         }
-        if (serial_->clear_rx_buffer() != STATUS_SUCCESS)
+        if (serial_->clear_rx_buffer() != kSerialSuccess)
         {
             return fail(ErrorKind::Internal, "clear_rx_buffer failed");
         }

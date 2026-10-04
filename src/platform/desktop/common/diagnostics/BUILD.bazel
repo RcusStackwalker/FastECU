@@ -19,6 +19,7 @@ cc_library(
         "//bazel/qt:core",
         "//bazel/qt:serial_port",
         "//src/backend/ports",
+        "//src/backend/protocol/j2534:j2534_constants",
         "//src/platform/desktop/common/bytes:qt_bytes",
         "//src/platform/desktop/common/serial:serial_facade_codes",
         "//src/platform/desktop/common/serial/facade:serial_port_actions",

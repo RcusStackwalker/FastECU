@@ -133,10 +133,10 @@ TEST(TestDesktopKlineFlashTransport, lecControlOperationsForwardToSerialBackend)
 {
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
-    EXPECT_CALL(serial.fake(), set_lec_lines(1, 1)).WillOnce(::testing::Return(STATUS_SUCCESS));
-    EXPECT_CALL(serial.fake(), pulse_lec_2_line(200)).WillOnce(::testing::Return(STATUS_SUCCESS));
-    EXPECT_CALL(serial.fake(), set_lec_lines(0, 1)).WillOnce(::testing::Return(STATUS_SUCCESS));
-    EXPECT_CALL(serial.fake(), set_lec_lines(0, 0)).WillOnce(::testing::Return(STATUS_SUCCESS));
+    EXPECT_CALL(serial.fake(), set_lec_lines(1, 1)).WillOnce(::testing::Return(kSerialSuccess));
+    EXPECT_CALL(serial.fake(), pulse_lec_2_line(200)).WillOnce(::testing::Return(kSerialSuccess));
+    EXPECT_CALL(serial.fake(), set_lec_lines(0, 1)).WillOnce(::testing::Return(kSerialSuccess));
+    EXPECT_CALL(serial.fake(), set_lec_lines(0, 0)).WillOnce(::testing::Return(kSerialSuccess));
 
     DesktopKlineFlashTransport transport(serial.release());
 
@@ -272,7 +272,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudSucceedsWhenPortOpenAndDriverReturns
 {
     FakeBackedSerial serial;
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_SUCCESS));
+    EXPECT_CALL(serial.fake(), change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialSuccess));
 
     DesktopKlineFlashTransport transport(serial.release());
     const auto result = transport.setBaud(4800);
@@ -289,7 +289,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudFailsWithInternalWhenPortStaysOpenBu
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_ERROR));
+    EXPECT_CALL(serial.fake(), change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialError));
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
 
     DesktopKlineFlashTransport transport(serial.release());
@@ -323,7 +323,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudFailsWithDisconnectedWhenPortClosesD
     FakeBackedSerial serial;
     ::testing::InSequence sequence;
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(serial.fake(), change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_ERROR));
+    EXPECT_CALL(serial.fake(), change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialError));
     EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(::testing::Return(false));
 
     DesktopKlineFlashTransport transport(serial.release());

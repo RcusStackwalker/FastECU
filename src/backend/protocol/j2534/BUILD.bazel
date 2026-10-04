@@ -1,0 +1,25 @@
+load("@rules_cc//cc:defs.bzl", "cc_library")
+load("//bazel:gtest_targets.bzl", "fastecu_portable_gtest")
+
+package(default_visibility = ["//bazel/layers:backend_and_above"])
+
+cc_library(
+    name = "j2534_constants",
+    hdrs = ["j2534_constants.h"],
+)
+
+cc_library(
+    name = "tactrix_constants",
+    hdrs = ["tactrix_constants.h"],
+    deps = [":j2534_constants"],
+)
+
+fastecu_portable_gtest(
+    name = "j2534_constants_test",
+    srcs = ["j2534_constants_test.cpp"],
+    deps = [
+        ":j2534_constants",
+        ":tactrix_constants",
+        "@googletest//:gtest",
+    ],
+)

@@ -262,10 +262,10 @@ bool J2534::is_serial_port_open()
 
 long J2534::PassThruOpen(const void *pName, unsigned long *pDeviceID)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
@@ -279,10 +279,10 @@ long J2534::PassThruOpen(const void *pName, unsigned long *pDeviceID)
 
 long J2534::PassThruClose(unsigned long DeviceID)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
@@ -296,10 +296,10 @@ long J2534::PassThruClose(unsigned long DeviceID)
 long J2534::PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags,
                             unsigned long Baudrate, unsigned long *pChannelID)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
@@ -311,10 +311,10 @@ long J2534::PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, un
 
 long J2534::PassThruDisconnect(unsigned long ChannelID)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
@@ -327,10 +327,10 @@ long J2534::PassThruDisconnect(unsigned long ChannelID)
 long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
                              unsigned long Timeout)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
@@ -345,7 +345,7 @@ long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg,
 {
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
@@ -357,10 +357,10 @@ long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg,
 long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pMsgID,
                                      unsigned long TimeInterval)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
@@ -372,10 +372,10 @@ long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG
 
 long J2534::PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
@@ -389,10 +389,10 @@ long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long Filter
                                    const PASSTHRU_MSG *pPatternMsg, const PASSTHRU_MSG *pFlowControlMsg,
                                    unsigned long *pMsgID)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
@@ -405,10 +405,10 @@ long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long Filter
 
 long J2534::PassThruStopMsgFilter(unsigned long ChannelID, unsigned long MsgID)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
@@ -420,10 +420,10 @@ long J2534::PassThruStopMsgFilter(unsigned long ChannelID, unsigned long MsgID)
 
 long J2534::PassThruSetProgrammingVoltage(unsigned long DeviceID, unsigned long Pin, unsigned long Voltage)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
@@ -435,10 +435,10 @@ long J2534::PassThruSetProgrammingVoltage(unsigned long DeviceID, unsigned long 
 
 long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFirmwareVersion, unsigned long DeviceID)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
@@ -450,10 +450,10 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
 
 long J2534::PassThruGetLastError(char *pErrorDescription)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
@@ -467,10 +467,10 @@ int J2534::is_valid_sconfig_param(SCONFIG s)
 {
     switch (s.Parameter)
     {
-    case P1_MIN:
-    case P2_MIN:
-    case P3_MAX:
-    case P4_MAX:
+    case kJ2534P1Min:
+    case kJ2534P2Min:
+    case kJ2534P3Max:
+    case kJ2534P4Max:
         return 0;
         break;
     default:
@@ -482,14 +482,14 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
 {
     if (!checkDLL())
     {
-        return ERR_DEVICE_NOT_CONNECTED;
+        return kJ2534ErrDeviceNotConnected;
     }
     if (useBridge)
     {
         return bridgeClient->PassThruIoctl(ChannelID, IoctlID, pInput, pOutput);
     }
 
-    if (IoctlID == SET_CONFIG)
+    if (IoctlID == kJ2534SetConfig)
     {
         pOutput = nullptr; // make some DLLs happy
     }

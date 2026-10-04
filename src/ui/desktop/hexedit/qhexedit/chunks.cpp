@@ -1,12 +1,13 @@
 #include "chunks.h"
 #include <limits>
 
-#define NORMAL 0
-#define HIGHLIGHTED 1
-
-#define BUFFER_SIZE 0x10000
-#define CHUNK_SIZE 0x1000
-#define READ_CHUNK_MASK Q_UINT64_C(0xfffffffffffff000)
+namespace
+{
+constexpr int kNormal = 0;
+constexpr int kBufferSize = 0x10000;
+constexpr int kChunkSize = 0x1000;
+constexpr quint64 kReadChunkMask = Q_UINT64_C(0xfffffffffffff000);
+} // namespace
 
 // ***************************************** Constructors and file settings
 
@@ -97,7 +98,7 @@ QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
                 if (maxSize > ((qint64)chunk.data.size() - chunkOfs))
                 {
                     count = (qint64)chunk.data.size() - chunkOfs;
-                    ioDelta += CHUNK_SIZE - chunk.data.size();
+                    ioDelta += kChunkSize - chunk.data.size();
                 }
                 else
                 {
@@ -138,7 +139,7 @@ QByteArray Chunks::data(qint64 pos, qint64 maxSize, QByteArray *highlighted)
             buffer += readBuffer;
             if (highlighted)
             {
-                *highlighted += QByteArray(readBuffer.size(), NORMAL);
+                *highlighted += QByteArray(readBuffer.size(), kNormal);
             }
             pos += readBuffer.size();
         }
@@ -156,9 +157,9 @@ bool Chunks::write(QIODevice& iODevice, qint64 pos, qint64 count)
     bool ok = iODevice.open(QIODevice::WriteOnly);
     if (ok)
     {
-        for (qint64 idx = pos; idx < count; idx += BUFFER_SIZE)
+        for (qint64 idx = pos; idx < count; idx += kBufferSize)
         {
-            QByteArray ba = data(idx, BUFFER_SIZE);
+            QByteArray ba = data(idx, kBufferSize);
             iODevice.write(ba);
         }
         iODevice.close();
@@ -193,9 +194,9 @@ qint64 Chunks::indexOf(const QByteArray& ba, qint64 from)
     qint64 result = -1;
     QByteArray buffer;
 
-    for (qint64 pos = from; (pos < _size) && (result < 0); pos += BUFFER_SIZE)
+    for (qint64 pos = from; (pos < _size) && (result < 0); pos += kBufferSize)
     {
-        buffer = data(pos, BUFFER_SIZE + ba.size() - 1);
+        buffer = data(pos, kBufferSize + ba.size() - 1);
         qsizetype findPos = buffer.indexOf(ba);
         if (findPos >= 0)
         {
@@ -210,9 +211,9 @@ qint64 Chunks::lastIndexOf(const QByteArray& ba, qint64 from)
     qint64 result = -1;
     QByteArray buffer;
 
-    for (qint64 pos = from; (pos > 0) && (result < 0); pos -= BUFFER_SIZE)
+    for (qint64 pos = from; (pos > 0) && (result < 0); pos -= kBufferSize)
     {
-        qint64 sPos = pos - BUFFER_SIZE - (qint64)ba.size() + 1;
+        qint64 sPos = pos - kBufferSize - (qint64)ba.size() + 1;
         if (sPos < 0)
         {
             sPos = 0;
@@ -329,7 +330,7 @@ int Chunks::getChunkIndex(qint64 absPos)
             insertIdx = idx;
             break;
         }
-        ioDelta += chunk.data.size() - CHUNK_SIZE;
+        ioDelta += chunk.data.size() - kChunkSize;
         insertIdx = idx + 1;
     }
 
@@ -337,10 +338,10 @@ int Chunks::getChunkIndex(qint64 absPos)
     {
         Chunk newChunk;
         qint64 readAbsPos = absPos - ioDelta;
-        qint64 readPos = static_cast<qint64>(static_cast<quint64>(readAbsPos) & READ_CHUNK_MASK);
+        qint64 readPos = static_cast<qint64>(static_cast<quint64>(readAbsPos) & kReadChunkMask);
         _ioDevice->open(QIODevice::ReadOnly);
         _ioDevice->seek(readPos);
-        newChunk.data = _ioDevice->read(CHUNK_SIZE);
+        newChunk.data = _ioDevice->read(kChunkSize);
         _ioDevice->close();
         newChunk.absPos = absPos - (readAbsPos - readPos);
         newChunk.dataChanged = QByteArray(newChunk.data.size(), char(0));

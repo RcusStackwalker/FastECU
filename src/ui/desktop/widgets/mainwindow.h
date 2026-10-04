@@ -8,8 +8,8 @@
 #include <vector>
 
 // Exit application with this code to restart it instead of quitting:
-// qApp->exit(RESTART_CODE)
-#define RESTART_CODE 1000
+// qApp->exit(kRestartCode)
+inline constexpr int kRestartCode = 1000;
 
 #include <QMainWindow>
 #include <QTreeWidget>

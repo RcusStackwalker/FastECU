@@ -47,9 +47,9 @@ TEST(TestDirectBackend, closedPort_ioCalls_returnEmpty)
 
     ASSERT_EQ(b->is_serial_port_open(), false);
     ASSERT_EQ(b->read_serial_data(50), QByteArray());
-    // write_serial_data's `return STATUS_SUCCESS;` converts int 0 through the
-    // QByteArray(const char*) ctor => empty array. Pin today's behavior.
+    // Writes preserve the historical empty-array result on closed ports.
     ASSERT_EQ(b->write_serial_data(QByteArray("\x01\x02", 2)), QByteArray());
+    ASSERT_EQ(b->write_serial_data_echo_check(QByteArray("\x01\x02", 2)), QByteArray());
     b->waitForSource(); // default no-op must not block or crash
 }
 

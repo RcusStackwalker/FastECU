@@ -654,13 +654,13 @@ TEST(TestFacadeThreading, klineTransport_setBaudSuccessRejectionDisconnectExcept
 
     ::testing::InSequence sequence;
     EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, change_port_speed(QString("10400"))).WillOnce(::testing::Return(STATUS_SUCCESS));
+    EXPECT_CALL(*fake, change_port_speed(QString("10400"))).WillOnce(::testing::Return(kSerialSuccess));
     const auto success = kline.setBaud(10400);
     ASSERT_TRUE(success.has_value());
 
     // Rejection: driver returns non-zero but the port stays open.
     EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, change_port_speed(QString("10400"))).WillOnce(::testing::Return(STATUS_ERROR));
+    EXPECT_CALL(*fake, change_port_speed(QString("10400"))).WillOnce(::testing::Return(kSerialError));
     EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
     const auto rejected = kline.setBaud(10400);
     ASSERT_TRUE(!rejected.has_value());
@@ -669,7 +669,7 @@ TEST(TestFacadeThreading, klineTransport_setBaudSuccessRejectionDisconnectExcept
     // Disconnect: driver returns non-zero and the port is found closed
     // immediately afterward.
     EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*fake, change_port_speed(QString("10400"))).WillOnce(::testing::Return(STATUS_ERROR));
+    EXPECT_CALL(*fake, change_port_speed(QString("10400"))).WillOnce(::testing::Return(kSerialError));
     EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(false));
     const auto disconnected = kline.setBaud(10400);
     ASSERT_TRUE(!disconnected.has_value());

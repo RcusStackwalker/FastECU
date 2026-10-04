@@ -52,4 +52,8 @@ cc_library(
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
     }),
+    deps = [
+        "//src/backend/protocol/j2534:j2534_constants",
+        "//src/backend/protocol/j2534:tactrix_constants",
+    ],
 )

@@ -326,7 +326,7 @@ TEST(TestDesktopMixedCanFlashTransport, clearReceiveBufferRejectsBackendFailure)
     DesktopMixedCanFlashTransport transport(make_serial(fake));
     ASSERT_NO_FATAL_FAILURE(configure_and_open(transport));
     ASSERT_TRUE(transport.enter_raw_bootloader_mode().has_value());
-    EXPECT_CALL(*fake, clear_rx_buffer()).WillOnce(::testing::Return(STATUS_ERROR));
+    EXPECT_CALL(*fake, clear_rx_buffer()).WillOnce(::testing::Return(kSerialError));
 
     const auto result = transport.clear_receive_buffer();
     ASSERT_TRUE(!result.has_value());
