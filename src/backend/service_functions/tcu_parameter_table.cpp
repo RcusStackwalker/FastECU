@@ -15,7 +15,7 @@ std::array<TcuParameterWrite, kTcuParameterWriteCount> tcu_parameter_writes(cons
         // legacy :285 -- FB correction, 4->5.
         {0x00016f, values.correction_4to5},
         // legacy :309 -- AWD clutch torque, high byte.
-        {0x000170, static_cast<bytes::Byte>((values.torque_correction_awd >> 8) & 0xff)},
+        {0x000170, static_cast<bytes::Byte>((static_cast<std::uint32_t>(values.torque_correction_awd) >> 8U) & 0xffU)},
         // legacy :333 -- AWD clutch torque, low byte.
         {0x000171, static_cast<bytes::Byte>(values.torque_correction_awd & 0xff)},
         // legacy :357 -- forward brake pressure correction.

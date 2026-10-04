@@ -398,7 +398,7 @@ bytes::Bytes eepromPagedataResponse264Bytes()
     bytes::Bytes out(8, 0xEE);
     for (int i = 0; i < 256; ++i)
     {
-        out.push_back(static_cast<bytes::Byte>(i & 0xFF));
+        out.push_back(static_cast<bytes::Byte>(i));
     }
     return out; // 264 bytes
 }
@@ -407,7 +407,7 @@ bytes::Bytes expectedDecodedEeprom256Bytes()
     bytes::Bytes out;
     for (int i = 0; i < 256; ++i)
     {
-        out.push_back(static_cast<bytes::Byte>(i & 0xFF));
+        out.push_back(static_cast<bytes::Byte>(i));
     }
     return out;
 }

@@ -16,10 +16,14 @@ env:
   QT_MODULES: qtcharts qtserialport qtremoteobjects qtwebsockets
   # rules_qt supports Bazel builds on Qt 6.8.3.
   QT_VERSION: '6.8.3'
-  # The clang-tidy job's LLVM: the major comes from the Ubuntu archive, the
-  # exact version from Chocolatey. Keep the two in step.
-  CLANG_TIDY_LLVM_MAJOR: '22'
-  CLANG_TIDY_LLVM_VERSION: '22.1.8'
+  # The clang-tidy job's LLVM: the official llvm-project release tarball on both
+  # OSes, so they run the identical build and a runner-image or package-feed
+  # bump cannot change what the gate flags. Neither Chocolatey nor the Ubuntu
+  # archive carries 23 yet. Moving the version means updating both checksums
+  # (the `digest` of each asset on the GitHub release page).
+  CLANG_TIDY_LLVM_VERSION: '23.1.2'
+  CLANG_TIDY_LLVM_SHA256_LINUX: 'b5ed9675149cc837c282e9b6962c276c9fa62863d5b2f91537b60848552995b7'
+  CLANG_TIDY_LLVM_SHA256_WINDOWS: '8fb91cdc44fcbbdcf6b3ffd0a1f9859abd14a3c3aae4423c2b6d4a4f90bf0095'
 
 jobs:
   pre-commit:
@@ -265,24 +269,38 @@ jobs:
           version: ${{ env.QT_VERSION }}
           modules: ${{ env.QT_MODULES }}
 
-      # Both OSes run the same LLVM release, pinned so a runner-image or
-      # Chocolatey bump cannot change what the gate flags. Moving it is an edit
-      # to .clang-tidy's header comment as well, which makes the run whole-tree.
       - name: Install clang-tidy (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install llvm --version=${{ env.CLANG_TIDY_LLVM_VERSION }} -y --no-progress
-          "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          $ver = $env:CLANG_TIDY_LLVM_VERSION
+          $name = "clang+llvm-$ver-x86_64-pc-windows-msvc.tar.xz"
+          $archive = Join-Path $env:RUNNER_TEMP $name
+          Invoke-WebRequest -Uri "https://github.com/llvm/llvm-project/releases/download/llvmorg-$ver/$name" -OutFile $archive
+          $actual = (Get-FileHash -Algorithm SHA256 -Path $archive).Hash.ToLowerInvariant()
+          if ($actual -ne $env:CLANG_TIDY_LLVM_SHA256_WINDOWS) {
+            throw "SHA-256 mismatch for ${name}: expected $env:CLANG_TIDY_LLVM_SHA256_WINDOWS, got $actual"
+          }
+          $dest = Join-Path $env:RUNNER_TEMP 'llvm'
+          New-Item -ItemType Directory -Path $dest | Out-Null
+          tar -xf $archive -C $dest --strip-components=1
+          Remove-Item $archive
+          Join-Path $dest 'bin' | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Install clang-tidy (Linux)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-tidy-${{ env.CLANG_TIDY_LLVM_MAJOR }}
-          # The versioned package ships unversioned clang-tidy and
-          # run-clang-tidy here, which is where the runner looks them up.
-          echo "/usr/lib/llvm-${{ env.CLANG_TIDY_LLVM_MAJOR }}/bin" >> "$GITHUB_PATH"
+          name="LLVM-${CLANG_TIDY_LLVM_VERSION}-Linux-X64.tar.xz"
+          archive="${RUNNER_TEMP}/${name}"
+          curl -fsSL --retry 3 -o "${archive}" \
+            "https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_TIDY_LLVM_VERSION}/${name}"
+          echo "${CLANG_TIDY_LLVM_SHA256_LINUX}  ${archive}" | sha256sum --check --strict
+          mkdir "${RUNNER_TEMP}/llvm"
+          tar -xJf "${archive}" -C "${RUNNER_TEMP}/llvm" --strip-components=1
+          rm "${archive}"
+          # The tarball ships unversioned clang-tidy and run-clang-tidy, which
+          # is where the runner looks them up.
+          echo "${RUNNER_TEMP}/llvm/bin" >> "$GITHUB_PATH"
 
       - name: clang-tidy report
         # bash, not the Windows default pwsh: pwsh swallows the `--`, so bazel

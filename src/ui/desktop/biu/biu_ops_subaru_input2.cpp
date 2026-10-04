@@ -15,18 +15,19 @@ BiuOpsSubaruInput2::BiuOpsSubaruInput2(QStringList *biu_option_names, QByteArray
     QRadioButton *radio_button;
     QButtonGroup *button_group;
     QPushButton *send_setting;
-    int bitmask, i, current_value;
+    unsigned bitmask;
+    int i, current_value;
 
     for (int byte_counter = 0; byte_counter < biu_option_result->length(); byte_counter++)
     {
-        bitmask = 1;
+        bitmask = 1U;
 
         for (int bit_counter = 0; bit_counter < 8; bit_counter++)
         {
             i = byte_counter * 8 + bit_counter;
 
-            current_value = biu_option_result->at(byte_counter) & bitmask;
-            bitmask = bitmask << 1;
+            current_value = static_cast<int>(static_cast<unsigned char>(biu_option_result->at(byte_counter)) & bitmask);
+            bitmask = bitmask << 1U;
 
             label = new QLabel();
             label->setObjectName("Name" + QString::number(i));
@@ -75,11 +76,12 @@ void BiuOpsSubaruInput2::prepare_biu_setting2()
 {
     QByteArray output;
     QRadioButton *current_button;
-    int i, bitmask;
+    int i;
+    unsigned bitmask;
 
     for (int byte_counter = 0; byte_counter < biu_option_result->length(); byte_counter++)
     {
-        bitmask = 1;
+        bitmask = 1U;
 
         for (int bit_counter = 0; bit_counter < 8; bit_counter++)
         {
@@ -87,9 +89,9 @@ void BiuOpsSubaruInput2::prepare_biu_setting2()
             current_button = ui->gridLayoutWidget->findChild<QRadioButton *>("Name ON" + QString::number(i));
             if (current_button != nullptr && current_button->isChecked())
             {
-                output[byte_counter] = static_cast<char>(output[byte_counter] | bitmask);
+                output[byte_counter] = static_cast<char>(static_cast<unsigned char>(output[byte_counter]) | bitmask);
             }
-            bitmask = bitmask << 1;
+            bitmask = bitmask << 1U;
         }
     }
 
