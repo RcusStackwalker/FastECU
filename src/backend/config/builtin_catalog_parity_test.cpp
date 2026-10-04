@@ -138,8 +138,7 @@ TEST(BuiltinCatalogParity, DiffersFromProtocolsCfgOnlyByTheDocumentedFixes)
     // Fix 1: the bundled file is lowercase; case-sensitive filesystems failed the read.
     const std::string fix_1_kernel_diff = "protocol sub_tcu_denso_sh7055_can: kernel file 'ssmk_tcu_can_SH7055_35.bin' "
                                           "catalog 'ssmk_tcu_can_sh7055_35.bin'";
-    const std::vector<std::string> expected_protocol_differences{fix_1_kernel_diff};
-    const std::vector<std::string> expected_protocol_differences_fix_6{
+    const std::vector<std::string> expected_protocol_differences{
         fix_1_kernel_diff,
         // Fix 4: no kernel, so no load address; the family's plan requires none.
         "protocol sub_ecu_unisia_jecs_m3779x: kernel_addr file '0x0' catalog ''",
@@ -164,7 +163,7 @@ TEST(BuiltinCatalogParity, DiffersFromProtocolsCfgOnlyByTheDocumentedFixes)
     };
 
     EXPECT_THAT(protocol_differences(config.child("protocols")),
-                UnorderedElementsAreArray(expected_protocol_differences_fix_6));
+                UnorderedElementsAreArray(expected_protocol_differences));
     EXPECT_THAT(vehicle_differences(config.child("car_models")),
                 UnorderedElementsAreArray(expected_vehicle_differences));
 }
