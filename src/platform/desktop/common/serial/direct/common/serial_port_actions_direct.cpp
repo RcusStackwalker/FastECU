@@ -14,8 +14,6 @@
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/platform/desktop/common/serial/j2534_driver_selection.h"
 
-static_assert(kJ2534IoctlP1Max == kJ2534P1Max, "serial_facade_codes.h must match the J2534 header's P1_MAX");
-
 namespace
 {
 // Length of the next J2534 message: what is left to send, capped at what one

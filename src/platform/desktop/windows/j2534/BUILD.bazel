@@ -43,6 +43,10 @@ cc_library(
     ],
     includes = ["."],
     target_compatible_with = WINDOWS_ONLY,
+    deps = [
+        "//src/backend/protocol/j2534:j2534_constants",
+        "//src/backend/protocol/j2534:tactrix_constants",
+    ],
 )
 
 cc_library(

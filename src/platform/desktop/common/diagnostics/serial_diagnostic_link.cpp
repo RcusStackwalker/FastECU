@@ -11,6 +11,7 @@
 
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/backend/ports/duration_cast.h"
+#include "src/backend/protocol/j2534/j2534_constants.h"
 #include "src/platform/desktop/common/serial/serial_facade_codes.h"
 #include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
 
@@ -188,7 +189,7 @@ Status SerialDiagnosticLink::set_p1_max(std::chrono::milliseconds p1_max)
             const int value = saturating_ms<int>(p1_max);
             if (serial_->get_use_openport2_adapter())
             {
-                if (serial_->set_j2534_ioctl(kJ2534IoctlP1Max, value) != kSerialSuccess)
+                if (serial_->set_j2534_ioctl(kJ2534P1Max, value) != kSerialSuccess)
                 {
                     return fail(ErrorKind::Disconnected, "set_j2534_ioctl(P1_MAX) failed");
                 }
