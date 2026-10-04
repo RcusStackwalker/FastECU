@@ -13,14 +13,12 @@
 # bugprone-throwing-static-initialization - can't be enabled due to googletest
 # clang-analyzer-cplusplus.NewDeleteLeaks - false positives on Qt parent-owned
 #   `new` (layouts and widgets handed to a parent are never leaked)
-# bugprone-macro-parentheses - disabled due to PTfn macos in J2534_win.h
 ---
 Checks: >
   -*,
   bugprone-*,
   -bugprone-easily-swappable-parameters,
   -bugprone-exception-escape,
-  -bugprone-macro-parentheses,
   -bugprone-throwing-static-initialization,
   clang-analyzer-*,
   -clang-analyzer-cplusplus.NewDeleteLeaks,
