@@ -78,8 +78,7 @@ std::optional<PreparedWrite> CalibrationOperationCoordinator::prepare_write(cali
     }
     return PreparedWrite{
         .image = std::move(image),
-        .protocol = std::string(selected_protocol(config_).name),
-        .mcu = session->protocol().mcu_type,
+        .protocol = selected_protocol(config_),
         .kernel_path = session->protocol().kernel_path,
         .display_filename = session->source().display_name,
     };

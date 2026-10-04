@@ -930,7 +930,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
     std::optional<fastecu::ui::PreparedWrite> prepared_write;
     QString read_kernel_path;
     QString read_kernel_address;
-    QString read_mcu;
 
     QComboBox *serial_port_list = ui->toolBar->findChild<QComboBox *>("serial_port_list");
     if (serial_port_list->currentText() == "")
@@ -993,7 +992,6 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             read_kernel_path = QString::fromStdString(
                 fastecu::flash::kernel_path(kernel_dir.toStdString(), selected_vehicle().protocol->kernel));
             read_kernel_address = kernel_address_field(selected_vehicle());
-            read_mcu = protocol_field(selected_vehicle(), &ProtocolSpec::mcu);
         }
 
         emit LOG_D("Protocol to use: " + qs(selected_vehicle().protocol->name), true, true);
@@ -1015,9 +1013,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
 
         const fastecu::flash::FlashOperationOutcome outcome = controller.run({
             .operation = operation,
-            .protocol =
-                prepared_write.has_value() ? prepared_write->protocol : std::string(selected_vehicle().protocol->name),
-            .mcu = prepared_write.has_value() ? prepared_write->mcu : read_mcu.toStdString(),
+            .protocol = prepared_write.has_value() ? prepared_write->protocol : *selected_vehicle().protocol,
             .kernel_path = prepared_write.has_value() ? prepared_write->kernel_path : read_kernel_path.toStdString(),
             .image = fastecu::flash::portableImageForOperation(
                 operation, prepared_write.has_value() ? bytes::ByteView{prepared_write->image} : bytes::ByteView{}),

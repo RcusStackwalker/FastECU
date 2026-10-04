@@ -983,6 +983,8 @@ void MainWindowTest::SetUpTestSuite()
     const QString kernel_dir =
         config_root_->path() + "/" + QString::fromStdString(kTestApplication.version) + "/kernels/";
     ASSERT_TRUE(QDir().mkpath(kernel_dir));
+    // The kernels kWindowProtocols names: a flash request carries the selected
+    // protocol, so the portable-route reads load these.
     ASSERT_TRUE(writeTextFile(kernel_dir + "test-kernel.bin", "ABCD"));
     ASSERT_TRUE(writeTextFile(kernel_dir + "tcu_kernel.bin", "ABCD"));
 }

@@ -8,6 +8,7 @@
 
 #include <gmock/gmock.h>
 
+#include "src/backend/config/catalog.h"
 #include "src/platform/desktop/common/connection/testing/adapter_connection_harness.h"
 
 namespace fastecu::flash
@@ -77,8 +78,7 @@ TEST(FlashOperationControllerTest, unknownProtocolIsUnsupportedAndWarnsWithoutSe
 
     const FlashOperationOutcome outcome = controller.run({
         .operation = FlashOperation::Read,
-        .protocol = "sub_ecu_not_a_real_protocol",
-        .mcu = "SH7058",
+        .protocol = config::ProtocolSpec{.name = "sub_ecu_not_a_real_protocol", .mcu = "SH7058"},
         .kernel_path = "/k/kernel.bin",
         .image = std::nullopt,
         .paths = {},
@@ -103,8 +103,7 @@ TEST(FlashOperationControllerTest, cancelledDensoTcuChooserIsHandledWithoutSeria
 
     const FlashOperationOutcome outcome = controller.run({
         .operation = FlashOperation::Read,
-        .protocol = "sub_tcu_denso_sh7058_can",
-        .mcu = "SH7058",
+        .protocol = config::ProtocolSpec{.name = "sub_tcu_denso_sh7058_can", .mcu = "SH7058"},
         .kernel_path = "/k/tcu_kernel.bin",
         .image = std::nullopt,
         .paths = {},

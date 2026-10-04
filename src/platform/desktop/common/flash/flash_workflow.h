@@ -6,6 +6,7 @@
 #include <variant>
 
 #include "src/algorithms/protocol/bytes.h"
+#include "src/backend/config/catalog.h"
 #include "src/backend/config/config_paths.h"
 #include "src/backend/flash/flash_executor.h"
 #include "src/backend/flash/flash_plan.h"
@@ -24,8 +25,7 @@ std::optional<bytes::Bytes> portableImageForOperation(FlashOperation operation, 
 struct FlashWorkflowRequest
 {
     FlashOperation operation;
-    std::string protocol;
-    std::string mcu;
+    config::ProtocolSpec protocol;
     std::optional<bytes::Bytes> image;
     config::ConfigPaths paths;
     std::string display_filename;

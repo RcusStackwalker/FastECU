@@ -15,8 +15,6 @@ cc_library(
     hdrs = ["flash_workflow.h"],
     copts = COMMON_COPTS,
     implementation_deps = [
-        "//src/backend/config:protocol_catalog",
-        "//src/backend/definition:text_format",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash/ecu:mitsu_colt_m32r_can_executor",
         "//src/backend/flash/ecu:mitsu_colt_m32r_can_plan",
@@ -80,6 +78,7 @@ cc_library(
     ],
     deps = [
         "//src/algorithms/protocol",
+        "//src/backend/config:catalog",
         "//src/backend/config:config_paths",
         "//src/backend/flash:flash_executor",
         "//src/backend/flash:flash_plan",
@@ -94,6 +93,7 @@ fastecu_gtest(
         ":flash_workflow",
         "//bazel/qt:core",
         "//src/backend/calibration:calibration_service",
+        "//src/backend/config:catalog",
         "//src/backend/flash/ecu:subaru_denso_sh7058_can_diesel_plan",
         "//src/backend/flash/ecu:subaru_denso_sh7058_can_plan",
         "//src/backend/ports",

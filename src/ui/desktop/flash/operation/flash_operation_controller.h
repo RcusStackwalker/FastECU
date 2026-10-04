@@ -7,6 +7,7 @@
 #include <string>
 
 #include "src/algorithms/protocol/bytes.h"
+#include "src/backend/config/catalog.h"
 #include "src/backend/config/config_paths.h"
 #include "src/backend/flash/flash_types.h"
 
@@ -19,8 +20,7 @@ namespace fastecu::flash
 struct FlashOperationInput
 {
     FlashOperation operation;
-    std::string protocol;
-    std::string mcu;
+    config::ProtocolSpec protocol;
     std::string kernel_path; // for the Denso TCU "Dump" log line
     std::optional<bytes::Bytes> image;
     config::ConfigPaths paths;

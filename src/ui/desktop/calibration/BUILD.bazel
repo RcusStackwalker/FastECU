@@ -154,7 +154,6 @@ cc_library(
     hdrs = ["calibration_operation_coordinator.h"],
     implementation_deps = [
         "//src/backend/checksum:checksum_selection",
-        "//src/backend/config:catalog",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_operation_request",
         "//src/ui/desktop/checksum:checksum_correction_result",
@@ -164,6 +163,7 @@ cc_library(
         "//src/algorithms/protocol",
         "//src/backend/calibration/session:calibration_session",
         "//src/backend/calibration/session:rom_save",
+        "//src/backend/config:catalog",
         "//src/backend/config:config_session",
         "//src/backend/ports",
     ],

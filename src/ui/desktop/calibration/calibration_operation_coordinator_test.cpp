@@ -225,8 +225,8 @@ TEST_F(CalibrationOperationCoordinator, AcceptedWriteWarningSkipsCorrection)
 
     ASSERT_TRUE(prepared.has_value());
     EXPECT_THAT(prepared->image, ElementsAre(9, 2, 3));
-    EXPECT_EQ(prepared->protocol, "proto_b");
-    EXPECT_EQ(prepared->mcu, "M32R");
+    EXPECT_EQ(prepared->protocol.name, "proto_b");
+    EXPECT_EQ(prepared->protocol.mcu, "M32R");
     EXPECT_EQ(prepared->kernel_path, "/kernels/b.bin");
     EXPECT_EQ(prepared->display_filename, "read.bin");
     EXPECT_EQ(session.protocol().mcu_type, "M32R");
@@ -245,8 +245,8 @@ TEST_F(CalibrationOperationCoordinator, CorrectedWriteUsesOnlyOperationBytes)
     EXPECT_THAT(prepared->image, ElementsAre(4, 5, 6));
     EXPECT_THAT(session.rom(), ElementsAre(9, 2, 3));
     EXPECT_TRUE(session.dirty());
-    EXPECT_EQ(prepared->protocol, "proto_a");
-    EXPECT_EQ(prepared->mcu, "SH7058");
+    EXPECT_EQ(prepared->protocol.name, "proto_a");
+    EXPECT_EQ(prepared->protocol.mcu, "SH7058");
     EXPECT_EQ(prepared->kernel_path, "/kernels/a.bin");
     EXPECT_EQ(prepared->display_filename, "read.bin");
     EXPECT_THAT(cfg.file_repository.write_calls, IsEmpty());
@@ -306,7 +306,7 @@ TEST_F(CalibrationOperationCoordinator, EmptyDefinedMethodReselectsBeforeChecksu
     EXPECT_EQ(checksum_selection.rom_id, "TEST");
     EXPECT_TRUE(checksum_has_definition);
     EXPECT_THAT(trace, ElementsAre("protocol:Protocol A", "checksum"));
-    EXPECT_EQ(prepared->protocol, "proto_a");
+    EXPECT_EQ(prepared->protocol.name, "proto_a");
 
     // The description follows the two reselection logs and precedes the
     // kernel/MCU fill.
@@ -412,7 +412,7 @@ TEST_P(DefinitionlessOrNonemptyMethodDoesNotReselect, ButRefreshesKernelAndMcu)
     EXPECT_EQ(session.protocol().kernel_start_address, "0xFFFF3000");
     EXPECT_EQ(checksum_has_definition, GetParam().has_definition);
     EXPECT_EQ(checksum_selection.flash_method, "proto_a");
-    EXPECT_EQ(prepared->protocol, "proto_a");
+    EXPECT_EQ(prepared->protocol.name, "proto_a");
 }
 
 INSTANTIATE_TEST_SUITE_P(Methods, DefinitionlessOrNonemptyMethodDoesNotReselect,

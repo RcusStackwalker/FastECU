@@ -14,8 +14,8 @@ package(default_visibility = [
 
 # resources/shared/protocols_cfg_eeprom_capabilities_test.cpp pins protocols.cfg's
 # write=no/test_write=no capability flags for the Denso SH705x EEPROM
-# protocols, and src/backend/config:protocol_catalog_test parses the whole
-# file through load_protocol_catalog, both by reading the real, checked-in
+# protocols, and src/backend/config:builtin_catalog_parity_test compares the
+# whole file with the built-in catalog, both by reading the real, checked-in
 # file (not a synthetic copy that could silently drift) -- exported narrowly
 # to those two packages rather than widening config_resource's own
 # visibility. Deliberately NOT a nested resources/shared/config/BUILD.bazel:
