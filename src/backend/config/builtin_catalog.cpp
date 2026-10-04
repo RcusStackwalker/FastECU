@@ -851,7 +851,6 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "K-Line",
      .log_transport = "SSM",
      .log_protocol = "SSM1",
-     .kernel_load_address = 0x0U,
      .description = "Subaru Impreza, Legacy, SVX 1992-1996 SSM"},
     {.name = "sub_ecu_unisia_jecs_m3775x",
      .ecu = "Unisia Jecs",
@@ -864,7 +863,6 @@ constexpr auto kProtocols = std::to_array<ProtocolSpec>({
      .flash_transport = "K-Line",
      .log_transport = "SSM",
      .log_protocol = "SSM1",
-     .kernel_load_address = 0x0U,
      .description = "Subaru Impreza, Legacy, SVX 1997-1998 OBD2 SSM"},
 });
 

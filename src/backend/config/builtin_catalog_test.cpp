@@ -45,8 +45,6 @@ constexpr auto kKnownDefects = std::to_array<std::string_view>({
     "protocol 'sub_ecu_eeprom_denso_sh7055_densocan' has no vehicle",
     "protocol 'sub_ecu_eeprom_denso_sh7058_densocan' has no vehicle",
     "protocol 'sub_ecu_eeprom_denso_sh7058_can_diesel' has no vehicle",
-    "protocol 'sub_ecu_unisia_jecs_m3779x' has a kernel load address but no kernel",
-    "protocol 'sub_ecu_unisia_jecs_m3775x' has a kernel load address but no kernel",
 });
 
 TEST(BuiltinCatalogFixes, Sh7055TcuKernelNamesTheBundledFile)
@@ -92,6 +90,15 @@ TEST(BuiltinCatalogFixes, Sh7059DieselDensoCanYearIs2011)
         "subaru-all-sh7059-denso-can-diesel-models-sh7059-2011--sub-ecu-denso-sh7059-diesel-densocan");
     ASSERT_TRUE(row.has_value());
     EXPECT_EQ(builtin_catalog().vehicles()[*row].year, "2011");
+}
+
+TEST(BuiltinCatalogFixes, UnisiaJecsM377xDeclareNoKernelLoadAddress)
+{
+    for (std::string_view name : {"sub_ecu_unisia_jecs_m3779x", "sub_ecu_unisia_jecs_m3775x"})
+    {
+        EXPECT_TRUE(protocol_named(name).kernel.empty()) << name;
+        EXPECT_FALSE(protocol_named(name).kernel_load_address.has_value()) << name;
+    }
 }
 
 TEST(BuiltinCatalog, ListsEveryProtocolsCfgEntry)
