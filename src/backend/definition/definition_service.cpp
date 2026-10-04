@@ -43,19 +43,19 @@ bool is_xml_handle(std::string_view handle)
                       { return std::tolower(left) == std::tolower(right); });
 }
 
-std::optional<std::uint8_t> hex_nibble(char character)
+std::optional<unsigned> hex_nibble(char character)
 {
     if (character >= '0' && character <= '9')
     {
-        return static_cast<std::uint8_t>(character - '0');
+        return static_cast<unsigned>(character - '0');
     }
     if (character >= 'a' && character <= 'f')
     {
-        return static_cast<std::uint8_t>(character - 'a' + 10);
+        return static_cast<unsigned>(character - 'a' + 10);
     }
     if (character >= 'A' && character <= 'F')
     {
-        return static_cast<std::uint8_t>(character - 'A' + 10);
+        return static_cast<unsigned>(character - 'A' + 10);
     }
     return std::nullopt;
 }
@@ -81,8 +81,7 @@ Result<std::vector<std::uint8_t>> identifier_bytes(std::string_view identifier, 
         {
             return fail(ErrorKind::InvalidConfig, "identifier contains a non-hexadecimal digit");
         }
-        decoded.push_back(
-            static_cast<std::uint8_t>((static_cast<unsigned>(*high) << 4U) | static_cast<unsigned>(*low)));
+        decoded.push_back(static_cast<std::uint8_t>((*high << 4U) | *low));
     }
     return decoded;
 }
