@@ -23,7 +23,7 @@ struct Variant
     bool writable;
 };
 
-// protocols.cfg: _20 and _30 are read/write; _40 and _70 are read-only.
+// Built-in catalog: _20 and _30 are read/write; _40 and _70 are read-only.
 // test_write is "no" for all four. The two _bootmode names are Read-only
 // here: their Read is this family's wire sequence (wave 7), and their Write
 // is the bootmode family's two-attempt kernel upload and program.

@@ -37,8 +37,9 @@ Status validate_operation(std::string_view protocol, FlashOperation operation)
 {
     if (protocol == "sub_ecu_denso_mc68hc16y5_02_tpu" && operation != FlashOperation::Read)
     {
-        return fail(ErrorKind::Unsupported,
-                    "protocols.cfg declares no supported write or test_write operation for the MC68HC16Y5 TPU variant");
+        return fail(
+            ErrorKind::Unsupported,
+            "the built-in catalog declares no supported write or test_write operation for the MC68HC16Y5 TPU variant");
     }
     return {};
 }
@@ -47,7 +48,7 @@ SubaruDensoMc68hc16y5_02Plan wire_params(std::string_view protocol)
 {
     // flash_ecu_subaru_denso_mc68hc16y5_02_operation.cpp:126-137 (response
     // selection), 204-242 (baud/encryption/magic selection). Only "_ecutek"
-    // is reachable via protocols.cfg (see spec's "_cobb" note); every other
+    // is reachable via the built-in catalog (see spec's "_cobb" note); every other
     // accepted name takes the stock branch.
     if (protocol.ends_with("_ecutek"))
     {

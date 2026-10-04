@@ -24,7 +24,7 @@ struct Variant
     std::uint32_t rom_size;
 };
 
-// protocols.cfg: both are read=yes, test_write=no, write=yes; Read is served
+// Built-in catalog: both are read=yes, test_write=no, write=yes; Read is served
 // by the 6c-3 K-Line family.
 constexpr auto kVariants = std::to_array<Variant>({
     {"sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", 0x20000},

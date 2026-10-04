@@ -24,7 +24,7 @@ struct CatalogEntry
     bool supports_write;
 };
 
-// Exact TCU identities and kernel addresses from protocols.cfg and
+// Exact TCU identities and kernel addresses from the built-in catalog and
 // FlashTcuSubaruDensoSH705xCanOperation at revision 59f4e442 (lines 55-58).
 // Do not broaden this into a protocol suffix match.
 constexpr std::array<CatalogEntry, 2> kCatalog{{
