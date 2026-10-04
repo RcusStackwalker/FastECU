@@ -21,6 +21,7 @@ cc_library(
     hdrs = ["desktop_composition.h"],
     copts = COMMON_COPTS,
     implementation_deps = [
+        "//src/backend/config:builtin_catalog",
         "//src/platform/desktop/common/logging/runtime:logging_runtime",
         "//src/platform/desktop/common/logging/runtime:systemlogger",
         "//src/platform/desktop/common/remote_utility",

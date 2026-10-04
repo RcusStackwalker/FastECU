@@ -1,8 +1,6 @@
 #include "src/backend/calibration/session/rom_open.h"
 
-#include <algorithm>
 #include <format>
-#include <ranges>
 #include <string_view>
 #include <utility>
 
@@ -31,13 +29,6 @@ std::string checksum_module_for(const std::string& flash_method)
 std::string_view format_name(definition::DefinitionFormat format)
 {
     return format == definition::DefinitionFormat::EcuFlash ? "EcuFlash" : "RomRaider";
-}
-
-// Legacy: QString(alias).split(",").contains(flash_method).
-bool alias_list_contains(std::string_view aliases, std::string_view flash_method)
-{
-    return std::ranges::any_of(std::views::split(aliases, ','), [flash_method](const auto part)
-                               { return std::string_view{part.begin(), part.end()} == flash_method; });
 }
 
 } // namespace
@@ -109,21 +100,21 @@ RomOpenOutcome RomOpenUseCase::finish(Seed seed)
     }
 
     outcome.vehicle_selected = config_.select_by_protocol_name(flash_method);
-    const config::ResolvedCarModel *vehicle = config_.selected_vehicle();
-    const std::string selected_checksum =
-        vehicle != nullptr ? config::protocol_field_or_placeholder(*vehicle, &config::ProtocolEntry::checksum)
-                           : std::string{};
-    if (selected_checksum == "yes")
+    const config::VehicleSpec *vehicle = config_.selected_vehicle();
+    if (vehicle != nullptr)
     {
-        checksum_module = checksum_module_for(flash_method);
-    }
-    else if (selected_checksum == "n/a")
-    {
-        checksum_module = "Not implemented yet";
-    }
-    else if (selected_checksum == "no")
-    {
-        checksum_module = "No checksums";
+        switch (vehicle->protocol->checksum)
+        {
+        case config::ChecksumSupport::Corrected:
+            checksum_module = checksum_module_for(flash_method);
+            break;
+        case config::ChecksumSupport::Missing:
+            checksum_module = "Not implemented yet";
+            break;
+        case config::ChecksumSupport::None:
+            checksum_module = "No checksums";
+            break;
+        }
     }
 
     const std::size_t unpadded_size = seed.rom.size();
@@ -149,9 +140,7 @@ RomOpenOutcome RomOpenUseCase::finish(Seed seed)
             RomProtocolInfo{
                 .flash_method = flash_method,
                 .checksum_module = std::move(checksum_module),
-                .mcu_type = vehicle != nullptr
-                                ? config::protocol_field_or_placeholder(*vehicle, &config::ProtocolEntry::mcu)
-                                : std::string{},
+                .mcu_type = vehicle != nullptr ? std::string(vehicle->protocol->mcu) : std::string{},
                 .kernel_path = std::move(seed.kernel_path),
                 .kernel_start_address = std::move(seed.kernel_start_address),
                 .rom_id = std::move(rom_id),
@@ -259,17 +248,14 @@ std::optional<ResolvedDefinition> RomOpenUseCase::try_format(definition::Definit
 
 std::string RomOpenUseCase::resolve_alias(const std::string& flash_method)
 {
-    for (const config::ResolvedCarModel& vehicle : config_.vehicles())
+    const config::VehicleSpec *vehicle = config_.vehicle_for_alias(flash_method);
+    if (vehicle == nullptr)
     {
-        const std::string aliases = config::protocol_field_or_placeholder(vehicle, &config::ProtocolEntry::alias);
-        if (alias_list_contains(aliases, flash_method))
-        {
-            events_.log(LogLevel::Debug, std::format("Alias: {}", flash_method));
-            events_.log(LogLevel::Debug, std::format("Protocol: {}", vehicle.protocol_name));
-            return vehicle.protocol_name;
-        }
+        return flash_method;
     }
-    return flash_method;
+    events_.log(LogLevel::Debug, std::format("Alias: {}", flash_method));
+    events_.log(LogLevel::Debug, std::format("Protocol: {}", vehicle->protocol->name));
+    return std::string(vehicle->protocol->name);
 }
 
 void RomOpenUseCase::log_error(std::string_view operation, const Error& error)

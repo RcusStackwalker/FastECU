@@ -201,14 +201,13 @@ TEST_F(DesktopCompositionTest, failedStartupBuildsNoServicesAndPerformsNoEcuIo)
     ASSERT_TRUE(root.isValid());
     const QString config_dir = root.path() + "/" + kVersion + "/config/";
     ASSERT_TRUE(QDir().mkpath(config_dir));
-    ASSERT_TRUE(
-        writeFile(config_dir + "protocols.cfg", R"(<config name="FastECU"><protocols/><car_models/></config>)"));
+    ASSERT_TRUE(writeFile(config_dir + "fastecu.cfg", "<config"));
 
     DesktopComposition composition{{}, {}, root.path()};
 
     ASSERT_TRUE(!composition.started());
     ASSERT_TRUE(composition.startup_error().has_value());
-    ASSERT_TRUE(QString::fromStdString(composition.startup_error()->detail).contains(config_dir + "protocols.cfg"));
+    ASSERT_TRUE(QString::fromStdString(composition.startup_error()->detail).contains(config_dir + "fastecu.cfg"));
     // Nothing that could log, thread, or talk to an ECU was created.
     ASSERT_TRUE(!definition_catalogs_of(composition));
     ASSERT_TRUE(!definition_service_of(composition));

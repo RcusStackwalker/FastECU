@@ -6,7 +6,6 @@
 #include <string>
 #include <utility>
 
-#include "src/backend/config/protocol_catalog.h"
 #include "src/backend/config/provisioning.h"
 
 namespace fastecu::config
@@ -62,14 +61,10 @@ std::unexpected<Error> failed(const Error& error, std::string_view what, std::st
 
 } // namespace
 
-std::string protocol_field_or_placeholder(const ResolvedCarModel& row, std::string ProtocolEntry::*field)
-{
-    return row.protocol.has_value() ? (*row.protocol).*field : std::string(kMissingProtocolField);
-}
-
-ConfigSession::ConfigSession(IFileSystem& file_system, IResourceBundle& resource_bundle,
+ConfigSession::ConfigSession(const Catalog& catalog, IFileSystem& file_system, IResourceBundle& resource_bundle,
                              IFileRepository& file_repository, IEventSink& events)
-    : file_system_(file_system), resource_bundle_(resource_bundle), file_repository_(file_repository), events_(events)
+    : catalog_(catalog), file_system_(file_system), resource_bundle_(resource_bundle),
+      file_repository_(file_repository), events_(events)
 {
 }
 
@@ -78,7 +73,6 @@ Status ConfigSession::initialize(std::string_view app_root, std::string_view ver
     initialized_ = false;
     provisioned_ = {};
     settings_ = {};
-    vehicles_.clear();
 
     const ConfigPaths paths = resolve_config_paths(app_root, version);
     if (Status provisioned =
@@ -107,30 +101,13 @@ Status ConfigSession::initialize(std::string_view app_root, std::string_view ver
                     std::format("Unable to save settings {}: {}", paths.config_file, rewritten.error().detail));
     }
 
-    Result<ProtocolCatalog> protocols = load_protocol_catalog(paths, file_repository_);
-    if (!protocols.has_value())
-    {
-        return failed(protocols.error(), "Unable to load protocols", paths.protocols_file);
-    }
-    Result<CarModelCatalog> car_models = load_car_model_catalog(paths, file_repository_);
-    if (!car_models.has_value())
-    {
-        return failed(car_models.error(), "Unable to load vehicles", paths.protocols_file);
-    }
-    std::vector<ResolvedCarModel> vehicles = resolve_car_models(*protocols, *car_models);
-    if (vehicles.empty())
-    {
-        return fail(ErrorKind::InvalidConfig, std::format("No vehicles defined in {}", paths.protocols_file));
-    }
-
-    if (!parse_row(settings.selected_protocol_id, vehicles.size()).has_value())
+    if (!parse_row(settings.selected_protocol_id, catalog_.vehicles().size()).has_value())
     {
         settings.selected_protocol_id = "0";
     }
 
     provisioned_ = paths;
     settings_ = std::move(settings);
-    vehicles_ = std::move(vehicles);
     initialized_ = true;
     return {};
 }
@@ -184,9 +161,9 @@ ConfigPaths ConfigSession::effective_paths() const
     return paths;
 }
 
-std::span<const ResolvedCarModel> ConfigSession::vehicles() const
+std::span<const VehicleSpec> ConfigSession::vehicles() const
 {
-    return vehicles_;
+    return initialized_ ? catalog_.vehicles() : std::span<const VehicleSpec>{};
 }
 
 Result<std::size_t> ConfigSession::selected_row() const
@@ -195,7 +172,7 @@ Result<std::size_t> ConfigSession::selected_row() const
     {
         return fail(ErrorKind::Internal, "configuration session is not initialized");
     }
-    const std::optional<std::size_t> row = parse_row(settings_.selected_protocol_id, vehicles_.size());
+    const std::optional<std::size_t> row = parse_row(settings_.selected_protocol_id, catalog_.vehicles().size());
     if (!row.has_value())
     {
         return fail(ErrorKind::InvalidConfig,
@@ -204,10 +181,10 @@ Result<std::size_t> ConfigSession::selected_row() const
     return *row;
 }
 
-const ResolvedCarModel *ConfigSession::selected_vehicle() const
+const VehicleSpec *ConfigSession::selected_vehicle() const
 {
     const Result<std::size_t> row = selected_row();
-    return row.has_value() ? &vehicles_[*row] : nullptr;
+    return row.has_value() ? &catalog_.vehicles()[*row] : nullptr;
 }
 
 Status ConfigSession::select_row(std::size_t row)
@@ -216,13 +193,14 @@ Status ConfigSession::select_row(std::size_t row)
     {
         return fail(ErrorKind::Internal, "configuration session is not initialized");
     }
-    if (row >= vehicles_.size())
+    const std::span<const VehicleSpec> vehicles = catalog_.vehicles();
+    if (row >= vehicles.size())
     {
         return fail(ErrorKind::InvalidConfig,
-                    std::format("vehicle row {} is out of range ({} rows)", row, vehicles_.size()));
+                    std::format("vehicle row {} is out of range ({} rows)", row, vehicles.size()));
     }
     settings_.selected_protocol_id = std::to_string(row);
-    settings_.selected_log_protocol = protocol_field_or_placeholder(vehicles_[row], &ProtocolEntry::log_protocol);
+    settings_.selected_log_protocol = std::string(vehicles[row].protocol->log_protocol);
     return {};
 }
 
@@ -232,8 +210,13 @@ bool ConfigSession::select_by_protocol_name(std::string_view protocol_name)
     {
         return false;
     }
-    const std::optional<std::size_t> row = find_car_model_by_protocol_name(vehicles_, protocol_name);
+    const std::optional<std::size_t> row = catalog_.last_vehicle_for_protocol(protocol_name);
     return row.has_value() && select_row(*row).has_value();
+}
+
+const VehicleSpec *ConfigSession::vehicle_for_alias(std::string_view flash_method) const
+{
+    return initialized_ ? catalog_.first_vehicle_for_alias(flash_method) : nullptr;
 }
 
 } // namespace fastecu::config

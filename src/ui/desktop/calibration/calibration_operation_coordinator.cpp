@@ -4,8 +4,7 @@
 #include <utility>
 
 #include "src/backend/checksum/checksum_selection.h"
-#include "src/backend/config/car_model_catalog.h"
-#include "src/backend/config/protocol_catalog.h"
+#include "src/backend/config/catalog.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_operation_request.h"
 #include "src/ui/desktop/checksum/checksum_correction_result.h"
@@ -15,23 +14,18 @@ namespace fastecu::ui
 namespace
 {
 
-using config::ProtocolEntry;
-
-// The checksum flag of a protocol without a checksum module.
-constexpr std::string_view kNoChecksumModule = "n/a";
-
 // The suffix Save As ensures, compared case-sensitively.
 constexpr std::string_view kCalibrationSuffix = ".bin";
 
-const config::ResolvedCarModel& selected_vehicle(const config::ConfigSession& config)
+const config::VehicleSpec& selected_vehicle(const config::ConfigSession& config)
 {
     // An initialized session only ever holds a valid row.
     return *config.selected_vehicle();
 }
 
-std::string selected_field(const config::ConfigSession& config, std::string ProtocolEntry::*field)
+const config::ProtocolSpec& selected_protocol(const config::ConfigSession& config)
 {
-    return config::protocol_field_or_placeholder(selected_vehicle(config), field);
+    return *selected_vehicle(config).protocol;
 }
 
 // Legacy Save As normalization: drop one trailing dot, then append ".bin"
@@ -69,7 +63,7 @@ std::optional<PreparedWrite> CalibrationOperationCoordinator::prepare_write(cali
     }
 
     bytes::Bytes image(session->rom().begin(), session->rom().end());
-    if (selected_field(config_, &ProtocolEntry::checksum) == kNoChecksumModule &&
+    if (selected_protocol(config_).checksum == config::ChecksumSupport::Missing &&
         !interaction_.confirm_write_without_checksum())
     {
         callbacks_.log(LogLevel::Debug, "Write canceled!");
@@ -78,13 +72,13 @@ std::optional<PreparedWrite> CalibrationOperationCoordinator::prepare_write(cali
     refresh_write_metadata(*session, kernel_directory);
 
     // Read again: the refresh may have reselected the vehicle.
-    if (selected_field(config_, &ProtocolEntry::checksum) != kNoChecksumModule)
+    if (selected_protocol(config_).checksum != config::ChecksumSupport::Missing)
     {
         correct_operation_image(*session, image);
     }
     return PreparedWrite{
         .image = std::move(image),
-        .protocol = selected_vehicle(config_).protocol_name,
+        .protocol = std::string(selected_protocol(config_).name),
         .mcu = session->protocol().mcu_type,
         .kernel_path = session->protocol().kernel_path,
         .display_filename = session->source().display_name,
@@ -133,7 +127,7 @@ void CalibrationOperationCoordinator::refresh_write_metadata(calibration::Calibr
     calibration::RomProtocolInfo protocol = session.protocol();
     if (session.definition() != nullptr && protocol.flash_method.empty())
     {
-        protocol.flash_method = selected_vehicle(config_).protocol_name;
+        protocol.flash_method = std::string(selected_protocol(config_).name);
         session.set_protocol(protocol);
         // Mirrored in MainWindow::update_protocol_info; keep the two in sync.
         callbacks_.log(LogLevel::Debug,
@@ -148,11 +142,11 @@ void CalibrationOperationCoordinator::refresh_write_metadata(calibration::Calibr
         {
             callbacks_.log(LogLevel::Debug, "Could not find protocol for selected ROM!");
         }
-        callbacks_.protocol_description_changed(selected_field(config_, &ProtocolEntry::description));
+        callbacks_.protocol_description_changed(selected_protocol(config_).description);
     }
-    protocol.kernel_path = flash::kernel_path(kernel_directory, selected_field(config_, &ProtocolEntry::kernel));
-    protocol.kernel_start_address = selected_field(config_, &ProtocolEntry::kernel_addr);
-    protocol.mcu_type = selected_field(config_, &ProtocolEntry::mcu);
+    protocol.kernel_path = flash::kernel_path(kernel_directory, selected_protocol(config_).kernel);
+    protocol.kernel_start_address = config::kernel_load_address_text(selected_protocol(config_));
+    protocol.mcu_type = std::string(selected_protocol(config_).mcu);
     session.set_protocol(protocol);
 }
 
@@ -162,11 +156,11 @@ void CalibrationOperationCoordinator::refresh_write_metadata(calibration::Calibr
 void CalibrationOperationCoordinator::correct_operation_image(const calibration::CalibrationSession& session,
                                                               bytes::Bytes& image)
 {
-    const config::ResolvedCarModel& vehicle = selected_vehicle(config_);
+    const config::VehicleSpec& vehicle = selected_vehicle(config_);
     const checksum::ChecksumSelection selection{
-        .make = vehicle.make,
-        .checksum_flag = config::protocol_field_or_placeholder(vehicle, &ProtocolEntry::checksum),
-        .flash_method = vehicle.protocol_name,
+        .make = std::string(vehicle.make),
+        .checksum_flag = std::string(config::checksum_flag(vehicle.protocol->checksum)),
+        .flash_method = std::string(vehicle.protocol->name),
         .mcu_type = session.protocol().mcu_type,
         .rom_id = session.protocol().rom_id,
     };
@@ -176,8 +170,7 @@ void CalibrationOperationCoordinator::correct_operation_image(const calibration:
     if (const auto *device = flash::find_flash_device(selection.mcu_type); device != nullptr)
     {
         callbacks_.log(LogLevel::Debug,
-                       std::format("ecuCalDef->McuType: {} {}", session.protocol().mcu_type,
-                                   config::protocol_field_or_placeholder(vehicle, &ProtocolEntry::mcu)));
+                       std::format("ecuCalDef->McuType: {} {}", session.protocol().mcu_type, vehicle.protocol->mcu));
         callbacks_.log(LogLevel::Debug, std::format("Size: 0x{:x} -> 0x{:x}", image.size(), device->romsize));
     }
     const ChecksumCorrectionResult result =

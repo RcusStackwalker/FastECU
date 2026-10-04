@@ -6,9 +6,11 @@
 
 #include "src/ui/desktop/config_fields.h"
 
-using fastecu::config::ProtocolEntry;
-using fastecu::config::ResolvedCarModel;
+using fastecu::config::ProtocolSpec;
+using fastecu::config::VehicleSpec;
+using fastecu::ui::checksum_field;
 using fastecu::ui::protocol_field;
+using fastecu::ui::protocol_flag;
 using fastecu::ui::qs;
 
 VehicleSelect::VehicleSelect(const fastecu::config::ConfigSession& config, QWidget *parent)
@@ -56,14 +58,14 @@ VehicleSelect::VehicleSelect(const fastecu::config::ConfigSession& config, QWidg
     ui->car_model_tree_widget->setFont(font);
     ui->car_version_tree_widget->setFont(font);
 
-    const ResolvedCarModel *selected = config.selected_vehicle();
+    const VehicleSpec *selected = config.selected_vehicle();
     const QString selected_make = selected != nullptr ? qs(selected->make) : QString();
 
     QStringList car_makes;
     QStringList car_makes_sorted;
     bool car_make_changed_saved = false;
 
-    for (const ResolvedCarModel& vehicle : config.vehicles())
+    for (const VehicleSpec& vehicle : config.vehicles())
     {
         if (!car_makes.contains(qs(vehicle.make)))
         {
@@ -177,7 +179,7 @@ void VehicleSelect::car_make_treewidget_item_selected()
                 &VehicleSelect::car_model_treewidget_item_selected);
 
         qDebug() << "Add models data based on selected make";
-        for (const ResolvedCarModel& vehicle : config.vehicles())
+        for (const VehicleSpec& vehicle : config.vehicles())
         {
             const QString model = qs(vehicle.model);
             if (!car_models.contains(model) && qs(vehicle.make) == car_make && !model.isEmpty())
@@ -266,7 +268,7 @@ void VehicleSelect::car_model_treewidget_item_selected()
         const auto vehicles = config.vehicles();
         for (std::size_t i = 0; i < vehicles.size(); i++)
         {
-            const ResolvedCarModel& vehicle = vehicles[i];
+            const VehicleSpec& vehicle = vehicles[i];
             if (qs(vehicle.model) == car_model && qs(vehicle.make) == flash_protocol_make)
             {
                 // A row's id is its catalog position.
@@ -277,14 +279,14 @@ void VehicleSelect::car_model_treewidget_item_selected()
                 hp.append(qs(vehicle.hp));
                 fuel.append(qs(vehicle.fuel));
                 year.append(qs(vehicle.year));
-                ecu.append(protocol_field(vehicle, &ProtocolEntry::ecu));
-                mcu.append(protocol_field(vehicle, &ProtocolEntry::mcu));
-                mode.append(protocol_field(vehicle, &ProtocolEntry::mode));
-                checksum.append(protocol_field(vehicle, &ProtocolEntry::checksum));
-                read.append(protocol_field(vehicle, &ProtocolEntry::read));
-                write.append(protocol_field(vehicle, &ProtocolEntry::write));
-                family.append(qs(vehicle.protocol_name));
-                description.append(protocol_field(vehicle, &ProtocolEntry::description));
+                ecu.append(protocol_field(vehicle, &ProtocolSpec::ecu));
+                mcu.append(protocol_field(vehicle, &ProtocolSpec::mcu));
+                mode.append(protocol_field(vehicle, &ProtocolSpec::mode));
+                checksum.append(checksum_field(vehicle));
+                read.append(protocol_flag(vehicle, &ProtocolSpec::read));
+                write.append(protocol_flag(vehicle, &ProtocolSpec::write));
+                family.append(qs(vehicle.protocol->name));
+                description.append(protocol_field(vehicle, &ProtocolSpec::description));
             }
         }
 

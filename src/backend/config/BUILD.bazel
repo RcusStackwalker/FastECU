@@ -153,10 +153,7 @@ cc_library(
     name = "config_session",
     srcs = ["config_session.cpp"],
     hdrs = ["config_session.h"],
-    implementation_deps = [
-        ":protocol_catalog",
-        ":provisioning",
-    ],
+    implementation_deps = [":provisioning"],
     # The package default plus the composition root that owns the session.
     visibility = [
         "//bazel/layers:apps_desktop",
@@ -164,7 +161,7 @@ cc_library(
     ],
     deps = [
         ":app_config",
-        ":car_model_catalog",
+        ":catalog",
         ":config_paths",
         "//src/backend/ports",
     ],
@@ -174,6 +171,7 @@ fastecu_portable_gtest(
     name = "config_session_test",
     srcs = ["config_session_test.cpp"],
     deps = [
+        ":builtin_catalog",
         ":config_session",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:result_matchers",

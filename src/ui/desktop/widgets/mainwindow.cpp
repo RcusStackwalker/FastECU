@@ -27,7 +27,9 @@
 #include "src/ui/desktop/config_fields.h"
 #include "src/ui/desktop/flash/operation/flash_operation_controller.h"
 
-using fastecu::config::ProtocolEntry;
+using fastecu::config::ProtocolSpec;
+using fastecu::ui::checksum_field;
+using fastecu::ui::kernel_address_field;
 using fastecu::ui::protocol_capability;
 using fastecu::ui::protocol_field;
 using fastecu::ui::qs;
@@ -181,12 +183,12 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
                true, true);
 
     emit LOG_D(qs(selected_vehicle().make), true, true);
-    emit LOG_D(protocol_field(selected_vehicle(), &ProtocolEntry::mcu), true, true);
-    emit LOG_D(protocol_field(selected_vehicle(), &ProtocolEntry::checksum), true, true);
+    emit LOG_D(protocol_field(selected_vehicle(), &ProtocolSpec::mcu), true, true);
+    emit LOG_D(checksum_field(selected_vehicle()), true, true);
     emit LOG_D(qs(selected_vehicle().model), true, true);
     emit LOG_D(qs(selected_vehicle().version), true, true);
-    emit LOG_D(qs(selected_vehicle().protocol_name), true, true);
-    emit LOG_D(protocol_field(selected_vehicle(), &ProtocolEntry::description), true, true);
+    emit LOG_D(qs(selected_vehicle().protocol->name), true, true);
+    emit LOG_D(protocol_field(selected_vehicle(), &ProtocolSpec::description), true, true);
     emit LOG_D(qs(configSession->settings().selected_flash_transport), true, true);
     emit LOG_D(qs(configSession->settings().selected_log_transport), true, true);
     emit LOG_D(qs(configSession->settings().selected_log_protocol), true, true);
@@ -483,7 +485,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     emit log_transport_list->currentIndexChanged(log_transport_list->currentIndex());
 
-    status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolEntry::description) + " ");
+    status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolSpec::description) + " ");
 
     set_flash_arrow_state();
 
@@ -591,7 +593,7 @@ QStringList MainWindow::create_flash_transports_list()
 {
     QStringList flash_protocols;
 
-    flash_protocols.append(protocol_field(selected_vehicle(), &ProtocolEntry::flash_transport).split(","));
+    flash_protocols.append(protocol_field(selected_vehicle(), &ProtocolSpec::flash_transport).split(","));
 
     flash_transport_list->clear();
     for (int i = 0; i < flash_protocols.length(); i++)
@@ -609,7 +611,7 @@ QStringList MainWindow::create_log_transports_list()
 {
     QStringList log_transports_local;
 
-    log_transports_local.append(protocol_field(selected_vehicle(), &ProtocolEntry::log_transport).split(","));
+    log_transports_local.append(protocol_field(selected_vehicle(), &ProtocolSpec::log_transport).split(","));
 
     log_transport_list->clear();
     for (int i = 0; i < log_transports_local.length(); i++)
@@ -628,7 +630,7 @@ QStringList MainWindow::create_log_transports_list()
     return log_transports_local;
 }
 
-const fastecu::config::ResolvedCarModel& MainWindow::selected_vehicle() const
+const fastecu::config::VehicleSpec& MainWindow::selected_vehicle() const
 {
     // DesktopComposition initializes the session before building MainWindow,
     // and the session only ever holds a valid row.
@@ -695,7 +697,7 @@ void MainWindow::select_protocol_finished(int result)
         // emit LOG_D("Dialog is rejected";
     }
 
-    status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolEntry::description) + " ");
+    status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolSpec::description) + " ");
 }
 
 void MainWindow::select_vehicle()
@@ -721,7 +723,7 @@ void MainWindow::select_vehicle_finished(int result)
         // emit LOG_D("Dialog is rejected";
     }
 
-    status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolEntry::description) + " ");
+    status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolSpec::description) + " ");
 }
 
 MainWindow::OpenCalibration *MainWindow::open_calibration(fastecu::calibration::SessionId id)
@@ -804,14 +806,14 @@ void MainWindow::update_protocol_info(const QString& flash_method)
     {
         emit LOG_D("Could not find protocol for selected ROM!", true, true);
     }
-    status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolEntry::description) + " ");
+    status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolSpec::description) + " ");
 }
 
 void MainWindow::set_flash_arrow_state()
 {
-    ui->actionReadRomFromEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolEntry::read));
-    ui->actionTestWriteRomToEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolEntry::test_write));
-    ui->actionWriteRomToEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolEntry::write));
+    ui->actionReadRomFromEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolSpec::read));
+    ui->actionTestWriteRomToEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolSpec::test_write));
+    ui->actionWriteRomToEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolSpec::write));
 }
 
 void MainWindow::log_transport_changed()
@@ -987,15 +989,14 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         {
             // Nothing is allocated before the read: the image is adopted into
             // a session only after it succeeded.
-            update_protocol_info(qs(selected_vehicle().protocol_name));
-            read_kernel_path = QString::fromStdString(fastecu::flash::kernel_path(
-                kernel_dir.toStdString(),
-                fastecu::config::protocol_field_or_placeholder(selected_vehicle(), &ProtocolEntry::kernel)));
-            read_kernel_address = protocol_field(selected_vehicle(), &ProtocolEntry::kernel_addr);
-            read_mcu = protocol_field(selected_vehicle(), &ProtocolEntry::mcu);
+            update_protocol_info(qs(selected_vehicle().protocol->name));
+            read_kernel_path = QString::fromStdString(
+                fastecu::flash::kernel_path(kernel_dir.toStdString(), selected_vehicle().protocol->kernel));
+            read_kernel_address = kernel_address_field(selected_vehicle());
+            read_mcu = protocol_field(selected_vehicle(), &ProtocolSpec::mcu);
         }
 
-        emit LOG_D("Protocol to use: " + qs(selected_vehicle().protocol_name), true, true);
+        emit LOG_D("Protocol to use: " + qs(selected_vehicle().protocol->name), true, true);
 
         const fastecu::flash::FlashOperation operation =
             fastecu::flash::flash_operation_from_command(cmd_type.toStdString());
@@ -1014,7 +1015,8 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
 
         const fastecu::flash::FlashOperationOutcome outcome = controller.run({
             .operation = operation,
-            .protocol = prepared_write.has_value() ? prepared_write->protocol : selected_vehicle().protocol_name,
+            .protocol =
+                prepared_write.has_value() ? prepared_write->protocol : std::string(selected_vehicle().protocol->name),
             .mcu = prepared_write.has_value() ? prepared_write->mcu : read_mcu.toStdString(),
             .kernel_path = prepared_write.has_value() ? prepared_write->kernel_path : read_kernel_path.toStdString(),
             .image = fastecu::flash::portableImageForOperation(
@@ -1038,7 +1040,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
                     .rom = *outcome.read_bytes,
                     .filename = fastecu::flash::read_image_filename(rom_id, dateTimeString.toStdString()),
                     .rom_id = rom_id,
-                    .protocol_name = selected_vehicle().protocol_name,
+                    .protocol_name = std::string(selected_vehicle().protocol->name),
                     .kernel_path = read_kernel_path.toStdString(),
                     .kernel_start_address = read_kernel_address.toStdString(),
                 });

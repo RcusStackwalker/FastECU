@@ -1,10 +1,12 @@
 #pragma once
+#include <array>
 #include <cstdint>
 #include <format>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "src/backend/config/catalog.h"
 #include "src/backend/config/config_paths.h"
 #include "src/backend/config/config_session.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
@@ -18,37 +20,61 @@ namespace fastecu::config::testing
 inline constexpr std::string_view kRoot = "/root";
 inline constexpr std::string_view kVersion = "0.1.0-beta.5";
 
-// Vehicle rows, in file order (row id == position):
-//   0 Subaru Impreza    -> proto_a  (shared with row 2)
-//   1 Mitsubishi Colt   -> proto_b
-//   2 Subaru Forester   -> proto_a
-//   3 Nissan Skyline    -> missing_proto (no <protocol> of that name)
-inline constexpr std::string_view kStandardProtocols = R"(<?xml version="1.0"?>
-<config name="FastECU" version="test">
-  <protocols>
-    <protocol name="proto_a" alias="alias_a">
-      <ecu>ECU A</ecu><mcu>SH7058</mcu><mode>OBD2</mode><checksum>yes</checksum>
-      <read>yes</read><test_write>no</test_write><write>yes</write>
-      <flash_transport>iso15765,CAN</flash_transport><log_transport>K-Line</log_transport>
-      <log_protocol>SSM</log_protocol><kernel>a.bin</kernel><kernel_addr>0xFFFF3000</kernel_addr>
-      <description>Protocol A</description>
-    </protocol>
-    <protocol name="proto_b" alias="alias_b">
-      <ecu>ECU B</ecu><mcu>M32R</mcu><mode>OBD2</mode><checksum>n/a</checksum>
-      <read>yes</read><test_write>yes</test_write><write>yes</write>
-      <flash_transport>K-Line</flash_transport><log_transport>K-Line</log_transport>
-      <log_protocol>MUT_DMA</log_protocol><kernel>b.bin</kernel><kernel_addr>0x0</kernel_addr>
-      <description>Protocol B</description>
-    </protocol>
-  </protocols>
-  <car_models>
-    <car_model><make>Subaru</make><model>Impreza</model><version>v1</version><protocol>proto_a</protocol></car_model>
-    <car_model><make>Mitsubishi</make><model>Colt</model><version>v2</version><protocol>proto_b</protocol></car_model>
-    <car_model><make>Subaru</make><model>Forester</model><version>v3</version><protocol>proto_a</protocol></car_model>
-    <car_model><make>Nissan</make><model>Skyline</model><version>v4</version><protocol>missing_proto</protocol></car_model>
-  </car_models>
-</config>
-)";
+inline constexpr auto kStandardProtocols = std::to_array<ProtocolSpec>({
+    {.name = "proto_a",
+     .alias = "alias_a",
+     .ecu = "ECU A",
+     .mcu = "SH7058",
+     .mode = "OBD2",
+     .checksum = ChecksumSupport::Corrected,
+     .read = true,
+     .test_write = false,
+     .write = true,
+     .flash_transport = "iso15765,CAN",
+     .log_transport = "K-Line",
+     .log_protocol = "SSM",
+     .kernel = "a.bin",
+     .kernel_load_address = 0xFFFF3000U,
+     .description = "Protocol A"},
+    {.name = "proto_b",
+     .alias = "alias_b",
+     .ecu = "ECU B",
+     .mcu = "M32R",
+     .mode = "OBD2",
+     .checksum = ChecksumSupport::Missing,
+     .read = true,
+     .test_write = true,
+     .write = true,
+     .flash_transport = "K-Line",
+     .log_transport = "K-Line",
+     .log_protocol = "MUT_DMA",
+     .kernel = "b.bin",
+     .kernel_load_address = 0x0U,
+     .description = "Protocol B"},
+});
+
+// Rows: 0 Subaru Impreza -> proto_a (shared with row 2), 1 Mitsubishi Colt ->
+// proto_b, 2 Subaru Forester -> proto_a.
+inline constexpr auto kStandardVehicles = std::to_array<VehicleSpec>({
+    {.id = "subaru-impreza-v1",
+     .make = "Subaru",
+     .model = "Impreza",
+     .version = "v1",
+     .protocol = protocol_in(kStandardProtocols, "proto_a")},
+    {.id = "mitsubishi-colt-v2",
+     .make = "Mitsubishi",
+     .model = "Colt",
+     .version = "v2",
+     .protocol = protocol_in(kStandardProtocols, "proto_b")},
+    {.id = "subaru-forester-v3",
+     .make = "Subaru",
+     .model = "Forester",
+     .version = "v3",
+     .protocol = protocol_in(kStandardProtocols, "proto_a")},
+});
+
+inline constexpr Catalog kStandardCatalog{kStandardProtocols, kStandardVehicles};
+static_assert(catalog_references_resolve(kStandardProtocols, kStandardVehicles));
 
 inline std::string setting(std::string_view name, std::string_view data)
 {
@@ -60,7 +86,6 @@ struct ConfigSessionFixture
     explicit ConfigSessionFixture(std::string_view root_path = kRoot)
         : root(root_path), paths(resolve_config_paths(root, kVersion))
     {
-        put_protocols(kStandardProtocols);
         put_settings("");
     }
 
@@ -79,10 +104,6 @@ struct ConfigSessionFixture
                                            R"(<software_settings>{}</software_settings></config>)",
                                            settings));
     }
-    void put_protocols(std::string_view document)
-    {
-        put(paths.protocols_file, document);
-    }
     Status initialize()
     {
         return session.initialize(root, kVersion);
@@ -90,11 +111,14 @@ struct ConfigSessionFixture
 
     std::string root;
     ConfigPaths paths;
+    // The session reads this at initialize(); a test may assign another
+    // catalog first.
+    Catalog catalog = kStandardCatalog;
     InMemoryFileSystem file_system;
     InMemoryResourceBundle resource_bundle;
     InMemoryFileRepository file_repository;
     RecordingEventSink events;
-    ConfigSession session{file_system, resource_bundle, file_repository, events};
+    ConfigSession session{catalog, file_system, resource_bundle, file_repository, events};
 };
 
 } // namespace fastecu::config::testing

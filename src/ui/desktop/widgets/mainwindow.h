@@ -319,7 +319,7 @@ class MainWindow : public QMainWindow
     void set_flash_arrow_state();
     void update_protocol_info(const QString& flash_method);
     // The session's selected vehicle; always valid once constructed.
-    const fastecu::config::ResolvedCarModel& selected_vehicle() const;
+    const fastecu::config::VehicleSpec& selected_vehicle() const;
     // Saves the session's settings, logging a failure.
     void save_settings();
     // Emits the LOG_* signal for `level`, with timestamp and linefeed.

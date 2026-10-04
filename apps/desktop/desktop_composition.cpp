@@ -4,6 +4,7 @@
 
 #include "apps/desktop/default_config_root.h"
 
+#include "src/backend/config/builtin_catalog.h"
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 #include "src/platform/desktop/common/logging/runtime/systemlogger.h"
 #include "src/platform/desktop/common/remote_utility/remote_utility.h"
@@ -16,7 +17,7 @@ const ApplicationIdentity kApplication{.name = "FastECU", .title = "FastECU", .v
 
 DesktopComposition::DesktopComposition(const QString& peer_address, const QString& peer_password,
                                        const QString& config_root)
-    : config_(file_system_, resource_bundle_, file_repository_, startup_events_)
+    : config_(fastecu::config::builtin_catalog(), file_system_, resource_bundle_, file_repository_, startup_events_)
 {
     const QString root = config_root.isEmpty() ? default_config_root() : config_root;
     if (fastecu::Status initialized = config_.initialize(root.toStdString(), kApplication.version);

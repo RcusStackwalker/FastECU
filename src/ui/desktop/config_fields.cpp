@@ -1,18 +1,31 @@
 #include "src/ui/desktop/config_fields.h"
 
-#include "src/backend/config/config_session.h"
-
 namespace fastecu::ui
 {
 
-QString protocol_field(const config::ResolvedCarModel& vehicle, std::string config::ProtocolEntry::*field)
+QString protocol_field(const config::VehicleSpec& vehicle, std::string_view config::ProtocolSpec::*field)
 {
-    return qs(config::protocol_field_or_placeholder(vehicle, field));
+    return qs(vehicle.protocol->*field);
 }
 
-bool protocol_capability(const config::ResolvedCarModel& vehicle, std::string config::ProtocolEntry::*capability)
+QString protocol_flag(const config::VehicleSpec& vehicle, bool config::ProtocolSpec::*capability)
 {
-    return vehicle.protocol.has_value() && (*vehicle.protocol).*capability == "yes";
+    return protocol_capability(vehicle, capability) ? QStringLiteral("yes") : QStringLiteral("no");
+}
+
+bool protocol_capability(const config::VehicleSpec& vehicle, bool config::ProtocolSpec::*capability)
+{
+    return vehicle.protocol->*capability;
+}
+
+QString checksum_field(const config::VehicleSpec& vehicle)
+{
+    return qs(config::checksum_flag(vehicle.protocol->checksum));
+}
+
+QString kernel_address_field(const config::VehicleSpec& vehicle)
+{
+    return QString::fromStdString(config::kernel_load_address_text(*vehicle.protocol));
 }
 
 QStringList qstring_list(const std::vector<std::string>& items)
