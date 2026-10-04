@@ -29,8 +29,10 @@ bool isDll32Bit(const char *dllPath, bool& out32Bit)
     std::int32_t peOffset = 0;
     if (ok)
     {
-        peOffset = static_cast<std::int32_t>(dosHeader[0x3C] | (dosHeader[0x3D] << 8) | (dosHeader[0x3E] << 16) |
-                                             (dosHeader[0x3F] << 24));
+        const std::uint32_t rawOffset =
+            static_cast<std::uint32_t>(dosHeader[0x3C]) | (static_cast<std::uint32_t>(dosHeader[0x3D]) << 8) |
+            (static_cast<std::uint32_t>(dosHeader[0x3E]) << 16) | (static_cast<std::uint32_t>(dosHeader[0x3F]) << 24);
+        peOffset = static_cast<std::int32_t>(rawOffset);
         ok = peOffset >= 0;
     }
 
@@ -51,7 +53,8 @@ bool isDll32Bit(const char *dllPath, bool& out32Bit)
         return false;
     }
 
-    std::uint16_t machine = static_cast<std::uint16_t>(peAndMachine[4] | (peAndMachine[5] << 8));
+    std::uint16_t machine = static_cast<std::uint16_t>(static_cast<std::uint32_t>(peAndMachine[4]) |
+                                                       (static_cast<std::uint32_t>(peAndMachine[5]) << 8));
     out32Bit = (machine == kImageFileMachineI386);
     return true;
 }
