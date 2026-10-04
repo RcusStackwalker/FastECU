@@ -33,8 +33,8 @@ FlashFamily family_for_protocol(std::string_view protocol_name)
 // protocol name. mainwindow.cpp copies
 // the selected vehicle's protocol_name -- which already
 // carries "_ecutek"/"_cobb"/"_ecutek_racerom"/"_ecutek_racerom_alt" straight
-// from the protocol's XML `name` attribute in
-// resources/shared/config/protocols.cfg (e.g. line 385
+// from the protocol's name in the built-in catalog
+// (src/backend/config/builtin_catalog.cpp, e.g.
 // "sub_ecu_denso_sh7058_can_ecutek_racerom") -- verbatim into
 // ecuCalDef[rom_number]->FlashMethod (src/ui/desktop/mainwindow.cpp:1136,
 // 1162). Every legacy Denso operation class reads the same suffix off its

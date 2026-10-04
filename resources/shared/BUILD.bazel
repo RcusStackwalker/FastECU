@@ -1,6 +1,3 @@
-# Tests regenerate; production sources and helper binaries retain existing owners.
-# gazelle:map_kind cc_test fastecu_gtest //bazel:gtest_targets.bzl
-load("//bazel:gtest_targets.bzl", "fastecu_gtest")
 load("//bazel:qt_common.bzl", "qt_resource_via_qrc")
 
 # Composition and desktop test fixtures provision these resources.
@@ -11,27 +8,6 @@ package(default_visibility = [
     # MainWindow test fixtures provision real configuration from the bundle.
     "//src/ui/desktop/widgets:__pkg__",
 ])
-
-# resources/shared/protocols_cfg_eeprom_capabilities_test.cpp pins protocols.cfg's
-# write=no/test_write=no capability flags for the Denso SH705x EEPROM
-# protocols, and src/backend/config:builtin_catalog_parity_test compares the
-# whole file with the built-in catalog, both by reading the real, checked-in
-# file (not a synthetic copy that could silently drift) -- exported narrowly
-# to those two packages rather than widening config_resource's own
-# visibility. Deliberately NOT a nested resources/shared/config/BUILD.bazel:
-# that would turn config/ into its own Bazel package, which silently
-# excludes it from config_resource's glob(["config/*"]) below (verified: an
-# empty glob() there fails the build outright since allow_empty defaults to
-# false).
-exports_files(
-    [
-        "config/protocols.cfg",
-    ],
-    visibility = [
-        "//resources/shared:__pkg__",
-        "//src/backend/config:__pkg__",
-    ],
-)
 
 # The bundled kernels as plain files, so tests can compare the catalog's
 # kernel names with the bundle and load real kernels.
@@ -44,36 +20,6 @@ filegroup(
         "//src/backend/flash/eeprom:__pkg__",
         "//src/platform/desktop/common/flash:__pkg__",
     ],
-)
-
-fastecu_gtest(
-    name = "test_protocols_cfg_eeprom_capabilities",
-    size = "small",
-    srcs = ["protocols_cfg_eeprom_capabilities_test.cpp"],
-    data = [":config/protocols.cfg"],
-    env = {"PROTOCOLS_CFG_PATH": "$(location :config/protocols.cfg)"},
-    qt = False,
-    deps = ["@googletest//:gtest"],
-)
-
-fastecu_gtest(
-    name = "test_protocols_cfg_subaru_mitsu_m32r_kline",
-    size = "small",
-    srcs = ["protocols_cfg_subaru_mitsu_m32r_kline_test.cpp"],
-    data = [":config/protocols.cfg"],
-    env = {"PROTOCOLS_CFG_PATH": "$(location :config/protocols.cfg)"},
-    qt = False,
-    deps = ["@googletest//:gtest"],
-)
-
-fastecu_gtest(
-    name = "test_protocols_cfg_subaru_hitachi_m32r_kline",
-    size = "small",
-    srcs = ["protocols_cfg_subaru_hitachi_m32r_kline_test.cpp"],
-    data = [":config/protocols.cfg"],
-    env = {"PROTOCOLS_CFG_PATH": "$(location :config/protocols.cfg)"},
-    qt = False,
-    deps = ["@googletest//:gtest"],
 )
 
 # Resource libraries come from a custom macro that Gazelle does not know, so the

@@ -139,18 +139,3 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
-
-# Temporary: compares the catalog with the protocols.cfg it was generated from.
-fastecu_portable_gtest(
-    name = "builtin_catalog_parity_test",
-    srcs = ["builtin_catalog_parity_test.cpp"],
-    data = ["//resources/shared:config/protocols.cfg"],
-    env = {
-        "PROTOCOLS_CFG_PATH": "$(location //resources/shared:config/protocols.cfg)",
-    },
-    deps = [
-        ":builtin_catalog",
-        "@googletest//:gtest",
-        "@pugixml",
-    ],
-)

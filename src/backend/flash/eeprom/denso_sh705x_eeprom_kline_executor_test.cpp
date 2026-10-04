@@ -40,7 +40,7 @@ using namespace bytes::literals;
 constexpr std::uint8_t kTesterId = 0xf0;
 constexpr std::uint8_t kTargetId = 0x10;
 
-// Matches resources/shared/config/protocols.cfg's
+// Matches the built-in catalog's
 // sub_ecu_eeprom_denso_sh7055_kline entry (kernel_addr = 0xFFFF6004).
 constexpr std::uint32_t kKernelStartAddr = 0xFFFF6004;
 

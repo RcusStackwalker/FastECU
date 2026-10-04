@@ -12,7 +12,9 @@ TEST(QtResourceBundleTest, ListsRealShippedConfigFiles)
 
     ASSERT_THAT(names, fastecu::testing::IsOk());
     EXPECT_NE(std::find(names->begin(), names->end(), "fastecu.cfg"), names->end());
-    EXPECT_NE(std::find(names->begin(), names->end(), "protocols.cfg"), names->end());
+    EXPECT_NE(std::find(names->begin(), names->end(), "logger.cfg"), names->end());
+    // Protocols and vehicles are compiled in; nothing provisions a copy.
+    EXPECT_EQ(std::find(names->begin(), names->end(), "protocols.cfg"), names->end());
 }
 
 TEST(QtResourceBundleTest, ListsRealShippedKernelFiles)
