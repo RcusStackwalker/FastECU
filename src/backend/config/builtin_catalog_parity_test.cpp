@@ -140,10 +140,9 @@ TEST(BuiltinCatalogParity, DiffersFromProtocolsCfgOnlyByTheDocumentedFixes)
                                           "catalog 'ssmk_tcu_can_sh7055_35.bin'";
     const std::vector<std::string> expected_protocol_differences{fix_1_kernel_diff};
     const std::vector<std::string> expected_vehicle_differences{
-        // Faithful generation: these two rows name protocols the file does not
-        // define, so they have none.
-        "vehicle 1: protocol file 'sub_ecu_unisia_jecs_92' catalog ''",
-        "vehicle 2: protocol file 'sub_ecu_unisia_jecs_97' catalog ''",
+        // Fix 2: upstream 90f11ae9 renamed these protocols without updating the vehicles.
+        "vehicle 1: protocol file 'sub_ecu_unisia_jecs_92' catalog 'sub_ecu_unisia_jecs_m3779x'",
+        "vehicle 2: protocol file 'sub_ecu_unisia_jecs_97' catalog 'sub_ecu_unisia_jecs_m3775x'",
     };
 
     EXPECT_THAT(protocol_differences(config.child("protocols")),

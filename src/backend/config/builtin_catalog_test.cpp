@@ -45,16 +45,22 @@ constexpr auto kKnownDefects = std::to_array<std::string_view>({
     "protocol 'sub_ecu_eeprom_denso_sh7058_densocan' has no vehicle",
     "protocol 'sub_ecu_eeprom_denso_sh7058_can_diesel' has no vehicle",
     "protocol 'sub_ecu_unisia_jecs_m3779x' has a kernel load address but no kernel",
-    "protocol 'sub_ecu_unisia_jecs_m3779x' has no vehicle",
     "protocol 'sub_ecu_unisia_jecs_m3775x' has a kernel load address but no kernel",
-    "protocol 'sub_ecu_unisia_jecs_m3775x' has no vehicle",
-    "vehicle 'subaru-legacy-2-0-a-t-1990--sub-ecu-unisia-jecs-m3779x' has no protocol",
-    "vehicle 'subaru-legacy-2-0-a-t-1990--sub-ecu-unisia-jecs-m3775x' has no protocol",
 });
 
 TEST(BuiltinCatalogFixes, Sh7055TcuKernelNamesTheBundledFile)
 {
     EXPECT_EQ(protocol_named("sub_tcu_denso_sh7055_can").kernel, "ssmk_tcu_can_sh7055_35.bin");
+}
+
+TEST(BuiltinCatalogFixes, Legacy1990RowsReachTheRenamedUnisiaJecsProtocols)
+{
+    const auto vehicles = builtin_catalog().vehicles();
+    ASSERT_GE(vehicles.size(), 3U);
+    ASSERT_NE(vehicles[1].protocol, nullptr);
+    ASSERT_NE(vehicles[2].protocol, nullptr);
+    EXPECT_EQ(vehicles[1].protocol->name, "sub_ecu_unisia_jecs_m3779x");
+    EXPECT_EQ(vehicles[2].protocol->name, "sub_ecu_unisia_jecs_m3775x");
 }
 
 TEST(BuiltinCatalog, ListsEveryProtocolsCfgEntry)
