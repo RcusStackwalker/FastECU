@@ -5,11 +5,16 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <cstdlib>
+#include <fstream>
+#include <iterator>
+#include <sstream>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
 
+#include "src/backend/config/builtin_catalog.h"
 #include "src/backend/config/catalog.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 
@@ -225,6 +230,44 @@ TEST(BuildEepromReadPlanTest, EcuTekRaceRomSuffixStillProducesAnEcuTekRaceRomPla
     const auto *can_plan = std::get_if<DensoSh705xEepromCanPlan>(&plan->family_plan());
     ASSERT_NE(can_plan, nullptr);
     EXPECT_EQ(can_plan->security, DensoSecurityVariant::EcuTekRaceRom);
+}
+
+// The bundled kernel file named `name`, from $(locations //resources/shared:kernel_files).
+std::vector<std::uint8_t> bundled_kernel(std::string_view name)
+{
+    const char *paths = std::getenv("KERNEL_FILES");
+    std::istringstream stream{paths == nullptr ? "" : paths};
+    for (std::string path; stream >> path;)
+    {
+        if (path.ends_with("/" + std::string(name)))
+        {
+            std::ifstream file{path, std::ios::binary};
+            return {std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>()};
+        }
+    }
+    return {};
+}
+
+TEST(BuildEepromReadPlanTest, EveryBuiltinEepromProtocolBuildsWithItsBundledKernel)
+{
+    int checked = 0;
+    for (const config::ProtocolSpec& protocol : config::builtin_catalog().protocols())
+    {
+        if (!protocol.name.starts_with("sub_ecu_eeprom_"))
+        {
+            continue;
+        }
+        InMemoryFileRepository repository;
+        repository.files["kernels/" + std::string(protocol.kernel)] = bundled_kernel(protocol.kernel);
+        ASSERT_FALSE(repository.files.begin()->second.empty()) << protocol.kernel;
+        for (EepromReadMode mode : {EepromReadMode::Mode2, EepromReadMode::Mode3, EepromReadMode::Mode4})
+        {
+            EXPECT_THAT(build_eeprom_read_plan(test_paths(), protocol, mode, repository), fastecu::testing::IsOk())
+                << protocol.name << " mode " << static_cast<int>(mode);
+        }
+        ++checked;
+    }
+    EXPECT_EQ(checked, 6);
 }
 
 } // namespace

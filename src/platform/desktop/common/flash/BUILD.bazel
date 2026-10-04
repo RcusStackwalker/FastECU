@@ -105,3 +105,18 @@ fastecu_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_gtest(
+    name = "builtin_catalog_capability_test",
+    srcs = ["builtin_catalog_capability_test.cpp"],
+    data = ["//resources/shared:kernel_files"],
+    env = {"KERNEL_FILES": "$(locations //resources/shared:kernel_files)"},
+    deps = [
+        ":flash_workflow",
+        "//bazel/qt:core",
+        "//src/backend/config:builtin_catalog",
+        "//src/backend/flash:flash_device_lookup",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
+    ],
+)

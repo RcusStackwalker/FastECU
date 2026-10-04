@@ -124,6 +124,9 @@ cc_library(
     visibility = [
         "//bazel/layers:apps_desktop",
         "//bazel/layers:tests",
+        # One-off test consumers: each checks every built-in entry against its family.
+        "//src/backend/flash/eeprom:__pkg__",
+        "//src/platform/desktop/common/flash:__pkg__",
     ],
     deps = [":catalog"],
 )
