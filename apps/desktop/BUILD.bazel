@@ -105,6 +105,28 @@ fastecu_gtest(
     ],
 )
 
+# Asks for a vehicle before MainWindow exists when none is selected. Private
+# to this package.
+cc_library(
+    name = "startup_vehicle_gate",
+    srcs = ["startup_vehicle_gate.cpp"],
+    hdrs = ["startup_vehicle_gate.h"],
+    visibility = ["//visibility:private"],
+    deps = ["//src/backend/config:config_session"],
+)
+
+fastecu_gtest(
+    name = "startup_vehicle_gate_test",
+    srcs = ["startup_vehicle_gate_test.cpp"],
+    # The gate and the session are Qt-free; keep the test's closure free too.
+    qt = False,
+    deps = [
+        ":startup_vehicle_gate",
+        "//src/backend/config/testing:config_session_fixture",
+        "@googletest//:gtest",
+    ],
+)
+
 # The platform choice for the local serial backend, named by the binary. The
 # OS selection is build configuration, so the alias is hand-owned.
 alias(
@@ -149,6 +171,7 @@ qt_cc_binary(
         ":direct_serial_backend",  # keep
         ":composition",
         ":startup",
+        ":startup_vehicle_gate",
         "//bazel/qt:widgets",
         "//src/ui/desktop/widgets:desktop",
     ],

@@ -94,16 +94,16 @@ TEST(ConfigSessionInitialize, LoadedScalarsOverrideDefaults)
 {
     ConfigSessionFixture f;
     f.put_settings(R"(<setting name="window_size"><value width="1024"/><value height="768"/></setting>)" +
-                   setting("serial_port", "COM7") + setting("toolbar_iconsize", "24") + setting("protocol_id", "2") +
-                   setting("flash_transport", "iso15765") + setting("log_transport", "K-Line") +
-                   setting("log_protocol", "SSM") + setting("primary_definition_base", "romraider") +
-                   setting("use_ecuflash_definitions", "enabled"));
+                   setting("serial_port", "COM7") + setting("toolbar_iconsize", "24") +
+                   setting("vehicle_id", "subaru-forester-v3") + setting("flash_transport", "iso15765") +
+                   setting("log_transport", "K-Line") + setting("log_protocol", "SSM") +
+                   setting("primary_definition_base", "romraider") + setting("use_ecuflash_definitions", "enabled"));
     ASSERT_THAT(f.initialize(), IsOk());
     EXPECT_EQ(f.session.settings().window_width, "1024");
     EXPECT_EQ(f.session.settings().window_height, "768");
     EXPECT_EQ(f.session.settings().serial_port, "COM7");
     EXPECT_EQ(f.session.settings().toolbar_iconsize, "24");
-    EXPECT_EQ(f.session.settings().selected_protocol_id, "2");
+    EXPECT_EQ(f.session.settings().selected_vehicle_id, "subaru-forester-v3");
     EXPECT_EQ(f.session.settings().selected_flash_transport, "iso15765");
     EXPECT_EQ(f.session.settings().selected_log_transport, "K-Line");
     EXPECT_EQ(f.session.settings().selected_log_protocol, "SSM");
@@ -213,31 +213,37 @@ TEST(ConfigSessionInitialize, AccessBeforeInitializationIsChecked)
     EXPECT_THAT(f.session.save(), IsErr(ErrorKind::Internal));
 }
 
-// --- saved row ------------------------------------------------------------
+// --- saved vehicle --------------------------------------------------------
 
-class InvalidSavedId : public ::testing::TestWithParam<std::string>
+class UnusableSavedVehicle : public ::testing::TestWithParam<std::string>
 {
 };
 
-TEST_P(InvalidSavedId, SelectsRowZero)
+TEST_P(UnusableSavedVehicle, SelectsNothingAndForgetsIt)
 {
     ConfigSessionFixture f;
-    f.put_settings(setting("protocol_id", GetParam()));
+    f.put_settings(setting("vehicle_id", GetParam()));
     ASSERT_THAT(f.initialize(), IsOk());
-    EXPECT_EQ(f.session.settings().selected_protocol_id, "0");
-    ASSERT_THAT(f.session.selected_row(), IsOk());
-    EXPECT_EQ(*f.session.selected_row(), 0U);
-    EXPECT_EQ(f.session.selected_vehicle()->model, "Impreza");
+    EXPECT_EQ(f.session.selected_vehicle(), nullptr);
+    EXPECT_THAT(f.session.selected_row(), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_TRUE(f.session.settings().selected_vehicle_id.empty());
 }
 
-// The fixture has three rows, so "3" is the first out-of-range id.
-INSTANTIATE_TEST_SUITE_P(ConfigSessionInitialize, InvalidSavedId,
-                         ::testing::Values("", "-1", "abc", "1x", " 1", "+1", "3", "99999999999999999999999"));
+INSTANTIATE_TEST_SUITE_P(ConfigSessionInitialize, UnusableSavedVehicle,
+                         ::testing::Values("", "0", "subaru-impreza-v9", "SUBARU-IMPREZA-V1"));
+
+TEST(ConfigSessionInitialize, ALegacyProtocolIdSelectsNothing)
+{
+    ConfigSessionFixture f;
+    f.put_settings(setting("protocol_id", "1"));
+    ASSERT_THAT(f.initialize(), IsOk());
+    EXPECT_EQ(f.session.selected_vehicle(), nullptr);
+}
 
 TEST(ConfigSessionInitialize, ValidSavedIdIsKept)
 {
     ConfigSessionFixture f;
-    f.put_settings(setting("protocol_id", "2"));
+    f.put_settings(setting("vehicle_id", "subaru-forester-v3"));
     ASSERT_THAT(f.initialize(), IsOk());
     EXPECT_EQ(*f.session.selected_row(), 2U);
     EXPECT_EQ(f.session.selected_vehicle()->model, "Forester");
@@ -247,8 +253,8 @@ TEST(ConfigSessionInitialize, RestoringTheSavedRowKeepsSavedTransports)
 {
     ConfigSessionFixture f;
     // Row 1's protocol defaults would be K-Line / K-Line / MUT_DMA.
-    f.put_settings(setting("protocol_id", "1") + setting("flash_transport", "CAN") + setting("log_transport", "J2534") +
-                   setting("log_protocol", "SSM"));
+    f.put_settings(setting("vehicle_id", "mitsubishi-colt-v2") + setting("flash_transport", "CAN") +
+                   setting("log_transport", "J2534") + setting("log_protocol", "SSM"));
     ASSERT_THAT(f.initialize(), IsOk());
     EXPECT_EQ(f.session.settings().selected_flash_transport, "CAN");
     EXPECT_EQ(f.session.settings().selected_log_transport, "J2534");
@@ -363,6 +369,19 @@ TEST(ConfigSessionSave, EveryOtherSettingRoundTripsThroughARestart)
     EXPECT_EQ(f.session.settings().calibration_files_directory, "/cal/");
 }
 
+TEST(ConfigSessionSave, ASelectionSurvivesARestart)
+{
+    ConfigSessionFixture f;
+    ASSERT_THAT(f.initialize(), IsOk());
+    ASSERT_THAT(f.session.select_row(2), IsOk());
+    ASSERT_THAT(f.session.save(), IsOk());
+
+    ASSERT_THAT(f.initialize(), IsOk());
+
+    ASSERT_NE(f.session.selected_vehicle(), nullptr);
+    EXPECT_EQ(f.session.selected_vehicle()->id, "subaru-forester-v3");
+}
+
 // Known, preserved mismatch: the writer emits logfiles_directory, the reader
 // only recognizes datalog_files_directory. Do not fix it here.
 TEST(ConfigSessionSave, DatalogDirectoryDoesNotRoundTrip)
@@ -388,7 +407,7 @@ TEST(ConfigSessionSelect, RowChangesTheSavedRowAndLogProtocolOnly)
 
     ASSERT_THAT(f.session.select_row(1), IsOk());
 
-    EXPECT_EQ(f.session.settings().selected_protocol_id, "1");
+    EXPECT_EQ(f.session.settings().selected_vehicle_id, "mitsubishi-colt-v2");
     EXPECT_EQ(f.session.settings().selected_log_protocol, "MUT_DMA");
     EXPECT_EQ(f.session.settings().selected_flash_transport, "CAN");
     EXPECT_EQ(f.session.settings().selected_log_transport, "J2534");
@@ -436,7 +455,7 @@ TEST(ConfigSessionSelect, ProtocolNameUsesTheLastMatchingRow)
 TEST(ConfigSessionSelect, UnmatchedProtocolNameChangesNothing)
 {
     ConfigSessionFixture f;
-    f.put_settings(setting("protocol_id", "1") + setting("log_protocol", "CDBG"));
+    f.put_settings(setting("vehicle_id", "mitsubishi-colt-v2") + setting("log_protocol", "CDBG"));
     ASSERT_THAT(f.initialize(), IsOk());
     const AppConfig before = f.session.settings();
 

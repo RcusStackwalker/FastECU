@@ -958,7 +958,7 @@ void MainWindowTest::SetUpTestSuite()
     </setting>
     <setting name="toolbar_iconsize"><value data="32"/></setting>
     <setting name="serial_port"><value data="OpenPort 2.0"/></setting>
-    <setting name="protocol_id"><value data="0"/></setting>
+    <setting name="vehicle_id"><value data="subaru-test-test--sub-tcu-denso-sh7058-can"/></setting>
     <setting name="flash_transport"><value data="iso15765"/></setting>
     <setting name="log_transport"><value data="K-Line"/></setting>
     <setting name="log_protocol"><value data="SSM"/></setting>
@@ -2615,7 +2615,7 @@ void MainWindowTest::check_acceptedVehicleChoiceSelectsTheRowAndSavesIt()
     fastecu::config::ConfigSession reread{kWindowCatalog, services.file_system, services.resource_bundle,
                                           services.file_repository, reread_events};
     ASSERT_TRUE(reread.initialize(config_root_->path().toStdString(), kTestApplication.version).has_value());
-    ASSERT_EQ(reread.settings().selected_protocol_id, std::string("1"));
+    ASSERT_EQ(reread.settings().selected_vehicle_id, std::string(kWindowVehicles[1].id));
 }
 
 TEST_F(MainWindowTest, acceptedVehicleChoiceSelectsTheRowAndSavesIt)
@@ -2943,6 +2943,8 @@ void MainWindowTest::check_repeatedSaveFailuresLogOnceUntilASuccess()
     ASSERT_TRUE(root.isValid());
     TestServices services{root.path()};
     ASSERT_TRUE(services.config_status.has_value());
+    // A fresh root has no saved vehicle; the startup gate would ask for one.
+    ASSERT_TRUE(services.config.select_row(0).has_value());
     MainWindow window{services.services()};
     constructor_driver.stop();
     fastecu::testing::SignalRecorder errors{&window, &MainWindow::LOG_E};

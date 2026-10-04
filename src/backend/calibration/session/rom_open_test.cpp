@@ -40,6 +40,9 @@ class RomOpenTest : public ::testing::Test
   protected:
     void SetUp() override
     {
+        // The startup vehicle gate selects a vehicle before any ROM opens;
+        // row 0 (subaru-impreza-v1) stands in for that choice.
+        cfg.put_settings(config::testing::setting("vehicle_id", "subaru-impreza-v1"));
         ASSERT_THAT(cfg.initialize(), IsOk());
     }
 

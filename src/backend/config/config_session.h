@@ -16,7 +16,7 @@ namespace fastecu::config
 {
 
 // The application's configuration for one run: provisioned paths, the
-// user's settings, and the vehicle catalog. AppConfig::selected_protocol_id
+// user's settings, and the vehicle catalog. AppConfig::selected_vehicle_id
 // is the only saved selection; everything about the selected vehicle is read
 // from its VehicleSpec rather than cached.
 class ConfigSession
@@ -29,9 +29,10 @@ class ConfigSession
     ConfigSession& operator=(const ConfigSession&) = delete;
 
     // Provisions <app_root>/<version>/, loads settings, and validates the saved
-    // row against the catalog (an invalid one becomes "0"). A failed rewrite
-    // of the loaded settings is a warning event, not a failure. Any other
-    // failure leaves the session uninitialized, holding nothing.
+    // vehicle id against the catalog: an id it does not know is cleared and
+    // selects nothing. A failed rewrite of the loaded settings is a warning
+    // event, not a failure. Any other failure leaves the session
+    // uninitialized, holding nothing.
     Status initialize(std::string_view app_root, std::string_view version);
     bool initialized() const;
 
@@ -48,14 +49,14 @@ class ConfigSession
     // taken from settings (provisioned ones when a setting is empty).
     ConfigPaths effective_paths() const;
 
-    // Catalog order; a row's id is its position. Empty until initialized.
+    // Catalog order. Empty until initialized.
     std::span<const VehicleSpec> vehicles() const;
     Result<std::size_t> selected_row() const;
     // nullptr unless selected_row() has a value.
     const VehicleSpec *selected_vehicle() const;
 
-    // Makes `row` the saved row and sets the logging protocol from its
-    // protocol. Transports are untouched, and nothing is written until
+    // Makes `row`'s vehicle id the saved selection and sets the logging
+    // protocol from its protocol. Transports are untouched, and nothing is written until
     // save(). An invalid row changes nothing.
     Status select_row(std::size_t row);
     // select_row() on the LAST row whose protocol is named `protocol_name`, as

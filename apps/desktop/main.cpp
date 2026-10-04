@@ -2,11 +2,14 @@
 #include "src/ui/desktop/widgets/mainwindow.h"
 #include "apps/desktop/desktop_composition.h"
 #include "apps/desktop/startup_diagnostics.h"
+#include "apps/desktop/startup_vehicle_gate.h"
+#include "src/ui/desktop/widgets/vehicle_select.h"
 
 #include <QApplication>
 
 #include <algorithm>
 #include <cstdlib>
+#include <optional>
 #include <span>
 #include <string_view>
 
@@ -76,6 +79,21 @@ int main(int argc, char *argv[])
             break;
         }
         present_startup_warnings(composition.startup_warnings());
+        // MainWindow requires a selected vehicle; a first start, or a saved
+        // vehicle this build no longer has, asks for one here.
+        fastecu::config::ConfigSession& config = composition.services().config;
+        if (const std::optional<int> exit_code = startup_vehicle_gate(config,
+                                                                      [&config]
+                                                                      {
+                                                                          VehicleSelect chooser(config);
+                                                                          chooser.exec();
+                                                                          return chooser.chosen_row();
+                                                                      });
+            exit_code.has_value())
+        {
+            return_code = *exit_code;
+            break;
+        }
         MainWindow w(composition.services(), addr);
 
         QScreen *screen = QGuiApplication::primaryScreen();

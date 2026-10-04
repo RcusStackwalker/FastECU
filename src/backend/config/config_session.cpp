@@ -1,6 +1,5 @@
 #include "src/backend/config/config_session.h"
 
-#include <charconv>
 #include <format>
 #include <optional>
 #include <string>
@@ -36,22 +35,6 @@ AppConfig with_defaults(AppConfig settings, const ConfigPaths& paths)
     default_if_empty(settings.calibration_files_directory, paths.calibration_files_directory);
     default_if_empty(settings.datalog_files_directory, paths.datalog_files_directory);
     return settings;
-}
-
-// The row a saved protocol_id names: a plain decimal index below row_count.
-// Negative, signed, padded, malformed, overflowing, and out-of-range text
-// all yield nullopt.
-std::optional<std::size_t> parse_row(std::string_view text, std::size_t row_count)
-{
-    std::size_t row = 0;
-    const char *first = text.data();
-    const char *last = first + text.size();
-    const auto [end, error] = std::from_chars(first, last, row);
-    if (error != std::errc{} || end != last || row >= row_count)
-    {
-        return std::nullopt;
-    }
-    return row;
 }
 
 std::unexpected<Error> failed(const Error& error, std::string_view what, std::string_view path)
@@ -101,9 +84,11 @@ Status ConfigSession::initialize(std::string_view app_root, std::string_view ver
                     std::format("Unable to save settings {}: {}", paths.config_file, rewritten.error().detail));
     }
 
-    if (!parse_row(settings.selected_protocol_id, catalog_.vehicles().size()).has_value())
+    // An id this catalog does not know -- a retired vehicle, or none saved
+    // yet -- selects nothing, and the startup gate asks for a vehicle.
+    if (!catalog_.find_vehicle(settings.selected_vehicle_id).has_value())
     {
-        settings.selected_protocol_id = "0";
+        settings.selected_vehicle_id.clear();
     }
 
     provisioned_ = paths;
@@ -172,11 +157,10 @@ Result<std::size_t> ConfigSession::selected_row() const
     {
         return fail(ErrorKind::Internal, "configuration session is not initialized");
     }
-    const std::optional<std::size_t> row = parse_row(settings_.selected_protocol_id, catalog_.vehicles().size());
+    const std::optional<std::size_t> row = catalog_.find_vehicle(settings_.selected_vehicle_id);
     if (!row.has_value())
     {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("selected protocol id '{}' names no vehicle", settings_.selected_protocol_id));
+        return fail(ErrorKind::InvalidConfig, "no vehicle is selected");
     }
     return *row;
 }
@@ -199,7 +183,7 @@ Status ConfigSession::select_row(std::size_t row)
         return fail(ErrorKind::InvalidConfig,
                     std::format("vehicle row {} is out of range ({} rows)", row, vehicles.size()));
     }
-    settings_.selected_protocol_id = std::to_string(row);
+    settings_.selected_vehicle_id = std::string(vehicles[row].id);
     settings_.selected_log_protocol = std::string(vehicles[row].protocol->log_protocol);
     return {};
 }

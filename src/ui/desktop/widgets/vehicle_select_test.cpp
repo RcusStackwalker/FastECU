@@ -30,6 +30,19 @@ TEST(VehicleSelectTest, rejectingLeavesNoChoice)
     ASSERT_TRUE(!dialog.chosen_row().has_value());
 }
 
+// The startup vehicle gate opens the dialog on a session with no vehicle.
+TEST(VehicleSelectTest, withNoSelectionItOpensOnTheFirstMakeModelAndVersion)
+{
+    ConfigSessionFixture f;
+    ASSERT_TRUE(f.initialize().has_value());
+    ASSERT_TRUE(f.session.selected_vehicle() == nullptr);
+
+    VehicleSelect dialog{f.session}; // Mitsubishi sorts first; its only vehicle is the Colt
+    ASSERT_TRUE(QMetaObject::invokeMethod(&dialog, "car_model_selected", Qt::DirectConnection));
+
+    ASSERT_EQ(dialog.chosen_row(), std::optional<std::size_t>(1));
+}
+
 namespace
 {
 const auto *const application_environment =

@@ -91,8 +91,8 @@ VehicleSelect::VehicleSelect(const fastecu::config::ConfigSession& config, QWidg
     if (!car_make_changed_saved)
     {
         qDebug() << "Car make changed to first item, no make selected previously";
-        QTreeWidgetItem *item = ui->car_model_tree_widget->topLevelItem(0);
-        ui->car_model_tree_widget->setCurrentItem(item);
+        QTreeWidgetItem *item = ui->car_make_tree_widget->topLevelItem(0);
+        ui->car_make_tree_widget->setCurrentItem(item);
     }
 
     connect(ui->car_make_tree_widget, &QTreeWidget::itemSelectionChanged, this,
@@ -291,6 +291,7 @@ void VehicleSelect::car_model_treewidget_item_selected()
         }
 
         qDebug() << "Add versions data items to select";
+        const fastecu::Result<std::size_t> saved = config.selected_row();
         for (int i = 0; i < version.length(); i++)
         {
             QTreeWidgetItem *item_local = new QTreeWidgetItem();
@@ -346,7 +347,7 @@ void VehicleSelect::car_model_treewidget_item_selected()
             ui->car_version_tree_widget->addTopLevelItem(item_local);
 
             qDebug() << "Check if car version selected";
-            if (id.at(i) == qs(config.settings().selected_protocol_id))
+            if (saved.has_value() && id.at(i) == QString::number(*saved))
             {
                 qDebug() << "Car version changed to saved model";
                 car_version_changed_saved = true;

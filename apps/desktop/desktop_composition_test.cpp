@@ -267,6 +267,22 @@ TEST_F(DesktopCompositionTest, migrationLoadsPreviousVersionSettingsFromDisk)
     ASSERT_TRUE(saved.readAll().contains("ttyMIGRATED_UNIQUE"));
 }
 
+TEST_F(DesktopCompositionTest, aPreviousVersionsSavedRowSelectsNoVehicle)
+{
+    QTemporaryDir root;
+    ASSERT_TRUE(root.isValid());
+    const QString previous_dir = root.path() + "/0.1.0-beta.4/config/";
+    ASSERT_TRUE(QDir().mkpath(previous_dir));
+    ASSERT_TRUE(writeFile(previous_dir + "fastecu.cfg", R"(<config name="FastECU"><software_settings>
+<setting name="protocol_id"><value data="35"/></setting>
+</software_settings></config>)"));
+
+    DesktopComposition composition{{}, {}, root.path()};
+
+    ASSERT_TRUE(composition.started());
+    ASSERT_TRUE(config_of(composition).selected_vehicle() == nullptr);
+}
+
 TEST_F(DesktopCompositionTest, malformedSettingsRejectStartup)
 {
     QTemporaryDir root;

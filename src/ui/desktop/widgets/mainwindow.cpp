@@ -176,9 +176,9 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_D, log_channel,
                      &fastecu::ui::LogChannel::LOG_D);
 
-    // DesktopComposition initialized the session (provisioning, settings,
-    // catalogs, and a valid saved row) before building this window.
-    emit LOG_D("Protocols ID: " + qs(configSession->settings().selected_protocol_id) + "/" +
+    // Before this window was built, DesktopComposition initialized the session
+    // and the startup vehicle gate made sure a vehicle is selected.
+    emit LOG_D("Vehicle ID: " + qs(configSession->settings().selected_vehicle_id) + "/" +
                    QString::number(configSession->vehicles().size()),
                true, true);
 
@@ -632,8 +632,8 @@ QStringList MainWindow::create_log_transports_list()
 
 const fastecu::config::VehicleSpec& MainWindow::selected_vehicle() const
 {
-    // DesktopComposition initializes the session before building MainWindow,
-    // and the session only ever holds a valid row.
+    // The startup vehicle gate selects a vehicle before MainWindow is built,
+    // and a selection only ever changes to another valid row.
     return *configSession->selected_vehicle();
 }
 
@@ -679,7 +679,7 @@ void MainWindow::select_protocol()
     ProtocolSelect protocolSelect(*configSession);
     const int result = protocolSelect.exec();
     apply_protocol_choice(result, protocolSelect.chosen_protocol_name());
-    emit LOG_D("Selected protocol: " + qs(configSession->settings().selected_protocol_id), true, true);
+    emit LOG_D("Selected vehicle: " + qs(configSession->settings().selected_vehicle_id), true, true);
 }
 
 void MainWindow::select_protocol_finished(int result)
@@ -705,7 +705,7 @@ void MainWindow::select_vehicle()
     VehicleSelect vehicleSelect(*configSession);
     const int result = vehicleSelect.exec();
     apply_vehicle_choice(result, vehicleSelect.chosen_row());
-    emit LOG_D("Selected protocol: " + qs(configSession->settings().selected_protocol_id), true, true);
+    emit LOG_D("Selected vehicle: " + qs(configSession->settings().selected_vehicle_id), true, true);
 }
 
 void MainWindow::select_vehicle_finished(int result)
