@@ -139,7 +139,7 @@ TEST(BuiltinCatalogParity, DiffersFromProtocolsCfgOnlyByTheDocumentedFixes)
     const std::string fix_1_kernel_diff = "protocol sub_tcu_denso_sh7055_can: kernel file 'ssmk_tcu_can_SH7055_35.bin' "
                                           "catalog 'ssmk_tcu_can_sh7055_35.bin'";
     const std::vector<std::string> expected_protocol_differences{fix_1_kernel_diff};
-    const std::vector<std::string> expected_protocol_differences_fix_5{
+    const std::vector<std::string> expected_protocol_differences_fix_6{
         fix_1_kernel_diff,
         // Fix 4: no kernel, so no load address; the family's plan requires none.
         "protocol sub_ecu_unisia_jecs_m3779x: kernel_addr file '0x0' catalog ''",
@@ -148,6 +148,9 @@ TEST(BuiltinCatalogParity, DiffersFromProtocolsCfgOnlyByTheDocumentedFixes)
         // the named kernel was never bundled.
         "protocol sub_ecu_denso_sh72543_can_diesel: kernel file 'ssmk_can_tp_sh72543d_euro6.bin' catalog ''",
         "protocol sub_ecu_denso_sh72543_can_diesel: kernel_addr file '0xFFF80000' catalog ''",
+        // Fix 6: 0xFFFF6004 is the SH7055 address; the same kernel loads at
+        // 0xFFFF3000 for every main-flash SH7058 DensoCAN entry. VERIFY on bench.
+        "protocol sub_ecu_eeprom_denso_sh7058_densocan: kernel_addr file '0xFFFF6004' catalog '0xFFFF3000'",
     };
     const std::vector<std::string> expected_vehicle_differences{
         // Fix 2: upstream 90f11ae9 renamed these protocols without updating the vehicles.
@@ -161,7 +164,7 @@ TEST(BuiltinCatalogParity, DiffersFromProtocolsCfgOnlyByTheDocumentedFixes)
     };
 
     EXPECT_THAT(protocol_differences(config.child("protocols")),
-                UnorderedElementsAreArray(expected_protocol_differences_fix_5));
+                UnorderedElementsAreArray(expected_protocol_differences_fix_6));
     EXPECT_THAT(vehicle_differences(config.child("car_models")),
                 UnorderedElementsAreArray(expected_vehicle_differences));
 }

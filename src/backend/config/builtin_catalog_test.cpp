@@ -108,6 +108,15 @@ TEST(BuiltinCatalogFixes, Sh72543DieselUploadsNoKernel)
     EXPECT_FALSE(protocol.kernel_load_address.has_value());
 }
 
+TEST(BuiltinCatalogFixes, Sh7058DensoCanEepromLoadsItsKernelWhereTheFlashFamilyDoes)
+{
+    const ProtocolSpec& eeprom = protocol_named("sub_ecu_eeprom_denso_sh7058_densocan");
+    const ProtocolSpec& flash = protocol_named("sub_ecu_denso_sh7058_densocan");
+    EXPECT_EQ(eeprom.kernel, flash.kernel);
+    EXPECT_EQ(eeprom.kernel_load_address, std::optional<std::uint32_t>(0xFFFF3000U));
+    EXPECT_EQ(eeprom.kernel_load_address, flash.kernel_load_address);
+}
+
 TEST(BuiltinCatalog, ListsEveryProtocolsCfgEntry)
 {
     EXPECT_EQ(builtin_catalog().protocols().size(), 63U);
