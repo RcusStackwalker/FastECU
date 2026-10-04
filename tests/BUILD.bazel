@@ -186,3 +186,19 @@ fastecu_gtest(
         "@googletest//:gtest",
     ],
 )
+
+# The built-in catalog against checksum routing, the kernel bundle and the
+# flash memory models; no single production package owns all four.
+fastecu_gtest(
+    name = "catalog_consistency_test",
+    srcs = ["catalog_consistency_test.cpp"],
+    data = ["//resources/shared:kernel_files"],
+    env = {"KERNEL_FILES": "$(locations //resources/shared:kernel_files)"},
+    qt = False,
+    deps = [
+        "//src/backend/checksum:dispatch",
+        "//src/backend/config:builtin_catalog",
+        "//src/backend/flash:flash_device_lookup",
+        "@googletest//:gtest",
+    ],
+)

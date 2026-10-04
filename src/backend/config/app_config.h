@@ -16,7 +16,7 @@ struct AppConfig
     std::string window_height;
     std::string toolbar_iconsize;
     std::string serial_port;
-    std::string selected_protocol_id;
+    std::string selected_vehicle_id;
     std::string selected_flash_transport;
     std::string selected_log_transport;
     std::string selected_log_protocol;

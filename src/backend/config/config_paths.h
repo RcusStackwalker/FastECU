@@ -18,7 +18,6 @@ struct ConfigPaths
     std::string datalog_files_directory;
     std::string syslog_files_directory;
     std::string config_file;
-    std::string protocols_file;
     std::string logger_file;
 };
 

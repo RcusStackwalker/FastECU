@@ -24,7 +24,7 @@ struct CatalogEntry
     std::uint32_t kernel_load_address;
 };
 
-// Exact identities from resources/shared/config/protocols.cfg and the diesel
+// Exact identities from the built-in catalog (src/backend/config/builtin_catalog.cpp) and the diesel
 // legacy operation's EURO4/EURO5 comments at revision 59f4e442:113-116. The
 // executor consumes the selected plan and never derives a generation from a
 // target-id suffix.

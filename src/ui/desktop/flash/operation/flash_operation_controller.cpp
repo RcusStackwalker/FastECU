@@ -2,6 +2,7 @@
 
 #include <QMessageBox>
 
+#include <string>
 #include <utility>
 
 #include "src/backend/flash/flash_operation_request.h"
@@ -19,16 +20,18 @@ FlashOperationController::FlashOperationController(SerialPortActions& serial, QW
 
 FlashOperationOutcome FlashOperationController::run(const FlashOperationInput& input)
 {
-    if (input.operation == FlashOperation::Read && is_denso_tcu_protocol(input.protocol))
+    if (input.operation == FlashOperation::Read && is_denso_tcu_protocol(input.protocol.name))
     {
         using fastecu::service_functions::DensoTcuReadAction;
         const DensoTcuReadAction action = fastecu::service_functions::choose_denso_tcu_read_action(dialog_parent_);
         switch (action)
         {
         case DensoTcuReadAction::Dump:
-            emit LOG_I("Read memory with flashmethod '" + QString::fromStdString(input.protocol) + "' and kernel '" +
-                           QString::fromStdString(input.kernel_path) + "'",
-                       true, true);
+            emit LOG_I(
+                "Read memory with flashmethod '" +
+                    QString::fromUtf8(input.protocol.name.data(), static_cast<qsizetype>(input.protocol.name.size())) +
+                    "' and kernel '" + QString::fromStdString(input.kernel_path) + "'",
+                true, true);
             break;
         case DensoTcuReadAction::Relearn:
             emit LOG_I("Attempting TCU relearn", true, true);
@@ -43,7 +46,8 @@ FlashOperationOutcome FlashOperationController::run(const FlashOperationInput& i
             emit LOG_I("No option selected", true, true);
             break;
         }
-        if (fastecu::service_functions::run_denso_tcu_service_action(action, &serial_, input.protocol, dialog_parent_))
+        if (fastecu::service_functions::run_denso_tcu_service_action(action, &serial_, std::string(input.protocol.name),
+                                                                     dialog_parent_))
         {
             return {.status = FlashOperationStatus::ServiceActionHandled};
         }
@@ -52,7 +56,6 @@ FlashOperationOutcome FlashOperationController::run(const FlashOperationInput& i
     auto workflow = FlashWorkflowFactory::tryCreate({
         .operation = input.operation,
         .protocol = input.protocol,
-        .mcu = input.mcu,
         .image = input.image,
         .paths = input.paths,
         .display_filename = input.display_filename,
@@ -60,9 +63,11 @@ FlashOperationOutcome FlashOperationController::run(const FlashOperationInput& i
     });
     if (!workflow)
     {
-        QMessageBox::warning(dialog_parent_, tr("Unknown flashmethod"),
-                             "Unknown flashmethod! Flashmethod \"" + QString::fromStdString(input.protocol) +
-                                 "\" not yet implemented!");
+        QMessageBox::warning(
+            dialog_parent_, tr("Unknown flashmethod"),
+            "Unknown flashmethod! Flashmethod \"" +
+                QString::fromUtf8(input.protocol.name.data(), static_cast<qsizetype>(input.protocol.name.size())) +
+                "\" not yet implemented!");
         return {.status = FlashOperationStatus::Unsupported};
     }
 

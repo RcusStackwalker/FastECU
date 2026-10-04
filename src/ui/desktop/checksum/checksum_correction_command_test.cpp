@@ -169,9 +169,8 @@ TEST(ChecksumCorrectionCommand, NoModuleWithChecksumFlagNaAsksAndRespectsCancel)
 
 TEST(ChecksumCorrectionCommand, UnknownMcuTypeReturnsUnmodifiedRomAndRunsNoDialog)
 {
-    // "M32170" is sub_ecu_mitsu_m32r_can's real, currently shipped <mcu>
-    // value in resources/shared/config/protocols.cfg; it has no
-    // kFlashDevices[] entry. Formerly checksum_correction's early return.
+    // "M32170" is MUT/DMA logging's MCU in the built-in catalog; it offers
+    // no flash operation and has no kFlashDevices[] entry. Formerly checksum_correction's early return.
     TestableChecksumCommand command;
     ChecksumSelection selection = subaruM32rKlineSelection();
     selection.mcu_type = "M32170";

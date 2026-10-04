@@ -4,14 +4,18 @@
 // Characterization goldens for the EEPROM read plan (step 5d-6). Written
 // against the former desktop implementation before the portable use case
 // existed, so that re-pointing them at build_eeprom_read_plan proves the
-// conversion preserved behavior. Expected values are hand-derived from
-// resources/shared/config/protocols.cfg, not captured from either
-// implementation's output.
+// conversion preserved behavior. Expected values are hand-derived from the
+// protocols' built-in catalog entries (formerly protocols.cfg), which kCan and
+// kKline copy, not captured from either implementation's output.
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <string>
+#include <vector>
+
+#include "src/backend/config/catalog.h"
 #include "src/backend/ports/testing/in_memory_file_repository.h"
 
 using ::testing::ElementsAre;
@@ -21,60 +25,28 @@ namespace fastecu::flash
 namespace
 {
 
-const char *kFixture = R"(<?xml version="1.0" encoding="UTF-8"?>
-<config name="FastECU" version="0.0-dev0">
-    <protocols>
-        <protocol name="sub_ecu_eeprom_denso_sh7058_can">
-            <ecu>Denso SH7058</ecu>
-            <mcu>SH7058</mcu>
-            <kernel>ssmk_can_tp_sh7058.bin</kernel>
-            <kernel_addr>0xFFFF3000</kernel_addr>
-        </protocol>
-        <protocol name="sub_ecu_eeprom_denso_sh7055_kline">
-            <ecu>Denso SH7055</ecu>
-            <mcu>SH7055</mcu>
-            <kernel>ssmk_kline_sh7055.bin</kernel>
-            <kernel_addr>0xFFFF6004</kernel_addr>
-        </protocol>
-    </protocols>
-    <car_models>
-        <car_model>
-            <make>Subaru</make><model>Impreza</model><version>WRX</version>
-            <protocol>sub_ecu_eeprom_denso_sh7055_kline</protocol>
-        </car_model>
-        <car_model>
-            <make>Subaru</make><model>Legacy</model><version>GT</version>
-            <protocol>sub_ecu_eeprom_denso_sh7058_can</protocol>
-        </car_model>
-    </car_models>
-</config>)";
+constexpr config::ProtocolSpec kCan{.name = "sub_ecu_eeprom_denso_sh7058_can",
+                                    .mcu = "SH7058",
+                                    .kernel = "ssmk_can_tp_sh7058.bin",
+                                    .kernel_load_address = 0xFFFF3000U};
+constexpr config::ProtocolSpec kKline{.name = "sub_ecu_eeprom_denso_sh7055_kline",
+                                      .mcu = "SH7055",
+                                      .kernel = "ssmk_kline_sh7055.bin",
+                                      .kernel_load_address = 0xFFFF6004U};
 
 config::ConfigPaths test_paths()
 {
     config::ConfigPaths paths;
-    paths.protocols_file = "protocols.cfg";
     paths.kernel_files_directory = "kernels/";
     return paths;
 }
 
-void add_protocols_fixture(InMemoryFileRepository& repository)
-{
-    const std::string xml(kFixture);
-    repository.files["protocols.cfg"] = std::vector<std::uint8_t>(xml.begin(), xml.end());
-}
-
-// protocols.cfg: <protocol name="sub_ecu_eeprom_denso_sh7058_can">
-//   <mcu>SH7058</mcu>
-//   <kernel>ssmk_can_tp_sh7058.bin</kernel>
-//   <kernel_addr>0xFFFF3000</kernel_addr>
 TEST(EepromReadPlanGolden, Sh7058CanMode2)
 {
     InMemoryFileRepository repository;
-    add_protocols_fixture(repository);
     repository.files["kernels/ssmk_can_tp_sh7058.bin"] = {0x01, 0x02, 0x03};
 
-    auto plan =
-        build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7058_can", EepromReadMode::Mode2, repository);
+    auto plan = build_eeprom_read_plan(test_paths(), kCan, EepromReadMode::Mode2, repository);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->operation(), FlashOperation::Read);
@@ -85,9 +57,8 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     ASSERT_TRUE(plan->kernel().has_value());
     EXPECT_EQ(plan->kernel()->load_address, 0xFFFF3000U);
     EXPECT_THAT(plan->kernel()->bytes, ElementsAre(0x01, 0x02, 0x03));
-    // Each catalog loader reads the shared config before the kernel read.
-    EXPECT_EQ(repository.read_handles,
-              (std::vector<std::string>{"protocols.cfg", "protocols.cfg", "kernels/ssmk_can_tp_sh7058.bin"}));
+    // The kernel is the only file read.
+    EXPECT_EQ(repository.read_handles, (std::vector<std::string>{"kernels/ssmk_can_tp_sh7058.bin"}));
 
     // denso_sh705x_eeprom_common.cpp build_denso_sh705x_eeprom_plan: CAN
     // family_plan is DensoSh705xEepromCanPlan with request_id=0x7e0,
@@ -109,18 +80,12 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     EXPECT_EQ(plan->confirmations()[1].id, ConfirmationSpec::Id::InspectEepromBytes);
 }
 
-// protocols.cfg: <protocol name="sub_ecu_eeprom_denso_sh7055_kline">
-//   <mcu>SH7055</mcu>
-//   <kernel>ssmk_kline_sh7055.bin</kernel>
-//   <kernel_addr>0xFFFF6004</kernel_addr>
 TEST(EepromReadPlanGolden, Sh7055KlineMode4)
 {
     InMemoryFileRepository repository;
-    add_protocols_fixture(repository);
     repository.files["kernels/ssmk_kline_sh7055.bin"] = {0xaa, 0xbb};
 
-    auto plan =
-        build_eeprom_read_plan(test_paths(), "sub_ecu_eeprom_denso_sh7055_kline", EepromReadMode::Mode4, repository);
+    auto plan = build_eeprom_read_plan(test_paths(), kKline, EepromReadMode::Mode4, repository);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->operation(), FlashOperation::Read);
@@ -131,8 +96,7 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     ASSERT_TRUE(plan->kernel().has_value());
     EXPECT_EQ(plan->kernel()->load_address, 0xFFFF6004U);
     EXPECT_THAT(plan->kernel()->bytes, ElementsAre(0xaa, 0xbb));
-    EXPECT_EQ(repository.read_handles,
-              (std::vector<std::string>{"protocols.cfg", "protocols.cfg", "kernels/ssmk_kline_sh7055.bin"}));
+    EXPECT_EQ(repository.read_handles, (std::vector<std::string>{"kernels/ssmk_kline_sh7055.bin"}));
 
     // denso_sh705x_eeprom_common.cpp build_denso_sh705x_eeprom_plan: K-Line
     // family_plan is DensoSh705xEepromKlinePlan with tester_id=0xf0,

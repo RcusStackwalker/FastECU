@@ -9,12 +9,11 @@ using fastecu::flash::find_flash_device_index;
 
 TEST(FindFlashDevice, ReturnsDeviceForEveryMcuStringInShippedProtocolsCfg)
 {
-    // Every distinct <mcu> value in resources/shared/config/protocols.cfg as
-    // of this writing (grep -oP '(?<=<mcu>)[^<]*' resources/shared/config/protocols.cfg
-    // | sort -u), except M32170, which is not registered in kFlashDevices[]
-    // -- exercised separately below since checksum correction's "Unknown MCU
-    // type" path is not hypothetical, it fires for that real, currently
-    // shipped protocol.
+    // Every MCU a flash-capable built-in protocol names (the catalog
+    // consistency test checks the catalog side), except M32170: MUT/DMA
+    // logging's MCU, which offers no flash operation and has no kFlashDevices[]
+    // entry -- exercised below, because checksum correction's "Unknown MCU
+    // type" path fires for it.
     static constexpr auto kKnown = std::to_array<const char *>({
         "M32R_128KB",
         "M32R_256KB",
@@ -49,8 +48,7 @@ TEST(FindFlashDevice, ReturnsDeviceForEveryMcuStringInShippedProtocolsCfg)
 
 TEST(FindFlashDevice, ReturnsNullForUnknownMcuType)
 {
-    // "M32170" is sub_ecu_mitsu_m32r_can's real, currently shipped <mcu>
-    // value in protocols.cfg; it is not registered in kFlashDevices[].
+    // "M32170" is the MUT/DMA logging protocol's MCU; it is not registered in kFlashDevices[].
     EXPECT_EQ(find_flash_device("M32170"), nullptr);
     EXPECT_EQ(find_flash_device("does_not_exist"), nullptr);
     EXPECT_EQ(find_flash_device_index("M32170"), -1);

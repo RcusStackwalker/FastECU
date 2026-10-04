@@ -6,8 +6,8 @@
 
 #include "src/ui/desktop/config_fields.h"
 
-using fastecu::config::ProtocolEntry;
-using fastecu::config::ResolvedCarModel;
+using fastecu::config::ProtocolSpec;
+using fastecu::config::VehicleSpec;
 using fastecu::ui::protocol_field;
 using fastecu::ui::qs;
 
@@ -37,14 +37,13 @@ ProtocolSelect::ProtocolSelect(const fastecu::config::ConfigSession& config, QWi
     int protocol_width = 0;
     int description_width = 0;
 
-    // Vehicle-backed: one entry per distinct protocol name any vehicle uses,
-    // unresolved references included.
+    // Vehicle-backed: one entry per distinct protocol any vehicle uses.
     const auto vehicles = config.vehicles();
-    for (const ResolvedCarModel& vehicle : vehicles)
+    for (const VehicleSpec& vehicle : vehicles)
     {
-        if (!protocols.contains(qs(vehicle.protocol_name)))
+        if (!protocols.contains(qs(vehicle.protocol->name)))
         {
-            protocols.append(qs(vehicle.protocol_name));
+            protocols.append(qs(vehicle.protocol->name));
         }
     }
 
@@ -53,11 +52,11 @@ ProtocolSelect::ProtocolSelect(const fastecu::config::ConfigSession& config, QWi
 
     for (int i = 0; i < protocols_sorted.length(); i++)
     {
-        for (const ResolvedCarModel& vehicle : vehicles)
+        for (const VehicleSpec& vehicle : vehicles)
         {
-            if (protocols_sorted.at(i) == qs(vehicle.protocol_name))
+            if (protocols_sorted.at(i) == qs(vehicle.protocol->name))
             {
-                descriptions_sorted.append(protocol_field(vehicle, &ProtocolEntry::description));
+                descriptions_sorted.append(protocol_field(vehicle, &ProtocolSpec::description));
                 text_width = fm.horizontalAdvance(descriptions_sorted.at(i));
                 if (text_width > description_width)
                 {
@@ -94,7 +93,7 @@ ProtocolSelect::ProtocolSelect(const fastecu::config::ConfigSession& config, QWi
         item->setFirstColumnSpanned(true);
         ui->treeWidget->addTopLevelItem(item);
         if (config.selected_vehicle() != nullptr &&
-            protocols_sorted.at(i) == qs(config.selected_vehicle()->protocol_name))
+            protocols_sorted.at(i) == qs(config.selected_vehicle()->protocol->name))
         {
             protocol_changed_saved = true;
             ui->treeWidget->setCurrentItem(item);

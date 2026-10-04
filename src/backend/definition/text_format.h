@@ -27,7 +27,7 @@ inline std::string hex_text(std::uint64_t value)
 // hex-parsing core), accepts an optional "0x"/"0X" prefix, and requires the
 // entire remainder to be consumed, so trailing junk is a rejection rather
 // than a partial parse. Matches Qt's QString::toUInt(&ok, 16) on every value
-// in the shipped protocols.cfg plus \v/\f-padded inputs, pinned by
+// in the retired protocols.cfg plus \v/\f-padded inputs, pinned by
 // tests/test_hex_parse_qt_compat.cpp.
 inline std::optional<std::uint64_t> parse_hex_value(std::string_view text)
 {

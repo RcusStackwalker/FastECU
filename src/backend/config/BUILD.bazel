@@ -64,99 +64,11 @@ fastecu_portable_gtest(
     ],
 )
 
-# Shared by the two catalogs that load protocols.cfg; pugixml stays out of
-# their public headers, so this target is package-private.
-cc_library(
-    name = "protocols_document",
-    srcs = ["protocols_document.cpp"],
-    hdrs = ["protocols_document.h"],
-    visibility = ["//visibility:private"],
-    deps = [
-        ":config_paths",
-        "//src/backend/ports",
-        "@pugixml",
-    ],
-)
-
-fastecu_portable_gtest(
-    name = "protocols_document_test",
-    srcs = ["protocols_document_test.cpp"],
-    deps = [
-        ":protocols_document",
-        "//src/backend/ports/testing:in_memory_file_repository",
-        "//src/backend/ports/testing:result_matchers",
-        "@googletest//:gtest",
-        "@pugixml",
-    ],
-)
-
-cc_library(
-    name = "protocol_catalog",
-    srcs = ["protocol_catalog.cpp"],
-    hdrs = ["protocol_catalog.h"],
-    implementation_deps = [
-        ":protocols_document",
-        "@pugixml",
-    ],
-    deps = [
-        ":config_paths",
-        "//src/backend/ports",
-    ],
-)
-
-fastecu_portable_gtest(
-    name = "protocol_catalog_test",
-    srcs = ["protocol_catalog_test.cpp"],
-    data = ["//resources/shared:config/protocols.cfg"],
-    env = {
-        "PROTOCOLS_CFG_PATH": "$(location //resources/shared:config/protocols.cfg)",
-    },
-    deps = [
-        ":protocol_catalog",
-        "//src/backend/ports/testing:in_memory_file_repository",
-        "//src/backend/ports/testing:result_matchers",
-        "@googletest//:gtest",
-    ],
-)
-
-cc_library(
-    name = "car_model_catalog",
-    srcs = ["car_model_catalog.cpp"],
-    hdrs = ["car_model_catalog.h"],
-    implementation_deps = [
-        ":protocols_document",
-        "@pugixml",
-    ],
-    deps = [
-        ":config_paths",
-        ":protocol_catalog",
-        "//src/backend/ports",
-    ],
-)
-
-fastecu_portable_gtest(
-    name = "car_model_catalog_test",
-    srcs = ["car_model_catalog_test.cpp"],
-    data = ["//resources/shared:config/protocols.cfg"],
-    env = {
-        "PROTOCOLS_CFG_PATH": "$(location //resources/shared:config/protocols.cfg)",
-    },
-    deps = [
-        ":car_model_catalog",
-        "//src/backend/ports/testing:in_memory_file_repository",
-        "//src/backend/ports/testing:result_matchers",
-        "@googletest//:gtest",
-    ],
-)
-
 cc_library(
     name = "config_session",
     srcs = ["config_session.cpp"],
     hdrs = ["config_session.h"],
-    implementation_deps = [
-        ":protocol_catalog",
-        ":provisioning",
-    ],
+    implementation_deps = [":provisioning"],
     # The package default plus the composition root that owns the session.
     visibility = [
         "//bazel/layers:apps_desktop",
@@ -164,7 +76,7 @@ cc_library(
     ],
     deps = [
         ":app_config",
-        ":car_model_catalog",
+        ":catalog",
         ":config_paths",
         "//src/backend/ports",
     ],
@@ -174,9 +86,56 @@ fastecu_portable_gtest(
     name = "config_session_test",
     srcs = ["config_session_test.cpp"],
     deps = [
+        ":builtin_catalog",
         ":config_session",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "catalog_test",
+    srcs = ["catalog_test.cpp"],
+    deps = [
+        ":catalog",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "catalog",
+    srcs = ["catalog.cpp"],
+    hdrs = ["catalog.h"],
+    # The package default plus the composition root, which hands a catalog
+    # to the configuration session.
+    visibility = [
+        "//bazel/layers:apps_desktop",
+        "//bazel/layers:backend_and_above",
+    ],
+)
+
+cc_library(
+    name = "builtin_catalog",
+    srcs = ["builtin_catalog.cpp"],
+    hdrs = ["builtin_catalog.h"],
+    # Only the composition root hands the built-in catalog on; tests that
+    # check it against other packages name it too.
+    visibility = [
+        "//bazel/layers:apps_desktop",
+        "//bazel/layers:tests",
+        # One-off test consumers: each checks every built-in entry against its family.
+        "//src/backend/flash/eeprom:__pkg__",
+        "//src/platform/desktop/common/flash:__pkg__",
+    ],
+    deps = [":catalog"],
+)
+
+fastecu_portable_gtest(
+    name = "builtin_catalog_test",
+    srcs = ["builtin_catalog_test.cpp"],
+    deps = [
+        ":builtin_catalog",
         "@googletest//:gtest",
     ],
 )

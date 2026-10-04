@@ -1,5 +1,6 @@
 #include "src/ui/desktop/calibration/calibration_operation_coordinator.h"
 
+#include <array>
 #include <cstddef>
 #include <format>
 #include <optional>
@@ -17,6 +18,7 @@
 #include "src/backend/calibration/session/calibration_session.h"
 #include "src/backend/calibration/session/rom_save.h"
 #include "src/backend/checksum/checksum_selection.h"
+#include "src/backend/config/catalog.h"
 #include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/ports/error.h"
 #include "src/backend/ports/event_sink.h"
@@ -92,15 +94,15 @@ template <typename TestBase> class CoordinatorHarness : public TestBase
   protected:
     void SetUp() override
     {
-        ASSERT_NO_FATAL_FAILURE(start(config::testing::kStandardProtocols));
+        ASSERT_NO_FATAL_FAILURE(start(config::testing::kStandardCatalog));
         ASSERT_NO_FATAL_FAILURE(open_session(std::nullopt, {}));
     }
 
-    // Initializes the configuration over `protocols`, selects row 0, and drops
+    // Initializes the configuration over `catalog`, selects row 0, and drops
     // what initialization recorded so a case sees only its own operation.
-    void start(std::string_view protocols)
+    void start(const config::Catalog& catalog)
     {
-        cfg.put_protocols(protocols);
+        cfg.catalog = catalog;
         ASSERT_THAT(cfg.initialize(), IsOk());
         ASSERT_THAT(cfg.session.select_row(0), IsOk());
         cfg.file_repository.read_handles.clear();
@@ -223,8 +225,8 @@ TEST_F(CalibrationOperationCoordinator, AcceptedWriteWarningSkipsCorrection)
 
     ASSERT_TRUE(prepared.has_value());
     EXPECT_THAT(prepared->image, ElementsAre(9, 2, 3));
-    EXPECT_EQ(prepared->protocol, "proto_b");
-    EXPECT_EQ(prepared->mcu, "M32R");
+    EXPECT_EQ(prepared->protocol.name, "proto_b");
+    EXPECT_EQ(prepared->protocol.mcu, "M32R");
     EXPECT_EQ(prepared->kernel_path, "/kernels/b.bin");
     EXPECT_EQ(prepared->display_filename, "read.bin");
     EXPECT_EQ(session.protocol().mcu_type, "M32R");
@@ -243,8 +245,8 @@ TEST_F(CalibrationOperationCoordinator, CorrectedWriteUsesOnlyOperationBytes)
     EXPECT_THAT(prepared->image, ElementsAre(4, 5, 6));
     EXPECT_THAT(session.rom(), ElementsAre(9, 2, 3));
     EXPECT_TRUE(session.dirty());
-    EXPECT_EQ(prepared->protocol, "proto_a");
-    EXPECT_EQ(prepared->mcu, "SH7058");
+    EXPECT_EQ(prepared->protocol.name, "proto_a");
+    EXPECT_EQ(prepared->protocol.mcu, "SH7058");
     EXPECT_EQ(prepared->kernel_path, "/kernels/a.bin");
     EXPECT_EQ(prepared->display_filename, "read.bin");
     EXPECT_THAT(cfg.file_repository.write_calls, IsEmpty());
@@ -268,16 +270,23 @@ TEST_F(CalibrationOperationCoordinator, ChecksumLogsKeepLegacyTextAndOrder)
                                   Pair(LogLevel::Debug, "Checksum calculation canceled!")));
 }
 
+// The standard catalog with row 2 made a Nissan.
+constexpr auto kNissanForesterVehicles = std::to_array<config::VehicleSpec>({
+    config::testing::kStandardVehicles[0],
+    config::testing::kStandardVehicles[1],
+    {.id = "nissan-forester-v3",
+     .make = "Nissan",
+     .model = "Forester",
+     .version = "v3",
+     .protocol = config::protocol_in(config::testing::kStandardProtocols, "proto_a")},
+});
+constexpr config::Catalog kNissanForesterCatalog{config::testing::kStandardProtocols, kNissanForesterVehicles};
+
 TEST_F(CalibrationOperationCoordinator, EmptyDefinedMethodReselectsBeforeChecksum)
 {
     // Row 2 is the last proto_a row; making it a Nissan shows that the
     // checksum request reads the reselected vehicle, not row 0.
-    constexpr std::string_view kSubaruForester = "<make>Subaru</make><model>Forester</model>";
-    std::string protocols{config::testing::kStandardProtocols};
-    const std::size_t forester = protocols.find(kSubaruForester);
-    ASSERT_NE(forester, std::string::npos);
-    protocols.replace(forester, kSubaruForester.size(), "<make>Nissan</make><model>Forester</model>");
-    ASSERT_NO_FATAL_FAILURE(start(protocols));
+    ASSERT_NO_FATAL_FAILURE(start(kNissanForesterCatalog));
     ASSERT_NO_FATAL_FAILURE(open_session(header_only_definition(), {}));
     expect_checksum({});
 
@@ -297,7 +306,7 @@ TEST_F(CalibrationOperationCoordinator, EmptyDefinedMethodReselectsBeforeChecksu
     EXPECT_EQ(checksum_selection.rom_id, "TEST");
     EXPECT_TRUE(checksum_has_definition);
     EXPECT_THAT(trace, ElementsAre("protocol:Protocol A", "checksum"));
-    EXPECT_EQ(prepared->protocol, "proto_a");
+    EXPECT_EQ(prepared->protocol.name, "proto_a");
 
     // The description follows the two reselection logs and precedes the
     // kernel/MCU fill.
@@ -403,7 +412,7 @@ TEST_P(DefinitionlessOrNonemptyMethodDoesNotReselect, ButRefreshesKernelAndMcu)
     EXPECT_EQ(session.protocol().kernel_start_address, "0xFFFF3000");
     EXPECT_EQ(checksum_has_definition, GetParam().has_definition);
     EXPECT_EQ(checksum_selection.flash_method, "proto_a");
-    EXPECT_EQ(prepared->protocol, "proto_a");
+    EXPECT_EQ(prepared->protocol.name, "proto_a");
 }
 
 INSTANTIATE_TEST_SUITE_P(Methods, DefinitionlessOrNonemptyMethodDoesNotReselect,
@@ -554,7 +563,7 @@ TEST_F(CalibrationOperationCoordinator, SaveAsCorrectsBeforeChoosingPath)
     // A configured directory that differs from the provisioned one shows the
     // suggestion comes from the effective paths.
     cfg.put_settings(config::testing::setting("calibration_files_directory", "/cal"));
-    ASSERT_NO_FATAL_FAILURE(start(config::testing::kStandardProtocols));
+    ASSERT_NO_FATAL_FAILURE(start(config::testing::kStandardCatalog));
     ASSERT_NE(cfg.paths.calibration_files_directory, "/cal/");
     expect_checksum({.corrected_rom_data = bytes::Bytes{4, 5, 6}});
     expect_choose("/cal/saved.bin");

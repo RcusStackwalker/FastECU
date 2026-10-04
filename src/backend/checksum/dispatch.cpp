@@ -1,5 +1,6 @@
 #include "src/backend/checksum/dispatch.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -157,6 +158,12 @@ DispatchResult dispatch_family(std::string_view make, std::string_view flash_met
     return {false, std::nullopt};
 }
 } // namespace
+
+bool has_route(std::string_view make, std::string_view flash_method)
+{
+    return std::ranges::any_of(kRoutes, [&](const RouteSpec& spec)
+                               { return spec.make == make && starts_with(flash_method, spec.prefix); });
+}
 
 ChecksumCorrectionOutcome apply_checksum_correction(bytes::ByteView rom_data, const ChecksumSelection& selection)
 {

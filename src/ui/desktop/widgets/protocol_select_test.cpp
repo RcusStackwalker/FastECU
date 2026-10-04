@@ -15,8 +15,8 @@ TEST(ProtocolSelectTest, listsEachVehicleBackedProtocolOnce)
     ConfigSessionFixture f;
     ASSERT_TRUE(f.initialize().has_value());
     ProtocolSelect dialog{f.session};
-    // proto_a (two rows), proto_b, missing_proto -- still listed, as today.
-    ASSERT_EQ(dialog.ui->treeWidget->topLevelItemCount(), 3);
+    // proto_a (two rows) and proto_b.
+    ASSERT_EQ(dialog.ui->treeWidget->topLevelItemCount(), 2);
 }
 
 TEST(ProtocolSelectTest, choosingRecordsTheProtocolName)

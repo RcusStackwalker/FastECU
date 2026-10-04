@@ -99,7 +99,7 @@ Result<FlashPlan> build_mitsu_colt_m32r_can_plan(FlashOperation operation, std::
 
     if (operation == FlashOperation::TestWrite)
     {
-        return fail(ErrorKind::Unsupported, "test_write is not supported by this family; protocols.cfg declares "
+        return fail(ErrorKind::Unsupported, "test_write is not supported by this family; the built-in catalog declares "
                                             "test_write=no and the legacy implementation performed only a "
                                             "diagnostic-session handshake");
     }

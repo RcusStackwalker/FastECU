@@ -75,9 +75,9 @@ Result<AppConfig> parse_app_config(const ConfigPaths& paths, IFileRepository& fi
         {
             config.serial_port = setting.child("value").attribute("data").value();
         }
-        else if (name == "protocol_id")
+        else if (name == "vehicle_id")
         {
-            config.selected_protocol_id = setting.child("value").attribute("data").value();
+            config.selected_vehicle_id = setting.child("value").attribute("data").value();
         }
         else if (name == "flash_transport")
         {
@@ -198,7 +198,7 @@ Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths, IF
 
     add_single("toolbar_iconsize", config.toolbar_iconsize);
     add_single("serial_port", config.serial_port);
-    add_single("protocol_id", config.selected_protocol_id);
+    add_single("vehicle_id", config.selected_vehicle_id);
     add_single("flash_transport", config.selected_flash_transport);
     add_single("log_transport", config.selected_log_transport);
     add_single("log_protocol", config.selected_log_protocol);

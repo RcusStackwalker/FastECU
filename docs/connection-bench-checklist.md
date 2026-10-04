@@ -23,7 +23,7 @@ Run `bazel test --config=release //...` first.
 - A Subaru bench ECU and TCU reachable over K-Line (SSM2), through OpenPort
   2.0 and through a direct K-Line cable.
 - A Subaru bench ECU on one of the two `SSM`-transport (SSM1) entries in
-  `protocols.cfg`.
+  the built-in catalog.
 - A Subaru bench ECU reachable over iso15765.
 - A Mitsubishi bench ECU with MUT/DMA logging.
 - Build revision, OS, and adapter/driver version recorded in the run record

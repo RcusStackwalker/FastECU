@@ -23,6 +23,7 @@ qt_cc_library(
     deps = [
         "//bazel/qt:core",
         "//src/algorithms/protocol",
+        "//src/backend/config:catalog",
         "//src/backend/config:config_paths",
         "//src/backend/flash:flash_types",
     ],
@@ -38,6 +39,7 @@ fastecu_gtest(
         ":flash_operation_controller",
         "//bazel/qt:core",
         "//bazel/qt:widgets",
+        "//src/backend/config:catalog",
         "//src/platform/desktop/common/connection/testing:adapter_connection_harness",
         "//src/platform/desktop/common/testing:widgets_application_environment",
         "@googletest//:gtest",

@@ -23,7 +23,7 @@ struct CatalogEntry
     std::uint32_t kernel_load_address;
 };
 
-// Exact protocols.cfg/legacy catalogue. These are intentionally exact
+// Exact built-in catalog/legacy identities. These are intentionally exact
 // identities rather than a suffix rule: EEPROM DensoCAN and future variants
 // are a different family until designed and tested explicitly.
 constexpr std::array<CatalogEntry, 5> kCatalog{{

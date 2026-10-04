@@ -3,10 +3,12 @@
 #include <algorithm>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/backend/config/builtin_catalog.h"
 #include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/ports/testing/result_matchers.h"
 
@@ -18,10 +20,8 @@ using fastecu::ErrorKind;
 using fastecu::LogLevel;
 using fastecu::RecordingEventSink;
 using fastecu::config::AppConfig;
+using fastecu::config::builtin_catalog;
 using fastecu::config::ConfigPaths;
-using fastecu::config::kMissingProtocolField;
-using fastecu::config::protocol_field_or_placeholder;
-using fastecu::config::ProtocolEntry;
 using fastecu::config::resolve_config_paths;
 using fastecu::config::testing::ConfigSessionFixture;
 using fastecu::config::testing::kVersion;
@@ -31,6 +31,15 @@ using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using ::testing::AllOf;
 using ::testing::HasSubstr;
+
+template <typename CatalogReference>
+constexpr bool kCanConstructSession =
+    std::is_constructible_v<fastecu::config::ConfigSession, CatalogReference, fastecu::IFileSystem&,
+                            fastecu::IResourceBundle&, fastecu::IFileRepository&, fastecu::IEventSink&>;
+
+static_assert(kCanConstructSession<fastecu::config::Catalog&>);
+static_assert(kCanConstructSession<const fastecu::config::Catalog&>);
+static_assert(!kCanConstructSession<fastecu::config::Catalog&&>);
 
 bool has_log(const RecordingEventSink& events, LogLevel level, std::string_view text)
 {
@@ -95,16 +104,16 @@ TEST(ConfigSessionInitialize, LoadedScalarsOverrideDefaults)
 {
     ConfigSessionFixture f;
     f.put_settings(R"(<setting name="window_size"><value width="1024"/><value height="768"/></setting>)" +
-                   setting("serial_port", "COM7") + setting("toolbar_iconsize", "24") + setting("protocol_id", "2") +
-                   setting("flash_transport", "iso15765") + setting("log_transport", "K-Line") +
-                   setting("log_protocol", "SSM") + setting("primary_definition_base", "romraider") +
-                   setting("use_ecuflash_definitions", "enabled"));
+                   setting("serial_port", "COM7") + setting("toolbar_iconsize", "24") +
+                   setting("vehicle_id", "subaru-forester-v3") + setting("flash_transport", "iso15765") +
+                   setting("log_transport", "K-Line") + setting("log_protocol", "SSM") +
+                   setting("primary_definition_base", "romraider") + setting("use_ecuflash_definitions", "enabled"));
     ASSERT_THAT(f.initialize(), IsOk());
     EXPECT_EQ(f.session.settings().window_width, "1024");
     EXPECT_EQ(f.session.settings().window_height, "768");
     EXPECT_EQ(f.session.settings().serial_port, "COM7");
     EXPECT_EQ(f.session.settings().toolbar_iconsize, "24");
-    EXPECT_EQ(f.session.settings().selected_protocol_id, "2");
+    EXPECT_EQ(f.session.settings().selected_vehicle_id, "subaru-forester-v3");
     EXPECT_EQ(f.session.settings().selected_flash_transport, "iso15765");
     EXPECT_EQ(f.session.settings().selected_log_transport, "K-Line");
     EXPECT_EQ(f.session.settings().selected_log_protocol, "SSM");
@@ -163,19 +172,13 @@ TEST(ConfigSessionInitialize, MalformedSettingsFileFailsNamingIt)
     EXPECT_THAT(f.initialize(), IsErrWith(ErrorKind::InvalidConfig, HasSubstr(f.paths.config_file)));
 }
 
-TEST(ConfigSessionInitialize, MissingProtocolsFileFailsNamingIt)
+TEST(ConfigSessionInitialize, AStaleProtocolsFileIsIgnored)
 {
     ConfigSessionFixture f;
-    f.file_repository.files.erase(f.paths.protocols_file);
-    EXPECT_THAT(f.initialize(), IsErrWith(ErrorKind::InvalidConfig, HasSubstr(f.paths.protocols_file)));
-}
-
-TEST(ConfigSessionInitialize, EmptyVehicleCatalogIsRejected)
-{
-    ConfigSessionFixture f;
-    f.put_protocols(R"(<config name="FastECU"><protocols/><car_models/></config>)");
-    EXPECT_THAT(f.initialize(), IsErrWith(ErrorKind::InvalidConfig, HasSubstr(f.paths.protocols_file)));
-    EXPECT_FALSE(f.session.initialized());
+    f.put(f.paths.config_files_directory + "protocols.cfg", "<config><protocols/><car_models/></config>");
+    ASSERT_THAT(f.initialize(), IsOk());
+    EXPECT_EQ(f.session.vehicles().size(), 3U);
+    EXPECT_EQ(f.file_repository.read_count(f.paths.config_files_directory + "protocols.cfg"), 0);
 }
 
 TEST(ConfigSessionInitialize, ProvisioningFailureCarriesThePathAndReason)
@@ -189,7 +192,7 @@ TEST(ConfigSessionInitialize, ProvisioningFailureCarriesThePathAndReason)
 TEST(ConfigSessionInitialize, FailedInitializationExposesNothing)
 {
     ConfigSessionFixture f;
-    f.put_protocols(R"(<config name="FastECU"><protocols/><car_models/></config>)");
+    f.put(f.paths.config_file, "<config");
     ASSERT_FALSE(f.initialize().has_value());
 
     EXPECT_TRUE(f.session.vehicles().empty());
@@ -204,7 +207,7 @@ TEST(ConfigSessionInitialize, AFailedReinitializationDropsTheEarlierState)
 {
     ConfigSessionFixture f;
     ASSERT_THAT(f.initialize(), IsOk());
-    f.put_protocols(R"(<config name="FastECU"><protocols/><car_models/></config>)");
+    f.put(f.paths.config_file, "<config");
     ASSERT_FALSE(f.initialize().has_value());
     EXPECT_FALSE(f.session.initialized());
     EXPECT_TRUE(f.session.vehicles().empty());
@@ -220,31 +223,37 @@ TEST(ConfigSessionInitialize, AccessBeforeInitializationIsChecked)
     EXPECT_THAT(f.session.save(), IsErr(ErrorKind::Internal));
 }
 
-// --- saved row ------------------------------------------------------------
+// --- saved vehicle --------------------------------------------------------
 
-class InvalidSavedId : public ::testing::TestWithParam<std::string>
+class UnusableSavedVehicle : public ::testing::TestWithParam<std::string>
 {
 };
 
-TEST_P(InvalidSavedId, SelectsRowZero)
+TEST_P(UnusableSavedVehicle, SelectsNothingAndForgetsIt)
 {
     ConfigSessionFixture f;
-    f.put_settings(setting("protocol_id", GetParam()));
+    f.put_settings(setting("vehicle_id", GetParam()));
     ASSERT_THAT(f.initialize(), IsOk());
-    EXPECT_EQ(f.session.settings().selected_protocol_id, "0");
-    ASSERT_THAT(f.session.selected_row(), IsOk());
-    EXPECT_EQ(*f.session.selected_row(), 0U);
-    EXPECT_EQ(f.session.selected_vehicle()->model, "Impreza");
+    EXPECT_EQ(f.session.selected_vehicle(), nullptr);
+    EXPECT_THAT(f.session.selected_row(), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_TRUE(f.session.settings().selected_vehicle_id.empty());
 }
 
-// The fixture has four rows, so "4" is the first out-of-range id.
-INSTANTIATE_TEST_SUITE_P(ConfigSessionInitialize, InvalidSavedId,
-                         ::testing::Values("", "-1", "abc", "1x", " 1", "+1", "4", "99999999999999999999999"));
+INSTANTIATE_TEST_SUITE_P(ConfigSessionInitialize, UnusableSavedVehicle,
+                         ::testing::Values("", "0", "subaru-impreza-v9", "SUBARU-IMPREZA-V1"));
+
+TEST(ConfigSessionInitialize, ALegacyProtocolIdSelectsNothing)
+{
+    ConfigSessionFixture f;
+    f.put_settings(setting("protocol_id", "1"));
+    ASSERT_THAT(f.initialize(), IsOk());
+    EXPECT_EQ(f.session.selected_vehicle(), nullptr);
+}
 
 TEST(ConfigSessionInitialize, ValidSavedIdIsKept)
 {
     ConfigSessionFixture f;
-    f.put_settings(setting("protocol_id", "2"));
+    f.put_settings(setting("vehicle_id", "subaru-forester-v3"));
     ASSERT_THAT(f.initialize(), IsOk());
     EXPECT_EQ(*f.session.selected_row(), 2U);
     EXPECT_EQ(f.session.selected_vehicle()->model, "Forester");
@@ -254,8 +263,8 @@ TEST(ConfigSessionInitialize, RestoringTheSavedRowKeepsSavedTransports)
 {
     ConfigSessionFixture f;
     // Row 1's protocol defaults would be K-Line / K-Line / MUT_DMA.
-    f.put_settings(setting("protocol_id", "1") + setting("flash_transport", "CAN") + setting("log_transport", "J2534") +
-                   setting("log_protocol", "SSM"));
+    f.put_settings(setting("vehicle_id", "mitsubishi-colt-v2") + setting("flash_transport", "CAN") +
+                   setting("log_transport", "J2534") + setting("log_protocol", "SSM"));
     ASSERT_THAT(f.initialize(), IsOk());
     EXPECT_EQ(f.session.settings().selected_flash_transport, "CAN");
     EXPECT_EQ(f.session.settings().selected_log_transport, "J2534");
@@ -264,36 +273,23 @@ TEST(ConfigSessionInitialize, RestoringTheSavedRowKeepsSavedTransports)
 
 // --- vehicle records ------------------------------------------------------
 
-TEST(ConfigSessionVehicles, KeepFileOrder)
+TEST(ConfigSessionVehicles, KeepCatalogOrder)
 {
     ConfigSessionFixture f;
     ASSERT_THAT(f.initialize(), IsOk());
     const auto vehicles = f.session.vehicles();
-    ASSERT_EQ(vehicles.size(), 4U);
+    ASSERT_EQ(vehicles.size(), 3U);
     EXPECT_EQ(vehicles[0].model, "Impreza");
     EXPECT_EQ(vehicles[1].model, "Colt");
     EXPECT_EQ(vehicles[2].model, "Forester");
-    EXPECT_EQ(vehicles[3].model, "Skyline");
 }
 
-TEST(ConfigSessionVehicles, SharedProtocolRowsResolveToTheSameEntry)
+TEST(ConfigSessionVehicles, SharedProtocolRowsPointAtTheSameEntry)
 {
     ConfigSessionFixture f;
     ASSERT_THAT(f.initialize(), IsOk());
-    const auto& first_protocol = f.session.vehicles()[0].protocol;
-    const auto& third_protocol = f.session.vehicles()[2].protocol;
-    ASSERT_TRUE(first_protocol.has_value());
-    ASSERT_TRUE(third_protocol.has_value());
-    EXPECT_EQ(first_protocol->description, "Protocol A");
-    EXPECT_EQ(third_protocol->description, "Protocol A");
-}
-
-TEST(ConfigSessionVehicles, UnresolvedReferenceStaysNullopt)
-{
-    ConfigSessionFixture f;
-    ASSERT_THAT(f.initialize(), IsOk());
-    EXPECT_EQ(f.session.vehicles()[3].protocol_name, "missing_proto");
-    EXPECT_FALSE(f.session.vehicles()[3].protocol.has_value());
+    EXPECT_EQ(f.session.vehicles()[0].protocol, f.session.vehicles()[2].protocol);
+    EXPECT_EQ(f.session.vehicles()[0].protocol->description, "Protocol A");
 }
 
 // --- paths ----------------------------------------------------------------
@@ -383,6 +379,19 @@ TEST(ConfigSessionSave, EveryOtherSettingRoundTripsThroughARestart)
     EXPECT_EQ(f.session.settings().calibration_files_directory, "/cal/");
 }
 
+TEST(ConfigSessionSave, ASelectionSurvivesARestart)
+{
+    ConfigSessionFixture f;
+    ASSERT_THAT(f.initialize(), IsOk());
+    ASSERT_THAT(f.session.select_row(2), IsOk());
+    ASSERT_THAT(f.session.save(), IsOk());
+
+    ASSERT_THAT(f.initialize(), IsOk());
+
+    ASSERT_NE(f.session.selected_vehicle(), nullptr);
+    EXPECT_EQ(f.session.selected_vehicle()->id, "subaru-forester-v3");
+}
+
 // Known, preserved mismatch: the writer emits logfiles_directory, the reader
 // only recognizes datalog_files_directory. Do not fix it here.
 TEST(ConfigSessionSave, DatalogDirectoryDoesNotRoundTrip)
@@ -408,7 +417,7 @@ TEST(ConfigSessionSelect, RowChangesTheSavedRowAndLogProtocolOnly)
 
     ASSERT_THAT(f.session.select_row(1), IsOk());
 
-    EXPECT_EQ(f.session.settings().selected_protocol_id, "1");
+    EXPECT_EQ(f.session.settings().selected_vehicle_id, "mitsubishi-colt-v2");
     EXPECT_EQ(f.session.settings().selected_log_protocol, "MUT_DMA");
     EXPECT_EQ(f.session.settings().selected_flash_transport, "CAN");
     EXPECT_EQ(f.session.settings().selected_log_transport, "J2534");
@@ -421,7 +430,7 @@ TEST(ConfigSessionSelect, InvalidRowFailsWithoutChangingSettings)
     ASSERT_THAT(f.initialize(), IsOk());
     const AppConfig before = f.session.settings();
 
-    EXPECT_THAT(f.session.select_row(4), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(f.session.select_row(3), IsErr(ErrorKind::InvalidConfig));
     EXPECT_EQ(f.session.settings(), before);
 }
 
@@ -456,7 +465,7 @@ TEST(ConfigSessionSelect, ProtocolNameUsesTheLastMatchingRow)
 TEST(ConfigSessionSelect, UnmatchedProtocolNameChangesNothing)
 {
     ConfigSessionFixture f;
-    f.put_settings(setting("protocol_id", "1") + setting("log_protocol", "CDBG"));
+    f.put_settings(setting("vehicle_id", "mitsubishi-colt-v2") + setting("log_protocol", "CDBG"));
     ASSERT_THAT(f.initialize(), IsOk());
     const AppConfig before = f.session.settings();
 
@@ -464,27 +473,33 @@ TEST(ConfigSessionSelect, UnmatchedProtocolNameChangesNothing)
     EXPECT_EQ(f.session.settings(), before);
 }
 
-TEST(ConfigSessionSelect, UnresolvedRowSelectsWithPlaceholders)
+TEST(ConfigSessionSelect, AliasFindsTheFirstVehicleOfItsProtocol)
 {
     ConfigSessionFixture f;
+    EXPECT_EQ(f.session.vehicle_for_alias("alias_a"), nullptr); // not initialized
     ASSERT_THAT(f.initialize(), IsOk());
-
-    EXPECT_TRUE(f.session.select_by_protocol_name("missing_proto"));
-
-    EXPECT_EQ(*f.session.selected_row(), 3U);
-    EXPECT_EQ(f.session.settings().selected_log_protocol, std::string(kMissingProtocolField));
-    const auto& vehicle = *f.session.selected_vehicle();
-    EXPECT_FALSE(vehicle.protocol.has_value());
-    EXPECT_EQ(protocol_field_or_placeholder(vehicle, &ProtocolEntry::mcu), " ");
-    EXPECT_EQ(protocol_field_or_placeholder(vehicle, &ProtocolEntry::read), " "); // not "yes": unavailable
+    EXPECT_EQ(f.session.vehicle_for_alias("alias_a"), &f.session.vehicles()[0]);
+    EXPECT_EQ(f.session.vehicle_for_alias("alias_b"), &f.session.vehicles()[1]);
+    EXPECT_EQ(f.session.vehicle_for_alias("absent"), nullptr);
 }
 
-TEST(ConfigSessionSelect, PlaceholderHelperReturnsResolvedFields)
+// --- built-in catalog -----------------------------------------------------
+
+TEST(ConfigSessionBuiltin, TheMutDmaVehicleLogsMutDmaAndOffersNoFlashOperation)
 {
     ConfigSessionFixture f;
+    f.catalog = builtin_catalog();
     ASSERT_THAT(f.initialize(), IsOk());
-    EXPECT_EQ(protocol_field_or_placeholder(f.session.vehicles()[1], &ProtocolEntry::checksum), "n/a");
-    EXPECT_EQ(protocol_field_or_placeholder(f.session.vehicles()[0], &ProtocolEntry::description), "Protocol A");
+    const auto row = builtin_catalog().find_vehicle("mitsubishi-unknown-unk-ecu-unk--mitsu-ecu-m32r-kline-mut-dma");
+    ASSERT_TRUE(row.has_value());
+
+    ASSERT_THAT(f.session.select_row(*row), IsOk());
+
+    EXPECT_EQ(f.session.settings().selected_log_protocol, "MUT_DMA");
+    const auto& protocol = *f.session.selected_vehicle()->protocol;
+    EXPECT_FALSE(protocol.read);
+    EXPECT_FALSE(protocol.test_write);
+    EXPECT_FALSE(protocol.write);
 }
 
 } // namespace

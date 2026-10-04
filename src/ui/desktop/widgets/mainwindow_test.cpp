@@ -76,8 +76,10 @@
 #include "src/backend/calibration/session/rom_save.h"
 #include "src/backend/checksum/checksum_selection.h"
 #include "src/backend/checksum/dispatch.h"
+#include "src/backend/config/catalog.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/ui/desktop/calibration/calibration_operation_coordinator.h"
+#include "src/ui/desktop/config_fields.h"
 #include "src/ui/desktop/hexedit/hexedit.h"
 #include "src/ui/desktop/menu/testing/menu_snapshot.h"
 
@@ -367,6 +369,232 @@ template <typename Recorder> std::vector<LogLine> logLines(const Recorder& recor
     return lines;
 }
 
+using fastecu::config::ChecksumSupport;
+using fastecu::config::protocol_in;
+using fastecu::config::ProtocolSpec;
+using fastecu::config::VehicleSpec;
+using fastecu::ui::qs;
+
+constexpr auto kWindowProtocols = std::to_array<ProtocolSpec>({
+    {.name = "sub_tcu_denso_sh7058_can",
+     .ecu = "Denso TCU SH7058",
+     .mcu = "SH7058",
+     .mode = "OBD2",
+     .checksum = ChecksumSupport::Missing,
+     .read = true,
+     .test_write = false,
+     .write = true,
+     .flash_transport = "iso15765,CAN",
+     .log_transport = "K-Line",
+     .log_protocol = "SSM",
+     .kernel = "tcu_kernel.bin",
+     .kernel_load_address = 0x100000U,
+     .description = "Denso TCU SH7058"},
+    {.name = "sub_ecu_denso_sh7058_can",
+     .ecu = "Denso SH7058",
+     .mcu = "SH7058",
+     .mode = "OBD2",
+     .checksum = ChecksumSupport::Corrected,
+     .read = true,
+     .test_write = true,
+     .write = true,
+     .flash_transport = "iso15765,CAN",
+     .log_transport = "K-Line",
+     .log_protocol = "SSM",
+     .kernel = "test-kernel.bin",
+     .kernel_load_address = 0xFFFF3000U,
+     .description = "Denso SH7058 CAN"},
+    {.name = "sub_ecu_denso_sh7058_densocan",
+     .ecu = "Denso SH7058",
+     .mcu = "SH7058",
+     .mode = "OBD2",
+     .checksum = ChecksumSupport::Corrected,
+     .read = true,
+     .test_write = true,
+     .write = true,
+     .flash_transport = "CAN",
+     .log_transport = "K-Line",
+     .log_protocol = "SSM",
+     .kernel = "test-kernel.bin",
+     .kernel_load_address = 0xFFFF3000U,
+     .description = "Denso SH7058 DensoCAN"},
+    {.name = "sub_ecu_denso_sh7058",
+     .ecu = "Denso SH7058",
+     .mcu = "SH7058",
+     .mode = "OBD2",
+     .checksum = ChecksumSupport::Corrected,
+     .read = true,
+     .test_write = false,
+     .write = true,
+     .flash_transport = "K-Line",
+     .log_transport = "K-Line",
+     .log_protocol = "SSM",
+     .kernel = "test-kernel.bin",
+     .kernel_load_address = 0xFFFF3000U,
+     .description = "Denso SH7058 K-Line"},
+    {.name = "sub_ecu_denso_sh7058_can_future",
+     .ecu = "Denso SH7058",
+     .mcu = "SH7058",
+     .mode = "OBD2",
+     .checksum = ChecksumSupport::Corrected,
+     .read = true,
+     .test_write = true,
+     .write = true,
+     .flash_transport = "iso15765,CAN",
+     .log_transport = "K-Line",
+     .log_protocol = "SSM",
+     .kernel = "test-kernel.bin",
+     .kernel_load_address = 0xFFFF3000U,
+     .description = "Denso SH7058 CAN"},
+    {.name = "sub_ecu_denso_sh7058_densocan_extra",
+     .ecu = "Denso SH7058",
+     .mcu = "SH7058",
+     .mode = "OBD2",
+     .checksum = ChecksumSupport::Corrected,
+     .read = true,
+     .test_write = true,
+     .write = true,
+     .flash_transport = "iso15765,CAN",
+     .log_transport = "K-Line",
+     .log_protocol = "SSM",
+     .kernel = "test-kernel.bin",
+     .kernel_load_address = 0xFFFF3000U,
+     .description = "Denso SH7058 CAN"},
+    {.name = "sub_ecu_not_a_real_protocol",
+     .ecu = "Denso SH7058",
+     .mcu = "SH7058",
+     .mode = "OBD2",
+     .checksum = ChecksumSupport::Corrected,
+     .read = true,
+     .test_write = true,
+     .write = true,
+     .flash_transport = "iso15765,CAN",
+     .log_transport = "K-Line",
+     .log_protocol = "SSM",
+     .kernel = "test-kernel.bin",
+     .kernel_load_address = 0xFFFF3000U,
+     .description = "Denso SH7058 CAN"},
+    {.name = "sub_ecu_denso_sh7058_can_checksum_na",
+     .ecu = "Denso SH7058",
+     .mcu = "SH7058",
+     .mode = "OBD2",
+     .checksum = ChecksumSupport::Missing,
+     .read = true,
+     .test_write = true,
+     .write = true,
+     .flash_transport = "iso15765,CAN",
+     .log_transport = "K-Line",
+     .log_protocol = "SSM",
+     .kernel = "test-kernel.bin",
+     .kernel_load_address = 0xFFFF3000U,
+     .description = "Denso SH7058 CAN"},
+});
+
+constexpr auto kWindowVehicles = std::to_array<VehicleSpec>({
+    {.id = "subaru-test-test--sub-tcu-denso-sh7058-can",
+     .make = "Subaru",
+     .model = "Test",
+     .version = "Test",
+     .type = "TCU",
+     .kw = "",
+     .hp = "",
+     .fuel = "",
+     .year = "",
+     .protocol = protocol_in(kWindowProtocols, "sub_tcu_denso_sh7058_can")},
+    {.id = "subaru-can-test--sub-ecu-denso-sh7058-can",
+     .make = "Subaru",
+     .model = "Can",
+     .version = "Test",
+     .type = "",
+     .kw = "",
+     .hp = "",
+     .fuel = "",
+     .year = "",
+     .protocol = protocol_in(kWindowProtocols, "sub_ecu_denso_sh7058_can")},
+    {.id = "subaru-densocan-test--sub-ecu-denso-sh7058-densocan",
+     .make = "Subaru",
+     .model = "DensoCan",
+     .version = "Test",
+     .type = "",
+     .kw = "",
+     .hp = "",
+     .fuel = "",
+     .year = "",
+     .protocol = protocol_in(kWindowProtocols, "sub_ecu_denso_sh7058_densocan")},
+    {.id = "subaru-kline-test--sub-ecu-denso-sh7058",
+     .make = "Subaru",
+     .model = "KLine",
+     .version = "Test",
+     .type = "",
+     .kw = "",
+     .hp = "",
+     .fuel = "",
+     .year = "",
+     .protocol = protocol_in(kWindowProtocols, "sub_ecu_denso_sh7058")},
+    {.id = "subaru-future-test--sub-ecu-denso-sh7058-can-future",
+     .make = "Subaru",
+     .model = "Future",
+     .version = "Test",
+     .type = "",
+     .kw = "",
+     .hp = "",
+     .fuel = "",
+     .year = "",
+     .protocol = protocol_in(kWindowProtocols, "sub_ecu_denso_sh7058_can_future")},
+    {.id = "subaru-extra-test--sub-ecu-denso-sh7058-densocan-extra",
+     .make = "Subaru",
+     .model = "Extra",
+     .version = "Test",
+     .type = "",
+     .kw = "",
+     .hp = "",
+     .fuel = "",
+     .year = "",
+     .protocol = protocol_in(kWindowProtocols, "sub_ecu_denso_sh7058_densocan_extra")},
+    {.id = "subaru-unsupported-test--sub-ecu-not-a-real-protocol",
+     .make = "Subaru",
+     .model = "Unsupported",
+     .version = "Test",
+     .type = "",
+     .kw = "",
+     .hp = "",
+     .fuel = "",
+     .year = "",
+     .protocol = protocol_in(kWindowProtocols, "sub_ecu_not_a_real_protocol")},
+    {.id = "subaru-checksumna-test--sub-ecu-denso-sh7058-can-checksum-na",
+     .make = "Subaru",
+     .model = "ChecksumNa",
+     .version = "Test",
+     .type = "",
+     .kw = "",
+     .hp = "",
+     .fuel = "",
+     .year = "",
+     .protocol = protocol_in(kWindowProtocols, "sub_ecu_denso_sh7058_can_checksum_na")},
+    {.id = "mitsubishi-colt-test--sub-ecu-denso-sh7058",
+     .make = "Mitsubishi",
+     .model = "Colt",
+     .version = "Test",
+     .type = "",
+     .kw = "",
+     .hp = "",
+     .fuel = "",
+     .year = "",
+     .protocol = protocol_in(kWindowProtocols, "sub_ecu_denso_sh7058")},
+    {.id = "nissan-test-test--sub-ecu-denso-sh7058",
+     .make = "Nissan",
+     .model = "Test",
+     .version = "Test",
+     .type = "",
+     .kw = "",
+     .hp = "",
+     .fuel = "",
+     .year = "",
+     .protocol = protocol_in(kWindowProtocols, "sub_ecu_denso_sh7058")},
+});
+
+constexpr fastecu::config::Catalog kWindowCatalog{kWindowProtocols, kWindowVehicles};
+
 // The services DesktopComposition builds in the real app. The channels are
 // left unwired: tests spy on them.
 struct TestServices
@@ -402,7 +630,7 @@ struct TestServices
     QtAtomicFileWriter file_writer;
     QtEventSink events;
     QtEventSink config_events;
-    fastecu::config::ConfigSession config{file_system, resource_bundle, file_repository, config_events};
+    fastecu::config::ConfigSession config{kWindowCatalog, file_system, resource_bundle, file_repository, config_events};
     fastecu::Status config_status; // declared after `config`: initialized from it
     fastecu::definition::DefinitionService definition_service{file_system, file_repository, file_writer};
     fastecu::desktop::definition::DefinitionCatalogSession definition_catalogs;
@@ -474,8 +702,8 @@ class MainWindowTest : public ::testing::Test
     {
         const auto vehicles = window.configSession->vehicles();
         const auto it = std::ranges::find_if(
-            vehicles, [&](const fastecu::config::ResolvedCarModel& vehicle)
-            { return vehicle.make == "Subaru" && vehicle.protocol_name == protocol.toStdString(); });
+            vehicles, [&](const VehicleSpec& vehicle)
+            { return vehicle.make == "Subaru" && vehicle.protocol->name == protocol.toStdString(); });
         ASSERT_TRUE(it != vehicles.end());
         ASSERT_TRUE(window.configSession->select_row(static_cast<std::size_t>(it - vehicles.begin())).has_value());
     }
@@ -484,7 +712,7 @@ class MainWindowTest : public ::testing::Test
     static void selectMake(MainWindow& window, const QString& make)
     {
         const auto vehicles = window.configSession->vehicles();
-        const auto it = std::ranges::find(vehicles, make.toStdString(), &fastecu::config::ResolvedCarModel::make);
+        const auto it = std::ranges::find(vehicles, make.toStdString(), &VehicleSpec::make);
         ASSERT_TRUE(it != vehicles.end());
         ASSERT_TRUE(window.configSession->select_row(static_cast<std::size_t>(it - vehicles.begin())).has_value());
     }
@@ -667,7 +895,7 @@ class MainWindowTest : public ::testing::Test
     void check_setRealtimeStateChecksAndUnchecksLogging();
     void check_identificationDisablesLoggingAndConnectButNotDisconnect();
     void check_logToFileActionDrivesWriteDatalogToFile();
-    void check_unresolvedProtocolRowLeavesReadAndWriteUnavailable();
+    void check_flashActionsFollowTheSelectedProtocolsCapabilities();
     void check_loggingUsesTheSessionLogProtocol();
     void check_selectedSerialPortIsEmptyWithoutPorts();
     void check_dtcWindowWithoutAPortWarnsInsteadOfCrashing();
@@ -701,6 +929,7 @@ class MainWindowTest : public ::testing::Test
 
 void MainWindowTest::SetUpTestSuite()
 {
+    ASSERT_TRUE(fastecu::config::catalog_problems(kWindowCatalog).empty());
     if (config_root_)
     {
         return;
@@ -729,7 +958,7 @@ void MainWindowTest::SetUpTestSuite()
     </setting>
     <setting name="toolbar_iconsize"><value data="32"/></setting>
     <setting name="serial_port"><value data="OpenPort 2.0"/></setting>
-    <setting name="protocol_id"><value data="0"/></setting>
+    <setting name="vehicle_id"><value data="subaru-test-test--sub-tcu-denso-sh7058-can"/></setting>
     <setting name="flash_transport"><value data="iso15765"/></setting>
     <setting name="log_transport"><value data="K-Line"/></setting>
     <setting name="log_protocol"><value data="SSM"/></setting>
@@ -751,286 +980,11 @@ void MainWindowTest::SetUpTestSuite()
   <logger/>
 </config>
 )"));
-    ASSERT_TRUE(writeTextFile(config_dir + "protocols.cfg",
-                              R"(<?xml version="1.0" encoding="UTF-8"?>
-<config name="FastECU" version="0.0-dev0">
-  <protocols>
-    <protocol name="sub_tcu_denso_sh7058_can">
-      <ecu>Denso TCU SH7058</ecu>
-      <mcu>SH7058</mcu>
-      <mode>OBD2</mode>
-      <checksum>n/a</checksum>
-      <read>yes</read>
-      <test_write>no</test_write>
-      <write>yes</write>
-      <flash_transport>iso15765,CAN</flash_transport>
-      <log_transport>K-Line</log_transport>
-      <log_protocol>SSM</log_protocol>
-      <ecu_id_ascii>no</ecu_id_ascii>
-      <ecu_id_addr/>
-      <ecu_id_length/>
-      <cal_id_ascii>yes</cal_id_ascii>
-      <cal_id_addr>0</cal_id_addr>
-      <cal_id_length>10</cal_id_length>
-      <kernel>tcu_kernel.bin</kernel>
-      <kernel_addr>0x100000</kernel_addr>
-      <description>Denso TCU SH7058</description>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058_can">
-      <ecu>Denso SH7058</ecu>
-      <mcu>SH7058</mcu>
-      <mode>OBD2</mode>
-      <checksum>yes</checksum>
-      <read>yes</read>
-      <test_write>yes</test_write>
-      <write>yes</write>
-      <flash_transport>iso15765,CAN</flash_transport>
-      <log_transport>K-Line</log_transport>
-      <log_protocol>SSM</log_protocol>
-      <cal_id_ascii>yes</cal_id_ascii>
-      <cal_id_addr>0x2004</cal_id_addr>
-      <cal_id_length>8</cal_id_length>
-      <kernel>test-kernel.bin</kernel>
-      <kernel_addr>0xFFFF3000</kernel_addr>
-      <description>Denso SH7058 CAN</description>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058_densocan">
-      <ecu>Denso SH7058</ecu>
-      <mcu>SH7058</mcu>
-      <mode>OBD2</mode>
-      <checksum>yes</checksum>
-      <read>yes</read>
-      <test_write>yes</test_write>
-      <write>yes</write>
-      <flash_transport>CAN</flash_transport>
-      <log_transport>K-Line</log_transport>
-      <log_protocol>SSM</log_protocol>
-      <cal_id_ascii>yes</cal_id_ascii>
-      <cal_id_addr>0x2000</cal_id_addr>
-      <cal_id_length>8</cal_id_length>
-      <kernel>test-kernel.bin</kernel>
-      <kernel_addr>0xFFFF3000</kernel_addr>
-      <description>Denso SH7058 DensoCAN</description>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058">
-      <ecu>Denso SH7058</ecu>
-      <mcu>SH7058</mcu>
-      <mode>OBD2</mode>
-      <checksum>yes</checksum>
-      <read>yes</read>
-      <test_write>no</test_write>
-      <write>yes</write>
-      <flash_transport>K-Line</flash_transport>
-      <log_transport>K-Line</log_transport>
-      <log_protocol>SSM</log_protocol>
-      <cal_id_ascii>yes</cal_id_ascii>
-      <cal_id_addr>0x2004</cal_id_addr>
-      <cal_id_length>8</cal_id_length>
-      <kernel>test-kernel.bin</kernel>
-      <kernel_addr>0xFFFF3000</kernel_addr>
-      <description>Denso SH7058 K-Line</description>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058_can_future">
-      <ecu>Denso SH7058</ecu>
-      <mcu>SH7058</mcu>
-      <mode>OBD2</mode>
-      <checksum>yes</checksum>
-      <read>yes</read>
-      <test_write>yes</test_write>
-      <write>yes</write>
-      <flash_transport>iso15765,CAN</flash_transport>
-      <log_transport>K-Line</log_transport>
-      <log_protocol>SSM</log_protocol>
-      <cal_id_ascii>yes</cal_id_ascii>
-      <cal_id_addr>0x2004</cal_id_addr>
-      <cal_id_length>8</cal_id_length>
-      <kernel>test-kernel.bin</kernel>
-      <kernel_addr>0xFFFF3000</kernel_addr>
-      <description>Denso SH7058 CAN</description>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058_densocan_extra">
-      <ecu>Denso SH7058</ecu>
-      <mcu>SH7058</mcu>
-      <mode>OBD2</mode>
-      <checksum>yes</checksum>
-      <read>yes</read>
-      <test_write>yes</test_write>
-      <write>yes</write>
-      <flash_transport>iso15765,CAN</flash_transport>
-      <log_transport>K-Line</log_transport>
-      <log_protocol>SSM</log_protocol>
-      <cal_id_ascii>yes</cal_id_ascii>
-      <cal_id_addr>0x2004</cal_id_addr>
-      <cal_id_length>8</cal_id_length>
-      <kernel>test-kernel.bin</kernel>
-      <kernel_addr>0xFFFF3000</kernel_addr>
-      <description>Denso SH7058 CAN</description>
-    </protocol>
-    <protocol name="sub_ecu_not_a_real_protocol">
-      <ecu>Denso SH7058</ecu>
-      <mcu>SH7058</mcu>
-      <mode>OBD2</mode>
-      <checksum>yes</checksum>
-      <read>yes</read>
-      <test_write>yes</test_write>
-      <write>yes</write>
-      <flash_transport>iso15765,CAN</flash_transport>
-      <log_transport>K-Line</log_transport>
-      <log_protocol>SSM</log_protocol>
-      <cal_id_ascii>yes</cal_id_ascii>
-      <cal_id_addr>0x2004</cal_id_addr>
-      <cal_id_length>8</cal_id_length>
-      <kernel>test-kernel.bin</kernel>
-      <kernel_addr>0xFFFF3000</kernel_addr>
-      <description>Denso SH7058 CAN</description>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058_can_checksum_na">
-      <ecu>Denso SH7058</ecu>
-      <mcu>SH7058</mcu>
-      <mode>OBD2</mode>
-      <checksum>n/a</checksum>
-      <read>yes</read>
-      <test_write>yes</test_write>
-      <write>yes</write>
-      <flash_transport>iso15765,CAN</flash_transport>
-      <log_transport>K-Line</log_transport>
-      <log_protocol>SSM</log_protocol>
-      <cal_id_ascii>yes</cal_id_ascii>
-      <cal_id_addr>0x2004</cal_id_addr>
-      <cal_id_length>8</cal_id_length>
-      <kernel>test-kernel.bin</kernel>
-      <kernel_addr>0xFFFF3000</kernel_addr>
-      <description>Denso SH7058 CAN</description>
-    </protocol>
-  </protocols>
-  <car_models>
-    <car_model>
-      <make>Subaru</make>
-      <model>Test</model>
-      <version>Test</version>
-      <type>TCU</type>
-      <kw/>
-      <hp/>
-      <fuel/>
-      <year/>
-      <protocol>sub_tcu_denso_sh7058_can</protocol>
-    </car_model>
-    <car_model>
-      <make>Subaru</make>
-      <model>Can</model>
-      <version>Test</version>
-      <type/>
-      <kw/>
-      <hp/>
-      <fuel/>
-      <year/>
-      <protocol>sub_ecu_denso_sh7058_can</protocol>
-    </car_model>
-    <car_model>
-      <make>Subaru</make>
-      <model>DensoCan</model>
-      <version>Test</version>
-      <type/>
-      <kw/>
-      <hp/>
-      <fuel/>
-      <year/>
-      <protocol>sub_ecu_denso_sh7058_densocan</protocol>
-    </car_model>
-    <car_model>
-      <make>Subaru</make>
-      <model>KLine</model>
-      <version>Test</version>
-      <type/>
-      <kw/>
-      <hp/>
-      <fuel/>
-      <year/>
-      <protocol>sub_ecu_denso_sh7058</protocol>
-    </car_model>
-    <car_model>
-      <make>Subaru</make>
-      <model>Future</model>
-      <version>Test</version>
-      <type/>
-      <kw/>
-      <hp/>
-      <fuel/>
-      <year/>
-      <protocol>sub_ecu_denso_sh7058_can_future</protocol>
-    </car_model>
-    <car_model>
-      <make>Subaru</make>
-      <model>Extra</model>
-      <version>Test</version>
-      <type/>
-      <kw/>
-      <hp/>
-      <fuel/>
-      <year/>
-      <protocol>sub_ecu_denso_sh7058_densocan_extra</protocol>
-    </car_model>
-    <car_model>
-      <make>Subaru</make>
-      <model>Unsupported</model>
-      <version>Test</version>
-      <type/>
-      <kw/>
-      <hp/>
-      <fuel/>
-      <year/>
-      <protocol>sub_ecu_not_a_real_protocol</protocol>
-    </car_model>
-    <car_model>
-      <make>Subaru</make>
-      <model>ChecksumNa</model>
-      <version>Test</version>
-      <type/>
-      <kw/>
-      <hp/>
-      <fuel/>
-      <year/>
-      <protocol>sub_ecu_denso_sh7058_can_checksum_na</protocol>
-    </car_model>
-    <car_model>
-      <make>Mitsubishi</make>
-      <model>Colt</model>
-      <version>Test</version>
-      <type/>
-      <kw/>
-      <hp/>
-      <fuel/>
-      <year/>
-      <protocol>sub_ecu_denso_sh7058</protocol>
-    </car_model>
-    <car_model>
-      <make>Nissan</make>
-      <model>Test</model>
-      <version>Test</version>
-      <type/>
-      <kw/>
-      <hp/>
-      <fuel/>
-      <year/>
-      <protocol>sub_ecu_denso_sh7058</protocol>
-    </car_model>
-    <car_model>
-      <make>Subaru</make>
-      <model>Orphan</model>
-      <version>Test</version>
-      <type/>
-      <kw/>
-      <hp/>
-      <fuel/>
-      <year/>
-      <protocol>sub_ecu_orphan</protocol>
-    </car_model>
-  </car_models>
-</config>
-)"));
     const QString kernel_dir =
         config_root_->path() + "/" + QString::fromStdString(kTestApplication.version) + "/kernels/";
     ASSERT_TRUE(QDir().mkpath(kernel_dir));
+    // The kernels kWindowProtocols names: a flash request carries the selected
+    // protocol, so the portable-route reads load these.
     ASSERT_TRUE(writeTextFile(kernel_dir + "test-kernel.bin", "ABCD"));
     ASSERT_TRUE(writeTextFile(kernel_dir + "tcu_kernel.bin", "ABCD"));
 }
@@ -1637,9 +1591,9 @@ void MainWindowTest::check_definitionlessOpenPromptsOnceAndAppliesPlaceholders()
     QTreeWidgetItem *rom_info = window.ui->calibrationDataTreeWidget->topLevelItem(0);
     ASSERT_EQ(rom_info->text(0), QString("ROM Info"));
     ASSERT_EQ(rom_info->child(0)->text(0), QString("XML ID: UnknownID"));
-    ASSERT_EQ(rom_info->child(4)->text(0), "Make: " + QString::fromStdString(services.config.selected_vehicle()->make));
+    ASSERT_EQ(rom_info->child(4)->text(0), "Make: " + qs(services.config.selected_vehicle()->make));
     ASSERT_EQ(window.calibrations_.front().view.missing_definition_make,
-              std::optional<QString>(QString::fromStdString(services.config.selected_vehicle()->make)));
+              std::optional<QString>(qs(services.config.selected_vehicle()->make)));
     ASSERT_EQ(services.calibrations.find(window.calibrations_.front().id)->source().display_name, std::string{"a.bin"});
     ASSERT_EQ(services.calibrations.ids().size(), std::size_t{1});
     ASSERT_EQ(window.ui->calibrationFilesTreeWidget->topLevelItem(0)->text(2),
@@ -1924,13 +1878,12 @@ void MainWindowTest::check_checksumAndSaveUseATemporaryImage()
     const bytes::Bytes original(session->rom().begin(), session->rom().end());
     // The expected bytes come from the backend dispatcher, independently of
     // the coordinator's selection plumbing.
-    const fastecu::config::ResolvedCarModel& vehicle = *services.config.selected_vehicle();
+    const VehicleSpec& vehicle = *services.config.selected_vehicle();
     const fastecu::checksum::ChecksumCorrectionOutcome correction = fastecu::checksum::apply_checksum_correction(
         original, {
-                      .make = vehicle.make,
-                      .checksum_flag = fastecu::config::protocol_field_or_placeholder(
-                          vehicle, &fastecu::config::ProtocolEntry::checksum),
-                      .flash_method = vehicle.protocol_name,
+                      .make = std::string(vehicle.make),
+                      .checksum_flag = std::string(fastecu::config::checksum_flag(vehicle.protocol->checksum)),
+                      .flash_method = std::string(vehicle.protocol->name),
                       .mcu_type = session->protocol().mcu_type,
                       .rom_id = session->protocol().rom_id,
                   });
@@ -2394,7 +2347,7 @@ void MainWindowTest::check_chooserDialogsApplyAcceptedChoicesAndIgnoreCancellati
     {
         for (std::size_t row = 0; row < services.config.vehicles().size(); ++row)
         {
-            if (services.config.vehicles()[row].protocol_name == target.protocol_name)
+            if (services.config.vehicles()[row].protocol == target.protocol)
             {
                 expected = row;
             }
@@ -2405,88 +2358,86 @@ void MainWindowTest::check_chooserDialogsApplyAcceptedChoicesAndIgnoreCancellati
     bool driven = false;
     bool unexpected = false;
     bool timed_out = false;
-    QObject::connect(&driver, &QTimer::timeout,
-                     [&]
-                     {
-                         auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
-                         if (deadline.elapsed() > 3000)
-                         {
-                             timed_out = true;
-                             if (dialog)
-                             {
-                                 dialog->reject();
-                             }
-                             return;
-                         }
-                         if (!dialog)
-                         {
-                             return;
-                         }
-                         const char *expected_class = protocol ? "ProtocolSelect" : "VehicleSelect";
-                         if (!dialog->inherits(expected_class))
-                         {
-                             unexpected = true;
-                             dialog->reject();
-                             return;
-                         }
-                         auto selectText = [](QTreeWidget *tree, const QString& text)
-                         {
-                             if (!tree)
-                             {
-                                 return false;
-                             }
-                             for (int i = 0; i < tree->topLevelItemCount(); ++i)
-                             {
-                                 if (tree->topLevelItem(i)->text(0) == text)
-                                 {
-                                     tree->setCurrentItem(tree->topLevelItem(i));
-                                     return true;
-                                 }
-                             }
-                             return false;
-                         };
-                         bool selected = false;
-                         if (protocol)
-                         {
-                             selected = selectText(dialog->findChild<QTreeWidget *>("treeWidget"),
-                                                   QString::fromStdString(target.protocol_name));
-                         }
-                         else
-                         {
-                             selected = selectText(dialog->findChild<QTreeWidget *>("car_make_tree_widget"),
-                                                   QString::fromStdString(target.make)) &&
-                                        selectText(dialog->findChild<QTreeWidget *>("car_model_tree_widget"),
-                                                   QString::fromStdString(target.model));
-                             auto *versions = dialog->findChild<QTreeWidget *>("car_version_tree_widget");
-                             selected = selected && versions != nullptr;
-                             bool row_found = false;
-                             if (versions)
-                             {
-                                 for (int i = 0; i < versions->topLevelItemCount(); ++i)
-                                 {
-                                     auto *item = versions->topLevelItem(i);
-                                     if (item->text(12) == "1")
-                                     {
-                                         versions->setCurrentItem(item);
-                                         row_found = true;
-                                         break;
-                                     }
-                                 }
-                             }
-                             selected = selected && row_found;
-                         }
-                         auto *button = dialog->findChild<QPushButton *>(accept ? "select_button" : "cancel_button");
-                         driven = selected && button && button->isEnabled();
-                         if (driven)
-                         {
-                             button->click();
-                         }
-                         else
-                         {
-                             unexpected = true;
-                             dialog->reject();
-                         }
-                     });
+    QObject::connect(
+        &driver, &QTimer::timeout,
+        [&]
+        {
+            auto *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+            if (deadline.elapsed() > 3000)
+            {
+                timed_out = true;
+                if (dialog)
+                {
+                    dialog->reject();
+                }
+                return;
+            }
+            if (!dialog)
+            {
+                return;
+            }
+            const char *expected_class = protocol ? "ProtocolSelect" : "VehicleSelect";
+            if (!dialog->inherits(expected_class))
+            {
+                unexpected = true;
+                dialog->reject();
+                return;
+            }
+            auto selectText = [](QTreeWidget *tree, const QString& text)
+            {
+                if (!tree)
+                {
+                    return false;
+                }
+                for (int i = 0; i < tree->topLevelItemCount(); ++i)
+                {
+                    if (tree->topLevelItem(i)->text(0) == text)
+                    {
+                        tree->setCurrentItem(tree->topLevelItem(i));
+                        return true;
+                    }
+                }
+                return false;
+            };
+            bool selected = false;
+            if (protocol)
+            {
+                selected = selectText(dialog->findChild<QTreeWidget *>("treeWidget"), qs(target.protocol->name));
+            }
+            else
+            {
+                selected = selectText(dialog->findChild<QTreeWidget *>("car_make_tree_widget"), qs(target.make)) &&
+                           selectText(dialog->findChild<QTreeWidget *>("car_model_tree_widget"), qs(target.model));
+                auto *versions = dialog->findChild<QTreeWidget *>("car_version_tree_widget");
+                selected = selected && versions != nullptr;
+                bool row_found = false;
+                if (versions)
+                {
+                    for (int i = 0; i < versions->topLevelItemCount(); ++i)
+                    {
+                        auto *item = versions->topLevelItem(i);
+                        if (item->text(12) == "1")
+                        {
+                            versions->setCurrentItem(item);
+                            row_found = true;
+                            break;
+                        }
+                    }
+                }
+                selected = selected && row_found;
+            }
+            auto *button = dialog->findChild<QPushButton *>(accept ? "select_button" : "cancel_button");
+            driven = selected && button && button->isEnabled();
+            if (driven)
+            {
+                button->click();
+            }
+            else
+            {
+                unexpected = true;
+                dialog->reject();
+            }
+        });
     deadline.start();
     driver.start(5);
     if (protocol)
@@ -2661,10 +2612,10 @@ void MainWindowTest::check_acceptedVehicleChoiceSelectsTheRowAndSavesIt()
 
     // Saved: a fresh session over the same root restores row 1.
     QtEventSink reread_events;
-    fastecu::config::ConfigSession reread{services.file_system, services.resource_bundle, services.file_repository,
-                                          reread_events};
+    fastecu::config::ConfigSession reread{kWindowCatalog, services.file_system, services.resource_bundle,
+                                          services.file_repository, reread_events};
     ASSERT_TRUE(reread.initialize(config_root_->path().toStdString(), kTestApplication.version).has_value());
-    ASSERT_EQ(reread.settings().selected_protocol_id, std::string("1"));
+    ASSERT_EQ(reread.settings().selected_vehicle_id, std::string(kWindowVehicles[1].id));
 }
 
 TEST_F(MainWindowTest, acceptedVehicleChoiceSelectsTheRowAndSavesIt)
@@ -2704,7 +2655,7 @@ void MainWindowTest::check_acceptedProtocolChoiceSelectsTheLastMatchingRow()
     std::size_t last = 0;
     for (std::size_t i = 0; i < vehicles.size(); ++i)
     {
-        if (vehicles[i].protocol_name == "sub_ecu_denso_sh7058")
+        if (vehicles[i].protocol->name == "sub_ecu_denso_sh7058")
         {
             last = i;
         }
@@ -2866,7 +2817,7 @@ TEST_F(MainWindowTest, logToFileActionDrivesWriteDatalogToFile)
     ASSERT_NO_FATAL_FAILURE(check_logToFileActionDrivesWriteDatalogToFile());
 }
 
-void MainWindowTest::check_unresolvedProtocolRowLeavesReadAndWriteUnavailable()
+void MainWindowTest::check_flashActionsFollowTheSelectedProtocolsCapabilities()
 {
     ModalDriver constructor_driver{QString()};
     constructor_driver.start();
@@ -2875,33 +2826,31 @@ void MainWindowTest::check_unresolvedProtocolRowLeavesReadAndWriteUnavailable()
     MainWindow window{services.services()};
     constructor_driver.stop();
 
-    const QList<QAction *> actions{menuAction(window, kReadRomFromEcu), menuAction(window, kTestWriteRomToEcu),
-                                   menuAction(window, kWriteRomToEcu)};
-    for (QAction *action : actions)
-    {
-        ASSERT_NE(action, nullptr);
-    }
+    QAction *read_action = menuAction(window, kReadRomFromEcu);
+    QAction *test_write_action = menuAction(window, kTestWriteRomToEcu);
+    QAction *write_action = menuAction(window, kWriteRomToEcu);
+    ASSERT_NE(read_action, nullptr);
+    ASSERT_NE(test_write_action, nullptr);
+    ASSERT_NE(write_action, nullptr);
 
-    // A resolved row with every capability enables all three...
+    // A protocol with every capability enables all three...
     ASSERT_NO_FATAL_FAILURE(selectProtocol(window, "sub_ecu_denso_sh7058_can"));
     window.set_flash_arrow_state();
-    for (QAction *action : actions)
-    {
-        ASSERT_TRUE(action->isEnabled()) << qPrintable(action->text());
-    }
+    ASSERT_TRUE(read_action->isEnabled());
+    ASSERT_TRUE(test_write_action->isEnabled());
+    ASSERT_TRUE(write_action->isEnabled());
 
-    // ...and the unresolved row 10 (no <protocol> of that name) none.
-    ASSERT_NO_FATAL_FAILURE(selectProtocol(window, "sub_ecu_orphan"));
+    // ...and one without test write disables only that action.
+    ASSERT_NO_FATAL_FAILURE(selectProtocol(window, "sub_ecu_denso_sh7058"));
     window.set_flash_arrow_state();
-    for (QAction *action : actions)
-    {
-        ASSERT_TRUE(!action->isEnabled()) << qPrintable(action->text());
-    }
+    ASSERT_TRUE(read_action->isEnabled());
+    ASSERT_TRUE(!test_write_action->isEnabled());
+    ASSERT_TRUE(write_action->isEnabled());
 }
 
-TEST_F(MainWindowTest, unresolvedProtocolRowLeavesReadAndWriteUnavailable)
+TEST_F(MainWindowTest, flashActionsFollowTheSelectedProtocolsCapabilities)
 {
-    ASSERT_NO_FATAL_FAILURE(check_unresolvedProtocolRowLeavesReadAndWriteUnavailable());
+    ASSERT_NO_FATAL_FAILURE(check_flashActionsFollowTheSelectedProtocolsCapabilities());
 }
 
 void MainWindowTest::check_loggingUsesTheSessionLogProtocol()
@@ -2994,6 +2943,8 @@ void MainWindowTest::check_repeatedSaveFailuresLogOnceUntilASuccess()
     ASSERT_TRUE(root.isValid());
     TestServices services{root.path()};
     ASSERT_TRUE(services.config_status.has_value());
+    // A fresh root has no saved vehicle; the startup gate would ask for one.
+    ASSERT_TRUE(services.config.select_row(0).has_value());
     MainWindow window{services.services()};
     constructor_driver.stop();
     fastecu::testing::SignalRecorder errors{&window, &MainWindow::LOG_E};

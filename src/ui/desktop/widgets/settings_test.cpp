@@ -13,6 +13,7 @@
 #include <QTimer>
 
 #include "src/backend/config/config_session.h"
+#include "src/backend/config/testing/config_session_fixture.h"
 #include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
@@ -59,7 +60,9 @@ struct SessionOnDisk
     QtResourceBundle resource_bundle;
     QtFileRepository file_repository;
     QtEventSink events;
-    fastecu::config::ConfigSession session{file_system, resource_bundle, file_repository, events};
+    // The settings dialog reads no vehicle; any consistent catalog will do.
+    fastecu::config::ConfigSession session{fastecu::config::testing::kStandardCatalog, file_system, resource_bundle,
+                                           file_repository, events};
     fastecu::Status status;
 };
 

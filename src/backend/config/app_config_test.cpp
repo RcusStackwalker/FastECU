@@ -35,9 +35,6 @@ const char *kShippedDefaultConfig = R"(<?xml version="1.0" encoding="UTF-8"?>
         <setting name="serial_port">
             <value data="ttyACM0 - OpenPort 2.0"/>
         </setting>
-        <setting name="protocol_id">
-            <value data="35"/>
-        </setting>
         <setting name="flash_transport">
             <value data="iso15765"/>
         </setting>
@@ -91,7 +88,7 @@ TEST(LoadAppConfig, ParsesEveryShippedDefaultSetting)
     EXPECT_EQ(config->window_height, "maximized");
     EXPECT_EQ(config->toolbar_iconsize, "32");
     EXPECT_EQ(config->serial_port, "ttyACM0 - OpenPort 2.0");
-    EXPECT_EQ(config->selected_protocol_id, "35");
+    EXPECT_TRUE(config->selected_vehicle_id.empty());
     EXPECT_EQ(config->selected_flash_transport, "iso15765");
     EXPECT_EQ(config->selected_log_transport, "K-Line");
     EXPECT_EQ(config->selected_log_protocol, "SSM");
@@ -104,6 +101,21 @@ TEST(LoadAppConfig, ParsesEveryShippedDefaultSetting)
     EXPECT_EQ(config->ecuflash_definition_files_directory, "");
     EXPECT_EQ(config->romraider_logger_definition_file, "config/logger_cdbg_example.xml");
     EXPECT_EQ(config->datalog_files_directory, "datalogs");
+}
+
+TEST(LoadAppConfig, ALegacyProtocolIdIsNotRead)
+{
+    InMemoryFileRepository repo;
+    const ConfigPaths paths = test_paths();
+    const std::string text = R"(<config name="FastECU"><software_settings>)"
+                             R"(<setting name="protocol_id"><value data="35"/></setting>)"
+                             R"(</software_settings></config>)";
+    repo.files[paths.config_file] = std::vector<std::uint8_t>(text.begin(), text.end());
+
+    auto config = load_app_config(paths, repo);
+
+    ASSERT_THAT(config, fastecu::testing::IsOk());
+    EXPECT_TRUE(config->selected_vehicle_id.empty());
 }
 
 TEST(LoadAppConfig, InvalidPrimaryDefinitionBaseValueIsDiscarded)
@@ -191,7 +203,7 @@ TEST(SaveAppConfigThenLoadAppConfig, EveryOtherFieldRoundTrips)
     config.window_height = "768";
     config.toolbar_iconsize = "24";
     config.serial_port = "COM3";
-    config.selected_protocol_id = "12";
+    config.selected_vehicle_id = "subaru-impreza-v1";
     config.selected_flash_transport = "K-Line";
     config.selected_log_transport = "CAN";
     config.selected_log_protocol = "SSM";
@@ -212,7 +224,7 @@ TEST(SaveAppConfigThenLoadAppConfig, EveryOtherFieldRoundTrips)
     EXPECT_EQ(reloaded->window_height, "768");
     EXPECT_EQ(reloaded->toolbar_iconsize, "24");
     EXPECT_EQ(reloaded->serial_port, "COM3");
-    EXPECT_EQ(reloaded->selected_protocol_id, "12");
+    EXPECT_EQ(reloaded->selected_vehicle_id, "subaru-impreza-v1");
     EXPECT_EQ(reloaded->selected_flash_transport, "K-Line");
     EXPECT_EQ(reloaded->selected_log_transport, "CAN");
     EXPECT_EQ(reloaded->selected_log_protocol, "SSM");

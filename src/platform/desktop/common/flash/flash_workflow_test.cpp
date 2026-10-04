@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "src/backend/calibration/calibration_service.h"
+#include "src/backend/config/catalog.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_plan.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h"
 #include "src/backend/ports/event_sink.h"
@@ -33,11 +34,50 @@ namespace fastecu::flash
 namespace
 {
 
-FlashWorkflowRequest request(std::string protocol, FlashOperation operation = FlashOperation::Read)
+// The kernel each protocol declared in the synthetic catalog these tests
+// used to write as protocols.cfg; catalogPaths() writes the files.
+struct CatalogKernel
 {
+    std::string_view protocol;
+    std::string_view file;
+    std::optional<std::uint32_t> load_address;
+};
+
+constexpr auto kCatalogKernels = std::to_array<CatalogKernel>({
+    {"sub_ecu_denso_mc68hc16y5_02", "catalog_mc68.bin", 0x20000U},
+    {"sub_ecu_denso_mc68hc16y5_02_tpu", "catalog_tpu.bin", 0x20000U},
+    {"sub_ecu_denso_mc68hc16y5_02_bdm", "catalog_mc68.bin", 0x20000U},
+    {"sub_ecu_denso_sh7055_02", "catalog_sh7055.bin", 0xFFFF6004U},
+    {"sub_ecu_denso_sh7055_02_ecutek", "catalog_sh7055.bin", 0xFFFF6004U},
+    {"sub_ecu_denso_sh7055_densocan", "catalog_densocan.bin", 0xFFFF6004U},
+    {"sub_tcu_denso_sh7055_can", "catalog_tcu_sh7055.bin", 0xFFFF9000U},
+    {"sub_tcu_denso_sh7058_can", "catalog_tcu_sh7058.bin", 0xFFFF3000U},
+    {"sub_ecu_denso_sh7058_can", "catalog_petrol_sh7058.bin", 0xFFFF3000U},
+    {"sub_ecu_denso_sh7058_can_ecutek", "catalog_petrol_sh7058.bin", 0xFFFF3000U},
+    {"sub_ecu_denso_sh7058_can_ecutek_racerom", "catalog_petrol_sh7058.bin", 0xFFFF3000U},
+    {"sub_ecu_denso_sh7058_can_ecutek_racerom_alt", "catalog_petrol_sh7058.bin", 0xFFFF3000U},
+    {"sub_ecu_denso_sh7058_can_cobb", "catalog_petrol_sh7058.bin", 0xFFFF3000U},
+    {"sub_ecu_denso_sh7058_can_diesel", "catalog_diesel_sh7058.bin", 0xFFFF4000U},
+    {"sub_ecu_denso_sh7059_can_diesel", "catalog_diesel_sh7059.bin", 0xFFFEE000U},
+    {"sub_ecu_denso_sh7055_04", "catalog_kline_sh7055.bin", 0xFFFF6004U},
+    {"sub_ecu_denso_sh7058_ecutek", "catalog_kline_sh7058.bin", 0xFFFF3000U},
+    {"sub_ecu_denso_sh7058_cobb", "catalog_kline_sh7058.bin", 0xFFFF3000U},
+    {"sub_ecu_unisia_jecs_20_bootmode", "catalog_uj20_bootmode.bin", std::nullopt},
+    {"sub_ecu_unisia_jecs_30_bootmode", "catalog_uj30_bootmode.bin", std::nullopt},
+});
+
+// `protocol` must outlive the request: pass a literal.
+FlashWorkflowRequest request(std::string_view protocol, FlashOperation operation = FlashOperation::Read)
+{
+    config::ProtocolSpec spec{.name = protocol, .mcu = "M32R_384KB_1block"};
+    if (const auto kernel = std::ranges::find(kCatalogKernels, protocol, &CatalogKernel::protocol);
+        kernel != kCatalogKernels.end())
+    {
+        spec.kernel = kernel->file;
+        spec.kernel_load_address = kernel->load_address;
+    }
     return {.operation = operation,
-            .protocol = std::move(protocol),
-            .mcu = "M32R_384KB_1block",
+            .protocol = spec,
             .image = std::nullopt,
             .paths = {},
             .display_filename = "test.bin",
@@ -47,7 +87,7 @@ FlashWorkflowRequest request(std::string protocol, FlashOperation operation = Fl
 FlashWorkflowRequest unisiaM32rWrite()
 {
     auto input = request("sub_ecu_unisia_jecs_20", FlashOperation::Write);
-    input.mcu = "M32R_128KB";
+    input.protocol.mcu = "M32R_128KB";
     input.image = bytes::Bytes(0x20000, 0xff);
     return input;
 }
@@ -78,7 +118,7 @@ using PromptArguments = std::vector<std::pair<std::string, std::string>>;
 FlashWorkflowRequest unisiaBootmodeWrite(const config::ConfigPaths& paths)
 {
     auto input = request("sub_ecu_unisia_jecs_20_bootmode", FlashOperation::Write);
-    input.mcu = "M32R_128KB";
+    input.protocol.mcu = "M32R_128KB";
     input.image = bytes::Bytes(0x20000, 0xa5);
     input.paths = paths;
     return input;
@@ -118,102 +158,8 @@ bool writeFile(const QString& path, const QByteArray& contents)
 
 std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, bool include_kernel_files = true)
 {
-    constexpr auto kCatalog = R"(<?xml version="1.0" encoding="UTF-8"?>
-<config name="FastECU" version="0.0-dev0">
-  <protocols>
-    <protocol name="sub_ecu_denso_mc68hc16y5_02" alias="wrx02">
-      <ecu>Denso MC68HC16Y5</ecu><mcu>MC68HC16Y5</mcu>
-      <kernel>catalog_mc68.bin</kernel><kernel_addr>0x20000</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_mc68hc16y5_02_tpu" alias="wrx02-tpu">
-      <ecu>Denso MC68HC16Y5</ecu><mcu>MC68HC16Y5_TPU</mcu>
-      <kernel>catalog_tpu.bin</kernel><kernel_addr>0x20000</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_mc68hc16y5_02_bdm">
-      <ecu>Denso MC68HC16Y5</ecu><mcu>MC68HC16Y5</mcu>
-      <kernel>catalog_mc68.bin</kernel><kernel_addr>0x20000</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7055_02" alias="fxt02">
-      <ecu>Denso SH7055</ecu><mcu>SH7055</mcu>
-      <kernel>catalog_sh7055.bin</kernel><kernel_addr>0xFFFF6004</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7055_02_ecutek" alias="fxt02-ecutek">
-      <ecu>Denso SH7055</ecu><mcu>SH7055</mcu>
-      <kernel>catalog_sh7055.bin</kernel><kernel_addr>0xFFFF6004</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7055_densocan" alias="densocan-sh7055">
-      <ecu>Denso SH7055</ecu><mcu>SH7055</mcu>
-      <kernel>catalog_densocan.bin</kernel><kernel_addr>0xFFFF6004</kernel_addr>
-    </protocol>
-    <protocol name="sub_tcu_denso_sh7055_can" alias="tcu-sh7055">
-      <ecu>Denso TCU SH7055</ecu><mcu>SH7055</mcu>
-      <kernel>catalog_tcu_sh7055.bin</kernel><kernel_addr>0xFFFF9000</kernel_addr>
-    </protocol>
-    <protocol name="sub_tcu_denso_sh7058_can" alias="tcu-sh7058">
-      <ecu>Denso TCU SH7058</ecu><mcu>SH7058</mcu>
-      <kernel>catalog_tcu_sh7058.bin</kernel><kernel_addr>0xFFFF3000</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058_can" alias="subarucan">
-      <ecu>Denso SH7058 petrol</ecu><mcu>SH7058</mcu>
-      <kernel>catalog_petrol_sh7058.bin</kernel><kernel_addr>0xFFFF3000</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058_can_ecutek" alias="subarucan-ecutek">
-      <ecu>Denso SH7058 petrol EcuTek</ecu><mcu>SH7058</mcu>
-      <kernel>catalog_petrol_sh7058.bin</kernel><kernel_addr>0xFFFF3000</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058_can_ecutek_racerom" alias="subarucan-racerom">
-      <ecu>Denso SH7058 petrol RaceRom</ecu><mcu>SH7058</mcu>
-      <kernel>catalog_petrol_sh7058.bin</kernel><kernel_addr>0xFFFF3000</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058_can_ecutek_racerom_alt" alias="subarucan-racerom-alt">
-      <ecu>Denso SH7058 petrol RaceRom alt</ecu><mcu>SH7058</mcu>
-      <kernel>catalog_petrol_sh7058.bin</kernel><kernel_addr>0xFFFF3000</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058_can_cobb" alias="subarucan-cobb">
-      <ecu>Denso SH7058 petrol Cobb</ecu><mcu>SH7058</mcu>
-      <kernel>catalog_petrol_sh7058.bin</kernel><kernel_addr>0xFFFF3000</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058_can_diesel" alias="subarucand">
-      <ecu>Denso SH7058 diesel</ecu><mcu>SH7058d</mcu>
-      <kernel>catalog_diesel_sh7058.bin</kernel><kernel_addr>0xFFFF4000</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7059_can_diesel" alias="subarucand">
-      <ecu>Denso SH7059 diesel</ecu><mcu>SH7059d</mcu>
-      <kernel>catalog_diesel_sh7059.bin</kernel><kernel_addr>0xFFFEE000</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7055_04" alias="sti04">
-      <ecu>Denso SH7055</ecu><mcu>SH7055</mcu>
-      <kernel>catalog_kline_sh7055.bin</kernel><kernel_addr>0xFFFF6004</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058_ecutek" alias="sti05_ecutek">
-      <ecu>Denso SH7058</ecu><mcu>SH7058</mcu>
-      <kernel>catalog_kline_sh7058.bin</kernel><kernel_addr>0xFFFF3000</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_denso_sh7058_cobb" alias="sti05_cobb">
-      <ecu>Denso SH7058</ecu><mcu>SH7058</mcu>
-      <kernel>catalog_kline_sh7058.bin</kernel><kernel_addr>0xFFFF3000</kernel_addr>
-    </protocol>
-    <protocol name="sub_ecu_unisia_jecs_20_bootmode">
-      <ecu>WA12212920WWW</ecu><mcu>M32R_128KB</mcu>
-      <kernel>catalog_uj20_bootmode.bin</kernel>
-    </protocol>
-    <protocol name="sub_ecu_unisia_jecs_30_bootmode">
-      <ecu>WA12212930WWW</ecu><mcu>M32R_256KB</mcu>
-      <kernel>catalog_uj30_bootmode.bin</kernel>
-    </protocol>
-  </protocols>
-  <car_models>
-    <car_model><make>Subaru</make><model>Impreza</model><version>WRX</version>
-      <protocol>sub_ecu_denso_mc68hc16y5_02</protocol></car_model>
-    <car_model><make>Subaru</make><model>Impreza</model><version>WRX TPU</version>
-      <protocol>sub_ecu_denso_mc68hc16y5_02_tpu</protocol></car_model>
-    <car_model><make>Subaru</make><model>Forester</model><version>XT</version>
-      <protocol>sub_ecu_denso_sh7055_02</protocol></car_model>
-  </car_models>
-</config>)";
-
     const QString kernel_directory = directory.filePath("kernels");
-    if (!QDir().mkpath(kernel_directory) || !writeFile(directory.filePath("protocols.cfg"), kCatalog))
+    if (!QDir().mkpath(kernel_directory))
     {
         return std::nullopt;
     }
@@ -237,7 +183,6 @@ std::optional<config::ConfigPaths> catalogPaths(const QTemporaryDir& directory, 
         }
     }
     config::ConfigPaths paths;
-    paths.protocols_file = directory.filePath("protocols.cfg").toStdString();
     paths.kernel_files_directory = (kernel_directory + "/").toStdString();
     return paths;
 }
@@ -374,7 +319,7 @@ TEST(FlashWorkflowTest, unisiaJecsRoutesOnlyExactProtocolMcuPairs)
     for (const auto& [protocol, mcu] : kPairs)
     {
         auto input = request(protocol);
-        input.mcu = mcu;
+        input.protocol.mcu = mcu;
         auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr) << protocol;
         ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
@@ -402,7 +347,7 @@ TEST(FlashWorkflowTest, unisiaJecsCrossPairsFailBeforeAttempt)
     for (const auto& [protocol, mcu] : kCrossPairs)
     {
         auto input = request(protocol);
-        input.mcu = mcu;
+        input.protocol.mcu = mcu;
         auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr) << protocol;
         auto step = workflow->next();
@@ -414,7 +359,7 @@ TEST(FlashWorkflowTest, unisiaJecsCrossPairsFailBeforeAttempt)
 TEST(FlashWorkflowTest, subaruMitsuPropagatesRomId)
 {
     auto input = request("sub_ecu_mitsu_m32r_kline");
-    input.mcu = "M32R_512KB_4blocks";
+    input.protocol.mcu = "M32R_512KB_4blocks";
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
     ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
     workflow->submit(FlashPromptResponse::Accept);
@@ -431,7 +376,7 @@ TEST(FlashWorkflowTest, subaruHitachiRoutesBothModesAndPropagatesReadResult)
     for (const char *protocol : {"sub_ecu_hitachi_m32r_kline", "sub_ecu_hitachi_m32r_kline_recovery"})
     {
         auto input = request(protocol);
-        input.mcu = "M32R_512KB_1block";
+        input.protocol.mcu = "M32R_512KB_1block";
         auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr);
         ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
@@ -449,7 +394,7 @@ TEST(FlashWorkflowTest, subaruHitachiRoutesBothModesAndPropagatesReadResult)
 TEST(FlashWorkflowTest, routesTcuHitachiM32rKlineReadOnly)
 {
     auto input = request("sub_tcu_hitachi_m32r_kline");
-    input.mcu = "M32R_512KB";
+    input.protocol.mcu = "M32R_512KB";
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
     ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
@@ -465,7 +410,7 @@ TEST(FlashWorkflowTest, routesTcuHitachiM32rKlineReadOnly)
     // workflow's very first step must be a failure rather than a prompt or an
     // attempt -- the legacy path silently "succeeded" while writing nothing.
     auto write_request = request("sub_tcu_hitachi_m32r_kline");
-    write_request.mcu = "M32R_512KB";
+    write_request.protocol.mcu = "M32R_512KB";
     write_request.operation = FlashOperation::Write;
     write_request.image = bytes::Bytes(0x80000, 0x00);
     auto write_workflow = FlashWorkflowFactory::tryCreate(std::move(write_request));
@@ -491,7 +436,7 @@ TEST(FlashWorkflowTest, routesTcuHitachiM32rCanReadAndWriteRejectsTestWrite)
     // Read routes to an attempt bound to the CAN executor and transport, and
     // a successful attempt result is propagated through to completion.
     auto read_input = request(kProtocol);
-    read_input.mcu = kMcu;
+    read_input.protocol.mcu = kMcu;
     auto read_workflow = FlashWorkflowFactory::tryCreate(std::move(read_input));
     ASSERT_TRUE(read_workflow != nullptr);
     ASSERT_EQ(std::get<FlashPromptStep>(read_workflow->next()).kind, FlashPromptKind::Begin);
@@ -518,7 +463,7 @@ TEST(FlashWorkflowTest, routesTcuHitachiM32rCanReadAndWriteRejectsTestWrite)
     // The workflow's very first step must be a failure, not a prompt -- the
     // legacy path silently "succeeded" while performing a real write.
     auto test_write_input = request(kProtocol, FlashOperation::TestWrite);
-    test_write_input.mcu = kMcu;
+    test_write_input.protocol.mcu = kMcu;
     test_write_input.image = bytes::Bytes(0x80000, 0xa5);
     auto test_write_workflow = FlashWorkflowFactory::tryCreate(std::move(test_write_input));
     ASSERT_TRUE(test_write_workflow != nullptr);
@@ -529,7 +474,7 @@ TEST(FlashWorkflowTest, routesTcuHitachiM32rCanReadAndWriteRejectsTestWrite)
     // Write, unlike the K-Line sibling, is supported by this family and
     // routes all the way to an attempt bound to the CAN executor/transport.
     auto write_input = request(kProtocol, FlashOperation::Write);
-    write_input.mcu = kMcu;
+    write_input.protocol.mcu = kMcu;
     write_input.image = bytes::Bytes(0x80000, 0xa5);
     auto write_workflow = FlashWorkflowFactory::tryCreate(std::move(write_input));
     ASSERT_TRUE(write_workflow != nullptr);
@@ -550,7 +495,7 @@ TEST(FlashWorkflowTest, routesSh72543rAliasesAndPreservesImageAndIdentity)
         for (auto operation : {FlashOperation::Read, FlashOperation::Write})
         {
             auto input = request(protocol, operation);
-            input.mcu = "SH72543R";
+            input.protocol.mcu = "SH72543R";
             if (operation == FlashOperation::Write)
             {
                 input.image = bytes::Bytes(0x200000, 0xa5);
@@ -598,7 +543,7 @@ TEST(FlashWorkflowTest, routesSh7058ReadAndWriteWithPreTransportPrompts)
     for (const auto operation : {FlashOperation::Read, FlashOperation::Write})
     {
         auto input = request("sub_ecu_hitachi_sh7058_can", operation);
-        input.mcu = "SH7058_1block";
+        input.protocol.mcu = "SH7058_1block";
         if (operation == FlashOperation::Write)
         {
             input.image = bytes::Bytes(0x100000, 0x5a);
@@ -620,7 +565,7 @@ TEST(FlashWorkflowTest, routesSh7058ReadAndWriteWithPreTransportPrompts)
                   operation == FlashOperation::Read ? TransportKind::Kline : TransportKind::CanIso15765);
     }
     auto input = request("sub_ecu_hitachi_sh7058_can");
-    input.mcu = "SH7058_1block";
+    input.protocol.mcu = "SH7058_1block";
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
     workflow->submit(FlashPromptResponse::Accept);
     workflow->submit(FlashPromptResponse::Decline);
@@ -633,7 +578,7 @@ TEST(FlashWorkflowTest, sh72543rRejectsPreflightAndDeclinedBegin)
         for (int fault = 0; fault < 3; ++fault)
         {
             auto input = request(protocol, fault == 0 ? FlashOperation::TestWrite : FlashOperation::Write);
-            input.mcu = fault == 1 ? "SH72543d" : "SH72543R";
+            input.protocol.mcu = fault == 1 ? "SH72543d" : "SH72543R";
             input.image = bytes::Bytes(fault == 2 ? 16 : 0x200000);
             auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
             ASSERT_TRUE(workflow);
@@ -643,7 +588,7 @@ TEST(FlashWorkflowTest, sh72543rRejectsPreflightAndDeclinedBegin)
                       fault == 0 ? ErrorKind::Unsupported : ErrorKind::InvalidConfig);
         }
         auto input = request(protocol);
-        input.mcu = "SH72543R";
+        input.protocol.mcu = "SH72543R";
         auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
         ASSERT_TRUE(workflow);
         ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(workflow->next()));
@@ -658,7 +603,7 @@ TEST(FlashWorkflowTest, sh72543rPropagatesFailureAndAbsentIdentity)
     for (int outcome = 0; outcome < 3; ++outcome)
     {
         auto input = request("sub_ecu_hitachi_sh72543r_can");
-        input.mcu = "SH72543R";
+        input.protocol.mcu = "SH72543R";
         auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
         ASSERT_TRUE(workflow);
         workflow->submit(FlashPromptResponse::Accept);
@@ -697,7 +642,7 @@ TEST(FlashWorkflowTest, coltWriteUsesColtSpecificSafetyPrompts)
 TEST(FlashWorkflowTest, mc68BdmReadRoutesThroughBeginToAttempt)
 {
     auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm");
-    input.mcu = "MC68HC16Y5";
+    input.protocol.mcu = "MC68HC16Y5";
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
     ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
@@ -716,7 +661,7 @@ TEST(FlashWorkflowTest, mc68BdmWriteBootstrapsTheCatalogKernelNotTheRom)
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::Write);
-    input.mcu = "MC68HC16Y5";
+    input.protocol.mcu = "MC68HC16Y5";
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -750,7 +695,7 @@ TEST(FlashWorkflowTest, mc68BdmDeclinedBootstrapConfirmationCancels)
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::Write);
-    input.mcu = "MC68HC16Y5";
+    input.protocol.mcu = "MC68HC16Y5";
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -767,7 +712,7 @@ TEST(FlashWorkflowTest, mc68BdmDeclinedBootstrapConfirmationCancels)
 TEST(FlashWorkflowTest, mc68BdmDeclinedBeginCancels)
 {
     auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm");
-    input.mcu = "MC68HC16Y5";
+    input.protocol.mcu = "MC68HC16Y5";
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
     ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
@@ -780,7 +725,7 @@ TEST(FlashWorkflowTest, mc68BdmDeclinedBeginCancels)
 TEST(FlashWorkflowTest, mc68BdmTestWriteFailsBeforeAnyPrompt)
 {
     auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::TestWrite);
-    input.mcu = "MC68HC16Y5";
+    input.protocol.mcu = "MC68HC16Y5";
     input.image = bytes::Bytes(0x30000, 0x5a);
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
@@ -792,7 +737,7 @@ TEST(FlashWorkflowTest, mc68BdmTestWriteFailsBeforeAnyPrompt)
 TEST(FlashWorkflowTest, mc68BdmPrefixLookalikeStaysOffTheKlineFamily)
 {
     auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm_x");
-    input.mcu = "MC68HC16Y5";
+    input.protocol.mcu = "MC68HC16Y5";
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
     const auto step = workflow->next();
@@ -803,25 +748,24 @@ TEST(FlashWorkflowTest, mc68BdmPrefixLookalikeStaysOffTheKlineFamily)
 TEST(FlashWorkflowTest, mc68TpuProtocolIsClaimedByPortableRoute)
 {
     auto input = request("sub_ecu_denso_mc68hc16y5_02_tpu");
-    input.mcu = "MC68HC16Y5_TPU";
+    input.protocol.mcu = "MC68HC16Y5_TPU";
     ASSERT_TRUE(FlashWorkflowFactory::tryCreate(std::move(input)) != nullptr);
 }
 
-TEST(FlashWorkflowTest, mc68Revision04IsClaimedButPlanBuildFails)
+TEST(FlashWorkflowTest, mc68Revision04HasNoRoute)
 {
-    auto input = request("sub_ecu_denso_mc68hc16y5_04");
-    input.mcu = "MC68HC16Y5";
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
-    ASSERT_TRUE(workflow != nullptr);
-    const auto step = workflow->next();
-    ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
-    ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::Unsupported);
+    for (const char *protocol : {"sub_ecu_denso_mc68hc16y5_04", "sub_ecu_denso_mc68hc16y5_04_ecutek"})
+    {
+        auto input = request(protocol);
+        input.protocol.mcu = "MC68HC16Y5";
+        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(std::move(input)) == nullptr) << protocol;
+    }
 }
 
 TEST(FlashWorkflowTest, sh7055ProtocolIsClaimedByPortableRoute)
 {
     auto input = request("sub_ecu_denso_sh7055_02");
-    input.mcu = "SH7055";
+    input.protocol.mcu = "SH7055";
     ASSERT_TRUE(FlashWorkflowFactory::tryCreate(std::move(input)) != nullptr);
 }
 
@@ -849,7 +793,7 @@ TEST(FlashWorkflowTest, densoCanResolvesKernelPromptsAndPropagatesAttemptResult)
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_sh7055_densocan");
-    input.mcu = "SH7055";
+    input.protocol.mcu = "SH7055";
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -859,7 +803,6 @@ TEST(FlashWorkflowTest, densoCanResolvesKernelPromptsAndPropagatesAttemptResult)
     auto step = workflow->next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::Begin);
-    ASSERT_TRUE(QFile::remove(QString::fromStdString(paths->protocols_file)));
     ASSERT_TRUE(QFile::remove(directory.filePath("kernels/catalog_densocan.bin")));
     workflow->submit(FlashPromptResponse::Accept);
     step = workflow->next();
@@ -882,11 +825,31 @@ TEST(FlashWorkflowTest, densoCanResolvesKernelPromptsAndPropagatesAttemptResult)
     ASSERT_EQ(done.rom_id, std::string("123456789A_"));
 }
 
+TEST(FlashWorkflowTest, densoCanMissingKernelAddressFailsBeforeAnyPromptOrAttempt)
+{
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const auto paths = catalogPaths(directory);
+    ASSERT_TRUE(paths.has_value());
+    auto input = request("sub_ecu_denso_sh7055_densocan");
+    input.protocol.mcu = "SH7055";
+    input.paths = *paths;
+    input.protocol.kernel_load_address.reset();
+
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    ASSERT_NE(workflow, nullptr);
+    const auto step = workflow->next();
+    ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
+    const auto& error = std::get<FlashFailureStep>(step).error;
+    EXPECT_EQ(error.kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(error.detail, ::testing::HasSubstr("declares no kernel load address"));
+}
+
 TEST(FlashWorkflowTest, densoCanPreflightAndDeclinedPromptsStopBeforeAttempt)
 {
-    auto missing_catalog = request("sub_ecu_denso_sh7055_densocan");
-    missing_catalog.mcu = "SH7055";
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(missing_catalog));
+    auto missing_kernel = request("sub_ecu_denso_sh7055_densocan");
+    missing_kernel.protocol.mcu = "SH7055";
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(missing_kernel));
     ASSERT_TRUE(workflow != nullptr);
     ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(workflow->next()));
 
@@ -895,7 +858,7 @@ TEST(FlashWorkflowTest, densoCanPreflightAndDeclinedPromptsStopBeforeAttempt)
         QTemporaryDir directory;
         ASSERT_TRUE(directory.isValid());
         auto input = request("sub_ecu_denso_sh7055_densocan");
-        input.mcu = "SH7055";
+        input.protocol.mcu = "SH7055";
         const auto paths = catalogPaths(directory);
         ASSERT_TRUE(paths.has_value());
         input.paths = *paths;
@@ -966,7 +929,7 @@ TEST(FlashWorkflowTest, petrolSupportedOperationsResolveSecurityAndCatalogKernel
     for (const Case& test : cases)
     {
         auto input = request(test.protocol, test.operation);
-        input.mcu = "SH7058";
+        input.protocol.mcu = "SH7058";
         input.paths = *paths;
         if (test.operation != FlashOperation::Read)
         {
@@ -1010,7 +973,7 @@ TEST(FlashWorkflowTest, petrolSuccessfulReadPropagatesBytesAndRomId)
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_sh7058_can");
-    input.mcu = "SH7058";
+    input.protocol.mcu = "SH7058";
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -1041,7 +1004,7 @@ TEST(FlashWorkflowTest, petrolReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     expectCanTransportSetup(*fake, true, 2016, 2024);
 
     auto input = request("sub_ecu_denso_sh7058_can");
-    input.mcu = "SH7058";
+    input.protocol.mcu = "SH7058";
     input.paths = *paths;
     input.serial = serial.get();
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
@@ -1050,9 +1013,8 @@ TEST(FlashWorkflowTest, petrolReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     auto step = workflow->next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::Begin);
-    // Resolution happened before Begin; removing the catalog and kernel now
-    // must not affect the already-bound attempt.
-    ASSERT_TRUE(QFile::remove(QString::fromStdString(paths->protocols_file)));
+    // Resolution happened before Begin; removing the kernel now must not
+    // affect the already-bound attempt.
     ASSERT_TRUE(QFile::remove(directory.filePath("kernels/catalog_petrol_sh7058.bin")));
 
     workflow->submit(FlashPromptResponse::Accept);
@@ -1120,7 +1082,7 @@ TEST(FlashWorkflowTest, dieselSupportedOperationsResolveGenerationCatalogKernels
     for (const Case& test : cases)
     {
         auto input = request(test.protocol, test.operation);
-        input.mcu = test.mcu;
+        input.protocol.mcu = test.mcu;
         input.paths = *paths;
         if (test.operation != FlashOperation::Read)
         {
@@ -1165,7 +1127,7 @@ TEST(FlashWorkflowTest, dieselSuccessfulReadPropagatesKernelSnapshotBytesAndRomI
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_sh7059_can_diesel");
-    input.mcu = "SH7059d";
+    input.protocol.mcu = "SH7059d";
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -1173,7 +1135,6 @@ TEST(FlashWorkflowTest, dieselSuccessfulReadPropagatesKernelSnapshotBytesAndRomI
     ASSERT_TRUE(workflow != nullptr);
 
     ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
-    ASSERT_TRUE(QFile::remove(QString::fromStdString(paths->protocols_file)));
     ASSERT_TRUE(QFile::remove(directory.filePath("kernels/catalog_diesel_sh7059.bin")));
     workflow->submit(FlashPromptResponse::Accept);
     const auto attempt_step = workflow->next();
@@ -1204,7 +1165,7 @@ TEST(FlashWorkflowTest, dieselReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     expectCanTransportSetup(*fake, true, 2016, 2024);
 
     auto input = request("sub_ecu_denso_sh7059_can_diesel");
-    input.mcu = "SH7059d";
+    input.protocol.mcu = "SH7059d";
     input.paths = *paths;
     input.serial = serial.get();
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
@@ -1213,10 +1174,9 @@ TEST(FlashWorkflowTest, dieselReadResolvesKernelBeforeBeginAndBindsDesktopCanTra
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::Begin);
 
-    // The workflow owns resolved catalog data before Begin; this also proves
+    // The workflow owns the resolved kernel before Begin; this also proves
     // the Diesel route is a real DesktopCan attempt rather than a legacy
     // MainWindow branch.
-    ASSERT_TRUE(QFile::remove(QString::fromStdString(paths->protocols_file)));
     ASSERT_TRUE(QFile::remove(directory.filePath("kernels/catalog_diesel_sh7059.bin")));
     workflow->submit(FlashPromptResponse::Accept);
     step = workflow->next();
@@ -1282,7 +1242,7 @@ TEST(FlashWorkflowTest, tcuSupportedOperationsResolveTheirCatalogKernelAndReachA
     for (const Case& test : cases)
     {
         auto input = request(test.protocol, test.operation);
-        input.mcu = test.mcu;
+        input.protocol.mcu = test.mcu;
         input.paths = *paths;
         if (test.image_size != 0)
         {
@@ -1338,7 +1298,7 @@ TEST(FlashWorkflowTest, tcuUnsupportedOperationsFailBeforeTransportIo)
     for (const Case& test : kCases)
     {
         auto input = request(test.protocol, test.operation);
-        input.mcu = test.mcu;
+        input.protocol.mcu = test.mcu;
         input.paths = *paths;
         input.image = bytes::Bytes(test.image_size, 0xa5);
         input.serial = serial.get();
@@ -1363,7 +1323,7 @@ TEST(FlashWorkflowTest, tcuReadResolvesKernelBeforeBeginAndBindsDesktopCanTransp
     expectCanTransportSetup(*fake, false, 2017, 2025);
 
     auto input = request("sub_tcu_denso_sh7055_can");
-    input.mcu = "SH7055";
+    input.protocol.mcu = "SH7055";
     input.paths = *paths;
     input.serial = serial.get();
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
@@ -1372,7 +1332,6 @@ TEST(FlashWorkflowTest, tcuReadResolvesKernelBeforeBeginAndBindsDesktopCanTransp
     auto step = workflow->next();
     ASSERT_TRUE(std::holds_alternative<FlashPromptStep>(step));
     ASSERT_EQ(std::get<FlashPromptStep>(step).kind, FlashPromptKind::Begin);
-    ASSERT_TRUE(QFile::remove(QString::fromStdString(paths->protocols_file)));
     ASSERT_TRUE(QFile::remove(directory.filePath("kernels/catalog_tcu_sh7055.bin")));
 
     workflow->submit(FlashPromptResponse::Accept);
@@ -1399,7 +1358,7 @@ TEST(FlashWorkflowTest, tcuSuccessfulReadPropagatesBytesAndRomId)
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     auto input = request("sub_tcu_denso_sh7058_can");
-    input.mcu = "SH7058";
+    input.protocol.mcu = "SH7058";
     input.paths = *paths;
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
@@ -1421,7 +1380,7 @@ TEST(FlashWorkflowTest, mc68ResolvesKernelThroughCatalogBeforePromptAndAttempt)
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_mc68hc16y5_02");
-    input.mcu = "MC68HC16Y5";
+    input.protocol.mcu = "MC68HC16Y5";
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -1450,7 +1409,7 @@ TEST(FlashWorkflowTest, missingCatalogKernelFailsBeforePrompt)
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_mc68hc16y5_02");
-    input.mcu = "MC68HC16Y5";
+    input.protocol.mcu = "MC68HC16Y5";
     const auto paths = catalogPaths(directory, false);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -1467,7 +1426,7 @@ TEST(FlashWorkflowTest, sh7055IteratesConfirmationsAndPropagatesAttemptResult)
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_sh7055_02");
-    input.mcu = "SH7055";
+    input.protocol.mcu = "SH7055";
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -1504,7 +1463,7 @@ TEST(FlashWorkflowTest, sh7055EcutekResolvesWithoutCarModelReference)
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_sh7055_02_ecutek");
-    input.mcu = "SH7055";
+    input.protocol.mcu = "SH7055";
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -1539,7 +1498,7 @@ TEST(FlashWorkflowTest, mc68TestWriteWithPortableImageReachesAttempt)
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_mc68hc16y5_02", FlashOperation::TestWrite);
-    input.mcu = "MC68HC16Y5";
+    input.protocol.mcu = "MC68HC16Y5";
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -1560,7 +1519,7 @@ TEST(FlashWorkflowTest, mc68PhysicalImageIsPackedAtWorkflowBoundary)
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_mc68hc16y5_02", FlashOperation::Write);
-    input.mcu = "MC68HC16Y5";
+    input.protocol.mcu = "MC68HC16Y5";
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -1594,7 +1553,7 @@ TEST(FlashWorkflowTest, mc68CalibrationPaddingRoundTripsToPackedWriteImage)
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_mc68hc16y5_02", FlashOperation::TestWrite);
-    input.mcu = "MC68HC16Y5";
+    input.protocol.mcu = "MC68HC16Y5";
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -1621,7 +1580,7 @@ TEST(FlashWorkflowTest, sh7055TestWriteWithPortableImageReachesPromptsAndAttempt
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_sh7055_02", FlashOperation::TestWrite);
-    input.mcu = "SH7055";
+    input.protocol.mcu = "SH7055";
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -1641,7 +1600,7 @@ TEST(FlashWorkflowTest, mc68TpuReadResolvesCatalogAndReachesAttempt)
     QTemporaryDir directory;
     ASSERT_TRUE(directory.isValid());
     auto input = request("sub_ecu_denso_mc68hc16y5_02_tpu");
-    input.mcu = "MC68HC16Y5_TPU";
+    input.protocol.mcu = "MC68HC16Y5_TPU";
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     input.paths = *paths;
@@ -1692,7 +1651,7 @@ TEST(FlashWorkflowTest, densoSh705xKlineRoutesExactProtocolsThroughBeginToAttemp
         const auto paths = catalogPaths(directory);
         ASSERT_TRUE(paths.has_value());
         auto input = request(c.protocol, c.operation);
-        input.mcu = c.mcu;
+        input.protocol.mcu = c.mcu;
         input.paths = *paths;
         if (c.operation != FlashOperation::Read)
         {
@@ -1721,7 +1680,7 @@ TEST(FlashWorkflowTest, densoSh705xKlineCobbReadFailsBeforeAttempt)
     const auto paths = catalogPaths(directory);
     ASSERT_TRUE(paths.has_value());
     auto input = request("sub_ecu_denso_sh7058_cobb");
-    input.mcu = "SH7058";
+    input.protocol.mcu = "SH7058";
     input.paths = *paths;
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
@@ -1755,7 +1714,7 @@ TEST(FlashWorkflowTest, unisiaJecsM32rRoutesTheFourExactProtocols)
          }))
     {
         auto input = request(variant.protocol);
-        input.mcu = variant.mcu;
+        input.protocol.mcu = variant.mcu;
         auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr) << variant.protocol;
         ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
@@ -1791,7 +1750,7 @@ TEST(FlashWorkflowTest, unisiaBootmodeReadUsesTheKlineReadFamily)
          }))
     {
         auto input = request(variant.protocol);
-        input.mcu = variant.mcu;
+        input.protocol.mcu = variant.mcu;
         auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr) << variant.protocol;
         ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
@@ -2144,7 +2103,7 @@ TEST(FlashWorkflowTest, unisiaJecsM32rAdapterSuppliedVppCancelledWriteWarnsNotTo
 TEST(FlashWorkflowTest, unisiaJecsM32rReadPropagatesRomIdWithoutVppPrompts)
 {
     auto input = request("sub_ecu_unisia_jecs_30");
-    input.mcu = "M32R_256KB";
+    input.protocol.mcu = "M32R_256KB";
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
     ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
     workflow->submit(FlashPromptResponse::Accept);
@@ -2161,7 +2120,7 @@ TEST(FlashWorkflowTest, unisiaJecsM32rReadPropagatesRomIdWithoutVppPrompts)
 TEST(FlashWorkflowTest, unisiaJecsM32rFailedReadReportsWithoutNotice)
 {
     auto input = request("sub_ecu_unisia_jecs_30");
-    input.mcu = "M32R_256KB";
+    input.protocol.mcu = "M32R_256KB";
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
     ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
@@ -2176,7 +2135,7 @@ TEST(FlashWorkflowTest, unisiaJecsM32rFailedReadReportsWithoutNotice)
 TEST(FlashWorkflowTest, unisiaJecsM32rWriteOnReadOnlyVariantFailsBeforeAnyPrompt)
 {
     auto input = request("sub_ecu_unisia_jecs_40", FlashOperation::Write);
-    input.mcu = "M32R_384KB";
+    input.protocol.mcu = "M32R_384KB";
     input.image = bytes::Bytes(0x60000, 0xff);
     auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
     ASSERT_TRUE(workflow != nullptr);
@@ -2283,8 +2242,8 @@ std::vector<SingleAttemptCase> singleAttemptCases()
 
 FlashWorkflowRequest singleAttemptRead(const SingleAttemptCase& test, const config::ConfigPaths& paths)
 {
-    auto input = request(std::string(test.protocol));
-    input.mcu = std::string(test.mcu);
+    auto input = request(test.protocol);
+    input.protocol.mcu = test.mcu;
     input.paths = paths;
     return input;
 }
@@ -2515,7 +2474,7 @@ TEST(FlashWorkflowTest, singleAttemptFamiliesRejectInvalidConfigurationBeforeAny
     {
         SCOPED_TRACE(test.protocol);
         auto input = singleAttemptRead(test, *paths);
-        input.mcu = "NOT_A_KNOWN_MCU";
+        input.protocol.mcu = "NOT_A_KNOWN_MCU";
         input.serial = serial.get();
         auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
         ASSERT_TRUE(workflow != nullptr);
@@ -2580,7 +2539,6 @@ TEST(FlashWorkflowTest, kernelBackedFamiliesKeepTheirKernelSnapshotAfterFilesAre
 
         // The kernel is loaded before Begin; nothing on disk is read afterward.
         ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
-        ASSERT_TRUE(QFile::remove(QString::fromStdString(paths->protocols_file)));
         ASSERT_TRUE(QDir(directory.filePath("kernels")).removeRecursively());
         workflow->submit(FlashPromptResponse::Accept);
 
@@ -2601,7 +2559,7 @@ TEST(FlashWorkflowTest, kernelBackedFamiliesKeepTheirKernelSnapshotAfterFilesAre
 FlashWorkflowRequest sh7058Write()
 {
     auto input = request("sub_ecu_hitachi_sh7058_can", FlashOperation::Write);
-    input.mcu = "SH7058_1block";
+    input.protocol.mcu = "SH7058_1block";
     input.image = bytes::Bytes(0x100000, 0x5a);
     return input;
 }
@@ -2693,7 +2651,7 @@ TEST(FlashWorkflowTest, sh7058WriteRejectsInvalidInputBeforeAnyPromptOrIo)
 FlashWorkflowRequest bdmWrite(const config::ConfigPaths& paths)
 {
     auto input = request("sub_ecu_denso_mc68hc16y5_02_bdm", FlashOperation::Write);
-    input.mcu = "MC68HC16Y5";
+    input.protocol.mcu = "MC68HC16Y5";
     input.paths = paths;
     input.image = bytes::Bytes(0x30000, 0x5a);
     return input;
@@ -2832,7 +2790,6 @@ TEST(FlashWorkflowTest, mc68BdmWriteKeepsItsKernelSnapshotAfterFilesAreRemoved)
 
     // The kernel is loaded before Begin; nothing on disk is read afterward.
     ASSERT_EQ(std::get<FlashPromptStep>(workflow->next()).kind, FlashPromptKind::Begin);
-    ASSERT_TRUE(QFile::remove(QString::fromStdString(paths->protocols_file)));
     ASSERT_TRUE(QDir(directory.filePath("kernels")).removeRecursively());
     workflow->submit(FlashPromptResponse::Accept);
 
@@ -2874,8 +2831,8 @@ std::vector<ColtWriteCase> coltWriteCases()
 
 FlashWorkflowRequest coltWrite(const ColtWriteCase& test)
 {
-    auto input = request(std::string(test.protocol), FlashOperation::Write);
-    input.mcu = std::string(test.mcu);
+    auto input = request(test.protocol, FlashOperation::Write);
+    input.protocol.mcu = test.mcu;
     input.image = bytes::Bytes(test.capacity, 0x5a);
     return input;
 }

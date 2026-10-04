@@ -4,11 +4,8 @@
 #include <array>
 #include <cassert>
 #include <format>
-#include <limits>
 #include <string_view>
 
-#include "src/backend/config/protocol_catalog.h"
-#include "src/backend/definition/text_format.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_executor.h"
 #include "src/backend/flash/ecu/mitsu_colt_m32r_can_plan.h"
@@ -160,71 +157,34 @@ class FlashAttemptOutcome
     std::optional<Error> failure_;
 };
 
-Result<std::uint32_t> parseKernelStartAddress(std::string_view kernel_addr)
-{
-    const auto parsed = definition::parse_hex_value(kernel_addr);
-    if (!parsed.has_value() || *parsed > std::numeric_limits<std::uint32_t>::max())
-    {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("kernel_addr did not parse as a 32-bit address: '{}'", kernel_addr));
-    }
-    return static_cast<std::uint32_t>(*parsed);
-}
-
-Result<config::ProtocolEntry> resolveProtocol(const config::ConfigPaths& paths, std::string_view protocol_name,
-                                              IFileRepository& repository)
-{
-    Result<config::ProtocolCatalog> protocols = config::load_protocol_catalog(paths, repository);
-    if (!protocols.has_value())
-    {
-        return std::unexpected(protocols.error());
-    }
-    const auto entry = std::ranges::find(*protocols, protocol_name, &config::ProtocolEntry::protocol_name);
-    if (entry == protocols->end())
-    {
-        return fail(ErrorKind::InvalidConfig,
-                    std::format("protocol '{}' is absent from the <protocols> section", protocol_name));
-    }
-    return *entry;
-}
-
 Result<KernelImage> resolveKernel(const FlashWorkflowRequest& request, IFileRepository& repository)
 {
-    Result<config::ProtocolEntry> entry = resolveProtocol(request.paths, request.protocol, repository);
-    if (!entry.has_value())
+    if (!request.protocol.kernel_load_address.has_value())
     {
-        return std::unexpected(entry.error());
-    }
-    Result<std::uint32_t> load_address = parseKernelStartAddress(entry->kernel_addr);
-    if (!load_address.has_value())
-    {
-        return std::unexpected(load_address.error());
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("protocol '{}' declares no kernel load address", request.protocol.name));
     }
     Result<std::vector<std::uint8_t>> kernel_bytes =
-        repository.read(request.paths.kernel_files_directory + entry->kernel);
+        repository.read(request.paths.kernel_files_directory + std::string(request.protocol.kernel));
     if (!kernel_bytes.has_value())
     {
         return std::unexpected(kernel_bytes.error());
     }
-    return KernelImage{
-        .id = request.protocol + "-kernel", .load_address = *load_address, .bytes = std::move(*kernel_bytes)};
+    return KernelImage{.id = std::format("{}-kernel", request.protocol.name),
+                       .load_address = *request.protocol.kernel_load_address,
+                       .bytes = std::move(*kernel_bytes)};
 }
 
-// The cfg <kernel> file alone. The Unisia Jecs M32R _bootmode entries declare
-// no <kernel_addr>: the M32R boot ROM places the kernel itself.
+// The kernel file alone. The Unisia Jecs M32R _bootmode entries declare no
+// kernel load address: the M32R boot ROM places the kernel itself.
 Result<bytes::Bytes> resolveKernelBytes(const FlashWorkflowRequest& request, IFileRepository& repository)
 {
-    Result<config::ProtocolEntry> entry = resolveProtocol(request.paths, request.protocol, repository);
-    if (!entry.has_value())
-    {
-        return std::unexpected(entry.error());
-    }
     Result<std::vector<std::uint8_t>> kernel_bytes =
-        repository.read(request.paths.kernel_files_directory + entry->kernel);
+        repository.read(request.paths.kernel_files_directory + std::string(request.protocol.kernel));
     if (!kernel_bytes.has_value())
     {
         const Error& error = kernel_bytes.error();
-        return fail(error.kind, std::format("kernel file '{}': {}", entry->kernel, error.detail));
+        return fail(error.kind, std::format("kernel file '{}': {}", request.protocol.kernel, error.detail));
     }
     return bytes::Bytes(kernel_bytes->begin(), kernel_bytes->end());
 }
@@ -273,8 +233,8 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
   public:
     explicit SubaruUnisiaJecsM32rKlineWorkflow(FlashWorkflowRequest request)
         : request_(std::move(request)),
-          plan_(build_subaru_unisia_jecs_m32r_kline_plan(request_.operation, request_.protocol, request_.mcu,
-                                                         std::move(request_.image),
+          plan_(build_subaru_unisia_jecs_m32r_kline_plan(request_.operation, request_.protocol.name,
+                                                         request_.protocol.mcu, std::move(request_.image),
                                                          adapter_supplies_programming_voltage(request_.serial)))
     {
         if (plan_.has_value())
@@ -532,8 +492,8 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         if (!is_write())
         {
             // adapter_supplies_programming_voltage is irrelevant to Read.
-            auto read = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Read, request_.protocol, request_.mcu,
-                                                                 std::nullopt, true);
+            auto read = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Read, request_.protocol.name,
+                                                                 request_.protocol.mcu, std::nullopt, true);
             if (!read.has_value())
             {
                 return std::unexpected(read.error());
@@ -542,8 +502,8 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         }
         // Program first: it needs no I/O and rejects TestWrite and a wrong
         // image before the kernel file is read.
-        auto program = build_subaru_unisia_jecs_m32r_bootmode_program_plan(request_.operation, request_.protocol,
-                                                                           request_.mcu, std::move(request_.image));
+        auto program = build_subaru_unisia_jecs_m32r_bootmode_program_plan(
+            request_.operation, request_.protocol.name, request_.protocol.mcu, std::move(request_.image));
         if (!program.has_value())
         {
             return std::unexpected(program.error());
@@ -554,8 +514,8 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         {
             return std::unexpected(kernel_bytes.error());
         }
-        auto kernel = build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(request_.operation, request_.protocol,
-                                                                         request_.mcu, std::move(*kernel_bytes));
+        auto kernel = build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(
+            request_.operation, request_.protocol.name, request_.protocol.mcu, std::move(*kernel_bytes));
         if (!kernel.has_value())
         {
             return std::unexpected(kernel.error());
@@ -653,7 +613,7 @@ template <KernelFreePlanBuilder Build> class EagerPlan
 {
   public:
     explicit EagerPlan(FlashWorkflowRequest& request)
-        : plan_(Build(request.operation, request.protocol, request.mcu, std::move(request.image)))
+        : plan_(Build(request.operation, request.protocol.name, request.protocol.mcu, std::move(request.image)))
     {
     }
 
@@ -691,8 +651,8 @@ template <PlanPreparation Prepare> class LazyPlan
     std::optional<Result<FlashPlan>> plan_;
 };
 
-// A kernel-backed family: the catalog and kernel file are read, then the
-// family builder runs.
+// A kernel-backed family: the protocol's kernel file is read, then the family
+// builder runs.
 template <KernelBackedPlanBuilder Build> Result<FlashPlan> prepareKernelBacked(FlashWorkflowRequest& request)
 {
     QtFileRepository repository;
@@ -701,7 +661,8 @@ template <KernelBackedPlanBuilder Build> Result<FlashPlan> prepareKernelBacked(F
     {
         return std::unexpected(kernel.error());
     }
-    return Build(request.operation, request.protocol, request.mcu, std::move(request.image), std::move(*kernel));
+    return Build(request.operation, request.protocol.name, request.protocol.mcu, std::move(request.image),
+                 std::move(*kernel));
 }
 
 // MC68HC16Y5_02: prepareKernelBacked with two family steps before the kernel
@@ -711,12 +672,12 @@ Result<FlashPlan> prepareMc68(FlashWorkflowRequest& request)
     // Desktop FullRomData is physically addressed after the legacy
     // calibration adapter inserts the 0x20000-0x27fff RAM/kernel hole.
     // Portable MC plans and executors use the packed flash-block image.
-    request.image = normalizeMc68Image(std::move(request.image), request.mcu);
-    // Run the family builder first so recognized-but-unsupported
-    // revision 04 is rejected by the plan even without a catalog.
+    request.image = normalizeMc68Image(std::move(request.image), request.protocol.mcu);
+    // Run the family builder first so a protocol or MCU the family rejects
+    // fails before the kernel file is read.
     Result<FlashPlan> preflight = build_subaru_denso_mc68hc16y5_02_plan(
-        request.operation, request.protocol, request.mcu, request.image,
-        KernelImage{.id = request.protocol + "-kernel", .load_address = 0x20000, .bytes = {0}});
+        request.operation, request.protocol.name, request.protocol.mcu, request.image,
+        KernelImage{.id = std::format("{}-kernel", request.protocol.name), .load_address = 0x20000, .bytes = {0}});
     if (!preflight.has_value())
     {
         return std::unexpected(preflight.error());
@@ -727,19 +688,19 @@ Result<FlashPlan> prepareMc68(FlashWorkflowRequest& request)
     {
         return std::unexpected(kernel.error());
     }
-    return build_subaru_denso_mc68hc16y5_02_plan(request.operation, request.protocol, request.mcu,
+    return build_subaru_denso_mc68hc16y5_02_plan(request.operation, request.protocol.name, request.protocol.mcu,
                                                  std::move(request.image), std::move(*kernel));
 }
 
-// MC68HC16Y5 BDM: only Write reads the catalog -- its "write" uploads and
-// starts the cfg kernel. The operator's ROM (request.image) is never
+// MC68HC16Y5 BDM: only Write reads the kernel file -- its "write" uploads and
+// starts the protocol's kernel. The operator's ROM (request.image) is never
 // forwarded: BDM never writes the ROM.
 Result<FlashPlan> prepareBdm(FlashWorkflowRequest& request)
 {
     if (request.operation != FlashOperation::Write)
     {
-        return build_subaru_denso_mc68hc16y5_02_bdm_plan(request.operation, request.protocol, request.mcu, std::nullopt,
-                                                         std::nullopt);
+        return build_subaru_denso_mc68hc16y5_02_bdm_plan(request.operation, request.protocol.name, request.protocol.mcu,
+                                                         std::nullopt, std::nullopt);
     }
     QtFileRepository repository;
     Result<KernelImage> kernel = resolveKernel(request, repository);
@@ -747,8 +708,8 @@ Result<FlashPlan> prepareBdm(FlashWorkflowRequest& request)
     {
         return std::unexpected(kernel.error());
     }
-    return build_subaru_denso_mc68hc16y5_02_bdm_plan(request.operation, request.protocol, request.mcu, std::nullopt,
-                                                     std::move(*kernel));
+    return build_subaru_denso_mc68hc16y5_02_bdm_plan(request.operation, request.protocol.name, request.protocol.mcu,
+                                                     std::nullopt, std::move(*kernel));
 }
 
 template <KernelBackedPlanBuilder Build> using CachedKernelPlan = LazyPlan<&prepareKernelBacked<Build>>;
@@ -1122,7 +1083,6 @@ constexpr auto kRoutes = std::to_array<Route>({
     // protocol.
     {"sub_ecu_denso_mc68hc16y5_02_bdm", SubaruDensoMc68hc16y5_02Bdm},
     {"sub_ecu_denso_mc68hc16y5_02", SubaruDensoMc68hc16y5_02},
-    {"sub_ecu_denso_mc68hc16y5_04", SubaruDensoMc68hc16y5_02},
     {"sub_ecu_denso_sh7055_02", SubaruDensoSh7055_02},
     {"sub_ecu_denso_sh7055_04", SubaruDensoSh705xKline, RouteMatch::Exact},
     {"sub_ecu_denso_sh7055_04_ecutek", SubaruDensoSh705xKline, RouteMatch::Exact},
@@ -1174,8 +1134,8 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
                                             [&request](const Route& candidate)
                                             {
                                                 return candidate.match == RouteMatch::Exact
-                                                           ? request.protocol == candidate.pattern
-                                                           : request.protocol.starts_with(candidate.pattern);
+                                                           ? request.protocol.name == candidate.pattern
+                                                           : request.protocol.name.starts_with(candidate.pattern);
                                             });
     if (route == kRoutes.end())
     {

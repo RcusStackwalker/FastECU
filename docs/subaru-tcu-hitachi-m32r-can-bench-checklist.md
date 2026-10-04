@@ -114,13 +114,13 @@ They are listed in the family's
 [flash qualification matrix](flash-qualification-matrix.md) row as well.
 
 - [ ] **`M32R_512KB` MCU binding.** This binding is confirmed in-repo, not an
-      external unknown: `protocols.cfg` declares `<mcu>M32R_512KB</mcu>` for
-      `sub_tcu_hitachi_m32r_can`, `protocol_catalog.cpp` parses it into
-      `ProtocolEntry::mcu`, and the portable workflow's `.mcu` is checked by
+      external unknown: the built-in catalog declares `M32R_512KB` as
+      `sub_tcu_hitachi_m32r_can`'s `ProtocolSpec::mcu`, the flash request
+      carries that protocol, and its `.mcu` is checked by
       `validate_subaru_tcu_hitachi_m32r_can_plan` — see the
       [flash qualification matrix](flash-qualification-matrix.md) row. What remains
       to confirm here is narrower than "where does this binding come from":
-      it is **only whether the cfg value matches the physical TCU**. **Its
+      it is **only whether the catalog value matches the physical TCU**. **Its
       blast radius now includes which regions get erased**, not merely what
       validates: the block table this MCU selects is what decides which
       blocks the write opens and, together with section 0, what the erase

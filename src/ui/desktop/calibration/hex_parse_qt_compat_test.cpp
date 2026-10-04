@@ -16,7 +16,7 @@
 namespace
 {
 
-// Every kernel_addr value in the shipped protocols.cfg. Hard-coded so the
+// Every kernel_addr value the retired protocols.cfg shipped. Hard-coded so the
 // compatibility oracle is independent of the catalog parser; keep this list
 // synchronized when shipped kernel_addr values change.
 constexpr auto kRealKernelAddrs = std::to_array<const char *>(

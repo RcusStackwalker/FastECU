@@ -94,7 +94,7 @@ TEST(StartupDiagnosticsTest, realPresentersReportSeverityAndOrderedDetails)
 {
     StartupModalDriver dialogs;
     MessageCapture messages;
-    const QString detail = QStringLiteral("Invalid /tmp/配置/protocols.cfg: broken");
+    const QString detail = QStringLiteral("Invalid /tmp/配置/fastecu.cfg: broken");
     present_startup_failure({fastecu::ErrorKind::InvalidConfig, detail.toStdString()});
     present_startup_warnings({"first /a.cfg", "second /b.cfg"});
     ASSERT_EQ(dialogs.icons, (QList<QMessageBox::Icon>{QMessageBox::Critical, QMessageBox::Warning}));
@@ -143,9 +143,9 @@ TEST(StartupDiagnosticsTest, sinkRetainsBoundedUtf8DiagnosticsInOrder)
 
 TEST(StartupDiagnosticsTest, failureTextCarriesTheDetail)
 {
-    const QString text = startup_failure_text(
-        fastecu::Error{fastecu::ErrorKind::InvalidConfig, "Unable to load protocols /r/protocols.cfg: bad"});
-    ASSERT_TRUE(text.contains("/r/protocols.cfg"));
+    const QString text =
+        startup_failure_text(fastecu::Error{fastecu::ErrorKind::InvalidConfig, "Unable to load /r/fastecu.cfg: bad"});
+    ASSERT_TRUE(text.contains("/r/fastecu.cfg"));
     ASSERT_TRUE(text.contains("bad"));
 }
 

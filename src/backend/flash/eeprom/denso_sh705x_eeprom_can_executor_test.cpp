@@ -44,7 +44,7 @@ using namespace bytes::literals;
 // mirrored by the builder's DensoSh705xEepromCanPlan.
 constexpr std::uint32_t kRequestId = 0x7e0;
 
-// Matches resources/shared/config/protocols.cfg's CAN protocol entries'
+// Matches the built-in catalog's CAN protocol entries'
 // kernel_addr for McuType "SH7055" (kKernelBlocksSH7055[0].start), the same
 // literal the K-Line sibling's test uses -- Task 7's own CAN characterization
 // test used this exact McuType/address pair too (see its makeEcuCalDef()).

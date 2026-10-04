@@ -12,6 +12,7 @@
 #include "src/algorithms/checksum/checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 #include "src/algorithms/protocol/bytes_compose.h"
+#include "src/backend/config/catalog.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/subaru_denso_mc68hc16y5_02_plan.h"
 #include "src/backend/flash/eeprom/eeprom_read_plan.h"
@@ -366,28 +367,16 @@ void script_write_prefix(ScriptedKlineFlashTransport& transport, const flashdev_
     }
 }
 
-config::ConfigPaths eeprom_paths()
-{
-    return {.kernel_files_directory = "kernels/", .protocols_file = "protocols.cfg"};
-}
-
 Result<FlashPlan> different_family_plan()
 {
-    constexpr std::string_view kConfig = R"(<?xml version="1.0" encoding="UTF-8"?>
-<config name="FastECU" version="0.0-dev0">
-  <protocols>
-    <protocol name="sub_ecu_eeprom_denso_sh7055_kline" alias="SH7055 EEPROM K-Line">
-      <ecu>Denso SH7055</ecu><mcu>SH7055</mcu><kernel>kernel.bin</kernel><kernel_addr>0xFFFF6004</kernel_addr>
-    </protocol>
-  </protocols>
-  <car_models>
-    <car_model><make>Subaru</make><model>Impreza</model><version>WRX</version><protocol>sub_ecu_eeprom_denso_sh7055_kline</protocol></car_model>
-  </car_models>
-</config>)";
     InMemoryFileRepository files;
-    files.files["protocols.cfg"] = std::vector<std::uint8_t>(kConfig.begin(), kConfig.end());
     files.files["kernels/kernel.bin"] = {0x01, 0x02, 0x03, 0x04};
-    return build_eeprom_read_plan(eeprom_paths(), "sub_ecu_eeprom_denso_sh7055_kline", EepromReadMode::Mode2, files);
+    return build_eeprom_read_plan({.kernel_files_directory = "kernels/"},
+                                  config::ProtocolSpec{.name = "sub_ecu_eeprom_denso_sh7055_kline",
+                                                       .mcu = "SH7055",
+                                                       .kernel = "kernel.bin",
+                                                       .kernel_load_address = 0xFFFF6004U},
+                                  EepromReadMode::Mode2, files);
 }
 
 TEST(SubaruDensoMc68hc16y5_02Executor, WrongFamilyPlanFails)

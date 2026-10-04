@@ -8,6 +8,7 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/calibration/session/calibration_session.h"
 #include "src/backend/calibration/session/rom_save.h"
+#include "src/backend/config/catalog.h"
 #include "src/backend/config/config_session.h"
 #include "src/backend/ports/event_sink.h"
 #include "src/ui/desktop/calibration/calibration_interaction.h"
@@ -20,8 +21,7 @@ namespace fastecu::ui
 struct PreparedWrite
 {
     bytes::Bytes image;
-    std::string protocol;
-    std::string mcu;
+    config::ProtocolSpec protocol;
     std::string kernel_path;
     std::string display_filename;
 };

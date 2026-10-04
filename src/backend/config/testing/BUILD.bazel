@@ -1,7 +1,6 @@
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
-# Config-package-owned test fixture: a ConfigSession over in-memory ports
-# with a small, fully known protocols.cfg.
+# Config-package-owned test fixture: a ConfigSession over in-memory ports and a small, fully known catalog.
 package(default_visibility = [
     "//bazel/layers:apps_desktop",
     "//bazel/layers:backend",
@@ -20,6 +19,7 @@ cc_library(
         "//src/platform/desktop/common/definition:__pkg__",
     ],
     deps = [
+        "//src/backend/config:catalog",
         "//src/backend/config:config_paths",
         "//src/backend/config:config_session",
         "//src/backend/ports/testing:in_memory_file_repository",

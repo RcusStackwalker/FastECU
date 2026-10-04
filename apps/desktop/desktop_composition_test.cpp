@@ -201,14 +201,13 @@ TEST_F(DesktopCompositionTest, failedStartupBuildsNoServicesAndPerformsNoEcuIo)
     ASSERT_TRUE(root.isValid());
     const QString config_dir = root.path() + "/" + kVersion + "/config/";
     ASSERT_TRUE(QDir().mkpath(config_dir));
-    ASSERT_TRUE(
-        writeFile(config_dir + "protocols.cfg", R"(<config name="FastECU"><protocols/><car_models/></config>)"));
+    ASSERT_TRUE(writeFile(config_dir + "fastecu.cfg", "<config"));
 
     DesktopComposition composition{{}, {}, root.path()};
 
     ASSERT_TRUE(!composition.started());
     ASSERT_TRUE(composition.startup_error().has_value());
-    ASSERT_TRUE(QString::fromStdString(composition.startup_error()->detail).contains(config_dir + "protocols.cfg"));
+    ASSERT_TRUE(QString::fromStdString(composition.startup_error()->detail).contains(config_dir + "fastecu.cfg"));
     // Nothing that could log, thread, or talk to an ECU was created.
     ASSERT_TRUE(!definition_catalogs_of(composition));
     ASSERT_TRUE(!definition_service_of(composition));
@@ -266,6 +265,22 @@ TEST_F(DesktopCompositionTest, migrationLoadsPreviousVersionSettingsFromDisk)
     QFile saved{current_file};
     ASSERT_TRUE(saved.open(QIODevice::ReadOnly));
     ASSERT_TRUE(saved.readAll().contains("ttyMIGRATED_UNIQUE"));
+}
+
+TEST_F(DesktopCompositionTest, aPreviousVersionsSavedRowSelectsNoVehicle)
+{
+    QTemporaryDir root;
+    ASSERT_TRUE(root.isValid());
+    const QString previous_dir = root.path() + "/0.1.0-beta.4/config/";
+    ASSERT_TRUE(QDir().mkpath(previous_dir));
+    ASSERT_TRUE(writeFile(previous_dir + "fastecu.cfg", R"(<config name="FastECU"><software_settings>
+<setting name="protocol_id"><value data="35"/></setting>
+</software_settings></config>)"));
+
+    DesktopComposition composition{{}, {}, root.path()};
+
+    ASSERT_TRUE(composition.started());
+    ASSERT_TRUE(config_of(composition).selected_vehicle() == nullptr);
 }
 
 TEST_F(DesktopCompositionTest, malformedSettingsRejectStartup)

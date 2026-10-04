@@ -520,6 +520,7 @@ fastecu_portable_gtest(
         ":subaru_denso_mc68hc16y5_02_plan",
         "//src/algorithms/checksum",
         "//src/algorithms/protocol",
+        "//src/backend/config:catalog",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
         "//src/backend/flash/eeprom:eeprom_read_plan",

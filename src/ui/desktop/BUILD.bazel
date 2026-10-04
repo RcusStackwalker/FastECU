@@ -37,17 +37,15 @@ cc_library(
     copts = COMMON_COPTS,
 )
 
-# Display helpers over the configuration session's std::string records.
+# Display helpers over the catalog's protocol and vehicle records.
 cc_library(
     name = "config_fields",
     srcs = ["config_fields.cpp"],
     hdrs = ["config_fields.h"],
     copts = COMMON_COPTS,
-    implementation_deps = ["//src/backend/config:config_session"],
     deps = [
         "//bazel/qt:core",
-        "//src/backend/config:car_model_catalog",
-        "//src/backend/config:protocol_catalog",
+        "//src/backend/config:catalog",
     ],
 )
 

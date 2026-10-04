@@ -879,12 +879,22 @@ that the signal is connected.
 
 `fastecu::config::ConfigSession` owns configuration state. `DesktopComposition` owns it and initializes it before building any other service. The same session reaches `MainWindow` through `MainWindowServices`.
 
-- **One saved selection.** `AppConfig::selected_protocol_id` is the only selection state. Make, model, MCU, checksum, capabilities, and description are derived from the selected `ResolvedCarModel` and never cached. Vehicle rows keep file order, and a row's id is its position. Choosers sort only their presentation.
+- **One saved selection.** `AppConfig::selected_vehicle_id` is the only selection state. Make, model, MCU, checksum, capabilities, and description are derived from the selected `VehicleSpec` and never cached. Vehicles keep catalog order and carry a permanent id. Choosers sort only their presentation.
 - **Paths.** Provisioned paths are fixed for the run. Effective paths take only the calibration and datalog directories from settings, so editing them never moves the config, kernel, definition, or syslog files.
-- **Startup rejection (intentional behavior change).** `LegacyConfigAdapter` ignored provisioning and load failures, and startup proceeded into empty vehicle lists. A provisioning failure, an unreadable or malformed `fastecu.cfg`, an unreadable `protocols.cfg`, or one with no car models now shows the failing path and reason, then exits before `MainWindow` or the syslog thread exists, with no ECU I/O. A failed rewrite of a successfully loaded `fastecu.cfg` stays nonfatal and is shown as a startup warning. `DesktopCompositionTest::failedStartupBuildsNoServicesAndPerformsNoEcuIo` pins this and was mutation-checked.
-- **Kept quirks.** An invalid saved row selects row 0 without replacing the saved transports or log protocol. Protocol-name selection takes the last matching row. An unresolved protocol reference stays `std::nullopt` and shows the single-space placeholder, with no capabilities. The writer's `logfiles_directory` versus the reader's `datalog_files_directory` still keeps the datalog directory from round-tripping, and `ConfigSessionSave.DatalogDirectoryDoesNotRoundTrip` pins it.
+- **Startup rejection (intentional behavior change).** `LegacyConfigAdapter` ignored provisioning and load failures, and startup proceeded into empty vehicle lists. A provisioning failure, or an unreadable or malformed `fastecu.cfg` now shows the failing path and reason, then exits before `MainWindow` or the syslog thread exists, with no ECU I/O. A failed rewrite of a successfully loaded `fastecu.cfg` stays nonfatal and is shown as a startup warning. `DesktopCompositionTest::failedStartupBuildsNoServicesAndPerformsNoEcuIo` pins this and was mutation-checked; it now uses a malformed `fastecu.cfg`.
+- **Kept quirks.** Protocol-name selection takes the last matching row. The writer's `logfiles_directory` versus the reader's `datalog_files_directory` still keeps the datalog directory from round-tripping, and `ConfigSessionSave.DatalogDirectoryDoesNotRoundTrip` pins it.
 
 Bundled-default provisioning formerly copied CWD-relative config resources through the filesystem. It now reads `IResourceBundle` bytes and writes them through `IFileRepository`, so fresh config roots provision correctly before startup rejection is evaluated. Existing user files are preserved.
+
+## Built-in protocol and vehicle catalog
+
+Protocols and vehicles are compile-time data in `src/backend/config/builtin_catalog.cpp`; see [ADR 0019](adr/0019-compile-the-protocol-catalog-into-the-backend.md).
+
+- **Model.** `ProtocolSpec` holds a protocol's display text, capabilities, checksum support (`Corrected`, `Missing`, `None` -- the old `yes`, `n/a`, `no`) and kernel. `VehicleSpec` holds a vehicle's text, a permanent id and a pointer to its protocol, resolved at compile time.
+- **Consistency.** A `static_assert` requires every vehicle to have a protocol and every protocol a vehicle. `catalog_problems()` adds duplicate and spelling checks in tests. `tests/catalog_consistency_test.cpp` ties checksum flags to checksum routes, kernel names to the bundle and MCUs to flash models, and `builtin_catalog_capability_test` ties capabilities to the workflows.
+- **Order.** Vehicles keep the order the chooser lists them in; alias resolution takes the first match and ROM-open selection the last, so new vehicles are appended.
+- **Selection.** `fastecu.cfg` saves `vehicle_id`. An unknown or missing id selects nothing; `startup_vehicle_gate` asks before `MainWindow` exists, and a cancel exits with code 0.
+- **Data fixes.** Generating the catalog fixed the SH7055 TCU kernel name's case, two vehicles pointing at renamed Unisia Jecs protocols, typos, the kernel fields of three kernel-free protocols, and the SH7058 DensoCAN EEPROM kernel address (VERIFY on bench); MC68HC16Y5 revision 04 was deleted.
 
 ## Testing
 
