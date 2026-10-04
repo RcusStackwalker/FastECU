@@ -1,6 +1,6 @@
 # Native protocol and vehicle catalog — design
 
-Date: 2026-10-04. Status: approved in brainstorming, pending spec review.
+Date: 2026-10-04. Status: approved; amended during planning (see "Amendments from planning").
 
 ## Problem
 
@@ -357,6 +357,40 @@ error kind to `Unsupported`.
 - [Connection bench checklist](../../connection-bench-checklist.md) and
   [Subaru TCU Hitachi M32R CAN bench checklist](../../subaru-tcu-hitachi-m32r-can-bench-checklist.md):
   references to `protocols.cfg` point at the catalog source.
+
+## Amendments from planning
+
+Writing the [implementation plan](../plans/2026-10-04-native-protocol-catalog.md)
+against the code changed these details. The plan follows the amended text.
+
+1. **Type names.** `ProtocolSpec` and `VehicleSpec`, not `ProtocolEntry` and
+   `VehicleEntry`. The old loader types keep their names until their last
+   consumer moves, so the migration can land one consumer group per task
+   instead of in one change.
+2. **A vehicle's protocol is a pointer.** `VehicleSpec::protocol` is a
+   `const ProtocolSpec*` resolved at compile time by `protocol_in()`, not a
+   name. About 40 UI call sites read protocol fields from a vehicle alone,
+   and a name would have forced each to take the catalog too.
+   `protocol_of()` is dropped; `find_vehicle(id)` returns the row index the
+   session and choosers work in.
+3. **What is checked at compile time.** The `static_assert` covers only the
+   reference checks (every vehicle has a protocol, every protocol a vehicle,
+   no kernel address without a kernel), which stay inside MSVC's
+   constant-evaluation step limit. Duplicate names and ids, id spelling and
+   alias spelling are checked by `catalog_problems()` in a test that runs in
+   every `bazel test //...`.
+4. **Capability check.** A supported Write or TestWrite asserts only that
+   the workflow does not reject it as `Unsupported`: the image size each
+   family accepts is family-specific. EEPROM entries are checked by building
+   the EEPROM plan directly, because the EEPROM workflow builds its plan only
+   after its prompts.
+5. **Rollout order.** The data fixes land before the consumers move, because
+   consumers rely on every vehicle having a protocol; the temporary parity
+   test lists each fix as an expected difference from the file.
+   `ConfigPaths::protocols_file` is removed with the file.
+6. **The session stores a reference.** `ConfigSession` takes and keeps
+   `const Catalog&` and reads it in `initialize()`, so a test can swap the
+   catalog before initializing.
 
 ## Follow-ups (out of scope)
 
