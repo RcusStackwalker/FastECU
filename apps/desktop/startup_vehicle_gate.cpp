@@ -1,9 +1,9 @@
 #include "apps/desktop/startup_vehicle_gate.h"
 
 #include <cstdlib>
-#include <tuple>
 
-std::optional<int> startup_vehicle_gate(fastecu::config::ConfigSession& session, const VehicleChooser& choose)
+std::optional<int> startup_vehicle_gate(fastecu::config::ConfigSession& session, const VehicleChooser& choose,
+                                        const SaveFailureReporter& report_save_failure)
 {
     if (session.selected_vehicle() != nullptr)
     {
@@ -14,6 +14,9 @@ std::optional<int> startup_vehicle_gate(fastecu::config::ConfigSession& session,
     {
         return EXIT_SUCCESS;
     }
-    std::ignore = session.save();
+    if (const fastecu::Status saved = session.save(); !saved.has_value())
+    {
+        report_save_failure(saved.error());
+    }
     return std::nullopt;
 }

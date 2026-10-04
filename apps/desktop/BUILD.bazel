@@ -112,7 +112,10 @@ cc_library(
     srcs = ["startup_vehicle_gate.cpp"],
     hdrs = ["startup_vehicle_gate.h"],
     visibility = ["//visibility:private"],
-    deps = ["//src/backend/config:config_session"],
+    deps = [
+        "//src/backend/config:config_session",
+        "//src/backend/ports",
+    ],
 )
 
 fastecu_gtest(

@@ -82,13 +82,19 @@ int main(int argc, char *argv[])
         // MainWindow requires a selected vehicle; a first start, or a saved
         // vehicle this build no longer has, asks for one here.
         fastecu::config::ConfigSession& config = composition.services().config;
-        if (const std::optional<int> exit_code = startup_vehicle_gate(config,
-                                                                      [&config]
-                                                                      {
-                                                                          VehicleSelect chooser(config);
-                                                                          chooser.exec();
-                                                                          return chooser.chosen_row();
-                                                                      });
+        const auto choose = [&config]
+        {
+            VehicleSelect chooser(config);
+            chooser.exec();
+            return chooser.chosen_row();
+        };
+        const auto report_save_failure = [](const fastecu::Error& error)
+        {
+            present_startup_warnings(
+                {QStringLiteral("The vehicle choice could not be saved and will be asked for again at the next start."),
+                 QString::fromStdString(error.detail)});
+        };
+        if (const std::optional<int> exit_code = startup_vehicle_gate(config, choose, report_save_failure);
             exit_code.has_value())
         {
             return_code = *exit_code;
