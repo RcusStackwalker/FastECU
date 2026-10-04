@@ -180,3 +180,24 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "catalog_test",
+    srcs = ["catalog_test.cpp"],
+    deps = [
+        ":catalog",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "catalog",
+    srcs = ["catalog.cpp"],
+    hdrs = ["catalog.h"],
+    # The package default plus the composition root, which hands a catalog
+    # to the configuration session.
+    visibility = [
+        "//bazel/layers:apps_desktop",
+        "//bazel/layers:backend_and_above",
+    ],
+)
