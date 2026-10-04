@@ -1,11 +1,11 @@
 #include "src/backend/config/builtin_catalog.h"
 
 #include <algorithm>
-#include <array>
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -16,7 +16,7 @@ namespace
 using fastecu::config::builtin_catalog;
 using fastecu::config::catalog_problems;
 using fastecu::config::ProtocolSpec;
-using ::testing::UnorderedElementsAreArray;
+using ::testing::IsEmpty;
 
 const ProtocolSpec& protocol_named(std::string_view name)
 {
@@ -29,23 +29,6 @@ const ProtocolSpec& protocol_named(std::string_view name)
     }
     return *protocol;
 }
-
-// Every inconsistency protocols.cfg carried. Each data fix removes its lines;
-// the reachability fix (Task 5) empties the list.
-constexpr auto kKnownDefects = std::to_array<std::string_view>({
-    "protocol 'sub_ecu_denso_mc68hc16y5_04' has no vehicle",
-    "protocol 'sub_ecu_denso_mc68hc16y5_04_ecutek' has no vehicle",
-    "protocol 'sub_ecu_denso_sh7055_02_ecutek' has no vehicle",
-    "protocol 'sub_ecu_denso_sh7055_04_cobb' has no vehicle",
-    "protocol 'sub_ecu_denso_sh7058_cobb' has no vehicle",
-    "protocol 'sub_ecu_denso_sh7058_can_cobb' has no vehicle",
-    "protocol 'mitsu_ecu_m32r_kline_mut_dma' has no vehicle",
-    "protocol 'sub_ecu_eeprom_denso_sh7055_kline' has no vehicle",
-    "protocol 'sub_ecu_eeprom_denso_sh7058_kline' has no vehicle",
-    "protocol 'sub_ecu_eeprom_denso_sh7055_densocan' has no vehicle",
-    "protocol 'sub_ecu_eeprom_denso_sh7058_densocan' has no vehicle",
-    "protocol 'sub_ecu_eeprom_denso_sh7058_can_diesel' has no vehicle",
-});
 
 TEST(BuiltinCatalogFixes, Sh7055TcuKernelNamesTheBundledFile)
 {
@@ -117,15 +100,56 @@ TEST(BuiltinCatalogFixes, Sh7058DensoCanEepromLoadsItsKernelWhereTheFlashFamilyD
     EXPECT_EQ(eeprom.kernel_load_address, flash.kernel_load_address);
 }
 
-TEST(BuiltinCatalog, ListsEveryProtocolsCfgEntry)
+TEST(BuiltinCatalog, ListsSixtyOneProtocolsAndSeventyFiveVehicles)
 {
-    EXPECT_EQ(builtin_catalog().protocols().size(), 63U);
-    EXPECT_EQ(builtin_catalog().vehicles().size(), 65U);
+    EXPECT_EQ(builtin_catalog().protocols().size(), 61U);
+    EXPECT_EQ(builtin_catalog().vehicles().size(), 75U);
 }
 
-TEST(BuiltinCatalog, HasExactlyTheKnownDefects)
+TEST(BuiltinCatalog, IsConsistent)
 {
-    EXPECT_THAT(catalog_problems(builtin_catalog()), UnorderedElementsAreArray(kKnownDefects));
+    EXPECT_THAT(catalog_problems(builtin_catalog()), IsEmpty());
+}
+
+TEST(BuiltinCatalogFixes, Mc68Revision04IsGone)
+{
+    EXPECT_EQ(builtin_catalog().find_protocol("sub_ecu_denso_mc68hc16y5_04"), nullptr);
+    EXPECT_EQ(builtin_catalog().find_protocol("sub_ecu_denso_mc68hc16y5_04_ecutek"), nullptr);
+}
+
+// The new vehicles come after every older row, so an alias two protocols
+// share still resolves to the protocol it resolved to before.
+TEST(BuiltinCatalogFixes, SharedAliasesResolveAsBefore)
+{
+    const auto resolves_to = [](std::string_view alias)
+    {
+        const auto *vehicle = builtin_catalog().first_vehicle_for_alias(alias);
+        return vehicle == nullptr ? std::string_view{} : vehicle->protocol->name;
+    };
+    EXPECT_EQ(resolves_to("fxt02"), "sub_ecu_denso_sh7055_02");
+    EXPECT_EQ(resolves_to("wrx02"), "sub_ecu_denso_mc68hc16y5_02");
+    EXPECT_EQ(resolves_to("subarucand"), "sub_ecu_denso_sh7058_can_diesel");
+}
+
+TEST(BuiltinCatalogFixes, CobbAliasesNowSelectTheirVehicles)
+{
+    for (const auto& [alias, protocol] :
+         {std::pair{"sti04_cobb", "sub_ecu_denso_sh7055_04_cobb"}, std::pair{"sti05_cobb", "sub_ecu_denso_sh7058_cobb"},
+          std::pair{"subarucan_cobb", "sub_ecu_denso_sh7058_can_cobb"}})
+    {
+        const auto *vehicle = builtin_catalog().first_vehicle_for_alias(alias);
+        ASSERT_NE(vehicle, nullptr) << alias;
+        EXPECT_EQ(vehicle->protocol->name, protocol);
+    }
+}
+
+TEST(BuiltinCatalogFixes, MutDmaLoggingHasAMitsubishiVehicle)
+{
+    const auto row = builtin_catalog().find_vehicle("mitsubishi-unknown-unk-ecu-unk--mitsu-ecu-m32r-kline-mut-dma");
+    ASSERT_TRUE(row.has_value());
+    const auto& vehicle = builtin_catalog().vehicles()[*row];
+    EXPECT_EQ(vehicle.make, "Mitsubishi");
+    EXPECT_EQ(vehicle.protocol->log_protocol, "MUT_DMA");
 }
 
 } // namespace

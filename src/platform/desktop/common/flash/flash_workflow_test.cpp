@@ -807,15 +807,14 @@ TEST(FlashWorkflowTest, mc68TpuProtocolIsClaimedByPortableRoute)
     ASSERT_TRUE(FlashWorkflowFactory::tryCreate(std::move(input)) != nullptr);
 }
 
-TEST(FlashWorkflowTest, mc68Revision04IsClaimedButPlanBuildFails)
+TEST(FlashWorkflowTest, mc68Revision04HasNoRoute)
 {
-    auto input = request("sub_ecu_denso_mc68hc16y5_04");
-    input.mcu = "MC68HC16Y5";
-    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
-    ASSERT_TRUE(workflow != nullptr);
-    const auto step = workflow->next();
-    ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
-    ASSERT_EQ(std::get<FlashFailureStep>(step).error.kind, ErrorKind::Unsupported);
+    for (const char *protocol : {"sub_ecu_denso_mc68hc16y5_04", "sub_ecu_denso_mc68hc16y5_04_ecutek"})
+    {
+        auto input = request(protocol);
+        input.mcu = "MC68HC16Y5";
+        ASSERT_TRUE(FlashWorkflowFactory::tryCreate(std::move(input)) == nullptr) << protocol;
+    }
 }
 
 TEST(FlashWorkflowTest, sh7055ProtocolIsClaimedByPortableRoute)

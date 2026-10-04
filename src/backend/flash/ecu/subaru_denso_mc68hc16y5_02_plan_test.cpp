@@ -61,14 +61,14 @@ TEST(SubaruDensoMc68hc16y5_02Plan, BuildsEcutekPlanForSuffixedProtocol)
     EXPECT_EQ(family.kernel_magic, 0x3940);
 }
 
-TEST(SubaruDensoMc68hc16y5_02Plan, RejectsRevision04Entirely)
+TEST(SubaruDensoMc68hc16y5_02Plan, Revision04IsNotAProtocolOfThisFamily)
 {
     for (auto *name : {"sub_ecu_denso_mc68hc16y5_04", "sub_ecu_denso_mc68hc16y5_04_ecutek"})
     {
         ASSERT_THAT(
             build_subaru_denso_mc68hc16y5_02_plan(FlashOperation::Read, name, "MC68HC16Y5", std::nullopt,
                                                   KernelImage{.id = "k", .load_address = 0x20000, .bytes = {0xaa}}),
-            fastecu::testing::IsErr(ErrorKind::Unsupported));
+            fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     }
 }
 

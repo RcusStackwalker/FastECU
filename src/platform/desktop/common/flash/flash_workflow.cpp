@@ -712,8 +712,8 @@ Result<FlashPlan> prepareMc68(FlashWorkflowRequest& request)
     // calibration adapter inserts the 0x20000-0x27fff RAM/kernel hole.
     // Portable MC plans and executors use the packed flash-block image.
     request.image = normalizeMc68Image(std::move(request.image), request.mcu);
-    // Run the family builder first so recognized-but-unsupported
-    // revision 04 is rejected by the plan even without a catalog.
+    // Run the family builder first so a protocol or MCU the family rejects
+    // fails before the kernel file is read.
     Result<FlashPlan> preflight = build_subaru_denso_mc68hc16y5_02_plan(
         request.operation, request.protocol, request.mcu, request.image,
         KernelImage{.id = request.protocol + "-kernel", .load_address = 0x20000, .bytes = {0}});
@@ -1122,7 +1122,6 @@ constexpr auto kRoutes = std::to_array<Route>({
     // protocol.
     {"sub_ecu_denso_mc68hc16y5_02_bdm", SubaruDensoMc68hc16y5_02Bdm},
     {"sub_ecu_denso_mc68hc16y5_02", SubaruDensoMc68hc16y5_02},
-    {"sub_ecu_denso_mc68hc16y5_04", SubaruDensoMc68hc16y5_02},
     {"sub_ecu_denso_sh7055_02", SubaruDensoSh7055_02},
     {"sub_ecu_denso_sh7055_04", SubaruDensoSh705xKline, RouteMatch::Exact},
     {"sub_ecu_denso_sh7055_04_ecutek", SubaruDensoSh705xKline, RouteMatch::Exact},

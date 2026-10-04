@@ -150,6 +150,9 @@ TEST(BuiltinCatalogParity, DiffersFromProtocolsCfgOnlyByTheDocumentedFixes)
         // Fix 6: 0xFFFF6004 is the SH7055 address; the same kernel loads at
         // 0xFFFF3000 for every main-flash SH7058 DensoCAN entry. VERIFY on bench.
         "protocol sub_ecu_eeprom_denso_sh7058_densocan: kernel_addr file '0xFFFF6004' catalog '0xFFFF3000'",
+        // Fix 7: revision 04 declared no supported operation.
+        "protocol sub_ecu_denso_mc68hc16y5_04: missing from catalog",
+        "protocol sub_ecu_denso_mc68hc16y5_04_ecutek: missing from catalog",
     };
     const std::vector<std::string> expected_vehicle_differences{
         // Fix 2: upstream 90f11ae9 renamed these protocols without updating the vehicles.
@@ -160,6 +163,17 @@ TEST(BuiltinCatalogParity, DiffersFromProtocolsCfgOnlyByTheDocumentedFixes)
         "vehicle 35: year file '20011' catalog '2011'",
         "vehicle 39: version file '2.0 5MT ' catalog '2.0 5MT'",
         "vehicle 40: version file '2.0 5MT ' catalog '2.0 5MT'",
+        // Fix 8: one vehicle for each protocol no vehicle reached.
+        "vehicle 65: not in file (mitsubishi-unknown-unk-ecu-unk--mitsu-ecu-m32r-kline-mut-dma)",
+        "vehicle 66: not in file (subaru-unknown-unk-ecu-unk--sub-ecu-denso-sh7055-02-ecutek)",
+        "vehicle 67: not in file (subaru-unknown-unk-ecu-unk--sub-ecu-denso-sh7055-04-cobb)",
+        "vehicle 68: not in file (subaru-unknown-unk-ecu-unk--sub-ecu-denso-sh7058-cobb)",
+        "vehicle 69: not in file (subaru-unknown-unk-ecu-unk--sub-ecu-denso-sh7058-can-cobb)",
+        "vehicle 70: not in file (subaru-unknown-unk-ecu-unk--sub-ecu-eeprom-denso-sh7055-kline)",
+        "vehicle 71: not in file (subaru-unknown-unk-ecu-unk--sub-ecu-eeprom-denso-sh7058-kline)",
+        "vehicle 72: not in file (subaru-unknown-unk-ecu-unk--sub-ecu-eeprom-denso-sh7055-densocan)",
+        "vehicle 73: not in file (subaru-unknown-unk-ecu-unk--sub-ecu-eeprom-denso-sh7058-densocan)",
+        "vehicle 74: not in file (subaru-unknown-unk-ecu-unk--sub-ecu-eeprom-denso-sh7058-can-diesel)",
     };
 
     EXPECT_THAT(protocol_differences(config.child("protocols")),
