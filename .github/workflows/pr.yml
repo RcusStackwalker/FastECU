@@ -269,9 +269,6 @@ jobs:
           version: ${{ env.QT_VERSION }}
           modules: ${{ env.QT_MODULES }}
 
-      # Both OSes run the same LLVM release, pinned by checksum. Moving it is an
-      # edit to .clang-tidy's header comment as well, which makes the run
-      # whole-tree.
       - name: Install clang-tidy (Windows)
         if: runner.os == 'Windows'
         shell: pwsh

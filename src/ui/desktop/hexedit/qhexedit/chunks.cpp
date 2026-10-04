@@ -6,7 +6,7 @@
 
 #define BUFFER_SIZE 0x10000
 #define CHUNK_SIZE 0x1000
-#define READ_CHUNK_MASK Q_INT64_C(0xfffffffffffff000)
+#define READ_CHUNK_MASK Q_UINT64_C(0xfffffffffffff000)
 
 // ***************************************** Constructors and file settings
 
@@ -337,7 +337,7 @@ int Chunks::getChunkIndex(qint64 absPos)
     {
         Chunk newChunk;
         qint64 readAbsPos = absPos - ioDelta;
-        qint64 readPos = (readAbsPos & READ_CHUNK_MASK);
+        qint64 readPos = static_cast<qint64>(static_cast<quint64>(readAbsPos) & READ_CHUNK_MASK);
         _ioDevice->open(QIODevice::ReadOnly);
         _ioDevice->seek(readPos);
         newChunk.data = _ioDevice->read(CHUNK_SIZE);

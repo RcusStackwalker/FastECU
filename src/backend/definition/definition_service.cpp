@@ -81,7 +81,8 @@ Result<std::vector<std::uint8_t>> identifier_bytes(std::string_view identifier, 
         {
             return fail(ErrorKind::InvalidConfig, "identifier contains a non-hexadecimal digit");
         }
-        decoded.push_back(static_cast<std::uint8_t>((*high << 4U) | *low));
+        decoded.push_back(
+            static_cast<std::uint8_t>((static_cast<unsigned>(*high) << 4U) | static_cast<unsigned>(*low)));
     }
     return decoded;
 }
