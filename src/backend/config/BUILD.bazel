@@ -201,3 +201,40 @@ cc_library(
         "//bazel/layers:backend_and_above",
     ],
 )
+
+cc_library(
+    name = "builtin_catalog",
+    srcs = ["builtin_catalog.cpp"],
+    hdrs = ["builtin_catalog.h"],
+    # Only the composition root hands the built-in catalog on; tests that
+    # check it against other packages name it too.
+    visibility = [
+        "//bazel/layers:apps_desktop",
+        "//bazel/layers:tests",
+    ],
+    deps = [":catalog"],
+)
+
+fastecu_portable_gtest(
+    name = "builtin_catalog_test",
+    srcs = ["builtin_catalog_test.cpp"],
+    deps = [
+        ":builtin_catalog",
+        "@googletest//:gtest",
+    ],
+)
+
+# Temporary: compares the catalog with the protocols.cfg it was generated from.
+fastecu_portable_gtest(
+    name = "builtin_catalog_parity_test",
+    srcs = ["builtin_catalog_parity_test.cpp"],
+    data = ["//resources/shared:config/protocols.cfg"],
+    env = {
+        "PROTOCOLS_CFG_PATH": "$(location //resources/shared:config/protocols.cfg)",
+    },
+    deps = [
+        ":builtin_catalog",
+        "@googletest//:gtest",
+        "@pugixml",
+    ],
+)
