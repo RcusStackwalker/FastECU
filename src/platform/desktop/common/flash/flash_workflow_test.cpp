@@ -825,6 +825,26 @@ TEST(FlashWorkflowTest, densoCanResolvesKernelPromptsAndPropagatesAttemptResult)
     ASSERT_EQ(done.rom_id, std::string("123456789A_"));
 }
 
+TEST(FlashWorkflowTest, densoCanMissingKernelAddressFailsBeforeAnyPromptOrAttempt)
+{
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    const auto paths = catalogPaths(directory);
+    ASSERT_TRUE(paths.has_value());
+    auto input = request("sub_ecu_denso_sh7055_densocan");
+    input.protocol.mcu = "SH7055";
+    input.paths = *paths;
+    input.protocol.kernel_load_address.reset();
+
+    auto workflow = FlashWorkflowFactory::tryCreate(std::move(input));
+    ASSERT_NE(workflow, nullptr);
+    const auto step = workflow->next();
+    ASSERT_TRUE(std::holds_alternative<FlashFailureStep>(step));
+    const auto& error = std::get<FlashFailureStep>(step).error;
+    EXPECT_EQ(error.kind, ErrorKind::InvalidConfig);
+    EXPECT_THAT(error.detail, ::testing::HasSubstr("declares no kernel load address"));
+}
+
 TEST(FlashWorkflowTest, densoCanPreflightAndDeclinedPromptsStopBeforeAttempt)
 {
     auto missing_kernel = request("sub_ecu_denso_sh7055_densocan");

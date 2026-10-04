@@ -25,6 +25,8 @@ class ConfigSession
     // `catalog` must outlive the session; initialize() reads it.
     ConfigSession(const Catalog& catalog, IFileSystem& file_system, IResourceBundle& resource_bundle,
                   IFileRepository& file_repository, IEventSink& events);
+    ConfigSession(Catalog&& catalog, IFileSystem& file_system, IResourceBundle& resource_bundle,
+                  IFileRepository& file_repository, IEventSink& events) = delete;
     ConfigSession(const ConfigSession&) = delete;
     ConfigSession& operator=(const ConfigSession&) = delete;
 

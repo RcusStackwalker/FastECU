@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <string>
 #include <string_view>
+#include <type_traits>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -30,6 +31,15 @@ using fastecu::testing::IsErrWith;
 using fastecu::testing::IsOk;
 using ::testing::AllOf;
 using ::testing::HasSubstr;
+
+template <typename CatalogReference>
+constexpr bool kCanConstructSession =
+    std::is_constructible_v<fastecu::config::ConfigSession, CatalogReference, fastecu::IFileSystem&,
+                            fastecu::IResourceBundle&, fastecu::IFileRepository&, fastecu::IEventSink&>;
+
+static_assert(kCanConstructSession<fastecu::config::Catalog&>);
+static_assert(kCanConstructSession<const fastecu::config::Catalog&>);
+static_assert(!kCanConstructSession<fastecu::config::Catalog&&>);
 
 bool has_log(const RecordingEventSink& events, LogLevel level, std::string_view text)
 {

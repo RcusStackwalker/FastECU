@@ -19,7 +19,7 @@ constexpr std::string_view kCalibrationSuffix = ".bin";
 
 const config::VehicleSpec& selected_vehicle(const config::ConfigSession& config)
 {
-    // An initialized session only ever holds a valid row.
+    // The desktop startup selection gate ensures a valid vehicle before this coordinator is used.
     return *config.selected_vehicle();
 }
 
