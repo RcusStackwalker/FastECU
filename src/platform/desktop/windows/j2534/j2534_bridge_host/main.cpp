@@ -115,7 +115,7 @@ bool readTypedRequest(HANDLE in, HANDLE out, const FrameHeader& header, Function
     {
         drainPayload(in, header.payloadSize);
         Resp errResp{};
-        errResp.result = ERR_FAILED;
+        errResp.result = kJ2534ErrFailed;
         writeFrame(out, respondAs, &errResp, sizeof(errResp));
         return false;
     }
@@ -318,14 +318,14 @@ void handlePassThruIoctl(const VendorApi& api, HANDLE in, HANDLE out, const Fram
 
     switch (req.ioctlId)
     {
-    case SET_CONFIG:
+    case kJ2534SetConfig:
     {
         SCONFIG_LIST scl{req.numConfigParams, req.configParams.data()};
         resp.result = api.ioctl(req.channelId, req.ioctlId, &scl, nullptr);
         break;
     }
-    case FIVE_BAUD_INIT:
-    case FAST_INIT:
+    case kJ2534FiveBaudInit:
+    case kJ2534FastInit:
     {
         SBYTE_ARRAY inArr{req.inputByteCount, req.inputBytes.data()};
         SBYTE_ARRAY outArr{static_cast<unsigned long>(resp.outputBytes.size()), resp.outputBytes.data()};
@@ -333,22 +333,22 @@ void handlePassThruIoctl(const VendorApi& api, HANDLE in, HANDLE out, const Fram
         resp.outputByteCount = outArr.NumOfBytes;
         break;
     }
-    case READ_VBATT:
-    case READ_PROG_VOLTAGE:
+    case kJ2534ReadVbatt:
+    case kJ2534ReadProgVoltage:
     {
         unsigned long vbatt = 0;
         resp.result = api.ioctl(req.channelId, req.ioctlId, nullptr, &vbatt);
         resp.vbatt = vbatt;
         break;
     }
-    case CLEAR_RX_BUFFER:
-    case CLEAR_TX_BUFFER:
-    case CLEAR_PERIODIC_MSGS:
-    case CLEAR_MSG_FILTERS:
+    case kJ2534ClearRxBuffer:
+    case kJ2534ClearTxBuffer:
+    case kJ2534ClearPeriodicMsgs:
+    case kJ2534ClearMsgFilters:
         resp.result = api.ioctl(req.channelId, req.ioctlId, nullptr, nullptr);
         break;
     default:
-        resp.result = ERR_INVALID_IOCTL_ID;
+        resp.result = kJ2534ErrInvalidIoctlId;
         break;
     }
 
@@ -438,7 +438,7 @@ int main(int argc, char **argv)
     if (!loadVendorApi(argv[1], api))
     {
         PassThruOpenResponse errorResp{};
-        errorResp.result = ERR_DEVICE_NOT_CONNECTED;
+        errorResp.result = kJ2534ErrDeviceNotConnected;
         HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
         writeFrame(out, Function::PassThruOpen, &errorResp, sizeof(errorResp));
         return 1;

@@ -30,18 +30,18 @@ TEST(J2534BridgeClient, OpensConnectsAndReadsThroughBridge)
 
     unsigned long deviceId = 0;
     long result = client.PassThruOpen(nullptr, &deviceId);
-    ASSERT_TRUE(result == STATUS_NOERROR);
+    ASSERT_TRUE(result == kJ2534StatusNoerror);
     ASSERT_TRUE(deviceId == 7);
 
     unsigned long channelId = 0;
-    result = client.PassThruConnect(deviceId, ISO9141, 0, 0, &channelId);
-    ASSERT_TRUE(result == STATUS_NOERROR);
+    result = client.PassThruConnect(deviceId, kJ2534Iso9141, 0, 0, &channelId);
+    ASSERT_TRUE(result == kJ2534StatusNoerror);
     ASSERT_TRUE(channelId == 3);
 
     PASSTHRU_MSG msg{};
     unsigned long numMsgs = 1;
     result = client.PassThruReadMsgs(channelId, &msg, &numMsgs, 100);
-    ASSERT_TRUE(result == STATUS_NOERROR);
+    ASSERT_TRUE(result == kJ2534StatusNoerror);
     ASSERT_TRUE(numMsgs == 1);
     ASSERT_TRUE(msg.DataSize == 4 && msg.Data[0] == 0xDE);
 

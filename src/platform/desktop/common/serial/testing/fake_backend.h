@@ -362,27 +362,27 @@ class FakeBackend : public SerialPortActionsDirect
                            { return SerialPortActionsDirect::set_iso15765_destination_address(value); });
 
         ON_CALL(*this, is_serial_port_open()).WillByDefault(::testing::Return(true));
-        ON_CALL(*this, change_port_speed(::testing::_)).WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, change_port_speed(::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
         ON_CALL(*this, set_kline_timings(::testing::_, ::testing::_))
             .WillByDefault([this](std::uint32_t parameter, int value)
                            { return SerialPortActionsDirect::set_kline_timings(parameter, value); });
-        ON_CALL(*this, set_j2534_ioctl(::testing::_, ::testing::_)).WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, set_j2534_ioctl(::testing::_, ::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
         ON_CALL(*this, five_baud_init(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
-        ON_CALL(*this, fast_init(::testing::_)).WillByDefault(::testing::Return(STATUS_SUCCESS));
-        ON_CALL(*this, set_lec_lines(::testing::_, ::testing::_)).WillByDefault(::testing::Return(STATUS_SUCCESS));
-        ON_CALL(*this, pulse_lec_1_line(::testing::_)).WillByDefault(::testing::Return(STATUS_SUCCESS));
-        ON_CALL(*this, pulse_lec_2_line(::testing::_)).WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, fast_init(::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, set_lec_lines(::testing::_, ::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, pulse_lec_1_line(::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, pulse_lec_2_line(::testing::_)).WillByDefault(::testing::Return(kSerialSuccess));
         ON_CALL(*this, reset_connection()).WillByDefault([] {});
         ON_CALL(*this, read_serial_obd_data(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
         ON_CALL(*this, read_serial_data(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
         ON_CALL(*this, write_serial_data(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
         ON_CALL(*this, write_serial_data_echo_check(::testing::_)).WillByDefault(::testing::Return(QByteArray{}));
         ON_CALL(*this, get_is_tx_done()).WillByDefault(::testing::Return(true));
-        ON_CALL(*this, clear_rx_buffer()).WillByDefault(::testing::Return(STATUS_SUCCESS));
-        ON_CALL(*this, clear_tx_buffer()).WillByDefault(::testing::Return(STATUS_SUCCESS));
+        ON_CALL(*this, clear_rx_buffer()).WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, clear_tx_buffer()).WillByDefault(::testing::Return(kSerialSuccess));
         ON_CALL(*this, send_periodic_j2534_data(::testing::_, ::testing::_))
-            .WillByDefault(::testing::Return(STATUS_SUCCESS));
-        ON_CALL(*this, stop_periodic_j2534_data()).WillByDefault(::testing::Return(STATUS_SUCCESS));
+            .WillByDefault(::testing::Return(kSerialSuccess));
+        ON_CALL(*this, stop_periodic_j2534_data()).WillByDefault(::testing::Return(kSerialSuccess));
         ON_CALL(*this, check_serial_ports()).WillByDefault(::testing::Return(QStringList{}));
         ON_CALL(*this, open_serial_port()).WillByDefault(::testing::Return(QString{}));
         ON_CALL(*this, read_vbatt()).WillByDefault(::testing::Return(0UL));

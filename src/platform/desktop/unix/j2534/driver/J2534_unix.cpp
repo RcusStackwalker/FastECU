@@ -138,7 +138,7 @@ int J2534::write_serial_data(const QByteArray& output)
     {
         return 1;
     }
-    return STATUS_NOERROR;
+    return kJ2534StatusNoerror;
 }
 
 QByteArray J2534::write_serial_iso14230_data(QByteArray output)
@@ -193,7 +193,7 @@ long J2534::PassThruOpen(const void *pName, unsigned long *pDeviceID)
     QByteArray check_result = "ar";
     QString name = (char *)pName;
     unsigned long *devID = (unsigned long *)pDeviceID;
-    long result = ERR_NOT_SUPPORTED;
+    long result = kJ2534ErrNotSupported;
 
     pDeviceID = 0;
     emit LOG_D("Open J2534 device " + name + " with ID: " + QString::number(*devID), true, true);
@@ -206,7 +206,7 @@ long J2534::PassThruOpen(const void *pName, unsigned long *pDeviceID)
     if (received.startsWith(check_result))
     {
         emit LOG_D("Result check OK", true, true);
-        result = STATUS_NOERROR;
+        result = kJ2534StatusNoerror;
     }
     else
     {
@@ -220,7 +220,7 @@ long J2534::PassThruClose(unsigned long DeviceID)
 {
     QByteArray output;
     QByteArray received;
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
 
     // emit LOG_D("Close J2534 device ID:" << DeviceID;
 
@@ -240,15 +240,15 @@ long J2534::PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, un
     QByteArray output;
     QByteArray received;
     unsigned long chanID = (unsigned long)pChannelID;
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
 
     switch ((int)ProtocolID)
     {
-    case ISO9141:
-    case ISO14230:
-    case CAN:
-    case ISO15765:
-    case CAN_CH1:
+    case kJ2534Iso9141:
+    case kJ2534Iso14230:
+    case kJ2534Can:
+    case kJ2534Iso15765:
+    case kJ2534CanCh1:
         break;
     default:
         return 0; // J2534_ERR_INVALID_PROTOCOL_ID;
@@ -271,7 +271,7 @@ long J2534::PassThruDisconnect(unsigned long ChannelID)
 {
     QByteArray output;
     QByteArray received;
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
 
     // emit LOG_D("Disconnect J2534 device in channel:" << ChannelID;
 
@@ -291,7 +291,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
 {
     QByteArray received;
     QByteArray msg;
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     unsigned long msg_cnt = 0;
     unsigned long chunk_cnt = 0;
     uint8_t msg_type = 0;
@@ -358,7 +358,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                 pMsg->DataSize = received.length();
 
                 // emit LOG_D("vBatt msg response: " + parseMessageToHex(received), true, true);
-                return STATUS_NOERROR;
+                return kJ2534StatusNoerror;
             }
             else if (received.at(2) == 'w') // 0x77
             {
@@ -373,7 +373,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                 pMsg->DataSize = received.length();
 
                 // emit LOG_D("Five baud init msg response: " + parseMessageToHex(received), true, true);
-                return STATUS_NOERROR;
+                return kJ2534StatusNoerror;
             }
             else if (received.at(2) == 'y') // 0x79
             {
@@ -415,7 +415,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                 case NORM_MSG:
                     msg_type_string = "NORM_MSG";
                     break;
-                case START_OF_MESSAGE:
+                case kJ2534StartOfMessage:
                     msg_type_string = "START_OF_MESSAGE";
                     break;
                 case TX_DONE_MSG:
@@ -447,7 +447,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                 // QString::number(msg_byte_cnt) + " and message type: " + msg_type_string + " (0x" +
                 // QString::number(msg_type, 16) + ")", true, true);
 
-                if (msg_type == START_OF_MESSAGE)
+                if (msg_type == kJ2534StartOfMessage)
                 {
                     msg_index = 0;
                     msg_cnt++;
@@ -503,7 +503,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
                     // emit LOG_D("NORM_MSG_START_IND: " + parseMessageToHex(received), true, true);
                     received.clear();
                 }
-                if (msg_type == NORM_MSG || msg_type == START_OF_MESSAGE)
+                if (msg_type == NORM_MSG || msg_type == kJ2534StartOfMessage)
                 {
                     pMsg->RxStatus = NORM_MSG;
 
@@ -618,7 +618,7 @@ long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg,
 {
     QByteArray output;
     QByteArray received;
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
 
     for (unsigned long msg_index = 0; msg_index < *pNumMsgs; msg_index++)
     {
@@ -642,7 +642,7 @@ long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG
                                      unsigned long TimeInterval)
 {
     QByteArray output;
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
 
     output.clear();
     QString str = "atm" + QString::number(ChannelID) + " " + QString::number(TimeInterval * 1000) + " 0 " +
@@ -664,7 +664,7 @@ long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG
 long J2534::PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID)
 {
     QByteArray output;
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
 
     QString str = "atn" + QString::number(ChannelID) + " " + QString::number(MsgID) + "\r\n";
     output.append(str.toUtf8());
@@ -680,7 +680,7 @@ long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long Filter
 {
     QByteArray output;
     QByteArray received;
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
 
     output.clear();
     QString str = "atf" + QString::number(ChannelID) + " " + QString::number(FilterType) + " " +
@@ -713,7 +713,7 @@ long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long Filter
 
 long J2534::PassThruStopMsgFilter(unsigned long ChannelID, unsigned long MsgID)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
 
     return result;
 }
@@ -722,7 +722,7 @@ long J2534::PassThruSetProgrammingVoltage(unsigned long DeviceID, unsigned long 
 {
     QByteArray output;
     QByteArray received;
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
 
     output.clear();
     QString str = "atv" + QString::number(Pin) + " " + QString::number(Voltage) + "\r\n";
@@ -737,7 +737,7 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
 {
     QByteArray output;
     QByteArray received;
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
 
     const std::size_t apiLen = std::min(kApiVersion.size(), kVersionBufferSize - 1);
     std::memcpy(pApiVersion, kApiVersion.data(), apiLen);
@@ -769,7 +769,7 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
 
 long J2534::PassThruGetLastError(char *pErrorDescription)
 {
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
 
     return result;
 }
@@ -778,10 +778,10 @@ int J2534::is_valid_sconfig_param(SCONFIG s)
 {
     switch (s.Parameter)
     {
-    case P1_MIN:
-    case P2_MIN:
-    case P3_MAX:
-    case P4_MAX:
+    case kJ2534P1Min:
+    case kJ2534P2Min:
+    case kJ2534P3Max:
+    case kJ2534P4Max:
         return 0;
     default:
         return 1;
@@ -801,151 +801,151 @@ void J2534::dump_sconfig_param(SCONFIG s)
 
     switch (s.Parameter)
     {
-    case DATA_RATE:
+    case kJ2534DataRate:
         paramName = "DATA_RATE";
         break;
-    case LOOPBACK:
+    case kJ2534Loopback:
         paramName = "LOOPBACK";
         break;
-    case NODE_ADDRESS:
+    case kJ2534NodeAddress:
         paramName = "NODE_ADDRESS";
         break;
-    case NETWORK_LINE:
+    case kJ2534NetworkLine:
         paramName = "NETWORK_LINE";
         break;
-    case P1_MIN:
+    case kJ2534P1Min:
         paramName = "P1_MIN";
         break;
-    case P1_MAX:
+    case kJ2534P1Max:
         paramName = "P1_MAX";
         break;
-    case P2_MIN:
+    case kJ2534P2Min:
         paramName = "P2_MIN";
         break;
-    case P2_MAX:
+    case kJ2534P2Max:
         paramName = "P2_MAX";
         break;
-    case P3_MIN:
+    case kJ2534P3Min:
         paramName = "P3_MIN";
         break;
-    case P3_MAX:
+    case kJ2534P3Max:
         paramName = "P3_MAX";
         break;
-    case P4_MIN:
+    case kJ2534P4Min:
         paramName = "P4_MIN";
         break;
-    case P4_MAX:
+    case kJ2534P4Max:
         paramName = "P4_MAX";
         break;
-    case W1:
+    case kJ2534W1:
         paramName = "W1";
         break;
-    case W2:
+    case kJ2534W2:
         paramName = "W2";
         break;
-    case W3:
+    case kJ2534W3:
         paramName = "W3";
         break;
-    case W4:
+    case kJ2534W4:
         paramName = "W4";
         break;
-    case W5:
+    case kJ2534W5:
         paramName = "W5";
         break;
-    case TIDLE:
+    case kJ2534Tidle:
         paramName = "TIDLE";
         break;
-    case TINIL:
+    case kJ2534Tinil:
         paramName = "TINIL";
         break;
-    case TWUP:
+    case kJ2534Twup:
         paramName = "TWUP";
         break;
-    case PARITY:
+    case kJ2534Parity:
         paramName = "PARITY";
         break;
-    case BIT_SAMPLE_POINT:
+    case kJ2534BitSamplePoint:
         paramName = "BIT_SAMPLE_POINT";
         break;
-    case SYNC_JUMP_WIDTH:
+    case kJ2534SyncJumpWidth:
         paramName = "SYNC_JUMP_WIDTH";
         break;
-    case W0:
+    case kJ2534W0:
         paramName = "W0";
         break;
-    case T1_MAX:
+    case kJ2534T1Max:
         paramName = "T1_MAX";
         break;
-    case T2_MAX:
+    case kJ2534T2Max:
         paramName = "T2_MAX";
         break;
-    case T4_MAX:
+    case kJ2534T4Max:
         paramName = "T4_MAX";
         break;
-    case T5_MAX:
+    case kJ2534T5Max:
         paramName = "T5_MAX";
         break;
-    case ISO15765_BS:
+    case kJ2534Iso15765Bs:
         paramName = "ISO15765_BS";
         break;
-    case ISO15765_STMIN:
+    case kJ2534Iso15765Stmin:
         paramName = "ISO15765_STMIN";
         break;
-    case DATA_BITS:
+    case kJ2534DataBits:
         paramName = "DATA_BITS";
         break;
-    case FIVE_BAUD_MOD:
+    case kJ2534FiveBaudMod:
         paramName = "FIVE_BAUD_MOD";
         break;
-    case BS_TX:
+    case kJ2534BsTx:
         paramName = "BS_TX";
         break;
-    case STMIN_TX:
+    case kJ2534StminTx:
         paramName = "STMIN_TX";
         break;
-    case T3_MAX:
+    case kJ2534T3Max:
         paramName = "T3_MAX";
         break;
-    case ISO15765_WFT_MAX:
+    case kJ2534Iso15765WftMax:
         paramName = "ISO15765_WFT_MAX";
         break;
-    case CAN_MIXED_FORMAT:
+    case kJ2534CanMixedFormat:
         paramName = "CAN_MIXED_FORMAT";
         break;
-    case J1962_PINS:
+    case kJ2534J1962Pins:
         paramName = "J1962_PINS";
         break;
-    case SW_CAN_HS_DATA_RATE:
+    case kJ2534SwCanHsDataRate:
         paramName = "W_CAN_HS_DATA_RATE";
         break;
-    case SW_CAN_SPEEDCHANGE_ENABLE:
+    case kJ2534SwCanSpeedchangeEnable:
         paramName = "SW_CAN_SPEEDCHANGE_ENABLE";
         break;
-    case SW_CAN_RES_SWITCH:
+    case kJ2534SwCanResSwitch:
         paramName = "SW_CAN_RES_SWITCH";
         break;
-    case ACTIVE_CHANNELS:
+    case kJ2534ActiveChannels:
         paramName = "ACTIVE_CHANNELS";
         break;
-    case SAMPLE_RATE:
+    case kJ2534SampleRate:
         paramName = "SAMPLE_RATE";
         break;
-    case SAMPLES_PER_READING:
+    case kJ2534SamplesPerReading:
         paramName = "SAMPLES_PER_READING";
         break;
-    case READINGS_PER_MSG:
+    case kJ2534ReadingsPerMsg:
         paramName = "READINGS_PER_MSG";
         break;
-    case AVERAGING_METHOD:
+    case kJ2534AveragingMethod:
         paramName = "AVERAGING_METHOD";
         break;
-    case SAMPLE_RESOLUTION:
+    case kJ2534SampleResolution:
         paramName = "SAMPLE_RESOLUTION";
         break;
-    case INPUT_RANGE_LOW:
+    case kJ2534InputRangeLow:
         paramName = "INPUT_RANGE_LOW";
         break;
-    case INPUT_RANGE_HIGH:
+    case kJ2534InputRangeHigh:
         paramName = "INPUT_RANGE_HIGH";
         break;
     default:
@@ -967,52 +967,52 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     int output_as_sa = 0;
     unsigned int i;
     SCONFIG_LIST *scl;
-    long result = STATUS_NOERROR;
+    long result = kJ2534StatusNoerror;
     std::string IoctlName;
 
     // const SCONFIG_LIST *inputlist = pInput;
 
     switch (IoctlID)
     {
-    case GET_CONFIG:
+    case kJ2534GetConfig:
         IoctlName = "GET_CONFIG";
         break;
-    case SET_CONFIG:
+    case kJ2534SetConfig:
         IoctlName = "SET_CONFIG";
         break;
-    case READ_VBATT:
+    case kJ2534ReadVbatt:
         IoctlName = "READ_VBATT";
         break;
-    case FIVE_BAUD_INIT:
+    case kJ2534FiveBaudInit:
         IoctlName = "FIVE_BAUD_INIT";
         input_as_sa = 1;
         output_as_sa = 1;
         break;
-    case FAST_INIT:
+    case kJ2534FastInit:
         IoctlName = "FAST_INIT";
         break;
-    case CLEAR_TX_BUFFER:
+    case kJ2534ClearTxBuffer:
         IoctlName = "CLEAR_TX_BUFFER";
         break;
-    case CLEAR_RX_BUFFER:
+    case kJ2534ClearRxBuffer:
         IoctlName = "CLEAR_RX_BUFFER";
         break;
-    case CLEAR_PERIODIC_MSGS:
+    case kJ2534ClearPeriodicMsgs:
         IoctlName = "CLEAR_PERIODIC_MSGS";
         break;
-    case CLEAR_MSG_FILTERS:
+    case kJ2534ClearMsgFilters:
         IoctlName = "CLEAR_MSG_FILTERS";
         break;
-    case CLEAR_FUNCT_MSG_LOOKUP_TABLE:
+    case kJ2534ClearFunctMsgLookupTable:
         IoctlName = "CLEAR_FUNCT_MSG_LOOKUP_TABLE";
         break;
-    case ADD_TO_FUNCT_MSG_LOOKUP_TABLE:
+    case kJ2534AddToFunctMsgLookupTable:
         IoctlName = "ADD_TO_FUNCT_MSG_LOOKUP_TABLE";
         break;
-    case DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE:
+    case kJ2534DeleteFromFunctMsgLookupTable:
         IoctlName = "DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE";
         break;
-    case READ_PROG_VOLTAGE:
+    case kJ2534ReadProgVoltage:
         IoctlName = "READ_PROG_VOLTAGE";
         break;
         //    case TX_IOCTL_APP_SERVICE:
@@ -1023,10 +1023,10 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         break;
     }
 
-    if (IoctlID == GET_CONFIG)
+    if (IoctlID == kJ2534GetConfig)
     {
     }
-    if (IoctlID == SET_CONFIG)
+    if (IoctlID == kJ2534SetConfig)
     {
         pOutput = nullptr; // make some DLLs happy
 
@@ -1060,7 +1060,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
             emit LOG_D("Response: " + parseMessageToHex(received), true, true);
         }
     }
-    if (IoctlID == READ_VBATT)
+    if (IoctlID == kJ2534ReadVbatt)
     {
         PASSTHRU_MSG rxmsg;
         unsigned long numRxMsg;
@@ -1100,7 +1100,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         *vBatt = response.toULong();
     }
 
-    if (IoctlID == FIVE_BAUD_INIT)
+    if (IoctlID == kJ2534FiveBaudInit)
     {
         PASSTHRU_MSG rxmsg;
         unsigned long numRxMsg;
@@ -1131,7 +1131,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         emit LOG_D("Response: " + parseMessageToHex(received_local), true, true);
     }
 
-    if (IoctlID == FAST_INIT)
+    if (IoctlID == kJ2534FastInit)
     {
         PASSTHRU_MSG *msg = (PASSTHRU_MSG *)pInput;
 

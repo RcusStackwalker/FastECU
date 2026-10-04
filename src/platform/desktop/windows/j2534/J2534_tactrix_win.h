@@ -53,58 +53,59 @@ typedef void (*PF_StatusCallback)(const char *, int, int);
 ////////////////
 
 // J2534-1
-#define J1850VPW 0x01
-#define J1850PWM 0x02
-#define ISO9141 0x03
-#define ISO14230 0x04
-#define CAN 0x05
-#define ISO15765 0x06
-#define SCI_A_ENGINE 0x07
-#define SCI_A_TRANS 0x08
-#define SCI_B_ENGINE 0x09
-#define SCI_B_TRANS 0x0A
+inline constexpr int kJ2534J1850Vpw = 0x01;
+inline constexpr int kJ2534J1850Pwm = 0x02;
+inline constexpr int kJ2534Iso9141 = 0x03;
+inline constexpr int kJ2534Iso14230 = 0x04;
+inline constexpr int kJ2534Can = 0x05;
+inline constexpr int kJ2534Iso15765 = 0x06;
+inline constexpr int kJ2534SciAEngine = 0x07;
+inline constexpr int kJ2534SciATrans = 0x08;
+inline constexpr int kJ2534SciBEngine = 0x09;
+inline constexpr int kJ2534SciBTrans = 0x0A;
 
 // J2534-2
-#define CAN_CH1 0x00009000
-#define J1850VPW_CH1 0x00009080
-#define J1850PWM_CH1 0x00009160
-#define ISO9141_CH1 0x00009240
-#define ISO9141_CH2 0x00009241
-#define ISO9141_CH3 0x00009242
-#define ISO9141_K ISO9141_CH1
-#define ISO9141_L ISO9141_CH2    // OP2.0: Support for ISO9141 communications over the L line
-#define ISO9141_INNO ISO9141_CH3 // OP2.0: Support for RS-232 receive-only communications via the 2.5mm jack
-#define ISO14230_CH1 0x00009320
-#define ISO14230_CH2 0x00009321
-#define ISO14230_K ISO14230_CH1
-#define ISO14230_L ISO14230_CH2 // OP2.0: Support for ISO14230 communications over the L line
-#define ISO15765_CH1 0x00009400
+inline constexpr int kJ2534CanCh1 = 0x00009000;
+inline constexpr int kJ2534J1850VpwCh1 = 0x00009080;
+inline constexpr int kJ2534J1850PwmCh1 = 0x00009160;
+inline constexpr int kJ2534Iso9141Ch1 = 0x00009240;
+inline constexpr int kJ2534Iso9141Ch2 = 0x00009241;
+inline constexpr int kJ2534Iso9141Ch3 = 0x00009242;
+inline constexpr int kJ2534Iso9141K = kJ2534Iso9141Ch1;
+inline constexpr int kJ2534Iso9141L = kJ2534Iso9141Ch2; // OP2.0: Support for ISO9141 communications over the L line
+inline constexpr int kJ2534Iso9141Inno =
+    kJ2534Iso9141Ch3; // OP2.0: Support for RS-232 receive-only communications via the 2.5mm jack
+inline constexpr int kJ2534Iso14230Ch1 = 0x00009320;
+inline constexpr int kJ2534Iso14230Ch2 = 0x00009321;
+inline constexpr int kJ2534Iso14230K = kJ2534Iso14230Ch1;
+inline constexpr int kJ2534Iso14230L = kJ2534Iso14230Ch2; // OP2.0: Support for ISO14230 communications over the L line
+inline constexpr int kJ2534Iso15765Ch1 = 0x00009400;
 
 // J2534 device specific protocols
-#define DSTI_ISO9141 0x00020001
+inline constexpr int kJ2534DstiIso9141 = 0x00020001;
 
 /////////////
 // IOCTL IDs
 /////////////
 
 // J2534-1
-#define GET_CONFIG 0x01                         // SCONFIG_LIST		NULL
-#define SET_CONFIG 0x02                         // SCONFIG_LIST		NULL
-#define READ_VBATT 0x03                         // NULL			unsigned long
-#define FIVE_BAUD_INIT 0x04                     // SBYTE_ARRAY		SBYTE_ARRAY
-#define FAST_INIT 0x05                          // PASSTHRU_MSG		PASSTHRU_MSG
-#define CLEAR_TX_BUFFER 0x07                    // NULL			NULL
-#define CLEAR_RX_BUFFER 0x08                    // NULL			NULL
-#define CLEAR_PERIODIC_MSGS 0x09                // NULL			NULL
-#define CLEAR_MSG_FILTERS 0x0A                  // NULL			NULL
-#define CLEAR_FUNCT_MSG_LOOKUP_TABLE 0x0B       // NULL			NULL
-#define ADD_TO_FUNCT_MSG_LOOKUP_TABLE 0x0C      // SBYTE_ARRAY		NULL
-#define DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE 0x0D // SBYTE_ARRAY		NULL
-#define READ_PROG_VOLTAGE 0x0E                  // NULL			unsigned long
+inline constexpr int kJ2534GetConfig = 0x01;                     // SCONFIG_LIST		NULL
+inline constexpr int kJ2534SetConfig = 0x02;                     // SCONFIG_LIST		NULL
+inline constexpr int kJ2534ReadVbatt = 0x03;                     // NULL			unsigned long
+inline constexpr int kJ2534FiveBaudInit = 0x04;                  // SBYTE_ARRAY		SBYTE_ARRAY
+inline constexpr int kJ2534FastInit = 0x05;                      // PASSTHRU_MSG		PASSTHRU_MSG
+inline constexpr int kJ2534ClearTxBuffer = 0x07;                 // NULL			NULL
+inline constexpr int kJ2534ClearRxBuffer = 0x08;                 // NULL			NULL
+inline constexpr int kJ2534ClearPeriodicMsgs = 0x09;             // NULL			NULL
+inline constexpr int kJ2534ClearMsgFilters = 0x0A;               // NULL			NULL
+inline constexpr int kJ2534ClearFunctMsgLookupTable = 0x0B;      // NULL			NULL
+inline constexpr int kJ2534AddToFunctMsgLookupTable = 0x0C;      // SBYTE_ARRAY		NULL
+inline constexpr int kJ2534DeleteFromFunctMsgLookupTable = 0x0D; // SBYTE_ARRAY		NULL
+inline constexpr int kJ2534ReadProgVoltage = 0x0E;               // NULL			unsigned long
 
 // J2534-2
-#define SW_CAN_NS 0x8000 // OP2.0: Not supported
-#define SW_CAN_HS 0x8001 // OP2.0: Not supported
+inline constexpr int kJ2534SwCanNs = 0x8000; // OP2.0: Not supported
+inline constexpr int kJ2534SwCanHs = 0x8001; // OP2.0: Not supported
 /*
 // Tactrix specific IOCTLs
 #define TX_IOCTL_BASE							0x70000
@@ -123,88 +124,88 @@ typedef void (*PF_StatusCallback)(const char *, int, int);
 // Pin numbering
 /////////////////
 
-#define AUX_PIN 0       // aux jack	OP2.0: Supports GND and adj. voltage
-#define J1962_PIN_1 1   //			OP2.0: Supports GND and adj. voltage
-#define J1962_PIN_2 2   // J1850P	OP2.0: Supports 5V and 8V
-#define J1962_PIN_3 3   //			OP2.0: Supports GND and adj. voltage
-#define J1962_PIN_4 4   // GND
-#define J1962_PIN_5 5   // GND
-#define J1962_PIN_6 6   // CAN
-#define J1962_PIN_7 7   // K		OP2.0: Supports GND
-#define J1962_PIN_8 8   //			OP2.0: Supports reading voltage
-#define J1962_PIN_9 9   //			OP2.0: Supports GND and adj. voltage
-#define J1962_PIN_10 10 // J1850M	OP2.0: Supports GND
-#define J1962_PIN_11 11 //			OP2.0: Supports GND and adj. voltage
-#define J1962_PIN_12 12 //			OP2.0: Supports GND and adj. voltage
-#define J1962_PIN_13 13 //			OP2.0: Supports GND and adj. voltage
-#define J1962_PIN_14 14 // CAN
-#define J1962_PIN_15 15 // L		OP2.0: Supports GND
-#define J1962_PIN_16 16 // VBAT		OP2.0: Supports reading voltage
-#define PIN_VADJ 17     // internal	OP2.0: Supports reading voltage
+inline constexpr int kJ2534AuxPin = 0;      // aux jack	OP2.0: Supports GND and adj. voltage
+inline constexpr int kJ2534J1962Pin1 = 1;   //			OP2.0: Supports GND and adj. voltage
+inline constexpr int kJ2534J1962Pin2 = 2;   // J1850P	OP2.0: Supports 5V and 8V
+inline constexpr int kJ2534J1962Pin3 = 3;   //			OP2.0: Supports GND and adj. voltage
+inline constexpr int kJ2534J1962Pin4 = 4;   // GND
+inline constexpr int kJ2534J1962Pin5 = 5;   // GND
+inline constexpr int kJ2534J1962Pin6 = 6;   // CAN
+inline constexpr int kJ2534J1962Pin7 = 7;   // K		OP2.0: Supports GND
+inline constexpr int kJ2534J1962Pin8 = 8;   //			OP2.0: Supports reading voltage
+inline constexpr int kJ2534J1962Pin9 = 9;   //			OP2.0: Supports GND and adj. voltage
+inline constexpr int kJ2534J1962Pin10 = 10; // J1850M	OP2.0: Supports GND
+inline constexpr int kJ2534J1962Pin11 = 11; //			OP2.0: Supports GND and adj. voltage
+inline constexpr int kJ2534J1962Pin12 = 12; //			OP2.0: Supports GND and adj. voltage
+inline constexpr int kJ2534J1962Pin13 = 13; //			OP2.0: Supports GND and adj. voltage
+inline constexpr int kJ2534J1962Pin14 = 14; // CAN
+inline constexpr int kJ2534J1962Pin15 = 15; // L		OP2.0: Supports GND
+inline constexpr int kJ2534J1962Pin16 = 16; // VBAT		OP2.0: Supports reading voltage
+inline constexpr int kJ2534PinVadj = 17;    // internal	OP2.0: Supports reading voltage
 
 ////////////////////////////////
 // Special pin voltage settings
 ////////////////////////////////
 
-#define SHORT_TO_GROUND 0xFFFFFFFE
-#define VOLTAGE_OFF 0xFFFFFFFF
+inline constexpr unsigned int kJ2534ShortToGround = 0xFFFFFFFE;
+inline constexpr unsigned int kJ2534VoltageOff = 0xFFFFFFFF;
 
 /////////////////////////////////////////
 // GET_CONFIG / SET_CONFIG Parameter IDs
 /////////////////////////////////////////
 
 // J2534-1
-#define DATA_RATE 0x01
-#define LOOPBACK 0x03
-#define NODE_ADDRESS 0x04 // OP2.0: Not yet supported
-#define NETWORK_LINE 0x05 // OP2.0: Not yet supported
-#define P1_MIN 0x06       // J2534 says this may not be changed
-#define P1_MAX 0x07
-#define P2_MIN 0x08 // J2534 says this may not be changed
-#define P2_MAX 0x09 // J2534 says this may not be changed
-#define P3_MIN 0x0A
-#define P3_MAX 0x0B // J2534 says this may not be changed
-#define P4_MIN 0x0C
-#define P4_MAX 0x0D // J2534 says this may not be changed
-#define W0 0x19
-#define W1 0x0E
-#define W2 0x0F
-#define W3 0x10
-#define W4 0x11
-#define W5 0x12
-#define TIDLE 0x13
-#define TINIL 0x14
-#define TWUP 0x15
-#define PARITY 0x16
-#define BIT_SAMPLE_POINT 0x17 // OP2.0: Not yet supported
-#define SYNC_JUMP_WIDTH 0x18  // OP2.0: Not yet supported
-#define T1_MAX 0x1A
-#define T2_MAX 0x1B
-#define T3_MAX 0x24
-#define T4_MAX 0x1C
-#define T5_MAX 0x1D
-#define ISO15765_BS 0x1E
-#define ISO15765_STMIN 0x1F
-#define DATA_BITS 0x20
-#define FIVE_BAUD_MOD 0x21
-#define BS_TX 0x22
-#define STMIN_TX 0x23
-#define ISO15765_WFT_MAX 0x25
+inline constexpr int kJ2534DataRate = 0x01;
+inline constexpr int kJ2534Loopback = 0x03;
+inline constexpr int kJ2534NodeAddress = 0x04; // OP2.0: Not yet supported
+inline constexpr int kJ2534NetworkLine = 0x05; // OP2.0: Not yet supported
+inline constexpr int kJ2534P1Min = 0x06;       // J2534 says this may not be changed
+inline constexpr int kJ2534P1Max = 0x07;
+inline constexpr int kJ2534P2Min = 0x08; // J2534 says this may not be changed
+inline constexpr int kJ2534P2Max = 0x09; // J2534 says this may not be changed
+inline constexpr int kJ2534P3Min = 0x0A;
+inline constexpr int kJ2534P3Max = 0x0B; // J2534 says this may not be changed
+inline constexpr int kJ2534P4Min = 0x0C;
+inline constexpr int kJ2534P4Max = 0x0D; // J2534 says this may not be changed
+inline constexpr int kJ2534W0 = 0x19;
+inline constexpr int kJ2534W1 = 0x0E;
+inline constexpr int kJ2534W2 = 0x0F;
+inline constexpr int kJ2534W3 = 0x10;
+inline constexpr int kJ2534W4 = 0x11;
+inline constexpr int kJ2534W5 = 0x12;
+inline constexpr int kJ2534Tidle = 0x13;
+inline constexpr int kJ2534Tinil = 0x14;
+inline constexpr int kJ2534Twup = 0x15;
+inline constexpr int kJ2534Parity = 0x16;
+inline constexpr int kJ2534BitSamplePoint = 0x17; // OP2.0: Not yet supported
+inline constexpr int kJ2534SyncJumpWidth = 0x18;  // OP2.0: Not yet supported
+inline constexpr int kJ2534T1Max = 0x1A;
+inline constexpr int kJ2534T2Max = 0x1B;
+inline constexpr int kJ2534T3Max = 0x24;
+inline constexpr int kJ2534T4Max = 0x1C;
+inline constexpr int kJ2534T5Max = 0x1D;
+inline constexpr int kJ2534Iso15765Bs = 0x1E;
+inline constexpr int kJ2534Iso15765Stmin = 0x1F;
+inline constexpr int kJ2534DataBits = 0x20;
+inline constexpr int kJ2534FiveBaudMod = 0x21;
+inline constexpr int kJ2534BsTx = 0x22;
+inline constexpr int kJ2534StminTx = 0x23;
+inline constexpr int kJ2534Iso15765WftMax = 0x25;
 
 // J2534-2
-#define CAN_MIXED_FORMAT 0x8000
-#define J1962_PINS 0x8001                // OP2.0: Not supported
-#define SW_CAN_HS_DATA_RATE 0x8010       // OP2.0: Not supported
-#define SW_CAN_SPEEDCHANGE_ENABLE 0x8011 // OP2.0: Not supported
-#define SW_CAN_RES_SWITCH 0x8012         // OP2.0: Not supported
-#define ACTIVE_CHANNELS 0x8020           // OP2.0: Not supported
-#define SAMPLE_RATE 0x8021               // OP2.0: Not supported
-#define SAMPLES_PER_READING 0x8022       // OP2.0: Not supported
-#define READINGS_PER_MSG 0x8023          // OP2.0: Not supported
-#define AVERAGING_METHOD 0x8024          // OP2.0: Not supported
-#define SAMPLE_RESOLUTION 0x8025         // OP2.0: Not supported
-#define INPUT_RANGE_LOW 0x8026           // OP2.0: Not supported
-#define INPUT_RANGE_HIGH 0x8027          // OP2.0: Not supported
+inline constexpr int kJ2534CanMixedFormat = 0x8000;
+inline constexpr int kJ2534J1962Pins = 0x8001;              // OP2.0: Not supported
+inline constexpr int kJ2534SwCanHsDataRate = 0x8010;        // OP2.0: Not supported
+inline constexpr int kJ2534SwCanSpeedchangeEnable = 0x8011; // OP2.0: Not supported
+inline constexpr int kJ2534SwCanResSwitch = 0x8012;         // OP2.0: Not supported
+inline constexpr int kJ2534ActiveChannels = 0x8020;         // OP2.0: Not supported
+inline constexpr int kJ2534SampleRate = 0x8021;             // OP2.0: Not supported
+inline constexpr int kJ2534SamplesPerReading = 0x8022;      // OP2.0: Not supported
+inline constexpr int kJ2534ReadingsPerMsg = 0x8023;         // OP2.0: Not supported
+inline constexpr int kJ2534AveragingMethod = 0x8024;        // OP2.0: Not supported
+inline constexpr int kJ2534SampleResolution = 0x8025;       // OP2.0: Not supported
+inline constexpr int kJ2534InputRangeLow = 0x8026;          // OP2.0: Not supported
+inline constexpr int kJ2534InputRangeHigh = 0x8027;         // OP2.0: Not supported
 
 // Tactrix specific parameter IDs
 // #define TX_PARAM_BASE					0x9000
@@ -214,51 +215,51 @@ typedef void (*PF_StatusCallback)(const char *, int, int);
 // PARITY definitions
 //////////////////////
 
-#define NO_PARITY 0
-#define ODD_PARITY 1
-#define EVEN_PARITY 2
+inline constexpr int kJ2534NoParity = 0;
+inline constexpr int kJ2534OddParity = 1;
+inline constexpr int kJ2534EvenParity = 2;
 
 ////////////////////////////////
 // CAN_MIXED_FORMAT definitions
 ////////////////////////////////
 
-#define CAN_MIXED_FORMAT_OFF 0
-#define CAN_MIXED_FORMAT_ON 1
-#define CAN_MIXED_FORMAT_ALL_FRAMES 2
+inline constexpr int kJ2534CanMixedFormatOff = 0;
+inline constexpr int kJ2534CanMixedFormatOn = 1;
+inline constexpr int kJ2534CanMixedFormatAllFrames = 2;
 
 /////////////
 // Error IDs
 /////////////
 
 // J2534-1
-#define ERR_SUCCESS 0x00
-#define STATUS_NOERROR 0x00
-#define ERR_NOT_SUPPORTED 0x01
-#define ERR_INVALID_CHANNEL_ID 0x02
-#define ERR_INVALID_PROTOCOL_ID 0x03
-#define ERR_NULL_PARAMETER 0x04
-#define ERR_INVALID_IOCTL_VALUE 0x05
-#define ERR_INVALID_FLAGS 0x06
-#define ERR_FAILED 0x07
-#define ERR_DEVICE_NOT_CONNECTED 0x08
-#define ERR_TIMEOUT 0x09
-#define ERR_INVALID_MSG 0x0A
-#define ERR_INVALID_TIME_INTERVAL 0x0B
-#define ERR_EXCEEDED_LIMIT 0x0C
-#define ERR_INVALID_MSG_ID 0x0D
-#define ERR_DEVICE_IN_USE 0x0E
-#define ERR_INVALID_IOCTL_ID 0x0F
-#define ERR_BUFFER_EMPTY 0x10
-#define ERR_BUFFER_FULL 0x11
-#define ERR_BUFFER_OVERFLOW 0x12
-#define ERR_PIN_INVALID 0x13
-#define ERR_CHANNEL_IN_USE 0x14
-#define ERR_MSG_PROTOCOL_ID 0x15
-#define ERR_INVALID_FILTER_ID 0x16
-#define ERR_NO_FLOW_CONTROL 0x17
-#define ERR_NOT_UNIQUE 0x18
-#define ERR_INVALID_BAUDRATE 0x19
-#define ERR_INVALID_DEVICE_ID 0x1A
+inline constexpr int kJ2534ErrSuccess = 0x00;
+inline constexpr int kJ2534StatusNoerror = 0x00;
+inline constexpr int kJ2534ErrNotSupported = 0x01;
+inline constexpr int kJ2534ErrInvalidChannelId = 0x02;
+inline constexpr int kJ2534ErrInvalidProtocolId = 0x03;
+inline constexpr int kJ2534ErrNullParameter = 0x04;
+inline constexpr int kJ2534ErrInvalidIoctlValue = 0x05;
+inline constexpr int kJ2534ErrInvalidFlags = 0x06;
+inline constexpr int kJ2534ErrFailed = 0x07;
+inline constexpr int kJ2534ErrDeviceNotConnected = 0x08;
+inline constexpr int kJ2534ErrTimeout = 0x09;
+inline constexpr int kJ2534ErrInvalidMsg = 0x0A;
+inline constexpr int kJ2534ErrInvalidTimeInterval = 0x0B;
+inline constexpr int kJ2534ErrExceededLimit = 0x0C;
+inline constexpr int kJ2534ErrInvalidMsgId = 0x0D;
+inline constexpr int kJ2534ErrDeviceInUse = 0x0E;
+inline constexpr int kJ2534ErrInvalidIoctlId = 0x0F;
+inline constexpr int kJ2534ErrBufferEmpty = 0x10;
+inline constexpr int kJ2534ErrBufferFull = 0x11;
+inline constexpr int kJ2534ErrBufferOverflow = 0x12;
+inline constexpr int kJ2534ErrPinInvalid = 0x13;
+inline constexpr int kJ2534ErrChannelInUse = 0x14;
+inline constexpr int kJ2534ErrMsgProtocolId = 0x15;
+inline constexpr int kJ2534ErrInvalidFilterId = 0x16;
+inline constexpr int kJ2534ErrNoFlowControl = 0x17;
+inline constexpr int kJ2534ErrNotUnique = 0x18;
+inline constexpr int kJ2534ErrInvalidBaudrate = 0x19;
+inline constexpr int kJ2534ErrInvalidDeviceId = 0x1A;
 
 // OP2.0 Tactrix specific
 // #define ERR_OEM_VOLTAGE_TOO_LOW				0x78 // OP2.0: the requested output voltage is lower than the OP2.0
@@ -269,51 +270,51 @@ typedef void (*PF_StatusCallback)(const char *, int, int);
 // PassThruConnect flags
 /////////////////////////
 
-#define CAN_29BIT_ID 0x00000100
-#define ISO9141_NO_CHECKSUM 0x00000200
-#define CAN_ID_BOTH 0x00000800
-#define ISO9141_K_LINE_ONLY 0x00001000
+inline constexpr int kJ2534Can29BitId = 0x00000100;
+inline constexpr int kJ2534Iso9141NoChecksum = 0x00000200;
+inline constexpr int kJ2534CanIdBoth = 0x00000800;
+inline constexpr int kJ2534Iso9141KLineOnly = 0x00001000;
 // #define SNIFF_MODE							0x10000000 // OP2.0: listens to a bus (e.g. CAN) without acknowledging
 
 //////////////////
 // RxStatus flags
 //////////////////
 
-#define TX_MSG_TYPE 0x00000001
-#define START_OF_MESSAGE 0x00000002
-#define ISO15765_FIRST_FRAME 0x00000002
-#define RX_BREAK 0x00000004
-#define TX_DONE 0x00000008
-#define ISO15765_PADDING_ERROR 0x00000010
-#define ISO15765_EXT_ADDR 0x00000080
-#define ISO15765_ADDR_TYPE 0x00000080
+inline constexpr int kJ2534TxMsgType = 0x00000001;
+inline constexpr int kJ2534StartOfMessage = 0x00000002;
+inline constexpr int kJ2534Iso15765FirstFrame = 0x00000002;
+inline constexpr int kJ2534RxBreak = 0x00000004;
+inline constexpr int kJ2534TxDone = 0x00000008;
+inline constexpr int kJ2534Iso15765PaddingError = 0x00000010;
+inline constexpr int kJ2534Iso15765ExtAddr = 0x00000080;
+inline constexpr int kJ2534Iso15765AddrType = 0x00000080;
 // #define CAN_29BIT_ID						0x00000100 // (already defined above)
 
 //////////////////
 // TxStatus flags
 //////////////////
 
-#define ISO15765_FRAME_PAD 0x00000040
+inline constexpr int kJ2534Iso15765FramePad = 0x00000040;
 // #define ISO15765_ADDR_TYPE				0x00000080 // (already defined above)
 // #define CAN_29BIT_ID						0x00000100 // (already defined above)
-#define WAIT_P3_MIN_ONLY 0x00000200
-#define SW_CAN_HV_TX 0x00000400   // OP2.0: Not supported
-#define SCI_MODE 0x00400000       // OP2.0: Not supported
-#define SCI_TX_VOLTAGE 0x00800000 // OP2.0: Not supported
+inline constexpr int kJ2534WaitP3MinOnly = 0x00000200;
+inline constexpr int kJ2534SwCanHvTx = 0x00000400;    // OP2.0: Not supported
+inline constexpr int kJ2534SciMode = 0x00400000;      // OP2.0: Not supported
+inline constexpr int kJ2534SciTxVoltage = 0x00800000; // OP2.0: Not supported
 
 ////////////////
 // Filter types
 ////////////////
 
-#define PASS_FILTER 0x00000001
-#define BLOCK_FILTER 0x00000002
-#define FLOW_CONTROL_FILTER 0x00000003
+inline constexpr int kJ2534PassFilter = 0x00000001;
+inline constexpr int kJ2534BlockFilter = 0x00000002;
+inline constexpr int kJ2534FlowControlFilter = 0x00000003;
 
 /////////////////
 // Message struct
 /////////////////
 
-#define PASSTHRU_MSG_DATA_SIZE 4128
+inline constexpr int kJ2534PassthruMsgDataSize = 4128;
 
 typedef struct
 {
@@ -326,7 +327,7 @@ typedef struct
     // The J2534 API defines this struct's layout; the vendor DLL reads and
     // writes it in place, so the trailing payload stays a C array.
     // NOLINTNEXTLINE(modernize-avoid-c-arrays)
-    unsigned char Data[PASSTHRU_MSG_DATA_SIZE];
+    unsigned char Data[kJ2534PassthruMsgDataSize];
 } PASSTHRU_MSG;
 
 ////////////////

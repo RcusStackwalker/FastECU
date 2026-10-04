@@ -188,13 +188,13 @@ Status SerialDiagnosticLink::set_p1_max(std::chrono::milliseconds p1_max)
             const int value = saturating_ms<int>(p1_max);
             if (serial_->get_use_openport2_adapter())
             {
-                if (serial_->set_j2534_ioctl(kJ2534IoctlP1Max, value) != STATUS_SUCCESS)
+                if (serial_->set_j2534_ioctl(kJ2534IoctlP1Max, value) != kSerialSuccess)
                 {
                     return fail(ErrorKind::Disconnected, "set_j2534_ioctl(P1_MAX) failed");
                 }
                 return {};
             }
-            if (!serial_->set_kline_timings(SERIAL_P1_MAX, value))
+            if (!serial_->set_kline_timings(kSerialP1Max, value))
             {
                 return fail(ErrorKind::InvalidConfig, "set_kline_timings(P1_MAX) failed");
             }
@@ -222,7 +222,7 @@ Status SerialDiagnosticLink::fast_init(bytes::ByteView wakeup)
     return guarded(
         [&]() -> Status
         {
-            if (serial_->fast_init(bytes::toQByteArray(wakeup)) != STATUS_SUCCESS)
+            if (serial_->fast_init(bytes::toQByteArray(wakeup)) != kSerialSuccess)
             {
                 return fail(ErrorKind::Disconnected, "fast_init failed");
             }

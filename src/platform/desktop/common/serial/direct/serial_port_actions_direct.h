@@ -641,7 +641,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     unsigned long devID = 0;
     unsigned long chanID{};
     unsigned long flags{};
-    unsigned int parity = NO_PARITY;
+    unsigned int parity = kJ2534NoParity;
     unsigned int timeout = 20;
 
     bool ssm_init_ok = false;
@@ -651,7 +651,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     void dump_msg(PASSTHRU_MSG *msg);
     void reportJ2534Error();
 
-    unsigned int protocol = ISO9141;
+    unsigned int protocol = kJ2534Iso9141;
 
     bool J2534_init_ok = false;
     bool J2534_open_ok = false;

@@ -54,18 +54,18 @@ TEST(J2534WinBridge, OpensConnectsAndReadsThroughBridge)
 
     unsigned long deviceId = 0;
     long result = j2534.PassThruOpen(nullptr, &deviceId);
-    ASSERT_TRUE(result == STATUS_NOERROR && "PassThruOpen should transparently succeed via the bridge");
+    ASSERT_TRUE(result == kJ2534StatusNoerror && "PassThruOpen should transparently succeed via the bridge");
     ASSERT_TRUE(deviceId == 7);
 
     unsigned long channelId = 0;
-    result = j2534.PassThruConnect(deviceId, ISO9141, 0, 0, &channelId);
-    ASSERT_TRUE(result == STATUS_NOERROR);
+    result = j2534.PassThruConnect(deviceId, kJ2534Iso9141, 0, 0, &channelId);
+    ASSERT_TRUE(result == kJ2534StatusNoerror);
     ASSERT_TRUE(channelId == 3);
 
     PASSTHRU_MSG msg{};
     unsigned long numMsgs = 1;
     result = j2534.PassThruReadMsgs(channelId, &msg, &numMsgs, 100);
-    ASSERT_TRUE(result == STATUS_NOERROR);
+    ASSERT_TRUE(result == kJ2534StatusNoerror);
     ASSERT_TRUE(msg.DataSize == 4 && msg.Data[0] == 0xDE);
 
     std::printf("All j2534_win_bridge tests passed.\n");

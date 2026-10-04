@@ -93,7 +93,7 @@ TEST(SerialFacadeConfiguratorTest, klineConfigurationPreservesLegacyOpenBaudHead
     EXPECT_CALL(*harness.fake, set_is_iso14230_connection(true)).WillOnce(::testing::Return(true));
     EXPECT_CALL(*harness.fake, open_serial_port()).WillOnce(::testing::Return(QStringLiteral("fake-port")));
     EXPECT_CALL(*harness.fake, is_serial_port_open()).WillOnce(::testing::Return(true));
-    EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_SUCCESS));
+    EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialSuccess));
     EXPECT_CALL(*harness.fake, is_serial_port_open()).WillOnce(::testing::Return(true));
     EXPECT_CALL(*harness.fake, set_add_iso14230_header(false)).WillOnce(::testing::Return(true));
 
@@ -245,7 +245,7 @@ TEST(SerialFacadeConfiguratorTest, anOpenExceptionBecomesInternalStatus)
 TEST(SerialFacadeConfiguratorTest, aRejectedBaudChangeIsInternal)
 {
     Harness harness;
-    EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_ERROR));
+    EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialError));
 
     const auto result = harness.configurator->apply(klineConfig());
 
@@ -259,7 +259,7 @@ TEST(SerialFacadeConfiguratorTest, aPortDropDuringRejectedBaudChangeIsDisconnect
     EXPECT_CALL(*harness.fake, is_serial_port_open())
         .WillOnce(::testing::Return(true))
         .WillOnce(::testing::Return(false));
-    EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(STATUS_ERROR));
+    EXPECT_CALL(*harness.fake, change_port_speed(QStringLiteral("4800"))).WillOnce(::testing::Return(kSerialError));
 
     const auto result = harness.configurator->apply(klineConfig());
 

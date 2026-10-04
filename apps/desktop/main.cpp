@@ -85,7 +85,7 @@ int main(int argc, char *argv[])
         w.show();
 
         return_code = a.exec();
-    } while (return_code == RESTART_CODE);
+    } while (return_code == kRestartCode);
 
     return return_code;
 }

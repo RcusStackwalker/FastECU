@@ -212,12 +212,12 @@ TEST(SerialPortCrashTest, j2534Handshake_overMockPty_readVersionSucceeds)
         ASSERT_EQ(j2534.open_serial_port(ptyPath), ptyPath);
 
         unsigned long devID = 1;
-        ASSERT_EQ(j2534.PassThruOpen(nullptr, &devID), (long)STATUS_NOERROR);
+        ASSERT_EQ(j2534.PassThruOpen(nullptr, &devID), (long)kJ2534StatusNoerror);
 
         std::array<char, 256> api{};
         std::array<char, 256> dll{};
         std::array<char, 256> fw{};
-        ASSERT_EQ(j2534.PassThruReadVersion(api.data(), dll.data(), fw.data(), devID), (long)STATUS_NOERROR);
+        ASSERT_EQ(j2534.PassThruReadVersion(api.data(), dll.data(), fw.data(), devID), (long)kJ2534StatusNoerror);
         ASSERT_EQ(QString::fromUtf8(fw.data()).trimmed(), QStringLiteral("1.17.4877"));
 
         j2534.close_serial_port();
@@ -239,7 +239,7 @@ TEST(SerialPortCrashTest, spadInitJ2534Connection_overMockPty_succeeds)
         TestableSerialPortActionsDirect spad;
         spad.serial_port = QString::fromLocal8Bit(name.data());
 
-        ASSERT_EQ(spad.runInitJ2534Connection(), STATUS_SUCCESS);
+        ASSERT_EQ(spad.runInitJ2534Connection(), kSerialSuccess);
     }
     ::close(master);
 }
@@ -265,7 +265,7 @@ TEST(SerialPortCrashTest, loggingFlow_connectReadTeardownReentrancy_overMockPty_
 
         TestableSerialPortActionsDirect spad;
         spad.serial_port = QString::fromLocal8Bit(name.data());
-        ASSERT_EQ(spad.runInitJ2534Connection(), STATUS_SUCCESS);
+        ASSERT_EQ(spad.runInitJ2534Connection(), kSerialSuccess);
         spad.use_openport2_adapter = true;
 
         // Realtime read loop over the live mock connection.
@@ -316,7 +316,7 @@ TEST(SerialPortCrashTest, resetQueuedDuringRead_runsAfterReadCompletes)
 
         TestableSerialPortActionsDirect spad;
         spad.serial_port = QString::fromLocal8Bit(name.data());
-        ASSERT_EQ(spad.runInitJ2534Connection(), STATUS_SUCCESS);
+        ASSERT_EQ(spad.runInitJ2534Connection(), kSerialSuccess);
         spad.use_openport2_adapter = true;
 
         // Withhold the READ_VBATT reply so the read below waits out its full
