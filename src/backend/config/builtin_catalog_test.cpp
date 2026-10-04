@@ -101,6 +101,13 @@ TEST(BuiltinCatalogFixes, UnisiaJecsM377xDeclareNoKernelLoadAddress)
     }
 }
 
+TEST(BuiltinCatalogFixes, Sh72543DieselUploadsNoKernel)
+{
+    const ProtocolSpec& protocol = protocol_named("sub_ecu_denso_sh72543_can_diesel");
+    EXPECT_TRUE(protocol.kernel.empty());
+    EXPECT_FALSE(protocol.kernel_load_address.has_value());
+}
+
 TEST(BuiltinCatalog, ListsEveryProtocolsCfgEntry)
 {
     EXPECT_EQ(builtin_catalog().protocols().size(), 63U);
