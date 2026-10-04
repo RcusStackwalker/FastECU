@@ -33,6 +33,14 @@ exports_files(
     ],
 )
 
+# The bundled kernels as plain files, so tests can compare the catalog's
+# kernel names with the bundle and load real kernels.
+filegroup(
+    name = "kernel_files",
+    srcs = glob(["kernels/*"]),
+    visibility = ["//bazel/layers:tests"],
+)
+
 fastecu_gtest(
     name = "test_protocols_cfg_eeprom_capabilities",
     size = "small",

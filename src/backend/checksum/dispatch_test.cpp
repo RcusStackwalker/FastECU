@@ -402,3 +402,13 @@ TEST(ApplyChecksumCorrection, MitsubishiMakeDoesNotOpenTheKlineMutDmaProtocol)
 
     EXPECT_EQ(outcome.status, Status::NoModuleForProtocol);
 }
+
+TEST(HasRoute, MatchesExactlyTheRoutesCorrectionDispatches)
+{
+    EXPECT_TRUE(fastecu::checksum::has_route("Subaru", "sub_ecu_denso_sh7058_can"));
+    EXPECT_TRUE(fastecu::checksum::has_route("Subaru", "sub_ecu_denso_sh7058_can_cobb")); // prefix routes take suffixes
+    EXPECT_TRUE(fastecu::checksum::has_route("Mitsubishi", "mitsu_ecu_m32r_can_512kb"));
+    EXPECT_FALSE(fastecu::checksum::has_route("Mitsubishi", "sub_ecu_denso_sh7058_can")); // a route belongs to one make
+    EXPECT_FALSE(fastecu::checksum::has_route("Subaru", "sub_ecu_mitsu_m32r_kline"));
+    EXPECT_FALSE(fastecu::checksum::has_route("Mitsubishi", "mitsu_ecu_m32r_kline_mut_dma"));
+}
