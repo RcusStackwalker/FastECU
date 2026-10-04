@@ -143,6 +143,11 @@ TEST(BuiltinCatalogParity, DiffersFromProtocolsCfgOnlyByTheDocumentedFixes)
         // Fix 2: upstream 90f11ae9 renamed these protocols without updating the vehicles.
         "vehicle 1: protocol file 'sub_ecu_unisia_jecs_92' catalog 'sub_ecu_unisia_jecs_m3779x'",
         "vehicle 2: protocol file 'sub_ecu_unisia_jecs_97' catalog 'sub_ecu_unisia_jecs_m3775x'",
+        // Fix 3: typos.
+        "vehicle 10: version file '2.0 5MT ' catalog '2.0 5MT'",
+        "vehicle 35: year file '20011' catalog '2011'",
+        "vehicle 39: version file '2.0 5MT ' catalog '2.0 5MT'",
+        "vehicle 40: version file '2.0 5MT ' catalog '2.0 5MT'",
     };
 
     EXPECT_THAT(protocol_differences(config.child("protocols")),

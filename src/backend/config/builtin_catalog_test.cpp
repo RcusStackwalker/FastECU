@@ -1,5 +1,6 @@
 #include "src/backend/config/builtin_catalog.h"
 
+#include <algorithm>
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -61,6 +62,36 @@ TEST(BuiltinCatalogFixes, Legacy1990RowsReachTheRenamedUnisiaJecsProtocols)
     ASSERT_NE(vehicles[2].protocol, nullptr);
     EXPECT_EQ(vehicles[1].protocol->name, "sub_ecu_unisia_jecs_m3779x");
     EXPECT_EQ(vehicles[2].protocol->name, "sub_ecu_unisia_jecs_m3775x");
+}
+
+std::string_view trimmed(std::string_view text)
+{
+    const auto first = text.find_first_not_of(" \t");
+    if (first == std::string_view::npos)
+    {
+        return {};
+    }
+    return text.substr(first, text.find_last_not_of(" \t") - first + 1);
+}
+
+TEST(BuiltinCatalogFixes, VehicleTextHasNoStrayWhitespace)
+{
+    for (const auto& vehicle : builtin_catalog().vehicles())
+    {
+        for (std::string_view field : {vehicle.make, vehicle.model, vehicle.version, vehicle.type, vehicle.kw,
+                                       vehicle.hp, vehicle.fuel, vehicle.year})
+        {
+            EXPECT_EQ(field, trimmed(field)) << vehicle.id;
+        }
+    }
+}
+
+TEST(BuiltinCatalogFixes, Sh7059DieselDensoCanYearIs2011)
+{
+    const auto row = builtin_catalog().find_vehicle(
+        "subaru-all-sh7059-denso-can-diesel-models-sh7059-2011--sub-ecu-denso-sh7059-diesel-densocan");
+    ASSERT_TRUE(row.has_value());
+    EXPECT_EQ(builtin_catalog().vehicles()[*row].year, "2011");
 }
 
 TEST(BuiltinCatalog, ListsEveryProtocolsCfgEntry)
