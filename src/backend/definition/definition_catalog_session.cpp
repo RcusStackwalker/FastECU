@@ -1,4 +1,5 @@
 #include "src/backend/definition/definition_catalog_session.h"
+#include "src/backend/definition/text_format.h"
 
 #include <algorithm>
 #include <format>
@@ -105,6 +106,7 @@ Status DefinitionCatalogSession::refresh_index(DefinitionFormat format)
 
 void DefinitionCatalogSession::remember_submission(std::string_view destination, std::string_view id)
 {
+    id = trim_header_text(id);
     const auto position = std::ranges::lower_bound(submitted_ecuflash_handles_, destination);
     if (position == submitted_ecuflash_handles_.end() || *position != destination)
     {

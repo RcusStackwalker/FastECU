@@ -107,6 +107,7 @@ cc_library(
     hdrs = ["definition_writer.h"],
     implementation_deps = [
         ":ecuflash_parser",
+        ":metadata_fields",
         ":text_format",
         "@pugixml",
     ],
@@ -216,6 +217,7 @@ cc_library(
     name = "definition_catalog_session",
     srcs = ["definition_catalog_session.cpp"],
     hdrs = ["definition_catalog_session.h"],
+    implementation_deps = [":text_format"],
     deps = [
         ":definition_service",
         "//src/backend/calibration/session:definition_catalogs",
@@ -231,7 +233,6 @@ cc_library(
     implementation_deps = [
         ":metadata_fields",
         ":parser_utils",
-        ":text_format",
         "@pugixml",
     ],
     deps = [

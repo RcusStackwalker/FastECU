@@ -7,7 +7,6 @@
 
 #include <pugixml.hpp>
 
-#include "src/backend/definition/text_format.h"
 #include "src/backend/definition/parser_utils.h"
 #include "src/backend/definition/metadata_fields.h"
 
@@ -83,14 +82,14 @@ Result<DefinitionHeaderInput> definition_header_input(std::span<const std::pair<
     RomMetadata metadata;
     for (const auto& field : kEditableMetadataFields)
     {
-        metadata.*field.member = trim_header_text(value(field.xml_name));
+        metadata.*field.member = value(field.xml_name);
     }
-    return DefinitionHeaderInput{.xml_id = std::string{trim_header_text(value("xmlid"))},
-                                 .internal_id = std::string{trim_header_text(value("internalidstring"))},
-                                 .ecu_id = std::string{trim_header_text(value("ecuid"))},
-                                 .internal_id_address = *address,
-                                 .metadata = std::move(metadata),
-                                 .include = std::string{trim_header_text(value("include"))},
-                                 .notes = std::string{value("notes")}};
+    return normalize_header_input(DefinitionHeaderInput{.xml_id = std::string{value("xmlid")},
+                                                        .internal_id = std::string{value("internalidstring")},
+                                                        .ecu_id = std::string{value("ecuid")},
+                                                        .internal_id_address = *address,
+                                                        .metadata = std::move(metadata),
+                                                        .include = std::string{value("include")},
+                                                        .notes = std::string{value("notes")}});
 }
 } // namespace fastecu::definition
