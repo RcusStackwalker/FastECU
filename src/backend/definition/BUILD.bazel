@@ -31,7 +31,10 @@ cc_library(
     name = "parser_utils",
     srcs = ["parser_utils.cpp"],
     hdrs = ["parser_utils.h"],
-    implementation_deps = [":text_format"],
+    implementation_deps = [
+        ":metadata_fields",
+        ":text_format",
+    ],
     deps = [
         ":definition_model",
         "//src/backend/ports",
@@ -223,6 +226,7 @@ cc_library(
     srcs = ["definition_header_fields.cpp"],
     hdrs = ["definition_header_fields.h"],
     implementation_deps = [
+        ":metadata_fields",
         ":parser_utils",
         ":text_format",
         "@pugixml",
@@ -241,4 +245,10 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
+)
+
+cc_library(
+    name = "metadata_fields",
+    hdrs = ["metadata_fields.h"],
+    deps = [":definition_model"],
 )

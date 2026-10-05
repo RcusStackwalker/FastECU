@@ -109,10 +109,10 @@ struct MetadataField
 
 The exact descriptors are `make→make`, `market→market`, `model→model`, `submodel→submodel`, `transmission→transmission`, `year→year`, `flashmethod→flash_method`, `memmodel→memory_model`, `checksummodule→checksum_module`.
 
-- [ ] Pin all nine mappings with distinct fixture values through both strict parsing and form conversion. Also pin that strict `filesize` and `romid/notes` remain supported, while form metadata does not acquire those fields. Keep root-level form notes separate. Use existing golden tests where they already cover these contracts; extend only missing assertions.
-- [ ] Add the descriptors and use them in `parse_metadata` with `child_text`, then assign strict `file_size` and `notes` explicitly. Use the same descriptors in `definition_header_input` with its raw last-value lookup. Leave XML ID/address normalization and `include`/`notes` form mapping unchanged.
-- [ ] Regenerate BUILD files for the header-only target/dependencies. Run parser-utils, both parsers, header-helper and writer tests. Verify whitespace differs only where the existing contracts require it; compare full metadata objects and serialized writer results.
-- [ ] Commit the shared mapping. Do not extend this change into a generic field registry, writer rewrite or schema framework.
+- [x] Pin all nine mappings with distinct fixture values through both strict parsing and form conversion. Also pin that strict `filesize` and `romid/notes` remain supported, while form metadata does not acquire those fields. Keep root-level form notes separate. Use existing golden tests where they already cover these contracts; extend only missing assertions.
+- [x] Add the descriptors and use them in `parse_metadata` with `child_text`, then assign strict `file_size` and `notes` explicitly. Use the same descriptors in `definition_header_input` with its raw last-value lookup. Leave XML ID/address normalization and `include`/`notes` form mapping unchanged.
+- [x] Regenerate BUILD files for the header-only target/dependencies. Run parser-utils, both parsers, header-helper and writer tests. Verify whitespace differs only where the existing contracts require it; compare full metadata objects and serialized writer results.
+- [x] Commit the shared mapping. Do not extend this change into a generic field registry, writer rewrite or schema framework.
 
 ## Task 4: Verify and deliver the deduplicated implementation
 

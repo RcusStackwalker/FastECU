@@ -163,5 +163,26 @@ TEST(ParserUtilsTest, RomHeaderRejectsPresentEmptyInvalidAndOverflowingAddresses
     }
 }
 
+TEST(ParserUtilsTest, StrictMetadataNormalizesAllEditableFieldsAndKeepsRomIdExtras)
+{
+    pugi::xml_document document;
+    ASSERT_TRUE(document.load_string(
+        "<rom><romid><make> make </make><market> market </market><model> model </model>"
+        "<submodel> submodel </submodel><transmission> transmission </transmission><year> year </year>"
+        "<flashmethod> flash </flashmethod><memmodel> memory </memmodel><checksummodule> checksum </checksummodule>"
+        "<filesize> 1024 </filesize><notes> metadata notes </notes></romid><notes>root notes</notes></rom>"));
+    EXPECT_EQ(parse_metadata(document.document_element().child("romid")), (RomMetadata{.make = "make",
+                                                                                       .market = "market",
+                                                                                       .model = "model",
+                                                                                       .submodel = "submodel",
+                                                                                       .transmission = "transmission",
+                                                                                       .year = "year",
+                                                                                       .flash_method = "flash",
+                                                                                       .memory_model = "memory",
+                                                                                       .checksum_module = "checksum",
+                                                                                       .file_size = "1024",
+                                                                                       .notes = "metadata notes"}));
+}
+
 } // namespace
 } // namespace fastecu::definition

@@ -1,6 +1,7 @@
 #include "src/backend/definition/parser_utils.h"
 
 #include "src/backend/definition/text_format.h"
+#include "src/backend/definition/metadata_fields.h"
 
 #include <array>
 #include <charconv>
@@ -163,19 +164,14 @@ Result<ParsedRomHeader> parse_rom_header(pugi::xml_node rom, std::string_view so
 
 RomMetadata parse_metadata(pugi::xml_node rom_id)
 {
-    return RomMetadata{
-        .make = child_text(rom_id, "make"),
-        .market = child_text(rom_id, "market"),
-        .model = child_text(rom_id, "model"),
-        .submodel = child_text(rom_id, "submodel"),
-        .transmission = child_text(rom_id, "transmission"),
-        .year = child_text(rom_id, "year"),
-        .flash_method = child_text(rom_id, "flashmethod"),
-        .memory_model = child_text(rom_id, "memmodel"),
-        .checksum_module = child_text(rom_id, "checksummodule"),
-        .file_size = child_text(rom_id, "filesize"),
-        .notes = child_text(rom_id, "notes"),
-    };
+    RomMetadata metadata;
+    for (const auto& field : kEditableMetadataFields)
+    {
+        metadata.*field.member = child_text(rom_id, field.xml_name);
+    }
+    metadata.file_size = child_text(rom_id, "filesize");
+    metadata.notes = child_text(rom_id, "notes");
+    return metadata;
 }
 
 Result<pugi::xml_node> parse_document_root(pugi::xml_document& document, std::span<const std::uint8_t> xml,

@@ -9,6 +9,7 @@
 
 #include "src/backend/definition/text_format.h"
 #include "src/backend/definition/parser_utils.h"
+#include "src/backend/definition/metadata_fields.h"
 
 namespace fastecu::definition
 {
@@ -126,19 +127,16 @@ Result<DefinitionHeaderInput> definition_header_input(std::span<const std::pair<
             return fail(ErrorKind::InvalidConfig, "definition internal ID address is not a valid integer");
         }
     }
+    RomMetadata metadata;
+    for (const auto& field : kEditableMetadataFields)
+    {
+        metadata.*field.member = value(field.xml_name);
+    }
     return DefinitionHeaderInput{.xml_id = std::string{trim_header_text(value("xmlid"))},
                                  .internal_id = std::string{value("internalidstring")},
                                  .ecu_id = std::string{value("ecuid")},
                                  .internal_id_address = address,
-                                 .metadata = RomMetadata{.make = std::string{value("make")},
-                                                         .market = std::string{value("market")},
-                                                         .model = std::string{value("model")},
-                                                         .submodel = std::string{value("submodel")},
-                                                         .transmission = std::string{value("transmission")},
-                                                         .year = std::string{value("year")},
-                                                         .flash_method = std::string{value("flashmethod")},
-                                                         .memory_model = std::string{value("memmodel")},
-                                                         .checksum_module = std::string{value("checksummodule")}},
+                                 .metadata = std::move(metadata),
                                  .include = std::string{value("include")},
                                  .notes = std::string{value("notes")}};
 }
