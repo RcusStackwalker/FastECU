@@ -6,6 +6,13 @@
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 #include "ui_mainwindow.h"
 
+#include "src/backend/definition/mappack_converter.h"
+
+#include <QFile>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QMessageBox>
+#include <QSaveFile>
 #include <QAction>
 #include <QKeySequence>
 
@@ -788,8 +795,41 @@ void MainWindow::show_subaru_get_key_window()
 
 void MainWindow::winols_csv_to_romraider_xml()
 {
-    DefinitionFileConvert definitionFileMaker;
-    definitionFileMaker.exec();
+    const auto source = QFileDialog::getOpenFileName(this, tr("Select MapPack CSV file"), {}, tr("CSV file (*.csv)"));
+    if (source.isEmpty())
+        return;
+    QFile input(source);
+    if (!input.open(QIODevice::ReadOnly))
+    {
+        QMessageBox::warning(this, tr("MapPack CSV file"), input.errorString());
+        return;
+    }
+    const auto csv = input.readAll();
+    if (input.error() != QFileDevice::NoError)
+    {
+        QMessageBox::warning(this, tr("MapPack CSV file"), input.errorString());
+        return;
+    }
+    // Preserve the legacy filename convention: remove the four-character prefix.
+    const auto ecu_id = QFileInfo(source).fileName().section('.', 0, 0).mid(4).toUtf8();
+    const auto xml = fastecu::definition::convert_mappack_csv(std::string_view(csv.constData(), csv.size()),
+                                                              std::string_view(ecu_id.constData(), ecu_id.size()));
+    if (!xml.has_value())
+    {
+        QMessageBox::warning(this, tr("MapPack CSV file"), QString::fromStdString(xml.error().detail));
+        return;
+    }
+    auto destination =
+        QFileDialog::getSaveFileName(this, tr("Select RomRaider definition file"), {}, tr("XML file (*.xml)"));
+    if (destination.isEmpty())
+        return;
+    if (!destination.endsWith(".xml", Qt::CaseInsensitive))
+        destination += ".xml";
+    QSaveFile output(destination);
+    if (!output.open(QIODevice::WriteOnly) ||
+        output.write(xml->data(), static_cast<qint64>(xml->size())) != static_cast<qint64>(xml->size()) ||
+        !output.commit())
+        QMessageBox::warning(this, tr("RomRaider XML file"), output.errorString());
 }
 
 void MainWindow::set_maptablewidget_items()

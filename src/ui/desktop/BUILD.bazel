@@ -15,7 +15,6 @@ package(default_visibility = ["//bazel/layers:ui_and_composition_root"])
 FORMS = [
     "calibration_map_table.ui",
     "data_terminal.ui",
-    "definition_file_convert.ui",
     "dtc_operations.ui",
     "ecu_operations.ui",
     "mainwindow.ui",
