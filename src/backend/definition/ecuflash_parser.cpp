@@ -237,7 +237,7 @@ Result<ParsedHeader> parse_header(pugi::xml_document& document, std::span<const 
         return std::unexpected(root.error());
     }
     auto header = parse_rom_header(*root, source);
-    if (!header)
+    if (!header.has_value())
     {
         return std::unexpected(header.error());
     }
@@ -255,7 +255,7 @@ Result<std::vector<DefinitionIndexEntry>> parse_ecuflash_index(std::span<const s
 {
     pugi::xml_document document;
     auto header = parse_header(document, xml, source);
-    if (!header)
+    if (!header.has_value())
     {
         return std::unexpected(header.error());
     }
@@ -276,7 +276,7 @@ Result<UnresolvedDefinition> parse_ecuflash_definition(std::span<const std::uint
 {
     pugi::xml_document document;
     auto header = parse_header(document, xml, source);
-    if (!header)
+    if (!header.has_value())
     {
         return std::unexpected(header.error());
     }

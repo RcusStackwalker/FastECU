@@ -2,7 +2,10 @@
 
 #include <array>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+
+#include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::definition
 {
@@ -64,8 +67,7 @@ TEST(ParserUtilsTest, DocumentLoadingRetainsParseErrorSourceContext)
 {
     pugi::xml_document document;
     const auto result = parse_document_root(document, xml_bytes("<rom><romid>"), "broken.xml", pugi::encoding_auto);
-    ASSERT_FALSE(result);
-    EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_NE(result.error().detail.find("source 'broken.xml': XML document: malformed XML:"), std::string::npos);
 }
 
@@ -80,7 +82,7 @@ TEST(ParserUtilsTest, DocumentEncodingDistinguishesFileBytesFromUtf8FormText)
     }
     pugi::xml_document file_document;
     const auto file_root = parse_document_root(file_document, bytes, "encoded.xml", pugi::encoding_auto);
-    ASSERT_TRUE(file_root);
+    ASSERT_THAT(file_root, fastecu::testing::IsOk());
     EXPECT_EQ(child_text(file_root->child("romid"), "xmlid"), "Caf\xc3\xa9");
 
     pugi::xml_document form_document;
@@ -88,7 +90,7 @@ TEST(ParserUtilsTest, DocumentEncodingDistinguishesFileBytesFromUtf8FormText)
                                                xml_bytes("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>"
                                                          "<rom><romid><xmlid>Caf\xc3\xa9</xmlid></romid></rom>"),
                                                "form", pugi::encoding_utf8);
-    ASSERT_TRUE(form_root);
+    ASSERT_THAT(form_root, fastecu::testing::IsOk());
     EXPECT_EQ(child_text(form_root->child("romid"), "xmlid"), "Caf\xc3\xa9");
 }
 
@@ -96,7 +98,7 @@ TEST(ParserUtilsTest, StrictRootSelectionDoesNotAcceptAuthoringContainerPolicy)
 {
     pugi::xml_document document;
     const auto root = parse_root(document, xml_bytes("<roms><rom/></roms>"), "wrong-root.xml", "rom");
-    ASSERT_FALSE(root);
+    ASSERT_THAT(root, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_NE(root.error().detail.find("root element <rom>: wrong root; found <roms>"), std::string::npos);
 }
 
@@ -107,7 +109,7 @@ TEST(ParserUtilsTest, RomHeaderOwnsNormalizedIdentityAndBorrowsTheIdentityElemen
         document.load_string("<rom><romid><xmlid> ID </xmlid><internalidstring> INTERNAL </internalidstring>"
                              "<ecuid> ECU </ecuid><internalidaddress> 0x20 </internalidaddress></romid></rom>"));
     const auto header = parse_rom_header(document.document_element(), "identity.xml");
-    ASSERT_TRUE(header);
+    ASSERT_THAT(header, fastecu::testing::IsOk());
     EXPECT_EQ(header->rom_id, document.document_element().child("romid"));
     EXPECT_EQ(header->identity,
               (RomIdentity{.xml_id = "ID", .internal_id = "INTERNAL", .ecu_id = "ECU", .internal_id_address = 0x20U}));
@@ -118,7 +120,7 @@ TEST(ParserUtilsTest, RomHeaderKeepsMissingAddressOptional)
     pugi::xml_document document;
     ASSERT_TRUE(document.load_string("<rom><romid><xmlid>ID</xmlid></romid></rom>"));
     const auto header = parse_rom_header(document.document_element(), "identity.xml");
-    ASSERT_TRUE(header);
+    ASSERT_THAT(header, fastecu::testing::IsOk());
     EXPECT_EQ(header->identity,
               (RomIdentity{.xml_id = "ID", .internal_id = "", .ecu_id = "", .internal_id_address = std::nullopt}));
 }
@@ -137,8 +139,7 @@ TEST(ParserUtilsTest, RomHeaderRejectsMissingAndDuplicateIdentityElementsWithCon
         pugi::xml_document document;
         ASSERT_TRUE(document.load_buffer(xml.data(), xml.size()));
         const auto header = parse_rom_header(document.document_element(), "identity.xml");
-        ASSERT_FALSE(header);
-        EXPECT_EQ(header.error().kind, ErrorKind::InvalidConfig);
+        ASSERT_THAT(header, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
         EXPECT_NE(header.error().detail.find("source 'identity.xml'"), std::string::npos);
         EXPECT_NE(header.error().detail.find(context), std::string::npos);
     }
@@ -154,8 +155,7 @@ TEST(ParserUtilsTest, RomHeaderRejectsPresentEmptyInvalidAndOverflowingAddresses
             "<rom><romid><xmlid>ID</xmlid><internalidaddress>" + address + "</internalidaddress></romid></rom>";
         ASSERT_TRUE(document.load_string(xml.c_str()));
         const auto header = parse_rom_header(document.document_element(), "identity.xml");
-        ASSERT_FALSE(header);
-        EXPECT_EQ(header.error().kind, ErrorKind::InvalidConfig);
+        ASSERT_THAT(header, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
         EXPECT_NE(header.error().detail.find(
                       "source 'identity.xml', definition 'ID': element <romid> child <internalidaddress>"),
                   std::string::npos);

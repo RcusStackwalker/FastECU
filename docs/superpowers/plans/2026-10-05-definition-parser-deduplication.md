@@ -117,11 +117,45 @@ The exact descriptors are `make→make`, `market→market`, `model→model`, `su
 ## Task 4: Verify and deliver the deduplicated implementation
 
 - [x] Update [design notes](../../design-notes.md#portable-authoring-header-fields) to explain shared parser primitives and the retained caller policies. Record results in this plan.
-- [ ] Run `python3 scripts/gazelle_check.py --fix`, then `python3 scripts/gazelle_check.py` to prove stability. Run changed-file `prek` checks and `bazel run --config=release //:clang_tidy_report_changed` with the repository's LLVM toolchain.
-- [ ] Run `bazel build --config=release //:fastecu` and `bazel test --config=release //...`. Existing catalog, authoring dialog, MainWindow and composition targets must pass alongside portable parser tests; report platform skips.
-- [ ] Query `filter('^//src/platform/', deps(//src/backend/... + //src/algorithms/...))`; expect empty. Query QtXml reachability from the header-helper/form tests; expect empty. Run the Android gate if an NDK becomes available, otherwise retain the explicit limitation.
+- [x] Run `python3 scripts/gazelle_check.py --fix`, then `python3 scripts/gazelle_check.py` to prove stability. Run changed-file `prek` checks and `bazel run --config=release //:clang_tidy_report_changed` with the repository's LLVM toolchain.
+- [x] Run `bazel build --config=release //:fastecu` and `bazel test --config=release //...`. Existing catalog, authoring dialog, MainWindow and composition targets must pass alongside portable parser tests; report platform skips.
+- [x] Query `filter('^//src/platform/', deps(//src/backend/... + //src/algorithms/...))`; expect empty. Query QtXml reachability from the header-helper/form tests; expect empty. Run the Android gate if an NDK becomes available, otherwise retain the explicit limitation.
 - [ ] Review the scoped diff for changed root selection, trimming, notes/include mapping, error context and DOM lifetimes. Deliver one separate PR after #508, or update #508 if it remains open and the user chooses that integration. Preserve unrelated untracked files.
 
 ## Acceptance
 
 The authoring helper contains no XML loading or recursive text parsing implementation of its own. Strict ROM identity extraction is defined once and reused by both parser entry-point families. The nine editable metadata names are declared once. Remaining differences are explicit caller policies with portable regression tests, not duplicated parser internals.
+
+
+## Execution Results — 2026-10-05
+
+- Executed inline using Superpowers, in the retained isolated worktree on
+  `refactor/definition-parser-deduplication`, starting at `7e69ce3d` from #508.
+- Baseline: five parser/header/form targets passed.
+- Task 1: loading/text helper tests failed at link time before implementation;
+  all five parser/header/form targets passed afterward. Strict-root and encoded
+  byte input tests pin the retained caller policies.
+- Task 2: strict ROM-header helper tests failed at link time before implementation;
+  parser-utils, EcuFlash, RomRaider, definition service, catalog and writer
+  targets passed afterward. Regressions cover unselected invalid addresses,
+  duplicate requested IDs and unknown-ID error precedence.
+- Task 3: metadata characterizations passed before and after deduplication.
+  All five parser/header/writer targets passed; raw form metadata and strict
+  notes/file-size handling remain distinct.
+- Final release application build passed. Full release suite: 251 targets
+  passed, seven Windows-only targets skipped; catalog integration, authoring
+  dialog, MainWindow and desktop composition coverage passed.
+- Gazelle regeneration/check and changed-file formatting passed. LLVM 23
+  clang-tidy: eight translation units clean, zero findings.
+- Portable backend/algorithm closure contains no platform targets. Header-helper
+  and form-test closure contains no QtXml target.
+- Fresh whole-branch review found no functional Critical/Important issues and
+  no declined inputs. Two Result conventions were corrected: explicit
+  `.has_value()` checks and diagnostic test matchers. Final release/static
+  checks passed after those corrections.
+- Ruling: applied the repository's mandatory Result conventions despite their
+  minor review grade rather than deferring them as optional polish. Behavior
+  is unchanged; the cost of this choice is additional stylistic review churn.
+- Android gate was unavailable: `ANDROID_NDK_HOME` is unset and no NDK was found
+  in the checked local SDK locations. Items 3–10 remain untouched; original
+  untracked Sonar files remain untouched.

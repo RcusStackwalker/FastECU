@@ -47,6 +47,7 @@ fastecu_portable_gtest(
     srcs = ["parser_utils_test.cpp"],
     deps = [
         ":parser_utils",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )

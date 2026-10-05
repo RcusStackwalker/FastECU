@@ -143,13 +143,13 @@ Result<std::string> definition_id_for_rom(pugi::xml_node rom, std::string_view s
 Result<ParsedRomHeader> parse_rom_header(pugi::xml_node rom, std::string_view source)
 {
     auto definition_id = definition_id_for_rom(rom, source);
-    if (!definition_id)
+    if (!definition_id.has_value())
     {
         return std::unexpected(definition_id.error());
     }
     const auto rom_id = rom.child("romid");
     auto address = optional_hex_element(rom_id, "internalidaddress", source, *definition_id);
-    if (!address)
+    if (!address.has_value())
     {
         return std::unexpected(address.error());
     }
@@ -190,7 +190,7 @@ Result<pugi::xml_node> parse_root(pugi::xml_document& document, std::span<const 
                                   std::string_view source, std::string_view root_name)
 {
     const auto parsed = parse_document_root(document, xml, source, pugi::encoding_auto);
-    if (!parsed)
+    if (!parsed.has_value())
     {
         return std::unexpected(parsed.error());
     }

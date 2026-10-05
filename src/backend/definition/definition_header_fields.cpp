@@ -73,7 +73,7 @@ DefinitionHeaderFields collect_ecuflash_base_header_fields(std::span<const std::
     pugi::xml_node root;
     const std::span<const std::uint8_t> bytes{reinterpret_cast<const std::uint8_t *>(xml.data()), xml.size()};
     const auto parsed = parse_document_root(document, bytes, "authoring header", pugi::encoding_utf8);
-    if (parsed &&
+    if (parsed.has_value() &&
         std::ranges::count_if(document.children(), [](auto node) { return node.type() == pugi::node_element; }) == 1)
     {
         const auto document_root = *parsed;

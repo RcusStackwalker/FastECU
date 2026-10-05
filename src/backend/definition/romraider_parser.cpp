@@ -196,7 +196,7 @@ Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(std::span<const 
     for (pugi::xml_node rom : root->children("rom"))
     {
         auto header = parse_rom_header(rom, source);
-        if (!header)
+        if (!header.has_value())
         {
             return std::unexpected(header.error());
         }
@@ -254,7 +254,7 @@ Result<UnresolvedDefinition> parse_romraider_definition(std::span<const std::uin
     }
 
     auto header = parse_rom_header(selected_rom, source);
-    if (!header)
+    if (!header.has_value())
     {
         return std::unexpected(header.error());
     }
