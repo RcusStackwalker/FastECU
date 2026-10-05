@@ -104,7 +104,7 @@ HeaderFormEditors populate_header_dialog(QDialog& dialog, const QStringList& lab
     return editors;
 }
 
-DefinitionAuthoringDialog::DefinitionAuthoringDialog(fastecu::desktop::definition::DefinitionCatalogSession& catalogs,
+DefinitionAuthoringDialog::DefinitionAuthoringDialog(fastecu::definition::DefinitionCatalogSession& catalogs,
                                                      const fastecu::config::ConfigSession& config,
                                                      fastecu::IFileRepository& repository, QWidget *parent)
     : QObject(parent), catalogs_(catalogs), config_(config), repository_(repository), parent_(parent)

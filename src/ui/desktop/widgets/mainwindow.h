@@ -52,7 +52,7 @@ inline constexpr int kRestartCode = 1000;
 #include "src/backend/calibration/map_edit.h"
 #include "src/backend/config/config_session.h"
 #include "src/backend/ports/event_sink.h"
-#include "src/platform/desktop/common/definition/definition_catalog_session.h"
+#include "src/backend/definition/definition_catalog_session.h"
 #include "src/ui/desktop/definition/dialog/definition_authoring_dialog.h"
 #include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 #include "src/ui/desktop/widgets/logbox.h"

@@ -50,7 +50,7 @@
 #include <utility>
 
 #include "src/ui/desktop/widgets/mainwindow.h"
-#include "src/platform/desktop/common/definition/definition_catalog_session.h"
+#include "src/backend/definition/definition_catalog_session.h"
 #include "src/backend/logging/logger_definition_service.h"
 #include "ui_mainwindow.h"
 
@@ -633,7 +633,7 @@ struct TestServices
     fastecu::config::ConfigSession config{kWindowCatalog, file_system, resource_bundle, file_repository, config_events};
     fastecu::Status config_status; // declared after `config`: initialized from it
     fastecu::definition::DefinitionService definition_service{file_system, file_repository, file_writer};
-    fastecu::desktop::definition::DefinitionCatalogSession definition_catalogs;
+    fastecu::definition::DefinitionCatalogSession definition_catalogs;
     fastecu::calibration::RomOpenUseCase rom_open{
         definition_catalogs, definition_service, file_repository, file_system, events, config};
     fastecu::calibration::CalibrationWorkspace calibrations{rom_open};

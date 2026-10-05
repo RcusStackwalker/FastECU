@@ -14,7 +14,7 @@
 #include "src/backend/logging/logger_model.h"
 #include "src/backend/logging/logger_definition_service.h"
 #include "src/backend/definition/definition_service.h"
-#include "src/platform/desktop/common/definition/definition_catalog_session.h"
+#include "src/backend/definition/definition_catalog_session.h"
 #include "src/backend/ports/error.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_clock.h"
@@ -75,7 +75,7 @@ class DesktopComposition
     fastecu::logging::LoggerDefinitionService logger_definitions_{file_repository_, resource_bundle_, file_writer_};
     std::optional<fastecu::Error> startup_error_;
     std::unique_ptr<fastecu::definition::DefinitionService> definition_service_;
-    std::unique_ptr<fastecu::desktop::definition::DefinitionCatalogSession> definition_catalogs_;
+    std::unique_ptr<fastecu::definition::DefinitionCatalogSession> definition_catalogs_;
     std::unique_ptr<fastecu::calibration::RomOpenUseCase> rom_open_;
     std::unique_ptr<fastecu::calibration::CalibrationWorkspace> calibration_workspace_;
     fastecu::calibration::RomSaveUseCase rom_save_{file_repository_, file_action_events_};

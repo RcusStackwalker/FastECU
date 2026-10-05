@@ -15,7 +15,7 @@
 #include "apps/desktop/desktop_composition.h"
 #include "apps/desktop/startup_diagnostics.h"
 #include "src/backend/calibration/session/calibration_workspace.h"
-#include "src/platform/desktop/common/definition/definition_catalog_session.h"
+#include "src/backend/definition/definition_catalog_session.h"
 
 #include <QDir>
 #include <QFile>

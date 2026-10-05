@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 
-namespace fastecu::desktop::definition
+namespace fastecu::definition
 {
 class DefinitionCatalogSession;
 }
@@ -51,7 +51,7 @@ struct MainWindowServices
 {
     const ApplicationIdentity& application;
     fastecu::config::ConfigSession& config; // initialized before MainWindow is built
-    fastecu::desktop::definition::DefinitionCatalogSession& definition_catalogs;
+    fastecu::definition::DefinitionCatalogSession& definition_catalogs;
     fastecu::calibration::CalibrationWorkspace& calibrations;
     fastecu::calibration::RomSaveUseCase& rom_save;
     fastecu::logging::LoggerModel& logger_model;

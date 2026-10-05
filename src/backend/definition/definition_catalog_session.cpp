@@ -1,14 +1,12 @@
-#include "src/platform/desktop/common/definition/definition_catalog_session.h"
+#include "src/backend/definition/definition_catalog_session.h"
 
 #include <algorithm>
 #include <format>
 #include <set>
 #include <utility>
 
-namespace fastecu::desktop::definition
+namespace fastecu::definition
 {
-using fastecu::definition::DefinitionCatalog;
-using fastecu::definition::DefinitionFormat;
 
 DefinitionCatalogSession::DefinitionCatalogSession(fastecu::definition::DefinitionService& definitions,
                                                    config::ConfigSession& config, IFileSystem& file_system,
@@ -146,4 +144,4 @@ Status DefinitionCatalogSession::submit_imported_definition(std::string_view sou
     return status;
 }
 
-} // namespace fastecu::desktop::definition
+} // namespace fastecu::definition
