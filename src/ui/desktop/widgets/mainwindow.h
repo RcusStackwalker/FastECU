@@ -46,7 +46,6 @@ inline constexpr int kRestartCode = 1000;
 #include "src/ui/desktop/widgets/calibration_treewidget.h"
 #include "src/ui/desktop/widgets/protocol_select.h"
 #include "src/ui/desktop/widgets/vehicle_select.h"
-#include "src/ui/desktop/widgets/definition_file_convert.h"
 #include "src/ui/desktop/biu/biu_operations_subaru.h"
 #include "src/ui/desktop/widgets/dataterminal.h"
 #include "src/ui/desktop/widgets/get_key_operations_subaru.h"
