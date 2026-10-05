@@ -103,7 +103,7 @@ Status update_header(pugi::xml_node root, const DefinitionHeaderInput& raw_input
     set_unique_text(rom_id, "ecuid", input.ecu_id);
     for (const auto& field : kEditableMetadataFields)
     {
-        set_unique_text(rom_id, std::string{field.xml_name}.c_str(), input.metadata.*field.member);
+        set_unique_text(rom_id, field.xml_name, input.metadata.*field.member);
     }
     set_unique_text(rom_id, "filesize", input.metadata.file_size);
     set_unique_text(rom_id, "notes", input.metadata.notes);
