@@ -11,13 +11,19 @@
 
 namespace fastecu::flash::detail
 {
-// Address and padding arithmetic use 64 bits so high MCU addresses cannot
-// wrap or underflow. Identity/address selection and empty-kernel validation
-// stay in the family.
+// Expected addresses and block sizes come from each family's protocol.
+// Use a numeric size so overflow boundaries can be checked without allocating
+// an image. Address and padding arithmetic use 64 bits to avoid wrapping.
+// Callers validate the device table and reject empty kernels.
 template <std::uint64_t BlockSize>
-Status validate_padded_kernel_range(std::uint64_t size, std::uint32_t load_address, const kernelblock& region)
+Status validate_kernel_upload(std::uint64_t size, std::uint32_t load_address, std::uint32_t expected_load_address,
+                              const kernelblock& region)
 {
     static_assert(BlockSize > 0);
+    if (load_address != expected_load_address)
+    {
+        return fail(ErrorKind::InvalidConfig, "kernel address does not match the selected protocol");
+    }
     constexpr std::uint64_t kPadding = BlockSize - 1;
     if (size > std::numeric_limits<std::uint64_t>::max() - kPadding)
     {
@@ -32,18 +38,6 @@ Status validate_padded_kernel_range(std::uint64_t size, std::uint32_t load_addre
         return fail(ErrorKind::InvalidConfig, "padded kernel lies outside the MCU kernel region");
     }
     return {};
-}
-
-// Expected addresses and transfer block sizes come from each family's protocol.
-// Check identity before validating the padded physical upload.
-template <std::uint64_t BlockSize>
-Status validate_kernel_upload(const KernelImage& kernel, std::uint32_t expected_load_address, const flashdev_t& device)
-{
-    if (kernel.load_address != expected_load_address)
-    {
-        return fail(ErrorKind::InvalidConfig, "kernel address does not match the selected protocol");
-    }
-    return validate_padded_kernel_range<BlockSize>(kernel.bytes.size(), kernel.load_address, device.kblocks[0]);
 }
 
 // Callers validate the device table before comparing the block count and

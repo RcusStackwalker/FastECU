@@ -134,7 +134,8 @@ Status validate_subaru_tcu_denso_sh705x_can_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "TCU requires a kernel image");
     }
-    if (Status kernel = detail::validate_kernel_upload<128>(*plan.kernel(), entry->kernel_load_address, *device);
+    if (Status kernel = detail::validate_kernel_upload<128>(plan.kernel()->bytes.size(), plan.kernel()->load_address,
+                                                            entry->kernel_load_address, device->kblocks[0]);
         !kernel.has_value())
     {
         return kernel;
@@ -170,7 +171,8 @@ Result<FlashPlan> build_subaru_tcu_denso_sh705x_can_plan(FlashOperation operatio
     {
         return fail(ErrorKind::InvalidConfig, "TCU catalog does not match the flash device table");
     }
-    if (Status upload = detail::validate_kernel_upload<128>(kernel, entry->kernel_load_address, *device);
+    if (Status upload = detail::validate_kernel_upload<128>(kernel.bytes.size(), kernel.load_address,
+                                                            entry->kernel_load_address, device->kblocks[0]);
         !upload.has_value())
     {
         return std::unexpected(upload.error());

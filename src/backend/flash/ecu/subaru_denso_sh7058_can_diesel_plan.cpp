@@ -120,7 +120,8 @@ Status validate_subaru_denso_sh7058_can_diesel_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "diesel family requires a kernel image");
     }
-    if (Status kernel = detail::validate_kernel_upload<128>(*plan.kernel(), entry->kernel_load_address, *device);
+    if (Status kernel = detail::validate_kernel_upload<128>(plan.kernel()->bytes.size(), plan.kernel()->load_address,
+                                                            entry->kernel_load_address, device->kblocks[0]);
         !kernel.has_value())
     {
         return kernel;
@@ -150,7 +151,8 @@ Result<FlashPlan> build_subaru_denso_sh7058_can_diesel_plan(FlashOperation opera
     {
         return fail(ErrorKind::InvalidConfig, "diesel catalog does not match the flash device table");
     }
-    if (Status upload = detail::validate_kernel_upload<128>(kernel, entry->kernel_load_address, *device);
+    if (Status upload = detail::validate_kernel_upload<128>(kernel.bytes.size(), kernel.load_address,
+                                                            entry->kernel_load_address, device->kblocks[0]);
         !upload.has_value())
     {
         return std::unexpected(upload.error());
