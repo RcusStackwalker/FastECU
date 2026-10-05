@@ -26,15 +26,15 @@ struct HeaderFormEditors
 // the editors created. `labels` supplies the human-readable row labels and
 // must be at least as long as `names`. `values` prefills the editors when
 // non-empty; pass {} to leave every field blank. The `notes` field becomes a
-// QTextEdit placed one row lower and spanning both columns, matching the
-// legacy layout.
+// QTextEdit placed one row lower and spanning both columns, preserving multiline note presentation.
 HeaderFormEditors build_header_form(QGridLayout *grid, const QStringList& labels, const QStringList& names,
                                     const QStringList& values);
 
 // Reads imported EcuFlash header values in requested order as alternating
-// names and values. Missing fields are blank; malformed XML and unsupported roots fail.
+// names and values. Source bytes are decoded by the backend XML parser.
+// Missing fields are blank; malformed XML and unsupported roots fail.
 fastecu::Result<QStringList> collect_ecuflash_base_header_fields(const QStringList& header_names,
-                                                                 const QStringList& definition_lines);
+                                                                 std::span<const std::uint8_t> definition_bytes);
 
 // Maps the form's editors onto a DefinitionHeaderInput by objectName().
 // `internalidaddress` is parsed as hex: empty yields nullopt, unparseable

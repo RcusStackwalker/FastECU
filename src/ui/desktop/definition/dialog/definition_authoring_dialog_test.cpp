@@ -286,4 +286,56 @@ TEST_F(DefinitionAuthoringFlow, MalformedImportReportsErrorWithoutOpeningAnEdita
     EXPECT_FALSE(header_opened);
     EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
 }
+
+TEST_F(DefinitionAuthoringFlow, Utf16ImportOpensDecodedHeaderBeforeAnyWrite)
+{
+    const std::u16string xml = u"<?xml version=\"1.0\" encoding=\"UTF-16\"?>"
+                               "<rom><romid><xmlid>CAF\u00e9</xmlid></romid></rom>";
+    std::vector<std::uint8_t> bytes{0xff, 0xfe};
+    for (const char16_t value : xml)
+    {
+        bytes.push_back(static_cast<std::uint8_t>(value & 0xff));
+        bytes.push_back(static_cast<std::uint8_t>(value >> 8));
+    }
+    const auto path = root.filePath("utf16.xml");
+    QFile source(path);
+    ASSERT_TRUE(source.open(QIODevice::WriteOnly));
+    source.write(reinterpret_cast<const char *>(bytes.data()), static_cast<qint64>(bytes.size()));
+    source.close();
+    config.file_repository.files[path.toStdString()] = bytes;
+    bool header_opened = false;
+    bool error_shown = false;
+    QString imported_id;
+    QTimer driver;
+    QObject::connect(&driver, &QTimer::timeout,
+                     [&]
+                     {
+                         if (auto *picker = qobject_cast<QFileDialog *>(QApplication::activeModalWidget()))
+                         {
+                             picker->selectFile(path);
+                             QMetaObject::invokeMethod(picker, "accept", Qt::DirectConnection);
+                         }
+                         else if (auto *message = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()))
+                         {
+                             error_shown = true;
+                             message->accept();
+                         }
+                         else if (auto *header = qobject_cast<QDialog *>(QApplication::activeModalWidget()))
+                         {
+                             header_opened = true;
+                             const auto *editor = header->findChild<QLineEdit *>("xmlid");
+                             if (editor)
+                             {
+                                 imported_id = editor->text();
+                             }
+                             header->reject();
+                         }
+                     });
+    driver.start(1);
+    EXPECT_TRUE(dialog.use_existing_definition());
+    EXPECT_TRUE(header_opened);
+    EXPECT_FALSE(error_shown);
+    EXPECT_EQ(imported_id, QString::fromUtf8("CAF\xc3\xa9"));
+    EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
+}
 } // namespace

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <span>
 #include <string>
 #include <string_view>
@@ -21,6 +22,10 @@ using DefinitionHeaderFields = std::vector<std::pair<std::string, std::string>>;
 // Uses non-validating pugixml parsing; custom DTD entities are not expanded.
 Result<DefinitionHeaderFields> collect_ecuflash_base_header_fields(std::span<const std::string> names,
                                                                    std::string_view xml);
+
+// Source file bytes use XML encoding autodetection before string conversion.
+Result<DefinitionHeaderFields> collect_ecuflash_base_header_fields(std::span<const std::string> names,
+                                                                   std::span<const std::uint8_t> xml);
 
 // Scalar values use surrounding Unicode whitespace normalization; notes retain formatting.
 // An empty address is absent; invalid/overflowing hexadecimal addresses fail.

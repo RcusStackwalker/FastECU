@@ -311,8 +311,11 @@ roots, unsupported import roots, and nested header markup produce errors before
 an authoring dialog opens. Import accepts a `rom` root or selects the first direct
 `rom` child of `roms`; it does not search arbitrary wrappers. File-byte loading
 uses encoding autodetection; already decoded form strings are explicitly UTF-8.
-The XML parser remains non-validating, without custom DTD expansion or external
-resource loading.
+Raw file bytes reach the portable extractor before any QString conversion, so
+UTF-16 imports use the same autodetection as loading and rewriting. Notes editors
+use plain text to preserve literal markup from escaped XML or CDATA. The XML
+parser remains non-validating, without custom DTD expansion or external resource
+loading.
 
 `kEditableMetadataFields` shares the nine editable field mappings among form
 conversion, parsed metadata, normalization, and serialization. Parser metadata

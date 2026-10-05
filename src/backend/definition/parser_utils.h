@@ -40,6 +40,8 @@ std::string trim_copy(std::string_view value);
 std::string detail_prefix(std::string_view source, std::string_view definition_id = {});
 std::unexpected<Error> invalid(std::string_view source, std::string context, std::string message,
                                std::string_view definition_id = {});
+// First table text value, skipping whitespace-only PCDATA introduced by header whitespace preservation.
+std::string table_element_text(pugi::xml_node element);
 std::string child_text(pugi::xml_node parent, std::string_view child_name);
 Result<pugi::xml_node> identity_element(pugi::xml_node rom, std::string_view source);
 Result<std::string> required_child_text(pugi::xml_node parent, std::string_view parent_name,

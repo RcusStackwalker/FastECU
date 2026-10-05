@@ -384,5 +384,22 @@ TEST(EcuFlashParserTest, RejectsSecondAxisTargetingAnOccupiedSemanticSlot)
     expect_invalid_with_context(duplicate_y, "duplicate-y-axis.xml", "Y axis");
 }
 
+TEST(EcuFlashParserTest, HeaderWhitespacePreservationDoesNotHideTableDescriptionOrStaticData)
+{
+    const auto xml = bytes(R"xml(<rom><romid><xmlid>ID</xmlid><notes>  </notes></romid>
+      <table name="Fuel" address="100"><description> <!-- split -->description</description>
+        <table type="Static X Axis" name="RPM" elements="1"><data> <![CDATA[1000]]></data></table>
+      </table>
+      <table name="Inline" address="200"><data> <![CDATA[2000]]></data></table>
+    </rom>)xml");
+    const auto result = parse_ecuflash_definition(xml, "whitespace.xml");
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_EQ(result->maps.size(), 2U);
+    EXPECT_EQ(result->maps[0].description, "description");
+    EXPECT_THAT(result->maps[0].x_axis.static_data, ::testing::Optional(::testing::ElementsAre("1000")));
+    EXPECT_THAT(result->maps[1].x_axis.static_data, ::testing::Optional(::testing::ElementsAre("2000")));
+    EXPECT_EQ(result->metadata.notes, "  ");
+}
+
 } // namespace
 } // namespace fastecu::definition

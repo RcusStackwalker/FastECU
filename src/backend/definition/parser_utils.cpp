@@ -149,10 +149,29 @@ Result<std::optional<std::uint64_t>> parse_header_address(std::string_view text,
     return parsed;
 }
 
+std::string table_element_text(pugi::xml_node element)
+{
+    for (const auto child : element.children())
+    {
+        if (child.type() == pugi::node_cdata)
+        {
+            return trim_copy(child.value());
+        }
+        if (child.type() == pugi::node_pcdata)
+        {
+            auto text = trim_copy(child.value());
+            if (!text.empty())
+            {
+                return text;
+            }
+        }
+    }
+    return {};
+}
+
 std::string child_text(pugi::xml_node parent, std::string_view child_name)
 {
-    const pugi::xml_node child = parent.child(child_name);
-    return child ? trim_copy(child.child_value()) : std::string{};
+    return table_element_text(parent.child(child_name));
 }
 
 Result<pugi::xml_node> identity_element(pugi::xml_node rom, std::string_view source)
@@ -449,7 +468,7 @@ Status populate_common_axis_attributes(pugi::xml_node table, UnresolvedAxisDefin
         std::vector<std::string> values;
         for (pugi::xml_node data : table.children("data"))
         {
-            values.push_back(trim_copy(data.child_value()));
+            values.push_back(table_element_text(data));
         }
         axis.static_data = std::move(values);
     }

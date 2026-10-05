@@ -10,13 +10,14 @@
 
 namespace fastecu::definition
 {
-Result<DefinitionHeaderFields> collect_ecuflash_base_header_fields(std::span<const std::string> names,
-                                                                   std::string_view xml)
+namespace
+{
+Result<DefinitionHeaderFields> collect_header_fields(std::span<const std::string> names,
+                                                     std::span<const std::uint8_t> bytes, pugi::xml_encoding encoding)
 {
     pugi::xml_document document;
     pugi::xml_node root;
-    const std::span<const std::uint8_t> bytes{reinterpret_cast<const std::uint8_t *>(xml.data()), xml.size()};
-    const auto parsed = parse_document_root(document, bytes, "authoring header", pugi::encoding_utf8);
+    const auto parsed = parse_document_root(document, bytes, "authoring header", encoding);
     if (!parsed.has_value())
     {
         return std::unexpected(parsed.error());
@@ -53,6 +54,21 @@ Result<DefinitionHeaderFields> collect_ecuflash_base_header_fields(std::span<con
         fields.emplace_back(name, header_child_text(name == "include" || name == "notes" ? root : rom_id, name));
     }
     return fields;
+}
+
+} // namespace
+
+Result<DefinitionHeaderFields> collect_ecuflash_base_header_fields(std::span<const std::string> names,
+                                                                   std::string_view xml)
+{
+    return collect_header_fields(names, {reinterpret_cast<const std::uint8_t *>(xml.data()), xml.size()},
+                                 pugi::encoding_utf8);
+}
+
+Result<DefinitionHeaderFields> collect_ecuflash_base_header_fields(std::span<const std::string> names,
+                                                                   std::span<const std::uint8_t> xml)
+{
+    return collect_header_fields(names, xml, pugi::encoding_auto);
 }
 
 Result<DefinitionHeaderInput> definition_header_input(std::span<const std::pair<std::string, std::string>> fields)

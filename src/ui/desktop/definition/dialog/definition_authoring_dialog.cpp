@@ -220,11 +220,7 @@ bool DefinitionAuthoringDialog::use_existing_definition()
         QMessageBox::warning(parent_, tr("Definition file"), "Unable to open definition file for reading");
         return false;
     }
-    const QByteArray sourceBytes(reinterpret_cast<const char *>(sourceContents->data()),
-                                 static_cast<qsizetype>(sourceContents->size()));
-    const auto headerData =
-        collect_ecuflash_base_header_fields(definition_header_names(), {QString::fromUtf8(sourceBytes)});
-
+    const auto headerData = collect_ecuflash_base_header_fields(definition_header_names(), *sourceContents);
     if (!headerData.has_value())
     {
         const auto detail = "Unable to import definition: " + QString::fromStdString(headerData.error().detail);

@@ -22,6 +22,12 @@ using fastecu::ui::normalize_xml_suffix;
 namespace
 {
 
+std::vector<std::uint8_t> utf8_bytes(const QString& text)
+{
+    const auto bytes = text.toUtf8();
+    return {bytes.begin(), bytes.end()};
+}
+
 // QGridLayout and the editors are QWidgets, which abort at construction
 // without a live QApplication. fastecu_gtest links plain gtest_main, so
 // bring one up via a ::testing::Environment, mirroring QtPortEnvironment in
@@ -245,7 +251,7 @@ TEST(ImportedHeaderFieldsTest, PreservesFieldOrderAndDefaultsAbsentOptionalField
                         "<year>2004</year><flashmethod>sub_ecu_denso_sh7055</flashmethod><memmodel>SH7055</memmodel>"
                         "<checksummodule>checksum_ecu_subaru_denso_sh7055</checksummodule></romid></rom>";
 
-    const auto fields = fastecu::ui::collect_ecuflash_base_header_fields(kNames, {xml});
+    const auto fields = fastecu::ui::collect_ecuflash_base_header_fields(kNames, utf8_bytes(xml));
 
     ASSERT_THAT(fields, fastecu::testing::IsOk());
     ASSERT_EQ(fields->size(), kNames.size() * 2);
@@ -277,7 +283,7 @@ TEST(ImportedHeaderFieldsTest, ReadsIncludeAndNotesFromWrappedRom)
     const QStringList lines{"<roms><rom><romid><xmlid>  BASE  </xmlid></romid>",
                             "<include>OEM_BASE</include><notes>Text &amp; notes</notes></rom></roms>"};
 
-    EXPECT_THAT(fastecu::ui::collect_ecuflash_base_header_fields(names, lines),
+    EXPECT_THAT(fastecu::ui::collect_ecuflash_base_header_fields(names, utf8_bytes(lines.join(QString()))),
                 fastecu::testing::IsOkAnd(
                     testing::Eq(QStringList{"xmlid", "BASE", "include", "OEM_BASE", "notes", "Text & notes"})));
 }
@@ -286,6 +292,30 @@ TEST(ImportedHeaderFieldsTest, MalformedXmlReportsAnError)
 {
     const QStringList names{"xmlid", "include", "notes"};
 
-    EXPECT_THAT(fastecu::ui::collect_ecuflash_base_header_fields(names, {"<rom><romid>"}),
+    EXPECT_THAT(fastecu::ui::collect_ecuflash_base_header_fields(names, utf8_bytes("<rom><romid>")),
                 fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+}
+
+TEST(ImportedHeaderFieldsTest, LiteralMarkupNotesSurviveExtractionFormAndWriting)
+{
+    const QStringList names{"xmlid", "internalidstring", "ecuid", "notes"};
+    const auto fields = fastecu::ui::collect_ecuflash_base_header_fields(
+        names, utf8_bytes("<rom><romid><xmlid>ID</xmlid><internalidstring>INTERNAL</internalidstring><ecuid>ECU</ecuid>"
+                          "</romid><notes><![CDATA[ \n<b>literal note</b>\n ]]></notes></rom>"));
+    ASSERT_THAT(fields, fastecu::testing::IsOk());
+    QStringList values;
+    for (qsizetype index = 1; index < fields->size(); index += 2)
+    {
+        values.append(fields->at(index));
+    }
+    QWidget host;
+    auto *grid = new QGridLayout(&host);
+    const auto editors = build_header_form(grid, labels_for(names), names, values);
+    const auto input = definition_header_input(editors);
+    ASSERT_THAT(input, fastecu::testing::IsOk());
+    EXPECT_EQ(input->notes, " \n<b>literal note</b>\n ");
+    const auto written = fastecu::definition::create_ecuflash_xml(*input);
+    ASSERT_THAT(written, fastecu::testing::IsOk());
+    const std::string xml(written->begin(), written->end());
+    EXPECT_THAT(xml, testing::HasSubstr("<notes> \n&lt;b&gt;literal note&lt;/b&gt;\n </notes>"));
 }

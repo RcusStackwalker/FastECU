@@ -198,7 +198,7 @@ Result<UnresolvedCalibrationMap> parse_table(pugi::xml_node table, std::string_v
         std::vector<std::string> values;
         for (pugi::xml_node data : table.children("data"))
         {
-            values.push_back(trim_copy(data.child_value()));
+            values.push_back(table_element_text(data));
         }
         map.x_axis.static_data = std::move(values);
         map.x_axis.size = static_cast<std::uint32_t>(map.x_axis.static_data->size());
