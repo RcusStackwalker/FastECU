@@ -1,6 +1,5 @@
 #pragma once
 
-#include <concepts>
 #include <cstdint>
 #include <limits>
 #include <span>
@@ -12,27 +11,25 @@
 
 namespace fastecu::flash::detail
 {
-// Keep the caller's padding arithmetic width: the diesel family historically
-// uses size_t, while petrol, TCU and DensoCAN use uint64_t. Address arithmetic
-// is widened independently so a high MCU address cannot wrap or underflow.
-// Identity/address selection and empty-kernel validation stay in the family.
-template <std::unsigned_integral Size, Size BlockSize>
-Status validate_padded_kernel_range(Size size, std::uint32_t load_address, const kernelblock& region,
-                                    const char *padding_error, const char *range_error)
+// Address and padding arithmetic use 64 bits so high MCU addresses cannot
+// wrap or underflow. Identity/address selection and empty-kernel validation
+// stay in the family.
+template <std::uint64_t BlockSize>
+Status validate_padded_kernel_range(std::uint64_t size, std::uint32_t load_address, const kernelblock& region)
 {
     static_assert(BlockSize > 0);
-    constexpr Size kPadding = BlockSize - 1;
-    if (size > std::numeric_limits<Size>::max() - kPadding)
+    constexpr std::uint64_t kPadding = BlockSize - 1;
+    if (size > std::numeric_limits<std::uint64_t>::max() - kPadding)
     {
-        return fail(ErrorKind::InvalidConfig, padding_error);
+        return fail(ErrorKind::InvalidConfig, "kernel size cannot be padded to transfer blocks");
     }
-    const Size padded_size = ((size + kPadding) / BlockSize) * BlockSize;
+    const std::uint64_t padded_size = ((size + kPadding) / BlockSize) * BlockSize;
     const std::uint64_t region_start = region.start;
     const std::uint64_t region_end = region_start + region.len;
     const std::uint64_t upload_start = load_address;
     if (upload_start < region_start || upload_start > region_end || padded_size > region_end - upload_start)
     {
-        return fail(ErrorKind::InvalidConfig, range_error);
+        return fail(ErrorKind::InvalidConfig, "padded kernel lies outside the MCU kernel region");
     }
     return {};
 }

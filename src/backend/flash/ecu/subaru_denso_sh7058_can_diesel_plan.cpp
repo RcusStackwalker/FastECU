@@ -83,10 +83,7 @@ Status validate_kernel_upload(const KernelImage& kernel, const CatalogEntry& ent
     {
         return fail(ErrorKind::InvalidConfig, "diesel kernel address does not match the selected protocol");
     }
-    return detail::validate_padded_kernel_range<std::size_t, 128>(
-        kernel.bytes.size(), kernel.load_address, device.kblocks[0],
-        "diesel kernel size cannot be padded to 128-byte blocks",
-        "diesel padded kernel is outside the selected MCU kernel region");
+    return detail::validate_padded_kernel_range<128>(kernel.bytes.size(), kernel.load_address, device.kblocks[0]);
 }
 
 bool wire_parameters_match(const SubaruDensoSh7058CanDieselPlan& wire)

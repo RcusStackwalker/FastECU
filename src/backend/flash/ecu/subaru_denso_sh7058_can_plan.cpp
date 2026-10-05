@@ -84,10 +84,7 @@ Status validate_kernel_upload(const KernelImage& kernel, const flashdev_t& devic
     {
         return fail(ErrorKind::InvalidConfig, "petrol SH7058 kernel address does not match the exact catalog");
     }
-    return detail::validate_padded_kernel_range<std::uint64_t, 128>(
-        kernel.bytes.size(), kernel.load_address, device.kblocks[0],
-        "petrol SH7058 kernel cannot be padded to 128-byte blocks",
-        "petrol SH7058 padded kernel lies outside the MCU kernel region");
+    return detail::validate_padded_kernel_range<128>(kernel.bytes.size(), kernel.load_address, device.kblocks[0]);
 }
 
 bool wire_parameters_match(const SubaruDensoSh7058CanPlan& wire, const CatalogEntry& entry)

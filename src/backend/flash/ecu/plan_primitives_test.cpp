@@ -17,17 +17,13 @@ TEST(PlanPrimitives, Padded128ByteUploadsMustFitIncludingTheLastBlock)
 {
     for (const std::uint64_t size : {1U, 127U, 128U, 129U, 0x8F81U, 0x9000U})
     {
-        EXPECT_TRUE((validate_padded_kernel_range<std::uint64_t, 128>(size, 0xFFFF3000, kRegion, "overflow", "outside"))
-                        .has_value())
-            << size;
+        EXPECT_TRUE((validate_padded_kernel_range<128>(size, 0xFFFF3000, kRegion)).has_value()) << size;
     }
-    const auto over =
-        validate_padded_kernel_range<std::uint64_t, 128>(0x9001, 0xFFFF3000, kRegion, "overflow", "outside");
+    const auto over = validate_padded_kernel_range<128>(0x9001, 0xFFFF3000, kRegion);
     ASSERT_FALSE(over.has_value());
-    EXPECT_EQ(over.error().detail, "outside");
+    EXPECT_EQ(over.error().detail, "padded kernel lies outside the MCU kernel region");
     const kernelblock short_region{0xFFFF3000, 127};
-    EXPECT_FALSE((validate_padded_kernel_range<std::uint64_t, 128>(1, 0xFFFF3000, short_region, "overflow", "outside"))
-                     .has_value());
+    EXPECT_FALSE((validate_padded_kernel_range<128>(1, 0xFFFF3000, short_region)).has_value());
 }
 
 TEST(PlanPrimitives, SixBytePaddingUsesItsOwnBoundary)
@@ -35,57 +31,47 @@ TEST(PlanPrimitives, SixBytePaddingUsesItsOwnBoundary)
     const kernelblock region{0x100, 12};
     for (const std::uint64_t size : {1U, 5U, 6U, 7U, 11U, 12U})
     {
-        EXPECT_TRUE(
-            (validate_padded_kernel_range<std::uint64_t, 6>(size, 0x100, region, "overflow", "outside")).has_value())
-            << size;
+        EXPECT_TRUE((validate_padded_kernel_range<6>(size, 0x100, region)).has_value()) << size;
     }
-    EXPECT_FALSE(
-        (validate_padded_kernel_range<std::uint64_t, 6>(13, 0x100, region, "overflow", "outside")).has_value());
+    EXPECT_FALSE((validate_padded_kernel_range<6>(13, 0x100, region)).has_value());
     // An unpadded byte fits, but its six-byte physical transfer does not.
     const kernelblock short_region{0x100, 5};
-    EXPECT_FALSE(
-        (validate_padded_kernel_range<std::uint64_t, 6>(1, 0x100, short_region, "overflow", "outside")).has_value());
+    EXPECT_FALSE((validate_padded_kernel_range<6>(1, 0x100, short_region)).has_value());
 }
 
 TEST(PlanPrimitives, AddressWindowChecksDoNotUnderflowOrWrapAt32Bits)
 {
     for (const std::uint32_t address : {0xFFFF2FFFU, 0xFFFFC000U, 0xFFFFC001U})
     {
-        EXPECT_FALSE(
-            (validate_padded_kernel_range<std::uint64_t, 128>(1, address, kRegion, "overflow", "outside")).has_value())
-            << address;
+        EXPECT_FALSE((validate_padded_kernel_range<128>(1, address, kRegion)).has_value()) << address;
     }
     // Empty kernels are rejected elsewhere; the range primitive preserves
     // the existing arithmetic boundary at the exclusive region end.
-    EXPECT_TRUE(
-        (validate_padded_kernel_range<std::uint64_t, 128>(0, 0xFFFFC000, kRegion, "overflow", "outside")).has_value());
+    EXPECT_TRUE((validate_padded_kernel_range<128>(0, 0xFFFFC000, kRegion)).has_value());
     const kernelblock crossing{0xFFFFFFFC, 8};
-    EXPECT_TRUE(
-        (validate_padded_kernel_range<std::uint64_t, 6>(6, 0xFFFFFFFC, crossing, "overflow", "outside")).has_value());
-    EXPECT_FALSE(
-        (validate_padded_kernel_range<std::uint64_t, 6>(7, 0xFFFFFFFC, crossing, "overflow", "outside")).has_value());
+    EXPECT_TRUE((validate_padded_kernel_range<6>(6, 0xFFFFFFFC, crossing)).has_value());
+    EXPECT_FALSE((validate_padded_kernel_range<6>(7, 0xFFFFFFFC, crossing)).has_value());
 }
 
-template <typename Size, Size Padding> void expect_overflow_boundary()
+template <std::uint64_t Padding> void expect_overflow_boundary()
 {
-    const Size largest_addable = std::numeric_limits<Size>::max() - (Padding - 1);
-    const auto boundary =
-        validate_padded_kernel_range<Size, Padding>(largest_addable, 0xFFFF3000, kRegion, "overflow", "outside");
+    const std::uint64_t largest_addable = std::numeric_limits<std::uint64_t>::max() - (Padding - 1);
+    const auto boundary = validate_padded_kernel_range<Padding>(largest_addable, 0xFFFF3000, kRegion);
     ASSERT_FALSE(boundary.has_value());
-    EXPECT_EQ(boundary.error().detail, "outside");
-    for (const Size size : {static_cast<Size>(largest_addable + 1), std::numeric_limits<Size>::max()})
+    EXPECT_EQ(boundary.error().detail, "padded kernel lies outside the MCU kernel region");
+    for (const std::uint64_t size : {largest_addable + 1, std::numeric_limits<std::uint64_t>::max()})
     {
-        const auto overflow = validate_padded_kernel_range<Size, Padding>(size, 0, kRegion, "overflow", "outside");
+        const auto overflow = validate_padded_kernel_range<Padding>(size, 0, kRegion);
         ASSERT_FALSE(overflow.has_value());
-        EXPECT_EQ(overflow.error(), (Error{ErrorKind::InvalidConfig, "overflow"}));
+        EXPECT_EQ(overflow.error(),
+                  (Error{ErrorKind::InvalidConfig, "kernel size cannot be padded to transfer blocks"}));
     }
 }
 
-TEST(PlanPrimitives, PaddingOverflowPreservesSizeTypeAndPrecedesRangeErrors)
+TEST(PlanPrimitives, PaddingOverflowPrecedesRangeErrors)
 {
-    expect_overflow_boundary<std::uint32_t, 128>();
-    expect_overflow_boundary<std::uint64_t, 128>();
-    expect_overflow_boundary<std::uint64_t, 6>();
+    expect_overflow_boundary<128>();
+    expect_overflow_boundary<6>();
 }
 
 TEST(PlanPrimitives, EraseRegionsPreserveOrderedBlockAddressesAndLengths)

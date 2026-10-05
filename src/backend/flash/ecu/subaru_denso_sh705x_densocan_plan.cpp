@@ -81,10 +81,7 @@ Status validate_kernel_upload(const KernelImage& kernel, const CatalogEntry& ent
     {
         return fail(ErrorKind::InvalidConfig, "DensoCAN kernel address does not match the selected protocol");
     }
-    return detail::validate_padded_kernel_range<std::uint64_t, 6>(
-        kernel.bytes.size(), kernel.load_address, device.kblocks[0],
-        "DensoCAN kernel size cannot be padded to six-byte blocks",
-        "DensoCAN padded kernel is outside the selected MCU kernel region");
+    return detail::validate_padded_kernel_range<6>(kernel.bytes.size(), kernel.load_address, device.kblocks[0]);
 }
 
 SubaruDensoSh705xDensoCanPlan wire_parameters()

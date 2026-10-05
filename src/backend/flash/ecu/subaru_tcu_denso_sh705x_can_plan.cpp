@@ -79,10 +79,7 @@ Status validate_kernel_upload(const KernelImage& kernel, const CatalogEntry& ent
     {
         return fail(ErrorKind::InvalidConfig, "TCU kernel address does not match the selected protocol");
     }
-    return detail::validate_padded_kernel_range<std::uint64_t, 128>(
-        kernel.bytes.size(), kernel.load_address, device.kblocks[0],
-        "TCU kernel size cannot be padded to 128-byte blocks",
-        "TCU padded kernel is outside the selected MCU kernel region");
+    return detail::validate_padded_kernel_range<128>(kernel.bytes.size(), kernel.load_address, device.kblocks[0]);
 }
 
 SubaruTcuDensoSh705xCanPlan wire_parameters()
