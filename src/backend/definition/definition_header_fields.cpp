@@ -1,8 +1,6 @@
 #include "src/backend/definition/definition_header_fields.h"
 
 #include <algorithm>
-#include <array>
-#include <optional>
 #include <ranges>
 
 #include <pugixml.hpp>
@@ -22,10 +20,6 @@ Result<DefinitionHeaderFields> collect_ecuflash_base_header_fields(std::span<con
     if (!parsed.has_value())
     {
         return std::unexpected(parsed.error());
-    }
-    if (std::ranges::count_if(document.children(), [](auto node) { return node.type() == pugi::node_element; }) != 1)
-    {
-        return invalid("authoring header", "XML document", "expected one document root");
     }
     const std::string_view root_name{parsed->name()};
     if (root_name == "rom")

@@ -3,6 +3,7 @@
 #include "src/backend/definition/text_format.h"
 #include "src/backend/definition/metadata_fields.h"
 
+#include <algorithm>
 #include <array>
 #include <charconv>
 #include <cctype>
@@ -16,6 +17,27 @@
 
 namespace fastecu::definition
 {
+
+namespace
+{
+constexpr std::array kSingletonChildren{
+    "xmlid",
+    "internalidaddress",
+    "internalidstring",
+    "ecuid",
+    "make",
+    "market",
+    "model",
+    "submodel",
+    "transmission",
+    "year",
+    "flashmethod",
+    "memmodel",
+    "checksummodule",
+    "filesize",
+    "notes",
+};
+} // namespace
 
 std::string trim_copy(std::string_view value)
 {
@@ -83,9 +105,7 @@ Status validate_header_structure(pugi::xml_node rom, std::string_view source)
         }
         return {};
     };
-    for (const auto name :
-         {"xmlid", "internalidstring", "internalidaddress", "ecuid", "caseid", "make", "market", "model", "submodel",
-          "transmission", "year", "flashmethod", "memmodel", "checksummodule", "filesize", "notes"})
+    for (const auto name : kSingletonChildren)
     {
         for (const auto element : rom.child("romid").children(name))
         {
@@ -151,23 +171,6 @@ Result<pugi::xml_node> identity_element(pugi::xml_node rom, std::string_view sou
         return invalid(source, "element <rom> child <romid>", "duplicate singleton identity element");
     }
 
-    static constexpr std::array kSingletonChildren{
-        "xmlid",
-        "internalidaddress",
-        "internalidstring",
-        "ecuid",
-        "make",
-        "market",
-        "model",
-        "submodel",
-        "transmission",
-        "year",
-        "flashmethod",
-        "memmodel",
-        "checksummodule",
-        "filesize",
-        "notes",
-    };
     for (const char *child_name : kSingletonChildren)
     {
         const pugi::xml_node child = rom_id.child(child_name);
@@ -245,6 +248,10 @@ Result<pugi::xml_node> parse_document_root(pugi::xml_document& document, std::sp
     {
         return invalid(source, "XML document", std::format("malformed XML: {}", parsed.description()));
     }
+    if (std::ranges::count_if(document.children(), [](auto node) { return node.type() == pugi::node_element; }) != 1)
+    {
+        return invalid(source, "XML document", "expected one document root");
+    }
     return document.document_element();
 }
 
@@ -293,24 +300,6 @@ std::string selection_name(std::string name)
         return "disabled";
     }
     return name;
-}
-
-Result<std::optional<std::uint64_t>> optional_hex_element(pugi::xml_node parent, std::string_view child_name,
-                                                          std::string_view source, std::string_view definition_id)
-{
-    const pugi::xml_node child = parent.child(child_name);
-    if (!child)
-    {
-        return std::optional<std::uint64_t>{};
-    }
-
-    auto parsed = parse_hex_unsigned(child.child_value(), source,
-                                     std::format("element <{}> child <{}>", parent.name(), child_name), definition_id);
-    if (!parsed)
-    {
-        return std::unexpected(parsed.error());
-    }
-    return std::optional<std::uint64_t>{*parsed};
 }
 
 Result<std::optional<std::uint64_t>> optional_hex_attribute(pugi::xml_node node, std::string_view attribute_name,

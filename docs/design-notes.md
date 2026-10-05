@@ -283,48 +283,63 @@ anything a second caller will need gets a port.
 
 ### Portable authoring header fields
 
-`definition_header_fields` in `src/backend/definition` owns imported XML
-header extraction and conversion of named text fields into `DefinitionHeaderInput`.
-The UI form adapter only reads widgets and converts between QString and UTF-8;
-labels, editors, filename presentation and operator decisions stay in the UI.
-The helper has no Qt, thread or filesystem dependency and uses the existing
-pugixml parser and hexadecimal parser through shared `parser_utils` helpers.
-`parse_document_root` loads file bytes with auto-detected encoding or form text
-with explicit UTF-8. `read_element_text` provides raw first-text and descendant-text
-modes; strict `child_text` adds normalization, while form extraction preserves
-raw text. Parsing remains non-validating, with no custom DTD expansion or
-external resource loading. Neither the helper nor its UI adapter tests depend
-on QtXml.
+`definition_header_fields` owns imported XML header extraction and conversion of
+named text fields into `DefinitionHeaderInput`. Qt adapters read widgets, convert
+QString/UTF-8, preserve presentation order, and display errors. The portable
+backend and header/form test closure have no QtXml dependency.
 
-Both EcuFlash and RomRaider use `parse_rom_header` for validated identity
-assembly. Its DOM node is borrowed from the caller-owned document; identity
-strings are owned. RomRaider still validates candidate identities first and
-parses an address only after selecting the requested ROM. Indexing validates
-every record's address. Root selection, parent references and table parsing
-remain format-specific.
+Header import, validated loading, and writing share a permissive-read,
+canonical-write policy. Direct text and CDATA children are concatenated in order;
+comments and processing instructions contribute no text. Nested elements in
+recognized header text fields are rejected with source/field context rather than
+flattened. Surrounding Unicode White_Space is trimmed from identifiers, include
+references, and scalar metadata; internal spaces and both notes fields retain
+their formatting. Table text and protocol numeric parsing keep their own existing
+contracts; these header rules do not redefine them.
 
-A fixed `kEditableMetadataFields` list shares the nine editable metadata names
-between `parse_metadata` and form conversion. Strict metadata still normalizes
-text and additionally reads `filesize` and `romid/notes`; form metadata preserves
-raw values and keeps root notes separately. Required identities, duplicate
-singleton checks and contextual errors remain strict-parser policy; the form
-helper can import an incomplete header without parsing its tables.
+Hexadecimal header addresses accept surrounding whitespace, an optional leading
+plus, and `0x`/`0X`; negatives, embedded whitespace, trailing junk, and uint64
+overflow fail. Missing or whitespace-only addresses are absent. Writers produce
+lowercase `0x` hexadecimal or remove absent address elements. Uint64 acceptance
+and blank-as-absent are deliberate application choices, rather than claims that
+both reference tools use these exact ranges or validation rules.
 
-Extraction retains requested field order and duplicates, blank defaults for
-missing fields, parse failures or unsupported document roots. It accepts a
-`rom` root or selects the first direct `rom` child of a `roms` root, without
-searching arbitrary wrappers or imposing a depth limit. This follows the layouts
-in public [EcuFlash definitions](https://github.com/TD-D/SubaruDefs/blob/Alpha/ECUFlash/subaru%20metric/B9%20Tribeca/D0XJ002B.xml)
-and [RomRaider definitions](https://github.com/TD-D/SubaruDefs/blob/Alpha/RomRaider/RR_D2UH001L.xml).
-The first ROM selection is this form's policy for a single header; the examples
-do not establish how a multi-ROM authoring form should choose a record.
-`include` and `notes` come from the ROM rather than `romid`.
-Element text includes nested text and CDATA. Input conversion keeps the last
-value for duplicate names, trims only XML ID and address (including Unicode
-White_Space), and preserves hexadecimal prefixes, a leading plus,
-uint64 bounds and the existing invalid-address error. Required identity checks
-remain in the definition writer, so extracting a partial form does not write
-or register anything.
+Both EcuFlash and RomRaider use `parse_rom_header` for validated identity assembly.
+Draft import permits missing identities and does not parse tables; loading and
+writer submission enforce their required fields. Malformed XML, multiple document
+roots, unsupported import roots, and nested header markup produce errors before
+an authoring dialog opens. Import accepts a `rom` root or selects the first direct
+`rom` child of `roms`; it does not search arbitrary wrappers. File-byte loading
+uses encoding autodetection; already decoded form strings are explicitly UTF-8.
+The XML parser remains non-validating, without custom DTD expansion or external
+resource loading.
+
+`kEditableMetadataFields` shares the nine editable field mappings among form
+conversion, parsed metadata, normalization, and serialization. Parser metadata
+also reads `filesize` and `romid/notes`; the form's `include` and notes come from
+the ROM. Writers normalize direct backend callers as well as form submissions,
+validate canonical required identities, replace writable fields with single text
+values, and preserve unrelated XML content. Successful catalog submissions use
+the same canonical XML ID as the generated document.
+
+The reference implementations inform this policy without requiring their
+incidental parser-library behaviour. RomRaider's `DOMHelper.unmarshallText`
+concatenates direct TEXT_NODE children without trimming; its RomID parser uses
+that helper for identities and metadata. EcuFlash's decompiled XML end-element
+handler (`FUN_004990f0`) trims accumulated text through
+`FUN_00ab3a70`/`FUN_00aa60f0`/`FUN_00aa61b0`; its header handler
+(`FUN_0041a1e0`) parses base-16 addresses through `FUN_00aa5d80`, which rejects
+values above 32 bits. ROM-level include/notes and the separate romid handler
+appear in `FUN_0041dc00` and the preceding ROM field handler. These addresses
+refer to the locally supplied Ghidra dump; nested-text and DTD behaviour have not
+been established by that analysis.
+
+Strict duplicate detection, candidate identity validation before selected-address
+parsing, and first-ROM authoring selection remain explicit application policies.
+They are not documented as RomRaider requirements: its reference loader parses
+candidate headers before matching and returns the first match. Required identity
+checks, contextual errors, and writing/registration decisions stay separate from
+partial draft extraction.
 
 ### Desktop catalog lookup and authoring ownership
 

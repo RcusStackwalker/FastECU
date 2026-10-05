@@ -217,4 +217,11 @@ TEST(ParserUtilsTest, HeaderRejectsNestedScalarContentWithSourceContext)
     }
 }
 
+TEST(ParserUtilsTest, DocumentLoadingRejectsMultipleRootsForStrictLoadersToo)
+{
+    pugi::xml_document document;
+    EXPECT_THAT(parse_document_root(document, xml_bytes("<rom/><rom/>"), "roots.xml", pugi::encoding_auto),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+}
+
 } // namespace fastecu::definition
