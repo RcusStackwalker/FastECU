@@ -103,10 +103,6 @@ Status validate_regions(const FlashPlan& plan, const flashdev_t& device)
                    ? Status{}
                    : fail(ErrorKind::InvalidConfig, "diesel read plans must not declare erase regions");
     }
-    if (plan.erase_regions().size() != device.numblocks)
-    {
-        return fail(ErrorKind::InvalidConfig, "diesel write plans must declare all 16 flash blocks");
-    }
     if (!detail::erase_geometry_matches(plan.erase_regions(), device))
     {
         return fail(ErrorKind::InvalidConfig, "diesel erase geometry does not match the selected MCU");

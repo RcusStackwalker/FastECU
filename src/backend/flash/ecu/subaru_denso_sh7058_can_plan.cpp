@@ -105,10 +105,6 @@ Status validate_regions(const FlashPlan& plan, const flashdev_t& device)
                    ? Status{}
                    : fail(ErrorKind::InvalidConfig, "petrol SH7058 read plans must not declare erase regions");
     }
-    if (plan.erase_regions().size() != device.numblocks)
-    {
-        return fail(ErrorKind::InvalidConfig, "petrol SH7058 write plans must declare all 16 flash blocks");
-    }
     if (!detail::erase_geometry_matches(plan.erase_regions(), device))
     {
         return fail(ErrorKind::InvalidConfig, "petrol SH7058 erase geometry does not match the MCU");

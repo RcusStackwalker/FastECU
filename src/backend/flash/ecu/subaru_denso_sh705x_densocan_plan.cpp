@@ -109,10 +109,6 @@ Status validate_regions(const FlashPlan& plan, const flashdev_t& device)
         }
         return {};
     }
-    if (plan.erase_regions().size() != device.numblocks)
-    {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN write plans must declare every flash block");
-    }
     if (!detail::erase_geometry_matches(plan.erase_regions(), device))
     {
         return fail(ErrorKind::InvalidConfig, "DensoCAN erase geometry does not match the MCU");

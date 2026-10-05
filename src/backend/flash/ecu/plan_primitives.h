@@ -34,8 +34,8 @@ Status validate_padded_kernel_range(std::uint64_t size, std::uint32_t load_addre
     return {};
 }
 
-// Callers validate the device table and retain their family-specific region
-// and block-count diagnostics before comparing individual blocks.
+// Callers validate the device table before comparing the block count and
+// ordered addresses and lengths.
 bool erase_geometry_matches(std::span<const MemoryRegion> regions, const flashdev_t& device);
 std::vector<MemoryRegion> make_erase_regions(const flashdev_t& device);
 } // namespace fastecu::flash::detail
