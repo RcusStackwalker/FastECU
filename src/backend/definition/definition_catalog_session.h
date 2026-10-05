@@ -11,10 +11,10 @@
 #include "src/backend/ports/event_sink.h"
 #include "src/backend/ports/file_system.h"
 
-namespace fastecu::desktop::definition
+namespace fastecu::definition
 {
 
-// Desktop catalog sources and startup lookup provenance. The composition root
+// Catalog sources and startup lookup provenance. The composition root
 // owns this session and keeps its borrowed services alive until consumers stop.
 class DefinitionCatalogSession final : public calibration::IDefinitionCatalogs
 {
@@ -51,4 +51,4 @@ class DefinitionCatalogSession final : public calibration::IDefinitionCatalogs
     std::vector<std::string> submitted_ecuflash_handles_;
 };
 
-} // namespace fastecu::desktop::definition
+} // namespace fastecu::definition

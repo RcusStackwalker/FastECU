@@ -283,8 +283,11 @@ anything a second caller will need gets a port.
 
 ### Desktop catalog lookup and authoring ownership
 
-A composition-owned `DefinitionCatalogSession` in the desktop platform layer
-replaced the former `FileActions` and its parallel definition indexes.
+A composition-owned `DefinitionCatalogSession` in `src/backend/definition`
+replaces the former `FileActions` and its parallel definition indexes.
+The session is Qt-free, thread-free and performs filesystem operations only
+through injected ports. Its portable unit tests live with it; Qt filesystem
+integration tests remain in `src/platform/desktop/common/definition`.
 It implements the existing portable `IDefinitionCatalogs` interface and shares
 one `DefinitionService` with ROM opening. The dialogs retain operator decisions;
 the session records authored destinations only after successful writes.
@@ -300,7 +303,8 @@ It deliberately does not use `DefinitionCatalog`, whose validation rejects
 conflicting duplicate identities. Successful authoring appends a lookup record
 and remembers its destination for discovery outside the configured directory.
 Changing directories drops prior discovery on refresh, preserving authored
-handles. No new parser, portable port, worker, or backend policy is introduced.
+handles. Moving the session from the desktop platform layer preserves this policy;
+no new parser, portable port or worker is introduced.
 
 Composition now links configuration and kernel resource registration explicitly;
 it previously obtained both through `FileActions`. Test composition supplies

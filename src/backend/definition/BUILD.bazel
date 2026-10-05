@@ -193,3 +193,27 @@ fastecu_portable_gtest(
         "@pugixml",
     ],
 )
+
+fastecu_portable_gtest(
+    name = "definition_catalog_session_test",
+    srcs = ["definition_catalog_session_test.cpp"],
+    deps = [
+        ":definition_catalog_session",
+        "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "definition_catalog_session",
+    srcs = ["definition_catalog_session.cpp"],
+    hdrs = ["definition_catalog_session.h"],
+    deps = [
+        ":definition_service",
+        "//src/backend/calibration/session:definition_catalogs",
+        "//src/backend/config:config_session",
+        "//src/backend/ports",
+    ],
+)

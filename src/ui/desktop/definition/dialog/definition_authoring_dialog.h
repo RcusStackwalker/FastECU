@@ -7,7 +7,7 @@
 
 #include "src/backend/config/config_session.h"
 #include "src/backend/definition/definition_writer.h"
-#include "src/platform/desktop/common/definition/definition_catalog_session.h"
+#include "src/backend/definition/definition_catalog_session.h"
 #include "src/backend/ports/file_repository.h"
 #include "src/ui/desktop/definition/definition_header_form.h"
 
@@ -39,7 +39,7 @@ class DefinitionAuthoringDialog : public QObject
     Q_OBJECT
 
   public:
-    DefinitionAuthoringDialog(fastecu::desktop::definition::DefinitionCatalogSession& catalogs,
+    DefinitionAuthoringDialog(fastecu::definition::DefinitionCatalogSession& catalogs,
                               const fastecu::config::ConfigSession& config, fastecu::IFileRepository& repository,
                               QWidget *parent = nullptr);
 
@@ -56,7 +56,7 @@ class DefinitionAuthoringDialog : public QObject
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   private:
-    fastecu::desktop::definition::DefinitionCatalogSession& catalogs_;
+    fastecu::definition::DefinitionCatalogSession& catalogs_;
     const fastecu::config::ConfigSession& config_;
     fastecu::IFileRepository& repository_;
     QWidget *parent_;

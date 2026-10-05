@@ -19,7 +19,7 @@
 #include <gtest/gtest.h>
 
 #include "src/backend/config/testing/config_session_fixture.h"
-#include "src/platform/desktop/common/definition/definition_catalog_session.h"
+#include "src/backend/definition/definition_catalog_session.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/ports/event_sink.h"
@@ -73,7 +73,7 @@ TEST(DefinitionAuthoringDialogTest, ConstructsAndExposesTheFourLogSignals)
     fastecu::config::testing::ConfigSessionFixture config;
     ASSERT_TRUE(config.initialize().has_value());
     fastecu::definition::DefinitionService service(file_system, config_repository, writer);
-    fastecu::desktop::definition::DefinitionCatalogSession catalogs(service, config.session, file_system, events);
+    fastecu::definition::DefinitionCatalogSession catalogs(service, config.session, file_system, events);
 
     DefinitionAuthoringDialog dialog(catalogs, config.session, repository, &parent);
 
@@ -152,8 +152,7 @@ TEST(DefinitionAuthoringDialog, FormInputRegistersTypedLookupAfterSuccessfulSubm
     ASSERT_THAT(config.initialize(), fastecu::testing::IsOk());
     fastecu::InMemoryAtomicFileWriter writer;
     fastecu::definition::DefinitionService service(config.file_system, config.file_repository, writer);
-    fastecu::desktop::definition::DefinitionCatalogSession catalogs(service, config.session, config.file_system,
-                                                                    config.events);
+    fastecu::definition::DefinitionCatalogSession catalogs(service, config.session, config.file_system, config.events);
     ASSERT_THAT(catalogs.submit_new_definition("defs/colt.xml", *input, true), fastecu::testing::IsOk());
     EXPECT_EQ(catalogs.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, "3352a403"), "defs/colt.xml");
     writer.replace_error = {fastecu::ErrorKind::Disconnected, "unavailable"};
@@ -191,8 +190,7 @@ class DefinitionAuthoringFlow : public testing::Test
     fastecu::config::testing::ConfigSessionFixture config;
     fastecu::InMemoryAtomicFileWriter writer;
     fastecu::definition::DefinitionService service{config.file_system, config.file_repository, writer};
-    fastecu::desktop::definition::DefinitionCatalogSession catalogs{service, config.session, config.file_system,
-                                                                    config.events};
+    fastecu::definition::DefinitionCatalogSession catalogs{service, config.session, config.file_system, config.events};
     QWidget parent;
     DefinitionAuthoringDialog dialog{catalogs, config.session, config.file_repository, &parent};
 };

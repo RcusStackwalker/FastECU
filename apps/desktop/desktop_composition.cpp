@@ -31,7 +31,7 @@ DesktopComposition::DesktopComposition(const QString& peer_address, const QStrin
 
     definition_service_ =
         std::make_unique<fastecu::definition::DefinitionService>(file_system_, file_repository_, file_writer_);
-    definition_catalogs_ = std::make_unique<fastecu::desktop::definition::DefinitionCatalogSession>(
+    definition_catalogs_ = std::make_unique<fastecu::definition::DefinitionCatalogSession>(
         *definition_service_, config_, file_system_, file_action_events_);
     rom_open_ = std::make_unique<fastecu::calibration::RomOpenUseCase>(
         *definition_catalogs_, *definition_service_, file_repository_, file_system_, file_action_events_, config_);

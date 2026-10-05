@@ -5,7 +5,7 @@
 #include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
 #include "src/backend/ports/testing/result_matchers.h"
-#include "src/platform/desktop/common/definition/definition_catalog_session.h"
+#include "src/backend/definition/definition_catalog_session.h"
 
 namespace
 {
@@ -45,8 +45,7 @@ class DefinitionCatalogSession : public testing::Test
     fastecu::config::testing::ConfigSessionFixture config;
     fastecu::InMemoryAtomicFileWriter writer;
     fastecu::definition::DefinitionService service{config.file_system, config.file_repository, writer};
-    fastecu::desktop::definition::DefinitionCatalogSession session{service, config.session, config.file_system,
-                                                                   config.events};
+    fastecu::definition::DefinitionCatalogSession session{service, config.session, config.file_system, config.events};
 };
 
 TEST_F(DefinitionCatalogSession, RetainsConfiguredRomraiderOrderAndFormatSpecificLookup)

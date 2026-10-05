@@ -36,6 +36,8 @@ platform internals.
   aggregate implementation target to retire.
 - Portable backend code owns workflow policy, uses injected ports, and owns
   no threads or direct filesystem I/O. Desktop adapters supply those services.
+  `DefinitionCatalogSession` lives in `src/backend/definition`; desktop
+  composition owns it and keeps its borrowed services alive until consumers stop.
 - All retained flash families use portable plans and executors through the
   common workflow/dialog architecture. The unreachable Hitachi M32R JTAG
   stub was removed rather than migrated.

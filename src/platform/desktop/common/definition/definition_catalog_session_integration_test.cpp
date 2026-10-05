@@ -10,7 +10,7 @@
 #include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/definition/ecuflash_parser.h"
 #include "src/backend/ports/testing/result_matchers.h"
-#include "src/platform/desktop/common/definition/definition_catalog_session.h"
+#include "src/backend/definition/definition_catalog_session.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/ports/qt_file_system.h"
@@ -59,7 +59,7 @@ class DefinitionCatalogSessionIntegration : public testing::Test
     QtFileRepository files;
     QtAtomicFileWriter writer;
     fastecu::definition::DefinitionService service{file_system, files, writer};
-    fastecu::desktop::definition::DefinitionCatalogSession session{service, config.session, file_system, config.events};
+    fastecu::definition::DefinitionCatalogSession session{service, config.session, file_system, config.events};
 };
 
 TEST_F(DefinitionCatalogSessionIntegration, CreatedFileOutsideDirectoryRoundTripsAndRemainsDiscoverable)
