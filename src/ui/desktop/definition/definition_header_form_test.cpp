@@ -5,6 +5,7 @@
 #include <memory>
 
 #include <QApplication>
+#include <QDomDocument>
 #include <QGridLayout>
 #include <QLineEdit>
 #include <QTextEdit>
@@ -286,4 +287,115 @@ TEST(ImportedHeaderFieldsTest, MalformedXmlLeavesEveryRequestedFieldBlank)
 
     EXPECT_EQ(fastecu::ui::collect_ecuflash_base_header_fields(names, {"<rom><romid>"}),
               (QStringList{"xmlid", "", "include", "", "notes", ""}));
+}
+
+TEST(DefinitionHeaderInputTest, RetainsQtAddressAndUnicodeWhitespaceSemantics)
+{
+    QWidget host;
+    auto *grid = new QGridLayout(&host);
+    const QStringList names = {"xmlid", "internalidaddress"};
+    const HeaderFormEditors editors = build_header_form(grid, labels_for(names), names, {});
+    for (const QString& text : QStringList{"+0x10", "-0", "+ 10", "ffffffffffffffff", "10000000000000000",
+                                           QString::fromUtf8("\xc2\xa0") + "10" + QString::fromUtf8("\xe3\x80\x80")})
+    {
+        SCOPED_TRACE(text.toStdString());
+        editors.line_edits.at(0)->setText(QString::fromUtf8("\xe2\x80\x83") + "ID" + QString::fromUtf8("\xc2\xa0"));
+        editors.line_edits.at(1)->setText(text);
+        bool valid = false;
+        const auto expected = text.trimmed().toULongLong(&valid, 16);
+        const auto input = definition_header_input(editors);
+        if (valid)
+        {
+            ASSERT_THAT(input, fastecu::testing::IsOk());
+            EXPECT_EQ(input->xml_id, "ID");
+            EXPECT_EQ(input->internal_id_address, expected);
+        }
+        else
+        {
+            EXPECT_THAT(input, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+        }
+    }
+}
+
+TEST(ImportedHeaderFieldsTest, PortableExtractionAgreesWithTheFormerQtParser)
+{
+    const QStringList names{"xmlid", "include", "notes", "model", "xmlid"};
+    for (const QString& source : QStringList{
+             "<rom><romid><xmlid> ID </xmlid></romid><notes>Text &amp; <b>nested</b><![CDATA[ notes]]></notes></rom>",
+             "<roms><!-- comment --><rom><romid><xmlid>ID</xmlid></romid><include>BASE</include></rom></roms>",
+             "<rom><romid><xmlid>first</xmlid><xmlid>second</xmlid></romid><notes>   </notes></rom>", "<rom><romid>",
+             "<rom><romid><xmlid>A&bogus;B</xmlid></romid></rom>", "<rom><romid><xmlid>A&#0;B</xmlid></romid></rom>",
+             "<!DOCTYPE rom [<!ENTITY id 'BASE'>]><rom><romid><xmlid>&id;</xmlid></romid></rom>",
+             QString::fromUtf8("<!DOCTYPE rom [<!ENTITY id 'BASE'><!ENTITY name "
+                               "'&id;_NAME'>]><rom><romid><xmlid>&name;</xmlid></romid></rom>"),
+             "<!DOCTYPE rom [<!ENTITY note '<b>nested</b>'>]><rom><romid/><notes>&note;</notes></rom>",
+             QString::fromUtf8(
+                 "<!DOCTYPE rom [<!ENTITY % declarations \"<!ENTITY id 'FIRST'>\">%declarations;<!ENTITY id "
+                 "'SECOND'>]><rom><romid><xmlid>&id;</xmlid></romid></rom>"),
+             QString::fromUtf8("<!DOCTYPE rom [<!ENTITY markup '&#60;b>markup&#60;/b>'><!ENTITY literal "
+                               "'&lt;b>text&lt;/b>'>]><rom><notes>&markup; &literal;</notes></rom>"),
+             QString::fromUtf8("<!DOCTYPE rom [<!ENTITY external SYSTEM "
+                               "'file:///unavailable'>]><rom><romid><xmlid>A&external;B</xmlid></romid></rom>"),
+             "<!DOCTYPE rom SYSTEM 'file:///unavailable'><rom><romid><xmlid>A&missing;B</xmlid></romid></rom>",
+             QString::fromUtf8("<!DOCTYPE rom [<!ENTITY external SYSTEM 'file:///unavailable'>]><rom "
+                               "unused='&external;'><romid><xmlid>ID</xmlid></romid></rom>"),
+             "<!DOCTYPE rom [<!ENTITY id '&id;'>]><rom><romid><xmlid>&id;</xmlid></romid></rom>",
+             "<rom><!-- &undefined; --><notes><![CDATA[A&undefined;B]]></notes></rom>",
+             "<rom><romid><xmlid>first</xmlid></romid></rom><rom/>",
+             QString::fromUtf8("<?xml version=\"1.0\" "
+                               "encoding=\"ISO-8859-1\"?><rom><romid><xmlid>Caf\xc3\xa9</xmlid></romid></rom>")})
+    {
+        SCOPED_TRACE(source.toStdString());
+        QDomDocument document;
+        QDomElement root;
+        if (document.setContent(source))
+        {
+            root = document.documentElement();
+            for (int depth = 0; !root.isNull() && root.tagName() != "rom" && depth < 5; ++depth)
+            {
+                root = root.firstChildElement();
+            }
+        }
+        const auto rom_id = root.firstChildElement("romid");
+        QStringList expected;
+        for (const auto& name : names)
+        {
+            const auto element =
+                (name == "include" || name == "notes") ? root.firstChildElement(name) : rom_id.firstChildElement(name);
+            expected << name << element.text();
+        }
+        EXPECT_EQ(fastecu::ui::collect_ecuflash_base_header_fields(names, {source}), expected);
+    }
+}
+
+TEST(DefinitionHeaderInputTest, TrimmingAgreesWithQtForUnicodeWhitespaceAndNonWhitespace)
+{
+    QWidget host;
+    auto *grid = new QGridLayout(&host);
+    const QStringList names{"xmlid", "internalidaddress"};
+    const auto editors = build_header_form(grid, labels_for(names), names, {});
+    for (const int code : {0x09,   0x0a,   0x0b,   0x0c,   0x0d,   0x20,   0x85,   0xa0,   0x1680, 0x2000,
+                           0x2001, 0x2002, 0x2003, 0x2004, 0x2005, 0x2006, 0x2007, 0x2008, 0x2009, 0x200a,
+                           0x2028, 0x2029, 0x202f, 0x205f, 0x3000, 0x180e, 0x200b, 0xfeff})
+    {
+        SCOPED_TRACE(code);
+        const QString padding{QChar{static_cast<char16_t>(code)}};
+        const QString xml_id = padding + "ID" + padding;
+        const QString address = padding + "10" + padding;
+        editors.line_edits.at(0)->setText(xml_id);
+        editors.line_edits.at(1)->setText(address);
+        bool valid = false;
+        const auto expected = address.trimmed().toULongLong(&valid, 16);
+        const auto input = definition_header_input(editors);
+        if (valid)
+        {
+            ASSERT_THAT(input, fastecu::testing::IsOk());
+            EXPECT_EQ(input->xml_id, xml_id.trimmed().toStdString());
+            EXPECT_EQ(input->internal_id_address, expected);
+        }
+        else
+        {
+            EXPECT_THAT(input, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+        }
+    }
 }

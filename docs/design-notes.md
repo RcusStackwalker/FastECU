@@ -281,6 +281,28 @@ only wrap that caller. The non-UI remainder (`apply_missing_definition_defaults`
 stayed in the backend. Precedent: a single-consumer UI flow moves to `src/ui`;
 anything a second caller will need gets a port.
 
+### Portable authoring header fields
+
+`definition_header_fields` in `src/backend/definition` owns imported XML
+header extraction and conversion of named text fields into `DefinitionHeaderInput`.
+The UI form adapter only reads widgets and converts between QString and UTF-8;
+labels, editors, filename presentation and operator decisions stay in the UI.
+The helper has no Qt, thread or filesystem dependency and uses the existing
+pugixml parser and hexadecimal parser. A portable entity preprocessing pass
+preserves internal DTD expansion and XML character-reference checks that
+pugixml alone does not supply. It detects cycles, bounds each outer expansion
+by the former Qt net-character budget, and never fetches external entities.
+
+Extraction retains requested field order and duplicates, blank defaults for
+missing fields or malformed XML, and the legacy first-child traversal with a
+five-level bound. `include` and `notes` come from the ROM rather than `romid`.
+Element text includes nested text and CDATA. Input conversion keeps the last
+value for duplicate names, trims only XML ID and address (including the Qt
+Unicode whitespace set), and preserves hexadecimal prefixes, a leading plus,
+uint64 bounds and the existing invalid-address error. Required identity checks
+remain in the definition writer, so extracting a partial form does not write
+or register anything.
+
 ### Desktop catalog lookup and authoring ownership
 
 A composition-owned `DefinitionCatalogSession` in `src/backend/definition`

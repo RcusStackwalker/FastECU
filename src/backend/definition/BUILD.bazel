@@ -217,3 +217,35 @@ cc_library(
         "//src/backend/ports",
     ],
 )
+
+cc_library(
+    name = "definition_header_fields",
+    srcs = ["definition_header_fields.cpp"],
+    hdrs = ["definition_header_fields.h"],
+    implementation_deps = [
+        ":definition_xml_entities",
+        ":text_format",
+        "@pugixml",
+    ],
+    deps = [
+        ":definition_writer",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "definition_header_fields_test",
+    srcs = ["definition_header_fields_test.cpp"],
+    deps = [
+        ":definition_header_fields",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "definition_xml_entities",
+    srcs = ["definition_xml_entities.cpp"],
+    hdrs = ["definition_xml_entities.h"],
+    implementation_deps = ["@pugixml"],
+)
