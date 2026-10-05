@@ -403,9 +403,8 @@ DesktopKlineFlashTransport::read(std::chrono::milliseconds timeout, const ICance
         return fail(ErrorKind::Disconnected, "read() called after close()");
     }
 
-    return fastecu::desktop::detail::read_serial(
-        serial_, timeout, cancellation, fastecu::desktop::detail::kKlineReadErrors,
-        [this](std::uint16_t driver_timeout) { return serial_->read_serial_data(driver_timeout); });
+    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                 { return serial_->read_serial_data(driver_timeout); });
 }
 
 Result<std::size_t> DesktopKlineFlashTransport::write_raw(bytes::ByteView data)
@@ -465,9 +464,8 @@ DesktopKlineFlashTransport::read_raw(std::chrono::milliseconds timeout, const IC
         return fail(ErrorKind::Disconnected, "read_raw() called after close()");
     }
 
-    return fastecu::desktop::detail::read_serial(
-        serial_, timeout, cancellation, fastecu::desktop::detail::kKlineReadErrors,
-        [this](std::uint16_t driver_timeout) { return serial_->read_serial_obd_data(driver_timeout); });
+    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                 { return serial_->read_serial_obd_data(driver_timeout); });
 }
 
 bool DesktopKlineFlashTransport::isOpen() const

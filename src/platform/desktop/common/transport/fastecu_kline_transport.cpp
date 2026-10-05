@@ -68,9 +68,8 @@ FastEcuKlineTransport::read(std::chrono::milliseconds timeout, const fastecu::IC
         return fastecu::fail(fastecu::ErrorKind::Cancelled, "K-Line read cancelled before driver call");
     }
 
-    return fastecu::desktop::detail::read_serial(
-        serial_, timeout, cancellation, fastecu::desktop::detail::kKlineReadErrors,
-        [this](std::uint16_t driver_timeout) { return serial_->read_serial_data(driver_timeout); });
+    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                 { return serial_->read_serial_data(driver_timeout); });
 }
 bool FastEcuKlineTransport::isOpen() const
 {
