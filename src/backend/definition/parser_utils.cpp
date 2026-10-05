@@ -93,39 +93,28 @@ std::string header_child_text(pugi::xml_node parent, std::string_view name)
 
 Status validate_header_structure(pugi::xml_node rom, std::string_view source)
 {
-    const auto validate = [source](pugi::xml_node element) -> Status
+    const auto validate_fields = [source](pugi::xml_node parent, std::span<const char *const> names) -> Status
     {
-        for (const auto child : element.children())
+        for (const auto name : names)
         {
-            if (child.type() == pugi::node_element)
+            for (const auto element : parent.children(name))
             {
-                return invalid(source, std::format("element <{}> child <{}>", element.parent().name(), element.name()),
-                               "nested elements are not allowed in header text");
+                if (std::ranges::any_of(element.children(),
+                                        [](auto child) { return child.type() == pugi::node_element; }))
+                {
+                    return invalid(source, std::format("element <{}> child <{}>", parent.name(), name),
+                                   "nested elements are not allowed in header text");
+                }
             }
         }
         return {};
     };
-    for (const auto name : kSingletonChildren)
+    if (auto status = validate_fields(rom.child("romid"), kSingletonChildren); !status.has_value())
     {
-        for (const auto element : rom.child("romid").children(name))
-        {
-            if (auto status = validate(element); !status.has_value())
-            {
-                return status;
-            }
-        }
+        return status;
     }
-    for (const auto name : {"include", "notes"})
-    {
-        for (const auto element : rom.children(name))
-        {
-            if (auto status = validate(element); !status.has_value())
-            {
-                return status;
-            }
-        }
-    }
-    return {};
+    constexpr std::array kRootFields{"include", "notes"};
+    return validate_fields(rom, kRootFields);
 }
 
 Result<std::optional<std::uint64_t>> parse_header_address(std::string_view text, std::string_view source,
