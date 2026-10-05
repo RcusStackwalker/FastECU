@@ -200,10 +200,10 @@ TEST(DefinitionHeaderInputTest, UnparseableInternalIdAddressIsInvalidConfig)
     const auto input = definition_header_input(editors);
 
     ASSERT_THAT(input, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
-    EXPECT_THAT(input.error().detail, testing::HasSubstr("internal ID address"));
+    EXPECT_THAT(input.error().detail, testing::HasSubstr("internalidaddress"));
 }
 
-TEST(DefinitionHeaderInputTest, TrimsXmlIdButNotTheOtherFields)
+TEST(DefinitionHeaderInputTest, NormalizesScalarFields)
 {
     QWidget host;
     auto *grid = new QGridLayout(&host);
@@ -214,7 +214,7 @@ TEST(DefinitionHeaderInputTest, TrimsXmlIdButNotTheOtherFields)
 
     ASSERT_THAT(input, fastecu::testing::IsOk());
     EXPECT_EQ(input->xml_id, "CAL123");
-    EXPECT_EQ(input->ecu_id, "  EC0  ");
+    EXPECT_EQ(input->ecu_id, "EC0");
 }
 
 TEST(LineEditValueTest, ReturnsTheNamedEditorsTextAndEmptyForAnAbsentName)
@@ -277,7 +277,7 @@ TEST(ImportedHeaderFieldsTest, ReadsIncludeAndNotesFromWrappedRom)
                             "<include>OEM_BASE</include><notes>Text &amp; notes</notes></rom></roms>"};
 
     EXPECT_EQ(fastecu::ui::collect_ecuflash_base_header_fields(names, lines),
-              (QStringList{"xmlid", "  BASE  ", "include", "OEM_BASE", "notes", "Text & notes"}));
+              (QStringList{"xmlid", "BASE", "include", "OEM_BASE", "notes", "Text & notes"}));
 }
 
 TEST(ImportedHeaderFieldsTest, MalformedXmlLeavesEveryRequestedFieldBlank)

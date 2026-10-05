@@ -50,12 +50,8 @@ std::unexpected<Error> invalid(std::string_view source, std::string context, std
                 std::format("{}{}: {}", detail_prefix(source, definition_id), context, message));
 }
 
-std::string read_element_text(pugi::xml_node element, XmlTextMode mode)
+std::string read_element_text(pugi::xml_node element)
 {
-    if (mode == XmlTextMode::FirstText)
-    {
-        return element.child_value();
-    }
     std::string text;
     for (const auto child : element.children())
     {
@@ -63,22 +59,88 @@ std::string read_element_text(pugi::xml_node element, XmlTextMode mode)
         {
             text.append(child.value());
         }
-        else if (child.type() == pugi::node_element)
-        {
-            text.append(read_element_text(child, XmlTextMode::DescendantText));
-        }
     }
     return text;
+}
+
+std::string header_child_text(pugi::xml_node parent, std::string_view name)
+{
+    const auto text = read_element_text(parent.child(name));
+    return name == "notes" ? text : std::string{trim_header_text(text)};
+}
+
+Status validate_header_structure(pugi::xml_node rom, std::string_view source)
+{
+    const auto validate = [source](pugi::xml_node element) -> Status
+    {
+        for (const auto child : element.children())
+        {
+            if (child.type() == pugi::node_element)
+            {
+                return invalid(source, std::format("element <{}> child <{}>", element.parent().name(), element.name()),
+                               "nested elements are not allowed in header text");
+            }
+        }
+        return {};
+    };
+    for (const auto name :
+         {"xmlid", "internalidstring", "internalidaddress", "ecuid", "caseid", "make", "market", "model", "submodel",
+          "transmission", "year", "flashmethod", "memmodel", "checksummodule", "filesize", "notes"})
+    {
+        for (const auto element : rom.child("romid").children(name))
+        {
+            if (auto status = validate(element); !status.has_value())
+            {
+                return status;
+            }
+        }
+    }
+    for (const auto name : {"include", "notes"})
+    {
+        for (const auto element : rom.children(name))
+        {
+            if (auto status = validate(element); !status.has_value())
+            {
+                return status;
+            }
+        }
+    }
+    return {};
+}
+
+Result<std::optional<std::uint64_t>> parse_header_address(std::string_view text, std::string_view source,
+                                                          std::string_view definition_id)
+{
+    text = trim_header_text(text);
+    if (text.empty())
+    {
+        return std::optional<std::uint64_t>{};
+    }
+    if (text.starts_with('+'))
+    {
+        text.remove_prefix(1);
+    }
+    const auto parsed = trim_header_text(text) == text ? parse_hex_value(text) : std::nullopt;
+    if (!parsed.has_value())
+    {
+        return invalid(source, "element <romid> child <internalidaddress>",
+                       std::format("invalid hexadecimal unsigned value '{}'", text), definition_id);
+    }
+    return parsed;
 }
 
 std::string child_text(pugi::xml_node parent, std::string_view child_name)
 {
     const pugi::xml_node child = parent.child(child_name);
-    return trim_copy(read_element_text(child, XmlTextMode::FirstText));
+    return child ? trim_copy(child.child_value()) : std::string{};
 }
 
 Result<pugi::xml_node> identity_element(pugi::xml_node rom, std::string_view source)
 {
+    if (auto status = validate_header_structure(rom, source); !status.has_value())
+    {
+        return std::unexpected(status.error());
+    }
     const pugi::xml_node rom_id = rom.child("romid");
     if (!rom_id)
     {
@@ -121,7 +183,7 @@ Result<pugi::xml_node> identity_element(pugi::xml_node rom, std::string_view sou
 Result<std::string> required_child_text(pugi::xml_node parent, std::string_view parent_name,
                                         std::string_view child_name, std::string_view source)
 {
-    const std::string value = child_text(parent, child_name);
+    const std::string value = header_child_text(parent, child_name);
     if (value.empty())
     {
         return invalid(source, std::format("element <{}> child <{}>", parent_name, child_name),
@@ -148,7 +210,7 @@ Result<ParsedRomHeader> parse_rom_header(pugi::xml_node rom, std::string_view so
         return std::unexpected(definition_id.error());
     }
     const auto rom_id = rom.child("romid");
-    auto address = optional_hex_element(rom_id, "internalidaddress", source, *definition_id);
+    auto address = parse_header_address(read_element_text(rom_id.child("internalidaddress")), source, *definition_id);
     if (!address.has_value())
     {
         return std::unexpected(address.error());
@@ -156,8 +218,8 @@ Result<ParsedRomHeader> parse_rom_header(pugi::xml_node rom, std::string_view so
     return ParsedRomHeader{
         .rom_id = rom_id,
         .identity = RomIdentity{.xml_id = std::move(*definition_id),
-                                .internal_id = child_text(rom_id, "internalidstring"),
-                                .ecu_id = child_text(rom_id, "ecuid"),
+                                .internal_id = header_child_text(rom_id, "internalidstring"),
+                                .ecu_id = header_child_text(rom_id, "ecuid"),
                                 .internal_id_address = *address},
     };
 }
@@ -167,10 +229,10 @@ RomMetadata parse_metadata(pugi::xml_node rom_id)
     RomMetadata metadata;
     for (const auto& field : kEditableMetadataFields)
     {
-        metadata.*field.member = child_text(rom_id, field.xml_name);
+        metadata.*field.member = header_child_text(rom_id, field.xml_name);
     }
-    metadata.file_size = child_text(rom_id, "filesize");
-    metadata.notes = child_text(rom_id, "notes");
+    metadata.file_size = header_child_text(rom_id, "filesize");
+    metadata.notes = header_child_text(rom_id, "notes");
     return metadata;
 }
 
@@ -178,7 +240,7 @@ Result<pugi::xml_node> parse_document_root(pugi::xml_document& document, std::sp
                                            std::string_view source, pugi::xml_encoding encoding)
 {
     if (const pugi::xml_parse_result parsed =
-            document.load_buffer(xml.data(), xml.size(), pugi::parse_default, encoding);
+            document.load_buffer(xml.data(), xml.size(), pugi::parse_default | pugi::parse_ws_pcdata, encoding);
         !parsed)
     {
         return invalid(source, "XML document", std::format("malformed XML: {}", parsed.description()));

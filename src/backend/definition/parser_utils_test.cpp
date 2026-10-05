@@ -51,18 +51,6 @@ std::span<const std::uint8_t> xml_bytes(std::string_view xml)
     return {reinterpret_cast<const std::uint8_t *>(xml.data()), xml.size()};
 }
 
-TEST(ParserUtilsTest, TextModesPreserveRawValuesWithoutConflatingNestedText)
-{
-    pugi::xml_document document;
-    ASSERT_TRUE(document.load_string("<rom><notes>  first &amp; <b>nested</b><![CDATA[ last ]]></notes></rom>"));
-    const auto notes = document.document_element().child("notes");
-    EXPECT_EQ(read_element_text(notes, XmlTextMode::FirstText), "  first & ");
-    EXPECT_EQ(read_element_text(notes, XmlTextMode::DescendantText), "  first & nested last ");
-    EXPECT_EQ(child_text(document.document_element(), "notes"), "first &");
-    EXPECT_EQ(read_element_text({}, XmlTextMode::FirstText), "");
-    EXPECT_EQ(read_element_text({}, XmlTextMode::DescendantText), "");
-}
-
 TEST(ParserUtilsTest, DocumentLoadingRetainsParseErrorSourceContext)
 {
     pugi::xml_document document;
@@ -145,9 +133,9 @@ TEST(ParserUtilsTest, RomHeaderRejectsMissingAndDuplicateIdentityElementsWithCon
     }
 }
 
-TEST(ParserUtilsTest, RomHeaderRejectsPresentEmptyInvalidAndOverflowingAddressesWithDefinitionContext)
+TEST(ParserUtilsTest, RomHeaderRejectsInvalidAndOverflowingAddressesWithDefinitionContext)
 {
-    for (const std::string address : {"", " ", "bad-address", "10000000000000000"})
+    for (const std::string address : {"bad-address", "10000000000000000"})
     {
         SCOPED_TRACE(address);
         pugi::xml_document document;
@@ -181,8 +169,52 @@ TEST(ParserUtilsTest, StrictMetadataNormalizesAllEditableFieldsAndKeepsRomIdExtr
                                                                                        .memory_model = "memory",
                                                                                        .checksum_module = "checksum",
                                                                                        .file_size = "1024",
-                                                                                       .notes = "metadata notes"}));
+                                                                                       .notes = " metadata notes "}));
 }
 
 } // namespace
+
+TEST(ParserUtilsTest, HeaderReadsAllDirectTextAndNormalizesUnicodePadding)
+{
+    pugi::xml_document document;
+    ASSERT_TRUE(document.load_string("<rom><romid><xmlid>\xc2\xa0"
+                                     "CAL<!-- split -->123<![CDATA[X]]>\xe3\x80\x80</xmlid>"
+                                     "<internalidstring> ID </internalidstring><ecuid> ECU </ecuid>"
+                                     "<internalidaddress>\xc2\xa0+0X10\xe3\x80\x80</internalidaddress>"
+                                     "<model> Mitsubishi Colt </model><notes> \nnotes \n </notes></romid></rom>",
+                                     pugi::parse_default | pugi::parse_comments));
+    const auto header = parse_rom_header(document.document_element(), "header.xml");
+    ASSERT_THAT(header, fastecu::testing::IsOk());
+    EXPECT_EQ(header->identity.xml_id, "CAL123X");
+    EXPECT_EQ(header->identity.internal_id_address, 16U);
+    const auto metadata = parse_metadata(header->rom_id);
+    EXPECT_EQ(metadata.model, "Mitsubishi Colt");
+    EXPECT_EQ(metadata.notes, " \nnotes \n ");
+}
+
+TEST(ParserUtilsTest, HeaderTreatsBlankAddressAsAbsent)
+{
+    pugi::xml_document document;
+    ASSERT_TRUE(document.load_string("<rom><romid><xmlid>ID</xmlid>"
+                                     "<internalidaddress>\xc2\xa0 </internalidaddress></romid></rom>"));
+    const auto header = parse_rom_header(document.document_element(), "header.xml");
+    ASSERT_THAT(header, fastecu::testing::IsOk());
+    EXPECT_EQ(header->identity.internal_id_address, std::nullopt);
+}
+
+TEST(ParserUtilsTest, HeaderRejectsNestedScalarContentWithSourceContext)
+{
+    for (const std::string field : {"xmlid", "internalidstring", "model", "notes"})
+    {
+        pugi::xml_document document;
+        const std::string xml = "<rom><romid><" + field + ">A<b>B</b></" + field + ">" +
+                                (field == "xmlid" ? "" : "<xmlid>ID</xmlid>") + "</romid></rom>";
+        ASSERT_TRUE(document.load_string(xml.c_str()));
+        const auto header = parse_rom_header(document.document_element(), "nested.xml");
+        ASSERT_THAT(header, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        EXPECT_THAT(header.error().detail, ::testing::HasSubstr("nested.xml"));
+        EXPECT_THAT(header.error().detail, ::testing::HasSubstr(field));
+    }
+}
+
 } // namespace fastecu::definition

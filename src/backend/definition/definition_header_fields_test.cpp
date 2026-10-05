@@ -19,25 +19,21 @@ using fastecu::testing::IsOk;
 
 TEST(DefinitionHeaderFields, PreservesRequestedOrderAndAbsentFields)
 {
-    const auto names = std::to_array<std::string>({"xmlid", "model", "internalidaddress", "include", "notes", "xmlid"});
+    const auto names = std::to_array<std::string>({"xmlid", "model", "internalidaddress", "include", "notes"});
     EXPECT_EQ(
         collect_ecuflash_base_header_fields(
             names, "<rom><romid><xmlid>  BASE  </xmlid><internalidaddress>0x2000</internalidaddress></romid></rom>"),
-        (DefinitionHeaderFields{{"xmlid", "  BASE  "},
-                                {"model", ""},
-                                {"internalidaddress", "0x2000"},
-                                {"include", ""},
-                                {"notes", ""},
-                                {"xmlid", "  BASE  "}}));
+        (DefinitionHeaderFields{
+            {"xmlid", "BASE"}, {"model", ""}, {"internalidaddress", "0x2000"}, {"include", ""}, {"notes", ""}}));
 }
 
-TEST(DefinitionHeaderFields, ReadsWrappedRomAndConcatenatesNestedText)
+TEST(DefinitionHeaderFields, ReadsWrappedRomAndConcatenatesDirectText)
 {
     const auto names = std::to_array<std::string>({"xmlid", "include", "notes"});
     EXPECT_EQ(collect_ecuflash_base_header_fields(
                   names, "<roms><rom><romid><xmlid>BASE</xmlid></romid><include>OEM_BASE</include>"
-                         "<notes>Text &amp; <b>nested</b><![CDATA[ notes]]></notes></rom></roms>"),
-              (DefinitionHeaderFields{{"xmlid", "BASE"}, {"include", "OEM_BASE"}, {"notes", "Text & nested notes"}}));
+                         "<notes>Text &amp; <!-- split -->direct<![CDATA[ notes]]></notes></rom></roms>"),
+              (DefinitionHeaderFields{{"xmlid", "BASE"}, {"include", "OEM_BASE"}, {"notes", "Text & direct notes"}}));
 }
 
 TEST(DefinitionHeaderFields, MalformedXmlLeavesEveryRequestedFieldBlank)
@@ -68,10 +64,9 @@ TEST(DefinitionHeaderFields, DoesNotSearchArbitraryWrappersOrNestedRoms)
     }
 }
 
-TEST(DefinitionHeaderFields, MapsEveryFieldAndKeepsLastValueForDuplicateNames)
+TEST(DefinitionHeaderFields, MapsEveryEditableField)
 {
-    const DefinitionHeaderFields fields{{"xmlid", "OLD"},
-                                        {"xmlid", " ID "},
+    const DefinitionHeaderFields fields{{"xmlid", " ID "},
                                         {"internalidaddress", "2f8000"},
                                         {"internalidstring", " internal "},
                                         {"ecuid", " ECU "},
@@ -90,8 +85,8 @@ TEST(DefinitionHeaderFields, MapsEveryFieldAndKeepsLastValueForDuplicateNames)
     const auto input = definition_header_input(fields);
     ASSERT_THAT(input, IsOk());
     EXPECT_EQ(input->xml_id, "ID");
-    EXPECT_EQ(input->internal_id, " internal ");
-    EXPECT_EQ(input->ecu_id, " ECU ");
+    EXPECT_EQ(input->internal_id, "internal");
+    EXPECT_EQ(input->ecu_id, "ECU");
     EXPECT_EQ(input->internal_id_address, 0x2f8000U);
     EXPECT_EQ(input->metadata.make, "make");
     EXPECT_EQ(input->metadata.market, "market");
@@ -133,13 +128,12 @@ TEST(DefinitionHeaderFields, RejectsInvalidTrailingJunkNegativeAndOverflowingAdd
     for (const std::string address : {"not-hex", "0x", "+", "+ 10", "-0", "10junk", "10000000000000000"})
     {
         SCOPED_TRACE(address);
-        EXPECT_THAT(
-            definition_header_input(DefinitionHeaderFields{{"internalidaddress", address}}),
-            IsErrWith(fastecu::ErrorKind::InvalidConfig, "definition internal ID address is not a valid integer"));
+        EXPECT_THAT(definition_header_input(DefinitionHeaderFields{{"internalidaddress", address}}),
+                    fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
     }
 }
 
-TEST(DefinitionHeaderFields, TrimsUnicodeWhitespaceOnlyOnXmlIdAndAddress)
+TEST(DefinitionHeaderFields, NormalizesScalarFieldsAndPreservesNotes)
 {
     const auto input = definition_header_input(DefinitionHeaderFields{{"xmlid", "\xe2\x80\x83ID\xc2\xa0"},
                                                                       {"internalidaddress", "\xc2\xa0"
@@ -149,7 +143,7 @@ TEST(DefinitionHeaderFields, TrimsUnicodeWhitespaceOnlyOnXmlIdAndAddress)
     ASSERT_THAT(input, IsOk());
     EXPECT_EQ(input->xml_id, "ID");
     EXPECT_EQ(input->internal_id_address, 16U);
-    EXPECT_EQ(input->ecu_id, " ECU ");
+    EXPECT_EQ(input->ecu_id, "ECU");
     EXPECT_EQ(input->notes, " notes ");
 }
 } // namespace
@@ -182,7 +176,7 @@ TEST(DefinitionHeaderFields, ReadsPredefinedAndNumericReferencesWithoutDtdExpans
               (DefinitionHeaderFields{{"notes", "< > & ' \" A B"}}));
 }
 
-TEST(DefinitionHeaderFields, FormMetadataPreservesRawEditableValuesWithoutAcquiringParserExtras)
+TEST(DefinitionHeaderFields, FormMetadataNormalizesEditableValuesWithoutAcquiringParserExtras)
 {
     const DefinitionHeaderFields fields{{"make", " make "},
                                         {"market", " market "},
@@ -197,15 +191,15 @@ TEST(DefinitionHeaderFields, FormMetadataPreservesRawEditableValuesWithoutAcquir
                                         {"notes", " root notes "}};
     const auto input = definition_header_input(fields);
     ASSERT_THAT(input, IsOk());
-    EXPECT_EQ(input->metadata, (fastecu::definition::RomMetadata{.make = " make ",
-                                                                 .market = " market ",
-                                                                 .model = " model ",
-                                                                 .submodel = " submodel ",
-                                                                 .transmission = " transmission ",
-                                                                 .year = " year ",
-                                                                 .flash_method = " flash ",
-                                                                 .memory_model = " memory ",
-                                                                 .checksum_module = " checksum ",
+    EXPECT_EQ(input->metadata, (fastecu::definition::RomMetadata{.make = "make",
+                                                                 .market = "market",
+                                                                 .model = "model",
+                                                                 .submodel = "submodel",
+                                                                 .transmission = "transmission",
+                                                                 .year = "year",
+                                                                 .flash_method = "flash",
+                                                                 .memory_model = "memory",
+                                                                 .checksum_module = "checksum",
                                                                  .file_size = "",
                                                                  .notes = ""}));
     EXPECT_EQ(input->notes, " root notes ");

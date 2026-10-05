@@ -19,16 +19,15 @@
 namespace fastecu::definition
 {
 
-// Text is untrimmed; FirstText retains child_value(), DescendantText includes nested text/CDATA.
-enum class XmlTextMode
-{
-    FirstText,
-    DescendantText
-};
 // Returned nodes borrow the caller-owned document. Root/format policy remains with the caller.
 Result<pugi::xml_node> parse_document_root(pugi::xml_document& document, std::span<const std::uint8_t> xml,
                                            std::string_view source, pugi::xml_encoding encoding);
-std::string read_element_text(pugi::xml_node element, XmlTextMode mode);
+// Concatenate direct text/CDATA children; never traverse nested elements.
+std::string read_element_text(pugi::xml_node element);
+std::string header_child_text(pugi::xml_node parent, std::string_view name);
+Status validate_header_structure(pugi::xml_node rom, std::string_view source);
+Result<std::optional<std::uint64_t>> parse_header_address(std::string_view text, std::string_view source,
+                                                          std::string_view definition_id = {});
 
 struct ParsedRomHeader
 {

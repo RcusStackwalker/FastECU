@@ -13,60 +13,6 @@
 
 namespace fastecu::definition
 {
-namespace
-{
-// UTF-8 encodings of Unicode White_Space, independent of locale.
-constexpr auto kWhitespace = std::to_array<std::string_view>({" ",
-                                                              "\t",
-                                                              "\n",
-                                                              "\v",
-                                                              "\f",
-                                                              "\r",
-                                                              "\xc2\x85",
-                                                              "\xc2\xa0",
-                                                              "\xe1\x9a\x80",
-                                                              "\xe2\x80\x80",
-                                                              "\xe2\x80\x81",
-                                                              "\xe2\x80\x82",
-                                                              "\xe2\x80\x83",
-                                                              "\xe2\x80\x84",
-                                                              "\xe2\x80\x85",
-                                                              "\xe2\x80\x86",
-                                                              "\xe2\x80\x87",
-                                                              "\xe2\x80\x88",
-                                                              "\xe2\x80\x89",
-                                                              "\xe2\x80\x8a",
-                                                              "\xe2\x80\xa8",
-                                                              "\xe2\x80\xa9",
-                                                              "\xe2\x80\xaf",
-                                                              "\xe2\x81\x9f",
-                                                              "\xe3\x80\x80"});
-
-std::string_view trim_header_text(std::string_view text)
-{
-    for (;;)
-    {
-        const auto space = std::ranges::find_if(kWhitespace, [text](auto value) { return text.starts_with(value); });
-        if (space == kWhitespace.end())
-        {
-            break;
-        }
-        text.remove_prefix(space->size());
-    }
-    for (;;)
-    {
-        const auto space = std::ranges::find_if(kWhitespace, [text](auto value) { return text.ends_with(value); });
-        if (space == kWhitespace.end())
-        {
-            break;
-        }
-        text.remove_suffix(space->size());
-    }
-    return text;
-}
-
-} // namespace
-
 DefinitionHeaderFields collect_ecuflash_base_header_fields(std::span<const std::string> names, std::string_view xml)
 {
     pugi::xml_document document;
@@ -94,7 +40,7 @@ DefinitionHeaderFields collect_ecuflash_base_header_fields(std::span<const std::
     {
         const auto element =
             (name == "include" || name == "notes") ? root.child(name.c_str()) : rom_id.child(name.c_str());
-        fields.emplace_back(name, read_element_text(element, XmlTextMode::DescendantText));
+        fields.emplace_back(name, header_child_text(element.parent(), name));
     }
     return fields;
 }
@@ -112,32 +58,22 @@ Result<DefinitionHeaderInput> definition_header_input(std::span<const std::pair<
         }
         return {};
     };
-    std::optional<std::uint64_t> address;
-    if (auto text = trim_header_text(value("internalidaddress")); !text.empty())
+    const auto address = parse_header_address(value("internalidaddress"), "authoring header");
+    if (!address.has_value())
     {
-        if (text.starts_with('+'))
-        {
-            text.remove_prefix(1);
-        }
-        // parse_hex_value also trims ASCII whitespace; a space after '+' is
-        // not surrounding whitespace and must remain an error.
-        address = trim_header_text(text) == text ? parse_hex_value(text) : std::nullopt;
-        if (!address.has_value())
-        {
-            return fail(ErrorKind::InvalidConfig, "definition internal ID address is not a valid integer");
-        }
+        return std::unexpected(address.error());
     }
     RomMetadata metadata;
     for (const auto& field : kEditableMetadataFields)
     {
-        metadata.*field.member = value(field.xml_name);
+        metadata.*field.member = trim_header_text(value(field.xml_name));
     }
     return DefinitionHeaderInput{.xml_id = std::string{trim_header_text(value("xmlid"))},
-                                 .internal_id = std::string{value("internalidstring")},
-                                 .ecu_id = std::string{value("ecuid")},
-                                 .internal_id_address = address,
+                                 .internal_id = std::string{trim_header_text(value("internalidstring"))},
+                                 .ecu_id = std::string{trim_header_text(value("ecuid"))},
+                                 .internal_id_address = *address,
                                  .metadata = std::move(metadata),
-                                 .include = std::string{value("include")},
+                                 .include = std::string{trim_header_text(value("include"))},
                                  .notes = std::string{value("notes")}};
 }
 } // namespace fastecu::definition
