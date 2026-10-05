@@ -120,7 +120,7 @@ The exact descriptors are `make→make`, `market→market`, `model→model`, `su
 - [x] Run `python3 scripts/gazelle_check.py --fix`, then `python3 scripts/gazelle_check.py` to prove stability. Run changed-file `prek` checks and `bazel run --config=release //:clang_tidy_report_changed` with the repository's LLVM toolchain.
 - [x] Run `bazel build --config=release //:fastecu` and `bazel test --config=release //...`. Existing catalog, authoring dialog, MainWindow and composition targets must pass alongside portable parser tests; report platform skips.
 - [x] Query `filter('^//src/platform/', deps(//src/backend/... + //src/algorithms/...))`; expect empty. Query QtXml reachability from the header-helper/form tests; expect empty. Run the Android gate if an NDK becomes available, otherwise retain the explicit limitation.
-- [ ] Review the scoped diff for changed root selection, trimming, notes/include mapping, error context and DOM lifetimes. Deliver one separate PR after #508, or update #508 if it remains open and the user chooses that integration. Preserve unrelated untracked files.
+- [x] Review the scoped diff for changed root selection, trimming, notes/include mapping, error context and DOM lifetimes. Deliver one separate PR after #508, or update #508 if it remains open and the user chooses that integration. Preserve unrelated untracked files.
 
 ## Acceptance
 
@@ -159,3 +159,6 @@ The authoring helper contains no XML loading or recursive text parsing implement
 - Android gate was unavailable: `ANDROID_NDK_HOME` is unset and no NDK was found
   in the checked local SDK locations. Items 3–10 remain untouched; original
   untracked Sonar files remain untouched.
+
+- Delivered as [PR #509](https://github.com/RcusStackwalker/FastECU/pull/509),
+  stacked on the still-open #508. The worktree and branch are retained for review.
