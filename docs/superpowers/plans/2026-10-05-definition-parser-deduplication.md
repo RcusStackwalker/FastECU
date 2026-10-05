@@ -116,7 +116,7 @@ The exact descriptors are `make→make`, `market→market`, `model→model`, `su
 
 ## Task 4: Verify and deliver the deduplicated implementation
 
-- [ ] Update [design notes](../../design-notes.md#portable-authoring-header-fields) to explain shared parser primitives and the retained caller policies. Record results in this plan.
+- [x] Update [design notes](../../design-notes.md#portable-authoring-header-fields) to explain shared parser primitives and the retained caller policies. Record results in this plan.
 - [ ] Run `python3 scripts/gazelle_check.py --fix`, then `python3 scripts/gazelle_check.py` to prove stability. Run changed-file `prek` checks and `bazel run --config=release //:clang_tidy_report_changed` with the repository's LLVM toolchain.
 - [ ] Run `bazel build --config=release //:fastecu` and `bazel test --config=release //...`. Existing catalog, authoring dialog, MainWindow and composition targets must pass alongside portable parser tests; report platform skips.
 - [ ] Query `filter('^//src/platform/', deps(//src/backend/... + //src/algorithms/...))`; expect empty. Query QtXml reachability from the header-helper/form tests; expect empty. Run the Android gate if an NDK becomes available, otherwise retain the explicit limitation.

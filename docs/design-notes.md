@@ -288,9 +288,27 @@ header extraction and conversion of named text fields into `DefinitionHeaderInpu
 The UI form adapter only reads widgets and converts between QString and UTF-8;
 labels, editors, filename presentation and operator decisions stay in the UI.
 The helper has no Qt, thread or filesystem dependency and uses the existing
-pugixml parser and hexadecimal parser directly. Parsing is non-validating;
-custom DTD entities are not expanded and external resources are never loaded.
-There is no QtXml dependency in either the helper or its UI adapter tests.
+pugixml parser and hexadecimal parser through shared `parser_utils` helpers.
+`parse_document_root` loads file bytes with auto-detected encoding or form text
+with explicit UTF-8. `read_element_text` provides raw first-text and descendant-text
+modes; strict `child_text` adds normalization, while form extraction preserves
+raw text. Parsing remains non-validating, with no custom DTD expansion or
+external resource loading. Neither the helper nor its UI adapter tests depend
+on QtXml.
+
+Both EcuFlash and RomRaider use `parse_rom_header` for validated identity
+assembly. Its DOM node is borrowed from the caller-owned document; identity
+strings are owned. RomRaider still validates candidate identities first and
+parses an address only after selecting the requested ROM. Indexing validates
+every record's address. Root selection, parent references and table parsing
+remain format-specific.
+
+A fixed `kEditableMetadataFields` list shares the nine editable metadata names
+between `parse_metadata` and form conversion. Strict metadata still normalizes
+text and additionally reads `filesize` and `romid/notes`; form metadata preserves
+raw values and keeps root notes separately. Required identities, duplicate
+singleton checks and contextual errors remain strict-parser policy; the form
+helper can import an incomplete header without parsing its tables.
 
 Extraction retains requested field order and duplicates, blank defaults for
 missing fields, parse failures or unsupported document roots. It accepts a
