@@ -212,6 +212,7 @@ cc_library(
     srcs = ["subaru_denso_sh7058_can_diesel_plan.cpp"],
     hdrs = ["subaru_denso_sh7058_can_diesel_plan.h"],
     implementation_deps = [
+        ":plan_primitives",
         ":subaru_denso_sh7058_can_diesel_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
@@ -365,6 +366,7 @@ cc_library(
     srcs = ["subaru_denso_sh705x_densocan_plan.cpp"],
     hdrs = ["subaru_denso_sh705x_densocan_plan.h"],
     implementation_deps = [
+        ":plan_primitives",
         ":subaru_denso_sh705x_densocan_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
@@ -378,6 +380,7 @@ cc_library(
     srcs = ["subaru_tcu_denso_sh705x_can_plan.cpp"],
     hdrs = ["subaru_tcu_denso_sh705x_can_plan.h"],
     implementation_deps = [
+        ":plan_primitives",
         ":subaru_tcu_denso_sh705x_can_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
@@ -391,6 +394,7 @@ cc_library(
     srcs = ["subaru_denso_sh7058_can_plan.cpp"],
     hdrs = ["subaru_denso_sh7058_can_plan.h"],
     implementation_deps = [
+        ":plan_primitives",
         ":subaru_denso_sh7058_can_types",
         "//src/backend/flash:flash_device_lookup",
         "//src/backend/flash:flash_validation",
@@ -1784,4 +1788,25 @@ cc_library(
         "//src/algorithms/protocol/ssm",
     ],
     deps = ["//src/backend/flash:flash_executor"],
+)
+
+cc_library(
+    name = "plan_primitives",
+    srcs = ["plan_primitives.cpp"],
+    hdrs = ["plan_primitives.h"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/backend/flash:flash_types",
+        "//src/backend/flash/kernel:memory_models",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "plan_primitives_test",
+    srcs = ["plan_primitives_test.cpp"],
+    deps = [
+        ":plan_primitives",
+        "@googletest//:gtest",
+    ],
 )
