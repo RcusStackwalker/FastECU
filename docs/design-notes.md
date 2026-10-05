@@ -288,17 +288,22 @@ header extraction and conversion of named text fields into `DefinitionHeaderInpu
 The UI form adapter only reads widgets and converts between QString and UTF-8;
 labels, editors, filename presentation and operator decisions stay in the UI.
 The helper has no Qt, thread or filesystem dependency and uses the existing
-pugixml parser and hexadecimal parser. A portable entity preprocessing pass
-preserves internal DTD expansion and XML character-reference checks that
-pugixml alone does not supply. It detects cycles, bounds each outer expansion
-by the former Qt net-character budget, and never fetches external entities.
+pugixml parser and hexadecimal parser directly. Parsing is non-validating;
+custom DTD entities are not expanded and external resources are never loaded.
+There is no QtXml dependency in either the helper or its UI adapter tests.
 
 Extraction retains requested field order and duplicates, blank defaults for
-missing fields or malformed XML, and the legacy first-child traversal with a
-five-level bound. `include` and `notes` come from the ROM rather than `romid`.
+missing fields, parse failures or unsupported document roots. It accepts a
+`rom` root or selects the first direct `rom` child of a `roms` root, without
+searching arbitrary wrappers or imposing a depth limit. This follows the layouts
+in public [EcuFlash definitions](https://github.com/TD-D/SubaruDefs/blob/Alpha/ECUFlash/subaru%20metric/B9%20Tribeca/D0XJ002B.xml)
+and [RomRaider definitions](https://github.com/TD-D/SubaruDefs/blob/Alpha/RomRaider/RR_D2UH001L.xml).
+The first ROM selection is this form's policy for a single header; the examples
+do not establish how a multi-ROM authoring form should choose a record.
+`include` and `notes` come from the ROM rather than `romid`.
 Element text includes nested text and CDATA. Input conversion keeps the last
-value for duplicate names, trims only XML ID and address (including the Qt
-Unicode whitespace set), and preserves hexadecimal prefixes, a leading plus,
+value for duplicate names, trims only XML ID and address (including Unicode
+White_Space), and preserves hexadecimal prefixes, a leading plus,
 uint64 bounds and the existing invalid-address error. Required identity checks
 remain in the definition writer, so extracting a partial form does not write
 or register anything.

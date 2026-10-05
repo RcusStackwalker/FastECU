@@ -111,3 +111,39 @@ No new runtime dependency, ErrorKind, worker or filesystem operation is added.
 - Independent review identified XML compatibility gaps; regression tests and fixes were added, and follow-up review found no further serious issues.
 - Android gate remains unavailable: no local NDK was found and `ANDROID_NDK_HOME` is unset.
 - Desktop ownership, synchronous flows and items 3–10 remain unchanged. Original untracked Sonar files remain untouched.
+
+
+## Item 2 Review Revision — 2026-10-05
+
+The user rejected QtXml as a test dependency and Qt parser equivalence as the
+format contract. This supersedes the parser compatibility decisions in the
+initial item 2 scope and verification above.
+
+- Remove the QtXml differential oracle and the custom DTD entity preprocessing
+  helper, including Qt-specific entity expansion budget and external-entity
+  substitution tests. Use the existing non-validating pugixml parser directly;
+  custom DTD entities are not expanded and no external resources are loaded.
+- Keep explicit portable expectations for field order, blank defaults, nested
+  text/CDATA, numeric/predefined references, duplicate precedence, Unicode
+  whitespace and hexadecimal validation. Qt adapter tests use fixed expectations.
+- Public author-maintained [EcuFlash definitions](https://github.com/TD-D/SubaruDefs/blob/Alpha/ECUFlash/subaru%20metric/B9%20Tribeca/D0XJ002B.xml)
+  have a `rom` root; [RomRaider definitions](https://github.com/TD-D/SubaruDefs/blob/Alpha/RomRaider/RR_D2UH001L.xml)
+  have `roms` with direct `rom` children. No reviewed source justifies an arbitrary
+  first-child walk or a five-level limit. Accept these two explicit layouts,
+  selecting the first direct ROM for this single-header form, and reject arbitrary
+  wrappers. This is a form selection policy, not a claimed format rule.
+- Regression tests failed on the old traversal for a non-ROM sibling before
+  `rom` and arbitrary wrappers, then passed after explicit root selection.
+
+### Revised Verification
+
+- Focused portable header and UI adapter tests passed. Full release suite:
+  251 targets passed, seven Windows-only targets skipped. Authoring dialog and
+  MainWindow tests passed with the simplified backend.
+- Release application build, regenerated Gazelle stability check, changed-file
+  formatting and clang-tidy passed; four translation units, zero findings.
+- Portable backend/algorithm closure contains no platform targets. The header
+  helper and form test closure contains no QtXml target; the form test overrides
+  the shared macro's broad default Qt dependencies with its explicit widget dependency.
+- Independent scoped review found no concrete issues.
+- Android gate remains unavailable because no local NDK is installed.

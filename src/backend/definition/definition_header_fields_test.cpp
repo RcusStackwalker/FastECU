@@ -47,15 +47,25 @@ TEST(DefinitionHeaderFields, MalformedXmlLeavesEveryRequestedFieldBlank)
               (DefinitionHeaderFields{{"xmlid", ""}, {"include", ""}, {"notes", ""}}));
 }
 
-TEST(DefinitionHeaderFields, RetainsFirstChildTraversalAndFiveLevelLimit)
+TEST(DefinitionHeaderFields, SelectsFirstDirectRomInRomsContainer)
 {
     const auto names = std::to_array<std::string>({"xmlid"});
     EXPECT_EQ(collect_ecuflash_base_header_fields(
-                  names, "<a><b><c><d><e><rom><romid><xmlid>ID</xmlid></romid></rom></e></d></c></b></a>"),
-              (DefinitionHeaderFields{{"xmlid", "ID"}}));
-    EXPECT_EQ(collect_ecuflash_base_header_fields(
-                  names, "<a><b><c><d><e><f><rom><romid><xmlid>ID</xmlid></romid></rom></f></e></d></c></b></a>"),
-              (DefinitionHeaderFields{{"xmlid", ""}}));
+                  names, "<roms><!-- comment --><metadata/><rom><romid><xmlid>FIRST</xmlid></romid></rom>"
+                         "<rom><romid><xmlid>SECOND</xmlid></romid></rom></roms>"),
+              (DefinitionHeaderFields{{"xmlid", "FIRST"}}));
+}
+
+TEST(DefinitionHeaderFields, DoesNotSearchArbitraryWrappersOrNestedRoms)
+{
+    const auto names = std::to_array<std::string>({"xmlid"});
+    for (const std::string source : {"<wrapper><rom><romid><xmlid>ID</xmlid></romid></rom></wrapper>",
+                                     "<roms><wrapper><rom><romid><xmlid>ID</xmlid></romid></rom></wrapper></roms>",
+                                     "<wrapper><romid><xmlid>ID</xmlid></romid></wrapper>", "<roms/>"})
+    {
+        SCOPED_TRACE(source);
+        EXPECT_EQ(collect_ecuflash_base_header_fields(names, source), (DefinitionHeaderFields{{"xmlid", ""}}));
+    }
 }
 
 TEST(DefinitionHeaderFields, MapsEveryFieldAndKeepsLastValueForDuplicateNames)
@@ -156,101 +166,18 @@ TEST(DefinitionHeaderFields, RejectsMultipleDocumentRootsAndKeepsUtf8DespiteEnco
         (DefinitionHeaderFields{{"xmlid", "Caf\xc3\xa9"}}));
 }
 
-TEST(DefinitionHeaderFields, RejectsUndeclaredEntitiesAndInvalidCharacterReferences)
-{
-    const auto names = std::to_array<std::string>({"xmlid"});
-    for (const std::string reference : {"&bogus;", "&#0;", "&#xD800;", "&#x110000;"})
-    {
-        SCOPED_TRACE(reference);
-        EXPECT_EQ(
-            collect_ecuflash_base_header_fields(names, "<rom><romid><xmlid>A" + reference + "B</xmlid></romid></rom>"),
-            (DefinitionHeaderFields{{"xmlid", ""}}));
-    }
-}
-
-TEST(DefinitionHeaderFields, ExpandsDeclaredInternalEntitiesIncludingNestedMarkup)
-{
-    const auto names = std::to_array<std::string>({"xmlid", "notes"});
-    EXPECT_EQ(collect_ecuflash_base_header_fields(
-                  names, "<!DOCTYPE rom [<!ENTITY id 'BASE'><!ENTITY name '&id;_NAME'><!ENTITY note '<b>nested</b>'>]>"
-                         "<rom><romid><xmlid>&name;</xmlid></romid><notes>&note;</notes></rom>"),
-              (DefinitionHeaderFields{{"xmlid", "BASE_NAME"}, {"notes", "nested"}}));
-}
-
-TEST(DefinitionHeaderFields, PreservesDtdParameterEntitiesAndFirstDeclaration)
-{
-    const auto names = std::to_array<std::string>({"xmlid"});
-    EXPECT_EQ(
-        collect_ecuflash_base_header_fields(
-            names,
-            "<!DOCTYPE rom [<!ENTITY % declarations \"<!ENTITY id 'FIRST'>\">%declarations;<!ENTITY id 'SECOND'>]>"
-            "<rom><romid><xmlid>&id;</xmlid></romid></rom>"),
-        (DefinitionHeaderFields{{"xmlid", "FIRST"}}));
-}
-
-TEST(DefinitionHeaderFields, DistinguishesNumericMarkupFromPredefinedLiteralText)
-{
-    const auto names = std::to_array<std::string>({"notes"});
-    EXPECT_EQ(collect_ecuflash_base_header_fields(
-                  names,
-                  "<!DOCTYPE rom [<!ENTITY markup '&#60;b>markup&#60;/b>'><!ENTITY literal '&lt;b>text&lt;/b>'>]>"
-                  "<rom><notes>&markup; &literal;</notes></rom>"),
-              (DefinitionHeaderFields{{"notes", "markup <b>text</b>"}}));
-}
-
-TEST(DefinitionHeaderFields, ExternalEntitiesNeverReadFilesAndAreInvalidInAttributes)
-{
-    const auto names = std::to_array<std::string>({"xmlid"});
-    EXPECT_EQ(collect_ecuflash_base_header_fields(
-                  names, "<!DOCTYPE rom [<!ENTITY external SYSTEM "
-                         "'file:///unavailable'>]><rom><romid><xmlid>A&external;B</xmlid></romid></rom>"),
-              (DefinitionHeaderFields{{"xmlid", "AB"}}));
-    EXPECT_EQ(
-        collect_ecuflash_base_header_fields(
-            names, "<!DOCTYPE rom SYSTEM 'file:///unavailable'><rom><romid><xmlid>A&missing;B</xmlid></romid></rom>"),
-        (DefinitionHeaderFields{{"xmlid", "AB"}}));
-    EXPECT_EQ(collect_ecuflash_base_header_fields(
-                  names, "<!DOCTYPE rom [<!ENTITY external SYSTEM 'file:///unavailable'>]><rom "
-                         "unused='&external;'><romid><xmlid>ID</xmlid></romid></rom>"),
-              (DefinitionHeaderFields{{"xmlid", ""}}));
-}
-
-TEST(DefinitionHeaderFields, RejectsCyclesAndParameterReferencesInsideInternalDeclarations)
-{
-    const auto names = std::to_array<std::string>({"xmlid"});
-    for (const std::string declaration : {"<!ENTITY id '&id;'>", "<!ENTITY id '&other;'><!ENTITY other '&id;'>",
-                                          "<!ENTITY % param 'value'><!ENTITY id '%param;'>"})
-    {
-        SCOPED_TRACE(declaration);
-        EXPECT_EQ(collect_ecuflash_base_header_fields(names, "<!DOCTYPE rom [" + declaration +
-                                                                 "]><rom><romid><xmlid>&id;</xmlid></romid></rom>"),
-                  (DefinitionHeaderFields{{"xmlid", ""}}));
-    }
-}
-
-TEST(DefinitionHeaderFields, LimitsEachOuterExpansionToQtNetCharacterBudget)
-{
-    const auto names = std::to_array<std::string>({"xmlid"});
-    for (const std::size_t count : {4100U, 4101U})
-    {
-        SCOPED_TRACE(count);
-        const std::string value(count, 'A');
-        EXPECT_EQ(collect_ecuflash_base_header_fields(names, "<!DOCTYPE rom [<!ENTITY id '" + value +
-                                                                 "'>]><rom><romid><xmlid>&id;</xmlid></romid></rom>"),
-                  (DefinitionHeaderFields{{"xmlid", count == 4100U ? value : ""}}));
-    }
-    const std::string value(3000, 'A');
-    const std::string prefix = "<!DOCTYPE rom [<!ENTITY id '" + value + "'><!ENTITY both '&id;&id;'>]>";
-    EXPECT_EQ(collect_ecuflash_base_header_fields(names, prefix + "<rom><romid><xmlid>&id;&id;</xmlid></romid></rom>"),
-              (DefinitionHeaderFields{{"xmlid", value + value}}));
-    EXPECT_EQ(collect_ecuflash_base_header_fields(names, prefix + "<rom><romid><xmlid>&both;</xmlid></romid></rom>"),
-              (DefinitionHeaderFields{{"xmlid", ""}}));
-}
-
 TEST(DefinitionHeaderFields, LeavesCommentAndCdataEntitySpellingsLiteral)
 {
     const auto names = std::to_array<std::string>({"notes"});
     EXPECT_EQ(collect_ecuflash_base_header_fields(
                   names, "<rom><!-- &undefined; --><notes><![CDATA[A&undefined;B]]></notes></rom>"),
               (DefinitionHeaderFields{{"notes", "A&undefined;B"}}));
+}
+
+TEST(DefinitionHeaderFields, ReadsPredefinedAndNumericReferencesWithoutDtdExpansion)
+{
+    const auto names = std::to_array<std::string>({"notes"});
+    EXPECT_EQ(collect_ecuflash_base_header_fields(
+                  names, "<!DOCTYPE rom><rom><notes>&lt; &gt; &amp; &apos; &quot; &#65; &#x42;</notes></rom>"),
+              (DefinitionHeaderFields{{"notes", "< > & ' \" A B"}}));
 }

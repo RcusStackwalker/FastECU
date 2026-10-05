@@ -23,10 +23,11 @@ fastecu_gtest(
     name = "definition_header_form_test",
     srcs = ["definition_header_form_test.cpp"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
+    # Widget dependencies are explicit; avoid the macro's broad Qt module bundle.
+    qt_deps = [],
     deps = [
         ":definition_header_form",
         "//bazel/qt:widgets",
-        "//bazel/qt:xml",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],

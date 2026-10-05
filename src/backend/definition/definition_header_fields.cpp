@@ -8,14 +8,12 @@
 #include <pugixml.hpp>
 
 #include "src/backend/definition/text_format.h"
-#include "src/backend/definition/definition_xml_entities.h"
 
 namespace fastecu::definition
 {
 namespace
 {
-// UTF-8 encodings of the whitespace accepted by QString::trimmed(). Keep
-// this boundary behavior without a Qt dependency or locale-sensitive decoding.
+// UTF-8 encodings of Unicode White_Space, independent of locale.
 constexpr auto kWhitespace = std::to_array<std::string_view>({" ",
                                                               "\t",
                                                               "\n",
@@ -80,33 +78,24 @@ void append_element_text(pugi::xml_node element, std::string& text)
     }
 }
 
-pugi::xml_node first_element(pugi::xml_node parent)
-{
-    for (const auto child : parent.children())
-    {
-        if (child.type() == pugi::node_element)
-        {
-            return child;
-        }
-    }
-    return {};
-}
 } // namespace
 
 DefinitionHeaderFields collect_ecuflash_base_header_fields(std::span<const std::string> names, std::string_view xml)
 {
     pugi::xml_document document;
     pugi::xml_node root;
-    const auto prepared = prepare_definition_xml(xml);
-    if (prepared.has_value() &&
-        document.load_buffer(prepared->data(), prepared->size(), pugi::parse_default, pugi::encoding_utf8) &&
+    if (document.load_buffer(xml.data(), xml.size(), pugi::parse_default, pugi::encoding_utf8) &&
         std::ranges::count_if(document.children(), [](auto node) { return node.type() == pugi::node_element; }) == 1)
     {
-        root = document.document_element();
-        // Preserve the existing first-child traversal and its five-level bound.
-        for (int depth = 0; root && std::string_view{root.name()} != "rom" && depth < 5; ++depth)
+        const auto document_root = document.document_element();
+        const std::string_view name{document_root.name()};
+        if (name == "rom")
         {
-            root = first_element(root);
+            root = document_root;
+        }
+        else if (name == "roms")
+        {
+            root = document_root.child("rom");
         }
     }
     const auto rom_id = root.child("romid");
@@ -144,7 +133,7 @@ Result<DefinitionHeaderInput> definition_header_input(std::span<const std::pair<
             text.remove_prefix(1);
         }
         // parse_hex_value also trims ASCII whitespace; a space after '+' is
-        // not surrounding whitespace and must remain an error, as in Qt.
+        // not surrounding whitespace and must remain an error.
         address = trim_header_text(text) == text ? parse_hex_value(text) : std::nullopt;
         if (!address.has_value())
         {

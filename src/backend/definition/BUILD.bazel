@@ -223,7 +223,6 @@ cc_library(
     srcs = ["definition_header_fields.cpp"],
     hdrs = ["definition_header_fields.h"],
     implementation_deps = [
-        ":definition_xml_entities",
         ":text_format",
         "@pugixml",
     ],
@@ -241,11 +240,4 @@ fastecu_portable_gtest(
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
-)
-
-cc_library(
-    name = "definition_xml_entities",
-    srcs = ["definition_xml_entities.cpp"],
-    hdrs = ["definition_xml_entities.h"],
-    implementation_deps = ["@pugixml"],
 )
