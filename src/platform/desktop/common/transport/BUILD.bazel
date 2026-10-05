@@ -27,6 +27,7 @@ cc_library(
     ],
     copts = COMMON_COPTS,
     implementation_deps = [
+        ":serial_read",
         "//src/backend/ports",
         "//src/platform/desktop/common/bytes:qt_bytes",
         "//src/platform/desktop/common/serial/facade:serial_port_actions",
@@ -124,6 +125,7 @@ cc_library(
     ],
     copts = COMMON_COPTS,
     implementation_deps = [
+        ":serial_read",
         "//bazel/qt:core",
         "//bazel/qt:serial_port",
         "//src/algorithms/protocol",
@@ -172,5 +174,29 @@ fastecu_gtest(
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/testing:signal_recorder",
         "@googletest//:gtest",
+    ],
+)
+
+fastecu_gtest(
+    name = "transport_reads_test",
+    srcs = ["transport_reads_test.cpp"],
+    deps = [
+        ":flash_transports",
+        ":transport",
+        "//src/backend/ports/testing:fake_cancellation_token",
+        "//src/platform/desktop/common/serial/testing:fake_backed_serial",
+        "//src/platform/desktop/common/testing:core_application_environment",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "serial_read",
+    hdrs = ["serial_read.h"],
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/backend/ports",
+        "//src/platform/desktop/common/bytes:qt_bytes",
+        "//src/platform/desktop/common/serial/facade:serial_port_actions",
     ],
 )

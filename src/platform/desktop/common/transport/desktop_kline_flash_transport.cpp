@@ -1,3 +1,4 @@
+#include "src/platform/desktop/common/transport/serial_read.h"
 #include "src/platform/desktop/common/transport/desktop_kline_flash_transport.h"
 
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
@@ -402,52 +403,8 @@ DesktopKlineFlashTransport::read(std::chrono::milliseconds timeout, const ICance
         return fail(ErrorKind::Disconnected, "read() called after close()");
     }
 
-    try
-    {
-        if (!serial_->is_serial_port_open())
-        {
-            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected before read");
-        }
-        const QByteArray raw = serial_->read_serial_data(fastecu::saturating_ms<quint16>(timeout));
-        // Deliberately NOT re-checking unblock_requested_ here: this call
-        // was already in flight when request_unblock() may have fired, and
-        // the documented contract is that such a call still returns via its
-        // own existing timeout with whatever the backend actually produced
-        // -- request_unblock() only suppresses the *next* read/write, not
-        // retroactively discard one already past the point of no return.
-        // (cancellation.cancelled() IS still re-checked here, matching
-        // FastEcuKlineTransport::read() in this same package -- teardown
-        // cancellation and the unblock flag are different contracts.)
-        if (cancellation.cancelled())
-        {
-            return fail(ErrorKind::Cancelled, "K-Line read cancelled");
-        }
-        if (!serial_->is_serial_port_open())
-        {
-            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected during read");
-        }
-        if (raw.isEmpty())
-        {
-            return OptionalBytes{};
-        }
-        return OptionalBytes{bytes::fromQByteArray(raw)};
-    }
-    catch (const std::exception& error)
-    {
-        if (cancellation.cancelled())
-        {
-            return fail(ErrorKind::Cancelled, "K-Line read cancelled");
-        }
-        return fail(ErrorKind::Internal, error.what());
-    }
-    catch (...)
-    {
-        if (cancellation.cancelled())
-        {
-            return fail(ErrorKind::Cancelled, "K-Line read cancelled");
-        }
-        return fail(ErrorKind::Internal, "K-Line driver read exception");
-    }
+    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                 { return serial_->read_serial_data(driver_timeout); });
 }
 
 Result<std::size_t> DesktopKlineFlashTransport::write_raw(bytes::ByteView data)
@@ -507,52 +464,8 @@ DesktopKlineFlashTransport::read_raw(std::chrono::milliseconds timeout, const IC
         return fail(ErrorKind::Disconnected, "read_raw() called after close()");
     }
 
-    try
-    {
-        if (!serial_->is_serial_port_open())
-        {
-            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected before read");
-        }
-        const QByteArray raw = serial_->read_serial_obd_data(fastecu::saturating_ms<quint16>(timeout));
-        // Deliberately NOT re-checking unblock_requested_ here: this call
-        // was already in flight when request_unblock() may have fired, and
-        // the documented contract is that such a call still returns via its
-        // own existing timeout with whatever the backend actually produced
-        // -- request_unblock() only suppresses the *next* read/write, not
-        // retroactively discard one already past the point of no return.
-        // (cancellation.cancelled() IS still re-checked here, matching
-        // FastEcuKlineTransport::read_raw() in this same package -- teardown
-        // cancellation and the unblock flag are different contracts.)
-        if (cancellation.cancelled())
-        {
-            return fail(ErrorKind::Cancelled, "K-Line read cancelled");
-        }
-        if (!serial_->is_serial_port_open())
-        {
-            return fail(ErrorKind::Disconnected, "K-Line adapter disconnected during read");
-        }
-        if (raw.isEmpty())
-        {
-            return OptionalBytes{};
-        }
-        return OptionalBytes{bytes::fromQByteArray(raw)};
-    }
-    catch (const std::exception& error)
-    {
-        if (cancellation.cancelled())
-        {
-            return fail(ErrorKind::Cancelled, "K-Line read cancelled");
-        }
-        return fail(ErrorKind::Internal, error.what());
-    }
-    catch (...)
-    {
-        if (cancellation.cancelled())
-        {
-            return fail(ErrorKind::Cancelled, "K-Line read cancelled");
-        }
-        return fail(ErrorKind::Internal, "K-Line driver read exception");
-    }
+    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                 { return serial_->read_serial_obd_data(driver_timeout); });
 }
 
 bool DesktopKlineFlashTransport::isOpen() const

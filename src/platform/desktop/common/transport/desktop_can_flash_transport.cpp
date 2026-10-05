@@ -1,7 +1,7 @@
+#include "src/platform/desktop/common/transport/serial_read.h"
 #include "src/platform/desktop/common/transport/desktop_can_flash_transport.h"
 
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
-#include "src/backend/ports/duration_cast.h"
 #include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
 
 namespace fastecu::flash
@@ -228,52 +228,8 @@ Result<std::optional<bytes::Bytes>> DesktopCanFlashTransport::read(std::chrono::
         return fail(ErrorKind::Disconnected, "read() called after close()");
     }
 
-    try
-    {
-        if (!serial_->is_serial_port_open())
-        {
-            return fail(ErrorKind::Disconnected, "CAN adapter disconnected before read");
-        }
-        const QByteArray raw = serial_->read_serial_data(fastecu::saturating_ms<quint16>(timeout));
-        // Deliberately NOT re-checking unblock_requested_ here: this call
-        // was already in flight when request_unblock() may have fired, and
-        // the documented contract is that such a call still returns via its
-        // own existing timeout with whatever the backend actually produced
-        // -- request_unblock() only suppresses the *next* read/write, not
-        // retroactively discard one already past the point of no return.
-        // (cancellation.cancelled() IS still re-checked here, matching
-        // FastEcuCanTransport::read() in this same package -- teardown
-        // cancellation and the unblock flag are different contracts.)
-        if (cancellation.cancelled())
-        {
-            return fail(ErrorKind::Cancelled, "CAN read cancelled");
-        }
-        if (!serial_->is_serial_port_open())
-        {
-            return fail(ErrorKind::Disconnected, "CAN adapter disconnected during read");
-        }
-        if (raw.isEmpty())
-        {
-            return std::optional<bytes::Bytes>{};
-        }
-        return std::optional<bytes::Bytes>{bytes::fromQByteArray(raw)};
-    }
-    catch (const std::exception& error)
-    {
-        if (cancellation.cancelled())
-        {
-            return fail(ErrorKind::Cancelled, "CAN read cancelled");
-        }
-        return fail(ErrorKind::Internal, error.what());
-    }
-    catch (...)
-    {
-        if (cancellation.cancelled())
-        {
-            return fail(ErrorKind::Cancelled, "CAN read cancelled");
-        }
-        return fail(ErrorKind::Internal, "CAN driver read exception");
-    }
+    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                 { return serial_->read_serial_data(driver_timeout); });
 }
 
 } // namespace fastecu::flash
