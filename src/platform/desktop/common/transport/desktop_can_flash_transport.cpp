@@ -228,9 +228,8 @@ Result<std::optional<bytes::Bytes>> DesktopCanFlashTransport::read(std::chrono::
         return fail(ErrorKind::Disconnected, "read() called after close()");
     }
 
-    return fastecu::desktop::detail::read_serial(
-        serial_, timeout, cancellation, fastecu::desktop::detail::kCanReadErrors,
-        [this](std::uint16_t driver_timeout) { return serial_->read_serial_data(driver_timeout); });
+    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                 { return serial_->read_serial_data(driver_timeout); });
 }
 
 } // namespace fastecu::flash

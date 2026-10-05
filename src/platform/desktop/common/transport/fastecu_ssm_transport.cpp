@@ -38,9 +38,8 @@ fastecu::Result<ISsmTransport::OptionalBytes> FastEcuSsmTransport::read(std::chr
         return fastecu::fail(fastecu::ErrorKind::Cancelled, "SSM read cancelled before driver call");
     }
 
-    return fastecu::desktop::detail::read_serial(
-        serial_, timeout, cancellation, fastecu::desktop::detail::kSsmReadErrors,
-        [this](std::uint16_t driver_timeout) { return serial_->read_serial_data(driver_timeout); });
+    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                 { return serial_->read_serial_data(driver_timeout); });
 }
 
 bool FastEcuSsmTransport::isOpen() const

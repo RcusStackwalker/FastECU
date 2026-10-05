@@ -442,9 +442,8 @@ Result<std::optional<bytes::Bytes>> DesktopMixedCanFlashTransport::read_serial(s
     {
         return fail(ErrorKind::Cancelled, "mixed CAN read skipped due to cancellation/unblock");
     }
-    return fastecu::desktop::detail::read_serial(
-        serial_, timeout, cancellation, fastecu::desktop::detail::kMixedCanReadErrors,
-        [this](std::uint16_t driver_timeout) { return serial_->read_serial_data(driver_timeout); });
+    return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)
+                                                 { return serial_->read_serial_data(driver_timeout); });
 }
 
 } // namespace fastecu::flash

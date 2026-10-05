@@ -190,10 +190,7 @@ TEST_P(TransportReads, NonstandardExceptionIsContained)
     const auto result = read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Internal);
-    EXPECT_EQ(result.error().detail, GetParam() == ReadPath::Ssm        ? "SSM driver read exception"
-                                     : GetParam() == ReadPath::CanFlash ? "CAN driver read exception"
-                                     : GetParam() == ReadPath::MixedCan ? "mixed CAN driver read exception"
-                                                                        : "K-Line driver read exception");
+    EXPECT_EQ(result.error().detail, "serial driver read exception");
 }
 
 TEST_P(TransportReads, CancellationPrecedesStandardException)
