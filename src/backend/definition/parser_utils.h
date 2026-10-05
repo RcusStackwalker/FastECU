@@ -19,6 +19,24 @@
 namespace fastecu::definition
 {
 
+// Text is untrimmed; FirstText retains child_value(), DescendantText includes nested text/CDATA.
+enum class XmlTextMode
+{
+    FirstText,
+    DescendantText
+};
+// Returned nodes borrow the caller-owned document. Root/format policy remains with the caller.
+Result<pugi::xml_node> parse_document_root(pugi::xml_document& document, std::span<const std::uint8_t> xml,
+                                           std::string_view source, pugi::xml_encoding encoding);
+std::string read_element_text(pugi::xml_node element, XmlTextMode mode);
+
+struct ParsedRomHeader
+{
+    pugi::xml_node rom_id; // Borrowed from the caller's document.
+    RomIdentity identity;  // Owns its strings.
+};
+Result<ParsedRomHeader> parse_rom_header(pugi::xml_node rom, std::string_view source);
+
 std::string trim_copy(std::string_view value);
 std::string detail_prefix(std::string_view source, std::string_view definition_id = {});
 std::unexpected<Error> invalid(std::string_view source, std::string context, std::string message,

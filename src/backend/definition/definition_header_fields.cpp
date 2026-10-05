@@ -8,6 +8,8 @@
 #include <pugixml.hpp>
 
 #include "src/backend/definition/text_format.h"
+#include "src/backend/definition/parser_utils.h"
+#include "src/backend/definition/metadata_fields.h"
 
 namespace fastecu::definition
 {
@@ -63,31 +65,18 @@ std::string_view trim_header_text(std::string_view text)
     return text;
 }
 
-void append_element_text(pugi::xml_node element, std::string& text)
-{
-    for (const auto child : element.children())
-    {
-        if (child.type() == pugi::node_pcdata || child.type() == pugi::node_cdata)
-        {
-            text.append(child.value());
-        }
-        else if (child.type() == pugi::node_element)
-        {
-            append_element_text(child, text);
-        }
-    }
-}
-
 } // namespace
 
 DefinitionHeaderFields collect_ecuflash_base_header_fields(std::span<const std::string> names, std::string_view xml)
 {
     pugi::xml_document document;
     pugi::xml_node root;
-    if (document.load_buffer(xml.data(), xml.size(), pugi::parse_default, pugi::encoding_utf8) &&
+    const std::span<const std::uint8_t> bytes{reinterpret_cast<const std::uint8_t *>(xml.data()), xml.size()};
+    const auto parsed = parse_document_root(document, bytes, "authoring header", pugi::encoding_utf8);
+    if (parsed.has_value() &&
         std::ranges::count_if(document.children(), [](auto node) { return node.type() == pugi::node_element; }) == 1)
     {
-        const auto document_root = document.document_element();
+        const auto document_root = *parsed;
         const std::string_view name{document_root.name()};
         if (name == "rom")
         {
@@ -105,9 +94,7 @@ DefinitionHeaderFields collect_ecuflash_base_header_fields(std::span<const std::
     {
         const auto element =
             (name == "include" || name == "notes") ? root.child(name.c_str()) : rom_id.child(name.c_str());
-        std::string text;
-        append_element_text(element, text);
-        fields.emplace_back(name, std::move(text));
+        fields.emplace_back(name, read_element_text(element, XmlTextMode::DescendantText));
     }
     return fields;
 }
@@ -140,19 +127,16 @@ Result<DefinitionHeaderInput> definition_header_input(std::span<const std::pair<
             return fail(ErrorKind::InvalidConfig, "definition internal ID address is not a valid integer");
         }
     }
+    RomMetadata metadata;
+    for (const auto& field : kEditableMetadataFields)
+    {
+        metadata.*field.member = value(field.xml_name);
+    }
     return DefinitionHeaderInput{.xml_id = std::string{trim_header_text(value("xmlid"))},
                                  .internal_id = std::string{value("internalidstring")},
                                  .ecu_id = std::string{value("ecuid")},
                                  .internal_id_address = address,
-                                 .metadata = RomMetadata{.make = std::string{value("make")},
-                                                         .market = std::string{value("market")},
-                                                         .model = std::string{value("model")},
-                                                         .submodel = std::string{value("submodel")},
-                                                         .transmission = std::string{value("transmission")},
-                                                         .year = std::string{value("year")},
-                                                         .flash_method = std::string{value("flashmethod")},
-                                                         .memory_model = std::string{value("memmodel")},
-                                                         .checksum_module = std::string{value("checksummodule")}},
+                                 .metadata = std::move(metadata),
                                  .include = std::string{value("include")},
                                  .notes = std::string{value("notes")}};
 }

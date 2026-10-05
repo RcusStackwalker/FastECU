@@ -181,3 +181,32 @@ TEST(DefinitionHeaderFields, ReadsPredefinedAndNumericReferencesWithoutDtdExpans
                   names, "<!DOCTYPE rom><rom><notes>&lt; &gt; &amp; &apos; &quot; &#65; &#x42;</notes></rom>"),
               (DefinitionHeaderFields{{"notes", "< > & ' \" A B"}}));
 }
+
+TEST(DefinitionHeaderFields, FormMetadataPreservesRawEditableValuesWithoutAcquiringParserExtras)
+{
+    const DefinitionHeaderFields fields{{"make", " make "},
+                                        {"market", " market "},
+                                        {"model", " model "},
+                                        {"submodel", " submodel "},
+                                        {"transmission", " transmission "},
+                                        {"year", " year "},
+                                        {"flashmethod", " flash "},
+                                        {"memmodel", " memory "},
+                                        {"checksummodule", " checksum "},
+                                        {"filesize", "1024"},
+                                        {"notes", " root notes "}};
+    const auto input = definition_header_input(fields);
+    ASSERT_THAT(input, IsOk());
+    EXPECT_EQ(input->metadata, (fastecu::definition::RomMetadata{.make = " make ",
+                                                                 .market = " market ",
+                                                                 .model = " model ",
+                                                                 .submodel = " submodel ",
+                                                                 .transmission = " transmission ",
+                                                                 .year = " year ",
+                                                                 .flash_method = " flash ",
+                                                                 .memory_model = " memory ",
+                                                                 .checksum_module = " checksum ",
+                                                                 .file_size = "",
+                                                                 .notes = ""}));
+    EXPECT_EQ(input->notes, " root notes ");
+}
