@@ -70,18 +70,6 @@ const flashdev_t *checked_device(const CatalogEntry& entry)
     return device;
 }
 
-Status validate_kernel_upload(const KernelImage& kernel, const CatalogEntry& entry, const flashdev_t& device)
-{
-    // Legacy upload_kernel() at 59f4e442:369-627 rounds the image through
-    // 128-byte transfer blocks. The padded physical upload, not merely the
-    // unpadded caller bytes, must stay inside the selected kernel region.
-    if (kernel.load_address != entry.kernel_load_address)
-    {
-        return fail(ErrorKind::InvalidConfig, "TCU kernel address does not match the selected protocol");
-    }
-    return detail::validate_padded_kernel_range<128>(kernel.bytes.size(), kernel.load_address, device.kblocks[0]);
-}
-
 SubaruTcuDensoSh705xCanPlan wire_parameters()
 {
     return {};
@@ -146,7 +134,8 @@ Status validate_subaru_tcu_denso_sh705x_can_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "TCU requires a kernel image");
     }
-    if (Status kernel = validate_kernel_upload(*plan.kernel(), *entry, *device); !kernel.has_value())
+    if (Status kernel = detail::validate_kernel_upload<128>(*plan.kernel(), entry->kernel_load_address, *device);
+        !kernel.has_value())
     {
         return kernel;
     }
@@ -181,7 +170,8 @@ Result<FlashPlan> build_subaru_tcu_denso_sh705x_can_plan(FlashOperation operatio
     {
         return fail(ErrorKind::InvalidConfig, "TCU catalog does not match the flash device table");
     }
-    if (Status upload = validate_kernel_upload(kernel, *entry, *device); !upload.has_value())
+    if (Status upload = detail::validate_kernel_upload<128>(kernel, entry->kernel_load_address, *device);
+        !upload.has_value())
     {
         return std::unexpected(upload.error());
     }

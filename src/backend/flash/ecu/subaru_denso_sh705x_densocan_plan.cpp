@@ -72,18 +72,6 @@ const flashdev_t *checked_device(const CatalogEntry& entry)
     return device;
 }
 
-Status validate_kernel_upload(const KernelImage& kernel, const CatalogEntry& entry, const flashdev_t& device)
-{
-    // Legacy upload_kernel() at lines 227-507 sends six-byte raw CAN blocks.
-    // The last block is zero padded, so the physical upload length, rather
-    // than the caller's byte count, must fit the model's kernel region.
-    if (kernel.load_address != entry.kernel_load_address)
-    {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN kernel address does not match the selected protocol");
-    }
-    return detail::validate_padded_kernel_range<6>(kernel.bytes.size(), kernel.load_address, device.kblocks[0]);
-}
-
 SubaruDensoSh705xDensoCanPlan wire_parameters()
 {
     return {};
@@ -136,7 +124,8 @@ Status validate_subaru_denso_sh705x_densocan_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "DensoCAN requires a kernel image");
     }
-    if (Status kernel = validate_kernel_upload(*plan.kernel(), *entry, *device); !kernel.has_value())
+    if (Status kernel = detail::validate_kernel_upload<6>(*plan.kernel(), entry->kernel_load_address, *device);
+        !kernel.has_value())
     {
         return kernel;
     }
@@ -166,7 +155,8 @@ Result<FlashPlan> build_subaru_denso_sh705x_densocan_plan(FlashOperation operati
     {
         return fail(ErrorKind::InvalidConfig, "DensoCAN catalog does not match the flash device table");
     }
-    if (Status upload = validate_kernel_upload(kernel, *entry, *device); !upload.has_value())
+    if (Status upload = detail::validate_kernel_upload<6>(kernel, entry->kernel_load_address, *device);
+        !upload.has_value())
     {
         return std::unexpected(upload.error());
     }

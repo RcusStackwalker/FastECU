@@ -76,17 +76,6 @@ const flashdev_t *checked_device()
     return device;
 }
 
-Status validate_kernel_upload(const KernelImage& kernel, const flashdev_t& device)
-{
-    // The petrol oracle rounds kernel transfers to 128-byte blocks at
-    // revision 59f4e442:626-769. Validate the physical padded upload.
-    if (kernel.load_address != kKernelLoadAddress)
-    {
-        return fail(ErrorKind::InvalidConfig, "petrol SH7058 kernel address does not match the exact catalog");
-    }
-    return detail::validate_padded_kernel_range<128>(kernel.bytes.size(), kernel.load_address, device.kblocks[0]);
-}
-
 bool wire_parameters_match(const SubaruDensoSh7058CanPlan& wire, const CatalogEntry& entry)
 {
     return wire.request_id == 0x7E0 && wire.response_id == 0x7E8 && wire.bitrate == 500000 && !wire.extended_id &&
@@ -134,7 +123,8 @@ Status validate_subaru_denso_sh7058_can_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "petrol SH7058 requires a kernel image");
     }
-    if (Status kernel = validate_kernel_upload(*plan.kernel(), *device); !kernel.has_value())
+    if (Status kernel = detail::validate_kernel_upload<128>(*plan.kernel(), kKernelLoadAddress, *device);
+        !kernel.has_value())
     {
         return kernel;
     }
@@ -163,7 +153,7 @@ Result<FlashPlan> build_subaru_denso_sh7058_can_plan(FlashOperation operation, s
     {
         return fail(ErrorKind::InvalidConfig, "petrol SH7058 catalog does not match the flash device table");
     }
-    if (Status upload = validate_kernel_upload(kernel, *device); !upload.has_value())
+    if (Status upload = detail::validate_kernel_upload<128>(kernel, kKernelLoadAddress, *device); !upload.has_value())
     {
         return std::unexpected(upload.error());
     }

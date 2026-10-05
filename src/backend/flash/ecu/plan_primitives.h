@@ -34,6 +34,18 @@ Status validate_padded_kernel_range(std::uint64_t size, std::uint32_t load_addre
     return {};
 }
 
+// Expected addresses and transfer block sizes come from each family's protocol.
+// Check identity before validating the padded physical upload.
+template <std::uint64_t BlockSize>
+Status validate_kernel_upload(const KernelImage& kernel, std::uint32_t expected_load_address, const flashdev_t& device)
+{
+    if (kernel.load_address != expected_load_address)
+    {
+        return fail(ErrorKind::InvalidConfig, "kernel address does not match the selected protocol");
+    }
+    return validate_padded_kernel_range<BlockSize>(kernel.bytes.size(), kernel.load_address, device.kblocks[0]);
+}
+
 // Callers validate the device table before comparing the block count and
 // ordered addresses and lengths.
 Status validate_regions(const FlashPlan& plan, const flashdev_t& device);

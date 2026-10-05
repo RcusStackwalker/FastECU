@@ -74,18 +74,6 @@ const flashdev_t *checked_device(const CatalogEntry& entry)
     return device;
 }
 
-Status validate_kernel_upload(const KernelImage& kernel, const CatalogEntry& entry, const flashdev_t& device)
-{
-    // upload_kernel(), revision 59f4e442:517-588, pads to complete 128-byte
-    // blocks before uploading. Validate the physical padded range rather than
-    // only the caller's unpadded snapshot.
-    if (kernel.load_address != entry.kernel_load_address)
-    {
-        return fail(ErrorKind::InvalidConfig, "diesel kernel address does not match the selected protocol");
-    }
-    return detail::validate_padded_kernel_range<128>(kernel.bytes.size(), kernel.load_address, device.kblocks[0]);
-}
-
 bool wire_parameters_match(const SubaruDensoSh7058CanDieselPlan& wire)
 {
     return wire.request_id == 0x7E0 && wire.response_id == 0x7E8 && wire.bitrate == 500000 && !wire.extended_id;
@@ -132,7 +120,8 @@ Status validate_subaru_denso_sh7058_can_diesel_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "diesel family requires a kernel image");
     }
-    if (Status kernel = validate_kernel_upload(*plan.kernel(), *entry, *device); !kernel.has_value())
+    if (Status kernel = detail::validate_kernel_upload<128>(*plan.kernel(), entry->kernel_load_address, *device);
+        !kernel.has_value())
     {
         return kernel;
     }
@@ -161,7 +150,8 @@ Result<FlashPlan> build_subaru_denso_sh7058_can_diesel_plan(FlashOperation opera
     {
         return fail(ErrorKind::InvalidConfig, "diesel catalog does not match the flash device table");
     }
-    if (Status upload = validate_kernel_upload(kernel, *entry, *device); !upload.has_value())
+    if (Status upload = detail::validate_kernel_upload<128>(kernel, entry->kernel_load_address, *device);
+        !upload.has_value())
     {
         return std::unexpected(upload.error());
     }
