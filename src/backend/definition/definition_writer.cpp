@@ -15,6 +15,7 @@
 
 #include "src/backend/definition/ecuflash_parser.h"
 #include "src/backend/definition/text_format.h"
+#include "src/backend/definition/metadata_fields.h"
 
 using namespace std::literals::string_view_literals;
 
@@ -23,22 +24,17 @@ namespace fastecu::definition
 namespace
 {
 
-bool is_blank(std::string_view value)
-{
-    return !std::ranges::any_of(value, [](char ch) { return !std::isspace(static_cast<unsigned char>(ch)); });
-}
-
 Status validate_input(const DefinitionHeaderInput& input)
 {
-    if (is_blank(input.xml_id))
+    if (input.xml_id.empty())
     {
         return fail(ErrorKind::InvalidConfig, "definition XML ID is required");
     }
-    if (is_blank(input.internal_id))
+    if (input.internal_id.empty())
     {
         return fail(ErrorKind::InvalidConfig, "definition internal ID is required");
     }
-    if (is_blank(input.ecu_id))
+    if (input.ecu_id.empty())
     {
         return fail(ErrorKind::InvalidConfig, "definition ECU ID is required");
     }
@@ -89,8 +85,9 @@ void set_optional_hex(pugi::xml_node parent, const char *name, std::optional<std
     }
 }
 
-Status update_header(pugi::xml_node root, const DefinitionHeaderInput& input)
+Status update_header(pugi::xml_node root, const DefinitionHeaderInput& raw_input)
 {
+    const auto input = normalize_header_input(raw_input);
     if (auto valid = validate_input(input); !valid.has_value())
     {
         return std::unexpected(valid.error());
@@ -104,15 +101,10 @@ Status update_header(pugi::xml_node root, const DefinitionHeaderInput& input)
     set_optional_hex(rom_id, "internalidaddress", input.internal_id_address);
     set_unique_text(rom_id, "internalidstring", input.internal_id);
     set_unique_text(rom_id, "ecuid", input.ecu_id);
-    set_unique_text(rom_id, "make", input.metadata.make);
-    set_unique_text(rom_id, "market", input.metadata.market);
-    set_unique_text(rom_id, "model", input.metadata.model);
-    set_unique_text(rom_id, "submodel", input.metadata.submodel);
-    set_unique_text(rom_id, "transmission", input.metadata.transmission);
-    set_unique_text(rom_id, "year", input.metadata.year);
-    set_unique_text(rom_id, "flashmethod", input.metadata.flash_method);
-    set_unique_text(rom_id, "memmodel", input.metadata.memory_model);
-    set_unique_text(rom_id, "checksummodule", input.metadata.checksum_module);
+    for (const auto& field : kEditableMetadataFields)
+    {
+        set_unique_text(rom_id, std::string{field.xml_name}.c_str(), input.metadata.*field.member);
+    }
     set_unique_text(rom_id, "filesize", input.metadata.file_size);
     set_unique_text(rom_id, "notes", input.metadata.notes);
     set_unique_text(root, "include", input.include);
@@ -161,6 +153,21 @@ pugi::xml_node create_root(pugi::xml_document& document)
 }
 
 } // namespace
+
+DefinitionHeaderInput normalize_header_input(DefinitionHeaderInput input)
+{
+    for (const auto member : {&DefinitionHeaderInput::xml_id, &DefinitionHeaderInput::internal_id,
+                              &DefinitionHeaderInput::ecu_id, &DefinitionHeaderInput::include})
+    {
+        input.*member = trim_header_text(input.*member);
+    }
+    for (const auto& field : kEditableMetadataFields)
+    {
+        input.metadata.*field.member = trim_header_text(input.metadata.*field.member);
+    }
+    input.metadata.file_size = trim_header_text(input.metadata.file_size);
+    return input;
+}
 
 Result<std::vector<std::uint8_t>> create_ecuflash_xml(const DefinitionHeaderInput& input)
 {

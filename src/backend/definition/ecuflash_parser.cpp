@@ -1,5 +1,6 @@
 #include "src/backend/definition/ecuflash_parser.h"
 #include "src/backend/definition/parser_utils.h"
+#include "src/backend/definition/text_format.h"
 
 #include <array>
 #include <charconv>
@@ -197,7 +198,7 @@ Result<UnresolvedCalibrationMap> parse_table(pugi::xml_node table, std::string_v
         std::vector<std::string> values;
         for (pugi::xml_node data : table.children("data"))
         {
-            values.push_back(trim_copy(data.child_value()));
+            values.push_back(table_element_text(data));
         }
         map.x_axis.static_data = std::move(values);
         map.x_axis.size = static_cast<std::uint32_t>(map.x_axis.static_data->size());
@@ -212,7 +213,7 @@ std::vector<std::string> parent_references(pugi::xml_node rom)
     std::vector<std::string> parents;
     for (pugi::xml_node include : rom.children("include"))
     {
-        const std::string parent = trim_copy(include.child_value());
+        const std::string parent{trim_header_text(read_element_text(include))};
         if (!parent.empty())
         {
             parents.push_back(parent);
@@ -225,8 +226,7 @@ struct ParsedHeader
 {
     pugi::xml_node root;
     pugi::xml_node rom_id;
-    std::string definition_id;
-    std::optional<std::uint64_t> internal_id_address;
+    RomIdentity identity;
 };
 
 Result<ParsedHeader> parse_header(pugi::xml_document& document, std::span<const std::uint8_t> xml,
@@ -237,22 +237,15 @@ Result<ParsedHeader> parse_header(pugi::xml_document& document, std::span<const 
     {
         return std::unexpected(root.error());
     }
-    auto definition_id = definition_id_for_rom(*root, source);
-    if (!definition_id)
+    auto header = parse_rom_header(*root, source);
+    if (!header.has_value())
     {
-        return std::unexpected(definition_id.error());
-    }
-    const pugi::xml_node rom_id = root->child("romid");
-    auto internal_id_address = optional_hex_element(rom_id, "internalidaddress", source, *definition_id);
-    if (!internal_id_address)
-    {
-        return std::unexpected(internal_id_address.error());
+        return std::unexpected(header.error());
     }
     return ParsedHeader{
         .root = *root,
-        .rom_id = rom_id,
-        .definition_id = std::move(*definition_id),
-        .internal_id_address = *internal_id_address,
+        .rom_id = header->rom_id,
+        .identity = std::move(header->identity),
     };
 }
 
@@ -263,18 +256,18 @@ Result<std::vector<DefinitionIndexEntry>> parse_ecuflash_index(std::span<const s
 {
     pugi::xml_document document;
     auto header = parse_header(document, xml, source);
-    if (!header)
+    if (!header.has_value())
     {
         return std::unexpected(header.error());
     }
 
     return std::vector<DefinitionIndexEntry>{DefinitionIndexEntry{
         .format = DefinitionFormat::EcuFlash,
-        .definition_id = std::move(header->definition_id),
-        .internal_id = child_text(header->rom_id, "internalidstring"),
-        .internal_id_address = header->internal_id_address,
+        .definition_id = std::move(header->identity.xml_id),
+        .internal_id = std::move(header->identity.internal_id),
+        .internal_id_address = header->identity.internal_id_address,
         .internal_id_encoding = IdEncoding::AsciiOrHex,
-        .ecu_id = child_text(header->rom_id, "ecuid"),
+        .ecu_id = std::move(header->identity.ecu_id),
         .source = std::string(source),
         .parents = parent_references(header->root),
     }};
@@ -284,7 +277,7 @@ Result<UnresolvedDefinition> parse_ecuflash_definition(std::span<const std::uint
 {
     pugi::xml_document document;
     auto header = parse_header(document, xml, source);
-    if (!header)
+    if (!header.has_value())
     {
         return std::unexpected(header.error());
     }
@@ -292,13 +285,7 @@ Result<UnresolvedDefinition> parse_ecuflash_definition(std::span<const std::uint
     UnresolvedDefinition definition{
         .format = DefinitionFormat::EcuFlash,
         .source = std::string(source),
-        .identity =
-            RomIdentity{
-                .xml_id = std::move(header->definition_id),
-                .internal_id = child_text(header->rom_id, "internalidstring"),
-                .ecu_id = child_text(header->rom_id, "ecuid"),
-                .internal_id_address = header->internal_id_address,
-            },
+        .identity = std::move(header->identity),
         .metadata = parse_metadata(header->rom_id),
         .parents = parent_references(header->root),
     };

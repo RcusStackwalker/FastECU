@@ -10,7 +10,7 @@ cc_library(
     srcs = ["definition_header_form.cpp"],
     hdrs = ["definition_header_form.h"],
     copts = COMMON_COPTS,
-    implementation_deps = ["//bazel/qt:xml"],
+    implementation_deps = ["//src/backend/definition:definition_header_fields"],
     deps = [
         "//bazel/qt:core",
         "//bazel/qt:widgets",
@@ -23,6 +23,8 @@ fastecu_gtest(
     name = "definition_header_form_test",
     srcs = ["definition_header_form_test.cpp"],
     env = {"QT_QPA_PLATFORM": "offscreen"},
+    # Widget dependencies are explicit; avoid the macro's broad Qt module bundle.
+    qt_deps = [],
     deps = [
         ":definition_header_form",
         "//bazel/qt:widgets",

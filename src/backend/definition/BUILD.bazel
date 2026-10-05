@@ -31,7 +31,10 @@ cc_library(
     name = "parser_utils",
     srcs = ["parser_utils.cpp"],
     hdrs = ["parser_utils.h"],
-    implementation_deps = [":text_format"],
+    implementation_deps = [
+        ":metadata_fields",
+        ":text_format",
+    ],
     deps = [
         ":definition_model",
         "//src/backend/ports",
@@ -44,6 +47,7 @@ fastecu_portable_gtest(
     srcs = ["parser_utils_test.cpp"],
     deps = [
         ":parser_utils",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -54,6 +58,7 @@ cc_library(
     hdrs = ["romraider_parser.h"],
     implementation_deps = [
         ":parser_utils",
+        ":text_format",
         "//src/backend/ports",
         "@pugixml",
     ],
@@ -66,6 +71,7 @@ cc_library(
     hdrs = ["ecuflash_parser.h"],
     implementation_deps = [
         ":parser_utils",
+        ":text_format",
         "//src/backend/ports",
         "@pugixml",
     ],
@@ -101,6 +107,7 @@ cc_library(
     hdrs = ["definition_writer.h"],
     implementation_deps = [
         ":ecuflash_parser",
+        ":metadata_fields",
         ":text_format",
         "@pugixml",
     ],
@@ -210,10 +217,44 @@ cc_library(
     name = "definition_catalog_session",
     srcs = ["definition_catalog_session.cpp"],
     hdrs = ["definition_catalog_session.h"],
+    implementation_deps = [":text_format"],
     deps = [
         ":definition_service",
         "//src/backend/calibration/session:definition_catalogs",
         "//src/backend/config:config_session",
         "//src/backend/ports",
     ],
+)
+
+cc_library(
+    name = "definition_header_fields",
+    srcs = ["definition_header_fields.cpp"],
+    hdrs = ["definition_header_fields.h"],
+    implementation_deps = [
+        ":metadata_fields",
+        ":parser_utils",
+        "@pugixml",
+    ],
+    deps = [
+        ":definition_writer",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "definition_header_fields_test",
+    srcs = ["definition_header_fields_test.cpp"],
+    deps = [
+        ":definition_header_fields",
+        ":ecuflash_parser",
+        ":romraider_parser",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "metadata_fields",
+    hdrs = ["metadata_fields.h"],
+    deps = [":definition_model"],
 )

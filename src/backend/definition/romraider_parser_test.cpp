@@ -419,5 +419,61 @@ TEST(RomRaiderParserTest, WrongRootIsInvalidConfigWithExpectedRootContext)
     expect_invalid_with_context(result, "wrong-root.xml", "<roms>");
 }
 
+TEST(RomRaiderParserTest, UnselectedInvalidAddressDoesNotBlockRequestedDefinitionButFailsIndexing)
+{
+    const auto xml = bytes("<roms><rom><romid><xmlid>OTHER</xmlid>"
+                           "<internalidaddress>invalid</internalidaddress></romid></rom>"
+                           "<rom base=\"BASE\"><romid><xmlid>SELECTED</xmlid>"
+                           "<internalidaddress>20</internalidaddress></romid></rom></roms>");
+    const auto definition = parse_romraider_definition(xml, "selection.xml", "SELECTED");
+    ASSERT_THAT(definition, fastecu::testing::IsOk());
+    EXPECT_EQ(definition->identity.xml_id, "SELECTED");
+    EXPECT_EQ(definition->identity.internal_id_address, 0x20U);
+    EXPECT_EQ(definition->parents, (std::vector<std::string>{"BASE"}));
+
+    const auto index = parse_romraider_index(xml, "selection.xml");
+    ASSERT_THAT(index, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(index.error().detail, ::testing::HasSubstr("definition 'OTHER'"));
+    EXPECT_THAT(index.error().detail, ::testing::HasSubstr("internalidaddress"));
+}
+
+TEST(RomRaiderParserTest, DuplicateRequestedIdentityIsReportedBeforeParsingItsAddress)
+{
+    const auto xml = bytes("<roms><rom><romid><xmlid>SELECTED</xmlid>"
+                           "<internalidaddress>invalid</internalidaddress></romid></rom>"
+                           "<rom><romid><xmlid>SELECTED</xmlid></romid></rom></roms>");
+    const auto definition = parse_romraider_definition(xml, "duplicate-id.xml", "SELECTED");
+    ASSERT_THAT(definition, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("definition 'SELECTED'"));
+    EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("duplicate definition identity"));
+}
+
+TEST(RomRaiderParserTest, UnknownIdentityIsReportedWithoutParsingOtherRecordAddresses)
+{
+    const auto xml = bytes("<roms><rom><romid><xmlid>OTHER</xmlid>"
+                           "<internalidaddress>invalid</internalidaddress></romid></rom></roms>");
+    const auto definition = parse_romraider_definition(xml, "unknown-id.xml", "MISSING");
+    ASSERT_THAT(definition, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("definition 'MISSING'"));
+    EXPECT_THAT(definition.error().detail, ::testing::HasSubstr("definition ID not found"));
+}
+
+TEST(RomRaiderParserTest, HeaderWhitespacePreservationDoesNotHideTableDescriptionOrStaticData)
+{
+    const auto xml = bytes(R"xml(<roms><rom><romid><xmlid>ID</xmlid><notes>  </notes></romid>
+      <table name="Fuel" address="100"><description> <!-- split -->description</description>
+        <table type="Static X Axis" name="RPM" elements="1"><data> <![CDATA[1000]]></data></table>
+      </table>
+      <table name="Inline" address="200"><data> <![CDATA[2000]]></data></table>
+    </rom></roms>)xml");
+    const auto result = parse_romraider_definition(xml, "whitespace.xml", "ID");
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_EQ(result->maps.size(), 2U);
+    EXPECT_EQ(result->maps[0].description, "description");
+    EXPECT_THAT(result->maps[0].x_axis.static_data, ::testing::Optional(::testing::ElementsAre("1000")));
+
+    EXPECT_EQ(result->metadata.notes, "  ");
+}
+
 } // namespace
 } // namespace fastecu::definition

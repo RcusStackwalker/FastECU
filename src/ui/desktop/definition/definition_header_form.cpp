@@ -1,11 +1,10 @@
 #include "src/ui/desktop/definition/definition_header_form.h"
 
-#include <cstdint>
-#include <optional>
+#include <vector>
 
-#include <QDomDocument>
-#include <QHash>
 #include <QLabel>
+
+#include "src/backend/definition/definition_header_fields.h"
 
 namespace fastecu::ui
 {
@@ -24,8 +23,8 @@ HeaderFormEditors build_header_form(QGridLayout *grid, const QStringList& labels
         {
             auto *editor = new QTextEdit();
             editor->setObjectName(names.at(index));
-            editor->setText(value);
-            // One row lower and spanning both columns, as legacy did.
+            editor->setPlainText(value);
+            // Notes occupy one row lower and span both columns.
             grid->addWidget(editor, index + 1, 0, 1, 2);
             editors.text_edits.append(editor);
         }
@@ -41,88 +40,41 @@ HeaderFormEditors build_header_form(QGridLayout *grid, const QStringList& labels
     return editors;
 }
 
-QStringList collect_ecuflash_base_header_fields(const QStringList& header_names, const QStringList& definition_lines)
+fastecu::Result<QStringList> collect_ecuflash_base_header_fields(const QStringList& header_names,
+                                                                 std::span<const std::uint8_t> definition_bytes)
 {
-    QStringList headerData;
-    QHash<QString, QString> values;
-
-    QDomDocument xml;
-    if (xml.setContent(definition_lines.join(QString())))
+    std::vector<std::string> names;
+    names.reserve(header_names.size());
+    for (const auto& name : header_names)
     {
-        QDomElement root = xml.documentElement();
-        int depth = 0;
-        while (!root.isNull() && root.tagName() != "rom" && depth < 5)
-        {
-            root = root.firstChildElement();
-            ++depth;
-        }
-
-        const QDomElement romid = root.firstChildElement("romid");
-        for (const QString& name : header_names)
-        {
-            const QDomElement element =
-                (name == "include" || name == "notes") ? root.firstChildElement(name) : romid.firstChildElement(name);
-            if (!element.isNull())
-            {
-                values.insert(name, element.text());
-            }
-        }
+        names.push_back(name.toStdString());
     }
-
-    for (const QString& name : header_names)
+    const auto fields = fastecu::definition::collect_ecuflash_base_header_fields(names, definition_bytes);
+    if (!fields.has_value())
     {
-        headerData << name << values.value(name);
+        return std::unexpected(fields.error());
     }
-
-    return headerData;
+    QStringList values;
+    for (const auto& [name, text] : *fields)
+    {
+        values << QString::fromStdString(name) << QString::fromStdString(text);
+    }
+    return values;
 }
 
 fastecu::Result<fastecu::definition::DefinitionHeaderInput> definition_header_input(const HeaderFormEditors& editors)
 {
-    QHash<QString, QString> fields;
+    fastecu::definition::DefinitionHeaderFields fields;
+    fields.reserve(editors.line_edits.size() + editors.text_edits.size());
     for (const QLineEdit *editor : editors.line_edits)
     {
-        fields.insert(editor->objectName(), editor->text());
+        fields.emplace_back(editor->objectName().toStdString(), editor->text().toStdString());
     }
     for (const QTextEdit *editor : editors.text_edits)
     {
-        fields.insert(editor->objectName(), editor->toPlainText());
+        fields.emplace_back(editor->objectName().toStdString(), editor->toPlainText().toStdString());
     }
-
-    std::optional<std::uint64_t> internalIdAddress;
-    const QString addressText = fields.value("internalidaddress").trimmed();
-    if (!addressText.isEmpty())
-    {
-        bool validAddress = false;
-        const std::uint64_t parsedAddress = addressText.toULongLong(&validAddress, 16);
-        if (!validAddress)
-        {
-            return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
-                                 "definition internal ID address is not a valid integer");
-        }
-        internalIdAddress = parsedAddress;
-    }
-
-    return fastecu::definition::DefinitionHeaderInput{
-        .xml_id = fields.value("xmlid").trimmed().toStdString(),
-        .internal_id = fields.value("internalidstring").toStdString(),
-        .ecu_id = fields.value("ecuid").toStdString(),
-        .internal_id_address = internalIdAddress,
-        .metadata =
-            fastecu::definition::RomMetadata{
-                .make = fields.value("make").toStdString(),
-                .market = fields.value("market").toStdString(),
-                .model = fields.value("model").toStdString(),
-                .submodel = fields.value("submodel").toStdString(),
-                .transmission = fields.value("transmission").toStdString(),
-                .year = fields.value("year").toStdString(),
-                .flash_method = fields.value("flashmethod").toStdString(),
-                .memory_model = fields.value("memmodel").toStdString(),
-                .checksum_module = fields.value("checksummodule").toStdString(),
-            },
-        .include = fields.value("include").toStdString(),
-        .notes = fields.value("notes").toStdString(),
-    };
+    return fastecu::definition::definition_header_input(fields);
 }
 
 QString line_edit_value(const HeaderFormEditors& editors, const QString& name)

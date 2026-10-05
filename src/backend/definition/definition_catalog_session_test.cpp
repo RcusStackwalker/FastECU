@@ -226,4 +226,20 @@ TEST_F(DefinitionCatalogSession, ImportRegistersOnlyAfterSuccessfulWrite)
     ASSERT_THAT(session.submit_imported_definition("base.xml", "imported.xml", header()), IsOk());
     EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), "imported.xml");
 }
+
+TEST_F(DefinitionCatalogSession, RegistersCanonicalXmlIdForDirectCreateAndImport)
+{
+    auto input = header();
+    input.xml_id = "\xc2\xa0"
+                   "CREATED\xe3\x80\x80";
+    ASSERT_THAT(session.submit_new_definition("created.xml", input, true), IsOk());
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "CREATED"), "created.xml");
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, input.xml_id), std::nullopt);
+    config.put("base.xml", "<rom><romid><xmlid>BASE</xmlid></romid></rom>");
+    input.xml_id = "\xc2\xa0"
+                   "IMPORTED\xe3\x80\x80";
+    ASSERT_THAT(session.submit_imported_definition("base.xml", "imported.xml", input), IsOk());
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "IMPORTED"), "imported.xml");
+    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, input.xml_id), std::nullopt);
+}
 } // namespace

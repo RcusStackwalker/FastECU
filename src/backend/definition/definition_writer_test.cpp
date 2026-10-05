@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <format>
 #include <optional>
+#include <limits>
 #include <span>
 #include <string>
 #include <string_view>
@@ -254,6 +255,65 @@ TEST(DefinitionWriterTest, RejectsDuplicateTopLevelRomIdContainers)
     ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("<romid>"));
     EXPECT_THAT(result.error().detail, HasSubstr("duplicate"));
+}
+
+TEST(DefinitionWriterTest, CanonicalizesDirectCreateAndRewriteInputsWithoutChangingNotes)
+{
+    auto input = complete_input();
+    input.xml_id = "\xc2\xa0"
+                   "CAL123\xe3\x80\x80";
+    input.internal_id = " INTERNAL ID ";
+    input.ecu_id = " ECU ";
+    input.include = " BASE ";
+    input.metadata.model = " Mitsubishi Colt ";
+    input.metadata.make = "\xe2\x80\x83Mitsubishi\xc2\xa0";
+    input.metadata.file_size = " 1024 ";
+    input.metadata.notes = " \n identity notes \n ";
+    input.notes = " \n document notes \n ";
+    input.internal_id_address = std::numeric_limits<std::uint64_t>::max();
+    const auto created = create_ecuflash_xml(input);
+    const auto rewritten =
+        rewrite_ecuflash_xml(bytes("<rom><romid><xmlid>OLD</xmlid></romid><!-- keep --></rom>"), input);
+    for (const auto *result : {&created, &rewritten})
+    {
+        ASSERT_THAT(*result, fastecu::testing::IsOk());
+        const auto xml = text(**result);
+        EXPECT_THAT(xml, HasSubstr("<xmlid>CAL123</xmlid>"));
+        EXPECT_THAT(xml, HasSubstr("<internalidstring>INTERNAL ID</internalidstring>"));
+        EXPECT_THAT(xml, HasSubstr("<ecuid>ECU</ecuid>"));
+        EXPECT_THAT(xml, HasSubstr("<include>BASE</include>"));
+        EXPECT_THAT(xml, HasSubstr("<model>Mitsubishi Colt</model>"));
+        EXPECT_THAT(xml, HasSubstr("<make>Mitsubishi</make>"));
+        EXPECT_THAT(xml, HasSubstr("<filesize>1024</filesize>"));
+        EXPECT_THAT(xml, HasSubstr("<internalidaddress>0xffffffffffffffff</internalidaddress>"));
+        EXPECT_THAT(xml, HasSubstr("<notes> \n identity notes \n </notes>"));
+        EXPECT_THAT(xml, HasSubstr("<notes> \n document notes \n </notes>"));
+        const auto parsed = parse_ecuflash_definition(**result, "canonical.xml");
+        ASSERT_THAT(parsed, fastecu::testing::IsOk());
+        EXPECT_EQ(parsed->identity.xml_id, "CAL123");
+        EXPECT_EQ(parsed->identity.internal_id, "INTERNAL ID");
+        EXPECT_EQ(parsed->identity.internal_id_address, std::numeric_limits<std::uint64_t>::max());
+        EXPECT_EQ(parsed->metadata.notes, " \n identity notes \n ");
+    }
+    ASSERT_THAT(rewritten, fastecu::testing::IsOk());
+    EXPECT_THAT(text(*rewritten), HasSubstr("<!-- keep -->"));
+    ASSERT_THAT(created, fastecu::testing::IsOk());
+    const auto second_write = rewrite_ecuflash_xml(*created, input);
+    ASSERT_THAT(second_write, fastecu::testing::IsOk());
+    EXPECT_EQ(*second_write, *created);
+    EXPECT_EQ(input.ecu_id, " ECU ");
+}
+
+TEST(DefinitionWriterTest, RejectsUnicodeWhitespaceOnlyRequiredFieldsForEveryCaller)
+{
+    for (const auto member :
+         {&DefinitionHeaderInput::xml_id, &DefinitionHeaderInput::internal_id, &DefinitionHeaderInput::ecu_id})
+    {
+        auto input = complete_input();
+        input.*member = "\xc2\xa0\xe2\x80\x83\xe3\x80\x80";
+        EXPECT_THAT(create_ecuflash_xml(input), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        EXPECT_THAT(rewrite_ecuflash_xml(bytes("<rom/>"), input), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    }
 }
 
 } // namespace

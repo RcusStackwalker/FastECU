@@ -19,10 +19,29 @@
 namespace fastecu::definition
 {
 
+// Returned nodes borrow the caller-owned document. Root/format policy remains with the caller.
+Result<pugi::xml_node> parse_document_root(pugi::xml_document& document, std::span<const std::uint8_t> xml,
+                                           std::string_view source, pugi::xml_encoding encoding);
+// Concatenate direct text/CDATA children; never traverse nested elements.
+std::string read_element_text(pugi::xml_node element);
+std::string header_child_text(pugi::xml_node parent, std::string_view name);
+Status validate_header_structure(pugi::xml_node rom, std::string_view source);
+Result<std::optional<std::uint64_t>> parse_header_address(std::string_view text, std::string_view source,
+                                                          std::string_view definition_id = {});
+
+struct ParsedRomHeader
+{
+    pugi::xml_node rom_id; // Borrowed from the caller's document.
+    RomIdentity identity;  // Owns its strings.
+};
+Result<ParsedRomHeader> parse_rom_header(pugi::xml_node rom, std::string_view source);
+
 std::string trim_copy(std::string_view value);
 std::string detail_prefix(std::string_view source, std::string_view definition_id = {});
 std::unexpected<Error> invalid(std::string_view source, std::string context, std::string message,
                                std::string_view definition_id = {});
+// First table text value, skipping whitespace-only PCDATA introduced by header whitespace preservation.
+std::string table_element_text(pugi::xml_node element);
 std::string child_text(pugi::xml_node parent, std::string_view child_name);
 Result<pugi::xml_node> identity_element(pugi::xml_node rom, std::string_view source);
 Result<std::string> required_child_text(pugi::xml_node parent, std::string_view parent_name,
@@ -35,8 +54,6 @@ Result<std::uint64_t> parse_hex_unsigned(std::string_view value, std::string_vie
                                          std::string_view definition_id);
 std::string value_or_empty(pugi::xml_attribute attribute);
 std::string selection_name(std::string name);
-Result<std::optional<std::uint64_t>> optional_hex_element(pugi::xml_node parent, std::string_view child_name,
-                                                          std::string_view source, std::string_view definition_id);
 Result<std::optional<std::uint64_t>> optional_hex_attribute(pugi::xml_node node, std::string_view attribute_name,
                                                             std::string_view source, std::string_view definition_id);
 Result<std::optional<std::uint64_t>> optional_address(pugi::xml_node node, std::string_view source,
