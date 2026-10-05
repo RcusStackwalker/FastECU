@@ -283,9 +283,11 @@ anything a second caller will need gets a port.
 
 ### Portable authoring header fields
 
-`definition_header_fields` owns imported XML header extraction and conversion of
-named text fields into `DefinitionHeaderInput`. Qt adapters read widgets, convert
-QString/UTF-8, preserve presentation order, and display errors. The portable
+`definition_header_fields` owns imported XML header extraction into `DefinitionHeaderDraft` and conversion into
+`DefinitionHeaderInput`. A draft uses named fields and keeps editable address
+text until submission. Qt adapters populate a fixed form and read named editor
+references; they convert QString/UTF-8 and display errors. Parallel name/value
+lists and object-name lookup are not part of the authoring boundary. The portable
 backend and header/form test closure have no QtXml dependency.
 
 Header import, validated loading, and writing share a permissive-read,
@@ -317,8 +319,8 @@ use plain text to preserve literal markup from escaped XML or CDATA. The XML
 parser remains non-validating, without custom DTD expansion or external resource
 loading.
 
-`kEditableMetadataFields` shares the nine editable field mappings among form
-conversion, parsed metadata, normalization, and serialization. Parser metadata
+`kEditableMetadataFields` shares the nine editable field mappings among draft
+extraction, parsed metadata, normalization, and serialization. Parser metadata
 also reads `filesize` and `romid/notes`; the form's `include` and notes come from
 the ROM. Writers normalize direct backend callers as well as form submissions,
 validate canonical required identities, replace writable fields with single text

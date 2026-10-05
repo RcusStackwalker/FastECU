@@ -72,11 +72,10 @@ struct HeaderDialogResult
 // `dialog` is supplied by the caller rather than constructed here: the
 // editors in the returned result are its children, so they die with it and
 // the caller reads them after this returns.
-HeaderDialogResult run_header_dialog(QDialog& dialog, const QStringList& labels, const QStringList& names,
-                                     const QStringList& values)
+HeaderDialogResult run_header_dialog(QDialog& dialog, const definition::DefinitionHeaderDraft& draft = {})
 {
     HeaderDialogResult result;
-    result.editors = populate_header_dialog(dialog, labels, names, values);
+    result.editors = populate_header_dialog(dialog, draft);
 
     auto *buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     dialog.layout()->addWidget(buttons);
@@ -90,8 +89,7 @@ HeaderDialogResult run_header_dialog(QDialog& dialog, const QStringList& labels,
 
 } // namespace
 
-HeaderFormEditors populate_header_dialog(QDialog& dialog, const QStringList& labels, const QStringList& names,
-                                         const QStringList& values)
+HeaderFormEditors populate_header_dialog(QDialog& dialog, const definition::DefinitionHeaderDraft& draft)
 {
     auto *layout = new QVBoxLayout(&dialog);
     layout->addWidget(new QLabel("Please provide ROM Information:"));
@@ -99,7 +97,7 @@ HeaderFormEditors populate_header_dialog(QDialog& dialog, const QStringList& lab
     // build_header_form parents the editors to `grid`, which is unparented
     // until addLayout reparents its widgets onto `dialog`.
     auto *grid = new QGridLayout();
-    HeaderFormEditors editors = build_header_form(grid, labels, names, values);
+    HeaderFormEditors editors = build_header_form(grid, draft);
     layout->addLayout(grid);
     return editors;
 }
@@ -111,46 +109,17 @@ DefinitionAuthoringDialog::DefinitionAuthoringDialog(fastecu::definition::Defini
 {
 }
 
-QStringList definition_header_labels()
+void DefinitionAuthoringDialog::log_header(const HeaderFormEditors& editors)
 {
-    return {
-        "XML ID",
-        "Internal ID Address",
-        "Internal ID String",
-        "ECU ID",
-        "Make",
-        "Market",
-        "Model",
-        "Submodel",
-        "Transmission",
-        "Year",
-        "Flash Method",
-        "Memory Model",
-        "Checksum Module",
-        "Include",
-        "Notes",
-    };
-}
-
-QStringList definition_header_names()
-{
-    return {
-        "xmlid",
-        "internalidaddress",
-        "internalidstring",
-        "ecuid",
-        "make",
-        "market",
-        "model",
-        "submodel",
-        "transmission",
-        "year",
-        "flashmethod",
-        "memmodel",
-        "checksummodule",
-        "include",
-        "notes",
-    };
+    const auto draft = read_header_form(editors);
+    for (const auto *value :
+         {&draft.xml_id, &draft.internal_id_address_text, &draft.internal_id, &draft.ecu_id, &draft.metadata.make,
+          &draft.metadata.market, &draft.metadata.model, &draft.metadata.submodel, &draft.metadata.transmission,
+          &draft.metadata.year, &draft.metadata.flash_method, &draft.metadata.memory_model,
+          &draft.metadata.checksum_module})
+    {
+        emit LOG_D(QString::fromStdString(*value), true, true);
+    }
 }
 
 bool DefinitionAuthoringDialog::create_new_definition()
@@ -160,8 +129,7 @@ bool DefinitionAuthoringDialog::create_new_definition()
     // as the submission, so it stays alive for the whole
     // function rather than living inside run_header_dialog.
     QDialog dialog(parent_);
-    const HeaderDialogResult form =
-        run_header_dialog(dialog, definition_header_labels(), definition_header_names(), {});
+    const HeaderDialogResult form = run_header_dialog(dialog);
     if (!form.accepted)
     {
         return true;
@@ -183,13 +151,7 @@ bool DefinitionAuthoringDialog::create_new_definition()
                              "Unable to create definition: " + QString::fromStdString(input.error().detail));
         return false;
     }
-    for (const QLineEdit *editor : form.editors.line_edits)
-    {
-        if (editor->objectName() != "include")
-        {
-            emit LOG_D(editor->text(), true, true);
-        }
-    }
+    log_header(form.editors);
 
     const fastecu::Status status =
         catalogs_.submit_new_definition(filename.toStdString(), *input, /*allow_overwrite=*/true);
@@ -220,30 +182,20 @@ bool DefinitionAuthoringDialog::use_existing_definition()
         QMessageBox::warning(parent_, tr("Definition file"), "Unable to open definition file for reading");
         return false;
     }
-    const auto headerData = collect_ecuflash_base_header_fields(definition_header_names(), *sourceContents);
-    if (!headerData.has_value())
+    const auto draft = definition::read_definition_header(*sourceContents);
+    if (!draft.has_value())
     {
-        const auto detail = "Unable to import definition: " + QString::fromStdString(headerData.error().detail);
+        const auto detail = "Unable to import definition: " + QString::fromStdString(draft.error().detail);
         emit LOG_E(detail, true, true);
         QMessageBox::warning(parent_, tr("Definition file"), detail);
         return false;
-    }
-
-    // headerData is a flat (name, value, name, value, ...) list; split it
-    // into the two parallel lists build_header_form expects.
-    QStringList names;
-    QStringList values;
-    for (int i = 0; i + 1 < headerData->length(); i += 2)
-    {
-        names.append(headerData->at(i));
-        values.append(headerData->at(i + 1));
     }
 
     emit LOG_D("Create header", true, true);
     // As in create_new_definition: `dialog` outlives every read of
     // form.editors below, down to the submission.
     QDialog dialog(parent_);
-    const HeaderDialogResult form = run_header_dialog(dialog, definition_header_labels(), names, values);
+    const HeaderDialogResult form = run_header_dialog(dialog, *draft);
     if (!form.accepted)
     {
         return true;
@@ -266,13 +218,7 @@ bool DefinitionAuthoringDialog::use_existing_definition()
         return false;
     }
     emit LOG_D("Write to file", true, true);
-    for (const QLineEdit *editor : form.editors.line_edits)
-    {
-        if (editor->objectName() != "include")
-        {
-            emit LOG_D(editor->text(), true, true);
-        }
-    }
+    log_header(form.editors);
 
     const fastecu::Status status =
         catalogs_.submit_imported_definition(source.toStdString(), filename.toStdString(), *input);

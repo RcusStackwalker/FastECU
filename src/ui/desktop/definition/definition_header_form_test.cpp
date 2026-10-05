@@ -1,33 +1,24 @@
-#include "src/backend/ports/testing/result_matchers.h"
 #include "src/ui/desktop/definition/definition_header_form.h"
 
 #include <array>
 #include <memory>
 
 #include <QApplication>
-#include <QGridLayout>
-#include <QLineEdit>
-#include <QTextEdit>
+#include <QLabel>
 #include <QWidget>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "src/backend/ports/testing/result_matchers.h"
+
+using fastecu::definition::DefinitionHeaderDraft;
 using fastecu::ui::build_header_form;
 using fastecu::ui::definition_header_input;
-using fastecu::ui::HeaderFormEditors;
-using fastecu::ui::line_edit_value;
 using fastecu::ui::normalize_xml_suffix;
 
 namespace
 {
-
-std::vector<std::uint8_t> utf8_bytes(const QString& text)
-{
-    const auto bytes = text.toUtf8();
-    return {bytes.begin(), bytes.end()};
-}
-
 // QGridLayout and the editors are QWidgets, which abort at construction
 // without a live QApplication. fastecu_gtest links plain gtest_main, so
 // bring one up via a ::testing::Environment, mirroring QtPortEnvironment in
@@ -49,189 +40,99 @@ class DefinitionFormEnvironment final : public ::testing::Environment
 
 const auto *definition_form_environment = ::testing::AddGlobalTestEnvironment(new DefinitionFormEnvironment);
 
-// The authored header field names, in the order the form maps them.
-const QStringList kNames = {"xmlid",
-                            "internalidaddress",
-                            "internalidstring",
-                            "ecuid",
-                            "make",
-                            "market",
-                            "model",
-                            "submodel",
-                            "transmission",
-                            "year",
-                            "flashmethod",
-                            "memmodel",
-                            "checksummodule",
-                            "include",
-                            "notes"};
-
-QStringList labels_for(const QStringList& names)
-{
-    QStringList labels;
-    for (const QString& name : names)
-    {
-        labels.append(name + " label");
-    }
-    return labels;
-}
-
 } // namespace
 
-TEST(BuildHeaderFormTest, MakesALineEditPerFieldAndOneTextEditForNotes)
+TEST(BuildHeaderFormTest, MapsTypedValuesAndEditsBackIntoTheDomainHeader)
 {
     QWidget host;
     auto *grid = new QGridLayout(&host);
-
-    const HeaderFormEditors editors = build_header_form(grid, labels_for(kNames), kNames, {});
-
-    EXPECT_EQ(editors.line_edits.size(), kNames.size() - 1);
-    ASSERT_EQ(editors.text_edits.size(), 1);
-    EXPECT_EQ(editors.text_edits.at(0)->objectName(), "notes");
-}
-
-TEST(BuildHeaderFormTest, SetsObjectNameOnEveryEditor)
-{
-    QWidget host;
-    auto *grid = new QGridLayout(&host);
-
-    const HeaderFormEditors editors = build_header_form(grid, labels_for(kNames), kNames, {});
-
-    QStringList seen;
-    for (const QLineEdit *editor : editors.line_edits)
-    {
-        seen.append(editor->objectName());
-    }
-    EXPECT_THAT(seen, testing::Contains("xmlid"));
-    EXPECT_THAT(seen, testing::Contains("checksummodule"));
-    EXPECT_THAT(seen, testing::Not(testing::Contains("")));
-}
-
-TEST(BuildHeaderFormTest, LeavesEditorsEmptyWhenNoValuesAreSupplied)
-{
-    QWidget host;
-    auto *grid = new QGridLayout(&host);
-
-    const HeaderFormEditors editors = build_header_form(grid, labels_for(kNames), kNames, {});
-
-    for (const QLineEdit *editor : editors.line_edits)
-    {
-        EXPECT_TRUE(editor->text().isEmpty()) << editor->objectName().toStdString();
-    }
-    EXPECT_TRUE(editors.text_edits.at(0)->toPlainText().isEmpty());
-}
-
-TEST(BuildHeaderFormTest, PrefillsEditorsWhenValuesAreSupplied)
-{
-    QWidget host;
-    auto *grid = new QGridLayout(&host);
-    const QStringList names = {"xmlid", "ecuid", "notes"};
-    const QStringList values = {"CAL123", "EC00456", "some notes"};
-
-    const HeaderFormEditors editors = build_header_form(grid, labels_for(names), names, values);
-
-    ASSERT_EQ(editors.line_edits.size(), 2);
-    EXPECT_EQ(editors.line_edits.at(0)->text(), "CAL123");
-    EXPECT_EQ(editors.line_edits.at(1)->text(), "EC00456");
-    ASSERT_EQ(editors.text_edits.size(), 1);
-    EXPECT_EQ(editors.text_edits.at(0)->toPlainText(), "some notes");
-}
-
-TEST(DefinitionHeaderInputTest, MapsEveryFieldByObjectName)
-{
-    QWidget host;
-    auto *grid = new QGridLayout(&host);
-    const HeaderFormEditors editors = build_header_form(grid, labels_for(kNames), kNames, {});
-
-    for (QLineEdit *editor : editors.line_edits)
-    {
-        editor->setText(editor->objectName() + "-value");
-    }
-    editors.line_edits.at(1)->setText("2f8000"); // internalidaddress must parse as hex
-    editors.text_edits.at(0)->setPlainText("note body");
-
+    const DefinitionHeaderDraft draft{.xml_id = "XML",
+                                      .internal_id = "INTERNAL",
+                                      .ecu_id = "ECU",
+                                      .internal_id_address_text = "2f8000",
+                                      .metadata = {.make = "Make",
+                                                   .market = "Market",
+                                                   .model = "Model",
+                                                   .submodel = "Submodel",
+                                                   .transmission = "Transmission",
+                                                   .year = "Year",
+                                                   .flash_method = "Flash",
+                                                   .memory_model = "Memory",
+                                                   .checksum_module = "Checksum"},
+                                      .include = "Parent",
+                                      .notes = "Notes"};
+    const auto editors = build_header_form(grid, draft);
+    EXPECT_EQ(editors.xml_id->text(), "XML");
+    EXPECT_EQ(editors.internal_id_address->text(), "2f8000");
+    EXPECT_EQ(editors.internal_id->text(), "INTERNAL");
+    EXPECT_EQ(editors.ecu_id->text(), "ECU");
+    EXPECT_EQ(editors.make->text(), "Make");
+    EXPECT_EQ(editors.market->text(), "Market");
+    EXPECT_EQ(editors.model->text(), "Model");
+    EXPECT_EQ(editors.submodel->text(), "Submodel");
+    EXPECT_EQ(editors.transmission->text(), "Transmission");
+    EXPECT_EQ(editors.year->text(), "Year");
+    EXPECT_EQ(editors.flash_method->text(), "Flash");
+    EXPECT_EQ(editors.memory_model->text(), "Memory");
+    EXPECT_EQ(editors.checksum_module->text(), "Checksum");
+    EXPECT_EQ(editors.include->text(), "Parent");
+    EXPECT_EQ(editors.notes->toPlainText(), "Notes");
+    editors.ecu_id->setText("Changed ECU");
     const auto input = definition_header_input(editors);
-
     ASSERT_THAT(input, fastecu::testing::IsOk());
-    EXPECT_EQ(input->xml_id, "xmlid-value");
-    EXPECT_EQ(input->internal_id, "internalidstring-value");
-    EXPECT_EQ(input->ecu_id, "ecuid-value");
-    EXPECT_EQ(input->metadata.make, "make-value");
-    EXPECT_EQ(input->metadata.market, "market-value");
-    EXPECT_EQ(input->metadata.model, "model-value");
-    EXPECT_EQ(input->metadata.submodel, "submodel-value");
-    EXPECT_EQ(input->metadata.transmission, "transmission-value");
-    EXPECT_EQ(input->metadata.year, "year-value");
-    EXPECT_EQ(input->metadata.flash_method, "flashmethod-value");
-    EXPECT_EQ(input->metadata.memory_model, "memmodel-value");
-    EXPECT_EQ(input->metadata.checksum_module, "checksummodule-value");
-    EXPECT_EQ(input->include, "include-value");
-    EXPECT_EQ(input->notes, "note body");
+    EXPECT_EQ(input->xml_id, "XML");
+    EXPECT_EQ(input->internal_id, "INTERNAL");
+    EXPECT_EQ(input->ecu_id, "Changed ECU");
+    EXPECT_EQ(input->internal_id_address, 0x2f8000U);
+    EXPECT_EQ(input->metadata, draft.metadata);
+    EXPECT_EQ(input->include, "Parent");
+    EXPECT_EQ(input->notes, "Notes");
 }
 
-TEST(DefinitionHeaderInputTest, ParsesInternalIdAddressAsHex)
+TEST(BuildHeaderFormTest, PreservesFieldLabelsAndPlacement)
 {
     QWidget host;
     auto *grid = new QGridLayout(&host);
-    const QStringList names = {"xmlid", "internalidaddress"};
-    const HeaderFormEditors editors = build_header_form(grid, labels_for(names), names, {"id", "2f8000"});
+    const auto editors = build_header_form(grid);
+    const auto labels = std::to_array<const char *>(
+        {"XML ID", "Internal ID Address", "Internal ID String", "ECU ID", "Make", "Market", "Model", "Submodel",
+         "Transmission", "Year", "Flash Method", "Memory Model", "Checksum Module", "Include", "Notes"});
+    for (std::size_t row = 0; row < labels.size(); ++row)
+    {
+        const auto *label = qobject_cast<QLabel *>(grid->itemAtPosition(static_cast<int>(row), 0)->widget());
+        ASSERT_NE(label, nullptr);
+        EXPECT_EQ(label->text(), QString::fromUtf8(labels[row]));
+    }
+    EXPECT_EQ(grid->itemAtPosition(0, 1)->widget(), editors.xml_id);
+    EXPECT_EQ(grid->itemAtPosition(15, 0)->widget(), editors.notes);
+    EXPECT_TRUE(editors.xml_id->text().isEmpty());
+    EXPECT_TRUE(editors.notes->toPlainText().isEmpty());
+}
 
+TEST(DefinitionHeaderInputTest, WidgetObjectNamesDoNotDetermineDomainFieldMapping)
+{
+    QWidget host;
+    auto *grid = new QGridLayout(&host);
+    const auto editors = build_header_form(grid, {.xml_id = "ID", .ecu_id = "ECU"});
+    editors.ecu_id->setObjectName("presentation-only");
     const auto input = definition_header_input(editors);
-
     ASSERT_THAT(input, fastecu::testing::IsOk());
-    ASSERT_TRUE(input->internal_id_address.has_value());
-    EXPECT_EQ(*input->internal_id_address, 0x2f8000U);
+    EXPECT_EQ(input->ecu_id, "ECU");
 }
 
-TEST(DefinitionHeaderInputTest, EmptyInternalIdAddressYieldsNullopt)
+TEST(DefinitionHeaderInputTest, NormalizesScalarsAndValidatesEditedAddress)
 {
     QWidget host;
     auto *grid = new QGridLayout(&host);
-    const QStringList names = {"xmlid", "internalidaddress"};
-    const HeaderFormEditors editors = build_header_form(grid, labels_for(names), names, {"id", "   "});
-
-    const auto input = definition_header_input(editors);
-
-    ASSERT_THAT(input, fastecu::testing::IsOk());
-    EXPECT_FALSE(input->internal_id_address.has_value());
-}
-
-TEST(DefinitionHeaderInputTest, UnparseableInternalIdAddressIsInvalidConfig)
-{
-    QWidget host;
-    auto *grid = new QGridLayout(&host);
-    const QStringList names = {"xmlid", "internalidaddress"};
-    const HeaderFormEditors editors = build_header_form(grid, labels_for(names), names, {"id", "not-hex"});
-
-    const auto input = definition_header_input(editors);
-
-    ASSERT_THAT(input, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
-    EXPECT_THAT(input.error().detail, testing::HasSubstr("internalidaddress"));
-}
-
-TEST(DefinitionHeaderInputTest, NormalizesScalarFields)
-{
-    QWidget host;
-    auto *grid = new QGridLayout(&host);
-    const QStringList names = {"xmlid", "ecuid"};
-    const HeaderFormEditors editors = build_header_form(grid, labels_for(names), names, {"  CAL123  ", "  EC0  "});
-
-    const auto input = definition_header_input(editors);
-
+    const auto editors =
+        build_header_form(grid, {.xml_id = "  CAL123  ", .ecu_id = "  ECU  ", .internal_id_address_text = "   "});
+    auto input = definition_header_input(editors);
     ASSERT_THAT(input, fastecu::testing::IsOk());
     EXPECT_EQ(input->xml_id, "CAL123");
-    EXPECT_EQ(input->ecu_id, "EC0");
-}
-
-TEST(LineEditValueTest, ReturnsTheNamedEditorsTextAndEmptyForAnAbsentName)
-{
-    QWidget host;
-    auto *grid = new QGridLayout(&host);
-    const QStringList names = {"xmlid", "ecuid"};
-    const HeaderFormEditors editors = build_header_form(grid, labels_for(names), names, {"CAL123", "EC0"});
-
-    EXPECT_EQ(line_edit_value(editors, "ecuid"), "EC0");
-    EXPECT_EQ(line_edit_value(editors, "nosuchfield"), QString());
+    EXPECT_EQ(input->ecu_id, "ECU");
+    EXPECT_EQ(input->internal_id_address, std::nullopt);
+    editors.internal_id_address->setText("not-hex");
+    EXPECT_THAT(definition_header_input(editors), fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(NormalizeXmlSuffixTest, StripsOneTrailingDotThenAppendsXml)
@@ -243,79 +144,20 @@ TEST(NormalizeXmlSuffixTest, StripsOneTrailingDotThenAppendsXml)
     EXPECT_EQ(normalize_xml_suffix("/tmp/a b/def."), "/tmp/a b/def.xml");
 }
 
-TEST(ImportedHeaderFieldsTest, PreservesFieldOrderAndDefaultsAbsentOptionalFields)
-{
-    const QString xml = "<rom><romid><xmlid>BASE_TEST</xmlid>"
-                        "<internalidaddress>0x2000</internalidaddress><internalidstring>TESTID</internalidstring>"
-                        "<ecuid>TESTECU</ecuid><make>Subaru</make><market>USDM</market><model>Impreza</model>"
-                        "<year>2004</year><flashmethod>sub_ecu_denso_sh7055</flashmethod><memmodel>SH7055</memmodel>"
-                        "<checksummodule>checksum_ecu_subaru_denso_sh7055</checksummodule></romid></rom>";
-
-    const auto fields = fastecu::ui::collect_ecuflash_base_header_fields(kNames, utf8_bytes(xml));
-
-    ASSERT_THAT(fields, fastecu::testing::IsOk());
-    ASSERT_EQ(fields->size(), kNames.size() * 2);
-    const QStringList expectedValues = {"BASE_TEST",
-                                        "0x2000",
-                                        "TESTID",
-                                        "TESTECU",
-                                        "Subaru",
-                                        "USDM",
-                                        "Impreza",
-                                        "",
-                                        "",
-                                        "2004",
-                                        "sub_ecu_denso_sh7055",
-                                        "SH7055",
-                                        "checksum_ecu_subaru_denso_sh7055",
-                                        "",
-                                        ""};
-    for (qsizetype index = 0; index < kNames.size(); ++index)
-    {
-        EXPECT_EQ(fields->at(index * 2), kNames.at(index));
-        EXPECT_EQ(fields->at(index * 2 + 1), expectedValues.at(index));
-    }
-}
-
-TEST(ImportedHeaderFieldsTest, ReadsIncludeAndNotesFromWrappedRom)
-{
-    const QStringList names{"xmlid", "include", "notes"};
-    const QStringList lines{"<roms><rom><romid><xmlid>  BASE  </xmlid></romid>",
-                            "<include>OEM_BASE</include><notes>Text &amp; notes</notes></rom></roms>"};
-
-    EXPECT_THAT(fastecu::ui::collect_ecuflash_base_header_fields(names, utf8_bytes(lines.join(QString()))),
-                fastecu::testing::IsOkAnd(
-                    testing::Eq(QStringList{"xmlid", "BASE", "include", "OEM_BASE", "notes", "Text & notes"})));
-}
-
-TEST(ImportedHeaderFieldsTest, MalformedXmlReportsAnError)
-{
-    const QStringList names{"xmlid", "include", "notes"};
-
-    EXPECT_THAT(fastecu::ui::collect_ecuflash_base_header_fields(names, utf8_bytes("<rom><romid>")),
-                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
-}
-
 TEST(ImportedHeaderFieldsTest, LiteralMarkupNotesSurviveExtractionFormAndWriting)
 {
-    const QStringList names{"xmlid", "internalidstring", "ecuid", "notes"};
-    const auto fields = fastecu::ui::collect_ecuflash_base_header_fields(
-        names, utf8_bytes("<rom><romid><xmlid>ID</xmlid><internalidstring>INTERNAL</internalidstring><ecuid>ECU</ecuid>"
-                          "</romid><notes><![CDATA[ \n<b>literal note</b>\n ]]></notes></rom>"));
-    ASSERT_THAT(fields, fastecu::testing::IsOk());
-    QStringList values;
-    for (qsizetype index = 1; index < fields->size(); index += 2)
-    {
-        values.append(fields->at(index));
-    }
+    const auto draft = fastecu::definition::read_definition_header(
+        "<rom><romid><xmlid>ID</xmlid><internalidstring>INTERNAL</internalidstring><ecuid>ECU</ecuid>"
+        "</romid><notes><![CDATA[ \n<b>literal note</b>\n ]]></notes></rom>");
+    ASSERT_THAT(draft, fastecu::testing::IsOk());
     QWidget host;
     auto *grid = new QGridLayout(&host);
-    const auto editors = build_header_form(grid, labels_for(names), names, values);
+    const auto editors = build_header_form(grid, *draft);
     const auto input = definition_header_input(editors);
     ASSERT_THAT(input, fastecu::testing::IsOk());
     EXPECT_EQ(input->notes, " \n<b>literal note</b>\n ");
     const auto written = fastecu::definition::create_ecuflash_xml(*input);
     ASSERT_THAT(written, fastecu::testing::IsOk());
-    const std::string xml(written->begin(), written->end());
-    EXPECT_THAT(xml, testing::HasSubstr("<notes> \n&lt;b&gt;literal note&lt;/b&gt;\n </notes>"));
+    EXPECT_THAT(std::string(written->begin(), written->end()),
+                testing::HasSubstr("<notes> \n&lt;b&gt;literal note&lt;/b&gt;\n </notes>"));
 }
