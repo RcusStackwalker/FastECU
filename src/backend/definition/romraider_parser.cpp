@@ -195,26 +195,19 @@ Result<std::vector<DefinitionIndexEntry>> parse_romraider_index(std::span<const 
     std::vector<DefinitionIndexEntry> entries;
     for (pugi::xml_node rom : root->children("rom"))
     {
-        auto definition_id = definition_id_for_rom(rom, source);
-        if (!definition_id)
+        auto header = parse_rom_header(rom, source);
+        if (!header)
         {
-            return std::unexpected(definition_id.error());
-        }
-
-        const pugi::xml_node rom_id = rom.child("romid");
-        auto internal_id_address = optional_hex_element(rom_id, "internalidaddress", source, *definition_id);
-        if (!internal_id_address)
-        {
-            return std::unexpected(internal_id_address.error());
+            return std::unexpected(header.error());
         }
 
         entries.push_back(DefinitionIndexEntry{
             .format = DefinitionFormat::RomRaider,
-            .definition_id = std::move(*definition_id),
-            .internal_id = child_text(rom_id, "internalidstring"),
-            .internal_id_address = *internal_id_address,
+            .definition_id = std::move(header->identity.xml_id),
+            .internal_id = std::move(header->identity.internal_id),
+            .internal_id_address = header->identity.internal_id_address,
             .internal_id_encoding = IdEncoding::AsciiOrHex,
-            .ecu_id = child_text(rom_id, "ecuid"),
+            .ecu_id = std::move(header->identity.ecu_id),
             .source = std::string{source},
             .parents = parent_references(rom),
         });
@@ -260,24 +253,17 @@ Result<UnresolvedDefinition> parse_romraider_definition(std::span<const std::uin
         return invalid(source, "element <romid> child <xmlid>", "definition ID not found", definition_id);
     }
 
-    const pugi::xml_node rom_id = selected_rom.child("romid");
-    auto internal_id_address = optional_hex_element(rom_id, "internalidaddress", source, definition_id);
-    if (!internal_id_address)
+    auto header = parse_rom_header(selected_rom, source);
+    if (!header)
     {
-        return std::unexpected(internal_id_address.error());
+        return std::unexpected(header.error());
     }
 
     UnresolvedDefinition definition{
         .format = DefinitionFormat::RomRaider,
         .source = std::string{source},
-        .identity =
-            RomIdentity{
-                .xml_id = std::string{definition_id},
-                .internal_id = child_text(rom_id, "internalidstring"),
-                .ecu_id = child_text(rom_id, "ecuid"),
-                .internal_id_address = *internal_id_address,
-            },
-        .metadata = parse_metadata(rom_id),
+        .identity = std::move(header->identity),
+        .metadata = parse_metadata(header->rom_id),
         .parents = parent_references(selected_rom),
     };
 

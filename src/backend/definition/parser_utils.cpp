@@ -139,6 +139,28 @@ Result<std::string> definition_id_for_rom(pugi::xml_node rom, std::string_view s
     return required_child_text(*rom_id, "romid", "xmlid", source);
 }
 
+Result<ParsedRomHeader> parse_rom_header(pugi::xml_node rom, std::string_view source)
+{
+    auto definition_id = definition_id_for_rom(rom, source);
+    if (!definition_id)
+    {
+        return std::unexpected(definition_id.error());
+    }
+    const auto rom_id = rom.child("romid");
+    auto address = optional_hex_element(rom_id, "internalidaddress", source, *definition_id);
+    if (!address)
+    {
+        return std::unexpected(address.error());
+    }
+    return ParsedRomHeader{
+        .rom_id = rom_id,
+        .identity = RomIdentity{.xml_id = std::move(*definition_id),
+                                .internal_id = child_text(rom_id, "internalidstring"),
+                                .ecu_id = child_text(rom_id, "ecuid"),
+                                .internal_id_address = *address},
+    };
+}
+
 RomMetadata parse_metadata(pugi::xml_node rom_id)
 {
     return RomMetadata{

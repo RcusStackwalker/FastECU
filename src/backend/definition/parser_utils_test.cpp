@@ -1,5 +1,7 @@
 #include "src/backend/definition/parser_utils.h"
 
+#include <array>
+
 #include <gtest/gtest.h>
 
 namespace fastecu::definition
@@ -96,6 +98,69 @@ TEST(ParserUtilsTest, StrictRootSelectionDoesNotAcceptAuthoringContainerPolicy)
     const auto root = parse_root(document, xml_bytes("<roms><rom/></roms>"), "wrong-root.xml", "rom");
     ASSERT_FALSE(root);
     EXPECT_NE(root.error().detail.find("root element <rom>: wrong root; found <roms>"), std::string::npos);
+}
+
+TEST(ParserUtilsTest, RomHeaderOwnsNormalizedIdentityAndBorrowsTheIdentityElement)
+{
+    pugi::xml_document document;
+    ASSERT_TRUE(
+        document.load_string("<rom><romid><xmlid> ID </xmlid><internalidstring> INTERNAL </internalidstring>"
+                             "<ecuid> ECU </ecuid><internalidaddress> 0x20 </internalidaddress></romid></rom>"));
+    const auto header = parse_rom_header(document.document_element(), "identity.xml");
+    ASSERT_TRUE(header);
+    EXPECT_EQ(header->rom_id, document.document_element().child("romid"));
+    EXPECT_EQ(header->identity,
+              (RomIdentity{.xml_id = "ID", .internal_id = "INTERNAL", .ecu_id = "ECU", .internal_id_address = 0x20U}));
+}
+
+TEST(ParserUtilsTest, RomHeaderKeepsMissingAddressOptional)
+{
+    pugi::xml_document document;
+    ASSERT_TRUE(document.load_string("<rom><romid><xmlid>ID</xmlid></romid></rom>"));
+    const auto header = parse_rom_header(document.document_element(), "identity.xml");
+    ASSERT_TRUE(header);
+    EXPECT_EQ(header->identity,
+              (RomIdentity{.xml_id = "ID", .internal_id = "", .ecu_id = "", .internal_id_address = std::nullopt}));
+}
+
+TEST(ParserUtilsTest, RomHeaderRejectsMissingAndDuplicateIdentityElementsWithContext)
+{
+    for (const auto& [xml, context] : std::to_array<std::pair<std::string_view, std::string_view>>(
+             {{"<rom/>", "element <rom> child <romid>: missing required identity element"},
+              {"<rom><romid/><romid/></rom>", "duplicate singleton identity element"},
+              {"<rom><romid><xmlid>ID</xmlid><xmlid>OTHER</xmlid></romid></rom>",
+               "element <romid> child <xmlid>: duplicate"},
+              {"<rom><romid><xmlid> </xmlid></romid></rom>",
+               "element <romid> child <xmlid>: missing or empty required text"}}))
+    {
+        SCOPED_TRACE(xml);
+        pugi::xml_document document;
+        ASSERT_TRUE(document.load_buffer(xml.data(), xml.size()));
+        const auto header = parse_rom_header(document.document_element(), "identity.xml");
+        ASSERT_FALSE(header);
+        EXPECT_EQ(header.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_NE(header.error().detail.find("source 'identity.xml'"), std::string::npos);
+        EXPECT_NE(header.error().detail.find(context), std::string::npos);
+    }
+}
+
+TEST(ParserUtilsTest, RomHeaderRejectsPresentEmptyInvalidAndOverflowingAddressesWithDefinitionContext)
+{
+    for (const std::string address : {"", " ", "bad-address", "10000000000000000"})
+    {
+        SCOPED_TRACE(address);
+        pugi::xml_document document;
+        const std::string xml =
+            "<rom><romid><xmlid>ID</xmlid><internalidaddress>" + address + "</internalidaddress></romid></rom>";
+        ASSERT_TRUE(document.load_string(xml.c_str()));
+        const auto header = parse_rom_header(document.document_element(), "identity.xml");
+        ASSERT_FALSE(header);
+        EXPECT_EQ(header.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_NE(header.error().detail.find(
+                      "source 'identity.xml', definition 'ID': element <romid> child <internalidaddress>"),
+                  std::string::npos);
+        EXPECT_NE(header.error().detail.find("invalid hexadecimal unsigned value"), std::string::npos);
+    }
 }
 
 } // namespace

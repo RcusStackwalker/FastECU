@@ -88,11 +88,11 @@ Result<ParsedRomHeader> parse_rom_header(pugi::xml_node rom,
 
 This helper calls existing `definition_id_for_rom` and `optional_hex_element`, then assembles `RomIdentity` using existing normalized text semantics. It does not read metadata, parents or tables. Missing optional addresses stay absent; present empty/invalid addresses retain their current errors.
 
-- [ ] Add parser-utils tests for valid identity, missing/duplicate `romid`, duplicate singleton children, trimmed identity values, absent versus empty/overflowing address, and unchanged error context. Run the target and observe the new helper failures before implementation.
-- [ ] Implement `parse_rom_header` using existing validators and hex parsing. Replace EcuFlash's private repeated header validation/identity assembly with it; retain the parsed root for table and parent processing.
-- [ ] Use the helper for every RomRaider index record and only for the selected ROM in full definition loading. Keep the candidate selection loop on `definition_id_for_rom`: eagerly parsing every candidate address would change existing behavior. Preserve duplicate requested IDs, unknown IDs and invalid candidate identity errors.
-- [ ] Add or strengthen a RomRaider regression: an unselected ROM with valid identity but invalid address does not block loading the requested valid ROM; indexing that same collection still fails. Keep duplicate requested identity and missing identity coverage.
-- [ ] Run parser-utils, EcuFlash, RomRaider, definition-service, catalog and writer tests; compare existing error assertions and index entries. Commit the strict identity deduplication.
+- [x] Add parser-utils tests for valid identity, missing/duplicate `romid`, duplicate singleton children, trimmed identity values, absent versus empty/overflowing address, and unchanged error context. Run the target and observe the new helper failures before implementation.
+- [x] Implement `parse_rom_header` using existing validators and hex parsing. Replace EcuFlash's private repeated header validation/identity assembly with it; retain the parsed root for table and parent processing.
+- [x] Use the helper for every RomRaider index record and only for the selected ROM in full definition loading. Keep the candidate selection loop on `definition_id_for_rom`: eagerly parsing every candidate address would change existing behavior. Preserve duplicate requested IDs, unknown IDs and invalid candidate identity errors.
+- [x] Add or strengthen a RomRaider regression: an unselected ROM with valid identity but invalid address does not block loading the requested valid ROM; indexing that same collection still fails. Keep duplicate requested identity and missing identity coverage.
+- [x] Run parser-utils, EcuFlash, RomRaider, definition-service, catalog and writer tests; compare existing error assertions and index entries. Commit the strict identity deduplication.
 
 ## Task 3: Share the editable metadata field mapping
 
