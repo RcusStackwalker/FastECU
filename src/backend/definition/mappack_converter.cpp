@@ -54,7 +54,9 @@ Result<std::vector<Row>> parse_csv(std::string_view csv)
                 }
             }
             else
+            {
                 field += ch;
+            }
         }
         else if (ch == ';' || ch == '\n' || ch == '\r')
         {
@@ -64,21 +66,31 @@ Result<std::vector<Row>> parse_csv(std::string_view csv)
             if (ch != ';')
             {
                 if (ch == '\r' && i + 1 < csv.size() && csv[i + 1] == '\n')
+                {
                     ++i;
+                }
                 rows.push_back(std::move(row));
                 row.clear();
             }
         }
         else if (ch == '"' && field.empty() && !closed)
+        {
             quoted = true;
+        }
         else if (closed || ch == '"')
+        {
             return invalid(rows.size() + 1, std::to_string(row.size() + 1),
                            "unexpected character after/in quoted field");
+        }
         else
+        {
             field += ch;
+        }
     }
     if (quoted)
+    {
         return invalid(rows.size() + 1, std::to_string(row.size() + 1), "unterminated quoted field");
+    }
     if (!row.empty() || !field.empty() || closed)
     {
         row.push_back(std::move(field));
@@ -90,7 +102,9 @@ Result<std::vector<Row>> parse_csv(std::string_view csv)
 template <typename T> bool parse_number(std::string_view text, T& value, int base = 10)
 {
     if (text.empty())
+    {
         return false;
+    }
     const auto parsed = std::from_chars(text.data(), text.data() + text.size(), value, base);
     return parsed.ec == std::errc{} && parsed.ptr == text.data() + text.size();
 }
@@ -130,7 +144,9 @@ pugi::xml_node rom_id(pugi::xml_node rom, std::string_view id)
     node.append_child("xmlid").text().set(std::string(id).c_str());
     for (const auto *name : {"internalidaddress", "internalidstring", "ecuid", "year", "market", "make", "model",
                              "submodel", "transmission", "memmodel", "flashmethod", "filesize", "checksummodule"})
+    {
         node.append_child(name);
+    }
     return node;
 }
 } // namespace
@@ -138,28 +154,50 @@ pugi::xml_node rom_id(pugi::xml_node rom, std::string_view id)
 Result<std::string> convert_mappack_csv(std::string_view csv, std::string_view ecu_id)
 {
     if (contains_xml_control(ecu_id))
+    {
         return invalid(1, "ecu_id", "XML-invalid control character");
+    }
     auto parsed = parse_csv(csv);
     if (!parsed.has_value())
+    {
         return std::unexpected(parsed.error());
+    }
     auto& rows = *parsed;
     if (rows.size() < 2)
+    {
         return invalid(1, "header", "expected header and map rows");
+    }
     for (std::size_t r = 0; r < rows.size(); ++r)
+    {
         for (std::size_t c = 0; c < rows[r].size(); ++c)
+        {
             if (contains_xml_control(rows[r][c]))
+            {
                 return invalid(r + 1, std::to_string(c + 1), "XML-invalid control character");
+            }
+        }
+    }
     // MapPack exports may terminate each record with an extra semicolon.
     if (rows.front().back().empty())
+    {
         rows.front().pop_back();
+    }
     std::map<std::string, std::size_t, std::less<>> columns;
     for (std::size_t i = 0; i < rows.front().size(); ++i)
+    {
         if (!columns.emplace(rows.front()[i], i).second)
+        {
             return invalid(1, rows.front()[i], "duplicate header");
+        }
+    }
     for (const auto *name : {"Name", "FolderName", "DataOrg", "Columns", "Rows", "Fieldvalues.Name", "Fieldvalues.Unit",
                              "Fieldvalues.Factor", "Precision", "Fieldvalues.StartAddr", "Comment"})
+    {
         if (!columns.contains(name))
+        {
             return invalid(1, name, "missing required header");
+        }
+    }
 
     pugi::xml_document doc;
     auto roms = doc.append_child("roms");
@@ -176,15 +214,23 @@ Result<std::string> convert_mappack_csv(std::string_view csv, std::string_view e
     {
         auto& row = rows[r];
         if (row.size() == columns.size() + 1 && row.back().empty())
+        {
             row.pop_back();
+        }
         if (row.size() != columns.size())
+        {
             return invalid(r + 1, "record", "field count differs from header");
+        }
         auto get = [&](std::string_view name) -> const std::string& { return row.at(columns.at(std::string(name))); };
         int sizex = 0;
         int sizey = 0;
         for (auto [name, size] : {std::pair{"Columns", &sizex}, std::pair{"Rows", &sizey}})
+        {
             if (!parse_number(get(name), *size) || *size < 1)
+            {
                 return invalid(r + 1, name, "expected positive dimension");
+            }
+        }
         auto validate_scaling = [&](const std::string& factor_name, const std::string& precision_name) -> Status
         {
             double factor = 0;
@@ -192,30 +238,44 @@ Result<std::string> convert_mappack_csv(std::string_view csv, std::string_view e
             auto result = std::from_chars(text.data(), text.data() + text.size(), factor);
             if (result.ec != std::errc{} || result.ptr != text.data() + text.size() || !std::isfinite(factor) ||
                 factor == 0)
+            {
                 return invalid(r + 1, factor_name, "expected finite nonzero factor");
+            }
             int precision = 0;
             if (!parse_number(get(precision_name), precision) || precision < 0 || precision > 100)
+            {
                 return invalid(r + 1, precision_name, "expected precision between 0 and 100");
+            }
             return {};
         };
         auto address = [&](const std::string& name) -> Result<std::string>
         {
             std::string_view text = get(name);
             if (text.starts_with('$'))
+            {
                 text.remove_prefix(1);
+            }
             if (text.starts_with("0x") || text.starts_with("0X"))
+            {
                 text.remove_prefix(2);
+            }
             std::uint64_t value = 0;
             if (!parse_number(text, value, 16))
+            {
                 return invalid(r + 1, name, "expected hexadecimal address");
+            }
             return "0x" + std::string(text);
         };
         auto valid = validate_scaling("Fieldvalues.Factor", "Precision");
         if (!valid.has_value())
+        {
             return std::unexpected(valid.error());
+        }
         auto addr = address("Fieldvalues.StartAddr");
         if (!addr.has_value())
+        {
             return std::unexpected(addr.error());
+        }
         auto table = base.append_child("table");
         attribute(table, "type", sizex == 1 || sizey == 1 ? "2D" : "3D");
         attribute(table, "name", get("Name"));
@@ -233,19 +293,29 @@ Result<std::string> convert_mappack_csv(std::string_view csv, std::string_view e
             // DataHeader controls address emission independently of axis size in legacy exports.
             const std::string p = prefix;
             if (size <= 1 && !columns.contains(p + "DataHeader"))
+            {
                 continue;
+            }
             for (const auto *suffix : {"Name", "DataOrg", "Unit", "Factor", "Precision", "DataHeader", "DataAddr"})
+            {
                 if (!columns.contains(p + suffix))
+                {
                     return invalid(1, p + suffix, "missing required axis header");
+                }
+            }
             int data_header = 0;
             if ((!get(p + "DataHeader").empty() && !parse_number(get(p + "DataHeader"), data_header)) ||
                 data_header < 0)
+            {
                 return invalid(r + 1, p + "DataHeader", "expected nonnegative integer");
+            }
             if (size > 1)
             {
                 valid = validate_scaling(p + "Factor", p + "Precision");
                 if (!valid.has_value())
+                {
                     return std::unexpected(valid.error());
+                }
                 auto axis = table.append_child("table");
                 attribute(axis, "type", type);
                 attribute(axis, "name", get(p + "Name"));
@@ -256,7 +326,9 @@ Result<std::string> convert_mappack_csv(std::string_view csv, std::string_view e
             {
                 addr = address(p + "DataAddr");
                 if (!addr.has_value())
+                {
                     return std::unexpected(addr.error());
+                }
                 auto axis = located.append_child("table");
                 attribute(axis, "type", type);
                 attribute(axis, "storageaddress", *addr);

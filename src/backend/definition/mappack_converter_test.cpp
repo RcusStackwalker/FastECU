@@ -63,7 +63,9 @@ TEST(MapPackConverterTest, ConvertsScalarsAndOneDimensionalMaps)
         EXPECT_STREQ(table.attribute("type").value(), "2D");
         EXPECT_STREQ(table.child("description").text().get(), "last field");
         if (std::string(dimensions) == "1;1")
+        {
             EXPECT_STREQ(table.child("table").attribute("type").value(), "Static Y Axis");
+        }
     }
 }
 

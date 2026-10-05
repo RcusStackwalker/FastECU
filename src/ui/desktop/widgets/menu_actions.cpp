@@ -797,7 +797,9 @@ void MainWindow::winols_csv_to_romraider_xml()
 {
     const auto source = QFileDialog::getOpenFileName(this, tr("Select MapPack CSV file"), {}, tr("CSV file (*.csv)"));
     if (source.isEmpty())
+    {
         return;
+    }
     QFile input(source);
     if (!input.open(QIODevice::ReadOnly))
     {
@@ -822,14 +824,20 @@ void MainWindow::winols_csv_to_romraider_xml()
     auto destination =
         QFileDialog::getSaveFileName(this, tr("Select RomRaider definition file"), {}, tr("XML file (*.xml)"));
     if (destination.isEmpty())
+    {
         return;
+    }
     if (!destination.endsWith(".xml", Qt::CaseInsensitive))
+    {
         destination += ".xml";
+    }
     QSaveFile output(destination);
     if (!output.open(QIODevice::WriteOnly) ||
         output.write(xml->data(), static_cast<qint64>(xml->size())) != static_cast<qint64>(xml->size()) ||
         !output.commit())
+    {
         QMessageBox::warning(this, tr("RomRaider XML file"), output.errorString());
+    }
 }
 
 void MainWindow::set_maptablewidget_items()
