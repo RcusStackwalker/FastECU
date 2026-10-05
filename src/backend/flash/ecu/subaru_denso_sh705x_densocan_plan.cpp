@@ -2,13 +2,13 @@
 
 #include <array>
 #include <format>
-#include <limits>
 #include <utility>
 
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/subaru_denso_sh705x_densocan_types.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/ecu/plan_primitives.h"
 
 namespace fastecu::flash
 {
@@ -72,31 +72,6 @@ const flashdev_t *checked_device(const CatalogEntry& entry)
     return device;
 }
 
-Status validate_kernel_upload(const KernelImage& kernel, const CatalogEntry& entry, const flashdev_t& device)
-{
-    // Legacy upload_kernel() at lines 227-507 sends six-byte raw CAN blocks.
-    // The last block is zero padded, so the physical upload length, rather
-    // than the caller's byte count, must fit the model's kernel region.
-    if (kernel.load_address != entry.kernel_load_address)
-    {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN kernel address does not match the selected protocol");
-    }
-    const std::uint64_t size = kernel.bytes.size();
-    if (size > std::numeric_limits<std::uint64_t>::max() - 5U)
-    {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN kernel size cannot be padded to six-byte blocks");
-    }
-    const std::uint64_t padded_size = ((size + 5U) / 6U) * 6U;
-    const std::uint64_t region_start = device.kblocks[0].start;
-    const std::uint64_t region_end = region_start + device.kblocks[0].len;
-    const std::uint64_t upload_start = kernel.load_address;
-    if (upload_start < region_start || upload_start > region_end || padded_size > region_end - upload_start)
-    {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN padded kernel is outside the selected MCU kernel region");
-    }
-    return {};
-}
-
 SubaruDensoSh705xDensoCanPlan wire_parameters()
 {
     return {};
@@ -106,36 +81,6 @@ bool wire_parameters_match(const SubaruDensoSh705xDensoCanPlan& wire)
 {
     return wire.iso_request_id == 0x7E0 && wire.iso_response_id == 0x7E8 && wire.raw_transmit_id == 0x000FFFFE &&
            wire.raw_receive_id == 0x21 && wire.bitrate == 500000 && !wire.iso_extended_id && wire.raw_extended_id;
-}
-
-Status validate_regions(const FlashPlan& plan, const flashdev_t& device)
-{
-    if (plan.transfer_region().start != device.fblocks[0].start || plan.transfer_region().length != device.romsize)
-    {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN transfer region does not match the MCU");
-    }
-    if (plan.operation() == FlashOperation::Read)
-    {
-        if (!plan.erase_regions().empty())
-        {
-            return fail(ErrorKind::InvalidConfig, "DensoCAN read plans must not declare erase regions");
-        }
-        return {};
-    }
-    if (plan.erase_regions().size() != device.numblocks)
-    {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN write plans must declare every flash block");
-    }
-    for (unsigned index = 0; index < device.numblocks; ++index)
-    {
-        const MemoryRegion expected{device.fblocks[index].start, device.fblocks[index].len};
-        const MemoryRegion actual = plan.erase_regions()[index];
-        if (actual.start != expected.start || actual.length != expected.length)
-        {
-            return fail(ErrorKind::InvalidConfig, "DensoCAN erase geometry does not match the MCU");
-        }
-    }
-    return {};
 }
 
 Status validate_image(const FlashPlan& plan, const flashdev_t& device)
@@ -179,7 +124,9 @@ Status validate_subaru_denso_sh705x_densocan_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "DensoCAN requires a kernel image");
     }
-    if (Status kernel = validate_kernel_upload(*plan.kernel(), *entry, *device); !kernel.has_value())
+    if (Status kernel = detail::validate_kernel_upload<6>(plan.kernel()->bytes.size(), plan.kernel()->load_address,
+                                                          entry->kernel_load_address, device->kblocks[0]);
+        !kernel.has_value())
     {
         return kernel;
     }
@@ -188,7 +135,7 @@ Status validate_subaru_denso_sh705x_densocan_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "DensoCAN requires exactly the CycleIgnition confirmation");
     }
-    if (Status regions = validate_regions(plan, *device); !regions.has_value())
+    if (Status regions = detail::validate_regions(plan, *device); !regions.has_value())
     {
         return regions;
     }
@@ -209,7 +156,9 @@ Result<FlashPlan> build_subaru_denso_sh705x_densocan_plan(FlashOperation operati
     {
         return fail(ErrorKind::InvalidConfig, "DensoCAN catalog does not match the flash device table");
     }
-    if (Status upload = validate_kernel_upload(kernel, *entry, *device); !upload.has_value())
+    if (Status upload = detail::validate_kernel_upload<6>(kernel.bytes.size(), kernel.load_address,
+                                                          entry->kernel_load_address, device->kblocks[0]);
+        !upload.has_value())
     {
         return std::unexpected(upload.error());
     }
@@ -228,11 +177,7 @@ Result<FlashPlan> build_subaru_denso_sh705x_densocan_plan(FlashOperation operati
     std::vector<MemoryRegion> erase_regions;
     if (operation != FlashOperation::Read)
     {
-        erase_regions.reserve(device->numblocks);
-        for (unsigned index = 0; index < device->numblocks; ++index)
-        {
-            erase_regions.push_back({device->fblocks[index].start, device->fblocks[index].len});
-        }
+        erase_regions = detail::make_erase_regions(*device);
     }
 
     FlashPlanFields fields{

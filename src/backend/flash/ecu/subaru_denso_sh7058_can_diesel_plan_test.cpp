@@ -269,5 +269,29 @@ TEST(SubaruDensoSh7058CanDieselPlan, ValidatorRejectsWireGeometryTransportAndCon
     }
 }
 
+TEST(SubaruDensoSh7058CanDieselPlan, RejectsAlteredAddressesAndLengthsInEveryEraseBlock)
+{
+    for (unsigned index = 0; index < 16; ++index)
+    {
+        for (bool alter_start : {false, true})
+        {
+            auto fields = valid_fields(kDiesel.front());
+            if (alter_start)
+            {
+                ++fields.erase_regions[index].start;
+            }
+            else
+            {
+                --fields.erase_regions[index].length;
+            }
+            auto plan = validate_and_build(std::move(fields));
+            ASSERT_TRUE(plan.has_value()) << plan.error().detail;
+            const auto validation = validate_subaru_denso_sh7058_can_diesel_plan(*plan);
+            ASSERT_FALSE(validation.has_value()) << index;
+            EXPECT_EQ(validation.error(), (Error{ErrorKind::InvalidConfig, "erase geometry does not match the MCU"}));
+        }
+    }
+}
+
 } // namespace
 } // namespace fastecu::flash

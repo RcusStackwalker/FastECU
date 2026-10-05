@@ -2,13 +2,13 @@
 
 #include <array>
 #include <format>
-#include <limits>
 #include <utility>
 
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_types.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/ecu/plan_primitives.h"
 
 namespace fastecu::flash
 {
@@ -76,62 +76,10 @@ const flashdev_t *checked_device()
     return device;
 }
 
-Status validate_kernel_upload(const KernelImage& kernel, const flashdev_t& device)
-{
-    // The petrol oracle rounds kernel transfers to 128-byte blocks at
-    // revision 59f4e442:626-769. Validate the physical padded upload.
-    if (kernel.load_address != kKernelLoadAddress)
-    {
-        return fail(ErrorKind::InvalidConfig, "petrol SH7058 kernel address does not match the exact catalog");
-    }
-    const std::uint64_t size = kernel.bytes.size();
-    if (size > std::numeric_limits<std::uint64_t>::max() - 127U)
-    {
-        return fail(ErrorKind::InvalidConfig, "petrol SH7058 kernel cannot be padded to 128-byte blocks");
-    }
-    const std::uint64_t padded_size = ((size + 127U) / 128U) * 128U;
-    const std::uint64_t region_start = device.kblocks[0].start;
-    const std::uint64_t region_end = region_start + device.kblocks[0].len;
-    const std::uint64_t upload_start = kernel.load_address;
-    if (upload_start < region_start || upload_start > region_end || padded_size > region_end - upload_start)
-    {
-        return fail(ErrorKind::InvalidConfig, "petrol SH7058 padded kernel lies outside the MCU kernel region");
-    }
-    return {};
-}
-
 bool wire_parameters_match(const SubaruDensoSh7058CanPlan& wire, const CatalogEntry& entry)
 {
     return wire.request_id == 0x7E0 && wire.response_id == 0x7E8 && wire.bitrate == 500000 && !wire.extended_id &&
            wire.security == entry.security;
-}
-
-Status validate_regions(const FlashPlan& plan, const flashdev_t& device)
-{
-    if (plan.transfer_region().start != device.fblocks[0].start || plan.transfer_region().length != device.romsize)
-    {
-        return fail(ErrorKind::InvalidConfig, "petrol SH7058 transfer region does not match the MCU");
-    }
-    if (plan.operation() == FlashOperation::Read)
-    {
-        return plan.erase_regions().empty()
-                   ? Status{}
-                   : fail(ErrorKind::InvalidConfig, "petrol SH7058 read plans must not declare erase regions");
-    }
-    if (plan.erase_regions().size() != device.numblocks)
-    {
-        return fail(ErrorKind::InvalidConfig, "petrol SH7058 write plans must declare all 16 flash blocks");
-    }
-    for (unsigned index = 0; index < device.numblocks; ++index)
-    {
-        const MemoryRegion expected{device.fblocks[index].start, device.fblocks[index].len};
-        const MemoryRegion actual = plan.erase_regions()[index];
-        if (actual.start != expected.start || actual.length != expected.length)
-        {
-            return fail(ErrorKind::InvalidConfig, "petrol SH7058 erase geometry does not match the MCU");
-        }
-    }
-    return {};
 }
 
 Status validate_image(const FlashPlan& plan, const flashdev_t& device)
@@ -175,7 +123,9 @@ Status validate_subaru_denso_sh7058_can_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "petrol SH7058 requires a kernel image");
     }
-    if (Status kernel = validate_kernel_upload(*plan.kernel(), *device); !kernel.has_value())
+    if (Status kernel = detail::validate_kernel_upload<128>(plan.kernel()->bytes.size(), plan.kernel()->load_address,
+                                                            kKernelLoadAddress, device->kblocks[0]);
+        !kernel.has_value())
     {
         return kernel;
     }
@@ -183,7 +133,7 @@ Status validate_subaru_denso_sh7058_can_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "petrol SH7058 plans must not declare extra confirmations");
     }
-    if (Status regions = validate_regions(plan, *device); !regions.has_value())
+    if (Status regions = detail::validate_regions(plan, *device); !regions.has_value())
     {
         return regions;
     }
@@ -204,7 +154,9 @@ Result<FlashPlan> build_subaru_denso_sh7058_can_plan(FlashOperation operation, s
     {
         return fail(ErrorKind::InvalidConfig, "petrol SH7058 catalog does not match the flash device table");
     }
-    if (Status upload = validate_kernel_upload(kernel, *device); !upload.has_value())
+    if (Status upload = detail::validate_kernel_upload<128>(kernel.bytes.size(), kernel.load_address,
+                                                            kKernelLoadAddress, device->kblocks[0]);
+        !upload.has_value())
     {
         return std::unexpected(upload.error());
     }
@@ -223,11 +175,7 @@ Result<FlashPlan> build_subaru_denso_sh7058_can_plan(FlashOperation operation, s
     std::vector<MemoryRegion> erase_regions;
     if (operation != FlashOperation::Read)
     {
-        erase_regions.reserve(device->numblocks);
-        for (unsigned index = 0; index < device->numblocks; ++index)
-        {
-            erase_regions.push_back({device->fblocks[index].start, device->fblocks[index].len});
-        }
+        erase_regions = detail::make_erase_regions(*device);
     }
 
     FlashPlanFields fields{

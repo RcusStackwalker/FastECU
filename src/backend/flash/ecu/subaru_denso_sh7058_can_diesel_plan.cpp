@@ -1,8 +1,8 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_plan.h"
 
 #include <array>
+#include <cstddef>
 #include <format>
-#include <limits>
 #include <utility>
 #include <vector>
 
@@ -10,6 +10,7 @@
 #include "src/backend/flash/ecu/subaru_denso_sh7058_can_diesel_types.h"
 #include "src/backend/flash/flash_device_lookup.h"
 #include "src/backend/flash/flash_validation.h"
+#include "src/backend/flash/ecu/plan_primitives.h"
 
 namespace fastecu::flash
 {
@@ -73,61 +74,9 @@ const flashdev_t *checked_device(const CatalogEntry& entry)
     return device;
 }
 
-Status validate_kernel_upload(const KernelImage& kernel, const CatalogEntry& entry, const flashdev_t& device)
-{
-    // upload_kernel(), revision 59f4e442:517-588, pads to complete 128-byte
-    // blocks before uploading. Validate the physical padded range rather than
-    // only the caller's unpadded snapshot.
-    if (kernel.load_address != entry.kernel_load_address)
-    {
-        return fail(ErrorKind::InvalidConfig, "diesel kernel address does not match the selected protocol");
-    }
-    if (kernel.bytes.size() > std::numeric_limits<std::size_t>::max() - 127U)
-    {
-        return fail(ErrorKind::InvalidConfig, "diesel kernel size cannot be padded to 128-byte blocks");
-    }
-    const std::size_t padded_size = ((kernel.bytes.size() + 127U) / 128U) * 128U;
-    const std::uint64_t region_start = device.kblocks[0].start;
-    const std::uint64_t region_end = region_start + device.kblocks[0].len;
-    const std::uint64_t upload_start = kernel.load_address;
-    if (upload_start < region_start || upload_start > region_end || padded_size > region_end - upload_start)
-    {
-        return fail(ErrorKind::InvalidConfig, "diesel padded kernel is outside the selected MCU kernel region");
-    }
-    return {};
-}
-
 bool wire_parameters_match(const SubaruDensoSh7058CanDieselPlan& wire)
 {
     return wire.request_id == 0x7E0 && wire.response_id == 0x7E8 && wire.bitrate == 500000 && !wire.extended_id;
-}
-
-Status validate_regions(const FlashPlan& plan, const flashdev_t& device)
-{
-    if (plan.transfer_region().start != device.fblocks[0].start || plan.transfer_region().length != device.romsize)
-    {
-        return fail(ErrorKind::InvalidConfig, "diesel transfer region does not match the selected MCU");
-    }
-    if (plan.operation() == FlashOperation::Read)
-    {
-        return plan.erase_regions().empty()
-                   ? Status{}
-                   : fail(ErrorKind::InvalidConfig, "diesel read plans must not declare erase regions");
-    }
-    if (plan.erase_regions().size() != device.numblocks)
-    {
-        return fail(ErrorKind::InvalidConfig, "diesel write plans must declare all 16 flash blocks");
-    }
-    for (unsigned index = 0; index < device.numblocks; ++index)
-    {
-        const MemoryRegion expected{device.fblocks[index].start, device.fblocks[index].len};
-        const MemoryRegion actual = plan.erase_regions()[index];
-        if (actual.start != expected.start || actual.length != expected.length)
-        {
-            return fail(ErrorKind::InvalidConfig, "diesel erase geometry does not match the selected MCU");
-        }
-    }
-    return {};
 }
 
 Status validate_image(const FlashPlan& plan, const flashdev_t& device)
@@ -171,7 +120,9 @@ Status validate_subaru_denso_sh7058_can_diesel_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "diesel family requires a kernel image");
     }
-    if (Status kernel = validate_kernel_upload(*plan.kernel(), *entry, *device); !kernel.has_value())
+    if (Status kernel = detail::validate_kernel_upload<128>(plan.kernel()->bytes.size(), plan.kernel()->load_address,
+                                                            entry->kernel_load_address, device->kblocks[0]);
+        !kernel.has_value())
     {
         return kernel;
     }
@@ -179,7 +130,7 @@ Status validate_subaru_denso_sh7058_can_diesel_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "diesel plans must not declare extra confirmations");
     }
-    if (Status regions = validate_regions(plan, *device); !regions.has_value())
+    if (Status regions = detail::validate_regions(plan, *device); !regions.has_value())
     {
         return regions;
     }
@@ -200,7 +151,9 @@ Result<FlashPlan> build_subaru_denso_sh7058_can_diesel_plan(FlashOperation opera
     {
         return fail(ErrorKind::InvalidConfig, "diesel catalog does not match the flash device table");
     }
-    if (Status upload = validate_kernel_upload(kernel, *entry, *device); !upload.has_value())
+    if (Status upload = detail::validate_kernel_upload<128>(kernel.bytes.size(), kernel.load_address,
+                                                            entry->kernel_load_address, device->kblocks[0]);
+        !upload.has_value())
     {
         return std::unexpected(upload.error());
     }
@@ -219,11 +172,7 @@ Result<FlashPlan> build_subaru_denso_sh7058_can_diesel_plan(FlashOperation opera
     std::vector<MemoryRegion> erase_regions;
     if (operation != FlashOperation::Read)
     {
-        erase_regions.reserve(device->numblocks);
-        for (unsigned index = 0; index < device->numblocks; ++index)
-        {
-            erase_regions.push_back({device->fblocks[index].start, device->fblocks[index].len});
-        }
+        erase_regions = detail::make_erase_regions(*device);
     }
 
     FlashPlanFields fields{
