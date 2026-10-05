@@ -1,6 +1,6 @@
+#include "src/platform/desktop/common/transport/serial_read.h"
 #include "src/platform/desktop/common/transport/fastecu_kline_transport.h"
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
-#include "src/backend/ports/duration_cast.h"
 #include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
 
 #include <exception>
@@ -68,43 +68,9 @@ FastEcuKlineTransport::read(std::chrono::milliseconds timeout, const fastecu::IC
         return fastecu::fail(fastecu::ErrorKind::Cancelled, "K-Line read cancelled before driver call");
     }
 
-    try
-    {
-        if (!serial_ || !serial_->is_serial_port_open())
-        {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, "K-Line adapter disconnected before read");
-        }
-        const QByteArray raw = serial_->read_serial_data(fastecu::saturating_ms<quint16>(timeout));
-        if (cancellation.cancelled())
-        {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "K-Line read cancelled");
-        }
-        if (!serial_->is_serial_port_open())
-        {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, "K-Line adapter disconnected during read");
-        }
-        if (raw.isEmpty())
-        {
-            return OptionalBytes{};
-        }
-        return OptionalBytes{bytes::fromQByteArray(raw)};
-    }
-    catch (const std::exception& error)
-    {
-        if (cancellation.cancelled())
-        {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "K-Line read cancelled");
-        }
-        return fastecu::fail(fastecu::ErrorKind::Internal, error.what());
-    }
-    catch (...)
-    {
-        if (cancellation.cancelled())
-        {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "K-Line read cancelled");
-        }
-        return fastecu::fail(fastecu::ErrorKind::Internal, "K-Line driver read exception");
-    }
+    return fastecu::desktop::detail::read_serial(
+        serial_, timeout, cancellation, fastecu::desktop::detail::kKlineReadErrors,
+        [this](std::uint16_t driver_timeout) { return serial_->read_serial_data(driver_timeout); });
 }
 bool FastEcuKlineTransport::isOpen() const
 {

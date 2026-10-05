@@ -1,10 +1,10 @@
+#include "src/platform/desktop/common/transport/serial_read.h"
 #include "src/platform/desktop/common/transport/desktop_mixed_can_flash_transport.h"
 
 #include <format>
 
 #include "src/algorithms/protocol/bytes_compose.h"
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
-#include "src/backend/ports/duration_cast.h"
 #include "src/platform/desktop/common/serial/facade/serial_port_actions.h"
 
 namespace fastecu::flash
@@ -442,43 +442,9 @@ Result<std::optional<bytes::Bytes>> DesktopMixedCanFlashTransport::read_serial(s
     {
         return fail(ErrorKind::Cancelled, "mixed CAN read skipped due to cancellation/unblock");
     }
-    try
-    {
-        if (!serial_->is_serial_port_open())
-        {
-            return fail(ErrorKind::Disconnected, "mixed CAN adapter disconnected before read");
-        }
-        const QByteArray raw = serial_->read_serial_data(fastecu::saturating_ms<quint16>(timeout));
-        if (cancellation.cancelled())
-        {
-            return fail(ErrorKind::Cancelled, "mixed CAN read cancelled");
-        }
-        if (!serial_->is_serial_port_open())
-        {
-            return fail(ErrorKind::Disconnected, "mixed CAN adapter disconnected during read");
-        }
-        if (raw.isEmpty())
-        {
-            return std::optional<bytes::Bytes>{};
-        }
-        return std::optional<bytes::Bytes>{bytes::fromQByteArray(raw)};
-    }
-    catch (const std::exception& error)
-    {
-        if (cancellation.cancelled())
-        {
-            return fail(ErrorKind::Cancelled, "mixed CAN read cancelled");
-        }
-        return fail(ErrorKind::Internal, error.what());
-    }
-    catch (...)
-    {
-        if (cancellation.cancelled())
-        {
-            return fail(ErrorKind::Cancelled, "mixed CAN read cancelled");
-        }
-        return fail(ErrorKind::Internal, "mixed CAN driver read exception");
-    }
+    return fastecu::desktop::detail::read_serial(
+        serial_, timeout, cancellation, fastecu::desktop::detail::kMixedCanReadErrors,
+        [this](std::uint16_t driver_timeout) { return serial_->read_serial_data(driver_timeout); });
 }
 
 } // namespace fastecu::flash
