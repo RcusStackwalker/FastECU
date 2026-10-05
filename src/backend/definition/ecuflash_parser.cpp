@@ -1,5 +1,6 @@
 #include "src/backend/definition/ecuflash_parser.h"
 #include "src/backend/definition/parser_utils.h"
+#include "src/backend/definition/text_format.h"
 
 #include <array>
 #include <charconv>
@@ -212,7 +213,7 @@ std::vector<std::string> parent_references(pugi::xml_node rom)
     std::vector<std::string> parents;
     for (pugi::xml_node include : rom.children("include"))
     {
-        const std::string parent = trim_copy(include.child_value());
+        const std::string parent{trim_header_text(read_element_text(include))};
         if (!parent.empty())
         {
             parents.push_back(parent);

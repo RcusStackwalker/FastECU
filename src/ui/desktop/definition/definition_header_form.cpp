@@ -40,7 +40,8 @@ HeaderFormEditors build_header_form(QGridLayout *grid, const QStringList& labels
     return editors;
 }
 
-QStringList collect_ecuflash_base_header_fields(const QStringList& header_names, const QStringList& definition_lines)
+fastecu::Result<QStringList> collect_ecuflash_base_header_fields(const QStringList& header_names,
+                                                                 const QStringList& definition_lines)
 {
     std::vector<std::string> names;
     names.reserve(header_names.size());
@@ -50,8 +51,12 @@ QStringList collect_ecuflash_base_header_fields(const QStringList& header_names,
     }
     const auto fields =
         fastecu::definition::collect_ecuflash_base_header_fields(names, definition_lines.join(QString()).toStdString());
+    if (!fields.has_value())
+    {
+        return std::unexpected(fields.error());
+    }
     QStringList values;
-    for (const auto& [name, text] : fields)
+    for (const auto& [name, text] : *fields)
     {
         values << QString::fromStdString(name) << QString::fromStdString(text);
     }

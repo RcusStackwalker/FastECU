@@ -3,6 +3,8 @@
 
 #include <array>
 #include <limits>
+#include "src/backend/definition/ecuflash_parser.h"
+#include "src/backend/definition/romraider_parser.h"
 
 #include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
@@ -14,42 +16,43 @@ namespace
 using fastecu::definition::collect_ecuflash_base_header_fields;
 using fastecu::definition::definition_header_input;
 using fastecu::definition::DefinitionHeaderFields;
-using fastecu::testing::IsErrWith;
+using fastecu::testing::IsErr;
 using fastecu::testing::IsOk;
+using fastecu::testing::IsOkAnd;
 
 TEST(DefinitionHeaderFields, PreservesRequestedOrderAndAbsentFields)
 {
     const auto names = std::to_array<std::string>({"xmlid", "model", "internalidaddress", "include", "notes"});
-    EXPECT_EQ(
+    EXPECT_THAT(
         collect_ecuflash_base_header_fields(
             names, "<rom><romid><xmlid>  BASE  </xmlid><internalidaddress>0x2000</internalidaddress></romid></rom>"),
-        (DefinitionHeaderFields{
-            {"xmlid", "BASE"}, {"model", ""}, {"internalidaddress", "0x2000"}, {"include", ""}, {"notes", ""}}));
+        IsOkAnd(::testing::Eq((DefinitionHeaderFields{
+            {"xmlid", "BASE"}, {"model", ""}, {"internalidaddress", "0x2000"}, {"include", ""}, {"notes", ""}}))));
 }
 
 TEST(DefinitionHeaderFields, ReadsWrappedRomAndConcatenatesDirectText)
 {
     const auto names = std::to_array<std::string>({"xmlid", "include", "notes"});
-    EXPECT_EQ(collect_ecuflash_base_header_fields(
-                  names, "<roms><rom><romid><xmlid>BASE</xmlid></romid><include>OEM_BASE</include>"
-                         "<notes>Text &amp; <!-- split -->direct<![CDATA[ notes]]></notes></rom></roms>"),
-              (DefinitionHeaderFields{{"xmlid", "BASE"}, {"include", "OEM_BASE"}, {"notes", "Text & direct notes"}}));
+    EXPECT_THAT(collect_ecuflash_base_header_fields(
+                    names, "<roms><rom><romid><xmlid>BASE</xmlid></romid><include>OEM_BASE</include>"
+                           "<notes>Text &amp; <!-- split -->direct<![CDATA[ notes]]></notes></rom></roms>"),
+                IsOkAnd(::testing::Eq((DefinitionHeaderFields{
+                    {"xmlid", "BASE"}, {"include", "OEM_BASE"}, {"notes", "Text & direct notes"}}))));
 }
 
-TEST(DefinitionHeaderFields, MalformedXmlLeavesEveryRequestedFieldBlank)
+TEST(DefinitionHeaderFields, MalformedXmlReportsAnError)
 {
     const auto names = std::to_array<std::string>({"xmlid", "include", "notes"});
-    EXPECT_EQ(collect_ecuflash_base_header_fields(names, "<rom><romid>"),
-              (DefinitionHeaderFields{{"xmlid", ""}, {"include", ""}, {"notes", ""}}));
+    EXPECT_THAT(collect_ecuflash_base_header_fields(names, "<rom><romid>"), IsErr(fastecu::ErrorKind::InvalidConfig));
 }
 
 TEST(DefinitionHeaderFields, SelectsFirstDirectRomInRomsContainer)
 {
     const auto names = std::to_array<std::string>({"xmlid"});
-    EXPECT_EQ(collect_ecuflash_base_header_fields(
-                  names, "<roms><!-- comment --><metadata/><rom><romid><xmlid>FIRST</xmlid></romid></rom>"
-                         "<rom><romid><xmlid>SECOND</xmlid></romid></rom></roms>"),
-              (DefinitionHeaderFields{{"xmlid", "FIRST"}}));
+    EXPECT_THAT(collect_ecuflash_base_header_fields(
+                    names, "<roms><!-- comment --><metadata/><rom><romid><xmlid>FIRST</xmlid></romid></rom>"
+                           "<rom><romid><xmlid>SECOND</xmlid></romid></rom></roms>"),
+                IsOkAnd(::testing::Eq((DefinitionHeaderFields{{"xmlid", "FIRST"}}))));
 }
 
 TEST(DefinitionHeaderFields, DoesNotSearchArbitraryWrappersOrNestedRoms)
@@ -60,7 +63,7 @@ TEST(DefinitionHeaderFields, DoesNotSearchArbitraryWrappersOrNestedRoms)
                                      "<wrapper><romid><xmlid>ID</xmlid></romid></wrapper>", "<roms/>"})
     {
         SCOPED_TRACE(source);
-        EXPECT_EQ(collect_ecuflash_base_header_fields(names, source), (DefinitionHeaderFields{{"xmlid", ""}}));
+        EXPECT_THAT(collect_ecuflash_base_header_fields(names, source), IsErr(fastecu::ErrorKind::InvalidConfig));
     }
 }
 
@@ -151,29 +154,29 @@ TEST(DefinitionHeaderFields, NormalizesScalarFieldsAndPreservesNotes)
 TEST(DefinitionHeaderFields, RejectsMultipleDocumentRootsAndKeepsUtf8DespiteEncodingDeclaration)
 {
     const auto names = std::to_array<std::string>({"xmlid"});
-    EXPECT_EQ(collect_ecuflash_base_header_fields(names, "<rom><romid><xmlid>first</xmlid></romid></rom><rom/>"),
-              (DefinitionHeaderFields{{"xmlid", ""}}));
-    EXPECT_EQ(
+    EXPECT_THAT(collect_ecuflash_base_header_fields(names, "<rom><romid><xmlid>first</xmlid></romid></rom><rom/>"),
+                IsErr(fastecu::ErrorKind::InvalidConfig));
+    EXPECT_THAT(
         collect_ecuflash_base_header_fields(
             names,
             "<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?><rom><romid><xmlid>Caf\xc3\xa9</xmlid></romid></rom>"),
-        (DefinitionHeaderFields{{"xmlid", "Caf\xc3\xa9"}}));
+        IsOkAnd(::testing::Eq((DefinitionHeaderFields{{"xmlid", "Caf\xc3\xa9"}}))));
 }
 
 TEST(DefinitionHeaderFields, LeavesCommentAndCdataEntitySpellingsLiteral)
 {
     const auto names = std::to_array<std::string>({"notes"});
-    EXPECT_EQ(collect_ecuflash_base_header_fields(
-                  names, "<rom><!-- &undefined; --><notes><![CDATA[A&undefined;B]]></notes></rom>"),
-              (DefinitionHeaderFields{{"notes", "A&undefined;B"}}));
+    EXPECT_THAT(collect_ecuflash_base_header_fields(
+                    names, "<rom><!-- &undefined; --><notes><![CDATA[A&undefined;B]]></notes></rom>"),
+                IsOkAnd(::testing::Eq((DefinitionHeaderFields{{"notes", "A&undefined;B"}}))));
 }
 
 TEST(DefinitionHeaderFields, ReadsPredefinedAndNumericReferencesWithoutDtdExpansion)
 {
     const auto names = std::to_array<std::string>({"notes"});
-    EXPECT_EQ(collect_ecuflash_base_header_fields(
-                  names, "<!DOCTYPE rom><rom><notes>&lt; &gt; &amp; &apos; &quot; &#65; &#x42;</notes></rom>"),
-              (DefinitionHeaderFields{{"notes", "< > & ' \" A B"}}));
+    EXPECT_THAT(collect_ecuflash_base_header_fields(
+                    names, "<!DOCTYPE rom><rom><notes>&lt; &gt; &amp; &apos; &quot; &#65; &#x42;</notes></rom>"),
+                IsOkAnd(::testing::Eq((DefinitionHeaderFields{{"notes", "< > & ' \" A B"}}))));
 }
 
 TEST(DefinitionHeaderFields, FormMetadataNormalizesEditableValuesWithoutAcquiringParserExtras)
@@ -203,4 +206,50 @@ TEST(DefinitionHeaderFields, FormMetadataNormalizesEditableValuesWithoutAcquirin
                                                                  .file_size = "",
                                                                  .notes = ""}));
     EXPECT_EQ(input->notes, " root notes ");
+}
+
+TEST(DefinitionHeaderFields, ImportAndBothLoadersAgreeOnNormalizedHeaderValues)
+{
+    const std::string rom = "<rom base=\"\xc2\xa0"
+                            "BASE\xc2\xa0\"><romid><xmlid> ID </xmlid>"
+                            "<internalidstring> INTERNAL </internalidstring><ecuid> ECU </ecuid>"
+                            "<internalidaddress> +0X10 </internalidaddress><model> Mitsubishi Colt </model>"
+                            "</romid><include>\xc2\xa0"
+                            "BASE\xc2\xa0</include></rom>";
+    const auto names =
+        std::to_array<std::string>({"xmlid", "internalidstring", "ecuid", "internalidaddress", "model", "include"});
+    const auto fields = collect_ecuflash_base_header_fields(names, rom);
+    ASSERT_THAT(fields, IsOk());
+    const auto input = definition_header_input(*fields);
+    ASSERT_THAT(input, IsOk());
+    const std::vector<std::uint8_t> ecuflash_bytes(rom.begin(), rom.end());
+    const auto ecuflash = fastecu::definition::parse_ecuflash_definition(ecuflash_bytes, "header.xml");
+    ASSERT_THAT(ecuflash, IsOk());
+    const std::string wrapped = "<roms>" + rom + "</roms>";
+    const std::vector<std::uint8_t> romraider_bytes(wrapped.begin(), wrapped.end());
+    const auto romraider = fastecu::definition::parse_romraider_definition(romraider_bytes, "header.xml", "ID");
+    ASSERT_THAT(romraider, IsOk());
+    for (const auto *definition : {&*ecuflash, &*romraider})
+    {
+        EXPECT_EQ(definition->identity.xml_id, input->xml_id);
+        EXPECT_EQ(definition->identity.internal_id, input->internal_id);
+        EXPECT_EQ(definition->identity.ecu_id, input->ecu_id);
+        EXPECT_EQ(definition->identity.internal_id_address, input->internal_id_address);
+        EXPECT_EQ(definition->metadata.model, "Mitsubishi Colt");
+        EXPECT_EQ(definition->parents, (std::vector<std::string>{"BASE"}));
+    }
+}
+
+TEST(DefinitionHeaderFields, PartialHeaderDoesNotRequireIdentityOrParseTables)
+{
+    const auto names = std::to_array<std::string>({"xmlid", "model", "notes"});
+    EXPECT_THAT(collect_ecuflash_base_header_fields(names, "<rom><romid><model> Colt </model></romid><table/></rom>"),
+                IsOkAnd(::testing::Eq(DefinitionHeaderFields{{"xmlid", ""}, {"model", "Colt"}, {"notes", ""}})));
+}
+
+TEST(DefinitionHeaderFields, RejectsNestedScalarContentInsteadOfFlatteningIt)
+{
+    const auto names = std::to_array<std::string>({"xmlid"});
+    EXPECT_THAT(collect_ecuflash_base_header_fields(names, "<rom><romid><xmlid>A<b>B</b></xmlid></romid></rom>"),
+                IsErr(fastecu::ErrorKind::InvalidConfig));
 }

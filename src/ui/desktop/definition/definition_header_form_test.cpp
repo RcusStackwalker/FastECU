@@ -247,7 +247,8 @@ TEST(ImportedHeaderFieldsTest, PreservesFieldOrderAndDefaultsAbsentOptionalField
 
     const auto fields = fastecu::ui::collect_ecuflash_base_header_fields(kNames, {xml});
 
-    ASSERT_EQ(fields.size(), kNames.size() * 2);
+    ASSERT_THAT(fields, fastecu::testing::IsOk());
+    ASSERT_EQ(fields->size(), kNames.size() * 2);
     const QStringList expectedValues = {"BASE_TEST",
                                         "0x2000",
                                         "TESTID",
@@ -265,8 +266,8 @@ TEST(ImportedHeaderFieldsTest, PreservesFieldOrderAndDefaultsAbsentOptionalField
                                         ""};
     for (qsizetype index = 0; index < kNames.size(); ++index)
     {
-        EXPECT_EQ(fields.at(index * 2), kNames.at(index));
-        EXPECT_EQ(fields.at(index * 2 + 1), expectedValues.at(index));
+        EXPECT_EQ(fields->at(index * 2), kNames.at(index));
+        EXPECT_EQ(fields->at(index * 2 + 1), expectedValues.at(index));
     }
 }
 
@@ -276,14 +277,15 @@ TEST(ImportedHeaderFieldsTest, ReadsIncludeAndNotesFromWrappedRom)
     const QStringList lines{"<roms><rom><romid><xmlid>  BASE  </xmlid></romid>",
                             "<include>OEM_BASE</include><notes>Text &amp; notes</notes></rom></roms>"};
 
-    EXPECT_EQ(fastecu::ui::collect_ecuflash_base_header_fields(names, lines),
-              (QStringList{"xmlid", "BASE", "include", "OEM_BASE", "notes", "Text & notes"}));
+    EXPECT_THAT(fastecu::ui::collect_ecuflash_base_header_fields(names, lines),
+                fastecu::testing::IsOkAnd(
+                    testing::Eq(QStringList{"xmlid", "BASE", "include", "OEM_BASE", "notes", "Text & notes"})));
 }
 
-TEST(ImportedHeaderFieldsTest, MalformedXmlLeavesEveryRequestedFieldBlank)
+TEST(ImportedHeaderFieldsTest, MalformedXmlReportsAnError)
 {
     const QStringList names{"xmlid", "include", "notes"};
 
-    EXPECT_EQ(fastecu::ui::collect_ecuflash_base_header_fields(names, {"<rom><romid>"}),
-              (QStringList{"xmlid", "", "include", "", "notes", ""}));
+    EXPECT_THAT(fastecu::ui::collect_ecuflash_base_header_fields(names, {"<rom><romid>"}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }

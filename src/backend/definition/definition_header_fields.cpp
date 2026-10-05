@@ -13,34 +13,51 @@
 
 namespace fastecu::definition
 {
-DefinitionHeaderFields collect_ecuflash_base_header_fields(std::span<const std::string> names, std::string_view xml)
+Result<DefinitionHeaderFields> collect_ecuflash_base_header_fields(std::span<const std::string> names,
+                                                                   std::string_view xml)
 {
     pugi::xml_document document;
     pugi::xml_node root;
     const std::span<const std::uint8_t> bytes{reinterpret_cast<const std::uint8_t *>(xml.data()), xml.size()};
     const auto parsed = parse_document_root(document, bytes, "authoring header", pugi::encoding_utf8);
-    if (parsed.has_value() &&
-        std::ranges::count_if(document.children(), [](auto node) { return node.type() == pugi::node_element; }) == 1)
+    if (!parsed.has_value())
     {
-        const auto document_root = *parsed;
-        const std::string_view name{document_root.name()};
-        if (name == "rom")
-        {
-            root = document_root;
-        }
-        else if (name == "roms")
-        {
-            root = document_root.child("rom");
-        }
+        return std::unexpected(parsed.error());
+    }
+    if (std::ranges::count_if(document.children(), [](auto node) { return node.type() == pugi::node_element; }) != 1)
+    {
+        return invalid("authoring header", "XML document", "expected one document root");
+    }
+    const std::string_view root_name{parsed->name()};
+    if (root_name == "rom")
+    {
+        root = *parsed;
+    }
+    else if (root_name == "roms")
+    {
+        root = parsed->child("rom");
+    }
+    if (!root)
+    {
+        return invalid("authoring header", "XML document", "expected <rom> or a direct <rom> child of <roms>");
+    }
+    if (auto status = validate_header_structure(root, "authoring header"); !status.has_value())
+    {
+        return std::unexpected(status.error());
     }
     const auto rom_id = root.child("romid");
     DefinitionHeaderFields fields;
     fields.reserve(names.size());
     for (const auto& name : names)
     {
-        const auto element =
-            (name == "include" || name == "notes") ? root.child(name.c_str()) : rom_id.child(name.c_str());
-        fields.emplace_back(name, header_child_text(element.parent(), name));
+        const bool metadata =
+            std::ranges::any_of(kEditableMetadataFields, [&name](auto field) { return field.xml_name == name; });
+        if (!metadata && name != "xmlid" && name != "internalidstring" && name != "internalidaddress" &&
+            name != "ecuid" && name != "include" && name != "notes")
+        {
+            return invalid("authoring header", "field name", std::format("unsupported field '{}'", name));
+        }
+        fields.emplace_back(name, header_child_text(name == "include" || name == "notes" ? root : rom_id, name));
     }
     return fields;
 }

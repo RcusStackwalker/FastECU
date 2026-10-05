@@ -58,6 +58,7 @@ cc_library(
     hdrs = ["romraider_parser.h"],
     implementation_deps = [
         ":parser_utils",
+        ":text_format",
         "//src/backend/ports",
         "@pugixml",
     ],
@@ -70,6 +71,7 @@ cc_library(
     hdrs = ["ecuflash_parser.h"],
     implementation_deps = [
         ":parser_utils",
+        ":text_format",
         "//src/backend/ports",
         "@pugixml",
     ],
@@ -243,6 +245,8 @@ fastecu_portable_gtest(
     srcs = ["definition_header_fields_test.cpp"],
     deps = [
         ":definition_header_fields",
+        ":ecuflash_parser",
+        ":romraider_parser",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],

@@ -1,5 +1,6 @@
 #include "src/backend/definition/romraider_parser.h"
 #include "src/backend/definition/parser_utils.h"
+#include "src/backend/definition/text_format.h"
 
 #include <array>
 #include <charconv>
@@ -176,7 +177,7 @@ Result<UnresolvedCalibrationMap> parse_table(pugi::xml_node table, std::string_v
 
 std::vector<std::string> parent_references(pugi::xml_node rom)
 {
-    const std::string parent = value_or_empty(rom.attribute("base"));
+    const std::string parent{trim_header_text(rom.attribute("base").value())};
     return parent.empty() ? std::vector<std::string>{} : std::vector<std::string>{parent};
 }
 

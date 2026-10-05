@@ -6,6 +6,7 @@
 #include <QApplication>
 #include <QDialog>
 #include <QFileDialog>
+#include <QFile>
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QPointer>
@@ -247,5 +248,42 @@ TEST_F(DefinitionAuthoringFlow, InvalidHeaderDoesNotWriteOrRegister)
     EXPECT_FALSE(dialog.create_new_definition());
     EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
     EXPECT_EQ(catalogs.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, ""), std::nullopt);
+}
+
+TEST_F(DefinitionAuthoringFlow, MalformedImportReportsErrorWithoutOpeningAnEditableHeader)
+{
+    const auto path = root.filePath("malformed.xml");
+    QFile source(path);
+    ASSERT_TRUE(source.open(QIODevice::WriteOnly));
+    source.write("<rom><romid>");
+    source.close();
+    config.file_repository.files[path.toStdString()] = {'<', 'r', 'o', 'm', '>', '<', 'r', 'o', 'm', 'i', 'd', '>'};
+    bool header_opened = false;
+    bool error_shown = false;
+    QTimer driver;
+    QObject::connect(&driver, &QTimer::timeout,
+                     [&]
+                     {
+                         if (auto *picker = qobject_cast<QFileDialog *>(QApplication::activeModalWidget()))
+                         {
+                             picker->selectFile(path);
+                             QMetaObject::invokeMethod(picker, "accept", Qt::DirectConnection);
+                         }
+                         else if (auto *message = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()))
+                         {
+                             error_shown = true;
+                             message->accept();
+                         }
+                         else if (auto *header = qobject_cast<QDialog *>(QApplication::activeModalWidget()))
+                         {
+                             header_opened = true;
+                             header->reject();
+                         }
+                     });
+    driver.start(1);
+    EXPECT_FALSE(dialog.use_existing_definition());
+    EXPECT_TRUE(error_shown);
+    EXPECT_FALSE(header_opened);
+    EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
 }
 } // namespace
