@@ -95,27 +95,6 @@ bool wire_parameters_match(const SubaruDensoSh705xDensoCanPlan& wire)
            wire.raw_receive_id == 0x21 && wire.bitrate == 500000 && !wire.iso_extended_id && wire.raw_extended_id;
 }
 
-Status validate_regions(const FlashPlan& plan, const flashdev_t& device)
-{
-    if (plan.transfer_region().start != device.fblocks[0].start || plan.transfer_region().length != device.romsize)
-    {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN transfer region does not match the MCU");
-    }
-    if (plan.operation() == FlashOperation::Read)
-    {
-        if (!plan.erase_regions().empty())
-        {
-            return fail(ErrorKind::InvalidConfig, "DensoCAN read plans must not declare erase regions");
-        }
-        return {};
-    }
-    if (!detail::erase_geometry_matches(plan.erase_regions(), device))
-    {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN erase geometry does not match the MCU");
-    }
-    return {};
-}
-
 Status validate_image(const FlashPlan& plan, const flashdev_t& device)
 {
     if (plan.operation() == FlashOperation::Read)
@@ -166,7 +145,7 @@ Status validate_subaru_denso_sh705x_densocan_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "DensoCAN requires exactly the CycleIgnition confirmation");
     }
-    if (Status regions = validate_regions(plan, *device); !regions.has_value())
+    if (Status regions = detail::validate_regions(plan, *device); !regions.has_value())
     {
         return regions;
     }

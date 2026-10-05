@@ -5,7 +5,7 @@
 #include <span>
 #include <vector>
 
-#include "src/backend/flash/flash_types.h"
+#include "src/backend/flash/flash_plan.h"
 #include "src/backend/flash/kernel/kernelmemorymodels.h"
 #include "src/backend/ports/result.h"
 
@@ -36,6 +36,7 @@ Status validate_padded_kernel_range(std::uint64_t size, std::uint32_t load_addre
 
 // Callers validate the device table before comparing the block count and
 // ordered addresses and lengths.
+Status validate_regions(const FlashPlan& plan, const flashdev_t& device);
 bool erase_geometry_matches(std::span<const MemoryRegion> regions, const flashdev_t& device);
 std::vector<MemoryRegion> make_erase_regions(const flashdev_t& device);
 } // namespace fastecu::flash::detail

@@ -288,8 +288,7 @@ TEST(SubaruDensoSh7058CanDieselPlan, RejectsAlteredAddressesAndLengthsInEveryEra
             ASSERT_TRUE(plan.has_value()) << plan.error().detail;
             const auto validation = validate_subaru_denso_sh7058_can_diesel_plan(*plan);
             ASSERT_FALSE(validation.has_value()) << index;
-            EXPECT_EQ(validation.error(),
-                      (Error{ErrorKind::InvalidConfig, "diesel erase geometry does not match the selected MCU"}));
+            EXPECT_EQ(validation.error(), (Error{ErrorKind::InvalidConfig, "erase geometry does not match the MCU"}));
         }
     }
 }

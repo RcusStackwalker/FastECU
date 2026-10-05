@@ -91,25 +91,6 @@ bool wire_parameters_match(const SubaruDensoSh7058CanDieselPlan& wire)
     return wire.request_id == 0x7E0 && wire.response_id == 0x7E8 && wire.bitrate == 500000 && !wire.extended_id;
 }
 
-Status validate_regions(const FlashPlan& plan, const flashdev_t& device)
-{
-    if (plan.transfer_region().start != device.fblocks[0].start || plan.transfer_region().length != device.romsize)
-    {
-        return fail(ErrorKind::InvalidConfig, "diesel transfer region does not match the selected MCU");
-    }
-    if (plan.operation() == FlashOperation::Read)
-    {
-        return plan.erase_regions().empty()
-                   ? Status{}
-                   : fail(ErrorKind::InvalidConfig, "diesel read plans must not declare erase regions");
-    }
-    if (!detail::erase_geometry_matches(plan.erase_regions(), device))
-    {
-        return fail(ErrorKind::InvalidConfig, "diesel erase geometry does not match the selected MCU");
-    }
-    return {};
-}
-
 Status validate_image(const FlashPlan& plan, const flashdev_t& device)
 {
     if (plan.operation() == FlashOperation::Read)
@@ -159,7 +140,7 @@ Status validate_subaru_denso_sh7058_can_diesel_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "diesel plans must not declare extra confirmations");
     }
-    if (Status regions = validate_regions(plan, *device); !regions.has_value())
+    if (Status regions = detail::validate_regions(plan, *device); !regions.has_value())
     {
         return regions;
     }

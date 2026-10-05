@@ -92,25 +92,6 @@ bool wire_parameters_match(const SubaruTcuDensoSh705xCanPlan& wire)
     return wire.request_id == 0x7E1 && wire.response_id == 0x7E9 && wire.bitrate == 500000 && !wire.extended_id;
 }
 
-Status validate_regions(const FlashPlan& plan, const flashdev_t& device)
-{
-    if (plan.transfer_region().start != device.fblocks[0].start || plan.transfer_region().length != device.romsize)
-    {
-        return fail(ErrorKind::InvalidConfig, "TCU transfer region does not match the MCU");
-    }
-    if (plan.operation() == FlashOperation::Read)
-    {
-        return plan.erase_regions().empty()
-                   ? Status{}
-                   : fail(ErrorKind::InvalidConfig, "TCU read plans must not declare erase regions");
-    }
-    if (!detail::erase_geometry_matches(plan.erase_regions(), device))
-    {
-        return fail(ErrorKind::InvalidConfig, "TCU erase geometry does not match the MCU");
-    }
-    return {};
-}
-
 Status validate_image(const FlashPlan& plan, const flashdev_t& device)
 {
     if (plan.operation() == FlashOperation::Read)
@@ -173,7 +154,7 @@ Status validate_subaru_tcu_denso_sh705x_can_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "TCU plans must not declare extra confirmations");
     }
-    if (Status regions = validate_regions(plan, *device); !regions.has_value())
+    if (Status regions = detail::validate_regions(plan, *device); !regions.has_value())
     {
         return regions;
     }

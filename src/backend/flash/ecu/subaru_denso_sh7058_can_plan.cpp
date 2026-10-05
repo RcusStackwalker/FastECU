@@ -93,25 +93,6 @@ bool wire_parameters_match(const SubaruDensoSh7058CanPlan& wire, const CatalogEn
            wire.security == entry.security;
 }
 
-Status validate_regions(const FlashPlan& plan, const flashdev_t& device)
-{
-    if (plan.transfer_region().start != device.fblocks[0].start || plan.transfer_region().length != device.romsize)
-    {
-        return fail(ErrorKind::InvalidConfig, "petrol SH7058 transfer region does not match the MCU");
-    }
-    if (plan.operation() == FlashOperation::Read)
-    {
-        return plan.erase_regions().empty()
-                   ? Status{}
-                   : fail(ErrorKind::InvalidConfig, "petrol SH7058 read plans must not declare erase regions");
-    }
-    if (!detail::erase_geometry_matches(plan.erase_regions(), device))
-    {
-        return fail(ErrorKind::InvalidConfig, "petrol SH7058 erase geometry does not match the MCU");
-    }
-    return {};
-}
-
 Status validate_image(const FlashPlan& plan, const flashdev_t& device)
 {
     if (plan.operation() == FlashOperation::Read)
@@ -161,7 +142,7 @@ Status validate_subaru_denso_sh7058_can_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "petrol SH7058 plans must not declare extra confirmations");
     }
-    if (Status regions = validate_regions(plan, *device); !regions.has_value())
+    if (Status regions = detail::validate_regions(plan, *device); !regions.has_value())
     {
         return regions;
     }

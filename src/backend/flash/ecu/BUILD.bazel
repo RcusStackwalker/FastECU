@@ -1796,7 +1796,7 @@ cc_library(
     hdrs = ["plan_primitives.h"],
     visibility = ["//visibility:private"],
     deps = [
-        "//src/backend/flash:flash_types",
+        "//src/backend/flash:flash_plan",
         "//src/backend/flash/kernel:memory_models",
         "//src/backend/ports",
     ],
