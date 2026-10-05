@@ -19,6 +19,15 @@
 namespace fastecu::definition
 {
 
+enum class XmlTextMode
+{
+    FirstText,
+    DescendantText
+};
+Result<pugi::xml_node> parse_document_root(pugi::xml_document& document, std::span<const std::uint8_t> xml,
+                                           std::string_view source, pugi::xml_encoding encoding);
+std::string read_element_text(pugi::xml_node element, XmlTextMode mode);
+
 std::string trim_copy(std::string_view value);
 std::string detail_prefix(std::string_view source, std::string_view definition_id = {});
 std::unexpected<Error> invalid(std::string_view source, std::string context, std::string message,

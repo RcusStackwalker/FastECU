@@ -49,10 +49,31 @@ std::unexpected<Error> invalid(std::string_view source, std::string context, std
                 std::format("{}{}: {}", detail_prefix(source, definition_id), context, message));
 }
 
+std::string read_element_text(pugi::xml_node element, XmlTextMode mode)
+{
+    if (mode == XmlTextMode::FirstText)
+    {
+        return element.child_value();
+    }
+    std::string text;
+    for (const auto child : element.children())
+    {
+        if (child.type() == pugi::node_pcdata || child.type() == pugi::node_cdata)
+        {
+            text.append(child.value());
+        }
+        else if (child.type() == pugi::node_element)
+        {
+            text.append(read_element_text(child, XmlTextMode::DescendantText));
+        }
+    }
+    return text;
+}
+
 std::string child_text(pugi::xml_node parent, std::string_view child_name)
 {
     const pugi::xml_node child = parent.child(child_name);
-    return child ? trim_copy(child.child_value()) : std::string{};
+    return trim_copy(read_element_text(child, XmlTextMode::FirstText));
 }
 
 Result<pugi::xml_node> identity_element(pugi::xml_node rom, std::string_view source)
@@ -135,15 +156,27 @@ RomMetadata parse_metadata(pugi::xml_node rom_id)
     };
 }
 
-Result<pugi::xml_node> parse_root(pugi::xml_document& document, std::span<const std::uint8_t> xml,
-                                  std::string_view source, std::string_view root_name)
+Result<pugi::xml_node> parse_document_root(pugi::xml_document& document, std::span<const std::uint8_t> xml,
+                                           std::string_view source, pugi::xml_encoding encoding)
 {
-    if (const pugi::xml_parse_result parsed = document.load_buffer(xml.data(), xml.size()); !parsed)
+    if (const pugi::xml_parse_result parsed =
+            document.load_buffer(xml.data(), xml.size(), pugi::parse_default, encoding);
+        !parsed)
     {
         return invalid(source, "XML document", std::format("malformed XML: {}", parsed.description()));
     }
+    return document.document_element();
+}
 
-    const pugi::xml_node root = document.document_element();
+Result<pugi::xml_node> parse_root(pugi::xml_document& document, std::span<const std::uint8_t> xml,
+                                  std::string_view source, std::string_view root_name)
+{
+    const auto parsed = parse_document_root(document, xml, source, pugi::encoding_auto);
+    if (!parsed)
+    {
+        return std::unexpected(parsed.error());
+    }
+    const pugi::xml_node root = *parsed;
     if (!root || root.name() != root_name)
     {
         const std::string actual = root ? std::format("<{}>", root.name()) : "no root element";

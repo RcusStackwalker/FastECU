@@ -223,6 +223,7 @@ cc_library(
     srcs = ["definition_header_fields.cpp"],
     hdrs = ["definition_header_fields.h"],
     implementation_deps = [
+        ":parser_utils",
         ":text_format",
         "@pugixml",
     ],
