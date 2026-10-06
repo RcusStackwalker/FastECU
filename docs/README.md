@@ -29,11 +29,23 @@ links as needed; the index is navigation, not a required reading list.
 | [Modularization plan](modularization-plan.md) | Remaining Android milestones and exit criteria |
 | [Qualification matrix](flash-qualification-matrix.md) | Family capabilities, hardware status, and evidence |
 | [Checklists](checklists/) | Qualification procedures and run records |
-| [Active specs](superpowers/specs/) and [plans](superpowers/plans/) | Proposed designs and unfinished scoped work |
+| [Active work](#active-work) | Proposed designs and unfinished scoped work, when present |
 
 Update a current description in place. Other documents link to its owner rather
-than copying its inventory. Active proposals are scoped context and do not
-authorize execution; dated reports are baselines, not evidence of a current scan.
+than copying its inventory.
+
+## Active work
+
+Task-specific specs and plans exist only while their work is proposed or unfinished.
+Find them, when present, with:
+
+```sh
+rg --files docs | rg '^docs/superpowers/(specs|plans)/'
+```
+
+Read only the documents relevant to the task. Proposals are context, not
+authorization to execute; dated reports are baselines, not evidence of a current
+scan. Completed artifacts are recovered from Git history below.
 
 ## Recover completed work and deleted-source citations
 
