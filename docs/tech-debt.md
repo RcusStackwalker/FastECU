@@ -138,6 +138,19 @@ does not guarantee identical source and destination bytes. Preserve current
 paste validation order unless separately justified: all supplied text cells,
 including clipped-away cells, must be valid before mutation.
 
+### P2: Drop the `legacy_text` empty-string sentinel in map element fields
+
+`collect_map_element_fields` (`src/backend/calibration/session/map_element_fields.cpp`)
+and the desktop selection adapter replace empty definition text with `" "`
+through `legacy_text`, a carry-over from the original UI code. Limits already
+treat whitespace-only text as absent, and `endian` and the static-axis type are
+only compared to fixed strings, so the sentinel is redundant there. Remove it so
+`MapElementSpec` carries real empty strings. Before changing `from_byte` and
+`to_byte`, confirm that `evaluate_checked` reports the same error for `""` and
+`" "`, and update the `MissingScalingAndAxisRetainLegacyPlaceholders` and
+`BodyStorageAndEndianFallBackToScalingButAxesUseResolvedStorage` tests that pin
+the placeholders.
+
 ### P2: Identify Subaru CAN ECUs with SSM `AA`
 
 Current ISO-15765 identification sends UDS `22 F1 82`, obtains an ID without
