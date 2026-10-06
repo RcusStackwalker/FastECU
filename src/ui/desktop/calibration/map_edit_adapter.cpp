@@ -15,11 +15,6 @@ namespace fastecu::ui
 namespace
 {
 
-std::string legacy_text(std::string_view text)
-{
-    return text.empty() ? " " : std::string(text);
-}
-
 std::optional<calibration::NumericTarget> to_numeric_target(calibration::EditTargetKind kind)
 {
     switch (kind)
@@ -81,12 +76,11 @@ selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSes
     }
     const auto& first = selected.first();
     const auto& map = session.definition()->definition.maps[static_cast<std::size_t>(map_number)];
-    const auto target =
-        calibration::resolve_edit_target({.first_row = first.topRow(),
-                                          .first_col = first.leftColumn(),
-                                          .last_row = first.bottomRow(),
-                                          .last_col = first.rightColumn()},
-                                         {.x_size = map.x_size, .y_size = map.y_size}, legacy_text(map.x_axis.type));
+    const auto target = calibration::resolve_edit_target({.first_row = first.topRow(),
+                                                          .first_col = first.leftColumn(),
+                                                          .last_row = first.bottomRow(),
+                                                          .last_col = first.rightColumn()},
+                                                         {.x_size = map.x_size, .y_size = map.y_size}, map.x_axis.type);
     const auto numeric_target = to_numeric_target(target.kind);
     if (!numeric_target.has_value())
     {

@@ -10,11 +10,6 @@ namespace fastecu::calibration
 namespace
 {
 
-std::string legacy_text(std::string_view text)
-{
-    return text.empty() ? " " : std::string(text);
-}
-
 double increment_value(std::string_view text)
 {
     if (text.find_first_not_of(" \t\r\n\f\v") == std::string_view::npos)
@@ -62,9 +57,9 @@ MapElementFields collect_map_element_fields(const CalibrationSession& session, s
         scaling = definition::find_scaling(def, map.scaling_name);
         fields.address_ = map.address.value_or(0);
         fields.storage_type_ = map.storage_type ? map.storage_type : scaling ? scaling->storage_type : std::nullopt;
-        fields.endian_ = legacy_text(!map.endian.empty() ? map.endian : scaling ? scaling->endian : "");
-        fields.from_byte_ = scaling ? legacy_text(scaling->from_byte) : "x";
-        fields.to_byte_ = scaling ? legacy_text(scaling->to_byte) : "x";
+        fields.endian_ = !map.endian.empty() ? map.endian : scaling ? scaling->endian : "";
+        fields.from_byte_ = scaling ? scaling->from_byte : "x";
+        fields.to_byte_ = scaling ? scaling->to_byte : "x";
         fields.start_position_ = map.start_position;
         fields.interval_ = map.interval;
     }
@@ -75,14 +70,14 @@ MapElementFields collect_map_element_fields(const CalibrationSession& session, s
         scaling = present ? definition::find_scaling(def, axis.scaling_name) : nullptr;
         fields.address_ = present ? axis.address.value_or(0) : 0;
         fields.storage_type_ = present ? axis.storage_type : std::nullopt;
-        fields.endian_ = present ? legacy_text(axis.endian) : " ";
-        fields.from_byte_ = present ? legacy_text(axis.from_byte) : " ";
-        fields.to_byte_ = present ? legacy_text(axis.to_byte) : " ";
+        fields.endian_ = present ? axis.endian : "";
+        fields.from_byte_ = present ? axis.from_byte : "";
+        fields.to_byte_ = present ? axis.to_byte : "";
         fields.start_position_ = present ? axis.start_position : 1;
         fields.interval_ = present ? axis.interval : 1;
     }
-    fields.min_value_ = scaling ? legacy_text(scaling->minimum) : " ";
-    fields.max_value_ = scaling ? legacy_text(scaling->maximum) : " ";
+    fields.min_value_ = scaling ? scaling->minimum : "";
+    fields.max_value_ = scaling ? scaling->maximum : "";
     fields.coarse_increment_ = scaling ? increment_value(scaling->coarse_increment) : 0.0;
     fields.fine_increment_ = scaling ? increment_value(scaling->fine_increment) : 0.0;
     fields.x_size_ = map.x_size;
