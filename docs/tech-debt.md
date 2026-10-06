@@ -19,9 +19,11 @@ alone does not make a presentation flow backend policy.
 
 Remaining actions from the backend migration roadmap:
 
-- Move selectable encoding from `MainWindow` into backend calibration/session
-  policy, alongside the numeric edit use case. Preserve definition-less behavior
-  and the [typed calibration contracts](reference/calibration-compatibility.md#decoded-values-and-map-edits).
+- Decide what a selectable edit should do beyond what `apply_selectable_edit`
+  preserves today: report writing identical bytes as unchanged without dirtying
+  the session, as numeric edits do, and reject selections whose hex length
+  differs from the first selection's instead of truncating or zero-padding.
+  Check the shipped definition corpus before rejecting.
 - Finish moving logging snapshot/channel preparation and sample validation from
   desktop adapters into backend logging; reuse the existing portable preparation
   rather than starting a second policy implementation.

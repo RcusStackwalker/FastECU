@@ -1,4 +1,5 @@
 #include "src/ui/desktop/widgets/mainwindow.h"
+#include "src/backend/calibration/session/selectable_edit_use_case.h"
 #include "src/ui/desktop/calibration/calibration_operation_coordinator.h"
 #include "src/ui/desktop/calibration/map_presentation.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
@@ -19,6 +20,7 @@
 #include <string_view>
 #include <tuple>
 #include <utility>
+#include <variant>
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/backend/logging/logger_definition_service.h"
 #include "src/backend/flash/flash_operation_request.h"
@@ -1170,42 +1172,23 @@ void MainWindow::selectable_combobox_item_changed(const QString& item)
 
 void MainWindow::set_map_selection(fastecu::calibration::SessionId id, int map_index, const QString& item)
 {
-    auto *session = calibrationWorkspace->find(id);
-    if (session == nullptr || session->definition() == nullptr || map_index < 0 ||
-        static_cast<std::size_t>(map_index) >= session->definition()->definition.maps.size())
+    if (map_index < 0)
     {
         return;
     }
-    const auto& definition = session->definition()->definition;
-    const auto& map = definition.maps[static_cast<std::size_t>(map_index)];
-    const auto *scaling = fastecu::definition::find_scaling(definition, map.scaling_name);
-    const auto storage = map.storage_type.has_value() ? map.storage_type
-                         : scaling != nullptr         ? scaling->storage_type
-                                                      : std::nullopt;
-    if (scaling == nullptr || scaling->selections.empty() || storage != fastecu::definition::StorageType::Bloblist)
+    const auto outcome = fastecu::calibration::apply_selectable_edit(
+        *calibrationWorkspace,
+        {.session = id, .map_index = static_cast<std::size_t>(map_index), .selection = item.toStdString()});
+    if (!outcome.has_value())
     {
-        return; // The existing non-blob selectable path does not write bytes.
+        QMessageBox::warning(this, tr("Set value"), qs(outcome.error().detail));
+        return;
     }
-    for (const auto& [name, value] : scaling->selections)
+    // A name no selection carries still refreshes, so the combo snaps back to the ROM's bytes.
+    if (const auto *skipped = std::get_if<fastecu::calibration::SelectableEditNotApplicable>(&*outcome);
+        skipped != nullptr && skipped->reason != fastecu::calibration::SelectableNotApplicableReason::UnknownSelection)
     {
-        if (qs(name) != item)
-        {
-            continue;
-        }
-        // Preserve first-selection width truncation and QString hex conversion.
-        const auto width = static_cast<std::uint8_t>(scaling->selections.front().second.size() / 2);
-        bytes::Bytes data;
-        const QString text = qs(value);
-        for (int k = 0; k < width; ++k)
-        {
-            data.push_back(static_cast<std::uint8_t>(text.mid(static_cast<qsizetype>(k) * 2, 2).toUInt(nullptr, 16)));
-        }
-        const auto written = session->write_bytes(map.address.value_or(0), data);
-        if (!written.has_value())
-        {
-            QMessageBox::warning(this, tr("Set value"), qs(written.error().detail));
-            return;
-        }
+        return;
     }
     for (auto *window : ui->mdiArea->subWindowList())
     {
