@@ -26,7 +26,7 @@ The target state is:
 - CI builds and tests on Windows, macOS, and Linux, verifies macOS/Windows
   packages, produces coverage for SonarCloud, and runs a blocking clang-tidy
   report over the PR's changed files.
-- The [protocol-sharing boundary](design-notes.md#where-port-then-factor-shared-code-and-where-it-did-not)
+- The [protocol-sharing boundary](design-notes.md#share-only-proven-protocol-equivalence)
   lives in the design notes; logging-specific gaps are under
   "P2: Logging engine follow-ups" below.
 
@@ -51,10 +51,10 @@ use cases, checksums, diagnostics and logging. What remains in the desktop UI
 is presentation. Write preflight, checksum interaction and Save/Save As
 sequencing live in the UI-owned `CalibrationOperationCoordinator`, whose
 closure is Qt-free and whose dialogs sit behind `ICalibrationInteraction`
-(see the [calibration design notes](design-notes.md#preflight-cancellation-is-not-correction-cancellation)).
+(see the [calibration design notes](reference/calibration-compatibility.md#preflight-and-correction-cancellation)).
 Connect, identify and cancel sequencing lives in the UI-owned
 `ConnectionCoordinator`, whose closure is Qt-free and whose worker sits behind
-`IIdentifyLauncher` (see the [design notes](design-notes.md#connect-is-asynchronous)).
+`IIdentifyLauncher` (see the [design notes](reference/desktop-contracts.md#connection-and-identification)).
 `MainWindow` still coordinates the port-open preamble, disconnect, port
 refresh, logging selection, log views, status updates and the remaining
 dialogs, and keeps the hardware lifecycle around flash dispatch; the
@@ -77,7 +77,7 @@ Actions:
   confirmations for write preflight and checksum correction stay in the UI;
   post-read and checksum/save/write bench re-verification remain required
   before release, and the logger identity corrections still await
-  [bench qualification](design-notes.md#logger-ownership-and-stable-identities).
+  [bench qualification](reference/logging-contracts.md#model-ownership-and-identity).
 - **Confirm or fix the OpenPort five-baud ASCII comparison.**
   `five_baud_header` (`src/backend/diagnostics/obd_frames.cpp`) preserves the
   J2534 branch's comparison of response bytes `[5]`/`[7]` (iso9141) and
@@ -86,12 +86,12 @@ Actions:
   `0x08`/`0x08` (bytes `[1]`/`[2]`) and `0x8F` (byte `[2]`) comparison, and a
   match only by coincidence of digit value. Confirm against a bench capture
   whether the OpenPort firmware genuinely echoes ASCII here before changing
-  it; see the [design notes](design-notes.md#diagnostic-tools).
+  it; see the [design notes](reference/desktop-contracts.md#diagnostic-tools).
 - **Fix DataTerminal's `delay(...)` script parser.** `split(")").at(1).split("(").at(0)`
   parses `delay(100)` to an empty string, so every scripted delay is
   currently 0 ms (`src/ui/desktop/widgets/dataterminal.cpp`). Pinned, not fixed, in
   step 6g because a real parse would change the timing of every existing
-  delay script; see the [design notes](design-notes.md#diagnostic-tools).
+  delay script; see the [design notes](reference/desktop-contracts.md#diagnostic-tools).
 - **DTC session test gaps.** `dtc_session_test.cpp` does not yet cover: the
   clear-loop's short-frame/NRC/wrong-ID paths; a CAN-init short response or a
   non-`0x41` CAN-init response; a fast-init read cancelled mid-flight; and
@@ -109,7 +109,7 @@ Actions:
   inside the window can still extend past `0xBFFF`. Revisit both before
   wiring a caller; never relax the guard.
 - **Fix or defer the `wrx02` write-path predicate (step 6b defect (a); see
-  the [design notes](design-notes.md#calibration-defect-letters)).** `element_byte_address` (`src/backend/calibration/map_edit.cpp`)
+  the [design notes](tech-debt.md#p1-separate-ui-from-application-logic)).** `element_byte_address` (`src/backend/calibration/map_edit.cpp`)
   still carries two different predicates for the `wrx02` flash-method
   address fixup depending on its `for_write` parameter — one for reads, one
   for writes — subtracting `0x8000` under different conditions; a cell near

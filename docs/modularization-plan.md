@@ -107,7 +107,7 @@ The rules below constrain the remaining milestones.
   timeouts, retry rules, and safety policy explicit. A defect correction needs
   local evidence, a reproducing test, exact corrected expectations, and a
   qualification note; use a mutation check to prove the test detects it.
-  See the [protocol-sharing boundary](design-notes.md#where-port-then-factor-shared-code-and-where-it-did-not)
+  See the [protocol-sharing boundary](design-notes.md#share-only-proven-protocol-equivalence)
   and [flash qualification matrix](flash-qualification-matrix.md).
 - **Enforce boundaries through the build graph.** Qt reachability is gated by
   [ADR 0016 visibility](adr/0016-enforce-qt-reachability-by-visibility.md).
@@ -254,9 +254,9 @@ completed specs and implementation plans.
 | 6h | Connection adapter and asynchronous SSM identification; legacy UI serial access drained. |
 | 6i | Serial facade restricted to platform; transitive headers hidden and obsolete allowlist removed. |
 | 6j | UI-owned logging/remote channels; remaining GRANDFATHERED visibility entries removed. |
-| 6k | Portable `ConfigSession` and catalog records replace the legacy config structures and adapter; startup rejection is an intentional correction ([Configuration session](design-notes.md#configuration-session)). |
-| 6l | Portable `LoggerModel` with separate ownership of definitions, selection, support and desktop values; chooser and CSV identity corrections carry reproductions and mutation checks ([Logger ownership](design-notes.md#logger-ownership-and-stable-identities)). |
-| 6m | Portable `CalibrationSession`, `RomOpenUseCase`, `RomSaveUseCase` and `CalibrationWorkspace` with stable session IDs; save and write correct checksums on a temporary operation image ([session ownership](design-notes.md#calibration-session-ownership-and-operation-images)). |
+| 6k | Portable `ConfigSession` and catalog records replace the legacy config structures and adapter; startup rejection is an intentional correction ([Configuration session](reference/desktop-contracts.md#configuration-session)). |
+| 6l | Portable `LoggerModel` with separate ownership of definitions, selection, support and desktop values; chooser and CSV identity corrections carry reproductions and mutation checks ([Logger ownership](reference/logging-contracts.md#model-ownership-and-identity)). |
+| 6m | Portable `CalibrationSession`, `RomOpenUseCase`, `RomSaveUseCase` and `CalibrationWorkspace` with stable session IDs; save and write correct checksums on a temporary operation image ([session ownership](reference/calibration-compatibility.md#session-and-view-ownership)). |
 | 6n | Desktop closure: `DefinitionCatalogSession` replaces `FileActions` (6n-1); kernel models move to `src/backend/flash/kernel` (6n-2); the Qt byte helper moves to `src/platform/desktop/common/bytes` (6n-3). |
 
 “Implemented” in this ledger does not supersede any pending bench checklist.

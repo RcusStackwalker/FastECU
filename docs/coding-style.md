@@ -413,6 +413,16 @@ never a bare path written as inline code — lychee, the link checker `prek`
 runs, resolves `[text](path)` links but cannot see a path spelled as
 `` `docs/foo.md` `` and so cannot catch it going stale.
 
+**Prove protocol corrections with a mutation check.** When correcting bounds,
+reply gates, or cancellation without hardware qualification, temporarily restore
+the defective behavior, verify that a named regression fails, then restore the
+correction. This detects unreachable or vacuously passing coverage.
+
+**Verify reachability before retiring code.** String aliases and dispatch tables
+can make an apparently referenced branch dead; commented-out functions can look
+live to text searches. Check the built path or a comment-stripped parse before
+porting or deleting the behavior.
+
 ## Naming
 
 Names follow the

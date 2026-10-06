@@ -82,3 +82,15 @@ Run the reference with:
 ```sh
 bazel test --config=release //src/platform/desktop/common/serial/testing:fake_backend_test
 ```
+
+## Scripted cancellation and boundary probes
+
+`FakeCancellationToken::cancel_on_check(n)` counts all cancellation queries,
+including queries in `FakeClock::sleep()` and scripted transport reads. Trace
+helper calls when choosing a checkpoint; a mistaken checkpoint does not justify
+changing production cancellation order.
+
+When probing whether production UI can include a serial facade header, put the
+probe at the end of the source. A top-of-file probe can instead fail on the
+`STATUS_SUCCESS` macro collision with a definition-conversion enum and prove
+nothing about the missing compile input.
