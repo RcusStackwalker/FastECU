@@ -42,6 +42,15 @@ struct EditTarget
     std::uint32_t x_size{0};
 };
 
+// A numeric edit's semantic target, independent of any table layout. Element
+// coordinates inside a target follow that run's own geometry.
+enum class NumericTarget
+{
+    MapBody,
+    XAxis,
+    YAxis,
+};
+
 EditTarget resolve_edit_target(const SelectionRange& selection, MapDimensions dims, std::string_view x_scale_type);
 
 // Borrowed metadata for one element run. Keep its owning definition-field

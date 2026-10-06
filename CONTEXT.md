@@ -4,6 +4,11 @@ Terms used when viewing and editing calibration maps.
 
 ## Language
 
+**Map body**:
+The calibration values arranged along a map's axes, excluding the axis values
+and labels themselves.
+_Avoid_: Entire map table
+
 **Scaled value**:
 A numeric calibration value expressed in the units defined by its scaling.
 _Avoid_: Display text

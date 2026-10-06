@@ -114,3 +114,56 @@ cc_library(
         "//src/backend/ports",
     ],
 )
+
+cc_library(
+    name = "map_element_fields",
+    srcs = ["map_element_fields.cpp"],
+    hdrs = ["map_element_fields.h"],
+    implementation_deps = ["//src/algorithms/expression:checked_expression"],
+    # Field resolution is internal to the numeric edit use case.
+    visibility = ["//src/backend/calibration/session:__pkg__"],
+    deps = [
+        ":calibration_session",
+        "//src/backend/calibration:map_edit",
+        "//src/backend/definition:definition_model",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "map_element_fields_test",
+    srcs = ["map_element_fields_test.cpp"],
+    deps = [
+        ":map_element_fields",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "numeric_edit_use_case",
+    srcs = ["numeric_edit_use_case.cpp"],
+    hdrs = ["numeric_edit_use_case.h"],
+    implementation_deps = [
+        ":map_element_fields",
+        "//src/algorithms/expression:checked_expression",
+    ],
+    deps = [
+        ":calibration_session",
+        ":calibration_workspace",
+        "//src/backend/calibration:map_edit",
+        "//src/backend/calibration:numeric_map_edit",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "numeric_edit_use_case_test",
+    srcs = ["numeric_edit_use_case_test.cpp"],
+    deps = [
+        ":numeric_edit_use_case",
+        "//src/backend/calibration/session/testing:fake_definition_catalogs",
+        "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)

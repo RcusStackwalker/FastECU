@@ -19,9 +19,8 @@ alone does not make a presentation flow backend policy.
 
 Remaining actions from the backend migration roadmap:
 
-- Move reusable field resolution and patch application from the UI map-edit
-  adapter, and selectable encoding from `MainWindow`, into backend
-  calibration/session policy. Preserve selection bounds, definition-less behavior,
+- Move selectable encoding from `MainWindow` into backend calibration/session
+  policy, alongside the numeric edit use case. Preserve definition-less behavior
   and the [typed calibration contracts](reference/calibration-compatibility.md#decoded-values-and-map-edits).
 - Finish moving logging snapshot/channel preparation and sample validation from
   desktop adapters into backend logging; reuse the existing portable preparation
@@ -121,6 +120,36 @@ renames its table with the map-type suffix while the enclosing MDI window retain
 its earlier name. The view displays recovered values, but edit lookup cannot find
 the table. Synchronize the lookup identity and cover initial failure → recovery
 → edit through the MDI window. Closing and reopening the map restores editing.
+
+### P2: Make full-body map copy/paste reliable
+
+Numeric map-edit use-case extraction does not include copy-side changes. Follow
+up with explicit body-only Select All, row-major Copy ordering, and numeric Copy
+from full-precision scaled values rather than rounded display text. Exclude axis
+values and labels from full-body copying; axis copying remains a separate
+operation. This resolves the current Copy implementation's display-text behavior
+against the [typed-value decision](design-notes.md#numeric-data-stays-typed-until-presentation).
+
+Cover the actual larger-source selection → Copy → smaller-destination selection
+→ Paste workflow. Paste starts at the destination selection's top-left and clips
+to the destination body bounds, preserving axes. Verify retained values through
+destination scaling/limits/storage encoding; copying full-precision scaled values
+does not guarantee identical source and destination bytes. Preserve current
+paste validation order unless separately justified: all supplied text cells,
+including clipped-away cells, must be valid before mutation.
+
+### P2: Drop the `legacy_text` empty-string sentinel in map element fields
+
+`collect_map_element_fields` (`src/backend/calibration/session/map_element_fields.cpp`)
+and the desktop selection adapter replace empty definition text with `" "`
+through `legacy_text`, a carry-over from the original UI code. Limits already
+treat whitespace-only text as absent, and `endian` and the static-axis type are
+only compared to fixed strings, so the sentinel is redundant there. Remove it so
+`MapElementSpec` carries real empty strings. Before changing `from_byte` and
+`to_byte`, confirm that `evaluate_checked` reports the same error for `""` and
+`" "`, and update the `MissingScalingAndAxisRetainLegacyPlaceholders` and
+`BodyStorageAndEndianFallBackToScalingButAxesUseResolvedStorage` tests that pin
+the placeholders.
 
 ### P2: Identify Subaru CAN ECUs with SSM `AA`
 

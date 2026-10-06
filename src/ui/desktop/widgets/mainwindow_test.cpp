@@ -4137,6 +4137,37 @@ void MainWindowTest::check_tuneActionsEditTheSelectionThroughTheirOwnHandlers()
         EXPECT_EQ(grid(), expected) << qPrintable(action->objectName());
     }
 
+    // Set Value edits the original window's selection as it stands when the
+    // dialog is accepted, not when the dialog opened.
+    ASSERT_TRUE(services.calibrations.find(opened->id)->write_bytes(kBody, body).has_value());
+    select(2, 2, 2, 2);
+    QTimer answer;
+    answer.setInterval(5);
+    QObject::connect(&answer, &QTimer::timeout,
+                     [&]
+                     {
+                         auto *dialog = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+                         if (dialog == nullptr)
+                         {
+                             return;
+                         }
+                         select(1, 1, 1, 1);
+                         dialog->setTextValue("77");
+                         dialog->accept();
+                     });
+    answer.start();
+    window.ui->actionSetValue->trigger();
+    answer.stop();
+    EXPECT_EQ(grid(), (std::vector<int>{77, 0, 20, 0, 100, 0, 40, 0, 60}));
+
+    // Paste hands the full source layout to the backend, which starts at the
+    // selection's top-left body cell and clips to the body's edges.
+    ASSERT_TRUE(services.calibrations.find(opened->id)->write_bytes(kBody, body).has_value());
+    QApplication::clipboard()->setText("1\t2\t3\n4\t5\t6\n7\t8\t9\n");
+    select(2, 2, 2, 2);
+    window.ui->actionPaste->trigger();
+    EXPECT_EQ(grid(), (std::vector<int>{0, 0, 20, 0, 1, 2, 40, 4, 5}));
+
     driver.stop();
     EXPECT_TRUE(driver.acceptedTexts().isEmpty()) << qPrintable(driver.acceptedTexts().join(" | "));
     ASSERT_TRUE(!driver.timedOut());
