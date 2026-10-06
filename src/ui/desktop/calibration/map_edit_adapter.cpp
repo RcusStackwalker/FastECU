@@ -1,7 +1,6 @@
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 
 #include <utility>
-#include <algorithm>
 #include <cstddef>
 #include <optional>
 
@@ -19,22 +18,6 @@ namespace
 std::string legacy_text(std::string_view text)
 {
     return text.empty() ? " " : std::string(text);
-}
-
-const calibration::NumericRun *target_cells(const calibration::DecodedMap& values, calibration::EditTargetKind kind)
-{
-    switch (kind)
-    {
-    case calibration::EditTargetKind::MapBody:
-        return std::get_if<calibration::NumericRun>(&values.body);
-    case calibration::EditTargetKind::XAxis:
-        return std::get_if<calibration::NumericRun>(&values.x_axis);
-    case calibration::EditTargetKind::YAxis:
-        return std::get_if<calibration::NumericRun>(&values.y_axis);
-    case calibration::EditTargetKind::Rejected:
-        return nullptr;
-    }
-    return nullptr;
 }
 
 std::optional<calibration::NumericTarget> to_numeric_target(calibration::EditTargetKind kind)
@@ -135,114 +118,6 @@ std::vector<std::vector<std::string>> split_paste_rows(const QString& text)
         owned_rows.push_back(std::move(owned_columns));
     }
     return owned_rows;
-}
-
-ResolvedEdit::ResolvedEdit(calibration::MapElementFields fields, calibration::EditTarget target,
-                           calibration::NumericRun cells, int map_number)
-    : fields_(std::move(fields)), target_(target), cells_(std::move(cells)), map_number_(map_number)
-{
-}
-
-std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window,
-                                                    const calibration::CalibrationSession& session, int map_number)
-{
-    if (!window)
-    {
-        return std::nullopt;
-    }
-    QTableWidget *table = window->findChild<QTableWidget *>(window->objectName());
-    if (!table)
-    {
-        return std::nullopt;
-    }
-    const auto selected = table->selectedRanges();
-    if (selected.isEmpty())
-    {
-        return std::nullopt;
-    }
-    const auto& first = selected.first();
-
-    const calibration::SelectionRange selection{.first_row = first.topRow(),
-                                                .first_col = first.leftColumn(),
-                                                .last_row = first.bottomRow(),
-                                                .last_col = first.rightColumn()};
-    if (!session.definition() || map_number < 0 ||
-        static_cast<std::size_t>(map_number) >= session.definition()->definition.maps.size())
-    {
-        return std::nullopt;
-    }
-    const auto& map = session.definition()->definition.maps[static_cast<std::size_t>(map_number)];
-    const calibration::MapDimensions dims{.x_size = map.x_size, .y_size = map.y_size};
-    const auto target = calibration::resolve_edit_target(selection, dims, legacy_text(map.x_axis.type));
-    const auto numeric_target = to_numeric_target(target.kind);
-    if (!numeric_target.has_value())
-    {
-        return std::nullopt;
-    }
-    const auto decoded = session.decode_map(static_cast<std::size_t>(map_number));
-    if (!decoded.has_value())
-    {
-        return std::nullopt;
-    }
-    const auto *cells = target_cells(*decoded, target.kind);
-    if (cells == nullptr)
-    {
-        return std::nullopt;
-    }
-    auto fields =
-        calibration::collect_map_element_fields(session, static_cast<std::size_t>(map_number), *numeric_target);
-    return ResolvedEdit(std::move(fields), target, *cells, map_number);
-}
-
-Status apply_patch(calibration::CalibrationSession& session, int map_number, calibration::EditTargetKind kind,
-                   const calibration::NumericEditPatch& patch)
-{
-    const auto decoded = session.decode_map(static_cast<std::size_t>(map_number));
-    if (!decoded.has_value())
-    {
-        return std::unexpected(decoded.error());
-    }
-    const auto *cells = target_cells(*decoded, kind);
-    if (cells == nullptr)
-    {
-        return fail(ErrorKind::InvalidConfig, "edit target is not a numeric run");
-    }
-    const auto numeric_target = to_numeric_target(kind);
-    if (!numeric_target.has_value())
-    {
-        return fail(ErrorKind::InvalidConfig, "edit target is not a numeric run");
-    }
-    const auto fields =
-        calibration::collect_map_element_fields(session, static_cast<std::size_t>(map_number), *numeric_target);
-    const auto spec = fields.spec();
-    const auto width = definition::storage_byte_size(spec.storage_type);
-    const auto size = session.rom().size();
-    for (const auto& cell : patch)
-    {
-        if (cell.index >= cells->cells.size() || cell.bytes.size() != width ||
-            cell.byte_address != calibration::element_byte_address(spec, cell.index, true))
-        {
-            return fail(ErrorKind::InvalidConfig, "map edit index, address, or byte width does not match its target");
-        }
-        if (cell.byte_address > size || cell.bytes.size() > size - cell.byte_address)
-        {
-            return fail(ErrorKind::InvalidConfig, "map edit byte range is outside the ROM image");
-        }
-    }
-    for (const auto& cell : patch)
-    {
-        const auto current = session.rom().subspan(static_cast<std::size_t>(cell.byte_address), cell.bytes.size());
-        if (std::ranges::equal(current, cell.bytes))
-        {
-            continue;
-        }
-        const auto written = session.write_bytes(cell.byte_address, cell.bytes);
-        if (!written.has_value())
-        {
-            return written;
-        }
-    }
-    return {};
 }
 
 } // namespace fastecu::ui

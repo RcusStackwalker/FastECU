@@ -2,6 +2,7 @@
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/ui/desktop/config_fields.h"
 #include "src/backend/calibration/map_edit.h"
+#include "src/backend/calibration/session/numeric_edit_use_case.h"
 #include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 #include "ui_mainwindow.h"
@@ -15,7 +16,6 @@
 #include <QSaveFile>
 #include <QAction>
 #include <QPointer>
-#include "src/algorithms/expression/checked_expression.h"
 #include <QKeySequence>
 
 #include <algorithm>
@@ -23,6 +23,7 @@
 #include <chrono>
 #include <tuple>
 #include <utility>
+#include <variant>
 #include <optional>
 #include "src/backend/diagnostics/ssm_identify.h"
 #include "src/backend/ports/event_sink.h"
@@ -70,6 +71,52 @@ void show_no_change(QWidget *parent, fastecu::calibration::NoChangeReason reason
         break;
     }
     QMessageBox::information(parent, "Map edit", message);
+}
+
+// Runs one numeric edit against `window`'s map. Windows without a numeric
+// selection and not-applicable outcomes return silently; after a change or a
+// no-op, the window is refreshed from current bytes.
+void run_numeric_edit(QWidget *parent, const QString& title, fastecu::calibration::CalibrationWorkspace& workspace,
+                      QMdiSubWindow *window, fastecu::calibration::NumericEditOperation operation)
+{
+    namespace calibration = fastecu::calibration;
+    const auto id = fastecu::ui::parse_map_window_id(window);
+    if (!id.has_value() || id->map_number < 0)
+    {
+        return;
+    }
+    const auto *session = workspace.find(id->session);
+    if (session == nullptr)
+    {
+        return;
+    }
+    const auto selection = fastecu::ui::selected_numeric_target(window, *session, id->map_number);
+    if (!selection.has_value())
+    {
+        return;
+    }
+    const auto outcome =
+        calibration::apply_numeric_edit(workspace, {.session = id->session,
+                                                    .map_index = static_cast<std::size_t>(id->map_number),
+                                                    .selection = *selection,
+                                                    .operation = std::move(operation)});
+    if (!outcome.has_value())
+    {
+        QMessageBox::warning(parent, title, QString::fromStdString(outcome.error().detail));
+        return;
+    }
+    if (std::holds_alternative<calibration::NumericEditNotApplicable>(*outcome))
+    {
+        return;
+    }
+    if (auto *map = qobject_cast<CalibrationMaps *>(window->widget()); map != nullptr)
+    {
+        map->refresh();
+    }
+    if (const auto *unchanged = std::get_if<calibration::NumericEditUnchanged>(&*outcome); unchanged != nullptr)
+    {
+        show_no_change(parent, unchanged->reason);
+    }
 }
 } // namespace
 
@@ -171,176 +218,40 @@ void MainWindow::show_about_dialog()
 
 void MainWindow::inc_dec_value(fastecu::calibration::IncrementStep step)
 {
-    QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
-    const auto id = fastecu::ui::parse_map_window_id(w);
-    if (!id)
-    {
-        return;
-    }
-    auto *session = calibrationWorkspace->find(id->session);
-    if (session == nullptr)
-    {
-        return;
-    }
-
-    QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
-    if (!mapTableWidget)
-    {
-        return;
-    }
-
-    auto edit = fastecu::ui::resolve_active_map_edit(w, *session, id->map_number);
-    if (!edit)
-    {
-        return;
-    }
-
-    const auto patch = fastecu::calibration::calculate_increment(session->rom(), edit->spec(), edit->x_size(),
-                                                                 edit->cells(), edit->range(), step);
-    if (!patch.has_value())
-    {
-        QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
-        return;
-    }
-    if (patch->writes.empty())
-    {
-        set_maptablewidget_items();
-        show_no_change(this, patch->no_change);
-        return;
-    }
-    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), patch->writes);
-    if (!applied.has_value())
-    {
-        QMessageBox::warning(this, tr("Set value"), QString::fromStdString(applied.error().detail));
-        return;
-    }
-    set_maptablewidget_items();
+    run_numeric_edit(this, tr("Set value"), *calibrationWorkspace, ui->mdiArea->activeSubWindow(),
+                     fastecu::calibration::IncrementEdit{.step = step});
 }
 
 void MainWindow::set_value()
 {
-    bool bStatus;
-
     QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
     const auto id = fastecu::ui::parse_map_window_id(w);
-    if (!id)
-    {
-        return;
-    }
-    auto *session = calibrationWorkspace->find(id->session);
-    if (session == nullptr)
+    if (!id || calibrationWorkspace->find(id->session) == nullptr ||
+        w->findChild<QTableWidget *>(w->objectName()) == nullptr)
     {
         return;
     }
 
-    QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
-    if (!mapTableWidget)
-    {
-        return;
-    }
-
+    // The dialog may outlive the window, its session, or the active
+    // selection; only the original window's identity is carried across it.
     const QPointer<QMdiSubWindow> original_window(w);
+    bool accepted = false;
     QString text =
         QInputDialog::getText(this, tr("QInputDialog::getText()"),
-                              tr("Set value: 20 | -20 | x+20 | x-20 | x*20 | x/20"), QLineEdit::Normal, "", &bStatus);
-
+                              tr("Set value: 20 | -20 | x+20 | x-20 | x*20 | x/20"), QLineEdit::Normal, "", &accepted);
     text.replace(",", ".");
-
-    if (!bStatus || text.isEmpty())
+    if (!accepted || text.isEmpty() || original_window.isNull())
     {
         return;
     }
-
-    if (original_window.isNull())
-    {
-        return;
-    }
-    session = calibrationWorkspace->find(id->session);
-    if (session == nullptr)
-    {
-        return;
-    }
-    auto edit = fastecu::ui::resolve_active_map_edit(original_window.data(), *session, id->map_number);
-    if (!edit)
-    {
-        return;
-    }
-
-    const auto refresh_original = [&]
-    {
-        if (auto *map = qobject_cast<CalibrationMaps *>(original_window->widget()); map != nullptr)
-        {
-            map->refresh();
-        }
-    };
-    const auto patch = fastecu::calibration::calculate_assignment(session->rom(), edit->spec(), edit->x_size(),
-                                                                  edit->cells(), edit->range(), text.toStdString());
-    if (!patch.has_value())
-    {
-        QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
-        return;
-    }
-    if (patch->writes.empty())
-    {
-        refresh_original();
-        show_no_change(this, patch->no_change);
-        return;
-    }
-    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), patch->writes);
-    if (!applied.has_value())
-    {
-        QMessageBox::warning(this, tr("Set value"), QString::fromStdString(applied.error().detail));
-        return;
-    }
-    refresh_original();
+    run_numeric_edit(this, tr("Set value"), *calibrationWorkspace, original_window.data(),
+                     fastecu::calibration::AssignmentEdit{.expression = text.toStdString()});
 }
 
 void MainWindow::interpolate_value(fastecu::calibration::InterpolationMode mode)
 {
-    QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
-    const auto id = fastecu::ui::parse_map_window_id(w);
-    if (!id)
-    {
-        return;
-    }
-    auto *session = calibrationWorkspace->find(id->session);
-    if (session == nullptr)
-    {
-        return;
-    }
-
-    QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
-    if (!mapTableWidget)
-    {
-        return;
-    }
-
-    auto edit = fastecu::ui::resolve_active_map_edit(w, *session, id->map_number);
-    if (!edit)
-    {
-        return;
-    }
-
-    const auto patch = fastecu::calibration::calculate_interpolation(session->rom(), edit->spec(), edit->x_size(),
-                                                                     edit->cells(), edit->range(), mode);
-    if (!patch.has_value())
-    {
-        QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
-        return;
-    }
-    if (patch->writes.empty())
-    {
-        set_maptablewidget_items();
-        show_no_change(this, patch->no_change);
-        return;
-    }
-    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), patch->writes);
-    if (!applied.has_value())
-    {
-        QMessageBox::warning(this, tr("Set value"), QString::fromStdString(applied.error().detail));
-        return;
-    }
-    set_maptablewidget_items();
+    run_numeric_edit(this, tr("Set value"), *calibrationWorkspace, ui->mdiArea->activeSubWindow(),
+                     fastecu::calibration::InterpolationEdit{.mode = mode});
 }
 
 void MainWindow::copy_value()
@@ -380,108 +291,15 @@ void MainWindow::copy_value()
     }
 }
 
-// Behavior change beyond routing through resolve_active_map_edit / calculate_paste
-// / apply_patch: pasting onto a selected axis now edits that axis (legacy
-// paste_value had no axis resolution and always wrote into the map body).
-// A second, incidental change rides along with that routing for a `y_size ==
-// 1` map specifically -- resolve_edit_target's MapBody branch applies its
-// column-offset adjustment CONDITIONALLY (only when y_size == 1), where
-// legacy paste_value applied its own `-1` column offset UNCONDITIONALLY.
-// For an ordinary 2D map these are identical; for a `y_size == 1` map,
-// legacy produced firstCol == -1 (an out-of-bounds column), where routing
-// paste through resolve_active_map_edit produces the correct 0-based column
-// instead, on the body and X-axis branches alike.
+// Pasting onto a selected axis edits that axis, and a `y_size == 1` map pastes
+// at its correct 0-based column (legacy applied an unconditional `-1` column
+// offset). The backend validates every supplied cell before clipping at the
+// target run's edges.
 void MainWindow::paste_value()
 {
-    QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
-    const auto id = fastecu::ui::parse_map_window_id(w);
-    if (!id)
-    {
-        return;
-    }
-    auto *session = calibrationWorkspace->find(id->session);
-    if (session == nullptr)
-    {
-        return;
-    }
-
-    QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
-    if (!mapTableWidget)
-    {
-        return;
-    }
-
-    auto edit = fastecu::ui::resolve_active_map_edit(w, *session, id->map_number);
-    if (!edit)
-    {
-        return;
-    }
-
-    const QString pasteString = QApplication::clipboard()->text();
-    QStringList rows = pasteString.split('\n');
-    // A terminal record delimiter does not create another numeric row.
-    // Keep interior empty rows so malformed input still rejects atomically.
-    if (pasteString.endsWith('\n'))
-    {
-        rows.removeLast();
-    }
-
-    std::vector<std::vector<std::string>> owned_rows;
-    owned_rows.reserve(static_cast<std::size_t>(rows.size()));
-    for (const auto& row : rows)
-    {
-        const QStringList columns = row.split('\t');
-        std::vector<std::string> owned_columns;
-        owned_columns.reserve(static_cast<std::size_t>(columns.size()));
-        for (const auto& column : columns)
-        {
-            owned_columns.push_back(column.toStdString());
-        }
-        owned_rows.push_back(std::move(owned_columns));
-    }
-
-    std::vector<std::vector<double>> pasted_rows;
-    pasted_rows.reserve(owned_rows.size());
-    for (const auto& row : owned_rows)
-    {
-        std::vector<double> values;
-        for (const auto& text : row)
-        {
-            const auto number = fastecu::expression::parse_finite_number(text);
-            if (!number.has_value())
-            {
-                QMessageBox::warning(this, tr("Paste value"), QString::fromStdString(number.error().detail));
-                return;
-            }
-            values.push_back(*number);
-        }
-        pasted_rows.push_back(std::move(values));
-    }
-
-    const auto spec = edit->spec();
-    const std::uint32_t x_size = edit->x_size();
-    const std::uint32_t y_size = edit->kind() == fastecu::calibration::EditTargetKind::XAxis ? 1U : spec.y_size;
-
-    const auto patch =
-        fastecu::calibration::calculate_paste(session->rom(), spec, x_size, y_size, edit->range(), pasted_rows);
-    if (!patch.has_value())
-    {
-        QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
-        return;
-    }
-    if (patch->writes.empty())
-    {
-        set_maptablewidget_items();
-        show_no_change(this, patch->no_change);
-        return;
-    }
-    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), patch->writes);
-    if (!applied.has_value())
-    {
-        QMessageBox::warning(this, tr("Set value"), QString::fromStdString(applied.error().detail));
-        return;
-    }
-    set_maptablewidget_items();
+    run_numeric_edit(
+        this, tr("Paste value"), *calibrationWorkspace, ui->mdiArea->activeSubWindow(),
+        fastecu::calibration::PasteEdit{.rows = fastecu::ui::split_paste_rows(QApplication::clipboard()->text())});
 }
 
 void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)

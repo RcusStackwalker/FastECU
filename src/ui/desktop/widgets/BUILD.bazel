@@ -101,7 +101,7 @@ qt_cc_library(
     implementation_deps = [
         ":qt_identify_launcher",
         "//src/algorithms/crypto:subaru_key_recovery",
-        "//src/algorithms/expression:checked_expression",
+        "//src/backend/calibration/session:numeric_edit_use_case",
         "//src/backend/definition:mappack_converter",
         "//src/backend/diagnostics:ssm_identify",
         "//src/backend/flash:flash_operation_request",

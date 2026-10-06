@@ -120,6 +120,8 @@ cc_library(
     srcs = ["map_element_fields.cpp"],
     hdrs = ["map_element_fields.h"],
     implementation_deps = ["//src/algorithms/expression:checked_expression"],
+    # Field resolution is internal to the numeric edit use case.
+    visibility = ["//src/backend/calibration/session:__pkg__"],
     deps = [
         ":calibration_session",
         "//src/backend/calibration:map_edit",
