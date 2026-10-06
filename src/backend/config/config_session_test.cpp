@@ -392,18 +392,16 @@ TEST(ConfigSessionSave, ASelectionSurvivesARestart)
     EXPECT_EQ(f.session.selected_vehicle()->id, "subaru-forester-v3");
 }
 
-// Known, preserved mismatch: the writer emits logfiles_directory, the reader
-// only recognizes datalog_files_directory. Do not fix it here.
-TEST(ConfigSessionSave, DatalogDirectoryDoesNotRoundTrip)
+TEST(ConfigSessionSave, DatalogDirectoryRoundTrips)
 {
     ConfigSessionFixture f;
     ASSERT_THAT(f.initialize(), IsOk());
     f.session.settings().datalog_files_directory = "/elsewhere/";
     ASSERT_THAT(f.session.save(), IsOk());
-    EXPECT_THAT(f.text(f.paths.config_file), HasSubstr(R"(name="logfiles_directory")"));
+    EXPECT_THAT(f.text(f.paths.config_file), HasSubstr(R"(name="datalog_files_directory")"));
 
     ASSERT_THAT(f.initialize(), IsOk());
-    EXPECT_EQ(f.session.settings().datalog_files_directory, f.paths.datalog_files_directory);
+    EXPECT_EQ(f.session.settings().datalog_files_directory, "/elsewhere/");
 }
 
 // --- selection ------------------------------------------------------------

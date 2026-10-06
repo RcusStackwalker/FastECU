@@ -62,10 +62,6 @@ coordinators retain their UI roles; see the relevant
   omit a timed-out read chunk and continue, returning a gapped buffer. The
   `0x4000`–`0xBFFF` write guard checks only the start, so data may extend beyond
   the window. Resolve both before wiring callers; never relax the guard.
-- **Configuration directory persistence.** The writer's `logfiles_directory`
-  versus the reader's `datalog_files_directory` prevents round-tripping the datalog
-  directory. `ConfigSessionSave.DatalogDirectoryDoesNotRoundTrip` pins it; fix
-  with explicit read/write compatibility tests.
 
 ### P1: Resolve the wrx02 address predicate
 

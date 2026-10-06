@@ -177,11 +177,8 @@ TEST(SaveAppConfig, NormalizesTrailingSlashesOnThreeDirectoryFields)
     EXPECT_EQ(saved->datalog_files_directory, "datalogs/");
 }
 
-TEST(SaveAppConfigThenLoadAppConfig, DatalogDirectoryDoesNotRoundTrip)
+TEST(SaveAppConfigThenLoadAppConfig, DatalogDirectoryRoundTrips)
 {
-    // CONFIRMED EXISTING BUG (file_actions.cpp:1076 vs :883): save writes the
-    // value under XML tag "logfiles_directory"; load only recognizes
-    // "datalog_files_directory". This is preserved, not fixed.
     InMemoryFileRepository repo;
     ConfigPaths paths = test_paths();
     AppConfig config;
@@ -191,7 +188,7 @@ TEST(SaveAppConfigThenLoadAppConfig, DatalogDirectoryDoesNotRoundTrip)
     auto reloaded = load_app_config(paths, repo);
 
     ASSERT_THAT(reloaded, fastecu::testing::IsOk());
-    EXPECT_NE(reloaded->datalog_files_directory, "custom_datalogs/");
+    EXPECT_EQ(reloaded->datalog_files_directory, "custom_datalogs/");
 }
 
 TEST(SaveAppConfigThenLoadAppConfig, EveryOtherFieldRoundTrips)
