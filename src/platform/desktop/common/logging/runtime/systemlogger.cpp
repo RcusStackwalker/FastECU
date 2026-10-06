@@ -23,7 +23,6 @@ SystemLogger::~SystemLogger()
 void SystemLogger::run()
 {
     emit LOG_I("SystemLogger started...", true, true);
-    delay(1000);
 }
 
 void SystemLogger::enable_log_write_to_file(bool enable)
@@ -132,13 +131,4 @@ bool SystemLogger::write_syslog(const QString& msg)
     syslog_file_outstream.flush();
 
     return true;
-}
-
-void SystemLogger::delay(int timeout)
-{
-    QTime dieTime = QTime::currentTime().addMSecs(timeout);
-    while (QTime::currentTime() < dieTime)
-    {
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 1);
-    }
 }

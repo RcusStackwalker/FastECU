@@ -493,8 +493,7 @@ TEST_F(DesktopCompositionTest, enablingFileLoggingWritesASyslogFile)
     ASSERT_TRUE(contents.contains("debug to file"));
 }
 
-// SystemLogger::run() spends its first second in a processEvents loop on
-// the syslog thread; the destructor must still stop and join it promptly.
+// The destructor must stop and join the syslog thread promptly.
 TEST_F(DesktopCompositionTest, destructionRightAfterConstructionDoesNotHang)
 {
     QTemporaryDir root;
