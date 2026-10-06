@@ -16,7 +16,7 @@
 #include "src/backend/flash/can_flash_uds_channel.h"
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
-#include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/mock_clock.h"
 #include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
@@ -111,9 +111,9 @@ TEST(DensoIso15765CanCommonTest, DecryptInvertsEncrypt)
 
 using namespace std::chrono_literals;
 using fastecu::ErrorKind;
-using fastecu::FakeClock;
 using fastecu::LogLevel;
 using fastecu::ManualCancellationToken;
+using fastecu::MockClock;
 using fastecu::RecordingClock;
 using fastecu::RecordingEventSink;
 using fastecu::Status;
@@ -221,24 +221,6 @@ TEST(DensoIso15765CanCommonTest, SecurityAccessPropagatesCancellation)
     EXPECT_EQ(f.transport.writesConsumed(), 1U);
 }
 
-// Stops the operator's token during the first sleep, which is the settle that
-// follows the erase trigger.
-class CancellingClock : public FakeClock
-{
-  public:
-    explicit CancellingClock(ManualCancellationToken& token) : token_(token)
-    {
-    }
-    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
-    {
-        token_.cancel();
-        return FakeClock::sleep(duration, cancellation);
-    }
-
-  private:
-    ManualCancellationToken& token_;
-};
-
 const bytes::Bytes kSetupPdu{0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00};
 
 void scriptEraseSetup(ScriptedCanFlashTransport& transport)
@@ -312,7 +294,11 @@ TEST(DensoIso15765CanCommonTest, ErasePollingStopsAfter20ReceivesAndNeverResends
 TEST(DensoIso15765CanCommonTest, EraseCancellationAfterTriggerStopsPolling)
 {
     CommonFixture f;
-    CancellingClock clock(f.cancellation);
+    // Stop the operator's token during the settle sleep that follows the trigger.
+    ::testing::NiceMock<MockClock> clock;
+    EXPECT_CALL(clock, sleep)
+        .WillOnce(
+            ::testing::DoAll(::testing::InvokeWithoutArgs([&] { f.cancellation.cancel(); }), clock.sleep_on_fake()));
     uds::UdsClient client(f.channel, clock, f.events);
     CanExecutorContext ctx{f.cancellation, f.events, clock, client, f.channel};
     scriptEraseSetup(f.transport);

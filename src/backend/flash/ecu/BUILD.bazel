@@ -1642,7 +1642,7 @@ fastecu_portable_gtest(
         "//src/backend/flash:can_flash_uds_channel",
         "//src/backend/flash/testing:scripted_flash_transports",
         "//src/backend/ports",
-        "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:mock_clock",
         "//src/backend/ports/testing:recording_clock",
         "//src/backend/ports/testing:recording_event_sink",
         "//src/backend/ports/testing:result_matchers",
