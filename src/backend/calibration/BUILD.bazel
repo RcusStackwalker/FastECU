@@ -72,3 +72,27 @@ cc_library(
         "//src/backend/ports",
     ],
 )
+
+cc_library(
+    name = "numeric_map_edit",
+    srcs = ["numeric_map_edit.cpp"],
+    hdrs = ["numeric_map_edit.h"],
+    implementation_deps = [
+        ":scaling_internal",
+        "//src/algorithms/expression:checked_expression",
+    ],
+    deps = [
+        ":decoded_map",
+        ":map_edit",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "numeric_map_edit_test",
+    srcs = ["numeric_map_edit_test.cpp"],
+    deps = [
+        ":numeric_map_edit",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
