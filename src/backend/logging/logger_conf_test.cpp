@@ -178,7 +178,7 @@ TEST(WriteSelection, UpdatesAnExistingEcuElement)
 TEST(WriteSelection, RejectsADocumentWhoseRootIsNotConfig)
 {
     // Appending <config> beside an existing root element would emit two
-    // document elements. Refuse instead -- the legacy writer left such a file
+    // document elements. Refuse instead -- such a file is left
     // untouched, and non-well-formed output is worse than no write at all.
     LoggerSelection selection;
     selection.protocol = "SSM";
@@ -245,10 +245,10 @@ TEST(WriteSelection, AppendsANewEcuElementAndKeepsTheExistingOne)
 }
 
 // The shipped resources/shared/config/logger.cfg opens with an XML
-// declaration (QDom's own output, single-quoted) and provisioning.cpp copies
+// declaration (single-quoted) and provisioning.cpp copies
 // it into every user's config dir -- so every existing conf carries one and a
 // save that dropped it would silently edit every user's file. The contract,
-// verified against QDomDocument::setContent + save(ts, 4): preserve a
+// preserve a
 // declaration that is present, never synthesize one that is not.
 TEST(WriteSelection, PreservesAnExistingXmlDeclaration)
 {
@@ -264,8 +264,8 @@ TEST(WriteSelection, PreservesAnExistingXmlDeclaration)
     const auto written = write_selection(view(kConfWithDeclaration), "ECUID1", selection, "conf.xml");
     ASSERT_THAT(written, fastecu::testing::IsOk());
 
-    // pugixml re-emits attribute values with double quotes where QDom used
-    // single quotes. That is a cosmetic requoting of an equivalent
+    // pugixml re-emits attribute values with double quotes where the shipped
+    // file uses single quotes. That is a cosmetic requoting of an equivalent
     // declaration, not data loss -- what matters is that the declaration is
     // still there, with the same version and encoding, ahead of <config>.
     const std::string xml = text_of(*written);
@@ -326,75 +326,53 @@ TEST(WriteSelection, KeepsAnUpdatedEcuInItsOriginalPosition)
     EXPECT_LT(added_xml.find("THIRD"), added_xml.find("FOURTH"));
 }
 
-// TRANSITIONAL (5d-5b): pins pugixml's output against the bytes
-// QDomDocument::save(output, 4) produced, captured by Task 1's
-// logger_conf_writes_four_space_indented_xml
-// (.superpowers/sdd/2026-08-06-step5d5b-logger-definition-glue/task-1-report.md).
-// That test drove read_logger_conf's ECU-not-found branch with a starting
-// document of `<config><logger></logger></config>`, a logger definition
-// carrying log_value_protocol = {"SSM"} and a single enabled parameter
-// "P1" and switch "S1" (log_value_id/log_value_enabled and
-// log_switch_id/log_switch_enabled each of length 1), and ecu_id
-// "ECUID1". That seeding walk fills dashboard_log_value_id AND
-// lower_panel_log_value_id from the same enabled-parameters loop (see
-// file_actions.cpp:972-986), so both selections end up {"P1"} -- this
-// fixture reproduces that input exactly via write_selection's signature
-// by setting protocol/gauge_ids/lower_panel_ids/switch_ids directly,
-// which is the input write_selection actually consumes; the
-// default_selection() walk that would normally produce that
-// LoggerSelection is exercised separately above.
-//
-// This is the only place the old writer is treated as authoritative. The
-// follow-up issue replaces it with a pugixml-generated golden plus the
-// round-trip assertion above; the four-space indent choice itself stays.
-TEST(WriteSelection, ReproducesTheFourSpaceQDomIndent)
+// The writer owns the serialization format: four spaces per level, no tabs,
+// pugixml's ` />` self-closing form, no synthesized declaration and a single
+// trailing newline. The content is verified by reading the output back.
+TEST(WriteSelection, WritesFourSpaceIndentedXmlThatReadsBack)
 {
     LoggerSelection selection;
     selection.protocol = "SSM";
     selection.gauge_ids = {"P1"};
-    selection.lower_panel_ids = {"P1"};
+    selection.lower_panel_ids = {"P2"};
     selection.switch_ids = {"S1"};
 
     const auto written = write_selection(view("<config><logger></logger></config>"), "ECUID1", selection, "conf.xml");
     ASSERT_THAT(written, fastecu::testing::IsOk());
 
-    // Task 1's captured QDom golden, verbatim (537 bytes): no XML
-    // declaration, four-space indent per level, no tabs, no space before a
-    // self-closing tag's `/>`, single trailing newline. write_selection's
-    // post-serialization " />\n" -> "/>\n" fixup (logger_conf.cpp) is what
-    // makes this a literal match despite pugixml's serializer always writing
-    // that space itself.
-    constexpr std::string_view kQDomGolden = "<config>\n"
-                                             "    <logger>\n"
-                                             "        <ecu id=\"ECUID1\">\n"
-                                             "            <protocol id=\"SSM\">\n"
-                                             "                <parameters>\n"
-                                             "                    <gauges>\n"
-                                             "                        <parameter id=\"P1\" name=\"\"/>\n"
-                                             "                    </gauges>\n"
-                                             "                    <lower_panel>\n"
-                                             "                        <parameter id=\"P1\" name=\"\"/>\n"
-                                             "                    </lower_panel>\n"
-                                             "                </parameters>\n"
-                                             "                <switches>\n"
-                                             "                    <switch id=\"S1\" name=\"\"/>\n"
-                                             "                </switches>\n"
-                                             "            </protocol>\n"
-                                             "        </ecu>\n"
-                                             "    </logger>\n"
-                                             "</config>\n";
-
     const std::string xml = text_of(*written);
-    EXPECT_EQ(xml, kQDomGolden);
+    EXPECT_THAT(xml, StartsWith("<config>\n    <logger>\n        <ecu id=\"ECUID1\">\n"));
+    EXPECT_THAT(xml, HasSubstr("\n                        <parameter id=\"P1\" name=\"\" />\n"));
+    EXPECT_THAT(xml, Not(HasSubstr("\t")));
+    EXPECT_THAT(xml, Not(HasSubstr("<?xml")));
+    EXPECT_TRUE(xml.ends_with("</config>\n"));
+    EXPECT_FALSE(xml.ends_with("\n\n"));
+
+    const auto read = read_selection(*written, "ECUID1", "conf.xml");
+    ASSERT_THAT(read, fastecu::testing::IsOk());
+    ASSERT_TRUE(read->has_value());
+    EXPECT_EQ(**read, selection);
 }
 
-// Fix round 1, finding 1: document.save() re-serializes the whole DOM, so an
-// untouched sibling <ecu>'s self-closing elements get pugixml's space before
-// `/>` too, not just the rebuilt subtree -- proving the fixup above is not
-// scoped to the <ecu> this call touches.
-TEST(WriteSelection, StripsTheSelfClosingSpaceFromUntouchedSiblingsToo)
+TEST(WriteSelection, IsIdempotentWhenWritingTheSameSelectionTwice)
 {
-    constexpr std::string_view kTwoEcus = R"(<config>
+    LoggerSelection selection;
+    selection.protocol = "SSM";
+    selection.gauge_ids = {"P1"};
+    selection.switch_ids = {"S1"};
+
+    const auto first = write_selection(view("<config><logger/></config>"), "ECUID1", selection, "conf.xml");
+    ASSERT_THAT(first, fastecu::testing::IsOk());
+    const auto second = write_selection(*first, "ECUID1", selection, "conf.xml");
+    ASSERT_THAT(second, fastecu::testing::IsOk());
+    EXPECT_EQ(text_of(*second), text_of(*first));
+}
+
+// document.save() re-serializes the whole DOM, so an untouched sibling <ecu>
+// must survive a write to another ECU with its selection intact.
+TEST(WriteSelection, KeepsAnUntouchedSiblingEcuReadable)
+{
+    constexpr std::string_view kOneEcu = R"(<config>
     <logger>
         <ecu id="ECUID1">
             <protocol id="SSM">
@@ -415,12 +393,18 @@ TEST(WriteSelection, StripsTheSelfClosingSpaceFromUntouchedSiblingsToo)
     selection.protocol = "SSM";
     selection.gauge_ids = {"Y1"};
 
-    const auto written = write_selection(view(kTwoEcus), "ECUID2", selection, "conf.xml");
+    const auto written = write_selection(view(kOneEcu), "ECUID2", selection, "conf.xml");
     ASSERT_THAT(written, fastecu::testing::IsOk());
 
-    const std::string xml = text_of(*written);
-    EXPECT_THAT(xml, HasSubstr("<parameter id=\"Z9\" name=\"untouched\"/>"));
-    EXPECT_THAT(xml, Not(HasSubstr("untouched\" />")));
+    const auto sibling = read_selection(*written, "ECUID1", "conf.xml");
+    ASSERT_THAT(sibling, fastecu::testing::IsOk());
+    ASSERT_TRUE(sibling->has_value());
+    EXPECT_THAT((*sibling)->gauge_ids, ElementsAre("Z9"));
+
+    const auto added = read_selection(*written, "ECUID2", "conf.xml");
+    ASSERT_THAT(added, fastecu::testing::IsOk());
+    ASSERT_TRUE(added->has_value());
+    EXPECT_THAT((*added)->gauge_ids, ElementsAre("Y1"));
 }
 
 // Fix round 1, finding 2: parse_default excludes comments; without

@@ -20,9 +20,9 @@ Result<std::optional<LoggerSelection>> read_selection(bytes::ByteView conf, std:
                                                       std::string_view source);
 
 // Updates `ecu_id`'s <ecu> element in place, or appends one if absent, and
-// returns the whole re-serialized document. Four-space indented to match what
-// QDomDocument::save(output, 4) wrote, so an existing conf file does not
-// reflow wholesale on first write.
+// returns the whole re-serialized document. Four-space indented so an existing
+// conf file does not reflow wholesale on first write. Self-closing tags are
+// written with pugixml's ` />` form.
 Result<bytes::Bytes> write_selection(bytes::ByteView conf, std::string_view ecu_id, const LoggerSelection& selection,
                                      std::string_view source);
 

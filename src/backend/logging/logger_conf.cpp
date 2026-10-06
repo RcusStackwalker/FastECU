@@ -15,9 +15,8 @@ using namespace std::literals::string_view_literals;
 namespace
 {
 
-// QDomDocument::save(output, 4) wrote four spaces per level. pugixml defaults
-// to a tab; matching the old indent spares every existing user a one-time
-// whole-file reflow on the first write.
+// Four spaces per level; pugixml defaults to a tab. Existing user confs are
+// four-space indented, so this keeps a save from reflowing the whole file.
 constexpr const char *kIndent = "    ";
 
 constexpr std::size_t kGaugeCap = 15;
@@ -154,10 +153,9 @@ Result<bytes::Bytes> write_selection(bytes::ByteView conf, std::string_view ecu_
         // rejects a buffer with no element at all (status_no_document_element,
         // parse_fragment is not set), so a successful load() always leaves
         // one. Appending <config> here would emit two document elements:
-        // non-well-formed XML that QDom, and every conformant parser, refuses
+        // non-well-formed XML that every conformant parser refuses
         // to re-read even though pugixml is lenient enough to load it back.
-        // The legacy writer left such a file untouched; refuse rather than
-        // corrupt it.
+        // Refuse rather than corrupt it.
         return fail(ErrorKind::InvalidConfig, std::format("{}: root element is <{}>, expected <config>", source,
                                                           document.document_element().name()));
     }
@@ -196,70 +194,17 @@ Result<bytes::Bytes> write_selection(bytes::ByteView conf, std::string_view ecu_
     append_ids(protocol.append_child("switches"), "switch", selection.switch_ids);
 
     std::ostringstream output;
-    // The XML-declaration fidelity contract, established empirically against
-    // QDomDocument (setContent + save(ts, 4)): an existing <?xml ...?>
-    // declaration is PRESERVED, and one is NEVER synthesized when the input
-    // has none. Two things implement exactly that here, and both are
-    // required:
+    // An existing <?xml ...?> declaration is preserved and one is never
+    // synthesized when the input has none. Both halves are required:
     //   - load()'s pugi::parse_declaration keeps the declaration as a real
-    //     node_declaration in the DOM. pugixml's node_output writes such a
-    //     node like any other, independent of the save flags.
-    //   - format_no_declaration suppresses only pugixml's *synthesized*
-    //     prologue -- xml_document::save() emits that solely under
-    //     `!(flags & format_no_declaration) && !has_declaration(_root)`, so
-    //     the flag cannot swallow a parsed declaration node.
-    // Dropping either half regresses a real file: resources/shared/config/
-    // logger.cfg opens with a declaration and provisioning.cpp copies it into
-    // every user's config dir, so without parse_declaration the first save
-    // silently deletes it; without format_no_declaration a conf that never had
-    // one grows a prologue QDom would not have written.
-    // pugixml re-emits the declaration's attribute values double-quoted where
-    // QDom wrote them single-quoted; that requoting is cosmetic and the only
-    // byte that changes when the real shipped logger.cfg round-trips here.
-    // (An earlier revision of this comment inferred from Task 1's captured
-    // golden that QDom "never wrote a prologue for these documents". That was
-    // false: the golden has none because its *input* had none.)
+    //     node_declaration, which save() writes like any other node.
+    //   - format_no_declaration suppresses only pugixml's synthesized prologue.
+    // resources/shared/config/logger.cfg opens with a declaration and
+    // provisioning.cpp copies it into every user's config dir, so dropping
+    // either half would edit every user's file on first save. pugixml re-emits
+    // the declaration's attribute values double-quoted; that requoting is cosmetic.
     document.save(output, kIndent, pugi::format_indent | pugi::format_no_declaration, pugi::encoding_utf8);
-    std::string xml = std::move(output).str();
-
-    // pugixml's node_output_start unconditionally writes a space before a
-    // self-closing tag's `/>` unless format_raw is set, and format_raw also
-    // zeroes indent_length -- so the space can't be dropped via any save()
-    // flag combination without losing the four-space indent above. Since
-    // document.save() re-serializes the *entire* DOM (pugixml does not
-    // preserve a loaded node's original formatting), every self-closing
-    // element in the file gets this extra space, not just the <ecu> subtree
-    // this function rebuilds -- which would reflow every leaf line of an
-    // existing conf on first write, exactly what the four-space indent above
-    // exists to avoid. Strip it back out post-serialization instead.
-    //
-    // The exact 4-byte needle " />\n" is safe to replace unconditionally:
-    // under format_indent every empty-element tag is newline-terminated, so
-    // a real tag end always looks like `.../>` followed immediately by '\n'.
-    // pugixml does not escape '>' inside attribute values (its
-    // chartypex_table marks '>' unescaped there), so a literal `name="x />
-    // y"` value could contain the 3-byte " />" -- but never followed
-    // directly by an unescaped '\n', because pugixml *does* escape '\n'
-    // inside attribute values (emitted as "&#10;"). Outside attributes, in
-    // PCDATA, '>' is escaped to "&gt;", so " />" can't occur unescaped there
-    // either. So " />\n" can only ever be a tag terminator, never attribute
-    // or PCDATA data.
-    //
-    // Caveat: load()'s parse_comments | parse_pi | parse_doctype flags (see
-    // above) mean comment and PI text round-trips verbatim -- pugixml does
-    // not apply the attribute/PCDATA escaping rules to it. A user's comment
-    // whose text happens to contain the literal sequence " />\n" would have
-    // that one space stripped from the comment body. That is a cosmetic
-    // edit to comment text, not data loss, and is strictly better than the
-    // alternative of dropping the comment outright, which is what the
-    // pre-fix parse flags did.
-    constexpr std::string_view kSelfCloseWithSpace = " />\n";
-    constexpr std::string_view kSelfCloseNoSpace = "/>\n";
-    for (std::size_t pos = xml.find(kSelfCloseWithSpace); pos != std::string::npos;
-         pos = xml.find(kSelfCloseWithSpace, pos + kSelfCloseNoSpace.size()))
-    {
-        xml.replace(pos, kSelfCloseWithSpace.size(), kSelfCloseNoSpace);
-    }
+    const std::string xml = std::move(output).str();
 
     return bytes::Bytes(xml.begin(), xml.end());
 }
