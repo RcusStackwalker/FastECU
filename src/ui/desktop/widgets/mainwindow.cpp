@@ -5,7 +5,6 @@
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 #include "src/ui/desktop/calibration/qt_calibration_interaction.h"
 #include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
-#include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/ui/desktop/connection/connection_coordinator.h"
 #include "src/ui/desktop/widgets/qt_identify_launcher.h"
 #include "src/ui/desktop/calibration/rom_info.h"
@@ -114,14 +113,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     identify_launcher_ = std::make_unique<fastecu::ui::QtIdentifyLauncher>(
         [this] { return std::make_unique<fastecu::diagnostics::SerialDiagnosticLink>(&connection->facade()); },
-        [this]() -> std::unique_ptr<fastecu::IClock>
-        {
-            if (services_.make_clock)
-            {
-                return services_.make_clock();
-            }
-            return std::make_unique<QtClock>();
-        },
+        services_.make_clock,
         [this](fastecu::LogLevel level, const QString& message)
         {
             if (level == fastecu::LogLevel::Warning)

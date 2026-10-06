@@ -158,5 +158,6 @@ MainWindowServices DesktopComposition::services()
         .connection = *connection_,
         .remote = remote_peer_,
         .logging_engine = *logging_engine_,
+        .make_clock = [] { return std::make_unique<QtClock>(); },
     };
 }

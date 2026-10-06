@@ -80,6 +80,7 @@
 #include "src/backend/checksum/dispatch.h"
 #include "src/backend/config/catalog.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/ui/desktop/calibration/calibration_operation_coordinator.h"
 #include "src/ui/desktop/config_fields.h"
@@ -654,7 +655,8 @@ struct TestServices
     FakeBackend *fake = adapter.fake(); // null if the fake backend failed to start
     fastecu::ui::RemotePeer remote_peer;
     fastecu::desktop::logging::LoggingEngine logging_engine;
-    std::function<std::unique_ptr<fastecu::IClock>()> make_clock; // empty: real clock
+    std::function<std::unique_ptr<fastecu::IClock>()> make_clock{[]() -> std::unique_ptr<fastecu::IClock>
+                                                                 { return std::make_unique<QtClock>(); }};
 };
 
 } // namespace
