@@ -1617,7 +1617,11 @@ cc_library(
     name = "denso_iso15765_can_common",
     srcs = ["denso_iso15765_can_common.cpp"],
     hdrs = ["denso_iso15765_can_common.h"],
-    implementation_deps = ["//src/backend/flash:can_flash_uds_channel"],
+    implementation_deps = [
+        "//src/algorithms/protocol/uds",
+        "//src/algorithms/protocol/uds:uds_service_ids",
+        "//src/backend/flash:can_flash_uds_channel",
+    ],
     deps = [
         ":uds_client_exchange_common",
         "//src/algorithms/protocol",
@@ -1635,6 +1639,14 @@ fastecu_portable_gtest(
         "//src/algorithms/protocol",
         "//src/algorithms/protocol/ssm",
         "//src/algorithms/protocol/testing:byte_matchers",
+        "//src/backend/flash:can_flash_uds_channel",
+        "//src/backend/flash/testing:scripted_flash_transports",
+        "//src/backend/ports",
+        "//src/backend/ports/testing:mock_clock",
+        "//src/backend/ports/testing:recording_clock",
+        "//src/backend/ports/testing:recording_event_sink",
+        "//src/backend/ports/testing:result_matchers",
+        "//src/backend/protocol/uds:uds_client",
         "@googletest//:gtest",
     ],
 )

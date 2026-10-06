@@ -31,16 +31,18 @@ namespace fastecu::flash
 // The decrypt table remains valid for the Wave-4 normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// These applicable tables are the only shared artifact that is pure data.
-// Everything else that looks alike -- the
-// connect/probe shapes, the erase and reflash routines, the kernel jump, the
-// stop and close-block retry loops, the checksum verify -- differs between
-// the families in read timeouts, retry counts, pre-loop read counts, image
-// base addresses, and, most importantly, in how strictly a bad response is
-// treated. Those differences are the safety-relevant part of each family:
-// collapsing them behind a parameterized common routine would make a future
-// reader believe these are the same protocol when they are not. They stay in
-// their own executors deliberately.
+// Beyond these tables, the common module shares three narrow operations: the
+// SecurityAccess seed/key exchange and the erase flow (all four
+// Denso ISO-15765 bootloader dialect executors) and the N83M in-car opening exchange run (the two N83M executors
+// only; its 0x7E1 request asks for session 0x63, where the SH-family runs send
+// 0x03). Everything else that looks alike -- the connect/probe shapes, the
+// reflash routines, the kernel jump, the stop and close-block retry loops, the
+// checksum verify -- differs between the families in read timeouts, retry
+// counts, pre-loop read counts, image base addresses, and, most importantly, in
+// how strictly a bad response is treated. Those differences are the
+// safety-relevant part of each family: collapsing them behind a parameterized
+// common routine would make a future reader believe these are the same
+// protocol when they are not. They stay in their own executors deliberately.
 //
 // Scope note: the index transformation these tables are paired with is NOT
 // here. It is not specific to this cluster -- it was spelled out at fourteen
@@ -123,5 +125,29 @@ Result<bytes::Bytes> tolerant_probe(const CanExecutorContext& ctx, bytes::ByteVi
 // so the channel's response id is never consulted.
 Status fire_and_forget(const CanExecutorContext& ctx, ICanFlashTransport& can, std::uint32_t request_id,
                        bytes::ByteView pdu, std::chrono::milliseconds timeout);
+
+// The bootloader dialect's SecurityAccess exchange: request the level-0x61 seed, derive the
+// key from its four payload bytes with denso_seed_key, send it at level 0x62.
+// Both exchanges are fatal on a rejected, absent or mismatched reply, and a
+// seed reply with fewer than four seed bytes fails before any key is sent.
+// Both read with a single 2000 ms read_timeout; pending replies keep the UDS
+// client's own pending timeout and are re-read, never re-sent.
+Status denso_security_access(const CanExecutorContext& ctx);
+
+// The bootloader dialect's flash erase: RequestDownload with `request_download_setup_pdu`
+// (the executor builds it, since it also builds the read-path setup), then the
+// erase routine trigger, then up to twenty re-reads for the 71 01 02 success
+// reply. The trigger is sent once and never re-sent while polling. The setup
+// reply must start 20 01 05 or the trigger is never sent. Setup and polling
+// both read at 500 ms, with a 500 ms sleep after the trigger and after each
+// unsuccessful poll.
+Status denso_iso15765_erase(const CanExecutorContext& ctx, bytes::ByteView request_download_setup_pdu);
+
+// The N83M 1.5M and 4M in-car arms' opening run of ten session, DTC and
+// communication-control requests across 0x7A2, 0x7E0, 0x7DF, 0x7E1 and 0x7B0,
+// each read at 200 ms and discarded. Its 0x7E1 request asks for session 0x63;
+// the SH72531 and SH72543 diesel in-car arms send 0x03 there and keep their own
+// runs.
+Status n83m_in_car_fire_and_forget(const CanExecutorContext& ctx, ICanFlashTransport& can);
 
 } // namespace fastecu::flash

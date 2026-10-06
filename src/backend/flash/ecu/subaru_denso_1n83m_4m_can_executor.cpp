@@ -80,36 +80,17 @@ constexpr bytes::Byte kSessionInCarOpen = 0x63; // in-car "session open" subfunc
 constexpr bytes::Byte kSessionBench = 0x43;     // bench programming session
 constexpr bytes::Byte kSessionBenchJump = 0x42; // bench jump to on-board kernel
 constexpr bytes::Byte kSessionInCarJump = 0x62; // in-car jump to on-board kernel
-// Sent to 0x7A2 only (line 385); legacy names it by its value alone, and
-// nothing in the source says what the addressed module does with it.
-constexpr bytes::Byte kSessionVendorC0 = 0xC0;
-
-// SecurityAccess subfunctions: ISO 14229-1 pairs an odd requestSeed with the
-// next even sendKey for the same level. This family uses level 0x61/0x62, not
-// the 0x01/0x02 level uds_service_ids.h names.
-constexpr bytes::Byte kSecurityAccessRequestSeed = 0x61;
-constexpr bytes::Byte kSecurityAccessSendKey = 0x62;
-
 // Positive-response service ids for the two SIDs this file inspects without
 // going through UdsClient (which does the SID + 0x40 arithmetic itself).
 constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl + 0x40;   // 0x50
 constexpr bytes::Byte kReadDataByIdentifierReply = uds::kSidReadDataByIdentifier + 0x40; // 0x62
 constexpr bytes::Byte kRequestDownloadReply = uds::kSidRequestDownload + 0x40;           // 0x74
 constexpr bytes::Byte kRequestUploadReply = uds::kSidRequestUpload + 0x40;               // 0x75
-constexpr bytes::Byte kRoutineControlReply = uds::kSidRoutineControl + 0x40;             // 0x71
-
-// ISO 14229-1 services used only by the in-car arm's fire-and-forget run
-// (legacy lines 379-498). Kept local per uds_service_ids.h's rule that a
-// value no other family in that header's list sends stays with its own
-// executor.
-constexpr bytes::Byte kSidControlDtcSetting = 0x85;    // ISO 14229-1
-constexpr bytes::Byte kSidCommunicationControl = 0x28; // ISO 14229-1
 
 // Routine identifier for both the erase (0x02 0x01) and the checksum verify
 // (0x02 0x02) routines; vendor-assigned, so it stays here rather than in the
 // shared UDS header.
 constexpr bytes::Byte kRoutineIdHigh = 0x02;
-constexpr bytes::Byte kRoutineErase = 0x01;
 constexpr bytes::Byte kRoutineChecksum = 0x02;
 
 // RequestDownload/RequestUpload format bytes: 0x04 dataFormatIdentifier and
@@ -123,14 +104,6 @@ constexpr bytes::Byte kAddressAndLengthFormat = 0x44;
 // the plan image is this address.
 constexpr std::uint32_t kImageStart = 0x08F9C000;
 constexpr std::uint32_t kPageSize = 0x100;
-
-// Additional CAN request ids the in-car arm addresses (legacy lines 379-498).
-// 0x7DF is ISO 15765-4's functional-broadcast id; the other three are
-// physical ids of other modules, which legacy names only by their numbers.
-constexpr std::uint32_t kInCarIdA2 = 0x7a2;
-constexpr std::uint32_t kInCarIdFunctional = 0x7df;
-constexpr std::uint32_t kInCarIdE1 = 0x7e1;
-constexpr std::uint32_t kInCarIdB0 = 0x7b0;
 
 // Legacy decrypts the whole accumulated dump in one call (line 1072);
 // SsmProtocol::calculatePayload transforms independent 4-byte words, so
@@ -241,36 +214,6 @@ Status tolerant_setup(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_pr
 // reply-id check legacy does not have. The channel is still used for the
 // write, which is exactly its 4-byte-envelope job.
 
-// The seed request / seed key pair both arms share (bench lines 697-772,
-// in-car lines 500-568). Both are fatal on a mismatch and on an absent
-// reply -- neither arm's `return STATUS_ERROR` is commented out here.
-Status security_access(Ctx& ctx)
-{
-    info(ctx, "Starting seed request");
-    Result<bytes::Bytes> seed_reply =
-        fatal_query(ctx, bytes::Bytes{uds::kSidSecurityAccess, kSecurityAccessRequestSeed},
-                    bytes::Bytes{kSecurityAccessRequestSeed}, kShortPolicy, "seed request", 5);
-    if (!seed_reply.has_value())
-    {
-        return std::unexpected(seed_reply.error());
-    }
-    info(ctx, "Seed request ok");
-    // Legacy reads the four seed bytes at raw frame offsets 6-9, i.e. payload
-    // offsets 1-4 once the 4-byte envelope and the service id are stripped
-    // (lines 531-534, 731-734).
-    const bytes::Bytes key = denso_seed_key(uds::payload(*seed_reply).subspan(1, 4));
-
-    info(ctx, "Sending seed key");
-    Result<bytes::Bytes> key_reply = fatal_query(ctx, composeBe(uds::kSidSecurityAccess, kSecurityAccessSendKey, key),
-                                                 bytes::Bytes{kSecurityAccessSendKey}, kShortPolicy, "seed key");
-    if (!key_reply.has_value())
-    {
-        return std::unexpected(key_reply.error());
-    }
-    info(ctx, "Seed key ok");
-    return {};
-}
-
 // Legacy's kernel jump plus its bounded re-read loop (bench lines 776-806,
 // try_count < 50; in-car lines 631-659, try_count < 10). The loop's
 // `init_ready` flag is never read after the loop and both arms fall straight
@@ -352,36 +295,15 @@ Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
         return std::unexpected(probe.error());
     }
 
-    // Lines 379-498: ten fire-and-forget writes across four extra CAN ids.
-    // Every reply is read and discarded, so a wrong byte here is invisible
-    // on the wire without the scripted test that pins it.
-    struct Exchange
+    // Ten fire-and-forget writes across four extra CAN ids; every reply is read
+    // and discarded. The shared sequence pins each byte in its own test.
+    if (const Status sent = n83m_in_car_fire_and_forget(ctx, can); !sent.has_value())
     {
-        std::uint32_t id;
-        bytes::Bytes pdu;
-    };
-    const auto fire_and_forget_run = std::to_array<Exchange>({
-        {kInCarIdA2, {uds::kSidDiagnosticSessionControl, kSessionVendorC0}},                        // lines 379-389
-        {0x7e0, {uds::kSidDiagnosticSessionControl, kSessionInCarOpen}},                            // lines 391-401
-        {kInCarIdFunctional, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic}}, // lines 403-413
-        {kInCarIdE1, {uds::kSidDiagnosticSessionControl, kSessionInCarOpen}},                       // lines 415-425
-        {kInCarIdB0, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic}},         // lines 427-437
-        {kInCarIdB0, {kSidControlDtcSetting, 0x02}},                                                // lines 439-449
-        {kInCarIdFunctional, {kSidControlDtcSetting, 0x02}},                                        // lines 451-461
-        {kInCarIdB0, {kSidControlDtcSetting, 0x02}},                                                // lines 463-473
-        {kInCarIdFunctional, {kSidControlDtcSetting, 0x02}},                                        // lines 475-485
-        {kInCarIdFunctional, {kSidCommunicationControl, 0x03, 0x01}},                               // lines 487-498
-    });
-    for (const auto& exchange : fire_and_forget_run)
-    {
-        if (const Status sent = fire_and_forget(ctx, can, exchange.id, exchange.pdu, kShortTimeout); !sent.has_value())
-        {
-            return sent;
-        }
+        return sent;
     }
 
     // Lines 500-568: seed/key on the primary 0x7E0 pair, fatal throughout.
-    if (const Status unlocked = security_access(ctx); !unlocked.has_value())
+    if (const Status unlocked = denso_security_access(ctx); !unlocked.has_value())
     {
         return unlocked;
     }
@@ -428,7 +350,7 @@ Status connect_bench(Ctx& ctx)
     }
 
     // Lines 697-772.
-    if (const Status unlocked = security_access(ctx); !unlocked.has_value())
+    if (const Status unlocked = denso_security_access(ctx); !unlocked.has_value())
     {
         return unlocked;
     }
@@ -608,52 +530,7 @@ Result<bytes::Bytes> read_memory(Ctx& ctx, const SubaruDenso1n83m_4mCanPlan& fam
 // the tolerance is confined to read_memory's own setup pair.
 Status erase_memory(Ctx& ctx, const MemoryRegion& region)
 {
-    info(ctx, "Setting flash start & length");
-    if (Result<bytes::Bytes> setup =
-            fatal_query(ctx, setup_pdu(uds::kSidRequestDownload, region), bytes::Bytes{0x20, 0x01, 0x05},
-                        kReceivePolicy, "flash start & length setup");
-        !setup.has_value())
-    {
-        return std::unexpected(setup.error());
-    }
-
-    info(ctx, "Erasing ECU ROM");
-    // Lines 1432-1445. Sent through the channel rather than UdsClient: legacy
-    // does not read a reply here at all, and the loop below consumes the
-    // ECU's answer instead.
-    if (const Status sent = ctx.channel.send(bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart,
-                                                          kRoutineIdHigh, kRoutineErase, 0xff, 0xff, 0xff, 0xff},
-                                             ctx.cancellation);
-        !sent.has_value())
-    {
-        return sent;
-    }
-    if (const Status slept = ctx.clock.sleep(500ms, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-
-    for (int attempt = 0; attempt < 20; ++attempt)
-    {
-        Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kReceiveTimeout, ctx.cancellation);
-        if (!received.has_value())
-        {
-            return std::unexpected(received.error());
-        }
-        if (received->has_value() && received->value().size() > 2 && (**received)[0] == kRoutineControlReply &&
-            (**received)[1] == uds::kRoutineControlStart && (**received)[2] == kRoutineIdHigh)
-        {
-            info(ctx, "Flash erased! Starting flash write, do not power off!");
-            return {};
-        }
-        if (const Status slept = ctx.clock.sleep(500ms, ctx.cancellation); !slept.has_value())
-        {
-            return slept;
-        }
-    }
-
-    error(ctx, "Flash area erase failed");
-    return fail(ErrorKind::BadResponse, "flash area erase failed");
+    return denso_iso15765_erase(ctx, setup_pdu(uds::kSidRequestDownload, region));
 }
 
 // Legacy reflash_block, lines 1180-1367, called for block 1 only.

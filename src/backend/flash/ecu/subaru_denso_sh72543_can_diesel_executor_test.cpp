@@ -140,17 +140,10 @@ fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operatio
 // (generate_can_seed_key/encrypt_payload/decrypt_payload) rather than read
 // back from the executor's own translation unit, so a wrong table entry in the
 // executor fails these assertions instead of passing silently.
-constexpr std::array<std::uint16_t, 16> kSeedKeyTable{0x78B1, 0x4625, 0x201C, 0x9EA5, 0xAD6B, 0x35F4, 0xFD21, 0x5E71,
-                                                      0xB046, 0x7F4A, 0x4B75, 0x93F9, 0x1895, 0x8961, 0x3ECC, 0x862B};
 constexpr std::array<std::uint16_t, 4> kEncryptTable{0xC85B, 0x32C0, 0xE282, 0x92A0};
 constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2,
                                                             0xB, 0xF, 0x4, 0x0, 0x3, 0xB, 0x4, 0x6, 0x0, 0xF, 0x2,
                                                             0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8};
-
-bytes::Bytes seedKey(bytes::ByteView seed)
-{
-    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
-}
 
 // The executor's decrypt table is this encrypt table exactly reversed, and
 // SsmProtocol::calculatePayload's Feistel structure inverts by reversing key
@@ -163,8 +156,6 @@ bytes::Bytes toWire(bytes::ByteView plain)
     return SsmProtocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
                                          kIndexTransformation);
 }
-
-const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};
 
 // The OBK probe miss, the four non-fatal identity queries, the access-method
 // probe and the branch selector. Byte 7 of the raw 0x22 0x10 0x1D reply frame
@@ -191,10 +182,7 @@ void scriptBenchConnect(ScriptedCanFlashTransport& t)
     scriptPreliminaries(t, 0xFF);
     t.exchange(request({0x10, 0x43}), response({0x50, 0x43}));
     t.exchange(request({0x27, 0x61}), response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
-    bytes::Bytes key{0x27, 0x62};
-    const bytes::Bytes k = seedKey(kSeed);
-    key.insert(key.end(), k.begin(), k.end());
-    t.exchange(request(key), response({0x67, 0x62}));
+    t.exchange(request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), response({0x67, 0x62}));
     t.exchange(request({0x10, 0x42}), response({0x50, 0x42}));
 }
 
@@ -270,10 +258,7 @@ void scriptInCarConnect(ScriptedCanFlashTransport& t)
     t.exchange(requestTo(0x7DF, {0x28, 0x03, 0x01}), response({0x68, 0x03}));
 
     t.exchange(request({0x27, 0x61}), response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
-    bytes::Bytes key{0x27, 0x62};
-    const bytes::Bytes k = seedKey(kSeed);
-    key.insert(key.end(), k.begin(), k.end());
-    t.exchange(request(key), response({0x67, 0x62}));
+    t.exchange(request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), response({0x67, 0x62}));
 
     t.exchange(request({0x10, 0x5F}), response({0x50, 0x63}));                   // fatal on mismatch
     t.exchange(request({0x22, 0x10, 0x1D}), response({0x62, 0x10, 0x1D, 0x00})); // fatal on mismatch
@@ -352,6 +337,10 @@ TEST(SubaruDensoSh72543CanDieselExecutor, BenchReadReturnsPaddedImage)
     EXPECT_THAT(bytes::ByteView(rom).subspan(0x8000, kBlockLength), Each(0xA5)); // decrypted payload
     EXPECT_THAT(bytes::ByteView(rom).last(0x100), Each(0xFF));                   // tail pad
     EXPECT_TRUE(transport.scriptConsumed());
+    // The seed and key exchanges both read with the shared two-second timeout.
+    ASSERT_GT(transport.readTimeouts().size(), 9U);
+    EXPECT_EQ(transport.readTimeouts()[8], 2000ms);
+    EXPECT_EQ(transport.readTimeouts()[9], 2000ms);
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info,
                                            "Connecting to ECU Denso SH72543 Diesel CAN bootloader, please wait...")));
     EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Info, "Reading ROM from ECU, Denso SH72543 Diesel using CAN")));
@@ -700,6 +689,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EraseRetryExhaustionFails)
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
+    // A second trigger would have hit the end of the script and surfaced as an
+    // Internal error rather than BadResponse; the failure is the erase's own.
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Flash area erase failed")));
 }
 
 // Unlike this family's kProbeTimeout (2000ms, see the conformance suite's
