@@ -75,3 +75,16 @@ The [logging engine checklist](../checklists/logging-engine-bench-checklist.md)
 and [composition checklist](../checklists/logging-composition-bench-checklist.md)
 own hardware verification. Live reconfiguration, missing-frame polling, plain
 serial teardown, and CDBG gaps are tracked in [technical debt](../tech-debt.md#p2-logging-engine-follow-ups).
+
+## MUT/DMA protocol evidence
+
+OEM K-Line DMA activation research is held in the parent research repository,
+under the title "OEM K-Line DMA Logging — Activation Control Flow & Wire Protocol"
+(2026-06-07, Z27AG / 33520003). Search that repository by title/date for the
+original extraction; it is not a deleted FastECU-local spec.
+
+The maintained [codec sources](../../src/algorithms/protocol/mut_dma/) and
+[driver sources](../../src/backend/protocol/) describe implemented behavior.
+Static protocol extraction does not qualify the host adapter, electrical path,
+or end-to-end desktop workflow. Runtime evidence remains subject to the
+[logging checklist](../checklists/logging-engine-bench-checklist.md).

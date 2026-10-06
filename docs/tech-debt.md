@@ -1,349 +1,193 @@
 # FastECU technical debt roadmap
 
-This document tracks unresolved project-wide technical debt that affects
-testability, legibility, and structure. Completed work is intentionally removed
-instead of retained as an implementation log; use Git history and the ADRs for
-that history.
-
-The target state is:
-
-- 80% automated test coverage for maintained, non-generated application code.
-- Clear separation between UI, hardware I/O, protocol logic, and data/model code.
-- Smaller units that can be tested without a real ECU, J2534 adapter, serial port,
-  GUI dialog, or user home-directory configuration.
-- A build/test setup that makes regressions visible in CI before bench testing.
-
-## Current snapshot
-
-- FastECU is a Qt 6/C++23 desktop application. Bazel is the sole target graph for
-  the application, tests, release packaging, coverage, compile commands, and
-  clang-tidy (ADR 0001).
-- Every C++ test is a GoogleTest executable; no QtTest suite remains.
-- Tests are strongest around protocol codecs, logging, serial threading, J2534
-  bridge behavior, definition parsing, and the config, calibration and
-  map-edit use cases. Checksum families, flash workflow orchestration, and UI
-  workflows remain lightly or unevenly covered.
-- CI builds and tests on Windows, macOS, and Linux, verifies macOS/Windows
-  packages, produces coverage for SonarCloud, and runs a blocking clang-tidy
-  report over the PR's changed files.
-- The [protocol-sharing boundary](design-notes.md#share-only-proven-protocol-equivalence)
-  lives in the design notes; logging-specific gaps are under
-  "P2: Logging engine follow-ups" below.
-
-### Gazelle snapshot
-
-[ADR 0017](adr/0017-generate-bazel-targets-with-gazelle.md) is implemented:
-Gazelle generates the source lists and dependencies of the C++ library,
-binary and test targets in its scope, every C++ test is covered, and
-`scripts/gazelle_check.py` rejects a stale BUILD file or a new whole-rule
-keep. Generation itself is established, not debt to pay down further. Architectural
-boundaries, target names, visibility, platform selections and the exceptions
-documented in the ADR are intentionally hand-owned; change them as design
-decisions, not as generation cleanup.
+This document owns unresolved defects and cleanup actions. Remove resolved items;
+use [Git history](README.md#recover-completed-work-and-deleted-source-citations) for
+completed work. Recheck an item's applicability against current code before
+scheduling it. The goals are 80% coverage for maintained non-generated application
+code and reusable policy that can be tested without hardware, widgets, or user
+configuration. [Design notes](design-notes.md) own current decisions; the
+[Android roadmap](modularization-plan.md) owns native-seam milestones.
 
 ## Priorities
 
 ### P1: Separate UI from application logic
 
-The calibration and application logic already exists as portable backend
-code: configuration sessions, the calibration service, session and map-edit
-use cases, checksums, diagnostics and logging. What remains in the desktop UI
-is presentation. Write preflight, checksum interaction and Save/Save As
-sequencing live in the UI-owned `CalibrationOperationCoordinator`, whose
-closure is Qt-free and whose dialogs sit behind `ICalibrationInteraction`
-(see the [calibration design notes](reference/calibration-compatibility.md#preflight-and-correction-cancellation)).
-Connect, identify and cancel sequencing lives in the UI-owned
-`ConnectionCoordinator`, whose closure is Qt-free and whose worker sits behind
-`IIdentifyLauncher` (see the [design notes](reference/desktop-contracts.md#connection-and-identification)).
-`MainWindow` still coordinates the port-open preamble, disconnect, port
-refresh, logging selection, log views, status updates and the remaining
-dialogs, and keeps the hardware lifecycle around flash dispatch; the
-diagnostic-tools windows are set up in `src/ui/desktop/widgets/menu_actions.cpp`.
+Reusable policy still exists in UI/platform consumers. Move it in scoped PRs
+with reproductions for demonstrated defects; keep operator decisions, dialogs,
+workers, transports, and timers with their desktop owners. A Qt-free closure
+alone does not make a presentation flow backend policy.
 
-Risks:
+Remaining actions from the backend migration roadmap:
 
-- Testing the remaining presentation flows needs a live `QMainWindow` or
-  `QApplication`.
-- Widget selection (table and cell selection), dialogs and confirmations, and
-  shared UI state mutation are interleaved in central widget code with a large
-  include graph.
-- Adding a flash module or application workflow still tends to touch that
-  central UI code.
+- Move reusable calibration field resolution, patch application, and selectable
+  encoding from the UI map-edit adapter into backend calibration/session policy.
+  Preserve selection bounds, definition-less behavior, and the
+  [calibration contracts](reference/calibration-compatibility.md).
+- Finish moving logging snapshot/channel preparation and sample validation from
+  desktop adapters into backend logging; reuse the existing portable preparation
+  rather than starting a second policy implementation.
+- Extract logger configuration/model installation and selection persistence
+  orchestration from `MainWindow` into backend use cases.
+- Move CSV column resolution and serialization from UI code into backend logging.
+  Preserve [identity, formatting, and file-lifetime contracts](reference/logging-contracts.md).
+- Move reusable flash routing, preparation, prompt/stage policy into backend
+  flash workflows. Desktop code binds plans to transports/workers and renders
+  prompts; operator decisions stay outside executors. Do not unify different
+  ECU state machines merely to eliminate branches.
+- Extract BIU decoding/settings/session policy into portable diagnostics/codecs.
+  Keep BIU exchanges synchronous and timer ownership on the desktop.
+- Extract DataTerminal parsing/validation/execution into portable diagnostics.
+  Fix `delay(n)` as an ordered standalone pause for both buses. Its current
+  `split(")").at(1).split("(").at(0)` parses `delay(100)` as an empty string,
+  yielding zero milliseconds. This correction changes script timing and needs
+  explicit regression expectations; it is not a five-baud hardware unknown.
 
-Actions:
+The portable definition catalog and header policy are already in place. Do not
+retain their completed migrations as debt. Connection/calibration presentation
+coordinators retain their UI roles; see the relevant
+[desktop](reference/desktop-contracts.md) and calibration contracts.
 
-- Keep new file, protocol, and hardware logic out of `MainWindow`; route it
-  through existing backend use cases. Dialogs and
-  confirmations for write preflight and checksum correction stay in the UI;
-  post-read and checksum/save/write bench re-verification remain required
-  before release, and the logger identity corrections still await
-  [bench qualification](reference/logging-contracts.md#model-ownership-and-identity).
-- **Confirm or fix the OpenPort five-baud ASCII comparison.**
-  `five_baud_header` (`src/backend/diagnostics/obd_frames.cpp`) preserves the
-  J2534 branch's comparison of response bytes `[5]`/`[7]` (iso9141) and
-  `[8]`/`[9]` (iso14230) against the ASCII characters `'8'`/`'8'` and
-  `'8'`/`'f'` -- different offsets from the direct-serial branch's numeric
-  `0x08`/`0x08` (bytes `[1]`/`[2]`) and `0x8F` (byte `[2]`) comparison, and a
-  match only by coincidence of digit value. Confirm against a bench capture
-  whether the OpenPort firmware genuinely echoes ASCII here before changing
-  it; see the [design notes](reference/desktop-contracts.md#diagnostic-tools).
-- **Fix DataTerminal's `delay(...)` script parser.** `split(")").at(1).split("(").at(0)`
-  parses `delay(100)` to an empty string, so every scripted delay is
-  currently 0 ms (`src/ui/desktop/widgets/dataterminal.cpp`). Pinned, not fixed, in
-  step 6g because a real parse would change the timing of every existing
-  delay script; see the [design notes](reference/desktop-contracts.md#diagnostic-tools).
-- **DTC session test gaps.** `dtc_session_test.cpp` does not yet cover: the
-  clear-loop's short-frame/NRC/wrong-ID paths; a CAN-init short response or a
-  non-`0x41` CAN-init response; a fast-init read cancelled mid-flight; and
-  several `IEventSink::log` strings, which are unasserted. Not done as of
-  step 6g; add scripted `FakeDiagnosticLink` cases for each before relying on
-  this coverage for a protocol change.
-- **`mutdma::read_memory`/`write_memory` have two unresolved behaviors from
-  the `MainWindow` originals they were moved from (step 6g,
-  `//src/backend/protocol:mut_memory`), unchanged and uncalled.**
-  `read_memory` can return a gapped buffer: a chunk whose poll yields no
-  frame within its timeout contributes nothing to the output and the read
-  continues with the next chunk, silently omitting that range rather than
-  retrying or flagging it. `write_memory`'s `0x4000`-`0xBFFF` guard checks
-  only the start address, not the end of the write, so a write starting
-  inside the window can still extend past `0xBFFF`. Revisit both before
-  wiring a caller; never relax the guard.
-- **Fix or defer the `wrx02` write-path predicate (step 6b defect (a); see
-  the [design notes](tech-debt.md#p1-separate-ui-from-application-logic)).** `element_byte_address` (`src/backend/calibration/map_edit.cpp`)
-  still carries two different predicates for the `wrx02` flash-method
-  address fixup depending on its `for_write` parameter — one for reads, one
-  for writes — subtracting `0x8000` under different conditions; a cell near
-  the boundary can display one byte and write a different one. The
-  write-side predicate matches the documented `apply_flash_method_padding`
-  rule (inserting `0x8000` bytes at `0x20000` for images under `190 * 1024`;
-  see `calibration_service.h`), which suggests the read side is the wrong
-  copy, but step 6b required confirming that against a real `wrx02` definition before landing a fix rather than
-  guessing. Measurement taken while closing out step 6b: `grep -rl wrx02`
-  across both the `mmc-definitions` and `mmc-patches` corpora finds **zero**
-  ROMs anywhere that declare `wrx02` as their flash method, so there is no
-  real definition to confirm the fix against, and the fix stays deferred
-  with `PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite`
-  (`src/backend/calibration/map_edit_test.cpp`) still pinned, unflipped.
-  Landing this needs either a real `wrx02` definition surfacing later to
-  confirm which predicate is correct, or an explicit accepted-risk decision
-  to pick the write-side predicate on the padding-rule reasoning alone
-  without that confirmation.
-- When the `wrx02` defect above is resolved, confirm it also clears (or at
-  least reduces) the SonarCloud `cpp:S3776` cognitive-complexity findings on
-  `map_edit.cpp` — see "P2: Pay down the SonarCloud code-smell backlog" below;
-  don't track it twice.
+### P1: Resolve known correctness gaps
+
+- **OpenPort five-baud ASCII comparison.** `five_baud_header` checks J2534 bytes
+  `[5]`/`[7]` for iso9141 and `[8]`/`[9]` for iso14230 against `'8'`/`'8'` and
+  `'8'`/`'f'`. Direct serial checks numeric `0x08`/`0x08` at `[1]`/`[2]` and
+  `0x8F` at `[2]`. Obtain a bench capture before deciding whether the firmware
+  actually returns ASCII; do not infer the answer from the sibling branch.
+- **DTC coverage and NRC interpretation.** Audit coverage for clear-loop short
+  frames/NRCs/wrong IDs, CAN-init short/non-`0x41` responses, fast-init cancellation,
+  and event-log strings. Add missing scripted cases before changing those paths.
+  The CAN-init NRC description uses offset 3 while other ISO-15765 NRCs use 4;
+  reproduce it and distinguish a description fix from wire behavior changes.
+- **MUT memory read integrity/write bounds.** The currently uncalled helpers can
+  omit a timed-out read chunk and continue, returning a gapped buffer. The
+  `0x4000`–`0xBFFF` write guard checks only the start, so data may extend beyond
+  the window. Resolve both before wiring callers; never relax the guard.
+- **Configuration directory persistence.** The writer's `logfiles_directory`
+  versus the reader's `datalog_files_directory` prevents round-tripping the datalog
+  directory. `ConfigSessionSave.DatalogDirectoryDoesNotRoundTrip` pins it; fix
+  with explicit read/write compatibility tests.
+
+### P1: Resolve the wrx02 address predicate
+
+`element_byte_address` subtracts `0x8000` under different conditions for reads
+and writes. A boundary cell can display one byte and write another. The write
+predicate matches `apply_flash_method_padding` (insert `0x8000` bytes at
+`0x20000` for images under `190 * 1024`), suggesting the read predicate is wrong.
+
+An earlier search of the `mmc-definitions` and `mmc-patches` corpora found no
+real definition declaring `wrx02`, so that reasoning lacks definition evidence.
+Keep `PinnedDefect_Wrx02FixupDiffersBetweenReadAndWrite` pinned until a real
+`wrx02` definition establishes the correct predicate, or an explicit accepted-
+risk decision chooses the write predicate from the padding rule alone. Also
+recheck associated `map_edit.cpp` complexity findings when resolving this item.
 
 ### P1: Consolidate flash workflow orchestration
 
-Isolation is complete: every retained flash family is a portable
-`FlashPlan`/`IFlashExecutor` pair, registers with `FlashWorkflowFactory`, and
-runs through the common `FlashDialog`. Two problems remain: uneven coverage and
-duplicated orchestration in the desktop workflows.
-
-Coverage is uneven across families: some carry only the plan/executor unit
-tests, with no scripted operation-level (`FlashWorkflow` + `FlashDialog`)
-coverage.
-
 Actions:
 
-- Treat the multi-stage workflows as separate work from
-  `SingleAttemptFlashWorkflow`, which now runs every single-attempt family:
-  the EEPROM workflow's ignition-cycle and inspect-read re-attempts, the
-  Unisia Jecs M32R boot-mode workflow's staged attempts, and the
-  programming-voltage apply/remove notices.
-- Investigate converging the two remaining per-family `nonfatal_query`
-  implementations, in the Denso BEEF CAN executors
-  (`subaru_denso_sh7058_can_executor.cpp` and
-  `subaru_denso_sh7058_can_diesel_executor.cpp`), onto the shared
-  `non_fatal_query` in `uds_client_exchange_common.h`; the other ISO-15765
-  executors already wrap it. Both return the reply rather than only logging it
-  and differ from the helper, so this is behavior-changing work on
-  characterization-tested wire sequences, not a substitution.
-- For each flash family that changes, extend its `FlashPlan`/`IFlashExecutor`
-  pair rather than adding new orchestration surface.
-- Move response validation and block planning into pure byte-native helpers, in
-  line with ADR 0004, while keeping Qt conversion at file/serial boundaries.
-- Add scripted tests for handshake failure, read success, write cancellation,
-  erase/write rejection, stop requests, timeouts, and checksum mismatch before
-  changing wire behavior.
-- Do not force all ECU families into one state machine unless verified protocol
-  behavior demonstrates a stable shared abstraction.
+- Extend scripted workflow/dialog coverage where a family has only plan/executor
+  unit tests. Include handshake failure, read success, cancellation, erase/write
+  rejection, timeout, stop requests, and checksum mismatch.
+- Treat multi-stage EEPROM inspect/ignition retries, bootmode kernel/program
+  attempts, and programming-voltage notices separately from single-attempt
+  workflows. Preserve their operator and connection boundaries.
+- Investigate the two Denso BEEF CAN `nonfatal_query` implementations in
+  `subaru_denso_sh7058_can_executor.cpp` and its diesel sibling against
+  `uds_client_exchange_common.h`'s `non_fatal_query`. Their reply-returning
+  behavior differs; this is a protocol change requiring characterization,
+  not a mechanical replacement.
+- Recheck family-aware response-validator/block-planning duplication. Helpers
+  return structured byte-native results; family code retains logs, retry policy,
+  sequencing, and safety rules. Follow the
+  [sharing decision](design-notes.md#share-only-proven-protocol-equivalence).
 
 ### P1: Narrow serial and hardware interfaces
 
-Portable flash executors already receive typed transports
-(`IKlineFlashTransport`, `ICanFlashTransport` and `IMixedCanFlashTransport`), and
-`IKlineTransport`, `ICanTransport` and `ISsmTransport` give the logging,
-diagnostics and protocol code byte-native boundaries; no code under
-`src/backend` includes the serial facade. The remaining work is on the desktop
-side: the `SerialPortActions` facade, which marshals calls to a dedicated I/O
-thread, and the direct serial/J2534 implementation behind it, which still
-combines port configuration, adapter discovery, protocol mode setup, blocking
-I/O, and diagnostics in `SerialPortActionsDirect`.
+The remaining separation is inside the desktop facade/direct serial/J2534
+implementation, which combines configuration, discovery, blocking I/O, and
+adapter management. Actions:
 
-The facade is platform-only: `serial_port_actions` is visible to
-`src/platform/desktop` and the test layer alone, and adapters take it through
-`implementation_deps`. UI tests still see its headers through `FakeBackend`,
-which derives from `SerialPortActionsDirect`.
-
-Actions:
-
-- Continue separating J2534 discovery, PE-bitness/bridge lifecycle, PassThru
-  types, configuration, and message transport from higher-level serial
-  behavior in the direct implementation.
-- Keep lifecycle coverage for teardown with in-flight calls, helper-process
-  failure, timeouts, and adapter removal on each supported platform.
+- Move pure framing/checksum/header interpretation into algorithms/protocol.
+- Separate discovery, PE-bitness/bridge lifecycle, PassThru types/configuration,
+  and message transport from higher-level serial behavior.
+- Retain lifecycle coverage for teardown with in-flight calls, helper-process
+  failure, timeouts, and adapter removal on every supported platform.
 
 ### P2: Identify Subaru CAN ECUs with SSM `AA`
 
-Step 6h kept CAN identification byte-faithful: iso15765 sends UDS
-`22 F1 82` and gets an ID but no capability bits, so CAN logging never
-filters log values by what the ECU supports, and raw CAN identifies nothing
-(its legacy branch tested a protocol value no configuration sets). RomRaider
-identifies over CAN with SSM `AA` to 0x7E0 and gets `EA` plus the same
-capability bytes K-Line returns.
-
-Actions:
-
-- Capture an `AA`/`EA` exchange on a bench CAN ECU before changing anything.
-- Add an `SsmVariant` for it in `identify_ssm_ecu`, validated like SSM2, and
-  route both CAN transports to it.
-- Qualify it on the [connection bench checklist](checklists/connection-bench-checklist.md).
+Current ISO-15765 identification sends UDS `22 F1 82`, obtains an ID without
+capability bits, and cannot filter log channels by ECU support. Raw CAN identifies
+nothing. The intended SSM `AA`/`EA` exchange to `0x7E0` needs a bench capture before
+adding an `SsmVariant` and routing CAN transports to it. Validate like SSM2 and
+qualify on the [connection checklist](checklists/connection-bench-checklist.md).
 
 ### P2: Pay down the SonarCloud code-smell backlog
 
-No current totals are recorded here: earlier per-rule counts predate large
-deletions and migrations. **Obtain a fresh scan before scheduling any of it**
-(for example `sonar list issues --project RcusStackwalker_FastECU --statuses
-OPEN,CONFIRMED --format json`, 500 per page) and work from its results. The
-rules named below were where findings concentrated in earlier scans; confirm
-each still applies before acting on it.
+Obtain a successful analysis of the implementation base and export all issue
+pages before scheduling work; an issue query alone is not a new scan. Dated
+triage and [proposed designs](superpowers/specs/) are baselines, not
+current totals or authorization to implement a proposed program. Do not copy
+per-rule counts into this roadmap.
 
-No ratchet job is needed to stop the backlog growing: the project's "Sonar
-way" quality gate is Clean-as-You-Code, and its `new_maintainability_rating`
-condition already fails a PR that introduces enough new code-smell debt.
-Order the paydown by risk, not by count:
+Order cleanup by risk:
 
-- **Correctness-risk triage first.** `cpp:S1117` (shadowed declarations),
-  `cpp:S5276` (implicit narrowing) and `cpp:S5025` (raw `new`/`delete`)
-  concentrated in the hardware-facing layer, and some `S1117` messages named
-  variables that looked copy-paste-shadowed rather than intentionally reused.
-  Treat each surviving instance as a triage question, not a mechanical rename:
-  classify it cosmetic or suspicious (an outer variable's intended assignment
-  never happens); pin suspicious ones with a characterization test before
-  changing them; convert `new`/`delete` pairs scoped to one function to RAII
-  and give cross-function or cross-thread ownership a closer review.
-- **Mechanical Critical cleanup.** `cpp:S5028` (macro should be
-  `const`/`constexpr`/an enum) was concentrated in `J2534_tactrix_unix.h` and
-  `kernelcomms.h`; a pure type change with no value change.
-- **Bulk modernization.** `cpp:S6022` (`std::byte`), `cpp:S5945` (C array to
-  `std::array`/`std::vector`) and `cpp:S125` (commented-out code): fix per
-  file in one pass, folded into whichever file is already open, rather than one
-  rule across all files.
-- **Structural rules ride on existing items.** `cpp:S3776` (cognitive
-  complexity) on `map_edit.cpp` is revisited with the `wrx02` defect above.
-  Scattered `S3776`/`S134` findings stay a plain backlog; re-run the query when
-  picking up a file.
-- Duplication clusters not yet extracted: the dialog→validate→write tail of
-  the two wizards in `src/ui/desktop/definition/dialog/definition_authoring_dialog.cpp`,
-  and the transport adapters in `src/platform/desktop/common/transport/`,
-  whose read/write guards differed only by a label string and need
-  re-measuring.
-- `WriteSelection.ReproducesTheFourSpaceQDomIndent`
-  (`src/backend/logging/logger_conf_test.cpp`) pins pugixml output against
-  bytes captured from the deleted `QDomDocument::save(output, 4)` writer. It
-  was transitional, proving the logger-conf migration once. Replace it with a
-  golden regenerated from pugixml's own output plus the existing
-  `write_selection` → `read_selection` round trip; keep the four-space
-  `format_indent` setting itself.
+- Review shadowing (`S1117`), narrowing (`S5276`), and ownership (`S5025`) for
+  correctness. Characterize suspicious assignments and trace ownership across
+  exits/threads before converting allocations to RAII.
+- Audit macro modernization (`S5028`) for types, preprocessor/SDK collisions,
+  ABI, and implicit conversions. Numeric equality does not prove behavior parity.
+- Fold byte/container modernization and commented-code removal (`S6022`, `S5945`,
+  `S125`) into touched files.
+- Recheck complexity/nesting (`S3776`, `S134`) by subsystem, retaining protocol
+  outcomes. `wrx02` stays separately evidence-gated. A proposed zero-High program
+  becomes a scheduling commitment only after its own approval.
+- Remeasure duplication in definition-authoring validate/write tails and transport
+  read/write guards before extracting it.
+- Replace the transitional `WriteSelection.ReproducesTheFourSpaceQDomIndent`
+  golden with pugixml-owned output plus the write/read round trip; preserve
+  four-space indentation itself.
+
+Keep Clean-as-You-Code enforcement. Passing a new-code gate does not establish
+that old findings are resolved; avoid separate permanent ratchet machinery unless
+an actual gap is demonstrated.
 
 ### P2: Logging engine follow-ups
 
-Findings specific to the `LoggingProtocol`/`LoggingWorker`/`LoggingEngine`
-architecture. Hardware qualification is gated by the
-[logging engine bench checklist](checklists/logging-engine-bench-checklist.md); the most
-consequential open checks are:
+Hardware checks are owned by the [logging engine checklist](checklists/logging-engine-bench-checklist.md).
+The open protocol-specific evidence needs are plain-serial continuous logging,
+adapter removal/teardown, SSM per-cycle `0xA8 0x01` request-versus-stream behavior,
+and [CDBG setup/security/streaming](checklists/cdbg-can-logging-bench-checklist.md).
+The [Colt CAN checklist](checklists/colt_czt_47110032_can_bench_checklist.md) owns
+flash-worker prompt/progress qualification.
 
-1. **Plain-serial logging through `SerialIoThread`.** The backend owns
-   `QSerialPort` on its dedicated I/O thread and headless PTY coverage exists,
-   but continuous logging, adapter removal, and clean teardown still need
-   confirmation with a real non-J2534 adapter and ECU.
-2. **SSM's per-cycle `0xA8 0x01` request.** `SsmLoggingProtocol::poll()` sends
-   the request on every cycle. Confirm that supported ECUs treat it as strict
-   request/response rather than entering a continuous stream that repeated
-   requests could desynchronize.
-3. **CDBG logging.** Raw-CAN setup, handshake, security access, and stream
-   behavior remain gated by the
-   [CDBG CAN bench checklist](checklists/cdbg-can-logging-bench-checklist.md).
+Remaining behavior and code gaps:
 
-The worker-thread prompts and progress reporting used by Mitsubishi M32R CAN
-flashing are tracked in the
-[Colt CZT CAN bench checklist](checklists/colt_czt_47110032_can_bench_checklist.md).
-
-Deferred behavior:
-
-- No live GUI indicator for `LoggingStatus::CarNotResponding`: the worker and
-  engine emit it, but `MainWindow` shows only a warning in the log window.
-- No live reconfiguration: changing channels, poll interval, or protocol
-  requires a stop/start; live changes would need an explicit path through
-  `LogSessionConfig` and `LoggingWorker`.
-- `LoggingEngine::stop()` publishes `SessionEndReason::StoppedByUser` itself
-  after disconnecting the worker's signals, so the engine's mapping of a
-  worker `Cancelled` result to `StoppedByUser` is not reached from `stop()`.
-
-Minor code-level findings (confirmed against the code when this roadmap was
-last refreshed; re-check before scheduling):
-
-- `src/backend/protocol/issm_transport.h` defines `ISsmTransport` in the global
-  namespace, unlike `mutdma::IKlineTransport` and `cdbg::ICanTransport`.
-- `FastEcuSsmTransport::write()` discards the bytes returned by
-  `write_serial_data_echo_check()` and reports the input size unconditionally,
-  so an echo failure is not exposed.
+- `CarNotResponding` is logged without a live GUI indicator.
+- Live channel/interval/protocol reconfiguration requires an explicit path through
+  session config and worker; current changes require stop/start.
+- `LoggingEngine::stop()` disconnects worker signals and publishes
+  `StoppedByUser` itself; its worker-Cancelled mapping is not reached by stop.
+- `ISsmTransport` is in the global namespace unlike MUT/DMA and CDBG interfaces.
+- `FastEcuSsmTransport::write()` reports input size while discarding returned
+  echo-check bytes, so it does not expose an echo failure. Recheck before fixing.
 
 ### P2: Naming and source/data organization
 
-Some names and data placement still reflect earlier architecture.
-
-Actions:
-
-- Move misplaced code into files and namespaces matching current ownership.
-- Replace the facade's integer `STATUS_*` return codes with typed enums or
-  shared result types, under names that cannot collide with `ntstatus.h`.
-- Remove stale commented-out code while touching nearby behavior.
+Move misplaced code into owning files/namespaces while touching it. Replace
+integer facade statuses with typed results using names that cannot collide with
+Windows SDK macros; see the [desktop boundary contract](reference/desktop-contracts.md#composition-lifetime).
+Remove stale commented-out code as nearby behavior changes.
 
 ## Coverage growth sequence toward 80%
 
-1. Definition and configuration logic:
-   - Config, logger, RomRaider, and EcuFlash parsers using fixture files.
-   - Typed model construction and validation failures.
+Prioritize parser/model fixtures and validation; checksum golden vectors and
+invalid inputs; calibration undo/redo (currently a UI `qDebug()` stub); scripted
+flash-family orchestration; and serial/J2534 lifecycle failures. Thin widget tests
+cover wiring, typed dispatch, and display. Grow most coverage in portable logic,
+not by constructing the GUI. Keep test/generated/vendored/platform exclusions
+explicit and reviewed in the owning coverage configuration.
 
-2. Checksum and calibration logic:
-   - Golden vectors and invalid inputs for all checksum families.
-   - Calibration-map undo/redo behavior without widgets: it stays a
-     `qDebug()` stub in the UI.
-
-3. I/O and orchestration:
-   - Scripted flash-family sessions over K-Line/CAN/SSM transports.
-   - Serial/J2534 lifecycle and failure behavior on platform-specific targets.
-
-4. UI boundaries:
-   - Thin Qt widget tests for signal wiring, typed command dispatch, and display
-     of service results.
-   - Do not use UI tests to reach 80%; most coverage should come from extracted
-     logic and orchestration.
-
-## Definition of done for new work
-
-- New protocol, math, parser, or model behavior has focused tests or a documented
-  bench-only justification.
-- New non-UI logic has an owning Bazel library and can be tested without
-  constructing `MainWindow`.
-- No new pure logic depends directly on `QMessageBox`, `QFileDialog`, or the full
-  `SerialPortActions*` facade unless the compatibility reason is documented.
-- Coverage and static-analysis commands do not hide unexpected build or test
-  failures.
-- Coverage exclusions stay explicit and reviewed: tests, generated Qt files,
-  vendored `src/ui/desktop/hexedit/`, Bazel/external outputs, system libraries,
-  and platform SDKs.
-- Generated files and build outputs remain ignored and out of review.
-- New debt is added here or to a narrower existing debt document.
+New behavior needs focused automated evidence or a documented bench-only
+justification. New debt is recorded here; implementation/testing conventions
+belong to the [coding guide](coding-style.md) and [repository instructions](../AGENTS.md).

@@ -150,9 +150,8 @@ bazel test --config=release \
   //src/backend/protocol:test_driver
 ```
 
-Protocol derived from reverse-engineering notes; the on-wire spec is in the
-parent repository at
-`docs/superpowers/specs/2026-06-07-oem-kline-dma-activation-and-wire-protocol.md`.
+See the [MUT/DMA protocol evidence scope](docs/reference/logging-contracts.md#mutdma-protocol-evidence)
+for implemented sources and provenance of the parent-repository activation research.
 
 ### Unbrick with FastECU (bench flash)
 - **BDM**

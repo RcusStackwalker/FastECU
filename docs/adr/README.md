@@ -8,8 +8,7 @@ recording.
 Coding conventions do not belong here. "Use `std::format`", "check `Result`
 with `.has_value()`", "prefer gmock matchers" are rules with no lifecycle and
 no trade-off left to revisit — they live in
-[the coding style guide](../coding-style.md), which is one page and is the
-normative source for style questions.
+[the coding style guide](../coding-style.md), which is the normative source for style questions.
 
 The dividing question: would changing this decision require changing how
 components fit together, or only how a line of code is written? Only the first

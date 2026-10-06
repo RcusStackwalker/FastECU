@@ -205,12 +205,3 @@ paths are fixed for a run. Catalog facts remain independent of flash-plan facts
 and are checked for agreement, as [ADR 0019](adr/0019-compile-the-protocol-catalog-into-the-backend.md)
 requires. [Configuration contracts](reference/desktop-contracts.md#configuration-session)
 describe startup outcomes and ordering.
-
-## Reading older evidence
-
-### Resolving citations to deleted files
-
-For a deleted source or completed design, find its deleting commit with
-`git log --diff-filter=D -- <path>` and view its parent with
-`git show <commit>^:<path>`. Legacy line citations refer to the file at migration;
-Wave 5 citations are pinned to `59f4e442`.
