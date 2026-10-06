@@ -71,7 +71,7 @@ TEST(MapElementFields, PlucksTypedFieldsAndUnpaddedProtocolSize)
     EXPECT_EQ(spec.storage_type, definition::StorageType::Uint16);
     EXPECT_EQ(spec.from_byte, "x*2");
     EXPECT_EQ(spec.to_byte, "x");
-    EXPECT_EQ(spec.min_value, " ");
+    EXPECT_EQ(spec.min_value, "");
     EXPECT_DOUBLE_EQ(spec.fine_increment, 0.1);
     EXPECT_EQ(spec.start_position, 2U);
     EXPECT_EQ(spec.interval, 3U);
@@ -111,10 +111,10 @@ TEST(MapElementFields, BodyStorageAndEndianFallBackToScalingButAxesUseResolvedSt
     EXPECT_EQ(body.spec().endian, "little");
     const auto axis = collect_map_element_fields(session, 0, NumericTarget::XAxis);
     EXPECT_EQ(axis.spec().storage_type, definition::StorageType::Uint8);
-    EXPECT_EQ(axis.spec().endian, " ");
+    EXPECT_EQ(axis.spec().endian, "");
 }
 
-TEST(MapElementFields, MissingScalingAndAxisRetainLegacyPlaceholders)
+TEST(MapElementFields, MissingScalingAndAxisYieldEmptyFields)
 {
     auto def = two_by_two_definition();
     def.maps[0].scaling_name.clear();
@@ -123,8 +123,8 @@ TEST(MapElementFields, MissingScalingAndAxisRetainLegacyPlaceholders)
     const auto body = collect_map_element_fields(session, 0, NumericTarget::MapBody);
     EXPECT_EQ(body.spec().from_byte, "x");
     const auto axis = collect_map_element_fields(session, 0, NumericTarget::XAxis);
-    EXPECT_EQ(axis.spec().endian, " ");
-    EXPECT_EQ(axis.spec().to_byte, " ");
+    EXPECT_EQ(axis.spec().endian, "");
+    EXPECT_EQ(axis.spec().to_byte, "");
     EXPECT_EQ(axis.spec().address, 0U);
     EXPECT_EQ(axis.spec().start_position, 1U);
 }
