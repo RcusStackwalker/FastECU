@@ -1,11 +1,17 @@
 #include "src/ui/desktop/widgets/dataterminal.h"
 #include "src/ui/desktop/diagnostic_link_io.h"
 
+#include "src/backend/diagnostics/terminal_script.h"
+#include "src/platform/desktop/common/bytes/qt_bytes.h"
+
 #include <QFile>
 #include <QtGlobal>
 
 #include <cstdint>
+#include <string>
 #include <tuple>
+#include <variant>
+#include <vector>
 
 DataTerminal::DataTerminal(fastecu::diagnostics::IDiagnosticLink& link_arg, QWidget *parent)
     : QDialog(parent), ui{std::make_unique<Ui::DataTerminalWindow>()}
@@ -120,7 +126,7 @@ void DataTerminal::sendToInterface()
 
     QFile file;
     QString msg;
-    QStringList msgList;
+    std::vector<std::string> scriptLines;
 
     if (interfaceTypeName.startsWith("sendKlineMessage"))
     {
@@ -141,7 +147,7 @@ void DataTerminal::sendToInterface()
     if (msg.at(0) != '.' && msg.at(0) != '/')
     {
         emit LOG_D("Read message from lineedit", true, true);
-        msgList.append(msg);
+        scriptLines.push_back(msg.toStdString());
     }
     else
     {
@@ -158,9 +164,18 @@ void DataTerminal::sendToInterface()
         while (!in.atEnd())
         {
             QString line = in.readLine();
-            msgList.append(line);
+            scriptLines.push_back(line.toStdString());
         }
         file_local.close();
+    }
+
+    const auto script = fastecu::diagnostics::parse_terminal_script(scriptLines);
+    if (!script.has_value())
+    {
+        const QString detail = QString::fromStdString(script.error().detail);
+        emit LOG_E("Invalid script: " + detail, true, true);
+        QMessageBox::warning(this, tr("Data terminal"), "Invalid script: " + detail);
+        return;
     }
 
     if (interfaceTypeName.startsWith("sendKlineMessage"))
@@ -213,41 +228,25 @@ void DataTerminal::sendToInterface()
             }
         }
 
-        QStringList msg_local; // = ui->klineMsgToSend->text().split(" ");
-        QByteArray output;
         QByteArray received;
-        int rspDelay = 10;
-        for (int j = 0; j < msgList.length(); j++)
+        for (const auto& step : *script)
         {
-            output.clear();
-            received.clear();
-            rspDelay = 10;
-            if (!msgList.at(j).startsWith("delay"))
+            if (const auto *pause = std::get_if<fastecu::diagnostics::TerminalDelayStep>(&step))
             {
-                msg_local = msgList.at(j).split(" ");
-                for (int i = 0; i < msg_local.length(); i++)
-                {
-                    output.append(static_cast<char>(msg_local.at(i).toUInt(&ok, 16)));
-                }
-                if (ui->klineProtocol->currentText() == "SSM")
-                {
-                    output = add_ssm_header(output, ui->klineTesterId->text().toUInt(&ok, 16),
-                                            ui->klineTargetId->text().toUInt(&ok, 16), false);
-                }
+                emit LOG_D("Delay " + QString::number(pause->duration.count()) + " ms", true, true);
+                delay(static_cast<int>(pause->duration.count()));
+                continue;
+            }
+            QByteArray output = bytes::toQByteArray(std::get<fastecu::diagnostics::TerminalMessageStep>(step).payload);
+            if (ui->klineProtocol->currentText() == "SSM")
+            {
+                output = add_ssm_header(output, ui->klineTesterId->text().toUInt(&ok, 16),
+                                        ui->klineTargetId->text().toUInt(&ok, 16), false);
+            }
 
-                emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
-            }
-            if (msgList.length() > (j + 1))
-            {
-                if (msgList.at(j + 1).startsWith("delay"))
-                {
-                    emit LOG_D("Set delay", true, true);
-                    delay(static_cast<int>(msgList.at(j + 1).split(")").at(1).split("(").at(0).toUInt()));
-                    j++;
-                }
-            }
+            emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
             diagnostic_link_io::write(*link, output);
-            delay(rspDelay);
+            delay(10);
             received = diagnostic_link_io::read_or_empty(*link, serial_read_short_timeout);
             emit LOG_I("Response: " + parse_message_to_hex(received), true, true);
         }
@@ -301,50 +300,32 @@ void DataTerminal::sendToInterface()
             }
         }
 
-        QStringList msg_local; // = ui->canMsgToSend->text().split(" ");
-        QByteArray output;
         QByteArray received;
-        int rspDelay = 100;
-        for (int j = 0; j < msgList.length(); j++)
+        const unsigned int can_tester_id = ui->canTesterId->text().toUInt(&ok, 16);
+        for (const auto& step : *script)
         {
-            output.clear();
-            received.clear();
-            rspDelay = 10;
-            if (!msgList.at(j).startsWith("delay"))
+            if (const auto *pause = std::get_if<fastecu::diagnostics::TerminalDelayStep>(&step))
             {
-                msg_local = msgList.at(j).split(" ");
-                if (ui->canProtocol->currentText() == "CAN")
-                {
-                    if (msg_local.length() > 8)
-                    {
-                        emit LOG_E("CAN message too long (8 message bytes)", true, true);
-                        QMessageBox::warning(this, tr("CAN message"),
-                                             "CAN message too long (use 4 ID bytes + 8 message bytes)");
-                    }
-                }
-                const unsigned int can_tester_id = ui->canTesterId->text().toUInt(&ok, 16);
-                for (const unsigned int shift : {24U, 16U, 8U, 0U})
-                {
-                    output.append(static_cast<char>((can_tester_id >> shift) & 0xffU));
-                }
-                for (int i = 0; i < msg_local.length(); i++)
-                {
-                    output.append(static_cast<char>(msg_local.at(i).toUInt(&ok, 16)));
-                }
-                emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
+                emit LOG_D("Delay " + QString::number(pause->duration.count()) + " ms", true, true);
+                delay(static_cast<int>(pause->duration.count()));
+                continue;
             }
-            if (msgList.length() > (j + 1))
+            const auto& payload = std::get<fastecu::diagnostics::TerminalMessageStep>(step).payload;
+            if (ui->canProtocol->currentText() == "CAN" && payload.size() > 8)
             {
-                if (msgList.at(j + 1).startsWith("delay"))
-                {
-                    emit LOG_D("Set delay", true, true);
-                    rspDelay = static_cast<int>(msgList.at(j + 1).split(")").at(1).split("(").at(0).toUInt());
-                    j++;
-                }
+                emit LOG_E("CAN message too long (8 message bytes)", true, true);
+                QMessageBox::warning(this, tr("CAN message"),
+                                     "CAN message too long (use 4 ID bytes + 8 message bytes)");
             }
+            QByteArray output;
+            for (const unsigned int shift : {24U, 16U, 8U, 0U})
+            {
+                output.append(static_cast<char>((can_tester_id >> shift) & 0xffU));
+            }
+            output.append(bytes::toQByteArray(payload));
+            emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
             diagnostic_link_io::write(*link, output);
-
-            delay(rspDelay);
+            delay(10);
             received = diagnostic_link_io::read_or_empty(*link, serial_read_short_timeout);
             emit LOG_I("Response: " + parse_message_to_hex(received), true, true);
         }

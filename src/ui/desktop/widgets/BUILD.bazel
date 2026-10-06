@@ -104,6 +104,7 @@ qt_cc_library(
         "//src/backend/calibration/session:numeric_edit_use_case",
         "//src/backend/definition:mappack_converter",
         "//src/backend/diagnostics:ssm_identify",
+        "//src/backend/diagnostics:terminal_script",
         "//src/backend/flash:flash_operation_request",
         "//src/backend/logging:logger_definition_service",
         "//src/platform/desktop/common/bytes:qt_bytes",

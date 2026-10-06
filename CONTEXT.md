@@ -25,3 +25,15 @@ _Avoid_: Uneditable cell
 **Structural map failure**:
 A map whose layout does not establish valid storage locations for its cells.
 _Avoid_: Invalid numeric cell
+
+## Terminal scripts
+
+**Terminal script**:
+The ordered list of steps the Data Terminal runs against one connection.
+
+**Message step**:
+A step that sends one frame and reads its response.
+
+**Delay step**:
+A step that only pauses; it sends nothing, and consecutive delay steps add up.
+_Avoid_: Response wait
