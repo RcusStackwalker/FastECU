@@ -335,23 +335,22 @@ TEST_F(DesktopCompositionTest, servicesShareTheCompositionsSession)
     ASSERT_EQ(QString::fromStdString(config_of(composition).provisioned_paths().base_config_directory), root.path());
 }
 
-TEST_F(DesktopCompositionTest, restartSeesSavedSettingsButNotTheDatalogDirectory)
+TEST_F(DesktopCompositionTest, restartSeesSavedSettingsAndTheDatalogDirectory)
 {
     QTemporaryDir root;
     ASSERT_TRUE(root.isValid());
-    std::string provisioned_datalogs;
+    const std::string datalogs = root.path().toStdString() + "/elsewhere/";
     {
         DesktopComposition first{{}, {}, root.path()};
         ASSERT_TRUE(first.started());
-        provisioned_datalogs = config_of(first).provisioned_paths().datalog_files_directory;
         config_of(first).settings().serial_port = "ttyRESTART";
-        config_of(first).settings().datalog_files_directory = root.path().toStdString() + "/elsewhere/";
+        config_of(first).settings().datalog_files_directory = datalogs;
         ASSERT_TRUE(config_of(first).save().has_value());
     }
     DesktopComposition second{{}, {}, root.path()};
     ASSERT_TRUE(second.started());
     ASSERT_EQ(config_of(second).settings().serial_port, std::string("ttyRESTART"));
-    ASSERT_EQ(config_of(second).settings().datalog_files_directory, provisioned_datalogs);
+    ASSERT_EQ(config_of(second).settings().datalog_files_directory, datalogs);
 }
 
 TEST_F(DesktopCompositionTest, waitRequestIsWiredToTheRemoteUtility)
