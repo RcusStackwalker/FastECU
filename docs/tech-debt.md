@@ -165,9 +165,6 @@ Order cleanup by risk:
   becomes a scheduling commitment only after its own approval.
 - Remeasure duplication in definition-authoring validate/write tails and transport
   read/write guards before extracting it.
-- Replace the transitional `WriteSelection.ReproducesTheFourSpaceQDomIndent`
-  golden with pugixml-owned output plus the write/read round trip; preserve
-  four-space indentation itself.
 
 Keep Clean-as-You-Code enforcement. Passing a new-code gate does not establish
 that old findings are resolved; avoid separate permanent ratchet machinery unless
