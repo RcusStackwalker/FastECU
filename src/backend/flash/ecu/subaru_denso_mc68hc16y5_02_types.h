@@ -5,7 +5,7 @@
 namespace fastecu::flash
 {
 
-// MC68HC16Y5_02, wave 2. tester_id/target_id are NOT carried here: legacy
+// MC68HC16Y5_02. tester_id/target_id are NOT carried here: legacy
 // flash_ecu_subaru_denso_mc68hc16y5_02_operation.h declares them but the
 // .cpp never reads them after execute() assigns 0xf0/0x10 (verified by
 // grep across every method) -- dead members, not ported.

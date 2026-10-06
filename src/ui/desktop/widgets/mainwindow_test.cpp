@@ -1344,7 +1344,7 @@ representativePortableRoutesReachFactoryBeforeLegacyFallbackRows()
         "petrol", QString("sub_ecu_denso_sh7058_can")});
     rows.push_back(representativePortableRoutesReachFactoryBeforeLegacyFallbackCase{
         "densocan", QString("sub_ecu_denso_sh7058_densocan")});
-    // Wave 6b-2: the Denso SH705x K-Line family (sub_ecu_denso_sh7055_04*
+    // The Denso SH705x K-Line family (sub_ecu_denso_sh7055_04*
     // and sub_ecu_denso_sh7058*) moved off FlashEcuSubaruDensoSH705xKline
     // onto this same portable factory path; see
     // exactDensoKlineIdsStillDispatchToTheLegacyKlineDialog in prior

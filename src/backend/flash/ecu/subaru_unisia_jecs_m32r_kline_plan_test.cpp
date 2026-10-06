@@ -122,7 +122,7 @@ TEST(SubaruUnisiaJecsM32rKlinePlan, RejectsEveryOtherIdentity)
     }
 }
 
-// Wave 7. Bootmode Read is byte-identical to this family's Read
+// Bootmode Read is byte-identical to this family's Read
 // (flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp:112-275); bootmode
 // Write belongs to the bootmode family.
 TEST(SubaruUnisiaJecsM32rKlinePlan, AcceptsBootmodeProtocolsForReadOnly)

@@ -16,7 +16,7 @@
 namespace fastecu::flash
 {
 
-// This header holds two types the wave-5 CAN executor suites share:
+// This header holds two types the BEEF-dialect CAN executor suites share:
 // RecordingCanFlashTransport, the recording decorator, and
 // PhaseCancellingEventSink, an event sink that cancels partway through a
 // named phase.
@@ -134,7 +134,7 @@ class RecordingCanFlashTransport final : public ICanFlashTransport
 };
 
 // Cancels its bound token when a specific phase reaches a specific done count.
-// Byte-identical in all three wave-5 CAN executor suites before extraction
+// Byte-identical in all three BEEF-dialect CAN executor suites before extraction
 // (the token type changes from ToggleCancellation by Task 7's substitution).
 class PhaseCancellingEventSink final : public RecordingEventSink
 {

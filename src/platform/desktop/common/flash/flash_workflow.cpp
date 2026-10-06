@@ -225,7 +225,7 @@ std::optional<bytes::Bytes> normalizeMc68Image(std::optional<bytes::Bytes> image
     return packed;
 }
 
-// Wave 6c-3. The adapter check moved here from legacy write_mem() :434: an
+// The adapter check moved here from legacy write_mem() :434: an
 // adapter that supplies programming voltage needs no operator prompt. With no
 // serial at all the workflow cannot know, so it prompts.
 class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
@@ -340,7 +340,7 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
     FlashAttemptOutcome outcome_;
 };
 
-// Wave 7. Read is the 6c-3 K-Line read. Write is two attempts with an
+// Read is the 6c-3 K-Line read. Write is two attempts with an
 // operator step between them, where legacy reset the connection anyway
 // (flash_ecu_subaru_unisia_jecs_m32r_bootmode_operation.cpp:361-367):
 // kernel upload, RemoveMod1, erase and program. Both plans are built before
@@ -852,7 +852,7 @@ using SubaruDensoSh7058CanWorkflow =
 using SubaruDensoSh7058CanDieselWorkflow =
     KernelBackedWorkflow<SubaruDensoSh7058CanDieselExecutor, DesktopCanFlashTransport,
                          &build_subaru_denso_sh7058_can_diesel_plan>;
-// Wave 6b-2. The sequence is the kernel resolved on the first step, the shared
+// The sequence is the kernel resolved on the first step, the shared
 // Begin prompt -- the legacy dialog's only prompt, "Turn ignition ON" -- then
 // the attempt.
 using SubaruDensoSh705xKlineWorkflow = KernelBackedWorkflow<SubaruDensoSh705xKlineExecutor, DesktopKlineFlashTransport,

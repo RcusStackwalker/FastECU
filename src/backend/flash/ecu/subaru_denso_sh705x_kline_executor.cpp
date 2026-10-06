@@ -30,7 +30,7 @@ using namespace std::chrono_literals;
 using OptionalBytes = IKlineFlashTransport::OptionalBytes;
 
 // Legacy: src/platform/desktop/common/flash/legacy/ecu/
-// flash_ecu_subaru_denso_sh705x_kline_operation.{h,cpp}, deleted in wave 6b-2.
+// flash_ecu_subaru_denso_sh705x_kline_operation.{h,cpp}, deleted when this executor replaced them.
 constexpr std::uint16_t kStartComm = 0xBEEF; // kernelcomms.h SUB_KERNEL_START_COMM
 constexpr std::uint8_t kOpId = 0x01;
 constexpr std::uint8_t kOpCrc = 0x02;

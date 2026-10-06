@@ -7,7 +7,7 @@ namespace fastecu::flash
 // only. Its execute() "test_write"/"write" branch logged "Not yet
 // implemented" and then returned connect_bootloader()'s STATUS_SUCCESS,
 // reporting a successful write that wrote nothing; this plan rejects both
-// operations instead. See the wave 6a-1 plan's "Deliberate Divergences".
+// operations instead. See the original port plan's "Deliberate Divergences".
 struct SubaruTcuHitachiM32rKlinePlan
 {
     std::uint8_t tester_id;   // 0xf0

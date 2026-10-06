@@ -1762,7 +1762,7 @@ TEST(SubaruTcuHitachiM32rCanExecutor, WithNoScriptToStopItTheWriteStillNeverTouc
 // "cancelled before/after write/read" checks inside exchange_optional).
 //
 // Both trip counts below are derived from kConnectFrames (this family's own
-// eight-exchange connect sequence), not copied from any other wave: each
+// eight-exchange connect sequence), not copied from any other family: each
 // cancellation test lets exactly kConnectFrames iterations of its loop
 // complete, then expects the loop's own top-of-iteration check to catch the
 // (kConnectFrames+1)-th.

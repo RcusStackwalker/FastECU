@@ -15,20 +15,20 @@ namespace fastecu::flash
 {
 
 // The SSM seed/key and payload crypto constants shared by the Denso
-// ISO-15765 CAN executors. The wave-4 consumers are
+// ISO-15765 CAN executors. The bootloader-dialect consumers are
 // SubaruDenso1n83m_1_5mCanExecutor, SubaruDensoSh72531CanExecutor,
 // SubaruDensoSh72543CanDieselExecutor and SubaruDenso1n83m_4mCanExecutor.
-// The wave-5 consumers are SubaruTcuDensoSh705xCanExecutor,
+// The BEEF-dialect consumers are SubaruTcuDensoSh705xCanExecutor,
 // SubaruDensoSh7058CanExecutor and SubaruDensoSh7058CanDieselExecutor.
 //
 // Each cluster was ported standalone, with duplication tolerated, so that
 // factoring happened only after the finished executors and their independent
 // characterization tests were visible. Direct comparison proved that the
 // seed/key table, encrypt table and index transformation are byte-identical
-// across all seven consumers. The three Wave-5 consumers use those shared
+// across all seven consumers. The three BEEF-dialect consumers use those shared
 // values for the stock security flow and kernel upload; their normal-ROM
 // BEEF payloads remain raw, so none consumes the decrypt table for ROM reads.
-// The decrypt table remains valid for the Wave-4 normal-ROM read paths.
+// The decrypt table remains valid for the bootloader-dialect normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
 // Beyond these tables, the common module shares three narrow operations: the
@@ -66,20 +66,20 @@ inline constexpr std::array<std::uint16_t, 16> kDensoIso15765SeedKeyTable{
     0xB046, 0x7F4A, 0x4B75, 0x93F9, 0x1895, 0x8961, 0x3ECC, 0x862B};
 
 // encrypt_payload's key-to-generate-index table, used for padded kernel-upload
-// payloads (and the applicable existing Wave-4 paths). Byte-identical across
+// payloads (and the applicable existing bootloader-dialect paths). Byte-identical across
 // all seven consumers.
 inline constexpr std::array<std::uint16_t, 4> kDensoIso15765EncryptTable{0xC85B, 0x32C0, 0xE282, 0x92A0};
 
-// decrypt_payload's key-to-generate-index table, used by the applicable Wave-4
+// decrypt_payload's key-to-generate-index table, used by the applicable bootloader-dialect
 // normal-ROM dump paths. It is kDensoIso15765EncryptTable exactly reversed --
 // calculatePayload's Feistel structure inverts by reversing key order -- but
 // it is spelled out rather than derived, because that is how the applicable
 // legacy sources spell it and a derived table would hide a future divergence.
-// No Wave-5 normal-ROM BEEF path consumes this table.
+// No BEEF-dialect normal-ROM BEEF path consumes this table.
 inline constexpr std::array<std::uint16_t, 4> kDensoIso15765DecryptTable{0x92A0, 0xE282, 0x32C0, 0xC85B};
 
 // The three SsmProtocol calls that bind the tables above. All four cluster
-// members and the applicable Wave-5 families carried these byte-for-byte;
+// members and the applicable BEEF-dialect families carried these byte-for-byte;
 // they are pure table-to-algorithm adapters with no protocol sequence in them.
 
 // generate_can_seed_key().

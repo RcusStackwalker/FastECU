@@ -104,7 +104,7 @@ fastecu::Result<fastecu::flash::FlashPlan> handBuiltPlan(FlashOperation operatio
 // The seed/encrypt/decrypt tables, transcribed independently from the same
 // legacy lines the executor was (generate_seed_key/encrypt_payload/
 // decrypt_payload) and the same 32-byte indextransformation table shared by
-// every family in this wave -- not read back from the executor's own
+// every family in this package -- not read back from the executor's own
 // translation unit, so a wrong table entry in the executor fails these
 // assertions instead of passing silently. Mirrors
 // mitsu_colt_m32r_can_executor_test.cpp's own `MitsuColtCan::seedKey(kSeed)`.

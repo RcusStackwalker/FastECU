@@ -14,7 +14,7 @@
 #include "src/backend/ports/error.h"
 #include "src/backend/ports/result.h"
 
-// Helpers shared by the wave-5 Denso BEEF-protocol CAN executors:
+// Helpers shared by the Denso BEEF dialect CAN executors:
 // SubaruDensoSh7058CanExecutor, SubaruDensoSh7058CanDieselExecutor and
 // SubaruTcuDensoSh705xCanExecutor.
 //
@@ -22,7 +22,7 @@
 // happened only once all three and their independent characterization tests
 // were visible. Comparing all 22 signatures common to the three, exactly these
 // bodies were byte-identical. parse_beef matched petrol and diesel only and
-// stays family-local, because a two-way match is where this wave's design
+// stays family-local, because a two-way match is where the original port design
 // says to stop.
 //
 // Everything substantial was compared and deliberately left family-local:

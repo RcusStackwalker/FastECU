@@ -618,7 +618,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
         // i.e. data_array[block_addr + i]: the absolute address, matching
         // read_memory's own image base and the three sibling families.
         //
-        // The wave-4 design's "write-base divergence" section reads line 1217
+        // The original port design's "write-base divergence" section reads line 1217
         // alone and concludes legacy wrote a full ROM 0x8000 low. Re-deriving
         // it with the caller's pre-offset shows it does not: this port is
         // byte-identical to legacy here, not a behavior change. Do not
@@ -648,7 +648,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
             closed.has_value())
         {
             // Legacy appends the reply's hex to this line (line 1307);
-            // the port had dropped it. Restored by the wave-4 cluster-factoring
+            // the port had dropped it. Restored by the bootloader-dialect factoring
             // pass. The hex is the envelope-stripped PDU where legacy's was the
             // raw frame, envelope included -- same divergence the
             // "Stop request response" line above already carries.
@@ -790,7 +790,7 @@ Result<FlashExecutionResult> SubaruDensoSh72543CanDieselExecutor::execute(const 
     // It cannot fire as the code stands: the plan validation at the top of
     // execute() rejects TestWrite before any I/O, and the Read branch has
     // already returned, so FlashOperation has no third value left to reach
-    // here. The wave-4 cluster-factoring pass reviewed it across all four
+    // here. The bootloader-dialect factoring pass reviewed it across all four
     // families and kept it: it costs nothing at runtime and is the last
     // thing between a non-Write operation and a real erase-and-write of an
     // ECU should that entry validation ever be relaxed or the enum gain a

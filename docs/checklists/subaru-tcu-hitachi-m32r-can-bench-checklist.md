@@ -2,7 +2,7 @@
 
 Gate before any use of the `sub_tcu_hitachi_m32r_can` family against real
 hardware, bench or vehicle. The portable `SubaruTcuHitachiM32rCanPlan` and
-`SubaruTcuHitachiM32rCanExecutor` replaced the legacy Qt operation in wave 6a-2
+`SubaruTcuHitachiM32rCanExecutor` replaced the legacy Qt operation
 and are covered by unit tests only; the row in the
 [flash qualification matrix](../flash-qualification-matrix.md) records the family
 as `experimental`, which means **nothing in this family is hardware-qualified**.
