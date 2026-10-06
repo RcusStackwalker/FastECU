@@ -360,9 +360,7 @@ void CalibrationMaps::refresh()
                         &CalibrationMaps::selectable_combobox_item_changed);
             }
             const QSignalBlocker blocker(combo);
-            int current = multi && !map.body.empty() && map.body[0].numeric_value.has_value()
-                              ? static_cast<int>(*map.body[0].numeric_value)
-                              : 0;
+            int current = multi && !map.body.empty() ? fastecu::ui::selection_index(map.body.front()) : 0;
             if (!multi)
             {
                 for (std::size_t i = 0; i < map.selection_values.size(); ++i)

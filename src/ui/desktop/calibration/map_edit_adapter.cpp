@@ -1,6 +1,5 @@
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 
-#include <bit>
 #include <utility>
 #include <algorithm>
 #include <limits>
@@ -116,52 +115,6 @@ MapElementFields collect_map_element_fields(const calibration::CalibrationSessio
     fields.flash_method_ = session.protocol().flash_method;
     fields.rom_file_size_ = session.protocol().unpadded_size;
     return fields;
-}
-
-QString format_raw_element_value(const calibration::MapElementSpec& spec, std::int64_t raw)
-{
-    // get_rom_data_value's storagetype.startsWith("float"/"uint"/"int")
-    // chain matches nothing for a storage-type string outside the known set,
-    // leaving `value` an empty (default-constructed) QString. storage_type_
-    // from_text maps that same unrecognized string to std::nullopt, under
-    // which is_unsigned_storage is false and storage_byte_size defaults to
-    // 1 -- falling into the qint8 case below would return "-1"-like text
-    // instead of legacy's "", a real divergence (observable in inc_dec_
-    // value's `while (rom_data_value == new_rom_data_value)`), not one of
-    // the established, deliberately-preserved defects. Handled first and
-    // explicitly so it can't be missed among the branches below.
-    if (!spec.storage_type.has_value())
-    {
-        return QString();
-    }
-    if (spec.storage_type == definition::StorageType::Float)
-    {
-        return QString::number(std::bit_cast<float>(static_cast<std::int32_t>(raw)));
-    }
-    if (definition::is_unsigned_storage(spec.storage_type))
-    {
-        return QString::number(static_cast<quint32>(raw));
-    }
-    switch (definition::storage_byte_size(spec.storage_type))
-    {
-    case 1:
-        return QString::number(static_cast<qint8>(raw));
-    case 2:
-        return QString::number(static_cast<qint16>(raw));
-    case 4:
-        return QString::number(static_cast<qint32>(raw));
-    default:
-        return QString();
-    }
-}
-
-std::int64_t raw_element_value_from_text(const calibration::MapElementSpec& spec, const QString& text)
-{
-    if (spec.storage_type == definition::StorageType::Float)
-    {
-        return static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(text.toFloat()));
-    }
-    return static_cast<std::int64_t>(text.toInt());
 }
 
 std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window)

@@ -13,9 +13,8 @@ the actual bytes correctly. Recheck such files against their definitions before
 flashing them; decoding correctly cannot recover an earlier intended edit.
 
 Current edits respect `startpos`/`interval` striding and declared byte order;
-float storage uses IEEE-754 bits. `encode_guarded` enforces the range only;
-`apply_increment` also retains the sign-wrap heuristic that reverts a single
-cell rather than rejecting an entire edit. The unresolved `wrx02` read/write
+float storage uses IEEE-754 bits. Float storage remains big-endian regardless
+of the endian label. The unresolved `wrx02` read/write
 address-predicate mismatch is owned by [technical debt](../tech-debt.md).
 
 ## Session and view ownership
@@ -32,6 +31,66 @@ metadata. ROM bytes are the truth for values: map windows decode on demand,
 edits write bytes, and views re-decode. Map metadata is read from the typed
 definition. Definition-less ROMs remain modeled sessions; hex display owns a
 snapshot instead of borrowing calibration data.
+
+## Decoded values and map edits
+
+[Decoded maps](../../src/backend/calibration/decoded_map.h) are transient owned
+snapshots. Numeric cells hold finite scaled `double` values or individual errors;
+blob bodies hold bytes; axes distinguish absence, numeric cells, and static
+labels. Static labels containing commas remain single labels. Numeric data is
+never joined into text and split for downstream calculation. Body storage/endian
+use map fields before scaling defaults; axes use resolved axis fields.
+
+[Checked expressions](../../src/algorithms/expression/checked_expression.h)
+calculate with `double` throughout. Supported syntax is `x`, decimal and
+scientific-notation literals, binary `+ - * /`, parentheses, and unary signs.
+Missing numeric scaling and missing/blank definition expressions mean identity;
+unresolved named scaling, malformed syntax, division by zero, and non-finite
+results are errors. Parenthesis nesting beyond 128 levels is rejected with a
+diagnostic. The logging-facing evaluator retains its separate behavior.
+
+Decimal precision follows the definition's display format, typically up to two
+places; it does not round values used for calculation. The Set Value dialog treats
+signed literals as absolute assignments (`-20` assigns negative twenty) and uses
+`x` explicitly for relative edits (`x-20` subtracts twenty). Direct assignments
+and pasted replacements can overwrite invalid current cells if encoding and
+storage are valid. Relative operations require valid current values.
+
+[Numeric edits](../../src/backend/calibration/numeric_map_edit.h) clamp finite
+requested values to valid definition minimum/maximum bounds before applying the
+encoding expression. Malformed/non-finite bounds or minimum greater than maximum
+reject the edit. Integer encoding rounds to nearest with exact halves away from
+zero and validates exact signed/unsigned limits before narrowing. Float encoding
+converts to its declared representation without integer rounding and rejects
+overflow. Legacy float/text round trips and byte-for-byte edit results are not
+compatibility requirements.
+
+Every selected edit is atomic: invalid required inputs or unencodable results
+reject the whole operation before changing ROM bytes or dirty state. Patch
+application validates actual target indices, expected write addresses, byte
+widths, and all ROM ranges before mutation. A four-cell run has exactly four
+indices; a trailing delimiter cannot create a fifth. Complete no-ops preserve
+dirty state and refresh the views from current bytes.
+
+Each increment applies its requested step once, with no retry accumulation or
+hidden fractional state. Unchanged encoded cells are no-ops; the UI reports a
+complete no-change outcome with its actual cause, distinguishing definition
+limits from storage resolution. The former sign-wrap heuristic no longer
+reverts valid signed increments across zero. Interpolation uses the required
+endpoints for each horizontal/vertical line or corners for bidirectional mode;
+invalid interior cells may be replaced. Paste retains its existing edge clipping
+and ragged-row behavior.
+
+Invalid numeric cells display `NaN` with a diagnostic on hover; they contribute
+no numeric color bound. Entirely invalid maps use neutral colors. A successful
+assignment may still display `NaN` when the decoding expression itself is broken:
+the requested value is never substituted for a fresh decode. Structural map
+failures keep the window open in an explicit error state with grid editing
+disabled. Failed refreshes clear stale values; unrelated maps remain usable.
+
+Field resolution and patch application remain in the desktop edit adapter, and
+selectable-write policy remains in `MainWindow`; their ownership extraction is
+separate [unresolved work](../tech-debt.md#p1-separate-ui-from-application-logic).
 
 ## Open, save, and ECU-read outcomes
 

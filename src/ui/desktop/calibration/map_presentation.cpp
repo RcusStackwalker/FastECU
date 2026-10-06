@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <limits>
 
 #include "src/backend/definition/text_format.h"
 
@@ -127,6 +128,21 @@ Result<MapPresentation> present_map(const calibration::CalibrationSession& sessi
         }
     }
     return result;
+}
+
+int selection_index(const PresentedCell& cell)
+{
+    if (!cell.numeric_value.has_value())
+    {
+        return 0;
+    }
+    const double value = *cell.numeric_value;
+    if (!std::isfinite(value) || value < std::numeric_limits<int>::min() || value > std::numeric_limits<int>::max() ||
+        std::trunc(value) != value)
+    {
+        return 0;
+    }
+    return static_cast<int>(value);
 }
 
 QString format_map_value(double value, const QString& format)

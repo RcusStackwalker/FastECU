@@ -272,5 +272,23 @@ TEST(NumericMapEdit, AllowsRepresentableSignedIncrementAcrossZero)
     EXPECT_THAT(calculate_increment(rom, spec, 1, cells, kOneCell, IncrementStep::FineUp),
                 IsOkAnd(WritesAre(ElementsAre(CellWrite{0, 0, {1}}))));
 }
+
+TEST(NumericMapEdit, InterpolatesSelectionWiderThanLegacyFixedArray)
+{
+    const auto spec = spec_for(StorageType::Uint8);
+    bytes::Bytes rom(190, 0);
+    rom.back() = 189;
+    std::vector<NumericCell> cells(190, fail(ErrorKind::InvalidConfig, "invalid interior"));
+    cells.front() = 0.0;
+    cells.back() = 189.0;
+    const SelectionRange range{.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 189};
+    const auto result = calculate_interpolation(rom, spec, 190, cells, range, InterpolationMode::Horizontal);
+    ASSERT_THAT(result, IsOk());
+    ASSERT_THAT(result->writes, ::testing::SizeIs(188));
+    EXPECT_EQ(result->writes.front().index, 1U);
+    EXPECT_THAT(result->writes.front().bytes, ElementsAre(1));
+    EXPECT_EQ(result->writes.back().index, 188U);
+    EXPECT_THAT(result->writes.back().bytes, ElementsAre(188));
+}
 } // namespace
 } // namespace fastecu::calibration

@@ -86,7 +86,7 @@ std::vector<std::uint8_t> apply_flash_method_padding(std::vector<std::uint8_t> r
 //
 // A non-owning view: `endian` and `from_byte` borrow from the RomDefinition
 // (the map's scaling or the resolved axis fields) used to build the run, which
-// always outlives the decode_scaled_values call. Never store one.
+// always outlives the decode_numeric_run call. Never store one.
 struct ElementRun
 {
     std::uint64_t address{0};
@@ -102,72 +102,5 @@ struct ElementRun
 Result<NumericRun> decode_numeric_run(bytes::ByteView rom, const ElementRun& run);
 Result<DecodedMap> decode_calibration_map(const definition::RomDefinition& definition,
                                           const definition::CalibrationMap& map, bytes::ByteView rom);
-
-// Decodes run.count consecutive elements laid out as
-//   addr(j) = run.address + (run.start_position - 1) * width
-//                         + j * width * run.interval
-// and formats each through expression_evaluate(run.from_byte, x,
-// float_precision) -- unless run.is_selectable, in which case the expression is
-// not evaluated at all and every element is emitted as the formatted text of
-// 0.0 (i.e. "0" at any precision), matching legacy's `value` staying
-// default-initialized for a "Selectable" type.
-//
-// Output is "v1,v2,...,vN," -- a comma AFTER every value including the last,
-// reproducing legacy's mapData.append(... + ",") verbatim. MapData consumers
-// split on "," and rely on it; this is not a bug to fix.
-//
-// Endianness: non-float storage with run.endian == "little" reads
-// least-significant byte first; anything else reads most-significant first.
-// Float storage is always assembled big-endian, matching the legacy float
-// branch on the supported little-endian hosts regardless of the endian field.
-//
-// Returns ErrorKind::Internal if any element's window would run past
-// rom_data's end. Legacy indexed QByteArray::at() unchecked here, which
-// asserts or reads out of bounds; this reports instead.
-Result<std::string> decode_scaled_values(bytes::ByteView rom_data, const ElementRun& run, int float_precision);
-
-// The StorageType::Bloblist branch: byte_count raw bytes from `address`,
-// hex-encoded lowercase, two digits per byte, no scaling applied. byte_count
-// comes from element_byte_size(storage_type, scaling).
-Result<std::string> decode_bloblist_hex(bytes::ByteView rom_data, std::uint64_t address, std::uint32_t byte_count);
-
-struct MapCellValues
-{
-    std::string map_data;
-    // Default " ", not empty: legacy wrote a single space for an absent axis
-    // and the calibration tree distinguishes the two.
-    std::string x_axis_data{" "};
-    std::string y_axis_data{" "};
-    // Set when this one map's decode failed. The three fields above are then
-    // left at their defaults, and the caller is expected to skip writing this
-    // entry back and to log the error against this map's name and index. A
-    // failed map never fails its siblings.
-    std::optional<Error> error;
-};
-using MapCellValuesList = std::vector<MapCellValues>;
-
-// One entry of compute_map_cell_values: the same decode for a single map, for
-// callers that decode on demand. A failure here is exactly the error the
-// whole-definition function stores in that map's `error` field.
-Result<MapCellValues> compute_one_map_cell_values(const definition::RomDefinition& rom_definition,
-                                                  const definition::CalibrationMap& map, bytes::ByteView rom_data,
-                                                  int float_precision);
-
-// One entry per rom_definition.maps, in the same order. Never fails as a
-// whole -- per-map failures land in each entry's `error`.
-//
-// Map cells: decode_bloblist_hex when storage_type is Bloblist (width from
-// element_byte_size, i.e. derived from the resolved scaling's first
-// selection), else decode_scaled_values over x_size * y_size elements.
-//
-// X axis, only when x_size > 1: "Static X Axis"/"Static Y Axis" join the
-// resolved axis's static_data comma-per-entry with a trailing comma;
-// "X Axis", or "Y Axis" when map.type == "2D", decode from the axis's own
-// address; any other type is left uncomputed at " ".
-//
-// Y axis, when y_size > 1: ALWAYS decoded, with no type branching at all.
-// This asymmetry with the X axis is real legacy behavior, reproduced exactly.
-Result<MapCellValuesList> compute_map_cell_values(const definition::RomDefinition& rom_definition,
-                                                  bytes::ByteView rom_data, int float_precision);
 
 } // namespace fastecu::calibration

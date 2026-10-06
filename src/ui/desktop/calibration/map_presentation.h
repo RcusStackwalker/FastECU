@@ -48,6 +48,7 @@ struct MapColorBounds
 
 Result<MapPresentation> present_map(const calibration::CalibrationSession& session, std::size_t index);
 QString format_map_value(double value, const QString& format);
+int selection_index(const PresentedCell& cell);
 std::optional<MapColorBounds> opening_color_bounds(const MapPresentation& map);
 QColor map_cell_color(double value, MapColorBounds bounds);
 

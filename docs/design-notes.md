@@ -149,6 +149,23 @@ bytes. View state and color ranges live with the session's windows, and hex
 display owns a snapshot. Closing a session removes its views without renumbering
 other sessions.
 
+### Numeric data stays typed until presentation
+
+Decoded snapshots distinguish numeric values/errors, static labels, blob bytes,
+and absent axes. Calculations use `double`; presentation precision does not
+feed back into encoding. This replaces the former comma-separated transport and
+its accidental empty-cell extent. Retaining cell strings would have removed the
+delimiter but kept arithmetic dependent on formatting.
+
+Edits validate every write before mutation and clamp to definition limits before
+checked storage encoding. Invalid cells can receive absolute replacements;
+relative operations require valid inputs. An increment applies one requested
+step, and decoding errors remain visible. The
+[calibration contract](reference/calibration-compatibility.md#decoded-values-and-map-edits)
+owns numeric rules and operator outcomes. The logging evaluator and `wrx02`
+predicate remain separate; further edit-policy ownership extraction is
+[unresolved work](tech-debt.md#p1-separate-ui-from-application-logic).
+
 ### Save and flash use operation images
 
 Checksum correction works on a temporary image rather than mutating editable

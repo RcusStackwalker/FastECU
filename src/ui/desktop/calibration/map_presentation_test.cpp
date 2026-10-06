@@ -103,5 +103,14 @@ TEST(MapPresentation, ConstantRangeHasValidColor)
 {
     EXPECT_EQ(map_cell_color(3, {3, 3}), QColor::fromHsvF(0, 0.85, 0.85));
 }
+
+TEST(MapPresentation, NumericSelectionIndexRequiresRepresentableInteger)
+{
+    EXPECT_EQ(selection_index(PresentedCell{.numeric_value = 12.0}), 12);
+    EXPECT_EQ(selection_index(PresentedCell{.numeric_value = -1.0}), -1);
+    EXPECT_EQ(selection_index(PresentedCell{.numeric_value = 2.5}), 0);
+    EXPECT_EQ(selection_index(PresentedCell{.numeric_value = 1e100}), 0);
+    EXPECT_EQ(selection_index(PresentedCell{.text = "NaN", .diagnostic = "invalid"}), 0);
+}
 } // namespace
 } // namespace fastecu::ui

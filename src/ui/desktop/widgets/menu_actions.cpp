@@ -373,7 +373,7 @@ void MainWindow::copy_value()
     }
 }
 
-// Behavior change beyond routing through resolve_active_map_edit / apply_paste
+// Behavior change beyond routing through resolve_active_map_edit / calculate_paste
 // / apply_patch: pasting onto a selected axis now edits that axis (legacy
 // paste_value had no axis resolution and always wrote into the map body).
 // A second, incidental change rides along with that routing for a `y_size ==

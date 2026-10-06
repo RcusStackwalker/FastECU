@@ -15,10 +15,6 @@
 namespace fastecu::calibration
 {
 
-// The precision legacy formatted every decoded cell with
-// (FileActions::float_precision).
-inline constexpr int kCellFloatPrecision = 15;
-
 // Identifies one open calibration within a workspace. Never reused, so a UI
 // element still holding the ID of a closed session finds nothing rather than
 // a different ROM.
