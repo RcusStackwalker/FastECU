@@ -31,16 +31,18 @@ namespace fastecu::flash
 // The decrypt table remains valid for the Wave-4 normal-ROM read paths.
 // DensoCAN is not a consumer of this data-only cluster.
 //
-// These applicable tables are the only shared artifact that is pure data.
-// Everything else that looks alike -- the
-// connect/probe shapes, the erase and reflash routines, the kernel jump, the
-// stop and close-block retry loops, the checksum verify -- differs between
-// the families in read timeouts, retry counts, pre-loop read counts, image
-// base addresses, and, most importantly, in how strictly a bad response is
-// treated. Those differences are the safety-relevant part of each family:
-// collapsing them behind a parameterized common routine would make a future
-// reader believe these are the same protocol when they are not. They stay in
-// their own executors deliberately.
+// Beyond these tables, the common module shares three narrow operations: the
+// SecurityAccess seed/key exchange and the erase flow (all four Wave-4
+// executors) and the N83M in-car opening exchange run (the two N83M executors
+// only; its 0x7E1 request asks for session 0x63, where the SH-family runs send
+// 0x03). Everything else that looks alike -- the connect/probe shapes, the
+// reflash routines, the kernel jump, the stop and close-block retry loops, the
+// checksum verify -- differs between the families in read timeouts, retry
+// counts, pre-loop read counts, image base addresses, and, most importantly, in
+// how strictly a bad response is treated. Those differences are the
+// safety-relevant part of each family: collapsing them behind a parameterized
+// common routine would make a future reader believe these are the same
+// protocol when they are not. They stay in their own executors deliberately.
 //
 // Scope note: the index transformation these tables are paired with is NOT
 // here. It is not specific to this cluster -- it was spelled out at fourteen
