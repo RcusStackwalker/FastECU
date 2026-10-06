@@ -126,7 +126,7 @@ qualify on the [connection checklist](checklists/connection-bench-checklist.md).
 
 Obtain a successful analysis of the implementation base and export all issue
 pages before scheduling work; an issue query alone is not a new scan. Dated
-triage and [proposed designs](superpowers/specs/) are baselines, not
+triage and [proposed designs](README.md#active-work) are baselines, not
 current totals or authorization to implement a proposed program. Do not copy
 per-rule counts into this roadmap.
 
