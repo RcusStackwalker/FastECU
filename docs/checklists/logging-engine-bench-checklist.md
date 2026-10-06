@@ -39,8 +39,9 @@ checklist covers what can only be observed with a real adapter and ECU. Run
    `update_logbox_values()` -- see Task 9's completion notes) and confirm the
    lower-panel gauges actually refresh, not just `logValues->log_value` in
    memory.
-8. Confirm no other serial operation (ROM read/flash) can be started while a
-   logging session is active, matching the pre-refactor `logging_state` guard.
+8. Start a ROM read/flash while logging is active. Confirm logging stops and
+   joins before the new operation uses the serial facade, and the datalog file
+   closes. The Logging action unchecks; the workers never share the facade.
 9. On SSM specifically: let a session run for a while and watch for garbled or
    misaligned frames. `SsmLoggingProtocol::poll()` now re-sends the
    `0xA8 0x01 <addresses>` "continue" request every single poll cycle

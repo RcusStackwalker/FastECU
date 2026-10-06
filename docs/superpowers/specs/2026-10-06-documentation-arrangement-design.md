@@ -1,6 +1,6 @@
 # Documentation arrangement for focused agent context
 
-Date: 2026-10-06. Status: written spec approved; implementation plan awaiting review.
+Date: 2026-10-06. Status: reorganization reviewed; preservation delivery and retirement pending.
 
 ## Intent and scope
 

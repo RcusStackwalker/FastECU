@@ -4,7 +4,7 @@ Gate before any use of the `sub_tcu_hitachi_m32r_can` family against real
 hardware, bench or vehicle. The portable `SubaruTcuHitachiM32rCanPlan` and
 `SubaruTcuHitachiM32rCanExecutor` replaced the legacy Qt operation in wave 6a-2
 and are covered by unit tests only; the row in the
-[flash qualification matrix](flash-qualification-matrix.md) records the family
+[flash qualification matrix](../flash-qualification-matrix.md) records the family
 as `experimental`, which means **nothing in this family is hardware-qualified**.
 
 Have an independently verified recovery procedure and tool available before any
@@ -111,14 +111,14 @@ Do not begin until section 0 is answered and section 2 has passed.
 
 Both are open questions that the port could not settle from this repository.
 They are listed in the family's
-[flash qualification matrix](flash-qualification-matrix.md) row as well.
+[flash qualification matrix](../flash-qualification-matrix.md) row as well.
 
 - [ ] **`M32R_512KB` MCU binding.** This binding is confirmed in-repo, not an
       external unknown: the built-in catalog declares `M32R_512KB` as
       `sub_tcu_hitachi_m32r_can`'s `ProtocolSpec::mcu`, the flash request
       carries that protocol, and its `.mcu` is checked by
       `validate_subaru_tcu_hitachi_m32r_can_plan` — see the
-      [flash qualification matrix](flash-qualification-matrix.md) row. What remains
+      [flash qualification matrix](../flash-qualification-matrix.md) row. What remains
       to confirm here is narrower than "where does this binding come from":
       it is **only whether the catalog value matches the physical TCU**. **Its
       blast radius now includes which regions get erased**, not merely what

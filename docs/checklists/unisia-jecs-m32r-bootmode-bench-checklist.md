@@ -47,3 +47,9 @@ read. Run that checklist's section 1 once per bootmode protocol.
 - On a direct serial adapter, watch for erase-poll failures caused by a reply
   split across two 10 ms reads. The executor needs each poll read to return a
   whole frame; legacy accumulated bytes across reads.
+
+## Unresolved kernel knowledge
+
+Status `0x5A` appears among legacy block-write failure codes without a known
+meaning; the executor reports it as unknown. Record its meaning if observed.
+The unused legacy 4800-baud switch (`B8 00 00 00 15`) is not implemented.

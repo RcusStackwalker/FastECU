@@ -5,13 +5,13 @@ the OBD-II DTC session runs as a portable, cancellable `DtcWorker` off the UI
 thread. `IDiagnosticLink::open()` applies its setters in one canonical order,
 and the OpenPort five-baud ASCII comparison and the K-Line unframing
 heuristics are pinned quirks (see the
-[design notes](design-notes.md#diagnostic-tools)). Automated tests
+[design notes](../reference/desktop-contracts.md#diagnostic-tools)). Automated tests
 (`serial_diagnostic_link_test.cpp`, `dtc_session_test.cpp`,
 `obd_frames_test.cpp`, `dtc_worker_test.cpp`) are regression evidence, not
 hardware qualification.
 
 No row below is qualified until it is run on a bench and signed off. This
-checklist does not affect the [flash qualification matrix](flash-qualification-matrix.md);
+checklist does not affect the [flash qualification matrix](../flash-qualification-matrix.md);
 it covers no flash path.
 
 Run `bazel test --config=release //...` first.

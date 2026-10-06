@@ -42,3 +42,8 @@ number and ECU ID, the protocol selected, date, operator and result.
   and advises not to power off the ECU; on an OpenPort 2.0 it carries only the
   don't-power-off advice. Confirm the same advice after a failed write on
   each adapter type.
+
+## Unused legacy command
+
+The legacy 4800-baud switch (`B8 00 00 00 15`) has no caller and is not
+implemented. It does not establish a supported baud-transition sequence.

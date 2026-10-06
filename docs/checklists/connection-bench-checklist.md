@@ -3,7 +3,7 @@
 `MainWindow`'s connection handling lives in `AdapterConnection`, and SSM ECU
 identification is the portable `identify_ssm_ecu`, run off the UI thread by
 `SsmIdentifyWorker`. Several wire-level behaviors differ deliberately from the
-original code (see the [design notes](design-notes.md#connection-and-identification)
+original code (see the [design notes](../reference/desktop-contracts.md#connection-and-identification)
 for the pinned quirks). Malformed-frame handling (short or malformed init
 frames fail as `BadResponse`, SSM1's trailing drain stops after 100 reads)
 has automated coverage only and no bench row.
@@ -12,7 +12,7 @@ Automated tests (`ssm_identify_test.cpp`, `ssm_identify_worker_test.cpp`,
 `mainwindow_test.cpp`) are regression evidence, not hardware qualification.
 
 No row below is qualified until it is run on a bench and signed off. This
-checklist does not affect the [flash qualification matrix](flash-qualification-matrix.md);
+checklist does not affect the [flash qualification matrix](../flash-qualification-matrix.md);
 the only flash-path interaction is that a flash operation stops a running
 identification first.
 
