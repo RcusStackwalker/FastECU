@@ -141,4 +141,11 @@ Status denso_security_access(const CanExecutorContext& ctx);
 // unsuccessful poll.
 Status denso_iso15765_erase(const CanExecutorContext& ctx, bytes::ByteView request_download_setup_pdu);
 
+// The N83M 1.5M and 4M in-car arms' opening run of ten session, DTC and
+// communication-control requests across 0x7A2, 0x7E0, 0x7DF, 0x7E1 and 0x7B0,
+// each read at 200 ms and discarded. Its 0x7E1 request asks for session 0x63;
+// the SH72531 and SH72543 diesel in-car arms send 0x03 there and keep their own
+// runs.
+Status n83m_in_car_fire_and_forget(const CanExecutorContext& ctx, ICanFlashTransport& can);
+
 } // namespace fastecu::flash

@@ -326,5 +326,37 @@ TEST(DensoIso15765CanCommonTest, EraseCancellationAfterTriggerStopsPolling)
     EXPECT_EQ(f.transport.readTimeouts().size(), 1U);
 }
 
+bytes::Bytes requestTo(std::uint32_t id, std::initializer_list<bytes::Byte> payload)
+{
+    bytes::Bytes out;
+    bytes::appendU32Be(out, id);
+    out.insert(out.end(), payload.begin(), payload.end());
+    return out;
+}
+
+// Both N83M families send this literal run, with the in-car 0x7E1 request
+// asking for subfunction 0x63. Replies are read and thrown away, so each one
+// here carries a deliberately wrong id and content.
+TEST(DensoIso15765CanCommonTest, N83mInCarSequencePreservesBothFamilyTranscripts)
+{
+    CommonFixture f;
+    const std::array<bytes::Bytes, 10> kRequests{requestTo(0x7A2, {0x10, 0xC0}), requestTo(0x7E0, {0x10, 0x63}),
+                                                 requestTo(0x7DF, {0x10, 0x03}), requestTo(0x7E1, {0x10, 0x63}),
+                                                 requestTo(0x7B0, {0x10, 0x03}), requestTo(0x7B0, {0x85, 0x02}),
+                                                 requestTo(0x7DF, {0x85, 0x02}), requestTo(0x7B0, {0x85, 0x02}),
+                                                 requestTo(0x7DF, {0x85, 0x02}), requestTo(0x7DF, {0x28, 0x03, 0x01})};
+    for (std::size_t i = 0; i < kRequests.size(); ++i)
+    {
+        f.transport.exchange(kRequests[i], requestTo(0x123 + static_cast<std::uint32_t>(i), {0x7F, 0xEE, 0xEE}));
+    }
+
+    EXPECT_THAT(n83m_in_car_fire_and_forget(f.ctx, f.transport), fastecu::testing::IsOk());
+
+    EXPECT_TRUE(f.transport.scriptConsumed());
+    EXPECT_EQ(f.transport.writesConsumed(), 10U);
+    EXPECT_EQ(f.transport.readTimeouts().size(), 10U);
+    EXPECT_THAT(f.transport.readTimeouts(), ::testing::Each(200ms));
+}
+
 } // namespace
 } // namespace fastecu::flash

@@ -1,5 +1,6 @@
 #include "src/backend/flash/ecu/denso_iso15765_can_common.h"
 
+#include <array>
 #include <format>
 
 #include "src/algorithms/protocol/bytes_compose.h"
@@ -27,6 +28,32 @@ constexpr int kErasePollLimit = 20;
 constexpr bytes::Byte kRoutineIdHigh = 0x02;
 constexpr bytes::Byte kRoutineErase = 0x01;
 constexpr bytes::Byte kRoutineControlReply = uds::kSidRoutineControl + 0x40;
+
+constexpr std::chrono::milliseconds kInCarTimeout{200};
+
+struct InCarExchange
+{
+    std::uint32_t id;
+    std::array<bytes::Byte, 3> pdu;
+    std::size_t length;
+};
+
+constexpr bytes::Byte kSidControlDtcSetting = 0x85;
+constexpr bytes::Byte kSidCommunicationControl = 0x28;
+
+// Write on `id`, read whatever arrives next, discard it. Order matters.
+constexpr std::array<InCarExchange, 10> kN83mInCarSequence{{
+    {0x7A2, {uds::kSidDiagnosticSessionControl, 0xC0, 0}, 2},
+    {0x7E0, {uds::kSidDiagnosticSessionControl, 0x63, 0}, 2},
+    {0x7DF, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic, 0}, 2},
+    {0x7E1, {uds::kSidDiagnosticSessionControl, 0x63, 0}, 2},
+    {0x7B0, {uds::kSidDiagnosticSessionControl, uds::kSessionExtendedDiagnostic, 0}, 2},
+    {0x7B0, {kSidControlDtcSetting, 0x02, 0}, 2},
+    {0x7DF, {kSidControlDtcSetting, 0x02, 0}, 2},
+    {0x7B0, {kSidControlDtcSetting, 0x02, 0}, 2},
+    {0x7DF, {kSidControlDtcSetting, 0x02, 0}, 2},
+    {0x7DF, {kSidCommunicationControl, 0x03, 0x01}, 3},
+}};
 
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
@@ -155,6 +182,20 @@ Status denso_iso15765_erase(const CanExecutorContext& ctx, bytes::ByteView reque
 
     error(ctx, "Flash area erase failed");
     return fail(ErrorKind::BadResponse, "flash area erase failed");
+}
+
+Status n83m_in_car_fire_and_forget(const CanExecutorContext& ctx, ICanFlashTransport& can)
+{
+    for (const InCarExchange& exchange : kN83mInCarSequence)
+    {
+        if (const Status sent = fire_and_forget(ctx, can, exchange.id,
+                                                bytes::ByteView(exchange.pdu.data(), exchange.length), kInCarTimeout);
+            !sent.has_value())
+        {
+            return sent;
+        }
+    }
+    return {};
 }
 
 } // namespace fastecu::flash
