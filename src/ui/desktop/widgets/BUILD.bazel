@@ -138,7 +138,6 @@ qt_cc_library(
         # Resource registration is linked without a C++ include.
         "//resources/desktop:font_resource",  # keep
         "//resources/desktop:icons_resource",  # keep
-        "//resources/desktop:images_resource",  # keep
         ":dtc_operations",
         "//bazel/qt:core",
         "//bazel/qt:gui",

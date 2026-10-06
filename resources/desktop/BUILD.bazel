@@ -17,13 +17,6 @@ qt_resource_via_qrc(
 )
 
 qt_resource_via_qrc(
-    name = "images_resource",
-    files = glob(["images/*"]),
-    qrc_file = "images.qrc",
-    deps = ["//bazel/qt:core"],
-)
-
-qt_resource_via_qrc(
     name = "hexedit_resource",
     files = glob([
         "hexedit/images/*",

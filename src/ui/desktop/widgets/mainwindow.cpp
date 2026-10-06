@@ -57,33 +57,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
         QFont monospace(family);
     }
 
-    QPixmap startUpSplashImage(":/images/startup_splash.jpg");
-    int startUpSplashProgressBarValue = 0;
-
-    startUpSplash = std::make_unique<QSplashScreen>(startUpSplashImage);
-    QVBoxLayout *startUpSplashLayout = new QVBoxLayout(startUpSplash.get());
-    // startUpSplashLayout->setMargin(0);
-    startUpSplashLayout->setSpacing(0);
-    startUpSplashLayout->setAlignment(Qt::AlignBottom);
-    startUpSplashLabel = new QLabel(QString("Starting FastECU..."));
-    startUpSplashLabel->setStyleSheet("QLabel { background-color : black; color : white; }");
-    startUpSplashLayout->addWidget(startUpSplashLabel);
-
-    startUpSplashProgressBar = new QProgressBar();
-    startUpSplashProgressBar->setMinimum(0);
-    startUpSplashProgressBar->setMaximum(100);
-    startUpSplashProgressBar->setValue(startUpSplashProgressBarValue);
-    startUpSplashProgressBar->setFixedHeight(16);
-    startUpSplashLayout->addWidget(startUpSplashProgressBar);
-    // startUpSplash->setEnabled(false);
-    startUpSplash->show();
-    // Move splashscreen to the center of the screen
-    QScreen *screen = QGuiApplication::primaryScreen();
-    QRect screenGeometry = screen->geometry();
-    startUpSplash->move(screenGeometry.center() - startUpSplash->rect().center());
-    QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
-
-    setSplashScreenProgress("Reading config files...", 10);
     configSession = &services_.config;
     calibrationWorkspace = &services_.calibrations;
 
@@ -209,7 +182,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
         this->setWindowState(Qt::WindowMaximized);
     }
 
-    setSplashScreenProgress("Preparing ROM definitions...", 10);
     if (configSession->settings().romraider_definition_files.empty() &&
         configSession->settings().ecuflash_definition_files_directory.empty())
     {
@@ -217,11 +189,9 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
                              "No definition file(s), use 'Settings' in 'Edit' menu to choose file(s)");
     }
 
-    setSplashScreenProgress("Preparing EcuFlash ROM definitions...", 10);
     // Scan errors are nonfatal and already reported by the session.
     std::ignore = services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash);
 
-    setSplashScreenProgress("Preparing RomRaider ROM definitions...", 10);
     // Scan errors are nonfatal and already reported by the session.
     std::ignore = services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::RomRaider);
 
@@ -234,7 +204,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
         // emit LOG_D(txtFilesAndDirectories;
     }
 
-    setSplashScreenProgress("Setting up menus...", 10);
     apply_standard_shortcuts();
     connect_menu_actions();
 
@@ -252,7 +221,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
             SLOT(calibration_data_treewidget_item_collapsed(QTreeWidgetItem *)));
     connect(calibrationTreeWidget, SIGNAL(closeRom()), this, SLOT(close_calibration()));
 
-    setSplashScreenProgress("Setting up statusbar...", 10);
     status_bar_connection_label->setMargin(5);
     // status_bar_connection_label->setStyleSheet("QLabel { background-color : red; color : white; }");
     set_status_bar_label(false, false, "");
@@ -270,7 +238,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     statusBar()->addPermanentWidget(status_bar_ecu_label);
     statusBar()->setSizeGripEnabled(true);
 
-    setSplashScreenProgress("Preparing up treewidget...", 10);
     ui->calibrationFilesTreeWidget->setHeaderLabel("Calibration Files");
     ui->calibrationDataTreeWidget->setHeaderLabel("Calibration Data");
     ui->calibrationDataTreeWidget->resizeColumnToContents(0);
@@ -284,7 +251,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     // ui->splitter->setStretchFactor(2, 1);
     ui->splitter->setSizes(QList<int>({125, INT_MAX}));
 
-    setSplashScreenProgress("Preparing remote connection...", 10);
     // Splash screen
     netSplash = new QSplashScreen();
     QVBoxLayout *netSplashLayout = new QVBoxLayout(netSplash);
@@ -364,7 +330,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     vbatt_timer->setInterval(vbatt_timer_timeout);
     connect(vbatt_timer, SIGNAL(timeout()), this, SLOT(update_vbatt()));
 
-    setSplashScreenProgress("Setting up toolbar...", 10);
     toolbar_item_size.setWidth(qs(configSession->settings().toolbar_iconsize).toInt());
     toolbar_item_size.setHeight(qs(configSession->settings().toolbar_iconsize).toInt());
     ui->toolBar->setIconSize(toolbar_item_size);
@@ -491,16 +456,6 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     set_flash_arrow_state();
 
-    startUpSplashLabel->setText("Starting FastECU GUI...");
-    startUpSplashProgressBarValue = startUpSplashProgressBar->value();
-    while (startUpSplashProgressBarValue < 100)
-    {
-        startUpSplashProgressBar->setValue(startUpSplashProgressBarValue += 1);
-        delay(10);
-        QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
-    }
-
-    startUpSplash->close();
     netSplash->deleteLater();
     emit LOG_I("FastECU initialized", true, true);
 }
@@ -1646,13 +1601,6 @@ void MainWindow::save_logger_selection()
         services_.file_action_events.notice("Logger file: Unable to open logger config file '" + handle +
                                             "' for reading");
     }
-}
-
-void MainWindow::setSplashScreenProgress(const QString& text, int incValue)
-{
-    startUpSplashLabel->setText(text);
-    startUpSplashProgressBar->setValue(startUpSplashProgressBar->value() + incValue);
-    QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
 }
 
 bool MainWindow::event(QEvent *event)

@@ -115,9 +115,6 @@ class MainWindow : public QMainWindow
     QString software_title;
     QString software_version;
 
-    std::unique_ptr<QSplashScreen> startUpSplash;
-    QLabel *startUpSplashLabel;
-    QProgressBar *startUpSplashProgressBar;
     QMutex restartQuestionActive;
 
     QString peerAddress;
@@ -330,7 +327,6 @@ class MainWindow : public QMainWindow
     QStringList create_flash_transports_list();
     QStringList create_log_transports_list();
     // QString check_kernel(QString flash_method);
-    void setSplashScreenProgress(const QString& text, int incValue);
     QTextEdit *iterateWidgetChild(QObjectList children);
     bool write_syslog(QString msg);
 
