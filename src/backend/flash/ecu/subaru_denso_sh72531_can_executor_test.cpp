@@ -554,6 +554,9 @@ TEST(SubaruDensoSh72531CanExecutor, EraseRetryExhaustionFails)
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
+    // A second trigger would have hit the end of the script and surfaced as an
+    // Internal error rather than BadResponse; the failure is the erase's own.
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Flash area erase failed")));
 }
 
 // Unlike ReadPropagatesADisconnectedTransport (can_executor_conformance.h),

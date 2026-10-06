@@ -568,6 +568,9 @@ TEST(SubaruDenso1n83m_1_5mCanExecutor, EraseRetryExhaustionFails)
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
+    // A second trigger would have hit the end of the script and surfaced as an
+    // Internal error rather than BadResponse; the failure is the erase's own.
+    EXPECT_THAT(events.logs, testing::Contains(testing::Pair(fastecu::LogLevel::Error, "Flash area erase failed")));
 }
 
 // The IFlashExecutor contract this family satisfies -- see

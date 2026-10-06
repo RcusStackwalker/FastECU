@@ -18,6 +18,16 @@ namespace
 constexpr bytes::Byte kSecurityAccessRequestSeed = 0x61;
 constexpr bytes::Byte kSecurityAccessSendKey = 0x62;
 constexpr uds::ExchangePolicy kSecurityAccessPolicy{.read_timeout = std::chrono::milliseconds{2000}};
+constexpr uds::ExchangePolicy kErasePolicy{.read_timeout = std::chrono::milliseconds{500}};
+constexpr std::chrono::milliseconds kEraseTimeout{500};
+constexpr int kErasePollLimit = 20;
+
+// Routine identifier shared by the erase (0x02 0x01) and checksum (0x02 0x02)
+// routines; vendor-assigned.
+constexpr bytes::Byte kRoutineIdHigh = 0x02;
+constexpr bytes::Byte kRoutineErase = 0x01;
+constexpr bytes::Byte kRoutineControlReply = uds::kSidRoutineControl + 0x40;
+
 constexpr std::string_view kRejectionPrefix = "Wrong response from ECU: ";
 
 } // namespace
@@ -96,6 +106,55 @@ Status denso_security_access(const CanExecutorContext& ctx)
     }
     info(ctx, "Seed key ok");
     return {};
+}
+
+Status denso_iso15765_erase(const CanExecutorContext& ctx, bytes::ByteView request_download_setup_pdu)
+{
+    info(ctx, "Setting flash start & length");
+    if (Result<bytes::Bytes> setup =
+            fatal_query(exchange_context(ctx, kErasePolicy), request_download_setup_pdu, bytes::Bytes{0x20, 0x01, 0x05},
+                        kRejectionPrefix, "flash start & length setup");
+        !setup.has_value())
+    {
+        return std::unexpected(setup.error());
+    }
+
+    info(ctx, "Erasing ECU ROM");
+    // Sent through the channel rather than UdsClient: no reply is read here,
+    // the polling loop below consumes the ECU's answer instead.
+    if (const Status sent = ctx.channel.send(bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart,
+                                                          kRoutineIdHigh, kRoutineErase, 0xff, 0xff, 0xff, 0xff},
+                                             ctx.cancellation);
+        !sent.has_value())
+    {
+        return sent;
+    }
+    if (const Status slept = ctx.clock.sleep(kEraseTimeout, ctx.cancellation); !slept.has_value())
+    {
+        return slept;
+    }
+
+    for (int attempt = 0; attempt < kErasePollLimit; ++attempt)
+    {
+        Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kEraseTimeout, ctx.cancellation);
+        if (!received.has_value())
+        {
+            return std::unexpected(received.error());
+        }
+        if (received->has_value() && received->value().size() > 2 && (**received)[0] == kRoutineControlReply &&
+            (**received)[1] == uds::kRoutineControlStart && (**received)[2] == kRoutineIdHigh)
+        {
+            info(ctx, "Flash erased! Starting flash write, do not power off!");
+            return {};
+        }
+        if (const Status slept = ctx.clock.sleep(kEraseTimeout, ctx.cancellation); !slept.has_value())
+        {
+            return slept;
+        }
+    }
+
+    error(ctx, "Flash area erase failed");
+    return fail(ErrorKind::BadResponse, "flash area erase failed");
 }
 
 } // namespace fastecu::flash

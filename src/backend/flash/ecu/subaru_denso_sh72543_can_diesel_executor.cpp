@@ -72,7 +72,6 @@ constexpr bytes::Byte kSessionVendorC0 = 0xC0;
 // through UdsClient (which does the SID + 0x40 arithmetic itself).
 constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl + 0x40;   // 0x50
 constexpr bytes::Byte kReadDataByIdentifierReply = uds::kSidReadDataByIdentifier + 0x40; // 0x62
-constexpr bytes::Byte kRoutineControlReply = uds::kSidRoutineControl + 0x40;             // 0x71
 
 // ISO 14229-1 services used only by the in-car arm's fire-and-forget run
 // (legacy lines 429-483). Kept local per uds_service_ids.h's rule that a
@@ -85,7 +84,6 @@ constexpr bytes::Byte kSidCommunicationControl = 0x28; // ISO 14229-1
 // (0x02 0x02) routines; vendor-assigned, so it stays here rather than in the
 // shared UDS header.
 constexpr bytes::Byte kRoutineIdHigh = 0x02;
-constexpr bytes::Byte kRoutineErase = 0x01;
 constexpr bytes::Byte kRoutineChecksum = 0x02;
 
 // RequestDownload/RequestUpload format bytes: 0x04 dataFormatIdentifier and
@@ -578,52 +576,7 @@ Result<bytes::Bytes> read_memory(Ctx& ctx, const SubaruDensoSh72543CanDieselPlan
 // re-sends.
 Status erase_memory(Ctx& ctx, const MemoryRegion& region)
 {
-    info(ctx, start_and_length_line(region));
-    if (Result<bytes::Bytes> setup =
-            fatal_query(ctx, setup_pdu(uds::kSidRequestDownload, region), bytes::Bytes{0x20, 0x01, 0x05},
-                        kReceivePolicy, "flash start & length setup");
-        !setup.has_value())
-    {
-        return std::unexpected(setup.error());
-    }
-
-    info(ctx, "Erasing ECU ROM");
-    // Lines 1437-1450. Sent through the channel rather than UdsClient: legacy
-    // does not read a reply here at all, and the loop below consumes the
-    // ECU's answer instead.
-    if (const Status sent = ctx.channel.send(bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStart,
-                                                          kRoutineIdHigh, kRoutineErase, 0xff, 0xff, 0xff, 0xff},
-                                             ctx.cancellation);
-        !sent.has_value())
-    {
-        return sent;
-    }
-    if (const Status slept = ctx.clock.sleep(500ms, ctx.cancellation); !slept.has_value())
-    {
-        return slept;
-    }
-
-    for (int attempt = 0; attempt < 20; ++attempt)
-    {
-        Result<std::optional<bytes::Bytes>> received = ctx.channel.receive(kReceiveTimeout, ctx.cancellation);
-        if (!received.has_value())
-        {
-            return std::unexpected(received.error());
-        }
-        if (received->has_value() && received->value().size() > 2 && (**received)[0] == kRoutineControlReply &&
-            (**received)[1] == uds::kRoutineControlStart && (**received)[2] == kRoutineIdHigh)
-        {
-            info(ctx, "Flash erased! Starting flash write, do not power off!");
-            return {};
-        }
-        if (const Status slept = ctx.clock.sleep(500ms, ctx.cancellation); !slept.has_value())
-        {
-            return slept;
-        }
-    }
-
-    error(ctx, "Flash area erase failed");
-    return fail(ErrorKind::BadResponse, "flash area erase failed");
+    return denso_iso15765_erase(ctx, setup_pdu(uds::kSidRequestDownload, region));
 }
 
 // Legacy reflash_block, lines 1156-1368, called for block 0 only.

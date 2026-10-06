@@ -689,6 +689,9 @@ TEST(SubaruDensoSh72543CanDieselExecutor, EraseRetryExhaustionFails)
 
     EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
+    // A second trigger would have hit the end of the script and surfaced as an
+    // Internal error rather than BadResponse; the failure is the erase's own.
+    EXPECT_THAT(events.logs, Contains(Pair(LogLevel::Error, "Flash area erase failed")));
 }
 
 // Unlike this family's kProbeTimeout (2000ms, see the conformance suite's

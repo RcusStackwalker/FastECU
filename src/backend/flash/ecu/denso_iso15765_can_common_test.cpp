@@ -17,6 +17,7 @@
 #include "src/backend/flash/testing/scripted_can_flash_transport.h"
 #include "src/backend/ports/manual_cancellation_token.h"
 #include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/recording_clock.h"
 #include "src/backend/ports/testing/recording_event_sink.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/backend/protocol/uds/uds_client.h"
@@ -113,6 +114,7 @@ using fastecu::ErrorKind;
 using fastecu::FakeClock;
 using fastecu::LogLevel;
 using fastecu::ManualCancellationToken;
+using fastecu::RecordingClock;
 using fastecu::RecordingEventSink;
 using fastecu::Status;
 
@@ -159,7 +161,7 @@ struct CommonFixture
 {
     ScriptedCanFlashTransport transport;
     CanFlashUdsChannel channel{transport, 0x7E0, 0x7E8};
-    FakeClock clock;
+    RecordingClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
     uds::UdsClient client{channel, clock, events};
@@ -217,6 +219,111 @@ TEST(DensoIso15765CanCommonTest, SecurityAccessPropagatesCancellation)
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
     EXPECT_EQ(f.transport.writesConsumed(), 1U);
+}
+
+// Stops the operator's token during the first sleep, which is the settle that
+// follows the erase trigger.
+class CancellingClock : public FakeClock
+{
+  public:
+    explicit CancellingClock(ManualCancellationToken& token) : token_(token)
+    {
+    }
+    Status sleep(std::chrono::milliseconds duration, const ICancellationToken& cancellation) override
+    {
+        token_.cancel();
+        return FakeClock::sleep(duration, cancellation);
+    }
+
+  private:
+    ManualCancellationToken& token_;
+};
+
+const bytes::Bytes kSetupPdu{0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00};
+
+void scriptEraseSetup(ScriptedCanFlashTransport& transport)
+{
+    transport.exchange(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}),
+                       response({0x74, 0x20, 0x01, 0x05}));
+}
+
+void scriptEraseTrigger(ScriptedCanFlashTransport& transport)
+{
+    transport.exchange(request({0x31, 0x01, 0x02, 0x01, 0xFF, 0xFF, 0xFF, 0xFF}));
+}
+
+TEST(DensoIso15765CanCommonTest, EraseSetupMismatchDoesNotSendTrigger)
+{
+    CommonFixture f;
+    f.transport.exchange(request({0x34, 0x04, 0x44, 0x08, 0xFA, 0xC0, 0x00, 0x00, 0x17, 0x3F, 0x00}),
+                         response({0x74, 0x20, 0x01, 0x04}));
+
+    const Status result = denso_iso15765_erase(f.ctx, kSetupPdu);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(f.transport.writesConsumed(), 1U);
+}
+
+TEST(DensoIso15765CanCommonTest, EraseAccepts71_01_02AfterPolling)
+{
+    CommonFixture f;
+    scriptEraseSetup(f.transport);
+    scriptEraseTrigger(f.transport);
+    f.transport.queueRead(response({0x71, 0x01, 0x03}));
+    f.transport.queueRead(response({0x71, 0x01, 0x02, 0x00}));
+
+    EXPECT_THAT(denso_iso15765_erase(f.ctx, kSetupPdu), fastecu::testing::IsOk());
+
+    EXPECT_TRUE(f.transport.scriptConsumed());
+    EXPECT_EQ(f.transport.writesConsumed(), 2U);
+    EXPECT_THAT(f.transport.readTimeouts(), ::testing::ElementsAre(500ms, 500ms, 500ms));
+    EXPECT_THAT(f.clock.sleep_calls, ::testing::ElementsAre(500ms, 500ms));
+    EXPECT_THAT(f.events.logs,
+                ::testing::ElementsAre(
+                    ::testing::Pair(LogLevel::Info, "Setting flash start & length"),
+                    ::testing::Pair(LogLevel::Info, "Erasing ECU ROM"),
+                    ::testing::Pair(LogLevel::Info, "Flash erased! Starting flash write, do not power off!")));
+}
+
+TEST(DensoIso15765CanCommonTest, ErasePollingStopsAfter20ReceivesAndNeverResendsTrigger)
+{
+    CommonFixture f;
+    scriptEraseSetup(f.transport);
+    scriptEraseTrigger(f.transport);
+    for (int attempt = 0; attempt < 20; ++attempt)
+    {
+        f.transport.queueRead(response({0x71, 0x01, 0x03}));
+    }
+
+    const Status result = denso_iso15765_erase(f.ctx, kSetupPdu);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_TRUE(f.transport.scriptConsumed());
+    EXPECT_EQ(f.transport.writesConsumed(), 2U);
+    EXPECT_THAT(f.transport.readTimeouts(), ::testing::Each(500ms));
+    EXPECT_EQ(f.transport.readTimeouts().size(), 21U);
+    EXPECT_THAT(f.clock.sleep_calls, ::testing::Each(500ms));
+    EXPECT_EQ(f.clock.sleep_calls.size(), 21U);
+    EXPECT_THAT(f.events.logs, ::testing::Contains(::testing::Pair(LogLevel::Error, "Flash area erase failed")));
+}
+
+TEST(DensoIso15765CanCommonTest, EraseCancellationAfterTriggerStopsPolling)
+{
+    CommonFixture f;
+    CancellingClock clock(f.cancellation);
+    uds::UdsClient client(f.channel, clock, f.events);
+    CanExecutorContext ctx{f.cancellation, f.events, clock, client, f.channel};
+    scriptEraseSetup(f.transport);
+    scriptEraseTrigger(f.transport);
+
+    const Status result = denso_iso15765_erase(ctx, kSetupPdu);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(f.transport.writesConsumed(), 2U);
+    EXPECT_EQ(f.transport.readTimeouts().size(), 1U);
 }
 
 } // namespace

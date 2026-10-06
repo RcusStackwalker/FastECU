@@ -132,4 +132,13 @@ Status fire_and_forget(const CanExecutorContext& ctx, ICanFlashTransport& can, s
 // client's own pending timeout and are re-read, never re-sent.
 Status denso_security_access(const CanExecutorContext& ctx);
 
+// The Wave 4 flash erase: RequestDownload with `request_download_setup_pdu`
+// (the executor builds it, since it also builds the read-path setup), then the
+// erase routine trigger, then up to twenty re-reads for the 71 01 02 success
+// reply. The trigger is sent once and never re-sent while polling. The setup
+// reply must start 20 01 05 or the trigger is never sent. Setup and polling
+// both read at 500 ms, with a 500 ms sleep after the trigger and after each
+// unsuccessful poll.
+Status denso_iso15765_erase(const CanExecutorContext& ctx, bytes::ByteView request_download_setup_pdu);
+
 } // namespace fastecu::flash
