@@ -11,15 +11,13 @@ cc_library(
     srcs = ["map_edit_adapter.cpp"],
     hdrs = ["map_edit_adapter.h"],
     copts = COMMON_COPTS,
-    implementation_deps = [
-        "//bazel/qt:widgets",
-        "//src/algorithms/expression:checked_expression",
-    ],
+    implementation_deps = ["//bazel/qt:widgets"],
     deps = [
         ":session_key",
         "//bazel/qt:core",
         "//src/backend/calibration:numeric_map_edit",
         "//src/backend/calibration/session:calibration_session",
+        "//src/backend/calibration/session:map_element_fields",
     ],
 )
 

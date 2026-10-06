@@ -2,8 +2,8 @@
 
 #include <utility>
 #include <algorithm>
-#include <limits>
-#include "src/algorithms/expression/checked_expression.h"
+#include <cstddef>
+#include <optional>
 
 #include <QMdiSubWindow>
 #include <QString>
@@ -36,86 +36,23 @@ const calibration::NumericRun *target_cells(const calibration::DecodedMap& value
     return nullptr;
 }
 
-double increment_value(std::string_view text)
+std::optional<calibration::NumericTarget> to_numeric_target(calibration::EditTargetKind kind)
 {
-    if (text.find_first_not_of(" \t\r\n\f\v") == std::string_view::npos)
+    switch (kind)
     {
-        return 0.0;
+    case calibration::EditTargetKind::MapBody:
+        return calibration::NumericTarget::MapBody;
+    case calibration::EditTargetKind::XAxis:
+        return calibration::NumericTarget::XAxis;
+    case calibration::EditTargetKind::YAxis:
+        return calibration::NumericTarget::YAxis;
+    case calibration::EditTargetKind::Rejected:
+        return std::nullopt;
     }
-    const auto value = expression::parse_finite_number(text);
-    // Reject malformed increments in the numeric increment operation without
-    // preventing absolute assignments that do not use increment metadata.
-    return value.has_value() ? *value : std::numeric_limits<double>::quiet_NaN();
+    return std::nullopt;
 }
 
 } // namespace
-
-calibration::MapElementSpec MapElementFields::spec() const&
-{
-    calibration::MapElementSpec spec;
-    spec.address = address_;
-    spec.storage_type = storage_type_;
-    spec.endian = endian_;
-    spec.to_byte = to_byte_;
-    spec.from_byte = from_byte_;
-    spec.min_value = min_value_;
-    spec.max_value = max_value_;
-    spec.coarse_increment = coarse_increment_;
-    spec.fine_increment = fine_increment_;
-    spec.x_size = x_size_;
-    spec.y_size = y_size_;
-    spec.start_position = start_position_;
-    spec.interval = interval_;
-    spec.flash_method = flash_method_;
-    spec.rom_file_size = rom_file_size_;
-    return spec;
-}
-
-MapElementFields collect_map_element_fields(const calibration::CalibrationSession& session, int map_number,
-                                            calibration::EditTargetKind kind)
-{
-    MapElementFields fields;
-    const auto& def = session.definition()->definition;
-    const auto& map = def.maps.at(static_cast<std::size_t>(map_number));
-    const definition::Scaling *scaling = nullptr;
-    if (kind == calibration::EditTargetKind::MapBody)
-    {
-        scaling = definition::find_scaling(def, map.scaling_name);
-        fields.address_ = map.address.value_or(0);
-        fields.storage_type_ = map.storage_type ? map.storage_type : scaling ? scaling->storage_type : std::nullopt;
-        fields.endian_ = legacy_text(!map.endian.empty() ? map.endian : scaling ? scaling->endian : "");
-        fields.from_byte_ = scaling ? legacy_text(scaling->from_byte) : "x";
-        fields.to_byte_ = scaling ? legacy_text(scaling->to_byte) : "x";
-        fields.start_position_ = map.start_position;
-        fields.interval_ = map.interval;
-    }
-    else
-    {
-        if (kind == calibration::EditTargetKind::Rejected)
-        {
-            std::unreachable();
-        }
-        const auto& axis = kind == calibration::EditTargetKind::XAxis ? map.x_axis : map.y_axis;
-        const bool present = !axis.type.empty();
-        scaling = present ? definition::find_scaling(def, axis.scaling_name) : nullptr;
-        fields.address_ = present ? axis.address.value_or(0) : 0;
-        fields.storage_type_ = present ? axis.storage_type : std::nullopt;
-        fields.endian_ = present ? legacy_text(axis.endian) : " ";
-        fields.from_byte_ = present ? legacy_text(axis.from_byte) : " ";
-        fields.to_byte_ = present ? legacy_text(axis.to_byte) : " ";
-        fields.start_position_ = present ? axis.start_position : 1;
-        fields.interval_ = present ? axis.interval : 1;
-    }
-    fields.min_value_ = scaling ? legacy_text(scaling->minimum) : " ";
-    fields.max_value_ = scaling ? legacy_text(scaling->maximum) : " ";
-    fields.coarse_increment_ = scaling ? increment_value(scaling->coarse_increment) : 0.0;
-    fields.fine_increment_ = scaling ? increment_value(scaling->fine_increment) : 0.0;
-    fields.x_size_ = map.x_size;
-    fields.y_size_ = map.y_size;
-    fields.flash_method_ = session.protocol().flash_method;
-    fields.rom_file_size_ = session.protocol().unpadded_size;
-    return fields;
-}
 
 std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window)
 {
@@ -136,8 +73,8 @@ std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window)
     return MapWindowId{.session = *session, .map_number = parts.at(1).toInt()};
 }
 
-ResolvedEdit::ResolvedEdit(MapElementFields fields, calibration::EditTarget target, calibration::NumericRun cells,
-                           int map_number)
+ResolvedEdit::ResolvedEdit(calibration::MapElementFields fields, calibration::EditTarget target,
+                           calibration::NumericRun cells, int map_number)
     : fields_(std::move(fields)), target_(target), cells_(std::move(cells)), map_number_(map_number)
 {
 }
@@ -173,7 +110,8 @@ std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window,
     const auto& map = session.definition()->definition.maps[static_cast<std::size_t>(map_number)];
     const calibration::MapDimensions dims{.x_size = map.x_size, .y_size = map.y_size};
     const auto target = calibration::resolve_edit_target(selection, dims, legacy_text(map.x_axis.type));
-    if (target.kind == calibration::EditTargetKind::Rejected)
+    const auto numeric_target = to_numeric_target(target.kind);
+    if (!numeric_target.has_value())
     {
         return std::nullopt;
     }
@@ -187,7 +125,8 @@ std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window,
     {
         return std::nullopt;
     }
-    auto fields = collect_map_element_fields(session, map_number, target.kind);
+    auto fields =
+        calibration::collect_map_element_fields(session, static_cast<std::size_t>(map_number), *numeric_target);
     return ResolvedEdit(std::move(fields), target, *cells, map_number);
 }
 
@@ -204,7 +143,13 @@ Status apply_patch(calibration::CalibrationSession& session, int map_number, cal
     {
         return fail(ErrorKind::InvalidConfig, "edit target is not a numeric run");
     }
-    const auto fields = collect_map_element_fields(session, map_number, kind);
+    const auto numeric_target = to_numeric_target(kind);
+    if (!numeric_target.has_value())
+    {
+        return fail(ErrorKind::InvalidConfig, "edit target is not a numeric run");
+    }
+    const auto fields =
+        calibration::collect_map_element_fields(session, static_cast<std::size_t>(map_number), *numeric_target);
     const auto spec = fields.spec();
     const auto width = definition::storage_byte_size(spec.storage_type);
     const auto size = session.rom().size();

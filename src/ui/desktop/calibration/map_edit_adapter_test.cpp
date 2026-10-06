@@ -41,22 +41,6 @@ class MapEditAdapterEnvironment final : public ::testing::Environment
 
 const auto *map_edit_adapter_environment = ::testing::AddGlobalTestEnvironment(new MapEditAdapterEnvironment);
 
-// MapElementFields::spec() is ref-qualified (`const &`, with `const && =
-// delete`) so that `collect_map_element_fields(...).spec()` -- taking a spec
-// from a temporary that is gone by the semicolon -- is a compile error
-// instead of a dangle: that guarantee no longer needs a runtime test to
-// observe it (a dangling implementation would very likely still pass a test
-// that merely keeps `fields` alive in the same scope, since freed
-// short-string storage usually reads back fine). A `static_assert` pinning
-// this directly was tried and dropped: `requires { collect_map_element_
-// fields(...).spec(); }` does not detect it -- calling a function selected
-// by overload resolution but marked `= delete` is a hard compile error, not
-// a substitution failure, so it is not swallowed by a requires-expression
-// (confirmed by trying it: the whole translation unit fails to compile
-// rather than the static_assert firing). Enforcement lives entirely in the
-// ref-qualification itself; see PlucksMapBodyFields below for the ordinary,
-// non-dangling usage this class expects from every caller.
-
 definition::RomDefinition two_by_two_definition()
 {
     definition::RomDefinition def;
@@ -103,73 +87,6 @@ calibration::CalibrationSession session_from(definition::RomDefinition def = two
     contents.protocol.flash_method = "wrx02";
     contents.protocol.unpadded_size = 123;
     return calibration::CalibrationSession(calibration::SessionId{1}, std::move(contents));
-}
-
-TEST(MapEditAdapter, PlucksTypedFieldsAndUnpaddedProtocolSize)
-{
-    const auto session = session_from();
-    const auto fields = collect_map_element_fields(session, 0, calibration::EditTargetKind::MapBody);
-    const auto spec = fields.spec();
-    EXPECT_EQ(spec.address, 16U);
-    EXPECT_EQ(spec.storage_type, definition::StorageType::Uint16);
-    EXPECT_EQ(spec.from_byte, "x*2");
-    EXPECT_EQ(spec.to_byte, "x");
-    EXPECT_EQ(spec.min_value, " ");
-    EXPECT_DOUBLE_EQ(spec.fine_increment, 0.1);
-    EXPECT_EQ(spec.start_position, 2U);
-    EXPECT_EQ(spec.interval, 3U);
-    EXPECT_EQ(spec.flash_method, "wrx02");
-    EXPECT_EQ(spec.rom_file_size, 123U);
-}
-
-TEST(MapEditAdapter, AxisUsesResolvedFieldsAndScalingBounds)
-{
-    auto def = two_by_two_definition();
-    def.maps[0].x_axis.scaling_name = "body";
-    def.maps[0].x_axis.start_position = 4;
-    def.maps[0].x_axis.interval = 5;
-    const auto session = session_from(std::move(def));
-    const auto fields = collect_map_element_fields(session, 0, calibration::EditTargetKind::XAxis);
-    const auto spec = fields.spec();
-    EXPECT_EQ(spec.address, 64U);
-    EXPECT_EQ(spec.storage_type, definition::StorageType::Uint8);
-    EXPECT_EQ(spec.from_byte, "x*10");
-    EXPECT_EQ(spec.to_byte, "x/10");
-    EXPECT_EQ(spec.start_position, 4U);
-    EXPECT_EQ(spec.interval, 5U);
-    EXPECT_DOUBLE_EQ(spec.fine_increment, 0.1);
-}
-
-TEST(MapEditAdapter, BodyStorageAndEndianFallBackToScalingButAxesUseResolvedStorage)
-{
-    auto def = two_by_two_definition();
-    def.maps[0].storage_type.reset();
-    def.maps[0].endian.clear();
-    def.scalings[0].storage_type = definition::StorageType::Float;
-    def.scalings[0].endian = "little";
-    def.maps[0].x_axis.scaling_name = "body";
-    const auto session = session_from(std::move(def));
-    const auto body = collect_map_element_fields(session, 0, calibration::EditTargetKind::MapBody);
-    EXPECT_EQ(body.spec().storage_type, definition::StorageType::Float);
-    EXPECT_EQ(body.spec().endian, "little");
-    const auto axis = collect_map_element_fields(session, 0, calibration::EditTargetKind::XAxis);
-    EXPECT_EQ(axis.spec().storage_type, definition::StorageType::Uint8);
-    EXPECT_EQ(axis.spec().endian, " ");
-}
-
-TEST(MapEditAdapter, MissingScalingAndAxisRetainLegacyPlaceholders)
-{
-    auto def = two_by_two_definition();
-    def.maps[0].scaling_name.clear();
-    def.maps[0].x_axis = {};
-    const auto session = session_from(std::move(def));
-    const auto body = collect_map_element_fields(session, 0, calibration::EditTargetKind::MapBody);
-    EXPECT_EQ(body.spec().from_byte, "x");
-    const auto axis = collect_map_element_fields(session, 0, calibration::EditTargetKind::XAxis);
-    EXPECT_EQ(axis.spec().endian, " ");
-    EXPECT_EQ(axis.spec().to_byte, " ");
-    EXPECT_EQ(axis.spec().address, 0U);
-    EXPECT_EQ(axis.spec().start_position, 1U);
 }
 
 TEST(ParseMapWindowId, ReturnsNulloptForANullWindow)
