@@ -232,7 +232,18 @@ std::uint64_t element_run_end(std::uint64_t address, std::uint32_t start_positio
     // (see the header); clamp it to the smallest legal value instead of
     // letting start_position - 1 wrap to 0xFFFFFFFF.
     const std::uint64_t start_offset = start_position == 0 ? 0 : std::uint64_t(start_position - 1);
-    return address + start_offset * element_width + std::uint64_t(count - 1) * interval * element_width + element_width;
+    std::uint64_t start_bytes = 0;
+    std::uint64_t stride = 0;
+    std::uint64_t last_offset = 0;
+    std::uint64_t end = 0;
+    if (!checked_multiply(start_offset, element_width, start_bytes) ||
+        !checked_multiply(interval, element_width, stride) || !checked_multiply(count - 1, stride, last_offset) ||
+        !checked_add(address, start_bytes, end) || !checked_add(end, last_offset, end) ||
+        !checked_add(end, element_width, end))
+    {
+        return std::numeric_limits<std::uint64_t>::max();
+    }
+    return end;
 }
 
 Status validate_rom_size(const definition::RomDefinition& rom_definition, std::size_t rom_byte_length)

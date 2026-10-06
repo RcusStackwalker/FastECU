@@ -41,6 +41,7 @@ void backup_rom(std::span<const std::uint8_t> rom_data, std::string_view backup_
 std::uint32_t element_byte_size(std::optional<definition::StorageType> storage_type,
                                 const definition::Scaling *scaling);
 
+// Returns UINT64_MAX on layout arithmetic overflow.
 // One past the last byte touched by `count` elements of `element_width` bytes,
 // laid out starting at `address` with the legacy start_position/interval
 // stride: addr(j) = address + (start_position-1)*element_width +

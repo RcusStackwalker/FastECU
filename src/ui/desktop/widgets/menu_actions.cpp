@@ -266,6 +266,13 @@ void MainWindow::set_value()
         return;
     }
 
+    const auto refresh_original = [&]
+    {
+        if (auto *map = qobject_cast<CalibrationMaps *>(original_window->widget()); map != nullptr)
+        {
+            map->refresh();
+        }
+    };
     const auto patch = fastecu::calibration::calculate_assignment(session->rom(), edit->spec(), edit->x_size(),
                                                                   edit->cells(), edit->range(), text.toStdString());
     if (!patch.has_value())
@@ -275,7 +282,7 @@ void MainWindow::set_value()
     }
     if (patch->writes.empty())
     {
-        set_maptablewidget_items();
+        refresh_original();
         show_no_change(this, patch->no_change);
         return;
     }
@@ -285,7 +292,7 @@ void MainWindow::set_value()
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(applied.error().detail));
         return;
     }
-    set_maptablewidget_items();
+    refresh_original();
 }
 
 void MainWindow::interpolate_value(fastecu::calibration::InterpolationMode mode)
@@ -411,7 +418,13 @@ void MainWindow::paste_value()
     }
 
     const QString pasteString = QApplication::clipboard()->text();
-    const QStringList rows = pasteString.split('\n');
+    QStringList rows = pasteString.split('\n');
+    // A terminal record delimiter does not create another numeric row.
+    // Keep interior empty rows so malformed input still rejects atomically.
+    if (pasteString.endsWith('\n'))
+    {
+        rows.removeLast();
+    }
 
     std::vector<std::vector<std::string>> owned_rows;
     owned_rows.reserve(static_cast<std::size_t>(rows.size()));

@@ -70,7 +70,8 @@ reject the whole operation before changing ROM bytes or dirty state. Patch
 application validates actual target indices, expected write addresses, byte
 widths, and all ROM ranges before mutation. A four-cell run has exactly four
 indices; a trailing delimiter cannot create a fifth. Complete no-ops preserve
-dirty state and refresh the views from current bytes.
+dirty state and refresh the views from current bytes. Set Value refreshes its
+original map window even if another window becomes active during the dialog.
 
 Each increment applies its requested step once, with no retry accumulation or
 hidden fractional state. Unchanged encoded cells are no-ops; the UI reports a
@@ -79,7 +80,8 @@ limits from storage resolution. The former sign-wrap heuristic no longer
 reverts valid signed increments across zero. Interpolation uses the required
 endpoints for each horizontal/vertical line or corners for bidirectional mode;
 invalid interior cells may be replaced. Paste retains its existing edge clipping
-and ragged-row behavior.
+and ragged-row behavior. A terminal LF or CRLF delimits the last pasted row;
+it does not add an empty numeric row. Interior empty cells reject the edit.
 
 Invalid numeric cells display `NaN` with a diagnostic on hover; they contribute
 no numeric color bound. Entirely invalid maps use neutral colors. A successful

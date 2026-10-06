@@ -529,6 +529,26 @@ INSTANTIATE_TEST_SUITE_P(
                       TypedStorageCase{StorageType::Int32, "little", {0, 0, 0, 0x80}, -2147483648.0},
                       TypedStorageCase{StorageType::Float, "little", {0x3f, 0xc0, 0, 0}, 1.5}));
 
+TEST(DecodeNumericRun, RejectsOverflowingLayoutsBeforeReading)
+{
+    const bytes::Bytes rom{42};
+    ElementRun run{
+        .address = std::numeric_limits<std::uint64_t>::max(), .count = 1, .storage_type = StorageType::Uint8};
+    EXPECT_FALSE(decode_numeric_run(rom, run).has_value());
+    run.start_position = 2;
+    EXPECT_FALSE(decode_numeric_run(rom, run).has_value());
+    run.address = std::numeric_limits<std::uint64_t>::max() - 3;
+    run.start_position = 2;
+    run.storage_type = StorageType::Uint32;
+    EXPECT_FALSE(decode_numeric_run(rom, run).has_value());
+}
+
+TEST(ElementRunEndTest, RejectsOverflowingStrideProduct)
+{
+    const auto maximum = std::numeric_limits<std::uint32_t>::max();
+    EXPECT_EQ(element_run_end(0, 1, maximum, 4, maximum), std::numeric_limits<std::uint64_t>::max());
+}
+
 TEST(DecodeNumericRun, PreservesStrideAndBlankIdentity)
 {
     const bytes::Bytes rom{99, 2, 99, 4};

@@ -890,6 +890,11 @@ class MainWindowTest : public ::testing::Test
         CurrentBytes,
         CurrentBytesNoOp,
         SelectionChanged,
+        ActiveMapChanged,
+        ActiveMapChangedNoOp,
+        PasteLf,
+        PasteCrLf,
+        PasteInteriorEmpty,
         OriginalClosed,
         InvalidCurrent,
         NoOpResolution,
@@ -4221,7 +4226,12 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
     ASSERT_NE(table, nullptr);
     table->setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 0), true);
     std::optional<fastecu::calibration::SessionId> other;
-    if (scenario == AssignmentScenario::SelectionChanged)
+    const bool active_changed =
+        scenario == AssignmentScenario::ActiveMapChanged || scenario == AssignmentScenario::ActiveMapChangedNoOp;
+    const bool paste = scenario == AssignmentScenario::PasteLf || scenario == AssignmentScenario::PasteCrLf ||
+                       scenario == AssignmentScenario::PasteInteriorEmpty;
+    QMdiSubWindow *other_window = nullptr;
+    if (scenario == AssignmentScenario::SelectionChanged || active_changed)
     {
         const auto adopted = services.calibrations.adopt_read_image({.rom = {0, 40}, .filename = "other.bin"});
         ASSERT_THAT(adopted, fastecu::testing::IsOk());
@@ -4233,6 +4243,29 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
                      .rom = {0, 40},
                      .definition = fastecu::calibration::ResolvedDefinition{.definition = definition}});
         ASSERT_TRUE(window.add_calibration(*other));
+        if (active_changed)
+        {
+            auto *category = window.ui->calibrationDataTreeWidget->topLevelItem(0);
+            for (int row = 0; row < window.ui->calibrationDataTreeWidget->topLevelItemCount(); ++row)
+            {
+                auto *candidate = window.ui->calibrationDataTreeWidget->topLevelItem(row);
+                if (candidate->text(0) == "Controls")
+                {
+                    category = candidate;
+                }
+            }
+            ASSERT_NE(category->child(0), nullptr);
+            window.calibration_data_treewidget_item_selected(category->child(0));
+            for (auto *candidate : window.ui->mdiArea->subWindowList())
+            {
+                if (candidate != subwindow)
+                {
+                    other_window = candidate;
+                }
+            }
+            ASSERT_NE(other_window, nullptr);
+            window.ui->mdiArea->setActiveSubWindow(subwindow);
+        }
     }
     bool answered = false;
     QString notice_text;
@@ -4258,7 +4291,8 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
                 }
                 return;
             }
-            if (scenario == AssignmentScenario::CurrentBytes || scenario == AssignmentScenario::CurrentBytesNoOp)
+            if (scenario == AssignmentScenario::CurrentBytes || scenario == AssignmentScenario::CurrentBytesNoOp ||
+                scenario == AssignmentScenario::ActiveMapChangedNoOp)
             {
                 EXPECT_THAT(services.calibrations.find(id)->write_bytes(0, bytes::Bytes{0, 20}),
                             fastecu::testing::IsOk());
@@ -4273,6 +4307,10 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
                 window.calibration_files_treewidget_item_selected(
                     file_tree->topLevelItem(file_tree->topLevelItemCount() - 1));
             }
+            if (active_changed)
+            {
+                window.ui->mdiArea->setActiveSubWindow(other_window);
+            }
             if (scenario == AssignmentScenario::OriginalClosed)
             {
                 window.close_calibration();
@@ -4280,14 +4318,23 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
             dialog->setTextValue(scenario == AssignmentScenario::Absolute   ? "-20"
                                  : scenario == AssignmentScenario::Relative ? "x-20"
                                  : scenario == AssignmentScenario::InvalidCurrent ||
-                                         scenario == AssignmentScenario::CurrentBytesNoOp
+                                         scenario == AssignmentScenario::CurrentBytesNoOp ||
+                                         scenario == AssignmentScenario::ActiveMapChangedNoOp
                                      ? "20"
                                      : "x+1");
             answered = true;
             dialog->accept();
         });
     reply.start();
-    if (no_op)
+    if (paste)
+    {
+        QApplication::clipboard()->setText(scenario == AssignmentScenario::PasteLf     ? "20\n"
+                                           : scenario == AssignmentScenario::PasteCrLf ? "20\r\n"
+                                                                                       : "20\n\n30");
+        answered = true;
+        window.paste_value();
+    }
+    else if (no_op)
     {
         window.inc_dec_value(fastecu::calibration::IncrementStep::FineUp);
     }
@@ -4319,23 +4366,42 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
         }
         return;
     }
-    const std::uint16_t expected = scenario == AssignmentScenario::Absolute           ? 65516
-                                   : scenario == AssignmentScenario::Relative         ? 65526
-                                   : scenario == AssignmentScenario::CurrentBytes     ? 21
-                                   : scenario == AssignmentScenario::CurrentBytesNoOp ? 20
-                                   : scenario == AssignmentScenario::InvalidCurrent   ? 20
-                                                                                      : 11;
+    if (scenario == AssignmentScenario::PasteInteriorEmpty)
+    {
+        EXPECT_EQ(bytes::readU16Be(session->rom()), 10);
+        EXPECT_FALSE(session->dirty());
+        EXPECT_FALSE(notice_text.isEmpty());
+        return;
+    }
+    if (paste)
+    {
+        EXPECT_EQ(bytes::readU16Be(session->rom()), 20);
+        EXPECT_EQ(table->item(0, 0)->text(), "20.00");
+        EXPECT_TRUE(notice_text.isEmpty());
+        return;
+    }
+    const std::uint16_t expected =
+        scenario == AssignmentScenario::Absolute       ? 65516
+        : scenario == AssignmentScenario::Relative     ? 65526
+        : scenario == AssignmentScenario::CurrentBytes ? 21
+        : scenario == AssignmentScenario::CurrentBytesNoOp || scenario == AssignmentScenario::ActiveMapChangedNoOp ? 20
+        : scenario == AssignmentScenario::InvalidCurrent                                                           ? 20
+                                                                                                                   : 11;
     EXPECT_EQ(bytes::readU16Be(session->rom()), expected);
     if (other.has_value())
     {
         EXPECT_EQ(bytes::readU16Be(services.calibrations.find(*other)->rom()), 40);
         EXPECT_FALSE(services.calibrations.find(*other)->dirty());
     }
+    if (scenario == AssignmentScenario::ActiveMapChanged)
+    {
+        EXPECT_EQ(table->item(0, 0)->text(), "11.00");
+    }
     if (scenario == AssignmentScenario::InvalidCurrent)
     {
         EXPECT_EQ(table->item(0, 0)->text(), "NaN");
     }
-    if (scenario == AssignmentScenario::CurrentBytesNoOp)
+    if (scenario == AssignmentScenario::CurrentBytesNoOp || scenario == AssignmentScenario::ActiveMapChangedNoOp)
     {
         EXPECT_EQ(table->item(0, 0)->text(), "20.00");
         EXPECT_TRUE(session->dirty());
@@ -4379,4 +4445,25 @@ TEST_F(MainWindowTest, ClampedIncrementReportsLimitAndKeepsClean)
 TEST_F(MainWindowTest, NoOpAssignmentRefreshesBytesChangedDuringDialog)
 {
     ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::CurrentBytesNoOp));
+}
+
+TEST_F(MainWindowTest, AssignmentRefreshesOriginalAfterActiveMapChanges)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::ActiveMapChanged));
+}
+TEST_F(MainWindowTest, NoOpAssignmentRefreshesOriginalAfterActiveMapChanges)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::ActiveMapChangedNoOp));
+}
+TEST_F(MainWindowTest, PasteAcceptsTerminalLf)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::PasteLf));
+}
+TEST_F(MainWindowTest, PasteAcceptsTerminalCrLf)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::PasteCrLf));
+}
+TEST_F(MainWindowTest, PasteRejectsInteriorEmptyCellAtomically)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::PasteInteriorEmpty));
 }
