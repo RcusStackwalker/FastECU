@@ -417,5 +417,73 @@ TEST_F(NumericEditUseCaseTest, UnavailableTargetsAreNotApplicable)
     EXPECT_FALSE(session().dirty());
 }
 
+TEST_F(NumericEditUseCaseTest, PastesRowsFromTheSelectionTopLeft)
+{
+    EXPECT_THAT(edit(NumericTarget::MapBody, cell(0, 1), PasteEdit{{{"1", "2"}, {"3", "4"}}}), changed());
+
+    EXPECT_THAT(body_bytes(), ElementsAre(10, 1, 2, 40, 3, 4));
+}
+
+TEST_F(NumericEditUseCaseTest, ClipsALargerSourceToTheRunEdges)
+{
+    EXPECT_THAT(
+        edit(NumericTarget::MapBody, cell(1, 1), PasteEdit{{{"1", "2", "3"}, {"4", "5", "6"}, {"7", "8", "9"}}}),
+        changed());
+
+    EXPECT_THAT(body_bytes(), ElementsAre(10, 20, 30, 40, 1, 2));
+    const auto rom = rom_bytes();
+    EXPECT_THAT(std::vector<std::uint8_t>(rom.begin(), rom.begin() + 3), ElementsAre(1, 2, 3));
+}
+
+TEST_F(NumericEditUseCaseTest, RaggedRowsPasteWhatEachRowSupplies)
+{
+    EXPECT_THAT(edit(NumericTarget::MapBody, cell(0, 0), PasteEdit{{{"1", "2"}, {"3"}}}), changed());
+
+    EXPECT_THAT(body_bytes(), ElementsAre(1, 2, 30, 3, 50, 200));
+}
+
+TEST_F(NumericEditUseCaseTest, EverySuppliedCellIsValidatedBeforeClipping)
+{
+    const auto before = rom_bytes();
+
+    EXPECT_THAT(edit(NumericTarget::MapBody, cell(0, 0), PasteEdit{{{"1", "2", "3", "x"}}}),
+                IsErrWith(ErrorKind::InvalidConfig, HasSubstr("invalid numeric literal")));
+    EXPECT_THAT(edit(NumericTarget::MapBody, cell(0, 0), PasteEdit{{{"1"}, {"2"}, {"x"}}}),
+                IsErrWith(ErrorKind::InvalidConfig, HasSubstr("invalid numeric literal")));
+    EXPECT_THAT(edit(NumericTarget::MapBody, cell(0, 0), PasteEdit{{{"1"}, {""}, {"3"}}}),
+                IsErrWith(ErrorKind::InvalidConfig, HasSubstr("empty")));
+
+    EXPECT_EQ(rom_bytes(), before);
+    EXPECT_FALSE(session().dirty());
+}
+
+TEST_F(NumericEditUseCaseTest, PasteAcceptsCarriageReturnsAndOnlyDotDecimals)
+{
+    EXPECT_THAT(edit(NumericTarget::MapBody, cell(1, 0), PasteEdit{{{"1,5"}}}), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_FALSE(session().dirty());
+
+    EXPECT_THAT(edit(NumericTarget::MapBody, cell(0, 0), PasteEdit{{{"7\r", "1.6"}}}), changed());
+
+    EXPECT_THAT(body_bytes(), ElementsAre(7, 2, 30, 40, 50, 200));
+}
+
+TEST_F(NumericEditUseCaseTest, AxesUseTheirOwnGeometry)
+{
+    EXPECT_THAT(edit(NumericTarget::XAxis, cell(0, 1), PasteEdit{{{"7", "8"}, {"9", "9"}}}), changed());
+    EXPECT_THAT(edit(NumericTarget::YAxis, cell(0, 0), PasteEdit{{{"6", "9"}, {"7", "9"}}}), changed());
+
+    const auto rom = rom_bytes();
+    EXPECT_THAT(std::vector<std::uint8_t>(rom.begin(), rom.begin() + 3), ElementsAre(1, 7, 8));
+    EXPECT_THAT(std::vector<std::uint8_t>(rom.begin() + 8, rom.begin() + 10), ElementsAre(6, 7));
+    EXPECT_THAT(body_bytes(), ElementsAre(10, 20, 30, 40, 50, 200));
+}
+
+TEST_F(NumericEditUseCaseTest, PastingCurrentValuesIsANoOp)
+{
+    EXPECT_THAT(edit(NumericTarget::MapBody, cell(0, 0), PasteEdit{{{"10", "20"}}}),
+                unchanged(NoChangeReason::Unchanged));
+    EXPECT_FALSE(session().dirty());
+}
+
 } // namespace
 } // namespace fastecu::calibration

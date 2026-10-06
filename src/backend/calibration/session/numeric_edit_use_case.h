@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <string>
 #include <variant>
+#include <vector>
 
 #include "src/backend/calibration/map_edit.h"
 #include "src/backend/calibration/numeric_map_edit.h"
@@ -37,7 +38,16 @@ struct InterpolationEdit
     InterpolationMode mode{InterpolationMode::Horizontal};
 };
 
-using NumericEditOperation = std::variant<IncrementEdit, AssignmentEdit, InterpolationEdit>;
+// Source rows of unparsed text cells. Rows may be ragged and cells empty.
+// Every cell must be a dot-decimal number, including cells the destination
+// clips away; pasting starts at the selection's top-left element and clips
+// to the target run's edges.
+struct PasteEdit
+{
+    std::vector<std::vector<std::string>> rows;
+};
+
+using NumericEditOperation = std::variant<IncrementEdit, AssignmentEdit, InterpolationEdit, PasteEdit>;
 
 struct NumericEditRequest
 {

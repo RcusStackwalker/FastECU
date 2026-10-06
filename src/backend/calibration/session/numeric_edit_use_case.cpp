@@ -4,7 +4,10 @@
 #include <cstdint>
 #include <span>
 #include <type_traits>
+#include <utility>
+#include <vector>
 
+#include "src/algorithms/expression/checked_expression.h"
 #include "src/backend/calibration/session/map_element_fields.h"
 
 namespace fastecu::calibration
@@ -37,6 +40,35 @@ std::uint32_t run_width(const MapElementSpec& spec, NumericTarget target)
     return target == NumericTarget::YAxis ? 1U : spec.x_size;
 }
 
+// An X axis is one row; a body or Y axis is as tall as the map.
+std::uint32_t run_height(const MapElementSpec& spec, NumericTarget target)
+{
+    return target == NumericTarget::XAxis ? 1U : spec.y_size;
+}
+
+// Validates every supplied cell, including those clipping will discard.
+Result<std::vector<std::vector<double>>> parse_paste(const PasteEdit& paste)
+{
+    std::vector<std::vector<double>> rows;
+    rows.reserve(paste.rows.size());
+    for (const auto& row : paste.rows)
+    {
+        std::vector<double> values;
+        values.reserve(row.size());
+        for (const auto& text : row)
+        {
+            const auto number = expression::parse_finite_number(text);
+            if (!number.has_value())
+            {
+                return fail(ErrorKind::InvalidConfig, number.error().detail);
+            }
+            values.push_back(*number);
+        }
+        rows.push_back(std::move(values));
+    }
+    return rows;
+}
+
 Result<NumericEditResult> calculate(bytes::ByteView rom, const MapElementSpec& spec, const NumericSelection& selection,
                                     std::span<const NumericCell> cells, const NumericEditOperation& operation)
 {
@@ -53,10 +85,20 @@ Result<NumericEditResult> calculate(bytes::ByteView rom, const MapElementSpec& s
             {
                 return calculate_assignment(rom, spec, width, cells, selection.elements, edit.expression);
             }
+            else if constexpr (std::is_same_v<Edit, InterpolationEdit>)
+            {
+                return calculate_interpolation(rom, spec, width, cells, selection.elements, edit.mode);
+            }
             else
             {
-                static_assert(std::is_same_v<Edit, InterpolationEdit>);
-                return calculate_interpolation(rom, spec, width, cells, selection.elements, edit.mode);
+                static_assert(std::is_same_v<Edit, PasteEdit>);
+                const auto values = parse_paste(edit);
+                if (!values.has_value())
+                {
+                    return std::unexpected(values.error());
+                }
+                return calculate_paste(rom, spec, width, run_height(spec, selection.target), selection.elements,
+                                       *values);
             }
         },
         operation);

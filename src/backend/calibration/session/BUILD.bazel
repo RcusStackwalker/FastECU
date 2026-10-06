@@ -140,7 +140,10 @@ cc_library(
     name = "numeric_edit_use_case",
     srcs = ["numeric_edit_use_case.cpp"],
     hdrs = ["numeric_edit_use_case.h"],
-    implementation_deps = [":map_element_fields"],
+    implementation_deps = [
+        ":map_element_fields",
+        "//src/algorithms/expression:checked_expression",
+    ],
     deps = [
         ":calibration_session",
         ":calibration_workspace",
