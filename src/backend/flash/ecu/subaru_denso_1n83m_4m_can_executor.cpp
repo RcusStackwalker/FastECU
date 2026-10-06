@@ -84,12 +84,6 @@ constexpr bytes::Byte kSessionInCarJump = 0x62; // in-car jump to on-board kerne
 // nothing in the source says what the addressed module does with it.
 constexpr bytes::Byte kSessionVendorC0 = 0xC0;
 
-// SecurityAccess subfunctions: ISO 14229-1 pairs an odd requestSeed with the
-// next even sendKey for the same level. This family uses level 0x61/0x62, not
-// the 0x01/0x02 level uds_service_ids.h names.
-constexpr bytes::Byte kSecurityAccessRequestSeed = 0x61;
-constexpr bytes::Byte kSecurityAccessSendKey = 0x62;
-
 // Positive-response service ids for the two SIDs this file inspects without
 // going through UdsClient (which does the SID + 0x40 arithmetic itself).
 constexpr bytes::Byte kSessionControlReply = uds::kSidDiagnosticSessionControl + 0x40;   // 0x50
@@ -241,36 +235,6 @@ Status tolerant_setup(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView expected_pr
 // reply-id check legacy does not have. The channel is still used for the
 // write, which is exactly its 4-byte-envelope job.
 
-// The seed request / seed key pair both arms share (bench lines 697-772,
-// in-car lines 500-568). Both are fatal on a mismatch and on an absent
-// reply -- neither arm's `return STATUS_ERROR` is commented out here.
-Status security_access(Ctx& ctx)
-{
-    info(ctx, "Starting seed request");
-    Result<bytes::Bytes> seed_reply =
-        fatal_query(ctx, bytes::Bytes{uds::kSidSecurityAccess, kSecurityAccessRequestSeed},
-                    bytes::Bytes{kSecurityAccessRequestSeed}, kShortPolicy, "seed request", 5);
-    if (!seed_reply.has_value())
-    {
-        return std::unexpected(seed_reply.error());
-    }
-    info(ctx, "Seed request ok");
-    // Legacy reads the four seed bytes at raw frame offsets 6-9, i.e. payload
-    // offsets 1-4 once the 4-byte envelope and the service id are stripped
-    // (lines 531-534, 731-734).
-    const bytes::Bytes key = denso_seed_key(uds::payload(*seed_reply).subspan(1, 4));
-
-    info(ctx, "Sending seed key");
-    Result<bytes::Bytes> key_reply = fatal_query(ctx, composeBe(uds::kSidSecurityAccess, kSecurityAccessSendKey, key),
-                                                 bytes::Bytes{kSecurityAccessSendKey}, kShortPolicy, "seed key");
-    if (!key_reply.has_value())
-    {
-        return std::unexpected(key_reply.error());
-    }
-    info(ctx, "Seed key ok");
-    return {};
-}
-
 // Legacy's kernel jump plus its bounded re-read loop (bench lines 776-806,
 // try_count < 50; in-car lines 631-659, try_count < 10). The loop's
 // `init_ready` flag is never read after the loop and both arms fall straight
@@ -381,7 +345,7 @@ Status connect_in_car(Ctx& ctx, ICanFlashTransport& can)
     }
 
     // Lines 500-568: seed/key on the primary 0x7E0 pair, fatal throughout.
-    if (const Status unlocked = security_access(ctx); !unlocked.has_value())
+    if (const Status unlocked = denso_security_access(ctx); !unlocked.has_value())
     {
         return unlocked;
     }
@@ -428,7 +392,7 @@ Status connect_bench(Ctx& ctx)
     }
 
     // Lines 697-772.
-    if (const Status unlocked = security_access(ctx); !unlocked.has_value())
+    if (const Status unlocked = denso_security_access(ctx); !unlocked.has_value())
     {
         return unlocked;
     }

@@ -2,12 +2,24 @@
 #include "src/backend/flash/ecu/denso_iso15765_can_common.h"
 
 #include <array>
+#include <chrono>
 #include <cstdint>
+#include <initializer_list>
+#include <string_view>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "src/algorithms/protocol/bytes.h"
+#include "src/algorithms/protocol/bytes_compose.h"
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
+#include "src/backend/flash/can_flash_uds_channel.h"
+#include "src/backend/flash/testing/scripted_can_flash_transport.h"
+#include "src/backend/ports/manual_cancellation_token.h"
+#include "src/backend/ports/testing/fake_clock.h"
+#include "src/backend/ports/testing/recording_event_sink.h"
+#include "src/backend/ports/testing/result_matchers.h"
+#include "src/backend/protocol/uds/uds_client.h"
 
 namespace fastecu::flash
 {
@@ -94,6 +106,117 @@ TEST(DensoIso15765CanCommonTest, DecryptInvertsEncrypt)
     EXPECT_THAT(SsmProtocol::calculatePayload(kCipher, static_cast<std::uint32_t>(kCipher.size()),
                                               kDensoIso15765DecryptTable, SsmProtocol::kIndexTransformationStock),
                 test_bytes::BytesEq((bytes::Bytes{0x00, 0x01, 0x02, 0x03, 0xFC, 0xFD, 0xFE, 0xFF})));
+}
+
+using namespace std::chrono_literals;
+using fastecu::ErrorKind;
+using fastecu::FakeClock;
+using fastecu::LogLevel;
+using fastecu::ManualCancellationToken;
+using fastecu::RecordingEventSink;
+using fastecu::Status;
+
+bytes::Bytes request(std::initializer_list<bytes::Byte> payload)
+{
+    bytes::Bytes out;
+    bytes::appendU32Be(out, 0x7E0);
+    out.insert(out.end(), payload.begin(), payload.end());
+    return out;
+}
+
+bytes::Bytes response(std::initializer_list<bytes::Byte> payload)
+{
+    bytes::Bytes out;
+    bytes::appendU32Be(out, 0x7E8);
+    out.insert(out.end(), payload.begin(), payload.end());
+    return out;
+}
+
+// Cancels the operator's token once a given log line has been emitted, so a
+// test can stop the flow at an exact point between two exchanges.
+class CancellingEventSink : public RecordingEventSink
+{
+  public:
+    CancellingEventSink(ManualCancellationToken& token, std::string_view trigger) : token_(token), trigger_(trigger)
+    {
+    }
+    void log(LogLevel level, std::string_view message) override
+    {
+        RecordingEventSink::log(level, message);
+        if (message == trigger_)
+        {
+            token_.cancel();
+        }
+    }
+
+  private:
+    ManualCancellationToken& token_;
+    std::string_view trigger_;
+};
+
+// The real UDS stack over the scripted transport, on the 0x7E0/0x7E8 pair.
+struct CommonFixture
+{
+    ScriptedCanFlashTransport transport;
+    CanFlashUdsChannel channel{transport, 0x7E0, 0x7E8};
+    FakeClock clock;
+    ManualCancellationToken cancellation;
+    RecordingEventSink events;
+    uds::UdsClient client{channel, clock, events};
+    CanExecutorContext ctx{cancellation, events, clock, client, channel};
+};
+
+TEST(DensoIso15765CanCommonTest, SecurityAccessReadsLiteralSeedAndKeyAtTwoSeconds)
+{
+    CommonFixture f;
+    f.transport.exchange(request({0x27, 0x61}), response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
+    f.transport.exchange(request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), response({0x67, 0x62}));
+
+    EXPECT_THAT(denso_security_access(f.ctx), fastecu::testing::IsOk());
+
+    EXPECT_TRUE(f.transport.scriptConsumed());
+    EXPECT_THAT(f.transport.readTimeouts(), ::testing::ElementsAre(2000ms, 2000ms));
+}
+
+TEST(DensoIso15765CanCommonTest, SecurityAccessRereadsPendingReplyWithoutResending)
+{
+    CommonFixture f;
+    f.transport.exchange(request({0x27, 0x61}), response({0x7F, 0x27, 0x78}));
+    f.transport.queueRead(response({0x7F, 0x27, 0x78}));
+    f.transport.queueRead(response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
+    f.transport.exchange(request({0x27, 0x62, 0x35, 0xB6, 0x83, 0xBF}), response({0x67, 0x62}));
+
+    EXPECT_THAT(denso_security_access(f.ctx), fastecu::testing::IsOk());
+
+    EXPECT_TRUE(f.transport.scriptConsumed());
+    EXPECT_THAT(f.transport.readTimeouts(), ::testing::ElementsAre(2000ms, 3000ms, 3000ms, 2000ms));
+}
+
+TEST(DensoIso15765CanCommonTest, SecurityAccessRejectsShortSeedWithoutSendingKey)
+{
+    CommonFixture f;
+    f.transport.exchange(request({0x27, 0x61}), response({0x67, 0x61, 0x11, 0x22, 0x33}));
+
+    const Status result = denso_security_access(f.ctx);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(f.transport.writesConsumed(), 1U);
+}
+
+TEST(DensoIso15765CanCommonTest, SecurityAccessPropagatesCancellation)
+{
+    CommonFixture f;
+    CancellingEventSink events(f.cancellation, "Seed request ok");
+    uds::UdsClient client(f.channel, f.clock, events);
+    CanExecutorContext ctx{f.cancellation, events, f.clock, client, f.channel};
+    f.transport.exchange(request({0x27, 0x61}), response({0x67, 0x61, 0x11, 0x22, 0x33, 0x44}));
+
+    const Status result = denso_security_access(ctx);
+
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(f.transport.writesConsumed(), 1U);
 }
 
 } // namespace

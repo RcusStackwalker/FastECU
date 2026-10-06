@@ -124,4 +124,12 @@ Result<bytes::Bytes> tolerant_probe(const CanExecutorContext& ctx, bytes::ByteVi
 Status fire_and_forget(const CanExecutorContext& ctx, ICanFlashTransport& can, std::uint32_t request_id,
                        bytes::ByteView pdu, std::chrono::milliseconds timeout);
 
+// The Wave 4 SecurityAccess exchange: request the level-0x61 seed, derive the
+// key from its four payload bytes with denso_seed_key, send it at level 0x62.
+// Both exchanges are fatal on a rejected, absent or mismatched reply, and a
+// seed reply with fewer than four seed bytes fails before any key is sent.
+// Both read with a single 2000 ms read_timeout; pending replies keep the UDS
+// client's own pending timeout and are re-read, never re-sent.
+Status denso_security_access(const CanExecutorContext& ctx);
+
 } // namespace fastecu::flash
