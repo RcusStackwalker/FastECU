@@ -4,8 +4,8 @@
 #include <chrono>
 class SerialPortActions;
 
-// Adapts FastECU's SerialPortActions to ISsmTransport.
-class FastEcuSsmTransport : public ISsmTransport
+// Adapts FastECU's SerialPortActions to fastecu::ISsmTransport.
+class FastEcuSsmTransport : public fastecu::ISsmTransport
 {
   public:
     explicit FastEcuSsmTransport(SerialPortActions *serial) : serial_(serial)

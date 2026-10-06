@@ -189,7 +189,6 @@ Remaining behavior and code gaps:
   session config and worker; current changes require stop/start.
 - `LoggingEngine::stop()` disconnects worker signals and publishes
   `StoppedByUser` itself; its worker-Cancelled mapping is not reached by stop.
-- `ISsmTransport` is in the global namespace unlike MUT/DMA and CDBG interfaces.
 - `FastEcuSsmTransport::write()` reports input size while discarding returned
   echo-check bytes, so it does not expose an echo failure. Recheck before fixing.
 

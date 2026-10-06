@@ -9,7 +9,7 @@
 
 // Test double: assert the exact sequence of writes, feed canned reads in order.
 // Mirrors src/backend/protocol/testing/scripted_kline_transport.h's shape.
-class ScriptedSsmTransport : public ISsmTransport
+class ScriptedSsmTransport : public fastecu::ISsmTransport
 {
   public:
     void expectWrite(bytes::ByteView b)
