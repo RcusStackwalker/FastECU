@@ -167,3 +167,32 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "selectable_edit_use_case",
+    srcs = ["selectable_edit_use_case.cpp"],
+    hdrs = ["selectable_edit_use_case.h"],
+    implementation_deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/calibration:calibration_service",
+        "//src/backend/definition:definition_model",
+    ],
+    deps = [
+        ":calibration_session",
+        ":calibration_workspace",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "selectable_edit_use_case_test",
+    srcs = ["selectable_edit_use_case_test.cpp"],
+    deps = [
+        ":selectable_edit_use_case",
+        "//src/backend/calibration/session/testing:fake_definition_catalogs",
+        "//src/backend/config/testing:config_session_fixture",
+        "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)

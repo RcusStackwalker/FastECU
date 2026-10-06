@@ -102,6 +102,7 @@ qt_cc_library(
         ":qt_identify_launcher",
         "//src/algorithms/crypto:subaru_key_recovery",
         "//src/backend/calibration/session:numeric_edit_use_case",
+        "//src/backend/calibration/session:selectable_edit_use_case",
         "//src/backend/definition:mappack_converter",
         "//src/backend/diagnostics:ssm_identify",
         "//src/backend/diagnostics:terminal_script",
