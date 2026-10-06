@@ -2,7 +2,6 @@
 
 #include <array>
 #include <string>
-#include <string_view>
 
 #include "src/backend/definition/definition_model.h"
 
@@ -11,7 +10,7 @@ namespace fastecu::definition
 
 struct MetadataField
 {
-    std::string_view xml_name;
+    const char *xml_name; // Fixed, null-terminated XML name literal.
     std::string RomMetadata::*member;
 };
 
