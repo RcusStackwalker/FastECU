@@ -19,9 +19,8 @@ alone does not make a presentation flow backend policy.
 
 Remaining actions from the backend migration roadmap:
 
-- Move reusable field resolution and patch application from the UI map-edit
-  adapter, and selectable encoding from `MainWindow`, into backend
-  calibration/session policy. Preserve selection bounds, definition-less behavior,
+- Move selectable encoding from `MainWindow` into backend calibration/session
+  policy, alongside the numeric edit use case. Preserve definition-less behavior
   and the [typed calibration contracts](reference/calibration-compatibility.md#decoded-values-and-map-edits).
 - Finish moving logging snapshot/channel preparation and sample validation from
   desktop adapters into backend logging; reuse the existing portable preparation

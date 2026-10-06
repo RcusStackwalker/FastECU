@@ -73,6 +73,17 @@ indices; a trailing delimiter cannot create a fifth. Complete no-ops preserve
 dirty state and refresh the views from current bytes. Set Value refreshes its
 original map window even if another window becomes active during the dialog.
 
+The [numeric edit use case](../../src/backend/calibration/session/numeric_edit_use_case.h)
+owns increment/decrement, Set Value, interpolation, and Paste for a stable
+session ID, a semantic target (map body, X axis, or Y axis), and an element
+range. It resolves the session, definition fields, and fresh decoded values,
+then calculates, validates, and writes in one synchronous call. Closed sessions,
+definition-less sessions, and unavailable numeric targets return not-applicable
+outcomes, which desktop handles silently. Desktop translates table selections
+and clipboard text, owns dialogs, warnings, and no-change messages, and
+refreshes the originating map window. Paste validates every supplied text cell,
+including cells clipped away, before clipping to the target run's edges.
+
 Each increment applies its requested step once, with no retry accumulation or
 hidden fractional state. Unchanged encoded cells are no-ops; the UI reports a
 complete no-change outcome with its actual cause, distinguishing definition
