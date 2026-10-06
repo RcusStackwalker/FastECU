@@ -1,6 +1,6 @@
 # Documentation arrangement for focused agent context
 
-Date: 2026-10-06. Status: conversational design approved; written spec awaiting review.
+Date: 2026-10-06. Status: written spec approved; implementation plan awaiting review.
 
 ## Intent and scope
 
