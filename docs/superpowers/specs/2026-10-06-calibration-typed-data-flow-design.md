@@ -1,7 +1,9 @@
 # Calibration typed data flow
 
-Status: proposed design, capturing the calibration grilling decisions of
-2026-10-06. This document is for design review, not implementation authorization.
+Status: design approved by the maintainer on 2026-10-06. The typed-flow change
+and ownership extraction remain separate deliveries. The
+[implementation plan](../plans/2026-10-06-calibration-typed-data-flow.md) defines
+the first change for execution review.
 
 ## Purpose and delivery boundary
 
@@ -96,6 +98,10 @@ For each requested scaled value:
 
 Display follows the definition's format. Two decimal places are typical, not a
 global cap. Display formatting never feeds back into edits.
+
+Set Value accepts signed literals as absolute assignments (`-20` assigns negative
+twenty). Relative edits explicitly use `x` (`x-20` subtracts twenty); leading
+operator shortcuts do not override the numeric expression grammar.
 
 ## Edit rules
 

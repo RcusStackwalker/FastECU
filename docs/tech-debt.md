@@ -20,7 +20,7 @@ alone does not make a presentation flow backend policy.
 Remaining actions from the backend migration roadmap:
 
 - Fix calibration decoded-value flow with a typed model before extracting further
-  edit policy; the [proposed design](superpowers/specs/2026-10-06-calibration-typed-data-flow-design.md)
+  edit policy; the [approved design](superpowers/specs/2026-10-06-calibration-typed-data-flow-design.md)
   records the agreed numeric, validation, and presentation rules for review.
   Deliver that flow separately from the follow-up moving field resolution and
   patch application from the UI map-edit adapter, and selectable encoding from
