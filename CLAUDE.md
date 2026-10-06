@@ -71,7 +71,7 @@ The root package holds guards for invariants the compiler cannot see. They fail 
 
 ## Hardware-facing caution
 
-Flash and logging paths talk to real ECUs, and a wrong write bricks hardware. What has been qualified, and on what bench, is recorded in the [flash qualification matrix](docs/flash-qualification-matrix.md) and the bench checklists in `docs/` — among them the [bench CLI qualification checklist](docs/bench-cli-checklist.md), which gates `//apps/bench:fastecu-bench` before its first use against a real ECU. Consult those before assuming a path is safe, and treat anything they do not record as qualified as experimental. Never relax an address-window guard, and never mark a path qualified without a checklist entry behind it.
+Flash and logging paths talk to real ECUs, and a wrong write bricks hardware. What has been qualified, and on what bench, is recorded in the [flash qualification matrix](docs/flash-qualification-matrix.md) and the bench checklists in `docs/` — among them the [bench CLI qualification checklist](docs/checklists/bench-cli-checklist.md), which gates `//apps/bench:fastecu-bench` before its first use against a real ECU. Consult those before assuming a path is safe, and treat anything they do not record as qualified as experimental. Never relax an address-window guard, and never mark a path qualified without a checklist entry behind it.
 
 ## Git workflow
 

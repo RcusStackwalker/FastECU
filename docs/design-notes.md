@@ -247,7 +247,7 @@ Two deliberate corrections are qualified by synthetic automated evidence:
   changes. Exact header/value assertions also cover unresolved cells. A mutation
   choosing the definition's first protocol fails the fixture.
 
-The [logging composition bench checklist](logging-composition-bench-checklist.md)
+The [logging composition bench checklist](checklists/logging-composition-bench-checklist.md)
 remains the hardware qualification gate. These corrections and the migration
 have automated coverage only; they are not ECU/TCU bench-qualified. Android,
 live reconfiguration, CDBG wire changes and calibration migration are outside 6l.
@@ -554,7 +554,7 @@ registration test inspects keys without opening hardware, and UI regressions
 cover per-run selection and preservation of injected factories.
 
 Hardware qualification is tracked separately in the
-[logging-composition bench checklist](logging-composition-bench-checklist.md).
+[logging-composition bench checklist](checklists/logging-composition-bench-checklist.md).
 
 ## Diagnostic tools
 
@@ -633,7 +633,7 @@ confirm what the ECU actually expects:
 ### Behavior changes
 
 These differences from the original dialogs are listed as bench rows in the
-[diagnostics checklist](diagnostics-bench-checklist.md); the ones with no bench
+[diagnostics checklist](checklists/diagnostics-bench-checklist.md); the ones with no bench
 row are automated-only.
 
 - DTC runs off the UI thread. Cancellation is best-effort: `DtcRun` checks it
@@ -833,7 +833,7 @@ opened and identification failed, as before.
 ### Behavior changes
 
 Bench rows for these are in the
-[connection checklist](connection-bench-checklist.md); the malformed-frame
+[connection checklist](checklists/connection-bench-checklist.md); the malformed-frame
 items are automated-only.
 
 - The developer toggles `can_listener`, `simulate_obd` and

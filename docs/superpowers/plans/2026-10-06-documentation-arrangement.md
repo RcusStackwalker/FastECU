@@ -79,11 +79,11 @@ Modify their incoming callers, initially `CLAUDE.md`, `docs/design-notes.md`, `d
 
 **Interfaces:** Produces unchanged procedure basenames beneath `docs/checklists/` and working links. Later tasks consume these destinations.
 
-- [ ] Record the original basenames and procedure contents. Search the repository for each basename before moving it; include plain-text references outside Markdown.
-- [ ] Move all 15 files. Rewrite root-document links as `checklists/<basename>`, checklist-to-root links as `../<basename>`, and peer-checklist links as sibling paths; calculate paths from each caller rather than applying a global prefix replacement.
-- [ ] Run `prek run lychee --all-files`. Expect PASS; inspect representative matrix-to-checklist, checklist-to-design, and CLI-to-Colt links. Confirm all 15 destination files exist and no original checklist file remains at the root.
-- [ ] Review the move diff: only paths and relative references change in procedure bodies in this task. Gate text, run records, evidence hashes, and status are identical to the baseline.
-- [ ] Commit the moves and named caller updates as `docs: group bench checklists and repair references`.
+- [x] Record the original basenames and procedure contents. Search the repository for each basename before moving it; include plain-text references outside Markdown.
+- [x] Move all 15 files. Rewrite root-document links as `checklists/<basename>`, checklist-to-root links as `../<basename>`, and peer-checklist links as sibling paths; calculate paths from each caller rather than applying a global prefix replacement.
+- [x] Run `prek run lychee --all-files`. Expect PASS; inspect representative matrix-to-checklist, checklist-to-design, and CLI-to-Colt links. Confirm all 15 destination files exist and no original checklist file remains at the root.
+- [x] Review the move diff: only paths and relative references change in procedure bodies in this task. Gate text, run records, evidence hashes, and status are identical to the baseline.
+- [x] Commit the moves and named caller updates as `docs: group bench checklists and repair references`.
 
 ## Task 3: Distill current decisions without losing contracts
 

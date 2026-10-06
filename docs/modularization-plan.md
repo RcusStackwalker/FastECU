@@ -201,15 +201,15 @@ family's supported operations, deliberate corrections, and hardware status.
 Use its linked family checklists for verification; a portable executor and
 passing automated tests do not make a family hardware-qualified.
 
-Desktop qualification remains tracked in the [logging engine checklist](logging-engine-bench-checklist.md),
-[logging composition checklist](logging-composition-bench-checklist.md),
-[diagnostics checklist](diagnostics-bench-checklist.md),
-[connection checklist](connection-bench-checklist.md),
-[platform-selection checklist](platform-selection-bench-checklist.md), and
-[checksum-dialog notes](checksum-dialog-bench-notes.md). Keep the
-[CDBG checklist](cdbg-can-logging-bench-checklist.md) for its specific wire path.
+Desktop qualification remains tracked in the [logging engine checklist](checklists/logging-engine-bench-checklist.md),
+[logging composition checklist](checklists/logging-composition-bench-checklist.md),
+[diagnostics checklist](checklists/diagnostics-bench-checklist.md),
+[connection checklist](checklists/connection-bench-checklist.md),
+[platform-selection checklist](checklists/platform-selection-bench-checklist.md), and
+[checksum-dialog notes](checklists/checksum-dialog-bench-notes.md). Keep the
+[CDBG checklist](checklists/cdbg-can-logging-bench-checklist.md) for its specific wire path.
 
-There is limited real bench evidence: the [bench CLI checklist](bench-cli-checklist.md)
+There is limited real bench evidence: the [bench CLI checklist](checklists/bench-cli-checklist.md)
 records verified effects of the Colt redirect helpers, with a carrier
 verification caveat and no retained raw CAN trace. It does not qualify the
 CLI or desktop workflow end to end. Preserve that scope and all unresolved

@@ -208,7 +208,7 @@ Actions:
 - Capture an `AA`/`EA` exchange on a bench CAN ECU before changing anything.
 - Add an `SsmVariant` for it in `identify_ssm_ecu`, validated like SSM2, and
   route both CAN transports to it.
-- Qualify it on the [connection bench checklist](connection-bench-checklist.md).
+- Qualify it on the [connection bench checklist](checklists/connection-bench-checklist.md).
 
 ### P2: Pay down the SonarCloud code-smell backlog
 
@@ -261,7 +261,7 @@ Order the paydown by risk, not by count:
 
 Findings specific to the `LoggingProtocol`/`LoggingWorker`/`LoggingEngine`
 architecture. Hardware qualification is gated by the
-[logging engine bench checklist](logging-engine-bench-checklist.md); the most
+[logging engine bench checklist](checklists/logging-engine-bench-checklist.md); the most
 consequential open checks are:
 
 1. **Plain-serial logging through `SerialIoThread`.** The backend owns
@@ -274,11 +274,11 @@ consequential open checks are:
    requests could desynchronize.
 3. **CDBG logging.** Raw-CAN setup, handshake, security access, and stream
    behavior remain gated by the
-   [CDBG CAN bench checklist](cdbg-can-logging-bench-checklist.md).
+   [CDBG CAN bench checklist](checklists/cdbg-can-logging-bench-checklist.md).
 
 The worker-thread prompts and progress reporting used by Mitsubishi M32R CAN
 flashing are tracked in the
-[Colt CZT CAN bench checklist](colt_czt_47110032_can_bench_checklist.md).
+[Colt CZT CAN bench checklist](checklists/colt_czt_47110032_can_bench_checklist.md).
 
 Deferred behavior:
 

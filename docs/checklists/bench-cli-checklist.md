@@ -4,7 +4,7 @@ Gate before any use of `fastecu-bench` against a real ECU. This CLI drives
 the Colt CZT (Z37A, 47110032) CAN reflash protocol one primitive UDS
 operation at a time, including `unlock` and `erase`; it is **not
 bench-qualified** until section 3 below has been completed successfully,
-matching the convention in the [flash qualification matrix](flash-qualification-matrix.md)
+matching the convention in the [flash qualification matrix](../flash-qualification-matrix.md)
 and the [Colt CZT CAN bench checklist](colt_czt_47110032_can_bench_checklist.md)
 that gates the desktop reflash workflow the same commands sit underneath.
 
