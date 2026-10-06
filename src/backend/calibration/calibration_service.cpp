@@ -1,6 +1,7 @@
 #include "src/backend/calibration/calibration_service.h"
 
 #include <array>
+#include <bit>
 #include <cstddef>
 #include <cstring>
 #include <format>
@@ -10,11 +11,56 @@
 #include <tuple>
 
 #include "src/algorithms/expression/expression_evaluator.h"
+#include "src/algorithms/expression/checked_expression.h"
 #include "src/backend/calibration/scaling_internal.h"
 
 namespace fastecu::calibration
 {
 using namespace internal;
+
+Result<NumericRun> decode_numeric_run(bytes::ByteView rom, const ElementRun& run)
+{
+    if (!run.storage_type.has_value() || run.storage_type == definition::StorageType::Bloblist ||
+        run.start_position == 0 || run.interval == 0)
+    {
+        return fail(ErrorKind::InvalidConfig, "numeric run has invalid storage or stride metadata");
+    }
+    const auto width = definition::storage_byte_size(run.storage_type);
+    const bool is_float = run.storage_type == definition::StorageType::Float;
+    const bool little_endian = !is_float && run.endian == "little";
+    const auto end = element_run_end(run.address, run.start_position, run.interval, width, run.count);
+    if (end > rom.size())
+    {
+        return fail(ErrorKind::InvalidConfig, "numeric run exceeds ROM size");
+    }
+    NumericRun result;
+    result.cells.reserve(run.count);
+    for (std::uint32_t index = 0; index < run.count; ++index)
+    {
+        const auto address =
+            run.address + std::uint64_t(run.start_position - 1) * width + std::uint64_t(index) * width * run.interval;
+        const auto raw = little_endian ? bytes::readULe(rom, static_cast<std::size_t>(address), width)
+                                       : bytes::readUBe(rom, static_cast<std::size_t>(address), width);
+        const double numeric = is_float ? static_cast<double>(std::bit_cast<float>(raw))
+                               : definition::is_unsigned_storage(run.storage_type)
+                                   ? static_cast<double>(raw)
+                                   : static_cast<double>(sign_extend(raw, width));
+        // Numeric Selectable's existing control semantics are outside this
+        // migration; blob selections are represented separately as bytes.
+        const auto value = run.is_selectable ? std::expected<double, expression::EvaluationError>(0.0)
+                                             : expression::evaluate_checked(run.from_byte, numeric);
+        if (value.has_value())
+        {
+            result.cells.emplace_back(*value);
+        }
+        else
+        {
+            result.cells.emplace_back(
+                fail(ErrorKind::InvalidConfig, std::format("cell {}: {}", index, value.error().detail)));
+        }
+    }
+    return result;
+}
 
 namespace
 {
@@ -86,7 +132,94 @@ ElementRun axis_element_run(const definition::AxisDefinition& axis, std::uint32_
     };
 }
 
+Result<AxisValue> decode_typed_axis(const definition::AxisDefinition& axis, std::uint32_t extent, bytes::ByteView rom,
+                                    bool x_axis, std::string_view map_type)
+{
+    if (extent <= 1 || axis.type.empty())
+    {
+        return AxisValue{};
+    }
+    if (x_axis && (axis.type == "Static X Axis" || axis.type == "Static Y Axis"))
+    {
+        if (axis.static_data.size() != extent)
+        {
+            return fail(ErrorKind::InvalidConfig, "static axis label count differs from map extent");
+        }
+        return AxisValue(StaticAxis{axis.static_data});
+    }
+    if (x_axis && axis.type != "X Axis" && !(axis.type == "Y Axis" && map_type == "2D"))
+    {
+        return AxisValue{};
+    }
+    if (!axis.address.has_value())
+    {
+        return fail(ErrorKind::InvalidConfig, "numeric axis has no address");
+    }
+    auto values = decode_numeric_run(rom, axis_element_run(axis, extent));
+    if (!values.has_value())
+    {
+        return std::unexpected(values.error());
+    }
+    return AxisValue(std::move(*values));
+}
+
 } // namespace
+
+Result<DecodedMap> decode_calibration_map(const definition::RomDefinition& rom_definition,
+                                          const definition::CalibrationMap& map, bytes::ByteView rom)
+{
+    const auto *scaling = definition::find_scaling(rom_definition, map.scaling_name);
+    if (!map.scaling_name.empty() && scaling == nullptr)
+    {
+        return fail(ErrorKind::InvalidConfig, std::format("map '{}' has unresolved scaling", map.name));
+    }
+    const std::uint64_t count = std::uint64_t(map.x_size) * map.y_size;
+    if (!map.address.has_value() || count == 0 || count > std::numeric_limits<std::uint32_t>::max())
+    {
+        return fail(ErrorKind::InvalidConfig, std::format("map '{}' has invalid address or dimensions", map.name));
+    }
+    DecodedMap result;
+    const auto storage = map.storage_type.has_value() ? map.storage_type
+                         : scaling != nullptr         ? scaling->storage_type
+                                                      : std::nullopt;
+    if (storage == definition::StorageType::Bloblist)
+    {
+        const auto width = element_byte_size(storage, scaling);
+        if (!byte_window_fits(rom, *map.address, width))
+        {
+            return fail(ErrorKind::InvalidConfig, std::format("map '{}' blob exceeds ROM size", map.name));
+        }
+        const auto data = rom.subspan(static_cast<std::size_t>(*map.address), width);
+        result.body = BlobValue{bytes::Bytes(data.begin(), data.end())};
+        return result;
+    }
+    auto run = map_element_run(map, scaling, static_cast<std::uint32_t>(count));
+    run.storage_type = storage;
+    run.endian = !map.endian.empty()  ? std::string_view(map.endian)
+                 : scaling != nullptr ? std::string_view(scaling->endian)
+                                      : std::string_view{};
+    run.from_byte = scaling != nullptr ? std::string_view(scaling->from_byte) : std::string_view("x");
+    auto body = decode_numeric_run(rom, run);
+    if (!body.has_value())
+    {
+        return fail(body.error().kind, std::format("map '{}': {}", map.name, body.error().detail));
+    }
+    result.body = std::move(*body);
+
+    auto x_axis = decode_typed_axis(map.x_axis, map.x_size, rom, true, map.type);
+    if (!x_axis.has_value())
+    {
+        return fail(x_axis.error().kind, std::format("map '{}' X axis: {}", map.name, x_axis.error().detail));
+    }
+    auto y_axis = decode_typed_axis(map.y_axis, map.y_size, rom, false, map.type);
+    if (!y_axis.has_value())
+    {
+        return fail(y_axis.error().kind, std::format("map '{}' Y axis: {}", map.name, y_axis.error().detail));
+    }
+    result.x_axis = std::move(*x_axis);
+    result.y_axis = std::move(*y_axis);
+    return result;
+}
 
 Result<MapCellValues> compute_one_map_cell_values(const definition::RomDefinition& rom_definition,
                                                   const definition::CalibrationMap& map, bytes::ByteView rom_data,

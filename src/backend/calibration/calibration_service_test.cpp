@@ -905,5 +905,184 @@ TEST(ComputeOneMapCellValues, ReportsTheErrorTheWholeDefinitionStores)
     EXPECT_EQ(one.error(), *whole_error);
 }
 
+TEST(DecodeCalibrationMap, HasExactExtentAndExplicitAbsentAxes)
+{
+    auto definition = one_map_definition(0);
+    definition.maps[0].x_size = 4;
+    const bytes::Bytes rom{1, 2, 3, 4};
+    const auto decoded = decode_calibration_map(definition, definition.maps[0], rom);
+    ASSERT_THAT(decoded, fastecu::testing::IsOk());
+    EXPECT_THAT(std::get<NumericRun>(decoded->body).cells,
+                ::testing::ElementsAre(fastecu::testing::IsOkAnd(1), fastecu::testing::IsOkAnd(2),
+                                       fastecu::testing::IsOkAnd(3), fastecu::testing::IsOkAnd(4)));
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(decoded->x_axis));
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(decoded->y_axis));
+}
+
+TEST(DecodeCalibrationMap, UsesIdentityWithoutScaling)
+{
+    auto definition = one_map_definition(0);
+    definition.scalings.clear();
+    definition.maps[0].scaling_name.clear();
+    const bytes::Bytes rom{5, 6, 7};
+    const auto decoded = decode_calibration_map(definition, definition.maps[0], rom);
+    ASSERT_THAT(decoded, fastecu::testing::IsOk());
+    EXPECT_THAT(std::get<NumericRun>(decoded->body).cells,
+                ::testing::ElementsAre(fastecu::testing::IsOkAnd(5), fastecu::testing::IsOkAnd(6),
+                                       fastecu::testing::IsOkAnd(7)));
+}
+
+TEST(DecodeCalibrationMap, RetainsLabelsContainingCommas)
+{
+    auto definition = one_map_definition(0);
+    definition.maps[0].x_size = 2;
+    definition.maps[0].x_axis.type = "Static X Axis";
+    definition.maps[0].x_axis.static_data = {"Low, load", "High"};
+    const bytes::Bytes rom{1, 2};
+    const auto decoded = decode_calibration_map(definition, definition.maps[0], rom);
+    ASSERT_THAT(decoded, fastecu::testing::IsOk());
+    EXPECT_THAT(std::get<StaticAxis>(decoded->x_axis).labels, ::testing::ElementsAre("Low, load", "High"));
+}
+
+TEST(DecodeCalibrationMap, RetainsBlobBytes)
+{
+    auto definition = one_map_definition(0);
+    definition.maps[0].storage_type = StorageType::Bloblist;
+    definition.scalings[0].selections = {{"Choice", "ccdd"}};
+    const bytes::Bytes rom{0xcc, 0xdd};
+    const auto decoded = decode_calibration_map(definition, definition.maps[0], rom);
+    ASSERT_THAT(decoded, fastecu::testing::IsOk());
+    EXPECT_THAT(std::get<BlobValue>(decoded->body).data, ::testing::ElementsAre(0xcc, 0xdd));
+}
+
+TEST(DecodeCalibrationMap, KeepsComputationFailureLocalToCell)
+{
+    auto definition = one_map_definition(0, "1/x");
+    definition.maps[0].x_size = 2;
+    const bytes::Bytes rom{0, 2};
+    const auto decoded = decode_calibration_map(definition, definition.maps[0], rom);
+    ASSERT_THAT(decoded, fastecu::testing::IsOk());
+    EXPECT_THAT(
+        std::get<NumericRun>(decoded->body).cells,
+        ::testing::ElementsAre(fastecu::testing::IsErr(ErrorKind::InvalidConfig), fastecu::testing::IsOkAnd(0.5)));
+}
+
+TEST(DecodeCalibrationMap, RejectsStructuralFailures)
+{
+    auto definition = one_map_definition(0);
+    const bytes::Bytes rom{1, 2, 3};
+    auto& map = definition.maps[0];
+    map.address.reset();
+    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    map.address = 0;
+    map.x_size = 0;
+    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    map.x_size = std::numeric_limits<std::uint32_t>::max();
+    map.y_size = 2;
+    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    map.x_size = 3;
+    map.y_size = 1;
+    map.address = 1;
+    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+}
+
+struct TypedStorageCase
+{
+    StorageType storage;
+    std::string_view endian;
+    bytes::Bytes bytes;
+    double expected;
+};
+
+class DecodeNumericStorage : public ::testing::TestWithParam<TypedStorageCase>
+{
+};
+
+TEST_P(DecodeNumericStorage, DecodesRawNumericRepresentation)
+{
+    const auto& example = GetParam();
+    const ElementRun run{.count = 1, .storage_type = example.storage, .endian = example.endian};
+    const auto decoded = decode_numeric_run(example.bytes, run);
+    ASSERT_THAT(decoded, fastecu::testing::IsOk());
+    EXPECT_THAT(decoded->cells, ::testing::ElementsAre(fastecu::testing::IsOkAnd(example.expected)));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    WidthsAndByteOrders, DecodeNumericStorage,
+    ::testing::Values(TypedStorageCase{StorageType::Uint8, "big", {0xff}, 255},
+                      TypedStorageCase{StorageType::Int8, "big", {0xff}, -1},
+                      TypedStorageCase{StorageType::Uint16, "big", {0x12, 0x34}, 4660},
+                      TypedStorageCase{StorageType::Int16, "little", {0x00, 0x80}, -32768},
+                      TypedStorageCase{StorageType::Uint24, "little", {0xff, 0xff, 0xff}, 16777215},
+                      TypedStorageCase{StorageType::Int24, "big", {0x80, 0, 0}, -8388608},
+                      TypedStorageCase{StorageType::Uint32, "big", {0xff, 0xff, 0xff, 0xff}, 4294967295.0},
+                      TypedStorageCase{StorageType::Int32, "little", {0, 0, 0, 0x80}, -2147483648.0},
+                      TypedStorageCase{StorageType::Float, "little", {0x3f, 0xc0, 0, 0}, 1.5}));
+
+TEST(DecodeNumericRun, PreservesStrideAndBlankIdentity)
+{
+    const bytes::Bytes rom{99, 2, 99, 4};
+    const ElementRun run{
+        .count = 2, .start_position = 2, .interval = 2, .storage_type = StorageType::Uint8, .from_byte = " "};
+    const auto decoded = decode_numeric_run(rom, run);
+    ASSERT_THAT(decoded, fastecu::testing::IsOk());
+    EXPECT_THAT(decoded->cells, ::testing::ElementsAre(fastecu::testing::IsOkAnd(2), fastecu::testing::IsOkAnd(4)));
+}
+
+TEST(DecodeNumericRun, RetainsNonFiniteStorageAsCellError)
+{
+    const bytes::Bytes rom{0x7f, 0xc0, 0, 0};
+    const ElementRun run{.count = 1, .storage_type = StorageType::Float};
+    const auto decoded = decode_numeric_run(rom, run);
+    ASSERT_THAT(decoded, fastecu::testing::IsOk());
+    EXPECT_THAT(decoded->cells, ::testing::ElementsAre(fastecu::testing::IsErr(ErrorKind::InvalidConfig)));
+}
+
+TEST(DecodeCalibrationMap, UsesMapThenScalingStoragePrecedence)
+{
+    auto definition = one_map_definition(0);
+    auto& map = definition.maps[0];
+    map.x_size = 1;
+    map.storage_type.reset();
+    map.endian.clear();
+    definition.scalings[0].storage_type = StorageType::Uint16;
+    definition.scalings[0].endian = "little";
+    const bytes::Bytes rom{0x34, 0x12};
+    const auto inherited = decode_calibration_map(definition, map, rom);
+    ASSERT_THAT(inherited, fastecu::testing::IsOk());
+    EXPECT_THAT(std::get<NumericRun>(inherited->body).cells, ::testing::ElementsAre(fastecu::testing::IsOkAnd(4660)));
+    map.storage_type = StorageType::Uint8;
+    const auto overridden = decode_calibration_map(definition, map, rom);
+    ASSERT_THAT(overridden, fastecu::testing::IsOk());
+    EXPECT_THAT(std::get<NumericRun>(overridden->body).cells, ::testing::ElementsAre(fastecu::testing::IsOkAnd(52)));
+}
+
+TEST(DecodeCalibrationMap, DecodesNumericAxesWithResolvedExpressions)
+{
+    auto definition = one_map_definition(0);
+    auto& map = definition.maps[0];
+    map.x_size = 2;
+    map.y_size = 2;
+    map.x_axis = AxisDefinition{.type = "X Axis", .storage_type = StorageType::Uint8, .address = 4, .from_byte = "x*2"};
+    map.y_axis = AxisDefinition{.type = "Y Axis", .storage_type = StorageType::Uint8, .address = 6, .from_byte = "x/2"};
+    const bytes::Bytes rom{1, 2, 3, 4, 5, 6, 8, 10};
+    const auto decoded = decode_calibration_map(definition, map, rom);
+    ASSERT_THAT(decoded, fastecu::testing::IsOk());
+    EXPECT_THAT(std::get<NumericRun>(decoded->x_axis).cells,
+                ::testing::ElementsAre(fastecu::testing::IsOkAnd(10), fastecu::testing::IsOkAnd(12)));
+    EXPECT_THAT(std::get<NumericRun>(decoded->y_axis).cells,
+                ::testing::ElementsAre(fastecu::testing::IsOkAnd(4), fastecu::testing::IsOkAnd(5)));
+}
+
+TEST(DecodeNumericRun, AppliesStrideInStorageBytes)
+{
+    const bytes::Bytes rom{99, 99, 0x12, 0x34, 99, 99, 99, 99, 0x56, 0x78};
+    const ElementRun run{.count = 2, .start_position = 2, .interval = 3, .storage_type = StorageType::Uint16};
+    const auto decoded = decode_numeric_run(rom, run);
+    ASSERT_THAT(decoded, fastecu::testing::IsOk());
+    EXPECT_THAT(decoded->cells,
+                ::testing::ElementsAre(fastecu::testing::IsOkAnd(4660), fastecu::testing::IsOkAnd(22136)));
+}
+
 } // namespace
 } // namespace fastecu::calibration

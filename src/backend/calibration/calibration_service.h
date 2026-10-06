@@ -9,6 +9,7 @@
 
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/definition/definition_model.h"
+#include "src/backend/calibration/decoded_map.h"
 #include "src/backend/ports/file_repository.h"
 #include "src/backend/ports/result.h"
 
@@ -97,6 +98,10 @@ struct ElementRun
     std::string_view from_byte{"x"};
     bool is_selectable{false};
 };
+
+Result<NumericRun> decode_numeric_run(bytes::ByteView rom, const ElementRun& run);
+Result<DecodedMap> decode_calibration_map(const definition::RomDefinition& definition,
+                                          const definition::CalibrationMap& map, bytes::ByteView rom);
 
 // Decodes run.count consecutive elements laid out as
 //   addr(j) = run.address + (run.start_position - 1) * width

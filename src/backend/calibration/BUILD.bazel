@@ -18,8 +18,10 @@ cc_library(
     implementation_deps = [
         ":scaling_internal",
         "//src/algorithms/expression",
+        "//src/algorithms/expression:checked_expression",
     ],
     deps = [
+        ":decoded_map",
         "//src/algorithms/protocol",
         "//src/backend/definition:definition_model",
         "//src/backend/ports",
@@ -59,5 +61,14 @@ fastecu_portable_gtest(
         ":map_edit",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "decoded_map",
+    hdrs = ["decoded_map.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
     ],
 )
