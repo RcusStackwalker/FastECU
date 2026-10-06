@@ -8,7 +8,9 @@ from collections.abc import Mapping
 # A table row is N columns of `<seconds> (<percent>%)` followed by the check
 # name. The columns are user, system, user+system, wall and, on newer LLVM,
 # an instruction count; wall time is always the fourth.
-_COLUMN = re.compile(r"(\d+(?:\.\d+)?(?:e[+-]?\d+)?)\s+\(\s*\d+(?:\.\d+)?%\)")
+# The lookbehind stops the scan restarting inside a digit run, which made a
+# long run of digits quadratic.
+_COLUMN = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?(?:e[+-]?\d+)?)\s+\(\s*\d+(?:\.\d+)?%\)")
 _WALL_COLUMN = 3
 
 
