@@ -210,11 +210,7 @@ Result<AppConfig> save_app_config(AppConfig config, const ConfigPaths& paths, IF
     add_single("use_ecuflash_definitions", config.use_ecuflash_definitions);
     add_single("ecuflash_definition_files_directory", config.ecuflash_definition_files_directory);
     add_single("logger_definition_file", config.romraider_logger_definition_file);
-    // CONFIRMED EXISTING BUG, preserved: tag name "logfiles_directory" does
-    // not match load_app_config's "datalog_files_directory" reader, so this
-    // value never round-trips through a save/load cycle. See
-    // file_actions.cpp:1076 vs :883.
-    add_single("logfiles_directory", config.datalog_files_directory);
+    add_single("datalog_files_directory", config.datalog_files_directory);
 
     std::ostringstream stream;
     doc.save(stream, "    ");
