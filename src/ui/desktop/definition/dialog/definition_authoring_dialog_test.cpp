@@ -11,7 +11,6 @@
 #include <QMessageBox>
 #include <QPointer>
 #include "src/platform/desktop/common/testing/signal_recorder.h"
-#include <QStringList>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QWidget>
@@ -93,11 +92,10 @@ TEST(DefinitionAuthoringDialogTest, ConstructsAndExposesTheFourLogSignals)
 TEST(DefinitionAuthoringDialogTest, HeaderEditorsStayReadableWhileTheCallerOwnsTheDialog)
 {
     QDialog dialog;
-    const QStringList labels{"XML ID", "ECU ID", "Notes"};
-    const QStringList names{"xmlid", "ecuid", "notes"};
-    const QStringList values{"3352a403", "39670016", "bench only"};
+    const fastecu::definition::DefinitionHeaderDraft draft{
+        .xml_id = "3352a403", .ecu_id = "39670016", .notes = "bench only"};
 
-    const HeaderFormEditors editors = populate_header_dialog(dialog, labels, names, values);
+    const HeaderFormEditors editors = populate_header_dialog(dialog, draft);
 
     // Churn the Qt heap the way the real flow does (a QFileDialog is built
     // and destroyed between the header dialog closing and these reads), so a
@@ -108,19 +106,17 @@ TEST(DefinitionAuthoringDialogTest, HeaderEditorsStayReadableWhileTheCallerOwnsT
         scratch.setObjectName("scratch");
     }
 
-    ASSERT_EQ(editors.line_edits.size(), 2);
-    ASSERT_EQ(editors.text_edits.size(), 1);
-    EXPECT_EQ(editors.line_edits.at(0)->objectName(), QString("xmlid"));
-    EXPECT_EQ(editors.line_edits.at(0)->text(), QString("3352a403"));
-    EXPECT_EQ(editors.line_edits.at(1)->objectName(), QString("ecuid"));
-    EXPECT_EQ(editors.line_edits.at(1)->text(), QString("39670016"));
-    EXPECT_EQ(editors.text_edits.at(0)->objectName(), QString("notes"));
-    EXPECT_EQ(editors.text_edits.at(0)->toPlainText(), QString("bench only"));
+    EXPECT_EQ(editors.xml_id->objectName(), QString("xmlid"));
+    EXPECT_EQ(editors.xml_id->text(), QString("3352a403"));
+    EXPECT_EQ(editors.ecu_id->objectName(), QString("ecuid"));
+    EXPECT_EQ(editors.ecu_id->text(), QString("39670016"));
+    EXPECT_EQ(editors.notes->objectName(), QString("notes"));
+    EXPECT_EQ(editors.notes->toPlainText(), QString("bench only"));
 
     // The coupling that makes the lifetime rule real: addLayout reparented
     // every editor onto the dialog, so the dialog's destructor owns them.
-    EXPECT_EQ(editors.line_edits.at(0)->parentWidget(), &dialog);
-    EXPECT_EQ(editors.text_edits.at(0)->parentWidget(), &dialog);
+    EXPECT_EQ(editors.xml_id->parentWidget(), &dialog);
+    EXPECT_EQ(editors.notes->parentWidget(), &dialog);
 
     // And the mapping the wizards perform on those editors still resolves.
     const auto input = fastecu::ui::definition_header_input(editors);
@@ -135,7 +131,7 @@ TEST(DefinitionAuthoringDialogTest, HeaderEditorsStayReadableWhileTheCallerOwnsT
     QPointer<QLineEdit> tracked;
     {
         QDialog scoped_dialog;
-        tracked = populate_header_dialog(scoped_dialog, labels, names, values).line_edits.at(0);
+        tracked = populate_header_dialog(scoped_dialog, draft).xml_id;
         ASSERT_FALSE(tracked.isNull());
     }
     EXPECT_TRUE(tracked.isNull());
@@ -145,8 +141,8 @@ TEST(DefinitionAuthoringDialog, FormInputRegistersTypedLookupAfterSuccessfulSubm
 {
     QDialog dialog;
     const HeaderFormEditors editors = populate_header_dialog(
-        dialog, {"XML ID", "Internal ID", "Internal ID address", "ECU ID"},
-        {"xmlid", "internalidstring", "internalidaddress", "ecuid"}, {"3352a403", "CAL_ID", "7ffc", "39670016"});
+        dialog,
+        {.xml_id = "3352a403", .internal_id = "CAL_ID", .ecu_id = "39670016", .internal_id_address_text = "7ffc"});
     auto input = fastecu::ui::definition_header_input(editors);
     ASSERT_THAT(input, fastecu::testing::IsOk());
     fastecu::config::testing::ConfigSessionFixture config;
@@ -161,18 +157,6 @@ TEST(DefinitionAuthoringDialog, FormInputRegistersTypedLookupAfterSuccessfulSubm
     EXPECT_THAT(catalogs.submit_new_definition("defs/failed.xml", *input, true),
                 fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
     EXPECT_EQ(catalogs.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, "FAILED"), std::nullopt);
-}
-
-TEST(DefinitionHeaderFields, PinsAuthoredHeaderFields)
-{
-    EXPECT_EQ(fastecu::ui::definition_header_labels(),
-              (QStringList{"XML ID", "Internal ID Address", "Internal ID String", "ECU ID", "Make", "Market", "Model",
-                           "Submodel", "Transmission", "Year", "Flash Method", "Memory Model", "Checksum Module",
-                           "Include", "Notes"}));
-    EXPECT_EQ(
-        fastecu::ui::definition_header_names(),
-        (QStringList{"xmlid", "internalidaddress", "internalidstring", "ecuid", "make", "market", "model", "submodel",
-                     "transmission", "year", "flashmethod", "memmodel", "checksummodule", "include", "notes"}));
 }
 
 namespace

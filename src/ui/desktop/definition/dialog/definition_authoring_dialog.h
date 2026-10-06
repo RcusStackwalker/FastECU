@@ -2,7 +2,6 @@
 #include <QDialog>
 #include <QObject>
 #include <QString>
-#include <QStringList>
 #include <QWidget>
 
 #include "src/backend/config/config_session.h"
@@ -19,8 +18,7 @@ namespace fastecu::ui
 // parent chain, so they are readable exactly as long as the caller keeps
 // `dialog` alive -- a dialog destroyed before the editors are read takes
 // them with it.
-HeaderFormEditors populate_header_dialog(QDialog& dialog, const QStringList& labels, const QStringList& names,
-                                         const QStringList& values);
+HeaderFormEditors populate_header_dialog(QDialog& dialog, const definition::DefinitionHeaderDraft& draft = {});
 
 // The two interactive definition-authoring wizards, moved out of
 // FileActions. Each collects ROM
@@ -29,11 +27,6 @@ HeaderFormEditors populate_header_dialog(QDialog& dialog, const QStringList& lab
 //
 // Dialogs are parented to the QWidget passed in. The legacy
 // `new QDialog(this)` leaked one dialog per invocation.
-// The EcuFlash definition header fields the authoring forms edit, in form
-// order: display labels and the matching <romid>/<rom> element names.
-QStringList definition_header_labels();
-QStringList definition_header_names();
-
 class DefinitionAuthoringDialog : public QObject
 {
     Q_OBJECT
@@ -56,6 +49,8 @@ class DefinitionAuthoringDialog : public QObject
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   private:
+    void log_header(const HeaderFormEditors& editors);
+
     fastecu::definition::DefinitionCatalogSession& catalogs_;
     const fastecu::config::ConfigSession& config_;
     fastecu::IFileRepository& repository_;

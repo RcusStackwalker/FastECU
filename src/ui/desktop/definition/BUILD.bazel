@@ -10,12 +10,10 @@ cc_library(
     srcs = ["definition_header_form.cpp"],
     hdrs = ["definition_header_form.h"],
     copts = COMMON_COPTS,
-    implementation_deps = ["//src/backend/definition:definition_header_fields"],
     deps = [
         "//bazel/qt:core",
         "//bazel/qt:widgets",
-        "//src/backend/definition:definition_writer",
-        "//src/backend/ports",
+        "//src/backend/definition:definition_header_fields",
     ],
 )
 
