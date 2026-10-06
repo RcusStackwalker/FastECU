@@ -118,7 +118,7 @@ class BlockingLifetimeSession final : public ServiceFunctionSession
         return SsmTransportConfig{};
     }
 
-    ServiceFunctionStep resume(ISsmTransport&, fastecu::IClock&, const fastecu::ICancellationToken&,
+    ServiceFunctionStep resume(fastecu::ISsmTransport&, fastecu::IClock&, const fastecu::ICancellationToken&,
                                fastecu::IEventSink&) override
     {
         const std::shared_ptr<BlockingLifetimeState> state = state_;
@@ -165,8 +165,8 @@ class ScriptedSession final : public ServiceFunctionSession
         return SsmTransportConfig{};
     }
 
-    ServiceFunctionStep resume(ISsmTransport&, fastecu::IClock&, const fastecu::ICancellationToken& cancellation,
-                               fastecu::IEventSink&) override
+    ServiceFunctionStep resume(fastecu::ISsmTransport&, fastecu::IClock&,
+                               const fastecu::ICancellationToken& cancellation, fastecu::IEventSink&) override
     {
         ++resume_calls;
         if (cancellation.cancelled())
