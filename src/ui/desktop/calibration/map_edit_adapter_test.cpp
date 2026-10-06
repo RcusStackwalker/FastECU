@@ -3,6 +3,7 @@
 #include <array>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <QApplication>
 #include <QMdiSubWindow>
@@ -10,6 +11,7 @@
 #include <QTableWidget>
 #include <QTableWidgetSelectionRange>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "src/backend/ports/testing/result_matchers.h"
 
@@ -310,6 +312,80 @@ TEST(ApplyPatch, WritesBodyAndAxesAndDecodesCurrentBytes)
     EXPECT_THAT(std::get<calibration::NumericRun>(decoded->y_axis).cells,
                 ::testing::ElementsAre(fastecu::testing::IsOkAnd(0), fastecu::testing::IsOkAnd(3)));
     EXPECT_TRUE(session.dirty());
+}
+
+TEST(SelectedNumericTarget, TranslatesBodyAndAxisHeaderSelections)
+{
+    QMdiSubWindow window;
+    auto *table = build_map_window(window, 3, 3);
+    const auto session = session_from();
+    const auto select = [table](int top, int left, int bottom, int right)
+    {
+        table->clearSelection();
+        table->setRangeSelected(QTableWidgetSelectionRange(top, left, bottom, right), true);
+    };
+
+    select(1, 1, 2, 2);
+    const auto body = selected_numeric_target(&window, session, 0);
+    ASSERT_TRUE(body.has_value());
+    EXPECT_EQ(body->target, calibration::NumericTarget::MapBody);
+    EXPECT_THAT(body->elements, ::testing::FieldsAre(0, 0, 1, 1));
+
+    select(0, 1, 0, 2);
+    const auto x_axis = selected_numeric_target(&window, session, 0);
+    ASSERT_TRUE(x_axis.has_value());
+    EXPECT_EQ(x_axis->target, calibration::NumericTarget::XAxis);
+    EXPECT_THAT(x_axis->elements, ::testing::FieldsAre(0, 0, 0, 1));
+
+    select(1, 0, 2, 0);
+    const auto y_axis = selected_numeric_target(&window, session, 0);
+    ASSERT_TRUE(y_axis.has_value());
+    EXPECT_EQ(y_axis->target, calibration::NumericTarget::YAxis);
+    EXPECT_THAT(y_axis->elements, ::testing::FieldsAre(0, 0, 1, 0));
+}
+
+TEST(SelectedNumericTarget, IsEmptyWithoutANumericSelection)
+{
+    const auto session = session_from();
+    EXPECT_FALSE(selected_numeric_target(nullptr, session, 0).has_value());
+
+    QMdiSubWindow bare;
+    bare.setObjectName("0,0,Timing,uint16");
+    EXPECT_FALSE(selected_numeric_target(&bare, session, 0).has_value());
+
+    QMdiSubWindow window;
+    auto *table = build_map_window(window, 3, 3);
+    EXPECT_FALSE(selected_numeric_target(&window, session, 0).has_value());
+
+    table->setRangeSelected(QTableWidgetSelectionRange(1, 1, 1, 1), true);
+    EXPECT_FALSE(selected_numeric_target(&window, session, 1).has_value());
+    EXPECT_FALSE(selected_numeric_target(&window, session, -1).has_value());
+    const calibration::CalibrationSession definitionless(calibration::SessionId{2}, calibration::SessionContents{});
+    EXPECT_FALSE(selected_numeric_target(&window, definitionless, 0).has_value());
+
+    auto static_def = two_by_two_definition();
+    static_def.maps[0].x_axis.type = "Static Y Axis";
+    const auto static_session = session_from(std::move(static_def));
+    table->clearSelection();
+    table->setRangeSelected(QTableWidgetSelectionRange(1, 0, 1, 0), true);
+    EXPECT_FALSE(selected_numeric_target(&window, static_session, 0).has_value());
+}
+
+TEST(SplitPasteRows, SplitsTabSeparatedRowsAndDropsOneTerminalLf)
+{
+    using ::testing::ElementsAre;
+    EXPECT_THAT(split_paste_rows("1\t2\n3\t4\n"), ElementsAre(ElementsAre("1", "2"), ElementsAre("3", "4")));
+    EXPECT_THAT(split_paste_rows("a\nb\n\n"), ElementsAre(ElementsAre("a"), ElementsAre("b"), ElementsAre("")));
+}
+
+TEST(SplitPasteRows, PreservesEmptyCellsRaggedRowsAndCarriageReturns)
+{
+    using ::testing::ElementsAre;
+    EXPECT_THAT(split_paste_rows("1\t\t3"), ElementsAre(ElementsAre("1", "", "3")));
+    EXPECT_THAT(split_paste_rows("1\n\n2"), ElementsAre(ElementsAre("1"), ElementsAre(""), ElementsAre("2")));
+    EXPECT_THAT(split_paste_rows("1\t2\n3"), ElementsAre(ElementsAre("1", "2"), ElementsAre("3")));
+    EXPECT_THAT(split_paste_rows("20\r\n"), ElementsAre(ElementsAre("20\r")));
+    EXPECT_THAT(split_paste_rows(""), ElementsAre(ElementsAre("")));
 }
 
 } // namespace
