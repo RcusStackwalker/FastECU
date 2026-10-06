@@ -101,9 +101,18 @@ the requested value is never substituted for a fresh decode. Structural map
 failures keep the window open in an explicit error state with grid editing
 disabled. Failed refreshes clear stale values; unrelated maps remain usable.
 
-Field resolution and patch application remain in the desktop edit adapter, and
-selectable-write policy remains in `MainWindow`; their ownership extraction is
-separate [unresolved work](../tech-debt.md#p1-separate-ui-from-application-logic).
+Choosing a selection of a selectable map writes that selection's bytes through
+`apply_selectable_edit`. The first selection with the chosen name wins, and the
+written width is the first selection's hex length in bytes, so a longer value is
+truncated and a shorter one is zero-padded. A value that is not whole
+hexadecimal bytes is an error and changes nothing. Writing identical bytes still
+marks the session dirty. Sessions without a definition, unknown maps, maps that
+are not blob selections and unknown selection names are not applicable; the view
+still refreshes after an unknown name.
+
+Field resolution and patch application remain in the desktop edit adapter; their
+ownership extraction is separate
+[unresolved work](../tech-debt.md#p1-separate-ui-from-application-logic).
 
 ## Open, save, and ECU-read outcomes
 

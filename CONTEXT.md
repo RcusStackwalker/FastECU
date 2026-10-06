@@ -26,6 +26,16 @@ _Avoid_: Uneditable cell
 A map whose layout does not establish valid storage locations for its cells.
 _Avoid_: Invalid numeric cell
 
+**Selectable map**:
+A map whose body is one named blob chosen from a fixed list of selections,
+rather than a grid of numeric values.
+_Avoid_: Switch, option map
+
+**Selection**:
+One named blob value in a selectable map's list. Choosing a selection writes
+its bytes to the map's address.
+_Avoid_: Option, switch state
+
 ## Terminal scripts
 
 **Terminal script**:
