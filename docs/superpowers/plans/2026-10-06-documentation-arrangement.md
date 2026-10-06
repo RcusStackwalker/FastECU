@@ -136,10 +136,10 @@ Modify their incoming callers, initially `CLAUDE.md`, `docs/design-notes.md`, `d
 
 ## Final verification and handoff
 
-- [ ] Run `git diff --check` and the offline link hook over all tracked Markdown plus any newly staged files. Use `git diff --name-only <implementation-base>` to confirm documentation-only scope.
-- [ ] Search for live references to `CLAUDE.md`, original checklist paths, removed design headings, and retired plans. Distinguish working links from intentional historical citations in active planning artifacts.
-- [ ] Recheck the pre-existing untracked-file inventory. Except for the explicitly preserved/retired completed plans and necessary link-only edits, original files and hashes are unchanged.
-- [ ] Review against all eight spec acceptance criteria and the five Review Focus items. Record documentation sizes, verified links/labels, retained unknowns, and history retrieval evidence; do not call pending retirement complete.
-- [ ] Prepare the scoped diff/PR description and report remaining integration dependencies. No application test/build cycle is needed for Markdown-only changes.
+- [x] Run `git diff --check` and the offline link hook over all tracked Markdown plus any newly staged files. Use `git diff --name-only <implementation-base>` to confirm documentation-only scope.
+- [x] Search for live references to `CLAUDE.md`, original checklist paths, removed design headings, and retired plans. Distinguish working links from intentional historical citations in active planning artifacts.
+- [x] Recheck the pre-existing untracked-file inventory. Except for the explicitly preserved/retired completed plans and necessary link-only edits, original files and hashes are unchanged.
+- [x] Review against all eight spec acceptance criteria and the five Review Focus items. Record documentation sizes, verified links/labels, retained unknowns, and history retrieval evidence; do not call pending retirement complete.
+- [x] Prepare the scoped diff/PR description and report remaining integration dependencies. No application test/build cycle is needed for Markdown-only changes.
 
 Native execution is recommended: these tasks edit shared navigation and references in sequence, and one implementer can keep the link/content disposition consistent. If selected, use `superpowers:executing-plans` and a final independent review as prescribed by that execution workflow. The alternative is subagent-driven task execution with review at each task boundary.

@@ -182,7 +182,7 @@ Remove stale commented-out code as nearby behavior changes.
 ## Coverage growth sequence toward 80%
 
 Prioritize parser/model fixtures and validation; checksum golden vectors and
-invalid inputs; calibration undo/redo (currently a UI `qDebug()` stub); scripted
+invalid inputs; calibration undo/redo workflows; scripted
 flash-family orchestration; and serial/J2534 lifecycle failures. Thin widget tests
 cover wiring, typed dispatch, and display. Grow most coverage in portable logic,
 not by constructing the GUI. Keep test/generated/vendored/platform exclusions
