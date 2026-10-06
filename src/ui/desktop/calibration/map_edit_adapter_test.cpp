@@ -12,6 +12,7 @@
 #include <QTableWidgetSelectionRange>
 
 #include <gtest/gtest.h>
+#include "src/backend/ports/testing/result_matchers.h"
 
 namespace fastecu::ui
 {
@@ -164,7 +165,7 @@ TEST(MapEditAdapter, MissingScalingAndAxisRetainLegacyPlaceholders)
     def.maps[0].x_axis = {};
     const auto session = session_from(std::move(def));
     const auto body = collect_map_element_fields(session, 0, calibration::EditTargetKind::MapBody);
-    EXPECT_EQ(body.spec().from_byte, " ");
+    EXPECT_EQ(body.spec().from_byte, "x");
     const auto axis = collect_map_element_fields(session, 0, calibration::EditTargetKind::XAxis);
     EXPECT_EQ(axis.spec().endian, " ");
     EXPECT_EQ(axis.spec().to_byte, " ");
@@ -326,7 +327,7 @@ TEST(ResolveActiveMapEdit, ReturnsNulloptWhenTheSelectionIsEmpty)
     EXPECT_FALSE(resolve_active_map_edit(&window, session_from(), 0).has_value());
 }
 
-TEST(ResolveActiveMapEdit, ResolvesAMapBodySelectionToItsSpecRangeAndCellText)
+TEST(ResolveActiveMapEdit, ResolvesAMapBodySelectionToItsSpecRangeAndNumericCells)
 {
     QMdiSubWindow window;
     auto *table = build_map_window(window, 3, 3);
@@ -345,10 +346,9 @@ TEST(ResolveActiveMapEdit, ResolvesAMapBodySelectionToItsSpecRangeAndCellText)
     EXPECT_EQ(edit->range().last_row, 0);
     EXPECT_EQ(edit->range().last_col, 0);
 
-    ASSERT_EQ(edit->cell_text().size(), 5U);
-    EXPECT_EQ(edit->cell_text()[0], "2");
-    EXPECT_EQ(edit->cell_text()[3], "8");
-    EXPECT_EQ(edit->cell_text()[4], "");
+    ASSERT_EQ(edit->cells().size(), 4U);
+    EXPECT_THAT(edit->cells()[0], fastecu::testing::IsOkAnd(2));
+    EXPECT_THAT(edit->cells()[3], fastecu::testing::IsOkAnd(8));
 
     const auto spec = edit->spec();
     EXPECT_EQ(spec.address, 16U);
@@ -363,12 +363,12 @@ TEST(ResolveActiveMapEdit, OwnsDecodedSnapshotAcrossSessionEdits)
     auto session = session_from();
     const auto edit = resolve_active_map_edit(&window, session, 0);
     ASSERT_TRUE(edit.has_value());
-    const calibration::EditPatch patch{{.index = 0, .byte_address = 18, .bytes = {0, 7}}};
+    const calibration::NumericEditPatch patch{{.index = 0, .byte_address = 18, .bytes = {0, 7}}};
     ASSERT_TRUE(apply_patch(session, 0, calibration::EditTargetKind::MapBody, patch).has_value());
-    EXPECT_EQ(edit->cell_text()[0], "2");
+    EXPECT_THAT(edit->cells()[0], fastecu::testing::IsOkAnd(2));
     const auto refreshed = resolve_active_map_edit(&window, session, 0);
     ASSERT_TRUE(refreshed.has_value());
-    EXPECT_EQ(refreshed->cell_text()[0], "14");
+    EXPECT_THAT(refreshed->cells()[0], fastecu::testing::IsOkAnd(14));
 }
 
 TEST(ResolveActiveMapEdit, ReturnsNulloptForAStaticAxisSelection)
@@ -386,24 +386,42 @@ TEST(ResolveActiveMapEdit, ReturnsNulloptForAStaticAxisSelection)
     EXPECT_FALSE(resolve_active_map_edit(&window, def, 0).has_value());
 }
 
-TEST(ApplyPatch, DropsInvalidCellIndex)
+TEST(ApplyPatch, RejectsInvalidCellIndex)
 {
     auto session = session_from();
     const auto before = std::vector<std::uint8_t>(session.rom().begin(), session.rom().end());
-    calibration::EditPatch patch{
-        {.index = static_cast<std::uint32_t>(-1), .display_text = "999", .byte_address = 64, .bytes = {1, 2}}};
-    ASSERT_TRUE(apply_patch(session, 0, calibration::EditTargetKind::XAxis, patch).has_value());
+    calibration::NumericEditPatch patch{{.index = static_cast<std::uint32_t>(-1), .byte_address = 64, .bytes = {1, 2}}};
+    EXPECT_THAT(apply_patch(session, 0, calibration::EditTargetKind::XAxis, patch),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
     EXPECT_EQ(std::vector<std::uint8_t>(session.rom().begin(), session.rom().end()), before);
     EXPECT_FALSE(session.dirty());
 }
 
-TEST(ApplyPatch, PreservesLegacyTrailingBlankExtent)
+TEST(ApplyPatch, RejectsIndexPastActualExtent)
 {
     auto session = session_from();
-    const calibration::EditPatch patch{{.index = 4, .byte_address = 0, .bytes = {9}}};
-    ASSERT_TRUE(apply_patch(session, 0, calibration::EditTargetKind::MapBody, patch).has_value());
-    EXPECT_EQ(session.rom()[0], 9);
-    EXPECT_TRUE(session.dirty());
+    const calibration::NumericEditPatch patch{{.index = 4, .byte_address = 0, .bytes = {9}}};
+    EXPECT_THAT(apply_patch(session, 0, calibration::EditTargetKind::MapBody, patch),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_EQ(session.rom()[0], 0);
+    EXPECT_FALSE(session.dirty());
+}
+
+TEST(ApplyPatch, RejectsAddressOutsideSelectedTarget)
+{
+    auto session = session_from();
+    const calibration::NumericEditPatch patch{{.index = 0, .byte_address = 0, .bytes = {0, 9}}};
+    EXPECT_THAT(apply_patch(session, 0, calibration::EditTargetKind::MapBody, patch),
+                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_FALSE(session.dirty());
+}
+
+TEST(ApplyPatch, NoOpPreservesCleanState)
+{
+    auto session = session_from();
+    const calibration::NumericEditPatch patch{{.index = 0, .byte_address = 18, .bytes = {0, 1}}};
+    ASSERT_THAT(apply_patch(session, 0, calibration::EditTargetKind::MapBody, patch), fastecu::testing::IsOk());
+    EXPECT_FALSE(session.dirty());
 }
 
 TEST(ApplyPatch, FailedPatchPreservesAlreadyDirtyStateAndRejectsOverflow)
@@ -412,7 +430,7 @@ TEST(ApplyPatch, FailedPatchPreservesAlreadyDirtyStateAndRejectsOverflow)
     const std::array<std::uint8_t, 1> initial{9};
     ASSERT_TRUE(session.write_bytes(0, initial).has_value());
     const auto before = std::vector<std::uint8_t>(session.rom().begin(), session.rom().end());
-    const calibration::EditPatch patch{{.index = 0, .byte_address = UINT64_MAX, .bytes = {1}}};
+    const calibration::NumericEditPatch patch{{.index = 0, .byte_address = UINT64_MAX, .bytes = {1}}};
     EXPECT_FALSE(apply_patch(session, 0, calibration::EditTargetKind::MapBody, patch).has_value());
     EXPECT_EQ(std::vector<std::uint8_t>(session.rom().begin(), session.rom().end()), before);
     EXPECT_TRUE(session.dirty());
@@ -422,23 +440,23 @@ TEST(ApplyPatch, ValidatesAllRangesBeforeWriting)
 {
     auto session = session_from();
     const auto before = std::vector<std::uint8_t>(session.rom().begin(), session.rom().end());
-    calibration::EditPatch patch{{.index = 0, .byte_address = 18, .bytes = {0, 7}},
-                                 {.index = 1, .byte_address = 127, .bytes = {0, 8}}};
+    calibration::NumericEditPatch patch{{.index = 0, .byte_address = 18, .bytes = {0, 7}},
+                                        {.index = 1, .byte_address = 127, .bytes = {0, 8}}};
     EXPECT_FALSE(apply_patch(session, 0, calibration::EditTargetKind::MapBody, patch).has_value());
     EXPECT_EQ(std::vector<std::uint8_t>(session.rom().begin(), session.rom().end()), before);
     EXPECT_FALSE(session.dirty());
 }
 
-TEST(ApplyPatch, WritesBodyAndAxesAndDecodesBytesInsteadOfPatchText)
+TEST(ApplyPatch, WritesBodyAndAxesAndDecodesCurrentBytes)
 {
     auto session = session_from();
     auto expected = std::vector<std::uint8_t>(session.rom().begin(), session.rom().end());
     expected[19] = 7;
     expected[64] = 3;
     expected[83] = 12;
-    const calibration::EditPatch body{{.index = 0, .display_text = "wrong", .byte_address = 18, .bytes = {0, 7}}};
-    const calibration::EditPatch x{{.index = 0, .display_text = "wrong", .byte_address = 64, .bytes = {3}}};
-    const calibration::EditPatch y{{.index = 1, .display_text = "wrong", .byte_address = 82, .bytes = {0, 12}}};
+    const calibration::NumericEditPatch body{{.index = 0, .byte_address = 18, .bytes = {0, 7}}};
+    const calibration::NumericEditPatch x{{.index = 0, .byte_address = 64, .bytes = {3}}};
+    const calibration::NumericEditPatch y{{.index = 1, .byte_address = 82, .bytes = {0, 12}}};
     ASSERT_TRUE(apply_patch(session, 0, calibration::EditTargetKind::MapBody, body).has_value());
     ASSERT_TRUE(apply_patch(session, 0, calibration::EditTargetKind::XAxis, x).has_value());
     ASSERT_TRUE(apply_patch(session, 0, calibration::EditTargetKind::YAxis, y).has_value());
@@ -450,9 +468,13 @@ TEST(ApplyPatch, WritesBodyAndAxesAndDecodesBytesInsteadOfPatchText)
     EXPECT_EQ(session.rom()[83], 12);
     const auto decoded = session.decode_map(0);
     ASSERT_TRUE(decoded.has_value());
-    EXPECT_EQ(decoded->map_data, "14,4,6,8,");
-    EXPECT_EQ(decoded->x_axis_data, "30,0,");
-    EXPECT_EQ(decoded->y_axis_data, "0,3,");
+    EXPECT_THAT(std::get<calibration::NumericRun>(decoded->body).cells,
+                ::testing::ElementsAre(fastecu::testing::IsOkAnd(14), fastecu::testing::IsOkAnd(4),
+                                       fastecu::testing::IsOkAnd(6), fastecu::testing::IsOkAnd(8)));
+    EXPECT_THAT(std::get<calibration::NumericRun>(decoded->x_axis).cells,
+                ::testing::ElementsAre(fastecu::testing::IsOkAnd(30), fastecu::testing::IsOkAnd(0)));
+    EXPECT_THAT(std::get<calibration::NumericRun>(decoded->y_axis).cells,
+                ::testing::ElementsAre(fastecu::testing::IsOkAnd(0), fastecu::testing::IsOkAnd(3)));
     EXPECT_TRUE(session.dirty());
 }
 

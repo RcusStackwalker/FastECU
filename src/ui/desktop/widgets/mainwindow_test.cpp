@@ -10,6 +10,8 @@
 #include <QFileDialog>
 #include <QKeySequence>
 #include <QLineEdit>
+#include <QInputDialog>
+#include <QLabel>
 #include <QMenu>
 #include <QScopeGuard>
 #include <QSet>
@@ -880,7 +882,20 @@ class MainWindowTest : public ::testing::Test
     void check_saveAsChangesSourceAndTreeOnlyAfterSuccess();
     void check_saveAsUpdatesOriginalSessionAfterSelectionChanges();
     void check_selectableSignalEditsItsEmittingSession();
-    void check_failedMapDecodeDoesNotOccupyAView();
+    void check_failedMapDecodeKeepsAnErrorView();
+    enum class AssignmentScenario
+    {
+        Absolute,
+        Relative,
+        CurrentBytes,
+        CurrentBytesNoOp,
+        SelectionChanged,
+        OriginalClosed,
+        InvalidCurrent,
+        NoOpResolution,
+        NoOpLimit
+    };
+    void check_typedAssignment(AssignmentScenario scenario);
     void check_windowPreservesInjectedLoggingFactory();
     void check_loggingCapturesTargetForEachRun();
     void check_chooserDialogsApplyAcceptedChoicesAndIgnoreCancellation(bool protocol, bool accept);
@@ -2142,7 +2157,7 @@ TEST_F(MainWindowTest, selectableSignalEditsItsEmittingSession)
     ASSERT_NO_FATAL_FAILURE(check_selectableSignalEditsItsEmittingSession());
 }
 
-void MainWindowTest::check_failedMapDecodeDoesNotOccupyAView()
+void MainWindowTest::check_failedMapDecodeKeepsAnErrorView()
 {
     ModalDriver driver{QString()};
     driver.start();
@@ -2189,15 +2204,18 @@ void MainWindowTest::check_failedMapDecodeDoesNotOccupyAView()
     fastecu::testing::SignalRecorder errors(&window, &MainWindow::LOG_E);
     tree->setCurrentItem(item);
     window.calibration_data_treewidget_item_selected(item);
-    ASSERT_TRUE(window.ui->mdiArea->subWindowList().isEmpty());
-    ASSERT_TRUE(window.calibrations_.front().view.open_maps.empty());
-    ASSERT_EQ(item->checkState(0), Qt::Unchecked);
+    ASSERT_EQ(window.ui->mdiArea->subWindowList().size(), 1);
+    auto *view = window.ui->mdiArea->subWindowList().front()->widget();
+    ASSERT_NE(view->findChild<QLabel *>("mapDecodeError"), nullptr);
+    EXPECT_FALSE(view->findChild<QTableWidget *>()->isEnabled());
+    ASSERT_EQ(window.calibrations_.front().view.open_maps.size(), 1U);
+    ASSERT_EQ(item->checkState(0), Qt::Checked);
     ASSERT_TRUE(!errors.snapshot().empty());
 }
 
-TEST_F(MainWindowTest, failedMapDecodeDoesNotOccupyAView)
+TEST_F(MainWindowTest, failedMapDecodeKeepsAnErrorView)
 {
-    ASSERT_NO_FATAL_FAILURE(check_failedMapDecodeDoesNotOccupyAView());
+    ASSERT_NO_FATAL_FAILURE(check_failedMapDecodeKeepsAnErrorView());
 }
 
 void MainWindowTest::check_windowPreservesInjectedLoggingFactory()
@@ -4138,3 +4156,227 @@ class MainWindowFixtureEnvironment : public ::testing::Environment
 };
 const auto *const fixture_environment = ::testing::AddGlobalTestEnvironment(new MainWindowFixtureEnvironment);
 } // namespace
+
+void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_THAT(services.config_status, fastecu::testing::IsOk());
+    MainWindow window{services.services()};
+    QTemporaryDir files;
+    ASSERT_EQ(window.open_calibration_file(writeRom(files, "edit.bin", '\x11')), 0);
+    driver.stop();
+    const auto id = window.calibrations_.front().id;
+    auto *session = services.calibrations.find(id);
+    ASSERT_NE(session, nullptr);
+    fastecu::definition::RomDefinition definition;
+    definition.scalings.push_back({.name = "Raw",
+                                   .from_byte = scenario == AssignmentScenario::InvalidCurrent ? "1/0" : "x",
+                                   .to_byte = "x",
+                                   .format = "0.00",
+                                   .storage_type = fastecu::definition::StorageType::Int16,
+                                   .endian = "big"});
+    fastecu::definition::CalibrationMap model;
+    model.name = "Value";
+    model.category = "Controls";
+    model.type = "1D";
+    model.address = 0;
+    model.storage_type = fastecu::definition::StorageType::Int16;
+    model.endian = "big";
+    model.scaling_name = "Raw";
+    definition.maps.push_back(model);
+    const bool no_op = scenario == AssignmentScenario::NoOpResolution || scenario == AssignmentScenario::NoOpLimit;
+    if (no_op)
+    {
+        definition.scalings[0].from_byte = "x/10";
+        definition.scalings[0].to_byte = "x*10";
+        definition.scalings[0].fine_increment = "0.01";
+        if (scenario == AssignmentScenario::NoOpLimit)
+        {
+            definition.scalings[0].maximum = "1";
+        }
+    }
+    *session = fastecu::calibration::CalibrationSession(
+        id, {.source = session->source(),
+             .rom = {0, 10},
+             .definition = fastecu::calibration::ResolvedDefinition{.definition = definition}});
+    window.calibration_files_treewidget_item_selected(window.ui->calibrationFilesTreeWidget->topLevelItem(0));
+    auto *tree = window.ui->calibrationDataTreeWidget;
+    QTreeWidgetItem *item = nullptr;
+    for (int row = 0; row < tree->topLevelItemCount(); ++row)
+    {
+        if (tree->topLevelItem(row)->text(0) == "Controls")
+        {
+            item = tree->topLevelItem(row)->child(0);
+        }
+    }
+    ASSERT_NE(item, nullptr);
+    tree->setCurrentItem(item);
+    window.calibration_data_treewidget_item_selected(item);
+    ASSERT_EQ(window.ui->mdiArea->subWindowList().size(), 1);
+    auto *subwindow = window.ui->mdiArea->subWindowList().front();
+    window.ui->mdiArea->setActiveSubWindow(subwindow);
+    auto *table = subwindow->findChild<QTableWidget *>();
+    ASSERT_NE(table, nullptr);
+    table->setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 0), true);
+    std::optional<fastecu::calibration::SessionId> other;
+    if (scenario == AssignmentScenario::SelectionChanged)
+    {
+        const auto adopted = services.calibrations.adopt_read_image({.rom = {0, 40}, .filename = "other.bin"});
+        ASSERT_THAT(adopted, fastecu::testing::IsOk());
+        other = adopted->id;
+        auto *other_session = services.calibrations.find(*other);
+        ASSERT_NE(other_session, nullptr);
+        *other_session = fastecu::calibration::CalibrationSession(
+            *other, {.source = other_session->source(),
+                     .rom = {0, 40},
+                     .definition = fastecu::calibration::ResolvedDefinition{.definition = definition}});
+        ASSERT_TRUE(window.add_calibration(*other));
+    }
+    bool answered = false;
+    QString notice_text;
+    QTimer reply;
+    reply.setInterval(5);
+    QObject::connect(
+        &reply, &QTimer::timeout,
+        [&]
+        {
+            if (auto *notice = qobject_cast<QMessageBox *>(QApplication::activeModalWidget()); notice != nullptr)
+            {
+                notice_text = notice->text();
+                answered = true;
+                notice->accept();
+                return;
+            }
+            auto *dialog = qobject_cast<QInputDialog *>(QApplication::activeModalWidget());
+            if (dialog == nullptr)
+            {
+                if (auto *modal = qobject_cast<QDialog *>(QApplication::activeModalWidget()); modal != nullptr)
+                {
+                    modal->reject();
+                }
+                return;
+            }
+            if (scenario == AssignmentScenario::CurrentBytes || scenario == AssignmentScenario::CurrentBytesNoOp)
+            {
+                EXPECT_THAT(services.calibrations.find(id)->write_bytes(0, bytes::Bytes{0, 20}),
+                            fastecu::testing::IsOk());
+            }
+            if (scenario == AssignmentScenario::SelectionChanged)
+            {
+                auto *file_tree = window.ui->calibrationFilesTreeWidget;
+                for (int row = 0; row < file_tree->topLevelItemCount(); ++row)
+                {
+                    file_tree->topLevelItem(row)->setSelected(row == file_tree->topLevelItemCount() - 1);
+                }
+                window.calibration_files_treewidget_item_selected(
+                    file_tree->topLevelItem(file_tree->topLevelItemCount() - 1));
+            }
+            if (scenario == AssignmentScenario::OriginalClosed)
+            {
+                window.close_calibration();
+            }
+            dialog->setTextValue(scenario == AssignmentScenario::Absolute   ? "-20"
+                                 : scenario == AssignmentScenario::Relative ? "x-20"
+                                 : scenario == AssignmentScenario::InvalidCurrent ||
+                                         scenario == AssignmentScenario::CurrentBytesNoOp
+                                     ? "20"
+                                     : "x+1");
+            answered = true;
+            dialog->accept();
+        });
+    reply.start();
+    if (no_op)
+    {
+        window.inc_dec_value(fastecu::calibration::IncrementStep::FineUp);
+    }
+    else
+    {
+        window.set_value();
+    }
+    reply.stop();
+    ASSERT_TRUE(answered);
+    if (scenario == AssignmentScenario::OriginalClosed)
+    {
+        EXPECT_EQ(services.calibrations.find(id), nullptr);
+        return;
+    }
+    session = services.calibrations.find(id);
+    ASSERT_NE(session, nullptr);
+    if (no_op)
+    {
+        EXPECT_EQ(bytes::readU16Be(session->rom()), 10);
+        EXPECT_FALSE(session->dirty());
+        if (scenario == AssignmentScenario::NoOpResolution)
+        {
+            EXPECT_TRUE(notice_text.contains("storage resolution"));
+        }
+        else
+        {
+            EXPECT_TRUE(notice_text.contains("definition limit"));
+            EXPECT_FALSE(notice_text.contains("storage resolution"));
+        }
+        return;
+    }
+    const std::uint16_t expected = scenario == AssignmentScenario::Absolute           ? 65516
+                                   : scenario == AssignmentScenario::Relative         ? 65526
+                                   : scenario == AssignmentScenario::CurrentBytes     ? 21
+                                   : scenario == AssignmentScenario::CurrentBytesNoOp ? 20
+                                   : scenario == AssignmentScenario::InvalidCurrent   ? 20
+                                                                                      : 11;
+    EXPECT_EQ(bytes::readU16Be(session->rom()), expected);
+    if (other.has_value())
+    {
+        EXPECT_EQ(bytes::readU16Be(services.calibrations.find(*other)->rom()), 40);
+        EXPECT_FALSE(services.calibrations.find(*other)->dirty());
+    }
+    if (scenario == AssignmentScenario::InvalidCurrent)
+    {
+        EXPECT_EQ(table->item(0, 0)->text(), "NaN");
+    }
+    if (scenario == AssignmentScenario::CurrentBytesNoOp)
+    {
+        EXPECT_EQ(table->item(0, 0)->text(), "20.00");
+        EXPECT_TRUE(session->dirty());
+    }
+}
+
+TEST_F(MainWindowTest, SignedLiteralAssignsAbsoluteValue)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::Absolute));
+}
+TEST_F(MainWindowTest, VariableExpressionEditsRelativeValue)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::Relative));
+}
+TEST_F(MainWindowTest, AssignmentUsesBytesChangedDuringDialog)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::CurrentBytes));
+}
+TEST_F(MainWindowTest, AssignmentKeepsOriginalSessionDuringSelectionChange)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::SelectionChanged));
+}
+TEST_F(MainWindowTest, AssignmentOfClosedOriginalSessionIsInert)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::OriginalClosed));
+}
+TEST_F(MainWindowTest, AssignmentCanLeaveBrokenDecodeDisplayedAsNan)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::InvalidCurrent));
+}
+
+TEST_F(MainWindowTest, SubResolutionIncrementReportsNoChangeAndKeepsClean)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::NoOpResolution));
+}
+TEST_F(MainWindowTest, ClampedIncrementReportsLimitAndKeepsClean)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::NoOpLimit));
+}
+
+TEST_F(MainWindowTest, NoOpAssignmentRefreshesBytesChangedDuringDialog)
+{
+    ASSERT_NO_FATAL_FAILURE(check_typedAssignment(AssignmentScenario::CurrentBytesNoOp));
+}

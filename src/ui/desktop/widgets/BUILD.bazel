@@ -101,6 +101,7 @@ qt_cc_library(
     implementation_deps = [
         ":qt_identify_launcher",
         "//src/algorithms/crypto:subaru_key_recovery",
+        "//src/algorithms/expression:checked_expression",
         "//src/backend/definition:mappack_converter",
         "//src/backend/diagnostics:ssm_identify",
         "//src/backend/flash:flash_operation_request",
@@ -309,6 +310,7 @@ fastecu_gtest(
         "//src/backend/calibration/session/testing:fake_definition_catalogs",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
+        "//src/backend/ports/testing:result_matchers",
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/testing:signal_recorder",
         "//src/platform/desktop/common/testing:widgets_application_environment",

@@ -66,21 +66,11 @@ TEST(CalibrationSessionTest, DecodesAMapFromTheCurrentBytes)
     const auto values = session.decode_map(0);
 
     ASSERT_THAT(values, IsOk());
-    EXPECT_EQ(values->map_data, "5,6,7,");
-    EXPECT_EQ(values->x_axis_data, " ");
-    EXPECT_EQ(values->y_axis_data, " ");
-}
-
-TEST(CalibrationSessionTest, DecodeMatchesTheWholeDefinitionDecode)
-{
-    const CalibrationSession session(SessionId{1}, contents_with_definition());
-
-    const auto whole = compute_map_cell_values(session.definition()->definition, session.rom(), kCellFloatPrecision);
-    const auto one = session.decode_map(0);
-
-    ASSERT_THAT(whole, IsOk());
-    ASSERT_THAT(one, IsOk());
-    EXPECT_EQ(one->map_data, whole->at(0).map_data);
+    EXPECT_THAT(std::get<NumericRun>(values->body).cells,
+                ::testing::ElementsAre(fastecu::testing::IsOkAnd(5), fastecu::testing::IsOkAnd(6),
+                                       fastecu::testing::IsOkAnd(7)));
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(values->x_axis));
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(values->y_axis));
 }
 
 TEST(CalibrationSessionTest, DecodeRejectsAnOutOfRangeIndex)
@@ -108,7 +98,11 @@ TEST(CalibrationSessionTest, WrittenBytesAreWhatTheNextDecodeSees)
     ASSERT_THAT(session.write_bytes(3, patch), IsOk());
 
     EXPECT_TRUE(session.dirty());
-    EXPECT_EQ(session.decode_map(0)->map_data, "5,9,8,");
+    const auto decoded = session.decode_map(0);
+    ASSERT_THAT(decoded, IsOk());
+    EXPECT_THAT(std::get<NumericRun>(decoded->body).cells,
+                ::testing::ElementsAre(fastecu::testing::IsOkAnd(5), fastecu::testing::IsOkAnd(9),
+                                       fastecu::testing::IsOkAnd(8)));
 }
 
 TEST(CalibrationSessionTest, WriteReachingTheLastByteSucceeds)

@@ -275,7 +275,7 @@ TEST_F(RomOpenDefinitions, MatchesLoadsAndDecodesFromThePrimaryFormat)
     const CalibrationSession session(SessionId{1}, outcome->contents);
     const auto idle = session.decode_map(0);
     ASSERT_THAT(idle, IsOk());
-    EXPECT_EQ(idle->map_data, "42,");
+    EXPECT_THAT(std::get<NumericRun>(idle->body).cells, ::testing::ElementsAre(fastecu::testing::IsOkAnd(42)));
 }
 
 TEST_F(RomOpenDefinitions, ADefinitionsFlashMethodAliasSelectsItsVehicle)

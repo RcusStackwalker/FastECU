@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include <QMainWindow>
 #include <QDebug>
@@ -14,6 +15,8 @@
 #include "src/backend/calibration/session/calibration_workspace.h"
 #include "src/ui/desktop/calibration/map_presentation.h"
 #include "src/ui/desktop/widgets/verticallabel.h"
+
+class QLabel;
 
 QT_BEGIN_NAMESPACE
 namespace Ui
@@ -46,6 +49,8 @@ class CalibrationMaps : public QWidget
     int ySizeOffset = 0;
 
   private:
+    void initialize_view(const fastecu::ui::MapPresentation& map, const fastecu::calibration::RomSource& source);
+    void show_map_error(const fastecu::Error& error);
     void setMapTableWidgetSize(int maxWidth, int maxHeight, int sizeX);
 
   public:
@@ -68,6 +73,9 @@ class CalibrationMaps : public QWidget
     fastecu::calibration::CalibrationWorkspace& workspace_;
     fastecu::calibration::SessionId session_;
     int map_index_;
-    fastecu::ui::MapColorBounds color_bounds_;
+    std::optional<fastecu::ui::MapColorBounds> color_bounds_;
+    QRect mdi_area_size_;
+    bool view_initialized_{false};
+    QLabel *map_error_label_{nullptr};
     std::unique_ptr<Ui::CalibrationMaps> ui;
 };

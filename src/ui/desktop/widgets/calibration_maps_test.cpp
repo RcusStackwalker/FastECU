@@ -6,11 +6,13 @@
 #include <vector>
 
 #include <QCheckBox>
+#include <QLabel>
 #include <QComboBox>
 #include "src/platform/desktop/common/testing/signal_recorder.h"
 #include "src/platform/desktop/common/testing/event_helpers.h"
 #include <QTableWidget>
 #include <gtest/gtest.h>
+#include "src/backend/ports/testing/result_matchers.h"
 
 #include "src/backend/calibration/session/calibration_workspace.h"
 #include "src/backend/calibration/session/testing/fake_definition_catalogs.h"
@@ -412,4 +414,83 @@ namespace
 {
 const auto *const application_environment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment({}, /*use_96_dpi=*/true));
+}
+
+TEST(CalibrationMaps, InvalidNumericCellShowsNanAndDiagnostic)
+{
+    MapFixture fixture;
+    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    ASSERT_THAT(id, fastecu::testing::IsOk());
+    auto *session = fixture.workspace.find(*id);
+    auto definition = *session->definition();
+    for (auto& scaling : definition.definition.scalings)
+    {
+        if (scaling.name == definition.definition.maps[0].scaling_name)
+        {
+            scaling.from_byte = "1/(x-10)";
+        }
+    }
+    replace_definition(*session, std::move(definition));
+    CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+    auto *item = table_of(map)->item(0, 0);
+    ASSERT_NE(item, nullptr);
+    EXPECT_EQ(item->text(), "NaN");
+    EXPECT_FALSE(item->toolTip().isEmpty());
+    EXPECT_EQ(item->background().color(), QColor(Qt::white));
+}
+
+TEST(CalibrationMaps, StructuralRefreshFailureClearsStaleValuesAndRecovers)
+{
+    MapFixture fixture;
+    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    ASSERT_THAT(id, fastecu::testing::IsOk());
+    CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+    auto *table = table_of(map);
+    ASSERT_NE(table->item(0, 0), nullptr);
+    auto *session = fixture.workspace.find(*id);
+    const auto valid_definition = *session->definition();
+    auto broken = valid_definition;
+    broken.definition.maps[0].address = 1000;
+    replace_definition(*session, std::move(broken));
+    map.refresh();
+    EXPECT_FALSE(table->isEnabled());
+    EXPECT_EQ(table->rowCount(), 0);
+    const auto *error = map.findChild<QLabel *>("mapDecodeError");
+    ASSERT_NE(error, nullptr);
+    EXPECT_FALSE(error->text().isEmpty());
+    EXPECT_FALSE(error->isHidden());
+    replace_definition(*session, valid_definition);
+    map.refresh();
+    EXPECT_TRUE(table->isEnabled());
+    ASSERT_NE(table->item(0, 0), nullptr);
+    EXPECT_EQ(table->item(0, 0)->text(), "10.0");
+    EXPECT_TRUE(error->isHidden());
+}
+
+TEST(CalibrationMaps, StructuralFailureAtOpeningShowsError)
+{
+    MapFixture fixture;
+    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    ASSERT_THAT(id, fastecu::testing::IsOk());
+    auto *session = fixture.workspace.find(*id);
+    auto broken = *session->definition();
+    broken.definition.maps[0].address = 1000;
+    replace_definition(*session, std::move(broken));
+    CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+    EXPECT_FALSE(table_of(map)->isEnabled());
+    const auto *error = map.findChild<QLabel *>("mapDecodeError");
+    ASSERT_NE(error, nullptr);
+    EXPECT_FALSE(error->text().isEmpty());
+}
+
+TEST(CalibrationMaps, StaticLabelContainingCommaRemainsOneLabel)
+{
+    MapFixture fixture;
+    const std::string axis =
+        R"(<table type="Static X Axis" name="Labels" elements="2"><data>Low, load</data><data>High</data></table>)";
+    const auto id = fixture.open(numeric_table("2D", 2, 1, axis));
+    ASSERT_THAT(id, fastecu::testing::IsOk());
+    CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+    EXPECT_EQ(table_of(map)->item(0, 0)->text(), "Low, load");
+    EXPECT_EQ(table_of(map)->item(0, 1)->text(), "High");
 }

@@ -58,7 +58,7 @@ void CalibrationSession::mark_saved(std::string_view path)
     dirty_ = false;
 }
 
-Result<MapCellValues> CalibrationSession::decode_map(std::size_t map_index) const
+Result<DecodedMap> CalibrationSession::decode_map(std::size_t map_index) const
 {
     if (!contents_.definition.has_value())
     {
@@ -70,8 +70,7 @@ Result<MapCellValues> CalibrationSession::decode_map(std::size_t map_index) cons
         return fail(ErrorKind::InvalidConfig, std::format("map index {} is past the definition's {} maps", map_index,
                                                           rom_definition.maps.size()));
     }
-    return compute_one_map_cell_values(rom_definition, rom_definition.maps[map_index], contents_.rom,
-                                       kCellFloatPrecision);
+    return decode_calibration_map(rom_definition, rom_definition.maps[map_index], contents_.rom);
 }
 
 Status CalibrationSession::write_bytes(std::uint64_t offset, bytes::ByteView data)

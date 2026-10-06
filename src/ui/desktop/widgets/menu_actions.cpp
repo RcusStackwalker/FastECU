@@ -14,6 +14,8 @@
 #include <QMessageBox>
 #include <QSaveFile>
 #include <QAction>
+#include <QPointer>
+#include "src/algorithms/expression/checked_expression.h"
 #include <QKeySequence>
 
 #include <algorithm>
@@ -46,6 +48,28 @@ std::optional<fastecu::diagnostics::SsmVariant> ssm_variant_for_transport(const 
         return fastecu::diagnostics::SsmVariant::Iso15765Uds;
     }
     return std::nullopt;
+}
+void show_no_change(QWidget *parent, fastecu::calibration::NoChangeReason reason)
+{
+    using fastecu::calibration::NoChangeReason;
+    QString message;
+    switch (reason)
+    {
+    case NoChangeReason::BelowStorageResolution:
+        message = "The requested change is below storage resolution; no stored values changed.";
+        break;
+    case NoChangeReason::DefinitionLimit:
+        message = "A definition limit was reached; no stored values changed.";
+        break;
+    case NoChangeReason::MultipleCauses:
+        message = "Storage resolution and definition limits prevented changes; no stored values changed.";
+        break;
+    case NoChangeReason::None:
+    case NoChangeReason::Unchanged:
+        message = "No stored values changed.";
+        break;
+    }
+    QMessageBox::information(parent, "Map edit", message);
 }
 } // namespace
 
@@ -171,15 +195,20 @@ void MainWindow::inc_dec_value(fastecu::calibration::IncrementStep step)
         return;
     }
 
-    const auto patch =
-        fastecu::calibration::apply_increment(session->rom(), edit->spec(), edit->x_size(), edit->cell_text(),
-                                              edit->range(), step, fastecu::calibration::kCellFloatPrecision);
+    const auto patch = fastecu::calibration::calculate_increment(session->rom(), edit->spec(), edit->x_size(),
+                                                                 edit->cells(), edit->range(), step);
     if (!patch.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
         return;
     }
-    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), *patch);
+    if (patch->writes.empty())
+    {
+        set_maptablewidget_items();
+        show_no_change(this, patch->no_change);
+        return;
+    }
+    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), patch->writes);
     if (!applied.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(applied.error().detail));
@@ -210,9 +239,10 @@ void MainWindow::set_value()
         return;
     }
 
+    const QPointer<QMdiSubWindow> original_window(w);
     QString text =
-        QInputDialog::getText(this, tr("QInputDialog::getText()"), tr("Set value: (ie: x20 | +20 | -20 | /20 | 20)"),
-                              QLineEdit::Normal, "", &bStatus);
+        QInputDialog::getText(this, tr("QInputDialog::getText()"),
+                              tr("Set value: 20 | -20 | x+20 | x-20 | x*20 | x/20"), QLineEdit::Normal, "", &bStatus);
 
     text.replace(",", ".");
 
@@ -221,21 +251,35 @@ void MainWindow::set_value()
         return;
     }
 
-    auto edit = fastecu::ui::resolve_active_map_edit(w, *session, id->map_number);
+    if (original_window.isNull())
+    {
+        return;
+    }
+    session = calibrationWorkspace->find(id->session);
+    if (session == nullptr)
+    {
+        return;
+    }
+    auto edit = fastecu::ui::resolve_active_map_edit(original_window.data(), *session, id->map_number);
     if (!edit)
     {
         return;
     }
 
-    const auto patch = fastecu::calibration::apply_set_expression(session->rom(), edit->spec(), edit->x_size(),
-                                                                  edit->cell_text(), edit->range(), text.toStdString(),
-                                                                  fastecu::calibration::kCellFloatPrecision);
+    const auto patch = fastecu::calibration::calculate_assignment(session->rom(), edit->spec(), edit->x_size(),
+                                                                  edit->cells(), edit->range(), text.toStdString());
     if (!patch.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
         return;
     }
-    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), *patch);
+    if (patch->writes.empty())
+    {
+        set_maptablewidget_items();
+        show_no_change(this, patch->no_change);
+        return;
+    }
+    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), patch->writes);
     if (!applied.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(applied.error().detail));
@@ -270,15 +314,20 @@ void MainWindow::interpolate_value(fastecu::calibration::InterpolationMode mode)
         return;
     }
 
-    const auto patch =
-        fastecu::calibration::apply_interpolation(session->rom(), edit->spec(), edit->x_size(), edit->cell_text(),
-                                                  edit->range(), mode, fastecu::calibration::kCellFloatPrecision);
+    const auto patch = fastecu::calibration::calculate_interpolation(session->rom(), edit->spec(), edit->x_size(),
+                                                                     edit->cells(), edit->range(), mode);
     if (!patch.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
         return;
     }
-    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), *patch);
+    if (patch->writes.empty())
+    {
+        set_maptablewidget_items();
+        show_no_change(this, patch->no_change);
+        return;
+    }
+    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), patch->writes);
     if (!applied.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(applied.error().detail));
@@ -378,11 +427,22 @@ void MainWindow::paste_value()
         owned_rows.push_back(std::move(owned_columns));
     }
 
-    std::vector<std::vector<std::string_view>> pasted_rows;
+    std::vector<std::vector<double>> pasted_rows;
     pasted_rows.reserve(owned_rows.size());
     for (const auto& row : owned_rows)
     {
-        pasted_rows.emplace_back(row.begin(), row.end());
+        std::vector<double> values;
+        for (const auto& text : row)
+        {
+            const auto number = fastecu::expression::parse_finite_number(text);
+            if (!number.has_value())
+            {
+                QMessageBox::warning(this, tr("Paste value"), QString::fromStdString(number.error().detail));
+                return;
+            }
+            values.push_back(*number);
+        }
+        pasted_rows.push_back(std::move(values));
     }
 
     const auto spec = edit->spec();
@@ -390,14 +450,19 @@ void MainWindow::paste_value()
     const std::uint32_t y_size = edit->kind() == fastecu::calibration::EditTargetKind::XAxis ? 1U : spec.y_size;
 
     const auto patch =
-        fastecu::calibration::apply_paste(session->rom(), spec, x_size, y_size, edit->cell_text(), edit->range(),
-                                          pasted_rows, fastecu::calibration::kCellFloatPrecision);
+        fastecu::calibration::calculate_paste(session->rom(), spec, x_size, y_size, edit->range(), pasted_rows);
     if (!patch.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(patch.error().detail));
         return;
     }
-    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), *patch);
+    if (patch->writes.empty())
+    {
+        set_maptablewidget_items();
+        show_no_change(this, patch->no_change);
+        return;
+    }
+    const auto applied = fastecu::ui::apply_patch(*session, id->map_number, edit->kind(), patch->writes);
     if (!applied.has_value())
     {
         QMessageBox::warning(this, tr("Set value"), QString::fromStdString(applied.error().detail));
