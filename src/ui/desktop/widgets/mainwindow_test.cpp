@@ -79,6 +79,8 @@
 #include "src/backend/checksum/checksum_selection.h"
 #include "src/backend/checksum/dispatch.h"
 #include "src/backend/config/catalog.h"
+#include "src/backend/ports/testing/fake_clock.h"
+#include "src/platform/desktop/common/ports/qt_clock.h"
 #include "src/backend/ports/testing/result_matchers.h"
 #include "src/ui/desktop/calibration/calibration_operation_coordinator.h"
 #include "src/ui/desktop/config_fields.h"
@@ -236,6 +238,11 @@ class ModalDriver final : public QObject
             if (dialog == nullptr || !dialog->isVisible())
             {
                 continue;
+            }
+            if (dialog->objectName() == "BiuOperationsSubaruWindow")
+            {
+                dialog->reject(); // the BIU window has no work to do here
+                return;
             }
             for (QRadioButton *button : dialog->findChildren<QRadioButton *>())
             {
@@ -623,6 +630,7 @@ struct TestServices
             .connection = adapter.connection(),
             .remote = remote_peer,
             .logging_engine = logging_engine,
+            .make_clock = make_clock,
         };
     }
 
@@ -647,6 +655,8 @@ struct TestServices
     FakeBackend *fake = adapter.fake(); // null if the fake backend failed to start
     fastecu::ui::RemotePeer remote_peer;
     fastecu::desktop::logging::LoggingEngine logging_engine;
+    std::function<std::unique_ptr<fastecu::IClock>()> make_clock{[]() -> std::unique_ptr<fastecu::IClock>
+                                                                 { return std::make_unique<QtClock>(); }};
 };
 
 } // namespace
@@ -1221,6 +1231,8 @@ void MainWindowTest::check_handledDensoTcuReadChoicesRunMainWindowCleanupAndStop
     EXPECT_CALL(*fake, reset_connection()).Times(3);
     EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).Times(2);
 
+    // A short poll period keeps the "timer stays stopped" check below quick.
+    window.vbatt_timer->setInterval(10);
     window.serial_ports = {"OpenPort 2.0"};
     window.serial_port_list->clear();
     window.serial_port_list->addItem("OpenPort 2.0");
@@ -1238,7 +1250,7 @@ void MainWindowTest::check_handledDensoTcuReadChoicesRunMainWindowCleanupAndStop
     ASSERT_TRUE(!operation_driver.timedOut());
     ASSERT_EQ(operation_driver.unexpectedFlashDialogCount(), 0);
 
-    fastecu::testing::process_events_for(std::chrono::milliseconds(window.vbatt_timer_timeout + 100));
+    fastecu::testing::process_events_for(std::chrono::milliseconds(window.vbatt_timer->interval() + 100));
     ASSERT_TRUE(!window.vbatt_timer->isActive());
     ASSERT_TRUE(window.calibrations_.empty());
     ASSERT_TRUE(services.calibrations.ids().empty());
@@ -3140,6 +3152,13 @@ void MainWindowTest::check_subaruConnectThatNeverAnswersDisconnectsAndRestoresCo
     TestServices services{config_root_->path()};
     ASSERT_TRUE(services.config_status.has_value());
     ASSERT_TRUE(services.fake != nullptr);
+    // Virtual time: the retry delays and the identification deadline pass instantly.
+    services.make_clock = []() -> std::unique_ptr<fastecu::IClock>
+    {
+        auto clock = std::make_unique<fastecu::FakeClock>();
+        clock->set_now_auto_advance(std::chrono::milliseconds{10});
+        return clock;
+    };
     MainWindow window{services.services()};
     constructor_driver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
