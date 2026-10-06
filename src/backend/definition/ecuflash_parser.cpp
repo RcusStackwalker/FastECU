@@ -222,31 +222,15 @@ std::vector<std::string> parent_references(pugi::xml_node rom)
     return parents;
 }
 
-struct ParsedHeader
+Result<ParsedRomHeader> parse_header(pugi::xml_document& document, std::span<const std::uint8_t> xml,
+                                     std::string_view source)
 {
-    pugi::xml_node root;
-    pugi::xml_node rom_id;
-    RomIdentity identity;
-};
-
-Result<ParsedHeader> parse_header(pugi::xml_document& document, std::span<const std::uint8_t> xml,
-                                  std::string_view source)
-{
-    auto root = parse_root(document, xml, source, "rom"sv);
-    if (!root)
+    const auto root = parse_root(document, xml, source, "rom"sv);
+    if (!root.has_value())
     {
         return std::unexpected(root.error());
     }
-    auto header = parse_rom_header(*root, source);
-    if (!header.has_value())
-    {
-        return std::unexpected(header.error());
-    }
-    return ParsedHeader{
-        .root = *root,
-        .rom_id = header->rom_id,
-        .identity = std::move(header->identity),
-    };
+    return parse_rom_header(*root, source);
 }
 
 } // namespace
@@ -269,7 +253,7 @@ Result<std::vector<DefinitionIndexEntry>> parse_ecuflash_index(std::span<const s
         .internal_id_encoding = IdEncoding::AsciiOrHex,
         .ecu_id = std::move(header->identity.ecu_id),
         .source = std::string(source),
-        .parents = parent_references(header->root),
+        .parents = parent_references(header->rom),
     }};
 }
 
@@ -286,12 +270,12 @@ Result<UnresolvedDefinition> parse_ecuflash_definition(std::span<const std::uint
         .format = DefinitionFormat::EcuFlash,
         .source = std::string(source),
         .identity = std::move(header->identity),
-        .metadata = parse_metadata(header->rom_id),
-        .parents = parent_references(header->root),
+        .metadata = parse_metadata(header->rom.child("romid")),
+        .parents = parent_references(header->rom),
     };
 
     std::unordered_map<std::string, UnresolvedScaling> global_scalings;
-    for (pugi::xml_node scaling_node : header->root.children("scaling"))
+    for (pugi::xml_node scaling_node : header->rom.children("scaling"))
     {
         auto parsed_scaling = parse_scaling(scaling_node, {}, source, definition.identity.xml_id);
         if (!parsed_scaling.has_value())
@@ -317,7 +301,7 @@ Result<UnresolvedDefinition> parse_ecuflash_definition(std::span<const std::uint
     }
 
     std::unordered_set<std::string> map_ids;
-    for (pugi::xml_node table : header->root.children("table"))
+    for (pugi::xml_node table : header->rom.children("table"))
     {
         auto map = parse_table(table, source, definition.identity.xml_id, definition.scalings);
         if (!map)

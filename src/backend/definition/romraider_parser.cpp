@@ -264,7 +264,7 @@ Result<UnresolvedDefinition> parse_romraider_definition(std::span<const std::uin
         .format = DefinitionFormat::RomRaider,
         .source = std::string{source},
         .identity = std::move(header->identity),
-        .metadata = parse_metadata(header->rom_id),
+        .metadata = parse_metadata(header->rom.child("romid")),
         .parents = parent_references(selected_rom),
     };
 

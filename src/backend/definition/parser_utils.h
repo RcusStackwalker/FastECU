@@ -31,8 +31,8 @@ Result<std::optional<std::uint64_t>> parse_header_address(std::string_view text,
 
 struct ParsedRomHeader
 {
-    pugi::xml_node rom_id; // Borrowed from the caller's document.
-    RomIdentity identity;  // Owns its strings.
+    pugi::xml_node rom;   // Borrowed ROM node; its romid child has been validated.
+    RomIdentity identity; // Owns its strings.
 };
 Result<ParsedRomHeader> parse_rom_header(pugi::xml_node rom, std::string_view source);
 

@@ -90,7 +90,7 @@ TEST(ParserUtilsTest, StrictRootSelectionDoesNotAcceptAuthoringContainerPolicy)
     EXPECT_NE(root.error().detail.find("root element <rom>: wrong root; found <roms>"), std::string::npos);
 }
 
-TEST(ParserUtilsTest, RomHeaderOwnsNormalizedIdentityAndBorrowsTheIdentityElement)
+TEST(ParserUtilsTest, RomHeaderOwnsNormalizedIdentityAndBorrowsTheRomElement)
 {
     pugi::xml_document document;
     ASSERT_TRUE(
@@ -98,7 +98,7 @@ TEST(ParserUtilsTest, RomHeaderOwnsNormalizedIdentityAndBorrowsTheIdentityElemen
                              "<ecuid> ECU </ecuid><internalidaddress> 0x20 </internalidaddress></romid></rom>"));
     const auto header = parse_rom_header(document.document_element(), "identity.xml");
     ASSERT_THAT(header, fastecu::testing::IsOk());
-    EXPECT_EQ(header->rom_id, document.document_element().child("romid"));
+    EXPECT_EQ(header->rom, document.document_element());
     EXPECT_EQ(header->identity,
               (RomIdentity{.xml_id = "ID", .internal_id = "INTERNAL", .ecu_id = "ECU", .internal_id_address = 0x20U}));
 }
@@ -187,7 +187,7 @@ TEST(ParserUtilsTest, HeaderReadsAllDirectTextAndNormalizesUnicodePadding)
     ASSERT_THAT(header, fastecu::testing::IsOk());
     EXPECT_EQ(header->identity.xml_id, "CAL123X");
     EXPECT_EQ(header->identity.internal_id_address, 16U);
-    const auto metadata = parse_metadata(header->rom_id);
+    const auto metadata = parse_metadata(header->rom.child("romid"));
     EXPECT_EQ(metadata.model, "Mitsubishi Colt");
     EXPECT_EQ(metadata.notes, " \nnotes \n ");
 }

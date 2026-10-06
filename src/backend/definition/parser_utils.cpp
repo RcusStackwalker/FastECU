@@ -227,7 +227,7 @@ Result<ParsedRomHeader> parse_rom_header(pugi::xml_node rom, std::string_view so
         return std::unexpected(address.error());
     }
     return ParsedRomHeader{
-        .rom_id = rom_id,
+        .rom = rom,
         .identity = RomIdentity{.xml_id = std::move(*definition_id),
                                 .internal_id = header_child_text(rom_id, "internalidstring"),
                                 .ecu_id = header_child_text(rom_id, "ecuid"),
