@@ -35,11 +35,10 @@ Remaining actions from the backend migration roadmap:
   ECU state machines merely to eliminate branches.
 - Extract BIU decoding/settings/session policy into portable diagnostics/codecs.
   Keep BIU exchanges synchronous and timer ownership on the desktop.
-- Extract DataTerminal parsing/validation/execution into portable diagnostics.
-  Fix `delay(n)` as an ordered standalone pause for both buses. Its current
-  `split(")").at(1).split("(").at(0)` parses `delay(100)` as an empty string,
-  yielding zero milliseconds. This correction changes script timing and needs
-  explicit regression expectations; it is not a five-baud hardware unknown.
+- Extract DataTerminal script execution into portable diagnostics. Script
+  parsing and validation (`parse_terminal_script`) is already portable; the
+  desktop still owns the send/delay/read loop, SSM header and CAN ID framing.
+  Delay steps are standalone ordered pauses on both buses.
 
 The portable definition catalog and header policy are already in place. Do not
 retain their completed migrations as debt. Connection/calibration presentation

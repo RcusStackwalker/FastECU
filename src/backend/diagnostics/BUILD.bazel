@@ -60,6 +60,26 @@ fastecu_portable_gtest(
 )
 
 cc_library(
+    name = "terminal_script",
+    srcs = ["terminal_script.cpp"],
+    hdrs = ["terminal_script.h"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "terminal_script_test",
+    srcs = ["terminal_script_test.cpp"],
+    deps = [
+        ":terminal_script",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
     name = "ssm_identify",
     srcs = ["ssm_identify.cpp"],
     hdrs = ["ssm_identify.h"],
