@@ -4,7 +4,7 @@
 
 namespace fastecu::flash
 {
-// Wave 7, attempt 1 of a bootmode Write: uploads the padded kernel into the
+// Attempt 1 of a bootmode Write: uploads the padded kernel into the
 // M32R boot ROM with VPP and MOD1 raised.
 class SubaruUnisiaJecsM32rBootModeKernelExecutor final : public IKlineFlashExecutor
 {

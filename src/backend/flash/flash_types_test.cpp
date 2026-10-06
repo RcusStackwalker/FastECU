@@ -88,7 +88,7 @@ TEST(FlashTypesTest, FamilyRequiresKernelDefaultsTrueForExistingFamilies)
     EXPECT_TRUE(kFamilyRequiresKernel<DensoSh705xEepromCanPlan>);
 }
 
-TEST(FlashTypes, Wave2FamilyPlansConstructAndHoldValues)
+TEST(FlashTypes, DensoMc68AndSh7055FamilyPlansConstructAndHoldValues)
 {
     SubaruDensoMc68hc16y5_02Plan mc68{
         .connect_baud = 9600,
@@ -108,7 +108,7 @@ TEST(FlashTypes, Wave2FamilyPlansConstructAndHoldValues)
     EXPECT_TRUE(kFamilyRequiresKernel<SubaruDensoSh7055_02Plan>);
 }
 
-TEST(FlashTypes, Wave4DensoIso15765FamilyPlansAreKernelFree)
+TEST(FlashTypes, BootloaderDialectFamilyPlansAreKernelFree)
 {
     SubaruDenso1n83m_1_5mCanPlan denso{
         .request_id = 0x7e0,

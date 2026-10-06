@@ -57,9 +57,9 @@ using testing::IsEmpty;
 using testing::Pair;
 
 // Records every ctx.clock.sleep() argument so the executor's inter-exchange
-// settles can be asserted as a sequence. Same shape as the wave-2
-// (subaru_denso_sh7055_02_executor_test.cpp) and wave-3
-// (subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp) recording clocks: a
+// settles can be asserted as a sequence. Same shape as the recording clocks in
+// subaru_denso_sh7055_02_executor_test.cpp and
+// subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp: a
 // FakeClock with one extra hook, so no fake or port changes shape.
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_sh72531_can";
@@ -417,7 +417,7 @@ TEST(SubaruDensoSh72531CanExecutor, WriteErasesThenFlashesBlockOne)
 
 TEST(SubaruDensoSh72531CanExecutor, BenchKernelJumpDiscardsFirstReply)
 {
-    // Unique to this family among the wave's 1N83M pair: after the 0x10 0x42
+    // Unique to this family among the bootloader dialect's 1N83M pair: after the 0x10 0x42
     // write the bench arm reads twice and keeps only the second reply (with a
     // delay(50) between them), where the 1N83M 1.5M sibling reads once. Its
     // 1N83M 4M sibling does the same two reads. Both scripted frames are

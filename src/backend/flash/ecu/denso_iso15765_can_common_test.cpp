@@ -66,7 +66,7 @@ TEST(DensoIso15765CanCommonTest, DecryptTableMatchesLegacyValues)
 // The applicable legacy sources spell the decrypt table out rather than
 // deriving it from the encrypt table, so the reversal relationship
 // calculatePayload relies on to invert is pinned here rather than assumed.
-// The wave-5 diesel read path is raw and therefore is not a decrypt consumer.
+// The BEEF-dialect diesel read path is raw and therefore is not a decrypt consumer.
 TEST(DensoIso15765CanCommonTest, DecryptTableIsEncryptTableReversed)
 {
     ASSERT_EQ(kDensoIso15765EncryptTable.size(), kDensoIso15765DecryptTable.size());

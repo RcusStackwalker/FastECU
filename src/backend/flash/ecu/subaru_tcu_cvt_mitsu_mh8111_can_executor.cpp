@@ -387,7 +387,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, PhaseRepo
     // erase_mem's control-flow bug above, this one does not prevent the
     // write from working (the chunk loop below still sends the full
     // 0x100000 bytes; only the setup packet's own length field is wrong)
-    // -- so it is preserved exactly rather than corrected, per this wave's
+    // -- so it is preserved exactly rather than corrected, per this package's
     // established precedent for found-but-harmless byte-value quirks
     // (Task 3's block-size finding).
     constexpr std::uint32_t kMaxBlocks = kWriteRegion.length / kChunkSize; // 4096

@@ -22,7 +22,7 @@
 // always-failing hack_words() instead of connect_bootloader()/read_mem()/
 // write_mem() -- those three (plus their private helpers) are the real,
 // previously-unreachable logic this file ports; hack_words() itself (lines
-// 415-492) is not ported. See the wave-3 design's "Deliberate divergence"
+// 415-492) is not ported. See the original port design's "Deliberate divergence"
 // section and subaru_tcu_cvt_hitachi_m32r_can_types.h.
 namespace fastecu::flash
 {
@@ -73,7 +73,7 @@ constexpr std::uint32_t kOtherRequestId = 0x7e0;
 
 // M32R_512KB's 11 flash blocks (src/backend/flash/kernel/kernelmemorymodels.h,
 // kFlashBlocksM32R_512KB): block 3 is 0x8000 bytes, NOT the uniform 0x10000 the
-// wave-3 plan's Global Constraints table states for it (a transcription slip
+// original port plan's Global Constraints table states for it (a transcription slip
 // there -- confirmed directly against the source, block 3 is
 // {0x00008000, 0x00008000}, not {0x00008000, 0x00010000}). Legacy's
 // block_modified mask skips blocks 0-2 and flashes 3-10 (8 blocks); those 8

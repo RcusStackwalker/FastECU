@@ -4,7 +4,7 @@
 
 namespace fastecu::flash
 {
-// Wave 7, attempt 2 of a bootmode Write: erases and programs through the
+// Attempt 2 of a bootmode Write: erases and programs through the
 // kernel attempt 1 uploaded, with VPP raised and MOD1 dropped.
 class SubaruUnisiaJecsM32rBootModeProgramExecutor final : public IKlineFlashExecutor
 {

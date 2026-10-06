@@ -6,7 +6,7 @@
 namespace fastecu::flash
 {
 
-// Portable replacement for FlashEcuSubaruDensoSH705xKlineOperation (wave 6b-2).
+// Portable replacement for FlashEcuSubaruDensoSH705xKlineOperation.
 class SubaruDensoSh705xKlineExecutor final : public IKlineFlashExecutor
 {
   public:

@@ -64,7 +64,7 @@ git log --all --diff-filter=D -- path/to/deleted-file
 git show <deleting-commit>^:path/to/deleted-file
 ```
 
-Legacy line citations refer to the operation source at its migration. Wave 5
+Legacy line citations refer to the operation source at its migration. BEEF-dialect
 citations are pinned to `59f4e442`; use that revision when the citation names it.
 ADRs remain because their decision lifecycle is durable reference material;
 clearly marked historical context does not describe current implementation.

@@ -7,7 +7,7 @@
 
 namespace fastecu::flash
 {
-// Wave 7. Exact protocol/MCU pairs sub_ecu_unisia_jecs_20_bootmode /
+// Exact protocol/MCU pairs sub_ecu_unisia_jecs_20_bootmode /
 // M32R_128KB and sub_ecu_unisia_jecs_30_bootmode / M32R_256KB, Write only
 // (Read goes through the 6c-3 K-Line family). Write is two plans run as two
 // attempts: the kernel upload, then erase and program. Both carry

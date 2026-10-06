@@ -356,7 +356,7 @@ TEST(FlashValidationTest, EmptyKernelBytesIsRejected)
 }
 
 // A family that isn't the kernel-less Mitsu Colt CAN family must still carry
-// a kernel -- the optional relaxation (Step 5 tail, wave 0) is scoped to
+// a kernel -- the optional relaxation is scoped to
 // MitsuColtM32rCan (kFamilyRequiresKernel's specialization), not a
 // blanket relaxation for every family.
 TEST(FlashValidationTest, MissingKernelIsRejectedForKlineFamilyByDefault)
@@ -456,7 +456,7 @@ TEST(FlashValidationTest, DuplicateConfirmationIdsAreRejected)
     ASSERT_THAT(validate_and_build(std::move(fields)), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
 }
 
-// The "at least one confirmation" floor was removed (Step 5 tail, wave 0):
+// The "at least one confirmation" floor was removed:
 // families whose read path prompts for nothing, like Mitsu Colt CAN, must be
 // able to build a plan with zero confirmations. This is no longer rejected.
 TEST(FlashValidationTest, ZeroConfirmationsIsNowAccepted)

@@ -561,7 +561,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
             closed.has_value())
         {
             // Legacy appends the reply's hex to this line (line 1289);
-            // the port had dropped it. Restored by the wave-4 cluster-factoring
+            // the port had dropped it. Restored by the bootloader-dialect factoring
             // pass. The hex is the envelope-stripped PDU where legacy's was the
             // raw frame, envelope included -- same divergence the
             // "Stop request response" line above already carries.
@@ -701,7 +701,7 @@ Result<FlashExecutionResult> SubaruDensoSh72531CanExecutor::execute(const FlashP
     // It cannot fire as the code stands: the plan validation at the top of
     // execute() rejects TestWrite before any I/O, and the Read branch has
     // already returned, so FlashOperation has no third value left to reach
-    // here. The wave-4 cluster-factoring pass reviewed it across all four
+    // here. The bootloader-dialect factoring pass reviewed it across all four
     // families and kept it: it costs nothing at runtime and is the last
     // thing between a non-Write operation and a real erase-and-write of an
     // ECU should that entry validation ever be relaxed or the enum gain a

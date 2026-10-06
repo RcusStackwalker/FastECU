@@ -24,7 +24,7 @@ constexpr std::uint32_t kTailPad = 0x100;
 // romsize is deliberately NOT checked: N83M_1_5MB declares 0x174000 while its
 // own fblocks sum to 0x184000, and nothing on either the read or the write
 // path consumes romsize (read_memory discards the length argument derived from
-// it). See the wave-4 design's "Read-image layout is already correct" section.
+// it). See the original port design's "Read-image layout is already correct" section.
 bool geometry_ok(const flashdev_t& device)
 {
     return device.numblocks == 3 && device.fblocks[0].start == kImageStart &&

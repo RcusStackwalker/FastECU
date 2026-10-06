@@ -51,15 +51,15 @@ using testing::IsEmpty;
 using testing::Pair;
 
 // Records every ctx.clock.sleep() argument so the executor's inter-exchange
-// settles can be asserted as a sequence. Same shape as the wave-2
-// (subaru_denso_sh7055_02_executor_test.cpp) and wave-3
-// (subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp) recording clocks: a
+// settles can be asserted as a sequence. Same shape as the recording clocks in
+// subaru_denso_sh7055_02_executor_test.cpp and
+// subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp: a
 // FakeClock with one extra hook, so no fake or port changes shape.
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_sh72543_can_diesel";
 constexpr std::string_view kMcu = "SH72543d";
 
-// kFlashBlocksSH72543d is the wave's only single-block table: [0] = {0x00008000,
+// kFlashBlocksSH72543d is the bootloader dialect's only single-block table: [0] = {0x00008000,
 // 0x1F7F00}, with the 0x0-0x8000 entry commented out. The image is still based
 // at address 0 -- read_memory prepends 0x8000 of 0xFF, and write_memory
 // offsets its buffer pointer by fblocks[0].start before reflash_block indexes

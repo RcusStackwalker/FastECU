@@ -93,7 +93,7 @@ Status validate_image(FlashOperation operation, const std::optional<bytes::Bytes
     {
         return {};
     }
-    // Correction (wave 6b-2): legacy write_mem() indexed FullRomData unchecked.
+    // Correction: legacy write_mem() indexed FullRomData unchecked.
     if (!image.has_value() || image->size() != romsize)
     {
         return fail(InvalidConfig, std::format("ROM file must be exactly 0x{:x} bytes", romsize));
@@ -108,7 +108,7 @@ namespace detail
 Status validate_subaru_denso_sh705x_kline_geometry(const flashdev_t& device)
 {
     using enum ErrorKind;
-    // Correction (wave 6b-2): flash_block() loops `remain -= 0x200` and
+    // Correction: flash_block() loops `remain -= 0x200` and
     // commits at 0x1000 boundaries, and reflash_block() indexes the image by
     // physical address from fblocks[0]. Reject a table that breaks either.
     if (device.numblocks == 0 || device.fblocks[0].start != 0)
@@ -134,7 +134,7 @@ Status validate_subaru_denso_sh705x_kline_geometry(const flashdev_t& device)
 
 Status validate_subaru_denso_sh705x_kline_plan(const FlashPlan& plan)
 {
-    // Ruling 2 (wave 6b-2 controller): this function is outside the
+    // Ruling 2: this function is outside the
     // anonymous namespace above, so the `using enum ErrorKind;` there does
     // not reach here -- reintroduce it locally rather than qualifying every
     // use.

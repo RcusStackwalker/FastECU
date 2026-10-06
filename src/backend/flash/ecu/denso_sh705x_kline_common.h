@@ -6,10 +6,10 @@
 #include "src/algorithms/protocol/ssm/ssm_protocol_core.h"
 
 // Crypto tables shared by the two Denso SH705x K-Line executors:
-// DensoSh705xEepromKlineExecutor (step 5c) and SubaruDensoSh705xKlineExecutor
-// (wave 6b-2). Both legacy classes spelled out these exact tables; nothing
+// DensoSh705xEepromKlineExecutor (step 5c) and SubaruDensoSh705xKlineExecutor.
+// Both legacy classes spelled out these exact tables; nothing
 // else about the two protocols is shared -- their kernel upload, reply
-// checks and timeouts differ on the wire. See the wave 6b-2 design.
+// checks and timeouts differ on the wire. See the original port design.
 //
 // The executor suites do NOT read these back: each carries its own
 // transcribed literals, so a wrong change here fails those suites.

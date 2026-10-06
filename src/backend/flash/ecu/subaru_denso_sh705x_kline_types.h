@@ -4,7 +4,7 @@
 namespace fastecu::flash
 {
 
-// Wave 6b-2. Legacy connect_bootloader():269 picks the ECUTEK seed-key
+// Legacy connect_bootloader():269 picks the ECUTEK seed-key
 // transformation when the flash method (the protocol name) ends in "_ecutek".
 enum class SubaruDensoSh705xKlineSeedKey
 {

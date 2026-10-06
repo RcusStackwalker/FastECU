@@ -48,45 +48,35 @@ enum class FlashFamily
 {
     DensoSh705xEepromKline,
     DensoSh705xEepromCan,
-    // Step 5 tail, wave 0. Serves all four mitsu_ecu_m32r_can capacity and
+    // Serves all four mitsu_ecu_m32r_can capacity and
     // vendor-authorization variants; both properties are plan fields, not
     // separate families, matching the legacy class this replaces.
     MitsuColtM32rCan,
     SubaruMitsuM32rKline,
     SubaruHitachiM32rKline,
-    // Step 5 tail, wave 2.
     SubaruDensoMc68hc16y5_02,
     SubaruDensoSh7055_02,
-    // Step 5 tail, wave 3.
     SubaruHitachiM32rCan,
     SubaruTcuCvtHitachiM32rCan,
     SubaruTcuCvtMitsuMh8111Can,
     SubaruTcuCvtMitsuMh8104Can,
-    // Step 5 tail, wave 4.
+    // Denso ISO-15765 bootloader dialect.
     SubaruDenso1n83m_1_5mCan,
     SubaruDensoSh72531Can,
     SubaruDensoSh72543CanDiesel,
     SubaruDenso1n83m_4mCan,
-    // Step 5 tail, wave 5.
     SubaruDensoSh705xDensoCan,
     SubaruTcuDensoSh705xCan,
     SubaruDensoSh7058Can,
     SubaruDensoSh7058CanDiesel,
-    // Step 5 tail, wave 6a.
     SubaruTcuHitachiM32rKline,
-    // Step 5 tail, wave 6a-2.
     SubaruTcuHitachiM32rCan,
     SubaruHitachiSh72543rCan,
     SubaruHitachiSh7058,
-    // Step 5 tail, wave 6b-1.
     SubaruUnisiaJecs,
-    // Step 5 tail, wave 6b-2.
     SubaruDensoSh705xKline,
-    // Step 5 tail, wave 6c-1.
     SubaruDensoMc68hc16y5_02Bdm,
-    // Step 5 tail, wave 6c-3.
     SubaruUnisiaJecsM32rKline,
-    // Step 5 tail, wave 7.
     SubaruUnisiaJecsM32rBootModeKernel,
     SubaruUnisiaJecsM32rBootModeProgram,
 };
@@ -120,7 +110,7 @@ struct ConfirmationSpec
         BeginEepromRead,
         InspectEepromBytes,
         CycleIgnition,
-        // Step 5 tail, wave 0. Both are collected by the desktop dialog
+        // Both are collected by the desktop dialog
         // BEFORE the executor starts: a synchronous, dialog-free executor
         // cannot block mid-run for a human answer. Presence in
         // FlashPlan::confirmations() therefore means "granted" -- an
@@ -128,12 +118,12 @@ struct ConfirmationSpec
         // a plan at all.
         EraseTrigger,
         TopRegionBootstrap,
-        // Step 5 tail, wave 6c-3. Same contract as the two above: the
+        // Same contract as the two above: the
         // operator confirmed, before the executor started, that external
         // programming voltage is applied because the adapter cannot supply
         // it.
         ApplyProgrammingVoltage,
-        // Step 5 tail, wave 7. Same contract: the operator confirmed, before
+        // Same contract: the operator confirmed, before
         // the executor started, that VPP and MOD1 are connected for M32R
         // boot mode.
         ApplyBootModeVoltages,
@@ -389,21 +379,21 @@ template <> inline constexpr bool kFamilyRequiresKernel<SubaruMitsuM32rKlinePlan
 
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruHitachiM32rKlinePlan> = false;
 
-// Step 5 tail, wave 3. Jumps to the ECU's resident on-board kernel via
+// Jumps to the ECU's resident on-board kernel via
 // SecurityAccess + 0x10/0x42, uploading no image.
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruHitachiM32rCanPlan> = false;
 
-// Step 5 tail, wave 3. Jumps to the TCU's resident on-board kernel via
+// Jumps to the TCU's resident on-board kernel via
 // SecurityAccess + 0x10/0x02, uploading no image.
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruTcuCvtHitachiM32rCanPlan> = false;
 
-// Step 5 tail, wave 3. Jumps to the TCU's resident on-board kernel via
+// Jumps to the TCU's resident on-board kernel via
 // SecurityAccess + 0x10/0x42, uploading no image (no kernel-alive pre-check
 // shortcut, unlike SubaruTcuCvtHitachiM32rCanPlan -- connect_bootloader
 // always runs its full sequence for this family).
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruTcuCvtMitsuMh8111CanPlan> = false;
 
-// Step 5 tail, wave 3. Jumps to the TCU's resident on-board kernel via
+// Jumps to the TCU's resident on-board kernel via
 // SecurityAccess + 0x10/0x42, uploading no image -- the same shape as
 // SubaruTcuCvtMitsuMh8111CanPlan. Unlike MH8111, every response-content
 // check in legacy after the kernel-alive probe is commented out
@@ -411,29 +401,29 @@ template <> inline constexpr bool kFamilyRequiresKernel<SubaruTcuCvtMitsuMh8111C
 // content and only a transport-level failure stops it.
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruTcuCvtMitsuMh8104CanPlan> = false;
 
-// Step 5 tail, wave 4. Jumps to the ECU's resident on-board kernel via
+// Jumps to the ECU's resident on-board kernel via
 // 0x10 0x42 (bench) or 0x10 0x62 (in-car), uploading no image.
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruDenso1n83m_1_5mCanPlan> = false;
 
-// Step 5 tail, wave 4. Same resident on-board kernel jump as its 1N83M
+// Same resident on-board kernel jump as its 1N83M
 // sibling, via 0x10 0x42 (bench) or 0x10 0x62 (in-car); no image is uploaded.
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruDensoSh72531CanPlan> = false;
 
-// Step 5 tail, wave 4. Jumps to the ECU's resident on-board kernel via
+// Jumps to the ECU's resident on-board kernel via
 // 0x10 0x42 (bench) or 0x10 0x62 (in-car), uploading no image. Diesel family,
 // single-block flash geometry.
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruDensoSh72543CanDieselPlan> = false;
 
-// Step 5 tail, wave 4. The 4MB variant of the 1N83M family: same resident
+// The 4MB variant of the 1N83M family: same resident
 // on-board kernel jump via 0x10 0x42 (bench) or 0x10 0x62 (in-car), no image
 // uploaded.
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruDenso1n83m_4mCanPlan> = false;
 
-// Step 5 tail, wave 6a. Authenticates against the TCU's resident bootloader
+// Authenticates against the TCU's resident bootloader
 // via SecurityAccess and reads with 0xA0 block reads, uploading no image.
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruTcuHitachiM32rKlinePlan> = false;
 
-// Step 5 tail, wave 6a-2. Connects to the TCU's resident on-board kernel
+// Connects to the TCU's resident on-board kernel
 // (connect_bootloader) and drives it with page-read/block-write commands
 // over CAN; no image is uploaded.
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruTcuHitachiM32rCanPlan> = false;
@@ -442,15 +432,15 @@ template <> inline constexpr bool kFamilyRequiresKernel<SubaruHitachiSh7058Kline
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruHitachiSh7058CanPlan> = false;
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruUnisiaJecsPlan> = false;
 
-// Step 5 tail, wave 6c-1. Write uploads the cfg kernel over BDM, but carries
+// Write uploads the cfg kernel over BDM, but carries
 // it as the plan image (the bytes written to RAM), not as a KernelImage.
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruDensoMc68hc16y5_02BdmPlan> = false;
 
-// Step 5 tail, wave 6c-3. The ECU's own boot ROM handles flash mode; no
+// The ECU's own boot ROM handles flash mode; no
 // kernel is uploaded.
 template <> inline constexpr bool kFamilyRequiresKernel<SubaruUnisiaJecsM32rKlinePlan> = false;
 
-// Step 5 tail, wave 7. The kernel attempt carries the cfg kernel as its plan
+// The kernel attempt carries the cfg kernel as its plan
 // image, as 6c-1 BDM does: the _bootmode cfg entries declare no kernel_addr,
 // and the M32R boot ROM places the kernel itself. The program attempt uploads
 // nothing.

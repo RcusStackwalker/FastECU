@@ -6,7 +6,7 @@ namespace fastecu::flash
 // Legacy: flash_tcu_cvt_subaru_hitachi_m32r_can_operation.{h,cpp}. execute()
 // calls the dead hack_words() (always STATUS_ERROR); this plan/executor pair
 // ports the real, previously-unreachable connect_bootloader/read_mem/
-// write_mem logic instead -- see the wave-3 design's "Deliberate divergence"
+// write_mem logic instead -- see the original port design's "Deliberate divergence"
 // section.
 struct SubaruTcuCvtHitachiM32rCanPlan
 {

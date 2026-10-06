@@ -4,7 +4,7 @@
 
 namespace fastecu::flash
 {
-// Step 5 tail, wave 6c-3. Framed SSM over plain K-Line; the ROM size comes
+// Framed SSM over plain K-Line; the ROM size comes
 // from the plan's transfer region, so only the session parameters live here.
 struct SubaruUnisiaJecsM32rKlinePlan
 {

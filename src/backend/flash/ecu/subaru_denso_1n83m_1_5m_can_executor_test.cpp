@@ -49,9 +49,9 @@ using testing::Each;
 using testing::IsEmpty;
 
 // Records every ctx.clock.sleep() argument so the executor's inter-exchange
-// settles can be asserted as a sequence. Same shape as the wave-2
-// (subaru_denso_sh7055_02_executor_test.cpp) and wave-3
-// (subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp) recording clocks: a
+// settles can be asserted as a sequence. Same shape as the recording clocks in
+// subaru_denso_sh7055_02_executor_test.cpp and
+// subaru_tcu_cvt_mitsu_mh8104_can_executor_test.cpp: a
 // FakeClock with one extra hook, so no fake or port changes shape.
 
 constexpr std::string_view kProtocol = "sub_ecu_denso_1n83m_1_5m_can";

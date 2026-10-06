@@ -25,7 +25,7 @@
 // commit before the file was deleted here. Master later reflowed one line in
 // three of the four (S1117, #240), so resolve citations against 20892df.
 //
-// This family is the tolerant member of the wave-4 Denso ISO-15765 cluster:
+// This family is the tolerant member of the Denso ISO-15765 bootloader dialect:
 // seven of its response checks have their `return STATUS_ERROR` commented out
 // (lines 305, 335, 369, 876, 883, 917, 924). Only four of those are a
 // behavioural divergence -- the read_memory dump-setup checks at 876, 883,
@@ -587,7 +587,7 @@ Status reflash_block(Ctx& ctx, bytes::ByteView image, const MemoryRegion& block,
             closed.has_value())
         {
             // Legacy appends the reply's hex to this line (line 1299);
-            // the port had dropped it. Restored by the wave-4 cluster-factoring
+            // the port had dropped it. Restored by the bootloader-dialect factoring
             // pass. The hex is the envelope-stripped PDU where legacy's was the
             // raw frame, envelope included -- the same divergence the other
             // three cluster members' "Stop request response" lines carry.
@@ -731,7 +731,7 @@ Result<FlashExecutionResult> SubaruDenso1n83m_4mCanExecutor::execute(const Flash
     // It cannot fire as the code stands: the plan validation at the top of
     // execute() rejects TestWrite before any I/O, and the Read branch has
     // already returned, so FlashOperation has no third value left to reach
-    // here. The wave-4 cluster-factoring pass reviewed it across all four
+    // here. The bootloader-dialect factoring pass reviewed it across all four
     // families and kept it: it costs nothing at runtime and is the last
     // thing between a non-Write operation and a real erase-and-write of an
     // ECU should that entry validation ever be relaxed or the enum gain a

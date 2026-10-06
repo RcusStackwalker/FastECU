@@ -7,7 +7,7 @@ Terms used when describing which flash families share protocol behaviour.
 **Flash family**:
 One `FlashFamily` value: a plan builder and an executor for one ECU or TCU
 model line over one transport.
-_Avoid_: Wave, protocol (a protocol id such as `sub_ecu_denso_1n83m_1_5m_can`
+_Avoid_: Wave, step, protocol (a protocol id such as `sub_ecu_denso_1n83m_1_5m_can`
 names one flash family's catalog entry)
 
 **Dialect**:
@@ -29,6 +29,14 @@ the level-0x61/0x62 seed/key exchange and the erase flow, and both N83M
 families share the in-car exchange sequence. They talk to the ECU's resident
 on-board kernel after a diagnostic-session jump and upload no kernel.
 _Avoid_: Wave 4
+
+**Denso BEEF CAN dialect**:
+The SH7058 petrol, SH7058 diesel and TCU Denso SH705x flash families. They
+share the BEEF-protocol helpers in `denso_beef_can_common.h`; connect, flash
+block, kernel upload, write and read flows stay in each executor. The
+DensoCAN SH705x family uses the same seed/key and payload tables but none of
+those helpers, so it is in no dialect.
+_Avoid_: Wave 5
 
 **Bootloader**:
 Code resident on the ECU that accepts a flash session over the diagnostic
