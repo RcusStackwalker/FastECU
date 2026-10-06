@@ -22,6 +22,7 @@ links as needed; the index is navigation, not a required reading list.
 | --- | --- |
 | [Repository instructions](../AGENTS.md) | Essential constraints, commands, reading and Git workflow |
 | [Design notes](design-notes.md) | Current decisions and concise rationale |
+| [Domain language](../CONTEXT.md) | Calibration domain terms |
 | [Focused references](reference/) | Detailed compatibility contracts and bounded domain evidence |
 | [Coding style](coding-style.md) | Writing/testing conventions |
 | [ADRs](adr/README.md) | Structural decisions, historical context, and supersession |

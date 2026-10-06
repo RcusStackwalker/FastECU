@@ -19,10 +19,15 @@ alone does not make a presentation flow backend policy.
 
 Remaining actions from the backend migration roadmap:
 
-- Move reusable calibration field resolution, patch application, and selectable
-  encoding from the UI map-edit adapter into backend calibration/session policy.
-  Preserve selection bounds, definition-less behavior, and the
-  [calibration contracts](reference/calibration-compatibility.md).
+- Fix calibration decoded-value flow with a typed model before extracting further
+  edit policy; the [approved design](superpowers/specs/2026-10-06-calibration-typed-data-flow-design.md)
+  records the agreed numeric, validation, and presentation rules for review.
+  Deliver that flow separately from the follow-up moving field resolution and
+  patch application from the UI map-edit adapter, and selectable encoding from
+  `MainWindow`, into backend calibration/session policy. Preserve selection bounds,
+  definition-less behavior, and unaffected
+  [calibration contracts](reference/calibration-compatibility.md); reconcile the
+  deliberately redesigned behavior in its owning documents when implemented.
 - Finish moving logging snapshot/channel preparation and sample validation from
   desktop adapters into backend logging; reuse the existing portable preparation
   rather than starting a second policy implementation.
