@@ -1,6 +1,11 @@
 #include "src/ui/desktop/calibration/map_presentation.h"
 
 #include <algorithm>
+#include <cmath>
+#include <format>
+#include <limits>
+
+#include "src/backend/definition/text_format.h"
 
 namespace fastecu::ui
 {
@@ -9,6 +14,62 @@ namespace
 QString text(const std::string& value)
 {
     return value.empty() ? QString(" ") : QString::fromStdString(value);
+}
+
+std::vector<PresentedCell> present_numeric(const calibration::NumericRun& run, const QString& format)
+{
+    std::vector<PresentedCell> cells;
+    cells.reserve(run.cells.size());
+    for (const auto& cell : run.cells)
+    {
+        if (cell.has_value())
+        {
+            cells.push_back({.text = format_map_value(*cell, format), .numeric_value = *cell});
+        }
+        else
+        {
+            cells.push_back({.text = "NaN", .diagnostic = QString::fromStdString(cell.error().detail)});
+        }
+    }
+    return cells;
+}
+
+std::optional<std::vector<PresentedCell>> present_axis(const calibration::AxisValue& axis, const QString& format)
+{
+    if (const auto *numeric = std::get_if<calibration::NumericRun>(&axis))
+    {
+        return present_numeric(*numeric, format);
+    }
+    if (const auto *labels = std::get_if<calibration::StaticAxis>(&axis))
+    {
+        std::vector<PresentedCell> cells;
+        for (const auto& label : labels->labels)
+        {
+            cells.push_back({.text = QString::fromStdString(label)});
+        }
+        return cells;
+    }
+    return std::nullopt;
+}
+
+Result<bytes::Bytes> selection_bytes(std::string_view value)
+{
+    if (value.size() % 2 != 0)
+    {
+        return fail(ErrorKind::InvalidConfig, "selection hex value has an incomplete byte");
+    }
+    bytes::Bytes data;
+    data.reserve(value.size() / 2);
+    for (std::size_t offset = 0; offset < value.size(); offset += 2)
+    {
+        const auto byte = definition::parse_hex_value(value.substr(offset, 2));
+        if (!byte.has_value() || *byte > 255)
+        {
+            return fail(ErrorKind::InvalidConfig, "selection value is not hexadecimal bytes");
+        }
+        data.push_back(static_cast<bytes::Byte>(*byte));
+    }
+    return data;
 }
 } // namespace
 
@@ -38,65 +99,99 @@ Result<MapPresentation> present_map(const calibration::CalibrationSession& sessi
         .y_name = y_present ? text(map.y_axis.name) : QString(" "),
         .y_units = y_present ? text(map.y_axis.units) : QString(" "),
         .y_format = y_present && y_scaling != nullptr ? text(y_scaling->format) : QString(" "),
-        .body = QString::fromStdString(decoded->map_data).split(','),
-        .x_axis = QString::fromStdString(decoded->x_axis_data).split(','),
-        .y_axis = QString::fromStdString(decoded->y_axis_data).split(','),
         .x_size = static_cast<int>(map.x_size),
         .y_size = static_cast<int>(map.y_size),
     };
-    if (scaling != nullptr && !scaling->selections.empty())
+    if (const auto *numeric = std::get_if<calibration::NumericRun>(&decoded->body))
     {
-        for (const auto& [name, value] : scaling->selections)
-        {
-            result.selection_names.append(QString::fromStdString(name));
-            result.selection_values.append(QString::fromStdString(value));
-        }
-        result.selection_names.append("");
-        result.selection_values.append("");
+        result.body = present_numeric(*numeric, result.format);
     }
     else
     {
-        result.selection_names.append(" ");
-        result.selection_values.append(" ");
+        result.blob = std::get<calibration::BlobValue>(decoded->body).data;
+        result.body.push_back({.text = QString::fromStdString(bytes::toHex(*result.blob, "{:02x}"))});
+    }
+    result.x_axis = present_axis(decoded->x_axis, result.x_format);
+    result.y_axis = present_axis(decoded->y_axis, result.y_format);
+    if (scaling != nullptr)
+    {
+        for (const auto& [name, value] : scaling->selections)
+        {
+            auto data = selection_bytes(value);
+            if (!data.has_value())
+            {
+                return fail(data.error().kind,
+                            std::format("map '{}' selection '{}': {}", map.name, name, data.error().detail));
+            }
+            result.selection_names.append(QString::fromStdString(name));
+            result.selection_values.push_back(std::move(*data));
+        }
     }
     return result;
 }
 
-QString format_map_value(const QString& value, const QString& format)
+int selection_index(const PresentedCell& cell)
+{
+    if (!cell.numeric_value.has_value())
+    {
+        return 0;
+    }
+    const double value = *cell.numeric_value;
+    if (!std::isfinite(value) || value < std::numeric_limits<int>::min() || value > std::numeric_limits<int>::max() ||
+        std::trunc(value) != value)
+    {
+        return 0;
+    }
+    return static_cast<int>(value);
+}
+
+QString format_map_value(double value, const QString& format)
 {
     const auto decimals = static_cast<int>(format.contains('.') ? format.split('.').at(1).count(QLatin1Char('0')) : 0);
-    return QString::number(value.toFloat(), 'f', decimals);
+    return QString::number(value, 'f', decimals);
 }
 
-MapColorBounds opening_color_bounds(const MapPresentation& map)
+std::optional<MapColorBounds> opening_color_bounds(const MapPresentation& map)
 {
-    // Preserve the opening display's float conversion and QString::number
-    // rounding, including for constant ranges. The window keeps these bounds.
-    const auto bound = [](const QString& value) { return QString::number(value.toFloat()).toFloat(); };
-    MapColorBounds result{bound(map.body.value(0)), bound(map.body.value(0))};
-    for (int i = 0; i < map.x_size * map.y_size; ++i)
+    std::optional<MapColorBounds> bounds;
+    for (const auto& cell : map.body)
     {
-        const float value = map.body.value(i).toFloat();
-        if (value < result.minimum)
+        if (!cell.numeric_value.has_value())
         {
-            result.minimum = bound(map.body.value(i));
+            continue;
         }
-        if (value > result.maximum)
+        if (!bounds.has_value())
         {
-            result.maximum = bound(map.body.value(i));
+            bounds = MapColorBounds{*cell.numeric_value, *cell.numeric_value};
+        }
+        else
+        {
+            bounds->minimum = std::min(bounds->minimum, *cell.numeric_value);
+            bounds->maximum = std::max(bounds->maximum, *cell.numeric_value);
         }
     }
-    return result;
+    return bounds;
 }
 
-QColor map_cell_color(float value, MapColorBounds bounds)
+QColor map_cell_color(double value, MapColorBounds bounds)
 {
     constexpr double kScale = 210.0 / 360.0;
-    const double hue =
-        bounds.maximum == bounds.minimum
-            ? 0.0
-            : std::clamp(kScale * (value - bounds.minimum) / (bounds.maximum - bounds.minimum), 0.0, kScale);
+    double fraction = 0.0;
+    if (bounds.maximum != bounds.minimum)
+    {
+        const double bounded = std::clamp(value, bounds.minimum, bounds.maximum);
+        const double range = bounds.maximum - bounds.minimum;
+        if (std::isfinite(range))
+        {
+            fraction = (bounded - bounds.minimum) / range;
+        }
+        else
+        {
+            const double scale = std::max(std::abs(bounds.minimum), std::abs(bounds.maximum));
+            fraction = (bounded / scale - bounds.minimum / scale) / (bounds.maximum / scale - bounds.minimum / scale);
+        }
+    }
+    const double hue = kScale * std::clamp(fraction, 0.0, 1.0);
     return QColor::fromHsvF(static_cast<float>(hue), 0.85F, 0.85F);
 }
-
 } // namespace fastecu::ui

@@ -19,15 +19,10 @@ alone does not make a presentation flow backend policy.
 
 Remaining actions from the backend migration roadmap:
 
-- Fix calibration decoded-value flow with a typed model before extracting further
-  edit policy; the [approved design](superpowers/specs/2026-10-06-calibration-typed-data-flow-design.md)
-  records the agreed numeric, validation, and presentation rules for review.
-  Deliver that flow separately from the follow-up moving field resolution and
-  patch application from the UI map-edit adapter, and selectable encoding from
-  `MainWindow`, into backend calibration/session policy. Preserve selection bounds,
-  definition-less behavior, and unaffected
-  [calibration contracts](reference/calibration-compatibility.md); reconcile the
-  deliberately redesigned behavior in its owning documents when implemented.
+- Move reusable field resolution and patch application from the UI map-edit
+  adapter, and selectable encoding from `MainWindow`, into backend
+  calibration/session policy. Preserve selection bounds, definition-less behavior,
+  and the [typed calibration contracts](reference/calibration-compatibility.md#decoded-values-and-map-edits).
 - Finish moving logging snapshot/channel preparation and sample validation from
   desktop adapters into backend logging; reuse the existing portable preparation
   rather than starting a second policy implementation.
@@ -118,6 +113,14 @@ adapter management. Actions:
   and message transport from higher-level serial behavior.
 - Retain lifecycle coverage for teardown with in-flight calls, helper-process
   failure, timeouts, and adapter removal on every supported platform.
+
+### P2: Preserve edit lookup after an initial map decode failure
+
+If a map fails its initial structural decode and later recovers, initialization
+renames its table with the map-type suffix while the enclosing MDI window retains
+its earlier name. The view displays recovered values, but edit lookup cannot find
+the table. Synchronize the lookup identity and cover initial failure → recovery
+→ edit through the MDI window. Closing and reopening the map restores editing.
 
 ### P2: Identify Subaru CAN ECUs with SSM `AA`
 

@@ -3,36 +3,48 @@
 
 #include <algorithm>
 #include <QSignalBlocker>
+#include <QScopeGuard>
+#include <QLabel>
 
 CalibrationMaps::CalibrationMaps(fastecu::calibration::CalibrationWorkspace& workspace,
                                  fastecu::calibration::SessionId session, int mapIndex, QRect mdiAreaSize,
                                  QWidget *parent)
-    : QWidget(parent), workspace_(workspace), session_(session), map_index_(mapIndex),
+    : QWidget(parent), workspace_(workspace), session_(session), map_index_(mapIndex), mdi_area_size_(mdiAreaSize),
       ui{std::make_unique<Ui::CalibrationMaps>()}
 {
     ui->setupUi(this);
     this->setObjectName(fastecu::ui::session_key_text(session_) + "," + QString::number(map_index_) + ",,");
     this->setAttribute(Qt::WA_DeleteOnClose);
+    ui->mapNameLabel->clear();
+    ui->xScaleUnitsLabel->clear();
+    ui->mapDataUnitsLabel->clear();
+    map_error_label_ = new QLabel(this);
+    map_error_label_->setObjectName("mapDecodeError");
+    map_error_label_->setTextFormat(Qt::PlainText);
+    map_error_label_->setWordWrap(true);
+    map_error_label_->hide();
+    ui->verticalLayout->addWidget(map_error_label_);
     const auto *rom = workspace_.find(session_);
-    if (rom == nullptr)
+    if (rom != nullptr && rom->definition() != nullptr && map_index_ >= 0 &&
+        static_cast<std::size_t>(map_index_) < rom->definition()->definition.maps.size())
     {
-        return;
+        const auto& name = rom->definition()->definition.maps[static_cast<std::size_t>(map_index_)].name;
+        setObjectName(fastecu::ui::session_key_text(session_) + "," + QString::number(map_index_) + "," +
+                      QString::fromStdString(name));
+        setWindowTitle(QString::fromStdString(name) + " - " + QString::fromStdString(rom->source().display_name));
+        ui->mapNameLabel->setText(QString::fromStdString(name));
     }
-    const auto shown = fastecu::ui::present_map(*rom, static_cast<std::size_t>(map_index_));
-    if (!shown.has_value())
-    {
-        return;
-    }
-    const auto& map = *shown;
-    color_bounds_ = fastecu::ui::opening_color_bounds(map);
+    refresh();
+}
 
-    this->setParent(parent);
-
+void CalibrationMaps::initialize_view(const fastecu::ui::MapPresentation& map,
+                                      const fastecu::calibration::RomSource& source)
+{
     QString mapWindowObjectName =
-        fastecu::ui::session_key_text(session) + "," + QString::number(mapIndex) + "," + map.name;
+        fastecu::ui::session_key_text(session_) + "," + QString::number(map_index_) + "," + map.name;
 
     this->setObjectName(mapWindowObjectName);
-    this->setWindowTitle(map.name + " - " + QString::fromStdString(rom->source().display_name));
+    this->setWindowTitle(map.name + " - " + QString::fromStdString(source.display_name));
 
     QString xScaleUnitsTitle = "";
     if (map.x_name != " ")
@@ -149,10 +161,15 @@ CalibrationMaps::CalibrationMaps(fastecu::calibration::CalibrationWorkspace& wor
         xSize = map.x_size + xSizeOffset;
         ySize = map.y_size + ySizeOffset;
 
-        VerticalLabel *yScaleUnitsLabel = new VerticalLabel();
+        auto *yScaleUnitsLabel = findChild<QLabel *>("mapYAxisUnits");
+        if (yScaleUnitsLabel == nullptr)
+        {
+            yScaleUnitsLabel = new VerticalLabel();
+            yScaleUnitsLabel->setObjectName("mapYAxisUnits");
+            ui->horizontalLayout_2->insertWidget(0, yScaleUnitsLabel);
+        }
         yScaleUnitsLabel->setAlignment(Qt::AlignCenter);
         yScaleUnitsLabel->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Maximum);
-        ui->horizontalLayout_2->insertWidget(0, yScaleUnitsLabel);
         QString yScaleUnitsTitle = map.y_name + " (" + map.y_units + ")";
         yScaleUnitsLabel->setText(yScaleUnitsTitle);
     }
@@ -173,32 +190,29 @@ CalibrationMaps::CalibrationMaps(fastecu::calibration::CalibrationWorkspace& wor
         ui->mapDataTableWidget->setItem(0, 0, cellItem);
     }
 
-    refresh();
-    ui->mapDataTableWidget->horizontalHeader()->resizeSections(QHeaderView::ResizeToContents);
-    ui->mapDataTableWidget->verticalHeader()->resizeSections(QHeaderView::ResizeToContents);
-    /*
-        if (ui->mapDataTableWidget->horizontalHeader()->width() < mapCellWidth)
-        {
-            for (int col = 0; col < ui->mapDataTableWidget->columnCount(); col++)
-                ui->mapDataTableWidget->horizontalHeader()->resizeSection(col, mapCellWidth);
-        }
-
-        if (ui->mapDataTableWidget->verticalHeader()->height() < mapCellHeight)
-        {
-            for (int row = 0; row < ui->mapDataTableWidget->rowCount(); row++)
-                ui->mapDataTableWidget->verticalHeader()->resizeSection(row, mapCellHeight);
-        }
-    */
-    setMapTableWidgetSize(mdiAreaSize.width() - 15, mdiAreaSize.height() - 15, xSize);
-
     if (map.type != "Selectable" && map.type != "Switch")
     {
-        connect(ui->mapDataTableWidget, SIGNAL(cellClicked(int, int)), this, SLOT(cellClicked(int, int)));
-        connect(ui->mapDataTableWidget, SIGNAL(cellPressed(int, int)), this, SLOT(cellPressed(int, int)));
+        connect(ui->mapDataTableWidget, &QTableWidget::cellClicked, this, &CalibrationMaps::cellClicked,
+                Qt::UniqueConnection);
+        connect(ui->mapDataTableWidget, &QTableWidget::cellPressed, this, &CalibrationMaps::cellPressed,
+                Qt::UniqueConnection);
         /// connect(ui->mapDataTableWidget, SIGNAL(cellEntered(int, int)), this, SLOT (cellActivated(int, int)));
-        connect(ui->mapDataTableWidget, SIGNAL(currentCellChanged(int, int, int, int)), this,
-                SLOT(cellChanged(int, int, int, int)));
+        connect(ui->mapDataTableWidget, &QTableWidget::currentCellChanged, this, &CalibrationMaps::cellChanged,
+                Qt::UniqueConnection);
     }
+    view_initialized_ = true;
+}
+
+void CalibrationMaps::show_map_error(const fastecu::Error& error)
+{
+    const QSignalBlocker blocker(ui->mapDataTableWidget);
+    ui->mapDataTableWidget->clear();
+    ui->mapDataTableWidget->setRowCount(0);
+    ui->mapDataTableWidget->setColumnCount(0);
+    ui->mapDataTableWidget->setEnabled(false);
+    map_error_label_->setText(QString::fromStdString(error.detail));
+    map_error_label_->show();
+    view_initialized_ = false;
 }
 
 CalibrationMaps::~CalibrationMaps()
@@ -260,9 +274,31 @@ void CalibrationMaps::refresh()
     const auto shown = fastecu::ui::present_map(*rom, static_cast<std::size_t>(map_index_));
     if (!shown.has_value())
     {
+        show_map_error(shown.error());
         return;
     }
     const auto& map = *shown;
+    map_error_label_->hide();
+    ui->mapDataTableWidget->setEnabled(true);
+    const bool initialized = !view_initialized_;
+    if (initialized)
+    {
+        initialize_view(map, rom->source());
+    }
+    if (!color_bounds_.has_value())
+    {
+        color_bounds_ = fastecu::ui::opening_color_bounds(map);
+    }
+    const auto resize = qScopeGuard(
+        [this, initialized]
+        {
+            if (initialized)
+            {
+                ui->mapDataTableWidget->horizontalHeader()->resizeSections(QHeaderView::ResizeToContents);
+                ui->mapDataTableWidget->verticalHeader()->resizeSections(QHeaderView::ResizeToContents);
+                setMapTableWidgetSize(mdi_area_size_.width() - 15, mdi_area_size_.height() - 15, xSize);
+            }
+        });
     const QSignalBlocker table_blocker(ui->mapDataTableWidget);
     QFont font = ui->mapDataTableWidget->font();
     font.setPointSize(cellFontSize);
@@ -307,26 +343,31 @@ void CalibrationMaps::refresh()
                 combo->setFixedWidth(mapCellWidthSelectable);
                 combo->setObjectName("selectableComboBox");
                 const QSignalBlocker blocker(combo);
-                for (int i = 0; i < map.selection_names.size() - (multi ? 0 : 1); ++i)
+                for (int i = 0; i < map.selection_names.size(); ++i)
                 {
                     if (multi || !map.selection_names[i].isEmpty())
                     {
                         combo->addItem(map.selection_names[i]);
                     }
                 }
+                if (multi)
+                {
+                    // Preserve the explicit empty choice of the existing control.
+                    combo->addItem(map.selection_names.isEmpty() ? " " : "");
+                }
                 ui->mapDataTableWidget->setCellWidget(row, col, combo);
                 connect(combo, &QComboBox::currentTextChanged, this,
                         &CalibrationMaps::selectable_combobox_item_changed);
             }
             const QSignalBlocker blocker(combo);
-            int current = multi ? map.body.value(0).toInt() : 0;
+            int current = multi && !map.body.empty() ? fastecu::ui::selection_index(map.body.front()) : 0;
             if (!multi)
             {
-                for (int i = 0; i < map.selection_values.size() - 1; ++i)
+                for (std::size_t i = 0; i < map.selection_values.size(); ++i)
                 {
-                    if (map.selection_values[i].toUpper() == map.body.join(',').toUpper())
+                    if (map.blob.has_value() && map.selection_values[i] == *map.blob)
                     {
-                        current = i;
+                        current = static_cast<int>(i);
                     }
                 }
             }
@@ -340,7 +381,7 @@ void CalibrationMaps::refresh()
         // numeric rendering follows control creation and replaces the label.
     }
 
-    const auto cell = [&](int row, int col, const QString& text, const QColor& background)
+    const auto cell = [&](int row, int col, const fastecu::ui::PresentedCell& value, const QColor& background)
     {
         auto *item = ui->mapDataTableWidget->item(row, col);
         if (item == nullptr)
@@ -352,34 +393,29 @@ void CalibrationMaps::refresh()
         item->setFont(font);
         item->setForeground(Qt::black);
         item->setBackground(background);
-        item->setText(text);
+        item->setText(value.text);
+        item->setToolTip(value.diagnostic);
     };
     const bool static_x = map.x_type == "Static Y Axis" || map.x_type == "Static X Axis";
+    const auto axis_cell = [](const std::optional<std::vector<fastecu::ui::PresentedCell>>& axis, int index)
+    {
+        return axis.has_value() ? axis->at(static_cast<std::size_t>(index))
+                                : fastecu::ui::PresentedCell{.text = QString::number(index)};
+    };
     if (map.type != "1D")
     {
         if (map.y_size > 1 && (map.x_size <= 1 || !static_x))
         {
             for (int i = 0; i < map.y_size; ++i)
             {
-                cell(i + ySizeOffset, 0, fastecu::ui::format_map_value(map.y_axis.value(i), map.y_format), Qt::white);
+                cell(i + ySizeOffset, 0, axis_cell(map.y_axis, i), Qt::white);
             }
         }
-        QStringList axis = map.x_axis;
         for (int i = 0; i < map.x_size; ++i)
         {
-            QString text;
-            if (axis.value(i) == " ")
-            {
-                // Legacy inserts each fallback before the absent-axis sentinel.
-                axis.insert(i, QString::number(i));
-                text = axis[i];
-            }
-            else
-            {
-                text = static_x ? axis.value(i) : fastecu::ui::format_map_value(axis.value(i), map.x_format);
-            }
-            cell(0, i + xSizeOffset, text, Qt::white);
-            const int width = QFontMetrics(font).horizontalAdvance(text) + 20;
+            const auto value = axis_cell(map.x_axis, i);
+            cell(0, i + xSizeOffset, value, Qt::white);
+            const int width = QFontMetrics(font).horizontalAdvance(value.text) + 20;
             ui->mapDataTableWidget->horizontalHeader()->resizeSection(i + xSizeOffset, width);
         }
     }
@@ -387,9 +423,11 @@ void CalibrationMaps::refresh()
     {
         const int row = i / map.x_size + ySizeOffset;
         const int col = i % map.x_size + xSizeOffset;
-        cell(row, col, fastecu::ui::format_map_value(map.body.value(i), map.format),
-             map.type == "1D" ? QColor(Qt::white)
-                              : fastecu::ui::map_cell_color(map.body.value(i).toFloat(), color_bounds_));
+        const auto& value = map.body.at(static_cast<std::size_t>(i));
+        const auto background = map.type != "1D" && value.numeric_value.has_value() && color_bounds_.has_value()
+                                    ? fastecu::ui::map_cell_color(*value.numeric_value, *color_bounds_)
+                                    : QColor(Qt::white);
+        cell(row, col, value, background);
     }
 }
 

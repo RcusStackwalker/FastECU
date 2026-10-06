@@ -15,10 +15,6 @@
 namespace fastecu::calibration
 {
 
-// The precision legacy formatted every decoded cell with
-// (FileActions::float_precision).
-inline constexpr int kCellFloatPrecision = 15;
-
 // Identifies one open calibration within a workspace. Never reused, so a UI
 // element still holding the ID of a closed session finds nothing rather than
 // a different ROM.
@@ -98,8 +94,9 @@ class CalibrationSession
 
     // Cells and axes of definition()->definition.maps[map_index], decoded from
     // the current bytes. InvalidConfig for an index past the last map or a
-    // session without a definition; otherwise the decode's own result.
-    Result<MapCellValues> decode_map(std::size_t map_index) const;
+    // session without a definition or unusable layout. Computation errors are
+    // retained per numeric cell in the typed snapshot.
+    Result<DecodedMap> decode_map(std::size_t map_index) const;
 
     // The only mutation of the bytes. The whole of `data` must land inside the
     // image; a write that would not is rejected and changes nothing.

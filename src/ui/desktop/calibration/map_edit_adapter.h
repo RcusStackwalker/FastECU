@@ -10,7 +10,7 @@
 #include <QString>
 
 #include "src/ui/desktop/calibration/session_key.h"
-#include "src/backend/calibration/map_edit.h"
+#include "src/backend/calibration/numeric_map_edit.h"
 #include "src/backend/calibration/session/calibration_session.h"
 
 class QMdiSubWindow;
@@ -76,30 +76,6 @@ class MapElementFields
 MapElementFields collect_map_element_fields(const calibration::CalibrationSession& def, int map_number,
                                             calibration::EditTargetKind kind);
 
-// Formats read_raw_element's raw value the same way the deleted legacy
-// get_rom_data_value did: unsigned as a plain decimal, signed 8/16/32
-// sign-extended, float reinterpreted through its bit pattern, and -- an
-// unrecognized storage type (spec.storage_type is std::nullopt) or 3-byte
-// signed storage (int24) -- an empty string, matching get_rom_data_value's
-// startsWith("float"/"uint"/"int") chain, which assigns `value` in none of
-// those cases (see PinnedDefect_Int24AlwaysReadsAsZero in map_edit_test.cpp
-// for the int24 half of this).
-QString format_raw_element_value(const calibration::MapElementSpec& spec, std::int64_t raw);
-
-// The inverse of format_raw_element_value: converts a to_byte-encoded text
-// value into the raw form write_raw_element expects. For
-// StorageType::Float, `text` is a decimal string of the float VALUE
-// (matching what format_raw_element_value produces for the same raw bits)
-// -- converted via toFloat() then bit_cast to get the actual IEEE-754 bit
-// pattern, NOT parsed as an integer. Parsing float text as an integer was
-// this fix wave's defect (step 6b-4): a fractional string like "1.5" failed
-// QString::toInt() outright (silently returning 0), and even a
-// whole-number-valued string like "2" succeeded but then had its integer
-// value misused as if it were the bit pattern, decoding to a tiny denormal
-// rather than 2.0f. Every other storage type is parsed as a plain integer,
-// unchanged from before this fix wave.
-std::int64_t raw_element_value_from_text(const calibration::MapElementSpec& spec, const QString& text);
-
 // A map subwindow's objectName() ("rom,map,name,type") parsed into its ROM
 // and map index -- the same format read unguarded in five places today.
 struct MapWindowId
@@ -113,46 +89,21 @@ struct MapWindowId
 // session key.
 std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window);
 
-// Everything an edit operation needs about the active map window, resolved
-// once. Owns the MapElementFields and the split cell text so the views
-// handed out by spec() and cell_text() stay valid for the caller's whole
-// statement -- callers must keep the ResolvedEdit alive (a named local,
-// e.g. `auto edit = resolve_active_map_edit(...)`) across the whole edit
-// operation.
+// Owns definition fields and a typed snapshot for one edit operation. Keep the
+// named ResolvedEdit alive while using the borrowed spec and cell span.
 class ResolvedEdit
 {
   public:
-    // cell_text_ is a cache of string_views into owned_cell_text_, built once
-    // in the constructor. Moving is safe (moving a std::vector<std::string>
-    // keeps every element's address stable, so cell_text_'s views stay
-    // valid), but an implicit copy would deep-copy owned_cell_text_ into new
-    // storage while shallow-copying cell_text_ verbatim -- leaving the
-    // copy's views dangling into the ORIGINAL object's strings. Copy is
-    // deleted rather than left implicit so that hazard is a compile error,
-    // not a landmine for the next caller; mirrors MapElementFields::spec()
-    // const&& = delete's defensive instinct above.
-    //
-    // The move operations must be declared explicitly, not left to the
-    // compiler: a user-declared copy constructor (even one marked = delete)
-    // suppresses the implicitly-declared move constructor entirely (it is
-    // not implicitly deleted -- it is simply not declared), so without this
-    // the class would end up with neither copy nor move and `return
-    // ResolvedEdit(...)` / `auto edit = resolve_active_map_edit(...)` would
-    // fail to compile.
-    ResolvedEdit(const ResolvedEdit&) = delete;
-    ResolvedEdit& operator=(const ResolvedEdit&) = delete;
-    ResolvedEdit(ResolvedEdit&&) = default;
-    ResolvedEdit& operator=(ResolvedEdit&&) = default;
-
     calibration::MapElementSpec spec() const&
     {
         return fields_.spec();
     }
     calibration::MapElementSpec spec() const&& = delete;
-    std::span<const std::string_view> cell_text() const
+    std::span<const calibration::NumericCell> cells() const&
     {
-        return cell_text_;
+        return cells_.cells;
     }
+    std::span<const calibration::NumericCell> cells() const&& = delete;
     const calibration::SelectionRange& range() const
     {
         return target_.range;
@@ -173,28 +124,18 @@ class ResolvedEdit
   private:
     friend std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *, const calibration::CalibrationSession&,
                                                                int);
-
-    // MapElementFields's default constructor is private (only
-    // collect_map_element_fields may default-construct one); ResolvedEdit
-    // therefore cannot rely on an implicit default constructor either, since
-    // that would need to default-construct fields_ with no access to do so.
-    // This constructor sidesteps that: it takes an already-built
-    // MapElementFields and uses its implicitly-generated (and therefore
-    // public, unaffected by the private default ctor) move constructor
-    // instead.
-    ResolvedEdit(MapElementFields fields, calibration::EditTarget target, std::vector<std::string> owned_cell_text,
+    ResolvedEdit(MapElementFields fields, calibration::EditTarget target, calibration::NumericRun cells,
                  int map_number);
 
     MapElementFields fields_;
     calibration::EditTarget target_;
-    std::vector<std::string> owned_cell_text_;
-    std::vector<std::string_view> cell_text_;
+    calibration::NumericRun cells_;
     int map_number_{0};
 };
 
 // Resolves the active map window's current selection to the element run it
 // targets: reads the subwindow's QTableWidget selection, calls
-// resolve_edit_target, and plucks the matching field group + cell text.
+// resolve_edit_target, and plucks the matching fields and numeric cells.
 // Returns nullopt for a null window, a table widget that can't be found, an
 // empty selection, or a rejected target (a static-axis scale type) -- the
 // three cases the legacy per-function blocks handled with a bare `return`,
@@ -204,8 +145,9 @@ std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window, const
                                                     int map_number);
 
 // Validates every retained cell byte range before writing session bytes.
-// Invalid cell indices are skipped; display text is decoded from bytes.
+// Invalid indices, target addresses, and byte widths reject the whole patch.
+// Byte-identical writes are skipped, preserving clean state on complete no-ops.
 Status apply_patch(calibration::CalibrationSession& def, int map_number, calibration::EditTargetKind kind,
-                   const calibration::EditPatch& patch);
+                   const calibration::NumericEditPatch& patch);
 
 } // namespace fastecu::ui

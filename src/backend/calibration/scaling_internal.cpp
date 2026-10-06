@@ -1,29 +1,9 @@
 #include "src/backend/calibration/scaling_internal.h"
 
-#include <algorithm>
-#include <cmath>
-#include <format>
 #include <limits>
-#include <string>
 
 namespace fastecu::calibration::internal
 {
-
-// Reproduces QString::number(value, 'g', precision). Qt's 'g' and std::format's
-// 'g' agree on trailing-zero stripping and exponent thresholds across the range
-// these ROMs produce -- pinned by FormattingMatchesCapturedQtGroundTruth, which
-// compares against real Qt output rather than assuming compatibility.
-std::string format_like_qt_g(double value, int precision)
-{
-    if (value == 0.0)
-    {
-        value = 0.0; // normalizes -0.0 to +0.0, as Qt does
-    }
-    // std::format throws on a negative precision where "%.*g" silently fell
-    // back to the default. Precision reaches here from a uint8_t field, so the
-    // clamp is unreachable; 0 and 1 render identically either way.
-    return std::format("{:.{}g}", value, std::max(precision, 1));
-}
 
 // Sign-extends an assembled `width`-byte value to a full int32. Widths of 4 or
 // more are already full-width; width 0 cannot occur (storage_byte_size floors

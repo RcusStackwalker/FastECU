@@ -17,3 +17,18 @@ fastecu_portable_gtest(
         "@googletest//:gtest",
     ],
 )
+
+cc_library(
+    name = "checked_expression",
+    srcs = ["checked_expression.cpp"],
+    hdrs = ["checked_expression.h"],
+)
+
+fastecu_portable_gtest(
+    name = "checked_expression_test",
+    srcs = ["checked_expression_test.cpp"],
+    deps = [
+        ":checked_expression",
+        "@googletest//:gtest",
+    ],
+)

@@ -1,7 +1,9 @@
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
 
-#include <bit>
 #include <utility>
+#include <algorithm>
+#include <limits>
+#include "src/algorithms/expression/checked_expression.h"
 
 #include <QMdiSubWindow>
 #include <QString>
@@ -18,20 +20,32 @@ std::string legacy_text(std::string_view text)
     return text.empty() ? " " : std::string(text);
 }
 
-const std::string& target_text(const calibration::MapCellValues& values, calibration::EditTargetKind kind)
+const calibration::NumericRun *target_cells(const calibration::DecodedMap& values, calibration::EditTargetKind kind)
 {
     switch (kind)
     {
     case calibration::EditTargetKind::MapBody:
-        return values.map_data;
+        return std::get_if<calibration::NumericRun>(&values.body);
     case calibration::EditTargetKind::XAxis:
-        return values.x_axis_data;
+        return std::get_if<calibration::NumericRun>(&values.x_axis);
     case calibration::EditTargetKind::YAxis:
-        return values.y_axis_data;
+        return std::get_if<calibration::NumericRun>(&values.y_axis);
     case calibration::EditTargetKind::Rejected:
-        std::unreachable();
+        return nullptr;
     }
-    std::unreachable();
+    return nullptr;
+}
+
+double increment_value(std::string_view text)
+{
+    if (text.find_first_not_of(" \t\r\n\f\v") == std::string_view::npos)
+    {
+        return 0.0;
+    }
+    const auto value = expression::parse_finite_number(text);
+    // Reject malformed increments in the numeric increment operation without
+    // preventing absolute assignments that do not use increment metadata.
+    return value.has_value() ? *value : std::numeric_limits<double>::quiet_NaN();
 }
 
 } // namespace
@@ -70,8 +84,8 @@ MapElementFields collect_map_element_fields(const calibration::CalibrationSessio
         fields.address_ = map.address.value_or(0);
         fields.storage_type_ = map.storage_type ? map.storage_type : scaling ? scaling->storage_type : std::nullopt;
         fields.endian_ = legacy_text(!map.endian.empty() ? map.endian : scaling ? scaling->endian : "");
-        fields.from_byte_ = scaling ? legacy_text(scaling->from_byte) : " ";
-        fields.to_byte_ = scaling ? legacy_text(scaling->to_byte) : " ";
+        fields.from_byte_ = scaling ? legacy_text(scaling->from_byte) : "x";
+        fields.to_byte_ = scaling ? legacy_text(scaling->to_byte) : "x";
         fields.start_position_ = map.start_position;
         fields.interval_ = map.interval;
     }
@@ -94,59 +108,13 @@ MapElementFields collect_map_element_fields(const calibration::CalibrationSessio
     }
     fields.min_value_ = scaling ? legacy_text(scaling->minimum) : " ";
     fields.max_value_ = scaling ? legacy_text(scaling->maximum) : " ";
-    fields.coarse_increment_ = scaling ? QString::fromStdString(scaling->coarse_increment).toDouble() : 0.0;
-    fields.fine_increment_ = scaling ? QString::fromStdString(scaling->fine_increment).toDouble() : 0.0;
+    fields.coarse_increment_ = scaling ? increment_value(scaling->coarse_increment) : 0.0;
+    fields.fine_increment_ = scaling ? increment_value(scaling->fine_increment) : 0.0;
     fields.x_size_ = map.x_size;
     fields.y_size_ = map.y_size;
     fields.flash_method_ = session.protocol().flash_method;
     fields.rom_file_size_ = session.protocol().unpadded_size;
     return fields;
-}
-
-QString format_raw_element_value(const calibration::MapElementSpec& spec, std::int64_t raw)
-{
-    // get_rom_data_value's storagetype.startsWith("float"/"uint"/"int")
-    // chain matches nothing for a storage-type string outside the known set,
-    // leaving `value` an empty (default-constructed) QString. storage_type_
-    // from_text maps that same unrecognized string to std::nullopt, under
-    // which is_unsigned_storage is false and storage_byte_size defaults to
-    // 1 -- falling into the qint8 case below would return "-1"-like text
-    // instead of legacy's "", a real divergence (observable in inc_dec_
-    // value's `while (rom_data_value == new_rom_data_value)`), not one of
-    // the established, deliberately-preserved defects. Handled first and
-    // explicitly so it can't be missed among the branches below.
-    if (!spec.storage_type.has_value())
-    {
-        return QString();
-    }
-    if (spec.storage_type == definition::StorageType::Float)
-    {
-        return QString::number(std::bit_cast<float>(static_cast<std::int32_t>(raw)));
-    }
-    if (definition::is_unsigned_storage(spec.storage_type))
-    {
-        return QString::number(static_cast<quint32>(raw));
-    }
-    switch (definition::storage_byte_size(spec.storage_type))
-    {
-    case 1:
-        return QString::number(static_cast<qint8>(raw));
-    case 2:
-        return QString::number(static_cast<qint16>(raw));
-    case 4:
-        return QString::number(static_cast<qint32>(raw));
-    default:
-        return QString();
-    }
-}
-
-std::int64_t raw_element_value_from_text(const calibration::MapElementSpec& spec, const QString& text)
-{
-    if (spec.storage_type == definition::StorageType::Float)
-    {
-        return static_cast<std::int64_t>(std::bit_cast<std::uint32_t>(text.toFloat()));
-    }
-    return static_cast<std::int64_t>(text.toInt());
 }
 
 std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window)
@@ -168,15 +136,10 @@ std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window)
     return MapWindowId{.session = *session, .map_number = parts.at(1).toInt()};
 }
 
-ResolvedEdit::ResolvedEdit(MapElementFields fields, calibration::EditTarget target,
-                           std::vector<std::string> owned_cell_text, int map_number)
-    : fields_(std::move(fields)), target_(target), owned_cell_text_(std::move(owned_cell_text)), map_number_(map_number)
+ResolvedEdit::ResolvedEdit(MapElementFields fields, calibration::EditTarget target, calibration::NumericRun cells,
+                           int map_number)
+    : fields_(std::move(fields)), target_(target), cells_(std::move(cells)), map_number_(map_number)
 {
-    cell_text_.reserve(owned_cell_text_.size());
-    for (const auto& text : owned_cell_text_)
-    {
-        cell_text_.emplace_back(text);
-    }
 }
 
 std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window,
@@ -219,38 +182,38 @@ std::optional<ResolvedEdit> resolve_active_map_edit(QMdiSubWindow *window,
     {
         return std::nullopt;
     }
-    auto fields = collect_map_element_fields(session, map_number, target.kind);
-    const QStringList parts = QString::fromStdString(target_text(*decoded, target.kind)).split(",");
-    std::vector<std::string> owned_cell_text;
-    owned_cell_text.reserve(static_cast<std::size_t>(parts.size()));
-    for (const auto& part : parts)
+    const auto *cells = target_cells(*decoded, target.kind);
+    if (cells == nullptr)
     {
-        owned_cell_text.push_back(part.toStdString());
+        return std::nullopt;
     }
-
-    return ResolvedEdit(std::move(fields), target, std::move(owned_cell_text), map_number);
+    auto fields = collect_map_element_fields(session, map_number, target.kind);
+    return ResolvedEdit(std::move(fields), target, *cells, map_number);
 }
 
 Status apply_patch(calibration::CalibrationSession& session, int map_number, calibration::EditTargetKind kind,
-                   const calibration::EditPatch& patch)
+                   const calibration::NumericEditPatch& patch)
 {
-    if (kind == calibration::EditTargetKind::Rejected)
-    {
-        std::unreachable();
-    }
     const auto decoded = session.decode_map(static_cast<std::size_t>(map_number));
     if (!decoded.has_value())
     {
         return std::unexpected(decoded.error());
     }
-    // Preserve the legacy comma-split extent, including the trailing blank.
-    const auto count = QString::fromStdString(target_text(*decoded, kind)).split(",").size();
+    const auto *cells = target_cells(*decoded, kind);
+    if (cells == nullptr)
+    {
+        return fail(ErrorKind::InvalidConfig, "edit target is not a numeric run");
+    }
+    const auto fields = collect_map_element_fields(session, map_number, kind);
+    const auto spec = fields.spec();
+    const auto width = definition::storage_byte_size(spec.storage_type);
     const auto size = session.rom().size();
     for (const auto& cell : patch)
     {
-        if (cell.index >= static_cast<std::uint64_t>(count))
+        if (cell.index >= cells->cells.size() || cell.bytes.size() != width ||
+            cell.byte_address != calibration::element_byte_address(spec, cell.index, true))
         {
-            continue;
+            return fail(ErrorKind::InvalidConfig, "map edit index, address, or byte width does not match its target");
         }
         if (cell.byte_address > size || cell.bytes.size() > size - cell.byte_address)
         {
@@ -259,11 +222,8 @@ Status apply_patch(calibration::CalibrationSession& session, int map_number, cal
     }
     for (const auto& cell : patch)
     {
-        // Skip a cell past the decoded extent before writing bytes, just as
-        // the legacy text adapter did. resolve_edit_target no longer produces
-        // the out-of-range (UINT32_MAX) index this once caught; the guard
-        // stays as defense on the ROM write path.
-        if (cell.index >= static_cast<std::uint64_t>(count))
+        const auto current = session.rom().subspan(static_cast<std::size_t>(cell.byte_address), cell.bytes.size());
+        if (std::ranges::equal(current, cell.bytes))
         {
             continue;
         }

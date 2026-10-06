@@ -1337,7 +1337,6 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
                                        QString(fastecu::to_string(shown.error().kind)) +
                                        "]: " + qs(shown.error().detail),
                                    true, true);
-                        return;
                     }
                     open->view.open_maps.insert(static_cast<std::size_t>(i));
                     item->setCheckState(0, Qt::Checked);

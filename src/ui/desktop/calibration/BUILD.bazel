@@ -11,11 +11,14 @@ cc_library(
     srcs = ["map_edit_adapter.cpp"],
     hdrs = ["map_edit_adapter.h"],
     copts = COMMON_COPTS,
-    implementation_deps = ["//bazel/qt:widgets"],
+    implementation_deps = [
+        "//bazel/qt:widgets",
+        "//src/algorithms/expression:checked_expression",
+    ],
     deps = [
         ":session_key",
         "//bazel/qt:core",
-        "//src/backend/calibration:map_edit",
+        "//src/backend/calibration:numeric_map_edit",
         "//src/backend/calibration/session:calibration_session",
     ],
 )
@@ -28,6 +31,7 @@ fastecu_gtest(
         ":map_edit_adapter",
         "//bazel/qt:core",
         "//bazel/qt:widgets",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
@@ -75,6 +79,7 @@ cc_library(
     srcs = ["map_presentation.cpp"],
     hdrs = ["map_presentation.h"],
     copts = COMMON_COPTS,
+    implementation_deps = ["//src/backend/definition:text_format"],
     deps = [
         "//bazel/qt:core",
         "//bazel/qt:gui",
@@ -87,6 +92,7 @@ fastecu_gtest(
     srcs = ["map_presentation_test.cpp"],
     deps = [
         ":map_presentation",
+        "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
     ],
 )
