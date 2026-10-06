@@ -1,6 +1,12 @@
 #pragma once
+#include <functional>
+#include <memory>
 #include <string>
 
+namespace fastecu
+{
+class IClock;
+}
 namespace fastecu::definition
 {
 class DefinitionCatalogSession;
@@ -62,4 +68,6 @@ struct MainWindowServices
     fastecu::desktop::connection::AdapterConnection& connection;
     fastecu::ui::RemotePeer& remote;
     fastecu::desktop::logging::LoggingEngine& logging_engine;
+    // Time source for each ECU identification run; empty means the real clock.
+    std::function<std::unique_ptr<fastecu::IClock>()> make_clock = {};
 };

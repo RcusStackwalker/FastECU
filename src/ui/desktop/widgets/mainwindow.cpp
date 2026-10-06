@@ -114,7 +114,14 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
 
     identify_launcher_ = std::make_unique<fastecu::ui::QtIdentifyLauncher>(
         [this] { return std::make_unique<fastecu::diagnostics::SerialDiagnosticLink>(&connection->facade()); },
-        [] { return std::make_unique<QtClock>(); },
+        [this]() -> std::unique_ptr<fastecu::IClock>
+        {
+            if (services_.make_clock)
+            {
+                return services_.make_clock();
+            }
+            return std::make_unique<QtClock>();
+        },
         [this](fastecu::LogLevel level, const QString& message)
         {
             if (level == fastecu::LogLevel::Warning)
