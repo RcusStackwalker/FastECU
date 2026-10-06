@@ -32,8 +32,8 @@ namespace fastecu::flash
 // DensoCAN is not a consumer of this data-only cluster.
 //
 // Beyond these tables, the common module shares three narrow operations: the
-// SecurityAccess seed/key exchange and the erase flow (all four Wave-4
-// executors) and the N83M in-car opening exchange run (the two N83M executors
+// SecurityAccess seed/key exchange and the erase flow (all four
+// Denso ISO-15765 bootloader dialect executors) and the N83M in-car opening exchange run (the two N83M executors
 // only; its 0x7E1 request asks for session 0x63, where the SH-family runs send
 // 0x03). Everything else that looks alike -- the connect/probe shapes, the
 // reflash routines, the kernel jump, the stop and close-block retry loops, the
@@ -126,7 +126,7 @@ Result<bytes::Bytes> tolerant_probe(const CanExecutorContext& ctx, bytes::ByteVi
 Status fire_and_forget(const CanExecutorContext& ctx, ICanFlashTransport& can, std::uint32_t request_id,
                        bytes::ByteView pdu, std::chrono::milliseconds timeout);
 
-// The Wave 4 SecurityAccess exchange: request the level-0x61 seed, derive the
+// The bootloader dialect's SecurityAccess exchange: request the level-0x61 seed, derive the
 // key from its four payload bytes with denso_seed_key, send it at level 0x62.
 // Both exchanges are fatal on a rejected, absent or mismatched reply, and a
 // seed reply with fewer than four seed bytes fails before any key is sent.
@@ -134,7 +134,7 @@ Status fire_and_forget(const CanExecutorContext& ctx, ICanFlashTransport& can, s
 // client's own pending timeout and are re-read, never re-sent.
 Status denso_security_access(const CanExecutorContext& ctx);
 
-// The Wave 4 flash erase: RequestDownload with `request_download_setup_pdu`
+// The bootloader dialect's flash erase: RequestDownload with `request_download_setup_pdu`
 // (the executor builds it, since it also builds the read-path setup), then the
 // erase routine trigger, then up to twenty re-reads for the 71 01 02 success
 // reply. The trigger is sent once and never re-sent while polling. The setup

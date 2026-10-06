@@ -72,8 +72,8 @@ when byte-level evidence establishes equivalence. Preserve family sequencing,
 timeouts, response tolerance, retry policy, address translation, and erase rules.
 Do not build a universal configurable state machine from similar-looking code.
 
-The four Wave 4 Denso ISO-15765 executors share three operations in the common
-module: the SecurityAccess seed/key exchange, the erase flow, and, for the two
+The four executors of the Denso ISO-15765 bootloader dialect share three
+operations in the common module: the SecurityAccess seed/key exchange, the erase flow, and, for the two
 N83M families only, the in-car opening exchange run. The shared 0x7E1 request in
 that run asks for session `0x63`; the SH72531 and SH72543 diesel in-car runs send
 `0x03` and stay local. The `write_memory` orchestration, reads, reflash, connect
