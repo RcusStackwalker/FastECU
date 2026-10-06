@@ -15,7 +15,6 @@ class SystemLogger : public QObject
     ~SystemLogger();
 
     void run();
-    void delay(int timeout);
 
   private:
     QString file_path;
