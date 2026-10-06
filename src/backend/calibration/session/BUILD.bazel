@@ -176,6 +176,7 @@ cc_library(
         "//src/algorithms/protocol",
         "//src/backend/calibration:calibration_service",
         "//src/backend/definition:definition_model",
+        "//src/backend/definition:text_format",
     ],
     deps = [
         ":calibration_session",

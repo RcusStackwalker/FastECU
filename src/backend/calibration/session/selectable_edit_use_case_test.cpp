@@ -173,13 +173,17 @@ TEST_F(SelectableEditUseCaseTest, WritingTheCurrentBytesStillMarksTheSessionDirt
     EXPECT_TRUE(session().dirty());
 }
 
-TEST_F(SelectableEditUseCaseTest, NonHexSelectionTextReadsAsZeroBytes)
+TEST_F(SelectableEditUseCaseTest, MalformedSelectionHexIsRejectedWithoutChange)
 {
-    install(selectable_definition({{"off", "0000"}, {"odd", "0Z7"}}));
+    install(selectable_definition({{"off", "0000"}, {"junk", "0Z07"}, {"odd", "070"}, {"blank", "  "}}));
+    const auto before = rom_bytes();
 
-    EXPECT_THAT(select("odd"), changed());
+    EXPECT_THAT(select("junk"), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(select("odd"), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(select("blank"), IsErr(ErrorKind::InvalidConfig));
 
-    EXPECT_THAT(rom_bytes(), ElementsAre(0x55, 0x55, 0x55, 0x55, 0x00, 0x07, 0x55, 0x55));
+    EXPECT_EQ(rom_bytes(), before);
+    EXPECT_FALSE(session().dirty());
 }
 
 TEST_F(SelectableEditUseCaseTest, AWriteOutsideTheImageIsRejectedWithoutChange)

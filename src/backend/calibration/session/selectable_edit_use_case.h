@@ -48,7 +48,8 @@ using SelectableEditOutcome = std::variant<SelectableEditChanged, SelectableEdit
 // requested name, the first one wins. The written width is the blob's element
 // width: the first selection's hex length in bytes, so a longer value is
 // truncated and a shorter one is zero-padded to it. A map without an address
-// writes at offset 0. A write the image rejects is an error and changes
+// writes at offset 0. The selection's value must be whole hexadecimal bytes;
+// otherwise, and for a write the image rejects, it is an error and changes
 // nothing. Synchronous; the caller owns the execution context.
 Result<SelectableEditOutcome> apply_selectable_edit(CalibrationWorkspace& workspace,
                                                     const SelectableEditRequest& request);
