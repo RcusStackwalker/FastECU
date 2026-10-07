@@ -49,12 +49,10 @@ struct SelectableEditNotApplicable
 
 using SelectableEditOutcome = std::variant<SelectableEditChanged, SelectableEditUnchanged, SelectableEditNotApplicable>;
 
-// Resolves the session when called. When several selections share the
-// requested name, the first one wins. The blob's width is the first
-// selection's hex length in bytes. A map without an address writes at offset 0.
-// The selection's value must be whole hexadecimal bytes of exactly that width;
-// otherwise, and for a write the image rejects, it is an error and changes
-// nothing. Synchronous; the caller owns the execution context.
+// Resolves the session when called. The blob's width is the first selection's
+// byte length; a selection of any other width, and a write the image rejects,
+// is an error and changes nothing. A map without an address writes at offset 0.
+// Synchronous; the caller owns the execution context.
 Result<SelectableEditOutcome> apply_selectable_edit(CalibrationWorkspace& workspace,
                                                     const SelectableEditRequest& request);
 

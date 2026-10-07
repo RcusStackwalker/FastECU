@@ -11,6 +11,8 @@
 #include <utility>
 #include <vector>
 
+#include "src/backend/definition/text_format.h"
+
 namespace fastecu::definition
 {
 namespace
@@ -332,7 +334,7 @@ Scaling resolve_scaling(const UnresolvedScaling& value)
         .fine_increment = value.fine_increment,
         .storage_type = value.storage_type,
         .endian = value.endian,
-        .selections = value.selections,
+        // Converted and validated separately; see resolve_selections.
     };
 }
 
@@ -405,6 +407,25 @@ RomDefinition materialize(const UnresolvedDefinition& value)
     return result;
 }
 
+Result<std::vector<Selection>> resolve_selections(const UnresolvedScaling& scaling, std::string_view definition_id)
+{
+    std::vector<Selection> selections;
+    selections.reserve(scaling.selections.size());
+    for (const auto& [name, hex] : scaling.selections)
+    {
+        auto value = parse_hex_bytes(hex);
+        if (!value.has_value())
+        {
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("scaling '{}' in definition '{}' has selection '{}' whose value is not whole "
+                                    "hexadecimal bytes",
+                                    scaling.name, definition_id, name));
+        }
+        selections.push_back({.name = name, .value = std::move(*value)});
+    }
+    return selections;
+}
+
 Result<void> validate_scaling(const Scaling& scaling, std::string_view definition_id)
 {
     if (scaling.selections.empty())
@@ -425,6 +446,7 @@ Result<void> validate_scaling(const Scaling& scaling, std::string_view definitio
     }
 
     std::unordered_set<std::string> names;
+    const auto width = scaling.selections.front().value.size();
     for (const auto& [name, value] : scaling.selections)
     {
         if (name.empty() || value.empty())
@@ -432,6 +454,13 @@ Result<void> validate_scaling(const Scaling& scaling, std::string_view definitio
             return fail(ErrorKind::InvalidConfig,
                         std::format("scaling '{}' in definition '{}' has an incomplete selection", scaling.name,
                                     definition_id));
+        }
+        if (value.size() != width)
+        {
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("scaling '{}' in definition '{}' has selection '{}' whose width differs from the "
+                                    "first selection's",
+                                    scaling.name, definition_id, name));
         }
         if (!names.insert(name).second)
         {
@@ -548,10 +577,18 @@ Result<void> validate_axis(AxisDefinition& axis, std::string_view axis_context, 
 Result<void> validate_and_resolve_scalings(RomDefinition& definition, const UnresolvedDefinition& unresolved)
 {
     std::unordered_map<std::string, const UnresolvedScaling *> scalings;
-    for (const UnresolvedScaling& scaling : unresolved.scalings)
+    for (std::size_t index = 0; index < unresolved.scalings.size(); ++index)
     {
-        if (const auto result = validate_scaling(resolve_scaling(scaling), definition.identity.xml_id);
-            !result.has_value())
+        const UnresolvedScaling& scaling = unresolved.scalings[index];
+        auto selections = resolve_selections(scaling, definition.identity.xml_id);
+        if (!selections.has_value())
+        {
+            return std::unexpected(selections.error());
+        }
+        // materialize kept the scalings in input order.
+        Scaling& resolved = definition.scalings[index];
+        resolved.selections = std::move(*selections);
+        if (const auto result = validate_scaling(resolved, definition.identity.xml_id); !result.has_value())
         {
             return std::unexpected(result.error());
         }

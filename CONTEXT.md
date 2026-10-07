@@ -33,7 +33,7 @@ _Avoid_: Switch, option map
 
 **Selection**:
 One named blob value in a selectable map's list. Choosing a selection writes
-its bytes to the map's address.
+its bytes to the map's address. Every selection in a list is the same width.
 _Avoid_: Option, switch state
 
 **Unchanged edit**:

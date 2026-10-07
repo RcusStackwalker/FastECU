@@ -9,7 +9,6 @@
 #include "src/algorithms/protocol/bytes.h"
 #include "src/backend/calibration/calibration_service.h"
 #include "src/backend/definition/definition_model.h"
-#include "src/backend/definition/text_format.h"
 
 namespace fastecu::calibration
 {
@@ -19,31 +18,6 @@ namespace
 SelectableEditOutcome not_applicable(SelectableNotApplicableReason reason)
 {
     return SelectableEditNotApplicable{.reason = reason};
-}
-
-// The selection's bytes. The value must be whole hexadecimal bytes and exactly
-// as wide as the blob.
-Result<bytes::Bytes> selection_bytes(std::string_view hex, std::uint32_t width)
-{
-    if (hex.size() % 2 != 0)
-    {
-        return fail(ErrorKind::InvalidConfig, "selection hex value has an incomplete byte");
-    }
-    if (hex.size() / 2 != width)
-    {
-        return fail(ErrorKind::InvalidConfig, "selection value width differs from the blob width");
-    }
-    bytes::Bytes data(width, 0);
-    for (std::size_t k = 0; k < data.size(); ++k)
-    {
-        const auto byte = definition::parse_hex_value(hex.substr(k * 2, 2));
-        if (!byte.has_value())
-        {
-            return fail(ErrorKind::InvalidConfig, "selection value is not hexadecimal bytes");
-        }
-        data[k] = static_cast<std::uint8_t>(*byte);
-    }
-    return data;
 }
 
 } // namespace
@@ -74,25 +48,24 @@ Result<SelectableEditOutcome> apply_selectable_edit(CalibrationWorkspace& worksp
     {
         return not_applicable(SelectableNotApplicableReason::NotBloblist);
     }
-    const auto selected =
-        std::ranges::find(scaling->selections, request.selection, &std::pair<std::string, std::string>::first);
+    const auto selected = std::ranges::find(scaling->selections, request.selection, &definition::Selection::name);
     if (selected == scaling->selections.end())
     {
         return not_applicable(SelectableNotApplicableReason::UnknownSelection);
     }
-    const auto data = selection_bytes(selected->second, element_byte_size(storage, scaling));
-    if (!data.has_value())
+    const auto& data = selected->value;
+    if (data.size() != element_byte_size(storage, scaling))
     {
-        return std::unexpected(data.error());
+        return fail(ErrorKind::InvalidConfig, "selection value width differs from the blob width");
     }
     const auto offset = map.address.value_or(0);
     const auto image = session->rom();
-    if (offset <= image.size() && data->size() <= image.size() - offset &&
-        std::ranges::equal(*data, image.subspan(static_cast<std::size_t>(offset), data->size())))
+    if (offset <= image.size() && data.size() <= image.size() - offset &&
+        std::ranges::equal(data, image.subspan(static_cast<std::size_t>(offset), data.size())))
     {
         return SelectableEditOutcome{SelectableEditUnchanged{}};
     }
-    const auto written = session->write_bytes(offset, *data);
+    const auto written = session->write_bytes(offset, data);
     if (!written.has_value())
     {
         return std::unexpected(written.error());

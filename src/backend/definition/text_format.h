@@ -7,6 +7,8 @@
 #include <string>
 #include <string_view>
 
+#include "src/algorithms/protocol/bytes.h"
+
 namespace fastecu::definition
 {
 
@@ -62,6 +64,29 @@ inline std::optional<std::uint64_t> parse_hex_value(std::string_view text)
         return std::nullopt;
     }
     return parsed;
+}
+
+// Whole bytes written as pairs of hexadecimal digits, with no prefix, separators
+// or surrounding whitespace. An empty string yields no bytes.
+inline std::optional<bytes::Bytes> parse_hex_bytes(std::string_view text)
+{
+    if (text.size() % 2 != 0)
+    {
+        return std::nullopt;
+    }
+    bytes::Bytes data(text.size() / 2);
+    for (std::size_t k = 0; k < data.size(); ++k)
+    {
+        const auto *const pair = text.data() + k * 2;
+        unsigned value = 0;
+        const auto [stop, error] = std::from_chars(pair, pair + 2, value, 16);
+        if (error != std::errc{} || stop != pair + 2)
+        {
+            return std::nullopt;
+        }
+        data[k] = static_cast<bytes::Byte>(value);
+    }
+    return data;
 }
 
 } // namespace fastecu::definition

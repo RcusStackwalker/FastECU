@@ -10,13 +10,17 @@ cc_library(
     name = "definition_model",
     srcs = ["definition_model.cpp"],
     hdrs = ["definition_model.h"],
-    deps = ["//src/backend/ports"],
+    deps = [
+        "//src/algorithms/protocol",
+        "//src/backend/ports",
+    ],
 )
 
 cc_library(
     name = "text_format",
     srcs = ["text_format.cpp"],
     hdrs = ["text_format.h"],
+    deps = ["//src/algorithms/protocol"],
 )
 
 fastecu_portable_gtest(
@@ -83,6 +87,7 @@ cc_library(
     name = "definition_resolver",
     srcs = ["definition_resolver.cpp"],
     hdrs = ["definition_resolver.h"],
+    implementation_deps = [":text_format"],
     deps = [":definition_model"],
 )
 

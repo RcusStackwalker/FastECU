@@ -76,7 +76,6 @@ cc_library(
     srcs = ["map_presentation.cpp"],
     hdrs = ["map_presentation.h"],
     copts = COMMON_COPTS,
-    implementation_deps = ["//src/backend/definition:text_format"],
     deps = [
         "//bazel/qt:core",
         "//bazel/qt:gui",

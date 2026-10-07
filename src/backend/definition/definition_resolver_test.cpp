@@ -909,6 +909,73 @@ TEST(DefinitionResolverTest, RejectsContradictorySelectionStorageWithoutMutating
     EXPECT_EQ(root, original);
 }
 
+UnresolvedDefinition selectable_root(std::vector<std::pair<std::string, std::string>> selections)
+{
+    auto root = doc("ROOT");
+    auto modes = scaling("modes", StorageType::Bloblist);
+    modes.selections = std::move(selections);
+    root.scalings.push_back(std::move(modes));
+    return root;
+}
+
+TEST(DefinitionResolverTest, ResolvesSelectionHexIntoBytes)
+{
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(selectable_root({{"off", "0000"}, {"low", "0a0B"}}), definitions.loader());
+
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(result->scalings.front().selections,
+              (std::vector<Selection>{{"off", {0x00, 0x00}}, {"low", {0x0A, 0x0B}}}));
+}
+
+TEST(DefinitionResolverTest, RejectsSelectionValuesThatAreNotWholeHexBytes)
+{
+    for (const std::string value : {"070", "0Z07", " 7", "0x07", "-1"})
+    {
+        DefinitionSet definitions{};
+        const auto root = selectable_root({{"off", "0000"}, {"bad", value}});
+
+        auto result = resolve_definition(root, definitions.loader());
+
+        ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig)) << value;
+        EXPECT_THAT(result.error().detail, HasSubstr("modes")) << value;
+        EXPECT_THAT(result.error().detail, HasSubstr("bad")) << value;
+    }
+}
+
+TEST(DefinitionResolverTest, RejectsAnEmptySelectionValue)
+{
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(selectable_root({{"off", "0000"}, {"blank", ""}}), definitions.loader());
+
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(result.error().detail, HasSubstr("incomplete selection"));
+}
+
+TEST(DefinitionResolverTest, RejectsSelectionsOfDifferentWidths)
+{
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(selectable_root({{"off", "0000"}, {"wide", "AABBCC"}}), definitions.loader());
+
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(result.error().detail, HasSubstr("modes"));
+    EXPECT_THAT(result.error().detail, HasSubstr("wide"));
+    EXPECT_THAT(result.error().detail, HasSubstr("width"));
+}
+
+TEST(DefinitionResolverTest, RejectsRepeatedSelectionNames)
+{
+    DefinitionSet definitions{};
+
+    auto result = resolve_definition(selectable_root({{"mode", "01"}, {"mode", "02"}}), definitions.loader());
+
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(result.error().detail, HasSubstr("duplicate selection"));
+}
+
 TEST(DefinitionResolverTest, RejectsLoaderDefinitionWhoseIdentityDoesNotMatchReference)
 {
     const auto root = doc("ROOT", {"EXPECTED"});
