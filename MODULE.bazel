@@ -36,6 +36,12 @@ use_repo(pip, "python_deps")
 #
 # mac_single_rpath gives every Qt module's framework rpath to one shared
 # library, so Apple's ld sees it once per link instead of warning on each repeat.
+#
+# pin_qt_sha256 fills in the archive hashes rules_qt leaves empty for Qt 6.8.3
+# (taken from the .sha256 files Qt publishes beside each archive). A pinned hash
+# is what lets Bazel's remote downloader serve the archive from BuildBuddy's CAS
+# instead of every job re-fetching it from download.qt.io; it also makes Bazel
+# reject an archive whose bytes changed.
 single_version_override(
     module_name = "rules_qt",
     patch_strip = 1,
@@ -43,6 +49,7 @@ single_version_override(
         "//bazel/patches:rules_qt_drop_intel_mac.patch",
         "//bazel/patches:rules_qt_mac_single_rpath.patch",
         "//bazel/patches:rules_qt_windows_addons.patch",
+        "//bazel/patches:rules_qt_pin_qt_sha256.patch",
     ],
 )
 
