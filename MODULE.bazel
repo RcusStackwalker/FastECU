@@ -1,7 +1,7 @@
 module(name = "fastecu")
 
 bazel_dep(name = "rules_cc", version = "0.2.26")
-bazel_dep(name = "rules_python", version = "2.2.0")
+bazel_dep(name = "rules_python", version = "2.4.1")
 bazel_dep(name = "fastecu_qt", version = "0.0.0")
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "rules_android_ndk", version = "0.1.5")
