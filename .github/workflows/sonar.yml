@@ -39,6 +39,8 @@ jobs:
           disk-cache: fastecu-sonar-${{ runner.os }}
           cache-save: ${{ inputs.cache-save }}
 
+      - uses: ./.github/actions/qt-runtime-linux
+
       - name: Install Clang and LLVM tools (Linux)
         run: |
           sudo apt-get update

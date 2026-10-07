@@ -1,0 +1,19 @@
+name: Qt runtime libraries (Linux)
+description: >-
+  Install the system libraries Qt's prebuilt Linux binaries link and run
+  against (EGL/GL, xcb, xkbcommon). Qt itself comes from Bazel (rules_qt); this
+  is only what the runner image lacks.
+runs:
+  using: composite
+  steps:
+    - name: Install Qt runtime libraries
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends \
+          libegl1 libgl1 libglib2.0-0 libfontconfig1 libdbus-1-3 \
+          libxkbcommon0 libxkbcommon-x11-0 \
+          libxcb1 libxcb-cursor0 libxcb-glx0 libxcb-icccm4 libxcb-image0 \
+          libxcb-keysyms1 libxcb-randr0 libxcb-render0 libxcb-render-util0 \
+          libxcb-shape0 libxcb-shm0 libxcb-sync1 libxcb-util1 libxcb-xfixes0 \
+          libxcb-xinerama0 libxcb-xkb1
