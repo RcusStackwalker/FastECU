@@ -176,7 +176,6 @@ cc_library(
         ":calibration_session",
         ":calibration_workspace",
         ":numeric_edit_use_case",
-        "//src/backend/calibration:map_edit",
         "//src/backend/ports",
     ],
 )
@@ -186,7 +185,6 @@ fastecu_portable_gtest(
     srcs = ["numeric_copy_use_case_test.cpp"],
     deps = [
         ":numeric_copy_use_case",
-        ":numeric_edit_use_case",
         "//src/backend/calibration/session/testing:fake_definition_catalogs",
         "//src/backend/config/testing:config_session_fixture",
         "//src/backend/ports/testing:in_memory_atomic_file_writer",
