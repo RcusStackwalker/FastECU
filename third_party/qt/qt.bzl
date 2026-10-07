@@ -196,6 +196,96 @@ def qt_cc_test(name, srcs, deps = None, copts = [], data = [], env = {}, **kwarg
         **kwargs
     )
 
+def _qt_deploy_zip_impl(ctx):
+    anchor = ctx.file.qt_anchor
+    out = ctx.actions.declare_file(ctx.label.name + ".zip")
+    args = ctx.actions.args()
+    args.add("--kind", ctx.attr.kind)
+    args.add("--app", ctx.file.app)
+    args.add("--deploy-tool", anchor.dirname + "/" + ctx.attr.deploy_tool)
+    args.add("--version", ctx.var.get("FASTECU_VERSION", "dev"))
+    args.add("--out", out)
+    inputs = [ctx.file.app, anchor]
+    for target, dest in ctx.attr.extras.items():
+        extra = target.files.to_list()[0]
+        inputs.append(extra)
+        args.add("--extra", "%s=%s" % (extra.path, dest))
+    ctx.actions.run(
+        inputs = inputs,
+        outputs = [out],
+        executable = ctx.executable.assembler,
+        arguments = [args],
+        mnemonic = "QtDeployZip",
+        progress_message = "Packaging %{label}",
+        # The deploy tools find Qt's frameworks/DLLs/plugins next to themselves
+        # in the downloaded Qt tree, which is far too large (several GB) to
+        # declare as inputs. Only the anchor file is declared, and the action
+        # reads the rest of the tree from where rules_qt unpacked it. A Qt bump
+        # changes the headers and libraries the app is built from, so the app
+        # input changes with it and the action reruns.
+        execution_requirements = {"local": "1", "no-sandbox": "1"},
+    )
+    return [DefaultInfo(files = depset([out]))]
+
+_qt_deploy_zip = rule(
+    implementation = _qt_deploy_zip_impl,
+    attrs = {
+        "app": attr.label(allow_single_file = True, mandatory = True),
+        "assembler": attr.label(executable = True, cfg = "exec", mandatory = True),
+        "deploy_tool": attr.string(mandatory = True),
+        "extras": attr.label_keyed_string_dict(allow_files = True),
+        "kind": attr.string(mandatory = True),
+        "qt_anchor": attr.label(allow_single_file = True, mandatory = True),
+    },
+)
+
+def qt_deploy_zip(name, app, assembler, extras = {}, **kwargs):
+    """Zip `app` with the Qt runtime that Qt's own deploy tool stages beside it.
+
+    Uses macdeployqt / windeployqt from the same Qt that FastECU is built
+    against, so no Qt has to be installed on the host. macOS arm64 and Windows
+    x86_64 only; the target is incompatible elsewhere.
+
+    The version written into the macOS bundle comes from
+    `--define=FASTECU_VERSION=<v>` and defaults to "dev".
+
+    Args:
+      name: Name of the target; produces `<name>.zip`.
+      app: The built FastECU executable.
+      assembler: The py_binary that stages and zips (//packaging:assemble).
+      extras: Files to place beside the app, as {label: file name in the zip}.
+      **kwargs: Passed to the rule.
+    """
+    _qt_deploy_zip(
+        name = name,
+        app = app,
+        assembler = assembler,
+        extras = extras,
+        # A moc binary sits at a fixed spot in each Qt tree; the deploy tool is
+        # a sibling path of it.
+        qt_anchor = select({
+            "@platforms//os:windows": _MOC_WINDOWS,
+            _OSX_ARM64: _MOC_MACOS,
+            "//conditions:default": _MOC_LINUX,
+        }),
+        kind = select({
+            "@platforms//os:windows": "windows",
+            _OSX_ARM64: "macos",
+            "//conditions:default": "unsupported",
+        }),
+        deploy_tool = select({
+            "@platforms//os:windows": "windeployqt.exe",
+            _OSX_ARM64: "../bin/macdeployqt",
+            "//conditions:default": "unsupported",
+        }),
+        target_compatible_with = select({
+            "@platforms//os:windows": [],
+            _OSX_ARM64: [],
+            "//conditions:default": ["@platforms//:incompatible"],
+        }),
+        **kwargs
+    )
+
 def _gen_ui_header(ctx):
     info = ctx.toolchains["@rules_qt//tools:toolchain_type"].qtinfo
     ctx.actions.run(

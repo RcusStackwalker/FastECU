@@ -121,11 +121,15 @@ jobs:
       - name: Build and package Windows (Bazel)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: scripts/package-windows.ps1 -OutZip "FastECU-${{ needs.release.outputs.tag }}-windows.zip" -Version ${{ needs.release.outputs.tag }}
+        run: |
+          bazel build --config=release --define=FASTECU_VERSION=${{ needs.release.outputs.tag }} //packaging:windows_zip
+          Copy-Item bazel-bin/packaging/windows_zip.zip "FastECU-${{ needs.release.outputs.tag }}-windows.zip"
 
       - name: Build and package macOS (Bazel)
         if: runner.os == 'macOS'
-        run: scripts/package-macos.sh "FastECU-${{ needs.release.outputs.tag }}-macos.zip" ${{ needs.release.outputs.tag }}
+        run: |
+          bazel build --config=release --define=FASTECU_VERSION=${{ needs.release.outputs.tag }} //packaging:macos_zip
+          cp bazel-bin/packaging/macos_zip.zip "FastECU-${{ needs.release.outputs.tag }}-macos.zip"
 
       - name: Upload release asset (Windows)
         if: runner.os == 'Windows'

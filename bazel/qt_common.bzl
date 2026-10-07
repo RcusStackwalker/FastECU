@@ -7,10 +7,11 @@ to build a user interface. See
 docs/adr/0016-enforce-qt-reachability-by-visibility.md.
 """
 
-load("@fastecu_qt//:qt.bzl", "gen_ui_header", _qt_cc_test = "qt_cc_test", _qt_resource_via_qrc = "qt_resource_via_qrc")
+load("@fastecu_qt//:qt.bzl", "gen_ui_header", _qt_cc_test = "qt_cc_test", _qt_deploy_zip = "qt_deploy_zip", _qt_resource_via_qrc = "qt_resource_via_qrc")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 qt_cc_test = _qt_cc_test
+qt_deploy_zip = _qt_deploy_zip
 qt_resource_via_qrc = _qt_resource_via_qrc
 
 # qt_charts also pulls in qt_widgets transitively, so it stays out too.

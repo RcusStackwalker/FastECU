@@ -16,8 +16,7 @@ Run the maintained tests:
 
 The exact Windows, macOS, and Linux dependency setup is kept in
 .github/workflows/pr.yml. Release packages for Windows and macOS are assembled
-from Bazel outputs by scripts/package-windows.ps1 and
-scripts/package-macos.sh.
+by the Bazel targets //packaging:windows_zip and //packaging:macos_zip.
 
 Installation
 

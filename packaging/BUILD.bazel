@@ -1,0 +1,40 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("//bazel:qt_common.bzl", "qt_deploy_zip")
+
+package(default_visibility = ["//visibility:private"])
+
+# Stages the app next to Qt's deploy tool output and zips it. Used only by the
+# qt_deploy_zip targets below.
+py_binary(
+    name = "assemble",
+    srcs = ["assemble.py"],
+    main = "assemble.py",
+)
+
+py_test(
+    name = "assemble_test",
+    srcs = ["assemble_test.py"],
+    imports = [".."],
+    main = "assemble_test.py",
+    deps = [":assemble"],
+)
+
+# Release archives. `bazel build //packaging:macos_zip` / `:windows_zip`;
+# incompatible on other platforms, so `//...` skips them there. Set the version
+# stamped into the macOS bundle with --define=FASTECU_VERSION=<tag>.
+qt_deploy_zip(
+    name = "macos_zip",
+    app = "//:fastecu",
+    assembler = ":assemble",
+    visibility = ["//visibility:public"],
+)
+
+qt_deploy_zip(
+    name = "windows_zip",
+    app = "//:fastecu",
+    assembler = ":assemble",
+    extras = {
+        "//src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86": "j2534_bridge_host.exe",
+    },
+    visibility = ["//visibility:public"],
+)

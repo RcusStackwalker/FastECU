@@ -54,9 +54,11 @@ Run the tests:
 bazel test --config=release //...
 ```
 
-On macOS and Windows, the release packaging entry points are
-`scripts/package-macos.sh` and `scripts/package-windows.ps1`. They build the
-application through Bazel before collecting the Qt runtime files.
+On macOS and Windows, the release archives are Bazel targets:
+`bazel build --config=release //packaging:macos_zip` or `//packaging:windows_zip`.
+They bundle the Qt runtime with the `macdeployqt` / `windeployqt` from the same
+Qt that Bazel builds against, so no separate Qt install is needed. The version
+stamped into the macOS bundle is set with `--define=FASTECU_VERSION=<version>`.
 
 ### clang-tidy
 

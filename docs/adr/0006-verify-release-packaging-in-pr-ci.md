@@ -4,8 +4,8 @@
 
 Accepted and implemented.
 
-Pull request CI and the release workflow now call the same Bazel-backed
-packaging scripts for Windows and macOS.
+Pull request CI and the release workflow now build the same Bazel packaging
+targets for Windows and macOS.
 
 ## Context
 
@@ -18,12 +18,16 @@ plugins.
 ## Decision
 
 Pull request CI must build and package FastECU on every release platform and
-upload reviewer artifacts. Release jobs must use the same scripts:
+upload reviewer artifacts. Release jobs must build the same targets:
 
-- `scripts/package-windows.ps1` builds Bazel targets, runs `windeployqt`,
-  includes the J2534 bridge helper, and asserts required runtime files are present.
-- `scripts/package-macos.sh` builds `//:fastecu`, runs `macdeployqt`, and asserts
-  that QtCore was bundled.
+- `//packaging:windows_zip` stages `//:fastecu` and the J2534 bridge helper,
+  runs `windeployqt`, and asserts the Qt runtime was staged.
+- `//packaging:macos_zip` stages `//:fastecu` in an app bundle, runs
+  `macdeployqt`, and asserts that QtCore was bundled.
+
+Both are built by the `qt_deploy_zip` rule, which takes the deploy tool from the
+Qt tree `rules_qt` already downloads for the build, so CI installs no separate
+Qt for packaging. The staging and zipping logic is `packaging/assemble.py`.
 
 ## Consequences
 
@@ -31,5 +35,9 @@ upload reviewer artifacts. Release jobs must use the same scripts:
   platform archives against hardware.
 - Pull requests and releases exercise the same package assembly logic.
 - CI performs additional packaging work on Windows and macOS.
-- Qt deployment tools remain platform inputs outside the Bazel graph, so CI
-  assertions in the scripts remain necessary.
+- The Qt deployment tools are the ones from Bazel's own Qt, but they run as
+  unsandboxed local actions that read the (multi-GB) Qt tree in place rather than
+  declaring it as inputs, so the assertions in `packaging/assemble.py` remain
+  necessary.
+- The archives are reproducible for the same inputs: entries are sorted and
+  carry fixed timestamps.

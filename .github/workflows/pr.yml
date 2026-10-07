@@ -199,7 +199,9 @@ jobs:
 
       - name: Package macOS from Bazel (verify only)
         if: runner.os == 'macOS'
-        run: scripts/package-macos.sh bazel-pkg-macos.zip ${{ github.sha }}
+        run: |
+          bazel build --config=release --define=FASTECU_VERSION=${{ github.sha }} //packaging:macos_zip
+          cp bazel-bin/packaging/macos_zip.zip bazel-pkg-macos.zip
 
       - name: Upload macOS Bazel package (verify only)
         if: runner.os == 'macOS'
@@ -212,7 +214,9 @@ jobs:
       - name: Package Windows from Bazel (verify only)
         if: runner.os == 'Windows'
         shell: pwsh
-        run: scripts/package-windows.ps1 -OutZip bazel-pkg-windows.zip -Version ${{ github.sha }}
+        run: |
+          bazel build --config=release --define=FASTECU_VERSION=${{ github.sha }} //packaging:windows_zip
+          Copy-Item bazel-bin/packaging/windows_zip.zip bazel-pkg-windows.zip
 
       - name: Upload Windows Bazel package (verify only)
         if: runner.os == 'Windows'
