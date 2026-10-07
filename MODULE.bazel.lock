@@ -425,7 +425,7 @@
     "@@rules_qt+//extension:qt.bzl%fetch": {
       "general": {
         "bzlTransitiveDigest": "+OZ3XQqAwEZnh8H6S7gbKTdLO2IVFgXFwsTR2cNBpjA=",
-        "usagesDigest": "GOvfAOPVLNAoUfGMwjxZLHLOi1WeEoHZH0cKl3klXsA=",
+        "usagesDigest": "rAQpmw7hCuc+DkGFC8jp0uHNttCNhjq9oQvaA02E3BI=",
         "recordedInputs": [
           "REPO_MAPPING:fastecu_qt+,rules_qt rules_qt+",
           "REPO_MAPPING:rules_qt+,bazel_skylib bazel_skylib+",
@@ -436,7 +436,7 @@
             "repoRuleId": "@@rules_qt+//extension:download_qt.bzl%download_qt",
             "attributes": {
               "version": "6.8.3",
-              "os": "linux",
+              "os": "linux_x86_64",
               "target_sdk": "desktop",
               "build_file": "@@rules_qt+//extension:qt/6.8.3/linux_x86_64.BUILD",
               "windows_architecture": ""
