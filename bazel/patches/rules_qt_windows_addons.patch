@@ -1,26 +1,22 @@
-diff --git a/extension/qt_modules.bzl b/extension/qt_modules.bzl
 --- a/extension/qt_modules.bzl
 +++ b/extension/qt_modules.bzl
-@@ -454,6 +454,22 @@ QT_MODULES = {
-                 "url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_683/qt6_683/qt.qt6.683.win64_msvc2022_64/6.8.3-0-202503201308qtdeclarative-Windows-Windows_11_23H2-MSVC2022-Windows-Windows_11_23H2-X86_64.7z",
-                 "sha256": "",
-             },
+@@ -679,3 +679,19 @@
+                 "sha256": "415103bfb3d23e057f4c99062a7985ccedf76d23705d6c580ffd76e363d24439",
++            },
 +            "qtcharts": {
 +                "url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_683/qt6_683/qt.qt6.683.addons.qtcharts.win64_msvc2022_64/6.8.3-0-202503201308qtcharts-Windows-Windows_11_23H2-MSVC2022-Windows-Windows_11_23H2-X86_64.7z",
-+                "sha256": "",
++                "sha256": "ed75d36682042c2e4a97576b0b8f92fdb8ef43e40489566e4e44fc469ee7903c",
 +            },
 +            "qtremoteobjects": {
 +                "url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_683/qt6_683/qt.qt6.683.addons.qtremoteobjects.win64_msvc2022_64/6.8.3-0-202503201308qtremoteobjects-Windows-Windows_11_23H2-MSVC2022-Windows-Windows_11_23H2-X86_64.7z",
-+                "sha256": "",
++                "sha256": "86c39fa3495a2057c9c748209e22bc76fa3af535a3cc6d2564cee8995a683b2d",
 +            },
 +            "qtserialport": {
 +                "url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_683/qt6_683/qt.qt6.683.addons.qtserialport.win64_msvc2022_64/6.8.3-0-202503201308qtserialport-Windows-Windows_11_23H2-MSVC2022-Windows-Windows_11_23H2-X86_64.7z",
-+                "sha256": "",
-+            },
++                "sha256": "7a11b8b7d38edc026959a4b115ecec1ffe750a7059c03b40e9f7c99ae95e7b7e",
+             },
 +            "qtwebsockets": {
 +                "url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_683/qt6_683/qt.qt6.683.addons.qtwebsockets.win64_msvc2022_64/6.8.3-0-202503201308qtwebsockets-Windows-Windows_11_23H2-MSVC2022-Windows-Windows_11_23H2-X86_64.7z",
-+                "sha256": "",
++                "sha256": "b38bd17e47554c17bf5e85fb087e54c394128e70769f206381247097894ebdbf",
 +            },
-             "qtsvg": {
-                 "url": QT_BASE_DOWNLOAD_URL + "windows_x86/desktop/qt6_683/qt6_683/qt.qt6.683.win64_msvc2022_64/6.8.3-0-202503201308qtsvg-Windows-Windows_11_23H2-MSVC2022-Windows-Windows_11_23H2-X86_64.7z",
-                 "sha256": "",
+         },
