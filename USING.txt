@@ -3,8 +3,8 @@ FastECU build, installation, and usage notes
 Build requirements
 
 FastECU uses Bazel 9.1.1, C++20, and Qt 6.8.3. Install Bazelisk (or the
-version pinned in .bazelversion), Qt host tools with Qt Charts, Serial Port,
-Remote Objects, and WebSockets, and a platform C++ compiler.
+version pinned in .bazelversion) and a platform C++ compiler. Bazel downloads
+Qt itself; no Qt install is needed.
 
 Build the application from the repository root:
 

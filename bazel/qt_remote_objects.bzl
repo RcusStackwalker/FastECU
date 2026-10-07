@@ -1,6 +1,6 @@
 """Macros for generating Qt Remote Objects replica targets."""
 
-load("@fastecu_qt//:qt.bzl", "moc_cmd", "moc_tools", "qt_hdrs_deps")
+load("@fastecu_qt//:qt.bzl", "moc_cmd", "moc_tools", "qt_hdrs_deps", "repc_cmd", "repc_tools")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 def qt_replica_header(name, src, out = None, visibility = None):
@@ -19,7 +19,8 @@ def qt_replica_header(name, src, out = None, visibility = None):
         name = name,
         srcs = [src],
         outs = [out],
-        cmd = "$$(qmake6 -query QT_HOST_LIBEXECS)/repc -o replica $(location %s) $@" % src,
+        cmd = repc_cmd("$(location %s)" % src, "$@"),
+        tools = repc_tools(),
         visibility = visibility,
     )
 

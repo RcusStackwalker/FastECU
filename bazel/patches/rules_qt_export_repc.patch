@@ -1,0 +1,48 @@
+diff --git a/extension/qt/6.8.3/linux_x86_64.BUILD b/extension/qt/6.8.3/linux_x86_64.BUILD
+--- a/extension/qt/6.8.3/linux_x86_64.BUILD
++++ b/extension/qt/6.8.3/linux_x86_64.BUILD
+@@ -51,6 +51,12 @@
+ )
+
+ filegroup(
++    name = "repc",
++    srcs = ["libexec/repc"],
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
+     name = "plugin_files",
+     srcs = glob(["plugins/**/*"]),
+     visibility = ["//visibility:public"],
+diff --git a/extension/qt/6.8.3/mac_aarch64.BUILD b/extension/qt/6.8.3/mac_aarch64.BUILD
+--- a/extension/qt/6.8.3/mac_aarch64.BUILD
++++ b/extension/qt/6.8.3/mac_aarch64.BUILD
+@@ -82,6 +82,12 @@
+ )
+
+ filegroup(
++    name = "repc",
++    srcs = ["libexec/repc"],
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
+     name = "plugin_files",
+     srcs = glob(["plugins/**/*"], allow_empty = True),
+     visibility = ["//visibility:public"],
+diff --git a/extension/qt/6.8.3/windows_x86_64.BUILD b/extension/qt/6.8.3/windows_x86_64.BUILD
+--- a/extension/qt/6.8.3/windows_x86_64.BUILD
++++ b/extension/qt/6.8.3/windows_x86_64.BUILD
+@@ -81,6 +81,12 @@
+ )
+
+ filegroup(
++    name = "repc",
++    srcs = ["bin/repc.exe"],
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
+     name = "plugin_files",
+     srcs = glob(["plugins/**/*"]),
+     visibility = ["//visibility:public"],
