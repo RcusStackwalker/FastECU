@@ -296,9 +296,7 @@ TEST(DensoIso15765CanCommonTest, EraseCancellationAfterTriggerStopsPolling)
     CommonFixture f;
     // Stop the operator's token during the settle sleep that follows the trigger.
     ::testing::NiceMock<MockClock> clock;
-    EXPECT_CALL(clock, sleep)
-        .WillOnce(
-            ::testing::DoAll(::testing::InvokeWithoutArgs([&] { f.cancellation.cancel(); }), clock.sleep_on_fake()));
+    EXPECT_CALL(clock, sleep).WillOnce(::testing::DoAll([&] { f.cancellation.cancel(); }, clock.sleep_on_fake()));
     uds::UdsClient client(f.channel, clock, f.events);
     CanExecutorContext ctx{f.cancellation, f.events, clock, client, f.channel};
     scriptEraseSetup(f.transport);

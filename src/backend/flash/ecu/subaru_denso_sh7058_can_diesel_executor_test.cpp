@@ -29,7 +29,6 @@ using ::testing::_;
 using ::testing::Contains;
 using ::testing::DoAll;
 using ::testing::ElementsAre;
-using ::testing::InvokeWithoutArgs;
 
 namespace fastecu
 {
@@ -587,7 +586,7 @@ TEST(SubaruDensoSh7058CanDieselExecutor, BoundAttemptPreservesResetQuietPeriodCo
     MockClock clock;
     EXPECT_CALL(clock, sleep).Times(0);
     EXPECT_CALL(clock, sleep(500ms, _))
-        .WillOnce(DoAll(InvokeWithoutArgs([&] { timeline.emplace_back("sleep:500"); }), clock.sleep_on_fake()));
+        .WillOnce(DoAll([&] { timeline.emplace_back("sleep:500"); }, clock.sleep_on_fake()));
     RecordingEventSink events;
 
     auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanDieselExecutor>(),
@@ -612,13 +611,13 @@ TEST(SubaruDensoSh7058CanDieselExecutor, StartupCancellationAfterResetSkipsConfi
     MockClock clock;
     EXPECT_CALL(clock, sleep).Times(0);
     EXPECT_CALL(clock, sleep(500ms, _))
-        .WillOnce(DoAll(InvokeWithoutArgs(
-                            [&]
-                            {
-                                timeline.emplace_back("sleep:500");
-                                cancellation.set_cancelled(true);
-                            }),
-                        clock.sleep_on_fake()));
+        .WillOnce(DoAll(
+            [&]
+            {
+                timeline.emplace_back("sleep:500");
+                cancellation.set_cancelled(true);
+            },
+            clock.sleep_on_fake()));
     RecordingEventSink events;
 
     auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruDensoSh7058CanDieselExecutor>(),

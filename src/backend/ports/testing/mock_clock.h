@@ -19,7 +19,7 @@ namespace fastecu
 //   MockClock clock;
 //   EXPECT_CALL(clock, sleep(50ms, _)).Times(12);
 //   EXPECT_CALL(clock, sleep(3ms, _))
-//       .WillOnce(DoAll(InvokeWithoutArgs([&] { token.set_cancelled(true); }), clock.sleep_on_fake()));
+//       .WillOnce(DoAll([&] { token.set_cancelled(true); }, clock.sleep_on_fake()));
 //
 // The constructor adds catch-all AnyNumber() expectations. Without them, one
 // EXPECT_CALL(clock, sleep(3ms, _)) would make every *other* sleep an

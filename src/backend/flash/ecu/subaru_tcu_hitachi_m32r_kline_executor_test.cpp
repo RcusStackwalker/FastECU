@@ -21,7 +21,6 @@ namespace
 using namespace fastecu;
 using namespace fastecu::flash;
 using ::testing::DoAll;
-using ::testing::InvokeWithoutArgs;
 
 // Matches the executor's private kRomSize/block_size: 0x80000 / 96 = 5461
 // remainder 32, so the ROM read is 5462 blocks with a 32-byte tail.
@@ -126,8 +125,7 @@ class TracingTransport : public ScriptedKlineFlashTransport
 // Every sleep appends Step::Sleep to the shared trace, then advances time.
 void trace_sleeps(MockClock& clock, std::vector<Step>& trace)
 {
-    ON_CALL(clock, sleep)
-        .WillByDefault(DoAll(InvokeWithoutArgs([&trace] { trace.push_back(Step::Sleep); }), clock.sleep_on_fake()));
+    ON_CALL(clock, sleep).WillByDefault(DoAll([&trace] { trace.push_back(Step::Sleep); }, clock.sleep_on_fake()));
 }
 
 // This family's connect_bootloader() consumes five transport.read() calls

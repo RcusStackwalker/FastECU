@@ -31,7 +31,6 @@ using ::testing::AtLeast;
 using ::testing::Contains;
 using ::testing::DoAll;
 using ::testing::ElementsAre;
-using ::testing::InvokeWithoutArgs;
 
 namespace fastecu::flash
 {
@@ -1197,7 +1196,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, InitialKernelProbeTreatsLegacyNontermina
         FakeCancellationToken cancellation;
         MockClock clock;
         EXPECT_CALL(clock, sleep(3ms, _))
-            .WillOnce(DoAll(InvokeWithoutArgs([&] { cancellation.set_cancelled(true); }), clock.sleep_on_fake()));
+            .WillOnce(DoAll([&] { cancellation.set_cancelled(true); }, clock.sleep_on_fake()));
         RecordingEventSink events;
 
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
@@ -1675,7 +1674,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationStopsWakeAndUploadAtTheirLoo
         FakeCancellationToken cancellation;
         MockClock clock;
         EXPECT_CALL(clock, sleep(3ms, _))
-            .WillOnce(DoAll(InvokeWithoutArgs([&] { cancellation.set_cancelled(true); }), clock.sleep_on_fake()));
+            .WillOnce(DoAll([&] { cancellation.set_cancelled(true); }, clock.sleep_on_fake()));
         RecordingEventSink events;
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
         ASSERT_FALSE(result.has_value());
@@ -1703,7 +1702,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationStopsWakeAndUploadAtTheirLoo
         FakeCancellationToken cancellation;
         MockClock clock;
         EXPECT_CALL(clock, sleep(1ms, _))
-            .WillOnce(DoAll(InvokeWithoutArgs([&] { cancellation.set_cancelled(true); }), clock.sleep_on_fake()));
+            .WillOnce(DoAll([&] { cancellation.set_cancelled(true); }, clock.sleep_on_fake()));
         RecordingEventSink events;
         auto result = executor.execute(*plan, transport, clock, cancellation, events);
         ASSERT_FALSE(result.has_value());

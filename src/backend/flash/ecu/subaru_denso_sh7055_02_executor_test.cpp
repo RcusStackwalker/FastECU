@@ -27,7 +27,6 @@
 using ::testing::_;
 using ::testing::DoAll;
 using ::testing::ElementsAre;
-using ::testing::InvokeWithoutArgs;
 using ::testing::Return;
 
 namespace fastecu::flash
@@ -644,7 +643,7 @@ TEST(SubaruDensoSh7055_02Executor, ReadCancelsBetweenPages)
     MockClock clock;
     // Cancel only after the first page's 1 ms pacing sleep has completed.
     EXPECT_CALL(clock, sleep(1ms, _))
-        .WillOnce(DoAll(clock.sleep_on_fake(), InvokeWithoutArgs([&] { cancellation.cancel(); }), Return(Status{})));
+        .WillOnce(DoAll(clock.sleep_on_fake(), [&] { cancellation.cancel(); }, Return(Status{})));
     RecordingEventSink events;
     SubaruDensoSh7055_02Executor executor;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
