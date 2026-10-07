@@ -316,6 +316,7 @@ fastecu_gtest(
         "//src/platform/desktop/common/testing:event_helpers",
         "//src/platform/desktop/common/testing:signal_recorder",
         "//src/platform/desktop/common/testing:widgets_application_environment",
+        "//src/ui/desktop/calibration:map_edit_adapter",
         "@googletest//:gtest",
     ],
 )

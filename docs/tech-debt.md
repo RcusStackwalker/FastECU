@@ -105,14 +105,6 @@ adapter management. Actions:
 - Retain lifecycle coverage for teardown with in-flight calls, helper-process
   failure, timeouts, and adapter removal on every supported platform.
 
-### P2: Preserve edit lookup after an initial map decode failure
-
-If a map fails its initial structural decode and later recovers, initialization
-renames its table with the map-type suffix while the enclosing MDI window retains
-its earlier name. The view displays recovered values, but edit lookup cannot find
-the table. Synchronize the lookup identity and cover initial failure → recovery
-→ edit through the MDI window. Closing and reopening the map restores editing.
-
 ### P2: Make full-body map copy/paste reliable
 
 Numeric map-edit use-case extraction does not include copy-side changes. Follow
