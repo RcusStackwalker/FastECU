@@ -4,13 +4,16 @@
 #
 # CI pins LLVM 23 for clang-tidy (CLANG_TIDY_LLVM_* in .github/workflows/pr.yml);
 # bumping it should touch this comment so the whole tree is re-checked.
-# LLVM 22 cannot follow gtest's ASSERT_TRUE(opt.has_value()) guard, so
-# bugprone-unchecked-optional-access reports every later `*opt` in a test; 23 can.
 #
 # bugprone-easily-swappable-parameters - too many warnings to be actionable
 # bugprone-exception-escape - fires inside gmock MATCHER_P expansions, gmock's
 #   own matchers and Qt headers, none of which we can change
 # bugprone-throwing-static-initialization - can't be enabled due to googletest
+# bugprone-unchecked-optional-access - googletest 1.18 expands ASSERT_TRUE through
+#   an AssertionResultExpectation aggregate that clang's dataflow cannot follow, so
+#   no `ASSERT_TRUE(opt.has_value())` counts as a guard and every later `*opt` in a
+#   test is reported (85 test files use the idiom). LLVM 23 followed the googletest
+#   1.17 expansion. Re-enable once clang models the 1.18 form.
 # clang-analyzer-cplusplus.NewDeleteLeaks - false positives on Qt parent-owned
 #   `new` (layouts and widgets handed to a parent are never leaked)
 ---
@@ -20,6 +23,7 @@ Checks: >
   -bugprone-easily-swappable-parameters,
   -bugprone-exception-escape,
   -bugprone-throwing-static-initialization,
+  -bugprone-unchecked-optional-access,
   clang-analyzer-*,
   -clang-analyzer-cplusplus.NewDeleteLeaks,
   modernize-avoid-c-arrays,

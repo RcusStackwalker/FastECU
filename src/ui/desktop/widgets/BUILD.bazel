@@ -308,6 +308,7 @@ fastecu_gtest(
     linkstatic = True,
     deps = [
         ":desktop",
+        "//bazel/qt:gui",
         "//bazel/qt:widgets",
         "//src/backend/calibration/session:calibration_workspace",
         "//src/backend/calibration/session/testing:fake_definition_catalogs",
