@@ -118,6 +118,26 @@ instead: `common/ports/event_sink`, `ui/desktop/definition/dialog` and
 `unix/j2534/driver`. Ordinary headers that Gazelle indexes need no `gazelle:resolve`; add one only
 for what it cannot see (generated headers, selected platform headers).
 
+### Re-checked on 2026-10-07
+
+Gazelle 0.54.0 and gazelle_cc 0.6.0 are still the newest stable releases. The
+upstream `alias_kind` and `map_kind` fix (bazel-gazelle #2434) exists only on the
+v2 API line, in `v2.0.0-beta.1`. A spike built that beta with gazelle_cc 0.6.0
+through gazelle's v1 compatibility layer and regenerated every managed BUILD file
+byte-identically. It needed one change: the beta's `gazelle_binary` prepends a
+bare `"//language/defaults"` that resolves in this repository, so `languages` must
+list `@gazelle//language/defaults` itself. It did not fix the problem above: an
+`alias_kind` rule still gets new attributes such as `visibility` but its `srcs`
+stay stale, with or without `map_kind`. The beta was therefore not adopted.
+Re-check when gazelle_cc ships v2 support; until then the child-package split
+stays, and it is also a sound moc boundary.
+
+`hedron_compile_commands` stays pinned and patched. Upstream has not been pushed
+to since August 2025 and is not in the BCR. The one maintained alternative,
+`kiron1/bazel-compile-commands`, is a standalone CLI shipped as a release binary,
+not a Bazel-run target, so adopting it would add a CI binary download and rework
+`clang_tidy_runner`. Revisit if Hedron stops working on a newer Bazel.
+
 Packages containing only moc libraries use `map_kind cc_library qt_cc_library`.
 Bench uses `map_kind cc_binary qt_cc_binary` for its existing binary and keeps
 the portable GoogleTest mapping. The binary's selected direct backend is an
