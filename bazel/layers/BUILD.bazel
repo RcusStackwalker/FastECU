@@ -56,6 +56,12 @@ package_group(
     packages = ["//apps/desktop"],
 )
 
+# Release packaging bundles the platform helpers it ships (the J2534 bridge).
+package_group(
+    name = "packaging",
+    packages = ["//packaging"],
+)
+
 package_group(
     name = "apps_bench",
     packages = ["//apps/bench"],
@@ -120,6 +126,7 @@ package_group(
     name = "platform_and_composition_root",
     includes = [
         ":apps_desktop",
+        ":packaging",
         ":platform",
         ":tests",
     ],
