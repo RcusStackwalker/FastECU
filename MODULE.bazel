@@ -5,7 +5,7 @@ bazel_dep(name = "rules_python", version = "2.4.1")
 bazel_dep(name = "fastecu_qt", version = "0.0.0")
 bazel_dep(name = "platforms", version = "1.1.0")
 bazel_dep(name = "rules_android_ndk", version = "0.1.5")
-bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
+bazel_dep(name = "googletest", version = "1.18.0.bcr.1")
 bazel_dep(name = "pugixml", version = "1.15")
 
 bazel_dep(name = "gazelle", version = "0.54.0", dev_dependency = True)
@@ -87,13 +87,4 @@ archive_override(
 local_path_override(
     module_name = "fastecu_qt",
     path = "third_party/qt",
-)
-
-# Fixes a warning for mixing different character types https://github.com/google/googletest/commit/fa8438ae6b70c57010177de47a9f13d7041a6328
-single_version_override(
-    module_name = "googletest",
-    patches = [
-        "//bazel/patches:googletest_char8_conversion.patch",
-    ],
-    version = "1.17.0.bcr.2",
 )

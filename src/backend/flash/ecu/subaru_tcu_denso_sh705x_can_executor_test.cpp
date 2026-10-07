@@ -32,7 +32,6 @@ using ::testing::AtLeast;
 using ::testing::Contains;
 using ::testing::DoAll;
 using ::testing::ElementsAre;
-using ::testing::InvokeWithoutArgs;
 using ::testing::Return;
 
 namespace fastecu::flash
@@ -1587,13 +1586,12 @@ TEST(SubaruTcuDensoSh705xCanExecutor, CancellationDuringOrImmediatelyAfterRestar
         if (cancellation_returns_from_sleep)
         {
             EXPECT_CALL(clock, sleep(500ms, _))
-                .WillOnce(DoAll(clock.sleep_on_fake(), InvokeWithoutArgs([&] { cancellation.set_cancelled(true); }),
-                                Return(Status{})));
+                .WillOnce(DoAll(clock.sleep_on_fake(), [&] { cancellation.set_cancelled(true); }, Return(Status{})));
         }
         else
         {
             EXPECT_CALL(clock, sleep(500ms, _))
-                .WillOnce(DoAll(InvokeWithoutArgs([&] { cancellation.set_cancelled(true); }), clock.sleep_on_fake()));
+                .WillOnce(DoAll([&] { cancellation.set_cancelled(true); }, clock.sleep_on_fake()));
         }
         RecordingEventSink events;
         auto attempt = bind_flash_attempt(std::move(*plan), std::make_unique<SubaruTcuDensoSh705xCanExecutor>(),

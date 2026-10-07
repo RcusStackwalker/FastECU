@@ -3115,12 +3115,12 @@ void MainWindowTest::check_subaruKlineConnectIdentifiesOffTheUiThread()
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     std::atomic<bool> read_off_ui_thread = false;
     EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
-        .WillOnce(::testing::Invoke(
+        .WillOnce(
             [&window, &read_off_ui_thread](std::uint16_t)
             {
                 read_off_ui_thread.store(QThread::currentThread() != window.thread());
                 return kEcuInit;
-            }))
+            })
         .WillRepeatedly(::testing::Return(QByteArray{}));
 
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
@@ -3509,13 +3509,13 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu
     EXPECT_CALL(*services.fake,
                 write_serial_data_echo_check(frame({0x00, 0x00, 0x07, target_is_ecu ? 0xE0 : 0xE1, 0x22, 0xF1, 0x82})));
     EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
-        .WillOnce(::testing::Invoke(
+        .WillOnce(
             [&response_gate](std::uint16_t)
             {
                 // Bound the wait so an assertion failure can still join the worker.
                 response_gate.tryAcquire(1, 5000);
                 return frame({0x00, 0x00, 0x07, 0xE8, 0x62, 0xF1, 0x82, 0x12, 0x34, 0x56, 0x78, 0x9A});
-            }))
+            })
         .WillRepeatedly(::testing::Return(QByteArray{}));
     QAction *action = menuAction(window, kToggleRealtime);
     installLoggingFixture(window,

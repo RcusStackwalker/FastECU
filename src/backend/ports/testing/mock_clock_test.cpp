@@ -14,7 +14,6 @@ using fastecu::FakeCancellationToken;
 using fastecu::MockClock;
 using ::testing::_;
 using ::testing::DoAll;
-using ::testing::InvokeWithoutArgs;
 using ::testing::Return;
 
 TEST(MockClock, DefaultSleepAdvancesElapsedTime)
@@ -75,8 +74,7 @@ TEST(MockClock, SleepOnFakeComposesWithASideEffect)
 {
     MockClock clock;
     FakeCancellationToken cancellation;
-    EXPECT_CALL(clock, sleep(3ms, _))
-        .WillOnce(DoAll(InvokeWithoutArgs([&] { cancellation.set_cancelled(true); }), clock.sleep_on_fake()));
+    EXPECT_CALL(clock, sleep(3ms, _)).WillOnce(DoAll([&] { cancellation.set_cancelled(true); }, clock.sleep_on_fake()));
 
     EXPECT_THAT(clock.sleep(3ms, cancellation), fastecu::testing::IsErr(ErrorKind::Cancelled));
     EXPECT_TRUE(cancellation.cancelled());
