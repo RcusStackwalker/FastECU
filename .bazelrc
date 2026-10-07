@@ -37,7 +37,6 @@ build:windows --host_cxxopt=/Zc:__cplusplus
 # elevated privilege needed), so plain filesystem access sees real files.
 build:windows --enable_runfiles
 build --features=compiler_param_file
-build --action_env=QT_SELECT=qt6
 build --action_env=PATH
 
 build:release --compilation_mode=opt

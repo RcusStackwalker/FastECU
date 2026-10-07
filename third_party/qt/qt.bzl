@@ -35,6 +35,10 @@ _MOC_LINUX = str(Label("@qt_linux_x86_64//:moc"))
 _MOC_MACOS = str(Label("@qt_mac_aarch64//:moc"))
 _MOC_WINDOWS = str(Label("@qt_windows_x86_64//:moc"))
 
+_REPC_LINUX = str(Label("@qt_linux_x86_64//:repc"))
+_REPC_MACOS = str(Label("@qt_mac_aarch64//:repc"))
+_REPC_WINDOWS = str(Label("@qt_windows_x86_64//:repc"))
+
 _QT_HDRS_WINDOWS = str(Label("@qt_windows_x86_64//:qt_hdrs"))
 
 _PIC_COPTS = select({
@@ -105,6 +109,27 @@ def moc_tools():
         "@platforms//os:linux": [_MOC_LINUX],
         "@platforms//os:windows": [_MOC_WINDOWS],
         _OSX_ARM64: [_MOC_MACOS],
+    })
+
+def repc_cmd(input_label, output_flag):
+    """A genrule `cmd` that runs repc (the Remote Objects replica compiler).
+
+    Args:
+      input_label: The .rep input, already expanded to a $(location ...).
+      output_flag: Trailing repc arguments, typically "$@".
+    """
+    return select({
+        "@platforms//os:linux": "$(location %s) -o replica %s %s" % (_REPC_LINUX, input_label, output_flag),
+        "@platforms//os:windows": "$(location %s) -o replica %s %s" % (_REPC_WINDOWS, input_label, output_flag),
+        _OSX_ARM64: "$(location %s) -o replica %s %s" % (_REPC_MACOS, input_label, output_flag),
+    })
+
+def repc_tools():
+    """The `tools` list matching repc_cmd."""
+    return select({
+        "@platforms//os:linux": [_REPC_LINUX],
+        "@platforms//os:windows": [_REPC_WINDOWS],
+        _OSX_ARM64: [_REPC_MACOS],
     })
 
 def qt_hdrs_deps():
