@@ -22,9 +22,10 @@ Use Bazel as the only project target graph. Bazel owns application and test
 targets, third-party dependencies, platform selects, generated Qt artifacts,
 compile commands, static-analysis inputs, and release-package build inputs.
 
-Platform packaging remains in `scripts/package-macos.sh` and
-`scripts/package-windows.ps1`; both scripts build their binaries from Bazel
-targets before invoking the platform Qt deployment tools.
+Platform packaging was first kept in `scripts/package-macos.sh` and
+`scripts/package-windows.ps1`, which built their binaries from Bazel targets
+before invoking the platform Qt deployment tools. Packaging is now the Bazel
+targets `//packaging:macos_zip` and `//packaging:windows_zip`; see ADR 0006.
 
 ## Consequences
 
