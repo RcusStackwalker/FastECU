@@ -59,7 +59,7 @@ selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSes
     {
         return std::nullopt;
     }
-    QTableWidget *table = window->findChild<QTableWidget *>(window->objectName());
+    QTableWidget *table = window->findChild<QTableWidget *>();
     if (!table)
     {
         return std::nullopt;

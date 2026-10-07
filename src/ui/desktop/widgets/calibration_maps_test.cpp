@@ -10,6 +10,7 @@
 #include <QComboBox>
 #include "src/platform/desktop/common/testing/signal_recorder.h"
 #include "src/platform/desktop/common/testing/event_helpers.h"
+#include <QMdiSubWindow>
 #include <QTableWidget>
 #include <gtest/gtest.h>
 #include "src/backend/ports/testing/result_matchers.h"
@@ -18,6 +19,7 @@
 #include "src/backend/calibration/session/testing/fake_definition_catalogs.h"
 #include "src/backend/config/testing/config_session_fixture.h"
 #include "src/backend/ports/testing/in_memory_atomic_file_writer.h"
+#include "src/ui/desktop/calibration/map_edit_adapter.h"
 #include "src/ui/desktop/widgets/calibration_maps.h"
 
 namespace
@@ -465,6 +467,34 @@ TEST(CalibrationMaps, StructuralRefreshFailureClearsStaleValuesAndRecovers)
     ASSERT_NE(table->item(0, 0), nullptr);
     EXPECT_EQ(table->item(0, 0)->text(), "10.0");
     EXPECT_TRUE(error->isHidden());
+}
+
+// MainWindow names the MDI sub-window once, when the map opens. A map that
+// fails its first decode is renamed later, so the edit lookup must not depend
+// on the sub-window and table names matching.
+TEST(CalibrationMaps, EditTargetResolvesThroughMdiWindowAfterOpeningFailureRecovers)
+{
+    MapFixture fixture;
+    const auto id = fixture.open(numeric_table("1D", 1, 1));
+    ASSERT_THAT(id, fastecu::testing::IsOk());
+    auto *session = fixture.workspace.find(*id);
+    const auto valid_definition = *session->definition();
+    auto broken = valid_definition;
+    broken.definition.maps[0].address = 1000;
+    replace_definition(*session, std::move(broken));
+    auto *map = new CalibrationMaps(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+    QMdiSubWindow window;
+    window.setWidget(map);
+    window.setObjectName(map->objectName());
+    replace_definition(*session, valid_definition);
+    map->refresh();
+    ASSERT_NE(window.objectName(), map->objectName());
+    auto *table = table_of(*map);
+    table->setRangeSelected(QTableWidgetSelectionRange(table->rowCount() - 1, table->columnCount() - 1,
+                                                       table->rowCount() - 1, table->columnCount() - 1),
+                            true);
+
+    EXPECT_TRUE(fastecu::ui::selected_numeric_target(&window, *session, 0).has_value());
 }
 
 TEST(CalibrationMaps, StructuralFailureAtOpeningShowsError)
