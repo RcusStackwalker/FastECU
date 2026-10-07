@@ -101,6 +101,7 @@ qt_cc_library(
     implementation_deps = [
         ":qt_identify_launcher",
         "//src/algorithms/crypto:subaru_key_recovery",
+        "//src/backend/calibration/session:numeric_copy_use_case",
         "//src/backend/calibration/session:numeric_edit_use_case",
         "//src/backend/calibration/session:selectable_edit_use_case",
         "//src/backend/definition:mappack_converter",
@@ -307,6 +308,7 @@ fastecu_gtest(
     linkstatic = True,
     deps = [
         ":desktop",
+        "//bazel/qt:gui",
         "//bazel/qt:widgets",
         "//src/backend/calibration/session:calibration_workspace",
         "//src/backend/calibration/session/testing:fake_definition_catalogs",

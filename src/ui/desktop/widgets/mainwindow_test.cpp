@@ -955,6 +955,7 @@ class MainWindowTest : public ::testing::Test
     void check_everyMenuActionIsConnectedToTheWindow();
     void check_triggeringLogToFileReachesItsHandler();
     void check_tuneActionsEditTheSelectionThroughTheirOwnHandlers();
+    void check_copyFromALargerMapPastesIntoASmallerOneThroughItsScaling();
 };
 
 void MainWindowTest::SetUpTestSuite()
@@ -4195,6 +4196,133 @@ void MainWindowTest::check_tuneActionsEditTheSelectionThroughTheirOwnHandlers()
 TEST_F(MainWindowTest, tuneActionsEditTheSelectionThroughTheirOwnHandlers)
 {
     ASSERT_NO_FATAL_FAILURE(check_tuneActionsEditTheSelectionThroughTheirOwnHandlers());
+}
+
+void MainWindowTest::check_copyFromALargerMapPastesIntoASmallerOneThroughItsScaling()
+{
+    ModalDriver constructor_driver{QString()};
+    constructor_driver.start();
+    TestServices services{config_root_->path()};
+    ASSERT_TRUE(services.config_status.has_value());
+    MainWindow window{services.services()};
+    constructor_driver.stop();
+    ModalDriver driver{QString()};
+    driver.start();
+    window.show();
+    QApplication::processEvents();
+
+    // A 3x3 source scaled by 1/8 at 0x10 and a 2x2 destination scaled by 1/4
+    // at 0x30. The source displays whole numbers, so only full-precision Copy
+    // can carry its 2.5 into the destination as raw 10.
+    QTemporaryDir files;
+    ASSERT_TRUE(files.isValid());
+    ASSERT_TRUE(writeTextFile(files.path() + "/maps.xml", R"(
+<rom><romid><xmlid>COPY</xmlid></romid>
+<scaling name="eighth" toexpr="x/8" frexpr="x*8" format="%.0f" min="0" max="40" inc="1" storagetype="uint8" endian="big"/>
+<scaling name="quarter" toexpr="x/4" frexpr="x*4" format="%.2f" min="0" max="60" inc="1" storagetype="uint8" endian="big"/>
+<table name="Source" category="Tune" address="10" type="3D" sizex="3" sizey="3" scaling="eighth" storagetype="uint8" endian="big">
+<table type="X Axis" name="Column" address="0" elements="3" scaling="eighth" storagetype="uint8" endian="big"/>
+<table type="Y Axis" name="Row" address="4" elements="3" scaling="eighth" storagetype="uint8" endian="big"/>
+</table>
+<table name="Dest" category="Tune" address="30" type="3D" sizex="2" sizey="2" scaling="quarter" storagetype="uint8" endian="big">
+<table type="X Axis" name="Column" address="20" elements="2" scaling="quarter" storagetype="uint8" endian="big"/>
+<table type="Y Axis" name="Row" address="24" elements="2" scaling="quarter" storagetype="uint8" endian="big"/>
+</table></rom>)"));
+    services.config.settings().primary_definition_base = "ecuflash";
+    services.config.settings().use_ecuflash_definitions = "enabled";
+    services.config.settings().ecuflash_definition_files_directory = files.path().toStdString();
+    ASSERT_TRUE(
+        services.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::EcuFlash).has_value());
+
+    constexpr std::size_t kSource = 0x10;
+    constexpr std::size_t kDest = 0x30;
+    const bytes::Bytes source_body{0, 20, 20, 0, 100, 0, 40, 0, 60};
+    bytes::Bytes image(0x40, 0);
+    // Distinct axis bytes: a copy that wrongly included them would show up.
+    for (std::size_t i = 0; i < 3; ++i)
+    {
+        image[i] = static_cast<bytes::Byte>(201 + i);
+        image[4 + i] = static_cast<bytes::Byte>(211 + i);
+    }
+    std::ranges::copy(source_body, image.begin() + static_cast<std::ptrdiff_t>(kSource));
+    const auto opened = services.calibrations.adopt_read_image({
+        .rom = image,
+        .filename = "maps.bin",
+        .rom_id = "COPY",
+    });
+    ASSERT_TRUE(opened.has_value());
+    ASSERT_TRUE(window.add_calibration(opened->id));
+
+    auto *file_tree = window.ui->calibrationFilesTreeWidget;
+    ASSERT_EQ(file_tree->topLevelItemCount(), 1);
+    file_tree->topLevelItem(0)->setSelected(true);
+    window.calibration_files_treewidget_item_selected(file_tree->topLevelItem(0));
+    QTreeWidget *data_tree = window.ui->calibrationDataTreeWidget;
+    const auto open_map = [&](const QString& name) -> QMdiSubWindow *
+    {
+        for (int i = 0; i < data_tree->topLevelItemCount(); ++i)
+        {
+            auto *category = data_tree->topLevelItem(i);
+            for (int child = 0; category->text(0) == "Tune" && child < category->childCount(); ++child)
+            {
+                if (category->child(child)->text(0) == name)
+                {
+                    data_tree->setCurrentItem(category->child(child));
+                    window.calibration_data_treewidget_item_selected(category->child(child));
+                    for (auto *candidate : window.ui->mdiArea->subWindowList())
+                    {
+                        if (candidate->windowTitle().startsWith(name + " - "))
+                        {
+                            window.ui->mdiArea->setActiveSubWindow(candidate);
+                            return candidate;
+                        }
+                    }
+                }
+            }
+        }
+        return nullptr;
+    };
+    QMdiSubWindow *source_window = open_map("Source");
+    QMdiSubWindow *dest_window = open_map("Dest");
+    ASSERT_NE(source_window, nullptr);
+    ASSERT_NE(dest_window, nullptr);
+    auto *source_table = source_window->findChild<QTableWidget *>();
+    auto *dest_table = dest_window->findChild<QTableWidget *>();
+    ASSERT_NE(source_table, nullptr);
+    ASSERT_NE(dest_table, nullptr);
+
+    const auto dest_body = [&]
+    {
+        const bytes::ByteView rom = services.calibrations.find(opened->id)->rom();
+        const auto first = rom.begin() + static_cast<std::ptrdiff_t>(kDest);
+        return std::vector<int>(first, first + 4);
+    };
+
+    // Select All takes the body only, so the clipboard holds the 3x3 values
+    // at full precision and none of the axes.
+    window.ui->mdiArea->setActiveSubWindow(source_window);
+    source_table->setFocus();
+    QKeyEvent select_all(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
+    QApplication::sendEvent(source_table, &select_all);
+    window.ui->actionCopy->trigger();
+    EXPECT_EQ(QApplication::clipboard()->text(), "0\t2.5\t2.5\n0\t12.5\t0\n5\t0\t7.5");
+
+    // Paste starts at the destination selection's top-left and clips to its
+    // 2x2 body, storing each value through the destination's own scaling.
+    window.ui->mdiArea->setActiveSubWindow(dest_window);
+    dest_table->clearSelection();
+    dest_table->setRangeSelected(QTableWidgetSelectionRange(1, 1, 1, 1), true);
+    window.ui->actionPaste->trigger();
+    EXPECT_EQ(dest_body(), (std::vector<int>{0, 10, 0, 50}));
+
+    driver.stop();
+    EXPECT_TRUE(driver.acceptedTexts().isEmpty()) << qPrintable(driver.acceptedTexts().join(" | "));
+    ASSERT_TRUE(!driver.timedOut());
+}
+
+TEST_F(MainWindowTest, copyFromALargerMapPastesIntoASmallerOneThroughItsScaling)
+{
+    ASSERT_NO_FATAL_FAILURE(check_copyFromALargerMapPastesIntoASmallerOneThroughItsScaling());
 }
 
 namespace

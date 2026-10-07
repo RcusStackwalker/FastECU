@@ -48,6 +48,10 @@ class CalibrationMaps : public QWidget
     int xSizeOffset = 0;
     int ySizeOffset = 0;
 
+  protected:
+    // Select All on a numeric table selects the body, not the axes.
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
   private:
     void initialize_view(const fastecu::ui::MapPresentation& map, const fastecu::calibration::RomSource& source);
     void show_map_error(const fastecu::Error& error);
@@ -76,6 +80,7 @@ class CalibrationMaps : public QWidget
     std::optional<fastecu::ui::MapColorBounds> color_bounds_;
     QRect mdi_area_size_;
     bool view_initialized_{false};
+    bool numeric_body_{false};
     QLabel *map_error_label_{nullptr};
     std::unique_ptr<Ui::CalibrationMaps> ui;
 };

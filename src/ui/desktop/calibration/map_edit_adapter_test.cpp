@@ -171,6 +171,51 @@ TEST(SelectedNumericTarget, TranslatesBodyAndAxisHeaderSelections)
     EXPECT_THAT(y_axis->elements, ::testing::FieldsAre(0, 0, 1, 0));
 }
 
+TEST(BodyWidgetRange, SkipsTheAxisRowAndColumnOfAThreeDimensionalTable)
+{
+    const auto session = session_from();
+
+    const auto range = body_widget_range(session, 0, 3, 3);
+
+    ASSERT_TRUE(range.has_value());
+    EXPECT_THAT(*range, ::testing::FieldsAre(1, 1, 2, 2));
+}
+
+TEST(BodyWidgetRange, SkipsOnlyTheAxisRowWhenTheMapHasNoYAxisColumn)
+{
+    auto def = two_by_two_definition();
+    def.maps[0].y_size = 1;
+    def.maps[0].x_size = 3;
+    const auto session = session_from(std::move(def));
+
+    const auto range = body_widget_range(session, 0, 2, 3);
+
+    ASSERT_TRUE(range.has_value());
+    EXPECT_THAT(*range, ::testing::FieldsAre(1, 0, 1, 2));
+}
+
+TEST(BodyWidgetRange, SkipsStaticAxisHeadersToo)
+{
+    auto def = two_by_two_definition();
+    def.maps[0].x_axis.type = "Static X Axis";
+    const auto session = session_from(std::move(def));
+
+    const auto range = body_widget_range(session, 0, 3, 3);
+
+    ASSERT_TRUE(range.has_value());
+    EXPECT_THAT(*range, ::testing::FieldsAre(1, 1, 2, 2));
+}
+
+TEST(BodyWidgetRange, IsEmptyWithoutADefinitionAMapOrAnyCells)
+{
+    const auto session = session_from();
+    EXPECT_FALSE(body_widget_range(session, 1, 3, 3).has_value());
+    EXPECT_FALSE(body_widget_range(session, -1, 3, 3).has_value());
+    EXPECT_FALSE(body_widget_range(session, 0, 0, 0).has_value());
+    const calibration::CalibrationSession definitionless(calibration::SessionId{2}, calibration::SessionContents{});
+    EXPECT_FALSE(body_widget_range(definitionless, 0, 3, 3).has_value());
+}
+
 TEST(SelectedNumericTarget, IsEmptyWithoutANumericSelection)
 {
     const auto session = session_from();
