@@ -76,7 +76,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest]
+        include:
+          - os: windows-latest
+            platform: windows
+            package: windows_zip
+          - os: macos-latest
+            platform: macos
+            package: macos_zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -118,29 +124,15 @@ jobs:
           repository-cache: true
           disk-cache: fastecu-build-${{ runner.os }}
 
-      - name: Build and package Windows (Bazel)
-        if: runner.os == 'Windows'
-        shell: pwsh
+      - name: Build and package (Bazel)
+        shell: bash
         run: |
-          bazel build --config=release --define=FASTECU_VERSION=${{ needs.release.outputs.tag }} //packaging:windows_zip
-          Copy-Item bazel-bin/packaging/windows_zip.zip "FastECU-${{ needs.release.outputs.tag }}-windows.zip"
+          bazel build --config=release --define=FASTECU_VERSION=${{ needs.release.outputs.tag }} //packaging:${{ matrix.package }}
+          # The release asset's name carries the tag; the Bazel output's does not.
+          cp bazel-bin/packaging/${{ matrix.package }}.zip "FastECU-${{ needs.release.outputs.tag }}-${{ matrix.platform }}.zip"
 
-      - name: Build and package macOS (Bazel)
-        if: runner.os == 'macOS'
-        run: |
-          bazel build --config=release --define=FASTECU_VERSION=${{ needs.release.outputs.tag }} //packaging:macos_zip
-          cp bazel-bin/packaging/macos_zip.zip "FastECU-${{ needs.release.outputs.tag }}-macos.zip"
-
-      - name: Upload release asset (Windows)
-        if: runner.os == 'Windows'
+      - name: Upload release asset
         uses: softprops/action-gh-release@fe965f7af51af5f2602596916f38a38df2e33de0 # v3.0.2
         with:
           tag_name: ${{ needs.release.outputs.tag }}
-          files: FastECU-${{ needs.release.outputs.tag }}-windows.zip
-
-      - name: Upload release asset (macOS)
-        if: runner.os == 'macOS'
-        uses: softprops/action-gh-release@fe965f7af51af5f2602596916f38a38df2e33de0 # v3.0.2
-        with:
-          tag_name: ${{ needs.release.outputs.tag }}
-          files: FastECU-${{ needs.release.outputs.tag }}-macos.zip
+          files: FastECU-${{ needs.release.outputs.tag }}-${{ matrix.platform }}.zip

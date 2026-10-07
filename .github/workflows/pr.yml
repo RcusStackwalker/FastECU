@@ -133,6 +133,14 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest, ubuntu-26.04]
+        include:
+          # The release platforms also package; Linux has no archive.
+          - os: windows-latest
+            platform: windows
+            package: windows_zip
+          - os: macos-latest
+            platform: macos
+            package: macos_zip
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -197,33 +205,17 @@ jobs:
         run: |
           bazel test -k --config=release //...
 
-      - name: Package macOS from Bazel (verify only)
-        if: runner.os == 'macOS'
-        run: |
-          bazel build --config=release --define=FASTECU_VERSION=${{ github.sha }} //packaging:macos_zip
-          cp bazel-bin/packaging/macos_zip.zip bazel-pkg-macos.zip
+      - name: Package from Bazel (verify only)
+        if: matrix.package
+        shell: bash
+        run: bazel build --config=release --define=FASTECU_VERSION=${{ github.sha }} //packaging:${{ matrix.package }}
 
-      - name: Upload macOS Bazel package (verify only)
-        if: runner.os == 'macOS'
+      - name: Upload Bazel package (verify only)
+        if: matrix.package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: fastecu-bazelpkg-${{ github.event.pull_request.number || github.sha }}-macos
-          path: bazel-pkg-macos.zip
-          retention-days: 14
-
-      - name: Package Windows from Bazel (verify only)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          bazel build --config=release --define=FASTECU_VERSION=${{ github.sha }} //packaging:windows_zip
-          Copy-Item bazel-bin/packaging/windows_zip.zip bazel-pkg-windows.zip
-
-      - name: Upload Windows Bazel package (verify only)
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: fastecu-bazelpkg-${{ github.event.pull_request.number || github.sha }}-windows
-          path: bazel-pkg-windows.zip
+          name: fastecu-bazelpkg-${{ github.event.pull_request.number || github.sha }}-${{ matrix.platform }}
+          path: bazel-bin/packaging/${{ matrix.package }}.zip
           retention-days: 14
 
   clang-tidy:
