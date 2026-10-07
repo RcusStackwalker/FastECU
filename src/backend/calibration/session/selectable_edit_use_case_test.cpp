@@ -56,6 +56,11 @@ auto changed()
     return IsOkAnd(VariantWith<SelectableEditChanged>(::testing::_));
 }
 
+auto unchanged()
+{
+    return IsOkAnd(VariantWith<SelectableEditUnchanged>(::testing::_));
+}
+
 auto not_applicable(SelectableNotApplicableReason reason)
 {
     return IsOkAnd(VariantWith<SelectableEditNotApplicable>(Field(&SelectableEditNotApplicable::reason, reason)));
@@ -131,15 +136,19 @@ TEST_F(SelectableEditUseCaseTest, TheFirstSelectionWithADuplicateNameWins)
     EXPECT_THAT(rom_bytes(), ElementsAre(0x55, 0x55, 0x55, 0x55, 0x01, 0x02, 0x55, 0x55));
 }
 
-TEST_F(SelectableEditUseCaseTest, TheFirstSelectionSetsTheWrittenWidth)
+TEST_F(SelectableEditUseCaseTest, TheFirstSelectionSetsTheWidthAndMismatchedSelectionsAreRejected)
 {
-    install(selectable_definition({{"off", "0000"}, {"long", "AABBCC"}, {"short", "7F"}}));
+    install(selectable_definition({{"off", "0000"}, {"long", "AABBCC"}, {"short", "7F"}, {"same", "1234"}}));
+    const auto before = rom_bytes();
 
-    EXPECT_THAT(select("long"), changed());
-    EXPECT_THAT(rom_bytes(), ElementsAre(0x55, 0x55, 0x55, 0x55, 0xAA, 0xBB, 0x55, 0x55));
+    EXPECT_THAT(select("long"), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(select("short"), IsErr(ErrorKind::InvalidConfig));
 
-    EXPECT_THAT(select("short"), changed());
-    EXPECT_THAT(rom_bytes(), ElementsAre(0x55, 0x55, 0x55, 0x55, 0x7F, 0x00, 0x55, 0x55));
+    EXPECT_EQ(rom_bytes(), before);
+    EXPECT_FALSE(session().dirty());
+
+    EXPECT_THAT(select("same"), changed());
+    EXPECT_THAT(rom_bytes(), ElementsAre(0x55, 0x55, 0x55, 0x55, 0x12, 0x34, 0x55, 0x55));
 }
 
 TEST_F(SelectableEditUseCaseTest, AMapWithoutAnAddressWritesAtOffsetZero)
@@ -164,13 +173,13 @@ TEST_F(SelectableEditUseCaseTest, StorageFallsBackToTheScaling)
     EXPECT_THAT(rom_bytes(), ElementsAre(0x55, 0x55, 0x55, 0x55, 0x0A, 0x0B, 0x55, 0x55));
 }
 
-TEST_F(SelectableEditUseCaseTest, WritingTheCurrentBytesStillMarksTheSessionDirty)
+TEST_F(SelectableEditUseCaseTest, WritingTheCurrentBytesIsUnchangedAndLeavesTheSessionClean)
 {
     install(modes_definition(), {0, 0, 0, 0, 0x0A, 0x0B, 0, 0});
 
-    EXPECT_THAT(select("low"), changed());
+    EXPECT_THAT(select("low"), unchanged());
 
-    EXPECT_TRUE(session().dirty());
+    EXPECT_FALSE(session().dirty());
 }
 
 TEST_F(SelectableEditUseCaseTest, MalformedSelectionHexIsRejectedWithoutChange)

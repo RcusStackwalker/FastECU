@@ -19,11 +19,10 @@ alone does not make a presentation flow backend policy.
 
 Remaining actions from the backend migration roadmap:
 
-- Decide what a selectable edit should do beyond what `apply_selectable_edit`
-  preserves today: report writing identical bytes as unchanged without dirtying
-  the session, as numeric edits do, and reject selections whose hex length
-  differs from the first selection's instead of truncating or zero-padding.
-  Check the shipped definition corpus before rejecting.
+- Remaining after the selectable-edit decision: validate bloblist selections
+  (uniform byte length matching the first selection's, whole hexadecimal bytes)
+  when a definition loads, so malformed entries are flagged before any edit.
+  Runtime rejection in `apply_selectable_edit` stays as the backstop.
 - Finish moving logging snapshot/channel preparation and sample validation from
   desktop adapters into backend logging; reuse the existing portable preparation
   rather than starting a second policy implementation.

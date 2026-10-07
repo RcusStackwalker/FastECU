@@ -21,27 +21,27 @@ SelectableEditOutcome not_applicable(SelectableNotApplicableReason reason)
     return SelectableEditNotApplicable{.reason = reason};
 }
 
-// The selection's bytes, held to the width of the blob. The value must be
-// whole hexadecimal bytes; a longer value is truncated and a shorter one is
-// zero-padded.
+// The selection's bytes. The value must be whole hexadecimal bytes and exactly
+// as wide as the blob.
 Result<bytes::Bytes> selection_bytes(std::string_view hex, std::uint32_t width)
 {
     if (hex.size() % 2 != 0)
     {
         return fail(ErrorKind::InvalidConfig, "selection hex value has an incomplete byte");
     }
+    if (hex.size() / 2 != width)
+    {
+        return fail(ErrorKind::InvalidConfig, "selection value width differs from the blob width");
+    }
     bytes::Bytes data(width, 0);
-    for (std::size_t k = 0; k * 2 < hex.size(); ++k)
+    for (std::size_t k = 0; k < data.size(); ++k)
     {
         const auto byte = definition::parse_hex_value(hex.substr(k * 2, 2));
         if (!byte.has_value())
         {
             return fail(ErrorKind::InvalidConfig, "selection value is not hexadecimal bytes");
         }
-        if (k < width)
-        {
-            data[k] = static_cast<std::uint8_t>(*byte);
-        }
+        data[k] = static_cast<std::uint8_t>(*byte);
     }
     return data;
 }
@@ -85,7 +85,14 @@ Result<SelectableEditOutcome> apply_selectable_edit(CalibrationWorkspace& worksp
     {
         return std::unexpected(data.error());
     }
-    const auto written = session->write_bytes(map.address.value_or(0), *data);
+    const auto offset = map.address.value_or(0);
+    const auto image = session->rom();
+    if (offset <= image.size() && data->size() <= image.size() - offset &&
+        std::ranges::equal(*data, image.subspan(static_cast<std::size_t>(offset), data->size())))
+    {
+        return SelectableEditOutcome{SelectableEditUnchanged{}};
+    }
+    const auto written = session->write_bytes(offset, *data);
     if (!written.has_value())
     {
         return std::unexpected(written.error());

@@ -103,10 +103,10 @@ disabled. Failed refreshes clear stale values; unrelated maps remain usable.
 
 Choosing a selection of a selectable map writes that selection's bytes through
 `apply_selectable_edit`. The first selection with the chosen name wins, and the
-written width is the first selection's hex length in bytes, so a longer value is
-truncated and a shorter one is zero-padded. A value that is not whole
-hexadecimal bytes is an error and changes nothing. Writing identical bytes still
-marks the session dirty. Sessions without a definition, unknown maps, maps that
+written width is the first selection's hex length in bytes. A value whose byte
+length differs from that width, or that is not whole hexadecimal bytes, is an
+error and changes nothing. Writing identical bytes reports an
+unchanged edit and leaves the session clean. Sessions without a definition, unknown maps, maps that
 are not blob selections and unknown selection names are not applicable; the view
 still refreshes after an unknown name.
 
