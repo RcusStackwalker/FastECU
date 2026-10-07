@@ -393,7 +393,7 @@
     },
     "@@rules_qt+//extension:qt.bzl%fetch": {
       "general": {
-        "bzlTransitiveDigest": "0bJerIw5EwxkPz5+nR/6GfrDNujbu7J5u5ZESXq+J20=",
+        "bzlTransitiveDigest": "64oNO6WfzbLy7APp4hjdebHZrh1hLMNxZo5WzkdbvMM=",
         "usagesDigest": "bjCC53a3ueqgrjaHgEZIkN1h9vvAYq87b8DwjlHfi3Y=",
         "recordedInputs": [
           "REPO_MAPPING:fastecu_qt+,rules_qt rules_qt+",

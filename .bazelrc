@@ -57,6 +57,9 @@ common:buildbuddy --bes_results_url=https://app.buildbuddy.io/invocation/
 common:buildbuddy --remote_cache=grpcs://remote.buildbuddy.io
 common:buildbuddy --remote_timeout=3600
 common:buildbuddy --remote_upload_local_results
+# Serve repository downloads (the Qt archives) from BuildBuddy's CAS, keyed by
+# the pinned sha256. A miss falls back to downloading from the origin.
+common:buildbuddy --experimental_remote_downloader=grpcs://remote.buildbuddy.io
 
 # Machine-local overrides (and the CI-written BuildBuddy key); gitignored.
 try-import %workspace%/.bazelrc.user
