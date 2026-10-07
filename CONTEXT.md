@@ -36,6 +36,11 @@ One named blob value in a selectable map's list. Choosing a selection writes
 its bytes to the map's address.
 _Avoid_: Option, switch state
 
+**Unchanged edit**:
+An edit whose resulting bytes equal the bytes already in the session. It
+reports no change and leaves the session clean.
+_Avoid_: No-op write
+
 ## Terminal scripts
 
 **Terminal script**:

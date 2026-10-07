@@ -19,9 +19,14 @@ struct SelectableEditRequest
     std::string selection;
 };
 
-// The selection's bytes were written; the session is dirty. Writing bytes
-// identical to the current ones also counts as changed.
+// The selection's bytes were written; the session is dirty.
 struct SelectableEditChanged
+{
+};
+
+// The selection's bytes already matched the image; nothing was written and the
+// session's dirty state is untouched.
+struct SelectableEditUnchanged
 {
 };
 
@@ -42,13 +47,12 @@ struct SelectableEditNotApplicable
     SelectableNotApplicableReason reason{SelectableNotApplicableReason::ClosedSession};
 };
 
-using SelectableEditOutcome = std::variant<SelectableEditChanged, SelectableEditNotApplicable>;
+using SelectableEditOutcome = std::variant<SelectableEditChanged, SelectableEditUnchanged, SelectableEditNotApplicable>;
 
 // Resolves the session when called. When several selections share the
-// requested name, the first one wins. The written width is the blob's element
-// width: the first selection's hex length in bytes, so a longer value is
-// truncated and a shorter one is zero-padded to it. A map without an address
-// writes at offset 0. The selection's value must be whole hexadecimal bytes;
+// requested name, the first one wins. The blob's width is the first
+// selection's hex length in bytes. A map without an address writes at offset 0.
+// The selection's value must be whole hexadecimal bytes of exactly that width;
 // otherwise, and for a write the image rejects, it is an error and changes
 // nothing. Synchronous; the caller owns the execution context.
 Result<SelectableEditOutcome> apply_selectable_edit(CalibrationWorkspace& workspace,
