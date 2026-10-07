@@ -69,8 +69,8 @@
     "https://bcr.bazel.build/modules/gazelle/0.34.0/MODULE.bazel": "abdd8ce4d70978933209db92e436deb3a8b737859e9354fb5fd11fb5c2004c8a",
     "https://bcr.bazel.build/modules/gazelle/0.36.0/MODULE.bazel": "e375d5d6e9a6ca59b0cb38b0540bc9a05b6aa926d322f2de268ad267a2ee74c0",
     "https://bcr.bazel.build/modules/gazelle/0.50.0/MODULE.bazel": "5dce69aa1d7b5bc85d1e1cfe61f0a9a27426c46425ec1d064685f941a5977329",
-    "https://bcr.bazel.build/modules/gazelle/0.54.0/MODULE.bazel": "10620287bdf57c55c2321ed5a387ade11c7187aba444fdec583c9f21c3263f45",
-    "https://bcr.bazel.build/modules/gazelle/0.54.0/source.json": "6c9639ac87508c7edea37bd9d5380581c96defde056ca26518d201a8816805e4",
+    "https://bcr.bazel.build/modules/gazelle/2.0.0-beta.1/MODULE.bazel": "2a6df58dbdaa2279cb672cb043ee78e3f42f1a65ce73565d7a3446770cb59cce",
+    "https://bcr.bazel.build/modules/gazelle/2.0.0-beta.1/source.json": "db511165f871d4772517641238986889f73eac88e28a1caa2eaee99cc2f7ab6b",
     "https://bcr.bazel.build/modules/gazelle_cc/0.6.0/MODULE.bazel": "cbea3ddf806f8ac287f0a811d0504942d29dcb61f917a30e421afb5a471202d0",
     "https://bcr.bazel.build/modules/gazelle_cc/0.6.0/source.json": "b3dd07b9e3ffc125c84a71661f7db110203bc1b8e45b62970f8bbc996f1e7622",
     "https://bcr.bazel.build/modules/google_benchmark/1.8.2/MODULE.bazel": "a70cf1bba851000ba93b58ae2f6d76490a9feb74192e57ab8e8ff13c34ec50cb",
@@ -487,6 +487,885 @@
     }
   },
   "facts": {
+    "@@gazelle+//:extensions.bzl%go_deps": {
+      "required_mod_files_v1": [
+        {
+          "importpath": "github.com/bazel-contrib/bazel-gazelle/v2",
+          "sha256": "07bf6292ce307261f66bba080ce021f635c56e8d9cbf6cfac46548d6d41b4ea2",
+          "version": "v2.0.0-3"
+        },
+        {
+          "importpath": "github.com/bazelbuild/buildtools",
+          "sha256": "85e60cfccacc5e14a84b15b4187fb2b23e8a1ad87207465c2587644330f500a1",
+          "version": "v0.0.0-20250930140053-2eb4fccefb52"
+        },
+        {
+          "importpath": "github.com/bazelbuild/rules_go",
+          "sha256": "0b9731f8776f4cc4ff619589d15a10209e591e41556c3fb9667b1e4148ad2799",
+          "version": "v0.59.0"
+        },
+        {
+          "importpath": "github.com/bmatcuk/doublestar/v4",
+          "sha256": "4eeea45a0d1d95576ac99c9adddecd77878b98445bf679d3f193a51669bd1450",
+          "version": "v4.9.1"
+        },
+        {
+          "importpath": "github.com/fsnotify/fsnotify",
+          "sha256": "308e39dafa2959e33378c6536e818dc6ea2c03db2c210a18dcb9b01b72a60f5f",
+          "version": "v1.7.0"
+        },
+        {
+          "importpath": "github.com/golang/protobuf",
+          "sha256": "c5f873c621cfaaf563f8b66a0501a5be14390cb0859e5187ce616d0312a6c8f8",
+          "version": "v1.5.4"
+        },
+        {
+          "importpath": "github.com/google/go-cmp",
+          "sha256": "e7c7669d4a1dd589ba3e024ba27f43f293db611fe075ce20d7b884370d63febd",
+          "version": "v0.6.0"
+        },
+        {
+          "importpath": "github.com/pmezard/go-difflib",
+          "sha256": "74b2e766eb215377864d587badf57e95521f692d2a7860b3c7759093f9c9bec2",
+          "version": "v1.0.0"
+        },
+        {
+          "importpath": "golang.org/x/mod",
+          "sha256": "ebe81917441154299f732b8aa09f299529752df29855ca4d7026946d1bbecd82",
+          "version": "v0.23.0"
+        },
+        {
+          "importpath": "golang.org/x/sync",
+          "sha256": "700e5db00dd26aa19a17dce5fc552436d60f68c5606c85b821f24c3d6072a151",
+          "version": "v0.11.0"
+        },
+        {
+          "importpath": "golang.org/x/tools",
+          "sha256": "97e383f8a7bf8c22b7c80082a18e6421e5985869a3acc3c1c072c9750cc1ee45",
+          "version": "v0.30.0"
+        },
+        {
+          "importpath": "golang.org/x/tools/go/vcs",
+          "sha256": "51d8a765cfab38341546dd91b51fad7b792f0ae0306ba8b7212b2c1d5ba76704",
+          "version": "v0.1.0-deprecated"
+        },
+        {
+          "importpath": "google.golang.org/protobuf",
+          "sha256": "19a404db0a71ea56c16003e0279957f04aa69363ef966c6df8d2d98e291ff953",
+          "version": "v1.36.3"
+        },
+        {
+          "importpath": "github.com/gogo/protobuf",
+          "sha256": "966ea4df61e985609676423eebcfbe5f08c86652d3aaddf6f78c28c72c81e9dc",
+          "version": "v1.3.2"
+        },
+        {
+          "importpath": "github.com/golang/mock",
+          "sha256": "07703d4286aef0b7acb5b6989386bea18825bcb7d77462e8d74457d0532a9192",
+          "version": "v1.7.0-rc.1"
+        },
+        {
+          "importpath": "golang.org/x/net",
+          "sha256": "3d0e854f04bd4c18e2a2cb499b17e11d919b09d90be105b92283608e1f1aeb79",
+          "version": "v0.35.0"
+        },
+        {
+          "importpath": "golang.org/x/sys",
+          "sha256": "d227b325f621f4ebe28d39ba773ea99b870f393b7c09c34592c365b16dd560de",
+          "version": "v0.30.0"
+        },
+        {
+          "importpath": "golang.org/x/text",
+          "sha256": "b26a1f71dc41b9992bafec38867987652d1293d046c652df549eed687149d862",
+          "version": "v0.22.0"
+        },
+        {
+          "importpath": "google.golang.org/genproto",
+          "sha256": "6b3c74c4629f3aca5ce59d7b5f43b366bea51c49220ed752b1fb3e7ff6c94f46",
+          "version": "v0.0.0-20250115164207-1a7da9e5054f"
+        },
+        {
+          "importpath": "google.golang.org/genproto/googleapis/rpc",
+          "sha256": "3e438bdf6f84ecd16a1d4e62d1875e885c8a13a538105d32c0a0589c4cf15f2d",
+          "version": "v0.0.0-20250106144421-5f5ef82da422"
+        },
+        {
+          "importpath": "google.golang.org/grpc",
+          "sha256": "cb632b33adf7604d100c437dde8d03f55d2de792402a47f2eea763fb5b3996dc",
+          "version": "v1.67.3"
+        },
+        {
+          "importpath": "google.golang.org/grpc/cmd/protoc-gen-go-grpc",
+          "sha256": "268767904e62a76df06367941406f04e00b4d52c001b8497b57fe67f749febd0",
+          "version": "v1.5.1"
+        },
+        {
+          "importpath": "github.com/bazelbuild/bazel-gazelle",
+          "sha256": "f5f4869f17ccc9728ce0005c8a241a3030f903e4364538eb69a490c0da4194b7",
+          "version": "v0.50.0"
+        },
+        {
+          "importpath": "github.com/stretchr/testify",
+          "sha256": "c0a648a037da54a6b02e8a811b1d3917d49dc4e1841cd756f28f0c4f1593933c",
+          "version": "v1.9.0"
+        },
+        {
+          "importpath": "google.golang.org/protobuf",
+          "sha256": "e11082f89ab1be94e778e4bd2c53172f481135604dd9f2d60140e5514bc53623",
+          "version": "v1.36.6"
+        },
+        {
+          "importpath": "github.com/davecgh/go-spew",
+          "sha256": "bcb29393251237b79a17b6c19bf29134f43e8f438c3198988fcd461a1cdf05cc",
+          "version": "v1.1.1"
+        },
+        {
+          "importpath": "github.com/ulikunitz/xz",
+          "sha256": "393876046d63d90f35f21c1bb4651b0985e76d8f14a48a7279ff947b96956e7b",
+          "version": "v0.5.12"
+        },
+        {
+          "importpath": "gopkg.in/yaml.v3",
+          "sha256": "21579860a20306fcf43b1bd234d1fba319499c77611b71c05f9bf3ba90dab939",
+          "version": "v3.0.1"
+        },
+        {
+          "importpath": "cel.dev/expr",
+          "sha256": "d36df61c421a6d812e6898d0db66d71278ad3d538144d781b243d84761b8fd0a",
+          "version": "v0.16.0"
+        },
+        {
+          "importpath": "cloud.google.com/go",
+          "sha256": "ec98fdf94c1e22e3efe0f0feb2bae93080bc19da95a9a1989e97ee5cffedb6e0",
+          "version": "v0.118.0"
+        },
+        {
+          "importpath": "cloud.google.com/go/accessapproval",
+          "sha256": "ca7885b3af295267c3e08c0fd90d0d11bb11c771cc991c8a2f46083eddbfa5cd",
+          "version": "v1.8.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/accesscontextmanager",
+          "sha256": "090819745ee5b73b39ecae55f095c81fab7f49f8051896097d08d59d54f1c428",
+          "version": "v1.9.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/aiplatform",
+          "sha256": "2cbf36e15b1b2eda85f615837040568026549ef0bd4d2dd0173048ae97733a4a",
+          "version": "v1.70.0"
+        },
+        {
+          "importpath": "cloud.google.com/go/analytics",
+          "sha256": "958bdd68a9ed99f38137725d99e2fdfa589b4fe4ad41866423bccee644d3c140",
+          "version": "v0.25.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/apigateway",
+          "sha256": "3d9a6d445b78cd9064eea2cec1927a96409bfe7dbaca0c6c939839739f0fc919",
+          "version": "v1.7.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/apigeeconnect",
+          "sha256": "9ff223d679fa03a95d953e6d295b80b97cfc4c4bb94ac195b5e314fb20b42772",
+          "version": "v1.7.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/apigeeregistry",
+          "sha256": "2b22c0aa6238ca4129f4543e8cca33b4568faf35ab7061316316d8fb98a2d6a2",
+          "version": "v0.9.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/appengine",
+          "sha256": "59e6e77abeff0fe5b67c0a4b4d0f1047139eadc0f90ed6761d7ed2c1e0bc41fa",
+          "version": "v1.9.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/area120",
+          "sha256": "4693c08bfe14b5f5fff33877ea86ecc2257101df91f94d57bc8b12bd4de14a71",
+          "version": "v0.9.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/artifactregistry",
+          "sha256": "ada8082c393adee33bf64a794ec68967a392c560259f59dc29f25904ca858b6f",
+          "version": "v1.16.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/asset",
+          "sha256": "9fd5e78025c40146930cc4f43af5e818aef5061aae253e6ef70bc1242f6c3da5",
+          "version": "v1.20.4"
+        },
+        {
+          "importpath": "cloud.google.com/go/assuredworkloads",
+          "sha256": "5335e3c0e69db1e479692644f72335087c0d065c4513215442699b9d604297da",
+          "version": "v1.12.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/automl",
+          "sha256": "4a42dfebb9691a5573a1749e5ace0e4058900aef2e9687cd84e135c47ebc3cf1",
+          "version": "v1.14.4"
+        },
+        {
+          "importpath": "cloud.google.com/go/baremetalsolution",
+          "sha256": "1e601e61eee585f5e2a8aca370c5a44aaa19bf2248692b7184d1e30afd64bf9d",
+          "version": "v1.3.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/batch",
+          "sha256": "2e41e27d008c6531fae244401f08dffd46cd91e5060b4ff64651989a85f322ea",
+          "version": "v1.11.5"
+        },
+        {
+          "importpath": "cloud.google.com/go/beyondcorp",
+          "sha256": "75be1748500f6c44e2102bf1114e412c218e5dce8b39db08ce23017876cae0b2",
+          "version": "v1.1.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/bigquery",
+          "sha256": "63929705af24b0be3ff6ddc7448b4c85971d0b1f455859ab7427f18512c86c69",
+          "version": "v1.65.0"
+        },
+        {
+          "importpath": "cloud.google.com/go/bigtable",
+          "sha256": "04501684d5e09182f7ac431dcb168a63a40c282e97cde365cb3f37a7bb21f779",
+          "version": "v1.34.0"
+        },
+        {
+          "importpath": "cloud.google.com/go/billing",
+          "sha256": "d2702a0526496c762559c453dc0186b5d6653192e666fcdfb6059f966ef2c1d9",
+          "version": "v1.20.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/binaryauthorization",
+          "sha256": "b5d7177fd45d5c0ce919c3920d04d81f5cfbb64e42637a8196239231f3e50874",
+          "version": "v1.9.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/certificatemanager",
+          "sha256": "18fbeb56900f833f6adb826c9fd6a961367193d52cb61ec292afe86b7a03dd5f",
+          "version": "v1.9.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/channel",
+          "sha256": "4301c5f64cc621418d1e28fd4eb87c8fed0ff5eb74e876a085b9c13d6ea83269",
+          "version": "v1.19.2"
+        },
+        {
+          "importpath": "cloud.google.com/go/cloudbuild",
+          "sha256": "cafe9dc8ca1d4042a378a939e0274ddfae3ad6cb42ef3e1f7e8479058d3b3a63",
+          "version": "v1.19.2"
+        },
+        {
+          "importpath": "cloud.google.com/go/clouddms",
+          "sha256": "ddab5d9dd7e4b39af8686d085db699276de4be6e692d321c8059763139a8abf4",
+          "version": "v1.8.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/cloudtasks",
+          "sha256": "ac80a207f93bbc8bce631f07d90fcdb7044423f6341d1ac009bd121b1c4f9b0d",
+          "version": "v1.13.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/compute",
+          "sha256": "ddaad94602d2fcee86f75c4629e0736ed69ccf9967055a3e19077079f694b475",
+          "version": "v1.31.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/compute/metadata",
+          "sha256": "828bd2df95b7e52547a142a75acff51bb60f87c78924303b37ba6079bae22043",
+          "version": "v0.5.2"
+        },
+        {
+          "importpath": "cloud.google.com/go/contactcenterinsights",
+          "sha256": "12e7207afc3a81bd4d38563e8bc200b1c0c790c9d3cc0a62caca6dc8d4c880d4",
+          "version": "v1.17.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/container",
+          "sha256": "6d4cabed2b2efcf0c05b0e0a446a81c1ada487dcddd5ddd43de8d5ef49772453",
+          "version": "v1.42.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/containeranalysis",
+          "sha256": "888823caa32b25a6b646e72b6d534529fc6bc6483c7c1a74529596e681bda29f",
+          "version": "v0.13.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/datacatalog",
+          "sha256": "53d1cfe0e915493f32c7da1158d120c19255dfac404b95aa4a4d815398e5a7f2",
+          "version": "v1.24.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/dataflow",
+          "sha256": "0fa1a40b03bff95bb0ff83f44f6fe46f67f5fd7f103a3a9e3181a881bd2fbe17",
+          "version": "v0.10.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/dataform",
+          "sha256": "d0d54690631cfca879c736dc0a9ffb5c3c0d8c68acd5eff568ad16fe38859121",
+          "version": "v0.10.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/datafusion",
+          "sha256": "15d24a38c4d467e048b42acf5befa9fcb2a4af8b9d4f2ef0410c40f1c82938f1",
+          "version": "v1.8.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/datalabeling",
+          "sha256": "daf5879a9080ccce69eff3560499c6d61bd50144a460deaca925dbc1520ee791",
+          "version": "v0.9.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/dataplex",
+          "sha256": "0aaacc0d5b934f499569b6525e0eeba148f8a817a4056f91c3a17e9eee0fc969",
+          "version": "v1.21.0"
+        },
+        {
+          "importpath": "cloud.google.com/go/dataproc/v2",
+          "sha256": "d8ac071ab8c749c13679dda5c3bca7cda341fb2793c1d784b7e6184e336995ec",
+          "version": "v2.10.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/dataqna",
+          "sha256": "76cacba1b414ffa76fac685cbed4e1fe0592e464acf3d3525fc68c7f7b641fd3",
+          "version": "v0.9.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/datastore",
+          "sha256": "5290a524bace5480004f28f024bb9cc700692cce82ab1621b150d81ce2a857b5",
+          "version": "v1.20.0"
+        },
+        {
+          "importpath": "cloud.google.com/go/datastream",
+          "sha256": "be9f20185665144b358065751036454e9d36d2fbe79cbc730262dc5bc7b6db93",
+          "version": "v1.12.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/deploy",
+          "sha256": "02994479f19c7a8eefc646183c15f06d88e8aa4a1c933d66d88f34133dadc410",
+          "version": "v1.26.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/dialogflow",
+          "sha256": "125af0a0edf8c4e42ccaa2dc4edb31987b53260c410f6c1438361c0cae36db1d",
+          "version": "v1.64.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/dlp",
+          "sha256": "40174353632b4dc39542e537f3b80e2d439d27b1123ada7fbe65dc802acf5991",
+          "version": "v1.20.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/documentai",
+          "sha256": "79ae6c1b227f30b1684e1584caa3097d2605ae33bd49ce38a19e3c3e06777418",
+          "version": "v1.35.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/domains",
+          "sha256": "ca9efe51ccfb6a3fa6d84894c57593a3782e1eb5717479aab6020465693162ab",
+          "version": "v0.10.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/edgecontainer",
+          "sha256": "6be454a0f63b00826f3758cbcd16490e770574bb69aecb15d8c9e3f65143f558",
+          "version": "v1.4.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/errorreporting",
+          "sha256": "067ae46803bff4cc0d51d9570705f40f19dc0bfc6cb2c957a9f29fa21fb771fd",
+          "version": "v0.3.2"
+        },
+        {
+          "importpath": "cloud.google.com/go/essentialcontacts",
+          "sha256": "e886149791f10840674aad6ea8c8d7f6bc23b94324c568419f8de9c89123a76d",
+          "version": "v1.7.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/eventarc",
+          "sha256": "79cff17fa21cbc9aee50f3c18ad9ef8db04ce5dfe5318681c77c466185dcafad",
+          "version": "v1.15.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/filestore",
+          "sha256": "f03417260d6ad7779cca345a268b023aff03b105bde564097a2bb7cdcb25f143",
+          "version": "v1.9.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/firestore",
+          "sha256": "fb4c2bd546af8261b81b5ac92fad8fb9297a15b13b5e64f7822039883f59e0d9",
+          "version": "v1.18.0"
+        },
+        {
+          "importpath": "cloud.google.com/go/functions",
+          "sha256": "824b29ab33ab30a04d39550b60387b7058f44e2fe1e72d72d24ee629b940c9a5",
+          "version": "v1.19.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/gkebackup",
+          "sha256": "ef771d5bce4460831726f157964c0d9957e0bd208bee7a4ed4c477aa0f9c6952",
+          "version": "v1.6.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/gkeconnect",
+          "sha256": "9d5dca454af3459db4ddc883cabf4594af0bcc610babc065f8d30995a295a4fa",
+          "version": "v0.12.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/gkehub",
+          "sha256": "273701af47def6b122eac79162d5601b564dcf22133c482cac6bed80643fdf4e",
+          "version": "v0.15.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/gkemulticloud",
+          "sha256": "564cdaf2ce3528eae505e02e40d017880948a5ff81218383fe08e998187b0704",
+          "version": "v1.5.0"
+        },
+        {
+          "importpath": "cloud.google.com/go/gsuiteaddons",
+          "sha256": "aa6364548abc32b08fa52a43fbfbd7fa3a87a98d985a405684ad48f9fa7cadac",
+          "version": "v1.7.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/iam",
+          "sha256": "8a1529e7e928859a8332f5d22376975bdceb16cbf41ad8b1dce4c2fca80bc22b",
+          "version": "v1.3.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/iap",
+          "sha256": "041662affa29929642ba2be727a72fff45060434144a8ece6d3d8e49987b3e4d",
+          "version": "v1.10.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/ids",
+          "sha256": "2933494d9427661ab367929963c53029a3a36bec3f3cf44bc7f7eba3127b7ce5",
+          "version": "v1.5.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/iot",
+          "sha256": "c19b8db0865f31fbf087d9c1ea6ea6b3c0d9a957c28c12e76669f91fba597a0e",
+          "version": "v1.8.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/kms",
+          "sha256": "ff7613acc926f85de40d69f2f8528bfe4d0256faf4f3f671e2783ffd3a0dbc87",
+          "version": "v1.20.5"
+        },
+        {
+          "importpath": "cloud.google.com/go/language",
+          "sha256": "6ce5f84c57f935d967a26b061f3d5862c58255c9802da3a2fb9f34236da574da",
+          "version": "v1.14.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/lifesciences",
+          "sha256": "d6d8ed1e82003f5fcc7faac77deef7e51916fb813a321638aabfcbcf88f9c255",
+          "version": "v0.10.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/logging",
+          "sha256": "2e9bc4e84532db8ba26ddb8bb9c179fa78937afe4a7927e3943c7266cc8b930a",
+          "version": "v1.13.0"
+        },
+        {
+          "importpath": "cloud.google.com/go/longrunning",
+          "sha256": "20b1c885094689eda6208a7e7d8fbc0d07b6d14f7924763564ac14e8116696d3",
+          "version": "v0.6.4"
+        },
+        {
+          "importpath": "cloud.google.com/go/managedidentities",
+          "sha256": "abb96037708ee977e4ee00a9e33b4d3f6e7f579564842394babefbb8acbf6d3d",
+          "version": "v1.7.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/maps",
+          "sha256": "47b99bffe45b471784963eb58adc26729d1ffb09777709da8fae580778a4e009",
+          "version": "v1.17.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/mediatranslation",
+          "sha256": "6aa42e3feb5c138dc97332ea5d22372c9ac38e4617f6aa30957da220ccc946b6",
+          "version": "v0.9.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/memcache",
+          "sha256": "dc91d3562b1fbe66e24cee44957d629e2ff424c14601c3fe150c262b119bf6b5",
+          "version": "v1.11.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/metastore",
+          "sha256": "95eeb3e74c0acceced145f4a375d683f905cfbae84c1fce7d4bcd2a338e3bbc1",
+          "version": "v1.14.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/monitoring",
+          "sha256": "63405fc04c2a4ff62a04629f0bfc074a83402abe347d1b56d61d8df8ec3438ac",
+          "version": "v1.22.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/networkconnectivity",
+          "sha256": "c8808a1592d777837343a6cdb5a06399ddd99983064e4cece78034fce59c85d4",
+          "version": "v1.16.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/networkmanagement",
+          "sha256": "52db47e114834658b19cc938d8b3c7df8f1352b11283049449607a09ce494d87",
+          "version": "v1.17.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/networksecurity",
+          "sha256": "2fef61fed15313aa65f38e38114402217061a659e86bba148adbb709ca06dbde",
+          "version": "v0.10.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/notebooks",
+          "sha256": "fc0e6a124fb4ff18c0b6c68f9bef3f98a6acb152a6fbfab96e5315fc18771a96",
+          "version": "v1.12.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/optimization",
+          "sha256": "7dead098fd86526a51796ad15f6e785726334649c8ad8d57e5d466668a165dd7",
+          "version": "v1.7.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/orchestration",
+          "sha256": "8a4eecf4d633256c046970ecb1f0634101aa8b2a7b8cb3c9a86862da9c35f0d1",
+          "version": "v1.11.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/orgpolicy",
+          "sha256": "043ab863a4bcf8a0efbcf55c398576889c55588f2e857176df24e992eb024c7e",
+          "version": "v1.14.2"
+        },
+        {
+          "importpath": "cloud.google.com/go/osconfig",
+          "sha256": "cefad24f7c2bb96008f68df9b866cbfd1edb654ebaeae3871639551639f33588",
+          "version": "v1.14.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/oslogin",
+          "sha256": "656d5420f2b8295211eeedbeef946d7035a4beb112fa52e798530d3844509c7b",
+          "version": "v1.14.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/phishingprotection",
+          "sha256": "34d5558adaf8a41051a557f2be195cef24a2e71584fc199a67a000213dc04db2",
+          "version": "v0.9.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/policytroubleshooter",
+          "sha256": "e3aa513d71f605bc149dd7134795980f754230873718fa57e10217c0302ecd35",
+          "version": "v1.11.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/privatecatalog",
+          "sha256": "c77dabf20b82af684e4c0603c5113f0933ecab1a11f23ef17e8138ed65966d84",
+          "version": "v0.10.4"
+        },
+        {
+          "importpath": "cloud.google.com/go/pubsub",
+          "sha256": "6d8efd14cec26fe8488cce7b9122955b9cceb034b39b6afbba153995163e4084",
+          "version": "v1.45.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/pubsublite",
+          "sha256": "c2015c3e0f6e0efcac42fb723241870ce210f680079d2139cf5f449b90b79df8",
+          "version": "v1.8.2"
+        },
+        {
+          "importpath": "cloud.google.com/go/recaptchaenterprise/v2",
+          "sha256": "a64ed86aa7c27e19ae1f4ab42b0247ba6afe2fa7bddc8e31d699ae586a304ad5",
+          "version": "v2.19.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/recommendationengine",
+          "sha256": "3a3d67cc2bf897875f756df40261857de8bc5d09de95b5e8dcc5c4679faacf2d",
+          "version": "v0.9.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/recommender",
+          "sha256": "d68257ded95ebf3fac231ab349321cb780c646661e89e4b87397b46fb06cedc7",
+          "version": "v1.13.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/redis",
+          "sha256": "bd49b2497a1fadcb2dcfe59f15abd881b95745d00976779c912c5bba0d8c56b7",
+          "version": "v1.17.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/resourcemanager",
+          "sha256": "a07fa2949a3de6ec5c04a68ec3a24fc386505a5899e49a1870f98df0be38aae7",
+          "version": "v1.10.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/resourcesettings",
+          "sha256": "94fae5cf7329e9eabe2b771796699f9ded2f574f3d24e470780959ca19812503",
+          "version": "v1.8.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/retail",
+          "sha256": "a98f609c0ddb329a6c7c524a608372d153cfa8a755779ed4b86a8532da1611ee",
+          "version": "v1.19.2"
+        },
+        {
+          "importpath": "cloud.google.com/go/run",
+          "sha256": "27dd3fb18ebeddcb1af238a928ba09fd30d050a28a748516e7ca4fc98fe57652",
+          "version": "v1.8.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/scheduler",
+          "sha256": "ba9b8b2e87a999ce93b67cf874a05eb48e837084efd9084aa5fdfc6e189c5b03",
+          "version": "v1.11.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/secretmanager",
+          "sha256": "6f16a2f02a78895e1179742267660cd0c165f966d3f618cbefd900002e48fca7",
+          "version": "v1.14.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/security",
+          "sha256": "aa2f79e7708f358c39e46a3b1d5c9aebc389612f328312bd833ca1987005e836",
+          "version": "v1.18.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/securitycenter",
+          "sha256": "7ce1197dbad7ba76b7e22b9a8169b5ec39db3b370822057cecd3c6884c981e92",
+          "version": "v1.35.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/servicedirectory",
+          "sha256": "97146856510547ccfca7ad21ee501c87345321ce6535f0848f464090886ad2d8",
+          "version": "v1.12.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/shell",
+          "sha256": "2ff9b24fb92b0b955adefff674c62fc76709dd40be482d654c8b88607d1ba864",
+          "version": "v1.8.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/spanner",
+          "sha256": "f51cbe79746a60a22c4030b0d8dd48bfea2269a55ded73e5769af8f174987dd6",
+          "version": "v1.73.0"
+        },
+        {
+          "importpath": "cloud.google.com/go/speech",
+          "sha256": "355a21032182c64b5b56dd707d9df87330bde09dfc3b247de226c60480125802",
+          "version": "v1.26.0"
+        },
+        {
+          "importpath": "cloud.google.com/go/storagetransfer",
+          "sha256": "8406c173fcefa1912c5be567c0e1d3d315b4fd206bd3996a3664053f7722be65",
+          "version": "v1.12.1"
+        },
+        {
+          "importpath": "cloud.google.com/go/talent",
+          "sha256": "7c5f447453e272b74df23159072f73f1f79c00a15620fafe9183283d503b6ffe",
+          "version": "v1.8.0"
+        },
+        {
+          "importpath": "cloud.google.com/go/texttospeech",
+          "sha256": "4dd5811831a861dbb731550fa128ab5f97f744bed1ef1159ad2cdac05de4e0bb",
+          "version": "v1.11.0"
+        },
+        {
+          "importpath": "cloud.google.com/go/tpu",
+          "sha256": "52a5740ff09e9aa7d18a5bcfd3d478331fa86c7d04ae02e37e2aa5dd2fc559a3",
+          "version": "v1.7.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/trace",
+          "sha256": "95e4c35085a43f8921444ca72c2ba5d4a8c68157ee1b205d27e816e663d8851f",
+          "version": "v1.11.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/translate",
+          "sha256": "4b49ccd6113462ce97e621ca8cda7f273eca9a0f16a747c7447a6b75c348091a",
+          "version": "v1.12.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/video",
+          "sha256": "5dc25e19a2b35afe82ccd16ed99739810c5d1b2a34ae82c5eccd86f6b75782d3",
+          "version": "v1.23.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/videointelligence",
+          "sha256": "e2cfbc76a2d5ccf5eefd8787ddd6411c553ef5a792a4ac712a3f27365cfef22f",
+          "version": "v1.12.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/vision/v2",
+          "sha256": "ca7f2d89054de6b3119290d89352bec5cd8cac74edf2770b6371e43ee59da5b7",
+          "version": "v2.9.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/vmmigration",
+          "sha256": "8e89112e2be4485aec351b17e29284668bd7dc5aeabcb369221b7d062bc2623c",
+          "version": "v1.8.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/vmwareengine",
+          "sha256": "176cf12b96ca0f7b33acb970bf766c039ff4c8d07f017d3ac2cc7ae9b706d6fc",
+          "version": "v1.3.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/vpcaccess",
+          "sha256": "0fe05ee7eef5d89bb6c172b7ac9121d3e0c3dbc4e8e8cc11dc633bf50e5780ce",
+          "version": "v1.8.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/webrisk",
+          "sha256": "5486773b4891f84fa02487664b250e4b98d94dfe7daa062fedd552f7b7981d47",
+          "version": "v1.10.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/websecurityscanner",
+          "sha256": "740d5bb5ac47988677aacb9f126ff83cdb1f87fb1890d8effbb793b3746492c9",
+          "version": "v1.7.3"
+        },
+        {
+          "importpath": "cloud.google.com/go/workflows",
+          "sha256": "dc9e0adc021924e199bebdff0dd40265f79f44bad37e19315a0dec5435c9f5cf",
+          "version": "v1.13.3"
+        },
+        {
+          "importpath": "github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp",
+          "sha256": "ec648ea66aa28e0df486d213dae24dcd5f6cd015d6178322c4c8b9d08d08b1ad",
+          "version": "v1.25.0"
+        },
+        {
+          "importpath": "github.com/census-instrumentation/opencensus-proto",
+          "sha256": "61bf7c4e662f78ed335208f085d441c9dcaa15b69bdf0ec786ed06a12302b303",
+          "version": "v0.4.1"
+        },
+        {
+          "importpath": "github.com/cespare/xxhash/v2",
+          "sha256": "a090f8eaaf59cc2adf163299ebefe797e1dca3f6add2c8e88a6a3b90ba538b02",
+          "version": "v2.3.0"
+        },
+        {
+          "importpath": "github.com/cncf/xds/go",
+          "sha256": "524700e305a2b2bf75db01766e5e412e42619321d761bc4271635b3ffa7022d4",
+          "version": "v0.0.0-20240723142845-024c85f92f20"
+        },
+        {
+          "importpath": "github.com/envoyproxy/go-control-plane",
+          "sha256": "9e360b4acf128677d2f23d30f940c505a9594f7fd46049b046603d2f51865d70",
+          "version": "v0.13.0"
+        },
+        {
+          "importpath": "github.com/envoyproxy/protoc-gen-validate",
+          "sha256": "785ab658b157a7957d3280409fc39ba0752bbc13196444a36505872df953a438",
+          "version": "v1.1.0"
+        },
+        {
+          "importpath": "github.com/go-logr/logr",
+          "sha256": "c496f30d700f02b49a1b50bc2486a27c2f74df3dce75d9db6d2d43975b381727",
+          "version": "v1.4.2"
+        },
+        {
+          "importpath": "github.com/go-logr/stdr",
+          "sha256": "0812160f77474d8dbf692b7caaee7fd5508448c705d9b54b5a3496ac44468c2c",
+          "version": "v1.2.2"
+        },
+        {
+          "importpath": "github.com/golang/glog",
+          "sha256": "6e86cbe37163d5e14017888a82c32bbe29e732e9bd66bbe9da8e42e08f6bfdcc",
+          "version": "v1.2.2"
+        },
+        {
+          "importpath": "github.com/google/uuid",
+          "sha256": "73da47b6338b00a082fd451aa35a3273d3adc09b8e9bba98dab01091e402af6e",
+          "version": "v1.6.0"
+        },
+        {
+          "importpath": "github.com/kisielk/errcheck",
+          "sha256": "107d26460d41b5322b6911c9b5eb233117421943b3a1453ba99f01c4fdf2f8e8",
+          "version": "v1.5.0"
+        },
+        {
+          "importpath": "github.com/kisielk/gotool",
+          "sha256": "77aca7bffc0ec29fc9f088d5962ab3128f405d7b10c7ceb9693ff7a08958955d",
+          "version": "v1.0.0"
+        },
+        {
+          "importpath": "github.com/planetscale/vtprotobuf",
+          "sha256": "e94bb181f3ef78dec16609d3c2d276c75c5668694bdc97b72bac22c84528debb",
+          "version": "v0.6.1-0.20240319094008-0393e58bdf10"
+        },
+        {
+          "importpath": "github.com/yuin/goldmark",
+          "sha256": "ee7fe4466203a01d3ac19adc134cdec99bc6de71992c28f3dd9a74480bff0603",
+          "version": "v1.4.13"
+        },
+        {
+          "importpath": "go.opentelemetry.io/contrib/detectors/gcp",
+          "sha256": "6c4372579e1fbaecd542adf03f184094fcd34207525ceb44862c2fde5671235d",
+          "version": "v1.28.0"
+        },
+        {
+          "importpath": "go.opentelemetry.io/otel",
+          "sha256": "93db4d93c9c147a82d6a662fb170f2d7a56c27c10369e0505dc5294cf0fe55ad",
+          "version": "v1.28.0"
+        },
+        {
+          "importpath": "go.opentelemetry.io/otel/metric",
+          "sha256": "7f71c8e595902dbf341b11019aeb9083c69d5b279f223b74b1e6e71db79d1304",
+          "version": "v1.28.0"
+        },
+        {
+          "importpath": "go.opentelemetry.io/otel/sdk",
+          "sha256": "abfcc20ae5d86a31cfdb8ad082a453612e33166e6514b75fd3310998a364c336",
+          "version": "v1.28.0"
+        },
+        {
+          "importpath": "go.opentelemetry.io/otel/sdk/metric",
+          "sha256": "8dcebd11f45040e013ce5dac31d55612e74aa0544d7e5ed192e77a1ad2be386a",
+          "version": "v1.28.0"
+        },
+        {
+          "importpath": "go.opentelemetry.io/otel/trace",
+          "sha256": "fdacbe7b9fefb75d8d35d0b761455437cf1091f3bf6dcf49fd4f486e6834371b",
+          "version": "v1.28.0"
+        },
+        {
+          "importpath": "go.starlark.net",
+          "sha256": "c5a490dbdb1f72bb981aa84258fe42cea5d02aabc615546ba527c465d6769dd4",
+          "version": "v0.0.0-20210223155950-e043a3d3c984"
+        },
+        {
+          "importpath": "golang.org/x/crypto",
+          "sha256": "f6dad481462711b0c41f147aa175087f3656591c59336242fdc9fae95d0fc59e",
+          "version": "v0.33.0"
+        },
+        {
+          "importpath": "golang.org/x/oauth2",
+          "sha256": "79c66d6eb34da976ec96cd459145129ba2d83384d1484b0b8a1dfd2ccc666d80",
+          "version": "v0.22.0"
+        },
+        {
+          "importpath": "golang.org/x/telemetry",
+          "sha256": "b71288c1d03a434f8ea16eda80e4ddb0733cbdd4ed996f4ab6616fd5dbf76ab3",
+          "version": "v0.0.0-20240521205824-bda55230c457"
+        },
+        {
+          "importpath": "golang.org/x/term",
+          "sha256": "d9fe2c313121a1a0f1ea8028e6c4bfbd8afbd8f34e67eacfd2d1d37964a4c89d",
+          "version": "v0.29.0"
+        },
+        {
+          "importpath": "golang.org/x/xerrors",
+          "sha256": "aa5e3ec9bb7b9f681609efac019d9de1a7ba7719248ff1eaa27e78882db3d7f5",
+          "version": "v0.0.0-20200804184101-5ec99f83aff1"
+        },
+        {
+          "importpath": "google.golang.org/genproto/googleapis/api",
+          "sha256": "a262a40f9ed88853aaa3daab0f12c77f3eda1b19638173685ab08d1dc18416b8",
+          "version": "v0.0.0-20250106144421-5f5ef82da422"
+        },
+        {
+          "importpath": "gopkg.in/check.v1",
+          "sha256": "5c306e0d633cd66a11b40e2e5fbbc6da42110db7d72ea3c1524ceb45ee40c33f",
+          "version": "v0.0.0-20161208181325-20d25e280405"
+        }
+      ]
+    },
     "@@rules_go+//go:extensions.bzl%go_sdk": {
       "1.24.12": {
         "aix_ppc64": [

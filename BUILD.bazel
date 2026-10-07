@@ -85,7 +85,12 @@ package(default_visibility = ["//visibility:public"])
 # fetching a Go SDK and compiling gazelle; `bazel run //:gazelle` still builds it.
 gazelle_binary(
     name = "gazelle_cc_binary",
-    languages = ["@gazelle_cc//language/cc"],
+    # gazelle 2.x prepends its default languages as a bare "//language/defaults"
+    # that resolves in this repo, so request them by their full label.
+    languages = [
+        "@gazelle//language/defaults",
+        "@gazelle_cc//language/cc",
+    ],
     tags = ["manual"],
 )
 
