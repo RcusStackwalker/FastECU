@@ -13,9 +13,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  QT_MODULES: qtcharts qtserialport qtremoteobjects qtwebsockets
-  # rules_qt supports Bazel builds on Qt 6.8.3.
-  QT_VERSION: '6.8.3'
   # The clang-tidy job's LLVM: the official llvm-project release tarball on both
   # OSes, so they run the identical build and a runner-image or package-feed
   # bump cannot change what the gate flags. Neither Chocolatey nor the Ubuntu
@@ -63,14 +60,6 @@ jobs:
         with:
           api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
 
-      # Mirrors the Bazel job so module resolution sees the same host tools; drop
-      # it if a run shows gazelle resolving without Qt.
-      - name: Install Qt for host tools (Linux)
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
-        with:
-          version: ${{ env.QT_VERSION }}
-          modules: ${{ env.QT_MODULES }}
-
       - name: Install prek
         run: pipx install prek
 
@@ -94,13 +83,6 @@ jobs:
       - uses: ./.github/actions/buildbuddy
         with:
           api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
-
-      # Module resolution needs the same host Qt tools as the Bazel job.
-      - name: Install Qt for host tools (Linux)
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
-        with:
-          version: ${{ env.QT_VERSION }}
-          modules: ${{ env.QT_MODULES }}
 
       # Compile/link only: the gate is that everything under src/backend and
       # src/algorithms builds with the NDK. Uses the NDK preinstalled on the runner image.
@@ -155,29 +137,6 @@ jobs:
       - uses: ./.github/actions/buildbuddy
         with:
           api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
-
-      - name: Install Qt for host tools (Windows)
-        if: runner.os == 'Windows'
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
-        with:
-          version: ${{ env.QT_VERSION }}
-          arch: 'win64_msvc2022_64'
-          modules: ${{ env.QT_MODULES }}
-          add-tools-to-path: true
-
-      - name: Install Qt for host tools (macOS)
-        if: runner.os == 'macOS'
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
-        with:
-          version: ${{ env.QT_VERSION }}
-          modules: ${{ env.QT_MODULES }}
-
-      - name: Install Qt for host tools (Linux)
-        if: runner.os == 'Linux'
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
-        with:
-          version: ${{ env.QT_VERSION }}
-          modules: ${{ env.QT_MODULES }}
 
       - name: Install Bazel prerequisites (Windows)
         if: runner.os == 'Windows'
@@ -251,22 +210,6 @@ jobs:
       - uses: ./.github/actions/buildbuddy
         with:
           api-key: ${{ secrets.BUILDBUDDY_API_KEY }}
-
-      - name: Install Qt for host tools (Windows)
-        if: runner.os == 'Windows'
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
-        with:
-          version: ${{ env.QT_VERSION }}
-          arch: 'win64_msvc2022_64'
-          modules: ${{ env.QT_MODULES }}
-          add-tools-to-path: true
-
-      - name: Install Qt for host tools (Linux)
-        if: runner.os == 'Linux'
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
-        with:
-          version: ${{ env.QT_VERSION }}
-          modules: ${{ env.QT_MODULES }}
 
       - name: Install clang-tidy (Windows)
         if: runner.os == 'Windows'

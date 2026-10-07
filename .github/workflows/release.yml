@@ -4,13 +4,6 @@ on:
   push:
     branches: [master]
 
-env:
-  QT_MODULES: qtcharts qtserialport qtremoteobjects qtwebsockets
-  # rules_qt6 currently supports Bazel builds on 6.8.3. The macOS deploy
-  # tooling must come from this same Qt version, or it version-mismatches
-  # against the frameworks the Bazel binary links.
-  QT_VERSION: '6.8.3'
-
 jobs:
   pre-commit:
     name: pre-commit
@@ -88,22 +81,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.release.outputs.tag }}
-
-      - name: Install Qt (Windows)
-        if: runner.os == 'Windows'
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
-        with:
-          version: ${{ env.QT_VERSION }}
-          arch: 'win64_msvc2022_64'
-          modules: ${{ env.QT_MODULES }}
-          add-tools-to-path: true
-
-      - name: Install Qt (macOS)
-        if: runner.os == 'macOS'
-        uses: jurplel/install-qt-action@48d3ad6db93f3627c8ee7a0454bc6f3744f7e730 # v4.3.1
-        with:
-          version: ${{ env.QT_VERSION }}
-          modules: ${{ env.QT_MODULES }}
 
       - name: Install LLVM (Windows)
         if: runner.os == 'Windows'
