@@ -2,6 +2,7 @@
 #include "src/platform/desktop/common/bytes/qt_bytes.h"
 #include "src/ui/desktop/config_fields.h"
 #include "src/backend/calibration/map_edit.h"
+#include "src/backend/calibration/session/numeric_copy_use_case.h"
 #include "src/backend/calibration/session/numeric_edit_use_case.h"
 #include "src/platform/desktop/common/diagnostics/serial_diagnostic_link.h"
 #include "src/ui/desktop/calibration/map_edit_adapter.h"
@@ -226,8 +227,7 @@ void MainWindow::set_value()
 {
     QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
     const auto id = fastecu::ui::parse_map_window_id(w);
-    if (!id || calibrationWorkspace->find(id->session) == nullptr ||
-        w->findChild<QTableWidget *>(w->objectName()) == nullptr)
+    if (!id || calibrationWorkspace->find(id->session) == nullptr || w->findChild<QTableWidget *>() == nullptr)
     {
         return;
     }
@@ -254,40 +254,49 @@ void MainWindow::interpolate_value(fastecu::calibration::InterpolationMode mode)
                      fastecu::calibration::InterpolationEdit{.mode = mode});
 }
 
+// Copies the selected body or axis values at full precision, in the plain
+// decimals Paste accepts. Selections that are not a numeric target copy nothing.
+// A selection holding a cell with no valid value is refused, since the
+// clipboard text could not be pasted back.
 void MainWindow::copy_value()
 {
-    QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
-    if (w)
+    namespace calibration = fastecu::calibration;
+    QMdiSubWindow *window = ui->mdiArea->activeSubWindow();
+    const auto id = fastecu::ui::parse_map_window_id(window);
+    if (!id.has_value() || id->map_number < 0)
     {
-        QStringList mapWindowString = w->objectName().split(",");
-
-        QTableWidget *mapTableWidget = w->findChild<QTableWidget *>(w->objectName());
-        if (mapTableWidget)
-        {
-            QModelIndexList cells = mapTableWidget->selectionModel()->selectedIndexes();
-            // qSort(cells); // Necessary, otherwise they are in column order
-
-            QString text;
-            int currentRow = 0;
-            foreach (const QModelIndex& cell, cells)
-            {
-                if (text.length() == 0)
-                {
-                }
-                else if (cell.row() != currentRow)
-                {
-                    text += '\n';
-                }
-                else
-                {
-                    text += '\t';
-                }
-                currentRow = cell.row();
-                text += cell.data().toString();
-            }
-
-            QApplication::clipboard()->setText(text);
-        }
+        return;
+    }
+    const auto *session = calibrationWorkspace->find(id->session);
+    if (session == nullptr)
+    {
+        return;
+    }
+    const auto selection = fastecu::ui::selected_numeric_target(window, *session, id->map_number);
+    if (!selection.has_value())
+    {
+        return;
+    }
+    const auto copied = calibration::copy_numeric_values(
+        *calibrationWorkspace,
+        {.session = id->session, .map_index = static_cast<std::size_t>(id->map_number), .selection = *selection});
+    if (!copied.has_value())
+    {
+        QMessageBox::warning(this, tr("Copy value"), QString::fromStdString(copied.error().detail));
+        return;
+    }
+    if (const auto *text = std::get_if<calibration::NumericCopyText>(&*copied); text != nullptr)
+    {
+        QApplication::clipboard()->setText(QString::fromStdString(text->text));
+    }
+    else if (const auto *invalid = std::get_if<calibration::NumericCopyInvalidCell>(&*copied); invalid != nullptr)
+    {
+        QMessageBox::warning(this, tr("Copy value"),
+                             tr("Nothing was copied: the cell at row %1, column %2 of the selected values has no valid "
+                                "value (%3). Select only valid cells.")
+                                 .arg(invalid->row + 1)
+                                 .arg(invalid->col + 1)
+                                 .arg(QString::fromStdString(invalid->detail)));
     }
 }
 

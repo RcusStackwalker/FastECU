@@ -1,8 +1,13 @@
 #include "src/ui/desktop/widgets/calibration_maps.h"
 #include <ui_calibration_map_table.h>
+#include "src/ui/desktop/calibration/map_edit_adapter.h"
 
 #include <algorithm>
+#include <QEvent>
+#include <QKeyEvent>
+#include <QKeySequence>
 #include <QSignalBlocker>
+#include <QTableWidgetSelectionRange>
 #include <QScopeGuard>
 #include <QLabel>
 
@@ -13,6 +18,7 @@ CalibrationMaps::CalibrationMaps(fastecu::calibration::CalibrationWorkspace& wor
       ui{std::make_unique<Ui::CalibrationMaps>()}
 {
     ui->setupUi(this);
+    ui->mapDataTableWidget->installEventFilter(this);
     this->setObjectName(fastecu::ui::session_key_text(session_) + "," + QString::number(map_index_) + ",,");
     this->setAttribute(Qt::WA_DeleteOnClose);
     ui->mapNameLabel->clear();
@@ -65,6 +71,7 @@ void CalibrationMaps::initialize_view(const fastecu::ui::MapPresentation& map,
         ui->mapDataUnitsLabel->setText(map.units);
     }
 
+    numeric_body_ = map.type != "Switch" && map.type != "MultiSelectable" && map.type != "Selectable";
     if (map.type == "Switch")
     {
         // qDebug() << "Switchable map";
@@ -213,6 +220,27 @@ void CalibrationMaps::show_map_error(const fastecu::Error& error)
     map_error_label_->setText(QString::fromStdString(error.detail));
     map_error_label_->show();
     view_initialized_ = false;
+}
+
+bool CalibrationMaps::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == ui->mapDataTableWidget && event->type() == QEvent::KeyPress && numeric_body_ &&
+        static_cast<QKeyEvent *>(event)->matches(QKeySequence::SelectAll))
+    {
+        const auto *rom = workspace_.find(session_);
+        const auto range = rom == nullptr
+                               ? std::nullopt
+                               : fastecu::ui::body_widget_range(*rom, map_index_, ui->mapDataTableWidget->rowCount(),
+                                                                ui->mapDataTableWidget->columnCount());
+        if (range.has_value())
+        {
+            ui->mapDataTableWidget->clearSelection();
+            ui->mapDataTableWidget->setRangeSelected(
+                QTableWidgetSelectionRange(range->first_row, range->first_col, range->last_row, range->last_col), true);
+            return true;
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 CalibrationMaps::~CalibrationMaps()

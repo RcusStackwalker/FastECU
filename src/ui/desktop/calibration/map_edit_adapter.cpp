@@ -89,6 +89,36 @@ selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSes
     return calibration::NumericSelection{.target = *numeric_target, .elements = target.range};
 }
 
+std::optional<calibration::SelectionRange> body_widget_range(const calibration::CalibrationSession& session,
+                                                             int map_number, int rows, int columns)
+{
+    if (!session.definition() || map_number < 0 ||
+        static_cast<std::size_t>(map_number) >= session.definition()->definition.maps.size())
+    {
+        return std::nullopt;
+    }
+    const auto& map = session.definition()->definition.maps[static_cast<std::size_t>(map_number)];
+    const auto is_body = [&](int row, int col)
+    {
+        const auto target =
+            calibration::resolve_edit_target({.first_row = row, .first_col = col, .last_row = row, .last_col = col},
+                                             {.x_size = map.x_size, .y_size = map.y_size}, map.x_axis.type);
+        return target.kind == calibration::EditTargetKind::MapBody;
+    };
+    for (int row = 0; row < rows; ++row)
+    {
+        for (int col = 0; col < columns; ++col)
+        {
+            if (is_body(row, col))
+            {
+                return calibration::SelectionRange{
+                    .first_row = row, .first_col = col, .last_row = rows - 1, .last_col = columns - 1};
+            }
+        }
+    }
+    return std::nullopt;
+}
+
 std::vector<std::vector<std::string>> split_paste_rows(const QString& text)
 {
     QStringList rows = text.split('\n');

@@ -36,6 +36,14 @@ std::optional<MapWindowId> parse_map_window_id(QMdiSubWindow *window);
 std::optional<calibration::NumericSelection>
 selected_numeric_target(QMdiSubWindow *window, const calibration::CalibrationSession& session, int map_number);
 
+// The widget cells a "select all" should cover for a numeric map's table of
+// `rows` x `columns`: the body only, never the axis header row or column. It
+// asks the same resolver that classifies edits where the body starts, so the
+// two cannot disagree. nullopt when the session lacks the map or the table has
+// no body cell.
+std::optional<calibration::SelectionRange> body_widget_range(const calibration::CalibrationSession& session,
+                                                             int map_number, int rows, int columns);
+
 // Splits clipboard text into owned rows of tab-separated text cells. Exactly
 // one terminal LF is a record delimiter, not a row; empty cells, interior
 // empty rows, ragged rows and carriage returns are kept for validation.

@@ -105,23 +105,6 @@ adapter management. Actions:
 - Retain lifecycle coverage for teardown with in-flight calls, helper-process
   failure, timeouts, and adapter removal on every supported platform.
 
-### P2: Make full-body map copy/paste reliable
-
-Numeric map-edit use-case extraction does not include copy-side changes. Follow
-up with explicit body-only Select All, row-major Copy ordering, and numeric Copy
-from full-precision scaled values rather than rounded display text. Exclude axis
-values and labels from full-body copying; axis copying remains a separate
-operation. This resolves the current Copy implementation's display-text behavior
-against the [typed-value decision](design-notes.md#numeric-data-stays-typed-until-presentation).
-
-Cover the actual larger-source selection → Copy → smaller-destination selection
-→ Paste workflow. Paste starts at the destination selection's top-left and clips
-to the destination body bounds, preserving axes. Verify retained values through
-destination scaling/limits/storage encoding; copying full-precision scaled values
-does not guarantee identical source and destination bytes. Preserve current
-paste validation order unless separately justified: all supplied text cells,
-including clipped-away cells, must be valid before mutation.
-
 ### P2: Identify Subaru CAN ECUs with SSM `AA`
 
 Current ISO-15765 identification sends UDS `22 F1 82`, obtains an ID without

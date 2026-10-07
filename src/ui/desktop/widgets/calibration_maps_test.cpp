@@ -10,6 +10,7 @@
 #include <QComboBox>
 #include "src/platform/desktop/common/testing/signal_recorder.h"
 #include "src/platform/desktop/common/testing/event_helpers.h"
+#include <QKeyEvent>
 #include <QMdiSubWindow>
 #include <QTableWidget>
 #include <gtest/gtest.h>
@@ -495,6 +496,26 @@ TEST(CalibrationMaps, EditTargetResolvesThroughMdiWindowAfterOpeningFailureRecov
                             true);
 
     EXPECT_TRUE(fastecu::ui::selected_numeric_target(&window, *session, 0).has_value());
+}
+
+TEST(CalibrationMaps, SelectAllSelectsTheBodyAndLeavesTheAxesOut)
+{
+    MapFixture fixture;
+    const auto id = fixture.open(numeric_table("3D", 2, 2, std::string(kXAxis) + std::string(kYAxis)));
+    ASSERT_THAT(id, fastecu::testing::IsOk());
+    CalibrationMaps map(fixture.workspace, *id, 0, QRect(0, 0, 800, 600));
+    auto *table = table_of(map);
+    table->setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 0), true);
+
+    QKeyEvent select_all(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
+    QApplication::sendEvent(table, &select_all);
+
+    const auto ranges = table->selectedRanges();
+    ASSERT_EQ(ranges.size(), 1);
+    EXPECT_EQ(ranges.first().topRow(), 1);
+    EXPECT_EQ(ranges.first().leftColumn(), 1);
+    EXPECT_EQ(ranges.first().bottomRow(), table->rowCount() - 1);
+    EXPECT_EQ(ranges.first().rightColumn(), table->columnCount() - 1);
 }
 
 TEST(CalibrationMaps, StructuralFailureAtOpeningShowsError)
