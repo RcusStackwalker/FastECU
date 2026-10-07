@@ -19,10 +19,6 @@ alone does not make a presentation flow backend policy.
 
 Remaining actions from the backend migration roadmap:
 
-- Remaining after the selectable-edit decision: validate bloblist selections
-  (uniform byte length matching the first selection's, whole hexadecimal bytes)
-  when a definition loads, so malformed entries are flagged before any edit.
-  Runtime rejection in `apply_selectable_edit` stays as the backstop.
 - Finish moving logging snapshot/channel preparation and sample validation from
   desktop adapters into backend logging; reuse the existing portable preparation
   rather than starting a second policy implementation.

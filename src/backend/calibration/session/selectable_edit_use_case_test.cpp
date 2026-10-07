@@ -29,7 +29,7 @@ using ::testing::VariantWith;
 constexpr std::uint64_t kAddress = 4;
 
 // A selectable map at kAddress whose selections are two bytes wide.
-definition::RomDefinition selectable_definition(std::vector<std::pair<std::string, std::string>> selections)
+definition::RomDefinition selectable_definition(std::vector<definition::Selection> selections)
 {
     definition::RomDefinition rom{.format = definition::DefinitionFormat::EcuFlash};
     rom.scalings.push_back(definition::Scaling{
@@ -48,7 +48,7 @@ definition::RomDefinition selectable_definition(std::vector<std::pair<std::strin
 
 definition::RomDefinition modes_definition()
 {
-    return selectable_definition({{"off", "0000"}, {"low", "0A0B"}, {"high", "FF10"}});
+    return selectable_definition({{"off", {0x00, 0x00}}, {"low", {0x0A, 0x0B}}, {"high", {0xFF, 0x10}}});
 }
 
 auto changed()
@@ -127,18 +127,10 @@ TEST_F(SelectableEditUseCaseTest, WritesTheNamedSelectionAtTheMapAddress)
     EXPECT_TRUE(session().dirty());
 }
 
-TEST_F(SelectableEditUseCaseTest, TheFirstSelectionWithADuplicateNameWins)
+TEST_F(SelectableEditUseCaseTest, MismatchedSelectionWidthsAreRejectedWithoutChange)
 {
-    install(selectable_definition({{"off", "0000"}, {"mode", "0102"}, {"mode", "0304"}}));
-
-    EXPECT_THAT(select("mode"), changed());
-
-    EXPECT_THAT(rom_bytes(), ElementsAre(0x55, 0x55, 0x55, 0x55, 0x01, 0x02, 0x55, 0x55));
-}
-
-TEST_F(SelectableEditUseCaseTest, TheFirstSelectionSetsTheWidthAndMismatchedSelectionsAreRejected)
-{
-    install(selectable_definition({{"off", "0000"}, {"long", "AABBCC"}, {"short", "7F"}, {"same", "1234"}}));
+    install(selectable_definition(
+        {{"off", {0x00, 0x00}}, {"long", {0xAA, 0xBB, 0xCC}}, {"short", {0x7F}}, {"same", {0x12, 0x34}}}));
     const auto before = rom_bytes();
 
     EXPECT_THAT(select("long"), IsErr(ErrorKind::InvalidConfig));
@@ -179,19 +171,6 @@ TEST_F(SelectableEditUseCaseTest, WritingTheCurrentBytesIsUnchangedAndLeavesTheS
 
     EXPECT_THAT(select("low"), unchanged());
 
-    EXPECT_FALSE(session().dirty());
-}
-
-TEST_F(SelectableEditUseCaseTest, MalformedSelectionHexIsRejectedWithoutChange)
-{
-    install(selectable_definition({{"off", "0000"}, {"junk", "0Z07"}, {"odd", "070"}, {"blank", "  "}}));
-    const auto before = rom_bytes();
-
-    EXPECT_THAT(select("junk"), IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(select("odd"), IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(select("blank"), IsErr(ErrorKind::InvalidConfig));
-
-    EXPECT_EQ(rom_bytes(), before);
     EXPECT_FALSE(session().dirty());
 }
 

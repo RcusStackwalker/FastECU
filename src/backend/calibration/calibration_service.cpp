@@ -214,7 +214,7 @@ std::uint32_t element_byte_size(std::optional<definition::StorageType> storage_t
 {
     if (storage_type == definition::StorageType::Bloblist && scaling != nullptr && !scaling->selections.empty())
     {
-        return static_cast<std::uint32_t>(scaling->selections.front().second.size() / 2);
+        return static_cast<std::uint32_t>(scaling->selections.front().value.size());
     }
     return definition::storage_byte_size(storage_type);
 }

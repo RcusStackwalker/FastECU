@@ -101,14 +101,18 @@ the requested value is never substituted for a fresh decode. Structural map
 failures keep the window open in an explicit error state with grid editing
 disabled. Failed refreshes clear stale values; unrelated maps remain usable.
 
+Definition loading converts each selection's hexadecimal text to bytes once. A
+selection value that is empty, not whole hexadecimal bytes (no prefix,
+separators or whitespace), or a different width from the scaling's first
+selection, and a repeated selection name, fail the whole definition load, so a
+resolved selection is always valid bytes of one shared width.
+
 Choosing a selection of a selectable map writes that selection's bytes through
-`apply_selectable_edit`. The first selection with the chosen name wins, and the
-written width is the first selection's hex length in bytes. A value whose byte
-length differs from that width, or that is not whole hexadecimal bytes, is an
-error and changes nothing. Writing identical bytes reports an
-unchanged edit and leaves the session clean. Sessions without a definition, unknown maps, maps that
-are not blob selections and unknown selection names are not applicable; the view
-still refreshes after an unknown name.
+`apply_selectable_edit`; a write that would not match the blob width is an
+error and changes nothing. Writing identical bytes reports an unchanged edit
+and leaves the session clean. Sessions without a definition, unknown maps, maps
+that are not blob selections and unknown selection names are not applicable; the
+view still refreshes after an unknown name.
 
 Field resolution and patch application remain in the desktop edit adapter; their
 ownership extraction is separate

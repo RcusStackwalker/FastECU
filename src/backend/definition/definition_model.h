@@ -9,6 +9,7 @@
 #include <utility>
 #include <vector>
 
+#include "src/algorithms/protocol/bytes.h"
 #include "src/backend/ports/result.h"
 
 namespace fastecu::definition
@@ -140,6 +141,16 @@ struct UnresolvedCalibrationMap
     bool operator==(const UnresolvedCalibrationMap&) const = default;
 };
 
+// One named blob a selectable map can hold. Every selection of a scaling is the
+// same width.
+struct Selection
+{
+    std::string name;
+    bytes::Bytes value;
+
+    bool operator==(const Selection&) const = default;
+};
+
 struct Scaling
 {
     std::string name;
@@ -156,7 +167,7 @@ struct Scaling
     // axis it's attached to may still have its own storage_type.
     std::optional<StorageType> storage_type;
     std::string endian;
-    std::vector<std::pair<std::string, std::string>> selections;
+    std::vector<Selection> selections;
 
     bool operator==(const Scaling&) const = default;
 };

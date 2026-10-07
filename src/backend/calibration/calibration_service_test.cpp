@@ -100,10 +100,10 @@ TEST(ElementByteSizeTest, BloblistWithEmptySelectionsFallsBackToOneByte)
     EXPECT_EQ(element_byte_size(StorageType::Bloblist, &scaling), 1U);
 }
 
-TEST(ElementByteSizeTest, BloblistWidthComesFromFirstSelectionHexLength)
+TEST(ElementByteSizeTest, BloblistWidthComesFromFirstSelectionLength)
 {
     Scaling scaling;
-    scaling.selections = {{"disabled", "0000"}, {"enabled", "0001"}};
+    scaling.selections = {{"disabled", {0x00, 0x00}}, {"enabled", {0x00, 0x01}}};
 
     EXPECT_EQ(element_byte_size(StorageType::Bloblist, &scaling), 2U);
 }
@@ -111,7 +111,7 @@ TEST(ElementByteSizeTest, BloblistWidthComesFromFirstSelectionHexLength)
 TEST(ElementByteSizeTest, BloblistWidthMatchesLegacySingleByteSelections)
 {
     Scaling scaling;
-    scaling.selections = {{"disabled", "00"}, {"enabled", "01"}};
+    scaling.selections = {{"disabled", {0x00}}, {"enabled", {0x01}}};
 
     EXPECT_EQ(element_byte_size(StorageType::Bloblist, &scaling), 1U);
 }
@@ -288,7 +288,7 @@ TEST(ValidateRomSize, FailsWhenAxisExtentOverflowsWithNonContiguousStride)
 
 TEST(ValidateRomSize, BloblistExtentUsesWidthDerivedFromSelections)
 {
-    // The scaling's selections are 2-byte hex values ("0000"/"0001"), so the
+    // The scaling's selections are 2 bytes wide, so the
     // map's single element occupies 2 bytes, not the 1-byte fallback -- pushes
     // the extent one byte past a ROM that a naive 1-byte assumption would pass.
     CalibrationMap map;
@@ -298,7 +298,7 @@ TEST(ValidateRomSize, BloblistExtentUsesWidthDerivedFromSelections)
 
     Scaling scaling;
     scaling.name = "mode";
-    scaling.selections = {{"disabled", "0000"}, {"enabled", "0001"}};
+    scaling.selections = {{"disabled", {0x00, 0x00}}, {"enabled", {0x00, 0x01}}};
 
     EXPECT_THAT(validate_rom_size(definition_with_one_map(map, {scaling}), 0x1000),
                 ::testing::Not(fastecu::testing::IsOk()));
@@ -458,7 +458,7 @@ TEST(DecodeCalibrationMap, RetainsBlobBytes)
 {
     auto definition = one_map_definition(0);
     definition.maps[0].storage_type = StorageType::Bloblist;
-    definition.scalings[0].selections = {{"Choice", "ccdd"}};
+    definition.scalings[0].selections = {{"Choice", {0xcc, 0xdd}}};
     const bytes::Bytes rom{0xcc, 0xdd};
     const auto decoded = decode_calibration_map(definition, definition.maps[0], rom);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());

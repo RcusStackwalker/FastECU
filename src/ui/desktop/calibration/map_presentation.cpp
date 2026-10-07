@@ -5,8 +5,6 @@
 #include <format>
 #include <limits>
 
-#include "src/backend/definition/text_format.h"
-
 namespace fastecu::ui
 {
 namespace
@@ -50,26 +48,6 @@ std::optional<std::vector<PresentedCell>> present_axis(const calibration::AxisVa
         return cells;
     }
     return std::nullopt;
-}
-
-Result<bytes::Bytes> selection_bytes(std::string_view value)
-{
-    if (value.size() % 2 != 0)
-    {
-        return fail(ErrorKind::InvalidConfig, "selection hex value has an incomplete byte");
-    }
-    bytes::Bytes data;
-    data.reserve(value.size() / 2);
-    for (std::size_t offset = 0; offset < value.size(); offset += 2)
-    {
-        const auto byte = definition::parse_hex_value(value.substr(offset, 2));
-        if (!byte.has_value() || *byte > 255)
-        {
-            return fail(ErrorKind::InvalidConfig, "selection value is not hexadecimal bytes");
-        }
-        data.push_back(static_cast<bytes::Byte>(*byte));
-    }
-    return data;
 }
 } // namespace
 
@@ -117,14 +95,8 @@ Result<MapPresentation> present_map(const calibration::CalibrationSession& sessi
     {
         for (const auto& [name, value] : scaling->selections)
         {
-            auto data = selection_bytes(value);
-            if (!data.has_value())
-            {
-                return fail(data.error().kind,
-                            std::format("map '{}' selection '{}': {}", map.name, name, data.error().detail));
-            }
             result.selection_names.append(QString::fromStdString(name));
-            result.selection_values.push_back(std::move(*data));
+            result.selection_values.push_back(value);
         }
     }
     return result;

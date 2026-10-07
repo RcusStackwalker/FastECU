@@ -1,11 +1,27 @@
 #include "src/backend/definition/text_format.h"
 
+#include <string_view>
+
 #include <gtest/gtest.h>
 
 namespace fastecu::definition
 {
 namespace
 {
+
+TEST(ParseHexBytesTest, DecodesPairsOfHexDigitsInEitherCase)
+{
+    EXPECT_EQ(parse_hex_bytes("0aFf10"), (bytes::Bytes{0x0A, 0xFF, 0x10}));
+    EXPECT_EQ(parse_hex_bytes(""), bytes::Bytes{});
+}
+
+TEST(ParseHexBytesTest, RejectsAnythingButWholeBareBytes)
+{
+    for (const std::string_view text : {"0", "070", "0x07", "0Z", " 7", "7 ", "-1", "+1", "07 08"})
+    {
+        EXPECT_FALSE(parse_hex_bytes(text).has_value()) << text;
+    }
+}
 
 TEST(ParseHexValueTest, AcceptsPrefixedAndBareHex)
 {
