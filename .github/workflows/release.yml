@@ -126,6 +126,9 @@ jobs:
 
       - name: Build and package (Bazel)
         shell: bash
+        env:
+          # Git Bash would rewrite the leading "//" of the Bazel label to "/".
+          MSYS_NO_PATHCONV: '1'
         run: |
           bazel build --config=release --define=FASTECU_VERSION=${{ needs.release.outputs.tag }} //packaging:${{ matrix.package }}
           # The release asset's name carries the tag; the Bazel output's does not.

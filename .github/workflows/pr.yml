@@ -208,6 +208,9 @@ jobs:
       - name: Package from Bazel (verify only)
         if: matrix.package
         shell: bash
+        env:
+          # Git Bash would rewrite the leading "//" of the Bazel label to "/".
+          MSYS_NO_PATHCONV: '1'
         run: bazel build --config=release --define=FASTECU_VERSION=${{ github.sha }} //packaging:${{ matrix.package }}
 
       - name: Upload Bazel package (verify only)

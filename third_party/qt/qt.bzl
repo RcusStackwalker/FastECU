@@ -196,6 +196,12 @@ def qt_cc_test(name, srcs, deps = None, copts = [], data = [], env = {}, **kwarg
         **kwargs
     )
 
+# os -> (deploy tool relative to the moc anchor, platform constraints)
+_DEPLOY = {
+    "macos": ("../bin/macdeployqt", ["@platforms//os:macos", "@platforms//cpu:arm64"]),
+    "windows": ("windeployqt.exe", ["@platforms//os:windows"]),
+}
+
 def _qt_deploy_zip_impl(ctx):
     anchor = ctx.file.qt_anchor
     out = ctx.actions.declare_file(ctx.label.name + ".zip")
@@ -239,12 +245,12 @@ _qt_deploy_zip = rule(
     },
 )
 
-def qt_deploy_zip(name, app, assembler, extras = {}, **kwargs):
+def qt_deploy_zip(name, app, assembler, os, extras = {}, **kwargs):
     """Zip `app` with the Qt runtime that Qt's own deploy tool stages beside it.
 
     Uses macdeployqt / windeployqt from the same Qt that FastECU is built
-    against, so no Qt has to be installed on the host. macOS arm64 and Windows
-    x86_64 only; the target is incompatible elsewhere.
+    against, so no Qt has to be installed on the host. The target is
+    incompatible with every platform but `os`.
 
     The version written into the macOS bundle comes from
     `--define=FASTECU_VERSION=<v>` and defaults to "dev".
@@ -253,36 +259,29 @@ def qt_deploy_zip(name, app, assembler, extras = {}, **kwargs):
       name: Name of the target; produces `<name>.zip`.
       app: The built FastECU executable.
       assembler: The py_binary that stages and zips (//packaging:assemble).
+      os: "macos" (arm64) or "windows" (x86_64).
       extras: Files to place beside the app, as {label: file name in the zip}.
       **kwargs: Passed to the rule.
     """
+    if os not in _DEPLOY:
+        fail("os must be one of %s, got %r" % (sorted(_DEPLOY), os))
+    deploy_tool, constraints = _DEPLOY[os]
     _qt_deploy_zip(
         name = name,
         app = app,
         assembler = assembler,
         extras = extras,
         # A moc binary sits at a fixed spot in each Qt tree; the deploy tool is
-        # a sibling path of it.
+        # a sibling path of it. The default branch only lets analysis resolve on
+        # other platforms, where the target is incompatible and never runs.
         qt_anchor = select({
             "@platforms//os:windows": _MOC_WINDOWS,
             _OSX_ARM64: _MOC_MACOS,
             "//conditions:default": _MOC_LINUX,
         }),
-        kind = select({
-            "@platforms//os:windows": "windows",
-            _OSX_ARM64: "macos",
-            "//conditions:default": "unsupported",
-        }),
-        deploy_tool = select({
-            "@platforms//os:windows": "windeployqt.exe",
-            _OSX_ARM64: "../bin/macdeployqt",
-            "//conditions:default": "unsupported",
-        }),
-        target_compatible_with = select({
-            "@platforms//os:windows": [],
-            _OSX_ARM64: [],
-            "//conditions:default": ["@platforms//:incompatible"],
-        }),
+        kind = os,
+        deploy_tool = deploy_tool,
+        target_compatible_with = constraints,
         **kwargs
     )
 

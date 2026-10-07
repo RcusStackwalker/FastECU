@@ -26,6 +26,7 @@ qt_deploy_zip(
     name = "macos_zip",
     app = "//:fastecu",
     assembler = ":assemble",
+    os = "macos",
     visibility = ["//visibility:public"],
 )
 
@@ -36,5 +37,6 @@ qt_deploy_zip(
     extras = {
         "//src/platform/desktop/windows/j2534/j2534_bridge_host:j2534_bridge_host_x86": "j2534_bridge_host.exe",
     },
+    os = "windows",
     visibility = ["//visibility:public"],
 )
