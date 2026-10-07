@@ -320,24 +320,6 @@ bool axis_is_present(const AxisDefinition& axis)
     return axis != AxisDefinition{};
 }
 
-Scaling resolve_scaling(const UnresolvedScaling& value)
-{
-    return Scaling{
-        .name = value.name,
-        .units = value.units,
-        .from_byte = value.from_byte.value_or("x"),
-        .to_byte = value.to_byte.value_or("x"),
-        .format = value.format.value_or(""),
-        .minimum = value.minimum,
-        .maximum = value.maximum,
-        .coarse_increment = value.coarse_increment,
-        .fine_increment = value.fine_increment,
-        .storage_type = value.storage_type,
-        .endian = value.endian,
-        // Converted and validated separately; see resolve_selections.
-    };
-}
-
 AxisDefinition resolve_axis(const UnresolvedAxisDefinition& value, std::uint32_t default_size)
 {
     if (value == UnresolvedAxisDefinition{})
@@ -391,41 +373,6 @@ CalibrationMap resolve_map(const UnresolvedCalibrationMap& value)
     };
 }
 
-RomDefinition materialize(const UnresolvedDefinition& value)
-{
-    RomDefinition result{
-        .format = value.format,
-        .source = value.source,
-        .identity = value.identity,
-        .metadata = value.metadata,
-        .parents = value.parents,
-    };
-    result.maps.reserve(value.maps.size());
-    std::ranges::transform(value.maps, std::back_inserter(result.maps), resolve_map);
-    result.scalings.reserve(value.scalings.size());
-    std::ranges::transform(value.scalings, std::back_inserter(result.scalings), resolve_scaling);
-    return result;
-}
-
-Result<std::vector<Selection>> resolve_selections(const UnresolvedScaling& scaling)
-{
-    std::vector<Selection> selections;
-    selections.reserve(scaling.selections.size());
-    for (const auto& [name, hex] : scaling.selections)
-    {
-        auto value = parse_hex_bytes(hex);
-        if (!value.has_value())
-        {
-            return fail(ErrorKind::InvalidConfig,
-                        std::format("scaling '{}' has selection '{}' whose value is not whole "
-                                    "hexadecimal bytes",
-                                    scaling.name, name));
-        }
-        selections.push_back({.name = name, .value = std::move(*value)});
-    }
-    return selections;
-}
-
 Result<void> validate_scaling(const Scaling& scaling)
 {
     if (scaling.selections.empty())
@@ -466,6 +413,64 @@ Result<void> validate_scaling(const Scaling& scaling)
         }
     }
     return {};
+}
+
+Result<Scaling> resolve_scaling(const UnresolvedScaling& value)
+{
+    Scaling result{
+        .name = value.name,
+        .units = value.units,
+        .from_byte = value.from_byte.value_or("x"),
+        .to_byte = value.to_byte.value_or("x"),
+        .format = value.format.value_or(""),
+        .minimum = value.minimum,
+        .maximum = value.maximum,
+        .coarse_increment = value.coarse_increment,
+        .fine_increment = value.fine_increment,
+        .storage_type = value.storage_type,
+        .endian = value.endian,
+    };
+    result.selections.reserve(value.selections.size());
+    for (const auto& [name, hex] : value.selections)
+    {
+        auto bytes = parse_hex_bytes(hex);
+        if (!bytes.has_value())
+        {
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("scaling '{}' has selection '{}' whose value is not whole hexadecimal bytes",
+                                    value.name, name));
+        }
+        result.selections.push_back({.name = name, .value = std::move(*bytes)});
+    }
+    if (auto valid = validate_scaling(result); !valid.has_value())
+    {
+        return std::unexpected(valid.error());
+    }
+    return result;
+}
+
+Result<RomDefinition> materialize(const UnresolvedDefinition& value)
+{
+    RomDefinition result{
+        .format = value.format,
+        .source = value.source,
+        .identity = value.identity,
+        .metadata = value.metadata,
+        .parents = value.parents,
+    };
+    result.maps.reserve(value.maps.size());
+    std::ranges::transform(value.maps, std::back_inserter(result.maps), resolve_map);
+    result.scalings.reserve(value.scalings.size());
+    for (const UnresolvedScaling& scaling : value.scalings)
+    {
+        auto resolved = resolve_scaling(scaling);
+        if (!resolved.has_value())
+        {
+            return std::unexpected(resolved.error());
+        }
+        result.scalings.push_back(std::move(*resolved));
+    }
+    return result;
 }
 
 Result<void> apply_axis_scaling(AxisDefinition& axis, std::string_view axis_context,
@@ -560,24 +565,11 @@ Result<void> validate_axis(AxisDefinition& axis, std::string_view axis_context, 
     return apply_axis_scaling(axis, axis_context, scalings);
 }
 
-Result<void> validate_and_resolve_scalings(RomDefinition& definition, const UnresolvedDefinition& unresolved)
+Result<void> validate_and_resolve_maps(RomDefinition& definition, const UnresolvedDefinition& unresolved)
 {
     std::unordered_map<std::string, const UnresolvedScaling *> scalings;
-    for (std::size_t index = 0; index < unresolved.scalings.size(); ++index)
+    for (const UnresolvedScaling& scaling : unresolved.scalings)
     {
-        const UnresolvedScaling& scaling = unresolved.scalings[index];
-        auto selections = resolve_selections(scaling);
-        if (!selections.has_value())
-        {
-            return std::unexpected(selections.error());
-        }
-        // materialize kept the scalings in input order.
-        Scaling& resolved = definition.scalings[index];
-        resolved.selections = std::move(*selections);
-        if (const auto result = validate_scaling(resolved); !result.has_value())
-        {
-            return std::unexpected(result.error());
-        }
         scalings.try_emplace(scaling.name, &scaling);
     }
 
@@ -732,10 +724,15 @@ class ResolverState
         {
             return fail(resolved.error().kind, std::format("{}{}", context, resolved.error().detail));
         }
-        RomDefinition result = materialize(resolved->definition);
+        auto materialized = materialize(resolved->definition);
+        if (!materialized.has_value())
+        {
+            return fail(materialized.error().kind, std::format("{}{}", context, materialized.error().detail));
+        }
+        RomDefinition result = std::move(*materialized);
         result.resolved_sources = std::move(resolved->sources);
         result.resolved_definition_ids = std::move(resolved->ids);
-        if (auto valid = validate_and_resolve_scalings(result, resolved->definition); !valid.has_value())
+        if (auto valid = validate_and_resolve_maps(result, resolved->definition); !valid.has_value())
         {
             return fail(valid.error().kind, std::format("{}{}", context, valid.error().detail));
         }
