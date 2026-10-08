@@ -490,6 +490,11 @@ MainWindow::~MainWindow()
     {
         loggingEngine->stop();
     }
+    const auto closed = logging_csv_file_.end_run();
+    if (!closed.has_value())
+    {
+        emit LOG_E(QString::fromStdString(closed.error().detail), true, true);
+    }
 }
 
 void MainWindow::network_state_changed(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState)
@@ -2025,6 +2030,7 @@ void MainWindow::handleLoggingValuesUpdated(const QVector<fastecu::logging::LogS
 
 void MainWindow::restoreLoggingUiState()
 {
+    end_logging_csv();
     activeLoggingSnapshot.reset();
     logging_state = false;
     log_params_request_started = false;

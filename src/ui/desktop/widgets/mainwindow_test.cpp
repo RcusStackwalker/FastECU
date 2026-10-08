@@ -61,6 +61,7 @@
 #include "src/ui/desktop/connection/connection_coordinator.h"
 #include "src/ui/desktop/widgets/qt_identify_launcher.h"
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"
+#include "src/platform/desktop/common/logging/testing/failing_csv_storage.h"
 #include "src/platform/desktop/common/ports/qt_atomic_file_writer.h"
 #include "src/platform/desktop/common/ports/event_sink/qt_event_sink.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
@@ -947,6 +948,9 @@ class MainWindowTest : public ::testing::Test
     void check_unresolvedDisplaySlotsRemainVisibleAndUpdateTheirOriginalLabels();
     void check_chooserDuplicateLabelIdentity(int tab, QString kind);
     void check_csvSharedIdProtocolIdentity();
+    void check_csvNewRunsOwnNewFiles();
+    void check_csvFailureLeavesDisplayActive(bool write_failure);
+    void check_csvSessionEndsCloseTheirFile();
     void check_loggingStartWaitsForIdentification(bool target_is_ecu);
     void check_batterySamplingDoesNotUseTheFacadeDuringIdentification();
     void check_windowDestructionJoinsIdentificationWithoutContinuingLogging();
@@ -3746,6 +3750,172 @@ TEST_P(chooserDuplicateLabelIdentityParameters, chooserDuplicateLabelIdentity)
     ASSERT_NO_FATAL_FAILURE(check_chooserDuplicateLabelIdentity(GetParam().tab, GetParam().kind));
 }
 
+void MainWindowTest::check_csvNewRunsOwnNewFiles()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    driver.stop();
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    window.configSession->settings().datalog_files_directory = directory.path().toStdString();
+    prepareLogging(window, "SSM");
+    window.configSession->settings().selected_log_protocol = "SSM";
+    window.write_datalog_to_file = true;
+    services.logging_engine.registerProtocol("SSM",
+                                             [](const auto&)
+                                             {
+                                                 auto source = std::make_unique<ScriptedLoggingProtocol>();
+                                                 source->blockPollUntilCancelled();
+                                                 return source;
+                                             });
+    window.continue_start_logging();
+    ASSERT_TRUE(window.logging_csv_file_.is_open());
+    const auto first = window.last_logging_csv_path_;
+    window.handleLoggingValuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 42}});
+    QFile original(first);
+    ASSERT_TRUE(original.open(QIODevice::ReadOnly));
+    const auto first_bytes = original.readAll();
+    original.close();
+    EXPECT_TRUE(first_bytes.startsWith("Time,rpm,\n"));
+    EXPECT_TRUE(first_bytes.contains(",42,\n"));
+    services.logging_engine.stop();
+    EXPECT_FALSE(window.logging_csv_file_.is_open());
+    window.continue_start_logging();
+    ASSERT_TRUE(window.logging_csv_file_.is_open());
+    EXPECT_NE(first, window.last_logging_csv_path_);
+    window.handleLoggingValuesUpdated({});
+    QFile fresh(window.last_logging_csv_path_);
+    ASSERT_TRUE(fresh.open(QIODevice::ReadOnly));
+    const auto fresh_bytes = fresh.readAll();
+    fresh.close();
+    EXPECT_FALSE(fresh_bytes.contains(",42,\n"));
+    auto *file_action = window.ui->actionLogToFile;
+    file_action->setChecked(false);
+    window.toggle_log_to_file();
+    EXPECT_FALSE(window.logging_csv_file_.is_open());
+    EXPECT_TRUE(window.activeLoggingSnapshot.has_value());
+    file_action->setChecked(true);
+    window.toggle_log_to_file();
+    EXPECT_TRUE(window.logging_csv_file_.is_open());
+    services.logging_engine.stop();
+    EXPECT_FALSE(window.logging_csv_file_.is_open());
+    ASSERT_TRUE(original.open(QIODevice::ReadOnly));
+    EXPECT_EQ(original.readAll(), first_bytes);
+}
+TEST_F(MainWindowTest, csvNewRunsOwnNewFiles)
+{
+    ASSERT_NO_FATAL_FAILURE(check_csvNewRunsOwnNewFiles());
+}
+
+void MainWindowTest::check_csvFailureLeavesDisplayActive(bool write_failure)
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    window.configSession->settings().datalog_files_directory =
+        (write_failure ? directory.path() : directory.path() + "/absent").toStdString();
+    prepareLogging(window, "SSM");
+    window.configSession->settings().selected_log_protocol = "SSM";
+    auto storage = std::make_unique<fastecu::desktop::logging::testing::FailingCsvStorage>();
+    auto *injected = storage.get();
+    window.logging_csv_file_ = fastecu::desktop::logging::LoggingCsvFile(std::move(storage));
+    window.write_datalog_to_file = true;
+    services.logging_engine.registerProtocol("SSM",
+                                             [](const auto&)
+                                             {
+                                                 auto source = std::make_unique<ScriptedLoggingProtocol>();
+                                                 source->blockPollUntilCancelled();
+                                                 return source;
+                                             });
+    fastecu::testing::SignalRecorder errors{&window, &MainWindow::LOG_E};
+    window.continue_start_logging();
+    if (write_failure)
+    {
+        ASSERT_TRUE(window.logging_csv_file_.is_open());
+        injected->fail_writes = true;
+    }
+    window.handleLoggingValuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 42}});
+    EXPECT_TRUE(services.logging_engine.isRunning());
+    EXPECT_EQ(window.loggerValues.parameter_value("SSM", "rpm"), "42");
+    EXPECT_FALSE(window.logging_csv_file_.is_open());
+    EXPECT_EQ(errors.snapshot().size(), 1U);
+    window.handleLoggingValuesUpdated({{.channel_id = "parameter:rpm", .numeric_value = 43}});
+    EXPECT_EQ(errors.snapshot().size(), 1U);
+    EXPECT_EQ(window.loggerValues.parameter_value("SSM", "rpm"), "43");
+    services.logging_engine.stop();
+    driver.stop();
+}
+TEST_F(MainWindowTest, csvCreationFailureLeavesDisplayActive)
+{
+    ASSERT_NO_FATAL_FAILURE(check_csvFailureLeavesDisplayActive(false));
+}
+TEST_F(MainWindowTest, csvWriteFailureLeavesDisplayActive)
+{
+    ASSERT_NO_FATAL_FAILURE(check_csvFailureLeavesDisplayActive(true));
+}
+
+void MainWindowTest::check_csvSessionEndsCloseTheirFile()
+{
+    for (const std::string reason : {"handshake", "adapter", "runtime", "cancel", "factory"})
+    {
+        SCOPED_TRACE(reason);
+        ModalDriver driver{QString()};
+        driver.start();
+        TestServices services{config_root_->path()};
+        MainWindow window{services.services()};
+        QTemporaryDir directory;
+        ASSERT_TRUE(directory.isValid());
+        window.configSession->settings().datalog_files_directory = directory.path().toStdString();
+        prepareLogging(window, "SSM");
+        window.configSession->settings().selected_log_protocol = "SSM";
+        window.write_datalog_to_file = true;
+        services.logging_engine.registerProtocol(
+            "SSM",
+            [reason](const auto&) -> fastecu::Result<std::unique_ptr<fastecu::logging::LoggingProtocol>>
+            {
+                if (reason == "factory")
+                {
+                    return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "factory failure");
+                }
+                auto source = std::make_unique<ScriptedLoggingProtocol>();
+                if (reason == "handshake")
+                {
+                    source->queueStartResult(fastecu::fail(fastecu::ErrorKind::BadResponse, "handshake failure"));
+                }
+                else if (reason == "cancel")
+                {
+                    source->blockPollUntilCancelled();
+                }
+                else
+                {
+                    source->queuePollResult(fastecu::fail(reason == "adapter" ? fastecu::ErrorKind::Disconnected
+                                                                              : fastecu::ErrorKind::Internal,
+                                                          "poll failure"));
+                }
+                return source;
+            });
+        window.continue_start_logging();
+        if (reason == "cancel")
+        {
+            services.logging_engine.stop();
+        }
+        ASSERT_TRUE(fastecu::testing::wait_until([&] { return !window.activeLoggingSnapshot.has_value(); },
+                                                 std::chrono::milliseconds(2000)));
+        EXPECT_FALSE(window.logging_csv_file_.is_open());
+        EXPECT_TRUE(QFileInfo::exists(window.last_logging_csv_path_));
+        driver.stop();
+    }
+}
+TEST_F(MainWindowTest, csvSessionEndsCloseTheirFile)
+{
+    ASSERT_NO_FATAL_FAILURE(check_csvSessionEndsCloseTheirFile());
+}
+
 void MainWindowTest::check_csvSharedIdProtocolIdentity()
 {
     ModalDriver driver{QString()};
@@ -3789,15 +3959,14 @@ void MainWindowTest::check_csvSharedIdProtocolIdentity()
     window.write_datalog_to_file = true;
     window.log_to_file();
     window.log_to_file();
-    window.datalog_file_outstream.flush();
-    QFile csv{window.datalog_file.fileName()};
+    QFile csv{window.last_logging_csv_path_};
     ASSERT_TRUE(csv.open(QIODevice::ReadOnly));
     const auto content = csv.readAll();
-    ASSERT_TRUE(content.startsWith("Time,Correct CDBG,,Correct CDBG,\n"));
-    ASSERT_TRUE(content.contains(",22.00,,22.00,\n"));
+    ASSERT_TRUE(content.startsWith("Time,Correct CDBG,Correct CDBG,\n"));
+    ASSERT_TRUE(content.contains(",22.00,22.00,\n"));
     ASSERT_TRUE(!content.contains("Wrong SSM"));
     ASSERT_TRUE(!content.contains("11.00"));
-    window.datalog_file.close();
+    window.end_logging_csv();
 }
 
 TEST_F(MainWindowTest, csvSharedIdProtocolIdentity)
@@ -3990,11 +4159,19 @@ void MainWindowTest::check_connectStopsAnActiveLoggingWorkerBeforeIdentification
     ASSERT_THAT(services.logging_engine.start({"SSM"}, *snapshot), fastecu::testing::IsOk());
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return services.logging_engine.isRunning(); },
                                              std::chrono::milliseconds(5000)));
+    QTemporaryDir directory;
+    ASSERT_TRUE(directory.isValid());
+    window.configSession->settings().datalog_files_directory = directory.path().toStdString();
+    window.activeLoggingSnapshot = *snapshot;
+    window.write_datalog_to_file = true;
+    window.begin_logging_csv();
+    ASSERT_TRUE(window.logging_csv_file_.is_open());
     window.logging_state = true;
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     ASSERT_TRUE(window.connection_coordinator_->identifying());
     ASSERT_TRUE(!services.logging_engine.isRunning());
     ASSERT_TRUE(!window.logging_state);
+    EXPECT_FALSE(window.logging_csv_file_.is_open());
 }
 
 TEST_F(MainWindowTest, connectStopsAnActiveLoggingWorkerBeforeIdentification)
