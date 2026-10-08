@@ -30,6 +30,25 @@ LoggerParameter parameter()
             .conversions = {{"rpm", "x", "0.00", "0", "100", "1"}}};
 }
 
+TEST(LoggingChannelPreparation, PreservesExplicitAddressOrder)
+{
+    auto p = parameter();
+    p.address = "0x11";
+    p.address_specs = {{.value = "0x11"}, {.value = "0x10"}};
+    const auto result = prepare_logging_channel(p, LoggingProtocolId::Ssm);
+    ASSERT_THAT(result, IsOk());
+    EXPECT_EQ(result->length, 2U);
+    EXPECT_EQ(result->byte_addresses, (std::vector<std::uint32_t>{0x11, 0x10}));
+}
+TEST(LoggingChannelPreparation, RejectsConflictingLengthMetadata)
+{
+    auto p = parameter();
+    p.declared_length = "1";
+    p.address_specs = {{.value = "0x10", .length = "2"}};
+    EXPECT_THAT(prepare_logging_channel(p, LoggingProtocolId::Ssm),
+                IsErrWith(ErrorKind::InvalidConfig, HasSubstr("length")));
+}
+
 struct InvalidInput
 {
     std::string field;

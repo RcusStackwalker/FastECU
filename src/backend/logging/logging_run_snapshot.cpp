@@ -58,6 +58,21 @@ LoggingRunSnapshot::LoggingRunSnapshot(LoggingSession session, std::string proto
 {
 }
 
+const std::vector<LoggingMeasurement>& LoggingRunSnapshot::measurements() const
+{
+    return measurements_;
+}
+const LoggingMeasurement *LoggingRunSnapshot::find_measurement(LoggingMeasurementKind kind, std::string_view id) const
+{
+    for (const auto& item : measurements_)
+    {
+        if (item.kind == kind && item.identity.second == id)
+        {
+            return &item;
+        }
+    }
+    return nullptr;
+}
 const LoggingSession& LoggingRunSnapshot::session() const
 {
     return session_;
@@ -138,7 +153,19 @@ fastecu::Result<LoggingRunSnapshot> prepare_logging_run(const LoggerModel& model
     {
         return fastecu::fail(session.error().kind, std::format("{}: {}", *filter, session.error().detail));
     }
-    return LoggingRunSnapshot(std::move(*session), *filter, model.selection(), std::move(response_offsets),
-                              std::move(enabled_ids), target);
+    LoggingRunSnapshot snapshot(std::move(*session), *filter, model.selection(), std::move(response_offsets),
+                                std::move(enabled_ids), target);
+    for (const auto& channel : snapshot.session().channels())
+    {
+        const auto *source = model.parameter(*filter, channel.id);
+        snapshot.measurements_.push_back({.kind = LoggingMeasurementKind::Parameter,
+                                          .identity = {*filter, channel.id},
+                                          .channel_id = channel.id,
+                                          .name = source->name,
+                                          .unit = channel.unit,
+                                          .decimal_precision = channel.decimal_precision,
+                                          .support = model.parameter_support(*filter, channel.id)});
+    }
+    return snapshot;
 }
 } // namespace fastecu::logging

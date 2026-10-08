@@ -96,6 +96,7 @@ cc_library(
         "//src/algorithms/protocol/colt:mitsu_colt_can_cdbg_protocol",
     ],
     deps = [
+        ":logging_read_plan",
         ":logging_types",
         "//src/backend/ports",
     ],
@@ -254,5 +255,25 @@ fastecu_portable_gtest(
         ":logging_sample_resolution",
         "//src/backend/ports/testing:result_matchers",
         "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "logging_read_plan_test",
+    srcs = ["logging_read_plan_test.cpp"],
+    deps = [
+        ":logging_read_plan",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "logging_read_plan",
+    srcs = ["logging_read_plan.cpp"],
+    hdrs = ["logging_read_plan.h"],
+    deps = [
+        ":logging_types",
+        "//src/backend/ports",
     ],
 )

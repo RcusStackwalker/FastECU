@@ -47,6 +47,25 @@ LoggerModel model(LoggerDefinition definition, std::vector<std::string> ids)
     return result;
 }
 
+TEST(LoggingRunSnapshot, OwnsMeasurementPresentationAfterModelDestruction)
+{
+    const auto run = []
+    {
+        auto rpm = parameter("rpm");
+        rpm.name = "Engine RPM";
+        const auto source = model({.parameters = {rpm}}, {"rpm"});
+        return prepare_logging_run(source, LoggingProtocolId::Ssm, "SSM", policy(), LoggingTarget::Ecu);
+    }();
+    ASSERT_THAT(run, IsOk());
+    const auto *measurement = run->find_measurement(LoggingMeasurementKind::Parameter, "rpm");
+    ASSERT_NE(measurement, nullptr);
+    EXPECT_EQ(measurement->identity, (LoggerIdentity{"SSM", "rpm"}));
+    EXPECT_EQ(measurement->name, "Engine RPM");
+    EXPECT_EQ(measurement->unit, "rpm");
+    EXPECT_EQ(measurement->decimal_precision, 2);
+    EXPECT_EQ(measurement->support, EcuSupport::Unknown);
+}
+
 TEST(LoggingRunSnapshot, PreservesProtocolSelectionSupportAndOriginalOffsets)
 {
     const auto values = model({.parameters = {parameter("other", "OTHER"), parameter("off", "CAR_SSM", false),

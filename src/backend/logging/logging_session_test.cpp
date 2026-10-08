@@ -197,3 +197,25 @@ TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)
     EXPECT_THAT(make_logging_session(LoggingProtocolId::MutDma, std::move(too_many_mut_channels), valid_policy()),
                 ::testing::Not(fastecu::testing::IsOk()));
 }
+
+TEST(LoggingSessionTest, SsmCapacityCountsPhysicalBytes)
+{
+    std::vector<LoggingChannel> channels;
+    for (int i = 0; i < 21; ++i)
+    {
+        auto source = channel(std::to_string(i), static_cast<std::uint32_t>(i * 4));
+        source.length = 4;
+        channels.push_back(source);
+    }
+    ASSERT_THAT(make_logging_session(LoggingProtocolId::Ssm, channels, valid_policy()), fastecu::testing::IsOk());
+    auto extra = channel("extra", 0x100);
+    extra.length = 4;
+    channels.push_back(extra);
+    EXPECT_THAT(make_logging_session(LoggingProtocolId::Ssm, channels, valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+}
+TEST(LoggingSessionTest, SsmRejectsMultiByteAddressOverflow)
+{
+    EXPECT_THAT(make_logging_session(LoggingProtocolId::Ssm, {channel("wide", 0xffffff)}, valid_policy()),
+                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+}

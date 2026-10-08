@@ -18,10 +18,28 @@ enum class LoggingTarget
     Tcu,
 };
 
+enum class LoggingMeasurementKind
+{
+    Parameter,
+    Switch
+};
+struct LoggingMeasurement
+{
+    LoggingMeasurementKind kind;
+    LoggerIdentity identity;
+    std::string channel_id;
+    std::string name;
+    std::string unit;
+    std::uint8_t decimal_precision;
+    EcuSupport support;
+};
+
 class LoggingRunSnapshot
 {
   public:
     const LoggingSession& session() const;
+    const std::vector<LoggingMeasurement>& measurements() const;
+    const LoggingMeasurement *find_measurement(LoggingMeasurementKind kind, std::string_view id) const;
     const std::string& protocol_key() const;
     const LoggerSelection& selection() const;
     const std::vector<std::size_t>& response_offsets() const;
@@ -39,6 +57,7 @@ class LoggingRunSnapshot
     std::vector<std::size_t> response_offsets_;
     std::unordered_set<std::string> enabled_ids_;
     LoggingTarget target_;
+    std::vector<LoggingMeasurement> measurements_;
 
     friend fastecu::Result<LoggingRunSnapshot> prepare_logging_run(const LoggerModel& model, LoggingProtocolId protocol,
                                                                    std::string_view protocol_filter,

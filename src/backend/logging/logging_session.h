@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "src/backend/logging/logging_types.h"
+#include "src/backend/logging/logging_read_plan.h"
 #include "src/backend/ports/result.h"
 
 namespace fastecu::logging
@@ -13,16 +14,19 @@ class LoggingSession
 {
   public:
     LoggingProtocolId protocol() const;
+    const std::optional<SsmReadPlan>& ssm_read_plan() const;
     const std::vector<LoggingChannel>& channels() const;
     const LoggingPolicy& policy() const;
     const LoggingChannel *find_channel(std::string_view id) const;
 
   private:
-    LoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy);
+    LoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy,
+                   std::optional<SsmReadPlan> read_plan);
 
     LoggingProtocolId protocol_;
     std::vector<LoggingChannel> channels_;
     LoggingPolicy policy_;
+    std::optional<SsmReadPlan> read_plan_;
 
     friend fastecu::Result<LoggingSession>
     make_logging_session(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy);
