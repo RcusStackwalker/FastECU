@@ -1,6 +1,7 @@
-# FastECU calibration language
+# FastECU domain language
 
-Terms used when viewing and editing calibration maps.
+Terms used when viewing and editing calibration maps, running terminal scripts,
+and logging vehicle measurements.
 
 ## Language
 
@@ -52,3 +53,11 @@ A step that sends one frame and reads its response.
 **Delay step**:
 A step that only pauses; it sends nothing, and consecutive delay steps add up.
 _Avoid_: Response wait
+
+## Logging
+
+**Logging run snapshot**:
+The fixed choices and measurement definitions captured for one logging run,
+including its protocol, ECU/TCU target, selected channels, and support status.
+Later edits apply to subsequent runs.
+_Avoid_: Live logger configuration
