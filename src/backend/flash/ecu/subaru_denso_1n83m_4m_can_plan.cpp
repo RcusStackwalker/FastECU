@@ -28,7 +28,7 @@ constexpr std::uint32_t kTailPad = 0x100;
 // cannot check it. Nothing on either path consumes romsize -- read_memory
 // discards the length argument derived from it at line 836 -- so the check
 // guards the flash table, not the transfer.
-bool geometry_ok(const flashdev_t& device)
+bool geometry_ok(const FlashDevice& device)
 {
     return device.numblocks == 3 && device.romsize == kImageSize && device.fblocks[0].start == kImageStart &&
            device.fblocks[1].start == kMainBlock.start && device.fblocks[1].len == kMainBlock.length;

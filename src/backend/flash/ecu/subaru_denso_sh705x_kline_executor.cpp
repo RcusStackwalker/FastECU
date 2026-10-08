@@ -666,7 +666,7 @@ Result<std::uint32_t> read_block_crc(IKlineFlashTransport& transport, IClock& cl
 // get_changed_blocks():767-791 and check_romcrc():858-879.
 Result<std::vector<bool>> compare_blocks(IKlineFlashTransport& transport, IClock& clock,
                                          const ICancellationToken& cancellation, IEventSink& events,
-                                         const flashdev_t& device, bytes::ByteView image)
+                                         const FlashDevice& device, bytes::ByteView image)
 {
     std::vector<bool> changed(device.numblocks, false);
     for (unsigned i = 0; i < device.numblocks; ++i)
@@ -908,7 +908,7 @@ Status reflash_block(IKlineFlashTransport& transport, IClock& clock, const ICanc
 Status write_mem(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,
                  IEventSink& events, const FlashPlan& plan)
 {
-    const flashdev_t *device = find_flash_device(plan.mcu_name());
+    const FlashDevice *device = find_flash_device(plan.mcu_name());
     if (device == nullptr || !plan.image().has_value() || plan.image()->size() < device->romsize)
     {
         return fail(ErrorKind::InvalidConfig, "Denso SH705x K-Line write needs the full ROM image");

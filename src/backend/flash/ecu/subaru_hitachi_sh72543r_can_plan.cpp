@@ -25,7 +25,7 @@ constexpr int kBitrate = 500000;
 constexpr std::uint32_t kPageSize = 0x400;
 constexpr std::uint32_t kWriteFrameSize = 0x100U;
 
-Status validate_identity(std::string_view protocol, std::string_view mcu, const flashdev_t *& device)
+Status validate_identity(std::string_view protocol, std::string_view mcu, const FlashDevice *& device)
 {
     if (protocol != kProtocol && protocol != "sub_ecu_hitachi_sh72543r_can_recovery")
     {
@@ -98,7 +98,7 @@ Status validate_subaru_hitachi_sh72543r_can_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "plan is not for Subaru Hitachi SH72543R CAN");
     }
-    const flashdev_t *device = nullptr;
+    const FlashDevice *device = nullptr;
     if (Status identity = validate_identity(plan.target_id(), plan.mcu_name(), device); !identity.has_value())
     {
         return identity;
@@ -134,7 +134,7 @@ Status validate_subaru_hitachi_sh72543r_can_plan(const FlashPlan& plan)
 Result<FlashPlan> build_subaru_hitachi_sh72543r_can_plan(FlashOperation operation, std::string_view protocol_name,
                                                          std::string_view mcu_type, std::optional<bytes::Bytes> image)
 {
-    const flashdev_t *device = nullptr;
+    const FlashDevice *device = nullptr;
     if (Status identity = validate_identity(protocol_name, mcu_type, device); !identity.has_value())
     {
         return std::unexpected(identity.error());

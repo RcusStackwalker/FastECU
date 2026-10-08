@@ -31,7 +31,7 @@ constexpr int kBitrate = 500000;
 constexpr std::uint32_t kPageSize = 0x100;
 constexpr std::uint32_t kWriteFrameSize = 128U;
 
-Status validate_identity(std::string_view protocol, std::string_view mcu, const flashdev_t *& device)
+Status validate_identity(std::string_view protocol, std::string_view mcu, const FlashDevice *& device)
 {
     if (protocol != kProtocol)
     {
@@ -101,7 +101,7 @@ Status validate_subaru_tcu_hitachi_m32r_can_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "plan is not for Subaru TCU Hitachi M32R CAN");
     }
-    const flashdev_t *device = nullptr;
+    const FlashDevice *device = nullptr;
     if (Status identity = validate_identity(plan.target_id(), plan.mcu_name(), device); !identity.has_value())
     {
         return identity;
@@ -137,7 +137,7 @@ Status validate_subaru_tcu_hitachi_m32r_can_plan(const FlashPlan& plan)
 Result<FlashPlan> build_subaru_tcu_hitachi_m32r_can_plan(FlashOperation operation, std::string_view protocol_name,
                                                          std::string_view mcu_type, std::optional<bytes::Bytes> image)
 {
-    const flashdev_t *device = nullptr;
+    const FlashDevice *device = nullptr;
     if (Status identity = validate_identity(protocol_name, mcu_type, device); !identity.has_value())
     {
         return std::unexpected(identity.error());

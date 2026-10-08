@@ -66,36 +66,36 @@ TEST(TestDesktopCanFlashTransport, configureChecksEveryBooleanSetterInOrderAndSt
     ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
 }
 
-struct configureFailsAtEachRemainingSetterInTurnCase
+struct ConfigureFailsAtEachRemainingSetterInTurnCase
 {
     std::string name;
     int setterIndex;
 };
-class configureFailsAtEachRemainingSetterInTurnParameters
+class ConfigureFailsAtEachRemainingSetterInTurnParameters
     : public ::testing::Test,
-      public ::testing::WithParamInterface<configureFailsAtEachRemainingSetterInTurnCase>
+      public ::testing::WithParamInterface<ConfigureFailsAtEachRemainingSetterInTurnCase>
 {
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    Rows, configureFailsAtEachRemainingSetterInTurnParameters,
-    ::testing::Values(configureFailsAtEachRemainingSetterInTurnCase{"set_is_iso15765_connection", 0},
-                      configureFailsAtEachRemainingSetterInTurnCase{"set_is_can_connection", 1},
-                      configureFailsAtEachRemainingSetterInTurnCase{"set_is_iso14230_connection", 2},
-                      configureFailsAtEachRemainingSetterInTurnCase{"set_is_29_bit_id", 3},
-                      configureFailsAtEachRemainingSetterInTurnCase{"set_can_source_address", 5},
-                      configureFailsAtEachRemainingSetterInTurnCase{"set_can_destination_address", 6},
-                      configureFailsAtEachRemainingSetterInTurnCase{"set_iso15765_source_address", 7},
-                      configureFailsAtEachRemainingSetterInTurnCase{"set_iso15765_destination_address", 8},
-                      configureFailsAtEachRemainingSetterInTurnCase{"set_add_iso14230_header", 9}),
-    [](const ::testing::TestParamInfo<configureFailsAtEachRemainingSetterInTurnCase>& info)
+    Rows, ConfigureFailsAtEachRemainingSetterInTurnParameters,
+    ::testing::Values(ConfigureFailsAtEachRemainingSetterInTurnCase{"set_is_iso15765_connection", 0},
+                      ConfigureFailsAtEachRemainingSetterInTurnCase{"set_is_can_connection", 1},
+                      ConfigureFailsAtEachRemainingSetterInTurnCase{"set_is_iso14230_connection", 2},
+                      ConfigureFailsAtEachRemainingSetterInTurnCase{"set_is_29_bit_id", 3},
+                      ConfigureFailsAtEachRemainingSetterInTurnCase{"set_can_source_address", 5},
+                      ConfigureFailsAtEachRemainingSetterInTurnCase{"set_can_destination_address", 6},
+                      ConfigureFailsAtEachRemainingSetterInTurnCase{"set_iso15765_source_address", 7},
+                      ConfigureFailsAtEachRemainingSetterInTurnCase{"set_iso15765_destination_address", 8},
+                      ConfigureFailsAtEachRemainingSetterInTurnCase{"set_add_iso14230_header", 9}),
+    [](const ::testing::TestParamInfo<ConfigureFailsAtEachRemainingSetterInTurnCase>& info)
     { return info.param.name; });
 
 // Data-driven sibling of configureChecksEveryBooleanSetterInOrderAndStops-
 // AtFirstFailure() above (which only exercises the fifth setter's
 // failure branch, set_can_speed): proves every remaining setter's own
 // InvalidConfig return path independently.
-TEST_P(configureFailsAtEachRemainingSetterInTurnParameters, configureFailsAtEachRemainingSetterInTurn)
+TEST_P(ConfigureFailsAtEachRemainingSetterInTurnParameters, configureFailsAtEachRemainingSetterInTurn)
 {
     const int setterIndex = GetParam().setterIndex;
 

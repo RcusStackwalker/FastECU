@@ -236,32 +236,32 @@ void expectNoBackendIo(FakeBackend& fake)
 
 } // namespace
 
-struct chooserReturnsTheActionNamedByEachLegacyButtonCase
+struct ChooserReturnsTheActionNamedByEachLegacyButtonCase
 {
     std::string name;
     QString choice;
     int expected_action;
 };
-class chooserReturnsTheActionNamedByEachLegacyButtonParameters
+class ChooserReturnsTheActionNamedByEachLegacyButtonParameters
     : public ::testing::Test,
-      public ::testing::WithParamInterface<chooserReturnsTheActionNamedByEachLegacyButtonCase>
+      public ::testing::WithParamInterface<ChooserReturnsTheActionNamedByEachLegacyButtonCase>
 {
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    Rows, chooserReturnsTheActionNamedByEachLegacyButtonParameters,
-    ::testing::Values(chooserReturnsTheActionNamedByEachLegacyButtonCase{"dump", "Dump",
+    Rows, ChooserReturnsTheActionNamedByEachLegacyButtonParameters,
+    ::testing::Values(ChooserReturnsTheActionNamedByEachLegacyButtonCase{"dump", "Dump",
                                                                          static_cast<int>(DensoTcuReadAction::Dump)},
-                      chooserReturnsTheActionNamedByEachLegacyButtonCase{"relearn", "Relearn",
+                      ChooserReturnsTheActionNamedByEachLegacyButtonCase{"relearn", "Relearn",
                                                                          static_cast<int>(DensoTcuReadAction::Relearn)},
-                      chooserReturnsTheActionNamedByEachLegacyButtonCase{
+                      ChooserReturnsTheActionNamedByEachLegacyButtonCase{
                           "read", "Read Param", static_cast<int>(DensoTcuReadAction::ReadParameters)},
-                      chooserReturnsTheActionNamedByEachLegacyButtonCase{
+                      ChooserReturnsTheActionNamedByEachLegacyButtonCase{
                           "set", "Set Param", static_cast<int>(DensoTcuReadAction::SetParameters)}),
-    [](const ::testing::TestParamInfo<chooserReturnsTheActionNamedByEachLegacyButtonCase>& info)
+    [](const ::testing::TestParamInfo<ChooserReturnsTheActionNamedByEachLegacyButtonCase>& info)
     { return info.param.name; });
 
-TEST_P(chooserReturnsTheActionNamedByEachLegacyButtonParameters, chooserReturnsTheActionNamedByEachLegacyButton)
+TEST_P(ChooserReturnsTheActionNamedByEachLegacyButtonParameters, chooserReturnsTheActionNamedByEachLegacyButton)
 {
     const QString choice = GetParam().choice;
     const int expected_action = GetParam().expected_action;
@@ -288,29 +288,29 @@ TEST(DensoTcuReadPreflightTest, dismissingChooserReturnsCancelled)
     ASSERT_TRUE(!driver.timedOut());
 }
 
-struct dumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase
+struct DumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase
 {
     std::string name;
     int action;
     bool handled;
 };
-class dumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters
+class DumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters
     : public ::testing::Test,
-      public ::testing::WithParamInterface<dumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase>
+      public ::testing::WithParamInterface<DumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase>
 {
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    Rows, dumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters,
-    ::testing::Values(dumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase{"dump",
+    Rows, DumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters,
+    ::testing::Values(DumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase{"dump",
                                                                              static_cast<int>(DensoTcuReadAction::Dump),
                                                                              false},
-                      dumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase{
+                      DumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase{
                           "cancelled", static_cast<int>(DensoTcuReadAction::Cancelled), true}),
-    [](const ::testing::TestParamInfo<dumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase>& info)
+    [](const ::testing::TestParamInfo<DumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase>& info)
     { return info.param.name; });
 
-TEST_P(dumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters, dumpAndCancelledReturnWithoutIgnitionOrSerialCalls)
+TEST_P(DumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters, dumpAndCancelledReturnWithoutIgnitionOrSerialCalls)
 {
     const int action = GetParam().action;
     const bool handled = GetParam().handled;
@@ -331,30 +331,30 @@ TEST_P(dumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters, dumpAndCanc
     ASSERT_TRUE(driver.serviceDialogTitles().isEmpty());
 }
 
-struct decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase
+struct DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase
 {
     std::string name;
     int action;
 };
-class decliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters
+class DecliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters
     : public ::testing::Test,
-      public ::testing::WithParamInterface<decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase>
+      public ::testing::WithParamInterface<DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase>
 {
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    Rows, decliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters,
+    Rows, DecliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters,
     ::testing::Values(
-        decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{"relearn",
+        DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{"relearn",
                                                                   static_cast<int>(DensoTcuReadAction::Relearn)},
-        decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{"read",
+        DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{"read",
                                                                   static_cast<int>(DensoTcuReadAction::ReadParameters)},
-        decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{"set",
+        DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{"set",
                                                                   static_cast<int>(DensoTcuReadAction::SetParameters)}),
-    [](const ::testing::TestParamInfo<decliningIgnitionSkipsEveryServiceDialogAndSerialCallCase>& info)
+    [](const ::testing::TestParamInfo<DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase>& info)
     { return info.param.name; });
 
-TEST_P(decliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters,
+TEST_P(DecliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters,
        decliningIgnitionSkipsEveryServiceDialogAndSerialCall)
 {
     const int action = GetParam().action;
@@ -377,31 +377,31 @@ TEST_P(decliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters,
     ASSERT_TRUE(driver.serviceDialogTitles().isEmpty());
 }
 
-struct acceptingIgnitionOpensTheMatchingRealServiceDialogCase
+struct AcceptingIgnitionOpensTheMatchingRealServiceDialogCase
 {
     std::string name;
     int action;
     QString title;
 };
-class acceptingIgnitionOpensTheMatchingRealServiceDialogParameters
+class AcceptingIgnitionOpensTheMatchingRealServiceDialogParameters
     : public ::testing::Test,
-      public ::testing::WithParamInterface<acceptingIgnitionOpensTheMatchingRealServiceDialogCase>
+      public ::testing::WithParamInterface<AcceptingIgnitionOpensTheMatchingRealServiceDialogCase>
 {
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    Rows, acceptingIgnitionOpensTheMatchingRealServiceDialogParameters,
+    Rows, AcceptingIgnitionOpensTheMatchingRealServiceDialogParameters,
     ::testing::Values(
-        acceptingIgnitionOpensTheMatchingRealServiceDialogCase{"relearn", static_cast<int>(DensoTcuReadAction::Relearn),
+        AcceptingIgnitionOpensTheMatchingRealServiceDialogCase{"relearn", static_cast<int>(DensoTcuReadAction::Relearn),
                                                                "TCU Relearn"},
-        acceptingIgnitionOpensTheMatchingRealServiceDialogCase{
+        AcceptingIgnitionOpensTheMatchingRealServiceDialogCase{
             "read", static_cast<int>(DensoTcuReadAction::ReadParameters), "Read TCU Parameters"},
-        acceptingIgnitionOpensTheMatchingRealServiceDialogCase{
+        AcceptingIgnitionOpensTheMatchingRealServiceDialogCase{
             "set", static_cast<int>(DensoTcuReadAction::SetParameters), "Set TCU Parameters"}),
-    [](const ::testing::TestParamInfo<acceptingIgnitionOpensTheMatchingRealServiceDialogCase>& info)
+    [](const ::testing::TestParamInfo<AcceptingIgnitionOpensTheMatchingRealServiceDialogCase>& info)
     { return info.param.name; });
 
-TEST_P(acceptingIgnitionOpensTheMatchingRealServiceDialogParameters, acceptingIgnitionOpensTheMatchingRealServiceDialog)
+TEST_P(AcceptingIgnitionOpensTheMatchingRealServiceDialogParameters, acceptingIgnitionOpensTheMatchingRealServiceDialog)
 {
     const int action = GetParam().action;
     const QString title = GetParam().title;

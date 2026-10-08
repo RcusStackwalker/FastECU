@@ -88,3 +88,21 @@ CheckOptions:
     value: lower_case
   - key: readability-identifier-naming.ClassMemberSuffix
     value: _
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.UnionCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+  # Same digit-adjacent underscore allowance as constexpr variables
+  # (SubaruDensoSh7055_02Executor): capitalization cannot separate a digit run.
+  - key: readability-identifier-naming.ClassIgnoredRegexp
+    value: '^[A-Z]([A-Za-z0-9]|_?[0-9]_[A-Za-z]|_[0-9])*$'
+  # Struct names: same digit-adjacent underscore allowance as classes.
+  - key: readability-identifier-naming.StructIgnoredRegexp
+    value: '^[A-Z]([A-Za-z0-9]|_?[0-9]_[A-Za-z]|_[0-9])*$'
+  # Type alias names: same digit-adjacent underscore allowance as classes.
+  - key: readability-identifier-naming.TypeAliasIgnoredRegexp
+    value: '^[A-Z]([A-Za-z0-9]|_?[0-9]_[A-Za-z]|_[0-9])*$'

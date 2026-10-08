@@ -65,9 +65,9 @@ Status validate_identity(std::string_view protocol, std::string_view mcu, const 
     return {};
 }
 
-const flashdev_t *checked_device()
+const FlashDevice *checked_device()
 {
-    const flashdev_t *device = find_flash_device(kMcu);
+    const FlashDevice *device = find_flash_device(kMcu);
     if (device == nullptr || device->romsize != kRomSize || device->numblocks != 16 || device->fblocks == nullptr ||
         device->kblocks == nullptr)
     {
@@ -82,7 +82,7 @@ bool wire_parameters_match(const SubaruDensoSh7058CanPlan& wire, const CatalogEn
            wire.security == entry.security;
 }
 
-Status validate_image(const FlashPlan& plan, const flashdev_t& device)
+Status validate_image(const FlashPlan& plan, const FlashDevice& device)
 {
     if (plan.operation() == FlashOperation::Read)
     {
@@ -114,7 +114,7 @@ Status validate_subaru_denso_sh7058_can_plan(const FlashPlan& plan)
     {
         return fail(ErrorKind::InvalidConfig, "petrol SH7058 CAN wire/security parameters are invalid");
     }
-    const flashdev_t *device = checked_device();
+    const FlashDevice *device = checked_device();
     if (device == nullptr)
     {
         return fail(ErrorKind::InvalidConfig, "petrol SH7058 catalog does not match the flash device table");
@@ -149,7 +149,7 @@ Result<FlashPlan> build_subaru_denso_sh7058_can_plan(FlashOperation operation, s
     {
         return std::unexpected(identity.error());
     }
-    const flashdev_t *device = checked_device();
+    const FlashDevice *device = checked_device();
     if (device == nullptr)
     {
         return fail(ErrorKind::InvalidConfig, "petrol SH7058 catalog does not match the flash device table");

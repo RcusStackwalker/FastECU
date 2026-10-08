@@ -568,7 +568,7 @@ Result<bytes::Bytes> read_memory(Ctx& ctx, const SubaruDensoSh72543CanDieselPlan
 }
 
 // Legacy erase_memory, lines 1375-1488. Unlike its siblings this one takes the
-// block it is to erase -- `erase_memory(const flashdev_t *fdt, unsigned
+// block it is to erase -- `erase_memory(const FlashDevice *fdt, unsigned
 // blockno)` -- and write_memory calls it as
 // `erase_memory(&kFlashDevices[mcu_type_index], 0)` (line 1106), i.e. block 0,
 // which is the plan's transfer region. Shape is otherwise the siblings': the

@@ -49,7 +49,7 @@ Result<Variant> find_variant(std::string_view protocol, std::string_view mcu)
         return fail(ErrorKind::InvalidConfig,
                     std::format("Unisia Jecs M32R protocol '{}' does not match MCU '{}'", protocol, mcu));
     }
-    const flashdev_t *device = find_flash_device(mcu);
+    const FlashDevice *device = find_flash_device(mcu);
     if (device == nullptr || device->romsize != variant->rom_size || device->fblocks == nullptr ||
         device->fblocks[0].start != 0)
     {

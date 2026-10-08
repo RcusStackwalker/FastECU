@@ -68,24 +68,24 @@ struct SessionOnDisk
 
 } // namespace
 
-struct providerCheckboxesPersistBothDirectionsCase
+struct ProviderCheckboxesPersistBothDirectionsCase
 {
     std::string name;
     bool enabled;
 };
-class providerCheckboxesPersistBothDirectionsParameters
+class ProviderCheckboxesPersistBothDirectionsParameters
     : public ::testing::Test,
-      public ::testing::WithParamInterface<providerCheckboxesPersistBothDirectionsCase>
+      public ::testing::WithParamInterface<ProviderCheckboxesPersistBothDirectionsCase>
 {
 };
 
-INSTANTIATE_TEST_SUITE_P(Rows, providerCheckboxesPersistBothDirectionsParameters,
-                         ::testing::Values(providerCheckboxesPersistBothDirectionsCase{"enabled_romraider", true},
-                                           providerCheckboxesPersistBothDirectionsCase{"disabled_ecuflash", false}),
-                         [](const ::testing::TestParamInfo<providerCheckboxesPersistBothDirectionsCase>& info)
+INSTANTIATE_TEST_SUITE_P(Rows, ProviderCheckboxesPersistBothDirectionsParameters,
+                         ::testing::Values(ProviderCheckboxesPersistBothDirectionsCase{"enabled_romraider", true},
+                                           ProviderCheckboxesPersistBothDirectionsCase{"disabled_ecuflash", false}),
+                         [](const ::testing::TestParamInfo<ProviderCheckboxesPersistBothDirectionsCase>& info)
                          { return info.param.name; });
 
-TEST_P(providerCheckboxesPersistBothDirectionsParameters, providerCheckboxesPersistBothDirections)
+TEST_P(ProviderCheckboxesPersistBothDirectionsParameters, providerCheckboxesPersistBothDirections)
 {
     const bool enabled = GetParam().enabled;
     QTemporaryDir root;
@@ -113,25 +113,25 @@ TEST_P(providerCheckboxesPersistBothDirectionsParameters, providerCheckboxesPers
     ASSERT_EQ(reread.session.settings().primary_definition_base, disk.session.settings().primary_definition_base);
 }
 
-struct removingDefinitionsPreservesOrderAndPersistsEmptyListCase
+struct RemovingDefinitionsPreservesOrderAndPersistsEmptyListCase
 {
     std::string name;
     bool remove_all;
 };
-class removingDefinitionsPreservesOrderAndPersistsEmptyListParameters
+class RemovingDefinitionsPreservesOrderAndPersistsEmptyListParameters
     : public ::testing::Test,
-      public ::testing::WithParamInterface<removingDefinitionsPreservesOrderAndPersistsEmptyListCase>
+      public ::testing::WithParamInterface<RemovingDefinitionsPreservesOrderAndPersistsEmptyListCase>
 {
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    Rows, removingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
-    ::testing::Values(removingDefinitionsPreservesOrderAndPersistsEmptyListCase{"surviving_order", false},
-                      removingDefinitionsPreservesOrderAndPersistsEmptyListCase{"empty_list", true}),
-    [](const ::testing::TestParamInfo<removingDefinitionsPreservesOrderAndPersistsEmptyListCase>& info)
+    Rows, RemovingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
+    ::testing::Values(RemovingDefinitionsPreservesOrderAndPersistsEmptyListCase{"surviving_order", false},
+                      RemovingDefinitionsPreservesOrderAndPersistsEmptyListCase{"empty_list", true}),
+    [](const ::testing::TestParamInfo<RemovingDefinitionsPreservesOrderAndPersistsEmptyListCase>& info)
     { return info.param.name; });
 
-TEST_P(removingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
+TEST_P(RemovingDefinitionsPreservesOrderAndPersistsEmptyListParameters,
        removingDefinitionsPreservesOrderAndPersistsEmptyList)
 {
     const bool remove_all = GetParam().remove_all;

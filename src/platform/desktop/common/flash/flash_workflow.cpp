@@ -195,7 +195,7 @@ std::optional<bytes::Bytes> normalizeMc68Image(std::optional<bytes::Bytes> image
     {
         return std::nullopt;
     }
-    const flashdev_t *device = find_flash_device(mcu_name);
+    const FlashDevice *device = find_flash_device(mcu_name);
     if (device == nullptr || image->size() == device->romsize)
     {
         return image;

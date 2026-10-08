@@ -40,7 +40,7 @@ struct SingleWindowPlanSpec
     // False when the shared kFlashDevices[] entry is not what this family
     // expects. Block counts, and which blocks matter, differ per family, so
     // the check stays with the family; the core composes the message.
-    bool (*geometry_ok)(const flashdev_t& device);
+    bool (*geometry_ok)(const FlashDevice& device);
     // False when plan.family_plan() holds the wrong alternative or carries
     // wrong wire parameters. Takes the whole plan because
     // subaru_hitachi_m32r_kline's expected session mode depends on which

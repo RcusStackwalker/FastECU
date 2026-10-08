@@ -11,7 +11,7 @@ namespace fastecu::flash::detail
 {
 namespace
 {
-constexpr kernelblock kRegion{0xFFFF3000, 0x9000};
+constexpr KernelBlock kRegion{0xFFFF3000, 0x9000};
 
 TEST(PlanPrimitives, AddressMismatchPrecedesPaddingAndRangeErrors)
 {
@@ -29,20 +29,20 @@ TEST(PlanPrimitives, Padded128ByteUploadsMustFitIncludingTheLastBlock)
     const auto over = validate_kernel_upload<128>(0x9001, 0xFFFF3000, 0xFFFF3000, kRegion);
     ASSERT_FALSE(over.has_value());
     EXPECT_EQ(over.error().detail, "padded kernel lies outside the MCU kernel region");
-    const kernelblock short_region{0xFFFF3000, 127};
+    const KernelBlock short_region{0xFFFF3000, 127};
     EXPECT_FALSE((validate_kernel_upload<128>(1, 0xFFFF3000, 0xFFFF3000, short_region)).has_value());
 }
 
 TEST(PlanPrimitives, SixBytePaddingUsesItsOwnBoundary)
 {
-    const kernelblock region{0x100, 12};
+    const KernelBlock region{0x100, 12};
     for (const std::uint64_t size : {1U, 5U, 6U, 7U, 11U, 12U})
     {
         EXPECT_TRUE((validate_kernel_upload<6>(size, 0x100, 0x100, region)).has_value()) << size;
     }
     EXPECT_FALSE((validate_kernel_upload<6>(13, 0x100, 0x100, region)).has_value());
     // An unpadded byte fits, but its six-byte physical transfer does not.
-    const kernelblock short_region{0x100, 5};
+    const KernelBlock short_region{0x100, 5};
     EXPECT_FALSE((validate_kernel_upload<6>(1, 0x100, 0x100, short_region)).has_value());
 }
 
@@ -55,7 +55,7 @@ TEST(PlanPrimitives, AddressWindowChecksDoNotUnderflowOrWrapAt32Bits)
     // Empty kernels are rejected elsewhere; the range primitive preserves
     // the existing arithmetic boundary at the exclusive region end.
     EXPECT_TRUE((validate_kernel_upload<128>(0, 0xFFFFC000, 0xFFFFC000, kRegion)).has_value());
-    const kernelblock crossing{0xFFFFFFFC, 8};
+    const KernelBlock crossing{0xFFFFFFFC, 8};
     EXPECT_TRUE((validate_kernel_upload<6>(6, 0xFFFFFFFC, 0xFFFFFFFC, crossing)).has_value());
     EXPECT_FALSE((validate_kernel_upload<6>(7, 0xFFFFFFFC, 0xFFFFFFFC, crossing)).has_value());
 }
@@ -83,8 +83,8 @@ TEST(PlanPrimitives, PaddingOverflowPrecedesRangeErrors)
 
 TEST(PlanPrimitives, EraseRegionsPreserveOrderedBlockAddressesAndLengths)
 {
-    const std::array<flashblock, 3> blocks{{{0, 0x1000}, {0x1000, 0x1000}, {0x2000, 0x6000}}};
-    const flashdev_t device{"test", SH7058, 0x8000, 3, blocks.data(), nullptr, nullptr, nullptr};
+    const std::array<FlashBlock, 3> blocks{{{0, 0x1000}, {0x1000, 0x1000}, {0x2000, 0x6000}}};
+    const FlashDevice device{"test", SH7058, 0x8000, 3, blocks.data(), nullptr, nullptr, nullptr};
     const auto regions = make_erase_regions(device);
     ASSERT_EQ(regions.size(), 3U);
     EXPECT_EQ(regions[0].start, 0U);

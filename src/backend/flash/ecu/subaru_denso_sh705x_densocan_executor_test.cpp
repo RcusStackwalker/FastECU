@@ -357,7 +357,7 @@ std::uint32_t fixed_raw_zero_crc(const MemoryRegion& block, bool mismatch)
     }
 }
 
-void script_compare(ScriptedMixedCanFlashTransport& transport, const flashdev_t& device, bool first_block_mismatches)
+void script_compare(ScriptedMixedCanFlashTransport& transport, const FlashDevice& device, bool first_block_mismatches)
 {
     for (unsigned index = 0; index < device.numblocks; ++index)
     {
@@ -366,7 +366,7 @@ void script_compare(ScriptedMixedCanFlashTransport& transport, const flashdev_t&
     }
 }
 
-void script_compare_with_modified_blocks(ScriptedMixedCanFlashTransport& transport, const flashdev_t& device,
+void script_compare_with_modified_blocks(ScriptedMixedCanFlashTransport& transport, const FlashDevice& device,
                                          std::initializer_list<unsigned> modified_blocks)
 {
     for (unsigned index = 0; index < device.numblocks; ++index)
@@ -377,7 +377,7 @@ void script_compare_with_modified_blocks(ScriptedMixedCanFlashTransport& transpo
     }
 }
 
-void script_raw_image_compare(ScriptedMixedCanFlashTransport& transport, const flashdev_t& device,
+void script_raw_image_compare(ScriptedMixedCanFlashTransport& transport, const FlashDevice& device,
                               bool first_block_matches)
 {
     for (unsigned index = 0; index < device.numblocks; ++index)
@@ -628,7 +628,7 @@ void expect_two_block_write_progress(const RecordingEventSink& events)
 
 using LogRecord = std::pair<LogLevel, std::string>;
 
-void append_legacy_compare_logs(std::vector<LogRecord>& logs, const flashdev_t& device, bool first_block_mismatches,
+void append_legacy_compare_logs(std::vector<LogRecord>& logs, const FlashDevice& device, bool first_block_mismatches,
                                 bool after_reflash)
 {
     logs.emplace_back(LogLevel::Info, after_reflash
@@ -654,7 +654,7 @@ void append_legacy_compare_logs(std::vector<LogRecord>& logs, const flashdev_t& 
     logs.emplace_back(LogLevel::Info, first_block_mismatches ? " (total: 1)" : " (total: 0)");
 }
 
-std::vector<LogRecord> expected_legacy_write_logs(const flashdev_t& device, FlashOperation operation)
+std::vector<LogRecord> expected_legacy_write_logs(const FlashDevice& device, FlashOperation operation)
 {
     const bool test_write = operation == FlashOperation::TestWrite;
     std::vector<LogRecord> logs;
@@ -704,7 +704,7 @@ std::vector<LogRecord> expected_legacy_write_logs(const flashdev_t& device, Flas
     return logs;
 }
 
-std::vector<LogRecord> expected_legacy_unchanged_write_logs(const flashdev_t& device)
+std::vector<LogRecord> expected_legacy_unchanged_write_logs(const FlashDevice& device)
 {
     std::vector<LogRecord> logs;
     logs.emplace_back(LogLevel::Info, "Checking if Kernel already running...");
@@ -939,7 +939,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ReadKeepsRawBeefBoundaryPageBytesForRepr
 TEST(SubaruDensoSh705xDensoCanExecutor, WriteAndTestWriteUseCallerRawImageBytesAndCommitCrc)
 {
     const Case& test_case = kCases.front();
-    const flashdev_t *device = find_flash_device(test_case.mcu);
+    const FlashDevice *device = find_flash_device(test_case.mcu);
     ASSERT_NE(device, nullptr);
     for (const FlashOperation operation : {FlashOperation::Write, FlashOperation::TestWrite})
     {
@@ -1043,7 +1043,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, UploadPaddingAndChecksumUseHandDerivedSe
 TEST(SubaruDensoSh705xDensoCanExecutor, NonzeroLargeBlockUsesEightFixedCommitWindowsAndCumulativeWriteProgress)
 {
     const Case& test_case = kCases.front();
-    const flashdev_t *device = find_flash_device(test_case.mcu);
+    const FlashDevice *device = find_flash_device(test_case.mcu);
     ASSERT_NE(device, nullptr);
     auto plan = write_plan(test_case);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
@@ -1100,7 +1100,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, KernelIdProbeAndPostUploadVerificationWa
 TEST(SubaruDensoSh705xDensoCanExecutor, CrcIntervalsAndFlashBufferAcknowledgementsUseTheLegacyTiming)
 {
     const Case& test_case = kCases.front();
-    const flashdev_t *device = find_flash_device(test_case.mcu);
+    const FlashDevice *device = find_flash_device(test_case.mcu);
     ASSERT_NE(device, nullptr);
     auto plan = write_plan(test_case);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
@@ -1440,7 +1440,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortReadAndCrcPayloadsAreRejectedBefore
     {
         auto plan = write_plan(test_case);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-        const flashdev_t *device = find_flash_device(test_case.mcu);
+        const FlashDevice *device = find_flash_device(test_case.mcu);
         ASSERT_NE(device, nullptr);
         const MemoryRegion block{device->fblocks[0].start, device->fblocks[0].len};
         SubaruDensoSh705xDensoCanExecutor executor;
@@ -1461,7 +1461,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortReadAndCrcPayloadsAreRejectedBefore
 TEST(SubaruDensoSh705xDensoCanExecutor, ShortInitializationAndVoltagePayloadsAreRejectedBeforeDecoding)
 {
     const Case& test_case = kCases.front();
-    const flashdev_t *device = find_flash_device(test_case.mcu);
+    const FlashDevice *device = find_flash_device(test_case.mcu);
     ASSERT_NE(device, nullptr);
     FakeCancellationToken cancellation;
     FakeClock clock;
@@ -1537,7 +1537,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortRawAndFlashAcknowledgementsAreRejec
     {
         auto plan = write_plan(test_case);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-        const flashdev_t *device = find_flash_device(test_case.mcu);
+        const FlashDevice *device = find_flash_device(test_case.mcu);
         ASSERT_NE(device, nullptr);
         const bytes::Bytes raw_chunk = fixed_raw_zero_bytes(kWriteChunkSize);
         SubaruDensoSh705xDensoCanExecutor executor;
@@ -1564,7 +1564,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ShortRawAndFlashAcknowledgementsAreRejec
 TEST(SubaruDensoSh705xDensoCanExecutor, PostEraseProtocolFailureEmitsTheLegacyRecoveryWarning)
 {
     const Case& test_case = kCases.front();
-    const flashdev_t *device = find_flash_device(test_case.mcu);
+    const FlashDevice *device = find_flash_device(test_case.mcu);
     ASSERT_NE(device, nullptr);
     auto plan = write_plan(test_case);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
@@ -1599,7 +1599,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, PostEraseProtocolFailureEmitsTheLegacyRe
 TEST(SubaruDensoSh705xDensoCanExecutor, CancellationAfterEraseEmitsTheLegacyRecoveryWarning)
 {
     const Case& test_case = kCases.front();
-    const flashdev_t *device = find_flash_device(test_case.mcu);
+    const FlashDevice *device = find_flash_device(test_case.mcu);
     ASSERT_NE(device, nullptr);
     auto plan = write_plan(test_case);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
@@ -1634,7 +1634,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, CancellationAfterEraseEmitsTheLegacyReco
 TEST(SubaruDensoSh705xDensoCanExecutor, FailureBeforeEraseDoesNotEmitTheRecoveryWarning)
 {
     const Case& test_case = kCases.front();
-    const flashdev_t *device = find_flash_device(test_case.mcu);
+    const FlashDevice *device = find_flash_device(test_case.mcu);
     ASSERT_NE(device, nullptr);
     auto plan = write_plan(test_case);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
@@ -1735,7 +1735,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ReadAndWriteCancellationStopBeforeASecon
     {
         auto plan = write_plan(test_case);
         ASSERT_TRUE(plan.has_value()) << plan.error().detail;
-        const flashdev_t *device = find_flash_device(test_case.mcu);
+        const FlashDevice *device = find_flash_device(test_case.mcu);
         ASSERT_NE(device, nullptr);
         const bytes::Bytes raw_chunk = fixed_raw_zero_bytes(kWriteChunkSize);
         SubaruDensoSh705xDensoCanExecutor executor;
@@ -1765,7 +1765,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor, ReadAndWriteCancellationStopBeforeASecon
 void expect_legacy_write_logs(FlashOperation operation)
 {
     const Case& test_case = kCases.front();
-    const flashdev_t *device = find_flash_device(test_case.mcu);
+    const FlashDevice *device = find_flash_device(test_case.mcu);
     ASSERT_NE(device, nullptr);
     auto plan = write_plan(test_case, operation);
     ASSERT_TRUE(plan.has_value()) << plan.error().detail;
@@ -1802,7 +1802,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor,
      UnchangedWriteAndTestWriteEmitTheirZeroByteThirdPhaseBeforeTheFourthCompletePhase)
 {
     const Case& test_case = kCases.front();
-    const flashdev_t *device = find_flash_device(test_case.mcu);
+    const FlashDevice *device = find_flash_device(test_case.mcu);
     ASSERT_NE(device, nullptr);
     ASSERT_EQ(device->numblocks, 16U);
     for (const FlashOperation operation : {FlashOperation::Write, FlashOperation::TestWrite})
@@ -1833,7 +1833,7 @@ TEST(SubaruDensoSh705xDensoCanExecutor,
 TEST(SubaruDensoSh705xDensoCanExecutor, WriteAndTestWriteUseCrcInitAndDistinctEraseCommitCommands)
 {
     const Case& test_case = kCases.front();
-    const flashdev_t *device = find_flash_device(test_case.mcu);
+    const FlashDevice *device = find_flash_device(test_case.mcu);
     ASSERT_NE(device, nullptr);
     for (const FlashOperation operation : {FlashOperation::Write, FlashOperation::TestWrite})
     {

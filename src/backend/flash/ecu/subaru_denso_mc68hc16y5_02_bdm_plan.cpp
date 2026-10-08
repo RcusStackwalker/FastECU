@@ -32,7 +32,7 @@ Status validate_identity(std::string_view protocol, std::string_view mcu)
         return fail(ErrorKind::InvalidConfig,
                     std::format("MC68HC16Y5 BDM protocol '{}' does not match MCU '{}'", protocol, mcu));
     }
-    const flashdev_t *device = find_flash_device(mcu);
+    const FlashDevice *device = find_flash_device(mcu);
     if (device == nullptr || device->romsize != kRomSize || device->rblocks == nullptr ||
         device->rblocks[0].start != kRam.start || device->rblocks[0].len != kRam.length)
     {

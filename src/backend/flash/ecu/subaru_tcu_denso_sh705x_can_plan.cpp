@@ -59,9 +59,9 @@ Status validate_identity(std::string_view protocol, std::string_view mcu, const 
     return {};
 }
 
-const flashdev_t *checked_device(const CatalogEntry& entry)
+const FlashDevice *checked_device(const CatalogEntry& entry)
 {
-    const flashdev_t *device = find_flash_device(entry.mcu);
+    const FlashDevice *device = find_flash_device(entry.mcu);
     if (device == nullptr || device->romsize != entry.rom_size || device->numblocks != 16 ||
         device->fblocks == nullptr || device->kblocks == nullptr)
     {
@@ -80,7 +80,7 @@ bool wire_parameters_match(const SubaruTcuDensoSh705xCanPlan& wire)
     return wire.request_id == 0x7E1 && wire.response_id == 0x7E9 && wire.bitrate == 500000 && !wire.extended_id;
 }
 
-Status validate_image(const FlashPlan& plan, const flashdev_t& device)
+Status validate_image(const FlashPlan& plan, const FlashDevice& device)
 {
     if (plan.operation() == FlashOperation::Read)
     {
@@ -125,7 +125,7 @@ Status validate_subaru_tcu_denso_sh705x_can_plan(const FlashPlan& plan)
     {
         return capability;
     }
-    const flashdev_t *device = checked_device(*entry);
+    const FlashDevice *device = checked_device(*entry);
     if (device == nullptr)
     {
         return fail(ErrorKind::InvalidConfig, "TCU catalog does not match the flash device table");
@@ -166,7 +166,7 @@ Result<FlashPlan> build_subaru_tcu_denso_sh705x_can_plan(FlashOperation operatio
     {
         return fail(ErrorKind::Unsupported, "operation is not supported by the selected Denso SH705x TCU");
     }
-    const flashdev_t *device = checked_device(*entry);
+    const FlashDevice *device = checked_device(*entry);
     if (device == nullptr)
     {
         return fail(ErrorKind::InvalidConfig, "TCU catalog does not match the flash device table");

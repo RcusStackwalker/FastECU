@@ -136,32 +136,32 @@ TEST(SerialFacadeConfiguratorTest, aPortThatIsNotOpenAfterOpenIsDisconnected)
     ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
 }
 
-struct eachBooleanSetterFailureIsInvalidConfigCase
+struct EachBooleanSetterFailureIsInvalidConfigCase
 {
     std::string name;
     int setter;
 };
-class eachBooleanSetterFailureIsInvalidConfigParameters
+class EachBooleanSetterFailureIsInvalidConfigParameters
     : public ::testing::Test,
-      public ::testing::WithParamInterface<eachBooleanSetterFailureIsInvalidConfigCase>
+      public ::testing::WithParamInterface<EachBooleanSetterFailureIsInvalidConfigCase>
 {
 };
 
 INSTANTIATE_TEST_SUITE_P(
-    Rows, eachBooleanSetterFailureIsInvalidConfigParameters,
-    ::testing::Values(eachBooleanSetterFailureIsInvalidConfigCase{"set_is_iso14230_connection", 0},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_is_can_connection", 1},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_is_iso15765_connection", 2},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_is_29_bit_id", 3},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_add_iso14230_header", 4},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_can_speed", 5},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_iso15765_source_address", 6},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_iso15765_destination_address", 7},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_can_source_address", 8},
-                      eachBooleanSetterFailureIsInvalidConfigCase{"set_can_destination_address", 9}),
-    [](const ::testing::TestParamInfo<eachBooleanSetterFailureIsInvalidConfigCase>& info) { return info.param.name; });
+    Rows, EachBooleanSetterFailureIsInvalidConfigParameters,
+    ::testing::Values(EachBooleanSetterFailureIsInvalidConfigCase{"set_is_iso14230_connection", 0},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_is_can_connection", 1},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_is_iso15765_connection", 2},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_is_29_bit_id", 3},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_add_iso14230_header", 4},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_can_speed", 5},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_iso15765_source_address", 6},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_iso15765_destination_address", 7},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_can_source_address", 8},
+                      EachBooleanSetterFailureIsInvalidConfigCase{"set_can_destination_address", 9}),
+    [](const ::testing::TestParamInfo<EachBooleanSetterFailureIsInvalidConfigCase>& info) { return info.param.name; });
 
-TEST_P(eachBooleanSetterFailureIsInvalidConfigParameters, eachBooleanSetterFailureIsInvalidConfig)
+TEST_P(EachBooleanSetterFailureIsInvalidConfigParameters, eachBooleanSetterFailureIsInvalidConfig)
 {
     const int setter = GetParam().setter;
     Harness harness;

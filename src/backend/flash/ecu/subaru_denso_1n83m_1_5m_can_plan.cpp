@@ -25,7 +25,7 @@ constexpr std::uint32_t kTailPad = 0x100;
 // own fblocks sum to 0x184000, and nothing on either the read or the write
 // path consumes romsize (read_memory discards the length argument derived from
 // it). See the original port design's "Read-image layout is already correct" section.
-bool geometry_ok(const flashdev_t& device)
+bool geometry_ok(const FlashDevice& device)
 {
     return device.numblocks == 3 && device.fblocks[0].start == kImageStart &&
            device.fblocks[1].start == kMainBlock.start && device.fblocks[1].len == kMainBlock.length;

@@ -24,7 +24,7 @@ constexpr HitachiM32rKlineSessionMode mode_for(std::string_view protocol)
     return protocol == kRecovery ? HitachiM32rKlineSessionMode::Recovery : HitachiM32rKlineSessionMode::Normal;
 }
 
-bool geometry_ok(const flashdev_t& device)
+bool geometry_ok(const FlashDevice& device)
 {
     return device.romsize == kRom.length && device.numblocks == 1 && device.fblocks[0].start == kRom.start &&
            device.fblocks[0].len == kRom.length;
