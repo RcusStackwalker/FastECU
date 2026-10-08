@@ -295,6 +295,35 @@ class ClangTidyRunnerTest(unittest.TestCase):
         self.assertIn("-clang-tidy-binary", commands[1])
         self.assertNotIn("-fix", commands[1])
 
+    def test_report_lets_clang_tidy_discover_nested_configs(self) -> None:
+        # An explicit -config-file makes clang-tidy ignore every .clang-tidy
+        # below the root, which would silently disable nested overrides such
+        # as src/ui/desktop/.clang-tidy.
+        source = self.root / "nested.cpp"
+        source.write_text("int nested_source;\n")
+        self.write_database([source])
+        commands: list[list[str]] = []
+
+        def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+            commands.append(command)
+            return subprocess.CompletedProcess(command, 0)
+
+        tools = runner.Tools(
+            clang_tidy="/usr/bin/clang-tidy", run_clang_tidy="/usr/bin/run-clang-tidy"
+        )
+        with mock.patch.object(runner, "discover_tools", return_value=tools):
+            runner.run_workflow(
+                mode="report",
+                workspace=self.root,
+                compdb_tool=_WINDOWS_COMPDB_TOOL,
+                platform_name="linux",
+                environ={},
+                command_runner=fake_run,
+            )
+
+        self.assertNotIn("-config-file", commands[1])
+        self.assertNotIn("-config", commands[1])
+
     def test_report_does_not_turn_compiler_warnings_into_errors(self) -> None:
         # The build is the warnings gate (REPO.bazel); clang-tidy runs a newer
         # LLVM than the build compiler and must not fail on a diagnostic only

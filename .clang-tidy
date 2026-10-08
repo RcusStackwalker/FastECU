@@ -5,6 +5,10 @@
 # CI pins LLVM 23 for clang-tidy (CLANG_TIDY_LLVM_* in .github/workflows/pr.yml);
 # bumping it should touch this comment so the whole tree is re-checked.
 #
+# The runner does not pass -config-file, so clang-tidy discovers the nearest
+# .clang-tidy per translation unit. A nested file with InheritParentConfig: true
+# overrides only the keys it lists (src/ui/desktop/ keeps Qt-style method names).
+#
 # bugprone-easily-swappable-parameters - too many warnings to be actionable
 # bugprone-exception-escape - fires inside gmock MATCHER_P expansions, gmock's
 #   own matchers and Qt headers, none of which we can change
