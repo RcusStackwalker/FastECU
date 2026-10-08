@@ -182,3 +182,19 @@ new run gets a distinct CSV file with its own frozen columns, including identica
 restarts and restart after Connect. Exercise rapid restarts and filename
 collisions so completed output is never overwritten. Existing logging-worker
 lifetime, cancellation, error, and stale-event guards remain required.
+
+## Approved MUT dialect amendment
+
+Approved by the user on 2026-10-08 during the wire evidence gate. Add an explicit
+protocol XML attribute `dialect="oem-33520003"` for the analyzed OEM format;
+omitted dialect or `dialect="legacy-be"` retains the maintained format. Unknown
+explicit dialects fail selected MUT run preparation with an actionable error.
+Dialect selection trusts the operator and requires no ROM matching.
+
+The OEM dialect uses little-endian request codes and streamed two/four-byte
+values, at most 96 request entries and 96 response data bytes. The maintained
+format retains its big-endian order and 255-entry representation guard; no ECU
+capacity claim follows from that guard. Both reject checksum-valid incomplete
+payloads. Neither changes request-code meaning or address-window guards.
+Source scope and firmware-specific expansion behavior are recorded in the
+[wire evidence owner](../../reference/logging-wire-evidence.md).
