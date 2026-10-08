@@ -243,4 +243,4 @@ The file helper owns QFile/QTextStream and captured ordered column descriptors. 
 - Interfaces: Task 3's LoggingMeasurement and SsmReadPlan are consumed by Task 4; ResolvedLogSample.kind and begin_run cache initialization feed Task 5; Task 6 consumes the same captured metadata and caches. No task chooses identities from labels or current mutable selection.
 - No form authoring, new gauge rendering, live worker reconfiguration, automatic MUT support probing, speculative cross-definition read merging, or hardware qualification is included.
 
-This plan has not been executed. Writing it requires Markdown link checks and a scoped diff review; application tests above are implementation steps.
+Implementation is authorized. Tasks 1–6 are committed; Task 7 owns the final contract audit, full verification, and fresh native review. Original design/plan contents remain preserved in separate history until delivery permits completed-artifact removal.

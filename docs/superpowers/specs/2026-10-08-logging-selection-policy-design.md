@@ -1,7 +1,7 @@
 # Logging selection and ECU support policy
 
-Status: design confirmed by the user on 2026-10-08; ready for implementation
-planning. This document does not authorize implementation.
+Status: design confirmed on 2026-10-08; implementation authorized after plan
+review. Enduring contracts are being extracted before final verification and review.
 This proposal extends the behavior preserved by the portable logging preparation
 migration; it is not part of that implementation's published PR.
 
@@ -77,7 +77,7 @@ full absolute RAM addresses. Definitions contain measurement fields; `logger.cfg
 contains only saved selection IDs. Operator-authored XML supplies identity and
 persistence for this scope.
 
-## Current implementation and contract differences
+## Baseline implementation and contract differences
 
 The [logging contracts](../../reference/logging-contracts.md) describe the current
 migration's behavior. Its [run preparation](../../../src/backend/logging/logging_run_snapshot.cpp)

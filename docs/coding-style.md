@@ -99,8 +99,10 @@ wire field is supposed to be. Count the bytes the frame needs — do not infer
 them from a variable's declared type. These frames are written to ECUs, where
 a wrong length or byte order is a bricking risk.
 
-There are no little-endian variants. Every wire format in this repository is
-big-endian.
+The generic composition helpers are big-endian. The explicitly selected OEM
+MUT free-form dialect uses little-endian request codes and stream values; its
+manual byte assembly is scoped by the [wire evidence](reference/logging-wire-evidence.md).
+Do not infer another dialect's byte order from the generic helpers.
 
 Four shapes stay hand-rolled on purpose, and are not inconsistencies to tidy
 away:

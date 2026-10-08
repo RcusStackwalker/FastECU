@@ -114,7 +114,10 @@ callback-driven portable scheduler has no current consumer.
 ### Separate definitions, selection, support, and samples
 
 Logger definitions are immutable, selection belongs to the operator, support
-comes from identification, and display values belong to the desktop. Protocol/ID
+can be supported, unsupported or unknown from capability evidence, and display
+values belong to the desktop. XML enablement determines default eligibility, not
+ECU capability. Explicit user-authored MUT selections with unknown support are
+validated without ROM matching. Protocol/ID
 identity avoids ambiguity from duplicate labels or IDs shared across protocols.
 Owned per-run snapshots insulate workers from later widget/selection changes.
 Backend preparation owns channel parsing, support/selection rules, and sample
@@ -127,6 +130,13 @@ and hexadecimal prefixes while rejecting malformed formats. Empty units permit
 dimensionless measurements; contextual startup errors identify authoring mistakes.
 The [logging contract](reference/logging-contracts.md#definition-input-validation)
 owns the accepted syntax and failure behavior.
+
+Acquisition uses the union of selected gauges, Digital values and switches,
+sharing repeated identities within each measurement kind. Active displays and CSV
+columns use captured metadata; saved edits show a restart-needed state. Portable
+column projection/record serialization define output, while the desktop creates
+and closes an exclusive CSV for every run. These contracts are owned by the
+[logging reference](reference/logging-contracts.md).
 
 SSM raw values deliberately concatenate decimal byte spellings because shipped
 conversion expressions depend on that input. CSV and selection persistence also

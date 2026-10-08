@@ -67,7 +67,8 @@ The operator's choices of measurements for gauges, Digital displays, and switche
 A measurement can appear in several display positions.
 
 **Definition enabled**:
-A logging definition's declaration that a measurement is enabled for use.
+A logging definition's declaration that a measurement is eligible for default
+selection.
 It does not establish whether a particular ECU provides the measurement.
 _Avoid_: ECU supported
 
