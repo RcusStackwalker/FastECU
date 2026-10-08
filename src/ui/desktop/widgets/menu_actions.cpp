@@ -565,6 +565,7 @@ void MainWindow::continue_start_logging()
 
     loggerValues.begin_run(*snapshot);
     activeLoggingSnapshot.emplace(*snapshot);
+    update_logboxes(activeLogValueProtocolFilter);
     const auto started = loggingEngine->start(config, std::move(*snapshot));
     if (!started.has_value())
     {

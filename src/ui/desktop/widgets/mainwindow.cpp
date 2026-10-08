@@ -235,6 +235,11 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     statusBar()->addWidget(status_bar_connection_label);
     statusBar()->addWidget(status_bar_spacer);
     statusBar()->addPermanentWidget(status_bar_ecu_label);
+    logging_pending_label->setObjectName("logging_pending_label");
+    logging_pending_label->setTextFormat(Qt::PlainText);
+    logging_pending_label->setText(tr("Selection changes pending; restart logging to apply"));
+    statusBar()->addPermanentWidget(logging_pending_label);
+    logging_pending_label->hide();
     statusBar()->setSizeGripEnabled(true);
 
     ui->calibrationFilesTreeWidget->setHeaderLabel("Calibration Files");
@@ -1449,80 +1454,150 @@ void MainWindow::change_switch_values()
     change_log_values(2, protocol);
 }
 
+const fastecu::logging::LoggerSelection& MainWindow::displayed_logging_selection() const
+{
+    return activeLoggingSnapshot ? activeLoggingSnapshot->selection() : loggerModel->selection();
+}
+void MainWindow::update_logging_pending_state()
+{
+    logging_pending_label->setVisible(activeLoggingSnapshot.has_value() &&
+                                      activeLoggingSnapshot->selection() != loggerModel->selection());
+}
+
 void MainWindow::update_logboxes(const QString& protocol_arg)
 {
-    int switchBoxCount = 20;
-    int logBoxCount = 12;
-
-    emit LOG_D("Update logboxes with protocol: " + protocol_arg, true, true);
-
-    while (!ui->switchBoxLayout->isEmpty())
+    for (auto *layout : {ui->switchBoxLayout, ui->logBoxLayout})
     {
-        QWidget *wg = ui->switchBoxLayout->takeAt(0)->widget();
-        delete wg;
-    }
-    while (!ui->logBoxLayout->isEmpty())
-    {
-        QWidget *wg = ui->logBoxLayout->takeAt(0)->widget();
-        delete wg;
-    }
-
-    const auto key = protocol_arg.toStdString();
-    const auto& selection = loggerModel->selection();
-    for (std::size_t slot = 0; slot < selection.switch_ids.size(); ++slot)
-    {
-        const auto& id = selection.switch_ids[slot];
-        const auto *item = loggerModel->switch_definition(key, id);
-        if (item == nullptr)
+        while (!layout->isEmpty())
         {
-            continue;
+            auto *item = layout->takeAt(0);
+            delete item->widget();
+            delete item;
         }
-        const auto name = qs(item->name);
-        auto *box = logBoxes->drawLogBoxes("switch", static_cast<int>(slot), switchBoxCount, name, name,
-                                           loggerValues.switch_value(key, id));
-        box->setAttribute(Qt::WA_TransparentForMouseEvents);
-        ui->switchBoxLayout->addWidget(box);
     }
-    for (std::size_t slot = 0; slot < selection.lower_panel_ids.size(); ++slot)
+    const auto key = activeLoggingSnapshot ? activeLoggingSnapshot->protocol_key() : protocol_arg.toStdString();
+    const auto& selection = displayed_logging_selection();
+    using Kind = fastecu::logging::LoggingMeasurementKind;
+    const auto add = [&](Kind kind, const auto& ids)
     {
-        const auto& id = selection.lower_panel_ids[slot];
-        const auto *item = loggerModel->parameter(key, id);
-        if (item == nullptr)
+        for (std::size_t slot = 0; slot < ids.size(); ++slot)
         {
-            continue;
+            const auto& id = ids[slot];
+            QString name;
+            QString unit;
+            bool available = false;
+            if (activeLoggingSnapshot)
+            {
+                if (const auto *item = activeLoggingSnapshot->find_measurement(kind, id); item != nullptr)
+                {
+                    name = qs(item->name);
+                    unit = qs(item->unit);
+                    available = true;
+                }
+            }
+            else if (kind == Kind::Parameter)
+            {
+                if (const auto *item = loggerModel->parameter(key, id); item != nullptr)
+                {
+                    name = qs(item->name);
+                    unit = item->conversions.empty() ? QString{} : qs(item->conversions.front().units);
+                    available = loggerModel->parameter_support(key, id) != fastecu::logging::EcuSupport::Unsupported;
+                }
+            }
+            else if (const auto *item = loggerModel->switch_definition(key, id); item != nullptr)
+            {
+                name = qs(item->name);
+                available = loggerModel->switch_support(key, id) != fastecu::logging::EcuSupport::Unsupported;
+            }
+            if (name.isEmpty())
+            {
+                name = qs(id);
+            }
+            if (!available)
+            {
+                name += tr(" (Unavailable)");
+            }
+            auto value = available ? (kind == Kind::Parameter ? loggerValues.parameter_value(key, id)
+                                                              : loggerValues.switch_value(key, id))
+                                   : tr("Unavailable");
+            auto *box = logBoxes->drawLogBoxes(kind == Kind::Parameter ? "log" : "switch", static_cast<int>(slot),
+                                               kind == Kind::Parameter ? 12 : 20, name, unit, value);
+            box->setAttribute(Qt::WA_TransparentForMouseEvents);
+            (kind == Kind::Parameter ? ui->logBoxLayout : ui->switchBoxLayout)->addWidget(box);
         }
-        const auto unit = item->conversions.empty() ? QString{} : qs(item->conversions.front().units);
-        auto *box = logBoxes->drawLogBoxes("log", static_cast<int>(slot), logBoxCount, qs(item->name), unit,
-                                           loggerValues.parameter_value(key, id));
-        box->setAttribute(Qt::WA_TransparentForMouseEvents);
-        ui->logBoxLayout->addWidget(box);
-    }
+    };
+    add(Kind::Switch, selection.switch_ids);
+    add(Kind::Parameter, selection.lower_panel_ids);
+    update_logging_pending_state();
 }
 
 void MainWindow::update_logbox_values(const QString& protocol_arg)
 {
-    const auto key = protocol_arg.toStdString();
-    const auto& ids = loggerModel->selection().lower_panel_ids;
-    // Layout positions can differ from selection slots when IDs are unresolved.
-    // Labels keep the original slot in their object name.
-    for (std::size_t slot = 0; slot < ids.size(); ++slot)
+    const auto key = activeLoggingSnapshot ? activeLoggingSnapshot->protocol_key() : protocol_arg.toStdString();
+    const auto& selection = displayed_logging_selection();
+    for (std::size_t slot = 0; slot < selection.lower_panel_ids.size(); ++slot)
     {
-        const auto *item = loggerModel->parameter(key, ids[slot]);
-        if (item == nullptr)
+        const auto& id = selection.lower_panel_ids[slot];
+        QString unit;
+        if (activeLoggingSnapshot)
         {
-            continue;
+            const auto *item =
+                activeLoggingSnapshot->find_measurement(fastecu::logging::LoggingMeasurementKind::Parameter, id);
+            if (item == nullptr)
+            {
+                continue;
+            }
+            unit = qs(item->unit);
+        }
+        else
+        {
+            const auto *item = loggerModel->parameter(key, id);
+            if (item == nullptr || loggerModel->parameter_support(key, id) == fastecu::logging::EcuSupport::Unsupported)
+            {
+                continue;
+            }
+            unit = item->conversions.empty() ? QString{} : qs(item->conversions.front().units);
         }
         auto *label = ui->centralwidget->findChild<QLabel *>("log_label" + QString::number(slot));
         if (label == nullptr)
         {
             continue;
         }
-        const auto unit = item->conversions.empty() ? QString{} : qs(item->conversions.front().units);
-        const auto text = loggerValues.parameter_value(key, ids[slot]);
-        label->setAlignment(Qt::AlignRight);
-        label->setText(text + " <font size=1px color=grey>" + unit + "</font>");
-        const auto size = QGuiApplication::primaryScreen()->geometry();
-        label->setFont(QFont("Arial", size.width() / 90));
+        const auto value = loggerValues.parameter_value(key, id);
+        label->setTextFormat(Qt::PlainText);
+        label->setText((value.isEmpty() ? tr("Pending") : value) + (unit.isEmpty() ? QString{} : " " + unit));
+    }
+    for (std::size_t slot = 0; slot < selection.switch_ids.size(); ++slot)
+    {
+        auto *label = ui->centralwidget->findChild<QLabel *>("switch_label" + QString::number(slot));
+        if (label == nullptr)
+        {
+            continue;
+        }
+        const auto& id = selection.switch_ids[slot];
+        QString name;
+        if (activeLoggingSnapshot)
+        {
+            const auto *item =
+                activeLoggingSnapshot->find_measurement(fastecu::logging::LoggingMeasurementKind::Switch, id);
+            if (item == nullptr)
+            {
+                continue;
+            }
+            name = qs(item->name);
+        }
+        else
+        {
+            const auto *item = loggerModel->switch_definition(key, id);
+            if (item == nullptr || loggerModel->switch_support(key, id) == fastecu::logging::EcuSupport::Unsupported)
+            {
+                continue;
+            }
+            name = qs(item->name);
+        }
+        const auto value = loggerValues.switch_value(key, id);
+        label->setTextFormat(Qt::PlainText);
+        label->setText(name + ": " + (value.isEmpty() ? tr("Pending") : value == "0" ? tr("OFF") : tr("ON")));
     }
     delay(1);
 }
@@ -1954,6 +2029,11 @@ void MainWindow::restoreLoggingUiState()
     logging_state = false;
     log_params_request_started = false;
     ui->actionToggleRealtime->setChecked(false);
+    update_logging_pending_state();
+    if (loggerModel != nullptr)
+    {
+        update_logboxes(protocol);
+    }
 }
 
 void MainWindow::handleLoggingSessionEnded(fastecu::desktop::logging::SessionEndReason reason, const QString& message)

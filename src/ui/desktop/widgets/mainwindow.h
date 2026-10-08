@@ -259,6 +259,7 @@ class MainWindow : public QMainWindow
     CalibrationTreeWidget *calibrationTreeWidget = new CalibrationTreeWidget();
 
     QLabel *status_bar_connection_label = new QLabel("");
+    QLabel *logging_pending_label = new QLabel();
     QLabel *status_bar_ecu_label = new QLabel("");
 
     QMenu *mainWindowMenu{};
@@ -430,6 +431,8 @@ class MainWindow : public QMainWindow
     void change_switch_values();
     void update_logboxes(const QString& protocol_arg);
     void update_logbox_values(const QString& protocol_arg);
+    const fastecu::logging::LoggerSelection& displayed_logging_selection() const;
+    void update_logging_pending_state();
     void add_new_ecu_definition_file();
     void remove_ecu_definition_file();
     void add_new_logger_definition_file();
