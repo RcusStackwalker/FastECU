@@ -47,7 +47,20 @@ LoggerParameter parse_parameter(pugi::xml_node node, std::string_view protocol)
     if (const pugi::xml_node address = node.child("address"))
     {
         parameter.address = address.child_value();
-        parameter.length = attribute_or(node, "length", "1");
+        parameter.length = attribute_or(address, "length", attribute_or(node, "length", "1").c_str());
+        if (node.attribute("length"))
+        {
+            parameter.declared_length = node.attribute("length").value();
+        }
+        for (pugi::xml_node item : node.children("address"))
+        {
+            parameter.address_specs.push_back(
+                {.value = item.child_value(),
+                 .length = item.attribute("length") ? std::optional<std::string>{item.attribute("length").value()}
+                                                    : std::nullopt,
+                 .bit =
+                     item.attribute("bit") ? std::optional<std::string>{item.attribute("bit").value()} : std::nullopt});
+        }
     }
     for (pugi::xml_node conversion : node.child("conversions").children("conversion"))
     {
@@ -58,20 +71,29 @@ LoggerParameter parse_parameter(pugi::xml_node node, std::string_view protocol)
 
 LoggerSwitch parse_switch(pugi::xml_node node, std::string_view protocol)
 {
-    return LoggerSwitch{
+    const auto address = node.child("address");
+    LoggerSwitch result{
         .protocol = std::string(protocol),
         .id = attribute_or(node, "id", "No id"),
         .name = attribute_or(node, "name", "No name"),
         .description = attribute_or(node, "desc", "No desc"),
-        .address = attribute_or(node, "byte", "No address"),
+        .address = address ? address.child_value() : attribute_or(node, "byte", "No address"),
         .ecu_byte_index = attribute_or(node, "ecubyteindex", "No ecu byte index"),
-        .ecu_bit = attribute_or(node, "bit", "No ecu bit"),
+        .ecu_bit =
+            attribute_or(node, "ecubit", address ? attribute_or(node, "bit", "No ecu bit").c_str() : "No ecu bit"),
         .target = attribute_or(node, "target", "No target"),
-        // The definition XML has no switch enabled attribute; the legacy
-        // parser always seeded log_switch_enabled with "0" for every switch
-        // (file_actions.cpp:1261). Runtime capability populates this later.
-        .enabled = false,
+        .enabled = attribute_or(node, "enabled", "0") == "1",
+        .sample_bit = address ? attribute_or(address, "bit", "") : attribute_or(node, "bit", ""),
     };
+    for (pugi::xml_node item : node.children("address"))
+    {
+        result.address_specs.push_back(
+            {.value = item.child_value(),
+             .length =
+                 item.attribute("length") ? std::optional<std::string>{item.attribute("length").value()} : std::nullopt,
+             .bit = item.attribute("bit") ? std::optional<std::string>{item.attribute("bit").value()} : std::nullopt});
+    }
+    return result;
 }
 
 } // namespace

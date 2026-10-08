@@ -379,6 +379,9 @@ void MainWindow::ConnectionPresentation::set_port_selector_enabled(bool enabled)
 
 void MainWindow::ConnectionPresentation::identified(const fastecu::ui::IdentifyOutcome& outcome)
 {
+    window_.loggerModel->reset_support("SSM");
+    window_.loggerModel->reset_support("MUT_DMA");
+    window_.loggerModel->reset_support("CDBG");
     window_.ecu_init_complete = true;
     window_.ecuid = QString::fromStdString(outcome.ecu_id);
     emit window_.LOG_D("ECU ID: " + window_.ecuid, true, true);

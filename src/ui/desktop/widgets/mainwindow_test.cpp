@@ -3357,6 +3357,10 @@ void MainWindowTest::check_loggingSelectionFailureSemanticsAndSupportPreservatio
     ASSERT_TRUE(stored.has_value());
     ASSERT_TRUE(stored->has_value());
     ASSERT_TRUE(**stored == window.loggerModel->selection());
+    window.loggerModel->set_parameter_support("SSM", "rpm", fastecu::logging::EcuSupport::Unsupported);
+    window.connection_presentation_.identified({.ecu_id = "NEXT_TARGET"});
+    ASSERT_EQ(window.loggerModel->parameter_support("SSM", "rpm"), fastecu::logging::EcuSupport::Unknown);
+    ASSERT_EQ(window.loggerModel->switch_support("SSM", "flag"), fastecu::logging::EcuSupport::Unknown);
     // Missing definitions clear stale IDs after a successful read and never persist defaults.
     installLoggingFixture(window, {}, {.protocol = "SSM", .lower_panel_ids = {"stale"}});
     ASSERT_TRUE(writeTextFile(cfg, "<config><logger/></config>"));

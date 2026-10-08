@@ -32,13 +32,13 @@ TEST(LoggerModelTest, DefinitionInstalledOnceAndSelectionNeverRewritesSupport)
     EXPECT_EQ(model.definition(), definition());
     EXPECT_EQ(model.selection().gauge_ids.back(), "unresolved");
 }
-TEST(LoggerModelTest, CapabilitiesDisableMissingParametersButRetainMissingSwitches)
+TEST(LoggerModelTest, CapabilitiesLeaveMissingEvidenceEligibleByDefinition)
 {
     LoggerModel model;
     ASSERT_TRUE(model.install_definition(definition()));
     model.apply_capabilities("SSM", bytes::Bytes{2});
     EXPECT_TRUE(model.parameter_supported("SSM", "rpm"));
-    EXPECT_FALSE(model.parameter_supported("SSM", "missing"));
+    EXPECT_TRUE(model.parameter_supported("SSM", "missing"));
     EXPECT_TRUE(model.switch_supported("SSM", "missing"));
     model.apply_capabilities("SSM", bytes::Bytes{0});
     EXPECT_FALSE(model.parameter_supported("SSM", "rpm"));
@@ -67,6 +67,45 @@ TEST(LoggerModelTest, DefaultsUseCurrentSupportInDefinitionOrderAndKeepLimits)
     EXPECT_EQ(fallback.lower_panel_ids.back(), "12");
     EXPECT_EQ(fallback.switch_ids.back(), "20");
     EXPECT_EQ(model.selection().gauge_ids.front(), "0");
+}
+TEST(LoggerModelTest, InitialDefaultsExcludeDisabledDefinitions)
+{
+    LoggerModel model;
+    ASSERT_TRUE(model.install_definition(
+        {.parameters = {{.protocol = "SSM", .id = "disabled"}, {.protocol = "SSM", .id = "enabled", .enabled = true}},
+         .switches = {{.protocol = "SSM", .id = "disabled"}, {.protocol = "SSM", .id = "enabled", .enabled = true}}}));
+    EXPECT_EQ(model.selection().gauge_ids, std::vector<std::string>{"enabled"});
+    EXPECT_EQ(model.selection().lower_panel_ids, std::vector<std::string>{"enabled"});
+    EXPECT_EQ(model.selection().switch_ids, std::vector<std::string>{"enabled"});
+}
+TEST(LoggerModelTest, SupportEvidenceIsSeparateFromEnablementAndCanBeReset)
+{
+    LoggerModel model;
+    ASSERT_TRUE(model.install_definition(definition()));
+    EXPECT_EQ(model.parameter_support("SSM", "rpm"), EcuSupport::Unknown);
+    EXPECT_EQ(model.switch_support("SSM", "rpm"), EcuSupport::Unknown);
+    model.apply_capabilities("SSM", bytes::Bytes{2});
+    EXPECT_EQ(model.parameter_support("SSM", "rpm"), EcuSupport::Supported);
+    EXPECT_EQ(model.parameter_support("SSM", "missing"), EcuSupport::Unknown);
+    model.apply_capabilities("SSM", bytes::Bytes{0});
+    EXPECT_EQ(model.parameter_support("SSM", "rpm"), EcuSupport::Unsupported);
+    model.apply_capabilities("SSM", {});
+    EXPECT_EQ(model.parameter_support("SSM", "rpm"), EcuSupport::Unknown);
+    EXPECT_EQ(model.switch_support("SSM", "rpm"), EcuSupport::Unknown);
+    EXPECT_TRUE(model.parameter_available("SSM", "rpm"));
+    EXPECT_EQ(model.parameter_support("MUT_DMA", "rpm"), EcuSupport::Unknown);
+}
+TEST(LoggerModelTest, KnownSupportOverridesDisabledDefaultOnlyInItsNamespace)
+{
+    LoggerModel model;
+    ASSERT_TRUE(model.install_definition(
+        {.parameters = {{.protocol = "SSM", .id = "same"}}, .switches = {{.protocol = "SSM", .id = "same"}}}));
+    EXPECT_FALSE(model.parameter_available("SSM", "same"));
+    model.set_parameter_support("SSM", "same", EcuSupport::Supported);
+    EXPECT_TRUE(model.parameter_available("SSM", "same"));
+    EXPECT_FALSE(model.switch_available("SSM", "same"));
+    model.set_parameter_support("SSM", "same", EcuSupport::Unsupported);
+    EXPECT_FALSE(model.parameter_available("SSM", "same"));
 }
 TEST(LoggerModelTest, EmptyModelDoesNotInventDefinitionsOrSupportedIds)
 {
