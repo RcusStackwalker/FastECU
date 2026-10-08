@@ -123,6 +123,9 @@ serial teardown, and CDBG gaps are tracked in [technical debt](../tech-debt.md#p
 
 ## SSM protocol evidence
 
+The [wire evidence owner](logging-wire-evidence.md) records physical layout,
+response integrity, and the separate maintained/OEM MUT format boundaries.
+
 RomRaider's [request/response example](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/docs/ssm_info.txt#L108)
 requests two addresses and receives two data bytes. Its
 [SSM protocol implementation](https://github.com/RomRaider/RomRaider/blob/dafe0c36c1a68efadbeedb2825f3855463fdbc35/src/main/java/com/romraider/io/protocol/ssm/iso9141/SSMProtocol.java#L57)
