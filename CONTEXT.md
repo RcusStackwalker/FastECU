@@ -61,3 +61,27 @@ The fixed choices and measurement definitions captured for one logging run,
 including its protocol, ECU/TCU target, selected channels, and support status.
 Later edits apply to subsequent runs.
 _Avoid_: Live logger configuration
+
+**Logging selection**:
+The operator's choices of measurements for gauges, Digital displays, and switches.
+A measurement can appear in several display positions.
+
+**Definition enabled**:
+A logging definition's declaration that a measurement is enabled for use.
+It does not establish whether a particular ECU provides the measurement.
+_Avoid_: ECU supported
+
+**ECU support**:
+Whether the selected ECU or TCU provides a measurement: supported, unsupported,
+or unknown when no capability evidence establishes either outcome.
+_Avoid_: Definition enabled
+
+**User-defined logging measurement**:
+A measurement described by the operator's request reference, numeric conversion,
+and unit for use in a logging selection.
+
+**Active logging selection**:
+The measurement and display choices captured for the current logging run.
+
+**Pending logging selection**:
+Saved measurement and display choices that take effect on the next logging run.
