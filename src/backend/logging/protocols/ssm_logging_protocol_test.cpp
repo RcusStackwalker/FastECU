@@ -66,7 +66,7 @@ TEST(SsmLoggingProtocolTest, StartPreservesHistoricalRequestVector)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
     transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
-    transport->queueRead(buildResponse(bytes::Bytes{0, 0, 0}));
+    transport->queueRead(buildResponse(bytes::Bytes{0}));
     transport->queue_no_frame();
     auto *script = transport.get();
     auto clock = fastecu::make_auto_advancing_clock(10ms);
@@ -94,7 +94,7 @@ TEST(SsmLoggingProtocolTest, StartReturnsBadResponseForNegativeReply)
 {
     auto transport = std::make_unique<ScriptedSsmTransport>();
     transport->expectWrite(buildRequest(bytes::Bytes{0xA8, 0x00, 0x00, 0x00, 0x07}));
-    auto response = buildResponse(bytes::Bytes{0, 0, 0});
+    auto response = buildResponse(bytes::Bytes{0});
     response[4] = 0x7f;
     transport->queueRead(response);
     auto clock = fastecu::make_auto_advancing_clock(10ms);
@@ -388,4 +388,21 @@ TEST(SsmLoggingProtocolTest, RequestsEachPhysicalByteForAMultiByteValue)
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples[0].raw_value, "12");
+}
+
+TEST(SsmLoggingProtocolTest, StartRejectsInvalidChecksumWrongTargetAndExtraData)
+{
+    const std::vector<bytes::Bytes> replies{{0x80, 0xf0, 0x10, 2, 0xe8, 0, 0x6b},
+                                            {0x80, 0xf0, 0x18, 2, 0xe8, 0, 0x72},
+                                            {0x80, 0xf0, 0x10, 3, 0xe8, 0, 0, 0x6b}};
+    for (const auto& reply : replies)
+    {
+        auto transport = std::make_unique<ScriptedSsmTransport>();
+        transport->expectWrite(bytes::Bytes{0x80, 0x10, 0xf0, 5, 0xa8, 0, 0, 0, 7, 0x34});
+        transport->queueRead(reply);
+        auto clock = fastecu::make_auto_advancing_clock(10ms);
+        fastecu::FakeCancellationToken cancellation;
+        auto protocol = make_protocol(clock, std::move(transport), {channel()}, true, true);
+        EXPECT_THAT(protocol.start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
+    }
 }

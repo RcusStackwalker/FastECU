@@ -930,6 +930,8 @@ class MainWindowTest : public ::testing::Test
     void check_loggingUsesTheSessionLogProtocol();
     void check_loggingDefinitionErrorShowsContextAndLeavesStopped();
     void check_loggingUnknownMutSelectionNeedsNoRomMatch();
+    void check_loggingCapabilityChecksumIsNotSupportEvidence();
+    void check_loggingSwitchOnlyDefaultsAreSelectable();
     void check_loggingSelectionEditsWaitForNextRun();
     void check_loggingSwitchValuesAndLiteralUnits();
     void check_loggingUnavailableSelectionCanBeReplaced(bool known_unsupported);
@@ -2967,6 +2969,66 @@ TEST_F(MainWindowTest, loggingDefinitionErrorShowsContextAndLeavesStopped)
     ASSERT_NO_FATAL_FAILURE(check_loggingDefinitionErrorShowsContextAndLeavesStopped());
 }
 
+void MainWindowTest::check_loggingCapabilityChecksumIsNotSupportEvidence()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    prepareLogging(window, "SSM");
+    auto rpm = window.loggerModel->definition().parameters.front();
+    rpm.ecu_byte_index = "6";
+    rpm.ecu_bit = "1";
+    installLoggingFixture(window, {.parameters = {rpm}}, {.protocol = "SSM", .lower_panel_ids = {"rpm"}});
+    // Five calibration-ID bytes plus one feature byte. 0x86 is checksum, not capability byte 6.
+    window.parse_log_value_list(frame({0x80, 0xf0, 0x10, 7, 0xff, 0, 0, 0, 0, 0, 0, 0x86}), "SSM");
+    EXPECT_EQ(window.loggerModel->parameter_support("SSM", "rpm"), fastecu::logging::EcuSupport::Unknown);
+    driver.stop();
+}
+TEST_F(MainWindowTest, loggingCapabilityChecksumIsNotSupportEvidence)
+{
+    ASSERT_NO_FATAL_FAILURE(check_loggingCapabilityChecksumIsNotSupportEvidence());
+}
+
+void MainWindowTest::check_loggingSwitchOnlyDefaultsAreSelectable()
+{
+    ModalDriver driver{QString()};
+    driver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    prepareLogging(window, "SSM");
+    window.configSession->settings().selected_log_protocol = "SSM";
+    installLoggingFixture(
+        window,
+        {.switches =
+             {{.protocol = "SSM", .id = "flag", .name = "Flag", .address = "20", .enabled = true, .sample_bit = "3"}}},
+        {.protocol = "SSM"});
+    window.ecuid = "SWITCH_ONLY_TARGET";
+    ASSERT_TRUE(writeTextFile(QString::fromStdString(window.configSession->effective_paths().logger_file),
+                              "<config><logger/></config>"));
+    window.load_logger_selection();
+    ASSERT_EQ(window.loggerModel->selection().switch_ids, (std::vector<std::string>{"flag"}));
+    ASSERT_EQ(window.loggerModel->selection().protocol, "SSM");
+    services.logging_engine.registerProtocol("SSM",
+                                             [](const auto&)
+                                             {
+                                                 auto source = std::make_unique<ScriptedLoggingProtocol>();
+                                                 source->blockPollUntilCancelled();
+                                                 return source;
+                                             });
+    window.continue_start_logging();
+    ASSERT_TRUE(window.activeLoggingSnapshot.has_value());
+    ASSERT_EQ(window.activeLoggingSnapshot->session().channels().size(), 1U);
+    window.handleLoggingValuesUpdated({{.channel_id = "switch:flag", .numeric_value = 1}});
+    EXPECT_EQ(window.loggerValues.switch_value("SSM", "flag"), "1");
+    services.logging_engine.stop();
+    driver.stop();
+}
+TEST_F(MainWindowTest, loggingSwitchOnlyDefaultsAreSelectable)
+{
+    ASSERT_NO_FATAL_FAILURE(check_loggingSwitchOnlyDefaultsAreSelectable());
+}
+
 void MainWindowTest::check_loggingUnknownMutSelectionNeedsNoRomMatch()
 {
     ModalDriver driver{QString()};
@@ -3590,7 +3652,7 @@ void MainWindowTest::check_loggingSelectionFailureSemanticsAndSupportPreservatio
     ASSERT_EQ(window.loggerModel->selection().gauge_ids, (std::vector<std::string>{"unknown"}));
     ASSERT_TRUE(!window.loggerModel->parameter_available("SSM", "rpm"));
     // A valid capability byte updates parameters; missing switch bytes retain flags.
-    window.parse_log_value_list(frame({0, 0, 0, 0, 0, 1}), "SSM");
+    window.parse_log_value_list(frame({0x80, 0xf0, 0x10, 2, 0xff, 1, 0x82}), "SSM");
     ASSERT_TRUE(window.loggerModel->parameter_available("SSM", "rpm"));
     ASSERT_TRUE(window.loggerModel->switch_available("SSM", "flag"));
     ASSERT_TRUE(window.loggerModel->definition().parameters.front().enabled);
@@ -3599,10 +3661,16 @@ void MainWindowTest::check_loggingSelectionFailureSemanticsAndSupportPreservatio
     ASSERT_TRUE(stored.has_value());
     ASSERT_TRUE(stored->has_value());
     ASSERT_TRUE(**stored == window.loggerModel->selection());
+    auto with_custom_protocol = window.loggerModel->definition();
+    with_custom_protocol.parameters.push_back({.protocol = "CUSTOM", .id = "other", .enabled = true});
+    const auto retained_selection = window.loggerModel->selection();
+    installLoggingFixture(window, std::move(with_custom_protocol), retained_selection);
+    window.loggerModel->set_parameter_support("CUSTOM", "other", fastecu::logging::EcuSupport::Unsupported);
     window.loggerModel->set_parameter_support("SSM", "rpm", fastecu::logging::EcuSupport::Unsupported);
     window.connection_presentation_.identified({.ecu_id = "NEXT_TARGET"});
     ASSERT_EQ(window.loggerModel->parameter_support("SSM", "rpm"), fastecu::logging::EcuSupport::Unknown);
     ASSERT_EQ(window.loggerModel->switch_support("SSM", "flag"), fastecu::logging::EcuSupport::Unknown);
+    EXPECT_EQ(window.loggerModel->parameter_support("CUSTOM", "other"), fastecu::logging::EcuSupport::Unknown);
     // Missing definitions clear stale IDs after a successful read and never persist defaults.
     installLoggingFixture(window, {}, {.protocol = "SSM", .lower_panel_ids = {"stale"}});
     ASSERT_TRUE(writeTextFile(cfg, "<config><logger/></config>"));

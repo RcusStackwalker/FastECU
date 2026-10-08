@@ -16,7 +16,7 @@ using namespace std::chrono_literals;
 fastecu::Status writeFrame(IKlineTransport& transport, bytes::ByteView frame)
 {
     auto result = transport.write(frame);
-    if (!result)
+    if (!result.has_value())
     {
         return std::unexpected(result.error());
     }
@@ -33,17 +33,17 @@ fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& chann
 {
     channels_ = channels;
     streaming_ = false;
-    if (auto wake = init_.wake(t_); !wake)
+    if (auto wake = init_.wake(t_); !wake.has_value())
     {
         return wake;
     }
     const auto setup = buildSetupFrame(setupCmd, static_cast<bytes::Byte>(channels.size()));
-    if (auto written = writeFrame(t_, setup); !written)
+    if (auto written = writeFrame(t_, setup); !written.has_value())
     {
         return written;
     }
     auto resp1 = t_.read(50ms, cancellation);
-    if (!resp1)
+    if (!resp1.has_value())
     {
         return std::unexpected(resp1.error());
     }
@@ -52,12 +52,12 @@ fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& chann
         return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA setup acknowledgement invalid");
     }
     const auto idList = buildIdListFrame(listCmd, channels, dialect_);
-    if (auto written = writeFrame(t_, idList); !written)
+    if (auto written = writeFrame(t_, idList); !written.has_value())
     {
         return written;
     }
     auto resp2 = t_.read(50ms, cancellation);
-    if (!resp2)
+    if (!resp2.has_value())
     {
         return std::unexpected(resp2.error());
     }
@@ -72,7 +72,7 @@ fastecu::Status MutDmaDriver::startFreeFormLog(const std::vector<Channel>& chann
 fastecu::Status MutDmaDriver::writeMemory(std::uint16_t addr, bytes::ByteView data,
                                           const fastecu::ICancellationToken& cancellation)
 {
-    if (auto wake = init_.wake(t_); !wake)
+    if (auto wake = init_.wake(t_); !wake.has_value())
     {
         return wake;
     }
@@ -83,12 +83,12 @@ fastecu::Status MutDmaDriver::writeMemory(std::uint16_t addr, bytes::ByteView da
     }
     for (const MutDmaFrame& f : frames)
     {
-        if (auto written = writeFrame(t_, f); !written)
+        if (auto written = writeFrame(t_, f); !written.has_value())
         {
             return written;
         }
         auto echo = t_.read(50ms, cancellation);
-        if (!echo)
+        if (!echo.has_value())
         {
             return std::unexpected(echo.error());
         }
@@ -108,7 +108,7 @@ fastecu::Result<std::vector<std::uint32_t>> MutDmaDriver::pollOnce(std::chrono::
         return std::vector<std::uint32_t>{};
     }
     auto frame = t_.read(timeout, cancellation);
-    if (!frame)
+    if (!frame.has_value())
     {
         return std::unexpected(frame.error());
     }
@@ -119,7 +119,7 @@ fastecu::Result<std::vector<std::uint32_t>> MutDmaDriver::pollOnce(std::chrono::
     StreamFrame s = parseStreamFrame(frame->value());
     if (!s.ok)
     {
-        return std::vector<std::uint32_t>{};
+        return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA stream framing or checksum invalid");
     }
     if (s.data.size() != responseDataLength(channels_))
     {

@@ -8,6 +8,7 @@
 #include <QString>
 
 #include "src/backend/logging/logging_run_snapshot.h"
+#include "src/backend/logging/logging_csv_columns.h"
 #include "src/backend/ports/result.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
 
@@ -24,14 +25,8 @@ class LoggingCsvFile
     bool is_open() const;
 
   private:
-    struct Column
-    {
-        fastecu::logging::LoggingMeasurementKind kind;
-        fastecu::logging::LoggerIdentity identity;
-        std::string name;
-    };
     Status write_record(const std::vector<std::string>& fields);
     std::unique_ptr<QFile> file_;
-    std::vector<Column> columns_;
+    std::vector<fastecu::logging::LoggingCsvColumn> columns_;
 };
 } // namespace fastecu::desktop::logging

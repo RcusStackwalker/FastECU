@@ -6,8 +6,6 @@
 #include <ranges>
 #include <utility>
 
-#include "src/backend/logging/logger_conf.h"
-
 namespace fastecu::logging
 {
 namespace
@@ -131,6 +129,17 @@ void LoggerModel::reset_support(std::string_view protocol)
         }
     }
 }
+void LoggerModel::reset_support()
+{
+    for (auto& entry : parameter_support_)
+    {
+        entry.second = EcuSupport::Unknown;
+    }
+    for (auto& entry : switch_support_)
+    {
+        entry.second = EcuSupport::Unknown;
+    }
+}
 bool LoggerModel::parameter_available(std::string_view protocol, std::string_view id) const
 {
     const auto *p = parameter(protocol, id);
@@ -161,16 +170,24 @@ void LoggerModel::apply_capabilities(std::string_view protocol, bytes::ByteView 
         }
     }
 }
-LoggerSelection LoggerModel::default_selection() const
+LoggerSelection LoggerModel::default_selection(std::string_view protocol) const
 {
     LoggerSelection result;
-    if (!definition_.parameters.empty())
+    result.protocol = protocol.empty() ? selection_.protocol : std::string(protocol);
+    if (result.protocol.empty())
     {
-        result.protocol = definition_.parameters.front().protocol;
+        if (!definition_.parameters.empty())
+        {
+            result.protocol = definition_.parameters.front().protocol;
+        }
+        else if (!definition_.switches.empty())
+        {
+            result.protocol = definition_.switches.front().protocol;
+        }
     }
     for (const auto& p : definition_.parameters)
     {
-        if (!parameter_available(p.protocol, p.id))
+        if (p.protocol != result.protocol || !parameter_available(p.protocol, p.id))
         {
             continue;
         }
@@ -185,7 +202,7 @@ LoggerSelection LoggerModel::default_selection() const
     }
     for (const auto& p : definition_.switches)
     {
-        if (switch_available(p.protocol, p.id) && result.switch_ids.size() < 20)
+        if (p.protocol == result.protocol && switch_available(p.protocol, p.id) && result.switch_ids.size() < 20)
         {
             result.switch_ids.push_back(p.id);
         }

@@ -42,34 +42,12 @@ Result<QString> LoggingCsvFile::begin_run(const fastecu::logging::LoggingRunSnap
     {
         return fail(ErrorKind::InvalidConfig, "CSV storage missing or previous run still owns it");
     }
-    columns_.clear();
-    using Kind = fastecu::logging::LoggingMeasurementKind;
-    const auto add = [&](Kind kind, const auto& ids) -> Status
+    auto columns = fastecu::logging::prepare_logging_csv_columns(snapshot);
+    if (!columns.has_value())
     {
-        for (const auto& id : ids)
-        {
-            const auto *measurement = snapshot.find_measurement(kind, id);
-            if (measurement == nullptr)
-            {
-                return fail(ErrorKind::Internal, "CSV selection has no captured measurement");
-            }
-            columns_.push_back({kind, measurement->identity, measurement->name});
-        }
-        return {};
-    };
-    for (const auto& ids : {snapshot.selection().gauge_ids, snapshot.selection().lower_panel_ids})
-    {
-        const auto added = add(Kind::Parameter, ids);
-        if (!added.has_value())
-        {
-            return std::unexpected(added.error());
-        }
+        return std::unexpected(columns.error());
     }
-    const auto switches = add(Kind::Switch, snapshot.selection().switch_ids);
-    if (!switches.has_value())
-    {
-        return std::unexpected(switches.error());
-    }
+    columns_ = std::move(*columns);
     for (qulonglong suffix = 0;; ++suffix)
     {
         const auto name = name_stem + (suffix == 0 ? QString{} : "_" + QString::number(suffix)) + ".csv";

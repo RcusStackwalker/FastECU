@@ -2,6 +2,7 @@
 
 #include <format>
 #include <utility>
+#include <unordered_set>
 
 #include "src/backend/logging/logging_channel_preparation.h"
 

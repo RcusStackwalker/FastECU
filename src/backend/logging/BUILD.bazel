@@ -180,7 +180,6 @@ cc_library(
     name = "logger_model",
     srcs = ["logger_model.cpp"],
     hdrs = ["logger_model.h"],
-    implementation_deps = [":logger_conf"],
     visibility = ["//visibility:public"],
     deps = [
         ":logger_definition_model",
@@ -292,4 +291,25 @@ cc_library(
     name = "logging_csv_record",
     srcs = ["logging_csv_record.cpp"],
     hdrs = ["logging_csv_record.h"],
+)
+
+fastecu_portable_gtest(
+    name = "logging_csv_columns_test",
+    srcs = ["logging_csv_columns_test.cpp"],
+    deps = [
+        ":logging_csv_columns",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "logging_csv_columns",
+    srcs = ["logging_csv_columns.cpp"],
+    hdrs = ["logging_csv_columns.h"],
+    deps = [
+        ":logger_model",
+        ":logging_run_snapshot",
+        "//src/backend/ports",
+    ],
 )

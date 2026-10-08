@@ -154,6 +154,18 @@ Result<LoggingChannel> prepare_logging_switch(const LoggerSwitch& source, Loggin
         return fail(ErrorKind::InvalidConfig,
                     std::format("{} switch {}: invalid sample bit; expected 0–7", source.protocol, source.id));
     }
+    if (source.declared_sample_address.has_value())
+    {
+        std::uint32_t declared = 0;
+        std::uint32_t actual = 0;
+        if (!parse_unsigned(*source.declared_sample_address, 16, declared) ||
+            !parse_unsigned(source.address, 16, actual) || declared != actual)
+        {
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("{} switch {}: conflicting or invalid sample address metadata", source.protocol,
+                                    source.id));
+        }
+    }
     LoggerParameter parameter{.protocol = source.protocol,
                               .id = source.id,
                               .name = source.name,

@@ -158,7 +158,7 @@ TEST(TestDriver, handshake_fails_on_bad_ack)
     ASSERT_FALSE(d.isStreaming());
 }
 
-TEST(TestDriver, poll_returns_empty_on_bad_frame)
+TEST(TestDriver, poll_reports_bad_response_on_invalid_checksum)
 {
     std::vector<Channel> ch = {{0x8000, 2}};
     ScriptedKlineTransport t;
@@ -169,8 +169,7 @@ TEST(TestDriver, poll_returns_empty_on_bad_frame)
     d.setChannelsForTest(ch);
     fastecu::FakeCancellationToken cancellation;
     const auto result = d.pollOnce(50ms, cancellation);
-    ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->empty());
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
 }
 
 TEST(TestDriver, write_memory_fails_on_bad_echo)

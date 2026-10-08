@@ -1,9 +1,8 @@
 #pragma once
 
-#include <cstddef>
+#include <cstdint>
 #include <string>
 #include <string_view>
-#include <unordered_set>
 #include <vector>
 
 #include "src/backend/logging/logger_model.h"

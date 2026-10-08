@@ -125,7 +125,7 @@ TEST(TestCdbgDriver, handshake_fails_when_init_gets_no_reply)
     ASSERT_TRUE(!d.isStreaming());
 }
 
-TEST(TestCdbgDriver, poll_merges_values_across_two_frames)
+TEST(TestCdbgDriver, poll_publishes_only_the_received_frame_without_unseen_zero_values)
 {
     cdbg::ScriptedCanTransport t;
     std::vector<CdbgChannel> ch = {{0x804FBF, 4}, {0x804DF2, 4}, {0x8054AC, 2}};
@@ -161,19 +161,18 @@ TEST(TestCdbgDriver, poll_merges_values_across_two_frames)
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("00AABBCCDD000000"));
     const auto r1 = d.pollOnce(50ms, cancellation);
     ASSERT_THAT(r1, fastecu::testing::IsOk());
-    ASSERT_EQ(r1->size(), 3U);
+    ASSERT_EQ(r1->size(), 1U);
+    EXPECT_EQ(r1->channel_offset, 0U);
     ASSERT_EQ(r1->at(0), std::uint32_t(0xAABBCCDD));
-    ASSERT_EQ(r1->at(1), std::uint32_t(0));
-    ASSERT_EQ(r1->at(2), std::uint32_t(0));
 
     // Frame 1 arrives next: channel 1 (4-byte) = 0x11223344, channel 2 (2-byte) = 0x5566.
     t.queueRead(kReplyCanId, test_bytes::bytesFromHex("0111223344556600"));
     const auto r2 = d.pollOnce(50ms, cancellation);
     ASSERT_THAT(r2, fastecu::testing::IsOk());
-    ASSERT_EQ(r2->size(), 3U);
-    ASSERT_EQ(r2->at(0), std::uint32_t(0xAABBCCDD)); // retained from frame 0
-    ASSERT_EQ(r2->at(1), std::uint32_t(0x11223344));
-    ASSERT_EQ(r2->at(2), std::uint32_t(0x5566));
+    ASSERT_EQ(r2->size(), 2U);
+    EXPECT_EQ(r2->channel_offset, 1U);
+    ASSERT_EQ(r2->at(0), std::uint32_t(0x11223344));
+    ASSERT_EQ(r2->at(1), std::uint32_t(0x5566));
 }
 
 TEST(TestCdbgDriver, poll_returns_empty_when_not_streaming)

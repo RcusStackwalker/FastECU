@@ -183,7 +183,7 @@ TEST(LoggerDefinitionParser, AcceptsAnEmptyButWellFormedDocument)
 
 TEST(LoggerDefinitionParser, ReadsNestedSampleMetadataAndExplicitEnablement)
 {
-    constexpr std::string_view xml = R"(<logger><protocols><protocol id="SSM">
+    constexpr std::string_view kXml = R"(<logger><protocols><protocol id="SSM">
       <parameters><parameter id="wide" enabled="1">
         <address length="2">0x10</address>
       </parameter></parameters>
@@ -191,7 +191,7 @@ TEST(LoggerDefinitionParser, ReadsNestedSampleMetadataAndExplicitEnablement)
         <address bit="5">0x20</address>
       </switch></switches>
     </protocol></protocols></logger>)";
-    const auto result = parse_logger_definition(view(xml), "nested.xml");
+    const auto result = parse_logger_definition(view(kXml), "nested.xml");
     ASSERT_THAT(result, fastecu::testing::IsOk());
     EXPECT_EQ(result->parameters.at(0).length, "2");
     EXPECT_EQ(result->switches.at(0).address, "0x20");

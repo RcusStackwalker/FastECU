@@ -65,6 +65,7 @@ struct LoggerSwitch
 
     std::string sample_bit;
     std::vector<LoggerAddressSpec> address_specs;
+    std::optional<std::string> declared_sample_address;
 
     bool operator==(const LoggerSwitch&) const = default;
 };

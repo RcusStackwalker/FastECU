@@ -24,13 +24,14 @@ bytes::Byte sizeToDescriptor(bytes::Byte len);
 // reqLen = ceil(N/4) + N*2 + 0x1c   (header+descriptors+ids+overhead+csum+trailer)
 std::size_t reqLen(std::size_t channelCount);
 // Id-list (host reply to ACK-1): [listCmd 0xA1..0xA4][N][2-bit size descriptors,
-// ceil(N/4) bytes, channel i at bits[(3-(i%4))*2]][N x u16 ids big-endian][zero pad]
+// ceil(N/4) bytes, channel i at bits[(3-(i%4))*2]][N x u16 request codes in the selected dialect byte order][zero pad]
 // [sum8(0..len-3)][0x0D]. Total length == reqLen(N). listCmd selects the rate slot.
 bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const std::vector<Channel>& channels,
                               FreeformDialect dialect = FreeformDialect::LegacyBe);
 // Sum of element sizes = number of data bytes a stream frame carries for these channels.
 std::size_t responseDataLength(const std::vector<Channel>& channels);
-// Decode the stream data payload into one big-endian value per channel, in order.
+// Decode a complete stream payload into values in the selected dialect byte order.
+// An incomplete payload produces no values. LegacyBe is the maintained default.
 std::vector<std::uint32_t> decodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data,
                                               FreeformDialect dialect = FreeformDialect::LegacyBe);
 } // namespace mutdma

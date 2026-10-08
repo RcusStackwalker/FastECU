@@ -84,6 +84,8 @@ LoggerSwitch parse_switch(pugi::xml_node node, std::string_view protocol)
         .target = attribute_or(node, "target", "No target"),
         .enabled = attribute_or(node, "enabled", "0") == "1",
         .sample_bit = address ? attribute_or(address, "bit", "") : attribute_or(node, "bit", ""),
+        .declared_sample_address =
+            node.attribute("byte") ? std::optional<std::string>{node.attribute("byte").value()} : std::nullopt,
     };
     for (pugi::xml_node item : node.children("address"))
     {

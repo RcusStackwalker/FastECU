@@ -1633,6 +1633,7 @@ void MainWindow::load_logger_definition()
         return;
     }
     loggerModel->install_definition(std::move(*definition));
+    loggerModel->set_selection(loggerModel->default_selection(settings.selected_log_protocol));
 }
 
 void MainWindow::load_logger_selection()
@@ -1653,14 +1654,14 @@ void MainWindow::load_logger_selection()
         loggerModel->set_selection(**stored);
         return;
     }
-    if (loggerModel->definition().parameters.empty())
+    if (loggerModel->definition().parameters.empty() && loggerModel->definition().switches.empty())
     {
         services_.file_action_events.notice("Logger definition file: No logger definition file selected, returning "
                                             "without initializing log parameters!");
         return;
     }
-    const auto selected =
-        service.load_or_initialize_selection(handle, ecuid.toStdString(), loggerModel->default_selection());
+    const auto selected = service.load_or_initialize_selection(
+        handle, ecuid.toStdString(), loggerModel->default_selection(configSession->settings().selected_log_protocol));
     if (!selected.has_value())
     {
         services_.file_action_events.notice("Logger file: Unable to open logger config file '" + handle +

@@ -73,6 +73,7 @@ cc_library(
     deps = [
         ":logging_adapters",
         "//bazel/qt:core",
+        "//src/backend/logging:logging_csv_columns",
         "//src/backend/logging:logging_run_snapshot",
         "//src/backend/ports",
     ],

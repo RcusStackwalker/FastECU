@@ -29,10 +29,10 @@ LoggingChannel channel()
     };
 }
 
-void scriptValidHandshake(cdbg::ScriptedCanTransport& transport)
+void scriptValidHandshake(cdbg::ScriptedCanTransport& transport,
+                          const std::vector<CdbgChannel>& channels = {{0x804000, 1}})
 {
     using namespace MitsuColtCanCdbg;
-    const std::vector<CdbgChannel> channels = {{0x804000, 1}};
 
     transport.expectWrite(kRequestCanId, buildInitFrame());
     transport.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
@@ -45,12 +45,15 @@ void scriptValidHandshake(cdbg::ScriptedCanTransport& transport)
 
     std::vector<std::vector<CdbgChannel>> frames;
     ASSERT_TRUE(batchChannelsIntoFrames(channels, frames));
-    for (const auto& command : buildFrameInitFrames(0, 0, frames.at(0)))
+    for (std::size_t index = 0; index < frames.size(); ++index)
     {
-        transport.expectWrite(kRequestCanId, command);
-        transport.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
+        for (const auto& command : buildFrameInitFrames(0, static_cast<bytes::Byte>(index), frames[index]))
+        {
+            transport.expectWrite(kRequestCanId, command);
+            transport.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
+        }
     }
-    transport.expectWrite(kRequestCanId, buildLogStartFrame(0, 1, 10));
+    transport.expectWrite(kRequestCanId, buildLogStartFrame(0, static_cast<bytes::Byte>(frames.size()), 10));
     transport.queueRead(kReplyCanId, test_bytes::bytesFromHex("0000000000000000"));
 }
 
@@ -167,4 +170,38 @@ TEST(CdbgLoggingProtocolTest, StartPropagatesCancellation)
     fastecu::FakeCancellationToken cancellation(true);
 
     ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+}
+
+TEST(CdbgLoggingProtocolTest, OutOfOrderFramesPublishOnlyTheirMappedMeasurements)
+{
+    auto first = channel();
+    first.id = "first";
+    first.length = 4;
+    auto second = first;
+    second.id = "second";
+    second.address += 4;
+    auto last = first;
+    last.id = "last";
+    last.address += 8;
+    last.length = 2;
+    auto transport = std::make_unique<cdbg::ScriptedCanTransport>();
+    scriptValidHandshake(*transport, {{0x804000, 4}, {0x804004, 4}, {0x804008, 2}});
+    auto *script = transport.get();
+    auto protocol = makeProtocol(std::move(transport), {first, second, last});
+    fastecu::FakeCancellationToken cancellation;
+    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
+    script->queueRead(MitsuColtCanCdbg::kReplyCanId, bytes::Bytes{1, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0});
+    const auto later = protocol->poll(50ms, cancellation);
+    ASSERT_THAT(later, fastecu::testing::IsOk());
+    ASSERT_EQ(later->samples.size(), 2U);
+    EXPECT_EQ(later->samples[0].channel_id, "second");
+    EXPECT_EQ(later->samples[0].raw_value, "287454020");
+    EXPECT_EQ(later->samples[1].channel_id, "last");
+    EXPECT_EQ(later->samples[1].raw_value, "21862");
+    script->queueRead(MitsuColtCanCdbg::kReplyCanId, bytes::Bytes{0, 0xaa, 0xbb, 0xcc, 0xdd, 0, 0, 0});
+    const auto earlier = protocol->poll(50ms, cancellation);
+    ASSERT_THAT(earlier, fastecu::testing::IsOk());
+    ASSERT_EQ(earlier->samples.size(), 1U);
+    EXPECT_EQ(earlier->samples[0].channel_id, "first");
+    EXPECT_EQ(earlier->samples[0].raw_value, "2864434397");
 }

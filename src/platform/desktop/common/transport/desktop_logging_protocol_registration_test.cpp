@@ -207,7 +207,7 @@ TEST(DesktopLoggingProtocolRegistrationTest, ssm_target_and_adapter_are_per_run)
             {
                 ::testing::InSequence order;
                 EXPECT_CALL(serial.fake(), read_serial_data(openport ? 1000 : 10))
-                    .WillOnce(Return(QByteArray::fromHex(target ? "80f01004e80000006c" : "80f01804e800000074")));
+                    .WillOnce(Return(QByteArray::fromHex(target ? "80f01002e8006a" : "80f01802e80072")));
                 if (!openport)
                 {
                     EXPECT_CALL(serial.fake(), read_serial_data(980)).WillOnce(Return(QByteArray{}));

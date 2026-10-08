@@ -1,8 +1,9 @@
 #include "src/backend/protocol/mitsu_colt_can_cdbg_driver.h"
 
+#include <utility>
+
 #include <string>
 #include <string_view>
-#include <utility>
 
 namespace MitsuColtCanCdbg
 {
@@ -16,7 +17,7 @@ fastecu::Result<bytes::Bytes> sendAndReceive(cdbg::ICanTransport& transport, byt
                                              std::string_view failureDetail)
 {
     auto written = transport.write(kRequestCanId, command);
-    if (!written)
+    if (!written.has_value())
     {
         return std::unexpected(written.error());
     }
@@ -25,7 +26,7 @@ fastecu::Result<bytes::Bytes> sendAndReceive(cdbg::ICanTransport& transport, byt
         return fastecu::fail(fastecu::ErrorKind::Internal, "partial CAN write");
     }
     auto reply = transport.read(250ms, cancellation);
-    if (!reply)
+    if (!reply.has_value())
     {
         return std::unexpected(reply.error());
     }
@@ -43,7 +44,6 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
 {
     streaming_ = false;
     frames_.clear();
-    lastValues_.clear();
 
     if (channels.empty())
     {
@@ -59,19 +59,19 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
     }
 
     auto reply = sendAndReceive(t_, buildInitFrame(), cancellation, "CDBG session init failed");
-    if (!reply)
+    if (!reply.has_value())
     {
         return std::unexpected(reply.error());
     }
 
     reply = sendAndReceive(t_, buildSecuritySeedRequestFrame(), cancellation, "CDBG security seed request failed");
-    if (!reply)
+    if (!reply.has_value())
     {
         return std::unexpected(reply.error());
     }
     std::uint32_t key = seedToKey(extractSeed(*reply));
     reply = sendAndReceive(t_, buildSecurityKeyFrame(key), cancellation, "CDBG security key request failed");
-    if (!reply)
+    if (!reply.has_value())
     {
         return std::unexpected(reply.error());
     }
@@ -86,7 +86,7 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
     }
 
     reply = sendAndReceive(t_, buildLogResetFrame(instance), cancellation, "CDBG log reset failed");
-    if (!reply)
+    if (!reply.has_value())
     {
         return std::unexpected(reply.error());
     }
@@ -97,7 +97,7 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
         for (const CdbgFrame& cmd : cmds)
         {
             reply = sendAndReceive(t_, cmd, cancellation, "CDBG log frame setup failed");
-            if (!reply)
+            if (!reply.has_value())
             {
                 return std::unexpected(reply.error());
             }
@@ -106,17 +106,10 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
 
     reply = sendAndReceive(t_, buildLogStartFrame(instance, static_cast<bytes::Byte>(frames_.size()), intervalMs),
                            cancellation, "CDBG log start failed");
-    if (!reply)
+    if (!reply.has_value())
     {
         return std::unexpected(reply.error());
     }
-
-    std::size_t totalChannels = 0;
-    for (const auto& frame : frames_)
-    {
-        totalChannels += frame.size();
-    }
-    lastValues_.assign(totalChannels, 0);
 
     streaming_ = true;
     return {};
@@ -131,38 +124,31 @@ fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::pollOnce(std::chrono::
     }
 
     auto read = t_.read(timeout, cancellation);
-    if (!read)
+    if (!read.has_value())
     {
         return std::unexpected(read.error());
     }
-    bool decoded_response = false;
-    if (read->has_value() && read->value().id == kReplyCanId && !read->value().payload.empty())
-    {
-        const bytes::Bytes& frame = read->value().payload;
-        bytes::Byte frameIdx = frame.front();
-        if (frameIdx < static_cast<bytes::Byte>(frames_.size()))
-        {
-            std::vector<std::uint32_t> decoded = decodeFrame(frameIdx, frames_.at(frameIdx), frame);
-            if (!decoded.empty())
-            {
-                decoded_response = true;
-                std::size_t offset = 0;
-                for (std::size_t f = 0; f < frameIdx; ++f)
-                {
-                    offset += frames_.at(f).size();
-                }
-                for (std::size_t i = 0; i < decoded.size(); ++i)
-                {
-                    lastValues_[offset + i] = decoded.at(i);
-                }
-            }
-        }
-    }
-    if (!decoded_response)
+    if (!read->has_value() || read->value().id != kReplyCanId || read->value().payload.empty())
     {
         return PollResult{};
     }
-    return PollResult{.responded = true, .values = lastValues_};
+    const auto& frame = read->value().payload;
+    const auto frame_index = static_cast<std::size_t>(frame.front());
+    if (frame_index >= frames_.size())
+    {
+        return PollResult{};
+    }
+    auto decoded = decodeFrame(static_cast<bytes::Byte>(frame_index), frames_[frame_index], frame);
+    if (decoded.empty())
+    {
+        return PollResult{};
+    }
+    std::size_t offset = 0;
+    for (std::size_t index = 0; index < frame_index; ++index)
+    {
+        offset += frames_[index].size();
+    }
+    return PollResult{.responded = true, .channel_offset = offset, .values = std::move(decoded)};
 }
 
 } // namespace MitsuColtCanCdbg

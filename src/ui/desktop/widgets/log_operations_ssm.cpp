@@ -6,10 +6,12 @@
 void MainWindow::parse_log_value_list(QByteArray received, const QString& protocol_arg)
 {
     received.remove(0, 5);
+    received.chop(1); // Identification framing is validated by the backend; checksum is not capability data.
     loggerModel->apply_capabilities(protocol_arg.toStdString(), bytes::view(received));
     for (const auto& p : loggerModel->definition().parameters)
     {
-        if (p.protocol != protocol_arg.toStdString() || !loggerModel->parameter_available(p.protocol, p.id))
+        if (p.protocol != protocol_arg.toStdString() ||
+            loggerModel->parameter_support(p.protocol, p.id) != fastecu::logging::EcuSupport::Supported)
         {
             continue;
         }

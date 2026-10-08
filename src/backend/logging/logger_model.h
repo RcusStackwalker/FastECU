@@ -35,10 +35,11 @@ class LoggerModel
     void set_parameter_support(std::string_view protocol, std::string_view id, EcuSupport state);
     void set_switch_support(std::string_view protocol, std::string_view id, EcuSupport state);
     void reset_support(std::string_view protocol);
+    void reset_support();
     bool parameter_available(std::string_view protocol, std::string_view id) const;
     bool switch_available(std::string_view protocol, std::string_view id) const;
     void apply_capabilities(std::string_view protocol, bytes::ByteView capabilities);
-    LoggerSelection default_selection() const;
+    LoggerSelection default_selection(std::string_view protocol = {}) const;
 
   private:
     bool installed_ = false;

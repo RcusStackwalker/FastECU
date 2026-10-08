@@ -49,6 +49,18 @@ TEST(LoggingChannelPreparation, RejectsConflictingLengthMetadata)
                 IsErrWith(ErrorKind::InvalidConfig, HasSubstr("length")));
 }
 
+TEST(LoggingChannelPreparation, RejectsConflictingLegacyAndNestedSwitchAddresses)
+{
+    LoggerSwitch source{.protocol = "SSM",
+                        .id = "flag",
+                        .address = "20",
+                        .sample_bit = "5",
+                        .address_specs = {{.value = "20", .bit = "5"}},
+                        .declared_sample_address = "21"};
+    EXPECT_THAT(prepare_logging_switch(source, LoggingProtocolId::Ssm),
+                IsErrWith(ErrorKind::InvalidConfig, AllOf(HasSubstr("flag"), HasSubstr("address"))));
+}
+
 struct InvalidInput
 {
     std::string field;

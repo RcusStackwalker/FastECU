@@ -107,6 +107,16 @@ TEST(LoggerModelTest, KnownSupportOverridesDisabledDefaultOnlyInItsNamespace)
     model.set_parameter_support("SSM", "same", EcuSupport::Unsupported);
     EXPECT_FALSE(model.parameter_available("SSM", "same"));
 }
+TEST(LoggerModelTest, DefaultsNeverMixProtocolNamespaces)
+{
+    LoggerModel model;
+    ASSERT_TRUE(model.install_definition({.parameters = {{.protocol = "SSM", .id = "ssm", .enabled = true},
+                                                         {.protocol = "MUT_DMA", .id = "mut", .enabled = true}},
+                                          .switches = {{.protocol = "SSM", .id = "flag", .enabled = true},
+                                                       {.protocol = "MUT_DMA", .id = "mut-flag", .enabled = true}}}));
+    EXPECT_EQ(model.selection().lower_panel_ids, (std::vector<std::string>{"ssm"}));
+    EXPECT_EQ(model.selection().switch_ids, (std::vector<std::string>{"flag"}));
+}
 TEST(LoggerModelTest, EmptyModelDoesNotInventDefinitionsOrSupportedIds)
 {
     LoggerModel model;
