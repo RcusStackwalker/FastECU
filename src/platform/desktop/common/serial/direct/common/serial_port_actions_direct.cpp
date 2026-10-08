@@ -17,7 +17,7 @@
 namespace
 {
 // Length of the next J2534 message: what is left to send, capped at what one
-// PASSTHRU_MSG can carry. The cap bounds the result, so the narrowing to long
+// PassThruMsg can carry. The cap bounds the result, so the narrowing to long
 // (32 bits on Windows) is lossless.
 long nextPassThruChunkLength(const QByteArray& remaining)
 {
@@ -39,16 +39,16 @@ struct J2534IoScope
     }
 };
 
-// Binds an SCONFIG_LIST to the array backing it, so NumOfParams cannot drift
+// Binds an SConfigList to the array backing it, so NumOfParams cannot drift
 // from the data it counts. The cast is here rather than at each call site
 // because unsigned long is narrower than size_t on Windows.
-template <std::size_t N> SCONFIG_LIST configList(std::array<SCONFIG, N>& params)
+template <std::size_t N> SConfigList configList(std::array<SCONFIG, N>& params)
 {
     return {static_cast<unsigned long>(params.size()), params.data()};
 }
 
 // The J2534 flag constants retain type int; these give them the unsigned
-// type of the PASSTHRU_MSG and PassThruConnect fields they are combined with.
+// type of the PassThruMsg and PassThruConnect fields they are combined with.
 constexpr unsigned long kTxDone = kJ2534TxDone;
 constexpr unsigned long kStartOfMessage = kJ2534StartOfMessage;
 constexpr unsigned long kIso15765FramePad = kJ2534Iso15765FramePad;
@@ -121,7 +121,7 @@ int SerialPortActionsDirect::change_port_speed(QString portSpeed)
             emit LOG_D("Adapter type is J2534...", true, true);
 
             auto scp = std::to_array<SCONFIG>({{.Parameter = kJ2534DataRate, .Value = baudrate}});
-            SCONFIG_LIST scl = configList(scp);
+            SConfigList scl = configList(scp);
             if (!j2534->PassThruIoctl(chanID, kJ2534SetConfig, &scl, nullptr))
             {
                 emit LOG_D("Baudrate set to " + portSpeed + " OK", true, true);
@@ -146,8 +146,8 @@ QByteArray SerialPortActionsDirect::five_baud_init(QByteArray output)
     if (use_openport2_adapter)
     {
         unsigned long result;
-        SBYTE_ARRAY InputMsg;
-        SBYTE_ARRAY OutputMsg;
+        SByteArray InputMsg;
+        SByteArray OutputMsg;
 
         std::array<unsigned char, 20> BytePtr{};
 
@@ -223,8 +223,8 @@ int SerialPortActionsDirect::fast_init(QByteArray output)
     if (use_openport2_adapter)
     {
         unsigned long result;
-        PASSTHRU_MSG InputMsg;
-        PASSTHRU_MSG OutputMsg;
+        PassThruMsg InputMsg;
+        PassThruMsg OutputMsg;
 
         memset(&InputMsg, 0, sizeof(InputMsg));
         memset(&OutputMsg, 0, sizeof(OutputMsg));
@@ -964,7 +964,7 @@ QByteArray SerialPortActionsDirect::append_iso14230_header(QByteArray output)
 
 int SerialPortActionsDirect::write_j2534_data(QByteArray output)
 {
-    PASSTHRU_MSG txmsg;
+    PassThruMsg txmsg;
     unsigned long NumMsgs;
     long txMsgLen = nextPassThruChunkLength(output);
 
@@ -989,7 +989,7 @@ int SerialPortActionsDirect::write_j2534_data(QByteArray output)
         {
             txmsg.Data[i] = (uint8_t)output.at(i);
         }
-        // Indicate that the PASSTHRU_MSG array contains just a single message.
+        // Indicate that the PassThruMsg array contains just a single message.
         NumMsgs = 1;
 
         j2534->PassThruWriteMsgs(chanID, &txmsg, &NumMsgs, 100);
@@ -1004,7 +1004,7 @@ int SerialPortActionsDirect::write_j2534_data(QByteArray output)
 
 int SerialPortActionsDirect::send_periodic_j2534_data(QByteArray output, int timeout_arg)
 {
-    PASSTHRU_MSG txmsg;
+    PassThruMsg txmsg;
     long txMsgLen = nextPassThruChunkLength(output);
 
     while (txMsgLen > 0)
@@ -1052,7 +1052,7 @@ bool SerialPortActionsDirect::get_is_tx_done()
 
 QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout_arg)
 {
-    PASSTHRU_MSG rxmsg;
+    PassThruMsg rxmsg;
     unsigned long numRxMsg;
     QByteArray received;
 
@@ -1108,7 +1108,7 @@ int SerialPortActionsDirect::set_j2534_ioctl(unsigned long parameter, int value)
 {
     // Set timeouts etc.
     auto scp = std::to_array<SCONFIG>({{.Parameter = parameter, .Value = static_cast<unsigned long>(value)}});
-    SCONFIG_LIST scl = configList(scp);
+    SConfigList scl = configList(scp);
     if (j2534->PassThruIoctl(chanID, kJ2534SetConfig, &scl, nullptr))
     {
         reportJ2534Error();
@@ -1140,7 +1140,7 @@ unsigned long SerialPortActionsDirect::read_vbatt()
     return vBatt;
 }
 
-void SerialPortActionsDirect::dump_msg(PASSTHRU_MSG *msg)
+void SerialPortActionsDirect::dump_msg(PassThruMsg *msg)
 {
     QByteArray datamsg;
 
@@ -1334,7 +1334,7 @@ int SerialPortActionsDirect::set_j2534_can_timings()
         emit LOG_D("Set iso15765 timings", true, true);
     }
     auto scp = std::to_array<SCONFIG>({{.Parameter = kJ2534Loopback, .Value = 0}});
-    SCONFIG_LIST scl = configList(scp);
+    SConfigList scl = configList(scp);
     if (j2534->PassThruIoctl(chanID, kJ2534SetConfig, &scl, nullptr))
     {
         reportJ2534Error();
@@ -1351,8 +1351,8 @@ int SerialPortActionsDirect::set_j2534_can_timings()
 int SerialPortActionsDirect::set_j2534_can_filters()
 {
     // now setup the filter(s)
-    PASSTHRU_MSG txmsg;
-    PASSTHRU_MSG msgMask, msgPattern, msgFlow;
+    PassThruMsg txmsg;
+    PassThruMsg msgMask, msgPattern, msgFlow;
     unsigned long msgId;
 
     j2534->PassThruIoctl(chanID, kJ2534ClearMsgFilters, nullptr, nullptr);
@@ -1498,7 +1498,7 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
 
         // Zero-initialised, not left indeterminate: `protocol` is not
         // necessarily one of the two cases below.
-        SCONFIG_LIST scl{};
+        SConfigList scl{};
         switch (protocol)
         {
         case kJ2534Iso14230:
@@ -1535,7 +1535,7 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
                                            {.Parameter = kJ2534P4Min, .Value = 0},
                                            {.Parameter = kJ2534Parity, .Value = parity},
                                            {.Parameter = kJ2534Tinil, .Value = 25}});
-        SCONFIG_LIST scl = configList(scp);
+        SConfigList scl = configList(scp);
         if (j2534->PassThruIoctl(chanID, kJ2534SetConfig, &scl, nullptr))
         {
             reportJ2534Error();
@@ -1553,8 +1553,8 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
 int SerialPortActionsDirect::set_j2534_iso9141_filters()
 {
     // now setup the filter(s)
-    PASSTHRU_MSG txmsg;
-    PASSTHRU_MSG msgMask, msgPattern;
+    PassThruMsg txmsg;
+    PassThruMsg msgMask, msgPattern;
     unsigned long msgId;
 
     // simply create a "pass all" filter so that we can see

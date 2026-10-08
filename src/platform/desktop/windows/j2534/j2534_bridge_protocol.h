@@ -90,14 +90,14 @@ struct PassThruReadMsgsResponse
 {
     long result;
     unsigned long numMsgs; // 0 or 1
-    PASSTHRU_MSG msg;
+    PassThruMsg msg;
 };
 
 struct PassThruWriteMsgsRequest
 {
     unsigned long channelId;
     unsigned long timeout;
-    PASSTHRU_MSG msg;
+    PassThruMsg msg;
 };
 struct PassThruWriteMsgsResponse
 {
@@ -109,7 +109,7 @@ struct PassThruStartPeriodicMsgRequest
 {
     unsigned long channelId;
     unsigned long timeInterval;
-    PASSTHRU_MSG msg;
+    PassThruMsg msg;
 };
 struct PassThruStartPeriodicMsgResponse
 {
@@ -132,9 +132,9 @@ struct PassThruStartMsgFilterRequest
     unsigned long channelId;
     unsigned long filterType;
     bool hasFlowControlMsg; // false for PASS_FILTER/BLOCK_FILTER (pFlowControlMsg == NULL)
-    PASSTHRU_MSG maskMsg;
-    PASSTHRU_MSG patternMsg;
-    PASSTHRU_MSG flowControlMsg; // meaningful only when hasFlowControlMsg is true
+    PassThruMsg maskMsg;
+    PassThruMsg patternMsg;
+    PassThruMsg flowControlMsg; // meaningful only when hasFlowControlMsg is true
 };
 struct PassThruStartMsgFilterResponse
 {

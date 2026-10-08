@@ -62,7 +62,7 @@ TEST(J2534WinBridge, OpensConnectsAndReadsThroughBridge)
     ASSERT_TRUE(result == kJ2534StatusNoerror);
     ASSERT_TRUE(channelId == 3);
 
-    PASSTHRU_MSG msg{};
+    PassThruMsg msg{};
     unsigned long numMsgs = 1;
     result = j2534.PassThruReadMsgs(channelId, &msg, &numMsgs, 100);
     ASSERT_TRUE(result == kJ2534StatusNoerror);

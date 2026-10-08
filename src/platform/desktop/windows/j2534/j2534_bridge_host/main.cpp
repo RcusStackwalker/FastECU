@@ -14,13 +14,12 @@ using PF_PassThruOpen = long(PT_CALL *)(const void *, unsigned long *);
 using PF_PassThruClose = long(PT_CALL *)(unsigned long);
 using PF_PassThruConnect = long(PT_CALL *)(unsigned long, unsigned long, unsigned long, unsigned long, unsigned long *);
 using PF_PassThruDisconnect = long(PT_CALL *)(unsigned long);
-using PF_PassThruReadMsgs = long(PT_CALL *)(unsigned long, PASSTHRU_MSG *, unsigned long *, unsigned long);
-using PF_PassThruWriteMsgs = long(PT_CALL *)(unsigned long, const PASSTHRU_MSG *, unsigned long *, unsigned long);
-using PF_PassThruStartPeriodicMsg = long(PT_CALL *)(unsigned long, const PASSTHRU_MSG *, unsigned long *,
-                                                    unsigned long);
+using PF_PassThruReadMsgs = long(PT_CALL *)(unsigned long, PassThruMsg *, unsigned long *, unsigned long);
+using PF_PassThruWriteMsgs = long(PT_CALL *)(unsigned long, const PassThruMsg *, unsigned long *, unsigned long);
+using PF_PassThruStartPeriodicMsg = long(PT_CALL *)(unsigned long, const PassThruMsg *, unsigned long *, unsigned long);
 using PF_PassThruStopPeriodicMsg = long(PT_CALL *)(unsigned long, unsigned long);
-using PF_PassThruStartMsgFilter = long(PT_CALL *)(unsigned long, unsigned long, const PASSTHRU_MSG *,
-                                                  const PASSTHRU_MSG *, const PASSTHRU_MSG *, unsigned long *);
+using PF_PassThruStartMsgFilter = long(PT_CALL *)(unsigned long, unsigned long, const PassThruMsg *,
+                                                  const PassThruMsg *, const PassThruMsg *, unsigned long *);
 using PF_PassThruStopMsgFilter = long(PT_CALL *)(unsigned long, unsigned long);
 using PF_PassThruSetProgrammingVoltage = long(PT_CALL *)(unsigned long, unsigned long, unsigned long);
 using PF_PassThruReadVersion = long(PT_CALL *)(unsigned long, char *, char *, char *);
@@ -85,7 +84,7 @@ bool loadVendorApi(const char *dllPath, VendorApi& api)
 // recur: a plain-argument call (PassThruOpen/Close/Connect/Disconnect/
 // StartPeriodicMsg/StopPeriodicMsg/StartMsgFilter/StopMsgFilter/
 // SetProgrammingVoltage/ReadVersion/GetLastError), a call taking one
-// PASSTHRU_MSG (ReadMsgs/WriteMsgs), and PassThruIoctl's ID-based
+// PassThruMsg (ReadMsgs/WriteMsgs), and PassThruIoctl's ID-based
 // sub-dispatch, which is its own shape.
 
 // Reads and discards `size` bytes from the pipe without interpreting them --
@@ -320,15 +319,15 @@ void handlePassThruIoctl(const VendorApi& api, HANDLE in, HANDLE out, const Fram
     {
     case kJ2534SetConfig:
     {
-        SCONFIG_LIST scl{req.numConfigParams, req.configParams.data()};
+        SConfigList scl{req.numConfigParams, req.configParams.data()};
         resp.result = api.ioctl(req.channelId, req.ioctlId, &scl, nullptr);
         break;
     }
     case kJ2534FiveBaudInit:
     case kJ2534FastInit:
     {
-        SBYTE_ARRAY inArr{req.inputByteCount, req.inputBytes.data()};
-        SBYTE_ARRAY outArr{static_cast<unsigned long>(resp.outputBytes.size()), resp.outputBytes.data()};
+        SByteArray inArr{req.inputByteCount, req.inputBytes.data()};
+        SByteArray outArr{static_cast<unsigned long>(resp.outputBytes.size()), resp.outputBytes.data()};
         resp.result = api.ioctl(req.channelId, req.ioctlId, &inArr, &outArr);
         resp.outputByteCount = outArr.NumOfBytes;
         break;

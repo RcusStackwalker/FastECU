@@ -149,7 +149,7 @@ TEST(SerialPortCrashTest, passThruReadMsgs_withNullSerial_doesNotCrash)
 {
     TestableJ2534 j2534;
     j2534.detachSerialPort();
-    PASSTHRU_MSG msg;
+    PassThruMsg msg;
     unsigned long numMsgs = 1;
     // The exact inner frame from the crash report: PassThruReadMsgs -> the read
     // path -> serial->isOpen(). Reaching the next line is the assertion.

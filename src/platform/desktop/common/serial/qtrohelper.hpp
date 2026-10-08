@@ -87,8 +87,8 @@ template <> inline QStringList qvariant_to_scalar<QStringList>(QVariant v)
  *
  *   slot_sync<QRemoteObjectPendingReply<long>, long>(qtro_remote->someFunc("text"))
  */
-template <template <typename> typename QRemoteObjectPendingReply, typename RET_TYPE>
-RET_TYPE slot_sync(const QRemoteObjectPendingReply<RET_TYPE>& SLOT)
+template <template <typename> typename QRemoteObjectPendingReply, typename RetType>
+RetType slot_sync(const QRemoteObjectPendingReply<RetType>& SLOT)
 {
     QVariant r;
     QScopedPointer<QRemoteObjectPendingCallWatcher> watcher{new QRemoteObjectPendingCallWatcher(SLOT)};
@@ -96,7 +96,7 @@ RET_TYPE slot_sync(const QRemoteObjectPendingReply<RET_TYPE>& SLOT)
         watcher.data(), &QRemoteObjectPendingCallWatcher::finished, watcher.data(),
         [&](QRemoteObjectPendingCallWatcher *watch) { r = watch->returnValue(); }, Qt::DirectConnection);
     watcher->waitForFinished();
-    return qvariant_to_scalar<RET_TYPE>(r);
+    return qvariant_to_scalar<RetType>(r);
 }
 
 } // namespace qtrohelper

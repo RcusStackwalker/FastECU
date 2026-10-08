@@ -120,12 +120,12 @@ class MainWindow : public QMainWindow
     QString peerAddress;
     QSplashScreen *netSplash;
     fastecu::ui::RemotePeer *remote_peer = nullptr;
-    static const QColor RED_LIGHT_OFF;
-    static const QColor RED_LIGHT_ON;
-    static const QColor YELLOW_LIGHT_OFF;
-    static const QColor YELLOW_LIGHT_ON;
-    static const QColor GREEN_LIGHT_OFF;
-    static const QColor GREEN_LIGHT_ON;
+    static const QColor kRedLightOff;
+    static const QColor kRedLightOn;
+    static const QColor kYellowLightOff;
+    static const QColor kYellowLightOn;
+    static const QColor kGreenLightOff;
+    static const QColor kGreenLightOn;
 
     bool logging_state = false;
     bool log_params_request_started = false;
@@ -310,7 +310,7 @@ class MainWindow : public QMainWindow
 
     // mainwindow.c
     // Connect signals for any flash class and execute ::run() method
-    template <typename FLASH_CLASS> FLASH_CLASS *connect_signals_and_run_module(FLASH_CLASS *object);
+    template <typename FlashClass> FlashClass *connect_signals_and_run_module(FlashClass *object);
     void SetComboBoxItemEnabled(QComboBox *comboBox, int index, bool enabled);
     void set_flash_arrow_state();
     void update_protocol_info(const QString& flash_method);
