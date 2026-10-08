@@ -74,7 +74,7 @@ void MainWindow::log_to_file()
 
 void MainWindow::write_logger_csv_cells(bool header)
 {
-    const auto key = activeLoggingSnapshot ? activeLoggingSnapshot->protocol : protocol.toStdString();
+    const auto key = activeLoggingSnapshot ? activeLoggingSnapshot->protocol_key() : protocol.toStdString();
     const auto& selection = loggerModel->selection();
     const auto parameters = [&](const auto& ids)
     {

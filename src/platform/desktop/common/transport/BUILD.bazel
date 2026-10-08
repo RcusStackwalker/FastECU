@@ -167,6 +167,7 @@ fastecu_gtest(
         "//bazel/qt:core",
         "//src/backend/ports/testing:fake_cancellation_token",
         "//src/backend/ports/testing:fake_clock",
+        "//src/backend/ports/testing:result_matchers",
         "//src/platform/desktop/common/logging:logging_adapters",
         "//src/platform/desktop/common/logging/runtime:logging_runtime",
         "//src/platform/desktop/common/serial/testing:fake_backed_serial",

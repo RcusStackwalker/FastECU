@@ -2,6 +2,8 @@
 
 #include <utility>
 
+#include "src/backend/logging/logging_sample_resolution.h"
+
 namespace fastecu::desktop::logging
 {
 void DesktopLoggerValues::initialize(const fastecu::logging::LoggerModel& model)
@@ -44,23 +46,17 @@ QString format_logging_value(double value, int precision)
 fastecu::Status apply_log_sample(const DesktopLoggingSnapshot& snapshot, const fastecu::logging::LogSample& sample,
                                  DesktopLoggerValues& values)
 {
-    const auto identity = snapshot.identities_by_id.find(sample.channel_id);
-    if (identity == snapshot.identities_by_id.end())
+    const auto resolved = fastecu::logging::resolve_log_sample(snapshot, sample);
+    if (!resolved.has_value())
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "logging sample id is not in the desktop snapshot");
+        return std::unexpected(resolved.error());
     }
-    const auto *channel = snapshot.session.find_channel(sample.channel_id);
-    if (channel == nullptr || identity->second.first != snapshot.protocol ||
-        identity->second.second != sample.channel_id)
-    {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "logging snapshot identities and session disagree");
-    }
-    if (!snapshot.enabled_ids.contains(sample.channel_id))
+    if (!resolved->has_value())
     {
         return {};
     }
-    if (!values.set_parameter_value(identity->second,
-                                    format_logging_value(sample.numeric_value, channel->decimal_precision)))
+    const auto& value = **resolved;
+    if (!values.set_parameter_value(value.identity, format_logging_value(value.numeric_value, value.decimal_precision)))
     {
         return fastecu::fail(fastecu::ErrorKind::Internal, "logging sample identity is not in the desktop values");
     }

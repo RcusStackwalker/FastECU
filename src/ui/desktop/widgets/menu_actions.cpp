@@ -542,17 +542,24 @@ void MainWindow::continue_start_logging()
                           .reconnect_retry_period = 10};
     }
 
+    const auto target =
+        ecu_radio_button->isChecked() ? fastecu::logging::LoggingTarget::Ecu : fastecu::logging::LoggingTarget::Tcu;
     auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
-        *loggerModel, protocol_id, activeLogValueProtocolFilter, logging_policy);
+        *loggerModel, protocol_id, activeLogValueProtocolFilter, logging_policy, target);
     if (!snapshot.has_value())
     {
         emit LOG_E("Logging session failed to start: " + QString::fromStdString(snapshot.error().detail), true, true);
         restoreLoggingUiState();
-        QMessageBox::information(this, tr("Logging"), "Unable to start logging");
+        QMessageBox notice(this);
+        notice.setIcon(QMessageBox::Information);
+        notice.setWindowTitle(tr("Logging"));
+        notice.setTextFormat(Qt::PlainText);
+        notice.setText(tr("Unable to start logging:\n") + QString::fromStdString(snapshot.error().detail));
+        notice.setStandardButtons(QMessageBox::Ok);
+        notice.exec();
         return;
     }
 
-    snapshot->target_is_ecu = ecu_radio_button->isChecked();
     activeLoggingSnapshot.emplace(*snapshot);
     const auto started = loggingEngine->start(config, std::move(*snapshot));
     if (!started.has_value())

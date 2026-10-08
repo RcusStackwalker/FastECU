@@ -210,29 +210,6 @@ fastecu_portable_gtest(
     ],
 )
 
-fastecu_portable_gtest(
-    name = "logging_run_snapshot_test",
-    srcs = ["logging_run_snapshot_test.cpp"],
-    deps = [
-        ":logger_model",
-        ":logging_run_snapshot",
-        "//src/backend/ports/testing:result_matchers",
-        "@googletest//:gtest",
-    ],
-)
-
-fastecu_portable_gtest(
-    name = "logging_sample_resolution_test",
-    srcs = ["logging_sample_resolution_test.cpp"],
-    deps = [
-        ":logger_model",
-        ":logging_run_snapshot",
-        ":logging_sample_resolution",
-        "//src/backend/ports/testing:result_matchers",
-        "@googletest//:gtest",
-    ],
-)
-
 cc_library(
     name = "logging_run_snapshot",
     srcs = ["logging_run_snapshot.cpp"],
@@ -254,5 +231,28 @@ cc_library(
         ":logger_model",
         ":logging_types",
         "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "logging_run_snapshot_test",
+    srcs = ["logging_run_snapshot_test.cpp"],
+    deps = [
+        ":logger_model",
+        ":logging_run_snapshot",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "logging_sample_resolution_test",
+    srcs = ["logging_sample_resolution_test.cpp"],
+    deps = [
+        ":logger_model",
+        ":logging_run_snapshot",
+        ":logging_sample_resolution",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
     ],
 )

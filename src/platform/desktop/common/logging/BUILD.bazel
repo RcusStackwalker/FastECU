@@ -30,11 +30,12 @@ cc_library(
         "logging_value_adapter.h",
     ],
     copts = COMMON_COPTS,
+    implementation_deps = ["//src/backend/logging:logging_sample_resolution"],
     visibility = UI_FACING_VISIBILITY,
     deps = [
         "//bazel/qt:core",
         "//src/backend/logging:logger_model",
-        "//src/backend/logging:logging_session",
+        "//src/backend/logging:logging_run_snapshot",
         "//src/backend/logging:logging_types",
         "//src/backend/ports",
     ],
