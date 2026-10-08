@@ -45,11 +45,17 @@ TEST_P(LoggingChannelPreparationInvalidInput, RejectsWithAuthorContext)
     const auto& [field, input] = GetParam();
     auto p = parameter();
     if (field == "address")
+    {
         p.address = input;
+    }
     else if (field == "length")
+    {
         p.length = input;
+    }
     else
+    {
         p.conversions.front().format = input;
+    }
     EXPECT_THAT(prepare_logging_channel(p, LoggingProtocolId::Ssm),
                 IsErrWith(ErrorKind::InvalidConfig,
                           AllOf(HasSubstr("SSM"), HasSubstr("rpm"), HasSubstr(field), HasSubstr(input))));
@@ -158,9 +164,13 @@ TEST(LoggingChannelPreparation, RetainsProtocolAddressBounds)
         p.address = item.address;
         const auto result = prepare_logging_channel(p, item.protocol);
         if (item.valid)
+        {
             ASSERT_THAT(result, IsOk());
+        }
         else
+        {
             EXPECT_THAT(result, IsErrWith(ErrorKind::InvalidConfig, HasSubstr("address")));
+        }
     }
 }
 
@@ -178,9 +188,13 @@ TEST(LoggingChannelPreparation, RetainsProtocolLengthBounds)
             const bool valid =
                 protocol == LoggingProtocolId::Ssm ? length <= 255 : length == 1 || length == 2 || length == 4;
             if (valid)
+            {
                 ASSERT_THAT(result, IsOk());
+            }
             else
+            {
                 EXPECT_THAT(result, IsErrWith(ErrorKind::InvalidConfig, HasSubstr("length")));
+            }
         }
     }
 }

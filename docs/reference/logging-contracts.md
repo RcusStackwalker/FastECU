@@ -27,10 +27,14 @@ retain empty cells in their original CSV positions.
 
 ## Per-run snapshots
 
-[Session preparation](../../src/backend/logging/logging_session.h) captures
-protocol, stable identities, support, conversion, and target as owned values.
-Later selection edits do not change the worker's session. Only the first
-conversion is used, with fixed decimal display formatting.
+[Run preparation](../../src/backend/logging/logging_run_snapshot.h) returns one
+immutable, owned logging run snapshot containing the validated session,
+protocol, selection, support eligibility, original SSM response offsets, and a
+typed ECU/TCU target. Stable sample identities derive from the captured protocol
+and validated channel IDs. Later definition, selection, support, or target edits
+do not change an active run. Only the first conversion is used, with fixed
+decimal display formatting. Desktop code converts Qt inputs and binds the run;
+backend preparation reuses [session validation](../../src/backend/logging/logging_session.h).
 
 - SSM polls disabled channels at their original lower-panel offsets. Its raw
   assembly concatenates the decimal spelling of each byte: `0x01, 0x02` becomes
@@ -38,6 +42,41 @@ conversion is used, with fixed decimal display formatting.
   big-endian integer.
 - MUT/DMA spells the decoded unsigned integer in decimal and filters unsupported
   channels. CDBG also uses unsigned-integer decimal and does not filter support.
+
+## Definition input validation
+
+[Channel preparation](../../src/backend/logging/logging_channel_preparation.h)
+accepts hexadecimal address digits with an optional `0x`/`0X` prefix and positive
+decimal lengths. Both trim surrounding ASCII whitespace and reject signs,
+internal whitespace, trailing junk, and overflow. Protocol address, length, and
+aggregate wire-capacity limits continue to apply.
+
+Display formats are exactly `0`, or `0.` followed by 1–15 zeros; the fractional
+zero count defines fixed decimal precision. Other patterns are rejected rather
+than interpreted by counting zeros within arbitrary strings. Empty units are
+valid and display without a suffix. Omitted XML attributes retain parser
+defaults: units `#`, expression `x`, format `0.00`, and length `1` for a parameter
+with an address.
+
+Invalid participating selected channels prevent startup. Errors identify the
+protocol, parameter ID, offending field, and reason; the desktop logs the error
+and displays it literally in the Logging dialog. Unsupported MUT/DMA channels
+are filtered before field validation. Unsupported SSM channels still participate
+in polling and must validate; CDBG does not filter by support. Unresolved
+selection IDs retain their existing treatment.
+
+## Sample resolution and failure handling
+
+[Sample resolution](../../src/backend/logging/logging_sample_resolution.h) returns
+accepted identity/value/precision, a deliberate skip, or an error. Unsupported
+SSM samples do not update display values. Desktop code owns fixed formatting,
+cache lookup and mutation, and reporting of missing cache entries.
+
+Unknown raw protocol channels or nonfinite conversions terminate the run before
+publishing any samples from that polling batch. Delivered-sample identity errors
+or missing cache entries report an error and allow other samples to continue;
+existing values remain intact. The desktop retains its active-run checks during
+sample handling and generation checks for queued worker events after a restart.
 
 ## Desktop protocol binding
 
@@ -47,7 +86,8 @@ adapter I/O. The engine invokes factories synchronously during `start()` before
 launching the worker. Factories borrow the facade and clock; composition stops
 and destroys the engine before those services.
 
-The snapshot captures ECU/TCU selection after validation and before engine start.
+The desktop reads the ECU/TCU choice before preparation; the validated snapshot
+captures it before engine start.
 SSM uses that per-run target and checks the adapter capability when its factory
 runs. Factories do not read widgets. CDBG preserves ordered setup with
 first-failure return and a short-circuited open check; MUT/DMA uses

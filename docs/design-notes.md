@@ -117,6 +117,16 @@ Logger definitions are immutable, selection belongs to the operator, support
 comes from identification, and display values belong to the desktop. Protocol/ID
 identity avoids ambiguity from duplicate labels or IDs shared across protocols.
 Owned per-run snapshots insulate workers from later widget/selection changes.
+Backend preparation owns channel parsing, support/selection rules, and sample
+identity resolution. One validated, immutable run value prevents independently
+mutable identity maps and channel metadata from disagreeing. Desktop adapters
+retain input conversion, fixed formatting, display caches, and transport binding.
+
+Definition fields follow an explicit portable grammar, allowing useful whitespace
+and hexadecimal prefixes while rejecting malformed formats. Empty units permit
+dimensionless measurements; contextual startup errors identify authoring mistakes.
+The [logging contract](reference/logging-contracts.md#definition-input-validation)
+owns the accepted syntax and failure behavior.
 
 SSM raw values deliberately concatenate decimal byte spellings because shipped
 conversion expressions depend on that input. CSV and selection persistence also

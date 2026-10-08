@@ -150,14 +150,26 @@ TEST(LoggingRunSnapshot, RetainsEmptyAndUnresolvedSelectionBehavior)
                 IsErrWith(ErrorKind::InvalidConfig, HasSubstr("CDBG")));
 }
 
+class LoggingRunSnapshotInvalidEnum : public ::testing::TestWithParam<int>
+{
+};
+
+TEST_P(LoggingRunSnapshotInvalidEnum, RejectsUnknownProtocolAndTarget)
+{
+    const auto values = model({.parameters = {parameter("rpm")}}, {"rpm"});
+    const auto input = GetParam();
+    EXPECT_THAT(prepare_logging_run(values, static_cast<LoggingProtocolId>(input), "SSM", policy(), LoggingTarget::Ecu),
+                IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(prepare_logging_run(values, LoggingProtocolId::Ssm, "SSM", policy(), static_cast<LoggingTarget>(input)),
+                IsErr(ErrorKind::InvalidConfig));
+}
+
+INSTANTIATE_TEST_SUITE_P(UnknownInputs, LoggingRunSnapshotInvalidEnum, ::testing::Values(999));
+
 TEST(LoggingRunSnapshot, RejectsInvalidRunInputs)
 {
     const auto values = model({.parameters = {parameter("rpm")}}, {"rpm"});
     EXPECT_THAT(prepare_logging_run(values, LoggingProtocolId::Ssm, "", policy(), LoggingTarget::Ecu),
-                IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(prepare_logging_run(values, static_cast<LoggingProtocolId>(999), "SSM", policy(), LoggingTarget::Ecu),
-                IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(prepare_logging_run(values, LoggingProtocolId::Ssm, "SSM", policy(), static_cast<LoggingTarget>(999)),
                 IsErr(ErrorKind::InvalidConfig));
     auto bad_policy = policy();
     bad_policy.poll_timeout = 0ms;
