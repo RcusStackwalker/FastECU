@@ -69,10 +69,17 @@ struct LoggerSwitch
     bool operator==(const LoggerSwitch&) const = default;
 };
 
+struct LoggerProtocolDefinition
+{
+    std::string id;
+    std::string dialect;
+    bool operator==(const LoggerProtocolDefinition&) const = default;
+};
 struct LoggerDefinition
 {
     std::vector<LoggerParameter> parameters;
     std::vector<LoggerSwitch> switches;
+    std::vector<LoggerProtocolDefinition> protocols;
 
     bool operator==(const LoggerDefinition&) const = default;
 };

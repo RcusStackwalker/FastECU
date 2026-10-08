@@ -66,34 +66,51 @@ TEST(LoggingRunSnapshot, OwnsMeasurementPresentationAfterModelDestruction)
     EXPECT_EQ(measurement->support, EcuSupport::Unknown);
 }
 
-TEST(LoggingRunSnapshot, PreservesProtocolSelectionSupportAndOriginalOffsets)
+TEST(LoggingRunSnapshot, AcquiresSelectedUnionAndSharesRepeatedParameterIdentity)
 {
-    const auto values = model({.parameters = {parameter("other", "OTHER"), parameter("off", "CAR_SSM", false),
-                                              parameter("on", "CAR_SSM"), parameter("mut-off", "MUT_DMA", false),
-                                              parameter("mut-on", "MUT_DMA"), parameter("cdbg-off", "CDBG", false)}},
-                              {"other", "missing", "off", "on", "mut-off", "mut-on", "cdbg-off"});
-    const auto ssm = prepare_logging_run(values, LoggingProtocolId::Ssm, "CAR_SSM", policy(), LoggingTarget::Tcu);
-    const auto mut = prepare_logging_run(values, LoggingProtocolId::MutDma, "ignored", policy(), LoggingTarget::Ecu);
-    const auto cdbg = prepare_logging_run(values, LoggingProtocolId::Cdbg, "ignored", policy(), LoggingTarget::Ecu);
-    ASSERT_THAT(ssm, IsOk());
-    ASSERT_THAT(mut, IsOk());
-    ASSERT_THAT(cdbg, IsOk());
-    EXPECT_EQ(ssm->protocol_key(), "CAR_SSM");
-    EXPECT_THAT(ssm->response_offsets(), ElementsAre(2, 3));
-    EXPECT_FALSE(ssm->channel_enabled("off"));
-    EXPECT_TRUE(ssm->channel_enabled("on"));
-    ASSERT_EQ(ssm->session().channels().size(), 2U);
-    EXPECT_EQ(ssm->session().channels()[0].id, "off");
-    EXPECT_EQ(ssm->session().channels()[1].id, "on");
-    EXPECT_EQ(ssm->session().channels()[0].raw_assembly, RawAssembly::DecimalBytesConcatenated);
-    EXPECT_EQ(mut->protocol_key(), "MUT_DMA");
-    ASSERT_EQ(mut->session().channels().size(), 1U);
-    EXPECT_EQ(mut->session().channels()[0].id, "mut-on");
-    EXPECT_EQ(mut->session().channels()[0].raw_assembly, RawAssembly::UnsignedIntegerDecimal);
-    EXPECT_TRUE(mut->response_offsets().empty());
-    EXPECT_EQ(cdbg->protocol_key(), "CDBG");
-    ASSERT_EQ(cdbg->session().channels().size(), 1U);
-    EXPECT_TRUE(cdbg->channel_enabled("cdbg-off"));
+    auto values = model({.parameters = {parameter("rpm")},
+                         .switches = {{.protocol = "SSM", .id = "rpm", .address = "20", .sample_bit = "7"}}},
+                        {});
+    values.set_selection(
+        {.protocol = "SSM", .gauge_ids = {"rpm"}, .lower_panel_ids = {"rpm", "rpm"}, .switch_ids = {"rpm"}});
+    const auto run = prepare_logging_run(values, LoggingProtocolId::Ssm, "SSM", policy(), LoggingTarget::Ecu);
+    ASSERT_THAT(run, IsOk());
+    ASSERT_EQ(run->session().channels().size(), 2U);
+    ASSERT_NE(run->find_measurement(LoggingMeasurementKind::Parameter, "rpm"), nullptr);
+    ASSERT_NE(run->find_measurement(LoggingMeasurementKind::Switch, "rpm"), nullptr);
+    EXPECT_EQ(run->session().channels()[0].id, "parameter:rpm");
+    EXPECT_EQ(run->session().channels()[1].id, "switch:rpm");
+}
+TEST(LoggingRunSnapshot, RejectsKnownUnsupportedSelectedMeasurement)
+{
+    auto values = model({.parameters = {parameter("rpm")}}, {"rpm"});
+    values.set_parameter_support("SSM", "rpm", EcuSupport::Unsupported);
+    EXPECT_THAT(prepare_logging_run(values, LoggingProtocolId::Ssm, "SSM", policy(), LoggingTarget::Ecu),
+                IsErrWith(ErrorKind::InvalidConfig, AllOf(HasSubstr("rpm"), HasSubstr("unsupported"))));
+}
+TEST(LoggingRunSnapshot, ExplicitUnknownMutSelectionIsValidatedEvenWhenXmlDisabled)
+{
+    const auto values = model({.parameters = {parameter("rpm", "MUT_DMA", false)}}, {"rpm"});
+    const auto run = prepare_logging_run(values, LoggingProtocolId::MutDma, "ignored", policy(), LoggingTarget::Ecu);
+    ASSERT_THAT(run, IsOk());
+    ASSERT_EQ(run->session().channels().size(), 1U);
+}
+
+TEST(LoggingRunSnapshot, AcquiresGaugeOnlyAndSwitchOnlySelections)
+{
+    auto values = model({.parameters = {parameter("rpm")},
+                         .switches = {{.protocol = "SSM", .id = "flag", .address = "20", .sample_bit = "5"}}},
+                        {});
+    values.set_selection({.protocol = "SSM", .gauge_ids = {"rpm"}});
+    const auto gauge = prepare_logging_run(values, LoggingProtocolId::Ssm, "SSM", policy(), LoggingTarget::Tcu);
+    ASSERT_THAT(gauge, IsOk());
+    ASSERT_EQ(gauge->session().channels().size(), 1U);
+    EXPECT_EQ(gauge->target(), LoggingTarget::Tcu);
+    values.set_selection({.protocol = "SSM", .switch_ids = {"flag"}});
+    const auto flag = prepare_logging_run(values, LoggingProtocolId::Ssm, "SSM", policy(), LoggingTarget::Ecu);
+    ASSERT_THAT(flag, IsOk());
+    ASSERT_EQ(flag->session().channels().size(), 1U);
+    EXPECT_EQ(flag->session().channels()[0].sample_bit, 5);
 }
 
 TEST(LoggingRunSnapshot, ValidatesOnlyParticipatingChannels)
@@ -108,17 +125,8 @@ TEST(LoggingRunSnapshot, ValidatesOnlyParticipatingChannels)
         invalid.conversions.front().format = "banana";
         const auto values = model({.parameters = {invalid, parameter("on", key)}}, {"off", "on"});
         const auto result = prepare_logging_run(values, protocol, key, policy(), LoggingTarget::Ecu);
-        if (protocol == LoggingProtocolId::MutDma)
-        {
-            ASSERT_THAT(result, IsOk());
-            ASSERT_EQ(result->session().channels().size(), 1U);
-            EXPECT_EQ(result->session().channels()[0].id, "on");
-        }
-        else
-        {
-            EXPECT_THAT(result, IsErrWith(ErrorKind::InvalidConfig,
-                                          AllOf(HasSubstr(key), HasSubstr("off"), HasSubstr("format"))));
-        }
+        EXPECT_THAT(result,
+                    IsErrWith(ErrorKind::InvalidConfig, AllOf(HasSubstr(key), HasSubstr("off"), HasSubstr("format"))));
     }
 }
 
@@ -130,16 +138,16 @@ TEST(LoggingRunSnapshot, CapturesOwnedInputs)
                             {"rpm", "coolant"});
         auto result = prepare_logging_run(source, LoggingProtocolId::Ssm, "SSM", policy(), LoggingTarget::Tcu);
         source.set_selection({.protocol = "CDBG", .lower_panel_ids = {"rpm"}});
-        source.set_parameter_supported("SSM", "rpm", false);
+        source.set_parameter_support("SSM", "rpm", fastecu::logging::EcuSupport::Unsupported);
         return result;
     }();
     ASSERT_THAT(snapshot, IsOk());
     EXPECT_EQ(snapshot->protocol_key(), "SSM");
     EXPECT_EQ(snapshot->target(), LoggingTarget::Tcu);
-    EXPECT_TRUE(snapshot->channel_enabled("rpm"));
+    ASSERT_NE(snapshot->find_measurement(LoggingMeasurementKind::Parameter, "rpm"), nullptr);
     EXPECT_THAT(snapshot->selection().lower_panel_ids, ElementsAre("rpm", "coolant"));
     ASSERT_EQ(snapshot->session().channels().size(), 2U);
-    EXPECT_EQ(snapshot->session().channels()[0].id, "rpm");
+    EXPECT_EQ(snapshot->session().channels()[0].id, "parameter:rpm");
     const auto copy = *snapshot;
     EXPECT_EQ(copy.target(), LoggingTarget::Tcu);
 }
@@ -150,23 +158,31 @@ TEST(LoggingRunSnapshot, RejectsDuplicateParticipatingIds)
     EXPECT_THAT(prepare_logging_run(duplicate_definition, LoggingProtocolId::Ssm, "SSM", policy(), LoggingTarget::Ecu),
                 IsErrWith(ErrorKind::InvalidConfig, AllOf(HasSubstr("SSM"), HasSubstr("rpm"), HasSubstr("duplicate"))));
     const auto duplicate_selection = model({.parameters = {parameter("rpm")}}, {"rpm", "rpm"});
-    EXPECT_THAT(prepare_logging_run(duplicate_selection, LoggingProtocolId::Ssm, "SSM", policy(), LoggingTarget::Ecu),
-                IsErrWith(ErrorKind::InvalidConfig, AllOf(HasSubstr("SSM"), HasSubstr("rpm"), HasSubstr("duplicate"))));
+    const auto repeated =
+        prepare_logging_run(duplicate_selection, LoggingProtocolId::Ssm, "SSM", policy(), LoggingTarget::Ecu);
+    ASSERT_THAT(repeated, IsOk());
+    EXPECT_EQ(repeated->session().channels().size(), 1U);
 }
 
-TEST(LoggingRunSnapshot, RetainsEmptyAndUnresolvedSelectionBehavior)
+TEST(LoggingRunSnapshot, RejectsUnresolvedSelectionWithActionableIdentity)
 {
     const auto values = model({}, {"missing"});
-    for (const auto protocol : {LoggingProtocolId::Ssm, LoggingProtocolId::MutDma})
+    for (const auto protocol : {LoggingProtocolId::Ssm, LoggingProtocolId::MutDma, LoggingProtocolId::Cdbg})
     {
-        SCOPED_TRACE(static_cast<int>(protocol));
-        const auto result = prepare_logging_run(values, protocol, "SSM", policy(), LoggingTarget::Ecu);
-        ASSERT_THAT(result, IsOk());
-        EXPECT_TRUE(result->session().channels().empty());
-        EXPECT_THAT(result->selection().lower_panel_ids, ElementsAre("missing"));
+        EXPECT_THAT(prepare_logging_run(values, protocol, "SSM", policy(), LoggingTarget::Ecu),
+                    IsErrWith(ErrorKind::InvalidConfig, AllOf(HasSubstr("missing"), HasSubstr("unresolved"))));
     }
-    EXPECT_THAT(prepare_logging_run(values, LoggingProtocolId::Cdbg, "SSM", policy(), LoggingTarget::Ecu),
-                IsErrWith(ErrorKind::InvalidConfig, HasSubstr("CDBG")));
+}
+TEST(LoggingRunSnapshot, CapturesExplicitMutDialectAndRejectsUnknownSetting)
+{
+    auto values =
+        model({.parameters = {parameter("rpm", "MUT_DMA")}, .protocols = {{"MUT_DMA", "oem-33520003"}}}, {"rpm"});
+    const auto run = prepare_logging_run(values, LoggingProtocolId::MutDma, "ignored", policy(), LoggingTarget::Ecu);
+    ASSERT_THAT(run, IsOk());
+    EXPECT_EQ(run->session().mut_dma_dialect(), mutdma::FreeformDialect::Oem33520003);
+    values = model({.parameters = {parameter("rpm", "MUT_DMA")}, .protocols = {{"MUT_DMA", "unknown"}}}, {"rpm"});
+    EXPECT_THAT(prepare_logging_run(values, LoggingProtocolId::MutDma, "ignored", policy(), LoggingTarget::Ecu),
+                IsErrWith(ErrorKind::InvalidConfig, HasSubstr("unknown dialect")));
 }
 
 class LoggingRunSnapshotInvalidEnum : public ::testing::TestWithParam<int>

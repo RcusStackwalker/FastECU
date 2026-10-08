@@ -202,4 +202,15 @@ TEST(LoggerDefinitionParser, ReadsNestedSampleMetadataAndExplicitEnablement)
     EXPECT_TRUE(result->switches.at(0).enabled);
 }
 
+TEST(LoggerDefinitionParser, PreservesExplicitProtocolDialect)
+{
+    const auto result = parse_logger_definition(view(R"(<logger><protocols>
+      <protocol id="MUT_DMA" dialect="oem-33520003"/>
+    </protocols></logger>)"),
+                                                "dialect.xml");
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_EQ(result->protocols.size(), 1U);
+    EXPECT_EQ(result->protocols[0].id, "MUT_DMA");
+    EXPECT_EQ(result->protocols[0].dialect, "oem-33520003");
+}
 } // namespace

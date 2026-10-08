@@ -146,4 +146,42 @@ fastecu::Result<LoggingChannel> prepare_logging_channel(const LoggerParameter& p
     }
     return channel;
 }
+Result<LoggingChannel> prepare_logging_switch(const LoggerSwitch& source, LoggingProtocolId protocol)
+{
+    std::uint8_t bit = 0;
+    if (!parse_unsigned(source.sample_bit, 10, bit) || bit >= 8)
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("{} switch {}: invalid sample bit; expected 0–7", source.protocol, source.id));
+    }
+    LoggerParameter parameter{.protocol = source.protocol,
+                              .id = source.id,
+                              .name = source.name,
+                              .address = source.address,
+                              .length = "1",
+                              .conversions = {{.units = "", .expr = "x", .format = "0"}}};
+    for (const auto& address : source.address_specs)
+    {
+        if (address.bit.has_value() && *address.bit != source.sample_bit)
+        {
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("{} switch {}: conflicting sample bits", source.protocol, source.id));
+        }
+        auto normalized = address;
+        normalized.bit.reset();
+        parameter.address_specs.push_back(std::move(normalized));
+    }
+    auto result = prepare_logging_channel(parameter, protocol);
+    if (!result.has_value())
+    {
+        return std::unexpected(result.error());
+    }
+    result->sample_bit = bit;
+    if (const auto valid = validate_logging_channel(protocol, *result); !valid.has_value())
+    {
+        return fail(ErrorKind::InvalidConfig,
+                    std::format("{} switch {}: {}", source.protocol, source.id, valid.error().detail));
+    }
+    return result;
+}
 } // namespace fastecu::logging

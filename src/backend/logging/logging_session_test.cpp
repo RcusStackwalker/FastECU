@@ -219,3 +219,22 @@ TEST(LoggingSessionTest, SsmRejectsMultiByteAddressOverflow)
     EXPECT_THAT(make_logging_session(LoggingProtocolId::Ssm, {channel("wide", 0xffffff)}, valid_policy()),
                 fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
 }
+
+TEST(LoggingSessionTest, OemMutDialectBoundsEntriesAndOutputBytes)
+{
+    std::vector<LoggingChannel> sources;
+    for (int i = 0; i < 96; ++i)
+    {
+        auto source = channel(std::to_string(i), static_cast<std::uint32_t>(0x4000 + i));
+        source.length = 1;
+        sources.push_back(source);
+    }
+    EXPECT_THAT(
+        make_logging_session(LoggingProtocolId::MutDma, sources, valid_policy(), mutdma::FreeformDialect::Oem33520003),
+        fastecu::testing::IsOk());
+    sources[0].length = 2;
+    EXPECT_THAT(
+        make_logging_session(LoggingProtocolId::MutDma, sources, valid_policy(), mutdma::FreeformDialect::Oem33520003),
+        fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    EXPECT_THAT(make_logging_session(LoggingProtocolId::MutDma, sources, valid_policy()), fastecu::testing::IsOk());
+}

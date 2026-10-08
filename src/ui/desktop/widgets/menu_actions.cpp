@@ -563,6 +563,7 @@ void MainWindow::continue_start_logging()
         return;
     }
 
+    loggerValues.begin_run(*snapshot);
     activeLoggingSnapshot.emplace(*snapshot);
     const auto started = loggingEngine->start(config, std::move(*snapshot));
     if (!started.has_value())

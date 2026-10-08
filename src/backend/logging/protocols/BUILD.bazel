@@ -58,6 +58,7 @@ cc_library(
     implementation_deps = ["//src/algorithms/protocol/ssm"],
     deps = [
         "//src/algorithms/protocol",
+        "//src/backend/logging:logging_read_plan",
         "//src/backend/logging:logging_use_case",
         "//src/backend/ports",
         "//src/backend/protocol",

@@ -27,34 +27,12 @@ fastecu::Result<std::string> effective_protocol_filter(LoggingProtocolId protoco
     return fastecu::fail(ErrorKind::InvalidConfig, "invalid logging protocol");
 }
 
-fastecu::Result<const LoggerParameter *> selected_parameter(const LoggerModel& model, LoggingProtocolId protocol,
-                                                            std::string_view key, std::string_view id)
-{
-    const LoggerParameter *selected = nullptr;
-    for (const auto& parameter : model.definition().parameters)
-    {
-        if (parameter.id != id || parameter.protocol != key ||
-            (protocol == LoggingProtocolId::MutDma && !model.parameter_supported(key, id)))
-        {
-            continue;
-        }
-        if (selected != nullptr)
-        {
-            return fastecu::fail(
-                ErrorKind::InvalidConfig,
-                std::format("{} parameter {}: duplicate logging value id in selected protocol", key, id));
-        }
-        selected = &parameter;
-    }
-    return selected;
-}
 } // namespace
 
 LoggingRunSnapshot::LoggingRunSnapshot(LoggingSession session, std::string protocol_key, LoggerSelection selection,
-                                       std::vector<std::size_t> response_offsets,
-                                       std::unordered_set<std::string> enabled_ids, LoggingTarget target)
+                                       std::vector<LoggingMeasurement> measurements, LoggingTarget target)
     : session_(std::move(session)), protocol_key_(std::move(protocol_key)), selection_(std::move(selection)),
-      response_offsets_(std::move(response_offsets)), enabled_ids_(std::move(enabled_ids)), target_(target)
+      target_(target), measurements_(std::move(measurements))
 {
 }
 
@@ -85,17 +63,9 @@ const LoggerSelection& LoggingRunSnapshot::selection() const
 {
     return selection_;
 }
-const std::vector<std::size_t>& LoggingRunSnapshot::response_offsets() const
-{
-    return response_offsets_;
-}
 LoggingTarget LoggingRunSnapshot::target() const
 {
     return target_;
-}
-bool LoggingRunSnapshot::channel_enabled(std::string_view id) const
-{
-    return enabled_ids_.contains(std::string(id));
 }
 
 fastecu::Result<LoggingRunSnapshot> prepare_logging_run(const LoggerModel& model, LoggingProtocolId protocol,
@@ -112,60 +82,119 @@ fastecu::Result<LoggingRunSnapshot> prepare_logging_run(const LoggerModel& model
         return fastecu::fail(ErrorKind::InvalidConfig, std::format("{}: invalid logging target", *filter));
     }
     std::vector<LoggingChannel> channels;
-    std::vector<std::size_t> response_offsets;
-    std::unordered_set<std::string> participating_ids;
-    std::unordered_set<std::string> enabled_ids;
-    const auto& selected_ids = model.selection().lower_panel_ids;
-    for (std::size_t slot = 0; slot < selected_ids.size(); ++slot)
+    std::vector<LoggingMeasurement> measurements;
+    std::unordered_set<std::string> identities;
+    const auto add = [&](LoggingMeasurementKind kind, const std::string& id) -> Status
     {
-        const auto& id = selected_ids[slot];
-        const auto selected = selected_parameter(model, protocol, *filter, id);
-        if (!selected.has_value())
+        const auto tag = std::format("{}:{}", kind == LoggingMeasurementKind::Parameter ? "parameter" : "switch", id);
+        if (!identities.insert(tag).second)
         {
-            return std::unexpected(selected.error());
+            return {};
         }
-        if (*selected == nullptr)
+        const auto state = kind == LoggingMeasurementKind::Parameter ? model.parameter_support(*filter, id)
+                                                                     : model.switch_support(*filter, id);
+        if (state == EcuSupport::Unsupported)
         {
-            continue;
+            return fail(
+                ErrorKind::InvalidConfig,
+                std::format("{} {}: selected measurement is known unsupported; remove or replace it", *filter, tag));
         }
-        if (!participating_ids.insert(id).second)
+        Result<LoggingChannel> prepared = fail(ErrorKind::InvalidConfig, "unresolved measurement");
+        std::string name;
+        std::size_t matches = 0;
+        if (kind == LoggingMeasurementKind::Parameter)
         {
-            return fastecu::fail(ErrorKind::InvalidConfig,
-                                 std::format("{} parameter {}: duplicate lower-panel logging value id", *filter, id));
+            for (const auto& source : model.definition().parameters)
+            {
+                if (source.protocol == *filter && source.id == id)
+                {
+                    ++matches;
+                    prepared = prepare_logging_channel(source, protocol);
+                    name = source.name;
+                }
+            }
         }
-        auto channel = prepare_logging_channel(**selected, protocol);
-        if (!channel.has_value())
+        else
         {
-            return std::unexpected(channel.error());
+            for (const auto& source : model.definition().switches)
+            {
+                if (source.protocol == *filter && source.id == id)
+                {
+                    ++matches;
+                    prepared = prepare_logging_switch(source, protocol);
+                    name = source.name;
+                }
+            }
         }
-        if (protocol != LoggingProtocolId::Ssm || model.parameter_supported(*filter, id))
+        if (matches != 1)
         {
-            enabled_ids.insert(id);
+            return fail(ErrorKind::InvalidConfig,
+                        std::format("{} {}: {} definition; remove or replace the selected entry", *filter, tag,
+                                    matches == 0 ? "unresolved" : "duplicate"));
         }
-        if (protocol == LoggingProtocolId::Ssm)
+        if (!prepared.has_value())
         {
-            response_offsets.push_back(slot);
+            return std::unexpected(prepared.error());
         }
-        channels.push_back(std::move(*channel));
+        prepared->id = tag;
+        measurements.push_back({.kind = kind,
+                                .identity = {*filter, id},
+                                .channel_id = tag,
+                                .name = std::move(name),
+                                .unit = prepared->unit,
+                                .decimal_precision = prepared->decimal_precision,
+                                .support = state});
+        channels.push_back(std::move(*prepared));
+        return {};
+    };
+    for (const auto& ids : {model.selection().gauge_ids, model.selection().lower_panel_ids})
+    {
+        for (const auto& id : ids)
+        {
+            const auto status = add(LoggingMeasurementKind::Parameter, id);
+            if (!status.has_value())
+            {
+                return std::unexpected(status.error());
+            }
+        }
     }
-    auto session = make_logging_session(protocol, std::move(channels), policy);
+    for (const auto& id : model.selection().switch_ids)
+    {
+        const auto status = add(LoggingMeasurementKind::Switch, id);
+        if (!status.has_value())
+        {
+            return std::unexpected(status.error());
+        }
+    }
+    auto dialect = mutdma::FreeformDialect::LegacyBe;
+    if (protocol == LoggingProtocolId::MutDma)
+    {
+        std::size_t matches = 0;
+        for (const auto& source : model.definition().protocols)
+        {
+            if (source.id != *filter)
+            {
+                continue;
+            }
+            if (++matches > 1)
+            {
+                return fail(ErrorKind::InvalidConfig, "MUT_DMA: duplicate protocol dialect declarations");
+            }
+            if (source.dialect == "oem-33520003")
+            {
+                dialect = mutdma::FreeformDialect::Oem33520003;
+            }
+            else if (!source.dialect.empty() && source.dialect != "legacy-be")
+            {
+                return fail(ErrorKind::InvalidConfig, std::format("MUT_DMA: unknown dialect '{}'", source.dialect));
+            }
+        }
+    }
+    auto session = make_logging_session(protocol, std::move(channels), policy, dialect);
     if (!session.has_value())
     {
-        return fastecu::fail(session.error().kind, std::format("{}: {}", *filter, session.error().detail));
+        return fail(session.error().kind, std::format("{}: {}", *filter, session.error().detail));
     }
-    LoggingRunSnapshot snapshot(std::move(*session), *filter, model.selection(), std::move(response_offsets),
-                                std::move(enabled_ids), target);
-    for (const auto& channel : snapshot.session().channels())
-    {
-        const auto *source = model.parameter(*filter, channel.id);
-        snapshot.measurements_.push_back({.kind = LoggingMeasurementKind::Parameter,
-                                          .identity = {*filter, channel.id},
-                                          .channel_id = channel.id,
-                                          .name = source->name,
-                                          .unit = channel.unit,
-                                          .decimal_precision = channel.decimal_precision,
-                                          .support = model.parameter_support(*filter, channel.id)});
-    }
-    return snapshot;
+    return LoggingRunSnapshot(std::move(*session), *filter, model.selection(), std::move(measurements), target);
 }
 } // namespace fastecu::logging

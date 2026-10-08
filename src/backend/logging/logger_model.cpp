@@ -143,22 +143,6 @@ bool LoggerModel::switch_available(std::string_view protocol, std::string_view i
     const auto state = switch_support(protocol, id);
     return p != nullptr && (state == EcuSupport::Supported || (state == EcuSupport::Unknown && p->enabled));
 }
-bool LoggerModel::parameter_supported(std::string_view protocol, std::string_view id) const
-{
-    return parameter_available(protocol, id);
-}
-bool LoggerModel::switch_supported(std::string_view protocol, std::string_view id) const
-{
-    return switch_available(protocol, id);
-}
-void LoggerModel::set_parameter_supported(std::string_view protocol, std::string_view id, bool value)
-{
-    set_parameter_support(protocol, id, value ? EcuSupport::Supported : EcuSupport::Unsupported);
-}
-void LoggerModel::set_switch_supported(std::string_view protocol, std::string_view id, bool value)
-{
-    set_switch_support(protocol, id, value ? EcuSupport::Supported : EcuSupport::Unsupported);
-}
 void LoggerModel::apply_capabilities(std::string_view protocol, bytes::ByteView capabilities)
 {
     reset_support(protocol);
@@ -186,7 +170,7 @@ LoggerSelection LoggerModel::default_selection() const
     }
     for (const auto& p : definition_.parameters)
     {
-        if (!parameter_supported(p.protocol, p.id))
+        if (!parameter_available(p.protocol, p.id))
         {
             continue;
         }
@@ -201,7 +185,7 @@ LoggerSelection LoggerModel::default_selection() const
     }
     for (const auto& p : definition_.switches)
     {
-        if (switch_supported(p.protocol, p.id) && result.switch_ids.size() < 20)
+        if (switch_available(p.protocol, p.id) && result.switch_ids.size() < 20)
         {
             result.switch_ids.push_back(p.id);
         }

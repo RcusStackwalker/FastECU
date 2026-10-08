@@ -313,14 +313,20 @@ bool valid_wire_shape(LoggingProtocolId protocol, const std::vector<LoggingChann
 } // namespace
 
 LoggingSession::LoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy,
-                               std::optional<SsmReadPlan> read_plan)
-    : protocol_(protocol), channels_(std::move(channels)), policy_(policy), read_plan_(std::move(read_plan))
+                               std::optional<SsmReadPlan> read_plan, mutdma::FreeformDialect dialect)
+    : protocol_(protocol), channels_(std::move(channels)), policy_(policy), dialect_(dialect),
+      read_plan_(std::move(read_plan))
 {
 }
 
 const std::optional<SsmReadPlan>& LoggingSession::ssm_read_plan() const
 {
     return read_plan_;
+}
+
+mutdma::FreeformDialect LoggingSession::mut_dma_dialect() const
+{
+    return dialect_;
 }
 
 LoggingProtocolId LoggingSession::protocol() const
@@ -395,7 +401,7 @@ fastecu::Status validate_logging_channel(LoggingProtocolId protocol, const Loggi
 }
 
 fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
-                                                     LoggingPolicy policy)
+                                                     LoggingPolicy policy, mutdma::FreeformDialect dialect)
 {
     if (!valid_protocol(protocol) || policy.poll_timeout <= 0ms || policy.car_silence_miss_threshold <= 0 ||
         policy.reconnect_attempt_threshold <= 0 || policy.reconnect_retry_period < 0)
@@ -425,6 +431,22 @@ fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol,
         return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "logging channels do not fit the selected protocol");
     }
 
+    if (dialect != mutdma::FreeformDialect::LegacyBe && dialect != mutdma::FreeformDialect::Oem33520003)
+    {
+        return fail(ErrorKind::InvalidConfig, "invalid MUT wire dialect");
+    }
+    if (protocol == LoggingProtocolId::MutDma && dialect == mutdma::FreeformDialect::Oem33520003)
+    {
+        std::size_t bytes = 0;
+        for (const auto& source : channels)
+        {
+            bytes += source.length;
+        }
+        if (channels.size() > 96 || bytes > 96)
+        {
+            return fail(ErrorKind::InvalidConfig, "oem-33520003 MUT request exceeds 96 entries or 96 response bytes");
+        }
+    }
     std::optional<SsmReadPlan> read_plan;
     if (protocol == LoggingProtocolId::Ssm)
     {
@@ -435,7 +457,7 @@ fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol,
         }
         read_plan = std::move(*result);
     }
-    return LoggingSession(protocol, std::move(channels), policy, std::move(read_plan));
+    return LoggingSession(protocol, std::move(channels), policy, std::move(read_plan), dialect);
 }
 
 } // namespace fastecu::logging

@@ -27,7 +27,7 @@ std::size_t reqLen(std::size_t channelCount)
 {
     return (channelCount + 3) / 4 + channelCount * 2 + 0x1c;
 }
-bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const std::vector<Channel>& channels)
+bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const std::vector<Channel>& channels, FreeformDialect dialect)
 {
     const std::size_t n = channels.size();
     const std::size_t total = reqLen(n);
@@ -45,7 +45,15 @@ bytes::Bytes buildIdListFrame(bytes::Byte listCmd, const std::vector<Channel>& c
     std::size_t idOff = 2 + descBytes;
     for (const Channel& channel : channels)
     { // big-endian u16 ids
-        bytes::writeU16Be(f, idOff, channel.id);
+        if (dialect == FreeformDialect::Oem33520003)
+        {
+            f[idOff] = static_cast<bytes::Byte>(channel.id & 0xffU);
+            f[idOff + 1] = static_cast<bytes::Byte>(channel.id >> 8U);
+        }
+        else
+        {
+            bytes::writeU16Be(f, idOff, channel.id);
+        }
         idOff += 2;
     }
     f[total - 2] = sum8(f, 0, total - 2);
@@ -61,14 +69,31 @@ std::size_t responseDataLength(const std::vector<Channel>& channels)
     }
     return n;
 }
-std::vector<std::uint32_t> decodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data)
+std::vector<std::uint32_t> decodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data,
+                                              FreeformDialect dialect)
 {
+    if (data.size() != responseDataLength(channels))
+    {
+        return {};
+    }
     std::vector<std::uint32_t> out;
     out.reserve(channels.size());
     std::size_t off = 0;
     for (const Channel& c : channels)
     {
-        out.push_back(bytes::readUBe(data, off, c.len));
+        if (dialect == FreeformDialect::Oem33520003)
+        {
+            std::uint32_t value = 0;
+            for (std::size_t i = 0; i < c.len && off + i < data.size(); ++i)
+            {
+                value |= static_cast<std::uint32_t>(data[off + i]) << (i * 8U);
+            }
+            out.push_back(value);
+        }
+        else
+        {
+            out.push_back(bytes::readUBe(data, off, c.len));
+        }
         off += c.len;
     }
     return out;

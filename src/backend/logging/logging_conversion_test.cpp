@@ -107,3 +107,20 @@ TEST(LoggingConversionTest, UsesHistoricalFifteenDigitIntermediatePrecision)
     EXPECT_DOUBLE_EQ(result->numeric_value, 9.9999999999999893);
     EXPECT_NE(result->numeric_value, 9.9);
 }
+
+TEST(LoggingConversionTest, ExtractsSwitchBitInsteadOfTreatingWholeByteAsValue)
+{
+    auto source = channel("switch:flag", 0x20);
+    source.length = 1;
+    source.decimal_precision = 0;
+    source.sample_bit = 7;
+    const auto session = make_session_with_channel(source);
+    const auto on = convert_sample(session, {"switch:flag", "128"});
+    const auto off = convert_sample(session, {"switch:flag", "0"});
+    ASSERT_THAT(on, fastecu::testing::IsOk());
+    ASSERT_THAT(off, fastecu::testing::IsOk());
+    EXPECT_EQ(on->numeric_value, 1);
+    EXPECT_EQ(off->numeric_value, 0);
+    EXPECT_THAT(convert_sample(session, {"switch:flag", "256"}),
+                fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
+}

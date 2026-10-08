@@ -98,6 +98,7 @@ cc_library(
     deps = [
         ":logging_read_plan",
         ":logging_types",
+        "//src/algorithms/protocol/mut_dma",
         "//src/backend/ports",
     ],
 )
@@ -227,9 +228,9 @@ cc_library(
     name = "logging_sample_resolution",
     srcs = ["logging_sample_resolution.cpp"],
     hdrs = ["logging_sample_resolution.h"],
-    implementation_deps = [":logging_run_snapshot"],
     deps = [
         ":logger_model",
+        ":logging_run_snapshot",
         ":logging_types",
         "//src/backend/ports",
     ],

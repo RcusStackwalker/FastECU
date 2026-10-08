@@ -9,7 +9,7 @@ void MainWindow::parse_log_value_list(QByteArray received, const QString& protoc
     loggerModel->apply_capabilities(protocol_arg.toStdString(), bytes::view(received));
     for (const auto& p : loggerModel->definition().parameters)
     {
-        if (p.protocol != protocol_arg.toStdString() || !loggerModel->parameter_supported(p.protocol, p.id))
+        if (p.protocol != protocol_arg.toStdString() || !loggerModel->parameter_available(p.protocol, p.id))
         {
             continue;
         }

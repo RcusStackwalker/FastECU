@@ -37,11 +37,6 @@ class LoggerModel
     void reset_support(std::string_view protocol);
     bool parameter_available(std::string_view protocol, std::string_view id) const;
     bool switch_available(std::string_view protocol, std::string_view id) const;
-    // Transitional availability wrappers, removed when consumers migrate.
-    bool parameter_supported(std::string_view protocol, std::string_view id) const;
-    bool switch_supported(std::string_view protocol, std::string_view id) const;
-    void set_parameter_supported(std::string_view protocol, std::string_view id, bool supported);
-    void set_switch_supported(std::string_view protocol, std::string_view id, bool supported);
     void apply_capabilities(std::string_view protocol, bytes::ByteView capabilities);
     LoggerSelection default_selection() const;
 

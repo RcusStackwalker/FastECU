@@ -16,12 +16,22 @@ fastecu::Result<std::optional<ResolvedLogSample>> resolve_log_sample(const Loggi
                              std::format("{} sample {}: logging sample id is not in the run snapshot",
                                          snapshot.protocol_key(), sample.channel_id));
     }
-    if (!snapshot.channel_enabled(sample.channel_id))
+    const LoggingMeasurement *measurement = nullptr;
+    for (const auto& item : snapshot.measurements())
     {
-        return std::nullopt;
+        if (item.channel_id == sample.channel_id)
+        {
+            measurement = &item;
+            break;
+        }
+    }
+    if (measurement == nullptr)
+    {
+        return fail(ErrorKind::Internal, "logging channel has no captured measurement identity");
     }
     return ResolvedLogSample{
-        .identity = {snapshot.protocol_key(), channel->id},
+        .kind = measurement->kind,
+        .identity = measurement->identity,
         .numeric_value = sample.numeric_value,
         .decimal_precision = channel->decimal_precision,
     };

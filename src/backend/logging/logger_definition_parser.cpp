@@ -117,6 +117,7 @@ Result<LoggerDefinition> parse_logger_definition(bytes::ByteView xml, std::strin
     for (pugi::xml_node protocol : root.child("protocols").children("protocol"))
     {
         const std::string protocol_id = attribute_or(protocol, "id", "No protocol id");
+        definition.protocols.push_back({protocol_id, attribute_or(protocol, "dialect", "")});
         for (pugi::xml_node parameter : protocol.child("parameters").children("parameter"))
         {
             definition.parameters.push_back(parse_parameter(parameter, protocol_id));

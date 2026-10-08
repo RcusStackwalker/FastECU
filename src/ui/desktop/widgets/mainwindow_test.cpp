@@ -2979,7 +2979,7 @@ void MainWindowTest::check_loggingDisplayErrorContinuesOtherSamples()
     ASSERT_TRUE(services.logging_engine.isRunning());
     fastecu::testing::SignalRecorder errors{&window, &MainWindow::LOG_E};
     window.handleLoggingValuesUpdated(
-        {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "rpm", .numeric_value = 42}});
+        {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "parameter:rpm", .numeric_value = 42}});
     EXPECT_EQ(window.loggerValues.parameter_value("SSM", "rpm"), "42");
     EXPECT_EQ(errors.snapshot().size(), 1U);
     EXPECT_TRUE(services.logging_engine.isRunning());
@@ -3336,21 +3336,21 @@ void MainWindowTest::check_loggingSelectionFailureSemanticsAndSupportPreservatio
     window.save_logger_selection();
     ASSERT_TRUE(window.loggerModel->selection() == edited);
     ASSERT_TRUE(writeTextFile(cfg, "<config><logger/></config>"));
-    window.loggerModel->set_parameter_supported("SSM", "rpm", false);
+    window.loggerModel->set_parameter_support("SSM", "rpm", fastecu::logging::EcuSupport::Unsupported);
     window.load_logger_selection();
     ASSERT_TRUE(window.loggerModel->selection().gauge_ids.empty());
     ASSERT_EQ(window.loggerModel->selection().switch_ids, (std::vector<std::string>{"flag"}));
-    ASSERT_TRUE(!window.loggerModel->parameter_supported("SSM", "rpm"));
+    ASSERT_TRUE(!window.loggerModel->parameter_available("SSM", "rpm"));
     ASSERT_TRUE(writeTextFile(
         cfg,
         R"(<config><logger><ecu id="MODEL_TEST"><protocol id="SSM"><parameters><gauges><parameter id="unknown"/></gauges><lower_panel><parameter id="rpm"/></lower_panel></parameters><switches><switch id="flag"/></switches></protocol></ecu></logger></config>)"));
     window.load_logger_selection();
     ASSERT_EQ(window.loggerModel->selection().gauge_ids, (std::vector<std::string>{"unknown"}));
-    ASSERT_TRUE(!window.loggerModel->parameter_supported("SSM", "rpm"));
+    ASSERT_TRUE(!window.loggerModel->parameter_available("SSM", "rpm"));
     // A valid capability byte updates parameters; missing switch bytes retain flags.
     window.parse_log_value_list(frame({0, 0, 0, 0, 0, 1}), "SSM");
-    ASSERT_TRUE(window.loggerModel->parameter_supported("SSM", "rpm"));
-    ASSERT_TRUE(window.loggerModel->switch_supported("SSM", "flag"));
+    ASSERT_TRUE(window.loggerModel->parameter_available("SSM", "rpm"));
+    ASSERT_TRUE(window.loggerModel->switch_available("SSM", "flag"));
     ASSERT_TRUE(window.loggerModel->definition().parameters.front().enabled);
     window.save_logger_selection();
     const auto stored = services.logger_definitions.load_selection(cfg.toStdString(), "MODEL_TEST");
@@ -3531,10 +3531,7 @@ void MainWindowTest::check_csvSharedIdProtocolIdentity()
                                            .length = "1",
                                            .enabled = true,
                                            .conversions = {{"rpm", "x", "0.00", "0", "100", "1"}}}}},
-                          {.protocol = "CDBG",
-                           .gauge_ids = {"missing"},
-                           .lower_panel_ids = {"rpm", "unresolved"},
-                           .switch_ids = {"missing-switch"}});
+                          {.protocol = "CDBG", .gauge_ids = {"rpm"}, .lower_panel_ids = {"rpm"}});
     ASSERT_TRUE(window.loggerValues.set_parameter_value({"SSM", "rpm"}, "11.00"));
     ASSERT_TRUE(window.loggerValues.set_parameter_value({"CDBG", "rpm"}, "22.00"));
     auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
@@ -3558,8 +3555,8 @@ void MainWindowTest::check_csvSharedIdProtocolIdentity()
     QFile csv{window.datalog_file.fileName()};
     ASSERT_TRUE(csv.open(QIODevice::ReadOnly));
     const auto content = csv.readAll();
-    ASSERT_TRUE(content.startsWith("Time,,,Correct CDBG,,,\n"));
-    ASSERT_TRUE(content.contains(",,,22.00,,,\n"));
+    ASSERT_TRUE(content.startsWith("Time,Correct CDBG,,Correct CDBG,\n"));
+    ASSERT_TRUE(content.contains(",22.00,,22.00,\n"));
     ASSERT_TRUE(!content.contains("Wrong SSM"));
     ASSERT_TRUE(!content.contains("11.00"));
     window.datalog_file.close();
@@ -3664,7 +3661,7 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return window.activeLoggingSnapshot.has_value(); },
                                              std::chrono::milliseconds(5000)));
     ASSERT_EQ(window.ecuid, QString("123456789A"));
-    ASSERT_TRUE(window.loggerModel->parameter_supported("SSM", "rpm"));
+    ASSERT_TRUE(window.loggerModel->parameter_available("SSM", "rpm"));
     ASSERT_TRUE(window.activeLoggingSnapshot.has_value());
     ASSERT_EQ(window.activeLoggingSnapshot->target() == fastecu::logging::LoggingTarget::Ecu, target_is_ecu);
     ASSERT_TRUE(target_frozen_in_continuation);

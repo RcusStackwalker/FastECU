@@ -30,7 +30,7 @@ void populate_parameter_choices(QComboBox& combo, const fastecu::logging::Logger
     const auto key = protocol.toStdString();
     for (const auto& p : model.definition().parameters)
     {
-        if (p.protocol == key && model.parameter_supported(key, p.id))
+        if (p.protocol == key && model.parameter_available(key, p.id))
         {
             choices.push_back({QString::fromStdString(p.name), {protocol, QString::fromStdString(p.id)}});
         }
@@ -44,7 +44,7 @@ void populate_switch_choices(QComboBox& combo, const fastecu::logging::LoggerMod
     const auto key = protocol.toStdString();
     for (const auto& p : model.definition().switches)
     {
-        if (p.protocol == key && model.switch_supported(key, p.id))
+        if (p.protocol == key && model.switch_available(key, p.id))
         {
             choices.push_back({QString::fromStdString(p.name), {protocol, QString::fromStdString(p.id)}});
         }
