@@ -28,6 +28,8 @@ class LoggingSession
     make_logging_session(LoggingProtocolId protocol, std::vector<LoggingChannel> channels, LoggingPolicy policy);
 };
 
+fastecu::Status validate_logging_channel(LoggingProtocolId protocol, const LoggingChannel& channel);
+
 fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
                                                      LoggingPolicy policy);
 

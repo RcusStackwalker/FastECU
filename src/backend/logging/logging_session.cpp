@@ -5,6 +5,7 @@
 #include <cctype>
 #include <chrono>
 #include <cmath>
+#include <format>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -293,22 +294,13 @@ bool valid_wire_shape(LoggingProtocolId protocol, const std::vector<LoggingChann
         // one-byte payload-length field.
         return channels.size() <= 84;
     case LoggingProtocolId::MutDma:
-        if (channels.size() > 255)
-        {
-            return false;
-        }
-        return std::all_of(channels.begin(), channels.end(), [](const LoggingChannel& channel)
-                           { return channel.length == 1 || channel.length == 2 || channel.length == 4; });
+        return channels.size() <= 255;
     case LoggingProtocolId::Cdbg:
     {
         std::vector<MitsuColtCanCdbg::CdbgChannel> wire_channels;
         wire_channels.reserve(channels.size());
         for (const LoggingChannel& channel : channels)
         {
-            if (channel.length != 1 && channel.length != 2 && channel.length != 4)
-            {
-                return false;
-            }
             wire_channels.push_back({channel.address, static_cast<bytes::Byte>(channel.length)});
         }
         std::vector<std::vector<MitsuColtCanCdbg::CdbgChannel>> frames;
@@ -352,6 +344,46 @@ const LoggingChannel *LoggingSession::find_channel(std::string_view id) const
     return nullptr;
 }
 
+fastecu::Status validate_logging_channel(LoggingProtocolId protocol, const LoggingChannel& channel)
+{
+    if (!valid_protocol(protocol))
+    {
+        return fastecu::fail(ErrorKind::InvalidConfig, "invalid logging protocol");
+    }
+    if (channel.id.empty())
+    {
+        return fastecu::fail(ErrorKind::InvalidConfig, "invalid id; expected a nonempty channel id");
+    }
+    if (channel.length == 0 || channel.length > 255 ||
+        (protocol != LoggingProtocolId::Ssm && channel.length != 1 && channel.length != 2 && channel.length != 4))
+    {
+        return fastecu::fail(ErrorKind::InvalidConfig,
+                             std::format("invalid length '{}'; expected {}", channel.length,
+                                         protocol == LoggingProtocolId::Ssm ? "1–255 bytes" : "1, 2, or 4 bytes"));
+    }
+    if (!valid_address(protocol, channel.address))
+    {
+        return fastecu::fail(
+            ErrorKind::InvalidConfig,
+            std::format("invalid address '{:x}'; outside the selected protocol's address range", channel.address));
+    }
+    if (!valid_raw_assembly(channel.raw_assembly))
+    {
+        return fastecu::fail(ErrorKind::InvalidConfig, "invalid raw assembly");
+    }
+    if (channel.decimal_precision > 15)
+    {
+        return fastecu::fail(ErrorKind::InvalidConfig, "invalid precision; expected 0–15 decimal places");
+    }
+    if (!valid_expression(channel))
+    {
+        return fastecu::fail(ErrorKind::InvalidConfig,
+                             std::format("invalid expression '{}'; expected a valid finite conversion expression",
+                                         channel.from_byte_expression));
+    }
+    return {};
+}
+
 fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
                                                      LoggingPolicy policy)
 {
@@ -368,11 +400,13 @@ fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol,
     std::unordered_set<std::string> ids;
     for (const LoggingChannel& channel : channels)
     {
-        if (channel.id.empty() || !ids.insert(channel.id).second || channel.length == 0 || channel.length > 255 ||
-            !valid_address(protocol, channel.address) || !valid_raw_assembly(channel.raw_assembly) ||
-            channel.decimal_precision > 15 || !valid_expression(channel))
+        if (!ids.insert(channel.id).second)
         {
-            return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging channel");
+            return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "duplicate logging channel id");
+        }
+        if (const auto valid = validate_logging_channel(protocol, channel); !valid.has_value())
+        {
+            return std::unexpected(valid.error());
         }
     }
 

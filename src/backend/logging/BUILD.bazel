@@ -185,3 +185,27 @@ cc_library(
         "//src/algorithms/protocol",
     ],
 )
+
+cc_library(
+    name = "logging_channel_preparation",
+    srcs = ["logging_channel_preparation.cpp"],
+    hdrs = ["logging_channel_preparation.h"],
+    implementation_deps = [":logging_session"],
+    deps = [
+        ":logger_definition_model",
+        ":logging_types",
+        "//src/backend/ports",
+    ],
+)
+
+fastecu_portable_gtest(
+    name = "logging_channel_preparation_test",
+    srcs = ["logging_channel_preparation_test.cpp"],
+    deps = [
+        ":logger_definition_model",
+        ":logging_channel_preparation",
+        ":logging_types",
+        "//src/backend/ports/testing:result_matchers",
+        "@googletest//:gtest",
+    ],
+)
