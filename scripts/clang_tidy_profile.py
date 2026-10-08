@@ -10,7 +10,7 @@ from collections.abc import Mapping
 # an instruction count; wall time is always the fourth.
 # The lookbehind stops the scan restarting inside a digit run, which made a
 # long run of digits quadratic.
-_COLUMN = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?(?:e[+-]?\d+)?)\s+\(\s*\d+(?:\.\d+)?%\)")
+_COLUMN = re.compile(r"(?<![\d.])(\d+(?:\.\d+)?(?:e[+-]?\d+)?) {1,20}\( {0,20}\d+(?:\.\d+)?%\)")
 _WALL_COLUMN = 3
 
 
