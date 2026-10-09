@@ -301,7 +301,7 @@ ScriptPlan prepareScript(IBenchFiles& files, const Reporter& reporter, std::istr
     ScriptPlan plan;
     // Reports the failure; true means stop reading, false means keep going to
     // show the operator every bad line before refusing to run any of them.
-    const auto lineFailed = [&](std::string label, const Error& error)
+    const auto line_failed = [&](std::string label, const Error& error)
     {
         ratchet(plan.code, reporter.fail(std::move(label), error));
         return !reporter.options.keep_going;
@@ -330,7 +330,7 @@ ScriptPlan prepareScript(IBenchFiles& files, const Reporter& reporter, std::istr
                                   std::format("script-line global option {} is not allowed; put it on the outer "
                                               "--script invocation",
                                               *forbidden)};
-                lineFailed(line_label, error))
+                line_failed(line_label, error))
             {
                 return plan;
             }
@@ -341,7 +341,7 @@ ScriptPlan prepareScript(IBenchFiles& files, const Reporter& reporter, std::istr
         const Result<ParsedCommandLine> parsed = parse_command_line(line_args);
         if (!parsed.has_value())
         {
-            if (lineFailed(line_label, parsed.error()))
+            if (line_failed(line_label, parsed.error()))
             {
                 return plan;
             }
@@ -351,8 +351,8 @@ ScriptPlan prepareScript(IBenchFiles& files, const Reporter& reporter, std::istr
         std::expected<std::vector<PreparedStep>, PreparationFailure> prepared = prepareSteps(files, parsed->steps);
         if (!prepared.has_value())
         {
-            if (lineFailed(std::format("{}: {}", line_label, render_step(*prepared.error().step)),
-                           prepared.error().error))
+            if (line_failed(std::format("{}: {}", line_label, render_step(*prepared.error().step)),
+                            prepared.error().error))
             {
                 return plan;
             }

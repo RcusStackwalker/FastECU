@@ -13,36 +13,36 @@ TEST(J2534BridgeClient, OpensConnectsAndReadsThroughBridge)
     // (--test_env in .github/workflows/pr.yml). The bare filenames are kept
     // as a fallback for running this binary manually outside CI, with both
     // files copied next to it.
-    const char *hostExe = std::getenv("J2534_BRIDGE_HOST_EXE");
-    if (!hostExe)
+    const char *host_exe = std::getenv("J2534_BRIDGE_HOST_EXE");
+    if (!host_exe)
     {
-        hostExe = "j2534_bridge_host.exe";
+        host_exe = "j2534_bridge_host.exe";
     }
-    const char *dllPath = std::getenv("FAKE_J2534_DLL_PATH");
-    if (!dllPath)
+    const char *dll_path = std::getenv("FAKE_J2534_DLL_PATH");
+    if (!dll_path)
     {
-        dllPath = "fake_j2534_dll.dll";
+        dll_path = "fake_j2534_dll.dll";
     }
 
-    J2534BridgeClient client(hostExe, dllPath);
+    J2534BridgeClient client(host_exe, dll_path);
     ASSERT_TRUE(client.start() && "client failed to spawn the bridge host");
     ASSERT_TRUE(client.isRunning());
 
-    unsigned long deviceId = 0;
-    long result = client.PassThruOpen(nullptr, &deviceId);
+    unsigned long device_id = 0;
+    long result = client.PassThruOpen(nullptr, &device_id);
     ASSERT_TRUE(result == kJ2534StatusNoerror);
-    ASSERT_TRUE(deviceId == 7);
+    ASSERT_TRUE(device_id == 7);
 
-    unsigned long channelId = 0;
-    result = client.PassThruConnect(deviceId, kJ2534Iso9141, 0, 0, &channelId);
+    unsigned long channel_id = 0;
+    result = client.PassThruConnect(device_id, kJ2534Iso9141, 0, 0, &channel_id);
     ASSERT_TRUE(result == kJ2534StatusNoerror);
-    ASSERT_TRUE(channelId == 3);
+    ASSERT_TRUE(channel_id == 3);
 
     PassThruMsg msg{};
-    unsigned long numMsgs = 1;
-    result = client.PassThruReadMsgs(channelId, &msg, &numMsgs, 100);
+    unsigned long num_msgs = 1;
+    result = client.PassThruReadMsgs(channel_id, &msg, &num_msgs, 100);
     ASSERT_TRUE(result == kJ2534StatusNoerror);
-    ASSERT_TRUE(numMsgs == 1);
+    ASSERT_TRUE(num_msgs == 1);
     ASSERT_TRUE(msg.data_size == 4 && msg.data[0] == 0xDE);
 
     std::printf("All j2534_bridge_client tests passed.\n");

@@ -83,8 +83,8 @@ std::function<SerialBackend *()> directBackend()
 class MockOpenPort final : public QObject
 {
   public:
-    explicit MockOpenPort(int masterFd, QObject *parent = nullptr)
-        : QObject(parent), fd_(masterFd), notifier_(new QSocketNotifier(masterFd, QSocketNotifier::Read, this))
+    explicit MockOpenPort(int master_fd, QObject *parent = nullptr)
+        : QObject(parent), fd_(master_fd), notifier_(new QSocketNotifier(master_fd, QSocketNotifier::Read, this))
     {
         connect(notifier_, &QSocketNotifier::activated, this, &MockOpenPort::onReadable);
     }
@@ -215,7 +215,7 @@ class MockOpenPort final : public QObject
 class MockOpenPortThread : public QThread
 {
   public:
-    explicit MockOpenPortThread(int masterFd) : fd_(masterFd)
+    explicit MockOpenPortThread(int master_fd) : fd_(master_fd)
     {
         start();
         ready_.acquire();
@@ -272,7 +272,7 @@ TEST_F(MutDmaIntegrationTest, connectsOverMockPty_facadeReportsOpen)
     std::array<char, 256> name{};
     ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
-        MockOpenPortThread mockThread(master);
+        MockOpenPortThread mock_thread(master);
 
         SerialPortActions spad{directBackend()}; // the real direct backend
         const QString opened = connectFacade(spad, QString::fromLocal8Bit(name.data()));
@@ -287,17 +287,17 @@ TEST_F(MutDmaIntegrationTest, connectsOverMockPty_facadeReportsOpen)
 TEST_F(MutDmaIntegrationTest, setBaud_throughAdapter_trueWhenConnected_falseWhenClosed)
 {
     SerialPortActions closed{directBackend()}; // never opened
-    FastEcuKlineTransport closedTr(&closed);
+    FastEcuKlineTransport closed_tr(&closed);
     // change_port_speed returns STATUS_ERROR when the port is not open -> false.
-    const auto closedResult = closedTr.setBaud(15625);
-    ASSERT_TRUE(!closedResult);
-    ASSERT_EQ(closedResult.error().kind, fastecu::ErrorKind::kDisconnected);
+    const auto closed_result = closed_tr.setBaud(15625);
+    ASSERT_TRUE(!closed_result);
+    ASSERT_EQ(closed_result.error().kind, fastecu::ErrorKind::kDisconnected);
 
     int master = -1, slave = -1;
     std::array<char, 256> name{};
     ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
-        MockOpenPortThread mockThread(master);
+        MockOpenPortThread mock_thread(master);
 
         SerialPortActions spad{directBackend()};
         ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
@@ -317,8 +317,8 @@ TEST_F(MutDmaIntegrationTest, write_throughAdapter_putsExactFrameOnWire)
     std::array<char, 256> name{};
     ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
-        MockOpenPortThread mockThread(master);
-        MockOpenPort& mock = *mockThread.mock;
+        MockOpenPortThread mock_thread(master);
+        MockOpenPort& mock = *mock_thread.mock;
 
         SerialPortActions spad{directBackend()};
         ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
@@ -357,8 +357,8 @@ TEST_F(MutDmaIntegrationTest, read_throughAdapter_returnsEcuReplyBytes)
     std::array<char, 256> name{};
     ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
-        MockOpenPortThread mockThread(master);
-        MockOpenPort& mock = *mockThread.mock;
+        MockOpenPortThread mock_thread(master);
+        MockOpenPort& mock = *mock_thread.mock;
 
         SerialPortActions spad{directBackend()};
         ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
@@ -389,8 +389,8 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
     std::array<char, 256> name{};
     ASSERT_TRUE(openpty(&master, &slave, name.data(), nullptr, nullptr) == 0) << "openpty failed";
     {
-        MockOpenPortThread mockThread(master);
-        MockOpenPort& mock = *mockThread.mock;
+        MockOpenPortThread mock_thread(master);
+        MockOpenPort& mock = *mock_thread.mock;
 
         SerialPortActions spad{directBackend()};
         ASSERT_TRUE(!connectFacade(spad, QString::fromLocal8Bit(name.data())).isEmpty()) << "connect failed";
@@ -405,13 +405,13 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
         driver.setChannelsForTest(channels);
 
         // Streamed frame: [logId][data...][sum8(0..len-3)][0x0D].
-        const bytes::Byte logId = 0x00;
+        const bytes::Byte log_id = 0x00;
         QByteArray data;
         data.append(char(0x42)); // channel 0 (1B) = 0x42
         data.append(char(0xDE));
         data.append(char(0xAD)); // channel 1 (2B) = 0xDEAD
         QByteArray frame;
-        frame.append(char(logId));
+        frame.append(char(log_id));
         frame.append(data);
         frame.append(char(sum8(bytes::view(frame))));
         frame.append(char(kTrailerStd));

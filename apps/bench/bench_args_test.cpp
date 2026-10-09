@@ -220,11 +220,11 @@ TEST(BenchArgs, ParsesHexByteTokens)
 
 TEST(BenchArgs, RejectsMalformedHexByteTokens)
 {
-    const std::vector<std::string> tooWide{"1ff"};
-    const std::vector<std::string> notHex{"zz"};
+    const std::vector<std::string> too_wide{"1ff"};
+    const std::vector<std::string> not_hex{"zz"};
 
-    EXPECT_THAT(parse_hex_bytes(tooWide), ::testing::Not(fastecu::testing::IsOk()));
-    EXPECT_THAT(parse_hex_bytes(notHex), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(parse_hex_bytes(too_wide), ::testing::Not(fastecu::testing::IsOk()));
+    EXPECT_THAT(parse_hex_bytes(not_hex), ::testing::Not(fastecu::testing::IsOk()));
 }
 
 TEST(BenchArgs, VendorExtDefaultsToOff)

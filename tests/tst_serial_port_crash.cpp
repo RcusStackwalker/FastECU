@@ -126,23 +126,23 @@ TEST(SerialPortCrashTest, readSerialData_withNullSerial_doesNotBusySpin)
 
     ASSERT_EQ(j2534.read_serial_data(3, 50), QByteArray());
 
-    const qint64 elapsedMs = wall.elapsed();
+    const qint64 elapsed_ms = wall.elapsed();
     rusage after{};
     getrusage(RUSAGE_SELF, &after);
 
     const auto to_ms = [](const timeval& tv) { return static_cast<qint64>(tv.tv_sec) * 1000 + tv.tv_usec / 1000; };
-    const qint64 cpuMsBefore = to_ms(before.ru_utime) + to_ms(before.ru_stime);
-    const qint64 cpuMsAfter = to_ms(after.ru_utime) + to_ms(after.ru_stime);
-    const qint64 cpuMs = cpuMsAfter - cpuMsBefore;
+    const qint64 cpu_ms_before = to_ms(before.ru_utime) + to_ms(before.ru_stime);
+    const qint64 cpu_ms_after = to_ms(after.ru_utime) + to_ms(after.ru_stime);
+    const qint64 cpu_ms = cpu_ms_after - cpu_ms_before;
 
     // Generous, non-flaky cutoff: a genuine busy spin burns CPU roughly equal
     // to elapsed wall-clock; a properly-yielding sleep burns a small fraction
     // of it. Half the elapsed time (plus a small floor for scheduler noise on
     // a loaded CI box) safely separates the two without being timing-sensitive.
-    ASSERT_TRUE(cpuMs < elapsedMs / 2 + 5)
+    ASSERT_TRUE(cpu_ms < elapsed_ms / 2 + 5)
         << qPrintable(QString("closed-port read burned %1 ms of CPU across %2 ms wall-clock -- looks like a busy spin")
-                          .arg(cpuMs)
-                          .arg(elapsedMs));
+                          .arg(cpu_ms)
+                          .arg(elapsed_ms));
 }
 
 TEST(SerialPortCrashTest, passThruReadMsgs_withNullSerial_doesNotCrash)
@@ -150,10 +150,10 @@ TEST(SerialPortCrashTest, passThruReadMsgs_withNullSerial_doesNotCrash)
     TestableJ2534 j2534;
     j2534.detachSerialPort();
     PassThruMsg msg;
-    unsigned long numMsgs = 1;
+    unsigned long num_msgs = 1;
     // The exact inner frame from the crash report: PassThruReadMsgs -> the read
     // path -> serial->isOpen(). Reaching the next line is the assertion.
-    j2534.PassThruReadMsgs(0, &msg, &numMsgs, 50);
+    j2534.PassThruReadMsgs(0, &msg, &num_msgs, 50);
     ASSERT_TRUE(true);
 }
 
@@ -208,16 +208,16 @@ TEST(SerialPortCrashTest, j2534Handshake_overMockPty_readVersionSucceeds)
         MockOpenPortThread mock(master);
 
         J2534 j2534;
-        const QString ptyPath = QString::fromLocal8Bit(name.data());
-        ASSERT_EQ(j2534.open_serial_port(ptyPath), ptyPath);
+        const QString pty_path = QString::fromLocal8Bit(name.data());
+        ASSERT_EQ(j2534.open_serial_port(pty_path), pty_path);
 
-        unsigned long devID = 1;
-        ASSERT_EQ(j2534.PassThruOpen(nullptr, &devID), (long)kJ2534StatusNoerror);
+        unsigned long dev_id = 1;
+        ASSERT_EQ(j2534.PassThruOpen(nullptr, &dev_id), (long)kJ2534StatusNoerror);
 
         std::array<char, 256> api{};
         std::array<char, 256> dll{};
         std::array<char, 256> fw{};
-        ASSERT_EQ(j2534.PassThruReadVersion(api.data(), dll.data(), fw.data(), devID), (long)kJ2534StatusNoerror);
+        ASSERT_EQ(j2534.PassThruReadVersion(api.data(), dll.data(), fw.data(), dev_id), (long)kJ2534StatusNoerror);
         ASSERT_EQ(QString::fromUtf8(fw.data()).trimmed(), QStringLiteral("1.17.4877"));
 
         j2534.close_serial_port();
@@ -276,13 +276,13 @@ TEST(SerialPortCrashTest, loggingFlow_connectReadTeardownReentrancy_overMockPty_
 
         // A still-alive consumer (a running flash module) has a read queued.
         QObject consumer;
-        bool consumerRan = false;
+        bool consumer_ran = false;
         QMetaObject::invokeMethod(
             &consumer,
             [&]()
             {
                 spad.read_vbatt();
-                consumerRan = true;
+                consumer_ran = true;
             },
             Qt::QueuedConnection);
 
@@ -293,7 +293,7 @@ TEST(SerialPortCrashTest, loggingFlow_connectReadTeardownReentrancy_overMockPty_
         // Pre-fix it dereferences the freed/null j2534; post-fix the guard makes it safe.
         QCoreApplication::processEvents();
 
-        ASSERT_TRUE(consumerRan);
+        ASSERT_TRUE(consumer_ran);
     }
     ::close(master);
 }
@@ -323,22 +323,22 @@ TEST(SerialPortCrashTest, resetQueuedDuringRead_runsAfterReadCompletes)
         // timeout (deterministic in-flight window, no reentrant pump to exploit).
         mock.mock->answer_read_vbatt = false;
 
-        bool resetRan = false;
+        bool reset_ran = false;
         QObject consumer;
         QMetaObject::invokeMethod(
             &consumer,
             [&]
             {
                 spad.reset_connection();
-                resetRan = true;
+                reset_ran = true;
             },
             Qt::QueuedConnection);
 
-        spad.read_vbatt();          // waits out its timeout; must NOT dispatch the reset
-        ASSERT_EQ(resetRan, false); // the queue no longer interleaves into reads
+        spad.read_vbatt();           // waits out its timeout; must NOT dispatch the reset
+        ASSERT_EQ(reset_ran, false); // the queue no longer interleaves into reads
 
         QCoreApplication::processEvents();
-        ASSERT_EQ(resetRan, true); // the reset runs after, in order
+        ASSERT_EQ(reset_ran, true); // the reset runs after, in order
     }
     ::close(master);
 }

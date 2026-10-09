@@ -23,8 +23,8 @@ bool fileExists(const char *path)
 // binary under that exact name before exercising any PassThru* call.
 void ensureBridgeHostStaged()
 {
-    const char *hostSrc = std::getenv("J2534_BRIDGE_HOST_EXE");
-    if (!hostSrc)
+    const char *host_src = std::getenv("J2534_BRIDGE_HOST_EXE");
+    if (!host_src)
     {
         return;
     }
@@ -32,7 +32,7 @@ void ensureBridgeHostStaged()
     {
         return;
     }
-    BOOL ok = CopyFileA(hostSrc, "j2534_bridge_host.exe", /*bFailIfExists=*/FALSE);
+    BOOL ok = CopyFileA(host_src, "j2534_bridge_host.exe", /*bFailIfExists=*/FALSE);
     ASSERT_TRUE(ok && "failed to stage j2534_bridge_host.exe next to the test binary");
     (void)ok;
 }
@@ -43,28 +43,28 @@ TEST(J2534WinBridge, OpensConnectsAndReadsThroughBridge)
 {
     ASSERT_NO_FATAL_FAILURE(ensureBridgeHostStaged());
 
-    const char *dllPath = std::getenv("FAKE_J2534_DLL_PATH");
-    if (!dllPath)
+    const char *dll_path = std::getenv("FAKE_J2534_DLL_PATH");
+    if (!dll_path)
     {
-        dllPath = "fake_j2534_dll.dll"; // built for x86; this test process is x64 (host arch)
+        dll_path = "fake_j2534_dll.dll"; // built for x86; this test process is x64 (host arch)
     }
 
     J2534 j2534;
-    j2534.setDllName(dllPath);
+    j2534.setDllName(dll_path);
 
-    unsigned long deviceId = 0;
-    long result = j2534.PassThruOpen(nullptr, &deviceId);
+    unsigned long device_id = 0;
+    long result = j2534.PassThruOpen(nullptr, &device_id);
     ASSERT_TRUE(result == kJ2534StatusNoerror && "PassThruOpen should transparently succeed via the bridge");
-    ASSERT_TRUE(deviceId == 7);
+    ASSERT_TRUE(device_id == 7);
 
-    unsigned long channelId = 0;
-    result = j2534.PassThruConnect(deviceId, kJ2534Iso9141, 0, 0, &channelId);
+    unsigned long channel_id = 0;
+    result = j2534.PassThruConnect(device_id, kJ2534Iso9141, 0, 0, &channel_id);
     ASSERT_TRUE(result == kJ2534StatusNoerror);
-    ASSERT_TRUE(channelId == 3);
+    ASSERT_TRUE(channel_id == 3);
 
     PassThruMsg msg{};
-    unsigned long numMsgs = 1;
-    result = j2534.PassThruReadMsgs(channelId, &msg, &numMsgs, 100);
+    unsigned long num_msgs = 1;
+    result = j2534.PassThruReadMsgs(channel_id, &msg, &num_msgs, 100);
     ASSERT_TRUE(result == kJ2534StatusNoerror);
     ASSERT_TRUE(msg.data_size == 4 && msg.data[0] == 0xDE);
 
