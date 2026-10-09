@@ -43,7 +43,6 @@ fastecu::Status CdbgLogDriver::StartFreeFormLog(const std::vector<CdbgChannel>& 
 {
     streaming_ = false;
     frames_.clear();
-    last_values_.clear();
 
     if (channels.empty())
     {
@@ -111,13 +110,6 @@ fastecu::Status CdbgLogDriver::StartFreeFormLog(const std::vector<CdbgChannel>& 
         return std::unexpected(reply.error());
     }
 
-    std::size_t total_channels = 0;
-    for (const auto& frame : frames_)
-    {
-        total_channels += frame.size();
-    }
-    last_values_.assign(total_channels, 0);
-
     streaming_ = true;
     return {};
 }
@@ -135,7 +127,6 @@ fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::PollOnce(std::chrono::
     {
         return std::unexpected(read.error());
     }
-    bool decoded_response = false;
     if (read->has_value() && read->value().id == kReplyCanId && !read->value().payload.empty())
     {
         const bytes::Bytes& frame = read->value().payload;
@@ -145,24 +136,16 @@ fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::PollOnce(std::chrono::
             std::vector<std::uint32_t> decoded = DecodeFrame(frame_idx, frames_.at(frame_idx), frame);
             if (!decoded.empty())
             {
-                decoded_response = true;
                 std::size_t offset = 0;
                 for (std::size_t f = 0; f < frame_idx; ++f)
                 {
                     offset += frames_.at(f).size();
                 }
-                for (std::size_t i = 0; i < decoded.size(); ++i)
-                {
-                    last_values_[offset + i] = decoded.at(i);
-                }
+                return PollResult{.responded = true, .channel_offset = offset, .values = std::move(decoded)};
             }
         }
     }
-    if (!decoded_response)
-    {
-        return PollResult{};
-    }
-    return PollResult{.responded = true, .values = last_values_};
+    return PollResult{};
 }
 
 } // namespace mitsu_colt_can_cdbg

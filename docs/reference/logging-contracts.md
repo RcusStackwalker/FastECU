@@ -38,6 +38,10 @@ conversion is used, with fixed decimal display formatting.
   big-endian integer.
 - MUT/DMA spells the decoded unsigned integer in decimal and filters unsupported
   channels. CDBG also uses unsigned-integer decimal and does not filter support.
+  Each CDBG poll publishes only measurements decoded from its received frame,
+  mapped through that frame's logical channel offset. Out-of-order frames do not
+  fabricate zero values for unseen channels or republish measurements from prior
+  frames. The desktop owns its existing display cache.
 
 ## Desktop protocol binding
 
