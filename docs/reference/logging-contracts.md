@@ -165,3 +165,21 @@ invalid field.
 
 This backend API is tested independently. Desktop preparation still uses its
 existing Qt parsing until the adoption PR switches its callers.
+
+## Portable run preparation API
+
+[Run preparation](../../src/backend/logging/logging_run_snapshot.h) constructs an
+owned snapshot through a validating factory with const-only accessors. It
+captures protocol, selection, support eligibility, original SSM offsets and a
+typed ECU/TCU target. Later model changes cannot modify a prepared run. Identities
+are derived from the captured protocol and validated channels rather than a
+second mutable map.
+
+Unsupported MUT parameters are filtered before definition validation;
+unsupported SSM parameters remain polled and must validate, but are ineligible
+for display. CDBG does not filter support. Unresolved selected IDs are omitted
+from acquisition; participating duplicate IDs are rejected. Only lower-panel
+parameters are acquired in this preparation scope.
+
+Desktop consumers still use their existing snapshot representation until
+adoption. CSV's current-selection behavior remains unchanged.
