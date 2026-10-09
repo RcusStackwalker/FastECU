@@ -398,7 +398,7 @@ TEST(SubaruUnisiaJecsM32rKlineExecutor, ReadsABootmodeProtocolWithTheSameWireSeq
 
 const bytes::Bytes& RomImage()
 {
-    static const bytes::Bytes image = []
+    static const bytes::Bytes kImage = []
     {
         bytes::Bytes out(kRomSize);
         for (std::size_t i = 0; i < out.size(); ++i)
@@ -407,7 +407,7 @@ const bytes::Bytes& RomImage()
         }
         return out;
     }();
-    return image;
+    return kImage;
 }
 
 FlashPlan WritePlan()

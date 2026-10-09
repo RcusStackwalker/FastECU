@@ -71,7 +71,7 @@ struct FamilyCase
 
 const std::array<FamilyCase, 30>& FamilyCases()
 {
-    static const std::array<FamilyCase, 30> cases{{
+    static const std::array<FamilyCase, 30> kCases{{
         {FlashFamily::kDensoSh705xEepromKline, TransportKind::kKline,
          DensoSh705xEepromKlinePlan{.mode = EepromReadMode::kMode2,
                                     .security = DensoSecurityVariant::kStock,
@@ -231,7 +231,7 @@ const std::array<FamilyCase, 30>& FamilyCases()
          SubaruUnisiaJecsM32rBootModeProgramPlan{.initial_baud = 19200, .tester_id = 0xf0, .target_id = 0x10},
          "SubaruUnisiaJecsM32rBootModeProgram"},
     }};
-    return cases;
+    return kCases;
 }
 
 static_assert(std::variant_size_v<FamilyPlan> == std::tuple_size_v<std::remove_reference_t<decltype(FamilyCases())>>);

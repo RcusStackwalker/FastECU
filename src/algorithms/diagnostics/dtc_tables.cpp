@@ -8,7 +8,7 @@ using Table = std::unordered_map<int, std::string>;
 // 59 entries, transcribed verbatim from the former FileActions::neg_rsp_codes.
 const std::unordered_map<int, std::string>& NrcCodes()
 {
-    static const Table table{
+    static const Table kTable{
         {0x10, "General reject"},
         {0x11, "Service not supported"},
         {0x12, "Subfunction not supported"},
@@ -69,13 +69,13 @@ const std::unordered_map<int, std::string>& NrcCodes()
         {0x93, "Voltage too low"},
         {0x94, "Resource temporary unavailable"},
     };
-    return table;
+    return kTable;
 }
 
 // 1733 entries, transcribed verbatim from the former FileActions::dtc_Pxxxx_codes.
 const std::unordered_map<int, std::string>& DtcPCodes()
 {
-    static const Table table{
+    static const Table kTable{
         {0x0000, "P0000 - No trouble code"},
         {0x0001, "P0001 - Fuel Volume Regulator Control Circuit / Open"},
         {0x0002, "P0002 - Fuel Volume Regulator Control Circuit Range/Performance"},
@@ -1831,13 +1831,13 @@ const std::unordered_map<int, std::string>& DtcPCodes()
         {0x2A01, "P2A01 - HO2S Circuit Closed Loop Performance Bank 1 Sensor 2 (PCM)"},
         {0x3000, "P3000 - Hacking AWH Data"},
     };
-    return table;
+    return kTable;
 }
 
 // 1147 entries, transcribed verbatim from the former FileActions::dtc_Bxxxx_codes.
 const std::unordered_map<int, std::string>& DtcBCodes()
 {
-    static const Table table{
+    static const Table kTable{
         {0x1200, "B1200 - Climate Control Pushbutton Circuit Failure"},
         {0x1201, "B1201 - Fuel Sender Circuit Failure"},
         {0x1202, "B1202 - Fuel Sender Circuit Open"},
@@ -2986,13 +2986,13 @@ const std::unordered_map<int, std::string>& DtcBCodes()
         {0x2605, "B2605 - Disable Signal Open Circuit"},
         {0x2606, "B2606 - A/C Temperature Sensor Out of Range"},
     };
-    return table;
+    return kTable;
 }
 
 // 487 entries, transcribed verbatim from the former FileActions::dtc_Cxxxx_codes.
 const std::unordered_map<int, std::string>& DtcCCodes()
 {
-    static const Table table{
+    static const Table kTable{
         {0x1091, "C1091 - Speed Wheel Sensor All Coherency Failure"},
         {0x1095, "C1095 - ABS Hydraulic Pump Motor Circuit Failure"},
         {0x1096, "C1096 - ABS Hydraulic Pump Motor Circuit Open"},
@@ -3481,13 +3481,13 @@ const std::unordered_map<int, std::string>& DtcCCodes()
         {0x1963, "C1963 - Stability Control Inhibit Warning"},
         {0x2767, "C2767 - Reserved - TBD"},
     };
-    return table;
+    return kTable;
 }
 
 // 299 entries, transcribed verbatim from the former FileActions::dtc_Uxxxx_codes.
 const std::unordered_map<int, std::string>& DtcUCodes()
 {
-    static const Table table{
+    static const Table kTable{
         {0x1000, "U1000 - SCP (J1850) Invalid or Missing Data for Primary Id"},
         {0x1001, "U1001 - SCP (J1850) Invalid or Missing Data for Primary Id"},
         {0x1002, "U1002 - SCP (J1850) Invalid or Missing Data for Primary Id"},
@@ -3788,5 +3788,5 @@ const std::unordered_map<int, std::string>& DtcUCodes()
         {0x2195, "U2195 - SCP (J1850) Invalid Data from SCLM"},
         {0x2500, "U2500 - (CAN) Lack of Acknowledgement From Engine Management"},
     };
-    return table;
+    return kTable;
 }

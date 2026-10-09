@@ -17,8 +17,8 @@ namespace diagnostic_link_io
 
 inline QByteArray readOrEmpty(fastecu::diagnostics::IDiagnosticLink& link, std::uint16_t timeoutMs)
 {
-    static const fastecu::ManualCancellationToken neverCancelled; // flag is never flipped
-    const auto frame = link.Read(std::chrono::milliseconds{timeoutMs}, neverCancelled);
+    static const fastecu::ManualCancellationToken kNeverCancelled; // flag is never flipped
+    const auto frame = link.Read(std::chrono::milliseconds{timeoutMs}, kNeverCancelled);
     if (!frame.has_value() || !frame->has_value())
     {
         return {};

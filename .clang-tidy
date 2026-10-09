@@ -144,6 +144,31 @@ CheckOptions:
     value: CamelCase
   - key: readability-identifier-naming.MethodCase
     value: CamelCase
+  # Google style names const/constexpr values with a k prefix only where the
+  # value is fixed for the program's duration; per-call const parameters stay
+  # plain variables.
+  - key: readability-identifier-naming.StaticConstantCase
+    value: CamelCase
+  - key: readability-identifier-naming.StaticConstantPrefix
+    value: k
+  - key: readability-identifier-naming.StaticConstantIgnoredRegexp
+    value: '^k[A-Z]([A-Za-z0-9]|_?[0-9]_[A-Za-z]|_[0-9])*$'
+  - key: readability-identifier-naming.StaticVariableCase
+    value: lower_case
+  - key: readability-identifier-naming.ConstantParameterCase
+    value: lower_case
+  - key: readability-identifier-naming.ParameterPackCase
+    value: lower_case
+  - key: readability-identifier-naming.TemplateTemplateParameterCase
+    value: CamelCase
+  - key: readability-identifier-naming.ConceptCase
+    value: CamelCase
+  # Google: macros are UPPER_CASE with a project prefix where practical.
+  # `#define private public` in tests is a keyword override, not a macro name.
+  - key: readability-identifier-naming.MacroDefinitionCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.MacroDefinitionIgnoredRegexp
+    value: '^(private|protected)$'
   # gmock's `_` wildcard matcher (`using ::testing::_;`) is the one reserved
   # identifier this tree has to name.
   - key: bugprone-reserved-identifier.AllowedIdentifiers
