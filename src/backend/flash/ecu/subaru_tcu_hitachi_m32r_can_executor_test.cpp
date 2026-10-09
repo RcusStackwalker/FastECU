@@ -965,7 +965,7 @@ Byte RomByte(std::size_t index)
 
 const Bytes& PlaintextRom()
 {
-    static const Bytes rom = []
+    static const Bytes kRom = []
     {
         Bytes image(kRomSize);
         for (std::size_t index = 0; index < kRomSize; ++index)
@@ -974,7 +974,7 @@ const Bytes& PlaintextRom()
         }
         return image;
     }();
-    return rom;
+    return kRom;
 }
 
 // The encrypted image every 0xB6 frame must carry, built here from the tables
@@ -982,7 +982,7 @@ const Bytes& PlaintextRom()
 // table changes this expectation.
 const Bytes& EncryptedRom()
 {
-    static const Bytes rom = []
+    static const Bytes kRom = []
     {
         // Legacy encrypt_payload (operation.cpp:1002).
         static constexpr std::array<std::uint16_t, 4> kEncryptTable{0x3B61, 0x8BEF, 0x9E51, 0x1075};
@@ -992,7 +992,7 @@ const Bytes& EncryptedRom()
         return ssm_protocol::CalculatePayload(PlaintextRom(), static_cast<std::uint32_t>(kRomSize), kEncryptTable,
                                               kIndexTransformation);
     }();
-    return rom;
+    return kRom;
 }
 
 FlashPlan WritePlan()

@@ -95,9 +95,9 @@ J2534::~J2534()
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
 #if defined(OP20PT32_USE_LIB)
-#define getPTfn(name) pf##name = ::name;
+#define GET_PT_FN(name) pf##name = ::name;
 #else
-#define getPTfn(name)                                                                                                  \
+#define GET_PT_FN(name)                                                                                                \
     do                                                                                                                 \
     {                                                                                                                  \
         pf##name = (Pf##name *)GetProcAddress(h_dll_, "" #name);                                                       \
@@ -109,9 +109,9 @@ J2534::~J2534()
 #endif
 #else
 #if defined(OP20PT32_USE_LIB)
-#define getPTfn(name) pf##name = ::name;
+#define GET_PT_FN(name) pf##name = ::name;
 #else
-#define getPTfn(name)                                                                                                  \
+#define GET_PT_FN(name)                                                                                                \
     do                                                                                                                 \
     {                                                                                                                  \
         pf##name = (Pf##name *)dlsym(h_dll_, "" #name);                                                                \
@@ -130,20 +130,20 @@ bool J2534::GetPTfns()
         return false;
     }
 
-    getPTfn(PassThruOpen);
-    getPTfn(PassThruClose);
-    getPTfn(PassThruConnect);
-    getPTfn(PassThruDisconnect);
-    getPTfn(PassThruReadMsgs);
-    getPTfn(PassThruWriteMsgs);
-    getPTfn(PassThruStartPeriodicMsg);
-    getPTfn(PassThruStopPeriodicMsg);
-    getPTfn(PassThruStartMsgFilter);
-    getPTfn(PassThruStopMsgFilter);
-    getPTfn(PassThruSetProgrammingVoltage);
-    getPTfn(PassThruReadVersion);
-    getPTfn(PassThruGetLastError);
-    getPTfn(PassThruIoctl);
+    GET_PT_FN(PassThruOpen);
+    GET_PT_FN(PassThruClose);
+    GET_PT_FN(PassThruConnect);
+    GET_PT_FN(PassThruDisconnect);
+    GET_PT_FN(PassThruReadMsgs);
+    GET_PT_FN(PassThruWriteMsgs);
+    GET_PT_FN(PassThruStartPeriodicMsg);
+    GET_PT_FN(PassThruStopPeriodicMsg);
+    GET_PT_FN(PassThruStartMsgFilter);
+    GET_PT_FN(PassThruStopMsgFilter);
+    GET_PT_FN(PassThruSetProgrammingVoltage);
+    GET_PT_FN(PassThruReadVersion);
+    GET_PT_FN(PassThruGetLastError);
+    GET_PT_FN(PassThruIoctl);
 
     return true;
 }

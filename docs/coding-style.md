@@ -435,6 +435,8 @@ the source of truth and each rule carries a comment where it deviates. Kinds not
 yet enabled there follow the surrounding code.
 
 - Enumerators are `kCamelCase`, including `enum class` values.
+- Static-storage `const` values (file-scope or function-local `static const`) are
+  `kCamelCase`, like `constexpr` ones; macros are `UPPER_CASE`.
 
 Deviations from Google style:
 
