@@ -19,7 +19,7 @@ class InMemoryFileSystem : public IFileSystem
     {
         return directories.count(std::string(path)) || files.count(std::string(path));
     }
-    Status CreateDirectory(std::string_view path) override
+    Status MakeDirectory(std::string_view path) override
     {
         if (create_directory_error)
         {
@@ -28,7 +28,7 @@ class InMemoryFileSystem : public IFileSystem
         directories.insert(std::string(path));
         return {};
     }
-    Status CopyFile(std::string_view src, std::string_view dst, bool overwrite) override
+    Status CopyFileTo(std::string_view src, std::string_view dst, bool overwrite) override
     {
         if (!files.count(std::string(src)))
         {

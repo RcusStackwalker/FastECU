@@ -24,8 +24,8 @@ class IFileSystem
   public:
     virtual ~IFileSystem() = default;
     virtual bool Exists(std::string_view path) = 0;
-    virtual Status CreateDirectory(std::string_view path) = 0;
-    virtual Status CopyFile(std::string_view src, std::string_view dst, bool overwrite) = 0;
+    virtual Status MakeDirectory(std::string_view path) = 0;
+    virtual Status CopyFileTo(std::string_view src, std::string_view dst, bool overwrite) = 0;
     virtual Status RemoveFile(std::string_view path) = 0;
     virtual Result<std::vector<DirEntry>> ListDirectory(std::string_view path) = 0;
 };

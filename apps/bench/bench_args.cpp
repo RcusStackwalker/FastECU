@@ -77,7 +77,7 @@ template <bool GlobalOptions::*Flag> Status SetFlag(GlobalOptions& options, std:
     return {};
 }
 
-Status SetPort(GlobalOptions& options, std::string_view value)
+Status ApplyPortOption(GlobalOptions& options, std::string_view value)
 {
     options.port_name = value;
     return {};
@@ -131,7 +131,7 @@ constexpr std::array kGlobalOptions{
     GlobalOptionSpec{.name = "--no-connect", .apply = SetFlag<&GlobalOptions::no_connect>},
     GlobalOptionSpec{.name = "--vendor-ext", .apply = SetFlag<&GlobalOptions::vendor_ext>},
     GlobalOptionSpec{.name = "--stats", .apply = SetFlag<&GlobalOptions::stats>},
-    GlobalOptionSpec{.name = "--port", .takes_value = true, .apply = SetPort},
+    GlobalOptionSpec{.name = "--port", .takes_value = true, .apply = ApplyPortOption},
     GlobalOptionSpec{.name = "--timeout", .takes_value = true, .apply = SetTimeout},
     GlobalOptionSpec{.name = "--script", .takes_value = true, .apply = SetScript},
 };

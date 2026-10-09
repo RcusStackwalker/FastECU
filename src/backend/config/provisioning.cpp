@@ -26,7 +26,7 @@ Status EnsureDirectory(IFileSystem& fs, const std::string& path, IEventSink& eve
     {
         return {};
     }
-    if (Status result = fs.CreateDirectory(path); !result.has_value())
+    if (Status result = fs.MakeDirectory(path); !result.has_value())
     {
         events.Log(LogLevel::kError, std::format("Unable to create directory: {}", path));
         return AtPath(result.error(), path);
@@ -124,7 +124,7 @@ Status ProvisionConfigDirectories(const ConfigPaths& paths, IFileSystem& fs, IRe
         {
             // A missing previous config is not an error for this step;
             // matches QFile::copy's legacy silent-failure behavior.
-            std::ignore = fs.CopyFile(previous_config_file, paths.config_files_directory + "fastecu.cfg", false);
+            std::ignore = fs.CopyFileTo(previous_config_file, paths.config_files_directory + "fastecu.cfg", false);
         }
     }
 

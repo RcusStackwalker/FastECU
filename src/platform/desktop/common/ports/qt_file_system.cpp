@@ -18,7 +18,7 @@ bool QtFileSystem::Exists(std::string_view path)
     return QFileInfo::exists(ToQstring(path));
 }
 
-fastecu::Status QtFileSystem::CreateDirectory(std::string_view path)
+fastecu::Status QtFileSystem::MakeDirectory(std::string_view path)
 {
     if (!QDir().mkpath(ToQstring(path)))
     {
@@ -27,7 +27,7 @@ fastecu::Status QtFileSystem::CreateDirectory(std::string_view path)
     return {};
 }
 
-fastecu::Status QtFileSystem::CopyFile(std::string_view src, std::string_view dst, bool overwrite)
+fastecu::Status QtFileSystem::CopyFileTo(std::string_view src, std::string_view dst, bool overwrite)
 {
     const QString qdst = ToQstring(dst);
     if (overwrite && QFileInfo::exists(qdst))

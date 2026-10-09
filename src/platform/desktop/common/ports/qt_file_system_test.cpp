@@ -17,7 +17,7 @@ TEST(QtFileSystemTest, CreateDirectoryThenExists)
     const std::string dir = (tmp.path() + "/child").toStdString();
 
     EXPECT_FALSE(fs.Exists(dir));
-    ASSERT_THAT(fs.CreateDirectory(dir), fastecu::testing::IsOk());
+    ASSERT_THAT(fs.MakeDirectory(dir), fastecu::testing::IsOk());
     EXPECT_TRUE(fs.Exists(dir));
 }
 
@@ -33,7 +33,7 @@ TEST(QtFileSystemTest, CopyThenRemove)
     f.write("hi");
     f.close();
 
-    ASSERT_THAT(fs.CopyFile(src, dst, false), fastecu::testing::IsOk());
+    ASSERT_THAT(fs.CopyFileTo(src, dst, false), fastecu::testing::IsOk());
     EXPECT_TRUE(fs.Exists(dst));
     ASSERT_THAT(fs.RemoveFile(dst), fastecu::testing::IsOk());
     EXPECT_FALSE(fs.Exists(dst));
@@ -53,7 +53,7 @@ TEST(QtFileSystemTest, CopyWithoutOverwriteFailsWhenDestinationExists)
         f.write("x");
     }
 
-    ASSERT_THAT(fs.CopyFile(src, dst, false), fastecu::testing::IsErr(ErrorKind::kInternal));
+    ASSERT_THAT(fs.CopyFileTo(src, dst, false), fastecu::testing::IsErr(ErrorKind::kInternal));
 }
 
 TEST(QtFileSystemTest, ListDirectoryReturnsEntriesWithModifiedTime)
