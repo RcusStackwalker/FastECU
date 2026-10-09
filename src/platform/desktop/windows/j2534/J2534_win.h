@@ -54,14 +54,14 @@ class J2534
     long PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, unsigned long Flags, unsigned long Baudrate,
                          unsigned long *pChannelID);
     long PassThruDisconnect(unsigned long ChannelID);
-    long PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs, unsigned long Timeout);
-    long PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
+    long PassThruReadMsgs(unsigned long ChannelID, PassThruMsg *pMsg, unsigned long *pNumMsgs, unsigned long Timeout);
+    long PassThruWriteMsgs(unsigned long ChannelID, const PassThruMsg *pMsg, unsigned long *pNumMsgs,
                            unsigned long Timeout);
-    long PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pMsgID,
+    long PassThruStartPeriodicMsg(unsigned long ChannelID, const PassThruMsg *pMsg, unsigned long *pMsgID,
                                   unsigned long TimeInterval);
     long PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID);
-    long PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, const PASSTHRU_MSG *pMaskMsg,
-                                const PASSTHRU_MSG *pPatternMsg, const PASSTHRU_MSG *pFlowControlMsg,
+    long PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, const PassThruMsg *pMaskMsg,
+                                const PassThruMsg *pPatternMsg, const PassThruMsg *pFlowControlMsg,
                                 unsigned long *pMsgID);
     long PassThruStopMsgFilter(unsigned long ChannelID, unsigned long MsgID);
     long PassThruSetProgrammingVoltage(unsigned long DeviceID, unsigned long Pin, unsigned long Voltage);

@@ -6,6 +6,11 @@
 
 #pragma once
 
+// Names follow the project style. The J2534 spec spellings are PASSTHRU_MSG ->
+// PassThruMsg, SCONFIG_LIST -> SConfigList, SBYTE_ARRAY -> SByteArray. The
+// exported driver symbols ("PassThruOpen", ...) are looked up by string and
+// keep their spec spelling.
+
 // "OP2.0:" refers to items that may have special relevance to the Tactrix OpenPort 2.0
 
 #ifdef __cplusplus
@@ -65,7 +70,7 @@ typedef struct
     // writes it in place, so the trailing payload stays a C array.
     // NOLINTNEXTLINE(modernize-avoid-c-arrays)
     unsigned char Data[kJ2534PassthruMsgDataSize];
-} PASSTHRU_MSG;
+} PassThruMsg;
 
 ////////////////
 // IOCTL structs
@@ -81,10 +86,10 @@ typedef struct
 {
     unsigned long NumOfParams;
     SCONFIG *ConfigPtr;
-} SCONFIG_LIST;
+} SConfigList;
 
 typedef struct
 {
     unsigned long NumOfBytes;
     unsigned char *BytePtr;
-} SBYTE_ARRAY;
+} SByteArray;

@@ -286,8 +286,7 @@ long J2534::PassThruDisconnect(unsigned long ChannelID)
     return result;
 }
 
-long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
-                             unsigned long Timeout)
+long J2534::PassThruReadMsgs(unsigned long ChannelID, PassThruMsg *pMsg, unsigned long *pNumMsgs, unsigned long Timeout)
 {
     QByteArray received;
     QByteArray msg;
@@ -613,7 +612,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
     return result;
 }
 
-long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
+long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PassThruMsg *pMsg, unsigned long *pNumMsgs,
                               unsigned long Timeout)
 {
     QByteArray output;
@@ -638,7 +637,7 @@ long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg,
     return result;
 }
 
-long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pMsgID,
+long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PassThruMsg *pMsg, unsigned long *pMsgID,
                                      unsigned long TimeInterval)
 {
     QByteArray output;
@@ -674,8 +673,8 @@ long J2534::PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID
     return result;
 }
 
-long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, const PASSTHRU_MSG *pMaskMsg,
-                                   const PASSTHRU_MSG *pPatternMsg, const PASSTHRU_MSG *pFlowControlMsg,
+long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, const PassThruMsg *pMaskMsg,
+                                   const PassThruMsg *pPatternMsg, const PassThruMsg *pFlowControlMsg,
                                    unsigned long *pMsgID)
 {
     QByteArray output;
@@ -788,10 +787,10 @@ int J2534::is_valid_sconfig_param(SCONFIG s)
     }
 }
 
-void J2534::dump_sbyte_array(const SBYTE_ARRAY *s)
+void J2534::dump_sbyte_array(const SByteArray *s)
 {
-    // emit LOG_D("SBYTE_ARRAY size =" << s->NumOfBytes;
-    // DBGPRINT(("SBYTE_ARRAY size=%u\n",s->NumOfBytes));
+    // emit LOG_D("SByteArray size =" << s->NumOfBytes;
+    // DBGPRINT(("SByteArray size=%u\n",s->NumOfBytes));
     // DBGDUMP((s->BytePtr,s->NumOfBytes,0));
 }
 
@@ -966,11 +965,11 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     int input_as_sa = 0;
     int output_as_sa = 0;
     unsigned int i;
-    SCONFIG_LIST *scl;
+    SConfigList *scl;
     long result = kJ2534StatusNoerror;
     std::string IoctlName;
 
-    // const SCONFIG_LIST *inputlist = pInput;
+    // const SConfigList *inputlist = pInput;
 
     switch (IoctlID)
     {
@@ -1031,7 +1030,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
         pOutput = nullptr; // make some DLLs happy
 
         // dump params
-        scl = (SCONFIG_LIST *)pInput;
+        scl = (SConfigList *)pInput;
         for (i = 0; i < scl->NumOfParams; i++)
         {
             dump_sconfig_param((scl->ConfigPtr)[i]);
@@ -1062,7 +1061,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     }
     if (IoctlID == kJ2534ReadVbatt)
     {
-        PASSTHRU_MSG rxmsg;
+        PassThruMsg rxmsg;
         unsigned long numRxMsg;
         QByteArray received_local;
         rxmsg.DataSize = 0;
@@ -1102,13 +1101,13 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
 
     if (IoctlID == kJ2534FiveBaudInit)
     {
-        PASSTHRU_MSG rxmsg;
+        PassThruMsg rxmsg;
         unsigned long numRxMsg;
         QByteArray received_local;
         rxmsg.DataSize = 0;
         numRxMsg = 1;
-        SBYTE_ARRAY *msg = (SBYTE_ARRAY *)pInput;
-        SBYTE_ARRAY *response = (SBYTE_ARRAY *)pOutput;
+        SByteArray *msg = (SByteArray *)pInput;
+        SByteArray *response = (SByteArray *)pOutput;
 
         output.clear();
         QString str = "atw" + QString::number(ChannelID) + " " + QString::number(msg->BytePtr[0]) + " 0\r\n";
@@ -1133,7 +1132,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
 
     if (IoctlID == kJ2534FastInit)
     {
-        PASSTHRU_MSG *msg = (PASSTHRU_MSG *)pInput;
+        PassThruMsg *msg = (PassThruMsg *)pInput;
 
         output.clear();
         QString str = "aty" + QString::number(ChannelID) + " " + QString::number(msg->DataSize) + " 0\r\n";
@@ -1149,7 +1148,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     if (input_as_sa)
     {
         // emit LOG_D("Input", true, true);
-        dump_sbyte_array((SBYTE_ARRAY *)pInput);
+        dump_sbyte_array((SByteArray *)pInput);
     }
 
     // result = (*pfPassThruIoctl)(ChannelID,IoctlID,pInput,pOutput);
@@ -1157,7 +1156,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     if (output_as_sa)
     {
         // emit LOG_D("Output", true, true);
-        dump_sbyte_array((SBYTE_ARRAY *)pOutput);
+        dump_sbyte_array((SByteArray *)pOutput);
     }
 
     return result;

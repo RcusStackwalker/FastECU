@@ -426,15 +426,16 @@ porting or deleting the behavior.
 ## Naming
 
 Names follow the
-[Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html#Naming),
-adopted one identifier kind at a time. Each kind listed here is enforced by
-clang-tidy's `readability-identifier-naming`, and the change that adopted it
-renamed every existing site, so a listed kind has no legacy exceptions. Kinds
-not listed yet follow the surrounding code.
+[Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html#Naming).
+The rules clang-tidy enforces are the ones in
+[`.clang-tidy`](../.clang-tidy) (`readability-identifier-naming`); that file is
+the source of truth and each rule carries a comment where it deviates. Kinds not
+yet enabled there follow the surrounding code.
 
-**Constexpr variables are `kCamelCase`** at every storage duration: namespace
-scope, static data members, function locals, static locals, and variable
-templates.
+Deviations from Google style:
+
+- Constexpr variables are `kCamelCase` at every storage duration, including
+  function locals.
 
 ```cpp
 inline constexpr std::size_t kReadPageSize = 0x100;
@@ -442,12 +443,9 @@ template <typename> inline constexpr bool kDependentFalse = false;
 static constexpr auto kCells = std::to_array<std::string_view>({"10", "20"});
 ```
 
-Google makes the `k` optional for function locals. Here it is required, because
-the check cannot tell storage durations apart and one rule is simpler to follow.
-
-**An underscore may separate words only where capitalization cannot**, which
-means next to a digit: `kFlashBlocksSH7058_1block`,
-`kSubaruDensoMc68hc16y5_02BdmUploadChunk`. `kFoo_Bar` is rejected.
+- An underscore may separate words only next to a digit (`kFlashBlocksSH7058_1block`).
+- Under `src/ui/desktop`, methods, functions, parameters and locals are
+  `camelBack` to match Qt.
 
 ## Formatting and headers
 

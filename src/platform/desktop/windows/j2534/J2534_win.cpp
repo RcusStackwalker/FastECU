@@ -324,8 +324,7 @@ long J2534::PassThruDisconnect(unsigned long ChannelID)
     return result;
 }
 
-long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
-                             unsigned long Timeout)
+long J2534::PassThruReadMsgs(unsigned long ChannelID, PassThruMsg *pMsg, unsigned long *pNumMsgs, unsigned long Timeout)
 {
     long result = kJ2534StatusNoerror;
     if (!checkDLL())
@@ -340,7 +339,7 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsign
     return result;
 }
 
-long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
+long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PassThruMsg *pMsg, unsigned long *pNumMsgs,
                               unsigned long Timeout)
 {
     if (!checkDLL())
@@ -354,7 +353,7 @@ long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg,
     return (*pfPassThruWriteMsgs)(ChannelID, pMsg, pNumMsgs, Timeout);
 }
 
-long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pMsgID,
+long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PassThruMsg *pMsg, unsigned long *pMsgID,
                                      unsigned long TimeInterval)
 {
     long result = kJ2534StatusNoerror;
@@ -385,8 +384,8 @@ long J2534::PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID
     return result;
 }
 
-long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, const PASSTHRU_MSG *pMaskMsg,
-                                   const PASSTHRU_MSG *pPatternMsg, const PASSTHRU_MSG *pFlowControlMsg,
+long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType, const PassThruMsg *pMaskMsg,
+                                   const PassThruMsg *pPatternMsg, const PassThruMsg *pFlowControlMsg,
                                    unsigned long *pMsgID)
 {
     long result = kJ2534StatusNoerror;
@@ -498,7 +497,7 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     // break some J2534 devices such as the Denso DST-i, so every SET_CONFIG
     // parameter is passed through as-is. is_valid_sconfig_param() classifies
     // them if this is ever revisited.
-    //     const auto *scl = static_cast<const SCONFIG_LIST *>(pInput);
+    //     const auto *scl = static_cast<const SConfigList *>(pInput);
     //     for (unsigned i = 0; i < scl->NumOfParams; i++)
     //         if (!is_valid_sconfig_param((scl->ConfigPtr)[i]))
     //             return STATUS_NOERROR;

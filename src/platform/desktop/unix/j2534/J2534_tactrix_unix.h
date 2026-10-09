@@ -4,6 +4,10 @@
 #include "src/backend/protocol/j2534/tactrix_constants.h"
 
 // Native J2534 ABI declarations. Numeric definitions are shared across platforms.
+// Names follow the project style. The J2534 spec spellings are PASSTHRU_MSG ->
+// PassThruMsg, SCONFIG_LIST -> SConfigList, SBYTE_ARRAY -> SByteArray. The
+// exported driver symbols ("PassThruOpen", ...) are looked up by string and
+// keep their spec spelling.
 
 typedef struct
 {
@@ -17,7 +21,7 @@ typedef struct
     // writes it in place, so the trailing payload stays a C array.
     // NOLINTNEXTLINE(modernize-avoid-c-arrays)
     unsigned char Data[kJ2534PassthruMsgDataSize];
-} PASSTHRU_MSG;
+} PassThruMsg;
 
 ////////////////
 // IOCTL structs
@@ -33,10 +37,10 @@ typedef struct
 {
     unsigned long NumOfParams;
     SCONFIG *ConfigPtr;
-} SCONFIG_LIST;
+} SConfigList;
 
 typedef struct
 {
     unsigned long NumOfBytes;
     unsigned char *BytePtr;
-} SBYTE_ARRAY;
+} SByteArray;

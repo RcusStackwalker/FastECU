@@ -199,7 +199,7 @@ long J2534BridgeClient::PassThruDisconnect(unsigned long ChannelID)
     return resp.result;
 }
 
-long J2534BridgeClient::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
+long J2534BridgeClient::PassThruReadMsgs(unsigned long ChannelID, PassThruMsg *pMsg, unsigned long *pNumMsgs,
                                          unsigned long Timeout)
 {
     PassThruReadMsgsRequest req{ChannelID, Timeout};
@@ -219,7 +219,7 @@ long J2534BridgeClient::PassThruReadMsgs(unsigned long ChannelID, PASSTHRU_MSG *
     return resp.result;
 }
 
-long J2534BridgeClient::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHRU_MSG *pMsg, unsigned long *pNumMsgs,
+long J2534BridgeClient::PassThruWriteMsgs(unsigned long ChannelID, const PassThruMsg *pMsg, unsigned long *pNumMsgs,
                                           unsigned long Timeout)
 {
     PassThruWriteMsgsRequest req{};
@@ -247,7 +247,7 @@ long J2534BridgeClient::PassThruWriteMsgs(unsigned long ChannelID, const PASSTHR
     return resp.result;
 }
 
-long J2534BridgeClient::PassThruStartPeriodicMsg(unsigned long ChannelID, const PASSTHRU_MSG *pMsg,
+long J2534BridgeClient::PassThruStartPeriodicMsg(unsigned long ChannelID, const PassThruMsg *pMsg,
                                                  unsigned long *pMsgID, unsigned long TimeInterval)
 {
     PassThruStartPeriodicMsgRequest req{};
@@ -290,8 +290,8 @@ long J2534BridgeClient::PassThruStopPeriodicMsg(unsigned long ChannelID, unsigne
 }
 
 long J2534BridgeClient::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long FilterType,
-                                               const PASSTHRU_MSG *pMaskMsg, const PASSTHRU_MSG *pPatternMsg,
-                                               const PASSTHRU_MSG *pFlowControlMsg, unsigned long *pMsgID)
+                                               const PassThruMsg *pMaskMsg, const PassThruMsg *pPatternMsg,
+                                               const PassThruMsg *pFlowControlMsg, unsigned long *pMsgID)
 {
     PassThruStartMsgFilterRequest req{};
     req.channelId = ChannelID;
@@ -419,8 +419,8 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
     req.ioctlId = IoctlID;
 
     // Mirror image of j2534_bridge_host/main.cpp's handlePassThruIoctl: that
-    // function unpacks the typed Request fields back into the SCONFIG_LIST/
-    // SBYTE_ARRAY/unsigned-long* shapes PassThruIoctl's vendor signature
+    // function unpacks the typed Request fields back into the SConfigList/
+    // SByteArray/unsigned-long* shapes PassThruIoctl's vendor signature
     // expects; here we pack the caller's pInput into those same Request
     // fields before sending. IoctlIDs the host doesn't give a typed shape to
     // are sent as a bare request (channelId/ioctlId only) and rejected by
@@ -430,7 +430,7 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
     {
     case kJ2534SetConfig:
     {
-        const auto *scl = static_cast<const SCONFIG_LIST *>(pInput);
+        const auto *scl = static_cast<const SConfigList *>(pInput);
         constexpr unsigned long kMaxConfigParams = std::tuple_size_v<decltype(req.configParams)>;
         if (!scl || scl->NumOfParams > kMaxConfigParams)
         {
@@ -446,7 +446,7 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
     case kJ2534FiveBaudInit:
     case kJ2534FastInit:
     {
-        const auto *inArr = static_cast<const SBYTE_ARRAY *>(pInput);
+        const auto *inArr = static_cast<const SByteArray *>(pInput);
         if (!inArr || inArr->NumOfBytes > req.inputBytes.size())
         {
             return kJ2534ErrFailed;
@@ -485,7 +485,7 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
     case kJ2534FiveBaudInit:
     case kJ2534FastInit:
     {
-        auto *outArr = static_cast<SBYTE_ARRAY *>(pOutput);
+        auto *outArr = static_cast<SByteArray *>(pOutput);
         if (outArr)
         {
             unsigned long n = resp.outputByteCount;

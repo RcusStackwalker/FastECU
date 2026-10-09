@@ -35,12 +35,12 @@ using fastecu::ui::protocol_capability;
 using fastecu::ui::protocol_field;
 using fastecu::ui::qs;
 
-const QColor MainWindow::RED_LIGHT_OFF = QColor(96, 32, 32);
-const QColor MainWindow::YELLOW_LIGHT_OFF = QColor(96, 96, 32);
-const QColor MainWindow::GREEN_LIGHT_OFF = QColor(32, 96, 32);
-const QColor MainWindow::RED_LIGHT_ON = QColor(255, 64, 64);
-const QColor MainWindow::YELLOW_LIGHT_ON = QColor(223, 223, 64);
-const QColor MainWindow::GREEN_LIGHT_ON = QColor(64, 255, 64);
+const QColor MainWindow::kRedLightOff = QColor(96, 32, 32);
+const QColor MainWindow::kYellowLightOff = QColor(96, 96, 32);
+const QColor MainWindow::kGreenLightOff = QColor(32, 96, 32);
+const QColor MainWindow::kRedLightOn = QColor(255, 64, 64);
+const QColor MainWindow::kYellowLightOn = QColor(223, 223, 64);
+const QColor MainWindow::kGreenLightOn = QColor(64, 255, 64);
 
 MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, QWidget *parent)
     : QMainWindow(parent), services_(services), peerAddress(peerAddress), ui{std::make_unique<Ui::MainWindow>()}
@@ -1760,20 +1760,20 @@ bool MainWindow::eventFilter(QObject *target, QEvent *event)
     return false;
 }
 
-template <typename FLASH_CLASS> FLASH_CLASS *MainWindow::connect_signals_and_run_module(FLASH_CLASS *object)
+template <typename FlashClass> FlashClass *MainWindow::connect_signals_and_run_module(FlashClass *object)
 {
     // To successfully connect an overloaded signal,
     // one should provide a suitable template parameter to connect()
-    QObject::connect<void (FLASH_CLASS::*)(QString)>(object, &FLASH_CLASS::external_logger, this,
-                                                     &MainWindow::external_logger);
-    QObject::connect<void (FLASH_CLASS::*)(int)>(object, &FLASH_CLASS::external_logger, this,
-                                                 &MainWindow::external_logger_set_progressbar_value);
+    QObject::connect<void (FlashClass::*)(QString)>(object, &FlashClass::external_logger, this,
+                                                    &MainWindow::external_logger);
+    QObject::connect<void (FlashClass::*)(int)>(object, &FlashClass::external_logger, this,
+                                                &MainWindow::external_logger_set_progressbar_value);
 
     // If signal is not overloaded, QObject::connect<> template will deduce type automatically
-    QObject::connect(object, &FLASH_CLASS::LOG_E, log_channel, &fastecu::ui::LogChannel::LOG_E);
-    QObject::connect(object, &FLASH_CLASS::LOG_W, log_channel, &fastecu::ui::LogChannel::LOG_W);
-    QObject::connect(object, &FLASH_CLASS::LOG_I, log_channel, &fastecu::ui::LogChannel::LOG_I);
-    QObject::connect(object, &FLASH_CLASS::LOG_D, log_channel, &fastecu::ui::LogChannel::LOG_D);
+    QObject::connect(object, &FlashClass::LOG_E, log_channel, &fastecu::ui::LogChannel::LOG_E);
+    QObject::connect(object, &FlashClass::LOG_W, log_channel, &fastecu::ui::LogChannel::LOG_W);
+    QObject::connect(object, &FlashClass::LOG_I, log_channel, &fastecu::ui::LogChannel::LOG_I);
+    QObject::connect(object, &FlashClass::LOG_D, log_channel, &fastecu::ui::LogChannel::LOG_D);
 
     object->run();
     return object;

@@ -46,7 +46,7 @@ extern "C"
         return kJ2534StatusNoerror;
     }
 
-    __declspec(dllexport) long PT_CALL PassThruReadMsgs(unsigned long /*ChannelID*/, PASSTHRU_MSG *pMsg,
+    __declspec(dllexport) long PT_CALL PassThruReadMsgs(unsigned long /*ChannelID*/, PassThruMsg *pMsg,
                                                         unsigned long *pNumMsgs, unsigned long /*Timeout*/)
     {
         pMsg[0].DataSize = 4;
@@ -58,7 +58,7 @@ extern "C"
         return kJ2534StatusNoerror;
     }
 
-    __declspec(dllexport) long PT_CALL PassThruWriteMsgs(unsigned long /*ChannelID*/, const PASSTHRU_MSG *pMsg,
+    __declspec(dllexport) long PT_CALL PassThruWriteMsgs(unsigned long /*ChannelID*/, const PassThruMsg *pMsg,
                                                          unsigned long *pNumMsgs, unsigned long /*Timeout*/)
     {
         *pNumMsgs = 1;
@@ -66,7 +66,7 @@ extern "C"
     }
 
     __declspec(dllexport) long PT_CALL PassThruStartPeriodicMsg(unsigned long /*ChannelID*/,
-                                                                const PASSTHRU_MSG * /*pMsg*/, unsigned long *pMsgID,
+                                                                const PassThruMsg * /*pMsg*/, unsigned long *pMsgID,
                                                                 unsigned long /*TimeInterval*/)
     {
         *pMsgID = 55;

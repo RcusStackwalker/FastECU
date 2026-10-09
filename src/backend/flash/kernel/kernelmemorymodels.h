@@ -3,7 +3,7 @@
 #include <array>
 #include <cstdint>
 
-enum mcu_type
+enum McuType
 {
     M32R_128KB,
     M32R_256KB,
@@ -60,7 +60,7 @@ struct eepromblock
 struct flashdev_t
 {
     const char *name; // like "7058", for UI convenience only
-    enum mcu_type mcutype;
+    enum McuType mcutype;
 
     const std::uint32_t romsize; // in bytes
     const unsigned numblocks;
