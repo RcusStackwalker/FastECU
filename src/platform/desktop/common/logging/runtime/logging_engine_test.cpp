@@ -39,7 +39,8 @@ fastecu::Result<DesktopLoggingSnapshot> Snapshot()
                                       {.poll_timeout = 5ms,
                                        .car_silence_miss_threshold = 2,
                                        .reconnect_attempt_threshold = 1000,
-                                       .reconnect_retry_period = 0});
+                                       .reconnect_retry_period = 0},
+                                      fastecu::logging::LoggingTarget::kEcu);
 }
 
 class BlockingFailureProtocol final : public fastecu::logging::LoggingProtocol
@@ -275,7 +276,7 @@ TEST(TestLoggingEngine, user_stop_publishes_joined_completion_exactly_once)
     engine.RegisterProtocol("TEST",
                             [protocol, &saw_session](const DesktopLoggingSnapshot& value)
                             {
-                                saw_session = value.session.FindChannel("rpm") != nullptr;
+                                saw_session = value.Session().FindChannel("rpm") != nullptr;
                                 return std::unique_ptr<LoggingProtocol>(protocol);
                             });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);

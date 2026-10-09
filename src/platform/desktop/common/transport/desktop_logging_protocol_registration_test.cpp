@@ -61,11 +61,8 @@ fastecu::Result<DesktopLoggingSnapshot> Snapshot(LoggingProtocolId id, std::uint
                                                {.poll_timeout = 50ms,
                                                 .car_silence_miss_threshold = 20,
                                                 .reconnect_attempt_threshold = 100,
-                                                .reconnect_retry_period = 20});
-    if (snapshot.has_value())
-    {
-        snapshot->target_is_ecu = target_is_ecu;
-    }
+                                                .reconnect_retry_period = 20},
+                                               target_is_ecu ? LoggingTarget::kEcu : LoggingTarget::kTcu);
     return snapshot;
 }
 
@@ -236,8 +233,8 @@ TEST(DesktopLoggingProtocolRegistrationTest, ssm_snapshot_offsets_reach_samples)
     EXPECT_CALL(serial.Fake(), GetUseOpenport2Adapter()).WillOnce(Return(true));
     const auto snapshot = Snapshot(LoggingProtocolId::kSsm, 0x1000, 1, true, true);
     ASSERT_THAT(snapshot, fastecu::testing::IsOk());
-    ASSERT_EQ(snapshot->selection.lower_panel_ids, (std::vector<std::string>{"load", "missing", "rpm"}));
-    ASSERT_EQ(snapshot->response_offsets, (std::vector<std::size_t>{0, 2}));
+    ASSERT_EQ(snapshot->Selection().lower_panel_ids, (std::vector<std::string>{"load", "missing", "rpm"}));
+    ASSERT_EQ(snapshot->ResponseOffsets(), (std::vector<std::size_t>{0, 2}));
     auto result = engine.registrations_.value("SSM")(*snapshot);
     ASSERT_TRUE(result);
     EXPECT_CALL(serial.Fake(), WriteSerialDataEchoCheck(QByteArray::fromHex("8010f008a80100100000100152")))

@@ -117,6 +117,10 @@ Logger definitions are immutable, selection belongs to the operator, support
 comes from identification, and display values belong to the desktop. Protocol/ID
 identity avoids ambiguity from duplicate labels or IDs shared across protocols.
 Owned per-run snapshots insulate workers from later widget/selection changes.
+Backend run preparation now owns definition parsing and validated immutable
+construction, including the typed target. The desktop bridge binds those values
+to transports and workers; presentation still owns formatting and caches.
+
 
 SSM raw values deliberately concatenate decimal byte spellings because shipped
 conversion expressions depend on that input. CSV and selection persistence also

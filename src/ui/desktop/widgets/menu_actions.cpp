@@ -542,8 +542,10 @@ void MainWindow::continueStartLogging()
                          .reconnect_retry_period = 10};
     }
 
+    const auto loggingTarget =
+        ecu_radio_button_->isChecked() ? fastecu::logging::LoggingTarget::kEcu : fastecu::logging::LoggingTarget::kTcu;
     auto snapshot = fastecu::desktop::logging::MakeDesktopLoggingSnapshot(
-        *logger_model_, protocolId, active_log_value_protocol_filter_, loggingPolicy);
+        *logger_model_, protocolId, active_log_value_protocol_filter_, loggingPolicy, loggingTarget);
     if (!snapshot.has_value())
     {
         emit logE("Logging session failed to start: " + QString::fromStdString(snapshot.error().detail), true, true);
@@ -555,7 +557,6 @@ void MainWindow::continueStartLogging()
         return;
     }
 
-    snapshot->target_is_ecu = ecu_radio_button_->isChecked();
     active_logging_snapshot_.emplace(*snapshot);
     const auto started = logging_engine_->Start(config, std::move(*snapshot));
     if (!started.has_value())

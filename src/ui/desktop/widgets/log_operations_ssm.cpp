@@ -77,7 +77,7 @@ void MainWindow::writeLoggerCsvRecord(bool header)
 {
     std::vector<std::string> fields{
         header ? "Time" : QString::number(static_cast<float>(log_file_timer_->elapsed()) / 1000.0F).toStdString()};
-    const auto key = active_logging_snapshot_ ? active_logging_snapshot_->protocol : protocol_.toStdString();
+    const auto key = active_logging_snapshot_ ? active_logging_snapshot_->ProtocolKey() : protocol_.toStdString();
     const auto& selection = logger_model_->Selection();
     const auto parameters = [&](const auto& ids)
     {

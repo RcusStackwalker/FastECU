@@ -110,16 +110,13 @@ fastecu::Result<fastecu::desktop::logging::DesktopLoggingSnapshot> makeLoggingSn
                                              .enabled = true,
                                              .conversions = {{"rpm", "x", "0", "0", "100", "1"}}}}});
     model.SetSelection({.protocol = "SSM", .lower_panel_ids = {"rpm"}});
-    auto snapshot =
-        fastecu::desktop::logging::MakeDesktopLoggingSnapshot(model, fastecu::logging::LoggingProtocolId::kSsm, "SSM",
-                                                              {.poll_timeout = std::chrono::milliseconds{50},
-                                                               .car_silence_miss_threshold = 20,
-                                                               .reconnect_attempt_threshold = 100,
-                                                               .reconnect_retry_period = 20});
-    if (snapshot.has_value())
-    {
-        snapshot->target_is_ecu = targetIsEcu;
-    }
+    auto snapshot = fastecu::desktop::logging::MakeDesktopLoggingSnapshot(
+        model, fastecu::logging::LoggingProtocolId::kSsm, "SSM",
+        {.poll_timeout = std::chrono::milliseconds{50},
+         .car_silence_miss_threshold = 20,
+         .reconnect_attempt_threshold = 100,
+         .reconnect_retry_period = 20},
+        targetIsEcu ? fastecu::logging::LoggingTarget::kEcu : fastecu::logging::LoggingTarget::kTcu);
     return snapshot;
 }
 
@@ -937,6 +934,7 @@ class MainWindowTest : public ::testing::Test
     void checkWindowPreservesInjectedLoggingFactory();
     void checkLoggingCapturesTargetForEachRun();
     void checkLoggingDefinitionErrorShowsDetailAndLeavesStopped();
+    void checkLoggingDisplayErrorContinuesOtherSamples();
     void checkChooserDialogsApplyAcceptedChoicesAndIgnoreCancellation(bool protocol, bool accept);
     void checkDefinitionManagerRemovesSelectedRowsAndSavesSurvivingOrder();
     void checkNumericWindowGeometryRestoresAndPersistsAcrossWindowStates();
@@ -2273,7 +2271,7 @@ void MainWindowTest::checkWindowPreservesInjectedLoggingFactory()
         "SSM",
         [&called](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
         {
-            called = !snapshot.target_is_ecu;
+            called = !(snapshot.Target() == fastecu::logging::LoggingTarget::kEcu);
             auto protocol = std::make_unique<ScriptedLoggingProtocol>();
             protocol->BlockPollUntilCancelled();
             return protocol;
@@ -2311,7 +2309,7 @@ void MainWindowTest::checkLoggingCapturesTargetForEachRun()
         "SSM",
         [&targets](const fastecu::desktop::logging::DesktopLoggingSnapshot& snapshot)
         {
-            targets.push_back(snapshot.target_is_ecu);
+            targets.push_back((snapshot.Target() == fastecu::logging::LoggingTarget::kEcu));
             auto protocol = std::make_unique<ScriptedLoggingProtocol>();
             protocol->BlockPollUntilCancelled();
             return protocol;
@@ -2326,7 +2324,7 @@ void MainWindowTest::checkLoggingCapturesTargetForEachRun()
         ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
         ASSERT_TRUE(action->isChecked());
         ASSERT_TRUE(window.active_logging_snapshot_.has_value());
-        ASSERT_EQ(window.active_logging_snapshot_->target_is_ecu, target);
+        ASSERT_EQ((window.active_logging_snapshot_->Target() == fastecu::logging::LoggingTarget::kEcu), target);
         services.logging_engine.Stop();
     }
     ASSERT_EQ(targets, (std::vector<bool>{true, false}));
@@ -2348,8 +2346,6 @@ void MainWindowTest::checkLoggingDefinitionErrorShowsDetailAndLeavesStopped()
     window.config_session_->Settings().selected_log_protocol = "SSM";
     QAction *action = prepareLogging(window, "SSM");
     ASSERT_NE(action, nullptr);
-    // The existing parser rejects this markup-like address with a static detail.
-    // Its richer contextual replacement must retain the same plain-text boundary.
     installLoggingFixture(window,
                           {.parameters = {{.protocol = "SSM",
                                            .id = "rpm",
@@ -2387,12 +2383,14 @@ void MainWindowTest::checkLoggingDefinitionErrorShowsDetailAndLeavesStopped()
     ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
     dialogDriver.stop();
 
-    EXPECT_EQ(dialogText, QStringLiteral("invalid logging address or length"));
+    EXPECT_THAT(dialogText.toStdString(), ::testing::HasSubstr("SSM parameter rpm"));
+    EXPECT_THAT(dialogText.toStdString(), ::testing::HasSubstr("address"));
+    EXPECT_THAT(dialogText.toStdString(), ::testing::HasSubstr("<b>bad</b>"));
+    EXPECT_THAT(dialogText.toStdString(), ::testing::HasSubstr("hexadecimal"));
     EXPECT_EQ(dialogFormat, Qt::PlainText);
     const auto loggedErrors = errors.Snapshot();
     ASSERT_EQ(loggedErrors.size(), 1U);
-    EXPECT_EQ(std::get<0>(loggedErrors.front()),
-              QStringLiteral("Logging session failed to start: invalid logging address or length"));
+    EXPECT_EQ(std::get<0>(loggedErrors.front()), QStringLiteral("Logging session failed to start: ") + dialogText);
     EXPECT_TRUE(std::get<1>(loggedErrors.front()));
     EXPECT_TRUE(std::get<2>(loggedErrors.front()));
     EXPECT_EQ(factoryCalls, 0);
@@ -3517,7 +3515,8 @@ void MainWindowTest::checkCsvSharedIdProtocolIdentity()
         {.poll_timeout = std::chrono::milliseconds{50},
          .car_silence_miss_threshold = 20,
          .reconnect_attempt_threshold = 100,
-         .reconnect_retry_period = 20});
+         .reconnect_retry_period = 20},
+        fastecu::logging::LoggingTarget::kEcu);
     ASSERT_TRUE(snapshot.has_value());
     window.active_logging_snapshot_ = *snapshot;
     window.protocol_ = "SSM"; // active run, not mutable UI choice, owns CSV protocol
@@ -3575,7 +3574,8 @@ void MainWindowTest::checkCsvEscapesNamesAndValues()
         {.poll_timeout = std::chrono::milliseconds{50},
          .car_silence_miss_threshold = 20,
          .reconnect_attempt_threshold = 100,
-         .reconnect_retry_period = 20});
+         .reconnect_retry_period = 20},
+        fastecu::logging::LoggingTarget::kEcu);
     ASSERT_TRUE(snapshot.has_value());
     window.active_logging_snapshot_ = *snapshot;
     window.protocol_ = "SSM"; // active run, not mutable UI choice, owns CSV protocol
@@ -3704,7 +3704,7 @@ void MainWindowTest::checkLoggingStartWaitsForIdentification(bool targetIsEcu)
     ASSERT_EQ(window.ecuid_, QString("123456789A"));
     ASSERT_TRUE(window.logger_model_->ParameterSupported("SSM", "rpm"));
     ASSERT_TRUE(window.active_logging_snapshot_.has_value());
-    ASSERT_EQ(window.active_logging_snapshot_->target_is_ecu, targetIsEcu);
+    ASSERT_EQ((window.active_logging_snapshot_->Target() == fastecu::logging::LoggingTarget::kEcu), targetIsEcu);
     ASSERT_TRUE(targetFrozenInContinuation);
     ASSERT_TRUE(window.ecu_radio_button_->isEnabled());
     ASSERT_TRUE(window.tcu_radio_button_->isEnabled());
@@ -4779,4 +4779,36 @@ TEST_F(MainWindowTest, PasteAcceptsTerminalCrLf)
 TEST_F(MainWindowTest, PasteRejectsInteriorEmptyCellAtomically)
 {
     ASSERT_NO_FATAL_FAILURE(checkTypedAssignment(AssignmentScenario::kPasteInteriorEmpty));
+}
+
+void MainWindowTest::checkLoggingDisplayErrorContinuesOtherSamples()
+{
+    ModalDriver constructorDriver{QString()};
+    constructorDriver.start();
+    TestServices services{config_root_->path()};
+    MainWindow window{services.services()};
+    constructorDriver.stop();
+    prepareLogging(window, "SSM");
+    window.config_session_->Settings().selected_log_protocol = "SSM";
+    services.logging_engine.RegisterProtocol("SSM",
+                                             [](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
+                                             {
+                                                 auto protocol = std::make_unique<ScriptedLoggingProtocol>();
+                                                 protocol->BlockPollUntilCancelled();
+                                                 return protocol;
+                                             });
+    window.continueStartLogging();
+    ASSERT_TRUE(services.logging_engine.IsRunning());
+    fastecu::testing::SignalRecorder errors{&window, &MainWindow::logE};
+    window.handleLoggingValuesUpdated(
+        {{.channel_id = "unknown", .numeric_value = 8}, {.channel_id = "rpm", .numeric_value = 42}});
+    EXPECT_EQ(window.logger_values_.ParameterValue("SSM", "rpm"), "42");
+    EXPECT_EQ(errors.Snapshot().size(), 1U);
+    EXPECT_TRUE(services.logging_engine.IsRunning());
+    services.logging_engine.Stop();
+}
+
+TEST_F(MainWindowTest, loggingDisplayErrorContinuesOtherSamples)
+{
+    ASSERT_NO_FATAL_FAILURE(checkLoggingDisplayErrorContinuesOtherSamples());
 }
