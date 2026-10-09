@@ -12,15 +12,15 @@ using fastecu::ui::protocol_field;
 using fastecu::ui::qs;
 
 ProtocolSelect::ProtocolSelect(const fastecu::config::ConfigSession& config, QWidget *parent)
-    : QDialog(parent), config(config), ui{std::make_unique<Ui::ProtocolSelect>()}
+    : QDialog(parent), config_(config), ui_{std::make_unique<Ui::ProtocolSelect>()}
 {
-    ui->setupUi(this);
+    ui_->setupUi(this);
 
     // ui->select_button->setEnabled(false);
 
     QStringList tree_widget_headers = {"Model", "Protocol"};
-    ui->treeWidget->setHeaderLabels(tree_widget_headers);
-    ui->treeWidget->setFont(font);
+    ui_->treeWidget->setHeaderLabels(tree_widget_headers);
+    ui_->treeWidget->setFont(font_);
 
     // QRect  screenGeometry = this->geometry();
     QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
@@ -32,7 +32,7 @@ ProtocolSelect::ProtocolSelect(const fastecu::config::ConfigSession& config, QWi
     QStringList protocols_sorted;
     QStringList descriptions_sorted;
     bool protocol_changed_saved = false;
-    QFontMetrics fm(font);
+    QFontMetrics fm(font_);
     int text_width = 0;
     int protocol_width = 0;
     int description_width = 0;
@@ -75,15 +75,15 @@ ProtocolSelect::ProtocolSelect(const fastecu::config::ConfigSession& config, QWi
     }
     protocol_width += 20;
     description_width += 20;
-    ui->treeWidget->setColumnWidth(0, protocol_width);
-    ui->treeWidget->setColumnWidth(1, description_width);
+    ui_->treeWidget->setColumnWidth(0, protocol_width);
+    ui_->treeWidget->setColumnWidth(1, description_width);
     /*
         QScreen *screen = QGuiApplication::primaryScreen();
         QRect  screenGeometry = screen->geometry();
         if (this->width() < screenGeometry.width() && this->height() < screenGeometry.height())
             this->showMaximized();
     */
-    ui->treeWidget->setFixedWidth(protocol_width + description_width + 20);
+    ui_->treeWidget->setFixedWidth(protocol_width + description_width + 20);
 
     for (int i = 0; i < protocols_sorted.length(); i++)
     {
@@ -91,26 +91,26 @@ ProtocolSelect::ProtocolSelect(const fastecu::config::ConfigSession& config, QWi
         item->setText(0, protocols_sorted.at(i));
         item->setText(1, descriptions_sorted.at(i));
         item->setFirstColumnSpanned(true);
-        ui->treeWidget->addTopLevelItem(item);
+        ui_->treeWidget->addTopLevelItem(item);
         if (config.selected_vehicle() != nullptr &&
             protocols_sorted.at(i) == qs(config.selected_vehicle()->protocol->name))
         {
             protocol_changed_saved = true;
-            ui->treeWidget->setCurrentItem(item);
+            ui_->treeWidget->setCurrentItem(item);
         }
     }
     if (!protocol_changed_saved)
     {
         qDebug() << "Protocol changed to first item, no protocol selected previously";
-        QTreeWidgetItem *item = ui->treeWidget->topLevelItem(0);
-        ui->treeWidget->setCurrentItem(item);
+        QTreeWidgetItem *item = ui_->treeWidget->topLevelItem(0);
+        ui_->treeWidget->setCurrentItem(item);
     }
 
-    connect(ui->treeWidget, &QTreeWidget::itemSelectionChanged, this,
+    connect(ui_->treeWidget, &QTreeWidget::itemSelectionChanged, this,
             &ProtocolSelect::protocol_treewidget_item_selected);
-    connect(ui->treeWidget, &QTreeWidget::doubleClicked, this, &ProtocolSelect::car_model_selected);
-    connect(ui->cancel_button, &QPushButton::clicked, this, &QDialog::close);
-    connect(ui->select_button, &QPushButton::clicked, this, &ProtocolSelect::car_model_selected);
+    connect(ui_->treeWidget, &QTreeWidget::doubleClicked, this, &ProtocolSelect::car_model_selected);
+    connect(ui_->cancel_button, &QPushButton::clicked, this, &QDialog::close);
+    connect(ui_->select_button, &QPushButton::clicked, this, &ProtocolSelect::car_model_selected);
 }
 
 ProtocolSelect::~ProtocolSelect()
@@ -119,7 +119,7 @@ ProtocolSelect::~ProtocolSelect()
 
 void ProtocolSelect::car_model_selected()
 {
-    QString protocol_name = ui->treeWidget->selectedItems().at(0)->text(0);
+    QString protocol_name = ui_->treeWidget->selectedItems().at(0)->text(0);
     qDebug() << "Selected protocol:" << protocol_name;
 
     // Tentative: the caller applies an accepted choice to the session.
@@ -136,10 +136,10 @@ std::optional<std::string> ProtocolSelect::chosen_protocol_name() const
 
 void ProtocolSelect::protocol_treewidget_item_selected()
 {
-    QTreeWidgetItem *item = ui->treeWidget->selectedItems().at(0);
+    QTreeWidgetItem *item = ui_->treeWidget->selectedItems().at(0);
     if (item)
     {
-        QTreeWidgetItem *item_local = ui->treeWidget->selectedItems().at(0);
+        QTreeWidgetItem *item_local = ui_->treeWidget->selectedItems().at(0);
         QString selected_text = item_local->text(0);
 
         // ui->select_button->setEnabled(true);

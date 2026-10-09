@@ -46,12 +46,12 @@ void SerialPortActionsDirect::close_j2534_transport()
 
 void SerialPortActionsDirect::log_j2534_opened()
 {
-    emit LOG_D("INIT: J2534 opened with devID: " + QString::number(devID), true, true);
+    emit LOG_D("INIT: J2534 opened with devID: " + QString::number(dev_id_), true, true);
 }
 
 void SerialPortActionsDirect::adopt_j2534_channel_id()
 {
-    chanID = protocol;
+    chan_id_ = protocol_;
 }
 
 bool SerialPortActionsDirect::j2534_tx_done()

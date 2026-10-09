@@ -220,7 +220,7 @@ class SerialPortActions : public QObject
     {
         using Ret = std::invoke_result_t<const Fn&>;
         ensureBackendStarted();
-        if (QThread::currentThread() == m_ioThread)
+        if (QThread::currentThread() == m_io_thread_)
         {
             return fn(); // already on the I/O thread (backend-side callback)
         }
@@ -249,7 +249,7 @@ class SerialPortActions : public QObject
                 }
             };
             static_assert(std::is_invocable_v<const decltype(invoke)&>);
-            QMetaObject::invokeMethod(m_ioContext, invoke, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(m_io_context_, invoke, Qt::QueuedConnection);
             waitForDone(done);
             if (failure)
             {
@@ -280,7 +280,7 @@ class SerialPortActions : public QObject
                 }
             };
             static_assert(std::is_invocable_v<const decltype(invoke)&>);
-            QMetaObject::invokeMethod(m_ioContext, invoke, Qt::QueuedConnection);
+            QMetaObject::invokeMethod(m_io_context_, invoke, Qt::QueuedConnection);
             waitForDone(done);
             if (failure)
             {
@@ -290,16 +290,16 @@ class SerialPortActions : public QObject
         }
     }
 
-    std::function<SerialBackend *()> backendFactory;
+    std::function<SerialBackend *()> backend_factory_;
 
-    QMutex startMutex;
-    SerialBackendHost *m_host = nullptr;
-    SerialBackend *m_backend = nullptr;
-    QObject *m_ioContext = nullptr; // == m_host->context(), cached
-    QThread *m_ioThread = nullptr;  // == m_host->ioThread(), cached
+    QMutex start_mutex_;
+    SerialBackendHost *m_host_ = nullptr;
+    SerialBackend *m_backend_ = nullptr;
+    QObject *m_io_context_ = nullptr; // == m_host->context(), cached
+    QThread *m_io_thread_ = nullptr;  // == m_host->ioThread(), cached
 
-    QAtomicInteger<bool> is_read_vbatt = false;
-    QAtomicInteger<bool> is_comm_busy = false;
-    std::atomic<unsigned long> vBatt{0};
-    std::atomic<int> m_activeCalls{0};
+    QAtomicInteger<bool> is_read_vbatt_ = false;
+    QAtomicInteger<bool> is_comm_busy_ = false;
+    std::atomic<unsigned long> v_batt_{0};
+    std::atomic<int> m_active_calls_{0};
 };

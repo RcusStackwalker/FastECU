@@ -14,52 +14,52 @@
 #include <vector>
 
 DataTerminal::DataTerminal(fastecu::diagnostics::IDiagnosticLink& link_arg, QWidget *parent)
-    : QDialog(parent), ui{std::make_unique<Ui::DataTerminalWindow>()}
+    : QDialog(parent), ui_{std::make_unique<Ui::DataTerminalWindow>()}
 {
-    ui->setupUi(this);
+    ui_->setupUi(this);
 
-    this->link = &link_arg;
+    this->link_ = &link_arg;
 
     // Set initial values
-    ui->klineProtocol->addItem("SSM");
-    ui->klineProtocol->addItem("iso14230");
+    ui_->klineProtocol->addItem("SSM");
+    ui_->klineProtocol->addItem("iso14230");
 
-    ui->klineBaudRate->setText("4800");
+    ui_->klineBaudRate->setText("4800");
 
-    ui->klineDataBits->addItem("7");
-    ui->klineDataBits->addItem("8");
-    ui->klineDataBits->addItem("9");
-    ui->klineDataBits->setCurrentIndex(1);
+    ui_->klineDataBits->addItem("7");
+    ui_->klineDataBits->addItem("8");
+    ui_->klineDataBits->addItem("9");
+    ui_->klineDataBits->setCurrentIndex(1);
 
-    ui->klineStopBits->addItem("1");
-    ui->klineStopBits->addItem("2");
+    ui_->klineStopBits->addItem("1");
+    ui_->klineStopBits->addItem("2");
 
-    ui->klineParity->addItem("None");
-    ui->klineParity->addItem("Odd");
-    ui->klineParity->addItem("Even");
+    ui_->klineParity->addItem("None");
+    ui_->klineParity->addItem("Odd");
+    ui_->klineParity->addItem("Even");
 
-    ui->klineTesterId->setText("F0");
-    ui->klineTargetId->setText("10");
+    ui_->klineTesterId->setText("F0");
+    ui_->klineTargetId->setText("10");
 
-    ui->canProtocol->addItem("CAN");
-    ui->canProtocol->addItem("iso15765");
-    ui->canProtocol->setCurrentIndex(1);
+    ui_->canProtocol->addItem("CAN");
+    ui_->canProtocol->addItem("iso15765");
+    ui_->canProtocol->setCurrentIndex(1);
 
-    ui->canBaudRate->setText("500000");
+    ui_->canBaudRate->setText("500000");
 
-    ui->canIdLength->addItem("11bit");
-    ui->canIdLength->addItem("29bit");
+    ui_->canIdLength->addItem("11bit");
+    ui_->canIdLength->addItem("29bit");
 
-    ui->canTesterId->setText("7E0");
-    ui->canTargetId->setText("7E8");
+    ui_->canTesterId->setText("7E0");
+    ui_->canTargetId->setText("7E8");
 
-    connect(ui->klineProtocol, SIGNAL(currentIndexChanged(int)), this, SLOT(protocolTypeChanged(int)));
-    connect(ui->klineListen, SIGNAL(clicked(bool)), this, SLOT(listenInterface()));
-    connect(ui->sendKlineMessage, SIGNAL(clicked(bool)), this, SLOT(sendToInterface()));
+    connect(ui_->klineProtocol, SIGNAL(currentIndexChanged(int)), this, SLOT(protocolTypeChanged(int)));
+    connect(ui_->klineListen, SIGNAL(clicked(bool)), this, SLOT(listenInterface()));
+    connect(ui_->sendKlineMessage, SIGNAL(clicked(bool)), this, SLOT(sendToInterface()));
 
-    connect(ui->canProtocol, SIGNAL(currentIndexChanged(int)), this, SLOT(protocolTypeChanged(int)));
-    connect(ui->canListen, SIGNAL(clicked(bool)), this, SLOT(listenInterface()));
-    connect(ui->sendCanMessage, SIGNAL(clicked(bool)), this, SLOT(sendToInterface()));
+    connect(ui_->canProtocol, SIGNAL(currentIndexChanged(int)), this, SLOT(protocolTypeChanged(int)));
+    connect(ui_->canListen, SIGNAL(clicked(bool)), this, SLOT(listenInterface()));
+    connect(ui_->sendCanMessage, SIGNAL(clicked(bool)), this, SLOT(sendToInterface()));
 
     this->show();
 }
@@ -130,11 +130,11 @@ void DataTerminal::sendToInterface()
 
     if (interfaceTypeName.startsWith("sendKlineMessage"))
     {
-        msg = ui->klineMsgToSend->text();
+        msg = ui_->klineMsgToSend->text();
     }
     else
     {
-        msg = ui->canMsgToSend->text();
+        msg = ui_->canMsgToSend->text();
     }
 
     if (msg == "")
@@ -182,13 +182,13 @@ void DataTerminal::sendToInterface()
     {
         emit LOG_D("Send message via K-Line", true, true);
 
-        emit LOG_D("Checking protocol: " + ui->klineProtocol->currentText(), true, true);
+        emit LOG_D("Checking protocol: " + ui_->klineProtocol->currentText(), true, true);
         bool iso14230 = false;
-        if (ui->klineProtocol->currentText() == "SSM")
+        if (ui_->klineProtocol->currentText() == "SSM")
         {
             iso14230 = false;
         }
-        else if (ui->klineProtocol->currentText() == "iso14230")
+        else if (ui_->klineProtocol->currentText() == "iso14230")
         {
             iso14230 = true;
         }
@@ -196,28 +196,28 @@ void DataTerminal::sendToInterface()
         {
             serialOk = false;
         }
-        emit LOG_D("Checking baudrate: " + ui->klineBaudRate->text(), true, true);
+        emit LOG_D("Checking baudrate: " + ui_->klineBaudRate->text(), true, true);
         // clang-tidy's DeMorgan rewrite (>= / && / <=  ->  < / || / >) is not value-identical
         // here: QString::toDouble() parses "nan"/"NaN" text to NaN with ok=true, and NaN fails
         // every relational operator, so the flipped form would treat a NaN baud rate as
         // in-range instead of rejecting it.
         // NOLINTNEXTLINE(readability-simplify-boolean-expr)
-        if (!(ui->klineBaudRate->text().toDouble() >= 300 && ui->klineBaudRate->text().toDouble() <= 2000000))
+        if (!(ui_->klineBaudRate->text().toDouble() >= 300 && ui_->klineBaudRate->text().toDouble() <= 2000000))
         {
             serialOk = false;
         }
-        emit LOG_D("Checking tester id: " + ui->klineTesterId->text(), true, true);
-        const auto tester = static_cast<std::uint8_t>(ui->klineTesterId->text().toUInt(&ok, 16));
-        emit LOG_D("Checking target id: " + ui->klineTargetId->text(), true, true);
-        const auto target = static_cast<std::uint8_t>(ui->klineTargetId->text().toUInt(&ok, 16));
+        emit LOG_D("Checking tester id: " + ui_->klineTesterId->text(), true, true);
+        const auto tester = static_cast<std::uint8_t>(ui_->klineTesterId->text().toUInt(&ok, 16));
+        emit LOG_D("Checking target id: " + ui_->klineTargetId->text(), true, true);
+        const auto target = static_cast<std::uint8_t>(ui_->klineTargetId->text().toUInt(&ok, 16));
         if (serialOk)
         {
             emit LOG_D("All good, setting interface...", true, true);
             emit LOG_D("Opening interface...", true, true);
-            const auto opened = link->open(fastecu::diagnostics::KlineLinkConfig{
+            const auto opened = link_->open(fastecu::diagnostics::KlineLinkConfig{
                 .header = fastecu::diagnostics::KlineHeader::None,
                 .iso14230_connection = iso14230,
-                .baud = qRound(ui->klineBaudRate->text().toDouble()),
+                .baud = qRound(ui_->klineBaudRate->text().toDouble()),
                 .start_byte = 0x80,
                 .tester_id = tester,
                 .target_id = target,
@@ -238,31 +238,31 @@ void DataTerminal::sendToInterface()
                 continue;
             }
             QByteArray output = bytes::toQByteArray(std::get<fastecu::diagnostics::TerminalMessageStep>(step).payload);
-            if (ui->klineProtocol->currentText() == "SSM")
+            if (ui_->klineProtocol->currentText() == "SSM")
             {
-                output = add_ssm_header(output, ui->klineTesterId->text().toUInt(&ok, 16),
-                                        ui->klineTargetId->text().toUInt(&ok, 16), false);
+                output = add_ssm_header(output, ui_->klineTesterId->text().toUInt(&ok, 16),
+                                        ui_->klineTargetId->text().toUInt(&ok, 16), false);
             }
 
             emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
-            diagnostic_link_io::write(*link, output);
+            diagnostic_link_io::write(*link_, output);
             delay(10);
-            received = diagnostic_link_io::read_or_empty(*link, serial_read_short_timeout);
+            received = diagnostic_link_io::read_or_empty(*link_, serial_read_short_timeout_);
             emit LOG_I("Response: " + parse_message_to_hex(received), true, true);
         }
-        std::ignore = link->reset();
+        std::ignore = link_->reset();
     }
     else if (interfaceTypeName.startsWith("sendCanMessage"))
     {
         emit LOG_D("Send message via CAN / iso15765", true, true);
 
-        emit LOG_D("Checking protocol: " + ui->canProtocol->currentText(), true, true);
+        emit LOG_D("Checking protocol: " + ui_->canProtocol->currentText(), true, true);
         bool iso15765 = false;
-        if (ui->canProtocol->currentText() == "CAN")
+        if (ui_->canProtocol->currentText() == "CAN")
         {
             iso15765 = false;
         }
-        else if (ui->canProtocol->currentText() == "iso15765")
+        else if (ui_->canProtocol->currentText() == "iso15765")
         {
             iso15765 = true;
         }
@@ -270,27 +270,27 @@ void DataTerminal::sendToInterface()
         {
             serialOk = false;
         }
-        emit LOG_D("Checking baudrate: " + ui->canBaudRate->text(), true, true);
+        emit LOG_D("Checking baudrate: " + ui_->canBaudRate->text(), true, true);
         // See the K-Line baudrate check above; the same NaN-vs-DeMorgan hazard applies to this
         // field's toDouble() call.
         // NOLINTNEXTLINE(readability-simplify-boolean-expr)
-        if (!(ui->canBaudRate->text().toDouble() >= 300 && ui->canBaudRate->text().toDouble() <= 2000000))
+        if (!(ui_->canBaudRate->text().toDouble() >= 300 && ui_->canBaudRate->text().toDouble() <= 2000000))
         {
             serialOk = false;
         }
-        emit LOG_D("Checking CAN ID length: " + ui->canIdLength->currentText(), true, true);
-        emit LOG_D("Checking tester id: " + ui->canTesterId->text(), true, true);
-        const std::uint32_t source = ui->canTesterId->text().toUInt(&ok, 16);
-        emit LOG_D("Checking target id: " + ui->canTargetId->text(), true, true);
-        const std::uint32_t destination = ui->canTargetId->text().toUInt(&ok, 16);
+        emit LOG_D("Checking CAN ID length: " + ui_->canIdLength->currentText(), true, true);
+        emit LOG_D("Checking tester id: " + ui_->canTesterId->text(), true, true);
+        const std::uint32_t source = ui_->canTesterId->text().toUInt(&ok, 16);
+        emit LOG_D("Checking target id: " + ui_->canTargetId->text(), true, true);
+        const std::uint32_t destination = ui_->canTargetId->text().toUInt(&ok, 16);
         if (serialOk)
         {
             emit LOG_D("All good, setting interface...", true, true);
             emit LOG_D("Opening interface...", true, true);
-            const auto opened = link->open(fastecu::diagnostics::CanLinkConfig{
+            const auto opened = link_->open(fastecu::diagnostics::CanLinkConfig{
                 .iso15765 = iso15765,
-                .bitrate = qRound(ui->canBaudRate->text().toDouble()),
-                .extended_id = ui->canIdLength->currentIndex() == 1,
+                .bitrate = qRound(ui_->canBaudRate->text().toDouble()),
+                .extended_id = ui_->canIdLength->currentIndex() == 1,
                 .source_id = source,
                 .destination_id = destination,
             });
@@ -301,7 +301,7 @@ void DataTerminal::sendToInterface()
         }
 
         QByteArray received;
-        const unsigned int can_tester_id = ui->canTesterId->text().toUInt(&ok, 16);
+        const unsigned int can_tester_id = ui_->canTesterId->text().toUInt(&ok, 16);
         for (const auto& step : *script)
         {
             if (const auto *pause = std::get_if<fastecu::diagnostics::TerminalDelayStep>(&step))
@@ -311,7 +311,7 @@ void DataTerminal::sendToInterface()
                 continue;
             }
             const auto& payload = std::get<fastecu::diagnostics::TerminalMessageStep>(step).payload;
-            if (ui->canProtocol->currentText() == "CAN" && payload.size() > 8)
+            if (ui_->canProtocol->currentText() == "CAN" && payload.size() > 8)
             {
                 emit LOG_E("CAN message too long (8 message bytes)", true, true);
                 QMessageBox::warning(this, tr("CAN message"),
@@ -324,12 +324,12 @@ void DataTerminal::sendToInterface()
             }
             output.append(bytes::toQByteArray(payload));
             emit LOG_I("Sent: " + parse_message_to_hex(output), true, true);
-            diagnostic_link_io::write(*link, output);
+            diagnostic_link_io::write(*link_, output);
             delay(10);
-            received = diagnostic_link_io::read_or_empty(*link, serial_read_short_timeout);
+            received = diagnostic_link_io::read_or_empty(*link_, serial_read_short_timeout_);
             emit LOG_I("Response: " + parse_message_to_hex(received), true, true);
         }
-        std::ignore = link->reset();
+        std::ignore = link_->reset();
     }
 }
 

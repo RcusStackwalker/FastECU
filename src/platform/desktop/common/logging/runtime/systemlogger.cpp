@@ -3,8 +3,8 @@
 #include <utility>
 
 SystemLogger::SystemLogger(QString file_path, QString software_name, QString software_version, QObject *parent)
-    : QObject(parent), file_path(std::move(file_path)), software_name(std::move(software_name)),
-      software_version(std::move(software_version))
+    : QObject(parent), file_path_(std::move(file_path)), software_name_(std::move(software_name)),
+      software_version_(std::move(software_version))
 {
     QObject::connect(this, &SystemLogger::LOG_E, this, &SystemLogger::log_messages);
     QObject::connect(this, &SystemLogger::LOG_W, this, &SystemLogger::log_messages);
@@ -14,9 +14,9 @@ SystemLogger::SystemLogger(QString file_path, QString software_name, QString sof
 
 SystemLogger::~SystemLogger()
 {
-    if (syslog_file_open)
+    if (syslog_file_open_)
     {
-        syslog_file.close();
+        syslog_file_.close();
     }
 }
 
@@ -27,7 +27,7 @@ void SystemLogger::run()
 
 void SystemLogger::enable_log_write_to_file(bool enable)
 {
-    write_syslog_to_file = enable;
+    write_syslog_to_file_ = enable;
 }
 
 void SystemLogger::log_messages(const QString& message, bool timestamp, bool linefeed)
@@ -88,7 +88,7 @@ void SystemLogger::log_messages(const QString& message, bool timestamp, bool lin
         emit send_message_to_log_window(msg);
     }
 
-    if (write_syslog_to_file)
+    if (write_syslog_to_file_)
     {
         write_syslog(msg);
     }
@@ -97,38 +97,38 @@ void SystemLogger::log_messages(const QString& message, bool timestamp, bool lin
 bool SystemLogger::write_syslog(const QString& msg)
 {
     // Open file for writing if needed
-    if (!syslog_file_open)
+    if (!syslog_file_open_)
     {
         QDateTime dateTime = dateTime.currentDateTime();
         QString dateTimeString = dateTime.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
 
-        QString syslog_file_name = file_path;
-        if (file_path.at(file_path.length() - 1) != '/')
+        QString syslog_file_name = file_path_;
+        if (file_path_.at(file_path_.length() - 1) != '/')
         {
             syslog_file_name.append("/");
         }
         syslog_file_name.append("log_fastecu_" + dateTimeString + ".txt");
 
-        syslog_file.setFileName(syslog_file_name);
+        syslog_file_.setFileName(syslog_file_name);
 
         // qDebug() << "Create logfile: " << syslog_file_name;
-        if (!syslog_file.open(QIODevice::WriteOnly))
+        if (!syslog_file_.open(QIODevice::WriteOnly))
         {
             qDebug() << "Cannot open log file for writing";
-            qDebug() << syslog_file.errorString() + ": " + syslog_file.fileName();
+            qDebug() << syslog_file_.errorString() + ": " + syslog_file_.fileName();
             return false;
         }
 
-        syslog_file_open = true;
-        syslog_file_init_ready = true;
-        syslog_file_outstream.setDevice(&syslog_file);
-        syslog_file_outstream << software_name + " v" + software_version +
-                                     ", system log file, start time: " + dateTimeString;
-        syslog_file_outstream << "\n";
+        syslog_file_open_ = true;
+        syslog_file_init_ready_ = true;
+        syslog_file_outstream_.setDevice(&syslog_file_);
+        syslog_file_outstream_ << software_name_ + " v" + software_version_ +
+                                      ", system log file, start time: " + dateTimeString;
+        syslog_file_outstream_ << "\n";
     }
 
-    syslog_file_outstream << msg;
-    syslog_file_outstream.flush();
+    syslog_file_outstream_ << msg;
+    syslog_file_outstream_.flush();
 
     return true;
 }

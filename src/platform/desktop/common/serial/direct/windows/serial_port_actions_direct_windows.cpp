@@ -47,17 +47,17 @@ QStringList SerialPortActionsDirect::check_j2534_devices(QMap<QString, QString> 
         {
             emit LOG_D(j2534DllName + " init successfull", true, true);
             // 0 means no error
-            if (!j2534_->PassThruOpen(nullptr, &devID))
+            if (!j2534_->PassThruOpen(nullptr, &dev_id_))
             {
-                emit LOG_D("Successfully opened " + QString::number(devID) + " / " + vendor + " / " + j2534DllName,
+                emit LOG_D("Successfully opened " + QString::number(dev_id_) + " / " + vendor + " / " + j2534DllName,
                            true, true);
                 j2534_devices.append(vendor);
                 j2534DeviceFound = true;
-                j2534_->PassThruClose(devID);
+                j2534_->PassThruClose(dev_id_);
             }
             else
             {
-                emit LOG_E(QString::number(devID) + " / " + vendor + " device not connected", true, true);
+                emit LOG_E(QString::number(dev_id_) + " / " + vendor + " device not connected", true, true);
             }
         }
         else
@@ -103,8 +103,8 @@ void SerialPortActionsDirect::settle_after_programming_voltage()
 void SerialPortActionsDirect::append_j2534_interfaces(QStringList& serial_ports)
 {
     QStringList j2534_interfaces;
-    installed_drivers = getAllJ2534DriversNames();
-    for (const QString installed_vendor : installed_drivers.keys())
+    installed_drivers_ = getAllJ2534DriversNames();
+    for (const QString installed_vendor : installed_drivers_.keys())
     {
         j2534_interfaces.append(installed_vendor);
     }
@@ -123,9 +123,9 @@ void SerialPortActionsDirect::select_j2534_dll()
     QString localDllName;
     QString installedDllName;
 
-    QStringList dllName = installed_drivers.value(serial_port).split("\\");
+    QStringList dllName = installed_drivers_.value(serial_port).split("\\");
     localDllName = dllName.at(dllName.count() - 1);
-    installedDllName = installed_drivers.value(serial_port);
+    installedDllName = installed_drivers_.value(serial_port);
     emit LOG_D("Local DLL Name: " + localDllName, true, true);
     emit LOG_D("Installed DLL Name: " + installedDllName, true, true);
 

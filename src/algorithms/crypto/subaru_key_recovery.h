@@ -7,7 +7,7 @@
 #include <expected>
 
 // Recovery of the four round keys of the Subaru ROM cipher (the SSM payload
-// cipher, SsmProtocol::calculatePayload with kIndexTransformationStock) from a
+// cipher, ssm_protocol::calculatePayload with kIndexTransformationStock) from a
 // plaintext ROM and its encrypted counterpart. Moved from the
 // GetKeyOperationsSubaru dialog.
 namespace subaru_key_recovery

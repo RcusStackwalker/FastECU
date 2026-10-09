@@ -16,7 +16,7 @@ TEST(ProtocolSelectTest, listsEachVehicleBackedProtocolOnce)
     ASSERT_TRUE(f.initialize().has_value());
     ProtocolSelect dialog{f.session};
     // proto_a (two rows) and proto_b.
-    ASSERT_EQ(dialog.ui->treeWidget->topLevelItemCount(), 2);
+    ASSERT_EQ(dialog.ui_->treeWidget->topLevelItemCount(), 2);
 }
 
 TEST(ProtocolSelectTest, choosingRecordsTheProtocolName)
@@ -25,9 +25,9 @@ TEST(ProtocolSelectTest, choosingRecordsTheProtocolName)
     ASSERT_TRUE(f.initialize().has_value());
     const auto before = f.session.settings();
     ProtocolSelect dialog{f.session};
-    const auto items = dialog.ui->treeWidget->findItems("proto_b", Qt::MatchExactly, 0);
+    const auto items = dialog.ui_->treeWidget->findItems("proto_b", Qt::MatchExactly, 0);
     ASSERT_EQ(items.size(), 1);
-    dialog.ui->treeWidget->setCurrentItem(items.front());
+    dialog.ui_->treeWidget->setCurrentItem(items.front());
     items.front()->setSelected(true);
 
     ASSERT_TRUE(QMetaObject::invokeMethod(&dialog, "car_model_selected", Qt::DirectConnection));

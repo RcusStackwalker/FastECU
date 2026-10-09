@@ -82,5 +82,5 @@ class CalibrationMaps : public QWidget
     bool view_initialized_{false};
     bool numeric_body_{false};
     QLabel *map_error_label_{nullptr};
-    std::unique_ptr<Ui::CalibrationMaps> ui;
+    std::unique_ptr<Ui::CalibrationMaps> ui_;
 };

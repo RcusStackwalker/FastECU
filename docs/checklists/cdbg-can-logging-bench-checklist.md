@@ -1,7 +1,7 @@
 # Colt CZT (Z37A, 47110032) Cdbg CAN logging — bench qualification checklist
 
 Gate before any real-vehicle use of Cdbg live-data logging (`log_protocol`
-`CDBG`, `MitsuColtCanCdbg::CdbgLogDriver`). Same convention as this project's
+`CDBG`, `mitsu_colt_can_cdbg::CdbgLogDriver`). Same convention as this project's
 other bench-qualification gates (e.g. the
 [Colt CZT CAN bench checklist](colt_czt_47110032_can_bench_checklist.md) for
 the CAN reflash port).

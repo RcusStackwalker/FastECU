@@ -5,28 +5,28 @@
 
 SerialBackendHost::SerialBackendHost()
 {
-    m_thread.setObjectName("SerialIoThread");
-    m_context = new QObject();
-    m_context->moveToThread(&m_thread);
-    m_thread.start();
+    m_thread_.setObjectName("SerialIoThread");
+    m_context_ = new QObject();
+    m_context_->moveToThread(&m_thread_);
+    m_thread_.start();
 }
 
 SerialBackendHost::~SerialBackendHost()
 {
-    Q_ASSERT(QThread::currentThread() != &m_thread);
-    if (m_backend)
+    Q_ASSERT(QThread::currentThread() != &m_thread_);
+    if (m_backend_)
     {
-        SerialBackend *b = m_backend;
-        m_backend = nullptr;
-        QMetaObject::invokeMethod(m_context, [b] { delete b; }, Qt::BlockingQueuedConnection);
+        SerialBackend *b = m_backend_;
+        m_backend_ = nullptr;
+        QMetaObject::invokeMethod(m_context_, [b] { delete b; }, Qt::BlockingQueuedConnection);
     }
-    m_thread.quit();
-    m_thread.wait();
-    delete m_context; // safe: its thread has finished
+    m_thread_.quit();
+    m_thread_.wait();
+    delete m_context_; // safe: its thread has finished
 }
 
 SerialBackend *SerialBackendHost::createBackend(const std::function<SerialBackend *()>& factory)
 {
-    QMetaObject::invokeMethod(m_context, [this, &factory] { m_backend = factory(); }, Qt::BlockingQueuedConnection);
-    return m_backend;
+    QMetaObject::invokeMethod(m_context_, [this, &factory] { m_backend_ = factory(); }, Qt::BlockingQueuedConnection);
+    return m_backend_;
 }

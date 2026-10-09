@@ -138,11 +138,11 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     }
     bool scriptConsumed() const
     {
-        return wIdx_ == expected_.size() && reads_.empty() && !blocking_read_pending_;
+        return w_idx_ == expected_.size() && reads_.empty() && !blocking_read_pending_;
     }
     std::size_t writesConsumed() const
     {
-        return wIdx_;
+        return w_idx_;
     }
 
     Status reset_connection() override
@@ -187,7 +187,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     }
     Status enable_programming_voltage_line() override
     {
-        programming_voltage_line_write_index = wIdx_;
+        programming_voltage_line_write_index = w_idx_;
         control_line_trace.push_back(ControlLineAction::EnableProgrammingVoltageLine);
         operation_trace.push_back(Operation::EnableProgrammingVoltageLine);
         return enable_programming_voltage_line_result;
@@ -225,32 +225,32 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     Result<std::size_t> write(bytes::ByteView data) override
     {
         const bytes::Bytes actual(data.begin(), data.end());
-        if (wIdx_ >= expected_.size())
+        if (w_idx_ >= expected_.size())
         {
             return fail(ErrorKind::Internal,
                         std::format("scripted K-Line write ran past the end of the script ({} exchanges); wrote {}",
                                     expected_.size(), bytes::toHex(actual)));
         }
-        if (expected_.at(wIdx_) != actual)
+        if (expected_.at(w_idx_) != actual)
         {
-            return fail(ErrorKind::Internal, describeDivergence(wIdx_, actual));
+            return fail(ErrorKind::Internal, describeDivergence(w_idx_, actual));
         }
-        if (std::find(raw_writes_.begin(), raw_writes_.end(), wIdx_) != raw_writes_.end())
+        if (std::find(raw_writes_.begin(), raw_writes_.end(), w_idx_) != raw_writes_.end())
         {
             return fail(ErrorKind::Internal, "expected raw K-Line write");
         }
-        ++wIdx_;
+        ++w_idx_;
         return data.size();
     }
     Result<std::size_t> write_raw(bytes::ByteView data) override
     {
         const bytes::Bytes actual(data.begin(), data.end());
-        if (wIdx_ >= expected_.size() || expected_[wIdx_] != actual ||
-            std::find(raw_writes_.begin(), raw_writes_.end(), wIdx_) == raw_writes_.end())
+        if (w_idx_ >= expected_.size() || expected_[w_idx_] != actual ||
+            std::find(raw_writes_.begin(), raw_writes_.end(), w_idx_) == raw_writes_.end())
         {
             return fail(ErrorKind::Internal, "unexpected raw K-Line write");
         }
-        ++wIdx_;
+        ++w_idx_;
         return data.size();
     }
     Result<OptionalBytes> read_raw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
@@ -350,7 +350,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     std::vector<std::string> sections_;
     std::string current_section_;
     std::deque<Result<OptionalBytes>> reads_;
-    std::size_t wIdx_ = 0;
+    std::size_t w_idx_ = 0;
     bool open_ = false;
     std::mutex mutex_;
     std::condition_variable cv_;

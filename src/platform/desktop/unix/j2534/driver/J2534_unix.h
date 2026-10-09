@@ -53,7 +53,7 @@ class J2534 : public QObject
     void getDllName(char * /*name*/) {};       // For Win/Linux compatibility only
     void debug(bool enable)
     {
-        debugMode = enable;
+        debug_mode_ = enable;
     };
 
     long PassThruOpen(const void *pName, unsigned long *pDeviceID);
@@ -86,18 +86,18 @@ class J2534 : public QObject
     bool get_is_tx_done();
 
   private:
-    bool debugMode{};
+    bool debug_mode_{};
 
-    QString opened_serial_port;
-    QString serial_port_baudrate = "4800";
+    QString opened_serial_port_;
+    QString serial_port_baudrate_ = "4800";
 
-    std::uint16_t receive_timeout = 500;
-    std::uint16_t serial_read_timeout = 2000;
-    std::uint16_t serial_read_extra_short_timeout = 50;
-    std::uint16_t serial_read_short_timeout = 200;
-    std::uint16_t serial_read_medium_timeout = 500;
-    std::uint16_t serial_read_long_timeout = 800;
-    std::uint16_t serial_read_extra_long_timeout = 3000;
+    std::uint16_t receive_timeout_ = 500;
+    std::uint16_t serial_read_timeout_ = 2000;
+    std::uint16_t serial_read_extra_short_timeout_ = 50;
+    std::uint16_t serial_read_short_timeout_ = 200;
+    std::uint16_t serial_read_medium_timeout_ = 500;
+    std::uint16_t serial_read_long_timeout_ = 800;
+    std::uint16_t serial_read_extra_long_timeout_ = 3000;
 
   protected:
     // protected (not private) so tests can subclass J2534 and drive it into the
@@ -105,10 +105,10 @@ class J2534 : public QObject
     QSerialPort *serial_ = new QSerialPort();
 
   private:
-    unsigned long periodic_msg_id{};
+    unsigned long periodic_msg_id_{};
 
-    bool msg_ack = false;
-    bool is_tx_done = false;
+    bool msg_ack_ = false;
+    bool is_tx_done_ = false;
 
     SerialByteBuffer rx_buffer_;
 

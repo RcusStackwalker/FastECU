@@ -9,7 +9,7 @@ HexEdit::HexEdit(const QByteArray& data, const QString& file_name, QWidget *pare
     init();
     setCurrentFile("");
 
-    hexEdit->setData(data);
+    hex_edit_->setData(data);
     setCurrentFile(file_name);
 
     this->show();
@@ -22,7 +22,7 @@ void HexEdit::closeEvent(QCloseEvent *event)
 {
     writeSettings();
 
-    if (isModified)
+    if (is_modified_)
     {
         QMessageBox msgBox;
         msgBox.setText(tr("The file has been modified."));
@@ -78,8 +78,8 @@ void HexEdit::about()
 
 void HexEdit::dataChanged()
 {
-    isModified = true;
-    setWindowModified(isModified);
+    is_modified_ = true;
+    setWindowModified(is_modified_);
 }
 
 void HexEdit::open()
@@ -99,24 +99,24 @@ void HexEdit::optionsAccepted()
 
 void HexEdit::findNext()
 {
-    searchDialog->findNext();
+    search_dialog_->findNext();
 }
 
 bool HexEdit::save()
 {
-    if (isUntitled)
+    if (is_untitled_)
     {
         return saveAs();
     }
     else
     {
-        return saveFile(curFile);
+        return saveFile(cur_file_);
     }
 }
 
 bool HexEdit::saveAs()
 {
-    QString fileName = QFileDialog::getSaveFileName(this, tr("Save As"), curFile);
+    QString fileName = QFileDialog::getSaveFileName(this, tr("Save As"), cur_file_);
     if (fileName.isEmpty())
     {
         return false;
@@ -139,7 +139,7 @@ void HexEdit::saveSelectionToReadableFile()
         }
 
         QApplication::setOverrideCursor(Qt::WaitCursor);
-        file.write(hexEdit->selectionToReadableString().toLatin1());
+        file.write(hex_edit_->selectionToReadableString().toLatin1());
         QApplication::restoreOverrideCursor();
 
         statusBar()->showMessage(tr("File saved"), 2000);
@@ -160,7 +160,7 @@ void HexEdit::saveToReadableFile()
         }
 
         QApplication::setOverrideCursor(Qt::WaitCursor);
-        file.write(hexEdit->toReadableString().toLatin1());
+        file.write(hex_edit_->toReadableString().toLatin1());
         QApplication::restoreOverrideCursor();
 
         statusBar()->showMessage(tr("File saved"), 2000);
@@ -169,7 +169,7 @@ void HexEdit::saveToReadableFile()
 
 void HexEdit::setAddress(qint64 address)
 {
-    lbAddress->setText(QString("%1").arg(address, 1, 16));
+    lb_address_->setText(QString("%1").arg(address, 1, 16));
 }
 
 void HexEdit::setOverwriteMode(bool mode)
@@ -178,27 +178,27 @@ void HexEdit::setOverwriteMode(bool mode)
     settings.setValue("OverwriteMode", mode);
     if (mode)
     {
-        lbOverwriteMode->setText(tr("Overwrite"));
+        lb_overwrite_mode_->setText(tr("Overwrite"));
     }
     else
     {
-        lbOverwriteMode->setText(tr("Insert"));
+        lb_overwrite_mode_->setText(tr("Insert"));
     }
 }
 
 void HexEdit::setSize(qint64 size)
 {
-    lbSize->setText(QString("%1").arg(size));
+    lb_size_->setText(QString("%1").arg(size));
 }
 
 void HexEdit::showOptionsDialog()
 {
-    optionsDialog->showWithSettings();
+    options_dialog_->showWithSettings();
 }
 
 void HexEdit::showSearchDialog()
 {
-    searchDialog->show();
+    search_dialog_->show();
 }
 
 /*****************************************************************************/
@@ -207,17 +207,17 @@ void HexEdit::showSearchDialog()
 void HexEdit::init()
 {
     setAttribute(Qt::WA_DeleteOnClose);
-    optionsDialog = new OptionsDialog(this);
-    connect(optionsDialog, SIGNAL(accepted()), this, SLOT(optionsAccepted()));
-    isUntitled = true;
-    isModified = false;
+    options_dialog_ = new OptionsDialog(this);
+    connect(options_dialog_, SIGNAL(accepted()), this, SLOT(optionsAccepted()));
+    is_untitled_ = true;
+    is_modified_ = false;
 
-    hexEdit = new QHexEdit;
-    setCentralWidget(hexEdit);
+    hex_edit_ = new QHexEdit;
+    setCentralWidget(hex_edit_);
 
-    connect(hexEdit, SIGNAL(overwriteModeChanged(bool)), this, SLOT(setOverwriteMode(bool)));
-    connect(hexEdit, SIGNAL(dataChanged()), this, SLOT(dataChanged()));
-    searchDialog = new SearchDialog(hexEdit, this);
+    connect(hex_edit_, SIGNAL(overwriteModeChanged(bool)), this, SLOT(setOverwriteMode(bool)));
+    connect(hex_edit_, SIGNAL(dataChanged()), this, SLOT(dataChanged()));
+    search_dialog_ = new SearchDialog(hex_edit_, this);
 
     createActions();
     createMenus();
@@ -232,146 +232,146 @@ void HexEdit::init()
 
 void HexEdit::createActions()
 {
-    openAct = new QAction(QIcon(":/images/open.png"), tr("&Open..."), this);
-    openAct->setShortcuts(QKeySequence::Open);
-    openAct->setStatusTip(tr("Open an existing file"));
-    connect(openAct, SIGNAL(triggered()), this, SLOT(open()));
+    open_act_ = new QAction(QIcon(":/images/open.png"), tr("&Open..."), this);
+    open_act_->setShortcuts(QKeySequence::Open);
+    open_act_->setStatusTip(tr("Open an existing file"));
+    connect(open_act_, SIGNAL(triggered()), this, SLOT(open()));
 
-    saveAct = new QAction(QIcon(":/images/save.png"), tr("&Save"), this);
-    saveAct->setShortcuts(QKeySequence::Save);
-    saveAct->setStatusTip(tr("Save the document to disk"));
-    connect(saveAct, SIGNAL(triggered()), this, SLOT(save()));
+    save_act_ = new QAction(QIcon(":/images/save.png"), tr("&Save"), this);
+    save_act_->setShortcuts(QKeySequence::Save);
+    save_act_->setStatusTip(tr("Save the document to disk"));
+    connect(save_act_, SIGNAL(triggered()), this, SLOT(save()));
 
-    saveAsAct = new QAction(tr("Save &As..."), this);
-    saveAsAct->setShortcuts(QKeySequence::SaveAs);
-    saveAsAct->setStatusTip(tr("Save the document under a new name"));
-    connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAs()));
+    save_as_act_ = new QAction(tr("Save &As..."), this);
+    save_as_act_->setShortcuts(QKeySequence::SaveAs);
+    save_as_act_->setStatusTip(tr("Save the document under a new name"));
+    connect(save_as_act_, SIGNAL(triggered()), this, SLOT(saveAs()));
 
-    saveReadable = new QAction(tr("Save &Readable..."), this);
-    saveReadable->setStatusTip(tr("Save document in readable form"));
-    connect(saveReadable, SIGNAL(triggered()), this, SLOT(saveToReadableFile()));
+    save_readable_ = new QAction(tr("Save &Readable..."), this);
+    save_readable_->setStatusTip(tr("Save document in readable form"));
+    connect(save_readable_, SIGNAL(triggered()), this, SLOT(saveToReadableFile()));
 
-    exitAct = new QAction(tr("E&xit"), this);
-    exitAct->setShortcuts(QKeySequence::Quit);
-    exitAct->setStatusTip(tr("Exit the application"));
-    connect(exitAct, SIGNAL(triggered()), qApp, SLOT(closeAllWindows()));
+    exit_act_ = new QAction(tr("E&xit"), this);
+    exit_act_->setShortcuts(QKeySequence::Quit);
+    exit_act_->setStatusTip(tr("Exit the application"));
+    connect(exit_act_, SIGNAL(triggered()), qApp, SLOT(closeAllWindows()));
 
-    undoAct = new QAction(QIcon(":/images/undo.png"), tr("&Undo"), this);
-    undoAct->setShortcuts(QKeySequence::Undo);
-    connect(undoAct, SIGNAL(triggered()), hexEdit, SLOT(undo()));
+    undo_act_ = new QAction(QIcon(":/images/undo.png"), tr("&Undo"), this);
+    undo_act_->setShortcuts(QKeySequence::Undo);
+    connect(undo_act_, SIGNAL(triggered()), hex_edit_, SLOT(undo()));
 
-    redoAct = new QAction(QIcon(":/images/redo.png"), tr("&Redo"), this);
-    redoAct->setShortcuts(QKeySequence::Redo);
-    connect(redoAct, SIGNAL(triggered()), hexEdit, SLOT(redo()));
+    redo_act_ = new QAction(QIcon(":/images/redo.png"), tr("&Redo"), this);
+    redo_act_->setShortcuts(QKeySequence::Redo);
+    connect(redo_act_, SIGNAL(triggered()), hex_edit_, SLOT(redo()));
 
-    saveSelectionReadable = new QAction(tr("&Save Selection Readable..."), this);
-    saveSelectionReadable->setStatusTip(tr("Save selection in readable form"));
-    connect(saveSelectionReadable, SIGNAL(triggered()), this, SLOT(saveSelectionToReadableFile()));
+    save_selection_readable_ = new QAction(tr("&Save Selection Readable..."), this);
+    save_selection_readable_->setStatusTip(tr("Save selection in readable form"));
+    connect(save_selection_readable_, SIGNAL(triggered()), this, SLOT(saveSelectionToReadableFile()));
 
-    aboutAct = new QAction(tr("&About"), this);
-    aboutAct->setStatusTip(tr("Show the application's About box"));
-    connect(aboutAct, SIGNAL(triggered()), this, SLOT(about()));
+    about_act_ = new QAction(tr("&About"), this);
+    about_act_->setStatusTip(tr("Show the application's About box"));
+    connect(about_act_, SIGNAL(triggered()), this, SLOT(about()));
 
-    aboutQtAct = new QAction(tr("About &Qt"), this);
-    aboutQtAct->setStatusTip(tr("Show the Qt library's About box"));
-    connect(aboutQtAct, SIGNAL(triggered()), qApp, SLOT(aboutQt()));
+    about_qt_act_ = new QAction(tr("About &Qt"), this);
+    about_qt_act_->setStatusTip(tr("Show the Qt library's About box"));
+    connect(about_qt_act_, SIGNAL(triggered()), qApp, SLOT(aboutQt()));
 
-    findAct = new QAction(QIcon(":/images/find.png"), tr("&Find/Replace"), this);
-    findAct->setShortcuts(QKeySequence::Find);
-    findAct->setStatusTip(tr("Show the Dialog for finding and replacing"));
-    connect(findAct, SIGNAL(triggered()), this, SLOT(showSearchDialog()));
+    find_act_ = new QAction(QIcon(":/images/find.png"), tr("&Find/Replace"), this);
+    find_act_->setShortcuts(QKeySequence::Find);
+    find_act_->setStatusTip(tr("Show the Dialog for finding and replacing"));
+    connect(find_act_, SIGNAL(triggered()), this, SLOT(showSearchDialog()));
 
-    findNextAct = new QAction(tr("Find &next"), this);
-    findNextAct->setShortcuts(QKeySequence::FindNext);
-    findNextAct->setStatusTip(tr("Find next occurrence of the searched pattern"));
-    connect(findNextAct, SIGNAL(triggered()), this, SLOT(findNext()));
+    find_next_act_ = new QAction(tr("Find &next"), this);
+    find_next_act_->setShortcuts(QKeySequence::FindNext);
+    find_next_act_->setStatusTip(tr("Find next occurrence of the searched pattern"));
+    connect(find_next_act_, SIGNAL(triggered()), this, SLOT(findNext()));
 
-    optionsAct = new QAction(tr("&Options"), this);
-    optionsAct->setStatusTip(tr("Show the Dialog to select applications options"));
-    connect(optionsAct, SIGNAL(triggered()), this, SLOT(showOptionsDialog()));
+    options_act_ = new QAction(tr("&Options"), this);
+    options_act_->setStatusTip(tr("Show the Dialog to select applications options"));
+    connect(options_act_, SIGNAL(triggered()), this, SLOT(showOptionsDialog()));
 }
 
 void HexEdit::createMenus()
 {
-    fileMenu = menuBar()->addMenu(tr("&File"));
-    fileMenu->addAction(openAct);
-    fileMenu->addAction(saveAct);
-    fileMenu->addAction(saveAsAct);
-    fileMenu->addAction(saveReadable);
-    fileMenu->addSeparator();
-    fileMenu->addAction(exitAct);
+    file_menu_ = menuBar()->addMenu(tr("&File"));
+    file_menu_->addAction(open_act_);
+    file_menu_->addAction(save_act_);
+    file_menu_->addAction(save_as_act_);
+    file_menu_->addAction(save_readable_);
+    file_menu_->addSeparator();
+    file_menu_->addAction(exit_act_);
 
-    editMenu = menuBar()->addMenu(tr("&Edit"));
-    editMenu->addAction(undoAct);
-    editMenu->addAction(redoAct);
-    editMenu->addAction(saveSelectionReadable);
-    editMenu->addSeparator();
-    editMenu->addAction(findAct);
-    editMenu->addAction(findNextAct);
-    editMenu->addSeparator();
-    editMenu->addAction(optionsAct);
+    edit_menu_ = menuBar()->addMenu(tr("&Edit"));
+    edit_menu_->addAction(undo_act_);
+    edit_menu_->addAction(redo_act_);
+    edit_menu_->addAction(save_selection_readable_);
+    edit_menu_->addSeparator();
+    edit_menu_->addAction(find_act_);
+    edit_menu_->addAction(find_next_act_);
+    edit_menu_->addSeparator();
+    edit_menu_->addAction(options_act_);
 
-    helpMenu = menuBar()->addMenu(tr("&Help"));
-    helpMenu->addAction(aboutAct);
-    helpMenu->addAction(aboutQtAct);
+    help_menu_ = menuBar()->addMenu(tr("&Help"));
+    help_menu_->addAction(about_act_);
+    help_menu_->addAction(about_qt_act_);
 }
 
 void HexEdit::createStatusBar()
 {
     // Address Label
-    lbAddressName = new QLabel();
-    lbAddressName->setText(tr("Address:"));
-    statusBar()->addPermanentWidget(lbAddressName);
-    lbAddress = new QLabel();
-    lbAddress->setFrameShape(QFrame::Panel);
-    lbAddress->setFrameShadow(QFrame::Sunken);
-    lbAddress->setMinimumWidth(70);
-    statusBar()->addPermanentWidget(lbAddress);
-    connect(hexEdit, SIGNAL(currentAddressChanged(qint64)), this, SLOT(setAddress(qint64)));
+    lb_address_name_ = new QLabel();
+    lb_address_name_->setText(tr("Address:"));
+    statusBar()->addPermanentWidget(lb_address_name_);
+    lb_address_ = new QLabel();
+    lb_address_->setFrameShape(QFrame::Panel);
+    lb_address_->setFrameShadow(QFrame::Sunken);
+    lb_address_->setMinimumWidth(70);
+    statusBar()->addPermanentWidget(lb_address_);
+    connect(hex_edit_, SIGNAL(currentAddressChanged(qint64)), this, SLOT(setAddress(qint64)));
 
     // Size Label
-    lbSizeName = new QLabel();
-    lbSizeName->setText(tr("Size:"));
-    statusBar()->addPermanentWidget(lbSizeName);
-    lbSize = new QLabel();
-    lbSize->setFrameShape(QFrame::Panel);
-    lbSize->setFrameShadow(QFrame::Sunken);
-    lbSize->setMinimumWidth(70);
-    statusBar()->addPermanentWidget(lbSize);
-    connect(hexEdit, SIGNAL(currentSizeChanged(qint64)), this, SLOT(setSize(qint64)));
+    lb_size_name_ = new QLabel();
+    lb_size_name_->setText(tr("Size:"));
+    statusBar()->addPermanentWidget(lb_size_name_);
+    lb_size_ = new QLabel();
+    lb_size_->setFrameShape(QFrame::Panel);
+    lb_size_->setFrameShadow(QFrame::Sunken);
+    lb_size_->setMinimumWidth(70);
+    statusBar()->addPermanentWidget(lb_size_);
+    connect(hex_edit_, SIGNAL(currentSizeChanged(qint64)), this, SLOT(setSize(qint64)));
 
     // Overwrite Mode Label
-    lbOverwriteModeName = new QLabel();
-    lbOverwriteModeName->setText(tr("Mode:"));
-    statusBar()->addPermanentWidget(lbOverwriteModeName);
-    lbOverwriteMode = new QLabel();
-    lbOverwriteMode->setFrameShape(QFrame::Panel);
-    lbOverwriteMode->setFrameShadow(QFrame::Sunken);
-    lbOverwriteMode->setMinimumWidth(70);
-    statusBar()->addPermanentWidget(lbOverwriteMode);
-    setOverwriteMode(hexEdit->overwriteMode());
+    lb_overwrite_mode_name_ = new QLabel();
+    lb_overwrite_mode_name_->setText(tr("Mode:"));
+    statusBar()->addPermanentWidget(lb_overwrite_mode_name_);
+    lb_overwrite_mode_ = new QLabel();
+    lb_overwrite_mode_->setFrameShape(QFrame::Panel);
+    lb_overwrite_mode_->setFrameShadow(QFrame::Sunken);
+    lb_overwrite_mode_->setMinimumWidth(70);
+    statusBar()->addPermanentWidget(lb_overwrite_mode_);
+    setOverwriteMode(hex_edit_->overwriteMode());
 
     statusBar()->showMessage(tr("Ready"), 2000);
 }
 
 void HexEdit::createToolBars()
 {
-    fileToolBar = addToolBar(tr("File"));
-    fileToolBar->addAction(openAct);
-    fileToolBar->addAction(saveAct);
-    editToolBar = addToolBar(tr("Edit"));
-    editToolBar->addAction(undoAct);
-    editToolBar->addAction(redoAct);
-    editToolBar->addAction(findAct);
+    file_tool_bar_ = addToolBar(tr("File"));
+    file_tool_bar_->addAction(open_act_);
+    file_tool_bar_->addAction(save_act_);
+    edit_tool_bar_ = addToolBar(tr("Edit"));
+    edit_tool_bar_->addAction(undo_act_);
+    edit_tool_bar_->addAction(redo_act_);
+    edit_tool_bar_->addAction(find_act_);
 }
 
 void HexEdit::loadFile(const QString& fileName)
 {
-    file.setFileName(fileName);
-    if (!hexEdit->setData(file))
+    file_.setFileName(fileName);
+    if (!hex_edit_->setData(file_))
     {
         QMessageBox::warning(this, tr("QHexEdit"),
-                             tr("Cannot read file %1:\n%2.").arg(fileName).arg(file.errorString()));
+                             tr("Cannot read file %1:\n%2.").arg(fileName).arg(file_.errorString()));
         return;
     }
     setCurrentFile(fileName);
@@ -387,27 +387,27 @@ void HexEdit::readSettings()
     move(pos);
     resize(size);
 
-    hexEdit->setAddressArea(settings.value("AddressArea", true).toBool());
-    hexEdit->setAsciiArea(settings.value("AsciiArea", true).toBool());
-    hexEdit->setBarArea(settings.value("BarArea", true).toBool());
-    hexEdit->setHighlighting(settings.value("Highlighting", true).toBool());
-    hexEdit->setOverwriteMode(settings.value("OverwriteMode", true).toBool());
-    hexEdit->setReadOnly(settings.value("ReadOnly").toBool());
+    hex_edit_->setAddressArea(settings.value("AddressArea", true).toBool());
+    hex_edit_->setAsciiArea(settings.value("AsciiArea", true).toBool());
+    hex_edit_->setBarArea(settings.value("BarArea", true).toBool());
+    hex_edit_->setHighlighting(settings.value("Highlighting", true).toBool());
+    hex_edit_->setOverwriteMode(settings.value("OverwriteMode", true).toBool());
+    hex_edit_->setReadOnly(settings.value("ReadOnly").toBool());
 
-    hexEdit->setHighlightingColor(settings.value("HighlightingColor").value<QColor>());
-    hexEdit->setAddressAreaColor(settings.value("AddressAreaColor").value<QColor>());
-    hexEdit->setSelectionColor(settings.value("SelectionColor").value<QColor>());
-    hexEdit->setMonospaceFont(settings.value("WidgetFont").value<QFont>());
-    hexEdit->setAddressFontColor(settings.value("AddressFontColor").value<QColor>());
-    hexEdit->setAsciiAreaColor(settings.value("AsciiAreaColor").value<QColor>());
-    hexEdit->setAsciiFontColor(settings.value("AsciiFontColor").value<QColor>());
-    hexEdit->setBarAreaColor(settings.value("BarAreaColor").value<QColor>());
-    hexEdit->setBarFontColor(settings.value("BarFontColor").value<QColor>());
-    hexEdit->setHexFontColor(settings.value("HexFontColor").value<QColor>());
+    hex_edit_->setHighlightingColor(settings.value("HighlightingColor").value<QColor>());
+    hex_edit_->setAddressAreaColor(settings.value("AddressAreaColor").value<QColor>());
+    hex_edit_->setSelectionColor(settings.value("SelectionColor").value<QColor>());
+    hex_edit_->setMonospaceFont(settings.value("WidgetFont").value<QFont>());
+    hex_edit_->setAddressFontColor(settings.value("AddressFontColor").value<QColor>());
+    hex_edit_->setAsciiAreaColor(settings.value("AsciiAreaColor").value<QColor>());
+    hex_edit_->setAsciiFontColor(settings.value("AsciiFontColor").value<QColor>());
+    hex_edit_->setBarAreaColor(settings.value("BarAreaColor").value<QColor>());
+    hex_edit_->setBarFontColor(settings.value("BarFontColor").value<QColor>());
+    hex_edit_->setHexFontColor(settings.value("HexFontColor").value<QColor>());
 
-    hexEdit->setAddressWidth(settings.value("AddressAreaWidth", 4).toInt());
-    hexEdit->setBytesPerLine(settings.value("BytesPerLine", 16).toInt());
-    hexEdit->setHexCaps(settings.value("HexCaps", true).toBool());
+    hex_edit_->setAddressWidth(settings.value("AddressAreaWidth", 4).toInt());
+    hex_edit_->setBytesPerLine(settings.value("BytesPerLine", 16).toInt());
+    hex_edit_->setHexCaps(settings.value("HexCaps", true).toBool());
 }
 
 bool HexEdit::saveFile(const QString& fileName)
@@ -416,7 +416,7 @@ bool HexEdit::saveFile(const QString& fileName)
 
     QApplication::setOverrideCursor(Qt::WaitCursor);
     QFile file(tmpFileName);
-    bool ok = hexEdit->write(file);
+    bool ok = hex_edit_->write(file);
     if (QFile::exists(fileName))
     {
         ok = QFile::remove(fileName);
@@ -428,7 +428,7 @@ bool HexEdit::saveFile(const QString& fileName)
         if (ok)
         {
             ok = QFile::remove(tmpFileName);
-            isModified = false;
+            is_modified_ = false;
             setWindowModified(false);
         }
     }
@@ -447,8 +447,8 @@ bool HexEdit::saveFile(const QString& fileName)
 
 void HexEdit::setCurrentFile(const QString& fileName)
 {
-    curFile = QFileInfo(fileName).canonicalFilePath();
-    isUntitled = fileName.isEmpty();
+    cur_file_ = QFileInfo(fileName).canonicalFilePath();
+    is_untitled_ = fileName.isEmpty();
     setWindowModified(false);
     if (fileName.isEmpty())
     {
@@ -456,7 +456,7 @@ void HexEdit::setCurrentFile(const QString& fileName)
     }
     else
     {
-        setWindowFilePath(curFile + " - QHexEdit");
+        setWindowFilePath(cur_file_ + " - QHexEdit");
     }
 }
 

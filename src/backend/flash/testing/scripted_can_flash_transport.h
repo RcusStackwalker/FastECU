@@ -98,11 +98,11 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
     }
     bool scriptConsumed() const
     {
-        return wIdx_ == expected_.size() && reads_.empty() && !blocking_read_pending_;
+        return w_idx_ == expected_.size() && reads_.empty() && !blocking_read_pending_;
     }
     std::size_t writesConsumed() const
     {
-        return wIdx_;
+        return w_idx_;
     }
     // Every timeout read() was called with, in order. Lets a test pin a
     // family's wire timing, which otherwise leaves no trace in the script --
@@ -154,17 +154,17 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
             return fail(ErrorKind::Cancelled, "scripted CAN write cancelled");
         }
         const bytes::Bytes actual(data.begin(), data.end());
-        if (wIdx_ >= expected_.size())
+        if (w_idx_ >= expected_.size())
         {
             return fail(ErrorKind::Internal,
                         std::format("scripted CAN write ran past the end of the script ({} exchanges); wrote {}",
                                     expected_.size(), bytes::toHex(actual)));
         }
-        if (expected_.at(wIdx_) != actual)
+        if (expected_.at(w_idx_) != actual)
         {
-            return fail(ErrorKind::Internal, describeDivergence(wIdx_, actual));
+            return fail(ErrorKind::Internal, describeDivergence(w_idx_, actual));
         }
-        ++wIdx_;
+        ++w_idx_;
         return {};
     }
     Result<std::optional<bytes::Bytes>> read(std::chrono::milliseconds timeout,
@@ -218,7 +218,7 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
     std::vector<std::string> sections_;
     std::string current_section_;
     std::deque<Result<std::optional<bytes::Bytes>>> reads_;
-    std::size_t wIdx_ = 0;
+    std::size_t w_idx_ = 0;
     std::vector<std::chrono::milliseconds> read_timeouts_;
     bool open_ = false;
     std::mutex mutex_;

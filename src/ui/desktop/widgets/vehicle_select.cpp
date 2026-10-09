@@ -14,49 +14,49 @@ using fastecu::ui::protocol_flag;
 using fastecu::ui::qs;
 
 VehicleSelect::VehicleSelect(const fastecu::config::ConfigSession& config, QWidget *parent)
-    : QDialog(parent), config(config), ui{std::make_unique<Ui::VehicleSelect>()}
+    : QDialog(parent), config_(config), ui_{std::make_unique<Ui::VehicleSelect>()}
 {
-    ui->setupUi(this);
+    ui_->setupUi(this);
 
-    ui->select_button->setEnabled(false);
+    ui_->select_button->setEnabled(false);
 
-    ui->car_make_tree_widget->setHeaderLabel("Manufacturer");
-    ui->car_model_tree_widget->setHeaderLabel("Model");
+    ui_->car_make_tree_widget->setHeaderLabel("Manufacturer");
+    ui_->car_model_tree_widget->setHeaderLabel("Model");
     QStringList car_version_tree_widget_headers = {"Version", "Type", "kW",  "HP", "Fuel", "Year",
                                                    "ECU",     "Mode", "CHK", "RD", "WR",   "Protocol"};
-    ui->car_version_tree_widget->setHeaderLabels(car_version_tree_widget_headers);
-    ui->car_version_tree_widget->setColumnWidth(0, 150);
-    ui->car_version_tree_widget->setColumnWidth(1, 75);
-    ui->car_version_tree_widget->setColumnWidth(2, 50);
-    ui->car_version_tree_widget->setColumnWidth(3, 50);
-    ui->car_version_tree_widget->setColumnWidth(4, 50);
-    ui->car_version_tree_widget->setColumnWidth(5, 50);
-    ui->car_version_tree_widget->setColumnWidth(6, 150);
-    ui->car_version_tree_widget->setColumnWidth(7, 50);
-    ui->car_version_tree_widget->setColumnWidth(8, 40);
-    ui->car_version_tree_widget->setColumnWidth(9, 40);
-    ui->car_version_tree_widget->setColumnWidth(10, 40);
-    ui->car_version_tree_widget->setColumnWidth(11, 225);
+    ui_->car_version_tree_widget->setHeaderLabels(car_version_tree_widget_headers);
+    ui_->car_version_tree_widget->setColumnWidth(0, 150);
+    ui_->car_version_tree_widget->setColumnWidth(1, 75);
+    ui_->car_version_tree_widget->setColumnWidth(2, 50);
+    ui_->car_version_tree_widget->setColumnWidth(3, 50);
+    ui_->car_version_tree_widget->setColumnWidth(4, 50);
+    ui_->car_version_tree_widget->setColumnWidth(5, 50);
+    ui_->car_version_tree_widget->setColumnWidth(6, 150);
+    ui_->car_version_tree_widget->setColumnWidth(7, 50);
+    ui_->car_version_tree_widget->setColumnWidth(8, 40);
+    ui_->car_version_tree_widget->setColumnWidth(9, 40);
+    ui_->car_version_tree_widget->setColumnWidth(10, 40);
+    ui_->car_version_tree_widget->setColumnWidth(11, 225);
 
     int width = 0;
-    for (int i = 0; i < ui->car_version_tree_widget->columnCount(); i++)
+    for (int i = 0; i < ui_->car_version_tree_widget->columnCount(); i++)
     {
-        width += ui->car_version_tree_widget->columnWidth(i);
+        width += ui_->car_version_tree_widget->columnWidth(i);
     }
 
     // qDebug() << "Full width =" << width;
-    ui->car_version_tree_widget->setMinimumWidth(width);
+    ui_->car_version_tree_widget->setMinimumWidth(width);
 
     const auto height = static_cast<int>(width / 4.0 * 2.5 + 18);
     this->setFixedHeight(height);
 
-    font = ui->car_make_tree_widget->font();
-    font.setPointSize(header_font_size);
-    font.setBold(header_font_bold);
-    font.setFamily(header_font_family);
-    ui->car_make_tree_widget->setFont(font);
-    ui->car_model_tree_widget->setFont(font);
-    ui->car_version_tree_widget->setFont(font);
+    font_ = ui_->car_make_tree_widget->font();
+    font_.setPointSize(header_font_size_);
+    font_.setBold(header_font_bold_);
+    font_.setFamily(header_font_family_);
+    ui_->car_make_tree_widget->setFont(font_);
+    ui_->car_model_tree_widget->setFont(font_);
+    ui_->car_version_tree_widget->setFont(font_);
 
     const VehicleSpec *selected = config.selected_vehicle();
     const QString selected_make = selected != nullptr ? qs(selected->make) : QString();
@@ -78,36 +78,36 @@ VehicleSelect::VehicleSelect(const fastecu::config::ConfigSession& config, QWidg
     for (int i = 0; i < car_makes_sorted.length(); i++)
     {
         QTreeWidgetItem *item = new QTreeWidgetItem();
-        item->setFont(0, font);
+        item->setFont(0, font_);
         item->setText(0, car_makes_sorted.at(i));
         item->setFirstColumnSpanned(true);
-        ui->car_make_tree_widget->addTopLevelItem(item);
+        ui_->car_make_tree_widget->addTopLevelItem(item);
         if (car_makes_sorted.at(i) == selected_make)
         {
             car_make_changed_saved = true;
-            ui->car_make_tree_widget->setCurrentItem(item);
+            ui_->car_make_tree_widget->setCurrentItem(item);
         }
     }
     if (!car_make_changed_saved)
     {
         qDebug() << "Car make changed to first item, no make selected previously";
-        QTreeWidgetItem *item = ui->car_make_tree_widget->topLevelItem(0);
-        ui->car_make_tree_widget->setCurrentItem(item);
+        QTreeWidgetItem *item = ui_->car_make_tree_widget->topLevelItem(0);
+        ui_->car_make_tree_widget->setCurrentItem(item);
     }
 
-    connect(ui->car_make_tree_widget, &QTreeWidget::itemSelectionChanged, this,
+    connect(ui_->car_make_tree_widget, &QTreeWidget::itemSelectionChanged, this,
             &VehicleSelect::car_make_treewidget_item_selected);
-    connect(ui->car_model_tree_widget, &QTreeWidget::itemSelectionChanged, this,
+    connect(ui_->car_model_tree_widget, &QTreeWidget::itemSelectionChanged, this,
             &VehicleSelect::car_model_treewidget_item_selected);
-    connect(ui->car_version_tree_widget, &QTreeWidget::itemSelectionChanged, this,
+    connect(ui_->car_version_tree_widget, &QTreeWidget::itemSelectionChanged, this,
             &VehicleSelect::car_version_treewidget_item_selected);
-    connect(ui->car_version_tree_widget, &QTreeWidget::itemDoubleClicked, this, &VehicleSelect::car_model_selected);
-    connect(ui->cancel_button, &QPushButton::clicked, this, &QDialog::close);
-    connect(ui->select_button, &QPushButton::clicked, this, &VehicleSelect::car_model_selected);
+    connect(ui_->car_version_tree_widget, &QTreeWidget::itemDoubleClicked, this, &VehicleSelect::car_model_selected);
+    connect(ui_->cancel_button, &QPushButton::clicked, this, &QDialog::close);
+    connect(ui_->select_button, &QPushButton::clicked, this, &VehicleSelect::car_model_selected);
 
-    const QModelIndex make_index = ui->car_make_tree_widget->selectionModel()->currentIndex();
-    ui->car_make_tree_widget->setCurrentIndex(make_index);
-    emit ui->car_make_tree_widget->itemSelectionChanged();
+    const QModelIndex make_index = ui_->car_make_tree_widget->selectionModel()->currentIndex();
+    ui_->car_make_tree_widget->setCurrentIndex(make_index);
+    emit ui_->car_make_tree_widget->itemSelectionChanged();
 
     // this->adjustSize();
     /*
@@ -129,10 +129,10 @@ void VehicleSelect::car_model_selected()
 {
     // Tentative: the caller applies an accepted choice to the session.
     bool parsed = false;
-    const qulonglong row = flash_protocol_id.toULongLong(&parsed);
+    const qulonglong row = flash_protocol_id_.toULongLong(&parsed);
     if (parsed)
     {
-        chosenRow = static_cast<std::size_t>(row);
+        chosen_row_ = static_cast<std::size_t>(row);
     }
     accept();
 
@@ -141,45 +141,45 @@ void VehicleSelect::car_model_selected()
 
 std::optional<std::size_t> VehicleSelect::chosen_row() const
 {
-    return chosenRow;
+    return chosen_row_;
 }
 
 void VehicleSelect::car_make_treewidget_item_selected()
 {
     qDebug() << "Car make selection changed";
-    QTreeWidgetItem *item = ui->car_make_tree_widget->selectedItems().at(0);
+    QTreeWidgetItem *item = ui_->car_make_tree_widget->selectedItems().at(0);
     if (item)
     {
-        QTreeWidgetItem *item_local = ui->car_make_tree_widget->selectedItems().at(0);
+        QTreeWidgetItem *item_local = ui_->car_make_tree_widget->selectedItems().at(0);
         QString selected_text = item_local->text(0);
 
         // qDebug() << "Check models for manufacturer:" << selected_text;
 
         const QString& car_make = selected_text;
-        flash_protocol_id.clear();
-        flash_protocol_make = car_make;
-        flash_protocol_model.clear();
-        flash_protocol_version.clear();
+        flash_protocol_id_.clear();
+        flash_protocol_make_ = car_make;
+        flash_protocol_model_.clear();
+        flash_protocol_version_.clear();
 
         QStringList car_models;
         QStringList car_models_sorted;
         bool car_model_changed_saved = false;
 
         // To delete treewidget items, disconnect itemSelectionChanged() signal first
-        disconnect(ui->car_model_tree_widget, &QTreeWidget::itemSelectionChanged, 0, 0);
+        disconnect(ui_->car_model_tree_widget, &QTreeWidget::itemSelectionChanged, 0, 0);
         qDebug() << "Delete car_model_tree_widget items";
-        int item_count = ui->car_model_tree_widget->topLevelItemCount();
+        int item_count = ui_->car_model_tree_widget->topLevelItemCount();
         for (int i = 0; i < item_count; i++)
         {
-            QTreeWidgetItem *item_local = ui->car_model_tree_widget->topLevelItem(0);
+            QTreeWidgetItem *item_local = ui_->car_model_tree_widget->topLevelItem(0);
             delete item_local;
         }
         // Connect itemSelectionChanged() signal again
-        connect(ui->car_model_tree_widget, &QTreeWidget::itemSelectionChanged, this,
+        connect(ui_->car_model_tree_widget, &QTreeWidget::itemSelectionChanged, this,
                 &VehicleSelect::car_model_treewidget_item_selected);
 
         qDebug() << "Add models data based on selected make";
-        for (const VehicleSpec& vehicle : config.vehicles())
+        for (const VehicleSpec& vehicle : config_.vehicles())
         {
             const QString model = qs(vehicle.model);
             if (!car_models.contains(model) && qs(vehicle.make) == car_make && !model.isEmpty())
@@ -197,19 +197,20 @@ void VehicleSelect::car_make_treewidget_item_selected()
             QTreeWidgetItem *item_local = new QTreeWidgetItem();
             item_local->setText(0, car_models_sorted.at(i));
             item_local->setFirstColumnSpanned(true);
-            ui->car_model_tree_widget->addTopLevelItem(item_local);
-            if (config.selected_vehicle() != nullptr && car_models_sorted.at(i) == qs(config.selected_vehicle()->model))
+            ui_->car_model_tree_widget->addTopLevelItem(item_local);
+            if (config_.selected_vehicle() != nullptr &&
+                car_models_sorted.at(i) == qs(config_.selected_vehicle()->model))
             {
                 qDebug() << "Car model changed to saved model";
                 car_model_changed_saved = true;
-                ui->car_model_tree_widget->setCurrentItem(item_local);
+                ui_->car_model_tree_widget->setCurrentItem(item_local);
             }
         }
         if (!car_model_changed_saved)
         {
             qDebug() << "Car model changed to first item, no model selected previously";
-            QTreeWidgetItem *item_local = ui->car_model_tree_widget->topLevelItem(0);
-            ui->car_model_tree_widget->setCurrentItem(item_local);
+            QTreeWidgetItem *item_local = ui_->car_model_tree_widget->topLevelItem(0);
+            ui_->car_model_tree_widget->setCurrentItem(item_local);
         }
     }
     qDebug() << "Car make selection applied";
@@ -218,10 +219,10 @@ void VehicleSelect::car_make_treewidget_item_selected()
 void VehicleSelect::car_model_treewidget_item_selected()
 {
     qDebug() << "Car model selection changed";
-    QTreeWidgetItem *item = ui->car_model_tree_widget->selectedItems().at(0);
+    QTreeWidgetItem *item = ui_->car_model_tree_widget->selectedItems().at(0);
     if (item)
     {
-        QTreeWidgetItem *item_local = ui->car_model_tree_widget->selectedItems().at(0);
+        QTreeWidgetItem *item_local = ui_->car_model_tree_widget->selectedItems().at(0);
         QString selected_text = item_local->text(0);
 
         // qDebug() << "Check versions for model:" << selected_text;
@@ -231,9 +232,9 @@ void VehicleSelect::car_model_treewidget_item_selected()
         QStringList car_versions_sorted;
         bool car_version_changed_saved = false;
 
-        flash_protocol_id.clear();
-        flash_protocol_model = car_model;
-        flash_protocol_version.clear();
+        flash_protocol_id_.clear();
+        flash_protocol_model_ = car_model;
+        flash_protocol_version_.clear();
 
         QStringList id;
         QStringList version;
@@ -252,24 +253,24 @@ void VehicleSelect::car_model_treewidget_item_selected()
         QStringList description;
 
         // To delete treewidget items, disconnect itemSelectionChanged() signal first
-        disconnect(ui->car_version_tree_widget, &QTreeWidget::itemSelectionChanged, 0, 0);
+        disconnect(ui_->car_version_tree_widget, &QTreeWidget::itemSelectionChanged, 0, 0);
         qDebug() << "Delete car_version_tree_widget items";
-        int item_count = ui->car_version_tree_widget->topLevelItemCount();
+        int item_count = ui_->car_version_tree_widget->topLevelItemCount();
         for (int i = 0; i < item_count; i++)
         {
-            QTreeWidgetItem *item_local = ui->car_version_tree_widget->topLevelItem(0);
+            QTreeWidgetItem *item_local = ui_->car_version_tree_widget->topLevelItem(0);
             delete item_local;
         }
         // Connect itemSelectionChanged() signal again
-        connect(ui->car_version_tree_widget, &QTreeWidget::itemSelectionChanged, this,
+        connect(ui_->car_version_tree_widget, &QTreeWidget::itemSelectionChanged, this,
                 &VehicleSelect::car_version_treewidget_item_selected);
 
         qDebug() << "Add versions data based on selected model";
-        const auto vehicles = config.vehicles();
+        const auto vehicles = config_.vehicles();
         for (std::size_t i = 0; i < vehicles.size(); i++)
         {
             const VehicleSpec& vehicle = vehicles[i];
-            if (qs(vehicle.model) == car_model && qs(vehicle.make) == flash_protocol_make)
+            if (qs(vehicle.model) == car_model && qs(vehicle.make) == flash_protocol_make_)
             {
                 // A row's id is its catalog position.
                 id.append(QString::number(i));
@@ -291,7 +292,7 @@ void VehicleSelect::car_model_treewidget_item_selected()
         }
 
         qDebug() << "Add versions data items to select";
-        const fastecu::Result<std::size_t> saved = config.selected_row();
+        const fastecu::Result<std::size_t> saved = config_.selected_row();
         for (int i = 0; i < version.length(); i++)
         {
             QTreeWidgetItem *item_local = new QTreeWidgetItem();
@@ -344,21 +345,21 @@ void VehicleSelect::car_model_treewidget_item_selected()
             item_local->setText(12, id.at(i));
             item_local->setText(13, description.at(i));
             // topLevelCarVersionTreeItem->setFirstColumnSpanned(true);
-            ui->car_version_tree_widget->addTopLevelItem(item_local);
+            ui_->car_version_tree_widget->addTopLevelItem(item_local);
 
             qDebug() << "Check if car version selected";
             if (saved.has_value() && id.at(i) == QString::number(*saved))
             {
                 qDebug() << "Car version changed to saved model";
                 car_version_changed_saved = true;
-                ui->car_version_tree_widget->setCurrentItem(item_local);
+                ui_->car_version_tree_widget->setCurrentItem(item_local);
             }
         }
         if (!car_version_changed_saved)
         {
             qDebug() << "Car version changed to first item, no version selected previously";
-            QTreeWidgetItem *item_local = ui->car_version_tree_widget->topLevelItem(0);
-            ui->car_version_tree_widget->setCurrentItem(item_local);
+            QTreeWidgetItem *item_local = ui_->car_version_tree_widget->topLevelItem(0);
+            ui_->car_version_tree_widget->setCurrentItem(item_local);
         }
     }
     qDebug() << "Car model selection applied";
@@ -366,22 +367,22 @@ void VehicleSelect::car_model_treewidget_item_selected()
 
 void VehicleSelect::car_version_treewidget_item_selected()
 {
-    QTreeWidgetItem *item = ui->car_version_tree_widget->selectedItems().at(0);
+    QTreeWidgetItem *item = ui_->car_version_tree_widget->selectedItems().at(0);
     if (item)
     {
-        QTreeWidgetItem *item_local = ui->car_version_tree_widget->selectedItems().at(0);
+        QTreeWidgetItem *item_local = ui_->car_version_tree_widget->selectedItems().at(0);
         QString selected_text = item_local->text(0);
 
         // qDebug() << "Selected version for model" << flash_protocol_model << "is" << selected_text;
 
-        ui->select_button->setEnabled(true);
+        ui_->select_button->setEnabled(true);
 
         const QString& car_version = selected_text;
-        flash_protocol_version.clear();
-        flash_protocol_version = car_version;
-        flash_protocol_family = item_local->text(11);
-        flash_protocol_id = item_local->text(12);
-        flash_protocol_description = item_local->text(13);
+        flash_protocol_version_.clear();
+        flash_protocol_version_ = car_version;
+        flash_protocol_family_ = item_local->text(11);
+        flash_protocol_id_ = item_local->text(12);
+        flash_protocol_description_ = item_local->text(13);
 
         // flash_protocol_id = selected_text;//car_version_treewidget_item->text(11);
 

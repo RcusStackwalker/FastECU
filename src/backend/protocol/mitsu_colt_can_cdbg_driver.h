@@ -54,7 +54,7 @@ class CdbgLogDriver
   private:
     cdbg::ICanTransport& t_;
     std::vector<std::vector<CdbgChannel>> frames_;
-    std::vector<std::uint32_t> lastValues_;
+    std::vector<std::uint32_t> last_values_;
     bool streaming_ = false;
 };
 

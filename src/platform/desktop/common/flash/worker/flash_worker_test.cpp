@@ -101,7 +101,7 @@ DensoSh705xEepromInput validInput(FlashFamily family)
 
 // Byte-for-byte transcription of the anonymous-namespace
 // request_kernel_id_frame() in denso_sh705x_eeprom_kline_executor.cpp: NOT
-// SsmProtocol::addHeader-framed, unlike every other exchange in that file.
+// ssm_protocol::addHeader-framed, unlike every other exchange in that file.
 // connect_bootloader()'s very first action (after the bootloader-speed
 // probe delay) is exactly this write, so ScriptedKlineFlashTransport must
 // have it queued via expectWrite() before the ensuing read() can be reached

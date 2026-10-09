@@ -65,7 +65,7 @@ Status connect(BenchContext& context, CommandOutcome& outcome)
 }
 
 // Shared by Read and Dump: chunks [addr, addr+len) at
-// MitsuColtCan::kFlashReadBlockSize, filling outcome.data/note and traffic. A reply
+// mitsu_colt_can::kFlashReadBlockSize, filling outcome.data/note and traffic. A reply
 // shorter than the requested chunk is rejected rather than padded, since a
 // silently truncated read would look like a shorter-than-requested memory
 // region instead of the protocol error it is.

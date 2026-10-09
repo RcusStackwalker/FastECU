@@ -4,12 +4,12 @@
 #include <cstddef>
 
 BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *parent)
-    : QWidget(parent), ui{std::make_unique<Ui::BiuOpsSubaruSwitchesWindow>()}
+    : QWidget(parent), ui_{std::make_unique<Ui::BiuOpsSubaruSwitchesWindow>()}
 {
-    ui->setupUi(this);
+    ui_->setupUi(this);
     // this->setParent(parent);
 
-    this->switch_result = switch_result;
+    this->switch_result_ = switch_result;
 
     QFont custom_font("Courier New", 7);
 
@@ -31,7 +31,7 @@ BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *
         label->setObjectName("Name" + QString::number(i));
         label->setFont(custom_font);
         label->setText(switch_result->at(2 * static_cast<qsizetype>(i)));
-        ui->gridLayout->addWidget(label, row_num, col_num);
+        ui_->gridLayout->addWidget(label, row_num, col_num);
 
         label = new QLabel();
         label->setObjectName("Result" + QString::number(i));
@@ -50,7 +50,7 @@ BiuOpsSubaruSwitches::BiuOpsSubaruSwitches(QStringList *switch_result, QWidget *
         {
             label->setStyleSheet("QLabel { background-color : grey; color : white;}");
         }
-        ui->gridLayout->addWidget(label, row_num, col_num + 1);
+        ui_->gridLayout->addWidget(label, row_num, col_num + 1);
 
         row_num++;
     }
@@ -68,7 +68,7 @@ void BiuOpsSubaruSwitches::update_switch_results(QStringList *switch_result)
     for (int i = 0; i < (switch_result->length() / 2); i++)
     {
 
-        current_label = ui->gridLayoutWidget->findChild<QLabel *>("Result" + QString::number(i));
+        current_label = ui_->gridLayoutWidget->findChild<QLabel *>("Result" + QString::number(i));
 
         if (current_label)
         {

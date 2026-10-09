@@ -37,12 +37,12 @@ class BiuOpsSubaruSwitches : public QWidget
     // QGroupBox *gridGroupBox;
     // QLabel *label;
 
-    QStringList *switch_result;
+    QStringList *switch_result_;
 
   private slots:
 
   signals:
 
   private:
-    std::unique_ptr<Ui::BiuOpsSubaruSwitchesWindow> ui;
+    std::unique_ptr<Ui::BiuOpsSubaruSwitchesWindow> ui_;
 };

@@ -323,9 +323,9 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     bool set_serial_port_parity(std::uint8_t parity_arg) override
     {
         serial_port_parity = parity_arg;
-        if (serial && serial->isOpen())
+        if (serial_ && serial_->isOpen())
         {
-            return serial->setParity(static_cast<QSerialPort::Parity>(parity_arg));
+            return serial_->setParity(static_cast<QSerialPort::Parity>(parity_arg));
         }
         return true;
     }
@@ -589,7 +589,7 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     int set_j2534_iso9141_filters();
     int set_j2534_iso9141_timings();
 
-    unsigned long msgID = 0;
+    unsigned long msg_id_ = 0;
 
     enum RxMsgType
     {
@@ -630,41 +630,41 @@ class SerialPortActionsDirect : public QObject, public SerialBackend
     bool j2534_tx_done();
 
   private:
-    QSerialPort *serial;
+    QSerialPort *serial_;
 
     // Reentrancy guard: >0 while a J2534 read is in-flight (its read paths pump
     // the Qt event loop). close_j2534_serial_port() must not free j2534 while a
     // read holds it on the stack, or the in-flight read uses freed memory.
     int j2534_io_depth_ = 0;
 
-    unsigned int baudrate = 4800;
-    unsigned long devID = 0;
-    unsigned long chanID{};
-    unsigned long flags{};
-    unsigned int parity = kJ2534NoParity;
-    unsigned int timeout = 20;
+    unsigned int baudrate_ = 4800;
+    unsigned long dev_id_ = 0;
+    unsigned long chan_id_{};
+    unsigned long flags_{};
+    unsigned int parity_ = kJ2534NoParity;
+    unsigned int timeout_ = 20;
 
-    bool ssm_init_ok = false;
+    bool ssm_init_ok_ = false;
 
     void close_j2534_serial_port();
     bool get_serial_num(char *serial_arg);
     void dump_msg(PassThruMsg *msg);
     void reportJ2534Error();
 
-    unsigned int protocol = kJ2534Iso9141;
+    unsigned int protocol_ = kJ2534Iso9141;
 
-    bool j2534_init_ok = false;
-    bool J2534_open_ok = false;
-    bool J2534_connect_ok = false;
-    bool J2534_get_version_ok = false;
-    bool J2534_timing_ok = false;
-    bool J2534_filters_ok = false;
+    bool j2534_init_ok_ = false;
+    bool j2534_open_ok_ = false;
+    bool j2534_connect_ok_ = false;
+    bool j2534_get_version_ok_ = false;
+    bool j2534_timing_ok_ = false;
+    bool j2534_filters_ok_ = false;
 
-    bool J2534_is_denso_dsti = false;
+    bool j2534_is_denso_dsti_ = false;
 
     int line_end_check_1_toggled(int state);
     int line_end_check_2_toggled(int state);
-    QMap<QString, QString> installed_drivers;
+    QMap<QString, QString> installed_drivers_;
 
     QByteArray append_ssm_header(QByteArray output);
     QByteArray append_iso9141_header(QByteArray output);

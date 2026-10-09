@@ -38,14 +38,14 @@ class J2534BridgeClient
     long PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const void *pInput, void *pOutput);
 
   private:
-    std::string hostExePath_;
-    std::string vendorDllPath_;
+    std::string host_exe_path_;
+    std::string vendor_dll_path_;
     bool running_ = false;
 
-    HANDLE toChildWrite_ = nullptr;
-    HANDLE fromChildRead_ = nullptr;
-    HANDLE jobObject_ = nullptr;
-    PROCESS_INFORMATION processInfo_{};
+    HANDLE to_child_write_ = nullptr;
+    HANDLE from_child_read_ = nullptr;
+    HANDLE job_object_ = nullptr;
+    PROCESS_INFORMATION process_info_{};
 
     void stop();
 };
