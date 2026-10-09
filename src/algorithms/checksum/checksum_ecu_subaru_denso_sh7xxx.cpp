@@ -2,12 +2,12 @@
 
 #include "denso_checksum_table.h"
 
-ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::ByteView romData,
+ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::ByteView rom_data,
                                                                        uint32_t checksum_area_start,
                                                                        uint32_t checksum_area_length, int32_t offset)
 {
     ChecksumResult result;
-    result.rom_data.assign(romData.begin(), romData.end());
+    result.rom_data.assign(rom_data.begin(), rom_data.end());
     const fastecu::checksum::internal::DensoTableSpec spec{
         .table_offset = checksum_area_start,
         .table_length = checksum_area_length,

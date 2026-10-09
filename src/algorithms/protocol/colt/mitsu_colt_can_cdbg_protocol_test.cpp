@@ -43,10 +43,10 @@ TEST(TestMitsuColtCanCdbgProtocol, security_key_frame_layout)
 TEST(TestMitsuColtCanCdbgProtocol, security_granted_checks_byte_3)
 {
     const CdbgFrame granted{0, 0, 0, 1, 0, 0, 0, 0};
-    const CdbgFrame liveGranted{0xFF, 0, 0, 2, 0xD6, 0x1B, 0x2E, 0xEA};
+    const CdbgFrame live_granted{0xFF, 0, 0, 2, 0xD6, 0x1B, 0x2E, 0xEA};
     const CdbgFrame denied{0, 0, 0, 0, 0, 0, 0, 0};
     ASSERT_TRUE(securityGranted(granted));
-    ASSERT_TRUE(securityGranted(liveGranted));
+    ASSERT_TRUE(securityGranted(live_granted));
     ASSERT_TRUE(!securityGranted(denied));
 }
 TEST(TestMitsuColtCanCdbgProtocol, security_granted_false_for_short_reply)
@@ -114,8 +114,8 @@ TEST(TestMitsuColtCanCdbgProtocol, batching_rejects_more_than_kMaxFrames_frames)
 }
 TEST(TestMitsuColtCanCdbgProtocol, frame_init_frames_layout_for_two_items)
 {
-    std::vector<CdbgChannel> frameItems = {{0x804FBF, 1}, {0x804DF2, 2}};
-    const std::vector<CdbgFrame> cmds = buildFrameInitFrames(0, 0, frameItems);
+    std::vector<CdbgChannel> frame_items = {{0x804FBF, 1}, {0x804DF2, 2}};
+    const std::vector<CdbgFrame> cmds = buildFrameInitFrames(0, 0, frame_items);
     ASSERT_EQ(cmds.size(), std::size_t(4));
     const CdbgFrame select0{0x15, 0, 0, 0, 0, 0, 0, 0};
     const CdbgFrame pointer0{0x16, 0, 1, 0, 0, 0x80, 0x4F, 0xBF};
@@ -128,22 +128,22 @@ TEST(TestMitsuColtCanCdbgProtocol, frame_init_frames_layout_for_two_items)
 }
 TEST(TestMitsuColtCanCdbgProtocol, decode_frame_reads_big_endian_values_at_the_right_offsets)
 {
-    std::vector<CdbgChannel> frameItems = {{0x804FBF, 1}, {0x804DF2, 2}};
+    std::vector<CdbgChannel> frame_items = {{0x804FBF, 1}, {0x804DF2, 2}};
     const CdbgFrame frame{0, 0x2A, 0x12, 0x34, 0, 0, 0, 0};
-    std::vector<std::uint32_t> values = decodeFrame(0, frameItems, frame);
+    std::vector<std::uint32_t> values = decodeFrame(0, frame_items, frame);
     ASSERT_EQ(values.size(), 2U);
     ASSERT_EQ(values.at(0), std::uint32_t(0x2A));
     ASSERT_EQ(values.at(1), std::uint32_t(0x1234));
 }
 TEST(TestMitsuColtCanCdbgProtocol, decode_frame_rejects_mismatched_frame_index)
 {
-    std::vector<CdbgChannel> frameItems = {{0x804FBF, 1}};
+    std::vector<CdbgChannel> frame_items = {{0x804FBF, 1}};
     const CdbgFrame frame{1, 0x2A, 0, 0, 0, 0, 0, 0}; // index byte is 1, not 0
-    ASSERT_TRUE(decodeFrame(0, frameItems, frame).empty());
+    ASSERT_TRUE(decodeFrame(0, frame_items, frame).empty());
 }
 TEST(TestMitsuColtCanCdbgProtocol, decode_frame_rejects_too_short_frame)
 {
-    std::vector<CdbgChannel> frameItems = {{0x804FBF, 4}};
+    std::vector<CdbgChannel> frame_items = {{0x804FBF, 4}};
     const bytes::Bytes frame{0x00, 0x11}; // needs 1+4=5 bytes, only has 2
-    ASSERT_TRUE(decodeFrame(0, frameItems, frame).empty());
+    ASSERT_TRUE(decodeFrame(0, frame_items, frame).empty());
 }

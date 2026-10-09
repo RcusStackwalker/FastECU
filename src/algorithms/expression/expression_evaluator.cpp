@@ -21,9 +21,9 @@ int precedence(const std::string& op)
     return 0;
 }
 
-bool shouldPopBefore(const std::vector<std::string>& operators, const std::string& nextOperator)
+bool shouldPopBefore(const std::vector<std::string>& operators, const std::string& next_operator)
 {
-    return !operators.empty() && operators.back() != "(" && precedence(operators.back()) >= precedence(nextOperator);
+    return !operators.empty() && operators.back() != "(" && precedence(operators.back()) >= precedence(next_operator);
 }
 
 std::string normalizedSingleValue(std::string value)
@@ -64,7 +64,7 @@ std::vector<std::string> expression_parse(std::string_view expression, std::stri
 {
     std::vector<std::string> numbers;
     std::vector<std::string> operators;
-    bool isOperator = true;
+    bool is_operator = true;
 
     size_t i = 0;
     while (i < expression.length())
@@ -80,18 +80,18 @@ std::vector<std::string> expression_parse(std::string_view expression, std::stri
 
         if (ch == 'x')
         {
-            isOperator = false;
+            is_operator = false;
             numbers.emplace_back(x);
         }
-        else if (isOperator && ch == '-' && i + 1 < expression.length() && expression[i + 1] == 'x')
+        else if (is_operator && ch == '-' && i + 1 < expression.length() && expression[i + 1] == 'x')
         {
-            isOperator = false;
+            is_operator = false;
             numbers.push_back(std::format("-{}", x));
             i++;
         }
-        else if (std::isdigit(static_cast<unsigned char>(ch)) || ch == '.' || (isOperator && ch == '-'))
+        else if (std::isdigit(static_cast<unsigned char>(ch)) || ch == '.' || (is_operator && ch == '-'))
         {
-            isOperator = false;
+            is_operator = false;
             number.push_back(ch);
             i++;
             while (i < expression.length() &&
@@ -105,7 +105,7 @@ std::vector<std::string> expression_parse(std::string_view expression, std::stri
         }
         else if (ch == '(')
         {
-            isOperator = true;
+            is_operator = true;
             operators.emplace_back(1, ch);
         }
         else if (ch == ')')
@@ -123,25 +123,25 @@ std::vector<std::string> expression_parse(std::string_view expression, std::stri
         }
         else if (ch == '*' || ch == '/')
         {
-            isOperator = true;
-            const std::string opStr(1, ch);
-            while (shouldPopBefore(operators, opStr))
+            is_operator = true;
+            const std::string op_str(1, ch);
+            while (shouldPopBefore(operators, op_str))
             {
                 numbers.push_back(operators.back());
                 operators.pop_back();
             }
-            operators.push_back(opStr);
+            operators.push_back(op_str);
         }
         else if (ch == '+' || ch == '-')
         {
-            isOperator = true;
-            const std::string opStr(1, ch);
-            while (shouldPopBefore(operators, opStr))
+            is_operator = true;
+            const std::string op_str(1, ch);
+            while (shouldPopBefore(operators, op_str))
             {
                 numbers.push_back(operators.back());
                 operators.pop_back();
             }
-            operators.push_back(opStr);
+            operators.push_back(op_str);
         }
         i++;
     }

@@ -43,8 +43,8 @@ bytes::Bytes calculateSeedKey(bytes::ByteView seed, SeedKeyToGenerateIndex keyto
                               IndexTransformation indextransformation);
 bytes::Bytes calculatePayload(bytes::ByteView buf, std::uint32_t len, KeyToGenerateIndex keytogenerateindex,
                               IndexTransformation indextransformation);
-bytes::Bytes addHeader(bytes::ByteView output, bytes::Byte testerId, bytes::Byte targetId);
-bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte senderId);
-bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte receiverId, bytes::Byte senderId);
+bytes::Bytes addHeader(bytes::ByteView output, bytes::Byte tester_id, bytes::Byte target_id);
+bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiver_id, bytes::Byte sender_id);
+bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte receiver_id, bytes::Byte sender_id);
 
 } // namespace ssm_protocol

@@ -4,7 +4,7 @@
 
 #include <array>
 
-ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(bytes::ByteView romView,
+ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(bytes::ByteView rom_view,
                                                                              uint32_t checksum_area_start,
                                                                              uint32_t checksum_area_length)
 {
@@ -13,7 +13,7 @@ ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(byt
     using fastecu::checksum::internal::DensoWordOverride;
 
     ChecksumResult result;
-    result.rom_data.assign(romView.begin(), romView.end());
+    result.rom_data.assign(rom_view.begin(), rom_view.end());
     std::array<DensoWordOverride, 1> overrides{};
     std::span<const DensoWordOverride> active_overrides;
     if (checksum_area_start == 0x0FFB80)
@@ -70,7 +70,7 @@ ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(byt
         if (secondary_outcome == DensoTableOutcome::kInvalidTableRange ||
             secondary_outcome == DensoTableOutcome::kInvalidBlockRange)
         {
-            result.rom_data.assign(romView.begin(), romView.end());
+            result.rom_data.assign(rom_view.begin(), rom_view.end());
             result.status = ChecksumResult::Status::kInvalidSize;
             result.message = secondary_outcome == DensoTableOutcome::kInvalidTableRange
                                  ? "ROM is too small for the configured checksum area"

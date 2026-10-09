@@ -15,9 +15,9 @@ TEST(DiagnosticsPortable, NrcDecodesKnownNegativeResponse)
 
 TEST(DiagnosticsPortable, NrcRejectsTooShortResponse)
 {
-    const bytes::Bytes tooShort = {0x62, 0x22};
+    const bytes::Bytes too_short = {0x62, 0x22};
 
-    EXPECT_EQ(nrc_description(tooShort, {}), "Not a valid answer");
+    EXPECT_EQ(nrc_description(too_short, {}), "Not a valid answer");
 }
 
 TEST(DiagnosticsPortable, NrcUnknownCodeReturnsUnknownErrorCode)
@@ -36,9 +36,9 @@ TEST(DiagnosticsPortable, DtcDecodesKnownCategoryMap)
 {
     // Keyed by the 14-bit code, matching the real tables in dtc_tables.h --
     // dtc_description masks the category bits off before the lookup.
-    const std::unordered_map<int, std::string> cCodes = {{0x0001, "C0001 - Test chassis code"}};
+    const std::unordered_map<int, std::string> c_codes = {{0x0001, "C0001 - Test chassis code"}};
 
-    EXPECT_EQ(dtc_description(0x4001, {}, cCodes, {}, {}), "C0001 - Test chassis code");
+    EXPECT_EQ(dtc_description(0x4001, {}, c_codes, {}, {}), "C0001 - Test chassis code");
 }
 
 TEST(DiagnosticsPortable, DtcUsesCategoryPrefixForUnknownCodes)

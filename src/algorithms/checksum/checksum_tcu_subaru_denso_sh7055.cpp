@@ -33,13 +33,13 @@ constexpr std::array<ChecksumArea, 12> kChecksumAreas{{
 
 } // namespace
 
-ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::ByteView romView)
+ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::ByteView rom_view)
 {
     // Fixed 512 KiB SH7055 layout; the last checksum area ends at 0x80000.
-    if (romView.size() != 0x80000)
+    if (rom_view.size() != 0x80000)
     {
         return {.status = ChecksumResult::Status::kInvalidSize,
-                .rom_data = bytes::Bytes(romView.begin(), romView.end()),
+                .rom_data = bytes::Bytes(rom_view.begin(), rom_view.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
     /*******************
@@ -48,7 +48,7 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::By
      * every area size (16bit byte count) needs to multiply by 2
      *
      ******************/
-    bytes::Bytes romData(romView.begin(), romView.end());
+    bytes::Bytes rom_data(rom_view.begin(), rom_view.end());
 
     uint16_t checksum = 0;
 
@@ -59,14 +59,14 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::By
 
         for (uint32_t j = area_start; j < area_end; j += 2)
         {
-            checksum += bytes::readU16Be(romData, j);
+            checksum += bytes::readU16Be(rom_data, j);
         }
     }
 
     ChecksumResult result;
     if (checksum != 0x5aa5)
     {
-        fastecu::checksum::internal::rebalanceU16Be(romData, 0x7fff4, checksum, 0x5aa5);
+        fastecu::checksum::internal::rebalanceU16Be(rom_data, 0x7fff4, checksum, 0x5aa5);
 
         result.status = ChecksumResult::Status::kCorrected;
         result.message = "Subaru Denso SH7055 TCU Checksum";
@@ -75,6 +75,6 @@ ChecksumResult ChecksumTcuSubaruDensoSH7055::calculate_checksum_result(bytes::By
     {
         result.status = ChecksumResult::Status::kUnchanged;
     }
-    result.rom_data = romData;
+    result.rom_data = rom_data;
     return result;
 }

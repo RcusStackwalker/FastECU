@@ -72,7 +72,7 @@ CdbgFrame buildLogResetFrame(bytes::Byte instance);
 // intervalMs is encoded directly in milliseconds if it fits in 16 bits
 // (intervalUnit=0), otherwise in tens-of-milliseconds (intervalUnit=1,
 // truncating division) - matches getLogStartCommand.
-CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frameCount, std::uint32_t intervalMs);
+CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frame_count, std::uint32_t interval_ms);
 
 // Packs channels into frames of at most kMaxFrameBytes total size each (byte
 // 0 of every streamed frame is the frame-index marker, so payload starts at
@@ -81,21 +81,21 @@ CdbgFrame buildLogStartFrame(bytes::Byte instance, bytes::Byte frameCount, std::
 // false (outFrames untouched) if channels is empty or does not fit within
 // kMaxFrames frames.
 bool batchChannelsIntoFrames(const std::vector<CdbgChannel>& channels,
-                             std::vector<std::vector<CdbgChannel>>& outFrames);
+                             std::vector<std::vector<CdbgChannel>>& out_frames);
 
 // Builds the {21,...}/{22,...} command pairs (in order: select0, pointer0,
 // select1, pointer1, ...) that configure one frame's items, matching
 // getLogFrameInitCommands. Caller must have already produced frameItems via
 // batchChannelsIntoFrames.
-std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte frameIndex,
-                                            const std::vector<CdbgChannel>& frameItems);
+std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte frame_index,
+                                            const std::vector<CdbgChannel>& frame_items);
 
 // Decodes one streamed reply frame (byte 0 = frame index, bytes [1, N) =
 // concatenated big-endian channel values per frameItems, in order) into one
 // raw unsigned value per channel. Returns an empty vector if frame is
 // shorter than 1 byte, frame[0] doesn't match expectedFrameIndex, or frame
 // is too short to hold every channel in frameItems.
-std::vector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex, const std::vector<CdbgChannel>& frameItems,
+std::vector<std::uint32_t> decodeFrame(bytes::Byte expected_frame_index, const std::vector<CdbgChannel>& frame_items,
                                        bytes::ByteView frame);
 
 } // namespace mitsu_colt_can_cdbg

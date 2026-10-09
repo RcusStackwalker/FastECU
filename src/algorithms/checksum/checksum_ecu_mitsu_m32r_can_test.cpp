@@ -56,30 +56,30 @@ struct EcuCheckerPasses
     std::uint32_t second_pass_crc = 0;   // rom_check_crc2 after pass 2 wraps
 };
 
-EcuCheckerPasses runEcuRomCrcChecker(bytes::ByteView rom, std::size_t areaEnd)
+EcuCheckerPasses runEcuRomCrcChecker(bytes::ByteView rom, std::size_t area_end)
 {
     // flash5013e_u8: when clear, pass 1 skips 0x50000-0x5A000 entirely.
     // Transcribed for fidelity, but inert on this family -- the byte lives in
     // flash and 47110032 ships it as 0x01, so the branch is dead code in the
     // ROMs these protocols reach and the module does not model it.
-    const bool sumEveryPage = rom[kExclusionFlag] != 0;
+    const bool sum_every_page = rom[kExclusionFlag] != 0;
 
     EcuCheckerPasses passes;
-    std::uint32_t romCheckCrc = 0;
+    std::uint32_t rom_check_crc = 0;
 
-    for (std::size_t page = 0; page < areaEnd; page += kPageSize)
+    for (std::size_t page = 0; page < area_end; page += kPageSize)
     {
-        const bool excluded = !sumEveryPage && page >= 0x50000 && page < 0x5A000;
-        const std::uint32_t blockSum = excluded ? 0 : ecuBlockSum(rom, page);
+        const bool excluded = !sum_every_page && page >= 0x50000 && page < 0x5A000;
+        const std::uint32_t block_sum = excluded ? 0 : ecuBlockSum(rom, page);
         if (page >= 0x56000 && page < 0x5F0D0)
         {
-            passes.special_pages_crc += blockSum;
+            passes.special_pages_crc += block_sum;
         }
-        romCheckCrc += blockSum;
+        rom_check_crc += block_sum;
     }
 
     // rom_crc_finalize(): -u16[0x3FFCE], -u32[0x3FFD0 + 4i] for i < 5, +0xFFFF, -5.
-    std::uint32_t finalized = romCheckCrc;
+    std::uint32_t finalized = rom_check_crc;
     finalized -= bytes::readU16Be(rom, kCorrectionWords);
     for (std::size_t index = 0; index < 5; ++index)
     {
@@ -103,16 +103,16 @@ EcuCheckerPasses runEcuRomCrcChecker(bytes::ByteView rom, std::size_t areaEnd)
 // True when the ECU would boot to userspace without raising the ROM-checksum
 // DTC: pass 1 must finalize to 0x5AA55AA5 and pass 2 must agree with what
 // pass 1 latched for the special pages.
-bool ecuAcceptsRom(bytes::ByteView rom, std::size_t areaEnd)
+bool ecuAcceptsRom(bytes::ByteView rom, std::size_t area_end)
 {
-    const EcuCheckerPasses passes = runEcuRomCrcChecker(rom, areaEnd);
+    const EcuCheckerPasses passes = runEcuRomCrcChecker(rom, area_end);
     return passes.finalized == kEcuTargetCrc && passes.second_pass_crc == passes.special_pages_crc;
 }
 
 // A 384 KiB image shaped like a Colt CZT ROM: 0xC2 area code, the six
 // correction words erased, both checker flags set the way 47110032 ships
 // them, and enough varied payload that the block sums are not degenerate.
-bytes::Bytes syntheticColtRom(std::size_t size = 0x60000, std::uint8_t areaCode = 0xC2)
+bytes::Bytes syntheticColtRom(std::size_t size = 0x60000, std::uint8_t area_code = 0xC2)
 {
     bytes::Bytes rom(size, 0x00);
     for (std::size_t offset = 0; offset < rom.size(); ++offset)
@@ -120,7 +120,7 @@ bytes::Bytes syntheticColtRom(std::size_t size = 0x60000, std::uint8_t areaCode 
         rom[offset] = static_cast<bytes::Byte>((offset * 31) & 0xFF);
     }
     bytes::writeU32Be(rom, kBalanceSlot, 0xFFFFFFFF);
-    rom[kAreaCodeOffset] = areaCode;
+    rom[kAreaCodeOffset] = area_code;
     bytes::writeU16Be(rom, kCorrectionWords, 0xFFFF);
     for (std::size_t index = 0; index < 5; ++index)
     {
@@ -133,10 +133,10 @@ bytes::Bytes syntheticColtRom(std::size_t size = 0x60000, std::uint8_t areaCode 
 
 // Balances a fixture through the oracle, so a test that needs an
 // already-correct ROM does not obtain one from the code under test.
-void balanceWithEcuModel(bytes::Bytes& rom, std::size_t areaEnd)
+void balanceWithEcuModel(bytes::Bytes& rom, std::size_t area_end)
 {
     bytes::writeU32Be(rom, kBalanceSlot, 0);
-    const std::uint32_t finalized = runEcuRomCrcChecker(rom, areaEnd).finalized;
+    const std::uint32_t finalized = runEcuRomCrcChecker(rom, area_end).finalized;
     bytes::writeU32Be(rom, kBalanceSlot, kEcuTargetCrc - finalized);
 }
 
@@ -217,8 +217,8 @@ TEST(ChecksumEcuMitsuM32rCanTest, CorrectionRewritesOnlyTheFourBytesOfTheBalance
     ASSERT_EQ(result.rom_data.size(), rom.size());
     for (std::size_t offset = 0; offset < rom.size(); ++offset)
     {
-        const bool inSlot = offset >= kBalanceSlot && offset < kBalanceSlot + 4;
-        if (!inSlot)
+        const bool in_slot = offset >= kBalanceSlot && offset < kBalanceSlot + 4;
+        if (!in_slot)
         {
             ASSERT_EQ(result.rom_data[offset], rom[offset]) << "byte 0x" << std::hex << offset << " moved";
         }

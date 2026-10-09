@@ -52,13 +52,13 @@ StreamFrame parseStreamFrame(bytes::ByteView frame)
     {
         return s;
     }
-    const std::size_t csumIdx = frame.size() - 2;
-    if (frame[csumIdx] != sum8(frame, 0, csumIdx))
+    const std::size_t csum_idx = frame.size() - 2;
+    if (frame[csum_idx] != sum8(frame, 0, csum_idx))
     {
         return s;
     }
     s.log_id = frame[0];
-    s.data.assign(frame.begin() + 1, frame.begin() + static_cast<std::ptrdiff_t>(csumIdx));
+    s.data.assign(frame.begin() + 1, frame.begin() + static_cast<std::ptrdiff_t>(csum_idx));
     s.ok = true;
     return s;
 }

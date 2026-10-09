@@ -2,13 +2,13 @@
 #include "checksum_primitives.h"
 #include "src/algorithms/protocol/bytes.h"
 
-ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(bytes::ByteView romView)
+ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(bytes::ByteView rom_view)
 {
     // Fixed 512 KiB layout: the balance field is at 0x7FFFA.
-    if (romView.size() != 0x80000)
+    if (rom_view.size() != 0x80000)
     {
         return {.status = ChecksumResult::Status::kInvalidSize,
-                .rom_data = bytes::Bytes(romView.begin(), romView.end()),
+                .rom_data = bytes::Bytes(rom_view.begin(), rom_view.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
     /*******************
@@ -19,7 +19,7 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(byte
      * 0x5aa5, balancing address 0x7fffa
      *
      * ****************/
-    bytes::Bytes romData(romView.begin(), romView.end());
+    bytes::Bytes rom_data(rom_view.begin(), rom_view.end());
 
     uint8_t checksum_1_value_stored = 0;
     uint8_t checksum_1_value_calculated = 0;
@@ -38,27 +38,27 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(byte
      * Calculate and fix checksums 1 and 2
      *
      * *************************************/
-    for (int i = 0x0000; i < static_cast<int>(romData.size()); i += 1)
+    for (int i = 0x0000; i < static_cast<int>(rom_data.size()); i += 1)
     {
         if (i < 0x8100 || i > 0x8101)
         {
-            checksum_1_value_calculated += romData[static_cast<std::size_t>(i)];
-            checksum_2_value_calculated ^= romData[static_cast<std::size_t>(i)];
+            checksum_1_value_calculated += rom_data[static_cast<std::size_t>(i)];
+            checksum_2_value_calculated ^= rom_data[static_cast<std::size_t>(i)];
         }
     }
-    checksum_1_value_stored = romData[checksum_1_value_address];
-    checksum_2_value_stored = romData[checksum_2_value_address];
+    checksum_1_value_stored = rom_data[checksum_1_value_address];
+    checksum_2_value_stored = rom_data[checksum_2_value_address];
     if (checksum_1_value_calculated != checksum_1_value_stored)
     {
         checksum_ok = false;
 
-        romData[checksum_1_value_address] = checksum_1_value_calculated;
+        rom_data[checksum_1_value_address] = checksum_1_value_calculated;
     }
     if (checksum_2_value_calculated != checksum_2_value_stored)
     {
         checksum_ok = false;
 
-        romData[checksum_2_value_address] = checksum_2_value_calculated;
+        rom_data[checksum_2_value_address] = checksum_2_value_calculated;
     }
 
     /****************************************
@@ -66,23 +66,23 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(byte
      * Calculate and fix checksum 5
      *
      * *************************************/
-    for (int i = 0x4000; i < static_cast<int>(romData.size()); i += 4)
+    for (int i = 0x4000; i < static_cast<int>(rom_data.size()); i += 4)
     {
         if (i < 0x8100 || i > 0x8103)
         {
-            checksum_3_value_calculated += bytes::readU32Be(romData, static_cast<std::size_t>(i));
+            checksum_3_value_calculated += bytes::readU32Be(rom_data, static_cast<std::size_t>(i));
         }
     }
     if (checksum_3_value_calculated != 0x5aa5)
     {
         checksum_ok = false;
 
-        fastecu::checksum::internal::rebalanceU16Be(romData, checksum_3_balance_value_address,
+        fastecu::checksum::internal::rebalanceU16Be(rom_data, checksum_3_balance_value_address,
                                                     checksum_3_value_calculated, 0x5aa5);
     }
 
     ChecksumResult result;
-    result.rom_data = romData;
+    result.rom_data = rom_data;
     if (!checksum_ok)
     {
         result.status = ChecksumResult::Status::kCorrected;
