@@ -63,7 +63,7 @@ std::size_t ResponseDataLength(const std::vector<Channel>& channels)
 }
 std::vector<std::uint32_t> DecodeStreamValues(const std::vector<Channel>& channels, bytes::ByteView data)
 {
-    if (data.size() != responseDataLength(channels))
+    if (data.size() != ResponseDataLength(channels))
     {
         return {};
     }

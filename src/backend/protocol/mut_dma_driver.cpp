@@ -119,11 +119,11 @@ fastecu::Result<std::vector<std::uint32_t>> MutDmaDriver::PollOnce(std::chrono::
     StreamFrame s = ParseStreamFrame(frame->value());
     if (!s.ok)
     {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA stream framing or checksum invalid");
+        return fastecu::Fail(fastecu::ErrorKind::kBadResponse, "MUT/DMA stream framing or checksum invalid");
     }
-    if (s.data.size() != responseDataLength(channels_))
+    if (s.data.size() != ResponseDataLength(channels_))
     {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse,
+        return fastecu::Fail(fastecu::ErrorKind::kBadResponse,
                              "MUT/DMA stream payload length does not match selected widths");
     }
     return DecodeStreamValues(channels_, s.data);

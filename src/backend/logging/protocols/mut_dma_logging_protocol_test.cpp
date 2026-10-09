@@ -188,14 +188,14 @@ TEST(MutDmaLoggingProtocolTest, StartPropagatesCancellation)
 TEST(MutDmaLoggingProtocol, PollRejectsShortChecksummedPayloadAndAcceptsNextCompleteReply)
 {
     auto transport = std::make_unique<ScriptedKlineTransport>();
-    scriptValidHandshake(*transport);
-    transport->queueRead(bytes::Bytes{0x51, 0x12, 0x63, 0x0d});
-    transport->queueRead(bytes::Bytes{0x51, 0x12, 0x34, 0x97, 0x0d});
-    auto protocol = makeProtocol(std::move(transport));
+    ScriptValidHandshake(*transport);
+    transport->QueueRead(bytes::Bytes{0x51, 0x12, 0x63, 0x0d});
+    transport->QueueRead(bytes::Bytes{0x51, 0x12, 0x34, 0x97, 0x0d});
+    auto protocol = MakeProtocol(std::move(transport));
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_THAT(protocol->start(cancellation), fastecu::testing::IsOk());
-    EXPECT_THAT(protocol->poll(50ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
-    const auto result = protocol->poll(50ms, cancellation);
+    ASSERT_THAT(protocol->Start(cancellation), fastecu::testing::IsOk());
+    EXPECT_THAT(protocol->Poll(50ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
+    const auto result = protocol->Poll(50ms, cancellation);
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->samples.size(), 1U);
     EXPECT_EQ(result->samples.front().raw_value, "4660");
