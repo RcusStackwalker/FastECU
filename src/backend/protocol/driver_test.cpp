@@ -19,7 +19,7 @@ class FailingInit : public mutdma::IMutDmaInit
   public:
     fastecu::Status wake(mutdma::IKlineTransport&) override
     {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse, "sentinel init wake failure");
+        return fastecu::fail(fastecu::ErrorKind::kBadResponse, "sentinel init wake failure");
     }
 };
 
@@ -85,7 +85,7 @@ TEST(TestDriver, handshake_fails_on_wake_failure)
     MutDmaDriver d(t, init);
     fastecu::FakeCancellationToken cancellation;
     ASSERT_THAT(d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation),
-                fastecu::testing::IsErrWith(fastecu::ErrorKind::BadResponse, "sentinel init wake failure"));
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kBadResponse, "sentinel init wake failure"));
     ASSERT_FALSE(d.isStreaming());
 }
 
@@ -93,26 +93,26 @@ TEST(TestDriver, start_propagates_disconnected_set_baud_error_kind_and_detail)
 {
     const std::vector<Channel> channels = {{0x8000, 2}};
     ScriptedKlineTransport transport;
-    transport.queue_set_baud_error(fastecu::ErrorKind::Disconnected, "sentinel set-baud disconnect");
+    transport.queue_set_baud_error(fastecu::ErrorKind::kDisconnected, "sentinel set-baud disconnect");
     AlreadyInMode init(125000);
     MutDmaDriver driver(transport, init);
     fastecu::FakeCancellationToken cancellation;
 
     ASSERT_THAT(driver.startFreeFormLog(channels, 0xA0, 0xA1, cancellation),
-                fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel set-baud disconnect"));
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "sentinel set-baud disconnect"));
 }
 
 TEST(TestDriver, start_propagates_internal_set_baud_error_kind_and_detail)
 {
     const std::vector<Channel> channels = {{0x8000, 2}};
     ScriptedKlineTransport transport;
-    transport.queue_set_baud_error(fastecu::ErrorKind::Internal, "sentinel set-baud internal");
+    transport.queue_set_baud_error(fastecu::ErrorKind::kInternal, "sentinel set-baud internal");
     AlreadyInMode init(125000);
     MutDmaDriver driver(transport, init);
     fastecu::FakeCancellationToken cancellation;
 
     ASSERT_THAT(driver.startFreeFormLog(channels, 0xA0, 0xA1, cancellation),
-                fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel set-baud internal"));
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, "sentinel set-baud internal"));
 }
 
 TEST(TestDriver, start_propagates_queued_write_error_kind_and_detail)
@@ -120,13 +120,13 @@ TEST(TestDriver, start_propagates_queued_write_error_kind_and_detail)
     const std::vector<Channel> channels = {{0x8000, 2}};
     ScriptedKlineTransport transport;
     transport.expectWrite(buildSetupFrame(0xA0, 1));
-    transport.queue_write_error(fastecu::ErrorKind::Disconnected, "sentinel setup write disconnect");
+    transport.queue_write_error(fastecu::ErrorKind::kDisconnected, "sentinel setup write disconnect");
     AlreadyInMode init(125000);
     MutDmaDriver driver(transport, init);
     fastecu::FakeCancellationToken cancellation;
 
     ASSERT_THAT(driver.startFreeFormLog(channels, 0xA0, 0xA1, cancellation),
-                fastecu::testing::IsErrWith(fastecu::ErrorKind::Disconnected, "sentinel setup write disconnect"));
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kDisconnected, "sentinel setup write disconnect"));
 }
 
 TEST(TestDriver, start_propagates_queued_read_error_kind_and_detail)
@@ -134,13 +134,13 @@ TEST(TestDriver, start_propagates_queued_read_error_kind_and_detail)
     const std::vector<Channel> channels = {{0x8000, 2}};
     ScriptedKlineTransport transport;
     transport.expectWrite(buildSetupFrame(0xA0, 1));
-    transport.queue_error(fastecu::ErrorKind::Internal, "sentinel setup read internal");
+    transport.queue_error(fastecu::ErrorKind::kInternal, "sentinel setup read internal");
     AlreadyInMode init(125000);
     MutDmaDriver driver(transport, init);
     fastecu::FakeCancellationToken cancellation;
 
     ASSERT_THAT(driver.startFreeFormLog(channels, 0xA0, 0xA1, cancellation),
-                fastecu::testing::IsErrWith(fastecu::ErrorKind::Internal, "sentinel setup read internal"));
+                fastecu::testing::IsErrWith(fastecu::ErrorKind::kInternal, "sentinel setup read internal"));
 }
 
 TEST(TestDriver, handshake_fails_on_bad_ack)
@@ -154,7 +154,7 @@ TEST(TestDriver, handshake_fails_on_bad_ack)
     MutDmaDriver d(t, init);
     fastecu::FakeCancellationToken cancellation;
     ASSERT_THAT(d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation),
-                fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
     ASSERT_FALSE(d.isStreaming());
 }
 
@@ -184,7 +184,7 @@ TEST(TestDriver, write_memory_fails_on_bad_echo)
     t.queueRead(badEcho);
     MutDmaDriver d(t, init);
     fastecu::FakeCancellationToken cancellation;
-    ASSERT_THAT(d.writeMemory(0x8010, data, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
+    ASSERT_THAT(d.writeMemory(0x8010, data, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::kBadResponse));
 }
 
 TEST(TestDriver, write_memory_rejects_overflow)
@@ -196,7 +196,7 @@ TEST(TestDriver, write_memory_rejects_overflow)
     fastecu::FakeCancellationToken cancellation;
     const auto result = d.writeMemory(0xFFF0, data, cancellation);
     ASSERT_THAT(result, ::testing::Not(fastecu::testing::IsOk())); // 0xFFF0 + 32 > 0x10000
-    EXPECT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    EXPECT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(TestDriver, handshake_propagates_cancellation_from_bounded_read)
@@ -210,5 +210,5 @@ TEST(TestDriver, handshake_propagates_cancellation_from_bounded_read)
     fastecu::FakeCancellationToken cancellation(true);
 
     ASSERT_THAT(d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation),
-                fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
 }

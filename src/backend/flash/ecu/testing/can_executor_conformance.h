@@ -88,16 +88,16 @@ TYPED_TEST_P(CanExecutorConformance, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
     typename TypeParam::Executor executor;
 
     FlashPlanFields fields;
-    fields.operation = FlashOperation::Read;
-    fields.family = FlashFamily::DensoSh705xEepromCan;
-    fields.transport = TransportKind::CanIso15765;
+    fields.operation = FlashOperation::kRead;
+    fields.family = FlashFamily::kDensoSh705xEepromCan;
+    fields.transport = TransportKind::kCanIso15765;
     fields.target_id = "sub_ecu_denso_sh705x_eeprom_can";
     fields.mcu_name = "SH7058";
     fields.transfer_region = MemoryRegion{.start = 0x0, .length = 0x100};
     fields.kernel = KernelImage{.id = "k", .load_address = 0xffff6004, .bytes = {0x01, 0x02}};
     fields.family_plan = DensoSh705xEepromCanPlan{
-        .mode = EepromReadMode::Mode2,
-        .security = DensoSecurityVariant::Stock,
+        .mode = EepromReadMode::kMode2,
+        .security = DensoSecurityVariant::kStock,
         .request_id = 0x7e0,
         .response_id = 0x7e8,
         .bitrate = 500000,
@@ -108,7 +108,7 @@ TYPED_TEST_P(CanExecutorConformance, RejectsAPlanFromAnotherFamilyBeforeAnyIo)
 
     const auto result = executor.execute(*foreign, transport, clock, cancellation, events);
 
-    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::InvalidConfig,
+    ASSERT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::kInvalidConfig,
                                                     ::testing::HasSubstr("does not match this executor")));
     EXPECT_THAT(events.logs, ::testing::IsEmpty());
     EXPECT_EQ(transport.writesConsumed(), 0U);
@@ -123,12 +123,12 @@ TYPED_TEST_P(CanExecutorConformance, RefusesATestWritePlanRatherThanWritingForRe
     ManualCancellationToken cancellation;
     typename TypeParam::Executor executor;
 
-    const auto plan = TypeParam::handBuiltPlan(FlashOperation::TestWrite);
+    const auto plan = TypeParam::handBuiltPlan(FlashOperation::kTestWrite);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kUnsupported));
     EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_FALSE(transport.last_config.has_value());
     EXPECT_THAT(events.logs, ::testing::IsEmpty());
@@ -143,7 +143,7 @@ TYPED_TEST_P(CanExecutorConformance, ReadPropagatesADisconnectedTransport)
 {
     ScriptedCanFlashTransport transport;
     TypeParam::scriptUpToFirstFatalRead(transport);
-    transport.queue_error(ErrorKind::Disconnected, "adapter gone");
+    transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
 
     FakeClock clock;
     RecordingEventSink events;
@@ -155,7 +155,7 @@ TYPED_TEST_P(CanExecutorConformance, ReadPropagatesADisconnectedTransport)
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Disconnected));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kDisconnected));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -178,7 +178,7 @@ TYPED_TEST_P(CanExecutorConformance, ReadStopsAtTheNextChunkWhenCancelledMidRead
 
     const auto result = executor.execute(*plan, transport, clock, cancellation, events);
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_TRUE(transport.scriptConsumed());
     const RecordedPhaseProgress *last = nullptr;
     for (const auto& event : events.phase_progress_calls)
@@ -239,7 +239,7 @@ TYPED_TEST_P(CanExecutorConformance, ReadReportsAnEmptyReplyAsTimeout)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     EXPECT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Timeout));
+                fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -247,7 +247,7 @@ TYPED_TEST_P(CanExecutorConformance, ReadTimeoutPropagates)
 {
     ScriptedCanFlashTransport transport;
     TypeParam::scriptUpToFirstFatalRead(transport);
-    transport.queue_error(ErrorKind::Timeout, "no reply");
+    transport.queue_error(ErrorKind::kTimeout, "no reply");
 
     FakeClock clock;
     RecordingEventSink events;
@@ -258,7 +258,7 @@ TYPED_TEST_P(CanExecutorConformance, ReadTimeoutPropagates)
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
     EXPECT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Timeout));
+                fastecu::testing::IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 

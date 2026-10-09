@@ -23,7 +23,7 @@ LoggingChannel channel(std::string id, std::uint32_t address)
         .id = std::move(id),
         .address = address,
         .length = 2,
-        .raw_assembly = RawAssembly::UnsignedIntegerDecimal,
+        .raw_assembly = RawAssembly::kUnsignedIntegerDecimal,
         .from_byte_expression = "x",
         .unit = "",
         .decimal_precision = 15,
@@ -42,7 +42,7 @@ LoggingPolicy valid_policy()
 
 LoggingSession make_session_with_channel(LoggingChannel channel)
 {
-    auto session = make_logging_session(LoggingProtocolId::Ssm, {std::move(channel)}, valid_policy());
+    auto session = make_logging_session(LoggingProtocolId::kSsm, {std::move(channel)}, valid_policy());
     EXPECT_THAT(session, fastecu::testing::IsOk());
     return std::move(*session);
 }
@@ -57,7 +57,7 @@ LoggingSession make_valid_session()
 TEST(LoggingConversionTest, PreservesSsmDecimalByteRawInput)
 {
     LoggingChannel c = channel("rpm", 0x10);
-    c.raw_assembly = RawAssembly::DecimalBytesConcatenated;
+    c.raw_assembly = RawAssembly::kDecimalBytesConcatenated;
     c.from_byte_expression = "x/4";
     c.unit = "rpm";
     auto session = make_session_with_channel(c);
@@ -72,7 +72,7 @@ TEST(LoggingConversionTest, RejectsUnknownOrMismatchedChannel)
 {
     auto session = make_valid_session();
     ASSERT_THAT(convert_sample(session, ProtocolSample{"missing", "12"}),
-                fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
 }
 
 TEST(LoggingConversionTest, PreservesProtocolRawValueWithoutReassembly)
@@ -91,7 +91,7 @@ TEST(LoggingConversionTest, RejectsNonFiniteConvertedValues)
     auto session = make_session_with_channel(c);
 
     ASSERT_THAT(convert_sample(session, ProtocolSample{"rpm", "1"}),
-                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(LoggingConversionTest, UsesHistoricalFifteenDigitIntermediatePrecision)

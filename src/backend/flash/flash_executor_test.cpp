@@ -49,9 +49,9 @@ TEST(TransportConfigProjectionTest, CopiesNonIso14230KlineWireFields)
 FlashPlanFields kline_read_fields()
 {
     return FlashPlanFields{
-        .operation = FlashOperation::Read,
-        .family = FlashFamily::DensoSh705xEepromKline,
-        .transport = TransportKind::Kline,
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kDensoSh705xEepromKline,
+        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
         .mcu_name = "SH7055",
         .transfer_region = MemoryRegion{.start = 0xf000, .length = 0x1000},
@@ -60,8 +60,8 @@ FlashPlanFields kline_read_fields()
         .kernel = KernelImage{.id = "k", .load_address = 0xffff2000, .bytes = {0x01}},
         .family_plan =
             DensoSh705xEepromKlinePlan{
-                .mode = EepromReadMode::Mode2,
-                .security = DensoSecurityVariant::Stock,
+                .mode = EepromReadMode::kMode2,
+                .security = DensoSecurityVariant::kStock,
                 .tester_id = 0xf0,
                 .target_id = 0x10,
                 .initial_baud = 4800,
@@ -69,8 +69,8 @@ FlashPlanFields kline_read_fields()
             },
         .confirmations =
             {
-                ConfirmationSpec{.id = ConfirmationSpec::Id::BeginEepromRead},
-                ConfirmationSpec{.id = ConfirmationSpec::Id::InspectEepromBytes},
+                ConfirmationSpec{.id = ConfirmationSpec::Id::kBeginEepromRead},
+                ConfirmationSpec{.id = ConfirmationSpec::Id::kInspectEepromBytes},
             },
     };
 }
@@ -80,7 +80,7 @@ TEST(CheckFamilyTest, MatchingFamilyPasses)
     auto plan = validate_and_build(kline_read_fields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    EXPECT_THAT(check_family(*plan, FlashFamily::DensoSh705xEepromKline), fastecu::testing::IsOk());
+    EXPECT_THAT(check_family(*plan, FlashFamily::kDensoSh705xEepromKline), fastecu::testing::IsOk());
 }
 
 TEST(CheckFamilyTest, WrongFamilyFailsWithInvalidConfig)
@@ -88,7 +88,8 @@ TEST(CheckFamilyTest, WrongFamilyFailsWithInvalidConfig)
     auto plan = validate_and_build(kline_read_fields());
     ASSERT_THAT(plan, fastecu::testing::IsOk());
 
-    ASSERT_THAT(check_family(*plan, FlashFamily::MitsuColtM32rCan), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(check_family(*plan, FlashFamily::kMitsuColtM32rCan),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 } // namespace

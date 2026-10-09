@@ -12,9 +12,9 @@ namespace
 FlashPlanFields read_fields()
 {
     return FlashPlanFields{
-        .operation = FlashOperation::Read,
-        .family = FlashFamily::SubaruHitachiSh7058,
-        .transport = TransportKind::Kline,
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kSubaruHitachiSh7058,
+        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_hitachi_sh7058_can",
         .mcu_name = "SH7058_1block",
         .transfer_region = {0x100000, 0x100000},
@@ -22,16 +22,16 @@ FlashPlanFields read_fields()
         .image = std::nullopt,
         .kernel = std::nullopt,
         .family_plan = SubaruHitachiSh7058KlinePlan{},
-        .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::StartKlineRead}},
+        .confirmations = {ConfirmationSpec{.id = ConfirmationSpec::Id::kStartKlineRead}},
     };
 }
 
 FlashPlanFields write_fields()
 {
     return FlashPlanFields{
-        .operation = FlashOperation::Write,
-        .family = FlashFamily::SubaruHitachiSh7058,
-        .transport = TransportKind::CanIso15765,
+        .operation = FlashOperation::kWrite,
+        .family = FlashFamily::kSubaruHitachiSh7058,
+        .transport = TransportKind::kCanIso15765,
         .target_id = "sub_ecu_hitachi_sh7058_can",
         .mcu_name = "SH7058_1block",
         .transfer_region = {0, 0x100000},
@@ -46,32 +46,32 @@ FlashPlanFields write_fields()
 
 TEST(SubaruHitachiSh7058Plan, ReadAndWriteHaveDistinctTransportAndExactGeometry)
 {
-    auto read = build_subaru_hitachi_sh7058_plan(FlashOperation::Read, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+    auto read = build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                                  std::nullopt);
     ASSERT_TRUE(read.has_value());
-    EXPECT_EQ(read->transport(), TransportKind::Kline);
+    EXPECT_EQ(read->transport(), TransportKind::kKline);
     EXPECT_EQ(read->transfer_region().start, 0x100000U);
     EXPECT_EQ(read->transfer_region().length, 0x100000U);
-    auto write = build_subaru_hitachi_sh7058_plan(FlashOperation::Write, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+    auto write = build_subaru_hitachi_sh7058_plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                                   bytes::Bytes(0x100000));
     ASSERT_TRUE(write.has_value());
-    EXPECT_EQ(write->transport(), TransportKind::CanIso15765);
+    EXPECT_EQ(write->transport(), TransportKind::kCanIso15765);
     EXPECT_EQ(write->transfer_region().start, 0U);
     EXPECT_EQ(write->transfer_region().length, 0x100000U);
 }
 
 TEST(SubaruHitachiSh7058Plan, RejectsUnsafeOperationsAndNearMisses)
 {
-    EXPECT_FALSE(build_subaru_hitachi_sh7058_plan(FlashOperation::TestWrite, "sub_ecu_hitachi_sh7058_can",
+    EXPECT_FALSE(build_subaru_hitachi_sh7058_plan(FlashOperation::kTestWrite, "sub_ecu_hitachi_sh7058_can",
                                                   "SH7058_1block", std::nullopt)
                      .has_value());
-    EXPECT_FALSE(build_subaru_hitachi_sh7058_plan(FlashOperation::Read, "sub_ecu_hitachi_sh7058_can_extra",
+    EXPECT_FALSE(build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can_extra",
                                                   "SH7058_1block", std::nullopt)
                      .has_value());
     EXPECT_FALSE(
-        build_subaru_hitachi_sh7058_plan(FlashOperation::Read, "sub_ecu_hitachi_sh7058_can", "SH7058", std::nullopt)
+        build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058", std::nullopt)
             .has_value());
-    EXPECT_FALSE(build_subaru_hitachi_sh7058_plan(FlashOperation::Write, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+    EXPECT_FALSE(build_subaru_hitachi_sh7058_plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                                   bytes::Bytes(0xFFFFF))
                      .has_value());
 }
@@ -83,20 +83,20 @@ TEST(SubaruHitachiSh7058Plan, RejectsForgedTransportAndWireParameters)
     auto forged = validate_and_build(fields);
     ASSERT_TRUE(forged.has_value());
     EXPECT_FALSE(validate_subaru_hitachi_sh7058_plan(*forged).has_value());
-    fields.transport = TransportKind::CanIso15765;
+    fields.transport = TransportKind::kCanIso15765;
     EXPECT_FALSE(validate_and_build(fields).has_value());
 }
 
 TEST(SubaruHitachiSh7058Plan, ReadCarriesTheStartKlineReadConsentAndWriteNone)
 {
-    auto read = build_subaru_hitachi_sh7058_plan(FlashOperation::Read, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+    auto read = build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                                  std::nullopt);
     ASSERT_TRUE(read.has_value());
     ASSERT_EQ(read->confirmations().size(), 1U);
-    EXPECT_EQ(read->confirmations().front().id, ConfirmationSpec::Id::StartKlineRead);
+    EXPECT_EQ(read->confirmations().front().id, ConfirmationSpec::Id::kStartKlineRead);
     EXPECT_TRUE(read->confirmations().front().arguments.empty());
 
-    auto write = build_subaru_hitachi_sh7058_plan(FlashOperation::Write, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+    auto write = build_subaru_hitachi_sh7058_plan(FlashOperation::kWrite, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                                   bytes::Bytes(0x100000));
     ASSERT_TRUE(write.has_value());
     EXPECT_TRUE(write->confirmations().empty());
@@ -114,7 +114,7 @@ TEST(SubaruHitachiSh7058Plan, ValidatorAcceptsTheBuilderShapes)
 
 TEST(SubaruHitachiSh7058Plan, ValidatorRequiresExactlyTheReadConsent)
 {
-    const ConfirmationSpec start_read{.id = ConfirmationSpec::Id::StartKlineRead};
+    const ConfirmationSpec start_read{.id = ConfirmationSpec::Id::kStartKlineRead};
     struct Case
     {
         const char *name;
@@ -122,19 +122,21 @@ TEST(SubaruHitachiSh7058Plan, ValidatorRequiresExactlyTheReadConsent)
         std::vector<ConfirmationSpec> confirmations;
     };
     const std::vector<Case> cases{
-        {"read without consent", FlashOperation::Read, {}},
-        {"read with another id", FlashOperation::Read, {ConfirmationSpec{.id = ConfirmationSpec::Id::KernelBootstrap}}},
+        {"read without consent", FlashOperation::kRead, {}},
+        {"read with another id",
+         FlashOperation::kRead,
+         {ConfirmationSpec{.id = ConfirmationSpec::Id::kKernelBootstrap}}},
         {"read consent with arguments",
-         FlashOperation::Read,
-         {ConfirmationSpec{.id = ConfirmationSpec::Id::StartKlineRead, .arguments = {{"unexpected", "argument"}}}}},
+         FlashOperation::kRead,
+         {ConfirmationSpec{.id = ConfirmationSpec::Id::kStartKlineRead, .arguments = {{"unexpected", "argument"}}}}},
         {"read with an extra consent",
-         FlashOperation::Read,
-         {start_read, ConfirmationSpec{.id = ConfirmationSpec::Id::CycleIgnition}}},
-        {"write with the read consent", FlashOperation::Write, {start_read}},
+         FlashOperation::kRead,
+         {start_read, ConfirmationSpec{.id = ConfirmationSpec::Id::kCycleIgnition}}},
+        {"write with the read consent", FlashOperation::kWrite, {start_read}},
     };
     for (const Case& test : cases)
     {
-        auto fields = test.operation == FlashOperation::Read ? read_fields() : write_fields();
+        auto fields = test.operation == FlashOperation::kRead ? read_fields() : write_fields();
         fields.confirmations = test.confirmations;
         auto plan = validate_and_build(std::move(fields));
         ASSERT_TRUE(plan.has_value()) << test.name;

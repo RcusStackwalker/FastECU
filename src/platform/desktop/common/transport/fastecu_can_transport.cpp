@@ -14,7 +14,7 @@ fastecu::Result<std::size_t> FastEcuCanTransport::write(std::uint32_t canId, byt
     {
         if (!serial_ || !serial_->is_serial_port_open())
         {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, "CAN adapter disconnected before write");
+            return fastecu::fail(fastecu::ErrorKind::kDisconnected, "CAN adapter disconnected before write");
         }
         bytes::Bytes frame;
         frame.reserve(payload.size() + 4);
@@ -23,17 +23,17 @@ fastecu::Result<std::size_t> FastEcuCanTransport::write(std::uint32_t canId, byt
         serial_->write_serial_data_echo_check(bytes::toQByteArray(frame));
         if (!serial_->is_serial_port_open())
         {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, "CAN adapter disconnected during write");
+            return fastecu::fail(fastecu::ErrorKind::kDisconnected, "CAN adapter disconnected during write");
         }
         return payload.size();
     }
     catch (const std::exception& error)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, error.what());
+        return fastecu::fail(fastecu::ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "CAN driver write exception");
+        return fastecu::fail(fastecu::ErrorKind::kInternal, "CAN driver write exception");
     }
 }
 
@@ -42,24 +42,24 @@ fastecu::Result<std::optional<CanFrame>> FastEcuCanTransport::read(std::chrono::
 {
     if (cancellation.cancelled())
     {
-        return fastecu::fail(fastecu::ErrorKind::Cancelled, "CAN read cancelled before driver call");
+        return fastecu::fail(fastecu::ErrorKind::kCancelled, "CAN read cancelled before driver call");
     }
 
     try
     {
         if (!serial_ || !serial_->is_serial_port_open())
         {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, "CAN adapter disconnected before read");
+            return fastecu::fail(fastecu::ErrorKind::kDisconnected, "CAN adapter disconnected before read");
         }
         const bytes::Bytes raw =
             bytes::fromQByteArray(serial_->read_serial_data(fastecu::saturating_ms<quint16>(timeout)));
         if (cancellation.cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "CAN read cancelled");
+            return fastecu::fail(fastecu::ErrorKind::kCancelled, "CAN read cancelled");
         }
         if (!serial_->is_serial_port_open())
         {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, "CAN adapter disconnected during read");
+            return fastecu::fail(fastecu::ErrorKind::kDisconnected, "CAN adapter disconnected during read");
         }
         if (raw.empty())
         {
@@ -67,7 +67,7 @@ fastecu::Result<std::optional<CanFrame>> FastEcuCanTransport::read(std::chrono::
         }
         if (raw.size() < 4)
         {
-            return fastecu::fail(fastecu::ErrorKind::Internal, "CAN driver returned a truncated frame");
+            return fastecu::fail(fastecu::ErrorKind::kInternal, "CAN driver returned a truncated frame");
         }
         return std::optional<CanFrame>{CanFrame{bytes::readU32Be(raw, 0), bytes::Bytes(raw.begin() + 4, raw.end())}};
     }
@@ -75,17 +75,17 @@ fastecu::Result<std::optional<CanFrame>> FastEcuCanTransport::read(std::chrono::
     {
         if (cancellation.cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "CAN read cancelled");
+            return fastecu::fail(fastecu::ErrorKind::kCancelled, "CAN read cancelled");
         }
-        return fastecu::fail(fastecu::ErrorKind::Internal, error.what());
+        return fastecu::fail(fastecu::ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
         if (cancellation.cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "CAN read cancelled");
+            return fastecu::fail(fastecu::ErrorKind::kCancelled, "CAN read cancelled");
         }
-        return fastecu::fail(fastecu::ErrorKind::Internal, "CAN driver read exception");
+        return fastecu::fail(fastecu::ErrorKind::kInternal, "CAN driver read exception");
     }
 }
 

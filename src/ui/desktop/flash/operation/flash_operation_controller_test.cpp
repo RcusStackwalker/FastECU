@@ -77,7 +77,7 @@ TEST(FlashOperationControllerTest, unknownProtocolIsUnsupportedAndWarnsWithoutSe
     BoxDriver driver;
 
     const FlashOperationOutcome outcome = controller.run({
-        .operation = FlashOperation::Read,
+        .operation = FlashOperation::kRead,
         .protocol = config::ProtocolSpec{.name = "sub_ecu_not_a_real_protocol", .mcu = "SH7058"},
         .kernel_path = "/k/kernel.bin",
         .image = std::nullopt,
@@ -85,7 +85,7 @@ TEST(FlashOperationControllerTest, unknownProtocolIsUnsupportedAndWarnsWithoutSe
         .display_filename = "",
     });
 
-    ASSERT_EQ(outcome.status, FlashOperationStatus::Unsupported);
+    ASSERT_EQ(outcome.status, FlashOperationStatus::kUnsupported);
     ASSERT_TRUE(!outcome.read_bytes.has_value());
     ASSERT_EQ(driver.texts,
               QStringList{"Unknown flashmethod! Flashmethod \"sub_ecu_not_a_real_protocol\" not yet implemented!"});
@@ -102,7 +102,7 @@ TEST(FlashOperationControllerTest, cancelledDensoTcuChooserIsHandledWithoutSeria
     BoxDriver driver;
 
     const FlashOperationOutcome outcome = controller.run({
-        .operation = FlashOperation::Read,
+        .operation = FlashOperation::kRead,
         .protocol = config::ProtocolSpec{.name = "sub_tcu_denso_sh7058_can", .mcu = "SH7058"},
         .kernel_path = "/k/tcu_kernel.bin",
         .image = std::nullopt,
@@ -110,7 +110,7 @@ TEST(FlashOperationControllerTest, cancelledDensoTcuChooserIsHandledWithoutSeria
         .display_filename = "",
     });
 
-    ASSERT_EQ(outcome.status, FlashOperationStatus::ServiceActionHandled);
+    ASSERT_EQ(outcome.status, FlashOperationStatus::kServiceActionHandled);
     ASSERT_EQ(driver.texts, QStringList{"Choose which option"});
 }
 

@@ -160,7 +160,7 @@ class ScriptedSession final : public ServiceFunctionSession
     {
         if (setup_fails_)
         {
-            return fastecu::fail(ErrorKind::Unsupported, "scripted setup failure");
+            return fastecu::fail(ErrorKind::kUnsupported, "scripted setup failure");
         }
         return SsmTransportConfig{};
     }
@@ -171,11 +171,11 @@ class ScriptedSession final : public ServiceFunctionSession
         ++resume_calls;
         if (cancellation.cancelled())
         {
-            return FailedStep{fastecu::Error{ErrorKind::Cancelled, "cancelled"}};
+            return FailedStep{fastecu::Error{ErrorKind::kCancelled, "cancelled"}};
         }
         if (next_ >= steps_.size())
         {
-            return FailedStep{fastecu::Error{ErrorKind::Internal, "script exhausted"}};
+            return FailedStep{fastecu::Error{ErrorKind::kInternal, "script exhausted"}};
         }
         return steps_[next_++];
     }
@@ -263,13 +263,13 @@ TEST_F(ServiceFunctionWorkerTest, neverTouchesTheSerialFacadeWhenSetupFails)
     ASSERT_EQ(done.count(), 1U);
     const auto result = std::get<0>(done.snapshot().at(0));
     ASSERT_TRUE(!result.success);
-    ASSERT_EQ(result.error_kind, ErrorKind::Unsupported);
+    ASSERT_EQ(result.error_kind, ErrorKind::kUnsupported);
 }
 
 TEST_F(ServiceFunctionWorkerTest, blocksOnAGateUntilItIsAnswered)
 {
     Harness harness;
-    harness.build({GateStep{OperatorGateId::RelearnEngineRunning}, CompletedStep{SetParametersOutcome{}}});
+    harness.build({GateStep{OperatorGateId::kRelearnEngineRunning}, CompletedStep{SetParametersOutcome{}}});
     GateObserver gate_observer(harness.worker.get());
     fastecu::testing::SignalRecorder gates(harness.worker.get(), &ServiceFunctionWorker::gateRequested);
     fastecu::testing::SignalRecorder done(harness.worker.get(), &ServiceFunctionWorker::finished);
@@ -277,35 +277,35 @@ TEST_F(ServiceFunctionWorkerTest, blocksOnAGateUntilItIsAnswered)
     harness.worker->start();
     ASSERT_TRUE(gate_observer.waitForCount(1));
 
-    harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnEngineRunning), true);
+    harness.worker->answerGate(static_cast<int>(OperatorGateId::kRelearnEngineRunning), true);
     ASSERT_TRUE(harness.worker->wait(5000));
 
     ASSERT_EQ(gates.count(), 1U);
-    ASSERT_EQ(std::get<0>(gates.snapshot().at(0)), static_cast<int>(OperatorGateId::RelearnEngineRunning));
-    ASSERT_EQ(harness.session->submitted, std::vector<GateResponse>{GateResponse::Accept});
+    ASSERT_EQ(std::get<0>(gates.snapshot().at(0)), static_cast<int>(OperatorGateId::kRelearnEngineRunning));
+    ASSERT_EQ(harness.session->submitted, std::vector<GateResponse>{GateResponse::kAccept});
     ASSERT_EQ(done.count(), 1U);
 }
 
 TEST_F(ServiceFunctionWorkerTest, aDeclinedGateReachesTheSessionAsDecline)
 {
     Harness harness;
-    harness.build({GateStep{OperatorGateId::RelearnStaticSetup},
-                   FailedStep{fastecu::Error{ErrorKind::Cancelled, "operator declined a relearn gate"}}});
+    harness.build({GateStep{OperatorGateId::kRelearnStaticSetup},
+                   FailedStep{fastecu::Error{ErrorKind::kCancelled, "operator declined a relearn gate"}}});
     GateObserver gate_observer(harness.worker.get());
     fastecu::testing::SignalRecorder gates(harness.worker.get(), &ServiceFunctionWorker::gateRequested);
     fastecu::testing::SignalRecorder done(harness.worker.get(), &ServiceFunctionWorker::finished);
 
     harness.worker->start();
     ASSERT_TRUE(gate_observer.waitForCount(1));
-    harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnStaticSetup), false);
+    harness.worker->answerGate(static_cast<int>(OperatorGateId::kRelearnStaticSetup), false);
     ASSERT_TRUE(harness.worker->wait(5000));
 
     ASSERT_EQ(gates.count(), 1U);
-    ASSERT_EQ(std::get<0>(gates.snapshot().at(0)), static_cast<int>(OperatorGateId::RelearnStaticSetup));
-    ASSERT_EQ(harness.session->submitted, std::vector<GateResponse>{GateResponse::Decline});
+    ASSERT_EQ(std::get<0>(gates.snapshot().at(0)), static_cast<int>(OperatorGateId::kRelearnStaticSetup));
+    ASSERT_EQ(harness.session->submitted, std::vector<GateResponse>{GateResponse::kDecline});
     const auto result = std::get<0>(done.snapshot().at(0));
     ASSERT_TRUE(!result.success);
-    ASSERT_EQ(result.error_kind, ErrorKind::Cancelled);
+    ASSERT_EQ(result.error_kind, ErrorKind::kCancelled);
 }
 
 TEST_F(ServiceFunctionWorkerTest, requestStopUnblocksAnOutstandingGate)
@@ -313,7 +313,7 @@ TEST_F(ServiceFunctionWorkerTest, requestStopUnblocksAnOutstandingGate)
     // The teardown contract this class exists for: a worker parked on a
     // gate must not hold the thread open when the dialog closes.
     Harness harness;
-    harness.build({GateStep{OperatorGateId::RelearnEngineRunning}, CompletedStep{SetParametersOutcome{}}});
+    harness.build({GateStep{OperatorGateId::kRelearnEngineRunning}, CompletedStep{SetParametersOutcome{}}});
     GateObserver gate_observer(harness.worker.get());
     fastecu::testing::SignalRecorder gates(harness.worker.get(), &ServiceFunctionWorker::gateRequested);
     fastecu::testing::SignalRecorder done(harness.worker.get(), &ServiceFunctionWorker::finished);
@@ -324,36 +324,36 @@ TEST_F(ServiceFunctionWorkerTest, requestStopUnblocksAnOutstandingGate)
     ASSERT_TRUE(harness.worker->wait(5000));
 
     ASSERT_EQ(gates.count(), 1U);
-    ASSERT_EQ(std::get<0>(gates.snapshot().at(0)), static_cast<int>(OperatorGateId::RelearnEngineRunning));
+    ASSERT_EQ(std::get<0>(gates.snapshot().at(0)), static_cast<int>(OperatorGateId::kRelearnEngineRunning));
     ASSERT_EQ(done.count(), 1U);
     const auto result = std::get<0>(done.snapshot().at(0));
     ASSERT_TRUE(!result.success);
-    ASSERT_EQ(result.error_kind, ErrorKind::Cancelled);
+    ASSERT_EQ(result.error_kind, ErrorKind::kCancelled);
 }
 
 TEST_F(ServiceFunctionWorkerTest, aStaleAnswerCannotSatisfyALaterGate)
 {
     Harness harness;
-    harness.build({GateStep{OperatorGateId::RelearnStaticSetup}, GateStep{OperatorGateId::RelearnEngineRunning},
+    harness.build({GateStep{OperatorGateId::kRelearnStaticSetup}, GateStep{OperatorGateId::kRelearnEngineRunning},
                    CompletedStep{SetParametersOutcome{}}});
     GateObserver gate_observer(harness.worker.get());
     fastecu::testing::SignalRecorder gates(harness.worker.get(), &ServiceFunctionWorker::gateRequested);
     fastecu::testing::SignalRecorder done(harness.worker.get(), &ServiceFunctionWorker::finished);
 
-    harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnStaticSetup), false);
+    harness.worker->answerGate(static_cast<int>(OperatorGateId::kRelearnStaticSetup), false);
     harness.worker->start();
     ASSERT_TRUE(gate_observer.waitForCount(1));
 
-    harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnStaticSetup), true);
+    harness.worker->answerGate(static_cast<int>(OperatorGateId::kRelearnStaticSetup), true);
     ASSERT_TRUE(gate_observer.waitForCount(2));
-    harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnStaticSetup), false);
-    harness.worker->answerGate(static_cast<int>(OperatorGateId::RelearnEngineRunning), true);
+    harness.worker->answerGate(static_cast<int>(OperatorGateId::kRelearnStaticSetup), false);
+    harness.worker->answerGate(static_cast<int>(OperatorGateId::kRelearnEngineRunning), true);
     ASSERT_TRUE(harness.worker->wait(5000));
 
     ASSERT_EQ(gates.count(), 2U);
-    ASSERT_EQ(std::get<0>(gates.snapshot().at(0)), static_cast<int>(OperatorGateId::RelearnStaticSetup));
-    ASSERT_EQ(std::get<0>(gates.snapshot().at(1)), static_cast<int>(OperatorGateId::RelearnEngineRunning));
-    ASSERT_EQ(harness.session->submitted, std::vector<GateResponse>({GateResponse::Accept, GateResponse::Accept}));
+    ASSERT_EQ(std::get<0>(gates.snapshot().at(0)), static_cast<int>(OperatorGateId::kRelearnStaticSetup));
+    ASSERT_EQ(std::get<0>(gates.snapshot().at(1)), static_cast<int>(OperatorGateId::kRelearnEngineRunning));
+    ASSERT_EQ(harness.session->submitted, std::vector<GateResponse>({GateResponse::kAccept, GateResponse::kAccept}));
     ASSERT_EQ(done.count(), 1U);
     const auto result = std::get<0>(done.snapshot().at(0));
     ASSERT_TRUE(result.success);
@@ -362,7 +362,7 @@ TEST_F(ServiceFunctionWorkerTest, aStaleAnswerCannotSatisfyALaterGate)
 TEST_F(ServiceFunctionWorkerTest, emitsFinishedExactlyOnceOnFailure)
 {
     Harness harness;
-    harness.build({FailedStep{fastecu::Error{ErrorKind::BadResponse, "TCU said no"}}});
+    harness.build({FailedStep{fastecu::Error{ErrorKind::kBadResponse, "TCU said no"}}});
     fastecu::testing::SignalRecorder done(harness.worker.get(), &ServiceFunctionWorker::finished);
 
     harness.worker->start();
@@ -370,7 +370,7 @@ TEST_F(ServiceFunctionWorkerTest, emitsFinishedExactlyOnceOnFailure)
 
     ASSERT_EQ(done.count(), 1U);
     const auto result = std::get<0>(done.snapshot().at(0));
-    ASSERT_EQ(result.error_kind, ErrorKind::BadResponse);
+    ASSERT_EQ(result.error_kind, ErrorKind::kBadResponse);
     ASSERT_EQ(result.error_detail, QString("TCU said no"));
 }
 

@@ -19,7 +19,7 @@ Result<Bytes> exchange(IKlineFlashTransport& transport, IClock& clock, const ICa
 {
     if (cancel.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "SH7058 read cancelled");
+        return fail(ErrorKind::kCancelled, "SH7058 read cancelled");
     }
     const Bytes frame = ssm_protocol::addHeader(payload, 0xf0, 0x10);
     auto written = transport.write(frame);
@@ -29,7 +29,7 @@ Result<Bytes> exchange(IKlineFlashTransport& transport, IClock& clock, const ICa
     }
     if (*written != frame.size())
     {
-        return fail(ErrorKind::Disconnected, "short SH7058 K-Line write");
+        return fail(ErrorKind::kDisconnected, "short SH7058 K-Line write");
     }
     if (auto slept = clock.sleep(delay, cancel); !slept.has_value())
     {
@@ -42,11 +42,11 @@ Result<Bytes> exchange(IKlineFlashTransport& transport, IClock& clock, const ICa
     }
     if (cancel.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "SH7058 read cancelled");
+        return fail(ErrorKind::kCancelled, "SH7058 read cancelled");
     }
     if (!reply->has_value())
     {
-        return fail(ErrorKind::Timeout, "no SH7058 K-Line response");
+        return fail(ErrorKind::kTimeout, "no SH7058 K-Line response");
     }
     return std::move(**reply);
 }
@@ -63,9 +63,9 @@ Result<KlineConfig> SubaruHitachiSh7058KlineExecutor::transport_setup(const Flas
     {
         return std::unexpected(status.error());
     }
-    if (plan.operation() != FlashOperation::Read)
+    if (plan.operation() != FlashOperation::kRead)
     {
-        return fail(ErrorKind::Unsupported, "SH7058 K-Line supports read only");
+        return fail(ErrorKind::kUnsupported, "SH7058 K-Line supports read only");
     }
     return non_iso14230_kline_config_from(std::get<SubaruHitachiSh7058KlinePlan>(plan.family_plan()));
 }
@@ -88,7 +88,7 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::execute(const Fla
         return std::unexpected(status.error());
     }
     auto initial = exchange(transport, clock, cancel, Bytes{0xbf});
-    if (!initial.has_value() && initial.error().kind != ErrorKind::Timeout)
+    if (!initial.has_value() && initial.error().kind != ErrorKind::kTimeout)
     {
         return std::unexpected(initial.error());
     }
@@ -106,7 +106,7 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::execute(const Fla
         }
         if (!ssm_protocol::hasValidFrame(*identity, 0xf0, 0x10) || identity->size() < 14 || (*identity)[4] != 0xff)
         {
-            return fail(ErrorKind::BadResponse, "invalid SH7058 identity response");
+            return fail(ErrorKind::kBadResponse, "invalid SH7058 identity response");
         }
         std::string id = bytes::toHex(bytes::ByteView(*identity).subspan(8, 5), "{:02X}");
         rom_id = id + '_';
@@ -117,7 +117,7 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::execute(const Fla
         }
         if (!ssm_protocol::hasPayloadPrefix(*switched, Bytes{0xf8}, 0xf0, 0x10))
         {
-            return fail(ErrorKind::BadResponse, "SH7058 baud switch rejected");
+            return fail(ErrorKind::kBadResponse, "SH7058 baud switch rejected");
         }
         if (auto status = transport.setBaud(38400); !status.has_value())
         {
@@ -130,7 +130,7 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::execute(const Fla
         }
         if (!ssm_protocol::hasPayloadPrefix(*resumed, Bytes{0xff}, 0xf0, 0x10))
         {
-            return fail(ErrorKind::BadResponse, "SH7058 connection lost after baud switch");
+            return fail(ErrorKind::kBadResponse, "SH7058 connection lost after baud switch");
         }
     }
     Bytes rom;
@@ -146,11 +146,11 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::execute(const Fla
         }
         if (!valid(*page, 0xe0, 0x81))
         {
-            return fail(ErrorKind::BadResponse, "invalid SH7058 ROM page");
+            return fail(ErrorKind::kBadResponse, "invalid SH7058 ROM page");
         }
         rom.insert(rom.end(), page->begin() + 5, page->begin() + 133);
         events.progress(static_cast<int>(offset + 0x80), 0x100000);
     }
-    return FlashExecutionResult{FlashOperation::Read, std::move(rom), std::move(rom_id)};
+    return FlashExecutionResult{FlashOperation::kRead, std::move(rom), std::move(rom_id)};
 }
 } // namespace fastecu::flash

@@ -26,7 +26,7 @@ fastecu::Status write_memory(IKlineTransport& transport, std::uint16_t addr, byt
 {
     if (addr < kWritableLow || addr > kWritableHigh)
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "MUT/DMA: refusing write outside 0x4000-0xBFFF");
+        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "MUT/DMA: refusing write outside 0x4000-0xBFFF");
     }
     AlreadyInMode init(kMutBaud);
     MutDmaDriver driver(transport, init);

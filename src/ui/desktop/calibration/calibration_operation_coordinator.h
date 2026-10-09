@@ -29,21 +29,21 @@ struct PreparedWrite
 enum class SaveMode
 {
     // Overwrites the session's current source path.
-    Save,
+    kSave,
     // Asks the operator for a destination after checksum interaction.
-    SaveAs
+    kSaveAs
 };
 
 enum class SaveOutcome
 {
-    Saved,
+    kSaved,
     // The operator dismissed the Save As picker or chose no filename;
     // nothing was written.
-    Cancelled,
+    kCancelled,
     // No session was selected; only the missing-calibration notice was shown.
-    NoSelection,
+    kNoSelection,
     // The repository refused the write; the session is unchanged.
-    Failed
+    kFailed
 };
 
 // Presentation effects the coordinator asks of its owner. Both are required

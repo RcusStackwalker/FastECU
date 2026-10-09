@@ -36,11 +36,11 @@ Result<SsmTransportConfig> SetParametersSession::transport_setup() const
 {
     if (protocol_ != "sub_tcu_denso_sh7055_can" && protocol_ != "sub_tcu_denso_sh7058_can")
     {
-        return fail(ErrorKind::Unsupported, "not a Subaru Denso SH705x TCU protocol: " + protocol_);
+        return fail(ErrorKind::kUnsupported, "not a Subaru Denso SH705x TCU protocol: " + protocol_);
     }
     // legacy :141-152 -- "CAN 0xb8 command is disabled, so switch to K-Line comms".
     return SsmTransportConfig{
-        .framing = SsmTransportConfig::Framing::Kline14230,
+        .framing = SsmTransportConfig::Framing::kKline14230,
         .bitrate_or_baud = 4800,
         .request_id = 0,
         .response_id = 0,
@@ -60,10 +60,10 @@ ServiceFunctionStep SetParametersSession::resume(ISsmTransport& transport, ICloc
 {
     if (misused_)
     {
-        return FailedStep{Error{ErrorKind::Internal, "set parameters has no operator gate to answer"}};
+        return FailedStep{Error{ErrorKind::kInternal, "set parameters has no operator gate to answer"}};
     }
 
-    events.log(LogLevel::Info, "Setting TCU parameters...");
+    events.log(LogLevel::kInfo, "Setting TCU parameters...");
 
     const auto writes = tcu_parameter_writes(values_);
     int written_count = 0;
@@ -72,7 +72,7 @@ ServiceFunctionStep SetParametersSession::resume(ISsmTransport& transport, ICloc
     {
         if (cancellation.cancelled())
         {
-            return FailedStep{Error{ErrorKind::Cancelled, "cancelled while setting TCU parameters"}};
+            return FailedStep{Error{ErrorKind::kCancelled, "cancelled while setting TCU parameters"}};
         }
 
         const bytes::Bytes frame = frameFor(write);
@@ -88,7 +88,7 @@ ServiceFunctionStep SetParametersSession::resume(ISsmTransport& transport, ICloc
         }
         if (!received->has_value())
         {
-            return FailedStep{Error{ErrorKind::Timeout, "no response to TCU parameter write"}};
+            return FailedStep{Error{ErrorKind::kTimeout, "no response to TCU parameter write"}};
         }
 
         // legacy :219-236 -- exactly one exchange per row. This check is NOT
@@ -97,7 +97,7 @@ ServiceFunctionStep SetParametersSession::resume(ISsmTransport& transport, ICloc
         const bytes::Bytes& reply = **received;
         if (reply.size() <= 4 || reply[4] != kPositiveResponse)
         {
-            return FailedStep{Error{ErrorKind::BadResponse, "TCU rejected a parameter write: " + bytes::toHex(reply)}};
+            return FailedStep{Error{ErrorKind::kBadResponse, "TCU rejected a parameter write: " + bytes::toHex(reply)}};
         }
 
         ++written_count;

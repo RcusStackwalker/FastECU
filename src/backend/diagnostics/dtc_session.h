@@ -17,14 +17,14 @@ namespace fastecu::diagnostics
 
 enum class DtcOperation
 {
-    Read,
-    Clear,
+    kRead,
+    kClear,
 };
 
 struct DtcRequest
 {
-    ObdProtocol protocol = ObdProtocol::Iso9141;
-    DtcOperation operation = DtcOperation::Read;
+    ObdProtocol protocol = ObdProtocol::kIso9141;
+    DtcOperation operation = DtcOperation::kRead;
 };
 
 struct SupportedPidPage

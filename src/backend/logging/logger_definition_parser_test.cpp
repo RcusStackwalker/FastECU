@@ -162,14 +162,14 @@ TEST(LoggerDefinitionParser, CollectsParametersAcrossMultipleProtocols)
 TEST(LoggerDefinitionParser, RejectsMalformedXml)
 {
     const auto result = parse_logger_definition(view("<logger><protocols>"), "broken.xml");
-    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("broken.xml"));
 }
 
 TEST(LoggerDefinitionParser, RejectsWrongRootElement)
 {
     ASSERT_THAT(parse_logger_definition(view("<config/>"), "wrong.xml"),
-                fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(LoggerDefinitionParser, AcceptsAnEmptyButWellFormedDocument)

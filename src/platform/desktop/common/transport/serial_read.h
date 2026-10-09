@@ -25,16 +25,16 @@ Result<std::optional<bytes::Bytes>> read_serial(SerialPortActions *serial, std::
     {
         if (!serial || !serial->is_serial_port_open())
         {
-            return fail(ErrorKind::Disconnected, "serial adapter disconnected before read");
+            return fail(ErrorKind::kDisconnected, "serial adapter disconnected before read");
         }
         const QByteArray raw = reader(saturating_ms<std::uint16_t>(timeout));
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "serial read cancelled");
+            return fail(ErrorKind::kCancelled, "serial read cancelled");
         }
         if (!serial->is_serial_port_open())
         {
-            return fail(ErrorKind::Disconnected, "serial adapter disconnected during read");
+            return fail(ErrorKind::kDisconnected, "serial adapter disconnected during read");
         }
         if (raw.isEmpty())
         {
@@ -46,17 +46,17 @@ Result<std::optional<bytes::Bytes>> read_serial(SerialPortActions *serial, std::
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "serial read cancelled");
+            return fail(ErrorKind::kCancelled, "serial read cancelled");
         }
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "serial read cancelled");
+            return fail(ErrorKind::kCancelled, "serial read cancelled");
         }
-        return fail(ErrorKind::Internal, "serial driver read exception");
+        return fail(ErrorKind::kInternal, "serial driver read exception");
     }
 }
 } // namespace fastecu::desktop::detail

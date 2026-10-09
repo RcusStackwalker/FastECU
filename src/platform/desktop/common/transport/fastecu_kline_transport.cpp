@@ -13,7 +13,7 @@ fastecu::Status FastEcuKlineTransport::setBaud(int baud)
     {
         if (!serial_ || !serial_->is_serial_port_open())
         {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, "K-Line adapter disconnected before baud change");
+            return fastecu::fail(fastecu::ErrorKind::kDisconnected, "K-Line adapter disconnected before baud change");
         }
         if (serial_->change_port_speed(QString::number(baud)) == 0)
         {
@@ -21,17 +21,17 @@ fastecu::Status FastEcuKlineTransport::setBaud(int baud)
         }
         if (!serial_->is_serial_port_open())
         {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, "K-Line adapter disconnected during baud change");
+            return fastecu::fail(fastecu::ErrorKind::kDisconnected, "K-Line adapter disconnected during baud change");
         }
-        return fastecu::fail(fastecu::ErrorKind::Internal, "K-Line driver rejected baud change");
+        return fastecu::fail(fastecu::ErrorKind::kInternal, "K-Line driver rejected baud change");
     }
     catch (const std::exception& error)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, error.what());
+        return fastecu::fail(fastecu::ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "K-Line driver baud-change exception");
+        return fastecu::fail(fastecu::ErrorKind::kInternal, "K-Line driver baud-change exception");
     }
 }
 
@@ -41,22 +41,22 @@ fastecu::Result<std::size_t> FastEcuKlineTransport::write(bytes::ByteView data)
     {
         if (!serial_ || !serial_->is_serial_port_open())
         {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, "K-Line adapter disconnected before write");
+            return fastecu::fail(fastecu::ErrorKind::kDisconnected, "K-Line adapter disconnected before write");
         }
         serial_->write_serial_data(bytes::toQByteArray(data));
         if (!serial_->is_serial_port_open())
         {
-            return fastecu::fail(fastecu::ErrorKind::Disconnected, "K-Line adapter disconnected during write");
+            return fastecu::fail(fastecu::ErrorKind::kDisconnected, "K-Line adapter disconnected during write");
         }
         return data.size();
     }
     catch (const std::exception& error)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, error.what());
+        return fastecu::fail(fastecu::ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fastecu::fail(fastecu::ErrorKind::Internal, "K-Line driver write exception");
+        return fastecu::fail(fastecu::ErrorKind::kInternal, "K-Line driver write exception");
     }
 }
 
@@ -65,7 +65,7 @@ FastEcuKlineTransport::read(std::chrono::milliseconds timeout, const fastecu::IC
 {
     if (cancellation.cancelled())
     {
-        return fastecu::fail(fastecu::ErrorKind::Cancelled, "K-Line read cancelled before driver call");
+        return fastecu::fail(fastecu::ErrorKind::kCancelled, "K-Line read cancelled before driver call");
     }
 
     return fastecu::desktop::detail::read_serial(serial_, timeout, cancellation, [this](std::uint16_t driver_timeout)

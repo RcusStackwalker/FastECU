@@ -14,7 +14,7 @@ namespace fastecu::flash
 {
 TEST(SubaruHitachiSh7058KlineExecutor, RejectsMissingInitializationBeforeReadPages)
 {
-    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::Read, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                                  std::nullopt);
     ASSERT_TRUE(plan.has_value());
     SubaruHitachiSh7058KlineExecutor executor;
@@ -33,7 +33,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, ReadsEveryPhysicalPageBeforeReturningRom)
 {
     for (const bool already_active : {true, false})
     {
-        auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::Read, "sub_ecu_hitachi_sh7058_can",
+        auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can",
                                                      "SH7058_1block", std::nullopt);
         ASSERT_TRUE(plan.has_value());
         ScriptedKlineFlashTransport transport;
@@ -84,7 +84,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsShortWrongServiceAndBadChecksumPag
 {
     for (int fault = 0; fault < 3; ++fault)
     {
-        auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::Read, "sub_ecu_hitachi_sh7058_can",
+        auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can",
                                                      "SH7058_1block", std::nullopt);
         ASSERT_TRUE(plan.has_value());
         ScriptedKlineFlashTransport transport;
@@ -104,14 +104,14 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsShortWrongServiceAndBadChecksumPag
         RecordingEventSink events;
         auto result = executor.execute(*plan, transport, clock, cancel, events);
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+        EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
         EXPECT_TRUE(transport.scriptConsumed());
     }
 }
 
 TEST(SubaruHitachiSh7058KlineExecutor, CancellationAndBaudFailureStopBeforeAnyRequest)
 {
-    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::Read, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                                  std::nullopt);
     ASSERT_TRUE(plan.has_value());
     SubaruHitachiSh7058KlineExecutor executor;
@@ -120,21 +120,21 @@ TEST(SubaruHitachiSh7058KlineExecutor, CancellationAndBaudFailureStopBeforeAnyRe
         ScriptedKlineFlashTransport transport;
         if (!cancel_first)
         {
-            transport.set_baud_result = fail(ErrorKind::Disconnected, "baud failed");
+            transport.set_baud_result = fail(ErrorKind::kDisconnected, "baud failed");
         }
         FakeClock clock;
         FakeCancellationToken cancel(cancel_first);
         RecordingEventSink events;
         auto result = executor.execute(*plan, transport, clock, cancel, events);
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, cancel_first ? ErrorKind::Cancelled : ErrorKind::Disconnected);
+        EXPECT_EQ(result.error().kind, cancel_first ? ErrorKind::kCancelled : ErrorKind::kDisconnected);
         EXPECT_EQ(transport.writesConsumed(), 0U);
     }
 }
 
 TEST(SubaruHitachiSh7058KlineExecutor, RejectsMalformedIdentityBeforeBaudSwitch)
 {
-    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::Read, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
+    auto plan = build_subaru_hitachi_sh7058_plan(FlashOperation::kRead, "sub_ecu_hitachi_sh7058_can", "SH7058_1block",
                                                  std::nullopt);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
@@ -148,7 +148,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsMalformedIdentityBeforeBaudSwitch)
     RecordingEventSink events;
     auto result = executor.execute(*plan, transport, clock, cancel, events);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::BadResponse);
+    EXPECT_EQ(result.error().kind, ErrorKind::kBadResponse);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 } // namespace fastecu::flash

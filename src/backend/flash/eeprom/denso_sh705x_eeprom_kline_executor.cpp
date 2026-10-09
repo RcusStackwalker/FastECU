@@ -129,7 +129,7 @@ Result<bytes::Bytes> ssm_exchange(IKlineFlashTransport& transport, IClock&, cons
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before write");
+        return fail(ErrorKind::kCancelled, "cancelled before write");
     }
     const bytes::Bytes framed = frame(payload, tester_id, target_id);
     if (Result<std::size_t> written = transport.write(framed); !written.has_value())
@@ -138,7 +138,7 @@ Result<bytes::Bytes> ssm_exchange(IKlineFlashTransport& transport, IClock&, cons
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after write");
+        return fail(ErrorKind::kCancelled, "cancelled after write");
     }
     auto received = transport.read(timeout, cancellation);
     if (!received.has_value())
@@ -147,11 +147,11 @@ Result<bytes::Bytes> ssm_exchange(IKlineFlashTransport& transport, IClock&, cons
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after read");
+        return fail(ErrorKind::kCancelled, "cancelled after read");
     }
     if (!received->has_value())
     {
-        return fail(ErrorKind::Timeout, "no response from ECU");
+        return fail(ErrorKind::kTimeout, "no response from ECU");
     }
     return std::move(**received);
 }
@@ -166,7 +166,7 @@ Result<bytes::Bytes> request_kernel_id(IKlineFlashTransport& transport, IClock& 
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before write");
+        return fail(ErrorKind::kCancelled, "cancelled before write");
     }
     if (Result<std::size_t> written = transport.write(request_kernel_id_frame()); !written.has_value())
     {
@@ -178,7 +178,7 @@ Result<bytes::Bytes> request_kernel_id(IKlineFlashTransport& transport, IClock& 
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after delay");
+        return fail(ErrorKind::kCancelled, "cancelled after delay");
     }
     auto received = transport.read(kShortTimeout, cancellation);
     if (!received.has_value())
@@ -187,7 +187,7 @@ Result<bytes::Bytes> request_kernel_id(IKlineFlashTransport& transport, IClock& 
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after read");
+        return fail(ErrorKind::kCancelled, "cancelled after read");
     }
     if (!received->has_value())
     {
@@ -210,7 +210,7 @@ Status transfer_data_blocks(IKlineFlashTransport& transport, IClock& clock, cons
     len &= ~std::uint32_t(3);
     if (encrypted.empty() || len == 0)
     {
-        return fail(ErrorKind::Internal, "kernel transfer payload is empty");
+        return fail(ErrorKind::kInternal, "kernel transfer payload is empty");
     }
 
     const std::uint32_t maxblocks = (len - 1) / kUploadChunkBytes;
@@ -218,7 +218,7 @@ Status transfer_data_blocks(IKlineFlashTransport& transport, IClock& clock, cons
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled between kernel transfer chunks");
+            return fail(ErrorKind::kCancelled, "cancelled between kernel transfer chunks");
         }
 
         const std::uint32_t block_addr = addr + blockno * kUploadChunkBytes;
@@ -247,7 +247,7 @@ Status transfer_data_blocks(IKlineFlashTransport& transport, IClock& clock, cons
         }
         if (resp->size() < 5 || (*resp)[4] != 0x76)
         {
-            return fail(ErrorKind::BadResponse, "kernel transfer block rejected");
+            return fail(ErrorKind::kBadResponse, "kernel transfer block rejected");
         }
     }
     return {};
@@ -257,7 +257,7 @@ Status transfer_data_blocks(IKlineFlashTransport& transport, IClock& clock, cons
 
 Result<KlineConfig> DensoSh705xEepromKlineExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (Status match = check_family(plan, FlashFamily::DensoSh705xEepromKline); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kDensoSh705xEepromKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -269,13 +269,13 @@ Result<FlashExecutionResult>
 DensoSh705xEepromKlineExecutor::execute(const FlashPlan& plan, IKlineFlashTransport& kline_transport, IClock& clock,
                                         const ICancellationToken& cancellation, IEventSink& events)
 {
-    if (Status match = check_family(plan, FlashFamily::DensoSh705xEepromKline); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kDensoSh705xEepromKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
     const auto& kline_plan = std::get<DensoSh705xEepromKlinePlan>(plan.family_plan());
 
@@ -342,7 +342,7 @@ DensoSh705xEepromKlineExecutor::execute(const FlashPlan& plan, IKlineFlashTransp
     // for whatever unrelated K-Line operation the user runs next.
     if (Status header_off_after = kline_transport.set_add_iso14230_header(false); !header_off_after.has_value())
     {
-        events.log(LogLevel::Warning, "failed to reset ISO14230 header mode after EEPROM read");
+        events.log(LogLevel::kWarning, "failed to reset ISO14230 header mode after EEPROM read");
     }
 
     if (!read_result.has_value())
@@ -364,7 +364,7 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before connect");
+        return fail(ErrorKind::kCancelled, "cancelled before connect");
     }
 
     // line 167: probe at bootloader speed first.
@@ -378,10 +378,10 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after probe delay");
+        return fail(ErrorKind::kCancelled, "cancelled after probe delay");
     }
 
-    events.log(LogLevel::Info, "Checking if kernel is already running...");
+    events.log(LogLevel::kInfo, "Checking if kernel is already running...");
     Result<bytes::Bytes> probe = request_kernel_id(transport, clock, cancellation);
     if (!probe.has_value())
     {
@@ -392,13 +392,13 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
         // lines 185-189: any well-formed alive response short-circuits the
         // rest of connect_bootloader() -- upload_kernel() is skipped too.
         kernel_alive = true;
-        events.log(LogLevel::Info, "Kernel already running");
+        events.log(LogLevel::kInfo, "Kernel already running");
         return {};
     }
     // lines 179-194: BOTH "no frame at all" and "frame present but markers
     // wrong" fall through to the full init sequence below -- neither is a
     // hard failure at this point.
-    events.log(LogLevel::Warning, "No response from kernel, initialising ECU...");
+    events.log(LogLevel::kWarning, "No response from kernel, initialising ECU...");
 
     // lines 198-200: drop back to 4800 baud for the SSM init handshake.
     if (Status baud = transport.setBaud(4800); !baud.has_value())
@@ -411,13 +411,13 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after init delay");
+        return fail(ErrorKind::kCancelled, "cancelled after init delay");
     }
 
     const std::uint8_t tester_id = kline_plan.tester_id;
     const std::uint8_t target_id = kline_plan.target_id;
 
-    events.log(LogLevel::Info, "Initializing K-Line communications");
+    events.log(LogLevel::kInfo, "Initializing K-Line communications");
     Result<bytes::Bytes> bf =
         ssm_exchange(transport, clock, cancellation, sid_bf_request(), tester_id, target_id, kExtraLongTimeout);
     if (!bf.has_value())
@@ -426,10 +426,10 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
     }
     if (bf->size() < 5 || (*bf)[4] != 0xFF)
     {
-        return fail(ErrorKind::BadResponse, "SID BF (SSM init) rejected");
+        return fail(ErrorKind::kBadResponse, "SID BF (SSM init) rejected");
     }
 
-    events.log(LogLevel::Info, "Requesting to start communication");
+    events.log(LogLevel::kInfo, "Requesting to start communication");
     Result<bytes::Bytes> start_comm =
         ssm_exchange(transport, clock, cancellation, sid_81_request(), tester_id, target_id, kExtraLongTimeout);
     if (!start_comm.has_value())
@@ -438,10 +438,10 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
     }
     if (start_comm->size() < 5 || (*start_comm)[4] != 0xC1)
     {
-        return fail(ErrorKind::BadResponse, "SID 81 (start communication) rejected");
+        return fail(ErrorKind::kBadResponse, "SID 81 (start communication) rejected");
     }
 
-    events.log(LogLevel::Info, "Requesting timings params");
+    events.log(LogLevel::kInfo, "Requesting timings params");
     Result<bytes::Bytes> timings =
         ssm_exchange(transport, clock, cancellation, sid_83_request(), tester_id, target_id, kExtraLongTimeout);
     if (!timings.has_value())
@@ -450,10 +450,10 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
     }
     if (timings->size() < 5 || (*timings)[4] != 0xC3)
     {
-        return fail(ErrorKind::BadResponse, "SID 83 (request timings) rejected");
+        return fail(ErrorKind::kBadResponse, "SID 83 (request timings) rejected");
     }
 
-    events.log(LogLevel::Info, "Requesting seed");
+    events.log(LogLevel::kInfo, "Requesting seed");
     Result<bytes::Bytes> seed_resp = ssm_exchange(transport, clock, cancellation, sid_27_request_seed_request(),
                                                   tester_id, target_id, kExtraLongTimeout);
     if (!seed_resp.has_value())
@@ -462,15 +462,15 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
     }
     if (seed_resp->size() < 10 || (*seed_resp)[4] != 0x67)
     {
-        return fail(ErrorKind::BadResponse, "SID 27 (request seed) rejected");
+        return fail(ErrorKind::kBadResponse, "SID 27 (request seed) rejected");
     }
     const bytes::Bytes seed(seed_resp->begin() + 6, seed_resp->begin() + 10);
 
-    const bytes::Bytes seed_key = kline_plan.security == DensoSecurityVariant::EcuTek
+    const bytes::Bytes seed_key = kline_plan.security == DensoSecurityVariant::kEcuTek
                                       ? denso_sh705x_kline_ecutek_seed_key(seed)
                                       : denso_sh705x_kline_stock_seed_key(seed);
 
-    events.log(LogLevel::Info, "Sending seed key to ECU");
+    events.log(LogLevel::kInfo, "Sending seed key to ECU");
     Result<bytes::Bytes> key_resp = ssm_exchange(transport, clock, cancellation, sid_27_send_key_request(seed_key),
                                                  tester_id, target_id, kExtraLongTimeout);
     if (!key_resp.has_value())
@@ -480,10 +480,10 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
     // line 277: same positive-response code (0x67) as the request-seed step.
     if (key_resp->size() < 5 || (*key_resp)[4] != 0x67)
     {
-        return fail(ErrorKind::BadResponse, "SID 27 (send seed key) rejected");
+        return fail(ErrorKind::kBadResponse, "SID 27 (send seed key) rejected");
     }
 
-    events.log(LogLevel::Info, "Set session mode");
+    events.log(LogLevel::kInfo, "Set session mode");
     Result<bytes::Bytes> diag =
         ssm_exchange(transport, clock, cancellation, sid_10_request(), tester_id, target_id, kExtraLongTimeout);
     if (!diag.has_value())
@@ -492,10 +492,10 @@ Status DensoSh705xEepromKlineExecutor::connect_bootloader(IKlineFlashTransport& 
     }
     if (diag->size() < 5 || (*diag)[4] != 0x50)
     {
-        return fail(ErrorKind::BadResponse, "SID 10 (start diagnostic) rejected");
+        return fail(ErrorKind::kBadResponse, "SID 10 (start diagnostic) rejected");
     }
 
-    events.log(LogLevel::Info, "Successfully set to programming session");
+    events.log(LogLevel::kInfo, "Successfully set to programming session");
     return {};
 }
 
@@ -507,15 +507,15 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before kernel upload");
+        return fail(ErrorKind::kCancelled, "cancelled before kernel upload");
     }
     if (kernel.bytes.empty())
     {
-        return fail(ErrorKind::InvalidConfig, "kernel image is empty");
+        return fail(ErrorKind::kInvalidConfig, "kernel image is empty");
     }
 
     Result<DensoSh705xEepromUploadSizes> upload_sizes =
-        denso_sh705x_eeprom_upload_sizes(FlashFamily::DensoSh705xEepromKline, kernel.bytes.size());
+        denso_sh705x_eeprom_upload_sizes(FlashFamily::kDensoSh705xEepromKline, kernel.bytes.size());
     if (!upload_sizes.has_value())
     {
         return std::unexpected(upload_sizes.error());
@@ -551,7 +551,7 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
         return std::unexpected(baud.error());
     }
 
-    events.log(LogLevel::Info, "Requesting kernel upload");
+    events.log(LogLevel::kInfo, "Requesting kernel upload");
     Result<bytes::Bytes> upload_req = ssm_exchange(
         transport, clock, cancellation, sid_34_request(start_address, pl_len), tester_id, target_id, kExtraLongTimeout);
     if (!upload_req.has_value())
@@ -560,11 +560,11 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
     }
     if (upload_req->size() < 5 || (*upload_req)[4] != 0x74)
     {
-        return fail(ErrorKind::BadResponse, "kernel upload request rejected");
+        return fail(ErrorKind::kBadResponse, "kernel upload request rejected");
     }
 
     const bytes::Bytes encrypted_kernel = denso_sh705x_kline_encrypt_payload(padded_kernel, pl_len);
-    events.log(LogLevel::Info, "Transfer kernel data");
+    events.log(LogLevel::kInfo, "Transfer kernel data");
     if (Status transferred = transfer_data_blocks(transport, clock, cancellation, tester_id, target_id, start_address,
                                                   encrypted_kernel, pl_len);
         !transferred.has_value())
@@ -575,7 +575,7 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
     // lines 386-405: checksum-bypass 4-byte trailer.
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before checksum bypass");
+        return fail(ErrorKind::kCancelled, "cancelled before checksum bypass");
     }
     Result<bytes::Bytes> bypass_req =
         ssm_exchange(transport, clock, cancellation, sid_34_request(start_address + pl_len, 4), tester_id, target_id,
@@ -586,7 +586,7 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
     }
     if (bypass_req->size() < 5 || (*bypass_req)[4] != 0x74)
     {
-        return fail(ErrorKind::BadResponse, "checksum bypass request rejected");
+        return fail(ErrorKind::kBadResponse, "checksum bypass request rejected");
     }
 
     const bytes::Bytes cks_bypass{0x00, 0x00, 0x5A, 0xA5};
@@ -598,16 +598,16 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
         return std::unexpected(transferred.error());
     }
 
-    events.log(LogLevel::Info, "Kernel uploaded");
+    events.log(LogLevel::kInfo, "Kernel uploaded");
 
     // line 410-415: jump to kernel. Cancellation is checked immediately
     // before this write per the portable seam's cancellation contract
     // ("before kernel jump").
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before kernel jump");
+        return fail(ErrorKind::kCancelled, "cancelled before kernel jump");
     }
-    events.log(LogLevel::Info, "Jump to kernel");
+    events.log(LogLevel::kInfo, "Jump to kernel");
     Result<bytes::Bytes> jump =
         ssm_exchange(transport, clock, cancellation, sid_31_request(), tester_id, target_id, kExtraLongTimeout);
     if (!jump.has_value())
@@ -616,10 +616,10 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
     }
     if (jump->size() < 5 || (*jump)[4] != 0x71)
     {
-        return fail(ErrorKind::BadResponse, "kernel start routine rejected");
+        return fail(ErrorKind::kBadResponse, "kernel start routine rejected");
     }
 
-    events.log(LogLevel::Info, "Kernel started, initializing...");
+    events.log(LogLevel::kInfo, "Kernel started, initializing...");
     if (Status baud = transport.setBaud(62500); !baud.has_value())
     {
         return std::unexpected(baud.error());
@@ -627,12 +627,12 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
 
     // lines 422-445: up to 10 iterations, 200ms between attempts, 100ms
     // extra settle once alive.
-    events.log(LogLevel::Info, "Requesting kernel ID...");
+    events.log(LogLevel::kInfo, "Requesting kernel ID...");
     for (int i = 0; i < kMaxKernelAlivePollIterations; ++i)
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled during kernel-alive poll");
+            return fail(ErrorKind::kCancelled, "cancelled during kernel-alive poll");
         }
         Result<bytes::Bytes> poll = request_kernel_id(transport, clock, cancellation);
         if (!poll.has_value())
@@ -645,7 +645,7 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
             {
                 return std::unexpected(slept.error());
             }
-            events.log(LogLevel::Info, "Kernel is alive");
+            events.log(LogLevel::kInfo, "Kernel is alive");
             return {};
         }
         if (Status slept = clock.sleep(kKernelPollRetryDelay, cancellation); !slept.has_value())
@@ -653,7 +653,7 @@ Status DensoSh705xEepromKlineExecutor::upload_kernel(IKlineFlashTransport& trans
             return std::unexpected(slept.error());
         }
     }
-    return fail(ErrorKind::Timeout, "kernel did not respond after upload");
+    return fail(ErrorKind::kTimeout, "kernel did not respond after upload");
 }
 
 // read_mem(), lines 453-602 ("nisprog kernel" SID_DUMP protocol).
@@ -677,7 +677,7 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled during EEPROM read");
+            return fail(ErrorKind::kCancelled, "cancelled during EEPROM read");
         }
 
         std::uint32_t numblocks = willget / kEepromBlockBytes;
@@ -701,7 +701,7 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
         }
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled after EEPROM request delay");
+            return fail(ErrorKind::kCancelled, "cancelled after EEPROM request delay");
         }
 
         bytes::Bytes pagedata;
@@ -710,7 +710,7 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
         {
             if (cancellation.cancelled())
             {
-                return fail(ErrorKind::Cancelled, "cancelled during EEPROM page read");
+                return fail(ErrorKind::kCancelled, "cancelled during EEPROM page read");
             }
             if (Status slept = clock.sleep(kReadMemPollDelay, cancellation); !slept.has_value())
             {
@@ -723,7 +723,7 @@ Result<bytes::Bytes> DensoSh705xEepromKlineExecutor::read_mem(IKlineFlashTranspo
             }
             if (cancellation.cancelled())
             {
-                return fail(ErrorKind::Cancelled, "cancelled after EEPROM page read");
+                return fail(ErrorKind::kCancelled, "cancelled after EEPROM page read");
             }
             if (received->has_value())
             {

@@ -180,19 +180,19 @@ int exit_code_for(ErrorKind kind)
 {
     switch (kind)
     {
-    case ErrorKind::InvalidConfig:
+    case ErrorKind::kInvalidConfig:
         return 2;
-    case ErrorKind::Timeout:
+    case ErrorKind::kTimeout:
         return 3;
-    case ErrorKind::Disconnected:
+    case ErrorKind::kDisconnected:
         return 4;
-    case ErrorKind::BadResponse:
+    case ErrorKind::kBadResponse:
         return 5;
-    case ErrorKind::Cancelled:
+    case ErrorKind::kCancelled:
         return 6;
-    case ErrorKind::Unsupported:
+    case ErrorKind::kUnsupported:
         return 7;
-    case ErrorKind::Internal:
+    case ErrorKind::kInternal:
         return 8;
     }
     return 8;

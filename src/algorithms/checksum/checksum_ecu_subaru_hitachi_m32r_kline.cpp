@@ -7,7 +7,7 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(byte
     // Fixed 512 KiB layout: the balance field is at 0x7FFFA.
     if (romView.size() != 0x80000)
     {
-        return {.status = ChecksumResult::Status::InvalidSize,
+        return {.status = ChecksumResult::Status::kInvalidSize,
                 .rom_data = bytes::Bytes(romView.begin(), romView.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
@@ -85,12 +85,12 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(byte
     result.rom_data = romData;
     if (!checksum_ok)
     {
-        result.status = ChecksumResult::Status::Corrected;
+        result.status = ChecksumResult::Status::kCorrected;
         result.message = "Subaru Hitachi M32R K-Line ECU Checksum";
     }
     else
     {
-        result.status = ChecksumResult::Status::Unchanged;
+        result.status = ChecksumResult::Status::kUnchanged;
     }
     return result;
 }

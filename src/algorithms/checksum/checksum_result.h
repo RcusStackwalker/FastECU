@@ -8,24 +8,24 @@ struct ChecksumResult
 {
     enum class Status
     {
-        Unchanged,
-        Corrected,
-        Disabled,
-        InvalidSize,
-        UnsupportedRom,
-        ParseError
+        kUnchanged,
+        kCorrected,
+        kDisabled,
+        kInvalidSize,
+        kUnsupportedRom,
+        kParseError
     };
 
-    Status status = Status::Unchanged;
+    Status status = Status::kUnchanged;
     bytes::Bytes rom_data;
     std::string message;
 
     bool changed() const
     {
-        return status == Status::Corrected;
+        return status == Status::kCorrected;
     }
     bool ok() const
     {
-        return status == Status::Unchanged || status == Status::Corrected || status == Status::Disabled;
+        return status == Status::kUnchanged || status == Status::kCorrected || status == Status::kDisabled;
     }
 };

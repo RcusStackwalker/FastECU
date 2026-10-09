@@ -6,8 +6,8 @@ namespace fastecu::flash
 
 enum class HitachiM32rKlineSessionMode
 {
-    Normal,
-    Recovery,
+    kNormal,
+    kRecovery,
 };
 
 struct SubaruHitachiM32rKlinePlan

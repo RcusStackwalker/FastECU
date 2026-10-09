@@ -60,7 +60,7 @@ bytes::Bytes rom(std::uint32_t size)
 FlashPlan program_plan(std::string_view protocol = "sub_ecu_unisia_jecs_20_bootmode",
                        std::string_view mcu = "M32R_128KB", std::uint32_t size = 0x20000)
 {
-    auto plan = build_subaru_unisia_jecs_m32r_bootmode_program_plan(FlashOperation::Write, protocol, mcu, rom(size));
+    auto plan = build_subaru_unisia_jecs_m32r_bootmode_program_plan(FlashOperation::kWrite, protocol, mcu, rom(size));
     EXPECT_THAT(plan, IsOk());
     return std::move(*plan);
 }
@@ -118,8 +118,8 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, TransportSetupIs19200BaudNoPar
 {
     const auto setup = SubaruUnisiaJecsM32rBootModeProgramExecutor{}.transport_setup(program_plan());
     ASSERT_THAT(setup, IsOk());
-    EXPECT_EQ(setup->baud, 19200);               // write_mem() :364
-    EXPECT_EQ(setup->parity, KlineParity::None); // write_mem() :362
+    EXPECT_EQ(setup->baud, 19200);                // write_mem() :364
+    EXPECT_EQ(setup->parity, KlineParity::kNone); // write_mem() :362
     EXPECT_FALSE(setup->iso14230);
 }
 
@@ -153,15 +153,15 @@ TEST_P(ProgramsTheWholeRom, ErasesThenWritesEveryBlock)
 
     ASSERT_THAT(run(plan, transport, context), IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.control_line_trace, (std::vector{Line::EnableProgrammingVoltageLine, Line::DisableLecLines}));
+    EXPECT_EQ(transport.control_line_trace, (std::vector{Line::kEnableProgrammingVoltageLine, Line::kDisableLecLines}));
     EXPECT_EQ(transport.programming_voltage_line_write_index, std::optional<std::size_t>(0));
     // AF 31 settle 500, one empty start poll 500, one empty done poll 1000,
     // post-erase 1000, then 10 ms after every AF 61 (:370-465, :539).
     EXPECT_EQ(context.clock.elapsed(), 500ms + 500ms + 1000ms + 1000ms + 10ms * (blocks - 1));
-    EXPECT_EQ(std::ranges::count(transport.operation_trace, Op::Read10), 4);
+    EXPECT_EQ(std::ranges::count(transport.operation_trace, Op::kRead10), 4);
     EXPECT_EQ(context.events.progress_calls.back(),
               (std::pair<int, int>{static_cast<int>(blocks), static_cast<int>(blocks)}));
-    EXPECT_FALSE(logged(context, LogLevel::Warning));
+    EXPECT_FALSE(logged(context, LogLevel::kWarning));
 }
 
 INSTANTIATE_TEST_SUITE_P(BothBootmodeRoms, ProgramsTheWholeRom,
@@ -178,7 +178,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, SilenceAfterTheFinalBlockSucce
     transport.queue_no_frame();
     RunContext context;
     ASSERT_THAT(run(plan, transport, context), IsOk());
-    EXPECT_TRUE(logged(context, LogLevel::Warning));
+    EXPECT_TRUE(logged(context, LogLevel::kWarning));
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, ABadFinalBlockReplyFails)
@@ -190,9 +190,9 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, ABadFinalBlockReplyFails)
     transport.exchange(block_request(plan, 1023, true), reply({0xef, 0x5c}));
     RunContext context;
     const auto result = run(plan, transport, context);
-    ASSERT_THAT(result, IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("checksum error"));
-    EXPECT_EQ(transport.control_line_trace.back(), Line::DisableLecLines);
+    EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines);
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, EraseStartExhaustionFails)
@@ -205,7 +205,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, EraseStartExhaustionFails)
         transport.queue_no_frame();
     }
     RunContext context;
-    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::kTimeout));
     EXPECT_EQ(context.clock.elapsed(), 500ms + 20 * 500ms);
     EXPECT_EQ(transport.writesConsumed(), 1U);
 }
@@ -221,7 +221,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, EraseDoneExhaustionFailsInstea
         transport.queue_no_frame();
     }
     RunContext context;
-    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::kTimeout));
     EXPECT_EQ(transport.writesConsumed(), 1U);
 }
 
@@ -233,7 +233,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, AWrongEraseFrameFailsAndNamesT
     transport.queueRead(reply({0xef, 0x48}));
     RunContext context;
     const auto result = run(plan, transport, context);
-    ASSERT_THAT(result, IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("missing VPP"));
 }
 
@@ -251,7 +251,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, NamedAndUnknownStatusesInBlock
         transport.exchange(block_request(plan, 0, false), reply({0xef, status}));
         RunContext context;
         const auto result = run(plan, transport, context);
-        ASSERT_THAT(result, IsErr(ErrorKind::BadResponse));
+        ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
         EXPECT_THAT(result.error().detail, ::testing::HasSubstr(std::string(text)));
     }
 }
@@ -264,7 +264,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, SilenceAfterANonFinalBlockTime
     transport.expectWrite(block_request(plan, 0, false));
     transport.queue_no_frame();
     RunContext context;
-    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::kTimeout));
     EXPECT_EQ(transport.writesConsumed(), 2U);
 }
 
@@ -274,8 +274,8 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancelledBeforeVoltageNeverRai
     ScriptedKlineFlashTransport transport;
     RunContext context;
     context.cancellation.set_cancelled(true);
-    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Cancelled));
-    EXPECT_EQ(transport.control_line_trace, std::vector{Line::DisableLecLines});
+    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(transport.control_line_trace, std::vector{Line::kDisableLecLines});
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancelledMidProgrammingReportsCancelled)
@@ -286,8 +286,8 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancelledMidProgrammingReports
     script_blocks(transport, plan, 3);
     RunContext context;
     context.cancellation.set_predicate([&transport] { return transport.writesConsumed() >= 3; });
-    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Cancelled));
-    EXPECT_EQ(transport.control_line_trace.back(), Line::DisableLecLines);
+    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::kCancelled));
+    EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines);
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CleanupFailureNeverReplacesAnEarlierError)
@@ -296,9 +296,9 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CleanupFailureNeverReplacesAnE
     ScriptedKlineFlashTransport transport;
     transport.expectWrite(request({0xaf, 0x31}));
     transport.queueRead(reply({0xef, 0x48}));
-    transport.disable_lec_lines_result = fail(ErrorKind::Disconnected, "cleanup");
+    transport.disable_lec_lines_result = fail(ErrorKind::kDisconnected, "cleanup");
     RunContext context;
-    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, BlockRepliesWaitThreeSeconds)
@@ -309,7 +309,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, BlockRepliesWaitThreeSeconds)
     transport.expectWrite(block_request(plan, 0, false));
     transport.queue_no_frame();
     RunContext context;
-    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::kTimeout));
     // The four erase polls (write_mem() :400, :442) use the 10 ms kPollRead
     // budget; every read after the first block write uses the 3000 ms
     // serial_read_extra_long_timeout (:518).
@@ -339,8 +339,8 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancellationDuringEraseDropsTh
         RunContext context;
         context.cancellation.cancel_on_check(checkpoint);
         const auto result = run(plan, transport, context);
-        ASSERT_THAT(result, IsErr(ErrorKind::Cancelled)) << "checkpoint " << checkpoint;
-        EXPECT_EQ(transport.control_line_trace.back(), Line::DisableLecLines) << "checkpoint " << checkpoint;
+        ASSERT_THAT(result, IsErr(ErrorKind::kCancelled)) << "checkpoint " << checkpoint;
+        EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines) << "checkpoint " << checkpoint;
         // Only AF 31 was written; the block loop was never entered.
         EXPECT_EQ(transport.writesConsumed(), 1U) << "checkpoint " << checkpoint;
     }
@@ -355,7 +355,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, ANonStatusReplyFailsTheErasePo
     transport.queueRead(malformed);
     RunContext context;
     const auto result = run(plan, transport, context);
-    ASSERT_THAT(result, IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr(bytes::toHex(malformed)));
     EXPECT_THAT(result.error().detail, ::testing::Not(::testing::HasSubstr("status")));
 }
@@ -370,7 +370,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, ABadChecksumFailsTheErasePoll)
     transport.queueRead(bad_checksum);
     RunContext context;
     const auto result = run(plan, transport, context);
-    ASSERT_THAT(result, IsErr(ErrorKind::BadResponse));
+    ASSERT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr(bytes::toHex(bad_checksum)));
     EXPECT_THAT(result.error().detail, ::testing::Not(::testing::HasSubstr("status")));
 }
@@ -378,9 +378,9 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, ABadChecksumFailsTheErasePoll)
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, RejectsAKernelPlan)
 {
     auto plan = build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(
-        FlashOperation::Write, "sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", bytes::Bytes(0x80, 0x00));
+        FlashOperation::kWrite, "sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", bytes::Bytes(0x80, 0x00));
     ASSERT_THAT(plan, IsOk());
-    EXPECT_THAT(SubaruUnisiaJecsM32rBootModeProgramExecutor{}.transport_setup(*plan), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(SubaruUnisiaJecsM32rBootModeProgramExecutor{}.transport_setup(*plan), IsErr(ErrorKind::kInvalidConfig));
 }
 } // namespace
 } // namespace fastecu::flash

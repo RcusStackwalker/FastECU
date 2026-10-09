@@ -21,11 +21,11 @@ DensoTableOutcome correctDensoTable(bytes::MutableByteView rom, const DensoTable
 {
     if (spec.table_length % kRecordLength != 0)
     {
-        return DensoTableOutcome::InvalidRecordLength;
+        return DensoTableOutcome::kInvalidRecordLength;
     }
     if (spec.table_offset > rom.size() || spec.table_length > rom.size() - spec.table_offset)
     {
-        return DensoTableOutcome::InvalidTableRange;
+        return DensoTableOutcome::kInvalidTableRange;
     }
 
     bytes::Bytes corrected;
@@ -48,7 +48,7 @@ DensoTableOutcome correctDensoTable(bytes::MutableByteView rom, const DensoTable
 
         if (record == 0 && spec.detect_disabled && low == 0 && high == 0 && stored == kChecksumTarget)
         {
-            return DensoTableOutcome::Disabled;
+            return DensoTableOutcome::kDisabled;
         }
 
         std::uint32_t sum = 0;
@@ -56,13 +56,13 @@ DensoTableOutcome correctDensoTable(bytes::MutableByteView rom, const DensoTable
         {
             if (high > rom.size())
             {
-                return DensoTableOutcome::InvalidBlockRange;
+                return DensoTableOutcome::kInvalidBlockRange;
             }
             for (std::uint32_t address = low; address < high; address += 4)
             {
                 if (address > rom.size() || 4 > rom.size() - address)
                 {
-                    return DensoTableOutcome::InvalidBlockRange;
+                    return DensoTableOutcome::kInvalidBlockRange;
                 }
                 sum += wordAt(rom, address, spec.overrides);
             }
@@ -76,10 +76,10 @@ DensoTableOutcome correctDensoTable(bytes::MutableByteView rom, const DensoTable
 
     if (!changed)
     {
-        return DensoTableOutcome::Unchanged;
+        return DensoTableOutcome::kUnchanged;
     }
     bytes::overwriteAt(rom, spec.table_offset, corrected);
-    return DensoTableOutcome::Corrected;
+    return DensoTableOutcome::kCorrected;
 }
 
 } // namespace fastecu::checksum::internal

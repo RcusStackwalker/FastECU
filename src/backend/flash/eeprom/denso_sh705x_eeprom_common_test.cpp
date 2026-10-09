@@ -22,11 +22,11 @@ constexpr std::uint32_t kSh7055KernelRamStart = 0xFFFF6004;
 constexpr std::uint32_t kSh7055KernelRamLen = 0x00006000;
 constexpr std::uint32_t kSh7055KernelRamEnd = kSh7055KernelRamStart + kSh7055KernelRamLen;
 
-DensoSh705xEepromInput valid_kline_input(EepromReadMode mode = EepromReadMode::Mode2)
+DensoSh705xEepromInput valid_kline_input(EepromReadMode mode = EepromReadMode::kMode2)
 {
     return DensoSh705xEepromInput{
-        .operation = FlashOperation::Read,
-        .family = FlashFamily::DensoSh705xEepromKline,
+        .operation = FlashOperation::kRead,
+        .family = FlashFamily::kDensoSh705xEepromKline,
         .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
         .mcu_name = "SH7055",
         .flash_method = "sub_ecu_eeprom_denso_sh7055_kline",
@@ -37,7 +37,7 @@ DensoSh705xEepromInput valid_kline_input(EepromReadMode mode = EepromReadMode::M
                 .bytes = bytes::Bytes(64, 0xaa),
             },
         .mode = mode,
-        .security = DensoSecurityVariant::Stock,
+        .security = DensoSecurityVariant::kStock,
         .eeprom_region = MemoryRegion{.start = kSh7055EepromStart, .length = kSh7055EepromLen},
     };
 }
@@ -47,11 +47,11 @@ TEST(DensoSh705xEepromCommonTest, ValidKlineMode2ProducesReadPlanWithTwoConfirma
     auto plan = build_denso_sh705x_eeprom_plan(valid_kline_input());
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->operation(), FlashOperation::Read);
-    EXPECT_EQ(plan->transport(), TransportKind::Kline);
+    EXPECT_EQ(plan->operation(), FlashOperation::kRead);
+    EXPECT_EQ(plan->transport(), TransportKind::kKline);
     ASSERT_EQ(plan->confirmations().size(), 2U);
-    EXPECT_EQ(plan->confirmations()[0].id, ConfirmationSpec::Id::BeginEepromRead);
-    EXPECT_EQ(plan->confirmations()[1].id, ConfirmationSpec::Id::InspectEepromBytes);
+    EXPECT_EQ(plan->confirmations()[0].id, ConfirmationSpec::Id::kBeginEepromRead);
+    EXPECT_EQ(plan->confirmations()[1].id, ConfirmationSpec::Id::kInspectEepromBytes);
 
     ASSERT_TRUE(std::holds_alternative<DensoSh705xEepromKlinePlan>(plan->family_plan()));
     const auto& kline_plan = std::get<DensoSh705xEepromKlinePlan>(plan->family_plan());
@@ -62,65 +62,65 @@ TEST(DensoSh705xEepromCommonTest, ValidKlineMode2ProducesReadPlanWithTwoConfirma
 
 TEST(DensoSh705xEepromCommonTest, Mode3And4AddCycleIgnitionConfirmation)
 {
-    for (EepromReadMode mode : {EepromReadMode::Mode3, EepromReadMode::Mode4})
+    for (EepromReadMode mode : {EepromReadMode::kMode3, EepromReadMode::kMode4})
     {
         auto plan = build_denso_sh705x_eeprom_plan(valid_kline_input(mode));
 
         ASSERT_THAT(plan, fastecu::testing::IsOk());
         ASSERT_EQ(plan->confirmations().size(), 3U);
-        EXPECT_EQ(plan->confirmations()[0].id, ConfirmationSpec::Id::BeginEepromRead);
-        EXPECT_EQ(plan->confirmations()[1].id, ConfirmationSpec::Id::CycleIgnition);
-        EXPECT_EQ(plan->confirmations()[2].id, ConfirmationSpec::Id::InspectEepromBytes);
+        EXPECT_EQ(plan->confirmations()[0].id, ConfirmationSpec::Id::kBeginEepromRead);
+        EXPECT_EQ(plan->confirmations()[1].id, ConfirmationSpec::Id::kCycleIgnition);
+        EXPECT_EQ(plan->confirmations()[2].id, ConfirmationSpec::Id::kInspectEepromBytes);
     }
 }
 
 TEST(DensoSh705xEepromCommonTest, WriteOperationIsUnsupported)
 {
     auto input = valid_kline_input();
-    input.operation = FlashOperation::Write;
+    input.operation = FlashOperation::kWrite;
 
-    ASSERT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::kUnsupported));
 }
 
 TEST(DensoSh705xEepromCommonTest, TestWriteOperationIsUnsupported)
 {
     auto input = valid_kline_input();
-    input.operation = FlashOperation::TestWrite;
+    input.operation = FlashOperation::kTestWrite;
 
-    EXPECT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::Unsupported));
+    EXPECT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::kUnsupported));
 }
 
 TEST(DensoSh705xEepromCommonTest, KlineRejectsCobbSecurity)
 {
     auto input = valid_kline_input();
-    input.security = DensoSecurityVariant::Cobb;
+    input.security = DensoSecurityVariant::kCobb;
 
-    EXPECT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DensoSh705xEepromCommonTest, KlineRejectsEcuTekRaceRomSecurity)
 {
     auto input = valid_kline_input();
-    input.security = DensoSecurityVariant::EcuTekRaceRom;
+    input.security = DensoSecurityVariant::kEcuTekRaceRom;
 
-    EXPECT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DensoSh705xEepromCommonTest, KlineAcceptsEcuTekSecurity)
 {
     auto input = valid_kline_input();
-    input.security = DensoSecurityVariant::EcuTek;
+    input.security = DensoSecurityVariant::kEcuTek;
 
     EXPECT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsOk());
 }
 
 TEST(DensoSh705xEepromCommonTest, CanAcceptsAllFourSecurityVariants)
 {
-    for (DensoSecurityVariant security : {DensoSecurityVariant::Stock, DensoSecurityVariant::EcuTek,
-                                          DensoSecurityVariant::Cobb, DensoSecurityVariant::EcuTekRaceRom})
+    for (DensoSecurityVariant security : {DensoSecurityVariant::kStock, DensoSecurityVariant::kEcuTek,
+                                          DensoSecurityVariant::kCobb, DensoSecurityVariant::kEcuTekRaceRom})
     {
         auto input = valid_kline_input();
-        input.family = FlashFamily::DensoSh705xEepromCan;
+        input.family = FlashFamily::kDensoSh705xEepromCan;
         input.security = security;
 
         EXPECT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsOk())
@@ -133,7 +133,7 @@ TEST(DensoSh705xEepromCommonTest, EepromRegionMismatchIsRejected)
     auto input = valid_kline_input();
     input.eeprom_region.length += 1;
 
-    EXPECT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DensoSh705xEepromCommonTest, KernelLoadAddressOutsideRamRangeIsRejected)
@@ -141,7 +141,7 @@ TEST(DensoSh705xEepromCommonTest, KernelLoadAddressOutsideRamRangeIsRejected)
     auto input = valid_kline_input();
     input.kernel.load_address = kSh7055KernelRamStart + kSh7055KernelRamLen + 1;
 
-    EXPECT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DensoSh705xEepromCommonTest, KlineRejectsRawKernelThatFitsButWireFootprintCrossesRamEnd)
@@ -152,19 +152,19 @@ TEST(DensoSh705xEepromCommonTest, KlineRejectsRawKernelThatFitsButWireFootprintC
     input.kernel.load_address = kSh7055KernelRamEnd - 4;
     input.kernel.bytes = {0xaa, 0xbb, 0xcc, 0xdd};
 
-    ASSERT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DensoSh705xEepromCommonTest, CanRejectsRawKernelThatFitsButWireFootprintCrossesRamEnd)
 {
     auto input = valid_kline_input();
-    input.family = FlashFamily::DensoSh705xEepromCan;
+    input.family = FlashFamily::kDensoSh705xEepromCan;
     // Four raw bytes end exactly at ram_end, but the CAN wire payload is a
     // complete 128-byte block.
     input.kernel.load_address = kSh7055KernelRamEnd - 4;
     input.kernel.bytes = {0xaa, 0xbb, 0xcc, 0xdd};
 
-    ASSERT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(build_denso_sh705x_eeprom_plan(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DensoSh705xEepromCommonTest, PreflightRejectsKernelSizeWhoseWireFootprintOverflows)
@@ -172,7 +172,7 @@ TEST(DensoSh705xEepromCommonTest, PreflightRejectsKernelSizeWhoseWireFootprintOv
     auto input = valid_kline_input();
 
     ASSERT_THAT(validate_denso_sh705x_eeprom_preflight(input, std::numeric_limits<std::size_t>::max()),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionReturnsKnownMcuBounds)
@@ -193,7 +193,7 @@ TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionReturnsKnownMcuBounds
 
 TEST(DensoSh705xEepromCommonTest, ResolveSh705xEepromRegionRejectsUnknownMcu)
 {
-    ASSERT_THAT(resolve_sh705x_eeprom_region("NOT_A_REAL_MCU"), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(resolve_sh705x_eeprom_region("NOT_A_REAL_MCU"), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DensoSh705xEepromCommonTest, NoTransportOrConfigurationCallOccursOnRejection)
@@ -203,7 +203,7 @@ TEST(DensoSh705xEepromCommonTest, NoTransportOrConfigurationCallOccursOnRejectio
     // have performed any I/O by construction. This test exists to document
     // that guarantee at the call site future maintainers read first.
     auto input = valid_kline_input();
-    input.operation = FlashOperation::Write;
+    input.operation = FlashOperation::kWrite;
 
     static_assert(std::is_same_v<decltype(build_denso_sh705x_eeprom_plan(input)), Result<FlashPlan>>);
     EXPECT_THAT(build_denso_sh705x_eeprom_plan(input), ::testing::Not(fastecu::testing::IsOk()));

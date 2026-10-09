@@ -28,35 +28,35 @@ Result<SelectableEditOutcome> apply_selectable_edit(CalibrationWorkspace& worksp
     CalibrationSession *session = workspace.find(request.session);
     if (session == nullptr)
     {
-        return not_applicable(SelectableNotApplicableReason::ClosedSession);
+        return not_applicable(SelectableNotApplicableReason::kClosedSession);
     }
     if (session->definition() == nullptr)
     {
-        return not_applicable(SelectableNotApplicableReason::NoDefinition);
+        return not_applicable(SelectableNotApplicableReason::kNoDefinition);
     }
     const auto& definition = session->definition()->definition;
     if (request.map_index >= definition.maps.size())
     {
-        return not_applicable(SelectableNotApplicableReason::UnknownMap);
+        return not_applicable(SelectableNotApplicableReason::kUnknownMap);
     }
     const auto& map = definition.maps[request.map_index];
     const auto *scaling = definition::find_scaling(definition, map.scaling_name);
     const auto storage = map.storage_type.has_value() ? map.storage_type
                          : scaling != nullptr         ? scaling->storage_type
                                                       : std::nullopt;
-    if (scaling == nullptr || scaling->selections.empty() || storage != definition::StorageType::Bloblist)
+    if (scaling == nullptr || scaling->selections.empty() || storage != definition::StorageType::kBloblist)
     {
-        return not_applicable(SelectableNotApplicableReason::NotBloblist);
+        return not_applicable(SelectableNotApplicableReason::kNotBloblist);
     }
     const auto selected = std::ranges::find(scaling->selections, request.selection, &definition::Selection::name);
     if (selected == scaling->selections.end())
     {
-        return not_applicable(SelectableNotApplicableReason::UnknownSelection);
+        return not_applicable(SelectableNotApplicableReason::kUnknownSelection);
     }
     const auto& data = selected->value;
     if (data.size() != element_byte_size(storage, scaling))
     {
-        return fail(ErrorKind::InvalidConfig, "selection value width differs from the blob width");
+        return fail(ErrorKind::kInvalidConfig, "selection value width differs from the blob width");
     }
     const auto offset = map.address.value_or(0);
     const auto image = session->rom();

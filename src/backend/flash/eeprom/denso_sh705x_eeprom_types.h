@@ -6,17 +6,17 @@ namespace fastecu::flash
 
 enum class DensoSecurityVariant
 {
-    Stock,
-    EcuTek,
-    Cobb,
-    EcuTekRaceRom,
+    kStock,
+    kEcuTek,
+    kCobb,
+    kEcuTekRaceRom,
 };
 
 enum class EepromReadMode : std::uint8_t
 {
-    Mode2 = 2,
-    Mode3 = 3,
-    Mode4 = 4,
+    kMode2 = 2,
+    kMode3 = 3,
+    kMode4 = 4,
 };
 
 struct DensoSh705xEepromKlinePlan

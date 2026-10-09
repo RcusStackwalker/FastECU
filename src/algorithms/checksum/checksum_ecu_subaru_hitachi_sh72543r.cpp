@@ -7,7 +7,7 @@ ChecksumResult ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result(bytes
     // Fixed 2 MiB layout: the balance field is at 0x1FFFFE.
     if (romView.size() != 0x200000)
     {
-        return {.status = ChecksumResult::Status::InvalidSize,
+        return {.status = ChecksumResult::Status::kInvalidSize,
                 .rom_data = bytes::Bytes(romView.begin(), romView.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
@@ -31,12 +31,12 @@ ChecksumResult ChecksumEcuSubaruHitachiSh72543r::calculate_checksum_result(bytes
     {
         fastecu::checksum::internal::rebalanceU16Be(romData, 0x1ffffe, chksum, 0x5aa5);
 
-        result.status = ChecksumResult::Status::Corrected;
+        result.status = ChecksumResult::Status::kCorrected;
         result.message = "Subaru Hitachi SH72543r ECU Checksum";
     }
     else
     {
-        result.status = ChecksumResult::Status::Unchanged;
+        result.status = ChecksumResult::Status::kUnchanged;
     }
     result.rom_data = romData;
     return result;

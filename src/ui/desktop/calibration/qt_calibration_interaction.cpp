@@ -54,13 +54,13 @@ void QtCalibrationInteraction::show_notice(CalibrationNotice notice)
 {
     switch (notice)
     {
-    case CalibrationNotice::NoCalibrationToWrite:
+    case CalibrationNotice::kNoCalibrationToWrite:
         QMessageBox::warning(parent_, main_window_text("Write ROM"), "No file selected!");
         break;
-    case CalibrationNotice::NoCalibrationToSave:
+    case CalibrationNotice::kNoCalibrationToSave:
         QMessageBox::information(parent_, main_window_text("Calibration file"), "No calibration to save!");
         break;
-    case CalibrationNotice::NoSaveFilename:
+    case CalibrationNotice::kNoSaveFilename:
         QMessageBox::information(parent_, main_window_text("Calibration file"), "No file name selected");
         break;
     }

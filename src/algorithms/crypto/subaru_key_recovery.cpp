@@ -172,7 +172,7 @@ std::expected<std::uint16_t, Failure> majority_key(std::span<const Equation> equ
     const auto winner = std::ranges::max_element(votes);
     if (*winner * 2 <= equations.size())
     {
-        return std::unexpected(Failure::NoMatchingKey);
+        return std::unexpected(Failure::kNoMatchingKey);
     }
     return static_cast<std::uint16_t>(winner - votes.begin());
 }
@@ -207,7 +207,7 @@ std::expected<Recovery, Failure> recover_keys(bytes::ByteView plain, bytes::Byte
 {
     if (plain.size() < kAnalyzedBytes || cipher.size() < kAnalyzedBytes)
     {
-        return std::unexpected(Failure::InputTooShort);
+        return std::unexpected(Failure::kInputTooShort);
     }
     const std::vector<WordPair> pairs = distinct_pairs(plain, cipher);
 

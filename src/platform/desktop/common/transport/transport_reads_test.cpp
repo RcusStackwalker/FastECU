@@ -27,12 +27,12 @@ using ReadResult = fastecu::Result<std::optional<bytes::Bytes>>;
 
 enum class ReadPath
 {
-    Kline,
-    Ssm,
-    KlineFlash,
-    KlineRaw,
-    CanFlash,
-    MixedCan
+    kKline,
+    kSsm,
+    kKlineFlash,
+    kKlineRaw,
+    kCanFlash,
+    kMixedCan
 };
 
 class TransportReads : public ::testing::TestWithParam<ReadPath>
@@ -47,25 +47,25 @@ class TransportReads : public ::testing::TestWithParam<ReadPath>
     {
         switch (GetParam())
         {
-        case ReadPath::Kline:
+        case ReadPath::kKline:
             return kline_.read(timeout, cancellation);
-        case ReadPath::Ssm:
+        case ReadPath::kSsm:
             return ssm_.read(timeout, cancellation);
-        case ReadPath::KlineFlash:
+        case ReadPath::kKlineFlash:
             return kline_flash_.read(timeout, cancellation);
-        case ReadPath::KlineRaw:
+        case ReadPath::kKlineRaw:
             return kline_flash_.read_raw(timeout, cancellation);
-        case ReadPath::CanFlash:
+        case ReadPath::kCanFlash:
             return can_flash_.read(timeout, cancellation);
-        case ReadPath::MixedCan:
+        case ReadPath::kMixedCan:
             return mixed_.read_iso15765(timeout, cancellation);
         }
-        return fastecu::fail(ErrorKind::Internal, "unknown test read path");
+        return fastecu::fail(ErrorKind::kInternal, "unknown test read path");
     }
 
     void expect_read(std::uint16_t timeout, std::function<QByteArray(std::uint16_t)> action)
     {
-        if (GetParam() == ReadPath::KlineRaw)
+        if (GetParam() == ReadPath::kKlineRaw)
         {
             EXPECT_CALL(serial_.fake(), read_serial_data(::testing::_)).Times(0);
             EXPECT_CALL(serial_.fake(), read_serial_obd_data(timeout)).WillOnce(std::move(action));
@@ -79,7 +79,7 @@ class TransportReads : public ::testing::TestWithParam<ReadPath>
 
     bool has_unblock() const
     {
-        return GetParam() != ReadPath::Kline && GetParam() != ReadPath::Ssm;
+        return GetParam() != ReadPath::kKline && GetParam() != ReadPath::kSsm;
     }
 
     void unblock()
@@ -134,7 +134,7 @@ TEST_P(TransportReads, CancellationPrecedesDisconnectAndSkipsDriver)
     EXPECT_CALL(serial_.fake(), read_serial_obd_data(::testing::_)).Times(0);
     const auto result = read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 TEST_P(TransportReads, DisconnectionBeforeReadSkipsDriver)
@@ -144,7 +144,7 @@ TEST_P(TransportReads, DisconnectionBeforeReadSkipsDriver)
     EXPECT_CALL(serial_.fake(), read_serial_obd_data(::testing::_)).Times(0);
     const auto result = read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST_P(TransportReads, DisconnectionAfterReadDiscardsBytes)
@@ -155,7 +155,7 @@ TEST_P(TransportReads, DisconnectionAfterReadDiscardsBytes)
     expect_read(10, [](std::uint16_t) { return QByteArray("\xaa", 1); });
     const auto result = read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Disconnected);
+    EXPECT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST_P(TransportReads, PostReadCancellationPrecedesDisconnect)
@@ -169,7 +169,7 @@ TEST_P(TransportReads, PostReadCancellationPrecedesDisconnect)
                 });
     const auto result = read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 TEST_P(TransportReads, StandardExceptionPreservesDiagnostic)
@@ -177,7 +177,7 @@ TEST_P(TransportReads, StandardExceptionPreservesDiagnostic)
     expect_read(10, [](std::uint16_t) -> QByteArray { throw std::runtime_error("read failed"); });
     const auto result = read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error(), (fastecu::Error{ErrorKind::Internal, "read failed"}));
+    EXPECT_EQ(result.error(), (fastecu::Error{ErrorKind::kInternal, "read failed"}));
 }
 
 TEST_P(TransportReads, NonstandardExceptionIsContained)
@@ -189,7 +189,7 @@ TEST_P(TransportReads, NonstandardExceptionIsContained)
                 });
     const auto result = read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Internal);
+    EXPECT_EQ(result.error().kind, ErrorKind::kInternal);
     EXPECT_EQ(result.error().detail, "serial driver read exception");
 }
 
@@ -203,7 +203,7 @@ TEST_P(TransportReads, CancellationPrecedesStandardException)
                 });
     const auto result = read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 TEST_P(TransportReads, CancellationPrecedesNonstandardException)
@@ -216,7 +216,7 @@ TEST_P(TransportReads, CancellationPrecedesNonstandardException)
                 });
     const auto result = read(10ms, cancellation_);
     ASSERT_FALSE(result.has_value());
-    EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 TEST_P(TransportReads, UnblockPreservesInflightBytesAndSuppressesNextRead)
@@ -240,7 +240,7 @@ TEST_P(TransportReads, UnblockPreservesInflightBytesAndSuppressesNextRead)
     EXPECT_CALL(serial_.fake(), read_serial_obd_data(::testing::_)).Times(0);
     const auto subsequent = read(10ms, cancellation_);
     ASSERT_FALSE(subsequent.has_value());
-    EXPECT_EQ(subsequent.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(subsequent.error().kind, ErrorKind::kCancelled);
 }
 
 TEST(TransportReadPrechecks, ClosedAdaptersKeepCancellationAndModePrecedence)
@@ -251,23 +251,23 @@ TEST(TransportReadPrechecks, ClosedAdaptersKeepCancellationAndModePrecedence)
     fastecu::flash::DesktopMixedCanFlashTransport mixed{nullptr};
     const auto raw = kline.read_raw(10ms, cancellation);
     ASSERT_FALSE(raw.has_value());
-    EXPECT_EQ(raw.error(), (fastecu::Error{ErrorKind::Disconnected, "read_raw() called after close()"}));
+    EXPECT_EQ(raw.error(), (fastecu::Error{ErrorKind::kDisconnected, "read_raw() called after close()"}));
     const auto can_closed = can.read(10ms, cancellation);
     ASSERT_FALSE(can_closed.has_value());
-    EXPECT_EQ(can_closed.error(), (fastecu::Error{ErrorKind::Disconnected, "read() called after close()"}));
+    EXPECT_EQ(can_closed.error(), (fastecu::Error{ErrorKind::kDisconnected, "read() called after close()"}));
 
     cancellation.set_cancelled(true);
-    EXPECT_EQ(kline.read_raw(10ms, cancellation).error().kind, ErrorKind::Cancelled);
-    EXPECT_EQ(can.read(10ms, cancellation).error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(kline.read_raw(10ms, cancellation).error().kind, ErrorKind::kCancelled);
+    EXPECT_EQ(can.read(10ms, cancellation).error().kind, ErrorKind::kCancelled);
     // Mixed CAN checks its lifecycle/mode before the serial-read precheck.
     const auto mixed_closed = mixed.read_iso15765(10ms, cancellation);
     ASSERT_FALSE(mixed_closed.has_value());
-    EXPECT_EQ(mixed_closed.error(), (fastecu::Error{ErrorKind::Disconnected, "ISO-15765 read called after close()"}));
+    EXPECT_EQ(mixed_closed.error(), (fastecu::Error{ErrorKind::kDisconnected, "ISO-15765 read called after close()"}));
 }
 
 INSTANTIATE_TEST_SUITE_P(Adapters, TransportReads,
-                         ::testing::Values(ReadPath::Kline, ReadPath::Ssm, ReadPath::KlineFlash, ReadPath::KlineRaw,
-                                           ReadPath::CanFlash, ReadPath::MixedCan));
+                         ::testing::Values(ReadPath::kKline, ReadPath::kSsm, ReadPath::kKlineFlash, ReadPath::kKlineRaw,
+                                           ReadPath::kCanFlash, ReadPath::kMixedCan));
 
 const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);

@@ -19,14 +19,14 @@ std::optional<ServiceFunctionKind> to_service_kind(DensoTcuReadAction action)
 {
     switch (action)
     {
-    case DensoTcuReadAction::Relearn:
-        return ServiceFunctionKind::Relearn;
-    case DensoTcuReadAction::ReadParameters:
-        return ServiceFunctionKind::ReadParameters;
-    case DensoTcuReadAction::SetParameters:
-        return ServiceFunctionKind::SetParameters;
-    case DensoTcuReadAction::Dump:
-    case DensoTcuReadAction::Cancelled:
+    case DensoTcuReadAction::kRelearn:
+        return ServiceFunctionKind::kRelearn;
+    case DensoTcuReadAction::kReadParameters:
+        return ServiceFunctionKind::kReadParameters;
+    case DensoTcuReadAction::kSetParameters:
+        return ServiceFunctionKind::kSetParameters;
+    case DensoTcuReadAction::kDump:
+    case DensoTcuReadAction::kCancelled:
         return std::nullopt;
     }
     return std::nullopt;
@@ -58,31 +58,31 @@ DensoTcuReadAction choose_denso_tcu_read_action(QWidget *parent)
     const QAbstractButton *selected = message_box.clickedButton();
     if (selected == dump)
     {
-        return DensoTcuReadAction::Dump;
+        return DensoTcuReadAction::kDump;
     }
     if (selected == relearn)
     {
-        return DensoTcuReadAction::Relearn;
+        return DensoTcuReadAction::kRelearn;
     }
     if (selected == read_parameters)
     {
-        return DensoTcuReadAction::ReadParameters;
+        return DensoTcuReadAction::kReadParameters;
     }
     if (selected == set_parameters)
     {
-        return DensoTcuReadAction::SetParameters;
+        return DensoTcuReadAction::kSetParameters;
     }
-    return DensoTcuReadAction::Cancelled;
+    return DensoTcuReadAction::kCancelled;
 }
 
 bool run_denso_tcu_service_action(DensoTcuReadAction action, SerialPortActions *serial, std::string protocol,
                                   QWidget *parent)
 {
-    if (action == DensoTcuReadAction::Dump)
+    if (action == DensoTcuReadAction::kDump)
     {
         return false;
     }
-    if (action == DensoTcuReadAction::Cancelled)
+    if (action == DensoTcuReadAction::kCancelled)
     {
         return true;
     }

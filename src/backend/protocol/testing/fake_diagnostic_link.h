@@ -53,7 +53,7 @@ class FakeDiagnosticLink final : public IDiagnosticLink
         calls.push_back(
             std::format("open kline header={} iso14230={} baud={} start={:02X} tester={:02X} target={:02X}{}",
                         to_string(c.header), c.iso14230_connection, c.baud, c.start_byte, c.tester_id, c.target_id,
-                        c.parity == Parity::Even ? " parity=Even" : ""));
+                        c.parity == Parity::kEven ? " parity=Even" : ""));
         return next(opens_);
     }
     Status open(const CanLinkConfig& c) override
@@ -142,7 +142,7 @@ class FakeDiagnosticLink final : public IDiagnosticLink
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "scripted read cancelled");
+            return fail(ErrorKind::kCancelled, "scripted read cancelled");
         }
         if (reads_.empty())
         {

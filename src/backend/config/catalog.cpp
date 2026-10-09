@@ -78,11 +78,11 @@ std::string_view checksum_flag(ChecksumSupport support)
 {
     switch (support)
     {
-    case ChecksumSupport::Corrected:
+    case ChecksumSupport::kCorrected:
         return "yes";
-    case ChecksumSupport::Missing:
+    case ChecksumSupport::kMissing:
         return "n/a";
-    case ChecksumSupport::None:
+    case ChecksumSupport::kNone:
         return "no";
     }
     std::unreachable();

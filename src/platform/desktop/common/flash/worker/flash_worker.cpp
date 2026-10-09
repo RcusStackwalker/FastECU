@@ -58,7 +58,7 @@ void FlashWorker::run()
     connect(&events, &QtEventSink::phaseProgressed, this, &FlashWorker::phaseProgressChanged, Qt::DirectConnection);
     connect(
         &events, &QtEventSink::noticed, this, [this](QString message)
-        { emit logEvent(static_cast<int>(LogLevel::Info), std::move(message)); }, Qt::DirectConnection);
+        { emit logEvent(static_cast<int>(LogLevel::kInfo), std::move(message)); }, Qt::DirectConnection);
 
     Result<FlashExecutionResult> result = attempt_->run(*clock_, cancellation_, events);
 

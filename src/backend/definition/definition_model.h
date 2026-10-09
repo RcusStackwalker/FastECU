@@ -17,29 +17,29 @@ namespace fastecu::definition
 
 enum class DefinitionFormat
 {
-    RomRaider,
-    EcuFlash,
+    kRomRaider,
+    kEcuFlash,
 };
 
 enum class IdEncoding
 {
-    Ascii,
-    Hex,
-    AsciiOrHex,
+    kAscii,
+    kHex,
+    kAsciiOrHex,
 };
 
 enum class StorageType
 {
-    Uint8,
-    Int8,
-    Uint16,
-    Int16,
-    Uint24,
-    Int24,
-    Uint32,
-    Int32,
-    Float,
-    Bloblist,
+    kUint8,
+    kInt8,
+    kUint16,
+    kInt16,
+    kUint24,
+    kInt24,
+    kUint32,
+    kInt32,
+    kFloat,
+    kBloblist,
 };
 
 std::optional<StorageType> storage_type_from_text(std::string_view text);

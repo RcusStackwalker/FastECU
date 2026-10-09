@@ -49,7 +49,7 @@ TEST(Clock, SleepReturnsCancelledWhenTokenSet)
     FakeClock c;
     fastecu::FakeCancellationToken t;
     t.set_cancelled(true);
-    ASSERT_THAT(c.sleep(10ms, t), fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(c.sleep(10ms, t), fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(c.elapsed(), 0ms);
 }
 

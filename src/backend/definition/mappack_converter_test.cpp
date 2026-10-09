@@ -87,7 +87,7 @@ TEST(MapPackConverterTest, RejectsMalformedInputWithContext)
     {
         auto result = convert_mappack_csv(input, "ECU");
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+        EXPECT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
         EXPECT_NE(result.error().detail.find("row"), std::string::npos);
         EXPECT_NE(result.error().detail.find("column"), std::string::npos);
     }

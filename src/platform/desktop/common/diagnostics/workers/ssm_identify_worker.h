@@ -20,7 +20,7 @@ namespace fastecu::diagnostics
 struct SsmIdentifyWorkerResult
 {
     bool success = false;
-    ErrorKind error_kind = ErrorKind::Internal;
+    ErrorKind error_kind = ErrorKind::kInternal;
     QString error_detail;
     QString ecu_id;
     QByteArray init_response;

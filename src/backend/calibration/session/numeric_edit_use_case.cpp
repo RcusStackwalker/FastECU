@@ -24,11 +24,11 @@ const NumericRun *target_cells(const DecodedMap& values, NumericTarget target)
 {
     switch (target)
     {
-    case NumericTarget::MapBody:
+    case NumericTarget::kMapBody:
         return std::get_if<NumericRun>(&values.body);
-    case NumericTarget::XAxis:
+    case NumericTarget::kXAxis:
         return std::get_if<NumericRun>(&values.x_axis);
-    case NumericTarget::YAxis:
+    case NumericTarget::kYAxis:
         return std::get_if<NumericRun>(&values.y_axis);
     }
     return nullptr;
@@ -37,13 +37,13 @@ const NumericRun *target_cells(const DecodedMap& values, NumericTarget target)
 // A Y axis is one column; a body or X axis is as wide as the map.
 std::uint32_t run_width(const MapElementSpec& spec, NumericTarget target)
 {
-    return target == NumericTarget::YAxis ? 1U : spec.x_size;
+    return target == NumericTarget::kYAxis ? 1U : spec.x_size;
 }
 
 // An X axis is one row; a body or Y axis is as tall as the map.
 std::uint32_t run_height(const MapElementSpec& spec, NumericTarget target)
 {
-    return target == NumericTarget::XAxis ? 1U : spec.y_size;
+    return target == NumericTarget::kXAxis ? 1U : spec.y_size;
 }
 
 // Validates every supplied cell, including those clipping will discard.
@@ -60,7 +60,7 @@ Result<std::vector<std::vector<double>>> parse_paste(const PasteEdit& paste)
             const auto number = expression::parse_finite_number(text);
             if (!number.has_value())
             {
-                return fail(ErrorKind::InvalidConfig, number.error().detail);
+                return fail(ErrorKind::kInvalidConfig, number.error().detail);
             }
             values.push_back(*number);
         }
@@ -117,11 +117,11 @@ Status write_patch(CalibrationSession& session, const MapElementSpec& spec, std:
         if (cell.index >= cell_count || cell.bytes.size() != width ||
             cell.byte_address != element_byte_address(spec, cell.index, true))
         {
-            return fail(ErrorKind::InvalidConfig, "map edit index, address, or byte width does not match its target");
+            return fail(ErrorKind::kInvalidConfig, "map edit index, address, or byte width does not match its target");
         }
         if (cell.byte_address > size || cell.bytes.size() > size - cell.byte_address)
         {
-            return fail(ErrorKind::InvalidConfig, "map edit byte range is outside the ROM image");
+            return fail(ErrorKind::kInvalidConfig, "map edit byte range is outside the ROM image");
         }
     }
     for (const auto& cell : patch)
@@ -147,25 +147,25 @@ Result<NumericEditOutcome> apply_numeric_edit(CalibrationWorkspace& workspace, c
     CalibrationSession *session = workspace.find(request.session);
     if (session == nullptr)
     {
-        return not_applicable(NotApplicableReason::ClosedSession);
+        return not_applicable(NotApplicableReason::kClosedSession);
     }
     if (session->definition() == nullptr)
     {
-        return not_applicable(NotApplicableReason::NoDefinition);
+        return not_applicable(NotApplicableReason::kNoDefinition);
     }
     if (request.map_index >= session->definition()->definition.maps.size())
     {
-        return not_applicable(NotApplicableReason::UnavailableTarget);
+        return not_applicable(NotApplicableReason::kUnavailableTarget);
     }
     const auto decoded = session->decode_map(request.map_index);
     if (!decoded.has_value())
     {
-        return not_applicable(NotApplicableReason::UnavailableTarget);
+        return not_applicable(NotApplicableReason::kUnavailableTarget);
     }
     const NumericRun *run = target_cells(*decoded, request.selection.target);
     if (run == nullptr)
     {
-        return not_applicable(NotApplicableReason::UnavailableTarget);
+        return not_applicable(NotApplicableReason::kUnavailableTarget);
     }
     const auto fields = collect_map_element_fields(*session, request.map_index, request.selection.target);
     const auto spec = fields.spec();

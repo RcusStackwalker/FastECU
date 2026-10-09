@@ -19,63 +19,63 @@ std::string_view FlashPlan::experimental_family_id() const
 {
     switch (fields_.family)
     {
-    case FlashFamily::DensoSh705xEepromKline:
+    case FlashFamily::kDensoSh705xEepromKline:
         return "DensoSh705xEepromKline";
-    case FlashFamily::DensoSh705xEepromCan:
+    case FlashFamily::kDensoSh705xEepromCan:
         return "DensoSh705xEepromCan";
-    case FlashFamily::MitsuColtM32rCan:
+    case FlashFamily::kMitsuColtM32rCan:
         return "MitsuColtM32rCan";
-    case FlashFamily::SubaruMitsuM32rKline:
+    case FlashFamily::kSubaruMitsuM32rKline:
         return "SubaruMitsuM32rKline";
-    case FlashFamily::SubaruHitachiM32rKline:
+    case FlashFamily::kSubaruHitachiM32rKline:
         return "SubaruHitachiM32rKline";
-    case FlashFamily::SubaruDensoMc68hc16y5_02:
+    case FlashFamily::kSubaruDensoMc68hc16y502:
         return "SubaruDensoMc68hc16y5_02";
-    case FlashFamily::SubaruDensoSh7055_02:
+    case FlashFamily::kSubaruDensoSh705502:
         return "SubaruDensoSh7055_02";
-    case FlashFamily::SubaruHitachiM32rCan:
+    case FlashFamily::kSubaruHitachiM32rCan:
         return "SubaruHitachiM32rCan";
-    case FlashFamily::SubaruTcuCvtHitachiM32rCan:
+    case FlashFamily::kSubaruTcuCvtHitachiM32rCan:
         return "SubaruTcuCvtHitachiM32rCan";
-    case FlashFamily::SubaruTcuCvtMitsuMh8111Can:
+    case FlashFamily::kSubaruTcuCvtMitsuMh8111Can:
         return "SubaruTcuCvtMitsuMh8111Can";
-    case FlashFamily::SubaruTcuCvtMitsuMh8104Can:
+    case FlashFamily::kSubaruTcuCvtMitsuMh8104Can:
         return "SubaruTcuCvtMitsuMh8104Can";
-    case FlashFamily::SubaruDenso1n83m_1_5mCan:
+    case FlashFamily::kSubaruDenso1n83m15mCan:
         return "SubaruDenso1n83m_1_5mCan";
-    case FlashFamily::SubaruDensoSh72531Can:
+    case FlashFamily::kSubaruDensoSh72531Can:
         return "SubaruDensoSh72531Can";
-    case FlashFamily::SubaruDensoSh72543CanDiesel:
+    case FlashFamily::kSubaruDensoSh72543CanDiesel:
         return "SubaruDensoSh72543CanDiesel";
-    case FlashFamily::SubaruDenso1n83m_4mCan:
+    case FlashFamily::kSubaruDenso1n83m4mCan:
         return "SubaruDenso1n83m_4mCan";
-    case FlashFamily::SubaruDensoSh705xDensoCan:
+    case FlashFamily::kSubaruDensoSh705xDensoCan:
         return "SubaruDensoSh705xDensoCan";
-    case FlashFamily::SubaruTcuDensoSh705xCan:
+    case FlashFamily::kSubaruTcuDensoSh705xCan:
         return "SubaruTcuDensoSh705xCan";
-    case FlashFamily::SubaruDensoSh7058Can:
+    case FlashFamily::kSubaruDensoSh7058Can:
         return "SubaruDensoSh7058Can";
-    case FlashFamily::SubaruDensoSh7058CanDiesel:
+    case FlashFamily::kSubaruDensoSh7058CanDiesel:
         return "SubaruDensoSh7058CanDiesel";
-    case FlashFamily::SubaruTcuHitachiM32rKline:
+    case FlashFamily::kSubaruTcuHitachiM32rKline:
         return "SubaruTcuHitachiM32rKline";
-    case FlashFamily::SubaruHitachiSh72543rCan:
+    case FlashFamily::kSubaruHitachiSh72543rCan:
         return "SubaruHitachiSh72543rCan";
-    case FlashFamily::SubaruHitachiSh7058:
+    case FlashFamily::kSubaruHitachiSh7058:
         return "SubaruHitachiSh7058";
-    case FlashFamily::SubaruTcuHitachiM32rCan:
+    case FlashFamily::kSubaruTcuHitachiM32rCan:
         return "SubaruTcuHitachiM32rCan";
-    case FlashFamily::SubaruUnisiaJecs:
+    case FlashFamily::kSubaruUnisiaJecs:
         return "SubaruUnisiaJecs";
-    case FlashFamily::SubaruDensoSh705xKline:
+    case FlashFamily::kSubaruDensoSh705xKline:
         return "SubaruDensoSh705xKline";
-    case FlashFamily::SubaruDensoMc68hc16y5_02Bdm:
+    case FlashFamily::kSubaruDensoMc68hc16y502Bdm:
         return "SubaruDensoMc68hc16y5_02Bdm";
-    case FlashFamily::SubaruUnisiaJecsM32rKline:
+    case FlashFamily::kSubaruUnisiaJecsM32rKline:
         return "SubaruUnisiaJecsM32rKline";
-    case FlashFamily::SubaruUnisiaJecsM32rBootModeKernel:
+    case FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel:
         return "SubaruUnisiaJecsM32rBootModeKernel";
-    case FlashFamily::SubaruUnisiaJecsM32rBootModeProgram:
+    case FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram:
         return "SubaruUnisiaJecsM32rBootModeProgram";
     }
     return "Unknown";

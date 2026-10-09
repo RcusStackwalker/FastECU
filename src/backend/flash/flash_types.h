@@ -39,53 +39,53 @@ namespace fastecu::flash
 
 enum class FlashOperation
 {
-    Read,
-    TestWrite,
-    Write,
+    kRead,
+    kTestWrite,
+    kWrite,
 };
 
 enum class FlashFamily
 {
-    DensoSh705xEepromKline,
-    DensoSh705xEepromCan,
+    kDensoSh705xEepromKline,
+    kDensoSh705xEepromCan,
     // Serves all four mitsu_ecu_m32r_can capacity and
     // vendor-authorization variants; both properties are plan fields, not
     // separate families, matching the legacy class this replaces.
-    MitsuColtM32rCan,
-    SubaruMitsuM32rKline,
-    SubaruHitachiM32rKline,
-    SubaruDensoMc68hc16y5_02,
-    SubaruDensoSh7055_02,
-    SubaruHitachiM32rCan,
-    SubaruTcuCvtHitachiM32rCan,
-    SubaruTcuCvtMitsuMh8111Can,
-    SubaruTcuCvtMitsuMh8104Can,
+    kMitsuColtM32rCan,
+    kSubaruMitsuM32rKline,
+    kSubaruHitachiM32rKline,
+    kSubaruDensoMc68hc16y502,
+    kSubaruDensoSh705502,
+    kSubaruHitachiM32rCan,
+    kSubaruTcuCvtHitachiM32rCan,
+    kSubaruTcuCvtMitsuMh8111Can,
+    kSubaruTcuCvtMitsuMh8104Can,
     // Denso ISO-15765 bootloader dialect.
-    SubaruDenso1n83m_1_5mCan,
-    SubaruDensoSh72531Can,
-    SubaruDensoSh72543CanDiesel,
-    SubaruDenso1n83m_4mCan,
-    SubaruDensoSh705xDensoCan,
-    SubaruTcuDensoSh705xCan,
-    SubaruDensoSh7058Can,
-    SubaruDensoSh7058CanDiesel,
-    SubaruTcuHitachiM32rKline,
-    SubaruTcuHitachiM32rCan,
-    SubaruHitachiSh72543rCan,
-    SubaruHitachiSh7058,
-    SubaruUnisiaJecs,
-    SubaruDensoSh705xKline,
-    SubaruDensoMc68hc16y5_02Bdm,
-    SubaruUnisiaJecsM32rKline,
-    SubaruUnisiaJecsM32rBootModeKernel,
-    SubaruUnisiaJecsM32rBootModeProgram,
+    kSubaruDenso1n83m15mCan,
+    kSubaruDensoSh72531Can,
+    kSubaruDensoSh72543CanDiesel,
+    kSubaruDenso1n83m4mCan,
+    kSubaruDensoSh705xDensoCan,
+    kSubaruTcuDensoSh705xCan,
+    kSubaruDensoSh7058Can,
+    kSubaruDensoSh7058CanDiesel,
+    kSubaruTcuHitachiM32rKline,
+    kSubaruTcuHitachiM32rCan,
+    kSubaruHitachiSh72543rCan,
+    kSubaruHitachiSh7058,
+    kSubaruUnisiaJecs,
+    kSubaruDensoSh705xKline,
+    kSubaruDensoMc68hc16y502Bdm,
+    kSubaruUnisiaJecsM32rKline,
+    kSubaruUnisiaJecsM32rBootModeKernel,
+    kSubaruUnisiaJecsM32rBootModeProgram,
 };
 
 enum class TransportKind
 {
-    Kline,
-    CanIso15765,
-    CanRawIso15765,
+    kKline,
+    kCanIso15765,
+    kCanRawIso15765,
 };
 
 struct MemoryRegion
@@ -107,33 +107,33 @@ struct ConfirmationSpec
 {
     enum class Id
     {
-        BeginEepromRead,
-        InspectEepromBytes,
-        CycleIgnition,
+        kBeginEepromRead,
+        kInspectEepromBytes,
+        kCycleIgnition,
         // Both are collected by the desktop dialog
         // BEFORE the executor starts: a synchronous, dialog-free executor
         // cannot block mid-run for a human answer. Presence in
         // FlashPlan::confirmations() therefore means "granted" -- an
         // operator who declines either one causes the dialog to never build
         // a plan at all.
-        EraseTrigger,
-        TopRegionBootstrap,
+        kEraseTrigger,
+        kTopRegionBootstrap,
         // Same contract as the two above: the
         // operator confirmed, before the executor started, that external
         // programming voltage is applied because the adapter cannot supply
         // it.
-        ApplyProgrammingVoltage,
+        kApplyProgrammingVoltage,
         // Same contract: the operator confirmed, before
         // the executor started, that VPP and MOD1 are connected for M32R
         // boot mode.
-        ApplyBootModeVoltages,
+        kApplyBootModeVoltages,
         // Same contract as the four above. Hitachi SH7058 Read: the operator
         // confirmed opening the adapter and starting the K-Line ROM read.
-        StartKlineRead,
+        kStartKlineRead,
         // Same contract. Denso MC68HC16Y5 BDM Write: the operator confirmed
         // uploading the kernel into RAM and starting it; the ROM is not
         // written.
-        KernelBootstrap,
+        kKernelBootstrap,
     };
 
     Id id;
@@ -187,182 +187,182 @@ template <typename PlanT> struct FamilyTraits;
 
 template <> struct FamilyTraits<DensoSh705xEepromKlinePlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::DensoSh705xEepromKline;
-    static constexpr TransportKind kTransport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::kDensoSh705xEepromKline;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
 };
 
 template <> struct FamilyTraits<DensoSh705xEepromCanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::DensoSh705xEepromCan;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kDensoSh705xEepromCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<MitsuColtM32rCanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::MitsuColtM32rCan;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kMitsuColtM32rCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruMitsuM32rKlinePlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruMitsuM32rKline;
-    static constexpr TransportKind kTransport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruMitsuM32rKline;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
 };
 
 template <> struct FamilyTraits<SubaruHitachiM32rKlinePlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruHitachiM32rKline;
-    static constexpr TransportKind kTransport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruHitachiM32rKline;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
 };
 
 template <> struct FamilyTraits<SubaruDensoMc68hc16y5_02Plan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoMc68hc16y5_02;
-    static constexpr TransportKind kTransport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoMc68hc16y502;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh7055_02Plan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh7055_02;
-    static constexpr TransportKind kTransport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh705502;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
 };
 
 template <> struct FamilyTraits<SubaruHitachiM32rCanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruHitachiM32rCan;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruHitachiM32rCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruTcuCvtHitachiM32rCanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruTcuCvtHitachiM32rCan;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruTcuCvtHitachiM32rCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruTcuCvtMitsuMh8111CanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruTcuCvtMitsuMh8111Can;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruTcuCvtMitsuMh8111Can;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruTcuCvtMitsuMh8104CanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruTcuCvtMitsuMh8104Can;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruTcuCvtMitsuMh8104Can;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDenso1n83m_1_5mCanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruDenso1n83m_1_5mCan;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDenso1n83m15mCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh72531CanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh72531Can;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh72531Can;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh72543CanDieselPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh72543CanDiesel;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh72543CanDiesel;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDenso1n83m_4mCanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruDenso1n83m_4mCan;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDenso1n83m4mCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh705xDensoCanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh705xDensoCan;
-    static constexpr TransportKind kTransport = TransportKind::CanRawIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh705xDensoCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanRawIso15765;
 };
 
 template <> struct FamilyTraits<SubaruTcuDensoSh705xCanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruTcuDensoSh705xCan;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruTcuDensoSh705xCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh7058CanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh7058Can;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh7058Can;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh7058CanDieselPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh7058CanDiesel;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh7058CanDiesel;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruTcuHitachiM32rKlinePlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruTcuHitachiM32rKline;
-    static constexpr TransportKind kTransport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruTcuHitachiM32rKline;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
 };
 
 template <> struct FamilyTraits<SubaruTcuHitachiM32rCanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruTcuHitachiM32rCan;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruTcuHitachiM32rCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruUnisiaJecsPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruUnisiaJecs;
-    static constexpr TransportKind kTransport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruUnisiaJecs;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
 };
 
 template <> struct FamilyTraits<SubaruDensoSh705xKlinePlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoSh705xKline;
-    static constexpr TransportKind kTransport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoSh705xKline;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
 };
 
 template <> struct FamilyTraits<SubaruDensoMc68hc16y5_02BdmPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruDensoMc68hc16y5_02Bdm;
-    static constexpr TransportKind kTransport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruDensoMc68hc16y502Bdm;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
 };
 
 template <> struct FamilyTraits<SubaruUnisiaJecsM32rKlinePlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruUnisiaJecsM32rKline;
-    static constexpr TransportKind kTransport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruUnisiaJecsM32rKline;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
 };
 
 template <> struct FamilyTraits<SubaruUnisiaJecsM32rBootModeKernelPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruUnisiaJecsM32rBootModeKernel;
-    static constexpr TransportKind kTransport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
 };
 
 template <> struct FamilyTraits<SubaruUnisiaJecsM32rBootModeProgramPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruUnisiaJecsM32rBootModeProgram;
-    static constexpr TransportKind kTransport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
 };
 
 template <> struct FamilyTraits<SubaruHitachiSh72543rCanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruHitachiSh72543rCan;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruHitachiSh72543rCan;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 template <> struct FamilyTraits<SubaruHitachiSh7058KlinePlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruHitachiSh7058;
-    static constexpr TransportKind kTransport = TransportKind::Kline;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruHitachiSh7058;
+    static constexpr TransportKind kTransport = TransportKind::kKline;
 };
 
 template <> struct FamilyTraits<SubaruHitachiSh7058CanPlan>
 {
-    static constexpr FlashFamily kFamily = FlashFamily::SubaruHitachiSh7058;
-    static constexpr TransportKind kTransport = TransportKind::CanIso15765;
+    static constexpr FlashFamily kFamily = FlashFamily::kSubaruHitachiSh7058;
+    static constexpr TransportKind kTransport = TransportKind::kCanIso15765;
 };
 
 // Whether validate_and_build requires FlashPlanFields::kernel to be set for

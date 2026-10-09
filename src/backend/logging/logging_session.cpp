@@ -263,11 +263,11 @@ bool valid_address(LoggingProtocolId protocol, std::uint32_t address)
 {
     switch (protocol)
     {
-    case LoggingProtocolId::Ssm:
+    case LoggingProtocolId::kSsm:
         return address <= 0x00ffffff;
-    case LoggingProtocolId::MutDma:
+    case LoggingProtocolId::kMutDma:
         return address <= 0x0000ffff;
-    case LoggingProtocolId::Cdbg:
+    case LoggingProtocolId::kCdbg:
         return true;
     }
     return false;
@@ -275,31 +275,32 @@ bool valid_address(LoggingProtocolId protocol, std::uint32_t address)
 
 bool valid_protocol(LoggingProtocolId protocol)
 {
-    return protocol == LoggingProtocolId::Ssm || protocol == LoggingProtocolId::MutDma ||
-           protocol == LoggingProtocolId::Cdbg;
+    return protocol == LoggingProtocolId::kSsm || protocol == LoggingProtocolId::kMutDma ||
+           protocol == LoggingProtocolId::kCdbg;
 }
 
 bool valid_raw_assembly(RawAssembly raw_assembly)
 {
-    return raw_assembly == RawAssembly::DecimalBytesConcatenated || raw_assembly == RawAssembly::UnsignedIntegerDecimal;
+    return raw_assembly == RawAssembly::kDecimalBytesConcatenated ||
+           raw_assembly == RawAssembly::kUnsignedIntegerDecimal;
 }
 
 bool valid_wire_shape(LoggingProtocolId protocol, const std::vector<LoggingChannel>& channels)
 {
     switch (protocol)
     {
-    case LoggingProtocolId::Ssm:
+    case LoggingProtocolId::kSsm:
         // A8 + mode + three address bytes per channel must fit the SSM
         // one-byte payload-length field.
         return channels.size() <= 84;
-    case LoggingProtocolId::MutDma:
+    case LoggingProtocolId::kMutDma:
         if (channels.size() > 255)
         {
             return false;
         }
         return std::all_of(channels.begin(), channels.end(), [](const LoggingChannel& channel)
                            { return channel.length == 1 || channel.length == 2 || channel.length == 4; });
-    case LoggingProtocolId::Cdbg:
+    case LoggingProtocolId::kCdbg:
     {
         std::vector<mitsu_colt_can_cdbg::CdbgChannel> wire_channels;
         wire_channels.reserve(channels.size());
@@ -358,11 +359,11 @@ fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol,
     if (!valid_protocol(protocol) || policy.poll_timeout <= 0ms || policy.car_silence_miss_threshold <= 0 ||
         policy.reconnect_attempt_threshold <= 0 || policy.reconnect_retry_period < 0)
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging policy");
+        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "invalid logging policy");
     }
-    if (protocol == LoggingProtocolId::Cdbg && channels.empty())
+    if (protocol == LoggingProtocolId::kCdbg && channels.empty())
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "no CDBG log parameters selected");
+        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "no CDBG log parameters selected");
     }
 
     std::unordered_set<std::string> ids;
@@ -372,13 +373,13 @@ fastecu::Result<LoggingSession> make_logging_session(LoggingProtocolId protocol,
             !valid_address(protocol, channel.address) || !valid_raw_assembly(channel.raw_assembly) ||
             channel.decimal_precision > 15 || !valid_expression(channel))
         {
-            return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging channel");
+            return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "invalid logging channel");
         }
     }
 
     if (!valid_wire_shape(protocol, channels))
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "logging channels do not fit the selected protocol");
+        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "logging channels do not fit the selected protocol");
     }
 
     return LoggingSession(protocol, std::move(channels), policy);

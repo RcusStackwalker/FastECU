@@ -343,7 +343,7 @@ Result<bytes::Bytes> dump_flash_range(Ctx& ctx, PhaseReporter& progress)
         // Legacy stopRequested() at line 584, top of loop.
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "read cancelled");
+            return fail(ErrorKind::kCancelled, "read cancelled");
         }
 
         // Lines 567-576/601-623: SID 0xB7 + 3-byte big-endian address.
@@ -417,7 +417,7 @@ Status erase_memory(Ctx& ctx)
         {
             error(ctx, "No valid response from ECU");
         }
-        return fail(ErrorKind::BadResponse, "flash area erase failed");
+        return fail(ErrorKind::kBadResponse, "flash area erase failed");
     }
     info(ctx, "Flash erased! Starting flash write, do not power off!");
     return {};
@@ -454,7 +454,7 @@ Status unlock_and_reflash_block(Ctx& ctx, bytes::ByteView block_plain, std::uint
         // Cancelled, never success.
         if (ctx.cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "write cancelled");
+            return fail(ErrorKind::kCancelled, "write cancelled");
         }
 
         const std::uint32_t addr = start + offset;
@@ -536,7 +536,7 @@ Status write_mem(Ctx& ctx, bytes::ByteView image, PhaseSequence& phases)
 
 Result<Iso15765Config> SubaruTcuCvtHitachiM32rCanExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (const Status match = check_family(plan, FlashFamily::SubaruTcuCvtHitachiM32rCan); !match.has_value())
+    if (const Status match = check_family(plan, FlashFamily::kSubaruTcuCvtHitachiM32rCan); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -553,7 +553,7 @@ Result<FlashExecutionResult> SubaruTcuCvtHitachiM32rCanExecutor::execute(const F
                                                                          const ICancellationToken& cancellation,
                                                                          IEventSink& events)
 {
-    if (const Status matched = check_family(plan, FlashFamily::SubaruTcuCvtHitachiM32rCan); !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::kSubaruTcuCvtHitachiM32rCan); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -563,12 +563,12 @@ Result<FlashExecutionResult> SubaruTcuCvtHitachiM32rCanExecutor::execute(const F
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
 
     const auto& family = std::get<SubaruTcuCvtHitachiM32rCanPlan>(plan.family_plan());
 
-    const bool read = plan.operation() == FlashOperation::Read;
+    const bool read = plan.operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read ? 2 : 3);
     PhaseReporter connect = phases.start(read ? "Connect to TCU" : "Connect", 1);
 
@@ -592,7 +592,7 @@ Result<FlashExecutionResult> SubaruTcuCvtHitachiM32rCanExecutor::execute(const F
     }
     connect.complete();
 
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         events.notice("Reading ROM, please wait...");
         info(ctx, "Reading ROM from TCU Subaru Hitachi using CAN");
@@ -612,7 +612,7 @@ Result<FlashExecutionResult> SubaruTcuCvtHitachiM32rCanExecutor::execute(const F
         bytes::Bytes rom(kWindow.start, 0x00);
         rom.insert(rom.end(), window->begin(), window->end());
         return FlashExecutionResult{
-            .operation = FlashOperation::Read,
+            .operation = FlashOperation::kRead,
             .read_bytes = std::move(rom),
         };
     }
@@ -620,9 +620,9 @@ Result<FlashExecutionResult> SubaruTcuCvtHitachiM32rCanExecutor::execute(const F
     // build_subaru_tcu_cvt_hitachi_m32r_can_plan refuses TestWrite; the
     // guard is repeated here so a plan built another way cannot turn a dry
     // run into a real erase and write.
-    if (plan.operation() != FlashOperation::Write)
+    if (plan.operation() != FlashOperation::kWrite)
     {
-        return fail(ErrorKind::Unsupported,
+        return fail(ErrorKind::kUnsupported,
                     "test_write is not supported by the Subaru TCU CVT Hitachi M32R CAN family");
     }
 

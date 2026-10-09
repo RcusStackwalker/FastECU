@@ -59,12 +59,13 @@ struct MapFixture
                                 "</rom>";
         cfg.put("/defs/maps.xml", xml);
         cfg.file_system.files["/defs/maps.xml"] = {};
-        catalogs.entries[DefinitionFormat::EcuFlash] = {{.format = DefinitionFormat::EcuFlash,
-                                                         .definition_id = "MAPS",
-                                                         .internal_id = "MAPS",
-                                                         .internal_id_address = 0,
-                                                         .internal_id_encoding = fastecu::definition::IdEncoding::Ascii,
-                                                         .source = "/defs/maps.xml"}};
+        catalogs.entries[DefinitionFormat::kEcuFlash] = {
+            {.format = DefinitionFormat::kEcuFlash,
+             .definition_id = "MAPS",
+             .internal_id = "MAPS",
+             .internal_id_address = 0,
+             .internal_id_encoding = fastecu::definition::IdEncoding::kAscii,
+             .source = "/defs/maps.xml"}};
         std::vector<std::uint8_t> bytes(128);
         const std::string identity = "MAPS";
         std::copy(identity.begin(), identity.end(), bytes.begin());
@@ -85,7 +86,7 @@ struct MapFixture
         }
         if (workspace.find(opened->id)->definition() == nullptr)
         {
-            return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "synthetic map definition did not resolve");
+            return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "synthetic map definition did not resolve");
         }
         return opened->id;
     }

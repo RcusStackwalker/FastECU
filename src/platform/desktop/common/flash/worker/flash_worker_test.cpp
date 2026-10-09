@@ -87,14 +87,14 @@ class FakeBoundAttempt final : public fastecu::flash::BoundFlashAttempt
 DensoSh705xEepromInput validInput(FlashFamily family)
 {
     return DensoSh705xEepromInput{
-        .operation = FlashOperation::Read,
+        .operation = FlashOperation::kRead,
         .family = family,
         .target_id = "sub_ecu_eeprom_denso_sh7055_kline",
         .mcu_name = "SH7055",
         .flash_method = "sub_ecu_eeprom_denso_sh7055_kline",
         .kernel = KernelImage{.id = "k", .load_address = 0xFFFF6004, .bytes = {0x01}},
-        .mode = EepromReadMode::Mode2,
-        .security = DensoSecurityVariant::Stock,
+        .mode = EepromReadMode::kMode2,
+        .security = DensoSecurityVariant::kStock,
         .eeprom_region = MemoryRegion{.start = 0, .length = 0x100},
     };
 }
@@ -121,7 +121,7 @@ bytes::Bytes requestKernelIdRequest()
 
 TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWallClockSleep)
 {
-    auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromKline));
+    auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::kDensoSh705xEepromKline));
     ASSERT_TRUE(plan.has_value());
 
     auto transport = std::make_unique<ScriptedKlineFlashTransport>();
@@ -164,7 +164,7 @@ TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWa
     ASSERT_EQ(finishedSpy.count(), 1U);
     auto result = std::get<0>(finishedSpy.snapshot().at(0));
     ASSERT_TRUE(!result.success);
-    ASSERT_EQ(result.error_kind, ErrorKind::Cancelled);
+    ASSERT_EQ(result.error_kind, ErrorKind::kCancelled);
     ASSERT_EQ(rawTransport->close_call_count, 1);
 }
 
@@ -174,7 +174,7 @@ TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
     // rejects it before any I/O (zero writes/reads
     // scripted below, on purpose -- reaching the transport at all here
     // would itself be a bug).
-    auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromCan));
+    auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::kDensoSh705xEepromCan));
     ASSERT_TRUE(plan.has_value());
 
     auto transport = std::make_unique<ScriptedKlineFlashTransport>();
@@ -197,12 +197,12 @@ TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
     ASSERT_EQ(finishedSpy.count(), 1U);
     auto result = std::get<0>(finishedSpy.snapshot().at(0));
     ASSERT_TRUE(!result.success);
-    ASSERT_EQ(result.error_kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(result.error_kind, ErrorKind::kInvalidConfig);
 }
 
 TEST(TestFlashWorker, phaseProgressIsForwardedAlongsideLegacyProgress)
 {
-    auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::DensoSh705xEepromKline));
+    auto plan = fastecu::flash::build_denso_sh705x_eeprom_plan(validInput(FlashFamily::kDensoSh705xEepromKline));
     ASSERT_TRUE(plan.has_value());
 
     auto attempt = std::make_unique<FakeBoundAttempt>(std::move(*plan));

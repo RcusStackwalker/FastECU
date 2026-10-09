@@ -43,7 +43,7 @@ TEST(DefinitionHeaderFields, ReadsWrappedRomAndConcatenatesDirectText)
 
 TEST(DefinitionHeaderFields, MalformedXmlReportsAnError)
 {
-    EXPECT_THAT(read_definition_header("<rom><romid>"), IsErr(fastecu::ErrorKind::InvalidConfig));
+    EXPECT_THAT(read_definition_header("<rom><romid>"), IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(DefinitionHeaderFields, SelectsFirstDirectRomInRomsContainer)
@@ -62,7 +62,7 @@ TEST(DefinitionHeaderFields, DoesNotSearchArbitraryWrappersOrNestedRoms)
                                      "<wrapper><romid><xmlid>ID</xmlid></romid></wrapper>", "<roms/>"})
     {
         SCOPED_TRACE(source);
-        EXPECT_THAT(read_definition_header(source), IsErr(fastecu::ErrorKind::InvalidConfig));
+        EXPECT_THAT(read_definition_header(source), IsErr(fastecu::ErrorKind::kInvalidConfig));
     }
 }
 
@@ -122,7 +122,7 @@ TEST(DefinitionHeaderFields, RejectsInvalidTrailingJunkNegativeAndOverflowingAdd
     {
         SCOPED_TRACE(address);
         EXPECT_THAT(definition_header_input(DefinitionHeaderDraft{.internal_id_address_text = address}),
-                    IsErr(fastecu::ErrorKind::InvalidConfig));
+                    IsErr(fastecu::ErrorKind::kInvalidConfig));
     }
 }
 
@@ -142,7 +142,7 @@ TEST(DefinitionHeaderFields, NormalizesScalarFieldsAndPreservesNotes)
 
 TEST(DefinitionHeaderFields, RejectsMultipleRootsAndKeepsDecodedTextUtf8DespiteDeclaration)
 {
-    EXPECT_THAT(read_definition_header("<rom/><rom/>"), IsErr(fastecu::ErrorKind::InvalidConfig));
+    EXPECT_THAT(read_definition_header("<rom/><rom/>"), IsErr(fastecu::ErrorKind::kInvalidConfig));
     const auto draft = read_definition_header("<?xml version=\"1.0\" encoding=\"ISO-8859-1\"?>"
                                               "<rom><romid><xmlid>Caf\xc3\xa9</xmlid></romid></rom>");
     ASSERT_THAT(draft, IsOk());
@@ -217,12 +217,12 @@ TEST(DefinitionHeaderFields, InvalidAddressTextRemainsEditableUntilSubmission)
     const auto draft = read_definition_header("<rom><romid><internalidaddress>+0x</internalidaddress></romid></rom>");
     ASSERT_THAT(draft, IsOk());
     EXPECT_EQ(draft->internal_id_address_text, "+0x");
-    EXPECT_THAT(definition_header_input(*draft), IsErr(fastecu::ErrorKind::InvalidConfig));
+    EXPECT_THAT(definition_header_input(*draft), IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(DefinitionHeaderFields, RejectsNestedScalarContentInsteadOfFlatteningIt)
 {
     EXPECT_THAT(read_definition_header("<rom><romid><xmlid>A<b>B</b></xmlid></romid></rom>"),
-                IsErr(fastecu::ErrorKind::InvalidConfig));
+                IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 } // namespace

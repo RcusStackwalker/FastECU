@@ -11,14 +11,14 @@ namespace uds
 
 enum class ResponseKind
 {
-    Positive,
-    Negative,
-    Malformed,
+    kPositive,
+    kNegative,
+    kMalformed,
 };
 
 struct Response
 {
-    ResponseKind kind{ResponseKind::Malformed};
+    ResponseKind kind{ResponseKind::kMalformed};
 
     // Always the *request* SID: a 0x67 positive response and a 7F 27 xx
     // negative response both report 0x27, so callers compare against the
@@ -44,12 +44,12 @@ struct Response
 
     bool isPending() const
     {
-        return kind == ResponseKind::Negative && nrc == kNrcResponsePending;
+        return kind == ResponseKind::kNegative && nrc == kNrcResponsePending;
     }
 
     bool matches(bytes::Byte sid) const
     {
-        return kind == ResponseKind::Positive && service == sid;
+        return kind == ResponseKind::kPositive && service == sid;
     }
 };
 

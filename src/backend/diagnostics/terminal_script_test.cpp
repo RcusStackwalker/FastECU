@@ -72,12 +72,12 @@ TEST(TerminalScript, ZeroDelayIsAllowed)
 TEST(TerminalScript, MaximumDelayIsOneHour)
 {
     ASSERT_THAT(parse({"delay(3600000)"}), IsOk());
-    EXPECT_THAT(parse({"delay(3600001)"}), IsErrWith(ErrorKind::InvalidConfig, HasSubstr("line 1")));
+    EXPECT_THAT(parse({"delay(3600001)"}), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("line 1")));
 }
 
 TEST(TerminalScript, HugeDelayIsRejectedNotWrapped)
 {
-    EXPECT_THAT(parse({"delay(99999999999999999999999)"}), IsErrWith(ErrorKind::InvalidConfig, HasSubstr("line 1")));
+    EXPECT_THAT(parse({"delay(99999999999999999999999)"}), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("line 1")));
 }
 
 TEST(TerminalScript, TrimsSurroundingWhitespaceAndSkipsBlankLines)
@@ -92,7 +92,7 @@ TEST(TerminalScript, MalformedDelaysAreRejected)
     for (const char *bad : {"delay()", "delay(abc)", "delay(-5)", "delay(1.5)", "delay 100", "delay(100", "delay(100)x",
                             "delay( 100 )", "Delay(100)", "delay(+5)"})
     {
-        EXPECT_THAT(parse({bad}), IsErrWith(ErrorKind::InvalidConfig, HasSubstr("line 1"))) << bad;
+        EXPECT_THAT(parse({bad}), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("line 1"))) << bad;
     }
 }
 
@@ -100,18 +100,18 @@ TEST(TerminalScript, NonHexOrOversizedByteTokensAreRejected)
 {
     for (const char *bad : {"zz", "10 0g", "100", "0x10", "10,11"})
     {
-        EXPECT_THAT(parse({bad}), IsErrWith(ErrorKind::InvalidConfig, HasSubstr("line 1"))) << bad;
+        EXPECT_THAT(parse({bad}), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("line 1"))) << bad;
     }
 }
 
 TEST(TerminalScript, ErrorNamesTheOffendingLineAndSendsNothing)
 {
     auto steps = parse({"01 02", "", "03 zz", "delay(5)"});
-    EXPECT_THAT(steps, IsErrWith(ErrorKind::InvalidConfig, HasSubstr("line 3")));
+    EXPECT_THAT(steps, IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("line 3")));
 }
 
 TEST(TerminalScript, ScriptWithNoStepsIsRejected)
 {
-    EXPECT_THAT(parse({}), IsErrWith(ErrorKind::InvalidConfig, HasSubstr("no steps")));
-    EXPECT_THAT(parse({"", "  "}), IsErrWith(ErrorKind::InvalidConfig, HasSubstr("no steps")));
+    EXPECT_THAT(parse({}), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("no steps")));
+    EXPECT_THAT(parse({"", "  "}), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr("no steps")));
 }

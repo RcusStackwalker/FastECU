@@ -26,17 +26,17 @@ TEST(TransportContract, NoFrameIsSuccessfulEmptyOptional)
 TEST(TransportContract, CancellationIsNotSilence)
 {
     ScriptedSsmTransport t;
-    t.queue_error(fastecu::ErrorKind::Cancelled);
+    t.queue_error(fastecu::ErrorKind::kCancelled);
     fastecu::FakeCancellationToken token(true);
-    ASSERT_THAT(t.read(20ms, token), fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+    ASSERT_THAT(t.read(20ms, token), fastecu::testing::IsErr(fastecu::ErrorKind::kCancelled));
 }
 
 TEST(TransportContract, QueuedErrorsRemainDistinctFromNoFrame)
 {
     ScriptedSsmTransport t;
-    t.queue_error(fastecu::ErrorKind::Disconnected);
+    t.queue_error(fastecu::ErrorKind::kDisconnected);
     fastecu::FakeCancellationToken token;
-    ASSERT_THAT(t.read(20ms, token), fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
+    ASSERT_THAT(t.read(20ms, token), fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
 }
 
 TEST(TransportContract, CanReadReturnsFrameWithIdAndPayload)
@@ -72,6 +72,6 @@ TEST(TestTransport, scripted_unexpected_write_flags)
 {
     ScriptedKlineTransport t;
     t.expectWrite(test_bytes::bytesFromHex("A0"));
-    ASSERT_THAT(t.write(test_bytes::bytesFromHex("BB")), fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
+    ASSERT_THAT(t.write(test_bytes::bytesFromHex("BB")), fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
     ASSERT_FALSE(t.ok()); // mismatch recorded
 }

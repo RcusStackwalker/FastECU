@@ -216,11 +216,11 @@ TEST_P(NoticeRendering, ShowsExpectedBoxOnParent)
 }
 
 INSTANTIATE_TEST_SUITE_P(Notices, NoticeRendering,
-                         ::testing::Values(NoticeCase{CalibrationNotice::NoCalibrationToWrite, QMessageBox::Warning,
+                         ::testing::Values(NoticeCase{CalibrationNotice::kNoCalibrationToWrite, QMessageBox::Warning,
                                                       "Write ROM", "No file selected!"},
-                                           NoticeCase{CalibrationNotice::NoCalibrationToSave, QMessageBox::Information,
+                                           NoticeCase{CalibrationNotice::kNoCalibrationToSave, QMessageBox::Information,
                                                       "Calibration file", "No calibration to save!"},
-                                           NoticeCase{CalibrationNotice::NoSaveFilename, QMessageBox::Information,
+                                           NoticeCase{CalibrationNotice::kNoSaveFilename, QMessageBox::Information,
                                                       "Calibration file", "No file name selected"}));
 
 TEST(QtCalibrationInteraction, SavePathRoundTrip)
@@ -358,7 +358,7 @@ TEST(QtCalibrationInteraction, MigratedTranslationsUseMainWindowContext)
                 notice->accept();
             },
             &timed_out);
-        interaction.show_notice(CalibrationNotice::NoCalibrationToWrite);
+        interaction.show_notice(CalibrationNotice::kNoCalibrationToWrite);
     }
     QCoreApplication::removeTranslator(&translator);
 

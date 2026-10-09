@@ -73,7 +73,7 @@ TEST(BackupRom, WriteFailureIsSwallowed)
       public:
         Status write(std::string_view, std::span<const std::uint8_t>) override
         {
-            return fastecu::fail(ErrorKind::Internal, "backup failed");
+            return fastecu::fail(ErrorKind::kInternal, "backup failed");
         }
     } repo;
     const std::vector<std::uint8_t> rom_data{0x01};
@@ -85,19 +85,19 @@ TEST(BackupRom, WriteFailureIsSwallowed)
 
 TEST(ElementByteSizeTest, DelegatesToStorageByteSizeWhenNotBloblist)
 {
-    EXPECT_EQ(element_byte_size(StorageType::Uint16, nullptr), 2U);
+    EXPECT_EQ(element_byte_size(StorageType::kUint16, nullptr), 2U);
     EXPECT_EQ(element_byte_size(std::optional<StorageType>{}, nullptr), 1U);
 }
 
 TEST(ElementByteSizeTest, BloblistWithNoScalingFallsBackToOneByte)
 {
-    EXPECT_EQ(element_byte_size(StorageType::Bloblist, nullptr), 1U);
+    EXPECT_EQ(element_byte_size(StorageType::kBloblist, nullptr), 1U);
 }
 
 TEST(ElementByteSizeTest, BloblistWithEmptySelectionsFallsBackToOneByte)
 {
     Scaling scaling;
-    EXPECT_EQ(element_byte_size(StorageType::Bloblist, &scaling), 1U);
+    EXPECT_EQ(element_byte_size(StorageType::kBloblist, &scaling), 1U);
 }
 
 TEST(ElementByteSizeTest, BloblistWidthComesFromFirstSelectionLength)
@@ -105,7 +105,7 @@ TEST(ElementByteSizeTest, BloblistWidthComesFromFirstSelectionLength)
     Scaling scaling;
     scaling.selections = {{"disabled", {0x00, 0x00}}, {"enabled", {0x00, 0x01}}};
 
-    EXPECT_EQ(element_byte_size(StorageType::Bloblist, &scaling), 2U);
+    EXPECT_EQ(element_byte_size(StorageType::kBloblist, &scaling), 2U);
 }
 
 TEST(ElementByteSizeTest, BloblistWidthMatchesLegacySingleByteSelections)
@@ -113,7 +113,7 @@ TEST(ElementByteSizeTest, BloblistWidthMatchesLegacySingleByteSelections)
     Scaling scaling;
     scaling.selections = {{"disabled", {0x00}}, {"enabled", {0x01}}};
 
-    EXPECT_EQ(element_byte_size(StorageType::Bloblist, &scaling), 1U);
+    EXPECT_EQ(element_byte_size(StorageType::kBloblist, &scaling), 1U);
 }
 
 TEST(ElementRunEndTest, SingleElementIsAddressPlusWidth)
@@ -196,7 +196,7 @@ TEST(ValidateRomSize, FailsWhenMapAddressExceedsRomLength)
     map.address = 0x3000;
 
     ASSERT_THAT(validate_rom_size(definition_with_one_map(map), 0x2000),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(ValidateRomSize, FailsWhenXAxisAddressExceedsRomLength)
@@ -250,7 +250,7 @@ TEST(ValidateRomSize, FailsWhenMapExtentOverflowsWithContiguousStride)
     map.address = 0x1000;
     map.x_size = 4;
     map.y_size = 1;
-    map.storage_type = StorageType::Uint16;
+    map.storage_type = StorageType::kUint16;
     map.start_position = 1;
     map.interval = 1;
 
@@ -266,7 +266,7 @@ TEST(ValidateRomSize, FailsWhenMapExtentOverflowsWithNonContiguousStride)
     map.address = 0x1000;
     map.x_size = 2;
     map.y_size = 1;
-    map.storage_type = StorageType::Uint8;
+    map.storage_type = StorageType::kUint8;
     map.start_position = 1;
     map.interval = 5;
 
@@ -279,7 +279,7 @@ TEST(ValidateRomSize, FailsWhenAxisExtentOverflowsWithNonContiguousStride)
     map.address = 0x100;
     map.x_axis.address = 0x1000;
     map.x_axis.size = 2;
-    map.x_axis.storage_type = StorageType::Uint8;
+    map.x_axis.storage_type = StorageType::kUint8;
     map.x_axis.start_position = 1;
     map.x_axis.interval = 5;
 
@@ -294,7 +294,7 @@ TEST(ValidateRomSize, BloblistExtentUsesWidthDerivedFromSelections)
     CalibrationMap map;
     map.address = 0x0FFF;
     map.scaling_name = "mode";
-    map.storage_type = StorageType::Bloblist;
+    map.storage_type = StorageType::kBloblist;
 
     Scaling scaling;
     scaling.name = "mode";
@@ -313,7 +313,7 @@ TEST(ValidateRomSize, ZeroStartPositionDoesNotSpuriouslyRejectTheRom)
     map.address = 0x1000;
     map.x_size = 4;
     map.y_size = 1;
-    map.storage_type = StorageType::Uint16;
+    map.storage_type = StorageType::kUint16;
     map.start_position = 0;
     map.interval = 1;
 
@@ -407,7 +407,7 @@ definition::RomDefinition one_map_definition(std::uint64_t address, std::string_
     map.address = address;
     map.x_size = 3;
     map.y_size = 1;
-    map.storage_type = definition::StorageType::Uint8;
+    map.storage_type = definition::StorageType::kUint8;
     map.endian = "big";
     map.scaling_name = "FuelScaling";
     rom.maps.push_back(map);
@@ -457,7 +457,7 @@ TEST(DecodeCalibrationMap, RetainsLabelsContainingCommas)
 TEST(DecodeCalibrationMap, RetainsBlobBytes)
 {
     auto definition = one_map_definition(0);
-    definition.maps[0].storage_type = StorageType::Bloblist;
+    definition.maps[0].storage_type = StorageType::kBloblist;
     definition.scalings[0].selections = {{"Choice", {0xcc, 0xdd}}};
     const bytes::Bytes rom{0xcc, 0xdd};
     const auto decoded = decode_calibration_map(definition, definition.maps[0], rom);
@@ -474,7 +474,7 @@ TEST(DecodeCalibrationMap, KeepsComputationFailureLocalToCell)
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
     EXPECT_THAT(
         std::get<NumericRun>(decoded->body).cells,
-        ::testing::ElementsAre(fastecu::testing::IsErr(ErrorKind::InvalidConfig), fastecu::testing::IsOkAnd(0.5)));
+        ::testing::ElementsAre(fastecu::testing::IsErr(ErrorKind::kInvalidConfig), fastecu::testing::IsOkAnd(0.5)));
 }
 
 TEST(DecodeCalibrationMap, RejectsStructuralFailures)
@@ -483,17 +483,17 @@ TEST(DecodeCalibrationMap, RejectsStructuralFailures)
     const bytes::Bytes rom{1, 2, 3};
     auto& map = definition.maps[0];
     map.address.reset();
-    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     map.address = 0;
     map.x_size = 0;
-    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     map.x_size = std::numeric_limits<std::uint32_t>::max();
     map.y_size = 2;
-    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     map.x_size = 3;
     map.y_size = 1;
     map.address = 1;
-    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(decode_calibration_map(definition, map, rom), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 struct TypedStorageCase
@@ -519,27 +519,27 @@ TEST_P(DecodeNumericStorage, DecodesRawNumericRepresentation)
 
 INSTANTIATE_TEST_SUITE_P(
     WidthsAndByteOrders, DecodeNumericStorage,
-    ::testing::Values(TypedStorageCase{StorageType::Uint8, "big", {0xff}, 255},
-                      TypedStorageCase{StorageType::Int8, "big", {0xff}, -1},
-                      TypedStorageCase{StorageType::Uint16, "big", {0x12, 0x34}, 4660},
-                      TypedStorageCase{StorageType::Int16, "little", {0x00, 0x80}, -32768},
-                      TypedStorageCase{StorageType::Uint24, "little", {0xff, 0xff, 0xff}, 16777215},
-                      TypedStorageCase{StorageType::Int24, "big", {0x80, 0, 0}, -8388608},
-                      TypedStorageCase{StorageType::Uint32, "big", {0xff, 0xff, 0xff, 0xff}, 4294967295.0},
-                      TypedStorageCase{StorageType::Int32, "little", {0, 0, 0, 0x80}, -2147483648.0},
-                      TypedStorageCase{StorageType::Float, "little", {0x3f, 0xc0, 0, 0}, 1.5}));
+    ::testing::Values(TypedStorageCase{StorageType::kUint8, "big", {0xff}, 255},
+                      TypedStorageCase{StorageType::kInt8, "big", {0xff}, -1},
+                      TypedStorageCase{StorageType::kUint16, "big", {0x12, 0x34}, 4660},
+                      TypedStorageCase{StorageType::kInt16, "little", {0x00, 0x80}, -32768},
+                      TypedStorageCase{StorageType::kUint24, "little", {0xff, 0xff, 0xff}, 16777215},
+                      TypedStorageCase{StorageType::kInt24, "big", {0x80, 0, 0}, -8388608},
+                      TypedStorageCase{StorageType::kUint32, "big", {0xff, 0xff, 0xff, 0xff}, 4294967295.0},
+                      TypedStorageCase{StorageType::kInt32, "little", {0, 0, 0, 0x80}, -2147483648.0},
+                      TypedStorageCase{StorageType::kFloat, "little", {0x3f, 0xc0, 0, 0}, 1.5}));
 
 TEST(DecodeNumericRun, RejectsOverflowingLayoutsBeforeReading)
 {
     const bytes::Bytes rom{42};
     ElementRun run{
-        .address = std::numeric_limits<std::uint64_t>::max(), .count = 1, .storage_type = StorageType::Uint8};
+        .address = std::numeric_limits<std::uint64_t>::max(), .count = 1, .storage_type = StorageType::kUint8};
     EXPECT_FALSE(decode_numeric_run(rom, run).has_value());
     run.start_position = 2;
     EXPECT_FALSE(decode_numeric_run(rom, run).has_value());
     run.address = std::numeric_limits<std::uint64_t>::max() - 3;
     run.start_position = 2;
-    run.storage_type = StorageType::Uint32;
+    run.storage_type = StorageType::kUint32;
     EXPECT_FALSE(decode_numeric_run(rom, run).has_value());
 }
 
@@ -553,7 +553,7 @@ TEST(DecodeNumericRun, PreservesStrideAndBlankIdentity)
 {
     const bytes::Bytes rom{99, 2, 99, 4};
     const ElementRun run{
-        .count = 2, .start_position = 2, .interval = 2, .storage_type = StorageType::Uint8, .from_byte = " "};
+        .count = 2, .start_position = 2, .interval = 2, .storage_type = StorageType::kUint8, .from_byte = " "};
     const auto decoded = decode_numeric_run(rom, run);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
     EXPECT_THAT(decoded->cells, ::testing::ElementsAre(fastecu::testing::IsOkAnd(2), fastecu::testing::IsOkAnd(4)));
@@ -562,10 +562,10 @@ TEST(DecodeNumericRun, PreservesStrideAndBlankIdentity)
 TEST(DecodeNumericRun, RetainsNonFiniteStorageAsCellError)
 {
     const bytes::Bytes rom{0x7f, 0xc0, 0, 0};
-    const ElementRun run{.count = 1, .storage_type = StorageType::Float};
+    const ElementRun run{.count = 1, .storage_type = StorageType::kFloat};
     const auto decoded = decode_numeric_run(rom, run);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
-    EXPECT_THAT(decoded->cells, ::testing::ElementsAre(fastecu::testing::IsErr(ErrorKind::InvalidConfig)));
+    EXPECT_THAT(decoded->cells, ::testing::ElementsAre(fastecu::testing::IsErr(ErrorKind::kInvalidConfig)));
 }
 
 TEST(DecodeCalibrationMap, UsesMapThenScalingStoragePrecedence)
@@ -575,13 +575,13 @@ TEST(DecodeCalibrationMap, UsesMapThenScalingStoragePrecedence)
     map.x_size = 1;
     map.storage_type.reset();
     map.endian.clear();
-    definition.scalings[0].storage_type = StorageType::Uint16;
+    definition.scalings[0].storage_type = StorageType::kUint16;
     definition.scalings[0].endian = "little";
     const bytes::Bytes rom{0x34, 0x12};
     const auto inherited = decode_calibration_map(definition, map, rom);
     ASSERT_THAT(inherited, fastecu::testing::IsOk());
     EXPECT_THAT(std::get<NumericRun>(inherited->body).cells, ::testing::ElementsAre(fastecu::testing::IsOkAnd(4660)));
-    map.storage_type = StorageType::Uint8;
+    map.storage_type = StorageType::kUint8;
     const auto overridden = decode_calibration_map(definition, map, rom);
     ASSERT_THAT(overridden, fastecu::testing::IsOk());
     EXPECT_THAT(std::get<NumericRun>(overridden->body).cells, ::testing::ElementsAre(fastecu::testing::IsOkAnd(52)));
@@ -593,8 +593,10 @@ TEST(DecodeCalibrationMap, DecodesNumericAxesWithResolvedExpressions)
     auto& map = definition.maps[0];
     map.x_size = 2;
     map.y_size = 2;
-    map.x_axis = AxisDefinition{.type = "X Axis", .storage_type = StorageType::Uint8, .address = 4, .from_byte = "x*2"};
-    map.y_axis = AxisDefinition{.type = "Y Axis", .storage_type = StorageType::Uint8, .address = 6, .from_byte = "x/2"};
+    map.x_axis =
+        AxisDefinition{.type = "X Axis", .storage_type = StorageType::kUint8, .address = 4, .from_byte = "x*2"};
+    map.y_axis =
+        AxisDefinition{.type = "Y Axis", .storage_type = StorageType::kUint8, .address = 6, .from_byte = "x/2"};
     const bytes::Bytes rom{1, 2, 3, 4, 5, 6, 8, 10};
     const auto decoded = decode_calibration_map(definition, map, rom);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
@@ -607,7 +609,7 @@ TEST(DecodeCalibrationMap, DecodesNumericAxesWithResolvedExpressions)
 TEST(DecodeNumericRun, AppliesStrideInStorageBytes)
 {
     const bytes::Bytes rom{99, 99, 0x12, 0x34, 99, 99, 99, 99, 0x56, 0x78};
-    const ElementRun run{.count = 2, .start_position = 2, .interval = 3, .storage_type = StorageType::Uint16};
+    const ElementRun run{.count = 2, .start_position = 2, .interval = 3, .storage_type = StorageType::kUint16};
     const auto decoded = decode_numeric_run(rom, run);
     ASSERT_THAT(decoded, fastecu::testing::IsOk());
     EXPECT_THAT(decoded->cells,

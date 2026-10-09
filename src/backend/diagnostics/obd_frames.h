@@ -16,20 +16,20 @@ namespace fastecu::diagnostics
 
 enum class ObdProtocol
 {
-    Iso9141,
-    Iso14230,
-    Iso15765,
+    kIso9141,
+    kIso14230,
+    kIso15765,
 };
 
 constexpr std::string_view protocol_name(ObdProtocol protocol) noexcept
 {
     switch (protocol)
     {
-    case ObdProtocol::Iso9141:
+    case ObdProtocol::kIso9141:
         return "iso9141";
-    case ObdProtocol::Iso14230:
+    case ObdProtocol::kIso14230:
         return "iso14230";
-    case ObdProtocol::Iso15765:
+    case ObdProtocol::kIso15765:
         return "iso15765";
     }
     return "iso9141";
@@ -38,17 +38,17 @@ constexpr std::string_view protocol_name(ObdProtocol protocol) noexcept
 // Index of the service-response byte in a received frame.
 constexpr std::size_t response_index(ObdProtocol protocol) noexcept
 {
-    return protocol == ObdProtocol::Iso15765 ? 4 : 3;
+    return protocol == ObdProtocol::kIso15765 ? 4 : 3;
 }
 
 bytes::Bytes build_request(ObdProtocol protocol, std::uint32_t source_id, bytes::ByteView payload);
 
 enum class ResponseCheck
 {
-    Short, // no response byte at response_index(); the caller keeps reading
-    Ok,
-    Nrc,     // 0x7F at response_index()
-    WrongId, // mode or PID echo does not match, or the PID echo is missing
+    kShort, // no response byte at response_index(); the caller keeps reading
+    kOk,
+    kNrc,     // 0x7F at response_index()
+    kWrongId, // mode or PID echo does not match, or the PID echo is missing
 };
 
 ResponseCheck check_response(ObdProtocol protocol, bytes::ByteView frame, std::uint8_t mode,

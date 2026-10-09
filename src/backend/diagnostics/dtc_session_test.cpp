@@ -106,7 +106,7 @@ TEST(DtcSession, Iso9141DirectReadRunsTheFullSequence)
     h.link.queue_read(b({0x48, 0x6B, 0x10, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCC}));
     h.link.queue_no_frame();
 
-    const auto report = h.run(ObdProtocol::Iso9141, DtcOperation::Read);
+    const auto report = h.run(ObdProtocol::kIso9141, DtcOperation::kRead);
 
     ASSERT_THAT(report, IsOk());
     std::vector<std::string> expected{
@@ -127,7 +127,7 @@ TEST(DtcSession, Iso9141DirectReadRunsTheFullSequence)
     EXPECT_THAT(report->supported_pids[0].bitmap, ElementsAre(0xBE, 0x1F, 0xB8, 0x10));
     EXPECT_THAT(report->stored, ElementsAre(0x0133));
     EXPECT_THAT(report->pending, IsEmpty());
-    const auto info_lines = lines(h.events, LogLevel::Info);
+    const auto info_lines = lines(h.events, LogLevel::kInfo);
     EXPECT_THAT(info_lines, Contains("Supported PIDs 0x1-0x20: be 1f b8 10 "));
     EXPECT_THAT(info_lines, Contains("Stored DTCs: 01 33 00 00 00 00 "));
     EXPECT_THAT(info_lines, Contains("DTC: " + dtc_description(0x0133)));
@@ -154,14 +154,14 @@ TEST(DtcSession, MultiFrameVinIsConcatenatedAndLoggedBothWays)
     h.link.queue_read(b({0x48, 0x6B, 0x10, 0x49, 0x02, 0x35, 0x36, 0x37, 0x38, 0x39, 0xCC}));
     h.link.queue_no_frame(); // ends the VIN frame-collection loop
 
-    const auto report = h.run(ObdProtocol::Iso9141, DtcOperation::Read);
+    const auto report = h.run(ObdProtocol::kIso9141, DtcOperation::kRead);
 
     // Everything after the VIN request (CAL ID/CVN items, then stored DTCs)
     // gets the fake's default no-frame answer, so the stored-DTC request
     // fails with "no stored DTC response" -- assert on the logs, which are
     // emitted before that failure, rather than on the (absent) report.
-    EXPECT_THAT(report, IsErr(ErrorKind::BadResponse));
-    const auto info_lines = lines(h.events, LogLevel::Info);
+    EXPECT_THAT(report, IsErr(ErrorKind::kBadResponse));
+    const auto info_lines = lines(h.events, LogLevel::kInfo);
     EXPECT_THAT(info_lines, Contains("VIN: 31 32 33 34 36 37 38 39 "));
     EXPECT_THAT(info_lines, Contains("VIN: 12346789"));
 }
@@ -171,9 +171,9 @@ TEST(DtcSession, OpenPortUsesPlainReadsAndTheAsciiFiveBaudCheck)
     Harness h;
     h.link.j2534 = true;
     h.link.queue_five_baud(b({0, 0, 0, 0, 0, '8', 0, '8'}));
-    const auto report = h.run(ObdProtocol::Iso9141, DtcOperation::Read);
+    const auto report = h.run(ObdProtocol::kIso9141, DtcOperation::kRead);
     // Stored DTC request gets no frame -> BadResponse after vehicle info.
-    EXPECT_THAT(report, IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(report, IsErr(ErrorKind::kBadResponse));
     EXPECT_THAT(h.link.calls, Contains("set_header Iso9141"));
     EXPECT_THAT(h.link.calls, Contains("read 200"));
     EXPECT_THAT(h.link.calls, Not(Contains("read_obd 200")));
@@ -184,12 +184,12 @@ TEST(DtcSession, Iso14230FastInitSuccess)
 {
     Harness h;
     h.link.queue_read(b({0x83, 0xF1, 0x10, 0xC1, 0xE9, 0x8F, 0xAE}));
-    std::ignore = h.run(ObdProtocol::Iso14230, DtcOperation::Read);
+    std::ignore = h.run(ObdProtocol::kIso14230, DtcOperation::kRead);
     ASSERT_GE(h.link.calls.size(), 4U);
     EXPECT_THAT(std::vector<std::string>(h.link.calls.begin(), h.link.calls.begin() + 4),
                 ElementsAre("open kline header=Iso14230 iso14230=true baud=10400 start=C0 tester=F1 target=33",
                             "fast_init 81", "read_obd 200", "write 01 00"));
-    EXPECT_THAT(lines(h.events, LogLevel::Info), Contains("iso14230 fast init mode succesfully completed."));
+    EXPECT_THAT(lines(h.events, LogLevel::kInfo), Contains("iso14230 fast init mode succesfully completed."));
 }
 
 TEST(DtcSession, RejectedFastInitFallsBackToFiveBaud)
@@ -197,8 +197,8 @@ TEST(DtcSession, RejectedFastInitFallsBackToFiveBaud)
     Harness h;
     h.link.queue_read(b({0x83, 0xF1, 0x10, 0x00, 0x00, 0x00}));
     h.link.queue_five_baud(b({0x55, 0xEF, 0x8F}));
-    std::ignore = h.run(ObdProtocol::Iso14230, DtcOperation::Read);
-    EXPECT_THAT(lines(h.events, LogLevel::Error), Contains("iso14230 fast init mode failed."));
+    std::ignore = h.run(ObdProtocol::kIso14230, DtcOperation::kRead);
+    EXPECT_THAT(lines(h.events, LogLevel::kError), Contains("iso14230 fast init mode failed."));
     ASSERT_GE(h.link.calls.size(), 8U);
     EXPECT_THAT(std::vector<std::string>(h.link.calls.begin() + 3, h.link.calls.begin() + 8),
                 ElementsAre("open kline header=None iso14230=false baud=10400 start=C0 tester=F1 target=33", "p1 35",
@@ -208,10 +208,10 @@ TEST(DtcSession, RejectedFastInitFallsBackToFiveBaud)
 TEST(DtcSession, FacadeFastInitFailureFallsBackSilently)
 {
     Harness h;
-    h.link.queue_fast_init(fastecu::fail(ErrorKind::Disconnected, "fast_init failed"));
+    h.link.queue_fast_init(fastecu::fail(ErrorKind::kDisconnected, "fast_init failed"));
     h.link.queue_five_baud(b({0x55, 0xEF, 0x8F}));
-    std::ignore = h.run(ObdProtocol::Iso14230, DtcOperation::Read);
-    EXPECT_THAT(lines(h.events, LogLevel::Error), Not(Contains("iso14230 fast init mode failed.")));
+    std::ignore = h.run(ObdProtocol::kIso14230, DtcOperation::kRead);
+    EXPECT_THAT(lines(h.events, LogLevel::kError), Not(Contains("iso14230 fast init mode failed.")));
     EXPECT_THAT(h.link.calls, Contains("five_baud 33"));
     EXPECT_THAT(h.link.calls, Contains("set_header Iso14230"));
 }
@@ -220,8 +220,8 @@ TEST(DtcSession, RejectedFiveBaudFailsAndStillRestoresTheLink)
 {
     Harness h;
     h.link.queue_five_baud(b({0x55, 0x00, 0x00}));
-    EXPECT_THAT(h.run(ObdProtocol::Iso9141, DtcOperation::Read), IsErr(ErrorKind::BadResponse));
-    EXPECT_THAT(lines(h.events, LogLevel::Error), Contains("iso9141 five baud init failed."));
+    EXPECT_THAT(h.run(ObdProtocol::kIso9141, DtcOperation::kRead), IsErr(ErrorKind::kBadResponse));
+    EXPECT_THAT(lines(h.events, LogLevel::kError), Contains("iso9141 five baud init failed."));
     EXPECT_THAT(h.link.calls,
                 ElementsAre("open kline header=None iso14230=false baud=10400 start=68 tester=F1 target=6A", "p1 35",
                             "five_baud 33", "p1 25", "set_header None", "reset"));
@@ -232,8 +232,8 @@ TEST(DtcSession, ShortFiveBaudResponseFailsCleanly)
     Harness h;
     h.link.j2534 = true;
     h.link.queue_five_baud(b({0x00, 0x08}));
-    EXPECT_THAT(h.run(ObdProtocol::Iso9141, DtcOperation::Read), IsErr(ErrorKind::BadResponse));
-    EXPECT_THAT(lines(h.events, LogLevel::Info), Contains("Init response: 00 08 "));
+    EXPECT_THAT(h.run(ObdProtocol::kIso9141, DtcOperation::kRead), IsErr(ErrorKind::kBadResponse));
+    EXPECT_THAT(lines(h.events, LogLevel::kInfo), Contains("Init response: 00 08 "));
 }
 
 TEST(DtcSession, Iso15765ReadDecodesCanFrames)
@@ -249,7 +249,7 @@ TEST(DtcSession, Iso15765ReadDecodesCanFrames)
     h.link.queue_no_frame();
     h.link.queue_read(b({0x00, 0x00, 0x07, 0xE8, 0x47, 0x00, 0x00, 0x00}));
     h.link.queue_no_frame();
-    const auto report = h.run(ObdProtocol::Iso15765, DtcOperation::Read);
+    const auto report = h.run(ObdProtocol::kIso15765, DtcOperation::kRead);
     ASSERT_THAT(report, IsOk());
     EXPECT_THAT(std::vector<std::string>(h.link.calls.begin(), h.link.calls.begin() + 4),
                 ElementsAre("open can iso15765=true bitrate=500000 extended=false source=7E0 destination=7E8",
@@ -262,9 +262,9 @@ TEST(DtcSession, Iso15765InitNrcIsLoggedFromOffsetThree)
     Harness h;
     h.link.j2534 = true;
     h.link.queue_read(b({0x00, 0x00, 0x07, 0xE8, 0x7F, 0x01, 0x12}));
-    EXPECT_THAT(h.run(ObdProtocol::Iso15765, DtcOperation::Read), IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(h.run(ObdProtocol::kIso15765, DtcOperation::kRead), IsErr(ErrorKind::kBadResponse));
     const bytes::Bytes nrc_frame = b({0xE8, 0x7F, 0x01, 0x12});
-    EXPECT_THAT(lines(h.events, LogLevel::Error), Contains("Wrong response from ECU: " + nrc_description(nrc_frame)));
+    EXPECT_THAT(lines(h.events, LogLevel::kError), Contains("Wrong response from ECU: " + nrc_description(nrc_frame)));
 }
 
 TEST(DtcSession, NrcOnStoredDtcsLogsAndFails)
@@ -276,9 +276,9 @@ TEST(DtcSession, NrcOnStoredDtcsLogsAndFails)
         h.link.queue_no_frame();
     }
     h.link.queue_read(b({0x48, 0x6B, 0x10, 0x7F, 0x03, 0x22, 0xCC}));
-    EXPECT_THAT(h.run(ObdProtocol::Iso9141, DtcOperation::Read), IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(h.run(ObdProtocol::kIso9141, DtcOperation::kRead), IsErr(ErrorKind::kBadResponse));
     const bytes::Bytes nrc_frame = b({0x7F, 0x03, 0x22, 0xCC});
-    EXPECT_THAT(lines(h.events, LogLevel::Error), Contains("Wrong response from ECU: " + nrc_description(nrc_frame)));
+    EXPECT_THAT(lines(h.events, LogLevel::kError), Contains("Wrong response from ECU: " + nrc_description(nrc_frame)));
 }
 
 TEST(DtcSession, WrongPidIsLoggedAndDiscarded)
@@ -286,8 +286,8 @@ TEST(DtcSession, WrongPidIsLoggedAndDiscarded)
     Harness h;
     h.link.queue_five_baud(b({0x55, 0x08, 0x08}));
     h.link.queue_read(b({0x48, 0x6B, 0x10, 0x41, 0x20, 0xBE, 0xCC}));
-    std::ignore = h.run(ObdProtocol::Iso9141, DtcOperation::Read);
-    EXPECT_THAT(lines(h.events, LogLevel::Error), Contains("Wrong response from ECU: 48 6b 10 41 20 be cc "));
+    std::ignore = h.run(ObdProtocol::kIso9141, DtcOperation::kRead);
+    EXPECT_THAT(lines(h.events, LogLevel::kError), Contains("Wrong response from ECU: 48 6b 10 41 20 be cc "));
     EXPECT_THAT(h.link.calls, Contains("write 01 20")); // the loop moved on
 }
 
@@ -301,8 +301,8 @@ TEST(DtcSession, HighPidPagesAreAccepted)
     }
     h.link.queue_read(b({0x48, 0x6B, 0x10, 0x41, 0x80, 0x01, 0x02, 0x03, 0x04, 0xCC}));
     h.link.queue_no_frame();
-    std::ignore = h.run(ObdProtocol::Iso9141, DtcOperation::Read);
-    EXPECT_THAT(lines(h.events, LogLevel::Info), Contains("Supported PIDs 0x81-0xa0: 01 02 03 04 "));
+    std::ignore = h.run(ObdProtocol::kIso9141, DtcOperation::kRead);
+    EXPECT_THAT(lines(h.events, LogLevel::kInfo), Contains("Supported PIDs 0x81-0xa0: 01 02 03 04 "));
 }
 
 TEST(DtcSession, ClearSucceedsOnPositiveAcknowledgement)
@@ -318,10 +318,10 @@ TEST(DtcSession, ClearSucceedsOnPositiveAcknowledgement)
     h.link.queue_read(b({0x48, 0x6B, 0x10, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCC}));
     h.link.queue_no_frame();
     h.link.queue_read(b({0x48, 0x6B, 0x10, 0x44, 0xCC}));
-    const auto report = h.run(ObdProtocol::Iso9141, DtcOperation::Clear);
+    const auto report = h.run(ObdProtocol::kIso9141, DtcOperation::kClear);
     ASSERT_THAT(report, IsOk());
     EXPECT_TRUE(report->cleared);
-    EXPECT_THAT(lines(h.events, LogLevel::Info), Contains("Diagnostic trouble codes succesfully cleared!"));
+    EXPECT_THAT(lines(h.events, LogLevel::kInfo), Contains("Diagnostic trouble codes succesfully cleared!"));
     EXPECT_THAT(h.link.calls, Contains("write 04"));
 }
 
@@ -337,7 +337,7 @@ TEST(DtcSession, ClearWithoutAcknowledgementFails)
     h.link.queue_no_frame();
     h.link.queue_read(b({0x48, 0x6B, 0x10, 0x47, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCC}));
     h.link.queue_no_frame();
-    EXPECT_THAT(h.run(ObdProtocol::Iso9141, DtcOperation::Clear), IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(h.run(ObdProtocol::kIso9141, DtcOperation::kClear), IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(h.link.calls.back(), "reset");
 }
 
@@ -346,7 +346,7 @@ TEST(DtcSession, CancellationStopsAtTheFirstSleepAndRestoresTheLink)
     Harness h;
     h.link.queue_five_baud(b({0x55, 0x08, 0x08}));
     h.token.set_cancelled(true);
-    EXPECT_THAT(h.run(ObdProtocol::Iso9141, DtcOperation::Read), IsErr(ErrorKind::Cancelled));
+    EXPECT_THAT(h.run(ObdProtocol::kIso9141, DtcOperation::kRead), IsErr(ErrorKind::kCancelled));
     EXPECT_THAT(h.link.calls, Not(Contains("write 01 00")));
     EXPECT_THAT(std::vector<std::string>(h.link.calls.end() - 2, h.link.calls.end()),
                 ElementsAre("set_header None", "reset"));
@@ -355,8 +355,8 @@ TEST(DtcSession, CancellationStopsAtTheFirstSleepAndRestoresTheLink)
 TEST(DtcSession, OpenFailureEndsRunAfterEpilogue)
 {
     Harness h;
-    h.link.queue_open(fastecu::fail(ErrorKind::Disconnected, "adapter did not open a port"));
-    EXPECT_THAT(h.run(ObdProtocol::Iso9141, DtcOperation::Read), IsErr(ErrorKind::Disconnected));
+    h.link.queue_open(fastecu::fail(ErrorKind::kDisconnected, "adapter did not open a port"));
+    EXPECT_THAT(h.run(ObdProtocol::kIso9141, DtcOperation::kRead), IsErr(ErrorKind::kDisconnected));
     EXPECT_THAT(h.link.calls,
                 ElementsAre("open kline header=None iso14230=false baud=10400 start=68 tester=F1 target=6A",
                             "set_header None", "reset"));

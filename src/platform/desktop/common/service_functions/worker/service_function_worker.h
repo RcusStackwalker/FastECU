@@ -25,7 +25,7 @@ namespace fastecu::service_functions
 struct ServiceFunctionWorkerResult
 {
     bool success = false;
-    ErrorKind error_kind = ErrorKind::Internal;
+    ErrorKind error_kind = ErrorKind::kInternal;
     QString error_detail;
     std::optional<ServiceFunctionOutcome> outcome;
 };

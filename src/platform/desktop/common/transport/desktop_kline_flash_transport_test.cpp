@@ -43,9 +43,9 @@ TEST(TestDesktopKlineFlashTransport, configureSetsAndResetsParityOnReusedFacade)
         .WillOnce(::testing::Return(true));
     DesktopKlineFlashTransport transport(serial.release());
     KlineConfig config{.baud = 1953, .iso14230 = false, .tester_id = 0, .target_id = 0};
-    config.parity = KlineParity::Even;
+    config.parity = KlineParity::kEven;
     ASSERT_TRUE(transport.configure(config).has_value());
-    config.parity = KlineParity::None;
+    config.parity = KlineParity::kNone;
     ASSERT_TRUE(transport.configure(config).has_value());
 }
 
@@ -56,9 +56,9 @@ TEST(TestDesktopKlineFlashTransport, configureReportsParitySetterFailure)
         .WillOnce(::testing::Return(false));
     DesktopKlineFlashTransport transport(serial.release());
     const auto result = transport.configure(
-        KlineConfig{.baud = 1953, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::Odd});
+        KlineConfig{.baud = 1953, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::kOdd});
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
 }
 
 TEST(TestDesktopKlineFlashTransport, rawCallsUseRawSerialMethods)
@@ -126,7 +126,7 @@ TEST(TestDesktopKlineFlashTransport, resetConnectionAfterCloseIsDisconnectedAndT
     const auto result = transport.reset_connection();
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 TEST(TestDesktopKlineFlashTransport, lecControlOperationsForwardToSerialBackend)
@@ -169,7 +169,7 @@ TEST(TestDesktopKlineFlashTransport, configureChecksEveryBooleanSetterInOrderAnd
         transport.configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
 }
 
 struct ConfigureFailsAtEachRemainingSetterInTurnCase
@@ -217,7 +217,7 @@ TEST_P(ConfigureFailsAtEachRemainingSetterInTurnParameters, configureFailsAtEach
         transport.configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::InvalidConfig);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInvalidConfig);
 }
 
 TEST(TestDesktopKlineFlashTransport, openFailureReturnsDisconnectedWithoutAnyWrite)
@@ -230,7 +230,7 @@ TEST(TestDesktopKlineFlashTransport, openFailureReturnsDisconnectedWithoutAnyWri
     const auto result = transport.open();
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 // Success mirror of configureChecksEveryBooleanSetterInOrderAndStopsAt-
@@ -296,7 +296,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudFailsWithInternalWhenPortStaysOpenBu
     const auto result = transport.setBaud(4800);
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
 
 // setBaud() disconnected-before path: the port is already closed when
@@ -311,7 +311,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudFailsWithDisconnectedWhenPortAlready
     const auto result = transport.setBaud(4800);
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 // setBaud() disconnected-during path: change_port_speed() itself reports
@@ -330,7 +330,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudFailsWithDisconnectedWhenPortClosesD
     const auto result = transport.setBaud(4800);
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 // write() success path: port open throughout, echo-check write reports
@@ -372,7 +372,7 @@ TEST(TestDesktopKlineFlashTransport, writeFailsWithDisconnectedWhenPortClosesDur
     const auto result = transport.write(bytes::ByteView(data));
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 // read() success path: port open, cancellation never fires, backend
@@ -406,7 +406,7 @@ TEST(TestDesktopKlineFlashTransport, readReturnsCancelledWhenCancellationIsAlrea
     const auto result = transport.read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 // read() disconnected-before path: the port is already closed when
@@ -422,7 +422,7 @@ TEST(TestDesktopKlineFlashTransport, readReturnsDisconnectedWhenPortAlreadyClose
     const auto result = transport.read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 // read() disconnected-during path: the read returns data, then the
@@ -440,7 +440,7 @@ TEST(TestDesktopKlineFlashTransport, readReturnsDisconnectedWhenPortClosesDuring
     const auto result = transport.read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 // The "already closed" guard at the top of every method: once close()
@@ -458,44 +458,44 @@ TEST(TestDesktopKlineFlashTransport, everyMethodFailsWithDisconnectedAfterClose)
     const auto configureResult =
         transport.configure(KlineConfig{.baud = 10400, .iso14230 = true, .tester_id = 0x10, .target_id = 0xf0});
     ASSERT_TRUE(!configureResult.has_value());
-    ASSERT_EQ(configureResult.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(configureResult.error().kind, ErrorKind::kDisconnected);
 
     const auto openResult = transport.open();
     ASSERT_TRUE(!openResult.has_value());
-    ASSERT_EQ(openResult.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(openResult.error().kind, ErrorKind::kDisconnected);
 
     const auto setBaudResult = transport.setBaud(4800);
     ASSERT_TRUE(!setBaudResult.has_value());
-    ASSERT_EQ(setBaudResult.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(setBaudResult.error().kind, ErrorKind::kDisconnected);
 
     const bytes::Bytes data{0xAA};
     const auto writeResult = transport.write(bytes::ByteView(data));
     ASSERT_TRUE(!writeResult.has_value());
-    ASSERT_EQ(writeResult.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(writeResult.error().kind, ErrorKind::kDisconnected);
 
     const auto readResult = transport.read(50ms, cancellation);
     ASSERT_TRUE(!readResult.has_value());
-    ASSERT_EQ(readResult.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(readResult.error().kind, ErrorKind::kDisconnected);
 
     const auto headerResult = transport.set_add_iso14230_header(true);
     ASSERT_TRUE(!headerResult.has_value());
-    ASSERT_EQ(headerResult.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(headerResult.error().kind, ErrorKind::kDisconnected);
 
     const auto disableLecResult = transport.disable_lec_lines();
     ASSERT_TRUE(!disableLecResult.has_value());
-    ASSERT_EQ(disableLecResult.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(disableLecResult.error().kind, ErrorKind::kDisconnected);
 
     const auto pulseLecResult = transport.pulse_lec_2_line(200ms);
     ASSERT_TRUE(!pulseLecResult.has_value());
-    ASSERT_EQ(pulseLecResult.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(pulseLecResult.error().kind, ErrorKind::kDisconnected);
 
     const auto programmingLineResult = transport.enable_programming_voltage_line();
     ASSERT_TRUE(!programmingLineResult.has_value());
-    ASSERT_EQ(programmingLineResult.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(programmingLineResult.error().kind, ErrorKind::kDisconnected);
 
     const auto bootModeLinesResult = transport.enable_boot_mode_lines();
     ASSERT_TRUE(!bootModeLinesResult.has_value());
-    ASSERT_EQ(bootModeLinesResult.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(bootModeLinesResult.error().kind, ErrorKind::kDisconnected);
 }
 
 // set_add_iso14230_header() forwards straight to
@@ -535,7 +535,7 @@ TEST(TestDesktopKlineFlashTransport, writeIsSkippedWithCancelledAfterRequestUnbl
     const auto result = transport.write(bytes::ByteView(data));
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 // write() disconnected-before path: the port is already closed when
@@ -552,7 +552,7 @@ TEST(TestDesktopKlineFlashTransport, writeFailsWithDisconnectedWhenPortAlreadyCl
     const auto result = transport.write(bytes::ByteView(data));
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Disconnected);
+    ASSERT_EQ(result.error().kind, ErrorKind::kDisconnected);
 }
 
 // read() success path when the backend legitimately has nothing to
@@ -587,7 +587,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudFailsWithInternalWhenDriverThrowsSta
     const auto result = transport.setBaud(4800);
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
 
 // setBaud()'s bare catch(...) branch: a non-std::exception-derived
@@ -602,7 +602,7 @@ TEST(TestDesktopKlineFlashTransport, setBaudFailsWithInternalWhenDriverThrowsNon
     const auto result = transport.setBaud(4800);
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
 
 // write()'s catch(const std::exception&) branch.
@@ -618,7 +618,7 @@ TEST(TestDesktopKlineFlashTransport, writeFailsWithInternalWhenDriverThrowsStand
     const auto result = transport.write(bytes::ByteView(data));
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
 
 // write()'s bare catch(...) branch.
@@ -633,7 +633,7 @@ TEST(TestDesktopKlineFlashTransport, writeFailsWithInternalWhenDriverThrowsNonSt
     const auto result = transport.write(bytes::ByteView(data));
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
 
 // read()'s catch(const std::exception&) branch, with cancellation never
@@ -650,7 +650,7 @@ TEST(TestDesktopKlineFlashTransport, readFailsWithInternalWhenDriverThrowsStanda
     const auto result = transport.read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
 
 // read()'s bare catch(...) branch, with cancellation never observed.
@@ -665,7 +665,7 @@ TEST(TestDesktopKlineFlashTransport, readFailsWithInternalWhenDriverThrowsNonSta
     const auto result = transport.read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Internal);
+    ASSERT_EQ(result.error().kind, ErrorKind::kInternal);
 }
 
 // isOpen(): true while the port is open, false once closed, false when
@@ -722,7 +722,7 @@ TEST(TestDesktopKlineFlashTransport, readReturnsCancelledWhenCancellationBecomes
     const auto result = transport.read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 // read()'s post-throw cancellation recheck, catch(const std::exception&)
@@ -741,7 +741,7 @@ TEST(TestDesktopKlineFlashTransport, readReturnsCancelledWhenCancellationBecomes
     const auto result = transport.read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 // read()'s post-throw cancellation recheck, bare catch(...) branch.
@@ -758,7 +758,7 @@ TEST(TestDesktopKlineFlashTransport,
     const auto result = transport.read(50ms, cancellation);
 
     ASSERT_TRUE(!result.has_value());
-    ASSERT_EQ(result.error().kind, ErrorKind::Cancelled);
+    ASSERT_EQ(result.error().kind, ErrorKind::kCancelled);
 }
 
 TEST(TestDesktopKlineFlashTransport, closeIsIdempotentAndDestroysTheOwnedSerialPortActions)
@@ -882,7 +882,7 @@ TEST(TestDesktopKlineFlashTransport, requestUnblockCausesAPendingReadToReturnPro
     EXPECT_CALL(serial.fake(), read_serial_data(::testing::_)).Times(0);
     const auto secondResult = transport.read(50ms, cancellation);
     ASSERT_TRUE(!secondResult.has_value());
-    ASSERT_EQ(secondResult.error().kind, ErrorKind::Cancelled);
+    ASSERT_EQ(secondResult.error().kind, ErrorKind::kCancelled);
 }
 
 namespace

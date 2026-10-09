@@ -47,7 +47,7 @@ Status check_cancelled(const ICancellationToken& cancellation, std::string detai
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, std::move(detail));
+        return fail(ErrorKind::kCancelled, std::move(detail));
     }
     return {};
 }
@@ -152,18 +152,18 @@ Status expect_iso_response(bytes::ByteView response, std::uint8_t expected_opcod
     // indexed byte safe.
     if (response.size() < 9)
     {
-        return fail(ErrorKind::BadResponse, std::format("{} response is shorter than the BEEF envelope", subject));
+        return fail(ErrorKind::kBadResponse, std::format("{} response is shorter than the BEEF envelope", subject));
     }
     if (response[0] != 0x00 || response[1] != 0x00 || response[2] != 0x07 || response[3] != 0xE8 ||
         response[4] != 0xBE || response[5] != 0xEF || response[8] != expected_opcode)
     {
-        return fail(ErrorKind::BadResponse, std::format("Wrong response from ECU during {}", subject));
+        return fail(ErrorKind::kBadResponse, std::format("Wrong response from ECU during {}", subject));
     }
     const std::size_t declared_payload = bytes::readU16Be(response, 6);
     if (declared_payload == 0 || declared_payload > response.size() - 8 || declared_payload - 1 < min_payload ||
         response.size() - 9 < min_payload)
     {
-        return fail(ErrorKind::BadResponse, std::format("Truncated response from ECU during {}", subject));
+        return fail(ErrorKind::kBadResponse, std::format("Truncated response from ECU during {}", subject));
     }
     return {};
 }
@@ -173,15 +173,15 @@ Status expect_raw_response(const cdbg::CanFrame& response, std::uint8_t first, s
 {
     if (response.id != kRawReceiveId)
     {
-        return fail(ErrorKind::BadResponse, std::format("Wrong raw CAN response ID during {}", subject));
+        return fail(ErrorKind::kBadResponse, std::format("Wrong raw CAN response ID during {}", subject));
     }
     if (response.payload.size() < 2)
     {
-        return fail(ErrorKind::BadResponse, std::format("Truncated raw CAN response during {}", subject));
+        return fail(ErrorKind::kBadResponse, std::format("Truncated raw CAN response during {}", subject));
     }
     if (response.payload[0] != first || response.payload[1] != second)
     {
-        return fail(ErrorKind::BadResponse, std::format("Wrong raw CAN response during {}", subject));
+        return fail(ErrorKind::kBadResponse, std::format("Wrong raw CAN response during {}", subject));
     }
     return {};
 }
@@ -193,8 +193,8 @@ Result<bool> probe_kernel(IMixedCanFlashTransport& transport, IClock& clock, con
     // absent, short, malformed, wrong-id, or wrong-content initial reply is
     // treated as "kernel absent" and falls through to the raw bootloader.
     // Typed cancellation and adapter loss remain terminal.
-    events.log(LogLevel::Info, "Checking if Kernel already running...");
-    events.log(LogLevel::Info, "Requesting kernel ID");
+    events.log(LogLevel::kInfo, "Checking if Kernel already running...");
+    events.log(LogLevel::kInfo, "Requesting kernel ID");
     const bytes::Bytes request = kernel_id_request();
     if (Status written = iso_write(transport, request, cancellation, "kernel ID"); !written)
     {
@@ -207,24 +207,24 @@ Result<bool> probe_kernel(IMixedCanFlashTransport& transport, IClock& clock, con
     Result<std::optional<bytes::Bytes>> received = iso_read(transport, kKernelIdTimeout, cancellation, "kernel ID");
     if (!received)
     {
-        if (received.error().kind == ErrorKind::Cancelled || received.error().kind == ErrorKind::Disconnected)
+        if (received.error().kind == ErrorKind::kCancelled || received.error().kind == ErrorKind::kDisconnected)
         {
             return std::unexpected(received.error());
         }
-        events.log(LogLevel::Error, "No valid response from ECU");
-        events.log(LogLevel::Info, "No response from kernel, continue initializing bootloader...");
+        events.log(LogLevel::kError, "No valid response from ECU");
+        events.log(LogLevel::kInfo, "No response from kernel, continue initializing bootloader...");
         return false;
     }
     if (!received->has_value())
     {
-        events.log(LogLevel::Error, "No valid response from ECU");
-        events.log(LogLevel::Info, "No response from kernel, continue initializing bootloader...");
+        events.log(LogLevel::kError, "No valid response from ECU");
+        events.log(LogLevel::kInfo, "No response from kernel, continue initializing bootloader...");
         return false;
     }
     if (Status valid = expect_iso_response(**received, 0x41, 0, "kernel ID"); !valid)
     {
-        events.log(LogLevel::Error, "Wrong response from ECU while requesting kernel ID");
-        events.log(LogLevel::Info, "No response from kernel, continue initializing bootloader...");
+        events.log(LogLevel::kError, "Wrong response from ECU while requesting kernel ID");
+        events.log(LogLevel::kInfo, "No response from kernel, continue initializing bootloader...");
         return false;
     }
     std::string kernel_id;
@@ -233,7 +233,7 @@ Result<bool> probe_kernel(IMixedCanFlashTransport& transport, IClock& clock, con
     {
         kernel_id.push_back(static_cast<char>(byte));
     }
-    events.log(LogLevel::Info, std::format("Kernel ID: {}", kernel_id));
+    events.log(LogLevel::kInfo, std::format("Kernel ID: {}", kernel_id));
     return true;
 }
 
@@ -242,7 +242,7 @@ Status require_kernel_id(IMixedCanFlashTransport& transport, IClock& clock, cons
 {
     // Legacy upload_kernel(), lines 475-507, repeats the same proprietary
     // BEEF exchange only after the raw bootloader jump and ISO transition.
-    events.log(LogLevel::Info, "Requesting kernel ID");
+    events.log(LogLevel::kInfo, "Requesting kernel ID");
     const bytes::Bytes request = kernel_id_request();
     if (Status written = iso_write(transport, request, cancellation, "kernel ID"); !written)
     {
@@ -259,7 +259,7 @@ Status require_kernel_id(IMixedCanFlashTransport& transport, IClock& clock, cons
     }
     if (!received->has_value())
     {
-        return fail(ErrorKind::Timeout, "no response from ECU after kernel upload");
+        return fail(ErrorKind::kTimeout, "no response from ECU after kernel upload");
     }
     if (Status valid = expect_iso_response(**received, 0x41, 0, "kernel ID"); !valid)
     {
@@ -271,7 +271,7 @@ Status require_kernel_id(IMixedCanFlashTransport& transport, IClock& clock, cons
     {
         kernel_id.push_back(static_cast<char>(byte));
     }
-    events.log(LogLevel::Info, std::format("Kernel ID: {}", kernel_id));
+    events.log(LogLevel::kInfo, std::format("Kernel ID: {}", kernel_id));
     return {};
 }
 
@@ -283,7 +283,7 @@ Status wake_bootloader(IMixedCanFlashTransport& transport, IClock& clock, const 
     // every iteration so this bounded loop cannot become an uncancellable UI
     // stall.
     const cdbg::CanFrame wake{.id = kRawTransmitId, .payload = {0xFF, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
-    events.log(LogLevel::Info, "Initializing bootloader");
+    events.log(LogLevel::kInfo, "Initializing bootloader");
     for (int count = 0; count < 1000; ++count)
     {
         if (Status cancelled = check_cancelled(cancellation, "cancelled during DensoCAN wake"); !cancelled)
@@ -305,7 +305,7 @@ Status wake_bootloader(IMixedCanFlashTransport& transport, IClock& clock, const 
         return cleared;
     }
 
-    events.log(LogLevel::Info, "Check if connected to bootloader");
+    events.log(LogLevel::kInfo, "Check if connected to bootloader");
     const cdbg::CanFrame check{.id = kRawTransmitId, .payload = {0x7A, 0x90, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
     if (Status written = raw_write(transport, check, cancellation, "bootloader handshake"); !written)
     {
@@ -319,13 +319,13 @@ Status wake_bootloader(IMixedCanFlashTransport& transport, IClock& clock, const 
     }
     if (!received->has_value())
     {
-        return fail(ErrorKind::Timeout, "no response from DensoCAN bootloader");
+        return fail(ErrorKind::kTimeout, "no response from DensoCAN bootloader");
     }
     if (Status valid = expect_raw_response(**received, 0x7A, 0x96, "bootloader handshake"); !valid)
     {
         return valid;
     }
-    events.log(LogLevel::Debug, "Connected to bootloader");
+    events.log(LogLevel::kDebug, "Connected to bootloader");
     return {};
 }
 
@@ -351,7 +351,7 @@ Status set_raw_kernel_address(IMixedCanFlashTransport& transport, std::uint32_t 
     }
     if (!received->has_value())
     {
-        return fail(ErrorKind::Timeout, std::format("no response from ECU during {}", subject));
+        return fail(ErrorKind::kTimeout, std::format("no response from ECU during {}", subject));
     }
     return expect_raw_response(**received, 0x7A, 0x9C, subject);
 }
@@ -364,7 +364,7 @@ Status upload_kernel(IMixedCanFlashTransport& transport, const KernelImage& kern
     // a zero-padded final block. BEEF is not used in this mode.
     if (kernel.bytes.empty())
     {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN kernel image is empty");
+        return fail(ErrorKind::kInvalidConfig, "DensoCAN kernel image is empty");
     }
     if (Status cancelled = check_cancelled(cancellation, "cancelled before kernel upload"); !cancelled)
     {
@@ -374,21 +374,21 @@ Status upload_kernel(IMixedCanFlashTransport& transport, const KernelImage& kern
     padded.resize((padded.size() + 5U) / 6U * 6U, 0);
     if (padded.empty() || padded.size() > std::numeric_limits<std::uint32_t>::max() - kernel.load_address - 1U)
     {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN padded kernel range overflows");
+        return fail(ErrorKind::kInvalidConfig, "DensoCAN padded kernel range overflows");
     }
 
-    events.log(LogLevel::Debug, std::format("Start address to upload kernel: {:x}", kernel.load_address));
-    events.log(LogLevel::Info, "Set kernel upload address");
+    events.log(LogLevel::kDebug, std::format("Start address to upload kernel: {:x}", kernel.load_address));
+    events.log(LogLevel::kInfo, "Set kernel upload address");
     if (Status addressed =
             set_raw_kernel_address(transport, kernel.load_address, cancellation, "kernel upload address");
         !addressed)
     {
         return addressed;
     }
-    events.log(LogLevel::Debug, "Kernel load address set");
+    events.log(LogLevel::kDebug, "Kernel load address set");
 
-    events.log(LogLevel::Info, "Uploading kernel, please wait...");
-    events.log(LogLevel::Debug, std::format("Sending {} blocks", padded.size() / 6));
+    events.log(LogLevel::kInfo, "Uploading kernel, please wait...");
+    events.log(LogLevel::kDebug, std::format("Sending {} blocks", padded.size() / 6));
     for (std::size_t offset = 0; offset < padded.size(); offset += 6)
     {
         if (Status cancelled = check_cancelled(cancellation, "cancelled during kernel upload"); !cancelled)
@@ -415,7 +415,7 @@ Status upload_kernel(IMixedCanFlashTransport& transport, const KernelImage& kern
         folded_checksum += byte;
         folded_checksum = ((folded_checksum >> 8U) & 0xFFU) + (folded_checksum & 0xFFU);
     }
-    events.log(LogLevel::Debug, std::format("All kernel blocks sent, checksum: 0x{:x}", folded_checksum));
+    events.log(LogLevel::kDebug, std::format("All kernel blocks sent, checksum: 0x{:x}", folded_checksum));
 
     const std::uint32_t end_plus_one = kernel.load_address + static_cast<std::uint32_t>(padded.size()) + 1U;
     if (Status written = raw_write(transport, raw_address_command(0xB4, end_plus_one), cancellation, "kernel checksum");
@@ -423,7 +423,7 @@ Status upload_kernel(IMixedCanFlashTransport& transport, const KernelImage& kern
     {
         return written;
     }
-    events.log(LogLevel::Debug, "Verifying kernel checksum, please wait...");
+    events.log(LogLevel::kDebug, "Verifying kernel checksum, please wait...");
     if (Status slept = clock.sleep(200ms, cancellation); !slept)
     {
         return slept;
@@ -435,20 +435,20 @@ Status upload_kernel(IMixedCanFlashTransport& transport, const KernelImage& kern
     }
     if (!checksum->has_value())
     {
-        return fail(ErrorKind::Timeout, "no response from ECU during kernel checksum");
+        return fail(ErrorKind::kTimeout, "no response from ECU during kernel checksum");
     }
     if (Status valid = expect_raw_response(**checksum, 0x7A, 0xB1, "kernel checksum"); !valid)
     {
         return valid;
     }
-    events.log(LogLevel::Debug, "Checksum ok");
+    events.log(LogLevel::kDebug, "Checksum ok");
 
     if (Status addressed = set_raw_kernel_address(transport, kernel.load_address, cancellation, "kernel jump address");
         !addressed)
     {
         return addressed;
     }
-    events.log(LogLevel::Info, "Kernel uploaded, jump to kernel");
+    events.log(LogLevel::kInfo, "Kernel uploaded, jump to kernel");
     const cdbg::CanFrame jump{.id = kRawTransmitId, .payload = {0x7A, 0xA0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}};
     if (Status written = raw_write(transport, jump, cancellation, "kernel jump"); !written)
     {
@@ -470,12 +470,12 @@ Status upload_kernel(IMixedCanFlashTransport& transport, const KernelImage& kern
     {
         if (Status jump_response = expect_raw_response(**jumped, 0x7A, 0xA0, "kernel jump"); !jump_response)
         {
-            events.log(LogLevel::Error, "Wrong response from ECU");
+            events.log(LogLevel::kError, "Wrong response from ECU");
         }
     }
     else
     {
-        events.log(LogLevel::Error, "No valid response from ECU");
+        events.log(LogLevel::kError, "No valid response from ECU");
     }
     return {};
 }
@@ -488,7 +488,7 @@ Result<bytes::Bytes> read_mem(IMixedCanFlashTransport& transport, const MemoryRe
     // before it is indexed.
     bytes::Bytes rom;
     rom.reserve(region.length);
-    events.log(LogLevel::Info, "Start reading ROM, please wait...");
+    events.log(LogLevel::kInfo, "Start reading ROM, please wait...");
     for (std::uint32_t offset = 0; offset < region.length; offset += kReadPageSize)
     {
         const auto loop_started = clock.now();
@@ -509,7 +509,7 @@ Result<bytes::Bytes> read_mem(IMixedCanFlashTransport& transport, const MemoryRe
         }
         if (!received->has_value())
         {
-            return fail(ErrorKind::Timeout, "no response from ECU during ROM read");
+            return fail(ErrorKind::kTimeout, "no response from ECU during ROM read");
         }
         if (Status valid = expect_iso_response(**received, 0x43, kReadPageSize, "ROM read"); !valid)
         {
@@ -523,14 +523,14 @@ Result<bytes::Bytes> read_mem(IMixedCanFlashTransport& transport, const MemoryRe
             curspeed = 1;
         }
         const unsigned tleft = static_cast<unsigned>(((region.length - offset) / curspeed) % 9999U) + 1U;
-        events.log(LogLevel::Info, std::format("Kernel read addr: 0x{:08X} length: 0x{:08X}, {:>6} B/s {:>6} s",
-                                               address, kReadPageSize, curspeed, tleft));
+        events.log(LogLevel::kInfo, std::format("Kernel read addr: 0x{:08X} length: 0x{:08X}, {:>6} B/s {:>6} s",
+                                                address, kReadPageSize, curspeed, tleft));
         rom.insert(rom.end(), raw_page.begin() + 9, raw_page.begin() + 9 + kReadPageSize);
         const int done = static_cast<int>(offset + kReadPageSize);
         events.progress(done, static_cast<int>(region.length));
         phase.update(done);
     }
-    events.log(LogLevel::Info, "ROM read ready");
+    events.log(LogLevel::kInfo, "ROM read ready");
     phase.complete();
     return rom;
 }
@@ -552,7 +552,7 @@ Result<std::uint32_t> read_block_crc(IMixedCanFlashTransport& transport, const M
     }
     if (!received->has_value())
     {
-        return fail(ErrorKind::Timeout, "no response from ECU during ROM CRC");
+        return fail(ErrorKind::kTimeout, "no response from ECU during ROM CRC");
     }
     if (Status valid = expect_iso_response(**received, 0x42, 4, "ROM CRC"); !valid)
     {
@@ -583,7 +583,7 @@ Status set_flash_mode(IMixedCanFlashTransport& transport, bool enabled, const IC
     }
     if (!received->has_value())
     {
-        return fail(ErrorKind::Timeout, "no response from ECU during flash mode setup");
+        return fail(ErrorKind::kTimeout, "no response from ECU during flash mode setup");
     }
     return expect_iso_response(**received, static_cast<std::uint8_t>(command | 0x40U), 0, "flash mode");
 }
@@ -596,7 +596,7 @@ Status init_flash_write(IMixedCanFlashTransport& transport, bool test_write, con
     // selects 0x1000 commit windows regardless of the reported block size.
     for (const std::uint8_t command : {std::uint8_t{0x05}, std::uint8_t{0x06}})
     {
-        events.log(LogLevel::Info, command == 0x05 ? "Check max message length" : "Check flashblock size");
+        events.log(LogLevel::kInfo, command == 0x05 ? "Check max message length" : "Check flashblock size");
         if (Status written = iso_write(transport, iso_request(command), cancellation, "flash initialization"); !written)
         {
             return written;
@@ -609,7 +609,7 @@ Status init_flash_write(IMixedCanFlashTransport& transport, bool test_write, con
         }
         if (!received->has_value())
         {
-            return fail(ErrorKind::Timeout, "no response from ECU during flash initialization");
+            return fail(ErrorKind::kTimeout, "no response from ECU during flash initialization");
         }
         if (Status valid =
                 expect_iso_response(**received, static_cast<std::uint8_t>(command | 0x40U), 4, "flash initialization");
@@ -618,17 +618,17 @@ Status init_flash_write(IMixedCanFlashTransport& transport, bool test_write, con
             return valid;
         }
         const std::uint32_t value = bytes::readU32Be(**received, 9);
-        events.log(LogLevel::Info, std::format(": 0x{:04x}", value));
+        events.log(LogLevel::kInfo, std::format(": 0x{:04x}", value));
     }
     // Legacy test write sends FLASH_DISABLE instead of FLASH_ENABLE at
     // lines 1014-1019, then validates rather than commits each 0x1000 block.
-    events.log(LogLevel::Info, test_write ? "Test write mode on, no actual flash write is performed"
-                                          : "Test write mode off, perform actual flash write");
+    events.log(LogLevel::kInfo, test_write ? "Test write mode on, no actual flash write is performed"
+                                           : "Test write mode off, perform actual flash write");
     if (Status mode = set_flash_mode(transport, !test_write, cancellation); !mode)
     {
         return mode;
     }
-    events.log(LogLevel::Error, "Flash mode succesfully set");
+    events.log(LogLevel::kError, "Flash mode succesfully set");
     return {};
 }
 
@@ -637,7 +637,7 @@ Status query_programming_voltage(IMixedCanFlashTransport& transport, const ICanc
 {
     // Legacy reflash_block(), lines 1087-1150. Require bytes 9 and 10 before
     // decoding the voltage; legacy's >7 check did not make that access safe.
-    events.log(LogLevel::Info, "Check flash voltage");
+    events.log(LogLevel::kInfo, "Check flash voltage");
     if (Status written = iso_write(transport, iso_request(0x04), cancellation, "programming voltage"); !written)
     {
         return written;
@@ -650,7 +650,7 @@ Status query_programming_voltage(IMixedCanFlashTransport& transport, const ICanc
     }
     if (!received->has_value())
     {
-        return fail(ErrorKind::Timeout, "no response from ECU during programming-voltage query");
+        return fail(ErrorKind::kTimeout, "no response from ECU during programming-voltage query");
     }
     if (Status valid = expect_iso_response(**received, 0x44, 2, "programming voltage"); !valid)
     {
@@ -658,7 +658,7 @@ Status query_programming_voltage(IMixedCanFlashTransport& transport, const ICanc
     }
     const std::uint16_t voltage_raw = bytes::readU16Be(**received, 9);
     const float voltage = static_cast<float>(voltage_raw) / 50.0F;
-    events.log(LogLevel::Info, std::format(": {:g}V", voltage));
+    events.log(LogLevel::kInfo, std::format(": {:g}V", voltage));
     return {};
 }
 
@@ -673,13 +673,13 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
     if (block.start > image.size() || block.length > image.size() - block.start ||
         block.length % kWriteChunkSize != 0 || block.length % kCommitBlockSize != 0)
     {
-        return fail(ErrorKind::InvalidConfig, "flash block is not represented by the raw ROM image");
+        return fail(ErrorKind::kInvalidConfig, "flash block is not represented by the raw ROM image");
     }
     if (!test_write)
     {
-        events.log(LogLevel::Info,
+        events.log(LogLevel::kInfo,
                    std::format("Flash page erase addr: 0x{:08x} len: 0x{:08x}", block.start, block.length));
-        events.log(LogLevel::Info, "Erasing flash page...");
+        events.log(LogLevel::kInfo, "Erasing flash page...");
         if (Status written =
                 iso_write(transport, iso_request(0x25, composeBe(block.start)), cancellation, "flash erase");
             !written)
@@ -693,17 +693,17 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
         }
         if (!erased->has_value())
         {
-            return fail(ErrorKind::Timeout, "no response from ECU during flash erase");
+            return fail(ErrorKind::kTimeout, "no response from ECU during flash erase");
         }
         if (Status valid = expect_iso_response(**erased, 0x65, 0, "flash erase"); !valid)
         {
             return valid;
         }
         destructive_erase_succeeded = true;
-        events.log(LogLevel::Info, " erased");
+        events.log(LogLevel::kInfo, " erased");
     }
 
-    events.log(LogLevel::Info,
+    events.log(LogLevel::kInfo,
                std::format("Start flash write addr: 0x{:08x} len: 0x{:08x}", block.start, block.length));
 
     for (std::uint32_t offset = 0; offset < block.length; offset += kWriteChunkSize)
@@ -727,7 +727,7 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
         }
         if (!received->has_value())
         {
-            return fail(ErrorKind::Timeout, "no response from ECU during flash buffer transfer");
+            return fail(ErrorKind::kTimeout, "no response from ECU during flash buffer transfer");
         }
         if (Status valid = expect_iso_response(**received, 0x62, 0, "flash buffer transfer"); !valid)
         {
@@ -747,9 +747,9 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
             tleft = 9999U;
         }
         ++tleft;
-        events.log(LogLevel::Debug, "Data written to flash buffer");
-        events.log(LogLevel::Info, std::format("Write flash buffer: 0x{:08X} ({}% - {} B/s, ~ {} s)", address,
-                                               (100U * offset) / block.length, curspeed, tleft));
+        events.log(LogLevel::kDebug, "Data written to flash buffer");
+        events.log(LogLevel::kInfo, std::format("Write flash buffer: 0x{:08X} ({}% - {} B/s, ~ {} s)", address,
+                                                (100U * offset) / block.length, curspeed, tleft));
         flashbytesindex = bytes_after;
         phase.update(static_cast<int>(flashbytesindex));
 
@@ -758,12 +758,12 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
             const std::uint32_t commit_start = address + kWriteChunkSize - kCommitBlockSize;
             const std::uint32_t crc = checksum::crc32(image.subspan(commit_start, kCommitBlockSize));
             const std::uint8_t command = test_write ? 0x23 : 0x24;
-            events.log(LogLevel::Info, "Flash buffer write complete... ");
-            events.log(LogLevel::Debug, std::format("Image CRC32: 0x{:x}", crc));
-            events.log(LogLevel::Info, test_write ? std::format("Validate flash addr: 0x{:x}", commit_start)
-                                                  : std::format("Committ flash addr: 0x{:x}", commit_start));
-            events.log(LogLevel::Info, std::format(" len: 0x{:x}", kCommitBlockSize));
-            events.log(LogLevel::Info, std::format(" crc32: 0x{:x}", crc));
+            events.log(LogLevel::kInfo, "Flash buffer write complete... ");
+            events.log(LogLevel::kDebug, std::format("Image CRC32: 0x{:x}", crc));
+            events.log(LogLevel::kInfo, test_write ? std::format("Validate flash addr: 0x{:x}", commit_start)
+                                                   : std::format("Committ flash addr: 0x{:x}", commit_start));
+            events.log(LogLevel::kInfo, std::format(" len: 0x{:x}", kCommitBlockSize));
+            events.log(LogLevel::kInfo, std::format(" crc32: 0x{:x}", crc));
             const bytes::Bytes commit =
                 iso_request(command, composeBe(commit_start, std::uint16_t{kCommitBlockSize}, crc));
             if (Status written = iso_write(transport, commit, cancellation, "flash commit"); !written)
@@ -778,7 +778,7 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
             }
             if (!committed->has_value())
             {
-                return fail(ErrorKind::Timeout, "no response from ECU during flash commit");
+                return fail(ErrorKind::kTimeout, "no response from ECU during flash commit");
             }
             if (Status valid =
                     expect_iso_response(**committed, static_cast<std::uint8_t>(command | 0x40U), 0, "flash commit");
@@ -794,16 +794,16 @@ Status flash_block(IMixedCanFlashTransport& transport, bytes::ByteView image, co
 void log_changed_blocks(IEventSink& events, const std::vector<bool>& modified)
 {
     unsigned count = 0;
-    events.log(LogLevel::Info, "Different blocks : ");
+    events.log(LogLevel::kInfo, "Different blocks : ");
     for (std::size_t index = 0; index < modified.size(); ++index)
     {
         if (modified[index])
         {
-            events.log(LogLevel::Info, std::format("{}, ", index));
+            events.log(LogLevel::kInfo, std::format("{}, ", index));
             ++count;
         }
     }
-    events.log(LogLevel::Info, std::format(" (total: {})", count));
+    events.log(LogLevel::kInfo, std::format(" (total: {})", count));
 }
 
 Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClock& clock,
@@ -817,21 +817,21 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
     // offsets exactly as legacy's data_array was.
     if (!plan.image().has_value())
     {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN write requires a ROM image");
+        return fail(ErrorKind::kInvalidConfig, "DensoCAN write requires a ROM image");
     }
     const FlashDevice *device = find_flash_device(plan.mcu_name());
     if (device == nullptr || device->numblocks != plan.erase_regions().size())
     {
-        return fail(ErrorKind::InvalidConfig, "DensoCAN flash geometry is unavailable");
+        return fail(ErrorKind::kInvalidConfig, "DensoCAN flash geometry is unavailable");
     }
     const bytes::ByteView image = *plan.image();
-    const bool test_write = plan.operation() == FlashOperation::TestWrite;
+    const bool test_write = plan.operation() == FlashOperation::kTestWrite;
     bool destructive_erase_succeeded = false;
     const auto propagate_after_erase = [&](const Error& error) -> Status
     {
         if (destructive_erase_succeeded)
         {
-            events.log(LogLevel::Error, kReflashRecoveryWarning);
+            events.log(LogLevel::kError, kReflashRecoveryWarning);
         }
         return std::unexpected(error);
     };
@@ -846,7 +846,7 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
                 return std::unexpected(cancelled.error());
             }
             const MemoryRegion block{device->fblocks[index].start, device->fblocks[index].len};
-            events.log(LogLevel::Info, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
+            events.log(LogLevel::kInfo, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
             Result<std::uint32_t> ecu_crc = read_block_crc(transport, block, cancellation);
             if (!ecu_crc)
             {
@@ -854,9 +854,9 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
             }
             const std::uint32_t image_crc = checksum::crc32(image.subspan(block.start, block.length));
             modified[index] = *ecu_crc != image_crc;
-            events.log(LogLevel::Debug, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc));
-            events.log(LogLevel::Info, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));
-            events.log(LogLevel::Info, modified[index] ? "\tNO" : "\tYES");
+            events.log(LogLevel::kDebug, std::format("ROM CRC: 0x{:08x} IMG CRC: 0x{:08x}", *ecu_crc, image_crc));
+            events.log(LogLevel::kInfo, std::format("\t{:08X}\t{:08X}", *ecu_crc, image_crc));
+            events.log(LogLevel::kInfo, modified[index] ? "\tNO" : "\tYES");
             count += modified[index] ? 1U : 0U;
             if (progress != nullptr)
             {
@@ -870,8 +870,8 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
         return count;
     };
 
-    events.log(LogLevel::Info, "--- Comparing ECU flash memory pages to image file ---");
-    events.log(LogLevel::Info, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
+    events.log(LogLevel::kInfo, "--- Comparing ECU flash memory pages to image file ---");
+    events.log(LogLevel::kInfo, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
     Result<unsigned> changed_count = compare_blocks(&compare_phase);
     if (!changed_count)
     {
@@ -880,14 +880,14 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
     log_changed_blocks(events, modified);
     if (*changed_count == 0)
     {
-        events.log(LogLevel::Info,
+        events.log(LogLevel::kInfo,
                    "*** Compare results no difference between ROM and ECU data, no flashing needed! ***");
         compare_phase.complete();
         phases.start(test_write ? "TestWrite" : "Write", 0);
         return {};
     }
     compare_phase.complete();
-    events.log(LogLevel::Info, "--- Start writing ROM file to ECU flash memory ---");
+    events.log(LogLevel::kInfo, "--- Start writing ROM file to ECU flash memory ---");
     if (Status initialized = init_flash_write(transport, test_write, cancellation, events); !initialized)
     {
         return initialized;
@@ -910,7 +910,7 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
             continue;
         }
         const MemoryRegion block{device->fblocks[index].start, device->fblocks[index].len};
-        events.log(LogLevel::Info, std::format("Flash block addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
+        events.log(LogLevel::kInfo, std::format("Flash block addr: 0x{:08X} len: 0x{:08X}", block.start, block.length));
         if (Status voltage = query_programming_voltage(transport, cancellation, events); !voltage)
         {
             return propagate_after_erase(voltage.error());
@@ -921,13 +921,13 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
         {
             return propagate_after_erase(flashed.error());
         }
-        events.log(LogLevel::Info, "Flash block ok");
-        events.log(LogLevel::Info, std::format("Block {} reflash complete.", index));
+        events.log(LogLevel::kInfo, "Flash block ok");
+        events.log(LogLevel::kInfo, std::format("Block {} reflash complete.", index));
     }
     write_phase.complete();
 
-    events.log(LogLevel::Info, "--- Comparing ECU flash memory pages to image file after reflash ---");
-    events.log(LogLevel::Info, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
+    events.log(LogLevel::kInfo, "--- Comparing ECU flash memory pages to image file after reflash ---");
+    events.log(LogLevel::kInfo, "blk\tstart\tlen\tecu crc\timg crc\tsame?");
     Result<unsigned> remaining = compare_blocks(nullptr);
     if (!remaining)
     {
@@ -936,12 +936,12 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
     log_changed_blocks(events, modified);
     if (test_write)
     {
-        events.log(LogLevel::Info, "*** Test write PASS, it's ok to perform actual write! ***");
+        events.log(LogLevel::kInfo, "*** Test write PASS, it's ok to perform actual write! ***");
     }
     else if (*remaining != 0)
     {
-        events.log(LogLevel::Error, "*** ERROR IN FLASH PROCESS ***");
-        events.log(LogLevel::Error,
+        events.log(LogLevel::kError, "*** ERROR IN FLASH PROCESS ***");
+        events.log(LogLevel::kError,
                    "Don't power off your ECU, kernel is still running and you can try flashing again!");
     }
     return {};
@@ -951,7 +951,7 @@ Status write_mem(IMixedCanFlashTransport& transport, const FlashPlan& plan, IClo
 
 Result<MixedCanConfig> SubaruDensoSh705xDensoCanExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (Status family = check_family(plan, FlashFamily::SubaruDensoSh705xDensoCan); !family)
+    if (Status family = check_family(plan, FlashFamily::kSubaruDensoSh705xDensoCan); !family)
     {
         return std::unexpected(family.error());
     }
@@ -999,7 +999,7 @@ Result<FlashExecutionResult>
 SubaruDensoSh705xDensoCanExecutor::execute(const FlashPlan& plan, IMixedCanFlashTransport& transport, IClock& clock,
                                            const ICancellationToken& cancellation, IEventSink& events)
 {
-    if (Status family = check_family(plan, FlashFamily::SubaruDensoSh705xDensoCan); !family)
+    if (Status family = check_family(plan, FlashFamily::kSubaruDensoSh705xDensoCan); !family)
     {
         return std::unexpected(family.error());
     }
@@ -1012,7 +1012,7 @@ SubaruDensoSh705xDensoCanExecutor::execute(const FlashPlan& plan, IMixedCanFlash
         return std::unexpected(cancelled.error());
     }
 
-    PhaseSequence phases(events, plan.operation() == FlashOperation::Read ? 2 : 4);
+    PhaseSequence phases(events, plan.operation() == FlashOperation::kRead ? 2 : 4);
     auto kernel_phase = phases.start("Kernel", 1);
     Result<bool> kernel_alive = probe_kernel(transport, clock, cancellation, events);
     if (!kernel_alive)
@@ -1031,7 +1031,7 @@ SubaruDensoSh705xDensoCanExecutor::execute(const FlashPlan& plan, IMixedCanFlash
         }
         if (!plan.kernel().has_value())
         {
-            return fail(ErrorKind::InvalidConfig, "DensoCAN plan lacks the required kernel image");
+            return fail(ErrorKind::kInvalidConfig, "DensoCAN plan lacks the required kernel image");
         }
         if (Status uploaded = upload_kernel(transport, *plan.kernel(), clock, cancellation, events); !uploaded)
         {
@@ -1048,7 +1048,7 @@ SubaruDensoSh705xDensoCanExecutor::execute(const FlashPlan& plan, IMixedCanFlash
     }
     kernel_phase.complete();
 
-    if (plan.operation() == FlashOperation::Read)
+    if (plan.operation() == FlashOperation::kRead)
     {
         auto read_phase = phases.start("Read", static_cast<int>(plan.transfer_region().length));
         Result<bytes::Bytes> read =

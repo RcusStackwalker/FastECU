@@ -78,7 +78,7 @@ Result<bytes::Bytes> tolerant_probe(const CanExecutorContext& ctx, bytes::ByteVi
     if (!received->has_value() || received->value().size() < 2)
     {
         error(ctx, "No valid response from ECU");
-        return fail(ErrorKind::Timeout, std::format("no response from ECU during the {}", subject));
+        return fail(ErrorKind::kTimeout, std::format("no response from ECU during the {}", subject));
     }
     const bytes::Bytes& frame = **received;
     if (frame[0] != expected_service || frame[1] != expected_subfunction)
@@ -181,7 +181,7 @@ Status denso_iso15765_erase(const CanExecutorContext& ctx, bytes::ByteView reque
     }
 
     error(ctx, "Flash area erase failed");
-    return fail(ErrorKind::BadResponse, "flash area erase failed");
+    return fail(ErrorKind::kBadResponse, "flash area erase failed");
 }
 
 Status n83m_in_car_fire_and_forget(const CanExecutorContext& ctx, ICanFlashTransport& can)

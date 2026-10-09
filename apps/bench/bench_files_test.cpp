@@ -46,7 +46,7 @@ TEST(BenchFiles, LoadReportsAMissingFileAsInvalidConfig)
 {
     BenchFiles files;
 
-    ASSERT_THAT(files.load(tempPath("absent.bin")), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(files.load(tempPath("absent.bin")), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchFiles, SaveReportsAnUnwritablePathAsInternal)
@@ -54,7 +54,7 @@ TEST(BenchFiles, SaveReportsAnUnwritablePathAsInternal)
     BenchFiles files;
 
     ASSERT_THAT(files.save(tempPath("no_such_dir/out.bin"), bytes::Bytes{0x01}),
-                fastecu::testing::IsErr(ErrorKind::Internal));
+                fastecu::testing::IsErr(ErrorKind::kInternal));
 }
 
 } // namespace

@@ -22,12 +22,12 @@ class FakeBenchFiles : public IBenchFiles
         const std::string key(path);
         if (const int call = ++load_calls[key]; fail_on_repeated_load && call > 1)
         {
-            return fail(ErrorKind::InvalidConfig, "file was loaded more than once");
+            return fail(ErrorKind::kInvalidConfig, "file was loaded more than once");
         }
         const auto found = contents.find(key);
         if (found == contents.end())
         {
-            return fail(ErrorKind::InvalidConfig, "no such file");
+            return fail(ErrorKind::kInvalidConfig, "no such file");
         }
         return found->second;
     }

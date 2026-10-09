@@ -23,7 +23,7 @@ std::vector<std::uint8_t> bytes(std::string_view text)
 void expect_invalid_with_context(const Result<UnresolvedDefinition>& result, std::string_view source_context,
                                  std::string_view xml_context)
 {
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr(source_context));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr(xml_context));
 }
@@ -39,11 +39,11 @@ TEST(EcuFlashParserTest, IndexesIdentityAndIncludeWithoutResolvingIt)
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(result->size(), 1U);
-    EXPECT_EQ(result->front().format, DefinitionFormat::EcuFlash);
+    EXPECT_EQ(result->front().format, DefinitionFormat::kEcuFlash);
     EXPECT_EQ(result->front().definition_id, "CHILD");
     EXPECT_EQ(result->front().internal_id_address, 0x1A0U);
     EXPECT_EQ(result->front().internal_id, "CHILD-ID");
-    EXPECT_EQ(result->front().internal_id_encoding, IdEncoding::AsciiOrHex);
+    EXPECT_EQ(result->front().internal_id_encoding, IdEncoding::kAsciiOrHex);
     EXPECT_EQ(result->front().ecu_id, "ECU-1");
     EXPECT_EQ(result->front().source, "ecuflash.xml");
     EXPECT_EQ(result->front().parents, std::vector<std::string>{"BASE"});
@@ -83,7 +83,7 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
     auto result = parse_ecuflash_definition(xml, "test.xml");
 
     ASSERT_THAT(result, fastecu::testing::IsOk());
-    EXPECT_EQ(result->format, DefinitionFormat::EcuFlash);
+    EXPECT_EQ(result->format, DefinitionFormat::kEcuFlash);
     EXPECT_EQ(result->source, "test.xml");
     EXPECT_EQ(result->parents, std::vector<std::string>{"BASE"});
     EXPECT_EQ(result->identity.xml_id, "TEST");
@@ -148,7 +148,7 @@ TEST(EcuFlashParserTest, ParsesMetadataGlobalScalingsAndNestedAxes)
     EXPECT_EQ(fuel_scale.maximum, "100");
     EXPECT_EQ(fuel_scale.coarse_increment, "1");
     EXPECT_EQ(fuel_scale.fine_increment, "0.1");
-    EXPECT_EQ(fuel_scale.storage_type, StorageType::Uint16);
+    EXPECT_EQ(fuel_scale.storage_type, StorageType::kUint16);
     EXPECT_EQ(fuel_scale.endian, "big");
     EXPECT_EQ(result->scalings.at(1).selections,
               (std::vector<std::pair<std::string, std::string>>{{"disabled", "00"}, {"enabled", "01"}}));
@@ -172,7 +172,7 @@ TEST(EcuFlashParserTest, InlineBloblistScalingMakesTheMapSelectable)
     const auto& map = result->maps.front();
     EXPECT_EQ(map.type, "Selectable");
     EXPECT_EQ(map.scaling_name, "Mode");
-    EXPECT_EQ(map.storage_type, StorageType::Bloblist);
+    EXPECT_EQ(map.storage_type, StorageType::kBloblist);
     EXPECT_EQ(map.endian, "little");
     ASSERT_EQ(result->scalings.size(), 1U);
     EXPECT_EQ(result->scalings.front().name, "Mode");

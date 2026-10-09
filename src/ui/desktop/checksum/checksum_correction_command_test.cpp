@@ -87,7 +87,7 @@ TEST(ChecksumCorrectionCommand, AcceptingGateWithoutLinkedDefinitionCorrectsRom)
 
     ASSERT_TRUE(result.corrected_rom_data.has_value());
     EXPECT_EQ(command.family_result_dialog_count, 1);
-    EXPECT_EQ(command.last_family_result.status, ChecksumResult::Status::Corrected);
+    EXPECT_EQ(command.last_family_result.status, ChecksumResult::Status::kCorrected);
     EXPECT_EQ(command.last_family_result.message, "Subaru Hitachi M32R K-Line ECU Checksum");
 }
 
@@ -128,7 +128,7 @@ TEST(ChecksumCorrectionCommand, DisabledDieselChecksumPreservesRomData)
 
     ASSERT_TRUE(result.corrected_rom_data.has_value());
     EXPECT_EQ(*result.corrected_rom_data, rom);
-    EXPECT_EQ(command.last_family_result.status, ChecksumResult::Status::Disabled);
+    EXPECT_EQ(command.last_family_result.status, ChecksumResult::Status::kDisabled);
 }
 
 TEST(ChecksumCorrectionCommand, BadRomSizeShowsDialogAndMakesNoCorrection)

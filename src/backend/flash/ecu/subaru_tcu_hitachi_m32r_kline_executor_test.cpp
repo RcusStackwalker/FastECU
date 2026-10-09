@@ -93,9 +93,9 @@ void expectRomBlock(const bytes::Bytes& rom, std::uint32_t address, std::uint32_
 // exactly, not to be "improved".
 enum class Step
 {
-    Write,
-    Read,
-    Sleep
+    kWrite,
+    kRead,
+    kSleep
 };
 
 // Not `final`: StopsPromptlyWhenCancelledMidRead below subclasses this to
@@ -109,12 +109,12 @@ class TracingTransport : public ScriptedKlineFlashTransport
     }
     Result<std::size_t> write(bytes::ByteView data) override
     {
-        trace_.push_back(Step::Write);
+        trace_.push_back(Step::kWrite);
         return ScriptedKlineFlashTransport::write(data);
     }
     Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
-        trace_.push_back(Step::Read);
+        trace_.push_back(Step::kRead);
         return ScriptedKlineFlashTransport::read(timeout, cancellation);
     }
 
@@ -125,7 +125,7 @@ class TracingTransport : public ScriptedKlineFlashTransport
 // Every sleep appends Step::Sleep to the shared trace, then advances time.
 void trace_sleeps(MockClock& clock, std::vector<Step>& trace)
 {
-    ON_CALL(clock, sleep).WillByDefault(DoAll([&trace] { trace.push_back(Step::Sleep); }, clock.sleep_on_fake()));
+    ON_CALL(clock, sleep).WillByDefault(DoAll([&trace] { trace.push_back(Step::kSleep); }, clock.sleep_on_fake()));
 }
 
 // This family's connect_bootloader() consumes five transport.read() calls
@@ -144,7 +144,7 @@ class TripOnReadTracingTransport final : public TracingTransport
 {
   public:
     TripOnReadTracingTransport(std::vector<Step>& trace, ManualCancellationToken& source)
-        : TracingTransport(ScriptedTransportInitialState::Open, trace), source_(source)
+        : TracingTransport(ScriptedTransportInitialState::kOpen, trace), source_(source)
     {
     }
     Result<OptionalBytes> read(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
@@ -198,7 +198,7 @@ void scriptConnect(ScriptedKlineFlashTransport& transport)
 
 FlashPlan readPlan()
 {
-    auto plan = build_subaru_tcu_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_tcu_hitachi_m32r_kline",
+    auto plan = build_subaru_tcu_hitachi_m32r_kline_plan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_kline",
                                                          "M32R_512KB", std::nullopt);
     EXPECT_THAT(plan, fastecu::testing::IsOk());
     return std::move(*plan);
@@ -220,7 +220,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, TransportSetupMatchesTheLegacySetters)
 // that the real read_rom() reads all 5462 blocks through to a passing result.
 TEST(SubaruTcuHitachiM32rKlineExecutor, ConnectSendsTheFiveLegacyExchangesInOrder)
 {
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     scriptConnect(transport);
     {
         const auto section = transport.section("read chunks");
@@ -253,7 +253,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, ConnectSendsTheFiveLegacyExchangesInOrde
 
 TEST(SubaruTcuHitachiM32rKlineExecutor, ReadsTheRomIn96ByteBlocksWithA32ByteTail)
 {
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     scriptConnect(transport);
     std::uint32_t blocks = 0;
     std::uint32_t last_length = 0;
@@ -290,7 +290,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, ReadsTheRomIn96ByteBlocksWithA32ByteTail
 // or shorter; the sixth failure gave up silently and produced a short ROM.
 TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockUpToFiveTimes)
 {
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     scriptConnect(transport);
     const auto section = transport.section("read chunks");
     const bytes::Bytes request = frame({0xa0, 0x00, 0x00, 0x00, 0x00, 0x5f});
@@ -329,7 +329,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockUpToFiveTimes)
 // ending the whole 5462-block ROM read with Timeout.
 TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockWhenAReadProducesNoFrame)
 {
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     scriptConnect(transport);
     const auto section = transport.section("read chunks");
     const bytes::Bytes request = frame({0xa0, 0x00, 0x00, 0x00, 0x00, 0x5f});
@@ -373,7 +373,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RetriesABlockWhenAReadProducesNoFrame)
 // which would mean the first empty read had aborted the whole ROM read.
 TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenFiveConsecutiveBlockReadsProduceNoFrame)
 {
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     scriptConnect(transport);
     const auto section = transport.section("read chunks");
     const bytes::Bytes request = frame({0xa0, 0x00, 0x00, 0x00, 0x00, 0x5f});
@@ -389,7 +389,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenFiveConsecutiveBlockReadsProduc
     RecordingEventSink events;
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -397,7 +397,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenFiveConsecutiveBlockReadsProduc
 // STATUS_SUCCESS, yielding a silently short ROM.
 TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenABlockExhaustsItsFiveAttempts)
 {
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     scriptConnect(transport);
     const auto section = transport.section("read chunks");
     const bytes::Bytes request = frame({0xa0, 0x00, 0x00, 0x00, 0x00, 0x5f});
@@ -412,14 +412,14 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenABlockExhaustsItsFiveAttempts)
     RecordingEventSink events;
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 // Deliberate divergence: the legacy accepted any response longer than five
 // bytes and appended length-1 of it, misaligning every later byte.
 TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsABlockResponseOfTheWrongLength)
 {
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     scriptConnect(transport);
     const auto section = transport.section("read chunks");
     transport.exchange(frame({0xa0, 0x00, 0x00, 0x00, 0x00, 0x5f}), blockResponse(0, kBlockSize - 8));
@@ -430,7 +430,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsABlockResponseOfTheWrongLength)
     RecordingEventSink events;
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 // See the comment on Step/TracingTransport/trace_sleeps above for why this
@@ -440,7 +440,7 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsABlockResponseOfTheWrongLength)
 TEST(SubaruTcuHitachiM32rKlineExecutor, PacesEachBlockReadAsWriteThenDelayThenReadThenDelay)
 {
     std::vector<Step> trace;
-    TracingTransport transport{ScriptedTransportInitialState::Open, trace};
+    TracingTransport transport{ScriptedTransportInitialState::kOpen, trace};
     scriptConnect(transport);
     {
         const auto section = transport.section("read chunks");
@@ -464,19 +464,19 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, PacesEachBlockReadAsWriteThenDelayThenRe
     ASSERT_THAT(result, fastecu::testing::IsOk());
     ASSERT_EQ(trace.size(), 1U + 10U + 4U * 5462U);
     // Legacy connect_bootloader() opens with delay(100), before any traffic.
-    EXPECT_EQ(trace[0], Step::Sleep);
+    EXPECT_EQ(trace[0], Step::kSleep);
     // Connect: five plain exchange() round trips -- Write/Read, no Sleep.
     for (std::size_t i = 1; i < 11U; i += 2)
     {
-        EXPECT_EQ(trace[i], Step::Write);
-        EXPECT_EQ(trace[i + 1], Step::Read);
+        EXPECT_EQ(trace[i], Step::kWrite);
+        EXPECT_EQ(trace[i + 1], Step::kRead);
     }
     // First block read: Write, Sleep, Read, Sleep -- exactly the legacy
     // send_sid_a0_block_read() order, with the gap between write and read.
-    EXPECT_EQ(trace[11], Step::Write);
-    EXPECT_EQ(trace[12], Step::Sleep);
-    EXPECT_EQ(trace[13], Step::Read);
-    EXPECT_EQ(trace[14], Step::Sleep);
+    EXPECT_EQ(trace[11], Step::kWrite);
+    EXPECT_EQ(trace[12], Step::kSleep);
+    EXPECT_EQ(trace[13], Step::kRead);
+    EXPECT_EQ(trace[14], Step::kSleep);
 }
 
 // Proves the *inner* "cancelled after read" checkpoint in
@@ -514,57 +514,57 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, StopsPromptlyWhenCancelledMidRead)
     RecordingEventSink events;
     const auto result = executor.execute(readPlan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::Cancelled));
+    EXPECT_THAT(result, fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_LT(transport.writesConsumed(), 100U);
 
     ASSERT_EQ(trace.size(), 22U);
     // Legacy connect_bootloader() opens with delay(100), before any traffic.
-    EXPECT_EQ(trace[0], Step::Sleep);
+    EXPECT_EQ(trace[0], Step::kSleep);
     // Connect: five plain exchange() round trips -- Write/Read, no Sleep.
     for (std::size_t i = 1; i < 11U; i += 2)
     {
-        EXPECT_EQ(trace[i], Step::Write);
-        EXPECT_EQ(trace[i + 1], Step::Read);
+        EXPECT_EQ(trace[i], Step::kWrite);
+        EXPECT_EQ(trace[i + 1], Step::kRead);
     }
     // Blocks 1 and 2 complete in full: Write, Sleep, Read, Sleep each.
-    EXPECT_EQ(trace[11], Step::Write);
-    EXPECT_EQ(trace[12], Step::Sleep);
-    EXPECT_EQ(trace[13], Step::Read);
-    EXPECT_EQ(trace[14], Step::Sleep);
-    EXPECT_EQ(trace[15], Step::Write);
-    EXPECT_EQ(trace[16], Step::Sleep);
-    EXPECT_EQ(trace[17], Step::Read);
-    EXPECT_EQ(trace[18], Step::Sleep);
+    EXPECT_EQ(trace[11], Step::kWrite);
+    EXPECT_EQ(trace[12], Step::kSleep);
+    EXPECT_EQ(trace[13], Step::kRead);
+    EXPECT_EQ(trace[14], Step::kSleep);
+    EXPECT_EQ(trace[15], Step::kWrite);
+    EXPECT_EQ(trace[16], Step::kSleep);
+    EXPECT_EQ(trace[17], Step::kRead);
+    EXPECT_EQ(trace[18], Step::kSleep);
     // Block 3 lands the cancellation on its read (the 8th overall) and
     // stops there -- no trailing Sleep.
-    EXPECT_EQ(trace[19], Step::Write);
-    EXPECT_EQ(trace[20], Step::Sleep);
-    EXPECT_EQ(trace[21], Step::Read);
+    EXPECT_EQ(trace[19], Step::kWrite);
+    EXPECT_EQ(trace[20], Step::kSleep);
+    EXPECT_EQ(trace[21], Step::kRead);
 }
 
 // A plan built for the ECU (non-TCU) Hitachi M32R K-Line family must be
 // rejected by check_family before any I/O happens.
 TEST(SubaruTcuHitachiM32rKlineExecutor, RejectsAPlanBuiltForAnotherFamily)
 {
-    auto foreign = build_subaru_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_ecu_hitachi_m32r_kline",
+    auto foreign = build_subaru_hitachi_m32r_kline_plan(FlashOperation::kRead, "sub_ecu_hitachi_m32r_kline",
                                                         "M32R_512KB_1block", std::nullopt);
     ASSERT_THAT(foreign, fastecu::testing::IsOk());
 
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     SubaruTcuHitachiM32rKlineExecutor executor;
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
-    EXPECT_THAT(executor.transport_setup(*foreign), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(executor.transport_setup(*foreign), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(executor.execute(*foreign, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
 TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheSeedResponseIsTooShort)
 {
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     const auto section = transport.section("connect");
     transport.exchange(frame({0xbf}), idResponse());
     transport.exchange(frame({0x81}), bytes::Bytes{0x80, 0xf0, 0x18, 0x01, 0xc1, 0});
@@ -578,12 +578,12 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheSeedResponseIsTooShort)
     RecordingEventSink events;
 
     EXPECT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::BadResponse));
+                fastecu::testing::IsErr(ErrorKind::kBadResponse));
 }
 
 TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheTcuNeverAnswers)
 {
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     transport.expectWrite(frame({0xbf}));
     transport.queue_no_frame();
 
@@ -593,6 +593,6 @@ TEST(SubaruTcuHitachiM32rKlineExecutor, FailsWhenTheTcuNeverAnswers)
     RecordingEventSink events;
 
     EXPECT_THAT(executor.execute(readPlan(), transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Timeout));
+                fastecu::testing::IsErr(ErrorKind::kTimeout));
 }
 } // namespace

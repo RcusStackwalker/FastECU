@@ -35,7 +35,7 @@ constexpr std::size_t kBody = 0x10;
 // three-element X axis at 0x00 and a two-element Y axis at 0x08.
 definition::RomDefinition grid_definition()
 {
-    definition::RomDefinition rom{.format = definition::DefinitionFormat::EcuFlash};
+    definition::RomDefinition rom{.format = definition::DefinitionFormat::kEcuFlash};
     rom.scalings.push_back(definition::Scaling{.name = "raw",
                                                .from_byte = "x",
                                                .to_byte = "x",
@@ -49,16 +49,16 @@ definition::RomDefinition grid_definition()
     map.address = kBody;
     map.x_size = 3;
     map.y_size = 2;
-    map.storage_type = definition::StorageType::Uint8;
+    map.storage_type = definition::StorageType::kUint8;
     map.endian = "big";
     map.scaling_name = "raw";
     map.x_axis.type = "X Axis";
     map.x_axis.address = 0x00;
-    map.x_axis.storage_type = definition::StorageType::Uint8;
+    map.x_axis.storage_type = definition::StorageType::kUint8;
     map.x_axis.scaling_name = "raw";
     map.y_axis.type = "Y Axis";
     map.y_axis.address = 0x08;
-    map.y_axis.storage_type = definition::StorageType::Uint8;
+    map.y_axis.storage_type = definition::StorageType::kUint8;
     map.y_axis.scaling_name = "raw";
     rom.maps.push_back(map);
     return rom;
@@ -150,22 +150,22 @@ auto copied_text(const std::string& text)
 
 TEST_F(NumericCopyUseCaseTest, CopiesTheWholeBodyRowMajorWithTabsAndLineFeeds)
 {
-    EXPECT_THAT(copy(NumericTarget::MapBody, {.first_row = 0, .first_col = 0, .last_row = 1, .last_col = 2}),
+    EXPECT_THAT(copy(NumericTarget::kMapBody, {.first_row = 0, .first_col = 0, .last_row = 1, .last_col = 2}),
                 copied_text("10\t20\t30\n40\t50\t200"));
 }
 
 TEST_F(NumericCopyUseCaseTest, CopiesASubRangeFromItsTopLeft)
 {
-    EXPECT_THAT(copy(NumericTarget::MapBody, {.first_row = 0, .first_col = 1, .last_row = 1, .last_col = 2}),
+    EXPECT_THAT(copy(NumericTarget::kMapBody, {.first_row = 0, .first_col = 1, .last_row = 1, .last_col = 2}),
                 copied_text("20\t30\n50\t200"));
-    EXPECT_THAT(copy(NumericTarget::MapBody, cell(1, 0)), copied_text("40"));
+    EXPECT_THAT(copy(NumericTarget::kMapBody, cell(1, 0)), copied_text("40"));
 }
 
 TEST_F(NumericCopyUseCaseTest, CopiesAxesWithTheirOwnGeometry)
 {
-    EXPECT_THAT(copy(NumericTarget::XAxis, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2}),
+    EXPECT_THAT(copy(NumericTarget::kXAxis, {.first_row = 0, .first_col = 0, .last_row = 0, .last_col = 2}),
                 copied_text("1\t2\t3"));
-    EXPECT_THAT(copy(NumericTarget::YAxis, {.first_row = 0, .first_col = 0, .last_row = 1, .last_col = 0}),
+    EXPECT_THAT(copy(NumericTarget::kYAxis, {.first_row = 0, .first_col = 0, .last_row = 1, .last_col = 0}),
                 copied_text("4\n5"));
 }
 
@@ -178,7 +178,7 @@ TEST_F(NumericCopyUseCaseTest, CopiesFullPrecisionScaledValuesNotRoundedDisplayT
     def.scalings[0].format = "%.1f";
     install(std::move(def));
 
-    const auto copied = copy(NumericTarget::MapBody, cell(0, 0));
+    const auto copied = copy(NumericTarget::kMapBody, cell(0, 0));
 
     ASSERT_THAT(copied, IsOk());
     const auto *text = std::get_if<NumericCopyText>(&*copied);
@@ -194,7 +194,7 @@ TEST_F(NumericCopyUseCaseTest, WritesPlainDecimalNeverExponentNotation)
     def.scalings[0].to_byte = "x*1000000";
     install(std::move(def));
 
-    const auto copied = copy(NumericTarget::MapBody, cell(0, 0));
+    const auto copied = copy(NumericTarget::kMapBody, cell(0, 0));
 
     ASSERT_THAT(copied, IsOk());
     const auto *text = std::get_if<NumericCopyText>(&*copied);
@@ -210,7 +210,7 @@ TEST_F(NumericCopyUseCaseTest, PastingTheCopiedTextBackIsAnUnchangedEdit)
     def.scalings[0].to_byte = "x*3";
     install(std::move(def));
     const SelectionRange all{.first_row = 0, .first_col = 0, .last_row = 1, .last_col = 2};
-    const auto copied = copy(NumericTarget::MapBody, all);
+    const auto copied = copy(NumericTarget::kMapBody, all);
     ASSERT_THAT(copied, IsOk());
     const auto *text = std::get_if<NumericCopyText>(&*copied);
     ASSERT_NE(text, nullptr);
@@ -236,7 +236,7 @@ TEST_F(NumericCopyUseCaseTest, PastingTheCopiedTextBackIsAnUnchangedEdit)
     const auto pasted =
         apply_numeric_edit(workspace_, {.session = id_,
                                         .map_index = 0,
-                                        .selection = {.target = NumericTarget::MapBody, .elements = all},
+                                        .selection = {.target = NumericTarget::kMapBody, .elements = all},
                                         .operation = paste});
 
     EXPECT_THAT(pasted, IsOkAnd(VariantWith<NumericEditUnchanged>(::testing::_)));
@@ -248,7 +248,7 @@ TEST_F(NumericCopyUseCaseTest, ReportsTheFirstInvalidCellAndNoText)
     def.scalings[0].from_byte = "1/0";
     install(std::move(def));
 
-    const auto copied = copy(NumericTarget::MapBody, {.first_row = 0, .first_col = 1, .last_row = 1, .last_col = 2});
+    const auto copied = copy(NumericTarget::kMapBody, {.first_row = 0, .first_col = 1, .last_row = 1, .last_col = 2});
 
     ASSERT_THAT(copied, IsOk());
     const auto *invalid = std::get_if<NumericCopyInvalidCell>(&*copied);
@@ -262,7 +262,7 @@ TEST_F(NumericCopyUseCaseTest, CopyNeverChangesTheSession)
 {
     const auto before = rom_bytes();
 
-    EXPECT_THAT(copy(NumericTarget::MapBody, cell(0, 0)), IsOk());
+    EXPECT_THAT(copy(NumericTarget::kMapBody, cell(0, 0)), IsOk());
 
     EXPECT_EQ(rom_bytes(), before);
     EXPECT_FALSE(session().dirty());
@@ -272,23 +272,23 @@ TEST_F(NumericCopyUseCaseTest, IsNotApplicableWithoutAUsableTarget)
 {
     EXPECT_THAT(
         copy_numeric_values(workspace_, {.session = SessionId{9999},
-                                         .selection = {.target = NumericTarget::MapBody, .elements = cell(0, 0)}}),
-        not_applicable(NotApplicableReason::ClosedSession));
-    EXPECT_THAT(copy(NumericTarget::MapBody, cell(0, 0), 5), not_applicable(NotApplicableReason::UnavailableTarget));
+                                         .selection = {.target = NumericTarget::kMapBody, .elements = cell(0, 0)}}),
+        not_applicable(NotApplicableReason::kClosedSession));
+    EXPECT_THAT(copy(NumericTarget::kMapBody, cell(0, 0), 5), not_applicable(NotApplicableReason::kUnavailableTarget));
 
     install(std::nullopt);
-    EXPECT_THAT(copy(NumericTarget::MapBody, cell(0, 0)), not_applicable(NotApplicableReason::NoDefinition));
+    EXPECT_THAT(copy(NumericTarget::kMapBody, cell(0, 0)), not_applicable(NotApplicableReason::kNoDefinition));
 }
 
 TEST_F(NumericCopyUseCaseTest, RejectsSelectionsOutsideTheRun)
 {
-    EXPECT_THAT(copy(NumericTarget::MapBody, cell(2, 0)), IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(copy(NumericTarget::MapBody, cell(0, 3)), IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(copy(NumericTarget::MapBody, cell(-1, 0)), IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(copy(NumericTarget::MapBody, {.first_row = 1, .first_col = 0, .last_row = 0, .last_col = 0}),
-                IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(copy(NumericTarget::XAxis, cell(1, 0)), IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(copy(NumericTarget::YAxis, cell(0, 1)), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(copy(NumericTarget::kMapBody, cell(2, 0)), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(copy(NumericTarget::kMapBody, cell(0, 3)), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(copy(NumericTarget::kMapBody, cell(-1, 0)), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(copy(NumericTarget::kMapBody, {.first_row = 1, .first_col = 0, .last_row = 0, .last_col = 0}),
+                IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(copy(NumericTarget::kXAxis, cell(1, 0)), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(copy(NumericTarget::kYAxis, cell(0, 1)), IsErr(ErrorKind::kInvalidConfig));
 }
 
 } // namespace

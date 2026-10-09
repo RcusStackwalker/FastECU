@@ -27,11 +27,11 @@ fastecu::Result<bytes::Bytes> UdsClient::request(bytes::ByteView pdu, const Exch
 {
     if (pdu.empty())
     {
-        return fail(ErrorKind::Internal, "UDS request PDU is empty");
+        return fail(ErrorKind::kInternal, "UDS request PDU is empty");
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before request");
+        return fail(ErrorKind::kCancelled, "cancelled before request");
     }
 
     const bytes::Byte expected_service = pdu[0];
@@ -64,7 +64,7 @@ fastecu::Result<bytes::Bytes> UdsClient::request(bytes::ByteView pdu, const Exch
         }
         if (!received->has_value())
         {
-            return fail(ErrorKind::Timeout, "no response within the read timeout");
+            return fail(ErrorKind::kTimeout, "no response within the read timeout");
         }
 
         bytes::Bytes frame = std::move(**received);
@@ -72,7 +72,7 @@ fastecu::Result<bytes::Bytes> UdsClient::request(bytes::ByteView pdu, const Exch
 
         if (parsed.isPending())
         {
-            events_.log(LogLevel::Debug,
+            events_.log(LogLevel::kDebug,
                         std::format("ECU reported responsePending for SID 0x{:02x}; waiting", expected_service));
             // Only the first read observes the caller's pre-read delay; a
             // pending re-read waits inside the (longer) receive timeout.
@@ -83,21 +83,21 @@ fastecu::Result<bytes::Bytes> UdsClient::request(bytes::ByteView pdu, const Exch
 
         switch (parsed.kind)
         {
-        case ResponseKind::Malformed:
-            return fail(ErrorKind::BadResponse, std::format("malformed UDS response: {}", bytes::toHex(frame)));
-        case ResponseKind::Negative:
-            return fail(ErrorKind::BadResponse, describe(frame));
-        case ResponseKind::Positive:
+        case ResponseKind::kMalformed:
+            return fail(ErrorKind::kBadResponse, std::format("malformed UDS response: {}", bytes::toHex(frame)));
+        case ResponseKind::kNegative:
+            return fail(ErrorKind::kBadResponse, describe(frame));
+        case ResponseKind::kPositive:
             if (!parsed.matches(expected_service))
             {
-                return fail(ErrorKind::BadResponse, std::format("expected response to SID 0x{:02x}, got 0x{:02x}",
-                                                                expected_service, parsed.service));
+                return fail(ErrorKind::kBadResponse, std::format("expected response to SID 0x{:02x}, got 0x{:02x}",
+                                                                 expected_service, parsed.service));
             }
             return frame;
         }
     }
 
-    return fail(ErrorKind::Timeout,
+    return fail(ErrorKind::kTimeout,
                 std::format("ECU still reporting responsePending after {} repeats", policy.max_pending_repeats));
 }
 

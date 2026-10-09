@@ -29,7 +29,7 @@ INSTANTIATE_TEST_SUITE_P(SubaruTcuCvtHitachiM32rCan, SingleWindowPlanContract, :
 // The wire parameters are this family's own; they do not generalize.
 TEST(SubaruTcuCvtHitachiM32rCanPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    const auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::Read, "sub_tcu_cvt_hitachi_m32r_can",
+    const auto plan = build_subaru_tcu_cvt_hitachi_m32r_can_plan(FlashOperation::kRead, "sub_tcu_cvt_hitachi_m32r_can",
                                                                  "M32R_512KB", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());

@@ -37,7 +37,7 @@ Status load(pugi::xml_document& document, bytes::ByteView conf, std::string_view
                                      pugi::parse_declaration);
         !parsed)
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(ErrorKind::kInvalidConfig,
                     std::format("{}: {} at offset {}", source, parsed.description(), parsed.offset));
     }
     return {};
@@ -156,8 +156,8 @@ Result<bytes::Bytes> write_selection(bytes::ByteView conf, std::string_view ecu_
         // non-well-formed XML that every conformant parser refuses
         // to re-read even though pugixml is lenient enough to load it back.
         // Refuse rather than corrupt it.
-        return fail(ErrorKind::InvalidConfig, std::format("{}: root element is <{}>, expected <config>", source,
-                                                          document.document_element().name()));
+        return fail(ErrorKind::kInvalidConfig, std::format("{}: root element is <{}>, expected <config>", source,
+                                                           document.document_element().name()));
     }
     pugi::xml_node logger = config.child("logger");
     if (!logger)

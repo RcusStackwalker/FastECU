@@ -118,16 +118,16 @@ Result<BeefMessage> parse_beef(bytes::ByteView pdu)
 {
     if (pdu.size() < 5)
     {
-        return fail(ErrorKind::BadResponse, "short BEEF response envelope");
+        return fail(ErrorKind::kBadResponse, "short BEEF response envelope");
     }
     if (bytes::readU16Be(pdu) != kKernelStartComm)
     {
-        return fail(ErrorKind::BadResponse, "wrong BEEF response marker");
+        return fail(ErrorKind::kBadResponse, "wrong BEEF response marker");
     }
     const std::uint16_t declared = bytes::readU16Be(pdu, 2);
     if (declared < 1 || static_cast<std::size_t>(declared) + 4 > pdu.size())
     {
-        return fail(ErrorKind::BadResponse, "invalid BEEF response length");
+        return fail(ErrorKind::kBadResponse, "invalid BEEF response length");
     }
     return BeefMessage{.opcode = pdu[4], .payload = pdu.subspan(5, declared - 1)};
 }
@@ -186,7 +186,7 @@ Status upload_b6_discard(Context& context, bytes::ByteView pdu)
     const Result<std::optional<bytes::Bytes>> ignored =
         context.transport.read(kKernelTransferTimeout, context.cancellation);
     if (!ignored.has_value() &&
-        (ignored.error().kind == ErrorKind::Cancelled || ignored.error().kind == ErrorKind::Disconnected))
+        (ignored.error().kind == ErrorKind::kCancelled || ignored.error().kind == ErrorKind::kDisconnected))
     {
         return std::unexpected(ignored.error());
     }
@@ -204,7 +204,7 @@ Result<bytes::Bytes> beef_exchange(Context& context, bytes::Byte opcode, bytes::
         raw_channel_request_optional(context, beef_request(opcode, payload), timeout);
     if (!received.has_value())
     {
-        if (received.error().kind != ErrorKind::Cancelled && received.error().kind != ErrorKind::Disconnected)
+        if (received.error().kind != ErrorKind::kCancelled && received.error().kind != ErrorKind::kDisconnected)
         {
             error(context, "No valid response from ECU");
         }
@@ -213,19 +213,19 @@ Result<bytes::Bytes> beef_exchange(Context& context, bytes::Byte opcode, bytes::
     if (!received->has_value())
     {
         error(context, "No valid response from ECU");
-        return fail(ErrorKind::Timeout, "no CAN response within the read timeout");
+        return fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
     }
 
     const bytes::Bytes& frame = **received;
     if (frame.size() < CanFlashUdsChannel::kEnvelopeSize)
     {
         log_oracle_frame_failure(context, frame, 8);
-        return fail(ErrorKind::BadResponse, "CAN frame is shorter than its envelope");
+        return fail(ErrorKind::kBadResponse, "CAN frame is shorter than its envelope");
     }
     if (bytes::readU32Be(frame) != context.response_id)
     {
         log_oracle_frame_failure(context, frame, 8);
-        return fail(ErrorKind::BadResponse, "unexpected CAN response id");
+        return fail(ErrorKind::kBadResponse, "unexpected CAN response id");
     }
 
     Result<BeefMessage> parsed = parse_beef(bytes::ByteView(frame).subspan(CanFlashUdsChannel::kEnvelopeSize));
@@ -238,13 +238,13 @@ Result<bytes::Bytes> beef_exchange(Context& context, bytes::Byte opcode, bytes::
     if (parsed->opcode != expected)
     {
         log_oracle_frame_failure(context, frame, 8);
-        return fail(ErrorKind::BadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
-                                                        parsed->opcode, expected));
+        return fail(ErrorKind::kBadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
+                                                         parsed->opcode, expected));
     }
     if (parsed->payload.size() < minimum_payload)
     {
         log_oracle_frame_failure(context, frame, 8);
-        return fail(ErrorKind::BadResponse, "short BEEF response payload");
+        return fail(ErrorKind::kBadResponse, "short BEEF response payload");
     }
     return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
 }
@@ -261,7 +261,7 @@ Status discard_stale_frame(Context& context)
     }
     Result<std::optional<bytes::Bytes>> stale = context.transport.read(kShortTimeout, context.cancellation);
     if (!stale.has_value() &&
-        (stale.error().kind == ErrorKind::Cancelled || stale.error().kind == ErrorKind::Disconnected))
+        (stale.error().kind == ErrorKind::kCancelled || stale.error().kind == ErrorKind::kDisconnected))
     {
         return std::unexpected(stale.error());
     }
@@ -274,11 +274,11 @@ Result<std::optional<bytes::Bytes>> nonfatal_query(Context& context, bytes::Byte
         channel_request_optional(context, pdu, kReadTimeout, kExtraShortTimeout);
     if (!received.has_value())
     {
-        if (received.error().kind == ErrorKind::Cancelled || received.error().kind == ErrorKind::Disconnected)
+        if (received.error().kind == ErrorKind::kCancelled || received.error().kind == ErrorKind::kDisconnected)
         {
             return std::unexpected(received.error());
         }
-        if (received.error().kind == ErrorKind::Timeout)
+        if (received.error().kind == ErrorKind::kTimeout)
         {
             error(context, "No valid response from ECU");
         }
@@ -322,12 +322,12 @@ void log_strict_frame_failure(Context& context, bytes::ByteView request, bytes::
 
 void log_strict_failure(Context& context, bytes::ByteView request, const Error& failure)
 {
-    if (failure.kind == ErrorKind::Timeout)
+    if (failure.kind == ErrorKind::kTimeout)
     {
         error(context, "No valid response from ECU");
         return;
     }
-    if (failure.kind != ErrorKind::BadResponse)
+    if (failure.kind != ErrorKind::kBadResponse)
     {
         return;
     }
@@ -360,7 +360,7 @@ Result<bytes::Bytes> strict_request(Context& context, bytes::ByteView pdu, const
         raw.has_value() && !pdu.empty() && pdu.front() == uds::kSidSecurityAccess && raw->size() <= 5)
     {
         log_strict_frame_failure(context, pdu, *raw);
-        return fail(ErrorKind::BadResponse, "strict CAN response is shorter than the legacy minimum");
+        return fail(ErrorKind::kBadResponse, "strict CAN response is shorter than the legacy minimum");
     }
     return reply;
 }
@@ -377,7 +377,7 @@ Status strict_payload(Context& context, bytes::ByteView pdu, bytes::ByteView exp
     if (payload.size() < expected.size() || !std::equal(expected.begin(), expected.end(), payload.begin()))
     {
         error(context, "Wrong response from ECU: Not a valid answer");
-        return fail(ErrorKind::BadResponse, std::format("unexpected response during {}", label));
+        return fail(ErrorKind::kBadResponse, std::format("unexpected response during {}", label));
     }
     return {};
 }
@@ -393,7 +393,7 @@ Status strict_service(Context& context, bytes::ByteView pdu, bytes::Byte expecte
     if (reply->empty() || reply->front() != expected_service)
     {
         error(context, "Wrong response from ECU: Not a valid answer");
-        return fail(ErrorKind::BadResponse, std::format("unexpected response during {}", label));
+        return fail(ErrorKind::kBadResponse, std::format("unexpected response during {}", label));
     }
     return {};
 }
@@ -402,7 +402,7 @@ Result<bytes::Bytes> security_key(Context& context, bytes::ByteView seed)
 {
     if (seed.size() != 4)
     {
-        return fail(ErrorKind::BadResponse, "diesel security seed must contain four bytes");
+        return fail(ErrorKind::kBadResponse, "diesel security seed must contain four bytes");
     }
     return denso_seed_key(seed);
 }
@@ -438,7 +438,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
         Result<std::optional<bytes::Bytes>> raw = context.transport.read(kLongTimeout, context.cancellation);
         if (!raw.has_value())
         {
-            if (raw.error().kind == ErrorKind::Cancelled || raw.error().kind == ErrorKind::Disconnected)
+            if (raw.error().kind == ErrorKind::kCancelled || raw.error().kind == ErrorKind::kDisconnected)
             {
                 return std::unexpected(raw.error());
             }
@@ -472,7 +472,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             raw_channel_request_optional(context, request, kLongTimeout, kKernelProbeDelay);
         if (!reply.has_value())
         {
-            if (reply.error().kind == ErrorKind::Timeout)
+            if (reply.error().kind == ErrorKind::kTimeout)
             {
                 return std::optional<std::string>{};
             }
@@ -491,7 +491,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
         if (frame.size() < CanFlashUdsChannel::kEnvelopeSize || bytes::readU32Be(frame) != context.response_id)
         {
             log_oracle_frame_failure(context, frame, 8);
-            return std::unexpected(Error{ErrorKind::BadResponse, "unexpected CAN response id"});
+            return std::unexpected(Error{ErrorKind::kBadResponse, "unexpected CAN response id"});
         }
         pdu.assign(frame.begin() + static_cast<std::ptrdiff_t>(CanFlashUdsChannel::kEnvelopeSize), frame.end());
     }
@@ -515,7 +515,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             return std::optional<std::string>{};
         }
         log_oracle_frame_failure(context, *raw_frame, 8);
-        return fail(ErrorKind::BadResponse, "unexpected kernel ID response opcode");
+        return fail(ErrorKind::kBadResponse, "unexpected kernel ID response opcode");
     }
     return std::optional<std::string>{std::string(parsed->payload.begin(), parsed->payload.end())};
 }
@@ -677,7 +677,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
     if (seed_payload.size() < 5 || seed_payload[0] != uds::kSecurityAccessRequestSeed)
     {
         error(context, "Wrong response from ECU: Not a valid answer");
-        return fail(ErrorKind::BadResponse, "invalid diesel seed response");
+        return fail(ErrorKind::kBadResponse, "invalid diesel seed response");
     }
     info(context, "Seed request ok");
     Result<bytes::Bytes> key = security_key(context, seed_payload.subspan(1, 4));
@@ -715,7 +715,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
     if (programming_payload.empty() || (programming_payload[0] != 0x02 && programming_payload[0] != 0x42))
     {
         error(context, "Wrong response from ECU: Not a valid answer");
-        return fail(ErrorKind::BadResponse, "unexpected programming session response");
+        return fail(ErrorKind::kBadResponse, "unexpected programming session response");
     }
     info(context, "Succesfully set to programming session");
     return {};
@@ -730,18 +730,18 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
     const std::size_t block_count = (padded_to_word + kKernelUploadBlockSize - 1U) / kKernelUploadBlockSize;
     if (block_count == 0 || block_count > std::numeric_limits<std::size_t>::max() / kKernelUploadBlockSize)
     {
-        return fail(ErrorKind::InvalidConfig, "diesel kernel upload size is invalid");
+        return fail(ErrorKind::kInvalidConfig, "diesel kernel upload size is invalid");
     }
     const std::size_t data_length = block_count * kKernelUploadBlockSize;
     if (data_length > 0xFFFFFFU)
     {
-        return fail(ErrorKind::InvalidConfig, "diesel kernel upload exceeds the 24-bit wire length");
+        return fail(ErrorKind::kInvalidConfig, "diesel kernel upload exceeds the 24-bit wire length");
     }
     bytes::Bytes plain = kernel.bytes;
     plain.resize(data_length, bytes::Byte{0});
     if (plain.size() < 4)
     {
-        return fail(ErrorKind::InvalidConfig, "diesel kernel upload is shorter than its checksum word");
+        return fail(ErrorKind::kInvalidConfig, "diesel kernel upload is shorter than its checksum word");
     }
     plain.resize(plain.size() - 4);
     std::uint32_t sum = 0;
@@ -815,7 +815,7 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
     if (!kernel_id->has_value())
     {
         error(context, "No valid response from ECU");
-        return fail(ErrorKind::Timeout, "kernel did not answer after upload");
+        return fail(ErrorKind::kTimeout, "kernel did not answer after upload");
     }
     info(context, std::format("Kernel ID: {}", **kernel_id));
     return {};
@@ -914,7 +914,7 @@ Result<CompareResult> compare_blocks(Context& context, const FlashPlan& plan, by
         if (block.start < plan.transfer_region().start ||
             static_cast<std::uint64_t>(block.start - plan.transfer_region().start) + block.length > image.size())
         {
-            return fail(ErrorKind::InvalidConfig, "diesel CRC block is outside the image");
+            return fail(ErrorKind::kInvalidConfig, "diesel CRC block is outside the image");
         }
         info(context, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
         Result<std::uint32_t> ecu_crc = query_crc(context, block);
@@ -994,16 +994,16 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
     // of commit (0x24) at each 0x1000-byte boundary.
     if (block.length == 0 || block.length % kFlashBufferSize != 0 || block.length % kFlashCommitSize != 0)
     {
-        return fail(ErrorKind::InvalidConfig, "diesel flash block is not aligned to write windows");
+        return fail(ErrorKind::kInvalidConfig, "diesel flash block is not aligned to write windows");
     }
     if (block.start < plan.transfer_region().start)
     {
-        return fail(ErrorKind::InvalidConfig, "diesel flash block starts before the image");
+        return fail(ErrorKind::kInvalidConfig, "diesel flash block starts before the image");
     }
     const std::size_t image_offset = block.start - plan.transfer_region().start;
     if (image_offset + block.length > image.size())
     {
-        return fail(ErrorKind::InvalidConfig, "diesel flash block extends beyond the image");
+        return fail(ErrorKind::kInvalidConfig, "diesel flash block extends beyond the image");
     }
 
     info(context, std::format("Flash page erase addr: 0x{:08x} len: 0x{:08x}", block.start, block.length));
@@ -1152,7 +1152,7 @@ Status write_memory(Context& context, const FlashPlan& plan, PhaseSequence& phas
         }
     }
     info(context, "--- Start writing ROM file to ECU flash memory ---");
-    const bool test_write = plan.operation() == FlashOperation::TestWrite;
+    const bool test_write = plan.operation() == FlashOperation::kTestWrite;
     if (const Status initialized = initialize_flash(context, test_write); !initialized.has_value())
     {
         return initialized;
@@ -1203,7 +1203,7 @@ Status write_memory(Context& context, const FlashPlan& plan, PhaseSequence& phas
 
 Result<Iso15765Config> SubaruDensoSh7058CanDieselExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (const Status matched = check_family(plan, FlashFamily::SubaruDensoSh7058CanDiesel); !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::kSubaruDensoSh7058CanDiesel); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -1224,7 +1224,7 @@ Status SubaruDensoSh7058CanDieselExecutor::before_transport_configure(ICanFlashT
     // pre-config ordering without exposing desktop serial details here.
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before CAN reset");
+        return fail(ErrorKind::kCancelled, "cancelled before CAN reset");
     }
     if (const Status reset = transport.reset_connection(); !reset.has_value())
     {
@@ -1238,7 +1238,7 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::execute(const F
                                                                          const ICancellationToken& cancellation,
                                                                          IEventSink& events)
 {
-    if (const Status matched = check_family(plan, FlashFamily::SubaruDensoSh7058CanDiesel); !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::kSubaruDensoSh7058CanDiesel); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -1248,7 +1248,7 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::execute(const F
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
 
     const auto& family = std::get<SubaruDensoSh7058CanDieselPlan>(plan.family_plan());
@@ -1256,7 +1256,7 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::execute(const F
     uds::UdsClient uds_client(channel, clock, events);
     Context context{cancellation, events, clock, transport, family.request_id, family.response_id, uds_client, channel};
 
-    const bool read_operation = plan.operation() == FlashOperation::Read;
+    const bool read_operation = plan.operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read_operation ? 2 : 4);
     PhaseReporter kernel_phase = phases.start("Kernel", 1);
     bool kernel_alive = false;
@@ -1290,7 +1290,7 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanDieselExecutor::execute(const F
         }
         read_phase.complete();
         return FlashExecutionResult{
-            .operation = FlashOperation::Read, .read_bytes = std::move(*rom), .rom_id = std::move(rom_id)};
+            .operation = FlashOperation::kRead, .read_bytes = std::move(*rom), .rom_id = std::move(rom_id)};
     }
 
     events.notice("Writing ROM, please wait...");

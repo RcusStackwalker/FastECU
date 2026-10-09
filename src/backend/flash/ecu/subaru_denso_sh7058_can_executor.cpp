@@ -128,16 +128,16 @@ Result<BeefMessage> parse_beef(bytes::ByteView pdu)
 {
     if (pdu.size() < 5)
     {
-        return fail(ErrorKind::BadResponse, "short BEEF response envelope");
+        return fail(ErrorKind::kBadResponse, "short BEEF response envelope");
     }
     if (bytes::readU16Be(pdu) != kKernelStartComm)
     {
-        return fail(ErrorKind::BadResponse, "wrong BEEF response marker");
+        return fail(ErrorKind::kBadResponse, "wrong BEEF response marker");
     }
     const std::uint16_t declared = bytes::readU16Be(pdu, 2);
     if (declared < 1 || static_cast<std::size_t>(declared) + 4 > pdu.size())
     {
-        return fail(ErrorKind::BadResponse, "invalid BEEF response length");
+        return fail(ErrorKind::kBadResponse, "invalid BEEF response length");
     }
     return BeefMessage{.opcode = pdu[4], .payload = pdu.subspan(5, declared - 1)};
 }
@@ -152,7 +152,7 @@ Result<bytes::Bytes> channel_request(Context& context, bytes::ByteView pdu, std:
     }
     if (!received->has_value())
     {
-        return fail(ErrorKind::Timeout, "no CAN response within the read timeout");
+        return fail(ErrorKind::kTimeout, "no CAN response within the read timeout");
     }
     return std::move(**received);
 }
@@ -173,7 +173,7 @@ Status upload_b6_discard(Context& context, bytes::ByteView pdu)
     }
     const Result<std::optional<bytes::Bytes>> ignored = context.transport.read(kReadTimeout, context.cancellation);
     if (!ignored.has_value() &&
-        (ignored.error().kind == ErrorKind::Cancelled || ignored.error().kind == ErrorKind::Disconnected))
+        (ignored.error().kind == ErrorKind::kCancelled || ignored.error().kind == ErrorKind::kDisconnected))
     {
         return std::unexpected(ignored.error());
     }
@@ -200,12 +200,12 @@ Result<bytes::Bytes> beef_exchange(Context& context, bytes::Byte opcode, bytes::
     const bytes::Byte expected = static_cast<bytes::Byte>(opcode | 0x40U);
     if (parsed->opcode != expected)
     {
-        return fail(ErrorKind::BadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
-                                                        parsed->opcode, expected));
+        return fail(ErrorKind::kBadResponse, std::format("unexpected BEEF response opcode 0x{:02x}, expected 0x{:02x}",
+                                                         parsed->opcode, expected));
     }
     if (parsed->payload.size() < minimum_payload)
     {
-        return fail(ErrorKind::BadResponse, "short BEEF response payload");
+        return fail(ErrorKind::kBadResponse, "short BEEF response payload");
     }
     return bytes::Bytes(parsed->payload.begin(), parsed->payload.end());
 }
@@ -222,7 +222,7 @@ Status discard_stale_frame(Context& context)
     }
     Result<std::optional<bytes::Bytes>> stale = context.transport.read(kShortTimeout, context.cancellation);
     if (!stale.has_value() &&
-        (stale.error().kind == ErrorKind::Cancelled || stale.error().kind == ErrorKind::Disconnected))
+        (stale.error().kind == ErrorKind::kCancelled || stale.error().kind == ErrorKind::kDisconnected))
     {
         return std::unexpected(stale.error());
     }
@@ -235,12 +235,12 @@ Result<std::optional<bytes::Bytes>> nonfatal_query(Context& context, bytes::Byte
         channel_request_optional(context, pdu, kReadTimeout, kExtraShortTimeout);
     if (!received.has_value())
     {
-        if (received.error().kind == ErrorKind::Cancelled || received.error().kind == ErrorKind::Disconnected)
+        if (received.error().kind == ErrorKind::kCancelled || received.error().kind == ErrorKind::kDisconnected)
         {
             return std::unexpected(received.error());
         }
         error(context,
-              received.error().kind == ErrorKind::Timeout ? "No valid response from ECU" : "Wrong response from ECU");
+              received.error().kind == ErrorKind::kTimeout ? "No valid response from ECU" : "Wrong response from ECU");
         return std::optional<bytes::Bytes>{};
     }
     if (!received->has_value())
@@ -262,7 +262,7 @@ Status strict_payload(Context& context, bytes::ByteView pdu, bytes::ByteView exp
     if (payload.size() < expected.size() || !std::equal(expected.begin(), expected.end(), payload.begin()))
     {
         error(context, std::format("Wrong response from ECU during {}", label));
-        return fail(ErrorKind::BadResponse, std::format("unexpected response during {}", label));
+        return fail(ErrorKind::kBadResponse, std::format("unexpected response during {}", label));
     }
     return {};
 }
@@ -294,17 +294,17 @@ Result<bytes::Bytes> security_key(Context& context, bytes::ByteView seed, const 
 {
     if (seed.size() != 4)
     {
-        return fail(ErrorKind::BadResponse, "petrol security seed must contain four bytes");
+        return fail(ErrorKind::kBadResponse, "petrol security seed must contain four bytes");
     }
     switch (context.security)
     {
-    case SubaruDensoSh7058CanSecurity::Stock:
+    case SubaruDensoSh7058CanSecurity::kStock:
         info(context, "Using stock seed key algo");
         return denso_seed_key(seed);
-    case SubaruDensoSh7058CanSecurity::EcuTek:
+    case SubaruDensoSh7058CanSecurity::kEcuTek:
         info(context, "Using EcuTek seed key algo");
         return ssm_protocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, kEcuTekIndexTransformation);
-    case SubaruDensoSh7058CanSecurity::RaceRom:
+    case SubaruDensoSh7058CanSecurity::kRaceRom:
     {
         info(context, "Using EcuTek RaceRom RSA algo");
         const std::uint32_t raw = bytes::readU32Be(seed);
@@ -312,11 +312,11 @@ Result<bytes::Bytes> security_key(Context& context, bytes::ByteView seed, const 
         info(context, std::format("Seed key: 0x{:08x}", key));
         return composeBe(key);
     }
-    case SubaruDensoSh7058CanSecurity::RaceRomAlt:
+    case SubaruDensoSh7058CanSecurity::kRaceRomAlt:
     {
         if (!alt.has_value())
         {
-            return fail(ErrorKind::BadResponse, "RaceRom-alt RAM values are unavailable");
+            return fail(ErrorKind::kBadResponse, "RaceRom-alt RAM values are unavailable");
         }
         info(context, "Using EcuTek seed key algo");
         bytes::Bytes key = ssm_protocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, kEcuTekIndexTransformation);
@@ -328,11 +328,11 @@ Result<bytes::Bytes> security_key(Context& context, bytes::ByteView seed, const 
         debug(context, std::format("Altered seed key: {}", bytes::toHex(key)));
         return key;
     }
-    case SubaruDensoSh7058CanSecurity::Cobb:
+    case SubaruDensoSh7058CanSecurity::kCobb:
         info(context, "Using COBB seed key algo");
         return ssm_protocol::calculateSeedKey(seed, kCobbSeedTable, ssm_protocol::kIndexTransformationStock);
     }
-    return fail(ErrorKind::Internal, "unknown petrol security variant");
+    return fail(ErrorKind::kInternal, "unknown petrol security variant");
 }
 
 Result<std::optional<std::string>> request_kernel_id(Context& context, bool tolerate_malformed)
@@ -364,7 +364,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
         Result<std::optional<bytes::Bytes>> raw = context.transport.read(kLongTimeout, context.cancellation);
         if (!raw.has_value())
         {
-            if (raw.error().kind == ErrorKind::Cancelled || raw.error().kind == ErrorKind::Disconnected)
+            if (raw.error().kind == ErrorKind::kCancelled || raw.error().kind == ErrorKind::kDisconnected)
             {
                 return std::unexpected(raw.error());
             }
@@ -394,7 +394,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             channel_request_optional(context, request, kLongTimeout, kKernelProbeDelay);
         if (!reply.has_value())
         {
-            if (reply.error().kind == ErrorKind::Timeout)
+            if (reply.error().kind == ErrorKind::kTimeout)
             {
                 return std::optional<std::string>{};
             }
@@ -424,7 +424,7 @@ Result<std::optional<std::string>> request_kernel_id(Context& context, bool tole
             error(context, "Wrong response from ECU while requesting kernel ID");
             return std::optional<std::string>{};
         }
-        return fail(ErrorKind::BadResponse, "unexpected kernel ID response opcode");
+        return fail(ErrorKind::kBadResponse, "unexpected kernel ID response opcode");
     }
     return std::optional<std::string>{std::string(parsed->payload.begin(), parsed->payload.end())};
 }
@@ -447,7 +447,7 @@ Result<std::uint32_t> read_ram_location(Context& context, std::uint32_t address)
     }
     if (reply->size() < 5 || (*reply)[0] != 0xE8)
     {
-        return fail(ErrorKind::BadResponse, "invalid RaceRom-alt RAM response");
+        return fail(ErrorKind::kBadResponse, "invalid RaceRom-alt RAM response");
     }
     return bytes::readU32Be(*reply, 1);
 }
@@ -583,12 +583,12 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
     }
 
     std::optional<RaceRomAltValues> race_rom_alt;
-    if (context.security == SubaruDensoSh7058CanSecurity::RaceRomAlt)
+    if (context.security == SubaruDensoSh7058CanSecurity::kRaceRomAlt)
     {
         if (!cal_id->has_value())
         {
             info(context, "Unknown EcuTek ROM found... exiting...");
-            return fail(ErrorKind::BadResponse, "RaceRom-alt CAL ID is unavailable");
+            return fail(ErrorKind::kBadResponse, "RaceRom-alt CAL ID is unavailable");
         }
         std::uint32_t seed_address = 0;
         std::uint32_t xor_address = 0;
@@ -610,7 +610,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
         else
         {
             info(context, "Unknown EcuTek ROM found... exiting...");
-            return fail(ErrorKind::BadResponse, "unsupported RaceRom-alt CAL ID");
+            return fail(ErrorKind::kBadResponse, "unsupported RaceRom-alt CAL ID");
         }
         Result<std::uint32_t> seed_alter = read_ram_location(context, seed_address);
         if (!seed_alter.has_value())
@@ -655,7 +655,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
     const bytes::ByteView seed_payload = uds::payload(*seed_reply);
     if (seed_payload.size() < 5 || seed_payload[0] != uds::kSecurityAccessRequestSeed)
     {
-        return fail(ErrorKind::BadResponse, "invalid petrol seed response");
+        return fail(ErrorKind::kBadResponse, "invalid petrol seed response");
     }
     info(context, "Seed request ok");
     Result<bytes::Bytes> key = security_key(context, seed_payload.subspan(1, 4), race_rom_alt);
@@ -692,7 +692,7 @@ Status connect_bootloader(Context& context, bool read_operation, bool& kernel_al
     const bytes::ByteView programming_payload = uds::payload(*programming_reply);
     if (programming_payload.empty() || (programming_payload[0] != 0x02 && programming_payload[0] != 0x42))
     {
-        return fail(ErrorKind::BadResponse, "unexpected programming session response");
+        return fail(ErrorKind::kBadResponse, "unexpected programming session response");
     }
     info(context, "Succesfully set to programming session");
     return {};
@@ -707,18 +707,18 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
     const std::size_t block_count = (padded_to_word + kKernelUploadBlockSize - 1U) / kKernelUploadBlockSize;
     if (block_count == 0 || block_count > std::numeric_limits<std::size_t>::max() / kKernelUploadBlockSize)
     {
-        return fail(ErrorKind::InvalidConfig, "petrol kernel upload size is invalid");
+        return fail(ErrorKind::kInvalidConfig, "petrol kernel upload size is invalid");
     }
     const std::size_t data_length = block_count * kKernelUploadBlockSize;
     if (data_length > 0xFFFFFFU)
     {
-        return fail(ErrorKind::InvalidConfig, "petrol kernel upload exceeds the 24-bit wire length");
+        return fail(ErrorKind::kInvalidConfig, "petrol kernel upload exceeds the 24-bit wire length");
     }
     bytes::Bytes plain = kernel.bytes;
     plain.resize(data_length, bytes::Byte{0});
     if (plain.size() < 4)
     {
-        return fail(ErrorKind::InvalidConfig, "petrol kernel upload is shorter than its checksum word");
+        return fail(ErrorKind::kInvalidConfig, "petrol kernel upload is shorter than its checksum word");
     }
     plain.resize(plain.size() - 4);
     std::uint32_t sum = 0;
@@ -793,7 +793,7 @@ Status upload_kernel(Context& context, const KernelImage& kernel)
     if (!kernel_id->has_value())
     {
         error(context, "No valid response from ECU");
-        return fail(ErrorKind::Timeout, "kernel did not answer after upload");
+        return fail(ErrorKind::kTimeout, "kernel did not answer after upload");
     }
     info(context, std::format("Kernel ID: {}", **kernel_id));
     return {};
@@ -891,7 +891,7 @@ Result<CompareResult> compare_blocks(Context& context, const FlashPlan& plan, by
         if (block.start < plan.transfer_region().start ||
             static_cast<std::uint64_t>(block.start - plan.transfer_region().start) + block.length > image.size())
         {
-            return fail(ErrorKind::InvalidConfig, "petrol CRC block is outside the image");
+            return fail(ErrorKind::kInvalidConfig, "petrol CRC block is outside the image");
         }
         info(context, std::format("FB{:02}\t0x{:08X}\t0x{:08X}", index, block.start, block.length));
         Result<std::uint32_t> ecu_crc = query_crc(context, block);
@@ -971,16 +971,16 @@ Status flash_block(Context& context, bytes::ByteView image, const FlashPlan& pla
     // of commit (0x24) at each 0x1000-byte boundary.
     if (block.length == 0 || block.length % kFlashBufferSize != 0 || block.length % kFlashCommitSize != 0)
     {
-        return fail(ErrorKind::InvalidConfig, "petrol flash block is not aligned to write windows");
+        return fail(ErrorKind::kInvalidConfig, "petrol flash block is not aligned to write windows");
     }
     if (block.start < plan.transfer_region().start)
     {
-        return fail(ErrorKind::InvalidConfig, "petrol flash block starts before the image");
+        return fail(ErrorKind::kInvalidConfig, "petrol flash block starts before the image");
     }
     const std::size_t image_offset = block.start - plan.transfer_region().start;
     if (image_offset + block.length > image.size())
     {
-        return fail(ErrorKind::InvalidConfig, "petrol flash block extends beyond the image");
+        return fail(ErrorKind::kInvalidConfig, "petrol flash block extends beyond the image");
     }
 
     info(context, std::format("Flash page erase addr: 0x{:08x} len: 0x{:08x}", block.start, block.length));
@@ -1129,7 +1129,7 @@ Status write_memory(Context& context, const FlashPlan& plan, PhaseSequence& phas
         }
     }
     info(context, "--- Start writing ROM file to ECU flash memory ---");
-    const bool test_write = plan.operation() == FlashOperation::TestWrite;
+    const bool test_write = plan.operation() == FlashOperation::kTestWrite;
     if (const Status initialized = initialize_flash(context, test_write); !initialized.has_value())
     {
         return initialized;
@@ -1180,7 +1180,7 @@ Status write_memory(Context& context, const FlashPlan& plan, PhaseSequence& phas
 
 Result<Iso15765Config> SubaruDensoSh7058CanExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (const Status matched = check_family(plan, FlashFamily::SubaruDensoSh7058Can); !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::kSubaruDensoSh7058Can); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -1196,7 +1196,7 @@ Status SubaruDensoSh7058CanExecutor::before_transport_configure(ICanFlashTranspo
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before petrol CAN reset");
+        return fail(ErrorKind::kCancelled, "cancelled before petrol CAN reset");
     }
     if (const Status reset = transport.reset_connection(); !reset)
     {
@@ -1204,7 +1204,7 @@ Status SubaruDensoSh7058CanExecutor::before_transport_configure(ICanFlashTranspo
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after petrol CAN reset");
+        return fail(ErrorKind::kCancelled, "cancelled after petrol CAN reset");
     }
     return {};
 }
@@ -1213,7 +1213,7 @@ Status SubaruDensoSh7058CanExecutor::before_transport_open(const ICancellationTo
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after petrol CAN configuration");
+        return fail(ErrorKind::kCancelled, "cancelled after petrol CAN configuration");
     }
     return {};
 }
@@ -1223,7 +1223,7 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanExecutor::execute(const FlashPl
                                                                    const ICancellationToken& cancellation,
                                                                    IEventSink& events)
 {
-    if (const Status matched = check_family(plan, FlashFamily::SubaruDensoSh7058Can); !matched.has_value())
+    if (const Status matched = check_family(plan, FlashFamily::kSubaruDensoSh7058Can); !matched.has_value())
     {
         return std::unexpected(matched.error());
     }
@@ -1233,7 +1233,7 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanExecutor::execute(const FlashPl
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
 
     const auto& family = std::get<SubaruDensoSh7058CanPlan>(plan.family_plan());
@@ -1242,7 +1242,7 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanExecutor::execute(const FlashPl
     Context context{cancellation,       events,          clock,      transport, family.request_id,
                     family.response_id, family.security, uds_client, channel};
 
-    const bool read_operation = plan.operation() == FlashOperation::Read;
+    const bool read_operation = plan.operation() == FlashOperation::kRead;
     PhaseSequence phases(events, read_operation ? 2 : 4);
     PhaseReporter kernel_phase = phases.start("Kernel", 1);
     bool kernel_alive = false;
@@ -1273,7 +1273,7 @@ Result<FlashExecutionResult> SubaruDensoSh7058CanExecutor::execute(const FlashPl
         }
         read_phase.complete();
         return FlashExecutionResult{
-            .operation = FlashOperation::Read, .read_bytes = std::move(*rom), .rom_id = std::move(rom_id)};
+            .operation = FlashOperation::kRead, .read_bytes = std::move(*rom), .rom_id = std::move(rom_id)};
     }
 
     events.notice("Writing ROM, please wait...");

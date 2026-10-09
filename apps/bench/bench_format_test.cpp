@@ -27,7 +27,7 @@ CommandOutcome eraseFailure()
         .vbatt = 11.676,
         .ok = false,
         .note = "status=0x01",
-        .error_kind = ErrorKind::BadResponse,
+        .error_kind = ErrorKind::kBadResponse,
         .error_detail = "erase reported a non-zero status",
     };
 }
@@ -140,8 +140,8 @@ TEST(BenchFormat, JsonEscapesControlCharactersInDetail)
 TEST(BenchFormat, EveryErrorKindGetsADistinctNonZeroExitCode)
 {
     static constexpr auto kKinds = std::to_array<ErrorKind>(
-        {ErrorKind::InvalidConfig, ErrorKind::Timeout, ErrorKind::Disconnected, ErrorKind::BadResponse,
-         ErrorKind::Cancelled, ErrorKind::Unsupported, ErrorKind::Internal});
+        {ErrorKind::kInvalidConfig, ErrorKind::kTimeout, ErrorKind::kDisconnected, ErrorKind::kBadResponse,
+         ErrorKind::kCancelled, ErrorKind::kUnsupported, ErrorKind::kInternal});
     std::vector<int> codes;
     for (const ErrorKind kind : kKinds)
     {

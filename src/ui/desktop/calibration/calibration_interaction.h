@@ -13,9 +13,9 @@ namespace fastecu::ui
 
 enum class CalibrationNotice
 {
-    NoCalibrationToWrite,
-    NoCalibrationToSave,
-    NoSaveFilename
+    kNoCalibrationToWrite,
+    kNoCalibrationToSave,
+    kNoSaveFilename
 };
 
 // The dialogs a calibration operation raises, behind a UI-owned port so the

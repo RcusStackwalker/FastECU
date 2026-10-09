@@ -432,6 +432,8 @@ The rules clang-tidy enforces are the ones in
 the source of truth and each rule carries a comment where it deviates. Kinds not
 yet enabled there follow the surrounding code.
 
+- Enumerators are `kCamelCase`, including `enum class` values.
+
 Deviations from Google style:
 
 - Constexpr variables are `kCamelCase` at every storage duration, including

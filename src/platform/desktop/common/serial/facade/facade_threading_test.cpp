@@ -189,15 +189,15 @@ TEST(TestFacadeThreading, transportAdapters_preCancelledReadSkipsBackend)
 
     const auto ssmResult = ssm.read(10ms, cancellation);
     ASSERT_TRUE(!ssmResult.has_value());
-    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::Cancelled);
+    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::kCancelled);
 
     const auto klineResult = kline.read(10ms, cancellation);
     ASSERT_TRUE(!klineResult.has_value());
-    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::Cancelled);
+    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::kCancelled);
 
     const auto canResult = can.read(10ms, cancellation);
     ASSERT_TRUE(!canResult.has_value());
-    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Cancelled);
+    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::kCancelled);
 }
 
 TEST(TestFacadeThreading, transportAdapters_postCallCancellationPrecedesDisconnect)
@@ -227,19 +227,19 @@ TEST(TestFacadeThreading, transportAdapters_postCallCancellationPrecedesDisconne
 
     const auto ssmResult = ssm.read(10ms, cancellation);
     ASSERT_TRUE(!ssmResult.has_value());
-    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::Cancelled);
+    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::kCancelled);
 
     cancellation.set_cancelled(false);
     portOpen.store(true);
     const auto klineResult = kline.read(10ms, cancellation);
     ASSERT_TRUE(!klineResult.has_value());
-    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::Cancelled);
+    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::kCancelled);
 
     cancellation.set_cancelled(false);
     portOpen.store(true);
     const auto canResult = can.read(10ms, cancellation);
     ASSERT_TRUE(!canResult.has_value());
-    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Cancelled);
+    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::kCancelled);
 }
 
 TEST(TestFacadeThreading, transportAdapters_backendReadExceptionMapsToInternal)
@@ -261,15 +261,15 @@ TEST(TestFacadeThreading, transportAdapters_backendReadExceptionMapsToInternal)
 
     const auto ssmResult = ssm.read(10ms, cancellation);
     ASSERT_TRUE(!ssmResult.has_value());
-    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::kInternal);
 
     const auto klineResult = kline.read(10ms, cancellation);
     ASSERT_TRUE(!klineResult.has_value());
-    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::kInternal);
 
     const auto canResult = can.read(10ms, cancellation);
     ASSERT_TRUE(!canResult.has_value());
-    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::kInternal);
 }
 
 TEST(TestFacadeThreading, canTransport_truncatedFrameMapsToInternal)
@@ -288,7 +288,7 @@ TEST(TestFacadeThreading, canTransport_truncatedFrameMapsToInternal)
 
     const auto result = can.read(10ms, cancellation);
     ASSERT_TRUE(!result.has_value());
-    ASSERT_TRUE(result.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(result.error().kind == fastecu::ErrorKind::kInternal);
 }
 
 TEST(TestFacadeThreading, transportAdapters_nullOrClosedAdapterReturnsDisconnectedBeforeOperation)
@@ -306,31 +306,31 @@ TEST(TestFacadeThreading, transportAdapters_nullOrClosedAdapterReturnsDisconnect
 
         const auto ssmWrite = ssm.write(bytes::ByteView());
         ASSERT_TRUE(!ssmWrite.has_value());
-        ASSERT_TRUE(ssmWrite.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(ssmWrite.error().kind == fastecu::ErrorKind::kDisconnected);
 
         const auto klineWrite = kline.write(bytes::ByteView());
         ASSERT_TRUE(!klineWrite.has_value());
-        ASSERT_TRUE(klineWrite.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(klineWrite.error().kind == fastecu::ErrorKind::kDisconnected);
 
         const auto klineBaud = kline.setBaud(10400);
         ASSERT_TRUE(!klineBaud.has_value());
-        ASSERT_TRUE(klineBaud.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(klineBaud.error().kind == fastecu::ErrorKind::kDisconnected);
 
         const auto canWrite = can.write(0x123, bytes::ByteView());
         ASSERT_TRUE(!canWrite.has_value());
-        ASSERT_TRUE(canWrite.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(canWrite.error().kind == fastecu::ErrorKind::kDisconnected);
 
         const auto ssmRead = ssm.read(10ms, cancellation);
         ASSERT_TRUE(!ssmRead.has_value());
-        ASSERT_TRUE(ssmRead.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(ssmRead.error().kind == fastecu::ErrorKind::kDisconnected);
 
         const auto klineRead = kline.read(10ms, cancellation);
         ASSERT_TRUE(!klineRead.has_value());
-        ASSERT_TRUE(klineRead.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(klineRead.error().kind == fastecu::ErrorKind::kDisconnected);
 
         const auto canRead = can.read(10ms, cancellation);
         ASSERT_TRUE(!canRead.has_value());
-        ASSERT_TRUE(canRead.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(canRead.error().kind == fastecu::ErrorKind::kDisconnected);
     }
 
     // A closed (but non-null) adapter: same Disconnected mapping, reached
@@ -352,31 +352,31 @@ TEST(TestFacadeThreading, transportAdapters_nullOrClosedAdapterReturnsDisconnect
 
         const auto ssmWrite = ssm.write(bytes::ByteView());
         ASSERT_TRUE(!ssmWrite.has_value());
-        ASSERT_TRUE(ssmWrite.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(ssmWrite.error().kind == fastecu::ErrorKind::kDisconnected);
 
         const auto klineWrite = kline.write(bytes::ByteView());
         ASSERT_TRUE(!klineWrite.has_value());
-        ASSERT_TRUE(klineWrite.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(klineWrite.error().kind == fastecu::ErrorKind::kDisconnected);
 
         const auto klineBaud = kline.setBaud(10400);
         ASSERT_TRUE(!klineBaud.has_value());
-        ASSERT_TRUE(klineBaud.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(klineBaud.error().kind == fastecu::ErrorKind::kDisconnected);
 
         const auto canWrite = can.write(0x123, bytes::ByteView());
         ASSERT_TRUE(!canWrite.has_value());
-        ASSERT_TRUE(canWrite.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(canWrite.error().kind == fastecu::ErrorKind::kDisconnected);
 
         const auto ssmRead = ssm.read(10ms, cancellation);
         ASSERT_TRUE(!ssmRead.has_value());
-        ASSERT_TRUE(ssmRead.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(ssmRead.error().kind == fastecu::ErrorKind::kDisconnected);
 
         const auto klineRead = kline.read(10ms, cancellation);
         ASSERT_TRUE(!klineRead.has_value());
-        ASSERT_TRUE(klineRead.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(klineRead.error().kind == fastecu::ErrorKind::kDisconnected);
 
         const auto canRead = can.read(10ms, cancellation);
         ASSERT_TRUE(!canRead.has_value());
-        ASSERT_TRUE(canRead.error().kind == fastecu::ErrorKind::Disconnected);
+        ASSERT_TRUE(canRead.error().kind == fastecu::ErrorKind::kDisconnected);
     }
 }
 
@@ -448,15 +448,15 @@ TEST(TestFacadeThreading, transportAdapters_disconnectDuringWriteMapsToDisconnec
 
     const auto ssmResult = ssm.write(bytes::ByteView());
     ASSERT_TRUE(!ssmResult.has_value());
-    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::Disconnected);
+    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::kDisconnected);
 
     const auto klineResult = kline.write(bytes::ByteView());
     ASSERT_TRUE(!klineResult.has_value());
-    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::Disconnected);
+    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::kDisconnected);
 
     const auto canResult = can.write(0x123, bytes::ByteView());
     ASSERT_TRUE(!canResult.has_value());
-    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Disconnected);
+    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::kDisconnected);
 }
 
 TEST(TestFacadeThreading, transportAdapters_disconnectDuringReadMapsToDisconnected)
@@ -491,15 +491,15 @@ TEST(TestFacadeThreading, transportAdapters_disconnectDuringReadMapsToDisconnect
 
     const auto ssmResult = ssm.read(10ms, cancellation);
     ASSERT_TRUE(!ssmResult.has_value());
-    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::Disconnected);
+    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::kDisconnected);
 
     const auto klineResult = kline.read(10ms, cancellation);
     ASSERT_TRUE(!klineResult.has_value());
-    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::Disconnected);
+    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::kDisconnected);
 
     const auto canResult = can.read(10ms, cancellation);
     ASSERT_TRUE(!canResult.has_value());
-    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Disconnected);
+    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::kDisconnected);
 }
 
 TEST(TestFacadeThreading, transportAdapters_backendWriteExceptionMapsToInternal)
@@ -531,15 +531,15 @@ TEST(TestFacadeThreading, transportAdapters_backendWriteExceptionMapsToInternal)
 
     const auto ssmResult = ssm.write(bytes::ByteView());
     ASSERT_TRUE(!ssmResult.has_value());
-    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::kInternal);
 
     const auto klineResult = kline.write(bytes::ByteView());
     ASSERT_TRUE(!klineResult.has_value());
-    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::kInternal);
 
     const auto canResult = can.write(0x123, bytes::ByteView());
     ASSERT_TRUE(!canResult.has_value());
-    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::kInternal);
 }
 
 TEST(TestFacadeThreading, transportAdapters_backendNonStandardExceptionMapsToInternal)
@@ -576,27 +576,27 @@ TEST(TestFacadeThreading, transportAdapters_backendNonStandardExceptionMapsToInt
     }
     const auto ssmRead = ssm.read(10ms, cancellation);
     ASSERT_TRUE(!ssmRead.has_value());
-    ASSERT_TRUE(ssmRead.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(ssmRead.error().kind == fastecu::ErrorKind::kInternal);
 
     const auto klineRead = kline.read(10ms, cancellation);
     ASSERT_TRUE(!klineRead.has_value());
-    ASSERT_TRUE(klineRead.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(klineRead.error().kind == fastecu::ErrorKind::kInternal);
 
     const auto canRead = can.read(10ms, cancellation);
     ASSERT_TRUE(!canRead.has_value());
-    ASSERT_TRUE(canRead.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(canRead.error().kind == fastecu::ErrorKind::kInternal);
 
     const auto ssmWrite = ssm.write(bytes::ByteView());
     ASSERT_TRUE(!ssmWrite.has_value());
-    ASSERT_TRUE(ssmWrite.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(ssmWrite.error().kind == fastecu::ErrorKind::kInternal);
 
     const auto klineWrite = kline.write(bytes::ByteView());
     ASSERT_TRUE(!klineWrite.has_value());
-    ASSERT_TRUE(klineWrite.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(klineWrite.error().kind == fastecu::ErrorKind::kInternal);
 
     const auto canWrite = can.write(0x123, bytes::ByteView());
     ASSERT_TRUE(!canWrite.has_value());
-    ASSERT_TRUE(canWrite.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(canWrite.error().kind == fastecu::ErrorKind::kInternal);
 }
 
 TEST(TestFacadeThreading, transportAdapters_cancellationPrecedesReadException)
@@ -627,17 +627,17 @@ TEST(TestFacadeThreading, transportAdapters_cancellationPrecedesReadException)
 
     const auto ssmResult = ssm.read(10ms, cancellation);
     ASSERT_TRUE(!ssmResult.has_value());
-    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::Cancelled);
+    ASSERT_TRUE(ssmResult.error().kind == fastecu::ErrorKind::kCancelled);
 
     cancellation.set_cancelled(false);
     const auto klineResult = kline.read(10ms, cancellation);
     ASSERT_TRUE(!klineResult.has_value());
-    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::Cancelled);
+    ASSERT_TRUE(klineResult.error().kind == fastecu::ErrorKind::kCancelled);
 
     cancellation.set_cancelled(false);
     const auto canResult = can.read(10ms, cancellation);
     ASSERT_TRUE(!canResult.has_value());
-    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::Cancelled);
+    ASSERT_TRUE(canResult.error().kind == fastecu::ErrorKind::kCancelled);
 }
 
 TEST(TestFacadeThreading, klineTransport_setBaudSuccessRejectionDisconnectException)
@@ -664,7 +664,7 @@ TEST(TestFacadeThreading, klineTransport_setBaudSuccessRejectionDisconnectExcept
     EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
     const auto rejected = kline.setBaud(10400);
     ASSERT_TRUE(!rejected.has_value());
-    ASSERT_TRUE(rejected.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(rejected.error().kind == fastecu::ErrorKind::kInternal);
 
     // Disconnect: driver returns non-zero and the port is found closed
     // immediately afterward.
@@ -673,21 +673,21 @@ TEST(TestFacadeThreading, klineTransport_setBaudSuccessRejectionDisconnectExcept
     EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(false));
     const auto disconnected = kline.setBaud(10400);
     ASSERT_TRUE(!disconnected.has_value());
-    ASSERT_TRUE(disconnected.error().kind == fastecu::ErrorKind::Disconnected);
+    ASSERT_TRUE(disconnected.error().kind == fastecu::ErrorKind::kDisconnected);
     // Exception: driver throws instead of returning.
     EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
     EXPECT_CALL(*fake, change_port_speed(QString("10400")))
         .WillOnce(::testing::Throw(std::runtime_error("scripted backend baud-change failure")));
     const auto thrown = kline.setBaud(10400);
     ASSERT_TRUE(!thrown.has_value());
-    ASSERT_TRUE(thrown.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(thrown.error().kind == fastecu::ErrorKind::kInternal);
 
     // Non-standard exception: still mapped to Internal via catch(...).
     EXPECT_CALL(*fake, is_serial_port_open()).WillOnce(::testing::Return(true));
     EXPECT_CALL(*fake, change_port_speed(QString("10400"))).WillOnce(ThrowNonStandardBackendFailure());
     const auto thrownNonStandard = kline.setBaud(10400);
     ASSERT_TRUE(!thrownNonStandard.has_value());
-    ASSERT_TRUE(thrownNonStandard.error().kind == fastecu::ErrorKind::Internal);
+    ASSERT_TRUE(thrownNonStandard.error().kind == fastecu::ErrorKind::kInternal);
 }
 
 // ---- affinity-warning capture ------------------------------------------

@@ -6,7 +6,7 @@ Status check_family(const FlashPlan& plan, FlashFamily expected_family)
 {
     if (plan.family() != expected_family)
     {
-        return fail(ErrorKind::InvalidConfig, "plan family does not match this executor");
+        return fail(ErrorKind::kInvalidConfig, "plan family does not match this executor");
     }
     return {};
 }

@@ -215,7 +215,7 @@ void DataTerminal::sendToInterface()
             emit LOG_D("All good, setting interface...", true, true);
             emit LOG_D("Opening interface...", true, true);
             const auto opened = link_->open(fastecu::diagnostics::KlineLinkConfig{
-                .header = fastecu::diagnostics::KlineHeader::None,
+                .header = fastecu::diagnostics::KlineHeader::kNone,
                 .iso14230_connection = iso14230,
                 .baud = qRound(ui_->klineBaudRate->text().toDouble()),
                 .start_byte = 0x80,

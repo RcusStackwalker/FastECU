@@ -20,7 +20,7 @@ constexpr std::size_t kEcuIdLength = 5;
 
 bytes::Byte target_id(SsmTarget target)
 {
-    return target == SsmTarget::Ecu ? 0x10 : 0x18;
+    return target == SsmTarget::kEcu ? 0x10 : 0x18;
 }
 
 bytes::Byte ssm_checksum(bytes::ByteView data)
@@ -88,7 +88,7 @@ Status check_written(IDiagnosticLink& link, bytes::ByteView request)
 
 std::unexpected<Error> bad_frame(const std::string& what, bytes::ByteView frame)
 {
-    return fail(ErrorKind::BadResponse, "SSM init response " + what + ": " + spaced_hex(frame));
+    return fail(ErrorKind::kBadResponse, "SSM init response " + what + ": " + spaced_hex(frame));
 }
 
 // RomRaider's SSMResponseProcessor.validateResponse, applied to a frame
@@ -128,7 +128,7 @@ Result<SsmIdentity> identify_kline_ssm2(IDiagnosticLink& link, IClock& clock, co
 {
     // The state ssm_kline_init inherited from connect_to_ecu and
     // log_transport_changed, now set explicitly.
-    if (auto opened = link.open(KlineLinkConfig{.header = KlineHeader::None, .baud = 4800, .parity = Parity::None});
+    if (auto opened = link.open(KlineLinkConfig{.header = KlineHeader::kNone, .baud = 4800, .parity = Parity::kNone});
         !opened.has_value())
     {
         return std::unexpected(opened.error());
@@ -157,7 +157,7 @@ Result<SsmIdentity> identify_kline_ssm2(IDiagnosticLink& link, IClock& clock, co
     }
     if (frame.empty())
     {
-        return fail(ErrorKind::Timeout, "no SSM init response");
+        return fail(ErrorKind::kTimeout, "no SSM init response");
     }
     if (frame.size() < 4)
     {
@@ -213,7 +213,7 @@ Status write_then_discard(IDiagnosticLink& link, bytes::ByteView request, int co
 
 Result<SsmIdentity> identify_ssm1(IDiagnosticLink& link, const ICancellationToken& cancellation)
 {
-    if (auto opened = link.open(KlineLinkConfig{.header = KlineHeader::None, .baud = 1953, .parity = Parity::Even});
+    if (auto opened = link.open(KlineLinkConfig{.header = KlineHeader::kNone, .baud = 1953, .parity = Parity::kEven});
         !opened.has_value())
     {
         return std::unexpected(opened.error());
@@ -244,7 +244,7 @@ Result<SsmIdentity> identify_ssm1(IDiagnosticLink& link, const ICancellationToke
     }
     if (frame.empty())
     {
-        return fail(ErrorKind::Timeout, "no SSM1 init response");
+        return fail(ErrorKind::kTimeout, "no SSM1 init response");
     }
     // Pinned: the length is the only check on SSM1.
     if (frame.size() < 4 || frame.size() != frame[3] + kSsmFrameOverhead)
@@ -292,7 +292,7 @@ Result<SsmIdentity> identify_ssm1(IDiagnosticLink& link, const ICancellationToke
 Result<SsmIdentity> identify_iso15765_uds(IDiagnosticLink& link, const ICancellationToken& cancellation,
                                           SsmTarget target)
 {
-    const std::uint32_t source = target == SsmTarget::Ecu ? 0x7E0 : 0x7E1;
+    const std::uint32_t source = target == SsmTarget::kEcu ? 0x7E0 : 0x7E1;
     if (auto opened = link.open(CanLinkConfig{
             .iso15765 = true, .bitrate = 500000, .extended_id = false, .source_id = source, .destination_id = 0x7E8});
         !opened.has_value())
@@ -314,11 +314,11 @@ Result<SsmIdentity> identify_iso15765_uds(IDiagnosticLink& link, const ICancella
     }
     if (frame.empty())
     {
-        return fail(ErrorKind::Timeout, "no answer to ReadDataByIdentifier F182");
+        return fail(ErrorKind::kTimeout, "no answer to ReadDataByIdentifier F182");
     }
     if (frame.size() <= 7 || frame[4] != 0x62 || frame[5] != 0xF1 || frame[6] != 0x82)
     {
-        return fail(ErrorKind::BadResponse, "unexpected answer to ReadDataByIdentifier F182: " + spaced_hex(frame));
+        return fail(ErrorKind::kBadResponse, "unexpected answer to ReadDataByIdentifier F182: " + spaced_hex(frame));
     }
     return SsmIdentity{upper_hex(bytes::ByteView(frame).subspan(7)), {}};
 }
@@ -347,14 +347,14 @@ Result<SsmIdentity> identify_ssm_ecu(IDiagnosticLink& link, IClock& clock, const
 {
     switch (request.variant)
     {
-    case SsmVariant::Ssm1:
+    case SsmVariant::kSsm1:
         return identify_ssm1(link, cancellation);
-    case SsmVariant::KlineSsm2:
+    case SsmVariant::kKlineSsm2:
         return identify_kline_ssm2(link, clock, cancellation, request.target);
-    case SsmVariant::Iso15765Uds:
+    case SsmVariant::kIso15765Uds:
         return identify_iso15765_uds(link, cancellation, request.target);
     }
-    return fail(ErrorKind::Internal, "unknown SSM identification variant");
+    return fail(ErrorKind::kInternal, "unknown SSM identification variant");
 }
 
 } // namespace fastecu::diagnostics

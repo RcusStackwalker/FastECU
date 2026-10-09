@@ -38,10 +38,10 @@ class DesktopMixedCanFlashTransport final : public IMixedCanFlashTransport
   private:
     enum class Mode
     {
-        Unconfigured,
-        Iso15765,
-        Raw,
-        Closed,
+        kUnconfigured,
+        kIso15765,
+        kRaw,
+        kClosed,
     };
 
     Status configure_iso(const MixedCanConfig& config);
@@ -56,7 +56,7 @@ class DesktopMixedCanFlashTransport final : public IMixedCanFlashTransport
     SerialPortActions *serial_ = nullptr;
     std::optional<MixedCanConfig> stored_config_;
     std::optional<Error> transition_error_;
-    Mode mode_ = Mode::Unconfigured;
+    Mode mode_ = Mode::kUnconfigured;
     std::atomic<bool> unblock_requested_{false};
 };
 

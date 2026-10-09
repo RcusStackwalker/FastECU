@@ -148,12 +148,12 @@ TEST(ConfigSessionInitialize, RewriteFailureAfterLoadIsAWarningNotAFailure)
 {
     ConfigSessionFixture f;
     f.put_settings(setting("calibration_files_directory", "/cal"));
-    f.file_repository.write_errors[f.paths.config_file] = Error{ErrorKind::Internal, "disk full"};
+    f.file_repository.write_errors[f.paths.config_file] = Error{ErrorKind::kInternal, "disk full"};
 
     ASSERT_THAT(f.initialize(), IsOk());
 
-    EXPECT_TRUE(has_log(f.events, LogLevel::Warning, f.paths.config_file));
-    EXPECT_TRUE(has_log(f.events, LogLevel::Warning, "disk full"));
+    EXPECT_TRUE(has_log(f.events, LogLevel::kWarning, f.paths.config_file));
+    EXPECT_TRUE(has_log(f.events, LogLevel::kWarning, "disk full"));
     EXPECT_EQ(f.session.settings().calibration_files_directory, "/cal"); // unnormalized: nothing was written
 }
 
@@ -161,7 +161,7 @@ TEST(ConfigSessionInitialize, MissingSettingsFileFailsNamingIt)
 {
     ConfigSessionFixture f;
     f.file_repository.files.erase(f.paths.config_file);
-    EXPECT_THAT(f.initialize(), IsErrWith(ErrorKind::InvalidConfig, HasSubstr(f.paths.config_file)));
+    EXPECT_THAT(f.initialize(), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr(f.paths.config_file)));
     EXPECT_FALSE(f.session.initialized());
 }
 
@@ -169,7 +169,7 @@ TEST(ConfigSessionInitialize, MalformedSettingsFileFailsNamingIt)
 {
     ConfigSessionFixture f;
     f.put(f.paths.config_file, "<config");
-    EXPECT_THAT(f.initialize(), IsErrWith(ErrorKind::InvalidConfig, HasSubstr(f.paths.config_file)));
+    EXPECT_THAT(f.initialize(), IsErrWith(ErrorKind::kInvalidConfig, HasSubstr(f.paths.config_file)));
 }
 
 TEST(ConfigSessionInitialize, AStaleProtocolsFileIsIgnored)
@@ -184,9 +184,9 @@ TEST(ConfigSessionInitialize, AStaleProtocolsFileIsIgnored)
 TEST(ConfigSessionInitialize, ProvisioningFailureCarriesThePathAndReason)
 {
     ConfigSessionFixture f;
-    f.file_system.create_directory_error = Error{ErrorKind::Internal, "permission denied"};
+    f.file_system.create_directory_error = Error{ErrorKind::kInternal, "permission denied"};
     EXPECT_THAT(f.initialize(),
-                IsErrWith(ErrorKind::Internal, AllOf(HasSubstr("/root"), HasSubstr("permission denied"))));
+                IsErrWith(ErrorKind::kInternal, AllOf(HasSubstr("/root"), HasSubstr("permission denied"))));
 }
 
 TEST(ConfigSessionInitialize, FailedInitializationExposesNothing)
@@ -218,9 +218,9 @@ TEST(ConfigSessionInitialize, AccessBeforeInitializationIsChecked)
     ConfigSessionFixture f;
     EXPECT_FALSE(f.session.initialized());
     EXPECT_TRUE(f.session.vehicles().empty());
-    EXPECT_THAT(f.session.selected_row(), IsErr(ErrorKind::Internal));
+    EXPECT_THAT(f.session.selected_row(), IsErr(ErrorKind::kInternal));
     EXPECT_EQ(f.session.selected_vehicle(), nullptr);
-    EXPECT_THAT(f.session.save(), IsErr(ErrorKind::Internal));
+    EXPECT_THAT(f.session.save(), IsErr(ErrorKind::kInternal));
 }
 
 // --- saved vehicle --------------------------------------------------------
@@ -235,7 +235,7 @@ TEST_P(UnusableSavedVehicle, SelectsNothingAndForgetsIt)
     f.put_settings(setting("vehicle_id", GetParam()));
     ASSERT_THAT(f.initialize(), IsOk());
     EXPECT_EQ(f.session.selected_vehicle(), nullptr);
-    EXPECT_THAT(f.session.selected_row(), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(f.session.selected_row(), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_TRUE(f.session.settings().selected_vehicle_id.empty());
 }
 
@@ -354,9 +354,9 @@ TEST(ConfigSessionSave, FailureKeepsEditsAndNamesTheFile)
     ASSERT_THAT(f.initialize(), IsOk());
     f.session.settings().calibration_files_directory = "/new";
     f.session.settings().serial_port = "COM3";
-    f.file_repository.write_errors[f.paths.config_file] = Error{ErrorKind::InvalidConfig, "cannot open file"};
+    f.file_repository.write_errors[f.paths.config_file] = Error{ErrorKind::kInvalidConfig, "cannot open file"};
 
-    EXPECT_THAT(f.session.save(), IsErrWith(ErrorKind::InvalidConfig,
+    EXPECT_THAT(f.session.save(), IsErrWith(ErrorKind::kInvalidConfig,
                                             AllOf(HasSubstr(f.paths.config_file), HasSubstr("cannot open file"))));
     EXPECT_EQ(f.session.settings().calibration_files_directory, "/new");
     EXPECT_EQ(f.session.settings().serial_port, "COM3");
@@ -428,14 +428,14 @@ TEST(ConfigSessionSelect, InvalidRowFailsWithoutChangingSettings)
     ASSERT_THAT(f.initialize(), IsOk());
     const AppConfig before = f.session.settings();
 
-    EXPECT_THAT(f.session.select_row(3), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(f.session.select_row(3), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_EQ(f.session.settings(), before);
 }
 
 TEST(ConfigSessionSelect, BeforeInitializationFails)
 {
     ConfigSessionFixture f;
-    EXPECT_THAT(f.session.select_row(0), IsErr(ErrorKind::Internal));
+    EXPECT_THAT(f.session.select_row(0), IsErr(ErrorKind::kInternal));
     EXPECT_FALSE(f.session.select_by_protocol_name("proto_a"));
 }
 

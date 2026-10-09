@@ -22,20 +22,20 @@ Status validate_identity(const SingleWindowPlanSpec& spec, std::string_view prot
 {
     if (std::ranges::find(spec.protocols, protocol) == spec.protocols.end())
     {
-        return fail(InvalidConfig, std::format("Unsupported {} protocol: {}", spec.display_name, protocol));
+        return fail(kInvalidConfig, std::format("Unsupported {} protocol: {}", spec.display_name, protocol));
     }
     const int index = find_flash_device_index(mcu);
     if (index < 0)
     {
-        return fail(InvalidConfig, std::format("Unknown MCU type: {}", mcu));
+        return fail(kInvalidConfig, std::format("Unknown MCU type: {}", mcu));
     }
     if (mcu != spec.mcu)
     {
-        return fail(InvalidConfig, std::format("Protocol {} expects MCU {}; got {}", protocol, spec.mcu, mcu));
+        return fail(kInvalidConfig, std::format("Protocol {} expects MCU {}; got {}", protocol, spec.mcu, mcu));
     }
     if (!spec.geometry_ok(kFlashDevices[index]))
     {
-        return fail(InvalidConfig, std::format("{} flash geometry is invalid", spec.mcu));
+        return fail(kInvalidConfig, std::format("{} flash geometry is invalid", spec.mcu));
     }
     return {};
 }
@@ -49,43 +49,43 @@ Status validate_single_window_plan(const SingleWindowPlanSpec& spec, const Flash
     }
     if (plan.family() != spec.family || plan.transport() != spec.transport)
     {
-        return fail(InvalidConfig, std::format("plan is not for {}", spec.display_name));
+        return fail(kInvalidConfig, std::format("plan is not for {}", spec.display_name));
     }
     if (!spec.wire_params_ok(plan))
     {
-        return fail(InvalidConfig, std::format("{} wire parameters are invalid", spec.display_name));
+        return fail(kInvalidConfig, std::format("{} wire parameters are invalid", spec.display_name));
     }
-    if (const MemoryRegion& expected = plan.operation() == FlashOperation::Read ? spec.read_region : spec.write_region;
+    if (const MemoryRegion& expected = plan.operation() == FlashOperation::kRead ? spec.read_region : spec.write_region;
         plan.transfer_region().start != expected.start || plan.transfer_region().length != expected.length)
     {
-        return fail(InvalidConfig, std::format("{} transfer region is invalid", spec.display_name));
+        return fail(kInvalidConfig, std::format("{} transfer region is invalid", spec.display_name));
     }
     if (plan.kernel())
     {
-        return fail(InvalidConfig, std::format("{} plans are kernel-free", spec.display_name));
+        return fail(kInvalidConfig, std::format("{} plans are kernel-free", spec.display_name));
     }
-    if (plan.operation() == FlashOperation::TestWrite)
+    if (plan.operation() == FlashOperation::kTestWrite)
     {
-        return fail(Unsupported, "test_write is not supported by this family");
+        return fail(kUnsupported, "test_write is not supported by this family");
     }
-    if (!spec.supports_write && plan.operation() == FlashOperation::Write)
+    if (!spec.supports_write && plan.operation() == FlashOperation::kWrite)
     {
-        return fail(Unsupported, std::format("write is not supported by {}", spec.display_name));
+        return fail(kUnsupported, std::format("write is not supported by {}", spec.display_name));
     }
-    if (plan.operation() == FlashOperation::Read && !plan.erase_regions().empty())
+    if (plan.operation() == FlashOperation::kRead && !plan.erase_regions().empty())
     {
-        return fail(InvalidConfig, "read plans must not erase memory");
+        return fail(kInvalidConfig, "read plans must not erase memory");
     }
-    if (plan.operation() == FlashOperation::Write &&
+    if (plan.operation() == FlashOperation::kWrite &&
         (plan.erase_regions().size() != 1 || plan.erase_regions()[0].start != spec.write_region.start ||
          plan.erase_regions()[0].length != spec.write_region.length))
     {
-        return fail(InvalidConfig, std::format("{} erase region is invalid", spec.display_name));
+        return fail(kInvalidConfig, std::format("{} erase region is invalid", spec.display_name));
     }
-    if (plan.operation() == FlashOperation::Write &&
+    if (plan.operation() == FlashOperation::kWrite &&
         (!plan.image().has_value() || plan.image()->size() != spec.image_size))
     {
-        return fail(InvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes", spec.image_size));
+        return fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes", spec.image_size));
     }
     return {};
 }
@@ -98,24 +98,24 @@ Result<FlashPlan> build_single_window_plan(const SingleWindowPlanSpec& spec, Fla
     {
         return std::unexpected(valid.error());
     }
-    if (operation == FlashOperation::TestWrite)
+    if (operation == FlashOperation::kTestWrite)
     {
-        return fail(Unsupported, "test_write is not supported by this family");
+        return fail(kUnsupported, "test_write is not supported by this family");
     }
-    if (!spec.supports_write && operation == FlashOperation::Write)
+    if (!spec.supports_write && operation == FlashOperation::kWrite)
     {
-        return fail(Unsupported, std::format("write is not supported by {}", spec.display_name));
+        return fail(kUnsupported, std::format("write is not supported by {}", spec.display_name));
     }
-    if (operation == FlashOperation::Write)
+    if (operation == FlashOperation::kWrite)
     {
         if (!image.has_value())
         {
-            return fail(InvalidConfig, "Write plans must carry a ROM image");
+            return fail(kInvalidConfig, "Write plans must carry a ROM image");
         }
         if (image->size() != spec.image_size)
         {
-            return fail(InvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes; got 0x{:x} bytes",
-                                                   spec.image_size, image->size()));
+            return fail(kInvalidConfig, std::format("ROM file must be exactly 0x{:X} bytes; got 0x{:x} bytes",
+                                                    spec.image_size, image->size()));
         }
     }
     FlashPlanFields fields{
@@ -124,10 +124,10 @@ Result<FlashPlan> build_single_window_plan(const SingleWindowPlanSpec& spec, Fla
         .transport = spec.transport,
         .target_id = std::string(protocol_name),
         .mcu_name = std::string(mcu_type),
-        .transfer_region = operation == FlashOperation::Read ? spec.read_region : spec.write_region,
+        .transfer_region = operation == FlashOperation::kRead ? spec.read_region : spec.write_region,
         .erase_regions =
-            operation == FlashOperation::Write ? std::vector{spec.write_region} : std::vector<MemoryRegion>{},
-        .image = operation == FlashOperation::Write ? std::move(image) : std::nullopt,
+            operation == FlashOperation::kWrite ? std::vector{spec.write_region} : std::vector<MemoryRegion>{},
+        .image = operation == FlashOperation::kWrite ? std::move(image) : std::nullopt,
         .kernel = std::nullopt,
         .family_plan = std::move(family_plan),
     };

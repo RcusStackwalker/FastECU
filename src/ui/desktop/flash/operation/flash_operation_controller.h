@@ -29,9 +29,9 @@ struct FlashOperationInput
 
 enum class FlashOperationStatus
 {
-    Completed,            // a workflow ran; read_bytes/rom_id as the dialog returned them
-    ServiceActionHandled, // a Denso TCU service action consumed the request
-    Unsupported,          // no workflow for this protocol; warning shown
+    kCompleted,            // a workflow ran; read_bytes/rom_id as the dialog returned them
+    kServiceActionHandled, // a Denso TCU service action consumed the request
+    kUnsupported,          // no workflow for this protocol; warning shown
 };
 
 struct FlashOperationOutcome

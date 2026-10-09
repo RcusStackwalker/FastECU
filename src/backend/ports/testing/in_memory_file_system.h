@@ -32,7 +32,7 @@ class InMemoryFileSystem : public IFileSystem
     {
         if (!files.count(std::string(src)))
         {
-            return fastecu::fail(ErrorKind::Internal, "source missing");
+            return fastecu::fail(ErrorKind::kInternal, "source missing");
         }
         std::string dst_str(dst);
         // Mirrors QFile::copy: no implicit mkpath. A destination whose parent
@@ -40,11 +40,11 @@ class InMemoryFileSystem : public IFileSystem
         auto slash = dst_str.find_last_of('/');
         if (slash != std::string::npos && !directories.count(dst_str.substr(0, slash + 1)))
         {
-            return fastecu::fail(ErrorKind::Internal, "destination directory missing");
+            return fastecu::fail(ErrorKind::kInternal, "destination directory missing");
         }
         if (!overwrite && files.count(dst_str))
         {
-            return fastecu::fail(ErrorKind::Internal, "destination exists");
+            return fastecu::fail(ErrorKind::kInternal, "destination exists");
         }
         files[dst_str] = files[std::string(src)];
         copy_calls.push_back({std::string(src), dst_str});
@@ -98,7 +98,7 @@ class InMemoryFileSystem : public IFileSystem
         {
             return entries;
         }
-        return fail(ErrorKind::InvalidConfig, std::format("unknown directory: {}", key));
+        return fail(ErrorKind::kInvalidConfig, std::format("unknown directory: {}", key));
     }
 
     std::set<std::string> directories;

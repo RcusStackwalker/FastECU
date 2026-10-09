@@ -29,7 +29,7 @@ void SsmIdentifyWorker::requestStop()
 
 void SsmIdentifyWorker::run()
 {
-    Result<SsmIdentity> outcome = fail(ErrorKind::Internal, "no identification attempt ran");
+    Result<SsmIdentity> outcome = fail(ErrorKind::kInternal, "no identification attempt ran");
     for (int attempt = 1; attempt <= kMaxAttempts; ++attempt)
     {
         if (attempt > 1)
@@ -41,14 +41,14 @@ void SsmIdentifyWorker::run()
             }
         }
         outcome = identify_ssm_ecu(link_, *clock_, cancellation_, request_);
-        if (outcome.has_value() || outcome.error().kind == ErrorKind::Cancelled)
+        if (outcome.has_value() || outcome.error().kind == ErrorKind::kCancelled)
         {
             break;
         }
-        emit logEvent(static_cast<int>(LogLevel::Warning), QString("ECU identification attempt %1 of %2 failed: %3")
-                                                               .arg(attempt)
-                                                               .arg(kMaxAttempts)
-                                                               .arg(QString::fromStdString(outcome.error().detail)));
+        emit logEvent(static_cast<int>(LogLevel::kWarning), QString("ECU identification attempt %1 of %2 failed: %3")
+                                                                .arg(attempt)
+                                                                .arg(kMaxAttempts)
+                                                                .arg(QString::fromStdString(outcome.error().detail)));
     }
 
     SsmIdentifyWorkerResult result;

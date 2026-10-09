@@ -48,7 +48,7 @@ TEST(ScriptedCanFlashTransport, DefaultsClosed)
 
 TEST(ScriptedCanFlashTransport, ExplicitOpenStateStartsOpenWithoutLifecycleCalls)
 {
-    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
 
     EXPECT_TRUE(transport.is_open());
     EXPECT_EQ(transport.close_call_count, 0);
@@ -56,7 +56,7 @@ TEST(ScriptedCanFlashTransport, ExplicitOpenStateStartsOpenWithoutLifecycleCalls
 
 TEST(ScriptedCanFlashTransport, RestartUsesMandatoryResetThenExactConfigurationThenOpen)
 {
-    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
     FakeCancellationToken cancellation;
     const Iso15765Config restart_config{
         .bitrate = 500000, .request_id = 0x7e1, .response_id = 0x7e9, .extended_id = false};
@@ -75,14 +75,14 @@ TEST(ScriptedCanFlashTransport, RestartUsesMandatoryResetThenExactConfigurationT
 TEST(ScriptedCanFlashTransport, RestartStopsAtEachFailureAndPreservesTheExactError)
 {
     const std::array failure_cases{
-        std::pair{"reset", ErrorKind::Internal},
-        std::pair{"configure", ErrorKind::InvalidConfig},
-        std::pair{"open", ErrorKind::Disconnected},
+        std::pair{"reset", ErrorKind::kInternal},
+        std::pair{"configure", ErrorKind::kInvalidConfig},
+        std::pair{"open", ErrorKind::kDisconnected},
     };
     for (const auto& [stage, expected_kind] : failure_cases)
     {
         SCOPED_TRACE(stage);
-        ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+        ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
         FakeCancellationToken cancellation;
         if (stage == std::string_view{"reset"})
         {
@@ -144,14 +144,14 @@ TEST(ScriptedCanFlashTransport, RestartChecksCancellationAtEveryLogicalBoundary)
     for (std::size_t boundary = 0; boundary < expected_calls.size(); ++boundary)
     {
         SCOPED_TRACE(boundary);
-        ScriptedCanFlashTransport transport{ScriptedTransportInitialState::Open};
+        ScriptedCanFlashTransport transport{ScriptedTransportInitialState::kOpen};
         BoundaryCancellation cancellation(static_cast<int>(boundary + 1));
 
         const auto result = transport.restart_iso15765(
             {.bitrate = 500000, .request_id = 0x7e1, .response_id = 0x7e9, .extended_id = false}, cancellation);
 
         ASSERT_FALSE(result.has_value());
-        EXPECT_EQ(result.error().kind, ErrorKind::Cancelled);
+        EXPECT_EQ(result.error().kind, ErrorKind::kCancelled);
         EXPECT_EQ(transport.lifecycle_calls, expected_calls[boundary]);
     }
 }
@@ -166,7 +166,7 @@ TEST(ScriptedKlineFlashTransport, DefaultsClosed)
 
 TEST(ScriptedKlineFlashTransport, ExplicitOpenStateStartsOpenWithoutLifecycleCalls)
 {
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
 
     EXPECT_TRUE(transport.isOpen());
     EXPECT_EQ(transport.close_call_count, 0);
@@ -174,7 +174,7 @@ TEST(ScriptedKlineFlashTransport, ExplicitOpenStateStartsOpenWithoutLifecycleCal
 
 TEST(ScriptedKlineFlashTransport, RecordsResetInLifecycleOrderAndClosesThePort)
 {
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
 
     ASSERT_TRUE(transport.reset_connection().has_value());
     EXPECT_FALSE(transport.isOpen());
@@ -190,12 +190,12 @@ TEST(ScriptedKlineFlashTransport, RecordsResetInLifecycleOrderAndClosesThePort)
 TEST(ScriptedKlineFlashTransport, ResetReturnsItsScriptedFailure)
 {
     ScriptedKlineFlashTransport transport;
-    transport.reset_result = fail(ErrorKind::Disconnected, "scripted reset failure");
+    transport.reset_result = fail(ErrorKind::kDisconnected, "scripted reset failure");
 
     const Status reset = transport.reset_connection();
 
     ASSERT_FALSE(reset.has_value());
-    EXPECT_EQ(reset.error().kind, ErrorKind::Disconnected);
+    EXPECT_EQ(reset.error().kind, ErrorKind::kDisconnected);
 }
 
 constexpr MixedCanConfig kMixedCanConfig{
@@ -238,7 +238,7 @@ TEST(ScriptedMixedCanFlashTransport, ScriptsIsoAndRawFramesInTheirRespectiveMode
     EXPECT_THAT((*raw_reply)->payload, testing::ElementsAre(0x7a, 0x91));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_THAT(transport.modeChanges(),
-                testing::ElementsAre(ScriptedMixedCanMode::Iso15765Kernel, ScriptedMixedCanMode::RawBootloader));
+                testing::ElementsAre(ScriptedMixedCanMode::kIso15765Kernel, ScriptedMixedCanMode::kRawBootloader));
     EXPECT_EQ(transport.configureCallCount(), 1);
     EXPECT_EQ(transport.openCallCount(), 1);
     EXPECT_EQ(transport.closeCallCount(), 0);
@@ -252,17 +252,17 @@ TEST(ScriptedMixedCanFlashTransport, RejectsWrongModeAndOversizeRawPayload)
     configure_and_open(transport);
     const auto raw_in_iso_mode = transport.write_raw(cdbg::CanFrame{0x000ffffe, {0x7a}}, cancellation);
     ASSERT_FALSE(raw_in_iso_mode.has_value());
-    EXPECT_EQ(raw_in_iso_mode.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(raw_in_iso_mode.error().kind, ErrorKind::kInvalidConfig);
 
     ASSERT_TRUE(transport.enter_raw_bootloader_mode().has_value());
     const bytes::Bytes iso_request{0x01};
     const auto iso_in_raw_mode = transport.write_iso15765(iso_request, cancellation);
     ASSERT_FALSE(iso_in_raw_mode.has_value());
-    EXPECT_EQ(iso_in_raw_mode.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(iso_in_raw_mode.error().kind, ErrorKind::kInvalidConfig);
 
     const auto oversized_raw = transport.write_raw(cdbg::CanFrame{0x000ffffe, bytes::Bytes(9, 0x00)}, cancellation);
     ASSERT_FALSE(oversized_raw.has_value());
-    EXPECT_EQ(oversized_raw.error().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(oversized_raw.error().kind, ErrorKind::kInvalidConfig);
 }
 
 TEST(ScriptedMixedCanFlashTransport, CancelledReadLeavesItsIsoScriptItemQueued)
@@ -275,7 +275,7 @@ TEST(ScriptedMixedCanFlashTransport, CancelledReadLeavesItsIsoScriptItemQueued)
     const auto reply = transport.read_iso15765(10ms, cancellation);
 
     ASSERT_FALSE(reply.has_value());
-    EXPECT_EQ(reply.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(reply.error().kind, ErrorKind::kCancelled);
     EXPECT_FALSE(transport.scriptConsumed());
 }
 
@@ -287,13 +287,13 @@ TEST(ScriptedMixedCanFlashTransport, TransitionFailuresAreOneShot)
     transport.failNextRawTransition();
     const auto raw_transition = transport.enter_raw_bootloader_mode();
     ASSERT_FALSE(raw_transition.has_value());
-    EXPECT_EQ(raw_transition.error().kind, ErrorKind::Internal);
+    EXPECT_EQ(raw_transition.error().kind, ErrorKind::kInternal);
     ASSERT_TRUE(transport.enter_raw_bootloader_mode().has_value());
 
     transport.failNextIsoTransition();
     const auto iso_transition = transport.enter_iso15765_kernel_mode();
     ASSERT_FALSE(iso_transition.has_value());
-    EXPECT_EQ(iso_transition.error().kind, ErrorKind::Internal);
+    EXPECT_EQ(iso_transition.error().kind, ErrorKind::kInternal);
     ASSERT_TRUE(transport.enter_iso15765_kernel_mode().has_value());
 }
 
@@ -310,7 +310,7 @@ TEST(ScriptedMixedCanFlashTransport, RequestUnblockReleasesBlockingIsoReadAsCanc
     const auto reply = pending_read.get();
 
     ASSERT_FALSE(reply.has_value());
-    EXPECT_EQ(reply.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(reply.error().kind, ErrorKind::kCancelled);
     EXPECT_TRUE(transport.scriptConsumed());
 }
 

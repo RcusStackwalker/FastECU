@@ -35,7 +35,7 @@ Status run_setters(std::initializer_list<Setter> setters)
     {
         if (!setter.call())
         {
-            return fail(ErrorKind::InvalidConfig, std::string(setter.name) + " failed");
+            return fail(ErrorKind::kInvalidConfig, std::string(setter.name) + " failed");
         }
     }
     return {};
@@ -49,17 +49,17 @@ template <class F> auto guarded(F&& body) -> decltype(body())
     }
     catch (const std::exception& error)
     {
-        return fail(ErrorKind::Internal, error.what());
+        return fail(ErrorKind::kInternal, error.what());
     }
     catch (...)
     {
-        return fail(ErrorKind::Internal, "diagnostic link driver exception");
+        return fail(ErrorKind::kInternal, "diagnostic link driver exception");
     }
 }
 
 Status no_facade()
 {
-    return fail(ErrorKind::Disconnected, "no serial facade");
+    return fail(ErrorKind::kDisconnected, "no serial facade");
 }
 
 } // namespace
@@ -77,18 +77,18 @@ Status SerialDiagnosticLink::open(const KlineLinkConfig& c)
             if (auto applied = run_setters({
                     {"set_is_iso14230_connection",
                      [&] { return serial_->set_is_iso14230_connection(c.iso14230_connection); }},
-                    {"set_add_ssm_header", [&] { return serial_->set_add_ssm_header(c.header == KlineHeader::Ssm); }},
+                    {"set_add_ssm_header", [&] { return serial_->set_add_ssm_header(c.header == KlineHeader::kSsm); }},
                     {"set_add_iso9141_header",
-                     [&] { return serial_->set_add_iso9141_header(c.header == KlineHeader::Iso9141); }},
+                     [&] { return serial_->set_add_iso9141_header(c.header == KlineHeader::kIso9141); }},
                     {"set_add_iso14230_header",
-                     [&] { return serial_->set_add_iso14230_header(c.header == KlineHeader::Iso14230); }},
+                     [&] { return serial_->set_add_iso14230_header(c.header == KlineHeader::kIso14230); }},
                     {"set_serial_port_baudrate",
                      [&] { return serial_->set_serial_port_baudrate(QString::number(c.baud)); }},
                     {"set_serial_port_parity",
                      [&]
                      {
                          return serial_->set_serial_port_parity(static_cast<std::uint8_t>(
-                             c.parity == Parity::Even ? QSerialPort::EvenParity : QSerialPort::NoParity));
+                             c.parity == Parity::kEven ? QSerialPort::EvenParity : QSerialPort::NoParity));
                      }},
                     {"set_kline_startbyte", [&] { return serial_->set_kline_startbyte(c.start_byte); }},
                     {"set_kline_tester_id", [&] { return serial_->set_kline_tester_id(c.tester_id); }},
@@ -103,7 +103,7 @@ Status SerialDiagnosticLink::open(const KlineLinkConfig& c)
             }
             if (serial_->open_serial_port().isEmpty())
             {
-                return fail(ErrorKind::Disconnected, "adapter did not open a port");
+                return fail(ErrorKind::kDisconnected, "adapter did not open a port");
             }
             return {};
         });
@@ -138,7 +138,7 @@ Status SerialDiagnosticLink::open(const CanLinkConfig& c)
             }
             if (serial_->open_serial_port().isEmpty())
             {
-                return fail(ErrorKind::Disconnected, "adapter did not open a port");
+                return fail(ErrorKind::kDisconnected, "adapter did not open a port");
             }
             return {};
         });
@@ -168,11 +168,11 @@ Status SerialDiagnosticLink::set_header(KlineHeader header)
         [&]() -> Status
         {
             return run_setters({
-                {"set_add_ssm_header", [&] { return serial_->set_add_ssm_header(header == KlineHeader::Ssm); }},
+                {"set_add_ssm_header", [&] { return serial_->set_add_ssm_header(header == KlineHeader::kSsm); }},
                 {"set_add_iso9141_header",
-                 [&] { return serial_->set_add_iso9141_header(header == KlineHeader::Iso9141); }},
+                 [&] { return serial_->set_add_iso9141_header(header == KlineHeader::kIso9141); }},
                 {"set_add_iso14230_header",
-                 [&] { return serial_->set_add_iso14230_header(header == KlineHeader::Iso14230); }},
+                 [&] { return serial_->set_add_iso14230_header(header == KlineHeader::kIso14230); }},
             });
         });
 }
@@ -191,13 +191,13 @@ Status SerialDiagnosticLink::set_p1_max(std::chrono::milliseconds p1_max)
             {
                 if (serial_->set_j2534_ioctl(kJ2534P1Max, value) != kSerialSuccess)
                 {
-                    return fail(ErrorKind::Disconnected, "set_j2534_ioctl(P1_MAX) failed");
+                    return fail(ErrorKind::kDisconnected, "set_j2534_ioctl(P1_MAX) failed");
                 }
                 return {};
             }
             if (!serial_->set_kline_timings(kSerialP1Max, value))
             {
-                return fail(ErrorKind::InvalidConfig, "set_kline_timings(P1_MAX) failed");
+                return fail(ErrorKind::kInvalidConfig, "set_kline_timings(P1_MAX) failed");
             }
             return {};
         });
@@ -207,7 +207,7 @@ Result<bytes::Bytes> SerialDiagnosticLink::five_baud_init(std::uint8_t address)
 {
     if (serial_ == nullptr)
     {
-        return fail(ErrorKind::Disconnected, "no serial facade");
+        return fail(ErrorKind::kDisconnected, "no serial facade");
     }
     return guarded(
         [&]() -> Result<bytes::Bytes>
@@ -225,7 +225,7 @@ Status SerialDiagnosticLink::fast_init(bytes::ByteView wakeup)
         {
             if (serial_->fast_init(bytes::toQByteArray(wakeup)) != kSerialSuccess)
             {
-                return fail(ErrorKind::Disconnected, "fast_init failed");
+                return fail(ErrorKind::kDisconnected, "fast_init failed");
             }
             return {};
         });
@@ -235,7 +235,7 @@ Result<bytes::Bytes> SerialDiagnosticLink::write(bytes::ByteView data)
 {
     if (serial_ == nullptr)
     {
-        return fail(ErrorKind::Disconnected, "no serial facade");
+        return fail(ErrorKind::kDisconnected, "no serial facade");
     }
     return guarded([&]() -> Result<bytes::Bytes>
                    { return bytes::fromQByteArray(serial_->write_serial_data_echo_check(bytes::toQByteArray(data))); });
@@ -249,11 +249,11 @@ Result<IDiagnosticLink::OptionalBytes> guarded_read(SerialPortActions *serial, c
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "diagnostic read cancelled before driver call");
+        return fail(ErrorKind::kCancelled, "diagnostic read cancelled before driver call");
     }
     if (serial == nullptr)
     {
-        return fail(ErrorKind::Disconnected, "no serial facade");
+        return fail(ErrorKind::kDisconnected, "no serial facade");
     }
     return guarded(
         [&]() -> Result<IDiagnosticLink::OptionalBytes>
@@ -261,7 +261,7 @@ Result<IDiagnosticLink::OptionalBytes> guarded_read(SerialPortActions *serial, c
             const QByteArray raw = read_call();
             if (cancellation.cancelled())
             {
-                return fail(ErrorKind::Cancelled, "diagnostic read cancelled");
+                return fail(ErrorKind::kCancelled, "diagnostic read cancelled");
             }
             if (raw.isEmpty())
             {

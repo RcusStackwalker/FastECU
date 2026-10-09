@@ -35,9 +35,9 @@ class IFlashTransport
 
 enum class KlineParity
 {
-    None,
-    Even,
-    Odd
+    kNone,
+    kEven,
+    kOdd
 };
 
 struct KlineConfig
@@ -46,7 +46,7 @@ struct KlineConfig
     bool iso14230{};
     std::uint8_t tester_id{};
     std::uint8_t target_id{};
-    KlineParity parity = KlineParity::None;
+    KlineParity parity = KlineParity::kNone;
 };
 
 struct Iso15765Config
@@ -261,7 +261,7 @@ class ICanFlashTransport : public IFlashTransport
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "ISO-15765 restart cancelled before reset");
+            return fail(ErrorKind::kCancelled, "ISO-15765 restart cancelled before reset");
         }
         if (const Status reset = reset_connection(); !reset)
         {
@@ -269,7 +269,7 @@ class ICanFlashTransport : public IFlashTransport
         }
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "ISO-15765 restart cancelled after reset");
+            return fail(ErrorKind::kCancelled, "ISO-15765 restart cancelled after reset");
         }
         if (const Status configured = configure(config); !configured)
         {
@@ -277,7 +277,7 @@ class ICanFlashTransport : public IFlashTransport
         }
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "ISO-15765 restart cancelled after configure");
+            return fail(ErrorKind::kCancelled, "ISO-15765 restart cancelled after configure");
         }
         if (const Status opened = open(); !opened)
         {
@@ -285,7 +285,7 @@ class ICanFlashTransport : public IFlashTransport
         }
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "ISO-15765 restart cancelled after open");
+            return fail(ErrorKind::kCancelled, "ISO-15765 restart cancelled after open");
         }
         return {};
     }
@@ -391,7 +391,7 @@ template <class Executor, class Transport> class BoundAttempt final : public Bou
         }
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled before configure");
+            return fail(ErrorKind::kCancelled, "cancelled before configure");
         }
         if (const Status preparation = executor_->before_transport_configure(*transport_, clock, cancellation);
             !preparation.has_value())
@@ -421,7 +421,7 @@ template <class Executor, class Transport> class BoundAttempt final : public Bou
         {
             if (!closed.has_value())
             {
-                events.log(LogLevel::Warning, "close failed after execution error");
+                events.log(LogLevel::kWarning, "close failed after execution error");
             }
             return outcome;
         }

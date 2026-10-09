@@ -16,7 +16,7 @@ TEST(ResourceBundle, ListReturnsAllNames)
 TEST(ResourceBundle, ReadUnknownBundleIsInvalidConfig)
 {
     fastecu::InMemoryResourceBundle bundle;
-    ASSERT_THAT(bundle.read("kernels", "missing.bin"), fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
+    ASSERT_THAT(bundle.read("kernels", "missing.bin"), fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
 }
 
 TEST(ResourceBundle, ReadKnownFileRoundTrips)

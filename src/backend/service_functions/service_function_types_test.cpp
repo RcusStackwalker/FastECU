@@ -10,7 +10,7 @@ namespace
 TEST(SsmTransportConfig, DefaultsToTheTcuIso15765Pair)
 {
     const SsmTransportConfig config;
-    EXPECT_EQ(config.framing, SsmTransportConfig::Framing::Iso15765);
+    EXPECT_EQ(config.framing, SsmTransportConfig::Framing::kIso15765);
     EXPECT_EQ(config.bitrate_or_baud, 500000);
     EXPECT_EQ(config.request_id, 0x7e1U);
     EXPECT_EQ(config.response_id, 0x7e9U);
@@ -28,16 +28,16 @@ TEST(SsmTransportConfig, TesterAndTargetAreZeroUnlessKline)
 
 TEST(ServiceFunctionStep, HoldsGateCompletedAndFailedAlternatives)
 {
-    const ServiceFunctionStep gate = GateStep{OperatorGateId::RelearnEngineRunning};
+    const ServiceFunctionStep gate = GateStep{OperatorGateId::kRelearnEngineRunning};
     ASSERT_TRUE(std::holds_alternative<GateStep>(gate));
-    EXPECT_EQ(std::get<GateStep>(gate).id, OperatorGateId::RelearnEngineRunning);
+    EXPECT_EQ(std::get<GateStep>(gate).id, OperatorGateId::kRelearnEngineRunning);
 
     const ServiceFunctionStep done = CompletedStep{TcuParameterReadout{}};
     ASSERT_TRUE(std::holds_alternative<CompletedStep>(done));
 
-    const ServiceFunctionStep bad = FailedStep{Error{ErrorKind::BadResponse, "nope"}};
+    const ServiceFunctionStep bad = FailedStep{Error{ErrorKind::kBadResponse, "nope"}};
     ASSERT_TRUE(std::holds_alternative<FailedStep>(bad));
-    EXPECT_EQ(std::get<FailedStep>(bad).error.kind, ErrorKind::BadResponse);
+    EXPECT_EQ(std::get<FailedStep>(bad).error.kind, ErrorKind::kBadResponse);
 }
 
 TEST(TcuParameterReadout, ValueTypesEncodeTheLegacyPromptBounds)

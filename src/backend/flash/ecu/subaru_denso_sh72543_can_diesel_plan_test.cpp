@@ -26,7 +26,7 @@ INSTANTIATE_TEST_SUITE_P(SubaruDensoSh72543CanDiesel, SingleWindowPlanContract, 
 TEST(SubaruDensoSh72543CanDieselPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
     const auto plan = build_subaru_denso_sh72543_can_diesel_plan(
-        FlashOperation::Read, "sub_ecu_denso_sh72543_can_diesel", "SH72543d", std::nullopt);
+        FlashOperation::kRead, "sub_ecu_denso_sh72543_can_diesel", "SH72543d", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     const auto& family = std::get<SubaruDensoSh72543CanDieselPlan>(plan->family_plan());
@@ -45,7 +45,7 @@ TEST(SubaruDensoSh72543CanDieselPlan, WriteImageIsBasedAtAddressZero)
     // full ROM was written 0x8000 low. This port bases the write image at 0x0,
     // matching the read output and the three sibling families.
     const auto plan = build_subaru_denso_sh72543_can_diesel_plan(
-        FlashOperation::Write, "sub_ecu_denso_sh72543_can_diesel", "SH72543d", bytes::Bytes(0x200000, 0x00));
+        FlashOperation::kWrite, "sub_ecu_denso_sh72543_can_diesel", "SH72543d", bytes::Bytes(0x200000, 0x00));
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     EXPECT_EQ(plan->image_or_empty().size(), 0x200000U);

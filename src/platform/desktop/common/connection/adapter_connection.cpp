@@ -13,21 +13,21 @@ LogTransport log_transport_from_text(const QString& text)
 {
     if (text == "CAN")
     {
-        return LogTransport::Can;
+        return LogTransport::kCan;
     }
     if (text == "iso15765")
     {
-        return LogTransport::Iso15765;
+        return LogTransport::kIso15765;
     }
     if (text == "K-Line")
     {
-        return LogTransport::KLine;
+        return LogTransport::kKLine;
     }
     if (text == "SSM")
     {
-        return LogTransport::Ssm;
+        return LogTransport::kSsm;
     }
-    return LogTransport::Other;
+    return LogTransport::kOther;
 }
 
 AdapterConnection::AdapterConnection(SerialPortActions& facade, QObject *parent) : QObject(parent), facade_(facade)
@@ -77,26 +77,26 @@ void AdapterConnection::apply_log_transport(LogTransport transport, bool ssm_pro
     facade_.set_is_iso15765_connection(false);
     switch (transport)
     {
-    case LogTransport::Can:
+    case LogTransport::kCan:
         facade_.set_is_can_connection(true);
         facade_.set_is_iso15765_connection(false);
         facade_.set_is_29_bit_id(false);
         facade_.set_can_speed("500000");
         break;
-    case LogTransport::Iso15765:
+    case LogTransport::kIso15765:
         facade_.set_is_can_connection(false);
         facade_.set_is_iso15765_connection(true);
         facade_.set_is_29_bit_id(true);
         facade_.set_can_speed("500000");
         break;
-    case LogTransport::KLine:
+    case LogTransport::kKLine:
         if (ssm_protocol)
         {
             facade_.change_port_speed("4800");
         }
         break;
-    case LogTransport::Ssm:
-    case LogTransport::Other:
+    case LogTransport::kSsm:
+    case LogTransport::kOther:
         break;
     }
     facade_.reset_connection();

@@ -7,7 +7,7 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::
     // Fixed 1 MiB layout: checksum fields occupy 0xFFFE8-0xFFFFB.
     if (romView.size() != 0x100000)
     {
-        return {.status = ChecksumResult::Status::InvalidSize,
+        return {.status = ChecksumResult::Status::kInvalidSize,
                 .rom_data = bytes::Bytes(romView.begin(), romView.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
@@ -125,12 +125,12 @@ ChecksumResult ChecksumEcuSubaruHitachiSH7058::calculate_checksum_result(bytes::
     result.rom_data = romData;
     if (!checksum_ok)
     {
-        result.status = ChecksumResult::Status::Corrected;
+        result.status = ChecksumResult::Status::kCorrected;
         result.message = "Subaru Hitachi SH7058 CAN ECU Checksum";
     }
     else
     {
-        result.status = ChecksumResult::Status::Unchanged;
+        result.status = ChecksumResult::Status::kUnchanged;
     }
     return result;
 }

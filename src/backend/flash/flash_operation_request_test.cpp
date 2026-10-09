@@ -9,16 +9,16 @@ namespace
 
 TEST(FlashOperationFromCommand, MapsTheTwoWriteCommands)
 {
-    EXPECT_EQ(flash_operation_from_command("write"), FlashOperation::Write);
-    EXPECT_EQ(flash_operation_from_command("test_write"), FlashOperation::TestWrite);
+    EXPECT_EQ(flash_operation_from_command("write"), FlashOperation::kWrite);
+    EXPECT_EQ(flash_operation_from_command("test_write"), FlashOperation::kTestWrite);
 }
 
 TEST(FlashOperationFromCommand, TreatsEveryOtherCommandAsRead)
 {
-    EXPECT_EQ(flash_operation_from_command("read"), FlashOperation::Read);
-    EXPECT_EQ(flash_operation_from_command(""), FlashOperation::Read);
-    EXPECT_EQ(flash_operation_from_command("Write"), FlashOperation::Read);
-    EXPECT_EQ(flash_operation_from_command("test-write"), FlashOperation::Read);
+    EXPECT_EQ(flash_operation_from_command("read"), FlashOperation::kRead);
+    EXPECT_EQ(flash_operation_from_command(""), FlashOperation::kRead);
+    EXPECT_EQ(flash_operation_from_command("Write"), FlashOperation::kRead);
+    EXPECT_EQ(flash_operation_from_command("test-write"), FlashOperation::kRead);
 }
 
 TEST(IsDensoTcuProtocol, MatchesBothDensoTcuCanProtocols)

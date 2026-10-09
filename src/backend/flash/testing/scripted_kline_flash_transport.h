@@ -28,24 +28,24 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     ScriptedKlineFlashTransport() = default;
 
     explicit ScriptedKlineFlashTransport(ScriptedTransportInitialState initial_state)
-        : open_(initial_state == ScriptedTransportInitialState::Open)
+        : open_(initial_state == ScriptedTransportInitialState::kOpen)
     {
     }
 
     enum class ControlLineAction
     {
-        DisableLecLines,
-        PulseLec2,
-        EnableProgrammingVoltageLine,
-        EnableBootModeLines,
+        kDisableLecLines,
+        kPulseLec2,
+        kEnableProgrammingVoltageLine,
+        kEnableBootModeLines,
     };
     enum class Operation
     {
-        DisableLecLines,
-        PulseLec2,
-        EnableProgrammingVoltageLine,
-        EnableBootModeLines,
-        Read10,
+        kDisableLecLines,
+        kPulseLec2,
+        kEnableProgrammingVoltageLine,
+        kEnableBootModeLines,
+        kRead10,
     };
 
     // RAII label for every step recorded while it is alive. One line per
@@ -174,28 +174,28 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     }
     Status disable_lec_lines() override
     {
-        control_line_trace.push_back(ControlLineAction::DisableLecLines);
-        operation_trace.push_back(Operation::DisableLecLines);
+        control_line_trace.push_back(ControlLineAction::kDisableLecLines);
+        operation_trace.push_back(Operation::kDisableLecLines);
         return disable_lec_lines_result;
     }
     Status pulse_lec_2_line(std::chrono::milliseconds timeout) override
     {
-        control_line_trace.push_back(ControlLineAction::PulseLec2);
-        operation_trace.push_back(Operation::PulseLec2);
+        control_line_trace.push_back(ControlLineAction::kPulseLec2);
+        operation_trace.push_back(Operation::kPulseLec2);
         lec_2_pulse_timeouts.push_back(timeout);
         return pulse_lec_2_line_result;
     }
     Status enable_programming_voltage_line() override
     {
         programming_voltage_line_write_index = w_idx_;
-        control_line_trace.push_back(ControlLineAction::EnableProgrammingVoltageLine);
-        operation_trace.push_back(Operation::EnableProgrammingVoltageLine);
+        control_line_trace.push_back(ControlLineAction::kEnableProgrammingVoltageLine);
+        operation_trace.push_back(Operation::kEnableProgrammingVoltageLine);
         return enable_programming_voltage_line_result;
     }
     Status enable_boot_mode_lines() override
     {
-        control_line_trace.push_back(ControlLineAction::EnableBootModeLines);
-        operation_trace.push_back(Operation::EnableBootModeLines);
+        control_line_trace.push_back(ControlLineAction::kEnableBootModeLines);
+        operation_trace.push_back(Operation::kEnableBootModeLines);
         return enable_boot_mode_lines_result;
     }
     bool requires_post_kernel_upload_delay() const override
@@ -227,17 +227,17 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         const bytes::Bytes actual(data.begin(), data.end());
         if (w_idx_ >= expected_.size())
         {
-            return fail(ErrorKind::Internal,
+            return fail(ErrorKind::kInternal,
                         std::format("scripted K-Line write ran past the end of the script ({} exchanges); wrote {}",
                                     expected_.size(), bytes::toHex(actual)));
         }
         if (expected_.at(w_idx_) != actual)
         {
-            return fail(ErrorKind::Internal, describeDivergence(w_idx_, actual));
+            return fail(ErrorKind::kInternal, describeDivergence(w_idx_, actual));
         }
         if (std::find(raw_writes_.begin(), raw_writes_.end(), w_idx_) != raw_writes_.end())
         {
-            return fail(ErrorKind::Internal, "expected raw K-Line write");
+            return fail(ErrorKind::kInternal, "expected raw K-Line write");
         }
         ++w_idx_;
         return data.size();
@@ -248,7 +248,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         if (w_idx_ >= expected_.size() || expected_[w_idx_] != actual ||
             std::find(raw_writes_.begin(), raw_writes_.end(), w_idx_) == raw_writes_.end())
         {
-            return fail(ErrorKind::Internal, "unexpected raw K-Line write");
+            return fail(ErrorKind::kInternal, "unexpected raw K-Line write");
         }
         ++w_idx_;
         return data.size();
@@ -257,7 +257,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     {
         if (std::find(raw_reads_.begin(), raw_reads_.end(), reads_consumed_) == raw_reads_.end())
         {
-            return fail(ErrorKind::Internal, "unexpected raw K-Line read");
+            return fail(ErrorKind::kInternal, "unexpected raw K-Line read");
         }
         return read_impl(timeout, cancellation);
     }
@@ -265,7 +265,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     {
         if (std::find(raw_reads_.begin(), raw_reads_.end(), reads_consumed_) != raw_reads_.end())
         {
-            return fail(ErrorKind::Internal, "expected raw K-Line read");
+            return fail(ErrorKind::kInternal, "expected raw K-Line read");
         }
         return read_impl(timeout, cancellation);
     }
@@ -274,7 +274,7 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         read_timeouts.push_back(timeout);
         if (timeout == std::chrono::milliseconds{10})
         {
-            operation_trace.push_back(Operation::Read10);
+            operation_trace.push_back(Operation::kRead10);
         }
         {
             std::unique_lock lock(mutex_);
@@ -284,16 +284,16 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
                 blocking_read_entered_cv_.notify_all();
                 cv_.wait(lock, [this] { return unblock_requested_; });
                 blocking_read_pending_ = false;
-                return fail(ErrorKind::Cancelled, "scripted K-Line read unblocked");
+                return fail(ErrorKind::kCancelled, "scripted K-Line read unblocked");
             }
         }
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "scripted K-Line read cancelled");
+            return fail(ErrorKind::kCancelled, "scripted K-Line read cancelled");
         }
         if (reads_.empty())
         {
-            return fail(ErrorKind::Internal, "no scripted K-Line read outcome");
+            return fail(ErrorKind::kInternal, "no scripted K-Line read outcome");
         }
         auto result = std::move(reads_.front());
         reads_.pop_front();

@@ -19,14 +19,14 @@ using fastecu::testing::IsOk;
 
 definition::RomDefinition fuel_definition()
 {
-    definition::RomDefinition rom{.format = definition::DefinitionFormat::EcuFlash};
+    definition::RomDefinition rom{.format = definition::DefinitionFormat::kEcuFlash};
     rom.scalings.push_back(definition::Scaling{.name = "Raw", .from_byte = "x"});
     definition::CalibrationMap map;
     map.name = "Fuel";
     map.type = "2D";
     map.address = 2;
     map.x_size = 3;
-    map.storage_type = definition::StorageType::Uint8;
+    map.storage_type = definition::StorageType::kUint8;
     map.endian = "big";
     map.scaling_name = "Raw";
     rom.maps.push_back(map);
@@ -36,9 +36,9 @@ definition::RomDefinition fuel_definition()
 SessionContents contents_with_definition()
 {
     return SessionContents{
-        .source = {.display_name = "a.bin", .path = "/cal/a.bin", .origin = RomOrigin::File},
+        .source = {.display_name = "a.bin", .path = "/cal/a.bin", .origin = RomOrigin::kFile},
         .rom = {0, 0, 5, 6, 7, 0},
-        .definition = ResolvedDefinition{.format = definition::DefinitionFormat::EcuFlash,
+        .definition = ResolvedDefinition{.format = definition::DefinitionFormat::kEcuFlash,
                                          .id = "TEST",
                                          .definition = fuel_definition()},
         .protocol = {.flash_method = "proto_a"},
@@ -51,7 +51,7 @@ TEST(CalibrationSessionTest, ExposesWhatItWasBuiltFrom)
 
     EXPECT_EQ(session.id(), SessionId{7});
     EXPECT_EQ(session.source().display_name, "a.bin");
-    EXPECT_EQ(session.source().origin, RomOrigin::File);
+    EXPECT_EQ(session.source().origin, RomOrigin::kFile);
     EXPECT_EQ(session.rom().size(), 6U);
     ASSERT_NE(session.definition(), nullptr);
     EXPECT_EQ(session.definition()->id, "TEST");
@@ -77,7 +77,7 @@ TEST(CalibrationSessionTest, DecodeRejectsAnOutOfRangeIndex)
 {
     const CalibrationSession session(SessionId{1}, contents_with_definition());
 
-    EXPECT_THAT(session.decode_map(1), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(session.decode_map(1), IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(CalibrationSessionTest, DecodeWithoutADefinitionFails)
@@ -87,7 +87,7 @@ TEST(CalibrationSessionTest, DecodeWithoutADefinitionFails)
     const CalibrationSession session(SessionId{1}, std::move(contents));
 
     EXPECT_EQ(session.definition(), nullptr);
-    EXPECT_THAT(session.decode_map(0), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(session.decode_map(0), IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(CalibrationSessionTest, WrittenBytesAreWhatTheNextDecodeSees)
@@ -120,8 +120,9 @@ TEST(CalibrationSessionTest, WritePastTheEndChangesNothing)
     const std::vector<std::uint8_t> before(session.rom().begin(), session.rom().end());
     const std::vector<std::uint8_t> patch{1, 2};
 
-    EXPECT_THAT(session.write_bytes(5, patch), IsErr(ErrorKind::InvalidConfig));
-    EXPECT_THAT(session.write_bytes(std::numeric_limits<std::uint64_t>::max(), patch), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(session.write_bytes(5, patch), IsErr(ErrorKind::kInvalidConfig));
+    EXPECT_THAT(session.write_bytes(std::numeric_limits<std::uint64_t>::max(), patch),
+                IsErr(ErrorKind::kInvalidConfig));
 
     EXPECT_EQ(std::vector<std::uint8_t>(session.rom().begin(), session.rom().end()), before);
     EXPECT_FALSE(session.dirty());

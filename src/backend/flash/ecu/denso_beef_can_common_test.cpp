@@ -60,7 +60,7 @@ TEST(DensoBeefCanCommonTest, CancelledIfRequestedReportsTheCallerDetail)
     token.set_cancelled(true);
     const Status cancelled = cancelled_if_requested(ctx, "cancelled before CAN request");
     ASSERT_FALSE(cancelled.has_value());
-    EXPECT_EQ(cancelled.error().kind, ErrorKind::Cancelled);
+    EXPECT_EQ(cancelled.error().kind, ErrorKind::kCancelled);
     EXPECT_EQ(cancelled.error().detail, "cancelled before CAN request");
 }
 

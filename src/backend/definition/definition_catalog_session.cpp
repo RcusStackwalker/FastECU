@@ -19,7 +19,7 @@ DefinitionCatalogSession::DefinitionCatalogSession(fastecu::definition::Definiti
 Result<DefinitionCatalog> DefinitionCatalogSession::catalog(DefinitionFormat format)
 {
     const auto& settings = config_.settings();
-    if (format == DefinitionFormat::RomRaider)
+    if (format == DefinitionFormat::kRomRaider)
     {
         return definitions_.build_romraider_catalog(settings.romraider_definition_files);
     }
@@ -29,7 +29,7 @@ Result<DefinitionCatalog> DefinitionCatalogSession::catalog(DefinitionFormat for
 
 std::vector<DefinitionCatalogSession::IndexedSource>& DefinitionCatalogSession::index(DefinitionFormat format)
 {
-    return format == DefinitionFormat::RomRaider ? romraider_index_ : ecuflash_index_;
+    return format == DefinitionFormat::kRomRaider ? romraider_index_ : ecuflash_index_;
 }
 
 std::optional<std::string> DefinitionCatalogSession::indexed_source(DefinitionFormat format, std::string_view id)
@@ -45,17 +45,17 @@ std::optional<std::string> DefinitionCatalogSession::indexed_source(DefinitionFo
 
 void DefinitionCatalogSession::log_error(std::string_view operation, const Error& error)
 {
-    events_.log(LogLevel::Error, std::format("{} [{}]: {}", operation, to_string(error.kind), error.detail));
+    events_.log(LogLevel::kError, std::format("{} [{}]: {}", operation, to_string(error.kind), error.detail));
 }
 
 Status DefinitionCatalogSession::refresh_index(DefinitionFormat format)
 {
     const auto& settings = config_.settings();
-    const bool romraider = format == DefinitionFormat::RomRaider;
+    const bool romraider = format == DefinitionFormat::kRomRaider;
     const std::string_view name = romraider ? "RomRaider" : "EcuFlash";
     if (romraider ? settings.romraider_definition_files.empty() : settings.ecuflash_definition_files_directory.empty())
     {
-        events_.log(LogLevel::Debug,
+        events_.log(LogLevel::kDebug,
                     romraider ? "No RomRaider definition files" : "No EcuFlash definition files directory");
         return {};
     }
@@ -63,7 +63,7 @@ Status DefinitionCatalogSession::refresh_index(DefinitionFormat format)
     {
         for (const auto& handle : settings.romraider_definition_files)
         {
-            events_.log(LogLevel::Debug, std::format("Reading RomRaider ID's from file: {}", handle));
+            events_.log(LogLevel::kDebug, std::format("Reading RomRaider ID's from file: {}", handle));
         }
     }
 
@@ -97,10 +97,10 @@ Status DefinitionCatalogSession::refresh_index(DefinitionFormat format)
         }
     }
     index(format) = std::move(replacement);
-    events_.log(LogLevel::Debug,
+    events_.log(LogLevel::kDebug,
                 std::format("{} {} definition files found",
                             romraider ? settings.romraider_definition_files.size() : sources.size(), name));
-    events_.log(LogLevel::Debug, std::format("{} {} ecu id's found", index(format).size(), name));
+    events_.log(LogLevel::kDebug, std::format("{} {} ecu id's found", index(format).size(), name));
     return {};
 }
 

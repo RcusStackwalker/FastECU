@@ -17,28 +17,28 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::By
     using Outcome = fastecu::checksum::internal::DensoTableOutcome;
     switch (fastecu::checksum::internal::correctDensoTable(result.rom_data, spec))
     {
-    case Outcome::Unchanged:
-        result.status = ChecksumResult::Status::Unchanged;
+    case Outcome::kUnchanged:
+        result.status = ChecksumResult::Status::kUnchanged;
         result.message = "Checksums OK";
         break;
-    case Outcome::Corrected:
-        result.status = ChecksumResult::Status::Corrected;
+    case Outcome::kCorrected:
+        result.status = ChecksumResult::Status::kCorrected;
         result.message = "Checksums corrected";
         break;
-    case Outcome::Disabled:
-        result.status = ChecksumResult::Status::Disabled;
+    case Outcome::kDisabled:
+        result.status = ChecksumResult::Status::kDisabled;
         result.message = "ROM has all checksums disabled";
         break;
-    case Outcome::InvalidRecordLength:
-        result.status = ChecksumResult::Status::ParseError;
+    case Outcome::kInvalidRecordLength:
+        result.status = ChecksumResult::Status::kParseError;
         result.message = "Checksum area length must be a multiple of 12 bytes";
         break;
-    case Outcome::InvalidTableRange:
-        result.status = ChecksumResult::Status::InvalidSize;
+    case Outcome::kInvalidTableRange:
+        result.status = ChecksumResult::Status::kInvalidSize;
         result.message = "ROM is too small for the configured checksum area";
         break;
-    case Outcome::InvalidBlockRange:
-        result.status = ChecksumResult::Status::InvalidSize;
+    case Outcome::kInvalidBlockRange:
+        result.status = ChecksumResult::Status::kInvalidSize;
         result.message = "ROM is too small for a checksum block range";
         break;
     }

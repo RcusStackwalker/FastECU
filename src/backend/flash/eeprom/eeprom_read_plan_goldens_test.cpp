@@ -46,12 +46,12 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     InMemoryFileRepository repository;
     repository.files["kernels/ssmk_can_tp_sh7058.bin"] = {0x01, 0x02, 0x03};
 
-    auto plan = build_eeprom_read_plan(test_paths(), kCan, EepromReadMode::Mode2, repository);
+    auto plan = build_eeprom_read_plan(test_paths(), kCan, EepromReadMode::kMode2, repository);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->operation(), FlashOperation::Read);
-    EXPECT_EQ(plan->family(), FlashFamily::DensoSh705xEepromCan);
-    EXPECT_EQ(plan->transport(), TransportKind::CanIso15765);
+    EXPECT_EQ(plan->operation(), FlashOperation::kRead);
+    EXPECT_EQ(plan->family(), FlashFamily::kDensoSh705xEepromCan);
+    EXPECT_EQ(plan->transport(), TransportKind::kCanIso15765);
     EXPECT_EQ(plan->target_id(), "sub_ecu_eeprom_denso_sh7058_can");
     EXPECT_EQ(plan->mcu_name(), "SH7058");
     ASSERT_TRUE(plan->kernel().has_value());
@@ -67,8 +67,8 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
     // through to DensoSecurityVariant::Stock.
     const auto *can_plan = std::get_if<DensoSh705xEepromCanPlan>(&plan->family_plan());
     ASSERT_NE(can_plan, nullptr);
-    EXPECT_EQ(can_plan->mode, EepromReadMode::Mode2);
-    EXPECT_EQ(can_plan->security, DensoSecurityVariant::Stock);
+    EXPECT_EQ(can_plan->mode, EepromReadMode::kMode2);
+    EXPECT_EQ(can_plan->security, DensoSecurityVariant::kStock);
     EXPECT_EQ(can_plan->request_id, 0x7e0U);
     EXPECT_EQ(can_plan->response_id, 0x7e8U);
     EXPECT_EQ(can_plan->bitrate, 500000);
@@ -76,8 +76,8 @@ TEST(EepromReadPlanGolden, Sh7058CanMode2)
 
     // confirmations_for_mode(Mode2): two entries, no CycleIgnition.
     ASSERT_EQ(plan->confirmations().size(), 2U);
-    EXPECT_EQ(plan->confirmations()[0].id, ConfirmationSpec::Id::BeginEepromRead);
-    EXPECT_EQ(plan->confirmations()[1].id, ConfirmationSpec::Id::InspectEepromBytes);
+    EXPECT_EQ(plan->confirmations()[0].id, ConfirmationSpec::Id::kBeginEepromRead);
+    EXPECT_EQ(plan->confirmations()[1].id, ConfirmationSpec::Id::kInspectEepromBytes);
 }
 
 TEST(EepromReadPlanGolden, Sh7055KlineMode4)
@@ -85,12 +85,12 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     InMemoryFileRepository repository;
     repository.files["kernels/ssmk_kline_sh7055.bin"] = {0xaa, 0xbb};
 
-    auto plan = build_eeprom_read_plan(test_paths(), kKline, EepromReadMode::Mode4, repository);
+    auto plan = build_eeprom_read_plan(test_paths(), kKline, EepromReadMode::kMode4, repository);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->operation(), FlashOperation::Read);
-    EXPECT_EQ(plan->family(), FlashFamily::DensoSh705xEepromKline);
-    EXPECT_EQ(plan->transport(), TransportKind::Kline);
+    EXPECT_EQ(plan->operation(), FlashOperation::kRead);
+    EXPECT_EQ(plan->family(), FlashFamily::kDensoSh705xEepromKline);
+    EXPECT_EQ(plan->transport(), TransportKind::kKline);
     EXPECT_EQ(plan->target_id(), "sub_ecu_eeprom_denso_sh7055_kline");
     EXPECT_EQ(plan->mcu_name(), "SH7055");
     ASSERT_TRUE(plan->kernel().has_value());
@@ -105,8 +105,8 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     // security_for_protocol falls through to DensoSecurityVariant::Stock.
     const auto *kline_plan = std::get_if<DensoSh705xEepromKlinePlan>(&plan->family_plan());
     ASSERT_NE(kline_plan, nullptr);
-    EXPECT_EQ(kline_plan->mode, EepromReadMode::Mode4);
-    EXPECT_EQ(kline_plan->security, DensoSecurityVariant::Stock);
+    EXPECT_EQ(kline_plan->mode, EepromReadMode::kMode4);
+    EXPECT_EQ(kline_plan->security, DensoSecurityVariant::kStock);
     EXPECT_EQ(kline_plan->tester_id, 0xf0);
     EXPECT_EQ(kline_plan->target_id, 0x10);
     EXPECT_EQ(kline_plan->initial_baud, 4800);
@@ -115,9 +115,9 @@ TEST(EepromReadPlanGolden, Sh7055KlineMode4)
     // confirmations_for_mode(Mode4): three entries, CycleIgnition inserted
     // between the begin/inspect pair (the non-Mode2 branch).
     ASSERT_EQ(plan->confirmations().size(), 3U);
-    EXPECT_EQ(plan->confirmations()[0].id, ConfirmationSpec::Id::BeginEepromRead);
-    EXPECT_EQ(plan->confirmations()[1].id, ConfirmationSpec::Id::CycleIgnition);
-    EXPECT_EQ(plan->confirmations()[2].id, ConfirmationSpec::Id::InspectEepromBytes);
+    EXPECT_EQ(plan->confirmations()[0].id, ConfirmationSpec::Id::kBeginEepromRead);
+    EXPECT_EQ(plan->confirmations()[1].id, ConfirmationSpec::Id::kCycleIgnition);
+    EXPECT_EQ(plan->confirmations()[2].id, ConfirmationSpec::Id::kInspectEepromBytes);
 }
 
 } // namespace

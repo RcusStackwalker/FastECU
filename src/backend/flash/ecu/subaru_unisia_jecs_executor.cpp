@@ -30,7 +30,7 @@ struct RawReadState
 
 Status cancelled_if_requested(const ICancellationToken& cancellation)
 {
-    return cancellation.cancelled() ? fail(ErrorKind::Cancelled, "cancelled while reading Unisia Jecs ROM") : Status{};
+    return cancellation.cancelled() ? fail(ErrorKind::kCancelled, "cancelled while reading Unisia Jecs ROM") : Status{};
 }
 
 bytes::Bytes request_for(std::uint16_t address)
@@ -45,7 +45,7 @@ Status write_exact(IKlineFlashTransport& transport, bytes::ByteView request, boo
     {
         return std::unexpected(written.error());
     }
-    return *written == request.size() ? Status{} : fail(ErrorKind::Disconnected, "short K-Line write");
+    return *written == request.size() ? Status{} : fail(ErrorKind::kDisconnected, "short K-Line write");
 }
 
 Result<bytes::Byte> read_address(std::uint16_t address, RawReadState& state, IKlineFlashTransport& transport,
@@ -126,7 +126,7 @@ Result<KlineConfig> SubaruUnisiaJecsExecutor::transport_setup(const FlashPlan& p
     {
         return std::unexpected(valid.error());
     }
-    return KlineConfig{.baud = 1953, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::Even};
+    return KlineConfig{.baud = 1953, .iso14230 = false, .tester_id = 0, .target_id = 0, .parity = KlineParity::kEven};
 }
 
 Result<bytes::Bytes> SubaruUnisiaJecsExecutor::read_range(std::uint32_t begin, std::uint32_t end,
@@ -184,6 +184,6 @@ Result<FlashExecutionResult> SubaruUnisiaJecsExecutor::execute(const FlashPlan& 
         return std::unexpected(image.error());
     }
     return FlashExecutionResult{
-        .operation = FlashOperation::Read, .read_bytes = std::move(*image), .rom_id = std::nullopt};
+        .operation = FlashOperation::kRead, .read_bytes = std::move(*image), .rom_id = std::nullopt};
 }
 } // namespace fastecu::flash

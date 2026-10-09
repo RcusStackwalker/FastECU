@@ -15,7 +15,7 @@ namespace fastecu::flash
 
 struct FlashDialogResult
 {
-    FlashWorkflowOutcome outcome = FlashWorkflowOutcome::Failed;
+    FlashWorkflowOutcome outcome = FlashWorkflowOutcome::kFailed;
     std::optional<bytes::Bytes> accepted_read_bytes;
     std::optional<std::string> rom_id;
 };

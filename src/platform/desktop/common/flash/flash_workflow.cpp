@@ -92,24 +92,24 @@ class FlashAttemptOutcome
     void succeed(std::optional<bytes::Bytes> bytes = std::nullopt, std::optional<std::string> rom_id = std::nullopt)
     {
         terminal_ = true;
-        outcome_ = FlashWorkflowOutcome::Succeeded;
+        outcome_ = FlashWorkflowOutcome::kSucceeded;
         bytes_ = std::move(bytes);
         rom_id_ = std::move(rom_id);
     }
     void cancel()
     {
         terminal_ = true;
-        outcome_ = FlashWorkflowOutcome::Cancelled;
+        outcome_ = FlashWorkflowOutcome::kCancelled;
     }
     void discard()
     {
         terminal_ = true;
-        outcome_ = FlashWorkflowOutcome::Discarded;
+        outcome_ = FlashWorkflowOutcome::kDiscarded;
     }
     void fail(Error error)
     {
         terminal_ = true;
-        outcome_ = FlashWorkflowOutcome::Failed;
+        outcome_ = FlashWorkflowOutcome::kFailed;
         failure_ = std::move(error);
     }
 
@@ -121,7 +121,7 @@ class FlashAttemptOutcome
         {
             succeed(std::move(result.read_bytes), std::move(result.rom_id));
         }
-        else if (result.error_kind == ErrorKind::Cancelled)
+        else if (result.error_kind == ErrorKind::kCancelled)
         {
             cancel();
         }
@@ -151,7 +151,7 @@ class FlashAttemptOutcome
 
   private:
     bool terminal_ = false;
-    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::Failed;
+    FlashWorkflowOutcome outcome_ = FlashWorkflowOutcome::kFailed;
     std::optional<bytes::Bytes> bytes_;
     std::optional<std::string> rom_id_;
     std::optional<Error> failure_;
@@ -161,7 +161,7 @@ Result<KernelImage> resolveKernel(const FlashWorkflowRequest& request, IFileRepo
 {
     if (!request.protocol.kernel_load_address.has_value())
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(ErrorKind::kInvalidConfig,
                     std::format("protocol '{}' declares no kernel load address", request.protocol.name));
     }
     Result<std::vector<std::uint8_t>> kernel_bytes =
@@ -240,7 +240,7 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
         if (plan_.has_value())
         {
             needs_vpp_ = std::ranges::any_of(plan_->confirmations(), [](const ConfirmationSpec& spec)
-                                             { return spec.id == ConfirmationSpec::Id::ApplyProgrammingVoltage; });
+                                             { return spec.id == ConfirmationSpec::Id::kApplyProgrammingVoltage; });
         }
     }
 
@@ -251,9 +251,9 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
             return FlashFailureStep{plan_.error()};
         }
         // The reminder precedes whatever the attempt produced, failure included.
-        if (stage_ == Stage::RemoveVpp)
+        if (stage_ == Stage::kRemoveVpp)
         {
-            return FlashPromptStep{FlashPromptKind::RemoveProgrammingVoltage,
+            return FlashPromptStep{FlashPromptKind::kRemoveProgrammingVoltage,
                                    {{"outcome", attempt_outcome_}, {"external_vpp", needs_vpp_ ? "yes" : "no"}}};
         }
         if (auto failure = outcome_.takeFailure(); failure.has_value())
@@ -264,17 +264,17 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
         {
             return outcome_.completedStep();
         }
-        if (stage_ == Stage::Begin)
+        if (stage_ == Stage::kBegin)
         {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
+            return FlashPromptStep{FlashPromptKind::kBegin, {}};
         }
-        if (stage_ == Stage::ApplyVpp)
+        if (stage_ == Stage::kApplyVpp)
         {
-            return FlashPromptStep{FlashPromptKind::ApplyProgrammingVoltage, {}};
+            return FlashPromptStep{FlashPromptKind::kApplyProgrammingVoltage, {}};
         }
-        if (stage_ == Stage::Attempt)
+        if (stage_ == Stage::kAttempt)
         {
-            stage_ = Stage::Done;
+            stage_ = Stage::kDone;
             return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
                                      bind_flash_attempt(std::move(*plan_),
                                                         std::make_unique<SubaruUnisiaJecsM32rKlineExecutor>(),
@@ -288,20 +288,20 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
     {
         switch (stage_)
         {
-        case Stage::Begin:
-        case Stage::ApplyVpp:
-            if (response != FlashPromptResponse::Accept)
+        case Stage::kBegin:
+        case Stage::kApplyVpp:
+            if (response != FlashPromptResponse::kAccept)
             {
                 outcome_.cancel();
                 return;
             }
-            stage_ = stage_ == Stage::Begin && needs_vpp_ ? Stage::ApplyVpp : Stage::Attempt;
+            stage_ = stage_ == Stage::kBegin && needs_vpp_ ? Stage::kApplyVpp : Stage::kAttempt;
             return;
-        case Stage::RemoveVpp:
-            stage_ = Stage::Done; // OK-only notice
+        case Stage::kRemoveVpp:
+            stage_ = Stage::kDone; // OK-only notice
             return;
-        case Stage::Attempt:
-        case Stage::Done:
+        case Stage::kAttempt:
+        case Stage::kDone:
             return;
         }
     }
@@ -313,10 +313,10 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
         // operator applied external VPP, success included.
         if (is_write_ && (needs_vpp_ || !result.success))
         {
-            attempt_outcome_ = result.success                              ? "succeeded"
-                               : result.error_kind == ErrorKind::Cancelled ? "cancelled"
-                                                                           : "failed";
-            stage_ = Stage::RemoveVpp;
+            attempt_outcome_ = result.success                               ? "succeeded"
+                               : result.error_kind == ErrorKind::kCancelled ? "cancelled"
+                                                                            : "failed";
+            stage_ = Stage::kRemoveVpp;
         }
         outcome_.record(std::move(result));
     }
@@ -324,18 +324,18 @@ class SubaruUnisiaJecsM32rKlineWorkflow final : public FlashWorkflow
   private:
     enum class Stage
     {
-        Begin,
-        ApplyVpp,
-        Attempt,
-        RemoveVpp,
-        Done,
+        kBegin,
+        kApplyVpp,
+        kAttempt,
+        kRemoveVpp,
+        kDone,
     };
 
     FlashWorkflowRequest request_;
     Result<FlashPlan> plan_;
-    bool is_write_ = request_.operation == FlashOperation::Write;
+    bool is_write_ = request_.operation == FlashOperation::kWrite;
     bool needs_vpp_ = false;
-    Stage stage_ = Stage::Begin;
+    Stage stage_ = Stage::kBegin;
     std::string attempt_outcome_;
     FlashAttemptOutcome outcome_;
 };
@@ -363,9 +363,9 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
             return FlashFailureStep{built_->error()};
         }
         // The notice precedes whatever the attempt produced, failure included.
-        if (stage_ == Stage::Notice)
+        if (stage_ == Stage::kNotice)
         {
-            return FlashPromptStep{FlashPromptKind::RemoveProgrammingVoltage,
+            return FlashPromptStep{FlashPromptKind::kRemoveProgrammingVoltage,
                                    {{"outcome", notice_outcome_}, {"external_vpp", "yes"}, {"power_off_advice", "no"}}};
         }
         if (auto failure = outcome_.takeFailure(); failure.has_value())
@@ -378,29 +378,29 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         }
         switch (stage_)
         {
-        case Stage::Begin:
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
-        case Stage::ApplyVoltages:
-            return FlashPromptStep{FlashPromptKind::ApplyBootModeVoltages, {}};
-        case Stage::FirstAttempt:
-            stage_ = Stage::AwaitFirst;
+        case Stage::kBegin:
+            return FlashPromptStep{FlashPromptKind::kBegin, {}};
+        case Stage::kApplyVoltages:
+            return FlashPromptStep{FlashPromptKind::kApplyBootModeVoltages, {}};
+        case Stage::kFirstAttempt:
+            stage_ = Stage::kAwaitFirst;
             return firstAttempt();
-        case Stage::RemoveMod1:
-            return FlashPromptStep{FlashPromptKind::RemoveMod1, {}};
-        case Stage::ProgramAttempt:
+        case Stage::kRemoveMod1:
+            return FlashPromptStep{FlashPromptKind::kRemoveMod1, {}};
+        case Stage::kProgramAttempt:
         {
             std::optional<FlashPlan>& program = (*built_)->program;
             if (!program.has_value())
             {
-                return FlashFailureStep{Error{ErrorKind::Internal, "the Unisia JECS program plan was not built"}};
+                return FlashFailureStep{Error{ErrorKind::kInternal, "the Unisia JECS program plan was not built"}};
             }
-            stage_ = Stage::AwaitProgram;
+            stage_ = Stage::kAwaitProgram;
             return attempt(std::move(*program), std::make_unique<SubaruUnisiaJecsM32rBootModeProgramExecutor>());
         }
-        case Stage::AwaitFirst:
-        case Stage::AwaitProgram:
-        case Stage::Notice:
-        case Stage::Done:
+        case Stage::kAwaitFirst:
+        case Stage::kAwaitProgram:
+        case Stage::kNotice:
+        case Stage::kDone:
             break;
         }
         return outcome_.completedStep();
@@ -410,34 +410,34 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
     {
         switch (stage_)
         {
-        case Stage::Begin:
-        case Stage::ApplyVoltages:
-            if (response != FlashPromptResponse::Accept)
+        case Stage::kBegin:
+        case Stage::kApplyVoltages:
+            if (response != FlashPromptResponse::kAccept)
             {
                 outcome_.cancel();
                 return;
             }
-            stage_ = stage_ == Stage::Begin && is_write() ? Stage::ApplyVoltages : Stage::FirstAttempt;
+            stage_ = stage_ == Stage::kBegin && is_write() ? Stage::kApplyVoltages : Stage::kFirstAttempt;
             return;
-        case Stage::RemoveMod1:
-            if (response != FlashPromptResponse::Accept)
+        case Stage::kRemoveMod1:
+            if (response != FlashPromptResponse::kAccept)
             {
                 // The kernel runs and nothing is erased; still ask for VPP removal.
                 notice_outcome_ = "cancelled";
-                stage_ = Stage::Notice;
+                stage_ = Stage::kNotice;
                 outcome_.cancel();
                 return;
             }
-            stage_ = Stage::ProgramAttempt;
+            stage_ = Stage::kProgramAttempt;
             return;
-        case Stage::Notice:
-            stage_ = Stage::Done; // OK-only notice
+        case Stage::kNotice:
+            stage_ = Stage::kDone; // OK-only notice
             return;
-        case Stage::FirstAttempt:
-        case Stage::AwaitFirst:
-        case Stage::ProgramAttempt:
-        case Stage::AwaitProgram:
-        case Stage::Done:
+        case Stage::kFirstAttempt:
+        case Stage::kAwaitFirst:
+        case Stage::kProgramAttempt:
+        case Stage::kAwaitProgram:
+        case Stage::kDone:
             return;
         }
     }
@@ -450,30 +450,30 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
             return;
         }
         // A successful kernel upload is not an outcome yet: RemoveMod1 follows.
-        if (stage_ == Stage::AwaitFirst && result.success)
+        if (stage_ == Stage::kAwaitFirst && result.success)
         {
-            stage_ = Stage::RemoveMod1;
+            stage_ = Stage::kRemoveMod1;
             return;
         }
-        notice_outcome_ = result.success                              ? "succeeded"
-                          : result.error_kind == ErrorKind::Cancelled ? "cancelled"
-                                                                      : "failed";
-        stage_ = Stage::Notice;
+        notice_outcome_ = result.success                               ? "succeeded"
+                          : result.error_kind == ErrorKind::kCancelled ? "cancelled"
+                                                                       : "failed";
+        stage_ = Stage::kNotice;
         outcome_.record(std::move(result));
     }
 
   private:
     enum class Stage
     {
-        Begin,
-        ApplyVoltages,
-        FirstAttempt,
-        AwaitFirst,
-        RemoveMod1,
-        ProgramAttempt,
-        AwaitProgram,
-        Notice,
-        Done,
+        kBegin,
+        kApplyVoltages,
+        kFirstAttempt,
+        kAwaitFirst,
+        kRemoveMod1,
+        kProgramAttempt,
+        kAwaitProgram,
+        kNotice,
+        kDone,
     };
 
     struct Plans
@@ -484,7 +484,7 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
 
     bool is_write() const
     {
-        return request_.operation != FlashOperation::Read;
+        return request_.operation != FlashOperation::kRead;
     }
 
     Result<Plans> buildPlans()
@@ -492,7 +492,7 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
         if (!is_write())
         {
             // adapter_supplies_programming_voltage is irrelevant to Read.
-            auto read = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::Read, request_.protocol.name,
+            auto read = build_subaru_unisia_jecs_m32r_kline_plan(FlashOperation::kRead, request_.protocol.name,
                                                                  request_.protocol.mcu, std::nullopt, true);
             if (!read.has_value())
             {
@@ -527,12 +527,12 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
     {
         if (!built_.has_value() || !built_->has_value())
         {
-            return FlashFailureStep{Error{ErrorKind::Internal, "the Unisia JECS plans were not built"}};
+            return FlashFailureStep{Error{ErrorKind::kInternal, "the Unisia JECS plans were not built"}};
         }
         std::optional<FlashPlan>& first = (*built_)->first;
         if (!first.has_value())
         {
-            return FlashFailureStep{Error{ErrorKind::Internal, "the Unisia JECS first-stage plan was not built"}};
+            return FlashFailureStep{Error{ErrorKind::kInternal, "the Unisia JECS first-stage plan was not built"}};
         }
         FlashPlan plan = std::move(*first);
         if (!is_write())
@@ -552,7 +552,7 @@ class SubaruUnisiaJecsM32rBootModeWorkflow final : public FlashWorkflow
 
     FlashWorkflowRequest request_;
     std::optional<Result<Plans>> built_;
-    Stage stage_ = Stage::Begin;
+    Stage stage_ = Stage::kBegin;
     std::string notice_outcome_;
     FlashAttemptOutcome outcome_;
 };
@@ -566,30 +566,30 @@ Result<FlashPromptStep> confirmationPrompt(const ConfirmationSpec& confirmation)
     using enum ConfirmationSpec::Id;
     switch (confirmation.id)
     {
-    case CycleIgnition:
-        return FlashPromptStep{FlashPromptKind::CycleIgnition, confirmation.arguments};
-    case EraseTrigger:
-        return FlashPromptStep{FlashPromptKind::ColtEraseTrigger, confirmation.arguments};
-    case TopRegionBootstrap:
-        return FlashPromptStep{FlashPromptKind::ColtTopRegionBootstrap, confirmation.arguments};
-    case StartKlineRead:
-        return FlashPromptStep{FlashPromptKind::ConfirmSh7058Read, confirmation.arguments};
-    case KernelBootstrap:
-        return FlashPromptStep{FlashPromptKind::ConfirmBdmKernelBootstrap, confirmation.arguments};
-    case BeginEepromRead:
-    case InspectEepromBytes:
-    case ApplyProgrammingVoltage:
-    case ApplyBootModeVoltages:
+    case kCycleIgnition:
+        return FlashPromptStep{FlashPromptKind::kCycleIgnition, confirmation.arguments};
+    case kEraseTrigger:
+        return FlashPromptStep{FlashPromptKind::kColtEraseTrigger, confirmation.arguments};
+    case kTopRegionBootstrap:
+        return FlashPromptStep{FlashPromptKind::kColtTopRegionBootstrap, confirmation.arguments};
+    case kStartKlineRead:
+        return FlashPromptStep{FlashPromptKind::kConfirmSh7058Read, confirmation.arguments};
+    case kKernelBootstrap:
+        return FlashPromptStep{FlashPromptKind::kConfirmBdmKernelBootstrap, confirmation.arguments};
+    case kBeginEepromRead:
+    case kInspectEepromBytes:
+    case kApplyProgrammingVoltage:
+    case kApplyBootModeVoltages:
         break;
     }
-    return fail(ErrorKind::Internal,
+    return fail(ErrorKind::kInternal,
                 std::format("confirmation {} has no single-attempt prompt", static_cast<int>(confirmation.id)));
 }
 
 // Begin, then one prompt per plan confirmation, in plan order.
 Result<std::vector<FlashPromptStep>> promptSequence(const FlashPlan& plan)
 {
-    std::vector<FlashPromptStep> prompts{FlashPromptStep{FlashPromptKind::Begin, {}}};
+    std::vector<FlashPromptStep> prompts{FlashPromptStep{FlashPromptKind::kBegin, {}}};
     for (const ConfirmationSpec& confirmation : plan.confirmations())
     {
         Result<FlashPromptStep> prompt = confirmationPrompt(confirmation);
@@ -697,7 +697,7 @@ Result<FlashPlan> prepareMc68(FlashWorkflowRequest& request)
 // forwarded: BDM never writes the ROM.
 Result<FlashPlan> prepareBdm(FlashWorkflowRequest& request)
 {
-    if (request.operation != FlashOperation::Write)
+    if (request.operation != FlashOperation::kWrite)
     {
         return build_subaru_denso_mc68hc16y5_02_bdm_plan(request.operation, request.protocol.name, request.protocol.mcu,
                                                          std::nullopt, std::nullopt);
@@ -771,7 +771,7 @@ class SingleAttemptFlashWorkflow final : public FlashWorkflow
 
     void submit(FlashPromptResponse response) override
     {
-        if (response != FlashPromptResponse::Accept)
+        if (response != FlashPromptResponse::kAccept)
         {
             outcome_.cancel();
             return;
@@ -882,9 +882,9 @@ class EepromWorkflow final : public FlashWorkflow
 
     FlashWorkflowStep next() override
     {
-        if (request_.operation != FlashOperation::Read)
+        if (request_.operation != FlashOperation::kRead)
         {
-            return FlashFailureStep{Error{ErrorKind::Unsupported, "EEPROM workflows support read operations only"}};
+            return FlashFailureStep{Error{ErrorKind::kUnsupported, "EEPROM workflows support read operations only"}};
         }
         if (auto failure = outcome_.takeFailure(); failure.has_value())
         {
@@ -896,15 +896,15 @@ class EepromWorkflow final : public FlashWorkflow
         }
         if (!begun_)
         {
-            return FlashPromptStep{FlashPromptKind::Begin, {}};
+            return FlashPromptStep{FlashPromptKind::kBegin, {}};
         }
         if (need_cycle_)
         {
-            return FlashPromptStep{FlashPromptKind::CycleIgnition, {}};
+            return FlashPromptStep{FlashPromptKind::kCycleIgnition, {}};
         }
         if (inspect_)
         {
-            return FlashPromptStep{FlashPromptKind::InspectRead, {}};
+            return FlashPromptStep{FlashPromptKind::kInspectRead, {}};
         }
 
         QtFileRepository repository;
@@ -913,7 +913,7 @@ class EepromWorkflow final : public FlashWorkflow
         {
             return FlashFailureStep{plan.error()};
         }
-        if (plan->transport() == TransportKind::Kline)
+        if (plan->transport() == TransportKind::kKline)
         {
             return FlashWorkflowStep{std::in_place_type<FlashAttempt>,
                                      bind_flash_attempt(std::move(*plan),
@@ -931,7 +931,7 @@ class EepromWorkflow final : public FlashWorkflow
     {
         if (!begun_)
         {
-            if (response == FlashPromptResponse::Accept)
+            if (response == FlashPromptResponse::kAccept)
             {
                 begun_ = true;
             }
@@ -944,7 +944,7 @@ class EepromWorkflow final : public FlashWorkflow
         if (need_cycle_)
         {
             need_cycle_ = false;
-            if (response != FlashPromptResponse::Accept)
+            if (response != FlashPromptResponse::kAccept)
             {
                 outcome_.cancel();
             }
@@ -953,11 +953,11 @@ class EepromWorkflow final : public FlashWorkflow
         if (inspect_)
         {
             inspect_ = false;
-            if (response == FlashPromptResponse::Save)
+            if (response == FlashPromptResponse::kSave)
             {
                 outcome_.succeed(std::move(pending_));
             }
-            else if (mode_ == EepromReadMode::Mode4)
+            else if (mode_ == EepromReadMode::kMode4)
             {
                 outcome_.discard();
             }
@@ -977,11 +977,11 @@ class EepromWorkflow final : public FlashWorkflow
             pending_ = std::move(result.read_bytes);
             inspect_ = true;
         }
-        else if (result.error_kind == ErrorKind::Cancelled)
+        else if (result.error_kind == ErrorKind::kCancelled)
         {
             outcome_.cancel();
         }
-        else if (mode_ != EepromReadMode::Mode4)
+        else if (mode_ != EepromReadMode::kMode4)
         {
             advance();
         }
@@ -995,11 +995,11 @@ class EepromWorkflow final : public FlashWorkflow
     void advance()
     {
         using enum EepromReadMode;
-        mode_ = mode_ == Mode2 ? Mode3 : Mode4;
+        mode_ = mode_ == kMode2 ? kMode3 : kMode4;
     }
 
     FlashWorkflowRequest request_;
-    EepromReadMode mode_ = EepromReadMode::Mode2;
+    EepromReadMode mode_ = EepromReadMode::kMode2;
     bool begun_ = false;
     bool need_cycle_ = false;
     bool inspect_ = false;
@@ -1009,119 +1009,119 @@ class EepromWorkflow final : public FlashWorkflow
 
 enum class RouteMatch
 {
-    Prefix,
-    Exact,
+    kPrefix,
+    kExact,
 };
 
 struct Route
 {
     enum class Kind
     {
-        Colt,
-        Eeprom,
-        SubaruMitsuM32rKline,
-        SubaruHitachiM32rKline,
-        SubaruDensoMc68hc16y5_02,
-        SubaruDensoSh7055_02,
-        SubaruDensoSh705xDensoCan,
-        SubaruTcuDensoSh705xCan,
-        SubaruDensoSh7058Can,
-        SubaruDensoSh7058CanDiesel,
-        SubaruHitachiM32rCan,
-        SubaruTcuHitachiM32rKline,
-        SubaruUnisiaJecs,
-        SubaruTcuHitachiM32rCan,
-        SubaruHitachiSh72543rCan,
-        SubaruHitachiSh7058,
-        SubaruTcuCvtHitachiM32rCan,
-        SubaruTcuCvtMitsuMh8111Can,
-        SubaruTcuCvtMitsuMh8104Can,
-        SubaruDenso1n83m_1_5mCan,
-        SubaruDensoSh72531Can,
-        SubaruDensoSh72543CanDiesel,
-        SubaruDenso1n83m_4mCan,
-        SubaruDensoSh705xKline,
-        SubaruDensoMc68hc16y5_02Bdm,
-        SubaruUnisiaJecsM32rKline,
-        SubaruUnisiaJecsM32rBootMode,
-        Unrouted,
+        kColt,
+        kEeprom,
+        kSubaruMitsuM32rKline,
+        kSubaruHitachiM32rKline,
+        kSubaruDensoMc68hc16y502,
+        kSubaruDensoSh705502,
+        kSubaruDensoSh705xDensoCan,
+        kSubaruTcuDensoSh705xCan,
+        kSubaruDensoSh7058Can,
+        kSubaruDensoSh7058CanDiesel,
+        kSubaruHitachiM32rCan,
+        kSubaruTcuHitachiM32rKline,
+        kSubaruUnisiaJecs,
+        kSubaruTcuHitachiM32rCan,
+        kSubaruHitachiSh72543rCan,
+        kSubaruHitachiSh7058,
+        kSubaruTcuCvtHitachiM32rCan,
+        kSubaruTcuCvtMitsuMh8111Can,
+        kSubaruTcuCvtMitsuMh8104Can,
+        kSubaruDenso1n83m15mCan,
+        kSubaruDensoSh72531Can,
+        kSubaruDensoSh72543CanDiesel,
+        kSubaruDenso1n83m4mCan,
+        kSubaruDensoSh705xKline,
+        kSubaruDensoMc68hc16y502Bdm,
+        kSubaruUnisiaJecsM32rKline,
+        kSubaruUnisiaJecsM32rBootMode,
+        kUnrouted,
     };
 
     std::string_view pattern;
     Kind kind;
-    RouteMatch match = RouteMatch::Prefix;
+    RouteMatch match = RouteMatch::kPrefix;
 };
 
 using enum Route::Kind;
 
 constexpr auto kRoutes = std::to_array<Route>({
-    {"sub_ecu_hitachi_m32r_kline", SubaruHitachiM32rKline},
-    {"sub_ecu_mitsu_m32r_kline", SubaruMitsuM32rKline},
-    {"mitsu_ecu_m32r_can", Colt},
-    {"sub_ecu_eeprom_denso_sh7055_kline", Eeprom},
-    {"sub_ecu_eeprom_denso_sh7058_kline", Eeprom},
-    {"sub_ecu_eeprom_denso_sh7055_densocan", Eeprom},
-    {"sub_ecu_eeprom_denso_sh7058_densocan", Eeprom},
-    {"sub_ecu_eeprom_denso_sh7058_can_diesel", Eeprom},
-    {"sub_ecu_eeprom_denso_sh7058_can", Eeprom},
-    {"sub_ecu_denso_sh7055_densocan", SubaruDensoSh705xDensoCan, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7058_densocan", SubaruDensoSh705xDensoCan, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7058s_densocan", SubaruDensoSh705xDensoCan, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7058s_diesel_densocan", SubaruDensoSh705xDensoCan, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7059_diesel_densocan", SubaruDensoSh705xDensoCan, RouteMatch::Exact},
-    {"sub_tcu_denso_sh7055_can", SubaruTcuDensoSh705xCan, RouteMatch::Exact},
-    {"sub_tcu_denso_sh7058_can", SubaruTcuDensoSh705xCan, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7058_can", SubaruDensoSh7058Can, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7058_can_ecutek", SubaruDensoSh7058Can, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7058_can_ecutek_racerom", SubaruDensoSh7058Can, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7058_can_ecutek_racerom_alt", SubaruDensoSh7058Can, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7058_can_cobb", SubaruDensoSh7058Can, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7058_can_diesel", SubaruDensoSh7058CanDiesel, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7059_can_diesel", SubaruDensoSh7058CanDiesel, RouteMatch::Exact},
+    {"sub_ecu_hitachi_m32r_kline", kSubaruHitachiM32rKline},
+    {"sub_ecu_mitsu_m32r_kline", kSubaruMitsuM32rKline},
+    {"mitsu_ecu_m32r_can", kColt},
+    {"sub_ecu_eeprom_denso_sh7055_kline", kEeprom},
+    {"sub_ecu_eeprom_denso_sh7058_kline", kEeprom},
+    {"sub_ecu_eeprom_denso_sh7055_densocan", kEeprom},
+    {"sub_ecu_eeprom_denso_sh7058_densocan", kEeprom},
+    {"sub_ecu_eeprom_denso_sh7058_can_diesel", kEeprom},
+    {"sub_ecu_eeprom_denso_sh7058_can", kEeprom},
+    {"sub_ecu_denso_sh7055_densocan", kSubaruDensoSh705xDensoCan, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7058_densocan", kSubaruDensoSh705xDensoCan, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7058s_densocan", kSubaruDensoSh705xDensoCan, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7058s_diesel_densocan", kSubaruDensoSh705xDensoCan, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7059_diesel_densocan", kSubaruDensoSh705xDensoCan, RouteMatch::kExact},
+    {"sub_tcu_denso_sh7055_can", kSubaruTcuDensoSh705xCan, RouteMatch::kExact},
+    {"sub_tcu_denso_sh7058_can", kSubaruTcuDensoSh705xCan, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7058_can", kSubaruDensoSh7058Can, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7058_can_ecutek", kSubaruDensoSh7058Can, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7058_can_ecutek_racerom", kSubaruDensoSh7058Can, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7058_can_ecutek_racerom_alt", kSubaruDensoSh7058Can, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7058_can_cobb", kSubaruDensoSh7058Can, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7058_can_diesel", kSubaruDensoSh7058CanDiesel, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7059_can_diesel", kSubaruDensoSh7058CanDiesel, RouteMatch::kExact},
     // Keep this longer prefix before the bare MC68 _02 row so no _02_bdm*
     // name reaches the K-Line family; the BDM plan rejects all but the exact
     // protocol.
-    {"sub_ecu_denso_mc68hc16y5_02_bdm", SubaruDensoMc68hc16y5_02Bdm},
-    {"sub_ecu_denso_mc68hc16y5_02", SubaruDensoMc68hc16y5_02},
-    {"sub_ecu_denso_sh7055_02", SubaruDensoSh7055_02},
-    {"sub_ecu_denso_sh7055_04", SubaruDensoSh705xKline, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7055_04_ecutek", SubaruDensoSh705xKline, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7055_04_cobb", SubaruDensoSh705xKline, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7058", SubaruDensoSh705xKline, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7058_ecutek", SubaruDensoSh705xKline, RouteMatch::Exact},
-    {"sub_ecu_denso_sh7058_cobb", SubaruDensoSh705xKline, RouteMatch::Exact},
-    {"sub_ecu_hitachi_m32r_can", SubaruHitachiM32rCan},
-    {"sub_tcu_hitachi_m32r_kline", SubaruTcuHitachiM32rKline, RouteMatch::Exact},
-    {"sub_ecu_unisia_jecs_m3779x", SubaruUnisiaJecs, RouteMatch::Exact},
-    {"sub_ecu_unisia_jecs_m3775x", SubaruUnisiaJecs, RouteMatch::Exact},
+    {"sub_ecu_denso_mc68hc16y5_02_bdm", kSubaruDensoMc68hc16y502Bdm},
+    {"sub_ecu_denso_mc68hc16y5_02", kSubaruDensoMc68hc16y502},
+    {"sub_ecu_denso_sh7055_02", kSubaruDensoSh705502},
+    {"sub_ecu_denso_sh7055_04", kSubaruDensoSh705xKline, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7055_04_ecutek", kSubaruDensoSh705xKline, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7055_04_cobb", kSubaruDensoSh705xKline, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7058", kSubaruDensoSh705xKline, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7058_ecutek", kSubaruDensoSh705xKline, RouteMatch::kExact},
+    {"sub_ecu_denso_sh7058_cobb", kSubaruDensoSh705xKline, RouteMatch::kExact},
+    {"sub_ecu_hitachi_m32r_can", kSubaruHitachiM32rCan},
+    {"sub_tcu_hitachi_m32r_kline", kSubaruTcuHitachiM32rKline, RouteMatch::kExact},
+    {"sub_ecu_unisia_jecs_m3779x", kSubaruUnisiaJecs, RouteMatch::kExact},
+    {"sub_ecu_unisia_jecs_m3775x", kSubaruUnisiaJecs, RouteMatch::kExact},
     // Exact only: the _bootmode names share these prefixes.
-    {"sub_ecu_unisia_jecs_20", SubaruUnisiaJecsM32rKline, RouteMatch::Exact},
-    {"sub_ecu_unisia_jecs_30", SubaruUnisiaJecsM32rKline, RouteMatch::Exact},
-    {"sub_ecu_unisia_jecs_40", SubaruUnisiaJecsM32rKline, RouteMatch::Exact},
-    {"sub_ecu_unisia_jecs_70", SubaruUnisiaJecsM32rKline, RouteMatch::Exact},
-    {"sub_ecu_unisia_jecs_20_bootmode", SubaruUnisiaJecsM32rBootMode, RouteMatch::Exact},
-    {"sub_ecu_unisia_jecs_30_bootmode", SubaruUnisiaJecsM32rBootMode, RouteMatch::Exact},
-    {"sub_tcu_hitachi_m32r_can", SubaruTcuHitachiM32rCan, RouteMatch::Exact},
-    {"sub_ecu_hitachi_sh72543r_can", SubaruHitachiSh72543rCan, RouteMatch::Exact},
-    {"sub_ecu_hitachi_sh72543r_can_recovery", SubaruHitachiSh72543rCan, RouteMatch::Exact},
-    {"sub_ecu_hitachi_sh7058_can", SubaruHitachiSh7058, RouteMatch::Exact},
-    {"sub_tcu_cvt_hitachi_m32r_can", SubaruTcuCvtHitachiM32rCan},
-    {"sub_tcu_cvt_mitsu_mh8111_can", SubaruTcuCvtMitsuMh8111Can},
-    {"sub_tcu_cvt_mitsu_mh8104_can", SubaruTcuCvtMitsuMh8104Can},
-    {"sub_ecu_denso_1n83m_1_5m_can", SubaruDenso1n83m_1_5mCan},
-    {"sub_ecu_denso_sh72531_can", SubaruDensoSh72531Can},
-    {"sub_ecu_denso_sh72543_can_diesel", SubaruDensoSh72543CanDiesel},
+    {"sub_ecu_unisia_jecs_20", kSubaruUnisiaJecsM32rKline, RouteMatch::kExact},
+    {"sub_ecu_unisia_jecs_30", kSubaruUnisiaJecsM32rKline, RouteMatch::kExact},
+    {"sub_ecu_unisia_jecs_40", kSubaruUnisiaJecsM32rKline, RouteMatch::kExact},
+    {"sub_ecu_unisia_jecs_70", kSubaruUnisiaJecsM32rKline, RouteMatch::kExact},
+    {"sub_ecu_unisia_jecs_20_bootmode", kSubaruUnisiaJecsM32rBootMode, RouteMatch::kExact},
+    {"sub_ecu_unisia_jecs_30_bootmode", kSubaruUnisiaJecsM32rBootMode, RouteMatch::kExact},
+    {"sub_tcu_hitachi_m32r_can", kSubaruTcuHitachiM32rCan, RouteMatch::kExact},
+    {"sub_ecu_hitachi_sh72543r_can", kSubaruHitachiSh72543rCan, RouteMatch::kExact},
+    {"sub_ecu_hitachi_sh72543r_can_recovery", kSubaruHitachiSh72543rCan, RouteMatch::kExact},
+    {"sub_ecu_hitachi_sh7058_can", kSubaruHitachiSh7058, RouteMatch::kExact},
+    {"sub_tcu_cvt_hitachi_m32r_can", kSubaruTcuCvtHitachiM32rCan},
+    {"sub_tcu_cvt_mitsu_mh8111_can", kSubaruTcuCvtMitsuMh8111Can},
+    {"sub_tcu_cvt_mitsu_mh8104_can", kSubaruTcuCvtMitsuMh8104Can},
+    {"sub_ecu_denso_1n83m_1_5m_can", kSubaruDenso1n83m15mCan},
+    {"sub_ecu_denso_sh72531_can", kSubaruDensoSh72531Can},
+    {"sub_ecu_denso_sh72543_can_diesel", kSubaruDensoSh72543CanDiesel},
     // kRoutes is matched by starts_with; "sub_ecu_denso_1n83m_1_5m_can" and
     // "sub_ecu_denso_1n83m_4m_can" are not prefixes of one another, so the
     // order of these two entries relative to each other does not matter.
-    {"sub_ecu_denso_1n83m_4m_can", SubaruDenso1n83m_4mCan},
+    {"sub_ecu_denso_1n83m_4m_can", kSubaruDenso1n83m4mCan},
 });
 
 } // namespace
 
 std::optional<bytes::Bytes> portableImageForOperation(FlashOperation operation, bytes::ByteView rom)
 {
-    if (operation == FlashOperation::Read)
+    if (operation == FlashOperation::kRead)
     {
         return std::nullopt;
     }
@@ -1133,7 +1133,7 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
     const auto route = std::ranges::find_if(kRoutes,
                                             [&request](const Route& candidate)
                                             {
-                                                return candidate.match == RouteMatch::Exact
+                                                return candidate.match == RouteMatch::kExact
                                                            ? request.protocol.name == candidate.pattern
                                                            : request.protocol.name.starts_with(candidate.pattern);
                                             });
@@ -1144,65 +1144,65 @@ std::unique_ptr<FlashWorkflow> FlashWorkflowFactory::tryCreate(FlashWorkflowRequ
 
     switch (route->kind)
     {
-    case Colt:
+    case kColt:
         return std::make_unique<ColtWorkflow>(std::move(request));
-    case Eeprom:
+    case kEeprom:
         return std::make_unique<EepromWorkflow>(std::move(request));
-    case SubaruMitsuM32rKline:
+    case kSubaruMitsuM32rKline:
         return std::make_unique<SubaruMitsuM32rKlineWorkflow>(std::move(request));
-    case SubaruHitachiM32rKline:
+    case kSubaruHitachiM32rKline:
         return std::make_unique<SubaruHitachiM32rKlineWorkflow>(std::move(request));
-    case SubaruDensoMc68hc16y5_02:
+    case kSubaruDensoMc68hc16y502:
         return std::make_unique<SubaruDensoMc68hc16y5_02Workflow>(std::move(request));
-    case SubaruDensoSh7055_02:
+    case kSubaruDensoSh705502:
         return std::make_unique<SubaruDensoSh7055_02Workflow>(std::move(request));
-    case SubaruDensoSh705xDensoCan:
+    case kSubaruDensoSh705xDensoCan:
         return std::make_unique<SubaruDensoSh705xDensoCanWorkflow>(std::move(request));
-    case SubaruTcuDensoSh705xCan:
+    case kSubaruTcuDensoSh705xCan:
         return std::make_unique<SubaruTcuDensoSh705xCanWorkflow>(std::move(request));
-    case SubaruDensoSh7058Can:
+    case kSubaruDensoSh7058Can:
         return std::make_unique<SubaruDensoSh7058CanWorkflow>(std::move(request));
-    case SubaruDensoSh7058CanDiesel:
+    case kSubaruDensoSh7058CanDiesel:
         return std::make_unique<SubaruDensoSh7058CanDieselWorkflow>(std::move(request));
-    case SubaruHitachiM32rCan:
+    case kSubaruHitachiM32rCan:
         return std::make_unique<SubaruHitachiM32rCanWorkflow>(std::move(request));
-    case SubaruTcuHitachiM32rKline:
+    case kSubaruTcuHitachiM32rKline:
         return std::make_unique<SubaruTcuHitachiM32rKlineWorkflow>(std::move(request));
-    case SubaruUnisiaJecs:
+    case kSubaruUnisiaJecs:
         return std::make_unique<SubaruUnisiaJecsWorkflow>(std::move(request));
-    case SubaruHitachiSh72543rCan:
+    case kSubaruHitachiSh72543rCan:
         return std::make_unique<SubaruHitachiSh72543rCanWorkflow>(std::move(request));
-    case SubaruHitachiSh7058:
-        if (request.operation == FlashOperation::Read)
+    case kSubaruHitachiSh7058:
+        if (request.operation == FlashOperation::kRead)
         {
             return std::make_unique<SubaruHitachiSh7058KlineWorkflow>(std::move(request));
         }
         return std::make_unique<SubaruHitachiSh7058CanWorkflow>(std::move(request));
-    case SubaruTcuHitachiM32rCan:
+    case kSubaruTcuHitachiM32rCan:
         return std::make_unique<SubaruTcuHitachiM32rCanWorkflow>(std::move(request));
-    case SubaruTcuCvtHitachiM32rCan:
+    case kSubaruTcuCvtHitachiM32rCan:
         return std::make_unique<SubaruTcuCvtHitachiM32rCanWorkflow>(std::move(request));
-    case SubaruTcuCvtMitsuMh8111Can:
+    case kSubaruTcuCvtMitsuMh8111Can:
         return std::make_unique<SubaruTcuCvtMitsuMh8111CanWorkflow>(std::move(request));
-    case SubaruTcuCvtMitsuMh8104Can:
+    case kSubaruTcuCvtMitsuMh8104Can:
         return std::make_unique<SubaruTcuCvtMitsuMh8104CanWorkflow>(std::move(request));
-    case SubaruDenso1n83m_1_5mCan:
+    case kSubaruDenso1n83m15mCan:
         return std::make_unique<SubaruDenso1n83m_1_5mCanWorkflow>(std::move(request));
-    case SubaruDensoSh72531Can:
+    case kSubaruDensoSh72531Can:
         return std::make_unique<SubaruDensoSh72531CanWorkflow>(std::move(request));
-    case SubaruDensoSh72543CanDiesel:
+    case kSubaruDensoSh72543CanDiesel:
         return std::make_unique<SubaruDensoSh72543CanDieselWorkflow>(std::move(request));
-    case SubaruDenso1n83m_4mCan:
+    case kSubaruDenso1n83m4mCan:
         return std::make_unique<SubaruDenso1n83m_4mCanWorkflow>(std::move(request));
-    case SubaruDensoSh705xKline:
+    case kSubaruDensoSh705xKline:
         return std::make_unique<SubaruDensoSh705xKlineWorkflow>(std::move(request));
-    case SubaruDensoMc68hc16y5_02Bdm:
+    case kSubaruDensoMc68hc16y502Bdm:
         return std::make_unique<SubaruDensoMc68hc16y5_02BdmWorkflow>(std::move(request));
-    case SubaruUnisiaJecsM32rKline:
+    case kSubaruUnisiaJecsM32rKline:
         return std::make_unique<SubaruUnisiaJecsM32rKlineWorkflow>(std::move(request));
-    case SubaruUnisiaJecsM32rBootMode:
+    case kSubaruUnisiaJecsM32rBootMode:
         return std::make_unique<SubaruUnisiaJecsM32rBootModeWorkflow>(std::move(request));
-    case Unrouted:
+    case kUnrouted:
         return nullptr;
     }
     assert(false);

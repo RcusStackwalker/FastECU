@@ -26,12 +26,12 @@ TEST(MockCalibrationInteraction, DispatchesScriptedRepliesThroughInterface)
     EXPECT_CALL(mock, correct_checksums(_, true, _)).WillOnce(Return(corrected_result));
     EXPECT_CALL(mock, choose_save_path(std::string_view("/old/read.bin")))
         .WillOnce(Return(std::optional<std::string>("/cal/new.bin")));
-    EXPECT_CALL(mock, show_notice(CalibrationNotice::NoSaveFilename)).Times(1);
+    EXPECT_CALL(mock, show_notice(CalibrationNotice::kNoSaveFilename)).Times(1);
 
     EXPECT_FALSE(port.confirm_write_without_checksum());
     const auto corrected = port.correct_checksums(image, true, selection);
     ASSERT_TRUE(corrected.corrected_rom_data.has_value());
     EXPECT_THAT(*corrected.corrected_rom_data, ElementsAre(4, 5, 6));
     EXPECT_EQ(port.choose_save_path("/old/read.bin"), "/cal/new.bin");
-    port.show_notice(CalibrationNotice::NoSaveFilename);
+    port.show_notice(CalibrationNotice::kNoSaveFilename);
 }

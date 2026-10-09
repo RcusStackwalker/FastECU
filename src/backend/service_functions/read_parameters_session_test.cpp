@@ -39,7 +39,7 @@ TEST(ReadParametersSession, RequiresTheIso15765TcuPair)
     const Fixture fixture;
     const auto setup = fixture.session.transport_setup();
     ASSERT_THAT(setup, fastecu::testing::IsOk());
-    EXPECT_EQ(setup->framing, SsmTransportConfig::Framing::Iso15765);
+    EXPECT_EQ(setup->framing, SsmTransportConfig::Framing::kIso15765);
     EXPECT_EQ(setup->bitrate_or_baud, 500000);
     EXPECT_EQ(setup->request_id, 0x7e1U);
     EXPECT_EQ(setup->response_id, 0x7e9U);
@@ -48,7 +48,7 @@ TEST(ReadParametersSession, RequiresTheIso15765TcuPair)
 TEST(ReadParametersSession, RejectsAnUnknownProtocolBeforeAnyIo)
 {
     const ReadParametersSession session{"sub_ecu_denso_sh7058_can"};
-    ASSERT_THAT(session.transport_setup(), fastecu::testing::IsErr(ErrorKind::Unsupported));
+    ASSERT_THAT(session.transport_setup(), fastecu::testing::IsErr(ErrorKind::kUnsupported));
 }
 
 TEST(ReadParametersSession, DecodesTheNineValuesFromBytesFiveToFourteen)
@@ -116,7 +116,7 @@ TEST(ReadParametersSession, TimesOutWhenAllSixAttemptsAreSilent)
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::Timeout);
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kTimeout);
 }
 
 TEST(ReadParametersSession, RejectsAFrameShorterThanFifteenBytes)
@@ -128,7 +128,7 @@ TEST(ReadParametersSession, RejectsAFrameShorterThanFifteenBytes)
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::BadResponse);
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kBadResponse);
 }
 
 TEST(ReadParametersSession, ReportsANegativeResponseAsBadResponse)
@@ -143,18 +143,18 @@ TEST(ReadParametersSession, ReportsANegativeResponseAsBadResponse)
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::BadResponse);
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kBadResponse);
 }
 
 TEST(ReadParametersSession, ReportsADroppedTransportAsDisconnected)
 {
     Fixture fixture;
     fixture.transport.expectWrite(kRequest);
-    fixture.transport.queue_error(ErrorKind::Disconnected, "adapter gone");
+    fixture.transport.queue_error(ErrorKind::kDisconnected, "adapter gone");
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::Disconnected);
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kDisconnected);
 }
 
 TEST(ReadParametersSession, ObservesCancellation)
@@ -164,19 +164,19 @@ TEST(ReadParametersSession, ObservesCancellation)
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::Cancelled);
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kCancelled);
 }
 
 TEST(ReadParametersSession, SubmitIsInternalBecauseItHasNoGates)
 {
     Fixture fixture;
-    fixture.session.submit(GateResponse::Accept);
+    fixture.session.submit(GateResponse::kAccept);
     fixture.transport.expectWrite(kRequest);
     fixture.transport.queueRead(goodReply());
 
     const auto step = fixture.session.resume(fixture.transport, fixture.clock, fixture.cancellation, fixture.events);
     ASSERT_TRUE(std::holds_alternative<FailedStep>(step));
-    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::Internal);
+    EXPECT_EQ(std::get<FailedStep>(step).error.kind, ErrorKind::kInternal);
 }
 
 } // namespace

@@ -24,7 +24,7 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
     ScriptedCanFlashTransport() = default;
 
     explicit ScriptedCanFlashTransport(ScriptedTransportInitialState initial_state)
-        : open_(initial_state == ScriptedTransportInitialState::Open)
+        : open_(initial_state == ScriptedTransportInitialState::kOpen)
     {
     }
 
@@ -151,18 +151,18 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "scripted CAN write cancelled");
+            return fail(ErrorKind::kCancelled, "scripted CAN write cancelled");
         }
         const bytes::Bytes actual(data.begin(), data.end());
         if (w_idx_ >= expected_.size())
         {
-            return fail(ErrorKind::Internal,
+            return fail(ErrorKind::kInternal,
                         std::format("scripted CAN write ran past the end of the script ({} exchanges); wrote {}",
                                     expected_.size(), bytes::toHex(actual)));
         }
         if (expected_.at(w_idx_) != actual)
         {
-            return fail(ErrorKind::Internal, describeDivergence(w_idx_, actual));
+            return fail(ErrorKind::kInternal, describeDivergence(w_idx_, actual));
         }
         ++w_idx_;
         return {};
@@ -177,16 +177,16 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
             {
                 cv_.wait(lock, [this] { return unblock_requested_; });
                 blocking_read_pending_ = false;
-                return fail(ErrorKind::Cancelled, "scripted CAN read unblocked");
+                return fail(ErrorKind::kCancelled, "scripted CAN read unblocked");
             }
         }
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "scripted CAN read cancelled");
+            return fail(ErrorKind::kCancelled, "scripted CAN read cancelled");
         }
         if (reads_.empty())
         {
-            return fail(ErrorKind::Internal, "no scripted CAN read outcome");
+            return fail(ErrorKind::kInternal, "no scripted CAN read outcome");
         }
         auto result = std::move(reads_.front());
         reads_.pop_front();

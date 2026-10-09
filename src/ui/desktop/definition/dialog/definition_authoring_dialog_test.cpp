@@ -151,12 +151,12 @@ TEST(DefinitionAuthoringDialog, FormInputRegistersTypedLookupAfterSuccessfulSubm
     fastecu::definition::DefinitionService service(config.file_system, config.file_repository, writer);
     fastecu::definition::DefinitionCatalogSession catalogs(service, config.session, config.file_system, config.events);
     ASSERT_THAT(catalogs.submit_new_definition("defs/colt.xml", *input, true), fastecu::testing::IsOk());
-    EXPECT_EQ(catalogs.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, "3352a403"), "defs/colt.xml");
-    writer.replace_error = {fastecu::ErrorKind::Disconnected, "unavailable"};
+    EXPECT_EQ(catalogs.indexed_source(fastecu::definition::DefinitionFormat::kEcuFlash, "3352a403"), "defs/colt.xml");
+    writer.replace_error = {fastecu::ErrorKind::kDisconnected, "unavailable"};
     input->xml_id = "FAILED";
     EXPECT_THAT(catalogs.submit_new_definition("defs/failed.xml", *input, true),
-                fastecu::testing::IsErr(fastecu::ErrorKind::Disconnected));
-    EXPECT_EQ(catalogs.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, "FAILED"), std::nullopt);
+                fastecu::testing::IsErr(fastecu::ErrorKind::kDisconnected));
+    EXPECT_EQ(catalogs.indexed_source(fastecu::definition::DefinitionFormat::kEcuFlash, "FAILED"), std::nullopt);
 }
 
 namespace
@@ -193,7 +193,7 @@ TEST_F(DefinitionAuthoringFlow, CancelledCreateDoesNotWriteOrRegister)
                        });
     EXPECT_TRUE(dialog_.create_new_definition());
     EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
-    EXPECT_EQ(catalogs_.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
+    EXPECT_EQ(catalogs_.indexed_source(fastecu::definition::DefinitionFormat::kEcuFlash, "NEW_XML"), std::nullopt);
 }
 
 TEST_F(DefinitionAuthoringFlow, CancelledImportAndRetryDoesNotWriteOrRegister)
@@ -210,7 +210,7 @@ TEST_F(DefinitionAuthoringFlow, CancelledImportAndRetryDoesNotWriteOrRegister)
     driver.start(1);
     EXPECT_TRUE(dialog_.use_existing_definition());
     EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
-    EXPECT_EQ(catalogs_.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
+    EXPECT_EQ(catalogs_.indexed_source(fastecu::definition::DefinitionFormat::kEcuFlash, "NEW_XML"), std::nullopt);
 }
 
 TEST_F(DefinitionAuthoringFlow, InvalidHeaderDoesNotWriteOrRegister)
@@ -232,7 +232,7 @@ TEST_F(DefinitionAuthoringFlow, InvalidHeaderDoesNotWriteOrRegister)
     driver.start(1);
     EXPECT_FALSE(dialog_.create_new_definition());
     EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
-    EXPECT_EQ(catalogs_.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, ""), std::nullopt);
+    EXPECT_EQ(catalogs_.indexed_source(fastecu::definition::DefinitionFormat::kEcuFlash, ""), std::nullopt);
 }
 
 TEST_F(DefinitionAuthoringFlow, MalformedImportReportsErrorWithoutOpeningAnEditableHeader)

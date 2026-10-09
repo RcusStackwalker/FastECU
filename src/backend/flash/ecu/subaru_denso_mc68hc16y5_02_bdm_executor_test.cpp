@@ -56,9 +56,9 @@ class FaultingTransport final : public ScriptedKlineFlashTransport
   public:
     enum class Fault
     {
-        RawWriteError,
-        RawWriteShort,
-        RawReadError,
+        kRawWriteError,
+        kRawWriteShort,
+        kRawReadError,
     };
 
     explicit FaultingTransport(Fault fault, int fail_after_reads = 0)
@@ -68,11 +68,11 @@ class FaultingTransport final : public ScriptedKlineFlashTransport
 
     Result<std::size_t> write_raw(bytes::ByteView data) override
     {
-        if (fault_ == Fault::RawWriteError)
+        if (fault_ == Fault::kRawWriteError)
         {
-            return fail(ErrorKind::Disconnected, "injected raw write failure");
+            return fail(ErrorKind::kDisconnected, "injected raw write failure");
         }
-        if (fault_ == Fault::RawWriteShort)
+        if (fault_ == Fault::kRawWriteShort)
         {
             return data.size() - 1U;
         }
@@ -80,11 +80,11 @@ class FaultingTransport final : public ScriptedKlineFlashTransport
     }
     Result<OptionalBytes> read_raw(std::chrono::milliseconds timeout, const ICancellationToken& cancellation) override
     {
-        if (fault_ == Fault::RawReadError)
+        if (fault_ == Fault::kRawReadError)
         {
             if (reads_seen_ >= fail_after_reads_)
             {
-                return fail(ErrorKind::Timeout, "injected raw read failure");
+                return fail(ErrorKind::kTimeout, "injected raw read failure");
             }
             ++reads_seen_;
         }
@@ -139,7 +139,7 @@ bytes::Bytes rpmem(std::uint32_t address)
 FlashPlan read_plan()
 {
     auto plan =
-        build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::Read, kProtocol, kMcu, std::nullopt, std::nullopt);
+        build_subaru_denso_mc68hc16y5_02_bdm_plan(FlashOperation::kRead, kProtocol, kMcu, std::nullopt, std::nullopt);
     EXPECT_THAT(plan, IsOk());
     return std::move(*plan);
 }
@@ -176,7 +176,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportSetupIs115200BaudPlainSerial)
     EXPECT_FALSE(setup->iso14230);  // execute() :50
     EXPECT_EQ(setup->tester_id, 0);
     EXPECT_EQ(setup->target_id, 0);
-    EXPECT_EQ(setup->parity, KlineParity::None);
+    EXPECT_EQ(setup->parity, KlineParity::kNone);
 }
 
 // The bootstrap consent is enforced past the builder: a Write plan assembled
@@ -184,9 +184,9 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportSetupIs115200BaudPlainSerial)
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportSetupRejectsAWritePlanWithoutTheBootstrapConsent)
 {
     auto plan = validate_and_build(FlashPlanFields{
-        .operation = FlashOperation::Write,
-        .family = FlashFamily::SubaruDensoMc68hc16y5_02Bdm,
-        .transport = TransportKind::Kline,
+        .operation = FlashOperation::kWrite,
+        .family = FlashFamily::kSubaruDensoMc68hc16y502Bdm,
+        .transport = TransportKind::kKline,
         .target_id = std::string(kProtocol),
         .mcu_name = std::string(kMcu),
         .transfer_region = MemoryRegion{0x20000, 0x20},
@@ -197,7 +197,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportSetupRejectsAWritePlanWithout
         .confirmations = {},
     });
     ASSERT_THAT(plan, IsOk());
-    EXPECT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.transport_setup(*plan), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.transport_setup(*plan), IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, BeforeConfigureClearsTheIso14230Header)
@@ -221,7 +221,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, ReadsTheAddressSpaceImageWithTheRamHol
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(read_plan(), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, IsOk());
-    EXPECT_EQ(result->operation, FlashOperation::Read);
+    EXPECT_EQ(result->operation, FlashOperation::kRead);
     ASSERT_TRUE(result->read_bytes.has_value());
     const bytes::Bytes& image = *result->read_bytes;
     ASSERT_EQ(image.size(), 0x30000U);
@@ -276,7 +276,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, ShortPageFailsAfterFiftyPolls)
 
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(read_plan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(result, IsErr(ErrorKind::kTimeout));
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.writesConsumed(), 1U);
 }
@@ -293,7 +293,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, OverLongPageFailsBeforeTheNextCommand)
 
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(read_plan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, IsErr(ErrorKind::BadResponse));
+    EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse));
     EXPECT_EQ(transport.writesConsumed(), 1U);
 }
 
@@ -313,7 +313,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, CancellationBetweenPagesStopsBeforeThe
 
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(read_plan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, IsErr(ErrorKind::Cancelled));
+    EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.writesConsumed(), 1U);
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -332,7 +332,7 @@ bytes::Bytes kernel_bytes()
 FlashPlan write_plan()
 {
     auto plan = build_subaru_denso_mc68hc16y5_02_bdm_plan(
-        FlashOperation::Write, kProtocol, kMcu, std::nullopt,
+        FlashOperation::kWrite, kProtocol, kMcu, std::nullopt,
         KernelImage{.id = "bdm-kernel", .load_address = 0x20000, .bytes = kernel_bytes()});
     EXPECT_THAT(plan, IsOk());
     return std::move(*plan);
@@ -340,22 +340,22 @@ FlashPlan write_plan()
 
 enum class Gate
 {
-    None,
-    UploadCommand, // flash_block() :394
-    FirstChunk,    // flash_block() :424
-    ScibCommand,   // write_mem() :268
-    ScibValue,     // write_mem() :286
+    kNone,
+    kUploadCommand, // flash_block() :394
+    kFirstChunk,    // flash_block() :424
+    kScibCommand,   // write_mem() :268
+    kScibValue,     // write_mem() :286
 };
 
 // Scripts write_mem() and flash_block(). When `broken` names a gate, that
 // gate gets a same-length wrong reply and the script stops there. Returns the
 // number of writes the executor must have made.
-std::size_t script_bootstrap(ScriptedKlineFlashTransport& transport, Gate broken = Gate::None)
+std::size_t script_bootstrap(ScriptedKlineFlashTransport& transport, Gate broken = Gate::kNone)
 {
     const bytes::Bytes padded = write_plan().image_or_empty();
     nothing(transport); // write_mem() :226
     transport.expectRawWrite(ascii("wdmem 0x00020000 0x00000040"));
-    if (broken == Gate::UploadCommand)
+    if (broken == Gate::kUploadCommand)
     {
         transport.queueRawRead(ascii("ACK_CMD_WPMEM"));
         return 1;
@@ -364,7 +364,7 @@ std::size_t script_bootstrap(ScriptedKlineFlashTransport& transport, Gate broken
     for (std::size_t offset = 0; offset < padded.size(); offset += 0x20)
     {
         transport.expectRawWrite(bytes::ByteView(padded).subspan(offset, 0x20));
-        if (broken == Gate::FirstChunk)
+        if (broken == Gate::kFirstChunk)
         {
             transport.queueRawRead(ascii("ACK_XX"));
             return 2;
@@ -373,7 +373,7 @@ std::size_t script_bootstrap(ScriptedKlineFlashTransport& transport, Gate broken
     }
     nothing(transport); // flash_block() :470
     transport.expectRawWrite(ascii("wdmem 0xFFC28 0x4"));
-    if (broken == Gate::ScibCommand)
+    if (broken == Gate::kScibCommand)
     {
         transport.queueRawRead(ascii("ACK_CMD_WPMEM"));
         return 4;
@@ -381,7 +381,7 @@ std::size_t script_bootstrap(ScriptedKlineFlashTransport& transport, Gate broken
     transport.queueRawRead(ascii("ACK_CMD_WDMEM"));
     nothing(transport); // write_mem() :274
     transport.expectRawWrite(bytes::Bytes{0x00, 0x0d, 0x00, 0x0c});
-    if (broken == Gate::ScibValue)
+    if (broken == Gate::kScibValue)
     {
         transport.queueRawRead(ascii("ACK_XX"));
         return 5;
@@ -408,7 +408,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, BootstrapsTheKernelWithTheLegacySequen
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
 
     ASSERT_THAT(result, IsOk());
-    EXPECT_EQ(result->operation, FlashOperation::Write);
+    EXPECT_EQ(result->operation, FlashOperation::kWrite);
     EXPECT_FALSE(result->read_bytes.has_value());
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_EQ(transport.writesConsumed(), writes);
@@ -444,13 +444,13 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, AssemblesAnAcknowledgementSplitAcrossR
 
     // The split ACK_CMD_WDMEM passed: the executor reached the first chunk,
     // whose short "NAK" then times out.
-    EXPECT_THAT(result, IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(result, IsErr(ErrorKind::kTimeout));
     EXPECT_EQ(transport.writesConsumed(), 2U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, AWrongAcknowledgementAtAnyGateStopsTheUpload)
 {
-    for (const Gate gate : {Gate::UploadCommand, Gate::FirstChunk, Gate::ScibCommand, Gate::ScibValue})
+    for (const Gate gate : {Gate::kUploadCommand, Gate::kFirstChunk, Gate::kScibCommand, Gate::kScibValue})
     {
         ScriptedKlineFlashTransport transport;
         const std::size_t writes = script_bootstrap(transport, gate);
@@ -461,7 +461,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, AWrongAcknowledgementAtAnyGateStopsThe
         auto result =
             SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
 
-        EXPECT_THAT(result, IsErr(ErrorKind::BadResponse)) << static_cast<int>(gate);
+        EXPECT_THAT(result, IsErr(ErrorKind::kBadResponse)) << static_cast<int>(gate);
         EXPECT_EQ(transport.writesConsumed(), writes) << static_cast<int>(gate);
         EXPECT_TRUE(transport.scriptConsumed()) << static_cast<int>(gate);
     }
@@ -479,7 +479,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, ASilentBridgeTimesOut)
 
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(result, IsErr(ErrorKind::kTimeout));
     EXPECT_EQ(transport.writesConsumed(), 1U);
 }
 
@@ -501,7 +501,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, CancellationBetweenChunksStopsBeforeTh
 
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, IsErr(ErrorKind::Cancelled));
+    EXPECT_THAT(result, IsErr(ErrorKind::kCancelled));
     EXPECT_EQ(transport.writesConsumed(), 2U);
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -524,7 +524,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, CancellationAfterGoStillSucceeds)
 
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, RawWriteFailuresDuringReadStopBeforeAnyPageRead)
 {
-    for (const auto fault : {FaultingTransport::Fault::RawWriteError, FaultingTransport::Fault::RawWriteShort})
+    for (const auto fault : {FaultingTransport::Fault::kRawWriteError, FaultingTransport::Fault::kRawWriteShort})
     {
         SCOPED_TRACE(static_cast<int>(fault));
         FaultingTransport transport{fault};
@@ -536,7 +536,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, RawWriteFailuresDuringReadStopBeforeAn
         auto result =
             SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(read_plan(), transport, clock, cancellation, events);
 
-        EXPECT_THAT(result, IsErr(ErrorKind::Disconnected));
+        EXPECT_THAT(result, IsErr(ErrorKind::kDisconnected));
         EXPECT_EQ(transport.writesConsumed(), 0U);
         EXPECT_TRUE(events.progress_calls.empty());
     }
@@ -544,7 +544,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, RawWriteFailuresDuringReadStopBeforeAn
 
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, RawWriteFailuresDuringBootstrapStopBeforeAnyAck)
 {
-    for (const auto fault : {FaultingTransport::Fault::RawWriteError, FaultingTransport::Fault::RawWriteShort})
+    for (const auto fault : {FaultingTransport::Fault::kRawWriteError, FaultingTransport::Fault::kRawWriteShort})
     {
         SCOPED_TRACE(static_cast<int>(fault));
         FaultingTransport transport{fault};
@@ -556,7 +556,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, RawWriteFailuresDuringBootstrapStopBef
         auto result =
             SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
 
-        EXPECT_THAT(result, IsErr(ErrorKind::Disconnected));
+        EXPECT_THAT(result, IsErr(ErrorKind::kDisconnected));
         EXPECT_EQ(transport.writesConsumed(), 0U);
         EXPECT_TRUE(events.progress_calls.empty());
     }
@@ -566,7 +566,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorMidPagePropagatesUnchang
 {
     // Allows the initial discard's one raw read to succeed, then fails the
     // very next raw read: the first page's own poll.
-    FaultingTransport transport{FaultingTransport::Fault::RawReadError, /*fail_after_reads=*/1};
+    FaultingTransport transport{FaultingTransport::Fault::kRawReadError, /*fail_after_reads=*/1};
     nothing(transport); // read_mem() :113 initial discard succeeds
     transport.expectRawWrite(rpmem(0));
     FakeClock clock;
@@ -575,7 +575,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorMidPagePropagatesUnchang
 
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(read_plan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(result, IsErr(ErrorKind::kTimeout));
     EXPECT_EQ(transport.writesConsumed(), 1U);
     EXPECT_TRUE(events.progress_calls.empty());
 }
@@ -584,7 +584,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorMidAckPropagatesUnchange
 {
     // Allows the initial discard's one raw read to succeed, then fails the
     // very next raw read: the wait for ACK_CMD_WDMEM.
-    FaultingTransport transport{FaultingTransport::Fault::RawReadError, /*fail_after_reads=*/1};
+    FaultingTransport transport{FaultingTransport::Fault::kRawReadError, /*fail_after_reads=*/1};
     nothing(transport); // write_mem() :226 initial discard succeeds
     transport.expectRawWrite(ascii("wdmem 0x00020000 0x00000040"));
     FakeClock clock;
@@ -593,23 +593,23 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorMidAckPropagatesUnchange
 
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(result, IsErr(ErrorKind::kTimeout));
     EXPECT_EQ(transport.writesConsumed(), 1U);
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, InvalidPlanIsRejectedBeforeAnyTransportIo)
 {
     auto foreign_plan =
-        build_subaru_unisia_jecs_plan(FlashOperation::Read, "sub_ecu_unisia_jecs_m3779x", "M3779x", std::nullopt);
+        build_subaru_unisia_jecs_plan(FlashOperation::kRead, "sub_ecu_unisia_jecs_m3779x", "M3779x", std::nullopt);
     ASSERT_THAT(foreign_plan, IsOk());
     ScriptedKlineFlashTransport transport;
     FakeClock clock;
     FakeCancellationToken cancellation;
     RecordingEventSink events;
 
-    EXPECT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.transport_setup(*foreign_plan), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.transport_setup(*foreign_plan), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(*foreign_plan, transport, clock, cancellation, events),
-                IsErr(ErrorKind::InvalidConfig));
+                IsErr(ErrorKind::kInvalidConfig));
     EXPECT_EQ(transport.writesConsumed(), 0U);
     EXPECT_TRUE(transport.scriptConsumed());
 }
@@ -619,7 +619,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorOnWpcspReplyPropagates)
     // Scripts the full upload and SCIB sequence, then fails the very first
     // wpcsp reply read: write_mem() :296-305's ungated replies still
     // propagate a genuine transport error unchanged.
-    FaultingTransport transport{FaultingTransport::Fault::RawReadError, /*fail_after_reads=*/9};
+    FaultingTransport transport{FaultingTransport::Fault::kRawReadError, /*fail_after_reads=*/9};
     const bytes::Bytes padded = write_plan().image_or_empty();
     nothing(transport); // write_mem() :226
     transport.expectRawWrite(ascii("wdmem 0x00020000 0x00000040"));
@@ -644,7 +644,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorOnWpcspReplyPropagates)
 
     auto result = SubaruDensoMc68hc16y5_02BdmExecutor{}.execute(write_plan(), transport, clock, cancellation, events);
 
-    EXPECT_THAT(result, IsErr(ErrorKind::Timeout));
+    EXPECT_THAT(result, IsErr(ErrorKind::kTimeout));
     EXPECT_EQ(transport.writesConsumed(), 6U);
 }
 
@@ -653,7 +653,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorOnGoReplyStillSucceedsWi
     // Allows every raw read through both wpcsp replies to succeed, then fails
     // the go reply read: write_mem() :317-323 still returns success, logging
     // a warning instead of the reply.
-    FaultingTransport transport{FaultingTransport::Fault::RawReadError, /*fail_after_reads=*/12};
+    FaultingTransport transport{FaultingTransport::Fault::kRawReadError, /*fail_after_reads=*/12};
     script_bootstrap(transport);
     FakeClock clock;
     FakeCancellationToken cancellation;
@@ -664,7 +664,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, TransportErrorOnGoReplyStillSucceedsWi
     ASSERT_THAT(result, IsOk());
     EXPECT_TRUE(std::ranges::any_of(
         events.logs, [](const auto& entry)
-        { return entry.first == LogLevel::Warning && entry.second.starts_with("BDM go reply not read"); }));
+        { return entry.first == LogLevel::kWarning && entry.second.starts_with("BDM go reply not read"); }));
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, DiscardLogsAnyBytesItDrainsAtDebugLevel)
@@ -682,7 +682,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, DiscardLogsAnyBytesItDrainsAtDebugLeve
     EXPECT_TRUE(transport.scriptConsumed());
     EXPECT_TRUE(
         std::ranges::any_of(events.logs, [](const auto& entry)
-                            { return entry.first == LogLevel::Debug && entry.second == "BDM discarded: de ad "; }));
+                            { return entry.first == LogLevel::kDebug && entry.second == "BDM discarded: de ad "; }));
 }
 } // namespace
 } // namespace fastecu::flash

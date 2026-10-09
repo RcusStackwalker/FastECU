@@ -30,7 +30,7 @@ Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& tran
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before write");
+        return fail(ErrorKind::kCancelled, "cancelled before write");
     }
     const bytes::Bytes request = framed(payload, p);
     auto written = transport.write(request);
@@ -40,11 +40,11 @@ Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& tran
     }
     if (*written != request.size())
     {
-        return fail(ErrorKind::Disconnected, "short K-Line write");
+        return fail(ErrorKind::kDisconnected, "short K-Line write");
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after write");
+        return fail(ErrorKind::kCancelled, "cancelled after write");
     }
     auto response = transport.read(std::chrono::milliseconds{timeout}, cancellation);
     if (!response.has_value())
@@ -53,7 +53,7 @@ Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& tran
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after read");
+        return fail(ErrorKind::kCancelled, "cancelled after read");
     }
     return std::move(*response);
 }
@@ -68,7 +68,7 @@ Result<bytes::Bytes> exchange(IKlineFlashTransport& transport, const ICancellati
     }
     if (!response->has_value())
     {
-        return fail(ErrorKind::Timeout, "no response from ECU");
+        return fail(ErrorKind::kTimeout, "no response from ECU");
     }
     return std::move(**response);
 }
@@ -77,14 +77,14 @@ Status expect_prefix(bytes::ByteView response, std::initializer_list<bytes::Byte
 {
     if (response.size() < 4 + prefix.size())
     {
-        return fail(ErrorKind::BadResponse, "response is too short");
+        return fail(ErrorKind::kBadResponse, "response is too short");
     }
     std::size_t i = 4;
     for (bytes::Byte value : prefix)
     {
         if (response[i++] != value)
         {
-            return fail(ErrorKind::BadResponse, "wrong response from ECU");
+            return fail(ErrorKind::kBadResponse, "wrong response from ECU");
         }
     }
     return {};
@@ -98,7 +98,7 @@ Result<std::string> parse_rom_id(bytes::ByteView response)
     }
     if (response.size() < 13)
     {
-        return fail(ErrorKind::BadResponse, "ECU ID response is too short");
+        return fail(ErrorKind::kBadResponse, "ECU ID response is too short");
     }
     std::string id;
     for (std::size_t i = 8; i < 13; ++i)
@@ -169,11 +169,11 @@ Status authenticated_session(IKlineFlashTransport& transport, const ICancellatio
     }
     if (seed->size() < 10)
     {
-        return fail(ErrorKind::BadResponse, "seed response is too short");
+        return fail(ErrorKind::kBadResponse, "seed response is too short");
     }
     bytes::Bytes key_request =
         composeBe(uds::kSidSecurityAccess, uds::kSecurityAccessSendKey, seed_key(bytes::ByteView{*seed}.subspan(6, 4)));
-    if (Status key_status = p.session_mode == HitachiM32rKlineSessionMode::Recovery
+    if (Status key_status = p.session_mode == HitachiM32rKlineSessionMode::kRecovery
                                 ? request_prefix(transport, cancellation, std::move(key_request), {0x67}, p)
                                 : request_prefix(transport, cancellation, std::move(key_request),
                                                  {0x67, uds::kSecurityAccessSendKey}, p);
@@ -235,7 +235,7 @@ Result<std::string> prepare_read(IKlineFlashTransport& transport, const ICancell
 Status prepare_write(IKlineFlashTransport& transport, const ICancellationToken& cancellation,
                      const SubaruHitachiM32rKlinePlan& p)
 {
-    if (p.session_mode == HitachiM32rKlineSessionMode::Recovery)
+    if (p.session_mode == HitachiM32rKlineSessionMode::kRecovery)
     {
         if (auto baud = transport.setBaud(p.initial_baud); !baud.has_value())
         {
@@ -262,7 +262,7 @@ Status prepare_write(IKlineFlashTransport& transport, const ICancellationToken& 
         }
         if (!awake)
         {
-            return fail(ErrorKind::Timeout, "recovery wake sequence exhausted 1000 attempts");
+            return fail(ErrorKind::kTimeout, "recovery wake sequence exhausted 1000 attempts");
         }
         return authenticated_session(transport, cancellation, p, false);
     }
@@ -296,7 +296,7 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, const ICancellati
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled during ROM read");
+            return fail(ErrorKind::kCancelled, "cancelled during ROM read");
         }
         const std::uint32_t address = logical + p.read_address_bias;
         auto response = exchange(transport, cancellation,
@@ -307,7 +307,7 @@ Result<bytes::Bytes> read_rom(IKlineFlashTransport& transport, const ICancellati
         }
         if (response->size() != p.chunk_size + 6 || (*response)[4] != 0xe0)
         {
-            return fail(ErrorKind::BadResponse, "ROM read response must contain exactly 128 data bytes");
+            return fail(ErrorKind::kBadResponse, "ROM read response must contain exactly 128 data bytes");
         }
         rom.insert(rom.end(), response->begin() + 5, response->end() - 1);
         events.progress(static_cast<int>(logical + p.chunk_size), 0x80000);
@@ -322,7 +322,7 @@ Status erase_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
         framed(bytes::Bytes{uds::kSidRoutineControl, uds::kRoutineControlStop, 0x0f, 0xff, 0xff, 0xff}, p);
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before erase");
+        return fail(ErrorKind::kCancelled, "cancelled before erase");
     }
     auto written = transport.write(request);
     if (!written.has_value())
@@ -331,7 +331,7 @@ Status erase_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
     }
     if (*written != request.size())
     {
-        return fail(ErrorKind::Disconnected, "short K-Line erase write");
+        return fail(ErrorKind::kDisconnected, "short K-Line erase write");
     }
 
     bytes::Bytes response;
@@ -382,14 +382,14 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled after erase");
+        return fail(ErrorKind::kCancelled, "cancelled after erase");
     }
     const bytes::Bytes encrypted = encrypt(plan.image_or_empty());
     for (std::uint32_t address = 0; address < 0x80000; address += p.chunk_size)
     {
         if (cancellation.cancelled())
         {
-            return fail(ErrorKind::Cancelled, "cancelled during ROM write");
+            return fail(ErrorKind::kCancelled, "cancelled during ROM write");
         }
         const bytes::Bytes request =
             composeBe(uds::kSidTransferData, u24(address), bytes::ByteView(encrypted).subspan(address, p.chunk_size));
@@ -400,7 +400,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
         }
         if (*ack && (*ack)->size() > 4 && (**ack)[4] != 0x76)
         {
-            return fail(ErrorKind::BadResponse, "write data failed");
+            return fail(ErrorKind::kBadResponse, "write data failed");
         }
         events.progress(static_cast<int>(address + p.chunk_size), 0x80000);
     }
@@ -416,7 +416,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
     }
     if (!checksum->has_value() || (*checksum)->empty())
     {
-        return fail(ErrorKind::Timeout, "no final checksum response");
+        return fail(ErrorKind::kTimeout, "no final checksum response");
     }
     return {};
 }
@@ -424,7 +424,7 @@ Status write_rom(IKlineFlashTransport& transport, IClock& clock, const ICancella
 
 Result<KlineConfig> SubaruHitachiM32rKlineExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (const Status match = check_family(plan, FlashFamily::SubaruHitachiM32rKline); !match.has_value())
+    if (const Status match = check_family(plan, FlashFamily::kSubaruHitachiM32rKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -441,7 +441,7 @@ Result<FlashExecutionResult> SubaruHitachiM32rKlineExecutor::execute(const Flash
                                                                      const ICancellationToken& cancellation,
                                                                      IEventSink& events)
 {
-    if (const Status match = check_family(plan, FlashFamily::SubaruHitachiM32rKline); !match.has_value())
+    if (const Status match = check_family(plan, FlashFamily::kSubaruHitachiM32rKline); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -451,15 +451,15 @@ Result<FlashExecutionResult> SubaruHitachiM32rKlineExecutor::execute(const Flash
     }
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, "cancelled before setup");
+        return fail(ErrorKind::kCancelled, "cancelled before setup");
     }
     const auto& p = std::get<SubaruHitachiM32rKlinePlan>(plan.family_plan());
-    Result<FlashExecutionResult> outcome = fail(ErrorKind::Internal, "unreachable");
+    Result<FlashExecutionResult> outcome = fail(ErrorKind::kInternal, "unreachable");
     if (auto header = transport.set_add_iso14230_header(false); !header.has_value())
     {
         outcome = std::unexpected(header.error());
     }
-    else if (plan.operation() == FlashOperation::Read)
+    else if (plan.operation() == FlashOperation::kRead)
     {
         auto id = prepare_read(transport, cancellation, p);
         if (!id.has_value())
@@ -472,7 +472,7 @@ Result<FlashExecutionResult> SubaruHitachiM32rKlineExecutor::execute(const Flash
         }
         else
         {
-            outcome = FlashExecutionResult{FlashOperation::Read, std::move(*rom), std::move(*id)};
+            outcome = FlashExecutionResult{FlashOperation::kRead, std::move(*rom), std::move(*id)};
         }
     }
     else if (auto prepared = prepare_write(transport, cancellation, p); !prepared.has_value())
@@ -485,7 +485,7 @@ Result<FlashExecutionResult> SubaruHitachiM32rKlineExecutor::execute(const Flash
     }
     else
     {
-        outcome = FlashExecutionResult{FlashOperation::Write, std::nullopt, std::nullopt};
+        outcome = FlashExecutionResult{FlashOperation::kWrite, std::nullopt, std::nullopt};
     }
     if (!outcome.has_value())
     {

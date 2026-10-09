@@ -7,7 +7,7 @@ ChecksumResult ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteV
     // Fixed 512 KiB MH8104 layout; see the MH8104 flash-device model.
     if (romView.size() != 0x80000)
     {
-        return {.status = ChecksumResult::Status::InvalidSize,
+        return {.status = ChecksumResult::Status::kInvalidSize,
                 .rom_data = bytes::Bytes(romView.begin(), romView.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
@@ -48,12 +48,12 @@ ChecksumResult ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteV
     result.rom_data = romData;
     if (!checksum_ok)
     {
-        result.status = ChecksumResult::Status::Corrected;
+        result.status = ChecksumResult::Status::kCorrected;
         result.message = "Subaru Hitachi M32R K-Line/CAN ECU Checksum";
     }
     else
     {
-        result.status = ChecksumResult::Status::Unchanged;
+        result.status = ChecksumResult::Status::kUnchanged;
     }
     return result;
 }

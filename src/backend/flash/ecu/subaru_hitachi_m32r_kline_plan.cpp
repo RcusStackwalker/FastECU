@@ -21,7 +21,7 @@ constexpr MemoryRegion kRom{0, 0x80000};
 // target_id is malformed.
 constexpr HitachiM32rKlineSessionMode mode_for(std::string_view protocol)
 {
-    return protocol == kRecovery ? HitachiM32rKlineSessionMode::Recovery : HitachiM32rKlineSessionMode::Normal;
+    return protocol == kRecovery ? HitachiM32rKlineSessionMode::kRecovery : HitachiM32rKlineSessionMode::kNormal;
 }
 
 bool geometry_ok(const FlashDevice& device)
@@ -42,8 +42,8 @@ constexpr SingleWindowPlanSpec kSpec{
     .display_name = "Subaru Hitachi M32R K-Line",
     .protocols = kProtocols,
     .mcu = "M32R_512KB_1block",
-    .family = FlashFamily::SubaruHitachiM32rKline,
-    .transport = TransportKind::Kline,
+    .family = FlashFamily::kSubaruHitachiM32rKline,
+    .transport = TransportKind::kKline,
     .read_region = kRom,
     .write_region = kRom,
     .image_size = kRom.length,

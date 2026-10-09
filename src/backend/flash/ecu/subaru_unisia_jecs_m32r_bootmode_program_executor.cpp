@@ -45,7 +45,7 @@ Status cancelled_if_requested(const ICancellationToken& cancellation, std::strin
 {
     if (cancellation.cancelled())
     {
-        return fail(ErrorKind::Cancelled, std::format("cancelled {}", where));
+        return fail(ErrorKind::kCancelled, std::format("cancelled {}", where));
     }
     return {};
 }
@@ -64,7 +64,7 @@ Status send(Session& s, bytes::ByteView payload)
     }
     if (*written != request.size())
     {
-        return fail(ErrorKind::Disconnected, "short K-Line write");
+        return fail(ErrorKind::kDisconnected, "short K-Line write");
     }
     return {};
 }
@@ -141,7 +141,7 @@ Status poll_for(Session& s, bytes::Byte status, std::chrono::milliseconds sleep,
         {
             if (!is_status(**response, s.wire, status))
             {
-                return fail(ErrorKind::BadResponse, std::format("{} failed: {}", what, describe(**response, s.wire)));
+                return fail(ErrorKind::kBadResponse, std::format("{} failed: {}", what, describe(**response, s.wire)));
             }
             return {};
         }
@@ -150,7 +150,7 @@ Status poll_for(Session& s, bytes::Byte status, std::chrono::milliseconds sleep,
             return slept;
         }
     }
-    return fail(ErrorKind::Timeout, std::format("no {} response after {} polls", what, kEraseRounds));
+    return fail(ErrorKind::kTimeout, std::format("no {} response after {} polls", what, kEraseRounds));
 }
 
 Status program(Session& s, const FlashPlan& plan)
@@ -161,13 +161,13 @@ Status program(Session& s, const FlashPlan& plan)
     }
     // write_mem() :366: VPP stays, MOD1 drops. The operator removed MOD1
     // before this attempt started (the workflow's RemoveMod1 prompt).
-    s.events.log(LogLevel::Debug, "Set programming voltage +12v to Line End Check 1");
+    s.events.log(LogLevel::kDebug, "Set programming voltage +12v to Line End Check 1");
     if (Status raised = s.transport.enable_programming_voltage_line(); !raised.has_value())
     {
         return raised;
     }
 
-    s.events.log(LogLevel::Info, "Requesting flash erase, please wait...");
+    s.events.log(LogLevel::kInfo, "Requesting flash erase, please wait...");
     if (Status sent = send(s, composeBe(0xaf_b, 0x31_b)); !sent.has_value())
     {
         return sent;
@@ -180,12 +180,12 @@ Status program(Session& s, const FlashPlan& plan)
     {
         return started;
     }
-    s.events.log(LogLevel::Info, "Flash erase in progress, please wait...");
+    s.events.log(LogLevel::kInfo, "Flash erase in progress, please wait...");
     if (Status erased = poll_for(s, 0x52, kEraseDoneSleep, "flash erase"); !erased.has_value())
     {
         return erased;
     }
-    s.events.log(LogLevel::Info, "Flash erased!");
+    s.events.log(LogLevel::kInfo, "Flash erased!");
     if (Status settled = s.clock.sleep(kPostErase, s.cancellation); !settled.has_value())
     {
         return settled;
@@ -212,14 +212,14 @@ Status program(Session& s, const FlashPlan& plan)
         {
             if (!last)
             {
-                return fail(ErrorKind::Timeout, std::format("no response to block write at 0x{:06X}", address));
+                return fail(ErrorKind::kTimeout, std::format("no response to block write at 0x{:06X}", address));
             }
             // Legacy never read a reply to AF 69 (:517); its shape is unknown.
-            s.events.log(LogLevel::Warning, "No reply to the final block; treating the write as complete");
+            s.events.log(LogLevel::kWarning, "No reply to the final block; treating the write as complete");
         }
         else if (!is_status(**response, s.wire, 0x52))
         {
-            return fail(ErrorKind::BadResponse,
+            return fail(ErrorKind::kBadResponse,
                         std::format("block write at 0x{:06X} failed: {}", address, describe(**response, s.wire)));
         }
         s.events.progress(block + 1, blocks);
@@ -231,16 +231,16 @@ Status program(Session& s, const FlashPlan& plan)
             }
         }
     }
-    s.events.log(LogLevel::Info, "ROM written to flash.");
+    s.events.log(LogLevel::kInfo, "ROM written to flash.");
     // write_mem() :581.
-    s.events.log(LogLevel::Info, "Please remove VPP voltage, power cycle ECU and request SSM Init to confirm.");
+    s.events.log(LogLevel::kInfo, "Please remove VPP voltage, power cycle ECU and request SSM Init to confirm.");
     return {};
 }
 } // namespace
 
 Result<KlineConfig> SubaruUnisiaJecsM32rBootModeProgramExecutor::transport_setup(const FlashPlan& plan) const
 {
-    if (Status match = check_family(plan, FlashFamily::SubaruUnisiaJecsM32rBootModeProgram); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -268,7 +268,7 @@ SubaruUnisiaJecsM32rBootModeProgramExecutor::execute(const FlashPlan& plan, IKli
                                                      IClock& clock, const ICancellationToken& cancellation,
                                                      IEventSink& events)
 {
-    if (Status match = check_family(plan, FlashFamily::SubaruUnisiaJecsM32rBootModeProgram); !match.has_value())
+    if (Status match = check_family(plan, FlashFamily::kSubaruUnisiaJecsM32rBootModeProgram); !match.has_value())
     {
         return std::unexpected(match.error());
     }
@@ -280,7 +280,7 @@ SubaruUnisiaJecsM32rBootModeProgramExecutor::execute(const FlashPlan& plan, IKli
                     std::get<SubaruUnisiaJecsM32rBootModeProgramPlan>(plan.family_plan())};
     const Status written = program(session, plan);
     // execute() :85, :89: legacy dropped the lines after write_mem().
-    events.log(LogLevel::Debug, "Removing programming voltage +12v from Line End Check 1");
+    events.log(LogLevel::kDebug, "Removing programming voltage +12v from Line End Check 1");
     const Status dropped = transport.disable_lec_lines();
     if (!written.has_value())
     {
@@ -290,6 +290,7 @@ SubaruUnisiaJecsM32rBootModeProgramExecutor::execute(const FlashPlan& plan, IKli
     {
         return std::unexpected(dropped.error());
     }
-    return FlashExecutionResult{.operation = FlashOperation::Write, .read_bytes = std::nullopt, .rom_id = std::nullopt};
+    return FlashExecutionResult{
+        .operation = FlashOperation::kWrite, .read_bytes = std::nullopt, .rom_id = std::nullopt};
 }
 } // namespace fastecu::flash

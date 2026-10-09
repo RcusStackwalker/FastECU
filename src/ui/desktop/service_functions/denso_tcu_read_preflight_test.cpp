@@ -251,13 +251,13 @@ class ChooserReturnsTheActionNamedByEachLegacyButtonParameters
 INSTANTIATE_TEST_SUITE_P(
     Rows, ChooserReturnsTheActionNamedByEachLegacyButtonParameters,
     ::testing::Values(ChooserReturnsTheActionNamedByEachLegacyButtonCase{"dump", "Dump",
-                                                                         static_cast<int>(DensoTcuReadAction::Dump)},
-                      ChooserReturnsTheActionNamedByEachLegacyButtonCase{"relearn", "Relearn",
-                                                                         static_cast<int>(DensoTcuReadAction::Relearn)},
+                                                                         static_cast<int>(DensoTcuReadAction::kDump)},
                       ChooserReturnsTheActionNamedByEachLegacyButtonCase{
-                          "read", "Read Param", static_cast<int>(DensoTcuReadAction::ReadParameters)},
+                          "relearn", "Relearn", static_cast<int>(DensoTcuReadAction::kRelearn)},
                       ChooserReturnsTheActionNamedByEachLegacyButtonCase{
-                          "set", "Set Param", static_cast<int>(DensoTcuReadAction::SetParameters)}),
+                          "read", "Read Param", static_cast<int>(DensoTcuReadAction::kReadParameters)},
+                      ChooserReturnsTheActionNamedByEachLegacyButtonCase{
+                          "set", "Set Param", static_cast<int>(DensoTcuReadAction::kSetParameters)}),
     [](const ::testing::TestParamInfo<ChooserReturnsTheActionNamedByEachLegacyButtonCase>& info)
     { return info.param.name; });
 
@@ -283,7 +283,7 @@ TEST(DensoTcuReadPreflightTest, dismissingChooserReturnsCancelled)
     ChooserDriver driver{{}};
     driver.start();
 
-    ASSERT_EQ(choose_denso_tcu_read_action(nullptr), DensoTcuReadAction::Cancelled);
+    ASSERT_EQ(choose_denso_tcu_read_action(nullptr), DensoTcuReadAction::kCancelled);
     ASSERT_TRUE(driver.sawChooser());
     ASSERT_TRUE(!driver.timedOut());
 }
@@ -302,11 +302,11 @@ class DumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters
 
 INSTANTIATE_TEST_SUITE_P(
     Rows, DumpAndCancelledReturnWithoutIgnitionOrSerialCallsParameters,
-    ::testing::Values(DumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase{"dump",
-                                                                             static_cast<int>(DensoTcuReadAction::Dump),
-                                                                             false},
-                      DumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase{
-                          "cancelled", static_cast<int>(DensoTcuReadAction::Cancelled), true}),
+    ::testing::Values(
+        DumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase{"dump", static_cast<int>(DensoTcuReadAction::kDump),
+                                                               false},
+        DumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase{"cancelled",
+                                                               static_cast<int>(DensoTcuReadAction::kCancelled), true}),
     [](const ::testing::TestParamInfo<DumpAndCancelledReturnWithoutIgnitionOrSerialCallsCase>& info)
     { return info.param.name; });
 
@@ -346,11 +346,11 @@ INSTANTIATE_TEST_SUITE_P(
     Rows, DecliningIgnitionSkipsEveryServiceDialogAndSerialCallParameters,
     ::testing::Values(
         DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{"relearn",
-                                                                  static_cast<int>(DensoTcuReadAction::Relearn)},
-        DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{"read",
-                                                                  static_cast<int>(DensoTcuReadAction::ReadParameters)},
-        DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{"set",
-                                                                  static_cast<int>(DensoTcuReadAction::SetParameters)}),
+                                                                  static_cast<int>(DensoTcuReadAction::kRelearn)},
+        DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{
+            "read", static_cast<int>(DensoTcuReadAction::kReadParameters)},
+        DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase{
+            "set", static_cast<int>(DensoTcuReadAction::kSetParameters)}),
     [](const ::testing::TestParamInfo<DecliningIgnitionSkipsEveryServiceDialogAndSerialCallCase>& info)
     { return info.param.name; });
 
@@ -392,12 +392,12 @@ class AcceptingIgnitionOpensTheMatchingRealServiceDialogParameters
 INSTANTIATE_TEST_SUITE_P(
     Rows, AcceptingIgnitionOpensTheMatchingRealServiceDialogParameters,
     ::testing::Values(
-        AcceptingIgnitionOpensTheMatchingRealServiceDialogCase{"relearn", static_cast<int>(DensoTcuReadAction::Relearn),
-                                                               "TCU Relearn"},
         AcceptingIgnitionOpensTheMatchingRealServiceDialogCase{
-            "read", static_cast<int>(DensoTcuReadAction::ReadParameters), "Read TCU Parameters"},
+            "relearn", static_cast<int>(DensoTcuReadAction::kRelearn), "TCU Relearn"},
         AcceptingIgnitionOpensTheMatchingRealServiceDialogCase{
-            "set", static_cast<int>(DensoTcuReadAction::SetParameters), "Set TCU Parameters"}),
+            "read", static_cast<int>(DensoTcuReadAction::kReadParameters), "Read TCU Parameters"},
+        AcceptingIgnitionOpensTheMatchingRealServiceDialogCase{
+            "set", static_cast<int>(DensoTcuReadAction::kSetParameters), "Set TCU Parameters"}),
     [](const ::testing::TestParamInfo<AcceptingIgnitionOpensTheMatchingRealServiceDialogCase>& info)
     { return info.param.name; });
 

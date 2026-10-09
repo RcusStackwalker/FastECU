@@ -48,7 +48,7 @@ TEST(QtAtomicFileWriterTest, InvalidDestinationDoesNotCreateFile)
     QtAtomicFileWriter writer;
     const std::array<std::uint8_t, 3> bytes{'n', 'e', 'w'};
 
-    ASSERT_THAT(writer.replace(path.toStdString(), bytes), fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
+    ASSERT_THAT(writer.replace(path.toStdString(), bytes), fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
     EXPECT_FALSE(QFile::exists(path));
 }
 
@@ -67,7 +67,7 @@ TEST(QtAtomicFileWriterTest, FailedReplacementPreservesExistingFile)
 
     EXPECT_TRUE(
         QFile::setPermissions(dir.path(), QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner));
-    ASSERT_THAT(status, fastecu::testing::IsErr(fastecu::ErrorKind::Internal));
+    ASSERT_THAT(status, fastecu::testing::IsErr(fastecu::ErrorKind::kInternal));
     EXPECT_EQ(read_test_file(path), "old");
 }
 #endif

@@ -41,15 +41,15 @@ INSTANTIATE_TEST_SUITE_P(SubaruHitachiM32rKlineRecovery, SingleWindowPlanContrac
 TEST(SubaruHitachiM32rKlinePlan, MapsExactProtocolsToTheirSessionModeAndWireParameters)
 {
     for (const auto& [protocol, mode] : {
-             std::pair{std::string_view("sub_ecu_hitachi_m32r_kline"), HitachiM32rKlineSessionMode::Normal},
-             std::pair{std::string_view("sub_ecu_hitachi_m32r_kline_recovery"), HitachiM32rKlineSessionMode::Recovery},
+             std::pair{std::string_view("sub_ecu_hitachi_m32r_kline"), HitachiM32rKlineSessionMode::kNormal},
+             std::pair{std::string_view("sub_ecu_hitachi_m32r_kline_recovery"), HitachiM32rKlineSessionMode::kRecovery},
          })
     {
         const auto plan =
-            build_subaru_hitachi_m32r_kline_plan(FlashOperation::Read, protocol, "M32R_512KB_1block", std::nullopt);
+            build_subaru_hitachi_m32r_kline_plan(FlashOperation::kRead, protocol, "M32R_512KB_1block", std::nullopt);
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        EXPECT_EQ(plan->family(), FlashFamily::SubaruHitachiM32rKline);
-        EXPECT_EQ(plan->transport(), TransportKind::Kline);
+        EXPECT_EQ(plan->family(), FlashFamily::kSubaruHitachiM32rKline);
+        EXPECT_EQ(plan->transport(), TransportKind::kKline);
 
         const auto& family = std::get<SubaruHitachiM32rKlinePlan>(plan->family_plan());
         EXPECT_EQ(family.session_mode, mode);

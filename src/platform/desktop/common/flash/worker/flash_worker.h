@@ -25,7 +25,7 @@ namespace fastecu::flash
 struct FlashWorkerResult
 {
     bool success = false;
-    ErrorKind error_kind = ErrorKind::Internal;
+    ErrorKind error_kind = ErrorKind::kInternal;
     QString error_detail;
     std::optional<bytes::Bytes> read_bytes;
     std::optional<std::string> rom_id;

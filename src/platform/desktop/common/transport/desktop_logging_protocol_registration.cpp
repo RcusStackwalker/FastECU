@@ -45,7 +45,7 @@ void register_desktop_logging_protocols(LoggingEngine& engine, SerialPortActions
             const QString opened_port = serial.open_serial_port();
             if (opened_port.isEmpty() || !serial.is_serial_port_open())
             {
-                return fastecu::fail(fastecu::ErrorKind::Disconnected, "unable to open CAN adapter for CDBG logging");
+                return fastecu::fail(fastecu::ErrorKind::kDisconnected, "unable to open CAN adapter for CDBG logging");
             }
             auto transport = std::make_unique<cdbg::FastEcuCanTransport>(&serial);
             return std::unique_ptr<fastecu::logging::LoggingProtocol>(

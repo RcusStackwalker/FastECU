@@ -172,7 +172,7 @@ TEST(DefinitionWriterTest, RejectsEachEmptyRequiredIdentity)
             input.ecu_id.clear();
         }
 
-        ASSERT_THAT(create_ecuflash_xml(input), fastecu::testing::IsErr(ErrorKind::InvalidConfig)) << field;
+        ASSERT_THAT(create_ecuflash_xml(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig)) << field;
     }
 }
 
@@ -239,7 +239,7 @@ TEST(DefinitionWriterTest, RewritesHeaderAndPreservesUnrelatedTreeContent)
 TEST(DefinitionWriterTest, RejectsMalformedImportBeforeProducingBytes)
 {
     ASSERT_THAT(rewrite_ecuflash_xml(bytes("<rom><romid>"), complete_input()),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DefinitionWriterTest, RejectsDuplicateTopLevelRomIdContainers)
@@ -252,7 +252,7 @@ TEST(DefinitionWriterTest, RejectsDuplicateTopLevelRomIdContainers)
 
     auto result = rewrite_ecuflash_xml(source, complete_input());
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, HasSubstr("<romid>"));
     EXPECT_THAT(result.error().detail, HasSubstr("duplicate"));
 }
@@ -311,8 +311,8 @@ TEST(DefinitionWriterTest, RejectsUnicodeWhitespaceOnlyRequiredFieldsForEveryCal
     {
         auto input = complete_input();
         input.*member = "\xc2\xa0\xe2\x80\x83\xe3\x80\x80";
-        EXPECT_THAT(create_ecuflash_xml(input), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-        EXPECT_THAT(rewrite_ecuflash_xml(bytes("<rom/>"), input), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+        EXPECT_THAT(create_ecuflash_xml(input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+        EXPECT_THAT(rewrite_ecuflash_xml(bytes("<rom/>"), input), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     }
 }
 

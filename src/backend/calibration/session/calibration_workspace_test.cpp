@@ -66,7 +66,7 @@ TEST_F(CalibrationWorkspaceTest, AFailedOpenLeavesTheWorkspaceUnchanged)
     ASSERT_THAT(a, IsOk());
 
     EXPECT_THAT(workspace_.open_file("/cal/missing.bin"), ::testing::Not(IsOk()));
-    EXPECT_THAT(workspace_.adopt_read_image(ReadImage{.filename = "x.bin"}), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(workspace_.adopt_read_image(ReadImage{.filename = "x.bin"}), IsErr(ErrorKind::kInvalidConfig));
 
     EXPECT_THAT(workspace_.ids(), ElementsAre(a->id));
 }
@@ -79,7 +79,7 @@ TEST_F(CalibrationWorkspaceTest, AdoptedImagesBecomeSessions)
     ASSERT_THAT(read, IsOk());
     EXPECT_TRUE(read->vehicle_selected);
     ASSERT_NE(workspace_.find(read->id), nullptr);
-    EXPECT_EQ(workspace_.find(read->id)->source().origin, RomOrigin::EcuRead);
+    EXPECT_EQ(workspace_.find(read->id)->source().origin, RomOrigin::kEcuRead);
 }
 
 TEST_F(CalibrationWorkspaceTest, ClosingKeepsOtherSessionsAndTheirPointers)
@@ -108,7 +108,7 @@ TEST_F(CalibrationWorkspaceTest, ClosedIdsAreNeverReused)
     ASSERT_THAT(again, IsOk());
     EXPECT_NE(again->id, a->id);
     EXPECT_EQ(workspace_.find(a->id), nullptr);
-    EXPECT_THAT(workspace_.close(a->id), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(workspace_.close(a->id), IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST_F(CalibrationWorkspaceTest, SessionsAreMutableThroughTheWorkspace)

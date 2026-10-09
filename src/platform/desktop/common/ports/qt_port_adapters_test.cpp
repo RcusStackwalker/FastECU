@@ -71,7 +71,7 @@ TEST(QtClockTest, SleepReturnsCancelledWhenTokenAlreadyCancelled)
     QtClock clock;
     ManualCancellationToken token;
     token.cancel();
-    ASSERT_THAT(clock.sleep(50ms, token), fastecu::testing::IsErr(ErrorKind::Cancelled));
+    ASSERT_THAT(clock.sleep(50ms, token), fastecu::testing::IsErr(ErrorKind::kCancelled));
 }
 
 // ---- QtFileRepository --------------------------------------------------
@@ -116,7 +116,7 @@ TEST(QtFileRepositoryTest, WriteToUnopenablePathFails)
     QtFileRepository repo;
     std::vector<std::uint8_t> data{0x01, 0x02, 0x03};
     ASSERT_THAT(repo.write(path, std::span<const std::uint8_t>(data)),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(QtFileRepositoryTest, ReadOfMissingPathFails)
@@ -126,7 +126,7 @@ TEST(QtFileRepositoryTest, ReadOfMissingPathFails)
     std::string path = dir.filePath("does-not-exist.bin").toStdString();
 
     QtFileRepository repo;
-    ASSERT_THAT(repo.read(path), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(repo.read(path), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 // ---- QtSettings ---------------------------------------------------------
@@ -157,11 +157,11 @@ TEST(QtEventSinkTest, LogEmitsLoggedWithConvertedArgs)
     fastecu::testing::SignalRecorder spy(&sink, &QtEventSink::logged);
     ASSERT_TRUE(spy.is_valid());
 
-    sink.log(LogLevel::Warning, "msg");
+    sink.log(LogLevel::kWarning, "msg");
 
     ASSERT_EQ(spy.count(), 1U);
     const auto args = spy.snapshot().front();
-    EXPECT_EQ(std::get<0>(args), static_cast<int>(LogLevel::Warning));
+    EXPECT_EQ(std::get<0>(args), static_cast<int>(LogLevel::kWarning));
     EXPECT_EQ(std::get<1>(args), QString("msg"));
 }
 

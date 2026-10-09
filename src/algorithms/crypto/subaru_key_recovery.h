@@ -18,8 +18,8 @@ using Keys = std::array<std::uint16_t, 4>;
 
 enum class Failure
 {
-    InputTooShort, // either input is shorter than kAnalyzedBytes
-    NoMatchingKey, // no k2 or k3 is consistent with more than half the distinct pairs
+    kInputTooShort, // either input is shorter than kAnalyzedBytes
+    kNoMatchingKey, // no k2 or k3 is consistent with more than half the distinct pairs
 };
 
 // The attack reads exactly this many leading bytes of each input.

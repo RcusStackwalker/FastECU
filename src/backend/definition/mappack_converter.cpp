@@ -25,7 +25,7 @@ bool contains_xml_control(std::string_view text)
 
 std::unexpected<Error> invalid(std::size_t row, std::string_view column, std::string_view reason)
 {
-    return fail(ErrorKind::InvalidConfig, std::format("CSV row {}, column {}: {}", row, column, reason));
+    return fail(ErrorKind::kInvalidConfig, std::format("CSV row {}, column {}: {}", row, column, reason));
 }
 
 // Consume one field, leaving the record separator for the caller.

@@ -30,11 +30,11 @@ namespace
 DefinitionIndexEntry entry(std::string definition_id, std::string source, std::vector<std::string> parents = {})
 {
     return {
-        .format = DefinitionFormat::RomRaider,
+        .format = DefinitionFormat::kRomRaider,
         .definition_id = std::move(definition_id),
         .internal_id = "CAL-001",
         .internal_id_address = 0x1234,
-        .internal_id_encoding = IdEncoding::Ascii,
+        .internal_id_encoding = IdEncoding::kAscii,
         .ecu_id = "ECU-001",
         .source = std::move(source),
         .parents = std::move(parents),
@@ -109,16 +109,16 @@ TEST(StorageByteSizeTest, MapsEachStorageTypeToItsByteWidth)
     using fastecu::definition::storage_byte_size;
     using fastecu::definition::StorageType;
 
-    EXPECT_EQ(storage_byte_size(StorageType::Uint8), 1U);
-    EXPECT_EQ(storage_byte_size(StorageType::Int8), 1U);
-    EXPECT_EQ(storage_byte_size(StorageType::Uint16), 2U);
-    EXPECT_EQ(storage_byte_size(StorageType::Int16), 2U);
-    EXPECT_EQ(storage_byte_size(StorageType::Uint24), 3U);
-    EXPECT_EQ(storage_byte_size(StorageType::Int24), 3U);
-    EXPECT_EQ(storage_byte_size(StorageType::Uint32), 4U);
-    EXPECT_EQ(storage_byte_size(StorageType::Int32), 4U);
-    EXPECT_EQ(storage_byte_size(StorageType::Float), 4U);
-    EXPECT_EQ(storage_byte_size(StorageType::Bloblist), 1U);
+    EXPECT_EQ(storage_byte_size(StorageType::kUint8), 1U);
+    EXPECT_EQ(storage_byte_size(StorageType::kInt8), 1U);
+    EXPECT_EQ(storage_byte_size(StorageType::kUint16), 2U);
+    EXPECT_EQ(storage_byte_size(StorageType::kInt16), 2U);
+    EXPECT_EQ(storage_byte_size(StorageType::kUint24), 3U);
+    EXPECT_EQ(storage_byte_size(StorageType::kInt24), 3U);
+    EXPECT_EQ(storage_byte_size(StorageType::kUint32), 4U);
+    EXPECT_EQ(storage_byte_size(StorageType::kInt32), 4U);
+    EXPECT_EQ(storage_byte_size(StorageType::kFloat), 4U);
+    EXPECT_EQ(storage_byte_size(StorageType::kBloblist), 1U);
 }
 
 TEST(StorageByteSizeTest, DefaultsToOneByteWhenStorageTypeIsAbsent)
@@ -133,12 +133,12 @@ TEST(DefinitionCatalogTest, FindsEntryByFormatAndDefinitionId)
 {
     auto romraider = entry("ROMRAIDER", "romraider.xml");
     auto ecuflash = entry("ECUFLASH", "ecuflash.xml");
-    ecuflash.format = DefinitionFormat::EcuFlash;
+    ecuflash.format = DefinitionFormat::kEcuFlash;
 
     auto catalog = DefinitionCatalog::create({romraider, ecuflash});
 
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
-    auto found = catalog->find(DefinitionFormat::EcuFlash, "ECUFLASH");
+    auto found = catalog->find(DefinitionFormat::kEcuFlash, "ECUFLASH");
     ASSERT_TRUE(found);
     EXPECT_EQ(found->get().source, "ecuflash.xml");
     EXPECT_EQ(catalog->entries().size(), 2U);
@@ -165,7 +165,7 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateInternalIdIsInvalidConfig)
 
     auto result = DefinitionCatalog::create({first, second});
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("a.xml"));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("b.xml"));
 }
@@ -178,7 +178,7 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateEcuIdentityIsInvalidConfig)
 
     auto result = DefinitionCatalog::create({first, second});
 
-    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(result, fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("a.xml"));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("b.xml"));
 }
@@ -189,16 +189,16 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateAddressIsInvalidConfig)
     auto second = entry("A", "b.xml");
     second.internal_id_address = 0x5678;
 
-    ASSERT_THAT(DefinitionCatalog::create({first, second}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(DefinitionCatalog::create({first, second}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DefinitionCatalogTest, ConflictingDuplicateEncodingIsInvalidConfig)
 {
     auto first = entry("A", "a.xml");
     auto second = entry("A", "b.xml");
-    second.internal_id_encoding = IdEncoding::Hex;
+    second.internal_id_encoding = IdEncoding::kHex;
 
-    ASSERT_THAT(DefinitionCatalog::create({first, second}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(DefinitionCatalog::create({first, second}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DefinitionCatalogTest, ConflictingDuplicateParentsIsInvalidConfig)
@@ -206,24 +206,24 @@ TEST(DefinitionCatalogTest, ConflictingDuplicateParentsIsInvalidConfig)
     auto first = entry("A", "a.xml", {"BASE"});
     auto second = entry("A", "b.xml", {"OTHER"});
 
-    ASSERT_THAT(DefinitionCatalog::create({first, second}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(DefinitionCatalog::create({first, second}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DefinitionCatalogTest, EmptyDefinitionIdIsInvalidConfig)
 {
     ASSERT_THAT(DefinitionCatalog::create({entry("", "definition.xml")}),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DefinitionCatalogTest, MissingSourceIsInvalidConfig)
 {
-    ASSERT_THAT(DefinitionCatalog::create({entry("A", "")}), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(DefinitionCatalog::create({entry("A", "")}), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DefinitionCatalogTest, EmptyParentReferenceIsInvalidConfig)
 {
     ASSERT_THAT(DefinitionCatalog::create({entry("A", "definition.xml", {""})}),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DefinitionCatalogTest, MissingEntryIsInvalidConfig)
@@ -231,8 +231,8 @@ TEST(DefinitionCatalogTest, MissingEntryIsInvalidConfig)
     auto catalog = DefinitionCatalog::create({entry("A", "definition.xml")});
 
     ASSERT_THAT(catalog, fastecu::testing::IsOk());
-    ASSERT_THAT(catalog->find(DefinitionFormat::RomRaider, "UNKNOWN"),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(catalog->find(DefinitionFormat::kRomRaider, "UNKNOWN"),
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(DefinitionModel, FindScalingReturnsMatchingEntry)
@@ -258,16 +258,16 @@ TEST(DefinitionModel, FindScalingReturnsNullWhenAbsent)
 
 TEST(DefinitionModel, IsUnsignedStorageCoversEveryStorageType)
 {
-    EXPECT_TRUE(is_unsigned_storage(StorageType::Uint8));
-    EXPECT_TRUE(is_unsigned_storage(StorageType::Uint16));
-    EXPECT_TRUE(is_unsigned_storage(StorageType::Uint24));
-    EXPECT_TRUE(is_unsigned_storage(StorageType::Uint32));
-    EXPECT_FALSE(is_unsigned_storage(StorageType::Int8));
-    EXPECT_FALSE(is_unsigned_storage(StorageType::Int16));
-    EXPECT_FALSE(is_unsigned_storage(StorageType::Int24));
-    EXPECT_FALSE(is_unsigned_storage(StorageType::Int32));
-    EXPECT_FALSE(is_unsigned_storage(StorageType::Float));
-    EXPECT_FALSE(is_unsigned_storage(StorageType::Bloblist));
+    EXPECT_TRUE(is_unsigned_storage(StorageType::kUint8));
+    EXPECT_TRUE(is_unsigned_storage(StorageType::kUint16));
+    EXPECT_TRUE(is_unsigned_storage(StorageType::kUint24));
+    EXPECT_TRUE(is_unsigned_storage(StorageType::kUint32));
+    EXPECT_FALSE(is_unsigned_storage(StorageType::kInt8));
+    EXPECT_FALSE(is_unsigned_storage(StorageType::kInt16));
+    EXPECT_FALSE(is_unsigned_storage(StorageType::kInt24));
+    EXPECT_FALSE(is_unsigned_storage(StorageType::kInt32));
+    EXPECT_FALSE(is_unsigned_storage(StorageType::kFloat));
+    EXPECT_FALSE(is_unsigned_storage(StorageType::kBloblist));
     // Absent storage type: legacy tested `storagetype.startsWith("uint")` on
     // an empty QString, which is false. Matched exactly.
     EXPECT_FALSE(is_unsigned_storage(std::nullopt));

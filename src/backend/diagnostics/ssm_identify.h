@@ -16,22 +16,22 @@ namespace fastecu::diagnostics
 // Raw "CAN" never identified an ECU and has no variant.
 enum class SsmVariant
 {
-    Ssm1,
-    KlineSsm2,
-    Iso15765Uds,
+    kSsm1,
+    kKlineSsm2,
+    kIso15765Uds,
 };
 
 // The toolbar's ECU/TCU radio button.
 enum class SsmTarget
 {
-    Ecu,
-    Tcu,
+    kEcu,
+    kTcu,
 };
 
 struct SsmIdentifyRequest
 {
-    SsmVariant variant = SsmVariant::KlineSsm2;
-    SsmTarget target = SsmTarget::Ecu;
+    SsmVariant variant = SsmVariant::kKlineSsm2;
+    SsmTarget target = SsmTarget::kEcu;
 };
 
 struct SsmIdentity

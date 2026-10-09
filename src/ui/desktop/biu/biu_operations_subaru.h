@@ -54,31 +54,31 @@ class BiuOperationsSubaru : public QDialog
 
     enum BiuCommands
     {
-        NO_COMMAND = 0x00,
-        CONNECT = 0x81,
-        DISCONNECT = 0x82,
-        DTC_READ = 0x18,
-        DTC_CLEAR = 0x14,
-        INFO_REQUEST = 0x21,
-        IN_OUT_SWITCHES = 0x50,
-        LIGHTING_SWITCHES = 0x51,
-        BIU_DATA = 0x40,
-        CAN_DATA = 0x41,
-        TIME_TEMP_READ = 0x52,
-        OPTIONS_READ = 0x53,
-        VDC_ABS_CONDITION = 0x60,
-        DEST_TOUCH_STATUS = 0x61,
-        FACTORY_STATUS = 0x54,
-        TESTER_PRESENT = 0x3E,
-        WRITE_DATA = 0x3B,
-        TIME_TEMP_WRITE = 0x8A,
-        OPTIONS_WRITE = 0x8C
+        kNoCommand = 0x00,
+        kConnect = 0x81,
+        kDisconnect = 0x82,
+        kDtcRead = 0x18,
+        kDtcClear = 0x14,
+        kInfoRequest = 0x21,
+        kInOutSwitches = 0x50,
+        kLightingSwitches = 0x51,
+        kBiuData = 0x40,
+        kCanData = 0x41,
+        kTimeTempRead = 0x52,
+        kOptionsRead = 0x53,
+        kVdcAbsCondition = 0x60,
+        kDestTouchStatus = 0x61,
+        kFactoryStatus = 0x54,
+        kTesterPresent = 0x3E,
+        kWriteData = 0x3B,
+        kTimeTempWrite = 0x8A,
+        kOptionsWrite = 0x8C
     };
 
     enum ConnectionState
     {
-        NOT_CONNECTED = 0,
-        CONNECTED = 1,
+        kNotConnected = 0,
+        kConnected = 1,
     };
 
     QStringList biu_messages_ = {"COMM: Connect",

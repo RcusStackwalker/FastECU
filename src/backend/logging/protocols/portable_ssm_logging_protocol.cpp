@@ -19,7 +19,7 @@ fastecu::Status checkCancellation(const fastecu::ICancellationToken& cancellatio
 {
     if (cancellation.cancelled())
     {
-        return fastecu::fail(fastecu::ErrorKind::Cancelled, "SSM logging cancelled");
+        return fastecu::fail(fastecu::ErrorKind::kCancelled, "SSM logging cancelled");
     }
     return {};
 }
@@ -145,7 +145,7 @@ fastecu::Status SsmLoggingProtocol::start(const fastecu::ICancellationToken& can
     }
     if (!transport_->isOpen())
     {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
+        return fastecu::fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
     }
 
     const bytes::Bytes output{0xA8, 0x00, 0x00, 0x00, 0x07};
@@ -161,7 +161,7 @@ fastecu::Status SsmLoggingProtocol::start(const fastecu::ICancellationToken& can
     }
     if (received->size() <= 6 || received->at(4) != 0xe8)
     {
-        return fastecu::fail(fastecu::ErrorKind::BadResponse, "no response to logging start request");
+        return fastecu::fail(fastecu::ErrorKind::kBadResponse, "no response to logging start request");
     }
     return {};
 }
@@ -175,7 +175,7 @@ fastecu::Result<PollData> SsmLoggingProtocol::poll(std::chrono::milliseconds tim
     }
     if (!transport_->isOpen())
     {
-        return fastecu::fail(fastecu::ErrorKind::Disconnected, "adapter disconnected");
+        return fastecu::fail(fastecu::ErrorKind::kDisconnected, "adapter disconnected");
     }
 
     if (auto write_result = transport_->write(buildSsmHeader(buildPollRequest(channels_))); !write_result)

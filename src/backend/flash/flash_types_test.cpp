@@ -11,8 +11,8 @@ namespace
 TEST(FlashTypesTest, FamilyPlanHoldsKlineVariant)
 {
     FamilyPlan plan = DensoSh705xEepromKlinePlan{
-        .mode = EepromReadMode::Mode2,
-        .security = DensoSecurityVariant::Stock,
+        .mode = EepromReadMode::kMode2,
+        .security = DensoSecurityVariant::kStock,
         .tester_id = 0xf0,
         .target_id = 0x10,
         .initial_baud = 4800,
@@ -26,8 +26,8 @@ TEST(FlashTypesTest, FamilyPlanHoldsKlineVariant)
 TEST(FlashTypesTest, FamilyPlanHoldsCanVariant)
 {
     FamilyPlan plan = DensoSh705xEepromCanPlan{
-        .mode = EepromReadMode::Mode3,
-        .security = DensoSecurityVariant::EcuTek,
+        .mode = EepromReadMode::kMode3,
+        .security = DensoSecurityVariant::kEcuTek,
         .request_id = 0x7e0,
         .response_id = 0x7e8,
         .bitrate = 500000,
@@ -40,7 +40,7 @@ TEST(FlashTypesTest, FamilyPlanHoldsCanVariant)
 
 TEST(FlashTypesTest, MixedCanTransportKindIsDistinctFromIso15765)
 {
-    EXPECT_NE(TransportKind::CanRawIso15765, TransportKind::CanIso15765);
+    EXPECT_NE(TransportKind::kCanRawIso15765, TransportKind::kCanIso15765);
 }
 
 TEST(FlashTypesTest, FamilyPlanHoldsMitsuColtM32rCanVariant)
@@ -77,9 +77,9 @@ TEST(FlashTypesTest, KernelImageOwnsItsBytesIndependently)
 
 TEST(FlashTypesTest, EepromReadModeValuesMatchProtocolBytes)
 {
-    EXPECT_EQ(static_cast<std::uint8_t>(EepromReadMode::Mode2), 0x02);
-    EXPECT_EQ(static_cast<std::uint8_t>(EepromReadMode::Mode3), 0x03);
-    EXPECT_EQ(static_cast<std::uint8_t>(EepromReadMode::Mode4), 0x04);
+    EXPECT_EQ(static_cast<std::uint8_t>(EepromReadMode::kMode2), 0x02);
+    EXPECT_EQ(static_cast<std::uint8_t>(EepromReadMode::kMode3), 0x03);
+    EXPECT_EQ(static_cast<std::uint8_t>(EepromReadMode::kMode4), 0x04);
 }
 
 TEST(FlashTypesTest, FamilyRequiresKernelDefaultsTrueForExistingFamilies)

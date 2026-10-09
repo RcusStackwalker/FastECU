@@ -52,7 +52,7 @@ TEST(MutMemory, WriteBelowTheWindowIsRefusedWithoutIo)
 {
     ScriptedKlineTransport t;
     fastecu::FakeCancellationToken token;
-    EXPECT_THAT(write_memory(t, 0x3FFF, bytes::Bytes{0x01}, token), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(write_memory(t, 0x3FFF, bytes::Bytes{0x01}, token), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_TRUE(t.scriptConsumed());
 }
 
@@ -60,7 +60,7 @@ TEST(MutMemory, WriteAboveTheWindowIsRefusedWithoutIo)
 {
     ScriptedKlineTransport t;
     fastecu::FakeCancellationToken token;
-    EXPECT_THAT(write_memory(t, 0xC000, bytes::Bytes{0x01}, token), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(write_memory(t, 0xC000, bytes::Bytes{0x01}, token), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_TRUE(t.scriptConsumed());
 }
 
@@ -104,7 +104,7 @@ TEST(MutMemory, ReadReturnsWhatItHadWhenALaterChunkFails)
     const bytes::Bytes first = counting(40);
     script_chunk(t, 0x8000, first);
     t.expectWrite(buildSetupFrame(0xA0, 40));
-    t.queue_error(ErrorKind::Disconnected);
+    t.queue_error(ErrorKind::kDisconnected);
     EXPECT_THAT(read_memory(t, 0x8000, 80, token), IsOkAnd(ElementsAreArray(first)));
 }
 
@@ -113,8 +113,8 @@ TEST(MutMemory, ReadFailsWhenTheFirstChunkFails)
     ScriptedKlineTransport t;
     fastecu::FakeCancellationToken token;
     t.expectWrite(buildSetupFrame(0xA0, 4));
-    t.queue_error(ErrorKind::Disconnected);
-    EXPECT_THAT(read_memory(t, 0x8000, 4, token), IsErr(ErrorKind::Disconnected));
+    t.queue_error(ErrorKind::kDisconnected);
+    EXPECT_THAT(read_memory(t, 0x8000, 4, token), IsErr(ErrorKind::kDisconnected));
 }
 
 TEST(MutMemory, ReadSkipsAChunkWhosePollReturnsNoFrame)

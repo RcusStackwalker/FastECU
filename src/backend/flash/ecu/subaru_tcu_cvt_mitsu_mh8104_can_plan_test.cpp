@@ -30,7 +30,7 @@ INSTANTIATE_TEST_SUITE_P(SubaruTcuCvtMitsuMh8104Can, SingleWindowPlanContract, :
 // The wire parameters are this family's own; they do not generalize.
 TEST(SubaruTcuCvtMitsuMh8104CanPlan, ReadPlanCarriesThisFamilysWireParameters)
 {
-    const auto plan = build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation::Read, "sub_tcu_cvt_mitsu_mh8104_can",
+    const auto plan = build_subaru_tcu_cvt_mitsu_mh8104_can_plan(FlashOperation::kRead, "sub_tcu_cvt_mitsu_mh8104_can",
                                                                  "MH8104", std::nullopt);
 
     ASSERT_THAT(plan, fastecu::testing::IsOk());

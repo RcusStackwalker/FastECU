@@ -27,7 +27,7 @@ class FakeClock : public IClock
     {
         if (t.cancelled())
         {
-            return fail(ErrorKind::Cancelled);
+            return fail(ErrorKind::kCancelled);
         }
         elapsed_ += sleep_advance_.value_or(
             duration < std::chrono::milliseconds::zero() ? std::chrono::milliseconds::zero() : duration);

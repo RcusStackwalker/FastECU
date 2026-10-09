@@ -18,18 +18,18 @@ fastecu::Result<QString> effective_protocol_filter(fastecu::logging::LoggingProt
 {
     switch (protocol)
     {
-    case fastecu::logging::LoggingProtocolId::Ssm:
+    case fastecu::logging::LoggingProtocolId::kSsm:
         if (protocol_filter.isEmpty())
         {
-            return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "SSM logging protocol filter is empty");
+            return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "SSM logging protocol filter is empty");
         }
         return protocol_filter;
-    case fastecu::logging::LoggingProtocolId::MutDma:
+    case fastecu::logging::LoggingProtocolId::kMutDma:
         return QStringLiteral("MUT_DMA");
-    case fastecu::logging::LoggingProtocolId::Cdbg:
+    case fastecu::logging::LoggingProtocolId::kCdbg:
         return QStringLiteral("CDBG");
     }
-    return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging protocol");
+    return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "invalid logging protocol");
 }
 
 fastecu::Result<fastecu::logging::LoggingChannel>
@@ -39,7 +39,7 @@ channel_from_parameter(const fastecu::logging::LoggerParameter& parameter, faste
     if (conversions.empty() || conversions.at(0).units.empty() || conversions.at(0).expr.empty() ||
         conversions.at(0).format.empty())
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "malformed logging conversion");
+        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "malformed logging conversion");
     }
 
     bool address_ok = false;
@@ -48,23 +48,23 @@ channel_from_parameter(const fastecu::logging::LoggerParameter& parameter, faste
     const uint length = QString::fromStdString(parameter.length).toUInt(&length_ok);
     if (!address_ok || !length_ok)
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "invalid logging address or length");
+        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "invalid logging address or length");
     }
 
     const QStringList format_fields = QString::fromStdString(conversions.at(0).format).split('.');
     const auto precision = static_cast<int>(format_fields.size() > 1 ? format_fields.at(1).count('0') : 0);
     if (precision > std::numeric_limits<std::uint8_t>::max())
     {
-        return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "logging conversion precision is too large");
+        return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "logging conversion precision is too large");
     }
 
     return fastecu::logging::LoggingChannel{
         .id = parameter.id,
         .address = static_cast<std::uint32_t>(address),
         .length = static_cast<std::size_t>(length),
-        .raw_assembly = protocol == fastecu::logging::LoggingProtocolId::Ssm
-                            ? fastecu::logging::RawAssembly::DecimalBytesConcatenated
-                            : fastecu::logging::RawAssembly::UnsignedIntegerDecimal,
+        .raw_assembly = protocol == fastecu::logging::LoggingProtocolId::kSsm
+                            ? fastecu::logging::RawAssembly::kDecimalBytesConcatenated
+                            : fastecu::logging::RawAssembly::kUnsignedIntegerDecimal,
         .from_byte_expression = conversions.at(0).expr,
         .unit = conversions.at(0).units,
         .decimal_precision = static_cast<std::uint8_t>(precision),
@@ -96,13 +96,13 @@ fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const fast
         for (const auto& p : model.definition().parameters)
         {
             if (p.id != id || p.protocol != key ||
-                (protocol == fastecu::logging::LoggingProtocolId::MutDma && !model.parameter_supported(key, id)))
+                (protocol == fastecu::logging::LoggingProtocolId::kMutDma && !model.parameter_supported(key, id)))
             {
                 continue;
             }
             if (selected != nullptr)
             {
-                return fastecu::fail(fastecu::ErrorKind::InvalidConfig,
+                return fastecu::fail(fastecu::ErrorKind::kInvalidConfig,
                                      "duplicate logging value id in selected protocol");
             }
             selected = &p;
@@ -118,13 +118,13 @@ fastecu::Result<DesktopLoggingSnapshot> make_desktop_logging_snapshot(const fast
         }
         if (!identities.emplace(id, fastecu::logging::LoggerIdentity{key, id}).second)
         {
-            return fastecu::fail(fastecu::ErrorKind::InvalidConfig, "duplicate lower-panel logging value id");
+            return fastecu::fail(fastecu::ErrorKind::kInvalidConfig, "duplicate lower-panel logging value id");
         }
-        if (protocol != fastecu::logging::LoggingProtocolId::Ssm || model.parameter_supported(key, id))
+        if (protocol != fastecu::logging::LoggingProtocolId::kSsm || model.parameter_supported(key, id))
         {
             enabled_ids.insert(id);
         }
-        if (protocol == fastecu::logging::LoggingProtocolId::Ssm)
+        if (protocol == fastecu::logging::LoggingProtocolId::kSsm)
         {
             response_offsets.push_back(slot);
         }

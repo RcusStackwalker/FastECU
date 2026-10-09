@@ -54,7 +54,7 @@ class BlockingClock final : public IClock
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
-        return fastecu::fail(ErrorKind::Cancelled);
+        return fastecu::fail(ErrorKind::kCancelled);
     }
 
     std::atomic<bool> entered{false};
@@ -66,7 +66,7 @@ TEST(SsmIdentifyWorkerTest, stopsAtTheFirstSuccess)
     FakeDiagnosticLink link;
     link.queue_read(kShortEcuInit);
     auto clock = std::make_unique<FakeClock>();
-    SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::KlineSsm2, SsmTarget::Ecu}, link, std::move(clock));
+    SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::kKlineSsm2, SsmTarget::kEcu}, link, std::move(clock));
     fastecu::testing::SignalRecorder done(&worker, &SsmIdentifyWorker::completed);
     worker.start();
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
@@ -84,7 +84,7 @@ TEST(SsmIdentifyWorkerTest, retriesFiveTimesThenReportsTheLastError)
     FakeDiagnosticLink link;
     auto clock = std::make_unique<FakeClock>();
     FakeClock *clock_view = clock.get();
-    SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::KlineSsm2, SsmTarget::Ecu}, link, std::move(clock));
+    SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::kKlineSsm2, SsmTarget::kEcu}, link, std::move(clock));
     fastecu::testing::SignalRecorder logs(&worker, &SsmIdentifyWorker::logEvent);
     fastecu::testing::SignalRecorder done(&worker, &SsmIdentifyWorker::completed);
     worker.start();
@@ -92,7 +92,7 @@ TEST(SsmIdentifyWorkerTest, retriesFiveTimesThenReportsTheLastError)
     worker.wait();
     const auto result = std::get<0>(done.snapshot().at(0));
     ASSERT_TRUE(!result.success);
-    ASSERT_EQ(result.error_kind, ErrorKind::Timeout);
+    ASSERT_EQ(result.error_kind, ErrorKind::kTimeout);
     ASSERT_EQ(opens(link), 5);
     ASSERT_EQ(logs.count(), 5U);
     // Five 200 ms settle sleeps inside the attempts and four 500 ms gaps
@@ -103,14 +103,14 @@ TEST(SsmIdentifyWorkerTest, retriesFiveTimesThenReportsTheLastError)
 TEST(SsmIdentifyWorkerTest, stopBeforeStartCancelsAfterOneAttempt)
 {
     FakeDiagnosticLink link;
-    SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::KlineSsm2, SsmTarget::Ecu}, link,
+    SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::kKlineSsm2, SsmTarget::kEcu}, link,
                              std::make_unique<FakeClock>());
     fastecu::testing::SignalRecorder done(&worker, &SsmIdentifyWorker::completed);
     worker.requestStop();
     worker.start();
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return done.count() != 0; }, std::chrono::milliseconds(5000)));
     worker.wait();
-    ASSERT_EQ(std::get<0>(done.snapshot().at(0)).error_kind, ErrorKind::Cancelled);
+    ASSERT_EQ(std::get<0>(done.snapshot().at(0)).error_kind, ErrorKind::kCancelled);
     ASSERT_EQ(opens(link), 1);
 }
 
@@ -121,7 +121,7 @@ TEST(SsmIdentifyWorkerTest, destroyingARunningWorkerJoinsIt)
     {
         auto clock = std::make_unique<BlockingClock>();
         clock_view = clock.get();
-        SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::KlineSsm2, SsmTarget::Ecu}, link, std::move(clock));
+        SsmIdentifyWorker worker(SsmIdentifyRequest{SsmVariant::kKlineSsm2, SsmTarget::kEcu}, link, std::move(clock));
         worker.start();
         // Spin until the worker enters sleep(), proving run() is executing.
         ASSERT_TRUE(

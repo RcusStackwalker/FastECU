@@ -22,11 +22,11 @@ INSTANTIATE_TEST_SUITE_P(SubaruTcuHitachiM32rKline, SingleWindowPlanContract, ::
 
 TEST(SubaruTcuHitachiM32rKlinePlan, MapsProtocolToItsWireParameters)
 {
-    const auto plan = build_subaru_tcu_hitachi_m32r_kline_plan(FlashOperation::Read, "sub_tcu_hitachi_m32r_kline",
+    const auto plan = build_subaru_tcu_hitachi_m32r_kline_plan(FlashOperation::kRead, "sub_tcu_hitachi_m32r_kline",
                                                                "M32R_512KB", std::nullopt);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    EXPECT_EQ(plan->family(), FlashFamily::SubaruTcuHitachiM32rKline);
-    EXPECT_EQ(plan->transport(), TransportKind::Kline);
+    EXPECT_EQ(plan->family(), FlashFamily::kSubaruTcuHitachiM32rKline);
+    EXPECT_EQ(plan->transport(), TransportKind::kKline);
 
     const auto& family = std::get<SubaruTcuHitachiM32rKlinePlan>(plan->family_plan());
     EXPECT_EQ(family.tester_id, 0xf0);
@@ -39,11 +39,11 @@ TEST(SubaruTcuHitachiM32rKlinePlan, MapsProtocolToItsWireParameters)
 // written nothing. See the plan's "Deliberate Divergences From Legacy".
 TEST(SubaruTcuHitachiM32rKlinePlan, RejectsWriteAndTestWriteAsUnsupported)
 {
-    for (const FlashOperation operation : {FlashOperation::Write, FlashOperation::TestWrite})
+    for (const FlashOperation operation : {FlashOperation::kWrite, FlashOperation::kTestWrite})
     {
         const auto plan = build_subaru_tcu_hitachi_m32r_kline_plan(operation, "sub_tcu_hitachi_m32r_kline",
                                                                    "M32R_512KB", bytes::Bytes(0x80000, 0x00));
-        EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::Unsupported));
+        EXPECT_THAT(plan, fastecu::testing::IsErr(ErrorKind::kUnsupported));
     }
 }
 } // namespace

@@ -66,7 +66,7 @@ class ScriptedKlineTransport : public IKlineTransport
         if (w_idx_ >= expected_.size() || expected_.at(w_idx_) != bytes::Bytes(data.begin(), data.end()))
         {
             ok_ = false;
-            return fastecu::fail(fastecu::ErrorKind::Internal, "unexpected scripted K-Line write");
+            return fastecu::fail(fastecu::ErrorKind::kInternal, "unexpected scripted K-Line write");
         }
         else
         {
@@ -85,11 +85,11 @@ class ScriptedKlineTransport : public IKlineTransport
     {
         if (cancellation.cancelled())
         {
-            return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted K-Line read cancelled");
+            return fastecu::fail(fastecu::ErrorKind::kCancelled, "scripted K-Line read cancelled");
         }
         if (reads_.empty())
         {
-            return fastecu::fail(fastecu::ErrorKind::Internal, "no scripted K-Line read outcome");
+            return fastecu::fail(fastecu::ErrorKind::kInternal, "no scripted K-Line read outcome");
         }
         auto result = std::move(reads_.front());
         reads_.pop_front();

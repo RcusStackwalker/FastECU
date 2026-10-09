@@ -14,11 +14,11 @@ FlashDialog::FlashDialog(std::unique_ptr<FlashWorkflow> workflow, FlashOperation
     : QDialog(parent), workflow_(std::move(workflow)), ui_(std::make_unique<Ui::EcuOperationsWindow>())
 {
     ui_->setupUi(this);
-    if (operation == FlashOperation::Read)
+    if (operation == FlashOperation::kRead)
     {
         setWindowTitle(tr("Read ROM from ECU"));
     }
-    else if (operation == FlashOperation::TestWrite)
+    else if (operation == FlashOperation::kTestWrite)
     {
         setWindowTitle(tr("Test write ROM %1 to ECU").arg(filename));
     }
@@ -61,7 +61,7 @@ void FlashDialog::advance()
         if (auto *done = std::get_if<FlashCompletedStep>(&step))
         {
             result_ = {done->outcome, std::move(done->accepted_read_bytes), std::move(done->rom_id)};
-            if (done->outcome == FlashWorkflowOutcome::Succeeded)
+            if (done->outcome == FlashWorkflowOutcome::kSucceeded)
             {
                 showSuccess();
             }
@@ -74,8 +74,8 @@ void FlashDialog::advance()
         }
         const Error error = std::move(std::get<FlashFailureStep>(step).error);
         result_.outcome =
-            error.kind == ErrorKind::Cancelled ? FlashWorkflowOutcome::Cancelled : FlashWorkflowOutcome::Failed;
-        if (error.kind != ErrorKind::Cancelled)
+            error.kind == ErrorKind::kCancelled ? FlashWorkflowOutcome::kCancelled : FlashWorkflowOutcome::kFailed;
+        if (error.kind != ErrorKind::kCancelled)
         {
             showFailure(error);
         }
@@ -97,16 +97,16 @@ void FlashDialog::startAttempt(FlashAttempt attempt)
                 using enum LogLevel;
                 switch (static_cast<LogLevel>(level))
                 {
-                case Error:
+                case kError:
                     emit LOG_E(message, true, true);
                     break;
-                case Warning:
+                case kWarning:
                     emit LOG_W(message, true, true);
                     break;
-                case Info:
+                case kInfo:
                     emit LOG_I(message, true, true);
                     break;
-                case Debug:
+                case kDebug:
                     emit LOG_D(message, true, true);
                     break;
                 }
@@ -198,7 +198,7 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
         }
         return QString{};
     };
-    if (prompt.kind == FlashPromptKind::ColtEraseTrigger)
+    if (prompt.kind == FlashPromptKind::kColtEraseTrigger)
     {
         const QString text =
             tr("This operation accepts an exact %1 KiB ROM. The file's first 32 KiB (0x0000-%2) will be ignored; only "
@@ -209,10 +209,10 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
                 .arg(arg("capacity_kib"), arg("writable_start_hex"), arg("rom_end_hex"));
         return QMessageBox::warning(this, tr("Erase trigger"), text, QMessageBox::Yes | QMessageBox::Cancel,
                                     QMessageBox::Cancel) == QMessageBox::Yes
-                   ? FlashPromptResponse::Accept
-                   : FlashPromptResponse::Decline;
+                   ? FlashPromptResponse::kAccept
+                   : FlashPromptResponse::kDecline;
     }
-    if (prompt.kind == FlashPromptKind::ColtTopRegionBootstrap)
+    if (prompt.kind == FlashPromptKind::kColtTopRegionBootstrap)
     {
         const QString text =
             tr("The top 128KB (%1-%2) may not match the ROM being written. If it does not, it needs a one-time "
@@ -223,77 +223,77 @@ FlashPromptResponse FlashDialog::presentPrompt(const FlashPromptStep& prompt)
                 .arg(arg("top_region_start_hex"), arg("rom_end_hex"));
         return QMessageBox::warning(this, tr("Top 128KB bootstrap"), text, QMessageBox::Yes | QMessageBox::Cancel,
                                     QMessageBox::Cancel) == QMessageBox::Yes
-                   ? FlashPromptResponse::Accept
-                   : FlashPromptResponse::Decline;
+                   ? FlashPromptResponse::kAccept
+                   : FlashPromptResponse::kDecline;
     }
-    if (prompt.kind == FlashPromptKind::InspectRead)
+    if (prompt.kind == FlashPromptKind::kInspectRead)
     {
         return QMessageBox::information(this, tr("Downloaded EEPROM content"),
                                         tr("If downloaded content looks correct, click Save to accept it and exit; "
                                            "otherwise click Discard to continue with the next method."),
                                         QMessageBox::Save | QMessageBox::Discard,
                                         QMessageBox::Save) == QMessageBox::Save
-                   ? FlashPromptResponse::Save
-                   : FlashPromptResponse::Discard;
+                   ? FlashPromptResponse::kSave
+                   : FlashPromptResponse::kDiscard;
     }
-    if (prompt.kind == FlashPromptKind::ConfirmBdmKernelBootstrap)
+    if (prompt.kind == FlashPromptKind::kConfirmBdmKernelBootstrap)
     {
         return QMessageBox::warning(this, tr("BDM kernel bootstrap"),
                                     tr("This uploads the flash kernel into ECU RAM through the BDM adapter and starts "
                                        "it. It does not write the ROM.\n\nContinue?"),
                                     QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Yes
-                   ? FlashPromptResponse::Accept
-                   : FlashPromptResponse::Decline;
+                   ? FlashPromptResponse::kAccept
+                   : FlashPromptResponse::kDecline;
     }
-    if (prompt.kind == FlashPromptKind::ApplyProgrammingVoltage)
+    if (prompt.kind == FlashPromptKind::kApplyProgrammingVoltage)
     {
         return QMessageBox::warning(this, tr("Programming voltage"),
                                     tr("Apply VPP voltage to the ECU, then press OK to continue."),
                                     QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Ok
-                   ? FlashPromptResponse::Accept
-                   : FlashPromptResponse::Decline;
+                   ? FlashPromptResponse::kAccept
+                   : FlashPromptResponse::kDecline;
     }
-    if (prompt.kind == FlashPromptKind::RemoveProgrammingVoltage)
+    if (prompt.kind == FlashPromptKind::kRemoveProgrammingVoltage)
     {
         const ProgrammingVoltageNotice notice = programmingVoltageNotice(prompt);
         QMessageBox::information(this, notice.title, notice.text);
-        return FlashPromptResponse::Accept;
+        return FlashPromptResponse::kAccept;
     }
-    if (prompt.kind == FlashPromptKind::ApplyBootModeVoltages)
+    if (prompt.kind == FlashPromptKind::kApplyBootModeVoltages)
     {
         // Legacy flash_ecu_subaru_unisia_jecs_m32r_bootmode.cpp:38-41.
         return QMessageBox::warning(this, tr("Connecting to ECU"),
                                     tr("Connect VPP and MOD1 to the ECU, turn ignition ON, then press OK to continue."),
                                     QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Ok
-                   ? FlashPromptResponse::Accept
-                   : FlashPromptResponse::Decline;
+                   ? FlashPromptResponse::kAccept
+                   : FlashPromptResponse::kDecline;
     }
-    if (prompt.kind == FlashPromptKind::RemoveMod1)
+    if (prompt.kind == FlashPromptKind::kRemoveMod1)
     {
         // Legacy write_mem() :367 offered OK only; Cancel stops before erase.
         return QMessageBox::warning(this, tr("Flash file"),
                                     tr("The kernel has been uploaded. Remove MOD1 voltage, then press OK to erase and "
                                        "program the ECU, or Cancel to stop before anything is erased."),
                                     QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Ok
-                   ? FlashPromptResponse::Accept
-                   : FlashPromptResponse::Decline;
+                   ? FlashPromptResponse::kAccept
+                   : FlashPromptResponse::kDecline;
     }
-    if (prompt.kind == FlashPromptKind::ConfirmSh7058Read)
+    if (prompt.kind == FlashPromptKind::kConfirmSh7058Read)
     {
         return QMessageBox::information(this, tr("Read Hitachi SH7058 ROM"),
                                         tr("The ECU connection has not yet been initialized. Press OK to start the "
                                            "K-Line ROM read, or Cancel to stop before opening the adapter."),
                                         QMessageBox::Ok | QMessageBox::Cancel, QMessageBox::Cancel) == QMessageBox::Ok
-                   ? FlashPromptResponse::Accept
-                   : FlashPromptResponse::Decline;
+                   ? FlashPromptResponse::kAccept
+                   : FlashPromptResponse::kDecline;
     }
-    const bool cycle = prompt.kind == FlashPromptKind::CycleIgnition;
+    const bool cycle = prompt.kind == FlashPromptKind::kCycleIgnition;
     const QString text = cycle ? tr("Turn ignition OFF and back ON, then press OK to continue.")
                                : tr("Turn ignition ON and press OK to start initializing the ECU connection.");
     return QMessageBox::information(this, tr("Connecting to ECU"), text, QMessageBox::Ok | QMessageBox::Cancel,
                                     QMessageBox::Cancel) == QMessageBox::Ok
-               ? FlashPromptResponse::Accept
-               : FlashPromptResponse::Decline;
+               ? FlashPromptResponse::kAccept
+               : FlashPromptResponse::kDecline;
 }
 
 void FlashDialog::showSuccess()
@@ -307,24 +307,24 @@ void FlashDialog::showFailure(const Error& error)
     QString text;
     switch (error.kind)
     {
-    case InvalidConfig:
-    case Unsupported:
+    case kInvalidConfig:
+    case kUnsupported:
         text = tr("ECU flash configuration is invalid or unsupported. Check the selected protocol, ROM definition, and "
                   "kernel file.");
         break;
-    case Disconnected:
+    case kDisconnected:
         text = tr("Lost connection to the adapter or ECU. Check the connection and try again.");
         break;
-    case Timeout:
+    case kTimeout:
         text = tr("ECU did not respond in time. Check the connection and try again.");
         break;
-    case BadResponse:
+    case kBadResponse:
         text = tr("ECU returned an unexpected or rejected response. Check the setup and try again.");
         break;
-    case Internal:
+    case kInternal:
         text = tr("ECU operation failed. Press OK to exit and try again.");
         break;
-    case Cancelled:
+    case kCancelled:
         return;
     }
     QMessageBox::warning(this, tr("ECU Operation"), text);
@@ -339,7 +339,7 @@ void FlashDialog::closeEvent(QCloseEvent *event)
     {
         worker_->requestStop();
         worker_.reset();
-        result_.outcome = FlashWorkflowOutcome::Cancelled;
+        result_.outcome = FlashWorkflowOutcome::kCancelled;
         finishCancelledAttempt();
     }
     if (loop_)
@@ -357,7 +357,7 @@ void FlashDialog::closeEvent(QCloseEvent *event)
 void FlashDialog::finishCancelledAttempt()
 {
     workflow_->submit(
-        FlashAttemptResult{false, ErrorKind::Cancelled, "cancelled: dialog closed", std::nullopt, std::nullopt});
+        FlashAttemptResult{false, ErrorKind::kCancelled, "cancelled: dialog closed", std::nullopt, std::nullopt});
     while (true)
     {
         FlashWorkflowStep step = workflow_->next();

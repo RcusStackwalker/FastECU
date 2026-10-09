@@ -9,7 +9,7 @@ namespace
 {
 calibration::CalibrationSession session(std::string_view expression = "x")
 {
-    definition::RomDefinition definition{.format = definition::DefinitionFormat::EcuFlash};
+    definition::RomDefinition definition{.format = definition::DefinitionFormat::kEcuFlash};
     definition.scalings.push_back(
         {.name = "raw", .units = "rpm", .from_byte = std::string(expression), .format = "0.00"});
     definition::CalibrationMap map;
@@ -18,7 +18,7 @@ calibration::CalibrationSession session(std::string_view expression = "x")
     map.x_size = 2;
     map.y_size = 2;
     map.address = 0;
-    map.storage_type = definition::StorageType::Uint8;
+    map.storage_type = definition::StorageType::kUint8;
     map.scaling_name = "raw";
     definition.maps.push_back(map);
     return calibration::CalibrationSession(

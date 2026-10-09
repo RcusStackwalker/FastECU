@@ -75,7 +75,7 @@ TEST(StartupVehicleGate, AFailedSaveIsReportedAndStartupContinues)
 {
     ConfigSessionFixture f;
     ASSERT_TRUE(f.initialize().has_value());
-    f.file_repository.write_errors[f.paths.config_file] = Error{ErrorKind::InvalidConfig, "cannot open file"};
+    f.file_repository.write_errors[f.paths.config_file] = Error{ErrorKind::kInvalidConfig, "cannot open file"};
     std::vector<Error> reported;
 
     EXPECT_EQ(startup_vehicle_gate(
@@ -84,7 +84,7 @@ TEST(StartupVehicleGate, AFailedSaveIsReportedAndStartupContinues)
               std::nullopt);
 
     ASSERT_EQ(reported.size(), 1U);
-    EXPECT_EQ(reported.front().kind, ErrorKind::InvalidConfig);
+    EXPECT_EQ(reported.front().kind, ErrorKind::kInvalidConfig);
     EXPECT_THAT(reported.front().detail, HasSubstr(f.paths.config_file));
     EXPECT_THAT(reported.front().detail, HasSubstr("cannot open file"));
     // The choice holds for this run...

@@ -24,11 +24,11 @@ using ::testing::Return;
 
 TEST(TestAdapterConnection, parsesTheToolbarTransportText)
 {
-    ASSERT_EQ(log_transport_from_text("CAN"), LogTransport::Can);
-    ASSERT_EQ(log_transport_from_text("iso15765"), LogTransport::Iso15765);
-    ASSERT_EQ(log_transport_from_text("K-Line"), LogTransport::KLine);
-    ASSERT_EQ(log_transport_from_text("SSM"), LogTransport::Ssm);
-    ASSERT_EQ(log_transport_from_text(""), LogTransport::Other);
+    ASSERT_EQ(log_transport_from_text("CAN"), LogTransport::kCan);
+    ASSERT_EQ(log_transport_from_text("iso15765"), LogTransport::kIso15765);
+    ASSERT_EQ(log_transport_from_text("K-Line"), LogTransport::kKLine);
+    ASSERT_EQ(log_transport_from_text("SSM"), LogTransport::kSsm);
+    ASSERT_EQ(log_transport_from_text(""), LogTransport::kOther);
 }
 
 TEST(TestAdapterConnection, listsPortsFromTheFacade)
@@ -91,7 +91,7 @@ TEST(TestAdapterConnection, canTransportIsRawCanElevenBit)
         EXPECT_CALL(serial.fake(), reset_connection());
     }
     AdapterConnection connection(*serial);
-    connection.apply_log_transport(LogTransport::Can, false);
+    connection.apply_log_transport(LogTransport::kCan, false);
 }
 
 // Pinned: log_transport_changed set 29-bit identifiers for iso15765.
@@ -109,7 +109,7 @@ TEST(TestAdapterConnection, iso15765TransportIsTwentyNineBit)
         EXPECT_CALL(serial.fake(), reset_connection());
     }
     AdapterConnection connection(*serial);
-    connection.apply_log_transport(LogTransport::Iso15765, false);
+    connection.apply_log_transport(LogTransport::kIso15765, false);
 }
 
 TEST(TestAdapterConnection, klineWithSsmRunsAtFourThousandEightHundred)
@@ -123,7 +123,7 @@ TEST(TestAdapterConnection, klineWithSsmRunsAtFourThousandEightHundred)
         EXPECT_CALL(serial.fake(), reset_connection());
     }
     AdapterConnection connection(*serial);
-    connection.apply_log_transport(LogTransport::KLine, true);
+    connection.apply_log_transport(LogTransport::kKLine, true);
 }
 
 TEST(TestAdapterConnection, klineWithoutSsmLeavesTheSpeedAlone)
@@ -132,7 +132,7 @@ TEST(TestAdapterConnection, klineWithoutSsmLeavesTheSpeedAlone)
     EXPECT_CALL(serial.fake(), change_port_speed(_)).Times(0);
     EXPECT_CALL(serial.fake(), reset_connection());
     AdapterConnection connection(*serial);
-    connection.apply_log_transport(LogTransport::KLine, false);
+    connection.apply_log_transport(LogTransport::kKLine, false);
 }
 
 TEST(TestAdapterConnection, clearLinkFlagsClearsEveryFlagAndKeepsParity)

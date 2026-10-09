@@ -28,15 +28,15 @@ Status validate_input(const DefinitionHeaderInput& input)
 {
     if (input.xml_id.empty())
     {
-        return fail(ErrorKind::InvalidConfig, "definition XML ID is required");
+        return fail(ErrorKind::kInvalidConfig, "definition XML ID is required");
     }
     if (input.internal_id.empty())
     {
-        return fail(ErrorKind::InvalidConfig, "definition internal ID is required");
+        return fail(ErrorKind::kInvalidConfig, "definition internal ID is required");
     }
     if (input.ecu_id.empty())
     {
-        return fail(ErrorKind::InvalidConfig, "definition ECU ID is required");
+        return fail(ErrorKind::kInvalidConfig, "definition ECU ID is required");
     }
     return {};
 }
@@ -189,18 +189,18 @@ Result<std::vector<std::uint8_t>> rewrite_ecuflash_xml(std::span<const std::uint
             document.load_buffer(source.data(), source.size(), kParseFlags, pugi::encoding_auto);
         !parsed)
     {
-        return fail(ErrorKind::InvalidConfig,
+        return fail(ErrorKind::kInvalidConfig,
                     std::format("EcuFlash source XML is malformed: {}", parsed.description()));
     }
 
     pugi::xml_node root = document.document_element();
     if (!root || root.name() != "rom"sv)
     {
-        return fail(ErrorKind::InvalidConfig, "EcuFlash source root must be <rom>");
+        return fail(ErrorKind::kInvalidConfig, "EcuFlash source root must be <rom>");
     }
     if (const auto rom_id = root.child("romid"); rom_id && rom_id.next_sibling("romid"))
     {
-        return fail(ErrorKind::InvalidConfig, "EcuFlash source element <rom>: duplicate top-level <romid> elements");
+        return fail(ErrorKind::kInvalidConfig, "EcuFlash source element <rom>: duplicate top-level <romid> elements");
     }
     if (auto updated = update_header(root, input); !updated.has_value())
     {

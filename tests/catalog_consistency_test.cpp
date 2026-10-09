@@ -24,7 +24,7 @@ TEST(CatalogConsistency, ChecksumFlagAgreesWithChecksumRouting)
     for (const auto& vehicle : builtin_catalog().vehicles())
     {
         const bool routed = fastecu::checksum::has_route(vehicle.make, vehicle.protocol->name);
-        EXPECT_EQ(vehicle.protocol->checksum == ChecksumSupport::Corrected, routed)
+        EXPECT_EQ(vehicle.protocol->checksum == ChecksumSupport::kCorrected, routed)
             << vehicle.id << " (" << vehicle.protocol->name << ")";
     }
 }

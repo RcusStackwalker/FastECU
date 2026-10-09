@@ -38,7 +38,7 @@ bytes::Bytes kernel_file()
 FlashPlan kernel_plan()
 {
     auto plan = build_subaru_unisia_jecs_m32r_bootmode_kernel_plan(
-        FlashOperation::Write, "sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", kernel_file());
+        FlashOperation::kWrite, "sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", kernel_file());
     EXPECT_THAT(plan, IsOk());
     return std::move(*plan);
 }
@@ -74,11 +74,11 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, TransportSetupIs39063BaudEvenPa
 {
     const auto setup = SubaruUnisiaJecsM32rBootModeKernelExecutor{}.transport_setup(kernel_plan());
     ASSERT_THAT(setup, IsOk());
-    EXPECT_EQ(setup->baud, 39063);               // execute() :58
-    EXPECT_EQ(setup->parity, KlineParity::Even); // execute() :57
-    EXPECT_FALSE(setup->iso14230);               // execute() :53
-    EXPECT_EQ(setup->tester_id, 0xf0);           // execute() :59
-    EXPECT_EQ(setup->target_id, 0x10);           // execute() :60
+    EXPECT_EQ(setup->baud, 39063);                // execute() :58
+    EXPECT_EQ(setup->parity, KlineParity::kEven); // execute() :57
+    EXPECT_FALSE(setup->iso14230);                // execute() :53
+    EXPECT_EQ(setup->tester_id, 0xf0);            // execute() :59
+    EXPECT_EQ(setup->target_id, 0x10);            // execute() :60
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, BeforeConfigureResetsThenClearsTheHeader)
@@ -100,7 +100,7 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, UploadsEveryChunkUnderBootModeL
     RunContext context;
     ASSERT_THAT(run(plan, transport, context), IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.control_line_trace, (std::vector{Line::EnableBootModeLines, Line::DisableLecLines}));
+    EXPECT_EQ(transport.control_line_trace, (std::vector{Line::kEnableBootModeLines, Line::kDisableLecLines}));
     EXPECT_EQ(transport.read_timeouts, std::vector<std::chrono::milliseconds>{200ms}); // :339
     EXPECT_EQ(context.clock.elapsed(), 500ms);                                         // :338
     EXPECT_EQ(context.events.progress_calls, (std::vector<std::pair<int, int>>{{1, 2}, {2, 2}}));
@@ -120,9 +120,9 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, SettleReplyIsLoggedAndIgnored)
 TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, APlanWithoutTheConfirmationTouchesNothing)
 {
     auto plan = validate_and_build(FlashPlanFields{
-        .operation = FlashOperation::Write,
-        .family = FlashFamily::SubaruUnisiaJecsM32rBootModeKernel,
-        .transport = TransportKind::Kline,
+        .operation = FlashOperation::kWrite,
+        .family = FlashFamily::kSubaruUnisiaJecsM32rBootModeKernel,
+        .transport = TransportKind::kKline,
         .target_id = "sub_ecu_unisia_jecs_20_bootmode",
         .mcu_name = "M32R_128KB",
         .transfer_region = {0, 0x80},
@@ -136,7 +136,7 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, APlanWithoutTheConfirmationTouc
     ASSERT_THAT(plan, IsOk());
     ScriptedKlineFlashTransport transport;
     RunContext context;
-    EXPECT_THAT(run(*plan, transport, context), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(run(*plan, transport, context), IsErr(ErrorKind::kInvalidConfig));
     EXPECT_TRUE(transport.control_line_trace.empty());
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
@@ -144,9 +144,9 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, APlanWithoutTheConfirmationTouc
 TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, RejectsAProgramPlan)
 {
     auto plan = build_subaru_unisia_jecs_m32r_bootmode_program_plan(
-        FlashOperation::Write, "sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", bytes::Bytes(0x20000, 0x00));
+        FlashOperation::kWrite, "sub_ecu_unisia_jecs_20_bootmode", "M32R_128KB", bytes::Bytes(0x20000, 0x00));
     ASSERT_THAT(plan, IsOk());
-    EXPECT_THAT(SubaruUnisiaJecsM32rBootModeKernelExecutor{}.transport_setup(*plan), IsErr(ErrorKind::InvalidConfig));
+    EXPECT_THAT(SubaruUnisiaJecsM32rBootModeKernelExecutor{}.transport_setup(*plan), IsErr(ErrorKind::kInvalidConfig));
 }
 
 // Check 1 precedes the lines, checks 2 and 3 precede each chunk.
@@ -159,9 +159,9 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CancellationAtEachCheckpointDro
         script_upload(transport, plan);
         RunContext context;
         context.cancellation.cancel_on_check(check);
-        EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Cancelled)) << "check " << check;
+        EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::kCancelled)) << "check " << check;
         ASSERT_FALSE(transport.control_line_trace.empty());
-        EXPECT_EQ(transport.control_line_trace.back(), Line::DisableLecLines) << "check " << check;
+        EXPECT_EQ(transport.control_line_trace.back(), Line::kDisableLecLines) << "check " << check;
         // Check 1 stops before any chunk; check N >= 2 stops before chunk N-2.
         EXPECT_EQ(transport.writesConsumed(), check >= 2 ? check - 2 : 0U) << "check " << check;
     }
@@ -171,11 +171,11 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, LineFailureStillDropsTheLinesAn
 {
     const FlashPlan plan = kernel_plan();
     ScriptedKlineFlashTransport transport;
-    transport.enable_boot_mode_lines_result = fail(ErrorKind::Internal, "lines");
-    transport.disable_lec_lines_result = fail(ErrorKind::Disconnected, "cleanup");
+    transport.enable_boot_mode_lines_result = fail(ErrorKind::kInternal, "lines");
+    transport.disable_lec_lines_result = fail(ErrorKind::kDisconnected, "cleanup");
     RunContext context;
-    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Internal));
-    EXPECT_EQ(transport.control_line_trace, (std::vector{Line::EnableBootModeLines, Line::DisableLecLines}));
+    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::kInternal));
+    EXPECT_EQ(transport.control_line_trace, (std::vector{Line::kEnableBootModeLines, Line::kDisableLecLines}));
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CleanupFailureFailsAnOtherwiseGoodUpload)
@@ -183,9 +183,9 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CleanupFailureFailsAnOtherwiseG
     const FlashPlan plan = kernel_plan();
     ScriptedKlineFlashTransport transport;
     script_upload(transport, plan);
-    transport.disable_lec_lines_result = fail(ErrorKind::Disconnected, "cleanup");
+    transport.disable_lec_lines_result = fail(ErrorKind::kDisconnected, "cleanup");
     RunContext context;
-    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Disconnected));
+    EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::kDisconnected));
 }
 } // namespace
 } // namespace fastecu::flash

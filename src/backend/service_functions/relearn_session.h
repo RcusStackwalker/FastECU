@@ -34,14 +34,14 @@ class RelearnSession final : public ServiceFunctionSession
   private:
     enum class Stage
     {
-        AwaitStaticSetupGate,
-        WriteSteps,
-        Poll,
-        Done,
+        kAwaitStaticSetupGate,
+        kWriteSteps,
+        kPoll,
+        kDone,
     };
 
     std::string protocol_;
-    Stage stage_{Stage::AwaitStaticSetupGate};
+    Stage stage_{Stage::kAwaitStaticSetupGate};
     bool gate_outstanding_{false};
     bool declined_{false};
 };

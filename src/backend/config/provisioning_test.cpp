@@ -182,28 +182,28 @@ TEST(ProvisionConfigDirectories, MigratesPreviousVersionConfigFileForward)
 TEST(ProvisionConfigDirectories, FirstCreateDirectoryFailureStopsTheSequence)
 {
     InMemoryFileSystem fs;
-    fs.create_directory_error = fastecu::Error{ErrorKind::Internal, "permission denied"};
+    fs.create_directory_error = fastecu::Error{ErrorKind::kInternal, "permission denied"};
     InMemoryResourceBundle bundle;
     InMemoryFileRepository repo;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
     ASSERT_THAT(provision_config_directories(paths, fs, bundle, repo, events),
-                fastecu::testing::IsErr(ErrorKind::Internal));
+                fastecu::testing::IsErr(ErrorKind::kInternal));
     EXPECT_FALSE(fs.exists(paths.calibration_files_directory));
 }
 
 TEST(ProvisionConfigDirectories, CreateDirectoryFailureNamesThePath)
 {
     InMemoryFileSystem fs;
-    fs.create_directory_error = fastecu::Error{ErrorKind::Internal, "permission denied"};
+    fs.create_directory_error = fastecu::Error{ErrorKind::kInternal, "permission denied"};
     InMemoryResourceBundle bundle;
     InMemoryFileRepository repo;
     RecordingEventSink events;
     ConfigPaths paths = test_paths();
 
     EXPECT_THAT(provision_config_directories(paths, fs, bundle, repo, events),
-                fastecu::testing::IsErrWith(ErrorKind::Internal,
+                fastecu::testing::IsErrWith(ErrorKind::kInternal,
                                             ::testing::AllOf(::testing::HasSubstr(paths.base_config_directory),
                                                              ::testing::HasSubstr("permission denied"))));
 }
@@ -216,7 +216,7 @@ class UnreadableResourceBundle : public InMemoryResourceBundle
   public:
     fastecu::Result<std::vector<std::uint8_t>> read(std::string_view, std::string_view) override
     {
-        return fastecu::fail(ErrorKind::Internal, "resource unreadable");
+        return fastecu::fail(ErrorKind::kInternal, "resource unreadable");
     }
 };
 } // namespace
@@ -232,7 +232,7 @@ TEST(ProvisionConfigDirectories, BundleReadFailureNamesTheTarget)
 
     EXPECT_THAT(
         provision_config_directories(paths, fs, bundle, repo, events),
-        fastecu::testing::IsErrWith(ErrorKind::Internal,
+        fastecu::testing::IsErrWith(ErrorKind::kInternal,
                                     ::testing::AllOf(::testing::HasSubstr(paths.config_files_directory + "menu.cfg"),
                                                      ::testing::HasSubstr("resource unreadable"))));
     EXPECT_TRUE(repo.write_calls.empty());
@@ -245,12 +245,12 @@ TEST(ProvisionConfigDirectories, RepositoryWriteFailureNamesTheTarget)
     bundle.bundles["config"]["menu.cfg"] = {1};
     InMemoryFileRepository repo;
     ConfigPaths paths = test_paths();
-    repo.write_errors[paths.config_files_directory + "menu.cfg"] = fastecu::Error{ErrorKind::Internal, "disk full"};
+    repo.write_errors[paths.config_files_directory + "menu.cfg"] = fastecu::Error{ErrorKind::kInternal, "disk full"};
     RecordingEventSink events;
 
     EXPECT_THAT(
         provision_config_directories(paths, fs, bundle, repo, events),
-        fastecu::testing::IsErrWith(ErrorKind::Internal,
+        fastecu::testing::IsErrWith(ErrorKind::kInternal,
                                     ::testing::AllOf(::testing::HasSubstr(paths.config_files_directory + "menu.cfg"),
                                                      ::testing::HasSubstr("disk full"))));
 }

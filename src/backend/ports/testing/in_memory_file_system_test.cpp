@@ -18,7 +18,7 @@ TEST(FileSystem, CreateThenExists)
 TEST(InMemoryFileSystem, ConfiguredCreateDirectoryFailureIsReturned)
 {
     InMemoryFileSystem fs;
-    const Error injected{ErrorKind::Internal, "mkdir failed"};
+    const Error injected{ErrorKind::kInternal, "mkdir failed"};
     fs.create_directory_error = injected;
 
     auto result = fs.create_directory("/config/");
@@ -31,7 +31,7 @@ TEST(InMemoryFileSystem, ConfiguredCreateDirectoryFailureIsReturned)
 TEST(FileSystem, CopyFailsWhenSourceMissing)
 {
     InMemoryFileSystem fs;
-    ASSERT_THAT(fs.copy_file("/missing", "/dst", false), fastecu::testing::IsErr(ErrorKind::Internal));
+    ASSERT_THAT(fs.copy_file("/missing", "/dst", false), fastecu::testing::IsErr(ErrorKind::kInternal));
 }
 
 TEST(FileSystem, CopyRespectsOverwriteFlag)
@@ -84,7 +84,7 @@ TEST(InMemoryFileSystem, ConfiguredListDirectoryFailureIsReturned)
 {
     InMemoryFileSystem fs;
     fs.directory_entries["/definitions"] = {};
-    fs.list_directory_errors.insert_or_assign("/definitions", Error{ErrorKind::Internal, "listing failed"});
+    fs.list_directory_errors.insert_or_assign("/definitions", Error{ErrorKind::kInternal, "listing failed"});
 
     auto result = fs.list_directory("/definitions");
 
@@ -125,5 +125,5 @@ TEST(InMemoryFileSystem, RejectsUnknownDirectory)
 {
     InMemoryFileSystem fs;
 
-    ASSERT_THAT(fs.list_directory("/unknown"), fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+    ASSERT_THAT(fs.list_directory("/unknown"), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }

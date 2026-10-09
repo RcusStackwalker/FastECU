@@ -89,7 +89,7 @@ int GetKeyOperationsSubaru::load_and_apply_linear_approx()
     if (!recovery.has_value())
     {
         QMessageBox::warning(this, tr("Get Key Operation"),
-                             recovery.error() == subaru_key_recovery::Failure::InputTooShort
+                             recovery.error() == subaru_key_recovery::Failure::kInputTooShort
                                  ? "Both ROM files must be at least 128 KiB"
                                  : "No key is consistent with most of these ROM files' words");
         return kStatusError;

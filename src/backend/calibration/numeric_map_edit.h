@@ -17,17 +17,17 @@ using NumericEditPatch = std::vector<CellWrite>;
 
 enum class NoChangeReason
 {
-    None,
-    Unchanged,
-    BelowStorageResolution,
-    DefinitionLimit,
-    MultipleCauses,
+    kNone,
+    kUnchanged,
+    kBelowStorageResolution,
+    kDefinitionLimit,
+    kMultipleCauses,
 };
 
 struct NumericEditResult
 {
     NumericEditPatch writes;
-    NoChangeReason no_change{NoChangeReason::None};
+    NoChangeReason no_change{NoChangeReason::kNone};
 };
 
 Result<NumericEditResult> calculate_increment(bytes::ByteView rom, const MapElementSpec& spec, std::uint32_t run_width,

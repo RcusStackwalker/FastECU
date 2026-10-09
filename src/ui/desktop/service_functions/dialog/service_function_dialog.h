@@ -26,9 +26,9 @@ struct ServiceFunctionWorkerResult;
 
 enum class ServiceFunctionKind
 {
-    Relearn,
-    ReadParameters,
-    SetParameters,
+    kRelearn,
+    kReadParameters,
+    kSetParameters,
 };
 
 class ServiceFunctionDialog final : public QDialog

@@ -46,22 +46,22 @@ bytes::Bytes encryptedImage(bytes::ByteView image)
 TEST(SubaruMitsuM32rKlineExecutor, RejectsFamilyMismatchBeforeIo)
 {
     auto plan =
-        build_mitsu_colt_m32r_can_plan(FlashOperation::Read, "mitsu_ecu_m32r_can", "M32R_384KB_1block", std::nullopt);
+        build_mitsu_colt_m32r_can_plan(FlashOperation::kRead, "mitsu_ecu_m32r_can", "M32R_384KB_1block", std::nullopt);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruMitsuM32rKlineExecutor executor;
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     FakeClock clock;
     ManualCancellationToken cancellation;
     RecordingEventSink events;
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::InvalidConfig));
+                fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
     EXPECT_FALSE(transport.last_config.has_value());
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, TransportSetupReturnsPlansWireParameters)
 {
-    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
+    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::kRead, "sub_ecu_mitsu_m32r_kline",
                                                    "M32R_512KB_4blocks", std::nullopt);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruMitsuM32rKlineExecutor executor;
@@ -77,41 +77,41 @@ TEST(SubaruMitsuM32rKlineExecutor, TransportSetupReturnsPlansWireParameters)
 
 TEST(SubaruMitsuM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
 {
-    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
+    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::kRead, "sub_ecu_mitsu_m32r_kline",
                                                    "M32R_512KB_4blocks", std::nullopt);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruMitsuM32rKlineExecutor executor;
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     FakeClock clock;
     ManualCancellationToken cancellation;
     cancellation.cancel();
     RecordingEventSink events;
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
-                fastecu::testing::IsErr(ErrorKind::Cancelled));
+                fastecu::testing::IsErr(ErrorKind::kCancelled));
     EXPECT_FALSE(transport.last_config.has_value());
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureResponses)
 {
-    for (const ErrorKind expected : {ErrorKind::Timeout, ErrorKind::BadResponse, ErrorKind::Disconnected})
+    for (const ErrorKind expected : {ErrorKind::kTimeout, ErrorKind::kBadResponse, ErrorKind::kDisconnected})
     {
-        auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
+        auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::kRead, "sub_ecu_mitsu_m32r_kline",
                                                        "M32R_512KB_4blocks", std::nullopt);
         ASSERT_THAT(plan, fastecu::testing::IsOk());
-        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+        ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
         transport.exchange(frame({0xbf}));
-        if (expected == ErrorKind::Timeout)
+        if (expected == ErrorKind::kTimeout)
         {
             transport.queue_no_frame();
         }
-        else if (expected == ErrorKind::BadResponse)
+        else if (expected == ErrorKind::kBadResponse)
         {
             transport.queueRead(bytes::Bytes{0, 0, 0, 0, 0x7f});
         }
         else
         {
-            transport.queue_error(ErrorKind::Disconnected, "adapter disconnected");
+            transport.queue_error(ErrorKind::kDisconnected, "adapter disconnected");
         }
         SubaruMitsuM32rKlineExecutor executor;
         FakeClock clock;
@@ -124,11 +124,11 @@ TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureRespon
 
 TEST(SubaruMitsuM32rKlineExecutor, ReadsAllUserspaceChunksAndSynthesizesBootPrefix)
 {
-    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Read, "sub_ecu_mitsu_m32r_kline",
+    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::kRead, "sub_ecu_mitsu_m32r_kline",
                                                    "M32R_512KB_4blocks", std::nullopt);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
     SubaruMitsuM32rKlineExecutor executor;
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     scriptHandshake(transport);
     for (std::uint32_t address = 0x8000; address < 0x80000; address += 0x80)
     {
@@ -163,10 +163,10 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
         image[i] = static_cast<bytes::Byte>(i);
     }
     const bytes::Bytes encrypted = encryptedImage(image);
-    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::Write, "sub_ecu_mitsu_m32r_kline",
+    auto plan = build_subaru_mitsu_m32r_kline_plan(FlashOperation::kWrite, "sub_ecu_mitsu_m32r_kline",
                                                    "M32R_512KB_4blocks", image);
     ASSERT_THAT(plan, fastecu::testing::IsOk());
-    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::Open};
+    ScriptedKlineFlashTransport transport{ScriptedTransportInitialState::kOpen};
     scriptHandshake(transport);
     transport.exchange(frame({0x34, 0, 0, 0, 0x04, 0x07, 0x80, 0}), bytes::Bytes{0, 0, 0, 0, 0x74});
     transport.exchange(frame({0x31, 0x02, 0x0f, 0xff, 0xff, 0xff}), bytes::Bytes{0, 0, 0, 0, 0x71});
