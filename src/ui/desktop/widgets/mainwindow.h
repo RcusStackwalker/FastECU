@@ -161,7 +161,7 @@ class MainWindow : public QMainWindow
     void loadLoggerDefinition();
     void loadLoggerSelection();
     void saveLoggerSelection();
-    void writeLoggerCsvCells(bool header);
+    void writeLoggerCsvRecord(bool header);
     fastecu::config::ConfigSession *config_session_ = nullptr;
     std::optional<fastecu::Error> last_settings_save_error_;
     // Desktop owns only identity and presentation; the workspace owns ROM data.
