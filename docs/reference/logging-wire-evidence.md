@@ -21,6 +21,10 @@ one of the maintained 84 request entries. Multi-byte measurements require ordere
 byte requests. Historical decimal-byte concatenation remains a conversion rule:
 bytes `01 02` supply raw expression input `"12"` independently of physical mapping.
 
+Continuous SSM responses can arrive consecutively or coalesced in a serial read.
+The plain transport path consumes one declared frame at a time, retains subsequent
+bytes, and checks that frame against the captured read plan and checksum.
+
 ## MUT/DMA: maintained format and analyzed OEM firmware
 
 The [maintained free-form codec](../../src/algorithms/protocol/mut_dma/mut_dma_freeform.cpp)
@@ -49,17 +53,20 @@ Markdown link.
 Special pointer-table sources can follow firmware single-byte expansion branches;
 choosing a width does not prove the source's meaning. Do not generalize these
 properties to another firmware or silently flip the maintained generic format.
-Explicit dialect selection requires the approved focused design amendment.
+Protocol XML `dialect="oem-33520003"` selects these scoped properties.
+Omitted dialect or `dialect="legacy-be"` selects the maintained format; unknown
+explicit dialect names fail selected MUT preparation. The validated session
+carries that choice through the desktop factory to request encoding and decoding.
 No ROM matching or automatic capability discovery is established.
 
 ## Complete response integrity
 
-The [MUT driver](../../src/backend/protocol/mut_dma_driver.cpp) currently checks
-stream framing/checksum but does not compare data length to selected widths.
-The decoder's bounded read returns zero for missing bytes. A checksum-valid
-truncated response can therefore fabricate valid-looking zero values.
+The [MUT driver](../../src/backend/protocol/mut_dma_driver.cpp) compares complete
+stream data length with selected widths before decoding. The free-form decoder
+also returns no values for incomplete payloads, preventing the historical
+checksum-valid short-frame path from fabricating zero readings.
 
-Both protocols must validate the complete expected response shape before
+Both protocols validate the complete expected response shape before
 publishing any values from that poll. A malformed/truncated response is
 `BadResponse`; absent data retains existing polling/retry policy. Conversion
 failure also publishes none of the batch. Literal independent fixtures and

@@ -21,8 +21,6 @@ Remaining actions from the backend migration roadmap:
 
 - Extract logger configuration/model installation and selection persistence
   orchestration from `MainWindow` into backend use cases.
-- Move CSV column resolution and serialization from UI code into backend logging.
-  Preserve [identity, formatting, and file-lifetime contracts](reference/logging-contracts.md).
 - Move reusable flash routing, preparation, prompt/stage policy into backend
   flash workflows. Desktop code binds plans to transports/workers and renders
   prompts; operator decisions stay outside executors. Do not unify different
@@ -51,27 +49,14 @@ coordinators retain their UI roles; see the relevant
   and event-log strings. Add missing scripted cases before changing those paths.
   The CAN-init NRC description uses offset 3 while other ISO-15765 NRCs use 4;
   reproduce it and distinguish a description fix from wire behavior changes.
-- **SSM logging byte requests and response mapping.** Current acquisition emits
-  one base address per parameter and decodes using Digital-slot offsets, even
-  for multi-byte parameters or unresolved selection gaps. SSM returns one data
-  byte per requested address; characterize and correct byte-address expansion,
-  ordered response mapping, and physical-entry capacity checks before extending
-  selection acquisition. Existing fixtures that return multiple bytes for one
-  requested address do not establish wire correctness. The
-  [SSM protocol evidence](reference/logging-contracts.md#ssm-protocol-evidence)
-  provides primary sources. Separate switch capability bits from sample bits and
-  normalize standard/legacy XML address forms when adding switch acquisition.
-- **MUT/DMA free-form capacity and request interpretation.** FastECU's 255-entry
-  limit establishes one-byte count representability, not ECU capacity. OEM static
-  analysis of ROM 33520003 finds fill-loop bounds of 96 elements and 96 output
-  bytes at flash `0x11600`, and request-code assembly at `0x1164c`–`0x11660` that
-  differs from the codec's big-endian ID encoding. Characterize the request layout,
-  width handling, and capacity against firmware and bench evidence before changing
-  them; do not generalize one ROM's limits to every MUT/DMA implementation. The
-  [logging evidence reference](reference/logging-contracts.md#mutdma-protocol-evidence)
-  identifies the parent OEM research. ACKs and XML enablement do not establish
-  per-measurement availability; requests can resolve through either a MUT table
-  entry or compact RAM mapping.
+- **MUT/DMA dialect qualification.** The explicitly selected `oem-33520003`
+  format now has source-scoped request/response byte order and 96-entry/96-byte
+  guards; the maintained `legacy-be` format retains its 255-entry representation
+  guard. Obtain independent firmware/adapter traces before claiming qualification
+  or applying these properties to another dialect. The
+  [wire evidence owner](reference/logging-wire-evidence.md) records the static
+  sources and boundaries. ACKs and values do not prove measurement meaning;
+  pointer-table codes and compact RAM selectors remain operator-authored inputs.
 - **MUT memory read integrity/write bounds.** The currently uncalled helpers can
   omit a timed-out read chunk and continue, returning a gapped buffer. The
   `0x4000`–`0xBFFF` write guard checks only the start, so data may extend beyond
@@ -169,15 +154,23 @@ flash-worker prompt/progress qualification.
 
 Remaining behavior and code gaps:
 
+- The direct serial reader currently recognizes SSM source headers `0x10`/`0x01`
+  but excludes TCU source `0x18`. Qualify and repair direct-adapter TCU framing
+  separately; target-change support invalidation does not establish transport
+  compatibility.
+
 - Add an in-app logger measurement editor for request ID/address code, width,
   scaling, unit, and precision, with stable identities and definition persistence.
   The current chooser selects existing IDs and cannot author definitions; use the
   [XML workflow](../resources/shared/config/README.md) until this follow-up is
   implemented. User-authored MUT measurements do not require a firmware-match
   gate; portable field and request validation still applies.
+- Construct a gauge renderer for acquired gauge selections; the current desktop
+  acquires, caches and exports these values but has no gauge renderer.
 - `CarNotResponding` is logged without a live GUI indicator.
 - Live channel/interval/protocol reconfiguration requires an explicit path through
-  session config and worker; current changes require stop/start.
+  session config and worker; saved selection edits remain pending with a visible
+  restart-needed state and current acquisition/display/CSV bindings stay frozen.
 - `LoggingEngine::stop()` disconnects worker signals and publishes
   `StoppedByUser` itself; its worker-Cancelled mapping is not reached by stop.
 - `FastEcuSsmTransport::write()` reports input size while discarding returned

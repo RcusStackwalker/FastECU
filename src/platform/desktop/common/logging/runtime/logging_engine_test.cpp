@@ -121,7 +121,8 @@ class SampleThenBlockProtocol final : public fastecu::logging::LoggingProtocol
         if (!sample_returned_)
         {
             sample_returned_ = true;
-            return PollData{.responded = true, .samples = {ProtocolSample{.channel_id = "rpm", .raw_value = "42"}}};
+            return PollData{.responded = true,
+                            .samples = {ProtocolSample{.channel_id = "parameter:rpm", .raw_value = "42"}}};
         }
 
         blocking_poll_entered_ = true;
@@ -277,7 +278,7 @@ TEST(TestLoggingEngine, user_stop_publishes_joined_completion_exactly_once)
     engine.registerProtocol("TEST",
                             [protocol, &saw_session](const DesktopLoggingSnapshot& value)
                             {
-                                saw_session = value.session().find_channel("rpm") != nullptr;
+                                saw_session = value.session().find_channel("parameter:rpm") != nullptr;
                                 return std::unique_ptr<LoggingProtocol>(protocol);
                             });
     fastecu::testing::SignalRecorder ended_spy(&engine, &LoggingEngine::sessionEnded);
@@ -640,7 +641,7 @@ TEST(TestLoggingEngine, portable_events_map_to_existing_status_and_value_signals
     protocol->queuePollResult(PollData{.responded = false});
     protocol->queuePollResult(PollData{.responded = false});
     protocol->queuePollResult(
-        PollData{.responded = true, .samples = {ProtocolSample{.channel_id = "rpm", .raw_value = "42"}}});
+        PollData{.responded = true, .samples = {ProtocolSample{.channel_id = "parameter:rpm", .raw_value = "42"}}});
     engine.registerProtocol("TEST", [protocol](const DesktopLoggingSnapshot&)
                             { return std::unique_ptr<LoggingProtocol>(protocol); });
     fastecu::testing::SignalRecorder status_spy(&engine, &LoggingEngine::statusChanged);
@@ -655,7 +656,7 @@ TEST(TestLoggingEngine, portable_events_map_to_existing_status_and_value_signals
     ASSERT_EQ(std::get<0>(status_spy.snapshot().at(1)), LoggingStatus::CarNotResponding);
     ASSERT_EQ(std::get<0>(status_spy.snapshot().at(2)), LoggingStatus::Running);
     const auto values = std::get<0>(value_spy.snapshot().at(0));
-    ASSERT_EQ(values.at(0).channel_id, std::string("rpm"));
+    ASSERT_EQ(values.at(0).channel_id, std::string("parameter:rpm"));
     ASSERT_EQ(values.at(0).numeric_value, 42.0);
 }
 

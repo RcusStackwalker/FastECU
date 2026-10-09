@@ -158,7 +158,7 @@ TEST(TestDriver, handshake_fails_on_bad_ack)
     ASSERT_FALSE(d.isStreaming());
 }
 
-TEST(TestDriver, poll_returns_empty_on_bad_frame)
+TEST(TestDriver, poll_reports_bad_response_on_invalid_checksum)
 {
     std::vector<Channel> ch = {{0x8000, 2}};
     ScriptedKlineTransport t;
@@ -169,8 +169,7 @@ TEST(TestDriver, poll_returns_empty_on_bad_frame)
     d.setChannelsForTest(ch);
     fastecu::FakeCancellationToken cancellation;
     const auto result = d.pollOnce(50ms, cancellation);
-    ASSERT_THAT(result, fastecu::testing::IsOk());
-    ASSERT_TRUE(result->empty());
+    ASSERT_THAT(result, fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
 }
 
 TEST(TestDriver, write_memory_fails_on_bad_echo)
@@ -211,4 +210,16 @@ TEST(TestDriver, handshake_propagates_cancellation_from_bounded_read)
 
     ASSERT_THAT(d.startFreeFormLog(ch, 0xA0, 0xA1, cancellation),
                 fastecu::testing::IsErr(fastecu::ErrorKind::Cancelled));
+}
+
+TEST(TestDriver, ChecksumValidShortStreamDoesNotFabricateZeroReadings)
+{
+    ScriptedKlineTransport transport;
+    AlreadyInMode init(125000);
+    // 0x51 + one payload byte + checksum + trailer, for widths 2 and 1.
+    transport.queueRead(bytes::Bytes{0x51, 0x12, 0x63, 0x0d});
+    MutDmaDriver driver(transport, init);
+    driver.setChannelsForTest({{0x4010, 2}, {0x4020, 1}});
+    fastecu::FakeCancellationToken cancellation;
+    EXPECT_THAT(driver.pollOnce(50ms, cancellation), fastecu::testing::IsErr(fastecu::ErrorKind::BadResponse));
 }

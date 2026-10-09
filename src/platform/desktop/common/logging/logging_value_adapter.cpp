@@ -19,6 +19,24 @@ void DesktopLoggerValues::initialize(const fastecu::logging::LoggerModel& model)
         switches_.emplace(fastecu::logging::LoggerIdentity{p.protocol, p.id}, QStringLiteral("0"));
     }
 }
+void DesktopLoggerValues::begin_run(const fastecu::logging::LoggingRunSnapshot& snapshot)
+{
+    for (const auto& item : snapshot.measurements())
+    {
+        auto& cache = item.kind == fastecu::logging::LoggingMeasurementKind::Parameter ? parameters_ : switches_;
+        cache.insert_or_assign(item.identity, QString{});
+    }
+}
+bool DesktopLoggerValues::set_switch_value(const fastecu::logging::LoggerIdentity& identity, QString value)
+{
+    const auto it = switches_.find(identity);
+    if (it == switches_.end())
+    {
+        return false;
+    }
+    it->second = std::move(value);
+    return true;
+}
 QString DesktopLoggerValues::parameter_value(std::string_view protocol, std::string_view id) const
 {
     const auto it = parameters_.find({std::string(protocol), std::string(id)});
@@ -56,7 +74,11 @@ fastecu::Status apply_log_sample(const DesktopLoggingSnapshot& snapshot, const f
         return {};
     }
     const auto& value = **resolved;
-    if (!values.set_parameter_value(value.identity, format_logging_value(value.numeric_value, value.decimal_precision)))
+    const auto formatted = format_logging_value(value.numeric_value, value.decimal_precision);
+    const bool updated = value.kind == fastecu::logging::LoggingMeasurementKind::Parameter
+                             ? values.set_parameter_value(value.identity, formatted)
+                             : values.set_switch_value(value.identity, formatted);
+    if (!updated)
     {
         return fastecu::fail(fastecu::ErrorKind::Internal, "logging sample identity is not in the desktop values");
     }

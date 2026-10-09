@@ -73,7 +73,8 @@ TEST(LoggerDefinitionParser, ParsesParametersSwitchesAndConversions)
     EXPECT_EQ(s.description, "flag");
     EXPECT_EQ(s.address, "0x20");
     EXPECT_EQ(s.ecu_byte_index, "7");
-    EXPECT_EQ(s.ecu_bit, "1");
+    EXPECT_EQ(s.ecu_bit, "No ecu bit");
+    EXPECT_EQ(s.sample_bit, "1");
     EXPECT_EQ(s.target, "2");
     // The definition XML carries no switch enabled attribute; always false
     // out of the parser (file_actions.cpp:1261).
@@ -180,4 +181,36 @@ TEST(LoggerDefinitionParser, AcceptsAnEmptyButWellFormedDocument)
     EXPECT_THAT(result->switches, IsEmpty());
 }
 
+TEST(LoggerDefinitionParser, ReadsNestedSampleMetadataAndExplicitEnablement)
+{
+    constexpr std::string_view kXml = R"(<logger><protocols><protocol id="SSM">
+      <parameters><parameter id="wide" enabled="1">
+        <address length="2">0x10</address>
+      </parameter></parameters>
+      <switches><switch id="flag" enabled="1" ecubyteindex="0" ecubit="1">
+        <address bit="5">0x20</address>
+      </switch></switches>
+    </protocol></protocols></logger>)";
+    const auto result = parse_logger_definition(view(kXml), "nested.xml");
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    EXPECT_EQ(result->parameters.at(0).length, "2");
+    EXPECT_EQ(result->switches.at(0).address, "0x20");
+    EXPECT_EQ(result->switches.at(0).ecu_bit, "1");
+    EXPECT_EQ(result->switches.at(0).sample_bit, "5");
+    ASSERT_EQ(result->parameters.at(0).address_specs.size(), 1U);
+    EXPECT_EQ(result->parameters.at(0).address_specs.at(0).length, "2");
+    EXPECT_TRUE(result->switches.at(0).enabled);
+}
+
+TEST(LoggerDefinitionParser, PreservesExplicitProtocolDialect)
+{
+    const auto result = parse_logger_definition(view(R"(<logger><protocols>
+      <protocol id="MUT_DMA" dialect="oem-33520003"/>
+    </protocols></logger>)"),
+                                                "dialect.xml");
+    ASSERT_THAT(result, fastecu::testing::IsOk());
+    ASSERT_EQ(result->protocols.size(), 1U);
+    EXPECT_EQ(result->protocols[0].id, "MUT_DMA");
+    EXPECT_EQ(result->protocols[0].dialect, "oem-33520003");
+}
 } // namespace

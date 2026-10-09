@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <algorithm>
 
 #include "src/algorithms/protocol/mut_dma/mut_dma_codec.h"
 #include "src/algorithms/protocol/mut_dma/mut_dma_freeform.h"
@@ -59,16 +60,22 @@ TEST(TestFreeform, decode_stream_values)
     ASSERT_EQ(v.at(2), std::uint32_t(0x89ABCDEF));
 }
 
-// A frame with fewer data bytes than the configured channels need only
-// happens if the ECU sent something malformed -- parseStreamFrame's checksum
-// check (mut_dma_codec.cpp) already guards the one real caller
-// (MutDmaDriver::pollOnce) before decodeStreamValues ever sees the data, so
-// this is a "garbage in" case, not a real protocol state. Every channel that
-// doesn't have its full width available should read as 0, not a partial
-// value assembled from whatever bytes happened to be present.
-TEST(TestFreeform, decode_stream_values_treatsShortFrameAsAllZero)
+TEST(TestFreeform, IncompletePayloadProducesNoValues)
 {
     const std::vector<Channel> channels = {{0x8000, 2}, {0x8004, 1}};
-    const std::vector<std::uint32_t> values = decodeStreamValues(channels, bytes::Bytes{0x12});
-    ASSERT_EQ(values, std::vector<std::uint32_t>({0x00, 0x00}));
+    EXPECT_TRUE(decodeStreamValues(channels, bytes::Bytes{0x12}).empty());
+    EXPECT_TRUE(decodeStreamValues(channels, bytes::Bytes{0x12}, FreeformDialect::Oem33520003).empty());
+}
+
+TEST(TestFreeform, OemDialectUsesLittleEndianRequestAndValueBytes)
+{
+    bytes::Bytes expected(31, 0);
+    const bytes::Bytes prefix{0xa1, 1, 0x40, 0x34, 0x12};
+    std::copy(prefix.begin(), prefix.end(), expected.begin());
+    expected[29] = 0x28;
+    expected[30] = 0x0d;
+    EXPECT_EQ(buildIdListFrame(0xa1, {{0x1234, 2}}, FreeformDialect::Oem33520003), expected);
+    const auto values = decodeStreamValues({{0x4010, 2}, {0x4020, 4}}, bytes::Bytes{0x34, 0x12, 0xef, 0xcd, 0xab, 0x89},
+                                           FreeformDialect::Oem33520003);
+    EXPECT_EQ(values, (std::vector<std::uint32_t>{0x1234, 0x89abcdef}));
 }

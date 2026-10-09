@@ -314,10 +314,19 @@ void MainWindow::paste_value()
 void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
 {
     connection_coordinator_->cancel();
+    const bool had_logging_run = loggingEngine->isRunning() || activeLoggingSnapshot.has_value();
     if (loggingEngine->isRunning())
     {
         loggingEngine->stop();
+    }
+    // A checked Logging action can be a request still waiting for identification.
+    if (had_logging_run)
+    {
         restoreLoggingUiState();
+    }
+    else
+    {
+        end_logging_csv();
     }
     ecuid.clear();
     ecu_init_complete = false;
@@ -379,6 +388,7 @@ void MainWindow::ConnectionPresentation::set_port_selector_enabled(bool enabled)
 
 void MainWindow::ConnectionPresentation::identified(const fastecu::ui::IdentifyOutcome& outcome)
 {
+    window_.loggerModel->reset_support();
     window_.ecu_init_complete = true;
     window_.ecuid = QString::fromStdString(outcome.ecu_id);
     emit window_.LOG_D("ECU ID: " + window_.ecuid, true, true);
@@ -490,11 +500,7 @@ void MainWindow::toggle_realtime()
     else
     {
         qDebug() << "Stop datalog";
-        if (datalog_file_open)
-        {
-            datalog_file_open = false;
-            datalog_file.close();
-        }
+        end_logging_csv();
 
         loggingEngine->stop();
 
@@ -560,7 +566,17 @@ void MainWindow::continue_start_logging()
         return;
     }
 
+    loggerValues.begin_run(*snapshot);
     activeLoggingSnapshot.emplace(*snapshot);
+    logging_csv_failed_ = false;
+    last_logging_csv_path_.clear();
+    log_file_timer->start();
+    update_logboxes(activeLogValueProtocolFilter);
+    begin_logging_csv();
+    if (!activeLoggingSnapshot)
+    {
+        return;
+    }
     const auto started = loggingEngine->start(config, std::move(*snapshot));
     if (!started.has_value())
     {
@@ -573,14 +589,14 @@ void MainWindow::continue_start_logging()
 void MainWindow::toggle_log_to_file()
 {
     write_datalog_to_file = ui->actionLogToFile->isChecked();
-
     if (!write_datalog_to_file)
     {
-        if (datalog_file_open)
-        {
-            datalog_file_open = false;
-            datalog_file.close();
-        }
+        end_logging_csv();
+    }
+    else
+    {
+        logging_csv_failed_ = false;
+        begin_logging_csv();
     }
 }
 

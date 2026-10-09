@@ -50,6 +50,22 @@ Windows/macOS/Linux CI and Windows/macOS packaging remain merge gates.
 - [ ] Exit or restart with logging active. The worker stops before serial and
       clock services are released; no hang or callback into a destroyed window.
 
+## Selection, read layout and CSV checks
+
+- [ ] Exercise gauge-only and switch-only selections, repeated display IDs and
+      separate parameter/switch IDs with matching spelling. Compare requested
+      sources, values and CSV columns with the captured selection.
+- [ ] Capture SSM multi-byte requests/replies and verify one returned byte per
+      ordered address, correct switch sample bits, and complete-response rejection.
+- [ ] Record the explicitly selected MUT dialect, non-symmetric request codes,
+      two/four-byte values and boundary requests. Verify the scoped OEM limits
+      against the actual ECU; do not infer support or another firmware's limits.
+- [ ] Edit selections while logging: active labels and file columns stay fixed,
+      pending state appears, and restart applies saved choices to a new file.
+- [ ] Restart rapidly with identical selections and after Connect, then exercise
+      cancellation, adapter removal and handshake failure. Completed files remain
+      intact, each new run owns a distinct file, and unsampled values stay blank.
+
 ## Qualification status
 
 No hardware scenario is signed off by this change. Attach completed run records

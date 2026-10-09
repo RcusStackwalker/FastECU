@@ -6,7 +6,7 @@ LogBox::LogBox(QWidget *parent) : QWidget(parent)
 {
 }
 
-QGroupBox *LogBox::drawLogBoxes(const QString& type, uint8_t index, uint8_t logBoxCount, const QString& title,
+QGroupBox *LogBox::drawLogBoxes(const QString& type, int index, int logBoxCount, const QString& title,
                                 const QString& unit, const QString& value)
 {
     QGroupBox *gb = nullptr;
@@ -23,7 +23,7 @@ QGroupBox *LogBox::drawLogBoxes(const QString& type, uint8_t index, uint8_t logB
     return gb;
 }
 
-QGroupBox *LogBox::drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, const QString& title, const QString& unit,
+QGroupBox *LogBox::drawLogSwitchBox(int index, int switchBoxCount, const QString& title, const QString& unit,
                                     const QString& value)
 {
     QScreen *screen = QGuiApplication::primaryScreen();
@@ -43,9 +43,12 @@ QGroupBox *LogBox::drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, const
         "QGroupBox{font: bold;border:1px solid gray;border-radius:5px;margin-top: 0px;padding:0px 0px 0px 0px;} "
         "QGroupBox::title{subcontrol-origin: margin;left: 7px;padding:0px 3px 0px 3px;}");
 
-    const QString& labelText = title;
+    const auto state = value.isEmpty() ? tr("Pending") : value == "0" ? tr("OFF") : value == "1" ? tr("ON") : value;
+    const QString labelText = title + ": " + state;
 
     QLabel *switchBoxLabel = new QLabel();
+    switchBoxLabel->setObjectName("switch_label" + QString::number(index));
+    switchBoxLabel->setTextFormat(Qt::PlainText);
     // switchBoxLabel->setFixedWidth(100);
     switchBoxLabel->setAlignment(Qt::AlignCenter);
     switchBoxLabel->setAlignment(Qt::AlignLeft);
@@ -65,7 +68,7 @@ QGroupBox *LogBox::drawLogSwitchBox(uint8_t index, uint8_t switchBoxCount, const
     return switchGroupBox;
 }
 
-QGroupBox *LogBox::drawLogValueBox(uint8_t index, uint8_t logBoxCount, const QString& title, const QString& unit,
+QGroupBox *LogBox::drawLogValueBox(int index, int logBoxCount, const QString& title, const QString& unit,
                                    const QString& value)
 {
     QScreen *screen = QGuiApplication::primaryScreen();
@@ -86,13 +89,10 @@ QGroupBox *LogBox::drawLogValueBox(uint8_t index, uint8_t logBoxCount, const QSt
     logGroupBox->setMaximumWidth(maxWidth);
     logGroupBox->setFont(t);
 
-    // QString labelText = QString::number(value.toFloat(), 'f', 2);
-    QString labelText = "0";
-    labelText.append(" <font size=1px color=grey>");
-    labelText.append(unit);
-    labelText.append("</font>");
+    const auto labelText = (value.isEmpty() ? tr("Pending") : value) + (unit.isEmpty() ? QString{} : " " + unit);
 
     QLabel *logBoxLabel = new QLabel();
+    logBoxLabel->setTextFormat(Qt::PlainText);
     logBoxLabel->setObjectName("log_label" + QString::number(index));
     // logBoxLabel->setFixedWidth(100);
     logBoxLabel->setAlignment(Qt::AlignRight);

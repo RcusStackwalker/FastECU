@@ -70,6 +70,7 @@ inline constexpr int kRestartCode = 1000;
 #include "src/platform/desktop/common/logging/runtime/logging_engine.h"
 #include "src/platform/desktop/common/logging/logging_snapshot_adapter.h"
 #include "src/platform/desktop/common/logging/logging_value_adapter.h"
+#include "src/platform/desktop/common/logging/logging_csv_file.h"
 #include "src/platform/desktop/common/ports/qt_file_repository.h"
 #include "src/platform/desktop/common/connection/adapter_connection.h"
 #include "src/ui/desktop/connection/connection_ports.h"
@@ -161,7 +162,9 @@ class MainWindow : public QMainWindow
     void load_logger_definition();
     void load_logger_selection();
     void save_logger_selection();
-    void write_logger_csv_cells(bool header);
+    void begin_logging_csv();
+    void end_logging_csv();
+    void report_logging_csv_error(const fastecu::Error& error);
     fastecu::config::ConfigSession *configSession = nullptr;
     std::optional<fastecu::Error> last_settings_save_error;
     // Desktop owns only identity and presentation; the workspace owns ROM data.
@@ -259,6 +262,7 @@ class MainWindow : public QMainWindow
     CalibrationTreeWidget *calibrationTreeWidget = new CalibrationTreeWidget();
 
     QLabel *status_bar_connection_label = new QLabel("");
+    QLabel *logging_pending_label = new QLabel();
     QLabel *status_bar_ecu_label = new QLabel("");
 
     QMenu *mainWindowMenu{};
@@ -268,13 +272,13 @@ class MainWindow : public QMainWindow
     QComboBox *flash_transport_list;
     QComboBox *log_transport_list;
 
-    QFile datalog_file;
+    fastecu::desktop::logging::LoggingCsvFile logging_csv_file_;
+    QString last_logging_csv_path_;
+    bool logging_csv_failed_ = false;
     QFile syslog_file;
-    QTextStream datalog_file_outstream;
     QTextStream syslog_file_outstream;
     bool write_datalog_to_file = false;
     bool write_syslog_to_file = false;
-    bool datalog_file_open = false;
     bool syslog_file_open = false;
     std::unique_ptr<QElapsedTimer> log_file_timer;
 
@@ -430,6 +434,8 @@ class MainWindow : public QMainWindow
     void change_switch_values();
     void update_logboxes(const QString& protocol_arg);
     void update_logbox_values(const QString& protocol_arg);
+    const fastecu::logging::LoggerSelection& displayed_logging_selection() const;
+    void update_logging_pending_state();
     void add_new_ecu_definition_file();
     void remove_ecu_definition_file();
     void add_new_logger_definition_file();

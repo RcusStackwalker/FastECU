@@ -1,0 +1,14 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = [
+    "//bazel/layers:platform",
+    "//bazel/layers:tests",
+    "//bazel/layers:ui_desktop",
+])
+
+cc_library(
+    name = "failing_csv_storage",
+    testonly = True,
+    hdrs = ["failing_csv_storage.h"],
+    deps = ["//bazel/qt:core"],
+)
