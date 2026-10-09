@@ -76,6 +76,17 @@ and [composition checklist](../checklists/logging-composition-bench-checklist.md
 own hardware verification. Live reconfiguration, missing-frame polling, plain
 serial teardown, and CDBG gaps are tracked in [technical debt](../tech-debt.md#p2-logging-engine-follow-ups).
 
+## MUT/DMA response integrity
+
+The [MUT/DMA driver](../../src/backend/protocol/mut_dma_driver.cpp) validates
+stream framing, checksum, and exact payload length against the sum of selected
+channel widths before decoding. Short and oversized checksum-valid payloads are
+`BadResponse`; they publish no measurements and cannot fabricate zero readings.
+Absent data remains a no-response poll. Malformed replies follow the existing
+logging retry policy, and a subsequent complete reply can supply measurements.
+The [free-form decoder](../../src/algorithms/protocol/mut_dma/mut_dma_freeform.cpp)
+also rejects payloads whose length differs from the selected widths.
+
 ## MUT/DMA protocol evidence
 
 OEM K-Line DMA activation research is held in the parent research repository,

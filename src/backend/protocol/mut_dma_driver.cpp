@@ -108,7 +108,7 @@ fastecu::Result<std::vector<std::uint32_t>> MutDmaDriver::pollOnce(std::chrono::
         return std::vector<std::uint32_t>{};
     }
     auto frame = t_.read(timeout, cancellation);
-    if (!frame)
+    if (!frame.has_value())
     {
         return std::unexpected(frame.error());
     }
@@ -119,7 +119,12 @@ fastecu::Result<std::vector<std::uint32_t>> MutDmaDriver::pollOnce(std::chrono::
     StreamFrame s = parseStreamFrame(frame->value());
     if (!s.ok)
     {
-        return std::vector<std::uint32_t>{};
+        return fastecu::fail(fastecu::ErrorKind::BadResponse, "MUT/DMA stream framing or checksum invalid");
+    }
+    if (s.data.size() != responseDataLength(channels_))
+    {
+        return fastecu::fail(fastecu::ErrorKind::BadResponse,
+                             "MUT/DMA stream payload length does not match selected widths");
     }
     return decodeStreamValues(channels_, s.data);
 }
