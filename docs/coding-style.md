@@ -66,14 +66,14 @@ are in [ADR 0004](adr/0004-limit-qbytearray-to-qt-boundaries.md). Conversions
 go through `src/platform/desktop/common/bytes/qt_bytes.h` and stay explicit, so that
 copies are visible at the call site.
 
-Build frames with `bytes::composeBe`, `bytes::composeBeWithExtraCapacity`, and
-`bytes::composeBeWithChecksum` from
+Build frames with `bytes::ComposeBe`, `bytes::ComposeBeWithExtraCapacity`, and
+`bytes::ComposeBeWithChecksum` from
 [bytes_compose.h](../src/algorithms/protocol/bytes_compose.h) rather than
 hand-rolled shifts and masks:
 
 ```cpp
 // Yes
-Bytes frame = composeBe(0x31_b, std::uint16_t(kReadPageSize), u24(address));
+Bytes frame = ComposeBe(0x31_b, std::uint16_t(kReadPageSize), U24(address));
 
 // No
 Bytes frame;
@@ -85,14 +85,14 @@ frame.push_back(static_cast<Byte>(address >> 16));
 ```
 
 Each argument's wire width comes from its C++ type: `Byte` emits one byte,
-`std::uint16_t` two, `u24(x)` three, `std::uint32_t` four, `std::string_view`
+`std::uint16_t` two, `U24(x)` three, `std::uint32_t` four, `std::string_view`
 and any range of `Byte` splice inline. Byte literals take the `_b` suffix. Any
 other type is a compile error — that is what stops a `std::size_t` from
 silently emitting eight bytes.
 
 **Width is still your job.** A value declared wider than its wire field must be
 narrowed explicitly at the call site: `std::uint16_t(kReadPageSize)`,
-`u24(address)`. Passing a `std::uint32_t` where the field is three bytes
+`U24(address)`. Passing a `std::uint32_t` where the field is three bytes
 compiles cleanly and silently changes the frame length. The type system only
 rejects argument types it has never heard of; it does not know how wide a given
 wire field is supposed to be. Count the bytes the frame needs — do not infer
@@ -108,12 +108,12 @@ away:
 - A checksum patched into the middle of a frame with a second appended over the
   extended buffer — the SH7055 and MC68HC16Y5 kernel-upload envelopes.
 - A checksum over a buffer built by `resize` rather than from an argument list
-  (the EEPROM CAN kernel word), which calls `bytes::appendU32Be` directly.
-- Verification code. `hasValidFrame` compares an explicit `bytes::sum8` against
+  (the EEPROM CAN kernel word), which calls `bytes::AppendU32Be` directly.
+- Verification code. `HasValidFrame` compares an explicit `bytes::sum8` against
   the received checksum, so a bug in a compose helper cannot cancel itself out
   on both sides of the comparison.
 - Five test sites that build their expected wire bytes by hand:
-  `subaru_hitachi_m32r_kline_executor_test.cpp`'s `scriptReadChunks` and its two
+  `subaru_hitachi_m32r_kline_executor_test.cpp`'s `ScriptReadChunks` and its two
   block-write loops, and `subaru_mitsu_m32r_kline_executor_test.cpp`'s two
   block-write loops. The test derives the wire format independently of the
   production code it checks, rather than through the same helper that could be
@@ -161,7 +161,7 @@ with a comment saying why when the reason is not obvious from the call:
 
 ```cpp
 // A missing previous config is not an error for this step.
-std::ignore = fs.copy_file(previous_config_file, target, false);
+std::ignore = fs.CopyFileTo(previous_config_file, target, false);
 ```
 
 Not `(void)call()` or `static_cast<void>(call())`: `std::ignore =` names the
@@ -248,10 +248,10 @@ overlapping ones. (SonarCloud cpp:S886 — three sites in PR #199.)
 
 ## Function complexity
 
-When an ECU family's `connect_bootloader`/`read_mem`/`reflash_block`-style
+When an ECU family's `ConnectBootloader`/`ReadMem`/`ReflashBlock`-style
 function accumulates a long run of "send, check `has_value()`, log on
 content mismatch" exchanges, factor the repeated shape into a small
-same-file helper (`single_shot_logged`, a retry-step helper, a one-line
+same-file helper (`SingleShotLogged`, a retry-step helper, a one-line
 boolean predicate for a gnarly condition) rather than leaving it inline.
 Keep each family's own log wording and legacy-citation comments attached to
 the helper call site, not lost in the extraction — the point is fewer
@@ -446,22 +446,39 @@ static constexpr auto kCells = std::to_array<std::string_view>({"10", "20"});
 ```
 
 - An underscore may separate words only next to a digit (`kFlashBlocksSH7058_1block`).
+- Mutable globals carry a `g_` prefix (`g_log_level`); Google has none.
+- Public data members of structs are `lower_case` without Google's trailing
+  `_`; private and protected members of classes keep it.
+- A non-`constexpr` local never carries the `k` prefix (`kIndex` becomes
+  `index`); only `constexpr` variables do.
+
+Conforming to Google style, and enforced: functions and methods are
+`CamelCase` (`ReadMemory`, `ValidateAndBuild`); parameters and locals are
+`lower_case`. A function must not take the CamelCase spelling of a type it can
+hide (`Error()` next to `struct Error`, `DefinitionHeaderInput()` next to the
+struct it returns), nor of a member of a gtest base (`Run`, `Setup`): pick a
+verb-led name (`LogError`, `BuildDefinitionHeaderInput`).
+
+Qt exceptions:
+
 - Under `src/ui/desktop`, methods, functions, parameters and locals are
   `camelBack` to match Qt.
-- Functions and methods are `CamelCase` everywhere else (`ReadMemory`,
-  `ValidateAndBuild`). Overrides are not checked: they take the name of the
-  virtual they override, including Qt's (`closeEvent`, `readData`). Qt signals
-  and slots of Qt-derived classes outside `src/ui/desktop` keep Qt's `camelBack`
-  names (`logE`, `stateChanged`) inside a `NOLINTBEGIN/NOLINTEND` block that says
-  so. Qt `on_<widget>_<signal>` slots keep their spelling (they are connected by
-  name) through `MethodIgnoredRegexp` in `src/ui/desktop/.clang-tidy`. A
-  function must not take the CamelCase spelling of a type it can hide
-  (`Error()` next to `struct Error`, `DefinitionHeaderInput()` next to the
-  struct it returns), nor of a member of a gtest base (`Run`, `Setup`): pick a
-  verb-led name (`LogError`, `BuildDefinitionHeaderInput`).
-- Outside `src/ui/desktop`, parameters and local variables are `lower_case`. A
-  non-`constexpr` local never carries the `k` prefix (`kIndex` becomes `index`);
-  only `constexpr` variables do.
+- Overrides are not checked: they take the name of the virtual they override,
+  including Qt's (`closeEvent`, `readData`). Qt signals and slots of Qt-derived
+  classes outside `src/ui/desktop` keep Qt's `camelBack` names (`logE`,
+  `stateChanged`) inside a `NOLINTBEGIN/NOLINTEND` block that says so. Qt
+  `on_<widget>_<signal>` slots keep their spelling (they are connected by name)
+  through `MethodIgnoredRegexp` in `src/ui/desktop/.clang-tidy`.
+
+Not enforced yet: clang-tidy's `HeaderFilterRegex` covers headers under
+`src/(algorithms|backend|platform|ui)` only, so declarations in headers under
+`apps/` and `tests/` are not checked (follow-up). Their definitions in `.cpp`
+files are.
+
+Win32 caveat: avoid function names that are `windows.h` macros
+(`CreateDirectory`, `CopyFile`, `SetPort`, ...); the macro rewrites the
+CamelCase name to its `A`/`W` variant on Windows builds. Pick a different verb
+(`CopyFileTo`).
 
 ## Formatting and headers
 

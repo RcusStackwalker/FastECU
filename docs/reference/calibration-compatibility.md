@@ -108,7 +108,7 @@ selection, and a repeated selection name, fail the whole definition load, so a
 resolved selection is always valid bytes of one shared width.
 
 Choosing a selection of a selectable map writes that selection's bytes through
-`apply_selectable_edit`; a write that would not match the blob width is an
+`ApplySelectableEdit`; a write that would not match the blob width is an
 error and changes nothing. Writing identical bytes reports an unchanged edit
 and leaves the session clean. Sessions without a definition, unknown maps, maps
 that are not blob selections and unknown selection names are not applicable; the

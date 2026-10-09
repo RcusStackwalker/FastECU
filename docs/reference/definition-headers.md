@@ -31,7 +31,7 @@ lowercase `0x` hexadecimal or remove absent address elements. Uint64 acceptance
 and blank-as-absent are deliberate application choices, rather than claims that
 both reference tools use these exact ranges or validation rules.
 
-Both EcuFlash and RomRaider use `parse_rom_header` for validated identity assembly.
+Both EcuFlash and RomRaider use `ParseRomHeader` for validated identity assembly.
 Draft import permits missing identities and does not parse tables; loading and
 writer submission enforce their required fields. Malformed XML, multiple document
 roots, unsupported import roots, and nested header markup produce errors before

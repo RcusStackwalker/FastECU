@@ -70,10 +70,6 @@ CheckOptions:
   # which is why the pattern itself spells out the k prefix and CamelCase.
   - key: readability-identifier-naming.ConstexprVariableIgnoredRegexp
     value: '^k[A-Z]([A-Za-z0-9]|_?[0-9]_[A-Za-z]|_[0-9])*$'
-  # gmock's `_` wildcard matcher (`using ::testing::_;`) is the one reserved
-  # identifier this tree has to name.
-  - key: bugprone-reserved-identifier.AllowedIdentifiers
-    value: '_'
   - key: readability-identifier-naming.TypeTemplateParameterCase
     value: CamelCase
   - key: readability-identifier-naming.TypedefCase
@@ -128,8 +124,12 @@ CheckOptions:
     value: '^k[A-Z]([A-Za-z0-9]|_?[0-9]_[A-Za-z]|_[0-9])*$'
   - key: readability-identifier-naming.GlobalVariableCase
     value: lower_case
+  # Deviation from Google style, which has no prefix for globals: `g_` marks
+  # mutable namespace-scope state at the use site.
   - key: readability-identifier-naming.GlobalVariablePrefix
     value: g_
+  # Deviation from Google style: public data members of structs carry no
+  # trailing underscore (unlike private/protected members of classes).
   - key: readability-identifier-naming.PublicMemberCase
     value: lower_case
   - key: readability-identifier-naming.PrivateMemberCase
@@ -144,3 +144,7 @@ CheckOptions:
     value: CamelCase
   - key: readability-identifier-naming.MethodCase
     value: CamelCase
+  # gmock's `_` wildcard matcher (`using ::testing::_;`) is the one reserved
+  # identifier this tree has to name.
+  - key: bugprone-reserved-identifier.AllowedIdentifiers
+    value: '_'
