@@ -186,7 +186,7 @@ std::uint16_t f_function(std::uint16_t word, std::uint16_t key)
     std::uint16_t substituted = 0;
     for (unsigned n = 0; n < kNybbles; ++n)
     {
-        const std::uint32_t nibble = SsmProtocol::kIndexTransformationStock[(index >> (n * 4U)) & 0x1FU];
+        const std::uint32_t nibble = ssm_protocol::kIndexTransformationStock[(index >> (n * 4U)) & 0x1FU];
         substituted = static_cast<std::uint16_t>(substituted + (nibble << (n * 4U)));
     }
     return std::rotr(substituted, 3);

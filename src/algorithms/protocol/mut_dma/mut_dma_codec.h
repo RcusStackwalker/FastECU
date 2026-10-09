@@ -27,7 +27,7 @@ bool verifyFrame(bytes::ByteView frame);
 
 struct StreamFrame
 {
-    bytes::Byte logId = 0;
+    bytes::Byte log_id = 0;
     bytes::Bytes data;
     bool ok = false;
 };

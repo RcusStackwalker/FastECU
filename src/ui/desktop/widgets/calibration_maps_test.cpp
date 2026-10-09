@@ -125,8 +125,8 @@ struct LayoutsAndRefreshCase
     int y;
     int rows;
     int cols;
-    int bodyRow;
-    int bodyCol;
+    int body_row;
+    int body_col;
 };
 class LayoutsAndRefreshParameters : public ::testing::Test, public ::testing::WithParamInterface<LayoutsAndRefreshCase>
 {
@@ -146,8 +146,8 @@ TEST_P(LayoutsAndRefreshParameters, layoutsAndRefresh)
     const int y = GetParam().y;
     const int rows = GetParam().rows;
     const int cols = GetParam().cols;
-    const int bodyRow = GetParam().bodyRow;
-    const int bodyCol = GetParam().bodyCol;
+    const int bodyRow = GetParam().body_row;
+    const int bodyCol = GetParam().body_col;
     MapFixture fixture;
     const auto id = fixture.open(
         numeric_table(type.toStdString(), x, y,
@@ -198,7 +198,7 @@ TEST_P(LayoutsAndRefreshParameters, layoutsAndRefresh)
 struct StaticAxisLabelsCase
 {
     std::string name;
-    QString axisType;
+    QString axis_type;
 };
 class StaticAxisLabelsParameters : public ::testing::Test, public ::testing::WithParamInterface<StaticAxisLabelsCase>
 {
@@ -211,7 +211,7 @@ INSTANTIATE_TEST_SUITE_P(Rows, StaticAxisLabelsParameters,
 
 TEST_P(StaticAxisLabelsParameters, staticAxisLabels)
 {
-    const QString axisType = GetParam().axisType;
+    const QString axisType = GetParam().axis_type;
     MapFixture fixture;
     const std::string axis = "<table type=\"" + std::string("Static X Axis") +
                              "\" name=\"Labels\" elements=\"2\"><data>Low</data><data>High</data></table>";
@@ -415,7 +415,7 @@ TEST(CalibrationMapsTest, closedSessionRefreshIsInertAfterAnotherSessionOpens)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment({}, /*use_96_dpi=*/true));
 }
 

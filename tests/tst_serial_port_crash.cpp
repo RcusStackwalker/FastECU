@@ -47,7 +47,7 @@ class TestableJ2534 : public J2534
   public:
     void detachSerialPort()
     {
-        serial = nullptr;
+        serial_ = nullptr;
     }
 };
 
@@ -62,18 +62,18 @@ class TestableSerialPortActionsDirect : public SerialPortActionsDirect
 
     void installNullSerialJ2534()
     {
-        delete j2534;
+        delete j2534_;
         TestableJ2534 *tj = new TestableJ2534();
         tj->detachSerialPort();
-        j2534 = tj;
+        j2534_ = tj;
     }
 
     // Model the teardown reset_connection now performs: free j2534 and null the
     // pointer, so a reentrant read sees null (guarded) rather than a dangling ptr.
     void deleteAndNullJ2534()
     {
-        delete j2534;
-        j2534 = nullptr;
+        delete j2534_;
+        j2534_ = nullptr;
     }
 
     // Expose the (protected) connect orchestration for the mock-serial E2E test.
@@ -321,7 +321,7 @@ TEST(SerialPortCrashTest, resetQueuedDuringRead_runsAfterReadCompletes)
 
         // Withhold the READ_VBATT reply so the read below waits out its full
         // timeout (deterministic in-flight window, no reentrant pump to exploit).
-        mock.mock->answerReadVbatt = false;
+        mock.mock->answer_read_vbatt = false;
 
         bool resetRan = false;
         QObject consumer;
@@ -376,6 +376,6 @@ TEST(SerialPortCrashTest, blockingRead_doesNotDispatchQueuedEvents)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

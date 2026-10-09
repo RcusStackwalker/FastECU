@@ -147,65 +147,65 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
 
     Status reset_connection() override
     {
-        lifecycle_calls_.push_back("reset_connection");
-        ++reset_call_count_;
+        lifecycle_calls.push_back("reset_connection");
+        ++reset_call_count;
         open_ = false;
-        return reset_result_;
+        return reset_result;
     }
 
     Status configure(const KlineConfig& config) override
     {
-        lifecycle_calls_.push_back("configure");
-        last_config_ = config;
-        return configure_result_;
+        lifecycle_calls.push_back("configure");
+        last_config = config;
+        return configure_result;
     }
     Status open() override
     {
-        lifecycle_calls_.push_back("open");
+        lifecycle_calls.push_back("open");
         open_ = true;
-        return open_result_;
+        return open_result;
     }
     Status close() override
     {
-        lifecycle_calls_.push_back("close");
-        ++close_call_count_;
+        lifecycle_calls.push_back("close");
+        ++close_call_count;
         open_ = false;
-        return close_result_;
+        return close_result;
     }
     Status disable_lec_lines() override
     {
-        control_line_trace_.push_back(ControlLineAction::DisableLecLines);
-        operation_trace_.push_back(Operation::DisableLecLines);
-        return disable_lec_lines_result_;
+        control_line_trace.push_back(ControlLineAction::DisableLecLines);
+        operation_trace.push_back(Operation::DisableLecLines);
+        return disable_lec_lines_result;
     }
     Status pulse_lec_2_line(std::chrono::milliseconds timeout) override
     {
-        control_line_trace_.push_back(ControlLineAction::PulseLec2);
-        operation_trace_.push_back(Operation::PulseLec2);
-        lec_2_pulse_timeouts_.push_back(timeout);
-        return pulse_lec_2_line_result_;
+        control_line_trace.push_back(ControlLineAction::PulseLec2);
+        operation_trace.push_back(Operation::PulseLec2);
+        lec_2_pulse_timeouts.push_back(timeout);
+        return pulse_lec_2_line_result;
     }
     Status enable_programming_voltage_line() override
     {
-        programming_voltage_line_write_index_ = wIdx_;
-        control_line_trace_.push_back(ControlLineAction::EnableProgrammingVoltageLine);
-        operation_trace_.push_back(Operation::EnableProgrammingVoltageLine);
-        return enable_programming_voltage_line_result_;
+        programming_voltage_line_write_index = wIdx_;
+        control_line_trace.push_back(ControlLineAction::EnableProgrammingVoltageLine);
+        operation_trace.push_back(Operation::EnableProgrammingVoltageLine);
+        return enable_programming_voltage_line_result;
     }
     Status enable_boot_mode_lines() override
     {
-        control_line_trace_.push_back(ControlLineAction::EnableBootModeLines);
-        operation_trace_.push_back(Operation::EnableBootModeLines);
-        return enable_boot_mode_lines_result_;
+        control_line_trace.push_back(ControlLineAction::EnableBootModeLines);
+        operation_trace.push_back(Operation::EnableBootModeLines);
+        return enable_boot_mode_lines_result;
     }
     bool requires_post_kernel_upload_delay() const override
     {
-        return post_kernel_upload_delay_required_;
+        return post_kernel_upload_delay_required;
     }
     Status set_add_iso14230_header(bool add_header) override
     {
-        header_mode_calls_.push_back(add_header);
-        return set_add_iso14230_header_result_;
+        header_mode_calls.push_back(add_header);
+        return set_add_iso14230_header_result;
     }
     void request_unblock() noexcept override
     {
@@ -219,8 +219,8 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     }
     Status setBaud(int baud) override
     {
-        baud_calls_.push_back(baud);
-        return set_baud_result_;
+        baud_calls.push_back(baud);
+        return set_baud_result;
     }
     Result<std::size_t> write(bytes::ByteView data) override
     {
@@ -271,10 +271,10 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
     }
     Result<OptionalBytes> read_impl(std::chrono::milliseconds timeout, const ICancellationToken& cancellation)
     {
-        read_timeouts_.push_back(timeout);
+        read_timeouts.push_back(timeout);
         if (timeout == std::chrono::milliseconds{10})
         {
-            operation_trace_.push_back(Operation::Read10);
+            operation_trace.push_back(Operation::Read10);
         }
         {
             std::unique_lock lock(mutex_);
@@ -301,35 +301,35 @@ class ScriptedKlineFlashTransport : public IKlineFlashTransport
         return result;
     }
 
-    int close_call_count_ = 0;
+    int close_call_count = 0;
     // Lifecycle calls in order, as ScriptedCanFlashTransport records them, so
     // a test can pin a reset before configure().
-    std::vector<std::string> lifecycle_calls_;
-    int reset_call_count_ = 0;
-    Status reset_result_;
-    Status configure_result_;
-    Status open_result_;
-    Status close_result_;
-    Status disable_lec_lines_result_;
-    Status pulse_lec_2_line_result_;
-    Status enable_programming_voltage_line_result_;
-    Status enable_boot_mode_lines_result_;
-    bool post_kernel_upload_delay_required_ = false;
-    std::optional<KlineConfig> last_config_;
-    std::vector<ControlLineAction> control_line_trace_;
-    std::vector<std::chrono::milliseconds> lec_2_pulse_timeouts_;
-    std::vector<std::chrono::milliseconds> read_timeouts_;
-    std::vector<Operation> operation_trace_;
-    std::optional<std::size_t> programming_voltage_line_write_index_;
+    std::vector<std::string> lifecycle_calls;
+    int reset_call_count = 0;
+    Status reset_result;
+    Status configure_result;
+    Status open_result;
+    Status close_result;
+    Status disable_lec_lines_result;
+    Status pulse_lec_2_line_result;
+    Status enable_programming_voltage_line_result;
+    Status enable_boot_mode_lines_result;
+    bool post_kernel_upload_delay_required = false;
+    std::optional<KlineConfig> last_config;
+    std::vector<ControlLineAction> control_line_trace;
+    std::vector<std::chrono::milliseconds> lec_2_pulse_timeouts;
+    std::vector<std::chrono::milliseconds> read_timeouts;
+    std::vector<Operation> operation_trace;
+    std::optional<std::size_t> programming_voltage_line_write_index;
 
     // Records every set_add_iso14230_header() call in order (true == "add
     // header", false == "don't") so tests can assert the exact transitions
     // relative to connect/upload/read -- see denso_sh705x_eeprom_kline_
     // executor.cpp's execute() for the call sites this proves.
-    std::vector<bool> header_mode_calls_;
-    Status set_add_iso14230_header_result_;
-    std::vector<int> baud_calls_;
-    Status set_baud_result_;
+    std::vector<bool> header_mode_calls;
+    Status set_add_iso14230_header_result;
+    std::vector<int> baud_calls;
+    Status set_baud_result;
 
   private:
     std::string describeDivergence(std::size_t index, const bytes::Bytes& actual) const

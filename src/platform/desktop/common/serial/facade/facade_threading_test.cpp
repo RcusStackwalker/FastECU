@@ -691,18 +691,18 @@ TEST(TestFacadeThreading, klineTransport_setBaudSuccessRejectionDisconnectExcept
 }
 
 // ---- affinity-warning capture ------------------------------------------
-static QStringList g_threadWarnings;
-static QtMessageHandler g_prevHandler = nullptr;
+static QStringList g_thread_warnings;
+static QtMessageHandler g_prev_handler = nullptr;
 
 static void warningCapture(QtMsgType type, const QMessageLogContext& ctx, const QString& msg)
 {
     if (type == QtWarningMsg && (msg.contains("another thread") || msg.contains("different thread")))
     {
-        g_threadWarnings.append(msg);
+        g_thread_warnings.append(msg);
     }
-    if (g_prevHandler)
+    if (g_prev_handler)
     {
-        g_prevHandler(type, ctx, msg);
+        g_prev_handler(type, ctx, msg);
     }
 }
 
@@ -711,8 +711,8 @@ TEST(TestFacadeThreading, workerThreadCaller_noAffinityWarnings)
     // The exact LoggingWorker scenario from the bench checklist: a non-GUI
     // thread drives the facade. Data must arrive and Qt must emit no
     // cross-thread affinity warnings.
-    g_threadWarnings.clear();
-    g_prevHandler = qInstallMessageHandler(warningCapture);
+    g_thread_warnings.clear();
+    g_prev_handler = qInstallMessageHandler(warningCapture);
 
     const QByteArray expected("\x80\xf0\x10\x01\x55\x66", 6);
     FakeBackend *fake = nullptr;
@@ -733,9 +733,9 @@ TEST(TestFacadeThreading, workerThreadCaller_noAffinityWarnings)
         });
     worker.join();
 
-    qInstallMessageHandler(g_prevHandler);
+    qInstallMessageHandler(g_prev_handler);
     ASSERT_EQ(got, expected);
-    ASSERT_TRUE(g_threadWarnings.isEmpty()) << qPrintable("affinity warnings: " + g_threadWarnings.join(" | "));
+    ASSERT_TRUE(g_thread_warnings.isEmpty()) << qPrintable("affinity warnings: " + g_thread_warnings.join(" | "));
 }
 
 TEST(TestFacadeThreading, concurrentCallers_serializeWithoutInterleaving)

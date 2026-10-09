@@ -165,7 +165,7 @@ TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWa
     auto result = std::get<0>(finishedSpy.snapshot().at(0));
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::Cancelled);
-    ASSERT_EQ(rawTransport->close_call_count_, 1);
+    ASSERT_EQ(rawTransport->close_call_count, 1);
 }
 
 TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
@@ -227,6 +227,6 @@ TEST(TestFlashWorker, phaseProgressIsForwardedAlongsideLegacyProgress)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

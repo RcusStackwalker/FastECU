@@ -101,7 +101,7 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_setup_failure_stops_at_failed_
         expectCdbgSetup(serial.fake(), failure);
         EXPECT_CALL(serial.fake(), open_serial_port()).Times(0);
         EXPECT_CALL(serial.fake(), is_serial_port_open()).Times(0);
-        const auto result = engine.start({.protocolId = "CDBG"}, snapshot(LoggingProtocolId::Cdbg));
+        const auto result = engine.start({.protocol_id = "CDBG"}, snapshot(LoggingProtocolId::Cdbg));
         ASSERT_TRUE(!result);
         ASSERT_EQ(result.error().kind, fastecu::ErrorKind::InvalidConfig);
         ASSERT_EQ(result.error().detail, std::string("failed to ") + details[failure]);
@@ -128,7 +128,7 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_open_failure)
         {
             EXPECT_CALL(serial.fake(), is_serial_port_open()).WillOnce(Return(false));
         }
-        const auto result = engine.start({.protocolId = "CDBG"}, snapshot(LoggingProtocolId::Cdbg));
+        const auto result = engine.start({.protocol_id = "CDBG"}, snapshot(LoggingProtocolId::Cdbg));
         ASSERT_TRUE(!result);
         ASSERT_EQ(result.error().kind, fastecu::ErrorKind::Disconnected);
         ASSERT_EQ(result.error().detail, std::string("unable to open CAN adapter for CDBG logging"));
@@ -166,7 +166,7 @@ TEST(DesktopLoggingProtocolRegistrationTest, cdbg_success_preserves_start_sequen
         }
     }
     fastecu::testing::SignalRecorder status(&engine, &LoggingEngine::statusChanged);
-    ASSERT_TRUE(engine.start({.protocolId = "CDBG"}, snapshot(LoggingProtocolId::Cdbg)));
+    ASSERT_TRUE(engine.start({.protocol_id = "CDBG"}, snapshot(LoggingProtocolId::Cdbg)));
     ASSERT_TRUE(
         fastecu::testing::wait_until([&] { return !status.snapshot().empty(); }, std::chrono::milliseconds(2000)));
     ASSERT_EQ(std::get<0>(status.snapshot().front()), LoggingStatus::Running);
@@ -279,6 +279,6 @@ TEST(DesktopLoggingProtocolRegistrationTest, mut_dma_preserves_initialization_an
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
 }

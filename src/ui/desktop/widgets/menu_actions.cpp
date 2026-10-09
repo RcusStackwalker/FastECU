@@ -513,7 +513,7 @@ void MainWindow::continue_start_logging()
     fastecu::logging::LoggingPolicy logging_policy{};
     if (configSession->settings().selected_log_protocol == "MUT_DMA")
     {
-        config.protocolId = "MUT_DMA";
+        config.protocol_id = "MUT_DMA";
         activeLogValueProtocolFilter = "MUT_DMA";
         protocol_id = fastecu::logging::LoggingProtocolId::MutDma;
         logging_policy = {.poll_timeout = 50ms,
@@ -523,7 +523,7 @@ void MainWindow::continue_start_logging()
     }
     else if (configSession->settings().selected_log_protocol == "CDBG")
     {
-        config.protocolId = "CDBG";
+        config.protocol_id = "CDBG";
         activeLogValueProtocolFilter = "CDBG";
         protocol_id = fastecu::logging::LoggingProtocolId::Cdbg;
         logging_policy = {.poll_timeout = 50ms,
@@ -533,7 +533,7 @@ void MainWindow::continue_start_logging()
     }
     else
     {
-        config.protocolId = "SSM";
+        config.protocol_id = "SSM";
         activeLogValueProtocolFilter = protocol;
         protocol_id = fastecu::logging::LoggingProtocolId::Ssm;
         logging_policy = {.poll_timeout = 300ms,

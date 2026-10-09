@@ -4,7 +4,7 @@
 #include "src/backend/ports/testing/fake_cancellation_token.h"
 #include "src/algorithms/protocol/testing/byte_test_utils.h"
 #include "src/backend/protocol/testing/scripted_can_transport.h"
-using namespace MitsuColtCanCdbg;
+using namespace mitsu_colt_can_cdbg;
 using namespace std::chrono_literals;
 
 TEST(TestCdbgDriver, handshake_and_single_frame_streaming)

@@ -18,7 +18,7 @@ using namespace fastecu::flash;
 
 bytes::Bytes frame(bytes::Bytes payload)
 {
-    return SsmProtocol::addHeader(payload, 0xf0, 0x10);
+    return ssm_protocol::addHeader(payload, 0xf0, 0x10);
 }
 
 void scriptHandshake(ScriptedKlineFlashTransport& transport)
@@ -40,7 +40,7 @@ bytes::Bytes encryptedImage(bytes::ByteView image)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8, 0xa, 0xd, 0x2, 0xb, 0xf, 0x4, 0x0, 0x3,
                                      0xb, 0x4, 0x6, 0x0, 0xf, 0x2, 0xd, 0x9, 0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8});
-    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex, kTransform);
+    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex, kTransform);
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, RejectsFamilyMismatchBeforeIo)
@@ -56,7 +56,7 @@ TEST(SubaruMitsuM32rKlineExecutor, RejectsFamilyMismatchBeforeIo)
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::InvalidConfig));
-    EXPECT_FALSE(transport.last_config_.has_value());
+    EXPECT_FALSE(transport.last_config.has_value());
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, TransportSetupReturnsPlansWireParameters)
@@ -89,7 +89,7 @@ TEST(SubaruMitsuM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::Cancelled));
-    EXPECT_FALSE(transport.last_config_.has_value());
+    EXPECT_FALSE(transport.last_config.has_value());
 }
 
 TEST(SubaruMitsuM32rKlineExecutor, MapsMissingMalformedAndTransportFailureResponses)
@@ -193,6 +193,6 @@ TEST(SubaruMitsuM32rKlineExecutor, WritesEveryEncryptedChunkAndToleratesTransfer
 
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.baud_calls_, std::vector<int>{15625});
+    EXPECT_EQ(transport.baud_calls, std::vector<int>{15625});
 }
 } // namespace

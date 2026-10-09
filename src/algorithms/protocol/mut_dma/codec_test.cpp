@@ -43,7 +43,7 @@ TEST(TestCodec, stream_frame_parse)
     f.push_back(kTrailerStd);
     StreamFrame s = parseStreamFrame(f);
     ASSERT_TRUE(s.ok);
-    ASSERT_EQ(s.logId, bytes::Byte(0x51));
+    ASSERT_EQ(s.log_id, bytes::Byte(0x51));
     ASSERT_TRUE(s.data == data);
     f[f.size() - 2] = static_cast<bytes::Byte>(f[f.size() - 2] ^ 0xFFU); // corrupt checksum
     ASSERT_FALSE(parseStreamFrame(f).ok);

@@ -21,7 +21,7 @@ constexpr int kTimeoutMs = 2000;
 
 bytes::Bytes framed(bytes::ByteView payload, const SubaruMitsuM32rKlinePlan& p)
 {
-    return SsmProtocol::addHeader(payload, p.tester_id, p.target_id);
+    return ssm_protocol::addHeader(payload, p.tester_id, p.target_id);
 }
 
 Result<std::optional<bytes::Bytes>> exchange_optional(IKlineFlashTransport& transport,
@@ -94,14 +94,14 @@ bytes::Bytes seed_key(bytes::ByteView seed)
     static constexpr std::array<std::uint16_t, 16> kIndex = {0x8519, 0x5c53, 0xc0e9, 0x2452, 0x1e68, 0x6feb,
                                                              0x2648, 0x81e2, 0x8ce4, 0x953b, 0x1ca9, 0x6180,
                                                              0xb85e, 0x5109, 0xdb3c, 0x3cf2};
-    return SsmProtocol::calculateSeedKey(seed, kIndex, SsmProtocol::kIndexTransformationStock);
+    return ssm_protocol::calculateSeedKey(seed, kIndex, ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt(bytes::ByteView image)
 {
     static constexpr std::array<std::uint16_t, 4> kIndex = {0x25b5, 0x3875, 0xca11, 0x2680};
-    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex,
-                                         SsmProtocol::kIndexTransformationStock);
+    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex,
+                                          ssm_protocol::kIndexTransformationStock);
 }
 
 Result<std::string> handshake(IKlineFlashTransport& transport, IClock& clock, const ICancellationToken& cancellation,

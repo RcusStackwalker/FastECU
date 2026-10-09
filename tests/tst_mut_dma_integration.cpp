@@ -90,10 +90,10 @@ class MockOpenPort final : public QObject
     }
 
     // The exact payload bytes of the last host data write ("att" message body).
-    QByteArray lastWrite;
+    QByteArray last_write;
     // Polled from the test thread (event wait) while set from the mock
     // thread's onReadable(), so it needs to be atomic.
-    std::atomic<bool> sawWrite{false};
+    std::atomic<bool> saw_write{false};
 
     // Drop any buffered/partial input left over from the connect handshake (the
     // ISO9141 filter writes trail un-terminated mask/pattern bytes), so a
@@ -101,8 +101,8 @@ class MockOpenPort final : public QObject
     void resetParser()
     {
         rx.clear();
-        lastWrite.clear();
-        sawWrite = false;
+        last_write.clear();
+        saw_write = false;
         rawRemaining = 0;
     }
 
@@ -142,12 +142,12 @@ class MockOpenPort final : public QObject
             if (rawRemaining > 0)
             {
                 const int take = static_cast<int>(qMin<qsizetype>(rawRemaining, rx.size()));
-                lastWrite.append(rx.left(take));
+                last_write.append(rx.left(take));
                 rx.remove(0, take);
                 rawRemaining -= take;
                 if (rawRemaining == 0)
                 {
-                    sawWrite = true;
+                    saw_write = true;
                 }
                 else
                 {
@@ -178,7 +178,7 @@ class MockOpenPort final : public QObject
             // "att<chan> <size> <flags>" -> consume <size> raw data bytes next.
             const QList<QByteArray> tok = line.split(' ');
             const int size = (tok.size() > 1) ? tok.at(1).toInt() : 0;
-            lastWrite.clear();
+            last_write.clear();
             rawRemaining = size;
             return; // a data write is not acked by the dongle
         }
@@ -344,8 +344,9 @@ TEST_F(MutDmaIntegrationTest, write_throughAdapter_putsExactFrameOnWire)
         ASSERT_EQ(*written, static_cast<std::size_t>(frame.size()));
 
         // Pump the event loop so the mock's QSocketNotifier drains and captures it.
-        ASSERT_TRUE(fastecu::testing::wait_until([&] { return bool(mock.sawWrite); }, std::chrono::milliseconds(1000)));
-        ASSERT_EQ(mock.lastWrite, frame); // exact bytes, including the 0x0D trailer
+        ASSERT_TRUE(
+            fastecu::testing::wait_until([&] { return bool(mock.saw_write); }, std::chrono::milliseconds(1000)));
+        ASSERT_EQ(mock.last_write, frame); // exact bytes, including the 0x0D trailer
     }
     ::close(master);
 }
@@ -429,6 +430,6 @@ TEST_F(MutDmaIntegrationTest, driverPollOnce_throughAdapter_decodesStreamFrameFr
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

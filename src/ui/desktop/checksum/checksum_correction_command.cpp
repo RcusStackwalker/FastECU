@@ -118,7 +118,7 @@ ChecksumCorrectionResult ChecksumCorrectionCommand::run(bytes::ByteView rom_data
         {
             if (outcome.family_result->ok())
             {
-                result.corrected_rom_data = outcome.family_result->romData;
+                result.corrected_rom_data = outcome.family_result->rom_data;
             }
             showFamilyResultDialog(*outcome.family_result);
         }

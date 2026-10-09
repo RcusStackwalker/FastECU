@@ -74,11 +74,11 @@ bool readFrame(HANDLE pipe, FrameHeader& outHeader, void *payload, std::uint32_t
     {
         return false;
     }
-    if (outHeader.payloadSize > payloadCapacity)
+    if (outHeader.payload_size > payloadCapacity)
     {
         return false;
     }
-    return readFramePayload(pipe, payload, outHeader.payloadSize);
+    return readFramePayload(pipe, payload, outHeader.payload_size);
 }
 
 } // namespace j2534_bridge

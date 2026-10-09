@@ -2,7 +2,7 @@
 #include <array>
 #include <bit>
 
-namespace MitsuColtCanCdbg
+namespace mitsu_colt_can_cdbg
 {
 
 CdbgFrame buildInitFrame()
@@ -217,4 +217,4 @@ std::vector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex, const std
     return out;
 }
 
-} // namespace MitsuColtCanCdbg
+} // namespace mitsu_colt_can_cdbg

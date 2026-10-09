@@ -4,7 +4,7 @@
 #include <string_view>
 #include <utility>
 
-namespace MitsuColtCanCdbg
+namespace mitsu_colt_can_cdbg
 {
 
 namespace
@@ -165,4 +165,4 @@ fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::pollOnce(std::chrono::
     return PollResult{.responded = true, .values = lastValues_};
 }
 
-} // namespace MitsuColtCanCdbg
+} // namespace mitsu_colt_can_cdbg

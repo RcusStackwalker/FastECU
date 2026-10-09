@@ -91,7 +91,7 @@ Result<bytes::Bytes> fatal_query(Ctx& ctx, bytes::ByteView pdu, bytes::ByteView 
 // the legacy "ERROR: Serial port is not open." log line.
 Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
 {
-    using namespace MitsuColtCan;
+    using namespace mitsu_colt_can;
 
     if (family.use_vendor_challenge)
     {
@@ -109,9 +109,9 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
         // 4-byte seed after them (legacy "length > 10" on the enveloped
         // frame).
         info(ctx, "Requesting vendor extension challenge seed...");
-        received = fatal_query(ctx, MitsuColtCanVendorExt::buildChallengeSeedRequest(),
-                               bytes::Bytes{MitsuColtCanVendorExt::kVendorChallengeSelector,
-                                            MitsuColtCanVendorExt::kVendorChallengeSeedSubfunction},
+        received = fatal_query(ctx, mitsu_colt_can_vendor_ext::buildChallengeSeedRequest(),
+                               bytes::Bytes{mitsu_colt_can_vendor_ext::kVendorChallengeSelector,
+                                            mitsu_colt_can_vendor_ext::kVendorChallengeSeedSubfunction},
                                kRoutineExchangePolicy,
                                "Wrong vendor challenge response from ECU: ", "vendor challenge seed request", 6);
         if (!received.has_value())
@@ -124,17 +124,17 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
         info(ctx, std::format("Received vendor seed: {}", bytes::toHex(seed_bytes)));
 
         const std::uint32_t vendor_key =
-            MitsuColtCanVendorExt::challengeInverseTransform(MitsuColtCanVendorExt::bytesToSeed(seed_bytes));
-        const bytes::Bytes key_bytes = MitsuColtCanVendorExt::keyBytes(vendor_key);
+            mitsu_colt_can_vendor_ext::challengeInverseTransform(mitsu_colt_can_vendor_ext::bytesToSeed(seed_bytes));
+        const bytes::Bytes key_bytes = mitsu_colt_can_vendor_ext::keyBytes(vendor_key);
         info(ctx, std::format("Calculated vendor key: {}", bytes::toHex(key_bytes)));
 
         // Lines 106-116. Echoing the selector is not acceptance: only
         // kVendorChallengeAccepted grants the transition, so this stays a
         // content check of its own.
         info(ctx, "Sending vendor key to ECU...");
-        received = fatal_query(ctx, MitsuColtCanVendorExt::buildChallengeKey(vendor_key),
-                               bytes::Bytes{MitsuColtCanVendorExt::kVendorChallengeSelector,
-                                            MitsuColtCanVendorExt::kVendorChallengeAccepted},
+        received = fatal_query(ctx, mitsu_colt_can_vendor_ext::buildChallengeKey(vendor_key),
+                               bytes::Bytes{mitsu_colt_can_vendor_ext::kVendorChallengeSelector,
+                                            mitsu_colt_can_vendor_ext::kVendorChallengeAccepted},
                                kRoutineExchangePolicy, "Vendor challenge key rejected: ", "vendor challenge key");
         if (!received.has_value())
         {
@@ -200,7 +200,7 @@ Status connect_bootloader(Ctx& ctx, const MitsuColtM32rCanPlan& family)
 // inspect each chunk before deciding whether to ask for the next).
 Result<bytes::Bytes> read_one_chunk(Ctx& ctx, std::uint32_t addr, bytes::Byte chunk_len)
 {
-    using namespace MitsuColtCan;
+    using namespace mitsu_colt_can;
 
     // Lines 191-194.
     Result<bytes::Bytes> received =
@@ -234,7 +234,7 @@ Result<bytes::Bytes> read_one_chunk(Ctx& ctx, std::uint32_t addr, bytes::Byte ch
 Result<bytes::Bytes> read_flash_range(Ctx& ctx, std::uint32_t start_addr, std::uint32_t length,
                                       PhaseReporter *progress = nullptr)
 {
-    using namespace MitsuColtCan;
+    using namespace mitsu_colt_can;
 
     bytes::Bytes data;
     data.reserve(length);
@@ -279,7 +279,7 @@ Result<bytes::Bytes> read_flash_range(Ctx& ctx, std::uint32_t start_addr, std::u
 // bootstrap actually turns out to be needed.
 Result<bool> flash_range_matches(Ctx& ctx, std::uint32_t start_addr, bytes::ByteView wanted)
 {
-    using namespace MitsuColtCan;
+    using namespace mitsu_colt_can;
 
     const std::uint32_t length = static_cast<std::uint32_t>(wanted.size());
     const std::uint32_t end_addr = start_addr + length;
@@ -315,7 +315,7 @@ Result<bool> flash_range_matches(Ctx& ctx, std::uint32_t start_addr, bytes::Byte
 // Legacy upload_and_commit, flash_ecu_mitsu_m32r_can_operation.cpp:231-297.
 Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, PhaseReporter *progress = nullptr)
 {
-    using namespace MitsuColtCan;
+    using namespace mitsu_colt_can;
 
     // Lines 238-246.
     Result<bytes::Bytes> received =
@@ -392,7 +392,7 @@ Status upload_and_commit(Ctx& ctx, std::uint32_t start, bytes::ByteView data, Ph
 // the main write and " (top 128KB bootstrap)" for the bootstrap copy.
 Status unlock_and_erase(Ctx& ctx, std::string_view stage)
 {
-    using namespace MitsuColtCan;
+    using namespace mitsu_colt_can;
 
     Result<bytes::Bytes> received = fatal_request(ctx, buildRequestReflashUnlock(), kSlowExchangePolicy,
                                                   std::format("the reflash unlock request{}", stage));
@@ -441,7 +441,7 @@ bool confirmation_granted(const FlashPlan& plan, ConfirmationSpec::Id id)
 // exactly where the protected top region begins.
 Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSequence& phases)
 {
-    using namespace MitsuColtCan;
+    using namespace mitsu_colt_can;
 
     PhaseReporter phase = phases.start("Ensure top region", 3);
 
@@ -552,11 +552,11 @@ Status ensure_top_region_written(Ctx& ctx, const FlashPlan& plan, bytes::ByteVie
 // Legacy write_mem, flash_ecu_mitsu_m32r_can_operation.cpp:392-476.
 Status write_mem(Ctx& ctx, const FlashPlan& plan, bytes::ByteView rom, PhaseSequence& phases)
 {
-    using namespace MitsuColtCan;
+    using namespace mitsu_colt_can;
 
     const std::uint32_t writable_end = plan.transfer_region().start + plan.transfer_region().length;
-    const bool includes_top_region = writable_end == MitsuColtCan::kFullRomSize;
-    const std::uint32_t page_write_end = includes_top_region ? MitsuColtCan::kTopRegionStart : writable_end;
+    const bool includes_top_region = writable_end == mitsu_colt_can::kFullRomSize;
+    const std::uint32_t page_write_end = includes_top_region ? mitsu_colt_can::kTopRegionStart : writable_end;
 
     // The legacy 512 KiB flow must compare and, if needed, bootstrap the top
     // 128 KiB. A 384 KiB image has no top region, so it proceeds directly to
@@ -685,7 +685,7 @@ Result<FlashExecutionResult> MitsuColtM32rCanExecutor::execute(const FlashPlan& 
 
     const std::uint32_t rom_end = plan.transfer_region().start + plan.transfer_region().length;
     const bool read = plan.operation() == FlashOperation::Read;
-    PhaseSequence phases(events, read ? 2 : (rom_end == MitsuColtCan::kFullRomSize ? 6 : 5));
+    PhaseSequence phases(events, read ? 2 : (rom_end == mitsu_colt_can::kFullRomSize ? 6 : 5));
     PhaseReporter connect = phases.start(read ? "Connect to ECU" : "Connect", 1);
 
     // The channel owns the 4-byte CAN id envelope and the client owns the

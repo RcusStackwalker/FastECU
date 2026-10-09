@@ -41,91 +41,91 @@ class ConnectionCoordinatorTest : public ::testing::Test
     // A continuation that records `done<label>=<0|1>`.
     std::function<void(bool)> continuation(std::string label = "")
     {
-        return [this, label](bool connected) { events.push_back("done" + label + "=" + (connected ? "1" : "0")); };
+        return [this, label](bool connected) { events_.push_back("done" + label + "=" + (connected ? "1" : "0")); };
     }
 
-    Events events;
-    FakeIdentifyLauncher launcher{events};
-    FakeConnectionPresentation presentation{events};
-    ConnectionCoordinator coordinator{launcher, presentation};
+    Events events_;
+    FakeIdentifyLauncher launcher_{events_};
+    FakeConnectionPresentation presentation_{events_};
+    ConnectionCoordinator coordinator_{launcher_, presentation_};
 };
 
 TEST_F(ConnectionCoordinatorTest, BeginLocksControlsThenStartsTheFirstGeneration)
 {
-    coordinator.begin(SsmIdentifyRequest{}, continuation());
+    coordinator_.begin(SsmIdentifyRequest{}, continuation());
 
-    EXPECT_EQ(events, (Events{"controls_locked=1", "start 1"}));
-    EXPECT_TRUE(coordinator.identifying());
+    EXPECT_EQ(events_, (Events{"controls_locked=1", "start 1"}));
+    EXPECT_TRUE(coordinator_.identifying());
 }
 
 TEST_F(ConnectionCoordinatorTest, SuccessReportsConnectedAndUnlocksButKeepsThePortSelectorLocked)
 {
-    coordinator.begin(SsmIdentifyRequest{}, continuation());
-    launcher.complete(1, success());
+    coordinator_.begin(SsmIdentifyRequest{}, continuation());
+    launcher_.complete(1, success());
 
-    EXPECT_EQ(events, (Events{"controls_locked=1", "start 1", "stop_and_join", "identified 3152584006", "done=1",
-                              "controls_locked=0"}));
-    EXPECT_FALSE(coordinator.identifying());
+    EXPECT_EQ(events_, (Events{"controls_locked=1", "start 1", "stop_and_join", "identified 3152584006", "done=1",
+                               "controls_locked=0"}));
+    EXPECT_FALSE(coordinator_.identifying());
 }
 
 TEST_F(ConnectionCoordinatorTest, FailureStillReportsConnectedBecauseThePortOpened)
 {
-    coordinator.begin(SsmIdentifyRequest{}, continuation());
-    launcher.complete(1, failure("boom"));
+    coordinator_.begin(SsmIdentifyRequest{}, continuation());
+    launcher_.complete(1, failure("boom"));
 
-    EXPECT_EQ(events,
+    EXPECT_EQ(events_,
               (Events{"controls_locked=1", "start 1", "stop_and_join", "failed boom", "done=1", "controls_locked=0"}));
 }
 
 TEST_F(ConnectionCoordinatorTest, SuccessWithAnEmptyEcuIdStillReportsConnected)
 {
-    coordinator.begin(SsmIdentifyRequest{}, continuation());
-    launcher.complete(1, success(""));
+    coordinator_.begin(SsmIdentifyRequest{}, continuation());
+    launcher_.complete(1, success(""));
 
-    EXPECT_EQ(events,
+    EXPECT_EQ(events_,
               (Events{"controls_locked=1", "start 1", "stop_and_join", "identified ", "done=1", "controls_locked=0"}));
 }
 
 TEST_F(ConnectionCoordinatorTest, CancelJoinsUnlocksEverythingAndFiresTheContinuationLast)
 {
-    coordinator.begin(SsmIdentifyRequest{}, continuation());
-    coordinator.cancel();
+    coordinator_.begin(SsmIdentifyRequest{}, continuation());
+    coordinator_.cancel();
 
-    EXPECT_EQ(events, (Events{"controls_locked=1", "start 1", "stop_and_join", "controls_locked=0", "port_selector=1",
-                              "done=0"}));
-    EXPECT_FALSE(coordinator.identifying());
+    EXPECT_EQ(events_, (Events{"controls_locked=1", "start 1", "stop_and_join", "controls_locked=0", "port_selector=1",
+                               "done=0"}));
+    EXPECT_FALSE(coordinator_.identifying());
 }
 
 TEST_F(ConnectionCoordinatorTest, CancelTwiceFiresTheContinuationOnce)
 {
-    coordinator.begin(SsmIdentifyRequest{}, continuation());
-    coordinator.cancel();
-    events.clear();
-    coordinator.cancel();
+    coordinator_.begin(SsmIdentifyRequest{}, continuation());
+    coordinator_.cancel();
+    events_.clear();
+    coordinator_.cancel();
 
-    EXPECT_TRUE(events.empty());
+    EXPECT_TRUE(events_.empty());
 }
 
 TEST_F(ConnectionCoordinatorTest, CompletionAfterCancelIsDropped)
 {
-    coordinator.begin(SsmIdentifyRequest{}, continuation());
-    coordinator.cancel();
-    events.clear();
-    launcher.complete(1, success());
+    coordinator_.begin(SsmIdentifyRequest{}, continuation());
+    coordinator_.cancel();
+    events_.clear();
+    launcher_.complete(1, success());
 
-    EXPECT_TRUE(events.empty());
+    EXPECT_TRUE(events_.empty());
 }
 
 TEST_F(ConnectionCoordinatorTest, CancelWhileIdleStillAdvancesTheGeneration)
 {
-    coordinator.cancel();
-    EXPECT_TRUE(events.empty());
+    coordinator_.cancel();
+    EXPECT_TRUE(events_.empty());
 
-    coordinator.begin(SsmIdentifyRequest{}, continuation());
-    launcher.complete(1, success());
+    coordinator_.begin(SsmIdentifyRequest{}, continuation());
+    launcher_.complete(1, success());
 
-    EXPECT_EQ(launcher.started_generations, (std::vector<fastecu::ui::IdentifyGeneration>{2}));
-    EXPECT_EQ(events, (Events{"controls_locked=1", "start 2"}));
+    EXPECT_EQ(launcher_.started_generations, (std::vector<fastecu::ui::IdentifyGeneration>{2}));
+    EXPECT_EQ(events_, (Events{"controls_locked=1", "start 2"}));
 }
 
 TEST(ConnectionCoordinatorLifetimeTest, DestructorDetachesFromTheLauncher)
@@ -145,32 +145,32 @@ TEST(ConnectionCoordinatorLifetimeTest, DestructorDetachesFromTheLauncher)
 // unlock controls the nested attempt locked.
 TEST_F(ConnectionCoordinatorTest, NestedBeginInsideIdentifiedKeepsControlsLockedAndFailsTheOuterAttempt)
 {
-    presentation.on_identified = [this](const IdentifyOutcome&)
-    { coordinator.begin(SsmIdentifyRequest{}, continuation("2")); };
-    coordinator.begin(SsmIdentifyRequest{}, continuation("1"));
-    launcher.complete(1, success("OUTER"));
+    presentation_.on_identified = [this](const IdentifyOutcome&)
+    { coordinator_.begin(SsmIdentifyRequest{}, continuation("2")); };
+    coordinator_.begin(SsmIdentifyRequest{}, continuation("1"));
+    launcher_.complete(1, success("OUTER"));
 
-    EXPECT_EQ(events, (Events{"controls_locked=1", "start 1", "stop_and_join", "identified OUTER", "controls_locked=1",
-                              "start 2", "done1=0"}));
-    EXPECT_TRUE(coordinator.identifying());
+    EXPECT_EQ(events_, (Events{"controls_locked=1", "start 1", "stop_and_join", "identified OUTER", "controls_locked=1",
+                               "start 2", "done1=0"}));
+    EXPECT_TRUE(coordinator_.identifying());
 
     // The nested attempt owns its own continuation. Drop the re-entry hook so
     // its own identification does not start a third attempt.
-    presentation.on_identified = nullptr;
-    events.clear();
-    launcher.complete(2, success("INNER"));
+    presentation_.on_identified = nullptr;
+    events_.clear();
+    launcher_.complete(2, success("INNER"));
 
-    EXPECT_EQ(events, (Events{"stop_and_join", "identified INNER", "done2=1", "controls_locked=0"}));
+    EXPECT_EQ(events_, (Events{"stop_and_join", "identified INNER", "done2=1", "controls_locked=0"}));
 }
 
 TEST_F(ConnectionCoordinatorTest, NestedCancelInsideIdentifiedFailsTheOuterAttempt)
 {
-    presentation.on_identified = [this](const IdentifyOutcome&) { coordinator.cancel(); };
-    coordinator.begin(SsmIdentifyRequest{}, continuation());
-    launcher.complete(1, success());
+    presentation_.on_identified = [this](const IdentifyOutcome&) { coordinator_.cancel(); };
+    coordinator_.begin(SsmIdentifyRequest{}, continuation());
+    launcher_.complete(1, success());
 
-    EXPECT_EQ(events, (Events{"controls_locked=1", "start 1", "stop_and_join", "identified 3152584006", "done=0",
-                              "controls_locked=0"}));
+    EXPECT_EQ(events_, (Events{"controls_locked=1", "start 1", "stop_and_join", "identified 3152584006", "done=0",
+                               "controls_locked=0"}));
 }
 
 // disconnect_from_ecu() runs from identification_failed and cancels: nothing is
@@ -178,55 +178,55 @@ TEST_F(ConnectionCoordinatorTest, NestedCancelInsideIdentifiedFailsTheOuterAttem
 // "connected". Passes before the change; pins the `!success` clause.
 TEST_F(ConnectionCoordinatorTest, DisconnectFromTheFailureCallbackDoesNotFlipTheResult)
 {
-    presentation.on_failed = [this](const IdentifyOutcome&) { coordinator.cancel(); };
-    coordinator.begin(SsmIdentifyRequest{}, continuation());
-    launcher.complete(1, failure());
+    presentation_.on_failed = [this](const IdentifyOutcome&) { coordinator_.cancel(); };
+    coordinator_.begin(SsmIdentifyRequest{}, continuation());
+    launcher_.complete(1, failure());
 
-    EXPECT_EQ(events, (Events{"controls_locked=1", "start 1", "stop_and_join", "failed no answer", "done=1",
-                              "controls_locked=0"}));
+    EXPECT_EQ(events_, (Events{"controls_locked=1", "start 1", "stop_and_join", "failed no answer", "done=1",
+                               "controls_locked=0"}));
 }
 
 TEST_F(ConnectionCoordinatorTest, DuplicateCompletionIsIgnored)
 {
-    coordinator.begin(SsmIdentifyRequest{}, continuation());
-    launcher.complete(1, success());
-    events.clear();
-    launcher.complete(1, success());
+    coordinator_.begin(SsmIdentifyRequest{}, continuation());
+    launcher_.complete(1, success());
+    events_.clear();
+    launcher_.complete(1, success());
 
-    EXPECT_TRUE(events.empty());
+    EXPECT_TRUE(events_.empty());
 }
 
 TEST_F(ConnectionCoordinatorTest, SequentialAttemptsOwnTheirContinuations)
 {
-    coordinator.begin(SsmIdentifyRequest{}, continuation("1"));
-    launcher.complete(1, success());
-    coordinator.cancel();
-    events.clear();
+    coordinator_.begin(SsmIdentifyRequest{}, continuation("1"));
+    launcher_.complete(1, success());
+    coordinator_.cancel();
+    events_.clear();
 
-    coordinator.begin(SsmIdentifyRequest{}, continuation("2"));
-    launcher.complete(3, success());
+    coordinator_.begin(SsmIdentifyRequest{}, continuation("2"));
+    launcher_.complete(3, success());
 
-    EXPECT_EQ(events, (Events{"controls_locked=1", "start 3", "stop_and_join", "identified 3152584006", "done2=1",
-                              "controls_locked=0"}));
+    EXPECT_EQ(events_, (Events{"controls_locked=1", "start 3", "stop_and_join", "identified 3152584006", "done2=1",
+                               "controls_locked=0"}));
 }
 
 TEST_F(ConnectionCoordinatorTest, ShutdownDropsTheContinuationButStillJoinsAndUnlocks)
 {
-    coordinator.begin(SsmIdentifyRequest{}, continuation());
-    coordinator.shutdown();
+    coordinator_.begin(SsmIdentifyRequest{}, continuation());
+    coordinator_.shutdown();
 
-    EXPECT_EQ(events,
+    EXPECT_EQ(events_,
               (Events{"controls_locked=1", "start 1", "stop_and_join", "controls_locked=0", "port_selector=1"}));
 }
 
 TEST_F(ConnectionCoordinatorTest, CompletionAfterShutdownIsDropped)
 {
-    coordinator.begin(SsmIdentifyRequest{}, continuation());
-    coordinator.shutdown();
-    events.clear();
-    launcher.complete(1, success());
+    coordinator_.begin(SsmIdentifyRequest{}, continuation());
+    coordinator_.shutdown();
+    events_.clear();
+    launcher_.complete(1, success());
 
-    EXPECT_TRUE(events.empty());
+    EXPECT_TRUE(events_.empty());
 }
 
 } // namespace

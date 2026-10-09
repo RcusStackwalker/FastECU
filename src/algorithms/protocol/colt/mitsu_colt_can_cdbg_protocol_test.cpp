@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "src/algorithms/protocol/colt/mitsu_colt_can_cdbg_protocol.h"
-using namespace MitsuColtCanCdbg;
+using namespace mitsu_colt_can_cdbg;
 
 TEST(TestMitsuColtCanCdbgProtocol, init_frame_layout)
 {

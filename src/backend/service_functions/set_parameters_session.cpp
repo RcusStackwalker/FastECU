@@ -22,7 +22,7 @@ bytes::Bytes frameFor(const TcuParameterWrite& write)
     bytes::Bytes payload{0xb8};
     bytes::appendU24Be(payload, write.address);
     payload.push_back(write.value);
-    return SsmProtocol::addHeader(payload, kTesterId, kTargetId);
+    return ssm_protocol::addHeader(payload, kTesterId, kTargetId);
 }
 
 } // namespace

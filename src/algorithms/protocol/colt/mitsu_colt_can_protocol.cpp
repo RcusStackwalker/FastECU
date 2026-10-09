@@ -6,7 +6,7 @@
 #include "src/algorithms/protocol/uds/uds_pdu.h"
 #include <array>
 
-namespace MitsuColtCan
+namespace mitsu_colt_can
 {
 using bytes::composeBe;
 using bytes::u24;
@@ -156,4 +156,4 @@ bytes::Bytes buildSecurityAccessKey(bytes::ByteView key)
     return uds::buildRequest(kServiceSecurityAccess, 0x06_b, key);
 }
 
-} // namespace MitsuColtCan
+} // namespace mitsu_colt_can

@@ -104,11 +104,11 @@ class NumericEditUseCaseTest : public ::testing::Test
   protected:
     void SetUp() override
     {
-        ASSERT_THAT(cfg.initialize(), IsOk());
-        const auto opened = workspace.adopt_read_image(
+        ASSERT_THAT(cfg_.initialize(), IsOk());
+        const auto opened = workspace_.adopt_read_image(
             ReadImage{.rom = std::vector<std::uint8_t>(8, 0), .filename = "grid.bin", .protocol_name = "proto_b"});
         ASSERT_THAT(opened, IsOk());
-        id = opened->id;
+        id_ = opened->id;
         install(grid_definition());
     }
 
@@ -121,15 +121,15 @@ class NumericEditUseCaseTest : public ::testing::Test
         {
             resolved = ResolvedDefinition{.definition = std::move(*def)};
         }
-        *workspace.find(id) = CalibrationSession(id, SessionContents{.source = {.display_name = "grid.bin"},
-                                                                     .rom = std::move(rom),
-                                                                     .definition = std::move(resolved),
-                                                                     .protocol = std::move(protocol)});
+        *workspace_.find(id_) = CalibrationSession(id_, SessionContents{.source = {.display_name = "grid.bin"},
+                                                                        .rom = std::move(rom),
+                                                                        .definition = std::move(resolved),
+                                                                        .protocol = std::move(protocol)});
     }
 
     CalibrationSession& session()
     {
-        return *workspace.find(id);
+        return *workspace_.find(id_);
     }
 
     std::vector<std::uint8_t> rom_bytes()
@@ -147,19 +147,19 @@ class NumericEditUseCaseTest : public ::testing::Test
     Result<NumericEditOutcome> edit(NumericTarget target, SelectionRange elements, NumericEditOperation operation,
                                     std::size_t map_index = 0)
     {
-        return apply_numeric_edit(workspace, {.session = id,
-                                              .map_index = map_index,
-                                              .selection = {.target = target, .elements = elements},
-                                              .operation = std::move(operation)});
+        return apply_numeric_edit(workspace_, {.session = id_,
+                                               .map_index = map_index,
+                                               .selection = {.target = target, .elements = elements},
+                                               .operation = std::move(operation)});
     }
 
-    config::testing::ConfigSessionFixture cfg;
-    InMemoryAtomicFileWriter writer;
-    definition::DefinitionService definitions{cfg.file_system, cfg.file_repository, writer};
-    testing::FakeDefinitionCatalogs catalogs;
-    RomOpenUseCase opener{catalogs, definitions, cfg.file_repository, cfg.file_system, cfg.events, cfg.session};
-    CalibrationWorkspace workspace{opener};
-    SessionId id{};
+    config::testing::ConfigSessionFixture cfg_;
+    InMemoryAtomicFileWriter writer_;
+    definition::DefinitionService definitions_{cfg_.file_system, cfg_.file_repository, writer_};
+    testing::FakeDefinitionCatalogs catalogs_;
+    RomOpenUseCase opener_{catalogs_, definitions_, cfg_.file_repository, cfg_.file_system, cfg_.events, cfg_.session};
+    CalibrationWorkspace workspace_{opener_};
+    SessionId id_{};
 };
 
 TEST_F(NumericEditUseCaseTest, ChangesTheSelectedBodyCell)
@@ -372,14 +372,14 @@ TEST_F(NumericEditUseCaseTest, Wrx02WritesKeepThePreservedRelocation)
 TEST_F(NumericEditUseCaseTest, StaleSessionIdsAreNotApplicable)
 {
     const auto before = rom_bytes();
-    EXPECT_THAT(apply_numeric_edit(workspace, {.session = SessionId{999},
-                                               .map_index = 0,
-                                               .selection = {.target = NumericTarget::MapBody, .elements = cell(0, 0)},
-                                               .operation = AssignmentEdit{"7"}}),
+    EXPECT_THAT(apply_numeric_edit(workspace_, {.session = SessionId{999},
+                                                .map_index = 0,
+                                                .selection = {.target = NumericTarget::MapBody, .elements = cell(0, 0)},
+                                                .operation = AssignmentEdit{"7"}}),
                 not_applicable(NotApplicableReason::ClosedSession));
     EXPECT_EQ(rom_bytes(), before);
 
-    ASSERT_THAT(workspace.close(id), IsOk());
+    ASSERT_THAT(workspace_.close(id_), IsOk());
     EXPECT_THAT(edit(NumericTarget::MapBody, cell(0, 0), AssignmentEdit{"7"}),
                 not_applicable(NotApplicableReason::ClosedSession));
 }

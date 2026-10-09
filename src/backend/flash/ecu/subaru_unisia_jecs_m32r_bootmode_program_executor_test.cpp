@@ -131,8 +131,8 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, BeforeConfigureResetsThenClear
     ASSERT_THAT(
         SubaruUnisiaJecsM32rBootModeProgramExecutor{}.before_transport_configure(transport, clock, cancellation),
         IsOk());
-    EXPECT_EQ(transport.lifecycle_calls_, std::vector<std::string>{"reset_connection"}); // write_mem() :361
-    EXPECT_EQ(transport.header_mode_calls_, std::vector<bool>{false});
+    EXPECT_EQ(transport.lifecycle_calls, std::vector<std::string>{"reset_connection"}); // write_mem() :361
+    EXPECT_EQ(transport.header_mode_calls, std::vector<bool>{false});
 }
 
 class ProgramsTheWholeRom
@@ -153,12 +153,12 @@ TEST_P(ProgramsTheWholeRom, ErasesThenWritesEveryBlock)
 
     ASSERT_THAT(run(plan, transport, context), IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.control_line_trace_, (std::vector{Line::EnableProgrammingVoltageLine, Line::DisableLecLines}));
-    EXPECT_EQ(transport.programming_voltage_line_write_index_, std::optional<std::size_t>(0));
+    EXPECT_EQ(transport.control_line_trace, (std::vector{Line::EnableProgrammingVoltageLine, Line::DisableLecLines}));
+    EXPECT_EQ(transport.programming_voltage_line_write_index, std::optional<std::size_t>(0));
     // AF 31 settle 500, one empty start poll 500, one empty done poll 1000,
     // post-erase 1000, then 10 ms after every AF 61 (:370-465, :539).
     EXPECT_EQ(context.clock.elapsed(), 500ms + 500ms + 1000ms + 1000ms + 10ms * (blocks - 1));
-    EXPECT_EQ(std::ranges::count(transport.operation_trace_, Op::Read10), 4);
+    EXPECT_EQ(std::ranges::count(transport.operation_trace, Op::Read10), 4);
     EXPECT_EQ(context.events.progress_calls.back(),
               (std::pair<int, int>{static_cast<int>(blocks), static_cast<int>(blocks)}));
     EXPECT_FALSE(logged(context, LogLevel::Warning));
@@ -192,7 +192,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, ABadFinalBlockReplyFails)
     const auto result = run(plan, transport, context);
     ASSERT_THAT(result, IsErr(ErrorKind::BadResponse));
     EXPECT_THAT(result.error().detail, ::testing::HasSubstr("checksum error"));
-    EXPECT_EQ(transport.control_line_trace_.back(), Line::DisableLecLines);
+    EXPECT_EQ(transport.control_line_trace.back(), Line::DisableLecLines);
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, EraseStartExhaustionFails)
@@ -275,7 +275,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancelledBeforeVoltageNeverRai
     RunContext context;
     context.cancellation.set_cancelled(true);
     EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Cancelled));
-    EXPECT_EQ(transport.control_line_trace_, std::vector{Line::DisableLecLines});
+    EXPECT_EQ(transport.control_line_trace, std::vector{Line::DisableLecLines});
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancelledMidProgrammingReportsCancelled)
@@ -287,7 +287,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancelledMidProgrammingReports
     RunContext context;
     context.cancellation.set_predicate([&transport] { return transport.writesConsumed() >= 3; });
     EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Cancelled));
-    EXPECT_EQ(transport.control_line_trace_.back(), Line::DisableLecLines);
+    EXPECT_EQ(transport.control_line_trace.back(), Line::DisableLecLines);
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CleanupFailureNeverReplacesAnEarlierError)
@@ -296,7 +296,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CleanupFailureNeverReplacesAnE
     ScriptedKlineFlashTransport transport;
     transport.expectWrite(request({0xaf, 0x31}));
     transport.queueRead(reply({0xef, 0x48}));
-    transport.disable_lec_lines_result_ = fail(ErrorKind::Disconnected, "cleanup");
+    transport.disable_lec_lines_result = fail(ErrorKind::Disconnected, "cleanup");
     RunContext context;
     EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::BadResponse));
 }
@@ -313,12 +313,12 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, BlockRepliesWaitThreeSeconds)
     // The four erase polls (write_mem() :400, :442) use the 10 ms kPollRead
     // budget; every read after the first block write uses the 3000 ms
     // serial_read_extra_long_timeout (:518).
-    ASSERT_EQ(transport.read_timeouts_.size(), 5U);
+    ASSERT_EQ(transport.read_timeouts.size(), 5U);
     for (std::size_t i = 0; i < 4; ++i)
     {
-        EXPECT_EQ(transport.read_timeouts_[i], 10ms);
+        EXPECT_EQ(transport.read_timeouts[i], 10ms);
     }
-    EXPECT_EQ(transport.read_timeouts_.back(), 3000ms);
+    EXPECT_EQ(transport.read_timeouts.back(), 3000ms);
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancellationDuringEraseDropsTheLines)
@@ -340,7 +340,7 @@ TEST(SubaruUnisiaJecsM32rBootModeProgramExecutor, CancellationDuringEraseDropsTh
         context.cancellation.cancel_on_check(checkpoint);
         const auto result = run(plan, transport, context);
         ASSERT_THAT(result, IsErr(ErrorKind::Cancelled)) << "checkpoint " << checkpoint;
-        EXPECT_EQ(transport.control_line_trace_.back(), Line::DisableLecLines) << "checkpoint " << checkpoint;
+        EXPECT_EQ(transport.control_line_trace.back(), Line::DisableLecLines) << "checkpoint " << checkpoint;
         // Only AF 31 was written; the block loop was never entered.
         EXPECT_EQ(transport.writesConsumed(), 1U) << "checkpoint " << checkpoint;
     }

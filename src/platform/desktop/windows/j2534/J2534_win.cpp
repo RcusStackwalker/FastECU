@@ -100,7 +100,7 @@ J2534::~J2534()
 #define getPTfn(name)                                                                                                  \
     do                                                                                                                 \
     {                                                                                                                  \
-        pf##name = (PF_##name *)GetProcAddress(hDLL, "" #name);                                                        \
+        pf##name = (Pf##name *)GetProcAddress(hDLL, "" #name);                                                         \
         if (!pf##name)                                                                                                 \
         {                                                                                                              \
             return false;                                                                                              \
@@ -114,7 +114,7 @@ J2534::~J2534()
 #define getPTfn(name)                                                                                                  \
     do                                                                                                                 \
     {                                                                                                                  \
-        pf##name = (PF_##name *)dlsym(hDLL, "" #name);                                                                 \
+        pf##name = (Pf##name *)dlsym(hDLL, "" #name);                                                                  \
         if (!pf##name)                                                                                                 \
         {                                                                                                              \
             return false;                                                                                              \
@@ -257,7 +257,7 @@ bool J2534::checkDLL()
 
 bool J2534::is_serial_port_open()
 {
-    return J2534_init_ok;
+    return j2534_init_ok;
 }
 
 long J2534::PassThruOpen(const void *pName, unsigned long *pDeviceID)
@@ -464,7 +464,7 @@ long J2534::PassThruGetLastError(char *pErrorDescription)
 
 int J2534::is_valid_sconfig_param(SCONFIG s)
 {
-    switch (s.Parameter)
+    switch (s.parameter)
     {
     case kJ2534P1Min:
     case kJ2534P2Min:
@@ -498,8 +498,8 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     // parameter is passed through as-is. is_valid_sconfig_param() classifies
     // them if this is ever revisited.
     //     const auto *scl = static_cast<const SConfigList *>(pInput);
-    //     for (unsigned i = 0; i < scl->NumOfParams; i++)
-    //         if (!is_valid_sconfig_param((scl->ConfigPtr)[i]))
+    //     for (unsigned i = 0; i < scl->num_of_params; i++)
+    //         if (!is_valid_sconfig_param((scl->config_ptr)[i]))
     //             return STATUS_NOERROR;
 
     return (*pfPassThruIoctl)(ChannelID, IoctlID, pInput, pOutput);

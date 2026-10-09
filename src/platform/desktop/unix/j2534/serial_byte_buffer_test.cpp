@@ -20,10 +20,10 @@ class FakeSource
 
     SerialByteBuffer make()
     {
-        return SerialByteBuffer([this] { return poll(); }, [this](int ms) { wait(ms); }, [this] { return now_; });
+        return SerialByteBuffer([this] { return poll(); }, [this](int ms) { wait(ms); }, [this] { return now; });
     }
 
-    std::uint64_t now_ = 0;
+    std::uint64_t now = 0;
     std::vector<int> waits;
     int polls = 0;
 
@@ -43,7 +43,7 @@ class FakeSource
     void wait(int ms)
     {
         waits.push_back(ms);
-        now_ += static_cast<std::uint64_t>(ms);
+        now += static_cast<std::uint64_t>(ms);
     }
 
     std::deque<QByteArray> chunks_;

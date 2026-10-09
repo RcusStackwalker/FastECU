@@ -76,36 +76,36 @@ void CalibrationMaps::initialize_view(const fastecu::ui::MapPresentation& map,
     {
         // qDebug() << "Switchable map";
         mapWindowObjectName = mapWindowObjectName + "," + "Switch";
-        mapCellWidth = mapCellWidthSelectable;
-        xSize = 1;
-        ySize = 1;
+        map_cell_width = map_cell_width_selectable;
+        x_size = 1;
+        y_size = 1;
         ui->xScaleUnitsLabel->setFixedHeight(0);
     }
     if (map.type == "MultiSelectable")
     {
         // qDebug() << "MultiSelectable map";
         mapWindowObjectName = mapWindowObjectName + "," + "MultiSelectable";
-        mapCellWidth = mapCellWidthSelectable;
-        xSize = 1;
-        ySize = 1;
+        map_cell_width = map_cell_width_selectable;
+        x_size = 1;
+        y_size = 1;
         ui->xScaleUnitsLabel->setFixedHeight(0);
     }
     if (map.type == "Selectable")
     {
         // qDebug() << "Selectable map";
         mapWindowObjectName = mapWindowObjectName + "," + "Selectable";
-        mapCellWidth = mapCellWidthSelectable;
-        xSize = 1;
-        ySize = 1;
+        map_cell_width = map_cell_width_selectable;
+        x_size = 1;
+        y_size = 1;
         ui->xScaleUnitsLabel->setFixedHeight(0);
     }
     if (map.type == "1D")
     {
         qDebug() << "1D map";
         mapWindowObjectName = mapWindowObjectName + "," + "1D";
-        mapCellWidth = mapCellWidth1D;
-        xSize = 1;
-        ySize = 1;
+        map_cell_width = map_cell_width1_d;
+        x_size = 1;
+        y_size = 1;
         ui->xScaleUnitsLabel->setFixedHeight(0);
     }
     if (map.type == "2D")
@@ -136,18 +136,18 @@ void CalibrationMaps::initialize_view(const fastecu::ui::MapPresentation& map,
         {
             mapWindowObjectName = mapWindowObjectName + "," + "X Axis";
         }
-        xSizeOffset = 0;
-        ySizeOffset = 0;
+        x_size_offset = 0;
+        y_size_offset = 0;
         if (map.y_size > 1)
         {
-            xSizeOffset = 1;
+            x_size_offset = 1;
         }
         if (map.x_size > 1 || map.x_type == "Static Y Axis" || map.x_type == "Static X Axis")
         {
-            ySizeOffset = 1;
+            y_size_offset = 1;
         }
-        xSize = map.x_size + xSizeOffset;
-        ySize = map.y_size + ySizeOffset;
+        x_size = map.x_size + x_size_offset;
+        y_size = map.y_size + y_size_offset;
     }
     if (map.type == "3D")
     {
@@ -155,18 +155,18 @@ void CalibrationMaps::initialize_view(const fastecu::ui::MapPresentation& map,
         // map.y_size;
         this->setWindowIcon(QIcon(":/icons/3D-64-W.png"));
         mapWindowObjectName = mapWindowObjectName + "," + "3D";
-        xSizeOffset = 0;
-        ySizeOffset = 0;
+        x_size_offset = 0;
+        y_size_offset = 0;
         if (map.y_size > 1)
         {
-            xSizeOffset = 1;
+            x_size_offset = 1;
         }
         if (map.x_size > 1)
         {
-            ySizeOffset = 1;
+            y_size_offset = 1;
         }
-        xSize = map.x_size + xSizeOffset;
-        ySize = map.y_size + ySizeOffset;
+        x_size = map.x_size + x_size_offset;
+        y_size = map.y_size + y_size_offset;
 
         auto *yScaleUnitsLabel = findChild<QLabel *>("mapYAxisUnits");
         if (yScaleUnitsLabel == nullptr)
@@ -184,8 +184,8 @@ void CalibrationMaps::initialize_view(const fastecu::ui::MapPresentation& map,
     // qDebug() << "Create map" << mapWindowObjectName;
     this->setObjectName(mapWindowObjectName);
     ui->mapDataTableWidget->setObjectName(mapWindowObjectName);
-    ui->mapDataTableWidget->setColumnCount(xSize);
-    ui->mapDataTableWidget->setRowCount(ySize);
+    ui->mapDataTableWidget->setColumnCount(x_size);
+    ui->mapDataTableWidget->setRowCount(y_size);
     ui->mapDataTableWidget->setStyleSheet("QTableWidget::item { padding: 3px }");
     ui->mapNameLabel->setText(map.name);
 
@@ -324,12 +324,12 @@ void CalibrationMaps::refresh()
             {
                 ui->mapDataTableWidget->horizontalHeader()->resizeSections(QHeaderView::ResizeToContents);
                 ui->mapDataTableWidget->verticalHeader()->resizeSections(QHeaderView::ResizeToContents);
-                setMapTableWidgetSize(mdi_area_size_.width() - 15, mdi_area_size_.height() - 15, xSize);
+                setMapTableWidgetSize(mdi_area_size_.width() - 15, mdi_area_size_.height() - 15, x_size);
             }
         });
     const QSignalBlocker table_blocker(ui->mapDataTableWidget);
     QFont font = ui->mapDataTableWidget->font();
-    font.setPointSize(cellFontSize);
+    font.setPointSize(cell_font_size);
     font.setFamily("Franklin Gothic");
 
     if (map.type == "Switch")
@@ -368,7 +368,7 @@ void CalibrationMaps::refresh()
             {
                 combo = new QComboBox;
                 combo->setFont(font);
-                combo->setFixedWidth(mapCellWidthSelectable);
+                combo->setFixedWidth(map_cell_width_selectable);
                 combo->setObjectName("selectableComboBox");
                 const QSignalBlocker blocker(combo);
                 for (int i = 0; i < map.selection_names.size(); ++i)
@@ -436,21 +436,21 @@ void CalibrationMaps::refresh()
         {
             for (int i = 0; i < map.y_size; ++i)
             {
-                cell(i + ySizeOffset, 0, axis_cell(map.y_axis, i), Qt::white);
+                cell(i + y_size_offset, 0, axis_cell(map.y_axis, i), Qt::white);
             }
         }
         for (int i = 0; i < map.x_size; ++i)
         {
             const auto value = axis_cell(map.x_axis, i);
-            cell(0, i + xSizeOffset, value, Qt::white);
+            cell(0, i + x_size_offset, value, Qt::white);
             const int width = QFontMetrics(font).horizontalAdvance(value.text) + 20;
-            ui->mapDataTableWidget->horizontalHeader()->resizeSection(i + xSizeOffset, width);
+            ui->mapDataTableWidget->horizontalHeader()->resizeSection(i + x_size_offset, width);
         }
     }
     for (int i = 0; i < map.x_size * map.y_size; ++i)
     {
-        const int row = i / map.x_size + ySizeOffset;
-        const int col = i % map.x_size + xSizeOffset;
+        const int row = i / map.x_size + y_size_offset;
+        const int col = i % map.x_size + x_size_offset;
         const auto& value = map.body.at(static_cast<std::size_t>(i));
         const auto background = map.type != "1D" && value.numeric_value.has_value() && color_bounds_.has_value()
                                     ? fastecu::ui::map_cell_color(*value.numeric_value, *color_bounds_)
@@ -461,8 +461,8 @@ void CalibrationMaps::refresh()
 
 void CalibrationMaps::cellClicked(int row, int col)
 {
-    startCol = col;
-    startRow = row;
+    start_col = col;
+    start_row = row;
     // qDebug() << "Cell" << col << ":" << row << "clicked";
 
     QStringList objectName = ui->mapDataTableWidget->objectName().split(",");
@@ -499,8 +499,8 @@ void CalibrationMaps::cellClicked(int row, int col)
 
 void CalibrationMaps::cellPressed(int row, int col)
 {
-    startCol = col;
-    startRow = row;
+    start_col = col;
+    start_row = row;
     // qDebug() << "Cell" << col << ":" << row << "pressed";
 
     int cols = ui->mapDataTableWidget->columnCount();
@@ -546,7 +546,7 @@ void CalibrationMaps::cellChanged(int curRow, int curCol, int prevRow, int prevC
 
     /* Check for 3D table */
     QStringList objectName = ui->mapDataTableWidget->objectName().split(",");
-    if (startCol == 0 && objectName.at(3) == "3D")
+    if (start_col == 0 && objectName.at(3) == "3D")
     {
         for (int i = 1; i < cols; i++)
         {
@@ -562,7 +562,7 @@ void CalibrationMaps::cellChanged(int curRow, int curCol, int prevRow, int prevC
             }
         }
     }
-    else if (startRow == 0 &&
+    else if (start_row == 0 &&
              (objectName.at(3) == "3D" || objectName.at(3) == "X Axis" || objectName.at(3) == "Y Axis"))
     {
         for (int i = 0; i < cols; i++)

@@ -129,7 +129,7 @@ constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 
 
 bytes::Bytes seedKey(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
+    return ssm_protocol::calculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
 }
 
 // calculatePayload's Feistel structure is memoryless per 4-byte word
@@ -139,8 +139,8 @@ bytes::Bytes seedKey(bytes::ByteView seed)
 // bytes a write must carry for a known plaintext image.
 bytes::Bytes toWire(bytes::ByteView plain)
 {
-    return SsmProtocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
-                                         kIndexTransformation);
+    return ssm_protocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
+                                          kIndexTransformation);
 }
 
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};

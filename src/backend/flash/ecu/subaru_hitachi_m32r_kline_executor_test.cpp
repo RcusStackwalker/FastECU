@@ -39,7 +39,7 @@ class TripOnReadTransport final : public ScriptedKlineFlashTransport
 
 bytes::Bytes frame(bytes::Bytes payload)
 {
-    return SsmProtocol::addHeader(payload, 0xf0, 0x10);
+    return ssm_protocol::addHeader(payload, 0xf0, 0x10);
 }
 
 bytes::Bytes idResponse()
@@ -88,7 +88,7 @@ bytes::Bytes encryptedImage(bytes::ByteView image)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xc, 0xd, 0x8, 0xa, 0xd, 0x2, 0xb, 0xf, 0x4, 0x0, 0x3,
                                      0xb, 0x4, 0x6, 0x0, 0xf, 0x2, 0xd, 0x9, 0x5, 0xc, 0x1, 0xa, 0x3, 0xd, 0xe, 0x8});
-    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex, kTransform);
+    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kIndex, kTransform);
 }
 
 void scriptWriteBody(ScriptedKlineFlashTransport& transport, bytes::ByteView image)
@@ -151,7 +151,7 @@ TEST(SubaruHitachiM32rKlineExecutor, ReadsAt38400ProbeAndReturnsLogicalFullRom)
     EXPECT_EQ(result->read_bytes->size(), 0x80000U);
     EXPECT_EQ(result->rom_id, std::string("123456789A_"));
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.baud_calls_, std::vector<int>{38400});
+    EXPECT_EQ(transport.baud_calls, std::vector<int>{38400});
 }
 
 TEST(SubaruHitachiM32rKlineExecutor, RecoveryWakeIsBoundedToOneThousandAttempts)
@@ -192,7 +192,7 @@ TEST(SubaruHitachiM32rKlineExecutor, ReadFallsBackThrough4800Initialization)
     ManualCancellationToken cancellation;
     RecordingEventSink events;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
-    EXPECT_EQ(transport.baud_calls_, (std::vector<int>{38400, 4800, 38400}));
+    EXPECT_EQ(transport.baud_calls, (std::vector<int>{38400, 4800, 38400}));
     EXPECT_TRUE(transport.scriptConsumed());
 }
 
@@ -215,7 +215,7 @@ TEST(SubaruHitachiM32rKlineExecutor, NormalWriteUsesActiveObkAndToleratesLegacyA
     RecordingEventSink events;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.baud_calls_, (std::vector<int>{15625, 15625}));
+    EXPECT_EQ(transport.baud_calls, (std::vector<int>{15625, 15625}));
 }
 
 TEST(SubaruHitachiM32rKlineExecutor, NormalFallbackRequiresSecuritySubfunctionTwo)
@@ -282,7 +282,7 @@ TEST(SubaruHitachiM32rKlineExecutor, RecoveryWriteWakesAndUsesAuthenticatedSessi
     RecordingEventSink events;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events), fastecu::testing::IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.baud_calls_, (std::vector<int>{4800, 15625}));
+    EXPECT_EQ(transport.baud_calls, (std::vector<int>{4800, 15625}));
 }
 
 TEST(SubaruHitachiM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
@@ -298,7 +298,7 @@ TEST(SubaruHitachiM32rKlineExecutor, CancellationBeforeSetupPerformsNoIo)
     RecordingEventSink events;
     ASSERT_THAT(executor.execute(*plan, transport, clock, cancellation, events),
                 fastecu::testing::IsErr(ErrorKind::Cancelled));
-    EXPECT_FALSE(transport.last_config_.has_value());
+    EXPECT_FALSE(transport.last_config.has_value());
 }
 
 TEST(SubaruHitachiM32rKlineExecutor, CancellationAfterEraseIsNotReportedAsSuccess)

@@ -10,39 +10,39 @@ using namespace j2534_bridge;
 namespace
 {
 
-using PF_PassThruOpen = long(PT_CALL *)(const void *, unsigned long *);
-using PF_PassThruClose = long(PT_CALL *)(unsigned long);
-using PF_PassThruConnect = long(PT_CALL *)(unsigned long, unsigned long, unsigned long, unsigned long, unsigned long *);
-using PF_PassThruDisconnect = long(PT_CALL *)(unsigned long);
-using PF_PassThruReadMsgs = long(PT_CALL *)(unsigned long, PassThruMsg *, unsigned long *, unsigned long);
-using PF_PassThruWriteMsgs = long(PT_CALL *)(unsigned long, const PassThruMsg *, unsigned long *, unsigned long);
-using PF_PassThruStartPeriodicMsg = long(PT_CALL *)(unsigned long, const PassThruMsg *, unsigned long *, unsigned long);
-using PF_PassThruStopPeriodicMsg = long(PT_CALL *)(unsigned long, unsigned long);
-using PF_PassThruStartMsgFilter = long(PT_CALL *)(unsigned long, unsigned long, const PassThruMsg *,
-                                                  const PassThruMsg *, const PassThruMsg *, unsigned long *);
-using PF_PassThruStopMsgFilter = long(PT_CALL *)(unsigned long, unsigned long);
-using PF_PassThruSetProgrammingVoltage = long(PT_CALL *)(unsigned long, unsigned long, unsigned long);
-using PF_PassThruReadVersion = long(PT_CALL *)(unsigned long, char *, char *, char *);
-using PF_PassThruGetLastError = long(PT_CALL *)(char *);
-using PF_PassThruIoctl = long(PT_CALL *)(unsigned long, unsigned long, const void *, void *);
+using PfPassThruOpen = long(PT_CALL *)(const void *, unsigned long *);
+using PfPassThruClose = long(PT_CALL *)(unsigned long);
+using PfPassThruConnect = long(PT_CALL *)(unsigned long, unsigned long, unsigned long, unsigned long, unsigned long *);
+using PfPassThruDisconnect = long(PT_CALL *)(unsigned long);
+using PfPassThruReadMsgs = long(PT_CALL *)(unsigned long, PassThruMsg *, unsigned long *, unsigned long);
+using PfPassThruWriteMsgs = long(PT_CALL *)(unsigned long, const PassThruMsg *, unsigned long *, unsigned long);
+using PfPassThruStartPeriodicMsg = long(PT_CALL *)(unsigned long, const PassThruMsg *, unsigned long *, unsigned long);
+using PfPassThruStopPeriodicMsg = long(PT_CALL *)(unsigned long, unsigned long);
+using PfPassThruStartMsgFilter = long(PT_CALL *)(unsigned long, unsigned long, const PassThruMsg *, const PassThruMsg *,
+                                                 const PassThruMsg *, unsigned long *);
+using PfPassThruStopMsgFilter = long(PT_CALL *)(unsigned long, unsigned long);
+using PfPassThruSetProgrammingVoltage = long(PT_CALL *)(unsigned long, unsigned long, unsigned long);
+using PfPassThruReadVersion = long(PT_CALL *)(unsigned long, char *, char *, char *);
+using PfPassThruGetLastError = long(PT_CALL *)(char *);
+using PfPassThruIoctl = long(PT_CALL *)(unsigned long, unsigned long, const void *, void *);
 
 struct VendorApi
 {
     HMODULE module = nullptr;
-    PF_PassThruOpen open = nullptr;
-    PF_PassThruClose close = nullptr;
-    PF_PassThruConnect connect = nullptr;
-    PF_PassThruDisconnect disconnect = nullptr;
-    PF_PassThruReadMsgs readMsgs = nullptr;
-    PF_PassThruWriteMsgs writeMsgs = nullptr;
-    PF_PassThruStartPeriodicMsg startPeriodicMsg = nullptr;
-    PF_PassThruStopPeriodicMsg stopPeriodicMsg = nullptr;
-    PF_PassThruStartMsgFilter startMsgFilter = nullptr;
-    PF_PassThruStopMsgFilter stopMsgFilter = nullptr;
-    PF_PassThruSetProgrammingVoltage setProgrammingVoltage = nullptr;
-    PF_PassThruReadVersion readVersion = nullptr;
-    PF_PassThruGetLastError getLastError = nullptr;
-    PF_PassThruIoctl ioctl = nullptr;
+    PfPassThruOpen open = nullptr;
+    PfPassThruClose close = nullptr;
+    PfPassThruConnect connect = nullptr;
+    PfPassThruDisconnect disconnect = nullptr;
+    PfPassThruReadMsgs read_msgs = nullptr;
+    PfPassThruWriteMsgs write_msgs = nullptr;
+    PfPassThruStartPeriodicMsg start_periodic_msg = nullptr;
+    PfPassThruStopPeriodicMsg stop_periodic_msg = nullptr;
+    PfPassThruStartMsgFilter start_msg_filter = nullptr;
+    PfPassThruStopMsgFilter stop_msg_filter = nullptr;
+    PfPassThruSetProgrammingVoltage set_programming_voltage = nullptr;
+    PfPassThruReadVersion read_version = nullptr;
+    PfPassThruGetLastError get_last_error = nullptr;
+    PfPassThruIoctl ioctl = nullptr;
 };
 
 bool loadVendorApi(const char *dllPath, VendorApi& api)
@@ -54,28 +54,29 @@ bool loadVendorApi(const char *dllPath, VendorApi& api)
     }
     // GetProcAddress names must match the DLL's exported symbol names exactly
     // (see tests/fake_j2534_dll.def for the fixture's matching export list).
-    api.open = reinterpret_cast<PF_PassThruOpen>(GetProcAddress(api.module, "PassThruOpen"));
-    api.close = reinterpret_cast<PF_PassThruClose>(GetProcAddress(api.module, "PassThruClose"));
-    api.connect = reinterpret_cast<PF_PassThruConnect>(GetProcAddress(api.module, "PassThruConnect"));
-    api.disconnect = reinterpret_cast<PF_PassThruDisconnect>(GetProcAddress(api.module, "PassThruDisconnect"));
-    api.readMsgs = reinterpret_cast<PF_PassThruReadMsgs>(GetProcAddress(api.module, "PassThruReadMsgs"));
-    api.writeMsgs = reinterpret_cast<PF_PassThruWriteMsgs>(GetProcAddress(api.module, "PassThruWriteMsgs"));
-    api.startPeriodicMsg =
-        reinterpret_cast<PF_PassThruStartPeriodicMsg>(GetProcAddress(api.module, "PassThruStartPeriodicMsg"));
-    api.stopPeriodicMsg =
-        reinterpret_cast<PF_PassThruStopPeriodicMsg>(GetProcAddress(api.module, "PassThruStopPeriodicMsg"));
-    api.startMsgFilter =
-        reinterpret_cast<PF_PassThruStartMsgFilter>(GetProcAddress(api.module, "PassThruStartMsgFilter"));
-    api.stopMsgFilter = reinterpret_cast<PF_PassThruStopMsgFilter>(GetProcAddress(api.module, "PassThruStopMsgFilter"));
-    api.setProgrammingVoltage =
-        reinterpret_cast<PF_PassThruSetProgrammingVoltage>(GetProcAddress(api.module, "PassThruSetProgrammingVoltage"));
-    api.readVersion = reinterpret_cast<PF_PassThruReadVersion>(GetProcAddress(api.module, "PassThruReadVersion"));
-    api.getLastError = reinterpret_cast<PF_PassThruGetLastError>(GetProcAddress(api.module, "PassThruGetLastError"));
-    api.ioctl = reinterpret_cast<PF_PassThruIoctl>(GetProcAddress(api.module, "PassThruIoctl"));
+    api.open = reinterpret_cast<PfPassThruOpen>(GetProcAddress(api.module, "PassThruOpen"));
+    api.close = reinterpret_cast<PfPassThruClose>(GetProcAddress(api.module, "PassThruClose"));
+    api.connect = reinterpret_cast<PfPassThruConnect>(GetProcAddress(api.module, "PassThruConnect"));
+    api.disconnect = reinterpret_cast<PfPassThruDisconnect>(GetProcAddress(api.module, "PassThruDisconnect"));
+    api.read_msgs = reinterpret_cast<PfPassThruReadMsgs>(GetProcAddress(api.module, "PassThruReadMsgs"));
+    api.write_msgs = reinterpret_cast<PfPassThruWriteMsgs>(GetProcAddress(api.module, "PassThruWriteMsgs"));
+    api.start_periodic_msg =
+        reinterpret_cast<PfPassThruStartPeriodicMsg>(GetProcAddress(api.module, "PassThruStartPeriodicMsg"));
+    api.stop_periodic_msg =
+        reinterpret_cast<PfPassThruStopPeriodicMsg>(GetProcAddress(api.module, "PassThruStopPeriodicMsg"));
+    api.start_msg_filter =
+        reinterpret_cast<PfPassThruStartMsgFilter>(GetProcAddress(api.module, "PassThruStartMsgFilter"));
+    api.stop_msg_filter =
+        reinterpret_cast<PfPassThruStopMsgFilter>(GetProcAddress(api.module, "PassThruStopMsgFilter"));
+    api.set_programming_voltage =
+        reinterpret_cast<PfPassThruSetProgrammingVoltage>(GetProcAddress(api.module, "PassThruSetProgrammingVoltage"));
+    api.read_version = reinterpret_cast<PfPassThruReadVersion>(GetProcAddress(api.module, "PassThruReadVersion"));
+    api.get_last_error = reinterpret_cast<PfPassThruGetLastError>(GetProcAddress(api.module, "PassThruGetLastError"));
+    api.ioctl = reinterpret_cast<PfPassThruIoctl>(GetProcAddress(api.module, "PassThruIoctl"));
 
-    return api.open && api.close && api.connect && api.disconnect && api.readMsgs && api.writeMsgs &&
-           api.startPeriodicMsg && api.stopPeriodicMsg && api.startMsgFilter && api.stopMsgFilter &&
-           api.setProgrammingVoltage && api.readVersion && api.getLastError && api.ioctl;
+    return api.open && api.close && api.connect && api.disconnect && api.read_msgs && api.write_msgs &&
+           api.start_periodic_msg && api.stop_periodic_msg && api.start_msg_filter && api.stop_msg_filter &&
+           api.set_programming_voltage && api.read_version && api.get_last_error && api.ioctl;
 }
 
 // Every dispatch function has the same shape: read the fixed-size payload
@@ -110,9 +111,9 @@ bool drainPayload(HANDLE pipe, std::uint32_t size)
 template <typename Req, typename Resp>
 bool readTypedRequest(HANDLE in, HANDLE out, const FrameHeader& header, Function respondAs, Req& req)
 {
-    if (header.payloadSize != sizeof(req))
+    if (header.payload_size != sizeof(req))
     {
-        drainPayload(in, header.payloadSize);
+        drainPayload(in, header.payload_size);
         Resp errResp{};
         errResp.result = kJ2534ErrFailed;
         writeFrame(out, respondAs, &errResp, sizeof(errResp));
@@ -134,8 +135,8 @@ void handlePassThruOpen(const VendorApi& api, HANDLE in, HANDLE out, const Frame
     }
     PassThruOpenResponse resp{};
     unsigned long deviceId = 0;
-    resp.result = api.open(req.hasName ? req.name.data() : nullptr, &deviceId);
-    resp.deviceId = deviceId;
+    resp.result = api.open(req.has_name ? req.name.data() : nullptr, &deviceId);
+    resp.device_id = deviceId;
     writeFrame(out, Function::PassThruOpen, &resp, sizeof(resp));
 }
 
@@ -147,7 +148,7 @@ void handlePassThruClose(const VendorApi& api, HANDLE in, HANDLE out, const Fram
         return;
     }
     PassThruCloseResponse resp{};
-    resp.result = api.close(req.deviceId);
+    resp.result = api.close(req.device_id);
     writeFrame(out, Function::PassThruClose, &resp, sizeof(resp));
 }
 
@@ -161,8 +162,8 @@ void handlePassThruConnect(const VendorApi& api, HANDLE in, HANDLE out, const Fr
     }
     PassThruConnectResponse resp{};
     unsigned long channelId = 0;
-    resp.result = api.connect(req.deviceId, req.protocolId, req.flags, req.baudrate, &channelId);
-    resp.channelId = channelId;
+    resp.result = api.connect(req.device_id, req.protocol_id, req.flags, req.baudrate, &channelId);
+    resp.channel_id = channelId;
     writeFrame(out, Function::PassThruConnect, &resp, sizeof(resp));
 }
 
@@ -175,7 +176,7 @@ void handlePassThruDisconnect(const VendorApi& api, HANDLE in, HANDLE out, const
         return;
     }
     PassThruDisconnectResponse resp{};
-    resp.result = api.disconnect(req.channelId);
+    resp.result = api.disconnect(req.channel_id);
     writeFrame(out, Function::PassThruDisconnect, &resp, sizeof(resp));
 }
 
@@ -189,8 +190,8 @@ void handlePassThruReadMsgs(const VendorApi& api, HANDLE in, HANDLE out, const F
     }
     PassThruReadMsgsResponse resp{};
     unsigned long numMsgs = 1;
-    resp.result = api.readMsgs(req.channelId, &resp.msg, &numMsgs, req.timeout);
-    resp.numMsgs = numMsgs;
+    resp.result = api.read_msgs(req.channel_id, &resp.msg, &numMsgs, req.timeout);
+    resp.num_msgs = numMsgs;
     writeFrame(out, Function::PassThruReadMsgs, &resp, sizeof(resp));
 }
 
@@ -204,8 +205,8 @@ void handlePassThruWriteMsgs(const VendorApi& api, HANDLE in, HANDLE out, const 
     }
     PassThruWriteMsgsResponse resp{};
     unsigned long numMsgs = 1;
-    resp.result = api.writeMsgs(req.channelId, &req.msg, &numMsgs, req.timeout);
-    resp.numMsgs = numMsgs;
+    resp.result = api.write_msgs(req.channel_id, &req.msg, &numMsgs, req.timeout);
+    resp.num_msgs = numMsgs;
     writeFrame(out, Function::PassThruWriteMsgs, &resp, sizeof(resp));
 }
 
@@ -219,8 +220,8 @@ void handlePassThruStartPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out,
     }
     PassThruStartPeriodicMsgResponse resp{};
     unsigned long msgId = 0;
-    resp.result = api.startPeriodicMsg(req.channelId, &req.msg, &msgId, req.timeInterval);
-    resp.msgId = msgId;
+    resp.result = api.start_periodic_msg(req.channel_id, &req.msg, &msgId, req.time_interval);
+    resp.msg_id = msgId;
     writeFrame(out, Function::PassThruStartPeriodicMsg, &resp, sizeof(resp));
 }
 
@@ -233,7 +234,7 @@ void handlePassThruStopPeriodicMsg(const VendorApi& api, HANDLE in, HANDLE out, 
         return;
     }
     PassThruStopPeriodicMsgResponse resp{};
-    resp.result = api.stopPeriodicMsg(req.channelId, req.msgId);
+    resp.result = api.stop_periodic_msg(req.channel_id, req.msg_id);
     writeFrame(out, Function::PassThruStopPeriodicMsg, &resp, sizeof(resp));
 }
 
@@ -247,9 +248,9 @@ void handlePassThruStartMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, c
     }
     PassThruStartMsgFilterResponse resp{};
     unsigned long msgId = 0;
-    resp.result = api.startMsgFilter(req.channelId, req.filterType, &req.maskMsg, &req.patternMsg,
-                                     req.hasFlowControlMsg ? &req.flowControlMsg : nullptr, &msgId);
-    resp.msgId = msgId;
+    resp.result = api.start_msg_filter(req.channel_id, req.filter_type, &req.mask_msg, &req.pattern_msg,
+                                       req.has_flow_control_msg ? &req.flow_control_msg : nullptr, &msgId);
+    resp.msg_id = msgId;
     writeFrame(out, Function::PassThruStartMsgFilter, &resp, sizeof(resp));
 }
 
@@ -262,7 +263,7 @@ void handlePassThruStopMsgFilter(const VendorApi& api, HANDLE in, HANDLE out, co
         return;
     }
     PassThruStopMsgFilterResponse resp{};
-    resp.result = api.stopMsgFilter(req.channelId, req.msgId);
+    resp.result = api.stop_msg_filter(req.channel_id, req.msg_id);
     writeFrame(out, Function::PassThruStopMsgFilter, &resp, sizeof(resp));
 }
 
@@ -275,7 +276,7 @@ void handlePassThruSetProgrammingVoltage(const VendorApi& api, HANDLE in, HANDLE
         return;
     }
     PassThruSetProgrammingVoltageResponse resp{};
-    resp.result = api.setProgrammingVoltage(req.deviceId, req.pin, req.voltage);
+    resp.result = api.set_programming_voltage(req.device_id, req.pin, req.voltage);
     writeFrame(out, Function::PassThruSetProgrammingVoltage, &resp, sizeof(resp));
 }
 
@@ -289,7 +290,7 @@ void handlePassThruReadVersion(const VendorApi& api, HANDLE in, HANDLE out, cons
     }
     PassThruReadVersionResponse resp{};
     resp.result =
-        api.readVersion(req.deviceId, resp.apiVersion.data(), resp.dllVersion.data(), resp.firmwareVersion.data());
+        api.read_version(req.device_id, resp.api_version.data(), resp.dll_version.data(), resp.firmware_version.data());
     writeFrame(out, Function::PassThruReadVersion, &resp, sizeof(resp));
 }
 
@@ -302,7 +303,7 @@ void handlePassThruGetLastError(const VendorApi& api, HANDLE in, HANDLE out, con
         return;
     }
     PassThruGetLastErrorResponse resp{};
-    resp.result = api.getLastError(resp.errorDescription.data());
+    resp.result = api.get_last_error(resp.error_description.data());
     writeFrame(out, Function::PassThruGetLastError, &resp, sizeof(resp));
 }
 
@@ -315,28 +316,28 @@ void handlePassThruIoctl(const VendorApi& api, HANDLE in, HANDLE out, const Fram
     }
     PassThruIoctlResponse resp{};
 
-    switch (req.ioctlId)
+    switch (req.ioctl_id)
     {
     case kJ2534SetConfig:
     {
-        SConfigList scl{req.numConfigParams, req.configParams.data()};
-        resp.result = api.ioctl(req.channelId, req.ioctlId, &scl, nullptr);
+        SConfigList scl{req.num_config_params, req.config_params.data()};
+        resp.result = api.ioctl(req.channel_id, req.ioctl_id, &scl, nullptr);
         break;
     }
     case kJ2534FiveBaudInit:
     case kJ2534FastInit:
     {
-        SByteArray inArr{req.inputByteCount, req.inputBytes.data()};
-        SByteArray outArr{static_cast<unsigned long>(resp.outputBytes.size()), resp.outputBytes.data()};
-        resp.result = api.ioctl(req.channelId, req.ioctlId, &inArr, &outArr);
-        resp.outputByteCount = outArr.NumOfBytes;
+        SByteArray inArr{req.input_byte_count, req.input_bytes.data()};
+        SByteArray outArr{static_cast<unsigned long>(resp.output_bytes.size()), resp.output_bytes.data()};
+        resp.result = api.ioctl(req.channel_id, req.ioctl_id, &inArr, &outArr);
+        resp.output_byte_count = outArr.num_of_bytes;
         break;
     }
     case kJ2534ReadVbatt:
     case kJ2534ReadProgVoltage:
     {
         unsigned long vbatt = 0;
-        resp.result = api.ioctl(req.channelId, req.ioctlId, nullptr, &vbatt);
+        resp.result = api.ioctl(req.channel_id, req.ioctl_id, nullptr, &vbatt);
         resp.vbatt = vbatt;
         break;
     }
@@ -344,7 +345,7 @@ void handlePassThruIoctl(const VendorApi& api, HANDLE in, HANDLE out, const Fram
     case kJ2534ClearTxBuffer:
     case kJ2534ClearPeriodicMsgs:
     case kJ2534ClearMsgFilters:
-        resp.result = api.ioctl(req.channelId, req.ioctlId, nullptr, nullptr);
+        resp.result = api.ioctl(req.channel_id, req.ioctl_id, nullptr, nullptr);
         break;
     default:
         resp.result = kJ2534ErrInvalidIoctlId;

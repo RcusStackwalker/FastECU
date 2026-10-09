@@ -82,8 +82,8 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
         const char *name;
         std::uint32_t romsize;
         unsigned numblocks;
-        std::uint32_t firstBlockStart;
-        std::uint32_t finalBlockEnd;
+        std::uint32_t first_block_start;
+        std::uint32_t final_block_end;
     };
 
     static constexpr auto kExpected = std::to_array<FlashDeviceSummary>({
@@ -122,9 +122,9 @@ TEST(FlashDeviceTable, MatchesExpectedSummariesAndNamedAnomalies)
         EXPECT_STREQ(actual.name, summary.name);
         EXPECT_EQ(actual.romsize, summary.romsize);
         EXPECT_EQ(actual.numblocks, summary.numblocks);
-        EXPECT_EQ(actual.fblocks[0].start, summary.firstBlockStart);
+        EXPECT_EQ(actual.fblocks[0].start, summary.first_block_start);
         const FlashBlock& finalBlock = actual.fblocks[actual.numblocks - 1];
-        EXPECT_EQ(finalBlock.start + finalBlock.len, summary.finalBlockEnd);
+        EXPECT_EQ(finalBlock.start + finalBlock.len, summary.final_block_end);
         for (unsigned blockIndex = 0; blockIndex < actual.numblocks; ++blockIndex)
         {
             EXPECT_GT(actual.fblocks[blockIndex].len, 0U);

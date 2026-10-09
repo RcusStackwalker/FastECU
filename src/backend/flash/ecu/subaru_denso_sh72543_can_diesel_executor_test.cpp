@@ -153,8 +153,8 @@ constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 
 // a known plaintext image.
 bytes::Bytes toWire(bytes::ByteView plain)
 {
-    return SsmProtocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
-                                         kIndexTransformation);
+    return ssm_protocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
+                                          kIndexTransformation);
 }
 
 // The OBK probe miss, the four non-fatal identity queries, the access-method

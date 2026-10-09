@@ -88,8 +88,8 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, BeforeConfigureResetsThenClears
     FakeCancellationToken cancellation;
     ASSERT_THAT(SubaruUnisiaJecsM32rBootModeKernelExecutor{}.before_transport_configure(transport, clock, cancellation),
                 IsOk());
-    EXPECT_EQ(transport.lifecycle_calls_, std::vector<std::string>{"reset_connection"}); // execute() :52
-    EXPECT_EQ(transport.header_mode_calls_, std::vector<bool>{false});
+    EXPECT_EQ(transport.lifecycle_calls, std::vector<std::string>{"reset_connection"}); // execute() :52
+    EXPECT_EQ(transport.header_mode_calls, std::vector<bool>{false});
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, UploadsEveryChunkUnderBootModeLines)
@@ -100,9 +100,9 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, UploadsEveryChunkUnderBootModeL
     RunContext context;
     ASSERT_THAT(run(plan, transport, context), IsOk());
     EXPECT_TRUE(transport.scriptConsumed());
-    EXPECT_EQ(transport.control_line_trace_, (std::vector{Line::EnableBootModeLines, Line::DisableLecLines}));
-    EXPECT_EQ(transport.read_timeouts_, std::vector<std::chrono::milliseconds>{200ms}); // :339
-    EXPECT_EQ(context.clock.elapsed(), 500ms);                                          // :338
+    EXPECT_EQ(transport.control_line_trace, (std::vector{Line::EnableBootModeLines, Line::DisableLecLines}));
+    EXPECT_EQ(transport.read_timeouts, std::vector<std::chrono::milliseconds>{200ms}); // :339
+    EXPECT_EQ(context.clock.elapsed(), 500ms);                                         // :338
     EXPECT_EQ(context.events.progress_calls, (std::vector<std::pair<int, int>>{{1, 2}, {2, 2}}));
 }
 
@@ -137,7 +137,7 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, APlanWithoutTheConfirmationTouc
     ScriptedKlineFlashTransport transport;
     RunContext context;
     EXPECT_THAT(run(*plan, transport, context), IsErr(ErrorKind::InvalidConfig));
-    EXPECT_TRUE(transport.control_line_trace_.empty());
+    EXPECT_TRUE(transport.control_line_trace.empty());
     EXPECT_EQ(transport.writesConsumed(), 0U);
 }
 
@@ -160,8 +160,8 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CancellationAtEachCheckpointDro
         RunContext context;
         context.cancellation.cancel_on_check(check);
         EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Cancelled)) << "check " << check;
-        ASSERT_FALSE(transport.control_line_trace_.empty());
-        EXPECT_EQ(transport.control_line_trace_.back(), Line::DisableLecLines) << "check " << check;
+        ASSERT_FALSE(transport.control_line_trace.empty());
+        EXPECT_EQ(transport.control_line_trace.back(), Line::DisableLecLines) << "check " << check;
         // Check 1 stops before any chunk; check N >= 2 stops before chunk N-2.
         EXPECT_EQ(transport.writesConsumed(), check >= 2 ? check - 2 : 0U) << "check " << check;
     }
@@ -171,11 +171,11 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, LineFailureStillDropsTheLinesAn
 {
     const FlashPlan plan = kernel_plan();
     ScriptedKlineFlashTransport transport;
-    transport.enable_boot_mode_lines_result_ = fail(ErrorKind::Internal, "lines");
-    transport.disable_lec_lines_result_ = fail(ErrorKind::Disconnected, "cleanup");
+    transport.enable_boot_mode_lines_result = fail(ErrorKind::Internal, "lines");
+    transport.disable_lec_lines_result = fail(ErrorKind::Disconnected, "cleanup");
     RunContext context;
     EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Internal));
-    EXPECT_EQ(transport.control_line_trace_, (std::vector{Line::EnableBootModeLines, Line::DisableLecLines}));
+    EXPECT_EQ(transport.control_line_trace, (std::vector{Line::EnableBootModeLines, Line::DisableLecLines}));
 }
 
 TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CleanupFailureFailsAnOtherwiseGoodUpload)
@@ -183,7 +183,7 @@ TEST(SubaruUnisiaJecsM32rBootModeKernelExecutor, CleanupFailureFailsAnOtherwiseG
     const FlashPlan plan = kernel_plan();
     ScriptedKlineFlashTransport transport;
     script_upload(transport, plan);
-    transport.disable_lec_lines_result_ = fail(ErrorKind::Disconnected, "cleanup");
+    transport.disable_lec_lines_result = fail(ErrorKind::Disconnected, "cleanup");
     RunContext context;
     EXPECT_THAT(run(plan, transport, context), IsErr(ErrorKind::Disconnected));
 }

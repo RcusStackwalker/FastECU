@@ -94,19 +94,19 @@ constexpr std::array<MemoryRegion, 8> kWriteBlocks{{
 
 bytes::Bytes seed_key(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable, SsmProtocol::kIndexTransformationStock);
+    return ssm_protocol::calculateSeedKey(seed, kSeedKeyTable, ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes encrypt_rom(bytes::ByteView image)
 {
-    return SsmProtocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kEncryptTable,
-                                         SsmProtocol::kIndexTransformationStock);
+    return ssm_protocol::calculatePayload(image, static_cast<std::uint32_t>(image.size()), kEncryptTable,
+                                          ssm_protocol::kIndexTransformationStock);
 }
 
 bytes::Bytes decrypt_page(bytes::ByteView page)
 {
-    return SsmProtocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), kDecryptTable,
-                                         SsmProtocol::kIndexTransformationStock);
+    return ssm_protocol::calculatePayload(page, static_cast<std::uint32_t>(page.size()), kDecryptTable,
+                                          ssm_protocol::kIndexTransformationStock);
 }
 
 // `channel`/`uds` are bound to this family's own 0x7e1/0x7e9 pair.

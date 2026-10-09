@@ -126,6 +126,6 @@ TEST(ServiceFunctionDialogTest, readParametersHasNoSpinBoxes)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

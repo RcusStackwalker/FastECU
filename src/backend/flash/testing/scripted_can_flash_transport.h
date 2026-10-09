@@ -114,32 +114,32 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
 
     Status reset_connection() override
     {
-        lifecycle_calls_.push_back("reset_connection");
-        ++reset_call_count_;
+        lifecycle_calls.push_back("reset_connection");
+        ++reset_call_count;
         open_ = false;
-        return reset_result_;
+        return reset_result;
     }
 
     Status configure(const Iso15765Config& config) override
     {
-        lifecycle_calls_.push_back("configure");
-        ++configure_call_count_;
-        last_config_ = config;
-        return configure_result_;
+        lifecycle_calls.push_back("configure");
+        ++configure_call_count;
+        last_config = config;
+        return configure_result;
     }
     Status open() override
     {
-        lifecycle_calls_.push_back("open");
-        ++open_call_count_;
+        lifecycle_calls.push_back("open");
+        ++open_call_count;
         open_ = true;
-        return open_result_;
+        return open_result;
     }
     Status close() override
     {
-        lifecycle_calls_.push_back("close");
-        ++close_call_count_;
+        lifecycle_calls.push_back("close");
+        ++close_call_count;
         open_ = false;
-        return close_result_;
+        return close_result;
     }
     void request_unblock() noexcept override
     {
@@ -193,16 +193,16 @@ class ScriptedCanFlashTransport : public ICanFlashTransport
         return result;
     }
 
-    int reset_call_count_ = 0;
-    int configure_call_count_ = 0;
-    int open_call_count_ = 0;
-    int close_call_count_ = 0;
-    std::vector<std::string> lifecycle_calls_;
-    Status reset_result_;
-    Status configure_result_;
-    Status open_result_;
-    Status close_result_;
-    std::optional<Iso15765Config> last_config_;
+    int reset_call_count = 0;
+    int configure_call_count = 0;
+    int open_call_count = 0;
+    int close_call_count = 0;
+    std::vector<std::string> lifecycle_calls;
+    Status reset_result;
+    Status configure_result;
+    Status open_result;
+    Status close_result;
+    std::optional<Iso15765Config> last_config;
 
   private:
     std::string describeDivergence(std::size_t index, const bytes::Bytes& actual) const

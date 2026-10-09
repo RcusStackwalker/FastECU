@@ -14,31 +14,31 @@ namespace
 class TestableChecksumCommand : public ChecksumCorrectionCommand
 {
   public:
-    bool proceedWithoutDefinitionAnswer = true; // "DO IT!" by default
-    bool cancelWithoutModuleAnswer = false;     // "OK" (proceed) by default
-    int missingDefinitionDialogCount = 0;
-    int badRomSizeDialogCount = 0;
-    int familyResultDialogCount = 0;
-    ChecksumResult lastFamilyResult;
+    bool proceed_without_definition_answer = true; // "DO IT!" by default
+    bool cancel_without_module_answer = false;     // "OK" (proceed) by default
+    int missing_definition_dialog_count = 0;
+    int bad_rom_size_dialog_count = 0;
+    int family_result_dialog_count = 0;
+    ChecksumResult last_family_result;
 
   protected:
     bool confirmProceedWithoutDefinition(QWidget *) override
     {
-        ++missingDefinitionDialogCount;
-        return proceedWithoutDefinitionAnswer;
+        ++missing_definition_dialog_count;
+        return proceed_without_definition_answer;
     }
     void showBadRomSizeDialog(QWidget *) override
     {
-        ++badRomSizeDialogCount;
+        ++bad_rom_size_dialog_count;
     }
     bool confirmProceedWithoutChecksumModule() override
     {
-        return cancelWithoutModuleAnswer;
+        return cancel_without_module_answer;
     }
     void showFamilyResultDialog(const ChecksumResult& family_result) override
     {
-        ++familyResultDialogCount;
-        lastFamilyResult = family_result;
+        ++family_result_dialog_count;
+        last_family_result = family_result;
     }
 };
 
@@ -68,14 +68,14 @@ ChecksumSelection subaruDensoSh7058DieselSelection()
 TEST(ChecksumCorrectionCommand, DecliningGateReturnsUnchangedWithNoFamilyDialog)
 {
     TestableChecksumCommand command;
-    command.proceedWithoutDefinitionAnswer = false;
+    command.proceed_without_definition_answer = false;
     const bytes::Bytes rom(524288, 0);
 
     ChecksumCorrectionResult result = command.run(rom, false, subaruM32rKlineSelection(), nullptr);
 
     EXPECT_FALSE(result.corrected_rom_data.has_value());
     EXPECT_FALSE(result.canceled_due_to_missing_module);
-    EXPECT_EQ(command.familyResultDialogCount, 0);
+    EXPECT_EQ(command.family_result_dialog_count, 0);
 }
 
 TEST(ChecksumCorrectionCommand, AcceptingGateWithoutLinkedDefinitionCorrectsRom)
@@ -86,15 +86,15 @@ TEST(ChecksumCorrectionCommand, AcceptingGateWithoutLinkedDefinitionCorrectsRom)
     ChecksumCorrectionResult result = command.run(rom, false, subaruM32rKlineSelection(), nullptr);
 
     ASSERT_TRUE(result.corrected_rom_data.has_value());
-    EXPECT_EQ(command.familyResultDialogCount, 1);
-    EXPECT_EQ(command.lastFamilyResult.status, ChecksumResult::Status::Corrected);
-    EXPECT_EQ(command.lastFamilyResult.message, "Subaru Hitachi M32R K-Line ECU Checksum");
+    EXPECT_EQ(command.family_result_dialog_count, 1);
+    EXPECT_EQ(command.last_family_result.status, ChecksumResult::Status::Corrected);
+    EXPECT_EQ(command.last_family_result.message, "Subaru Hitachi M32R K-Line ECU Checksum");
 }
 
 TEST(ChecksumCorrectionCommand, GateNotConsultedWhenDefinitionAlreadyLinked)
 {
     TestableChecksumCommand command;
-    command.proceedWithoutDefinitionAnswer = false; // would abort if the gate were (wrongly) shown
+    command.proceed_without_definition_answer = false; // would abort if the gate were (wrongly) shown
     const bytes::Bytes rom(524288, 0);
 
     ChecksumCorrectionResult result = command.run(rom, true, subaruM32rKlineSelection(), nullptr);
@@ -105,7 +105,7 @@ TEST(ChecksumCorrectionCommand, GateNotConsultedWhenDefinitionAlreadyLinked)
 TEST(ChecksumCorrectionCommand, HeaderOnlyDefinitionBypassesMissingDefinitionGate)
 {
     TestableChecksumCommand command;
-    command.proceedWithoutDefinitionAnswer = false;
+    command.proceed_without_definition_answer = false;
     const bytes::Bytes rom(524288, 0);
     // Definition presence is independent of map count: a header-only definition
     // supplies checksum selection metadata and still links this image.
@@ -114,8 +114,8 @@ TEST(ChecksumCorrectionCommand, HeaderOnlyDefinitionBypassesMissingDefinitionGat
     const auto result = command.run(rom, kHasDefinition, subaruM32rKlineSelection(), nullptr);
 
     ASSERT_TRUE(result.corrected_rom_data.has_value());
-    EXPECT_EQ(command.missingDefinitionDialogCount, 0);
-    EXPECT_EQ(command.familyResultDialogCount, 1);
+    EXPECT_EQ(command.missing_definition_dialog_count, 0);
+    EXPECT_EQ(command.family_result_dialog_count, 1);
 }
 
 TEST(ChecksumCorrectionCommand, DisabledDieselChecksumPreservesRomData)
@@ -128,7 +128,7 @@ TEST(ChecksumCorrectionCommand, DisabledDieselChecksumPreservesRomData)
 
     ASSERT_TRUE(result.corrected_rom_data.has_value());
     EXPECT_EQ(*result.corrected_rom_data, rom);
-    EXPECT_EQ(command.lastFamilyResult.status, ChecksumResult::Status::Disabled);
+    EXPECT_EQ(command.last_family_result.status, ChecksumResult::Status::Disabled);
 }
 
 TEST(ChecksumCorrectionCommand, BadRomSizeShowsDialogAndMakesNoCorrection)
@@ -139,7 +139,7 @@ TEST(ChecksumCorrectionCommand, BadRomSizeShowsDialogAndMakesNoCorrection)
     ChecksumCorrectionResult result = command.run(rom, true, subaruM32rKlineSelection(), nullptr);
 
     EXPECT_FALSE(result.corrected_rom_data.has_value());
-    EXPECT_EQ(command.badRomSizeDialogCount, 1);
+    EXPECT_EQ(command.bad_rom_size_dialog_count, 1);
 }
 
 TEST(ChecksumCorrectionCommand, NoModuleWithChecksumFlagNoAsksNothingAndDoesNotCancel)
@@ -157,7 +157,7 @@ TEST(ChecksumCorrectionCommand, NoModuleWithChecksumFlagNoAsksNothingAndDoesNotC
 TEST(ChecksumCorrectionCommand, NoModuleWithChecksumFlagNaAsksAndRespectsCancel)
 {
     TestableChecksumCommand command;
-    command.cancelWithoutModuleAnswer = true;
+    command.cancel_without_module_answer = true;
     ChecksumSelection selection = subaruM32rKlineSelection();
     selection.checksum_flag = "n/a";
     const bytes::Bytes rom(524288, 0);
@@ -180,8 +180,8 @@ TEST(ChecksumCorrectionCommand, UnknownMcuTypeReturnsUnmodifiedRomAndRunsNoDialo
 
     EXPECT_TRUE(result.unknown_mcu_type);
     EXPECT_FALSE(result.corrected_rom_data.has_value());
-    EXPECT_EQ(command.badRomSizeDialogCount, 0);
-    EXPECT_EQ(command.familyResultDialogCount, 0);
+    EXPECT_EQ(command.bad_rom_size_dialog_count, 0);
+    EXPECT_EQ(command.family_result_dialog_count, 0);
 }
 
 TEST(ChecksumCorrectionCommand, ValidMcuCorrectsRomAndReturnsChangedBytes)
@@ -202,5 +202,5 @@ TEST(ChecksumCorrectionCommand, ValidMcuCorrectsRomAndReturnsChangedBytes)
     EXPECT_EQ(result.corrected_rom_data->size(), 524288U);
     EXPECT_NE(*result.corrected_rom_data, rom);
     EXPECT_EQ(rom, original);
-    EXPECT_EQ(command.familyResultDialogCount, 1);
+    EXPECT_EQ(command.family_result_dialog_count, 1);
 }

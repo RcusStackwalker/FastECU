@@ -8,7 +8,7 @@ ChecksumResult ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteV
     if (romView.size() != 0x80000)
     {
         return {.status = ChecksumResult::Status::InvalidSize,
-                .romData = bytes::Bytes(romView.begin(), romView.end()),
+                .rom_data = bytes::Bytes(romView.begin(), romView.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
     /****************************
@@ -45,7 +45,7 @@ ChecksumResult ChecksumTcuMitsuMH8104Can::calculate_checksum_result(bytes::ByteV
         fastecu::checksum::internal::rebalanceU32Be(romData, checksum_balance_value_address, checksum, checksum_target);
     }
     ChecksumResult result;
-    result.romData = romData;
+    result.rom_data = romData;
     if (!checksum_ok)
     {
         result.status = ChecksumResult::Status::Corrected;

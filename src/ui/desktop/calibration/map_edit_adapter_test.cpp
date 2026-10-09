@@ -41,7 +41,7 @@ class MapEditAdapterEnvironment final : public ::testing::Environment
     std::unique_ptr<QApplication> app_;
 };
 
-const auto *map_edit_adapter_environment = ::testing::AddGlobalTestEnvironment(new MapEditAdapterEnvironment);
+const auto *const kMapEditAdapterEnvironment = ::testing::AddGlobalTestEnvironment(new MapEditAdapterEnvironment);
 
 definition::RomDefinition two_by_two_definition()
 {

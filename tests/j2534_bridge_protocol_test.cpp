@@ -19,7 +19,7 @@ TEST(J2534BridgeProtocol, round_trip_small_payload)
     std::unique_ptr<void, decltype(&CloseHandle)> write_handle(writeEnd, &CloseHandle);
 
     PassThruCloseRequest req{};
-    req.deviceId = 42;
+    req.device_id = 42;
 
     bool wrote = writeFrame(writeEnd, Function::PassThruClose, &req, sizeof(req));
     ASSERT_TRUE(wrote && "writeFrame failed");
@@ -29,8 +29,8 @@ TEST(J2534BridgeProtocol, round_trip_small_payload)
     bool read = readFrame(readEnd, header, &received, sizeof(received));
     ASSERT_TRUE(read && "readFrame failed");
     ASSERT_TRUE(header.function == Function::PassThruClose);
-    ASSERT_TRUE(header.payloadSize == sizeof(req));
-    ASSERT_TRUE(received.deviceId == 42);
+    ASSERT_TRUE(header.payload_size == sizeof(req));
+    ASSERT_TRUE(received.device_id == 42);
 
     std::printf("test_round_trip_small_payload: PASS\n");
 }

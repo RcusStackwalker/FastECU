@@ -26,81 +26,82 @@ class DefinitionCatalogSession : public testing::Test
   protected:
     void SetUp() override
     {
-        ASSERT_THAT(config.initialize(), IsOk());
-        config.session.settings().ecuflash_definition_files_directory = "/defs";
-        config.file_system.directory_entries["/defs"] = {};
+        ASSERT_THAT(config_.initialize(), IsOk());
+        config_.session.settings().ecuflash_definition_files_directory = "/defs";
+        config_.file_system.directory_entries["/defs"] = {};
     }
 
     void put_romraider(const std::string& source, std::string_view id)
     {
-        config.put(source, std::format("<roms><rom><romid><xmlid>{}</xmlid></romid></rom></roms>", id));
+        config_.put(source, std::format("<roms><rom><romid><xmlid>{}</xmlid></romid></rom></roms>", id));
     }
 
     void put_ecuflash(const std::string& directory, const std::string& name, std::string_view id)
     {
-        config.file_system.directory_entries[directory] = {{.name = name, .is_directory = false}};
-        config.put(directory + "/" + name, std::format("<rom><romid><xmlid>{}</xmlid></romid></rom>", id));
+        config_.file_system.directory_entries[directory] = {{.name = name, .is_directory = false}};
+        config_.put(directory + "/" + name, std::format("<rom><romid><xmlid>{}</xmlid></romid></rom>", id));
     }
 
-    fastecu::config::testing::ConfigSessionFixture config;
-    fastecu::InMemoryAtomicFileWriter writer;
-    fastecu::definition::DefinitionService service{config.file_system, config.file_repository, writer};
-    fastecu::definition::DefinitionCatalogSession session{service, config.session, config.file_system, config.events};
+    fastecu::config::testing::ConfigSessionFixture config_;
+    fastecu::InMemoryAtomicFileWriter writer_;
+    fastecu::definition::DefinitionService service_{config_.file_system, config_.file_repository, writer_};
+    fastecu::definition::DefinitionCatalogSession session_{service_, config_.session, config_.file_system,
+                                                           config_.events};
 };
 
 TEST_F(DefinitionCatalogSession, RetainsConfiguredRomraiderOrderAndFormatSpecificLookup)
 {
     put_romraider("b.xml", "ZZZ_FIRST");
     put_romraider("a.xml", "AAA_SECOND");
-    config.session.settings().romraider_definition_files = {"b.xml", "a.xml"};
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::RomRaider), IsOk());
-    auto catalog = session.catalog(DefinitionFormat::RomRaider);
+    config_.session.settings().romraider_definition_files = {"b.xml", "a.xml"};
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::RomRaider), IsOk());
+    auto catalog = session_.catalog(DefinitionFormat::RomRaider);
     ASSERT_THAT(catalog, IsOk());
     EXPECT_THAT(catalog->entries(), ElementsAre(Field(&fastecu::definition::DefinitionIndexEntry::source, "b.xml"),
                                                 Field(&fastecu::definition::DefinitionIndexEntry::source, "a.xml")));
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::RomRaider, "ZZZ_FIRST"), "b.xml");
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::RomRaider, "AAA_SECOND"), "a.xml");
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "ZZZ_FIRST"), std::nullopt);
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::RomRaider, "UNKNOWN"), std::nullopt);
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::RomRaider, "ZZZ_FIRST"), "b.xml");
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::RomRaider, "AAA_SECOND"), "a.xml");
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "ZZZ_FIRST"), std::nullopt);
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::RomRaider, "UNKNOWN"), std::nullopt);
 }
 
 TEST_F(DefinitionCatalogSession, FreshCatalogDoesNotReplaceRetainedLookup)
 {
     put_ecuflash("/defs", "old.xml", "OLD");
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
     put_ecuflash("/defs", "new.xml", "NEW");
-    auto catalog = session.catalog(DefinitionFormat::EcuFlash);
+    auto catalog = session_.catalog(DefinitionFormat::EcuFlash);
     ASSERT_THAT(catalog, IsOk());
     EXPECT_THAT(catalog->entries(),
                 ElementsAre(Field(&fastecu::definition::DefinitionIndexEntry::definition_id, "NEW")));
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "OLD"), "/defs/old.xml");
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW"), std::nullopt);
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "OLD"), "/defs/old.xml");
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW"), std::nullopt);
 }
 
 TEST_F(DefinitionCatalogSession, EmptySourcesPreserveBothIndexes)
 {
     put_ecuflash("/defs", "old.xml", "OLD");
     put_romraider("rr.xml", "RR");
-    config.session.settings().romraider_definition_files = {"rr.xml"};
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::RomRaider), IsOk());
-    config.session.settings().ecuflash_definition_files_directory.clear();
-    config.session.settings().romraider_definition_files.clear();
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::RomRaider), IsOk());
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "OLD"), "/defs/old.xml");
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::RomRaider, "RR"), "rr.xml");
+    config_.session.settings().romraider_definition_files = {"rr.xml"};
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::RomRaider), IsOk());
+    config_.session.settings().ecuflash_definition_files_directory.clear();
+    config_.session.settings().romraider_definition_files.clear();
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::RomRaider), IsOk());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "OLD"), "/defs/old.xml");
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::RomRaider, "RR"), "rr.xml");
 }
 
 TEST_F(DefinitionCatalogSession, FailedScanPreservesIndexAndReportsError)
 {
     put_ecuflash("/defs", "old.xml", "OLD");
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
-    config.file_system.list_directory_errors["/defs"] = {fastecu::ErrorKind::Disconnected, "directory unavailable"};
-    EXPECT_THAT(session.refresh_index(DefinitionFormat::EcuFlash),
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    config_.file_system.list_directory_errors["/defs"] = {fastecu::ErrorKind::Disconnected, "directory unavailable"};
+    EXPECT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash),
                 IsErrWith(fastecu::ErrorKind::Disconnected, HasSubstr("directory unavailable")));
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "OLD"), "/defs/old.xml");
-    EXPECT_THAT(config.events.logs,
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "OLD"), "/defs/old.xml");
+    EXPECT_THAT(config_.events.logs,
                 testing::Contains(testing::Pair(
                     fastecu::LogLevel::Error,
                     "Unable to build EcuFlash definition catalog [Disconnected]: directory unavailable")));
@@ -110,78 +111,79 @@ TEST_F(DefinitionCatalogSession, MalformedFilesSuccessfullyReplaceIndexesWithEmp
 {
     put_ecuflash("/defs", "old.xml", "OLD");
     put_romraider("rr.xml", "RR");
-    config.session.settings().romraider_definition_files = {"rr.xml"};
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::RomRaider), IsOk());
-    config.put("/defs/old.xml", "<rom><romid>");
-    config.put("rr.xml", "<roms><rom>");
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::RomRaider), IsOk());
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "OLD"), std::nullopt);
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::RomRaider, "RR"), std::nullopt);
+    config_.session.settings().romraider_definition_files = {"rr.xml"};
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::RomRaider), IsOk());
+    config_.put("/defs/old.xml", "<rom><romid>");
+    config_.put("rr.xml", "<roms><rom>");
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::RomRaider), IsOk());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "OLD"), std::nullopt);
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::RomRaider, "RR"), std::nullopt);
 }
 
 TEST_F(DefinitionCatalogSession, DirectoryChangeDropsDiscoveryWithoutChangingOtherFormat)
 {
     put_ecuflash("/defs", "old.xml", "OLD");
     put_romraider("rr.xml", "RR");
-    config.session.settings().romraider_definition_files = {"rr.xml"};
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::RomRaider), IsOk());
+    config_.session.settings().romraider_definition_files = {"rr.xml"};
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::RomRaider), IsOk());
     put_ecuflash("/new", "new.xml", "NEW");
-    config.session.settings().ecuflash_definition_files_directory = "/new";
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "OLD"), std::nullopt);
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW"), "/new/new.xml");
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::RomRaider, "RR"), "rr.xml");
+    config_.session.settings().ecuflash_definition_files_directory = "/new";
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "OLD"), std::nullopt);
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW"), "/new/new.xml");
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::RomRaider, "RR"), "rr.xml");
 }
 
 TEST_F(DefinitionCatalogSession, RemovedDiscoveredFilesAreNotReadAgain)
 {
     put_ecuflash("/defs", "old.xml", "OLD");
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
-    config.file_system.directory_entries["/defs"].clear();
-    config.file_repository.files.erase("/defs/old.xml");
-    config.file_repository.read_handles.clear();
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
-    EXPECT_THAT(config.file_repository.read_handles, testing::IsEmpty());
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "OLD"), std::nullopt);
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    config_.file_system.directory_entries["/defs"].clear();
+    config_.file_repository.files.erase("/defs/old.xml");
+    config_.file_repository.read_handles.clear();
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    EXPECT_THAT(config_.file_repository.read_handles, testing::IsEmpty());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "OLD"), std::nullopt);
 }
 
 TEST_F(DefinitionCatalogSession, FailedRomraiderScanPreservesLookupAndNotifiesFirstMissingFile)
 {
     put_romraider("old.xml", "OLD");
-    config.session.settings().romraider_definition_files = {"old.xml"};
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::RomRaider), IsOk());
-    config.put("a.xml", "<roms><rom><romid><xmlid>DUPLICATE</xmlid><ecuid>A</ecuid></romid></rom></roms>");
-    config.put("b.xml", "<roms><rom><romid><xmlid>DUPLICATE</xmlid><ecuid>B</ecuid></romid></rom></roms>");
-    config.session.settings().romraider_definition_files = {"missing.xml", "a.xml", "b.xml"};
-    EXPECT_THAT(session.refresh_index(DefinitionFormat::RomRaider),
+    config_.session.settings().romraider_definition_files = {"old.xml"};
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::RomRaider), IsOk());
+    config_.put("a.xml", "<roms><rom><romid><xmlid>DUPLICATE</xmlid><ecuid>A</ecuid></romid></rom></roms>");
+    config_.put("b.xml", "<roms><rom><romid><xmlid>DUPLICATE</xmlid><ecuid>B</ecuid></romid></rom></roms>");
+    config_.session.settings().romraider_definition_files = {"missing.xml", "a.xml", "b.xml"};
+    EXPECT_THAT(session_.refresh_index(DefinitionFormat::RomRaider),
                 fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::RomRaider, "OLD"), "old.xml");
-    EXPECT_THAT(config.events.notices,
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::RomRaider, "OLD"), "old.xml");
+    EXPECT_THAT(config_.events.notices,
                 ElementsAre("Ecu definition file: Unable to open romraider definition file missing.xml for reading"));
 }
 TEST_F(DefinitionCatalogSession, SuccessfulCreateImmediatelyRegistersSource)
 {
-    ASSERT_THAT(session.submit_new_definition("outside.xml", header(), true), IsOk());
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), "outside.xml");
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::RomRaider, "NEW_XML"), std::nullopt);
+    ASSERT_THAT(session_.submit_new_definition("outside.xml", header(), true), IsOk());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), "outside.xml");
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::RomRaider, "NEW_XML"), std::nullopt);
 }
 
 TEST_F(DefinitionCatalogSession, FailedWritesPreserveLookupAndLogExactError)
 {
     put_ecuflash("/defs", "old.xml", "OLD");
-    ASSERT_THAT(session.refresh_index(DefinitionFormat::EcuFlash), IsOk());
-    writer.replace_error = {fastecu::ErrorKind::Disconnected, "atomic destination unavailable"};
-    EXPECT_THAT(session.submit_new_definition("unavailable.xml", header(), true),
+    ASSERT_THAT(session_.refresh_index(DefinitionFormat::EcuFlash), IsOk());
+    writer_.replace_error = {fastecu::ErrorKind::Disconnected, "atomic destination unavailable"};
+    EXPECT_THAT(session_.submit_new_definition("unavailable.xml", header(), true),
                 IsErrWith(fastecu::ErrorKind::Disconnected, "atomic destination unavailable"));
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "OLD"), "/defs/old.xml");
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
-    EXPECT_THAT(config.events.logs, testing::Contains(testing::Pair(
-                                        fastecu::LogLevel::Error,
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "OLD"), "/defs/old.xml");
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
+    EXPECT_THAT(
+        config_.events.logs,
+        testing::Contains(testing::Pair(fastecu::LogLevel::Error,
                                         "Unable to create definition [Disconnected]: atomic destination unavailable")));
-    auto catalog = session.catalog(DefinitionFormat::EcuFlash);
+    auto catalog = session_.catalog(DefinitionFormat::EcuFlash);
     ASSERT_THAT(catalog, IsOk());
     EXPECT_THAT(catalog->entries(),
                 ElementsAre(Field(&fastecu::definition::DefinitionIndexEntry::definition_id, "OLD")));
@@ -191,40 +193,41 @@ TEST_F(DefinitionCatalogSession, InvalidHeadersDoNotWriteOrRegister)
 {
     auto input = header();
     input.xml_id.clear();
-    EXPECT_THAT(session.submit_new_definition("invalid.xml", input, true),
+    EXPECT_THAT(session_.submit_new_definition("invalid.xml", input, true),
                 IsErrWith(fastecu::ErrorKind::InvalidConfig, "definition XML ID is required"));
-    EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, ""), std::nullopt);
-    config.put("base.xml", "<rom><romid><xmlid>BASE</xmlid></romid></rom>");
-    EXPECT_THAT(session.submit_imported_definition("base.xml", "invalid-import.xml", input),
+    EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, ""), std::nullopt);
+    config_.put("base.xml", "<rom><romid><xmlid>BASE</xmlid></romid></rom>");
+    EXPECT_THAT(session_.submit_imported_definition("base.xml", "invalid-import.xml", input),
                 IsErrWith(fastecu::ErrorKind::InvalidConfig, "definition XML ID is required"));
-    EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
+    EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
 }
 
 TEST_F(DefinitionCatalogSession, OverwriteRequiresExplicitAuthorization)
 {
-    config.file_system.files["existing.xml"] = {};
-    EXPECT_THAT(session.submit_new_definition("existing.xml", header(), false),
+    config_.file_system.files["existing.xml"] = {};
+    EXPECT_THAT(session_.submit_new_definition("existing.xml", header(), false),
                 fastecu::testing::IsErr(fastecu::ErrorKind::InvalidConfig));
-    EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
-    ASSERT_THAT(session.submit_new_definition("existing.xml", header(), true), IsOk());
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), "existing.xml");
+    EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
+    ASSERT_THAT(session_.submit_new_definition("existing.xml", header(), true), IsOk());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), "existing.xml");
 }
 
 TEST_F(DefinitionCatalogSession, ImportRegistersOnlyAfterSuccessfulWrite)
 {
-    config.put("base.xml", "<rom><romid><xmlid>BASE</xmlid></romid><table name=\"Preserved\"/></rom>");
-    writer.replace_error = {fastecu::ErrorKind::Disconnected, "atomic destination unavailable"};
-    EXPECT_THAT(session.submit_imported_definition("base.xml", "imported.xml", header()),
+    config_.put("base.xml", "<rom><romid><xmlid>BASE</xmlid></romid><table name=\"Preserved\"/></rom>");
+    writer_.replace_error = {fastecu::ErrorKind::Disconnected, "atomic destination unavailable"};
+    EXPECT_THAT(session_.submit_imported_definition("base.xml", "imported.xml", header()),
                 IsErrWith(fastecu::ErrorKind::Disconnected, "atomic destination unavailable"));
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
-    EXPECT_THAT(config.events.logs, testing::Contains(testing::Pair(
-                                        fastecu::LogLevel::Error,
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
+    EXPECT_THAT(
+        config_.events.logs,
+        testing::Contains(testing::Pair(fastecu::LogLevel::Error,
                                         "Unable to import definition [Disconnected]: atomic destination unavailable")));
-    writer.replace_error.reset();
-    ASSERT_THAT(session.submit_imported_definition("base.xml", "imported.xml", header()), IsOk());
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), "imported.xml");
+    writer_.replace_error.reset();
+    ASSERT_THAT(session_.submit_imported_definition("base.xml", "imported.xml", header()), IsOk());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "NEW_XML"), "imported.xml");
 }
 
 TEST_F(DefinitionCatalogSession, RegistersCanonicalXmlIdForDirectCreateAndImport)
@@ -232,14 +235,14 @@ TEST_F(DefinitionCatalogSession, RegistersCanonicalXmlIdForDirectCreateAndImport
     auto input = header();
     input.xml_id = "\xc2\xa0"
                    "CREATED\xe3\x80\x80";
-    ASSERT_THAT(session.submit_new_definition("created.xml", input, true), IsOk());
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "CREATED"), "created.xml");
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, input.xml_id), std::nullopt);
-    config.put("base.xml", "<rom><romid><xmlid>BASE</xmlid></romid></rom>");
+    ASSERT_THAT(session_.submit_new_definition("created.xml", input, true), IsOk());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "CREATED"), "created.xml");
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, input.xml_id), std::nullopt);
+    config_.put("base.xml", "<rom><romid><xmlid>BASE</xmlid></romid></rom>");
     input.xml_id = "\xc2\xa0"
                    "IMPORTED\xe3\x80\x80";
-    ASSERT_THAT(session.submit_imported_definition("base.xml", "imported.xml", input), IsOk());
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, "IMPORTED"), "imported.xml");
-    EXPECT_EQ(session.indexed_source(DefinitionFormat::EcuFlash, input.xml_id), std::nullopt);
+    ASSERT_THAT(session_.submit_imported_definition("base.xml", "imported.xml", input), IsOk());
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, "IMPORTED"), "imported.xml");
+    EXPECT_EQ(session_.indexed_source(DefinitionFormat::EcuFlash, input.xml_id), std::nullopt);
 }
 } // namespace

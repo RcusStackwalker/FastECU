@@ -65,7 +65,7 @@ TEST(MitsuColtM32rCanPlan, ReadPlansSnapshotProtocolCapacityAndVendorChallenge)
         EXPECT_EQ(plan->transfer_region().length, test.size) << test.id;
         const auto& family = std::get<MitsuColtM32rCanPlan>(plan->family_plan());
         EXPECT_EQ(family.use_vendor_challenge, test.vendor) << test.id;
-        EXPECT_EQ(family.session_id, MitsuColtCan::kSessionBootload) << test.id;
+        EXPECT_EQ(family.session_id, mitsu_colt_can::kSessionBootload) << test.id;
         EXPECT_EQ(family.request_id, 0x7e0U) << test.id;
         EXPECT_EQ(family.response_id, 0x7e8U) << test.id;
         EXPECT_EQ(family.bitrate, 500000) << test.id;

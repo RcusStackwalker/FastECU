@@ -125,7 +125,7 @@ class CancellableWorkflow final : public FlashWorkflow
                 return FlashFailureStep{plan.error()};
             }
             auto attempt = std::make_unique<BlockingAttempt>(std::move(*plan));
-            attempt_ = attempt.get();
+            active_attempt = attempt.get();
             return FlashAttempt{std::move(attempt), std::make_unique<FakeClock>()};
         }
         if (notice_due_)
@@ -149,7 +149,7 @@ class CancellableWorkflow final : public FlashWorkflow
         notice_due_ = !result.success && result.error_kind == ErrorKind::Cancelled;
     }
 
-    BlockingAttempt *attempt_ = nullptr; // owned by the FlashWorker once started
+    BlockingAttempt *active_attempt = nullptr; // owned by the FlashWorker once started
     QList<ErrorKind> attempt_results;
 
   private:
@@ -248,8 +248,8 @@ TEST(FlashDialogTest, closingMidAttemptSubmitsCancelledAndPresentsTheNotice)
     QTimer::singleShot(0, &dialog,
                        [&dialog, workflow]
                        {
-                           ASSERT_TRUE(workflow->attempt_ != nullptr);
-                           ASSERT_TRUE(workflow->attempt_->waitUntilStarted());
+                           ASSERT_TRUE(workflow->active_attempt != nullptr);
+                           ASSERT_TRUE(workflow->active_attempt->waitUntilStarted());
                            dialog.close();
                        });
     const FlashDialogResult result = dialog.run();
@@ -313,6 +313,6 @@ TEST(FlashDialogTest, programmingVoltageNoticeWithoutPowerOffAdviceOnSuccess)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment({}, /*use_96_dpi=*/true));
 }

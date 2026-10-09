@@ -8,7 +8,7 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(byte
     if (romView.size() != 0x80000)
     {
         return {.status = ChecksumResult::Status::InvalidSize,
-                .romData = bytes::Bytes(romView.begin(), romView.end()),
+                .rom_data = bytes::Bytes(romView.begin(), romView.end()),
                 .message = "ROM size does not match the checksum layout"};
     }
     /*******************
@@ -82,7 +82,7 @@ ChecksumResult ChecksumEcuSubaruHitachiM32rKline::calculate_checksum_result(byte
     }
 
     ChecksumResult result;
-    result.romData = romData;
+    result.rom_data = romData;
     if (!checksum_ok)
     {
         result.status = ChecksumResult::Status::Corrected;

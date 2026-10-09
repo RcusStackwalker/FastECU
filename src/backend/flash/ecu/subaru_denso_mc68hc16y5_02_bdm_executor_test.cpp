@@ -207,7 +207,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, BeforeConfigureClearsTheIso14230Header
     FakeCancellationToken cancellation;
     ASSERT_THAT(SubaruDensoMc68hc16y5_02BdmExecutor{}.before_transport_configure(transport, clock, cancellation),
                 IsOk());
-    EXPECT_EQ(transport.header_mode_calls_, std::vector<bool>{false});
+    EXPECT_EQ(transport.header_mode_calls, std::vector<bool>{false});
 }
 
 TEST(SubaruDensoMc68hc16y5_02BdmExecutor, ReadsTheAddressSpaceImageWithTheRamHoleFilled)
@@ -237,7 +237,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, ReadsTheAddressSpaceImageWithTheRamHol
     // Every read (the initial discard and each page's polls) uses the
     // legacy short timeout; FakeClock does not advance on reads, so a
     // budget's full value is what gets recorded each time.
-    EXPECT_TRUE(std::ranges::all_of(transport.read_timeouts_, [](auto timeout) { return timeout == 200ms; }));
+    EXPECT_TRUE(std::ranges::all_of(transport.read_timeouts, [](auto timeout) { return timeout == 200ms; }));
     EXPECT_EQ(events.progress_calls.back(), (std::pair<int, int>{160, 160}));
     // Each page: one 100 ms poll sleep (read_mem() :162) and 1 ms (:204).
     EXPECT_EQ(clock.elapsed(), 160 * 101ms);
@@ -420,7 +420,7 @@ TEST(SubaruDensoMc68hc16y5_02BdmExecutor, BootstrapsTheKernelWithTheLegacySequen
     // 800 ms discard, SCIB-value ACK, discard, wpcsp "??" + empty, empty, go.
     // FakeClock does not advance on reads, so each recorded timeout is the
     // read's full budget, not a shrunk remainder.
-    EXPECT_EQ(transport.read_timeouts_,
+    EXPECT_EQ(transport.read_timeouts,
               (std::vector<std::chrono::milliseconds>{200ms, 3000ms, 800ms, 800ms, 200ms, 3000ms, 800ms, 800ms, 200ms,
                                                       800ms, 800ms, 800ms, 800ms}));
 }

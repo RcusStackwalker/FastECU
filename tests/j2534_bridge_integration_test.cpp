@@ -15,8 +15,8 @@ namespace
 
 struct BridgeProcess
 {
-    HANDLE toChildWrite = nullptr;
-    HANDLE fromChildRead = nullptr;
+    HANDLE to_child_write = nullptr;
+    HANDLE from_child_read = nullptr;
     PROCESS_INFORMATION pi{};
 
     bool start(const std::string& hostExePath, const std::string& dllPath)
@@ -58,8 +58,8 @@ struct BridgeProcess
             return false;
         }
 
-        toChildWrite = childStdinWrite;
-        fromChildRead = childStdoutRead;
+        to_child_write = childStdinWrite;
+        from_child_read = childStdoutRead;
         return true;
     }
 
@@ -74,53 +74,53 @@ struct BridgeProcess
         {
             return;
         }
-        writeFrame(toChildWrite, Function::Shutdown, nullptr, 0);
+        writeFrame(to_child_write, Function::Shutdown, nullptr, 0);
         if (WaitForSingleObject(pi.hProcess, 2000) == WAIT_TIMEOUT)
         {
             TerminateProcess(pi.hProcess, 1);
             WaitForSingleObject(pi.hProcess, INFINITE);
         }
-        CloseHandle(toChildWrite);
-        CloseHandle(fromChildRead);
+        CloseHandle(to_child_write);
+        CloseHandle(from_child_read);
         CloseHandle(pi.hProcess);
         CloseHandle(pi.hThread);
         pi = {};
-        toChildWrite = nullptr;
-        fromChildRead = nullptr;
+        to_child_write = nullptr;
+        from_child_read = nullptr;
     }
 };
 
 void test_open_connect_and_read(BridgeProcess& bridge)
 {
     PassThruOpenRequest openReq{};
-    openReq.hasName = false;
-    writeFrame(bridge.toChildWrite, Function::PassThruOpen, &openReq, sizeof(openReq));
+    openReq.has_name = false;
+    writeFrame(bridge.to_child_write, Function::PassThruOpen, &openReq, sizeof(openReq));
     FrameHeader header{};
     PassThruOpenResponse openResp{};
-    ASSERT_TRUE(readFrame(bridge.fromChildRead, header, &openResp, sizeof(openResp)));
+    ASSERT_TRUE(readFrame(bridge.from_child_read, header, &openResp, sizeof(openResp)));
     ASSERT_TRUE(openResp.result == kJ2534StatusNoerror);
-    ASSERT_TRUE(openResp.deviceId == 7);
+    ASSERT_TRUE(openResp.device_id == 7);
 
     PassThruConnectRequest connectReq{};
-    connectReq.deviceId = openResp.deviceId;
-    connectReq.protocolId = kJ2534Iso9141;
-    writeFrame(bridge.toChildWrite, Function::PassThruConnect, &connectReq, sizeof(connectReq));
+    connectReq.device_id = openResp.device_id;
+    connectReq.protocol_id = kJ2534Iso9141;
+    writeFrame(bridge.to_child_write, Function::PassThruConnect, &connectReq, sizeof(connectReq));
     PassThruConnectResponse connectResp{};
-    ASSERT_TRUE(readFrame(bridge.fromChildRead, header, &connectResp, sizeof(connectResp)));
+    ASSERT_TRUE(readFrame(bridge.from_child_read, header, &connectResp, sizeof(connectResp)));
     ASSERT_TRUE(connectResp.result == kJ2534StatusNoerror);
-    ASSERT_TRUE(connectResp.channelId == 3);
+    ASSERT_TRUE(connectResp.channel_id == 3);
 
     PassThruReadMsgsRequest readReq{};
-    readReq.channelId = connectResp.channelId;
+    readReq.channel_id = connectResp.channel_id;
     readReq.timeout = 100;
-    writeFrame(bridge.toChildWrite, Function::PassThruReadMsgs, &readReq, sizeof(readReq));
+    writeFrame(bridge.to_child_write, Function::PassThruReadMsgs, &readReq, sizeof(readReq));
     PassThruReadMsgsResponse readResp{};
-    ASSERT_TRUE(readFrame(bridge.fromChildRead, header, &readResp, sizeof(readResp)));
+    ASSERT_TRUE(readFrame(bridge.from_child_read, header, &readResp, sizeof(readResp)));
     ASSERT_TRUE(readResp.result == kJ2534StatusNoerror);
-    ASSERT_TRUE(readResp.numMsgs == 1);
-    ASSERT_TRUE(readResp.msg.DataSize == 4);
-    ASSERT_TRUE(readResp.msg.Data[0] == 0xDE && readResp.msg.Data[1] == 0xAD && readResp.msg.Data[2] == 0xBE &&
-                readResp.msg.Data[3] == 0xEF);
+    ASSERT_TRUE(readResp.num_msgs == 1);
+    ASSERT_TRUE(readResp.msg.data_size == 4);
+    ASSERT_TRUE(readResp.msg.data[0] == 0xDE && readResp.msg.data[1] == 0xAD && readResp.msg.data[2] == 0xBE &&
+                readResp.msg.data[3] == 0xEF);
 
     std::printf("test_open_connect_and_read: PASS\n");
 }
@@ -128,20 +128,20 @@ void test_open_connect_and_read(BridgeProcess& bridge)
 void test_write_msgs_success_and_failure(BridgeProcess& bridge)
 {
     PassThruWriteMsgsRequest goodReq{};
-    goodReq.channelId = 3;
-    goodReq.msg.DataSize = 1;
-    goodReq.msg.Data[0] = 0x11;
-    writeFrame(bridge.toChildWrite, Function::PassThruWriteMsgs, &goodReq, sizeof(goodReq));
+    goodReq.channel_id = 3;
+    goodReq.msg.data_size = 1;
+    goodReq.msg.data[0] = 0x11;
+    writeFrame(bridge.to_child_write, Function::PassThruWriteMsgs, &goodReq, sizeof(goodReq));
     FrameHeader header{};
     PassThruWriteMsgsResponse goodResp{};
-    ASSERT_TRUE(readFrame(bridge.fromChildRead, header, &goodResp, sizeof(goodResp)));
+    ASSERT_TRUE(readFrame(bridge.from_child_read, header, &goodResp, sizeof(goodResp)));
     ASSERT_TRUE(goodResp.result == kJ2534StatusNoerror);
 
     PassThruWriteMsgsRequest badReq = goodReq;
-    badReq.msg.Data[0] = 0x99;
-    writeFrame(bridge.toChildWrite, Function::PassThruWriteMsgs, &badReq, sizeof(badReq));
+    badReq.msg.data[0] = 0x99;
+    writeFrame(bridge.to_child_write, Function::PassThruWriteMsgs, &badReq, sizeof(badReq));
     PassThruWriteMsgsResponse badResp{};
-    ASSERT_TRUE(readFrame(bridge.fromChildRead, header, &badResp, sizeof(badResp)));
+    ASSERT_TRUE(readFrame(bridge.from_child_read, header, &badResp, sizeof(badResp)));
     ASSERT_TRUE(badResp.result == kJ2534ErrFailed);
 
     std::printf("test_write_msgs_success_and_failure: PASS\n");
@@ -150,12 +150,12 @@ void test_write_msgs_success_and_failure(BridgeProcess& bridge)
 void test_ioctl_read_vbatt(BridgeProcess& bridge)
 {
     PassThruIoctlRequest req{};
-    req.channelId = 3;
-    req.ioctlId = kJ2534ReadVbatt;
-    writeFrame(bridge.toChildWrite, Function::PassThruIoctl, &req, sizeof(req));
+    req.channel_id = 3;
+    req.ioctl_id = kJ2534ReadVbatt;
+    writeFrame(bridge.to_child_write, Function::PassThruIoctl, &req, sizeof(req));
     FrameHeader header{};
     PassThruIoctlResponse resp{};
-    ASSERT_TRUE(readFrame(bridge.fromChildRead, header, &resp, sizeof(resp)));
+    ASSERT_TRUE(readFrame(bridge.from_child_read, header, &resp, sizeof(resp)));
     ASSERT_TRUE(resp.result == kJ2534StatusNoerror);
     ASSERT_TRUE(resp.vbatt == 12500);
 
@@ -171,11 +171,11 @@ void test_child_crash_is_detected_as_broken_pipe(const std::string& hostExe, con
     WaitForSingleObject(bridge.pi.hProcess, 2000);
 
     PassThruCloseRequest req{};
-    req.deviceId = 7;
-    writeFrame(bridge.toChildWrite, Function::PassThruClose, &req, sizeof(req));
+    req.device_id = 7;
+    writeFrame(bridge.to_child_write, Function::PassThruClose, &req, sizeof(req));
     FrameHeader header{};
     PassThruCloseResponse resp{};
-    bool ok = readFrame(bridge.fromChildRead, header, &resp, sizeof(resp));
+    bool ok = readFrame(bridge.from_child_read, header, &resp, sizeof(resp));
     ASSERT_TRUE(!ok && "readFrame should report failure once the child process is dead");
 
     bridge.stop();
@@ -197,29 +197,29 @@ class J2534BridgeIntegration : public ::testing::Test
     {
         const char *hostExeEnv = std::getenv("J2534_BRIDGE_HOST_EXE");
         const char *dllPathEnv = std::getenv("FAKE_J2534_DLL_PATH");
-        hostExe = hostExeEnv ? hostExeEnv : "";
-        dllPath = dllPathEnv ? dllPathEnv : "";
+        host_exe_ = hostExeEnv ? hostExeEnv : "";
+        dll_path_ = dllPathEnv ? dllPathEnv : "";
     }
 
-    static std::string hostExe;
-    static std::string dllPath;
+    static std::string host_exe_;
+    static std::string dll_path_;
 };
 
-std::string J2534BridgeIntegration::hostExe;
-std::string J2534BridgeIntegration::dllPath;
+std::string J2534BridgeIntegration::host_exe_;
+std::string J2534BridgeIntegration::dll_path_;
 
 TEST_F(J2534BridgeIntegration, CallsAndChildCrashContracts)
 {
-    ASSERT_FALSE(hostExe.empty()) << "set J2534_BRIDGE_HOST_EXE";
-    ASSERT_FALSE(dllPath.empty()) << "set FAKE_J2534_DLL_PATH";
+    ASSERT_FALSE(host_exe_.empty()) << "set J2534_BRIDGE_HOST_EXE";
+    ASSERT_FALSE(dll_path_.empty()) << "set FAKE_J2534_DLL_PATH";
 
     BridgeProcess bridge;
-    ASSERT_TRUE(bridge.start(hostExe, dllPath)) << "failed to spawn j2534_bridge_host";
+    ASSERT_TRUE(bridge.start(host_exe_, dll_path_)) << "failed to spawn j2534_bridge_host";
 
     ASSERT_NO_FATAL_FAILURE(test_open_connect_and_read(bridge));
     ASSERT_NO_FATAL_FAILURE(test_write_msgs_success_and_failure(bridge));
     ASSERT_NO_FATAL_FAILURE(test_ioctl_read_vbatt(bridge));
     bridge.stop();
 
-    ASSERT_NO_FATAL_FAILURE(test_child_crash_is_detected_as_broken_pipe(hostExe, dllPath));
+    ASSERT_NO_FATAL_FAILURE(test_child_crash_is_detected_as_broken_pipe(host_exe_, dll_path_));
 }

@@ -182,7 +182,7 @@ bytes::Bytes generateSeedKeyStock(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
+    return ssm_protocol::calculateSeedKey(seed, kIndex, kTransform);
 }
 bytes::Bytes generateEcutekSeedKeyPlain(bytes::ByteView seed)
 {
@@ -192,7 +192,7 @@ bytes::Bytes generateEcutekSeedKeyPlain(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x4, 0x2, 0x5, 0x1, 0x8, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
+    return ssm_protocol::calculateSeedKey(seed, kIndex, kTransform);
 }
 bytes::Bytes generateCobbSeedKey(bytes::ByteView seed)
 {
@@ -202,7 +202,7 @@ bytes::Bytes generateCobbSeedKey(bytes::ByteView seed)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return SsmProtocol::calculateSeedKey(seed, kIndex, kTransform);
+    return ssm_protocol::calculateSeedKey(seed, kIndex, kTransform);
 }
 std::uint64_t decryptRaceromSeed(std::uint64_t base, std::uint64_t exponent, std::uint64_t modulus)
 {
@@ -237,7 +237,7 @@ bytes::Bytes encryptPayloadCan(bytes::ByteView buf, std::uint32_t len)
     static constexpr auto kTransform =
         std::to_array<std::uint8_t>({0x5, 0x6, 0x7, 0x1, 0x9, 0xC, 0xD, 0x8, 0xA, 0xD, 0x2, 0xB, 0xF, 0x4, 0x0, 0x3,
                                      0xB, 0x4, 0x6, 0x0, 0xF, 0x2, 0xD, 0x9, 0x5, 0xC, 0x1, 0xA, 0x3, 0xD, 0xE, 0x8});
-    return SsmProtocol::calculatePayload(buf, len, kIndex, kTransform);
+    return ssm_protocol::calculatePayload(buf, len, kIndex, kTransform);
 }
 
 // ---- Kernel-upload framing: TRANSCRIBE of upload_kernel()'s padding/-------
@@ -245,9 +245,9 @@ bytes::Bytes encryptPayloadCan(bytes::ByteView buf, std::uint32_t len)
 
 struct KernelUploadPlan
 {
-    std::uint32_t dataLen = 0;
-    std::uint32_t maxBlocks = 0;
-    bytes::Bytes encryptedPayload; // length == dataLen
+    std::uint32_t data_len = 0;
+    std::uint32_t max_blocks = 0;
+    bytes::Bytes encrypted_payload; // length == dataLen
 };
 
 KernelUploadPlan computeKernelUploadPlan(bytes::ByteView kernelBytes)
@@ -257,14 +257,14 @@ KernelUploadPlan computeKernelUploadPlan(bytes::ByteView kernelBytes)
     const std::uint32_t plLen = (fileLen + 3) & ~std::uint32_t(3);
     bytes::Bytes plEncr(kernelBytes.begin(), kernelBytes.end());
 
-    plan.maxBlocks = plLen / 128;
+    plan.max_blocks = plLen / 128;
     if (plLen % 128 != 0)
     {
-        plan.maxBlocks++;
+        plan.max_blocks++;
     }
-    plan.dataLen = plan.maxBlocks * 128;
+    plan.data_len = plan.max_blocks * 128;
 
-    plEncr.resize(plan.dataLen, 0);
+    plEncr.resize(plan.data_len, 0);
     plEncr.resize(plEncr.size() - 4);
 
     std::uint32_t chkSum = 0;
@@ -277,7 +277,7 @@ KernelUploadPlan computeKernelUploadPlan(bytes::ByteView kernelBytes)
 
     bytes::appendU32Be(plEncr, chkSum);
 
-    plan.encryptedPayload = encryptPayloadCan(plEncr, static_cast<std::uint32_t>(plEncr.size()));
+    plan.encrypted_payload = encryptPayloadCan(plEncr, static_cast<std::uint32_t>(plEncr.size()));
     return plan;
 }
 
@@ -472,18 +472,18 @@ void enqueueUploadKernel(ScriptedCanFlashTransport& transport, bytes::ByteView k
                          std::uint32_t kernelStartAddr)
 {
     const KernelUploadPlan plan = computeKernelUploadPlan(kernelBytes);
-    transport.expectWrite(sid34RequestDownloadRequest(kernelStartAddr, plan.dataLen));
+    transport.expectWrite(sid34RequestDownloadRequest(kernelStartAddr, plan.data_len));
     transport.queueRead(sid34DownloadAckResponse());
 
     // lines 816-857: blockno runs 0..maxBlocks INCLUSIVE. Since dataLen ==
     // maxBlocks*128 exactly, the final (blockno==maxBlocks) iteration's chunk
     // is always empty -- an N-block kernel produces N+1 wire frames.
-    for (std::uint32_t blockno = 0; blockno <= plan.maxBlocks; ++blockno)
+    for (std::uint32_t blockno = 0; blockno <= plan.max_blocks; ++blockno)
     {
         const std::uint32_t blockAddr = kernelStartAddr + blockno * 128;
         const bytes::ByteView chunk =
-            blockno < plan.maxBlocks
-                ? bytes::ByteView(plan.encryptedPayload).subspan(static_cast<std::size_t>(blockno) * 128, 128)
+            blockno < plan.max_blocks
+                ? bytes::ByteView(plan.encrypted_payload).subspan(static_cast<std::size_t>(blockno) * 128, 128)
                 : bytes::ByteView{};
         transport.expectWrite(sidB6TransferBlockRequest(blockAddr, chunk));
         transport.queue_no_frame(); // response content is never inspected

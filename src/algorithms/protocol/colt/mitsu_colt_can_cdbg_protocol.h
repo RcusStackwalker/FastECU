@@ -9,7 +9,7 @@
 // Ported from externals/livemonitor/cdbgengine.cpp + logitemsmodel.cpp.
 // Request CAN ID 0x630, reply CAN ID 0x631. Raw CAN (not ISO-TP): every
 // command and reply is a single 8-byte frame.
-namespace MitsuColtCanCdbg
+namespace mitsu_colt_can_cdbg
 {
 
 constexpr std::uint32_t kRequestCanId = 0x630;
@@ -98,4 +98,4 @@ std::vector<CdbgFrame> buildFrameInitFrames(bytes::Byte instance, bytes::Byte fr
 std::vector<std::uint32_t> decodeFrame(bytes::Byte expectedFrameIndex, const std::vector<CdbgChannel>& frameItems,
                                        bytes::ByteView frame);
 
-} // namespace MitsuColtCanCdbg
+} // namespace mitsu_colt_can_cdbg

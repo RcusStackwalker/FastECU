@@ -7,7 +7,7 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::By
                                                                        uint32_t checksum_area_length, int32_t offset)
 {
     ChecksumResult result;
-    result.romData.assign(romData.begin(), romData.end());
+    result.rom_data.assign(romData.begin(), romData.end());
     const fastecu::checksum::internal::DensoTableSpec spec{
         .table_offset = checksum_area_start,
         .table_length = checksum_area_length,
@@ -15,7 +15,7 @@ ChecksumResult ChecksumEcuSubaruDensoSH7xxx::calculate_checksum_result(bytes::By
     };
 
     using Outcome = fastecu::checksum::internal::DensoTableOutcome;
-    switch (fastecu::checksum::internal::correctDensoTable(result.romData, spec))
+    switch (fastecu::checksum::internal::correctDensoTable(result.rom_data, spec))
     {
     case Outcome::Unchanged:
         result.status = ChecksumResult::Status::Unchanged;

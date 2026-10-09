@@ -117,7 +117,7 @@ constexpr std::array<std::uint8_t, 32> kIndexTransformation{0x5, 0x6, 0x7, 0x1, 
 
 bytes::Bytes seedKey(bytes::ByteView seed)
 {
-    return SsmProtocol::calculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
+    return ssm_protocol::calculateSeedKey(seed, kSeedKeyTable, kIndexTransformation);
 }
 
 // The encrypt table is a genuine round-trip inverse of the decrypt table the
@@ -129,8 +129,8 @@ bytes::Bytes seedKey(bytes::ByteView seed)
 // computes the wire bytes a write must carry for a known plaintext image.
 bytes::Bytes toWire(bytes::ByteView plain)
 {
-    return SsmProtocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
-                                         kIndexTransformation);
+    return ssm_protocol::calculatePayload(plain, static_cast<std::uint32_t>(plain.size()), kEncryptTable,
+                                          kIndexTransformation);
 }
 
 const bytes::Bytes kSeed{0x11, 0x22, 0x33, 0x44};
@@ -408,7 +408,7 @@ TEST(SubaruHitachiM32rCanExecutor, WriteRefusesAnImageThatDoesNotMatchThePlanBef
 
     EXPECT_THAT(result, fastecu::testing::IsErrWith(ErrorKind::InvalidConfig, HasSubstr("0x80000")));
     EXPECT_EQ(transport.writesConsumed(), 0U);
-    EXPECT_FALSE(transport.last_config_.has_value());
+    EXPECT_FALSE(transport.last_config.has_value());
     EXPECT_THAT(events.logs, IsEmpty());
 }
 

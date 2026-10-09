@@ -67,8 +67,8 @@ class ScriptedUdsChannel final : public IUdsChannel
     fastecu::Result<std::optional<bytes::Bytes>> receive(std::chrono::milliseconds timeout,
                                                          const fastecu::ICancellationToken& cancellation) override
     {
-        last_timeout_ = timeout;
-        timeouts_.push_back(timeout);
+        last_timeout = timeout;
+        timeouts.push_back(timeout);
         if (cancellation.cancelled())
         {
             return fastecu::fail(fastecu::ErrorKind::Cancelled, "scripted UDS receive cancelled");
@@ -82,8 +82,8 @@ class ScriptedUdsChannel final : public IUdsChannel
         return result;
     }
 
-    std::chrono::milliseconds last_timeout_{0};
-    std::vector<std::chrono::milliseconds> timeouts_;
+    std::chrono::milliseconds last_timeout{0};
+    std::vector<std::chrono::milliseconds> timeouts;
 
   private:
     std::vector<bytes::Bytes> expected_;

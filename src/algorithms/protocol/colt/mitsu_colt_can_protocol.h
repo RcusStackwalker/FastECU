@@ -9,7 +9,7 @@
 // Ported from externals/livemonitor/obdengine.cpp + colt_flasher.xml.
 // Request CAN ID 0x7E0, reply CAN ID 0x7E8 (ISO 15765 / UDS-style OBD).
 // Pure, hardware-independent frame builders only — no I/O here.
-namespace MitsuColtCan
+namespace mitsu_colt_can
 {
 
 constexpr bytes::Byte kServiceDiagnosticSession = 0x10;
@@ -128,4 +128,4 @@ bytes::Bytes buildSecurityAccessSeedRequest();
 // SID 0x27/6 (key answer): [SID][0x06][4-byte key].
 bytes::Bytes buildSecurityAccessKey(bytes::ByteView key);
 
-} // namespace MitsuColtCan
+} // namespace mitsu_colt_can

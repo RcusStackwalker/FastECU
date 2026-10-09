@@ -4,7 +4,7 @@
 
 #include <algorithm>
 
-namespace SsmProtocol
+namespace ssm_protocol
 {
 
 namespace
@@ -117,4 +117,4 @@ bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte
     return std::equal(prefix.begin(), prefix.end(), frame.begin() + 4);
 }
 
-} // namespace SsmProtocol
+} // namespace ssm_protocol

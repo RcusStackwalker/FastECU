@@ -108,8 +108,8 @@ class Session
         {
             return fail(ErrorKind::BadResponse, "invalid SH7058 seed");
         }
-        Bytes key = SsmProtocol::calculateSeedKey(bytes::ByteView{*reply}.subspan(6, 4), kSeedTable,
-                                                  SsmProtocol::kIndexTransformationStock);
+        Bytes key = ssm_protocol::calculateSeedKey(bytes::ByteView{*reply}.subspan(6, 4), kSeedTable,
+                                                   ssm_protocol::kIndexTransformationStock);
         Bytes request{0x27, 0x02};
         request.insert(request.end(), key.begin(), key.end());
         return require(request, {0x67, 0x02});
@@ -333,8 +333,8 @@ Result<FlashExecutionResult> SubaruHitachiSh7058CanExecutor::execute(const Flash
     {
         return std::unexpected(status.error());
     }
-    const Bytes encrypted = SsmProtocol::calculatePayload(plan.image_or_empty(), 0x100000, kPayloadTable,
-                                                          SsmProtocol::kIndexTransformationStock);
+    const Bytes encrypted = ssm_protocol::calculatePayload(plan.image_or_empty(), 0x100000, kPayloadTable,
+                                                           ssm_protocol::kIndexTransformationStock);
     if (auto status = session.erase(); !status.has_value())
     {
         return std::unexpected(status.error());

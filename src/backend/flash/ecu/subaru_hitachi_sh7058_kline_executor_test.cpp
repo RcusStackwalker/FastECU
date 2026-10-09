@@ -39,7 +39,8 @@ TEST(SubaruHitachiSh7058KlineExecutor, ReadsEveryPhysicalPageBeforeReturningRom)
         ScriptedKlineFlashTransport transport;
         const auto frame = [](bytes::ByteView payload, bool response)
         {
-            return response ? SsmProtocol::addHeader(payload, 0x10, 0xf0) : SsmProtocol::addHeader(payload, 0xf0, 0x10);
+            return response ? ssm_protocol::addHeader(payload, 0x10, 0xf0)
+                            : ssm_protocol::addHeader(payload, 0xf0, 0x10);
         };
         if (already_active)
         {
@@ -87,16 +88,16 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsShortWrongServiceAndBadChecksumPag
                                                      "SH7058_1block", std::nullopt);
         ASSERT_TRUE(plan.has_value());
         ScriptedKlineFlashTransport transport;
-        transport.exchange(SsmProtocol::addHeader(bytes::Bytes{0xbf}, 0xf0, 0x10),
-                           SsmProtocol::addHeader(bytes::Bytes{0xff}, 0x10, 0xf0));
+        transport.exchange(ssm_protocol::addHeader(bytes::Bytes{0xbf}, 0xf0, 0x10),
+                           ssm_protocol::addHeader(bytes::Bytes{0xff}, 0x10, 0xf0));
         bytes::Bytes payload(fault == 0 ? 128 : 129, 0);
         payload[0] = fault == 1 ? 0xe1 : 0xe0;
-        auto response = SsmProtocol::addHeader(payload, 0x10, 0xf0);
+        auto response = ssm_protocol::addHeader(payload, 0x10, 0xf0);
         if (fault == 2)
         {
             response.back() ^= 0x01U;
         }
-        transport.exchange(SsmProtocol::addHeader(bytes::Bytes{0xa0, 0, 0x10, 0, 0, 0x7f}, 0xf0, 0x10), response);
+        transport.exchange(ssm_protocol::addHeader(bytes::Bytes{0xa0, 0, 0x10, 0, 0, 0x7f}, 0xf0, 0x10), response);
         SubaruHitachiSh7058KlineExecutor executor;
         FakeClock clock;
         FakeCancellationToken cancel;
@@ -119,7 +120,7 @@ TEST(SubaruHitachiSh7058KlineExecutor, CancellationAndBaudFailureStopBeforeAnyRe
         ScriptedKlineFlashTransport transport;
         if (!cancel_first)
         {
-            transport.set_baud_result_ = fail(ErrorKind::Disconnected, "baud failed");
+            transport.set_baud_result = fail(ErrorKind::Disconnected, "baud failed");
         }
         FakeClock clock;
         FakeCancellationToken cancel(cancel_first);
@@ -137,10 +138,10 @@ TEST(SubaruHitachiSh7058KlineExecutor, RejectsMalformedIdentityBeforeBaudSwitch)
                                                  std::nullopt);
     ASSERT_TRUE(plan.has_value());
     ScriptedKlineFlashTransport transport;
-    const auto request = SsmProtocol::addHeader(bytes::Bytes{0xbf}, 0xf0, 0x10);
+    const auto request = ssm_protocol::addHeader(bytes::Bytes{0xbf}, 0xf0, 0x10);
     transport.expectWrite(request);
     transport.queue_no_frame();
-    transport.exchange(request, SsmProtocol::addHeader(bytes::Bytes{0xfe}, 0x10, 0xf0));
+    transport.exchange(request, ssm_protocol::addHeader(bytes::Bytes{0xfe}, 0x10, 0xf0));
     SubaruHitachiSh7058KlineExecutor executor;
     FakeClock clock;
     FakeCancellationToken cancel;

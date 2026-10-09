@@ -43,7 +43,7 @@ TEST(J2534BridgeClient, OpensConnectsAndReadsThroughBridge)
     result = client.PassThruReadMsgs(channelId, &msg, &numMsgs, 100);
     ASSERT_TRUE(result == kJ2534StatusNoerror);
     ASSERT_TRUE(numMsgs == 1);
-    ASSERT_TRUE(msg.DataSize == 4 && msg.Data[0] == 0xDE);
+    ASSERT_TRUE(msg.data_size == 4 && msg.data[0] == 0xDE);
 
     std::printf("All j2534_bridge_client tests passed.\n");
 }

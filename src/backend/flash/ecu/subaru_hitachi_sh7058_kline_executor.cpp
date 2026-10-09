@@ -21,7 +21,7 @@ Result<Bytes> exchange(IKlineFlashTransport& transport, IClock& clock, const ICa
     {
         return fail(ErrorKind::Cancelled, "SH7058 read cancelled");
     }
-    const Bytes frame = SsmProtocol::addHeader(payload, 0xf0, 0x10);
+    const Bytes frame = ssm_protocol::addHeader(payload, 0xf0, 0x10);
     auto written = transport.write(frame);
     if (!written.has_value())
     {
@@ -53,7 +53,7 @@ Result<Bytes> exchange(IKlineFlashTransport& transport, IClock& clock, const ICa
 
 bool valid(bytes::ByteView frame, bytes::Byte service, std::size_t payload_size)
 {
-    return SsmProtocol::hasValidFrame(frame, 0xf0, 0x10) && frame[3] == payload_size && frame[4] == service;
+    return ssm_protocol::hasValidFrame(frame, 0xf0, 0x10) && frame[3] == payload_size && frame[4] == service;
 }
 } // namespace
 
@@ -104,7 +104,7 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::execute(const Fla
         {
             return std::unexpected(identity.error());
         }
-        if (!SsmProtocol::hasValidFrame(*identity, 0xf0, 0x10) || identity->size() < 14 || (*identity)[4] != 0xff)
+        if (!ssm_protocol::hasValidFrame(*identity, 0xf0, 0x10) || identity->size() < 14 || (*identity)[4] != 0xff)
         {
             return fail(ErrorKind::BadResponse, "invalid SH7058 identity response");
         }
@@ -115,7 +115,7 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::execute(const Fla
         {
             return std::unexpected(switched.error());
         }
-        if (!SsmProtocol::hasPayloadPrefix(*switched, Bytes{0xf8}, 0xf0, 0x10))
+        if (!ssm_protocol::hasPayloadPrefix(*switched, Bytes{0xf8}, 0xf0, 0x10))
         {
             return fail(ErrorKind::BadResponse, "SH7058 baud switch rejected");
         }
@@ -128,7 +128,7 @@ Result<FlashExecutionResult> SubaruHitachiSh7058KlineExecutor::execute(const Fla
         {
             return std::unexpected(resumed.error());
         }
-        if (!SsmProtocol::hasPayloadPrefix(*resumed, Bytes{0xff}, 0xf0, 0x10))
+        if (!ssm_protocol::hasPayloadPrefix(*resumed, Bytes{0xff}, 0xf0, 0x10))
         {
             return fail(ErrorKind::BadResponse, "SH7058 connection lost after baud switch");
         }

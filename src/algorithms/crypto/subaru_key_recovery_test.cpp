@@ -111,7 +111,7 @@ TEST(SubaruKeyRecovery, EncryptIsTheSsmPayloadCipher)
         bytes::Bytes encoded;
         bytes::appendU32Be(encoded, plain);
         const bytes::Bytes payload =
-            SsmProtocol::calculatePayload(bytes::ByteView(encoded), 4, kKeys, SsmProtocol::kIndexTransformationStock);
+            ssm_protocol::calculatePayload(bytes::ByteView(encoded), 4, kKeys, ssm_protocol::kIndexTransformationStock);
         ASSERT_EQ(payload.size(), 4U);
         EXPECT_EQ(subaru_key_recovery::encrypt(plain, kKeys), bytes::readU32Be(bytes::ByteView(payload)));
     }

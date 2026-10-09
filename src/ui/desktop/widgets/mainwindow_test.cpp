@@ -1923,7 +1923,7 @@ void MainWindowTest::check_checksumAndSaveUseATemporaryImage()
     ASSERT_EQ(correction.status, fastecu::checksum::ChecksumCorrectionOutcome::Status::FamilyRan);
     ASSERT_TRUE(correction.family_result.has_value());
     ASSERT_TRUE(correction.family_result->ok());
-    const bytes::Bytes corrected = correction.family_result->romData;
+    const bytes::Bytes corrected = correction.family_result->rom_data;
     ASSERT_TRUE(corrected != original);
     ASSERT_TRUE(session->dirty());
 
@@ -2273,7 +2273,7 @@ void MainWindowTest::check_windowPreservesInjectedLoggingFactory()
                                                 .reconnect_retry_period = 20});
     ASSERT_TRUE(session);
     ASSERT_TRUE(services.logging_engine.start(
-        {.protocolId = "SSM"}, {.session = std::move(*session), .response_offsets = {0}, .target_is_ecu = false}));
+        {.protocol_id = "SSM"}, {.session = std::move(*session), .response_offsets = {0}, .target_is_ecu = false}));
     services.logging_engine.stop();
     ASSERT_TRUE(called);
 }
@@ -4327,7 +4327,7 @@ TEST_F(MainWindowTest, copyFromALargerMapPastesIntoASmallerOneThroughItsScaling)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::WidgetsApplicationEnvironment);
 class MainWindowFixtureEnvironment : public ::testing::Environment
 {
@@ -4337,7 +4337,7 @@ class MainWindowFixtureEnvironment : public ::testing::Environment
         MainWindowTest::config_root_.reset();
     }
 };
-const auto *const fixture_environment = ::testing::AddGlobalTestEnvironment(new MainWindowFixtureEnvironment);
+const auto *const kFixtureEnvironment = ::testing::AddGlobalTestEnvironment(new MainWindowFixtureEnvironment);
 } // namespace
 
 void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)

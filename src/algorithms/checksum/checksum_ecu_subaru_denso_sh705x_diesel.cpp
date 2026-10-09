@@ -13,7 +13,7 @@ ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(byt
     using fastecu::checksum::internal::DensoWordOverride;
 
     ChecksumResult result;
-    result.romData.assign(romView.begin(), romView.end());
+    result.rom_data.assign(romView.begin(), romView.end());
     std::array<DensoWordOverride, 1> overrides{};
     std::span<const DensoWordOverride> active_overrides;
     if (checksum_area_start == 0x0FFB80)
@@ -32,7 +32,7 @@ ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(byt
         .table_length = checksum_area_length,
         .overrides = active_overrides,
     };
-    const DensoTableOutcome primary_outcome = fastecu::checksum::internal::correctDensoTable(result.romData, primary);
+    const DensoTableOutcome primary_outcome = fastecu::checksum::internal::correctDensoTable(result.rom_data, primary);
     if (primary_outcome == DensoTableOutcome::Disabled)
     {
         result.status = ChecksumResult::Status::Disabled;
@@ -66,11 +66,11 @@ ChecksumResult ChecksumEcuSubaruDensoSH705xDiesel::calculate_checksum_result(byt
             .table_length = 24,
             .detect_disabled = false,
         };
-        secondary_outcome = fastecu::checksum::internal::correctDensoTable(result.romData, secondary);
+        secondary_outcome = fastecu::checksum::internal::correctDensoTable(result.rom_data, secondary);
         if (secondary_outcome == DensoTableOutcome::InvalidTableRange ||
             secondary_outcome == DensoTableOutcome::InvalidBlockRange)
         {
-            result.romData.assign(romView.begin(), romView.end());
+            result.rom_data.assign(romView.begin(), romView.end());
             result.status = ChecksumResult::Status::InvalidSize;
             result.message = secondary_outcome == DensoTableOutcome::InvalidTableRange
                                  ? "ROM is too small for the configured checksum area"

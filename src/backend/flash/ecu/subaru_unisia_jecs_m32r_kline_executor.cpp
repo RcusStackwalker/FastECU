@@ -66,7 +66,7 @@ Status send(Session& s, bytes::ByteView payload)
     {
         return cancelled;
     }
-    const bytes::Bytes request = SsmProtocol::addHeader(payload, s.wire.tester_id, s.wire.target_id);
+    const bytes::Bytes request = ssm_protocol::addHeader(payload, s.wire.tester_id, s.wire.target_id);
     auto written = s.transport.write(request);
     if (!written.has_value())
     {
@@ -96,7 +96,7 @@ Result<std::optional<bytes::Bytes>> receive(Session& s, std::chrono::millisecond
 
 bool has_sid(bytes::ByteView frame, const SubaruUnisiaJecsM32rKlinePlan& wire, bytes::Byte sid)
 {
-    return SsmProtocol::hasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] >= 1 && frame[4] == sid;
+    return ssm_protocol::hasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] >= 1 && frame[4] == sid;
 }
 
 bool carries_ecu_id(bytes::ByteView frame)
@@ -252,7 +252,7 @@ Result<FlashExecutionResult> read_rom(Session& s, const FlashPlan& plan)
 
 bool is_exact_reply(bytes::ByteView frame, const SubaruUnisiaJecsM32rKlinePlan& wire, bytes::ByteView payload)
 {
-    return SsmProtocol::hasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] == payload.size() &&
+    return ssm_protocol::hasValidFrame(frame, wire.tester_id, wire.target_id) && frame[3] == payload.size() &&
            std::ranges::equal(frame.subspan(4, payload.size()), payload);
 }
 

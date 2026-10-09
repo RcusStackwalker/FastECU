@@ -69,7 +69,7 @@ TEST(TestDesktopCanFlashTransport, configureChecksEveryBooleanSetterInOrderAndSt
 struct ConfigureFailsAtEachRemainingSetterInTurnCase
 {
     std::string name;
-    int setterIndex;
+    int setter_index;
 };
 class ConfigureFailsAtEachRemainingSetterInTurnParameters
     : public ::testing::Test,
@@ -97,7 +97,7 @@ INSTANTIATE_TEST_SUITE_P(
 // InvalidConfig return path independently.
 TEST_P(ConfigureFailsAtEachRemainingSetterInTurnParameters, configureFailsAtEachRemainingSetterInTurn)
 {
-    const int setterIndex = GetParam().setterIndex;
+    const int setterIndex = GetParam().setter_index;
 
     FakeBackedSerial serial;
 
@@ -814,6 +814,6 @@ TEST(TestDesktopCanFlashTransport, fakeBackendReportsScriptedPortListAndBattery)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
 }

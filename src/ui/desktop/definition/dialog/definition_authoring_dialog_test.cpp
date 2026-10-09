@@ -54,7 +54,7 @@ class AuthoringDialogEnvironment final : public ::testing::Environment
     std::unique_ptr<QApplication> app_;
 };
 
-const auto *authoring_dialog_environment = ::testing::AddGlobalTestEnvironment(new AuthoringDialogEnvironment);
+const auto *const kAuthoringDialogEnvironment = ::testing::AddGlobalTestEnvironment(new AuthoringDialogEnvironment);
 
 } // namespace
 
@@ -166,23 +166,24 @@ class DefinitionAuthoringFlow : public testing::Test
   protected:
     void SetUp() override
     {
-        ASSERT_THAT(config.initialize(), fastecu::testing::IsOk());
-        ASSERT_TRUE(root.isValid());
-        config.session.settings().ecuflash_definition_files_directory = root.path().toStdString();
+        ASSERT_THAT(config_.initialize(), fastecu::testing::IsOk());
+        ASSERT_TRUE(root_.isValid());
+        config_.session.settings().ecuflash_definition_files_directory = root_.path().toStdString();
     }
 
-    QTemporaryDir root;
-    fastecu::config::testing::ConfigSessionFixture config;
-    fastecu::InMemoryAtomicFileWriter writer;
-    fastecu::definition::DefinitionService service{config.file_system, config.file_repository, writer};
-    fastecu::definition::DefinitionCatalogSession catalogs{service, config.session, config.file_system, config.events};
-    QWidget parent;
-    DefinitionAuthoringDialog dialog{catalogs, config.session, config.file_repository, &parent};
+    QTemporaryDir root_;
+    fastecu::config::testing::ConfigSessionFixture config_;
+    fastecu::InMemoryAtomicFileWriter writer_;
+    fastecu::definition::DefinitionService service_{config_.file_system, config_.file_repository, writer_};
+    fastecu::definition::DefinitionCatalogSession catalogs_{service_, config_.session, config_.file_system,
+                                                            config_.events};
+    QWidget parent_;
+    DefinitionAuthoringDialog dialog_{catalogs_, config_.session, config_.file_repository, &parent_};
 };
 
 TEST_F(DefinitionAuthoringFlow, CancelledCreateDoesNotWriteOrRegister)
 {
-    QTimer::singleShot(0, &dialog,
+    QTimer::singleShot(0, &dialog_,
                        []
                        {
                            if (auto *modal = qobject_cast<QDialog *>(QApplication::activeModalWidget()))
@@ -190,9 +191,9 @@ TEST_F(DefinitionAuthoringFlow, CancelledCreateDoesNotWriteOrRegister)
                                modal->reject();
                            }
                        });
-    EXPECT_TRUE(dialog.create_new_definition());
-    EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
-    EXPECT_EQ(catalogs.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
+    EXPECT_TRUE(dialog_.create_new_definition());
+    EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
+    EXPECT_EQ(catalogs_.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
 }
 
 TEST_F(DefinitionAuthoringFlow, CancelledImportAndRetryDoesNotWriteOrRegister)
@@ -207,9 +208,9 @@ TEST_F(DefinitionAuthoringFlow, CancelledImportAndRetryDoesNotWriteOrRegister)
                          }
                      });
     driver.start(1);
-    EXPECT_TRUE(dialog.use_existing_definition());
-    EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
-    EXPECT_EQ(catalogs.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
+    EXPECT_TRUE(dialog_.use_existing_definition());
+    EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
+    EXPECT_EQ(catalogs_.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, "NEW_XML"), std::nullopt);
 }
 
 TEST_F(DefinitionAuthoringFlow, InvalidHeaderDoesNotWriteOrRegister)
@@ -220,7 +221,7 @@ TEST_F(DefinitionAuthoringFlow, InvalidHeaderDoesNotWriteOrRegister)
                      {
                          if (auto *picker = qobject_cast<QFileDialog *>(QApplication::activeModalWidget()))
                          {
-                             picker->selectFile(root.filePath("invalid.xml"));
+                             picker->selectFile(root_.filePath("invalid.xml"));
                              QMetaObject::invokeMethod(picker, "accept", Qt::DirectConnection);
                          }
                          else if (auto *modal = qobject_cast<QDialog *>(QApplication::activeModalWidget()))
@@ -229,19 +230,19 @@ TEST_F(DefinitionAuthoringFlow, InvalidHeaderDoesNotWriteOrRegister)
                          }
                      });
     driver.start(1);
-    EXPECT_FALSE(dialog.create_new_definition());
-    EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
-    EXPECT_EQ(catalogs.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, ""), std::nullopt);
+    EXPECT_FALSE(dialog_.create_new_definition());
+    EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
+    EXPECT_EQ(catalogs_.indexed_source(fastecu::definition::DefinitionFormat::EcuFlash, ""), std::nullopt);
 }
 
 TEST_F(DefinitionAuthoringFlow, MalformedImportReportsErrorWithoutOpeningAnEditableHeader)
 {
-    const auto path = root.filePath("malformed.xml");
+    const auto path = root_.filePath("malformed.xml");
     QFile source(path);
     ASSERT_TRUE(source.open(QIODevice::WriteOnly));
     source.write("<rom><romid>");
     source.close();
-    config.file_repository.files[path.toStdString()] = {'<', 'r', 'o', 'm', '>', '<', 'r', 'o', 'm', 'i', 'd', '>'};
+    config_.file_repository.files[path.toStdString()] = {'<', 'r', 'o', 'm', '>', '<', 'r', 'o', 'm', 'i', 'd', '>'};
     bool header_opened = false;
     bool error_shown = false;
     QTimer driver;
@@ -265,10 +266,10 @@ TEST_F(DefinitionAuthoringFlow, MalformedImportReportsErrorWithoutOpeningAnEdita
                          }
                      });
     driver.start(1);
-    EXPECT_FALSE(dialog.use_existing_definition());
+    EXPECT_FALSE(dialog_.use_existing_definition());
     EXPECT_TRUE(error_shown);
     EXPECT_FALSE(header_opened);
-    EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
+    EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
 }
 
 TEST_F(DefinitionAuthoringFlow, Utf16ImportOpensDecodedHeaderBeforeAnyWrite)
@@ -281,12 +282,12 @@ TEST_F(DefinitionAuthoringFlow, Utf16ImportOpensDecodedHeaderBeforeAnyWrite)
         bytes.push_back(static_cast<std::uint8_t>(value & 0xff));
         bytes.push_back(static_cast<std::uint8_t>(value >> 8));
     }
-    const auto path = root.filePath("utf16.xml");
+    const auto path = root_.filePath("utf16.xml");
     QFile source(path);
     ASSERT_TRUE(source.open(QIODevice::WriteOnly));
     source.write(reinterpret_cast<const char *>(bytes.data()), static_cast<qint64>(bytes.size()));
     source.close();
-    config.file_repository.files[path.toStdString()] = bytes;
+    config_.file_repository.files[path.toStdString()] = bytes;
     bool header_opened = false;
     bool error_shown = false;
     QString imported_id;
@@ -316,10 +317,10 @@ TEST_F(DefinitionAuthoringFlow, Utf16ImportOpensDecodedHeaderBeforeAnyWrite)
                          }
                      });
     driver.start(1);
-    EXPECT_TRUE(dialog.use_existing_definition());
+    EXPECT_TRUE(dialog_.use_existing_definition());
     EXPECT_TRUE(header_opened);
     EXPECT_FALSE(error_shown);
     EXPECT_EQ(imported_id, QString::fromUtf8("CAF\xc3\xa9"));
-    EXPECT_THAT(writer.replace_calls, testing::IsEmpty());
+    EXPECT_THAT(writer_.replace_calls, testing::IsEmpty());
 }
 } // namespace

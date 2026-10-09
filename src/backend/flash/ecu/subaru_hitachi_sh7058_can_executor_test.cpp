@@ -106,7 +106,7 @@ TEST(SubaruHitachiSh7058CanExecutor, ActiveKernelWritesAll4096Frames)
     ASSERT_TRUE(plan.has_value());
     constexpr std::array<std::uint16_t, 4> kKeys{0x14ca, 0x77f4, 0x973c, 0xf50e};
     const auto encrypted =
-        SsmProtocol::calculatePayload(image, 0x100000, kKeys, SsmProtocol::kIndexTransformationStock);
+        ssm_protocol::calculatePayload(image, 0x100000, kKeys, ssm_protocol::kIndexTransformationStock);
     ASSERT_GE(encrypted.size(), 4U);
     EXPECT_EQ(bytes::Bytes(encrypted.begin(), encrypted.begin() + 4), (bytes::Bytes{0x08, 0x03, 0xfd, 0x11}));
     const auto frame = [](bytes::ByteView payload)

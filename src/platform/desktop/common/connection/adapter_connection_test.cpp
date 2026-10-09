@@ -218,6 +218,6 @@ TEST(TestAdapterConnection, exposesTheSameFacade)
 
 namespace
 {
-const auto *const application_environment =
+const auto *const kApplicationEnvironment =
     ::testing::AddGlobalTestEnvironment(new fastecu::testing::CoreApplicationEnvironment);
 }

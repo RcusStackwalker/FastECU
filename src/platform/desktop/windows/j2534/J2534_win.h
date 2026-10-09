@@ -22,8 +22,8 @@
 
 // name is token-pasted into a type and a member name, so it cannot be parenthesized.
 // NOLINTNEXTLINE(bugprone-macro-parentheses)
-#define PTfn(name) PF_##name *pf##name
-#define PText(name) PT_API PF_##name name
+#define PTfn(name) Pf##name *pf##name
+#define PText(name) PT_API Pf##name name
 
 class J2534
 {
@@ -32,7 +32,7 @@ class J2534
     ~J2534();
 
     bool serial_port_protocol_iso14230 = false;
-    bool J2534_init_ok = false;
+    bool j2534_init_ok = false;
 
     // Matches J2534_unix.h's contract: PassThruReadVersion's out-parameters
     // must each point at a buffer of at least this many bytes.

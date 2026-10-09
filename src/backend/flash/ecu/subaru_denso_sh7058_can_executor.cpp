@@ -303,7 +303,7 @@ Result<bytes::Bytes> security_key(Context& context, bytes::ByteView seed, const 
         return denso_seed_key(seed);
     case SubaruDensoSh7058CanSecurity::EcuTek:
         info(context, "Using EcuTek seed key algo");
-        return SsmProtocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, kEcuTekIndexTransformation);
+        return ssm_protocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, kEcuTekIndexTransformation);
     case SubaruDensoSh7058CanSecurity::RaceRom:
     {
         info(context, "Using EcuTek RaceRom RSA algo");
@@ -319,7 +319,7 @@ Result<bytes::Bytes> security_key(Context& context, bytes::ByteView seed, const 
             return fail(ErrorKind::BadResponse, "RaceRom-alt RAM values are unavailable");
         }
         info(context, "Using EcuTek seed key algo");
-        bytes::Bytes key = SsmProtocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, kEcuTekIndexTransformation);
+        bytes::Bytes key = ssm_protocol::calculateSeedKey(seed, kDensoIso15765SeedKeyTable, kEcuTekIndexTransformation);
         std::uint32_t altered = bytes::readU32Be(key);
         constexpr std::uint32_t kXorMultiplier = 0x01000193U;
         altered = ((alt->seed_alter ^ altered) ^ alt->xor_byte_1) * kXorMultiplier;
@@ -330,7 +330,7 @@ Result<bytes::Bytes> security_key(Context& context, bytes::ByteView seed, const 
     }
     case SubaruDensoSh7058CanSecurity::Cobb:
         info(context, "Using COBB seed key algo");
-        return SsmProtocol::calculateSeedKey(seed, kCobbSeedTable, SsmProtocol::kIndexTransformationStock);
+        return ssm_protocol::calculateSeedKey(seed, kCobbSeedTable, ssm_protocol::kIndexTransformationStock);
     }
     return fail(ErrorKind::Internal, "unknown petrol security variant");
 }

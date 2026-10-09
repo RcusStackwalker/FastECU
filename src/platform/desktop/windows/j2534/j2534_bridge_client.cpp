@@ -128,7 +128,7 @@ long J2534BridgeClient::PassThruOpen(const void *pName, unsigned long *pDeviceID
     PassThruOpenRequest req{};
     if (pName)
     {
-        req.hasName = true;
+        req.has_name = true;
         strncpy_s(req.name.data(), req.name.size(), static_cast<const char *>(pName), req.name.size() - 1);
     }
     if (!writeFrame(toChildWrite_, Function::PassThruOpen, &req, sizeof(req)))
@@ -142,7 +142,7 @@ long J2534BridgeClient::PassThruOpen(const void *pName, unsigned long *pDeviceID
         stop();
         return kJ2534ErrFailed;
     }
-    *pDeviceID = resp.deviceId;
+    *pDeviceID = resp.device_id;
     return resp.result;
 }
 
@@ -178,7 +178,7 @@ long J2534BridgeClient::PassThruConnect(unsigned long DeviceID, unsigned long Pr
         stop();
         return kJ2534ErrFailed;
     }
-    *pChannelID = resp.channelId;
+    *pChannelID = resp.channel_id;
     return resp.result;
 }
 
@@ -215,7 +215,7 @@ long J2534BridgeClient::PassThruReadMsgs(unsigned long ChannelID, PassThruMsg *p
         return kJ2534ErrFailed;
     }
     *pMsg = resp.msg;
-    *pNumMsgs = resp.numMsgs;
+    *pNumMsgs = resp.num_msgs;
     return resp.result;
 }
 
@@ -223,7 +223,7 @@ long J2534BridgeClient::PassThruWriteMsgs(unsigned long ChannelID, const PassThr
                                           unsigned long Timeout)
 {
     PassThruWriteMsgsRequest req{};
-    req.channelId = ChannelID;
+    req.channel_id = ChannelID;
     req.timeout = Timeout;
     if (pMsg)
     {
@@ -242,7 +242,7 @@ long J2534BridgeClient::PassThruWriteMsgs(unsigned long ChannelID, const PassThr
     }
     if (pNumMsgs)
     {
-        *pNumMsgs = resp.numMsgs;
+        *pNumMsgs = resp.num_msgs;
     }
     return resp.result;
 }
@@ -251,8 +251,8 @@ long J2534BridgeClient::PassThruStartPeriodicMsg(unsigned long ChannelID, const 
                                                  unsigned long *pMsgID, unsigned long TimeInterval)
 {
     PassThruStartPeriodicMsgRequest req{};
-    req.channelId = ChannelID;
-    req.timeInterval = TimeInterval;
+    req.channel_id = ChannelID;
+    req.time_interval = TimeInterval;
     if (pMsg)
     {
         req.msg = *pMsg;
@@ -268,7 +268,7 @@ long J2534BridgeClient::PassThruStartPeriodicMsg(unsigned long ChannelID, const 
         stop();
         return kJ2534ErrFailed;
     }
-    *pMsgID = resp.msgId;
+    *pMsgID = resp.msg_id;
     return resp.result;
 }
 
@@ -294,20 +294,20 @@ long J2534BridgeClient::PassThruStartMsgFilter(unsigned long ChannelID, unsigned
                                                const PassThruMsg *pFlowControlMsg, unsigned long *pMsgID)
 {
     PassThruStartMsgFilterRequest req{};
-    req.channelId = ChannelID;
-    req.filterType = FilterType;
+    req.channel_id = ChannelID;
+    req.filter_type = FilterType;
     if (pMaskMsg)
     {
-        req.maskMsg = *pMaskMsg;
+        req.mask_msg = *pMaskMsg;
     }
     if (pPatternMsg)
     {
-        req.patternMsg = *pPatternMsg;
+        req.pattern_msg = *pPatternMsg;
     }
-    req.hasFlowControlMsg = (pFlowControlMsg != nullptr);
+    req.has_flow_control_msg = (pFlowControlMsg != nullptr);
     if (pFlowControlMsg)
     {
-        req.flowControlMsg = *pFlowControlMsg;
+        req.flow_control_msg = *pFlowControlMsg;
     }
     if (!writeFrame(toChildWrite_, Function::PassThruStartMsgFilter, &req, sizeof(req)))
     {
@@ -320,7 +320,7 @@ long J2534BridgeClient::PassThruStartMsgFilter(unsigned long ChannelID, unsigned
         stop();
         return kJ2534ErrFailed;
     }
-    *pMsgID = resp.msgId;
+    *pMsgID = resp.msg_id;
     return resp.result;
 }
 
@@ -378,15 +378,15 @@ long J2534BridgeClient::PassThruReadVersion(char *pApiVersion, char *pDllVersion
     // convention; copy that whole fixed shape back to the caller's buffer.
     if (pApiVersion)
     {
-        std::memcpy(pApiVersion, resp.apiVersion.data(), resp.apiVersion.size());
+        std::memcpy(pApiVersion, resp.api_version.data(), resp.api_version.size());
     }
     if (pDllVersion)
     {
-        std::memcpy(pDllVersion, resp.dllVersion.data(), resp.dllVersion.size());
+        std::memcpy(pDllVersion, resp.dll_version.data(), resp.dll_version.size());
     }
     if (pFirmwareVersion)
     {
-        std::memcpy(pFirmwareVersion, resp.firmwareVersion.data(), resp.firmwareVersion.size());
+        std::memcpy(pFirmwareVersion, resp.firmware_version.data(), resp.firmware_version.size());
     }
     return resp.result;
 }
@@ -407,7 +407,7 @@ long J2534BridgeClient::PassThruGetLastError(char *pErrorDescription)
     }
     if (pErrorDescription)
     {
-        std::memcpy(pErrorDescription, resp.errorDescription.data(), resp.errorDescription.size());
+        std::memcpy(pErrorDescription, resp.error_description.data(), resp.error_description.size());
     }
     return resp.result;
 }
@@ -415,15 +415,15 @@ long J2534BridgeClient::PassThruGetLastError(char *pErrorDescription)
 long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const void *pInput, void *pOutput)
 {
     PassThruIoctlRequest req{};
-    req.channelId = ChannelID;
-    req.ioctlId = IoctlID;
+    req.channel_id = ChannelID;
+    req.ioctl_id = IoctlID;
 
     // Mirror image of j2534_bridge_host/main.cpp's handlePassThruIoctl: that
     // function unpacks the typed Request fields back into the SConfigList/
     // SByteArray/unsigned-long* shapes PassThruIoctl's vendor signature
     // expects; here we pack the caller's pInput into those same Request
     // fields before sending. IoctlIDs the host doesn't give a typed shape to
-    // are sent as a bare request (channelId/ioctlId only) and rejected by
+    // are sent as a bare request (channel_id/ioctl_id only) and rejected by
     // the host's own default case with ERR_INVALID_IOCTL_ID -- no need to
     // duplicate that validation on the client side.
     switch (IoctlID)
@@ -431,15 +431,15 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
     case kJ2534SetConfig:
     {
         const auto *scl = static_cast<const SConfigList *>(pInput);
-        constexpr unsigned long kMaxConfigParams = std::tuple_size_v<decltype(req.configParams)>;
-        if (!scl || scl->NumOfParams > kMaxConfigParams)
+        constexpr unsigned long kMaxConfigParams = std::tuple_size_v<decltype(req.config_params)>;
+        if (!scl || scl->num_of_params > kMaxConfigParams)
         {
             return kJ2534ErrFailed;
         }
-        req.numConfigParams = scl->NumOfParams;
-        for (unsigned long i = 0; i < scl->NumOfParams; ++i)
+        req.num_config_params = scl->num_of_params;
+        for (unsigned long i = 0; i < scl->num_of_params; ++i)
         {
-            req.configParams[i] = scl->ConfigPtr[i];
+            req.config_params[i] = scl->config_ptr[i];
         }
         break;
     }
@@ -447,12 +447,12 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
     case kJ2534FastInit:
     {
         const auto *inArr = static_cast<const SByteArray *>(pInput);
-        if (!inArr || inArr->NumOfBytes > req.inputBytes.size())
+        if (!inArr || inArr->num_of_bytes > req.input_bytes.size())
         {
             return kJ2534ErrFailed;
         }
-        req.inputByteCount = inArr->NumOfBytes;
-        std::memcpy(req.inputBytes.data(), inArr->BytePtr, inArr->NumOfBytes);
+        req.input_byte_count = inArr->num_of_bytes;
+        std::memcpy(req.input_bytes.data(), inArr->byte_ptr, inArr->num_of_bytes);
         break;
     }
     case kJ2534ReadVbatt:
@@ -488,13 +488,13 @@ long J2534BridgeClient::PassThruIoctl(unsigned long ChannelID, unsigned long Ioc
         auto *outArr = static_cast<SByteArray *>(pOutput);
         if (outArr)
         {
-            unsigned long n = resp.outputByteCount;
-            if (n > outArr->NumOfBytes)
+            unsigned long n = resp.output_byte_count;
+            if (n > outArr->num_of_bytes)
             {
-                n = outArr->NumOfBytes; // never overflow the caller's buffer
+                n = outArr->num_of_bytes; // never overflow the caller's buffer
             }
-            std::memcpy(outArr->BytePtr, resp.outputBytes.data(), n);
-            outArr->NumOfBytes = n;
+            std::memcpy(outArr->byte_ptr, resp.output_bytes.data(), n);
+            outArr->num_of_bytes = n;
         }
         break;
     }

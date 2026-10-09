@@ -35,7 +35,7 @@ enum class SessionEndReason
 
 struct LogSessionConfig
 {
-    QString protocolId;
+    QString protocol_id;
 };
 
 using LoggingProtocolFactory =
@@ -73,6 +73,10 @@ class LoggingEngine final : public QObject
     void publishCompletionOnce(SessionEndReason reason, QString detail);
     void reportStartError(const fastecu::Error& error);
 
+    // Private, but desktop_logging_protocol_registration_test.cpp and
+    // desktop_composition_test.cpp compile this header under `#define private
+    // public`, where clang-tidy would see these as public members.
+    // NOLINTBEGIN(readability-identifier-naming)
     QMap<QString, LoggingProtocolFactory> registrations_;
     std::optional<DesktopLoggingSnapshot> active_snapshot_;
     std::unique_ptr<fastecu::logging::LoggingProtocol> active_protocol_;
@@ -85,6 +89,7 @@ class LoggingEngine final : public QObject
     bool explicit_stop_pending_ = false;
     bool destroying_ = false;
     bool completion_published_ = false;
+    // NOLINTEND(readability-identifier-naming)
 };
 
 } // namespace fastecu::desktop::logging

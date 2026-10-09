@@ -5,7 +5,7 @@
 #include <array>
 #include <cstdint>
 
-namespace SsmProtocol
+namespace ssm_protocol
 {
 
 using SeedKeyToGenerateIndex = std::span<const std::uint16_t, 16>;
@@ -47,4 +47,4 @@ bytes::Bytes addHeader(bytes::ByteView output, bytes::Byte testerId, bytes::Byte
 bool hasValidFrame(bytes::ByteView frame, bytes::Byte receiverId, bytes::Byte senderId);
 bool hasPayloadPrefix(bytes::ByteView frame, bytes::ByteView prefix, bytes::Byte receiverId, bytes::Byte senderId);
 
-} // namespace SsmProtocol
+} // namespace ssm_protocol
