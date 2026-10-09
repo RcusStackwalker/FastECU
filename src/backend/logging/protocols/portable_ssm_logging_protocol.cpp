@@ -103,7 +103,8 @@ fastecu::Result<bytes::Bytes> SsmLoggingProtocol::readFramedResponse(std::chrono
             {
                 // Continuous SSM replies can arrive consecutively or in one read.
                 // Validate one frame at a time and retain the following bytes.
-                pending_response_bytes_.assign(received.begin() + frame_size, received.end());
+                pending_response_bytes_.assign(received.begin() + static_cast<std::ptrdiff_t>(frame_size),
+                                               received.end());
                 received.resize(frame_size);
                 return received;
             }
