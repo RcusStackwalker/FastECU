@@ -128,6 +128,17 @@ const LoggingChannel *LoggingSession::FindChannel(std::string_view id) const
     return nullptr;
 }
 
+fastecu::Status ValidateLoggingChannel(LoggingProtocolId protocol, const LoggingChannel& channel)
+{
+    if (!ValidProtocol(protocol) || channel.id.empty() || channel.length == 0 || channel.length > 255 ||
+        !ValidAddress(protocol, channel.address) || !ValidRawAssembly(channel.raw_assembly) ||
+        channel.decimal_precision > 15 || !ValidExpression(channel))
+    {
+        return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid logging channel");
+    }
+    return {};
+}
+
 fastecu::Result<LoggingSession> MakeLoggingSession(LoggingProtocolId protocol, std::vector<LoggingChannel> channels,
                                                    LoggingPolicy policy)
 {
@@ -144,9 +155,7 @@ fastecu::Result<LoggingSession> MakeLoggingSession(LoggingProtocolId protocol, s
     std::unordered_set<std::string> ids;
     for (const LoggingChannel& channel : channels)
     {
-        if (channel.id.empty() || !ids.insert(channel.id).second || channel.length == 0 || channel.length > 255 ||
-            !ValidAddress(protocol, channel.address) || !ValidRawAssembly(channel.raw_assembly) ||
-            channel.decimal_precision > 15 || !ValidExpression(channel))
+        if (!ids.insert(channel.id).second || !ValidateLoggingChannel(protocol, channel).has_value())
         {
             return fastecu::Fail(fastecu::ErrorKind::kInvalidConfig, "invalid logging channel");
         }

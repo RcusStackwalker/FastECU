@@ -197,3 +197,20 @@ TEST(LoggingSessionTest, RejectsProtocolSpecificWireShapesBeforeIo)
     EXPECT_THAT(MakeLoggingSession(LoggingProtocolId::kMutDma, std::move(too_many_mut_channels), ValidPolicy()),
                 ::testing::Not(fastecu::testing::IsOk()));
 }
+
+TEST(LoggingChannelValidation, SharesExistingBoundsAndExpressionProbes)
+{
+    auto channel = Channel("rpm", 0x10);
+    EXPECT_THAT(ValidateLoggingChannel(LoggingProtocolId::kSsm, channel), fastecu::testing::IsOk());
+    channel.address = 0x1000000;
+    EXPECT_THAT(ValidateLoggingChannel(LoggingProtocolId::kSsm, channel),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+    channel.address = 0x10;
+    channel.from_byte_expression = "1/(x-1)";
+    EXPECT_THAT(ValidateLoggingChannel(LoggingProtocolId::kSsm, channel), fastecu::testing::IsOk());
+    channel.from_byte_expression = "+(x*1e2)";
+    EXPECT_THAT(ValidateLoggingChannel(LoggingProtocolId::kSsm, channel), fastecu::testing::IsOk());
+    channel.from_byte_expression = "x+";
+    EXPECT_THAT(ValidateLoggingChannel(LoggingProtocolId::kSsm, channel),
+                fastecu::testing::IsErr(fastecu::ErrorKind::kInvalidConfig));
+}
