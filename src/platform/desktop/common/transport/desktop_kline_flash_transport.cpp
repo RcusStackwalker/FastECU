@@ -91,8 +91,8 @@ Status DesktopKlineFlashTransport::open()
         // on every failure path -- the brief's original guess of "empty
         // QString means failure" happened to be correct here (unlike
         // change_port_speed()'s sentinel below in setBaud()).
-        const QString openResult = serial_->open_serial_port();
-        if (openResult.isEmpty())
+        const QString open_result = serial_->open_serial_port();
+        if (open_result.isEmpty())
         {
             return fail(ErrorKind::kDisconnected, "open_serial_port failed");
         }

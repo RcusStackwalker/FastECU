@@ -15,8 +15,8 @@ inline ByteView view(const QByteArray& bytes)
 
 inline Bytes fromQByteArray(const QByteArray& bytes)
 {
-    const auto byteView = view(bytes);
-    return Bytes(byteView.begin(), byteView.end());
+    const auto byte_view = view(bytes);
+    return Bytes(byte_view.begin(), byte_view.end());
 }
 
 inline QByteArray toQByteArray(ByteView bytes)

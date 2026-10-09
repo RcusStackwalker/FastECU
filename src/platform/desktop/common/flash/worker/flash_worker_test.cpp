@@ -125,24 +125,24 @@ TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWa
     ASSERT_TRUE(plan.has_value());
 
     auto transport = std::make_unique<ScriptedKlineFlashTransport>();
-    ScriptedKlineFlashTransport *rawTransport = transport.get();
+    ScriptedKlineFlashTransport *raw_transport = transport.get();
     // connect_bootloader()'s initial kernel-alive probe: the write must
     // be scripted so it succeeds, so the ensuing read() is the one that
     // actually blocks.
-    rawTransport->expectWrite(requestKernelIdRequest());
-    rawTransport->queueBlockingRead();
+    raw_transport->expectWrite(requestKernelIdRequest());
+    raw_transport->queueBlockingRead();
 
     FlashWorker worker(
         FlashAttempt{fastecu::flash::bind_flash_attempt(
                          std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport)),
                      std::make_unique<FakeClock>()});
-    fastecu::testing::SignalRecorder finishedSpy(&worker, &FlashWorker::finished);
+    fastecu::testing::SignalRecorder finished_spy(&worker, &FlashWorker::finished);
 
     worker.start();
     // Wait on the transport's own condition variable, not a fixed sleep:
     // requestStop() must land while read() is genuinely blocked for this
     // test to prove anything about unblocking.
-    ASSERT_TRUE(rawTransport->waitUntilBlockingReadEntered(std::chrono::milliseconds(2000)));
+    ASSERT_TRUE(raw_transport->waitUntilBlockingReadEntered(std::chrono::milliseconds(2000)));
     worker.requestStop();
 
     QElapsedTimer timer;
@@ -161,11 +161,11 @@ TEST(TestFlashWorker, closingWhileReadIsBlocked_cancelsUnblocksAndJoinsWithoutWa
     // completes in well under the 2000ms test timeout budget.
     ASSERT_TRUE(timer.elapsed() < 500);
 
-    ASSERT_EQ(finishedSpy.count(), 1U);
-    auto result = std::get<0>(finishedSpy.snapshot().at(0));
+    ASSERT_EQ(finished_spy.count(), 1U);
+    auto result = std::get<0>(finished_spy.snapshot().at(0));
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::kCancelled);
-    ASSERT_EQ(rawTransport->close_call_count, 1);
+    ASSERT_EQ(raw_transport->close_call_count, 1);
 }
 
 TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
@@ -182,7 +182,7 @@ TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
         FlashAttempt{fastecu::flash::bind_flash_attempt(
                          std::move(*plan), std::make_unique<DensoSh705xEepromKlineExecutor>(), std::move(transport)),
                      std::make_unique<FakeClock>()});
-    fastecu::testing::SignalRecorder finishedSpy(&worker, &FlashWorker::finished);
+    fastecu::testing::SignalRecorder finished_spy(&worker, &FlashWorker::finished);
 
     worker.start();
     // Joining is both necessary and sufficient: run() emits finished last,
@@ -194,8 +194,8 @@ TEST(TestFlashWorker, oneAndOnlyOneTerminalResultIsEmitted)
     // arrive before asserting there is exactly one.
     fastecu::testing::process_events_for(std::chrono::milliseconds(50));
 
-    ASSERT_EQ(finishedSpy.count(), 1U);
-    auto result = std::get<0>(finishedSpy.snapshot().at(0));
+    ASSERT_EQ(finished_spy.count(), 1U);
+    auto result = std::get<0>(finished_spy.snapshot().at(0));
     ASSERT_TRUE(!result.success);
     ASSERT_EQ(result.error_kind, ErrorKind::kInvalidConfig);
 }
@@ -207,22 +207,22 @@ TEST(TestFlashWorker, phaseProgressIsForwardedAlongsideLegacyProgress)
 
     auto attempt = std::make_unique<FakeBoundAttempt>(std::move(*plan));
     FlashWorker worker(FlashAttempt{std::move(attempt), std::make_unique<FakeClock>()});
-    fastecu::testing::SignalRecorder legacySpy(&worker, &FlashWorker::progressChanged);
-    fastecu::testing::SignalRecorder phaseSpy(&worker, &FlashWorker::phaseProgressChanged);
+    fastecu::testing::SignalRecorder legacy_spy(&worker, &FlashWorker::progressChanged);
+    fastecu::testing::SignalRecorder phase_spy(&worker, &FlashWorker::phaseProgressChanged);
 
     worker.start();
     ASSERT_TRUE(worker.wait(2000));
     QCoreApplication::processEvents();
 
-    ASSERT_EQ(legacySpy.count(), 1U);
-    ASSERT_EQ(std::get<0>(legacySpy.snapshot().at(0)), 1);
-    ASSERT_EQ(std::get<1>(legacySpy.snapshot().at(0)), 1);
-    ASSERT_EQ(phaseSpy.count(), 1U);
-    ASSERT_EQ(std::get<0>(phaseSpy.snapshot().at(0)), QString("Connect to ECU"));
-    ASSERT_EQ(std::get<1>(phaseSpy.snapshot().at(0)), 1);
-    ASSERT_EQ(std::get<2>(phaseSpy.snapshot().at(0)), 2);
-    ASSERT_EQ(std::get<3>(phaseSpy.snapshot().at(0)), 1);
-    ASSERT_EQ(std::get<4>(phaseSpy.snapshot().at(0)), 1);
+    ASSERT_EQ(legacy_spy.count(), 1U);
+    ASSERT_EQ(std::get<0>(legacy_spy.snapshot().at(0)), 1);
+    ASSERT_EQ(std::get<1>(legacy_spy.snapshot().at(0)), 1);
+    ASSERT_EQ(phase_spy.count(), 1U);
+    ASSERT_EQ(std::get<0>(phase_spy.snapshot().at(0)), QString("Connect to ECU"));
+    ASSERT_EQ(std::get<1>(phase_spy.snapshot().at(0)), 1);
+    ASSERT_EQ(std::get<2>(phase_spy.snapshot().at(0)), 2);
+    ASSERT_EQ(std::get<3>(phase_spy.snapshot().at(0)), 1);
+    ASSERT_EQ(std::get<4>(phase_spy.snapshot().at(0)), 1);
 }
 
 namespace

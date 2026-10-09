@@ -26,7 +26,7 @@ class SerialPortActions : public QObject
     Q_OBJECT
 
   signals:
-    void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
+    void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
     void LOG_E(QString message, bool timestamp, bool linefeed);
     void LOG_W(QString message, bool timestamp, bool linefeed);
     void LOG_I(QString message, bool timestamp, bool linefeed);
@@ -152,7 +152,7 @@ class SerialPortActions : public QObject
     int set_j2534_ioctl(uint32_t parameter, int value);
 
     bool is_serial_port_open(void);
-    int change_port_speed(const QString& portSpeed);
+    int change_port_speed(const QString& port_speed);
     QByteArray five_baud_init(const QByteArray& output);
     int fast_init(const QByteArray& output);
     int set_lec_lines(int lec1, int lec2);

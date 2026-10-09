@@ -104,11 +104,11 @@ TEST(QtFileSystemTest, ListDirectoryIdentifiesDirectorySymlink)
     }
 
     QtFileSystem fs;
-    auto nestedEntries = fs.list_directory(nested.toStdString());
-    ASSERT_THAT(nestedEntries, fastecu::testing::IsOk());
-    const auto loopEntry = std::find_if(nestedEntries->begin(), nestedEntries->end(),
-                                        [](const fastecu::DirEntry& entry) { return entry.name == "loop"; });
-    ASSERT_NE(loopEntry, nestedEntries->end());
-    EXPECT_TRUE(loopEntry->is_directory);
-    EXPECT_TRUE(loopEntry->is_symlink);
+    auto nested_entries = fs.list_directory(nested.toStdString());
+    ASSERT_THAT(nested_entries, fastecu::testing::IsOk());
+    const auto loop_entry = std::find_if(nested_entries->begin(), nested_entries->end(),
+                                         [](const fastecu::DirEntry& entry) { return entry.name == "loop"; });
+    ASSERT_NE(loop_entry, nested_entries->end());
+    EXPECT_TRUE(loop_entry->is_directory);
+    EXPECT_TRUE(loop_entry->is_symlink);
 }

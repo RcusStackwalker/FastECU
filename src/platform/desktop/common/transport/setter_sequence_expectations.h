@@ -12,11 +12,11 @@
 // never fire carries no action -- Times(0) combined with WillRepeatedly() makes
 // Google Mock log "Too many actions specified" for every such line, which
 // buries real diagnostics in the same output.
-template <typename Expectation> void expectSetterAt(Expectation& expectation, int position, int failingIndex)
+template <typename Expectation> void expectSetterAt(Expectation& expectation, int position, int failing_index)
 {
-    if (failingIndex >= position)
+    if (failing_index >= position)
     {
-        expectation.WillOnce(::testing::Return(failingIndex != position));
+        expectation.WillOnce(::testing::Return(failing_index != position));
     }
     else
     {

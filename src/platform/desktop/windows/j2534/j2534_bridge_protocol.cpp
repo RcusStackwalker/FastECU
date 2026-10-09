@@ -40,45 +40,45 @@ bool readAll(HANDLE pipe, void *data, std::uint32_t size)
 
 } // namespace
 
-bool writeFrame(HANDLE pipe, Function function, const void *payload, std::uint32_t payloadSize)
+bool writeFrame(HANDLE pipe, Function function, const void *payload, std::uint32_t payload_size)
 {
-    FrameHeader header{function, payloadSize};
+    FrameHeader header{function, payload_size};
     if (!writeAll(pipe, &header, sizeof(header)))
     {
         return false;
     }
-    if (payloadSize == 0)
+    if (payload_size == 0)
     {
         return true;
     }
-    return writeAll(pipe, payload, payloadSize);
+    return writeAll(pipe, payload, payload_size);
 }
 
-bool readFrameHeader(HANDLE pipe, FrameHeader& outHeader)
+bool readFrameHeader(HANDLE pipe, FrameHeader& out_header)
 {
-    return readAll(pipe, &outHeader, sizeof(outHeader));
+    return readAll(pipe, &out_header, sizeof(out_header));
 }
 
-bool readFramePayload(HANDLE pipe, void *payload, std::uint32_t payloadSize)
+bool readFramePayload(HANDLE pipe, void *payload, std::uint32_t payload_size)
 {
-    if (payloadSize == 0)
+    if (payload_size == 0)
     {
         return true;
     }
-    return readAll(pipe, payload, payloadSize);
+    return readAll(pipe, payload, payload_size);
 }
 
-bool readFrame(HANDLE pipe, FrameHeader& outHeader, void *payload, std::uint32_t payloadCapacity)
+bool readFrame(HANDLE pipe, FrameHeader& out_header, void *payload, std::uint32_t payload_capacity)
 {
-    if (!readFrameHeader(pipe, outHeader))
+    if (!readFrameHeader(pipe, out_header))
     {
         return false;
     }
-    if (outHeader.payload_size > payloadCapacity)
+    if (out_header.payload_size > payload_capacity)
     {
         return false;
     }
-    return readFramePayload(pipe, payload, outHeader.payload_size);
+    return readFramePayload(pipe, payload, out_header.payload_size);
 }
 
 } // namespace j2534_bridge

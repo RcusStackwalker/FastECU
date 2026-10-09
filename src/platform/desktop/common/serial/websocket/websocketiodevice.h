@@ -12,7 +12,7 @@ class WebSocketIoDevice : public QIODevice
 {
     Q_OBJECT
   public:
-    WebSocketIoDevice(QWebSocket *webSocket, QObject *parent = nullptr);
+    WebSocketIoDevice(QWebSocket *web_socket, QObject *parent = nullptr);
 
   signals:
     void disconnected();

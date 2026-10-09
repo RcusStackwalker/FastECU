@@ -133,8 +133,8 @@ Status DesktopCanFlashTransport::open()
         // (serial_port_actions_direct.cpp:519-644) returns `openedSerialPort`
         // (non-empty) on every success path and `{}` (an empty/null QString)
         // on every failure path.
-        const QString openResult = serial_->open_serial_port();
-        if (openResult.isEmpty())
+        const QString open_result = serial_->open_serial_port();
+        if (open_result.isEmpty())
         {
             return fail(ErrorKind::kDisconnected, "open_serial_port failed");
         }

@@ -56,20 +56,20 @@ TEST(TestDirectBackend, closedPort_ioCalls_returnEmpty)
 TEST(TestDirectBackend, j2534Selection_usesInstalledDllPathAfterVendorProbe)
 {
     const QString vendor = "Tactrix Inc. - OpenPort 2.0 J2534 DLL";
-    const QString dllPath = "C:\\Program Files (x86)\\OpenECU\\OpenPort 2.0\\op20pt32.dll";
+    const QString dll_path = "C:\\Program Files (x86)\\OpenECU\\OpenPort 2.0\\op20pt32.dll";
 
-    ASSERT_EQ(resolveJ2534DllForConnection(vendor, dllPath, QStringList() << vendor), dllPath);
+    ASSERT_EQ(resolveJ2534DllForConnection(vendor, dll_path, QStringList() << vendor), dll_path);
 }
 
 TEST(TestDirectBackend, j2534DriverViews_wow6432NodeVendorIsDiscoverable)
 {
-    QMap<QString, QString> nativeView;
-    nativeView["Tactrix Inc. - OpenPort 2.0 J2534 DLL"] = "C:\\Program Files\\OpenECU\\OpenPort 2.0\\op20pt32.dll";
+    QMap<QString, QString> native_view;
+    native_view["Tactrix Inc. - OpenPort 2.0 J2534 DLL"] = "C:\\Program Files\\OpenECU\\OpenPort 2.0\\op20pt32.dll";
 
-    QMap<QString, QString> wow64View;
-    wow64View["Acme 32-bit-only J2534 DLL"] = "C:\\Program Files (x86)\\Acme\\acme_j2534.dll";
+    QMap<QString, QString> wow64_view;
+    wow64_view["Acme 32-bit-only J2534 DLL"] = "C:\\Program Files (x86)\\Acme\\acme_j2534.dll";
 
-    QMap<QString, QString> merged = mergeJ2534DriverViews(wow64View, nativeView);
+    QMap<QString, QString> merged = mergeJ2534DriverViews(wow64_view, native_view);
 
     ASSERT_EQ(merged.size(), 2);
     ASSERT_EQ(merged.value("Tactrix Inc. - OpenPort 2.0 J2534 DLL"),
@@ -79,13 +79,13 @@ TEST(TestDirectBackend, j2534DriverViews_wow6432NodeVendorIsDiscoverable)
 
 TEST(TestDirectBackend, j2534DriverViews_laterViewOverwritesOnCollision)
 {
-    QMap<QString, QString> wow64View;
-    wow64View["Shared Vendor"] = "C:\\wow64\\path.dll";
+    QMap<QString, QString> wow64_view;
+    wow64_view["Shared Vendor"] = "C:\\wow64\\path.dll";
 
-    QMap<QString, QString> nativeView;
-    nativeView["Shared Vendor"] = "C:\\native\\path.dll";
+    QMap<QString, QString> native_view;
+    native_view["Shared Vendor"] = "C:\\native\\path.dll";
 
-    QMap<QString, QString> merged = mergeJ2534DriverViews(wow64View, nativeView);
+    QMap<QString, QString> merged = mergeJ2534DriverViews(wow64_view, native_view);
 
     ASSERT_EQ(merged.size(), 1);
     ASSERT_EQ(merged.value("Shared Vendor"), QString("C:\\native\\path.dll"));

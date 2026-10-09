@@ -30,14 +30,14 @@ const QString kOpenPort0 = "cu.usbmodem0 - OpenPort 2.0";
 const QString kOpenPort1 = "cu.usbmodem1 - OpenPort 2.0";
 const QString kBluetoothPort = "cu.Bluetooth-Incoming-Port - ";
 
-DesktopCanTransportConfig configWith(FakeBackend **captured, QStringList ports, QString openResult)
+DesktopCanTransportConfig configWith(FakeBackend **captured, QStringList ports, QString open_result)
 {
     DesktopCanTransportConfig config;
-    config.backend_factory = [captured, ports, openResult]() -> SerialBackend *
+    config.backend_factory = [captured, ports, open_result]() -> SerialBackend *
     {
         auto *fake = new NiceFakeBackend();
         EXPECT_CALL(*fake, check_serial_ports()).WillRepeatedly(::testing::Return(ports));
-        EXPECT_CALL(*fake, open_serial_port()).WillRepeatedly(::testing::Return(openResult));
+        EXPECT_CALL(*fake, open_serial_port()).WillRepeatedly(::testing::Return(open_result));
         *captured = fake;
         return fake;
     };

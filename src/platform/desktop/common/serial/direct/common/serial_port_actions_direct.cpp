@@ -91,10 +91,10 @@ bool SerialPortActionsDirect::set_kline_timings(uint32_t parameter, int value)
     return kSerialSuccess;
 }
 
-int SerialPortActionsDirect::change_port_speed(QString portSpeed)
+int SerialPortActionsDirect::change_port_speed(QString port_speed)
 {
-    serial_port_baudrate = portSpeed;
-    baudrate_ = portSpeed.toInt();
+    serial_port_baudrate = port_speed;
+    baudrate_ = port_speed.toInt();
 
     emit LOG_D("Changing baudrate, checking if port is open...", true, true);
     if (is_serial_port_open())
@@ -107,7 +107,7 @@ int SerialPortActionsDirect::change_port_speed(QString portSpeed)
             if (serial_->setBaudRate(static_cast<qint32>(serial_port_baudrate.toDouble())))
             {
                 delay(50);
-                emit LOG_D("Baudrate set to " + portSpeed + " OK", true, true);
+                emit LOG_D("Baudrate set to " + port_speed + " OK", true, true);
                 return kSerialSuccess;
             }
             else
@@ -124,7 +124,7 @@ int SerialPortActionsDirect::change_port_speed(QString portSpeed)
             SConfigList scl = configList(scp);
             if (!j2534_->PassThruIoctl(chan_id_, kJ2534SetConfig, &scl, nullptr))
             {
-                emit LOG_D("Baudrate set to " + portSpeed + " OK", true, true);
+                emit LOG_D("Baudrate set to " + port_speed + " OK", true, true);
                 delay(50);
                 return kSerialSuccess;
             }
@@ -146,33 +146,33 @@ QByteArray SerialPortActionsDirect::five_baud_init(QByteArray output)
     if (use_openport2_adapter)
     {
         unsigned long result;
-        SByteArray InputMsg;
-        SByteArray OutputMsg;
+        SByteArray input_msg;
+        SByteArray output_msg;
 
-        std::array<unsigned char, 20> BytePtr{};
+        std::array<unsigned char, 20> byte_ptr{};
 
-        memset(&InputMsg, 0, sizeof(InputMsg));
-        memset(&OutputMsg, 0, sizeof(OutputMsg));
+        memset(&input_msg, 0, sizeof(input_msg));
+        memset(&output_msg, 0, sizeof(output_msg));
 
-        InputMsg.num_of_bytes = 1;
-        InputMsg.byte_ptr = BytePtr.data();
-        OutputMsg.num_of_bytes = 0;
-        OutputMsg.byte_ptr = BytePtr.data();
+        input_msg.num_of_bytes = 1;
+        input_msg.byte_ptr = byte_ptr.data();
+        output_msg.num_of_bytes = 0;
+        output_msg.byte_ptr = byte_ptr.data();
 
         for (int i = 0; i < output.length(); i++)
         {
-            BytePtr[i] = (uint8_t)output.at(i);
+            byte_ptr[i] = (uint8_t)output.at(i);
         }
 
-        result = j2534_->PassThruIoctl(chan_id_, kJ2534FiveBaudInit, &InputMsg, &OutputMsg);
+        result = j2534_->PassThruIoctl(chan_id_, kJ2534FiveBaudInit, &input_msg, &output_msg);
         if (result)
         {
             reportJ2534Error();
             return response;
         }
-        for (unsigned long i = 0; i < OutputMsg.num_of_bytes; i++)
+        for (unsigned long i = 0; i < output_msg.num_of_bytes; i++)
         {
-            response.append(static_cast<char>(OutputMsg.byte_ptr[i]));
+            response.append(static_cast<char>(output_msg.byte_ptr[i]));
         }
     }
     else
@@ -223,14 +223,14 @@ int SerialPortActionsDirect::fast_init(QByteArray output)
     if (use_openport2_adapter)
     {
         unsigned long result;
-        PassThruMsg InputMsg;
-        PassThruMsg OutputMsg;
+        PassThruMsg input_msg;
+        PassThruMsg output_msg;
 
-        memset(&InputMsg, 0, sizeof(InputMsg));
-        memset(&OutputMsg, 0, sizeof(OutputMsg));
+        memset(&input_msg, 0, sizeof(input_msg));
+        memset(&output_msg, 0, sizeof(output_msg));
 
-        InputMsg.protocol_id = kJ2534Iso14230;
-        InputMsg.tx_flags = 0;
+        input_msg.protocol_id = kJ2534Iso14230;
+        input_msg.tx_flags = 0;
 
         if (add_ssm_header)
         {
@@ -247,14 +247,14 @@ int SerialPortActionsDirect::fast_init(QByteArray output)
 
         for (int i = 0; i < output.length(); i++)
         {
-            InputMsg.data[i] = (uint8_t)output.at(i);
+            input_msg.data[i] = (uint8_t)output.at(i);
         }
-        InputMsg.data_size = output.length();
+        input_msg.data_size = output.length();
 
         /* Set timeout to 350ms before init */
         accurate_delay(350);
 
-        result = j2534_->PassThruIoctl(chan_id_, kJ2534FastInit, &InputMsg, &OutputMsg);
+        result = j2534_->PassThruIoctl(chan_id_, kJ2534FastInit, &input_msg, &output_msg);
         if (result)
         {
             reportJ2534Error();
@@ -429,16 +429,17 @@ int SerialPortActionsDirect::line_end_check_2_toggled(int state)
 
 QStringList SerialPortActionsDirect::check_serial_ports()
 {
-    const auto serialPortsInfo = QSerialPortInfo::availablePorts();
+    const auto serial_ports_info = QSerialPortInfo::availablePorts();
     QStringList serial_ports;
     // QString j2534DllName = "j2534.dll";
 
     serial_port_available = false;
 
-    for (const QSerialPortInfo& serialPortInfo : serialPortsInfo)
+    for (const QSerialPortInfo& serial_port_info : serial_ports_info)
     {
-        serial_ports.append(serialPortInfo.portName() + " - " + serialPortInfo.description());
-        emit LOG_D("Serial port name: " + serialPortInfo.portName() + " " + serialPortInfo.description(), true, true);
+        serial_ports.append(serial_port_info.portName() + " - " + serial_port_info.description());
+        emit LOG_D("Serial port name: " + serial_port_info.portName() + " " + serial_port_info.description(), true,
+                   true);
     }
     std::sort(serial_ports.begin(), serial_ports.end(), std::less<QString>());
 
@@ -608,8 +609,8 @@ void SerialPortActionsDirect::close_j2534_serial_port()
     j2534_init_ok_ = false;
     j2534_->j2534_init_ok = false;
     opened_serial_port.clear();
-    std::array<char, 256> dllName{};
-    j2534_->getDllName(dllName.data());
+    std::array<char, 256> dll_name{};
+    j2534_->getDllName(dll_name.data());
     delete j2534_;
     // Null the pointer across the delay(): delay() pumps the event loop, so a
     // reentrant read can run here. A guarded read sees null (safe) instead of a
@@ -617,7 +618,7 @@ void SerialPortActionsDirect::close_j2534_serial_port()
     j2534_ = nullptr;
     delay(100);
     j2534_ = new J2534();
-    j2534_->setDllName(dllName.data());
+    j2534_->setDllName(dll_name.data());
     connect_j2534_logs();
 }
 
@@ -649,8 +650,8 @@ QByteArray SerialPortActionsDirect::read_serial_obd_data(uint16_t timeout_arg)
         }
 
         // emit LOG_D("Check bytes available", true, true);
-        QTime dieTime = QTime::currentTime().addMSecs(timeout_arg);
-        while (!serial_->bytesAvailable() && QTime::currentTime() < dieTime)
+        QTime die_time = QTime::currentTime().addMSecs(timeout_arg);
+        while (!serial_->bytesAvailable() && QTime::currentTime() < die_time)
         {
             serial_->waitForReadyRead(1);
         }
@@ -658,16 +659,16 @@ QByteArray SerialPortActionsDirect::read_serial_obd_data(uint16_t timeout_arg)
         if (serial_->bytesAvailable())
         {
             // emit LOG_D("Byte(s) available", true, true);
-            QTime intervalTime = QTime::currentTime().addMSecs(p1_max_ms);
-            while (QTime::currentTime() < dieTime)
+            QTime interval_time = QTime::currentTime().addMSecs(p1_max_ms);
+            while (QTime::currentTime() < die_time)
             {
                 if (serial_->bytesAvailable())
                 {
                     // emit LOG_D("Byte available", true, true);
                     received.append(serial_->read(1));
-                    intervalTime = QTime::currentTime().addMSecs(p1_max_ms);
+                    interval_time = QTime::currentTime().addMSecs(p1_max_ms);
                 }
-                if (intervalTime < QTime::currentTime())
+                if (interval_time < QTime::currentTime())
                 {
                     // emit LOG_D("Byte timeout", true, true);
                     break;
@@ -697,15 +698,15 @@ QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout_arg)
 
         // emit LOG_D("Check if bytes available", true, true);
         received.clear();
-        QTime dieTime = QTime::currentTime().addMSecs(timeout_arg);
-        while (!serial_->bytesAvailable() && QTime::currentTime() < dieTime)
+        QTime die_time = QTime::currentTime().addMSecs(timeout_arg);
+        while (!serial_->bytesAvailable() && QTime::currentTime() < die_time)
         {
             serial_->waitForReadyRead(1);
         }
         if (serial_->bytesAvailable())
         {
             QByteArray error_bytes;
-            while (received.length() < 4 && QTime::currentTime() < dieTime)
+            while (received.length() < 4 && QTime::currentTime() < die_time)
             {
                 while (serial_->bytesAvailable() && received.length() < 4)
                 {
@@ -751,7 +752,7 @@ QByteArray SerialPortActionsDirect::read_serial_data(uint16_t timeout_arg)
                     msglen = (uint8_t)received.at(3) + 1; // +1 for checksum
                 }
             }
-            while ((uint32_t)req_bytes.length() < msglen && QTime::currentTime() < dieTime)
+            while ((uint32_t)req_bytes.length() < msglen && QTime::currentTime() < die_time)
             {
                 while (serial_->bytesAvailable() && (uint32_t)req_bytes.length() < msglen)
                 {
@@ -868,12 +869,12 @@ QByteArray SerialPortActionsDirect::write_serial_data_echo_check(QByteArray outp
                 received.append(serial_->read(1));
             }
         }
-        QTime dieTime = QTime::currentTime().addMSecs(echo_check_timout);
-        while (received.length() < output.length() && (QTime::currentTime() < dieTime))
+        QTime die_time = QTime::currentTime().addMSecs(echo_check_timout);
+        while (received.length() < output.length() && (QTime::currentTime() < die_time))
         {
             while (serial_->bytesAvailable() && received.length() < output.length())
             {
-                dieTime = QTime::currentTime().addMSecs(echo_check_timout);
+                die_time = QTime::currentTime().addMSecs(echo_check_timout);
                 received.append(serial_->read(1));
             }
             serial_->waitForReadyRead(1);
@@ -965,10 +966,10 @@ QByteArray SerialPortActionsDirect::append_iso14230_header(QByteArray output)
 int SerialPortActionsDirect::write_j2534_data(QByteArray output)
 {
     PassThruMsg txmsg;
-    unsigned long NumMsgs;
-    long txMsgLen = nextPassThruChunkLength(output);
+    unsigned long num_msgs;
+    long tx_msg_len = nextPassThruChunkLength(output);
 
-    while (txMsgLen > 0)
+    while (tx_msg_len > 0)
     {
         txmsg.protocol_id = protocol_;
         txmsg.rx_status = 0;
@@ -982,21 +983,21 @@ int SerialPortActionsDirect::write_j2534_data(QByteArray output)
         }
         txmsg.tx_flags |= kIso15765FramePad;
         txmsg.timestamp = 0;
-        txmsg.data_size = txMsgLen;
+        txmsg.data_size = tx_msg_len;
         txmsg.extra_data_index = 0;
 
-        for (long i = 0; i < txMsgLen; i++)
+        for (long i = 0; i < tx_msg_len; i++)
         {
             txmsg.data[i] = (uint8_t)output.at(i);
         }
         // Indicate that the PassThruMsg array contains just a single message.
-        NumMsgs = 1;
+        num_msgs = 1;
 
-        j2534_->PassThruWriteMsgs(chan_id_, &txmsg, &NumMsgs, 100);
+        j2534_->PassThruWriteMsgs(chan_id_, &txmsg, &num_msgs, 100);
         // emit LOG_D("Data sent: " + parse_message_to_hex(output);
 
-        output.remove(0, txMsgLen);
-        txMsgLen = nextPassThruChunkLength(output);
+        output.remove(0, tx_msg_len);
+        tx_msg_len = nextPassThruChunkLength(output);
     }
 
     return kSerialSuccess;
@@ -1005,25 +1006,25 @@ int SerialPortActionsDirect::write_j2534_data(QByteArray output)
 int SerialPortActionsDirect::send_periodic_j2534_data(QByteArray output, int timeout_arg)
 {
     PassThruMsg txmsg;
-    long txMsgLen = nextPassThruChunkLength(output);
+    long tx_msg_len = nextPassThruChunkLength(output);
 
-    while (txMsgLen > 0)
+    while (tx_msg_len > 0)
     {
         emit LOG_D("Start periodic messages with protocol: " + QString::number(protocol_), true, true);
         txmsg.protocol_id = protocol_;
         txmsg.rx_status = 0;
         txmsg.tx_flags = 0;
         txmsg.timestamp = 0;
-        txmsg.data_size = txMsgLen;
+        txmsg.data_size = tx_msg_len;
         txmsg.extra_data_index = 0;
 
-        for (long i = 0; i < txMsgLen; i++)
+        for (long i = 0; i < tx_msg_len; i++)
         {
             txmsg.data[i] = (uint8_t)output.at(i);
         }
         j2534_->PassThruStartPeriodicMsg(chan_id_, &txmsg, &msg_id_, timeout_arg);
-        output.remove(0, txMsgLen);
-        txMsgLen = nextPassThruChunkLength(output);
+        output.remove(0, tx_msg_len);
+        tx_msg_len = nextPassThruChunkLength(output);
     }
 
     delay(10);
@@ -1055,7 +1056,7 @@ bool SerialPortActionsDirect::get_is_tx_done()
 QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout_arg)
 {
     PassThruMsg rxmsg;
-    unsigned long numRxMsg;
+    unsigned long num_rx_msg;
     QByteArray received;
 
     J2534IoScope io(j2534_io_depth_); // block teardown while this read runs
@@ -1063,14 +1064,14 @@ QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout_arg)
     received.clear();
 
     rxmsg.data_size = 0;
-    numRxMsg = 1;
+    num_rx_msg = 1;
 
-    if (j2534_->PassThruReadMsgs(chan_id_, &rxmsg, &numRxMsg, timeout_arg))
+    if (j2534_->PassThruReadMsgs(chan_id_, &rxmsg, &num_rx_msg, timeout_arg))
     {
         goto exit;
     }
 
-    if (numRxMsg)
+    if (num_rx_msg)
     {
         // dump_msg(&rxmsg);
 
@@ -1087,11 +1088,11 @@ QByteArray SerialPortActionsDirect::read_j2534_data(unsigned long timeout_arg)
             {
                 rxmsg.data_size = 0;
                 rxmsg.data[0] = 0x00;
-                j2534_->PassThruReadMsgs(chan_id_, &rxmsg, &numRxMsg, timeout_arg);
+                j2534_->PassThruReadMsgs(chan_id_, &rxmsg, &num_rx_msg, timeout_arg);
             }
             if (rxmsg.rx_status & kStartOfMessage)
             {
-                j2534_->PassThruReadMsgs(chan_id_, &rxmsg, &numRxMsg, timeout_arg);
+                j2534_->PassThruReadMsgs(chan_id_, &rxmsg, &num_rx_msg, timeout_arg);
             }
             if (rxmsg.rx_status & static_cast<unsigned long>(kRxMsgEndInd))
             {
@@ -1209,34 +1210,35 @@ int SerialPortActionsDirect::init_j2534_connection()
     // PassThruReadVersion takes no length, so these are read back through
     // bytes::fromFixedBufferDroppingLast, which stops at the buffer's end
     // whether or not the driver left a terminator.
-    std::array<char, J2534::kVersionBufferSize> strApiVersion{};
-    std::array<char, J2534::kVersionBufferSize> strDllVersion{};
-    std::array<char, J2534::kVersionBufferSize> strFirmwareVersion{};
-    std::array<char, J2534::kVersionBufferSize> strSerial{};
+    std::array<char, J2534::kVersionBufferSize> str_api_version{};
+    std::array<char, J2534::kVersionBufferSize> str_dll_version{};
+    std::array<char, J2534::kVersionBufferSize> str_firmware_version{};
+    std::array<char, J2534::kVersionBufferSize> str_serial{};
 
-    if (j2534_->PassThruReadVersion(strApiVersion.data(), strDllVersion.data(), strFirmwareVersion.data(), dev_id_))
+    if (j2534_->PassThruReadVersion(str_api_version.data(), str_dll_version.data(), str_firmware_version.data(),
+                                    dev_id_))
     {
         reportJ2534Error();
         return kSerialError;
     }
 
-    if (!get_serial_num(strSerial.data()))
+    if (!get_serial_num(str_serial.data()))
     {
         reportJ2534Error();
         return kSerialError;
     }
 
-    const std::string_view apiVersion = bytes::fromFixedBufferDroppingLast(strApiVersion);
-    const std::string_view dllVersion = bytes::fromFixedBufferDroppingLast(strDllVersion);
-    const std::string_view firmwareVersion = bytes::fromFixedBufferDroppingLast(strFirmwareVersion);
-    const std::string_view serialNumber = bytes::fromFixedBufferDroppingLast(strSerial);
+    const std::string_view api_version = bytes::fromFixedBufferDroppingLast(str_api_version);
+    const std::string_view dll_version = bytes::fromFixedBufferDroppingLast(str_dll_version);
+    const std::string_view firmware_version = bytes::fromFixedBufferDroppingLast(str_firmware_version);
+    const std::string_view serial_number = bytes::fromFixedBufferDroppingLast(str_serial);
 
-    emit LOG_D("J2534 API Version: " + QString::fromUtf8(apiVersion), true, true);
-    emit LOG_D("J2534 DLL Version: " + QString::fromUtf8(dllVersion), true, true);
-    emit LOG_D("Device Firmware Version: " + QString::fromUtf8(firmwareVersion), true, true);
-    const QByteArray serialBytes =
-        QByteArray::fromRawData(serialNumber.data(), static_cast<qsizetype>(serialNumber.size()));
-    emit LOG_D("Device Serial Number: " + parse_message_to_hex(serialBytes), true, true);
+    emit LOG_D("J2534 API Version: " + QString::fromUtf8(api_version), true, true);
+    emit LOG_D("J2534 DLL Version: " + QString::fromUtf8(dll_version), true, true);
+    emit LOG_D("Device Firmware Version: " + QString::fromUtf8(firmware_version), true, true);
+    const QByteArray serial_bytes =
+        QByteArray::fromRawData(serial_number.data(), static_cast<qsizetype>(serial_number.size()));
+    emit LOG_D("Device Serial Number: " + parse_message_to_hex(serial_bytes), true, true);
 
     // Create J2534 to device connections
     if (is_iso15765_connection)
@@ -1354,8 +1356,8 @@ int SerialPortActionsDirect::set_j2534_can_filters()
 {
     // now setup the filter(s)
     PassThruMsg txmsg;
-    PassThruMsg msgMask, msgPattern, msgFlow;
-    unsigned long msgId;
+    PassThruMsg msg_mask, msg_pattern, msg_flow;
+    unsigned long msg_id;
 
     j2534_->PassThruIoctl(chan_id_, kJ2534ClearMsgFilters, nullptr, nullptr);
 
@@ -1369,13 +1371,13 @@ int SerialPortActionsDirect::set_j2534_can_filters()
         txmsg.data_size = 4;
         txmsg.extra_data_index = 0;
 
-        msgMask = msgPattern = txmsg;
-        memset(msgMask.data, 0xFF, txmsg.data_size);
-        memset(msgPattern.data, 0xFF, txmsg.data_size);
+        msg_mask = msg_pattern = txmsg;
+        memset(msg_mask.data, 0xFF, txmsg.data_size);
+        memset(msg_pattern.data, 0xFF, txmsg.data_size);
 
-        bytes::writeU32Be(msgPattern.data, 0, can_destination_address);
+        bytes::writeU32Be(msg_pattern.data, 0, can_destination_address);
 
-        if (j2534_->PassThruStartMsgFilter(chan_id_, kJ2534PassFilter, &msgMask, &msgPattern, nullptr, &msgId))
+        if (j2534_->PassThruStartMsgFilter(chan_id_, kJ2534PassFilter, &msg_mask, &msg_pattern, nullptr, &msg_id))
         {
             reportJ2534Error();
             return kSerialError;
@@ -1390,15 +1392,16 @@ int SerialPortActionsDirect::set_j2534_can_filters()
         txmsg.timestamp = 0;
         txmsg.data_size = 4;
         txmsg.extra_data_index = 0;
-        msgMask = msgPattern = msgFlow = txmsg;
-        memset(msgMask.data, 0xFF, txmsg.data_size);
-        memset(msgPattern.data, 0xFF, txmsg.data_size);
-        memset(msgFlow.data, 0xFF, txmsg.data_size);
+        msg_mask = msg_pattern = msg_flow = txmsg;
+        memset(msg_mask.data, 0xFF, txmsg.data_size);
+        memset(msg_pattern.data, 0xFF, txmsg.data_size);
+        memset(msg_flow.data, 0xFF, txmsg.data_size);
 
-        bytes::writeU32Be(msgPattern.data, 0, iso15765_destination_address);
-        bytes::writeU32Be(msgFlow.data, 0, iso15765_source_address);
+        bytes::writeU32Be(msg_pattern.data, 0, iso15765_destination_address);
+        bytes::writeU32Be(msg_flow.data, 0, iso15765_source_address);
 
-        if (j2534_->PassThruStartMsgFilter(chan_id_, kJ2534FlowControlFilter, &msgMask, &msgPattern, &msgFlow, &msgId))
+        if (j2534_->PassThruStartMsgFilter(chan_id_, kJ2534FlowControlFilter, &msg_mask, &msg_pattern, &msg_flow,
+                                           &msg_id))
         {
             reportJ2534Error();
             return kSerialError;
@@ -1479,21 +1482,21 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
 {
     if (j2534_is_denso_dsti_)
     {
-        auto scp_dsti_ISO14230 = std::to_array<SCONFIG>({{.parameter = kJ2534Loopback, .value = 0},
-                                                         {.parameter = kJ2534P1Max, .value = 0xa},
-                                                         {.parameter = kJ2534P3Min, .value = 0x14},
-                                                         {.parameter = kJ2534P4Min, .value = 0},
-                                                         {.parameter = kJ2534DataRate, .value = 4800}});
-        auto scp_dsti_DSTI_ISO9141 = std::to_array<SCONFIG>({{.parameter = kJ2534DataRate, .value = 4800},
-                                                             {.parameter = kJ2534Loopback, .value = 0},
-                                                             {.parameter = kJ2534P1Min, .value = 0},
-                                                             {.parameter = kJ2534P1Max, .value = 4},
-                                                             {.parameter = kJ2534P2Min, .value = 4},
-                                                             {.parameter = kJ2534P2Max, .value = 0x14},
-                                                             {.parameter = kJ2534P3Min, .value = 0x14},
-                                                             {.parameter = kJ2534P3Max, .value = 10000},
-                                                             {.parameter = kJ2534P4Min, .value = 0},
-                                                             {.parameter = kJ2534P4Max, .value = 0x14}});
+        auto scp_dsti_is_o14230 = std::to_array<SCONFIG>({{.parameter = kJ2534Loopback, .value = 0},
+                                                          {.parameter = kJ2534P1Max, .value = 0xa},
+                                                          {.parameter = kJ2534P3Min, .value = 0x14},
+                                                          {.parameter = kJ2534P4Min, .value = 0},
+                                                          {.parameter = kJ2534DataRate, .value = 4800}});
+        auto scp_dsti_dsti_is_o9141 = std::to_array<SCONFIG>({{.parameter = kJ2534DataRate, .value = 4800},
+                                                              {.parameter = kJ2534Loopback, .value = 0},
+                                                              {.parameter = kJ2534P1Min, .value = 0},
+                                                              {.parameter = kJ2534P1Max, .value = 4},
+                                                              {.parameter = kJ2534P2Min, .value = 4},
+                                                              {.parameter = kJ2534P2Max, .value = 0x14},
+                                                              {.parameter = kJ2534P3Min, .value = 0x14},
+                                                              {.parameter = kJ2534P3Max, .value = 10000},
+                                                              {.parameter = kJ2534P4Min, .value = 0},
+                                                              {.parameter = kJ2534P4Max, .value = 0x14}});
 
         clear_tx_buffer();
         clear_rx_buffer();
@@ -1504,10 +1507,10 @@ int SerialPortActionsDirect::set_j2534_iso9141_timings()
         switch (protocol_)
         {
         case kJ2534Iso14230:
-            scl = configList(scp_dsti_ISO14230);
+            scl = configList(scp_dsti_is_o14230);
             break;
         case kJ2534DstiIso9141:
-            scl = configList(scp_dsti_DSTI_ISO9141);
+            scl = configList(scp_dsti_dsti_is_o9141);
             break;
         default:
             break;
@@ -1556,8 +1559,8 @@ int SerialPortActionsDirect::set_j2534_iso9141_filters()
 {
     // now setup the filter(s)
     PassThruMsg txmsg;
-    PassThruMsg msgMask, msgPattern;
-    unsigned long msgId;
+    PassThruMsg msg_mask, msg_pattern;
+    unsigned long msg_id;
 
     // simply create a "pass all" filter so that we can see
     // everything unfiltered in the raw stream
@@ -1568,10 +1571,10 @@ int SerialPortActionsDirect::set_j2534_iso9141_filters()
     txmsg.timestamp = 0;
     txmsg.data_size = 4;
     txmsg.extra_data_index = 0;
-    msgMask = msgPattern = txmsg;
-    memset(msgMask.data, 0, txmsg.data_size);    // mask the first 4 byte to 0
-    memset(msgPattern.data, 0, txmsg.data_size); // match it with 0 (i.e. pass everything)
-    if (j2534_->PassThruStartMsgFilter(chan_id_, kJ2534PassFilter, &msgMask, &msgPattern, nullptr, &msgId))
+    msg_mask = msg_pattern = txmsg;
+    memset(msg_mask.data, 0, txmsg.data_size);    // mask the first 4 byte to 0
+    memset(msg_pattern.data, 0, txmsg.data_size); // match it with 0 (i.e. pass everything)
+    if (j2534_->PassThruStartMsgFilter(chan_id_, kJ2534PassFilter, &msg_mask, &msg_pattern, nullptr, &msg_id))
     {
         reportJ2534Error();
         return kSerialError;
@@ -1628,8 +1631,8 @@ void SerialPortActionsDirect::handle_error(QSerialPort::SerialPortError error)
 void SerialPortActionsDirect::accurate_delay(double timeout_arg)
 {
     double seconds = timeout_arg / 1000.0;
-    auto spinStart = std::chrono::high_resolution_clock::now();
-    while (static_cast<double>((std::chrono::high_resolution_clock::now() - spinStart).count()) / 1e9 < seconds)
+    auto spin_start = std::chrono::high_resolution_clock::now();
+    while (static_cast<double>((std::chrono::high_resolution_clock::now() - spin_start).count()) / 1e9 < seconds)
     {
         ;
     }

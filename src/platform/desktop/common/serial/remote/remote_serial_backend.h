@@ -26,14 +26,14 @@ class RemoteSerialBackend : public QObject, public SerialBackend
     Q_OBJECT
 
   signals:
-    void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
+    void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
     void LOG_E(QString message, bool timestamp, bool linefeed);
     void LOG_W(QString message, bool timestamp, bool linefeed);
     void LOG_I(QString message, bool timestamp, bool linefeed);
     void LOG_D(QString message, bool timestamp, bool linefeed);
 
   public:
-    explicit RemoteSerialBackend(QString peerAddress, QString password, QWebSocket *externalSocket = nullptr,
+    explicit RemoteSerialBackend(QString peer_address, QString password, QWebSocket *external_socket = nullptr,
                                  QObject *parent = nullptr);
     ~RemoteSerialBackend() override;
 
@@ -141,7 +141,7 @@ class RemoteSerialBackend : public QObject, public SerialBackend
 
     // -- operations ------------------------------------------------------
     bool is_serial_port_open() override;
-    int change_port_speed(QString portSpeed) override;
+    int change_port_speed(QString port_speed) override;
     bool set_kline_timings(uint32_t parameter, int value) override;
     int set_j2534_ioctl(uint32_t parameter, int value) override;
     QByteArray five_baud_init(QByteArray output) override;
@@ -185,5 +185,5 @@ class RemoteSerialBackend : public QObject, public SerialBackend
 
   private slots:
     void websocket_connected();
-    void serialRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
+    void serialRemoteStateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State old_state);
 };
