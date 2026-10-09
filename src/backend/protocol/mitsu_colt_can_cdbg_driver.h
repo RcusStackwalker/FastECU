@@ -31,6 +31,7 @@ class CdbgLogDriver
     struct PollResult
     {
         bool responded = false;
+        std::size_t channel_offset = 0;
         std::vector<std::uint32_t> values;
         std::size_t Size() const
         {
@@ -47,14 +48,14 @@ class CdbgLogDriver
     };
 
     // Reads at most one streamed frame and reports whether a usable frame was
-    // actually received. Cached values are returned only with responded=true.
+    // actually received. Values belong only to that frame, starting at
+    // channel_offset in the configured channel list.
     fastecu::Result<PollResult> PollOnce(std::chrono::milliseconds timeout,
                                          const fastecu::ICancellationToken& cancellation);
 
   private:
     cdbg::ICanTransport& t_;
     std::vector<std::vector<CdbgChannel>> frames_;
-    std::vector<std::uint32_t> last_values_;
     bool streaming_ = false;
 };
 
