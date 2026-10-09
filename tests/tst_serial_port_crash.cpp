@@ -45,7 +45,7 @@
 class TestableJ2534 : public J2534
 {
   public:
-    void detachSerialPort()
+    void DetachSerialPort()
     {
         serial_ = nullptr;
     }
@@ -60,24 +60,24 @@ class TestableSerialPortActionsDirect : public SerialPortActionsDirect
     {
     }
 
-    void installNullSerialJ2534()
+    void InstallNullSerialJ2534()
     {
         delete j2534_;
         TestableJ2534 *tj = new TestableJ2534();
-        tj->detachSerialPort();
+        tj->DetachSerialPort();
         j2534_ = tj;
     }
 
     // Model the teardown reset_connection now performs: free j2534 and null the
     // pointer, so a reentrant read sees null (guarded) rather than a dangling ptr.
-    void deleteAndNullJ2534()
+    void DeleteAndNullJ2534()
     {
         delete j2534_;
         j2534_ = nullptr;
     }
 
     // Expose the (protected) connect orchestration for the mock-serial E2E test.
-    int runInitJ2534Connection()
+    int RunInitJ2534Connection()
     {
         return init_j2534_connection();
     }
@@ -86,7 +86,7 @@ class TestableSerialPortActionsDirect : public SerialPortActionsDirect
 TEST(SerialPortCrashTest, isSerialPortOpen_withNullSerial_doesNotCrash)
 {
     TestableJ2534 j2534;
-    j2534.detachSerialPort();
+    j2534.DetachSerialPort();
     // J2534::is_serial_port_open() is `return serial->isOpen();` — the exact
     // null dereference from the crash report. Pre-fix: SIGSEGV at 0x8.
     ASSERT_EQ(j2534.is_serial_port_open(), false);
@@ -95,7 +95,7 @@ TEST(SerialPortCrashTest, isSerialPortOpen_withNullSerial_doesNotCrash)
 TEST(SerialPortCrashTest, readSerialData_withNullSerial_doesNotCrash)
 {
     TestableJ2534 j2534;
-    j2534.detachSerialPort();
+    j2534.DetachSerialPort();
     // read_serial_data() opens with `if (serial->isOpen())` — the guard itself
     // dereferences the null serial.
     ASSERT_EQ(j2534.read_serial_data(3, 50), QByteArray());
@@ -117,7 +117,7 @@ TEST(SerialPortCrashTest, readSerialData_withNullSerial_doesNotBusySpin)
     // elapsed is a structural check, not a timing race, so it should not be
     // flaky under CI load.
     TestableJ2534 j2534;
-    j2534.detachSerialPort();
+    j2534.DetachSerialPort();
 
     rusage before{};
     getrusage(RUSAGE_SELF, &before);
@@ -148,7 +148,7 @@ TEST(SerialPortCrashTest, readSerialData_withNullSerial_doesNotBusySpin)
 TEST(SerialPortCrashTest, passThruReadMsgs_withNullSerial_doesNotCrash)
 {
     TestableJ2534 j2534;
-    j2534.detachSerialPort();
+    j2534.DetachSerialPort();
     PassThruMsg msg;
     unsigned long num_msgs = 1;
     // The exact inner frame from the crash report: PassThruReadMsgs -> the read
@@ -160,7 +160,7 @@ TEST(SerialPortCrashTest, passThruReadMsgs_withNullSerial_doesNotCrash)
 TEST(SerialPortCrashTest, readVbatt_throughNullJ2534Serial_doesNotCrash)
 {
     TestableSerialPortActionsDirect spad;
-    spad.installNullSerialJ2534();
+    spad.InstallNullSerialJ2534();
     spad.use_openport2_adapter = true; // take the J2534 branch in read_vbatt
 
     // Exercises the full crash call chain from the real entry point:
@@ -187,7 +187,7 @@ TEST(SerialPortCrashTest, reentrantReadDuringTeardown_viaEventLoop_doesNotCrash)
 
     // Teardown frees and nulls j2534 (as reset_connection now does) before the
     // queued read runs.
-    spad.deleteAndNullJ2534();
+    spad.DeleteAndNullJ2534();
 
     // Non-GUI event loop dispatches the reentrant read. Pre-fix (read_vbatt
     // dereferences j2534 unconditionally): SIGSEGV. Post-fix (read_vbatt guards
@@ -239,7 +239,7 @@ TEST(SerialPortCrashTest, spadInitJ2534Connection_overMockPty_succeeds)
         TestableSerialPortActionsDirect spad;
         spad.serial_port = QString::fromLocal8Bit(name.data());
 
-        ASSERT_EQ(spad.runInitJ2534Connection(), kSerialSuccess);
+        ASSERT_EQ(spad.RunInitJ2534Connection(), kSerialSuccess);
     }
     ::close(master);
 }
@@ -265,7 +265,7 @@ TEST(SerialPortCrashTest, loggingFlow_connectReadTeardownReentrancy_overMockPty_
 
         TestableSerialPortActionsDirect spad;
         spad.serial_port = QString::fromLocal8Bit(name.data());
-        ASSERT_EQ(spad.runInitJ2534Connection(), kSerialSuccess);
+        ASSERT_EQ(spad.RunInitJ2534Connection(), kSerialSuccess);
         spad.use_openport2_adapter = true;
 
         // Realtime read loop over the live mock connection.
@@ -287,7 +287,7 @@ TEST(SerialPortCrashTest, loggingFlow_connectReadTeardownReentrancy_overMockPty_
             Qt::QueuedConnection);
 
         // The reentrant operation tears the connection down (frees + nulls j2534).
-        spad.deleteAndNullJ2534();
+        spad.DeleteAndNullJ2534();
 
         // The event loop dispatches the queued reentrant read after teardown.
         // Pre-fix it dereferences the freed/null j2534; post-fix the guard makes it safe.
@@ -316,7 +316,7 @@ TEST(SerialPortCrashTest, resetQueuedDuringRead_runsAfterReadCompletes)
 
         TestableSerialPortActionsDirect spad;
         spad.serial_port = QString::fromLocal8Bit(name.data());
-        ASSERT_EQ(spad.runInitJ2534Connection(), kSerialSuccess);
+        ASSERT_EQ(spad.RunInitJ2534Connection(), kSerialSuccess);
         spad.use_openport2_adapter = true;
 
         // Withhold the READ_VBATT reply so the read below waits out its full

@@ -20,7 +20,7 @@
 namespace
 {
 // The real local backend, as the desktop app's DirectSerial connection builds it.
-std::function<SerialBackend *()> directBackend()
+std::function<SerialBackend *()> DirectBackend()
 {
     return [] { return make_direct_serial_backend().release(); };
 }
@@ -87,7 +87,7 @@ TEST(TestPtyE2e, workerThread_writeRead_overPty_deliversFramedMessage)
             }
         });
 
-    SerialPortActions serial{directBackend()}; // the real direct backend
+    SerialPortActions serial{DirectBackend()}; // the real direct backend
     QByteArray response;
     QString opened;
     std::thread worker(

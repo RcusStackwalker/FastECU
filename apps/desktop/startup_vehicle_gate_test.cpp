@@ -19,7 +19,7 @@ using fastecu::config::testing::Setting;
 using ::testing::HasSubstr;
 
 // For the paths that never save.
-void unexpected_save_failure(const Error& error)
+void UnexpectedSaveFailure(const Error& error)
 {
     ADD_FAILURE() << "unexpected save failure: " << error.detail;
 }
@@ -38,7 +38,7 @@ TEST(StartupVehicleGate, AnExistingSelectionDoesNotAsk)
                       ++asked;
                       return std::optional<std::size_t>{};
                   },
-                  unexpected_save_failure),
+                  UnexpectedSaveFailure),
               std::nullopt);
     EXPECT_EQ(asked, 0);
 }
@@ -66,7 +66,7 @@ TEST(StartupVehicleGate, AChosenVehicleIsSelectedSavedAndStartupContinues)
                       ++asked;
                       return std::optional<std::size_t>{};
                   },
-                  unexpected_save_failure),
+                  UnexpectedSaveFailure),
               std::nullopt);
     EXPECT_EQ(asked, 0);
 }
@@ -101,7 +101,7 @@ TEST(StartupVehicleGate, ACancelEndsStartupWithExitCodeZero)
     ASSERT_TRUE(f.Initialize().has_value());
 
     EXPECT_EQ(startup_vehicle_gate(
-                  f.session, [] { return std::optional<std::size_t>{}; }, unexpected_save_failure),
+                  f.session, [] { return std::optional<std::size_t>{}; }, UnexpectedSaveFailure),
               std::optional<int>(EXIT_SUCCESS));
     EXPECT_EQ(f.session.SelectedVehicle(), nullptr);
 }
@@ -112,7 +112,7 @@ TEST(StartupVehicleGate, AnInvalidRowIsTreatedAsACancel)
     ASSERT_TRUE(f.Initialize().has_value());
 
     EXPECT_EQ(startup_vehicle_gate(
-                  f.session, [] { return std::optional<std::size_t>{99}; }, unexpected_save_failure),
+                  f.session, [] { return std::optional<std::size_t>{99}; }, UnexpectedSaveFailure),
               std::optional<int>(EXIT_SUCCESS));
 }
 

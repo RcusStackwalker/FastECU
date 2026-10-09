@@ -14,7 +14,7 @@ namespace fastecu::bench
 namespace
 {
 
-Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
+Result<StepSpec> MakeStep(const std::vector<std::string>& tokens)
 {
     if (tokens.empty())
     {
@@ -71,19 +71,19 @@ Result<StepSpec> makeStep(const std::vector<std::string>& tokens)
 }
 
 // The flag is the template argument so each boolean option stays one table row.
-template <bool GlobalOptions::*Flag> Status setFlag(GlobalOptions& options, std::string_view)
+template <bool GlobalOptions::*Flag> Status SetFlag(GlobalOptions& options, std::string_view)
 {
     options.*Flag = true;
     return {};
 }
 
-Status setPort(GlobalOptions& options, std::string_view value)
+Status SetPort(GlobalOptions& options, std::string_view value)
 {
     options.port_name = value;
     return {};
 }
 
-Status setTimeout(GlobalOptions& options, std::string_view value)
+Status SetTimeout(GlobalOptions& options, std::string_view value)
 {
     const Result<std::uint32_t> timeout = parse_u32(value);
     if (!timeout.has_value())
@@ -98,7 +98,7 @@ Status setTimeout(GlobalOptions& options, std::string_view value)
     return {};
 }
 
-Status setScript(GlobalOptions& options, std::string_view value)
+Status SetScript(GlobalOptions& options, std::string_view value)
 {
     if (value != "-")
     {
@@ -110,7 +110,7 @@ Status setScript(GlobalOptions& options, std::string_view value)
 
 // The option's value argument, consumed from `args` and advancing `index` past
 // it. Empty for a flag.
-Result<std::string_view> globalOptionValue(const GlobalOptionSpec& option, std::span<const std::string_view> args,
+Result<std::string_view> GlobalOptionValue(const GlobalOptionSpec& option, std::span<const std::string_view> args,
                                            std::size_t& index)
 {
     if (!option.takes_value)
@@ -125,15 +125,15 @@ Result<std::string_view> globalOptionValue(const GlobalOptionSpec& option, std::
 }
 
 constexpr std::array kGlobalOptions{
-    GlobalOptionSpec{.name = "--json", .apply = setFlag<&GlobalOptions::json>},
-    GlobalOptionSpec{.name = "--verbose", .apply = setFlag<&GlobalOptions::verbose>},
-    GlobalOptionSpec{.name = "--keep-going", .apply = setFlag<&GlobalOptions::keep_going>},
-    GlobalOptionSpec{.name = "--no-connect", .apply = setFlag<&GlobalOptions::no_connect>},
-    GlobalOptionSpec{.name = "--vendor-ext", .apply = setFlag<&GlobalOptions::vendor_ext>},
-    GlobalOptionSpec{.name = "--stats", .apply = setFlag<&GlobalOptions::stats>},
-    GlobalOptionSpec{.name = "--port", .takes_value = true, .apply = setPort},
-    GlobalOptionSpec{.name = "--timeout", .takes_value = true, .apply = setTimeout},
-    GlobalOptionSpec{.name = "--script", .takes_value = true, .apply = setScript},
+    GlobalOptionSpec{.name = "--json", .apply = SetFlag<&GlobalOptions::json>},
+    GlobalOptionSpec{.name = "--verbose", .apply = SetFlag<&GlobalOptions::verbose>},
+    GlobalOptionSpec{.name = "--keep-going", .apply = SetFlag<&GlobalOptions::keep_going>},
+    GlobalOptionSpec{.name = "--no-connect", .apply = SetFlag<&GlobalOptions::no_connect>},
+    GlobalOptionSpec{.name = "--vendor-ext", .apply = SetFlag<&GlobalOptions::vendor_ext>},
+    GlobalOptionSpec{.name = "--stats", .apply = SetFlag<&GlobalOptions::stats>},
+    GlobalOptionSpec{.name = "--port", .takes_value = true, .apply = SetPort},
+    GlobalOptionSpec{.name = "--timeout", .takes_value = true, .apply = SetTimeout},
+    GlobalOptionSpec{.name = "--script", .takes_value = true, .apply = SetScript},
 };
 
 } // namespace
@@ -214,7 +214,7 @@ Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> a
         }
         if (const GlobalOptionSpec *const option = find_global_option(arg); option != nullptr)
         {
-            const Result<std::string_view> value = globalOptionValue(*option, args, index);
+            const Result<std::string_view> value = GlobalOptionValue(*option, args, index);
             if (!value.has_value())
             {
                 return std::unexpected(value.error());
@@ -244,7 +244,7 @@ Result<ParsedCommandLine> parse_command_line(std::span<const std::string_view> a
 
     for (const std::vector<std::string>& group : groups)
     {
-        Result<StepSpec> step = makeStep(group);
+        Result<StepSpec> step = MakeStep(group);
         if (!step.has_value())
         {
             return std::unexpected(step.error());

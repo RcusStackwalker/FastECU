@@ -12,7 +12,7 @@ namespace fastecu::bench
 namespace
 {
 
-std::string tempPath(std::string_view name)
+std::string TempPath(std::string_view name)
 {
     const char *const dir = std::getenv("TEST_TMPDIR");
     return std::string(dir != nullptr ? dir : ".") + "/" + std::string(name);
@@ -20,7 +20,7 @@ std::string tempPath(std::string_view name)
 
 TEST(BenchFiles, RoundTripsBytesThroughTheFilesystem)
 {
-    const std::string path = tempPath("round_trip.bin");
+    const std::string path = TempPath("round_trip.bin");
     const bytes::Bytes written{0x00, 0x01, 0xFE, 0xFF, 0x7F};
     BenchFiles files;
 
@@ -30,7 +30,7 @@ TEST(BenchFiles, RoundTripsBytesThroughTheFilesystem)
 
 TEST(BenchFiles, LoadsAnEmptyFileAsNoBytes)
 {
-    const std::string path = tempPath("empty.bin");
+    const std::string path = TempPath("empty.bin");
     {
         const std::ofstream create(path, std::ios::binary | std::ios::trunc);
     }
@@ -46,14 +46,14 @@ TEST(BenchFiles, LoadReportsAMissingFileAsInvalidConfig)
 {
     BenchFiles files;
 
-    ASSERT_THAT(files.load(tempPath("absent.bin")), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
+    ASSERT_THAT(files.load(TempPath("absent.bin")), fastecu::testing::IsErr(ErrorKind::kInvalidConfig));
 }
 
 TEST(BenchFiles, SaveReportsAnUnwritablePathAsInternal)
 {
     BenchFiles files;
 
-    ASSERT_THAT(files.save(tempPath("no_such_dir/out.bin"), bytes::Bytes{0x01}),
+    ASSERT_THAT(files.save(TempPath("no_such_dir/out.bin"), bytes::Bytes{0x01}),
                 fastecu::testing::IsErr(ErrorKind::kInternal));
 }
 

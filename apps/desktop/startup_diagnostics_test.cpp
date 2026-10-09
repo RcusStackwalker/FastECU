@@ -16,7 +16,7 @@ namespace
 class MessageCapture
 {
   public:
-    MessageCapture() : previous_(qInstallMessageHandler(handler))
+    MessageCapture() : previous_(qInstallMessageHandler(Handler))
     {
         active_ = this;
     }
@@ -29,7 +29,7 @@ class MessageCapture
     QStringList texts;
 
   private:
-    static void handler(QtMsgType level, const QMessageLogContext& context, const QString& text)
+    static void Handler(QtMsgType level, const QMessageLogContext& context, const QString& text)
     {
         if (level == QtWarningMsg || level == QtCriticalMsg)
         {

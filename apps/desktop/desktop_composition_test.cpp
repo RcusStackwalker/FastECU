@@ -39,7 +39,7 @@ using fastecu::ui::RemotePeer;
 
 constexpr auto kVersion = "0.1.0-beta.5";
 
-bool writeFile(const QString& path, const QString& text)
+bool WriteFile(const QString& path, const QString& text)
 {
     QFile file{path};
     if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate))
@@ -73,12 +73,12 @@ class SyslogGate
     }
     ~SyslogGate()
     {
-        release();
+        Release();
     }
     SyslogGate(const SyslogGate&) = delete;
     SyslogGate& operator=(const SyslogGate&) = delete;
 
-    void release()
+    void Release()
     {
         if (!released_)
         {
@@ -98,13 +98,13 @@ class SyslogGate
     bool released_ = false;
 };
 
-bool has_line_ending_with(const auto& spy, const QString& suffix)
+bool HasLineEndingWith(const auto& spy, const QString& suffix)
 {
     return std::ranges::any_of(spy.snapshot(),
                                [&](const auto& arguments) { return std::get<0>(arguments).endsWith(suffix); });
 }
 
-bool has_line_containing(const auto& spy, const QString& text)
+bool HasLineContaining(const auto& spy, const QString& text)
 {
     return std::ranges::any_of(spy.snapshot(),
                                [&](const auto& arguments) { return std::get<0>(arguments).contains(text); });
@@ -117,47 +117,47 @@ bool has_line_containing(const auto& spy, const QString& text)
 class DesktopCompositionTest : public ::testing::Test
 {
   protected:
-    static auto& config_of(DesktopComposition& composition)
+    static auto& ConfigOf(DesktopComposition& composition)
     {
         return composition.config_;
     }
-    static auto& calibration_workspace_of(DesktopComposition& composition)
+    static auto& CalibrationWorkspaceOf(DesktopComposition& composition)
     {
         return composition.calibration_workspace_;
     }
-    static auto& definition_catalogs_of(DesktopComposition& composition)
+    static auto& DefinitionCatalogsOf(DesktopComposition& composition)
     {
         return composition.definition_catalogs_;
     }
-    static auto& definition_service_of(DesktopComposition& composition)
+    static auto& DefinitionServiceOf(DesktopComposition& composition)
     {
         return composition.definition_service_;
     }
-    static auto& syslog_thread_of(DesktopComposition& composition)
+    static auto& SyslogThreadOf(DesktopComposition& composition)
     {
         return composition.syslog_thread_;
     }
-    static auto& syslogger_of(DesktopComposition& composition)
+    static auto& SysloggerOf(DesktopComposition& composition)
     {
         return composition.syslogger_;
     }
-    static auto& serial_of(DesktopComposition& composition)
+    static auto& SerialOf(DesktopComposition& composition)
     {
         return composition.serial_;
     }
-    static auto& connection_of(DesktopComposition& composition)
+    static auto& ConnectionOf(DesktopComposition& composition)
     {
         return composition.connection_;
     }
-    static auto& remote_utility_of(DesktopComposition& composition)
+    static auto& RemoteUtilityOf(DesktopComposition& composition)
     {
         return composition.remote_utility_;
     }
-    static auto& logging_engine_of(DesktopComposition& composition)
+    static auto& LoggingEngineOf(DesktopComposition& composition)
     {
         return composition.logging_engine_;
     }
-    static auto& rom_open_of(DesktopComposition& composition)
+    static auto& RomOpenOf(DesktopComposition& composition)
     {
         return composition.rom_open_;
     }
@@ -190,7 +190,7 @@ TEST_F(DesktopCompositionTest, servicesReferToTheCompositionsOwnObjects)
     ASSERT_EQ(&first.logging_engine, &second.logging_engine);
     ASSERT_EQ(&first.config, &second.config);
     ASSERT_EQ(&first.application, &second.application);
-    ASSERT_EQ(&first.calibrations, calibration_workspace_of(composition).get());
+    ASSERT_EQ(&first.calibrations, CalibrationWorkspaceOf(composition).get());
     ASSERT_EQ(&second.calibrations, &first.calibrations);
 }
 
@@ -201,7 +201,7 @@ TEST_F(DesktopCompositionTest, failedStartupBuildsNoServicesAndPerformsNoEcuIo)
     ASSERT_TRUE(root.isValid());
     const QString config_dir = root.path() + "/" + kVersion + "/config/";
     ASSERT_TRUE(QDir().mkpath(config_dir));
-    ASSERT_TRUE(writeFile(config_dir + "fastecu.cfg", "<config"));
+    ASSERT_TRUE(WriteFile(config_dir + "fastecu.cfg", "<config"));
 
     DesktopComposition composition{{}, {}, root.path()};
 
@@ -209,16 +209,16 @@ TEST_F(DesktopCompositionTest, failedStartupBuildsNoServicesAndPerformsNoEcuIo)
     ASSERT_TRUE(composition.startup_error().has_value());
     ASSERT_TRUE(QString::fromStdString(composition.startup_error()->detail).contains(config_dir + "fastecu.cfg"));
     // Nothing that could log, thread, or talk to an ECU was created.
-    ASSERT_TRUE(!definition_catalogs_of(composition));
-    ASSERT_TRUE(!definition_service_of(composition));
-    ASSERT_TRUE(!syslog_thread_of(composition));
-    ASSERT_TRUE(!syslogger_of(composition));
-    ASSERT_TRUE(!serial_of(composition));
-    ASSERT_TRUE(!connection_of(composition));
-    ASSERT_TRUE(!remote_utility_of(composition));
-    ASSERT_TRUE(!logging_engine_of(composition));
-    ASSERT_TRUE(!rom_open_of(composition));
-    ASSERT_TRUE(!calibration_workspace_of(composition));
+    ASSERT_TRUE(!DefinitionCatalogsOf(composition));
+    ASSERT_TRUE(!DefinitionServiceOf(composition));
+    ASSERT_TRUE(!SyslogThreadOf(composition));
+    ASSERT_TRUE(!SysloggerOf(composition));
+    ASSERT_TRUE(!SerialOf(composition));
+    ASSERT_TRUE(!ConnectionOf(composition));
+    ASSERT_TRUE(!RemoteUtilityOf(composition));
+    ASSERT_TRUE(!LoggingEngineOf(composition));
+    ASSERT_TRUE(!RomOpenOf(composition));
+    ASSERT_TRUE(!CalibrationWorkspaceOf(composition));
 }
 
 TEST_F(DesktopCompositionTest, workspaceOpensARomFromDisk)
@@ -227,7 +227,7 @@ TEST_F(DesktopCompositionTest, workspaceOpensARomFromDisk)
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{{}, {}, root.path()};
     ASSERT_TRUE(composition.started());
-    ASSERT_TRUE(calibration_workspace_of(composition));
+    ASSERT_TRUE(CalibrationWorkspaceOf(composition));
 
     const QString rom_path = root.filePath("synthetic.bin");
     QFile rom{rom_path};
@@ -235,10 +235,10 @@ TEST_F(DesktopCompositionTest, workspaceOpensARomFromDisk)
     ASSERT_EQ(rom.write(QByteArray(2048, '\x5A')), qint64{2048});
     rom.close();
 
-    const auto opened = calibration_workspace_of(composition)->OpenFile(rom_path.toStdString());
+    const auto opened = CalibrationWorkspaceOf(composition)->OpenFile(rom_path.toStdString());
 
     ASSERT_TRUE(opened.has_value());
-    const auto *session = calibration_workspace_of(composition)->Find(opened->id);
+    const auto *session = CalibrationWorkspaceOf(composition)->Find(opened->id);
     ASSERT_TRUE(session != nullptr);
     ASSERT_EQ(session->Source().display_name, std::string("synthetic.bin"));
     ASSERT_EQ(session->Protocol().file_size_label, std::string("2kb"));
@@ -251,7 +251,7 @@ TEST_F(DesktopCompositionTest, migrationLoadsPreviousVersionSettingsFromDisk)
     ASSERT_TRUE(root.isValid());
     const QString previous_dir = root.path() + "/0.1.0-beta.4/config/";
     ASSERT_TRUE(QDir().mkpath(previous_dir));
-    ASSERT_TRUE(writeFile(previous_dir + "fastecu.cfg",
+    ASSERT_TRUE(WriteFile(previous_dir + "fastecu.cfg",
                           R"(<config name="FastECU"><software_settings>
 <setting name="serial_port"><value data="ttyMIGRATED_UNIQUE"/></setting>
 </software_settings></config>)"));
@@ -261,7 +261,7 @@ TEST_F(DesktopCompositionTest, migrationLoadsPreviousVersionSettingsFromDisk)
     DesktopComposition composition{{}, {}, root.path()};
 
     ASSERT_TRUE(composition.started());
-    ASSERT_EQ(config_of(composition).Settings().serial_port, std::string("ttyMIGRATED_UNIQUE"));
+    ASSERT_EQ(ConfigOf(composition).Settings().serial_port, std::string("ttyMIGRATED_UNIQUE"));
     QFile saved{current_file};
     ASSERT_TRUE(saved.open(QIODevice::ReadOnly));
     ASSERT_TRUE(saved.readAll().contains("ttyMIGRATED_UNIQUE"));
@@ -273,14 +273,14 @@ TEST_F(DesktopCompositionTest, aPreviousVersionsSavedRowSelectsNoVehicle)
     ASSERT_TRUE(root.isValid());
     const QString previous_dir = root.path() + "/0.1.0-beta.4/config/";
     ASSERT_TRUE(QDir().mkpath(previous_dir));
-    ASSERT_TRUE(writeFile(previous_dir + "fastecu.cfg", R"(<config name="FastECU"><software_settings>
+    ASSERT_TRUE(WriteFile(previous_dir + "fastecu.cfg", R"(<config name="FastECU"><software_settings>
 <setting name="protocol_id"><value data="35"/></setting>
 </software_settings></config>)"));
 
     DesktopComposition composition{{}, {}, root.path()};
 
     ASSERT_TRUE(composition.started());
-    ASSERT_TRUE(config_of(composition).SelectedVehicle() == nullptr);
+    ASSERT_TRUE(ConfigOf(composition).SelectedVehicle() == nullptr);
 }
 
 TEST_F(DesktopCompositionTest, malformedSettingsRejectStartup)
@@ -289,7 +289,7 @@ TEST_F(DesktopCompositionTest, malformedSettingsRejectStartup)
     ASSERT_TRUE(root.isValid());
     const QString config_dir = root.path() + "/" + kVersion + "/config/";
     ASSERT_TRUE(QDir().mkpath(config_dir));
-    ASSERT_TRUE(writeFile(config_dir + "fastecu.cfg", "<config"));
+    ASSERT_TRUE(WriteFile(config_dir + "fastecu.cfg", "<config"));
 
     DesktopComposition composition{{}, {}, root.path()};
 
@@ -298,7 +298,7 @@ TEST_F(DesktopCompositionTest, malformedSettingsRejectStartup)
     ASSERT_TRUE(startup_error.has_value());
     const QString text = startup_failure_text(*startup_error);
     ASSERT_TRUE(text.contains(config_dir + "fastecu.cfg"));
-    ASSERT_TRUE(!serial_of(composition));
+    ASSERT_TRUE(!SerialOf(composition));
 }
 
 TEST_F(DesktopCompositionTest, settingsRewriteFailureIsAStartupWarning)
@@ -308,7 +308,7 @@ TEST_F(DesktopCompositionTest, settingsRewriteFailureIsAStartupWarning)
     const QString config_dir = root.path() + "/" + kVersion + "/config/";
     ASSERT_TRUE(QDir().mkpath(config_dir));
     const QString config_file = config_dir + "fastecu.cfg";
-    ASSERT_TRUE(writeFile(config_file, R"(<config name="FastECU" version="t"><software_settings/></config>)"));
+    ASSERT_TRUE(WriteFile(config_file, R"(<config name="FastECU" version="t"><software_settings/></config>)"));
     ASSERT_TRUE(QFile::setPermissions(config_file, QFileDevice::ReadOwner));
     const auto restore =
         qScopeGuard([&] { QFile::setPermissions(config_file, QFileDevice::ReadOwner | QFileDevice::WriteOwner); });
@@ -330,9 +330,9 @@ TEST_F(DesktopCompositionTest, servicesShareTheCompositionsSession)
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{{}, {}, root.path()};
     ASSERT_TRUE(composition.started());
-    ASSERT_EQ(&composition.services().config, &config_of(composition));
+    ASSERT_EQ(&composition.services().config, &ConfigOf(composition));
     ASSERT_EQ(composition.services().application.version, std::string(kVersion));
-    ASSERT_EQ(QString::fromStdString(config_of(composition).ProvisionedPaths().base_config_directory), root.path());
+    ASSERT_EQ(QString::fromStdString(ConfigOf(composition).ProvisionedPaths().base_config_directory), root.path());
 }
 
 TEST_F(DesktopCompositionTest, restartSeesSavedSettingsAndTheDatalogDirectory)
@@ -343,14 +343,14 @@ TEST_F(DesktopCompositionTest, restartSeesSavedSettingsAndTheDatalogDirectory)
     {
         DesktopComposition first{{}, {}, root.path()};
         ASSERT_TRUE(first.started());
-        config_of(first).Settings().serial_port = "ttyRESTART";
-        config_of(first).Settings().datalog_files_directory = datalogs;
-        ASSERT_TRUE(config_of(first).Save().has_value());
+        ConfigOf(first).Settings().serial_port = "ttyRESTART";
+        ConfigOf(first).Settings().datalog_files_directory = datalogs;
+        ASSERT_TRUE(ConfigOf(first).Save().has_value());
     }
     DesktopComposition second{{}, {}, root.path()};
     ASSERT_TRUE(second.started());
-    ASSERT_EQ(config_of(second).Settings().serial_port, std::string("ttyRESTART"));
-    ASSERT_EQ(config_of(second).Settings().datalog_files_directory, datalogs);
+    ASSERT_EQ(ConfigOf(second).Settings().serial_port, std::string("ttyRESTART"));
+    ASSERT_EQ(ConfigOf(second).Settings().datalog_files_directory, datalogs);
 }
 
 TEST_F(DesktopCompositionTest, waitRequestIsWiredToTheRemoteUtility)
@@ -372,7 +372,7 @@ TEST_F(DesktopCompositionTest, remoteStateChangesReachThePeer)
     DesktopComposition composition{{}, {}, root.path()};
     fastecu::testing::SignalRecorder changes{&composition.services().remote, &RemotePeer::stateChanged};
 
-    emit remote_utility_of(composition)->stateChanged(QRemoteObjectReplica::Suspect, QRemoteObjectReplica::Valid);
+    emit RemoteUtilityOf(composition)->stateChanged(QRemoteObjectReplica::Suspect, QRemoteObjectReplica::Valid);
 
     ASSERT_EQ(changes.count(), 1U);
     ASSERT_EQ(std::get<0>(changes.snapshot().at(0)), QRemoteObjectReplica::Suspect);
@@ -386,7 +386,7 @@ TEST_F(DesktopCompositionTest, mirroringWithoutAPeerReturnsPromptly)
     ASSERT_TRUE(root.isValid());
     DesktopComposition composition{{}, {}, root.path()};
     RemotePeer& remote = composition.services().remote;
-    ASSERT_TRUE(!remote_utility_of(composition)->isValid());
+    ASSERT_TRUE(!RemoteUtilityOf(composition)->isValid());
 
     QElapsedTimer elapsed;
     elapsed.start();
@@ -409,10 +409,10 @@ TEST_F(DesktopCompositionTest, channelLevelsReachTheLogWindowWithTheirPrefix)
 
     // Match by content: the logger's own "SystemLogger started..." line
     // can reach the window too.
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return has_line_ending_with(window, "(II) info line"); },
+    ASSERT_TRUE(fastecu::testing::wait_until([&] { return HasLineEndingWith(window, "(II) info line"); },
                                              std::chrono::milliseconds(5000)));
-    ASSERT_TRUE(has_line_ending_with(window, "(EE) error line"));
-    ASSERT_TRUE(has_line_ending_with(window, "(WW) warning line"));
+    ASSERT_TRUE(HasLineEndingWith(window, "(EE) error line"));
+    ASSERT_TRUE(HasLineEndingWith(window, "(WW) warning line"));
 }
 
 TEST_F(DesktopCompositionTest, debugLinesStayOutOfTheLogWindow)
@@ -426,9 +426,9 @@ TEST_F(DesktopCompositionTest, debugLinesStayOutOfTheLogWindow)
     emit log.LOG_D("debug line", true, false);
     emit log.LOG_I("sentinel", false, false);
 
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return has_line_ending_with(window, "sentinel"); },
+    ASSERT_TRUE(fastecu::testing::wait_until([&] { return HasLineEndingWith(window, "sentinel"); },
                                              std::chrono::milliseconds(5000)));
-    ASSERT_TRUE(!has_line_containing(window, "debug line"));
+    ASSERT_TRUE(!HasLineContaining(window, "debug line"));
 }
 
 // A dialog that logs and is destroyed before the syslog thread delivers
@@ -443,12 +443,11 @@ TEST_F(DesktopCompositionTest, relayedLineSurvivesItsSenderButADirectOneDoesNot)
     fastecu::testing::SignalRecorder window{&log, &LogChannel::log_window_message};
 
     {
-        SyslogGate gate{*syslogger_of(composition)};
+        SyslogGate gate{*SysloggerOf(composition)};
         auto relayed = std::make_unique<LogChannel>();
         QObject::connect(relayed.get(), &LogChannel::LOG_I, &log, &LogChannel::LOG_I);
         auto direct = std::make_unique<LogChannel>();
-        QObject::connect(direct.get(), &LogChannel::LOG_I, syslogger_of(composition).get(),
-                         &SystemLogger::log_messages);
+        QObject::connect(direct.get(), &LogChannel::LOG_I, SysloggerOf(composition).get(), &SystemLogger::log_messages);
 
         emit relayed->LOG_I("relayed line", false, false);
         emit direct->LOG_I("direct line", false, false);
@@ -457,10 +456,10 @@ TEST_F(DesktopCompositionTest, relayedLineSurvivesItsSenderButADirectOneDoesNot)
     }
     emit log.LOG_I("sentinel", false, false);
 
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return has_line_ending_with(window, "sentinel"); },
+    ASSERT_TRUE(fastecu::testing::wait_until([&] { return HasLineEndingWith(window, "sentinel"); },
                                              std::chrono::milliseconds(5000)));
-    ASSERT_TRUE(has_line_ending_with(window, "relayed line"));
-    ASSERT_TRUE(!has_line_containing(window, "direct line"));
+    ASSERT_TRUE(HasLineEndingWith(window, "relayed line"));
+    ASSERT_TRUE(!HasLineContaining(window, "direct line"));
 }
 
 TEST_F(DesktopCompositionTest, enablingFileLoggingWritesASyslogFile)
@@ -482,7 +481,7 @@ TEST_F(DesktopCompositionTest, enablingFileLoggingWritesASyslogFile)
     // sentinel's window line proves the earlier write has finished.
     emit log.LOG_I("sentinel", false, false);
 
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return has_line_ending_with(window, "sentinel"); },
+    ASSERT_TRUE(fastecu::testing::wait_until([&] { return HasLineEndingWith(window, "sentinel"); },
                                              std::chrono::milliseconds(5000)));
     const QStringList files = QDir(syslog_dir).entryList({"log_fastecu_*.txt"}, QDir::Files);
     ASSERT_EQ(files.size(), 1U);

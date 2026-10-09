@@ -15,7 +15,7 @@ namespace
 {
 constexpr uds::ExchangePolicy kConnectPolicy{};
 
-Status validateEcho(bytes::ByteView reply, bytes::Byte expected, std::size_t minimum_size, std::string_view subject)
+Status ValidateEcho(bytes::ByteView reply, bytes::Byte expected, std::size_t minimum_size, std::string_view subject)
 {
     const bytes::ByteView payload = uds::Payload(reply);
     if (payload.size() < minimum_size)
@@ -108,7 +108,7 @@ Status BenchSession::connect()
             return std::unexpected(basic_reply.error());
         }
         if (const Status valid =
-                validateEcho(*basic_reply, mitsu_colt_can::kSessionBasic, 1, "basic diagnostic session");
+                ValidateEcho(*basic_reply, mitsu_colt_can::kSessionBasic, 1, "basic diagnostic session");
             !valid.has_value())
         {
             return valid;
@@ -162,7 +162,7 @@ Status BenchSession::connect()
     {
         return std::unexpected(session_reply.error());
     }
-    if (const Status valid = validateEcho(*session_reply, mitsu_colt_can::kSessionBootload, 1, "diagnostic session");
+    if (const Status valid = ValidateEcho(*session_reply, mitsu_colt_can::kSessionBootload, 1, "diagnostic session");
         !valid.has_value())
     {
         return valid;
@@ -173,7 +173,7 @@ Status BenchSession::connect()
     {
         return std::unexpected(seed_reply.error());
     }
-    if (const Status valid = validateEcho(*seed_reply, 0x05, 5, "security access seed"); !valid.has_value())
+    if (const Status valid = ValidateEcho(*seed_reply, 0x05, 5, "security access seed"); !valid.has_value())
     {
         return valid;
     }
@@ -186,7 +186,7 @@ Status BenchSession::connect()
     {
         return std::unexpected(key_reply.error());
     }
-    if (const Status valid = validateEcho(*key_reply, 0x06, 1, "security access key"); !valid.has_value())
+    if (const Status valid = ValidateEcho(*key_reply, 0x06, 1, "security access key"); !valid.has_value())
     {
         return valid;
     }

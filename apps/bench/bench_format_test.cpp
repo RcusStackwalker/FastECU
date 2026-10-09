@@ -14,7 +14,7 @@ namespace fastecu::bench
 namespace
 {
 
-CommandOutcome eraseFailure()
+CommandOutcome EraseFailure()
 {
     return CommandOutcome{
         .step = "erase",
@@ -34,7 +34,7 @@ CommandOutcome eraseFailure()
 
 TEST(BenchFormat, TextCarriesStepTxRxAndNote)
 {
-    const std::string text = format_text(eraseFailure());
+    const std::string text = format_text(EraseFailure());
 
     EXPECT_NE(text.find("erase"), std::string::npos);
     EXPECT_NE(text.find("31 e0"), std::string::npos);
@@ -47,7 +47,7 @@ TEST(BenchFormat, TextCarriesStepTxRxAndNote)
 
 TEST(BenchFormat, TextMarksSuccessWithoutTheFailureWord)
 {
-    CommandOutcome ok = eraseFailure();
+    CommandOutcome ok = EraseFailure();
     ok.ok = true;
     ok.error_kind.reset();
     ok.error_detail.clear();
@@ -60,7 +60,7 @@ TEST(BenchFormat, TextMarksSuccessWithoutTheFailureWord)
 
 TEST(BenchFormat, JsonIsOneFlatObjectWithHexStrings)
 {
-    const std::string json = format_json(eraseFailure());
+    const std::string json = format_json(EraseFailure());
 
     EXPECT_TRUE(json.starts_with("{"));
     EXPECT_TRUE(json.ends_with("}"));
@@ -77,7 +77,7 @@ TEST(BenchFormat, JsonIsOneFlatObjectWithHexStrings)
 
 TEST(BenchFormat, MultiExchangeTextAndJsonCarryFirstAndLastPdus)
 {
-    CommandOutcome outcome = eraseFailure();
+    CommandOutcome outcome = EraseFailure();
     outcome.exchange_count = 5;
     outcome.last_tx = {0x31, 0xE1, 0x01};
     outcome.last_rx = {0x71, 0xE1, 0x00};
@@ -98,7 +98,7 @@ TEST(BenchFormat, MultiExchangeTextAndJsonCarryFirstAndLastPdus)
 
 TEST(BenchFormat, JsonEscapesQuotesAndBackslashesInDetail)
 {
-    CommandOutcome outcome = eraseFailure();
+    CommandOutcome outcome = EraseFailure();
     outcome.error_detail = R"(said "no" \ here)";
 
     const std::string json = format_json(outcome);
@@ -108,7 +108,7 @@ TEST(BenchFormat, JsonEscapesQuotesAndBackslashesInDetail)
 
 TEST(BenchFormat, JsonOmitsBatteryWhenUnavailable)
 {
-    CommandOutcome outcome = eraseFailure();
+    CommandOutcome outcome = EraseFailure();
     outcome.vbatt.reset();
 
     EXPECT_EQ(format_json(outcome).find("\"vbatt\""), std::string::npos);
@@ -116,7 +116,7 @@ TEST(BenchFormat, JsonOmitsBatteryWhenUnavailable)
 
 TEST(BenchFormat, JsonOmitsBatteryWhenNotFinite)
 {
-    CommandOutcome outcome = eraseFailure();
+    CommandOutcome outcome = EraseFailure();
     outcome.vbatt = std::numeric_limits<double>::quiet_NaN();
 
     EXPECT_EQ(format_json(outcome).find("\"vbatt\""), std::string::npos);
@@ -124,7 +124,7 @@ TEST(BenchFormat, JsonOmitsBatteryWhenNotFinite)
 
 TEST(BenchFormat, JsonEscapesControlCharactersInDetail)
 {
-    CommandOutcome outcome = eraseFailure();
+    CommandOutcome outcome = EraseFailure();
     outcome.error_detail = "one\x01two\bthree\ffour";
 
     const std::string json = format_json(outcome);

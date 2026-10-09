@@ -32,7 +32,7 @@ TEST(CatalogConsistency, ChecksumFlagAgreesWithChecksumRouting)
 // File names exactly as Bazel bundles them, from
 // $(locations //resources/shared:kernel_files): compared as strings, so a
 // case-insensitive filesystem cannot hide a mismatch.
-std::set<std::string> bundled_kernel_names()
+std::set<std::string> BundledKernelNames()
 {
     std::set<std::string> names;
     const char *paths = std::getenv("KERNEL_FILES");
@@ -50,7 +50,7 @@ std::set<std::string> bundled_kernel_names()
 
 TEST(CatalogConsistency, EveryKernelNameIsABundledFileSpelledExactly)
 {
-    const std::set<std::string> bundled = bundled_kernel_names();
+    const std::set<std::string> bundled = BundledKernelNames();
     ASSERT_FALSE(bundled.empty());
     for (const auto& protocol : BuiltinCatalog().Protocols())
     {
@@ -63,7 +63,7 @@ TEST(CatalogConsistency, EveryKernelNameIsABundledFileSpelledExactly)
 
 TEST(CatalogConsistency, EveryBundledKernelIsUsed)
 {
-    for (const std::string& name : bundled_kernel_names())
+    for (const std::string& name : BundledKernelNames())
     {
         EXPECT_TRUE(std::ranges::any_of(BuiltinCatalog().Protocols(),
                                         [&name](const auto& protocol) { return protocol.kernel == name; }))
