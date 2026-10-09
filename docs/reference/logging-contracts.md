@@ -151,3 +151,17 @@ The maintained [codec sources](../../src/algorithms/protocol/mut_dma/) and
 Static protocol extraction does not qualify the host adapter, electrical path,
 or end-to-end desktop workflow. Runtime evidence remains subject to the
 [logging checklist](../checklists/logging-engine-bench-checklist.md).
+
+## Portable definition preparation API
+
+[Channel preparation](../../src/backend/logging/logging_channel_preparation.h)
+accepts hexadecimal addresses with an optional `0x`/`0X` prefix and positive
+decimal lengths. Surrounding ASCII whitespace is accepted; signs, internal
+whitespace, trailing junk and overflow are rejected. Display formats are exactly
+`0`, or `0.` followed by 1–15 zeros. Empty units are valid; only the first
+conversion is used. Existing protocol bounds and shared expression validation
+remain applicable. Errors identify the definition's protocol, parameter ID and
+invalid field.
+
+This backend API is tested independently. Desktop preparation still uses its
+existing Qt parsing until the adoption PR switches its callers.
