@@ -193,15 +193,8 @@ TEST(DesktopLoggingProtocolRegistrationTest, ssm_target_and_adapter_are_per_run)
             EXPECT_CALL(serial.Fake(), WriteSerialDataEchoCheck(QByteArray::fromHex(target ? "8010f005a80000000734"
                                                                                            : "8018f005a8000000073c")))
                 .WillOnce(Return(QByteArray{}));
-            {
-                ::testing::InSequence order;
-                EXPECT_CALL(serial.Fake(), ReadSerialData(openport ? 1000 : 10))
-                    .WillOnce(Return(QByteArray::fromHex("80f01004e80000006c")));
-                if (!openport)
-                {
-                    EXPECT_CALL(serial.Fake(), ReadSerialData(980)).WillOnce(Return(QByteArray{}));
-                }
-            }
+            EXPECT_CALL(serial.Fake(), ReadSerialData(openport ? 1000 : 10))
+                .WillOnce(Return(QByteArray::fromHex(target ? "80f01002e80771" : "80f01802e80779")));
             ASSERT_TRUE((*result)->Start(cancellation));
             ASSERT_TRUE((*result)->Stop());
             ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(&serial.Fake()));

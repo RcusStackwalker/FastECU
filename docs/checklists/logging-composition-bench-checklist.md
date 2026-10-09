@@ -44,7 +44,10 @@ Windows/macOS/Linux CI and Windows/macOS packaging remain merge gates.
       the outgoing target changes from `0x10` to `0x18` and each run uses its
       captured selection. Check channels and values against the prior build.
 - [ ] Repeat applicable SSM checks with OpenPort and non-OpenPort adapters;
-      framing/read behavior remains unchanged. Record unsupported combinations.
+      verify declared-length extraction, consecutive/coalesced replies and rejection
+      of corrupt startup/poll checksums. OpenPort keeps one adapter read per response.
+      Direct desktop TCU framing remains unqualified; backend sender tests do not
+      qualify the serial facade or hardware. Record unsupported combinations.
 - [ ] Repeat applicable protocol start/stop checks through a remote peer.
       Without a peer, record remote operation unverified.
 - [ ] Exit or restart with logging active. The worker stops before serial and

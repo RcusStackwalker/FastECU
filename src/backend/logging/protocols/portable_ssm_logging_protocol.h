@@ -38,6 +38,7 @@ class SsmLoggingProtocol final : public LoggingProtocol
     const std::vector<std::size_t> response_offsets_;
     const bool target_is_ecu_;
     const bool use_openport2_adapter_;
+    bytes::Bytes pending_response_bytes_;
 };
 
 } // namespace fastecu::logging
