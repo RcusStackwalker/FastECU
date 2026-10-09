@@ -28,6 +28,6 @@ class WebSocketIoDevice : public QIODevice
     qint64 writeData(const char *data, qint64 len) override;
 
   private:
-    QPointer<QWebSocket> m_socket;
-    QByteArray m_buffer;
+    QPointer<QWebSocket> m_socket_;
+    QByteArray m_buffer_;
 };

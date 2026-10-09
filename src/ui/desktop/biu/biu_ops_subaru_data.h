@@ -23,8 +23,8 @@ class BiuOpsSubaruData : public QWidget
     void update_data_results(QStringList *data_result);
 
   private:
-    QStringList *data_result;
+    QStringList *data_result_;
 
   private:
-    std::unique_ptr<Ui::BiuOpsSubaruDataWindow> ui;
+    std::unique_ptr<Ui::BiuOpsSubaruDataWindow> ui_;
 };

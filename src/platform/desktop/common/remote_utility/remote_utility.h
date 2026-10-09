@@ -30,18 +30,18 @@ class RemoteUtility : public QObject
     void stateChanged(QRemoteObjectReplica::State state, QRemoteObjectReplica::State oldState);
 
   private:
-    QString peerAddress;
-    QString password;
-    const QString autodiscoveryMessage = "FastECU_PTP_Autodiscovery";
-    RemoteUtilityReplica *remote_utility{};
-    const QString remoteObjectNameUtility = "FastECU_Utility";
-    const QString wssPath = "/" + remoteObjectNameUtility;
-    const QString webSocketPasswordHeader = "fastecu-basic-password";
-    QWebSocket *webSocket;
-    WebSocketIoDevice *socket;
-    QRemoteObjectNode node;
-    QTimer *keepalive_timer;
-    int pings_sequently_missed = 0;
+    QString peer_address_;
+    QString password_;
+    const QString autodiscovery_message_ = "FastECU_PTP_Autodiscovery";
+    RemoteUtilityReplica *remote_utility_{};
+    const QString remote_object_name_utility_ = "FastECU_Utility";
+    const QString wss_path_ = "/" + remote_object_name_utility_;
+    const QString web_socket_password_header_ = "fastecu-basic-password";
+    QWebSocket *web_socket_;
+    WebSocketIoDevice *socket_;
+    QRemoteObjectNode node_;
+    QTimer *keepalive_timer_;
+    int pings_sequently_missed_ = 0;
     void start_keepalive(void);
     void stop_keepalive(void);
     void startRemote(void);

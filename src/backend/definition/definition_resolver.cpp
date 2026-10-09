@@ -749,30 +749,30 @@ class ResolverState
                         std::format("{} definition from '{}' has an empty definition identity",
                                     format_name(definition.format), definition.source));
         }
-        if (visiting.contains(id))
+        if (visiting_.contains(id))
         {
-            return fail(ErrorKind::InvalidConfig, std::format("inheritance cycle: {}", chain_text(stack, id)));
+            return fail(ErrorKind::InvalidConfig, std::format("inheritance cycle: {}", chain_text(stack_, id)));
         }
 
-        if (auto memoized = resolved_by_id.find(id); memoized != resolved_by_id.end())
+        if (auto memoized = resolved_by_id_.find(id); memoized != resolved_by_id_.end())
         {
             return memoized->second;
         }
 
-        if (stack.size() >= kMaxInheritanceDepth)
+        if (stack_.size() >= kMaxInheritanceDepth)
         {
             return fail(ErrorKind::InvalidConfig, std::format("inheritance chain exceeds maximum depth ({}): {}",
-                                                              kMaxInheritanceDepth, chain_text(stack, id)));
+                                                              kMaxInheritanceDepth, chain_text(stack_, id)));
         }
 
-        visiting.insert(id);
-        stack.push_back(id);
-        const ChainGuard guard{visiting, stack, id};
+        visiting_.insert(id);
+        stack_.push_back(id);
+        const ChainGuard guard{visiting_, stack_, id};
 
         if (auto locally_valid = validate_local(definition); !locally_valid.has_value())
         {
             return fail(locally_valid.error().kind,
-                        std::format("{} in inheritance chain {}", locally_valid.error().detail, chain_text(stack)));
+                        std::format("{} in inheritance chain {}", locally_valid.error().detail, chain_text(stack_)));
         }
 
         Resolved resolved;
@@ -780,40 +780,40 @@ class ResolverState
         const std::vector<std::string> parent_ids = definition.parents;
         for (const std::string& parent_id : parent_ids)
         {
-            if (visiting.contains(parent_id))
+            if (visiting_.contains(parent_id))
             {
                 return fail(ErrorKind::InvalidConfig,
-                            std::format("inheritance cycle: {}", chain_text(stack, parent_id)));
+                            std::format("inheritance cycle: {}", chain_text(stack_, parent_id)));
             }
 
-            auto parent = resolved_by_id.find(parent_id);
-            if (parent == resolved_by_id.end())
+            auto parent = resolved_by_id_.find(parent_id);
+            if (parent == resolved_by_id_.end())
             {
                 auto loaded = loader_(format_, parent_id);
                 if (!loaded)
                 {
                     return fail(loaded.error().kind,
                                 std::format("failed to load parent '{}' in inheritance chain {}: {}", parent_id,
-                                            chain_text(stack, parent_id), loaded.error().detail));
+                                            chain_text(stack_, parent_id), loaded.error().detail));
                 }
                 if (loaded->format != format_)
                 {
                     return fail(ErrorKind::InvalidConfig,
                                 std::format("cross-format parent '{}' in inheritance chain {}", parent_id,
-                                            chain_text(stack, parent_id)));
+                                            chain_text(stack_, parent_id)));
                 }
                 if (loaded->identity.xml_id != parent_id)
                 {
                     return fail(ErrorKind::InvalidConfig,
                                 std::format("parent reference '{}' loaded definition '{}' in inheritance chain {}",
-                                            parent_id, loaded->identity.xml_id, chain_text(stack, parent_id)));
+                                            parent_id, loaded->identity.xml_id, chain_text(stack_, parent_id)));
                 }
 
                 if (auto parent_result = resolve(std::move(*loaded)); !parent_result.has_value())
                 {
                     return std::unexpected(parent_result.error());
                 }
-                parent = resolved_by_id.find(parent_id);
+                parent = resolved_by_id_.find(parent_id);
             }
 
             if (!has_parent)
@@ -825,7 +825,7 @@ class ResolverState
                      !merged.has_value())
             {
                 return fail(merged.error().kind,
-                            std::format("{} in inheritance chain {}", merged.error().detail, chain_text(stack)));
+                            std::format("{} in inheritance chain {}", merged.error().detail, chain_text(stack_)));
             }
             append_unique(resolved.sources, parent->second.sources);
             append_unique(resolved.ids, parent->second.ids);
@@ -834,20 +834,20 @@ class ResolverState
         if (auto merged = overlay_definition(resolved.definition, definition); !merged.has_value())
         {
             return fail(merged.error().kind,
-                        std::format("{} in inheritance chain {}", merged.error().detail, chain_text(stack)));
+                        std::format("{} in inheritance chain {}", merged.error().detail, chain_text(stack_)));
         }
         append_unique(resolved.sources, {resolved.definition.source});
         append_unique(resolved.ids, {resolved.definition.identity.xml_id});
 
-        auto [stored, inserted] = resolved_by_id.try_emplace(id, std::move(resolved));
+        auto [stored, inserted] = resolved_by_id_.try_emplace(id, std::move(resolved));
         return stored->second;
     }
 
     DefinitionFormat format_;
     const DefinitionLoader& loader_;
-    std::unordered_set<std::string> visiting;
-    std::vector<std::string> stack;
-    std::unordered_map<std::string, Resolved> resolved_by_id;
+    std::unordered_set<std::string> visiting_;
+    std::vector<std::string> stack_;
+    std::unordered_map<std::string, Resolved> resolved_by_id_;
 };
 
 } // namespace

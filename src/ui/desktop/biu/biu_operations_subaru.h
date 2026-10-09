@@ -44,13 +44,13 @@ class BiuOperationsSubaru : public QDialog
     ~BiuOperationsSubaru();
 
   private:
-    uint16_t receive_timeout = 500;
-    uint16_t serial_read_extra_short_timeout = 50;
-    uint16_t serial_read_short_timeout = 200;
-    uint16_t serial_read_medium_timeout = 500;
-    uint16_t serial_read_long_timeout = 800;
-    uint16_t serial_read_extra_long_timeout = 3000;
-    uint16_t serial_read_timeout = 2000;
+    uint16_t receive_timeout_ = 500;
+    uint16_t serial_read_extra_short_timeout_ = 50;
+    uint16_t serial_read_short_timeout_ = 200;
+    uint16_t serial_read_medium_timeout_ = 500;
+    uint16_t serial_read_long_timeout_ = 800;
+    uint16_t serial_read_extra_long_timeout_ = 3000;
+    uint16_t serial_read_timeout_ = 2000;
 
     enum BiuCommands
     {
@@ -81,40 +81,40 @@ class BiuOperationsSubaru : public QDialog
         CONNECTED = 1,
     };
 
-    QStringList biu_messages = {"COMM: Connect",
-                                "81",
-                                "COMM: Disconnect",
-                                "82",
-                                "READ: DTCs",
-                                "18",
-                                "READ: Input/output switches",
-                                "21,50",
-                                "READ: Lighting switches",
-                                "21,51",
-                                "READ: BIU data",
-                                "21,40",
-                                "READ: CAN data",
-                                "21,41",
-                                "READ: Times & Temps",
-                                "21,52",
-                                "READ: Car options",
-                                "21,53",
-                                "READ: VDC/ABC Condition",
-                                "21,60",
-                                "READ: Destination / Touch SW",
-                                "21,61",
-                                "READ: BIU Status",
-                                "21,54",
-                                "SET:  Clear DTCs",
-                                "14,40,00",
-                                "SET:  Times & Temps",
-                                "3B,8A",
-                                "SET:  Car options",
-                                "3B,8C",
-                                "Custom",
-                                ""};
+    QStringList biu_messages_ = {"COMM: Connect",
+                                 "81",
+                                 "COMM: Disconnect",
+                                 "82",
+                                 "READ: DTCs",
+                                 "18",
+                                 "READ: Input/output switches",
+                                 "21,50",
+                                 "READ: Lighting switches",
+                                 "21,51",
+                                 "READ: BIU data",
+                                 "21,40",
+                                 "READ: CAN data",
+                                 "21,41",
+                                 "READ: Times & Temps",
+                                 "21,52",
+                                 "READ: Car options",
+                                 "21,53",
+                                 "READ: VDC/ABC Condition",
+                                 "21,60",
+                                 "READ: Destination / Touch SW",
+                                 "21,61",
+                                 "READ: BIU Status",
+                                 "21,54",
+                                 "SET:  Clear DTCs",
+                                 "14,40,00",
+                                 "SET:  Times & Temps",
+                                 "3B,8A",
+                                 "SET:  Car options",
+                                 "3B,8C",
+                                 "Custom",
+                                 ""};
 
-    QStringList biu_dtc_list = {
+    QStringList biu_dtc_list_ = {
         "B0100", "BIU internal error",
         "B0101", "Battery Power supply error",
         "B0102", "Battery Power backup error",
@@ -155,7 +155,7 @@ class BiuOperationsSubaru : public QDialog
         "B0500", "Keyless UART comm error",
     };
 
-    QStringList biu_switch_names = {
+    QStringList biu_switch_names_ = {
         "Key-lock warning SW                  ", "Stop Light Switch                    ",
         "Front fog lamp SW input              ", "Rear fog lamp SW input               ",
         "Lighting SW input                    ", "Door key-lock SW input               ",
@@ -222,7 +222,7 @@ class BiuOperationsSubaru : public QDialog
         "VDC Off Flag                         ", "VDC/ABS OK                           ",
     };
 
-    QStringList biu_lightsw_names = {
+    QStringList biu_lightsw_names_ = {
         "Lighting I sw input    ", "Lighting II sw input   ", "---- unused ----       ", "Dimmer hi sw input     ",
         "---- unused ----       ", "Dimmer pass sw input   ", "---- unused ----       ", "---- unused ----       ",
         "Lighting I lamp output ", "Lighting II lamp output", "Lighting hi lamp output", "Front fog lamp output  ",
@@ -231,7 +231,7 @@ class BiuOperationsSubaru : public QDialog
         "---- unused ----       ", "---- unused ----       ", "---- unused ----       ", "Economy switch         ",
     };
 
-    QStringList biu_data_names = {
+    QStringList biu_data_names_ = {
         "Battery voltage (control) ", "volts", "Battery voltage (backup)  ", "volts",
         "Ignition system voltage   ", "volts", "Accessory voltage         ", "volts",
         "Illumination VR           ", "volts", "Illumination d-ratio      ", "%    ",
@@ -244,7 +244,7 @@ class BiuOperationsSubaru : public QDialog
         std::to_array<float>({0.0843, 0, 0.0843, 0,   0.0843, 0, 0.0843, 0, 0.0196, 0, 0.4, 0,
                               0.0196, 0, 0.5,    -40, 0.0392, 0, 0.4,    0, 0.0843, 0, 1,   0});
 
-    QStringList can_data_names = {
+    QStringList can_data_names_ = {
         "Front wheel speed     ", "km/hr", "VDC/ABS latest f-code ", "     ", "Blower fan steps      ", "steps",
         "Fuel level resistance ", "ohms ", "Fuel consumption      ", "cc/s ", "Engine coolant temp   ", "degC ",
         "Longitudinal g-force  ", "m/s^2", "Sport shift stages    ", "step ", "Shift position        ", "     ",
@@ -253,12 +253,12 @@ class BiuOperationsSubaru : public QDialog
     static constexpr auto kCanDataFactors =
         std::to_array<float>({0.0562, 0, 1, 0, 1, 0, 0.0016, 0, 0.001, 0, 1, -40, 0.1235, 0, 1, 0, 1, 0});
 
-    QStringList biu_tt_names = {
+    QStringList biu_tt_names_ = {
         "Room lamp off delay time ", "     ", "Auto-lock time           ", "secs ",
         "Outside temp offset      ", "degC ",
     };
 
-    QStringList biu_option_names = {
+    QStringList biu_option_names_ = {
         "Rear defogger op mode       ", "NORMAL",    "CONTINUOUS",
         "Wiper deicer op mode        ", "NORMAL",    "CONTINUOUS",
         "Security alarm setup        ", "ON",        "OFF",
@@ -301,7 +301,7 @@ class BiuOperationsSubaru : public QDialog
         "EK model                    ", "ON",        "OFF",
     };
 
-    QTimer *keep_alive_timer;
+    QTimer *keep_alive_timer_;
 
     void parse_biu_message(const QByteArray& message);
     QString parse_message_to_hex(const QByteArray& received);
@@ -311,30 +311,30 @@ class BiuOperationsSubaru : public QDialog
     void close_results_windows();
     void closeEvent(QCloseEvent *event);
 
-    fastecu::diagnostics::IDiagnosticLink *link = nullptr;
-    QByteArray *biu_tt_result;
-    QByteArray *biu_option_result;
-    QStringList *switch_result;
-    QStringList *data_result;
-    BiuOpsSubaruSwitches *biuOpsSubaruSwitchesIo;
-    BiuOpsSubaruSwitches *biuOpsSubaruSwitchesLighting;
-    BiuOpsSubaruSwitches *biuOpsSubaruSwitchesOptions;
+    fastecu::diagnostics::IDiagnosticLink *link_ = nullptr;
+    QByteArray *biu_tt_result_;
+    QByteArray *biu_option_result_;
+    QStringList *switch_result_;
+    QStringList *data_result_;
+    BiuOpsSubaruSwitches *biu_ops_subaru_switches_io_;
+    BiuOpsSubaruSwitches *biu_ops_subaru_switches_lighting_;
+    BiuOpsSubaruSwitches *biu_ops_subaru_switches_options_;
 
-    BiuOpsSubaruData *biuOpsSubaruDataDtcs;
-    BiuOpsSubaruData *biuOpsSubaruDataBiu;
-    BiuOpsSubaruData *biuOpsSubaruDataCan;
-    BiuOpsSubaruData *biuOpsSubaruDataTt;
-    BiuOpsSubaruData *biuOpsSubaruDataVdcabs;
-    BiuOpsSubaruData *biuOpsSubaruDataDest;
-    BiuOpsSubaruData *biuOpsSubaruDataFactory;
+    BiuOpsSubaruData *biu_ops_subaru_data_dtcs_;
+    BiuOpsSubaruData *biu_ops_subaru_data_biu_;
+    BiuOpsSubaruData *biu_ops_subaru_data_can_;
+    BiuOpsSubaruData *biu_ops_subaru_data_tt_;
+    BiuOpsSubaruData *biu_ops_subaru_data_vdcabs_;
+    BiuOpsSubaruData *biu_ops_subaru_data_dest_;
+    BiuOpsSubaruData *biu_ops_subaru_data_factory_;
 
-    BiuOpsSubaruInput1 *biuOpsSubaruInput1{};
-    BiuOpsSubaruInput2 *biuOpsSubaruInput2{};
+    BiuOpsSubaruInput1 *biu_ops_subaru_input1_{};
+    BiuOpsSubaruInput2 *biu_ops_subaru_input2_{};
 
-    bytes::Bytes cmd, output;
-    int counter;
-    uint8_t current_command;
-    ConnectionState connection_state;
+    bytes::Bytes cmd_, output_;
+    int counter_;
+    uint8_t current_command_;
+    ConnectionState connection_state_;
 
   private slots:
     void keep_alive();
@@ -344,5 +344,5 @@ class BiuOperationsSubaru : public QDialog
     void send_biu_msg();
 
   private:
-    std::unique_ptr<Ui::BiuOperationsSubaruWindow> ui;
+    std::unique_ptr<Ui::BiuOperationsSubaruWindow> ui_;
 };

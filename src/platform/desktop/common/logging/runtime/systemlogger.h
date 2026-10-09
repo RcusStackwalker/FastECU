@@ -17,16 +17,16 @@ class SystemLogger : public QObject
     void run();
 
   private:
-    QString file_path;
-    QString software_name;
-    QString software_version;
+    QString file_path_;
+    QString software_name_;
+    QString software_version_;
 
-    bool write_syslog_to_file = false;
-    bool syslog_file_open = false;
-    bool syslog_file_init_ready = false;
+    bool write_syslog_to_file_ = false;
+    bool syslog_file_open_ = false;
+    bool syslog_file_init_ready_ = false;
 
-    QFile syslog_file;
-    QTextStream syslog_file_outstream;
+    QFile syslog_file_;
+    QTextStream syslog_file_outstream_;
 
     bool write_syslog(const QString& msg);
 

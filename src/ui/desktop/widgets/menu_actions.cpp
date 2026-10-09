@@ -128,40 +128,41 @@ void MainWindow::connect_menu_actions()
 
     // Lambdas, not member pointers: QAction::triggered carries a bool that
     // these handlers do not take.
-    connect(ui->actionOpenCalibration, &QAction::triggered, this, [this] { open_calibration_file(nullptr); });
-    connect(ui->actionSaveCalibration, &QAction::triggered, this, [this] { save_calibration_file(); });
-    connect(ui->actionSaveCalibrationAs, &QAction::triggered, this, [this] { save_calibration_file_as(); });
-    connect(ui->actionCloseCalibration, &QAction::triggered, this, [this] { close_calibration(); });
-    connect(ui->actionQuit, &QAction::triggered, this, [this] { close_app(); });
-    connect(ui->actionCopy, &QAction::triggered, this, [this] { copy_value(); });
-    connect(ui->actionPaste, &QAction::triggered, this, [this] { paste_value(); });
-    connect(ui->actionSettings, &QAction::triggered, this, [this] { show_preferences_window(); });
-    connect(ui->actionCoarseIncrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::CoarseUp); });
-    connect(ui->actionCoarseDecrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::CoarseDown); });
-    connect(ui->actionFineIncrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::FineUp); });
-    connect(ui->actionFineDecrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::FineDown); });
-    connect(ui->actionSetValue, &QAction::triggered, this, [this] { set_value(); });
-    connect(ui->actionInterpolateHorizontal, &QAction::triggered, this,
+    connect(ui_->actionOpenCalibration, &QAction::triggered, this, [this] { open_calibration_file(nullptr); });
+    connect(ui_->actionSaveCalibration, &QAction::triggered, this, [this] { save_calibration_file(); });
+    connect(ui_->actionSaveCalibrationAs, &QAction::triggered, this, [this] { save_calibration_file_as(); });
+    connect(ui_->actionCloseCalibration, &QAction::triggered, this, [this] { close_calibration(); });
+    connect(ui_->actionQuit, &QAction::triggered, this, [this] { close_app(); });
+    connect(ui_->actionCopy, &QAction::triggered, this, [this] { copy_value(); });
+    connect(ui_->actionPaste, &QAction::triggered, this, [this] { paste_value(); });
+    connect(ui_->actionSettings, &QAction::triggered, this, [this] { show_preferences_window(); });
+    connect(ui_->actionCoarseIncrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::CoarseUp); });
+    connect(ui_->actionCoarseDecrement, &QAction::triggered, this,
+            [this] { inc_dec_value(IncrementStep::CoarseDown); });
+    connect(ui_->actionFineIncrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::FineUp); });
+    connect(ui_->actionFineDecrement, &QAction::triggered, this, [this] { inc_dec_value(IncrementStep::FineDown); });
+    connect(ui_->actionSetValue, &QAction::triggered, this, [this] { set_value(); });
+    connect(ui_->actionInterpolateHorizontal, &QAction::triggered, this,
             [this] { interpolate_value(InterpolationMode::Horizontal); });
-    connect(ui->actionInterpolateVertical, &QAction::triggered, this,
+    connect(ui_->actionInterpolateVertical, &QAction::triggered, this,
             [this] { interpolate_value(InterpolationMode::Vertical); });
-    connect(ui->actionInterpolateBidirectional, &QAction::triggered, this,
+    connect(ui_->actionInterpolateBidirectional, &QAction::triggered, this,
             [this] { interpolate_value(InterpolationMode::Bidirectional); });
-    connect(ui->actionConnectToEcu, &QAction::triggered, this, [this] { connect_to_ecu(); });
-    connect(ui->actionDisconnectFromEcu, &QAction::triggered, this, [this] { disconnect_from_ecu(); });
-    connect(ui->actionToggleRealtime, &QAction::triggered, this, [this] { toggle_realtime(); });
-    connect(ui->actionLogToFile, &QAction::triggered, this, [this] { toggle_log_to_file(); });
-    connect(ui->actionReadRomFromEcu, &QAction::triggered, this, [this] { start_ecu_operations("read"); });
-    connect(ui->actionTestWriteRomToEcu, &QAction::triggered, this, [this] { start_ecu_operations("test_write"); });
-    connect(ui->actionWriteRomToEcu, &QAction::triggered, this, [this] { start_ecu_operations("write"); });
-    connect(ui->actionSetLogViews, &QAction::triggered, this, [this] { change_gauge_values(); });
-    connect(ui->actionDtcWindow, &QAction::triggered, this, [this] { show_dtc_window(); });
-    connect(ui->actionHexEditor, &QAction::triggered, this, [this] { show_hex_editor(); });
-    connect(ui->actionTerminal, &QAction::triggered, this, [this] { show_terminal_window(); });
-    connect(ui->actionBiuCommunication, &QAction::triggered, this, [this] { show_subaru_biu_window(); });
-    connect(ui->actionGetKey, &QAction::triggered, this, [this] { show_subaru_get_key_window(); });
-    connect(ui->actionWinolsCsvToRomRaiderXml, &QAction::triggered, this, [this] { winols_csv_to_romraider_xml(); });
-    connect(ui->actionAbout, &QAction::triggered, this, [this] { show_about_dialog(); });
+    connect(ui_->actionConnectToEcu, &QAction::triggered, this, [this] { connect_to_ecu(); });
+    connect(ui_->actionDisconnectFromEcu, &QAction::triggered, this, [this] { disconnect_from_ecu(); });
+    connect(ui_->actionToggleRealtime, &QAction::triggered, this, [this] { toggle_realtime(); });
+    connect(ui_->actionLogToFile, &QAction::triggered, this, [this] { toggle_log_to_file(); });
+    connect(ui_->actionReadRomFromEcu, &QAction::triggered, this, [this] { start_ecu_operations("read"); });
+    connect(ui_->actionTestWriteRomToEcu, &QAction::triggered, this, [this] { start_ecu_operations("test_write"); });
+    connect(ui_->actionWriteRomToEcu, &QAction::triggered, this, [this] { start_ecu_operations("write"); });
+    connect(ui_->actionSetLogViews, &QAction::triggered, this, [this] { change_gauge_values(); });
+    connect(ui_->actionDtcWindow, &QAction::triggered, this, [this] { show_dtc_window(); });
+    connect(ui_->actionHexEditor, &QAction::triggered, this, [this] { show_hex_editor(); });
+    connect(ui_->actionTerminal, &QAction::triggered, this, [this] { show_terminal_window(); });
+    connect(ui_->actionBiuCommunication, &QAction::triggered, this, [this] { show_subaru_biu_window(); });
+    connect(ui_->actionGetKey, &QAction::triggered, this, [this] { show_subaru_get_key_window(); });
+    connect(ui_->actionWinolsCsvToRomRaiderXml, &QAction::triggered, this, [this] { winols_csv_to_romraider_xml(); });
+    connect(ui_->actionAbout, &QAction::triggered, this, [this] { show_about_dialog(); });
 }
 
 namespace
@@ -178,12 +179,12 @@ void set_standard_shortcut(QAction *action, QKeySequence::StandardKey key, const
 
 void MainWindow::apply_standard_shortcuts()
 {
-    set_standard_shortcut(ui->actionOpenCalibration, QKeySequence::Open, "Ctrl+O");
-    set_standard_shortcut(ui->actionSaveCalibration, QKeySequence::Save, "Ctrl+S");
-    set_standard_shortcut(ui->actionSaveCalibrationAs, QKeySequence::SaveAs, "Ctrl+Shift+S");
-    set_standard_shortcut(ui->actionCopy, QKeySequence::Copy, "Ctrl+C");
-    set_standard_shortcut(ui->actionPaste, QKeySequence::Paste, "Ctrl+V");
-    set_standard_shortcut(ui->actionQuit, QKeySequence::Quit, "Ctrl+Q");
+    set_standard_shortcut(ui_->actionOpenCalibration, QKeySequence::Open, "Ctrl+O");
+    set_standard_shortcut(ui_->actionSaveCalibration, QKeySequence::Save, "Ctrl+S");
+    set_standard_shortcut(ui_->actionSaveCalibrationAs, QKeySequence::SaveAs, "Ctrl+Shift+S");
+    set_standard_shortcut(ui_->actionCopy, QKeySequence::Copy, "Ctrl+C");
+    set_standard_shortcut(ui_->actionPaste, QKeySequence::Paste, "Ctrl+V");
+    set_standard_shortcut(ui_->actionQuit, QKeySequence::Quit, "Ctrl+Q");
 }
 
 void MainWindow::show_about_dialog()
@@ -219,15 +220,15 @@ void MainWindow::show_about_dialog()
 
 void MainWindow::inc_dec_value(fastecu::calibration::IncrementStep step)
 {
-    run_numeric_edit(this, tr("Set value"), *calibrationWorkspace, ui->mdiArea->activeSubWindow(),
+    run_numeric_edit(this, tr("Set value"), *calibration_workspace_, ui_->mdiArea->activeSubWindow(),
                      fastecu::calibration::IncrementEdit{.step = step});
 }
 
 void MainWindow::set_value()
 {
-    QMdiSubWindow *w = ui->mdiArea->activeSubWindow();
+    QMdiSubWindow *w = ui_->mdiArea->activeSubWindow();
     const auto id = fastecu::ui::parse_map_window_id(w);
-    if (!id || calibrationWorkspace->find(id->session) == nullptr || w->findChild<QTableWidget *>() == nullptr)
+    if (!id || calibration_workspace_->find(id->session) == nullptr || w->findChild<QTableWidget *>() == nullptr)
     {
         return;
     }
@@ -244,13 +245,13 @@ void MainWindow::set_value()
     {
         return;
     }
-    run_numeric_edit(this, tr("Set value"), *calibrationWorkspace, original_window.data(),
+    run_numeric_edit(this, tr("Set value"), *calibration_workspace_, original_window.data(),
                      fastecu::calibration::AssignmentEdit{.expression = text.toStdString()});
 }
 
 void MainWindow::interpolate_value(fastecu::calibration::InterpolationMode mode)
 {
-    run_numeric_edit(this, tr("Set value"), *calibrationWorkspace, ui->mdiArea->activeSubWindow(),
+    run_numeric_edit(this, tr("Set value"), *calibration_workspace_, ui_->mdiArea->activeSubWindow(),
                      fastecu::calibration::InterpolationEdit{.mode = mode});
 }
 
@@ -261,13 +262,13 @@ void MainWindow::interpolate_value(fastecu::calibration::InterpolationMode mode)
 void MainWindow::copy_value()
 {
     namespace calibration = fastecu::calibration;
-    QMdiSubWindow *window = ui->mdiArea->activeSubWindow();
+    QMdiSubWindow *window = ui_->mdiArea->activeSubWindow();
     const auto id = fastecu::ui::parse_map_window_id(window);
     if (!id.has_value() || id->map_number < 0)
     {
         return;
     }
-    const auto *session = calibrationWorkspace->find(id->session);
+    const auto *session = calibration_workspace_->find(id->session);
     if (session == nullptr)
     {
         return;
@@ -278,7 +279,7 @@ void MainWindow::copy_value()
         return;
     }
     const auto copied = calibration::copy_numeric_values(
-        *calibrationWorkspace,
+        *calibration_workspace_,
         {.session = id->session, .map_index = static_cast<std::size_t>(id->map_number), .selection = *selection});
     if (!copied.has_value())
     {
@@ -307,26 +308,26 @@ void MainWindow::copy_value()
 void MainWindow::paste_value()
 {
     run_numeric_edit(
-        this, tr("Paste value"), *calibrationWorkspace, ui->mdiArea->activeSubWindow(),
+        this, tr("Paste value"), *calibration_workspace_, ui_->mdiArea->activeSubWindow(),
         fastecu::calibration::PasteEdit{.rows = fastecu::ui::split_paste_rows(QApplication::clipboard()->text())});
 }
 
 void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
 {
     connection_coordinator_->cancel();
-    if (loggingEngine->isRunning())
+    if (logging_engine_->isRunning())
     {
-        loggingEngine->stop();
+        logging_engine_->stop();
         restoreLoggingUiState();
     }
-    ecuid.clear();
-    ecu_init_complete = false;
+    ecuid_.clear();
+    ecu_init_complete_ = false;
     set_status_bar_label(false, false, "");
-    connection->reset();
+    connection_->reset();
 
     qDebug() << "Opening interface, please wait...";
     open_serial_port();
-    if (!connection->is_open())
+    if (!connection_->is_open())
     {
         QMessageBox::warning(this, tr("Serial port"), "Could not open interface!");
         if (on_done)
@@ -335,12 +336,12 @@ void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
         }
         return;
     }
-    serial_port_list->setDisabled(true);
-    refresh_serial_port_list->setDisabled(true);
+    serial_port_list_->setDisabled(true);
+    refresh_serial_port_list_->setDisabled(true);
 
     const std::optional<fastecu::diagnostics::SsmVariant> variant =
         selected_vehicle().make == "Subaru"
-            ? ssm_variant_for_transport(fastecu::ui::qs(configSession->settings().selected_log_transport))
+            ? ssm_variant_for_transport(fastecu::ui::qs(config_session_->settings().selected_log_transport))
             : std::nullopt;
     if (!variant.has_value())
     {
@@ -356,7 +357,7 @@ void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
 
     qDebug() << "Initialising ECU, please wait...";
     connection_coordinator_->begin(
-        fastecu::diagnostics::SsmIdentifyRequest{*variant, ecu_radio_button->isChecked()
+        fastecu::diagnostics::SsmIdentifyRequest{*variant, ecu_radio_button_->isChecked()
                                                                ? fastecu::diagnostics::SsmTarget::Ecu
                                                                : fastecu::diagnostics::SsmTarget::Tcu},
         std::move(on_done));
@@ -364,25 +365,25 @@ void MainWindow::connect_to_ecu(std::function<void(bool)> on_done)
 
 void MainWindow::ConnectionPresentation::set_controls_locked(bool locked)
 {
-    window_.log_transport_list->setEnabled(!locked);
-    window_.ecu_radio_button->setEnabled(!locked);
-    window_.tcu_radio_button->setEnabled(!locked);
-    window_.ui->actionConnectToEcu->setEnabled(!locked);
-    window_.ui->actionToggleRealtime->setEnabled(!locked);
+    window_.log_transport_list_->setEnabled(!locked);
+    window_.ecu_radio_button_->setEnabled(!locked);
+    window_.tcu_radio_button_->setEnabled(!locked);
+    window_.ui_->actionConnectToEcu->setEnabled(!locked);
+    window_.ui_->actionToggleRealtime->setEnabled(!locked);
 }
 
 void MainWindow::ConnectionPresentation::set_port_selector_enabled(bool enabled)
 {
-    window_.serial_port_list->setEnabled(enabled);
-    window_.refresh_serial_port_list->setEnabled(enabled);
+    window_.serial_port_list_->setEnabled(enabled);
+    window_.refresh_serial_port_list_->setEnabled(enabled);
 }
 
 void MainWindow::ConnectionPresentation::identified(const fastecu::ui::IdentifyOutcome& outcome)
 {
-    window_.ecu_init_complete = true;
-    window_.ecuid = QString::fromStdString(outcome.ecu_id);
-    emit window_.LOG_D("ECU ID: " + window_.ecuid, true, true);
-    window_.set_status_bar_label(true, !window_.ecuid.isEmpty(), window_.ecuid);
+    window_.ecu_init_complete_ = true;
+    window_.ecuid_ = QString::fromStdString(outcome.ecu_id);
+    emit window_.LOG_D("ECU ID: " + window_.ecuid_, true, true);
+    window_.set_status_bar_label(true, !window_.ecuid_.isEmpty(), window_.ecuid_);
     if (!outcome.init_response.empty())
     {
         window_.parse_log_value_list(bytes::toQByteArray(outcome.init_response), "SSM");
@@ -399,13 +400,13 @@ void MainWindow::disconnect_from_ecu()
 {
     connection_coordinator_->cancel();
     qDebug() << "Disconnecting...";
-    ecuid.clear();
-    ecu_init_complete = false;
+    ecuid_.clear();
+    ecu_init_complete_ = false;
     set_status_bar_label(false, false, "");
-    connection->return_to_idle();
+    connection_->return_to_idle();
 
-    serial_port_list->setEnabled(true);
-    refresh_serial_port_list->setEnabled(true);
+    serial_port_list_->setEnabled(true);
+    refresh_serial_port_list_->setEnabled(true);
 }
 
 void MainWindow::ecu_definition_manager()
@@ -425,7 +426,7 @@ void MainWindow::ecu_definition_manager()
     QListWidget *definition_files = new QListWidget;
     definition_files->setObjectName("ecu_definition_files_list");
     definition_files->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    for (const std::string& file : configSession->settings().romraider_definition_files)
+    for (const std::string& file : config_session_->settings().romraider_definition_files)
     {
         new QListWidgetItem(fastecu::ui::qs(file), definition_files);
     }
@@ -458,19 +459,19 @@ void MainWindow::logger_definition_manager()
 
 void MainWindow::set_realtime_state(bool state)
 {
-    ui->actionToggleRealtime->setChecked(state);
+    ui_->actionToggleRealtime->setChecked(state);
 }
 
 void MainWindow::toggle_realtime()
 {
     using namespace std::chrono_literals;
 
-    logging_state = ui->actionToggleRealtime->isChecked();
+    logging_state_ = ui_->actionToggleRealtime->isChecked();
 
-    if (logging_state)
+    if (logging_state_)
     {
         qDebug() << "Start datalog";
-        if (!ecu_init_complete)
+        if (!ecu_init_complete_)
         {
             connect_to_ecu(
                 [this](bool connected)
@@ -490,13 +491,13 @@ void MainWindow::toggle_realtime()
     else
     {
         qDebug() << "Stop datalog";
-        if (datalog_file_open)
+        if (datalog_file_open_)
         {
-            datalog_file_open = false;
-            datalog_file.close();
+            datalog_file_open_ = false;
+            datalog_file_.close();
         }
 
-        loggingEngine->stop();
+        logging_engine_->stop();
 
         // disconnect_from_ecu();
     }
@@ -506,25 +507,25 @@ void MainWindow::continue_start_logging()
 {
     using namespace std::chrono_literals;
 
-    logging_state = true;
+    logging_state_ = true;
 
     fastecu::desktop::logging::LogSessionConfig config;
     fastecu::logging::LoggingProtocolId protocol_id;
     fastecu::logging::LoggingPolicy logging_policy{};
-    if (configSession->settings().selected_log_protocol == "MUT_DMA")
+    if (config_session_->settings().selected_log_protocol == "MUT_DMA")
     {
         config.protocol_id = "MUT_DMA";
-        activeLogValueProtocolFilter = "MUT_DMA";
+        active_log_value_protocol_filter_ = "MUT_DMA";
         protocol_id = fastecu::logging::LoggingProtocolId::MutDma;
         logging_policy = {.poll_timeout = 50ms,
                           .car_silence_miss_threshold = 20,
                           .reconnect_attempt_threshold = 100,
                           .reconnect_retry_period = 20};
     }
-    else if (configSession->settings().selected_log_protocol == "CDBG")
+    else if (config_session_->settings().selected_log_protocol == "CDBG")
     {
         config.protocol_id = "CDBG";
-        activeLogValueProtocolFilter = "CDBG";
+        active_log_value_protocol_filter_ = "CDBG";
         protocol_id = fastecu::logging::LoggingProtocolId::Cdbg;
         logging_policy = {.poll_timeout = 50ms,
                           .car_silence_miss_threshold = 20,
@@ -534,7 +535,7 @@ void MainWindow::continue_start_logging()
     else
     {
         config.protocol_id = "SSM";
-        activeLogValueProtocolFilter = protocol;
+        active_log_value_protocol_filter_ = protocol_;
         protocol_id = fastecu::logging::LoggingProtocolId::Ssm;
         logging_policy = {.poll_timeout = 300ms,
                           .car_silence_miss_threshold = 10,
@@ -543,7 +544,7 @@ void MainWindow::continue_start_logging()
     }
 
     auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
-        *loggerModel, protocol_id, activeLogValueProtocolFilter, logging_policy);
+        *logger_model_, protocol_id, active_log_value_protocol_filter_, logging_policy);
     if (!snapshot.has_value())
     {
         emit LOG_E("Logging session failed to start: " + QString::fromStdString(snapshot.error().detail), true, true);
@@ -552,9 +553,9 @@ void MainWindow::continue_start_logging()
         return;
     }
 
-    snapshot->target_is_ecu = ecu_radio_button->isChecked();
-    activeLoggingSnapshot.emplace(*snapshot);
-    const auto started = loggingEngine->start(config, std::move(*snapshot));
+    snapshot->target_is_ecu = ecu_radio_button_->isChecked();
+    active_logging_snapshot_.emplace(*snapshot);
+    const auto started = logging_engine_->start(config, std::move(*snapshot));
     if (!started.has_value())
     {
         restoreLoggingUiState();
@@ -565,14 +566,14 @@ void MainWindow::continue_start_logging()
 
 void MainWindow::toggle_log_to_file()
 {
-    write_datalog_to_file = ui->actionLogToFile->isChecked();
+    write_datalog_to_file_ = ui_->actionLogToFile->isChecked();
 
-    if (!write_datalog_to_file)
+    if (!write_datalog_to_file_)
     {
-        if (datalog_file_open)
+        if (datalog_file_open_)
         {
-            datalog_file_open = false;
-            datalog_file.close();
+            datalog_file_open_ = false;
+            datalog_file_.close();
         }
     }
 }
@@ -586,19 +587,19 @@ void MainWindow::show_dtc_window()
         QMessageBox::warning(this, tr("Serial port"), "No serial port selected!");
         return;
     }
-    connection->reset();
-    ecuid.clear();
-    ecu_init_complete = false;
-    connection->select_port(port);
+    connection_->reset();
+    ecuid_.clear();
+    ecu_init_complete_ = false;
+    connection_->select_port(port);
 
     emit LOG_D("Starting DTC operations", true, true);
 
-    fastecu::diagnostics::SerialDiagnosticLink link(&connection->facade());
+    fastecu::diagnostics::SerialDiagnosticLink link(&connection_->facade());
     DtcOperations dtcOperations(link, this);
-    QObject::connect(&dtcOperations, &DtcOperations::LOG_E, log_channel, &fastecu::ui::LogChannel::LOG_E);
-    QObject::connect(&dtcOperations, &DtcOperations::LOG_W, log_channel, &fastecu::ui::LogChannel::LOG_W);
-    QObject::connect(&dtcOperations, &DtcOperations::LOG_I, log_channel, &fastecu::ui::LogChannel::LOG_I);
-    QObject::connect(&dtcOperations, &DtcOperations::LOG_D, log_channel, &fastecu::ui::LogChannel::LOG_D);
+    QObject::connect(&dtcOperations, &DtcOperations::LOG_E, log_channel_, &fastecu::ui::LogChannel::LOG_E);
+    QObject::connect(&dtcOperations, &DtcOperations::LOG_W, log_channel_, &fastecu::ui::LogChannel::LOG_W);
+    QObject::connect(&dtcOperations, &DtcOperations::LOG_I, log_channel_, &fastecu::ui::LogChannel::LOG_I);
+    QObject::connect(&dtcOperations, &DtcOperations::LOG_D, log_channel_, &fastecu::ui::LogChannel::LOG_D);
 
     dtcOperations.exec();
 
@@ -626,7 +627,7 @@ void MainWindow::show_hex_editor()
 
 void MainWindow::show_preferences_window()
 {
-    Settings settings(*configSession);
+    Settings settings(*config_session_);
     settings.exec();
 }
 
@@ -639,18 +640,18 @@ void MainWindow::show_subaru_biu_window()
         QMessageBox::warning(this, tr("Serial port"), "No serial port selected!");
         return;
     }
-    ecuid.clear();
-    ecu_init_complete = false;
-    connection->select_port(port);
+    ecuid_.clear();
+    ecu_init_complete_ = false;
+    connection_->select_port(port);
 
-    fastecu::diagnostics::SerialDiagnosticLink link(&connection->facade());
+    fastecu::diagnostics::SerialDiagnosticLink link(&connection_->facade());
     const auto opened = link.open(fastecu::diagnostics::KlineLinkConfig{
         .header = fastecu::diagnostics::KlineHeader::None, .iso14230_connection = true, .baud = 10400});
     if (opened.has_value())
     {
         // The legacy BIU path opened through open_serial_port, which also
         // remembered the port; keep that.
-        remember_opened_port(port, connection->opened_port());
+        remember_opened_port(port, connection_->opened_port());
     }
     set_status_bar_label(opened.has_value(), false, "");
     if (!opened.has_value())
@@ -659,10 +660,10 @@ void MainWindow::show_subaru_biu_window()
     }
 
     BiuOperationsSubaru biuOperationsSubaru(link, this);
-    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_E, log_channel, &fastecu::ui::LogChannel::LOG_E);
-    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_W, log_channel, &fastecu::ui::LogChannel::LOG_W);
-    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_I, log_channel, &fastecu::ui::LogChannel::LOG_I);
-    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_D, log_channel, &fastecu::ui::LogChannel::LOG_D);
+    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_E, log_channel_, &fastecu::ui::LogChannel::LOG_E);
+    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_W, log_channel_, &fastecu::ui::LogChannel::LOG_W);
+    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_I, log_channel_, &fastecu::ui::LogChannel::LOG_I);
+    QObject::connect(&biuOperationsSubaru, &BiuOperationsSubaru::LOG_D, log_channel_, &fastecu::ui::LogChannel::LOG_D);
 
     biuOperationsSubaru.exec();
 
@@ -680,13 +681,13 @@ void MainWindow::show_terminal_window()
         QMessageBox::warning(this, tr("Serial port"), "No serial port selected!");
         return;
     }
-    connection->select_port(port);
-    fastecu::diagnostics::SerialDiagnosticLink link(&connection->facade());
+    connection_->select_port(port);
+    fastecu::diagnostics::SerialDiagnosticLink link(&connection_->facade());
     DataTerminal hexCommander(link, this);
-    QObject::connect(&hexCommander, &DataTerminal::LOG_E, log_channel, &fastecu::ui::LogChannel::LOG_E);
-    QObject::connect(&hexCommander, &DataTerminal::LOG_W, log_channel, &fastecu::ui::LogChannel::LOG_W);
-    QObject::connect(&hexCommander, &DataTerminal::LOG_I, log_channel, &fastecu::ui::LogChannel::LOG_I);
-    QObject::connect(&hexCommander, &DataTerminal::LOG_D, log_channel, &fastecu::ui::LogChannel::LOG_D);
+    QObject::connect(&hexCommander, &DataTerminal::LOG_E, log_channel_, &fastecu::ui::LogChannel::LOG_E);
+    QObject::connect(&hexCommander, &DataTerminal::LOG_W, log_channel_, &fastecu::ui::LogChannel::LOG_W);
+    QObject::connect(&hexCommander, &DataTerminal::LOG_I, log_channel_, &fastecu::ui::LogChannel::LOG_I);
+    QObject::connect(&hexCommander, &DataTerminal::LOG_D, log_channel_, &fastecu::ui::LogChannel::LOG_D);
 
     hexCommander.exec();
 }
@@ -747,9 +748,9 @@ void MainWindow::winols_csv_to_romraider_xml()
 
 void MainWindow::set_maptablewidget_items()
 {
-    auto *window = ui->mdiArea->activeSubWindow();
+    auto *window = ui_->mdiArea->activeSubWindow();
     const auto id = fastecu::ui::parse_map_window_id(window);
-    if (!id.has_value() || calibrationWorkspace->find(id->session) == nullptr)
+    if (!id.has_value() || calibration_workspace_->find(id->session) == nullptr)
     {
         return;
     }

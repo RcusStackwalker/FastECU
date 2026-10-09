@@ -43,7 +43,7 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
 {
     streaming_ = false;
     frames_.clear();
-    lastValues_.clear();
+    last_values_.clear();
 
     if (channels.empty())
     {
@@ -116,7 +116,7 @@ fastecu::Status CdbgLogDriver::startFreeFormLog(const std::vector<CdbgChannel>& 
     {
         totalChannels += frame.size();
     }
-    lastValues_.assign(totalChannels, 0);
+    last_values_.assign(totalChannels, 0);
 
     streaming_ = true;
     return {};
@@ -153,7 +153,7 @@ fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::pollOnce(std::chrono::
                 }
                 for (std::size_t i = 0; i < decoded.size(); ++i)
                 {
-                    lastValues_[offset + i] = decoded.at(i);
+                    last_values_[offset + i] = decoded.at(i);
                 }
             }
         }
@@ -162,7 +162,7 @@ fastecu::Result<CdbgLogDriver::PollResult> CdbgLogDriver::pollOnce(std::chrono::
     {
         return PollResult{};
     }
-    return PollResult{.responded = true, .values = lastValues_};
+    return PollResult{.responded = true, .values = last_values_};
 }
 
 } // namespace mitsu_colt_can_cdbg

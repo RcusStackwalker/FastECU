@@ -17,20 +17,20 @@ using fastecu::diagnostics::DtcWorkerResult;
 using fastecu::diagnostics::ObdProtocol;
 
 DtcOperations::DtcOperations(fastecu::diagnostics::IDiagnosticLink& link, QWidget *parent)
-    : QDialog(parent), link_(link), ui{std::make_unique<Ui::DtcOperationsWindow>()}
+    : QDialog(parent), link_(link), ui_{std::make_unique<Ui::DtcOperationsWindow>()}
 {
-    ui->setupUi(this);
+    ui_->setupUi(this);
 
-    ui->protocolComboBox->addItem("SSM (K-Line)");
-    ui->protocolComboBox->addItem("SSM (CAN)");
-    ui->protocolComboBox->addItem("iso9141");
-    ui->protocolComboBox->addItem("iso14230");
-    ui->protocolComboBox->addItem("iso15765");
-    ui->protocolComboBox->setCurrentIndex(2);
+    ui_->protocolComboBox->addItem("SSM (K-Line)");
+    ui_->protocolComboBox->addItem("SSM (CAN)");
+    ui_->protocolComboBox->addItem("iso9141");
+    ui_->protocolComboBox->addItem("iso14230");
+    ui_->protocolComboBox->addItem("iso15765");
+    ui_->protocolComboBox->setCurrentIndex(2);
 
-    if (auto *model = qobject_cast<QStandardItemModel *>(ui->protocolComboBox->model()); model != nullptr)
+    if (auto *model = qobject_cast<QStandardItemModel *>(ui_->protocolComboBox->model()); model != nullptr)
     {
-        for (int i = 0; i < ui->protocolComboBox->count(); i++)
+        for (int i = 0; i < ui_->protocolComboBox->count(); i++)
         {
             if (auto *item = model->item(i); item != nullptr && item->text().startsWith("SSM "))
             {
@@ -39,9 +39,9 @@ DtcOperations::DtcOperations(fastecu::diagnostics::IDiagnosticLink& link, QWidge
         }
     }
 
-    connect(ui->readDtcButton, &QPushButton::clicked, this, [this] { start(DtcOperation::Read); });
-    connect(ui->clearDtcButton, &QPushButton::clicked, this, [this] { start(DtcOperation::Clear); });
-    connect(ui->closeButton, &QPushButton::clicked, this, &QDialog::close);
+    connect(ui_->readDtcButton, &QPushButton::clicked, this, [this] { start(DtcOperation::Read); });
+    connect(ui_->clearDtcButton, &QPushButton::clicked, this, [this] { start(DtcOperation::Clear); });
+    connect(ui_->closeButton, &QPushButton::clicked, this, &QDialog::close);
 
     this->show();
 }
@@ -50,7 +50,7 @@ DtcOperations::~DtcOperations() = default;
 
 void DtcOperations::start(DtcOperation operation)
 {
-    const QString text = ui->protocolComboBox->currentText();
+    const QString text = ui_->protocolComboBox->currentText();
     ObdProtocol protocol = ObdProtocol::Iso9141;
     if (text.startsWith("iso9141"))
     {
@@ -108,8 +108,8 @@ void DtcOperations::finish(const DtcWorkerResult& result)
 
 void DtcOperations::setButtonsEnabled(bool enabled)
 {
-    ui->readDtcButton->setEnabled(enabled);
-    ui->clearDtcButton->setEnabled(enabled);
+    ui_->readDtcButton->setEnabled(enabled);
+    ui_->clearDtcButton->setEnabled(enabled);
 }
 
 void DtcOperations::stopWorker()

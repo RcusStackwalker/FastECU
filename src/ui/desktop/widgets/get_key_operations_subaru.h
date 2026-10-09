@@ -30,10 +30,10 @@ class GetKeyOperationsSubaru : public QDialog
   private:
     void closeEvent(QCloseEvent *bar);
 
-    bool kill_process = false;
+    bool kill_process_ = false;
 
     int load_and_apply_linear_approx();
 
   private:
-    std::unique_ptr<Ui::EcuOperationsWindow> ui;
+    std::unique_ptr<Ui::EcuOperationsWindow> ui_;
 };

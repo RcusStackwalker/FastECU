@@ -11,16 +11,16 @@ constexpr int kStatusError = 0x01;
 } // namespace
 
 GetKeyOperationsSubaru::GetKeyOperationsSubaru(QWidget *parent)
-    : QDialog(parent), ui{std::make_unique<Ui::EcuOperationsWindow>()}
+    : QDialog(parent), ui_{std::make_unique<Ui::EcuOperationsWindow>()}
 {
-    ui->setupUi(this);
+    ui_->setupUi(this);
 
     this->setWindowTitle("Determine Encryption Keys from Unencrypted and Encrypted Files");
     this->show();
 
     int result = 0;
 
-    ui->progressbar->setValue(0);
+    ui_->progressbar->setValue(0);
 
     result = load_and_apply_linear_approx();
 

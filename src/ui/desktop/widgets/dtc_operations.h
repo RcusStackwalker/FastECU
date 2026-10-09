@@ -44,6 +44,6 @@ class DtcOperations : public QDialog
     void stopWorker();
 
     fastecu::diagnostics::IDiagnosticLink& link_;
-    std::unique_ptr<Ui::DtcOperationsWindow> ui;
+    std::unique_ptr<Ui::DtcOperationsWindow> ui_;
     std::unique_ptr<fastecu::diagnostics::DtcWorker> worker_;
 };

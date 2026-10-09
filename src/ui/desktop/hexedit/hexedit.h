@@ -73,39 +73,39 @@ class HexEdit : public QMainWindow
     QString strippedName(const QString& fullFileName);
     void writeSettings();
 
-    QString curFile;
-    QFile file;
-    bool isUntitled{};
-    bool isModified{};
+    QString cur_file_;
+    QFile file_;
+    bool is_untitled_{};
+    bool is_modified_{};
 
-    QMenu *fileMenu{};
-    QMenu *editMenu{};
-    QMenu *helpMenu{};
+    QMenu *file_menu_{};
+    QMenu *edit_menu_{};
+    QMenu *help_menu_{};
 
-    QToolBar *fileToolBar{};
-    QToolBar *editToolBar{};
+    QToolBar *file_tool_bar_{};
+    QToolBar *edit_tool_bar_{};
 
-    QAction *openAct{};
-    QAction *saveAct{};
-    QAction *saveAsAct{};
-    QAction *saveReadable{};
-    QAction *closeAct{};
-    QAction *exitAct{};
+    QAction *open_act_{};
+    QAction *save_act_{};
+    QAction *save_as_act_{};
+    QAction *save_readable_{};
+    QAction *close_act_{};
+    QAction *exit_act_{};
 
-    QAction *undoAct{};
-    QAction *redoAct{};
-    QAction *saveSelectionReadable{};
+    QAction *undo_act_{};
+    QAction *redo_act_{};
+    QAction *save_selection_readable_{};
 
-    QAction *aboutAct{};
-    QAction *aboutQtAct{};
-    QAction *optionsAct{};
-    QAction *findAct{};
-    QAction *findNextAct{};
+    QAction *about_act_{};
+    QAction *about_qt_act_{};
+    QAction *options_act_{};
+    QAction *find_act_{};
+    QAction *find_next_act_{};
 
-    QHexEdit *hexEdit{};
-    OptionsDialog *optionsDialog{};
-    SearchDialog *searchDialog{};
-    QLabel *lbAddress{}, *lbAddressName{};
-    QLabel *lbOverwriteMode{}, *lbOverwriteModeName{};
-    QLabel *lbSize{}, *lbSizeName{};
+    QHexEdit *hex_edit_{};
+    OptionsDialog *options_dialog_{};
+    SearchDialog *search_dialog_{};
+    QLabel *lb_address_{}, *lb_address_name_{};
+    QLabel *lb_overwrite_mode_{}, *lb_overwrite_mode_name_{};
+    QLabel *lb_size_{}, *lb_size_name_{};
 };

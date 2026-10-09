@@ -704,7 +704,7 @@ class MainWindowTest : public ::testing::Test
     // Selects the fixture's last vehicle row using `protocol`.
     static void selectProtocol(MainWindow& window, const QString& protocol)
     {
-        ASSERT_TRUE(window.configSession->select_by_protocol_name(protocol.toStdString()));
+        ASSERT_TRUE(window.config_session_->select_by_protocol_name(protocol.toStdString()));
     }
 
     // Selects the fixture's first Subaru row using `protocol`. The flash tests
@@ -712,33 +712,33 @@ class MainWindowTest : public ::testing::Test
     // is a Nissan one.
     static void selectSubaruProtocol(MainWindow& window, const QString& protocol)
     {
-        const auto vehicles = window.configSession->vehicles();
+        const auto vehicles = window.config_session_->vehicles();
         const auto it = std::ranges::find_if(
             vehicles, [&](const VehicleSpec& vehicle)
             { return vehicle.make == "Subaru" && vehicle.protocol->name == protocol.toStdString(); });
         ASSERT_TRUE(it != vehicles.end());
-        ASSERT_TRUE(window.configSession->select_row(static_cast<std::size_t>(it - vehicles.begin())).has_value());
+        ASSERT_TRUE(window.config_session_->select_row(static_cast<std::size_t>(it - vehicles.begin())).has_value());
     }
 
     // Selects the fixture's first vehicle row of `make`.
     static void selectMake(MainWindow& window, const QString& make)
     {
-        const auto vehicles = window.configSession->vehicles();
+        const auto vehicles = window.config_session_->vehicles();
         const auto it = std::ranges::find(vehicles, make.toStdString(), &VehicleSpec::make);
         ASSERT_TRUE(it != vehicles.end());
-        ASSERT_TRUE(window.configSession->select_row(static_cast<std::size_t>(it - vehicles.begin())).has_value());
+        ASSERT_TRUE(window.config_session_->select_row(static_cast<std::size_t>(it - vehicles.begin())).has_value());
     }
 
     // Points the window at one open port on the given make and log transport.
     static void prepareConnect(MainWindow& window, FakeBackend& fake, const QString& make, const QString& transport)
     {
-        window.vbatt_timer->stop();
-        window.serial_ports = {"ttyUSB0"};
-        window.serial_port_list->clear();
-        window.serial_port_list->addItem("ttyUSB0");
+        window.vbatt_timer_->stop();
+        window.serial_ports_ = {"ttyUSB0"};
+        window.serial_port_list_->clear();
+        window.serial_port_list_->addItem("ttyUSB0");
         ASSERT_NO_FATAL_FAILURE(selectMake(window, make));
-        window.configSession->settings().selected_log_transport = transport.toStdString();
-        window.configSession->settings().selected_log_protocol = "SSM";
+        window.config_session_->settings().selected_log_transport = transport.toStdString();
+        window.config_session_->settings().selected_log_protocol = "SSM";
         ON_CALL(fake, open_serial_port()).WillByDefault(::testing::Return(QString("ttyUSB0")));
     }
 
@@ -748,10 +748,10 @@ class MainWindowTest : public ::testing::Test
     static void installLoggingFixture(MainWindow& window, fastecu::logging::LoggerDefinition definition,
                                       fastecu::logging::LoggerSelection selection)
     {
-        *window.loggerModel = fastecu::logging::LoggerModel{};
-        window.loggerModel->install_definition(std::move(definition));
-        window.loggerModel->set_selection(std::move(selection));
-        window.loggerValues.initialize(*window.loggerModel);
+        *window.logger_model_ = fastecu::logging::LoggerModel{};
+        window.logger_model_->install_definition(std::move(definition));
+        window.logger_model_->set_selection(std::move(selection));
+        window.logger_values_.initialize(*window.logger_model_);
     }
 
     // Runs Save As on the window's selection and drives its file picker once:
@@ -833,7 +833,7 @@ class MainWindowTest : public ::testing::Test
     // Selects only the files-tree row at `index`, as a click would.
     static void selectFilesRow(MainWindow& window, int index)
     {
-        QTreeWidget *files = window.ui->calibrationFilesTreeWidget;
+        QTreeWidget *files = window.ui_->calibrationFilesTreeWidget;
         for (int i = 0; i < files->topLevelItemCount(); ++i)
         {
             files->topLevelItem(i)->setSelected(i == index);
@@ -842,9 +842,9 @@ class MainWindowTest : public ::testing::Test
 
     static QAction *prepareLogging(MainWindow& window, const QString& log_protocol)
     {
-        window.vbatt_timer->stop();
-        window.ecu_init_complete = true;
-        window.protocol = log_protocol;
+        window.vbatt_timer_->stop();
+        window.ecu_init_complete_ = true;
+        window.protocol_ = log_protocol;
         QAction *action = menuAction(window, kToggleRealtime);
         installLoggingFixture(window,
                               {.parameters = {{.protocol = log_protocol.toStdString(),
@@ -1030,11 +1030,11 @@ void MainWindowTest::check_explicitConfigRootLoadsFixtureAndProvisionsDirectorie
     MainWindow window{services.services()};
     constructor_driver.stop();
 
-    const QString version_dir = config_root_->path() + "/" + window.software_version + "/";
-    const fastecu::config::ConfigPaths paths = window.configSession->provisioned_paths();
+    const QString version_dir = config_root_->path() + "/" + window.software_version_ + "/";
+    const fastecu::config::ConfigPaths paths = window.config_session_->provisioned_paths();
     ASSERT_EQ(paths.base_config_directory, config_root_->path().toStdString());
     ASSERT_EQ(paths.config_file, (version_dir + "config/fastecu.cfg").toStdString());
-    ASSERT_EQ(window.configSession->vehicles().front().model, std::string("Test"));
+    ASSERT_EQ(window.config_session_->vehicles().front().model, std::string("Test"));
     ASSERT_EQ(paths.syslog_files_directory, (version_dir + "syslogs/").toStdString());
     ASSERT_TRUE(QDir(version_dir + "syslogs").exists());
     ASSERT_TRUE(QDir(version_dir + "definitions").exists());
@@ -1233,11 +1233,11 @@ void MainWindowTest::check_handledDensoTcuReadChoicesRunMainWindowCleanupAndStop
     EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).Times(2);
 
     // A short poll period keeps the "timer stays stopped" check below quick.
-    window.vbatt_timer->setInterval(10);
-    window.serial_ports = {"OpenPort 2.0"};
-    window.serial_port_list->clear();
-    window.serial_port_list->addItem("OpenPort 2.0");
-    window.serial_port_list->setCurrentIndex(0);
+    window.vbatt_timer_->setInterval(10);
+    window.serial_ports_ = {"OpenPort 2.0"};
+    window.serial_port_list_->clear();
+    window.serial_port_list_->addItem("OpenPort 2.0");
+    window.serial_port_list_->setCurrentIndex(0);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_tcu_denso_sh7058_can"));
 
     // The TCU log lines are relayed through MainWindow's own LOG_* signals.
@@ -1251,8 +1251,8 @@ void MainWindowTest::check_handledDensoTcuReadChoicesRunMainWindowCleanupAndStop
     ASSERT_TRUE(!operation_driver.timedOut());
     ASSERT_EQ(operation_driver.unexpectedFlashDialogCount(), 0);
 
-    fastecu::testing::process_events_for(std::chrono::milliseconds(window.vbatt_timer->interval() + 100));
-    ASSERT_TRUE(!window.vbatt_timer->isActive());
+    fastecu::testing::process_events_for(std::chrono::milliseconds(window.vbatt_timer_->interval() + 100));
+    ASSERT_TRUE(!window.vbatt_timer_->isActive());
     ASSERT_TRUE(window.calibrations_.empty());
     ASSERT_TRUE(services.calibrations.ids().empty());
     const QString expected_line = choice.isEmpty() ? "No option selected" : "Attempting TCU relearn";
@@ -1320,10 +1320,10 @@ void MainWindowTest::check_futureDensoSuffixesDoNotInstantiateKlineOrPerformEcuI
     EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
     EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
     EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
-    window.serial_ports = {"OpenPort 2.0"};
-    window.serial_port_list->clear();
-    window.serial_port_list->addItem("OpenPort 2.0");
-    window.serial_port_list->setCurrentIndex(0);
+    window.serial_ports_ = {"OpenPort 2.0"};
+    window.serial_port_list_->clear();
+    window.serial_port_list_->addItem("OpenPort 2.0");
+    window.serial_port_list_->setCurrentIndex(0);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, protocol));
 
     ModalDriver operation_driver{QString()};
@@ -1403,10 +1403,10 @@ void MainWindowTest::check_representativePortableRoutesReachFactoryBeforeLegacyF
     EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
     EXPECT_CALL(*fake, write_serial_data_echo_check(::testing::_)).Times(0);
     EXPECT_CALL(*fake, read_serial_data(::testing::_)).Times(0);
-    window.serial_ports = {"OpenPort 2.0"};
-    window.serial_port_list->clear();
-    window.serial_port_list->addItem("OpenPort 2.0");
-    window.serial_port_list->setCurrentIndex(0);
+    window.serial_ports_ = {"OpenPort 2.0"};
+    window.serial_port_list_->clear();
+    window.serial_port_list_->addItem("OpenPort 2.0");
+    window.serial_port_list_->setCurrentIndex(0);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, protocol));
 
     ModalDriver operation_driver{QString()};
@@ -1462,10 +1462,10 @@ void MainWindowTest::check_writeWithoutASelectedCalibrationStopsVoltagePolling(Q
     EXPECT_CALL(*fake, open_serial_port()).Times(0);
     EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
     EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
-    window.serial_ports = {"OpenPort 2.0"};
-    window.serial_port_list->clear();
-    window.serial_port_list->addItem("OpenPort 2.0");
-    window.serial_port_list->setCurrentIndex(0);
+    window.serial_ports_ = {"OpenPort 2.0"};
+    window.serial_port_list_->clear();
+    window.serial_port_list_->addItem("OpenPort 2.0");
+    window.serial_port_list_->setCurrentIndex(0);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058_can"));
 
     ModalDriver operation_driver{QString()};
@@ -1475,7 +1475,7 @@ void MainWindowTest::check_writeWithoutASelectedCalibrationStopsVoltagePolling(Q
 
     ASSERT_TRUE(!operation_driver.timedOut());
     ASSERT_EQ(operation_driver.noFileSelectedCount(), 1);
-    ASSERT_TRUE(!window.vbatt_timer->isActive());
+    ASSERT_TRUE(!window.vbatt_timer_->isActive());
 }
 
 TEST_P(WriteWithoutASelectedCalibrationStopsVoltagePollingParameters,
@@ -1497,10 +1497,10 @@ void MainWindowTest::check_otherMakesSkipDispatchButStillRunCleanup()
     FakeBackend *fake = services.fake;
     EXPECT_CALL(*fake, open_serial_port()).Times(0);
     EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
-    window.serial_ports = {"OpenPort 2.0"};
-    window.serial_port_list->clear();
-    window.serial_port_list->addItem("OpenPort 2.0");
-    window.serial_port_list->setCurrentIndex(0);
+    window.serial_ports_ = {"OpenPort 2.0"};
+    window.serial_port_list_->clear();
+    window.serial_port_list_->addItem("OpenPort 2.0");
+    window.serial_port_list_->setCurrentIndex(0);
     ASSERT_NO_FATAL_FAILURE(selectMake(window, "Nissan"));
 
     ModalDriver operation_driver{QString()};
@@ -1510,7 +1510,7 @@ void MainWindowTest::check_otherMakesSkipDispatchButStillRunCleanup()
 
     ASSERT_TRUE(!operation_driver.timedOut());
     ASSERT_EQ(operation_driver.unexpectedFlashDialogCount(), 0);
-    ASSERT_TRUE(!window.vbatt_timer->isActive());
+    ASSERT_TRUE(!window.vbatt_timer_->isActive());
 }
 
 TEST_F(MainWindowTest, otherMakesSkipDispatchButStillRunCleanup)
@@ -1528,10 +1528,10 @@ void MainWindowTest::check_readOfAnUnsupportedProtocolAddsNoCalibration()
     MainWindow window{services.services()};
     constructor_driver.stop();
 
-    window.serial_ports = {"OpenPort 2.0"};
-    window.serial_port_list->clear();
-    window.serial_port_list->addItem("OpenPort 2.0");
-    window.serial_port_list->setCurrentIndex(0);
+    window.serial_ports_ = {"OpenPort 2.0"};
+    window.serial_port_list_->clear();
+    window.serial_port_list_->addItem("OpenPort 2.0");
+    window.serial_port_list_->setCurrentIndex(0);
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_not_a_real_protocol"));
     ASSERT_EQ(window.calibrations_.size(), std::size_t{0});
 
@@ -1543,7 +1543,7 @@ void MainWindowTest::check_readOfAnUnsupportedProtocolAddsNoCalibration()
     ASSERT_TRUE(!operation_driver.timedOut());
     ASSERT_EQ(window.calibrations_.size(), std::size_t{0});
     ASSERT_TRUE(services.calibrations.ids().empty());
-    ASSERT_EQ(window.ui->calibrationFilesTreeWidget->topLevelItemCount(), 0);
+    ASSERT_EQ(window.ui_->calibrationFilesTreeWidget->topLevelItemCount(), 0);
 }
 
 TEST_F(MainWindowTest, readOfAnUnsupportedProtocolAddsNoCalibration)
@@ -1571,10 +1571,10 @@ void MainWindowTest::check_cancellingTheChecksumWarningStopsVoltagePolling(QStri
     EXPECT_CALL(*fake, open_serial_port()).Times(0);
     EXPECT_CALL(*fake, write_serial_data(::testing::_)).Times(0);
     EXPECT_CALL(*fake, change_port_speed(QStringLiteral("4800"))).Times(::testing::AtLeast(1));
-    window.serial_ports = {"OpenPort 2.0"};
-    window.serial_port_list->clear();
-    window.serial_port_list->addItem("OpenPort 2.0");
-    window.serial_port_list->setCurrentIndex(0);
+    window.serial_ports_ = {"OpenPort 2.0"};
+    window.serial_port_list_->clear();
+    window.serial_port_list_->addItem("OpenPort 2.0");
+    window.serial_port_list_->setCurrentIndex(0);
     QTemporaryDir roms;
     const QString rom_path = writeRom(roms, "test.bin", '\x5a', 16);
     ASSERT_TRUE(!rom_path.isEmpty());
@@ -1594,7 +1594,7 @@ void MainWindowTest::check_cancellingTheChecksumWarningStopsVoltagePolling(QStri
     ASSERT_EQ(operation_driver.checksumWarningCount(), 1);
     ASSERT_TRUE(std::ranges::all_of(services.calibrations.find(window.calibrations_.front().id)->rom(),
                                     [](auto byte) { return byte == 0x5a; }));
-    ASSERT_TRUE(!window.vbatt_timer->isActive());
+    ASSERT_TRUE(!window.vbatt_timer_->isActive());
 }
 
 TEST_P(CancellingTheChecksumWarningStopsVoltagePollingParameters, cancellingTheChecksumWarningStopsVoltagePolling)
@@ -1621,7 +1621,7 @@ void MainWindowTest::check_definitionlessOpenPromptsOnceAndAppliesPlaceholders()
     ASSERT_TRUE(!driver.timedOut());
     ASSERT_EQ(driver.missingDefinitionPromptCount(), 1);
     ASSERT_EQ(window.calibrations_.size(), std::size_t{1});
-    QTreeWidgetItem *rom_info = window.ui->calibrationDataTreeWidget->topLevelItem(0);
+    QTreeWidgetItem *rom_info = window.ui_->calibrationDataTreeWidget->topLevelItem(0);
     ASSERT_EQ(rom_info->text(0), QString("ROM Info"));
     ASSERT_EQ(rom_info->child(0)->text(0), QString("XML ID: UnknownID"));
     ASSERT_EQ(rom_info->child(4)->text(0), "Make: " + qs(services.config.selected_vehicle()->make));
@@ -1629,7 +1629,7 @@ void MainWindowTest::check_definitionlessOpenPromptsOnceAndAppliesPlaceholders()
               std::optional<QString>(qs(services.config.selected_vehicle()->make)));
     ASSERT_EQ(services.calibrations.find(window.calibrations_.front().id)->source().display_name, std::string{"a.bin"});
     ASSERT_EQ(services.calibrations.ids().size(), std::size_t{1});
-    ASSERT_EQ(window.ui->calibrationFilesTreeWidget->topLevelItem(0)->text(2),
+    ASSERT_EQ(window.ui_->calibrationFilesTreeWidget->topLevelItem(0)->text(2),
               fastecu::ui::session_key_text(window.calibrations_.front().id));
 }
 
@@ -1656,7 +1656,7 @@ void MainWindowTest::check_closingAMiddleRomKeepsLaterRomsAddressable()
     ASSERT_EQ(window.calibrations_.size(), std::size_t{3});
     const auto a = window.calibrations_.at(0).id;
     const auto c = window.calibrations_.at(2).id;
-    QTreeWidget *files = window.ui->calibrationFilesTreeWidget;
+    QTreeWidget *files = window.ui_->calibrationFilesTreeWidget;
     const QString c_key = files->topLevelItem(2)->text(2);
 
     for (int i = 0; i < files->topLevelItemCount(); ++i)
@@ -1699,10 +1699,10 @@ void MainWindowTest::check_windowsOfAClosedRomAreInert()
 
     const QString stale = fastecu::ui::session_key_text(b) + ",0,Idle";
     auto *content = new QWidget;
-    QMdiSubWindow *sub = window.ui->mdiArea->addSubWindow(content);
+    QMdiSubWindow *sub = window.ui_->mdiArea->addSubWindow(content);
     sub->setObjectName(stale);
     content->setObjectName(stale);
-    window.ui->mdiArea->setActiveSubWindow(sub);
+    window.ui_->mdiArea->setActiveSubWindow(sub);
     QObject destroyed_window;
     destroyed_window.setObjectName(stale);
 
@@ -1712,7 +1712,7 @@ void MainWindowTest::check_windowsOfAClosedRomAreInert()
     window.close_calibration_map(&destroyed_window);
 
     ASSERT_EQ(window.calibrations_.size(), std::size_t{1});
-    ASSERT_EQ(window.ui->calibrationFilesTreeWidget->topLevelItemCount(), 1);
+    ASSERT_EQ(window.ui_->calibrationFilesTreeWidget->topLevelItemCount(), 1);
 }
 
 TEST_F(MainWindowTest, windowsOfAClosedRomAreInert)
@@ -1765,19 +1765,19 @@ void MainWindowTest::check_closingARomClosesAllOfItsWindows()
     for (const QString& name : {a_key + ",0,X", a_key + ",1,Y", b_key + ",0,Z"})
     {
         auto *content = new QWidget;
-        QMdiSubWindow *sub = window.ui->mdiArea->addSubWindow(content);
+        QMdiSubWindow *sub = window.ui_->mdiArea->addSubWindow(content);
         sub->setObjectName(name);
     }
     // The data tree still shows b; select a's row directly, as keyboard
     // navigation would, without rebuilding the data tree.
-    QTreeWidget *files = window.ui->calibrationFilesTreeWidget;
+    QTreeWidget *files = window.ui_->calibrationFilesTreeWidget;
     files->topLevelItem(0)->setSelected(true);
     files->topLevelItem(1)->setSelected(false);
 
     window.close_calibration();
 
     QStringList remaining;
-    for (QMdiSubWindow *sub : window.ui->mdiArea->subWindowList())
+    for (QMdiSubWindow *sub : window.ui_->mdiArea->subWindowList())
     {
         remaining << sub->objectName();
     }
@@ -1803,8 +1803,8 @@ void MainWindowTest::check_viewStateIsKeptPerRom()
     ASSERT_EQ(window.open_calibration_file(writeRom(roms, "a.bin", '\x0a')), 0);
     ASSERT_EQ(window.open_calibration_file(writeRom(roms, "b.bin", '\x0b')), 0);
     driver.stop();
-    QTreeWidget *files = window.ui->calibrationFilesTreeWidget;
-    QTreeWidget *data = window.ui->calibrationDataTreeWidget;
+    QTreeWidget *files = window.ui_->calibrationFilesTreeWidget;
+    QTreeWidget *data = window.ui_->calibrationDataTreeWidget;
     const auto select_rom = [&](int row)
     {
         for (int i = 0; i < files->topLevelItemCount(); ++i)
@@ -1839,7 +1839,7 @@ void MainWindowTest::check_writePreparationRefreshesMetadataAndStatusLabel()
     // The Subaru K-Line row's protocol is also used by a later Nissan row,
     // which the empty-method fill reselects.
     ASSERT_NO_FATAL_FAILURE(selectSubaruProtocol(window, "sub_ecu_denso_sh7058"));
-    window.status_bar_ecu_label->setText("stale");
+    window.status_bar_ecu_label_->setText("stale");
     fastecu::calibration::CalibrationSession session(
         fastecu::calibration::SessionId{41},
         fastecu::calibration::SessionContents{
@@ -1860,7 +1860,7 @@ void MainWindowTest::check_writePreparationRefreshesMetadataAndStatusLabel()
 
     ASSERT_TRUE(!driver.timedOut());
     ASSERT_TRUE(prepared.has_value());
-    EXPECT_EQ(window.status_bar_ecu_label->text().toStdString(), std::string{"Denso SH7058 K-Line "});
+    EXPECT_EQ(window.status_bar_ecu_label_->text().toStdString(), std::string{"Denso SH7058 K-Line "});
     EXPECT_EQ(services.config.selected_vehicle()->make, std::string{"Nissan"});
     EXPECT_EQ(session.protocol().flash_method, std::string{"sub_ecu_denso_sh7058"});
     EXPECT_EQ(fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(session), fastecu::ui::RomInfoRow::FlashMethod)
@@ -2009,7 +2009,7 @@ void MainWindowTest::check_saveAsChangesSourceAndTreeOnlyAfterSuccess()
     session->set_protocol(protocol);
     ASSERT_TRUE(session->write_bytes(0, bytes::Bytes{9}).has_value());
     const auto original_source = session->source();
-    QTreeWidgetItem *row = window.ui->calibrationFilesTreeWidget->topLevelItem(0);
+    QTreeWidgetItem *row = window.ui_->calibrationFilesTreeWidget->topLevelItem(0);
     const QString original_label = row->text(0);
     driver.stop();
 
@@ -2125,13 +2125,13 @@ void MainWindowTest::check_selectableSignalEditsItsEmittingSession()
         {
             return nullptr;
         }
-        auto *file_tree = window.ui->calibrationFilesTreeWidget;
+        auto *file_tree = window.ui_->calibrationFilesTreeWidget;
         for (int row = 0; row < file_tree->topLevelItemCount(); ++row)
         {
             file_tree->topLevelItem(row)->setSelected(row == file_tree->topLevelItemCount() - 1);
         }
         window.calibration_files_treewidget_item_selected(file_tree->topLevelItem(file_tree->topLevelItemCount() - 1));
-        QTreeWidget *tree = window.ui->calibrationDataTreeWidget;
+        QTreeWidget *tree = window.ui_->calibrationDataTreeWidget;
         for (int i = 0; i < tree->topLevelItemCount(); ++i)
         {
             auto *category = tree->topLevelItem(i);
@@ -2139,12 +2139,12 @@ void MainWindowTest::check_selectableSignalEditsItsEmittingSession()
             {
                 tree->setCurrentItem(category->child(0));
                 window.calibration_data_treewidget_item_selected(category->child(0));
-                const auto windows = window.ui->mdiArea->subWindowList();
+                const auto windows = window.ui_->mdiArea->subWindowList();
                 if (windows.isEmpty())
                 {
                     return nullptr;
                 }
-                window.ui->mdiArea->setActiveSubWindow(windows.back());
+                window.ui_->mdiArea->setActiveSubWindow(windows.back());
                 return qobject_cast<CalibrationMaps *>(windows.back()->widget());
             }
         }
@@ -2157,7 +2157,7 @@ void MainWindowTest::check_selectableSignalEditsItsEmittingSession()
     ASSERT_TRUE(second != nullptr);
     ASSERT_TRUE(first != second);
     const auto second_id = services.calibrations.ids().back();
-    ASSERT_TRUE(window.ui->mdiArea->activeSubWindow()->widget() == second);
+    ASSERT_TRUE(window.ui_->mdiArea->activeSubWindow()->widget() == second);
 
     // Emit from the inactive first map while the second ROM/window is selected.
     first->selectable_combobox_item_changed("enabled");
@@ -2207,8 +2207,8 @@ void MainWindowTest::check_failedMapDecodeKeepsAnErrorView()
             .rom = bytes::Bytes(16, 0),
             .definition = fastecu::calibration::ResolvedDefinition{.id = "BAD", .definition = std::move(definition)},
         });
-    window.calibration_files_treewidget_item_selected(window.ui->calibrationFilesTreeWidget->topLevelItem(0));
-    QTreeWidget *tree = window.ui->calibrationDataTreeWidget;
+    window.calibration_files_treewidget_item_selected(window.ui_->calibrationFilesTreeWidget->topLevelItem(0));
+    QTreeWidget *tree = window.ui_->calibrationDataTreeWidget;
     QTreeWidgetItem *item = nullptr;
     for (int i = 0; i < tree->topLevelItemCount(); ++i)
     {
@@ -2222,8 +2222,8 @@ void MainWindowTest::check_failedMapDecodeKeepsAnErrorView()
     fastecu::testing::SignalRecorder errors(&window, &MainWindow::LOG_E);
     tree->setCurrentItem(item);
     window.calibration_data_treewidget_item_selected(item);
-    ASSERT_EQ(window.ui->mdiArea->subWindowList().size(), 1);
-    auto *view = window.ui->mdiArea->subWindowList().front()->widget();
+    ASSERT_EQ(window.ui_->mdiArea->subWindowList().size(), 1);
+    auto *view = window.ui_->mdiArea->subWindowList().front()->widget();
     ASSERT_NE(view->findChild<QLabel *>("mapDecodeError"), nullptr);
     EXPECT_FALSE(view->findChild<QTableWidget *>()->isEnabled());
     ASSERT_EQ(window.calibrations_.front().view.open_maps.size(), 1U);
@@ -2292,7 +2292,7 @@ void MainWindowTest::check_loggingCapturesTargetForEachRun()
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
     constructor_driver.stop();
-    window.configSession->settings().selected_log_protocol = "SSM";
+    window.config_session_->settings().selected_log_protocol = "SSM";
     QAction *action = prepareLogging(window, "SSM");
     std::vector<bool> targets;
     services.logging_engine.registerProtocol(
@@ -2306,15 +2306,15 @@ void MainWindowTest::check_loggingCapturesTargetForEachRun()
         });
     for (bool target : {true, false})
     {
-        window.ecu_radio_button->setAutoExclusive(false);
-        window.ecu_radio_button->setChecked(target);
+        window.ecu_radio_button_->setAutoExclusive(false);
+        window.ecu_radio_button_->setChecked(target);
         // trigger() toggles a checkable action, as a click does: start
         // unchecked so the handler sees Logging switched on.
         action->setChecked(false);
         ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
         ASSERT_TRUE(action->isChecked());
-        ASSERT_TRUE(window.activeLoggingSnapshot.has_value());
-        ASSERT_EQ(window.activeLoggingSnapshot->target_is_ecu, target);
+        ASSERT_TRUE(window.active_logging_snapshot_.has_value());
+        ASSERT_EQ(window.active_logging_snapshot_->target_is_ecu, target);
         services.logging_engine.stop();
     }
     ASSERT_EQ(targets, (std::vector<bool>{true, false}));
@@ -2758,12 +2758,12 @@ void MainWindowTest::check_restoreLoggingUiStateUnchecksLogging()
     ASSERT_NE(logging, nullptr);
     ASSERT_TRUE(logging->isCheckable());
     logging->setChecked(true);
-    window.logging_state = true;
+    window.logging_state_ = true;
 
     window.restoreLoggingUiState();
 
     EXPECT_FALSE(logging->isChecked());
-    EXPECT_FALSE(window.logging_state);
+    EXPECT_FALSE(window.logging_state_);
 }
 
 TEST_F(MainWindowTest, restoreLoggingUiStateUnchecksLogging)
@@ -2841,11 +2841,11 @@ void MainWindowTest::check_logToFileActionDrivesWriteDatalogToFile()
 
     log_to_file->setChecked(true);
     window.toggle_log_to_file();
-    EXPECT_TRUE(window.write_datalog_to_file);
+    EXPECT_TRUE(window.write_datalog_to_file_);
 
     log_to_file->setChecked(false);
     window.toggle_log_to_file();
-    EXPECT_FALSE(window.write_datalog_to_file);
+    EXPECT_FALSE(window.write_datalog_to_file_);
 }
 
 TEST_F(MainWindowTest, logToFileActionDrivesWriteDatalogToFile)
@@ -2906,7 +2906,7 @@ void MainWindowTest::check_loggingUsesTheSessionLogProtocol()
                                                  protocol->blockPollUntilCancelled();
                                                  return protocol;
                                              });
-    window.configSession->settings().selected_log_protocol = "CDBG";
+    window.config_session_->settings().selected_log_protocol = "CDBG";
 
     ModalDriver driver{QString()};
     driver.start();
@@ -2914,7 +2914,7 @@ void MainWindowTest::check_loggingUsesTheSessionLogProtocol()
     driver.stop();
     services.logging_engine.stop();
 
-    ASSERT_EQ(window.activeLogValueProtocolFilter, QString("CDBG"));
+    ASSERT_EQ(window.active_log_value_protocol_filter_, QString("CDBG"));
 }
 
 TEST_F(MainWindowTest, loggingUsesTheSessionLogProtocol)
@@ -2931,11 +2931,11 @@ void MainWindowTest::check_selectedSerialPortIsEmptyWithoutPorts()
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
     constructor_driver.stop();
-    window.serial_ports.clear();
-    window.serial_port_list->clear();
+    window.serial_ports_.clear();
+    window.serial_port_list_->clear();
     ASSERT_EQ(window.selected_serial_port(), QString());
-    window.serial_ports = {"ttyUSB0"};
-    window.serial_port_list->addItem("ttyUSB0");
+    window.serial_ports_ = {"ttyUSB0"};
+    window.serial_port_list_->addItem("ttyUSB0");
     ASSERT_EQ(window.selected_serial_port(), QString("ttyUSB0"));
 }
 
@@ -2953,8 +2953,8 @@ void MainWindowTest::check_dtcWindowWithoutAPortWarnsInsteadOfCrashing()
     ASSERT_TRUE(services.fake != nullptr);
     MainWindow window{services.services()};
     constructor_driver.stop();
-    window.serial_ports.clear();
-    window.serial_port_list->clear();
+    window.serial_ports_.clear();
+    window.serial_port_list_->clear();
     EXPECT_CALL(*services.fake, set_serial_port_list(::testing::_)).Times(0);
     ModalDriver driver{QString()};
     driver.start();
@@ -3025,8 +3025,8 @@ void MainWindowTest::check_biuWindowRemembersTheOpenedPort()
     constructor_driver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "K-Line"));
     ON_CALL(*services.fake, get_openedSerialPort()).WillByDefault(::testing::Return(QString("ttyUSB0")));
-    window.previous_serial_port.clear();
-    window.configSession->settings().serial_port = "none";
+    window.previous_serial_port_.clear();
+    window.config_session_->settings().serial_port = "none";
     window.save_settings();
     const QString config_file =
         config_root_->path() + "/" + QString::fromStdString(kTestApplication.version) + "/config/fastecu.cfg";
@@ -3038,8 +3038,8 @@ void MainWindowTest::check_biuWindowRemembersTheOpenedPort()
 
     // As open_serial_port did for the legacy BIU path: the chosen port is
     // remembered for the next launch and as the previously opened port.
-    ASSERT_EQ(window.previous_serial_port, QString("ttyUSB0"));
-    ASSERT_EQ(window.configSession->settings().serial_port, std::string("ttyUSB0"));
+    ASSERT_EQ(window.previous_serial_port_, QString("ttyUSB0"));
+    ASSERT_EQ(window.config_session_->settings().serial_port, std::string("ttyUSB0"));
     QFile saved{config_file};
     ASSERT_TRUE(saved.open(QIODevice::ReadOnly));
     ASSERT_TRUE(saved.readAll().contains(R"(data="ttyUSB0")"));
@@ -3069,7 +3069,7 @@ void MainWindowTest::check_disconnectReturnsTheAdapterToIdle()
     ASSERT_TRUE(triggerMenu(window, kDisconnectFromEcu));
     // Check now, so facade teardown cannot over-saturate the expectations.
     ASSERT_TRUE(::testing::Mock::VerifyAndClearExpectations(services.fake));
-    ASSERT_TRUE(window.serial_port_list->isEnabled());
+    ASSERT_TRUE(window.serial_port_list_->isEnabled());
 }
 
 TEST_F(MainWindowTest, disconnectReturnsTheAdapterToIdle)
@@ -3095,8 +3095,8 @@ void MainWindowTest::check_connectOnAnotherMakeDisconnectsWithoutIdentifying()
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     ASSERT_TRUE(elapsed.elapsed() < 1000); // the legacy loop waited 2.5 s here
     ASSERT_TRUE(!window.connection_coordinator_->identifying());
-    ASSERT_TRUE(!window.ecu_init_complete);
-    ASSERT_TRUE(window.serial_port_list->isEnabled());
+    ASSERT_TRUE(!window.ecu_init_complete_);
+    ASSERT_TRUE(window.serial_port_list_->isEnabled());
 }
 
 TEST_F(MainWindowTest, connectOnAnotherMakeDisconnectsWithoutIdentifying)
@@ -3126,19 +3126,19 @@ void MainWindowTest::check_subaruKlineConnectIdentifiesOffTheUiThread()
 
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     ASSERT_TRUE(window.connection_coordinator_->identifying());
-    ASSERT_TRUE(!window.log_transport_list->isEnabled());
-    ASSERT_TRUE(!window.serial_port_list->isEnabled());
+    ASSERT_TRUE(!window.log_transport_list_->isEnabled());
+    ASSERT_TRUE(!window.serial_port_list_->isEnabled());
 
     constructor_driver.start();
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return !window.connection_coordinator_->identifying(); },
                                              std::chrono::milliseconds(5000)));
     constructor_driver.stop();
-    ASSERT_TRUE(window.ecu_init_complete);
-    ASSERT_EQ(window.ecuid, QString("3152584006"));
+    ASSERT_TRUE(window.ecu_init_complete_);
+    ASSERT_EQ(window.ecuid_, QString("3152584006"));
     ASSERT_TRUE(read_off_ui_thread.load());
     ASSERT_TRUE(!window.connection_coordinator_->identifying());
-    ASSERT_TRUE(window.log_transport_list->isEnabled());
-    ASSERT_TRUE(!window.serial_port_list->isEnabled()); // stays locked while connected, as before
+    ASSERT_TRUE(window.log_transport_list_->isEnabled());
+    ASSERT_TRUE(!window.serial_port_list_->isEnabled()); // stays locked while connected, as before
 }
 
 TEST_F(MainWindowTest, subaruKlineConnectIdentifiesOffTheUiThread)
@@ -3167,11 +3167,11 @@ void MainWindowTest::check_subaruConnectThatNeverAnswersDisconnectsAndRestoresCo
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return !window.connection_coordinator_->identifying(); },
                                              std::chrono::milliseconds(15000)));
-    ASSERT_TRUE(!window.ecu_init_complete);
-    ASSERT_TRUE(window.log_transport_list->isEnabled());
-    ASSERT_TRUE(window.serial_port_list->isEnabled());
-    ASSERT_TRUE(window.ecu_radio_button->isEnabled());
-    ASSERT_TRUE(window.tcu_radio_button->isEnabled());
+    ASSERT_TRUE(!window.ecu_init_complete_);
+    ASSERT_TRUE(window.log_transport_list_->isEnabled());
+    ASSERT_TRUE(window.serial_port_list_->isEnabled());
+    ASSERT_TRUE(window.ecu_radio_button_->isEnabled());
+    ASSERT_TRUE(window.tcu_radio_button_->isEnabled());
 }
 
 TEST_F(MainWindowTest, subaruConnectThatNeverAnswersDisconnectsAndRestoresControls)
@@ -3197,13 +3197,13 @@ void MainWindowTest::check_disconnectDuringIdentificationCancelsAndDropsTheResul
     ASSERT_TRUE(window.identify_launcher_->wait_for_worker(std::chrono::milliseconds(5000)));
     ASSERT_TRUE(triggerMenu(window, kDisconnectFromEcu));
     ASSERT_TRUE(!window.connection_coordinator_->identifying());
-    ASSERT_TRUE(window.log_transport_list->isEnabled());
-    ASSERT_TRUE(window.serial_port_list->isEnabled());
-    ASSERT_TRUE(window.ecu_radio_button->isEnabled());
-    ASSERT_TRUE(window.tcu_radio_button->isEnabled());
+    ASSERT_TRUE(window.log_transport_list_->isEnabled());
+    ASSERT_TRUE(window.serial_port_list_->isEnabled());
+    ASSERT_TRUE(window.ecu_radio_button_->isEnabled());
+    ASSERT_TRUE(window.tcu_radio_button_->isEnabled());
     fastecu::testing::process_events_for(
         std::chrono::milliseconds(200)); // any completion already queued must be dropped
-    ASSERT_TRUE(!window.ecu_init_complete);
+    ASSERT_TRUE(!window.ecu_init_complete_);
 }
 
 TEST_F(MainWindowTest, disconnectDuringIdentificationCancelsAndDropsTheResult)
@@ -3217,49 +3217,49 @@ void MainWindowTest::check_loggingSelectionFailureSemanticsAndSupportPreservatio
     driver.start();
     TestServices services{config_root_->path()};
     MainWindow window{services.services()};
-    window.vbatt_timer->stop();
+    window.vbatt_timer_->stop();
     const auto cfg = QString::fromStdString(services.config.effective_paths().logger_file);
-    window.ecuid = "MODEL_TEST";
+    window.ecuid_ = "MODEL_TEST";
     installLoggingFixture(
         window,
         {.parameters = {{.protocol = "SSM", .id = "rpm", .ecu_byte_index = "0", .ecu_bit = "0", .enabled = true}},
          .switches = {{.protocol = "SSM", .id = "flag", .ecu_byte_index = "5", .enabled = true}}},
         {.protocol = "SSM", .gauge_ids = {"old"}, .lower_panel_ids = {"old"}, .switch_ids = {"old"}});
-    const auto previous = window.loggerModel->selection();
+    const auto previous = window.logger_model_->selection();
     ASSERT_TRUE(QFile::remove(cfg));
     window.load_logger_selection();
-    ASSERT_TRUE(window.loggerModel->selection() == previous);
-    window.loggerModel->set_selection({.protocol = "SSM", .gauge_ids = {"operator-edit", "unresolved"}});
-    const auto edited = window.loggerModel->selection();
+    ASSERT_TRUE(window.logger_model_->selection() == previous);
+    window.logger_model_->set_selection({.protocol = "SSM", .gauge_ids = {"operator-edit", "unresolved"}});
+    const auto edited = window.logger_model_->selection();
     window.save_logger_selection();
-    ASSERT_TRUE(window.loggerModel->selection() == edited);
+    ASSERT_TRUE(window.logger_model_->selection() == edited);
     ASSERT_TRUE(writeTextFile(cfg, "<config><logger/></config>"));
-    window.loggerModel->set_parameter_supported("SSM", "rpm", false);
+    window.logger_model_->set_parameter_supported("SSM", "rpm", false);
     window.load_logger_selection();
-    ASSERT_TRUE(window.loggerModel->selection().gauge_ids.empty());
-    ASSERT_EQ(window.loggerModel->selection().switch_ids, (std::vector<std::string>{"flag"}));
-    ASSERT_TRUE(!window.loggerModel->parameter_supported("SSM", "rpm"));
+    ASSERT_TRUE(window.logger_model_->selection().gauge_ids.empty());
+    ASSERT_EQ(window.logger_model_->selection().switch_ids, (std::vector<std::string>{"flag"}));
+    ASSERT_TRUE(!window.logger_model_->parameter_supported("SSM", "rpm"));
     ASSERT_TRUE(writeTextFile(
         cfg,
         R"(<config><logger><ecu id="MODEL_TEST"><protocol id="SSM"><parameters><gauges><parameter id="unknown"/></gauges><lower_panel><parameter id="rpm"/></lower_panel></parameters><switches><switch id="flag"/></switches></protocol></ecu></logger></config>)"));
     window.load_logger_selection();
-    ASSERT_EQ(window.loggerModel->selection().gauge_ids, (std::vector<std::string>{"unknown"}));
-    ASSERT_TRUE(!window.loggerModel->parameter_supported("SSM", "rpm"));
+    ASSERT_EQ(window.logger_model_->selection().gauge_ids, (std::vector<std::string>{"unknown"}));
+    ASSERT_TRUE(!window.logger_model_->parameter_supported("SSM", "rpm"));
     // A valid capability byte updates parameters; missing switch bytes retain flags.
     window.parse_log_value_list(frame({0, 0, 0, 0, 0, 1}), "SSM");
-    ASSERT_TRUE(window.loggerModel->parameter_supported("SSM", "rpm"));
-    ASSERT_TRUE(window.loggerModel->switch_supported("SSM", "flag"));
-    ASSERT_TRUE(window.loggerModel->definition().parameters.front().enabled);
+    ASSERT_TRUE(window.logger_model_->parameter_supported("SSM", "rpm"));
+    ASSERT_TRUE(window.logger_model_->switch_supported("SSM", "flag"));
+    ASSERT_TRUE(window.logger_model_->definition().parameters.front().enabled);
     window.save_logger_selection();
     const auto stored = services.logger_definitions.load_selection(cfg.toStdString(), "MODEL_TEST");
     ASSERT_TRUE(stored.has_value());
     ASSERT_TRUE(stored->has_value());
-    ASSERT_TRUE(**stored == window.loggerModel->selection());
+    ASSERT_TRUE(**stored == window.logger_model_->selection());
     // Missing definitions clear stale IDs after a successful read and never persist defaults.
     installLoggingFixture(window, {}, {.protocol = "SSM", .lower_panel_ids = {"stale"}});
     ASSERT_TRUE(writeTextFile(cfg, "<config><logger/></config>"));
     window.load_logger_selection();
-    ASSERT_TRUE(window.loggerModel->selection().lower_panel_ids.empty());
+    ASSERT_TRUE(window.logger_model_->selection().lower_panel_ids.empty());
     QFile conf{cfg};
     ASSERT_TRUE(conf.open(QIODevice::ReadOnly));
     ASSERT_EQ(conf.readAll(), QByteArray("<config><logger/></config>"));
@@ -3278,9 +3278,9 @@ void MainWindowTest::check_loggingDefinitionFailureIsNonfatal()
     TestServices services{config_root_->path()};
     services.config.settings().romraider_logger_definition_file = "/missing/logger.xml";
     MainWindow window{services.services()};
-    ASSERT_TRUE(window.loggerModel->definition().parameters.empty());
-    ASSERT_TRUE(window.loggerModel->selection().lower_panel_ids.empty());
-    ASSERT_TRUE(window.ui != nullptr);
+    ASSERT_TRUE(window.logger_model_->definition().parameters.empty());
+    ASSERT_TRUE(window.logger_model_->selection().lower_panel_ids.empty());
+    ASSERT_TRUE(window.ui_ != nullptr);
     driver.stop();
 }
 
@@ -3303,8 +3303,8 @@ void MainWindowTest::check_unresolvedDisplaySlotsAreSkippedAndUpdateTheirOrigina
                                            .conversions = {{"rpm", "x", "0.00", "0", "100", "1"}}}}},
                           {.protocol = "SSM", .lower_panel_ids = {"unresolved", "rpm", "another-unresolved"}});
     window.update_logboxes("SSM");
-    ASSERT_EQ(window.ui->logBoxLayout->count(), 1);
-    ASSERT_TRUE(window.loggerValues.set_parameter_value({"SSM", "rpm"}, "123.00"));
+    ASSERT_EQ(window.ui_->logBoxLayout->count(), 1);
+    ASSERT_TRUE(window.logger_values_.set_parameter_value({"SSM", "rpm"}, "123.00"));
     window.update_logbox_values("SSM");
     const auto *label = window.findChild<QLabel *>("log_label1");
     ASSERT_TRUE(label != nullptr);
@@ -3388,7 +3388,7 @@ void MainWindowTest::check_chooserDuplicateLabelIdentity(int tab, QString kind)
                        });
     window.change_log_values(tab, "SSM");
     ASSERT_TRUE(inspected);
-    const auto& selected = window.loggerModel->selection();
+    const auto& selected = window.logger_model_->selection();
     ASSERT_EQ((tab == 0   ? selected.gauge_ids
                : tab == 1 ? selected.lower_panel_ids
                           : selected.switch_ids)
@@ -3429,30 +3429,30 @@ void MainWindowTest::check_csvSharedIdProtocolIdentity()
                            .gauge_ids = {"missing"},
                            .lower_panel_ids = {"rpm", "unresolved"},
                            .switch_ids = {"missing-switch"}});
-    ASSERT_TRUE(window.loggerValues.set_parameter_value({"SSM", "rpm"}, "11.00"));
-    ASSERT_TRUE(window.loggerValues.set_parameter_value({"CDBG", "rpm"}, "22.00"));
+    ASSERT_TRUE(window.logger_values_.set_parameter_value({"SSM", "rpm"}, "11.00"));
+    ASSERT_TRUE(window.logger_values_.set_parameter_value({"CDBG", "rpm"}, "22.00"));
     auto snapshot = fastecu::desktop::logging::make_desktop_logging_snapshot(
-        *window.loggerModel, fastecu::logging::LoggingProtocolId::Cdbg, "CDBG",
+        *window.logger_model_, fastecu::logging::LoggingProtocolId::Cdbg, "CDBG",
         {.poll_timeout = std::chrono::milliseconds{50},
          .car_silence_miss_threshold = 20,
          .reconnect_attempt_threshold = 100,
          .reconnect_retry_period = 20});
     ASSERT_TRUE(snapshot.has_value());
-    window.activeLoggingSnapshot = *snapshot;
-    window.protocol = "SSM"; // active run, not mutable UI choice, owns CSV protocol
+    window.active_logging_snapshot_ = *snapshot;
+    window.protocol_ = "SSM"; // active run, not mutable UI choice, owns CSV protocol
     ASSERT_TRUE(QDir().mkpath(QString::fromStdString(services.config.effective_paths().datalog_files_directory)));
-    window.write_datalog_to_file = true;
+    window.write_datalog_to_file_ = true;
     window.log_to_file();
     window.log_to_file();
-    window.datalog_file_outstream.flush();
-    QFile csv{window.datalog_file.fileName()};
+    window.datalog_file_outstream_.flush();
+    QFile csv{window.datalog_file_.fileName()};
     ASSERT_TRUE(csv.open(QIODevice::ReadOnly));
     const auto content = csv.readAll();
     ASSERT_TRUE(content.startsWith("Time,,Correct CDBG,,,\n"));
     ASSERT_TRUE(content.contains(",,22.00,,,\n"));
     ASSERT_TRUE(!content.contains("Wrong SSM"));
     ASSERT_TRUE(!content.contains("11.00"));
-    window.datalog_file.close();
+    window.datalog_file_.close();
 }
 
 TEST_F(MainWindowTest, csvSharedIdProtocolIdentity)
@@ -3505,8 +3505,8 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu
     MainWindow window{services.services()};
     constructor_driver.stop();
     ASSERT_NO_FATAL_FAILURE(prepareConnect(window, *services.fake, "Subaru", "iso15765"));
-    window.protocol = "SSM";
-    (target_is_ecu ? window.ecu_radio_button : window.tcu_radio_button)->setChecked(true);
+    window.protocol_ = "SSM";
+    (target_is_ecu ? window.ecu_radio_button_ : window.tcu_radio_button_)->setChecked(true);
     EXPECT_CALL(*services.fake,
                 write_serial_data_echo_check(frame({0x00, 0x00, 0x07, target_is_ecu ? 0xE0 : 0xE1, 0x22, 0xF1, 0x82})));
     EXPECT_CALL(*services.fake, read_serial_data(::testing::_))
@@ -3537,7 +3537,7 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu
         [&window, &target_frozen_in_continuation](const fastecu::desktop::logging::DesktopLoggingSnapshot&)
         {
             target_frozen_in_continuation =
-                !window.ecu_radio_button->isEnabled() && !window.tcu_radio_button->isEnabled();
+                !window.ecu_radio_button_->isEnabled() && !window.tcu_radio_button_->isEnabled();
             auto protocol = std::make_unique<ScriptedLoggingProtocol>();
             protocol->blockPollUntilCancelled();
             return protocol;
@@ -3548,18 +3548,18 @@ void MainWindowTest::check_loggingStartWaitsForIdentification(bool target_is_ecu
     action->setChecked(false);
     ASSERT_TRUE(triggerMenu(window, kToggleRealtime));
     ASSERT_TRUE(action->isChecked());
-    ASSERT_TRUE(!window.activeLoggingSnapshot.has_value()); // still identifying
-    (target_is_ecu ? window.tcu_radio_button : window.ecu_radio_button)->click();
+    ASSERT_TRUE(!window.active_logging_snapshot_.has_value()); // still identifying
+    (target_is_ecu ? window.tcu_radio_button_ : window.ecu_radio_button_)->click();
     response_gate.release();
-    ASSERT_TRUE(fastecu::testing::wait_until([&] { return window.activeLoggingSnapshot.has_value(); },
+    ASSERT_TRUE(fastecu::testing::wait_until([&] { return window.active_logging_snapshot_.has_value(); },
                                              std::chrono::milliseconds(5000)));
-    ASSERT_EQ(window.ecuid, QString("123456789A"));
-    ASSERT_TRUE(window.loggerModel->parameter_supported("SSM", "rpm"));
-    ASSERT_TRUE(window.activeLoggingSnapshot.has_value());
-    ASSERT_EQ(window.activeLoggingSnapshot->target_is_ecu, target_is_ecu);
+    ASSERT_EQ(window.ecuid_, QString("123456789A"));
+    ASSERT_TRUE(window.logger_model_->parameter_supported("SSM", "rpm"));
+    ASSERT_TRUE(window.active_logging_snapshot_.has_value());
+    ASSERT_EQ(window.active_logging_snapshot_->target_is_ecu, target_is_ecu);
     ASSERT_TRUE(target_frozen_in_continuation);
-    ASSERT_TRUE(window.ecu_radio_button->isEnabled());
-    ASSERT_TRUE(window.tcu_radio_button->isEnabled());
+    ASSERT_TRUE(window.ecu_radio_button_->isEnabled());
+    ASSERT_TRUE(window.tcu_radio_button_->isEnabled());
     services.logging_engine.stop();
 }
 
@@ -3645,11 +3645,11 @@ void MainWindowTest::check_connectStopsAnActiveLoggingWorkerBeforeIdentification
     ASSERT_TRUE(services.logging_engine.start({"SSM"}, std::move(snapshot)).has_value());
     ASSERT_TRUE(fastecu::testing::wait_until([&] { return services.logging_engine.isRunning(); },
                                              std::chrono::milliseconds(5000)));
-    window.logging_state = true;
+    window.logging_state_ = true;
     ASSERT_TRUE(triggerMenu(window, kConnectToEcu));
     ASSERT_TRUE(window.connection_coordinator_->identifying());
     ASSERT_TRUE(!services.logging_engine.isRunning());
-    ASSERT_TRUE(!window.logging_state);
+    ASSERT_TRUE(!window.logging_state_);
 }
 
 TEST_F(MainWindowTest, connectStopsAnActiveLoggingWorkerBeforeIdentification)
@@ -3706,8 +3706,8 @@ void MainWindowTest::check_connectionEntryPointsStopIdentification(QString entry
     bool cancelled = false;
     window.connect_to_ecu([&cancelled](bool connected) { cancelled = !connected; });
     ASSERT_TRUE(window.connection_coordinator_->identifying());
-    ASSERT_TRUE(!window.serial_port_list->isEnabled());
-    ASSERT_TRUE(!window.refresh_serial_port_list->isEnabled());
+    ASSERT_TRUE(!window.serial_port_list_->isEnabled());
+    ASSERT_TRUE(!window.refresh_serial_port_list_->isEnabled());
     QTimer close_dialog;
     close_dialog.setInterval(5);
     QObject::connect(&close_dialog, &QTimer::timeout,
@@ -3742,10 +3742,10 @@ void MainWindowTest::check_connectionEntryPointsStopIdentification(QString entry
     ASSERT_TRUE(cancelled);
     // A cancelled identification leaves no ECU connected, so the port
     // selector unlocks as it does after Disconnect.
-    ASSERT_TRUE(window.serial_port_list->isEnabled());
-    ASSERT_TRUE(window.refresh_serial_port_list->isEnabled());
+    ASSERT_TRUE(window.serial_port_list_->isEnabled());
+    ASSERT_TRUE(window.refresh_serial_port_list_->isEnabled());
     fastecu::testing::process_events_for(std::chrono::milliseconds(200));
-    ASSERT_TRUE(!window.ecu_init_complete);
+    ASSERT_TRUE(!window.ecu_init_complete_);
 }
 
 TEST_P(ConnectionEntryPointsStopIdentificationParameters, connectionEntryPointsStopIdentification)
@@ -3782,8 +3782,8 @@ void MainWindowTest::check_nestedConnectDuringCapabilityNoticeKeepsEachContinuat
                              {
                                  if (!restarted)
                                  {
-                                     target_frozen_in_notice =
-                                         !window.ecu_radio_button->isEnabled() && !window.tcu_radio_button->isEnabled();
+                                     target_frozen_in_notice = !window.ecu_radio_button_->isEnabled() &&
+                                                               !window.tcu_radio_button_->isEnabled();
                                      restarted = true;
                                      window.connect_to_ecu([&second_result](bool connected)
                                                            { second_result = connected; });
@@ -3797,8 +3797,8 @@ void MainWindowTest::check_nestedConnectDuringCapabilityNoticeKeepsEachContinuat
     notice_driver.stop();
     ASSERT_TRUE(restarted);
     ASSERT_TRUE(target_frozen_in_notice);
-    ASSERT_TRUE(!window.ecu_radio_button->isEnabled());
-    ASSERT_TRUE(!window.tcu_radio_button->isEnabled());
+    ASSERT_TRUE(!window.ecu_radio_button_->isEnabled());
+    ASSERT_TRUE(!window.tcu_radio_button_->isEnabled());
     ASSERT_TRUE(window.connection_coordinator_->identifying());
     ASSERT_TRUE(first_result.has_value());
     ASSERT_TRUE(!*first_result);
@@ -3806,8 +3806,8 @@ void MainWindowTest::check_nestedConnectDuringCapabilityNoticeKeepsEachContinuat
     window.connection_coordinator_->cancel();
     ASSERT_TRUE(second_result.has_value());
     ASSERT_TRUE(!*second_result);
-    ASSERT_TRUE(window.ecu_radio_button->isEnabled());
-    ASSERT_TRUE(window.tcu_radio_button->isEnabled());
+    ASSERT_TRUE(window.ecu_radio_button_->isEnabled());
+    ASSERT_TRUE(window.tcu_radio_button_->isEnabled());
 }
 
 TEST_F(MainWindowTest, nestedConnectDuringCapabilityNoticeKeepsEachContinuation)
@@ -3833,7 +3833,7 @@ void MainWindowTest::check_menuMatchesTheGolden()
     MainWindow window{services.services()};
     constructor_driver.stop();
 
-    const std::string actual = fastecu::ui::testing::menu_snapshot(*window.ui->menubar, *window.ui->toolBar);
+    const std::string actual = fastecu::ui::testing::menu_snapshot(*window.ui_->menubar, *window.ui_->toolBar);
     const char *golden_path = std::getenv("MAIN_MENU_GOLDEN_PATH");
     ASSERT_NE(golden_path, nullptr) << "MAIN_MENU_GOLDEN_PATH must be set by the Bazel target's env";
     std::ifstream file(golden_path, std::ios::binary);
@@ -3925,7 +3925,7 @@ void MainWindowTest::check_toolbarKeepsMenuActionsBeforeTheTransportWidgets()
     MainWindow window{services.services()};
     constructor_driver.stop();
 
-    const QList<QAction *> actions = window.ui->toolBar->actions();
+    const QList<QAction *> actions = window.ui_->toolBar->actions();
     // Open, Save, |, Logging, Log to file, Read, Test write, Write, |, then widgets.
     ASSERT_GE(actions.size(), 10U);
     EXPECT_TRUE(actions[2]->isSeparator());
@@ -3967,8 +3967,8 @@ void MainWindowTest::check_aStaleOrMalformedMenuCfgIsIgnored()
     {
         EXPECT_FALSE(text.startsWith(QStringLiteral("Unable to load menu config file"))) << qPrintable(text);
     }
-    EXPECT_NE(window.ui->actionToggleRealtime, nullptr);
-    EXPECT_EQ(window.ui->menubar->findChildren<QMenu *>().size(), 7);
+    EXPECT_NE(window.ui_->actionToggleRealtime, nullptr);
+    EXPECT_EQ(window.ui_->menubar->findChildren<QMenu *>().size(), 7);
 }
 
 TEST_F(MainWindowTest, aStaleOrMalformedMenuCfgIsIgnored)
@@ -4027,14 +4027,14 @@ void MainWindowTest::check_triggeringLogToFileReachesItsHandler()
     QAction *log_to_file = menuAction(window, kLogToFile);
     ASSERT_NE(log_to_file, nullptr);
     ASSERT_FALSE(log_to_file->isChecked());
-    ASSERT_FALSE(window.write_datalog_to_file);
+    ASSERT_FALSE(window.write_datalog_to_file_);
 
     // trigger() toggles the checkable action as a click does; the handler
     // then reads the new state.
     log_to_file->trigger();
-    EXPECT_TRUE(window.write_datalog_to_file);
+    EXPECT_TRUE(window.write_datalog_to_file_);
     log_to_file->trigger();
-    EXPECT_FALSE(window.write_datalog_to_file);
+    EXPECT_FALSE(window.write_datalog_to_file_);
 }
 
 TEST_F(MainWindowTest, triggeringLogToFileReachesItsHandler)
@@ -4092,11 +4092,11 @@ void MainWindowTest::check_tuneActionsEditTheSelectionThroughTheirOwnHandlers()
     ASSERT_TRUE(opened.has_value());
     ASSERT_TRUE(window.add_calibration(opened->id));
 
-    auto *file_tree = window.ui->calibrationFilesTreeWidget;
+    auto *file_tree = window.ui_->calibrationFilesTreeWidget;
     ASSERT_EQ(file_tree->topLevelItemCount(), 1);
     file_tree->topLevelItem(0)->setSelected(true);
     window.calibration_files_treewidget_item_selected(file_tree->topLevelItem(0));
-    QTreeWidget *data_tree = window.ui->calibrationDataTreeWidget;
+    QTreeWidget *data_tree = window.ui_->calibrationDataTreeWidget;
     QTreeWidgetItem *grid_item = nullptr;
     for (int i = 0; i < data_tree->topLevelItemCount(); ++i)
     {
@@ -4108,9 +4108,9 @@ void MainWindowTest::check_tuneActionsEditTheSelectionThroughTheirOwnHandlers()
     ASSERT_NE(grid_item, nullptr);
     data_tree->setCurrentItem(grid_item);
     window.calibration_data_treewidget_item_selected(grid_item);
-    const QList<QMdiSubWindow *> windows = window.ui->mdiArea->subWindowList();
+    const QList<QMdiSubWindow *> windows = window.ui_->mdiArea->subWindowList();
     ASSERT_EQ(windows.size(), 1U);
-    window.ui->mdiArea->setActiveSubWindow(windows.front());
+    window.ui_->mdiArea->setActiveSubWindow(windows.front());
     auto *table = windows.front()->findChild<QTableWidget *>(windows.front()->objectName());
     ASSERT_NE(table, nullptr);
 
@@ -4131,10 +4131,10 @@ void MainWindowTest::check_tuneActionsEditTheSelectionThroughTheirOwnHandlers()
     // Chained on the centre cell (100): each step's size and sign tells the
     // four increment actions apart.
     const std::array<std::pair<QAction *, int>, 4> steps{{
-        {window.ui->actionCoarseIncrement, 110},
-        {window.ui->actionFineIncrement, 111},
-        {window.ui->actionFineDecrement, 110},
-        {window.ui->actionCoarseDecrement, 100},
+        {window.ui_->actionCoarseIncrement, 110},
+        {window.ui_->actionFineIncrement, 111},
+        {window.ui_->actionFineDecrement, 110},
+        {window.ui_->actionCoarseDecrement, 100},
     }};
     for (const auto& [action, expected] : steps)
     {
@@ -4145,9 +4145,9 @@ void MainWindowTest::check_tuneActionsEditTheSelectionThroughTheirOwnHandlers()
 
     // Each interpolation over the whole body, from the same starting grid.
     const std::array<std::pair<QAction *, std::vector<int>>, 3> interpolations{{
-        {window.ui->actionInterpolateHorizontal, {0, 10, 20, 0, 0, 0, 40, 50, 60}},
-        {window.ui->actionInterpolateVertical, {0, 0, 20, 20, 0, 40, 40, 0, 60}},
-        {window.ui->actionInterpolateBidirectional, {0, 10, 20, 20, 30, 40, 40, 50, 60}},
+        {window.ui_->actionInterpolateHorizontal, {0, 10, 20, 0, 0, 0, 40, 50, 60}},
+        {window.ui_->actionInterpolateVertical, {0, 0, 20, 20, 0, 40, 40, 0, 60}},
+        {window.ui_->actionInterpolateBidirectional, {0, 10, 20, 20, 30, 40, 40, 50, 60}},
     }};
     for (const auto& [action, expected] : interpolations)
     {
@@ -4176,7 +4176,7 @@ void MainWindowTest::check_tuneActionsEditTheSelectionThroughTheirOwnHandlers()
                          dialog->accept();
                      });
     answer.start();
-    window.ui->actionSetValue->trigger();
+    window.ui_->actionSetValue->trigger();
     answer.stop();
     EXPECT_EQ(grid(), (std::vector<int>{77, 0, 20, 0, 100, 0, 40, 0, 60}));
 
@@ -4185,7 +4185,7 @@ void MainWindowTest::check_tuneActionsEditTheSelectionThroughTheirOwnHandlers()
     ASSERT_TRUE(services.calibrations.find(opened->id)->write_bytes(kBody, body).has_value());
     QApplication::clipboard()->setText("1\t2\t3\n4\t5\t6\n7\t8\t9\n");
     select(2, 2, 2, 2);
-    window.ui->actionPaste->trigger();
+    window.ui_->actionPaste->trigger();
     EXPECT_EQ(grid(), (std::vector<int>{0, 0, 20, 0, 1, 2, 40, 4, 5}));
 
     driver.stop();
@@ -4253,11 +4253,11 @@ void MainWindowTest::check_copyFromALargerMapPastesIntoASmallerOneThroughItsScal
     ASSERT_TRUE(opened.has_value());
     ASSERT_TRUE(window.add_calibration(opened->id));
 
-    auto *file_tree = window.ui->calibrationFilesTreeWidget;
+    auto *file_tree = window.ui_->calibrationFilesTreeWidget;
     ASSERT_EQ(file_tree->topLevelItemCount(), 1);
     file_tree->topLevelItem(0)->setSelected(true);
     window.calibration_files_treewidget_item_selected(file_tree->topLevelItem(0));
-    QTreeWidget *data_tree = window.ui->calibrationDataTreeWidget;
+    QTreeWidget *data_tree = window.ui_->calibrationDataTreeWidget;
     const auto open_map = [&](const QString& name) -> QMdiSubWindow *
     {
         for (int i = 0; i < data_tree->topLevelItemCount(); ++i)
@@ -4269,11 +4269,11 @@ void MainWindowTest::check_copyFromALargerMapPastesIntoASmallerOneThroughItsScal
                 {
                     data_tree->setCurrentItem(category->child(child));
                     window.calibration_data_treewidget_item_selected(category->child(child));
-                    for (auto *candidate : window.ui->mdiArea->subWindowList())
+                    for (auto *candidate : window.ui_->mdiArea->subWindowList())
                     {
                         if (candidate->windowTitle().startsWith(name + " - "))
                         {
-                            window.ui->mdiArea->setActiveSubWindow(candidate);
+                            window.ui_->mdiArea->setActiveSubWindow(candidate);
                             return candidate;
                         }
                     }
@@ -4300,19 +4300,19 @@ void MainWindowTest::check_copyFromALargerMapPastesIntoASmallerOneThroughItsScal
 
     // Select All takes the body only, so the clipboard holds the 3x3 values
     // at full precision and none of the axes.
-    window.ui->mdiArea->setActiveSubWindow(source_window);
+    window.ui_->mdiArea->setActiveSubWindow(source_window);
     source_table->setFocus();
     QKeyEvent select_all(QEvent::KeyPress, Qt::Key_A, Qt::ControlModifier);
     QApplication::sendEvent(source_table, &select_all);
-    window.ui->actionCopy->trigger();
+    window.ui_->actionCopy->trigger();
     EXPECT_EQ(QApplication::clipboard()->text(), "0\t2.5\t2.5\n0\t12.5\t0\n5\t0\t7.5");
 
     // Paste starts at the destination selection's top-left and clips to its
     // 2x2 body, storing each value through the destination's own scaling.
-    window.ui->mdiArea->setActiveSubWindow(dest_window);
+    window.ui_->mdiArea->setActiveSubWindow(dest_window);
     dest_table->clearSelection();
     dest_table->setRangeSelected(QTableWidgetSelectionRange(1, 1, 1, 1), true);
-    window.ui->actionPaste->trigger();
+    window.ui_->actionPaste->trigger();
     EXPECT_EQ(dest_body(), (std::vector<int>{0, 10, 0, 50}));
 
     driver.stop();
@@ -4384,8 +4384,8 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
         id, {.source = session->source(),
              .rom = {0, 10},
              .definition = fastecu::calibration::ResolvedDefinition{.definition = definition}});
-    window.calibration_files_treewidget_item_selected(window.ui->calibrationFilesTreeWidget->topLevelItem(0));
-    auto *tree = window.ui->calibrationDataTreeWidget;
+    window.calibration_files_treewidget_item_selected(window.ui_->calibrationFilesTreeWidget->topLevelItem(0));
+    auto *tree = window.ui_->calibrationDataTreeWidget;
     QTreeWidgetItem *item = nullptr;
     for (int row = 0; row < tree->topLevelItemCount(); ++row)
     {
@@ -4397,9 +4397,9 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
     ASSERT_NE(item, nullptr);
     tree->setCurrentItem(item);
     window.calibration_data_treewidget_item_selected(item);
-    ASSERT_EQ(window.ui->mdiArea->subWindowList().size(), 1);
-    auto *subwindow = window.ui->mdiArea->subWindowList().front();
-    window.ui->mdiArea->setActiveSubWindow(subwindow);
+    ASSERT_EQ(window.ui_->mdiArea->subWindowList().size(), 1);
+    auto *subwindow = window.ui_->mdiArea->subWindowList().front();
+    window.ui_->mdiArea->setActiveSubWindow(subwindow);
     auto *table = subwindow->findChild<QTableWidget *>();
     ASSERT_NE(table, nullptr);
     table->setRangeSelected(QTableWidgetSelectionRange(0, 0, 0, 0), true);
@@ -4423,10 +4423,10 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
         ASSERT_TRUE(window.add_calibration(*other));
         if (active_changed)
         {
-            auto *category = window.ui->calibrationDataTreeWidget->topLevelItem(0);
-            for (int row = 0; row < window.ui->calibrationDataTreeWidget->topLevelItemCount(); ++row)
+            auto *category = window.ui_->calibrationDataTreeWidget->topLevelItem(0);
+            for (int row = 0; row < window.ui_->calibrationDataTreeWidget->topLevelItemCount(); ++row)
             {
-                auto *candidate = window.ui->calibrationDataTreeWidget->topLevelItem(row);
+                auto *candidate = window.ui_->calibrationDataTreeWidget->topLevelItem(row);
                 if (candidate->text(0) == "Controls")
                 {
                     category = candidate;
@@ -4434,7 +4434,7 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
             }
             ASSERT_NE(category->child(0), nullptr);
             window.calibration_data_treewidget_item_selected(category->child(0));
-            for (auto *candidate : window.ui->mdiArea->subWindowList())
+            for (auto *candidate : window.ui_->mdiArea->subWindowList())
             {
                 if (candidate != subwindow)
                 {
@@ -4442,7 +4442,7 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
                 }
             }
             ASSERT_NE(other_window, nullptr);
-            window.ui->mdiArea->setActiveSubWindow(subwindow);
+            window.ui_->mdiArea->setActiveSubWindow(subwindow);
         }
     }
     bool answered = false;
@@ -4477,7 +4477,7 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
             }
             if (scenario == AssignmentScenario::SelectionChanged)
             {
-                auto *file_tree = window.ui->calibrationFilesTreeWidget;
+                auto *file_tree = window.ui_->calibrationFilesTreeWidget;
                 for (int row = 0; row < file_tree->topLevelItemCount(); ++row)
                 {
                     file_tree->topLevelItem(row)->setSelected(row == file_tree->topLevelItemCount() - 1);
@@ -4487,7 +4487,7 @@ void MainWindowTest::check_typedAssignment(AssignmentScenario scenario)
             }
             if (active_changed)
             {
-                window.ui->mdiArea->setActiveSubWindow(other_window);
+                window.ui_->mdiArea->setActiveSubWindow(other_window);
             }
             if (scenario == AssignmentScenario::OriginalClosed)
             {

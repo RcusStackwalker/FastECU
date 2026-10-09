@@ -164,19 +164,19 @@ class RemoteSerialBackend : public QObject, public SerialBackend
     unsigned long read_vbatt() override;
 
   private:
-    QString peerAddress;
-    QString password;
+    QString peer_address_;
+    QString password_;
 
-    const QString autodiscoveryMessage = "FastECU_PTP_Autodiscovery";
-    const QString remoteObjectName = "FastECU";
-    const QString wssPath = "/" + remoteObjectName;
-    const QString webSocketPasswordHeader = "fastecu-basic-password";
-    const int heartbeatInterval = 0;
+    const QString autodiscovery_message_ = "FastECU_PTP_Autodiscovery";
+    const QString remote_object_name_ = "FastECU";
+    const QString wss_path_ = "/" + remote_object_name_;
+    const QString web_socket_password_header_ = "fastecu-basic-password";
+    const int heartbeat_interval_ = 0;
 
-    QWebSocket *webSocket = nullptr;
-    WebSocketIoDevice *socket = nullptr;
-    QRemoteObjectNode node;
-    SerialPortActionsRemoteReplica *serial_remote = nullptr;
+    QWebSocket *web_socket_ = nullptr;
+    WebSocketIoDevice *socket_ = nullptr;
+    QRemoteObjectNode node_;
+    SerialPortActionsRemoteReplica *serial_remote_ = nullptr;
 
     void startRemote();
     void startOverNetwork();

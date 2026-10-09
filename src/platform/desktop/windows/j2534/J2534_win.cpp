@@ -28,10 +28,10 @@ void copyCString(std::span<char> out, std::string_view text)
 J2534::J2534()
 {
     hDLL = nullptr;
-    isLibraryInitialized = false;
+    is_library_initialized_ = false;
     // default to the Openport 2.0 J2534 DLL
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    copyCString(dllName, "j2534.dll");
+    copyCString(dll_name_, "j2534.dll");
 #else
     copyCString(dllName, "op20pt32.dylib");
 #endif
@@ -39,13 +39,13 @@ J2534::J2534()
 
 void J2534::setDllName(const char *name)
 {
-    copyCString(dllName, name);
+    copyCString(dll_name_, name);
 }
 
 void J2534::getDllName(char *name)
 {
     // `name` must hold dllName.size() chars, as the one caller's buffer does.
-    copyCString(std::span(name, dllName.size()), dllName.data());
+    copyCString(std::span(name, dll_name_.size()), dll_name_.data());
 }
 
 void J2534::disable()
@@ -55,23 +55,23 @@ void J2534::disable()
         FreeLibrary(hDLL);
         hDLL = nullptr;
     }
-    if (bridgeClient)
+    if (bridge_client_)
     {
-        bridgeClient.reset();
-        useBridge = false;
+        bridge_client_.reset();
+        use_bridge_ = false;
     }
 }
 
 char *J2534::getLastError()
 {
-    return lastError.data();
+    return last_error_.data();
 }
 
 bool J2534::valid()
 {
-    if (bridgeClient)
+    if (bridge_client_)
     {
-        return bridgeClient->isRunning();
+        return bridge_client_->isRunning();
     }
     return hDLL != nullptr;
 }
@@ -174,7 +174,7 @@ long J2534::LoadJ2534DLL(const char *szDLL)
     hDLL = LoadLibraryA(szDLL);
     if (!hDLL)
     {
-        copyCString(lastError, "error loading J2534 DLL");
+        copyCString(last_error_, "error loading J2534 DLL");
         return false;
     }
     else if (!getPTfns())
@@ -182,7 +182,7 @@ long J2534::LoadJ2534DLL(const char *szDLL)
         // assume unusable if we don't have everything we need
         FreeLibrary(hDLL);
         hDLL = nullptr;
-        copyCString(lastError, "error loading J2534 DLL function pointers");
+        copyCString(last_error_, "error loading J2534 DLL function pointers");
         return false;
     }
 #else
@@ -228,9 +228,9 @@ long J2534::LoadJ2534DLL(const char *szDLL)
 
 bool J2534::checkDLL()
 {
-    if (bridgeClient)
+    if (bridge_client_)
     {
-        return bridgeClient->isRunning();
+        return bridge_client_->isRunning();
     }
     if (hDLL)
     {
@@ -238,20 +238,20 @@ bool J2534::checkDLL()
     }
 
     bool is32Bit = false;
-    if (isDll32Bit(dllName.data(), is32Bit) && is32Bit)
+    if (isDll32Bit(dll_name_.data(), is32Bit) && is32Bit)
     {
-        auto client = std::make_unique<J2534BridgeClient>("j2534_bridge_host.exe", dllName.data());
+        auto client = std::make_unique<J2534BridgeClient>("j2534_bridge_host.exe", dll_name_.data());
         if (client->start())
         {
-            bridgeClient = std::move(client);
-            useBridge = true;
+            bridge_client_ = std::move(client);
+            use_bridge_ = true;
             return true;
         }
-        copyCString(lastError, "error starting 32-bit J2534 bridge helper");
+        copyCString(last_error_, "error starting 32-bit J2534 bridge helper");
         return false;
     }
 
-    LoadJ2534DLL(dllName.data());
+    LoadJ2534DLL(dll_name_.data());
     return (hDLL != nullptr);
 }
 
@@ -267,9 +267,9 @@ long J2534::PassThruOpen(const void *pName, unsigned long *pDeviceID)
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruOpen(pName, pDeviceID);
+        return bridge_client_->PassThruOpen(pName, pDeviceID);
     }
 
     result = (*pfPassThruOpen)(pName, pDeviceID);
@@ -284,9 +284,9 @@ long J2534::PassThruClose(unsigned long DeviceID)
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruClose(DeviceID);
+        return bridge_client_->PassThruClose(DeviceID);
     }
     result = (*pfPassThruClose)(DeviceID);
 
@@ -301,9 +301,9 @@ long J2534::PassThruConnect(unsigned long DeviceID, unsigned long ProtocolID, un
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruConnect(DeviceID, ProtocolID, Flags, Baudrate, pChannelID);
+        return bridge_client_->PassThruConnect(DeviceID, ProtocolID, Flags, Baudrate, pChannelID);
     }
     result = (*pfPassThruConnect)(DeviceID, ProtocolID, Flags, Baudrate, pChannelID);
     return result;
@@ -316,9 +316,9 @@ long J2534::PassThruDisconnect(unsigned long ChannelID)
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruDisconnect(ChannelID);
+        return bridge_client_->PassThruDisconnect(ChannelID);
     }
     result = (*pfPassThruDisconnect)(ChannelID);
     return result;
@@ -331,9 +331,9 @@ long J2534::PassThruReadMsgs(unsigned long ChannelID, PassThruMsg *pMsg, unsigne
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruReadMsgs(ChannelID, pMsg, pNumMsgs, Timeout);
+        return bridge_client_->PassThruReadMsgs(ChannelID, pMsg, pNumMsgs, Timeout);
     }
     result = (*pfPassThruReadMsgs)(ChannelID, pMsg, pNumMsgs, Timeout);
     return result;
@@ -346,9 +346,9 @@ long J2534::PassThruWriteMsgs(unsigned long ChannelID, const PassThruMsg *pMsg, 
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruWriteMsgs(ChannelID, pMsg, pNumMsgs, Timeout);
+        return bridge_client_->PassThruWriteMsgs(ChannelID, pMsg, pNumMsgs, Timeout);
     }
     return (*pfPassThruWriteMsgs)(ChannelID, pMsg, pNumMsgs, Timeout);
 }
@@ -361,9 +361,9 @@ long J2534::PassThruStartPeriodicMsg(unsigned long ChannelID, const PassThruMsg 
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruStartPeriodicMsg(ChannelID, pMsg, pMsgID, TimeInterval);
+        return bridge_client_->PassThruStartPeriodicMsg(ChannelID, pMsg, pMsgID, TimeInterval);
     }
     result = (*pfPassThruStartPeriodicMsg)(ChannelID, pMsg, pMsgID, TimeInterval);
     return result;
@@ -376,9 +376,9 @@ long J2534::PassThruStopPeriodicMsg(unsigned long ChannelID, unsigned long MsgID
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruStopPeriodicMsg(ChannelID, MsgID);
+        return bridge_client_->PassThruStopPeriodicMsg(ChannelID, MsgID);
     }
     result = (*pfPassThruStopPeriodicMsg)(ChannelID, MsgID);
     return result;
@@ -393,10 +393,10 @@ long J2534::PassThruStartMsgFilter(unsigned long ChannelID, unsigned long Filter
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruStartMsgFilter(ChannelID, FilterType, pMaskMsg, pPatternMsg, pFlowControlMsg,
-                                                    pMsgID);
+        return bridge_client_->PassThruStartMsgFilter(ChannelID, FilterType, pMaskMsg, pPatternMsg, pFlowControlMsg,
+                                                      pMsgID);
     }
     result = (*pfPassThruStartMsgFilter)(ChannelID, FilterType, pMaskMsg, pPatternMsg, pFlowControlMsg, pMsgID);
     return result;
@@ -409,9 +409,9 @@ long J2534::PassThruStopMsgFilter(unsigned long ChannelID, unsigned long MsgID)
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruStopMsgFilter(ChannelID, MsgID);
+        return bridge_client_->PassThruStopMsgFilter(ChannelID, MsgID);
     }
     result = (*pfPassThruStopMsgFilter)(ChannelID, MsgID);
     return result;
@@ -424,9 +424,9 @@ long J2534::PassThruSetProgrammingVoltage(unsigned long DeviceID, unsigned long 
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruSetProgrammingVoltage(DeviceID, Pin, Voltage);
+        return bridge_client_->PassThruSetProgrammingVoltage(DeviceID, Pin, Voltage);
     }
     result = (*pfPassThruSetProgrammingVoltage)(DeviceID, Pin, Voltage);
     return result;
@@ -439,9 +439,9 @@ long J2534::PassThruReadVersion(char *pApiVersion, char *pDllVersion, char *pFir
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruReadVersion(pApiVersion, pDllVersion, pFirmwareVersion, DeviceID);
+        return bridge_client_->PassThruReadVersion(pApiVersion, pDllVersion, pFirmwareVersion, DeviceID);
     }
     result = (*pfPassThruReadVersion)(DeviceID, pFirmwareVersion, pDllVersion, pApiVersion);
     return result;
@@ -454,9 +454,9 @@ long J2534::PassThruGetLastError(char *pErrorDescription)
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruGetLastError(pErrorDescription);
+        return bridge_client_->PassThruGetLastError(pErrorDescription);
     }
     result = (*pfPassThruGetLastError)(pErrorDescription);
     return result;
@@ -483,9 +483,9 @@ long J2534::PassThruIoctl(unsigned long ChannelID, unsigned long IoctlID, const 
     {
         return kJ2534ErrDeviceNotConnected;
     }
-    if (useBridge)
+    if (use_bridge_)
     {
-        return bridgeClient->PassThruIoctl(ChannelID, IoctlID, pInput, pOutput);
+        return bridge_client_->PassThruIoctl(ChannelID, IoctlID, pInput, pOutput);
     }
 
     if (IoctlID == kJ2534SetConfig)

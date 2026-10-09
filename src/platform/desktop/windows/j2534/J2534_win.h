@@ -75,18 +75,18 @@ class J2534
     bool checkDLL();
     int is_valid_sconfig_param(SCONFIG s);
 
-    std::array<char, 256> lastError;
-    std::array<char, 256> dllName;
-    bool isLibraryInitialized;
+    std::array<char, 256> last_error_;
+    std::array<char, 256> dll_name_;
+    bool is_library_initialized_;
 
 #if defined(_WIN32) || defined(WIN32) || defined(_WIN64) || defined(WIN64)
-    HINSTANCE hDLL; // Handle to DLL
+    HINSTANCE h_dll_; // Handle to DLL
 #else
     void *hDLL;
 #endif
 
-    std::unique_ptr<J2534BridgeClient> bridgeClient;
-    bool useBridge = false;
+    std::unique_ptr<J2534BridgeClient> bridge_client_;
+    bool use_bridge_ = false;
 
     /* J2534 Interface API function pointers */
 

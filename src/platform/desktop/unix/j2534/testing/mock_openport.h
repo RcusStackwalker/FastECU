@@ -28,9 +28,9 @@ class MockOpenPort : public QObject
     Q_OBJECT
   public:
     explicit MockOpenPort(int masterFd, QObject *parent = nullptr)
-        : QObject(parent), fd(masterFd), notifier(new QSocketNotifier(masterFd, QSocketNotifier::Read, this))
+        : QObject(parent), fd_(masterFd), notifier_(new QSocketNotifier(masterFd, QSocketNotifier::Read, this))
     {
-        connect(notifier, &QSocketNotifier::activated, this, &MockOpenPort::onReadable);
+        connect(notifier_, &QSocketNotifier::activated, this, &MockOpenPort::onReadable);
     }
 
     // When false, the READ_VBATT command ("atr ...") gets no reply, so the
@@ -42,18 +42,18 @@ class MockOpenPort : public QObject
     void onReadable()
     {
         std::array<char, 256> buf{};
-        const auto n = ::read(fd, buf.data(), buf.size());
+        const auto n = ::read(fd_, buf.data(), buf.size());
         if (n <= 0)
         {
             return;
         }
-        rx.append(buf.data(), static_cast<int>(n));
+        rx_.append(buf.data(), static_cast<int>(n));
 
         qsizetype nl;
-        while ((nl = rx.indexOf('\n')) >= 0)
+        while ((nl = rx_.indexOf('\n')) >= 0)
         {
-            const QByteArray line = rx.left(nl).trimmed();
-            rx.remove(0, nl + 1);
+            const QByteArray line = rx_.left(nl).trimmed();
+            rx_.remove(0, nl + 1);
             if (line.isEmpty())
             {
                 continue;
@@ -79,14 +79,14 @@ class MockOpenPort : public QObject
             }
             // A short write surfaces as a missing reply, which the caller's
             // read timeout reports.
-            std::ignore = ::write(fd, resp.constData(), resp.size());
+            std::ignore = ::write(fd_, resp.constData(), resp.size());
         }
     }
 
   private:
-    int fd;
-    QSocketNotifier *notifier;
-    QByteArray rx;
+    int fd_;
+    QSocketNotifier *notifier_;
+    QByteArray rx_;
 };
 
 // Runs a MockOpenPort on its own thread with its own event loop, so it
@@ -95,10 +95,10 @@ class MockOpenPort : public QObject
 class MockOpenPortThread : public QThread
 {
   public:
-    explicit MockOpenPortThread(int masterFd) : fd(masterFd)
+    explicit MockOpenPortThread(int masterFd) : fd_(masterFd)
     {
         start();
-        ready.acquire();
+        ready_.acquire();
     }
     ~MockOpenPortThread() override
     {
@@ -112,14 +112,14 @@ class MockOpenPortThread : public QThread
   protected:
     void run() override
     {
-        MockOpenPort m(fd); // created here => notifier lives on this thread
+        MockOpenPort m(fd_); // created here => notifier lives on this thread
         mock = &m;
-        ready.release();
+        ready_.release();
         exec();
         mock = nullptr;
     }
 
   private:
-    int fd;
-    QSemaphore ready;
+    int fd_;
+    QSemaphore ready_;
 };

@@ -84,9 +84,9 @@ class MockOpenPort final : public QObject
 {
   public:
     explicit MockOpenPort(int masterFd, QObject *parent = nullptr)
-        : QObject(parent), fd(masterFd), notifier(new QSocketNotifier(masterFd, QSocketNotifier::Read, this))
+        : QObject(parent), fd_(masterFd), notifier_(new QSocketNotifier(masterFd, QSocketNotifier::Read, this))
     {
-        connect(notifier, &QSocketNotifier::activated, this, &MockOpenPort::onReadable);
+        connect(notifier_, &QSocketNotifier::activated, this, &MockOpenPort::onReadable);
     }
 
     // The exact payload bytes of the last host data write ("att" message body).
@@ -100,10 +100,10 @@ class MockOpenPort final : public QObject
     // subsequent "att" data write is parsed from a clean buffer.
     void resetParser()
     {
-        rx.clear();
+        rx_.clear();
         last_write.clear();
         saw_write = false;
-        rawRemaining = 0;
+        raw_remaining_ = 0;
     }
 
     // Push a dongle->host data delivery carrying `payload` (a streamed MUT frame),
@@ -118,19 +118,19 @@ class MockOpenPort final : public QObject
         f.append(char(0x00));               // NORM_MSG
         f.append(4, char(0x00));            // 4-byte timestamp (ignored here)
         f.append(payload);
-        EXPECT_EQ(::write(fd, f.constData(), f.size()), f.size());
+        EXPECT_EQ(::write(fd_, f.constData(), f.size()), f.size());
     }
 
   private:
     void onReadable()
     {
         std::array<char, 512> buf{};
-        const ssize_t n = ::read(fd, buf.data(), buf.size());
+        const ssize_t n = ::read(fd_, buf.data(), buf.size());
         if (n <= 0)
         {
             return;
         }
-        rx.append(buf.data(), static_cast<int>(n));
+        rx_.append(buf.data(), static_cast<int>(n));
         process();
     }
 
@@ -139,13 +139,13 @@ class MockOpenPort final : public QObject
     {
         for (;;)
         {
-            if (rawRemaining > 0)
+            if (raw_remaining_ > 0)
             {
-                const int take = static_cast<int>(qMin<qsizetype>(rawRemaining, rx.size()));
-                last_write.append(rx.left(take));
-                rx.remove(0, take);
-                rawRemaining -= take;
-                if (rawRemaining == 0)
+                const int take = static_cast<int>(qMin<qsizetype>(raw_remaining_, rx_.size()));
+                last_write.append(rx_.left(take));
+                rx_.remove(0, take);
+                raw_remaining_ -= take;
+                if (raw_remaining_ == 0)
                 {
                     saw_write = true;
                 }
@@ -156,13 +156,13 @@ class MockOpenPort final : public QObject
                 continue;
             }
 
-            const qsizetype nl = rx.indexOf('\n');
+            const qsizetype nl = rx_.indexOf('\n');
             if (nl < 0)
             {
                 return;
             }
-            const QByteArray line = rx.left(nl).trimmed();
-            rx.remove(0, nl + 1);
+            const QByteArray line = rx_.left(nl).trimmed();
+            rx_.remove(0, nl + 1);
             if (line.isEmpty())
             {
                 continue;
@@ -179,7 +179,7 @@ class MockOpenPort final : public QObject
             const QList<QByteArray> tok = line.split(' ');
             const int size = (tok.size() > 1) ? tok.at(1).toInt() : 0;
             last_write.clear();
-            rawRemaining = size;
+            raw_remaining_ = size;
             return; // a data write is not acked by the dongle
         }
         if (line.startsWith("ati"))
@@ -199,13 +199,13 @@ class MockOpenPort final : public QObject
     void reply(const char *s)
     {
         const auto length = static_cast<ssize_t>(qstrlen(s));
-        EXPECT_EQ(::write(fd, s, qstrlen(s)), length);
+        EXPECT_EQ(::write(fd_, s, qstrlen(s)), length);
     }
 
-    int fd;
-    QSocketNotifier *notifier;
-    QByteArray rx;
-    int rawRemaining = 0;
+    int fd_;
+    QSocketNotifier *notifier_;
+    QByteArray rx_;
+    int raw_remaining_ = 0;
 };
 
 // Runs a MockOpenPort on its own thread with its own event loop, so it responds
@@ -215,10 +215,10 @@ class MockOpenPort final : public QObject
 class MockOpenPortThread : public QThread
 {
   public:
-    explicit MockOpenPortThread(int masterFd) : fd(masterFd)
+    explicit MockOpenPortThread(int masterFd) : fd_(masterFd)
     {
         start();
-        ready.acquire();
+        ready_.acquire();
     }
     ~MockOpenPortThread() override
     {
@@ -234,16 +234,16 @@ class MockOpenPortThread : public QThread
   protected:
     void run() override
     {
-        MockOpenPort m(fd); // created here => notifier lives on this thread
+        MockOpenPort m(fd_); // created here => notifier lives on this thread
         mock = &m;
-        ready.release();
+        ready_.release();
         exec();
         mock = nullptr;
     }
 
   private:
-    int fd;
-    QSemaphore ready;
+    int fd_;
+    QSemaphore ready_;
 };
 
 class MutDmaIntegrationTest : public ::testing::Test

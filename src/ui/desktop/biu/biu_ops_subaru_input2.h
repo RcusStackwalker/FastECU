@@ -25,8 +25,8 @@ class BiuOpsSubaruInput2 : public QWidget
     ~BiuOpsSubaruInput2();
 
   private:
-    QByteArray *biu_option_result;
-    QStringList *biu_option_names;
+    QByteArray *biu_option_result_;
+    QStringList *biu_option_names_;
 
   private slots:
     void prepare_biu_setting2();
@@ -35,5 +35,5 @@ class BiuOpsSubaruInput2 : public QWidget
     void send_biu_setting2(QByteArray output);
 
   private:
-    std::unique_ptr<Ui::BiuOpsSubaruInput2Window> ui;
+    std::unique_ptr<Ui::BiuOpsSubaruInput2Window> ui_;
 };

@@ -6,10 +6,10 @@
 void MainWindow::parse_log_value_list(QByteArray received, const QString& protocol_arg)
 {
     received.remove(0, 5);
-    loggerModel->apply_capabilities(protocol_arg.toStdString(), bytes::view(received));
-    for (const auto& p : loggerModel->definition().parameters)
+    logger_model_->apply_capabilities(protocol_arg.toStdString(), bytes::view(received));
+    for (const auto& p : logger_model_->definition().parameters)
     {
-        if (p.protocol != protocol_arg.toStdString() || !loggerModel->parameter_supported(p.protocol, p.id))
+        if (p.protocol != protocol_arg.toStdString() || !logger_model_->parameter_supported(p.protocol, p.id))
         {
             continue;
         }
@@ -31,70 +31,70 @@ void MainWindow::parse_log_value_list(QByteArray received, const QString& protoc
 
 void MainWindow::log_to_file()
 {
-    if (write_datalog_to_file)
+    if (write_datalog_to_file_)
     {
-        if (!datalog_file_open)
+        if (!datalog_file_open_)
         {
             QDateTime dateTime = dateTime.currentDateTime();
             QString dateTimeString = dateTime.toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
 
-            QString log_file_name = fastecu::ui::qs(configSession->effective_paths().datalog_files_directory);
+            QString log_file_name = fastecu::ui::qs(config_session_->effective_paths().datalog_files_directory);
             if (!log_file_name.endsWith('/'))
             {
                 log_file_name.append("/");
             }
             log_file_name.append("fastecu_" + dateTimeString + ".csv");
 
-            datalog_file.setFileName(log_file_name);
-            if (!datalog_file.open(QIODevice::WriteOnly))
+            datalog_file_.setFileName(log_file_name);
+            if (!datalog_file_.open(QIODevice::WriteOnly))
             {
-                QMessageBox::information(this, tr("Unable to open file"), datalog_file.errorString());
+                QMessageBox::information(this, tr("Unable to open file"), datalog_file_.errorString());
                 return;
             }
             else
             {
-                datalog_file_open = true;
-                log_file_timer->start();
+                datalog_file_open_ = true;
+                log_file_timer_->start();
             }
 
-            datalog_file_outstream.setDevice(&datalog_file);
-            datalog_file_outstream << "Time,";
+            datalog_file_outstream_.setDevice(&datalog_file_);
+            datalog_file_outstream_ << "Time,";
             write_logger_csv_cells(true);
-            datalog_file_outstream << "\n";
+            datalog_file_outstream_ << "\n";
         }
         else
         {
 
-            datalog_file_outstream << QString::number(static_cast<float>(log_file_timer->elapsed()) / 1000.0F) << ",";
+            datalog_file_outstream_ << QString::number(static_cast<float>(log_file_timer_->elapsed()) / 1000.0F) << ",";
             write_logger_csv_cells(false);
-            datalog_file_outstream << "\n";
+            datalog_file_outstream_ << "\n";
         }
     }
 }
 
 void MainWindow::write_logger_csv_cells(bool header)
 {
-    const auto key = activeLoggingSnapshot ? activeLoggingSnapshot->protocol : protocol.toStdString();
-    const auto& selection = loggerModel->selection();
+    const auto key = active_logging_snapshot_ ? active_logging_snapshot_->protocol : protocol_.toStdString();
+    const auto& selection = logger_model_->selection();
     const auto parameters = [&](const auto& ids)
     {
         for (const auto& id : ids)
         {
-            const auto *item = loggerModel->parameter(key, id);
-            datalog_file_outstream << (item == nullptr ? QString{}
-                                       : header        ? fastecu::ui::qs(item->name)
-                                                       : loggerValues.parameter_value(key, id))
-                                   << ",";
+            const auto *item = logger_model_->parameter(key, id);
+            datalog_file_outstream_ << (item == nullptr ? QString{}
+                                        : header        ? fastecu::ui::qs(item->name)
+                                                        : logger_values_.parameter_value(key, id))
+                                    << ",";
         }
     };
     parameters(selection.gauge_ids);
     parameters(selection.lower_panel_ids);
     for (const auto& id : selection.switch_ids)
     {
-        const auto *item = loggerModel->switch_definition(key, id);
-        datalog_file_outstream << (item == nullptr ? QString{}
-                                   : header        ? fastecu::ui::qs(item->name)
-                                                   : loggerValues.switch_value(key, id))
-                               << ",";
+        const auto *item = logger_model_->switch_definition(key, id);
+        datalog_file_outstream_ << (item == nullptr ? QString{}
+                                    : header        ? fastecu::ui::qs(item->name)
+                                                    : logger_values_.switch_value(key, id))
+                                << ",";
     }
 }

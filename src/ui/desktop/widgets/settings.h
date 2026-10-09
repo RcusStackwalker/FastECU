@@ -38,17 +38,17 @@ class Settings : public QDialog
   private:
     void closeEvent(QCloseEvent *bar);
 
-    fastecu::config::ConfigSession& config;
-    bool close_save_attempted = false;
+    fastecu::config::ConfigSession& config_;
+    bool close_save_attempted_ = false;
 
-    QLineEdit *ecuflash_def_dir_lineedit{};
-    QLineEdit *romraider_logger_file_lineedit{};
-    QLineEdit *ecu_cal_dir_lineedit{};
-    QLineEdit *log_files_dir_lineedit{};
+    QLineEdit *ecuflash_def_dir_lineedit_{};
+    QLineEdit *romraider_logger_file_lineedit_{};
+    QLineEdit *ecu_cal_dir_lineedit_{};
+    QLineEdit *log_files_dir_lineedit_{};
 
-    QSpinBox *toolbar_iconsize_spinbox{};
+    QSpinBox *toolbar_iconsize_spinbox_{};
 
-    QListWidget *romraider_definition_files_list{};
+    QListWidget *romraider_definition_files_list_{};
 
     QVBoxLayout *create_files_config_page();
     QVBoxLayout *create_ui_config_page();
@@ -69,5 +69,5 @@ class Settings : public QDialog
     int save_config_file();
 
   private:
-    std::unique_ptr<Ui::Settings> ui;
+    std::unique_ptr<Ui::Settings> ui_;
 };

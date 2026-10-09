@@ -37,7 +37,7 @@ class ScriptedKlineTransport : public IKlineTransport
     }
     bool scriptConsumed() const
     {
-        return wIdx_ == expected_.size() && reads_.empty() && set_baud_results_.empty() && write_results_.empty();
+        return w_idx_ == expected_.size() && reads_.empty() && set_baud_results_.empty() && write_results_.empty();
     }
     bool ok() const
     {
@@ -63,14 +63,14 @@ class ScriptedKlineTransport : public IKlineTransport
     }
     fastecu::Result<std::size_t> write(bytes::ByteView data) override
     {
-        if (wIdx_ >= expected_.size() || expected_.at(wIdx_) != bytes::Bytes(data.begin(), data.end()))
+        if (w_idx_ >= expected_.size() || expected_.at(w_idx_) != bytes::Bytes(data.begin(), data.end()))
         {
             ok_ = false;
             return fastecu::fail(fastecu::ErrorKind::Internal, "unexpected scripted K-Line write");
         }
         else
         {
-            ++wIdx_;
+            ++w_idx_;
         }
         if (!write_results_.empty())
         {
@@ -101,7 +101,7 @@ class ScriptedKlineTransport : public IKlineTransport
     std::deque<fastecu::Status> set_baud_results_;
     std::deque<fastecu::Result<std::size_t>> write_results_;
     std::deque<fastecu::Result<OptionalBytes>> reads_;
-    std::size_t wIdx_ = 0;
+    std::size_t w_idx_ = 0;
     bool ok_ = true;
     bool open_ = true;
 };

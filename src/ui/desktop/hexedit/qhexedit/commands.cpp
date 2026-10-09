@@ -23,17 +23,17 @@ class CharCommand : public QUndoCommand
     }
 
   private:
-    Chunks *_chunks;
-    qint64 _charPos;
-    bool _wasChanged;
-    char _newChar;
-    char _oldChar;
-    CCmd _cmd;
+    Chunks *chunks_;
+    qint64 char_pos_;
+    bool was_changed_;
+    char new_char_;
+    char old_char_;
+    CCmd cmd_;
 };
 
 CharCommand::CharCommand(Chunks *chunks, CCmd cmd, qint64 charPos, char newChar, QUndoCommand *parent)
-    : QUndoCommand(parent), _chunks(chunks), _charPos(charPos), _wasChanged(false), _newChar(newChar), _oldChar('\0'),
-      _cmd(cmd)
+    : QUndoCommand(parent), chunks_(chunks), char_pos_(charPos), was_changed_(false), new_char_(newChar),
+      old_char_('\0'), cmd_(cmd)
 {
 }
 
@@ -42,13 +42,13 @@ bool CharCommand::mergeWith(const QUndoCommand *command)
     const CharCommand *nextCommand = static_cast<const CharCommand *>(command);
     bool result = false;
 
-    if (_cmd != CharCommand::removeAt)
+    if (cmd_ != CharCommand::removeAt)
     {
-        if (nextCommand->_cmd == overwrite)
+        if (nextCommand->cmd_ == overwrite)
         {
-            if (nextCommand->_charPos == _charPos)
+            if (nextCommand->char_pos_ == char_pos_)
             {
-                _newChar = nextCommand->_newChar;
+                new_char_ = nextCommand->new_char_;
                 result = true;
             }
         }
@@ -58,67 +58,67 @@ bool CharCommand::mergeWith(const QUndoCommand *command)
 
 void CharCommand::undo()
 {
-    switch (_cmd)
+    switch (cmd_)
     {
     case insert:
-        _chunks->removeAt(_charPos);
+        chunks_->removeAt(char_pos_);
         break;
     case overwrite:
-        _chunks->overwrite(_charPos, _oldChar);
-        _chunks->setDataChanged(_charPos, _wasChanged);
+        chunks_->overwrite(char_pos_, old_char_);
+        chunks_->setDataChanged(char_pos_, was_changed_);
         break;
     case removeAt:
-        _chunks->insert(_charPos, _oldChar);
-        _chunks->setDataChanged(_charPos, _wasChanged);
+        chunks_->insert(char_pos_, old_char_);
+        chunks_->setDataChanged(char_pos_, was_changed_);
         break;
     }
 }
 
 void CharCommand::redo()
 {
-    switch (_cmd)
+    switch (cmd_)
     {
     case insert:
-        _chunks->insert(_charPos, _newChar);
+        chunks_->insert(char_pos_, new_char_);
         break;
     case overwrite:
-        _oldChar = (*_chunks)[_charPos];
-        _wasChanged = _chunks->dataChanged(_charPos);
-        _chunks->overwrite(_charPos, _newChar);
+        old_char_ = (*chunks_)[char_pos_];
+        was_changed_ = chunks_->dataChanged(char_pos_);
+        chunks_->overwrite(char_pos_, new_char_);
         break;
     case removeAt:
-        _oldChar = (*_chunks)[_charPos];
-        _wasChanged = _chunks->dataChanged(_charPos);
-        _chunks->removeAt(_charPos);
+        old_char_ = (*chunks_)[char_pos_];
+        was_changed_ = chunks_->dataChanged(char_pos_);
+        chunks_->removeAt(char_pos_);
         break;
     }
 }
 
 UndoStack::UndoStack(Chunks *chunks, QObject *parent) : QUndoStack(parent)
 {
-    _chunks = chunks;
-    _parent = parent;
+    chunks_ = chunks;
+    parent_ = parent;
     this->setUndoLimit(1000);
 }
 
 void UndoStack::insert(qint64 pos, char c)
 {
-    if ((pos >= 0) && (pos <= _chunks->size()))
+    if ((pos >= 0) && (pos <= chunks_->size()))
     {
-        QUndoCommand *cc = new CharCommand(_chunks, CharCommand::insert, pos, c);
+        QUndoCommand *cc = new CharCommand(chunks_, CharCommand::insert, pos, c);
         this->push(cc);
     }
 }
 
 void UndoStack::insert(qint64 pos, const QByteArray& ba)
 {
-    if ((pos >= 0) && (pos <= _chunks->size()))
+    if ((pos >= 0) && (pos <= chunks_->size()))
     {
         QString txt = QString(tr("Inserting %1 bytes")).arg(ba.size());
         beginMacro(txt);
         for (int idx = 0; idx < ba.size(); idx++)
         {
-            QUndoCommand *cc = new CharCommand(_chunks, CharCommand::insert, pos + idx, ba.at(idx));
+            QUndoCommand *cc = new CharCommand(chunks_, CharCommand::insert, pos + idx, ba.at(idx));
             this->push(cc);
         }
         endMacro();
@@ -127,11 +127,11 @@ void UndoStack::insert(qint64 pos, const QByteArray& ba)
 
 void UndoStack::removeAt(qint64 pos, qint64 len)
 {
-    if ((pos >= 0) && (pos < _chunks->size()))
+    if ((pos >= 0) && (pos < chunks_->size()))
     {
         if (len == 1)
         {
-            QUndoCommand *cc = new CharCommand(_chunks, CharCommand::removeAt, pos, char(0));
+            QUndoCommand *cc = new CharCommand(chunks_, CharCommand::removeAt, pos, char(0));
             this->push(cc);
         }
         else
@@ -140,7 +140,7 @@ void UndoStack::removeAt(qint64 pos, qint64 len)
             beginMacro(txt);
             for (qint64 cnt = 0; cnt < len; cnt++)
             {
-                QUndoCommand *cc = new CharCommand(_chunks, CharCommand::removeAt, pos, char(0));
+                QUndoCommand *cc = new CharCommand(chunks_, CharCommand::removeAt, pos, char(0));
                 push(cc);
             }
             endMacro();
@@ -150,16 +150,16 @@ void UndoStack::removeAt(qint64 pos, qint64 len)
 
 void UndoStack::overwrite(qint64 pos, char c)
 {
-    if ((pos >= 0) && (pos < _chunks->size()))
+    if ((pos >= 0) && (pos < chunks_->size()))
     {
-        QUndoCommand *cc = new CharCommand(_chunks, CharCommand::overwrite, pos, c);
+        QUndoCommand *cc = new CharCommand(chunks_, CharCommand::overwrite, pos, c);
         this->push(cc);
     }
 }
 
 void UndoStack::overwrite(qint64 pos, int len, const QByteArray& ba)
 {
-    if ((pos >= 0) && (pos < _chunks->size()))
+    if ((pos >= 0) && (pos < chunks_->size()))
     {
         QString txt = QString(tr("Overwrite %1 chars")).arg(len);
         beginMacro(txt);

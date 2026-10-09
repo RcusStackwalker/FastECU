@@ -43,9 +43,9 @@ const QColor MainWindow::kYellowLightOn = QColor(223, 223, 64);
 const QColor MainWindow::kGreenLightOn = QColor(64, 255, 64);
 
 MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, QWidget *parent)
-    : QMainWindow(parent), services_(services), peerAddress(peerAddress), ui{std::make_unique<Ui::MainWindow>()}
+    : QMainWindow(parent), services_(services), peer_address_(peerAddress), ui_{std::make_unique<Ui::MainWindow>()}
 {
-    ui->setupUi(this);
+    ui_->setupUi(this);
     qApp->installEventFilter(this);
     qRegisterMetaType<QVector<int>>("QVector<int>");
 
@@ -56,29 +56,29 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
         QFont monospace(family);
     }
 
-    configSession = &services_.config;
-    calibrationWorkspace = &services_.calibrations;
+    config_session_ = &services_.config;
+    calibration_workspace_ = &services_.calibrations;
 
-    software_name = qs(services_.application.name);
-    software_title = qs(services_.application.title);
-    software_version = qs(services_.application.version);
-    this->setWindowTitle(software_title + " " + software_version);
+    software_name_ = qs(services_.application.name);
+    software_title_ = qs(services_.application.title);
+    software_version_ = qs(services_.application.version);
+    this->setWindowTitle(software_title_ + " " + software_version_);
 
-    log_channel = &services_.log;
+    log_channel_ = &services_.log;
     using fastecu::ui::LogChannel;
-    QObject::connect(this, &MainWindow::LOG_E, log_channel, &LogChannel::LOG_E);
-    QObject::connect(this, &MainWindow::LOG_W, log_channel, &LogChannel::LOG_W);
-    QObject::connect(this, &MainWindow::LOG_I, log_channel, &LogChannel::LOG_I);
-    QObject::connect(this, &MainWindow::LOG_D, log_channel, &LogChannel::LOG_D);
-    QObject::connect(this, &MainWindow::enable_log_write_to_file, log_channel, &LogChannel::enable_log_write_to_file);
-    QObject::connect(log_channel, &LogChannel::log_window_message, this, &MainWindow::send_message_to_log_window);
+    QObject::connect(this, &MainWindow::LOG_E, log_channel_, &LogChannel::LOG_E);
+    QObject::connect(this, &MainWindow::LOG_W, log_channel_, &LogChannel::LOG_W);
+    QObject::connect(this, &MainWindow::LOG_I, log_channel_, &LogChannel::LOG_I);
+    QObject::connect(this, &MainWindow::LOG_D, log_channel_, &LogChannel::LOG_D);
+    QObject::connect(this, &MainWindow::enable_log_write_to_file, log_channel_, &LogChannel::enable_log_write_to_file);
+    QObject::connect(log_channel_, &LogChannel::log_window_message, this, &MainWindow::send_message_to_log_window);
 
     setupLoggingEngine();
 
 #if defined Q_OS_UNIX
     emit LOG_D("Running on Linux Desktop ", true, false);
     // serialPort = serialPortLinux;
-    serial_port_prefix = "/dev/";
+    serial_port_prefix_ = "/dev/";
 #elif defined Q_OS_WIN32
     emit LOG_D("Running on Windows Desktop ", true, false);
     // serialPort = serialPortWindows;
@@ -95,24 +95,24 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
                      [this](int level, const QString& message)
                      { emit_log_line(static_cast<fastecu::LogLevel>(level), message); });
     QObject::connect(&services_.file_action_events, &QtEventSink::noticed, this,
-                     [this](QString message) { QMessageBox::warning(this, software_title, message); });
+                     [this](QString message) { QMessageBox::warning(this, software_title_, message); });
 
     calibration_interaction_ = std::make_unique<fastecu::ui::QtCalibrationInteraction>(this);
     calibration_operations_ = std::make_unique<fastecu::ui::CalibrationOperationCoordinator>(
-        *configSession, services_.rom_save, *calibration_interaction_,
+        *config_session_, services_.rom_save, *calibration_interaction_,
         fastecu::ui::CalibrationPresentationCallbacks{
             .log = [this](fastecu::LogLevel level, std::string_view text)
             { emit_log_line(level, QString::fromUtf8(text.data(), static_cast<qsizetype>(text.size()))); },
             .protocol_description_changed =
                 [this](std::string_view description)
             {
-                status_bar_ecu_label->setText(
+                status_bar_ecu_label_->setText(
                     QString::fromUtf8(description.data(), static_cast<qsizetype>(description.size())) + " ");
             },
         });
 
     identify_launcher_ = std::make_unique<fastecu::ui::QtIdentifyLauncher>(
-        [this] { return std::make_unique<fastecu::diagnostics::SerialDiagnosticLink>(&connection->facade()); },
+        [this] { return std::make_unique<fastecu::diagnostics::SerialDiagnosticLink>(&connection_->facade()); },
         services_.make_clock,
         [this](fastecu::LogLevel level, const QString& message)
         {
@@ -128,32 +128,32 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     connection_coordinator_ =
         std::make_unique<fastecu::ui::ConnectionCoordinator>(*identify_launcher_, connection_presentation_);
 
-    definitionAuthoringDialog = new fastecu::ui::DefinitionAuthoringDialog(
-        services_.definition_catalogs, *configSession, services_.config_repository, this);
-    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_E, log_channel,
+    definition_authoring_dialog_ = new fastecu::ui::DefinitionAuthoringDialog(
+        services_.definition_catalogs, *config_session_, services_.config_repository, this);
+    QObject::connect(definition_authoring_dialog_, &fastecu::ui::DefinitionAuthoringDialog::LOG_E, log_channel_,
                      &fastecu::ui::LogChannel::LOG_E);
-    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_W, log_channel,
+    QObject::connect(definition_authoring_dialog_, &fastecu::ui::DefinitionAuthoringDialog::LOG_W, log_channel_,
                      &fastecu::ui::LogChannel::LOG_W);
-    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_I, log_channel,
+    QObject::connect(definition_authoring_dialog_, &fastecu::ui::DefinitionAuthoringDialog::LOG_I, log_channel_,
                      &fastecu::ui::LogChannel::LOG_I);
-    QObject::connect(definitionAuthoringDialog, &fastecu::ui::DefinitionAuthoringDialog::LOG_D, log_channel,
+    QObject::connect(definition_authoring_dialog_, &fastecu::ui::DefinitionAuthoringDialog::LOG_D, log_channel_,
                      &fastecu::ui::LogChannel::LOG_D);
 
     emit enable_log_write_to_file(true);
 
-    QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_E, log_channel,
+    QObject::connect(calibration_tree_widget_, &CalibrationTreeWidget::LOG_E, log_channel_,
                      &fastecu::ui::LogChannel::LOG_E);
-    QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_W, log_channel,
+    QObject::connect(calibration_tree_widget_, &CalibrationTreeWidget::LOG_W, log_channel_,
                      &fastecu::ui::LogChannel::LOG_W);
-    QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_I, log_channel,
+    QObject::connect(calibration_tree_widget_, &CalibrationTreeWidget::LOG_I, log_channel_,
                      &fastecu::ui::LogChannel::LOG_I);
-    QObject::connect(calibrationTreeWidget, &CalibrationTreeWidget::LOG_D, log_channel,
+    QObject::connect(calibration_tree_widget_, &CalibrationTreeWidget::LOG_D, log_channel_,
                      &fastecu::ui::LogChannel::LOG_D);
 
     // Before this window was built, DesktopComposition initialized the session
     // and the startup vehicle gate made sure a vehicle is selected.
-    emit LOG_D("Vehicle ID: " + qs(configSession->settings().selected_vehicle_id) + "/" +
-                   QString::number(configSession->vehicles().size()),
+    emit LOG_D("Vehicle ID: " + qs(config_session_->settings().selected_vehicle_id) + "/" +
+                   QString::number(config_session_->vehicles().size()),
                true, true);
 
     emit LOG_D(qs(selected_vehicle().make), true, true);
@@ -163,14 +163,14 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     emit LOG_D(qs(selected_vehicle().version), true, true);
     emit LOG_D(qs(selected_vehicle().protocol->name), true, true);
     emit LOG_D(protocol_field(selected_vehicle(), &ProtocolSpec::description), true, true);
-    emit LOG_D(qs(configSession->settings().selected_flash_transport), true, true);
-    emit LOG_D(qs(configSession->settings().selected_log_transport), true, true);
-    emit LOG_D(qs(configSession->settings().selected_log_protocol), true, true);
+    emit LOG_D(qs(config_session_->settings().selected_flash_transport), true, true);
+    emit LOG_D(qs(config_session_->settings().selected_log_transport), true, true);
+    emit LOG_D(qs(config_session_->settings().selected_log_protocol), true, true);
     emit LOG_D("ECU protocols set", true, true);
 
     QRect qrect = MainWindow::geometry();
 
-    if (const fastecu::config::AppConfig& window_settings = configSession->settings();
+    if (const fastecu::config::AppConfig& window_settings = config_session_->settings();
         window_settings.window_width != "maximized" && window_settings.window_height != "maximized")
     {
         this->setGeometry(qrect.x(), qrect.y(), qs(window_settings.window_width).toInt(),
@@ -181,8 +181,8 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
         this->setWindowState(Qt::WindowMaximized);
     }
 
-    if (configSession->settings().romraider_definition_files.empty() &&
-        configSession->settings().ecuflash_definition_files_directory.empty())
+    if (config_session_->settings().romraider_definition_files.empty() &&
+        config_session_->settings().ecuflash_definition_files_directory.empty())
     {
         QMessageBox::warning(this, tr("Ecu definition file"),
                              "No definition file(s), use 'Settings' in 'Edit' menu to choose file(s)");
@@ -194,7 +194,7 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     // Scan errors are nonfatal and already reported by the session.
     std::ignore = services_.definition_catalogs.refresh_index(fastecu::definition::DefinitionFormat::RomRaider);
 
-    if (const QString kernel_dir = qs(configSession->effective_paths().kernel_files_directory);
+    if (const QString kernel_dir = qs(config_session_->effective_paths().kernel_files_directory);
         QDir(kernel_dir).exists())
     {
         QDir dir(kernel_dir);
@@ -206,77 +206,77 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     apply_standard_shortcuts();
     connect_menu_actions();
 
-    connect(ui->switchBoxWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(change_switch_values()));
-    connect(ui->logBoxWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(change_digital_values()));
-    connect(ui->mdiArea, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(change_gauge_values()));
+    connect(ui_->switchBoxWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(change_switch_values()));
+    connect(ui_->logBoxWidget, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(change_digital_values()));
+    connect(ui_->mdiArea, SIGNAL(customContextMenuRequested(QPoint)), this, SLOT(change_gauge_values()));
     // connect(ui->action_Preferences, SIGNAL(triggered()), this, SLOT(openPreferences()));
-    connect(ui->calibrationFilesTreeWidget, SIGNAL(itemClicked(QTreeWidgetItem *, int)), this,
+    connect(ui_->calibrationFilesTreeWidget, SIGNAL(itemClicked(QTreeWidgetItem *, int)), this,
             SLOT(calibration_files_treewidget_item_selected(QTreeWidgetItem *)));
-    connect(ui->calibrationDataTreeWidget, SIGNAL(itemClicked(QTreeWidgetItem *, int)), this,
+    connect(ui_->calibrationDataTreeWidget, SIGNAL(itemClicked(QTreeWidgetItem *, int)), this,
             SLOT(calibration_data_treewidget_item_selected(QTreeWidgetItem *)));
-    connect(ui->calibrationDataTreeWidget, SIGNAL(itemExpanded(QTreeWidgetItem *)), this,
+    connect(ui_->calibrationDataTreeWidget, SIGNAL(itemExpanded(QTreeWidgetItem *)), this,
             SLOT(calibration_data_treewidget_item_expanded(QTreeWidgetItem *)));
-    connect(ui->calibrationDataTreeWidget, SIGNAL(itemCollapsed(QTreeWidgetItem *)), this,
+    connect(ui_->calibrationDataTreeWidget, SIGNAL(itemCollapsed(QTreeWidgetItem *)), this,
             SLOT(calibration_data_treewidget_item_collapsed(QTreeWidgetItem *)));
-    connect(calibrationTreeWidget, SIGNAL(closeRom()), this, SLOT(close_calibration()));
+    connect(calibration_tree_widget_, SIGNAL(closeRom()), this, SLOT(close_calibration()));
 
-    status_bar_connection_label->setMargin(5);
+    status_bar_connection_label_->setMargin(5);
     // status_bar_connection_label->setStyleSheet("QLabel { background-color : red; color : white; }");
     set_status_bar_label(false, false, "");
 
-    status_bar_ecu_label->setText("");
-    status_bar_ecu_label->setMargin(5);
-    status_bar_ecu_label->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+    status_bar_ecu_label_->setText("");
+    status_bar_ecu_label_->setMargin(5);
+    status_bar_ecu_label_->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
     // status_bar_ecu_label->setStyleSheet("QLabel { background-color : red; color : white; }");
 
     QWidget *status_bar_spacer = new QWidget();
     status_bar_spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-    statusBar()->addWidget(status_bar_connection_label);
+    statusBar()->addWidget(status_bar_connection_label_);
     statusBar()->addWidget(status_bar_spacer);
-    statusBar()->addPermanentWidget(status_bar_ecu_label);
+    statusBar()->addPermanentWidget(status_bar_ecu_label_);
     statusBar()->setSizeGripEnabled(true);
 
-    ui->calibrationFilesTreeWidget->setHeaderLabel("Calibration Files");
-    ui->calibrationDataTreeWidget->setHeaderLabel("Calibration Data");
-    ui->calibrationDataTreeWidget->resizeColumnToContents(0);
-    ui->calibrationDataTreeWidget->resizeColumnToContents(1);
-    ui->calibrationFilesTreeWidget->setMinimumHeight(125);
-    ui->calibrationFilesTreeWidget->minimumHeight();
-    ui->calibrationFilesTreeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->calibrationFilesTreeWidget, SIGNAL(customContextMenuRequested(QPoint)),
+    ui_->calibrationFilesTreeWidget->setHeaderLabel("Calibration Files");
+    ui_->calibrationDataTreeWidget->setHeaderLabel("Calibration Data");
+    ui_->calibrationDataTreeWidget->resizeColumnToContents(0);
+    ui_->calibrationDataTreeWidget->resizeColumnToContents(1);
+    ui_->calibrationFilesTreeWidget->setMinimumHeight(125);
+    ui_->calibrationFilesTreeWidget->minimumHeight();
+    ui_->calibrationFilesTreeWidget->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui_->calibrationFilesTreeWidget, SIGNAL(customContextMenuRequested(QPoint)),
             SLOT(custom_menu_requested(QPoint)));
 
     // ui->splitter->setStretchFactor(2, 1);
-    ui->splitter->setSizes(QList<int>({125, INT_MAX}));
+    ui_->splitter->setSizes(QList<int>({125, INT_MAX}));
 
     // Splash screen
-    netSplash = new QSplashScreen();
-    QVBoxLayout *netSplashLayout = new QVBoxLayout(netSplash);
+    net_splash_ = new QSplashScreen();
+    QVBoxLayout *netSplashLayout = new QVBoxLayout(net_splash_);
     netSplashLayout->setAlignment(Qt::AlignCenter);
-    QLabel *netSplashLabel = new QLabel(QString("Waiting for peer " + peerAddress + "..."), netSplash);
+    QLabel *netSplashLabel = new QLabel(QString("Waiting for peer " + peerAddress + "..."), net_splash_);
     netSplashLabel->setAlignment(Qt::AlignCenter);
-    QProgressBar *netSplashProgressBar = new QProgressBar(netSplash);
+    QProgressBar *netSplashProgressBar = new QProgressBar(net_splash_);
     netSplashProgressBar->setAlignment(Qt::AlignCenter);
     netSplashProgressBar->setMinimum(0);
     // Number of network connection stages
     netSplashProgressBar->setMaximum(2);
     netSplashProgressBar->setValue(0);
-    QPushButton *btnCloseApp = new QPushButton("Close app", netSplash);
+    QPushButton *btnCloseApp = new QPushButton("Close app", net_splash_);
     netSplashLayout->addWidget(netSplashLabel);
     netSplashLayout->addWidget(netSplashProgressBar);
     netSplashLayout->addWidget(btnCloseApp);
     // splash->setLayout(layout);
-    netSplash->resize(350, 50);
+    net_splash_->resize(350, 50);
     // Show it in remote mode only
     // Prepare for remote mode
     if (!peerAddress.isEmpty())
     {
-        netSplash->show();
+        net_splash_->show();
         // Move splashscreen to the center of the screen
         QScreen *screen_local = QGuiApplication::primaryScreen();
         QRect screenGeometry_local = screen_local->geometry();
-        netSplash->move(screenGeometry_local.center() - netSplash->rect().center());
+        net_splash_->move(screenGeometry_local.center() - net_splash_->rect().center());
         QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
 
         QString wt = this->windowTitle();
@@ -302,134 +302,134 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
     connect(timer, &QTimer::timeout, this, [&]() { QApplication::processEvents(); });
     timer->start();
 
-    connection = &services_.connection;
-    remote_peer = &services_.remote;
+    connection_ = &services_.connection;
+    remote_peer_ = &services_.remote;
     if (!peerAddress.isEmpty())
     {
         netSplashProgressBar->setValue(0);
         netSplashProgressBar->setFormat("Connecting to J2534 and serial devices...");
-        connection->wait_for_source();
+        connection_->wait_for_source();
         netSplashProgressBar->setValue(1);
         netSplashProgressBar->setFormat("Connecting to utility functions...");
-        remote_peer->wait_for_source();
+        remote_peer_->wait_for_source();
         netSplashProgressBar->setValue(2);
     }
     external_logger("Connection successfull.");
 
     timer->stop();
-    netSplash->close();
+    net_splash_->close();
     timer->deleteLater();
-    connect(connection, &fastecu::desktop::connection::AdapterConnection::stateChanged, this,
+    connect(connection_, &fastecu::desktop::connection::AdapterConnection::stateChanged, this,
             &MainWindow::network_state_changed, Qt::DirectConnection);
-    connect(remote_peer, &fastecu::ui::RemotePeer::stateChanged, this, &MainWindow::network_state_changed,
+    connect(remote_peer_, &fastecu::ui::RemotePeer::stateChanged, this, &MainWindow::network_state_changed,
             Qt::DirectConnection);
 
     // Set timer to read vbatt value
-    vbatt_timer = new QTimer(this);
-    vbatt_timer->setInterval(vbatt_timer_timeout);
-    connect(vbatt_timer, SIGNAL(timeout()), this, SLOT(update_vbatt()));
+    vbatt_timer_ = new QTimer(this);
+    vbatt_timer_->setInterval(vbatt_timer_timeout_);
+    connect(vbatt_timer_, SIGNAL(timeout()), this, SLOT(update_vbatt()));
 
-    toolbar_item_size.setWidth(qs(configSession->settings().toolbar_iconsize).toInt());
-    toolbar_item_size.setHeight(qs(configSession->settings().toolbar_iconsize).toInt());
-    ui->toolBar->setIconSize(toolbar_item_size);
+    toolbar_item_size_.setWidth(qs(config_session_->settings().toolbar_iconsize).toInt());
+    toolbar_item_size_.setHeight(qs(config_session_->settings().toolbar_iconsize).toInt());
+    ui_->toolBar->setIconSize(toolbar_item_size_);
 
     QWidget *spacer = new QWidget();
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-    ui->toolBar->addWidget(spacer);
+    ui_->toolBar->addWidget(spacer);
 
-    ui->toolBar->addSeparator();
+    ui_->toolBar->addSeparator();
 
     QPushButton *select_protocol_button = new QPushButton();
     select_protocol_button->setText("Select protocol");
     // car_make_button->setMargin(10);
-    select_protocol_button->setFixedHeight(toolbar_item_size.height());
-    ui->toolBar->addWidget(select_protocol_button);
+    select_protocol_button->setFixedHeight(toolbar_item_size_.height());
+    ui_->toolBar->addWidget(select_protocol_button);
     connect(select_protocol_button, SIGNAL(clicked(bool)), this, SLOT(select_protocol()));
 
     QPushButton *select_vehicle_button = new QPushButton();
     select_vehicle_button->setText("Select vehicle");
     // car_make_button->setMargin(10);
-    select_vehicle_button->setFixedHeight(toolbar_item_size.height());
-    ui->toolBar->addWidget(select_vehicle_button);
+    select_vehicle_button->setFixedHeight(toolbar_item_size_.height());
+    ui_->toolBar->addWidget(select_vehicle_button);
     connect(select_vehicle_button, SIGNAL(clicked(bool)), this, SLOT(select_vehicle()));
 
-    flash_transport_list = new QComboBox();
-    flash_transport_list->setFixedHeight(toolbar_item_size.height());
-    flash_transport_list->setFixedWidth(90);
-    flash_transport_list->setObjectName("flash_transport_list");
-    ui->toolBar->addWidget(flash_transport_list);
+    flash_transport_list_ = new QComboBox();
+    flash_transport_list_->setFixedHeight(toolbar_item_size_.height());
+    flash_transport_list_->setFixedWidth(90);
+    flash_transport_list_->setObjectName("flash_transport_list");
+    ui_->toolBar->addWidget(flash_transport_list_);
 
-    ui->toolBar->addSeparator();
+    ui_->toolBar->addSeparator();
 
     QLabel *log_transport = new QLabel("Log:");
     log_transport->setMargin(10);
-    ui->toolBar->addWidget(log_transport);
+    ui_->toolBar->addWidget(log_transport);
 
-    log_transport_list = new QComboBox();
-    log_transport_list->setFixedHeight(toolbar_item_size.height());
-    log_transport_list->setFixedWidth(90);
-    log_transport_list->setObjectName("log_transport_list");
-    ui->toolBar->addWidget(log_transport_list);
+    log_transport_list_ = new QComboBox();
+    log_transport_list_->setFixedHeight(toolbar_item_size_.height());
+    log_transport_list_->setFixedWidth(90);
+    log_transport_list_->setObjectName("log_transport_list");
+    ui_->toolBar->addWidget(log_transport_list_);
 
-    flash_transports = create_flash_transports_list();
-    log_transports = create_log_transports_list();
-    connect(flash_transport_list, SIGNAL(currentIndexChanged(int)), this, SLOT(flash_transport_changed()));
-    connect(log_transport_list, SIGNAL(currentIndexChanged(int)), this, SLOT(log_transport_changed()));
+    flash_transports_ = create_flash_transports_list();
+    log_transports_ = create_log_transports_list();
+    connect(flash_transport_list_, SIGNAL(currentIndexChanged(int)), this, SLOT(flash_transport_changed()));
+    connect(log_transport_list_, SIGNAL(currentIndexChanged(int)), this, SLOT(log_transport_changed()));
 
     // ui->toolBar->addSeparator();
 
     QLabel *log_select = new QLabel();
     log_select->setMargin(5);
-    ui->toolBar->addWidget(log_select);
+    ui_->toolBar->addWidget(log_select);
 
-    ecu_radio_button = new QRadioButton("ECU");
-    ecu_radio_button->setChecked(true);
-    ui->toolBar->addWidget(ecu_radio_button);
-    tcu_radio_button = new QRadioButton("TCU");
-    ui->toolBar->addWidget(tcu_radio_button);
+    ecu_radio_button_ = new QRadioButton("ECU");
+    ecu_radio_button_->setChecked(true);
+    ui_->toolBar->addWidget(ecu_radio_button_);
+    tcu_radio_button_ = new QRadioButton("TCU");
+    ui_->toolBar->addWidget(tcu_radio_button_);
 
-    ui->toolBar->addSeparator();
+    ui_->toolBar->addSeparator();
 
     QLabel *serial_port_select = new QLabel("Port:");
     serial_port_select->setMargin(10);
-    ui->toolBar->addWidget(serial_port_select);
+    ui_->toolBar->addWidget(serial_port_select);
 
-    serial_port_list = new QComboBox();
-    serial_port_list->setFixedHeight(toolbar_item_size.height());
-    serial_port_list->setFixedWidth(180);
-    serial_port_list->setObjectName("serial_port_list");
-    serial_ports = connection->available_ports();
-    for (int i = 0; i < serial_ports.length(); i++)
+    serial_port_list_ = new QComboBox();
+    serial_port_list_->setFixedHeight(toolbar_item_size_.height());
+    serial_port_list_->setFixedWidth(180);
+    serial_port_list_->setObjectName("serial_port_list");
+    serial_ports_ = connection_->available_ports();
+    for (int i = 0; i < serial_ports_.length(); i++)
     {
-        serial_port_list->addItem(serial_ports.at(i));
-        if (qs(configSession->settings().serial_port) == serial_ports.at(i).split(" - ").at(0))
+        serial_port_list_->addItem(serial_ports_.at(i));
+        if (qs(config_session_->settings().serial_port) == serial_ports_.at(i).split(" - ").at(0))
         {
-            serial_port_list->setCurrentIndex(i);
+            serial_port_list_->setCurrentIndex(i);
         }
     }
-    ui->toolBar->addWidget(serial_port_list);
+    ui_->toolBar->addWidget(serial_port_list_);
 
-    refresh_serial_port_list = new QPushButton();
-    refresh_serial_port_list->setIcon(QIcon(":/icons/view-refresh.png"));
-    refresh_serial_port_list->setFixedHeight(toolbar_item_size.height());
-    refresh_serial_port_list->setFixedWidth(toolbar_item_size.height());
+    refresh_serial_port_list_ = new QPushButton();
+    refresh_serial_port_list_->setIcon(QIcon(":/icons/view-refresh.png"));
+    refresh_serial_port_list_->setFixedHeight(toolbar_item_size_.height());
+    refresh_serial_port_list_->setFixedWidth(toolbar_item_size_.height());
     // refresh_serial_port_list->setIconSize(toolbar_item_size);
-    connect(refresh_serial_port_list, SIGNAL(clicked(bool)), this, SLOT(check_serial_ports()));
-    ui->toolBar->addWidget(refresh_serial_port_list);
+    connect(refresh_serial_port_list_, SIGNAL(clicked(bool)), this, SLOT(check_serial_ports()));
+    ui_->toolBar->addWidget(refresh_serial_port_list_);
 
-    loggerModel = &services_.logger_model;
+    logger_model_ = &services_.logger_model;
     load_logger_definition();
-    loggerValues.initialize(*loggerModel);
-    logBoxes = new LogBox();
+    logger_values_.initialize(*logger_model_);
+    log_boxes_ = new LogBox();
 
-    if (loggerModel != nullptr)
+    if (logger_model_ != nullptr)
     {
-        update_logboxes(qs(configSession->settings().selected_log_protocol));
+        update_logboxes(qs(config_session_->settings().selected_log_protocol));
     }
 
-    serial_port = serial_port_prefix + qs(configSession->settings().serial_port);
-    serial_port_baudrate = default_serial_port_baudrate;
-    connection->set_initial_port(serial_port, serial_port_baudrate);
+    serial_port_ = serial_port_prefix_ + qs(config_session_->settings().serial_port);
+    serial_port_baudrate_ = default_serial_port_baudrate_;
+    connection_->set_initial_port(serial_port_, serial_port_baudrate_);
     /*
         serial_poll_timer = new QTimer(this);
         serial_poll_timer->setInterval(serial_poll_timer_timeout);
@@ -441,21 +441,21 @@ MainWindow::MainWindow(MainWindowServices services, const QString& peerAddress, 
         connect(ssm_init_poll_timer, SIGNAL(timeout()), this, SLOT(ecu_init()));
         ssm_init_poll_timer->start();
     */
-    log_file_timer = std::make_unique<QElapsedTimer>();
+    log_file_timer_ = std::make_unique<QElapsedTimer>();
 
     if (!calibrations_.empty())
     {
-        const QModelIndex index = ui->calibrationFilesTreeWidget->selectionModel()->currentIndex();
-        emit ui->calibrationFilesTreeWidget->clicked(index);
+        const QModelIndex index = ui_->calibrationFilesTreeWidget->selectionModel()->currentIndex();
+        emit ui_->calibrationFilesTreeWidget->clicked(index);
     }
 
-    emit log_transport_list->currentIndexChanged(log_transport_list->currentIndex());
+    emit log_transport_list_->currentIndexChanged(log_transport_list_->currentIndex());
 
-    status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolSpec::description) + " ");
+    status_bar_ecu_label_->setText(protocol_field(selected_vehicle(), &ProtocolSpec::description) + " ");
 
     set_flash_arrow_state();
 
-    netSplash->deleteLater();
+    net_splash_->deleteLater();
     emit LOG_I("FastECU initialized", true, true);
 }
 
@@ -481,9 +481,9 @@ void MainWindow::emit_log_line(fastecu::LogLevel level, const QString& message)
 MainWindow::~MainWindow()
 {
     connection_coordinator_->shutdown();
-    if (logging_state)
+    if (logging_state_)
     {
-        loggingEngine->stop();
+        logging_engine_->stop();
     }
 }
 
@@ -495,7 +495,7 @@ void MainWindow::network_state_changed(QRemoteObjectReplica::State state, QRemot
     }
     else if (oldState == QRemoteObjectReplica::Valid)
     {
-        if (!restartQuestionActive.tryLock())
+        if (!restart_question_active_.tryLock())
         {
             return;
         }
@@ -523,7 +523,7 @@ void MainWindow::network_state_changed(QRemoteObjectReplica::State state, QRemot
             qApp->exit(1);
         }
 
-        restartQuestionActive.unlock();
+        restart_question_active_.unlock();
     }
 }
 
@@ -551,13 +551,13 @@ QStringList MainWindow::create_flash_transports_list()
 
     flash_protocols.append(protocol_field(selected_vehicle(), &ProtocolSpec::flash_transport).split(","));
 
-    flash_transport_list->clear();
+    flash_transport_list_->clear();
     for (int i = 0; i < flash_protocols.length(); i++)
     {
-        flash_transport_list->addItem(flash_protocols.at(i));
-        if (qs(configSession->settings().selected_flash_transport) == flash_protocols.at(i))
+        flash_transport_list_->addItem(flash_protocols.at(i));
+        if (qs(config_session_->settings().selected_flash_transport) == flash_protocols.at(i))
         {
-            flash_transport_list->setCurrentIndex(i);
+            flash_transport_list_->setCurrentIndex(i);
         }
     }
     return flash_protocols;
@@ -569,14 +569,14 @@ QStringList MainWindow::create_log_transports_list()
 
     log_transports_local.append(protocol_field(selected_vehicle(), &ProtocolSpec::log_transport).split(","));
 
-    log_transport_list->clear();
+    log_transport_list_->clear();
     for (int i = 0; i < log_transports_local.length(); i++)
     {
-        log_transport_list->addItem(log_transports_local.at(i));
-        if (qs(configSession->settings().selected_flash_transport) == log_transports_local.at(i))
+        log_transport_list_->addItem(log_transports_local.at(i));
+        if (qs(config_session_->settings().selected_flash_transport) == log_transports_local.at(i))
         {
-            log_transport_list->setCurrentIndex(i);
-            protocol = "SSM";
+            log_transport_list_->setCurrentIndex(i);
+            protocol_ = "SSM";
         }
     }
 
@@ -590,22 +590,22 @@ const fastecu::config::VehicleSpec& MainWindow::selected_vehicle() const
 {
     // The startup vehicle gate selects a vehicle before MainWindow is built,
     // and a selection only ever changes to another valid row.
-    return *configSession->selected_vehicle();
+    return *config_session_->selected_vehicle();
 }
 
 void MainWindow::save_settings()
 {
-    if (const fastecu::Status saved = configSession->save(); !saved.has_value())
+    if (const fastecu::Status saved = config_session_->save(); !saved.has_value())
     {
-        if (last_settings_save_error != saved.error())
+        if (last_settings_save_error_ != saved.error())
         {
-            last_settings_save_error = saved.error();
+            last_settings_save_error_ = saved.error();
             emit LOG_E(qs(saved.error().detail), true, true);
         }
     }
     else
     {
-        last_settings_save_error.reset();
+        last_settings_save_error_.reset();
     }
 }
 
@@ -613,7 +613,7 @@ void MainWindow::apply_vehicle_choice(int result, std::optional<std::size_t> row
 {
     if (result == QDialog::Accepted && row.has_value())
     {
-        if (const fastecu::Status selected = configSession->select_row(*row); !selected.has_value())
+        if (const fastecu::Status selected = config_session_->select_row(*row); !selected.has_value())
         {
             emit LOG_E(qs(selected.error().detail), true, true);
         }
@@ -625,17 +625,17 @@ void MainWindow::apply_protocol_choice(int result, std::optional<std::string> pr
 {
     if (result == QDialog::Accepted && protocol_name.has_value())
     {
-        configSession->select_by_protocol_name(*protocol_name);
+        config_session_->select_by_protocol_name(*protocol_name);
     }
     select_protocol_finished(result);
 }
 
 void MainWindow::select_protocol()
 {
-    ProtocolSelect protocolSelect(*configSession);
+    ProtocolSelect protocolSelect(*config_session_);
     const int result = protocolSelect.exec();
     apply_protocol_choice(result, protocolSelect.chosen_protocol_name());
-    emit LOG_D("Selected vehicle: " + qs(configSession->settings().selected_vehicle_id), true, true);
+    emit LOG_D("Selected vehicle: " + qs(config_session_->settings().selected_vehicle_id), true, true);
 }
 
 void MainWindow::select_protocol_finished(int result)
@@ -653,15 +653,15 @@ void MainWindow::select_protocol_finished(int result)
         // emit LOG_D("Dialog is rejected";
     }
 
-    status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolSpec::description) + " ");
+    status_bar_ecu_label_->setText(protocol_field(selected_vehicle(), &ProtocolSpec::description) + " ");
 }
 
 void MainWindow::select_vehicle()
 {
-    VehicleSelect vehicleSelect(*configSession);
+    VehicleSelect vehicleSelect(*config_session_);
     const int result = vehicleSelect.exec();
     apply_vehicle_choice(result, vehicleSelect.chosen_row());
-    emit LOG_D("Selected vehicle: " + qs(configSession->settings().selected_vehicle_id), true, true);
+    emit LOG_D("Selected vehicle: " + qs(config_session_->settings().selected_vehicle_id), true, true);
 }
 
 void MainWindow::select_vehicle_finished(int result)
@@ -679,7 +679,7 @@ void MainWindow::select_vehicle_finished(int result)
         // emit LOG_D("Dialog is rejected";
     }
 
-    status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolSpec::description) + " ");
+    status_bar_ecu_label_->setText(protocol_field(selected_vehicle(), &ProtocolSpec::description) + " ");
 }
 
 MainWindow::OpenCalibration *MainWindow::open_calibration(fastecu::calibration::SessionId id)
@@ -690,7 +690,7 @@ MainWindow::OpenCalibration *MainWindow::open_calibration(fastecu::calibration::
 
 MainWindow::OpenCalibration *MainWindow::selected_open_calibration()
 {
-    const QList<QTreeWidgetItem *> selected = ui->calibrationFilesTreeWidget->selectedItems();
+    const QList<QTreeWidgetItem *> selected = ui_->calibrationFilesTreeWidget->selectedItems();
     const auto id = selected.isEmpty() ? std::nullopt : session_of(selected.at(0));
     return id.has_value() ? open_calibration(*id) : nullptr;
 }
@@ -698,7 +698,7 @@ MainWindow::OpenCalibration *MainWindow::selected_open_calibration()
 fastecu::calibration::CalibrationSession *MainWindow::calibration(fastecu::calibration::SessionId id)
 {
     OpenCalibration *open = open_calibration(id);
-    return open != nullptr ? calibrationWorkspace->find(open->id) : nullptr;
+    return open != nullptr ? calibration_workspace_->find(open->id) : nullptr;
 }
 
 std::optional<fastecu::calibration::SessionId> MainWindow::session_of(const QTreeWidgetItem *files_item) const
@@ -709,14 +709,14 @@ std::optional<fastecu::calibration::SessionId> MainWindow::session_of(const QTre
 fastecu::calibration::CalibrationSession *MainWindow::selected_calibration()
 {
     OpenCalibration *open = selected_open_calibration();
-    return open != nullptr ? calibrationWorkspace->find(open->id) : nullptr;
+    return open != nullptr ? calibration_workspace_->find(open->id) : nullptr;
 }
 
 QTreeWidgetItem *MainWindow::files_tree_item(fastecu::calibration::SessionId id) const
 {
-    for (int i = 0; i < ui->calibrationFilesTreeWidget->topLevelItemCount(); ++i)
+    for (int i = 0; i < ui_->calibrationFilesTreeWidget->topLevelItemCount(); ++i)
     {
-        QTreeWidgetItem *item = ui->calibrationFilesTreeWidget->topLevelItem(i);
+        QTreeWidgetItem *item = ui_->calibrationFilesTreeWidget->topLevelItem(i);
         if (session_of(item) == id)
         {
             return item;
@@ -729,7 +729,7 @@ QTreeWidgetItem *MainWindow::files_tree_item(fastecu::calibration::SessionId id)
 // definition prompt, and both trees in the established order.
 bool MainWindow::add_calibration(fastecu::calibration::SessionId id)
 {
-    const fastecu::calibration::CalibrationSession *session = calibrationWorkspace->find(id);
+    const fastecu::calibration::CalibrationSession *session = calibration_workspace_->find(id);
     if (session == nullptr)
     {
         return false;
@@ -743,8 +743,8 @@ bool MainWindow::add_calibration(fastecu::calibration::SessionId id)
         prompt_for_missing_definition(id);
     }
     const OpenCalibration *open = open_calibration(id);
-    calibrationTreeWidget->buildCalibrationFilesTree(id, ui->calibrationFilesTreeWidget, *session);
-    calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, *session, open->view);
+    calibration_tree_widget_->buildCalibrationFilesTree(id, ui_->calibrationFilesTreeWidget, *session);
+    calibration_tree_widget_->buildCalibrationDataTree(ui_->calibrationDataTreeWidget, *session, open->view);
     return true;
 }
 
@@ -754,7 +754,7 @@ void MainWindow::update_protocol_info(const QString& flash_method)
     emit LOG_D("Update protocol info by selected ROM with FlashMethod: " + flash_method, true, true);
     // The last matching row wins, as the legacy scan did; no match changes
     // nothing.
-    if (const bool info_updated = configSession->select_by_protocol_name(flash_method.toStdString()); info_updated)
+    if (const bool info_updated = config_session_->select_by_protocol_name(flash_method.toStdString()); info_updated)
     {
         emit LOG_D("Protocol info for selected ROM updated", true, true);
     }
@@ -762,69 +762,69 @@ void MainWindow::update_protocol_info(const QString& flash_method)
     {
         emit LOG_D("Could not find protocol for selected ROM!", true, true);
     }
-    status_bar_ecu_label->setText(protocol_field(selected_vehicle(), &ProtocolSpec::description) + " ");
+    status_bar_ecu_label_->setText(protocol_field(selected_vehicle(), &ProtocolSpec::description) + " ");
 }
 
 void MainWindow::set_flash_arrow_state()
 {
-    ui->actionReadRomFromEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolSpec::read));
-    ui->actionTestWriteRomToEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolSpec::test_write));
-    ui->actionWriteRomToEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolSpec::write));
+    ui_->actionReadRomFromEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolSpec::read));
+    ui_->actionTestWriteRomToEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolSpec::test_write));
+    ui_->actionWriteRomToEcu->setEnabled(protocol_capability(selected_vehicle(), &ProtocolSpec::write));
 }
 
 void MainWindow::log_transport_changed()
 {
     connection_coordinator_->cancel();
     // emit LOG_D("Change log transport";
-    QComboBox *log_transport_list = ui->toolBar->findChild<QComboBox *>("log_transport_list");
+    QComboBox *log_transport_list = ui_->toolBar->findChild<QComboBox *>("log_transport_list");
 
-    connection->apply_log_transport(
+    connection_->apply_log_transport(
         fastecu::desktop::connection::log_transport_from_text(log_transport_list->currentText()),
-        configSession->settings().selected_log_protocol == "SSM");
+        config_session_->settings().selected_log_protocol == "SSM");
 
-    protocol = qs(configSession->settings().selected_log_protocol);
-    configSession->settings().selected_log_transport = log_transport_list->currentText().toStdString();
+    protocol_ = qs(config_session_->settings().selected_log_protocol);
+    config_session_->settings().selected_log_transport = log_transport_list->currentText().toStdString();
     save_settings();
 
-    ecuid.clear();
-    ecu_init_complete = false;
+    ecuid_.clear();
+    ecu_init_complete_ = false;
     // ssm_init_poll_timer->start();
 }
 
 void MainWindow::flash_transport_changed()
 {
     // emit LOG_D("Change flash transport";
-    QComboBox *flash_transport_list = ui->toolBar->findChild<QComboBox *>("flash_transport_list");
+    QComboBox *flash_transport_list = ui_->toolBar->findChild<QComboBox *>("flash_transport_list");
 
-    configSession->settings().selected_flash_transport = flash_transport_list->currentText().toStdString();
+    config_session_->settings().selected_flash_transport = flash_transport_list->currentText().toStdString();
     save_settings();
 }
 
 void MainWindow::check_serial_ports()
 {
     connection_coordinator_->cancel();
-    QComboBox *serial_port_list = ui->toolBar->findChild<QComboBox *>("serial_port_list");
+    QComboBox *serial_port_list = ui_->toolBar->findChild<QComboBox *>("serial_port_list");
     QString prev_serial_port = serial_port_list->currentText();
     int index = 0;
 
     // serial_poll_timer->stop();
     // ssm_init_poll_timer->stop();
 
-    connection->clear_link_flags();
-    ecuid.clear();
-    ecu_init_complete = false;
-    emit log_transport_list->currentIndexChanged(log_transport_list->currentIndex());
+    connection_->clear_link_flags();
+    ecuid_.clear();
+    ecu_init_complete_ = false;
+    emit log_transport_list_->currentIndexChanged(log_transport_list_->currentIndex());
 
     // QStringList j2534_list = serial->getAvailableJ2534Libs();
     // emit LOG_D("J2534 Vehicle PassThru Interfaces:" << j2534_list;
 
-    serial_ports = connection->available_ports();
+    serial_ports_ = connection_->available_ports();
     serial_port_list->clear();
 
-    for (int i = 0; i < serial_ports.length(); i++)
+    for (int i = 0; i < serial_ports_.length(); i++)
     {
-        serial_port_list->addItem(serial_ports.at(i));
-        if (prev_serial_port == serial_ports.at(i))
+        serial_port_list->addItem(serial_ports_.at(i));
+        if (prev_serial_port == serial_ports_.at(i))
         {
             serial_port_list->setCurrentIndex(index);
         }
@@ -844,36 +844,36 @@ void MainWindow::open_serial_port()
     {
         return;
     }
-    connection->select_port(port);
-    QString opened_serial_port = connection->open();
+    connection_->select_port(port);
+    QString opened_serial_port = connection_->open();
     if (opened_serial_port != "")
     {
         remember_opened_port(port, opened_serial_port);
-        if (ecuid == "")
+        if (ecuid_ == "")
         {
             set_status_bar_label(true, false, "");
         }
         else
         {
-            set_status_bar_label(true, true, ecuid);
+            set_status_bar_label(true, true, ecuid_);
         }
     }
     else
     {
         set_status_bar_label(false, false, "");
-        ecu_init_complete = false;
+        ecu_init_complete_ = false;
     }
 }
 
 void MainWindow::remember_opened_port(const QString& port, const QString& opened_port)
 {
-    if (opened_port != previous_serial_port)
+    if (opened_port != previous_serial_port_)
     {
-        ecuid.clear();
-        ecu_init_complete = false;
+        ecuid_.clear();
+        ecu_init_complete_ = false;
     }
-    previous_serial_port = opened_port;
-    configSession->settings().serial_port = port.toStdString();
+    previous_serial_port_ = opened_port;
+    config_session_->settings().serial_port = port.toStdString();
     save_settings();
 }
 
@@ -887,7 +887,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
     QString read_kernel_path;
     QString read_kernel_address;
 
-    QComboBox *serial_port_list = ui->toolBar->findChild<QComboBox *>("serial_port_list");
+    QComboBox *serial_port_list = ui_->toolBar->findChild<QComboBox *>("serial_port_list");
     if (serial_port_list->currentText() == "")
     {
         emit LOG_D("No serial port selected!", true, true);
@@ -895,10 +895,10 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         return 0;
     }
 
-    connection->select_port(selected_serial_port());
+    connection_->select_port(selected_serial_port());
 
     // A local copy: the provisioned kernel directory is never rewritten.
-    QString kernel_dir = qs(configSession->effective_paths().kernel_files_directory);
+    QString kernel_dir = qs(config_session_->effective_paths().kernel_files_directory);
     if (!kernel_dir.endsWith('/'))
     {
         kernel_dir.append("/");
@@ -910,22 +910,22 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
     const auto cleanup = qScopeGuard(
         [this]
         {
-            vbatt_timer->stop();
-            fastecu::desktop::serial::reset_serial_to_idle(connection->facade());
-            ecuid.clear();
-            ecu_init_complete = false;
-            emit log_transport_list->currentIndexChanged(log_transport_list->currentIndex());
-            connection->set_port_speed(4800);
+            vbatt_timer_->stop();
+            fastecu::desktop::serial::reset_serial_to_idle(connection_->facade());
+            ecuid_.clear();
+            ecu_init_complete_ = false;
+            emit log_transport_list_->currentIndexChanged(log_transport_list_->currentIndex());
+            connection_->set_port_speed(4800);
         });
 
     if (selected_vehicle().make == "Subaru" || selected_vehicle().make == "Mitsubishi")
     {
-        fastecu::desktop::serial::reset_serial_to_idle(connection->facade());
-        ecuid.clear();
-        ecu_init_complete = false;
+        fastecu::desktop::serial::reset_serial_to_idle(connection_->facade());
+        ecuid_.clear();
+        ecu_init_complete_ = false;
 
         update_vbatt();
-        vbatt_timer->start();
+        vbatt_timer_->start();
 
         if (!kernel_dir.endsWith('/'))
         {
@@ -955,7 +955,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
         const fastecu::flash::FlashOperation operation =
             fastecu::flash::flash_operation_from_command(cmd_type.toStdString());
 
-        fastecu::flash::FlashOperationController controller{connection->facade(), this};
+        fastecu::flash::FlashOperationController controller{connection_->facade(), this};
         // Relay through MainWindow's own LOG_* signals, like every UI logger;
         // see LogChannel for why lines go through a long-lived sender.
         QObject::connect(&controller, &fastecu::flash::FlashOperationController::LOG_E, this, &MainWindow::LOG_E);
@@ -973,7 +973,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             .kernel_path = prepared_write.has_value() ? prepared_write->kernel_path : read_kernel_path.toStdString(),
             .image = fastecu::flash::portableImageForOperation(
                 operation, prepared_write.has_value() ? bytes::ByteView{prepared_write->image} : bytes::ByteView{}),
-            .paths = configSession->effective_paths(),
+            .paths = config_session_->effective_paths(),
             .display_filename = prepared_write.has_value() ? prepared_write->display_filename : std::string{},
         });
 
@@ -988,7 +988,7 @@ int MainWindow::start_ecu_operations(const QString& cmd_type)
             {
                 const QString dateTimeString = QDateTime::currentDateTime().toString("yyyy-MM-dd_hh'h'mm'm'ss's'");
                 const std::string rom_id = outcome.rom_id.value_or(std::string{});
-                const auto opened = calibrationWorkspace->adopt_read_image(fastecu::calibration::ReadImage{
+                const auto opened = calibration_workspace_->adopt_read_image(fastecu::calibration::ReadImage{
                     .rom = *outcome.read_bytes,
                     .filename = fastecu::flash::read_image_filename(rom_id, dateTimeString.toStdString()),
                     .rom_id = rom_id,
@@ -1013,13 +1013,13 @@ void MainWindow::custom_menu_requested(QPoint pos)
         emit LOG_D("No calibration to select!", true, true);
         return;
     }
-    QModelIndex index = ui->calibrationFilesTreeWidget->indexAt(pos);
-    emit ui->calibrationFilesTreeWidget->clicked(index);
+    QModelIndex index = ui_->calibrationFilesTreeWidget->indexAt(pos);
+    emit ui_->calibrationFilesTreeWidget->clicked(index);
 
     QMenu *menu = new QMenu(this);
     // menu->addAction("Sync with ECU", this, SLOT(syncCalWithEcu()));
     menu->addAction("Close selected ROM", this, SLOT(close_calibration()));
-    menu->popup(ui->calibrationFilesTreeWidget->viewport()->mapToGlobal(pos));
+    menu->popup(ui_->calibrationFilesTreeWidget->viewport()->mapToGlobal(pos));
 }
 
 bool MainWindow::open_calibration_file(QString filename)
@@ -1029,7 +1029,7 @@ bool MainWindow::open_calibration_file(QString filename)
         QFileDialog openDialog;
         openDialog.setDefaultSuffix("bin");
         filename = QFileDialog::getOpenFileName(this, tr("Open ROM file"),
-                                                qs(configSession->effective_paths().calibration_files_directory),
+                                                qs(config_session_->effective_paths().calibration_files_directory),
                                                 tr("Calibration file (*.bin *.hex)"));
         if (filename.isEmpty())
         {
@@ -1039,7 +1039,7 @@ bool MainWindow::open_calibration_file(QString filename)
         }
     }
 
-    const auto opened = calibrationWorkspace->open_file(filename.toStdString());
+    const auto opened = calibration_workspace_->open_file(filename.toStdString());
     if (!opened.has_value())
     {
         return 1;
@@ -1073,12 +1073,12 @@ void MainWindow::prompt_for_missing_definition(fastecu::calibration::SessionId i
         if (createNewRadioButton->isChecked())
         {
             emit LOG_D(createNewRadioButton->text(), true, true);
-            definitionAuthoringDialog->create_new_definition();
+            definition_authoring_dialog_->create_new_definition();
         }
         else if (useExistingRadioButton->isChecked())
         {
             emit LOG_D(useExistingRadioButton->text(), true, true);
-            definitionAuthoringDialog->use_existing_definition();
+            definition_authoring_dialog_->use_existing_definition();
         }
     }
     // The "continue without definition" placeholders belong to this branch
@@ -1117,7 +1117,7 @@ void MainWindow::save_calibration_file_as()
 
 void MainWindow::selectable_combobox_item_changed(const QString& item)
 {
-    const auto id = fastecu::ui::parse_map_window_id(ui->mdiArea->activeSubWindow());
+    const auto id = fastecu::ui::parse_map_window_id(ui_->mdiArea->activeSubWindow());
     if (id.has_value())
     {
         set_map_selection(id->session, id->map_number, item);
@@ -1131,7 +1131,7 @@ void MainWindow::set_map_selection(fastecu::calibration::SessionId id, int map_i
         return;
     }
     const auto outcome = fastecu::calibration::apply_selectable_edit(
-        *calibrationWorkspace,
+        *calibration_workspace_,
         {.session = id, .map_index = static_cast<std::size_t>(map_index), .selection = item.toStdString()});
     if (!outcome.has_value())
     {
@@ -1144,7 +1144,7 @@ void MainWindow::set_map_selection(fastecu::calibration::SessionId id, int map_i
     {
         return;
     }
-    for (auto *window : ui->mdiArea->subWindowList())
+    for (auto *window : ui_->mdiArea->subWindowList())
     {
         const auto identity = fastecu::ui::parse_map_window_id(window);
         if (identity.has_value() && identity->session == id && identity->map_number == map_index)
@@ -1159,7 +1159,7 @@ void MainWindow::set_map_selection(fastecu::calibration::SessionId id, int map_i
 
 void MainWindow::checkbox_state_changed(int state)
 {
-    const auto id = fastecu::ui::parse_map_window_id(ui->mdiArea->activeSubWindow());
+    const auto id = fastecu::ui::parse_map_window_id(ui_->mdiArea->activeSubWindow());
     if (id.has_value())
     {
         set_map_switch(id->session, id->map_number, state);
@@ -1171,7 +1171,7 @@ void MainWindow::set_map_switch(fastecu::calibration::SessionId id, int map_inde
     // No retained definition format populated StateList. RomRaider switches
     // resolve to bloblist Selectable and use set_map_selection. Preserve the
     // empty legacy switch path without adding definition support.
-    if (calibrationWorkspace->find(id) == nullptr)
+    if (calibration_workspace_->find(id) == nullptr)
     {
         return;
     }
@@ -1182,11 +1182,11 @@ void MainWindow::set_map_switch(fastecu::calibration::SessionId id, int map_inde
 void MainWindow::calibration_files_treewidget_item_selected(QTreeWidgetItem *item)
 {
     QList<QTreeWidgetItem *> itemList;
-    QTreeWidgetItem *selectedItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
+    QTreeWidgetItem *selectedItem = ui_->calibrationFilesTreeWidget->selectedItems().at(0);
 
-    for (int i = 0; i < ui->calibrationFilesTreeWidget->topLevelItemCount(); i++)
+    for (int i = 0; i < ui_->calibrationFilesTreeWidget->topLevelItemCount(); i++)
     {
-        QTreeWidgetItem *item_local = ui->calibrationFilesTreeWidget->topLevelItem(i);
+        QTreeWidgetItem *item_local = ui_->calibrationFilesTreeWidget->topLevelItem(i);
         item_local->setCheckState(0, Qt::Unchecked);
     }
 
@@ -1196,32 +1196,32 @@ void MainWindow::calibration_files_treewidget_item_selected(QTreeWidgetItem *ite
 
     OpenCalibration *open = selected_open_calibration();
     const fastecu::calibration::CalibrationSession *session =
-        open != nullptr ? calibrationWorkspace->find(open->id) : nullptr;
+        open != nullptr ? calibration_workspace_->find(open->id) : nullptr;
     if (session == nullptr)
     {
         return;
     }
-    calibrationTreeWidget->buildCalibrationDataTree(ui->calibrationDataTreeWidget, *session, open->view);
+    calibration_tree_widget_->buildCalibrationDataTree(ui_->calibrationDataTreeWidget, *session, open->view);
     update_protocol_info(
         fastecu::ui::rom_info_value(fastecu::ui::rom_info_values(*session), fastecu::ui::RomInfoRow::FlashMethod));
 }
 
 void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item)
 {
-    const QModelIndex index = ui->calibrationDataTreeWidget->selectionModel()->currentIndex();
+    const QModelIndex index = ui_->calibrationDataTreeWidget->selectionModel()->currentIndex();
     QString selectedText = index.data(Qt::DisplayRole).toString();
     QString selectedRom;
 
     selectedText = item->text(0);
 
     // A top-level item is a category header; selecting it opens nothing.
-    if (ui->calibrationDataTreeWidget->indexOfTopLevelItem(item) > -1)
+    if (ui_->calibrationDataTreeWidget->indexOfTopLevelItem(item) > -1)
     {
         return;
     }
-    if (ui->calibrationDataTreeWidget->indexOfTopLevelItem(item->parent()) > -1)
+    if (ui_->calibrationDataTreeWidget->indexOfTopLevelItem(item->parent()) > -1)
     {
-        QTreeWidgetItem *selectedFilesTreeItem = ui->calibrationFilesTreeWidget->selectedItems().at(0);
+        QTreeWidgetItem *selectedFilesTreeItem = ui_->calibrationFilesTreeWidget->selectedItems().at(0);
         QTreeWidgetItem *selectedDataTreeItem = item;
         const auto session = session_of(selectedFilesTreeItem);
         OpenCalibration *open = session.has_value() ? open_calibration(*session) : nullptr;
@@ -1229,7 +1229,7 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
         {
             return;
         }
-        const auto *rom = calibrationWorkspace->find(*session);
+        const auto *rom = calibration_workspace_->find(*session);
         if (rom == nullptr || rom->definition() == nullptr)
         {
             return;
@@ -1244,16 +1244,16 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
             {
                 if (open->view.open_maps.contains(static_cast<std::size_t>(i)))
                 {
-                    QList<QMdiSubWindow *> list = ui->mdiArea->findChildren<QMdiSubWindow *>();
+                    QList<QMdiSubWindow *> list = ui_->mdiArea->findChildren<QMdiSubWindow *>();
                     foreach (QMdiSubWindow *w, list)
                     {
                         if (w->objectName().startsWith(fastecu::ui::session_key_text(*session) + "," +
                                                        QString::number(i) + "," +
                                                        qs(maps[static_cast<std::size_t>(i)].name)))
                         {
-                            if (w->objectName() == ui->mdiArea->activeSubWindow()->objectName())
+                            if (w->objectName() == ui_->mdiArea->activeSubWindow()->objectName())
                             {
-                                ui->mdiArea->removeSubWindow(w);
+                                ui_->mdiArea->removeSubWindow(w);
                                 open->view.open_maps.erase(static_cast<std::size_t>(i));
                                 item->setCheckState(0, Qt::Unchecked);
                             }
@@ -1279,8 +1279,8 @@ void MainWindow::calibration_data_treewidget_item_selected(QTreeWidgetItem *item
                     item->setCheckState(0, Qt::Checked);
 
                     CalibrationMaps *calibrationMaps =
-                        new CalibrationMaps(*calibrationWorkspace, *session, i, ui->mdiArea->contentsRect());
-                    QMdiSubWindow *subWindow = ui->mdiArea->addSubWindow(calibrationMaps);
+                        new CalibrationMaps(*calibration_workspace_, *session, i, ui_->mdiArea->contentsRect());
+                    QMdiSubWindow *subWindow = ui_->mdiArea->addSubWindow(calibrationMaps);
                     if (subWindow)
                     {
                         subWindow->setAttribute(Qt::WA_DeleteOnClose, true);
@@ -1315,13 +1315,13 @@ void MainWindow::calibration_data_treewidget_item_collapsed(QTreeWidgetItem *ite
 
 void MainWindow::set_category_expanded(QTreeWidgetItem *item, bool expanded)
 {
-    const int itemIndex = ui->calibrationDataTreeWidget->indexOfTopLevelItem(item);
+    const int itemIndex = ui_->calibrationDataTreeWidget->indexOfTopLevelItem(item);
     OpenCalibration *open = selected_open_calibration();
     if (itemIndex < 0 || open == nullptr)
     {
         return;
     }
-    const QString categoryName = ui->calibrationDataTreeWidget->topLevelItem(itemIndex)->text(0);
+    const QString categoryName = ui_->calibrationDataTreeWidget->topLevelItem(itemIndex)->text(0);
     if (expanded)
     {
         open->view.expanded_categories.insert(categoryName);
@@ -1338,48 +1338,48 @@ void MainWindow::set_category_expanded(QTreeWidgetItem *item, bool expanded)
 
 void MainWindow::close_calibration()
 {
-    const QList<QTreeWidgetItem *> selected = ui->calibrationFilesTreeWidget->selectedItems();
+    const QList<QTreeWidgetItem *> selected = ui_->calibrationFilesTreeWidget->selectedItems();
     const auto id = selected.isEmpty() ? std::nullopt : session_of(selected.at(0));
     if (!id.has_value())
     {
         return;
     }
-    const int romNumber = ui->calibrationFilesTreeWidget->indexOfTopLevelItem(selected.at(0));
+    const int romNumber = ui_->calibrationFilesTreeWidget->indexOfTopLevelItem(selected.at(0));
     const QString romKey = fastecu::ui::session_key_text(*id);
 
     const QString windowPrefix = romKey + ",";
-    for (QMdiSubWindow *w : ui->mdiArea->subWindowList())
+    for (QMdiSubWindow *w : ui_->mdiArea->subWindowList())
     {
         if (w->objectName().startsWith(windowPrefix))
         {
-            ui->mdiArea->removeSubWindow(w);
+            ui_->mdiArea->removeSubWindow(w);
         }
     }
-    delete ui->calibrationFilesTreeWidget->takeTopLevelItem(romNumber);
+    delete ui_->calibrationFilesTreeWidget->takeTopLevelItem(romNumber);
     std::erase_if(calibrations_, [&id](const OpenCalibration& open) { return open.id == *id; });
-    std::ignore = calibrationWorkspace->close(*id);
+    std::ignore = calibration_workspace_->close(*id);
 
-    if (ui->calibrationFilesTreeWidget->topLevelItemCount() > 0)
+    if (ui_->calibrationFilesTreeWidget->topLevelItemCount() > 0)
     {
-        for (int i = 0; i < ui->calibrationFilesTreeWidget->topLevelItemCount(); i++)
+        for (int i = 0; i < ui_->calibrationFilesTreeWidget->topLevelItemCount(); i++)
         {
-            ui->calibrationFilesTreeWidget->topLevelItem(i)->setSelected(false);
+            ui_->calibrationFilesTreeWidget->topLevelItem(i)->setSelected(false);
         }
         int activeRom = 0;
         if (romNumber > 0)
         {
             activeRom = romNumber - 1;
         }
-        QTreeWidgetItem *currentItem = ui->calibrationFilesTreeWidget->topLevelItem(activeRom);
+        QTreeWidgetItem *currentItem = ui_->calibrationFilesTreeWidget->topLevelItem(activeRom);
         currentItem->setSelected(true);
-        const QModelIndex index = ui->calibrationFilesTreeWidget->selectionModel()->currentIndex();
-        emit ui->calibrationFilesTreeWidget->clicked(index);
+        const QModelIndex index = ui_->calibrationFilesTreeWidget->selectionModel()->currentIndex();
+        emit ui_->calibrationFilesTreeWidget->clicked(index);
     }
     else
     {
-        for (int i = ui->calibrationDataTreeWidget->topLevelItemCount(); i > 0; i--)
+        for (int i = ui_->calibrationDataTreeWidget->topLevelItemCount(); i > 0; i--)
         {
-            delete ui->calibrationDataTreeWidget->takeTopLevelItem(0);
+            delete ui_->calibrationDataTreeWidget->takeTopLevelItem(0);
         }
     }
     // configSession->settings().calibration_files.erase(...);
@@ -1398,20 +1398,20 @@ void MainWindow::close_calibration_map(QObject *obj)
     }
     const QString& mapName = mapWindowString.at(2);
 
-    for (int i = 0; i < ui->calibrationFilesTreeWidget->topLevelItemCount(); i++)
+    for (int i = 0; i < ui_->calibrationFilesTreeWidget->topLevelItemCount(); i++)
     {
-        ui->calibrationFilesTreeWidget->topLevelItem(i)->setSelected(false);
+        ui_->calibrationFilesTreeWidget->topLevelItem(i)->setSelected(false);
     }
     romItem->setSelected(true);
-    const QModelIndex index = ui->calibrationFilesTreeWidget->selectionModel()->currentIndex();
-    emit ui->calibrationFilesTreeWidget->clicked(index);
+    const QModelIndex index = ui_->calibrationFilesTreeWidget->selectionModel()->currentIndex();
+    emit ui_->calibrationFilesTreeWidget->clicked(index);
 
     QTreeWidgetItem *item;
-    for (int i = 0; i < ui->calibrationDataTreeWidget->topLevelItemCount(); i++)
+    for (int i = 0; i < ui_->calibrationDataTreeWidget->topLevelItemCount(); i++)
     {
-        for (int j = 0; j < ui->calibrationDataTreeWidget->topLevelItem(i)->childCount(); j++)
+        for (int j = 0; j < ui_->calibrationDataTreeWidget->topLevelItem(i)->childCount(); j++)
         {
-            item = ui->calibrationDataTreeWidget->topLevelItem(i)->child(j);
+            item = ui_->calibrationDataTreeWidget->topLevelItem(i)->child(j);
             if (item->text(0) == mapName)
             {
                 item->setCheckState(0, Qt::Unchecked);
@@ -1434,19 +1434,19 @@ void MainWindow::close_app()
 
 void MainWindow::change_gauge_values()
 {
-    change_log_values(0, protocol);
+    change_log_values(0, protocol_);
     // if (ecu_init_complete)
     //     save_logger_selection();
 }
 
 void MainWindow::change_digital_values()
 {
-    change_log_values(1, protocol);
+    change_log_values(1, protocol_);
 }
 
 void MainWindow::change_switch_values()
 {
-    change_log_values(2, protocol);
+    change_log_values(2, protocol_);
 }
 
 void MainWindow::update_logboxes(const QString& protocol_arg)
@@ -1456,69 +1456,69 @@ void MainWindow::update_logboxes(const QString& protocol_arg)
 
     emit LOG_D("Update logboxes with protocol: " + protocol_arg, true, true);
 
-    while (!ui->switchBoxLayout->isEmpty())
+    while (!ui_->switchBoxLayout->isEmpty())
     {
-        QWidget *wg = ui->switchBoxLayout->takeAt(0)->widget();
+        QWidget *wg = ui_->switchBoxLayout->takeAt(0)->widget();
         delete wg;
     }
-    while (!ui->logBoxLayout->isEmpty())
+    while (!ui_->logBoxLayout->isEmpty())
     {
-        QWidget *wg = ui->logBoxLayout->takeAt(0)->widget();
+        QWidget *wg = ui_->logBoxLayout->takeAt(0)->widget();
         delete wg;
     }
 
     const auto key = protocol_arg.toStdString();
-    const auto& selection = loggerModel->selection();
+    const auto& selection = logger_model_->selection();
     for (std::size_t slot = 0; slot < selection.switch_ids.size(); ++slot)
     {
         const auto& id = selection.switch_ids[slot];
-        const auto *item = loggerModel->switch_definition(key, id);
+        const auto *item = logger_model_->switch_definition(key, id);
         if (item == nullptr)
         {
             continue;
         }
         const auto name = qs(item->name);
-        auto *box = logBoxes->drawLogBoxes("switch", static_cast<int>(slot), switchBoxCount, name, name,
-                                           loggerValues.switch_value(key, id));
+        auto *box = log_boxes_->drawLogBoxes("switch", static_cast<int>(slot), switchBoxCount, name, name,
+                                             logger_values_.switch_value(key, id));
         box->setAttribute(Qt::WA_TransparentForMouseEvents);
-        ui->switchBoxLayout->addWidget(box);
+        ui_->switchBoxLayout->addWidget(box);
     }
     for (std::size_t slot = 0; slot < selection.lower_panel_ids.size(); ++slot)
     {
         const auto& id = selection.lower_panel_ids[slot];
-        const auto *item = loggerModel->parameter(key, id);
+        const auto *item = logger_model_->parameter(key, id);
         if (item == nullptr)
         {
             continue;
         }
         const auto unit = item->conversions.empty() ? QString{} : qs(item->conversions.front().units);
-        auto *box = logBoxes->drawLogBoxes("log", static_cast<int>(slot), logBoxCount, qs(item->name), unit,
-                                           loggerValues.parameter_value(key, id));
+        auto *box = log_boxes_->drawLogBoxes("log", static_cast<int>(slot), logBoxCount, qs(item->name), unit,
+                                             logger_values_.parameter_value(key, id));
         box->setAttribute(Qt::WA_TransparentForMouseEvents);
-        ui->logBoxLayout->addWidget(box);
+        ui_->logBoxLayout->addWidget(box);
     }
 }
 
 void MainWindow::update_logbox_values(const QString& protocol_arg)
 {
     const auto key = protocol_arg.toStdString();
-    const auto& ids = loggerModel->selection().lower_panel_ids;
+    const auto& ids = logger_model_->selection().lower_panel_ids;
     // Layout positions can differ from selection slots when IDs are unresolved.
     // Labels keep the original slot in their object name.
     for (std::size_t slot = 0; slot < ids.size(); ++slot)
     {
-        const auto *item = loggerModel->parameter(key, ids[slot]);
+        const auto *item = logger_model_->parameter(key, ids[slot]);
         if (item == nullptr)
         {
             continue;
         }
-        auto *label = ui->centralwidget->findChild<QLabel *>("log_label" + QString::number(slot));
+        auto *label = ui_->centralwidget->findChild<QLabel *>("log_label" + QString::number(slot));
         if (label == nullptr)
         {
             continue;
         }
         const auto unit = item->conversions.empty() ? QString{} : qs(item->conversions.front().units);
-        const auto text = loggerValues.parameter_value(key, ids[slot]);
+        const auto text = logger_values_.parameter_value(key, ids[slot]);
         label->setAlignment(Qt::AlignRight);
         label->setText(text + " <font size=1px color=grey>" + unit + "</font>");
         const auto size = QGuiApplication::primaryScreen()->geometry();
@@ -1529,11 +1529,11 @@ void MainWindow::update_logbox_values(const QString& protocol_arg)
 
 void MainWindow::load_logger_definition()
 {
-    auto& settings = configSession->settings();
+    auto& settings = config_session_->settings();
     auto& service = services_.logger_definitions;
     const auto handle =
         service.resolve_definition_handle(settings.romraider_logger_definition_file, settings.selected_log_protocol,
-                                          configSession->effective_paths().config_files_directory);
+                                          config_session_->effective_paths().config_files_directory);
     if (!handle.has_value())
     {
         services_.file_action_events.notice("Logger file: Unable to resolve logger definition file: " +
@@ -1552,14 +1552,14 @@ void MainWindow::load_logger_definition()
                                             "' for reading: " + definition.error().detail);
         return;
     }
-    loggerModel->install_definition(std::move(*definition));
+    logger_model_->install_definition(std::move(*definition));
 }
 
 void MainWindow::load_logger_selection()
 {
-    const auto& handle = configSession->effective_paths().logger_file;
+    const auto& handle = config_session_->effective_paths().logger_file;
     auto& service = services_.logger_definitions;
-    const auto stored = service.load_selection(handle, ecuid.toStdString());
+    const auto stored = service.load_selection(handle, ecuid_.toStdString());
     if (!stored.has_value())
     {
         services_.file_action_events.notice("Logger file: Unable to open logger config file '" + handle +
@@ -1567,34 +1567,34 @@ void MainWindow::load_logger_selection()
         return;
     }
     // A successful read clears IDs even if no ECU entry or definition exists.
-    loggerModel->set_selection({.protocol = loggerModel->selection().protocol});
+    logger_model_->set_selection({.protocol = logger_model_->selection().protocol});
     if (stored->has_value())
     {
-        loggerModel->set_selection(**stored);
+        logger_model_->set_selection(**stored);
         return;
     }
-    if (loggerModel->definition().parameters.empty())
+    if (logger_model_->definition().parameters.empty())
     {
         services_.file_action_events.notice("Logger definition file: No logger definition file selected, returning "
                                             "without initializing log parameters!");
         return;
     }
     const auto selected =
-        service.load_or_initialize_selection(handle, ecuid.toStdString(), loggerModel->default_selection());
+        service.load_or_initialize_selection(handle, ecuid_.toStdString(), logger_model_->default_selection());
     if (!selected.has_value())
     {
         services_.file_action_events.notice("Logger file: Unable to open logger config file '" + handle +
                                             "' for reading");
         return;
     }
-    loggerModel->set_selection(*selected);
+    logger_model_->set_selection(*selected);
 }
 
 void MainWindow::save_logger_selection()
 {
-    const auto& handle = configSession->effective_paths().logger_file;
+    const auto& handle = config_session_->effective_paths().logger_file;
     const auto saved =
-        services_.logger_definitions.save_selection(handle, ecuid.toStdString(), loggerModel->selection());
+        services_.logger_definitions.save_selection(handle, ecuid_.toStdString(), logger_model_->selection());
     if (!saved.has_value())
     {
         services_.file_action_events.notice("Logger file: Unable to open logger config file '" + handle +
@@ -1605,9 +1605,9 @@ void MainWindow::save_logger_selection()
 bool MainWindow::event(QEvent *event)
 {
     // Events can arrive before the constructor has bound the session.
-    if (configSession != nullptr && (event->type() == QEvent::WindowStateChange || event->type() == QEvent::Resize))
+    if (config_session_ != nullptr && (event->type() == QEvent::WindowStateChange || event->type() == QEvent::Resize))
     {
-        fastecu::config::AppConfig& settings = configSession->settings();
+        fastecu::config::AppConfig& settings = config_session_->settings();
         if (isMaximized())
         {
             settings.window_width = "maximized";
@@ -1635,7 +1635,7 @@ void MainWindow::resizeEvent(QResizeEvent *event)
 
     // emit LOG_D("Screen resize event 2";
 
-    QWidget *w = ui->mdiArea->findChild<QWidget *>("gaugeWindow");
+    QWidget *w = ui_->mdiArea->findChild<QWidget *>("gaugeWindow");
     if (w)
     {
         delete w;
@@ -1650,21 +1650,22 @@ void MainWindow::set_status_bar_label(bool serialConnectionState, bool ecuConnec
     if (ecuConnectionState)
     {
         connectionStatusString = "ECU connected";
-        status_bar_connection_label->setStyleSheet("QLabel { background-color : green; color : white; color: white;}");
+        status_bar_connection_label_->setStyleSheet("QLabel { background-color : green; color : white; color: white;}");
     }
     else if (serialConnectionState)
     {
         connectionStatusString = "ECU not connected";
-        status_bar_connection_label->setStyleSheet("QLabel { background-color : yellow; color : white; color: black;}");
+        status_bar_connection_label_->setStyleSheet(
+            "QLabel { background-color : yellow; color : white; color: black;}");
     }
     else
     {
         connectionStatusString = "Serial port unavailable";
-        status_bar_connection_label->setStyleSheet("QLabel { background-color : red; color : white; color: white;}");
+        status_bar_connection_label_->setStyleSheet("QLabel { background-color : red; color : white; color: white;}");
     }
     QString romIdString = "ECU ID: " + romId;
     QString statusBarString = softwareVersionString + " | " + connectionStatusString + " | " + romIdString;
-    status_bar_connection_label->setText(statusBarString);
+    status_bar_connection_label_->setText(statusBarString);
 }
 
 void MainWindow::delay(int n)
@@ -1685,7 +1686,7 @@ void MainWindow::add_new_ecu_definition_file()
     QFileDialog openDialog;
     openDialog.setDefaultSuffix("xml");
     filename = QFileDialog::getOpenFileName(this, tr("Select definition file"),
-                                            qs(configSession->effective_paths().definition_files_directory),
+                                            qs(config_session_->effective_paths().definition_files_directory),
                                             tr("ECU definition file (*.xml)"));
 
     if (filename.isEmpty())
@@ -1695,7 +1696,7 @@ void MainWindow::add_new_ecu_definition_file()
     else
     {
         definition_files->addItem(filename);
-        configSession->settings().romraider_definition_files.push_back(filename.toStdString());
+        config_session_->settings().romraider_definition_files.push_back(filename.toStdString());
         save_settings();
     }
 }
@@ -1711,7 +1712,7 @@ void MainWindow::remove_ecu_definition_file()
     {
         row = index.at(i).row();
         definition_files->model()->removeRow(row);
-        std::vector<std::string>& files = configSession->settings().romraider_definition_files;
+        std::vector<std::string>& files = config_session_->settings().romraider_definition_files;
         if (static_cast<std::size_t>(row) < files.size())
         {
             files.erase(files.begin() + row);
@@ -1747,7 +1748,7 @@ bool MainWindow::eventFilter(QObject *target, QEvent *event)
 {
     Q_UNUSED(target)
     // Filter all mouse and keyboard events for splashscreen
-    if (target == netSplash)
+    if (target == net_splash_)
     {
         if ((event->type() == QEvent::MouseButtonPress) || (event->type() == QEvent::MouseButtonDblClick) ||
             (event->type() == QEvent::MouseButtonRelease) || (event->type() == QEvent::KeyPress) ||
@@ -1770,10 +1771,10 @@ template <typename FlashClass> FlashClass *MainWindow::connect_signals_and_run_m
                                                 &MainWindow::external_logger_set_progressbar_value);
 
     // If signal is not overloaded, QObject::connect<> template will deduce type automatically
-    QObject::connect(object, &FlashClass::LOG_E, log_channel, &fastecu::ui::LogChannel::LOG_E);
-    QObject::connect(object, &FlashClass::LOG_W, log_channel, &fastecu::ui::LogChannel::LOG_W);
-    QObject::connect(object, &FlashClass::LOG_I, log_channel, &fastecu::ui::LogChannel::LOG_I);
-    QObject::connect(object, &FlashClass::LOG_D, log_channel, &fastecu::ui::LogChannel::LOG_D);
+    QObject::connect(object, &FlashClass::LOG_E, log_channel_, &fastecu::ui::LogChannel::LOG_E);
+    QObject::connect(object, &FlashClass::LOG_W, log_channel_, &fastecu::ui::LogChannel::LOG_W);
+    QObject::connect(object, &FlashClass::LOG_I, log_channel_, &fastecu::ui::LogChannel::LOG_I);
+    QObject::connect(object, &FlashClass::LOG_D, log_channel_, &fastecu::ui::LogChannel::LOG_D);
 
     object->run();
     return object;
@@ -1784,7 +1785,7 @@ void MainWindow::external_logger(const QString& message)
 {
     emit LOG_D(Q_FUNC_INFO, true, false);
     emit LOG_D(" " + message, false, true);
-    emit remote_peer->log_window_message(message);
+    emit remote_peer_->log_window_message(message);
 }
 
 // External progress bar slot
@@ -1792,7 +1793,7 @@ void MainWindow::external_logger_set_progressbar_value(int value)
 {
     emit LOG_D(Q_FUNC_INFO, true, false);
     emit LOG_D(" " + QString::number(value), false, true);
-    emit remote_peer->progress(value);
+    emit remote_peer_->progress(value);
 }
 
 void MainWindow::send_message_to_log_window(const QString& msg)
@@ -1854,7 +1855,7 @@ void MainWindow::update_vbatt()
     {
         return;
     }
-    const std::optional<unsigned long> reading = connection->battery_millivolts();
+    const std::optional<unsigned long> reading = connection_->battery_millivolts();
     if (!reading.has_value())
     {
         return;
@@ -1917,43 +1918,44 @@ void MainWindow::update_vbatt()
 
 void MainWindow::setupLoggingEngine()
 {
-    loggingEngine = &services_.logging_engine;
+    logging_engine_ = &services_.logging_engine;
 
-    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::valuesUpdated, this,
+    connect(logging_engine_, &fastecu::desktop::logging::LoggingEngine::valuesUpdated, this,
             &MainWindow::handleLoggingValuesUpdated);
-    connect(loggingEngine, &fastecu::desktop::logging::LoggingEngine::sessionEnded, this,
+    connect(logging_engine_, &fastecu::desktop::logging::LoggingEngine::sessionEnded, this,
             &MainWindow::handleLoggingSessionEnded);
 }
 
 void MainWindow::handleLoggingValuesUpdated(const QVector<fastecu::logging::LogSample>& samples)
 {
-    if (!activeLoggingSnapshot)
+    if (!active_logging_snapshot_)
     {
         return;
     }
     for (const auto& sample : samples)
     {
         // Re-checked per sample: LOG_E below can reach a slot that ends the session.
-        if (!activeLoggingSnapshot)
+        if (!active_logging_snapshot_)
         {
             return;
         }
-        const auto applied = fastecu::desktop::logging::apply_log_sample(*activeLoggingSnapshot, sample, loggerValues);
+        const auto applied =
+            fastecu::desktop::logging::apply_log_sample(*active_logging_snapshot_, sample, logger_values_);
         if (!applied)
         {
             emit LOG_E(QString::fromStdString(applied.error().detail), true, true);
         }
     }
-    update_logbox_values(activeLogValueProtocolFilter);
+    update_logbox_values(active_log_value_protocol_filter_);
     log_to_file();
 }
 
 void MainWindow::restoreLoggingUiState()
 {
-    activeLoggingSnapshot.reset();
-    logging_state = false;
-    log_params_request_started = false;
-    ui->actionToggleRealtime->setChecked(false);
+    active_logging_snapshot_.reset();
+    logging_state_ = false;
+    log_params_request_started_ = false;
+    ui_->actionToggleRealtime->setChecked(false);
 }
 
 void MainWindow::handleLoggingSessionEnded(fastecu::desktop::logging::SessionEndReason reason, const QString& message)

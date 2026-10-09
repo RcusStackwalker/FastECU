@@ -22,15 +22,15 @@ class SerialBackendHost
 
     QObject *context() const
     {
-        return m_context;
+        return m_context_;
     }
     QThread *ioThread()
     {
-        return &m_thread;
+        return &m_thread_;
     }
 
   private:
-    QThread m_thread;
-    QObject *m_context = nullptr; // affinity: m_thread; invokeMethod target
-    SerialBackend *m_backend = nullptr;
+    QThread m_thread_;
+    QObject *m_context_ = nullptr; // affinity: m_thread; invokeMethod target
+    SerialBackend *m_backend_ = nullptr;
 };

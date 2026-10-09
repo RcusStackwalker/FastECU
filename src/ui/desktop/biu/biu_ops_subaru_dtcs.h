@@ -22,10 +22,10 @@ class BiuOpsSubaruDtcs : public QWidget
     ~BiuOpsSubaruDtcs();
 
   private:
-    QStringList *dtc_result;
+    QStringList *dtc_result_;
 
     void closeEvent(QCloseEvent *event);
 
   private:
-    std::unique_ptr<Ui::BiuOpsSubaruDtcsWindow> ui;
+    std::unique_ptr<Ui::BiuOpsSubaruDtcsWindow> ui_;
 };

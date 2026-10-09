@@ -111,15 +111,15 @@ class MainWindow : public QMainWindow
   private:
     MainWindowServices services_;
 
-    QString software_name;
-    QString software_title;
-    QString software_version;
+    QString software_name_;
+    QString software_title_;
+    QString software_version_;
 
-    QMutex restartQuestionActive;
+    QMutex restart_question_active_;
 
-    QString peerAddress;
-    QSplashScreen *netSplash;
-    fastecu::ui::RemotePeer *remote_peer = nullptr;
+    QString peer_address_;
+    QSplashScreen *net_splash_;
+    fastecu::ui::RemotePeer *remote_peer_ = nullptr;
     static const QColor kRedLightOff;
     static const QColor kRedLightOn;
     static const QColor kYellowLightOff;
@@ -127,43 +127,43 @@ class MainWindow : public QMainWindow
     static const QColor kGreenLightOff;
     static const QColor kGreenLightOn;
 
-    bool logging_state = false;
-    bool log_params_request_started = false;
-    bool ecu_init_complete = false;
+    bool logging_state_ = false;
+    bool log_params_request_started_ = false;
+    bool ecu_init_complete_ = false;
 
-    uint16_t receive_timeout = 500;
-    uint16_t serial_read_timeout = 2000;
-    uint16_t serial_read_extra_short_timeout = 50;
-    uint16_t serial_read_short_timeout = 200;
-    uint16_t serial_read_medium_timeout = 500;
-    uint16_t serial_read_long_timeout = 800;
-    uint16_t serial_read_extra_long_timeout = 3000;
+    uint16_t receive_timeout_ = 500;
+    uint16_t serial_read_timeout_ = 2000;
+    uint16_t serial_read_extra_short_timeout_ = 50;
+    uint16_t serial_read_short_timeout_ = 200;
+    uint16_t serial_read_medium_timeout_ = 500;
+    uint16_t serial_read_long_timeout_ = 800;
+    uint16_t serial_read_extra_long_timeout_ = 3000;
 
-    int mapCellWidthSelectable = 240;
-    int mapCellWidth1D = 96;
-    int mapCellWidth = 54;
-    int mapCellHeight = 26;
-    int cellFontSize = static_cast<int>(mapCellHeight / 2.25);
+    int map_cell_width_selectable_ = 240;
+    int map_cell_width1_d_ = 96;
+    int map_cell_width_ = 54;
+    int map_cell_height_ = 26;
+    int cell_font_size_ = static_cast<int>(map_cell_height_ / 2.25);
 
-    int xSize = 0;
-    int ySize = 0;
+    int x_size_ = 0;
+    int y_size_ = 0;
 
-    int connectionTimeOutDelay = 5;
-    int connectionTimeOutDelayCount = 50;
+    int connection_time_out_delay_ = 5;
+    int connection_time_out_delay_count_ = 50;
 
     // Declared interaction first, so the coordinator borrowing it is
     // destroyed first.
     std::unique_ptr<fastecu::ui::QtCalibrationInteraction> calibration_interaction_;
     std::unique_ptr<fastecu::ui::CalibrationOperationCoordinator> calibration_operations_;
-    fastecu::ui::DefinitionAuthoringDialog *definitionAuthoringDialog = nullptr;
-    fastecu::logging::LoggerModel *loggerModel;
-    fastecu::desktop::logging::DesktopLoggerValues loggerValues;
+    fastecu::ui::DefinitionAuthoringDialog *definition_authoring_dialog_ = nullptr;
+    fastecu::logging::LoggerModel *logger_model_;
+    fastecu::desktop::logging::DesktopLoggerValues logger_values_;
     void load_logger_definition();
     void load_logger_selection();
     void save_logger_selection();
     void write_logger_csv_cells(bool header);
-    fastecu::config::ConfigSession *configSession = nullptr;
-    std::optional<fastecu::Error> last_settings_save_error;
+    fastecu::config::ConfigSession *config_session_ = nullptr;
+    std::optional<fastecu::Error> last_settings_save_error_;
     // Desktop owns only identity and presentation; the workspace owns ROM data.
     struct OpenCalibration
     {
@@ -171,7 +171,7 @@ class MainWindow : public QMainWindow
         fastecu::ui::CalibrationViewState view;
     };
     std::vector<OpenCalibration> calibrations_;
-    fastecu::calibration::CalibrationWorkspace *calibrationWorkspace = nullptr;
+    fastecu::calibration::CalibrationWorkspace *calibration_workspace_ = nullptr;
 
     fastecu::calibration::CalibrationSession *calibration(fastecu::calibration::SessionId id);
     std::optional<fastecu::calibration::SessionId> session_of(const QTreeWidgetItem *files_item) const;
@@ -182,35 +182,35 @@ class MainWindow : public QMainWindow
     QTreeWidgetItem *files_tree_item(fastecu::calibration::SessionId id) const;
     bool add_calibration(fastecu::calibration::SessionId id);
 
-    fastecu::desktop::connection::AdapterConnection *connection = nullptr;
+    fastecu::desktop::connection::AdapterConnection *connection_ = nullptr;
     // QTimer *serial_poll_timer;
-    uint16_t serial_poll_timer_timeout = 500;
-    QString serial_port_baudrate = "4800";
-    QString default_serial_port_baudrate = "4800";
-    QString serial_port_linux = "/dev/ttyUSB0";
-    QString serial_port_windows = "COM67";
-    QString serial_port;
-    QString previous_serial_port;
-    QString serial_port_prefix;
-    QStringList serial_ports;
+    uint16_t serial_poll_timer_timeout_ = 500;
+    QString serial_port_baudrate_ = "4800";
+    QString default_serial_port_baudrate_ = "4800";
+    QString serial_port_linux_ = "/dev/ttyUSB0";
+    QString serial_port_windows_ = "COM67";
+    QString serial_port_;
+    QString previous_serial_port_;
+    QString serial_port_prefix_;
+    QStringList serial_ports_;
 
     // The port chosen in the toolbar, or empty when there is none. Inline so
     // tests reaching it through `#define private public` link on MSVC too.
     QString selected_serial_port() const
     {
-        return serial_ports.value(serial_port_list->currentIndex());
+        return serial_ports_.value(serial_port_list_->currentIndex());
     }
 
     // open_serial_port's bookkeeping once a port opened: forget the ECU when
     // the port changed, and remember the port for the next launch.
     void remember_opened_port(const QString& port, const QString& opened_port);
 
-    int ecu_protocols_list_length = 6;
-    QString current_car_model = "";
+    int ecu_protocols_list_length_ = 6;
+    QString current_car_model_ = "";
 
     // QStringList flash_methods;
-    QStringList flash_transports;
-    QStringList log_transports;
+    QStringList flash_transports_;
+    QStringList log_transports_;
 
     //        "Mercedes",     "CR3 EDC16C31",     "K-Line",           "K-Line",           "iso14230", "Mercedes Benz
     //        320CDI",
@@ -235,56 +235,56 @@ class MainWindow : public QMainWindow
         DefFile,
     };
 
-    QString ecuid = "";
-    QString protocol = "";
-    QString log_protocol = "";
+    QString ecuid_ = "";
+    QString protocol_ = "";
+    QString log_protocol_ = "";
 
-    QTimer *vbatt_timer;
-    uint16_t vbatt_timer_timeout = 1000;
-    uint16_t vbatt_timer_comms_timeout = 5000;
+    QTimer *vbatt_timer_;
+    uint16_t vbatt_timer_timeout_ = 1000;
+    uint16_t vbatt_timer_comms_timeout_ = 5000;
 
     // QTimer *ssm_init_poll_timer;
-    uint16_t ssm_init_poll_timer_timeout = 250;
+    uint16_t ssm_init_poll_timer_timeout_ = 250;
 
-    fastecu::desktop::logging::LoggingEngine *loggingEngine = nullptr;
-    std::optional<fastecu::desktop::logging::DesktopLoggingSnapshot> activeLoggingSnapshot;
-    QString activeLogValueProtocolFilter;
+    fastecu::desktop::logging::LoggingEngine *logging_engine_ = nullptr;
+    std::optional<fastecu::desktop::logging::DesktopLoggingSnapshot> active_logging_snapshot_;
+    QString active_log_value_protocol_filter_;
 
-    LogBox *logBoxes;
+    LogBox *log_boxes_;
 
-    QRadioButton *ecu_radio_button;
-    QRadioButton *tcu_radio_button;
+    QRadioButton *ecu_radio_button_;
+    QRadioButton *tcu_radio_button_;
 
-    QTreeWidget treeWidget;
-    CalibrationTreeWidget *calibrationTreeWidget = new CalibrationTreeWidget();
+    QTreeWidget tree_widget_;
+    CalibrationTreeWidget *calibration_tree_widget_ = new CalibrationTreeWidget();
 
-    QLabel *status_bar_connection_label = new QLabel("");
-    QLabel *status_bar_ecu_label = new QLabel("");
+    QLabel *status_bar_connection_label_ = new QLabel("");
+    QLabel *status_bar_ecu_label_ = new QLabel("");
 
-    QMenu *mainWindowMenu{};
+    QMenu *main_window_menu_{};
 
-    QPushButton *refresh_serial_port_list;
-    QComboBox *serial_port_list;
-    QComboBox *flash_transport_list;
-    QComboBox *log_transport_list;
+    QPushButton *refresh_serial_port_list_;
+    QComboBox *serial_port_list_;
+    QComboBox *flash_transport_list_;
+    QComboBox *log_transport_list_;
 
-    QFile datalog_file;
-    QFile syslog_file;
-    QTextStream datalog_file_outstream;
-    QTextStream syslog_file_outstream;
-    bool write_datalog_to_file = false;
-    bool write_syslog_to_file = false;
-    bool datalog_file_open = false;
-    bool syslog_file_open = false;
-    std::unique_ptr<QElapsedTimer> log_file_timer;
+    QFile datalog_file_;
+    QFile syslog_file_;
+    QTextStream datalog_file_outstream_;
+    QTextStream syslog_file_outstream_;
+    bool write_datalog_to_file_ = false;
+    bool write_syslog_to_file_ = false;
+    bool datalog_file_open_ = false;
+    bool syslog_file_open_ = false;
+    std::unique_ptr<QElapsedTimer> log_file_timer_;
 
-    QDialog *settings_dialog{};
-    QListWidget *contents_widget{};
-    QStackedWidget *pages_widget{};
+    QDialog *settings_dialog_{};
+    QListWidget *contents_widget_{};
+    QStackedWidget *pages_widget_{};
 
-    QSize toolbar_item_size = QSize(24, 24);
+    QSize toolbar_item_size_ = QSize(24, 24);
 
-    fastecu::ui::LogChannel *log_channel = nullptr;
+    fastecu::ui::LogChannel *log_channel_ = nullptr;
 
     bool eventFilter(QObject *target, QEvent *event);
 
@@ -466,5 +466,5 @@ class MainWindow : public QMainWindow
     void enable_log_write_to_file(bool enable);
 
   private:
-    std::unique_ptr<Ui::MainWindow> ui;
+    std::unique_ptr<Ui::MainWindow> ui_;
 };

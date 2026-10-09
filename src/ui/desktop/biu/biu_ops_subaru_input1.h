@@ -21,7 +21,7 @@ class BiuOpsSubaruInput1 : public QWidget
     ~BiuOpsSubaruInput1();
 
   private:
-    QByteArray *biu_tt_result;
+    QByteArray *biu_tt_result_;
 
   private slots:
     void prepare_biu_setting1();
@@ -30,5 +30,5 @@ class BiuOpsSubaruInput1 : public QWidget
     void send_biu_setting1(QByteArray output);
 
   private:
-    std::unique_ptr<Ui::BiuOpsSubaruInput1Window> ui;
+    std::unique_ptr<Ui::BiuOpsSubaruInput1Window> ui_;
 };
